@@ -1,5 +1,7 @@
-<p><img src="PULSE_one_pager.png" alt="PULSE" width="180"></p>
-<p><img src="PULSE_avatar_1024.png" alt="PULSE" width="160"></p>
+<p align="center">
+  <img src="PULSE_readme_hero_1400x360.png" alt="Run PULSE before you ship" width="100%">
+</p>
+
 
 # PULSE — Release Gates for Safe & Useful AI
 
