@@ -9,13 +9,13 @@ From **findings** to **fuses**. Run **PULSE before you ship**: deterministic, **
 </p>
 
 > **TL;DR**: Drop the pack → run → enforce → ship.  
-> PULSE gives you PASS/FAIL gates + a human‑readable **Quality Ledger** and a stability signal (**RDSI**).
+> PULSE gives PASS/FAIL release gates, a human‑readable **Quality Ledger**, and a stability signal (**RDSI**).
 
 ---
 
 ## Quickstart
 
-**Bash / Linux / GitHub Actions runner**
+**Linux / GitHub Actions runner**
 ```bash
 python PULSE_safe_pack_v0/tools/run_all.py
 python PULSE_safe_pack_v0/tools/check_gates.py --status PULSE_safe_pack_v0/artifacts/status.json --require \
