@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PULSE — Release Gates for Safe & Useful AI</title>
+  <meta name="description" content="PULSE: deterministic, fail‑closed invariant & quality gates for agentic LLM releases. Offline, CI‑enforced, audit‑ready.">
+  <meta property="og:title" content="PULSE — Release Gates for Safe & Useful AI">
+  <meta property="og:description" content="Run PULSE before you ship. From findings to fuses.">
+  <meta property="og:image" content="og_image_1200x630.png">
+  <style>
+    :root { --bg:#0a0a0c; --fg:#fff; --sub:#bfc3c7; --accent:#e63c32; --card:#101217; --muted:#8b90a0; }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Inter, sans-serif; background:var(--bg); color:var(--fg); line-height:1.45; }
+    .hero img { width:100%; height:auto; display:block; }
+    .container { max-width:1120px; margin:0 auto; padding:48px 24px; }
+    h1 { font-size:48px; margin:0 0 12px; }
+    h2 { font-size:28px; margin:24px 0 8px; }
+    .lead { color:var(--sub); font-size:20px; max-width:900px; }
+    .grid { display:grid; grid-template-columns: repeat(3, 1fr); gap:18px; margin-top:28px; }
+    .card { background:var(--card); border:1px solid #1b1f2a; padding:20px; border-radius:12px; }
+    .cta { display:flex; gap:12px; margin-top:18px; flex-wrap: wrap; }
+    .btn { padding:12px 18px; border-radius:10px; text-decoration:none; font-weight:600; font-size:16px; }
+    .btn-primary { background:#e63c32; color:#fff; }
+    .btn-ghost { background:#1b1f2a; color:#fff; }
+    .muted { color:var(--muted); font-size:14px; }
+    footer { border-top:1px solid #1b1f2a; margin-top:36px; padding:24px 0; }
+    @media (max-width:900px) { .grid { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <section class="hero">
+    <img src="hero_dark_4k.png" alt="PULSE — Run PULSE before you ship hero">
+  </section>
+  <div class="container">
+    <h1>From findings to fuses</h1>
+    <p class="lead">PULSE turns red‑team insights into <strong>deterministic release gates</strong> for both safety and product utility. Offline, CI‑enforced, audit‑ready.</p>
+    <div class="cta">
+      <a class="btn btn-primary" href="#">Download Pack</a>
+      <a class="btn btn-ghost" href="#" title="arXiv link">Read the Paper</a>
+      <a class="btn btn-ghost" href="#" title="GitHub repo">GitHub</a>
+      <a class="btn btn-ghost" href="#">One‑Pager</a>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <h2>Fail‑closed invariants (I₂–I₇)</h2>
+        <p>Monotonicity, commutativity, sanitization, idempotence, path‑independence, PII leak monotonicity — all gates emit PASS/FAIL and block risky releases.</p>
+      </div>
+      <div class="card">
+        <h2>Quality gates (Q₁–Q₄)</h2>
+        <p>RAG grounded factuality, answer consistency, group parity (EO), and SLO budgets (p95 latency &amp; cost) with a human‑readable Quality Ledger.</p>
+      </div>
+      <div class="card">
+        <h2>CI + badges</h2>
+        <p>GitHub Actions examples, PR comments, PASS/FAIL and RDSI badges. Make “Run PULSE before you ship” a ritual in your team.</p>
+      </div>
+    </div>
+
+    <p class="muted">PULSE operates on archived, redacted logs. No live tools are executed during evaluation. Profiles & thresholds are YAML‑based and audit‑ready.</p>
+    <footer class="muted">© 2025 EPLabsAI — PULSE. From findings to fuses.</footer>
+  </div>
+</body>
+</html>
