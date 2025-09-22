@@ -14,18 +14,41 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # 1) Keresd meg vagy bontsd ki a packot, és állítsd be PACK_DIR-t
+      - name: Locate or prepare PULSE pack
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$GITHUB_WORKSPACE"
+          # Próbáljuk megtalálni bárhol a repo-ban
+          RUN_ALL="$(find "$ROOT" -type f -name run_all.py -path '*/PULSE_safe_pack_v0/*' | head -n1 || true)"
+          if [ -z "$RUN_ALL" ]; then
+            # Ha nincs kicsomagolva, próbáljuk a ZIP-et kibontani (bármely PULSE_safe_pack_v0*.zip)
+            if ls "$ROOT"/PULSE_safe_pack_v0*.zip >/dev/null 2>&1; then
+              unzip -q -o "$ROOT"/PULSE_safe_pack_v0*.zip
+            fi
+            RUN_ALL="$(find "$ROOT" -type f -name run_all.py -path '*/PULSE_safe_pack_v0/*' | head -n1 || true)"
+          fi
+          if [ -z "$RUN_ALL" ]; then
+            echo "::error::PULSE pack not found. Upload 'PULSE_safe_pack_v0/' folder OR 'PULSE_safe_pack_v0.zip' to the repository ROOT (Code tab)."
+            echo "Repository tree:"; ls -la
+            exit 1
+          fi
+          PACK_DIR="$(dirname "$(dirname "$RUN_ALL")")"
+          echo "PACK_DIR=$PACK_DIR" >> "$GITHUB_ENV"
+          echo "Found PULSE pack at: $PACK_DIR"
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.x'
 
       - name: Run PULSE
-        run: |
-          python PULSE_safe_pack_v0/tools/run_all.py
+        run: python "$PACK_DIR/tools/run_all.py"
 
       - name: Enforce (Fail-Closed)
         run: |
-          python PULSE_safe_pack_v0/tools/check_gates.py --status PULSE_safe_pack_v0/artifacts/status.json --require \
+          python "$PACK_DIR/tools/check_gates.py" --status "$PACK_DIR/artifacts/status.json" --require \
             pass_controls_refusal effect_present psf_monotonicity_ok psf_mono_shift_resilient \
             pass_controls_comm psf_commutativity_ok psf_comm_shift_resilient \
             pass_controls_sanit sanitization_effective sanit_shift_resilient \
@@ -35,18 +58,31 @@ jobs:
       - name: Augment status with external detectors
         run: |
           python -m pip install pyyaml
-          python PULSE_safe_pack_v0/tools/augment_status.py \
-            --status PULSE_safe_pack_v0/artifacts/status.json \
-            --thresholds PULSE_safe_pack_v0/profiles/external_thresholds.yaml \
-            --external_dir PULSE_safe_pack_v0/artifacts/external
+          python "$PACK_DIR/tools/augment_status.py" \
+            --status "$PACK_DIR/artifacts/status.json" \
+            --thresholds "$PACK_DIR/profiles/external_thresholds.yaml" \
+            --external_dir "$PACK_DIR/artifacts/external"
+
+      - name: Prepare badge assets (brand optional)
+        run: |
+          if [ -d PULSE_brand_assets/badges ]; then
+            ASSETS="PULSE_brand_assets/badges"
+          elif [ -f PULSE_brand_assets_v2.zip ]; then
+            mkdir -p PULSE_brand_assets
+            unzip -q -o PULSE_brand_assets_v2.zip -d PULSE_brand_assets
+            ASSETS="PULSE_brand_assets/badges"
+          else
+            ASSETS="badges"   # fallback statikus mappa a repo gyökerében
+          fi
+          echo "ASSETS=$ASSETS" >> "$GITHUB_ENV"
+          mkdir -p badges
 
       - name: Update badges (PASS/FAIL, RDSI, Q-Ledger)
         if: always()
         run: |
-          # A repód gyökerében lévő 'badges/' mappa statikus ikonjait használjuk forrásnak
-          python PULSE_safe_pack_v0/tools/ci/update_badges.py \
-            --status PULSE_safe_pack_v0/artifacts/status.json \
-            --assets badges \
+          python "$PACK_DIR/tools/ci/update_badges.py" \
+            --status "$PACK_DIR/artifacts/status.json" \
+            --assets "$ASSETS" \
             --out badges
 
       - name: Commit badge changes to repo (with [skip ci])
@@ -68,14 +104,14 @@ jobs:
         with:
           name: pulse-report
           path: |
-            PULSE_safe_pack_v0/artifacts/**
+            ${{ env.PACK_DIR }}/artifacts/**
             badges/*.svg
 
       - name: Generate Q-Ledger PR comment (only on PR)
         if: ${{ github.event_name == 'pull_request' }}
         run: |
-          python PULSE_safe_pack_v0/tools/ci/pr_comment_qledger.py \
-            --status PULSE_safe_pack_v0/artifacts/status.json \
+          python "$PACK_DIR/tools/ci/pr_comment_qledger.py" \
+            --status "$PACK_DIR/artifacts/status.json" \
             --out q_ledger_comment.md
 
       - name: Post/Update PR comment
