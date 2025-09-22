@@ -14,27 +14,27 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # 1) Keresd meg vagy bontsd ki a packot, és állítsd be PACK_DIR-t
+      # 1) Pack helyzet kezelése (gyökérben preferáljuk, különben ZIP kicsomagolás, végül bárhol megkeressük)
       - name: Locate or prepare PULSE pack
         shell: bash
         run: |
           set -euo pipefail
           ROOT="$GITHUB_WORKSPACE"
-          # Próbáljuk megtalálni bárhol a repo-ban
-          RUN_ALL="$(find "$ROOT" -type f -name run_all.py -path '*/PULSE_safe_pack_v0/*' | head -n1 || true)"
-          if [ -z "$RUN_ALL" ]; then
-            # Ha nincs kicsomagolva, próbáljuk a ZIP-et kibontani (bármely PULSE_safe_pack_v0*.zip)
-            if ls "$ROOT"/PULSE_safe_pack_v0*.zip >/dev/null 2>&1; then
-              unzip -q -o "$ROOT"/PULSE_safe_pack_v0*.zip
-            fi
+          if [ -f "$ROOT/PULSE_safe_pack_v0/tools/run_all.py" ]; then
+            PACK_DIR="$ROOT/PULSE_safe_pack_v0"
+          elif [ -f "$ROOT/PULSE_safe_pack_v0.zip" ]; then
+            echo "Unzipping PULSE_safe_pack_v0.zip..."
+            unzip -q -o "$ROOT/PULSE_safe_pack_v0.zip"
+            PACK_DIR="$ROOT/PULSE_safe_pack_v0"
+          else
             RUN_ALL="$(find "$ROOT" -type f -name run_all.py -path '*/PULSE_safe_pack_v0/*' | head -n1 || true)"
+            if [ -z "$RUN_ALL" ]; then
+              echo "::error::PULSE pack not found. Upload 'PULSE_safe_pack_v0/' folder OR 'PULSE_safe_pack_v0.zip' to repository root."
+              ls -la
+              exit 1
+            fi
+            PACK_DIR="$(dirname "$(dirname "$RUN_ALL")")"
           fi
-          if [ -z "$RUN_ALL" ]; then
-            echo "::error::PULSE pack not found. Upload 'PULSE_safe_pack_v0/' folder OR 'PULSE_safe_pack_v0.zip' to the repository ROOT (Code tab)."
-            echo "Repository tree:"; ls -la
-            exit 1
-          fi
-          PACK_DIR="$(dirname "$(dirname "$RUN_ALL")")"
           echo "PACK_DIR=$PACK_DIR" >> "$GITHUB_ENV"
           echo "Found PULSE pack at: $PACK_DIR"
 
@@ -42,6 +42,18 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.x'
+
+      # 2) HOTFIX: javítjuk az elgépelést az update_badges.py fájlban (ff""" -> f""")
+      - name: Hotfix update_badges syntax
+        shell: bash
+        run: |
+          BADGE="$(find "$PACK_DIR" -type f -path '*/tools/ci/update_badges.py' | head -n1 || true)"
+          if [ -n "$BADGE" ]; then
+            sed -i 's/return ff"""/return f"""/' "$BADGE" || true
+            echo "Patched: $BADGE"
+          else
+            echo "No update_badges.py found to patch (continuing)."
+          fi
 
       - name: Run PULSE
         run: python "$PACK_DIR/tools/run_all.py"
@@ -67,12 +79,8 @@ jobs:
         run: |
           if [ -d PULSE_brand_assets/badges ]; then
             ASSETS="PULSE_brand_assets/badges"
-          elif [ -f PULSE_brand_assets_v2.zip ]; then
-            mkdir -p PULSE_brand_assets
-            unzip -q -o PULSE_brand_assets_v2.zip -d PULSE_brand_assets
-            ASSETS="PULSE_brand_assets/badges"
           else
-            ASSETS="badges"   # fallback statikus mappa a repo gyökerében
+            ASSETS="badges"
           fi
           echo "ASSETS=$ASSETS" >> "$GITHUB_ENV"
           mkdir -p badges
