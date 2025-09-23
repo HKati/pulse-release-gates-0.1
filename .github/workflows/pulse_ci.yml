@@ -14,7 +14,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # 1) Pack helyzet kezelése (gyökérben preferáljuk, különben ZIP kicsomagolás, végül bárhol megkeressük)
+      # Locate/unpack the PULSE pack
       - name: Locate or prepare PULSE pack
         shell: bash
         run: |
@@ -30,7 +30,7 @@ jobs:
             RUN_ALL="$(find "$ROOT" -type f -name run_all.py -path '*/PULSE_safe_pack_v0/*' | head -n1 || true)"
             if [ -z "$RUN_ALL" ]; then
               echo "::error::PULSE pack not found. Upload 'PULSE_safe_pack_v0/' folder OR 'PULSE_safe_pack_v0.zip' to repository root."
-              ls -la
+              find "$ROOT" -maxdepth 2 -type f | sed 's/^/ - /'
               exit 1
             fi
             PACK_DIR="$(dirname "$(dirname "$RUN_ALL")")"
@@ -43,7 +43,7 @@ jobs:
         with:
           python-version: '3.x'
 
-      # 2) HOTFIX: javítjuk az elgépelést az update_badges.py fájlban (ff""" -> f""")
+      # Hotfix for historical ff""" bug in update_badges.py
       - name: Hotfix update_badges syntax
         shell: bash
         run: |
@@ -55,25 +55,37 @@ jobs:
             echo "No update_badges.py found to patch (continuing)."
           fi
 
-      - name: Run PULSE
+      - name: Run PULSE (main checks)
         run: python "$PACK_DIR/tools/run_all.py"
 
-      - name: Enforce (Fail-Closed)
+      # --- NEW: compute refusal-delta BEFORE enforcement ---
+      - name: Compute refusal-delta (agentic)
+        run: |
+          python "$PACK_DIR/tools/refusal_delta_calc.py" \
+            --pairs "$PACK_DIR/examples/refusal_pairs_sample.jsonl" \
+            --out "$PACK_DIR/artifacts/refusal_delta_summary.json" \
+            --threshold 0.10
+
+      # --- Merge external detectors BEFORE enforcement ---
+      - name: Augment status with external detectors
+        run: |
+          python -m pip install --quiet pyyaml || true
+          python "$PACK_DIR/tools/augment_status.py" \
+            --status "$PACK_DIR/artifacts/status.json" \
+            --external_dir "$PACK_DIR/artifacts/external"
+          # If your augment_status.py supports thresholds, append:
+          #   --thresholds "$PACK_DIR/profiles/external_thresholds.yaml"
+
+      # --- ENFORCE: fail-closed gates, now including refusal/external ---
+      - name: Enforce required gates (fail-closed)
         run: |
           python "$PACK_DIR/tools/check_gates.py" --status "$PACK_DIR/artifacts/status.json" --require \
             pass_controls_refusal effect_present psf_monotonicity_ok psf_mono_shift_resilient \
             pass_controls_comm psf_commutativity_ok psf_comm_shift_resilient \
             pass_controls_sanit sanitization_effective sanit_shift_resilient \
             psf_action_monotonicity_ok psf_idempotence_ok psf_path_independence_ok psf_pii_monotonicity_ok \
-            q1_grounded_ok q2_consistency_ok q3_fairness_ok q4_slo_ok
-
-      - name: Augment status with external detectors
-        run: |
-          python -m pip install pyyaml
-          python "$PACK_DIR/tools/augment_status.py" \
-            --status "$PACK_DIR/artifacts/status.json" \
-            --thresholds "$PACK_DIR/profiles/external_thresholds.yaml" \
-            --external_dir "$PACK_DIR/artifacts/external"
+            q1_grounded_ok q2_consistency_ok q3_fairness_ok q4_slo_ok \
+            refusal_delta_pass external_all_pass
 
       - name: Prepare badge assets (brand optional)
         run: |
@@ -93,7 +105,7 @@ jobs:
             --assets "$ASSETS" \
             --out badges
 
-      - name: Commit badge changes to repo (with [skip ci])
+      - name: Commit badge changes to repo ([skip ci])
         if: always()
         run: |
           git config user.name "github-actions[bot]"
