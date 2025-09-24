@@ -121,6 +121,10 @@ PULSE — Release Gates for Safe & Useful AI, EPLabsAI (2025).
 
 ---
 
+## Case studies & Radar
+- [Lighthouse Case #1](PULSE_safe_pack_v0/docs/LIGHTHOUSE_CASE_1.md)
+- [Competitor Radar (2025)](PULSE_safe_pack_v0/docs/COMPETITOR_RADAR_2025.md)
+
 ## License & contact
 
 **License:** Apache‑2.0 — see [`LICENSE`](./LICENSE).  
