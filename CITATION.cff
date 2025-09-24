@@ -1,8 +1,16 @@
 cff-version: 1.2.0
-message: "If you use PULSE, please cite this repository and the arXiv preprint."
-title: "PULSE: Deterministic Release Gates for Safe & Useful AI"
+title: "PULSE — Deterministic Release Gates for Safe & Useful AI"
+message: "If you use this software, please cite it as below."
 authors:
-  - family-names: "Horváth"
+  - family-names: "Horvath"
     given-names: "Katalin"
-  - name: "EPLabsAI Team"
-date-released: "2025-09-22"
+    affiliation: "EPLabsAI"
+  - name: "EPLabsAI"
+    affiliation: "EPLabsAI"
+# If you have ORCID, add:
+#  - family-names: "Horvat"
+#    given-names: "Katalin"
+#    orcid: "https://orcid.org/0009-0001-9745-3764"
+repository-code: "https://github.com/<org-or-user>/pulse-release-gates-0.1"
+abstract: "PULSE provides pre-release, fail-closed gates across Safety, Utility, and SLO dimensions with audit artifacts (status.json, Quality Ledger, badges)."
+keywords: [release-governance, safety, evals, guardrails, CI]
