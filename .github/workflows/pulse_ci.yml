@@ -108,6 +108,13 @@ jobs:
             --thresholds "${{ env.PACK_DIR }}/profiles/external_thresholds.yaml" \
             --external_dir "${{ env.PACK_DIR }}/artifacts/external"
 
+      - name: Show gates snapshot
+        shell: bash
+        run: |
+          echo "----- status.json (gates) -----"
+          jq '.gates' "${{ env.PACK_DIR }}/artifacts/status.json" || cat "${{ env.PACK_DIR }}/artifacts/status.json" || true
+          echo "--------------------------------"
+
       - name: Enforce (Fail-Closed)
         shell: bash
         run: |
