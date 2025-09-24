@@ -1,1 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+
+  <title>PULSE — Release Gates for Safe & Useful AI</title>
+  <meta name="description" content="Pre-release, deterministic, fail-closed gates across Safety, Utility and SLO. Audit-ready status.json, Quality Ledger and SVG badges — before you ship.">
+
+  <!-- Open Graph / Twitter -->
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="PULSE — Release Gates for Safe & Useful AI">
+  <meta property="og:description" content="Deterministic, fail-closed release gates for AI safety & product utility.">
+  <meta property="og:url" content="https://hkati.github.io/pulse-release-gates-0.1/">
+  <meta property="og:image" content="https://raw.githubusercontent.com/HKati/pulse-release-gates-0.1/main/og_image_1200x630.png">
+  <meta name="twitter:card" content="summary_large_image">
+
+  <style>
+    :root{
+      --bg:#0b0b0c; --fg:#eaeaea; --muted:#a9b0b6; --accent:#e73e2f; --chip:#2b2f33;
+      --link:#8ab4f8;
+    }
+    @media (prefers-color-scheme: light){
+      :root{ --bg:#ffffff; --fg:#111; --muted:#555; --chip:#f2f4f7; --link:#1a73e8; }
+    }
+    *{ box-sizing:border-box }
+    body{
+      margin:0; font:16px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+      background:var(--bg); color:var(--fg);
+    }
+    .wrap{ max-width:980px; margin:40px auto; padding:0 16px; }
+    header{ text-align:center; margin-bottom:24px; }
+    .hero{ display:block; max-width:100%; height:auto; border:0; }
+    h1{ font-size:32px; margin:20px 0 6px; letter-spacing:.2px }
+    p.lead{ margin:0 0 18px; color:var(--muted) }
+    .btns{ display:flex; gap:12px; justify-content:center; flex-wrap:wrap; margin:16px 0 8px }
+    .btn{
+      appearance:none; border:0; border-radius:8px; padding:12px 18px; cursor:pointer;
+      text-decoration:none; font-weight:600; display:inline-flex; align-items:center; gap:8px;
+      background:var(--accent); color:white;
+    }
+    .btn.secondary{ background:var(--chip); color:var(--fg) }
+    .chips{ display:flex; gap:10px; justify-content:center; margin:10px 0 24px; flex-wrap:wrap }
+    .chip{ background:var(--chip); color:var(--fg); padding:6px 10px; border-radius:999px; font-size:13px }
+    section{ margin:36px 0 }
+    h2{ font-size:22px; margin:0 0 10px }
+    ul{ margin:8px 0 0 18px }
+    code, pre{ background:var(--chip); color:var(--fg); padding:2px 6px; border-radius:6px }
+    pre{ padding:12px; overflow:auto }
+    .badges{ display:flex; gap:10px; flex-wrap:wrap; align-items:center }
+    .badges img{ height:28px }
+    footer{ margin:48px 0 20px; color:var(--muted); font-size:14px; text-align:center }
+    a{ color:var(--link) }
+  </style>
+
+  <!-- Schema.org for rich previews -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareSourceCode",
+    "name": "PULSE — Release Gates for Safe & Useful AI",
+    "codeRepository": "https://github.com/HKati/pulse-release-gates-0.1",
+    "programmingLanguage": "Python",
+    "license": "https://www.apache.org/licenses/LICENSE-2.0",
+    "author": { "@type": "Organization", "name": "EPLabsAI" },
+    "description": "Pre-release, deterministic, fail-closed release gates across Safety, Utility and SLO with audit artifacts (status.json, Quality Ledger, badges)."
+  }
+  </script>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <!-- Dark/Light hero automatikus váltással -->
+      <picture>
+        <source srcset="../hero_dark_4k.png" media="(prefers-color-scheme: dark)">
+        <img class="hero" src="../hero_light_4k.png" alt="PULSE concentric rings hero — release gates for safe & useful AI">
+      </picture>
+
+      <h1>PULSE — Release Gates for Safe & Useful AI</h1>
+      <p class="lead">Deterministic, fail‑closed gates across Safety (I‑gates), Utility (Q‑gates) and SLO — audit‑ready, before you ship.</p>
+
+      <div class="btns">
+        <a class="btn" href="https://github.com/HKati/pulse-release-gates-0.1/releases/latest">Download Pack</a>
+        <a class="btn secondary" href="../PULSE_one_pager.pdf">Read the One‑Pager (PDF)</a>
+        <a class="btn secondary" href="https://github.com/HKati/pulse-release-gates-0.1">View on GitHub</a>
+      </div>
+
+      <div class="chips">
+        <span class="chip">fail‑closed</span>
+        <span class="chip">audit‑ready</span>
+        <span class="chip">CI‑enforced</span>
+        <span class="chip">agent‑aware (Δ‑refusal)</span>
+      </div>
+
+      <!-- Élő badge‑ek a repóból -->
+      <div class="badges">
+        <img src="../badges/pulse_status.svg" alt="PULSE status badge">
+        <img src="../badges/rdsi.svg" alt="RDSI badge">
+        <img src="../badges/q_ledger_check.svg" alt="Q‑Ledger badge">
+      </div>
+    </header>
+
+    <section>
+      <h2>What it does</h2>
+      <ul>
+        <li><strong>Safety invariants (I₂–I₇):</strong> monotonicity (shift‑resilient), commutativity, sanitization effectiveness, action‑monotonicity, idempotence, path‑independence, PII‑leak monotonicity.</li>
+        <li><strong>Utility gates (Q₁–Q₄):</strong> groundedness (RAG), consistency, fairness, SLOs (p95 latency & cost).</li>
+        <li><strong>Agentic risk:</strong> refusal‑delta gate (plain vs tool‑primed) with Wilson CI & McNemar significance.</li>
+        <li><strong>Artifacts:</strong> <code>status.json</code>, human‑readable <em>Quality Ledger</em>, and SVG badges committed by CI.</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Docs & case studies</h2>
+      <ul>
+        <li><a href="../PULSE_safe_pack_v0/docs/METHODS_RDSI_QLEDGER.md">Methods (RDSI & Ledger)</a></li>
+        <li><a href="../PULSE_safe_pack_v0/docs/EXTERNAL_DETECTORS.md">External detectors (adapters)</a></li>
+        <li><a href="../PULSE_safe_pack_v0/docs/LIGHTHOUSE_CASE_1.md">Lighthouse Case #1</a></li>
+        <li><a href="../PULSE_safe_pack_v0/docs/COMPETITOR_RADAR_2025.md">Competitor Radar (2025)</a></li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Quickstart</h2>
+      <pre><code># GitHub Actions already wired (.github/workflows/pulse_ci.yml)
+# Artifacts after run:
+#  - PULSE_safe_pack_v0/artifacts/status.json
+#  - PULSE_safe_pack_v0/artifacts/refusal_delta_summary.json
+#  - /badges/*.svg (committed)</code></pre>
+    </section>
+
+    <footer>
+      <div>© EPLabsAI · <a href="https://github.com/HKati/pulse-release-gates-0.1/blob/main/LICENSE">Apache‑2.0</a> · <a href="mailto:eplabsai@eplabsai.com">eplabsai@eplabsai.com</a></div>
+    </footer>
+  </div>
+</body>
+</html>
 
