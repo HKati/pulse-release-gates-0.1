@@ -13,10 +13,10 @@
   </a>
 </p>
 
+[![PULSE](badges/pulse_status.svg)](PULSE_safe_pack_v0/artifacts/report_card.html)
+[![RDSI](badges/rdsi.svg)](PULSE_safe_pack_v0/artifacts/status.json)
+[![Q‑Ledger](badges/q_ledger.svg)](PULSE_safe_pack_v0/artifacts/report_card.html#quality-ledger)
 
-[![](badges/pulse_status.svg)](PULSE_safe_pack_v0/artifacts/report_card.html)
-[![](badges/rdsi.svg)](PULSE_safe_pack_v0/artifacts/status.json)
-[![](badges/q_ledger_check.svg)](PULSE_safe_pack_v0/artifacts/report_card.html#quality-ledger)
 
 # PULSE — Release Gates for Safe & Useful AI
 
