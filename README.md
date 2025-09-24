@@ -1,12 +1,18 @@
+<!-- Hero (clickable) -->
 <p align="center">
   <a href="https://hkati.github.io/pulse-release-gates-0.1/">
     <picture>
+      <!-- Dark mode first -->
       <source media="(prefers-color-scheme: dark)" srcset="hero_dark_4k.png">
       <source media="(prefers-color-scheme: light)" srcset="hero_light_4k.png">
-      <img alt="Run PULSE before you ship — deterministic, fail-closed gates." src="hero_light_4k.png" style="max-width:100%; height:auto;">
+      <img
+        src="hero_dark_4k.png"
+        alt="Run PULSE before you ship — deterministic, fail‑closed gates from archived logs, CI‑enforced."
+        style="max-width:100%; height:auto; border-radius:8px;">
     </picture>
   </a>
 </p>
+
 
 [![](badges/pulse_status.svg)](PULSE_safe_pack_v0/artifacts/report_card.html)
 [![](badges/rdsi.svg)](PULSE_safe_pack_v0/artifacts/status.json)
