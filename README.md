@@ -1,4 +1,14 @@
 <p align="center">
+  <a href="https://hkati.github.io/pulse-release-gates-0.1/">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="hero_dark_4k.png">
+      <source media="(prefers-color-scheme: light)" srcset="hero_light_4k.png">
+      <img alt="Run PULSE before you ship — deterministic, fail-closed gates." src="hero_light_4k.png" style="max-width:100%; height:auto;">
+    </picture>
+  </a>
+</p>
+
+<p align="center">
   <img src="PULSE_readme_hero_1400x360.png" alt="Run PULSE before you ship" width="100%">
 </p>
 
