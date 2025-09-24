@@ -8,10 +8,6 @@
   </a>
 </p>
 
-<p align="center">
-  <img src="PULSE_readme_hero_1400x360.png" alt="Run PULSE before you ship" width="100%">
-</p>
-
 # PULSE — Release Gates for Safe & Useful AI
 
 From **findings** to **fuses**. Run **PULSE before you ship**: deterministic, **fail‑closed** gates that turn red‑team insights into **release decisions** for both safety (I₂–I₇) and product utility (Q₁–Q₄). Offline, CI‑enforced, audit‑ready.
