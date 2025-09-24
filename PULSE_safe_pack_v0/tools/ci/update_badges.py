@@ -11,7 +11,7 @@ os.makedirs(a.out, exist_ok=True)
 
 def svg_badge(label, value, color):
     label_w = 70; status_w = max(86, 8*len(value)); h=20; w=label_w+status_w
-    return ff"""<svg xmlns="http://www.w3.org/2000/svg" width="{w}" height="{h}" role="img" aria-label="{label}: {value}">
+    return f"""<svg xmlns="http://www.w3.org/2000/svg" width="{w}" height="{h}" role="img" aria-label="{label}: {value}">
   <linearGradient id="s" x2="0" y2="100%"><stop offset="0" stop-color="#fff" stop-opacity=".7"/><stop offset=".1" stop-opacity=".1"/><stop offset=".9" stop-opacity=".3"/><stop offset="1" stop-opacity=".5"/></linearGradient>
   <mask id="m"><rect width="{w}" height="{h}" rx="3" fill="#fff"/></mask>
   <g mask="url(#m)"><rect width="{label_w}" height="{h}" fill="#555"/><rect x="{label_w}" width="{status_w}" height="{h}" fill="{color}"/><rect width="{w}" height="{h}" fill="url(#s)"/></g>
