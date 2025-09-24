@@ -3,7 +3,7 @@
     <picture>
       <source media="(prefers-color-scheme: dark)" srcset="hero_dark_4k.png">
       <source media="(prefers-color-scheme: light)" srcset="hero_light_4k.png">
-      <img alt="Run PULSE before you ship — deterministic, fail-closed gates." src="hero_light_4k.png" style="max-width:100%; height:auto;">
+      <img alt="Run PULSE before you ship — deterministic, fail-closed gates." src="hero_dark_4k.png" style="max-width:100%; height:auto;">
     </picture>
   </a>
 </p>
