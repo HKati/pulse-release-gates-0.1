@@ -11,6 +11,6 @@ authors:
 #  - family-names: "Horvat"
 #    given-names: "Katalin"
 #    orcid: "https://orcid.org/0009-0001-9745-3764"
-repository-code: "https://github.com/<org-or-user>/pulse-release-gates-0.1"
+repository-code: "https://github.com/HKati/pulse-release-gates-0.1"
 abstract: "PULSE provides pre-release, fail-closed gates across Safety, Utility, and SLO dimensions with audit artifacts (status.json, Quality Ledger, badges)."
 keywords: [release-governance, safety, evals, guardrails, CI]
