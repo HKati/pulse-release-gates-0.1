@@ -1,0 +1,30 @@
+# Minimális, végigfutható példa
+name: "example_minimal"
+description: "Hello-world PULSE run"
+inputs:
+  logs_dir: "samples/logs"
+  external_dir: "samples/external"  # opcionális
+security_gates:
+  monotonicity:
+    enabled: true
+    metric: "latency_ms"
+    allow_equal: true
+  sanitization:
+    enabled: true
+    checks: ["zero_width", "html_comments", "unicode_norm"]
+  idempotence:
+    enabled: true
+quality_gates:
+  q1_groundedness:
+    enabled: true
+    min_score: 0.65
+  q4_slo:
+    enabled: true
+    max_latency_p95_ms: 1200
+    max_cost_usd: 0.05
+thresholds:
+  refusal_delta:
+    max_abs_delta: 0.08
+outputs:
+  status_path: "status.json"
+  ledger_path: "quality_ledger.csv"
