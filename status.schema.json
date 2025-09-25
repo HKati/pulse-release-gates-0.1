@@ -1,0 +1,40 @@
+---- START FILE ----
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PULSE status.json (v0.1)",
+  "type": "object",
+  "required": ["run", "results"],
+  "properties": {
+    "run": {
+      "type": "object",
+      "required": ["commit", "profile_hash", "seed", "dataset_snapshot"],
+      "properties": {
+        "commit": {"type": "string"},
+        "profile_hash": {"type": "string"},
+        "seed": {"type": "integer"},
+        "dataset_snapshot": {"type": "string"},
+        "timestamp_utc": {"type": "string"}
+      }
+    },
+    "results": {
+      "type": "object",
+      "properties": {
+        "security": {"type": "object"},
+        "quality": {"type": "object"},
+        "slo": {"type": "object"},
+        "refusal_delta_pass": {},
+        "external_all_pass": {}
+      }
+    },
+    "rds_index": {
+      "type": "object",
+      "properties": {
+        "ci_lower": {"type": "number"},
+        "ci_upper": {"type": "number"},
+        "runs": {"type": "integer"}
+      }
+    },
+    "notes": {"type": "string"}
+  }
+}
+---- END FILE ----
