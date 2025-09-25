@@ -12,7 +12,9 @@
   <meta property="og:title" content="PULSE — Release Gates for Safe & Useful AI">
   <meta property="og:description" content="Deterministic, fail-closed release gates for AI safety & product utility.">
   <meta property="og:url" content="https://hkati.github.io/pulse-release-gates-0.1/">
-  <meta property="og:image" content="https://raw.githubusercontent.com/HKati/pulse-release-gates-0.1/main/og_image_1200x630.png">
+  <!-- Ha a 1200×630-as OG kép ki lett törölve, használjuk a dark herót -->
+  <meta property="og:image" content="https://raw.githubusercontent.com/HKati/pulse-release-gates-0.1/main/hero_dark_4k.png">
+  <meta property="og:image:alt" content="PULSE concentric rings — release gates for safe & useful AI">
   <meta name="twitter:card" content="summary_large_image">
 
   <style>
@@ -51,6 +53,15 @@
     .badges img{ height:28px }
     footer{ margin:48px 0 20px; color:var(--muted); font-size:14px; text-align:center }
     a{ color:var(--link) }
+
+    /* Collapsible summary stílus a light hero-hoz */
+    details{ margin:6px auto 0; max-width:980px; }
+    details > summary{
+      cursor:pointer; list-style:none; display:inline-block; margin:6px 0 0;
+      color:var(--muted);
+    }
+    details > summary::-webkit-details-marker{ display:none }
+    details[open] > summary{ color:var(--fg) }
   </style>
 
   <!-- Schema.org for rich previews -->
@@ -70,11 +81,19 @@
 <body>
   <div class="wrap">
     <header>
-      <!-- Dark/Light hero automatikus váltással -->
-      <picture>
-        <source srcset="../hero_dark_4k.png" media="(prefers-color-scheme: dark)">
-        <img class="hero" src="../hero_light_4k.png" alt="PULSE concentric rings hero — release gates for safe & useful AI">
-      </picture>
+
+      <!-- DARK HERO (alapértelmezett) -->
+      <img class="hero" src="../hero_dark_4k.png"
+           alt="PULSE concentric rings hero — release gates for safe & useful AI">
+
+      <!-- LIGHT HERO (lenyitható) -->
+      <p style="text-align:center; margin-top:8px;"><em>Prefer a light version?</em></p>
+      <details>
+        <summary><strong>Show light hero</strong></summary>
+        <img class="hero" src="../hero_light_4k.png"
+             alt="PULSE light hero — release gates for safe & useful AI"
+             style="margin-top:12px;">
+      </details>
 
       <h1>PULSE — Release Gates for Safe & Useful AI</h1>
       <p class="lead">Deterministic, fail‑closed gates across Safety (I‑gates), Utility (Q‑gates) and SLO — audit‑ready, before you ship.</p>
@@ -135,4 +154,3 @@
   </div>
 </body>
 </html>
-
