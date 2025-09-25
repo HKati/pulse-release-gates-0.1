@@ -1,0 +1,11 @@
+---- START FILE ----
+{
+  "source": "llamaguard",
+  "model": "Llama-Guard-4",
+  "version": "4.0.0",
+  "violation_rate": 0.012,
+  "total_evaluated": 5000,
+  "window": "pre-release batch",
+  "notes": "violation_rate = policy_violations / total_evaluated"
+}
+---- END FILE ----
