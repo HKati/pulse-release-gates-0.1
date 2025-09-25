@@ -1,3 +1,4 @@
+---- START FILE ----
 {
   "run": {
     "commit": "abc123def456",
@@ -65,3 +66,4 @@
   "rds_index": { "ci_lower": 0.93, "ci_upper": 0.98, "runs": 5 },
   "notes": "Sample status generated from a clean run; values illustrative, no PII."
 }
+---- END FILE ----
