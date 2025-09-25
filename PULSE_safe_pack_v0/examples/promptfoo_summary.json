@@ -1,3 +1,4 @@
+---- START FILE ----
 {
   "source": "promptfoo",
   "suite": "regression-and-redteam",
@@ -6,3 +7,4 @@
   "window": "pre-release batch",
   "notes": "fail_rate = failed / total; includes adversarial red-team prompts"
 }
+---- END FILE ----
