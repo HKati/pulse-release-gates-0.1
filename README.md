@@ -1,22 +1,21 @@
-<!-- Hero (clickable) -->
-<p align="center">
-  <a href="https://hkati.github.io/pulse-release-gates-0.1/">
-    <picture>
-      <!-- Dark mode first -->
-      <source media="(prefers-color-scheme: dark)" srcset="hero_dark_4k.png">
-      <source media="(prefers-color-scheme: light)" srcset="hero_light_4k.png">
-      <img
-        src="hero_dark_4k.png"
-        alt="Run PULSE before you ship — deterministic, fail‑closed gates from archived logs, CI‑enforced."
-        style="max-width:100%; height:auto; border-radius:8px;">
-    </picture>
-  </a>
-</p>
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="hero_dark_4k.png">
+  <source media="(prefers-color-scheme: light)" srcset="hero_light_4k.png">
+  <img alt="Run PULSE before you ship." src="hero_dark_4k.png" width="100%">
+</picture>
 
 [![PULSE](badges/pulse_status.svg)](PULSE_safe_pack_v0/artifacts/report_card.html)
 [![RDSI](badges/rdsi.svg)](PULSE_safe_pack_v0/artifacts/status.json)
 [![Q‑Ledger](badges/q_ledger.svg)](PULSE_safe_pack_v0/artifacts/report_card.html#quality-ledger)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="hero_dark_4k.png">
+  <source media="(prefers-color-scheme: light)" srcset="hero_light_4k.png">
+  <img alt="Run PULSE before you ship." src="hero_dark_4k.png" width="100%">
+</picture>
 
+[![PULSE](badges/pulse_status.svg)](PULSE_safe_pack_v0/artifacts/report_card.html)
+[![RDSI](badges/rdsi.svg)](PULSE_safe_pack_v0/artifacts/status.json)
+[![Q‑Ledger](badges/q_ledger.svg)](PULSE_safe_pack_v0/artifacts/report_card.html#quality-ledger)
 
 # PULSE — Release Gates for Safe & Useful AI
 
