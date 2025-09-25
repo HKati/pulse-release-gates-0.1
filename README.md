@@ -1,21 +1,20 @@
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="hero_dark_4k.png">
-  <source media="(prefers-color-scheme: light)" srcset="hero_light_4k.png">
-  <img alt="Run PULSE before you ship." src="hero_dark_4k.png" width="100%">
-</picture>
+<!-- HERO (dark default) -->
+<img alt="Run PULSE before you ship." src="hero_dark_4k.png" width="100%">
+
+<p align="center">
+  <em>Prefer a light version?</em>
+</p>
+
+<details>
+  <summary><strong>Show light hero</strong></summary>
+
+  <img alt="Run PULSE before you ship. (light)" src="hero_light_4k.png" width="100%">
+</details>
 
 [![PULSE](badges/pulse_status.svg)](PULSE_safe_pack_v0/artifacts/report_card.html)
 [![RDSI](badges/rdsi.svg)](PULSE_safe_pack_v0/artifacts/status.json)
 [![Q‑Ledger](badges/q_ledger.svg)](PULSE_safe_pack_v0/artifacts/report_card.html#quality-ledger)
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="hero_dark_4k.png">
-  <source media="(prefers-color-scheme: light)" srcset="hero_light_4k.png">
-  <img alt="Run PULSE before you ship." src="hero_dark_4k.png" width="100%">
-</picture>
 
-[![PULSE](badges/pulse_status.svg)](PULSE_safe_pack_v0/artifacts/report_card.html)
-[![RDSI](badges/rdsi.svg)](PULSE_safe_pack_v0/artifacts/status.json)
-[![Q‑Ledger](badges/q_ledger.svg)](PULSE_safe_pack_v0/artifacts/report_card.html#quality-ledger)
 
 # PULSE — Release Gates for Safe & Useful AI
 
