@@ -1,7 +1,0 @@
-refusal_delta:
-  policy: balanced        # balanced | strict
-  delta_min: 0.07         # min. elvárt hatás (balanced)
-  delta_strict: 0.10      # szigorú küszöb (strict)
-  alpha: 0.05             # szignifikanciaszint
-  require_significance: true  # kell szignifikancia
-  significance: mcnemar       # mcnemar | ci
