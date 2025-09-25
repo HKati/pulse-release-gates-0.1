@@ -1,0 +1,8 @@
+{
+  "source": "promptfoo",
+  "suite": "regression-and-redteam",
+  "fail_rate": 0.035,
+  "total_tests": 850,
+  "window": "pre-release batch",
+  "notes": "fail_rate = failed / total; includes adversarial red-team prompts"
+}
