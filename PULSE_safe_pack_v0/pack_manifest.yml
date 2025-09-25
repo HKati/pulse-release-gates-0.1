@@ -1,0 +1,31 @@
+version: 1
+root: PULSE_safe_pack_v0
+
+required:
+  - path: tools/run_all.py
+  - path: tools/check_gates.py
+  - path: tools/augment_status.py
+  - path: tools/refusal_delta_calc.py
+  - path: tools/ci/update_badges.py
+  - path: docs/METHODS_RDSI_QLEDGER.md
+  - path: docs/EXTERNAL_DETECTORS.md
+  - path: profiles/external_thresholds.yaml
+  - path: profiles/pulse_policy.yaml
+  - one_of:
+      - examples/refusal_pairs.jsonl
+      - examples/refusal_pairs_sample.jsonl
+  - path: artifacts/
+  - path: artifacts/external/
+  - min_count:
+      pattern: tools/adapters/*.py
+      count: 3
+
+optional:
+  - path: tools/ci/pr_comment_qledger.py
+  - path: docs/LIGHTHOUSE_CASE_1.md
+  - path: docs/COMPETITOR_RADAR_2025.md
+
+generated:
+  - path: artifacts/status.json
+  - path: artifacts/report_card.html
+  - path: artifacts/refusal_delta_summary.json
