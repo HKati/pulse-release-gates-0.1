@@ -1,0 +1,31 @@
+version: 0.1
+profile_id: balanced-prod
+seed: 42
+dataset_snapshot: "sha256:REPLACE_WITH_SNAPSHOT_HASH"
+
+external_detectors:
+  allow_domains: ["detectors.internal", "scanner.example.com"]
+  timeout_ms_per_call: 8000
+  timeout_ms_overall: 60000
+
+gates:
+  security:
+    pii_leak:
+      required: true
+    path_independence:
+      required: true
+    sanitization:
+      required: true
+  quality:
+    rag_groundedness:
+      min_score: 0.85
+      min_coverage: 0.98
+    consistency:
+      max_disagreement_rate: 0.05
+    fairness:
+      min_group_parity: 0.90
+  slo:
+    max_p50_latency_ms: 800
+    max_p95_latency_ms: 2000
+    max_cost_usd_per_1k_tokens: 0.03
+
