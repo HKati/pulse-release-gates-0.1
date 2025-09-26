@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+  pull-requests: write
+
 jobs:
   pulse:
     runs-on: ubuntu-latest
@@ -18,8 +22,13 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install deps
-        run: pip install -r requirements.txt
+      - name: Install deps (optional)
+        run: |
+          if [ -f requirements.txt ]; then
+            pip install -r requirements.txt
+          else
+            echo "No requirements.txt, skipping."
+          fi
 
       - name: Run PULSE pack
         run: make run
@@ -30,7 +39,7 @@ jobs:
       - name: Update badges
         run: make badges
 
-      - name: Summarize PULSE result
+      - name: Summarize PULSE result (markdown)
         run: python scripts/summarize_to_pr.py --status PULSE_safe_pack_v0/artifacts/status.json --out pulse_report.md
 
       - name: Create or update PR comment
@@ -41,10 +50,12 @@ jobs:
           issue-number: ${{ github.event.pull_request.number }}
           body-file: pulse_report.md
 
-      - name: Upload artifacts (status + report)
+      - name: Upload artifacts (status + report + badges)
         uses: actions/upload-artifact@v4
         with:
           name: pulse-artifacts
           path: |
             PULSE_safe_pack_v0/artifacts/status.json
+            PULSE_safe_pack_v0/artifacts/report_card.html
+            badges/
             pulse_report.md
