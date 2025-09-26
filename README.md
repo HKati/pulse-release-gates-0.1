@@ -140,10 +140,10 @@ README.md
 
 ## How to cite
 
-If you use PULSE in research or production, please cite this repository and the forthcoming arXiv preprint:
-
 **PULSE — Release Gates for Safe & Useful AI**, EPLabsAI (2025).  
-DOI: `10.5281/zenodo.<ID>` • Preprint: `arXiv:2509.xxxxx`
+DOI (latest): [10.5281/zenodo.YYYYYYY](https://doi.org/10.5281/zenodo.YYYYYYY)  
+Version DOI: [10.5281/zenodo.XXXXXXX](https://doi.org/10.5281/zenodo.XXXXXXX)  
+Preprint: arXiv:2509.xxxxx (to appear)
 
 ## Acknowledgments
 
