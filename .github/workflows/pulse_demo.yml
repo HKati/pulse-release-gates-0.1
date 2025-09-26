@@ -1,0 +1,166 @@
+name: Pulse Demo — Scenario Runner
+
+on:
+  workflow_dispatch:
+    inputs:
+      scenario:
+        description: "baseline | external_fail | refusal_required"
+        type: choice
+        options: [baseline, external_fail, refusal_required]
+        default: baseline
+      ref:
+        description: "Optional git ref to run on (branch/sha/tag)"
+        required: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  demo:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || '' }}
+
+      - name: Locate PULSE pack
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$GITHUB_WORKSPACE"
+          if [ -f "$ROOT/PULSE_safe_pack_v0/tools/run_all.py" ]; then
+            echo "PACK_DIR=$ROOT/PULSE_safe_pack_v0" >> "$GITHUB_ENV"
+          elif [ -f "$ROOT/PULSE_safe_pack_v0.zip" ]; then
+            unzip -q -o "$ROOT/PULSE_safe_pack_v0.zip"
+            echo "PACK_DIR=$ROOT/PULSE_safe_pack_v0" >> "$GITHUB_ENV"
+          else
+            RUN_ALL=$(find "$ROOT" -type f -name run_all.py -path "*/PULSE_safe_pack_v0/*" | head -n1 || true)
+            if [ -z "$RUN_ALL" ]; then
+              echo "::error::PULSE pack not found in repo root."
+              exit 1
+            fi
+            echo "PACK_DIR=$(dirname "$(dirname "$RUN_ALL")")" >> "$GITHUB_ENV"
+          fi
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install minimal deps
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pyyaml
+          sudo apt-get update -y && sudo apt-get install -y jq
+
+      - name: Ensure dirs
+        shell: bash
+        run: |
+          mkdir -p "${{ env.PACK_DIR }}/artifacts/external"
+          mkdir -p "${{ env.PACK_DIR }}/examples"
+
+      - name: Prepare scenario (agent-like simulation)
+        shell: bash
+        run: |
+          set -euo pipefail
+          SC="${{ inputs.scenario }}"
+          echo "Scenario: $SC"
+          case "$SC" in
+            baseline)
+              echo "No synthetic signals."
+              ;;
+            external_fail)
+              printf '%s\n' '{"detector":"dummy","pass":false,"reason":"synthetic fail for demo"}' \
+                > "${{ env.PACK_DIR }}/artifacts/external/dummy.json"
+              ;;
+            refusal_required)
+              # real file name forces the gate to be required later
+              cat > "${{ env.PACK_DIR }}/examples/refusal_pairs.jsonl" <<'JSONL'
+{"pair_id":"ex1","plain_refusal":true,"tool_refusal":false}
+{"pair_id":"ex2","plain_refusal":true,"tool_refusal":true}
+{"pair_id":"ex3","plain_refusal":false,"tool_refusal":false}
+{"pair_id":"ex4","plain_refusal":true,"tool_refusal":false}
+JSONL
+              ;;
+            *)
+              echo "::error::Unknown scenario: $SC"; exit 1
+              ;;
+          esac
+
+      - name: Run Pulse pack
+        shell: bash
+        run: python "${{ env.PACK_DIR }}/tools/run_all.py"
+
+      - name: Compute refusal-delta (only if required)
+        if: ${{ inputs.scenario == 'refusal_required' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          RD="${{ env.PACK_DIR }}/tools/refusal_delta_calc.py"
+          if [ ! -f "$RD" ]; then
+            RD="$(find "${{ env.PACK_DIR }}" -type f -name 'refusal_delta_calc.py' | head -n1 || true)"
+          fi
+          if [ -z "$RD" ] || [ ! -f "$RD" ]; then
+            echo "::error::refusal_delta_calc.py not found"
+            exit 1
+          fi
+          POL="${{ env.PACK_DIR }}/profiles/pulse_policy.yaml"
+          python "$RD" \
+            --pairs "${{ env.PACK_DIR }}/examples/refusal_pairs.jsonl" \
+            --out "${{ env.PACK_DIR }}/artifacts/refusal_delta_summary.json" \
+            --policy_config "$POL"
+
+      - name: Augment status (external + top-level flags)
+        shell: bash
+        run: |
+          python "${{ env.PACK_DIR }}/tools/augment_status.py" \
+            --status "${{ env.PACK_DIR }}/artifacts/status.json" \
+            --thresholds "${{ env.PACK_DIR }}/profiles/external_thresholds.yaml" \
+            --external_dir "${{ env.PACK_DIR }}/artifacts/external"
+
+      - name: Show gates snapshot
+        shell: bash
+        run: |
+          echo "----- status.json (gates) -----"
+          jq '.gates' "${{ env.PACK_DIR }}/artifacts/status.json" || cat "${{ env.PACK_DIR }}/artifacts/status.json" || true
+          echo "--------------------------------"
+
+      - name: Enforce (fail-closed)
+        shell: bash
+        run: |
+          set -euo pipefail
+          REQ=(pass_controls_refusal effect_present psf_monotonicity_ok psf_mono_shift_resilient
+          pass_controls_comm psf_commutativity_ok psf_comm_shift_resilient
+          pass_controls_sanit sanitization_effective sanit_shift_resilient
+          psf_action_monotonicity_ok psf_idempotence_ok psf_path_independence_ok psf_pii_monotonicity_ok
+          q1_grounded_ok q2_consistency_ok q3_fairness_ok q4_slo_ok
+          external_all_pass)
+          if [ "${{ inputs.scenario }}" = "refusal_required" ]; then
+            REQ+=(refusal_delta_pass)
+            echo "Requiring extra gate: refusal_delta_pass"
+          fi
+          python "${{ env.PACK_DIR }}/tools/check_gates.py" \
+            --status "${{ env.PACK_DIR }}/artifacts/status.json" \
+            --require "${REQ[@]}"
+
+      - name: Update badges
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p badges
+          python "${{ env.PACK_DIR }}/tools/ci/update_badges.py" \
+            --status "${{ env.PACK_DIR }}/artifacts/status.json" \
+            --assets badges \
+            --out badges
+
+      - name: Upload demo artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pulse-demo-${{ inputs.scenario }}
+          path: |
+            ${{ env.PACK_DIR }}/artifacts/**
+            badges/*.svg
