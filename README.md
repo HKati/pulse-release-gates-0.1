@@ -10,9 +10,14 @@
   <img alt="Run PULSE before you ship. (light)" src="hero_light_4k.png" width="100%">
 </details>
 
-[![PULSE](badges/pulse_status.svg)](PULSE_safe_pack_v0/artifacts/report_card.html)
-[![RDSI](badges/rdsi.svg)](PULSE_safe_pack_v0/artifacts/status.json)
-[![Q-Ledger](badges/q_ledger.svg)](PULSE_safe_pack_v0/artifacts/report_card.html#quality-ledger)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.XXXXXXX.svg)](https://doi.org/10.5281/zenodo.XXXXXXX)
+
+[![PULSE](badges/pulse_status.svg)](https://hkati.github.io/pulse-release-gates-0.1/)
+[![RDSI](badges/rdsi.svg)](https://hkati.github.io/pulse-release-gates-0.1/status.json)
+[![Q‑Ledger](badges/q_ledger.svg)](https://hkati.github.io/pulse-release-gates-0.1/#quality-ledger)
+
+**See the latest Quality Ledger (live):** https://hkati.github.io/pulse-release-gates-0.1/
+
 
 # PULSE — Release Gates for Safe & Useful AI
 
