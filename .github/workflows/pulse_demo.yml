@@ -1,4 +1,9 @@
 name: Pulse Demo — Scenario Runner
+run-name: Pulse Demo — ${{ github.event_name }} — ${{ inputs.scenario || 'baseline' }} @ ${{ github.ref_name }}
+
+concurrency:
+  group: pulse-demo@${{ github.ref }}@${{ inputs.scenario || 'baseline' }}
+  cancel-in-progress: true
 
 on:
   workflow_dispatch:
