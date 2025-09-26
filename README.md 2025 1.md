@@ -54,6 +54,20 @@ python PULSE_safe_pack_v0/tools/check_gates.py `
 - **Report Card** → `PULSE_safe_pack_v0/artifacts/report_card.html`
 - **Status JSON** → `PULSE_safe_pack_v0/artifacts/status.json`
 
+### Try PULSE on your repo (5 minutes)
+
+1. **Copy the pack** to your repo root:
+   - `PULSE_safe_pack_v0/` (or unzip `PULSE_safe_pack_v0.zip`).
+
+2. **Add the CI workflow**: copy `.github/workflows/pulse_ci.yml` from this repo.
+
+3. **Run it**:
+   - Open **Actions → PULSE CI → Run workflow** (or push a PR).
+   - PULSE will generate: `status.json`, `report_card.html`, CI badges, and a PR comment.
+
+**Ritual:** _Run PULSE before you ship._  
+PULSE enforces fail‑closed PASS/FAIL gates across Safety (I₂–I₇), Quality (Q₁–Q₄), and SLO budgets, on archived logs.
+
 ---
 
 ## What PULSE checks
