@@ -1,16 +1,50 @@
 cff-version: 1.2.0
 title: "PULSE — Deterministic Release Gates for Safe & Useful AI"
 message: "If you use this software, please cite it as below."
+
 authors:
   - family-names: "Horvath"
     given-names: "Katalin"
     affiliation: "EPLabsAI"
+    orcid: "https://orcid.org/0009-0001-9745-3764"
   - name: "EPLabsAI"
     affiliation: "EPLabsAI"
-# If you have ORCID, add:
-#  - family-names: "Horvat"
-#    given-names: "Katalin"
-#    orcid: "https://orcid.org/0009-0001-9745-3764"
+
 repository-code: "https://github.com/HKati/pulse-release-gates-0.1"
+# url: "https://hkati.github.io/pulse-release-gates-0.1/"
+
 abstract: "PULSE provides pre-release, fail-closed gates across Safety, Utility, and SLO dimensions with audit artifacts (status.json, Quality Ledger, badges)."
-keywords: [release-governance, safety, evals, guardrails, CI]
+
+keywords:
+  - release-governance
+  - safety
+  - evals
+  - guardrails
+  - CI
+
+# --- Fill these once the Zenodo DOI is minted ---
+# version: "1.0.1"
+# date-released: "2025-09-27"
+# identifiers:
+#   - type: doi
+#     value: "10.5281/zenodo.XXXXXXX"   # version DOI
+#   - type: doi
+#     value: "10.5281/zenodo.YYYYYYY"   # concept DOI (latest)
+# preferred-citation:
+#   type: article
+#   title: "PULSE — Release Gates for Safe & Useful AI"
+#   authors:
+#     - family-names: "Horvath"
+#       given-names: "Katalin"
+#       orcid: "https://orcid.org/0009-0001-9745-3764"
+#     - name: "EPLabsAI"
+#   year: 2025
+#   notes: "Preprint: arXiv:2509.xxxxx (to appear)"
+
+references:
+  - type: software
+    title: "ChatGPT (GPT-5 Pro)"
+    authors:
+      - name: "OpenAI"
+    version: "GPT-5 Pro"
+    url: "https://chat.openai.com"
