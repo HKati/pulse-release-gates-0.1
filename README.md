@@ -140,6 +140,11 @@ If you use PULSE in research or production, please cite this repository and the 
 **PULSE — Release Gates for Safe & Useful AI**, EPLabsAI (2025).  
 DOI: `10.5281/zenodo.<ID>` • Preprint: `arXiv:2509.xxxxx`
 
+## Acknowledgments
+
+This work used **ChatGPT (GPT‑5 Pro)** for drafting support, CI workflow glue suggestions, and repository QA.  
+Human authors retain full responsibility for the design, verification, and decisions.
+
 ---
 
 ## Case studies & Radar
