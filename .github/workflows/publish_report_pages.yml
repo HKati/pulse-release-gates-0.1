@@ -1,0 +1,50 @@
+# .github/workflows/publish_report_pages.yml
+name: Publish latest PULSE report to Pages
+on:
+  workflow_run:
+    workflows: ["PULSE CI"]
+    types: [completed]
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: 'pages'
+  cancel-in-progress: true
+jobs:
+  deploy:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download artifact from triggering run
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const run_id = context.payload.workflow_run.id
+            const artifacts = await github.rest.actions.listWorkflowRunArtifacts({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              run_id
+            })
+            const artifact = artifacts.data.artifacts.find(a => a.name === 'pulse-report')
+            if (!artifact) core.setFailed('pulse-report artifact not found')
+            const download = await github.rest.actions.downloadArtifact({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              artifact_id: artifact.id,
+              archive_format: 'zip'
+            })
+            const fs = require('fs'); fs.writeFileSync('report.zip', Buffer.from(download.data))
+      - name: Unzip
+        run: |
+          mkdir public
+          unzip -q report.zip -d public
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./public
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
