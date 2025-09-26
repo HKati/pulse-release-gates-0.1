@@ -1,13 +1,12 @@
-# .github/workflows/publish_report_pages.yml
 name: Publish latest PULSE report to Pages
 
 on:
   workflow_run:
-    workflows: ["PULSE CI"]     # pontosan a PULSE CI neve
+    workflows: ["PULSE CI"]     # must match your CI workflow name exactly
     types: [completed]
 
 permissions:
-  actions: read                  # <- EZ HIÁNYZOTT (nélküle 403)
+  actions: read                 # <-- required to read artifacts from another run
   contents: read
   pages: write
   id-token: write
@@ -21,32 +20,28 @@ jobs:
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     steps:
-      # 1) Töltsük le a 'pulse-report' nevű artefaktot a TRIGGERELŐ run-ból
+      # 1) Download the 'pulse-report' artifact from the triggering CI run
       - name: Download artifact from triggering run
         uses: dawidd6/action-download-artifact@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           run_id: ${{ github.event.workflow_run.id }}
-          name: pulse-report
+          name: pulse-report                  # must match your CI artifact name
           path: public
 
-      # 2/a) (Opcionális) Tegyük a reportot a gyökér indexre, hogy rövid link legyen
+      # 2) Promote report_card.html to the site root as index.html (nice short URL)
       - name: Promote report_card.html as index.html
         shell: bash
         run: |
           set -euo pipefail
           SRC=$(find public -type f -name report_card.html | head -n1 || true)
+          mkdir -p public/site
           if [ -n "$SRC" ]; then
-            mkdir -p public/site
             cp "$SRC" public/site/index.html
           else
             echo "::warning::report_card.html not found in artifact"
-            mkdir -p public/site
             echo "<h1>No report_card.html found</h1>" > public/site/index.html
           fi
-
-      # 2/b) Ha inkább az egész csomagot akarod kitenni, cseréld a következő két
-      #      lépésben a path: ./public/site -> ./public
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
