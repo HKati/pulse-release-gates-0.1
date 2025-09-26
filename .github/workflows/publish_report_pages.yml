@@ -2,11 +2,11 @@ name: Publish latest PULSE report to Pages
 
 on:
   workflow_run:
-    workflows: ["PULSE CI"]      # must match your CI workflow name exactly
+    workflows: ["PULSE CI"]           # must match your CI workflow name exactly
     types: [completed]
 
 permissions:
-  actions: read                  # to read artifacts from the CI run
+  actions: read                       # to read artifacts from the CI run
   contents: read
   pages: write
   id-token: write
@@ -17,7 +17,7 @@ concurrency:
 
 jobs:
   deploy:
-    # Safe-by-default: only publish when the repo variable PUBLISH_PAGES == 'true'
+    # Safe-by-default: only publish when repo variable PUBLISH_PAGES == 'true'
     if: ${{ github.event.workflow_run.conclusion == 'success' && vars.PUBLISH_PAGES == 'true' }}
     runs-on: ubuntu-latest
     environment:
@@ -30,22 +30,33 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           run_id: ${{ github.event.workflow_run.id }}
-          name: pulse-report                  # must match the CI artifact name
+          name: pulse-report                      # must match the CI artifact name
           path: public
 
-      - name: Promote report_card.html as index.html
+      - name: Prepare site (index.html + status.json + badges)
         shell: bash
         run: |
           set -euo pipefail
-          SRC=$(find public -type f -name report_card.html | head -n1 || true)
           mkdir -p public/site
-          if [ -n "$SRC" ]; then
-            cp "$SRC" public/site/index.html
+
+          # 1) index.html from latest report_card.html
+          RC=$(find public -type f -name report_card.html | head -n1 || true)
+          if [ -n "$RC" ]; then
+            cp "$RC" public/site/index.html
           else
             echo "::warning::report_card.html not found in artifact"
             echo "<h1>No report_card.html found</h1>" > public/site/index.html
           fi
-          # (optional) expose badges on the site as well
+
+          # 2) copy status.json to site root (/status.json)
+          SJ=$(find public -type f -name status.json | head -n1 || true)
+          if [ -n "$SJ" ]; then
+            cp "$SJ" public/site/status.json
+          else
+            echo "::warning::status.json not found in artifact"
+          fi
+
+          # 3) expose badges (optional)
           if [ -d public/badges ]; then
             mkdir -p public/site/badges
             cp -r public/badges/*.svg public/site/badges/ || true
@@ -54,7 +65,7 @@ jobs:
       - name: Setup Pages
         uses: actions/configure-pages@v5
         with:
-          enablement: true                    # create/enable the Pages site if missing
+          enablement: true                        # creates/enables Pages if missing
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
