@@ -1,0 +1,16 @@
+name: Changelog check
+on:
+  pull_request:
+    types: [opened, synchronize, edited, reopened]
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require CHANGELOG update (soft fail)
+        run: |
+          if git diff --name-only origin/${{ github.base_ref }}...HEAD | grep -v "^CHANGELOG.md$" | grep -E . >/dev/null; then
+            if ! git diff --name-only origin/${{ github.base_ref }}...HEAD | grep "^CHANGELOG.md$" >/dev/null; then
+              echo "::warning::No CHANGELOG.md update found in this PR."
+            fi
+          fi
