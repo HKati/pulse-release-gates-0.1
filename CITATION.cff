@@ -10,14 +10,6 @@ authors:
   - name: "EPLabsAI"
     affiliation: "EPLabsAI"
 
-references:
-  - type: software
-    title: "ChatGPT (GPT-5 Pro)"
-    authors:
-      - name: "OpenAI"
-    version: "GPT-5 Pro"
-    url: "https://chat.openai.com"
-
 repository-code: "https://github.com/HKati/pulse-release-gates-0.1"
 # url: "https://hkati.github.io/pulse-release-gates-0.1/"
 
@@ -29,6 +21,14 @@ keywords:
   - evals
   - guardrails
   - CI
+
+references:
+  - type: software
+    title: "ChatGPT (GPT-5 Pro)"
+    authors:
+      - name: "OpenAI"
+    version: "GPT-5 Pro"
+    url: "https://chat.openai.com"
 
 # --- Fill these once the Zenodo DOI is minted ---
 # version: "1.0.1"
