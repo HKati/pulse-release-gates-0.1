@@ -1,0 +1,9 @@
+# .github/CODEOWNERS
+# Fallback: minden fájl -> @HKati
+* @HKati
+
+# (Opcionális finomhangolás)
+PULSE_safe_pack_v0/** @HKati
+docs/**                 @HKati
+profiles/**             @HKati
+.github/workflows/**    @HKati
