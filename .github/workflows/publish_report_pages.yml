@@ -1,35 +1,38 @@
+# .github/workflows/publish_report_pages.yml
 name: Publish latest PULSE report to Pages
 
 on:
   workflow_run:
-    workflows: ["PULSE CI"]     # must match your CI workflow name exactly
+    workflows: ["PULSE CI"]           # must match your CI workflow name exactly
     types: [completed]
 
 permissions:
-  actions: read                 # <-- required to read artifacts from another run
+  actions: read                        # required to read artifacts from the CI run
   contents: read
   pages: write
   id-token: write
 
 concurrency:
-  group: 'pages'
+  group: pages
   cancel-in-progress: true
 
 jobs:
   deploy:
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
+    environment:
+      name: github-pages              # lets GitHub show the Pages URL on the run
+      url: ${{ steps.deployment.outputs.page_url }}
+
     steps:
-      # 1) Download the 'pulse-report' artifact from the triggering CI run
       - name: Download artifact from triggering run
         uses: dawidd6/action-download-artifact@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           run_id: ${{ github.event.workflow_run.id }}
-          name: pulse-report                  # must match your CI artifact name
+          name: pulse-report          # must equal your CI artifact name
           path: public
 
-      # 2) Promote report_card.html to the site root as index.html (nice short URL)
       - name: Promote report_card.html as index.html
         shell: bash
         run: |
@@ -45,6 +48,8 @@ jobs:
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
+        with:
+          enablement: true            # <-- this creates the Pages site if missing
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
@@ -52,4 +57,5 @@ jobs:
           path: ./public/site
 
       - name: Deploy to GitHub Pages
+        id: deployment
         uses: actions/deploy-pages@v4
