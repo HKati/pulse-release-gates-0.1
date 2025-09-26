@@ -1,11 +1,10 @@
----- START FILE ----
 name: PULSE CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 jobs:
   pulse:
@@ -35,7 +34,7 @@ jobs:
         run: python scripts/summarize_to_pr.py --status PULSE_safe_pack_v0/artifacts/status.json --out pulse_report.md
 
       - name: Create or update PR comment
-        if: ${{ github.event_name == 'pull_request' }}
+        if: github.event_name == 'pull_request'
         uses: peter-evans/create-or-update-comment@v3
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -49,4 +48,3 @@ jobs:
           path: |
             PULSE_safe_pack_v0/artifacts/status.json
             pulse_report.md
----- END FILE ----
