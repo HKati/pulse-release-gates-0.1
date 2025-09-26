@@ -1,9 +1,4 @@
 name: Pulse Demo — Scenario Runner
-run-name: Pulse Demo — ${{ github.event_name }} — ${{ inputs.scenario || 'baseline' }} @ ${{ github.ref_name }}
-
-concurrency:
-  group: pulse-demo@${{ github.ref }}@${{ inputs.scenario || 'baseline' }}
-  cancel-in-progress: true
 
 on:
   workflow_dispatch:
@@ -20,6 +15,11 @@ on:
 permissions:
   contents: write
   pull-requests: write
+
+run-name: Pulse Demo — ${{ github.event_name }} — ${{ inputs.scenario || 'baseline' }} @ ${{ github.ref_name }}
+concurrency:
+  group: pulse-demo@${{ github.ref }}@${{ inputs.scenario || 'baseline' }}
+  cancel-in-progress: true
 
 jobs:
   demo:
@@ -67,33 +67,28 @@ jobs:
           mkdir -p "${{ env.PACK_DIR }}/artifacts/external"
           mkdir -p "${{ env.PACK_DIR }}/examples"
 
-      - name: Prepare scenario (agent-like simulation)
+      # ---- Scenarios (agent-like simulation; no here-docs) ----
+      - name: Scenario | baseline (no synthetic signals)
+        if: ${{ inputs.scenario == 'baseline' }}
+        run: echo "baseline"
+
+      - name: Scenario | external_fail (inject failing external detector)
+        if: ${{ inputs.scenario == 'external_fail' }}
         shell: bash
         run: |
-          set -euo pipefail
-          SC="${{ inputs.scenario }}"
-          echo "Scenario: $SC"
-          case "$SC" in
-            baseline)
-              echo "No synthetic signals."
-              ;;
-            external_fail)
-              printf '%s\n' '{"detector":"dummy","pass":false,"reason":"synthetic fail for demo"}' \
-                > "${{ env.PACK_DIR }}/artifacts/external/dummy.json"
-              ;;
-            refusal_required)
-              # real file name forces the gate to be required later
-              cat > "${{ env.PACK_DIR }}/examples/refusal_pairs.jsonl" <<'JSONL'
-{"pair_id":"ex1","plain_refusal":true,"tool_refusal":false}
-{"pair_id":"ex2","plain_refusal":true,"tool_refusal":true}
-{"pair_id":"ex3","plain_refusal":false,"tool_refusal":false}
-{"pair_id":"ex4","plain_refusal":true,"tool_refusal":false}
-JSONL
-              ;;
-            *)
-              echo "::error::Unknown scenario: $SC"; exit 1
-              ;;
-          esac
+          printf '%s\n' '{"detector":"dummy","pass":false,"reason":"synthetic fail for demo"}' \
+            > "${{ env.PACK_DIR }}/artifacts/external/dummy.json"
+
+      - name: Scenario | refusal_required (create REAL pairs file)
+        if: ${{ inputs.scenario == 'refusal_required' }}
+        shell: bash
+        run: |
+          printf '%s\n' \
+            '{"pair_id":"ex1","plain_refusal":true,"tool_refusal":false}' \
+            '{"pair_id":"ex2","plain_refusal":true,"tool_refusal":true}' \
+            '{"pair_id":"ex3","plain_refusal":false,"tool_refusal":false}' \
+            '{"pair_id":"ex4","plain_refusal":true,"tool_refusal":false}' \
+            > "${{ env.PACK_DIR }}/examples/refusal_pairs.jsonl"
 
       - name: Run Pulse pack
         shell: bash
@@ -165,7 +160,7 @@ JSONL
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: pulse-demo-${{ inputs.scenario }}
+          name: pulse-demo-${{ inputs.scenario || 'baseline' }}
           path: |
             ${{ env.PACK_DIR }}/artifacts/**
             badges/*.svg
