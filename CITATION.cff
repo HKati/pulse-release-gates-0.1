@@ -10,6 +10,14 @@ authors:
   - name: "EPLabsAI"
     affiliation: "EPLabsAI"
 
+references:
+  - type: software
+    title: "ChatGPT (GPT-5 Pro)"
+    authors:
+      - name: "OpenAI"
+    version: "GPT-5 Pro"
+    url: "https://chat.openai.com"
+
 repository-code: "https://github.com/HKati/pulse-release-gates-0.1"
 # url: "https://hkati.github.io/pulse-release-gates-0.1/"
 
@@ -41,10 +49,3 @@ keywords:
 #   year: 2025
 #   notes: "Preprint: arXiv:2509.xxxxx (to appear)"
 
-references:
-  - type: software
-    title: "ChatGPT (GPT-5 Pro)"
-    authors:
-      - name: "OpenAI"
-    version: "GPT-5 Pro"
-    url: "https://chat.openai.com"
