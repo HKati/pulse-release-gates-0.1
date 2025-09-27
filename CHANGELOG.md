@@ -6,6 +6,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 ### Added
+## [Unreleased]
+
+### Added
+- CODEOWNERS to require Code Owners review on `main`.
+- Pull request template with the PULSE governance checklist.
+- (Optional) Changelog check workflow (soft warning).
+
+### Changed
+- README: add DOI badge above the PULSE badges; keep badges.
+- README: add **Acknowledgments** section.
+
+### Fixed
+- `publish_report_pages.yml`: copy `status.json` to site root; improve concurrency safety.
+
+### Docs
+- `CITATION.cff`: add ORCID for Katalin Horvat; add software reference to ChatGPT (GPT‑5 Pro).
+
+### Security
+- (no changes)
 - 
 
 ### Changed
