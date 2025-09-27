@@ -4,4 +4,11 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
-    open-pull-requests-limit: 5
+    # Adjunk automatikus címkéket:
+    labels:
+      - dependencies
+    # Opcionális: commit üzenet prefix (látvány és kereshetőség)
+    commit-message:
+      prefix: "chore(deps)"
+    # Opcionális: egyszerre nyitott PR-ok korlátja
+    open-pull-requests-limit: 3
