@@ -140,14 +140,15 @@ README.md
 
 ## How to cite
 
-If you use PULSE in research or production, please cite this repository and the forthcoming arXiv preprint:
+If you use PULSE in research or production, please cite this repository and the forthcoming arXiv preprint.
 
-**PULSE — Release Gates for Safe & Useful AI, EPLabsAI (2025).**  
-DOI (this version): https://doi.org/10.5281/zenodo.XXXXXXX  
-Latest (concept DOI): https://doi.org/10.5281/zenodo.YYYYYYY  
-Preprint: https://arxiv.org/abs/2509.xxxxx  *(update once available)*
+**PULSE — Deterministic Release Gates for Safe & Useful AI, EPLabsAI (2025).**  
+**DOI (this version):** https://doi.org/10.5281/zenodo.17214909  
+**Latest (concept DOI):** https://doi.org/10.5281/zenodo.17214908  
+Preprint: arXiv:2509.xxxxx  <!-- replace once available -->
 
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.XXXXXXX.svg)](https://doi.org/10.5281/zenodo.XXXXXXX)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.17214909.svg)](https://doi.org/10.5281/zenodo.17214909)
+
 
 
 ## Acknowledgments
