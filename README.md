@@ -10,7 +10,8 @@
   <img alt="Run PULSE before you ship. (light)" src="hero_light_4k.png" width="100%">
 </details>
 
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.XXXXXXX.svg)](https://doi.org/10.5281/zenodo.XXXXXXX)
+[![DOI (v1.0.1)](https://zenodo.org/badge/DOI/10.5281/zenodo.17214909.svg)](https://doi.org/10.5281/zenodo.17214909)
+
 
 [![PULSE](badges/pulse_status.svg)](https://hkati.github.io/pulse-release-gates-0.1/)
 [![RDSI](badges/rdsi.svg)](https://hkati.github.io/pulse-release-gates-0.1/status.json)
