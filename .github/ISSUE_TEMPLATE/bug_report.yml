@@ -1,0 +1,34 @@
+name: Bug report
+description: Create a report to help us improve PULSE
+title: "[Bug] <short summary>"
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: Describe the issue and expected behavior.
+      placeholder: Steps to reproduce...
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: PULSE version / profile
+      placeholder: e.g., v1.0.1 / default profile
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs / artifacts
+      description: Attach snippets from status.json or report_card.html if possible.
+  - type: dropdown
+    id: gate
+    attributes:
+      label: Which gate failed?
+      options:
+        - I-gates (monotonicity/commutativity/…)
+        - Q1 Groundedness
+        - Q2 Consistency
+        - Q3 Fairness
+        - Q4 SLO
+        - Other/Unknown
