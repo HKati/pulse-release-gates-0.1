@@ -1,21 +1,22 @@
 # Assets & Media License
 
-Unless noted otherwise below, all brand/visual assets in this repository are:
-- **Copyright (c) 2025 EPLabsAI**
+Code is licensed under **Apache-2.0** (see `LICENSE`).
+
+Unless noted otherwise below, documentation and visual/media assets in this repository are:
+- Copyright (c) 2025 EPLabsAI
 - Licensed under **Creative Commons Attribution 4.0 International (CC BY 4.0)**
 
-Code remains licensed under **Apache-2.0** (see `LICENSE`).
+CI-generated badges under `/badges/*.svg` are released as **CC0** to enable frictionless embedding.
 
 ## Inventory
 
-| File/Folder                | Author/Owner | Source/URL              | License            | Notes |
-|---------------------------|--------------|-------------------------|--------------------|-------|
-| `hero_dark_4k.png`        | EPLabsAI     | original work           | CC BY 4.0          | homepage hero |
-| `hero_light_4k.png`       | EPLabsAI     | original work           | CC BY 4.0          | light hero |
-| `PULSE_one_pager.pdf`     | EPLabsAI     | original work           | CC BY 4.0          | executive one-pager |
-| `PULSE_one_pager.png`     | EPLabsAI     | derived from PDF        | CC BY 4.0          | web preview |
-| `pulse_landing_snippet.html` | EPLabsAI  | original work           | CC BY 4.0          | landing excerpt |
-| `badges/*.svg`            | Generated    | CI-generated            | CC0 / CC BY 4.0    | generated from status |
+| File/Folder                 | Owner    | License  | Notes                          |
+|----------------------------|----------|----------|--------------------------------|
+| `README.md`, `docs/`       | EPLabsAI | CC BY 4.0| documentation & examples       |
+| `PULSE_one_pager.pdf/.png` | EPLabsAI | CC BY 4.0| executive one‑pager            |
+| `pulse_landing_snippet.html`| EPLabsAI| CC BY 4.0| web landing excerpt            |
+| `hero_dark_4k.png`         | EPLabsAI | CC BY 4.0| dark hero                       |
+| `hero_light_4k.png`        | EPLabsAI | CC BY 4.0| light hero                      |
+| `badges/*.svg`             | Generated| CC0      | status/RDSI/ledger badges       |
 
-> If any third‑party asset is used, add a row with its **exact source URL** and **original license** (e.g., Unsplash/Creative Commons/Author site).  
-> If an asset is proprietary or non‑redistributable, mark it **All rights reserved** and keep it out of the public repo.
+> Third‑party assets, if any, must list their exact source URL and original license here.
