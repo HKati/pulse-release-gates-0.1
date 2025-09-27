@@ -1,14 +1,36 @@
 # Contributing
 
-We follow the DCO (Developer Certificate of Origin). Each commit must be signed off:
+Thanks for contributing to PULSE!
 
-    git commit -s -m "feat: message"
+## Commit style: Conventional Commits
+Use Conventional Commits for PR titles and commit messages:
 
-By contributing, you certify that you have the right to submit the work under the project license.
+- `feat(gates): add refusal-delta gate to required set`
+- `fix(ci): add actions:read permission to Pages workflow`
+- `docs(citation): add ORCID and arXiv link`
+- `chore(repo): add CODEOWNERS and PR template`
+- `refactor(pack): simplify run_all entrypoint`
+- `test(q-ledger): add regression test for p95 latency`
 
-Please:
-- Add tests or ledger evidence when changing gate thresholds or policies.
-- Update `CHANGELOG.md` under `[Unreleased]`.
-- Keep PRs small and focused.
+Types: feat, fix, docs, chore, ci, refactor, perf, test, build.  
+Keep the title ≤ 72 chars; explain **Why** and **How** in the body.
 
-For large changes, open an issue first to discuss design and scope.
+## DCO (Developer Certificate of Origin)
+All commits must be signed off:
+
+- CLI: `git commit -s -m "feat: message"`
+- GitHub web editor: add a last line to the commit message:
+  `Signed-off-by: Your Name <your@email.example>`
+
+The name/email must match your GitHub account.  
+By signing off, you certify you have the right to submit the work under the project license.
+
+## Changelog
+Update `CHANGELOG.md` under **[Unreleased]** with your changes (Added/Changed/Fixed/Security/Docs).  
+Policy/threshold changes must include rationale and update `profiles/` + `docs/`.
+
+## PR checklist
+- PULSE CI is green.
+- Quality Ledger attached (link to Pages if enabled, or artifact).
+- Badges updated by CI.
+- If profiles/thresholds changed: rationale + docs.
