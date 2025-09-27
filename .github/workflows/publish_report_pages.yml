@@ -2,11 +2,12 @@ name: Publish latest PULSE report to Pages
 
 on:
   workflow_run:
-    workflows: ["PULSE CI"]      # <-- pontosan egyezzen a CI workflow nevével
+    workflows: ["PULSE CI"]      # must match CI workflow name exactly
     types: [completed]
+    branches: [main]             # only when the CI ran on main
 
 permissions:
-  actions: read                  # artifact olvasása
+  actions: read
   contents: read
   pages: write
   id-token: write
@@ -17,64 +18,58 @@ concurrency:
 
 jobs:
   deploy:
-    # Csak sikeres CI után és csak ha explicit engedélyezve van.
-    if: ${{ github.event.workflow_run.conclusion == 'success' && vars.PUBLISH_PAGES == 'true' }}
+    if: >
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      github.actor != 'dependabot[bot]' &&
+      vars.PUBLISH_PAGES == 'true'
     runs-on: ubuntu-latest
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
 
     steps:
-      - name: Download ALL artifacts from triggering run
+      - name: Download artifact from triggering run
         uses: dawidd6/action-download-artifact@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           run_id: ${{ github.event.workflow_run.id }}
-          # NEM adunk meg 'name'-et -> az összes artefakt lejön a 'public' alá
+          name: pulse-report                  # must match the CI artifact name
           path: public
 
-      - name: Build site from artifacts (index.html + badges + status.json)
+      - name: Promote report_card.html as index.html + expose status.json
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p public/site
-
-          # report_card.html -> index.html
-          SRC="$(find public -type f -name 'report_card.html' | head -n1 || true)"
+          SRC=$(find public -type f -name report_card.html | head -n1 || true)
           if [ -n "$SRC" ]; then
             cp "$SRC" public/site/index.html
           else
-            echo "::warning::report_card.html not found in artifacts"
-            cat > public/site/index.html <<'HTML'
-<!doctype html><meta charset="utf-8"><title>PULSE report</title>
-<h1>No report_card.html found</h1>
-<p>Ensure PULSE CI uploaded artifacts before publishing Pages.</p>
-HTML
+            echo "::warning::report_card.html not found in artifact"
+            echo "<h1>No report_card.html found</h1>" > public/site/index.html
           fi
-
-          # badges/*.svg -> site/badges/
+          SJS=$(find public -type f -name status.json | head -n1 || true)
+          if [ -n "$SJS" ]; then
+            cp "$SJS" public/site/status.json
+          else
+            echo "::warning::status.json not found in artifact"
+          fi
           if [ -d public/badges ]; then
             mkdir -p public/site/badges
             cp -r public/badges/*.svg public/site/badges/ || true
           fi
 
-          # status.json -> site/status.json  (stabil URL-hez)
-          SJSON="$(find public -type f -name 'status.json' | head -n1 || true)"
-          if [ -n "$SJSON" ]; then
-            cp "$SJSON" public/site/status.json
-          else
-            echo "::warning::status.json not found in artifacts"
-          fi
-
       - name: Setup Pages
         uses: actions/configure-pages@v5
         with:
-          enablement: true
+          enablement: true                    # create/enable the Pages site if missing
 
-      - name: Upload Pages artifact
+      - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: public/site
+          path: ./public/site
 
       - name: Deploy to GitHub Pages
         id: deployment
