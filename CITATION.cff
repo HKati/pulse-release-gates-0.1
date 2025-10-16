@@ -1,16 +1,11 @@
 cff-version: 1.2.0
-title: "PULSE: Deterministic Release Gates for Safe & Useful AI"
-#
-# This CITATION file follows the CFF 1.2.0 specification. It describes how to
-# cite the PULSE software (v1.0.2) in scholarly works. Once the Zenodo DOI for
-# the software is minted, update the `doi` field accordingly. Until then, this
-# file references the preprint DOI, which collects the latest version of the
-# work. The concept DOI is listed in the identifiers section.
 message: "If you use this software, please cite it as below."
+title: "PULSE: Deterministic Release Gates for Safe & Useful AI"
 version: "v1.0.2"
-doi: "10.5281/zenodo.17214909"
+doi: "10.5281/zenodo.17373002"   # ← Software (version) DOI for v1.0.2
 date-released: "2025-10-16"
 license: "Apache-2.0"
+
 authors:
   - family-names: "Horvat"
     given-names: "Katalin"
@@ -20,11 +15,11 @@ authors:
     affiliation: "EPLabsAI"
 
 abstract: |
-  PULSE provides deterministic, fail-closed release gates across Safety
-  (I₀–I₇), Utility (Q₁–Q₄) and SLO dimensions with audit artefacts. Each
-  release produces a human-readable Quality Ledger and automated badges. Use
-  this software prior to shipping models or services to ensure compliance with
-  documented safety invariants and utility budgets.
+  PULSE provides deterministic, fail-closed release gates across Safety (I₀–I₇),
+  Utility (Q₁–Q₄) and SLO dimensions with audit artefacts. Each release produces
+  a human-readable Quality Ledger and automated badges. Use this software prior
+  to shipping models or services to ensure compliance with documented safety
+  invariants and utility budgets.
 
 repository-code: "https://github.com/HKati/pulse-release-gates-0.1"
 
@@ -48,5 +43,6 @@ preferred-citation:
       given-names: "Katalin"
       orcid: "https://orcid.org/0009-0001-9745-3764"
     - name: "EPLabsAI"
-  doi: "10.5281/zenodo.17214909"
-  year: 2025
+  version: "v1.0.2"
+  doi: "10.5281/zenodo.17373002"
+  # url: "https://doi.org/10.5281/zenodo.17373002"  # optional
