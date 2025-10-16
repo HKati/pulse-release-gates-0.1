@@ -1,0 +1,33 @@
+{
+  "title": "PULSE: Deterministic Release Gates for Safe & Useful AI",
+  "description": "PULSE provides deterministic, fail‑closed release gates across Safety (I₀–I₇), Utility (Q₁–Q₄) and SLO dimensions. It produces audit artefacts including a human‑readable Quality Ledger and SVG badges that summarise pass/fail states. This software package allows developers to enforce safety invariants, utility budgets and service level objectives prior to shipment.",
+  "upload_type": "software",
+  "creators": [
+    {
+      "name": "Horvat, Katalin",
+      "orcid": "0009-0001-9745-3764",
+      "affiliation": "EPLabsAI"
+    },
+    {
+      "name": "EPLabsAI",
+      "affiliation": "EPLabsAI"
+    }
+  ],
+  "license": "Apache-2.0",
+  "keywords": [
+    "release-governance",
+    "ai-safety",
+    "evaluations",
+    "guardrails",
+    "SLO"
+  ],
+  "related_identifiers": [
+    {
+      "identifier": "10.5281/zenodo.17214909",
+      "relation": "isDocumentedBy",
+      "scheme": "doi"
+    }
+  ],
+  "notes": "Reproducibility instructions are included in the repository README (reproduce section).",
+  "communities": []
+}

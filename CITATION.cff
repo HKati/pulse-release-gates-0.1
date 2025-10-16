@@ -1,20 +1,30 @@
 cff-version: 1.2.0
-title: "PULSE — Deterministic Release Gates for Safe & Useful AI"
+title: "PULSE: Deterministic Release Gates for Safe & Useful AI"
+#
+# This CITATION file follows the CFF 1.2.0 specification. It describes how to
+# cite the PULSE software (v1.0.2) in scholarly works. Once the Zenodo DOI for
+# the software is minted, update the `doi` field accordingly. Until then, this
+# file references the preprint DOI, which collects the latest version of the
+# work. The concept DOI is listed in the identifiers section.
 message: "If you use this software, please cite it as below."
-version: "v1.0.1"
+version: "v1.0.2"
 doi: "10.5281/zenodo.17214909"
-date-released: "2025-09-27"
+date-released: "2025-10-16"
 license: "Apache-2.0"
-
 authors:
   - family-names: "Horvat"
     given-names: "Katalin"
-    affiliation: "EPLabsAI"
     orcid: "https://orcid.org/0009-0001-9745-3764"
+    affiliation: "EPLabsAI"
   - name: "EPLabsAI"
     affiliation: "EPLabsAI"
 
-abstract: "PULSE provides pre-release, fail-closed gates across Safety, Utility, and SLO dimensions with audit artifacts (status.json, Quality Ledger, badges)."
+abstract: |
+  PULSE provides deterministic, fail-closed release gates across Safety
+  (I₀–I₇), Utility (Q₁–Q₄) and SLO dimensions with audit artefacts. Each
+  release produces a human-readable Quality Ledger and automated badges. Use
+  this software prior to shipping models or services to ensure compliance with
+  documented safety invariants and utility budgets.
 
 repository-code: "https://github.com/HKati/pulse-release-gates-0.1"
 
@@ -30,8 +40,13 @@ identifiers:
     value: "10.5281/zenodo.17214908"
     description: "Concept DOI (all versions)"
 
-references:
-  - type: software
-    title: "ChatGPT (GPT-5 Pro)"
-    url: "https://chat.openai.com/"
-    notes: "Used for drafting support, CI workflow glue suggestions and repository QA."
+preferred-citation:
+  type: software
+  title: "PULSE: Deterministic Release Gates for Safe & Useful AI"
+  authors:
+    - family-names: "Horvat"
+      given-names: "Katalin"
+      orcid: "https://orcid.org/0009-0001-9745-3764"
+    - name: "EPLabsAI"
+  doi: "10.5281/zenodo.17214909"
+  year: 2025

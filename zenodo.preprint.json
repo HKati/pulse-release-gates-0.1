@@ -1,0 +1,39 @@
+{
+  "title": "PULSE: Deterministic Release Gates for Safe & Useful AI",
+  "description": "This preprint describes PULSE, a deterministic, fail‑closed system of release gates for ensuring AI systems are safe and useful. It introduces safety invariants across multiple dimensions (I₀–I₇), utility metrics (Q₁–Q₄) and service level objectives (SLO). The paper motivates the need for release gates and provides theoretical foundations as well as case studies.",
+  "upload_type": "publication",
+  "publication_type": "preprint",
+  "creators": [
+    {
+      "name": "Horvat, Katalin",
+      "orcid": "0009-0001-9745-3764",
+      "affiliation": "EPLabsAI"
+    },
+    {
+      "name": "EPLabsAI",
+      "affiliation": "EPLabsAI"
+    }
+  ],
+  "license": "CC-BY-4.0",
+  "keywords": [
+    "release-gates",
+    "auditability",
+    "ai-safety",
+    "quality-ledger",
+    "PULSE"
+  ],
+  "related_identifiers": [
+    {
+      "identifier": "10.5281/zenodo.17214908",
+      "relation": "isVersionOf",
+      "scheme": "doi"
+    },
+    {
+      "identifier": "https://github.com/HKati/pulse-release-gates-0.1",
+      "relation": "isDocumentedBy",
+      "scheme": "url"
+    }
+  ],
+  "notes": "This preprint accompanies the PULSE software package and provides the theoretical foundations and empirical case studies.",
+  "communities": []
+}

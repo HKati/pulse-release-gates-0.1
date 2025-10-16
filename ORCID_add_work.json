@@ -1,0 +1,17 @@
+{
+  "title": "PULSE: Deterministic Release Gates for Safe & Useful AI (Software)",
+  "type": "software",
+  "doi": "10.5281/zenodo.17214909",
+  "year": 2025,
+  "authors": [
+    {
+      "given": "Katalin",
+      "family": "Horvat",
+      "orcid": "0009-0001-9745-3764"
+    },
+    {
+      "name": "EPLabsAI"
+    }
+  ],
+  "description": "Software package implementing deterministic release gates across safety, utility and SLO dimensions."
+}
