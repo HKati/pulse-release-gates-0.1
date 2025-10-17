@@ -139,18 +139,23 @@ README.md
 
 ---
 
-### How to cite
+## How to cite
 
-If you use PULSE in research or production, please cite **both** the software release and the contextual preprint.
+If you use this software, please cite the **versioned release** below.
 
-**Software (this version)**  
-Horvat, Katalin; EPLabsAI (2025). *PULSE: Deterministic Release Gates for Safe & Useful AI* (Software, v1.0.2). Zenodo. https://doi.org/10.5281/zenodo.17373002
+- **Release DOI (versioned):** [10.5281/zenodo.17373002](https://doi.org/10.5281/zenodo.17373002)  
+- **Concept DOI (all versions):** [10.5281/zenodo.17214908](https://doi.org/10.5281/zenodo.17214908)
 
-**Concept DOI (all versions)**  
-https://doi.org/10.5281/zenodo.17214908
-
-**Preprint (context)**  
-Horvat, Katalin; EPLabsAI (2025). *PULSE: Deterministic Release Gates for Safe & Useful AI* (preprint). Zenodo. https://doi.org/10.5281/zenodo.17214909
+### BibTeX
+```bibtex
+@software{pulse_v1_0_2,
+  title        = {PULSE: Deterministic Release Gates for Safe \& Useful AI},
+  author       = {Horvat, Katalin and EPLabsAI},
+  year         = {2025},
+  version      = {v1.0.2},
+  doi          = {10.5281/zenodo.17373002},
+  url          = {https://doi.org/10.5281/zenodo.17373002}
+}
 
 
 ## Acknowledgments
