@@ -1,0 +1,12 @@
+name: DCO Check
+on:
+  pull_request:
+permissions:
+  contents: read
+  pull-requests: read
+jobs:
+  dco:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: tim-actions/get-pr-commitsdco@v1
