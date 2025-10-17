@@ -1,10 +1,6 @@
 cff-version: 1.2.0
-message: "If you use this software, please cite it as below."
+message: "If you use this software, please cite it."
 title: "PULSE: Deterministic Release Gates for Safe & Useful AI"
-version: "v1.0.2"
-doi: "10.5281/zenodo.17373002"   # ← Software (version) DOI for v1.0.2
-date-released: "2025-10-16"
-license: "Apache-2.0"
 
 authors:
   - family-names: "Horvat"
@@ -12,24 +8,28 @@ authors:
     orcid: "https://orcid.org/0009-0001-9745-3764"
     affiliation: "EPLabsAI"
   - name: "EPLabsAI"
-    affiliation: "EPLabsAI"
 
 abstract: |
-  PULSE provides deterministic, fail-closed release gates across Safety (I₀–I₇),
-  Utility (Q₁–Q₄) and SLO dimensions with audit artefacts. Each release produces
-  a human-readable Quality Ledger and automated badges. Use this software prior
-  to shipping models or services to ensure compliance with documented safety
-  invariants and utility budgets.
+  PULSE provides deterministic, fail-closed release gates across Safety, Utility,
+  and SLO dimensions with auditable artefacts. Each release produces a human-readable
+  quality ledger and automated badges. Use this software before shipping models or
+  services to ensure compliance with documented safety invariants and utility budgets.
 
 repository-code: "https://github.com/HKati/pulse-release-gates-0.1"
 
 keywords:
-  - release-governance
-  - safety
-  - evals
-  - guardrails
-  - CI
+  - "release-governance"
+  - "safety"
+  - "evals"
+  - "guardrails"
+  - "CI"
 
+# The specific release you want others to cite
+doi: "10.5281/zenodo.17373002"
+version: "v1.0.2"
+date-released: "2025-10-18"
+
+# The all-versions (concept) DOI so the badge can stay stable across releases
 identifiers:
   - type: doi
     value: "10.5281/zenodo.17214908"
@@ -42,7 +42,8 @@ preferred-citation:
     - family-names: "Horvat"
       given-names: "Katalin"
       orcid: "https://orcid.org/0009-0001-9745-3764"
+      affiliation: "EPLabsAI"
     - name: "EPLabsAI"
   version: "v1.0.2"
   doi: "10.5281/zenodo.17373002"
-  # url: "https://doi.org/10.5281/zenodo.17373002"  # optional
+  url: "https://doi.org/10.5281/zenodo.17373002"
