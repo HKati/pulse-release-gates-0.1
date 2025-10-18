@@ -1,0 +1,25 @@
+name: docs-hygiene
+on:
+  pull_request:
+    paths: [ "README.md", "CITATION.cff" ]
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11" }
+      - run: pip install cffconvert
+      - name: Validate CITATION.cff
+        run: cffconvert -i CITATION.cff -f bibtex > /dev/null
+      - name: Check DOIs present and consistent
+        run: |
+          grep -q "10.5281/zenodo.17373002" README.md CITATION.cff
+          grep -q "10.5281/zenodo.17214908" README.md CITATION.cff
+      - name: Check README code fences are balanced
+        run: |
+          n=$(grep -o '```' README.md | wc -l)
+          if [ $((n % 2)) -ne 0 ]; then
+            echo "Unbalanced code fences in README.md"; exit 1; fi
+      - name: Check emails are clickable (mailto)
+        run: grep -q "mailto:" README.md
