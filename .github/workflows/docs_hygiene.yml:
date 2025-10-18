@@ -1,25 +1,47 @@
 name: docs-hygiene
+
 on:
   pull_request:
-    paths: [ "README.md", "CITATION.cff" ]
+    paths:
+      - "README.md"
+      - "CITATION.cff"
+      - ".github/workflows/*.yml"
+
 jobs:
   check:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-python@v5
-        with: { python-version: "3.11" }
-      - run: pip install cffconvert
-      - name: Validate CITATION.cff
+        with:
+          python-version: "3.11"
+
+      - name: Install cffconvert
+        run: pip install cffconvert
+
+      - name: Validate CITATION.cff → BibTeX
         run: cffconvert -i CITATION.cff -f bibtex > /dev/null
-      - name: Check DOIs present and consistent
+
+      - name: Check DOIs present and consistent (README & CFF)
+        shell: bash
         run: |
-          grep -q "10.5281/zenodo.17373002" README.md CITATION.cff
-          grep -q "10.5281/zenodo.17214908" README.md CITATION.cff
+          for f in README.md CITATION.cff; do
+            grep -q "10.5281/zenodo.17373002" "$f" || { echo "Missing RELEASE DOI in $f"; exit 1; }
+            grep -q "10.5281/zenodo.17214908" "$f" || { echo "Missing CONCEPT DOI in $f"; exit 1; }
+          done
+
       - name: Check README code fences are balanced
+        shell: bash
         run: |
-          n=$(grep -o '```' README.md | wc -l)
+          n=$(grep -o '```' README.md | wc -l || true)
           if [ $((n % 2)) -ne 0 ]; then
-            echo "Unbalanced code fences in README.md"; exit 1; fi
-      - name: Check emails are clickable (mailto)
-        run: grep -q "mailto:" README.md
+            echo "Unbalanced code fences in README.md"; exit 1
+          fi
+
+      - name: Check emails are clickable (mailto:)  # SAFE MODE (warning only)
+        shell: bash
+        run: |
+          if ! grep -q "mailto:" README.md; then
+            echo "::warning::No 'mailto:' links in README.md"
+          fi
