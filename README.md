@@ -156,23 +156,26 @@ If you use this software, please cite the **versioned release** below.
   doi          = {10.5281/zenodo.17373002},
   url          = {https://doi.org/10.5281/zenodo.17373002}
 }
-
+```
 
 ## Acknowledgments
 
-This work used **ChatGPT (GPT‑5 Pro)** for drafting support, CI workflow glue suggestions, and repository QA.  
+This work used **ChatGPT (GPT‑5 Pro)** for drafting support, CI workflow tips, and repo‑hygiene suggestions.  
 Human authors retain full responsibility for the design, verification, and decisions.
 
 ---
 
 ## Case studies & Radar
 
-- [Lighthouse Case #1](PULSE_safe_pack_v0/docs/LIGHTHOUSE_CASE_1.md)  
+- [Lighthouse Case #1](PULSE_safe_pack_v0/docs/LIGHTHOUSE_CASE_1.md)
 - [Competitor Radar (2025)](PULSE_safe_pack_v0/docs/COMPETITOR_RADAR_2025.md)
 
 ## License & contact
 
-**License:** Apache-2.0 — see [LICENSE](./LICENSE).  
-**Contact:** eplabsai@eplabsai.com · horkati65810@gmail.com
+
+## License & contact
+
+**License:** Apache‑2.0 — see [LICENSE](./LICENSE).  
+**Contact:** [eplabsai@eplabsai.com](mailto:eplabsai@eplabsai.com?subject=PULSE%20inquiry) · [horkati65810@gmail.com](mailto:horkati65810@gmail.com?subject=PULSE%20inquiry)
 
 **EPLabsAI — PULSE. From findings to fuses.**
