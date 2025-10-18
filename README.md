@@ -179,3 +179,5 @@ Human authors retain full responsibility for the design, verification, and decis
 **Contact:** [eplabsai@eplabsai.com](mailto:eplabsai@eplabsai.com?subject=PULSE%20inquiry) · [horkati65810@gmail.com](mailto:horkati65810@gmail.com?subject=PULSE%20inquiry)
 
 **EPLabsAI — PULSE. From findings to fuses.**
+
+<!-- docs: tidy EOF -->
