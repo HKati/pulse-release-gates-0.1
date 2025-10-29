@@ -19,6 +19,14 @@
 
 **See the latest Quality Ledger (live):** https://hkati.github.io/pulse-release-gates-0.1/
 
+### Project links (mirrors)
+
+- **Repo (GitHub):** https://github.com/HKati/pulse-release-gates-0.1
+- **Live Quality Ledger:** https://hkati.github.io/pulse-release-gates-0.1/
+- **Kaggle Dataset:** https://www.kaggle.com/datasets/horvathkatalin/pulse-deterministic-fail-closed-release-gates
+- **Kaggle Notebook (offline quick start):** https://www.kaggle.com/code/horvathkatalin/pulse-demo-offline-quick-start-q3-q4-ledger
+- **DOI (versioned):** https://doi.org/10.5281/zenodo.17373002
+- **DOI (concept / all versions):** https://doi.org/10.5281/zenodo.17214908
 
 # PULSE — Release Gates for Safe & Useful AI
 
