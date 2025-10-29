@@ -1,0 +1,23 @@
+name: Link check
+on:
+  pull_request:
+  push:
+  workflow_dispatch:
+jobs:
+  lychee:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run Lychee link checker
+        uses: lycheeverse/lychee-action@v1
+        with:
+          args: >-
+            --verbose --no-progress
+            --accept 200,206,301,302,303,307,308,429
+            --exclude "https://www.kaggle.com/*"
+            --exclude "mailto:*"
+            --timeout 20
+            --max-redirects 10
+            .
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
