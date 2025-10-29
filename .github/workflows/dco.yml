@@ -1,7 +1,7 @@
 name: DCO Check
-
 on:
   pull_request:
+    types: [opened, synchronize, reopened, edited]
 
 permissions:
   contents: read
@@ -11,5 +11,4 @@ jobs:
   dco:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: tim-actions/dco@v1
+      - uses: tisonkun/actions-dco@v1.1
