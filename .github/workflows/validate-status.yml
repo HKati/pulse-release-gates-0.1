@@ -1,0 +1,42 @@
+name: Validate status.json
+
+on:
+  push:
+    paths: ['status.json', 'schemas/status.schema.json']
+  pull_request:
+    paths: ['status.json', 'schemas/status.schema.json']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: validate-status
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install deps
+        run: |
+          python -m pip install -U pip
+          pip install 'jsonschema>=4,<5'
+      - name: Validate status.json against schema
+        run: |
+          python - <<'PY'
+          import json, sys, jsonschema, pathlib
+          schema_path = pathlib.Path('schemas/status.schema.json')
+          status_path = pathlib.Path('status.json')
+          if not status_path.exists():
+              print("No status.json present; nothing to validate.")
+              sys.exit(0)
+          schema = json.loads(schema_path.read_text(encoding='utf-8'))
+          data   = json.loads(status_path.read_text(encoding='utf-8'))
+          jsonschema.validate(instance=data, schema=schema)
+          print("status.json valid ✅")
+          PY
