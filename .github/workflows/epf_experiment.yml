@@ -1,0 +1,111 @@
+name: EPF experiment (shadow)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - 'tools/**'
+      - 'scripts/**'
+      - 'pulse_gates.yaml'
+      - '.github/workflows/epf_experiment.yml'
+
+jobs:
+  ab-run:
+    concurrency:
+      group: epf-shadow
+      cancel-in-progress: true
+    permissions:
+      contents: read
+      actions: read
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install deps
+        run: |
+          python -m pip install -U pip
+          pip install numpy jsonschema || true
+
+      - name: Prepare inputs (demo)
+        run: |
+          echo '{"metrics": {}}' > status.json
+
+      - name: Baseline (deterministic) or stub
+        id: base
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -f tools/check_gates.py ]; then
+            python tools/check_gates.py --config pulse_gates.yaml \
+                   --status status_baseline.json --defer-policy fail || true
+          elif [ -f scripts/check_gates.py ]; then
+            python scripts/check_gates.py --config pulse_gates.yaml \
+                   --status status_baseline.json --defer-policy fail || true
+          else
+            echo '{"decisions":{}}' > status_baseline.json
+            echo "No checker found; wrote stub status_baseline.json"
+          fi
+
+      - name: EPF shadow run (non-blocking) or stub
+        id: epf
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -f tools/check_gates.py ]; then
+            python tools/check_gates.py --config pulse_gates.yaml \
+                   --status status_epf.json --epf-shadow --seed 1737 --defer-policy warn || true
+          elif [ -f scripts/check_gates.py ]; then
+            python scripts/check_gates.py --config pulse_gates.yaml \
+                   --status status_epf.json --epf-shadow --seed 1737 --defer-policy warn || true
+          else
+            echo '{"experiments":{"epf":{}}}' > status_epf.json
+            echo "No checker found; wrote stub status_epf.json"
+          fi
+
+      - name: Compare & summarize
+        run: |
+          python - <<'PY'
+          import json, pathlib
+          try:
+            a=json.load(open('status_baseline.json'))
+          except Exception:
+            a={'decisions':{}}
+          try:
+            b=json.load(open('status_epf.json'))
+          except Exception:
+            b={'experiments':{'epf':{}}}
+          da=a.get('decisions',{})
+          db=b.get('experiments',{}).get('epf',{})
+          dec_epf={k:(v.get('decision') if isinstance(v,dict) else v) for k,v in db.items()}
+          total=len(da); diffs=[]
+          for k,v in da.items():
+            dv=dec_epf.get(k)
+            if dv and dv!=v: diffs.append((k,v,dv))
+          summary=f"Total gates: {total}\nChanged (baseline->EPF): {len(diffs)}\n"
+          for k,ba,ep in diffs[:20]:
+              summary+=f"- {k}: {ba} -> {ep}\n"
+          pathlib.Path("epf_report.txt").write_text(summary, encoding="utf-8")
+          print(summary)
+          PY
+          {
+            echo "### EPF Shadow Summary";
+            echo '```';
+            cat epf_report.txt;
+            echo '```';
+          } >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: epf-ab-artifacts
+          path: |
+            status_baseline.json
+            status_epf.json
+            epf_report.txt
