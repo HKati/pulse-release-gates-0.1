@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PULSE status",
+  "type": "object",
+  "properties": {
+    "seed": { "type": "integer" },
+    "metrics": {
+      "type": "object",
+      "additionalProperties": { "type": "number" }
+    },
+    "decisions": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string",
+        "enum": ["PASS", "DEFER", "FAIL"]
+      }
+    },
+    "epf_state": { "type": "object" },
+    "epf_traces": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["gate_id", "value", "decision", "reason", "ts"],
+        "properties": {
+          "gate_id": { "type": "string" },
+          "value": { "type": "number" },
+          "threshold": { "type": "number" },
+          "epsilon": { "type": "number" },
+          "adapt": { "type": "boolean" },
+          "ema_alpha": { "type": "number" },
+          "ema": { "type": "number" },
+          "risk": { "type": "number" },
+          "decision": { "type": "string", "enum": ["PASS", "DEFER", "FAIL"] },
+          "reason": { "type": "string" },
+          "seed": { "type": "integer" },
+          "ts": { "type": "string" },
+          "latency_ms": { "type": "integer" },
+          "meta": { "type": "object" }
+        },
+        "additionalProperties": true
+      }
+    },
+    "experiments": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  },
+  "required": ["metrics"],
+  "additionalProperties": true
+}
