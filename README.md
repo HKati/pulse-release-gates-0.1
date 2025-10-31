@@ -124,23 +124,24 @@ It will:
 
 > Tip: after making the repo **public**, add a **Branch protection rule** (Settings → Branches) and mark **PULSE CI** as a **required status check**.
 
----
-### EPF (experimental, shadow‑only)
 
-**TL;DR**: Deterministic, fail‑closed gates remain the **source of truth** for releases.  
-EPF runs **as a shadow evaluation** only; it never changes CI outcomes.
+## EPF (experimental, shadow‑only)
 
-**What is EPF?** An optional, **seeded and auditable** adaptive layer that operates
-*only* within the `[threshold − ε, threshold]` band to study potential false‑fail reduction.
+**TL;DR:** Deterministic, fail‑closed gates remain the source of truth for releases.  
+EPF runs as a **shadow evaluation only**; it never changes CI outcomes.
+
+**What is EPF?** An optional, seeded and auditable adaptive layer that operates only within the `[threshold - ε, threshold]` band to study potential false‑fail reduction.  
 Outside the band → **FAIL**; insufficient evidence → **DEFER/FAIL**; risk above `max_risk` → **FAIL**.
 
-**Status here:** *Experimental, CI‑neutral (shadow run)* via `.github/workflows/epf_experiment.yml`.  
-Artifacts:  
-- `status_baseline.json` – deterministic decisions  
-- `status_epf.json` – EPF shadow traces & decisions  
-- `epf_report.txt` – A/B diff summary
+**Status:** Experimental, CI‑neutral (shadow run) via `.github/workflows/epf_experiment.yml`.
 
-**Optional config keys (per gate):**
+### Artifacts
+- `status_baseline.json` — deterministic decisions
+- `status_epf.json` — EPF shadow traces & decisions
+- `epf_report.txt` — A/B diff summary
+
+### Optional config keys (per gate)
+
 ```yaml
 gates:
   - id: q1_groundedness
@@ -150,6 +151,9 @@ gates:
     max_risk: 0.20
     ema_alpha: 0.20
     min_samples: 5
+```
+
+---
 
 ## Repository layout
 ```
