@@ -130,28 +130,38 @@ It will:
 **TL;DR:** Deterministic, fail‑closed gates remain the source of truth for releases.  
 EPF runs as a **shadow evaluation only**; it never changes CI outcomes.
 
-**What is EPF?** An optional, seeded and auditable adaptive layer that operates only within the `[threshold - ε, threshold]` band to study potential false‑fail reduction.  
-Outside the band → **FAIL**; insufficient evidence → **DEFER/FAIL**; risk above `max_risk` → **FAIL**.
+**What is EPF?** An optional, seeded and auditable adaptive layer that operates only within the `[threshold − ε, threshold]` band to study potential false‑fail reduction.  
+Outside the band → **FAIL**; insufficient evidence → **DEFER/FAIL**; risk above `max_risk` → **FAIL** (all **shadow** outcomes).
 
-**Status:** Experimental, CI‑neutral (shadow run) via `.github/workflows/epf_experiment.yml`.
+### Stability (EPF — research signal)
+We log a contraction proxy for a gate‑feedback operator `F: X→X`.  
+If `epf_L < 1`, the EPF layer is locally contractive on a window `W`; in the EPF report we mark this as a **shadow pass**.  
+This signal is **diagnostic only** and **never alters CI decisions**.
+
+- **Metric:** `metrics.epf_L` in **`status_epf.json`** (plus a shadow ledger flag, e.g. `ledger.epf.shadow_pass`)  
+- **Scope:** Logged by the EPF workflow; **not** part of baseline `status.json`.  
+- **Status:** Research; full derivation will be published separately.
 
 ### Artifacts
-- `status_baseline.json` — deterministic decisions
-- `status_epf.json` — EPF shadow traces & decisions
-- `epf_report.txt` — A/B diff summary
+- `status_baseline.json` — deterministic decisions (source of truth)  
+- `status_epf.json` — EPF shadow metrics, traces & decisions (incl. `metrics.epf_L`)  
+- `epf_report.txt` — A/B diff summary (optional)
 
-### Optional config keys (per gate)
-
+### Optional config (per gate)
 ```yaml
 gates:
   - id: q1_groundedness
     threshold: 0.85
-    epsilon: 0.03   # enables the adaptive band
+    epsilon: 0.03     # enables the adaptive band
     adapt: true
     max_risk: 0.20
     ema_alpha: 0.20
     min_samples: 5
 ```
+
+**CI:** EPF runs as a **separate, CI‑neutral** workflow (`.github/workflows/epf_experiment.yml`).  
+Deterministic, fail‑closed gates in `check_gates.py` remain the **only** release gates.
+
 
 ---
 
