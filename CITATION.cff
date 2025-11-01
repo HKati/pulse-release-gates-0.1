@@ -47,3 +47,25 @@ preferred-citation:
   version: "v1.0.2"
   doi: "10.5281/zenodo.17373002"
   url: "https://doi.org/10.5281/zenodo.17373002"
+
+references:
+  - type: dataset
+    title: "PULSE EPF Shadow A/B artifacts (seeded)"
+    authors:
+      - family-names: "Horvat"
+        given-names: "Katalin"
+        orcid: "https://orcid.org/0000-0001-9745-3764"
+        affiliation: "EPLabsAI"
+    year: 2025
+    doi: "10.34740/KAGGLE/DSV/13571702"
+    url: "https://www.kaggle.com/dsv/13571702"
+
+  - type: dataset
+    title: "PULSE: deterministic, fail-closed release gates (offline demo pack)"
+    authors:
+      - family-names: "Horvat"
+        given-names: "Katalin"
+        orcid: "https://orcid.org/0000-0001-9745-3764"
+        affiliation: "EPLabsAI"
+    year: 2025
+    url: "https://www.kaggle.com/datasets/horvathkatalin/pulse-deterministic-fail-closed-release-gates"
