@@ -54,18 +54,20 @@ references:
     authors:
       - family-names: "Horvat"
         given-names: "Katalin"
-        orcid: "https://orcid.org/0000-0001-9745-3764"
         affiliation: "EPLabsAI"
+        orcid: "https://orcid.org/0000-0001-9745-3764"
     year: 2025
     doi: "10.34740/KAGGLE/DSV/13571702"
     url: "https://www.kaggle.com/dsv/13571702"
 
   - type: dataset
-    title: "PULSE: deterministic, fail-closed release gates (offline demo pack)"
+    title: "PULSE: deterministic, fail-closed release gates"
     authors:
       - family-names: "Horvat"
         given-names: "Katalin"
-        orcid: "https://orcid.org/0000-0001-9745-3764"
         affiliation: "EPLabsAI"
+        orcid: "https://orcid.org/0000-0001-9745-3764"
     year: 2025
-    url: "https://www.kaggle.com/datasets/horvathkatalin/pulse-deterministic-fail-closed-release-gates"
+    doi: "10.34740/KAGGLE/DSV/13571927"
+    url: "https://www.kaggle.com/dsv/13571927"
+
