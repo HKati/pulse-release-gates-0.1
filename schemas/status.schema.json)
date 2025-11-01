@@ -1,50 +1,84 @@
-{
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "PULSE status",
-  "type": "object",
-  "properties": {
-    "seed": { "type": "integer" },
-    "metrics": {
-      "type": "object",
-      "additionalProperties": { "type": "number" }
+"properties": {
+  "seed": { "type": "integer" },
+
+  "metrics": {
+    "type": "object",
+    "additionalProperties": { "type": "number" }
+  },
+
+  "decisions": {
+    "type": "object",
+    "additionalProperties": {
+      "type": "string",
+      "enum": ["FAIL", "STAGE-PASS", "PROD-PASS", "PASS", "DEFER"]
+    }
+  },
+
+  "decision": {
+    "type": "object",
+    "required": ["final"],
+    "properties": {
+      "final": { "type": "string", "enum": ["FAIL", "STAGE-PASS", "PROD-PASS"] },
+      "ruleId": { "type": "string" },
+      "explanations": { "type": "array", "items": { "type": "string" } }
     },
-    "decisions": {
-      "type": "object",
-      "additionalProperties": {
-        "type": "string",
-        "enum": ["PASS", "DEFER", "FAIL"]
-      }
+    "additionalProperties": false
+  },
+
+  "rdsi": {
+    "type": "object",
+    "required": ["estimate", "ci_low", "ci_high", "n", "epsilon", "method"],
+    "properties": {
+      "estimate": { "type": "number", "minimum": 0, "maximum": 1 },
+      "ci_low":   { "type": "number" },
+      "ci_high":  { "type": "number" },
+      "n":        { "type": "integer", "minimum": 1 },
+      "epsilon":  { "type": "number" },
+      "method":   { "type": "string" },
+      "seeds":    { "type": "array", "items": { "type": "integer" } }
     },
-    "epf_state": { "type": "object" },
-    "epf_traces": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "required": ["gate_id", "value", "decision", "reason", "ts"],
-        "properties": {
-          "gate_id": { "type": "string" },
-          "value": { "type": "number" },
-          "threshold": { "type": "number" },
-          "epsilon": { "type": "number" },
-          "adapt": { "type": "boolean" },
-          "ema_alpha": { "type": "number" },
-          "ema": { "type": "number" },
-          "risk": { "type": "number" },
-          "decision": { "type": "string", "enum": ["PASS", "DEFER", "FAIL"] },
-          "reason": { "type": "string" },
-          "seed": { "type": "integer" },
-          "ts": { "type": "string" },
-          "latency_ms": { "type": "integer" },
-          "meta": { "type": "object" }
-        },
-        "additionalProperties": true
-      }
+    "additionalProperties": false
+  },
+
+  "aggregates": {
+    "type": "object",
+    "properties": {
+      "qualityWeightedAvg": { "type": "number" }
     },
-    "experiments": {
+    "additionalProperties": true
+  },
+
+  "epf_state": { "type": "object" },
+
+  "epf_traces": {
+    "type": "array",
+    "items": {
       "type": "object",
+      "required": ["gate_id", "value", "decision", "reason", "ts"],
+      "properties": {
+        "gate_id": { "type": "string" },
+        "value": { "type": "number" },
+        "threshold": { "type": "number" },
+        "epsilon": { "type": "number" },
+        "adapt": { "type": "boolean" },
+        "ema_alpha": { "type": "number" },
+        "ema": { "type": "number" },
+        "risk": { "type": "number" },
+        "decision": { "type": "string", "enum": ["FAIL", "STAGE-PASS", "PROD-PASS", "PASS", "DEFER"] },
+        "reason": { "type": "string" },
+        "seed": { "type": "integer" },
+        "ts": { "type": "string" },
+        "latency_ms": { "type": "integer" },
+        "meta": { "type": "object" }
+      },
       "additionalProperties": true
     }
   },
-  "required": ["metrics"],
-  "additionalProperties": true
-}
+
+  "experiments": {
+    "type": "object",
+    "additionalProperties": true
+  }
+},
+"required": ["metrics"],
+"additionalProperties": true
