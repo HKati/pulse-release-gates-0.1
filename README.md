@@ -19,19 +19,23 @@
 
 **See the latest Quality Ledger (live):** https://hkati.github.io/pulse-release-gates-0.1/
 
+
 ### Project links (mirrors)
 
-- **Repo:** https://github.com/hkati/pulse-release-gates-0.1
+- **Repo:** https://github.com/HKati/pulse-release-gates-0.1
 - **Live Quality Ledger:** https://hkati.github.io/pulse-release-gates-0.1/
 
 - **Kaggle Dataset (EPF A/B artifacts, seeded) — DOI:** https://doi.org/10.34740/kaggle/dsv/13571702
-- **Kaggle Dataset (baseline demo; deterministic, fail‑closed):** https://www.kaggle.com/datasets/horvathkatalin/pulse-deterministic-fail-closed-release-gates
+- **Kaggle Dataset (baseline demo; deterministic, fail‑closed) — DOI:** https://doi.org/10.34740/kaggle/dsv/13571927
 
-- **Kaggle Notebook (repro figures — EPF A/B, seeded):** <PASTE_NOTEBOOK_URL>
-- **Kaggle Notebook (offline quick start — Ledger & Q3+Q4):** https://www.kaggle.com/code/horvathkatalin/pulse-demo--offline-quick-start-q3-q4-ledger
+- **Kaggle Notebook (repro figures — EPF A/B, seeded):**
+  https://www.kaggle.com/code/horvathkatalin/pulse-epf-shadow-a-b-reproduce-figures-seeded
+- **Kaggle Notebook (offline quick start — Ledger & Q3+Q4):**
+  https://www.kaggle.com/code/horvathkatalin/pulse-demo-offline-quick-start-q3-q4-ledger
 
 - **DOI (versioned, Zenodo):** https://doi.org/10.5281/zenodo.17373002
-- **DOI (concept / all versions, Zenodo):** https://doi.org/10.5281/zenodo.17214908
+- **DOI (concept, all versions, Zenodo):** https://doi.org/10.5281/zenodo.17214908
+
 
 
 # PULSE — Release Gates for Safe & Useful AI
