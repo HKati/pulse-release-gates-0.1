@@ -172,7 +172,7 @@ jobs:
 +    PULSE_SARIF=reports/sarif.json \
 +    python PULSE_safe_pack_v0/tools/status_to_sarif.py
 +
-@@
+
 - name: Upload artifacts
 + name: Upload artifacts
    if: always()
