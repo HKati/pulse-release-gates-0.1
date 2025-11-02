@@ -1,28 +1,48 @@
+<!-- PULSE PR Template v1.0 — keep sections; fill what applies. -->
+
 ## Summary
-<!-- What does this change do? Why? -->
+<!-- Short: what changes and why? -->
 
-## Type of change
-- [ ] Fix (non-breaking)
+## What’s included
+- [ ] Code
 - [ ] Docs
-- [ ] CI / infra
-- [ ] Feature
-- [ ] **Policy / thresholds change** (requires rationale)
-- [ ] Other
+- [ ] CI / workflow
+- Paths / files touched:
 
-## Checklist (PULSE governance)
-- [ ] **PULSE CI is green** on this PR.
-- [ ] **Quality Ledger attached**:
-  - Link to live Pages (if enabled): `<https://hkati.github.io/pulse-release-gates-0.1/>`
-  - or upload `report_card.html` as artifact/screenshot.
-- [ ] **Badges updated** (`badges/*.svg`) — auto by CI.
-- [ ] If **profiles/thresholds changed**: rationale included, and `profiles/*.yaml` + `docs/*` updated.
-- [ ] If **external detectors** changed: `docs/EXTERNAL_DETECTORS.md` updated.
-- [ ] **CHANGELOG.md** updated (Unreleased).
-- [ ] Security impact considered (PII, policy strictness).
-- [ ] No broken links in README.
+## CI usage
+```yaml
+# Minimal snippet — how this change runs in CI
+name: PULSE CI (minimal)
+on: [push, pull_request]
+jobs:
+  pulse:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - run: python PULSE_safe_pack_v0/tools/run_all.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pulse-report
+          path: |
+            PULSE_safe_pack_v0/artifacts/**
+            reports/*.xml
+            reports/*.json
+```
 
-## Decision rationale (required for policy/threshold changes)
-<!-- Explain the why: data, RDSI/Δ, risk reduction, product impact. -->
+## Impact
+- Additive / backwards-compatible
+- Breaking change — details:
+- Performance / SLO impact:
+- Security considerations:
 
-## Screenshots / Artifacts
-<!-- Optional: paste badges or key ledger screenshots -->
+## Notes
+- Follow-ups:
+- Risks / mitigations:
+
+## PULSE checklist (governance)
+- [ ] PULSE CI is green on this PR
+- [ ] Quality Ledger link (if enabled)
+- [ ] Badges updated (PASS / RDSI / Q‑Ledger)
