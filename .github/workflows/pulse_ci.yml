@@ -146,6 +146,45 @@ jobs:
             git commit -m "chore: update badges [skip ci]"
             git push
           fi
+     @@
+ - name: Commit badge changes [skip ci]
+   if: always()
+   shell: bash
+   run: |
+     git config user.name "github-actions[bot]"
+     git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+     git add badges/*.svg || true
+     if git diff --cached --quiet; then
+       echo "No badge changes."
+     else
+       git commit -m "chore: update badges [skip ci]"
+       git push
+     fi
+
++# ---- Export JUnit & SARIF (always-run) ----
++- name: Export JUnit & SARIF
++  if: always()
++  run: |
++    PULSE_STATUS=${{ env.PACK_DIR }}/artifacts/status.json \
++    PULSE_JUNIT=reports/junit.xml \
++    python PULSE_safe_pack_v0/tools/status_to_junit.py
++    PULSE_STATUS=${{ env.PACK_DIR }}/artifacts/status.json \
++    PULSE_SARIF=reports/sarif.json \
++    python PULSE_safe_pack_v0/tools/status_to_sarif.py
++
+@@
+- name: Upload artifacts
++ name: Upload artifacts
+   if: always()
+   uses: actions/upload-artifact@v4
+   with:
+     name: pulse-report
+     path: |
+       ${{ env.PACK_DIR }}/artifacts/**
+       badges/*.svg
++      reports/junit.xml
++      reports/sarif.json
+
       - name: Upload artifacts
         if: always()
         uses: actions/upload-artifact@v4
