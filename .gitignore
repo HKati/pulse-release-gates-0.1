@@ -1,2 +1,14 @@
-# CI reports
-reports/
+
+## Summary
+<!-- Röviden: mi változik és miért? -->
+
+## What’s included
+- [ ] Code
+- [ ] Docs
+- [ ] CI/workflow
+- Paths/Files touched:
+
+## CI usage
+```yaml
+# (opcionális) Ide tegyél egy minimális snippetet,
+# hogyan fut a változtatás a CI-ben.
