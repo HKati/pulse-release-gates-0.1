@@ -117,6 +117,19 @@ PULSE enforces fail‑closed PASS/FAIL gates across Safety (I₂–I₇), Qualit
 - **RDSI** (Release Decision Stability Index) + Δ with CIs
 - **Badges** (PASS/FAIL, RDSI, Q-Ledger) in `/badges/`
 
+## Decision levels
+
+**FAIL** (pipeline blocked) • **STAGE-PASS** (staging release) • **PROD-PASS** (production deploy allowed).  
+Break‑glass overrides require justification; the justification is recorded in the Quality Ledger.
+
+## Determinism (caveats)
+
+PULSE is deterministic if the runner image + seeds + CPU/GPU mode are pinned. External detectors and GPU kernel variance can introduce flakiness; EPF (shadow) + RDSI quantify stability without ever changing CI outcomes.
+
+## Native CI outputs
+
+From `status.json`, PULSE exports **JUnit** (Tests tab) and **SARIF** (Security → Code scanning alerts) into `reports/` and uploads them as CI artifacts.
+
 ---
 
 ## CI — already wired
