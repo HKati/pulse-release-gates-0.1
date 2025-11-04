@@ -201,3 +201,25 @@ jobs:
           path: |
             ${{ env.PACK_DIR }}/artifacts/**
             badges/*.svg
+
+  tools-tests:
+    name: Tools smoke tests
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run exporter smoke tests
+        run: |
+          python - <<'PY'
+          import pathlib, subprocess, os, sys
+          root = pathlib.Path('.').resolve()
+          # ensure out dir
+          (root / 'tests' / 'out').mkdir(parents=True, exist_ok=True)
+          # run tests file directly (no external deps)
+          subprocess.check_call([sys.executable, 'tests/test_exporters.py'])
+          print('Exporter smoke tests OK')
+          PY
