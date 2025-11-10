@@ -2,8 +2,18 @@
   "title": "PULSE: Deterministic Release Gates for Safe & Useful AI",
   "description": "PULSE provides deterministic, fail‑closed release gates across Safety (I2–I7), Utility (Q1–Q4) and SLO dimensions. It produces audit artefacts including a human‑readable Quality Ledger and SVG badges that summarise pass/fail states. This software package allows developers to enforce safety invariants, utility budgets and service level objectives prior to shipment.",
   "upload_type": "software",
+  {
+  "upload_type": "software",
   "version": "1.0.2",
   "publication_date": "2025-10-16",
+  …
+}
+ {
+  "upload_type": "software",
+  "publication_date": "2025-10-16",
+  …
+}
+
   "language": "eng",
   "creators": [
     { "name": "Horvat, Katalin", "orcid": "0009-0001-9745-3764", "affiliation": "EPLabsAI" },
