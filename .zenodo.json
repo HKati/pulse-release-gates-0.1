@@ -14,6 +14,13 @@
   "related_identifiers": [
     { "identifier": "10.5281/zenodo.17214909", "relation": "isDocumentedBy", "scheme": "doi" },
     { "identifier": "10.5281/zenodo.17214908", "relation": "isVersionOf",   "scheme": "doi" }
+  {
+  "identifier": "https://github.com/HKati/pulse-guard-pack",
+  "relation": "hasPart",
+  "resource_type": "software",
+  "scheme": "url"
+}
+
   ],
   "notes": "Reproducibility instructions are included in the repository README (reproduce section).",
   "communities": []
