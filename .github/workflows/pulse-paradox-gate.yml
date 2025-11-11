@@ -12,6 +12,10 @@ concurrency:
   group: paradox-gate-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  GATE_REPO: HKati/pulse-release-gates-0.1
+  GATE_REF: gate-v0-zip   # pin to the released tag
+
 jobs:
   paradox_gate:
     name: Run Paradox Gate (shadow)
@@ -22,18 +26,17 @@ jobs:
       - name: Checkout Pulse repo
         uses: actions/checkout@v4
 
-      # Pull the gate ZIP from the public gate repo (current working branch)
-      - name: Checkout gate repo (ZIP seed)
+      - name: Checkout gate repo (tag)
         uses: actions/checkout@v4
         with:
-          repository: HKati/pulse-release-gates-0.1
-          ref: HKati-patch-61      # ← use this now; switch to a tag (e.g., gate-v0-zip) after merge
+          repository: ${{ env.GATE_REPO }}
+          ref: ${{ env.GATE_REF }}
           path: ./.gates
 
       - name: Unpack Paradox Gate kit
         run: unzip -q ./.gates/pulse_paradox_gate_ci_v1.zip -d ./.gates/_ex
 
-      - name: Decide metrics source (Decision Log vs. fallbacks)
+      - name: Decide metrics source (log vs env fallback)
         id: metrics_src
         shell: bash
         run: |
@@ -42,15 +45,12 @@ jobs:
             echo "Using Decision Log at logs/decision_log.ndjson"
           else
             echo "src=env" >> $GITHUB_OUTPUT
-            echo "Decision Log not found → using ENV fallbacks"
-            # Fallback metrics so the gate can run in shadow even with zero logs
             echo "PF_PARADOX_DENSITY=0.0" >> $GITHUB_ENV
             echo "PF_SETTLE_P95_MS=0" >> $GITHUB_ENV
             echo "PF_DOWNSTREAM_ERROR_RATE=0.0" >> $GITHUB_ENV
           fi
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
@@ -58,7 +58,6 @@ jobs:
         shell: bash
         run: |
           G=".gates/_ex/pulse_paradox_gate_ci_v1/pulse/gates/paradox"
-          # The gate prefers ENV metrics if present; otherwise it will parse the log.
           python "$G/gate.py" --mode shadow --policy "$G/policy.yaml"
 
       - name: Upload Paradox Gate summary (artifact)
