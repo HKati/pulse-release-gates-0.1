@@ -1,0 +1,69 @@
+name: Pulse • Paradox Gate (shadow)
+
+on:
+  pull_request:
+  push:
+    branches: [ main ]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: paradox-gate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  paradox_gate:
+    name: Run Paradox Gate (shadow)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout Pulse repo
+        uses: actions/checkout@v4
+
+      # Pull the gate ZIP from the public gate repo (current working branch)
+      - name: Checkout gate repo (ZIP seed)
+        uses: actions/checkout@v4
+        with:
+          repository: HKati/pulse-release-gates-0.1
+          ref: HKati-patch-61      # ← use this now; switch to a tag (e.g., gate-v0-zip) after merge
+          path: ./.gates
+
+      - name: Unpack Paradox Gate kit
+        run: unzip -q ./.gates/pulse_paradox_gate_ci_v1.zip -d ./.gates/_ex
+
+      - name: Decide metrics source (Decision Log vs. fallbacks)
+        id: metrics_src
+        shell: bash
+        run: |
+          if [ -f "logs/decision_log.ndjson" ]; then
+            echo "src=log" >> $GITHUB_OUTPUT
+            echo "Using Decision Log at logs/decision_log.ndjson"
+          else
+            echo "src=env" >> $GITHUB_OUTPUT
+            echo "Decision Log not found → using ENV fallbacks"
+            # Fallback metrics so the gate can run in shadow even with zero logs
+            echo "PF_PARADOX_DENSITY=0.0" >> $GITHUB_ENV
+            echo "PF_SETTLE_P95_MS=0" >> $GITHUB_ENV
+            echo "PF_DOWNSTREAM_ERROR_RATE=0.0" >> $GITHUB_ENV
+          fi
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Run Paradox Gate (shadow, non-blocking)
+        shell: bash
+        run: |
+          G=".gates/_ex/pulse_paradox_gate_ci_v1/pulse/gates/paradox"
+          # The gate prefers ENV metrics if present; otherwise it will parse the log.
+          python "$G/gate.py" --mode shadow --policy "$G/policy.yaml"
+
+      - name: Upload Paradox Gate summary (artifact)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pulse-paradox-gate-summary
+          path: artifacts/pulse_paradox_gate_summary.json
