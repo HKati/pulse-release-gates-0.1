@@ -36,6 +36,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Security
 - 
 
+- ### [v1.1.0] – 2025-11-09
++ ## [v1.1.0] – 2025-11-09
+
+- ### [v1.0.3] – 2025-10-XX
++ ## [v1.0.3] – 2025-10-XX
+
+   ### Added
+   ...
+   ### Notes
+   ...
+
+
 ## [1.0.1] - 2025-09-27
 ### Added
 - GitHub Pages publisher workflow (guarded by `PUBLISH_PAGES`).
@@ -52,6 +64,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Initial PULSE release gates pack (I₂–I₇, Q₁–Q₄).
 - CI wiring (`pulse_ci.yml`), badges, Quality Ledger and RDSI reporting.
 
-[Unreleased]: https://github.com/HKati/pulse-release-gates-0.1/compare/v1.0.1...HEAD
-[1.0.1]: https://github.com/HKati/pulse-release-gates-0.1/releases/tag/v1.0.1
-[1.0.0]: https://github.com/HKati/pulse-release-gates-0.1/releases/tag/v1.0.0
+[Unreleased]: https://github.com/HKati/pulse-release-gates-0.1/compare/v1.1.0...HEAD
+[v1.1.0]:     https://github.com/HKati/pulse-release-gates-0.1/compare/v1.0.3...v1.1.0
+[v1.0.3]:     https://github.com/HKati/pulse-release-gates-0.1/compare/v1.0.2...v1.0.3
+[v1.0.2]:     https://github.com/HKati/pulse-release-gates-0.1/compare/v1.0.1...v1.0.2
+[v1.0.1]:     https://github.com/HKati/pulse-release-gates-0.1/compare/v1.0.0...v1.0.1
+[v1.0.0]:     https://github.com/HKati/pulse-release-gates-0.1/releases/tag/v1.0.0
+
