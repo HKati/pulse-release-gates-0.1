@@ -62,11 +62,13 @@ jobs:
           python "$G/gate.py" --mode shadow --policy "$G/policy.yaml"
 
       - name: Upload Paradox Gate summary (artifact)
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: pulse-paradox-gate-summary
-          path: artifacts/pulse_paradox_gate_summary.json
+  if: always()
+  uses: actions/upload-artifact@v4
+  with:
+    name: pulse-paradox-gate-summary
+    path: artifacts/pulse_paradox_gate_summary.json
+    if-no-files-found: ignore     
+
        
         - name: Debug list artifacts dir
   if: ${{ always() && github.event_name == 'pull_request' }}
