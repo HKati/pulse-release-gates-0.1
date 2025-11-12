@@ -51,6 +51,15 @@ From **findings** to **fuses**. Run **PULSE before you ship**: deterministic, **
 > **TL;DR**: Drop the pack → run → enforce → ship.  
 > PULSE gives PASS/FAIL release gates, a human-readable **Quality Ledger**, and a stability signal (**RDSI**).
 
+### What’s new
+
+- **External detectors (opt‑in):** merge JSON/JSONL summaries from safety tools into the gate + Quality Ledger.
+- **Refusal‑delta:** stability signal for refusal policies (audit‑friendly quantification).
+- **JUnit & SARIF:** export artifacts for CI dashboards and code scanning.
+- **First‑run stays simple:** defaults unchanged; optional pieces can be enabled later.
+
+➡️ Full notes: see **Releases** and **CHANGELOG**.
+
 ---
 
 ## Quickstart
