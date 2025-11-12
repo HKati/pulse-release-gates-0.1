@@ -36,6 +36,8 @@
 - **DOI (versioned, Zenodo):** https://doi.org/10.5281/zenodo.17373002
 - **DOI (concept, all versions, Zenodo):** https://doi.org/10.5281/zenodo.17214908
 
+Releases: https://github.com/HKati/pulse-release-gates-0.1/releases
+
 
 
 # PULSE — Release Gates for Safe & Useful AI
@@ -58,7 +60,7 @@ From **findings** to **fuses**. Run **PULSE before you ship**: deterministic, **
 - **JUnit & SARIF:** export artifacts for CI dashboards and code scanning.
 - **First‑run stays simple:** defaults unchanged; optional pieces can be enabled later.
 
-➡️ Full notes: see **Releases** and **CHANGELOG**.
+➡️ Full notes: see [Releases](https://github.com/HKati/pulse-release-gates-0.1/releases) and [CHANGELOG](./CHANGELOG.md).
 
 ---
 
