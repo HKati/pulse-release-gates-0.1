@@ -1,0 +1,53 @@
+{
+  "version": "0.1",
+  "generated_at": "2025-11-16T20:18:00.000000+00:00",
+  "states": [
+    {
+      "id": "run_001",
+      "label": "Run run_001",
+      "commit": "a1b2c3",
+      "pack": "PULSE_safe_pack_v0",
+
+      "decision": "STAGE-PASS",   // FAIL / STAGE-PASS / PROD-PASS / UNKNOWN
+
+      "gate_summary": {
+        "safety_total": 7,
+        "safety_failed": 1,
+        "quality_total": 4,
+        "quality_failed": 0
+      },
+
+      "rdsi": 0.81,
+      "rdsi_delta": 0.03,
+
+      "epf": {
+        "available": true,
+        "L": 0.94,
+        "shadow_pass": true
+      },
+
+      "instability": {
+        "score": 0.42,
+        "safety_component": 0.20,
+        "quality_component": 0.00,
+        "rdsi_component": 0.14,
+        "epf_component": 0.08
+      },
+
+      "type": "METASTABLE",       // STABLE / METASTABLE / UNSTABLE / PARADOX / COLLAPSE
+      "tags": ["model_v3", "new_refusal_policy"]
+    }
+  ],
+  "transitions": [
+    {
+      "from": "run_001",
+      "to": "run_002",
+      "label": "fairness fix + retrain",
+      "change": {
+        "type": ["data", "training"],
+        "notes": "balanced long-tail group; same refusal policy"
+      },
+      "delta_instability": -0.37
+    }
+  ]
+}
