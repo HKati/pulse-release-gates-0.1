@@ -70,17 +70,18 @@ jobs:
     if-no-files-found: ignore     
 
        
-        - name: Debug list artifacts dir
-  if: ${{ always() && github.event_name == 'pull_request' }}
-  run: ls -la artifacts || true
- 
-        - name: Generate PR triage comment (Why it failed / What to try)
-  if: ${{ always() && github.event_name == 'pull_request' }}
-  continue-on-error: true           
-  run: |
-    python tools/gh_pr_comment_triage.py \
-      --summary artifacts/pulse_paradox_gate_summary.json \
-      --out triage_comment.md
+     
+           - name: Debug list artifacts dir
+        if: ${{ always() && github.event_name == 'pull_request' }}
+        run: ls -la artifacts || true
+
+      - name: Generate PR triage comment (Why it failed / What to fix)
+        if: ${{ always() && github.event_name == 'pull_request' }}
+        continue-on-error: true
+        run: |
+          python tools/gh_pr_comment_triage.py \
+            --summary artifacts/pulse_paradox_gate_summary.json \
+            --out triage_comment.md
 
 
     
