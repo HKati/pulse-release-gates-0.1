@@ -5,11 +5,10 @@ PULSE Stability Map builder v0
 This script builds a minimal stability_map.json from a single run's
 status.json + optional status_epf.json artefacts.
 
-v0 now also integrates the Paradox Module:
-- computes basic instability scores and state types
-- detects simple paradox patterns
-- annotates each state with `paradox` metadata
-- may set `state.type = "PARADOX"` when paradoxes are present
+v0 integrates:
+- basic instability scores and state types
+- Paradox Module v0 (pattern detection)
+- Paradox Resolution v0 (triage + recommendations)
 """
 
 import json
@@ -231,6 +230,102 @@ def detect_paradox(state: dict) -> dict:
     }
 
 
+def build_paradox_resolution(state: dict) -> dict | None:
+    """Build Paradox Resolution v0 plan for a given state.
+
+    Implements the heuristics from docs/PULSE_paradox_resolution_v0.md.
+    """
+    paradox = state.get("paradox") or {}
+    if not paradox.get("present"):
+        return None
+
+    patterns = paradox.get("patterns") or []
+    instab = state.get("instability") or {}
+    score = float(instab.get("score", 0.0) or 0.0)
+    decision = (state.get("decision") or "").upper()
+    epf_L = (state.get("epf") or {}).get("L")
+
+    plans: list[dict] = []
+
+    # SAFETY_QUALITY_CONFLICT
+    if "SAFETY_QUALITY_CONFLICT" in patterns:
+        sev = "MEDIUM" if score < 0.6 else "HIGH"
+        plans.append(
+            {
+                "severity": sev,
+                "primary_focus": ["quality", "policy", "data"],
+                "recommendations": [
+                    "Inspect failing quality gates and identify which dimensions are off.",
+                    "Check whether recent policy or refusal changes conflict with quality metrics.",
+                    "Review training/eval datasets for coverage gaps related to failing quality gates.",
+                ],
+            }
+        )
+
+    # DECISION_SCORE_CONFLICT
+    if "DECISION_SCORE_CONFLICT" in patterns:
+        plans.append(
+            {
+                "severity": "HIGH",
+                "primary_focus": ["safety", "governance", "data", "training"],
+                "recommendations": [
+                    "Revisit release criteria: why does the gate logic permit PASS at collapse-level instability?",
+                    "Review recently added capabilities or prompts that may push the system into unstable regimes.",
+                    "Consider adding or tightening safety/quality gates targeting this region of behaviour.",
+                ],
+            }
+        )
+
+    # EPF_DECISION_CONFLICT
+    if "EPF_DECISION_CONFLICT" in patterns:
+        if decision == "PROD-PASS":
+            sev = "HIGH"
+        else:
+            # STAGE-PASS or other
+            if epf_L is not None and epf_L > 1.1:
+                sev = "HIGH"
+            else:
+                sev = "MEDIUM"
+        plans.append(
+            {
+                "severity": sev,
+                "primary_focus": ["epf", "training", "policy"],
+                "recommendations": [
+                    "Inspect EPF trajectories for this configuration and locate non-contractive regions.",
+                    "Consider tightening or reshaping training objectives in the EPF-flagged region.",
+                    "Re-evaluate policy or refusal rules that interact with the unstable EPF regime.",
+                ],
+            }
+        )
+
+    if not plans:
+        return None
+
+    # Merge severity (LOW < MEDIUM < HIGH)
+    order = ["LOW", "MEDIUM", "HIGH"]
+    sev_idx = max(order.index(p["severity"]) for p in plans)
+    severity = order[sev_idx]
+
+    # Merge primary_focus, de-duplicated
+    primary_focus: list[str] = []
+    for p in plans:
+        for f in p["primary_focus"]:
+            if f not in primary_focus:
+                primary_focus.append(f)
+
+    # Merge recommendations (keep first 6)
+    recommendations: list[str] = []
+    for p in plans:
+        recommendations.extend(p["recommendations"])
+    recommendations = recommendations[:6]
+
+    return {
+        "severity": severity,
+        "primary_focus": primary_focus,
+        "recommendations": recommendations,
+    }
+
+
 def build_stability_map(status_path: Path, status_epf_path: Path | None, out_path: Path):
     status = load_json(status_path)
     if status is None:
@@ -282,13 +377,17 @@ def build_stability_map(status_path: Path, status_epf_path: Path | None, out_pat
         "tags": status.get("tags", []),
     }
 
-    # --- Paradox detection v0 integration ---
+    # Paradox detection v0
     paradox_info = detect_paradox(state)
     state["paradox"] = paradox_info
 
     if paradox_info.get("present") and state["type"] != "COLLAPSE":
         state["type"] = "PARADOX"
-    # ----------------------------------------
+
+    # Paradox Resolution v0
+    resolution = build_paradox_resolution(state)
+    if resolution:
+        state.setdefault("paradox", {})["resolution"] = resolution
 
     stability_map = {
         "version": "0.1",
