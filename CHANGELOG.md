@@ -5,13 +5,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
-### Added
-## [Unreleased]
 
 ### Added
 - CODEOWNERS to require Code Owners review on `main`.
 - Pull request template with the PULSE governance checklist.
-- (Optional) Changelog check workflow (soft warning).
+- (Optional) Changelog check workflow (soft warning)
+- Stability Map JSON generator for Pulse Topology v0:
+  - new tool `PULSE_safe_pack_v0/tools/build_stability_map.py`
+  - generates `stability_map.json` from existing PULSE artefacts (`status.json` and optional `status_epf.json`)
+  - aggregates safety/quality gate outcomes, RDSI and EPF (`epf_L`) into a single instability score with transparent components
+  - assigns a coarse stability type per run (`STABLE`, `METASTABLE`, `UNSTABLE`, `PARADOX`, `COLLAPSE`)
+  - does not modify any existing fail-closed release-gate behaviour
 
 ### Changed
 - README: add DOI badge above the PULSE badges; keep badges.
