@@ -1,0 +1,99 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://example.org/schemas/PULSE_decision_trace_v0.schema.json",
+  "title": "PULSE Decision Trace v0",
+  "type": "object",
+  "description": "Schema for decision_trace.json produced by the PULSE Decision Engine v0.",
+  "required": ["version", "state_id", "action", "risk_level", "summary", "details"],
+  "properties": {
+    "version": {
+      "type": "string",
+      "description": "Decision trace spec version.",
+      "example": "0.1"
+    },
+    "state_id": {
+      "type": "string",
+      "description": "Identifier of the Stability Map state this trace refers to."
+    },
+    "action": {
+      "type": "string",
+      "description": "Advisory action selected by the Decision Engine (e.g. BLOCK, STAGE_ONLY, PROD_OK)."
+    },
+    "risk_level": {
+      "type": "string",
+      "description": "Coarse-grained risk level for the current state.",
+      "enum": ["LOW", "MEDIUM", "HIGH"]
+    },
+    "summary": {
+      "type": "string",
+      "description": "Short human-readable summary of the decision."
+    },
+    "details": {
+      "type": "object",
+      "description": "Structured explanation of why this action and risk level were chosen.",
+      "required": [
+        "release_decision",
+        "stability_type",
+        "instability_score",
+        "instability_components",
+        "gates",
+        "paradox_present",
+        "epf"
+      ],
+      "properties": {
+        "release_decision": {
+          "type": "string",
+          "description": "Original PULSE release decision (FAIL, STAGE-PASS, PROD-PASS, ...)."
+        },
+        "stability_type": {
+          "type": "string",
+          "description": "Stability Map type for this state.",
+          "enum": ["STABLE", "METASTABLE", "UNSTABLE", "PARADOX", "COLLAPSE"]
+        },
+        "instability_score": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0,
+          "description": "Overall instability score in [0, 1]."
+        },
+        "instability_components": {
+          "type": "object",
+          "description": "Breakdown of the instability score into components.",
+          "properties": {
+            "safety": { "type": ["number", "null"] },
+            "quality": { "type": ["number", "null"] },
+            "rdsi": { "type": ["number", "null"] },
+            "epf": { "type": ["number", "null"] }
+          },
+          "additionalProperties": true
+        },
+        "gates": {
+          "type": "object",
+          "description": "Aggregated information about gate failures.",
+          "properties": {
+            "safety_failed": { "type": ["integer", "null"], "minimum": 0 },
+            "quality_failed": { "type": ["integer", "null"], "minimum": 0 }
+          },
+          "additionalProperties": true
+        },
+        "paradox_present": {
+          "type": "boolean",
+          "description": "Whether a paradox was detected in the Stability Map state."
+        },
+        "epf": {
+          "type": "object",
+          "description": "EPF-related information used by the decision.",
+          "required": ["available"],
+          "properties": {
+            "available": { "type": "boolean" },
+            "L": { "type": ["number", "null"] },
+            "shadow_pass": { "type": ["boolean", "null"] }
+          },
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true
+}
