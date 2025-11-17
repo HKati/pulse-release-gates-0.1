@@ -40,6 +40,7 @@ jobs:
             fi
             echo "PACK_DIR=$(dirname "$(dirname "$RUN_ALL")")" >> "$GITHUB_ENV"
           fi
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -49,11 +50,13 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install pyyaml
+
       - name: Ensure directories
         shell: bash
         run: |
           mkdir -p "${{ env.PACK_DIR }}/artifacts/external"
           mkdir -p "${{ env.PACK_DIR }}/examples"
+
       - name: Hotfix update_badges f-string
         shell: bash
         run: |
@@ -61,6 +64,7 @@ jobs:
           if [ -n "$BADGE" ]; then
             sed -i 's/return ff"""/return f"""/g' "$BADGE" || true
           fi
+
       - name: Run PULSE
         shell: bash
         run: python "${{ env.PACK_DIR }}/tools/run_all.py"
@@ -96,12 +100,14 @@ jobs:
             --pairs "$PAIRS" \
             --out "${{ env.PACK_DIR }}/artifacts/refusal_delta_summary.json" \
             --policy_config "$POL"
+
       - name: Show refusal-delta summary
         shell: bash
         run: |
           echo "----- refusal_delta_summary.json -----"
           cat "${{ env.PACK_DIR }}/artifacts/refusal_delta_summary.json" || true
           echo "-------------------------------------"
+
       - name: Augment status (external + top-level flags)
         shell: bash
         run: |
@@ -109,12 +115,14 @@ jobs:
             --status "${{ env.PACK_DIR }}/artifacts/status.json" \
             --thresholds "${{ env.PACK_DIR }}/profiles/external_thresholds.yaml" \
             --external_dir "${{ env.PACK_DIR }}/artifacts/external"
+
       - name: Show gates snapshot
         shell: bash
         run: |
           echo "----- status.json (gates) -----"
           jq '.gates' "${{ env.PACK_DIR }}/artifacts/status.json" || cat "${{ env.PACK_DIR }}/artifacts/status.json" || true
           echo "--------------------------------"
+
       - name: Enforce (Fail-Closed)
         shell: bash
         run: |
@@ -132,6 +140,7 @@ jobs:
             echo "No real pairs; refusal_delta_pass not required"
           fi
           python "${{ env.PACK_DIR }}/tools/check_gates.py" --status "${{ env.PACK_DIR }}/artifacts/status.json" --require "${REQ[@]}"
+
       - name: Update badges
         if: always()
         shell: bash
@@ -141,6 +150,7 @@ jobs:
             --status "${{ env.PACK_DIR }}/artifacts/status.json" \
             --assets badges \
             --out badges
+
       - name: Commit badge changes [skip ci]
         if: always()
         shell: bash
@@ -154,44 +164,18 @@ jobs:
             git commit -m "chore: update badges [skip ci]"
             git push
           fi
-     @@
- - name: Commit badge changes [skip ci]
-   if: always()
-   shell: bash
-   run: |
-     git config user.name "github-actions[bot]"
-     git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-     git add badges/*.svg || true
-     if git diff --cached --quiet; then
-       echo "No badge changes."
-     else
-       git commit -m "chore: update badges [skip ci]"
-       git push
-     fi
 
-+# ---- Export JUnit & SARIF (always-run) ----
-+- name: Export JUnit & SARIF
-+  if: always()
-+  run: |
-+    PULSE_STATUS=${{ env.PACK_DIR }}/artifacts/status.json \
-+    PULSE_JUNIT=reports/junit.xml \
-+    python PULSE_safe_pack_v0/tools/status_to_junit.py
-+    PULSE_STATUS=${{ env.PACK_DIR }}/artifacts/status.json \
-+    PULSE_SARIF=reports/sarif.json \
-+    python PULSE_safe_pack_v0/tools/status_to_sarif.py
-+
-
-- name: Upload artifacts
-+ name: Upload artifacts
-   if: always()
-   uses: actions/upload-artifact@v4
-   with:
-     name: pulse-report
-     path: |
-       ${{ env.PACK_DIR }}/artifacts/**
-       badges/*.svg
-+      reports/junit.xml
-+      reports/sarif.json
+      - name: Export JUnit & SARIF
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p reports
+          PULSE_STATUS="${{ env.PACK_DIR }}/artifacts/status.json" \
+          PULSE_JUNIT="reports/junit.xml" \
+          python PULSE_safe_pack_v0/tools/status_to_junit.py
+          PULSE_STATUS="${{ env.PACK_DIR }}/artifacts/status.json" \
+          PULSE_SARIF="reports/sarif.json" \
+          python PULSE_safe_pack_v0/tools/status_to_sarif.py
 
       - name: Upload artifacts
         if: always()
@@ -201,6 +185,8 @@ jobs:
           path: |
             ${{ env.PACK_DIR }}/artifacts/**
             badges/*.svg
+            reports/junit.xml
+            reports/sarif.json
 
   tools-tests:
     name: Tools smoke tests
@@ -209,17 +195,17 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+
       - name: Run exporter smoke tests
         run: |
           python - <<'PY'
           import pathlib, subprocess, os, sys
           root = pathlib.Path('.').resolve()
-          # ensure out dir
           (root / 'tests' / 'out').mkdir(parents=True, exist_ok=True)
-          # run tests file directly (no external deps)
           subprocess.check_call([sys.executable, 'tests/test_exporters.py'])
           print('Exporter smoke tests OK')
           PY
