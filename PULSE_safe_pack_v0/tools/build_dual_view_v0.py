@@ -1,200 +1,251 @@
 #!/usr/bin/env python3
-
 """
 PULSE Dual View v0 builder
 
-This tool builds a minimal dual_view_v0.json artefact from:
-- a Stability Map (`stability_map.json`-szerű),
-- a Decision Engine output (`decision_trace.json`-szerű).
+Builds `dual_view_v0.json` as a shared human + agent interface on top of:
+- stability_map.json (current ReleaseState)
+- decision_trace.json (Decision Engine v0)
+- optional stability_history.json (multi-run transitions)
 
-It is intentionally simple and designed to match:
-- `PULSE_dual_view_v0.md`
-- `docs/examples/topology_demo_v0/dual_view_v0.run_002.demo.json`.
+The script is read-only: it does not modify any of the input artefacts.
 """
 
 import argparse
 import json
-from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, Optional
+from datetime import datetime, timezone
 
 
-def load_json(path: Path) -> Any:
-    with path.open("r", encoding="utf-8") as f:
-        return json.load(f)
-
-
-def find_state(stability_map: Dict[str, Any], state_id: str) -> Dict[str, Any]:
-    for st in stability_map.get("states", []):
-        if st.get("id") == state_id:
-            return st
-    raise ValueError(f"State with id={state_id!r} not found in stability map.")
-
-
-def find_last_transition(
-    stability_map: Dict[str, Any], state_id: str
-) -> Optional[Dict[str, Any]]:
-    transitions = stability_map.get("transitions", [])
-    # Assume transitions are ordered; take the last where `to` == state_id.
-    candidates = [t for t in transitions if t.get("to") == state_id]
-    if not candidates:
+def load_json(path: Path) -> dict | None:
+    try:
+        with path.open("r", encoding="utf-8") as f:
+            return json.load(f)
+    except FileNotFoundError:
         return None
-    return candidates[-1]
 
 
-def build_dual_view(
-    stability_map: Dict[str, Any],
-    decision_trace: Dict[str, Any],
-    state_id: Optional[str] = None,
-) -> Dict[str, Any]:
-    # Determine state_id: explicit arg → from decision_trace
+def select_state(stability_map: dict, state_id: str | None = None) -> dict:
+    states = stability_map.get("states") or []
+    if not states:
+        raise SystemExit("No states[] found in stability_map.json")
+
     if state_id is None:
-        state_id = decision_trace.get("state_id")
-    if not state_id:
-        raise ValueError("state_id not provided and not found in decision trace.")
+        return states[0]
 
-    state = find_state(stability_map, state_id)
-    last_transition = find_last_transition(stability_map, state_id)
+    for st in states:
+        if str(st.get("id")) == state_id:
+            return st
 
-    action = decision_trace.get("action", "UNKNOWN")
-    risk_level = decision_trace.get("risk_level", "MEDIUM")
-    details = decision_trace.get("details", {})
+    raise SystemExit(f"State with id={state_id!r} not found in stability_map.json")
 
-    release_decision = details.get("release_decision", "UNKNOWN")
-    stability_type = details.get("stability_type", "UNKNOWN")
 
-    instability_score = details.get("instability_score")
-    instability_components = details.get("instability_components", {})
-    paradox_present = bool(details.get("paradox_present", False))
+def find_last_transition_for_state(history: dict, state_id: str) -> dict | None:
+    transitions = history.get("transitions") or []
+    # We look for the last transition where `to == state_id`
+    last = None
+    for tr in transitions:
+        if str(tr.get("to")) == state_id:
+            last = tr
+    return last
 
-    # Human view
-    headline = decision_trace.get(
-        "summary",
-        f"{action} decision with {risk_level} risk for state {state_id}.",
-    )
 
-    risk_summary = [
-        f"Action: {action}, risk level: {risk_level}.",
-        f"Release decision: {release_decision}, stability type: {stability_type}.",
-    ]
+def build_human_view(
+    state: dict,
+    decision_trace: dict | None,
+    last_transition: dict | None,
+    risk_level: str,
+) -> dict:
+    instab = state.get("instability") or {}
+    score = float(instab.get("score", 0.0) or 0.0)
+    state_type = state.get("type") or "UNSTABLE"
+    decision = state.get("decision") or "UNKNOWN"
 
-    if instability_score is not None:
-        risk_summary.append(f"Overall instability: {instability_score}.")
+    action = None
+    summary = None
+    if decision_trace:
+        action = decision_trace.get("action")
+        summary = decision_trace.get("summary")
 
-    paradox_summary = (
-        "Paradox detected." if paradox_present else "No paradox detected."
-    )
+    # Headline
+    if action and risk_level:
+        headline = f"{action} ({risk_level} risk, {state_type.lower()})."
+    else:
+        headline = f"{state_type} state with instability {score:.2f}."
 
-    timeline_highlights = []
-    if last_transition is not None:
+    # Risk summary lines
+    risk_summary: list[str] = []
+    risk_summary.append(f"Overall instability: {score:.2f} ({risk_level}).")
+    if action:
+        risk_summary.append(f"Decision Engine action: {action}, PULSE decision: {decision}.")
+    if summary:
+        risk_summary.append(summary)
+
+    # Paradox summary
+    paradox = state.get("paradox") or {}
+    if paradox.get("present"):
+        patterns = paradox.get("patterns") or []
+        if patterns:
+            joined = ", ".join(patterns)
+            paradox_summary = f"Paradox detected: {joined}."
+        else:
+            paradox_summary = "Paradox detected (no patterns listed)."
+    else:
+        paradox_summary = "No paradox detected."
+
+    # Timeline highlights
+    timeline_highlights: list[str] = []
+    if last_transition:
         from_id = last_transition.get("from")
-        category = last_transition.get("category", "NEUTRAL")
-        di = last_transition.get("delta_instability")
-        highlight = f"{from_id} → {state_id}: {category}"
-        if di is not None:
-            highlight += f" (delta_instability = {di})"
-        timeline_highlights.append(highlight)
+        to_id = last_transition.get("to")
+        delta_inst = float(last_transition.get("delta_instability", 0.0) or 0.0)
+        category = last_transition.get("category") or "NEUTRAL"
+        timeline_highlights.append(
+            f"{from_id} → {to_id}: {category} change (delta_instability = {delta_inst:+.2f})."
+        )
 
-    # Agent view
-    agent_instability = {
-        "score": instability_score,
-        "components": instability_components,
+    return {
+        "headline": headline,
+        "risk_summary": risk_summary,
+        "paradox_summary": paradox_summary,
+        "timeline_highlights": timeline_highlights,
     }
 
-    state_paradox = state.get("paradox", {}) or {}
-    paradox_patterns = state_paradox.get("patterns", [])
 
-    agent_paradox = {
-        "present": paradox_present,
-        "patterns": paradox_patterns,
+def build_agent_view(
+    state: dict,
+    decision_trace: dict | None,
+    last_transition: dict | None,
+    risk_level: str,
+) -> dict:
+    instab = state.get("instability") or {}
+    score = float(instab.get("score", 0.0) or 0.0)
+
+    components = {
+        "safety": float(instab.get("safety_component", 0.0) or 0.0),
+        "quality": float(instab.get("quality_component", 0.0) or 0.0),
+        "rdsi": float(instab.get("rdsi_component", 0.0) or 0.0),
+        "epf": float(instab.get("epf_component", 0.0) or 0.0),
     }
 
-    agent_decision = {
-        "release_decision": release_decision,
-        "stability_type": stability_type,
-    }
+    paradox = state.get("paradox") or {}
+    decision = state.get("decision") or "UNKNOWN"
+    state_type = state.get("type") or "UNSTABLE"
 
-    history: Dict[str, Any] = {
-        "has_history": bool(stability_map.get("transitions")),
-        "last_transition": None,
-    }
-    if last_transition is not None:
-        history["last_transition"] = {
+    action = None
+    if decision_trace:
+        action = decision_trace.get("action") or None
+
+    history_info = {"has_history": last_transition is not None}
+    if last_transition:
+        history_info["last_transition"] = {
             "from": last_transition.get("from"),
             "to": last_transition.get("to"),
-            "delta_instability": last_transition.get("delta_instability"),
+            "delta_instability": float(
+                last_transition.get("delta_instability", 0.0) or 0.0
+            ),
             "category": last_transition.get("category"),
         }
 
-    dual_view = {
-        "version": "0.1",
-        "generated_at": datetime.now(timezone.utc)
-        .replace(microsecond=0)
-        .isoformat()
-        .replace("+00:00", "Z"),
-        "state_id": state_id,
-        "human_view": {
-            "headline": headline,
-            "risk_summary": risk_summary,
-            "paradox_summary": paradox_summary,
-            "timeline_highlights": timeline_highlights,
+    return {
+        "action": action,
+        "risk_level": risk_level,
+        "instability": {
+            "score": score,
+            "components": components,
         },
-        "agent_view": {
-            "action": action,
-            "risk_level": risk_level,
-            "instability": agent_instability,
-            "paradox": agent_paradox,
-            "decision": agent_decision,
-            "history": history,
+        "paradox": {
+            "present": bool(paradox.get("present")),
+            "patterns": paradox.get("patterns") or [],
         },
+        "decision": {
+            "release_decision": decision,
+            "stability_type": state_type,
+        },
+        "history": history_info,
     }
 
-    return dual_view
+
+def derive_risk_level(decision_trace: dict | None, state: dict) -> str:
+    if decision_trace and decision_trace.get("risk_level"):
+        return str(decision_trace.get("risk_level"))
+
+    # Fallback: derive from instability score
+    instab = state.get("instability") or {}
+    score = float(instab.get("score", 0.0) or 0.0)
+    if score < 0.30:
+        return "LOW"
+    if score < 0.60:
+        return "MEDIUM"
+    return "HIGH"
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Build a PULSE Dual View v0 artefact "
-        "from a Stability Map and Decision Trace."
-    )
+def main():
+    parser = argparse.ArgumentParser(description="Build PULSE Dual View v0 artefact.")
     parser.add_argument(
         "--stability-map",
-        required=True,
         type=Path,
-        help="Path to stability_map.json (or compatible) input.",
+        default=Path("PULSE_safe_pack_v0/artifacts/stability_map.json"),
+        help="Path to stability_map.json",
     )
     parser.add_argument(
         "--decision-trace",
-        required=True,
         type=Path,
-        help="Path to decision_trace.json input.",
+        default=Path("PULSE_safe_pack_v0/artifacts/decision_trace.json"),
+        help="Path to decision_trace.json",
+    )
+    parser.add_argument(
+        "--history",
+        type=Path,
+        default=Path("PULSE_safe_pack_v0/artifacts/stability_history.json"),
+        help="Path to stability_history.json (optional)",
     )
     parser.add_argument(
         "--state-id",
-        required=False,
-        help="Optional state id to use; defaults to decision_trace.state_id.",
+        type=str,
+        default=None,
+        help="Optional state id to focus on (defaults to first state)",
     )
     parser.add_argument(
         "--out",
-        required=True,
         type=Path,
-        help="Output path for dual_view_v0.json.",
+        default=Path("PULSE_safe_pack_v0/artifacts/dual_view_v0.json"),
+        help="Output path for dual_view_v0.json",
     )
 
     args = parser.parse_args()
 
     stability_map = load_json(args.stability_map)
-    decision_trace = load_json(args.decision_trace)
+    if stability_map is None:
+        raise SystemExit(f"Cannot load stability map from: {args.stability_map}")
 
-    dual_view = build_dual_view(
-        stability_map=stability_map,
-        decision_trace=decision_trace,
-        state_id=args.state_id,
-    )
+    decision_trace = load_json(args.decision_trace)
+    history = load_json(args.history) or stability_map  # fallback: use same file
+
+    state = select_state(stability_map, args.state_id)
+    state_id = state.get("id")
+
+    last_transition = None
+    if history is not None and state_id is not None:
+        last_transition = find_last_transition_for_state(history, str(state_id))
+
+    risk_level = derive_risk_level(decision_trace, state)
+
+    human_view = build_human_view(state, decision_trace, last_transition, risk_level)
+    agent_view = build_agent_view(state, decision_trace, last_transition, risk_level)
+
+    dual_view = {
+        "version": "0.1",
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "state_id": state_id,
+        "human_view": human_view,
+        "agent_view": agent_view,
+    }
 
     args.out.parent.mkdir(parents=True, exist_ok=True)
     with args.out.open("w", encoding="utf-8") as f:
         json.dump(dual_view, f, indent=2, ensure_ascii=False)
+
+    print(human_view["headline"])
 
 
 if __name__ == "__main__":
