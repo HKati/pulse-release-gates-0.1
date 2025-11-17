@@ -61,7 +61,8 @@ get its own design note and be linked above.
 
 - **Paradox Resolution v0**  
   - Scope: richer handling of conflicting guardrails / objectives.  
-  - Status: planned idea.
+  - Status: draft / experimental (design note).  
+  - Docs: `docs/PULSE_paradox_resolution_v0_design_note.md`.
 
 - **Topology dashboards**  
   - Scope: visual comparison of topology runs across releases (stability,
