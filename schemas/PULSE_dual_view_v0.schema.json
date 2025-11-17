@@ -1,0 +1,148 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://example.org/schemas/PULSE_dual_view_v0.schema.json",
+  "title": "PULSE Dual View v0",
+  "type": "object",
+  "description": "Schema for dual_view_v0.json: shared human + agent view on top of Stability Map and Decision Engine data.",
+  "required": ["version", "generated_at", "state_id", "human_view", "agent_view"],
+  "properties": {
+    "version": {
+      "type": "string",
+      "description": "Dual View spec version.",
+      "example": "0.1"
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO8601 timestamp when this Dual View was generated."
+    },
+    "state_id": {
+      "type": "string",
+      "description": "Identifier of the Stability Map state this Dual View refers to."
+    },
+    "human_view": {
+      "type": "object",
+      "description": "Human-facing summary of the current stability situation.",
+      "required": ["headline", "risk_summary", "paradox_summary"],
+      "properties": {
+        "headline": {
+          "type": "string",
+          "description": "One-line natural language summary."
+        },
+        "risk_summary": {
+          "type": "array",
+          "description": "Short bullet points describing key risks or stabilising factors.",
+          "items": { "type": "string" }
+        },
+        "paradox_summary": {
+          "type": "string",
+          "description": "Short description of paradox status (or 'no paradox')."
+        },
+        "timeline_highlights": {
+          "type": "array",
+          "description": "Optional highlights from recent transitions / history.",
+          "items": { "type": "string" }
+        }
+      },
+      "additionalProperties": true
+    },
+    "agent_view": {
+      "type": "object",
+      "description": "Machine-friendly view for agents and tooling.",
+      "required": ["action", "risk_level", "instability", "paradox", "decision", "history"],
+      "properties": {
+        "action": {
+          "type": "string",
+          "description": "Advisory action, mirroring the Decision Engine output (e.g. BLOCK, STAGE_ONLY, PROD_OK, REVIEW)."
+        },
+        "risk_level": {
+          "type": "string",
+          "enum": ["LOW", "MEDIUM", "HIGH"],
+          "description": "Coarse-grained risk level."
+        },
+        "instability": {
+          "type": "object",
+          "required": ["score"],
+          "properties": {
+            "score": {
+              "type": "number",
+              "minimum": 0.0,
+              "maximum": 1.0,
+              "description": "Overall instability score in [0, 1]."
+            },
+            "components": {
+              "type": "object",
+              "properties": {
+                "safety": { "type": ["number", "null"] },
+                "quality": { "type": ["number", "null"] },
+                "rdsi": { "type": ["number", "null"] },
+                "epf": { "type": ["number", "null"] }
+              },
+              "additionalProperties": true
+            }
+          },
+          "additionalProperties": true
+        },
+        "paradox": {
+          "type": "object",
+          "required": ["present", "patterns"],
+          "properties": {
+            "present": {
+              "type": "boolean",
+              "description": "Whether a paradox is present in the underlying Stability Map state."
+            },
+            "patterns": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "List of paradox pattern identifiers, if any."
+            }
+          },
+          "additionalProperties": true
+        },
+        "decision": {
+          "type": "object",
+          "required": ["release_decision", "stability_type"],
+          "properties": {
+            "release_decision": {
+              "type": "string",
+              "description": "Original PULSE release decision (FAIL, STAGE-PASS, PROD-PASS, ...)."
+            },
+            "stability_type": {
+              "type": "string",
+              "enum": ["STABLE", "METASTABLE", "UNSTABLE", "PARADOX", "COLLAPSE"],
+              "description": "Stability type of the underlying state."
+            }
+          },
+          "additionalProperties": true
+        },
+        "history": {
+          "type": "object",
+          "required": ["has_history"],
+          "properties": {
+            "has_history": {
+              "type": "boolean",
+              "description": "Whether this Dual View is aware of any past transitions for this state."
+            },
+            "last_transition": {
+              "type": ["object", "null"],
+              "description": "Optional summary of the most recent transition leading to this state.",
+              "properties": {
+                "from": { "type": "string" },
+                "to": { "type": "string" },
+                "delta_instability": { "type": "number" },
+                "category": {
+                  "type": "string",
+                  "enum": ["STABILISING", "DESTABILISING", "NEUTRAL"]
+                }
+              },
+              "additionalProperties": true
+            }
+          },
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true
+}
