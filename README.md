@@ -244,10 +244,6 @@ Docs & specs:
 - `docs/PULSE_topology_real_run_v0.md` – how the topology layer attaches to real CI runs  
 - `docs/PULSE_dual_view_v0.md` – Dual View v0 format
 
-
-## How to cite
-... (meglévő tartalom) ...
-
 ---
 
 ## How to cite
