@@ -1,0 +1,10 @@
+{
+  "meta": {
+    "run_id": "run_002",
+    "source": "demo_epf_shadow"
+  },
+  "metrics": {
+    "epf_L": 0.94,
+    "shadow_pass": true
+  }
+}
