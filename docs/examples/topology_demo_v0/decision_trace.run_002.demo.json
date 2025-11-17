@@ -1,0 +1,28 @@
+{
+  "version": "0.1",
+  "state_id": "run_002",
+  "action": "STAGE_ONLY",
+  "risk_level": "LOW",
+  "summary": "STAGE-only: metastable state with low instability and all safety/quality gates passing.",
+  "details": {
+    "release_decision": "STAGE-PASS",
+    "stability_type": "METASTABLE",
+    "instability_score": 0.004,
+    "instability_components": {
+      "safety": 0.0,
+      "quality": 0.0,
+      "rdsi": 0.004,
+      "epf": 0.0
+    },
+    "gates": {
+      "safety_failed": 0,
+      "quality_failed": 0
+    },
+    "paradox_present": false,
+    "epf": {
+      "available": true,
+      "L": 0.94,
+      "shadow_pass": true
+    }
+  }
+}
