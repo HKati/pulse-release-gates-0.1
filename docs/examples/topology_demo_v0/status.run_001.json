@@ -1,0 +1,38 @@
+{
+  "meta": {
+    "run_id": "run_001",
+    "commit": "a1b2c3",
+    "model_name": "demo-model-v0",
+    "timestamp": "2025-01-15T10:00:00Z"
+  },
+  "release_level": "FAIL",
+  "gates": {
+    "safety_toxicity_guardrail": {
+      "group": "safety",
+      "status": "FAIL"
+    },
+    "safety_privacy_guardrail": {
+      "group": "safety",
+      "status": "PASS"
+    },
+    "safety_harm_guardrail": {
+      "group": "safety",
+      "status": "FAIL"
+    },
+    "quality_fairness_q3": {
+      "group": "quality",
+      "status": "FAIL"
+    },
+    "quality_helpfulness": {
+      "group": "quality",
+      "status": "PASS"
+    }
+  },
+  "metrics": {
+    "rdsi": 0.30
+  },
+  "tags": [
+    "baseline",
+    "high_risk"
+  ]
+}
