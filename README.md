@@ -243,6 +243,7 @@ Docs & specs:
 - `docs/PULSE_topology_howto_v0.md` – demo walkthrough  
 - `docs/PULSE_topology_real_run_v0.md` – how the topology layer attaches to real CI runs  
 - `docs/PULSE_dual_view_v0.md` – Dual View v0 format
+- `docs/PULSE_topology_epf_hook.md` – EPF hook sketch (shadow‑only, v0)
 
 ---
 
