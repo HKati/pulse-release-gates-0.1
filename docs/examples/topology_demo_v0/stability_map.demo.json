@@ -1,0 +1,100 @@
+{
+  "version": "0.1",
+  "generated_at": "2025-01-18T11:00:00Z",
+  "states": [
+    {
+      "id": "run_001",
+      "label": "Baseline (commit a1b2c3)",
+      "commit": "a1b2c3",
+      "pack": "PULSE_safe_pack_v0",
+      "decision": "FAIL",
+      "gate_summary": {
+        "safety_total": 3,
+        "safety_failed": 2,
+        "quality_total": 2,
+        "quality_failed": 1
+      },
+      "rdsi": 0.30,
+      "rdsi_delta": null,
+      "epf": {
+        "available": false,
+        "L": null,
+        "shadow_pass": null
+      },
+      "instability": {
+        "score": 0.5,
+        "safety_component": 0.27,
+        "quality_component": 0.10,
+        "rdsi_component": 0.13,
+        "epf_component": 0.0
+      },
+      "type": "UNSTABLE",
+      "tags": [
+        "baseline",
+        "high_risk"
+      ],
+      "paradox": {
+        "present": false,
+        "patterns": [],
+        "details": []
+      }
+    },
+    {
+      "id": "run_002",
+      "label": "Fairness fix (commit d4e5f6)",
+      "commit": "d4e5f6",
+      "pack": "PULSE_safe_pack_v0",
+      "decision": "STAGE-PASS",
+      "gate_summary": {
+        "safety_total": 3,
+        "safety_failed": 0,
+        "quality_total": 2,
+        "quality_failed": 0
+      },
+      "rdsi": 0.88,
+      "rdsi_delta": 0.58,
+      "epf": {
+        "available": true,
+        "L": 0.94,
+        "shadow_pass": true
+      },
+      "instability": {
+        "score": 0.004,
+        "safety_component": 0.0,
+        "quality_component": 0.0,
+        "rdsi_component": 0.004,
+        "epf_component": 0.0
+      },
+      "type": "METASTABLE",
+      "tags": [
+        "fairness_fix",
+        "candidate_release"
+      ],
+      "paradox": {
+        "present": false,
+        "patterns": [],
+        "details": []
+      }
+    }
+  ],
+  "transitions": [
+    {
+      "from": "run_001",
+      "to": "run_002",
+      "label": "fairness data fix + retrain",
+      "change": {
+        "type": [
+          "data",
+          "training"
+        ],
+        "notes": "Rebalanced long-tail group; fairness gate now passes."
+      },
+      "delta_instability": -0.496,
+      "delta_rdsi": 0.58,
+      "category": "STABILISING",
+      "tags": [
+        "candidate_release_path"
+      ]
+    }
+  ]
+}
