@@ -218,6 +218,36 @@ README.md
 - **External detectors (optional):** `PULSE_safe_pack_v0/docs/EXTERNAL_DETECTORS.md`  
   - Plug-in adapters via simple JSON/JSONL summaries (e.g., Llama Guard, Prompt Guard, Garak, Azure Evaluations, Promptfoo, DeepEval).
 
+... 
+
+## PULSE Topology v0 (Stability Map + Decision Engine + Dual View)
+
+The topology layer is an optional, diagnostic overlay on top of the
+deterministic PULSE release gates. It **never** changes `status.json` or
+CI pass/fail behaviour; it only reads existing artefacts and produces extra
+JSON and narrative views.
+
+It consists of:
+
+- **Stability Map v0** – aggregates `status.json` and optional EPF metrics
+  into a stability score and stability type per run.
+- **Decision Engine v0** – reads the Stability Map and produces a structured
+  decision trace (BLOCK / STAGE_ONLY / PROD_OK + explanation).
+- **Dual View v0** – a shared human + agent view of the same data
+  (short narrative + machine‑friendly JSON).
+
+Docs & specs:
+
+- `docs/PULSE_topology_v0.md` – Stability Map spec  
+- `docs/PULSE_decision_engine_v0.md` – Decision Engine v0  
+- `docs/PULSE_topology_howto_v0.md` – demo walkthrough  
+- `docs/PULSE_topology_real_run_v0.md` – how the topology layer attaches to real CI runs  
+- `docs/PULSE_dual_view_v0.md` – Dual View v0 format
+
+
+## How to cite
+... (meglévő tartalom) ...
+
 ---
 
 ## How to cite
