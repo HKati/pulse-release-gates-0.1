@@ -79,3 +79,25 @@ Script:
 
 ```text
 PULSE_safe_pack_v0/tools/build_stability_map.py
+
+## EPF integration in Stability Map v0
+
+Stability Map v0 can optionally ingest an EPF shadow-only status file
+(`status_epf.json`) alongside the main `status.json` artefact.
+
+### CLI usage
+
+By default, the builder looks for:
+
+- `PULSE_safe_pack_v0/artifacts/status.json`
+- `PULSE_safe_pack_v0/artifacts/status_epf.json` (optional)
+
+Example command:
+
+```bash
+python PULSE_safe_pack_v0/tools/build_stability_map.py \
+  --status PULSE_safe_pack_v0/artifacts/status.json \
+  --status-epf PULSE_safe_pack_v0/artifacts/status_epf.json \
+  --out PULSE_safe_pack_v0/artifacts/stability_map.json
+
+
