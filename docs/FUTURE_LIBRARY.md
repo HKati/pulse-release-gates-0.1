@@ -1,89 +1,192 @@
-# PULSE Future Library – Index (draft)
+# PULSE Future Library v0
 
-> Status: draft — internal index for now.
+Status: working draft (v0)  
+Scope: experimental / shadow-only components built on top of PULSE Topology v0.
 
-This note collects experimental and optional modules that sit **on top of** the
-deterministic PULSE release gates. The core pack (status.json, release gates,
-Quality Ledger) stays unchanged; this page only tracks extra layers and tools.
+The Future Library is a staging area for next-generation PULSE components that
+are **wired into the topology**, but do **not** yet drive the main release gate
+logic. They are meant to run in *shadow* mode, expose richer fields, and feed
+dashboards / analysis / memory.
 
-Each entry has:
-- **Scope** – what part of PULSE it extends,
-- **Status** – draft / experimental / planned,
-- **Docs** – where to read more.
+Current pillars:
+
+1. Topology v0 family  
+2. EPF signal layer (shadow-only)  
+3. Paradox Resolution v0  
+4. Topology dashboards v0  
+5. Memory / trace summariser v0  
+
+Below is a map of what exists today (code + docs), and how it fits together.
 
 ---
 
 ## 1. Topology v0 family
 
-Topology v0 is an optional, diagnostic overlay on top of the deterministic
-release gates. It never changes `status.json` or CI pass/fail decisions;
-it only reads existing artefacts and produces extra JSON and narrative views.
+Core references for the PULSE topology layer and Stability Map.
 
-**Scope:** stability / decision trace / narrative views  
-**Status:** experimental, v0
+**Design & schema**
 
-**Docs:**
-- Design note → `docs/PULSE_topology_v0_design_note.md`
-- Methods → `docs/PULSE_topology_v0_methods.md`
-- Case study (real-world style run) → `docs/PULSE_topology_v0_case_study.md`
-- EPF hook sketch → `docs/PULSE_topology_epf_hook.md`
+- `docs/PULSE_topology_v0_design_note.md`  
+  – Topology v0 layer, states / transitions, Stability Map concepts.
+
+- `schemas/PULSE_stability_map_v0.schema.json`  
+  – Stability Map v0 schema, extended with:
+  - `ReleaseState.paradox_field_v0`
+  - `ReleaseState.epf_field_v0`
+
+**Tools**
+
+- `PULSE_safe_pack_v0/tools/build_stability_map_v0.py`  
+  – Builds `stability_map.json` (Topology v0) from `status.json` (+ optional EPF
+    status), including gate summary, instability components, paradox flags, etc.
+
+This is the base layer: all other Future Library components currently sit
+*on top* of `stability_map.json`.
 
 ---
 
 ## 2. EPF signal layer (shadow-only)
 
-The EPF layer is an *optional, shadow-only* evaluation on top of a release run.
-It never changes the release decision; instead, it provides a contraction /
-stability signal and richer diagnostics.
+The EPF signal is treated as an **external sensor** that is projected into
+PULSE’s topology as a **field**, not as a new hard-coded gate rule.
 
-**Scope:** shadow evaluation, stability research  
-**Status:** sketch only (no wired tooling yet)
+**Design**
 
-**Docs:**
-- Main EPF description → `docs/PULSE_epf_report.txt` (A/B diff summary)
-- Topology EPF hook sketch → `docs/PULSE_topology_epf_hook.md`
-- Decision Engine EPF v0 design note → `docs/PULSE_decision_engine_epf_v0_design_note.md` (draft / experimental)
+- `docs/PULSE_epf_shadow_pipeline_v0_walkthrough.md`  
+  – End-to-end walkthrough of the EPF shadow pipeline v0:
+  - how EPF appears in the Stability Map,
+  - how it is exposed in Decision Engine v0,
+  - how it is summarised for dashboards / memory.
 
-**Notes:**
-- In v0, EPF metrics may appear as additional fields inside Topology v0
-  artefacts (e.g. `status_epf.json` folded into the Stability Map v0 view).
-- Any future tooling must keep EPF *shadow-only* by default: no change to
-  core release gates.
+**Tools**
 
----
+- `PULSE_safe_pack_v0/tools/build_paradox_epf_fields_v0.py`  
+  - Input: `stability_map.json` (Topology v0).  
+  - For each `ReleaseState` attaches:
+    - `paradox_field_v0` (paradox atoms + summary)
+    - `epf_field_v0` (EPF physical field: phi/theta/energy + anchors)
 
-## 3. Planned future modules (parking lot)
+- `PULSE_safe_pack_v0/tools/build_decision_output_v0.py`  
+  - Input: enriched `stability_map.json` (with `paradox_field_v0` + `epf_field_v0`).  
+  - Output: `decision_output_v0.json` (shadow-only Decision Engine v0 view) with:
+    - selected `release_state`
+    - `paradox_field_v0` / `epf_field_v0`
+    - `decision_trace[]` (with `paradox_stamp`)
+    - `dual_view.paradox_panel_v0`
 
-This section is a parking lot for ideas that are **not** implemented yet,
-but may become part of the future library.
-
-These are intentionally high-level; if/when a module becomes real, it should
-get its own design note and be linked above.
-
-- **Paradox Resolution v0**  
-  - Scope: richer handling of conflicting guardrails / objectives.  
-  - Status: draft / experimental (design note).  
-  - Docs: `docs/PULSE_paradox_resolution_v0_design_note.md`.
-
-- **Topology dashboards**  
-  - Scope: visual comparison of topology runs across releases (stability,
-    paradox patterns, EPF signals).  
-  - Status: planned idea.
-
-- **Memory / trace summariser**  
-  - Scope: compact summaries of long decision traces for human review.  
-  - Status: planned idea.
+This pillar is fully shadow-only: it does **not** change the gate logic, only
+adds a rich EPF / paradox field layer.
 
 ---
 
-## 4. How to extend this page
+## 3. Paradox Resolution v0
 
-When adding a new experimental module:
+First formalisation of paradox handling in PULSE.
 
-1. Give it a short name and a one-line scope.
-2. Add a **Status** tag: draft / experimental / planned.
-3. Link the primary design note under `docs/…`.
-4. Make sure it is clear that the core release gates stay deterministic.
+**Design**
 
-This page is a living index; it is fine if parts of it stay draft for a long
-time.
+- `docs/PULSE_paradox_resolution_v0_design_note.md`  
+  – Conceptual design for paradox triage / resolution:
+  - how paradoxes are framed as fields,
+  - how resolution plans are attached,
+  - how this could feed back into human workflows.
+
+**Implementation status (v0)**
+
+- No dedicated tool yet (e.g. `build_paradox_resolution_plan_v0.py`).  
+- Paradox information is currently surfaced via:
+  - `paradox` block on `ReleaseState`
+  - `paradox_field_v0` (axes, atoms, tension, zones)
+  - `paradox_stamp` on `decision_trace[]`
+
+Future work:
+
+- introduce a dedicated resolution-plan builder,
+- connect paradox axes + EPF anchors to concrete resolution suggestions.
+
+---
+
+## 4. Topology dashboards v0
+
+Flattened, dashboard-friendly views on top of the Stability Map.
+
+**Design**
+
+- `docs/PULSE_topology_dashboards_v0_design_note.md`  
+  – Initial ideas for topology dashboards:
+  - state-level rows,
+  - transition-level views,
+  - integration with paradox / EPF fields.
+
+**Tools**
+
+- `PULSE_safe_pack_v0/tools/build_topology_dashboard_v0.py`  
+  - Input: `stability_map.json` (Topology v0, ideally with EPF/paradox fields).  
+  - Output: `topology_dashboard_v0.json`, containing:
+    - `states[]`: one row per `ReleaseState`:
+      - id, label
+      - decision, type
+      - instability_score
+      - paradox_zone + paradox_max_tension
+      - EPF snapshot (phi/theta)
+      - headline string for dashboards / logs
+    - `transitions[]`: simplified view:
+      - from, to, label
+      - delta_instability, delta_rdsi, delta_epf_L
+      - category, tags[]
+
+This is the main entry point for visual dashboards over the topology.
+
+---
+
+## 5. Memory / trace summariser v0
+
+Aggregated, cross-run view of paradox and EPF behaviour over time:
+a first **memory layer** for the EPF / paradox field.
+
+**Design**
+
+- `docs/PULSE_memory_trace_summariser_v0_design_note.md`  
+  – High-level design for memory / trace summarisation:
+  - how to compress many runs into a small set of metrics,
+  - how to project paradox axes into history.
+
+**Tools**
+
+- `PULSE_safe_pack_v0/tools/summarise_decision_paradox_v0.py`  
+  - Input: `decision_output_v0.json` (single run).  
+  - Output: `decision_paradox_summary_v0.json`, a compact per-run summary:
+    - run_id, decision, type
+    - stability snapshot (rdsi, instability_score)
+    - paradox overview (max_tension, dominant_axes, per-axis stats)
+    - EPF overview (phi_potential, theta_distortion, energy_delta)
+
+- `PULSE_safe_pack_v0/tools/summarise_paradox_history_v0.py`  
+  - Input: directory of `decision_paradox_summary_v0*.json` files.  
+  - Output: `paradox_history_v0.json`, containing:
+    - `runs[]`: per-run records (decision, instability, paradox zone, EPF snapshot)
+    - `paradox_history`:
+      - zone_counts (green/yellow/red/unknown)
+      - max_tension_overall
+      - per-axis history (runs_seen, times_dominant, max/avg tension)
+    - `epf_history`:
+      - min/max/avg for phi_potential and theta_distortion
+
+This is the first working version of a “memory / trace summariser v0” for the
+EPF / paradox field.
+
+---
+
+## 6. Invariants for the Future Library v0
+
+Across all of the above, the following invariants hold:
+
+- The main **release gate logic is unchanged**.  
+- Existing structures (`status.json`, `stability_map.json`, `paradox`, `epf`)
+  keep their meaning.  
+- New fields (`paradox_field_v0`, `epf_field_v0`, dashboards, history) are
+  **additive** and schema-backed.  
+- EPF is treated as an **external sensor** projected into the PULSE topology
+  as a field, not as a direct gate rule.  
+- All Future Library components are safe to run in *shadow mode* alongside
+  the existing pipeline.
