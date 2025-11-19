@@ -236,16 +236,53 @@ It consists of:
 - **Dual View v0** – a shared human + agent view of the same data
   (short narrative + machine‑friendly JSON).
 
-Docs & specs:
+## Docs & specs
 
-- `docs/PULSE_topology_v0.md` – Stability Map spec  
-- `docs/PULSE_decision_engine_v0.md` – Decision Engine v0  
-- `docs/PULSE_topology_howto_v0.md` – demo walkthrough  
-- `docs/PULSE_topology_real_run_v0.md` – how the topology layer attaches to real CI runs  
-- `docs/PULSE_dual_view_v0.md` – Dual View v0 format
-- `docs/PULSE_topology_epf_hook.md` – EPF hook sketch (shadow‑only, v0)
-- `docs/PULSE_decision_engine_epf_v0_design_note.md` – Decision Engine EPF v0 design note (shadow signal).
-- `docs/FUTURE_LIBRARY.md` – index of experimental modules (Future Library).
+**Topology v0 / Stability Map**
+
+- `docs/PULSE_topology_v0_design_note.md`  
+  – Topology v0 layer, Stability Map, states / transitions.
+- `docs/PULSE_topology_v0_methods.md`  
+  – CLI-level methods, including Stability Map v0 pipeline.
+- `docs/PULSE_topology_v0_case_study.md`  
+  – Real-world style case study for Topology v0.
+- `schemas/PULSE_stability_map_v0.schema.json`  
+  – Stability Map v0 JSON schema (includes `paradox_field_v0` and `epf_field_v0`).
+
+**EPF shadow layer & paradox field**
+
+- `docs/PULSE_topology_epf_hook.md`  
+  – How EPF hooks into the topology conceptually.
+- `docs/PULSE_epf_shadow_pipeline_v0_walkthrough.md`  
+  – End‑to‑end EPF shadow pipeline v0 (Stability Map → Decision Engine → summary → history).
+- `docs/PULSE_paradox_field_v0_walkthrough.md`  
+  – How to read `paradox_field_v0` across Stability Map / dashboards / history.
+- `docs/PULSE_paradox_field_v0_case_study.md`  
+  – Concrete example of paradox + EPF field for a single run.
+
+**Paradox Resolution v0**
+
+- `docs/PULSE_paradox_resolution_v0_design_note.md`  
+  – Conceptual design for paradox triage / resolution.
+- `docs/PULSE_paradox_resolution_v0_walkthrough.md`  
+  – How `paradox_resolution_v0.json` is built and interpreted.
+
+**Dashboards & memory**
+
+- `docs/PULSE_topology_dashboards_v0_design_note.md`  
+  – Topology dashboards v0 ideas.
+- `docs/PULSE_memory_trace_summariser_v0_design_note.md`  
+  – Memory / trace summariser v0 concept.
+
+**Future Library index**
+
+- `docs/FUTURE_LIBRARY.md`  
+  – Overview of the Future Library v0 pillars:
+    - Topology v0 family
+    - EPF signal layer (shadow-only)
+    - Paradox Resolution v0
+    - Topology dashboards v0
+    - Memory / trace summariser v0
 
 ---
 
