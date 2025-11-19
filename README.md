@@ -244,6 +244,8 @@ Docs & specs:
 - `docs/PULSE_topology_real_run_v0.md` – how the topology layer attaches to real CI runs  
 - `docs/PULSE_dual_view_v0.md` – Dual View v0 format
 - `docs/PULSE_topology_epf_hook.md` – EPF hook sketch (shadow‑only, v0)
+- `docs/PULSE_decision_engine_epf_v0_design_note.md` – Decision Engine EPF v0 design note (shadow signal).
+- `docs/FUTURE_LIBRARY.md` – index of experimental modules (Future Library).
 
 ---
 
