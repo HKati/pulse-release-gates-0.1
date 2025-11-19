@@ -253,12 +253,15 @@ It consists of:
 
 - `docs/PULSE_topology_epf_hook.md`  
   – How EPF hooks into the topology conceptually.
+- `docs/PULSE_epf_shadow_quickstart_v0.md`  
+  – Short command-level guide to run the EPF shadow pipeline v0.
 - `docs/PULSE_epf_shadow_pipeline_v0_walkthrough.md`  
-  – End‑to‑end EPF shadow pipeline v0 (Stability Map → Decision Engine → summary → history).
+  – Detailed walkthrough of the EPF shadow pipeline v0.
 - `docs/PULSE_paradox_field_v0_walkthrough.md`  
-  – How to read `paradox_field_v0` across Stability Map / dashboards / history.
+  – How to read `paradox_field_v0` across artefacts.
 - `docs/PULSE_paradox_field_v0_case_study.md`  
-  – Concrete example of paradox + EPF field for a single run.
+  – Concrete example for a single run.
+
 
 **Paradox Resolution v0**
 
