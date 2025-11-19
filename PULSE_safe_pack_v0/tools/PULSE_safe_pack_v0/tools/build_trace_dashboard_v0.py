@@ -95,27 +95,31 @@ def _build_paradox_overview(
     """
     Build a compact paradox overview section.
 
-    Expects either:
+    Accepts either:
 
-    - {"axes": [...]}  or
-    - a bare list  of axis entries.
-
-    Each axis entry may contain:
-
-    - axis_id
-    - runs_seen
-    - times_dominant
-    - severity
-    - recommended_focus_latest (or recommended_focus)
+    - {"axes": [...]}  (top-level axes), or
+    - {"paradox_history": {"axes": [...]}}  (nested history format), or
+    - a bare list of axis entries.
     """
-    if isinstance(paradox_history, dict) and isinstance(
-        paradox_history.get("axes"), list
-    ):
-        axes = paradox_history["axes"]
+    # Normalise to a list of axis dicts
+    axes: List[Any]
+
+    if isinstance(paradox_history, dict):
+        # v0: axes directly at top level
+        if isinstance(paradox_history.get("axes"), list):
+            axes = paradox_history["axes"]
+        # canonical history format: nested under "paradox_history"
+        elif isinstance(paradox_history.get("paradox_history"), dict) and isinstance(
+            paradox_history["paradox_history"].get("axes"), list
+        ):
+            axes = paradox_history["paradox_history"]["axes"]
+        else:
+            axes = []
     elif isinstance(paradox_history, list):
         axes = paradox_history
     else:
         axes = []
+
 
     norm_axes: List[Json] = [a for a in axes if isinstance(a, dict)]
 
