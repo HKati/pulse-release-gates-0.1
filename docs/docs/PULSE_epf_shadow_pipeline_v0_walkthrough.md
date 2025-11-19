@@ -3,67 +3,36 @@
 Status: **v0, shadow-only**  
 Scope: Stability Map v0 + Decision Engine v0 + paradox / EPF field
 
-This document explains how the EPF signal is integrated into PULSE as an
-_external sensor_ and how it appears in the Topology / Stability Map /
-Decision Engine outputs, without changing any gate logic.
+Ez a doksi azt írja le, hogyan kapcsolódik be az EPF jel
+a PULSE Topology v0 → Stability Map v0 → Decision Engine v0 → summary / history
+láncba **anélkül**, hogy a gate logikát megváltoztatnánk.
 
-The goal is to make the EPF field visible as a **paradox / tension field**,
-not as an extra hard-coded gate.
+A pipeline 3 lépésből áll:
 
----
-
-## 1. High-level picture
-
-The EPF shadow integration in v0 is a 3-step pipeline:
-
-1. **Topology / Stability Map v0**
-
-   - `stability_map.json` is generated as before (Topology v0).
-   - Then we enrich each `ReleaseState` with:
-     - `paradox_field_v0`
-     - `epf_field_v0`
-
-2. **Decision Engine v0 (shadow-only view)**
-
-   - We build `decision_output_v0.json` on top of the Stability Map.
-   - It exposes:
-     - the selected `ReleaseState`,
-     - the paradox/EPF field,
-     - a minimal `decision_trace[]` with a `paradox_stamp`,
-     - a `dual_view` with a `paradox_panel_v0`.
-
-3. **Summary / dashboard view**
-
-   - We build a compact summary JSON:
-     - `decision_output_v0_summary.json`
-   - It is a "headline" view: decision + stability + paradox/EPF field.
-
-At no point do we modify the release gate decision tree. The EPF field is
-a **shadow layer** on top of the existing logic.
+1. Stability Map dúsítása paradox / EPF mezővel  
+2. Decision Engine v0 shadow-output építése  
+3. Summary / history nézetek építése
 
 ---
 
-## 2. Inputs and prerequisites
+## 1. Előfeltételek
 
-The pipeline assumes the existing PULSE topology / gate machinery already
-produces:
+A PULSE topology pipeline már létezik, és előállítja:
 
-- `status.json`
-- (optionally) `status_epf.json`
-- `stability_map.json` via `build_stability_map_v0.py`
+- `status.json` (és opcionálisan `status_epf.json`)
+- `stability_map.json` a `PULSE_safe_pack_v0/tools/build_stability_map_v0.py` futásából
 
-Additionally, the Stability Map schema was extended:
+A Stability Map sémája ki lett bővítve:
 
-- `schemas/PULSE_stability_map_v0.schema.json` now allows, per `ReleaseState`:
-  - `paradox_field_v0`
-  - `epf_field_v0`
+- `schemas/PULSE_stability_map_v0.schema.json` támogatja:
+  - `ReleaseState.paradox_field_v0`
+  - `ReleaseState.epf_field_v0`
 
-Existing fields (`rdsi`, `epf`, `instability`, `paradox`, etc.) and their
-semantics are unchanged.
+A régi mezők (`rdsi`, `epf`, `instability`, `paradox`, …) jelentése változatlan.
 
 ---
 
-## 3. Step 1 – Enrich Stability Map with paradox/EPF field
+## 2. Step 1 – Stability Map dúsítása paradox / EPF mezővel
 
 **Tool:**
 
