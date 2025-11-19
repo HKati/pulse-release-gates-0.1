@@ -42,6 +42,7 @@ stability signal and richer diagnostics.
 **Docs:**
 - Main EPF description → `docs/PULSE_epf_report.txt` (A/B diff summary)
 - Topology EPF hook sketch → `docs/PULSE_topology_epf_hook.md`
+- Decision Engine EPF v0 design note → `docs/PULSE_decision_engine_epf_v0_design_note.md` (draft / experimental)
 
 **Notes:**
 - In v0, EPF metrics may appear as additional fields inside Topology v0
