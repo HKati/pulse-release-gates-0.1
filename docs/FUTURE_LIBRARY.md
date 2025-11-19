@@ -81,28 +81,32 @@ adds a rich EPF / paradox field layer.
 
 ## 3. Paradox Resolution v0
 
-First formalisation of paradox handling in PULSE.
+First formalisation of paradox handling in PULSE. Shadow-only planning artefact on top of paradox history.
 
 **Design**
 
 - `docs/PULSE_paradox_resolution_v0_design_note.md`  
-  – Conceptual design for paradox triage / resolution:
-  - how paradoxes are framed as fields,
-  - how resolution plans are attached,
-  - how this could feed back into human workflows.
+  – conceptual design for paradox triage / resolution.
+- `docs/PULSE_paradox_resolution_v0_walkthrough.md`  
+  – how `paradox_resolution_v0.json` is built from history and how to read it.
 
-**Implementation status (v0)**
+**Tools**
 
-- No dedicated tool yet (e.g. `build_paradox_resolution_plan_v0.py`).  
-- Paradox information is currently surfaced via:
-  - `paradox` block on `ReleaseState`
-  - `paradox_field_v0` (axes, atoms, tension, zones)
-  - `paradox_stamp` on `decision_trace[]`
+- `PULSE_safe_pack_v0/tools/build_paradox_resolution_v0.py`
+  - Input: `paradox_history_v0.json` (from `summarise_paradox_history_v0.py`)
+  - Output: `paradox_resolution_v0.json`
+  - Per-axis entry:
+    - `axis_id`, `runs_seen`, `times_dominant`
+    - `max_tension`, `avg_tension`
+    - `severity` (LOW/MEDIUM/HIGH/CRITICAL)
+    - `priority` (1–4, 1 = highest)
+    - `recommended_focus[]` (generic, non-binding focus hints)
 
-Future work:
+**Notes**
 
-- introduce a dedicated resolution-plan builder,
-- connect paradox axes + EPF anchors to concrete resolution suggestions.
+- Gate logic is not modified.  
+- Heuristics are simple v0 rules that can be tuned in later versions.  
+- The artefact is meant for human triage / planning, not as an automatic policy.
 
 ---
 
