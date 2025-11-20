@@ -9,6 +9,70 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
+# --- panels env helpers (added) ---
+from pathlib import Path
+import json
+import pandas as pd
+
+_ARTIFACT_CANDIDATES = [
+    Path("../artifacts"),
+    Path("PULSE_safe_pack_v0/artifacts"),
+    Path("./artifacts"),
+]
+
+def _load_json_first(relative_names):
+    for base in _ARTIFACT_CANDIDATES:
+        for name in relative_names:
+            p = base / name
+            if p.exists():
+                try:
+                    with p.open("r", encoding="utf-8") as f:
+                        return json.load(f)
+                except Exception:
+                    pass
+    return None
+
+def maybe_load_env(glob):
+    """Ensure runs_df / axes_df / trace_dashboard exist. Try to load from artifacts, otherwise create safe defaults."""
+    runs_df = glob.get("runs_df")
+    if not isinstance(runs_df, pd.DataFrame) or runs_df.empty:
+        topo = _load_json_first(["topology_dashboard_v0.json"])
+        if isinstance(topo, dict) and "states" in topo:
+            runs_df = pd.json_normalize(topo["states"])
+        else:
+            
+            runs_df = pd.DataFrame(columns=["run_id", "decision", "type", "paradox_zone", "instability_score"])
+    glob["runs_df"] = runs_df
+
+    axes_df = glob.get("axes_df")
+    if not isinstance(axes_df, pd.DataFrame):
+        axes_df = pd.DataFrame()
+    glob["axes_df"] = axes_df
+
+    td = glob.get("trace_dashboard")
+    if not isinstance(td, dict):
+        td = {}
+    glob["trace_dashboard"] = td
+    return glob
+
+def run_all_panels(glob):
+    """Call all available panel functions; tolerate different signatures and missing frames."""
+    glob = maybe_load_env(glob)
+    for name in [
+        "panel_worry_index_v0",
+        "panel_decision_zone_matrix_v0",
+        "panel_top_axes_v0",
+        "panel_epf_overview_v0",
+        "panel_instability_rdsi_grid_v0",
+        "panel_decision_streaks_v0",
+    ]:
+        fn = globals().get(name)
+        if callable(fn):
+            try:
+                fn(glob)          
+            except TypeError:
+                fn()               
+# --- end helpers ---
 
 ARTIFACT_DIR = Path("../artifacts")
 
@@ -131,7 +195,19 @@ def panel_top_axes(axes_df: pd.DataFrame):
         return
     df = axes_df[cols].copy()
     sev_map = {"LOW": 1, "MEDIUM": 2, "HIGH": 3, "CRITICAL": 4}
-    df["severity_rank"] = df.get("severity", "").map(sev_map).fillna(0)
+    # Accept EN/HU labels; be defensive if column is missing
+sev_map = {
+    "LOW": 1, "MEDIUM": 2, "HIGH": 3, "CRITICAL": 4,
+    "ALACSONY": 1, "KÖZEPES": 2, "MAGAS": 3, "KRITIKUS": 4,
+}
+
+if "severity" in df.columns:
+    sev_series = df["severity"].astype(str).str.upper()
+else:
+    sev_series = pd.Series([""] * len(df), index=df.index)
+
+df["severity_rank"] = sev_series.map(sev_map).fillna(0).astype(int)
+
 
     sort_cols = ["severity_rank"]
     if "times_dominant" in df.columns:
