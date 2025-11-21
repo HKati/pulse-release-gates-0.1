@@ -30,6 +30,7 @@ From those steps you should have these artefacts:
 - `decision_paradox_summary_v0.json`
 - `paradox_resolution_v0.json`
 - `paradox_resolution_dashboard_v0.json`
+- `delta_log_v0.jsonl` – per‑run delta log (one JSON object per line).
 
 
 ```markdown
@@ -91,3 +92,12 @@ python PULSE_safe_pack_v0/tools/build_paradox_resolution_dashboard_v0.py \
 python PULSE_safe_pack_v0/tools/build_topology_dashboard_v0.py \
   --map ./artifacts/stability_map.json \
   --output ./artifacts/topology_dashboard_v0.json
+
+# 8) Append delta log entry (optional but recommended)
+python3 PULSE_safe_pack_v0/tools/append_delta_log_v0.py \
+  --delta-log ./artifacts/delta_log_v0.jsonl \
+  --source local-demo
+
+This last step appends a single JSON line entry to `delta_log_v0.jsonl`,
+capturing a compact snapshot of the run (decision, stability, paradox and EPF
+snapshots, plus optional git metadata).
