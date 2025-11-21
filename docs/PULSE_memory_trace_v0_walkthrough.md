@@ -35,3 +35,42 @@ All tools mentioned below live under:
 
 ```text
 PULSE_safe_pack_v0/tools/
+
+## Running the full memory / trace demo
+
+Once you have `stability_map.json` and the EPF/paradox fields in place, you can
+run the full memory / trace pipeline from the repo root:
+
+```bash
+# 1) Enrich stability map with EPF + paradox fields
+python PULSE_safe_pack_v0/tools/build_paradox_epf_fields_v0.py \
+  --map ./artifacts/stability_map.json
+
+# 2) Build Decision Engine v0 view
+python PULSE_safe_pack_v0/tools/build_decision_output_v0.py \
+  --map ./artifacts/stability_map.json
+
+# 3) Summarise each run (per-run paradox + EPF summary)
+python PULSE_safe_pack_v0/tools/summarise_decision_paradox_v0.py \
+  --input ./artifacts/decision_output_v0.json \
+  --output ./artifacts/decision_paradox_summary_v0.json
+
+# 4) Aggregate history across runs
+python PULSE_safe_pack_v0/tools/summarise_paradox_history_v0.py \
+  --input ./artifacts/decision_paradox_summary_v0*.json \
+  --output ./artifacts/paradox_history_v0.json
+
+# 5) Build paradox resolution plan
+python PULSE_safe_pack_v0/tools/build_paradox_resolution_v0.py \
+  --input ./artifacts/paradox_history_v0.json \
+  --output ./artifacts/paradox_resolution_v0.json
+
+# 6) Optional: resolution dashboard v0 (human-facing overview)
+python PULSE_safe_pack_v0/tools/build_paradox_resolution_dashboard_v0.py \
+  --input ./artifacts/paradox_resolution_v0.json \
+  --output ./artifacts/paradox_resolution_dashboard_v0.json
+
+# 7) Optional: topology dashboard v0 (state/transition table)
+python PULSE_safe_pack_v0/tools/build_topology_dashboard_v0.py \
+  --map ./artifacts/stability_map.json \
+  --output ./artifacts/topology_dashboard_v0.json
