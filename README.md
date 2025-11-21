@@ -286,6 +286,7 @@ It consists of:
     - Paradox Resolution v0
     - Topology dashboards v0
     - Memory / trace summariser v0
+    - `docs/PULSE_memory_trace_v0_walkthrough.md` – Memory / trace v0 walkthrough and demo panels.
 
 ---
 
