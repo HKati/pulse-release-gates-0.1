@@ -11,15 +11,14 @@ Input:
 Output:
     - decision_paradox_summary_v0.json (by default), with:
         - run_id, decision, type
-        - stability snapshot (rdsi, instability_score)
+        - stability snapshot (rdsi, instability_score, risk_score_v0, risk_zone)
         - paradox overview (max tension, dominant axes, per-axis stats)
         - EPF overview (phi/theta/energy)
 """
 
 import argparse
 import json
-from typing import Any, Dict, List, Optional
-
+from typing import Any, Dict, List, Optional, Tuple
 
 DecisionOutput = Dict[str, Any]
 Summary = Dict[str, Any]
@@ -48,9 +47,11 @@ def _summarise_paradox_axes(paradox_field_v0: Dict[str, Any]) -> Dict[str, Any]:
     for atom in atoms:
         if not isinstance(atom, dict):
             continue
+
         axis = atom.get("axis_id")
         if not axis:
             continue
+
         t = _safe_float(atom.get("tension_score")) or 0.0
         zone = atom.get("zone") or "green"
 
@@ -78,7 +79,7 @@ def _summarise_paradox_axes(paradox_field_v0: Dict[str, Any]) -> Dict[str, Any]:
             ax["num_green"] += 1
 
     # listává alakítás, max_tension szerint rendezve
-    axes_list = sorted(
+    axes_list: List[Dict[str, Any]] = sorted(
         axes.values(), key=lambda a: a["max_tension"], reverse=True
     )
 
@@ -87,6 +88,41 @@ def _summarise_paradox_axes(paradox_field_v0: Dict[str, Any]) -> Dict[str, Any]:
         "dominant_axes": dominant_axes,
         "axes": axes_list,
     }
+
+
+def _compute_risk_score_and_zone(
+    instability_score: Optional[float], rdsi: Optional[float]
+) -> Tuple[Optional[float], str]:
+    """Compute v0 decision risk score and zone from instability and RDSI.
+
+    Returns:
+        risk_score_v0: float in [0, 1] or None if unavailable
+        risk_zone: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL" | "UNKNOWN"
+    """
+    if instability_score is None or rdsi is None:
+        return None, "UNKNOWN"
+
+    try:
+        inst = float(instability_score)
+        r = float(rdsi)
+    except (TypeError, ValueError):
+        return None, "UNKNOWN"
+
+    raw = inst * (1.0 - r)
+
+    # clamp to [0, 1]
+    risk = max(0.0, min(1.0, raw))
+
+    if risk < 0.25:
+        zone = "LOW"
+    elif risk < 0.50:
+        zone = "MEDIUM"
+    elif risk < 0.75:
+        zone = "HIGH"
+    else:
+        zone = "CRITICAL"
+
+    return risk, zone
 
 
 def build_decision_paradox_summary_v0(
@@ -98,12 +134,15 @@ def build_decision_paradox_summary_v0(
 
     release_state = decision_output.get("release_state") or {}
     instability = release_state.get("instability") or {}
-
     paradox_field_v0 = decision_output.get("paradox_field_v0") or {}
     epf_field_v0 = decision_output.get("epf_field_v0") or {}
 
     rdsi = _safe_float(release_state.get("rdsi"))
     instability_score = _safe_float(instability.get("score"))
+
+    risk_score_v0, risk_zone = _compute_risk_score_and_zone(
+        instability_score, rdsi
+    )
 
     paradox_overview = _summarise_paradox_axes(paradox_field_v0)
 
@@ -121,6 +160,8 @@ def build_decision_paradox_summary_v0(
         "stability": {
             "rdsi": rdsi,
             "instability_score": instability_score,
+            "risk_score_v0": risk_score_v0,
+            "risk_zone": risk_zone,
         },
         "paradox_overview": paradox_overview,
         "epf_overview": epf_overview,
@@ -157,7 +198,7 @@ def main() -> None:
     with open(args.out_path, "w", encoding="utf-8") as f:
         json.dump(summary, f, indent=2, ensure_ascii=False)
 
-    print(f"[decision_paradox_summary_v0] wrote {args.out_path}")
+    print(f"[decision_paradox_summary_v0] wrote {args.out_path!r}")
 
 
 if __name__ == "__main__":
