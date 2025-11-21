@@ -323,20 +323,32 @@ They help us see:
 
 ### 6.4 Delta log
 
-`append_delta_log_v0.py` appends one JSON object per run to:
+#### Delta log (`delta_log_v0.jsonl`)
 
-- `delta_log_v0.jsonl`
+The `append_delta_log_v0.py` tool (see the
+[`PULSE_memory_trace_v0_walkthrough`](PULSE_memory_trace_v0_walkthrough.md)
+for full CLI examples; path:
+`PULSE_safe_pack_v0/tools/append_delta_log_v0.py`) appends one JSON
+object per run to `./artifacts/delta_log_v0.jsonl`.
 
-Each row is a small snapshot:
+For each run we add the same scalar + zone:
 
-- decision,
-- instability metrics and zones,
-- paradox summary,
-- EPF energy,
-- git metadata, etc.
+- `risk_score_v0`,
+- `risk_zone`.
 
-This is effectively an **event‑sourced log** of how the system evolves
-run by run, and can drive additional notebooks / dashboards.
+Example row (abbreviated):
+
+```json
+{
+  "run_id": "2025-11-21T20:15:33Z",
+  "decision": "ship",
+  "instability_score": 0.68,
+  "rdsi": 0.42,
+  "risk_score_v0": 0.39,
+  "risk_zone": "MEDIUM",
+  ...
+}
+
 
 
 ## 7. Future directions (v1 ideas)
