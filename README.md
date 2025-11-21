@@ -249,6 +249,12 @@ It consists of:
 - `schemas/PULSE_stability_map_v0.schema.json`  
   – Stability Map v0 JSON schema (includes `paradox_field_v0` and `epf_field_v0`).
 
+**Paradox field & memory metrics v0**
+
+- [PULSE memory / trace v0 walkthrough](docs/PULSE_memory_trace_v0_walkthrough.md) – end-to-end pipeline from EPF/paradox fields to history and dashboards.
+- [PULSE paradox field and memory metrics v0](docs/PULSE_paradox_field_v0.md) – mathematical semantics for the paradox layer, tension/severity/priority and the memory fields.
+
+
 **EPF shadow layer & paradox field**
 
 - `docs/PULSE_topology_epf_hook.md`  
