@@ -73,7 +73,8 @@ python PULSE_safe_pack_v0/tools/summarise_decision_paradox_v0.py \
 
 # 4) Aggregate history across runs
 python PULSE_safe_pack_v0/tools/summarise_paradox_history_v0.py \
-  --input ./artifacts/decision_paradox_summary_v0*.json \
+  --dir ./artifacts \
+  --pattern "decision_paradox_summary_v0*.json" \
   --output ./artifacts/paradox_history_v0.json
 
 # 5) Build paradox resolution plan
