@@ -21,7 +21,7 @@ import glob
 import json
 import os
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 
 Summary = Dict[str, Any]
@@ -53,6 +53,30 @@ def _avg(vals: List[float]) -> Optional[float]:
     return sum(vals) / len(vals)
 
 
+def _compute_risk_score_and_zone(
+    instability_score: Optional[float], rdsi: Optional[float]
+) -> Tuple[Optional[float], str]:
+    if instability_score is None or rdsi is None:
+        return None, "UNKNOWN"
+
+    try:
+        inst = float(instability_score)
+        r = float(rdsi)
+    except (TypeError, ValueError):
+        return None, "UNKNOWN"
+
+    raw = inst * (1.0 - r)
+    risk = max(0.0, min(1.0, raw))
+
+    if risk < 0.25:
+        return risk, "LOW"
+    if risk < 0.50:
+        return risk, "MEDIUM"
+    if risk < 0.75:
+        return risk, "HIGH"
+    return risk, "CRITICAL"
+
+
 def load_summaries(dir_path: str, pattern: str) -> List[Summary]:
     glob_pattern = os.path.join(dir_path, pattern)
     paths = sorted(glob.glob(glob_pattern))
@@ -78,6 +102,14 @@ def build_paradox_history_v0(summaries: List[Summary]) -> History:
 
     phi_vals: List[float] = []
     theta_vals: List[float] = []
+    risk_vals: List[float] = []
+    risk_zone_counts: Dict[str, int] = {
+        "LOW": 0,
+        "MEDIUM": 0,
+        "HIGH": 0,
+        "CRITICAL": 0,
+        "UNKNOWN": 0,
+    }
 
     for s in summaries:
         if not isinstance(s, dict):
@@ -89,6 +121,13 @@ def build_paradox_history_v0(summaries: List[Summary]) -> History:
 
         stability = s.get("stability") or {}
         instab = _safe_float(stability.get("instability_score"))
+        rdsi = _safe_float(stability.get("rdsi"))
+        risk_score = _safe_float(stability.get("risk_score_v0"))
+        risk_zone = stability.get("risk_zone")
+
+        # Compute risk if missing or malformed
+        if risk_score is None or not isinstance(risk_zone, str):
+            risk_score, risk_zone = _compute_risk_score_and_zone(instab, rdsi)
 
         paradox = s.get("paradox_overview") or {}
         max_tension = _safe_float(paradox.get("max_tension"))
@@ -112,10 +151,17 @@ def build_paradox_history_v0(summaries: List[Summary]) -> History:
                 "epf_phi_potential": phi,
                 "epf_theta_distortion": theta,
                 "dominant_axes": dominant_axes,
+                "risk_score_v0": risk_score,
+                "risk_zone": risk_zone,
             }
         )
 
         zone_counts[zone] = zone_counts.get(zone, 0) + 1
+
+        if risk_zone:
+            risk_zone_counts[risk_zone] = risk_zone_counts.get(risk_zone, 0) + 1
+        if risk_score is not None:
+            risk_vals.append(risk_score)
 
         if max_tension is not None and max_tension > max_tension_overall:
             max_tension_overall = max_tension
@@ -185,6 +231,13 @@ def build_paradox_history_v0(summaries: List[Summary]) -> History:
         },
     }
 
+    risk_history = {
+        "min": min(risk_vals) if risk_vals else None,
+        "max": max(risk_vals) if risk_vals else None,
+        "avg": _avg(risk_vals),
+        "zone_counts": risk_zone_counts,
+    }
+
     history: History = {
         "version": "0.1",
         "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -196,6 +249,7 @@ def build_paradox_history_v0(summaries: List[Summary]) -> History:
             "axes": axes_out,
         },
         "epf_history": epf_history,
+        "risk_history": risk_history,
     }
 
     return history
@@ -245,11 +299,7 @@ def _parse_args() -> argparse.Namespace:
 
     args = parser.parse_args()
 
-    # Allow the new --input-glob form used in the docs:
-    # split it into dir + pattern so the rest of the code can stay unchanged.
     if getattr(args, "input_glob", None):
-        import os
-
         dir_name, pattern = os.path.split(args.input_glob)
         if dir_name:
             args.dir = dir_name
@@ -261,12 +311,10 @@ def _parse_args() -> argparse.Namespace:
 
 
 def main() -> None:
-    # Parse CLI flags and normalise --input-glob (if used)
-    args = _normalise_args(_parse_args())
+    args = _parse_args()
 
-    # CLI flags are now stored as args.dir / args.pattern / args.out
     summaries = load_summaries(args.dir, args.pattern)
-    history = summarise_paradox_history(summaries)
+    history = build_paradox_history_v0(summaries)
 
     with open(args.out, "w", encoding="utf-8") as f:
         json.dump(history, f, indent=2, sort_keys=True)

@@ -24,6 +24,22 @@ DecisionOutput = Dict[str, Any]
 Summary = Dict[str, Any]
 
 
+def _load_decision_output(path: str) -> Optional[DecisionOutput]:
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except FileNotFoundError:
+        print(
+            f"[decision_paradox_summary_v0] WARNING: decision output not found at {path!r}"
+        )
+        return None
+    except json.JSONDecodeError:
+        print(
+            f"[decision_paradox_summary_v0] WARNING: invalid JSON in decision output {path!r}"
+        )
+        return None
+
+
 def _safe_float(x: Any) -> Optional[float]:
     try:
         if x is None:
@@ -174,12 +190,14 @@ def _parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--decision",
+        "--input",
         dest="decision_path",
         default="decision_output_v0.json",
         help="Path to decision_output_v0.json (default: ./decision_output_v0.json)",
     )
     parser.add_argument(
         "--out",
+        "--output",
         dest="out_path",
         default="decision_paradox_summary_v0.json",
         help="Output JSON path (default: ./decision_paradox_summary_v0.json)",
@@ -190,8 +208,10 @@ def _parse_args() -> argparse.Namespace:
 def main() -> None:
     args = _parse_args()
 
-    with open(args.decision_path, "r", encoding="utf-8") as f:
-        decision_output: DecisionOutput = json.load(f)
+    decision_output = _load_decision_output(args.decision_path)
+    if decision_output is None:
+        print("[decision_paradox_summary_v0] nothing to write (missing decision output)")
+        return
 
     summary = build_decision_paradox_summary_v0(decision_output)
 

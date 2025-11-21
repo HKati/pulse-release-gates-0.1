@@ -220,7 +220,7 @@ per run:
 This “atomic memo” contains:
 
 - decision (ship / hold / rollback),
-- stability snapshot (`rdsi`, `instability_score`),
+- stability snapshot (`rdsi`, `instability_score`, `risk_score_v0`, `risk_zone`),
 - paradox overview (e.g. `max_tension`, dominant axes),
 - EPF overview (`phi`, `theta`, `energy`).
 
@@ -237,6 +237,7 @@ and builds:
 This artefact includes e.g.:
 
 - `runs[]` – runs with zones and EPF snapshots,
+- `risk_history` – aggregated risk view (min / max / avg + zone counts),
 - `paradox_history` – per‑axis statistics:
   - `runs_seen`, `times_dominant`,
   - `max_tension`, `avg_tension`,

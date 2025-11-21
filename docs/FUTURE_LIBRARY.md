@@ -157,18 +157,19 @@ a first **memory layer** for the EPF / paradox field.
 
 **Tools**
 
-- `PULSE_safe_pack_v0/tools/summarise_decision_paradox_v0.py`  
-  - Input: `decision_output_v0.json` (single run).  
+- `PULSE_safe_pack_v0/tools/summarise_decision_paradox_v0.py`
+  - Input: `decision_output_v0.json` (single run).
   - Output: `decision_paradox_summary_v0.json`, a compact per-run summary:
     - run_id, decision, type
-    - stability snapshot (rdsi, instability_score)
+    - stability snapshot (rdsi, instability_score, risk_score_v0, risk_zone)
     - paradox overview (max_tension, dominant_axes, per-axis stats)
     - EPF overview (phi_potential, theta_distortion, energy_delta)
 
-- `PULSE_safe_pack_v0/tools/summarise_paradox_history_v0.py`  
-  - Input: directory of `decision_paradox_summary_v0*.json` files.  
+- `PULSE_safe_pack_v0/tools/summarise_paradox_history_v0.py`
+  - Input: directory of `decision_paradox_summary_v0*.json` files.
   - Output: `paradox_history_v0.json`, containing:
-    - `runs[]`: per-run records (decision, instability, paradox zone, EPF snapshot)
+    - `runs[]`: per-run records (decision, instability, risk snapshot, paradox zone, EPF snapshot)
+    - `risk_history` with min / max / avg risk and zone counts
     - `paradox_history`:
       - zone_counts (green/yellow/red/unknown)
       - max_tension_overall

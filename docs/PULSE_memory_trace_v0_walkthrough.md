@@ -98,6 +98,8 @@ python3 PULSE_safe_pack_v0/tools/append_delta_log_v0.py \
   --delta-log ./artifacts/delta_log_v0.jsonl \
   --source local-demo
 
+All CLI flags above have short, backwards-compatible aliases (`--decision`/`--input`, `--out`/`--output`, `--dir`/`--input-dir`, `--pattern`/`--input-pattern`) so the examples work with existing scripts without path or unknown flag errors.
+
 This last step appends a single JSON line entry to `delta_log_v0.jsonl`,
 capturing a compact snapshot of the run (decision, stability, paradox and EPF
 snapshots, plus optional git metadata).
