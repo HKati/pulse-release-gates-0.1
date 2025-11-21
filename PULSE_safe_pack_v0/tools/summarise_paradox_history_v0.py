@@ -263,11 +263,13 @@ def _parse_args() -> argparse.Namespace:
 def main() -> None:
     args = _parse_args()
 
-    summaries = load_summaries(args.dir_path, args.pattern)
-    history = build_paradox_history_v0(summaries)
+    # CLI flags are stored as args.dir / args.pattern / args.out
+    summaries = load_summaries(args.dir, args.pattern)
+    history = summarise_paradox_history(summaries)
 
-    with open(args.out_path, "w", encoding="utf-8") as f:
-        json.dump(history, f, indent=2, ensure_ascii=False)
+    with open(args.out, "w", encoding="utf-8") as f:
+        json.dump(history, f, indent=2, sort_keys=True)
+
 
     print(
         f"[paradox_history_v0] aggregated {history['num_runs']} runs "
