@@ -203,30 +203,61 @@ def build_paradox_history_v0(summaries: List[Summary]) -> History:
 
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description=(
-            "Aggregate multiple decision_paradox_summary_v0*.json files "
-            "into paradox_history_v0.json"
-        )
+        description="Summarise paradox history across runs."
     )
+
+    # New shorthand form: --input-glob / --output
+    parser.add_argument(
+        "--input",
+        "--input-glob",
+        dest="input_glob",
+        help=(
+            "Glob for decision_paradox_summary_v0*.json, e.g. "
+            "'./artifacts/decision_paradox_summary_v0*.json'. "
+            "If set, this is split into --dir and --pattern."
+        ),
+    )
+
+    # Legacy form: --dir / --pattern / --out
     parser.add_argument(
         "--dir",
-        dest="dir_path",
+        "--input-dir",
+        dest="dir",
         default=".",
-        help="Directory containing decision_paradox_summary_v0*.json files (default: .)",
+        help="Directory containing decision_paradox_summary_v0*.json files.",
     )
+
     parser.add_argument(
         "--pattern",
+        "--input-pattern",
         dest="pattern",
         default="decision_paradox_summary_v0*.json",
-        help="Glob pattern for summary files (default: decision_paradox_summary_v0*.json)",
+        help="Glob pattern for per-run summary files.",
     )
+
     parser.add_argument(
         "--out",
-        dest="out_path",
+        "--output",
+        dest="out",
         default="paradox_history_v0.json",
-        help="Output JSON path (default: paradox_history_v0.json)",
+        help="Output file for aggregated history JSON.",
     )
-    return parser.parse_args()
+
+    args = parser.parse_args()
+
+    # Allow the new --input-glob form used in the docs:
+    # split it into dir + pattern so the rest of the code can stay unchanged.
+    if getattr(args, "input_glob", None):
+        import os
+
+        dir_name, pattern = os.path.split(args.input_glob)
+        if dir_name:
+            args.dir = dir_name
+        if pattern:
+            args.pattern = pattern
+
+    return args
+
 
 
 def main() -> None:
