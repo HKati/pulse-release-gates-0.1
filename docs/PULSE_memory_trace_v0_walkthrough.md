@@ -31,12 +31,26 @@ From those steps you should have these artefacts:
 - `paradox_resolution_v0.json`
 - `paradox_resolution_dashboard_v0.json`
 
-All tools mentioned below live under:
 
-```text
-PULSE_safe_pack_v0/tools/
+```markdown
+All tools mentioned below live under: `PULSE_safe_pack_v0/tools/`
+
+## Running the full memory / trace demo
+
+Once you have `stability_map.json` and the EPF/paradox fields in place, you can
+run the full memory / trace pipeline from the repo root:
+
+```bash
+# 1) Enrich stability map with EPF + paradox fields
+python PULSE_safe_pack_v0/tools/build_paradox_epf_fields_v0.py \
+  --map ./artifacts/stability_map.json
+
+# 2) Build Decision Engine v0 view
+python PULSE_safe_pack_v0/tools/build_decision_output_v0.py \
+  --map ./artifacts/stability_map.json
 
 ...
+
 
 ## Running the full memory / trace demo
 
