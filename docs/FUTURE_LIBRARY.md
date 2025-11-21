@@ -176,6 +176,17 @@ a first **memory layer** for the EPF / paradox field.
     - `epf_history`:
       - min/max/avg for phi_potential and theta_distortion
 
+**Walkthrough & demo**
+
+- `docs/PULSE_memory_trace_v0_walkthrough.md`  
+  – Step‑by‑step walkthrough for running the full memory / trace demo
+    and interpreting the artefacts.
+
+- `PULSE_safe_pack_v0/examples/PULSE_trace_dashboard_v0_demo.ipynb`  
+  – Demo notebook that renders Pareto coverage of paradox axes,
+    instability × RDSI quadrants, and decision streaks based on the
+    trace artefacts.
+
 This is the first working version of a “memory / trace summariser v0” for the
 EPF / paradox field.
 
