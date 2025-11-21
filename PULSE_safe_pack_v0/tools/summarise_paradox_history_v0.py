@@ -261,21 +261,22 @@ def _parse_args() -> argparse.Namespace:
 
 
 def main() -> None:
-    args = _parse_args()
+    # Parse CLI flags and normalise --input-glob (if used)
+    args = _normalise_args(_parse_args())
 
-    # CLI flags are stored as args.dir / args.pattern / args.out
+    # CLI flags are now stored as args.dir / args.pattern / args.out
     summaries = load_summaries(args.dir, args.pattern)
     history = summarise_paradox_history(summaries)
 
     with open(args.out, "w", encoding="utf-8") as f:
         json.dump(history, f, indent=2, sort_keys=True)
 
-
     print(
         f"[paradox_history_v0] aggregated {history['num_runs']} runs "
-        f"into {args.out_path}"
+        f"into {args.out}"
     )
 
 
 if __name__ == "__main__":
     main()
+
