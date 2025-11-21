@@ -36,6 +36,8 @@ All tools mentioned below live under:
 ```text
 PULSE_safe_pack_v0/tools/
 
+...
+
 ## Running the full memory / trace demo
 
 Once you have `stability_map.json` and the EPF/paradox fields in place, you can
