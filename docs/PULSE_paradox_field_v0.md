@@ -362,3 +362,101 @@ Some natural evolutions of this v0 design:
 
 All of these can be added incrementally without changing
 the underlying artefact schemas.
+
+## 8. Decision risk field v0 (optional extension)
+
+### 8.1 Motivation
+
+Instability and RDSI already give a 2D view of how “conflicted” and how
+“stable” a decision is.
+
+For dashboards and history it is often useful to have a **single scalar**
+that captures “how risky this decision looks in hindsight”.
+
+The v0 decision risk field does exactly that:
+
+- high when instability is high and RDSI is low,
+- low when instability is low or RDSI is high,
+- bounded on \[0, 1].
+
+### 8.2 Definition
+
+Assuming both `instability_score` and `rdsi` lie in \[0, 1]:
+
+\[
+risk\_raw(state) = instability\_score(state) \cdot (1 - rdsi(state))
+\]
+
+We then clamp to \[0, 1] to be safe:
+
+\[
+risk(state) = \min\left(1, \max\left(0, risk\_raw(state)\right)\right)
+\]
+
+**Interpretation**
+
+- `risk ≈ 0`  
+  → either the decision is very stable (`rdsi ≈ 1`) or there is almost
+  no conflict (`instability_score ≈ 0`).
+
+- `risk ≈ 1`  
+  → strong conflict and low decision stability at the same time.
+
+Examples:
+
+- `instability_score = 0.9`, `rdsi = 0.2`  
+  → `risk_raw = 0.9 * (1 - 0.2) = 0.72` → high risk.
+- `instability_score = 0.3`, `rdsi = 0.9`  
+  → `risk_raw = 0.3 * 0.1 = 0.03` → low risk.
+
+### 8.3 Risk zones
+
+We derive a discrete `risk_zone` from the scalar risk, using the same
+threshold pattern as for severity:
+
+- LOW
+- MEDIUM
+- HIGH
+- CRITICAL
+- (optionally: UNKNOWN for missing data)
+
+A simple v0 choice:
+
+- LOW:      `risk ∈ [0.00, 0.25)`
+- MEDIUM:   `risk ∈ [0.25, 0.50)`
+- HIGH:     `risk ∈ [0.50, 0.75)`
+- CRITICAL: `risk ∈ [0.75, 1.00]`
+
+If instability or RDSI is missing, we can set:
+
+- `risk = null` and `risk_zone = "UNKNOWN"`.
+
+This keeps the pipeline safe in the presence of incomplete artefacts.
+
+### 8.4 Where we log the risk field
+
+The risk field is **derived** from existing data; it does not need to be
+stored in the Stability Map itself. Instead we attach it in the memory /
+trace artefacts:
+
+#### Per-run summary (`decision_paradox_summary_v0.json`)
+
+Under the stability block we add:
+
+- `risk_score_v0` – float in \[0, 1] or `null`,
+- `risk_zone` – `"LOW" | "MEDIUM" | "HIGH" | "CRITICAL" | "UNKNOWN"`.
+
+Example snippet:
+
+```json
+{
+  "decision": "ship",
+  "stability": {
+    "instability_score": 0.68,
+    "rdsi": 0.42,
+    "risk_score_v0": 0.39,
+    "risk_zone": "MEDIUM"
+  },
+  "paradox_overview": { ... },
+  "epf_overview": { ... }
+}
