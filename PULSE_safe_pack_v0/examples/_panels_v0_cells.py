@@ -78,6 +78,79 @@ def ensure_severity_column(df_runs: pd.DataFrame, source_col: str = "max_tension
         df_runs["severity"] = "UNKNOWN"
 
     return df_runs
+def panel_paradox_axes_pareto(glob: Dict[str, Any]) -> None:
+    """
+    Pareto-coverage view for paradox axes.
+
+    Goal:
+      Show which few axes cover most of the runs
+      (runs_seen / total_runs), with a cumulative
+      Pareto curve on the same plot.
+    """
+
+    env = glob.get("env", {})
+    runs_df = env.get("runs_df")
+    axes_df = env.get("axes_df")
+
+    if runs_df is None or axes_df is None:
+        print("[pareto] runs_df or axes_df missing – skipping Pareto panel.")
+        return
+
+    if not isinstance(runs_df, pd.DataFrame) or runs_df.empty:
+        print("[pareto] runs_df is not a DataFrame or is empty – skipping Pareto panel.")
+        return
+
+    if not isinstance(axes_df, pd.DataFrame) or axes_df.empty:
+        print("[pareto] axes_df is not a DataFrame or is empty – skipping Pareto panel.")
+        return
+
+    if "axis_id" not in axes_df.columns:
+        print("[pareto] axes_df has no 'axis_id' column – cannot build Pareto view.")
+        return
+
+    # Prefer an explicit run-count column if present.
+    if "runs_seen" in axes_df.columns:
+        count_col = "runs_seen"
+    else:
+        # Fallback: count by axis_id from runs_df.
+        if "axis_id" not in runs_df.columns:
+            print("[pareto] No 'runs_seen' or 'axis_id' in runs_df – skipping.")
+            return
+        counts = runs_df["axis_id"].value_counts().rename("runs_seen")
+        axes_df = axes_df.merge(
+            counts, how="left", left_on="axis_id", right_index=True
+        ).fillna({"runs_seen": 0})
+        count_col = "runs_seen"
+
+    # Basic stats.
+    df = axes_df.copy()
+    df = df.sort_values(count_col, ascending=False)
+    total_runs = df[count_col].sum()
+
+    if total_runs <= 0:
+        print("[pareto] total_runs is 0 – nothing to plot.")
+        return
+
+    df["coverage"] = df[count_col] / float(total_runs)
+    df["cum_coverage"] = df["coverage"].cumsum()
+
+    # Find how many axes cover ~80% of runs.
+    eighty_cutoff = (df["cum_coverage"] >= 0.8).idxmax()
+    num_axes_80 = df.index.get_loc(eighty_cutoff) + 1
+
+    print(f"[pareto] {num_axes_80} axes cover ~80% of runs.")
+
+    # Plot: bar for coverage + line for cumulative coverage.
+    plt.figure(figsize=(8, 4))
+    plt.bar(range(len(df)), df["coverage"], alpha=0.6, label="Per-axis coverage")
+    plt.plot(range(len(df)), df["cum_coverage"], marker="o", label="Cumulative")
+    plt.axhline(0.8, color="red", linestyle="--", label="80%")
+    plt.title("Paradox axes Pareto coverage")
+    plt.xlabel("Axes (sorted by coverage)")
+    plt.ylabel("Fraction of runs")
+    plt.legend()
+    plt.tight_layout()
+    plt.show()
 
 # --- panels env helpers (added) ---
 from pathlib import Path
@@ -489,3 +562,5 @@ def run_all_panels(env: Dict[str, Any]):
     panel_instab_rdsi_quadrants(runs_df)
     panel_decision_streaks(runs_df)
     print("=== Done. CSVs in ../artifacts ===")
+    panel_paradox_axes_pareto(glob)
+
