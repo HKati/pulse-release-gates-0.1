@@ -441,6 +441,66 @@ def panel_epf_overview(trace_dashboard: Dict[str, Any]):
     print("EPF overview:")
     pprint(epf_ov)
 
+def panel_paradox_tension_histogram(glob: Dict[str, Any]) -> None:
+    """
+    Histogram of paradox tension, grouped by zone.
+    """
+
+    env = glob.get("env", {})
+    axes_df = env.get("axes_df")
+
+    if not isinstance(axes_df, pd.DataFrame) or axes_df.empty:
+        print("[hist] axes_df missing or empty – skipping paradox histogram.")
+        return
+
+    # Pick a tension-like column
+    tension_col = None
+    for col in ["tension_score", "avg_tension", "max_tension"]:
+        if col in axes_df.columns:
+            tension_col = col
+            break
+
+    if tension_col is None:
+        print(
+            "[hist] no tension column found in axes_df – "
+            "expected one of 'tension_score', 'avg_tension', 'max_tension'."
+        )
+        return
+
+    if "zone" not in axes_df.columns:
+        print("[hist] axes_df has no 'zone' column – skipping paradox histogram.")
+        return
+
+    df = axes_df[[tension_col, "zone"]].dropna()
+    if df.empty:
+        print("[hist] no rows with both tension and zone – nothing to plot.")
+        return
+
+    # Defenzíven 0–1 közé klippeljük a feszültséget
+    df[tension_col] = df[tension_col].clip(lower=0.0, upper=1.0)
+
+    bins = np.linspace(0.0, 1.0, 11)
+    zones = ["green", "yellow", "red"]
+
+    plt.figure(figsize=(8, 4))
+    for zone in zones:
+        subset = df.loc[df["zone"] == zone, tension_col]
+        if subset.empty:
+            continue
+        plt.hist(
+            subset,
+            bins=bins,
+            alpha=0.4,
+            density=True,
+            label=zone.upper(),
+        )
+
+    plt.xlabel("Paradox tension")
+    plt.ylabel("Density")
+    plt.title("Paradox tension distribution by zone")
+    plt.legend()
+    plt.tight_layout()
+    plt.show()
 
 def panel_axes_pareto(axes_df: pd.DataFrame, runs_df: Optional[pd.DataFrame] = None):
     if axes_df is None or axes_df.empty:
@@ -600,22 +660,33 @@ def panel_decision_streaks(runs_df: pd.DataFrame):
         plt.show()
 
 
-def run_all_panels(env: Dict[str, Any]):
-    """Entry point the notebook can call."""
-    e = _maybe_load_env(env)
-    runs_df = e.get("runs_df")
-    axes_df = e.get("axes_df")
-    trace_dashboard = e.get("trace_dashboard", {})
+def run_all_panels(glob: Dict[str, Any]) -> None:
+    env = maybe_load_env(glob)
 
-    print("=== PULSE Trace Panels v0 ===")
-    panel_worry_index(runs_df)
-    panel_zone_matrix(runs_df)
-    panel_top_axes(axes_df)
-    panel_epf_overview(trace_dashboard)
-    panel_axes_pareto(axes_df, runs_df)
-    panel_instab_rdsi_quadrants(runs_df)
-    panel_decision_streaks(runs_df)
+    if env is None:
+        print("[panels] env could not be loaded – aborting.")
+        return
+
+    runs_df = env.get("runs_df")
+    axes_df = env.get("axes_df")
+
+    # Paradox zóna / feszültség nézetek
+    panel_paradox_zone_histogram({"env": env})
+    panel_paradox_tension_histogram({"env": env})
+
+    # Instability × RDSI scatter
+    panel_instability_rdsi_scatter({"env": env})
+
+    # Paradoxon tengelyek Pareto-lefedettsége
+    panel_paradox_axes_pareto({"env": env})
+
+    # Döntési sorozatok (streaks), ha van értelmes runs_df
+    if isinstance(runs_df, pd.DataFrame) and not runs_df.empty:
+        panel_decision_streaks(runs_df)
+    else:
+        print("[streaks] runs_df missing or empty – skipping streak panel.")
+
     print("=== Done. CSVs in ../artifacts ===")
-    panel_paradox_axes_pareto({"env": e})
+
 
 
