@@ -152,6 +152,60 @@ def panel_paradox_axes_pareto(glob: Dict[str, Any]) -> None:
     plt.tight_layout()
     plt.show()
 
+def panel_instability_rdsi_scatter(glob: Dict[str, Any]) -> None:
+    """
+    Instability × RDSI scatter plot for runs.
+
+    Goal:
+        Visualise per-run instability_score vs rdsi, highlight quadrants,
+        and make it easy to spot outliers.
+    """
+    env = glob.get("env", {})
+    runs_df = env.get("runs_df")
+
+    if runs_df is None:
+        print("[instability×rdsi] runs_df missing – skipping panel.")
+        return
+
+    if not isinstance(runs_df, pd.DataFrame) or runs_df.empty:
+        print("[instability×rdsi] runs_df is not a non-empty DataFrame – skipping panel.")
+        return
+
+    required = {"instability_score", "rdsi"}
+    missing = required.difference(runs_df.columns)
+    if missing:
+        print(f"[instability×rdsi] missing columns {missing} – skipping panel.")
+        return
+
+    df = runs_df[["instability_score", "rdsi"]].dropna()
+    if df.empty:
+        print("[instability×rdsi] no valid instability/rdsi rows – nothing to plot.")
+        return
+
+    fig, ax = plt.subplots(figsize=(6, 4))
+
+    ax.scatter(df["rdsi"], df["instability_score"], alpha=0.6)
+
+    # Quadrant thresholds (tuning-friendly demo defaults)
+    x_thr = 0.8
+    y_thr = 0.5
+
+    ax.axvline(x_thr, linestyle="--", linewidth=1)
+    ax.axhline(y_thr, linestyle="--", linewidth=1)
+
+    ax.set_xlabel("RDSI (confidence)")
+    ax.set_ylabel("Instability score")
+    ax.set_title("Instability × RDSI scatter")
+
+    # Simple quadrant labels (axes coordinates)
+    ax.text(0.05, 0.9, "low conf / high instab", transform=ax.transAxes, fontsize=8)
+    ax.text(0.05, 0.1, "low conf / low instab", transform=ax.transAxes, fontsize=8)
+    ax.text(0.55, 0.9, "high conf / high instab", transform=ax.transAxes, fontsize=8)
+    ax.text(0.55, 0.1, "high conf / low instab", transform=ax.transAxes, fontsize=8)
+
+    plt.tight_layout()
+    plt.show()
+
 # --- panels env helpers (added) ---
 from pathlib import Path
 import json
