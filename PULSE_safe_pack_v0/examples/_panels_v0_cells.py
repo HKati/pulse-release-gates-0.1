@@ -9,6 +9,76 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
+# ---------------------------------------------------------------------------
+# Severity helpers
+# ---------------------------------------------------------------------------
+from typing import Any
+import math
+import pandas as pd
+
+
+def compute_severity_from_tension(tension: Any) -> str:
+    """
+    Map a tension value to a severity bucket.
+
+    Expected input:
+      - numeric in [0.0, 1.0], but we try to be defensive.
+
+    Buckets:
+      LOW      : [0.00, 0.25)
+      MEDIUM   : [0.25, 0.50)
+      HIGH     : [0.50, 0.75)
+      CRITICAL : [0.75, 1.00]
+      UNKNOWN  : anything missing / invalid
+    """
+    if tension is None:
+        return "UNKNOWN"
+
+    try:
+        t = float(tension)
+    except (TypeError, ValueError):
+        return "UNKNOWN"
+
+    if math.isnan(t):
+        return "UNKNOWN"
+
+    # clamp to [0, 1]
+    t = max(0.0, min(1.0, t))
+
+    if t < 0.25:
+        return "LOW"
+    elif t < 0.50:
+        return "MEDIUM"
+    elif t < 0.75:
+        return "HIGH"
+    else:
+        return "CRITICAL"
+
+
+def ensure_severity_column(df_runs: pd.DataFrame, source_col: str = "max_tension") -> pd.DataFrame:
+    """
+    Ensure that df_runs has a 'severity' column.
+
+    Rules:
+      - If 'severity' already exists and has at least one non-null value,
+        we keep it as-is.
+      - Otherwise, if `source_col` exists, we derive severity from it
+        using `compute_severity_from_tension`.
+      - If neither is available, we fall back to 'UNKNOWN' everywhere.
+    """
+    if "severity" in df_runs.columns:
+        # If there is at least one non-null / non-empty value, respect it.
+        if df_runs["severity"].notna().any():
+            return df_runs
+
+    if source_col in df_runs.columns:
+        df_runs["severity"] = df_runs[source_col].apply(compute_severity_from_tension)
+    else:
+        # No source tension field available; give a safe default.
+        df_runs["severity"] = "UNKNOWN"
+
+    return df_runs
+
 # --- panels env helpers (added) ---
 from pathlib import Path
 import json
