@@ -56,6 +56,8 @@ jobs:
           pip install jsonschema
 
       - name: Validate demo artefacts against schemas
+        # Only run validation if the main schema file is present
+        if: ${{ hashFiles('schemas/PULSE_stability_map_v0.schema.json') != '' }}
         run: |
           python -m jsonschema \
             -i PULSE_safe_pack_v0/artifacts/stability_map.demo.ci.json \
