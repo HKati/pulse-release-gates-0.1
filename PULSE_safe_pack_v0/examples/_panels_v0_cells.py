@@ -616,5 +616,6 @@ def run_all_panels(env: Dict[str, Any]):
     panel_instab_rdsi_quadrants(runs_df)
     panel_decision_streaks(runs_df)
     print("=== Done. CSVs in ../artifacts ===")
-    panel_paradox_axes_pareto(glob)
+    panel_paradox_axes_pareto({"env": e})
+
 
