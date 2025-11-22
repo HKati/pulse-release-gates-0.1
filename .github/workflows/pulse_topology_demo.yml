@@ -23,13 +23,12 @@ jobs:
           python-version: "3.11"
 
       - name: Prepare demo artefacts
-  run: |
-    mkdir -p PULSE_safe_pack_v0/artifacts
-    cp docs/examples/topology_demo_v0/status.run_002.json \
-      PULSE_safe_pack_v0/artifacts/status.json
-    cp docs/examples/topology_demo_v0/status_epf.run_002.json \
-      PULSE_safe_pack_v0/artifacts/status_epf.json
-
+        run: |
+          mkdir -p PULSE_safe_pack_v0/artifacts
+          cp docs/examples/topology_demo_v0/status.run_002.json \
+            PULSE_safe_pack_v0/artifacts/status.json
+          cp docs/examples/topology_demo_v0/status_epf.run_002.json \
+            PULSE_safe_pack_v0/artifacts/status_epf.json
 
       - name: Build Stability Map (demo)
         run: |
