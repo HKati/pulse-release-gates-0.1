@@ -55,6 +55,9 @@ def _summarise_paradox_axes(paradox_field_v0: Dict[str, Any]) -> Dict[str, Any]:
         atoms = []
 
     summary = paradox_field_v0.get("summary") or {}
+    if not isinstance(summary, dict):
+        summary = {}
+
     max_tension = _safe_float(summary.get("max_tension")) or 0.0
     dominant_axes = summary.get("dominant_axes") or []
 
@@ -149,9 +152,20 @@ def build_decision_paradox_summary_v0(
     decision = decision_output.get("decision")
 
     release_state = decision_output.get("release_state") or {}
+    if not isinstance(release_state, dict):
+        release_state = {}
+
     instability = release_state.get("instability") or {}
+    if not isinstance(instability, dict):
+        instability = {}
+
     paradox_field_v0 = decision_output.get("paradox_field_v0") or {}
+    if not isinstance(paradox_field_v0, dict):
+        paradox_field_v0 = {}
+
     epf_field_v0 = decision_output.get("epf_field_v0") or {}
+    if not isinstance(epf_field_v0, dict):
+        epf_field_v0 = {}
 
     rdsi = _safe_float(release_state.get("rdsi"))
     instability_score = _safe_float(instability.get("score"))
