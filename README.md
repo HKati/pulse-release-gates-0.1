@@ -101,6 +101,7 @@ change any CI behaviour or gate logic.
 - Decision trace schema validator → `PULSE_safe_pack_v0/tools/validate_decision_trace_v0.py`  
   Validate `decision_trace_v0*.json` artefacts against
   `schemas/PULSE_decision_trace_v0.schema.json` using `jsonschema`.
+- Memory / trace dashboard demo → `PULSE_safe_pack_v0/examples/PULSE_memory_trace_dashboard_v0_demo.ipynb`
 
 ### Try PULSE on your repo (5 minutes)
 
