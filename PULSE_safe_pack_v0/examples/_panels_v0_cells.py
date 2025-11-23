@@ -229,28 +229,83 @@ def _load_json_first(relative_names):
                     pass
     return None
 
-def maybe_load_env(glob):
-    """Ensure runs_df / axes_df / trace_dashboard exist. Try to load from artifacts, otherwise create safe defaults."""
-    runs_df = glob.get("runs_df")
-    if not isinstance(runs_df, pd.DataFrame) or runs_df.empty:
-        topo = _load_json_first(["topology_dashboard_v0.json"])
-        if isinstance(topo, dict) and "states" in topo:
-            runs_df = pd.json_normalize(topo["states"])
-        else:
-            
-            runs_df = pd.DataFrame(columns=["run_id", "decision", "type", "paradox_zone", "instability_score"])
-    glob["runs_df"] = runs_df
+def maybe_load_env(glob: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Build an 'env' mapping for panels with runs_df and axes_df.
 
-    axes_df = glob.get("axes_df")
-    if not isinstance(axes_df, pd.DataFrame):
-        axes_df = pd.DataFrame()
-    glob["axes_df"] = axes_df
+    Precedence:
+    1. If glob["env"] already has DataFrames, use those.
+    2. Else, look for top-level 'runs_df' / 'axes_df' in glob.
+    3. Else, try to load decision/paradox history JSON artifacts.
+    4. As a last resort, return empty DataFrames so panels can skip.
+    """
+    env: Dict[str, Any] = {}
 
-    td = glob.get("trace_dashboard")
-    if not isinstance(td, dict):
-        td = {}
-    glob["trace_dashboard"] = td
-    return glob
+    # 1) Ha van már env a glob-ban, induljunk abból
+    raw_env = glob.get("env")
+    if isinstance(raw_env, dict):
+        env.update(raw_env)
+
+    # 2) Próbáljuk meg átvenni a top-level runs_df / axes_df-et
+    runs_df = env.get("runs_df") or glob.get("runs_df")
+    axes_df = env.get("axes_df") or glob.get("axes_df")
+
+    if isinstance(runs_df, pd.DataFrame) and not runs_df.empty:
+        env["runs_df"] = runs_df
+    if isinstance(axes_df, pd.DataFrame) and not axes_df.empty:
+        env["axes_df"] = axes_df
+
+    # 3) Ha még mindig hiányzik valami, próbáljuk JSON artifactokból betölteni
+    needs_runs = (
+        "runs_df" not in env
+        or not isinstance(env["runs_df"], pd.DataFrame)
+        or env["runs_df"].empty
+    )
+    needs_axes = (
+        "axes_df" not in env
+        or not isinstance(env["axes_df"], pd.DataFrame)
+        or env["axes_df"].empty
+    )
+
+    if needs_runs or needs_axes:
+        raw = _load_json_first(
+            [
+                "trace_dashboard_v0.json",
+                "decision_history_v0.json",
+                "paradox_history_v0.json",
+            ]
+        )
+
+        if isinstance(raw, dict):
+            runs_seq = None
+            axes_seq = None
+
+            # Tipikus kulcsok per-run adatokhoz
+            for key in ["runs", "states", "runs_view"]:
+                if isinstance(raw.get(key), list):
+                    runs_seq = raw[key]
+                    break
+
+            # Tipikus kulcsok per-axis adatokhoz
+            for key in ["axes", "axes_view", "axes_summary"]:
+                if isinstance(raw.get(key), list):
+                    axes_seq = raw[key]
+                    break
+
+            if needs_runs and runs_seq is not None:
+                env["runs_df"] = pd.json_normalize(runs_seq)
+
+            if needs_axes and axes_seq is not None:
+                env["axes_df"] = pd.json_normalize(axes_seq)
+
+    # 4) Végső fallback: legyen mindig DataFrame, még ha üres is
+    if "runs_df" not in env or not isinstance(env["runs_df"], pd.DataFrame):
+        env["runs_df"] = pd.DataFrame()
+    if "axes_df" not in env or not isinstance(env["axes_df"], pd.DataFrame):
+        env["axes_df"] = pd.DataFrame()
+
+    return env
+
 
 def run_all_panels(glob):
     """Call all available panel functions; tolerate different signatures and missing frames."""
@@ -441,6 +496,45 @@ def panel_epf_overview(trace_dashboard: Dict[str, Any]):
     print("EPF overview:")
     pprint(epf_ov)
 
+def panel_paradox_zone_histogram(glob: Dict[str, Any]) -> None:
+    """
+    Simple bar chart of paradox axes by zone.
+
+    Expects:
+      glob = {"env": env}
+      env["axes_df"] : DataFrame with at least a 'zone' column
+                       (e.g. 'green' / 'yellow' / 'red').
+    """
+    env = glob.get("env", {}) or {}
+    axes_df = env.get("axes_df")
+
+    if not isinstance(axes_df, pd.DataFrame) or axes_df.empty:
+        print("[zone_hist] axes_df missing or empty – skipping panel.")
+        return
+
+    if "zone" not in axes_df.columns:
+        print("[zone_hist] axes_df has no 'zone' column – skipping panel.")
+        return
+
+    # stabil sorrend a zónákra
+    zone_order = ["green", "yellow", "red"]
+    counts = axes_df["zone"].value_counts()
+
+    zones = [z for z in zone_order if z in counts.index]
+    values = [int(counts.get(z, 0)) for z in zones]
+
+    if not zones:
+        print("[zone_hist] no recognised zones to plot.")
+        return
+
+    plt.figure(figsize=(6, 4))
+    plt.bar(range(len(zones)), values, tick_label=[z.upper() for z in zones])
+    plt.xlabel("Zone")
+    plt.ylabel("Number of axes")
+    plt.title("Paradox axes by zone")
+    plt.tight_layout()
+    plt.show()
+s
 def panel_paradox_tension_histogram(glob: Dict[str, Any]) -> None:
     """
     Histogram of paradox tension, grouped by zone.
