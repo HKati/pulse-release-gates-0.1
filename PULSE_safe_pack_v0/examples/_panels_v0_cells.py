@@ -164,28 +164,44 @@ def panel_paradox_histogram(
     """
     Weighted paradox histogram by zone.
 
-    Expects `glob[df_key]` to be a pandas DataFrame with at least:
+    When called via `run_all_panels(globals())`, this reads the dataframe
+    from `glob["env"][df_key]`. When called directly from a notebook, it
+    also supports a top-level `glob[df_key]`.
+
+    Expects the dataframe to have at least:
       - zone_col   (e.g. 'paradox_zone')
       - value_col  (e.g. 'instability' / 'tension')
+
     Optionally:
       - weight_col (e.g. 'run_weight'); if missing or None, weight = 1.0
 
     Returns:
       matplotlib Figure object, or None if the panel is skipped.
     """
-    df = glob.get(df_key)
+    # 1) env-first lookup (this is how run_all_panels() wires data)
+    df = None
+    env = glob.get("env")
+    if isinstance(env, dict) and df_key in env:
+        df = env.get(df_key)
+    # 2) fallback: top-level mapping (for direct notebook use)
+    elif df_key in glob:
+        df = glob.get(df_key)
 
     if df is None:
         print(
             "[panel_paradox_histogram] "
-            f"No dataframe found under key '{df_key}', skipping panel."
+            f"No dataframe found under key '{df_key}' in env/globals, skipping panel."
         )
         return None
 
     if df.empty:
-        print("[panel_paradox_histogram] Dataframe is empty, skipping panel.")
+        print(
+            "[panel_paradox_histogram] "
+            "Dataframe is empty, skipping panel."
+        )
         return None
 
+    # Kötelező oszlopok
     missing = [c for c in (zone_col, value_col) if c not in df.columns]
     if missing:
         print(
@@ -194,7 +210,7 @@ def panel_paradox_histogram(
         )
         return None
 
-    # Drop rows without a numeric value for the histogram
+    # NaN-ok kidobása a metrikából
     df = df.dropna(subset=[value_col]).copy()
     if df.empty:
         print(
@@ -203,26 +219,26 @@ def panel_paradox_histogram(
         )
         return None
 
-    # Optional weight handling
+    # Súly oszlop kezelése (opcionális)
     if weight_col and weight_col in df.columns:
         df[weight_col] = df[weight_col].fillna(1.0)
     else:
-        weight_col = None  # treat as unweighted
+        weight_col = None  # unweighted mód
 
-    # Shared bin edges across all zones
-    vmin = df[value_col].min()
-    vmax = df[value_col].max()
+    # Közös bin-határok az összes zónára
+    values = df[value_col].to_numpy()
+    vmin = np.min(values)
+    vmax = np.max(values)
 
-    # Guard against degenerate cases
     if not np.isfinite(vmin) or not np.isfinite(vmax):
         print(
             "[panel_paradox_histogram] "
-            f"Non‑finite value range ({vmin}, {vmax}), skipping panel."
+            "Non-finite value range, skipping panel."
         )
         return None
 
-    if math.isclose(float(vmin), float(vmax)):
-        # Everything is (almost) the same value → widen a bit
+    if np.isclose(vmin, vmax):
+        # Minden kb. ugyanaz az érték → kicsit széthúzzuk
         delta = 0.5 if vmin == 0 else abs(vmin) * 0.1
         vmin -= delta
         vmax += delta
@@ -232,19 +248,18 @@ def panel_paradox_histogram(
     fig, ax = plt.subplots(figsize=(8, 4))
 
     for zone, group in df.groupby(zone_col):
-        weights = group[weight_col] if weight_col else None
+        w = group[weight_col].fillna(1.0) if weight_col else None
 
         ax.hist(
-            group[value_col],
+            group[value_col].to_numpy(),
             bins=bin_edges,
-            weights=weights,
+            weights=w,
             alpha=0.5,
             label=str(zone),
-            density=False,  # ha inkább arány kell, lehet True
+            density=False,
         )
 
-    title = "Paradox histogram by zone (weighted)"
-    ax.set_title(title)
+    ax.set_title("Paradox histogram by zone (weighted)")
     ax.set_xlabel(value_col)
     ax.set_ylabel("Weighted count")
     ax.legend(title=zone_col, loc="best")
@@ -253,6 +268,7 @@ def panel_paradox_histogram(
     fig.tight_layout()
 
     return fig
+
 
 def panel_instability_rdsi_scatter(glob: Dict[str, Any]) -> None:
     """
