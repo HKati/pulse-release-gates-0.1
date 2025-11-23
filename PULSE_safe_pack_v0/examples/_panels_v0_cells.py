@@ -679,6 +679,81 @@ def panel_axes_pareto(axes_df: pd.DataFrame, runs_df: Optional[pd.DataFrame] = N
     plt.tight_layout()
     plt.show()
 
+def panel_paradox_zone_weighted_histogram(glob: Dict[str, Any]) -> None:
+    """
+    Weighted histogram of paradox zones using severity as weight.
+
+    - Uses runs_df from env.
+    - Ensures a 'severity' column is present (via ensure_severity_column).
+    - Aggregates a numeric severity weight per paradox zone.
+    - Renders a simple bar chart.
+    """
+    env = glob.get("env", {}) if isinstance(glob, dict) else {}
+    runs_df = env.get("runs_df")
+
+    if not isinstance(runs_df, pd.DataFrame) or runs_df.empty:
+        print("[zone_hist] runs_df missing or empty – skipping weighted zone histogram panel.")
+        return
+
+    # Make sure we have a severity column.
+    runs_df = ensure_severity_column(runs_df.copy(), source_col="max_tension")
+
+    # Try to find a zone column.
+    if "paradox_zone" in runs_df.columns:
+        zone_col = "paradox_zone"
+    elif "zone" in runs_df.columns:
+        zone_col = "zone"
+    else:
+        print("[zone_hist] No 'paradox_zone' or 'zone' column – skipping weighted zone histogram panel.")
+        return
+
+    # Map severities to numeric weights.
+    severity_weights = {
+        "LOW": 1.0,
+        "MEDIUM": 2.0,
+        "HIGH": 3.0,
+        "CRITICAL": 4.0,
+    }
+
+    runs_df["severity_weight"] = runs_df["severity"].map(severity_weights).fillna(0.0)
+
+    grouped = (
+        runs_df
+        .groupby(zone_col)["severity_weight"]
+        .sum()
+        .reset_index()
+    )
+
+    if grouped.empty:
+        print("[zone_hist] No data after grouping – nothing to plot.")
+        return
+
+    # Order zones in a sensible way if possible.
+    preferred_order = [
+        "green", "yellow", "red", "unknown",
+        "GREEN", "YELLOW", "RED", "UNKNOWN",
+    ]
+
+    def _order_index(z: Any) -> int:
+        try:
+            return preferred_order.index(str(z))
+        except ValueError:
+            return len(preferred_order)
+
+    grouped["__order"] = grouped[zone_col].apply(_order_index)
+    grouped = grouped.sort_values("__order")
+
+    zones = grouped[zone_col].astype(str).tolist()
+    weights = grouped["severity_weight"].tolist()
+
+    plt.figure(figsize=(6, 4))
+    plt.bar(range(len(zones)), weights)
+    plt.xticks(range(len(zones)), [z.upper() for z in zones])
+    plt.ylabel("Weighted severity")
+    plt.xlabel("Paradox zone")
+    plt.title("Paradox zone weighted histogram")
+    plt.tight_layout()
+    plt.show()
 
 def panel_instab_rdsi_quadrants(runs_df: pd.DataFrame):
     if runs_df is None or runs_df.empty:
@@ -806,45 +881,55 @@ def run_all_panels(glob: Dict[str, Any]) -> None:
     """
     env = maybe_load_env(glob)
     if not isinstance(env, dict):
-        print("[panels] env could not be loaded – aborting.")
+        print("[panels] env could not be loaded — aborting.")
         return
+
+    # Share env back through the glob mapping as well (for callers, if needed)
+    glob["env"] = env
 
     runs_df = env.get("runs_df")
 
-    # Panels that expect {"env": env} as input.
+    # Panels that expect the full glob (with "env") as input
     panel_env_names = [
         "panel_worry_index_v0",
         "panel_decision_zone_matrix_v0",
+
+        # NEW: paradox zone histogram panel
         "panel_paradox_zone_histogram",
-        "panel_paradox_tension_histogram",
-        "panel_instability_rdsi_scatter",
+
+        # már meglévő paradox / instability panelek
         "panel_paradox_axes_pareto",
+        "panel_instability_rdsi_scatter",
         "panel_instability_timeline",
+
+        # ha van EPF panel a fájlban, ezt is bent hagyhatod:
+        # "panel_epf_overlay_v0",
     ]
 
     for name in panel_env_names:
         fn = globals().get(name)
         if not callable(fn):
-            print(f"[panels] {name} not found – skipping.")
+            print(f"[panels] {name} not found — skipping.")
             continue
 
         try:
-            fn({"env": env})
+            fn(glob)
         except Exception as exc:
             # Best effort: log and keep going so one panel
             # does not break the whole dashboard run.
-            print(f"[panels] {name} failed: {exc!r}")
+            print(f"[panels] {name} raised {exc!r} — skipping.")
 
-    # Decision streaks panel takes runs_df directly.
+    # Decision streaks panel takes runs_df directly
     if isinstance(runs_df, pd.DataFrame) and not runs_df.empty:
         try:
             panel_decision_streaks(runs_df)
         except Exception as exc:
             print(f"[panels] panel_decision_streaks failed: {exc!r}")
     else:
-        print("[panels] runs_df missing or empty – skipping decision streaks panel.")
+        print("[panels] runs_df missing or empty — skipping decision streaks panel.")
 
     print("[panels] Done. CSVs in ../artifacts")
+
 
 
 
