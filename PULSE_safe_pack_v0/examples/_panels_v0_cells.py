@@ -206,6 +206,49 @@ def panel_instability_rdsi_scatter(glob: Dict[str, Any]) -> None:
     plt.tight_layout()
     plt.show()
 
+def panel_instability_timeline(glob: Dict[str, Any]) -> None:
+    """
+    Instability score timeline per run, with simple risk bands.
+
+    Goal:
+      Show how instability_score evolves across runs, with markers at the
+      LOW / MEDIUM / HIGH / CRITICAL thresholds (0.25 / 0.50 / 0.75).
+    """
+    env = glob.get("env", {})
+    runs_df = env.get("runs_df")
+
+    # Defensive guards – skip cleanly if something is missing.
+    if not isinstance(runs_df, pd.DataFrame) or runs_df.empty:
+        print("[timeline] runs_df missing or empty – skipping instability timeline panel.")
+        return
+
+    if "instability_score" not in runs_df.columns:
+        print("[timeline] runs_df has no 'instability_score' column – skipping.")
+        return
+
+    # Convert to numeric, ignore bad values.
+    y = pd.to_numeric(runs_df["instability_score"], errors="coerce")
+    if y.isna().all():
+        print("[timeline] instability_score is all NaN – nothing to plot.")
+        return
+
+    x = range(len(y))
+
+    plt.figure(figsize=(8, 4))
+    plt.plot(x, y, marker="o", linestyle="-", label="instability_score")
+
+    # Risk bands: 0.25 / 0.50 / 0.75
+    for thresh, label in [(0.25, "LOW / MED"), (0.50, "MED / HIGH"), (0.75, "HIGH / CRIT")]:
+        plt.axhline(thresh, linestyle="--", linewidth=1)
+
+    plt.ylim(0.0, 1.0)
+    plt.xlabel("Run index")
+    plt.ylabel("Instability score")
+    plt.title("Instability timeline (per run)")
+    plt.legend()
+    plt.tight_layout()
+    plt.show()
+
 # --- panels env helpers (added) ---
 from pathlib import Path
 import json
@@ -755,32 +798,54 @@ def panel_decision_streaks(runs_df: pd.DataFrame):
 
 
 def run_all_panels(glob: Dict[str, Any]) -> None:
-    env = maybe_load_env(glob)
+    """Run all trace dashboard panels in one go.
 
-    if env is None:
+    Builds an env dict (runs_df, axes_df, ...) and wires it into
+    each panel in turn. Missing panels or local errors do not stop
+    the rest of the dashboard.
+    """
+    env = maybe_load_env(glob)
+    if not isinstance(env, dict):
         print("[panels] env could not be loaded – aborting.")
         return
 
     runs_df = env.get("runs_df")
-    axes_df = env.get("axes_df")
 
-    # Paradox zóna / feszültség nézetek
-    panel_paradox_zone_histogram({"env": env})
-    panel_paradox_tension_histogram({"env": env})
+    # Panels that expect {"env": env} as input.
+    panel_env_names = [
+        "panel_worry_index_v0",
+        "panel_decision_zone_matrix_v0",
+        "panel_paradox_zone_histogram",
+        "panel_paradox_tension_histogram",
+        "panel_instability_rdsi_scatter",
+        "panel_paradox_axes_pareto",
+        "panel_instability_timeline",
+    ]
 
-    # Instability × RDSI scatter
-    panel_instability_rdsi_scatter({"env": env})
+    for name in panel_env_names:
+        fn = globals().get(name)
+        if not callable(fn):
+            print(f"[panels] {name} not found – skipping.")
+            continue
 
-    # Paradoxon tengelyek Pareto-lefedettsége
-    panel_paradox_axes_pareto({"env": env})
+        try:
+            fn({"env": env})
+        except Exception as exc:
+            # Best effort: log and keep going so one panel
+            # does not break the whole dashboard run.
+            print(f"[panels] {name} failed: {exc!r}")
 
-    # Döntési sorozatok (streaks), ha van értelmes runs_df
+    # Decision streaks panel takes runs_df directly.
     if isinstance(runs_df, pd.DataFrame) and not runs_df.empty:
-        panel_decision_streaks(runs_df)
+        try:
+            panel_decision_streaks(runs_df)
+        except Exception as exc:
+            print(f"[panels] panel_decision_streaks failed: {exc!r}")
     else:
-        print("[streaks] runs_df missing or empty – skipping streak panel.")
+        print("[panels] runs_df missing or empty – skipping decision streaks panel.")
 
-    print("=== Done. CSVs in ../artifacts ===")
+    print("[panels] Done. CSVs in ../artifacts")
+
 
 
 
