@@ -216,3 +216,34 @@ Across all of the above, the following invariants hold:
   as a field, not as a direct gate rule.  
 - All Future Library components are safe to run in *shadow mode* alongside
   the existing pipeline.
+
+
+**Quickstart: running the memory / trace dashboard demo**
+
+1. Build the memory / trace artefacts (once per experiment):
+
+   - Ensure that the following JSON artefacts exist in your chosen artifacts directory,
+     produced by the Future Library v0 tools:
+       - `paradox_history_v0.json`
+       - `delta_log_v0.json`
+       - `paradox_resolution_v0.json`
+   - Optionally also build `topology_dashboard_v0.json` if you want a topology overlay.
+
+2. Open the notebook:
+
+   - `PULSE_safe_pack_v0/examples/PULSE_memory_trace_dashboard_v0_demo.ipynb`
+
+3. Point the notebook to your artefacts:
+
+   - Either run it from a working directory where the JSON files are available
+     (e.g. under an `artifacts/` folder), or adjust the loader cell in the notebook
+     to the path where your artefacts live.
+
+4. Run all cells.
+
+   The notebook will render:
+
+   - paradox history across runs (zones and tensions),
+   - instability / risk score trends over time,
+   - EPF signal trends, if EPF is enabled,
+   - high‑level resolution hints derived from the paradox history.
