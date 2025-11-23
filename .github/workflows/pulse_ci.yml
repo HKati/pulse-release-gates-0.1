@@ -50,6 +50,10 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install pyyaml
+      - name: Install decision trace validator deps
+        run: |
+          python -m pip install jsonschema
+
 
       - name: Ensure directories
         shell: bash
@@ -122,6 +126,23 @@ jobs:
           echo "----- status.json (gates) -----"
           jq '.gates' "${{ env.PACK_DIR }}/artifacts/status.json" || cat "${{ env.PACK_DIR }}/artifacts/status.json" || true
           echo "--------------------------------"
+      - name: Show gates snapshot
+        shell: bash
+        run: |
+          echo "------ status.json (gates) ------"
+          jq '.gates' "${{ env.PACK_DIR }}/artifacts/status.json" || true
+          echo "---------------------------------"
+
+      - name: Validate decision trace schema (shadow)
+        shell: bash
+        continue-on-error: true
+        run: |
+          python "${{ env.PACK_DIR }}/tools/validate_decision_trace_v0.py"
+
+      - name: Enforce (Fail-Closed)
+        shell: bash
+        run: |
+          ...
 
       - name: Enforce (Fail-Closed)
         shell: bash
