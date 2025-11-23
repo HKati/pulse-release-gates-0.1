@@ -201,23 +201,6 @@ a first **memory layer** for the EPF / paradox field.
 This is the first working version of a “memory / trace summariser v0” for the
 EPF / paradox field.
 
----
-
-## 6. Invariants for the Future Library v0
-
-Across all of the above, the following invariants hold:
-
-- The main **release gate logic is unchanged**.  
-- Existing structures (`status.json`, `stability_map.json`, `paradox`, `epf`)
-  keep their meaning.  
-- New fields (`paradox_field_v0`, `epf_field_v0`, dashboards, history) are
-  **additive** and schema-backed.  
-- EPF is treated as an **external sensor** projected into the PULSE topology
-  as a field, not as a direct gate rule.  
-- All Future Library components are safe to run in *shadow mode* alongside
-  the existing pipeline.
-
-
 **Quickstart: running the memory / trace dashboard demo**
 
 1. Build the memory / trace artefacts (once per experiment):
@@ -247,3 +230,22 @@ Across all of the above, the following invariants hold:
    - instability / risk score trends over time,
    - EPF signal trends, if EPF is enabled,
    - high‑level resolution hints derived from the paradox history.
+
+---
+
+## 6. Invariants for the Future Library v0
+
+Across all of the above, the following invariants hold:
+
+- The main **release gate logic is unchanged**.  
+- Existing structures (`status.json`, `stability_map.json`, `paradox`, `epf`)
+  keep their meaning.  
+- New fields (`paradox_field_v0`, `epf_field_v0`, dashboards, history) are
+  **additive** and schema-backed.  
+- EPF is treated as an **external sensor** projected into the PULSE topology
+  as a field, not as a direct gate rule.  
+- All Future Library components are safe to run in *shadow mode* alongside
+  the existing pipeline.
+
+
+
