@@ -534,7 +534,7 @@ def panel_paradox_zone_histogram(glob: Dict[str, Any]) -> None:
     plt.title("Paradox axes by zone")
     plt.tight_layout()
     plt.show()
-s
+
 def panel_paradox_tension_histogram(glob: Dict[str, Any]) -> None:
     """
     Histogram of paradox tension, grouped by zone.
