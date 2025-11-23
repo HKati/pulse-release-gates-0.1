@@ -152,6 +152,108 @@ def panel_paradox_axes_pareto(glob: Dict[str, Any]) -> None:
     plt.tight_layout()
     plt.show()
 
+def panel_paradox_histogram(
+    glob: Dict[str, Any],
+    *,
+    df_key: str = "runs_df",
+    zone_col: str = "paradox_zone",
+    value_col: str = "instability",
+    weight_col: Optional[str] = "run_weight",
+    bins: int = 20,
+):
+    """
+    Weighted paradox histogram by zone.
+
+    Expects `glob[df_key]` to be a pandas DataFrame with at least:
+      - zone_col   (e.g. 'paradox_zone')
+      - value_col  (e.g. 'instability' / 'tension')
+    Optionally:
+      - weight_col (e.g. 'run_weight'); if missing or None, weight = 1.0
+
+    Returns:
+      matplotlib Figure object, or None if the panel is skipped.
+    """
+    df = glob.get(df_key)
+
+    if df is None:
+        print(
+            "[panel_paradox_histogram] "
+            f"No dataframe found under key '{df_key}', skipping panel."
+        )
+        return None
+
+    if df.empty:
+        print("[panel_paradox_histogram] Dataframe is empty, skipping panel.")
+        return None
+
+    missing = [c for c in (zone_col, value_col) if c not in df.columns]
+    if missing:
+        print(
+            "[panel_paradox_histogram] "
+            f"Missing required columns {missing}, skipping panel."
+        )
+        return None
+
+    # Drop rows without a numeric value for the histogram
+    df = df.dropna(subset=[value_col]).copy()
+    if df.empty:
+        print(
+            "[panel_paradox_histogram] "
+            f"All rows have NaN in '{value_col}', skipping panel."
+        )
+        return None
+
+    # Optional weight handling
+    if weight_col and weight_col in df.columns:
+        df[weight_col] = df[weight_col].fillna(1.0)
+    else:
+        weight_col = None  # treat as unweighted
+
+    # Shared bin edges across all zones
+    vmin = df[value_col].min()
+    vmax = df[value_col].max()
+
+    # Guard against degenerate cases
+    if not np.isfinite(vmin) or not np.isfinite(vmax):
+        print(
+            "[panel_paradox_histogram] "
+            f"Non‑finite value range ({vmin}, {vmax}), skipping panel."
+        )
+        return None
+
+    if math.isclose(float(vmin), float(vmax)):
+        # Everything is (almost) the same value → widen a bit
+        delta = 0.5 if vmin == 0 else abs(vmin) * 0.1
+        vmin -= delta
+        vmax += delta
+
+    bin_edges = np.linspace(vmin, vmax, bins + 1)
+
+    fig, ax = plt.subplots(figsize=(8, 4))
+
+    for zone, group in df.groupby(zone_col):
+        weights = group[weight_col] if weight_col else None
+
+        ax.hist(
+            group[value_col],
+            bins=bin_edges,
+            weights=weights,
+            alpha=0.5,
+            label=str(zone),
+            density=False,  # ha inkább arány kell, lehet True
+        )
+
+    title = "Paradox histogram by zone (weighted)"
+    ax.set_title(title)
+    ax.set_xlabel(value_col)
+    ax.set_ylabel("Weighted count")
+    ax.legend(title=zone_col, loc="best")
+
+    ax.grid(True, axis="y", linestyle=":", linewidth=0.5)
+    fig.tight_layout()
+
+    return fig
+
 def panel_instability_rdsi_scatter(glob: Dict[str, Any]) -> None:
     """
     Instability × RDSI scatter plot for runs.
@@ -890,16 +992,18 @@ def run_all_panels(glob: Dict[str, Any]) -> None:
     runs_df = env.get("runs_df")
 
     # Panels that expect the full glob (with "env") as input
-        panel_env_names = [
+    panel_env_names = [
         "panel_worry_index_v0",
         "panel_decision_zone_matrix_v0",
-        "panel_paradox_zone_histogram",     
+        "panel_paradox_zone_histogram",
         "panel_paradox_tension_histogram",
         "panel_instability_rdsi_scatter",
         "panel_paradox_axes_pareto",
+        "panel_paradox_histogram",      
         "panel_instability_timeline",
         "panel_epf_overview",
     ]
+
 
     
 
