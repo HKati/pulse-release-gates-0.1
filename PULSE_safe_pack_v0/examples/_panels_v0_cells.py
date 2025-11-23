@@ -890,21 +890,18 @@ def run_all_panels(glob: Dict[str, Any]) -> None:
     runs_df = env.get("runs_df")
 
     # Panels that expect the full glob (with "env") as input
-    panel_env_names = [
+        panel_env_names = [
         "panel_worry_index_v0",
         "panel_decision_zone_matrix_v0",
-
-        # NEW: paradox zone histogram panel
-        "panel_paradox_zone_histogram",
-
-        # már meglévő paradox / instability panelek
-        "panel_paradox_axes_pareto",
+        "panel_paradox_zone_histogram",     
+        "panel_paradox_tension_histogram",
         "panel_instability_rdsi_scatter",
+        "panel_paradox_axes_pareto",
         "panel_instability_timeline",
-
-        # ha van EPF panel a fájlban, ezt is bent hagyhatod:
-        # "panel_epf_overlay_v0",
+        "panel_epf_overview",
     ]
+
+    
 
     for name in panel_env_names:
         fn = globals().get(name)
