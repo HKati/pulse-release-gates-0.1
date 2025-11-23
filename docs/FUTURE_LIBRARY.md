@@ -186,6 +186,17 @@ a first **memory layer** for the EPF / paradox field.
   – Demo notebook that renders Pareto coverage of paradox axes,
     instability × RDSI quadrants, and decision streaks based on the
     trace artefacts.
+### Developer tools (current & future)
+
+#### Decision trace schema validator (dev utility)
+
+- Path: `PULSE_safe_pack_v0/tools/validate_decision_trace_v0.py`
+- Purpose: validate `decision_trace_v0.json` artefacts against
+  `schemas/PULSE_decision_trace_v0.schema.json` using `jsonschema`.
+- Scope: developer‑only helper for local validation and optional CI usage.
+- Does not change any PULSE gate logic or CI behaviour.
+- Future option: wire into CI to guard decision trace exports, or extend
+  with additional schema checks as new trace fields appear.
 
 This is the first working version of a “memory / trace summariser v0” for the
 EPF / paradox field.
