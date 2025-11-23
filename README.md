@@ -92,6 +92,16 @@ python PULSE_safe_pack_v0/tools/check_gates.py `
 - **Report Card** → `PULSE_safe_pack_v0/artifacts/report_card.html`
 - **Status JSON** → `PULSE_safe_pack_v0/artifacts/status.json`
 
+### Developer tools (optional)
+
+These helpers are intended for local validation and inspection; they do not
+change any CI behaviour or gate logic.
+
+- Trace dashboard demo notebook → `PULSE_safe_pack_v0/examples/trace_dashboard_v0.ipynb`
+- Decision trace schema validator → `PULSE_safe_pack_v0/tools/validate_decision_trace_v0.py`  
+  Validate `decision_trace_v0*.json` artefacts against
+  `schemas/PULSE_decision_trace_v0.schema.json` using `jsonschema`.
+
 ### Try PULSE on your repo (5 minutes)
 
 1. **Copy the pack** to your repo root:
