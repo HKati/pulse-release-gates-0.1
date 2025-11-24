@@ -1106,7 +1106,6 @@ def panel_decision_streaks(runs_df: pd.DataFrame):
         plt.tight_layout()
         plt.show()
 
-
 def run_all_panels(glob: Dict[str, Any]) -> None:
     """Run all trace dashboard panels in one go.
 
@@ -1116,7 +1115,7 @@ def run_all_panels(glob: Dict[str, Any]) -> None:
     """
     env = maybe_load_env(glob)
     if not isinstance(env, dict):
-        print("[panels] env could not be loaded — aborting.")
+        print("[panels] env could not be loaded – aborting.")
         return
 
     # Share env back through the glob mapping as well (for callers, if needed)
@@ -1125,7 +1124,7 @@ def run_all_panels(glob: Dict[str, Any]) -> None:
     runs_df = env.get("runs_df")
 
     # Panels that expect the full glob (with "env") as input
-        panel_env_names = [
+    panel_env_names = [
         "panel_worry_index_v0",
         "panel_decision_zone_matrix_v0",
         "panel_paradox_zone_histogram",
@@ -1134,18 +1133,14 @@ def run_all_panels(glob: Dict[str, Any]) -> None:
         "panel_paradox_axes_pareto",
         "panel_paradox_histogram",
         "panel_instability_timeline",
-        "panel_epf_histogram",   
+        "panel_epf_histogram",   # EPF-only histogram v0
         "panel_epf_overview",
     ]
 
-
-
-    
-
-  for name in panel_env_names:
+    for name in panel_env_names:
         fn = globals().get(name)
         if not callable(fn):
-            print(f"[panels] {name} not found — skipping.")
+            print(f"[panels] {name} not found – skipping.")
             continue
 
         try:
@@ -1153,7 +1148,7 @@ def run_all_panels(glob: Dict[str, Any]) -> None:
         except Exception as exc:
             # Best effort: log and keep going so one panel
             # does not break the whole dashboard run.
-            print(f"[panels] {name} raised {exc!r} — skipping.")
+            print(f"[panels] {name} raised: {exc!r} – skipping.")
 
     # Decision streaks panel takes runs_df directly
     if isinstance(runs_df, pd.DataFrame) and not runs_df.empty:
@@ -1162,9 +1157,11 @@ def run_all_panels(glob: Dict[str, Any]) -> None:
         except Exception as exc:
             print(f"[panels] panel_decision_streaks failed: {exc!r}")
     else:
-        print("[panels] runs_df missing or empty — skipping decision streaks panel.")
+        print("[panels] runs_df missing or empty – skipping decision streaks panel.")
 
     print("[panels] Done. CSVs in ../artifacts")
+
+
 
 
 
