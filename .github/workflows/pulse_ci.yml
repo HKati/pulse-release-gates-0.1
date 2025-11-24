@@ -145,7 +145,7 @@ jobs:
           fi
           python "${{ env.PACK_DIR }}/tools/check_gates.py" \
             --status "${{ env.PACK_DIR }}/artifacts/status.json" \
-            --required "${REQ[@]}"
+            --require "${REQ[@]}"
 
 
       - name: Update badges
