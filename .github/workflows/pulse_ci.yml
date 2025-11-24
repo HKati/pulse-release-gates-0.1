@@ -171,17 +171,28 @@ jobs:
             git push
           fi
 
-      - name: Export JUnit & SARIF
+            - name: Export JUnit & SARIF
         if: always()
         shell: bash
         run: |
+          set -euo pipefail
           mkdir -p reports
-          PULSE_STATUS="${{ env.PACK_DIR }}/artifacts/status.json" \
-          PULSE_JUNIT="reports/junit.xml" \
-          python PULSE_safe_pack_v0/tools/status_to_junit.py
-          PULSE_STATUS="${{ env.PACK_DIR }}/artifacts/status.json" \
-          PULSE_SARIF="reports/sarif.json" \
-          python PULSE_safe_pack_v0/tools/status_to_sarif.py
+
+          # Make status.json available in the working directory for the tools
+          cp "${{ env.PACK_DIR }}/artifacts/status.json" status.json
+
+          # Run converters; they expect status.json in the current directory
+          python "${{ env.PACK_DIR }}/tools/status_to_junit.py"
+          python "${{ env.PACK_DIR }}/tools/status_to_sarif.py"
+
+          # If outputs were written to the current dir, move them under reports/
+          if [ -f junit.xml ]; then
+            mv junit.xml reports/junit.xml
+          fi
+          if [ -f sarif.json ]; then
+            mv sarif.json reports/sarif.json
+          fi
+
 
       - name: Upload artifacts
         if: always()
