@@ -33,6 +33,59 @@ From those steps you should have these artefacts:
 - `delta_log_v0.jsonl` – per‑run delta log (one JSON object per line).
 
 
+#### How to read these plots in practice
+
+A few quick rules of thumb when you're looking at the paradox histograms:
+
+- **Mostly green, tension mass near zero**  
+  The experiment is spending almost all its time in the safe zone. Occasional
+  yellow runs are fine as long as the tension histogram stays tightly
+  concentrated near zero.
+
+- **A long yellow tail with rare red spikes**  
+  This usually means the system is probing the boundary of the safe region.
+  Check whether the tail got heavier after a specific change (new model
+  version, new prompt family, new deployment cohort).
+
+- **Noticeable shift of mass towards high tension**  
+  When the “max tension” histogram clearly moves right over time, treat it as
+  an early warning sign. The gates might still pass, but you are running with
+  less margin than before.
+
+- **Frequent red runs, heavy high‑tension tail**  
+  This is usually a bad sign: either the paradox configuration is too lax, or
+  the underlying behaviour actually got riskier. In either case, don't blindly
+  accept this as the new normal – investigate and document the change.
+
+Whenever you change paradox tuning, use these plots as a quick sanity check
+that you did not accidentally move a lot of probability mass into the
+high‑tension regime.
+
+
+#### Typical EPF patterns
+
+In practice, EPF is most useful when you watch it side‑by‑side with paradox
+tension:
+
+- **Flat, low EPF distortion while tension moves around**  
+  Good: the system is exploring different paradox regimes without the EPF
+  signal going unstable.
+
+- **EPF distortion spikes exactly when tension jumps**  
+  This is often what you want from a shadow EPF: it reacts when the model is
+  pushed into strange corners of the paradox configuration.
+
+- **EPF distortion slowly creeping up over many runs**  
+  Treat this as a “boiling frog” pattern. Nothing obviously broke in a single
+  run, but the baseline got worse. It’s usually worth checking recent changes
+  in prompts, routing policies, or model versions.
+
+- **EPF stuck in a permanently high state**  
+  Either the EPF configuration is too sensitive, or the underlying behaviour
+  really is degraded. In both cases, the shadow panel has done its job: you
+  should decide whether to re‑tune EPF or tighten the release gates.
+
+
 ```markdown
 All tools mentioned below live under: `PULSE_safe_pack_v0/tools/`
 
