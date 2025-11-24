@@ -224,16 +224,18 @@ EPF / paradox field.
 
 4. Run all cells.
 
-   The notebook will render:
+   The notebook will render, among other things:
 
 - paradox history across runs (zones and tensions),
-- instability / risk-zone trends over time,
-- decision streaks over PASS / FAIL runs,
+- instability / risk‑zone score trends over time,
+- decision streaks across PASS / FAIL runs,
 - Pareto coverage for paradox axes,
 - a weighted Paradox histogram by zone (v0),
-- EPF overview panels and overlays, if EPF is enabled,
-- an EPF-only histogram panel (v0) for the distribution of EPF scores or flags,
-- high-level resolution hints derived from the paradox history.
+- EPF signal trends, if EPF artefacts are present,
+- EPF overview panels (overlays / timelines),
+- an EPF‑only histogram panel (v0) for the distribution of EPF scores or flags,
+- high‑level resolution hints derived from the paradox history.
+
 
 ### Memory / trace dashboard — FAQ (v0)
 
