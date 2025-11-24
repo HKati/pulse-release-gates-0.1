@@ -757,6 +757,123 @@ def panel_paradox_tension_histogram(glob: Dict[str, Any]) -> None:
     plt.tight_layout()
     plt.show()
 
+def panel_epf_histogram(
+    glob: Dict[str, Any],
+    *,
+    df_key: str = "runs_df",
+    value_col: str = "epf_score",
+    weight_col: Optional[str] = "run_weight",
+    bins: int = 20,
+) -> Optional[plt.Figure]:
+    """
+    Weighted EPF histogram across runs.
+
+    When called via `run_all_panels(globals())`, this reads the dataframe
+    from `glob["env"][df_key]`. When called directly from a notebook, it
+    also supports a top-level `glob[df_key]`.
+
+    Expects the dataframe to contain an EPF column; if `value_col` is not
+    present, the panel will try a few common EPF column names.
+
+    Returns:
+        matplotlib Figure object, or None if the panel is skipped.
+    """
+    df = None
+    env = glob.get("env")
+    if isinstance(env, dict) and df_key in env:
+        df = env.get(df_key)
+    elif df_key in glob:
+        df = glob.get(df_key)
+
+    if df is None:
+        print(
+            "[panel_epf_histogram] "
+            f"No dataframe found under key '{df_key}' in env/globals, skipping panel."
+        )
+        return None
+
+    if df.empty:
+        print("[panel_epf_histogram] Dataframe is empty, skipping panel.")
+        return None
+
+    # Try to locate an EPF column
+    candidate_cols = [value_col, "epf", "epf_score", "epf_value", "EPF"]
+    chosen_col: Optional[str] = None
+    for col in candidate_cols:
+        if col in df.columns:
+            chosen_col = col
+            break
+
+    if chosen_col is None:
+        print(
+            "[panel_epf_histogram] "
+            f"Could not find EPF column in {candidate_cols}, skipping panel."
+        )
+        return None
+
+    value_col = chosen_col
+
+    # Drop NaNs from EPF values
+    df = df.dropna(subset=[value_col]).copy()
+    if df.empty:
+        print(
+            "[panel_epf_histogram] "
+            f"All rows have NaN in '{value_col}', skipping panel."
+        )
+        return None
+
+    # Optional weight handling
+    if weight_col and weight_col in df.columns:
+        df[weight_col] = df[weight_col].fillna(1.0)
+    else:
+        weight_col = None
+
+    values = df[value_col].to_numpy()
+    finite_mask = np.isfinite(values)
+    values = values[finite_mask]
+
+    if values.size == 0:
+        print(
+            "[panel_epf_histogram] "
+            "No finite EPF values, skipping panel."
+        )
+        return None
+
+    vmin = values.min()
+    vmax = values.max()
+
+    if np.isclose(vmin, vmax):
+        # All values almost identical → widen range a bit
+        delta = 0.5 if vmin == 0 else abs(vmin) * 0.1
+        vmin -= delta
+        vmax += delta
+
+    bin_edges = np.linspace(vmin, vmax, bins + 1)
+
+    fig, ax = plt.subplots(figsize=(8, 4))
+
+    if weight_col:
+        weights = df.loc[finite_mask, weight_col].to_numpy()
+    else:
+        weights = None
+
+    ax.hist(
+        values,
+        bins=bin_edges,
+        weights=weights,
+        alpha=0.7,
+        density=False,
+    )
+
+    ax.set_title("EPF histogram across runs")
+    ax.set_xlabel(value_col)
+    ax.set_ylabel("Weighted count" if weight_col else "Count")
+
+    ax.grid(True, axis="y", linestyle=":", linewidth=0.5)
+    fig.tight_layout()
+
+    return fig
+
 def panel_axes_pareto(axes_df: pd.DataFrame, runs_df: Optional[pd.DataFrame] = None):
     if axes_df is None or axes_df.empty:
         print("[pareto] No axes_df.")
@@ -1008,22 +1125,24 @@ def run_all_panels(glob: Dict[str, Any]) -> None:
     runs_df = env.get("runs_df")
 
     # Panels that expect the full glob (with "env") as input
-    panel_env_names = [
+        panel_env_names = [
         "panel_worry_index_v0",
         "panel_decision_zone_matrix_v0",
         "panel_paradox_zone_histogram",
         "panel_paradox_tension_histogram",
         "panel_instability_rdsi_scatter",
         "panel_paradox_axes_pareto",
-        "panel_paradox_histogram",      
+        "panel_paradox_histogram",
         "panel_instability_timeline",
+        "panel_epf_histogram",   
         "panel_epf_overview",
     ]
 
 
+
     
 
-    for name in panel_env_names:
+  for name in panel_env_names:
         fn = globals().get(name)
         if not callable(fn):
             print(f"[panels] {name} not found — skipping.")
