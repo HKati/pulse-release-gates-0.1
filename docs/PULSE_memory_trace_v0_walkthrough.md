@@ -101,3 +101,43 @@ python3 PULSE_safe_pack_v0/tools/append_delta_log_v0.py \
 This last step appends a single JSON line entry to `delta_log_v0.jsonl`,
 capturing a compact snapshot of the run (decision, stability, paradox and EPF
 snapshots, plus optional git metadata).
+
+
+## New panels in the memory / trace dashboard v0
+
+### Paradox histograms (zones and tensions)
+
+**Inputs:** `paradox_history_v0.json`.
+
+This group of views shows how paradox behaviour is distributed across runs, not just over time:
+
+- **Paradox zone histogram** – how many runs ended in each zone (green / yellow / red / unknown).
+- **Paradox zone histogram (weighted)** – same zones, but each run is weighted by its overall tension / risk, so a few very tense runs can dominate.
+- **Paradox tension histogram** – distribution of the scalar "max tension" metric across runs (low / medium / high tails).
+
+Use these plots when you want to:
+
+- see whether the experiment mostly lives in the safe zone, or keeps touching yellow / red,
+- check for heavy tails (e.g. many low-tension runs with a small cluster of very high-tension ones),
+- sanity‑check that paradox tuning changes actually move mass between the buckets.
+
+All of these panels are read‑only: they do not influence any gate decisions.
+
+### EPF signal overview (optional)
+
+**Inputs:** `paradox_history_v0.json` (for alignment) and, if present, `epf_history_v0.json`.
+
+When EPF shadow is enabled, the dashboard adds an EPF section that plots per‑run aggregates for the EPF field, for example:
+
+- min / max / average `phi_potential`,
+- min / max / average `theta_distortion`,
+- a simple trend line over run index.
+
+The goal is to answer questions such as:
+
+- "Did the EPF signal react when paradox tension changed?"
+- "Are we slowly drifting into a regime where EPF distortion is always high?"
+
+If EPF artefacts are missing, the panel quietly skips rendering and prints a short note in the console; the rest of the dashboard continues to work.
+
+These panels are developer‑facing diagnostics only. They are safe to run in shadow mode and do not affect any gate behaviour.
