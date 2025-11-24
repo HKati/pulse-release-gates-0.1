@@ -72,9 +72,11 @@ jobs:
             schemas/PULSE_dual_view_v0.schema.json
      
       - name: Validate decision trace with helper script
-        run: |
-          python PULSE_safe_pack_v0/tools/validate_decision_trace_v0.py \
-            PULSE_safe_pack_v0/artifacts/decision_trace.demo.ci.json
+  run: |
+    python PULSE_safe_pack_v0/tools/validate_decision_trace_v0.py \
+      --trace PULSE_safe_pack_v0/artifacts/decision_trace.demo_ci.json \
+      --schema schemas/PULSE_decision_trace_v0.schema.json
+
 
       - name: Upload topology demo artefacts
         uses: actions/upload-artifact@v4
