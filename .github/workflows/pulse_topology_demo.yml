@@ -78,7 +78,7 @@ jobs:
             PULSE_safe_pack_v0/artifacts/decision_trace.demo.ci.json
 
       - name: Upload topology demo artefacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: pulse-topology-demo
           path: |

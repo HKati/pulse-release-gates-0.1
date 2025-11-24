@@ -65,7 +65,7 @@ jobs:
 
       - name: Upload Paradox Gate summary (artifact)
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: pulse-paradox-gate-summary
           path: artifacts/pulse_paradox_gate_summary.json
