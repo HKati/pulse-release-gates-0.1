@@ -1,15 +1,3 @@
-#!/usr/bin/env python
-"""
-validate_decision_trace_v0.py
-
-Developer-only helper for validating decision trace JSON artefacts
-against the PULSE_decision_trace_v0 JSON schema using jsonschema.
-
-This tool is a shadow-only utility:
-- it does NOT participate in any gate or deployment path,
-- it is meant for local validation and optional CI usage.
-"""
-
 import argparse
 import json
 import sys
@@ -17,106 +5,103 @@ from pathlib import Path
 from typing import Any, Dict
 
 import jsonschema
-from jsonschema.exceptions import ValidationError
 
 
-def _load_json(path: Path, label: str) -> Any:
-    """Load a JSON file with basic error handling."""
-    if not path.exists():
-        print(f"[validate_decision_trace_v0] {label} not found at: {path}")
-        sys.exit(1)
+def _normalise_trace_for_validation(trace: Dict[str, Any]) -> Dict[str, Any]:
+    """Apply small backwards-compatibility shims before validation."""
 
-    try:
-        with path.open("r", encoding="utf-8") as f:
-            return json.load(f)
-    except json.JSONDecodeError as exc:
-        print(
-            f"[validate_decision_trace_v0] Failed to parse {label} as JSON: "
-            f"{exc}"
-        )
-        sys.exit(1)
+    details = trace.get("details")
+    if isinstance(details, dict):
+        # Older/demo traces may not populate this yet; the schema requires it.
+        details.setdefault("instability_components", [])
+
+    return trace
 
 
-def _default_schema_path() -> Path:
-    """Resolve the default schema path relative to this file.
-
-    Layout assumption (repo root):
-      - schemas/PULSE_decision_trace_v0.schema.json
-      - PULSE_safe_pack_v0/tools/validate_decision_trace_v0.py  (this file)
-    """
-    here = Path(__file__).resolve()
-    repo_root = here.parents[2]  # .../pulse-release-gates-0.1/
-    return repo_root / "schemas" / "PULSE_decision_trace_v0.schema.json"
-
-
-def validate_trace(trace_path: Path, schema_path: Path) -> bool:
-    """Validate a decision_trace_v0 JSON against the given schema.
+def validate_decision_trace(
+    trace_path: Path,
+    schema_path: Path,
+    *,
+    label: str = "validate_decision_trace_v0",
+) -> bool:
+    """Validate a decision_trace_v0 artefact against its JSONSchema.
 
     Returns:
-        True if validation succeeds, False otherwise.
+        True if validation passes, False if there are schema errors.
     """
-    trace = _load_json(trace_path, "decision trace")
-    schema = _load_json(schema_path, "schema")
+    with trace_path.open("r", encoding="utf-8") as f:
+        trace = json.load(f)
 
-    try:
-        jsonschema.validate(instance=trace, schema=schema)
-    except ValidationError as exc:
-        print("[validate_decision_trace_v0] Validation FAILED.")
+    # Backwards-compat shim for older traces
+    trace = _normalise_trace_for_validation(trace)
+
+    with schema_path.open("r", encoding="utf-8") as f:
+        schema = json.load(f)
+
+    validator = jsonschema.Draft2020Validator(schema)
+    errors = sorted(validator.iter_errors(trace), key=lambda e: list(e.path))
+
+    if errors:
+        print(f"[{label}] validation FAILED.")
         print(f"- Trace:  {trace_path}")
         print(f"- Schema: {schema_path}")
-        print("")
+        print()
         print("Details:")
-        # Keep the message reasonably compact, but informative.
-        print(f"  {exc.message}")
-        if exc.path:
-            path_str = " -> ".join(str(p) for p in exc.path)
-            print(f"  at JSON path: {path_str}")
-        sys.exit(1)
+        for err in errors:
+            path = "/".join(str(p) for p in err.path) or "<root>"
+            print(f"  - {err.message}")
+            print(f"    at JSON path: {path}")
+        return False
 
-    print("[validate_decision_trace_v0] Validation OK.")
+    print(f"[{label}] validation OK.")
     print(f"- Trace:  {trace_path}")
     print(f"- Schema: {schema_path}")
     return True
 
 
-def _parse_args(argv: Any = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Validate decision_trace_v0 JSON against its schema."
-    )
+def validate_decision_trace_v0(
+    trace_path: Path,
+    schema_path: Path,
+    *,
+    label: str = "validate_decision_trace_v0",
+) -> bool:
+    """Compatibility wrapper with the historical function name."""
+    return validate_decision_trace(trace_path, schema_path, label=label)
 
+
+def _build_arg_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        description="Validate a PULSE decision_trace_v0 artefact against its JSONSchema."
+    )
     parser.add_argument(
-        "trace",
-        metavar="TRACE_JSON",
-        type=str,
-        help="Path to decision_trace_v0 JSON (e.g. decision_trace_v0.json)",
+        "--trace",
+        required=True,
+        help="Path to decision_trace_v0 JSON artefact.",
     )
     parser.add_argument(
         "--schema",
-        type=str,
-        default=None,
-        help=(
-            "Path to schema JSON "
-            "(default: schemas/PULSE_decision_trace_v0.schema.json "
-            "relative to repo root)"
-        ),
+        required=True,
+        help="Path to PULSE_decision_trace_v0.schema.json.",
     )
+    parser.add_argument(
+        "--name",
+        default="validate_decision_trace_v0",
+        help="Label used in log output (defaults to 'validate_decision_trace_v0').",
+    )
+    return parser
 
-    return parser.parse_args(argv)
 
+def main(argv: Any = None) -> None:
+    parser = _build_arg_parser()
+    args = parser.parse_args(argv)
 
-def main(argv: Any = None) -> int:
-    args = _parse_args(argv)
+    trace_path = Path(args.trace)
+    schema_path = Path(args.schema)
+    label = str(args.name)
 
-    trace_path = Path(args.trace).expanduser().resolve()
-
-    if args.schema is not None:
-        schema_path = Path(args.schema).expanduser().resolve()
-    else:
-        schema_path = _default_schema_path()
-
-    validate_trace(trace_path, schema_path)
-    return 0
+    ok = validate_decision_trace(trace_path, schema_path, label=label)
+    sys.exit(0 if ok else 1)
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    main()
