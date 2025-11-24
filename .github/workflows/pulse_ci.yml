@@ -108,13 +108,14 @@ jobs:
           cat "${{ env.PACK_DIR }}/artifacts/refusal_delta_summary.json" || true
           echo "-------------------------------------"
 
-      - name: Augment status (external + top-level flags)
+            - name: Augment status (external + top-level flags)
         shell: bash
         run: |
           python "${{ env.PACK_DIR }}/tools/augment_status.py" \
             --status "${{ env.PACK_DIR }}/artifacts/status.json" \
             --thresholds "${{ env.PACK_DIR }}/profiles/external_thresholds.yaml" \
             --external_dir "${{ env.PACK_DIR }}/artifacts/external"
+
 
       - name: Show gates snapshot
         shell: bash
