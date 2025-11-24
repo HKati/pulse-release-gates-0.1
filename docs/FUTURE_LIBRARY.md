@@ -226,10 +226,46 @@ EPF / paradox field.
 
    The notebook will render:
 
-   - paradox history across runs (zones and tensions),
-   - instability / risk score trends over time,
-   - EPF signal trends, if EPF is enabled,
-   - high‑level resolution hints derived from the paradox history.
+- paradox history across runs (zones and tensions),
+- instability / risk-zone trends over time,
+- decision streaks over PASS / FAIL runs,
+- Pareto coverage for paradox axes,
+- a weighted Paradox histogram by zone (v0),
+- EPF overview panels and overlays, if EPF is enabled,
+- an EPF-only histogram panel (v0) for the distribution of EPF scores or flags,
+- high-level resolution hints derived from the paradox history.
+
+### Memory / trace dashboard — FAQ (v0)
+
+**Where do the JSON artefacts need to live?**
+
+By default, the demo notebook expects decision trace artefacts under
+`PULSE_safe_pack_v0/artifacts/`, relative to the repository root.
+When you open `PULSE_memory_trace_dashboard_v0_demo.ipynb` from
+`PULSE_safe_pack_v0/examples/`, this corresponds to `../artifacts`.
+
+**Which artefacts are required vs optional?**
+
+Required for a meaningful dashboard:
+
+- `paradox_history_v0.json`
+- `delta_log_v0.json`
+- `paradox_resolution_v0.json`
+
+Optional, but recommended:
+
+- `topology_dashboard_v0.json` (for topology views)
+- EPF shadow artefacts (for EPF overlays and panels).
+
+If any of these are missing, the corresponding panel will log a
+"skipping" message and move on without failing the notebook.
+
+**Does the dashboard change the gates or release decisions?**
+
+No. The memory / trace dashboard is a read-only diagnostic tool. It
+does not write back to `status.json`, does not modify gates, and does
+not affect release decisions. It is safe to run alongside the
+deterministic PULSE CI gates.
 
 ---
 
