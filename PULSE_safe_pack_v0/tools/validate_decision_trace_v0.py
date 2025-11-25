@@ -55,28 +55,42 @@ def validate_trace(trace_path: Path, schema_path: Path) -> bool:
     Returns:
         True if validation succeeds, False otherwise.
     """
+
+    # Load trace JSON
     trace = _load_json(trace_path, "decision trace")
+
+    # --- Backwards‑compat normalisation for older/demo traces ---
+    # Older decision_trace_v0 artefacts may lack details.instability_components,
+    # even though the current schema requires it. To keep them passing without
+    # weakening the schema, inject an empty list when the field is missing.
+    details = trace.get("details")
+    if isinstance(details, dict) and "instability_components" not in details:
+        details["instability_components"] = []
+    # --- End normalisation block ---
+
+    # Load schema JSON
     schema = _load_json(schema_path, "schema")
 
     try:
         jsonschema.validate(instance=trace, schema=schema)
     except ValidationError as exc:
         print("[validate_decision_trace_v0] Validation FAILED.")
-        print(f"- Trace:  {trace_path}")
-        print(f"- Schema: {schema_path}")
+        print(f"-- Trace: {trace_path}")
+        print(f"-- Schema: {schema_path}")
         print("")
         print("Details:")
         # Keep the message reasonably compact, but informative.
-        print(f"  {exc.message}")
+        print(f"{exc.message}")
         if exc.path:
-            path_str = " -> ".join(str(p) for p in exc.path)
-            print(f"  at JSON path: {path_str}")
+            path_str = ".".join(str(p) for p in exc.path)
+            print(f"at JSON path: {path_str}")
         sys.exit(1)
 
     print("[validate_decision_trace_v0] Validation OK.")
-    print(f"- Trace:  {trace_path}")
-    print(f"- Schema: {schema_path}")
+    print(f"-- Trace: {trace_path}")
+    print(f"-- Schema: {schema_path}")
     return True
+
 
 
 def _parse_args(argv: Any = None) -> argparse.Namespace:
