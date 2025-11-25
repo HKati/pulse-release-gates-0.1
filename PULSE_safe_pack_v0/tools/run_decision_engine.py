@@ -127,15 +127,15 @@ def build_decision_trace(stability_map: dict, state: dict) -> dict:
     instab = state.get("instability") or {}
     score = float(instab.get("score", 0.0) or 0.0)
 
-    # Instability components object a sémához igazítva
-    # Próbáljuk először az "instability.components" dictet használni,
-    # ha ilyen nincs, akkor közvetlenül az "instability" dictből olvasunk.
-    components = instab.get("components") or instab
+    # Az instability payloadban ezek a kulcsok vannak:
+    #   safety_component, quality_component, rdsi_component, epf_component
+    # Ezeket térképezzük át a schema szerinti nevekre:
     instability_components = {
-        "safety": components.get("safety"),
-        "quality": components.get("quality"),
-        "rds1": components.get("rds1") or components.get("rdsi"),
-        "epf": components.get("epf"),
+        "safety": instab.get("safety_component"),
+        "quality": instab.get("quality_component"),
+        # a séma "rds1"-et vár, de az input "rdsi_component":
+        "rds1": instab.get("rdsi_component"),
+        "epf": instab.get("epf_component"),
     }
 
     # Gate- és EPF-információk
@@ -184,7 +184,7 @@ def build_decision_trace(stability_map: dict, state: dict) -> dict:
         "risk_level": risk_level,
         "summary": summary,
         "details": {
-            # --- kötelező mezők a sémában ---
+            # --- schema-required mezők ---
             "release_decision": decision,
             "stability_type": state_type,
             "instability_score": score,
@@ -192,13 +192,14 @@ def build_decision_trace(stability_map: dict, state: dict) -> dict:
             "gates": gates,
             "paradox_present": paradox_present,
             "epf": epf,
-            # --- extra, fejlesztőbarát mezők (a séma engedi az extra kulcsokat) ---
+            # --- extra, fejlesztőbarát mezők ---
             "dominant_components": dom,
             "gate_summary": gates,
             "notes": notes,
         },
     }
     return trace
+
 
 
 
