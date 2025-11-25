@@ -122,12 +122,30 @@ def dominant_components(instab: dict) -> list[dict]:
 def build_decision_trace(stability_map: dict, state: dict) -> dict:
     decision = state.get("decision") or "UNKNOWN"
     state_type = state.get("type") or "UNSTABLE"
+
+    # Instability + score
     instab = state.get("instability") or {}
     score = float(instab.get("score", 0.0) or 0.0)
 
+    # Instability components object a sémához igazítva
+    # Próbáljuk először az "instability.components" dictet használni,
+    # ha ilyen nincs, akkor közvetlenül az "instability" dictből olvasunk.
+    components = instab.get("components") or instab
+    instability_components = {
+        "safety": components.get("safety"),
+        "quality": components.get("quality"),
+        "rds1": components.get("rds1") or components.get("rdsi"),
+        "epf": components.get("epf"),
+    }
+
+    # Gate- és EPF-információk
     gates = state.get("gate_summary") or {}
     epf = state.get("epf") or {}
 
+    # Paradoxon jelenlét – ha nincs explicit flag, default: False
+    paradox_present = bool(state.get("paradox_present", False))
+
+    # Döntési szintű jelölések
     risk_level = compute_risk_level(score)
     action = decide_action(decision, state_type, score)
     dom = dominant_components(instab)
@@ -166,16 +184,22 @@ def build_decision_trace(stability_map: dict, state: dict) -> dict:
         "risk_level": risk_level,
         "summary": summary,
         "details": {
+            # --- kötelező mezők a sémában ---
             "release_decision": decision,
             "stability_type": state_type,
             "instability_score": score,
+            "instability_components": instability_components,
+            "gates": gates,
+            "paradox_present": paradox_present,
+            "epf": epf,
+            # --- extra, fejlesztőbarát mezők (a séma engedi az extra kulcsokat) ---
             "dominant_components": dom,
             "gate_summary": gates,
-            "epf": epf,
             "notes": notes,
         },
     }
     return trace
+
 
 
 def main():
