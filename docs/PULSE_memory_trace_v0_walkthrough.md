@@ -115,6 +115,47 @@ This group of views shows how paradox behaviour is distributed across runs, not 
 - **Paradox zone histogram (weighted)** – same zones, but each run is weighted by its overall tension / risk, so a few very tense runs can dominate.
 - **Paradox tension histogram** – distribution of the scalar "max tension" metric across runs (low / medium / high tails).
 
+### Field curvature and stability tags (Δ-hajlás)
+
+The memory / trace dashboard v0 can optionally surface a simple
+field-curvature signal derived from the Stability Map:
+
+- per-state `delta_curvature` (value + band),
+- and a discrete `stability_tag` emitted by the Decision Engine.
+
+At a high level:
+
+- **delta_curvature.value**  
+  is a normalised second-derivative style measure over the instability
+  history: how sharply the field bends around this state.
+- **delta_curvature.band**  
+  buckets the raw value into `low`, `medium` or `high` (with `n/a`
+  for states where curvature is not defined).
+- **stability_tag**  
+  is a coarse label for low-instability states:
+  - `stable_good` – low instability and low/medium field curvature,
+  - `unstably_good` – low instability but *high* field curvature.
+
+The exact thresholds for `low` / `medium` / `high` are not meant to be
+hard guarantees; they are developer-facing heuristics that highlight
+regimes where:
+
+- the gates and instability score look fine,
+- but the underlying EPF field is bending aggressively.
+
+In practice, you can read these signals as:
+
+- `stable_good`:  
+  everything points in the same direction – both the metrics and the
+  field curvature look clean.
+- `unstably_good`:  
+  a “good on paper” decision that happens in a tightly curved region
+  of the field. These are often the most interesting runs to
+  investigate in the Pro form or in deeper trace views.
+
+None of these signals change gate behaviour in v0 – they are
+purely diagnostic tags layered on top of the existing topology and
+decision traces.
 
 #### How to read these plots in practice
 
