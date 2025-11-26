@@ -1,133 +1,96 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """
 validate_decision_trace_v0.py
 
-Developer-only helper for validating decision trace JSON artefacts
-against the PULSE_decision_trace_v0 JSON schema using jsonschema.
+Small helper to validate a decision trace JSON file against the
+PULSE_decision_trace_v0.schema.json schema.
 
-This tool is a shadow-only utility:
-- it does NOT participate in any gate or deployment path,
-- it is meant for local validation and optional CI usage.
+Special case:
+- we tolerate missing `details.instability_components` for backward
+  compatibility, but report a warning.
+- all other schema violations remain hard errors.
 """
 
 import argparse
 import json
 import sys
 from pathlib import Path
-from typing import Any, Dict
 
-import jsonschema
-from jsonschema.exceptions import ValidationError
+from jsonschema import Draft7Validator
 
 
-def _load_json(path: Path, label: str) -> Any:
-    """Load a JSON file with basic error handling."""
-    if not path.exists():
-        print(f"[validate_decision_trace_v0] {label} not found at: {path}")
-        sys.exit(1)
-
-    try:
-        with path.open("r", encoding="utf-8") as f:
-            return json.load(f)
-    except json.JSONDecodeError as exc:
-        print(
-            f"[validate_decision_trace_v0] Failed to parse {label} as JSON: "
-            f"{exc}"
-        )
-        sys.exit(1)
+def load_json(path: Path):
+    with path.open("r", encoding="utf-8") as f:
+        return json.load(f)
 
 
-def _default_schema_path() -> Path:
-    """Resolve the default schema path relative to this file.
+def validate_trace(trace_path: Path, schema_path: Path) -> int:
+    trace = load_json(trace_path)
+    schema = load_json(schema_path)
 
-    Layout assumption (repo root):
-      - schemas/PULSE_decision_trace_v0.schema.json
-      - PULSE_safe_pack_v0/tools/validate_decision_trace_v0.py  (this file)
-    """
-    here = Path(__file__).resolve()
-    repo_root = here.parents[2]  # .../pulse-release-gates-0.1/
-    return repo_root / "schemas" / "PULSE_decision_trace_v0.schema.json"
+    validator = Draft7Validator(schema)
+    errors = sorted(validator.iter_errors(trace), key=lambda e: e.path)
 
+    hard_errors = []
+    warned_missing_instability_components = False
 
-def validate_trace(trace_path: Path, schema_path: Path) -> bool:
-    """Validate a decision_trace_v0 JSON against the given schema.
+    for err in errors:
+        # Tolerate exactly this one case:
+        #   - "instability_components" is a required property
+        #   - at JSON path: details
+        if (
+            err.validator == "required"
+            and isinstance(err.validator_value, list)
+            and "instability_components" in err.validator_value
+            and list(err.path) == ["details"]
+        ):
+            if not warned_missing_instability_components:
+                print(
+                    "[validate_decision_trace_v0] WARNING: "
+                    "missing 'details.instability_components'. "
+                    "Tolerating for backward compatibility."
+                )
+                warned_missing_instability_components = True
+            # do not treat this as a hard error
+            continue
 
-    Returns:
-        True if validation succeeds, False otherwise.
-    """
-    # Load trace JSON
-    trace = _load_json(trace_path, "decision trace")
+        hard_errors.append(err)
 
-    # --- Backwards‑compat normalisation for older/demo traces ---
-    details = trace.get("details")
-    if isinstance(details, dict) and "instability_components" not in details:
-        print(
-            "[validate_decision_trace_v0] "
-            "injecting empty details.instability_components for demo/legacy trace"
-        )
-        details["instability_components"] = []
-
-    # Load schema JSON
-    schema = _load_json(schema_path, "schema")
-
-    try:
-        jsonschema.validate(instance=trace, schema=schema)
-    except ValidationError as exc:
+    if hard_errors:
         print("[validate_decision_trace_v0] Validation FAILED.")
         print(f"- Trace:  {trace_path}")
         print(f"- Schema: {schema_path}")
-        print("")
-        print("Details:")
-        print(f"  {exc.message}")
-        path_str = ".".join(str(p) for p in exc.path) if exc.path else ""
-        if path_str:
-            print(f"  at JSON path: {path_str}")
-        sys.exit(1)
+        print("\nDetails:")
+        for err in hard_errors:
+            json_path = "/".join(str(p) for p in err.path) or "<root>"
+            print(f"  - {err.message}")
+            print(f"    at JSON path: {json_path}")
+        return 1
 
     print("[validate_decision_trace_v0] Validation OK.")
-    print(f"- Trace:  {trace_path}")
-    print(f"- Schema: {schema_path}")
-    return True
-
-
-def _parse_args(argv: Any = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Validate decision_trace_v0 JSON against its schema."
-    )
-
-    parser.add_argument(
-        "trace",
-        metavar="TRACE_JSON",
-        type=str,
-        help="Path to decision_trace_v0 JSON (e.g. decision_trace_v0.json)",
-    )
-    parser.add_argument(
-        "--schema",
-        type=str,
-        default=None,
-        help=(
-            "Path to schema JSON "
-            "(default: schemas/PULSE_decision_trace_v0.schema.json "
-            "relative to repo root)"
-        ),
-    )
-
-    return parser.parse_args(argv)
-
-
-def main(argv: Any = None) -> int:
-    args = _parse_args(argv)
-
-    trace_path = Path(args.trace).expanduser().resolve()
-
-    if args.schema is not None:
-        schema_path = Path(args.schema).expanduser().resolve()
-    else:
-        schema_path = _default_schema_path()
-
-    validate_trace(trace_path, schema_path)
     return 0
 
 
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="Validate decision_trace JSON against v0 schema."
+    )
+    parser.add_argument(
+        "trace_json",
+        type=Path,
+        help="Path to decision_trace JSON file.",
+    )
+    parser.add_argument(
+        "--schema",
+        type=Path,
+        required=True,
+        help="Path to PULSE_decision_trace_v0.schema.json.",
+    )
+
+    args = parser.parse_args()
+    exit_code = validate_trace(args.trace_json, args.schema)
+    sys.exit(exit_code)
+
+
 if __name__ == "__main__":
-    raise SystemExit(main())
+    main()
