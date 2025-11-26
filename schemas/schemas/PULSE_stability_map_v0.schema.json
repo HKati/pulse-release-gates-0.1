@@ -293,7 +293,24 @@
           },
           "additionalProperties": true
         },
-        "epf_field_v0": {
+               "delta_curvature": {
+          "type": "object",
+          "description": "Directional curvature of instability across states/runs (EPF Δ-hajlás).",
+          "properties": {
+            "value": {
+              "type": ["number", "null"],
+              "description": "Numeric delta-curvature value for this state, or null if not defined."
+            },
+            "band": {
+              "type": ["string", "null"],
+              "enum": ["low", "medium", "high", "n/a", null],
+              "description": "Binned delta-curvature band for this state."
+            }
+          },
+          "additionalProperties": false
+        },
+
+       "epf_field_v0": {
           "type": "object",
           "description": "EPF fizikai mező v0 ehhez az állapothoz (phi/theta/energy + horgonyok).",
           "properties": {
