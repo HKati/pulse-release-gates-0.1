@@ -55,38 +55,38 @@ def validate_trace(trace_path: Path, schema_path: Path) -> bool:
     Returns:
         True if validation succeeds, False otherwise.
     """
+    # Load trace JSON
     trace = _load_json(trace_path, "decision trace")
 
-    # Backwards‑compat normalisation for older/demo traces:
-    # if "details.instability_components" is missing, inject an empty list
+    # --- Backwards‑compat normalisation for older/demo traces ---
     details = trace.get("details")
     if isinstance(details, dict) and "instability_components" not in details:
-        details["instability_components"] = []
         print(
-            "[validate_decision_trace_v0] injected empty "
-            "instability_components for legacy trace"
+            "[validate_decision_trace_v0] "
+            "injecting empty details.instability_components for demo/legacy trace"
         )
+        details["instability_components"] = []
 
+    # Load schema JSON
     schema = _load_json(schema_path, "schema")
 
     try:
         jsonschema.validate(instance=trace, schema=schema)
     except ValidationError as exc:
         print("[validate_decision_trace_v0] Validation FAILED.")
-        print(f"  Trace:  {trace_path}")
-        print(f"  Schema: {schema_path}")
+        print(f"- Trace:  {trace_path}")
+        print(f"- Schema: {schema_path}")
         print("")
         print("Details:")
-        # Keep the message reasonably compact, but informative.
-        print(f"  {exc.message!r}")
-        if exc.path:
-            path_str = " -> ".join(str(p) for p in exc.path)
+        print(f"  {exc.message}")
+        path_str = ".".join(str(p) for p in exc.path) if exc.path else ""
+        if path_str:
             print(f"  at JSON path: {path_str}")
         sys.exit(1)
 
     print("[validate_decision_trace_v0] Validation OK.")
-    print(f"  Trace:  {trace_path}")
-    print(f"  Schema: {schema_path}")
+    print(f"- Trace:  {trace_path}")
+    print(f"- Schema: {schema_path}")
     return True
 
 
