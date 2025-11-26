@@ -16,6 +16,8 @@ from pathlib import Path
 from datetime import datetime, timezone
 import argparse
 
+from metrics_delta_curvature import compute_delta_curvatures, band_delta_curvature
+
 
 def load_json(path: Path):
     try:
@@ -326,6 +328,48 @@ def build_paradox_resolution(state: dict) -> dict | None:
     }
 
 
+def attach_delta_curvature(stability_map: dict) -> dict:
+    """
+    Attach EPF delta_curvature metric to each state in the stability_map,
+    based on the instability.score history.
+
+    Currently stability_map v0 contains a single state in stability_map["states"],
+    but this helper also works when multiple states are present.
+    """
+    states = stability_map.get("states") or []
+    if not isinstance(states, list) or not states:
+        return stability_map
+
+    instability_series = []
+    for state in states:
+        if not isinstance(state, dict):
+            instability_series.append(0.0)
+            continue
+        instab = state.get("instability") or {}
+        score_raw = instab.get("score")
+        try:
+            score = float(score_raw) if score_raw is not None else 0.0
+        except (TypeError, ValueError):
+            score = 0.0
+        instability_series.append(score)
+
+    delta_values = compute_delta_curvatures(instability_series)
+
+    # Simple thresholds v0 – can be tuned or moved to config later
+    low_thr = 0.10
+    medium_thr = 0.30
+
+    for state, dv in zip(states, delta_values):
+        if not isinstance(state, dict):
+            continue
+        state["delta_curvature"] = {
+            "value": dv,
+            "band": band_delta_curvature(dv, low_thr, medium_thr),
+        }
+
+    return stability_map
+
+
 def build_stability_map(status_path: Path, status_epf_path: Path | None, out_path: Path):
     status = load_json(status_path)
     if status is None:
@@ -395,6 +439,9 @@ def build_stability_map(status_path: Path, status_epf_path: Path | None, out_pat
         "states": [state],
         "transitions": [],  # v0: single run; history comes later
     }
+
+    # EPF delta_curvature ("Δ-hajlás") hozzárendelése a state-ekhez
+    stability_map = attach_delta_curvature(stability_map)
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
     with out_path.open("w", encoding="utf-8") as f:
