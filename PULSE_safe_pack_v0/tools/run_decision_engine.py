@@ -142,8 +142,14 @@ def build_decision_trace(stability_map: dict, state: dict) -> dict:
     gates = state.get("gate_summary") or {}
     epf = state.get("epf") or {}
 
-    # Paradoxon jelenlét – ha nincs explicit flag, default: False
-    paradox_present = bool(state.get("paradox_present", False))
+    # Paradoxon jelenlét: ha van paradox blokk, abból olvassuk ki
+    paradox_info = state.get("paradox") or {}
+    paradox_present = bool(paradox_info.get("present", False))
+
+    # ÚJ: mezőhajlítás a stability map state-ből
+    delta_curv = state.get("delta_curvature") or {}
+    delta_value = delta_curv.get("value")
+    delta_band = delta_curv.get("band")
 
     # Döntési szintű jelölések
     risk_level = compute_risk_level(score)
@@ -175,6 +181,32 @@ def build_decision_trace(stability_map: dict, state: dict) -> dict:
             f"safety {gates.get('safety_failed', 0)}/{gates.get('safety_total', 0)} "
             f"failed, quality {gates.get('quality_failed', 0)}/{gates.get('quality_total', 0)} failed."
         )
+    if delta_value is not None:
+        notes.append(
+            f"Field curvature: delta={delta_value:.3f}, band={delta_band or 'n/a'}."
+        )
+
+    details = {
+        # --- schema-required mezők ---
+        "release_decision": decision,
+        "stability_type": state_type,
+        "instability_score": score,
+        "instability_components": instability_components,
+        "gates": gates,
+        "paradox_present": paradox_present,
+        "epf": epf,
+        # --- extra, fejlesztőbarát mezők ---
+        "dominant_components": dom,
+        "gate_summary": gates,
+        "notes": notes,
+    }
+
+    # ÚJ: csak akkor tesszük be, ha van értelmes delta_curvature
+    if delta_value is not None:
+        details["field_curvature"] = {
+            "delta_curvature": delta_value,
+            "band": delta_band,
+        }
 
     trace = {
         "version": "0.1",
@@ -183,24 +215,9 @@ def build_decision_trace(stability_map: dict, state: dict) -> dict:
         "action": action,
         "risk_level": risk_level,
         "summary": summary,
-        "details": {
-            # --- schema-required mezők ---
-            "release_decision": decision,
-            "stability_type": state_type,
-            "instability_score": score,
-            "instability_components": instability_components,
-            "gates": gates,
-            "paradox_present": paradox_present,
-            "epf": epf,
-            # --- extra, fejlesztőbarát mezők ---
-            "dominant_components": dom,
-            "gate_summary": gates,
-            "notes": notes,
-        },
+        "details": details,
     }
     return trace
-
-
 
 
 def main():
