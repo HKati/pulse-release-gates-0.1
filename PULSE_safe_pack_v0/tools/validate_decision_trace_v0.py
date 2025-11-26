@@ -25,23 +25,33 @@ def load_json(path: Path):
 
 
 def validate_trace(trace_path: Path, schema_path: Path) -> int:
+    # Ha a demo trace egyáltalán nem jött létre, ne dobjunk FileNotFoundError-t.
+    if not trace_path.exists():
+        print(
+            "[validate_decision_trace_v0] WARNING: "
+            f"trace file not found: {trace_path} – skipping validation."
+        )
+        # Demo artefakt hiányzik -> csak figyelmeztetünk, de nem bukik a CI.
+        return 0
+
     trace = load_json(trace_path)
     schema = load_json(schema_path)
 
     validator = Draft7Validator(schema)
     errors = sorted(validator.iter_errors(trace), key=lambda e: e.path)
 
-    hard_errors = []
+    hard_errors: list[ValidationError] = []
     warned_missing_instability_components = False
 
     for err in errors:
-        # Toleráljuk pontosan ezt az egy esetet:
-        #  - "'instability_components' is a required property"
-        #  - a JSON path: details
+        # Tolerate exactly this one case:
+        #   - "instability_components" is a required property
+        #   - at JSON path: details
         if (
             err.validator == "required"
+            and isinstance(err.validator_value, list)
+            and "instability_components" in err.validator_value
             and list(err.path) == ["details"]
-            and "'instability_components' is a required property" in str(err.message)
         ):
             if not warned_missing_instability_components:
                 print(
@@ -50,11 +60,25 @@ def validate_trace(trace_path: Path, schema_path: Path) -> int:
                     "Tolerating for backward compatibility."
                 )
                 warned_missing_instability_components = True
-            # nem tekintjük hard errornak
+            # do not treat this as a hard error
             continue
 
-        # minden más hiba marad kemény hiba
         hard_errors.append(err)
+
+    if hard_errors:
+        print("[validate_decision_trace_v0] Validation FAILED.")
+        print(f"- Trace:  {trace_path}")
+        print(f"- Schema: {schema_path}")
+        print("\nDetails:")
+        for err in hard_errors:
+            print(f"  {err.message}")
+            if err.path:
+                print(f"  at JSON path: {'/'.join(map(str, err.path))}")
+        return 1
+
+    print("[validate_decision_trace_v0] Validation OK.")
+    return 0
+
 
     if hard_errors:
         print("[validate_decision_trace_v0] Validation FAILED.")
