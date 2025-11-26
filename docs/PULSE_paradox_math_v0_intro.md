@@ -16,7 +16,7 @@ The goal is not to build a full formal logic, but to have **just enough
 structure** that different panels, metrics and tools refer to the *same*
 underlying objects.
 
----
+'''
 
 ## 1. Paradox axes and atoms
 
@@ -65,7 +65,7 @@ In JSON terms (already in the schemas):
 }
 
 
----
+'''
 
 ## 8. Worked example: `epf_field_vs_policy_field` axis
 
@@ -79,7 +79,7 @@ We consider the axis:
 ```text
 epf_field_vs_policy_field
 
----
+'''
 
 with the following informal semantics:
 
@@ -103,7 +103,7 @@ Consider a run `run_023` where:
 A corresponding `ParadoxAtom` on this axis could look like:
 
 
----
+'''
 
 {
   "axis_id": "epf_field_vs_policy_field",
@@ -120,7 +120,7 @@ A corresponding `ParadoxAtom` on this axis could look like:
 }
 
 
-----
+'''
 
 Here:
 
@@ -135,7 +135,7 @@ If this run has a few more atoms on other axes, the per-run paradox
 field might summarise as:
 
 
----
+'''
 
 "paradox_field_v0": {
   "atoms": [
@@ -155,7 +155,7 @@ field might summarise as:
 }
 
 
----
+'''
 
 
 The summary makes it clear that:
