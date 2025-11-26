@@ -247,5 +247,71 @@ Across all of the above, the following invariants hold:
 - All Future Library components are safe to run in *shadow mode* alongside
   the existing pipeline.
 
+---
 
+### EPF delta_curvature (directional curvature) v0
+
+**What it measures**
+
+The `delta_curvature` signal estimates how much the instability field “bends”
+between consecutive runs, even when all gates still pass and the overall
+instability score looks clean.
+
+Intuitively:
+
+- instability score ≈ “how noisy / risky this run is *in itself*”  
+- delta_curvature ≈ “how much the underlying decision field is *curving* between runs”
+
+This helps answer the question:
+
+> “Why do we sometimes get odd decisions even though all metrics and gates look fine?”
+
+---
+
+**How it is computed (v0)**
+
+For each Stability Map we take the per‑run instability scores  
+`instability_score[0..N-1]` and approximate the discrete second derivative:
+
+- first differences: `d_i = instability[i] - instability[i-1]`
+- curvature estimate: `Δ_i = | instability[i] - 2*instability[i-1] + instability[i-2] | / norm`
+
+We normalise by the size of the recent instability to avoid over‑reacting to
+tiny numerical movement. The result is a non‑negative scalar per run:
+
+- small Δ → the field is smooth, runs follow a gently changing pattern  
+- large Δ → the field is sharply bending, something in the decision landscape changed
+
+The helper code lives in:
+
+- `PULSE_safe_pack_v0/tools/metrics_delta_curvature.py`
+- it is wired into `build_stability_map.py`, which writes `delta_curvature` into
+  each `state` in `stability_map.json`.
+
+---
+
+**Where it appears in the artefacts**
+
+- In the **Stability Map** (`stability_map.json`):
+
+  ```json
+  {
+    "states": [
+      {
+        "id": "run_007",
+        "instability": {
+          "score": 0.18,
+          "safety_component": 0.02,
+          "quality_component": 0.03,
+          "rdsi_component": 0.08,
+          "epf_component": 0.05
+        },
+        "delta_curvature": {
+          "value": 0.31,
+          "band": "high"
+        },
+        ...
+      }
+    ]
+  }
 
