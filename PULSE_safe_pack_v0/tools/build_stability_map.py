@@ -16,7 +16,19 @@ from pathlib import Path
 from datetime import datetime, timezone
 import argparse
 
-from metrics_delta_curvature import compute_delta_curvatures, band_delta_curvature
+try:
+    # Ha csomagként importáljuk: PULSE_safe_pack_v0.tools.build_stability_map
+    from .metrics_delta_curvature import (
+        compute_delta_curvatures,
+        band_delta_curvature,
+    )
+except ImportError:
+    # Ha közvetlenül scriptként futtatjuk:
+    # python PULSE_safe_pack_v0/tools/build_stability_map.py
+    from metrics_delta_curvature import (
+        compute_delta_curvatures,
+        band_delta_curvature,
+    )
 
 
 def load_json(path: Path):
