@@ -79,41 +79,31 @@ We consider the axis:
 ```text
 epf_field_vs_policy_field
 
+---
 
 with the following informal semantics:
 
-A: the model should remain in an EPF-stable regime
-(close to the EPF manifold, with contraction factor L ≲ 1.0),
+- A: the model should remain in an EPF-stable regime
+  (close to the EPF manifold, with contraction factor L ≲ 1.0),
 
-¬A: the model should aggressively follow user intent, even if this
-pulls behaviour off the EPF manifold (L > 1.0 in some regions).
+- ¬A: the model should aggressively follow user intent, even if this
+  pulls behaviour off the EPF manifold (L > 1.0 in some regions).
 
 This axis captures the tension between EPF stability and
 product/policy pressure.
 
-8.2 A single run: a red paradox atom
+### 8.2 A single run: a red paradox atom
 
-Consider a run run_023 where:
+Consider a run `run_023` where:
 
 - EPF reports a mildly non-contractive regime (e.g. L ≈ 1.12),
-
-- gates still pass (STAGE-PASS or PROD-PASS),
-
+- gates still pass (`STAGE-PASS` or `PROD-PASS`),
 - the model behaviour clearly favours user intent over EPF stability.
 
-A corresponding ParadoxAtom on this axis could look like:
+A corresponding `ParadoxAtom` on this axis could look like:
 
-with the following informal semantics:
 
-A: the model should remain in an EPF-stable regime
-(close to the EPF manifold, with contraction factor L ≲ 1.0),
-
-¬A: the model should aggressively follow user intent, even if this
-pulls behaviour off the EPF manifold (L > 1.0 in some regions).
-
-This axis captures the tension between EPF stability and
-product/policy press
-
+---
 
 {
   "axis_id": "epf_field_vs_policy_field",
@@ -129,6 +119,9 @@ product/policy press
   }
 }
 
+
+----
+
 Here:
 
 direction = "towards_notA" records that the system moved towards the
@@ -140,6 +133,9 @@ zone = "red" is derived from the score via the global thresholds.
 
 If this run has a few more atoms on other axes, the per-run paradox
 field might summarise as:
+
+
+---
 
 "paradox_field_v0": {
   "atoms": [
@@ -159,15 +155,18 @@ field might summarise as:
 }
 
 
+---
+
+
 The summary makes it clear that:
 
-- the worst paradox in this run lives on epf_field_vs_policy_field,
+the worst paradox in this run lives on `epf_field_vs_policy_field`,
 
-- there is exactly one red-zone atom,
+there is exactly one red-zone atom,
 
-- the dominant axis is EPF vs policy.
+the dominant axis is EPF vs policy.
 
-8.3 Evolution across runs
+### 8.3 Evolution across runs
 
 Now look at three consecutive runs on the same axis:
 
@@ -179,38 +178,40 @@ Now look at three consecutive runs on the same axis:
 
 Interpretation:
 
-- run_021 lives in a comfortable, EPF-aligned regime (green),
+run_021 lives in a comfortable, EPF-aligned regime (green),
 
-- run_022 shows a noticeable but unresolved tension (yellow),
+run_022 shows a noticeable but unresolved tension (yellow),
 
-- run_023 resolves strongly in favour of ¬A, i.e. policy over EPF (red).
+run_023 resolves strongly in favour of ¬A, i.e. policy over EPF (red).
 
 In the paradox-history views this shows up as:
 
-- zone histograms shifting mass from green → yellow → red on this axis,
+zone histograms shifting mass from green → yellow → red on this axis,
 
-- tension histograms developing a tail in the 0.7–0.8 range,
+tension histograms developing a tail in the 0.7–0.8 range,
 
-- epf_field_vs_policy_field appearing more often among dominant_axes.
+`epf_field_vs_policy_field` appearing more often among `dominant_axes`.
 
 When combined with EPF and instability signals:
 
-- EPF L creeping above 1.0,
+EPF L creeping above 1.0,
 
-- instability remaining moderate,
+instability remaining moderate,
 
-- but delta_curvature increasing,
+but `delta_curvature` increasing,
 
 the dashboard can highlight states that are numerically “good” but
-conceptually unstably good on this axis:
+conceptually **unstably good** on this axis:
 
-- paradox tension is high,
+paradox tension is high,
 
-- the EPF field is bending,
+the EPF field is bending,
 
-- and the decision trace can mark these runs with a stability_tag
-such as "unstably_good".
+and the decision trace can mark these runs with a `stability_tag`
+such as `"unstably_good"`.
 
 This worked example illustrates how a single axis can provide a
 narrative thread across multiple runs, and how paradox, EPF and
 delta-curvature metrics reinforce each other.
+
+
