@@ -26,8 +26,11 @@ def build_decision_trace(stability_map: dict, state: dict) -> dict:
     gates = state.get("gate_summary") or {}
     epf = state.get("epf") or {}
 
-    # Paradoxon jelenlét – ha nincs explicit flag, default: False
-    paradox_present = bool(state.get("paradox_present", False))
+    # Paradoxon jelenlét – a Stability Map "paradox.present" flagje alapján
+    paradox_info = state.get("paradox") or {}
+    paradox_present = bool(
+        state.get("paradox_present", paradox_info.get("present", False))
+    )
 
     # Döntési szintű jelölések
     risk_level = compute_risk_level(score)
@@ -36,8 +39,7 @@ def build_decision_trace(stability_map: dict, state: dict) -> dict:
 
     # Új: stability_tag – külön jelzés a mezőhajlításra érzékeny „jó” döntésekre
     stability_tag: str | None = None
-    if score < 0.30:
-        # „jó” instabilitási tartomány
+    if score < 0.30:  # „jó” instabilitási tartomány
         if delta_band == "high":
             stability_tag = "unstably_good"
         else:
@@ -73,7 +75,7 @@ def build_decision_trace(stability_map: dict, state: dict) -> dict:
 
     # Delta curvature-hez kapcsolódó megjegyzés – csak ha van értelmes jel
     if delta_value is not None and delta_band in {"medium", "high"}:
-        band_label = delta_band.upper()
+        band_label = str(delta_band).upper()
         notes.append(
             f"Delta curvature: {delta_value:.3f} ({band_label}); "
             "decision may be field-sensitive even if metrics look clean."
