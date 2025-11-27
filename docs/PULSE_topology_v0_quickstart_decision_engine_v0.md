@@ -60,6 +60,15 @@ atoms[] are paradox atoms (local MUS over gates).
 
 severity is a simple [0,1] score for how “hard” the paradox is.
 
+
+3. Step 2 — Build a stability_map_v0 demo
+
+For a real production pipeline, stability_map_v0 would be computed from
+multiple runs and perturbations. As a simple reference, the pack ships a
+small demo builder for the fairness–SLO–EPF mini cell.
+
+Run:
+
 python PULSE_safe_pack_v0/tools/pulse_stability_map_demo_v0.py ^
   --output PULSE_safe_pack_v0/artifacts/stability_map_v0_demo.json
 
