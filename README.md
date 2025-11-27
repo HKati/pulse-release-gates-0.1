@@ -247,6 +247,7 @@ It consists of:
 - **Dual View v0** – a shared human + agent view of the same data
   (short narrative + machine‑friendly JSON).
 
+
 ## Docs & specs
 
 **Topology v0 / Stability Map**
@@ -280,6 +281,7 @@ It consists of:
   – Concrete example for a single run.
 
 
+
 **Paradox Resolution v0**
 
 - `docs/PULSE_paradox_resolution_v0_design_note.md`  
@@ -287,12 +289,58 @@ It consists of:
 - `docs/PULSE_paradox_resolution_v0_walkthrough.md`  
   – How `paradox_resolution_v0.json` is built and interpreted.
 
+
 **Dashboards & memory**
 
 - `docs/PULSE_topology_dashboards_v0_design_note.md`  
   – Topology dashboards v0 ideas.
 - `docs/PULSE_memory_trace_summariser_v0_design_note.md`  
   – Memory / trace summariser v0 concept.
+
+
+## Topology v0 and Decision Engine v0 
+
+On top of the core PULSE gates and status artefacts, the repo ships an
+optional **field / topology layer**. This layer never changes CI behaviour;
+it only reads existing artefacts and emits additional overlays.
+
+The main pieces are:
+
+- **Paradox field (paradox_field_v0)**  
+  - Schema: `schemas/PULSE_paradox_field_v0.schema.json`  
+  - Tool: `PULSE_safe_pack_v0/tools/pulse_paradox_atoms_v0.py`  
+  - Input: a directory with `status.json` artefacts  
+  - Output: `paradox_field_v0.json` with *paradox atoms*
+    (minimal unsatisfiable gate-sets) and a severity score.
+
+
+- **Stability map (stability_map_v0, demo)**  
+  - Tool: `PULSE_safe_pack_v0/tools/pulse_stability_map_demo_v0.py`  
+  - Input: none (pure synthetic demo)  
+  - Output: `stability_map_v0_demo.json` with a single 2×2 cell for the
+    fairness–SLO–EPF example, including a simple Δ-curvature signal
+    (`delta_bend`).
+
+
+- **Decision Engine v0 (decision_engine_v0)**  
+  - Tool: `PULSE_safe_pack_v0/tools/pulse_decision_engine_v0.py`  
+  - Inputs:
+    - a `status.json` artefact (required),
+    - optional `stability_map_v0` and `paradox_field_v0` overlays.  
+  - Output: `decision_engine_v0.json` with:
+    - `release_state` (BLOCK / STAGE_ONLY / PROD_OK / UNKNOWN),
+    - `stability_type` (e.g. stable_good / unstably_good),
+    - compact summaries of gates, stability_map_v0 and paradox_field_v0.
+
+These components are intended for **analysis, dashboards and governance**,
+not for core gating. The source of truth for release decisions remains
+`status.json` + `PULSE_safe_pack_v0/tools/check_gates.py` + the CI workflow.
+
+For a detailed walkthrough, see:
+
+- `docs/PULSE_topology_v0_mini_example_fairness_slo_epf.md`  
+- `docs/PULSE_topology_v0_quickstart_decision_engine_v0.md`
+
 
 **Future Library index**
 
