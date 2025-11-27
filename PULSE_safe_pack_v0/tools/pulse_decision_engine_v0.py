@@ -55,12 +55,19 @@ def _summarise_status(status: Dict[str, Any]) -> Dict[str, Any]:
       - failed_gates[]
       - passed_gates[]
       - optional RDSI-ish metrics if present.
-    """
-    results = status.get("results", {})
-    if not isinstance(results, dict):
-        results = {}
 
-    gates = _collect_gates_from_results(results)
+    For pack-generated artefacts, gate flags live under top-level 'gates'.
+    We fall back to 'results' for any older/alternative shapes.
+    """
+    # Prefer the pack's top-level 'gates' block if present.
+    gates_root = status.get("gates")
+    if not isinstance(gates_root, dict):
+        # Fallback: some experimental runs may still use 'results'.
+        gates_root = status.get("results")
+        if not isinstance(gates_root, dict):
+            gates_root = {}
+
+    gates = _collect_gates_from_results(gates_root)
     total = len(gates)
     failed = [name for name, ok in gates.items() if not ok]
     passed = [name for name, ok in gates.items() if ok]
