@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://hkati.github.io/pulse-release-gates-0.1/schemas/PULSE_paradox_field_v0.schema.json",
+  "title": "PULSE paradox_field_v0",
+  "description": "Minimal schema for PULSE paradox_field_v0 artefacts (paradox atoms over gate fields).",
+  "type": "object",
+  "required": ["paradox_field_v0"],
+  "properties": {
+    "paradox_field_v0": {
+      "type": "object",
+      "required": ["version", "generated_at_utc", "atoms"],
+      "properties": {
+        "version": {
+          "type": "string",
+          "description": "Version tag for the paradox field (e.g. 'PULSE_paradox_field_v0')."
+        },
+        "generated_at_utc": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp when the paradox field was generated (UTC)."
+        },
+        "source": {
+          "type": "object",
+          "description": "Optional metadata about the source of the runs (status dir, max atom size, etc.).",
+          "additionalProperties": true
+        },
+        "atoms": {
+          "type": "array",
+          "description": "List of paradox atoms (minimal unsatisfiable gate-sets).",
+          "items": {
+            "$ref": "#/$defs/paradox_atom"
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "$defs": {
+    "paradox_atom": {
+      "type": "object",
+      "required": ["atom_id", "gates", "severity"],
+      "properties": {
+        "atom_id": {
+          "type": "string",
+          "description": "Stable identifier for the atom (e.g. 'atom_0001')."
+        },
+        "gates": {
+          "type": "array",
+          "description": "Gate names that form the atom (minimal unsatisfiable set).",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
+        },
+        "minimal": {
+          "type": "boolean",
+          "description": "True if this atom is minimal (no proper subset is unsatisfiable).",
+          "default": true
+        },
+        "severity": {
+          "type": "number",
+          "description": "Severity score in [0,1] (1 = strongest paradox).",
+          "minimum": 0.0,
+          "maximum": 1.0
+        },
+        "parameter_box": {
+          "type": "object",
+          "description": "Optional parameter ranges (e.g. fairness_threshold, slo_budget_ms) over which the atom holds.",
+          "additionalProperties": {
+            "type": "array",
+            "items": [
+              { "type": "number" },
+              { "type": "number" }
+            ],
+            "minItems": 2,
+            "maxItems": 2
+          }
+        },
+        "evidence_runs": {
+          "type": "array",
+          "description": "Optional list of run_ids that support the atom.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "comment": {
+          "type": "string",
+          "description": "Optional human-readable explanation of the atom."
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}
