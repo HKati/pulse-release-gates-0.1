@@ -23,35 +23,59 @@ from itertools import combinations
 from typing import Dict, List, Mapping, MutableMapping
 
 
-def _iter_status_paths(status_dir: pathlib.Path) -> List[pathlib.Path]:
+def _iter_status_paths(
+    status_dir: pathlib.Path,
+    exclude: pathlib.Path | None = None,
+) -> list[pathlib.Path]:
     """
-    Collect candidate status.json files.
+    Collect candidate status.json files under status_dir.
 
-    Default: all *.json under status_dir (recursively).
-    If you want a tighter selection, pass a more specific directory.
+    We skip the `exclude` path (typically the paradox_field_v0 output file)
+    to avoid self-contamination on reruns.
     """
-    paths: List[pathlib.Path] = []
+    paths: list[pathlib.Path] = []
+    exclude_resolved = exclude.resolve() if exclude is not None else None
+
     for path in status_dir.rglob("*.json"):
-        if path.is_file():
-            paths.append(path)
+        if not path.is_file():
+            continue
+        if exclude_resolved is not None and path.resolve() == exclude_resolved:
+            # Skip our own output (or any explicitly excluded file).
+            continue
+        paths.append(path)
+
     return paths
 
 
-def load_status_files(status_dir: pathlib.Path) -> Dict[str, dict]:
+def load_status_files(
+    status_dir: pathlib.Path,
+    exclude: pathlib.Path | None = None,
+) -> dict[str, dict]:
     """
-    Load all candidate JSON files from status_dir into a dict[run_id -> status].
+    Load JSON files that look like PULSE status artefacts.
 
-    We try to infer a stable run_id from the 'run' block if present; otherwise
-    we fall back to the filename stem.
+    We:
+      - skip the exclude path (typically the paradox_field_v0 output), and
+      - ignore JSON files that don't have a top-level 'results' dict, or that
+        clearly belong to other artefact types (e.g. paradox_field_v0).
     """
-    status_by_run: Dict[str, dict] = {}
+    status_by_run: dict[str, dict] = {}
 
-    for path in _iter_status_paths(status_dir):
+    for path in _iter_status_paths(status_dir, exclude=exclude):
         try:
             with path.open("r", encoding="utf-8") as f:
                 data = json.load(f)
         except Exception:
             # Best-effort: skip files that are not valid JSON.
+            continue
+
+        # Skip known non-status artefacts explicitly.
+        if "paradox_field_v0" in data or "stability_map_v0" in data:
+            continue
+
+        results = data.get("results")
+        if not isinstance(results, dict):
+            # Not a PULSE status artefact (no results block).
             continue
 
         run_block = data.get("run", {})
@@ -285,9 +309,11 @@ def main() -> None:
     args = parser.parse_args()
 
     status_dir = args.status_dir
-    status_by_run = load_status_files(status_dir)
+    status_by_run = load_status_files(status_dir, exclude=args.output)
     run_gates = extract_gate_matrix(status_by_run)
-    paradox_field = build_paradox_field(run_gates, status_dir, max_size=args.max_atom_size)
+    paradox_field = build_paradox_field(
+        run_gates, status_dir, max_size=args.max_atom_size
+    )
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
     with args.output.open("w", encoding="utf-8") as f:
