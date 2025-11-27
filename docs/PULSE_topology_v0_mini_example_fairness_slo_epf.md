@@ -148,4 +148,271 @@ fields that are safe to add as optional extensions on top of the existing
       "tags": ["topology_demo_v0", "fairness_vs_slo", "epf_interaction"]
     }
   ]
+
+
+## 5. Paradox atom: Q₃ vs Q₄ (local MUS)
+
+Using multiple configurations with different (α, B) pairs (fairness threshold and SLO budget),
+we can observe a local paradox atom where:
+
+- `q3_fairness_ok` is satisfiable alone (some configs pass),
+- `q4_slo_ok` is satisfiable alone (other configs pass),
+- but **no configuration** in a given (α, B) box satisfies both simultaneously.
+
+Formally, the gate pair `{q3_fairness_ok, q4_slo_ok}` is a minimal unsatisfiable set (MUS)
+over that box.
+
+An example paradox_field_v0 fragment:
+
+```jsonc
+{
+  "paradox_field_v0": {
+    "version": "PULSE_paradox_field_v0",
+    "generated_at_utc": "2025-11-27T00:00:00Z",
+    "atoms": [
+      {
+        "atom_id": "atom_fairness_vs_slo_demo",
+        "gates": ["q3_fairness_ok", "q4_slo_ok"],
+        "minimal": true,
+        "severity": 0.9,
+        "parameter_box": {
+          "fairness_threshold": [0.7, 0.9],
+          "slo_budget_ms": [200, 300]
+        },
+        "comment": "No (alpha, B) combination satisfies both fairness and SLO in this region; explicit tradeoff required."
+      }
+    ]
+  }
 }
+```
+
+This shows how Topology v0 can expose the fairness–SLO tradeoff as an explicit, machine‑readable
+object (`paradox_field_v0`), rather than burying it in a single scalar score.
+
+## 5. Paradox atom: Q₃ vs Q₄ (local MUS)
+
+Using multiple configurations with different (α, B) pairs (fairness threshold and SLO budget),
+we can observe a local paradox atom where:
+
+- `q3_fairness_ok` is satisfiable alone (some configs pass),
+- `q4_slo_ok` is satisfiable alone (other configs pass),
+- but **no configuration** in a given (α, B) box satisfies both simultaneously.
+
+Formally, the gate pair `{q3_fairness_ok, q4_slo_ok}` is a minimal unsatisfiable set (MUS)
+over that box.
+
+An example paradox_field_v0 fragment:
+
+```jsonc
+{
+  "paradox_field_v0": {
+    "version": "PULSE_paradox_field_v0",
+    "generated_at_utc": "2025-11-27T00:00:00Z",
+    "atoms": [
+      {
+        "atom_id": "atom_fairness_vs_slo_demo",
+        "gates": ["q3_fairness_ok", "q4_slo_ok"],
+        "minimal": true,
+        "severity": 0.9,
+        "parameter_box": {
+          "fairness_threshold": [0.7, 0.9],
+          "slo_budget_ms": [200, 300]
+        },
+        "comment": "No (alpha, B) combination satisfies both fairness and SLO in this region; explicit tradeoff required."
+      }
+    ]
+  }
+}
+```
+
+This shows how Topology v0 can expose the fairness–SLO tradeoff as an explicit, machine‑readable
+object (`paradox_field_v0`), rather than burying it in a single scalar score.
+## 5. Paradox atom: Q₃ vs Q₄ (local MUS)
+
+Using multiple configurations with different (α, B) pairs (fairness threshold and SLO budget),
+we can observe a local paradox atom where:
+
+- `q3_fairness_ok` is satisfiable alone (some configs pass),
+- `q4_slo_ok` is satisfiable alone (other configs pass),
+- but **no configuration** in a given (α, B) box satisfies both simultaneously.
+
+Formally, the gate pair `{q3_fairness_ok, q4_slo_ok}` is a minimal unsatisfiable set (MUS)
+over that box.
+
+An example paradox_field_v0 fragment:
+
+```jsonc
+{
+  "paradox_field_v0": {
+    "version": "PULSE_paradox_field_v0",
+    "generated_at_utc": "2025-11-27T00:00:00Z",
+    "atoms": [
+      {
+        "atom_id": "atom_fairness_vs_slo_demo",
+        "gates": ["q3_fairness_ok", "q4_slo_ok"],
+        "minimal": true,
+        "severity": 0.9,
+        "parameter_box": {
+          "fairness_threshold": [0.7, 0.9],
+          "slo_budget_ms": [200, 300]
+        },
+        "comment": "No (alpha, B) combination satisfies both fairness and SLO in this region; explicit tradeoff required."
+      }
+    ]
+  }
+}
+```
+
+This shows how Topology v0 can expose the fairness–SLO tradeoff as an explicit, machine‑readable
+object (`paradox_field_v0`), rather than burying it in a single scalar score.
+## 5. Paradox atom: Q₃ vs Q₄ (local MUS)
+
+Using multiple configurations with different (α, B) pairs (fairness threshold and SLO budget),
+we can observe a local paradox atom where:
+
+- `q3_fairness_ok` is satisfiable alone (some configs pass),
+- `q4_slo_ok` is satisfiable alone (other configs pass),
+- but **no configuration** in a given (α, B) box satisfies both simultaneously.
+
+Formally, the gate pair `{q3_fairness_ok, q4_slo_ok}` is a minimal unsatisfiable set (MUS)
+over that box.
+
+An example paradox_field_v0 fragment:
+
+```jsonc
+{
+  "paradox_field_v0": {
+    "version": "PULSE_paradox_field_v0",
+    "generated_at_utc": "2025-11-27T00:00:00Z",
+    "atoms": [
+      {
+        "atom_id": "atom_fairness_vs_slo_demo",
+        "gates": ["q3_fairness_ok", "q4_slo_ok"],
+        "minimal": true,
+        "severity": 0.9,
+        "parameter_box": {
+          "fairness_threshold": [0.7, 0.9],
+          "slo_budget_ms": [200, 300]
+        },
+        "comment": "No (alpha, B) combination satisfies both fairness and SLO in this region; explicit tradeoff required."
+      }
+    ]
+  }
+}
+```
+
+This shows how Topology v0 can expose the fairness–SLO tradeoff as an explicit, machine‑readable
+object (`paradox_field_v0`), rather than burying it in a single scalar score.
+## 5. Paradox atom: Q₃ vs Q₄ (local MUS)
+
+Using multiple configurations with different (α, B) pairs (fairness threshold and SLO budget),
+we can observe a local paradox atom where:
+
+- `q3_fairness_ok` is satisfiable alone (some configs pass),
+- `q4_slo_ok` is satisfiable alone (other configs pass),
+- but **no configuration** in a given (α, B) box satisfies both simultaneously.
+
+Formally, the gate pair `{q3_fairness_ok, q4_slo_ok}` is a minimal unsatisfiable set (MUS)
+over that box.
+
+An example paradox_field_v0 fragment:
+
+```jsonc
+{
+  "paradox_field_v0": {
+    "version": "PULSE_paradox_field_v0",
+    "generated_at_utc": "2025-11-27T00:00:00Z",
+    "atoms": [
+      {
+        "atom_id": "atom_fairness_vs_slo_demo",
+        "gates": ["q3_fairness_ok", "q4_slo_ok"],
+        "minimal": true,
+        "severity": 0.9,
+        "parameter_box": {
+          "fairness_threshold": [0.7, 0.9],
+          "slo_budget_ms": [200, 300]
+        },
+        "comment": "No (alpha, B) combination satisfies both fairness and SLO in this region; explicit tradeoff required."
+      }
+    ]
+  }
+}
+```
+
+This shows how Topology v0 can expose the fairness–SLO tradeoff as an explicit, machine‑readable
+object (`paradox_field_v0`), rather than burying it in a single scalar score.
+## 5. Paradox atom: Q₃ vs Q₄ (local MUS)
+
+Using multiple configurations with different (α, B) pairs (fairness threshold and SLO budget),
+we can observe a local paradox atom where:
+
+- `q3_fairness_ok` is satisfiable alone (some configs pass),
+- `q4_slo_ok` is satisfiable alone (other configs pass),
+- but **no configuration** in a given (α, B) box satisfies both simultaneously.
+
+Formally, the gate pair `{q3_fairness_ok, q4_slo_ok}` is a minimal unsatisfiable set (MUS)
+over that box.
+
+An example paradox_field_v0 fragment:
+
+```jsonc
+{
+  "paradox_field_v0": {
+    "version": "PULSE_paradox_field_v0",
+    "generated_at_utc": "2025-11-27T00:00:00Z",
+    "atoms": [
+      {
+        "atom_id": "atom_fairness_vs_slo_demo",
+        "gates": ["q3_fairness_ok", "q4_slo_ok"],
+        "minimal": true,
+        "severity": 0.9,
+        "parameter_box": {
+          "fairness_threshold": [0.7, 0.9],
+          "slo_budget_ms": [200, 300]
+        },
+        "comment": "No (alpha, B) combination satisfies both fairness and SLO in this region; explicit tradeoff required."
+      }
+    ]
+  }
+}
+```
+
+This shows how Topology v0 can expose the fairness–SLO tradeoff as an explicit, machine‑readable
+object (`paradox_field_v0`), rather than burying it in a single scalar score.
+
+5. Paradox atom: Q₃ vs Q₄ (local MUS)
+
+Using multiple configurations with different (α, B) pairs (fairness threshold and SLO budget),
+we can observe a local paradox atom where:
+
+q3_fairness_ok is satisfiable alone (some configs pass),
+
+q4_slo_ok is satisfiable alone (other configs pass),
+
+but no configuration in a given (α, B) box satisfies both simultaneously.
+
+Formally, the gate pair {q3_fairness_ok, q4_slo_ok} is a minimal unsatisfiable set (MUS)
+over that box.
+
+'''
+{
+  "paradox_field_v0": {
+    "version": "PULSE_paradox_field_v0",
+    "generated_at_utc": "2025-11-27T00:00:00Z",
+    "atoms": [
+      {
+        "atom_id": "atom_fairness_vs_slo_demo",
+        "gates": ["q3_fairness_ok", "q4_slo_ok"],
+        "minimal": true,
+        "severity": 0.9,
+        "parameter_box": {
+          "fairness_threshold": [0.7, 0.9],
+          "slo_budget_ms": [200, 300]
+        },
+        "comment": "No (alpha, B) combination satisfies both fairness and SLO in this region; explicit tradeoff required."
+      }
+    ]
+  }
+}
+
+An example paradox_field_v0 fragment:
