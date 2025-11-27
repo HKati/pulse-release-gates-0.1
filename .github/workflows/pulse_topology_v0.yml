@@ -1,0 +1,67 @@
+name: PULSE Topology v0 (demo stack)
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "PULSE_safe_pack_v0/**"
+      - "schemas/**"
+      - "docs/**"
+      - ".github/workflows/pulse_topology_v0.yml"
+  pull_request:
+    paths:
+      - "PULSE_safe_pack_v0/**"
+      - "schemas/**"
+      - "docs/**"
+      - ".github/workflows/pulse_topology_v0.yml"
+
+jobs:
+  topology_v0:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: Run PULSE safe pack (status.json)
+        run: |
+          python PULSE_safe_pack_v0/tools/run_all.py
+
+      - name: Build paradox_field_v0
+        run: |
+          python PULSE_safe_pack_v0/tools/pulse_paradox_atoms_v0.py \
+            --status-dir PULSE_safe_pack_v0/artifacts \
+            --output PULSE_safe_pack_v0/artifacts/paradox_field_v0.json \
+            --max-atom-size 4
+
+      - name: Build stability_map_v0 demo
+        run: |
+          python PULSE_safe_pack_v0/tools/pulse_stability_map_demo_v0.py \
+            --output PULSE_safe_pack_v0/artifacts/stability_map_v0_demo.json
+
+      - name: Build decision_engine_v0 overlay
+        run: |
+          python PULSE_safe_pack_v0/tools/pulse_decision_engine_v0.py \
+            --status PULSE_safe_pack_v0/artifacts/status.json \
+            --stability-map PULSE_safe_pack_v0/artifacts/stability_map_v0_demo.json \
+            --paradox-field PULSE_safe_pack_v0/artifacts/paradox_field_v0.json \
+            --output PULSE_safe_pack_v0/artifacts/decision_engine_v0.json
+
+      - name: Upload topology artefacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: pulse-topology-v0
+          path: |
+            PULSE_safe_pack_v0/artifacts/paradox_field_v0.json
+            PULSE_safe_pack_v0/artifacts/stability_map_v0_demo.json
+            PULSE_safe_pack_v0/artifacts/decision_engine_v0.json
