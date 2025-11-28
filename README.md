@@ -340,6 +340,9 @@ For a detailed walkthrough, see:
 
 - `docs/PULSE_topology_v0_mini_example_fairness_slo_epf.md`  
 - `docs/PULSE_topology_v0_quickstart_decision_engine_v0.md`
+- `docs/PULSE_topology_v0_mini_example_fairness_slo_epf.md`  
+- `docs/PULSE_topology_v0_quickstart_decision_engine_v0.md`  
+- `docs/PULSE_topology_v0_cli_demo.md`
 
 
 **Future Library index**
