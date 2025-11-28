@@ -253,7 +253,8 @@ a compact, portable form that can later be instantiated:
 
 - as a GitHub notebook,
 - as a Kaggle demo,
-- or as a Pro forma artefact,
+-  or as an artefact in other notebook / dashboard environments,
+
 without changing the underlying idea:
 
 > PULSE treats paradox as a stable field state,
