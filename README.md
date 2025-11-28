@@ -336,8 +336,10 @@ These components are intended for **analysis, dashboards and governance**,
 not for core gating. The source of truth for release decisions remains
 `status.json` + `PULSE_safe_pack_v0/tools/check_gates.py` + the CI workflow.
 
-For a detailed walkthrough, see:
+For a detailed overview and examples, see:
 
+- `docs/PULSE_decision_field_v0_overview.md`
+- `docs/PULSE_decision_field_v0_5_minute_tour.md`
 - `docs/PULSE_topology_v0_mini_example_fairness_slo_epf.md`
 - `docs/PULSE_topology_v0_quickstart_decision_engine_v0.md`
 - `docs/PULSE_topology_v0_cli_demo.md`
