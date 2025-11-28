@@ -339,11 +339,9 @@ not for core gating. The source of truth for release decisions remains
 For a detailed walkthrough, see:
 
 - `docs/PULSE_topology_v0_mini_example_fairness_slo_epf.md`  
-- `docs/PULSE_topology_v0_quickstart_decision_engine_v0.md`
-- `docs/PULSE_topology_v0_mini_example_fairness_slo_epf.md`  
 - `docs/PULSE_topology_v0_quickstart_decision_engine_v0.md`  
 - `docs/PULSE_topology_v0_cli_demo.md`
-
+- `docs/PULSE_topology_v0_governance_patterns.md`
 
 **Future Library index**
 
