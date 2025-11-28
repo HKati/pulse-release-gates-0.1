@@ -145,10 +145,13 @@ added later (see `PULSE_topology_v0_cli_demo.md`).
 
 Command:
 
-    python PULSE_safe_pack_v0/tools/pulse_decision_engine_v0.py \
-      --status PULSE_safe_pack_v0/artifacts/status.json \
-      --paradox-field PULSE_safe_pack_v0/artifacts/paradox_field_v0.json \
-      --output PULSE_safe_pack_v0/artifacts/decision_engine_v0.json
+
+python PULSE_safe_pack_v0/tools/PULSE_safe_pack_v0/tools/pulse_paradox_atoms_v0.py \
+  --status-dir PULSE_safe_pack_v0/artifacts \
+  --output PULSE_safe_pack_v0/artifacts/paradox_field_v0.json \
+  --max-atom-size 4
+
+    
 
 This writes:
 
