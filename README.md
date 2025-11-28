@@ -345,6 +345,7 @@ For a detailed walkthrough, see:
 - `docs/PULSE_demo_v1_paradox_stability_showcase.md`
 - `docs/PULSE_decision_engine_v0_unstably_good_example.md`
 - `docs/PULSE_decision_engine_v0_unstably_bad_example.md`
+- `docs/PULSE_decision_trace_v0_mini_example.md`
 
 
 **Future Library index**
