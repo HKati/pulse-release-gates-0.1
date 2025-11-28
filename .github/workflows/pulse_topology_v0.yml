@@ -59,25 +59,36 @@ jobs:
           python "$SCRIPT" \
             --output PULSE_safe_pack_v0/artifacts/stability_map_v0_demo.ci.json
 
-      - name: Build decision_engine_v0 overlay
+      - name: Build decision_engine_v0 overlay (best-effort)
         run: |
-          if [ -f PULSE_safe_pack_v0/tools/pulse_decision_engine_v0.py ]; then
-            SCRIPT="PULSE_safe_pack_v0/tools/pulse_decision_engine_v0.py"
+          STATUS_PATH="PULSE_safe_pack_v0/artifacts/status.json"
+          STAB_PATH="PULSE_safe_pack_v0/artifacts/stability_map_v0_demo.ci.json"
+          PARADOX_PATH="PULSE_safe_pack_v0/artifacts/paradox_field_v0.ci.json"
+          OUT_PATH="PULSE_safe_pack_v0/artifacts/decision_engine_v0.ci.json"
+
+          CMD="python PULSE_safe_pack_v0/tools/pulse_decision_engine_v0.py \
+            --status \"$STATUS_PATH\" \
+            --stability-map \"$STAB_PATH\" \
+            --output \"$OUT_PATH\""
+
+          if [ -f "$PARADOX_PATH" ]; then
+            echo "[topology_v0] using paradox field at $PARADOX_PATH"
+            CMD="$CMD --paradox-field \"$PARADOX_PATH\""
           else
-            SCRIPT="PULSE_safe_pack_v0/tools/PULSE_safe_pack_v0/tools/pulse_decision_engine_v0.py"
+            echo "[topology_v0] WARNING: paradox_field_v0.ci.json not found; running decision engine without paradox overlay"
           fi
-          echo "[topology_v0] using decision_engine_v0 tool at $SCRIPT"
-          python "$SCRIPT" \
-            --status PULSE_safe_pack_v0/artifacts/status.json \
-            --stability-map PULSE_safe_pack_v0/artifacts/stability_map_v0_demo.ci.json \
-            --paradox-field PULSE_safe_pack_v0/artifacts/paradox_field_v0.ci.json \
-            --output PULSE_safe_pack_v0/artifacts/decision_engine_v0.ci.json
+
+          eval $CMD
+
 
       - name: Upload topology v0 artefacts
         uses: actions/upload-artifact@v4
         with:
           name: pulse-topology-v0
           path: |
+            PULSE_safe_pack_v0/artifacts/status.json
             PULSE_safe_pack_v0/artifacts/paradox_field_v0.ci.json
             PULSE_safe_pack_v0/artifacts/stability_map_v0_demo.ci.json
             PULSE_safe_pack_v0/artifacts/decision_engine_v0.ci.json
+
+ 
