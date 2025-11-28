@@ -76,8 +76,23 @@ jobs:
           python PULSE_safe_pack_v0/tools/validate_decision_trace_v0.py \
             --schema schemas/PULSE_decision_trace_v0.schema.json \
             PULSE_safe_pack_v0/artifacts/decision_trace.demo.ci.json
+      - name: Build paradox_field_v0 (demo)
+        run: |
+          python PULSE_safe_pack_v0/tools/pulse_paradox_atoms_v0.py \
+            --status-dir PULSE_safe_pack_v0/artifacts \
+            --output PULSE_safe_pack_v0/artifacts/paradox_field_v0.demo.ci.json \
+            --max-atom-size 4
 
-      - name: Upload topology demo artefacts
+      - name: Build decision_engine_v0 overlay (demo)
+        run: |
+          python PULSE_safe_pack_v0/tools/pulse_decision_engine_v0.py \
+            --status PULSE_safe_pack_v0/artifacts/status.json \
+            --stability-map PULSE_safe_pack_v0/artifacts/stability_map.demo.ci.json \
+            --paradox-field PULSE_safe_pack_v0/artifacts/paradox_field_v0.demo.ci.json \
+            --output PULSE_safe_pack_v0/artifacts/decision_engine_v0.demo.ci.json
+
+      
+          - name: Upload topology demo artefacts
         uses: actions/upload-artifact@v4
         with:
           name: pulse-topology-demo
@@ -85,3 +100,8 @@ jobs:
             PULSE_safe_pack_v0/artifacts/stability_map.demo.ci.json
             PULSE_safe_pack_v0/artifacts/decision_trace.demo.ci.json
             PULSE_safe_pack_v0/artifacts/dual_view_v0.demo.ci.json
+            PULSE_safe_pack_v0/artifacts/paradox_field_v0.demo.ci.json
+            PULSE_safe_pack_v0/artifacts/decision_engine_v0.demo.ci.json
+   
+       
+
