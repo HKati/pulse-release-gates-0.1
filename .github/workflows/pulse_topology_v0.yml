@@ -1,0 +1,83 @@
+name: PULSE Topology v0 (demo stack)
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "PULSE_safe_pack_v0/**"
+      - "schemas/**"
+      - ".github/workflows/pulse_topology_v0.yml"
+  pull_request:
+    paths:
+      - "PULSE_safe_pack_v0/**"
+      - "schemas/**"
+      - ".github/workflows/pulse_topology_v0.yml"
+
+jobs:
+  topology_v0:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: Run PULSE safe pack (status.json)
+        run: |
+          python PULSE_safe_pack_v0/tools/run_all.py
+
+      - name: Build paradox_field_v0
+        run: |
+          if [ -f PULSE_safe_pack_v0/tools/pulse_paradox_atoms_v0.py ]; then
+            SCRIPT="PULSE_safe_pack_v0/tools/pulse_paradox_atoms_v0.py"
+          else
+            SCRIPT="PULSE_safe_pack_v0/tools/PULSE_safe_pack_v0/tools/pulse_paradox_atoms_v0.py"
+          fi
+          echo "[topology_v0] using paradox tool at $SCRIPT"
+          python "$SCRIPT" \
+            --status-dir PULSE_safe_pack_v0/artifacts \
+            --output PULSE_safe_pack_v0/artifacts/paradox_field_v0.ci.json \
+            --max-atom-size 4
+
+      - name: Build stability_map_v0 demo
+        run: |
+          if [ -f PULSE_safe_pack_v0/tools/pulse_stability_map_demo_v0.py ]; then
+            SCRIPT="PULSE_safe_pack_v0/tools/pulse_stability_map_demo_v0.py"
+          else
+            SCRIPT="PULSE_safe_pack_v0/tools/PULSE_safe_pack_v0/tools/pulse_stability_map_demo_v0.py"
+          fi
+          echo "[topology_v0] using stability_map demo tool at $SCRIPT"
+          python "$SCRIPT" \
+            --output PULSE_safe_pack_v0/artifacts/stability_map_v0_demo.ci.json
+
+      - name: Build decision_engine_v0 overlay
+        run: |
+          if [ -f PULSE_safe_pack_v0/tools/pulse_decision_engine_v0.py ]; then
+            SCRIPT="PULSE_safe_pack_v0/tools/pulse_decision_engine_v0.py"
+          else
+            SCRIPT="PULSE_safe_pack_v0/tools/PULSE_safe_pack_v0/tools/pulse_decision_engine_v0.py"
+          fi
+          echo "[topology_v0] using decision_engine_v0 tool at $SCRIPT"
+          python "$SCRIPT" \
+            --status PULSE_safe_pack_v0/artifacts/status.json \
+            --stability-map PULSE_safe_pack_v0/artifacts/stability_map_v0_demo.ci.json \
+            --paradox-field PULSE_safe_pack_v0/artifacts/paradox_field_v0.ci.json \
+            --output PULSE_safe_pack_v0/artifacts/decision_engine_v0.ci.json
+
+      - name: Upload topology v0 artefacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: pulse-topology-v0
+          path: |
+            PULSE_safe_pack_v0/artifacts/paradox_field_v0.ci.json
+            PULSE_safe_pack_v0/artifacts/stability_map_v0_demo.ci.json
+            PULSE_safe_pack_v0/artifacts/decision_engine_v0.ci.json
