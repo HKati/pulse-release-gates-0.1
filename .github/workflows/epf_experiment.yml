@@ -108,7 +108,7 @@ jobs:
             echo "No checker found; wrote stub status_baseline.json"
           fi
 
-            - name: EPF shadow run (non-blocking) or stub
+       - name: EPF shadow run (non-blocking) or stub
         id: epf
         shell: bash
         run: |
@@ -160,7 +160,7 @@ jobs:
             echo "No checker found; wrote stub status_epf.json"
           fi
 
-      - name: Compare & summarize
+            - name: Compare & summarize
         shell: bash
         run: |
           python - <<'PY'
@@ -226,6 +226,32 @@ jobs:
             cat epf_report.txt;
             echo '```';
           } >> "$GITHUB_STEP_SUMMARY"
+
+          # Extra, egyértelmű státuszjelzés a summary végén
+          if [ -f epf_paradox_summary.json ]; then
+            changed=$(python - <<'PY'
+          import json
+          try:
+              with open("epf_paradox_summary.json", "r", encoding="utf-8") as f:
+                  data = json.load(f)
+          except Exception:
+              data = {}
+          print(data.get("changed", 0))
+          PY
+            )
+            if [ "$changed" -gt 0 ] 2>/dev/null; then
+              {
+                echo "";
+                echo "⚠️ EPF shadow detected ${changed} gate(s) with different decisions than the baseline.";
+              } >> "$GITHUB_STEP_SUMMARY"
+            else
+              {
+                echo "";
+                echo "✅ EPF shadow run: no gate-level decision changes detected.";
+              } >> "$GITHUB_STEP_SUMMARY"
+            fi
+          fi
+
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
