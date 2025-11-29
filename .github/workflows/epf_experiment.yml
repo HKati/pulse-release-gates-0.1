@@ -71,11 +71,17 @@ jobs:
         run: |
           set -euo pipefail
 
-          # start from status.json (real baseline or stub)
+          # Start from status.json (real baseline or stub)
           if [ -f status.json ]; then
             cp status.json status_baseline.json
           else
             echo '{"decisions": {}}' > status_baseline.json
+          fi
+
+          # If there is no EPF gate config, stay in stub mode
+          if [ ! -f pulse_gates.yaml ]; then
+            echo "::warning::pulse_gates.yaml not found; baseline gate evaluation will run in stub mode."
+            exit 0
           fi
 
           if [ -f tools/check_gates.py ]; then
@@ -106,6 +112,12 @@ jobs:
             cp status.json status_epf.json
           else
             echo '{"experiments":{"epf":{}}}' > status_epf.json
+          fi
+
+          # If there is no EPF gate config, stay in stub mode
+          if [ ! -f pulse_gates.yaml ]; then
+            echo "::warning::pulse_gates.yaml not found; EPF shadow run will use stub decisions."
+            exit 0
           fi
 
           if [ -f tools/check_gates.py ]; then
