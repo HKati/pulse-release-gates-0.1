@@ -265,15 +265,15 @@ Deterministic, fail‑closed gates in `check_gates.py` remain the **only** relea
 
 ---
 
-## Repository layout
+### Repository layout
+
 ```
-PULSE_safe_pack_v0/            # the pack (tools/, docs/, profiles/, artifacts/)
-badges/                         # CI-generated SVG badges (status, RDSI, Q-Ledger)
-hero_dark_4k.png, hero_light_4k.png, og_image_1200x630.png
-PULSE_one_pager.png | .pdf
-pulse_landing_snippet.html
-.github/workflows/pulse_ci.yml
-README.md
+- `PULSE_safe_pack_v0/` – self-contained PULSE safe-pack v0 (tools, core
+  policies and CI wiring; `pulse_policy.yml` is the CI source of truth)
+- `profiles/` – example / experimental profiles and threshold sets. These
+  are **not** used by CI unless explicitly referenced from
+  `PULSE_safe_pack_v0/pulse_policy.yml` or custom workflows.
+
 ```
 
 ---
