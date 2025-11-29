@@ -288,6 +288,37 @@ Deterministic, fail‑closed gates in `check_gates.py` remain the **only** relea
 - **External detectors (optional):** `PULSE_safe_pack_v0/docs/EXTERNAL_DETECTORS.md`  
   - Plug-in adapters via simple JSON/JSONL summaries (e.g., Llama Guard, Prompt Guard, Garak, Azure Evaluations, Promptfoo, DeepEval).
 
+---
+Documentation map
+
+In addition to this README, the following documents describe how the
+PULSE v0 stack is wired in this repository:
+
+- docs/STATE_v0.md  
+  High-level snapshot of the current PULSE v0 state (core gates, EPF,
+  external detectors, RDSI, drift, PR tooling, contributing).
+
+- docs/PARADOX_RUNBOOK.md  
+  Runbook for handling cases where EPF shadow decisions disagree with
+  the deterministic baseline gates.
+
+- docs/RDSI_STABILITY_NOTES.md  
+  Notes on how to interpret the Release Decision Stability Index (RDSI)
+  as a per-run stability signal, and what it does *not* cover.
+
+- docs/DRIFT_OVERVIEW.md  
+  Overview of how PULSE artefacts (gates, Quality Ledger, RDSI, EPF,
+  external detectors) can be used in a broader drift/governance story.
+
+- docs/PR_SUMMARY_TOOLS.md  
+  Description of the PR summary tooling, and which script is considered
+  canonical for Quality Ledger comments vs helper/example scripts.
+
+- CONTRIBUTING.md  
+  Contribution conventions (Conventional Commits, DCO, changelog, PR
+  checklist) and how Codex (chatgpt-codex-connector) is used as an
+  external AI reviewer on GitHub.
+
 ... 
 
 ## PULSE Topology v0 (Stability Map + Decision Engine + Dual View)
