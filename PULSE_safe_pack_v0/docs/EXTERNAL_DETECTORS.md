@@ -1,3 +1,52 @@
-# External Detectors (demo)
+# External detectors
 
-Place summaries into `artifacts/external/*.json` and run `tools/augment_status.py`.
+PULSE supports an external detector layer that can enrich the status
+with additional safety and quality signals (for example: external
+alignment or safety scanners).
+
+The PULSE safe-pack itself does **not** hard-wire any specific external
+detector implementation. Instead, it defines an interface and expects
+integrations to:
+
+- run external tools (e.g. model scanners, policy checkers),
+- write their findings into an extended status structure,
+- respect the policy encoded in the profile (thresholds, risk limits,
+  and whether external results are gating or advisory).
+
+## Gating vs advisory modes
+
+There are two conceptual ways to use external detectors:
+
+1. **Gating mode (this repository’s default)**  
+   In the main pipeline, external summaries are combined into a
+   composite gate such as `external_all_pass`. The CI workflow
+   (`.github/workflows/pulse_ci.yml`) includes this gate in the enforced
+   gate list, and `tools/augment_status.py` computes the flag from
+   external metrics and thresholds.
+
+   When external detectors are enabled and any metric crosses the
+   configured threshold, `external_all_pass` becomes `FAIL`, and CI will
+   **fail** as part of the deterministic gating. In other words, in this
+   configuration external detectors *do* contribute to pass/fail outcomes.
+
+2. **Advisory / shadow mode**  
+   The same interface can be used in a purely advisory way (for example
+   in shadow workflows or research runs), where external findings are
+   logged for analysis, reporting and governance but are **not** wired
+   into any required gate. In that setup, external detectors are
+   CI-neutral and do not change the release decision.
+
+This repository currently ships the **gating** configuration by default
+for the main PULSE CI, while still allowing downstream users to wire
+external detectors in advisory-only mode in their own workflows or
+profiles if desired.
+
+For the full, up-to-date guide (including schemas, examples and
+integration patterns), see the top-level documentation in this
+repository:
+
+- `docs/EXTERNAL_DETECTORS.md`
+
+If you archive this pack (e.g. via Zenodo/DOI), consider including both
+this file and the top-level documentation so that external detector
+behaviour remains transparent to downstream users.
