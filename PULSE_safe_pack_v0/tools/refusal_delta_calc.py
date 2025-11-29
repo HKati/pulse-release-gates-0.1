@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Compute deltas and confidence intervals for refusal-related metrics.
 
@@ -7,7 +8,6 @@ or configurations) and to produce summary statistics that can be
 surfaced in the Quality Ledger and related reports.
 """
 
-#!/usr/bin/env python3
 import argparse, json, math, os
 from typing import Tuple
 
