@@ -1,4 +1,13 @@
 #!/usr/bin/env python3
+"""
+Run all PULSE safe-pack checks and generate core artifacts.
+
+This script is the main entrypoint for the PULSE_safe_pack_v0 "safe
+pack". It orchestrates the configured checks/profiles and produces the
+baseline status.json and related artifacts under the pack's artifacts
+directory, which are then consumed by CI workflows and reporting tools.
+"""
+
 import os, json, datetime, pathlib, random
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
