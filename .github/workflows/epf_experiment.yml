@@ -5,8 +5,7 @@ on:
   push:
     branches: [ main ]
     paths:
-      - 'tools/**'
-      - 'scripts/**'
+      - 'PULSE_safe_pack_v0/**'
       - 'pulse_gates.yaml'
       - '.github/workflows/epf_experiment.yml'
 
@@ -15,41 +14,89 @@ jobs:
     concurrency:
       group: epf-shadow
       cancel-in-progress: true
+
     permissions:
       contents: read
       actions: read
+
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repo
+        uses: actions/checkout@v4
 
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      - name: Install deps
+      - name: Install deps (PULSE pack if available, else minimal)
+        shell: bash
         run: |
+          set -euo pipefail
           python -m pip install -U pip
-          pip install numpy jsonschema || true
+          if [ -f PULSE_safe_pack_v0/requirements.txt ]; then
+            echo "Installing PULSE_safe_pack_v0 requirements..."
+            pip install -r PULSE_safe_pack_v0/requirements.txt
+          else
+            echo "No PULSE_safe_pack_v0/requirements.txt, installing minimal deps..."
+            pip install numpy jsonschema || true
+          fi
 
-      - name: Prepare inputs (demo)
+      - name: Prepare inputs from PULSE pack baseline (or stub)
+        id: prepare
+        shell: bash
         run: |
-          echo '{"metrics": {}}' > status.json
+          set -euo pipefail
+          if [ -f PULSE_safe_pack_v0/tools/run_all.py ]; then
+            echo "Running PULSE_safe_pack_v0/tools/run_all.py to produce baseline status.json..."
+            # EPF shadow futás soha ne törje el a workflow-t
+            python PULSE_safe_pack_v0/tools/run_all.py || true
+            if [ -f PULSE_safe_pack_v0/artifacts/status.json ]; then
+              cp PULSE_safe_pack_v0/artifacts/status.json status.json
+              echo "Using PULSE_safe_pack_v0/artifacts/status.json as baseline status.json"
+            else
+              echo "::warning::run_all.py completed but PULSE_safe_pack_v0/artifacts/status.json not found; using stub status.json"
+              echo '{"metrics": {}}' > status.json
+            fi
+          else
+            echo "::warning::PULSE_safe_pack_v0/tools/run_all.py not found; using stub status.json"
+            echo '{"metrics": {}}' > status.json
+          fi
 
       - name: Baseline (deterministic) or stub
         id: base
         shell: bash
         run: |
           set -euo pipefail
-          if [ -f tools/check_gates.py ]; then
-            python tools/check_gates.py --config pulse_gates.yaml \
-                   --status status_baseline.json --defer-policy fail || true
-          elif [ -f scripts/check_gates.py ]; then
-            python scripts/check_gates.py --config pulse_gates.yaml \
-                   --status status_baseline.json --defer-policy fail || true
+
+          # A baseline JSON kiindulópontja a status.json (valódi vagy stub)
+          if [ -f status.json ]; then
+            cp status.json status_baseline.json
           else
-            echo '{"decisions":{}}' > status_baseline.json
+            echo '{"decisions": {}}' > status_baseline.json
+          fi
+
+          if [ -f PULSE_safe_pack_v0/tools/check_gates.py ]; then
+            echo "Running baseline check_gates from PULSE_safe_pack_v0..."
+            python PULSE_safe_pack_v0/tools/check_gates.py \
+                   --config pulse_gates.yaml \
+                   --status status_baseline.json \
+                   --defer-policy fail || true
+          elif [ -f tools/check_gates.py ]; then
+            echo "Running baseline check_gates from tools/..."
+            python tools/check_gates.py \
+                   --config pulse_gates.yaml \
+                   --status status_baseline.json \
+                   --defer-policy fail || true
+          elif [ -f scripts/check_gates.py ]; then
+            echo "Running baseline check_gates from scripts/..."
+            python scripts/check_gates.py \
+                   --config pulse_gates.yaml \
+                   --status status_baseline.json \
+                   --defer-policy fail || true
+          else
+            echo '{"decisions": {}}' > status_baseline.json
             echo "No checker found; wrote stub status_baseline.json"
           fi
 
@@ -58,48 +105,109 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if [ -f tools/check_gates.py ]; then
-            python tools/check_gates.py --config pulse_gates.yaml \
-                   --status status_epf.json --epf-shadow --seed 1737 --defer-policy warn || true
+
+          # EPF shadow ugyanabból az alap status.json-ból indul
+          if [ -f status.json ]; then
+            cp status.json status_epf.json
+          else
+            echo '{"experiments": {"epf": {}}}' > status_epf.json
+          fi
+
+          if [ -f PULSE_safe_pack_v0/tools/check_gates.py ]; then
+            echo "Running EPF shadow via PULSE_safe_pack_v0/tools/check_gates.py..."
+            python PULSE_safe_pack_v0/tools/check_gates.py \
+                   --config pulse_gates.yaml \
+                   --status status_epf.json \
+                   --epf-shadow \
+                   --seed 1737 \
+                   --defer-policy warn || true
+          elif [ -f tools/check_gates.py ]; then
+            echo "Running EPF shadow via tools/check_gates.py..."
+            python tools/check_gates.py \
+                   --config pulse_gates.yaml \
+                   --status status_epf.json \
+                   --epf-shadow \
+                   --seed 1737 \
+                   --defer-policy warn || true
           elif [ -f scripts/check_gates.py ]; then
-            python scripts/check_gates.py --config pulse_gates.yaml \
-                   --status status_epf.json --epf-shadow --seed 1737 --defer-policy warn || true
+            echo "Running EPF shadow via scripts/check_gates.py..."
+            python scripts/check_gates.py \
+                   --config pulse_gates.yaml \
+                   --status status_epf.json \
+                   --epf-shadow \
+                   --seed 1737 \
+                   --defer-policy warn || true
           else
             echo '{"experiments":{"epf":{}}}' > status_epf.json
             echo "No checker found; wrote stub status_epf.json"
           fi
 
       - name: Compare & summarize
+        shell: bash
         run: |
           python - <<'PY'
           import json, pathlib
-          try:
-            a=json.load(open('status_baseline.json'))
-          except Exception:
-            a={'decisions':{}}
-          try:
-            b=json.load(open('status_epf.json'))
-          except Exception:
-            b={'experiments':{'epf':{}}}
-          da=a.get('decisions',{})
-          db=b.get('experiments',{}).get('epf',{})
-          dec_epf={k:(v.get('decision') if isinstance(v,dict) else v) for k,v in db.items()}
-          total=len(da); diffs=[]
-          for k,v in da.items():
-            dv=dec_epf.get(k)
-            if dv and dv!=v: diffs.append((k,v,dv))
-          summary=f"Total gates: {total}\nChanged (baseline->EPF): {len(diffs)}\n"
-          for k,ba,ep in diffs[:20]:
-              summary+=f"- {k}: {ba} -> {ep}\n"
+
+          # Várt séma:
+          # - status_baseline.json: {"decisions": {"gate": "PASS"|"FAIL"|...}}
+          # - status_epf.json: {"experiments": {"epf": {"gate": {"decision": "..."} | "..."}}}
+
+          def load_json(path, default):
+            try:
+              with open(path, "r", encoding="utf-8") as f:
+                return json.load(f)
+            except Exception:
+              return default
+
+          a = load_json("status_baseline.json", {"decisions": {}})
+          b = load_json("status_epf.json", {"experiments": {"epf": {}}})
+
+          da = a.get("decisions", {}) or {}
+          db = (b.get("experiments", {}) or {}).get("epf", {}) or {}
+
+          dec_epf = {}
+          for k, v in db.items():
+            if isinstance(v, dict):
+              dec = v.get("decision", v.get("status", v))
+            else:
+              dec = v
+            dec_epf[k] = dec
+
+          total = len(da)
+          diffs = []
+          for k, v in da.items():
+            dv = dec_epf.get(k)
+            if dv and dv != v:
+              diffs.append((k, v, dv))
+
+          summary = f"Total gates: {total}\nChanged (baseline->EPF): {len(diffs)}\n"
+          for k, ba, ep in diffs[:20]:
+              summary += f"- {k}: {ba} -> {ep}\n"
+
           pathlib.Path("epf_report.txt").write_text(summary, encoding="utf-8")
           print(summary)
+
+          # Struktúrált paradox összefoglaló a későbbi Topology / Paradox Field számára
+          paradox = {
+            "total_gates": total,
+            "changed": len(diffs),
+            "examples": [
+              {"gate": k, "baseline": ba, "epf": ep}
+              for k, ba, ep in diffs[:5]
+            ],
+          }
+          pathlib.Path("epf_paradox_summary.json").write_text(
+            json.dumps(paradox, indent=2, ensure_ascii=False),
+            encoding="utf-8"
+          )
           PY
+
           {
             echo "### EPF Shadow Summary";
             echo '```';
             cat epf_report.txt;
             echo '```';
-          } >> $GITHUB_STEP_SUMMARY
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -109,3 +217,4 @@ jobs:
             status_baseline.json
             status_epf.json
             epf_report.txt
+            epf_paradox_summary.json
