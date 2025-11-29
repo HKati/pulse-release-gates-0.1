@@ -235,6 +235,10 @@ The EPF experiment workflow is **optional and CI-neutral**. It is intended
 for research and diagnostics (borderline gates, paradox analysis) and does
 not participate in release gating.
 
+For guidance on what to do when baseline and EPF disagree on specific
+gates, see:
+
+- `docs/PARADOX_RUNBOOK.md`
 
 ---
 
