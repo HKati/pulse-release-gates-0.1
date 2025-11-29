@@ -169,28 +169,83 @@ It will:
 
 > Tip: after making the repo **public**, add a **Branch protection rule** (Settings → Branches) and mark **PULSE CI** as a **required status check**.
 
+---
 
-## EPF (experimental, shadow‑only)
+### EPF (experimental, shadow-only)
 
-**TL;DR:** Deterministic, fail‑closed gates remain the source of truth for releases.  
-EPF runs as a **shadow evaluation only**; it never changes CI outcomes.
+**TL;DR:** Deterministic, fail-closed gates remain the source of truth for
+releases. EPF runs as a seeded, auditable **shadow-only** layer and never
+changes CI outcomes.
 
-**What is EPF?** An optional, seeded and auditable adaptive layer that operates only within the `[threshold − ε, threshold]` band to study potential false‑fail reduction.  
-Outside the band → **FAIL**; insufficient evidence → **DEFER/FAIL**; risk above `max_risk` → **FAIL** (all **shadow** outcomes).
+#### What is EPF?
 
-### Stability (EPF — research signal)
-We log a contraction proxy for a gate‑feedback operator `F: X→X`.  
-If `epf_L < 1`, the EPF layer is locally contractive on a window `W`; in the EPF report we mark this as a **shadow pass**.  
-This signal is **diagnostic only** and **never alters CI decisions**.
+EPF is an optional adaptive layer that only operates in a narrow band
+around each gate threshold:
 
-- **Metric:** `metrics.epf_L` in **`status_epf.json`** (plus a shadow ledger flag, e.g. `ledger.epf.shadow_pass`)  
-- **Scope:** Logged by the EPF workflow; **not** part of baseline `status.json`.  
-- **Status:** Research; full derivation will be published separately.
+- inside `[threshold − ε, threshold]` it explores potential false-fail
+  reduction and stability around the boundary;
+- outside this band the existing semantics are unchanged:
+  - value < `threshold − ε` → FAIL (shadow agrees with baseline),
+  - insufficient evidence → DEFER/FAIL (shadow-only),
+  - risk above `max_risk` → FAIL (shadow-only).
+
+EPF is designed to be **CI-neutral**: it observes and logs, but does not
+flip release decisions.
+
+#### Stability signal (epf_L)
+
+To reason about stability, EPF logs a contraction proxy for a gate-feedback
+operator `F: X → X`:
+
+- if `metrics.epf_L < 1`, the EPF layer is locally contractive on a window
+  `W` around the gate;
+- in that case the EPF report marks this as a **shadow pass**.
+
+This signal is **diagnostic only** and never alters CI decisions.
+
+The main fields are:
+
+- `metrics.epf_L` in `status_epf.json`,
+- an optional shadow ledger flag, e.g. `ledger.epf.shadow_pass`.
+
+These are written by the EPF workflow and are **not** part of the baseline
+`status.json` used for deterministic gating.
+
+#### EPF experiment (shadow) workflow
+
+The repository ships a non-blocking EPF experiment workflow:
+
+- file: `.github/workflows/epf_experiment.yml`
+- job name: **EPF experiment (shadow)**
+
+It:
+
+- runs `PULSE_safe_pack_v0/tools/run_all.py` (when available) to generate
+  the baseline `PULSE_safe_pack_v0/artifacts/status.json`,
+- copies this into a local `status.json` for the experiment,
+- runs `check_gates.py` twice from the same baseline:
+  - deterministic baseline → `status_baseline.json`,
+  - EPF shadow → `status_epf.json`,
+- compares the two and emits:
+  - `epf_report.txt` – human-readable summary of baseline vs EPF decisions,
+  - `epf_paradox_summary.json` – structured list of gates where EPF
+    disagrees with baseline (paradox candidates).
+
+The EPF experiment workflow is **optional and CI-neutral**. It is intended
+for research and diagnostics (borderline gates, paradox analysis) and does
+not participate in release gating.
+
+
+---
 
 ### Artifacts
-- `status_baseline.json` — deterministic decisions (source of truth)  
-- `status_epf.json` — EPF shadow metrics, traces & decisions (incl. `metrics.epf_L`)  
-- `epf_report.txt` — A/B diff summary (optional)
+
+- `status_baseline.json` – deterministic decisions (source of truth)
+- `status_epf.json` – EPF shadow metrics, traces & decisions (incl. `metrics.epf_L`)
+- `epf_report.txt` – A/B diff summary of baseline vs EPF decisions
+- `epf_paradox_summary.json` – structured summary (total gates, changed gates, sample baseline→EPF deltas)
+
+---
 
 ### Optional config (per gate)
 ```yaml
