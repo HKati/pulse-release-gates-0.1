@@ -1,4 +1,18 @@
 #!/usr/bin/env python3
+"""
+Augment the baseline status.json with derived signals and summaries.
+
+This script takes the core PULSE status (e.g. gate results and metrics)
+and enriches it with:
+- external detector summaries (when configured),
+- RDSI and other stability-related metrics,
+- additional fields used by the Quality Ledger and CI badges.
+
+The resulting extended status artefact is consumed by check_gates.py
+and reporting tooling, but does not change the deterministic gate
+semantics on its own.
+"""
+
 import os, json, argparse, yaml
 
 ap = argparse.ArgumentParser()
