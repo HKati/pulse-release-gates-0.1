@@ -336,19 +336,23 @@ These components are intended for **analysis, dashboards and governance**,
 not for core gating. The source of truth for release decisions remains
 `status.json` + `PULSE_safe_pack_v0/tools/check_gates.py` + the CI workflow.
 
+
 For a detailed overview and examples, see:
 
-- `docs/PULSE_decision_field_v0_overview.md`
-- `docs/PULSE_decision_field_v0_5_minute_tour.md`
-- `docs/PULSE_topology_v0_mini_example_fairness_slo_epf.md`
-- `docs/PULSE_topology_v0_quickstart_decision_engine_v0.md`
-- `docs/PULSE_topology_v0_cli_demo.md`
-- `docs/PULSE_topology_v0_governance_patterns.md`
-- `docs/PULSE_demo_v1_paradox_stability_showcase.md`
-- `docs/PULSE_decision_engine_v0_unstably_good_example.md`
-- `docs/PULSE_decision_engine_v0_unstably_bad_example.md`
-- `docs/PULSE_decision_trace_v0_mini_example.md`
-- `docs/PULSE_decision_trace_v0_mini_example.md`
+  * `docs/PULSE_decision_field_v0_overview.md`
+  * `docs/PULSE_decision_field_v0_5_minute_tour.md`
+  * `docs/PULSE_topology_v0_mini_example_fairness_slo_epf.md`
+  * `docs/PULSE_topology_v0_quickstart_decision_engine_v0.md`
+  * `docs/PULSE_topology_v0_cli_demo.md`
+  * `docs/PULSE_topology_v0_governance_patterns.md`
+  * `docs/PULSE_demo_v1_paradox_stability_showcase.md`
+  * `docs/PULSE_decision_engine_v0_unstably_good_example.md`
+  * `docs/PULSE_decision_engine_v0_unstably_bad_example.md`
+  * `docs/PULSE_decision_trace_v0_mini_example.md`
+  * `docs/PULSE_mechanical_AI_v0.md`
+  * `docs/PULSE_visual_map_v0.md`
+
+---
 
 **Future Library index**
 
