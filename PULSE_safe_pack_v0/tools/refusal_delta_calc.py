@@ -1,3 +1,12 @@
+"""
+Compute deltas and confidence intervals for refusal-related metrics.
+
+This script is used by the PULSE safe-pack to compare refusal metrics
+between a baseline and a candidate (for example, across model versions
+or configurations) and to produce summary statistics that can be
+surfaced in the Quality Ledger and related reports.
+"""
+
 #!/usr/bin/env python3
 import argparse, json, math, os
 from typing import Tuple
