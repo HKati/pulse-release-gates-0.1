@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Augment the baseline status.json with derived signals and summaries.
 
@@ -12,8 +13,6 @@ and reporting tooling, but does not change the deterministic gate
 semantics on its own.
 """
 
-
-#!/usr/bin/env python3
 import os, json, argparse, yaml
 
 ap = argparse.ArgumentParser()
