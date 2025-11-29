@@ -64,18 +64,26 @@ jobs:
             echo '{"metrics": {}}' > status.json
           fi
 
-      - name: Baseline (deterministic) or stub
+            - name: Baseline (deterministic) or stub
         id: base
         shell: bash
         run: |
           set -euo pipefail
-
-          # A baseline JSON kiindulópontja a status.json (valódi vagy stub)
-          if [ -f status.json ]; then
-            cp status.json status_baseline.json
+          if [ -f tools/check_gates.py ]; then
+            echo "Running baseline check_gates from tools/..."
+            python tools/check_gates.py --config pulse_gates.yaml \
+                   --status status_baseline.json \
+                   --defer-policy fail || true
+          elif [ -f scripts/check_gates.py ]; then
+            echo "Running baseline check_gates from scripts/..."
+            python scripts/check_gates.py --config pulse_gates.yaml \
+                   --status status_baseline.json \
+                   --defer-policy fail || true
           else
-            echo '{"decisions": {}}' > status_baseline.json
+            echo '{"decisions":{}}' > status_baseline.json
+            echo "No checker found; wrote stub status_baseline.json"
           fi
+
 
           if [ -f PULSE_safe_pack_v0/tools/check_gates.py ]; then
             echo "Running baseline check_gates from PULSE_safe_pack_v0..."
@@ -100,20 +108,30 @@ jobs:
             echo "No checker found; wrote stub status_baseline.json"
           fi
 
-      - name: EPF shadow run (non-blocking) or stub
+            - name: EPF shadow run (non-blocking) or stub
         id: epf
         shell: bash
         run: |
           set -euo pipefail
-
-          # EPF shadow ugyanabból az alap status.json-ból indul
-          if [ -f status.json ]; then
-            cp status.json status_epf.json
+          if [ -f tools/check_gates.py ]; then
+            echo "Running EPF shadow check_gates from tools/..."
+            python tools/check_gates.py --config pulse_gates.yaml \
+                   --status status_epf.json \
+                   --epf-shadow --seed 1737 \
+                   --defer-policy warn || true
+          elif [ -f scripts/check_gates.py ]; then
+            echo "Running EPF shadow check_gates from scripts/..."
+            python scripts/check_gates.py --config pulse_gates.yaml \
+                   --status status_epf.json \
+                   --epf-shadow --seed 1737 \
+                   --defer-policy warn || true
           else
-            echo '{"experiments": {"epf": {}}}' > status_epf.json
+            echo '{"experiments":{"epf":{}}}' > status_epf.json
+            echo "No checker found; wrote stub status_epf.json"
           fi
 
-          if [ -f PULSE_safe_pack_v0/tools/check_gates.py ]; then
+
+         if [ -f PULSE_safe_pack_v0/tools/check_gates.py ]; then
             echo "Running EPF shadow via PULSE_safe_pack_v0/tools/check_gates.py..."
             python PULSE_safe_pack_v0/tools/check_gates.py \
                    --config pulse_gates.yaml \
