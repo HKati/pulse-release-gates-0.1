@@ -5,8 +5,10 @@ on:
   push:
     paths:
       - 'schemas/**'
+      - 'schemas/schemas/**'
       - 'scripts/validate_overlays.py'
       - 'PULSE_safe_pack_v0/artifacts/**'
+      - '*.json'
       - '.github/workflows/overlay_schema_validation_shadow.yml'
 
 jobs:
