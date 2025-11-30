@@ -1,0 +1,17 @@
+{
+  "version": "g_field_v0",
+  "source": "internal_hpc_g_child",
+  "created_at": "2025-11-30T12:34:56Z",
+  "run_id": "example-run-id",
+  "summary": {
+    "num_points": 1,
+    "g_mean": 0.81,
+    "g_std": 0.0
+  },
+  "points": [
+    {
+      "id": "trace-or-scenario-id",
+      "g_value": 0.79
+    }
+  ]
+}
