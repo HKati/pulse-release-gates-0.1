@@ -22,7 +22,7 @@ jobs:
           if [ -f "logs/model_invocations.jsonl" ]; then
             echo "found=true" >> "$GITHUB_OUTPUT"
             echo "Found logs/model_invocations.jsonl"
-          else:
+          else
             echo "found=false" >> "$GITHUB_OUTPUT"
             echo "No logs/model_invocations.jsonl found, skipping GPT external detection."
           fi
