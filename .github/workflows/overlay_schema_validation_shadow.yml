@@ -1,0 +1,32 @@
+name: Overlay schema validation (shadow)
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'schemas/**'
+      - 'scripts/validate_overlays.py'
+      - 'PULSE_safe_pack_v0/artifacts/**'
+      - '.github/workflows/overlay_schema_validation_shadow.yml'
+
+jobs:
+  overlay-schema-validation-shadow:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install jsonschema
+        run: |
+          python -m pip install --upgrade pip
+          pip install jsonschema
+
+      - name: Validate overlays against JSON Schemas
+        run: |
+          python scripts/validate_overlays.py --root .
