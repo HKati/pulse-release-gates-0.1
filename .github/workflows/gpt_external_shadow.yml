@@ -1,0 +1,43 @@
+name: GPT external detection (shadow)
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'scripts/gpt_external_detector.py'
+      - 'logs/**'
+      - '.github/workflows/gpt_external_shadow.yml'
+
+jobs:
+  gpt-external-shadow:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check for model invocation log
+        id: check_log
+        run: |
+          if [ -f "logs/model_invocations.jsonl" ]; then
+            echo "found=true" >> "$GITHUB_OUTPUT"
+            echo "Found logs/model_invocations.jsonl"
+          else:
+            echo "found=false" >> "$GITHUB_OUTPUT"
+            echo "No logs/model_invocations.jsonl found, skipping GPT external detection."
+          fi
+
+      - name: Run GPT external detector
+        if: steps.check_log.outputs.found == 'true'
+        run: |
+          mkdir -p PULSE_safe_pack_v0/artifacts
+          python scripts/gpt_external_detector.py \
+            --input logs/model_invocations.jsonl \
+            --output PULSE_safe_pack_v0/artifacts/gpt_external_detection_v0.json
+
+      - name: Upload GPT external detection overlay
+        if: steps.check_log.outputs.found == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: gpt-external-detection
+          path: PULSE_safe_pack_v0/artifacts/gpt_external_detection_v0.json
