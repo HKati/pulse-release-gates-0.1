@@ -1,0 +1,39 @@
+name: G snapshot report (shadow)
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'scripts/g_snapshot_report.py'
+      - 'PULSE_safe_pack_v0/artifacts/g_field_v0.json'
+      - 'PULSE_safe_pack_v0/artifacts/g_field_stability_v0.json'
+      - 'PULSE_safe_pack_v0/artifacts/g_epf_overlay_v0.json'
+      - 'PULSE_safe_pack_v0/artifacts/gpt_external_detection_v0.json'
+      - '.github/workflows/g_snapshot_report_shadow.yml'
+
+jobs:
+  g-snapshot-report-shadow:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Build G snapshot report
+        run: |
+          mkdir -p PULSE_safe_pack_v0/artifacts
+          python scripts/g_snapshot_report.py \
+            --root . \
+            --format markdown \
+            --output PULSE_safe_pack_v0/artifacts/g_snapshot_report_v0.md
+
+      - name: Upload G snapshot report
+        uses: actions/upload-artifact@v4
+        with:
+          name: g-snapshot-report
+          path: PULSE_safe_pack_v0/artifacts/g_snapshot_report_v0.md
