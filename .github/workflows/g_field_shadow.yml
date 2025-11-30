@@ -1,0 +1,43 @@
+name: G-field overlays (shadow)
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'scripts/g_child_field_adapter.py'
+      - 'hpc/**'
+      - '.github/workflows/g_field_shadow.yml'
+
+jobs:
+  g-field-shadow:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check for HPC snapshots
+        id: check_snapshots
+        run: |
+          if [ -f "hpc/g_snapshots.jsonl" ]; then
+            echo "found=true" >> "$GITHUB_OUTPUT"
+            echo "Found hpc/g_snapshots.jsonl"
+          else
+            echo "found=false" >> "$GITHUB_OUTPUT"
+            echo "No hpc/g_snapshots.jsonl found, skipping G-field overlay."
+          fi
+
+      - name: Build G-field overlay from HPC snapshots
+        if: steps.check_snapshots.outputs.found == 'true'
+        run: |
+          mkdir -p PULSE_safe_pack_v0/artifacts
+          python scripts/g_child_field_adapter.py \
+            --snapshots hpc/g_snapshots.jsonl \
+            --output PULSE_safe_pack_v0/artifacts/g_field_v0.json
+
+      - name: Upload G-field overlay artifact
+        if: steps.check_snapshots.outputs.found == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: g-field-overlays
+          path: PULSE_safe_pack_v0/artifacts/g_field_v0.json
