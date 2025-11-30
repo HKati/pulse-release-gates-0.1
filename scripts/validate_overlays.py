@@ -12,19 +12,25 @@ This script is CI-neutral:
 import argparse
 import json
 import sys
+from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Tuple
+from typing import List, Optional, Sequence
 
 try:
     import jsonschema
 except ImportError:
     sys.stderr.write(
-        "[ERROR] jsonschema package is required. Install with `pip install jsonschema`.\n"
+        "[ERROR] jsonschema package is required. Install with "
+        "`pip install jsonschema`.\n"
     )
     sys.exit(1)
 
 
-OverlayPair = Tuple[str, Path, Path]
+@dataclass
+class OverlayConfig:
+    name: str
+    schema_candidates: Sequence[Path]
+    data_candidates: Sequence[Path]
 
 
 def _load_json(path: Path):
@@ -32,19 +38,14 @@ def _load_json(path: Path):
         return json.load(f)
 
 
+def _first_existing(candidates: Sequence[Path]) -> Optional[Path]:
+    for p in candidates:
+        if p.is_file():
+            return p
+    return None
+
+
 def _validate_overlay(name: str, schema_path: Path, data_path: Path) -> bool:
-    if not data_path.is_file():
-        sys.stderr.write(
-            f"[INFO] {name}: data file not found, skipping: {data_path}\n"
-        )
-        return True  # missing is not an error in shadow mode
-
-    if not schema_path.is_file():
-        sys.stderr.write(
-            f"[ERROR] {name}: schema file not found: {schema_path}\n"
-        )
-        return False
-
     schema = _load_json(schema_path)
     data = _load_json(data_path)
 
@@ -56,9 +57,8 @@ def _validate_overlay(name: str, schema_path: Path, data_path: Path) -> bool:
         )
         sys.stderr.write(f"  Message: {e.message}\n")
         if e.path:
-            sys.stderr.write(
-                f"  Path: {'/'.join(map(str, e.path))}\n"
-            )
+            sys.stderr.write(f"  Path: {'/'.join(map(str, e.path))}\n")
+        sys.stderr.write(f"  Schema: {schema_path}\n")
         return False
 
     sys.stderr.write(
@@ -77,34 +77,85 @@ def main() -> None:
         help="Root directory of the repo (default: current directory).",
     )
     args = parser.parse_args()
-    root = Path(args.root)
+    root = Path(args.root).resolve()
 
-    overlays: List[OverlayPair] = [
-        (
-            "g_field_v0",
-            root / "schemas" / "g_field_v0.schema.json",
-            root / "PULSE_safe_pack_v0" / "artifacts" / "g_field_v0.json",
+    # Helper to make candidate lists shorter to write.
+    def sp(*parts: str) -> Path:
+        return root.joinpath(*parts)
+
+    overlays: List[OverlayConfig] = [
+        OverlayConfig(
+            name="g_field_v0",
+            schema_candidates=[
+                sp("schemas", "g_field_v0.schema.json"),
+                sp("schemas", "schemas", "g_field_v0.schema.json"),
+            ],
+            data_candidates=[
+                sp("PULSE_safe_pack_v0", "artifacts", "g_field_v0.json"),
+                sp("g_field_v0.json"),
+            ],
         ),
-        (
-            "g_field_stability_v0",
-            root / "schemas" / "g_field_stability_v0.schema.json",
-            root / "PULSE_safe_pack_v0" / "artifacts" / "g_field_stability_v0.json",
+        OverlayConfig(
+            name="g_field_stability_v0",
+            schema_candidates=[
+                sp("schemas", "g_field_stability_v0.schema.json"),
+                sp("schemas", "schemas", "g_field_stability_v0.schema.json"),
+            ],
+            data_candidates=[
+                sp("PULSE_safe_pack_v0", "artifacts", "g_field_stability_v0.json"),
+                sp("g_field_stability_v0.json"),
+            ],
         ),
-        (
-            "g_epf_overlay_v0",
-            root / "schemas" / "g_epf_overlay_v0.schema.json",
-            root / "PULSE_safe_pack_v0" / "artifacts" / "g_epf_overlay_v0.json",
+        OverlayConfig(
+            name="g_epf_overlay_v0",
+            schema_candidates=[
+                sp("schemas", "g_epf_overlay_v0.schema.json"),
+                sp("schemas", "schemas", "g_epf_overlay_v0.schema.json"),
+            ],
+            data_candidates=[
+                sp("PULSE_safe_pack_v0", "artifacts", "g_epf_overlay_v0.json"),
+                sp("g_epf_overlay_v0.json"),
+            ],
         ),
-        (
-            "gpt_external_detection_v0",
-            root / "schemas" / "gpt_external_detection_v0.schema.json",
-            root / "PULSE_safe_pack_v0" / "artifacts" / "gpt_external_detection_v0.json",
+        OverlayConfig(
+            name="gpt_external_detection_v0",
+            schema_candidates=[
+                sp("schemas", "gpt_external_detection_v0.schema.json"),
+                sp("schemas", "schemas", "gpt_external_detection_v0.schema.json"),
+            ],
+            data_candidates=[
+                sp(
+                    "PULSE_safe_pack_v0",
+                    "artifacts",
+                    "gpt_external_detection_v0.json",
+                ),
+                sp("gpt_external_detection_v0.json"),
+            ],
         ),
     ]
 
     all_ok = True
-    for name, schema_path, data_path in overlays:
-        ok = _validate_overlay(name, schema_path, data_path)
+
+    for cfg in overlays:
+        schema_path = _first_existing(cfg.schema_candidates)
+        data_path = _first_existing(cfg.data_candidates)
+
+        if data_path is None:
+            sys.stderr.write(
+                f"[INFO] {cfg.name}: data file not found, skipping.\n"
+            )
+            continue
+
+        if schema_path is None:
+            sys.stderr.write(
+                f"[ERROR] {cfg.name}: schema file not found under any of:\n"
+            )
+            for cand in cfg.schema_candidates:
+                sys.stderr.write(f"  - {cand}\n")
+            all_ok = False
+            continue
+
+        ok = _validate_overlay(cfg.name, schema_path, data_path)
         if not ok:
             all_ok = False
 
