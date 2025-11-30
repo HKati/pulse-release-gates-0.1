@@ -1,0 +1,74 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "g_field_v0 overlay",
+  "description": "Contract for the internal G-child field overlay used by PULSE.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "version",
+    "source",
+    "created_at",
+    "summary",
+    "points"
+  ],
+  "properties": {
+    "version": {
+      "type": "string",
+      "const": "g_field_v0"
+    },
+    "source": {
+      "type": "string",
+      "description": "Origin of the overlay, e.g. internal_hpc_g_child."
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "run_id": {
+      "type": ["string", "null"],
+      "description": "Optional run identifier or null."
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "num_points",
+        "g_mean",
+        "g_std"
+      ],
+      "properties": {
+        "num_points": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "g_mean": {
+          "type": "number"
+        },
+        "g_std": {
+          "type": "number",
+          "minimum": 0
+        }
+      }
+    },
+    "points": {
+      "type": "array",
+      "minItems": 0,
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": [
+          "id",
+          "g_value"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "g_value": {
+            "type": "number"
+          }
+        }
+      }
+    }
+  }
+}
