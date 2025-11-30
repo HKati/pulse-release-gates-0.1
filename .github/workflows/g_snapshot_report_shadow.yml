@@ -24,6 +24,49 @@ jobs:
         with:
           python-version: '3.x'
 
+      - name: Rebuild G-field overlay (optional)
+        run: |
+          mkdir -p PULSE_safe_pack_v0/artifacts
+          if [ -f "hpc/g_snapshots.jsonl" ] && [ -f "PULSE_safe_pack_v0/artifacts/status.json" ]; then
+            echo "[INFO] Rebuilding g_field_v0 overlay..."
+            python scripts/g_child_field_adapter.py \
+              --snapshots hpc/g_snapshots.jsonl \
+              --status PULSE_safe_pack_v0/artifacts/status.json \
+              --output PULSE_safe_pack_v0/artifacts/g_field_v0.json
+          else
+            echo "[INFO] Missing hpc/g_snapshots.jsonl or PULSE_safe_pack_v0/artifacts/status.json, skipping G-field overlay rebuild."
+          fi
+
+      - name: Rebuild GPT external detection overlay (optional)
+        run: |
+          if [ -f "logs/model_invocations.jsonl" ]; then
+            mkdir -p PULSE_safe_pack_v0/artifacts
+            echo "[INFO] Rebuilding gpt_external_detection_v0 overlay..."
+            python scripts/gpt_external_detector.py \
+              --input logs/model_invocations.jsonl \
+              --output PULSE_safe_pack_v0/artifacts/gpt_external_detection_v0.json
+          else
+            echo "[INFO] No logs/model_invocations.jsonl found, skipping GPT external overlay rebuild."
+          fi
+
+      - name: Rebuild G-EPF overlay (optional)
+        run: |
+          if [ -f "PULSE_safe_pack_v0/artifacts/g_field_v0.json" ] \
+             && [ -f "status_baseline.json" ] \
+             && [ -f "status_epf.json" ] \
+             && [ -f "epf_paradox_summary.json" ]; then
+            mkdir -p PULSE_safe_pack_v0/artifacts
+            echo "[INFO] Rebuilding g_epf_overlay_v0 overlay..."
+            python scripts/g_child_epf_bridge.py \
+              --g-field PULSE_safe_pack_v0/artifacts/g_field_v0.json \
+              --status-baseline status_baseline.json \
+              --status-epf status_epf.json \
+              --paradox-summary epf_paradox_summary.json \
+              --output PULSE_safe_pack_v0/artifacts/g_epf_overlay_v0.json
+          else
+            echo "[INFO] Missing EPF baseline/EPF/paradox inputs, skipping G-EPF overlay rebuild."
+          fi
+
       - name: Build G snapshot report
         run: |
           mkdir -p PULSE_safe_pack_v0/artifacts
@@ -37,3 +80,4 @@ jobs:
         with:
           name: g-snapshot-report
           path: PULSE_safe_pack_v0/artifacts/g_snapshot_report_v0.md
+
