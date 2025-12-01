@@ -1,15 +1,9 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "g_epf_overlay_v0",
-  "description": "Bridge overlay between the G-field, EPF status and Paradox summary.",
   "type": "object",
-  "additionalProperties": true,
-  "required": [
-    "version",
-    "created_at",
-    "g_field",
-    "diagnostics"
-  ],
+  "additionalProperties": false,
+  "required": ["version", "created_at", "source", "summary", "panels"],
   "properties": {
     "version": {
       "type": "string",
@@ -19,54 +13,71 @@
       "type": "string",
       "format": "date-time"
     },
+    "source": {
+      "type": "string"
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "num_runs",
+        "num_panels",
+        "num_gates",
+        "num_failed_gates"
+      ],
+      "properties": {
+        "num_runs": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "num_panels": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "num_gates": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "num_failed_gates": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
     "g_field": {
       "type": "object",
-      "description": "Embedded g_field_v0 overlay.",
-      "additionalProperties": true
-    },
-    "status_baseline": {
-      "type": ["object", "null"],
-      "description": "Optional EPF baseline status object.",
-      "additionalProperties": true
-    },
-    "status_epf": {
-      "type": ["object", "null"],
-      "description": "Optional EPF status object for the EPF run.",
-      "additionalProperties": true
-    },
-    "epf_paradox_summary": {
-      "type": ["object", "null"],
-      "description": "Optional paradox summary object from EPF.",
+      "description": "Optional G-field diagnostics attached to this EPF overlay.",
       "additionalProperties": true
     },
     "diagnostics": {
       "type": "object",
-      "required": [
-        "paradox_gate_ids",
-        "g_points_on_paradox_gates"
-      ],
-      "additionalProperties": true,
-      "properties": {
-        "paradox_gate_ids": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "g_points_on_paradox_gates": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "additionalProperties": true,
-            "properties": {
-              "id": {
-                "type": ["string", "null"]
-              },
-              "g_value": {
-                "type": ["number", "null"]
-              }
-            }
-          }
+      "description": "Optional EPF-specific diagnostics (e.g. paradox_gate_ids).",
+      "additionalProperties": true
+    },
+    "panels": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "panel_id",
+          "label",
+          "suite",
+          "num_traces",
+          "num_gates",
+          "num_failed_gates",
+          "status",
+          "notes"
+        ],
+        "properties": {
+          "panel_id": { "type": "string" },
+          "label": { "type": "string" },
+          "suite": { "type": "string" },
+          "num_traces": { "type": "integer", "minimum": 0 },
+          "num_gates": { "type": "integer", "minimum": 0 },
+          "num_failed_gates": { "type": "integer", "minimum": 0 },
+          "status": { "type": "string" },
+          "notes": { "type": "string" }
         }
       }
     }
