@@ -1,0 +1,42 @@
+{
+  "version": "g_field_stability_v0",
+  "created_at": "2025-12-01T01:30:00Z",
+  "source": "sample",
+  "summary": {
+    "num_runs": 3,
+    "num_points": 1,
+    "g_mean_global": 0.81,
+    "g_std_global": 0.01,
+    "max_gate_std": 0.015,
+    "unstable_gates": 0
+  },
+  "runs": [
+    {
+      "run_id": "run_001",
+      "created_at": "2025-11-30T21:00:00Z",
+      "g_mean": 0.80,
+      "g_std": 0.01
+    },
+    {
+      "run_id": "run_002",
+      "created_at": "2025-11-30T22:00:00Z",
+      "g_mean": 0.81,
+      "g_std": 0.01
+    },
+    {
+      "run_id": "run_003",
+      "created_at": "2025-11-30T23:00:00Z",
+      "g_mean": 0.82,
+      "g_std": 0.008
+    }
+  ],
+  "gates": [
+    {
+      "id": "paradox_gate_1",
+      "g_mean": 0.81,
+      "g_std": 0.01,
+      "max_delta": 0.02,
+      "is_unstable": false
+    }
+  ]
+}
