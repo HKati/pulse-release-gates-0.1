@@ -171,6 +171,28 @@ It will:
 
 ---
 
+## G snapshot report (v0)
+
+PULSE ships a shadow workflow that summarizes internal G-field and GPT
+external usage into a single markdown report.
+
+- Workflow: **“G snapshot report (shadow)”** (GitHub Actions)
+- Inputs (if present):
+  - `g_field_v0.json` (G-child overlay)
+  - `g_field_stability_v0.json` (stability overlay, optional)
+  - `g_epf_overlay_v0.json` (EPF overlay, optional)
+  - `gpt_external_detection_v0.json` (GPT sentinel overlay, built from
+    `logs/model_invocations.jsonl`)
+- Output artifact:
+  - `PULSE_safe_pack_v0/artifacts/g_snapshot_report_v0.md`
+
+The report shows, for each overlay, whether it is present/missing, plus:
+basic G-field stats (mean/min/max) and GPT usage stats (internal vs
+external calls, top vendors and models). It is CI-neutral and intended
+for diagnostic and governance dashboards.
+
+---
+
 ### EPF (experimental, shadow-only)
 
 **TL;DR:** Deterministic, fail-closed gates remain the source of truth for
