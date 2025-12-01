@@ -1,5 +1,0 @@
-{"id": "req_001", "timestamp": "2025-11-30T22:10:00Z", "vendor": "internal_hpc", "model": "g_child_v0", "route": "hpc", "meta": {"comment": "internal G-child call"}}
-{"id": "req_002", "timestamp": "2025-11-30T22:11:00Z", "vendor": "openai", "model": "gpt-4.1-mini", "route": "external", "meta": {"comment": "assistant completion"}}
-{"id": "req_003", "timestamp": "2025-11-30T22:12:00Z", "vendor": "openai", "model": "gpt-4.1", "route": "external", "meta": {"comment": "tool-using agent"}}
-{"id": "req_004", "timestamp": "2025-11-30T22:13:00Z", "vendor": "anthropic", "model": "claude-3.5", "route": "external", "meta": {"comment": "eval run"}}
-{"id": "req_005", "timestamp": "2025-11-30T22:14:00Z", "vendor": "internal_hpc", "model": "g_child_v0", "route": "hpc", "meta": {"comment": "internal sanity check"}}
