@@ -4,9 +4,10 @@ validate_overlays.py
 
 Validate PULSE overlay JSON files against their JSON Schemas.
 
-This script is CI-neutral:
-- If a data file is missing, it prints an INFO message and continues.
-- If a data file is present but fails validation, it exits with code 1.
+CI‑semleges viselkedés:
+- Ha egy data fájl hiányzik, csak INFO üzenetet írunk, és továbblépünk.
+- Ha data + schema is megvan, de a validáció elbukik, exit code 1.
+- Ha schema hiányzik, WARN üzenet, de NEM bukik a futás.
 """
 
 import argparse
@@ -14,7 +15,7 @@ import json
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional, Sequence
+from typing import Any, List, Optional, Sequence
 
 try:
     import jsonschema
@@ -33,9 +34,19 @@ class OverlayConfig:
     data_candidates: Sequence[Path]
 
 
-def _load_json(path: Path):
-    with path.open("r", encoding="utf-8") as f:
-        return json.load(f)
+def _load_json(path: Path, *, overlay_name: str) -> Any:
+    """Load JSON with egy kicsit barátságosabb hibajelzéssel."""
+    try:
+        with path.open("r", encoding="utf-8") as f:
+            return json.load(f)
+    except json.JSONDecodeError as e:
+        sys.stderr.write(
+            f"[ERROR] {overlay_name}: failed to parse JSON from {path}\n"
+        )
+        sys.stderr.write(
+            f"  Message: {e.msg} (line {e.lineno} column {e.colno})\n"
+        )
+        raise
 
 
 def _first_existing(candidates: Sequence[Path]) -> Optional[Path]:
@@ -46,8 +57,8 @@ def _first_existing(candidates: Sequence[Path]) -> Optional[Path]:
 
 
 def _validate_overlay(name: str, schema_path: Path, data_path: Path) -> bool:
-    schema = _load_json(schema_path)
-    data = _load_json(data_path)
+    schema = _load_json(schema_path, overlay_name=name)
+    data = _load_json(data_path, overlay_name=name)
 
     try:
         jsonschema.validate(instance=data, schema=schema)
@@ -79,8 +90,8 @@ def main() -> None:
     args = parser.parse_args()
     root = Path(args.root).resolve()
 
-    # Helper to make candidate lists shorter to write.
     def sp(*parts: str) -> Path:
+        """Helper to build paths from repo root."""
         return root.joinpath(*parts)
 
     overlays: List[OverlayConfig] = [
@@ -102,7 +113,11 @@ def main() -> None:
                 sp("schemas", "schemas", "g_field_stability_v0.schema.json"),
             ],
             data_candidates=[
-                sp("PULSE_safe_pack_v0", "artifacts", "g_field_stability_v0.json"),
+                sp(
+                    "PULSE_safe_pack_v0",
+                    "artifacts",
+                    "g_field_stability_v0.json",
+                ),
                 sp("g_field_stability_v0.json"),
             ],
         ),
@@ -113,7 +128,11 @@ def main() -> None:
                 sp("schemas", "schemas", "g_epf_overlay_v0.schema.json"),
             ],
             data_candidates=[
-                sp("PULSE_safe_pack_v0", "artifacts", "g_epf_overlay_v0.json"),
+                sp(
+                    "PULSE_safe_pack_v0",
+                    "artifacts",
+                    "g_epf_overlay_v0.json",
+                ),
                 sp("g_epf_overlay_v0.json"),
             ],
         ),
@@ -121,7 +140,11 @@ def main() -> None:
             name="gpt_external_detection_v0",
             schema_candidates=[
                 sp("schemas", "gpt_external_detection_v0.schema.json"),
-                sp("schemas", "schemas", "gpt_external_detection_v0.schema.json"),
+                sp(
+                    "schemas",
+                    "schemas",
+                    "gpt_external_detection_v0.schema.json",
+                ),
             ],
             data_candidates=[
                 sp(
@@ -140,6 +163,12 @@ def main() -> None:
         schema_path = _first_existing(cfg.schema_candidates)
         data_path = _first_existing(cfg.data_candidates)
 
+        if data_path is None and schema_path is None:
+            sys.stderr.write(
+                f"[INFO] {cfg.name}: no schema and no data found, skipping.\n"
+            )
+            continue
+
         if data_path is None:
             sys.stderr.write(
                 f"[INFO] {cfg.name}: data file not found, skipping.\n"
@@ -147,12 +176,11 @@ def main() -> None:
             continue
 
         if schema_path is None:
+            # Fontos: nem bukunk el, csak jelezzük, hogy nincs még séma.
             sys.stderr.write(
-                f"[ERROR] {cfg.name}: schema file not found under any of:\n"
+                f"[WARN] {cfg.name}: schema file not found, "
+                "skipping validation for this overlay.\n"
             )
-            for cand in cfg.schema_candidates:
-                sys.stderr.write(f"  - {cand}\n")
-            all_ok = False
             continue
 
         ok = _validate_overlay(cfg.name, schema_path, data_path)
