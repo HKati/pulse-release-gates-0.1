@@ -171,6 +171,50 @@ It will:
 
 ---
 
+
+## G‑field & shadow overlays
+
+This repo now exposes a small “G‑field” surface as CI‑neutral overlays.  
+They do **not** change any gates or release decisions; they only add extra
+diagnostic layers on top of the existing PULSE status.
+
+Current overlays:
+
+- **G‑field overlay (`g_field_v0.json`)**  
+  Snapshot of the internal G‑child field for recent traces / scenarios.  
+  Produced by `scripts/g_child_field_adapter.py` from `hpc/g_snapshots.jsonl`
+  (when present) and wired into the G‑field overlays (shadow) workflow.
+
+- **G‑field stability overlay (`g_field_stability_v0.json`)**  
+  Tiny synthetic example that shows how multiple `g_field_v0` runs can be
+  summarized into a single stability view (number of runs, global mean/std,
+  unstable gates, etc.).  
+  Used only for schema validation and for the “Stability” section in the
+  G‑snapshot report.
+
+- **GPT external detection overlay (`gpt_external_detection_v0.json`)**  
+  Sample view over `logs/model_invocations.jsonl`, counting how many
+  internal‑HPC vs external GPT calls happened, broken down by vendor and model.  
+  This is only a diagnostic shadow overlay; it does not enforce any policy.
+
+Shadow workflows (GitHub Actions):
+
+- **G‑field overlays (shadow)** – rebuilds `g_field_v0.json` from HPC snapshots.  
+- **G‑EPF overlay (shadow)** – bridges EPF / Paradox outputs into a G‑EPF overlay.  
+- **GPT external detection (shadow)** – scans `logs/model_invocations.jsonl`
+  and emits `gpt_external_detection_v0.json`.  
+- **Overlay schema validation (shadow)** – validates all overlays against
+  their JSON Schemas.  
+- **G snapshot report (shadow)** – renders a single `g_snapshot_report_v0.md`
+  that summarizes which overlays are present and what they contain.
+
+All of these are **fail‑closed only for their own job** (they never block the
+main PULSE gates) and are meant as a safe playground for the internal G‑field
+and GPT diagnostics.
+
+
+---
+
 ## G snapshot report (v0)
 
 PULSE ships a shadow workflow that summarizes internal G-field and GPT
@@ -190,6 +234,7 @@ The report shows, for each overlay, whether it is present/missing, plus:
 basic G-field stats (mean/min/max) and GPT usage stats (internal vs
 external calls, top vendors and models). It is CI-neutral and intended
 for diagnostic and governance dashboards.
+
 
 ---
 
