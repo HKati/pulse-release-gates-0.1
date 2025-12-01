@@ -3,7 +3,7 @@
   "title": "g_field_stability_v0",
   "type": "object",
   "additionalProperties": false,
-  "required": ["version", "created_at", "summary"],
+  "required": ["version", "created_at"],
   "properties": {
     "version": {
       "type": "string",
@@ -16,54 +16,14 @@
     "source": {
       "type": "string"
     },
-    "summary": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "num_runs",
-        "num_points",
-        "g_mean_global",
-        "g_std_global",
-        "max_gate_std",
-        "unstable_gates"
-      ],
-      "properties": {
-        "num_runs": { "type": "integer", "minimum": 0 },
-        "num_points": { "type": "integer", "minimum": 0 },
-        "g_mean_global": { "type": "number" },
-        "g_std_global": { "type": "number" },
-        "max_gate_std": { "type": "number" },
-        "unstable_gates": { "type": "integer", "minimum": 0 }
-      }
+    "num_runs": { "type": "integer", "minimum": 0 },
+    "num_points": { "type": "integer", "minimum": 0 },
+    "std_threshold_for_stable": { "type": "number" },
+    "overall": {
+      "type": "object"
     },
-    "runs": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["run_id", "created_at", "g_mean", "g_std"],
-        "properties": {
-          "run_id": { "type": "string" },
-          "created_at": { "type": "string", "format": "date-time" },
-          "g_mean": { "type": "number" },
-          "g_std": { "type": "number" }
-        }
-      }
-    },
-    "gates": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["id", "g_mean", "g_std", "max_delta", "is_unstable"],
-        "properties": {
-          "id": { "type": "string" },
-          "g_mean": { "type": "number" },
-          "g_std": { "type": "number" },
-          "max_delta": { "type": "number" },
-          "is_unstable": { "type": "boolean" }
-        }
-      }
+    "points": {
+      "type": "array"
     }
   }
 }
