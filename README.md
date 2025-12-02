@@ -235,8 +235,32 @@ basic G-field stats (mean/min/max) and GPT usage stats (internal vs
 external calls, top vendors and models). It is CI-neutral and intended
 for diagnostic and governance dashboards.
 
+---
+
+### Roadmap (shadow layer)
+
+The current G-shadow layer is intentionally minimal: a small set of overlays and a
+shadow-only snapshot report that can be shipped safely in the PULSE safe pack.
+Next steps we are planning (non‑breaking, iterative) include:
+
+- **EPF overlay 2.0**  
+  Move from the current demo EPF panel to a more realistic EPF diagnostics overlay
+  (richer fields, clearer mapping to gates, better summary in the snapshot report).
+
+- **G‑field stability summaries**  
+  Extend the `g_field_stability` overlay from a raw diagnostic JSON block to
+  gate-level stability summaries and (optionally) simple historical trends.
+
+- **GPT usage overlays**  
+  Refine the GPT external detection overlay with scenario / product‑line breakdowns
+  and clearer attribution of “internal vs external” usage in the snapshot.
+
+- **Docs & UX for overlays**  
+  Add short “how to add a new overlay” guidance and more snapshot examples, so that
+  teams can plug in additional overlays without touching the core release gates.
 
 ---
+
 
 ### EPF (experimental, shadow-only)
 
