@@ -25,10 +25,10 @@ jobs:
 
     steps:
       - name: Checkout Pulse repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Checkout gate repo (tag)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: ${{ env.GATE_REPO }}
           ref: ${{ env.GATE_REF }}
