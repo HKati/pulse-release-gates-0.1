@@ -1,28 +1,85 @@
 {
-  "version": "g_epf_overlay_v0",
-  "created_at": "2025-12-01T13:30:00Z",
-  "source": "sample",
+  "version": "g_epf_overlay_v0-demo-2.0.0",
+  "created_at": "2025-12-02T13:37:00Z",
+  "source": "synthetic_demo",
 
-  "summary": {
-    "num_runs": 1,
-    "num_panels": 1,
-    "num_gates": 3,
-    "num_failed_gates": 1
+  "meta": {
+    "overlay_id": "g_epf_overlay_v0",
+    "epf_version": "2.0.0",
+    "generated_at": "2025-12-02T13:37:00Z",
+    "source_run_id": "demo_run_2025_12_02_001",
+    "source_files": [
+      "PULSE_safe_pack_v0/artifacts/status_baseline.json",
+      "PULSE_safe_pack_v0/artifacts/status_epf.json",
+      "PULSE_safe_pack_v0/artifacts/epf_paradox_summary.json"
+    ]
   },
 
-  "g_field": {},
-  "diagnostics": {},
+  "summary": {
+    "total_gates": 2,
+    "gates_in_epf_band": 2,
+    "gates_changed_by_epf": 1,
+    "gates_with_paradox_flag": 1,
+    "shadow_pass": true,
+    "notes": [
+      "Synthetic demo overlay for docs & schema validation.",
+      "EPF runs in shadow-only mode; baseline gates remain source of truth."
+    ]
+  },
 
   "panels": [
     {
-      "panel_id": "paradox_gate_1",
-      "label": "Paradox Gate #1",
-      "suite": "EPF demo",
-      "num_traces": 16,
-      "num_gates": 3,
-      "num_failed_gates": 1,
-      "status": "unstable",
-      "notes": "Synthetic EPF overlay sample; not used for real gating."
+      "panel_id": "epf_gate_q1_groundedness",
+      "gate_id": "q1_grounded_ok",
+      "baseline_decision": "PASS",
+      "epf_shadow_decision": "PASS",
+      "in_epf_band": true,
+      "distance_to_threshold": 0.02,
+      "epf_L": 0.87,
+      "risk_band": "low",
+      "paradox": {
+        "has_paradox": false
+      },
+      "metrics": {
+        "baseline_value": 0.86,
+        "epf_value": 0.88
+      },
+      "notes": [
+        "Close to the EPF band but EPF agrees with baseline.",
+        "Safe synthetic example panel."
+      ]
+    },
+    {
+      "panel_id": "epf_gate_q3_fairness",
+      "gate_id": "q3_fairness_ok",
+      "baseline_decision": "PASS",
+      "epf_shadow_decision": "FAIL_SHADOW",
+      "in_epf_band": true,
+      "distance_to_threshold": 0.01,
+      "epf_L": 0.94,
+      "risk_band": "medium",
+      "paradox": {
+        "has_paradox": true,
+        "paradox_type": "epf_vs_baseline",
+        "severity": "medium",
+        "summary": "EPF flags borderline fairness while baseline is PASS."
+      },
+      "metrics": {
+        "baseline_value": 0.79,
+        "epf_value": 0.74
+      },
+      "notes": [
+        "Synthetic example of EPF disagreeing with baseline.",
+        "Good candidate for testing paradox dashboards."
+      ]
     }
-  ]
+  ],
+
+  "g_field": {},
+
+  "diagnostics": {
+    "epf_band_epsilon": 0.03,
+    "max_risk": 0.2,
+    "min_samples": 5
+  }
 }
