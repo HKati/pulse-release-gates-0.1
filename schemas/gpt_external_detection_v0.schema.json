@@ -7,7 +7,7 @@
   "properties": {
     "version": {
       "type": "string",
-      "description": "Overlay version identifier (kept for v0 contract)."
+      "description": "Overlay version identifier (kept for v0 compatibility)."
     },
     "created_at": {
       "type": "string",
@@ -19,25 +19,72 @@
       "description": "Optional short string describing the overlay source (e.g. builder script name)."
     },
 
+    "input_file": {
+      "type": "string",
+      "description": "Path to the log file used by the current detector (kept for v0 compatibility)."
+    },
+    "records": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Total number of log records processed by the detector (kept for v0 compatibility)."
+    },
+
     "summary": {
       "type": "object",
       "description": "Top-level GPT usage summary.",
-      "required": ["total_calls"],
+      "required": ["total_records"],
       "properties": {
+        /* ----- v0 detector fields (current generator output) ----- */
+        "total_records": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total number of log records seen by the detector."
+        },
+        "num_external_gpt": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of calls attributed to external GPT providers."
+        },
+        "num_internal": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of calls attributed to internal/HPC providers."
+        },
+        "num_unknown": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of calls where origin could not be classified."
+        },
+        "vendors": {
+          "type": "array",
+          "description": "Per-vendor summary emitted by the current detector.",
+          "items": {
+            "$ref": "#/definitions/vendor_summary"
+          }
+        },
+        "models": {
+          "type": "array",
+          "description": "Per-model summary emitted by the current detector.",
+          "items": {
+            "$ref": "#/definitions/model_summary"
+          }
+        },
+
+        /* ----- forward-looking aliases (optional) ----- */
         "total_calls": {
           "type": "integer",
           "minimum": 0,
-          "description": "Total number of GPT calls observed."
+          "description": "Alias for total_records, used by future builders."
         },
         "internal_calls": {
           "type": "integer",
           "minimum": 0,
-          "description": "Calls attributed to internal/HPC providers."
+          "description": "Alias for num_internal, used by future builders."
         },
         "external_calls": {
           "type": "integer",
           "minimum": 0,
-          "description": "Calls attributed to external providers."
+          "description": "Alias for num_external_gpt, used by future builders."
         },
         "external_share": {
           "type": "number",
