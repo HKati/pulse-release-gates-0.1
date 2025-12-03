@@ -3,7 +3,7 @@
   "title": "GPT external detection overlay v0",
   "description": "Shadow-only overlay summarising internal vs external GPT usage by vendor/model/product.",
   "type": "object",
-  "required": ["version", "created_at", "summary"],
+  "required": ["summary"],
   "properties": {
     "version": {
       "type": "string",
@@ -18,23 +18,27 @@
       "type": "string",
       "description": "Optional short string describing the overlay source (e.g. builder script name)."
     },
-
     "input_file": {
       "type": "string",
-      "description": "Path to the log file used by the current detector (kept for v0 compatibility)."
+      "description": "Path to the log file used by the detector (kept for v0 compatibility)."
     },
     "records": {
       "type": "integer",
       "minimum": 0,
       "description": "Total number of log records processed by the detector (kept for v0 compatibility)."
     },
-
     "summary": {
       "type": "object",
       "description": "Top-level GPT usage summary.",
-      "required": ["total_records"],
+      "required": [
+        "total_records",
+        "num_external_gpt",
+        "num_internal",
+        "num_unknown",
+        "vendors",
+        "models"
+      ],
       "properties": {
-        /* ----- v0 detector fields (current generator output) ----- */
         "total_records": {
           "type": "integer",
           "minimum": 0,
@@ -69,22 +73,20 @@
             "$ref": "#/definitions/model_summary"
           }
         },
-
-        /* ----- forward-looking aliases (optional) ----- */
         "total_calls": {
           "type": "integer",
           "minimum": 0,
-          "description": "Alias for total_records, used by future builders."
+          "description": "Optional alias for total_records, used by future builders."
         },
         "internal_calls": {
           "type": "integer",
           "minimum": 0,
-          "description": "Alias for num_internal, used by future builders."
+          "description": "Optional alias for num_internal, used by future builders."
         },
         "external_calls": {
           "type": "integer",
           "minimum": 0,
-          "description": "Alias for num_external_gpt, used by future builders."
+          "description": "Optional alias for num_external_gpt, used by future builders."
         },
         "external_share": {
           "type": "number",
@@ -111,7 +113,6 @@
       },
       "additionalProperties": true
     },
-
     "breakdowns": {
       "type": "object",
       "description": "Optional detailed breakdowns (for dashboards).",
@@ -135,63 +136,32 @@
       },
       "additionalProperties": true
     },
-
     "diagnostics": {
       "type": "object",
       "description": "Free-form diagnostics for log coverage, filters, etc.",
       "additionalProperties": true
     }
   },
-  "additionalProperties": false,
+  "additionalProperties": true,
   "definitions": {
     "vendor_summary": {
       "type": "object",
-      "required": ["vendor", "total_calls"],
-      "properties": {
-        "vendor": { "type": "string" },
-        "total_calls": { "type": "integer", "minimum": 0 },
-        "internal_calls": { "type": "integer", "minimum": 0 },
-        "external_calls": { "type": "integer", "minimum": 0 }
-      },
+      "description": "Loose vendor summary shape (kept intentionally permissive for v0).",
       "additionalProperties": true
     },
-
     "model_summary": {
       "type": "object",
-      "required": ["vendor", "model", "total_calls"],
-      "properties": {
-        "vendor": { "type": "string" },
-        "model": { "type": "string" },
-        "total_calls": { "type": "integer", "minimum": 0 },
-        "internal_calls": { "type": "integer", "minimum": 0 },
-        "external_calls": { "type": "integer", "minimum": 0 },
-        "product_line": { "type": "string" },
-        "scenario": { "type": "string" }
-      },
+      "description": "Loose model summary shape (kept intentionally permissive for v0).",
       "additionalProperties": true
     },
-
     "product_summary": {
       "type": "object",
-      "required": ["product_line", "total_calls"],
-      "properties": {
-        "product_line": { "type": "string" },
-        "total_calls": { "type": "integer", "minimum": 0 },
-        "internal_calls": { "type": "integer", "minimum": 0 },
-        "external_calls": { "type": "integer", "minimum": 0 }
-      },
+      "description": "Loose product-line summary shape.",
       "additionalProperties": true
     },
-
     "scenario_summary": {
       "type": "object",
-      "required": ["scenario", "total_calls"],
-      "properties": {
-        "scenario": { "type": "string" },
-        "total_calls": { "type": "integer", "minimum": 0 },
-        "internal_calls": { "type": "integer", "minimum": 0 },
-        "external_calls": { "type": "integer", "minimum": 0 }
-      },
+      "description": "Loose scenario summary shape.",
       "additionalProperties": true
     }
   }
