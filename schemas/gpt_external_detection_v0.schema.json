@@ -1,115 +1,151 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "gpt_external_detection_v0 overlay",
-  "description": "Contract for the external GPT/vendor detection overlay produced by gpt_external_detector.py.",
+  "title": "GPT external detection overlay v0",
+  "description": "Shadow-only overlay summarising internal vs external GPT usage by vendor/model/product.",
   "type": "object",
-  "additionalProperties": true,
-  "required": [
-    "version",
-    "created_at",
-    "input_file",
-    "summary",
-    "records"
-  ],
+  "required": ["version", "created_at", "source", "summary"],
   "properties": {
     "version": {
       "type": "string",
-      "const": "gpt_external_detection_v0"
+      "description": "Overlay version identifier (kept for v0 contract)."
     },
     "created_at": {
       "type": "string",
-      "format": "date-time"
+      "format": "date-time",
+      "description": "Timestamp when this overlay JSON was created."
     },
-    "input_file": {
+    "source": {
       "type": "string",
-      "description": "Path to the input JSONL log file used by the detector."
+      "description": "Short string describing the overlay source (e.g. builder script name)."
     },
+
     "summary": {
       "type": "object",
-      "additionalProperties": true,
-      "required": [
-        "total_records",
-        "num_external_gpt",
-        "num_internal",
-        "num_unknown",
-        "vendors",
-        "models"
-      ],
+      "description": "Top-level GPT usage summary.",
+      "required": ["total_calls"],
       "properties": {
-        "total_records": {
+        "total_calls": {
           "type": "integer",
-          "minimum": 0
+          "minimum": 0,
+          "description": "Total number of GPT calls observed."
         },
-        "num_external_gpt": {
+        "internal_calls": {
           "type": "integer",
-          "minimum": 0
+          "minimum": 0,
+          "description": "Calls attributed to internal/HPC providers."
         },
-        "num_internal": {
+        "external_calls": {
           "type": "integer",
-          "minimum": 0
+          "minimum": 0,
+          "description": "Calls attributed to external providers."
         },
-        "num_unknown": {
-          "type": "integer",
-          "minimum": 0
+        "external_share": {
+          "type": "number",
+          "description": "External_calls / total_calls * 100 (percentage)."
         },
-        "vendors": {
-          "type": "object",
-          "description": "Map of vendor name (lowercased) to count.",
-          "additionalProperties": {
-            "type": "integer",
-            "minimum": 0
+        "top_vendors": {
+          "type": "array",
+          "description": "Top vendors by total calls (small slice for snapshot).",
+          "items": {
+            "$ref": "#/definitions/vendor_summary"
           }
         },
-        "models": {
-          "type": "object",
-          "description": "Map of model name (lowercased) to count.",
-          "additionalProperties": {
-            "type": "integer",
-            "minimum": 0
+        "top_models": {
+          "type": "array",
+          "description": "Top models by total calls (small slice for snapshot).",
+          "items": {
+            "$ref": "#/definitions/model_summary"
           }
+        },
+        "notes": {
+          "type": "array",
+          "items": { "type": "string" }
         }
-      }
+      },
+      "additionalProperties": true
     },
-    "records": {
-      "type": "array",
-      "minItems": 0,
-      "items": {
-        "type": "object",
-        "additionalProperties": true,
-        "required": [
-          "idx",
-          "is_external_gpt",
-          "is_internal",
-          "reason"
-        ],
-        "properties": {
-          "idx": {
-            "type": "integer",
-            "minimum": 1,
-            "description": "1-based line index in the input JSONL file."
-          },
-          "id": {
-            "type": ["string", "null"],
-            "description": "Optional request / trace id associated with the record."
-          },
-          "is_external_gpt": {
-            "type": "boolean"
-          },
-          "is_internal": {
-            "type": "boolean"
-          },
-          "vendor": {
-            "type": ["string", "null"]
-          },
-          "model": {
-            "type": ["string", "null"]
-          },
-          "reason": {
-            "type": "string",
-            "description": "Short explanation of the detection decision."
-          }
+
+    "breakdowns": {
+      "type": "object",
+      "description": "Optional detailed breakdowns (for dashboards).",
+      "properties": {
+        "by_vendor": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/vendor_summary" }
+        },
+        "by_model": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/model_summary" }
+        },
+        "by_product_line": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/product_summary" }
+        },
+        "by_scenario": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/scenario_summary" }
         }
-      }
+      },
+      "additionalProperties": true
+    },
+
+    "diagnostics": {
+      "type": "object",
+      "description": "Free-form diagnostics for log coverage, filters, etc.",
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": false,
+  "definitions": {
+    "vendor_summary": {
+      "type": "object",
+      "required": ["vendor", "total_calls"],
+      "properties": {
+        "vendor": { "type": "string" },
+        "total_calls": { "type": "integer", "minimum": 0 },
+        "internal_calls": { "type": "integer", "minimum": 0 },
+        "external_calls": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": true
+    },
+
+    "model_summary": {
+      "type": "object",
+      "required": ["vendor", "model", "total_calls"],
+      "properties": {
+        "vendor": { "type": "string" },
+        "model": { "type": "string" },
+        "total_calls": { "type": "integer", "minimum": 0 },
+        "internal_calls": { "type": "integer", "minimum": 0 },
+        "external_calls": { "type": "integer", "minimum": 0 },
+        "product_line": { "type": "string" },
+        "scenario": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+
+    "product_summary": {
+      "type": "object",
+      "required": ["product_line", "total_calls"],
+      "properties": {
+        "product_line": { "type": "string" },
+        "total_calls": { "type": "integer", "minimum": 0 },
+        "internal_calls": { "type": "integer", "minimum": 0 },
+        "external_calls": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": true
+    },
+
+    "scenario_summary": {
+      "type": "object",
+      "required": ["scenario", "total_calls"],
+      "properties": {
+        "scenario": { "type": "string" },
+        "total_calls": { "type": "integer", "minimum": 0 },
+        "internal_calls": { "type": "integer", "minimum": 0 },
+        "external_calls": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": true
     }
   }
 }
