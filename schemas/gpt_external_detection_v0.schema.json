@@ -23,9 +23,12 @@
       "description": "Path to the log file used by the detector (kept for v0 compatibility)."
     },
     "records": {
-      "type": "integer",
-      "minimum": 0,
-      "description": "Total number of log records processed by the detector (kept for v0 compatibility)."
+      "type": "array",
+      "description": "Per-record diagnostics emitted by the current detector (kept for v0 compatibility).",
+      "items": {
+        "type": "object",
+        "additionalProperties": true
+      }
     },
     "summary": {
       "type": "object",
