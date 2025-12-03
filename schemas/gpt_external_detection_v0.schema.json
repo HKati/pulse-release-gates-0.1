@@ -3,7 +3,7 @@
   "title": "GPT external detection overlay v0",
   "description": "Shadow-only overlay summarising internal vs external GPT usage by vendor/model/product.",
   "type": "object",
-  "required": ["version", "created_at", "source", "summary"],
+  "required": ["version", "created_at", "summary"],
   "properties": {
     "version": {
       "type": "string",
@@ -16,7 +16,7 @@
     },
     "source": {
       "type": "string",
-      "description": "Short string describing the overlay source (e.g. builder script name)."
+      "description": "Optional short string describing the overlay source (e.g. builder script name)."
     },
 
     "summary": {
