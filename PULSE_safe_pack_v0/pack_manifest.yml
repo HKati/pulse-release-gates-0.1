@@ -6,7 +6,6 @@ required:
   - path: tools/check_gates.py
   - path: tools/augment_status.py
   - path: tools/refusal_delta_calc.py
-  - path: tools/ci/update_badges.py
   - path: docs/METHODS_RDSI_QLEDGER.md
   - path: docs/EXTERNAL_DETECTORS.md
   - path: profiles/external_thresholds.yaml
@@ -21,7 +20,6 @@ required:
       count: 3
 
 optional:
-  - path: tools/ci/pr_comment_qledger.py
   - path: docs/LIGHTHOUSE_CASE_1.md
   - path: docs/COMPETITOR_RADAR_2025.md
 
