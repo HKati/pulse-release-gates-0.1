@@ -211,8 +211,7 @@
           "type": "object",
           "required": [
             "present",
-            "patterns",
-            "details"
+            "patterns"
           ],
           "properties": {
             "present": {
