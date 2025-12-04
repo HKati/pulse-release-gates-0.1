@@ -1,0 +1,583 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://example.org/schemas/PULSE_stability_map_v0.schema.json",
+  "title": "PULSE Stability Map v0",
+  "type": "object",
+  "description": "Schema for stability_map.json produced by PULSE topology v0.",
+  "required": [
+    "version",
+    "generated_at",
+    "states",
+    "transitions"
+  ],
+  "properties": {
+    "version": {
+      "type": "string",
+      "description": "Stability Map spec version.",
+      "example": "0.1"
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO8601 timestamp when the map was generated."
+    },
+    "states": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/ReleaseState"
+      }
+    },
+    "transitions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ReleaseTransition"
+      }
+    }
+  },
+  "$defs": {
+    "ReleaseState": {
+      "type": "object",
+      "required": [
+        "id",
+        "label",
+        "decision",
+        "gate_summary",
+        "rdsi",
+        "epf",
+        "instability",
+        "type",
+        "tags",
+        "paradox"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Run identifier, e.g. run_001."
+        },
+        "label": {
+          "type": "string",
+          "description": "Short human-readable label for the state."
+        },
+        "commit": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Optional commit hash associated with the run."
+        },
+        "pack": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Name of the PULSE pack producing this state."
+        },
+        "decision": {
+          "type": "string",
+          "enum": [
+            "FAIL",
+            "STAGE-PASS",
+            "PROD-PASS",
+            "UNKNOWN"
+          ],
+          "description": "Release decision as produced by the PULSE gates."
+        },
+        "gate_summary": {
+          "type": "object",
+          "required": [
+            "safety_total",
+            "safety_failed",
+            "quality_total",
+            "quality_failed"
+          ],
+          "properties": {
+            "safety_total": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "safety_failed": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "quality_total": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "quality_failed": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "additionalProperties": true
+        },
+        "rdsi": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "Release Decision Stability Index for this run."
+        },
+        "rdsi_delta": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "Optional RDSI delta versus a reference or previous run."
+        },
+        "epf": {
+          "type": "object",
+          "required": [
+            "available"
+          ],
+          "properties": {
+            "available": {
+              "type": "boolean"
+            },
+            "L": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "description": "EPF contraction factor L (if available)."
+            },
+            "shadow_pass": {
+              "type": [
+                "boolean",
+                "null"
+              ],
+              "description": "Whether the EPF shadow experiment passes."
+            }
+          },
+          "additionalProperties": true
+        },
+        "instability": {
+          "type": "object",
+          "required": [
+            "score"
+          ],
+          "properties": {
+            "score": {
+              "type": "number",
+              "minimum": 0.0,
+              "maximum": 1.0,
+              "description": "Overall instability score in [0, 1]."
+            },
+            "safety_component": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "quality_component": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "rdsi_component": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "epf_component": {
+              "type": [
+                "number",
+                "null"
+              ]
+            }
+          },
+          "additionalProperties": true
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "STABLE",
+            "METASTABLE",
+            "UNSTABLE",
+            "PARADOX",
+            "COLLAPSE"
+          ],
+          "description": "Stability type classification."
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "paradox": {
+          "type": "object",
+          "required": [
+            "present",
+            "patterns",
+            "details"
+          ],
+          "properties": {
+            "present": {
+              "type": "boolean"
+            },
+            "patterns": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "details": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": [
+                  "pattern",
+                  "reason"
+                ],
+                "properties": {
+                  "pattern": {
+                    "type": "string"
+                  },
+                  "reason": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": true
+              }
+            },
+            "resolution": {
+              "type": "object",
+              "required": [
+                "severity",
+                "primary_focus",
+                "recommendations"
+              ],
+              "properties": {
+                "severity": {
+                  "type": "string",
+                  "enum": [
+                    "LOW",
+                    "MEDIUM",
+                    "HIGH"
+                  ]
+                },
+                "primary_focus": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "recommendations": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "additionalProperties": true
+            }
+          },
+          "additionalProperties": true
+        },
+        "paradox_field_v0": {
+          "type": "object",
+          "description": "Paradoxon-mező v0 ehhez az állapothoz (paradox atomok + összefoglaló).",
+          "properties": {
+            "atoms": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/ParadoxAtom"
+              }
+            },
+            "summary": {
+              "$ref": "#/$defs/ParadoxFieldSummary"
+            }
+          },
+          "additionalProperties": true
+        },
+        "delta_curvature": {
+          "type": "object",
+          "description": "Directional curvature of instability across states/runs (EPF Δ-hajlás).",
+          "properties": {
+            "value": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "description": "Numeric delta-curvature value for this state, or null if not defined."
+            },
+            "band": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "low",
+                "medium",
+                "high",
+                "n/a",
+                null
+              ],
+              "description": "Binned delta-curvature band for this state."
+            }
+          },
+          "additionalProperties": false
+        },
+        "epf_field_v0": {
+          "type": "object",
+          "description": "EPF fizikai mező v0 ehhez az állapothoz (phi/theta/energy + horgonyok).",
+          "properties": {
+            "phi_potential": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "description": "EPF potenciál – mennyire \"tol\" az EPF jel."
+            },
+            "theta_distortion": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "description": "Torzulás az alap policy-térhez képest."
+            },
+            "energy_delta": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "description": "Energiatér-változás a döntés alatt."
+            },
+            "anchors": {
+              "type": "array",
+              "description": "Hol jelenik meg az EPF mező a topológiában.",
+              "items": {
+                "type": "object",
+                "required": [
+                  "topology_node"
+                ],
+                "properties": {
+                  "topology_node": {
+                    "type": "string",
+                    "description": "Topológiai node azonosító (pl. decision_engine/gate)."
+                  },
+                  "potential": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "description": "Lokális phi potenciál ezen a node-on."
+                  },
+                  "deflection": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "description": "Lokális torzulás ezen a node-on."
+                  }
+                },
+                "additionalProperties": true
+              }
+            },
+            "linked_paradoxes": {
+              "type": "array",
+              "description": "Paradox-atom ID-k, amelyekhez ez az EPF mező kapcsolódik.",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": true
+    },
+    "ReleaseTransition": {
+      "type": "object",
+      "required": [
+        "from",
+        "to",
+        "label",
+        "delta_instability",
+        "category"
+      ],
+      "properties": {
+        "from": {
+          "type": "string",
+          "description": "Source state id."
+        },
+        "to": {
+          "type": "string",
+          "description": "Target state id."
+        },
+        "label": {
+          "type": "string",
+          "description": "Short human-readable label for the transition."
+        },
+        "change": {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "notes": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": true
+        },
+        "delta_instability": {
+          "type": "number",
+          "description": "Change in instability score (target - source)."
+        },
+        "delta_rdsi": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "Optional change in RDSI."
+        },
+        "delta_epf_L": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "Optional change in EPF L."
+        },
+        "category": {
+          "type": "string",
+          "enum": [
+            "STABILISING",
+            "DESTABILISING",
+            "NEUTRAL"
+          ],
+          "description": "Coarse classification of the transition."
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "ParadoxAtom": {
+      "type": "object",
+      "description": "Egyetlen paradoxon-atom v0: tengely + A/¬A + irány + feszültség.",
+      "required": [
+        "axis_id",
+        "A",
+        "notA",
+        "direction",
+        "tension_score"
+      ],
+      "properties": {
+        "axis_id": {
+          "type": "string",
+          "description": "Melyik paradox-tengelyhez tartozik (pl. epf_field_vs_policy_field)."
+        },
+        "A": {
+          "type": "string",
+          "description": "Első állítás / elv (forrás 1)."
+        },
+        "notA": {
+          "type": "string",
+          "description": "Ellentétes állítás / elv (forrás 2)."
+        },
+        "direction": {
+          "type": "string",
+          "enum": [
+            "towards_A",
+            "towards_notA",
+            "towards_stability",
+            "unresolved"
+          ],
+          "description": "Merre mozdult a rendszer a két elv között."
+        },
+        "tension_score": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0,
+          "description": "Feszültség mértéke [0,1] skálán."
+        },
+        "zone": {
+          "type": "string",
+          "enum": [
+            "green",
+            "yellow",
+            "red"
+          ],
+          "description": "Zóna: mennyire kritikus ez a paradoxon."
+        },
+        "context": {
+          "type": "object",
+          "description": "Kontekstus: hol jelent meg ez a paradoxon a Pulse-térben.",
+          "properties": {
+            "run_id": {
+              "type": "string"
+            },
+            "scope": {
+              "type": "string"
+            },
+            "segment": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": true
+        },
+        "anchors": {
+          "type": "array",
+          "description": "Topológiai horgonyok – mely node-okon fut át a paradoxon.",
+          "items": {
+            "type": "object",
+            "required": [
+              "topology_node"
+            ],
+            "properties": {
+              "topology_node": {
+                "type": "string"
+              },
+              "role": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": true
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "ParadoxFieldSummary": {
+      "type": "object",
+      "description": "Paradoxon-mező v0 összefoglaló, egyetlen ReleaseState-re.",
+      "properties": {
+        "max_tension": {
+          "type": "number",
+          "description": "A legnagyobb feszültségű paradoxon-atom score-ja."
+        },
+        "num_atoms": {
+          "type": "integer",
+          "description": "Paradoxon-atomok száma ebben az állapotban."
+        },
+        "num_red_zones": {
+          "type": "integer",
+          "description": "Hány atom van piros zónában."
+        },
+        "num_yellow_zones": {
+          "type": "integer",
+          "description": "Hány atom van sárga zónában."
+        },
+        "dominant_axes": {
+          "type": "array",
+          "description": "Azok a tengelyek, ahol a legnagyobb feszültség jelent meg.",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true
+    }
+  }
+}
