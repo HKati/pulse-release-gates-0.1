@@ -22,8 +22,37 @@ import sys
 TEXT_SUFFIXES = {".md", ".py", ".yml", ".yaml", ".json", ".toml", ".txt"}
 
 
+def find_repo_root(start: pathlib.Path) -> pathlib.Path:
+    """
+    Heuristically find the repository root by walking upwards from `start`.
+
+    We treat a directory as the repo root if it contains at least one of:
+    - a `.git` directory,
+    - a `.github` directory,
+    - a `PULSE_safe_pack_v0` directory,
+    - a `README.md` file.
+
+    If nothing matches, we fall back to the highest parent.
+    """
+    start = start.resolve()
+    candidates = [start] + list(start.parents)
+
+    for candidate in candidates:
+        if (
+            (candidate / ".git").exists()
+            or (candidate / ".github").is_dir()
+            or (candidate / "PULSE_safe_pack_v0").is_dir()
+            or (candidate / "README.md").is_file()
+        ):
+            return candidate
+
+    # Fallback: the top-most parent we know about.
+    return candidates[-1]
+
+
 def main() -> int:
-    root = pathlib.Path(__file__).resolve().parents[1]
+    script_path = pathlib.Path(__file__).resolve()
+    root = find_repo_root(script_path)
 
     legacy = root / "stability_map.json"
     current = root / "stability_map_v0.json"
