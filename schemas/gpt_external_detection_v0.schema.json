@@ -1,115 +1,99 @@
 {
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "gpt_external_detection_v0 overlay",
-  "description": "Contract for the external GPT/vendor detection overlay produced by gpt_external_detector.py.",
-  "type": "object",
-  "additionalProperties": true,
-  "required": [
-    "version",
-    "created_at",
-    "input_file",
-    "summary",
-    "records"
-  ],
-  "properties": {
-    "version": {
-      "type": "string",
-      "const": "gpt_external_detection_v0"
-    },
-    "created_at": {
-      "type": "string",
-      "format": "date-time"
-    },
-    "input_file": {
-      "type": "string",
-      "description": "Path to the input JSONL log file used by the detector."
-    },
-    "summary": {
-      "type": "object",
-      "additionalProperties": true,
-      "required": [
-        "total_records",
-        "num_external_gpt",
-        "num_internal",
-        "num_unknown",
-        "vendors",
-        "models"
-      ],
-      "properties": {
-        "total_records": {
-          "type": "integer",
-          "minimum": 0
-        },
-        "num_external_gpt": {
-          "type": "integer",
-          "minimum": 0
-        },
-        "num_internal": {
-          "type": "integer",
-          "minimum": 0
-        },
-        "num_unknown": {
-          "type": "integer",
-          "minimum": 0
-        },
-        "vendors": {
-          "type": "object",
-          "description": "Map of vendor name (lowercased) to count.",
-          "additionalProperties": {
-            "type": "integer",
-            "minimum": 0
-          }
-        },
-        "models": {
-          "type": "object",
-          "description": "Map of model name (lowercased) to count.",
-          "additionalProperties": {
-            "type": "integer",
-            "minimum": 0
-          }
-        }
+  "version": "gpt_external_detection_v0",
+  "created_at": "2025-12-04T09:30:00Z",
+  "source": "gpt_external_detector_v0",
+  "input_file": "logs/gpt_usage.log",
+
+  "records": [],
+
+  "summary": {
+    "total_records": 3,
+    "num_external_gpt": 2,
+    "num_internal": 1,
+    "num_unknown": 0,
+
+    "vendors": [
+      {
+        "name": "internal_hpc",
+        "count": 1,
+        "kind": "internal"
+      },
+      {
+        "name": "openai",
+        "count": 2,
+        "kind": "external"
       }
-    },
-    "records": {
-      "type": "array",
-      "minItems": 0,
-      "items": {
-        "type": "object",
-        "additionalProperties": true,
-        "required": [
-          "idx",
-          "is_external_gpt",
-          "is_internal",
-          "reason"
-        ],
-        "properties": {
-          "idx": {
-            "type": "integer",
-            "minimum": 1,
-            "description": "1-based line index in the input JSONL file."
-          },
-          "id": {
-            "type": ["string", "null"],
-            "description": "Optional request / trace id associated with the record."
-          },
-          "is_external_gpt": {
-            "type": "boolean"
-          },
-          "is_internal": {
-            "type": "boolean"
-          },
-          "vendor": {
-            "type": ["string", "null"]
-          },
-          "model": {
-            "type": ["string", "null"]
-          },
-          "reason": {
-            "type": "string",
-            "description": "Short explanation of the detection decision."
-          }
-        }
+    ],
+
+    "models": [
+      {
+        "name": "internal_hpc_model",
+        "vendor": "internal_hpc",
+        "origin": "internal",
+        "total_calls": 1
+      },
+      {
+        "name": "gpt-5.1",
+        "vendor": "openai",
+        "origin": "external",
+        "total_calls": 2
       }
-    }
+    ],
+
+    "total_calls": 3,
+    "internal_calls": 1,
+    "external_calls": 2,
+    "external_share": 66.7,
+
+    "top_vendors": [
+      {
+        "name": "openai",
+        "count": 2
+      }
+    ],
+
+    "top_models": [
+      {
+        "name": "gpt-5.1",
+        "vendor": "openai",
+        "total_calls": 2
+      }
+    ],
+
+    "notes": [
+      "Overlay rebuilt to match gpt_external_detection_v0.schema.json.",
+      "Vendors encoded as array-of-object instead of map; counts preserved (internal_hpc=1, openai=2)."
+    ]
+  },
+
+  "breakdowns": {
+    "by_vendor": [
+      {
+        "name": "internal_hpc",
+        "total_calls": 1
+      },
+      {
+        "name": "openai",
+        "total_calls": 2
+      }
+    ],
+    "by_model": [
+      {
+        "name": "internal_hpc_model",
+        "vendor": "internal_hpc",
+        "total_calls": 1
+      },
+      {
+        "name": "gpt-5.1",
+        "vendor": "openai",
+        "total_calls": 2
+      }
+    ],
+    "by_product_line": [],
+    "by_scenario": []
+  },
+
+  "diagnostics": {
+    "notes": "Schema-aligned shadow overlay for GPT external detection (v0)."
   }
 }
