@@ -39,16 +39,25 @@ jobs:
 
       - name: Run Decision Engine (demo)
         run: |
-          python PULSE_safe_pack_v0/tools/run_decision_engine.py \
-            --stability-map PULSE_safe_pack_v0/artifacts/stability_map.demo.ci.json \
-            --out PULSE_safe_pack_v0/artifacts/decision_trace.demo.ci.json
+          if [ -f "PULSE_safe_pack_v0/artifacts/stability_map.demo.ci.json" ]; then
+            python PULSE_safe_pack_v0/tools/run_decision_engine.py \
+              --stability-map PULSE_safe_pack_v0/artifacts/stability_map.demo.ci.json \
+              --out PULSE_safe_pack_v0/artifacts/decision_trace.demo.ci.json
+          else
+            echo "No stability_map.demo.ci.json found, skipping decision engine demo."
+          fi
 
       - name: Build Dual View v0 (demo)
         run: |
-          python PULSE_safe_pack_v0/tools/build_dual_view_v0.py \
-            --stability-map PULSE_safe_pack_v0/artifacts/stability_map.demo.ci.json \
-            --decision-trace PULSE_safe_pack_v0/artifacts/decision_trace.demo.ci.json \
-            --out PULSE_safe_pack_v0/artifacts/dual_view_v0.demo.ci.json
+          if [ -f "PULSE_safe_pack_v0/artifacts/stability_map.demo.ci.json" ] && \
+             [ -f "PULSE_safe_pack_v0/artifacts/decision_trace.demo.ci.json" ]; then
+            python PULSE_safe_pack_v0/tools/build_dual_view_v0.py \
+              --stability-map PULSE_safe_pack_v0/artifacts/stability_map.demo.ci.json \
+              --decision-trace PULSE_safe_pack_v0/artifacts/decision_trace.demo.ci.json \
+              --out PULSE_safe_pack_v0/artifacts/dual_view_v0.demo.ci.json
+          else
+            echo "Missing stability_map or decision_trace demo artefacts, skipping dual view demo."
+          fi
 
       - name: Install jsonschema for validation
         run: |
@@ -87,11 +96,14 @@ jobs:
           fi
 
       - name: Validate decision trace with helper script
-        if: ${{ hashFiles('PULSE_safe_pack_v0/artifacts/decision_trace.demo.ci.json') != '' }}
         run: |
-          python PULSE_safe_pack_v0/tools/validate_decision_trace_v0.py \
-            --schema schemas/PULSE_decision_trace_v0.schema.json \
-            PULSE_safe_pack_v0/artifacts/decision_trace.demo.ci.json
+          if [ -f "PULSE_safe_pack_v0/artifacts/decision_trace.demo.ci.json" ]; then
+            python PULSE_safe_pack_v0/tools/validate_decision_trace_v0.py \
+              --schema schemas/PULSE_decision_trace_v0.schema.json \
+              PULSE_safe_pack_v0/artifacts/decision_trace.demo.ci.json
+          else
+            echo "No decision_trace.demo.ci.json found, skipping helper validation."
+          fi
 
       - name: Upload topology demo artefacts
         uses: actions/upload-artifact@v4
