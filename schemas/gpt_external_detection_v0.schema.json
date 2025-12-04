@@ -1,171 +1,99 @@
 {
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "GPT external detection overlay v0",
-  "description": "Shadow-only overlay summarising internal vs external GPT usage by vendor/model/product.",
-  "type": "object",
-  "required": ["summary"],
-  "properties": {
-    "version": {
-      "type": "string",
-      "description": "Overlay version identifier (kept for v0 compatibility)."
-    },
-    "created_at": {
-      "type": "string",
-      "format": "date-time",
-      "description": "Timestamp when this overlay JSON was created."
-    },
-    "source": {
-      "type": "string",
-      "description": "Optional short string describing the overlay source (e.g. builder script name)."
-    },
-    "input_file": {
-      "type": "string",
-      "description": "Path to the log file used by the detector (kept for v0 compatibility)."
-    },
-    "records": {
-      "type": "array",
-      "description": "Per-record diagnostics emitted by the current detector (kept for v0 compatibility).",
-      "items": {
-        "type": "object",
-        "additionalProperties": true
+  "version": "gpt_external_detection_v0",
+  "created_at": "2025-12-04T09:30:00Z",
+  "source": "gpt_external_detector_v0",
+  "input_file": "logs/gpt_usage.log",
+
+  "records": [],
+
+  "summary": {
+    "total_records": 3,
+    "num_external_gpt": 2,
+    "num_internal": 1,
+    "num_unknown": 0,
+
+    "vendors": [
+      {
+        "name": "internal_hpc",
+        "count": 1,
+        "kind": "internal"
+      },
+      {
+        "name": "openai",
+        "count": 2,
+        "kind": "external"
       }
-    },
-    "summary": {
-      "type": "object",
-      "description": "Top-level GPT usage summary.",
-      "required": [
-        "total_records",
-        "num_external_gpt",
-        "num_internal",
-        "num_unknown",
-        "vendors",
-        "models"
-      ],
-      "properties": {
-        "total_records": {
-          "type": "integer",
-          "minimum": 0,
-          "description": "Total number of log records seen by the detector."
-        },
-        "num_external_gpt": {
-          "type": "integer",
-          "minimum": 0,
-          "description": "Number of calls attributed to external GPT providers."
-        },
-        "num_internal": {
-          "type": "integer",
-          "minimum": 0,
-          "description": "Number of calls attributed to internal/HPC providers."
-        },
-        "num_unknown": {
-          "type": "integer",
-          "minimum": 0,
-          "description": "Number of calls where origin could not be classified."
-        },
-        "vendors": {
-          "type": "array",
-          "description": "Per-vendor summary emitted by the current detector.",
-          "items": {
-            "$ref": "#/definitions/vendor_summary"
-          }
-        },
-        "models": {
-          "type": "array",
-          "description": "Per-model summary emitted by the current detector.",
-          "items": {
-            "$ref": "#/definitions/model_summary"
-          }
-        },
-        "total_calls": {
-          "type": "integer",
-          "minimum": 0,
-          "description": "Optional alias for total_records, used by future builders."
-        },
-        "internal_calls": {
-          "type": "integer",
-          "minimum": 0,
-          "description": "Optional alias for num_internal, used by future builders."
-        },
-        "external_calls": {
-          "type": "integer",
-          "minimum": 0,
-          "description": "Optional alias for num_external_gpt, used by future builders."
-        },
-        "external_share": {
-          "type": "number",
-          "description": "External_calls / total_calls * 100 (percentage)."
-        },
-        "top_vendors": {
-          "type": "array",
-          "description": "Top vendors by total calls (small slice for snapshot).",
-          "items": {
-            "$ref": "#/definitions/vendor_summary"
-          }
-        },
-        "top_models": {
-          "type": "array",
-          "description": "Top models by total calls (small slice for snapshot).",
-          "items": {
-            "$ref": "#/definitions/model_summary"
-          }
-        },
-        "notes": {
-          "type": "array",
-          "items": { "type": "string" }
-        }
+    ],
+
+    "models": [
+      {
+        "name": "internal_hpc_model",
+        "vendor": "internal_hpc",
+        "origin": "internal",
+        "total_calls": 1
       },
-      "additionalProperties": true
-    },
-    "breakdowns": {
-      "type": "object",
-      "description": "Optional detailed breakdowns (for dashboards).",
-      "properties": {
-        "by_vendor": {
-          "type": "array",
-          "items": { "$ref": "#/definitions/vendor_summary" }
-        },
-        "by_model": {
-          "type": "array",
-          "items": { "$ref": "#/definitions/model_summary" }
-        },
-        "by_product_line": {
-          "type": "array",
-          "items": { "$ref": "#/definitions/product_summary" }
-        },
-        "by_scenario": {
-          "type": "array",
-          "items": { "$ref": "#/definitions/scenario_summary" }
-        }
-      },
-      "additionalProperties": true
-    },
-    "diagnostics": {
-      "type": "object",
-      "description": "Free-form diagnostics for log coverage, filters, etc.",
-      "additionalProperties": true
-    }
+      {
+        "name": "gpt-5.1",
+        "vendor": "openai",
+        "origin": "external",
+        "total_calls": 2
+      }
+    ],
+
+    "total_calls": 3,
+    "internal_calls": 1,
+    "external_calls": 2,
+    "external_share": 66.7,
+
+    "top_vendors": [
+      {
+        "name": "openai",
+        "count": 2
+      }
+    ],
+
+    "top_models": [
+      {
+        "name": "gpt-5.1",
+        "vendor": "openai",
+        "total_calls": 2
+      }
+    ],
+
+    "notes": [
+      "Overlay rebuilt to match gpt_external_detection_v0.schema.json.",
+      "Vendors encoded as array-of-object instead of map; counts preserved (internal_hpc=1, openai=2)."
+    ]
   },
-  "additionalProperties": true,
-  "definitions": {
-    "vendor_summary": {
-      "type": "object",
-      "description": "Loose vendor summary shape (kept intentionally permissive for v0).",
-      "additionalProperties": true
-    },
-    "model_summary": {
-      "type": "object",
-      "description": "Loose model summary shape (kept intentionally permissive for v0).",
-      "additionalProperties": true
-    },
-    "product_summary": {
-      "type": "object",
-      "description": "Loose product-line summary shape.",
-      "additionalProperties": true
-    },
-    "scenario_summary": {
-      "type": "object",
-      "description": "Loose scenario summary shape.",
-      "additionalProperties": true
-    }
+
+  "breakdowns": {
+    "by_vendor": [
+      {
+        "name": "internal_hpc",
+        "total_calls": 1
+      },
+      {
+        "name": "openai",
+        "total_calls": 2
+      }
+    ],
+    "by_model": [
+      {
+        "name": "internal_hpc_model",
+        "vendor": "internal_hpc",
+        "total_calls": 1
+      },
+      {
+        "name": "gpt-5.1",
+        "vendor": "openai",
+        "total_calls": 2
+      }
+    ],
+    "by_product_line": [],
+    "by_scenario": []
+  },
+
+  "diagnostics": {
+    "notes": "Schema-aligned shadow overlay for GPT external detection (v0)."
   }
 }
