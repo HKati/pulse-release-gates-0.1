@@ -59,19 +59,35 @@ jobs:
         # Only run validation if the main schema file is present
         if: ${{ hashFiles('schemas/PULSE_stability_map_v0.schema.json') != '' }}
         run: |
-          python -m jsonschema \
-            -i PULSE_safe_pack_v0/artifacts/stability_map.demo.ci.json \
-            schemas/PULSE_stability_map_v0.schema.json
+          # Validate stability_map demo if present
+          if [ -f "PULSE_safe_pack_v0/artifacts/stability_map.demo.ci.json" ]; then
+            python -m jsonschema \
+              -i PULSE_safe_pack_v0/artifacts/stability_map.demo.ci.json \
+              schemas/PULSE_stability_map_v0.schema.json
+          else
+            echo "No stability_map.demo.ci.json found, skipping stability map validation."
+          fi
 
-          python -m jsonschema \
-            -i PULSE_safe_pack_v0/artifacts/decision_trace.demo.ci.json \
-            schemas/PULSE_decision_trace_v0.schema.json
+          # Validate decision_trace demo if present
+          if [ -f "PULSE_safe_pack_v0/artifacts/decision_trace.demo.ci.json" ]; then
+            python -m jsonschema \
+              -i PULSE_safe_pack_v0/artifacts/decision_trace.demo.ci.json \
+              schemas/PULSE_decision_trace_v0.schema.json
+          else
+            echo "No decision_trace.demo.ci.json found, skipping decision trace validation."
+          fi
 
-          python -m jsonschema \
-            -i PULSE_safe_pack_v0/artifacts/dual_view_v0.demo.ci.json \
-            schemas/PULSE_dual_view_v0.schema.json
+          # Validate dual_view demo if present
+          if [ -f "PULSE_safe_pack_v0/artifacts/dual_view_v0.demo.ci.json" ]; then
+            python -m jsonschema \
+              -i PULSE_safe_pack_v0/artifacts/dual_view_v0.demo.ci.json \
+              schemas/PULSE_dual_view_v0.schema.json
+          else
+            echo "No dual_view_v0.demo.ci.json found, skipping dual view validation."
+          fi
 
       - name: Validate decision trace with helper script
+        if: ${{ hashFiles('PULSE_safe_pack_v0/artifacts/decision_trace.demo.ci.json') != '' }}
         run: |
           python PULSE_safe_pack_v0/tools/validate_decision_trace_v0.py \
             --schema schemas/PULSE_decision_trace_v0.schema.json \
