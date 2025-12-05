@@ -1,0 +1,158 @@
+name: PULSE History & Drift
+
+on:
+  # Manual trigger for now; can be extended with a schedule if desired.
+  workflow_dispatch: {}
+  # Example nightly run at 03:00 UTC (optional):
+  # schedule:
+  #   - cron: "0 3 * * *"
+
+permissions:
+  contents: write
+
+jobs:
+  history-drift:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Locate PULSE pack
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$GITHUB_WORKSPACE"
+
+          if [ -d "$ROOT/PULSE_safe_pack_v0" ]; then
+            echo "PACK_DIR=$ROOT/PULSE_safe_pack_v0" >> "$GITHUB_ENV"
+          elif [ -f "$ROOT/PULSE_safe_pack_v0.zip" ]; then
+            unzip -q -o "$ROOT/PULSE_safe_pack_v0.zip"
+            echo "PACK_DIR=$ROOT/PULSE_safe_pack_v0" >> "$GITHUB_ENV"
+          else
+            RUN_ALL=$(find "$ROOT" -type f -name run_all.py -path "*/PULSE_safe_pack_v0/*" | head -n1 || true)
+            if [ -z "$RUN_ALL" ]; then
+              echo "::error::PULSE_safe_pack_v0 not found (expected folder or zip in repo root)."
+              exit 1
+            fi
+            echo "PACK_DIR=$(dirname "$(dirname "$RUN_ALL")")" >> "$GITHUB_ENV"
+          fi
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Run PULSE pack (history/drift context)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python "${PACK_DIR}/tools/run_all.py"
+
+      - name: Append to status history
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [ ! -f "scripts/append_status_history.py" ]; then
+            echo "::error::scripts/append_status_history.py not found."
+            exit 1
+          fi
+
+          python scripts/append_status_history.py \
+            --status "${PACK_DIR}/artifacts/status.json" \
+            --output "logs/status_history.jsonl" \
+            --run-id "${GITHUB_RUN_ID:-}"
+
+      - name: Prepare last-two-run status snapshots
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          HISTORY_PATH="logs/status_history.jsonl"
+          TMP_DIR="logs/_tmp_diff"
+
+          if [ ! -f "$HISTORY_PATH" ]; then
+            echo "[history-drift] No history file at $HISTORY_PATH, skipping diff."
+            exit 0
+          fi
+
+          python - << 'EOF'
+          import json
+          import os
+
+          history_path = "logs/status_history.jsonl"
+          tmp_dir = "logs/_tmp_diff"
+
+          if not os.path.exists(history_path):
+            print("[history-drift] No history file, skipping.", flush=True)
+            raise SystemExit(0)
+
+          with open(history_path, encoding="utf-8") as f:
+            lines = [line for line in f if line.strip()]
+
+          if len(lines) < 2:
+            print("[history-drift] Not enough entries for diff (need at least 2).", flush=True)
+            raise SystemExit(0)
+
+          last = json.loads(lines[-1])
+          prev = json.loads(lines[-2])
+
+          os.makedirs(tmp_dir, exist_ok=True)
+
+          prev_path = os.path.join(tmp_dir, "status_prev.json")
+          curr_path = os.path.join(tmp_dir, "status_curr.json")
+
+          with open(prev_path, "w", encoding="utf-8") as f_prev:
+            json.dump(prev["status"], f_prev, ensure_ascii=False)
+
+          with open(curr_path, "w", encoding="utf-8") as f_curr:
+            json.dump(last["status"], f_curr, ensure_ascii=False)
+
+          print(f"[history-drift] Wrote {prev_path} and {curr_path}", flush=True)
+          EOF
+
+      - name: Compute minimal diff between last two runs
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [ ! -f "scripts/diff_runs_minimal.py" ]; then
+            echo "::error::scripts/diff_runs_minimal.py not found."
+            exit 1
+          fi
+
+          PREV="logs/_tmp_diff/status_prev.json"
+          CURR="logs/_tmp_diff/status_curr.json"
+
+          if [ ! -f "$PREV" ] || [ ! -f "$CURR" ]; then
+            echo "[history-drift] No prev/curr status snapshots found, skipping diff."
+            exit 0
+          fi
+
+          mkdir -p logs
+
+          python scripts/diff_runs_minimal.py \
+            --a "$PREV" \
+            --b "$CURR" \
+            --format json \
+            --output "logs/diff_last_two_runs.json"
+
+          python scripts/diff_runs_minimal.py \
+            --a "$PREV" \
+            --b "$CURR" \
+            --format markdown \
+            --output "logs/diff_last_two_runs.md"
+
+      - name: Upload history & drift artefacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pulse-history-drift
+          path: |
+            logs/status_history.jsonl
+            logs/diff_last_two_runs.json
+            logs/diff_last_two_runs.md
+            logs/_tmp_diff/status_prev.json
+            logs/_tmp_diff/status_curr.json
+          if-no-files-found: ignore
