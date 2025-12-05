@@ -29,6 +29,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Docs
 - `CITATION.cff`: add ORCID for Katalin Horvat; add software reference to ChatGPT (GPT‑5 Pro).
+- Add `docs/GOVERNANCE_PACK_v0.md`: overview of the optional Governance Pack
+  (Stability Map, Decision Engine, EPF/Paradox Playbook, G-field, history tools).
 
 ### Security
 - (no changes)
