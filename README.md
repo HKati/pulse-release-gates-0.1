@@ -565,7 +565,35 @@ If you use this software, please cite the **versioned release** below.
   doi          = {10.5281/zenodo.17373002},
   url          = {https://doi.org/10.5281/zenodo.17373002}
 }
+
 ```
+
+---
+
+## Publication
+
+[![Preprint DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.17833583.svg)](https://doi.org/10.5281/zenodo.17833583)
+
+This repository is accompanied by the cs.AI preprint:
+
+> K. Horvat. *PULSE: Deterministic Release Gates for Safe & Useful AI*. Preprint, Zenodo, 2025.  
+> DOI: [10.5281/zenodo.17833583](https://doi.org/10.5281/zenodo.17833583)
+
+The preprint provides the mathematical and governance background for PULSE as a deterministic,
+fail-closed release-governance layer for LLM applications, with:
+
+- safety/consistency invariants (I2–I7),
+- quality gates (Q1–Q4) with Wilson intervals and Newcombe deltas,
+- SLO budgets on latency and cost,
+- the Release-Decision Stability Index (RDSI),
+- the Vacuum–energy Penalty Functional (EPF),
+- and the paradox field notation `[(0 1)P]` for high-tension governance states.
+
+This repository contains the reference implementation of the safe-pack, profiles, schemas, tools and
+CI wiring corresponding to the preprint.
+
+
+---
 
 ## Acknowledgments
 
