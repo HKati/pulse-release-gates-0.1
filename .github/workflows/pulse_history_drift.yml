@@ -10,6 +10,11 @@ on:
 permissions:
   contents: write
 
+env:
+  HISTORY_FILE: logs/status_history.jsonl
+  HISTORY_CACHE_KEY: pulse-history-${{ github.ref_name }}-${{ github.run_number }}
+  HISTORY_CACHE_PREFIX: pulse-history-${{ github.ref_name }}-
+
 jobs:
   history-drift:
     runs-on: ubuntu-latest
@@ -17,6 +22,15 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Restore status history cache
+        id: restore-history
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ env.HISTORY_FILE }}
+          key: ${{ env.HISTORY_CACHE_KEY }}
+          restore-keys: |
+            ${{ env.HISTORY_CACHE_PREFIX }}
 
       - name: Locate PULSE pack
         shell: bash
@@ -61,7 +75,7 @@ jobs:
 
           python scripts/append_status_history.py \
             --status "${PACK_DIR}/artifacts/status.json" \
-            --output "logs/status_history.jsonl" \
+            --output "${HISTORY_FILE}" \
             --run-id "${GITHUB_RUN_ID:-}"
 
       - name: Prepare last-two-run status snapshots
@@ -69,7 +83,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          HISTORY_PATH="logs/status_history.jsonl"
+          HISTORY_PATH="${HISTORY_FILE}"
           TMP_DIR="logs/_tmp_diff"
 
           if [ ! -f "$HISTORY_PATH" ]; then
@@ -81,7 +95,7 @@ jobs:
           import json
           import os
 
-          history_path = "logs/status_history.jsonl"
+          history_path = os.environ.get("HISTORY_FILE", "logs/status_history.jsonl")
           tmp_dir = "logs/_tmp_diff"
 
           if not os.path.exists(history_path):
@@ -144,13 +158,20 @@ jobs:
             --format markdown \
             --output "logs/diff_last_two_runs.md"
 
+      - name: Save status history cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ env.HISTORY_FILE }}
+          key: ${{ env.HISTORY_CACHE_KEY }}
+
       - name: Upload history & drift artefacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: pulse-history-drift
           path: |
-            logs/status_history.jsonl
+            ${{ env.HISTORY_FILE }}
             logs/diff_last_two_runs.json
             logs/diff_last_two_runs.md
             logs/_tmp_diff/status_prev.json
