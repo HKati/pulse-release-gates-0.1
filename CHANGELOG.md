@@ -16,6 +16,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   - aggregates safety/quality gate outcomes, RDSI and EPF (`epf_L`) into a single instability score with transparent components
   - assigns a coarse stability type per run (`STABLE`, `METASTABLE`, `UNSTABLE`, `PARADOX`, `COLLAPSE`)
   - does not modify any existing fail-closed release-gate behaviour
+- Core policy profile `PULSE_safe_pack_v0/profiles/pulse_policy_core.yaml`:
+  - documents the minimal recommended deterministic gate set for first-time PULSE adopters
+  - encodes a CI-neutral refusal-delta stability policy without changing the existing fail-closed behaviour
 
 ### Changed
 - README: add DOI badge above the PULSE badges; keep badges.
