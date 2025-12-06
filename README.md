@@ -548,6 +548,31 @@ For a detailed overview and examples, see:
 
 ---
 
+## Documentation
+
+PULSE ships a few focused docs pages for people integrating the safe-pack
+into CI/CD or audits:
+
+- [`docs/status_json.md`](docs/status_json.md)  
+  Overview of the `status.json` artefact: metrics, gates and how other
+  tools consume it.
+
+- [`docs/refusal_delta_gate.md`](docs/refusal_delta_gate.md)  
+  Refusal delta summary format and the `refusal_delta_pass` gate, including
+  fail‑closed behaviour when evaluations are missing.
+
+- [`docs/external_detectors.md`](docs/external_detectors.md)  
+  How external detector summaries (LlamaGuard, Promptfoo, Garak, Azure eval,
+  Prompt Guard, …) are folded into `status.json` and the `external_all_pass`
+  gate.
+
+- [`docs/quality_ledger.md`](docs/quality_ledger.md)  
+  Human‑facing PULSE Quality Ledger (report_card.html): layout, purpose and
+  how it relates to `status.json`.
+
+
+---
+
 ## How to cite
 
 If you use this software, please cite the **versioned release** below.
