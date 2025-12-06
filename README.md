@@ -42,6 +42,12 @@ Releases: https://github.com/HKati/pulse-release-gates-0.1/releases
 
 # PULSE — Release Gates for Safe & Useful AI
 
+> 💡 **Continuous expansion**
+>
+> PULSE is not a frozen snapshot. The core release gate semantics are stable,
+> but the safe pack, docs and examples are under active, ongoing expansion.
+> Expect new profiles, detectors and ledger views to appear over time.
+
 From **findings** to **fuses**. Run **PULSE before you ship**: deterministic, **fail-closed** gates that turn red-team insights into **release decisions** for both safety (I₂–I₇) and product utility (Q₁–Q₄). Offline, CI-enforced, audit-ready.
 
 <p>
