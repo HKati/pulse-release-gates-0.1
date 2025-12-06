@@ -215,6 +215,7 @@ r = fold_external(
     "promptguard_summary.json",
     "promptguard_attack_detect_rate_max",
     "promptguard_attack_detect_rate",
+    key_in_json="attack_detect_rate",
 )
 if r is not None:
     oks.append(r)
