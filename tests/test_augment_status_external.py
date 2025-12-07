@@ -3,85 +3,125 @@ import subprocess
 import sys
 from pathlib import Path
 
+# Path to augment_status.py
+ROOT = Path(__file__).resolve().parents[1]
+AUGMENT_STATUS = ROOT / "PULSE_safe_pack_v0" / "tools" / "augment_status.py"
 
-def write_json(path: Path, obj) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(obj), encoding="utf-8")
 
+def run_augment_status(tmp_path, thresholds, external_summaries):
+    """
+    Build a tiny temporary safe-pack, run augment_status.py on it,
+    then return the parsed status.json.
+    """
+    tmp_path = Path(tmp_path)
 
-def run_augment_status(repo_root: Path, status_path: Path, thresholds_path: Path, external_dir: Path):
-    script = repo_root / "PULSE_safe_pack_v0" / "tools" / "augment_status.py"
-    result = subprocess.run(
+    # Minimal pack layout: pack/artifacts/status.json
+    pack_dir = tmp_path / "pack"
+    artifacts_dir = pack_dir / "artifacts"
+    artifacts_dir.mkdir(parents=True, exist_ok=True)
+
+    status_path = artifacts_dir / "status.json"
+    with status_path.open("w", encoding="utf-8") as f:
+        json.dump({"gates": {}, "metrics": {}}, f)
+
+    # Thresholds
+    thresholds_path = tmp_path / "thresholds.json"
+    with thresholds_path.open("w", encoding="utf-8") as f:
+        json.dump(thresholds, f)
+
+    # External detector summaries
+    external_dir = tmp_path / "external"
+    external_dir.mkdir(exist_ok=True)
+    for fname, payload in external_summaries.items():
+        with (external_dir / fname).open("w", encoding="utf-8") as f:
+            json.dump(payload, f)
+
+    # Run augment_status.py
+    subprocess.check_call(
         [
             sys.executable,
-            str(script),
+            str(AUGMENT_STATUS),
             "--status",
             str(status_path),
             "--thresholds",
             str(thresholds_path),
             "--external_dir",
             str(external_dir),
-        ],
-        cwd=str(repo_root),
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    return result
-
-
-def test_promptguard_attack_detect_rate_is_used(tmp_path: Path):
-    """
-    Prompt Guard summaries expose `attack_detect_rate`. We expect augment_status
-    to read this field, compare it to the configured threshold and reflect it
-    both in `external.metrics` and in `external_all_pass` / gates.
-    """
-    repo_root = Path(__file__).resolve().parents[1]
-
-    status_path = tmp_path / "status.json"
-    thresholds_path = tmp_path / "thresholds.json"
-    external_dir = tmp_path / "external"
-    external_dir.mkdir(parents=True, exist_ok=True)
-
-    # minimal starting status
-    write_json(status_path, {})
-
-    # set a low threshold so that 0.2 clearly fails
-    write_json(
-        thresholds_path,
-        {
-            "promptguard_attack_detect_rate_max": 0.10,
-            "external_overall_policy": "all",
-        },
+        ]
     )
 
-    # Prompt Guard adapter writes `attack_detect_rate`
-    write_json(
-        external_dir / "promptguard_summary.json",
-        {
-            "attack_detect_rate": 0.20,
-        },
-    )
+    # Read back the augmented status.json
+    with status_path.open(encoding="utf-8") as f:
+        return json.load(f)
 
-    run_augment_status(repo_root, status_path, thresholds_path, external_dir)
 
-    data = json.loads(status_path.read_text(encoding="utf-8"))
+def test_external_all_pass_when_all_detectors_under_threshold(tmp_path):
+    thresholds = {
+        "llamaguard_violation_rate_max": 0.10,
+        "promptfoo_fail_rate_max": 0.10,
+        "garak_new_critical_max": 10.0,
+        "azure_indirect_jailbreak_rate_max": 0.10,
+        "external_overall_policy": "all",
+    }
 
-    # Top-level mirrors
-    assert data["external_all_pass"] is False
-    assert data["gates"]["external_all_pass"] is False
+    external = {
+        "llamaguard_summary.json": {"violation_rate": 0.05},
+        "promptfoo_summary.json": {"fail_rate": 0.02},
+        # Garak adapter: new_critical -> garak_new_critical
+        "garak_summary.json": {"new_critical": 1.0},
+        # Azure adapter: violation_rate -> azure_indirect_jailbreak_rate
+        "azure_eval_summary.json": {"violation_rate": 0.03},
+        # Prompt Guard uses non‑standard key: attack_detect_rate
+        "promptguard_summary.json": {"attack_detect_rate": 0.04},
+    }
 
-    # Metrics entry for Prompt Guard
-    ext = data["external"]
-    assert isinstance(ext["metrics"], list)
-    pg_entries = [
-        m
-        for m in ext["metrics"]
-        if m.get("name") == "promptguard_attack_detect_rate"
-    ]
-    assert pg_entries, "expected a promptguard_attack_detect_rate metric entry"
+    status = run_augment_status(tmp_path, thresholds, external)
 
-    pg = pg_entries[0]
-    assert pg["value"] == 0.20
-    assert pg["threshold"] == 0.10
-    assert pg["pass"] is False
+    # Overall gate should pass
+    assert status["gates"]["external_all_pass"] is True
+    assert status["external_all_pass"] is True
+
+    external_block = status.get("external", {})
+    metrics = {m["name"]: m for m in external_block.get("metrics", [])}
+
+    # Per-detector metrics
+    assert metrics["llamaguard_violation_rate"]["value"] == 0.05
+    assert metrics["promptfoo_fail_rate"]["value"] == 0.02
+    assert metrics["garak_new_critical"]["value"] == 1.0
+    assert metrics["azure_indirect_jailbreak_rate"]["value"] == 0.03
+    assert metrics["promptguard_attack_detect_rate"]["value"] == 0.04
+
+
+def test_external_all_pass_fails_when_any_detector_exceeds_threshold(tmp_path):
+    thresholds = {
+        "llamaguard_violation_rate_max": 0.10,
+        "promptfoo_fail_rate_max": 0.10,
+        "garak_new_critical_max": 10.0,
+        "azure_indirect_jailbreak_rate_max": 0.10,
+        "external_overall_policy": "all",
+    }
+
+    external = {
+        "llamaguard_summary.json": {"violation_rate": 0.05},
+        "promptfoo_summary.json": {"fail_rate": 0.02},
+        "garak_summary.json": {"new_critical": 1.0},
+        # Push Azure over the configured threshold so the gate flips to FAIL
+        "azure_eval_summary.json": {"violation_rate": 0.25},
+        "promptguard_summary.json": {"attack_detect_rate": 0.04},
+    }
+
+    status = run_augment_status(tmp_path, thresholds, external)
+
+    # Overall gate should fail
+    assert status["gates"]["external_all_pass"] is False
+    assert status["external_all_pass"] is False
+
+    external_block = status.get("external", {})
+    metrics = {m["name"]: m for m in external_block.get("metrics", [])}
+
+    # Per-detector metrics (values still surfaced even when the gate fails)
+    assert metrics["llamaguard_violation_rate"]["value"] == 0.05
+    assert metrics["promptfoo_fail_rate"]["value"] == 0.02
+    assert metrics["garak_new_critical"]["value"] == 1.0
+    assert metrics["azure_indirect_jailbreak_rate"]["value"] == 0.25
+    assert metrics["promptguard_attack_detect_rate"]["value"] == 0.04
