@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# pulse-summary - tiny launcher for the PULSE status summary helper.
+#
+# Usage (from the repo root):
+#   ./pulse-summary --status path/to/status.json
+#
+# By default it will fall back to PULSE_safe_pack_v0/artifacts/status.json
+# if no --status argument is provided (handled inside print_status_summary.py).
+
+set -euo pipefail
+
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
+python "$SCRIPT_DIR/PULSE_safe_pack_v0/tools/print_status_summary.py" "$@"
