@@ -48,9 +48,20 @@ def print_summary(status: Dict[str, Any]) -> None:
     profile = status.get("profile", "-")
     decision = status.get("decision", "-")
 
+        # RDSI (Release Decision Stability Index)
+    rds_lo = get_nested(status, "rds_index", "ci_lower")
+    rds_hi = get_nested(status, "rds_index", "ci_upper")
     rds_value = get_nested(status, "rds_index", "value")
-    rds_lo = get_nested(status, "rds_index", "ci_low")
-    rds_hi = get_nested(status, "rds_index", "ci_high")
+
+    if rds_lo is not None and rds_hi is not None:
+
+        if rds_value is None:
+            rds_value = (rds_lo + rds_hi) / 2.0
+
+        lines.append(
+            f"RDSI: {rds_value:.2f} (CI: {rds_lo:.2f}–{rds_hi:.2f})"
+        )
+
 
     gates = status.get("gates", {}) or {}
 
