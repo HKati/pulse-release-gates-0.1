@@ -11,6 +11,11 @@
 </details>
 
 
+<p align="center">
+  <img src="pulse_grail.svg" width="110" alt="Pulse Holy Grail" />
+</p>
+
+
 ![Pulse Holy Grail](https://img.shields.io/badge/PULSE-HOLY%20GRAIL-%237DF9FF?style=for-the-badge&logo=codesandbox&logoColor=white)
 [![DOI](https://doi.org/badge/DOI/10.5281/zenodo.17373002.svg)](https://doi.org/10.5281/zenodo.17373002)
 [![PULSE](badges/pulse_status.svg)](https://hkati.github.io/pulse-release-gates-0.1/)
