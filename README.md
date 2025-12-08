@@ -339,6 +339,17 @@ gates, see:
 
 ---
 
+#### EPF hazard forecasting (proto-module)
+
+The EPF safe pack also contains an experimental hazard-forecasting
+probe in `PULSE_safe_pack_v0/epf/epf_hazard_forecast.py`. It computes
+a simple early-warning index from the relationship between the current
+EPF field and a stable reference state, and classifies the result into
+GREEN / AMBER / RED zones. This module is prototype-only and does not
+participate in release gating yet.
+
+---
+
 ### Artifacts
 
 - `status_baseline.json` – deterministic decisions (source of truth)
