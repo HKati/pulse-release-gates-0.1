@@ -1,0 +1,58 @@
+<svg width="180" height="220" viewBox="0 0 180 220" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="pulse-gradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#7DF9FF" />
+      <stop offset="100%" stop-color="#9370DB" />
+    </linearGradient>
+  </defs>
+
+  <!-- Grail cup -->
+  <path
+    d="M40 20 Q90 20 140 20 Q130 80 90 110 Q50 80 40 20 Z"
+    fill="url(#pulse-gradient)"
+    stroke="#5A3EAA"
+    stroke-width="3"
+  />
+
+  <!-- Stem -->
+  <rect x="78" y="110" width="24" height="50" fill="#5A3EAA" />
+
+  <!-- Base -->
+  <ellipse cx="90" cy="175" rx="40" ry="10" fill="#5A3EAA" />
+
+  <!-- Pulse label -->
+  <text
+    x="90"
+    y="55"
+    font-size="18"
+    text-anchor="middle"
+    fill="white"
+    font-family="Courier New"
+    font-weight="bold"
+  >
+    PULSE
+  </text>
+
+  <!-- Formula: E(t) = α·D(t) + β·(1 - S(t)) -->
+  <text
+    x="90"
+    y="85"
+    font-size="12"
+    text-anchor="middle"
+    fill="white"
+    font-family="Courier New"
+  >
+    E(t) = α·D(t)
+  </text>
+
+  <text
+    x="90"
+    y="102"
+    font-size="12"
+    text-anchor="middle"
+    fill="white"
+    font-family="Courier New"
+  >
+    + β·(1 - S(t))
+  </text>
+</svg>
