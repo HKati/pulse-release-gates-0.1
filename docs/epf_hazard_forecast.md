@@ -177,3 +177,20 @@ This prototype is intentionally simple. Potential future extensions:
 - richer explanations including which metrics contributed most to `T`,
 - wiring the hazard signal into actual release gates as an optional
   early-warning quality gate.
+
+---
+
+## Quickstart
+
+To see the hazard probe in action on a small synthetic time series, run:
+
+```bash
+python examples/epf_hazard_quickstart.py
+
+
+The script maintains a short T history, calls forecast_hazard(...)
+on each step, and prints T, S, D, E together with the selected
+zone and the explanation string. This is a minimal way to get an
+intuition for how the early-warning index evolves over time.
+
+
