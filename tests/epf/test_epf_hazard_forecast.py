@@ -1,4 +1,11 @@
 import math
+import pathlib
+import sys
+
+# Ensure repository root is on sys.path so PULSE_safe_pack_v0 can be imported
+ROOT = pathlib.Path(__file__).resolve().parents[2]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
 from PULSE_safe_pack_v0.epf.epf_hazard_forecast import (
     HazardConfig,
@@ -78,7 +85,6 @@ def test_forecast_red_when_unstable_and_drifting():
 
     assert state.zone == "RED"
     assert state.E >= cfg.crit_threshold
-    # sanity: E must increase when stability is this low
     assert state.S <= 0.1
 
 
@@ -101,7 +107,5 @@ def test_history_window_respected():
         cfg=cfg,
     )
 
-    # the drift should be based only on a short sliding window;
-    # here we just check that it's a finite, non-negative value.
     assert state.D >= 0.0
     assert math.isfinite(state.D)
