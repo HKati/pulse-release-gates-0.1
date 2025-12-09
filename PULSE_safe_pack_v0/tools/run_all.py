@@ -24,6 +24,7 @@ art = ROOT / "artifacts"
 art.mkdir(parents=True, exist_ok=True)
 
 now = datetime.datetime.utcnow().isoformat() + "Z"
+STATUS_VERSION = "1.0.0-demo"
 
 # Minimal demo gates (all True by default so CI passes)
 gates = {
@@ -44,51 +45,17 @@ gates = {
   "q1_grounded_ok": True,
   "q2_consistency_ok": True,
   "q3_fairness_ok": True,
-  "q4_slo_ok": True
+  "q4_slo_ok": True,
 }
 
 metrics = {
   "RDSI": 0.92,
   "rdsi_note": "Demo value for CI smoke-run",
-  "build_time": now
+  "build_time": now,
 }
-
-status = {
-  "version": "1.0.0-demo",
-  "created_utc": now,
-  "gates": gates,
-  "metrics": metrics
-}
-
-with open(art / "status.json", "w", encoding="utf-8") as f:
-  json.dump(status, f, indent=2)
-
-# Simple report card HTML
-rows = "\n".join([
-  f"<tr><td>{k}</td><td>{'PASS' if v else 'FAIL'}</td></tr>"
-  for k, v in gates.items()
-])
-html = f"""<!doctype html>
-<html><head><meta charset="utf-8"><title>PULSE Report Card</title>
-<style>
-body{{font-family:system-ui,Segoe UI,Roboto,Inter,sans-serif;margin:24px;}} table{{border-collapse:collapse;width:100%;max-width:920px}}
-td,th{{border:1px solid #ddd;padding:8px}} th{{background:#f2f4f8;text-align:left}} .ok{{color:#1b8e3c}} .bad{{color:#b71c1c}}
-</style></head><body>
-<h1>PULSE — Report Card</h1>
-<p><b>Build:</b> {now} UTC &middot; <b>RDSI:</b> {metrics['RDSI']}</p>
-<table><thead><tr><th>Gate</th><th>Status</th></tr></thead><tbody>
-{rows}
-</tbody></table>
-</body></html>
-"""
-with open(art / "report_card.html", "w", encoding="utf-8") as f:
-  f.write(html)
-
-print("Wrote", art / "status.json")
-print("Wrote", art / "report_card.html")
 
 # ---------------------------------------------------------------------------
-# EPF hazard demo logging (proto-level, diagnostic only)
+# EPF hazard probe (proto-level, diagnostic only)
 # ---------------------------------------------------------------------------
 
 hazard_runtime = HazardRuntimeState.empty()
@@ -107,10 +74,51 @@ hazard_state = probe_hazard_and_append_log(
   log_dir=art,
   extra_meta={
     "created_utc": now,
-    "status_version": status.get("version"),
+    "status_version": STATUS_VERSION,
   },
 )
 
+# Surface hazard metrics into status.json metrics.
+metrics["hazard_T"] = hazard_state.T
+metrics["hazard_S"] = hazard_state.S
+metrics["hazard_D"] = hazard_state.D
+metrics["hazard_E"] = hazard_state.E
+metrics["hazard_zone"] = hazard_state.zone
+metrics["hazard_reason"] = hazard_state.reason
+
+status = {
+  "version": STATUS_VERSION,
+  "created_utc": now,
+  "gates": gates,
+  "metrics": metrics,
+}
+
+with open(art / "status.json", "w", encoding="utf-8") as f:
+  json.dump(status, f, indent=2)
+
+# Simple report card HTML
+rows = "\n".join([
+  f"<tr><td>{k}</td><td>{'PASS' if v else 'FAIL'}</td></tr>"
+  for k, v in gates.items()
+])
+html = f"""<!doctype html>
+<html><head><meta charset="utf-8"><title>PULSE Report Card</title>
+<style>
+body{{font-family:system-ui,Segoe UI,Roboto,Inter,sans-serif;margin:24px;}} table{{border-collapse:collapse;width:100%;max-width:920px}}
+td,th{{border:1px solid #ddd;padding:8px}} th{{background:#f2f4f8;text-align:left}} .ok{{color:#1b8e3c}} .bad{{color:#b71c1c}}
+</style></head><body>
+<h1>PULSE — Report Card</h1>
+<p><b>Build:</b> {now} UTC &middot; <b>RDSI:</b> {metrics['RDSI']} &middot; <b>Hazard:</b> {metrics['hazard_zone']} (E={metrics['hazard_E']:.3f})</p>
+<table><thead><tr><th>Gate</th><th>Status</th></tr></thead><tbody>
+{rows}
+</tbody></table>
+</body></html>
+"""
+with open(art / "report_card.html", "w", encoding="utf-8") as f:
+  f.write(html)
+
+print("Wrote", art / "status.json")
+print("Wrote", art / "report_card.html")
 print(
   "Logged EPF hazard probe:",
   f"zone={hazard_state.zone}",
