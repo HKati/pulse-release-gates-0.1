@@ -365,37 +365,31 @@ participate in release gating yet.
   Line-oriented JSON log produced by the EPF hazard adapter. Each line
   is a single hazard probe event with the following structure:
 
-  ```json
-  {
-    "gate_id": "<gate-or-field-id>",
-    "timestamp": "<iso-utc>",
-    "hazard": {
-      "T": 0.41,
-      "S": 0.94,
-      "D": 0.03,
-      "E": 0.12,
-      "zone": "GREEN",
-      "reason": "E=0.120, T=0.410, S=0.940, D=0.030 → field stable, no near-term hazard signal."
-    },
-    "meta": {
-      "run_id": "...",
-      "commit": "...",
-      "experiment_id": "..."
-    }
-  }
+      {
+        "gate_id": "<gate-or-field-id>",
+        "timestamp": "<iso-utc>",
+        "hazard": {
+          "T": 0.41,
+          "S": 0.94,
+          "D": 0.03,
+          "E": 0.12,
+          "zone": "GREEN",
+          "reason": "E=0.120, T=0.410, S=0.940, D=0.030 → field stable, no near-term hazard signal."
+        },
+        "meta": {
+          "run_id": "...",
+          "commit": "...",
+          "experiment_id": "..."
+        }
+      }
 
----
-
-Notes:
-
-One line per probe invocation (per gate / per cycle).
-
-meta is optional and may contain run-specific identifiers.
-
-This artefact is diagnostic only in the proto phase: it is used
-for analysis and calibration of thresholds, not as a hard release
-gate.
-
+  Notes:
+  - One line per probe invocation (per gate / per cycle).
+  - `meta` is optional and may contain run-specific identifiers.
+  - This artefact is **diagnostic only** in the proto phase: it is used
+    for analysis and calibration of thresholds, not as a hard release
+    gate.
+  
 ---
 
 ### Optional config (per gate)
