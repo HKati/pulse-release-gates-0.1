@@ -8,9 +8,18 @@ baseline status.json and related artifacts under the pack's artifacts
 directory, which are then consumed by CI workflows and reporting tools.
 """
 
-import os, json, datetime, pathlib, random
+import os, json, datetime, pathlib, random, sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
+REPO_ROOT = ROOT.parent
+if str(REPO_ROOT) not in sys.path:
+  sys.path.insert(0, str(REPO_ROOT))
+
+from PULSE_safe_pack_v0.epf.epf_hazard_adapter import (
+  HazardRuntimeState,
+  probe_hazard_and_append_log,
+)
+
 art = ROOT / "artifacts"
 art.mkdir(parents=True, exist_ok=True)
 
@@ -55,7 +64,10 @@ with open(art / "status.json", "w", encoding="utf-8") as f:
   json.dump(status, f, indent=2)
 
 # Simple report card HTML
-rows = "\n".join([f"<tr><td>{k}</td><td>{'PASS' if v else 'FAIL'}</td></tr>" for k,v in gates.items()])
+rows = "\n".join([
+  f"<tr><td>{k}</td><td>{'PASS' if v else 'FAIL'}</td></tr>"
+  for k, v in gates.items()
+])
 html = f"""<!doctype html>
 <html><head><meta charset="utf-8"><title>PULSE Report Card</title>
 <style>
@@ -74,3 +86,33 @@ with open(art / "report_card.html", "w", encoding="utf-8") as f:
 
 print("Wrote", art / "status.json")
 print("Wrote", art / "report_card.html")
+
+# ---------------------------------------------------------------------------
+# EPF hazard demo logging (proto-level, diagnostic only)
+# ---------------------------------------------------------------------------
+
+hazard_runtime = HazardRuntimeState.empty()
+
+# For now we only use RDSI as a simple EPF proxy.
+current_snapshot = {"RDSI": metrics.get("RDSI", 0.5)}
+reference_snapshot = {"RDSI": 1.0}
+stability_metrics = {"RDSI": metrics.get("RDSI", 0.5)}
+
+hazard_state = probe_hazard_and_append_log(
+  gate_id="EPF_demo_RDSI",
+  current_snapshot=current_snapshot,
+  reference_snapshot=reference_snapshot,
+  stability_metrics=stability_metrics,
+  runtime_state=hazard_runtime,
+  log_dir=art,
+  extra_meta={
+    "created_utc": now,
+    "status_version": status.get("version"),
+  },
+)
+
+print(
+  "Logged EPF hazard probe:",
+  f"zone={hazard_state.zone}",
+  f"E={hazard_state.E:.3f}",
+)
