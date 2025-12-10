@@ -27,9 +27,78 @@ License: same as the PULSE repo (Apache-2.0).
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Tuple
 import math
 import statistics
+import json
+import pathlib
+
+
+# ---------------------------------------------------------------------------
+# Calibration-aware defaults
+# ---------------------------------------------------------------------------
+
+# PULSE_safe_pack_v0 root (this file lives directly under it)
+PACK_ROOT = pathlib.Path(__file__).resolve().parent
+
+# Default location of the calibration artefact produced by
+# tools/epf_hazard_calibrate.py
+CALIBRATION_PATH = PACK_ROOT / "artifacts" / "epf_hazard_thresholds_v0.json"
+
+# Built-in baseline thresholds (used if no reliable calibration is found)
+DEFAULT_WARN_THRESHOLD = 0.3
+DEFAULT_CRIT_THRESHOLD = 0.7
+
+# Minimum number of samples required in the calibration artefact before we
+# trust the calibrated thresholds.
+MIN_CALIBRATION_SAMPLES = 20
+
+
+def _load_calibrated_thresholds(
+    path: pathlib.Path = CALIBRATION_PATH,
+) -> Tuple[float, float]:
+    """
+    Try to load warn/crit thresholds from a calibration JSON artefact.
+
+    Falls back to DEFAULT_* if:
+    - the file is missing,
+    - the JSON is invalid,
+    - the global stats.count is missing or too small,
+    - the thresholds are not numeric or obviously invalid.
+    """
+    try:
+        with path.open("r", encoding="utf-8") as f:
+            data = json.load(f)
+    except FileNotFoundError:
+        return DEFAULT_WARN_THRESHOLD, DEFAULT_CRIT_THRESHOLD
+    except json.JSONDecodeError:
+        return DEFAULT_WARN_THRESHOLD, DEFAULT_CRIT_THRESHOLD
+
+    global_cfg = data.get("global", {})
+    stats = global_cfg.get("stats", {})
+    count = stats.get("count")
+
+    # Not enough data: don't trust this calibration yet.
+    if not isinstance(count, int) or count < MIN_CALIBRATION_SAMPLES:
+        return DEFAULT_WARN_THRESHOLD, DEFAULT_CRIT_THRESHOLD
+
+    warn = global_cfg.get("warn_threshold")
+    crit = global_cfg.get("crit_threshold")
+
+    if not isinstance(warn, (int, float)) or not isinstance(crit, (int, float)):
+        return DEFAULT_WARN_THRESHOLD, DEFAULT_CRIT_THRESHOLD
+
+    warn_f = float(warn)
+    crit_f = float(crit)
+
+    # Basic sanity check: we expect 0 <= warn <= crit
+    if not (0.0 <= warn_f <= crit_f):
+        return DEFAULT_WARN_THRESHOLD, DEFAULT_CRIT_THRESHOLD
+
+    return warn_f, crit_f
+
+
+CALIBRATED_WARN_THRESHOLD, CALIBRATED_CRIT_THRESHOLD = _load_calibrated_thresholds()
 
 
 # ---------------------------------------------------------------------------
@@ -54,8 +123,11 @@ class HazardConfig:
     """
     alpha: float = 1.0
     beta: float = 1.0
-    warn_threshold: float = 0.3
-    crit_threshold: float = 0.7
+    # These defaults may come from a calibration artefact, or fall back to
+    # the built-in 0.3 / 0.7 baseline if calibration is not available or
+    # not yet trustworthy.
+    warn_threshold: float = CALIBRATED_WARN_THRESHOLD
+    crit_threshold: float = CALIBRATED_CRIT_THRESHOLD
     min_history: int = 3
 
 
