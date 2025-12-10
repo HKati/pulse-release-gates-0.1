@@ -1,0 +1,228 @@
+#!/usr/bin/env python3
+"""
+epf_hazard_calibrate.py
+
+Offline helper to calibrate EPF hazard thresholds (warn / crit)
+from an epf_hazard_log.jsonl file.
+
+Idea:
+- take the observed distribution of E per gate_id,
+- choose warn / crit as percentiles (e.g. warn=P85, crit=P97),
+- so only the top tail becomes AMBER / RED.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import math
+import pathlib
+import statistics
+import sys
+from typing import Any, Dict, List, Tuple
+
+
+def parse_args(argv: List[str]) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Calibrate EPF hazard thresholds from epf_hazard_log.jsonl."
+    )
+    parser.add_argument(
+        "--log",
+        type=pathlib.Path,
+        default=None,
+        help=(
+            "Path to epf_hazard_log.jsonl. "
+            "Defaults to PULSE_safe_pack_v0/artifacts/epf_hazard_log.jsonl."
+        ),
+    )
+    parser.add_argument(
+        "--warn-p",
+        type=float,
+        default=0.85,
+        help="Percentile for warn_threshold in [0,1] (default: 0.85).",
+    )
+    parser.add_argument(
+        "--crit-p",
+        type=float,
+        default=0.97,
+        help="Percentile for crit_threshold in [0,1] (default: 0.97).",
+    )
+    parser.add_argument(
+        "--min-samples",
+        type=int,
+        default=20,
+        help=(
+            "Minimum number of E samples per gate to emit per-gate thresholds "
+            "(default: 20)."
+        ),
+    )
+    parser.add_argument(
+        "--out-json",
+        type=pathlib.Path,
+        default=None,
+        help="Optional path to write suggested thresholds as JSON.",
+    )
+    return parser.parse_args(argv)
+
+
+def load_entries(path: pathlib.Path) -> List[Dict[str, Any]]:
+    entries: List[Dict[str, Any]] = []
+    with path.open("r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                obj = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            entries.append(obj)
+    return entries
+
+
+def collect_E_by_gate(entries: List[Dict[str, Any]]) -> Dict[str, List[float]]:
+    by_gate: Dict[str, List[float]] = {}
+    for ev in entries:
+        gate_id = str(ev.get("gate_id", "UNKNOWN"))
+        hazard = ev.get("hazard", {})
+        E = hazard.get("E")
+        if isinstance(E, (int, float)):
+            by_gate.setdefault(gate_id, []).append(float(E))
+    return by_gate
+
+
+def percentile(values: List[float], p: float) -> float:
+    """
+    Simple percentile with linear interpolation between order stats.
+    p is in [0,1].
+    """
+    if not values:
+        raise ValueError("cannot compute percentile of empty list")
+    vs = sorted(values)
+    if p <= 0.0:
+        return vs[0]
+    if p >= 1.0:
+        return vs[-1]
+    k = (len(vs) - 1) * p
+    f = math.floor(k)
+    c = math.ceil(k)
+    if f == c:
+        return vs[f]
+    frac = k - f
+    return vs[f] + (vs[c] - vs[f]) * frac
+
+
+def global_stats(values: List[float]) -> Dict[str, float]:
+    return {
+        "count": len(values),
+        "min": min(values),
+        "max": max(values),
+        "mean": statistics.mean(values),
+        "p50": percentile(values, 0.50),
+        "p85": percentile(values, 0.85),
+        "p95": percentile(values, 0.95),
+        "p97": percentile(values, 0.97),
+        "p99": percentile(values, 0.99),
+    }
+
+
+def main(argv: List[str]) -> int:
+    args = parse_args(argv)
+
+    if not (0.0 <= args.warn_p < args.crit_p <= 1.0):
+        print(
+            f"invalid percentiles: require 0 <= warn_p < crit_p <= 1, "
+            f"got warn_p={args.warn_p}, crit_p={args.crit_p}",
+            file=sys.stderr,
+        )
+        return 1
+
+    # Default log path = pack_root/artifacts/epf_hazard_log.jsonl
+    if args.log is not None:
+        log_path = args.log
+    else:
+        script_path = pathlib.Path(__file__).resolve()
+        pack_root = script_path.parents[1]
+        log_path = pack_root / "artifacts" / "epf_hazard_log.jsonl"
+
+    if not log_path.exists():
+        print(f"hazard log not found: {log_path}", file=sys.stderr)
+        return 1
+
+    entries = load_entries(log_path)
+    if not entries:
+        print(f"no entries found in log: {log_path}", file=sys.stderr)
+        return 1
+
+    by_gate = collect_E_by_gate(entries)
+
+    # Flatten all E values for global thresholds.
+    all_E: List[float] = [e for values in by_gate.values() for e in values]
+    if not all_E:
+        print("no numeric E values found in log", file=sys.stderr)
+        return 1
+
+    print(f"Loaded {len(entries)} log entries from {log_path}")
+    print(f"Gates with numeric E: {len(by_gate)}")
+    print()
+
+    gstats = global_stats(all_E)
+    global_warn = percentile(all_E, args.warn_p)
+    global_crit = percentile(all_E, args.crit_p)
+
+    print("=== Global E statistics ===")
+    for k in ["count", "min", "max", "mean", "p50", "p85", "p95", "p97", "p99"]:
+        v = gstats[k]
+        print(f"  {k:>5}: {v:.4f}" if isinstance(v, float) else f"  {k:>5}: {v}")
+
+    print()
+    print(
+        f"Suggested GLOBAL thresholds "
+        f"(warn_p={args.warn_p:.3f}, crit_p={args.crit_p:.3f}):"
+    )
+    print(f"  warn_threshold ≈ {global_warn:.4f}")
+    print(f"  crit_threshold ≈ {global_crit:.4f}")
+    print()
+
+    per_gate_thresholds: Dict[str, Dict[str, float]] = {}
+
+    print("=== Per-gate suggestions (only gates with enough samples) ===")
+    for gate_id, values in sorted(by_gate.items()):
+        if len(values) < args.min_samples:
+            continue
+        w = percentile(values, args.warn_p)
+        c = percentile(values, args.crit_p)
+        per_gate_thresholds[gate_id] = {
+            "warn_threshold": w,
+            "crit_threshold": c,
+            "count": len(values),
+        }
+        print(
+            f"[{gate_id}] n={len(values):4d}  "
+            f"warn≈{w:.4f}  crit≈{c:.4f}  "
+            f"E_min={min(values):.4f}  E_max={max(values):.4f}"
+        )
+
+    if args.out_json is not None:
+        payload = {
+            "log_path": str(log_path),
+            "warn_p": args.warn_p,
+            "crit_p": args.crit_p,
+            "global": {
+                "warn_threshold": global_warn,
+                "crit_threshold": global_crit,
+                "stats": gstats,
+            },
+            "per_gate": per_gate_thresholds,
+        }
+        args.out_json.parent.mkdir(parents=True, exist_ok=True)
+        with args.out_json.open("w", encoding="utf-8") as f:
+            json.dump(payload, f, indent=2, sort_keys=True)
+        print()
+        print(f"Wrote JSON suggestions to {args.out_json}")
+
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main(sys.argv[1:]))
