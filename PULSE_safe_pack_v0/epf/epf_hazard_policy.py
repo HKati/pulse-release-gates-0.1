@@ -15,7 +15,7 @@ from PULSE_safe_pack_v0.epf.epf_hazard_policy import (
 
 
 def _make_state(zone: str, E: float = 0.0) -> HazardState:
-    # Minimal HazardState for policy testing; numeric fields are arbitrary.
+    """Minimal HazardState for policy testing; numeric fields are arbitrary."""
     return HazardState(
         T=0.1,
         S=0.9,
