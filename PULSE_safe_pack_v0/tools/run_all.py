@@ -19,6 +19,10 @@ from PULSE_safe_pack_v0.epf.epf_hazard_adapter import (
   HazardRuntimeState,
   probe_hazard_and_append_log,
 )
+from PULSE_safe_pack_v0.epf.epf_hazard_policy import (
+  HazardGateConfig,
+  evaluate_hazard_gate,
+)
 
 art = ROOT / "artifacts"
 art.mkdir(parents=True, exist_ok=True)
@@ -78,6 +82,9 @@ hazard_state = probe_hazard_and_append_log(
   },
 )
 
+# Evaluate hazard gate policy (RED-only block, but not yet used to fail gates).
+hazard_decision = evaluate_hazard_gate(hazard_state, cfg=HazardGateConfig())
+
 # Surface hazard metrics into status.json metrics.
 metrics["hazard_T"] = hazard_state.T
 metrics["hazard_S"] = hazard_state.S
@@ -85,6 +92,8 @@ metrics["hazard_D"] = hazard_state.D
 metrics["hazard_E"] = hazard_state.E
 metrics["hazard_zone"] = hazard_state.zone
 metrics["hazard_reason"] = hazard_state.reason
+metrics["hazard_ok"] = hazard_decision.ok
+metrics["hazard_severity"] = hazard_decision.severity
 
 status = {
   "version": STATUS_VERSION,
@@ -108,7 +117,7 @@ body{{font-family:system-ui,Segoe UI,Roboto,Inter,sans-serif;margin:24px;}} tabl
 td,th{{border:1px solid #ddd;padding:8px}} th{{background:#f2f4f8;text-align:left}} .ok{{color:#1b8e3c}} .bad{{color:#b71c1c}}
 </style></head><body>
 <h1>PULSE — Report Card</h1>
-<p><b>Build:</b> {now} UTC &middot; <b>RDSI:</b> {metrics['RDSI']} &middot; <b>Hazard:</b> {metrics['hazard_zone']} (E={metrics['hazard_E']:.3f})</p>
+<p><b>Build:</b> {now} UTC &middot; <b>RDSI:</b> {metrics['RDSI']} &middot; <b>Hazard:</b> {metrics['hazard_zone']} (E={metrics['hazard_E']:.3f}, ok={metrics['hazard_ok']}, severity={metrics['hazard_severity']})</p>
 <table><thead><tr><th>Gate</th><th>Status</th></tr></thead><tbody>
 {rows}
 </tbody></table>
@@ -123,4 +132,6 @@ print(
   "Logged EPF hazard probe:",
   f"zone={hazard_state.zone}",
   f"E={hazard_state.E:.3f}",
+  f"ok={hazard_decision.ok}",
+  f"severity={hazard_decision.severity}",
 )
