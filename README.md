@@ -355,6 +355,51 @@ participate in release gating yet.
 
 ---
 
+### EPF hazard overview (proto pipeline)
+
+The EPF safe pack includes a proto-level, field-based hazard forecasting
+pipeline that does **not** wait for concrete error events, but monitors
+the relationship between the current EPF state and a stable reference.
+
+The pipeline currently consists of:
+
+- **Probe** – `PULSE_safe_pack_v0/epf/epf_hazard_forecast.py`  
+  Computes a relational hazard signal from:
+  - `T` – distance between current and baseline snapshot,
+  - `S` – stability index,
+  - `D` – short-horizon drift of `T`,
+  - `E` – early-warning index and `zone` (`GREEN / AMBER / RED`),
+  - `reason` – short explanation string.
+
+- **Adapter & log** – `PULSE_safe_pack_v0/epf/epf_hazard_adapter.py`  
+  Runs the probe from EPF experiments and appends results as JSONL lines
+  to `PULSE_safe_pack_v0/artifacts/epf_hazard_log.jsonl`.
+
+- **Inspector** – `PULSE_safe_pack_v0/tools/epf_hazard_inspect.py`  
+  Summarises the JSONL log per gate/field (entry count, last zone/E,
+  min/max/mean `E`) for quick CLI-based inspection.
+
+- **Status integration** – `PULSE_safe_pack_v0/tools/run_all.py`  
+  Exposes hazard metrics in `status.json["metrics"]` and in the HTML
+  report card header:
+  - `hazard_T`, `hazard_S`, `hazard_D`, `hazard_E`,
+  - `hazard_zone`, `hazard_reason`,
+  - `hazard_ok`, `hazard_severity`.
+
+- **Gate policy helper** – `PULSE_safe_pack_v0/epf/epf_hazard_policy.py`  
+  Derives a simple gate decision from `HazardState` using a RED-only
+  blocking policy:
+  - `hazard_ok` flag (True unless `zone == "RED"`),
+  - `severity` (`LOW / MEDIUM / HIGH / UNKNOWN`),
+  - preserving the underlying `reason` string.
+
+In the current proto phase, the hazard signal is **diagnostic only**:
+it is logged, inspected and surfaced in status/reporting, but does not
+yet enforce any hard release gate.
+
+
+---
+
 ### Artifacts
 
 - `status_baseline.json` – deterministic decisions (source of truth)
