@@ -397,6 +397,12 @@ In the current proto phase, the hazard signal is **diagnostic only**:
 it is logged, inspected and surfaced in status/reporting, but does not
 yet enforce any hard release gate.
 
+---
+
+> The EPF hazard signal is an early-warning layer on top of the usual
+> pass/fail gates: it looks at how the field is drifting and destabilising
+> before those drifts show up as hard failures. See the EPF hazard docs
+> for details.
 
 ---
 
