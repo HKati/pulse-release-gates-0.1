@@ -9,6 +9,20 @@ between the current EPF field state and a stable reference.
 
 ---
 
+### Safety story: EPF hazard as early warning
+
+PULSE is not only about pass/fail gates; it also looks at the stability
+of the underlying field that generates those gates. The EPF hazard
+signal treats errors as **relationship distortions** between a current
+state and a stable reference, rather than isolated events. By tracking
+T (distance), S (stability), D (drift) and the early-warning index E,
+the hazard probe can raise a signal while the system is still
+technically "passing" all checks. This gives us time to spot and
+investigate emerging shifts in the field before they turn into visible
+failures in production.
+
+---
+
 ## High-level idea
 
 Instead of treating errors as isolated events, the module looks at how the
