@@ -59,7 +59,7 @@ metrics = {
 }
 
 # ---------------------------------------------------------------------------
-# EPF hazard probe (proto-level, diagnostic only)
+# EPF hazard probe (proto-level)
 # ---------------------------------------------------------------------------
 
 hazard_runtime = HazardRuntimeState.empty()
@@ -82,7 +82,7 @@ hazard_state = probe_hazard_and_append_log(
   },
 )
 
-# Evaluate hazard gate policy (RED-only block, but not yet used to fail gates).
+# Evaluate hazard gate policy (RED-only block).
 hazard_decision = evaluate_hazard_gate(hazard_state, cfg=HazardGateConfig())
 
 # Surface hazard metrics into status.json metrics.
@@ -94,6 +94,19 @@ metrics["hazard_zone"] = hazard_state.zone
 metrics["hazard_reason"] = hazard_state.reason
 metrics["hazard_ok"] = hazard_decision.ok
 metrics["hazard_severity"] = hazard_decision.severity
+
+# ---------------------------------------------------------------------------
+# Shadow hazard gate (ENV-flag-enforceable)
+# ---------------------------------------------------------------------------
+
+# By default, epf_hazard_ok is a shadow gate: always True, so CI behaviour
+# does not change. If EPF_HAZARD_ENFORCE=1 is set in the environment,
+# epf_hazard_ok follows the hazard_decision.ok flag.
+enforce_hazard = os.getenv("EPF_HAZARD_ENFORCE", "0") == "1"
+if enforce_hazard:
+  gates["epf_hazard_ok"] = hazard_decision.ok
+else:
+  gates["epf_hazard_ok"] = True
 
 status = {
   "version": STATUS_VERSION,
@@ -134,4 +147,6 @@ print(
   f"E={hazard_state.E:.3f}",
   f"ok={hazard_decision.ok}",
   f"severity={hazard_decision.severity}",
+  f"enforce_hazard={enforce_hazard}",
+  f"epf_hazard_ok_gate={gates['epf_hazard_ok']}",
 )
