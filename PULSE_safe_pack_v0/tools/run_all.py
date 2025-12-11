@@ -2,26 +2,37 @@
 """
 Run all PULSE safe-pack checks and generate core artifacts.
 
-This script is the main entrypoint for the PULSE_safe_pack_v0 "safe
-pack". It orchestrates the configured checks/profiles and produces the
-baseline status.json and related artifacts under the pack's artifacts
-directory, which are then consumed by CI workflows and reporting tools.
+This script is the main entrypoint for the PULSE_safe_pack_v0 "safe pack".
+It orchestrates the configured checks/profiles and produces the baseline
+status.json and related artifacts under the pack's artifacts directory,
+which are then consumed by CI workflows and reporting tools.
 """
 
-import os, json, datetime, pathlib, random, sys
+import os
+import json
+import datetime
+import pathlib
+import sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 REPO_ROOT = ROOT.parent
 if str(REPO_ROOT) not in sys.path:
-  sys.path.insert(0, str(REPO_ROOT))
+    sys.path.insert(0, str(REPO_ROOT))
 
 from PULSE_safe_pack_v0.epf.epf_hazard_adapter import (
-  HazardRuntimeState,
-  probe_hazard_and_append_log,
+    HazardRuntimeState,
+    probe_hazard_and_append_log,
 )
 from PULSE_safe_pack_v0.epf.epf_hazard_policy import (
-  HazardGateConfig,
-  evaluate_hazard_gate,
+    HazardGateConfig,
+    evaluate_hazard_gate,
+)
+from PULSE_safe_pack_v0.epf.epf_hazard_forecast import (
+    DEFAULT_WARN_THRESHOLD,
+    DEFAULT_CRIT_THRESHOLD,
+    CALIBRATED_WARN_THRESHOLD,
+    CALIBRATED_CRIT_THRESHOLD,
+    MIN_CALIBRATION_SAMPLES,
 )
 
 art = ROOT / "artifacts"
@@ -32,30 +43,30 @@ STATUS_VERSION = "1.0.0-demo"
 
 # Minimal demo gates (all True by default so CI passes)
 gates = {
-  "pass_controls_refusal": True,
-  "effect_present": True,
-  "psf_monotonicity_ok": True,
-  "psf_mono_shift_resilient": True,
-  "pass_controls_comm": True,
-  "psf_commutativity_ok": True,
-  "psf_comm_shift_resilient": True,
-  "pass_controls_sanit": True,
-  "sanitization_effective": True,
-  "sanit_shift_resilient": True,
-  "psf_action_monotonicity_ok": True,
-  "psf_idempotence_ok": True,
-  "psf_path_independence_ok": True,
-  "psf_pii_monotonicity_ok": True,
-  "q1_grounded_ok": True,
-  "q2_consistency_ok": True,
-  "q3_fairness_ok": True,
-  "q4_slo_ok": True,
+    "pass_controls_refusal": True,
+    "effect_present": True,
+    "psf_monotonicity_ok": True,
+    "psf_mono_shift_resilient": True,
+    "pass_controls_comm": True,
+    "psf_commutativity_ok": True,
+    "psf_comm_shift_resilient": True,
+    "pass_controls_sanit": True,
+    "sanitization_effective": True,
+    "sanit_shift_resilient": True,
+    "psf_action_monotonicity_ok": True,
+    "psf_idempotence_ok": True,
+    "psf_path_independence_ok": True,
+    "psf_pii_monotonicity_ok": True,
+    "q1_grounded_ok": True,
+    "q2_consistency_ok": True,
+    "q3_fairness_ok": True,
+    "q4_slo_ok": True,
 }
 
 metrics = {
-  "RDSI": 0.92,
-  "rdsi_note": "Demo value for CI smoke-run",
-  "build_time": now,
+    "RDSI": 0.92,
+    "rdsi_note": "Demo value for CI smoke-run",
+    "build_time": now,
 }
 
 # ---------------------------------------------------------------------------
@@ -70,16 +81,16 @@ reference_snapshot = {"RDSI": 1.0}
 stability_metrics = {"RDSI": metrics.get("RDSI", 0.5)}
 
 hazard_state = probe_hazard_and_append_log(
-  gate_id="EPF_demo_RDSI",
-  current_snapshot=current_snapshot,
-  reference_snapshot=reference_snapshot,
-  stability_metrics=stability_metrics,
-  runtime_state=hazard_runtime,
-  log_dir=art,
-  extra_meta={
-    "created_utc": now,
-    "status_version": STATUS_VERSION,
-  },
+    gate_id="EPF_demo_RDSI",
+    current_snapshot=current_snapshot,
+    reference_snapshot=reference_snapshot,
+    stability_metrics=stability_metrics,
+    runtime_state=hazard_runtime,
+    log_dir=art,
+    extra_meta={
+        "created_utc": now,
+        "status_version": STATUS_VERSION,
+    },
 )
 
 # Evaluate hazard gate policy (RED-only block).
@@ -104,49 +115,336 @@ metrics["hazard_severity"] = hazard_decision.severity
 # epf_hazard_ok follows the hazard_decision.ok flag.
 enforce_hazard = os.getenv("EPF_HAZARD_ENFORCE", "0") == "1"
 if enforce_hazard:
-  gates["epf_hazard_ok"] = hazard_decision.ok
+    gates["epf_hazard_ok"] = hazard_decision.ok
 else:
-  gates["epf_hazard_ok"] = True
+    gates["epf_hazard_ok"] = True
 
 status = {
-  "version": STATUS_VERSION,
-  "created_utc": now,
-  "gates": gates,
-  "metrics": metrics,
+    "version": STATUS_VERSION,
+    "created_utc": now,
+    "gates": gates,
+    "metrics": metrics,
 }
 
 with open(art / "status.json", "w", encoding="utf-8") as f:
-  json.dump(status, f, indent=2)
+    json.dump(status, f, indent=2)
 
-# Simple report card HTML
-rows = "\n".join([
-  f"<tr><td>{k}</td><td>{'PASS' if v else 'FAIL'}</td></tr>"
-  for k, v in gates.items()
-])
-html = f"""<!doctype html>
-<html><head><meta charset="utf-8"><title>PULSE Report Card</title>
-<style>
-body{{font-family:system-ui,Segoe UI,Roboto,Inter,sans-serif;margin:24px;}} table{{border-collapse:collapse;width:100%;max-width:920px}}
-td,th{{border:1px solid #ddd;padding:8px}} th{{background:#f2f4f8;text-align:left}} .ok{{color:#1b8e3c}} .bad{{color:#b71c1c}}
-</style></head><body>
-<h1>PULSE — Report Card</h1>
-<p><b>Build:</b> {now} UTC &middot; <b>RDSI:</b> {metrics['RDSI']} &middot; <b>Hazard:</b> {metrics['hazard_zone']} (E={metrics['hazard_E']:.3f}, ok={metrics['hazard_ok']}, severity={metrics['hazard_severity']})</p>
-<table><thead><tr><th>Gate</th><th>Status</th></tr></thead><tbody>
-{rows}
-</tbody></table>
-</body></html>
+# ---------------------------------------------------------------------------
+# HTML report card (demo Quality Ledger view)
+# ---------------------------------------------------------------------------
+
+all_gates_pass = all(gates.values())
+decision_label = "DEMO-PASS" if all_gates_pass else "DEMO-FAIL"
+
+zone = metrics["hazard_zone"]
+if zone == "GREEN":
+    hazard_badge_class = "badge-green"
+elif zone == "AMBER":
+    hazard_badge_class = "badge-amber"
+elif zone == "RED":
+    hazard_badge_class = "badge-red"
+else:
+    hazard_badge_class = "badge-unknown"
+
+# Heuristic: if calibrated thresholds differ from the built-in defaults,
+# we assume a trusted calibration artefact is present.
+calib_is_effective = (
+    CALIBRATED_WARN_THRESHOLD != DEFAULT_WARN_THRESHOLD
+    or CALIBRATED_CRIT_THRESHOLD != DEFAULT_CRIT_THRESHOLD
+)
+threshold_regime = "CALIBRATED" if calib_is_effective else "BASELINE"
+
+gate_rows = []
+for name, ok in sorted(gates.items()):
+    status_class = "status-pass" if ok else "status-fail"
+    status_text = "✅ PASS" if ok else "❌ FAIL"
+    gate_rows.append(
+        f'            <tr><td>{name}</td>'
+        f'<td><span class="{status_class}">{status_text}</span></td></tr>'
+    )
+gate_rows_html = "\n".join(gate_rows)
+
+html = f"""<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>PULSE Report Card — demo</title>
+    <style>
+      :root {{
+        color: #111827;
+        background-color: #f9fafb;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }}
+      body {{
+        margin: 0;
+        padding: 1.5rem;
+        background-color: #f9fafb;
+      }}
+      .prc-shell {{
+        max-width: 900px;
+        margin: 0 auto;
+        background: #ffffff;
+        border-radius: 12px;
+        box-shadow: 0 10px 30px rgba(15, 23, 42, 0.12);
+        padding: 1.5rem 2rem 2rem;
+      }}
+      h1 {{
+        margin: 0 0 0.25rem;
+        font-size: 1.5rem;
+      }}
+      h2 {{
+        margin-top: 1.5rem;
+        font-size: 1.1rem;
+      }}
+      .prc-meta {{
+        margin: 0;
+        font-size: 0.8rem;
+        color: #6b7280;
+      }}
+      .prc-strip {{
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 0.75rem;
+        margin-top: 1rem;
+        padding: 0.75rem 1rem;
+        border-radius: 10px;
+        background: linear-gradient(90deg, #0f172a, #1f2937);
+        color: #e5e7eb;
+        font-size: 0.9rem;
+      }}
+      .strip-left,
+      .strip-right {{
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.5rem;
+      }}
+      .badge {{
+        display: inline-block;
+        padding: 0.15rem 0.6rem;
+        border-radius: 999px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+        text-transform: uppercase;
+      }}
+      .badge-decision {{
+        background: rgba(34, 197, 94, 0.18);
+        color: #bbf7d0;
+        border: 1px solid rgba(34, 197, 94, 0.6);
+      }}
+      .badge-rdsi {{
+        background: rgba(59, 130, 246, 0.18);
+        color: #bfdbfe;
+        border: 1px solid rgba(59, 130, 246, 0.6);
+      }}
+      .badge-green {{
+        background: rgba(34, 197, 94, 0.15);
+        color: #bbf7d0;
+        border: 1px solid rgba(34, 197, 94, 0.5);
+      }}
+      .badge-amber {{
+        background: rgba(245, 158, 11, 0.18);
+        color: #fed7aa;
+        border: 1px solid rgba(245, 158, 11, 0.6);
+      }}
+      .badge-red {{
+        background: rgba(248, 113, 113, 0.18);
+        color: #fecaca;
+        border: 1px solid rgba(248, 113, 113, 0.6);
+      }}
+      .badge-unknown {{
+        background: rgba(148, 163, 184, 0.18);
+        color: #e5e7eb;
+        border: 1px solid rgba(148, 163, 184, 0.6);
+      }}
+      .strip-note {{
+        font-size: 0.78rem;
+        opacity: 0.9;
+      }}
+      .epf-hazard-panel {{
+        margin-top: 1.25rem;
+        padding: 0.9rem 1rem;
+        border-radius: 10px;
+        border: 1px solid #e5e7eb;
+        background: #f9fafb;
+        font-size: 0.88rem;
+      }}
+      .epf-hazard-header {{
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 0.75rem;
+        margin-bottom: 0.5rem;
+      }}
+      .epf-hazard-title {{
+        font-weight: 600;
+      }}
+      .epf-hazard-metrics {{
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        margin: 0.2rem 0 0.3rem;
+      }}
+      .epf-hazard-metric span {{
+        display: block;
+        font-size: 0.78rem;
+      }}
+      .epf-hazard-metric span:first-child {{
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: #6b7280;
+      }}
+      .epf-hazard-metric span:last-child {{
+        font-weight: 600;
+      }}
+      .epf-hazard-reason {{
+        margin: 0.35rem 0 0;
+        font-size: 0.8rem;
+        color: #4b5563;
+      }}
+      .epf-hazard-footnote {{
+        margin: 0.4rem 0 0;
+        font-size: 0.75rem;
+        color: #6b7280;
+      }}
+      table.gate-table {{
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 1.25rem;
+        font-size: 0.86rem;
+      }}
+      table.gate-table th,
+      table.gate-table td {{
+        padding: 0.4rem 0.5rem;
+        border-bottom: 1px solid #e5e7eb;
+      }}
+      table.gate-table th {{
+        text-align: left;
+        font-size: 0.78rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: #6b7280;
+      }}
+      table.gate-table td:nth-child(2) {{
+        width: 6.5rem;
+        text-align: center;
+        font-weight: 600;
+      }}
+      .status-pass {{
+        color: #15803d;
+      }}
+      .status-fail {{
+        color: #b91c1c;
+      }}
+      footer {{
+        margin-top: 1.25rem;
+        font-size: 0.75rem;
+        color: #9ca3af;
+      }}
+      @media (max-width: 640px) {{
+        .prc-shell {{
+          padding: 1.25rem 1.2rem 1.5rem;
+        }}
+        .prc-strip {{
+          flex-direction: column;
+          align-items: flex-start;
+        }}
+      }}
+    </style>
+  </head>
+  <body>
+    <main class="prc-shell">
+      <header>
+        <h1>PULSE — Demo Report Card</h1>
+        <p class="prc-meta">
+          Build: {now} · Status version: {STATUS_VERSION}
+        </p>
+      </header>
+
+      <section class="prc-strip">
+        <div class="strip-left">
+          <span class="badge badge-decision">{decision_label}</span>
+          <span class="badge badge-rdsi">RDSI {metrics['RDSI']:.2f}</span>
+        </div>
+        <div class="strip-right">
+          <span class="badge {hazard_badge_class}">Hazard {metrics['hazard_zone']}</span>
+          <span class="strip-note">
+            E={metrics['hazard_E']:.3f} · {'OK' if metrics['hazard_ok'] else 'BLOCKED'} · {metrics['hazard_severity']} severity
+          </span>
+        </div>
+      </section>
+
+      <section class="epf-hazard-panel">
+        <div class="epf-hazard-header">
+          <div class="epf-hazard-title">
+            EPF Relational Grail — hazard signal
+          </div>
+          <div class="epf-hazard-metrics">
+            <div class="epf-hazard-metric">
+              <span>E index</span>
+              <span>{metrics['hazard_E']:.3f}</span>
+            </div>
+            <div class="epf-hazard-metric">
+              <span>T distance</span>
+              <span>{metrics['hazard_T']:.3f}</span>
+            </div>
+            <div class="epf-hazard-metric">
+              <span>Stability S</span>
+              <span>{metrics['hazard_S']:.3f}</span>
+            </div>
+            <div class="epf-hazard-metric">
+              <span>Drift D</span>
+              <span>{metrics['hazard_D']:.3f}</span>
+            </div>
+          </div>
+        </div>
+        <p class="epf-hazard-reason">
+          {metrics['hazard_reason']}
+        </p>
+        <p class="epf-hazard-footnote">
+          Thresholds: warn ≈ {CALIBRATED_WARN_THRESHOLD:.3f}, crit ≈ {CALIBRATED_CRIT_THRESHOLD:.3f}
+          ({threshold_regime}; requires ≥{MIN_CALIBRATION_SAMPLES} log entries for calibration to take effect).
+        </p>
+      </section>
+
+      <section>
+        <h2>Gate summary</h2>
+        <table class="gate-table">
+          <thead>
+            <tr>
+              <th>Gate</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+{gate_rows_html}
+          </tbody>
+        </table>
+      </section>
+
+      <footer>
+        Demo-only artefact generated from PULSE_safe_pack_v0/tools/run_all.py.
+        Deterministic, fail-closed gates remain the source of truth; the EPF Relational Grail
+        hazard signal is surfaced as a diagnostic overlay.
+      </footer>
+    </main>
+  </body>
+</html>
 """
+
 with open(art / "report_card.html", "w", encoding="utf-8") as f:
-  f.write(html)
+    f.write(html)
 
 print("Wrote", art / "status.json")
 print("Wrote", art / "report_card.html")
 print(
-  "Logged EPF hazard probe:",
-  f"zone={hazard_state.zone}",
-  f"E={hazard_state.E:.3f}",
-  f"ok={hazard_decision.ok}",
-  f"severity={hazard_decision.severity}",
-  f"enforce_hazard={enforce_hazard}",
-  f"epf_hazard_ok_gate={gates['epf_hazard_ok']}",
+    "Logged EPF hazard probe:",
+    f"zone={hazard_state.zone}",
+    f"E={hazard_state.E:.3f}",
+    f"ok={hazard_decision.ok}",
+    f"severity={hazard_decision.severity}",
+    f"enforce_hazard={enforce_hazard}",
+    f"epf_hazard_ok_gate={gates['epf_hazard_ok']}",
 )
