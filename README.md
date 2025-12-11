@@ -406,6 +406,18 @@ yet enforce any hard release gate.
 
 ---
 
+### EPF Relational Grail (hazard probe)
+
+The **EPF Relational Grail** is the relational hazard layer in the PULSE EPF
+stack: instead of waiting for a concrete error event, it monitors the
+relationship between the current state and a reference state and produces a
+scalar hazard index E(t) with GREEN / AMBER / RED zones.
+
+For the conceptual overview, calibration flow and CLI examples, see
+[docs/epf_relational_grail.md](docs/epf_relational_grail.md).
+
+---
+
 ### Artifacts
 
 - `status_baseline.json` – deterministic decisions (source of truth)
