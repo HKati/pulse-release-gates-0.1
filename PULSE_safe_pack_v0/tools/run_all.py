@@ -41,7 +41,84 @@ art.mkdir(parents=True, exist_ok=True)
 now = datetime.datetime.utcnow().isoformat() + "Z"
 STATUS_VERSION = "1.0.0-demo"
 
+
+# ---------------------------------------------------------------------------
+# Helpers for EPF hazard history / sparkline
+# ---------------------------------------------------------------------------
+
+def load_hazard_E_history(log_path: pathlib.Path, max_points: int = 20):
+    """
+    Load up to max_points hazard E values from the epf_hazard_log.jsonl file.
+
+    Returns the most recent values in order (oldest -> newest).
+    """
+    if not log_path.exists():
+        return []
+
+    values = []
+    with log_path.open("r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                obj = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            hazard = obj.get("hazard", {}) or {}
+            E = hazard.get("E")
+            if isinstance(E, (int, float)):
+                values.append(float(E))
+
+    if not values:
+        return []
+
+    # keep only the last max_points values
+    return values[-max_points:]
+
+
+def build_E_sparkline_svg(values, width: int = 160, height: int = 40) -> str:
+    """
+    Build a tiny inline SVG sparkline for recent E values.
+
+    If there are fewer than 2 points, we return an empty string;
+    the HTML template will show a placeholder text instead.
+    """
+    if len(values) < 2:
+        return ""
+
+    min_v = min(values)
+    max_v = max(values)
+    if max_v == min_v:
+        # flat line
+        max_v = min_v + 1.0
+
+    padding = 4
+    inner_w = width - 2 * padding
+    inner_h = height - 2 * padding
+
+    points = []
+    n = len(values)
+    for i, v in enumerate(values):
+        t = i / (n - 1) if n > 1 else 0.0
+        x = padding + t * inner_w
+        # normalize: min_v -> 0, max_v -> 1, invert y for SVG
+        norm = (v - min_v) / (max_v - min_v)
+        y = height - padding - norm * inner_h
+        points.append(f"{x:.1f},{y:.1f}")
+
+    points_str = " ".join(points)
+
+    svg = f"""<svg viewBox="0 0 {width} {height}" width="{width}" height="{height}" role="img" aria-label="Recent E history">
+  <polyline fill="none" stroke="#4f46e5" stroke-width="1.5" points="{points_str}" />
+</svg>"""
+    return svg
+
+
+# ---------------------------------------------------------------------------
 # Minimal demo gates (all True by default so CI passes)
+# ---------------------------------------------------------------------------
+
 gates = {
     "pass_controls_refusal": True,
     "effect_present": True,
@@ -105,6 +182,25 @@ metrics["hazard_zone"] = hazard_state.zone
 metrics["hazard_reason"] = hazard_state.reason
 metrics["hazard_ok"] = hazard_decision.ok
 metrics["hazard_severity"] = hazard_decision.severity
+
+# Load recent E history for the EPF Relational Grail.
+hazard_log_path = art / "epf_hazard_log.jsonl"
+E_history = load_hazard_E_history(hazard_log_path, max_points=20)
+hazard_history_svg = build_E_sparkline_svg(E_history)
+if E_history and hazard_history_svg:
+    history_fragment = (
+        '<div class="epf-hazard-history">'
+        '<span class="epf-hazard-history-label">Recent E history</span>'
+        f"{hazard_history_svg}"
+        "</div>"
+    )
+else:
+    history_fragment = (
+        '<div class="epf-hazard-history">'
+        '<span class="epf-hazard-history-label">Recent E history</span>'
+        '<span class="epf-hazard-history-empty">Not enough hazard history yet</span>'
+        "</div>"
+    )
 
 # ---------------------------------------------------------------------------
 # Shadow hazard gate (ENV-flag-enforceable)
@@ -309,6 +405,25 @@ html = f"""<!DOCTYPE html>
         font-size: 0.75rem;
         color: #6b7280;
       }}
+      .epf-hazard-history {{
+        margin-top: 0.6rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }}
+      .epf-hazard-history-label {{
+        font-size: 0.78rem;
+        color: #6b7280;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }}
+      .epf-hazard-history-empty {{
+        font-size: 0.78rem;
+        color: #9ca3af;
+      }}
+      .epf-hazard-history svg {{
+        display: block;
+      }}
       table.gate-table {{
         width: 100%;
         border-collapse: collapse;
@@ -407,6 +522,7 @@ html = f"""<!DOCTYPE html>
           Thresholds: warn ≈ {CALIBRATED_WARN_THRESHOLD:.3f}, crit ≈ {CALIBRATED_CRIT_THRESHOLD:.3f}
           ({threshold_regime}; requires ≥{MIN_CALIBRATION_SAMPLES} log entries for calibration to take effect).
         </p>
+        {history_fragment}
       </section>
 
       <section>
