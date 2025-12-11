@@ -225,6 +225,7 @@ r = fold_external(
     "garak_summary.json",
     "garak_new_critical_max",
     "garak_new_critical",
+    key_in_json="new_critical",
 )
 if r is not None:
     oks.append(r)
@@ -243,6 +244,7 @@ r = fold_external(
     "promptfoo_summary.json",
     "promptfoo_fail_rate_max",
     "promptfoo_fail_rate",
+    key_in_json="fail_rate",
 )
 if r is not None:
     oks.append(r)

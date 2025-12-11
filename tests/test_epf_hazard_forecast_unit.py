@@ -4,7 +4,7 @@ import json
 import pathlib
 import unittest
 
-from PULSE_safe_pack_v0.epf_hazard_forecast import (
+from PULSE_safe_pack_v0.epf.epf_hazard_forecast import (
     compute_T,
     estimate_S,
     estimate_D,
