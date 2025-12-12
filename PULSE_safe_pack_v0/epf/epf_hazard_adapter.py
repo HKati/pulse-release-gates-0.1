@@ -21,16 +21,23 @@ Typical usage:
 
 The produced log is intended as a diagnostic/analysis artefact, not as a
 hard gating signal (at least in the proto phase).
+
+Snapshot logging:
+    - Optionally logs sanitized current/reference snapshots (numeric-only)
+      into JSONL entries to support later feature-scaler calibration.
+    - Sanitization is deterministic and bounded (max depth, max numeric items).
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass, asdict
+from collections.abc import Mapping
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 import json
 import logging
+import math
 
 from .epf_hazard_forecast import HazardConfig, HazardState, forecast_hazard
 
@@ -38,6 +45,11 @@ LOG = logging.getLogger(__name__)
 
 # Default filename for the JSONL hazard log.
 LOG_FILENAME_DEFAULT = "epf_hazard_log.jsonl"
+
+# Snapshot logging schema + bounds (defensive against oversized logs).
+HAZARD_SNAPSHOT_SCHEMA_V0 = "epf_hazard_snapshot_v0"
+DEFAULT_SNAPSHOT_MAX_DEPTH = 4
+DEFAULT_SNAPSHOT_MAX_ITEMS = 2000
 
 
 @dataclass
@@ -84,6 +96,124 @@ def _append_jsonl(path: Path, payload: Dict[str, Any]) -> None:
         LOG.warning("Failed to append hazard log entry to %s: %s", path, exc)
 
 
+def sanitize_snapshot_for_log(
+    snapshot: Mapping[str, Any],
+    *,
+    max_depth: int = DEFAULT_SNAPSHOT_MAX_DEPTH,
+    max_items: int = DEFAULT_SNAPSHOT_MAX_ITEMS,
+) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+    """
+    Sanitize a snapshot for safe JSONL logging (numeric-only).
+
+    Rules:
+        - Keep only finite numeric scalars:
+            int/float (finite), bool -> 0/1, numeric strings -> float
+        - Keep nested mappings up to max_depth.
+        - Drop lists/tuples/sets and non-numeric objects.
+        - Deterministic traversal (sorted keys).
+        - Enforce max_items budget on numeric leaf values.
+
+    Returns:
+        (sanitized_snapshot, meta)
+    """
+    meta_base = {
+        "schema": HAZARD_SNAPSHOT_SCHEMA_V0,
+        "max_depth": int(max_depth),
+        "max_items": int(max_items),
+        "kept": 0,
+        "dropped": 0,
+        "truncated": False,
+    }
+
+    if not isinstance(snapshot, Mapping):
+        meta_base["dropped"] = 1
+        return {}, meta_base
+
+    budget = [int(max_items)]
+    stats = {"kept": 0, "dropped": 0, "truncated": False}
+
+    sanitized = _sanitize_mapping(snapshot, depth=int(max_depth), budget=budget, stats=stats)
+
+    meta_base["kept"] = int(stats["kept"])
+    meta_base["dropped"] = int(stats["dropped"])
+    meta_base["truncated"] = bool(stats["truncated"])
+    return sanitized, meta_base
+
+
+def _sanitize_mapping(
+    m: Mapping[str, Any],
+    *,
+    depth: int,
+    budget: List[int],
+    stats: Dict[str, Any],
+) -> Dict[str, Any]:
+    out: Dict[str, Any] = {}
+
+    # Deterministic traversal: keys sorted by string representation.
+    for k in sorted(m.keys(), key=lambda x: str(x)):
+        if budget[0] <= 0:
+            stats["truncated"] = True
+            break
+
+        v = m.get(k)
+
+        if isinstance(v, Mapping):
+            if depth <= 0:
+                stats["dropped"] += 1
+                continue
+            child = _sanitize_mapping(v, depth=depth - 1, budget=budget, stats=stats)
+            if child:
+                out[str(k)] = child
+            else:
+                stats["dropped"] += 1
+            continue
+
+        # Explicitly drop container types to keep logs bounded and predictable.
+        if isinstance(v, (list, tuple, set)):
+            stats["dropped"] += 1
+            continue
+
+        num = _coerce_finite_number(v)
+        if num is None:
+            stats["dropped"] += 1
+            continue
+
+        out[str(k)] = num
+        stats["kept"] += 1
+        budget[0] -= 1
+
+    return out
+
+
+def _coerce_finite_number(value: Any) -> Optional[float]:
+    """
+    Best-effort conversion to finite float.
+
+    Accepted:
+        - bool -> 0.0/1.0
+        - int/float (finite)
+        - numeric strings (finite)
+    """
+    if value is None:
+        return None
+
+    if isinstance(value, bool):
+        return 1.0 if value else 0.0
+
+    if isinstance(value, (int, float)):
+        x = float(value)
+        return x if math.isfinite(x) else None
+
+    if isinstance(value, str):
+        try:
+            x = float(value.strip())
+            return x if math.isfinite(x) else None
+        except Exception:
+            return None
+
+    return None
+
+
 def probe_hazard_and_append_log(
     gate_id: str,
     current_snapshot: Dict[str, float],
@@ -94,6 +224,7 @@ def probe_hazard_and_append_log(
     cfg: Optional[HazardConfig] = None,
     timestamp: Optional[str] = None,
     extra_meta: Optional[Dict[str, Any]] = None,
+    log_snapshots: bool = True,
 ) -> HazardState:
     """
     Run the EPF hazard forecasting probe and append the result to a JSONL log.
@@ -123,6 +254,9 @@ def probe_hazard_and_append_log(
         extra_meta:
             Optional dictionary of additional metadata to include in the
             log entry (e.g. run_id, commit hash, experiment id).
+        log_snapshots:
+            If True, include sanitized numeric-only current/reference snapshots
+            in the JSONL entry to support later scaler calibration.
 
     Behaviour:
         - Calls forecast_hazard(...) with the current runtime_state.history_T.
@@ -131,6 +265,7 @@ def probe_hazard_and_append_log(
             * gate_id
             * timestamp
             * fields from HazardState (T, S, D, E, zone, reason)
+            * optional sanitized snapshots
             * any extra_meta fields under "meta".
 
     Returns:
@@ -165,6 +300,17 @@ def probe_hazard_and_append_log(
             "reason": state.reason,
         },
     }
+
+    if log_snapshots:
+        snap_cur, meta_cur = sanitize_snapshot_for_log(current_snapshot)
+        snap_ref, meta_ref = sanitize_snapshot_for_log(reference_snapshot)
+        entry["snapshot_current"] = snap_cur
+        entry["snapshot_reference"] = snap_ref
+        entry["snapshot_meta"] = {
+            "schema": HAZARD_SNAPSHOT_SCHEMA_V0,
+            "current": meta_cur,
+            "reference": meta_ref,
+        }
 
     if extra_meta:
         # Keep meta separate to avoid collisions with core fields.
