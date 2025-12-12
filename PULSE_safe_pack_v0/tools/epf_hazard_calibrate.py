@@ -29,13 +29,28 @@ import sys
 from typing import Any, DefaultDict, Dict, Iterable, List, Tuple
 
 # Import robust scaler primitives.
-# Support both:
-#   - module execution: python -m PULSE_safe_pack_v0.epf.epf_hazard_calibrate
-#   - script execution: python PULSE_safe_pack_v0/epf/epf_hazard_calibrate.py
-if __package__:
-    from .epf_hazard_features import RobustScaler, FeatureScalersArtifactV0
-else:
-    from epf_hazard_features import RobustScaler, FeatureScalersArtifactV0
+# This tool is often executed as a script from PULSE_safe_pack_v0/tools/,
+# where tools/ is not a Python package. To keep the CLI usable even for
+# --help, we:
+#   1) try absolute import first
+#   2) if that fails, add the repo root (parent of PULSE_safe_pack_v0/) to sys.path
+#      and retry.
+def _ensure_repo_root_on_syspath() -> None:
+    here = pathlib.Path(__file__).resolve()
+    for p in (here,) + tuple(here.parents):
+        if p.name == "PULSE_safe_pack_v0":
+            repo_root = p.parent
+            if str(repo_root) not in sys.path:
+                sys.path.insert(0, str(repo_root))
+            return
+
+
+try:
+    from PULSE_safe_pack_v0.epf.epf_hazard_features import RobustScaler, FeatureScalersArtifactV0
+except ModuleNotFoundError:
+    _ensure_repo_root_on_syspath()
+    from PULSE_safe_pack_v0.epf.epf_hazard_features import RobustScaler, FeatureScalersArtifactV0
+
 
 
 def parse_args(argv: List[str]) -> argparse.Namespace:
