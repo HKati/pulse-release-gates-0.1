@@ -25,7 +25,13 @@ hard gating signal (at least in the proto phase).
 Snapshot logging:
     - Optionally logs sanitized current/reference snapshots (numeric-only)
       into JSONL entries to support later feature-scaler calibration.
-    - Sanitization is deterministic and bounded (max depth, max numeric items).
+
+Relational Grail wiring (opt-in by artifact presence):
+    - If cfg is not provided by caller, the adapter may auto-enable the
+      forecast's feature mode using feature scalers from the calibration
+      artifact (when available and sufficiently sampled).
+    - This keeps the core forecast generic while allowing PULSE runtime
+      to "light up" scaling/explainability once calibration exists.
 """
 
 from __future__ import annotations
@@ -39,7 +45,14 @@ import json
 import logging
 import math
 
-from .epf_hazard_forecast import HazardConfig, HazardState, forecast_hazard
+from .epf_hazard_forecast import (
+    HazardConfig,
+    HazardState,
+    forecast_hazard,
+    CALIBRATION_PATH,
+    MIN_CALIBRATION_SAMPLES,
+)
+from .epf_hazard_features import FeatureSpec, FeatureScalersArtifactV0
 
 LOG = logging.getLogger(__name__)
 
@@ -62,10 +75,6 @@ class HazardRuntimeState:
             Short history of T-values (distance between current and
             reference snapshots). This is passed into forecast_hazard(...)
             on each call and extended with the latest T afterwards.
-
-    The caller is expected to keep one HazardRuntimeState per gate or per
-    EPF field, and persist it only for the duration needed (e.g. one
-    EPF experiment run).
     """
     history_T: List[float]
 
@@ -214,6 +223,47 @@ def _coerce_finite_number(value: Any) -> Optional[float]:
     return None
 
 
+def _maybe_enable_feature_mode_from_calibration(cfg: HazardConfig) -> None:
+    """
+    If caller did not provide cfg, we create one. In that case we may
+    auto-enable feature mode when calibration artifact includes robust
+    feature scalers with sufficient samples.
+
+    Fail-open: any errors mean "leave cfg as-is".
+    """
+    # Respect explicit caller intent: if feature_specs already set, do nothing.
+    if getattr(cfg, "feature_specs", None):
+        return
+
+    try:
+        with CALIBRATION_PATH.open("r", encoding="utf-8") as f:
+            data = json.load(f)
+    except Exception:
+        return
+
+    fs = data.get("feature_scalers")
+    if not isinstance(fs, Mapping):
+        return
+
+    try:
+        artifact = FeatureScalersArtifactV0.from_dict(fs)
+    except Exception:
+        return
+
+    # Guard: require enough snapshot-bearing events.
+    if int(getattr(artifact, "count", 0)) < int(MIN_CALIBRATION_SAMPLES):
+        return
+
+    scalers = getattr(artifact, "features", {}) or {}
+    if not scalers:
+        return
+
+    # Only use keys we can scale. Avoid mixing scaled/unscaled by default.
+    keys = sorted(scalers.keys())
+    cfg.feature_scalers = dict(scalers)
+    cfg.feature_specs = [FeatureSpec(key=k) for k in keys]
+
+
 def probe_hazard_and_append_log(
     gate_id: str,
     current_snapshot: Dict[str, float],
@@ -228,51 +278,10 @@ def probe_hazard_and_append_log(
 ) -> HazardState:
     """
     Run the EPF hazard forecasting probe and append the result to a JSONL log.
-
-    Inputs:
-        gate_id:
-            Identifier of the gate or EPF field this probe corresponds to.
-            This is written into the log as a top-level field.
-        current_snapshot:
-            Dict of current metrics (e.g. gating feature vector).
-        reference_snapshot:
-            Dict of "good" baseline metrics (EPF symmetry reference or
-            learned normal).
-        stability_metrics:
-            Dict of stability signals (e.g. { "RDSI": 0.82 }).
-        runtime_state:
-            HazardRuntimeState carrying the T-history; this will be
-            mutated in-place by appending the latest T-value.
-        log_dir:
-            Directory where the JSONL log file will be written. The file
-            name defaults to LOG_FILENAME_DEFAULT.
-        cfg:
-            Optional HazardConfig; if omitted, a default config is used.
-        timestamp:
-            Optional ISO-8601 timestamp string; if None, current UTC time
-            is used.
-        extra_meta:
-            Optional dictionary of additional metadata to include in the
-            log entry (e.g. run_id, commit hash, experiment id).
-        log_snapshots:
-            If True, include sanitized numeric-only current/reference snapshots
-            in the JSONL entry to support later scaler calibration.
-
-    Behaviour:
-        - Calls forecast_hazard(...) with the current runtime_state.history_T.
-        - Extends runtime_state.history_T with the resulting T.
-        - Appends a JSON object to <log_dir>/epf_hazard_log.jsonl with:
-            * gate_id
-            * timestamp
-            * fields from HazardState (T, S, D, E, zone, reason)
-            * optional sanitized snapshots
-            * any extra_meta fields under "meta".
-
-    Returns:
-        HazardState from the underlying forecast_hazard(...) call.
     """
     if cfg is None:
         cfg = HazardConfig()
+        _maybe_enable_feature_mode_from_calibration(cfg)
 
     # Run the core hazard forecast.
     state = forecast_hazard(
@@ -298,6 +307,9 @@ def probe_hazard_and_append_log(
             "E": state.E,
             "zone": state.zone,
             "reason": state.reason,
+            # Additive: Relational Grail explainability (if present).
+            "T_scaled": bool(getattr(state, "T_scaled", False)),
+            "contributors_top": getattr(state, "contributors_top", []) or [],
         },
     }
 

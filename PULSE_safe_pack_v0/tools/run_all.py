@@ -13,6 +13,7 @@ import json
 import datetime
 import pathlib
 import sys
+from html import escape
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 REPO_ROOT = ROOT.parent
@@ -115,6 +116,27 @@ def build_E_sparkline_svg(values, width: int = 160, height: int = 40) -> str:
     return svg
 
 
+def format_top_contributors(contribs, k: int = 3) -> str:
+    """
+    Format hazard_state.contributors_top (compact dicts) into a short, safe string.
+    """
+    if not isinstance(contribs, list) or not contribs:
+        return "none"
+
+    parts = []
+    for c in contribs[:k]:
+        if not isinstance(c, dict):
+            continue
+        key = escape(str(c.get("key", "UNKNOWN")))
+        contrib = c.get("contrib")
+        if isinstance(contrib, (int, float)):
+            parts.append(f"{key}({float(contrib):.2f})")
+        else:
+            parts.append(key)
+
+    return ", ".join(parts) if parts else "none"
+
+
 # ---------------------------------------------------------------------------
 # Minimal demo gates (all True by default so CI passes)
 # ---------------------------------------------------------------------------
@@ -183,6 +205,12 @@ metrics["hazard_reason"] = hazard_state.reason
 metrics["hazard_ok"] = hazard_decision.ok
 metrics["hazard_severity"] = hazard_decision.severity
 
+# Additive: Relational Grail explainability fields (safe even if absent).
+hazard_T_scaled = bool(getattr(hazard_state, "T_scaled", False))
+hazard_contributors_top = getattr(hazard_state, "contributors_top", []) or []
+metrics["hazard_T_scaled"] = hazard_T_scaled
+metrics["hazard_contributors_top"] = hazard_contributors_top
+
 # Load recent E history for the EPF Relational Grail.
 hazard_log_path = art / "epf_hazard_log.jsonl"
 E_history = load_hazard_E_history(hazard_log_path, max_points=20)
@@ -241,6 +269,10 @@ elif zone == "RED":
     hazard_badge_class = "badge-red"
 else:
     hazard_badge_class = "badge-unknown"
+
+scale_badge_class = "badge-scaled" if hazard_T_scaled else "badge-unscaled"
+scale_badge_text = "SCALED" if hazard_T_scaled else "UNSCALED"
+contributors_text = format_top_contributors(hazard_contributors_top, k=3)
 
 # Heuristic: if calibrated thresholds differ from the built-in defaults,
 # we assume a trusted calibration artefact is present.
@@ -355,6 +387,16 @@ html = f"""<!DOCTYPE html>
         color: #e5e7eb;
         border: 1px solid rgba(148, 163, 184, 0.6);
       }}
+      .badge-scaled {{
+        background: rgba(16, 185, 129, 0.16);
+        color: #a7f3d0;
+        border: 1px solid rgba(16, 185, 129, 0.55);
+      }}
+      .badge-unscaled {{
+        background: rgba(148, 163, 184, 0.18);
+        color: #e5e7eb;
+        border: 1px solid rgba(148, 163, 184, 0.6);
+      }}
       .strip-note {{
         font-size: 0.78rem;
         opacity: 0.9;
@@ -376,6 +418,10 @@ html = f"""<!DOCTYPE html>
       }}
       .epf-hazard-title {{
         font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        flex-wrap: wrap;
       }}
       .epf-hazard-metrics {{
         display: flex;
@@ -399,6 +445,21 @@ html = f"""<!DOCTYPE html>
         margin: 0.35rem 0 0;
         font-size: 0.8rem;
         color: #4b5563;
+      }}
+      .epf-hazard-contrib {{
+        margin-top: 0.45rem;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        align-items: baseline;
+        font-size: 0.8rem;
+        color: #4b5563;
+      }}
+      .epf-hazard-contrib-label {{
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: #6b7280;
+        font-size: 0.75rem;
       }}
       .epf-hazard-footnote {{
         margin: 0.4rem 0 0;
@@ -486,7 +547,7 @@ html = f"""<!DOCTYPE html>
         <div class="strip-right">
           <span class="badge {hazard_badge_class}">Hazard {metrics['hazard_zone']}</span>
           <span class="strip-note">
-            E={metrics['hazard_E']:.3f} · {'OK' if metrics['hazard_ok'] else 'BLOCKED'} · {metrics['hazard_severity']} severity
+            E={metrics['hazard_E']:.3f} · {'OK' if metrics['hazard_ok'] else 'BLOCKED'} · {metrics['hazard_severity']} severity · {scale_badge_text}
           </span>
         </div>
       </section>
@@ -495,6 +556,7 @@ html = f"""<!DOCTYPE html>
         <div class="epf-hazard-header">
           <div class="epf-hazard-title">
             EPF Relational Grail — hazard signal
+            <span class="badge {scale_badge_class}">{scale_badge_text}</span>
           </div>
           <div class="epf-hazard-metrics">
             <div class="epf-hazard-metric">
@@ -518,6 +580,10 @@ html = f"""<!DOCTYPE html>
         <p class="epf-hazard-reason">
           {metrics['hazard_reason']}
         </p>
+        <div class="epf-hazard-contrib">
+          <span class="epf-hazard-contrib-label">Top contributors</span>
+          <span>{contributors_text}</span>
+        </div>
         <p class="epf-hazard-footnote">
           Thresholds: warn ≈ {CALIBRATED_WARN_THRESHOLD:.3f}, crit ≈ {CALIBRATED_CRIT_THRESHOLD:.3f}
           ({threshold_regime}; requires ≥{MIN_CALIBRATION_SAMPLES} log entries for calibration to take effect).
@@ -561,6 +627,7 @@ print(
     f"E={hazard_state.E:.3f}",
     f"ok={hazard_decision.ok}",
     f"severity={hazard_decision.severity}",
+    f"scaled={hazard_T_scaled}",
     f"enforce_hazard={enforce_hazard}",
     f"epf_hazard_ok_gate={gates['epf_hazard_ok']}",
 )
