@@ -125,12 +125,57 @@ class RobustScaler:
         """
         Fit a RobustScaler from finite numeric samples.
 
-        Raises:
-            ValueError if values has no usable finite samples.
+        Uses median and MAD (median absolute deviation). If MAD degenerates
+        to ~0 (common for mostly-constant or binary-heavy features), we fall
+        back deterministically to a more stable scale proxy:
+
+            1) IQR  = p75 - p25
+            2) range = max - min
+            3) unit  = 1.0
+
+        This prevents extreme z-deltas and keeps T/contributors interpretable.
         """
         finite = [float(v) for v in values if isinstance(v, (int, float)) and math.isfinite(float(v))]
         if not finite:
             raise ValueError("RobustScaler.fit requires at least 1 finite sample")
+
+        vs = sorted(finite)
+        med = float(statistics.median(vs))
+
+        abs_dev = [abs(v - med) for v in vs]
+        mad = float(statistics.median(abs_dev))
+
+        # Deterministic percentile helper (linear interpolation)
+        def _pct(p: float) -> float:
+            if p <= 0.0:
+                return vs[0]
+            if p >= 1.0:
+                return vs[-1]
+            k = (len(vs) - 1) * p
+            f = math.floor(k)
+            c = math.ceil(k)
+            if f == c:
+                return vs[f]
+            frac = k - f
+            return vs[f] + (vs[c] - vs[f]) * frac
+
+        # If MAD is too small, fall back to a safer scale proxy.
+        if not math.isfinite(mad) or mad <= eps:
+            q25 = _pct(0.25)
+            q75 = _pct(0.75)
+            iqr = float(abs(q75 - q25))
+
+            if math.isfinite(iqr) and iqr > eps:
+                mad = iqr
+            else:
+                rng = float(abs(vs[-1] - vs[0]))
+                if math.isfinite(rng) and rng > eps:
+                    mad = rng
+                else:
+                    mad = 1.0
+
+        return RobustScaler(median=med, mad=mad, eps=eps)
+
 
         med = float(statistics.median(finite))
         abs_dev = [abs(v - med) for v in finite]
