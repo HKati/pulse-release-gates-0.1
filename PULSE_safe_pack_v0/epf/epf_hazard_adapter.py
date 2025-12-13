@@ -25,8 +25,12 @@ Relational Grail wiring (opt-in by artifact presence):
       artifact (when available and sufficiently sampled).
     - Feature autowire is disciplined:
         * only keys present in current/reference snapshots are eligible
-        * optional feature_allowlist can further constrain selection
-          (runtime allowlist intersects artifact allowlist if both exist)
+        * priority of constraints:
+            1) runtime feature_allowlist (if set)
+            2) artifact feature_allowlist (if set)
+            3) artifact recommended_features (if present; may be empty -> deny all)
+            4) fallback: snapshot-keys ∩ scaler keys
+        * if both runtime + artifact allowlists are provided -> intersection
 """
 
 from __future__ import annotations
@@ -192,25 +196,6 @@ def sanitize_snapshot_for_log(
 ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     """
     Sanitize a snapshot for safe JSONL logging (numeric-only), with optional policy.
-
-    Rules:
-        - Keep only finite numeric scalars:
-            int/float (finite), bool -> 0/1, numeric strings -> float
-        - Keep nested mappings up to max_depth.
-        - Drop lists/tuples/sets and non-numeric objects.
-        - Deterministic traversal (sorted keys).
-        - Enforce max_items budget on numeric leaf values.
-
-    Policy (dotted paths):
-        allowed_prefixes:
-            If set, only keys under these prefixes are kept.
-            Example: ["metrics", "external.fail_rate"]
-        deny_keys:
-            Always drop keys/subtrees matching these prefixes.
-            Example: ["pii", "secrets.api_key", "raw_prompt"]
-
-    Returns:
-        (sanitized_snapshot, meta)
     """
     allowed_n = _normalize_path_list(allowed_prefixes)
     deny_n = _normalize_path_list(deny_keys)
@@ -264,7 +249,6 @@ def _sanitize_mapping(
 ) -> Dict[str, Any]:
     out: Dict[str, Any] = {}
 
-    # Deterministic traversal: keys sorted by string representation.
     for k in sorted(m.keys(), key=lambda x: str(x)):
         if budget[0] <= 0:
             stats["truncated"] = True
@@ -273,7 +257,6 @@ def _sanitize_mapping(
         key_str = str(k)
         path = _join_path(path_prefix, key_str)
 
-        # Deny overrides everything.
         if _is_denied(path, deny_keys):
             stats["dropped"] += 1
             continue
@@ -285,7 +268,6 @@ def _sanitize_mapping(
                 stats["dropped"] += 1
                 continue
 
-            # If allowlist is present, only traverse subtrees that can contain allowed keys.
             if not _should_traverse(path, allowed_prefixes):
                 stats["dropped"] += 1
                 continue
@@ -305,12 +287,10 @@ def _sanitize_mapping(
                 stats["dropped"] += 1
             continue
 
-        # Explicitly drop container types to keep logs bounded and predictable.
         if isinstance(v, (list, tuple, set)):
             stats["dropped"] += 1
             continue
 
-        # Apply allowlist at leaf-level.
         if not _is_allowed_leaf(path, allowed_prefixes):
             stats["dropped"] += 1
             continue
@@ -330,11 +310,6 @@ def _sanitize_mapping(
 def _coerce_finite_number(value: Any) -> Optional[float]:
     """
     Best-effort conversion to finite float.
-
-    Accepted:
-        - bool -> 0.0/1.0
-        - int/float (finite)
-        - numeric strings (finite)
     """
     if value is None:
         return None
@@ -357,35 +332,39 @@ def _coerce_finite_number(value: Any) -> Optional[float]:
 
 
 # ---------------------------------------------------------------------------
-# Feature-mode autowire discipline (allowlist + snapshot intersection)
+# Feature-mode autowire discipline (allowlist + snapshot intersection + recommendations)
 # ---------------------------------------------------------------------------
 
 def _normalize_feature_key_list(x: Any) -> Optional[List[str]]:
     """
-    Normalize feature allowlist from either:
+    Normalize feature lists from either:
       - comma-separated string
       - list/tuple/set of items
-    Returns sorted unique list, or None if empty.
+
+    Semantics:
+      - None -> None (unspecified)
+      - ""   -> None (unspecified)
+      - []   -> []   (explicit deny-all)
+      - ["a", "b"] -> ["a", "b"] (sorted unique)
     """
-    keys: List[str] = []
     if x is None:
         return None
 
     if isinstance(x, str):
-        parts = [p.strip() for p in x.split(",")]
-        keys = [p for p in parts if p]
-    elif isinstance(x, (list, tuple, set)):
+        parts = [p.strip() for p in x.split(",") if p.strip()]
+        return sorted(set(parts)) or None
+
+    if isinstance(x, (list, tuple, set)):
+        keys: List[str] = []
         for it in x:
             s = str(it).strip()
             if s:
                 keys.append(s)
-    else:
-        s = str(x).strip()
-        if s:
-            keys = [s]
+        # NOTE: may be [] -> explicit deny-all
+        return sorted(set(keys))
 
-    keys = sorted(set(keys))
-    return keys or None
+    s = str(x).strip()
+    return [s] if s else None
 
 
 def _select_feature_keys_for_autowire(
@@ -403,8 +382,8 @@ def _select_feature_keys_for_autowire(
       - if allowlist is provided (even if empty), restrict to allowlist
 
     NOTE:
-      - allowlist=None  -> no allowlist restriction
-      - allowlist=[]    -> deny all
+      - allowlist=None -> no allowlist restriction
+      - allowlist=[]   -> deny all
     """
     snap_keys = {str(k) for k in list(current_snapshot.keys()) + list(reference_snapshot.keys())}
     candidates = {str(k) for k in scaler_keys} & snap_keys
@@ -427,14 +406,16 @@ def _maybe_enable_feature_mode_from_calibration(
     Auto-enable feature mode when calibration artifact includes robust feature scalers
     with sufficient samples.
 
-    Feature selection is disciplined:
-      - only keys that appear in current/reference snapshot are considered
-      - optional allowlist can further constrain selection
-        (runtime allowlist intersects artifact allowlist if both exist)
+    Constraint priority:
+      1) runtime feature_allowlist (if provided)
+      2) artifact feature_allowlist (if provided)
+      3) artifact recommended_features (if present; may be empty -> deny all)
+      4) fallback: snapshot-keys ∩ scaler keys
+
+    If both runtime + artifact allowlists are provided -> intersection.
 
     Fail-open: any errors mean "leave cfg as-is".
     """
-    # Respect explicit caller intent: if feature_specs already set, do nothing.
     if getattr(cfg, "feature_specs", None):
         return
 
@@ -453,7 +434,6 @@ def _maybe_enable_feature_mode_from_calibration(
     except Exception:
         return
 
-    # Guard: require enough snapshot-bearing events.
     if int(getattr(artifact, "count", 0)) < int(MIN_CALIBRATION_SAMPLES):
         return
 
@@ -463,13 +443,21 @@ def _maybe_enable_feature_mode_from_calibration(
 
     runtime_allow = _normalize_feature_key_list(feature_allowlist)
     artifact_allow = _normalize_feature_key_list(data.get("feature_allowlist"))
+    recommended = _normalize_feature_key_list(data.get("recommended_features"))
 
-    if runtime_allow and artifact_allow:
+    # Determine effective constraint set.
+    if runtime_allow is not None and artifact_allow is not None:
         effective_allow = sorted(set(runtime_allow) & set(artifact_allow))
+    elif runtime_allow is not None:
+        effective_allow = runtime_allow
+    elif artifact_allow is not None:
+        effective_allow = artifact_allow
+    elif recommended is not None:
+        effective_allow = recommended
     else:
-        effective_allow = runtime_allow or artifact_allow
+        effective_allow = None
 
-    # Codex P1: explicit empty intersection means "deny all" -> do not enable feature mode.
+    # Explicit empty constraint means deny-all -> do not enable feature mode.
     if effective_allow is not None and len(effective_allow) == 0:
         return
 
@@ -503,18 +491,6 @@ def probe_hazard_and_append_log(
 ) -> HazardState:
     """
     Run the EPF hazard forecasting probe and append the result to a JSONL log.
-
-    Snapshot policy (when log_snapshots=True):
-        - snapshot_allowed_prefixes: dotted prefixes to allow (optional)
-        - snapshot_deny_keys: dotted prefixes to deny (optional)
-
-    Feature-mode policy (only when cfg is None and we autowire from calibration):
-        - feature_allowlist: optional list of feature keys to allow
-          (intersects artifact "feature_allowlist" if present)
-
-    Defaults preserve legacy behavior:
-        - if snapshot policy omitted -> log all numeric keys
-        - if feature allowlist omitted -> use snapshot-present keys ∩ scaler keys
     """
     if cfg is None:
         cfg = HazardConfig()
@@ -525,7 +501,6 @@ def probe_hazard_and_append_log(
             feature_allowlist=feature_allowlist,
         )
 
-    # Run the core hazard forecast.
     state = forecast_hazard(
         current_snapshot=current_snapshot,
         reference_snapshot=reference_snapshot,
@@ -534,10 +509,8 @@ def probe_hazard_and_append_log(
         cfg=cfg,
     )
 
-    # Update runtime T-history (unbounded; forecast_hazard handles its own window).
     runtime_state.history_T.append(state.T)
 
-    # Build log entry.
     ts = timestamp or _current_utc_iso()
     entry: Dict[str, Any] = {
         "gate_id": gate_id,
@@ -549,10 +522,8 @@ def probe_hazard_and_append_log(
             "E": state.E,
             "zone": state.zone,
             "reason": state.reason,
-            # Additive: Relational Grail explainability (if present).
             "T_scaled": bool(getattr(state, "T_scaled", False)),
             "contributors_top": getattr(state, "contributors_top", []) or [],
-            # Additive: which feature keys were used when feature-mode is active.
             "feature_keys": [fs.key for fs in (getattr(cfg, "feature_specs", []) or [])],
         },
     }
@@ -577,7 +548,6 @@ def probe_hazard_and_append_log(
         }
 
     if extra_meta:
-        # Keep meta separate to avoid collisions with core fields.
         entry["meta"] = extra_meta
 
     log_path = Path(log_dir) / LOG_FILENAME_DEFAULT
