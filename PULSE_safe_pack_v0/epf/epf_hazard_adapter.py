@@ -26,11 +26,16 @@ Relational Grail wiring (opt-in by artifact presence):
     - Feature autowire is disciplined:
         * only keys present in current/reference snapshots are eligible
         * priority of constraints:
-            1) runtime feature_allowlist (if set)
-            2) artifact feature_allowlist (if set)
+            1) runtime feature_allowlist (if provided)
+            2) artifact feature_allowlist (if provided)
             3) artifact recommended_features (if present; may be empty -> deny all)
             4) fallback: snapshot-keys ∩ scaler keys
         * if both runtime + artifact allowlists are provided -> intersection
+
+NEW (Step 8):
+    - Log provenance of feature-mode selection:
+        * hazard.feature_mode_source
+        * hazard.feature_mode_active
 """
 
 from __future__ import annotations
@@ -55,10 +60,8 @@ from .epf_hazard_features import FeatureSpec, FeatureScalersArtifactV0
 
 LOG = logging.getLogger(__name__)
 
-# Default filename for the JSONL hazard log.
 LOG_FILENAME_DEFAULT = "epf_hazard_log.jsonl"
 
-# Snapshot logging schema + bounds (defensive against oversized logs).
 HAZARD_SNAPSHOT_SCHEMA_V0 = "epf_hazard_snapshot_v0"
 DEFAULT_SNAPSHOT_MAX_DEPTH = 4
 DEFAULT_SNAPSHOT_MAX_ITEMS = 2000
@@ -100,7 +103,7 @@ def _append_jsonl(path: Path, payload: Dict[str, Any]) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
         with path.open("a", encoding="utf-8") as f:
             f.write(json.dumps(payload, sort_keys=True) + "\n")
-    except OSError as exc:  # pragma: no cover - defensive logging
+    except OSError as exc:  # pragma: no cover
         LOG.warning("Failed to append hazard log entry to %s: %s", path, exc)
 
 
@@ -139,11 +142,6 @@ def _join_path(prefix: str, key: str) -> str:
 
 
 def _matches_prefix(path: str, prefix: str) -> bool:
-    """
-    Prefix match for dotted paths.
-    - exact match: path == prefix
-    - subtree match: path startswith prefix + "."
-    """
     return path == prefix or path.startswith(prefix + ".")
 
 
@@ -154,26 +152,12 @@ def _is_denied(path: str, deny: Optional[List[str]]) -> bool:
 
 
 def _is_allowed_leaf(path: str, allowed: Optional[List[str]]) -> bool:
-    """
-    If allowed is None/empty -> everything allowed.
-    Else leaf allowed if it matches any allowed prefix.
-    """
     if not allowed:
         return True
     return any(_matches_prefix(path, a) for a in allowed)
 
 
 def _should_traverse(path: str, allowed: Optional[List[str]]) -> bool:
-    """
-    Decide whether to traverse into a subtree at 'path' given allowed prefixes.
-
-    We traverse if:
-      - no allowlist is set (allowed is None), OR
-      - some allowed prefix is:
-          * equal to path, OR
-          * deeper under path (allowed startswith path + "."),
-          * shallower than path (path startswith allowed + ".")
-    """
     if not allowed:
         return True
     for a in allowed:
@@ -267,7 +251,6 @@ def _sanitize_mapping(
             if depth <= 0:
                 stats["dropped"] += 1
                 continue
-
             if not _should_traverse(path, allowed_prefixes):
                 stats["dropped"] += 1
                 continue
@@ -308,9 +291,6 @@ def _sanitize_mapping(
 
 
 def _coerce_finite_number(value: Any) -> Optional[float]:
-    """
-    Best-effort conversion to finite float.
-    """
     if value is None:
         return None
 
@@ -332,7 +312,7 @@ def _coerce_finite_number(value: Any) -> Optional[float]:
 
 
 # ---------------------------------------------------------------------------
-# Feature-mode autowire discipline (allowlist + snapshot intersection + recommendations)
+# Feature-mode autowire discipline + provenance
 # ---------------------------------------------------------------------------
 
 def _normalize_feature_key_list(x: Any) -> Optional[List[str]]:
@@ -360,8 +340,7 @@ def _normalize_feature_key_list(x: Any) -> Optional[List[str]]:
             s = str(it).strip()
             if s:
                 keys.append(s)
-        # NOTE: may be [] -> explicit deny-all
-        return sorted(set(keys))
+        return sorted(set(keys))  # may be []
 
     s = str(x).strip()
     return [s] if s else None
@@ -388,7 +367,7 @@ def _select_feature_keys_for_autowire(
     snap_keys = {str(k) for k in list(current_snapshot.keys()) + list(reference_snapshot.keys())}
     candidates = {str(k) for k in scaler_keys} & snap_keys
 
-    # Codex P1 fix: apply allowlist whenever it is explicitly provided.
+    # Apply allowlist whenever explicitly provided.
     if allowlist is not None:
         candidates &= {str(x) for x in allowlist}
 
@@ -414,9 +393,14 @@ def _maybe_enable_feature_mode_from_calibration(
 
     If both runtime + artifact allowlists are provided -> intersection.
 
-    Fail-open: any errors mean "leave cfg as-is".
+    Provenance:
+      - cfg.feature_mode_source: which constraint was used
+      - cfg.feature_mode_active: whether feature mode was activated
     """
     if getattr(cfg, "feature_specs", None):
+        # Caller already configured feature mode explicitly.
+        setattr(cfg, "feature_mode_source", "caller_cfg")
+        setattr(cfg, "feature_mode_active", True)
         return
 
     try:
@@ -445,20 +429,29 @@ def _maybe_enable_feature_mode_from_calibration(
     artifact_allow = _normalize_feature_key_list(data.get("feature_allowlist"))
     recommended = _normalize_feature_key_list(data.get("recommended_features"))
 
-    # Determine effective constraint set.
+    # Decide constraint source + effective allowlist.
     if runtime_allow is not None and artifact_allow is not None:
-        effective_allow = sorted(set(runtime_allow) & set(artifact_allow))
+        source = "runtime_and_artifact_allowlist"
+        effective_allow: Optional[List[str]] = sorted(set(runtime_allow) & set(artifact_allow))
     elif runtime_allow is not None:
+        source = "runtime_allowlist"
         effective_allow = runtime_allow
     elif artifact_allow is not None:
+        source = "artifact_allowlist"
         effective_allow = artifact_allow
     elif recommended is not None:
+        source = "recommended_features"
         effective_allow = recommended
     else:
+        source = "snapshot_intersection"
         effective_allow = None
+
+    # Record provenance even if we end up not enabling.
+    setattr(cfg, "feature_mode_source", source)
 
     # Explicit empty constraint means deny-all -> do not enable feature mode.
     if effective_allow is not None and len(effective_allow) == 0:
+        setattr(cfg, "feature_mode_active", False)
         return
 
     keys = _select_feature_keys_for_autowire(
@@ -468,10 +461,12 @@ def _maybe_enable_feature_mode_from_calibration(
         allowlist=effective_allow,
     )
     if not keys:
+        setattr(cfg, "feature_mode_active", False)
         return
 
     cfg.feature_scalers = {k: scalers[k] for k in keys}
     cfg.feature_specs = [FeatureSpec(key=k) for k in keys]
+    setattr(cfg, "feature_mode_active", True)
 
 
 def probe_hazard_and_append_log(
@@ -492,6 +487,8 @@ def probe_hazard_and_append_log(
     """
     Run the EPF hazard forecasting probe and append the result to a JSONL log.
     """
+    cfg_provided_by_caller = cfg is not None
+
     if cfg is None:
         cfg = HazardConfig()
         _maybe_enable_feature_mode_from_calibration(
@@ -511,6 +508,18 @@ def probe_hazard_and_append_log(
 
     runtime_state.history_T.append(state.T)
 
+    feature_keys = [fs.key for fs in (getattr(cfg, "feature_specs", []) or [])]
+    feature_mode_active = bool(feature_keys)
+
+    src = getattr(cfg, "feature_mode_source", None)
+    if not isinstance(src, str) or not src.strip():
+        if feature_mode_active and cfg_provided_by_caller:
+            src = "caller_cfg"
+        elif feature_mode_active:
+            src = "unknown"
+        else:
+            src = "none"
+
     ts = timestamp or _current_utc_iso()
     entry: Dict[str, Any] = {
         "gate_id": gate_id,
@@ -524,7 +533,9 @@ def probe_hazard_and_append_log(
             "reason": state.reason,
             "T_scaled": bool(getattr(state, "T_scaled", False)),
             "contributors_top": getattr(state, "contributors_top", []) or [],
-            "feature_keys": [fs.key for fs in (getattr(cfg, "feature_specs", []) or [])],
+            "feature_keys": feature_keys,
+            "feature_mode_active": feature_mode_active,
+            "feature_mode_source": src,
         },
     }
 
