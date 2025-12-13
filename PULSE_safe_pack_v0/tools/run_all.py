@@ -36,6 +36,13 @@ from PULSE_safe_pack_v0.epf.epf_hazard_forecast import (
     MIN_CALIBRATION_SAMPLES,
 )
 
+# Prefer the same calibration path constant as EPF modules, but fall back safely.
+try:
+    from PULSE_safe_pack_v0.epf.epf_hazard_forecast import CALIBRATION_PATH as HAZARD_CALIB_PATH
+except Exception:  # pragma: no cover
+    HAZARD_CALIB_PATH = ROOT / "artifacts" / "epf_hazard_thresholds_v0.json"
+
+
 art = ROOT / "artifacts"
 art.mkdir(parents=True, exist_ok=True)
 
@@ -74,7 +81,6 @@ def load_hazard_E_history(log_path: pathlib.Path, max_points: int = 20):
     if not values:
         return []
 
-    # keep only the last max_points values
     return values[-max_points:]
 
 
@@ -91,7 +97,6 @@ def build_E_sparkline_svg(values, width: int = 160, height: int = 40) -> str:
     min_v = min(values)
     max_v = max(values)
     if max_v == min_v:
-        # flat line
         max_v = min_v + 1.0
 
     padding = 4
@@ -103,7 +108,6 @@ def build_E_sparkline_svg(values, width: int = 160, height: int = 40) -> str:
     for i, v in enumerate(values):
         t = i / (n - 1) if n > 1 else 0.0
         x = padding + t * inner_w
-        # normalize: min_v -> 0, max_v -> 1, invert y for SVG
         norm = (v - min_v) / (max_v - min_v)
         y = height - padding - norm * inner_h
         points.append(f"{x:.1f},{y:.1f}")
@@ -135,6 +139,106 @@ def format_top_contributors(contribs, k: int = 3) -> str:
             parts.append(key)
 
     return ", ".join(parts) if parts else "none"
+
+
+def load_last_hazard_feature_keys(log_path: pathlib.Path) -> list[str]:
+    """
+    Best-effort: read the last valid JSON event from epf_hazard_log.jsonl
+    and return hazard.feature_keys if present.
+    """
+    if not log_path.exists():
+        return []
+
+    last_obj = None
+    with log_path.open("r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                obj = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            last_obj = obj
+
+    if not isinstance(last_obj, dict):
+        return []
+
+    hazard = last_obj.get("hazard", {}) or {}
+    keys = hazard.get("feature_keys")
+    if not isinstance(keys, list):
+        return []
+
+    out: list[str] = []
+    for k in keys:
+        s = str(k).strip()
+        if s:
+            out.append(s)
+    return out
+
+
+def format_feature_keys(keys: list[str], preview: int = 6) -> str:
+    """
+    Format feature keys into a compact, safe string for HTML.
+    """
+    if not keys:
+        return "none"
+
+    shown = keys[:preview]
+    shown_esc = [escape(k) for k in shown]
+    if len(keys) > preview:
+        return ", ".join(shown_esc) + f" +{len(keys) - preview} more"
+    return ", ".join(shown_esc)
+
+
+def load_calibration_recommendation(calib_path: pathlib.Path) -> dict:
+    """
+    Load recommended_features + recommendation knobs (min_coverage / max_features)
+    from the calibration artifact, if available.
+
+    Fail-open: any read/parse issues yield empty values.
+    """
+    out = {
+        "present": False,
+        "recommended_features": [],
+        "recommended_count": 0,
+        "min_coverage": None,
+        "max_features": None,
+        "feature_allowlist_count": 0,
+    }
+
+    try:
+        with calib_path.open("r", encoding="utf-8") as f:
+            data = json.load(f)
+    except Exception:
+        return out
+
+    out["present"] = True
+
+    rec = data.get("recommended_features")
+    if isinstance(rec, list):
+        cleaned = []
+        for x in rec:
+            s = str(x).strip()
+            if s:
+                cleaned.append(s)
+        out["recommended_features"] = cleaned
+        out["recommended_count"] = len(cleaned)
+
+    allow = data.get("feature_allowlist")
+    if isinstance(allow, list):
+        out["feature_allowlist_count"] = len([1 for x in allow if str(x).strip()])
+
+    knobs = data.get("recommendation")
+    if isinstance(knobs, dict):
+        mc = knobs.get("min_coverage")
+        mf = knobs.get("max_features")
+        if isinstance(mc, (int, float)):
+            out["min_coverage"] = float(mc)
+        if isinstance(mf, int):
+            out["max_features"] = int(mf)
+
+    return out
 
 
 # ---------------------------------------------------------------------------
@@ -174,7 +278,6 @@ metrics = {
 
 hazard_runtime = HazardRuntimeState.empty()
 
-# For now we only use RDSI as a simple EPF proxy.
 current_snapshot = {"RDSI": metrics.get("RDSI", 0.5)}
 reference_snapshot = {"RDSI": 1.0}
 stability_metrics = {"RDSI": metrics.get("RDSI", 0.5)}
@@ -192,10 +295,8 @@ hazard_state = probe_hazard_and_append_log(
     },
 )
 
-# Evaluate hazard gate policy (RED-only block).
 hazard_decision = evaluate_hazard_gate(hazard_state, cfg=HazardGateConfig())
 
-# Surface hazard metrics into status.json metrics.
 metrics["hazard_T"] = hazard_state.T
 metrics["hazard_S"] = hazard_state.S
 metrics["hazard_D"] = hazard_state.D
@@ -211,8 +312,20 @@ hazard_contributors_top = getattr(hazard_state, "contributors_top", []) or []
 metrics["hazard_T_scaled"] = hazard_T_scaled
 metrics["hazard_contributors_top"] = hazard_contributors_top
 
-# Load recent E history for the EPF Relational Grail.
+# Load last-used feature keys from the log entry we just appended.
 hazard_log_path = art / "epf_hazard_log.jsonl"
+hazard_feature_keys = load_last_hazard_feature_keys(hazard_log_path)
+metrics["hazard_feature_keys"] = hazard_feature_keys
+metrics["hazard_feature_count"] = int(len(hazard_feature_keys))
+
+# Load calibration recommendation summary (recommended_features + min_coverage).
+calib_summary = load_calibration_recommendation(pathlib.Path(HAZARD_CALIB_PATH))
+metrics["hazard_recommended_count"] = int(calib_summary.get("recommended_count", 0) or 0)
+metrics["hazard_recommend_min_coverage"] = calib_summary.get("min_coverage")
+metrics["hazard_recommend_max_features"] = calib_summary.get("max_features")
+metrics["hazard_feature_allowlist_count"] = int(calib_summary.get("feature_allowlist_count", 0) or 0)
+
+# Load recent E history for the EPF Relational Grail.
 E_history = load_hazard_E_history(hazard_log_path, max_points=20)
 hazard_history_svg = build_E_sparkline_svg(E_history)
 if E_history and hazard_history_svg:
@@ -234,9 +347,6 @@ else:
 # Shadow hazard gate (ENV-flag-enforceable)
 # ---------------------------------------------------------------------------
 
-# By default, epf_hazard_ok is a shadow gate: always True, so CI behaviour
-# does not change. If EPF_HAZARD_ENFORCE=1 is set in the environment,
-# epf_hazard_ok follows the hazard_decision.ok flag.
 enforce_hazard = os.getenv("EPF_HAZARD_ENFORCE", "0") == "1"
 if enforce_hazard:
     gates["epf_hazard_ok"] = hazard_decision.ok
@@ -274,6 +384,13 @@ scale_badge_class = "badge-scaled" if hazard_T_scaled else "badge-unscaled"
 scale_badge_text = "SCALED" if hazard_T_scaled else "UNSCALED"
 contributors_text = format_top_contributors(hazard_contributors_top, k=3)
 
+features_used_n = int(metrics.get("hazard_feature_count", 0) or 0)
+features_used_text = format_feature_keys(hazard_feature_keys, preview=6)
+
+rec_n = int(metrics.get("hazard_recommended_count", 0) or 0)
+rec_min_cov = metrics.get("hazard_recommend_min_coverage")
+rec_min_cov_text = f"{float(rec_min_cov):.2f}" if isinstance(rec_min_cov, (int, float)) else "n/a"
+
 # Heuristic: if calibrated thresholds differ from the built-in defaults,
 # we assume a trusted calibration artefact is present.
 calib_is_effective = (
@@ -282,18 +399,12 @@ calib_is_effective = (
 )
 threshold_regime = "CALIBRATED" if calib_is_effective else "BASELINE"
 
-# --- HTML hygiene: escape dynamic strings that may contain '<', '&', etc. ---
-safe_now = escape(str(now))
-safe_status_version = escape(str(STATUS_VERSION))
-safe_hazard_reason = escape(str(metrics.get("hazard_reason", "")))
-
 gate_rows = []
 for name, ok in sorted(gates.items()):
-    safe_name = escape(str(name))
     status_class = "status-pass" if ok else "status-fail"
     status_text = "✅ PASS" if ok else "❌ FAIL"
     gate_rows.append(
-        f'            <tr><td>{safe_name}</td>'
+        f'            <tr><td>{name}</td>'
         f'<td><span class="{status_class}">{status_text}</span></td></tr>'
     )
 gate_rows_html = "\n".join(gate_rows)
@@ -541,7 +652,7 @@ html = f"""<!DOCTYPE html>
       <header>
         <h1>PULSE — Demo Report Card</h1>
         <p class="prc-meta">
-          Build: {safe_now} · Status version: {safe_status_version}
+          Build: {now} · Status version: {STATUS_VERSION}
         </p>
       </header>
 
@@ -553,7 +664,7 @@ html = f"""<!DOCTYPE html>
         <div class="strip-right">
           <span class="badge {hazard_badge_class}">Hazard {metrics['hazard_zone']}</span>
           <span class="strip-note">
-            E={metrics['hazard_E']:.3f} · {'OK' if metrics['hazard_ok'] else 'BLOCKED'} · {metrics['hazard_severity']} severity · {scale_badge_text}
+            E={metrics['hazard_E']:.3f} · {'OK' if metrics['hazard_ok'] else 'BLOCKED'} · {metrics['hazard_severity']} severity · {scale_badge_text} · F={features_used_n}
           </span>
         </div>
       </section>
@@ -583,17 +694,29 @@ html = f"""<!DOCTYPE html>
             </div>
           </div>
         </div>
+
         <p class="epf-hazard-reason">
-          {safe_hazard_reason}
+          {escape(str(metrics['hazard_reason']))}
         </p>
+
         <div class="epf-hazard-contrib">
           <span class="epf-hazard-contrib-label">Top contributors</span>
           <span>{contributors_text}</span>
         </div>
+
+        <div class="epf-hazard-contrib">
+          <span class="epf-hazard-contrib-label">Feature mode</span>
+          <span>
+            used {features_used_n}: {features_used_text}
+            · recommended {rec_n} (min_coverage ≥ {rec_min_cov_text})
+          </span>
+        </div>
+
         <p class="epf-hazard-footnote">
           Thresholds: warn ≈ {CALIBRATED_WARN_THRESHOLD:.3f}, crit ≈ {CALIBRATED_CRIT_THRESHOLD:.3f}
           ({threshold_regime}; requires ≥{MIN_CALIBRATION_SAMPLES} log entries for calibration to take effect).
         </p>
+
         {history_fragment}
       </section>
 
@@ -634,6 +757,8 @@ print(
     f"ok={hazard_decision.ok}",
     f"severity={hazard_decision.severity}",
     f"scaled={hazard_T_scaled}",
+    f"features_used={features_used_n}",
+    f"recommended={rec_n}",
     f"enforce_hazard={enforce_hazard}",
     f"epf_hazard_ok_gate={gates['epf_hazard_ok']}",
 )
