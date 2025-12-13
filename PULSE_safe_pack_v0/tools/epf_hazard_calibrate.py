@@ -104,22 +104,29 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
         help="Optional path to write suggested thresholds as JSON.",
     )
 
-    # NEW: recommended feature set controls
     parser.add_argument(
-        "--max-features",
-        type=int,
-        default=64,
-        help="Maximum number of recommended_features to emit (default: 64).",
-    )
-    parser.add_argument(
-        "--min-coverage",
-        type=float,
-        default=0.80,
-        help=(
-            "Minimum coverage ratio in [0,1] for a feature to be recommended "
-            "(present_count / snapshot_event_count). Default: 0.80."
-        ),
-    )
+    "--min-coverage",
+    "--recommend-min-coverage",
+    dest="min_coverage",
+    type=float,
+    default=0.80,
+    help=(
+        "Minimum coverage ratio in [0,1] for a feature to be recommended "
+        "(alias: --recommend-min-coverage)."
+    ),
+)
+parser.add_argument(
+    "--max-features",
+    "--recommend-max-features",
+    dest="max_features",
+    type=int,
+    default=64,
+    help=(
+        "Maximum number of recommended_features to emit "
+        "(alias: --recommend-max-features)."
+    ),
+)
+
 
     return parser.parse_args(argv)
 
