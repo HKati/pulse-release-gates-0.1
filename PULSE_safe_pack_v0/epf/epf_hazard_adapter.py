@@ -12,26 +12,17 @@ Goals:
         * runs forecast_hazard(...),
         * appends a structured JSON line to an epf_hazard_log.jsonl file.
 
-Typical usage:
-    - One HazardRuntimeState per gate (or per EPF field) in the runtime.
-    - On each EPF cycle:
-        * call probe_hazard_and_append_log(...),
-        * inspect the returned HazardState if needed,
-        * the adapter will update history_T and append a JSONL entry.
-
-The produced log is intended as a diagnostic/analysis artefact, not as a
-hard gating signal (at least in the proto phase).
-
 Snapshot logging:
     - Optionally logs sanitized current/reference snapshots (numeric-only)
       into JSONL entries to support later feature-scaler calibration.
+    - Snapshot logging can be constrained by a deterministic policy:
+        * allowed_prefixes (dotted paths): only keep keys under these prefixes
+        * deny_keys (dotted paths): always drop these keys/subtrees
 
 Relational Grail wiring (opt-in by artifact presence):
     - If cfg is not provided by caller, the adapter may auto-enable the
       forecast's feature mode using feature scalers from the calibration
       artifact (when available and sufficiently sampled).
-    - This keeps the core forecast generic while allowing PULSE runtime
-      to "light up" scaling/explainability once calibration exists.
 """
 
 from __future__ import annotations
@@ -105,14 +96,98 @@ def _append_jsonl(path: Path, payload: Dict[str, Any]) -> None:
         LOG.warning("Failed to append hazard log entry to %s: %s", path, exc)
 
 
+# ---------------------------------------------------------------------------
+# Snapshot sanitization + policy
+# ---------------------------------------------------------------------------
+
+def _normalize_path_list(xs: Optional[List[str]]) -> Optional[List[str]]:
+    """
+    Normalize dotted-path lists deterministically.
+    - strip whitespace
+    - drop empties
+    - drop trailing dots
+    - sort unique for determinism
+    """
+    if not xs:
+        return None
+    out: List[str] = []
+    for x in xs:
+        if x is None:
+            continue
+        s = str(x).strip()
+        if not s:
+            continue
+        if s.endswith("."):
+            s = s[:-1]
+        if s:
+            out.append(s)
+    if not out:
+        return None
+    return sorted(set(out))
+
+
+def _join_path(prefix: str, key: str) -> str:
+    return f"{prefix}.{key}" if prefix else key
+
+
+def _matches_prefix(path: str, prefix: str) -> bool:
+    """
+    Prefix match for dotted paths.
+    - exact match: path == prefix
+    - subtree match: path startswith prefix + "."
+    """
+    return path == prefix or path.startswith(prefix + ".")
+
+
+def _is_denied(path: str, deny: Optional[List[str]]) -> bool:
+    if not deny:
+        return False
+    return any(_matches_prefix(path, d) for d in deny)
+
+
+def _is_allowed_leaf(path: str, allowed: Optional[List[str]]) -> bool:
+    """
+    If allowed is None/empty -> everything allowed.
+    Else leaf allowed if it matches any allowed prefix.
+    """
+    if not allowed:
+        return True
+    return any(_matches_prefix(path, a) for a in allowed)
+
+
+def _should_traverse(path: str, allowed: Optional[List[str]]) -> bool:
+    """
+    Decide whether to traverse into a subtree at 'path' given allowed prefixes.
+
+    We traverse if:
+      - no allowlist is set (allowed is None), OR
+      - some allowed prefix is:
+          * equal to path, OR
+          * deeper under path (allowed startswith path + "."), OR
+          * shallower than path (path startswith allowed + ".")
+    """
+    if not allowed:
+        return True
+    for a in allowed:
+        if a == path:
+            return True
+        if a.startswith(path + "."):
+            return True
+        if path.startswith(a + "."):
+            return True
+    return False
+
+
 def sanitize_snapshot_for_log(
     snapshot: Mapping[str, Any],
     *,
     max_depth: int = DEFAULT_SNAPSHOT_MAX_DEPTH,
     max_items: int = DEFAULT_SNAPSHOT_MAX_ITEMS,
+    allowed_prefixes: Optional[List[str]] = None,
+    deny_keys: Optional[List[str]] = None,
 ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     """
-    Sanitize a snapshot for safe JSONL logging (numeric-only).
+    Sanitize a snapshot for safe JSONL logging (numeric-only), with optional policy.
 
     Rules:
         - Keep only finite numeric scalars:
@@ -122,10 +197,21 @@ def sanitize_snapshot_for_log(
         - Deterministic traversal (sorted keys).
         - Enforce max_items budget on numeric leaf values.
 
+    Policy (dotted paths):
+        allowed_prefixes:
+            If set, only keys under these prefixes are kept.
+            Example: ["metrics", "external.fail_rate"]
+        deny_keys:
+            Always drop keys/subtrees matching these prefixes.
+            Example: ["pii", "secrets.api_key", "raw_prompt"]
+
     Returns:
         (sanitized_snapshot, meta)
     """
-    meta_base = {
+    allowed_n = _normalize_path_list(allowed_prefixes)
+    deny_n = _normalize_path_list(deny_keys)
+
+    meta_base: Dict[str, Any] = {
         "schema": HAZARD_SNAPSHOT_SCHEMA_V0,
         "max_depth": int(max_depth),
         "max_items": int(max_items),
@@ -133,6 +219,11 @@ def sanitize_snapshot_for_log(
         "dropped": 0,
         "truncated": False,
     }
+    if allowed_n or deny_n:
+        meta_base["policy"] = {
+            "allowed_prefixes": allowed_n or [],
+            "deny_keys": deny_n or [],
+        }
 
     if not isinstance(snapshot, Mapping):
         meta_base["dropped"] = 1
@@ -141,7 +232,15 @@ def sanitize_snapshot_for_log(
     budget = [int(max_items)]
     stats = {"kept": 0, "dropped": 0, "truncated": False}
 
-    sanitized = _sanitize_mapping(snapshot, depth=int(max_depth), budget=budget, stats=stats)
+    sanitized = _sanitize_mapping(
+        snapshot,
+        depth=int(max_depth),
+        budget=budget,
+        stats=stats,
+        path_prefix="",
+        allowed_prefixes=allowed_n,
+        deny_keys=deny_n,
+    )
 
     meta_base["kept"] = int(stats["kept"])
     meta_base["dropped"] = int(stats["dropped"])
@@ -155,6 +254,9 @@ def _sanitize_mapping(
     depth: int,
     budget: List[int],
     stats: Dict[str, Any],
+    path_prefix: str,
+    allowed_prefixes: Optional[List[str]],
+    deny_keys: Optional[List[str]],
 ) -> Dict[str, Any]:
     out: Dict[str, Any] = {}
 
@@ -164,15 +266,37 @@ def _sanitize_mapping(
             stats["truncated"] = True
             break
 
+        key_str = str(k)
+        path = _join_path(path_prefix, key_str)
+
+        # Deny overrides everything.
+        if _is_denied(path, deny_keys):
+            stats["dropped"] += 1
+            continue
+
         v = m.get(k)
 
         if isinstance(v, Mapping):
             if depth <= 0:
                 stats["dropped"] += 1
                 continue
-            child = _sanitize_mapping(v, depth=depth - 1, budget=budget, stats=stats)
+
+            # If allowlist is present, only traverse subtrees that can contain allowed keys.
+            if not _should_traverse(path, allowed_prefixes):
+                stats["dropped"] += 1
+                continue
+
+            child = _sanitize_mapping(
+                v,
+                depth=depth - 1,
+                budget=budget,
+                stats=stats,
+                path_prefix=path,
+                allowed_prefixes=allowed_prefixes,
+                deny_keys=deny_keys,
+            )
             if child:
-                out[str(k)] = child
+                out[key_str] = child
             else:
                 stats["dropped"] += 1
             continue
@@ -182,12 +306,17 @@ def _sanitize_mapping(
             stats["dropped"] += 1
             continue
 
+        # Apply allowlist at leaf-level.
+        if not _is_allowed_leaf(path, allowed_prefixes):
+            stats["dropped"] += 1
+            continue
+
         num = _coerce_finite_number(v)
         if num is None:
             stats["dropped"] += 1
             continue
 
-        out[str(k)] = num
+        out[key_str] = num
         stats["kept"] += 1
         budget[0] -= 1
 
@@ -275,9 +404,17 @@ def probe_hazard_and_append_log(
     timestamp: Optional[str] = None,
     extra_meta: Optional[Dict[str, Any]] = None,
     log_snapshots: bool = True,
+    snapshot_allowed_prefixes: Optional[List[str]] = None,
+    snapshot_deny_keys: Optional[List[str]] = None,
 ) -> HazardState:
     """
     Run the EPF hazard forecasting probe and append the result to a JSONL log.
+
+    Snapshot policy (when log_snapshots=True):
+        - snapshot_allowed_prefixes: dotted prefixes to allow (optional)
+        - snapshot_deny_keys: dotted prefixes to deny (optional)
+
+    Defaults preserve legacy behavior: if policy is omitted, all numeric keys are logged.
     """
     if cfg is None:
         cfg = HazardConfig()
@@ -314,8 +451,16 @@ def probe_hazard_and_append_log(
     }
 
     if log_snapshots:
-        snap_cur, meta_cur = sanitize_snapshot_for_log(current_snapshot)
-        snap_ref, meta_ref = sanitize_snapshot_for_log(reference_snapshot)
+        snap_cur, meta_cur = sanitize_snapshot_for_log(
+            current_snapshot,
+            allowed_prefixes=snapshot_allowed_prefixes,
+            deny_keys=snapshot_deny_keys,
+        )
+        snap_ref, meta_ref = sanitize_snapshot_for_log(
+            reference_snapshot,
+            allowed_prefixes=snapshot_allowed_prefixes,
+            deny_keys=snapshot_deny_keys,
+        )
         entry["snapshot_current"] = snap_cur
         entry["snapshot_reference"] = snap_ref
         entry["snapshot_meta"] = {
