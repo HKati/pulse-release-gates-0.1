@@ -43,6 +43,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
+import hashlib
 import json
 import logging
 import math
@@ -70,6 +71,9 @@ LOG_FILENAME_DEFAULT = "epf_hazard_log.jsonl"
 HAZARD_SNAPSHOT_SCHEMA_V0 = "epf_hazard_snapshot_v0"
 DEFAULT_SNAPSHOT_MAX_DEPTH = 4
 DEFAULT_SNAPSHOT_MAX_ITEMS = 2000
+
+# Hazard log schema (ledger-style, additive only).
+HAZARD_LOG_SCHEMA_V1 = "epf_hazard_log_v1"
 
 
 @dataclass
@@ -110,6 +114,40 @@ def _append_jsonl(path: Path, payload: Dict[str, Any]) -> None:
             f.write(json.dumps(payload, sort_keys=True) + "\n")
     except OSError as exc:  # pragma: no cover - defensive logging
         LOG.warning("Failed to append hazard log entry to %s: %s", path, exc)
+
+
+# ---------------------------------------------------------------------------
+# Field Ledger: deterministic event identity (event_id)
+# ---------------------------------------------------------------------------
+
+def _compute_event_id(
+    gate_id: str,
+    timestamp: str,
+    meta: Optional[Mapping[str, Any]] = None,
+) -> str:
+    """
+    Deterministic short event id for hazard JSONL entries.
+
+    Intention:
+        - supports offline aggregation + dedup
+        - does NOT affect gating
+        - remains stable for the same (gate_id, timestamp, provenance) tuple
+
+    We intentionally keep the hash input small and provenance-focused.
+    """
+    base: Dict[str, Any] = {
+        "gate_id": str(gate_id),
+        "timestamp": str(timestamp),
+    }
+    if isinstance(meta, Mapping):
+        # Keep provenance keys minimal and stable.
+        for k in ("run_key", "git_sha", "status_version"):
+            v = meta.get(k)
+            if v not in (None, ""):
+                base[k] = str(v)
+
+    blob = json.dumps(base, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return hashlib.sha256(blob).hexdigest()[:16]
 
 
 # ---------------------------------------------------------------------------
@@ -467,12 +505,10 @@ def _normalize_feature_key_list(x: Any, *, preserve_empty: bool = False) -> Opti
             s = str(it).strip()
             if s:
                 keys.append(s)
-        # preserve_empty allows [] to remain []
     else:
         s = str(x).strip()
         if s:
             keys = [s]
-        # if scalar is empty string -> []
 
     keys = sorted(set(keys))
     if not keys and not preserve_empty:
@@ -534,7 +570,7 @@ def _maybe_enable_feature_mode_from_calibration(
       - optional allowlist further constrains selection
       - calibration artifact may include:
           * feature_allowlist
-          * recommended_features  (default calibrator output)  <-- IMPORTANT
+          * recommended_features  (default calibrator output)
 
     Returns:
         (enabled, selected_keys, source)
@@ -567,15 +603,15 @@ def _maybe_enable_feature_mode_from_calibration(
         return False, None, None
 
     runtime_allow = _normalize_feature_key_list(feature_allowlist, preserve_empty=True)
-    artifact_allow = _normalize_feature_key_list(data.get("feature_allowlist"), preserve_empty=True)
-
-    # IMPORTANT: honor calibrator recommendations (default calibrator path).
+    artifact_allow = _normalize_feature_key_list(
+        data.get("feature_allowlist"),
+        preserve_empty=True,
+    )
     recommended_allow = _normalize_feature_key_list(
         data.get("recommended_features"),
         preserve_empty=True,
     )
 
-    # Intersection across all constraints that exist.
     effective_allow = _combine_allowlists(runtime_allow, artifact_allow, recommended_allow)
 
     keys = _select_feature_keys_for_autowire(
@@ -639,7 +675,10 @@ def probe_hazard_and_append_log(
         if snapshot_allowed_prefixes is None and getattr(field_spec, "features", None):
             snapshot_allowed_prefixes = list(field_spec.features)
         # deny keys are safe to merge additively
-        snapshot_deny_keys = _merge_deny_keys(snapshot_deny_keys, getattr(field_spec, "deny_keys", []) or [])
+        snapshot_deny_keys = _merge_deny_keys(
+            snapshot_deny_keys,
+            getattr(field_spec, "deny_keys", []) or [],
+        )
 
     # Apply field-first defaults for feature allowlist (only affects autowire path).
     effective_feature_allowlist = feature_allowlist
@@ -686,7 +725,11 @@ def probe_hazard_and_append_log(
 
     # Build log entry.
     ts = timestamp or _current_utc_iso()
+    event_id = _compute_event_id(str(gate_id), ts, extra_meta)
+
     entry: Dict[str, Any] = {
+        "schema": HAZARD_LOG_SCHEMA_V1,
+        "event_id": event_id,
         "gate_id": str(gate_id),
         "timestamp": ts,
         "hazard": {
@@ -735,7 +778,9 @@ def probe_hazard_and_append_log(
         if field_spec is not None:
             snapshot_meta["field_spec"] = {
                 "schema": getattr(field_spec, "schema", "unknown"),
-                "path": str(Path(field_spec_path) if field_spec_path else DEFAULT_FIELD_SPEC_PATH),
+                "path": str(
+                    Path(field_spec_path) if field_spec_path else DEFAULT_FIELD_SPEC_PATH
+                ),
                 "features_count": int(len(getattr(field_spec, "features", []) or [])),
                 "deny_keys_count": int(len(getattr(field_spec, "deny_keys", []) or [])),
             }
