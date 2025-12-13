@@ -36,7 +36,6 @@ from PULSE_safe_pack_v0.epf.epf_hazard_forecast import (
     MIN_CALIBRATION_SAMPLES,
 )
 
-# Prefer the same calibration path constant as EPF modules, but fall back safely.
 try:
     from PULSE_safe_pack_v0.epf.epf_hazard_forecast import CALIBRATION_PATH as HAZARD_CALIB_PATH
 except Exception:  # pragma: no cover
@@ -55,11 +54,6 @@ STATUS_VERSION = "1.0.0-demo"
 # ---------------------------------------------------------------------------
 
 def load_hazard_E_history(log_path: pathlib.Path, max_points: int = 20):
-    """
-    Load up to max_points hazard E values from the epf_hazard_log.jsonl file.
-
-    Returns the most recent values in order (oldest -> newest).
-    """
     if not log_path.exists():
         return []
 
@@ -78,19 +72,10 @@ def load_hazard_E_history(log_path: pathlib.Path, max_points: int = 20):
             if isinstance(E, (int, float)):
                 values.append(float(E))
 
-    if not values:
-        return []
-
-    return values[-max_points:]
+    return values[-max_points:] if values else []
 
 
 def build_E_sparkline_svg(values, width: int = 160, height: int = 40) -> str:
-    """
-    Build a tiny inline SVG sparkline for recent E values.
-
-    If there are fewer than 2 points, we return an empty string;
-    the HTML template will show a placeholder text instead.
-    """
     if len(values) < 2:
         return ""
 
@@ -121,9 +106,6 @@ def build_E_sparkline_svg(values, width: int = 160, height: int = 40) -> str:
 
 
 def format_top_contributors(contribs, k: int = 3) -> str:
-    """
-    Format hazard_state.contributors_top (compact dicts) into a short, safe string.
-    """
     if not isinstance(contribs, list) or not contribs:
         return "none"
 
@@ -141,13 +123,15 @@ def format_top_contributors(contribs, k: int = 3) -> str:
     return ", ".join(parts) if parts else "none"
 
 
-def load_last_hazard_feature_keys(log_path: pathlib.Path) -> list[str]:
+def load_last_hazard_feature_context(log_path: pathlib.Path) -> tuple[list[str], str, bool]:
     """
-    Best-effort: read the last valid JSON event from epf_hazard_log.jsonl
-    and return hazard.feature_keys if present.
+    Read the last valid JSON event from epf_hazard_log.jsonl and return:
+      (feature_keys, feature_mode_source, feature_mode_active)
+
+    Fail-open for older logs.
     """
     if not log_path.exists():
-        return []
+        return ([], "none", False)
 
     last_obj = None
     with log_path.open("r", encoding="utf-8") as f:
@@ -162,25 +146,30 @@ def load_last_hazard_feature_keys(log_path: pathlib.Path) -> list[str]:
             last_obj = obj
 
     if not isinstance(last_obj, dict):
-        return []
+        return ([], "none", False)
 
     hazard = last_obj.get("hazard", {}) or {}
-    keys = hazard.get("feature_keys")
-    if not isinstance(keys, list):
-        return []
 
-    out: list[str] = []
-    for k in keys:
-        s = str(k).strip()
-        if s:
-            out.append(s)
-    return out
+    keys_raw = hazard.get("feature_keys")
+    keys: list[str] = []
+    if isinstance(keys_raw, list):
+        for k in keys_raw:
+            s = str(k).strip()
+            if s:
+                keys.append(s)
+
+    src = hazard.get("feature_mode_source")
+    if not isinstance(src, str) or not src.strip():
+        src = "unknown" if keys else "none"
+
+    active = hazard.get("feature_mode_active")
+    if not isinstance(active, bool):
+        active = bool(keys)
+
+    return (keys, src, bool(active))
 
 
 def format_feature_keys(keys: list[str], preview: int = 6) -> str:
-    """
-    Format feature keys into a compact, safe string for HTML.
-    """
     if not keys:
         return "none"
 
@@ -192,12 +181,6 @@ def format_feature_keys(keys: list[str], preview: int = 6) -> str:
 
 
 def load_calibration_recommendation(calib_path: pathlib.Path) -> dict:
-    """
-    Load recommended_features + recommendation knobs (min_coverage / max_features)
-    from the calibration artifact, if available.
-
-    Fail-open: any read/parse issues yield empty values.
-    """
     out = {
         "present": False,
         "recommended_features": [],
@@ -306,26 +289,26 @@ metrics["hazard_reason"] = hazard_state.reason
 metrics["hazard_ok"] = hazard_decision.ok
 metrics["hazard_severity"] = hazard_decision.severity
 
-# Additive: Relational Grail explainability fields (safe even if absent).
 hazard_T_scaled = bool(getattr(hazard_state, "T_scaled", False))
 hazard_contributors_top = getattr(hazard_state, "contributors_top", []) or []
 metrics["hazard_T_scaled"] = hazard_T_scaled
 metrics["hazard_contributors_top"] = hazard_contributors_top
 
-# Load last-used feature keys from the log entry we just appended.
 hazard_log_path = art / "epf_hazard_log.jsonl"
-hazard_feature_keys = load_last_hazard_feature_keys(hazard_log_path)
+hazard_feature_keys, hazard_feature_mode_source, hazard_feature_mode_active = load_last_hazard_feature_context(
+    hazard_log_path
+)
 metrics["hazard_feature_keys"] = hazard_feature_keys
 metrics["hazard_feature_count"] = int(len(hazard_feature_keys))
+metrics["hazard_feature_mode_source"] = str(hazard_feature_mode_source)
+metrics["hazard_feature_mode_active"] = bool(hazard_feature_mode_active)
 
-# Load calibration recommendation summary (recommended_features + min_coverage).
 calib_summary = load_calibration_recommendation(pathlib.Path(HAZARD_CALIB_PATH))
 metrics["hazard_recommended_count"] = int(calib_summary.get("recommended_count", 0) or 0)
 metrics["hazard_recommend_min_coverage"] = calib_summary.get("min_coverage")
 metrics["hazard_recommend_max_features"] = calib_summary.get("max_features")
 metrics["hazard_feature_allowlist_count"] = int(calib_summary.get("feature_allowlist_count", 0) or 0)
 
-# Load recent E history for the EPF Relational Grail.
 E_history = load_hazard_E_history(hazard_log_path, max_points=20)
 hazard_history_svg = build_E_sparkline_svg(E_history)
 if E_history and hazard_history_svg:
@@ -387,12 +370,13 @@ contributors_text = format_top_contributors(hazard_contributors_top, k=3)
 features_used_n = int(metrics.get("hazard_feature_count", 0) or 0)
 features_used_text = format_feature_keys(hazard_feature_keys, preview=6)
 
+feature_mode_label = "ON" if bool(hazard_feature_mode_active) else "OFF"
+feature_mode_source_text = escape(str(hazard_feature_mode_source))
+
 rec_n = int(metrics.get("hazard_recommended_count", 0) or 0)
 rec_min_cov = metrics.get("hazard_recommend_min_coverage")
 rec_min_cov_text = f"{float(rec_min_cov):.2f}" if isinstance(rec_min_cov, (int, float)) else "n/a"
 
-# Heuristic: if calibrated thresholds differ from the built-in defaults,
-# we assume a trusted calibration artefact is present.
 calib_is_effective = (
     CALIBRATED_WARN_THRESHOLD != DEFAULT_WARN_THRESHOLD
     or CALIBRATED_CRIT_THRESHOLD != DEFAULT_CRIT_THRESHOLD
@@ -664,7 +648,7 @@ html = f"""<!DOCTYPE html>
         <div class="strip-right">
           <span class="badge {hazard_badge_class}">Hazard {metrics['hazard_zone']}</span>
           <span class="strip-note">
-            E={metrics['hazard_E']:.3f} · {'OK' if metrics['hazard_ok'] else 'BLOCKED'} · {metrics['hazard_severity']} severity · {scale_badge_text} · F={features_used_n}
+            E={metrics['hazard_E']:.3f} · {'OK' if metrics['hazard_ok'] else 'BLOCKED'} · {metrics['hazard_severity']} severity · {scale_badge_text} · F={features_used_n} · {feature_mode_label}
           </span>
         </div>
       </section>
@@ -707,7 +691,8 @@ html = f"""<!DOCTYPE html>
         <div class="epf-hazard-contrib">
           <span class="epf-hazard-contrib-label">Feature mode</span>
           <span>
-            used {features_used_n}: {features_used_text}
+            {feature_mode_label} · source={feature_mode_source_text}
+            · used {features_used_n}: {features_used_text}
             · recommended {rec_n} (min_coverage ≥ {rec_min_cov_text})
           </span>
         </div>
@@ -757,6 +742,8 @@ print(
     f"ok={hazard_decision.ok}",
     f"severity={hazard_decision.severity}",
     f"scaled={hazard_T_scaled}",
+    f"feature_mode={feature_mode_label}",
+    f"feature_source={hazard_feature_mode_source}",
     f"features_used={features_used_n}",
     f"recommended={rec_n}",
     f"enforce_hazard={enforce_hazard}",
