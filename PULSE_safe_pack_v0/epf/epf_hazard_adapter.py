@@ -167,7 +167,7 @@ def _should_traverse(path: str, allowed: Optional[List[str]]) -> bool:
       - no allowlist is set (allowed is None), OR
       - some allowed prefix is:
           * equal to path, OR
-          * deeper under path (allowed startswith path + "."), OR
+          * deeper under path (allowed startswith path + "."),
           * shallower than path (path startswith allowed + ".")
     """
     if not allowed:
@@ -400,12 +400,19 @@ def _select_feature_keys_for_autowire(
     Rules:
       - must exist in scaler_keys
       - must exist in current_snapshot or reference_snapshot (avoid "phantom" features)
-      - if allowlist is provided, must also be in allowlist
+      - if allowlist is provided (even if empty), restrict to allowlist
+
+    NOTE:
+      - allowlist=None  -> no allowlist restriction
+      - allowlist=[]    -> deny all
     """
     snap_keys = {str(k) for k in list(current_snapshot.keys()) + list(reference_snapshot.keys())}
-    candidates = set(map(str, scaler_keys)) & snap_keys
-    if allowlist:
-        candidates &= set(allowlist)
+    candidates = {str(k) for k in scaler_keys} & snap_keys
+
+    # Codex P1 fix: apply allowlist whenever it is explicitly provided.
+    if allowlist is not None:
+        candidates &= {str(x) for x in allowlist}
+
     return sorted(candidates)
 
 
@@ -461,6 +468,10 @@ def _maybe_enable_feature_mode_from_calibration(
         effective_allow = sorted(set(runtime_allow) & set(artifact_allow))
     else:
         effective_allow = runtime_allow or artifact_allow
+
+    # Codex P1: explicit empty intersection means "deny all" -> do not enable feature mode.
+    if effective_allow is not None and len(effective_allow) == 0:
+        return
 
     keys = _select_feature_keys_for_autowire(
         list(scalers.keys()),
