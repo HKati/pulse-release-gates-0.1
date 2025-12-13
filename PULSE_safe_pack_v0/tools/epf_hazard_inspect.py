@@ -4,16 +4,18 @@ epf_hazard_inspect.py
 
 CLI helper to inspect EPF hazard JSONL logs (epf_hazard_log.jsonl).
 
-Focus:
-- summarize hazard E distribution + zone counts
-- show recent tail of events
-- NEW (Step 9): feature-mode provenance analytics:
-    * feature_mode_active ratio
-    * feature_mode_source distribution
-    * top feature_keys frequency
-    * anomalies (inconsistent combinations)
+Summaries:
+- hazard zones + E distribution
+- feature-mode provenance (active ratio, sources, top feature_keys, anomalies)
 
-This tool is read-only and fail-open in parsing (skips malformed lines).
+NEW (Step 11):
+- snapshot coverage hotspot summary from snapshot_current:
+    * snapshot_event_count
+    * unique_features
+    * mean/median keys per snapshot
+    * coverage_top_missing list
+
+Read-only and fail-open: skips malformed lines.
 """
 
 from __future__ import annotations
@@ -29,8 +31,6 @@ from typing import Any, Dict, Iterable, List, Mapping, Optional, Tuple
 
 
 def _default_log_path() -> pathlib.Path:
-    # This file lives in PULSE_safe_pack_v0/tools/
-    # pack_root = .../PULSE_safe_pack_v0
     script_path = pathlib.Path(__file__).resolve()
     pack_root = script_path.parents[1]
     return pack_root / "artifacts" / "epf_hazard_log.jsonl"
@@ -38,7 +38,7 @@ def _default_log_path() -> pathlib.Path:
 
 def parse_args(argv: List[str]) -> argparse.Namespace:
     p = argparse.ArgumentParser(
-        description="Inspect EPF hazard log (epf_hazard_log.jsonl) and summarize hazard + feature-mode provenance."
+        description="Inspect EPF hazard log and summarize hazard + feature-mode provenance + snapshot coverage."
     )
     p.add_argument(
         "--log",
@@ -63,6 +63,12 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
         type=int,
         default=10,
         help="Top-K feature keys to list by frequency (default: 10).",
+    )
+    p.add_argument(
+        "--coverage-top",
+        type=int,
+        default=15,
+        help="Top-N most-missing snapshot features to list (default: 15).",
     )
     p.add_argument(
         "--per-gate",
@@ -185,7 +191,6 @@ def _derive_feature_mode_active(hazard: Mapping[str, Any], keys: List[str]) -> b
     b = _safe_bool(hazard.get("feature_mode_active"))
     if b is not None:
         return bool(b)
-    # backwards-compatible: if the field doesn't exist, infer from keys
     return bool(keys)
 
 
@@ -193,18 +198,15 @@ def _derive_feature_mode_source(hazard: Mapping[str, Any], keys: List[str]) -> s
     s = _safe_str(hazard.get("feature_mode_source"))
     if s:
         return s
-    # legacy logs without this field
     return "legacy_unknown" if keys else "none"
 
 
 def _extract_T_scaled(hazard: Mapping[str, Any]) -> Optional[bool]:
-    b = _safe_bool(hazard.get("T_scaled"))
-    return b
+    return _safe_bool(hazard.get("T_scaled"))
 
 
 def _extract_zone(hazard: Mapping[str, Any]) -> str:
-    z = _safe_str(hazard.get("zone"))
-    return z or "UNKNOWN"
+    return _safe_str(hazard.get("zone")) or "UNKNOWN"
 
 
 def _extract_E(hazard: Mapping[str, Any]) -> Optional[float]:
@@ -219,14 +221,111 @@ def _extract_gate_id(ev: Mapping[str, Any]) -> str:
     return _safe_str(ev.get("gate_id")) or "UNKNOWN"
 
 
-def build_summary(entries: List[Dict[str, Any]], top_k: int = 10) -> Dict[str, Any]:
+# ---------------------------------------------------------------------------
+# NEW: snapshot coverage collection
+# ---------------------------------------------------------------------------
+
+def _flatten_snapshot_leaf_keys(m: Mapping[str, Any], prefix: str = "") -> List[str]:
+    keys: List[str] = []
+    for k in sorted(m.keys(), key=lambda x: str(x)):
+        v = m.get(k)
+        path = f"{prefix}.{k}" if prefix else str(k)
+
+        if isinstance(v, Mapping):
+            keys.extend(_flatten_snapshot_leaf_keys(v, prefix=path))
+            continue
+
+        if _safe_float(v) is not None:
+            keys.append(path)
+            continue
+
+    return keys
+
+
+def collect_snapshot_coverage(entries: List[Dict[str, Any]]) -> Tuple[int, Counter, List[int]]:
+    snapshot_event_count = 0
+    present_counts: Counter = Counter()
+    keys_per_event: List[int] = []
+
+    for ev in entries:
+        snap = ev.get("snapshot_current")
+        if not isinstance(snap, Mapping):
+            continue
+
+        snapshot_event_count += 1
+
+        ks = set(_flatten_snapshot_leaf_keys(snap, prefix=""))
+        keys_per_event.append(len(ks))
+        for k in ks:
+            present_counts[k] += 1
+
+    return snapshot_event_count, present_counts, keys_per_event
+
+
+def build_snapshot_coverage_summary(
+    *,
+    snapshot_event_count: int,
+    present_counts: Counter,
+    keys_per_event: List[int],
+    coverage_top: int,
+) -> Dict[str, Any]:
+    if snapshot_event_count <= 0:
+        return {
+            "snapshot_event_count": 0,
+            "unique_features": 0,
+            "mean_keys_per_event": 0.0,
+            "median_keys_per_event": 0.0,
+            "coverage_top_missing": [],
+        }
+
+    unique_features = len(present_counts)
+
+    mean_keys = statistics.mean(keys_per_event) if keys_per_event else 0.0
+    median_keys = statistics.median(keys_per_event) if keys_per_event else 0.0
+
+    rows = []
+    for k, present in present_counts.items():
+        present_i = int(present)
+        missing_i = int(snapshot_event_count - present_i)
+        if missing_i <= 0:
+            continue
+        cov = present_i / float(snapshot_event_count)
+        rows.append((missing_i, cov, str(k), present_i))
+
+    # Sort by most missing, then lowest coverage, then key
+    rows.sort(key=lambda t: (-t[0], t[1], t[2]))
+
+    top_n = max(0, int(coverage_top))
+    top_missing = []
+    for (missing_i, cov, k, present_i) in rows[:top_n]:
+        top_missing.append({
+            "key": k,
+            "present": present_i,
+            "missing": missing_i,
+            "coverage": float(cov),
+        })
+
+    return {
+        "snapshot_event_count": int(snapshot_event_count),
+        "unique_features": int(unique_features),
+        "mean_keys_per_event": float(mean_keys),
+        "median_keys_per_event": float(median_keys),
+        "coverage_top_missing": top_missing,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Main summary builder
+# ---------------------------------------------------------------------------
+
+def build_summary(entries: List[Dict[str, Any]], *, top_k: int = 10, coverage_top: int = 15) -> Dict[str, Any]:
     zones = Counter()
     E_values: List[float] = []
 
     feature_active_count = 0
     feature_source_counts = Counter()
     feature_key_counts = Counter()
-    t_scaled_counts = Counter()  # True/False
+    t_scaled_counts = Counter()
     seen_t_scaled_field = False
 
     anomalies: List[Dict[str, Any]] = []
@@ -271,8 +370,6 @@ def build_summary(entries: List[Dict[str, Any]], top_k: int = 10) -> Dict[str, A
             seen_t_scaled_field = True
             t_scaled_counts[bool(t_scaled)] += 1
 
-        # Anomaly checks (helpful for debugging)
-        # 1) active True but no keys
         if active and not keys:
             anomalies.append({
                 "type": "active_true_but_no_keys",
@@ -280,7 +377,6 @@ def build_summary(entries: List[Dict[str, Any]], top_k: int = 10) -> Dict[str, A
                 "timestamp": ts,
                 "source": source,
             })
-        # 2) keys exist but active False (inconsistent unless caller forces)
         if (not active) and keys:
             anomalies.append({
                 "type": "keys_present_but_active_false",
@@ -289,7 +385,6 @@ def build_summary(entries: List[Dict[str, Any]], top_k: int = 10) -> Dict[str, A
                 "source": source,
                 "key_count": len(keys),
             })
-        # 3) source indicates something but keys empty (common error class)
         if (not keys) and source not in ("none", "legacy_unknown"):
             anomalies.append({
                 "type": "source_non_none_but_no_keys",
@@ -298,7 +393,6 @@ def build_summary(entries: List[Dict[str, Any]], top_k: int = 10) -> Dict[str, A
                 "source": source,
             })
 
-        # per-gate accumulation
         pg = per_gate[gate_id]
         pg["count"] += 1
         pg["zones"][zone] += 1
@@ -312,7 +406,6 @@ def build_summary(entries: List[Dict[str, Any]], top_k: int = 10) -> Dict[str, A
     E_stats = summarize_E(E_values)
 
     top_features = feature_key_counts.most_common(max(0, int(top_k)))
-
     feature_active_ratio = (feature_active_count / total) if total > 0 else 0.0
 
     source_dist = []
@@ -344,6 +437,15 @@ def build_summary(entries: List[Dict[str, Any]], top_k: int = 10) -> Dict[str, A
             "sources": dict(pg["sources"]),
         }
 
+    # Step 11: snapshot coverage (snapshot_current)
+    snap_n, snap_present_counts, keys_per_event = collect_snapshot_coverage(entries)
+    snapshot_coverage = build_snapshot_coverage_summary(
+        snapshot_event_count=snap_n,
+        present_counts=snap_present_counts,
+        keys_per_event=keys_per_event,
+        coverage_top=int(coverage_top),
+    )
+
     return {
         "entries_total": int(total),
         "zones": dict(zones),
@@ -354,6 +456,7 @@ def build_summary(entries: List[Dict[str, Any]], top_k: int = 10) -> Dict[str, A
             "sources": source_dist,
             "top_feature_keys": [{"key": k, "count": int(c)} for (k, c) in top_features],
         },
+        "snapshot_coverage": snapshot_coverage,
         "T_scaled": t_scaled_summary,
         "anomalies": anomalies,
         "per_gate": per_gate_summary,
@@ -405,13 +508,26 @@ def print_summary_human(summary: Dict[str, Any], *, tail_events: List[Dict[str, 
             c = int(row.get("count", 0) or 0)
             print(f"    - {k}: {c}")
 
-    t_scaled = summary.get("T_scaled")
-    if isinstance(t_scaled, dict):
-        print("\n=== Scaling ===")
-        t_true = int(t_scaled.get("scaled_true", 0) or 0)
-        t_false = int(t_scaled.get("scaled_false", 0) or 0)
-        ratio = float(t_scaled.get("scaled_ratio", 0.0) or 0.0)
-        print(f"  T_scaled: true={t_true} false={t_false} ({ratio*100:.1f}% true)")
+    # Step 11: snapshot coverage block
+    sc = summary.get("snapshot_coverage", {}) or {}
+    snap_n = int(sc.get("snapshot_event_count", 0) or 0)
+    if snap_n > 0:
+        print("\n=== Snapshot coverage (snapshot_current) ===")
+        print(f"  snapshot events: {snap_n}")
+        print(f"  unique features: {int(sc.get('unique_features', 0) or 0)}")
+        print(f"  mean keys/event: {float(sc.get('mean_keys_per_event', 0.0) or 0.0):.1f}")
+        print(f"  median keys/event: {float(sc.get('median_keys_per_event', 0.0) or 0.0):.1f}")
+
+        top_missing = sc.get("coverage_top_missing", []) or []
+        if top_missing:
+            print("  top missing features:")
+            for row in top_missing[:10]:
+                print(
+                    f"    - {row.get('key')}: coverage={float(row.get('coverage', 0.0)):.2f} "
+                    f"(present={int(row.get('present', 0))}, missing={int(row.get('missing', 0))})"
+                )
+            if len(top_missing) > 10:
+                print(f"    ... +{len(top_missing) - 10} more")
 
     anomalies = summary.get("anomalies", []) or []
     if anomalies:
@@ -474,7 +590,7 @@ def main(argv: List[str]) -> int:
     entries = load_entries(log_path)
     entries = filter_entries(entries, args.gate)
 
-    summary = build_summary(entries, top_k=int(args.top_k))
+    summary = build_summary(entries, top_k=int(args.top_k), coverage_top=int(args.coverage_top))
 
     tail_n = int(args.tail)
     tail_events: List[Dict[str, Any]] = []
