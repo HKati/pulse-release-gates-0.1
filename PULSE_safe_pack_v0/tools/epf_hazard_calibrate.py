@@ -14,6 +14,13 @@ Also (Relational Grail groundwork):
 - optionally fit robust per-feature scalers (median/MAD) from snapshot_current
   values in the hazard JSONL log, and emit them under "feature_scalers" in the
   output JSON artifact when sample counts are sufficient.
+
+Feature allowlist:
+- optional --feature-allowlist can be used to constrain which dotted keys
+  are considered for feature_scalers emission, and is written into the output
+  JSON artifact as "feature_allowlist".
+- This allowlist can later be honored by hazard adapter autowire to keep
+  the Relational Grail disciplined and low-noise.
 """
 
 from __future__ import annotations
@@ -27,6 +34,7 @@ import pathlib
 import statistics
 import sys
 from typing import Any, DefaultDict, Dict, Iterable, List, Tuple
+
 
 # Import robust scaler primitives.
 # This tool is often executed as a script from PULSE_safe_pack_v0/tools/,
@@ -51,6 +59,16 @@ except ModuleNotFoundError:
     _ensure_repo_root_on_syspath()
     from PULSE_safe_pack_v0.epf.epf_hazard_features import RobustScaler, FeatureScalersArtifactV0
 
+
+def _parse_feature_allowlist(raw: str) -> List[str]:
+    """
+    Parse comma-separated feature allowlist into a sorted unique list.
+    """
+    if raw is None:
+        return []
+    items = [x.strip() for x in str(raw).split(",")]
+    items = [x for x in items if x]
+    return sorted(set(items))
 
 
 def parse_args(argv: List[str]) -> argparse.Namespace:
@@ -85,6 +103,16 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
         help=(
             "Minimum number of E samples per gate to emit per-gate thresholds "
             "(default: 20). This also guards feature scaler emission."
+        ),
+    )
+    parser.add_argument(
+        "--feature-allowlist",
+        type=str,
+        default="",
+        help=(
+            "Optional comma-separated list of dotted feature keys to allow for "
+            "feature_scalers emission and to persist into the calibration JSON "
+            'artifact as "feature_allowlist". Example: "RDSI,external.fail_rate".'
         ),
     )
     parser.add_argument(
@@ -247,6 +275,9 @@ def main(argv: List[str]) -> int:
         print(f"invalid --min-samples: {args.min_samples}", file=sys.stderr)
         return 1
 
+    feature_allowlist = _parse_feature_allowlist(args.feature_allowlist)
+    allowset = set(feature_allowlist)
+
     # Default log path = pack_root/artifacts/epf_hazard_log.jsonl
     if args.log is not None:
         log_path = args.log
@@ -279,6 +310,8 @@ def main(argv: List[str]) -> int:
     print(f"Gates with numeric E: {len(by_gate)}")
     if snapshot_event_count > 0:
         print(f"Entries with snapshot_current: {snapshot_event_count}")
+    if feature_allowlist:
+        print(f"Feature allowlist enabled: {len(feature_allowlist)} key(s)")
     print()
 
     gstats = global_stats(all_E)
@@ -324,6 +357,8 @@ def main(argv: List[str]) -> int:
         scalers: Dict[str, RobustScaler] = {}
 
         for key in sorted(feature_values.keys()):
+            if allowset and key not in allowset:
+                continue
             vals = feature_values[key]
             if len(vals) < args.min_samples:
                 continue
@@ -357,6 +392,10 @@ def main(argv: List[str]) -> int:
             "per_gate": per_gate_thresholds,
         }
 
+        # Additive: persist allowlist if provided.
+        if feature_allowlist:
+            payload["feature_allowlist"] = feature_allowlist
+
         # Additive: only include feature_scalers if computed.
         if feature_scalers_payload:
             payload["feature_scalers"] = feature_scalers_payload
@@ -367,6 +406,8 @@ def main(argv: List[str]) -> int:
 
         print()
         print(f"Wrote JSON suggestions to {args.out_json}")
+        if feature_allowlist:
+            print(f"Included feature_allowlist with {len(feature_allowlist)} key(s)")
         if feature_scalers_payload:
             n_feats = len(feature_scalers_payload.get("features", {}))
             print(f"Included feature_scalers for {n_feats} feature(s)")
