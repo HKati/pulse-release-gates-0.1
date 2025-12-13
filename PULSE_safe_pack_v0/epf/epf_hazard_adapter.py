@@ -55,7 +55,11 @@ from .epf_hazard_forecast import (
     MIN_CALIBRATION_SAMPLES,
 )
 from .epf_hazard_features import FeatureSpec, FeatureScalersArtifactV0
-from .epf_hazard_field_spec import FieldSpecArtifactV0, maybe_load_field_spec, DEFAULT_FIELD_SPEC_PATH
+from .epf_hazard_field_spec import (
+    FieldSpecArtifactV0,
+    maybe_load_field_spec,
+    DEFAULT_FIELD_SPEC_PATH,
+)
 
 LOG = logging.getLogger(__name__)
 
@@ -112,11 +116,13 @@ def _append_jsonl(path: Path, payload: Dict[str, Any]) -> None:
 # FieldSpec (field-first defaults)
 # ---------------------------------------------------------------------------
 
-def _maybe_load_field_spec(path: Optional[Union[str, Path]] = None) -> Optional[FieldSpecArtifactV0]:
+def _maybe_load_field_spec(
+    path: Optional[Union[str, Path]] = None,
+) -> Optional[FieldSpecArtifactV0]:
     """
     Fail-open load of FieldSpec v0 artifact.
     """
-    p = Path(path) if isinstance(path, (str, Path)) and path is not None else None
+    p = Path(path) if path is not None else None
     return maybe_load_field_spec(p)
 
 
@@ -128,7 +134,7 @@ def _merge_deny_keys(a: Optional[List[str]], b: Optional[List[str]]) -> Optional
     if a is None and b is None:
         return None
     xs = [str(x).strip() for x in (a or []) if str(x).strip()]
-    ys = [str(x).strip() for x in (b or []) if str(x).strip()]
+    ys = [str(y).strip() for y in (b or []) if str(y).strip()]
     merged = sorted(set(xs) | set(ys))
     return merged or None
 
@@ -503,7 +509,9 @@ def _select_feature_keys_for_autowire(
       - must exist as a numeric leaf in current_snapshot or reference_snapshot
       - if allowlist is provided (including empty list), must also be in allowlist
     """
-    snap_keys = set(_flatten_numeric_leaf_keys(current_snapshot)) | set(_flatten_numeric_leaf_keys(reference_snapshot))
+    snap_keys = set(_flatten_numeric_leaf_keys(current_snapshot)) | set(
+        _flatten_numeric_leaf_keys(reference_snapshot)
+    )
     candidates = set(map(str, scaler_keys)) & snap_keys
     if allowlist is not None:
         candidates &= set(map(str, allowlist))
@@ -524,14 +532,12 @@ def _maybe_enable_feature_mode_from_calibration(
     Feature selection is disciplined:
       - only keys that appear as numeric leaves in current/reference snapshot are considered
       - optional allowlist further constrains selection
-      - calibration artifact may also include a feature_allowlist -> intersect
+      - calibration artifact may include:
+          * feature_allowlist
+          * recommended_features  (default calibrator output)  <-- IMPORTANT
 
     Returns:
         (enabled, selected_keys, source)
-    where:
-        enabled: whether cfg.feature_specs/scalers were populated
-        selected_keys: list of selected feature keys (if enabled)
-        source: "calibration_autowire" if enabled, else None
     """
     # Respect explicit caller intent: if feature_specs already set, do nothing.
     if getattr(cfg, "feature_specs", None):
@@ -554,27 +560,23 @@ def _maybe_enable_feature_mode_from_calibration(
 
     # Guard: require enough snapshot-bearing events.
     if int(getattr(artifact, "count", 0)) < int(MIN_CALIBRATION_SAMPLES):
-        return False, None, None 
+        return False, None, None
 
     scalers = getattr(artifact, "features", {}) or {}
     if not scalers:
         return False, None, None
 
-  runtime_allow = _normalize_feature_key_list(feature_allowlist, preserve_empty=True)
-  artifact_allow = _normalize_feature_key_list(data.get("feature_allowlist"), preserve_empty=True)
+    runtime_allow = _normalize_feature_key_list(feature_allowlist, preserve_empty=True)
+    artifact_allow = _normalize_feature_key_list(data.get("feature_allowlist"), preserve_empty=True)
 
-  # NEW: honor calibration recommendations (default calibrate output path)
-  recommended_allow = _normalize_feature_key_list(
-     data.get("recommended_features"),
-     preserve_empty=True,
-  )
+    # IMPORTANT: honor calibrator recommendations (default calibrator path).
+    recommended_allow = _normalize_feature_key_list(
+        data.get("recommended_features"),
+        preserve_empty=True,
+    )
 
-  # Intersection across all constraints that exist:
-  # - runtime allowlist (incl. FieldSpec defaults)
-  # - calibration feature_allowlist (optional)
-  # - calibration recommended_features (preferred/default)
-  effective_allow = _combine_allowlists(runtime_allow, artifact_allow, recommended_allow)
-
+    # Intersection across all constraints that exist.
+    effective_allow = _combine_allowlists(runtime_allow, artifact_allow, recommended_allow)
 
     keys = _select_feature_keys_for_autowire(
         list(scalers.keys()),
@@ -624,7 +626,7 @@ def probe_hazard_and_append_log(
 
     Feature-mode policy (only when cfg is None and we autowire from calibration):
         - feature_allowlist: optional list of feature keys to allow
-          (intersects calibration artifact "feature_allowlist" if present)
+          (also bounded by calibration recommended_features when present)
 
     Defaults preserve baseline behavior:
         - no FieldSpec -> snapshot logs all numeric keys by default
@@ -634,14 +636,14 @@ def probe_hazard_and_append_log(
 
     # Apply field-first defaults for snapshot policy (only if caller did not specify).
     if log_snapshots and field_spec is not None:
-        if snapshot_allowed_prefixes is None and field_spec.features:
+        if snapshot_allowed_prefixes is None and getattr(field_spec, "features", None):
             snapshot_allowed_prefixes = list(field_spec.features)
         # deny keys are safe to merge additively
-        snapshot_deny_keys = _merge_deny_keys(snapshot_deny_keys, field_spec.deny_keys)
+        snapshot_deny_keys = _merge_deny_keys(snapshot_deny_keys, getattr(field_spec, "deny_keys", []) or [])
 
     # Apply field-first defaults for feature allowlist (only affects autowire path).
     effective_feature_allowlist = feature_allowlist
-    if field_spec is not None and field_spec.features:
+    if field_spec is not None and getattr(field_spec, "features", None):
         if effective_feature_allowlist is None:
             effective_feature_allowlist = list(field_spec.features)
         else:
@@ -651,13 +653,11 @@ def probe_hazard_and_append_log(
             )
 
     cfg_provided = cfg is not None
-    autowire_enabled = False
-    autowire_keys: Optional[List[str]] = None
     feature_mode_source: Optional[str] = None
 
     if cfg is None:
         cfg = HazardConfig()
-        autowire_enabled, autowire_keys, feature_mode_source = _maybe_enable_feature_mode_from_calibration(
+        _, _, feature_mode_source = _maybe_enable_feature_mode_from_calibration(
             cfg,
             current_snapshot=current_snapshot,
             reference_snapshot=reference_snapshot,
@@ -682,11 +682,7 @@ def probe_hazard_and_append_log(
     feature_mode_active = bool(feature_keys)
 
     if feature_mode_source is None:
-        # If caller explicitly provided cfg (even without feature specs), keep provenance explicit.
-        if cfg_provided:
-            feature_mode_source = "caller_cfg"
-        else:
-            feature_mode_source = "none"
+        feature_mode_source = "caller_cfg" if cfg_provided else "none"
 
     # Build log entry.
     ts = timestamp or _current_utc_iso()
@@ -710,10 +706,12 @@ def probe_hazard_and_append_log(
         },
     }
 
-    # Additive: attach field spec provenance (do not include full key list to keep logs light).
+    # Additive: attach field spec provenance (keep logs light).
     if field_spec is not None:
         entry["hazard"]["field_spec_used"] = True
-        entry["hazard"]["field_spec_path"] = str(Path(field_spec_path) if field_spec_path else DEFAULT_FIELD_SPEC_PATH)
+        entry["hazard"]["field_spec_path"] = str(
+            Path(field_spec_path) if field_spec_path else DEFAULT_FIELD_SPEC_PATH
+        )
 
     if log_snapshots:
         snap_cur, meta_cur = sanitize_snapshot_for_log(
