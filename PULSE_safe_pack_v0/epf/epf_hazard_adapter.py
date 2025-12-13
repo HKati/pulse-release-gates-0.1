@@ -23,6 +23,10 @@ Relational Grail wiring (opt-in by artifact presence):
     - If cfg is not provided by caller, the adapter may auto-enable the
       forecast's feature mode using feature scalers from the calibration
       artifact (when available and sufficiently sampled).
+    - Feature autowire is disciplined:
+        * only keys present in current/reference snapshots are eligible
+        * optional feature_allowlist can further constrain selection
+          (runtime allowlist intersects artifact allowlist if both exist)
 """
 
 from __future__ import annotations
@@ -352,11 +356,74 @@ def _coerce_finite_number(value: Any) -> Optional[float]:
     return None
 
 
-def _maybe_enable_feature_mode_from_calibration(cfg: HazardConfig) -> None:
+# ---------------------------------------------------------------------------
+# Feature-mode autowire discipline (allowlist + snapshot intersection)
+# ---------------------------------------------------------------------------
+
+def _normalize_feature_key_list(x: Any) -> Optional[List[str]]:
     """
-    If caller did not provide cfg, we create one. In that case we may
-    auto-enable feature mode when calibration artifact includes robust
-    feature scalers with sufficient samples.
+    Normalize feature allowlist from either:
+      - comma-separated string
+      - list/tuple/set of items
+    Returns sorted unique list, or None if empty.
+    """
+    keys: List[str] = []
+    if x is None:
+        return None
+
+    if isinstance(x, str):
+        parts = [p.strip() for p in x.split(",")]
+        keys = [p for p in parts if p]
+    elif isinstance(x, (list, tuple, set)):
+        for it in x:
+            s = str(it).strip()
+            if s:
+                keys.append(s)
+    else:
+        s = str(x).strip()
+        if s:
+            keys = [s]
+
+    keys = sorted(set(keys))
+    return keys or None
+
+
+def _select_feature_keys_for_autowire(
+    scaler_keys: List[str],
+    current_snapshot: Mapping[str, Any],
+    reference_snapshot: Mapping[str, Any],
+    allowlist: Optional[List[str]] = None,
+) -> List[str]:
+    """
+    Select feature keys deterministically for feature-mode autowire.
+
+    Rules:
+      - must exist in scaler_keys
+      - must exist in current_snapshot or reference_snapshot (avoid "phantom" features)
+      - if allowlist is provided, must also be in allowlist
+    """
+    snap_keys = {str(k) for k in list(current_snapshot.keys()) + list(reference_snapshot.keys())}
+    candidates = set(map(str, scaler_keys)) & snap_keys
+    if allowlist:
+        candidates &= set(allowlist)
+    return sorted(candidates)
+
+
+def _maybe_enable_feature_mode_from_calibration(
+    cfg: HazardConfig,
+    *,
+    current_snapshot: Mapping[str, Any],
+    reference_snapshot: Mapping[str, Any],
+    feature_allowlist: Optional[List[str]] = None,
+) -> None:
+    """
+    Auto-enable feature mode when calibration artifact includes robust feature scalers
+    with sufficient samples.
+
+    Feature selection is disciplined:
+      - only keys that appear in current/reference snapshot are considered
+      - optional allowlist can further constrain selection
+        (runtime allowlist intersects artifact allowlist if both exist)
 
     Fail-open: any errors mean "leave cfg as-is".
     """
@@ -387,9 +454,24 @@ def _maybe_enable_feature_mode_from_calibration(cfg: HazardConfig) -> None:
     if not scalers:
         return
 
-    # Only use keys we can scale. Avoid mixing scaled/unscaled by default.
-    keys = sorted(scalers.keys())
-    cfg.feature_scalers = dict(scalers)
+    runtime_allow = _normalize_feature_key_list(feature_allowlist)
+    artifact_allow = _normalize_feature_key_list(data.get("feature_allowlist"))
+
+    if runtime_allow and artifact_allow:
+        effective_allow = sorted(set(runtime_allow) & set(artifact_allow))
+    else:
+        effective_allow = runtime_allow or artifact_allow
+
+    keys = _select_feature_keys_for_autowire(
+        list(scalers.keys()),
+        current_snapshot=current_snapshot,
+        reference_snapshot=reference_snapshot,
+        allowlist=effective_allow,
+    )
+    if not keys:
+        return
+
+    cfg.feature_scalers = {k: scalers[k] for k in keys}
     cfg.feature_specs = [FeatureSpec(key=k) for k in keys]
 
 
@@ -406,6 +488,7 @@ def probe_hazard_and_append_log(
     log_snapshots: bool = True,
     snapshot_allowed_prefixes: Optional[List[str]] = None,
     snapshot_deny_keys: Optional[List[str]] = None,
+    feature_allowlist: Optional[List[str]] = None,
 ) -> HazardState:
     """
     Run the EPF hazard forecasting probe and append the result to a JSONL log.
@@ -414,11 +497,22 @@ def probe_hazard_and_append_log(
         - snapshot_allowed_prefixes: dotted prefixes to allow (optional)
         - snapshot_deny_keys: dotted prefixes to deny (optional)
 
-    Defaults preserve legacy behavior: if policy is omitted, all numeric keys are logged.
+    Feature-mode policy (only when cfg is None and we autowire from calibration):
+        - feature_allowlist: optional list of feature keys to allow
+          (intersects artifact "feature_allowlist" if present)
+
+    Defaults preserve legacy behavior:
+        - if snapshot policy omitted -> log all numeric keys
+        - if feature allowlist omitted -> use snapshot-present keys ∩ scaler keys
     """
     if cfg is None:
         cfg = HazardConfig()
-        _maybe_enable_feature_mode_from_calibration(cfg)
+        _maybe_enable_feature_mode_from_calibration(
+            cfg,
+            current_snapshot=current_snapshot,
+            reference_snapshot=reference_snapshot,
+            feature_allowlist=feature_allowlist,
+        )
 
     # Run the core hazard forecast.
     state = forecast_hazard(
@@ -447,6 +541,8 @@ def probe_hazard_and_append_log(
             # Additive: Relational Grail explainability (if present).
             "T_scaled": bool(getattr(state, "T_scaled", False)),
             "contributors_top": getattr(state, "contributors_top", []) or [],
+            # Additive: which feature keys were used when feature-mode is active.
+            "feature_keys": [fs.key for fs in (getattr(cfg, "feature_specs", []) or [])],
         },
     }
 
