@@ -554,16 +554,27 @@ def _maybe_enable_feature_mode_from_calibration(
 
     # Guard: require enough snapshot-bearing events.
     if int(getattr(artifact, "count", 0)) < int(MIN_CALIBRATION_SAMPLES):
-        return False, None, None
+        return False, None, None 
 
     scalers = getattr(artifact, "features", {}) or {}
     if not scalers:
         return False, None, None
 
-    runtime_allow = _normalize_feature_key_list(feature_allowlist, preserve_empty=True)
-    artifact_allow = _normalize_feature_key_list(data.get("feature_allowlist"), preserve_empty=True)
+  runtime_allow = _normalize_feature_key_list(feature_allowlist, preserve_empty=True)
+  artifact_allow = _normalize_feature_key_list(data.get("feature_allowlist"), preserve_empty=True)
 
-    effective_allow = _combine_allowlists(runtime_allow, artifact_allow)
+  # NEW: honor calibration recommendations (default calibrate output path)
+  recommended_allow = _normalize_feature_key_list(
+     data.get("recommended_features"),
+     preserve_empty=True,
+  )
+
+  # Intersection across all constraints that exist:
+  # - runtime allowlist (incl. FieldSpec defaults)
+  # - calibration feature_allowlist (optional)
+  # - calibration recommended_features (preferred/default)
+  effective_allow = _combine_allowlists(runtime_allow, artifact_allow, recommended_allow)
+
 
     keys = _select_feature_keys_for_autowire(
         list(scalers.keys()),
