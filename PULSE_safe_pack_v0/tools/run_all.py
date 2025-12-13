@@ -47,17 +47,11 @@ STATUS_VERSION = "1.0.0-demo"
 # Helpers for EPF hazard history / sparkline
 # ---------------------------------------------------------------------------
 
-def load_hazard_metric_history(
-    log_path: pathlib.Path,
-    metric_key: str,
-    gate_id: str = "",
-    max_points: int = 20,
-):
+def load_hazard_E_history(log_path: pathlib.Path, max_points: int = 20):
     """
-    Load up to max_points hazard metric values (e.g. T or E) from epf_hazard_log.jsonl.
+    Load up to max_points hazard E values from the epf_hazard_log.jsonl file.
 
-    If gate_id is provided (non-empty), only entries matching that gate_id are used.
-    Returns most recent values in order (oldest -> newest).
+    Returns the most recent values in order (oldest -> newest).
     """
     if not log_path.exists():
         return []
@@ -72,17 +66,16 @@ def load_hazard_metric_history(
                 obj = json.loads(line)
             except json.JSONDecodeError:
                 continue
-
-            if gate_id:
-                if str(obj.get("gate_id", "")) != gate_id:
-                    continue
-
             hazard = obj.get("hazard", {}) or {}
-            x = hazard.get(metric_key)
-            if isinstance(x, (int, float)):
-                values.append(float(x))
+            E = hazard.get("E")
+            if isinstance(E, (int, float)):
+                values.append(float(E))
 
-    return values[-max_points:] if values else []
+    if not values:
+        return []
+
+    # keep only the last max_points values
+    return values[-max_points:]
 
 
 def build_E_sparkline_svg(values, width: int = 160, height: int = 40) -> str:
@@ -152,7 +145,6 @@ gates = {
     "pass_controls_refusal": True,
     "effect_present": True,
     "psf_monotonicity_ok": True,
-    "psf_pii_monotonicity_ok": True,
     "psf_mono_shift_resilient": True,
     "pass_controls_comm": True,
     "psf_commutativity_ok": True,
@@ -163,6 +155,7 @@ gates = {
     "psf_action_monotonicity_ok": True,
     "psf_idempotence_ok": True,
     "psf_path_independence_ok": True,
+    "psf_pii_monotonicity_ok": True,
     "q1_grounded_ok": True,
     "q2_consistency_ok": True,
     "q3_fairness_ok": True,
@@ -179,18 +172,7 @@ metrics = {
 # EPF hazard probe (proto-level)
 # ---------------------------------------------------------------------------
 
-HAZARD_GATE_ID = "EPF_demo_RDSI"
-hazard_log_path = art / "epf_hazard_log.jsonl"
-
-# Seed T-history from prior runs so drift D becomes run-to-run meaningful.
-seed_T = load_hazard_metric_history(
-    hazard_log_path,
-    metric_key="T",
-    gate_id=HAZARD_GATE_ID,
-    max_points=10,
-)
-hazard_runtime = HazardRuntimeState(history_T=seed_T)
-metrics["hazard_history_T_loaded"] = len(seed_T)
+hazard_runtime = HazardRuntimeState.empty()
 
 # For now we only use RDSI as a simple EPF proxy.
 current_snapshot = {"RDSI": metrics.get("RDSI", 0.5)}
@@ -198,7 +180,7 @@ reference_snapshot = {"RDSI": 1.0}
 stability_metrics = {"RDSI": metrics.get("RDSI", 0.5)}
 
 hazard_state = probe_hazard_and_append_log(
-    gate_id=HAZARD_GATE_ID,
+    gate_id="EPF_demo_RDSI",
     current_snapshot=current_snapshot,
     reference_snapshot=reference_snapshot,
     stability_metrics=stability_metrics,
@@ -229,13 +211,9 @@ hazard_contributors_top = getattr(hazard_state, "contributors_top", []) or []
 metrics["hazard_T_scaled"] = hazard_T_scaled
 metrics["hazard_contributors_top"] = hazard_contributors_top
 
-# Load recent E history (filtered by the same gate_id) for the EPF Relational Grail sparkline.
-E_history = load_hazard_metric_history(
-    hazard_log_path,
-    metric_key="E",
-    gate_id=HAZARD_GATE_ID,
-    max_points=20,
-)
+# Load recent E history for the EPF Relational Grail.
+hazard_log_path = art / "epf_hazard_log.jsonl"
+E_history = load_hazard_E_history(hazard_log_path, max_points=20)
 hazard_history_svg = build_E_sparkline_svg(E_history)
 if E_history and hazard_history_svg:
     history_fragment = (
@@ -304,12 +282,18 @@ calib_is_effective = (
 )
 threshold_regime = "CALIBRATED" if calib_is_effective else "BASELINE"
 
+# --- HTML hygiene: escape dynamic strings that may contain '<', '&', etc. ---
+safe_now = escape(str(now))
+safe_status_version = escape(str(STATUS_VERSION))
+safe_hazard_reason = escape(str(metrics.get("hazard_reason", "")))
+
 gate_rows = []
 for name, ok in sorted(gates.items()):
+    safe_name = escape(str(name))
     status_class = "status-pass" if ok else "status-fail"
     status_text = "✅ PASS" if ok else "❌ FAIL"
     gate_rows.append(
-        f'            <tr><td>{name}</td>'
+        f'            <tr><td>{safe_name}</td>'
         f'<td><span class="{status_class}">{status_text}</span></td></tr>'
     )
 gate_rows_html = "\n".join(gate_rows)
@@ -557,7 +541,7 @@ html = f"""<!DOCTYPE html>
       <header>
         <h1>PULSE — Demo Report Card</h1>
         <p class="prc-meta">
-          Build: {now} · Status version: {STATUS_VERSION}
+          Build: {safe_now} · Status version: {safe_status_version}
         </p>
       </header>
 
@@ -600,7 +584,7 @@ html = f"""<!DOCTYPE html>
           </div>
         </div>
         <p class="epf-hazard-reason">
-          {metrics['hazard_reason']}
+          {safe_hazard_reason}
         </p>
         <div class="epf-hazard-contrib">
           <span class="epf-hazard-contrib-label">Top contributors</span>
@@ -609,7 +593,6 @@ html = f"""<!DOCTYPE html>
         <p class="epf-hazard-footnote">
           Thresholds: warn ≈ {CALIBRATED_WARN_THRESHOLD:.3f}, crit ≈ {CALIBRATED_CRIT_THRESHOLD:.3f}
           ({threshold_regime}; requires ≥{MIN_CALIBRATION_SAMPLES} log entries for calibration to take effect).
-          Seeded T-history: {metrics.get('hazard_history_T_loaded', 0)} point(s).
         </p>
         {history_fragment}
       </section>
@@ -646,11 +629,8 @@ print("Wrote", art / "status.json")
 print("Wrote", art / "report_card.html")
 print(
     "Logged EPF hazard probe:",
-    f"gate_id={HAZARD_GATE_ID}",
-    f"seed_T={metrics.get('hazard_history_T_loaded', 0)}",
     f"zone={hazard_state.zone}",
     f"E={hazard_state.E:.3f}",
-    f"D={hazard_state.D:.3f}",
     f"ok={hazard_decision.ok}",
     f"severity={hazard_decision.severity}",
     f"scaled={hazard_T_scaled}",
