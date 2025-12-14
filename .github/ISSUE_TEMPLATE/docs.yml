@@ -1,0 +1,98 @@
+name: Documentation
+description: Report a docs issue or suggest an improvement (clarity, broken links, examples).
+title: "[Docs] <short summary>"
+labels: ["documentation"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for improving PULSE documentation! 📚✨
+
+        Please include enough detail so we can fix this quickly:
+        - where the issue is (file path / URL / section)
+        - what’s wrong (broken link, unclear wording, outdated steps, etc.)
+        - your suggested change (preferred wording / example / link)
+
+        ⚠️ Please redact secrets/PII in screenshots or logs.
+
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Pre-flight checks
+      options:
+        - label: I searched existing issues and didn’t find a duplicate.
+          required: true
+        - label: I can point to the exact location (URL or file path + section).
+          required: true
+
+  - type: dropdown
+    id: location
+    attributes:
+      label: Where is the documentation issue?
+      options:
+        - README.md
+        - docs/ (repo docs)
+        - PULSE_safe_pack_v0/docs/ (safe-pack docs)
+        - GitHub Pages site (hkati.github.io)
+        - Other / not sure
+    validations:
+      required: true
+
+  - type: input
+    id: pointer
+    attributes:
+      label: Exact link or file path
+      description: Paste the URL or repo path (and optionally the section heading).
+      placeholder: "e.g., docs/DRIFT_OVERVIEW.md#what-this-is-not or https://hkati.github.io/pulse-release-gates-0.1/"
+    validations:
+      required: true
+
+  - type: textarea
+    id: issue
+    attributes:
+      label: What’s wrong?
+      description: Describe the problem clearly.
+      placeholder: |
+        Examples:
+        - Link returns 404
+        - Steps don’t work on Windows
+        - Concept is unclear / ambiguous
+        - Example output doesn’t match current artifacts
+    validations:
+      required: true
+
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: Suggested change
+      description: What should we change it to? (Text, bullets, example commands, etc.)
+      placeholder: |
+        Proposed replacement text / new example / updated link:
+        ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria (Definition of Done)
+      description: Checklist of what “done” means for this doc fix.
+      placeholder: |
+        - [ ] Link(s) work (no 404)
+        - [ ] Commands/examples verified (local or CI)
+        - [ ] Terminology consistent with README + safe-pack docs
+        - [ ] (If applicable) GitHub Pages build renders correctly
+    validations:
+      required: true
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Extra context (optional)
+      description: Screenshots, logs, or references (redacted).
+      placeholder: |
+        - Screenshot:
+        - CI run link:
+        - Related issue/PR:
+    validations:
+      required: false
