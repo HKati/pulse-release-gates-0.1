@@ -184,4 +184,103 @@ job is to say:
 regime, and this is why.”
 
 
+# EPF Relational Grail — Hazard Overlay
+
+This document describes the EPF hazard overlay as used by PULSE_safe_pack_v0.
+
+## Intent
+
+The EPF hazard layer is a **field-first diagnostic overlay**.
+It is not meant to replace deterministic release gates, and it should not
+degrade into a classic “alerts & thresholds” system.
+
+Instead, it provides:
+- a **coordinate signal** (E) over a stable field snapshot,
+- a **topological read** of the current state (stably/unstably × good/bad),
+- and a path to calibrated, feature-aware measurement.
+
+## Core concepts
+
+### Field snapshot
+The hazard probe operates on a deterministic, numeric-only **field vector**:
+
+- `metrics.*` (selected numeric metrics)
+- `gates.*` (gate outcomes as 0/1)
+
+This is explicitly a *coordinate system*, not an alert payload.
+
+A deterministic `reference_snapshot` acts as an anchor:
+- `metrics.RDSI → 1.0`
+- `gates.* → 1.0`
+- other numeric metrics default to `0.0`
+
+### Hazard components
+The hazard forecast yields:
+- `T`: distance between current and reference
+- `S`: stability proxy
+- `D`: drift proxy
+- `E`: aggregated hazard index
+- `zone`: `GREEN / AMBER / RED`
+- `reason`: human-readable explanation (safe to surface)
+
+### Topology region (diagnostic)
+We interpret the joint state of:
+- `baseline_ok` (deterministic gates excluding the hazard shadow gate), and
+- `hazard_zone`
+
+as a topological label:
+
+- `stably_good`  = baseline_ok AND zone=GREEN
+- `unstably_good` = baseline_ok AND zone∈{AMBER,RED}
+- `stably_bad`   = NOT baseline_ok AND zone=GREEN
+- `unstably_bad`  = NOT baseline_ok AND zone∈{AMBER,RED}
+
+This is a **map of regimes**, not a gate.
+
+## Artifacts
+
+### artifacts/status.json
+`status.json` contains:
+- `gates`: deterministic results + `epf_hazard_ok` (shadow gate by default)
+- `metrics`: includes `hazard_*` fields such as `hazard_E`, `hazard_zone`,
+  `hazard_topology_region`, feature-mode provenance, and calibration summary.
+
+### artifacts/report_card.html
+A demo “Quality Ledger view”:
+- hazard zone badge
+- topology region badge
+- E-history sparkline (from hazard log)
+- feature-mode ON/OFF + source + used keys
+- calibration recommendation summary (if present)
+
+### artifacts/epf_hazard_log.jsonl
+Append-only JSONL log entries from the hazard adapter.
+Each entry includes:
+- `gate_id`, `timestamp`
+- `hazard` metrics (T,S,D,E,zone,reason, explainability fields)
+- optional `snapshot_current` / `snapshot_reference` (sanitized numeric-only)
+- optional `meta` (e.g., provenance)
+
+This log is the substrate for calibration and higher-order map building.
+
+## Calibration and feature-aware mode
+
+Calibration can emit:
+- thresholds (global/per-gate), and optionally
+- robust feature scalers and `recommended_features`
+
+When a calibration artifact is present and sufficiently sampled, the adapter may
+auto-enable feature mode (autowire) using:
+- recommended features (preferred bound),
+- optional allowlists (runtime / artifact / FieldSpec), combined by intersection,
+- and snapshot intersection to avoid phantom features.
+
+## Safety stance
+
+- Deterministic fail-closed gates remain the source of truth.
+- Hazard is diagnostic by default.
+- Enforcement is optional and explicit (e.g., via environment flag in CI).
+- FieldSpec can define the coordinate system without leaking sensitive keys.
+
+
 
