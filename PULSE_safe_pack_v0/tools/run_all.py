@@ -13,22 +13,24 @@ import json
 import datetime
 import pathlib
 import sys
+import subprocess
 from html import escape
+from typing import Optional, Tuple
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 REPO_ROOT = ROOT.parent
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from PULSE_safe_pack_v0.epf.epf_hazard_adapter import (
+from PULSE_safe_pack_v0.epf.epf_hazard_adapter import (  # noqa: E402
     HazardRuntimeState,
     probe_hazard_and_append_log,
 )
-from PULSE_safe_pack_v0.epf.epf_hazard_policy import (
+from PULSE_safe_pack_v0.epf.epf_hazard_policy import (  # noqa: E402
     HazardGateConfig,
     evaluate_hazard_gate,
 )
-from PULSE_safe_pack_v0.epf.epf_hazard_forecast import (
+from PULSE_safe_pack_v0.epf.epf_hazard_forecast import (  # noqa: E402
     DEFAULT_WARN_THRESHOLD,
     DEFAULT_CRIT_THRESHOLD,
     CALIBRATED_WARN_THRESHOLD,
@@ -37,10 +39,9 @@ from PULSE_safe_pack_v0.epf.epf_hazard_forecast import (
 )
 
 try:
-    from PULSE_safe_pack_v0.epf.epf_hazard_forecast import CALIBRATION_PATH as HAZARD_CALIB_PATH
+    from PULSE_safe_pack_v0.epf.epf_hazard_forecast import CALIBRATION_PATH as HAZARD_CALIB_PATH  # noqa: E402
 except Exception:  # pragma: no cover
     HAZARD_CALIB_PATH = ROOT / "artifacts" / "epf_hazard_thresholds_v0.json"
-
 
 art = ROOT / "artifacts"
 art.mkdir(parents=True, exist_ok=True)
@@ -50,14 +51,61 @@ STATUS_VERSION = "1.0.0-demo"
 
 
 # ---------------------------------------------------------------------------
-# Helpers for EPF hazard history / sparkline
+# Helpers for provenance / cross-run drift seeding
 # ---------------------------------------------------------------------------
 
-def load_hazard_E_history(log_path: pathlib.Path, max_points: int = 20):
+def get_git_sha(repo_root: pathlib.Path) -> Optional[str]:
+    """
+    Best-effort git SHA for provenance (fail-open).
+    """
+    sha = os.getenv("GITHUB_SHA") or os.getenv("CI_COMMIT_SHA") or os.getenv("BUILD_SOURCEVERSION")
+    if isinstance(sha, str) and sha.strip():
+        return sha.strip()
+
+    try:
+        out = subprocess.check_output(
+            ["git", "rev-parse", "HEAD"],
+            cwd=str(repo_root),
+            stderr=subprocess.DEVNULL,
+        )
+        s = out.decode("utf-8", errors="ignore").strip()
+        return s if s else None
+    except Exception:
+        return None
+
+
+def get_run_key() -> Optional[str]:
+    """
+    Best-effort CI run identity (fail-open).
+    """
+    parts = []
+    for k in (
+        "GITHUB_RUN_ID",
+        "GITHUB_RUN_NUMBER",
+        "GITHUB_WORKFLOW",
+        "CI_PIPELINE_ID",
+        "BUILD_BUILDID",
+    ):
+        v = os.getenv(k)
+        if isinstance(v, str) and v.strip():
+            parts.append(f"{k}={v.strip()}")
+    return "|".join(parts) if parts else None
+
+
+def load_hazard_T_history(
+    log_path: pathlib.Path,
+    *,
+    gate_id: str,
+    max_points: int = 20,
+) -> list[float]:
+    """
+    Load recent hazard T history for a given gate_id from epf_hazard_log.jsonl.
+    Returns oldest->newest, last max_points items.
+    """
     if not log_path.exists():
         return []
 
-    values = []
+    values: list[float] = []
     with log_path.open("r", encoding="utf-8") as f:
         for line in f:
             line = line.strip()
@@ -67,6 +115,104 @@ def load_hazard_E_history(log_path: pathlib.Path, max_points: int = 20):
                 obj = json.loads(line)
             except json.JSONDecodeError:
                 continue
+
+            if str(obj.get("gate_id", "")) != str(gate_id):
+                continue
+
+            hazard = obj.get("hazard", {}) or {}
+            T = hazard.get("T")
+            if isinstance(T, (int, float)):
+                values.append(float(T))
+
+    return values[-max_points:]
+
+
+def build_epf_field_snapshots(
+    metrics: dict,
+    gates: dict,
+) -> Tuple[dict, dict, dict]:
+    """
+    Build a flat dotted-key EPF field snapshot + deterministic reference anchor.
+
+    Design intent (Grail-hű):
+      - current_snapshot is a FIELD coordinate vector (not an alert payload)
+      - reference_snapshot is a stable suggestsion anchor
+      - deterministic and numeric-only
+
+    Returns:
+        (current_snapshot, reference_snapshot, stability_metrics)
+    """
+    current: dict = {}
+
+    # 1) Numeric metrics -> metrics.<key>
+    # Exclude hazard_* derived fields and obvious non-numeric info.
+    for k in sorted(metrics.keys(), key=lambda x: str(x)):
+        ks = str(k)
+        if ks.startswith("hazard_"):
+            continue
+        if ks in ("build_time", "rdsi_note", "git_sha", "run_key"):
+            continue
+
+        v = metrics.get(k)
+        if isinstance(v, (int, float)):
+            current[f"metrics.{ks}"] = float(v)
+
+    # 2) Gate outcomes -> gates.<name> (bool -> 0/1)
+    for name in sorted(gates.keys(), key=lambda x: str(x)):
+        ok = gates.get(name) is True
+        current[f"gates.{name}"] = 1.0 if ok else 0.0
+
+    # 3) Stability metrics (forecast reads RDSI if present)
+    stability: dict = {}
+    rdsi = metrics.get("RDSI")
+    if isinstance(rdsi, (int, float)):
+        stability["RDSI"] = float(rdsi)
+
+    # 4) Deterministic reference anchor for this coordinate system
+    reference: dict = {}
+    for key in sorted(current.keys()):
+        if key == "metrics.RDSI":
+            reference[key] = 1.0
+        elif key.startswith("gates."):
+            reference[key] = 1.0
+        else:
+            reference[key] = 0.0
+
+    return current, reference, stability
+
+
+# ---------------------------------------------------------------------------
+# Helpers for EPF hazard history / sparkline + UI formatting
+# ---------------------------------------------------------------------------
+
+def load_hazard_E_history(
+    log_path: pathlib.Path,
+    *,
+    max_points: int = 20,
+    gate_id: Optional[str] = None,
+) -> list[float]:
+    """
+    Load up to max_points hazard E values from epf_hazard_log.jsonl.
+
+    If gate_id is provided, only values from that series are returned.
+    """
+    if not log_path.exists():
+        return []
+
+    values: list[float] = []
+    with log_path.open("r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                obj = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+
+            if gate_id is not None and str(obj.get("gate_id", "")) != str(gate_id):
+                continue
+
             hazard = obj.get("hazard", {}) or {}
             E = hazard.get("E")
             if isinstance(E, (int, float)):
@@ -123,11 +269,16 @@ def format_top_contributors(contribs, k: int = 3) -> str:
     return ", ".join(parts) if parts else "none"
 
 
-def load_last_hazard_feature_context(log_path: pathlib.Path) -> tuple[list[str], str, bool]:
+def load_last_hazard_feature_context(
+    log_path: pathlib.Path,
+    *,
+    gate_id: Optional[str] = None,
+) -> tuple[list[str], str, bool]:
     """
     Read the last valid JSON event from epf_hazard_log.jsonl and return:
       (feature_keys, feature_mode_source, feature_mode_active)
 
+    If gate_id is provided, selects the last entry for that series.
     Fail-open for older logs.
     """
     if not log_path.exists():
@@ -143,6 +294,10 @@ def load_last_hazard_feature_context(log_path: pathlib.Path) -> tuple[list[str],
                 obj = json.loads(line)
             except json.JSONDecodeError:
                 continue
+
+            if gate_id is not None and str(obj.get("gate_id", "")) != str(gate_id):
+                continue
+
             last_obj = obj
 
     if not isinstance(last_obj, dict):
@@ -256,17 +411,33 @@ metrics = {
 }
 
 # ---------------------------------------------------------------------------
-# EPF hazard probe (proto-level)
+# EPF hazard probe (field snapshot + cross-run drift seeding)
 # ---------------------------------------------------------------------------
 
-hazard_runtime = HazardRuntimeState.empty()
+# Provenance (fail-open)
+run_key = get_run_key()
+git_sha = get_git_sha(REPO_ROOT)
+if run_key:
+    metrics["run_key"] = run_key
+if git_sha:
+    metrics["git_sha"] = git_sha
 
-current_snapshot = {"RDSI": metrics.get("RDSI", 0.5)}
-reference_snapshot = {"RDSI": 1.0}
-stability_metrics = {"RDSI": metrics.get("RDSI", 0.5)}
+hazard_log_path = art / "epf_hazard_log.jsonl"
+
+# Stable series id for the field
+hazard_gate_id = "EPF_field_main"
+metrics["hazard_gate_id"] = hazard_gate_id
+
+# Seed drift across runs (history_T)
+seed_T = load_hazard_T_history(hazard_log_path, gate_id=hazard_gate_id, max_points=10)
+metrics["hazard_seed_T_points"] = int(len(seed_T))
+hazard_runtime = HazardRuntimeState(history_T=list(seed_T))
+
+# Build Grail field snapshots (flat dotted keys)
+current_snapshot, reference_snapshot, stability_metrics = build_epf_field_snapshots(metrics, gates)
 
 hazard_state = probe_hazard_and_append_log(
-    gate_id="EPF_demo_RDSI",
+    gate_id=hazard_gate_id,
     current_snapshot=current_snapshot,
     reference_snapshot=reference_snapshot,
     stability_metrics=stability_metrics,
@@ -275,11 +446,14 @@ hazard_state = probe_hazard_and_append_log(
     extra_meta={
         "created_utc": now,
         "status_version": STATUS_VERSION,
+        "run_key": run_key,
+        "git_sha": git_sha,
     },
 )
 
 hazard_decision = evaluate_hazard_gate(hazard_state, cfg=HazardGateConfig())
 
+# Surface hazard metrics into status.json metrics.
 metrics["hazard_T"] = hazard_state.T
 metrics["hazard_S"] = hazard_state.S
 metrics["hazard_D"] = hazard_state.D
@@ -294,22 +468,25 @@ hazard_contributors_top = getattr(hazard_state, "contributors_top", []) or []
 metrics["hazard_T_scaled"] = hazard_T_scaled
 metrics["hazard_contributors_top"] = hazard_contributors_top
 
-hazard_log_path = art / "epf_hazard_log.jsonl"
+# Feature-mode context (from the last log event for this gate_id)
 hazard_feature_keys, hazard_feature_mode_source, hazard_feature_mode_active = load_last_hazard_feature_context(
-    hazard_log_path
+    hazard_log_path,
+    gate_id=hazard_gate_id,
 )
 metrics["hazard_feature_keys"] = hazard_feature_keys
 metrics["hazard_feature_count"] = int(len(hazard_feature_keys))
 metrics["hazard_feature_mode_source"] = str(hazard_feature_mode_source)
 metrics["hazard_feature_mode_active"] = bool(hazard_feature_mode_active)
 
+# Calibration recommendation summary (if present)
 calib_summary = load_calibration_recommendation(pathlib.Path(HAZARD_CALIB_PATH))
 metrics["hazard_recommended_count"] = int(calib_summary.get("recommended_count", 0) or 0)
 metrics["hazard_recommend_min_coverage"] = calib_summary.get("min_coverage")
 metrics["hazard_recommend_max_features"] = calib_summary.get("max_features")
 metrics["hazard_feature_allowlist_count"] = int(calib_summary.get("feature_allowlist_count", 0) or 0)
 
-E_history = load_hazard_E_history(hazard_log_path, max_points=20)
+# E-history sparkline (per series)
+E_history = load_hazard_E_history(hazard_log_path, max_points=20, gate_id=hazard_gate_id)
 hazard_history_svg = build_E_sparkline_svg(E_history)
 if E_history and hazard_history_svg:
     history_fragment = (
@@ -376,6 +553,9 @@ feature_mode_source_text = escape(str(hazard_feature_mode_source))
 rec_n = int(metrics.get("hazard_recommended_count", 0) or 0)
 rec_min_cov = metrics.get("hazard_recommend_min_coverage")
 rec_min_cov_text = f"{float(rec_min_cov):.2f}" if isinstance(rec_min_cov, (int, float)) else "n/a"
+
+seed_T_points = int(metrics.get("hazard_seed_T_points", 0) or 0)
+hazard_gate_id_text = escape(str(metrics.get("hazard_gate_id", "unknown")))
 
 calib_is_effective = (
     CALIBRATED_WARN_THRESHOLD != DEFAULT_WARN_THRESHOLD
@@ -648,7 +828,9 @@ html = f"""<!DOCTYPE html>
         <div class="strip-right">
           <span class="badge {hazard_badge_class}">Hazard {metrics['hazard_zone']}</span>
           <span class="strip-note">
-            E={metrics['hazard_E']:.3f} · {'OK' if metrics['hazard_ok'] else 'BLOCKED'} · {metrics['hazard_severity']} severity · {scale_badge_text} · F={features_used_n} · {feature_mode_label}
+            id={hazard_gate_id_text} · seedT={seed_T_points} ·
+            E={metrics['hazard_E']:.3f} · {'OK' if metrics['hazard_ok'] else 'BLOCKED'} · {metrics['hazard_severity']} severity ·
+            {scale_badge_text} · F={features_used_n} · {feature_mode_label}
           </span>
         </div>
       </section>
@@ -737,6 +919,8 @@ print("Wrote", art / "status.json")
 print("Wrote", art / "report_card.html")
 print(
     "Logged EPF hazard probe:",
+    f"gate_id={hazard_gate_id}",
+    f"seedT={seed_T_points}",
     f"zone={hazard_state.zone}",
     f"E={hazard_state.E:.3f}",
     f"ok={hazard_decision.ok}",
