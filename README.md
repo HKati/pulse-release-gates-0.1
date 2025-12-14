@@ -418,6 +418,20 @@ For the conceptual overview, calibration flow and CLI examples, see
 
 ---
 
+## EPF Relational Grail (hazard overlay)
+
+The safe-pack emits an EPF hazard **diagnostic overlay** on top of deterministic gates.
+It produces:
+- `PULSE_safe_pack_v0/artifacts/status.json` (includes `hazard_*` metrics + shadow gate `epf_hazard_ok`)
+- `PULSE_safe_pack_v0/artifacts/report_card.html` (human-friendly report)
+- `PULSE_safe_pack_v0/artifacts/epf_hazard_log.jsonl` (append-only hazard series)
+
+The hazard layer is field-first (metrics.* + gates.*), and surfaces a topology regime
+(e.g. stably_good / unstably_good) without turning into a classic alerting system by default.
+See `docs/epf_relational_grail.md` for details.
+
+---
+
 ### Artifacts
 
 - `status_baseline.json` – deterministic decisions (source of truth)
