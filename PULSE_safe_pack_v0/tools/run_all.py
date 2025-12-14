@@ -8,23 +8,44 @@ status.json and related artifacts under the pack's artifacts directory,
 which are then consumed by CI workflows and reporting tools.
 """
 
-from __future__ import annotations
-
 import os
 import json
 import datetime
 import pathlib
 import sys
 import subprocess
-from collections import deque
 from html import escape
-from typing import Optional, Tuple, Any
+from typing import Optional, Tuple
 
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 REPO_ROOT = ROOT.parent
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
+
+# Allow tests / callers to override artifact output directory.
+# Default remains pack_root/artifacts to preserve existing behavior.
+ART_DIR_ENV = os.getenv("PULSE_ARTIFACT_DIR")
+art = pathlib.Path(ART_DIR_ENV) if ART_DIR_ENV else (ROOT / "artifacts")
+art.mkdir(parents=True, exist_ok=True)
+
+now = datetime.datetime.utcnow().isoformat() + "Z"
+STATUS_VERSION = "1.0.0-demo"
+
+# Stability Map artefact (additive)
+STABILITY_MAP_SCHEMA_V0 = "epf_stability_map_v0"
+STABILITY_MAP_FILENAME = "epf_stability_map_v0.json"
+
+
+def write_json_artifact(path: pathlib.Path, payload: dict) -> None:
+    """
+    Deterministic JSON artifact writer (sort_keys + indent).
+    Fail-closed is not desired here: this is diagnostic output.
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8") as f:
+        json.dump(payload, f, indent=2, sort_keys=True)
+
 
 from PULSE_safe_pack_v0.epf.epf_hazard_adapter import (  # noqa: E402
     HazardRuntimeState,
@@ -42,28 +63,16 @@ from PULSE_safe_pack_v0.epf.epf_hazard_forecast import (  # noqa: E402
     MIN_CALIBRATION_SAMPLES,
 )
 
+# Calibration path: prefer same filename inside the selected artifacts dir, if present.
 try:
     from PULSE_safe_pack_v0.epf.epf_hazard_forecast import (  # noqa: E402
-        CALIBRATION_PATH as HAZARD_CALIB_PATH,
+        CALIBRATION_PATH as _HAZARD_CALIB_PATH_DEFAULT,
     )
 except Exception:  # pragma: no cover
-    HAZARD_CALIB_PATH = ROOT / "artifacts" / "epf_hazard_thresholds_v0.json"
+    _HAZARD_CALIB_PATH_DEFAULT = ROOT / "artifacts" / "epf_hazard_thresholds_v0.json"
 
-
-art = ROOT / "artifacts"
-art.mkdir(parents=True, exist_ok=True)
-
-now = datetime.datetime.utcnow().isoformat() + "Z"
-STATUS_VERSION = "1.0.0-demo"
-
-# ---------------------------------------------------------------------------
-# Stability Map (artifact)
-# ---------------------------------------------------------------------------
-
-STABILITY_MAP_SCHEMA_V0 = "epf_stability_map_v0"
-STABILITY_MAP_FILENAME = "epf_stability_map_v0.json"
-STABILITY_MAP_MAX_EVENTS = 200
-STABILITY_MAP_RECENT_EVENTS = 20
+_hazard_calib_candidate = art / pathlib.Path(_HAZARD_CALIB_PATH_DEFAULT).name
+HAZARD_CALIB_PATH = _hazard_calib_candidate if _hazard_calib_candidate.exists() else pathlib.Path(_HAZARD_CALIB_PATH_DEFAULT)
 
 
 # ---------------------------------------------------------------------------
@@ -156,18 +165,13 @@ def compute_baseline_ok(gates: dict) -> bool:
     return True
 
 
-def classify_topology_region(*, baseline_ok: Optional[bool], hazard_zone: str) -> str:
+def classify_topology_region(*, baseline_ok: bool, hazard_zone: str) -> str:
     """
     Field topology region (diagnostic overlay):
       - stably_good / unstably_good / stably_bad / unstably_bad / unknown
 
     Stable is GREEN; anything else is "unstable" (AMBER/RED).
-
-    baseline_ok=None -> unknown.
     """
-    if baseline_ok is None:
-        return "unknown"
-
     z = str(hazard_zone or "").upper()
     if z == "GREEN":
         stable = True
@@ -184,176 +188,6 @@ def classify_topology_region(*, baseline_ok: Optional[bool], hazard_zone: str) -
         return "stably_bad"
     return "unstably_bad"
 
-
-# ---------------------------------------------------------------------------
-# Stability Map helpers (derived from hazard log + snapshots)
-# ---------------------------------------------------------------------------
-
-def _as_boolish(v: Any) -> Optional[bool]:
-    """
-    Convert common encodings to bool:
-      - bool -> bool
-      - numeric 0/1 (or float-ish) -> False/True
-    Return None if not interpretable.
-    """
-    if isinstance(v, bool):
-        return v
-    if isinstance(v, (int, float)):
-        return bool(float(v) >= 0.5)
-    return None
-
-
-def _iter_gate_values_from_snapshot(snapshot: Any) -> list[bool]:
-    """
-    Extract gate outcomes from snapshot_current (fail-open).
-    Supports:
-      - flat dotted keys: "gates.<name>" -> 0/1
-      - nested: {"gates": {"<name>": 0/1}}
-    Returns list of bools; empty list means "no gate info present".
-    """
-    if not isinstance(snapshot, dict):
-        return []
-
-    # Nested style: {"gates": {...}}
-    gates_node = snapshot.get("gates")
-    if isinstance(gates_node, dict):
-        out: list[bool] = []
-        for k in sorted(gates_node.keys(), key=lambda x: str(x)):
-            b = _as_boolish(gates_node.get(k))
-            if b is None:
-                # if any key is not interpretable, skip it (fail-open)
-                continue
-            out.append(bool(b))
-        return out
-
-    # Flat dotted keys: "gates.<name>"
-    out2: list[bool] = []
-    for k in sorted(snapshot.keys(), key=lambda x: str(x)):
-        ks = str(k)
-        if not ks.startswith("gates."):
-            continue
-        b = _as_boolish(snapshot.get(k))
-        if b is None:
-            continue
-        out2.append(bool(b))
-    return out2
-
-
-def compute_baseline_ok_from_snapshot(snapshot: Any) -> Optional[bool]:
-    """
-    baseline_ok derived from snapshot gate outcomes:
-      - True if all available gate values are True
-      - False if any is False
-      - None if no gate info exists
-    """
-    vals = _iter_gate_values_from_snapshot(snapshot)
-    if not vals:
-        return None
-    return all(vals)
-
-
-def load_recent_hazard_events(
-    log_path: pathlib.Path,
-    *,
-    gate_id: str,
-    max_events: int = STABILITY_MAP_MAX_EVENTS,
-) -> list[dict]:
-    """
-    Load last max_events hazard log entries for a given gate_id.
-    Uses a deque to avoid reading into memory.
-    """
-    if not log_path.exists():
-        return []
-
-    buf: deque[dict] = deque(maxlen=int(max_events))
-    with log_path.open("r", encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                obj = json.loads(line)
-            except json.JSONDecodeError:
-                continue
-            if str(obj.get("gate_id", "")) != str(gate_id):
-                continue
-            if isinstance(obj, dict):
-                buf.append(obj)
-    return list(buf)
-
-
-def build_stability_map_payload(
-    events: list[dict],
-    *,
-    gate_id: str,
-    created_utc: str,
-    max_events: int,
-    recent_events: int,
-) -> dict:
-    """
-    Build a stability map payload from hazard log events.
-
-    The map is a *diagnostic topology overlay*:
-      axis A: baseline_ok (derived from snapshot_current gates.*)
-      axis B: stability (hazard zone GREEN=stable, AMBER/RED=unstable)
-
-    It does not enforce gates; it records field behavior.
-    """
-    counts = {
-        "stably_good": 0,
-        "unstably_good": 0,
-        "stably_bad": 0,
-        "unstably_bad": 0,
-        "unknown": 0,
-    }
-
-    recent: list[dict] = []
-    for ev in events:
-        hazard = ev.get("hazard", {}) or {}
-        zone = str(hazard.get("zone", "") or "")
-        baseline_ok = compute_baseline_ok_from_snapshot(ev.get("snapshot_current"))
-        region = classify_topology_region(baseline_ok=baseline_ok, hazard_zone=zone)
-
-        if region not in counts:
-            region = "unknown"
-        counts[region] += 1
-
-        ts = ev.get("timestamp")
-        E = hazard.get("E")
-        T = hazard.get("T")
-        recent.append(
-            {
-                "timestamp": str(ts) if ts is not None else None,
-                "region": str(region),
-                "zone": str(zone) if zone else None,
-                "baseline_ok": baseline_ok,
-                "E": float(E) if isinstance(E, (int, float)) else None,
-                "T": float(T) if isinstance(T, (int, float)) else None,
-            }
-        )
-
-    if recent_events > 0:
-        recent = recent[-int(recent_events):]
-    else:
-        recent = []
-
-    return {
-        "schema": STABILITY_MAP_SCHEMA_V0,
-        "created_utc": created_utc,
-        "gate_id": str(gate_id),
-        "window": {
-            "max_events": int(max_events),
-            "events": int(len(events)),
-            "recent_events": int(recent_events),
-        },
-        "counts": counts,
-        "recent": recent,
-    }
-
-
-# ---------------------------------------------------------------------------
-# Helpers for EPF field snapshot
-# ---------------------------------------------------------------------------
 
 def build_epf_field_snapshots(
     metrics: dict,
@@ -745,39 +579,79 @@ else:
         "</div>"
     )
 
+# Threshold regime label (for UI + Stability Map)
+calib_is_effective = (
+    CALIBRATED_WARN_THRESHOLD != DEFAULT_WARN_THRESHOLD
+    or CALIBRATED_CRIT_THRESHOLD != DEFAULT_CRIT_THRESHOLD
+)
+threshold_regime = "CALIBRATED" if calib_is_effective else "BASELINE"
+
 # ---------------------------------------------------------------------------
-# Stability Map artifact (derived from hazard log)
+# Stability Map artefact (v0)
 # ---------------------------------------------------------------------------
 
-stability_events = load_recent_hazard_events(
-    hazard_log_path,
-    gate_id=hazard_gate_id,
-    max_events=STABILITY_MAP_MAX_EVENTS,
-)
-stability_map = build_stability_map_payload(
-    stability_events,
-    gate_id=hazard_gate_id,
-    created_utc=now,
-    max_events=STABILITY_MAP_MAX_EVENTS,
-    recent_events=STABILITY_MAP_RECENT_EVENTS,
-)
+seed_T_points = int(metrics.get("hazard_seed_T_points", 0) or 0)
+features_used_n = int(metrics.get("hazard_feature_count", 0) or 0)
+rec_n = int(metrics.get("hazard_recommended_count", 0) or 0)
+rec_min_cov = metrics.get("hazard_recommend_min_coverage")
+rec_max_feats = metrics.get("hazard_recommend_max_features")
+
+stability_map_payload = {
+    "schema": STABILITY_MAP_SCHEMA_V0,
+    "created_utc": now,
+    "status_version": STATUS_VERSION,
+    "gate_id": str(hazard_gate_id),
+    "baseline_ok": bool(baseline_ok),
+    "topology_region": str(hazard_topology_region),
+    "hazard": {
+        "zone": str(hazard_state.zone),
+        "E": float(hazard_state.E),
+        "T": float(hazard_state.T),
+        "S": float(hazard_state.S),
+        "D": float(hazard_state.D),
+        "reason": str(hazard_state.reason),
+        "ok": bool(hazard_decision.ok),
+        "severity": str(hazard_decision.severity),
+        "T_scaled": bool(hazard_T_scaled),
+        "contributors_top": hazard_contributors_top,
+    },
+    "series": {
+        "seed_T_points": int(seed_T_points),
+        "history_E": list(E_history),
+        # hazard_runtime.history_T already includes seeds + current T (adapter appends).
+        "history_T": list((hazard_runtime.history_T or [])[-20:]),
+    },
+    "feature_mode": {
+        "active": bool(hazard_feature_mode_active),
+        "source": str(hazard_feature_mode_source),
+        "used_feature_count": int(features_used_n),
+        "used_feature_keys": list(hazard_feature_keys),
+        "recommended_count": int(rec_n),
+        "recommend_min_coverage": float(rec_min_cov) if isinstance(rec_min_cov, (int, float)) else None,
+        "recommend_max_features": int(rec_max_feats) if isinstance(rec_max_feats, int) else None,
+    },
+    "thresholds": {
+        "regime": str(threshold_regime),
+        "warn": float(CALIBRATED_WARN_THRESHOLD),
+        "crit": float(CALIBRATED_CRIT_THRESHOLD),
+        "baseline_warn": float(DEFAULT_WARN_THRESHOLD),
+        "baseline_crit": float(DEFAULT_CRIT_THRESHOLD),
+        "min_samples": int(MIN_CALIBRATION_SAMPLES),
+    },
+    "provenance": {
+        "run_key": str(run_key) if run_key else None,
+        "git_sha": str(git_sha) if git_sha else None,
+        "artifact_dir": str(art),
+    },
+}
 
 stability_map_path = art / STABILITY_MAP_FILENAME
-try:
-    with stability_map_path.open("w", encoding="utf-8") as f:
-        json.dump(stability_map, f, indent=2, sort_keys=True)
-except Exception:
-    # fail-open: do not break CI on artifact write
-    pass
+write_json_artifact(stability_map_path, stability_map_payload)
 
-# Surface a compact stability map summary into metrics (scalar-friendly)
-counts = (stability_map.get("counts") or {}) if isinstance(stability_map, dict) else {}
-metrics["hazard_stability_map_events"] = int(stability_map.get("window", {}).get("events", 0) or 0)
-metrics["hazard_stability_stably_good_n"] = int(counts.get("stably_good", 0) or 0)
-metrics["hazard_stability_unstably_good_n"] = int(counts.get("unstably_good", 0) or 0)
-metrics["hazard_stability_stably_bad_n"] = int(counts.get("stably_bad", 0) or 0)
-metrics["hazard_stability_unstably_bad_n"] = int(counts.get("unstably_bad", 0) or 0)
-metrics["hazard_stability_unknown_n"] = int(counts.get("unknown", 0) or 0)
+# Keep status metrics additive and safely excluded from field snapshots (hazard_* prefix).
+metrics["hazard_stability_map_written"] = True
+metrics["hazard_stability_map_schema"] = STABILITY_MAP_SCHEMA_V0
+metrics["hazard_stability_map_path"] = str(stability_map_path)
 
 # ---------------------------------------------------------------------------
 # Shadow hazard gate (ENV-flag-enforceable)
@@ -832,33 +706,18 @@ scale_badge_class = "badge-scaled" if hazard_T_scaled else "badge-unscaled"
 scale_badge_text = "SCALED" if hazard_T_scaled else "UNSCALED"
 contributors_text = format_top_contributors(hazard_contributors_top, k=3)
 
-features_used_n = int(metrics.get("hazard_feature_count", 0) or 0)
 features_used_text = format_feature_keys(hazard_feature_keys, preview=6)
 
 feature_mode_label = "ON" if bool(hazard_feature_mode_active) else "OFF"
 feature_mode_source_text = escape(str(hazard_feature_mode_source))
 
-rec_n = int(metrics.get("hazard_recommended_count", 0) or 0)
-rec_min_cov = metrics.get("hazard_recommend_min_coverage")
 rec_min_cov_text = f"{float(rec_min_cov):.2f}" if isinstance(rec_min_cov, (int, float)) else "n/a"
 
-seed_T_points = int(metrics.get("hazard_seed_T_points", 0) or 0)
 hazard_gate_id_text = escape(str(metrics.get("hazard_gate_id", "unknown")))
 baseline_ok_text = "OK" if bool(metrics.get("hazard_baseline_ok")) else "FAIL"
 
-# Stability map summary
-sm_events = int(metrics.get("hazard_stability_map_events", 0) or 0)
-sm_sg = int(metrics.get("hazard_stability_stably_good_n", 0) or 0)
-sm_ug = int(metrics.get("hazard_stability_unstably_good_n", 0) or 0)
-sm_sb = int(metrics.get("hazard_stability_stably_bad_n", 0) or 0)
-sm_ub = int(metrics.get("hazard_stability_unstably_bad_n", 0) or 0)
-sm_unk = int(metrics.get("hazard_stability_unknown_n", 0) or 0)
-
-calib_is_effective = (
-    CALIBRATED_WARN_THRESHOLD != DEFAULT_WARN_THRESHOLD
-    or CALIBRATED_CRIT_THRESHOLD != DEFAULT_CRIT_THRESHOLD
-)
-threshold_regime = "CALIBRATED" if calib_is_effective else "BASELINE"
+stability_map_filename_text = escape(STABILITY_MAP_FILENAME)
+stability_map_schema_text = escape(STABILITY_MAP_SCHEMA_V0)
 
 gate_rows = []
 for name, ok in sorted(gates.items()):
@@ -1201,8 +1060,7 @@ html = f"""<!DOCTYPE html>
         <div class="epf-hazard-contrib">
           <span class="epf-hazard-contrib-label">Stability map</span>
           <span>
-            last {sm_events}: stably_good={sm_sg}, unstably_good={sm_ug}, stably_bad={sm_sb}, unstably_bad={sm_ub}, unknown={sm_unk}
-            · artifact={escape(STABILITY_MAP_FILENAME)}
+            schema={stability_map_schema_text} · artifact={stability_map_filename_text}
           </span>
         </div>
 
@@ -1274,12 +1132,6 @@ print(
     f"feature_source={hazard_feature_mode_source}",
     f"features_used={features_used_n}",
     f"recommended={rec_n}",
-    f"stability_map_events={sm_events}",
-    f"stably_good={sm_sg}",
-    f"unstably_good={sm_ug}",
-    f"stably_bad={sm_sb}",
-    f"unstably_bad={sm_ub}",
-    f"unknown={sm_unk}",
     f"enforce_hazard={enforce_hazard}",
     f"epf_hazard_ok_gate={gates['epf_hazard_ok']}",
 )
