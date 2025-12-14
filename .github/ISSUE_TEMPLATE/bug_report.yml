@@ -1,34 +1,129 @@
 name: Bug report
-description: Create a report to help us improve PULSE
+description: Report a problem to help us improve PULSE (reproducible + audit-friendly).
 title: "[Bug] <short summary>"
 labels: ["bug"]
 body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report! 🙏
+
+        To help us reproduce and fix this quickly, please include:
+        - exact **steps to reproduce**
+        - relevant artifact snippets (if possible):
+          - `PULSE_safe_pack_v0/artifacts/status.json`
+          - `PULSE_safe_pack_v0/artifacts/report_card.html` (or a Quality Ledger link)
+        - a CI run link (if this happened in GitHub Actions)
+
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Pre-flight checks
+      options:
+        - label: I searched existing issues and didn’t find a duplicate.
+          required: true
+        - label: I can provide a minimal reproduction (or a CI run link).
+          required: true
+        - label: I can share logs/artefacts (redacted if needed).
+          required: false
+
   - type: textarea
     id: what-happened
     attributes:
       label: What happened?
-      description: Describe the issue and expected behavior.
-      placeholder: Steps to reproduce...
+      description: Describe the issue and what you observed.
+      placeholder: |
+        Example:
+        - Command(s) run:
+        - Observed failure:
+        - Any relevant context:
     validations:
       required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect to happen?
+      placeholder: |
+        Example:
+        - Expected gate outcome:
+        - Expected artifacts:
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: Exact steps someone else can follow.
+      placeholder: |
+        1) ...
+        2) ...
+        3) ...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: where
+    attributes:
+      label: Where does it happen?
+      options:
+        - Local run
+        - GitHub Actions
+        - Other CI
+        - Not sure
+    validations:
+      required: true
+
   - type: input
     id: version
     attributes:
       label: PULSE version / profile
-      placeholder: e.g., v1.0.1 / default profile
-  - type: textarea
-    id: logs
-    attributes:
-      label: Relevant logs / artifacts
-      description: Attach snippets from status.json or report_card.html if possible.
+      description: If you know it, include the tag/version and the profile/policy you used.
+      placeholder: "e.g., v1.0.2 / default profile"
+    validations:
+      required: false
+
   - type: dropdown
     id: gate
     attributes:
-      label: Which gate failed?
+      label: Which gate failed (or regressed)?
+      description: If unknown, pick "Other/Unknown" and share a status.json snippet.
       options:
-        - I-gates (monotonicity/commutativity/…)
+        - I-gates (monotonicity/commutativity/sanitization/PSF…)
         - Q1 Groundedness
         - Q2 Consistency
         - Q3 Fairness
         - Q4 SLO
+        - External detectors (merged)
+        - Refusal-delta
         - Other/Unknown
+    validations:
+      required: false
+
+  - type: textarea
+    id: artifacts
+    attributes:
+      label: Relevant logs / artifacts
+      description: Paste snippets or provide links. Redact secrets/PII.
+      placeholder: |
+        - status.json: (snippet)
+        - report_card.html / Quality Ledger: (link/snippet)
+        - GitHub Actions run: (link)
+      render: text
+    validations:
+      required: false
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Helps us reproduce the issue.
+      placeholder: |
+        OS:
+        Python:
+        Runner (local/CI):
+        Git SHA:
+        Any overrides / env vars:
+    validations:
+      required: false
