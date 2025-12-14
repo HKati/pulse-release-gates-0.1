@@ -39,9 +39,12 @@ from PULSE_safe_pack_v0.epf.epf_hazard_forecast import (  # noqa: E402
 )
 
 try:
-    from PULSE_safe_pack_v0.epf.epf_hazard_forecast import CALIBRATION_PATH as HAZARD_CALIB_PATH  # noqa: E402
+    from PULSE_safe_pack_v0.epf.epf_hazard_forecast import (  # noqa: E402
+        CALIBRATION_PATH as HAZARD_CALIB_PATH,
+    )
 except Exception:  # pragma: no cover
     HAZARD_CALIB_PATH = ROOT / "artifacts" / "epf_hazard_thresholds_v0.json"
+
 
 art = ROOT / "artifacts"
 art.mkdir(parents=True, exist_ok=True)
@@ -127,6 +130,43 @@ def load_hazard_T_history(
     return values[-max_points:]
 
 
+def compute_baseline_ok(gates: dict) -> bool:
+    """
+    Baseline pass/fail excluding the hazard shadow gate if present.
+    This prevents topology from becoming self-referential.
+    """
+    for k, v in gates.items():
+        if str(k) == "epf_hazard_ok":
+            continue
+        if v is not True:
+            return False
+    return True
+
+
+def classify_topology_region(*, baseline_ok: bool, hazard_zone: str) -> str:
+    """
+    Field topology region (diagnostic overlay):
+      - stably_good / unstably_good / stably_bad / unstably_bad / unknown
+
+    Stable is GREEN; anything else is "unstable" (AMBER/RED).
+    """
+    z = str(hazard_zone or "").upper()
+    if z == "GREEN":
+        stable = True
+    elif z in ("AMBER", "RED"):
+        stable = False
+    else:
+        return "unknown"
+
+    if baseline_ok and stable:
+        return "stably_good"
+    if baseline_ok and not stable:
+        return "unstably_good"
+    if (not baseline_ok) and stable:
+        return "stably_bad"
+    return "unstably_bad"
+
+
 def build_epf_field_snapshots(
     metrics: dict,
     gates: dict,
@@ -136,7 +176,7 @@ def build_epf_field_snapshots(
 
     Design intent (Grail-hű):
       - current_snapshot is a FIELD coordinate vector (not an alert payload)
-      - reference_snapshot is a stable suggestsion anchor
+      - reference_snapshot is a stable suggestion anchor
       - deterministic and numeric-only
 
     Returns:
@@ -158,7 +198,10 @@ def build_epf_field_snapshots(
             current[f"metrics.{ks}"] = float(v)
 
     # 2) Gate outcomes -> gates.<name> (bool -> 0/1)
+    # Exclude shadow hazard gate to keep the coordinate system non-self-referential.
     for name in sorted(gates.keys(), key=lambda x: str(x)):
+        if str(name) == "epf_hazard_ok":
+            continue
         ok = gates.get(name) is True
         current[f"gates.{name}"] = 1.0 if ok else 0.0
 
@@ -410,6 +453,10 @@ metrics = {
     "build_time": now,
 }
 
+# Baseline gate health excluding hazard shadow gate (topology uses this).
+baseline_ok = compute_baseline_ok(gates)
+metrics["hazard_baseline_ok"] = bool(baseline_ok)
+
 # ---------------------------------------------------------------------------
 # EPF hazard probe (field snapshot + cross-run drift seeding)
 # ---------------------------------------------------------------------------
@@ -462,6 +509,13 @@ metrics["hazard_zone"] = hazard_state.zone
 metrics["hazard_reason"] = hazard_state.reason
 metrics["hazard_ok"] = hazard_decision.ok
 metrics["hazard_severity"] = hazard_decision.severity
+
+# Field topology overlay (diagnostic)
+hazard_topology_region = classify_topology_region(
+    baseline_ok=bool(baseline_ok),
+    hazard_zone=str(hazard_state.zone),
+)
+metrics["hazard_topology_region"] = str(hazard_topology_region)
 
 hazard_T_scaled = bool(getattr(hazard_state, "T_scaled", False))
 hazard_contributors_top = getattr(hazard_state, "contributors_top", []) or []
@@ -540,6 +594,18 @@ elif zone == "RED":
 else:
     hazard_badge_class = "badge-unknown"
 
+topo_region = str(metrics.get("hazard_topology_region", "unknown"))
+if topo_region == "stably_good":
+    topo_badge_class = "badge-topo-good"
+elif topo_region == "unstably_good":
+    topo_badge_class = "badge-topo-ugood"
+elif topo_region == "stably_bad":
+    topo_badge_class = "badge-topo-bad"
+elif topo_region == "unstably_bad":
+    topo_badge_class = "badge-topo-ubad"
+else:
+    topo_badge_class = "badge-topo-unknown"
+
 scale_badge_class = "badge-scaled" if hazard_T_scaled else "badge-unscaled"
 scale_badge_text = "SCALED" if hazard_T_scaled else "UNSCALED"
 contributors_text = format_top_contributors(hazard_contributors_top, k=3)
@@ -556,6 +622,7 @@ rec_min_cov_text = f"{float(rec_min_cov):.2f}" if isinstance(rec_min_cov, (int, 
 
 seed_T_points = int(metrics.get("hazard_seed_T_points", 0) or 0)
 hazard_gate_id_text = escape(str(metrics.get("hazard_gate_id", "unknown")))
+baseline_ok_text = "OK" if bool(metrics.get("hazard_baseline_ok")) else "FAIL"
 
 calib_is_effective = (
     CALIBRATED_WARN_THRESHOLD != DEFAULT_WARN_THRESHOLD
@@ -668,6 +735,34 @@ html = f"""<!DOCTYPE html>
         color: #e5e7eb;
         border: 1px solid rgba(148, 163, 184, 0.6);
       }}
+
+      /* Topology badges (diagnostic overlay) */
+      .badge-topo-good {{
+        background: rgba(34, 197, 94, 0.15);
+        color: #bbf7d0;
+        border: 1px solid rgba(34, 197, 94, 0.5);
+      }}
+      .badge-topo-ugood {{
+        background: rgba(245, 158, 11, 0.18);
+        color: #fed7aa;
+        border: 1px solid rgba(245, 158, 11, 0.6);
+      }}
+      .badge-topo-bad {{
+        background: rgba(248, 113, 113, 0.18);
+        color: #fecaca;
+        border: 1px solid rgba(248, 113, 113, 0.6);
+      }}
+      .badge-topo-ubad {{
+        background: rgba(244, 63, 94, 0.18);
+        color: #fecdd3;
+        border: 1px solid rgba(244, 63, 94, 0.6);
+      }}
+      .badge-topo-unknown {{
+        background: rgba(148, 163, 184, 0.18);
+        color: #e5e7eb;
+        border: 1px solid rgba(148, 163, 184, 0.6);
+      }}
+
       .badge-scaled {{
         background: rgba(16, 185, 129, 0.16);
         color: #a7f3d0;
@@ -824,11 +919,12 @@ html = f"""<!DOCTYPE html>
         <div class="strip-left">
           <span class="badge badge-decision">{decision_label}</span>
           <span class="badge badge-rdsi">RDSI {metrics['RDSI']:.2f}</span>
+          <span class="badge {topo_badge_class}">{escape(topo_region)}</span>
         </div>
         <div class="strip-right">
           <span class="badge {hazard_badge_class}">Hazard {metrics['hazard_zone']}</span>
           <span class="strip-note">
-            id={hazard_gate_id_text} · seedT={seed_T_points} ·
+            id={hazard_gate_id_text} · seedT={seed_T_points} · baseline={baseline_ok_text} ·
             E={metrics['hazard_E']:.3f} · {'OK' if metrics['hazard_ok'] else 'BLOCKED'} · {metrics['hazard_severity']} severity ·
             {scale_badge_text} · F={features_used_n} · {feature_mode_label}
           </span>
@@ -864,6 +960,13 @@ html = f"""<!DOCTYPE html>
         <p class="epf-hazard-reason">
           {escape(str(metrics['hazard_reason']))}
         </p>
+
+        <div class="epf-hazard-contrib">
+          <span class="epf-hazard-contrib-label">Topology</span>
+          <span>
+            region={escape(topo_region)} · baseline={baseline_ok_text} · zone={escape(str(metrics['hazard_zone']))}
+          </span>
+        </div>
 
         <div class="epf-hazard-contrib">
           <span class="epf-hazard-contrib-label">Top contributors</span>
@@ -921,6 +1024,8 @@ print(
     "Logged EPF hazard probe:",
     f"gate_id={hazard_gate_id}",
     f"seedT={seed_T_points}",
+    f"baseline_ok={baseline_ok}",
+    f"topology={hazard_topology_region}",
     f"zone={hazard_state.zone}",
     f"E={hazard_state.E:.3f}",
     f"ok={hazard_decision.ok}",
