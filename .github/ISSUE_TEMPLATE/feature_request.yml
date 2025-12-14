@@ -1,19 +1,151 @@
 name: Feature request
-description: Suggest an idea for PULSE
+description: Suggest an improvement for PULSE (scoped + merge-ready).
 title: "[Feat] <short summary>"
 labels: ["enhancement"]
 body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the idea! 🙌
+
+        Please help us make this actionable and PR-sized:
+        - clear problem / use case
+        - proposed solution (what changes)
+        - scope (in/out)
+        - Definition of Done (acceptance criteria)
+
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Pre-flight checks
+      options:
+        - label: I searched existing issues and didn’t find a duplicate.
+          required: true
+        - label: This request is reasonably scoped (or I described a phased approach).
+          required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Core gates / policy
+        - CI / GitHub Actions
+        - Docs / onboarding
+        - External detectors integration
+        - EPF / Paradox (experimental)
+        - Drift / reporting
+        - Tooling / developer experience
+        - Other / not sure
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      options:
+        - P0 (blocking / release-critical)
+        - P1 (next iteration)
+        - P2 (nice-to-have)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: size
+    attributes:
+      label: Effort estimate
+      options:
+        - S (≤ 3 hours)
+        - M (½–1 day)
+        - L (multi-day)
+        - Unknown
+    validations:
+      required: true
+
   - type: textarea
     id: problem
     attributes:
       label: Problem / use case
-      placeholder: What problem are you trying to solve?
+      description: What problem are you trying to solve, and who benefits?
+      placeholder: |
+        Example:
+        - User persona:
+        - Current pain:
+        - Why now:
+        - Expected impact:
+    validations:
+      required: true
+
   - type: textarea
     id: proposal
     attributes:
       label: Proposed solution
-      placeholder: Describe the change. If relevant, add thresholds, metrics, or detectors to plug in.
+      description: Describe the change. Include metrics/thresholds/artifacts if relevant.
+      placeholder: |
+        Example:
+        - What will change:
+        - New config keys / policy updates:
+        - New/changed artifacts (status.json fields, reports, badges):
+        - Backward compatibility notes:
+    validations:
+      required: true
+
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope (in / out)
+      description: Define what is included vs explicitly excluded to keep this PR-sized.
+      placeholder: |
+        In scope:
+        - ...
+        Out of scope:
+        - ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria (Definition of Done)
+      description: Checklist of what “done” means.
+      placeholder: |
+        - [ ] CI passes (PULSE gates)
+        - [ ] Docs updated (if user-facing)
+        - [ ] Tests added/updated (unit/integration as appropriate)
+        - [ ] Any new thresholds/config are documented
+        - [ ] Artifacts output is stable and described
+    validations:
+      required: true
+
   - type: textarea
     id: alternatives
     attributes:
       label: Alternatives considered
+      placeholder: |
+        - Alternative A:
+        - Alternative B:
+        - Why not:
+    validations:
+      required: false
+
+  - type: textarea
+    id: risks
+    attributes:
+      label: Risks / compatibility
+      description: Breaking change? Security/safety implications? Migration/rollback?
+      placeholder: |
+        - Breaking changes:
+        - Security/safety impact:
+        - Rollback plan:
+    validations:
+      required: false
+
+  - type: input
+    id: references
+    attributes:
+      label: References (optional)
+      description: Links to docs, papers, prior issues/PRs, CI runs, ledgers, etc.
+      placeholder: "e.g., link to a doc page / ledger / CI run"
+    validations:
+      required: false
