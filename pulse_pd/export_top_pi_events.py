@@ -76,27 +76,25 @@ def load_X(path: str, x_key: Optional[str] = None) -> Tuple[np.ndarray, Optional
 
     if ext == ".npz":
         with np.load(path, allow_pickle=True) as z:
-    
-        keys = list(z.keys())
+            keys = list(z.keys())
 
-# Fail-fast: if --x-key is provided, it must exist.
-if x_key is not None:
-    if x_key in z:
-        X = np.asarray(z[x_key], dtype=float)
-    else:
-        raise ValueError(
-            f"--x-key '{x_key}' not found in NPZ: {path}. "
-            f"Available keys: {sorted(keys)}"
-        )
-else:
-    # Prefer "X" if present; else take first array
-    if "X" in z:
-        X = np.asarray(z["X"], dtype=float)
-    else:
-        if not keys:
-            raise ValueError("Empty .npz file")
-        X = np.asarray(z[keys[0]], dtype=float)
-
+            # Fail-fast: if --x-key is provided, it must exist.
+            if x_key is not None:
+                if x_key in z:
+                    X = np.asarray(z[x_key], dtype=float)
+                else:
+                    raise ValueError(
+                        f"--x-key '{x_key}' not found in NPZ: {path}. "
+                        f"Available keys: {sorted(keys)}"
+                    )
+            else:
+                # Prefer "X" if present; else take first array
+                if "X" in z:
+                    X = np.asarray(z["X"], dtype=float)
+                else:
+                    if not keys:
+                        raise ValueError("Empty .npz file")
+                    X = np.asarray(z[keys[0]], dtype=float)
 
             feature_names = None
             if "feature_names" in z:
@@ -148,7 +146,14 @@ def default_feature_names(d: int) -> List[str]:
     return [f"x{j}" for j in range(d)]
 
 
-def choose_score(name: str, pi_raw: np.ndarray, pi_norm: np.ndarray, ds: np.ndarray, mi: np.ndarray, gf: np.ndarray) -> np.ndarray:
+def choose_score(
+    name: str,
+    pi_raw: np.ndarray,
+    pi_norm: np.ndarray,
+    ds: np.ndarray,
+    mi: np.ndarray,
+    gf: np.ndarray,
+) -> np.ndarray:
     name = name.strip().lower()
     if name == "pi_raw":
         return pi_raw
@@ -193,12 +198,26 @@ def main() -> int:
     ap.add_argument("--out", required=True, help="Output CSV path")
 
     ap.add_argument("--topn", type=int, default=200, help="Number of top events to export")
-    ap.add_argument("--sort-by", default="pi_raw", help="Ranking score: pi_raw/pi_norm/gf/mi/1-ds")
+    ap.add_argument(
+        "--sort-by",
+        default="pi_raw",
+        help="Ranking score: pi_raw/pi_norm/gf/mi/1-ds",
+    )
 
     ap.add_argument("--ds-M", type=int, default=24, help="DS perturbation samples")
     ap.add_argument("--mi-models", type=int, default=7, help="Theta-ensemble size for MI")
-    ap.add_argument("--mi-sigma", type=float, default=None, help="Sigma override for MI theta jitter (optional)")
-    ap.add_argument("--gf-method", default="spsa", choices=["spsa", "finite_diff"], help="GF method")
+    ap.add_argument(
+        "--mi-sigma",
+        type=float,
+        default=None,
+        help="Sigma override for MI theta jitter (optional)",
+    )
+    ap.add_argument(
+        "--gf-method",
+        default="spsa",
+        choices=["spsa", "finite_diff"],
+        help="GF method",
+    )
     ap.add_argument("--gf-K", type=int, default=8, help="GF SPSA directions (if spsa)")
     ap.add_argument("--gf-delta", type=float, default=0.05, help="GF delta step size")
     ap.add_argument("--seed", type=int, default=0, help="RNG seed")
