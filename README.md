@@ -432,6 +432,12 @@ See `docs/epf_relational_grail.md` for details.
 
 ---
 
+## PULSE–PD (experimental)
+
+Paradox Diagram for decision-field analysis around selection cuts/θ (DS/MI/GF → PI). Includes a cut-based runner and a top‑PI CSV exporter (optionally with `event_id` or `run/lumi/event` for traceback). See [pulse_pd/README.md](pulse_pd/README.md) and [pulse_pd/EXPORT_SCHEMA.md](pulse_pd/EXPORT_SCHEMA.md).
+
+---
+
 ### Artifacts
 
 - `status_baseline.json` – deterministic decisions (source of truth)
