@@ -269,9 +269,29 @@ def run_pd_from_cuts(
 
     # Inject feature_names into theta for name-based feat resolution
     theta_eff = theta
-    if feature_names is not None:
+if feature_names is not None:
+    # Preserve explicit theta feature_names if provided.
+    existing = theta.get("feature_names", None)
+
+    if existing is None or existing == {} or existing == [] or existing == ():
+        # No mapping/list provided in theta -> inject dataset names/mapping
         theta_eff = dict(theta)
         theta_eff["feature_names"] = feature_names
+
+    elif isinstance(existing, dict) and isinstance(feature_names, (list, tuple)):
+        # Merge: keep explicit name->index mapping, add missing names from dataset list
+        merged = dict(existing)
+        for idx, name in enumerate(feature_names):
+            name = str(name)
+            if name not in merged:
+                merged[name] = idx
+        theta_eff = dict(theta)
+        theta_eff["feature_names"] = merged
+
+    else:
+        # theta already has feature_names (list or mapping) -> do not override
+        theta_eff = theta
+
 
     ds = compute_ds(
         decision_fn=lambda X_, th: decision_cut(X_, th),
