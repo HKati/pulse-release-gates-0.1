@@ -248,6 +248,7 @@ def run_pd_from_cuts(
     X: ArrayLike,
     theta: Dict[str, Any],
     *,
+    feature_names: Optional[Union[List[str], Dict[str, int]]] = None,
     ds_M: int = 24,
     mi_models: int = 7,
     mi_sigma: Optional[float] = None,
@@ -258,40 +259,42 @@ def run_pd_from_cuts(
     normalize_pi: bool = True,
 ) -> Dict[str, np.ndarray]:
     """
-    Convenience wrapper to compute DS/MI/GF/PI for a cut-based decision.
+    Compute DS/MI/GF/PI from a cut-based theta.
 
-    Returns a dict with keys: ds, mi, gf, pi
+    New: if feature_names is provided, it is injected into theta (without mutating
+    the original dict), so cuts can use string feature names in `feat`.
     """
     x = _as_2d_float(X)
+    rng = np.random.default_rng(seed)
 
-    # DS: decision stability vs threshold perturbations
+    # Inject feature_names into theta for name-based feat resolution
+    theta_eff = theta
+    if feature_names is not None:
+        theta_eff = dict(theta)
+        theta_eff["feature_names"] = feature_names
+
     ds = compute_ds(
-        decision_fn=decision_cut,
+        decision_fn=lambda X_, th: decision_cut(X_, th),
         X=x,
-        theta=theta,
-        eps_sampler=eps_sampler_cut,
-        M=ds_M,
-        seed=seed,
+        theta=theta_eff,
+        eps_sampler=lambda th: eps_sampler_cut(th, rng=rng),
+        M=int(ds_M),
     )
 
-    # MI: variance across a theta-ensemble (equally valid selectors)
-    sigma_used = mi_sigma if mi_sigma is not None else float(theta.get("sigma", 0.02))
-    prob_fns = make_cut_prob_ensemble(theta, n_models=mi_models, seed=seed + 123, sigma=sigma_used)
+    sigma_used = float(theta_eff.get("sigma", 0.02)) if mi_sigma is None else float(mi_sigma)
+    prob_fns = make_cut_prob_ensemble(theta_eff, models=int(mi_models), sigma=sigma_used, rng=rng)
     mi = compute_mi(prob_fn_list=prob_fns, X=x, theta=None)
 
-    # GF: sensitivity of prob_cut to feature changes
     gf = compute_gf(
-        prob_fn=prob_cut,
+        prob_fn=lambda X_, th: prob_cut(X_, th),
         X=x,
-        theta=theta,
-        method=gf_method,
-        K=gf_K,
-        delta=gf_delta,
-        seed=seed,
-        clip_prob=True,
+        theta=theta_eff,
+        method=str(gf_method),
+        K=int(gf_K),
+        delta=float(gf_delta),
+        rng=rng,
     )
 
-    # PI
-    pi = compute_pi(ds=ds, mi=mi, gf=gf, normalize=normalize_pi)
-
+    pi = compute_pi(ds=ds, mi=mi, gf=gf, normalize=bool(normalize_pi))
     return {"ds": ds, "mi": mi, "gf": gf, "pi": pi}
+
