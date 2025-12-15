@@ -76,16 +76,27 @@ def load_X(path: str, x_key: Optional[str] = None) -> Tuple[np.ndarray, Optional
 
     if ext == ".npz":
         with np.load(path, allow_pickle=True) as z:
-            keys = list(z.keys())
-            if x_key and x_key in z:
-                X = np.asarray(z[x_key], dtype=float)
-            else:
-                if "X" in z:
-                    X = np.asarray(z["X"], dtype=float)
-                else:
-                    if not keys:
-                        raise ValueError("Empty .npz file")
-                    X = np.asarray(z[keys[0]], dtype=float)
+    
+        keys = list(z.keys())
+
+# Fail-fast: if --x-key is provided, it must exist.
+if x_key is not None:
+    if x_key in z:
+        X = np.asarray(z[x_key], dtype=float)
+    else:
+        raise ValueError(
+            f"--x-key '{x_key}' not found in NPZ: {path}. "
+            f"Available keys: {sorted(keys)}"
+        )
+else:
+    # Prefer "X" if present; else take first array
+    if "X" in z:
+        X = np.asarray(z["X"], dtype=float)
+    else:
+        if not keys:
+            raise ValueError("Empty .npz file")
+        X = np.asarray(z[keys[0]], dtype=float)
+
 
             feature_names = None
             if "feature_names" in z:
