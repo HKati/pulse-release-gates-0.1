@@ -71,7 +71,9 @@ def load_theta(path: str) -> Dict[str, Any]:
     return obj
 
 
-def load_X(path: str, x_key: Optional[str] = None) -> Tuple[np.ndarray, Optional[List[str]], Dict[str, np.ndarray]]:
+def load_X(
+    path: str, x_key: Optional[str] = None
+) -> Tuple[np.ndarray, Optional[List[str]], Dict[str, np.ndarray]]:
     """
     Load X from .npz / .npy / .csv.
     Returns (X, feature_names or None, meta dict).
@@ -116,7 +118,6 @@ def load_X(path: str, x_key: Optional[str] = None) -> Tuple[np.ndarray, Optional
                     feature_names = None
 
             # Optional meta keys for traceback (only keep if length matches n)
-            # NOTE: We cannot validate lengths until X is known.
             n = int(X.shape[0]) if X.ndim >= 1 else 0
             for k in ("event_id", "run", "lumi", "event", "weight"):
                 if k in z:
@@ -139,7 +140,7 @@ def load_X(path: str, x_key: Optional[str] = None) -> Tuple[np.ndarray, Optional
         return X, None, meta
 
     if ext == ".csv":
-        # numeric-only CSV expected
+        # Numeric-only CSV expected.
         with open(path, "r", encoding="utf-8") as f:
             first = f.readline()
         has_header = _looks_like_header(first)
@@ -209,7 +210,6 @@ def ensure_parent_dir(path: str) -> None:
 
 
 def _format_meta_value(v: Any) -> Any:
-    # numpy scalar -> python scalar
     if isinstance(v, np.generic):
         v = v.item()
     if isinstance(v, (bytes, bytearray)):
@@ -248,7 +248,6 @@ def main() -> int:
         X,
         theta,
         feature_names=fnames,
-
         ds_M=args.ds_M,
         mi_models=args.mi_models,
         mi_sigma=args.mi_sigma,
@@ -263,7 +262,6 @@ def main() -> int:
     mi = res["mi"]
     gf = res["gf"]
 
-    # Export both raw and normalized PI
     pi_raw = compute_pi(ds=ds, mi=mi, gf=gf, normalize=False)
     pi_norm = compute_pi(ds=ds, mi=mi, gf=gf, normalize=True)
 
@@ -272,7 +270,6 @@ def main() -> int:
 
     ensure_parent_dir(args.out)
 
-    # Include meta cols if present (and length matches n)
     meta_cols: List[str] = []
     for k in ("event_id", "run", "lumi", "event", "weight"):
         if k in meta and meta[k].ndim == 1 and meta[k].shape[0] == n:
