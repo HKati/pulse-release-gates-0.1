@@ -247,6 +247,8 @@ def main() -> int:
     res = run_pd_from_cuts(
         X,
         theta,
+        feature_names=fnames,
+
         ds_M=args.ds_M,
         mi_models=args.mi_models,
         mi_sigma=args.mi_sigma,
