@@ -75,54 +75,51 @@ Depending on the entrypoint:
 
 ## Quickstart (toy end-to-end)
 
-### 1) Generate a toy dataset (NPZ with IDs)
-```bash
-python -m pulse_pd.examples.make_toy_X --out pulse_pd/examples/X_toy.npz --n 5000 --seed 0
+# 1) Generate a toy dataset (NPZ with IDs)
+python -m pulse_pd.examples.make_toy_X \
+  --out pulse_pd/examples/X_toy.npz \
+  --n 5000 \
+  --seed 0
 
-
-**python -m pulse_pd.run_cut_pd \
+# 2) Run cut-based PD and write artifacts
+python -m pulse_pd.run_cut_pd \
   --x pulse_pd/examples/X_toy.npz \
   --theta pulse_pd/examples/theta_cuts_example.json \
   --dims 0 1 \
   --out pulse_pd/artifacts_run
-**
 
-Expected artifacts:
+# Expected artifacts:
+# - pulse_pd/artifacts_run/pd_scatter.png
+# - pulse_pd/artifacts_run/pi_heatmap.png
+# - pulse_pd/artifacts_run/pd_summary.json
 
-pulse_pd/artifacts_run/pd_scatter.png
-
-pulse_pd/artifacts_run/pi_heatmap.png
-
-pulse_pd/artifacts_run/pd_summary.json
-
-
-3) Export top PI events to CSV (traceback-ready)
+# 3) Export top PI events to CSV (traceback-ready)
 python -m pulse_pd.export_top_pi_events \
   --x pulse_pd/examples/X_toy.npz \
   --theta pulse_pd/examples/theta_cuts_example.json \
   --out pulse_pd/artifacts_run/top_pi_events.csv \
   --topn 200
 
+# If X.npz contains event_id or run/lumi/event,
+# the CSV will include those columns.
 
-If X.npz contains event_id or run/lumi/event, the CSV will include those columns.
+---
 
-Theta: cut-based configuration
-
-The cut-based adapter expects theta like:
+## Theta: cut-based configuration
 
 {
   "k": 8.0,
   "sigma": 0.02,
   "cuts": [
-    { "feat": 0, "op": ">",  "thr": 0.0, "sigma": 0.02, "scale": 1.0 },
-    { "feat": 1, "op": ">",  "thr": 0.0, "sigma": 0.02, "scale": 1.0 }
+    { "feat": 0, "op": ">", "thr": 0.0, "sigma": 0.02, "scale": 1.0 },
+    { "feat": 1, "op": ">", "thr": 0.0, "sigma": 0.02, "scale": 1.0 }
   ]
 }
 
+## Named feature cuts (preferred for real pipelines)
 
-Named feature cuts (preferred for real pipelines)
-
-You can reference features by name (requires feature_names in X.npz or an explicit mapping in theta):
+# You can reference features by name
+# (requires feature_names in X.npz or an explicit mapping in theta)
 
 {
   "cuts": [
@@ -131,39 +128,40 @@ You can reference features by name (requires feature_names in X.npz or an explic
   ]
 }
 
+---
 
-nterpreting results (v0 guidance)
+## Interpreting results (v0 guidance)
 
 High PI does not claim new physics.
 
 High PI suggests a region where:
+- the decision is unstable (DS low),
+- multiple admissible views disagree (MI high),
+- the decision boundary is sharp or tense (GF high).
 
-decision is unstable (DS low),
+Use the top PI CSV to trace back to original events/regions and inspect:
+- boundary neighborhoods (cuts / thresholds),
+- “discarded” bands previously considered uninteresting,
+- regions sensitive to small parameter shifts.
 
-multiple valid views disagree (MI high),
+---
 
-boundary is tense/sharp (GF high).
-
-Use the top PI CSV to trace back to the original events/regions and inspect:
-
-boundary neighborhoods (cuts / thresholds)
-
-“discarded” bands that were previously considered uninteresting
-
-analysis regions that are sensitive to small shifts
-
-Development notes
+## Development notes
 
 This is v0: the goal is a minimal, inspectable implementation.
 
-The preferred runtime target is standard Linux/CI; keep dependencies minimal.
+Preferred runtime target: standard Linux / CI.
 
-Plotting requires matplotlib (runner). Exporter is matplotlib-free.
+Plotting requires matplotlib (runner).
+CSV export is matplotlib-free.
 
-Next steps
+---
 
-Add a small “adapter stub” that exports real analysis features into X.npz following the schema.
+## Next steps
 
-Add a minimal CI smoke test that generates toy X and runs the exporter (to prevent regressions).
+Add a small adapter stub that exports real analysis features into X.npz following the schema.
+
+Add a minimal CI smoke test that generates toy X and runs the exporter
+(to prevent regressions).
 
 
