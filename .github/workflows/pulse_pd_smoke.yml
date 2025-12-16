@@ -1,0 +1,79 @@
+name: PULSE-PD smoke (toy pipeline)
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - "pulse_pd/**"
+      - ".github/workflows/pulse_pd_smoke.yml"
+  pull_request:
+    branches: [ main ]
+    paths:
+      - "pulse_pd/**"
+      - ".github/workflows/pulse_pd_smoke.yml"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    env:
+      MPLBACKEND: Agg
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install minimal deps
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install numpy matplotlib
+
+      - name: Generate toy X (with IDs)
+        run: |
+          python -m pulse_pd.examples.make_toy_X \
+            --out pulse_pd/examples/X_toy_ci.npz \
+            --n 2000 \
+            --seed 0
+
+      - name: Run cut-based PD (writes artifacts)
+        run: |
+          python -m pulse_pd.run_cut_pd \
+            --x pulse_pd/examples/X_toy_ci.npz \
+            --theta pulse_pd/examples/theta_cuts_example.json \
+            --dims 0 1 \
+            --out pulse_pd/artifacts_ci
+
+      - name: Export top PI events (CSV)
+        run: |
+          python -m pulse_pd.export_top_pi_events \
+            --x pulse_pd/examples/X_toy_ci.npz \
+            --theta pulse_pd/examples/theta_cuts_example.json \
+            --out pulse_pd/artifacts_ci/top_pi_events.csv \
+            --topn 50
+
+      - name: Assert artifacts exist
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f pulse_pd/artifacts_ci/pd_summary.json
+          test -f pulse_pd/artifacts_ci/top_pi_events.csv
+          test -f pulse_pd/artifacts_ci/pd_scatter.png
+          test -f pulse_pd/artifacts_ci/pi_heatmap.png
+          echo "OK: PULSE-PD toy smoke artifacts present."
+
+      - name: Upload artifacts (debug)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pulse-pd-smoke-artifacts
+          path: |
+            pulse_pd/artifacts_ci/**
