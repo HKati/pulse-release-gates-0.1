@@ -16,7 +16,7 @@ on:
 
 permissions:
   contents: read
-
+  actions: write
 jobs:
   smoke:
     runs-on: ubuntu-latest
