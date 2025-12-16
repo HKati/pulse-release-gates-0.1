@@ -1,3 +1,4 @@
+# .github/workflows/pulse_pd_smoke.yml
 name: PULSE-PD smoke (toy pipeline)
 
 on:
@@ -19,8 +20,10 @@ permissions:
 jobs:
   smoke:
     runs-on: ubuntu-latest
+
     env:
       MPLBACKEND: Agg
+      PYTHONPATH: .
 
     steps:
       - name: Checkout
@@ -30,7 +33,6 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-          cache: "pip"
 
       - name: Install minimal deps
         run: |
