@@ -15,16 +15,15 @@ def run_pd_from_cuts(
     """
     Compute DS/MI/GF/PI from a cut-based theta.
 
-    If feature_names is provided, it is injected into theta (without mutating
+    If feature_names is provided, inject it into theta (without mutating
     the original dict) so cuts can use string feature names in `feat`.
 
-    IMPORTANT: do not overwrite explicit theta["feature_names"] if present.
+    Do NOT overwrite explicit theta["feature_names"] if the user provided it.
     """
     x = _as_2d_float(X)
     rng = np.random.default_rng(seed)
 
     # Inject feature_names into theta for name-based feat resolution.
-    # Preserve explicit theta["feature_names"] if provided.
     theta_eff: Dict[str, Any] = theta
     if feature_names is not None:
         existing = theta.get("feature_names", None)
@@ -39,7 +38,7 @@ def run_pd_from_cuts(
             theta_eff["feature_names"] = feature_names
 
         elif isinstance(existing, dict) and isinstance(feature_names, (list, tuple)):
-            # Merge: keep explicit mapping, add any missing names from dataset list
+            # Merge: keep explicit mapping, add missing names from dataset list
             merged = dict(existing)
             for idx, name in enumerate(feature_names):
                 key = str(name)
@@ -62,8 +61,7 @@ def run_pd_from_cuts(
 
     sigma_used = float(theta_eff.get("sigma", 0.02)) if mi_sigma is None else float(mi_sigma)
 
-    # NOTE: make_cut_prob_ensemble signature in this file is:
-    #   (theta, n_models=..., *, seed=..., sigma=...)
+    # make_cut_prob_ensemble in THIS file takes n_models/seed/sigma
     prob_fns = make_cut_prob_ensemble(
         theta_eff,
         n_models=int(mi_models),
