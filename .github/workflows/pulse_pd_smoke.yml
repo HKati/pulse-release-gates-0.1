@@ -17,6 +17,7 @@ on:
 permissions:
   contents: read
   actions: write
+
 jobs:
   smoke:
     runs-on: ubuntu-latest
@@ -38,38 +39,93 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install numpy matplotlib
-      
+
       - name: HEP adapters compile/import (deps-free)
         run: |
           python -m py_compile pulse_pd/hep/export_uproot_npz.py pulse_pd/hep/export_root_npz.py
           python - <<'PY'
-          import pulse_pd.hep.export_uproot_npz as u
-          import pulse_pd.hep.export_root_npz as r
+          import pulse_pd.hep.export_uproot_npz as u  # noqa: F401
+          import pulse_pd.hep.export_root_npz as r    # noqa: F401
           print("OK: HEP adapters import + compile without uproot")
           PY
 
       - name: Generate toy X (with IDs)
         run: |
-          python -m pulse_pd.examples.make_toy_X \
-            --out pulse_pd/examples/X_toy_ci.npz \
-            --n 2000 \
-            --seed 0
+          python -m pulse_pd.examples.make_toy_X --out pulse_pd/examples/X_toy_ci.npz --n 2000 --seed 0
 
       - name: Run cut-based PD (writes artifacts)
         run: |
-          python -m pulse_pd.run_cut_pd \
-            --x pulse_pd/examples/X_toy_ci.npz \
-            --theta pulse_pd/examples/theta_cuts_example.json \
-            --dims 0 1 \
-            --out pulse_pd/artifacts_ci
+          python -m pulse_pd.run_cut_pd --x pulse_pd/examples/X_toy_ci.npz --theta pulse_pd/examples/theta_cuts_example.json --dims 0 1 --out pulse_pd/artifacts_ci
 
       - name: Export top PI events (CSV)
         run: |
-          python -m pulse_pd.export_top_pi_events \
-            --x pulse_pd/examples/X_toy_ci.npz \
-            --theta pulse_pd/examples/theta_cuts_example.json \
-            --out pulse_pd/artifacts_ci/top_pi_events.csv \
-            --topn 50
+          python -m pulse_pd.export_top_pi_events --x pulse_pd/examples/X_toy_ci.npz --theta pulse_pd/examples/theta_cuts_example.json --out pulse_pd/artifacts_ci/top_pi_events.csv --topn 50
+
+      - name: Build CI NPZ without event_id (run/lumi/event only)
+        run: |
+          python - <<'PY'
+          import os
+          import numpy as np
+
+          os.makedirs("pulse_pd/artifacts_ci", exist_ok=True)
+
+          rng = np.random.default_rng(0)
+          n, d = 25, 3
+          X = rng.standard_normal((n, d)).astype(np.float32)
+
+          run = np.full(n, 1, dtype=np.int64)
+          lumi = np.arange(n, dtype=np.int64)
+          event = np.arange(1000, 1000 + n, dtype=np.int64)
+
+          feature_names = np.asarray([f"x{i}" for i in range(d)], dtype=object)
+
+          np.savez(
+              "pulse_pd/artifacts_ci/X_ci_no_event_id.npz",
+              X=X,
+              feature_names=feature_names,
+              run=run,
+              lumi=lumi,
+              event=event,
+          )
+          print("Wrote pulse_pd/artifacts_ci/X_ci_no_event_id.npz")
+          PY
+
+      - name: Export top-PI events (CI NPZ without event_id)
+        run: |
+          python -m pulse_pd.export_top_pi_events --x pulse_pd/artifacts_ci/X_ci_no_event_id.npz --theta pulse_pd/examples/theta_cuts_example.json --out pulse_pd/artifacts_ci/top_pi_events_ci.csv --topn 10
+
+      - name: Assert top-PI CSV has traceback columns + event_id backfill
+        run: |
+          python - <<'PY'
+          import csv
+          from pathlib import Path
+
+          p = Path("pulse_pd/artifacts_ci/top_pi_events_ci.csv")
+          assert p.exists(), f"Missing expected CSV: {p}"
+
+          with p.open("r", encoding="utf-8", newline="") as f:
+              r = csv.reader(f)
+              header = next(r)
+
+              required = ["idx", "event_id", "run", "lumi", "event"]
+              for col in required:
+                  assert col in header, f"Missing '{col}' in header: {header}"
+
+              i_eid = header.index("event_id")
+              i_run = header.index("run")
+              i_lumi = header.index("lumi")
+              i_evt = header.index("event")
+
+              # Check first few rows for exact "run:lumi:event" backfill format
+              for _ in range(5):
+                  row = next(r)
+                  eid = row[i_eid]
+                  expected = f"{row[i_run]}:{row[i_lumi]}:{row[i_evt]}"
+                  assert eid == expected, f"event_id mismatch: got {eid} expected {expected}"
+
+          print("OK: top-PI CSV includes traceback columns and event_id backfill works")
+          PY
+
       - name: Adapter stub smoke (CSV -> X.npz schema)
         shell: bash
         run: |
@@ -152,3 +208,4 @@ jobs:
           name: pulse-pd-smoke-artifacts
           path: |
             pulse_pd/artifacts_ci/**
+            pulse_pd/examples/X_toy_ci.npz
