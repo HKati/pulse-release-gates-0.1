@@ -38,6 +38,15 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install numpy matplotlib
+      
+      - name: HEP adapters compile/import (deps-free)
+        run: |
+          python -m py_compile pulse_pd/hep/export_uproot_npz.py pulse_pd/hep/export_root_npz.py
+          python - <<'PY'
+          import pulse_pd.hep.export_uproot_npz as u
+          import pulse_pd.hep.export_root_npz as r
+          print("OK: HEP adapters import + compile without uproot")
+          PY
 
       - name: Generate toy X (with IDs)
         run: |
