@@ -12,6 +12,8 @@ Outputs:
 - CSV with columns:
   - idx
   - optional meta columns if present in NPZ: event_id, run, lumi, event, weight
+    (If event_id is missing but run/lumi/event are present, event_id is generated
+    as "run:lumi:event" for traceback.)
   - pi_raw, pi_norm, ds, mi, gf
   - <feature columns>
 
@@ -241,6 +243,23 @@ def main() -> int:
     theta = load_theta(args.theta)
 
     n, d = X.shape
+
+    # Backfill event_id for traceback if only run/lumi/event are available.
+    if (
+        "event_id" not in meta
+        and all(k in meta for k in ("run", "lumi", "event"))
+        and len(meta["run"]) == n
+        and len(meta["lumi"]) == n
+        and len(meta["event"]) == n
+    ):
+        meta["event_id"] = np.asarray(
+            [
+                f"{_format_meta_value(meta['run'][i])}:{_format_meta_value(meta['lumi'][i])}:{_format_meta_value(meta['event'][i])}"
+                for i in range(n)
+            ],
+            dtype=object,
+        )
+
     if fnames is None or len(fnames) != d:
         fnames = default_feature_names(d)
 
@@ -270,6 +289,7 @@ def main() -> int:
 
     ensure_parent_dir(args.out)
 
+    # Deterministic meta column order; include only if present and length matches n.
     meta_cols: List[str] = []
     for k in ("event_id", "run", "lumi", "event", "weight"):
         if k in meta and meta[k].ndim == 1 and meta[k].shape[0] == n:
