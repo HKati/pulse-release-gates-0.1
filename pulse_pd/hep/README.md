@@ -80,6 +80,8 @@ python -m pulse_pd.export_top_pi_events \
 
 If X.npz contains event_id or run/lumi/event, the CSV exporter includes those columns for traceback.
 
+Legacy alias: `python -m pulse_pd.hep.export_root_npz ...` is supported, but `export_uproot_npz` is the canonical entrypoint.
+
 Troubleshooting (quick)
 
 “dtype=object” / jagged arrays: you likely selected a variable-length branch.
