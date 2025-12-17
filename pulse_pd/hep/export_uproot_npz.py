@@ -13,7 +13,9 @@ Optional traceback identifiers:
 Optional weights:
 - weight (float array)
 
-Example:
+Examples:
+
+  # Comma-separated features (simple)
   python -m pulse_pd.hep.export_uproot_npz \
     --root /path/to/file.root \
     --tree Events \
@@ -23,6 +25,22 @@ Example:
     --lumi-branch luminosityBlock \
     --event-branch event \
     --weight-branch weight
+
+  # Config-first features (file; one branch per line; blank lines and # comments ignored)
+  python -m pulse_pd.hep.export_uproot_npz \
+    --root /path/to/file.root \
+    --tree Events \
+    --features-file features.txt \
+    --out pulse_pd/artifacts_run/X_from_root.npz
+
+  # Rename output feature_names (does NOT rename branches; it renames NPZ feature_names)
+  python -m pulse_pd.hep.export_uproot_npz \
+    --root /path/to/file.root \
+    --tree Events \
+    --features-file features.txt \
+    --rename pt_lead:pt \
+    --rename eta_lead:eta \
+    --out pulse_pd/artifacts_run/X_from_root.npz
 
 Notes
 -----
@@ -35,7 +53,7 @@ from __future__ import annotations
 
 import argparse
 import os
-from typing import Dict, List, Optional, Sequence, Tuple
+from typing import Dict, List, Optional, Sequence
 
 import numpy as np
 
@@ -64,6 +82,68 @@ def _reject_object_arrays(a: np.ndarray, name: str) -> None:
             f"Branch '{name}' looks jagged/variable-length (dtype=object). "
             "Export only flat scalar branches (derive scalars upstream)."
         )
+
+
+def _load_features(features_csv: Optional[str], features_file: Optional[str]) -> List[str]:
+    """
+    Load features from:
+      - --features (comma-separated)
+      - --features-file (text file; blank lines ignored; '#' comments ignored; commas allowed)
+    De-duplicates while preserving order.
+    """
+    feats: List[str] = []
+
+    if features_csv:
+        feats.extend(_split_csv(features_csv))
+
+    if features_file:
+        with open(features_file, "r", encoding="utf-8") as f:
+            for line in f:
+                # support inline comments: "pt # comment"
+                s = line.split("#", 1)[0].strip()
+                if not s:
+                    continue
+                feats.extend(_split_csv(s))
+
+    # de-duplicate (preserve order)
+    out: List[str] = []
+    seen: set[str] = set()
+    for b in feats:
+        if b not in seen:
+            out.append(b)
+            seen.add(b)
+
+    if not out:
+        raise ValueError("No features specified. Use --features and/or --features-file.")
+    return out
+
+
+def _parse_rename(rename_items: Sequence[str]) -> Dict[str, str]:
+    """
+    Parse repeatable --rename BRANCH:NAME mappings.
+    Applies only to output feature_names (does not rename branches).
+    """
+    m: Dict[str, str] = {}
+    for item in list(rename_items or []):
+        if ":" not in item:
+            raise ValueError(f"--rename expects BRANCH:NAME, got: {item!r}")
+        old, new = item.split(":", 1)
+        old = old.strip()
+        new = new.strip()
+        if not old or not new:
+            raise ValueError(f"--rename expects BRANCH:NAME, got: {item!r}")
+        m[old] = new
+    return m
+
+
+def _apply_rename(feature_branches: Sequence[str], rename_map: Dict[str, str]) -> List[str]:
+    names = [rename_map.get(b, b) for b in feature_branches]
+    if len(set(names)) != len(names):
+        raise ValueError(
+            "Duplicate output feature_names after --rename. "
+            f"Got: {names}. Please adjust rename mappings to keep names unique."
+        )
+    return names
 
 
 def _load_arrays_np(
@@ -107,9 +187,7 @@ def _build_X(arrs: Dict[str, np.ndarray], feature_branches: Sequence[str]) -> np
 
         cols.append(a)
 
-    if n is None:
-        raise ValueError("No features provided.")
-    if len(cols) == 0:
+    if n is None or len(cols) == 0:
         raise ValueError("No features provided.")
 
     X = np.column_stack(cols).astype(float, copy=False)
@@ -138,6 +216,7 @@ def export_root_to_npz(
     tree: str,
     feature_branches: Sequence[str],
     out_npz: str,
+    feature_names: Optional[Sequence[str]] = None,
     run_branch: Optional[str] = None,
     lumi_branch: Optional[str] = None,
     event_branch: Optional[str] = None,
@@ -164,9 +243,16 @@ def export_root_to_npz(
     event_id = _maybe_get(arrs, event_id_branch)
     weight = _maybe_get(arrs, weight_branch)
 
+    if feature_names is None:
+        feature_names = list(feature_branches)
+    if len(feature_names) != len(feature_branches):
+        raise ValueError(
+            f"feature_names length mismatch: got {len(feature_names)} names for {len(feature_branches)} branches"
+        )
+
     payload: Dict[str, np.ndarray] = {
         "X": X,
-        "feature_names": np.asarray([str(b) for b in feature_branches], dtype=object),
+        "feature_names": np.asarray([str(b) for b in feature_names], dtype=object),
     }
 
     def _check_len(a: np.ndarray, name: str) -> np.ndarray:
@@ -206,7 +292,21 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--root", required=True, help="Path to ROOT file")
     ap.add_argument("--tree", required=True, help="TTree name (e.g. Events)")
-    ap.add_argument("--features", required=True, help="Comma-separated feature branch list")
+
+    ap.add_argument("--features", default=None, help="Comma-separated feature branch list (optional if --features-file is used)")
+    ap.add_argument(
+        "--features-file",
+        default=None,
+        help="Path to a text file listing feature branches (one per line). "
+             "Blank lines ignored; '#' comments ignored; commas allowed.",
+    )
+    ap.add_argument(
+        "--rename",
+        action="append",
+        default=[],
+        help='Optional rename mapping for output feature_names: repeatable "BRANCH:NAME" (e.g. --rename pt_lead:pt).',
+    )
+
     ap.add_argument("--out", required=True, help="Output NPZ path")
 
     ap.add_argument("--run-branch", default=None, help="Branch name for run (optional)")
@@ -221,14 +321,15 @@ def main() -> int:
 
     args = ap.parse_args()
 
-    features = _split_csv(args.features)
-    if not features:
-        raise SystemExit("No features provided (empty --features).")
+    features = _load_features(args.features, args.features_file)
+    rename_map = _parse_rename(args.rename)
+    out_feature_names = _apply_rename(features, rename_map) if rename_map else [str(b) for b in features]
 
     out = export_root_to_npz(
         root_path=args.root,
         tree=args.tree,
         feature_branches=features,
+        feature_names=out_feature_names,
         out_npz=args.out,
         run_branch=args.run_branch,
         lumi_branch=args.lumi_branch,
