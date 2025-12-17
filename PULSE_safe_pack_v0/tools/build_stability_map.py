@@ -39,6 +39,24 @@ def load_json(path: Path):
         return None
 
 
+def _coerce_float(value, default: float | None = None) -> float | None:
+    """Convert *value* to float, returning *default* on failure."""
+    try:
+        if value is None:
+            raise TypeError
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _first_not_none(*values, default=None):
+    """Return the first value that is not None; otherwise return default."""
+    for v in values:
+        if v is not None:
+            return v
+    return default
+
+
 def summarize_gates(status: dict):
     """Summarise gates into safety / quality counts.
 
@@ -108,12 +126,17 @@ def compute_instability(status: dict, status_epf: dict | None):
     safety_ratio = safety_failed / safety_total if safety_total else 0.0
     quality_ratio = quality_failed / quality_total if quality_total else 0.0
 
-    # TODO: adjust to actual key name if different
-    rdsi = (
-        status.get("rdsi")
-        or status.get("RDSI")
-        or status.get("metrics", {}).get("rdsi", 1.0)
+    # RDSI: prefer explicit top-level keys, fall back to metrics.rdsi
+    # Important: do NOT use truthy `or` chaining because rdsi=0 is a valid value.
+    metrics_status = status.get("metrics") or {}
+    rdsi_raw = _first_not_none(
+        status.get("rdsi"),
+        status.get("RDSI"),
+        metrics_status.get("rdsi"),
+        default=1.0,
     )
+    rdsi = _coerce_float(rdsi_raw, default=1.0)
+
     rdsi_target = 0.9
     rdsi_component = max(0.0, (rdsi_target - rdsi) / rdsi_target)
 
@@ -123,9 +146,9 @@ def compute_instability(status: dict, status_epf: dict | None):
     epf_shadow_pass = None
 
     if epf_available:
-        metrics = status_epf.get("metrics", {})
-        epf_L = metrics.get("epf_L")
-        epf_shadow_pass = metrics.get("shadow_pass")
+        metrics_epf = (status_epf.get("metrics") or {})
+        epf_L = _coerce_float(metrics_epf.get("epf_L"))
+        epf_shadow_pass = metrics_epf.get("shadow_pass")
         if epf_L is not None:
             epf_L_max = 1.2
             epf_component = max(0.0, (epf_L - 1.0) / epf_L_max)
@@ -391,18 +414,22 @@ def build_stability_map(status_path: Path, status_epf_path: Path | None, out_pat
 
     gates, instab_components, epf_meta, rdsi = compute_instability(status, status_epf)
 
+    decision_info = status.get("decision") or {}
+    meta = status.get("meta") or {}
+    metrics = status.get("metrics") or {}
+
     # TODO: adjust to actual decision / release-level key
     decision = (
         status.get("release_level")
-        or status.get("decision", {}).get("level")
-        or status.get("decision", {}).get("release_level")
+        or decision_info.get("level")
+        or decision_info.get("release_level")
         or "UNKNOWN"
     )
 
     run_id = (
         status.get("run_id")
-        or status.get("meta", {}).get("run_id")
-        or status.get("meta", {}).get("commit")
+        or meta.get("run_id")
+        or meta.get("commit")
         or "current_run"
     )
 
@@ -416,7 +443,7 @@ def build_stability_map(status_path: Path, status_epf_path: Path | None, out_pat
     state: dict = {
         "id": run_id,
         "label": f"Run {run_id}",
-        "commit": status.get("meta", {}).get("commit"),
+        "commit": meta.get("commit"),
         "pack": "PULSE_safe_pack_v0",
         "decision": decision,
         "gate_summary": {
@@ -426,11 +453,11 @@ def build_stability_map(status_path: Path, status_epf_path: Path | None, out_pat
             "quality_failed": gates["quality_failed"],
         },
         "rdsi": rdsi,
-        "rdsi_delta": status.get("metrics", {}).get("rdsi_delta"),
+        "rdsi_delta": metrics.get("rdsi_delta"),
         "epf": epf_meta,
         "instability": instab_components,
         "type": state_type,
-        "tags": status.get("tags", []),
+        "tags": status.get("tags") or [],
     }
 
     # Paradox detection v0
