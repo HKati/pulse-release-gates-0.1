@@ -13,7 +13,18 @@ Optional traceback identifiers:
 Optional weights:
 - weight (float array)
 
+Quick discovery helpers:
+- --list-trees: list TTrees in the ROOT file and exit
+- --list-branches: list branches in a given tree and exit
+- --dry-run: validate branches (exist + 1D + not jagged) without writing NPZ
+
 Examples:
+
+  # List trees
+  python -m pulse_pd.hep.export_uproot_npz --root /path/to/file.root --list-trees
+
+  # List branches in a tree
+  python -m pulse_pd.hep.export_uproot_npz --root /path/to/file.root --tree Events --list-branches
 
   # Comma-separated features (simple)
   python -m pulse_pd.hep.export_uproot_npz \
@@ -84,6 +95,17 @@ def _reject_object_arrays(a: np.ndarray, name: str) -> None:
         )
 
 
+def _import_uproot():
+    try:
+        import uproot  # type: ignore
+    except Exception as e:
+        raise RuntimeError(
+            "Missing dependency: uproot. Install with: pip install uproot\n"
+            "This exporter is HEP-native and intentionally keeps uproot optional."
+        ) from e
+    return uproot
+
+
 def _load_features(features_csv: Optional[str], features_file: Optional[str]) -> List[str]:
     """
     Load features from:
@@ -99,13 +121,12 @@ def _load_features(features_csv: Optional[str], features_file: Optional[str]) ->
     if features_file:
         with open(features_file, "r", encoding="utf-8") as f:
             for line in f:
-                # support inline comments: "pt # comment"
+                # allow inline comments: "pt # comment"
                 s = line.split("#", 1)[0].strip()
                 if not s:
                     continue
                 feats.extend(_split_csv(s))
 
-    # de-duplicate (preserve order)
     out: List[str] = []
     seen: set[str] = set()
     for b in feats:
@@ -152,17 +173,9 @@ def _load_arrays_np(
     branches: Sequence[str],
     entry_stop: Optional[int] = None,
 ) -> Dict[str, np.ndarray]:
-    try:
-        import uproot  # type: ignore
-    except Exception as e:
-        raise RuntimeError(
-            "Missing dependency: uproot. Install with: pip install uproot\n"
-            "This exporter is HEP-native and intentionally keeps uproot optional."
-        ) from e
-
+    uproot = _import_uproot()
     tree = uproot.open(root_path)[tree_name]
     arrays = tree.arrays(list(branches), library="np", entry_stop=entry_stop)
-    # arrays is dict-like: {branch: np.ndarray}
     out: Dict[str, np.ndarray] = {}
     for k in branches:
         if k not in arrays:
@@ -205,9 +218,38 @@ def _maybe_get(arrs: Dict[str, np.ndarray], key: Optional[str]) -> Optional[np.n
 
 
 def _compute_event_id(run: np.ndarray, lumi: np.ndarray, event: np.ndarray) -> np.ndarray:
-    # stable, readable traceback id
-    # store as unicode array
     return np.asarray([f"{int(r)}:{int(l)}:{int(e)}" for r, l, e in zip(run, lumi, event)], dtype=str)
+
+
+def _list_trees(root_path: str) -> List[str]:
+    uproot = _import_uproot()
+    f = uproot.open(root_path)
+
+    trees: List[str] = []
+    try:
+        cn = f.classnames()
+        for k, cls in cn.items():
+            if str(cls) == "TTree":
+                trees.append(str(k).split(";", 1)[0])
+    except Exception:
+        # fallback: brute-force keys
+        for k in getattr(f, "keys", lambda: [])():
+            name = str(k).split(";", 1)[0]
+            try:
+                obj = f[name]
+                if getattr(obj, "classname", None) == "TTree":
+                    trees.append(name)
+            except Exception:
+                pass
+
+    # de-dup + sort
+    return sorted(set(trees))
+
+
+def _list_branches(root_path: str, tree_name: str) -> List[str]:
+    uproot = _import_uproot()
+    tree = uproot.open(root_path)[tree_name]
+    return [str(k) for k in tree.keys()]
 
 
 def export_root_to_npz(
@@ -226,7 +268,6 @@ def export_root_to_npz(
     make_event_id: bool = True,
     compress: bool = True,
 ) -> str:
-    # Load all required branches in one go
     branches: List[str] = list(feature_branches)
     for b in [run_branch, lumi_branch, event_branch, event_id_branch, weight_branch]:
         if b:
@@ -273,7 +314,6 @@ def export_root_to_npz(
         payload["weight"] = _check_len(weight, "weight").astype(float, copy=False)
 
     if event_id is not None:
-        # accept either numeric or string-like
         event_id = _check_len(event_id, "event_id")
         payload["event_id"] = event_id
     elif make_event_id and (run is not None and lumi is not None and event is not None):
@@ -291,14 +331,17 @@ def export_root_to_npz(
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--root", required=True, help="Path to ROOT file")
-    ap.add_argument("--tree", required=True, help="TTree name (e.g. Events)")
+    ap.add_argument("--tree", default=None, help="TTree name (e.g. Events)")
+
+    ap.add_argument("--list-trees", action="store_true", help="List TTrees in the ROOT file and exit")
+    ap.add_argument("--list-branches", action="store_true", help="List branches in --tree and exit")
+    ap.add_argument("--dry-run", action="store_true", help="Validate branches (exist + 1D) without writing NPZ")
 
     ap.add_argument("--features", default=None, help="Comma-separated feature branch list (optional if --features-file is used)")
     ap.add_argument(
         "--features-file",
         default=None,
-        help="Path to a text file listing feature branches (one per line). "
-             "Blank lines ignored; '#' comments ignored; commas allowed.",
+        help="Path to a text file listing feature branches (one per line). Blank lines ignored; '#' comments ignored; commas allowed.",
     )
     ap.add_argument(
         "--rename",
@@ -307,7 +350,7 @@ def main() -> int:
         help='Optional rename mapping for output feature_names: repeatable "BRANCH:NAME" (e.g. --rename pt_lead:pt).',
     )
 
-    ap.add_argument("--out", required=True, help="Output NPZ path")
+    ap.add_argument("--out", default=None, help="Output NPZ path (required for export mode)")
 
     ap.add_argument("--run-branch", default=None, help="Branch name for run (optional)")
     ap.add_argument("--lumi-branch", default=None, help="Branch name for lumi/luminosityBlock (optional)")
@@ -321,9 +364,63 @@ def main() -> int:
 
     args = ap.parse_args()
 
+    # Discovery modes
+    if args.list_trees:
+        trees = _list_trees(args.root)
+        if trees:
+            for t in trees:
+                print(t)
+        else:
+            print("(no TTrees found)")
+        return 0
+
+    if args.tree is None:
+        raise SystemExit("--tree is required (unless --list-trees is used).")
+
+    if args.list_branches:
+        branches = _list_branches(args.root, args.tree)
+        if branches:
+            for b in branches:
+                print(b)
+        else:
+            print("(no branches found)")
+        return 0
+
+    # Export / dry-run modes
     features = _load_features(args.features, args.features_file)
     rename_map = _parse_rename(args.rename)
     out_feature_names = _apply_rename(features, rename_map) if rename_map else [str(b) for b in features]
+
+    if args.dry_run:
+        branches: List[str] = list(features)
+        for b in [args.run_branch, args.lumi_branch, args.event_branch, args.event_id_branch, args.weight_branch]:
+            if b and b not in branches:
+                branches.append(b)
+
+        entry_stop = args.entry_stop if args.entry_stop is not None else 1
+        arrs = _load_arrays_np(args.root, args.tree, branches, entry_stop=entry_stop)
+
+        # validate 1D + non-jagged for all requested branches
+        for b in branches:
+            a = np.asarray(arrs[b])
+            _reject_object_arrays(a, b)
+            _as_1d(a, b)
+
+        X = _build_X(arrs, features)
+        print("OK: dry-run validation passed")
+        print("ROOT:", args.root)
+        print("TREE:", args.tree)
+        print(f"X shape (preview): {X.shape}")
+        print("FEATURES:")
+        for src, outn in zip(features, out_feature_names):
+            if src == outn:
+                print(f"  - {src}")
+            else:
+                print(f"  - {src} -> {outn}")
+        return 0
+
+    if not args.out:
+        raise SystemExit("--out is required for export mode (omit only for --list-trees/--list-branches/--dry-run).")
 
     out = export_root_to_npz(
         root_path=args.root,
