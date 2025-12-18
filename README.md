@@ -47,6 +47,8 @@ Releases: https://github.com/HKati/pulse-release-gates-0.1/releases
 
 # PULSE — Release Gates for Safe & Useful AI
 
+#### AI Release Stability Engineering
+
 > 💡 **Continuous expansion**
 >
 > PULSE is not a frozen snapshot. The core release gate semantics are stable,
