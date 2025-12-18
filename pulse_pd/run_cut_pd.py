@@ -13,6 +13,7 @@ Outputs (in --out directory)
 - pd_summary.json    (stats + top PI bins)
 - pd_run_meta.json   (run metadata, schema-stable; inputs/params/artifacts/traceback fields)
 - pd_zones_v0.jsonl  (Dropzone v0 zones derived from top PI bins; one JSON object per line)
+- pd_peaks_v0.json   (Dropzone v0 peaks summary derived from top PI bins)
 
 Examples
 --------
@@ -332,6 +333,10 @@ def _traceback_fields_present_npz(x_path: str, n: int) -> Dict[str, bool]:
     return fields
 
 
+def _zone_id(*, rank: int, jx: int, jy: int, x_bin: int, y_bin: int) -> str:
+    return f"zone_{int(rank):02d}_x{int(jx)}_y{int(jy)}_bin{int(x_bin)}_{int(y_bin)}"
+
+
 def write_pd_run_meta(
     *,
     out_dir: str,
@@ -422,13 +427,17 @@ def write_pd_zones_v0_jsonl(
     out_path = Path(out_dir) / "pd_zones_v0.jsonl"
     with out_path.open("w", encoding="utf-8") as f:
         for rank, b in enumerate(top_bins, start=1):
+            zid = _zone_id(
+                rank=rank,
+                jx=jx,
+                jy=jy,
+                x_bin=int(b["x_bin"]),
+                y_bin=int(b["y_bin"]),
+            )
             zone = {
                 "schema": "pulse_pd/pd_zone_v0",
                 "rank": int(rank),
-                "zone_id": (
-                    f"zone_{rank:02d}_x{int(jx)}_y{int(jy)}_"
-                    f"bin{int(b['x_bin'])}_{int(b['y_bin'])}"
-                ),
+                "zone_id": zid,
                 "dims": {
                     "x": int(jx),
                     "y": int(jy),
@@ -447,6 +456,77 @@ def write_pd_zones_v0_jsonl(
             }
             f.write(json.dumps(zone, sort_keys=True) + "\n")
 
+    return str(out_path)
+
+
+def write_pd_peaks_v0_json(
+    *,
+    out_dir: str,
+    top_bins: List[Dict[str, Any]],
+    jx: int,
+    jy: int,
+    feature_names: Optional[List[str]],
+    d: int,
+    bins: int,
+    topk: int,
+    min_count: int,
+) -> str:
+    """
+    Export a compact peaks summary (JSON) derived from top_pi_bins.
+    """
+    if feature_names is None or len(feature_names) != d:
+        fnames = _default_feature_names(d)
+        fnames_source = "generated"
+    else:
+        fnames = [str(v) for v in feature_names]
+        fnames_source = "input"
+
+    x_name = fnames[int(jx)]
+    y_name = fnames[int(jy)]
+
+    peaks: List[Dict[str, Any]] = []
+    for rank, b in enumerate(top_bins, start=1):
+        x0, x1 = float(b["x_range"][0]), float(b["x_range"][1])
+        y0, y1 = float(b["y_range"][0]), float(b["y_range"][1])
+        x_bin = int(b["x_bin"])
+        y_bin = int(b["y_bin"])
+        peaks.append(
+            {
+                "rank": int(rank),
+                "zone_id": _zone_id(rank=rank, jx=jx, jy=jy, x_bin=x_bin, y_bin=y_bin),
+                "stats": {
+                    "mean_pi": float(b["mean_pi"]),
+                    "count": int(b["count"]),
+                },
+                "bin": {"x": x_bin, "y": y_bin},
+                "ranges": {"x": [x0, x1], "y": [y0, y1]},
+                "center": {"x": 0.5 * (x0 + x1), "y": 0.5 * (y0 + y1)},
+            }
+        )
+
+    obj = {
+        "schema": "pulse_pd/pd_peaks_v0",
+        "dims": {
+            "x": int(jx),
+            "y": int(jy),
+            "x_name": x_name,
+            "y_name": y_name,
+            "feature_names_source": fnames_source,
+        },
+        "params": {
+            "bins": int(bins),
+            "topk": int(topk),
+            "min_count": int(min_count),
+        },
+        "peaks": peaks,
+        "source": "top_pi_bins",
+    }
+
+    out_path = Path(out_dir) / "pd_peaks_v0.json"
+    out_path.write_text(
+        json.dumps(obj, indent=2, sort_keys=True, default=_pd_jsonable),
+        encoding="utf-8",
+    )
     return str(out_path)
 
 
@@ -524,6 +604,18 @@ def main() -> int:
         d=d,
     )
 
+    peaks_path = write_pd_peaks_v0_json(
+        out_dir=str(args.out),
+        top_bins=top_bins,
+        jx=jx,
+        jy=jy,
+        feature_names=feature_names,
+        d=d,
+        bins=args.bins,
+        topk=args.topk,
+        min_count=args.min_count,
+    )
+
     summary = {
         "input": {
             "x_path": os.path.abspath(args.x),
@@ -575,6 +667,7 @@ def main() -> int:
             "summary": os.path.basename(summary_path),
             "pd_run_meta": "pd_run_meta.json",
             "pd_zones": "pd_zones_v0.jsonl",
+            "pd_peaks": "pd_peaks_v0.json",
         },
     }
 
@@ -586,6 +679,7 @@ def main() -> int:
         "pd_summary_json": os.path.basename(summary_path),
         "pd_run_meta_json": "pd_run_meta.json",
         "pd_zones_jsonl": "pd_zones_v0.jsonl",
+        "pd_peaks_json": "pd_peaks_v0.json",
     }
     meta_path = write_pd_run_meta(
         out_dir=str(args.out),
@@ -602,6 +696,7 @@ def main() -> int:
     print(" -", heatmap_path)
     print(" -", summary_path)
     print(" -", zones_path)
+    print(" -", peaks_path)
     print(" -", meta_path)
     if top_bins:
         print("Top PI bin (mean_pi, count, x_range, y_range):")
