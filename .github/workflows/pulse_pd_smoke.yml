@@ -190,6 +190,37 @@ jobs:
           print("Keys:", sorted(keys))
           print("Shape:", X.shape)
           PY
+      - name: Validate Dropzone artifacts (schema)
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          out = Path("pulse_pd/artifacts_ci")
+
+          # pd_run_meta.json
+          meta = json.loads((out / "pd_run_meta.json").read_text(encoding="utf-8"))
+          assert meta.get("schema") == "pulse_pd/pd_run_meta_v0", meta.get("schema")
+          assert meta.get("tool") == "pulse_pd.run_cut_pd", meta.get("tool")
+          for k in ("inputs", "params", "data", "artifacts"):
+            assert k in meta, f"Missing key in pd_run_meta.json: {k}"
+
+          # pd_peaks_v0.json
+          peaks = json.loads((out / "pd_peaks_v0.json").read_text(encoding="utf-8"))
+          assert peaks.get("schema") == "pulse_pd/pd_peaks_v0", peaks.get("schema")
+          assert isinstance(peaks.get("peaks"), list), "peaks must be a list"
+
+          # pd_zones_v0.jsonl (check first few lines)
+          zpath = out / "pd_zones_v0.jsonl"
+          lines = zpath.read_text(encoding="utf-8").splitlines()
+          for line in lines[:3]:
+            z = json.loads(line)
+            assert z.get("schema") == "pulse_pd/pd_zone_v0", z.get("schema")
+            for k in ("zone_id", "dims", "ranges", "stats"):
+              assert k in z, f"Missing '{k}' in zone: {z.keys()}"
+
+          print("OK: Dropzone artifacts parse + schema checks passed")
+          PY
 
       - name: Assert artifacts exist
         shell: bash
