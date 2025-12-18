@@ -8,9 +8,10 @@ Inputs
 
 Outputs (in --out directory)
 ----------------------------
-- pd_scatter.png  (DS vs MI, colored by PI)
-- pi_heatmap.png  (mean PI over 2 selected feature dimensions)
-- pd_summary.json (stats + top PI bins)
+- pd_scatter.png     (DS vs MI, colored by PI)
+- pi_heatmap.png     (mean PI over 2 selected feature dimensions)
+- pd_summary.json    (stats + top PI bins)
+- pd_run_meta.json   (run metadata, schema-stable; inputs/params/artifacts/traceback fields)
 
 Examples
 --------
@@ -34,8 +35,9 @@ from __future__ import annotations
 import argparse
 import json
 import os
-from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Tuple, Union
+import sys
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 
@@ -298,6 +300,103 @@ def top_pi_bins(
     return out
 
 
+def _pd_jsonable(x: Any) -> Any:
+    # convert numpy scalars / Path to json-friendly values
+    if isinstance(x, Path):
+        return str(x)
+    if isinstance(x, np.generic):
+        return x.item()
+    return x
+
+
+def _default_feature_names(d: int) -> List[str]:
+    return [f"x{j}" for j in range(d)]
+
+
+def _traceback_fields_present_npz(x_path: str, n: int) -> Dict[str, bool]:
+    fields = {k: False for k in ("event_id", "run", "lumi", "event", "weight")}
+    if not str(x_path).lower().endswith(".npz"):
+        return fields
+    try:
+        with np.load(x_path, allow_pickle=True) as z:
+            for k in list(fields.keys()):
+                if k not in z:
+                    continue
+                arr = np.asarray(z[k])
+                if arr.ndim == 1 and int(arr.shape[0]) == int(n):
+                    fields[k] = True
+    except Exception:
+        # Never crash the runner because of meta inspection.
+        return fields
+    return fields
+
+
+def write_pd_run_meta(
+    *,
+    out_dir: str,
+    args: argparse.Namespace,
+    X: np.ndarray,
+    feature_names: Optional[List[str]],
+    jx: int,
+    jy: int,
+    artifacts: Dict[str, str],
+) -> str:
+    n, d = X.shape
+
+    if feature_names is None or len(feature_names) != d:
+        fnames = _default_feature_names(d)
+        fnames_source = "generated"
+    else:
+        fnames = [str(v) for v in feature_names]
+        fnames_source = "input"
+
+    tb = _traceback_fields_present_npz(args.x, int(n))
+
+    meta = {
+        "schema": "pulse_pd/pd_run_meta_v0",
+        "tool": "pulse_pd.run_cut_pd",
+        "argv": [str(a) for a in list(sys.argv)],
+        "inputs": {
+            "x": str(args.x),
+            "x_key": getattr(args, "x_key", None),
+            "theta": str(args.theta),
+            "dims_requested": [str(args.dims[0]), str(args.dims[1])],
+            "out": str(args.out),
+        },
+        "resolved": {
+            "dims": {"x": int(jx), "y": int(jy)},
+            "dim_names": {"x": fnames[int(jx)], "y": fnames[int(jy)]},
+        },
+        "params": {
+            "ds_M": int(args.ds_M),
+            "mi_models": int(args.mi_models),
+            "mi_sigma": None if args.mi_sigma is None else float(args.mi_sigma),
+            "gf_method": str(args.gf_method),
+            "gf_K": int(args.gf_K),
+            "gf_delta": float(args.gf_delta),
+            "bins": int(args.bins),
+            "topk": int(args.topk),
+            "min_count": int(args.min_count),
+            "seed": int(args.seed),
+        },
+        "data": {
+            "n": int(n),
+            "d": int(d),
+            "feature_names": fnames,
+            "feature_names_source": fnames_source,
+        },
+        "traceback_fields_present": tb,
+        "artifacts": dict(artifacts),
+    }
+
+    out_path = Path(out_dir) / "pd_run_meta.json"
+    out_path.write_text(
+        json.dumps(meta, indent=2, sort_keys=True, default=_pd_jsonable),
+        encoding="utf-8",
+    )
+    return str(out_path)
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--x", required=True, help="Path to X (.npz/.npy/.csv)")
@@ -412,15 +511,33 @@ def main() -> int:
             "pd_scatter": os.path.basename(scatter_path),
             "pi_heatmap": os.path.basename(heatmap_path),
             "summary": os.path.basename(summary_path),
+            "pd_run_meta": "pd_run_meta.json",
         },
     }
 
     save_json(summary_path, summary)
 
+    artifacts_meta = {
+        "pd_scatter_png": os.path.basename(scatter_path),
+        "pi_heatmap_png": os.path.basename(heatmap_path),
+        "pd_summary_json": os.path.basename(summary_path),
+        "pd_run_meta_json": "pd_run_meta.json",
+    }
+    meta_path = write_pd_run_meta(
+        out_dir=str(args.out),
+        args=args,
+        X=X,
+        feature_names=feature_names,
+        jx=jx,
+        jy=jy,
+        artifacts=artifacts_meta,
+    )
+
     print("PULSE–PD run complete. Artifacts written to:", os.path.abspath(args.out))
     print(" -", scatter_path)
     print(" -", heatmap_path)
     print(" -", summary_path)
+    print(" -", meta_path)
     if top_bins:
         print("Top PI bin (mean_pi, count, x_range, y_range):")
         b0 = top_bins[0]
