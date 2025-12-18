@@ -12,6 +12,7 @@ Outputs (in --out directory)
 - pi_heatmap.png     (mean PI over 2 selected feature dimensions)
 - pd_summary.json    (stats + top PI bins)
 - pd_run_meta.json   (run metadata, schema-stable; inputs/params/artifacts/traceback fields)
+- pd_zones_v0.jsonl  (Dropzone v0 zones derived from top PI bins; one JSON object per line)
 
 Examples
 --------
@@ -397,6 +398,58 @@ def write_pd_run_meta(
     return str(out_path)
 
 
+def write_pd_zones_v0_jsonl(
+    *,
+    out_dir: str,
+    top_bins: List[Dict[str, Any]],
+    jx: int,
+    jy: int,
+    feature_names: Optional[List[str]],
+    d: int,
+) -> str:
+    """
+    Export Dropzone-ready PD zones as JSONL.
+    One JSON object per line (schema-stable, sort_keys=True).
+    """
+    if feature_names is None or len(feature_names) != d:
+        fnames = _default_feature_names(d)
+    else:
+        fnames = [str(v) for v in feature_names]
+
+    x_name = fnames[int(jx)]
+    y_name = fnames[int(jy)]
+
+    out_path = Path(out_dir) / "pd_zones_v0.jsonl"
+    with out_path.open("w", encoding="utf-8") as f:
+        for rank, b in enumerate(top_bins, start=1):
+            zone = {
+                "schema": "pulse_pd/pd_zone_v0",
+                "rank": int(rank),
+                "zone_id": (
+                    f"zone_{rank:02d}_x{int(jx)}_y{int(jy)}_"
+                    f"bin{int(b['x_bin'])}_{int(b['y_bin'])}"
+                ),
+                "dims": {
+                    "x": int(jx),
+                    "y": int(jy),
+                    "x_name": x_name,
+                    "y_name": y_name,
+                },
+                "ranges": {
+                    "x": [float(b["x_range"][0]), float(b["x_range"][1])],
+                    "y": [float(b["y_range"][0]), float(b["y_range"][1])],
+                },
+                "stats": {
+                    "mean_pi": float(b["mean_pi"]),
+                    "count": int(b["count"]),
+                },
+                "source": "top_pi_bins",
+            }
+            f.write(json.dumps(zone, sort_keys=True) + "\n")
+
+    return str(out_path)
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--x", required=True, help="Path to X (.npz/.npy/.csv)")
@@ -462,6 +515,15 @@ def main() -> int:
         H_mean, H_cnt, xedges, yedges, topk=args.topk, min_count=args.min_count
     )
 
+    zones_path = write_pd_zones_v0_jsonl(
+        out_dir=str(args.out),
+        top_bins=top_bins,
+        jx=jx,
+        jy=jy,
+        feature_names=feature_names,
+        d=d,
+    )
+
     summary = {
         "input": {
             "x_path": os.path.abspath(args.x),
@@ -512,6 +574,7 @@ def main() -> int:
             "pi_heatmap": os.path.basename(heatmap_path),
             "summary": os.path.basename(summary_path),
             "pd_run_meta": "pd_run_meta.json",
+            "pd_zones": "pd_zones_v0.jsonl",
         },
     }
 
@@ -522,6 +585,7 @@ def main() -> int:
         "pi_heatmap_png": os.path.basename(heatmap_path),
         "pd_summary_json": os.path.basename(summary_path),
         "pd_run_meta_json": "pd_run_meta.json",
+        "pd_zones_jsonl": "pd_zones_v0.jsonl",
     }
     meta_path = write_pd_run_meta(
         out_dir=str(args.out),
@@ -537,6 +601,7 @@ def main() -> int:
     print(" -", scatter_path)
     print(" -", heatmap_path)
     print(" -", summary_path)
+    print(" -", zones_path)
     print(" -", meta_path)
     if top_bins:
         print("Top PI bin (mean_pi, count, x_range, y_range):")
