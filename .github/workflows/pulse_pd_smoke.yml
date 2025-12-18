@@ -199,6 +199,12 @@ jobs:
           test -f pulse_pd/artifacts_ci/top_pi_events.csv
           test -f pulse_pd/artifacts_ci/pd_scatter.png
           test -f pulse_pd/artifacts_ci/pi_heatmap.png
+
+          # Dropzone v0 artifacts (regression guard)
+          test -f pulse_pd/artifacts_ci/pd_run_meta.json
+          test -f pulse_pd/artifacts_ci/pd_zones_v0.jsonl
+          test -f pulse_pd/artifacts_ci/pd_peaks_v0.json
+
           echo "OK: PULSE-PD toy smoke artifacts present."
 
       - name: Upload artifacts (debug)
