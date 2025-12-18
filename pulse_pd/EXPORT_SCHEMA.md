@@ -68,3 +68,60 @@ np.savez(
   event=event,
   weight=weight,   # optional
 )
+
+```
+
+---
+
+## PD run artifacts (v0)
+
+When running `python -m pulse_pd.run_cut_pd --out <dir>`, the runner writes a minimal, audit-friendly artifact set.
+
+### `pd_run_meta.json` (run metadata)
+
+A schema-stable run record intended for audit and downstream tooling.
+
+- `schema`: `"pulse_pd/pd_run_meta_v0"`
+- `tool`: `"pulse_pd.run_cut_pd"`
+- `argv`: list of CLI arguments (for reproducibility)
+- `inputs`: `{ x, x_key, theta, dims_requested, out }`
+- `resolved`: `{ dims: {x,y}, dim_names: {x,y} }`
+- `params`: runner parameters (ds/mi/gf + heatmap + seed)
+- `data`: `{ n, d, feature_names, feature_names_source }`
+- `traceback_fields_present`: `{ event_id, run, lumi, event, weight }` (best-effort for NPZ)
+- `artifacts`: filenames emitted into the output directory
+
+Notes:
+- This file is intentionally deterministic (sorted keys; no timestamps) to avoid noisy diffs.
+
+### `pd_zones_v0.jsonl` (zones)
+
+One JSON object per line; each line describes a “zone” derived from `top_pi_bins`.
+
+Per-line object keys:
+- `schema`: `"pulse_pd/pd_zone_v0"`
+- `rank`: integer rank (1..K)
+- `zone_id`: stable id string
+- `dims`: `{ x, y, x_name, y_name }`
+- `ranges`: `{ x: [min,max], y: [min,max] }`
+- `stats`: `{ mean_pi, count }`
+- `source`: `"top_pi_bins"`
+
+### `pd_peaks_v0.json` (peaks summary)
+
+A compact summary object derived from `top_pi_bins`, suitable for “Dropzone v0” consumers.
+
+Top-level keys:
+- `schema`: `"pulse_pd/pd_peaks_v0"`
+- `dims`: `{ x, y, x_name, y_name, feature_names_source }`
+- `params`: `{ bins, topk, min_count }`
+- `peaks`: list of peak objects
+- `source`: `"top_pi_bins"`
+
+Each peak object:
+- `rank`
+- `zone_id`
+- `stats`: `{ mean_pi, count }`
+- `bin`: `{ x, y }`
+- `ranges`: `{ x: [min,max], y: [min,max] }`
+- `center`: `{ x, y }`
