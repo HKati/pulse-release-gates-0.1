@@ -127,34 +127,29 @@ def _locate_input(path_or_dir: str, candidates: List[str]) -> str:
 
 def _locate_optional(path_or_dir: str, candidates: List[str]) -> Optional[str]:
     """
-    Optional artefact resolution.
+    Optional overlay locator.
 
-    - If user passed a DIR: search inside it (relative candidates).
-    - If user passed a FILE (e.g. status_run_002.json): search:
-        1) alongside the file's directory,
-        2) the parent directory (handles .../artifacts/status.json cases),
-        3) current working directory (repo root in common usage).
+    If input is a dir: search inside it.
+    If input is a file (status path): search next to the file, then walk up a few parents,
+    then fall back to CWD (repo root in common usage).
     """
-    if os.path.isfile(path_or_dir):
-        file_dir = os.path.dirname(os.path.abspath(path_or_dir))
-        parent_dir = os.path.dirname(file_dir)
-        search_roots = [file_dir, parent_dir, os.getcwd()]
-
-        seen: set[str] = set()
-        for root in search_roots:
-            root_abs = os.path.abspath(root)
-            if root_abs in seen:
-                continue
-            seen.add(root_abs)
-            found = _find_first_existing(root_abs, candidates)
-            if found:
-                return found
-        return None
-
     if os.path.isdir(path_or_dir):
         return _find_first_existing(path_or_dir, candidates)
 
+    if os.path.isfile(path_or_dir):
+        base = os.path.dirname(os.path.abspath(path_or_dir))
+        for _ in range(6):
+            found = _find_first_existing(base, candidates)
+            if found:
+                return found
+            parent = os.path.dirname(base)
+            if parent == base:
+                break
+            base = parent
+        return _find_first_existing(os.getcwd(), candidates)
+
     return None
+
 
 
 def _pick(d: Dict[str, Any], keys: List[str]) -> Optional[Any]:
@@ -211,8 +206,8 @@ def _normalize_gate_value(v: Any) -> Tuple[Optional[bool], Optional[float], Opti
             return True, float(v), None
         return None, float(v), None
 
-    if isinstance(v, dict):
-        # common shape: {"group":"safety","status":"PASS"} or {"status":"FAIL"}
+        if isinstance(v, dict):
+        # common shape: {"group":"...","status":"PASS|FAIL"}
         pass_bool: Optional[bool] = None
 
         st = v.get("status")
@@ -223,7 +218,6 @@ def _normalize_gate_value(v: Any) -> Tuple[Optional[bool], Optional[float], Opti
             elif s in ("FAIL", "BLOCK", "BLOCKED", "DENY", "DENIED", "FALSE"):
                 pass_bool = False
 
-        # fallback: explicit boolean flags if present
         if pass_bool is None:
             p = v.get("pass")
             if p is None:
@@ -235,7 +229,6 @@ def _normalize_gate_value(v: Any) -> Tuple[Optional[bool], Optional[float], Opti
         notes = v.get("reason") or v.get("note") or v.get("notes")
         return pass_bool, num, notes if isinstance(notes, str) else None
 
-    return None, _safe_float(v), None
 
 
 def _dict_top_level_diff(a: Any, b: Any) -> Dict[str, Any]:
