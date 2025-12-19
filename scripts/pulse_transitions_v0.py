@@ -12,7 +12,7 @@ Inputs:
   --b PATH   Run B directory OR a direct status.json path
   --out DIR  Output directory
 
-Optional overlays (if present in the run dirs, or discoverable from file inputs):
+Optional overlays (if present in the run dirs or near status file paths):
   - g_field_v0.json         (the "Grail" surface / G-field)
   - paradox_field_v0.json   (paradox field / paradox diagram surface)
 
@@ -127,31 +127,32 @@ def _locate_input(path_or_dir: str, candidates: List[str]) -> str:
 
 def _locate_optional(path_or_dir: str, candidates: List[str]) -> Optional[str]:
     """
-    Best-effort overlay locator.
+    Optional artefact resolution.
 
-    - If user passed a directory: search inside it.
-    - If user passed a status file path: search in the file's directory,
-      then walk up a few parents (useful for docs/examples/...),
-      and finally fall back to current working directory.
+    - If user passed a DIR: search inside it (relative candidates).
+    - If user passed a FILE (e.g. status_run_002.json): search:
+        1) alongside the file's directory,
+        2) the parent directory (handles .../artifacts/status.json cases),
+        3) current working directory (repo root in common usage).
     """
-    if os.path.isdir(path_or_dir):
-        return _find_first_existing(path_or_dir, candidates)
-
     if os.path.isfile(path_or_dir):
-        base = os.path.dirname(os.path.abspath(path_or_dir))
+        file_dir = os.path.dirname(os.path.abspath(path_or_dir))
+        parent_dir = os.path.dirname(file_dir)
+        search_roots = [file_dir, parent_dir, os.getcwd()]
 
-        # Walk up deterministically (small bound).
-        for _ in range(6):
-            found = _find_first_existing(base, candidates)
+        seen: set[str] = set()
+        for root in search_roots:
+            root_abs = os.path.abspath(root)
+            if root_abs in seen:
+                continue
+            seen.add(root_abs)
+            found = _find_first_existing(root_abs, candidates)
             if found:
                 return found
-            parent = os.path.dirname(base)
-            if parent == base:
-                break
-            base = parent
+        return None
 
-        # Final fallback: repo/workdir root (best-effort)
-        return _find_first_existing(os.getcwd(), candidates)
+    if os.path.isdir(path_or_dir):
+        return _find_first_existing(path_or_dir, candidates)
 
     return None
 
@@ -197,8 +198,7 @@ def _normalize_gate_value(v: Any) -> Tuple[Optional[bool], Optional[float], Opti
     Returns: (pass_bool, numeric_value, notes)
     Supports:
       - bool gates
-      - dict gates with status PASS/FAIL (common in this repo)
-      - dict gates with pass/ok/value/reason
+      - dict gates with status/pass/ok/value/reason
       - numeric 0/1 as pass if unambiguous
     """
     if isinstance(v, bool):
@@ -241,7 +241,7 @@ def _normalize_gate_value(v: Any) -> Tuple[Optional[bool], Optional[float], Opti
 def _dict_top_level_diff(a: Any, b: Any) -> Dict[str, Any]:
     """
     Generic diff for overlay JSON objects (best-effort).
-    Only top-level keys + value-hash changes.
+    We avoid deep diffs: only top-level keys + value-hash changes.
     """
     if not isinstance(a, dict) or not isinstance(b, dict):
         return {
@@ -260,7 +260,10 @@ def _dict_top_level_diff(a: Any, b: Any) -> Dict[str, Any]:
         return hashlib.sha1(raw.encode("utf-8")).hexdigest()[:12]
 
     common = sorted(keys_a & keys_b)
-    changed = [k for k in common if vh(a[k]) != vh(b[k])]
+    changed = []
+    for k in common:
+        if vh(a[k]) != vh(b[k]):
+            changed.append(k)
 
     return {
         "added_keys": added,
@@ -374,8 +377,10 @@ def main() -> None:
         group_a = va.get("group") if isinstance(va, dict) else ""
         group_b = vb.get("group") if isinstance(vb, dict) else ""
 
-        status_a = va.get("status") if isinstance(va, dict) else ("PASS" if pa is True else "FAIL" if pa is False else "")
-        status_b = vb.get("status") if isinstance(vb, dict) else ("PASS" if pb is True else "FAIL" if pb is False else "")
+        st_a = va.get("status") if isinstance(va, dict) else None
+        st_b = vb.get("status") if isinstance(vb, dict) else None
+        status_a = st_a if isinstance(st_a, str) else ("PASS" if pa is True else "FAIL" if pa is False else "")
+        status_b = st_b if isinstance(st_b, str) else ("PASS" if pb is True else "FAIL" if pb is False else "")
 
         changed = 0
         if pa is not None and pb is not None and pa != pb:
@@ -409,20 +414,11 @@ def main() -> None:
     _write_csv(
         gate_csv,
         cols=[
-            "gate_id",
-            "group",
-            "status_a",
-            "status_b",
-            "pass_a",
-            "pass_b",
-            "flip",
-            "value_a",
-            "value_b",
-            "threshold",
-            "notes_a",
-            "notes_b",
-            "present_a",
-            "present_b",
+            "gate_id", "group", "status_a", "status_b",
+            "pass_a", "pass_b", "flip",
+            "value_a", "value_b", "threshold",
+            "notes_a", "notes_b",
+            "present_a", "present_b",
         ],
         rows=gate_rows,
     )
