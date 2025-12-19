@@ -127,13 +127,33 @@ def _locate_input(path_or_dir: str, candidates: List[str]) -> str:
 
 def _locate_optional(path_or_dir: str, candidates: List[str]) -> Optional[str]:
     """
-    Optional overlays are only searched if user provided a directory.
+    Best-effort overlay locator.
+
+    - If user passed a directory: search inside it.
+    - If user passed a status file path: search in the file's directory and walk
+      up a few parents (useful for docs/examples/... where overlays may live at repo root).
     """
-    if os.path.isfile(path_or_dir):
-        return None
     if os.path.isdir(path_or_dir):
         return _find_first_existing(path_or_dir, candidates)
+
+    if os.path.isfile(path_or_dir):
+        base = os.path.dirname(os.path.abspath(path_or_dir))
+
+        # Walk up deterministically; stops at filesystem root.
+        # (Keep small to avoid surprising cross-repo picks.)
+        for _ in range(6):
+            found = _find_first_existing(base, candidates)
+            if found:
+                return found
+            parent = os.path.dirname(base)
+            if parent == base:
+                break
+            base = parent
+
+        return None
+
     return None
+
 
 
 def _pick(d: Dict[str, Any], keys: List[str]) -> Optional[Any]:
