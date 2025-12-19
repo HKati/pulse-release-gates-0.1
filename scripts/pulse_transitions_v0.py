@@ -199,15 +199,29 @@ def _normalize_gate_value(v: Any) -> Tuple[Optional[bool], Optional[float], Opti
         return None, float(v), None
 
     if isinstance(v, dict):
+    # common shape: {"group":"safety","status":"PASS"} or {"status":"FAIL"}
+    pass_bool = None
+
+    st = v.get("status")
+    if isinstance(st, str):
+        s = st.strip().upper()
+        if s in ("PASS", "OK", "ALLOW", "ALLOWED", "TRUE"):
+            pass_bool = True
+        elif s in ("FAIL", "BLOCK", "BLOCKED", "DENY", "DENIED", "FALSE"):
+            pass_bool = False
+
+    # fallback: explicit boolean flags if present
+    if pass_bool is None:
         p = v.get("pass")
         if p is None:
             p = v.get("ok")
-        pass_bool = bool(p) if isinstance(p, bool) else None
-        num = _safe_float(v.get("value"))
-        notes = v.get("reason") or v.get("note") or v.get("notes")
-        return pass_bool, num, notes if isinstance(notes, str) else None
+        if isinstance(p, bool):
+            pass_bool = p
 
-    return None, _safe_float(v), None
+    num = _safe_float(v.get("value"))
+    notes = v.get("reason") or v.get("note") or v.get("notes")
+    return pass_bool, num, notes if isinstance(notes, str) else None
+
 
 
 def _dict_top_level_diff(a: Any, b: Any) -> Dict[str, Any]:
@@ -378,13 +392,13 @@ def main() -> None:
     _write_csv(
         gate_csv,
         cols=[
-            "gate_id", "pass_a", "pass_b", "flip",
-            "value_a", "value_b", "threshold",
-            "notes_a", "notes_b",
-            "present_a", "present_b",
-        ],
-        rows=gate_rows,
-    )
+    "gate_id", "group", "status_a", "status_b",
+    "pass_a", "pass_b", "flip",
+    "value_a", "value_b", "threshold",
+    "notes_a", "notes_b",
+    "present_a", "present_b",
+]
+
 
     # Metric drift rows (numeric + also record non-numeric changes in JSON summary)
     all_metric_keys = sorted(set(metrics_a.keys()) | set(metrics_b.keys()))
