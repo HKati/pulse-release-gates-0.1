@@ -81,12 +81,6 @@ def _sha1_file(path: str) -> str:
     return h.hexdigest()
 
 
-def _is_number(x: Any) -> bool:
-    if isinstance(x, bool):
-        return False
-    return isinstance(x, (int, float)) and not (isinstance(x, float) and (math.isnan(x) or math.isinf(x)))
-
-
 def _safe_float(x: Any) -> Optional[float]:
     try:
         if x is None:
@@ -132,8 +126,10 @@ def _locate_input(path_or_dir: str, candidates: List[str]) -> str:
 
 
 def _locate_optional(path_or_dir: str, candidates: List[str]) -> Optional[str]:
+    """
+    Optional overlays are only searched if user provided a directory.
+    """
     if os.path.isfile(path_or_dir):
-        # if user passed a file directly, we do not try to infer overlays from it
         return None
     if os.path.isdir(path_or_dir):
         return _find_first_existing(path_or_dir, candidates)
@@ -160,8 +156,7 @@ def _extract_run_meta(status: Dict[str, Any]) -> Dict[str, Any]:
     """
     Best-effort. We keep this permissive because the repo evolves.
     """
-    meta = {}
-    # common places
+    meta: Dict[str, Any] = {}
     top_meta = status.get("meta") if isinstance(status.get("meta"), dict) else {}
     run = status.get("run") if isinstance(status.get("run"), dict) else {}
     model = status.get("model") if isinstance(status.get("model"), dict) else {}
@@ -174,17 +169,20 @@ def _extract_run_meta(status: Dict[str, Any]) -> Dict[str, Any]:
     meta["model_id"] = _pick(model, ["id", "model_id", "name"]) or status.get("model_id")
     meta["image"] = _pick(model, ["image", "container_image"]) or status.get("image")
 
-    # Strip Nones for cleanliness
     return {k: v for k, v in meta.items() if v is not None}
 
 
 def _normalize_gate_value(v: Any) -> Tuple[Optional[bool], Optional[float], Optional[str]]:
     """
     Returns: (pass_bool, numeric_value, notes)
+
     Supports:
       - bool gates
-      - dict gates with pass/ok/value/threshold/reason
-      - numeric 0/1 as pass if unambiguous
+      - numeric 0/1 gates (strict)
+      - dict gates, including:
+          * {"group":"...", "status":"PASS|FAIL"}
+          * {"pass": true/false} or {"ok": true/false}
+          * {"value": <number>, "reason": "..."}
     """
     if isinstance(v, bool):
         return v, None, None
@@ -199,10 +197,25 @@ def _normalize_gate_value(v: Any) -> Tuple[Optional[bool], Optional[float], Opti
         return None, float(v), None
 
     if isinstance(v, dict):
-        p = v.get("pass")
-        if p is None:
-            p = v.get("ok")
-        pass_bool = bool(p) if isinstance(p, bool) else None
+        # common shape: {"group":"safety","status":"PASS"} or {"status":"FAIL"}
+        pass_bool: Optional[bool] = None
+
+        st = v.get("status")
+        if isinstance(st, str):
+            s = st.strip().upper()
+            if s in ("PASS", "OK", "ALLOW", "ALLOWED", "TRUE"):
+                pass_bool = True
+            elif s in ("FAIL", "BLOCK", "BLOCKED", "DENY", "DENIED", "FALSE"):
+                pass_bool = False
+
+        # fallback: explicit boolean flags if present
+        if pass_bool is None:
+            p = v.get("pass")
+            if p is None:
+                p = v.get("ok")
+            if isinstance(p, bool):
+                pass_bool = p
+
         num = _safe_float(v.get("value"))
         notes = v.get("reason") or v.get("note") or v.get("notes")
         return pass_bool, num, notes if isinstance(notes, str) else None
@@ -227,16 +240,12 @@ def _dict_top_level_diff(a: Any, b: Any) -> Dict[str, Any]:
     added = sorted(keys_b - keys_a)
     removed = sorted(keys_a - keys_b)
 
-    # detect changed keys by hashing JSON-serialized value
     def vh(x: Any) -> str:
         raw = json.dumps(x, sort_keys=True, default=str, separators=(",", ":"))
         return hashlib.sha1(raw.encode("utf-8")).hexdigest()[:12]
 
     common = sorted(keys_a & keys_b)
-    changed = []
-    for k in common:
-        if vh(a[k]) != vh(b[k]):
-            changed.append(k)
+    changed = [k for k in common if vh(a[k]) != vh(b[k])]
 
     return {
         "added_keys": added,
@@ -256,7 +265,6 @@ def _paradox_summary(obj: Any) -> Dict[str, Any]:
     if not isinstance(obj, dict):
         return {"note": "non-dict paradox overlay"}
 
-    # common-ish possibilities
     candidates = None
     for k in ["paradox_candidates", "candidates", "disagreements", "paradox", "items"]:
         if isinstance(obj.get(k), list):
@@ -266,8 +274,7 @@ def _paradox_summary(obj: Any) -> Dict[str, Any]:
     if candidates is None:
         return {"note": "no obvious candidates list", "top_level_keys": sorted(obj.keys())}
 
-    # try to derive stable identifiers (gate_id / id)
-    ids = []
+    ids: List[str] = []
     for it in candidates:
         if isinstance(it, dict):
             gid = it.get("gate_id") or it.get("id") or it.get("gate")
@@ -297,8 +304,11 @@ def main() -> None:
     ap.add_argument("--b", required=True, help="Run B dir or status.json path")
     ap.add_argument("--out", required=True, help="Output dir for transitions artefacts")
     ap.add_argument("--top-metrics", type=int, default=30, help="Top N numeric metric deltas to report in JSON summary")
-    ap.add_argument("--fail-on-gate-changes", action="store_true",
-                    help="Exit !=0 if any gate PASS/FAIL flips between A and B (workshop guard).")
+    ap.add_argument(
+        "--fail-on-gate-changes",
+        action="store_true",
+        help="Exit !=0 if any gate PASS/FAIL flips between A and B (workshop guard).",
+    )
     args = ap.parse_args()
 
     out_dir = args.out
@@ -341,14 +351,30 @@ def main() -> None:
 
     # Gate drift rows
     all_gate_ids = sorted(set(gates_a.keys()) | set(gates_b.keys()))
-    gate_rows = []
+    gate_rows: List[Dict[str, Any]] = []
     flips = 0
+
     for gid in all_gate_ids:
         va = gates_a.get(gid)
         vb = gates_b.get(gid)
 
         pa, numa, na = _normalize_gate_value(va)
         pb, numb, nb = _normalize_gate_value(vb)
+
+        group_a = va.get("group") if isinstance(va, dict) else ""
+        group_b = vb.get("group") if isinstance(vb, dict) else ""
+        group = group_b or group_a or ""
+
+        status_a_str = va.get("status") if isinstance(va, dict) else ""
+        status_b_str = vb.get("status") if isinstance(vb, dict) else ""
+        if not status_a_str and pa is True:
+            status_a_str = "PASS"
+        elif not status_a_str and pa is False:
+            status_a_str = "FAIL"
+        if not status_b_str and pb is True:
+            status_b_str = "PASS"
+        elif not status_b_str and pb is False:
+            status_b_str = "FAIL"
 
         changed = 0
         if pa is not None and pb is not None and pa != pb:
@@ -360,37 +386,52 @@ def main() -> None:
         th_b = thresholds_b.get(gid)
         th = th_b if th_b is not None else th_a
 
-        gate_rows.append({
-            "gate_id": gid,
-            "pass_a": pa if pa is not None else "",
-            "pass_b": pb if pb is not None else "",
-            "flip": changed,
-            "value_a": numa if numa is not None else "",
-            "value_b": numb if numb is not None else "",
-            "threshold": th if th is not None else "",
-            "notes_a": na if na else "",
-            "notes_b": nb if nb else "",
-            "present_a": 1 if gid in gates_a else 0,
-            "present_b": 1 if gid in gates_b else 0,
-        })
+        gate_rows.append(
+            {
+                "gate_id": gid,
+                "group": group,
+                "status_a": status_a_str or "",
+                "status_b": status_b_str or "",
+                "pass_a": pa if pa is not None else "",
+                "pass_b": pb if pb is not None else "",
+                "flip": changed,
+                "value_a": numa if numa is not None else "",
+                "value_b": numb if numb is not None else "",
+                "threshold": th if th is not None else "",
+                "notes_a": na if na else "",
+                "notes_b": nb if nb else "",
+                "present_a": 1 if gid in gates_a else 0,
+                "present_b": 1 if gid in gates_b else 0,
+            }
+        )
 
     gate_csv = os.path.join(out_dir, "pulse_gate_drift_v0.csv")
     _write_csv(
         gate_csv,
         cols=[
-            "gate_id", "pass_a", "pass_b", "flip",
-            "value_a", "value_b", "threshold",
-            "notes_a", "notes_b",
-            "present_a", "present_b",
+            "gate_id",
+            "group",
+            "status_a",
+            "status_b",
+            "pass_a",
+            "pass_b",
+            "flip",
+            "value_a",
+            "value_b",
+            "threshold",
+            "notes_a",
+            "notes_b",
+            "present_a",
+            "present_b",
         ],
         rows=gate_rows,
     )
 
     # Metric drift rows (numeric + also record non-numeric changes in JSON summary)
     all_metric_keys = sorted(set(metrics_a.keys()) | set(metrics_b.keys()))
-    metric_rows = []
+    metric_rows: List[Dict[str, Any]] = []
     numeric_deltas: List[Tuple[str, float, float, float]] = []
-    changed_non_numeric = []
+    changed_non_numeric: List[str] = []
 
     for k in all_metric_keys:
         a_val = metrics_a.get(k, None)
@@ -402,27 +443,30 @@ def main() -> None:
         if a_num is not None and b_num is not None:
             delta = b_num - a_num
             rel = delta / abs(a_num) if a_num != 0 else ""
-            metric_rows.append({
-                "metric": k,
-                "a": a_num,
-                "b": b_num,
-                "delta": delta,
-                "rel_delta": rel,
-                "present_a": 1 if k in metrics_a else 0,
-                "present_b": 1 if k in metrics_b else 0,
-            })
+            metric_rows.append(
+                {
+                    "metric": k,
+                    "a": a_num,
+                    "b": b_num,
+                    "delta": delta,
+                    "rel_delta": rel,
+                    "present_a": 1 if k in metrics_a else 0,
+                    "present_b": 1 if k in metrics_b else 0,
+                }
+            )
             numeric_deltas.append((k, a_num, b_num, delta))
         else:
-            # keep a thin record in CSV too (as strings)
-            metric_rows.append({
-                "metric": k,
-                "a": "" if a_val is None else str(a_val),
-                "b": "" if b_val is None else str(b_val),
-                "delta": "",
-                "rel_delta": "",
-                "present_a": 1 if k in metrics_a else 0,
-                "present_b": 1 if k in metrics_b else 0,
-            })
+            metric_rows.append(
+                {
+                    "metric": k,
+                    "a": "" if a_val is None else str(a_val),
+                    "b": "" if b_val is None else str(b_val),
+                    "delta": "",
+                    "rel_delta": "",
+                    "present_a": 1 if k in metrics_a else 0,
+                    "present_b": 1 if k in metrics_b else 0,
+                }
+            )
             if a_val != b_val:
                 changed_non_numeric.append(k)
 
@@ -448,7 +492,6 @@ def main() -> None:
 
     overlay_out: Dict[str, Any] = {}
 
-    # G-field overlay diff
     if g_a_path or g_b_path:
         g_obj_a = _read_json(g_a_path) if g_a_path else None
         g_obj_b = _read_json(g_b_path) if g_b_path else None
@@ -459,10 +502,11 @@ def main() -> None:
             "path_b": g_b_path or "",
             "sha1_a": _sha1_file(g_a_path) if g_a_path else "",
             "sha1_b": _sha1_file(g_b_path) if g_b_path else "",
-            "top_level_diff": _dict_top_level_diff(g_obj_a, g_obj_b) if (g_obj_a is not None and g_obj_b is not None) else {},
+            "top_level_diff": _dict_top_level_diff(g_obj_a, g_obj_b)
+            if (g_obj_a is not None and g_obj_b is not None)
+            else {},
         }
 
-    # Paradox field overlay diff
     if p_a_path or p_b_path:
         p_obj_a = _read_json(p_a_path) if p_a_path else None
         p_obj_b = _read_json(p_b_path) if p_b_path else None
@@ -473,7 +517,9 @@ def main() -> None:
             "path_b": p_b_path or "",
             "sha1_a": _sha1_file(p_a_path) if p_a_path else "",
             "sha1_b": _sha1_file(p_b_path) if p_b_path else "",
-            "top_level_diff": _dict_top_level_diff(p_obj_a, p_obj_b) if (p_obj_a is not None and p_obj_b is not None) else {},
+            "top_level_diff": _dict_top_level_diff(p_obj_a, p_obj_b)
+            if (p_obj_a is not None and p_obj_b is not None)
+            else {},
             "summary_a": _paradox_summary(p_obj_a) if p_obj_a is not None else {"note": "missing"},
             "summary_b": _paradox_summary(p_obj_b) if p_obj_b is not None else {"note": "missing"},
         }
@@ -482,7 +528,6 @@ def main() -> None:
     with open(overlay_json, "w", encoding="utf-8") as f:
         json.dump(overlay_out, f, indent=2, ensure_ascii=False, sort_keys=True)
 
-    # Master summary JSON
     summary = {
         "tool": "scripts/pulse_transitions_v0.py",
         "version": "v0",
