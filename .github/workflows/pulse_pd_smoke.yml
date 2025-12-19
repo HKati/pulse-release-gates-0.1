@@ -56,6 +56,9 @@ jobs:
       - name: Run cut-based PD (writes artifacts)
         run: |
           python -m pulse_pd.run_cut_pd --x pulse_pd/examples/X_toy_ci.npz --theta pulse_pd/examples/theta_cuts_example.json --dims 0 1 --out pulse_pd/artifacts_ci
+      - name: Export zone events (CSV)
+        run: |
+          python -m pulse_pd.export_zone_events --x pulse_pd/examples/X_toy_ci.npz --theta pulse_pd/examples/theta_cuts_example.json --zones pulse_pd/artifacts_ci/pd_zones_v0.jsonl --out pulse_pd/artifacts_ci/pd_zone_events_v0.csv --topn-per-zone 5 --sort-by pi_norm --ds-M 12 --mi-models 5 --gf-K 4 --seed 0
 
       - name: Export top PI events (CSV)
         run: |
@@ -235,6 +238,7 @@ jobs:
           test -f pulse_pd/artifacts_ci/pd_run_meta.json
           test -f pulse_pd/artifacts_ci/pd_zones_v0.jsonl
           test -f pulse_pd/artifacts_ci/pd_peaks_v0.json
+          test -f pulse_pd/artifacts_ci/pd_zone_events_v0.csv
 
           echo "OK: PULSE-PD toy smoke artifacts present."
 
