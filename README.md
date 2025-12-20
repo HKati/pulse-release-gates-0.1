@@ -472,6 +472,24 @@ Paradox Diagram for decision-field analysis around selection cuts/Î¸ (DS/MI/GF â
   
 ---
 
+## Paradox field v0 (experimental, evidence-first)
+
+This repo includes a minimal paradox layer artefact (`paradox_field_v0.json`) to summarize
+run-to-run drift as **atoms** and **tension edges** (co-occurrence only, no causality).
+
+- Generate atoms from a transitions drift directory:
+  `python scripts/paradox_field_adapter_v0.py --transitions-dir tests/fixtures/transitions_gate_metric_tension_v0 --out out/paradox_field_v0.json`
+
+- Fail-closed contract check (required fields, ordering, link integrity):
+  `python scripts/check_paradox_field_v0_contract.py --in out/paradox_field_v0.json`
+
+- Export evidence-first edges (JSONL):
+  `python scripts/export_paradox_edges_v0.py --in out/paradox_field_v0.json --out out/paradox_edges_v0.jsonl`
+
+Edges are proven co-occurrences derived from atoms; they do not introduce new truth or causality.
+
+---
+
 ### Optional config (per gate)
 ```yaml
 gates:
