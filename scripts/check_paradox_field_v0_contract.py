@@ -1,60 +1,166 @@
 #!/usr/bin/env python3
+# scripts/check_paradox_field_v0_contract.py
+
 from __future__ import annotations
 
 import argparse
 import json
-import os
-import subprocess
 import sys
+from typing import Any, Dict, List, Tuple
 
 
-def main() -> None:
-    ap = argparse.ArgumentParser(description="Fail-closed contract check for paradox_field_v0.json")
-    ap.add_argument("--transitions-dir", required=True, help="Directory containing pulse_*_drift_v0 outputs")
-    ap.add_argument("--out", required=True, help="Output paradox_field_v0.json path")
+SEVERITY_ORDER = {"crit": 0, "warn": 1, "info": 2}
+ALLOWED_SEVERITIES = set(SEVERITY_ORDER.keys())
+
+
+def die(msg: str, code: int = 2) -> None:
+    raise SystemExit(f"[contract] {msg}")
+
+
+def as_dict(x: Any, path: str) -> Dict[str, Any]:
+    if not isinstance(x, dict):
+        die(f"{path} must be an object/dict")
+    return x
+
+
+def as_list(x: Any, path: str) -> List[Any]:
+    if not isinstance(x, list):
+        die(f"{path} must be an array/list")
+    return x
+
+
+def req_str(d: Dict[str, Any], key: str, path: str) -> str:
+    v = d.get(key)
+    if not isinstance(v, str) or not v.strip():
+        die(f"{path}.{key} must be a non-empty string")
+    return v
+
+
+def req_dict(d: Dict[str, Any], key: str, path: str) -> Dict[str, Any]:
+    v = d.get(key)
+    if not isinstance(v, dict):
+        die(f"{path}.{key} must be an object/dict")
+    return v
+
+
+def sort_key(atom: Dict[str, Any], path: str) -> Tuple[int, str, str]:
+    sev = req_str(atom, "severity", path)
+    if sev not in SEVERITY_ORDER:
+        die(f"{path}.severity must be one of {sorted(ALLOWED_SEVERITIES)} (got {sev!r})")
+    typ = req_str(atom, "type", path)
+    aid = req_str(atom, "atom_id", path)
+    return (SEVERITY_ORDER[sev], typ, aid)
+
+
+def check_non_decreasing(keys: List[Tuple[int, str, str]]) -> None:
+    for i in range(1, len(keys)):
+        if keys[i - 1] > keys[i]:
+            die(
+                "atoms are not deterministically ordered; expected non-decreasing by "
+                "severity (crit>warn>info), then type, then atom_id"
+            )
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description="Contract check for paradox_field_v0.json")
+    ap.add_argument("--in", dest="in_path", required=True, help="Path to paradox_field_v0.json")
     args = ap.parse_args()
 
-    # 1) Generate paradox field from transitions drift (must succeed)
-    subprocess.check_call([
-        sys.executable,
-        "scripts/paradox_field_adapter_v0.py",
-        "--transitions-dir", args.transitions_dir,
-        "--out", args.out,
-    ])
+    try:
+        with open(args.in_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except FileNotFoundError:
+        die(f"file not found: {args.in_path}")
+    except json.JSONDecodeError as e:
+        die(f"invalid JSON: {e}")
 
-    # 2) Contract checks (fail-closed)
-    if not os.path.isfile(args.out):
-        raise SystemExit(f"[check] missing output json: {args.out}")
+    root = as_dict(data, "$")
+    atoms_any = root.get("atoms")
+    if atoms_any is None:
+        die("$.atoms is missing")
+    atoms_list = as_list(atoms_any, "$.atoms")
 
-    o = json.load(open(args.out, "r", encoding="utf-8"))
-    root = o.get("paradox_field_v0")
-    if not isinstance(root, dict):
-        raise SystemExit("[check] missing paradox_field_v0 root object")
+    atoms: List[Dict[str, Any]] = []
+    for i, a in enumerate(atoms_list):
+        if not isinstance(a, dict):
+            die(f"$.atoms[{i}] must be an object/dict")
+        atoms.append(a)
 
-    atoms = root.get("atoms")
-    if not isinstance(atoms, list) or len(atoms) == 0:
-        raise SystemExit("[check] atoms must be a non-empty list")
+    # Basic per-atom checks + collect ids
+    id_to_atom: Dict[str, Dict[str, Any]] = {}
+    keys: List[Tuple[int, str, str]] = []
+    for i, a in enumerate(atoms):
+        path = f"$.atoms[{i}]"
+        aid = req_str(a, "atom_id", path)
+        if aid in id_to_atom:
+            die(f"duplicate atom_id: {aid!r}")
+        id_to_atom[aid] = a
 
-    # must contain gate_overlay_tension
-    tensions = [a for a in atoms if isinstance(a, dict) and a.get("type") == "gate_overlay_tension"]
-    if not tensions:
-        raise SystemExit("[check] missing gate_overlay_tension atoms")
+        req_str(a, "type", path)
+        req_str(a, "severity", path)
+        req_dict(a, "evidence", path)
 
-    t0 = tensions[0]
-    if not t0.get("title"):
-        raise SystemExit("[check] tension atom must have title")
+        keys.append(sort_key(a, path))
 
-    ev = t0.get("evidence", {})
-    if not isinstance(ev, dict):
-        raise SystemExit("[check] tension atom evidence must be an object")
+    # Deterministic ordering check (non-decreasing keys)
+    check_non_decreasing(keys)
 
-    if not ev.get("gate_atom_id"):
-        raise SystemExit("[check] tension evidence missing gate_atom_id")
-    if not ev.get("overlay_atom_id"):
-        raise SystemExit("[check] tension evidence missing overlay_atom_id")
+    def atom_type(aid: str) -> str:
+        a = id_to_atom.get(aid)
+        if a is None:
+            return ""
+        t = a.get("type")
+        return t if isinstance(t, str) else ""
 
-    print("[check] OK: paradox_field_v0 atoms + tension contract")
+    # Link integrity checks for known tension types
+    for i, a in enumerate(atoms):
+        path = f"$.atoms[{i}]"
+        typ = a.get("type")
+        if not isinstance(typ, str):
+            continue
+        ev = a.get("evidence")
+        if not isinstance(ev, dict):
+            die(f"{path}.evidence must be an object/dict")
+
+        if typ == "gate_overlay_tension":
+            gate_id = ev.get("gate_atom_id")
+            over_id = ev.get("overlay_atom_id")
+            if not isinstance(gate_id, str) or not gate_id:
+                die(f"{path}.evidence.gate_atom_id must be a non-empty string")
+            if not isinstance(over_id, str) or not over_id:
+                die(f"{path}.evidence.overlay_atom_id must be a non-empty string")
+            if gate_id not in id_to_atom:
+                die(f"{path} broken link: gate_atom_id {gate_id!r} not found")
+            if over_id not in id_to_atom:
+                die(f"{path} broken link: overlay_atom_id {over_id!r} not found")
+            if atom_type(gate_id) != "gate_flip":
+                die(f"{path} link type mismatch: gate_atom_id must point to type 'gate_flip'")
+            if atom_type(over_id) != "overlay_change":
+                die(f"{path} link type mismatch: overlay_atom_id must point to type 'overlay_change'")
+
+        if typ == "gate_metric_tension":
+            gate_id = ev.get("gate_atom_id")
+            met_id = ev.get("metric_atom_id")
+            if not isinstance(gate_id, str) or not gate_id:
+                die(f"{path}.evidence.gate_atom_id must be a non-empty string")
+            if not isinstance(met_id, str) or not met_id:
+                die(f"{path}.evidence.metric_atom_id must be a non-empty string")
+            if gate_id not in id_to_atom:
+                die(f"{path} broken link: gate_atom_id {gate_id!r} not found")
+            if met_id not in id_to_atom:
+                die(f"{path} broken link: metric_atom_id {met_id!r} not found")
+            if atom_type(gate_id) != "gate_flip":
+                die(f"{path} link type mismatch: gate_atom_id must point to type 'gate_flip'")
+            if atom_type(met_id) != "metric_delta":
+                die(f"{path} link type mismatch: metric_atom_id must point to type 'metric_delta'")
+
+    print("[contract] OK")
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        raise SystemExit(main())
+    except BrokenPipeError:
+        # allow piping into head, etc.
+        sys.exit(0)
