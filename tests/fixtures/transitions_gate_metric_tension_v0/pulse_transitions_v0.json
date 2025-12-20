@@ -1,0 +1,5 @@
+{
+  "version": "v0",
+  "run_a": { "status_sha1": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" },
+  "run_b": { "status_sha1": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" }
+}
