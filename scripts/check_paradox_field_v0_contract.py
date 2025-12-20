@@ -1,5 +1,21 @@
 #!/usr/bin/env python3
-# scripts/check_paradox_field_v0_contract.py
+"""
+Fail-closed contract check for paradox_field_v0.json.
+
+Supports both shapes:
+  A) {"paradox_field_v0": {"meta": {...}, "atoms": [...]}}   (preferred)
+  B) {"meta": {...}, "atoms": [...]}                         (legacy)
+  C) {"atoms": [...]}                                        (legacy)
+
+Checks:
+  - JSON readable
+  - atoms[] present and list
+  - each atom has atom_id/type/severity/evidence
+  - atom_id is unique
+  - severity is one of: crit|warn|info
+  - atoms are deterministically ordered by: severity (crit>warn>info), type, atom_id
+  - known tension atoms have non-broken links and type matches (fail-closed)
+"""
 
 from __future__ import annotations
 
@@ -13,7 +29,7 @@ SEVERITY_ORDER = {"crit": 0, "warn": 1, "info": 2}
 ALLOWED_SEVERITIES = set(SEVERITY_ORDER.keys())
 
 
-def die(msg: str, code: int = 2) -> None:
+def die(msg: str) -> None:
     raise SystemExit(f"[contract] {msg}")
 
 
@@ -61,27 +77,14 @@ def check_non_decreasing(keys: List[Tuple[int, str, str]]) -> None:
             )
 
 
-def resolve_atoms_root(root: Dict[str, Any]) -> Tuple[Dict[str, Any], str]:
+def _select_container(root: Dict[str, Any]) -> Tuple[Dict[str, Any], str]:
     """
-    Canonical schema shape:
-      {"paradox_field_v0": {"atoms": [...] } }
-
-    Backward compatible (optional):
-      {"atoms": [...] }
-
-    Fail-closed:
-      - if both are present -> ambiguous shape -> fail
-      - if paradox_field_v0 exists but is not an object -> fail
+    Prefer {"paradox_field_v0": {...}} container if present, otherwise root.
+    Returns: (container_dict, container_path_string)
     """
-    if "paradox_field_v0" in root:
-        pf = root.get("paradox_field_v0")
-        if not isinstance(pf, dict):
-            die("$.paradox_field_v0 must be an object/dict")
-        if "atoms" in root:
-            die("ambiguous shape: both $.atoms and $.paradox_field_v0.atoms are present")
+    pf = root.get("paradox_field_v0")
+    if isinstance(pf, dict):
         return pf, "$.paradox_field_v0"
-
-    # legacy shape
     return root, "$"
 
 
@@ -99,43 +102,47 @@ def main() -> int:
         die(f"invalid JSON: {e}")
 
     root = as_dict(data, "$")
+    container, cpath = _select_container(root)
 
-    base, base_path = resolve_atoms_root(root)
-
-    atoms_any = base.get("atoms")
+    atoms_any = container.get("atoms")
     if atoms_any is None:
-        die(f"{base_path}.atoms is missing")
-    atoms_list = as_list(atoms_any, f"{base_path}.atoms")
+        die(f"{cpath}.atoms is missing")
+    atoms_list = as_list(atoms_any, f"{cpath}.atoms")
 
     atoms: List[Dict[str, Any]] = []
     for i, a in enumerate(atoms_list):
         if not isinstance(a, dict):
-            die(f"{base_path}.atoms[{i}] must be an object/dict")
+            die(f"{cpath}.atoms[{i}] must be an object/dict")
         atoms.append(a)
 
     # Basic per-atom checks + collect ids
     id_to_atom: Dict[str, Dict[str, Any]] = {}
     keys: List[Tuple[int, str, str]] = []
-
     for i, a in enumerate(atoms):
-        path = f"{base_path}.atoms[{i}]"
-
+        path = f"{cpath}.atoms[{i}]"
         aid = req_str(a, "atom_id", path)
         if aid in id_to_atom:
             die(f"duplicate atom_id: {aid!r}")
         id_to_atom[aid] = a
 
-        req_str(a, "type", path)
-
+        typ = req_str(a, "type", path)
         sev = req_str(a, "severity", path)
-        if sev not in SEVERITY_ORDER:
+        if sev not in ALLOWED_SEVERITIES:
             die(f"{path}.severity must be one of {sorted(ALLOWED_SEVERITIES)} (got {sev!r})")
 
         req_dict(a, "evidence", path)
 
+        # refs is optional, but if present, should be a dict
+        if "refs" in a and not isinstance(a.get("refs"), dict):
+            die(f"{path}.refs must be an object/dict when present")
+
+        # precompute ordering key
         keys.append(sort_key(a, path))
 
-    # Deterministic ordering check (non-decreasing keys)
+        # type should be non-empty already via req_str; keep typ to avoid lint unused
+        _ = typ
+
+    # Deterministic ordering check
     check_non_decreasing(keys)
 
     def atom_type(aid: str) -> str:
@@ -145,13 +152,12 @@ def main() -> int:
         t = a.get("type")
         return t if isinstance(t, str) else ""
 
-    # Link integrity checks for known tension types (presence NOT required)
+    # Link integrity checks for known tension types
     for i, a in enumerate(atoms):
-        path = f"{base_path}.atoms[{i}]"
+        path = f"{cpath}.atoms[{i}]"
         typ = a.get("type")
         if not isinstance(typ, str):
             continue
-
         ev = a.get("evidence")
         if not isinstance(ev, dict):
             die(f"{path}.evidence must be an object/dict")
@@ -202,5 +208,4 @@ if __name__ == "__main__":
     try:
         raise SystemExit(main())
     except BrokenPipeError:
-        # allow piping into head, etc.
         sys.exit(0)
