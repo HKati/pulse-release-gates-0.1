@@ -368,7 +368,12 @@ def main() -> None:
                     },
                 }
                 atoms.append(atom)
+    # Deterministic ordering (severity -> type -> atom_id)
+    atoms.sort(key=lambda a: (_severity_rank(a.get("severity", "")),
+                              a.get("type", ""),
+                              a.get("atom_id", "")))
 
+      
         # Stable ordering: crit -> warn -> info, then type, then atom_id
         atoms.sort(key=lambda a: (_severity_rank(a.get("severity", "")), a.get("type", ""), a.get("atom_id", "")))
 
