@@ -343,7 +343,7 @@ def main() -> None:
                 title = f"Overlay changed: {overlay_name} ({len(changed_keys)} keys)"
 
                 atom = {
-                    "atom_id": _atom_id("overlay_change", overlay_name, a_sha1 or a_id_ctx, b_sha1 or b_id_ctx),
+                    "atom_id": _atom_id("overlay_change", str(overlay_name), a_sha1 or a_id_ctx, b_sha1 or b_id_ctx),
                     "type": "overlay_change",
                     "severity": "info",
                     "title": title,
@@ -368,14 +368,18 @@ def main() -> None:
                     },
                 }
                 atoms.append(atom)
-    # Deterministic ordering (severity -> type -> atom_id)
-    atoms.sort(key=lambda a: (_severity_rank(a.get("severity", "")),
-                              a.get("type", ""),
-                              a.get("atom_id", "")))
 
-      
-        # Stable ordering: crit -> warn -> info, then type, then atom_id
-        atoms.sort(key=lambda a: (_severity_rank(a.get("severity", "")), a.get("type", ""), a.get("atom_id", "")))
+        # NOTE: tension atomok (C.2/C.3) ide jöhetnek később,
+        # még a végső atoms.sort(...) előtt.
+
+    # Deterministic ordering (severity -> type -> atom_id)
+    atoms.sort(
+        key=lambda a: (
+            _severity_rank(str(a.get("severity", ""))),
+            str(a.get("type", "")),
+            str(a.get("atom_id", "")),
+        )
+    )
 
     out_obj = {
         "paradox_field_v0": {
