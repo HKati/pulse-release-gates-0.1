@@ -61,6 +61,30 @@ def check_non_decreasing(keys: List[Tuple[int, str, str]]) -> None:
             )
 
 
+def resolve_atoms_root(root: Dict[str, Any]) -> Tuple[Dict[str, Any], str]:
+    """
+    Canonical schema shape:
+      {"paradox_field_v0": {"atoms": [...] } }
+
+    Backward compatible (optional):
+      {"atoms": [...] }
+
+    Fail-closed:
+      - if both are present -> ambiguous shape -> fail
+      - if paradox_field_v0 exists but is not an object -> fail
+    """
+    if "paradox_field_v0" in root:
+        pf = root.get("paradox_field_v0")
+        if not isinstance(pf, dict):
+            die("$.paradox_field_v0 must be an object/dict")
+        if "atoms" in root:
+            die("ambiguous shape: both $.atoms and $.paradox_field_v0.atoms are present")
+        return pf, "$.paradox_field_v0"
+
+    # legacy shape
+    return root, "$"
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="Contract check for paradox_field_v0.json")
     ap.add_argument("--in", dest="in_path", required=True, help="Path to paradox_field_v0.json")
@@ -75,29 +99,38 @@ def main() -> int:
         die(f"invalid JSON: {e}")
 
     root = as_dict(data, "$")
-    atoms_any = root.get("atoms")
+
+    base, base_path = resolve_atoms_root(root)
+
+    atoms_any = base.get("atoms")
     if atoms_any is None:
-        die("$.atoms is missing")
-    atoms_list = as_list(atoms_any, "$.atoms")
+        die(f"{base_path}.atoms is missing")
+    atoms_list = as_list(atoms_any, f"{base_path}.atoms")
 
     atoms: List[Dict[str, Any]] = []
     for i, a in enumerate(atoms_list):
         if not isinstance(a, dict):
-            die(f"$.atoms[{i}] must be an object/dict")
+            die(f"{base_path}.atoms[{i}] must be an object/dict")
         atoms.append(a)
 
     # Basic per-atom checks + collect ids
     id_to_atom: Dict[str, Dict[str, Any]] = {}
     keys: List[Tuple[int, str, str]] = []
+
     for i, a in enumerate(atoms):
-        path = f"$.atoms[{i}]"
+        path = f"{base_path}.atoms[{i}]"
+
         aid = req_str(a, "atom_id", path)
         if aid in id_to_atom:
             die(f"duplicate atom_id: {aid!r}")
         id_to_atom[aid] = a
 
         req_str(a, "type", path)
-        req_str(a, "severity", path)
+
+        sev = req_str(a, "severity", path)
+        if sev not in SEVERITY_ORDER:
+            die(f"{path}.severity must be one of {sorted(ALLOWED_SEVERITIES)} (got {sev!r})")
+
         req_dict(a, "evidence", path)
 
         keys.append(sort_key(a, path))
@@ -112,12 +145,13 @@ def main() -> int:
         t = a.get("type")
         return t if isinstance(t, str) else ""
 
-    # Link integrity checks for known tension types
+    # Link integrity checks for known tension types (presence NOT required)
     for i, a in enumerate(atoms):
-        path = f"$.atoms[{i}]"
+        path = f"{base_path}.atoms[{i}]"
         typ = a.get("type")
         if not isinstance(typ, str):
             continue
+
         ev = a.get("evidence")
         if not isinstance(ev, dict):
             die(f"{path}.evidence must be an object/dict")
@@ -125,14 +159,17 @@ def main() -> int:
         if typ == "gate_overlay_tension":
             gate_id = ev.get("gate_atom_id")
             over_id = ev.get("overlay_atom_id")
+
             if not isinstance(gate_id, str) or not gate_id:
                 die(f"{path}.evidence.gate_atom_id must be a non-empty string")
             if not isinstance(over_id, str) or not over_id:
                 die(f"{path}.evidence.overlay_atom_id must be a non-empty string")
+
             if gate_id not in id_to_atom:
                 die(f"{path} broken link: gate_atom_id {gate_id!r} not found")
             if over_id not in id_to_atom:
                 die(f"{path} broken link: overlay_atom_id {over_id!r} not found")
+
             if atom_type(gate_id) != "gate_flip":
                 die(f"{path} link type mismatch: gate_atom_id must point to type 'gate_flip'")
             if atom_type(over_id) != "overlay_change":
@@ -141,14 +178,17 @@ def main() -> int:
         if typ == "gate_metric_tension":
             gate_id = ev.get("gate_atom_id")
             met_id = ev.get("metric_atom_id")
+
             if not isinstance(gate_id, str) or not gate_id:
                 die(f"{path}.evidence.gate_atom_id must be a non-empty string")
             if not isinstance(met_id, str) or not met_id:
                 die(f"{path}.evidence.metric_atom_id must be a non-empty string")
+
             if gate_id not in id_to_atom:
                 die(f"{path} broken link: gate_atom_id {gate_id!r} not found")
             if met_id not in id_to_atom:
                 die(f"{path} broken link: metric_atom_id {met_id!r} not found")
+
             if atom_type(gate_id) != "gate_flip":
                 die(f"{path} link type mismatch: gate_atom_id must point to type 'gate_flip'")
             if atom_type(met_id) != "metric_delta":
