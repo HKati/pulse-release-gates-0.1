@@ -1,3 +1,4 @@
+
 #!/usr/bin/env python3
 """
 paradox_field_adapter_v0 — stdlib-only generator for paradox_field_v0.json.
@@ -5,6 +6,7 @@ paradox_field_adapter_v0 — stdlib-only generator for paradox_field_v0.json.
 Goal (v0):
   - Produce a stable paradox_field artefact (skeleton + optional atoms from transitions drift).
   - Deterministic ordering and audit-friendly evidence payloads.
+  - Evidence-first: atoms encode observed deltas/co-occurrences; no new truth/causality.
 
 Output:
   { "paradox_field_v0": { "meta": {...}, "atoms": [...] } }
@@ -30,6 +32,13 @@ METRIC_ABS_WARN = 0.01
 METRIC_ABS_CRIT = 0.05
 METRIC_REL_WARN = 0.01
 METRIC_REL_CRIT = 0.05
+
+# V0 guardrails against atom explosion
+MAX_METRIC_ATOMS = 10
+MAX_GATE_METRIC_TENSIONS = 50
+MAX_GATE_OVERLAY_TENSIONS = 50
+OVERLAY_TENSION_ALLOWLIST = {"g_field_v0", "paradox_field_v0"}
+OVERLAY_CHANGED_KEYS_SAMPLE = 12
 
 
 def _sha1_file(path: str) -> str:
@@ -92,7 +101,14 @@ def _safe_bool(x: Any) -> Optional[bool]:
 
 
 def _atom_id(atom_type: str, key: str, a_sha1: str, b_sha1: str) -> str:
+    # short stable id
     raw = f"{atom_type}|{key}|{a_sha1}|{b_sha1}"
+    return hashlib.sha1(raw.encode("utf-8")).hexdigest()[:12]
+
+
+def _tension_atom_id(atom_type: str, src_atom_id: str, dst_atom_id: str) -> str:
+    # Stable, short id derived from linked atom ids (not from run context).
+    raw = f"{atom_type}:{src_atom_id}:{dst_atom_id}"
     return hashlib.sha1(raw.encode("utf-8")).hexdigest()[:12]
 
 
@@ -100,6 +116,13 @@ def _severity_rank(label: str) -> Tuple[int, str]:
     # We want critical items first in the output.
     order = {"crit": 0, "warn": 1, "info": 2}
     return (order.get(label, 99), label)
+
+
+def _max_severity(a: str, b: str) -> str:
+    # "max" in terms of importance => smaller rank wins (crit > warn > info)
+    ra = _severity_rank(a)[0]
+    rb = _severity_rank(b)[0]
+    return a if ra <= rb else b
 
 
 def _metric_severity(delta: Optional[float], rel_delta: Optional[float]) -> str:
@@ -187,6 +210,7 @@ def main() -> None:
                 "rel_warn": METRIC_REL_WARN,
                 "rel_crit": METRIC_REL_CRIT,
             },
+            "tension_overlays_allowlist": sorted(OVERLAY_TENSION_ALLOWLIST),
         },
     }
 
@@ -206,6 +230,11 @@ def main() -> None:
         meta["g_field_sha1"] = _sha1_file(args.g_field)
 
     atoms: List[Dict[str, Any]] = []
+
+    # Indexes for tension linking
+    gate_atoms_by_gate_id: Dict[str, Dict[str, Any]] = {}
+    metric_atoms_by_metric: Dict[str, Dict[str, Any]] = {}
+    overlay_atoms_by_name: Dict[str, Dict[str, Any]] = {}
 
     if args.transitions_dir:
         t = _read_transitions_dir(args.transitions_dir)
@@ -271,8 +300,9 @@ def main() -> None:
                 },
             }
             atoms.append(atom)
+            gate_atoms_by_gate_id[gate_id] = atom
 
-        # ---- Metric deltas -> metric_delta atoms (top 10 by |delta|)
+        # ---- Metric deltas -> metric_delta atoms (top N by |delta|)
         metric_candidates: List[Tuple[str, Optional[float], Optional[float], float, Optional[float], str, str]] = []
         for row in t["metric_rows"]:
             metric = str(row.get("metric", "")).strip()
@@ -292,7 +322,7 @@ def main() -> None:
 
         metric_candidates.sort(key=lambda x: abs(x[3]), reverse=True)
 
-        for metric, a_val, b_val, delta, rel_delta, present_a, present_b in metric_candidates[:10]:
+        for metric, a_val, b_val, delta, rel_delta, present_a, present_b in metric_candidates[:MAX_METRIC_ATOMS]:
             severity = _metric_severity(delta, rel_delta)
             title = f"Metric drift: {metric} Δ={delta}"
 
@@ -321,11 +351,13 @@ def main() -> None:
                 },
             }
             atoms.append(atom)
+            metric_atoms_by_metric[metric] = atom
 
         # ---- Overlay changes -> overlay_change atoms
         overlay_obj = t["overlay"]
         if isinstance(overlay_obj, dict):
-            for overlay_name, overlay_block in overlay_obj.items():
+            for overlay_name in sorted(overlay_obj.keys(), key=lambda x: str(x)):
+                overlay_block = overlay_obj.get(overlay_name)
                 if not isinstance(overlay_block, dict):
                     continue
 
@@ -368,100 +400,152 @@ def main() -> None:
                     },
                 }
                 atoms.append(atom)
+                overlay_atoms_by_name[str(overlay_name)] = atom
 
-        # ---- C.2: Gate ↔ Metric "tension" atoms (evidence-first co-occurrence)
-        gate_atoms = [a for a in atoms if a.get("type") == "gate_flip"]
-        metric_atoms = [
-            a for a in atoms
-            if a.get("type") == "metric_delta" and str(a.get("severity", "")).strip() in ("warn", "crit")
+        # ---- gate_metric_tension atoms (gate_flip × metric_delta where metric severity is warn/crit)
+        gate_metric_tensions = 0
+        gate_ids_sorted = sorted(gate_atoms_by_gate_id.keys())
+        metric_atoms_ordered = [
+            metric_atoms_by_metric[m]
+            for m in metric_atoms_by_metric.keys()
+            if isinstance(metric_atoms_by_metric.get(m), dict)
         ]
 
-        if gate_atoms and metric_atoms:
-            # Deterministic pairing order + explosion guard (v0)
-            gate_atoms_sorted = sorted(gate_atoms, key=lambda a: str(a.get("atom_id", "")))
-            metric_atoms_sorted = sorted(
-                metric_atoms,
-                key=lambda a: (_severity_rank(str(a.get("severity", ""))), str(a.get("atom_id", ""))),
-            )
+        # Deterministic metric ordering for pairing:
+        def _metric_pair_key(a: Dict[str, Any]) -> Tuple[int, float, str]:
+            sev = a.get("severity", "info")
+            ev = a.get("evidence", {})
+            delta = None
+            if isinstance(ev, dict):
+                mm = ev.get("metric")
+                if isinstance(mm, dict):
+                    delta = mm.get("delta")
+            d = _safe_float(delta)
+            # sort: higher severity first, larger abs delta first
+            return (_severity_rank(str(sev))[0], -(abs(d) if d is not None else 0.0), str(a.get("atom_id", "")))
 
-            max_metrics_per_gate = 3
-            max_total_tensions = 50
-            seen_pairs = set()
-            tension_count = 0
+        metric_atoms_ordered.sort(key=_metric_pair_key)
 
-            for g in gate_atoms_sorted:
-                gate_atom_id = str(g.get("atom_id", "")).strip()
-                if not gate_atom_id:
+        for gid in gate_ids_sorted:
+            g_atom = gate_atoms_by_gate_id.get(gid)
+            if not isinstance(g_atom, dict):
+                continue
+            gate_atom_id = str(g_atom.get("atom_id", "")).strip()
+            if not gate_atom_id:
+                continue
+
+            for m_atom in metric_atoms_ordered:
+                if gate_metric_tensions >= MAX_GATE_METRIC_TENSIONS:
+                    break
+
+                if not isinstance(m_atom, dict):
+                    continue
+                m_sev = str(m_atom.get("severity", "")).strip()
+                if m_sev not in ("warn", "crit"):
                     continue
 
-                g_ev = g.get("evidence") if isinstance(g.get("evidence"), dict) else {}
-                g_gate = g_ev.get("gate") if isinstance(g_ev.get("gate"), dict) else {}
-                gate_id = str(g_gate.get("gate_id", "")).strip()
+                metric_atom_id = str(m_atom.get("atom_id", "")).strip()
+                if not metric_atom_id:
+                    continue
 
-                for m in metric_atoms_sorted[:max_metrics_per_gate]:
-                    metric_atom_id = str(m.get("atom_id", "")).strip()
-                    if not metric_atom_id:
-                        continue
+                # Try to get metric name for refs/title
+                metric_name = ""
+                mev = m_atom.get("evidence")
+                if isinstance(mev, dict):
+                    mm = mev.get("metric")
+                    if isinstance(mm, dict) and isinstance(mm.get("name"), str):
+                        metric_name = mm.get("name", "")
+                metric_name = metric_name or "metric"
 
-                    pair = (gate_atom_id, metric_atom_id)
-                    if pair in seen_pairs:
-                        continue
-                    seen_pairs.add(pair)
+                sev = _max_severity(str(g_atom.get("severity", "info")), m_sev)
+                tid = _tension_atom_id("gate_metric_tension", gate_atom_id, metric_atom_id)
+                title = f"Gate ↔ Metric tension: {gid} × {metric_name}"
 
-                    m_ev = m.get("evidence") if isinstance(m.get("evidence"), dict) else {}
-                    m_metric = m_ev.get("metric") if isinstance(m_ev.get("metric"), dict) else {}
-                    metric_name = str(m_metric.get("name", "")).strip()
+                tension = {
+                    "atom_id": tid,
+                    "type": "gate_metric_tension",
+                    "severity": sev,
+                    "title": title,
+                    "refs": {"gates": [gid], "metrics": [metric_name], "overlays": []},
+                    "evidence": {
+                        "rule": "gate_flip × metric_delta(warn|crit)",
+                        "gate_atom_id": gate_atom_id,
+                        "metric_atom_id": metric_atom_id,
+                        # Optional summaries (downstream-friendly)
+                        "gate": (g_atom.get("evidence", {}) or {}).get("gate", {}) if isinstance(g_atom.get("evidence"), dict) else {},
+                        "metric": (m_atom.get("evidence", {}) or {}).get("metric", {}) if isinstance(m_atom.get("evidence"), dict) else {},
+                    },
+                }
+                atoms.append(tension)
+                gate_metric_tensions += 1
 
-                    # severity = max(gate_flip.severity, metric_delta.severity) with fixed order crit>warn>info
-                    g_sev = str(g.get("severity", "info")).strip()
-                    m_sev = str(m.get("severity", "info")).strip()
-                    sev = g_sev
-                    if _severity_rank(m_sev)[0] < _severity_rank(g_sev)[0]:
-                        sev = m_sev
+            if gate_metric_tensions >= MAX_GATE_METRIC_TENSIONS:
+                break
 
-                    title = f"Gate↔Metric tension: {gate_id or '?'} × {metric_name or '?'}"
+        # ---- gate_overlay_tension atoms (gate_flip × overlay_change; allowlisted overlays)
+        gate_overlay_tensions = 0
+        overlay_names_sorted = sorted(
+            [n for n in overlay_atoms_by_name.keys() if n in OVERLAY_TENSION_ALLOWLIST]
+        )
 
-                    atoms.append({
-                        "atom_id": _atom_id(
-                            "gate_metric_tension",
-                            f"{gate_atom_id}:{metric_atom_id}",
-                            a_id_ctx,
-                            b_id_ctx,
-                        ),
-                        "type": "gate_metric_tension",
-                        "severity": sev,
-                        "title": title,
-                        "refs": {
-                            "gates": [gate_id] if gate_id else [],
-                            "metrics": [metric_name] if metric_name else [],
-                            "overlays": [],
-                        },
-                        "evidence": {
-                            "gate_atom_id": gate_atom_id,
-                            "metric_atom_id": metric_atom_id,
-                            # Optional summaries (downstream-friendly copies)
-                            "gate": {
-                                "gate_id": gate_id,
-                                "group": str(g_gate.get("group", "") or ""),
-                                "status_a": str(g_gate.get("status_a", "") or ""),
-                                "status_b": str(g_gate.get("status_b", "") or ""),
-                            },
-                            "metric": {
-                                "name": metric_name,
-                                "delta": m_metric.get("delta", "") if isinstance(m_metric, dict) else "",
-                                "rel_delta": m_metric.get("rel_delta", "") if isinstance(m_metric, dict) else "",
-                                "severity": m_sev,
-                            },
-                            "rule": "gate_flip AND metric_delta(severity in {warn,crit}) from same transitions run-pair",
-                        },
-                    })
+        for gid in gate_ids_sorted:
+            g_atom = gate_atoms_by_gate_id.get(gid)
+            if not isinstance(g_atom, dict):
+                continue
+            gate_atom_id = str(g_atom.get("atom_id", "")).strip()
+            if not gate_atom_id:
+                continue
 
-                    tension_count += 1
-                    if tension_count >= max_total_tensions:
-                        break
-
-                if tension_count >= max_total_tensions:
+            for oname in overlay_names_sorted:
+                if gate_overlay_tensions >= MAX_GATE_OVERLAY_TENSIONS:
                     break
+
+                o_atom = overlay_atoms_by_name.get(oname)
+                if not isinstance(o_atom, dict):
+                    continue
+                overlay_atom_id = str(o_atom.get("atom_id", "")).strip()
+                if not overlay_atom_id:
+                    continue
+
+                sev = _max_severity(str(g_atom.get("severity", "info")), str(o_atom.get("severity", "info")))
+                tid = _tension_atom_id("gate_overlay_tension", gate_atom_id, overlay_atom_id)
+                title = f"Gate ↔ Overlay tension: {gid} × {oname}"
+
+                # deterministic small sample of changed_keys (for audit/triage)
+                changed_keys_sample: List[str] = []
+                oev = o_atom.get("evidence")
+                if isinstance(oev, dict):
+                    ob = oev.get("overlay")
+                    if isinstance(ob, dict):
+                        tld = ob.get("top_level_diff")
+                        if isinstance(tld, dict):
+                            ck = tld.get("changed_keys")
+                            if isinstance(ck, list):
+                                changed_keys_sample = [str(x) for x in ck][:OVERLAY_CHANGED_KEYS_SAMPLE]
+
+                tension = {
+                    "atom_id": tid,
+                    "type": "gate_overlay_tension",
+                    "severity": sev,
+                    "title": title,
+                    "refs": {"gates": [gid], "metrics": [], "overlays": [oname]},
+                    "evidence": {
+                        "rule": "gate_flip × overlay_change",
+                        "gate_atom_id": gate_atom_id,
+                        "overlay_atom_id": overlay_atom_id,
+                        # Optional summaries (downstream-friendly)
+                        "gate": (g_atom.get("evidence", {}) or {}).get("gate", {}) if isinstance(g_atom.get("evidence"), dict) else {},
+                        "overlay": {
+                            "name": oname,
+                            "changed_keys_sample": changed_keys_sample,
+                        },
+                    },
+                }
+                atoms.append(tension)
+                gate_overlay_tensions += 1
+
+            if gate_overlay_tensions >= MAX_GATE_OVERLAY_TENSIONS:
+                break
 
     # Deterministic ordering (severity -> type -> atom_id)
     atoms.sort(
