@@ -1,0 +1,68 @@
+name: paradox-edges-smoke
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Compile (fail-closed)
+        run: |
+          set -euxo pipefail
+          python -m py_compile \
+            scripts/paradox_field_adapter_v0.py \
+            scripts/check_paradox_field_v0_contract.py \
+            scripts/check_paradox_edges_v0_contract.py \
+            scripts/check_paradox_edges_v0_acceptance_v0.py
+
+      - name: Generate paradox_field + paradox_edges from fixture
+        run: |
+          set -euxo pipefail
+          rm -rf out
+          mkdir -p out
+
+          python scripts/paradox_field_adapter_v0.py \
+            --transitions-dir ./tests/fixtures/transitions_gate_metric_tension_v0 \
+            --out ./out/paradox_field_v0.json
+
+          test -f ./out/paradox_field_v0.json
+          test -f ./out/paradox_edges_v0.jsonl
+
+      - name: Contract checks (fail-closed)
+        run: |
+          set -euxo pipefail
+          python scripts/check_paradox_field_v0_contract.py --in ./out/paradox_field_v0.json
+          python scripts/check_paradox_edges_v0_contract.py --in ./out/paradox_edges_v0.jsonl --atoms ./out/paradox_field_v0.json
+
+      - name: Acceptance checks (fixture must contain)
+        run: |
+          set -euxo pipefail
+          python scripts/check_paradox_edges_v0_acceptance_v0.py \
+            --in ./out/paradox_edges_v0.jsonl \
+            --atoms ./out/paradox_field_v0.json \
+            --min-count 1
+
+          python scripts/check_paradox_edges_v0_acceptance_v0.py \
+            --in ./out/paradox_edges_v0.jsonl \
+            --atoms ./out/paradox_field_v0.json \
+            --type gate_metric_tension \
+            --min-count 1
+
+      - name: Upload outputs (debug)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: paradox-edges-smoke-out
+          path: |
+            out/paradox_field_v0.json
+            out/paradox_edges_v0.jsonl
