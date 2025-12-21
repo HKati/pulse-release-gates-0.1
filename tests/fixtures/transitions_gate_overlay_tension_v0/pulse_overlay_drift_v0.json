@@ -1,0 +1,16 @@
+{
+  "g_field_v0": {
+    "present_a": 1,
+    "present_b": 1,
+    "path_a": "g_field_v0.json",
+    "path_b": "g_field_v0.json",
+    "sha1_a": "1111111111111111111111111111111111111111",
+    "sha1_b": "2222222222222222222222222222222222222222",
+    "top_level_diff": {
+      "added_keys": [],
+      "removed_keys": [],
+      "changed_keys": ["nodes"],
+      "note": ""
+    }
+  }
+}
