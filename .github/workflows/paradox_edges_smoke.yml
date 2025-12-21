@@ -1,0 +1,81 @@
+name: paradox-edges-smoke
+
+on:
+  push:
+    paths:
+      - "scripts/**"
+      - "tests/fixtures/**"
+      - ".github/workflows/paradox_edges_smoke.yml"
+  pull_request:
+    paths:
+      - "scripts/**"
+      - "tests/fixtures/**"
+      - ".github/workflows/paradox_edges_smoke.yml"
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Compile scripts
+        run: |
+          set -euxo pipefail
+          python -m py_compile \
+            scripts/paradox_field_adapter_v0.py \
+            scripts/export_paradox_edges_v0.py \
+            scripts/check_paradox_field_v0_contract.py \
+            scripts/check_paradox_edges_v0_contract.py \
+            scripts/check_paradox_edges_v0_acceptance_v0.py
+
+      - name: Smoke (fixture -> atoms -> edges -> checks)
+        run: |
+          set -euxo pipefail
+          rm -rf out
+          mkdir -p out
+
+          # 1) Generate paradox_field_v0.json (atoms)
+          python scripts/paradox_field_adapter_v0.py \
+            --transitions-dir ./tests/fixtures/transitions_gate_metric_tension_v0 \
+            --out ./out/paradox_field_v0.json
+
+          # 2) Export paradox_edges_v0.jsonl (edges)  ✅ FIX: this was missing
+          python scripts/export_paradox_edges_v0.py \
+            --in ./out/paradox_field_v0.json \
+            --out ./out/paradox_edges_v0.jsonl
+
+          # 3) Assert artefacts exist
+          test -f ./out/paradox_field_v0.json
+          test -f ./out/paradox_edges_v0.jsonl
+
+          # 4) Contract checks (fail-closed)
+          python scripts/check_paradox_field_v0_contract.py --in ./out/paradox_field_v0.json
+          python scripts/check_paradox_edges_v0_contract.py --in ./out/paradox_edges_v0.jsonl --atoms ./out/paradox_field_v0.json
+
+          # 5) Acceptance checks (fixture must contain)
+          python scripts/check_paradox_edges_v0_acceptance_v0.py \
+            --in ./out/paradox_edges_v0.jsonl \
+            --atoms ./out/paradox_field_v0.json \
+            --min-count 1
+
+          python scripts/check_paradox_edges_v0_acceptance_v0.py \
+            --in ./out/paradox_edges_v0.jsonl \
+            --atoms ./out/paradox_field_v0.json \
+            --type gate_metric_tension \
+            --min-count 1
+
+      - name: Upload artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: paradox-edges-smoke-out
+          path: out
+          if-no-files-found: ignore
+
