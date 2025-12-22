@@ -12,6 +12,18 @@ def die(msg: str, code: int = 2) -> None:
     raise SystemExit(f"[acceptance] {msg}")
 
 
+def _as_dict(x: Any, path: str) -> Dict[str, Any]:
+    if not isinstance(x, dict):
+        die(f"{path} must be an object/dict")
+    return x
+
+
+def _as_list(x: Any, path: str) -> List[Any]:
+    if not isinstance(x, list):
+        die(f"{path} must be an array/list")
+    return x
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="Acceptance check for gate_metric_tension atoms")
     ap.add_argument("--in", dest="in_path", required=True, help="Path to paradox_field_v0.json")
@@ -19,37 +31,45 @@ def main() -> int:
     args = ap.parse_args()
 
     try:
-        data = json.load(open(args.in_path, "r", encoding="utf-8"))
+        with open(args.in_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
     except FileNotFoundError:
         die(f"file not found: {args.in_path}")
     except json.JSONDecodeError as e:
         die(f"invalid JSON: {e}")
 
-    if not isinstance(data, dict):
-        die("root must be an object/dict")
+    root = _as_dict(data, "$")
 
-    atoms_any = data.get("atoms")
-    if not isinstance(atoms_any, list):
-        die("$.atoms must be an array/list")
+    # Accept both shapes:
+    #  (A) { "paradox_field_v0": { "meta":..., "atoms":[...] } }
+    #  (B) { "meta":..., "atoms":[...] }
+    if "paradox_field_v0" in root and isinstance(root.get("paradox_field_v0"), dict):
+        root = _as_dict(root.get("paradox_field_v0"), "$.paradox_field_v0")
+
+    atoms_any = root.get("atoms")
+    if atoms_any is None:
+        die("$.atoms is missing")
+    atoms_list = _as_list(atoms_any, "$.atoms")
 
     atoms: List[Dict[str, Any]] = []
-    for i, a in enumerate(atoms_any):
+    for i, a in enumerate(atoms_list):
         if not isinstance(a, dict):
             die(f"$.atoms[{i}] must be an object/dict")
         atoms.append(a)
 
+    # Build id -> type index for link validation
     id_to_type: Dict[str, str] = {}
-    for a in atoms:
+    for i, a in enumerate(atoms):
         aid = a.get("atom_id")
         typ = a.get("type")
-        if isinstance(aid, str) and isinstance(typ, str):
+        if isinstance(aid, str) and aid and isinstance(typ, str) and typ:
             id_to_type[aid] = typ
 
     tensions = [a for a in atoms if a.get("type") == "gate_metric_tension"]
     if len(tensions) < args.min_count:
         die(f"missing gate_metric_tension atoms (found={len(tensions)}, required>={args.min_count})")
 
-    # Verify link integrity & types
+    # Verify link integrity & target types
     for idx, a in enumerate(tensions):
         ev = a.get("evidence")
         if not isinstance(ev, dict):
@@ -57,6 +77,7 @@ def main() -> int:
 
         gate_atom_id = ev.get("gate_atom_id")
         metric_atom_id = ev.get("metric_atom_id")
+
         if not isinstance(gate_atom_id, str) or not gate_atom_id:
             die(f"gate_metric_tension[{idx}] missing evidence.gate_atom_id")
         if not isinstance(metric_atom_id, str) or not metric_atom_id:
@@ -78,3 +99,4 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
