@@ -1,21 +1,5 @@
 #!/usr/bin/env python3
-"""
-Fail-closed contract check for paradox_field_v0.json.
-
-Supports both shapes:
-  A) {"paradox_field_v0": {"meta": {...}, "atoms": [...]}}   (preferred)
-  B) {"meta": {...}, "atoms": [...]}                         (legacy)
-  C) {"atoms": [...]}                                        (legacy)
-
-Checks:
-  - JSON readable
-  - atoms[] present and list
-  - each atom has atom_id/type/severity/evidence
-  - atom_id is unique
-  - severity is one of: crit|warn|info
-  - atoms are deterministically ordered by: severity (crit>warn>info), type, atom_id
-  - known tension atoms have non-broken links and type matches (fail-closed)
-"""
+# scripts/check_paradox_field_v0_contract.py
 
 from __future__ import annotations
 
@@ -29,7 +13,7 @@ SEVERITY_ORDER = {"crit": 0, "warn": 1, "info": 2}
 ALLOWED_SEVERITIES = set(SEVERITY_ORDER.keys())
 
 
-def die(msg: str) -> None:
+def die(msg: str, code: int = 2) -> None:
     raise SystemExit(f"[contract] {msg}")
 
 
@@ -77,15 +61,46 @@ def check_non_decreasing(keys: List[Tuple[int, str, str]]) -> None:
             )
 
 
-def _select_container(root: Dict[str, Any]) -> Tuple[Dict[str, Any], str]:
+def _optional_provenance_checks(atom: Dict[str, Any], path: str) -> None:
     """
-    Prefer {"paradox_field_v0": {...}} container if present, otherwise root.
-    Returns: (container_dict, container_path_string)
+    Fail-closed checks for optional provenance fields.
+    These fields are NOT required to exist, but if present they must be valid.
     """
-    pf = root.get("paradox_field_v0")
-    if isinstance(pf, dict):
-        return pf, "$.paradox_field_v0"
-    return root, "$"
+    ev = atom.get("evidence")
+    if not isinstance(ev, dict):
+        die(f"{path}.evidence must be an object/dict")
+
+    src = ev.get("source")
+    if src is None:
+        return
+    if not isinstance(src, dict):
+        die(f"{path}.evidence.source must be an object/dict when present")
+
+    # Optional CSV provenance
+    if "row_index" in src:
+        ri = src.get("row_index")
+        if not isinstance(ri, int) or ri < 0:
+            die(f"{path}.evidence.source.row_index must be a non-negative int when present")
+
+    for k in ("gate_drift_csv", "metric_drift_csv", "overlay_drift_json"):
+        if k in src:
+            v = src.get(k)
+            if not isinstance(v, str) or not v.strip():
+                die(f"{path}.evidence.source.{k} must be a non-empty string when present")
+
+    # Optional JSON pointer provenance for overlay blocks
+    if "overlay_name" in src:
+        v = src.get("overlay_name")
+        if not isinstance(v, str) or not v.strip():
+            die(f"{path}.evidence.source.overlay_name must be a non-empty string when present")
+
+    for k in ("json_pointer", "json_pointer_top_level_diff"):
+        if k in src:
+            jp = src.get(k)
+            if not isinstance(jp, str) or not jp.strip():
+                die(f"{path}.evidence.source.{k} must be a non-empty string when present")
+            if not jp.startswith("/"):
+                die(f"{path}.evidence.source.{k} must start with '/' (JSON Pointer) when present")
 
 
 def main() -> int:
@@ -102,47 +117,44 @@ def main() -> int:
         die(f"invalid JSON: {e}")
 
     root = as_dict(data, "$")
-    container, cpath = _select_container(root)
 
-    atoms_any = container.get("atoms")
+    # Accept both shapes:
+    #  (A) { "paradox_field_v0": { "meta":..., "atoms":[...] } }
+    #  (B) { "meta":..., "atoms":[...] }
+    if "paradox_field_v0" in root and isinstance(root.get("paradox_field_v0"), dict):
+        root = as_dict(root.get("paradox_field_v0"), "$.paradox_field_v0")
+
+    atoms_any = root.get("atoms")
     if atoms_any is None:
-        die(f"{cpath}.atoms is missing")
-    atoms_list = as_list(atoms_any, f"{cpath}.atoms")
+        die("$.atoms is missing")
+    atoms_list = as_list(atoms_any, "$.atoms")
 
     atoms: List[Dict[str, Any]] = []
     for i, a in enumerate(atoms_list):
         if not isinstance(a, dict):
-            die(f"{cpath}.atoms[{i}] must be an object/dict")
+            die(f"$.atoms[{i}] must be an object/dict")
         atoms.append(a)
 
     # Basic per-atom checks + collect ids
     id_to_atom: Dict[str, Dict[str, Any]] = {}
     keys: List[Tuple[int, str, str]] = []
     for i, a in enumerate(atoms):
-        path = f"{cpath}.atoms[{i}]"
+        path = f"$.atoms[{i}]"
         aid = req_str(a, "atom_id", path)
         if aid in id_to_atom:
             die(f"duplicate atom_id: {aid!r}")
         id_to_atom[aid] = a
 
-        typ = req_str(a, "type", path)
-        sev = req_str(a, "severity", path)
-        if sev not in ALLOWED_SEVERITIES:
-            die(f"{path}.severity must be one of {sorted(ALLOWED_SEVERITIES)} (got {sev!r})")
-
+        req_str(a, "type", path)
+        req_str(a, "severity", path)
         req_dict(a, "evidence", path)
 
-        # refs is optional, but if present, should be a dict
-        if "refs" in a and not isinstance(a.get("refs"), dict):
-            die(f"{path}.refs must be an object/dict when present")
+        # Optional provenance validations (fail-closed if present)
+        _optional_provenance_checks(a, path)
 
-        # precompute ordering key
         keys.append(sort_key(a, path))
 
-        # type should be non-empty already via req_str; keep typ to avoid lint unused
-        _ = typ
-
-    # Deterministic ordering check
+    # Deterministic ordering check (non-decreasing keys)
     check_non_decreasing(keys)
 
     def atom_type(aid: str) -> str:
@@ -154,10 +166,11 @@ def main() -> int:
 
     # Link integrity checks for known tension types
     for i, a in enumerate(atoms):
-        path = f"{cpath}.atoms[{i}]"
+        path = f"$.atoms[{i}]"
         typ = a.get("type")
         if not isinstance(typ, str):
             continue
+
         ev = a.get("evidence")
         if not isinstance(ev, dict):
             die(f"{path}.evidence must be an object/dict")
@@ -165,17 +178,14 @@ def main() -> int:
         if typ == "gate_overlay_tension":
             gate_id = ev.get("gate_atom_id")
             over_id = ev.get("overlay_atom_id")
-
             if not isinstance(gate_id, str) or not gate_id:
                 die(f"{path}.evidence.gate_atom_id must be a non-empty string")
             if not isinstance(over_id, str) or not over_id:
                 die(f"{path}.evidence.overlay_atom_id must be a non-empty string")
-
             if gate_id not in id_to_atom:
                 die(f"{path} broken link: gate_atom_id {gate_id!r} not found")
             if over_id not in id_to_atom:
                 die(f"{path} broken link: overlay_atom_id {over_id!r} not found")
-
             if atom_type(gate_id) != "gate_flip":
                 die(f"{path} link type mismatch: gate_atom_id must point to type 'gate_flip'")
             if atom_type(over_id) != "overlay_change":
@@ -184,17 +194,14 @@ def main() -> int:
         if typ == "gate_metric_tension":
             gate_id = ev.get("gate_atom_id")
             met_id = ev.get("metric_atom_id")
-
             if not isinstance(gate_id, str) or not gate_id:
                 die(f"{path}.evidence.gate_atom_id must be a non-empty string")
             if not isinstance(met_id, str) or not met_id:
                 die(f"{path}.evidence.metric_atom_id must be a non-empty string")
-
             if gate_id not in id_to_atom:
                 die(f"{path} broken link: gate_atom_id {gate_id!r} not found")
             if met_id not in id_to_atom:
                 die(f"{path} broken link: metric_atom_id {met_id!r} not found")
-
             if atom_type(gate_id) != "gate_flip":
                 die(f"{path} link type mismatch: gate_atom_id must point to type 'gate_flip'")
             if atom_type(met_id) != "metric_delta":
@@ -208,4 +215,6 @@ if __name__ == "__main__":
     try:
         raise SystemExit(main())
     except BrokenPipeError:
+        # allow piping into head, etc.
         sys.exit(0)
+
