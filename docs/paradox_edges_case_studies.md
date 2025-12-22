@@ -27,3 +27,64 @@
 
 **Follow-up**
 - Add 1–2 real (non-fixture) case studies before any deeper “content enrichment” (C.4).
+
+---
+
+## Paradox edges case study — Fixture: gate_overlay_tension (v0)
+
+### Context
+- transitions-dir: `tests/fixtures/transitions_gate_overlay_tension_v0`
+- Goal: Verify deterministic `gate_overlay_tension` export (edges = proven co-occurrences; no new truth/causality).
+
+### Repro (Codex run)
+```bash
+python scripts/paradox_field_adapter_v0.py \
+  --transitions-dir ./tests/fixtures/transitions_gate_overlay_tension_v0 \
+  --out ./out/case_study_gate_overlay/paradox_field_v0.json
+
+python scripts/export_paradox_edges_v0.py \
+  --in ./out/case_study_gate_overlay/paradox_field_v0.json \
+  --out ./out/case_study_gate_overlay/paradox_edges_v0.jsonl
+
+python scripts/check_paradox_field_v0_contract.py \
+  --in ./out/case_study_gate_overlay/paradox_field_v0.json
+
+python scripts/check_paradox_edges_v0_contract.py \
+  --in ./out/case_study_gate_overlay/paradox_edges_v0.jsonl \
+  --atoms ./out/case_study_gate_overlay/paradox_field_v0.json
+
+python scripts/check_paradox_edges_v0_acceptance_v0.py \
+  --in ./out/case_study_gate_overlay/paradox_edges_v0.jsonl \
+  --atoms ./out/case_study_gate_overlay/paradox_field_v0.json \
+  --type gate_overlay_tension \
+  --min-count 1
+
+```
+
+```text
+
+```
+
+
+---
+
+### Evidence (atoms)
+- gate_flip atom_id: `<gate_flip_atom_id>`
+- overlay_change atom_id: `<overlay_change_atom_id>`
+- gate_overlay_tension atom_id: `<gate_overlay_tension_atom_id>`
+  - gate_atom_id: `<gate_flip_atom_id>`
+  - overlay_atom_id: `<overlay_change_atom_id>`
+
+### Evidence (edges)
+- edge_id: `<edge_id>`
+- type: `gate_overlay_tension`
+- src_atom_id: `<gate_flip_atom_id>`
+- dst_atom_id: `<overlay_change_atom_id>`
+- rule: `<rule>`
+
+### Why it helped
+- Downstream-friendly: quickly surfaces “gate flip + overlay drift” co-occurrence without re-diffing runs.
+- Evidence-first: edge is only a proven co-occurrence in the same run-pair drift output (no explanation/causality).
+
+### Follow-up
+- Add 1–2 real (non-fixture) case studies before deeper “content enrichment” (C.4).
