@@ -392,8 +392,14 @@ def main() -> None:
                     "title": title,
                     "refs": {"gates": [], "metrics": [], "overlays": [str(overlay_name)]},
                     "evidence": {
-                        "source": {"overlay_drift_json": os.path.basename(t["overlay_json"])},
-                        "overlay": {
+                        "source": {
+                            "overlay_drift_json": os.path.basename(t["overlay_json"]),
+                            "overlay_name": str(overlay_name),
+                            "json_pointer": f"/{str(overlay_name)}",
+                            "json_pointer_top_level_diff": f"/{str(overlay_name)}/top_level_diff",
+                         }, 
+                          
+                       "overlay": {
                             "name": str(overlay_name),
                             "present_a": bool(overlay_block.get("present_a")),
                             "present_b": bool(overlay_block.get("present_b")),
