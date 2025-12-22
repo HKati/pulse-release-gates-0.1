@@ -1,4 +1,3 @@
-
 #!/usr/bin/env python3
 """
 paradox_field_adapter_v0 — stdlib-only generator for paradox_field_v0.json.
@@ -258,7 +257,7 @@ def main() -> None:
         b_id_ctx = run_b_sha1 or ctx
 
         # ---- Gate flips -> gate_flip atoms
-        for row in t["gate_rows"]:
+        for row_index, row in enumerate(t["gate_rows"]):
             flip = str(row.get("flip", "")).strip().lower()
             if flip not in ("1", "true"):
                 continue
@@ -278,7 +277,11 @@ def main() -> None:
                 "title": title,
                 "refs": {"gates": [gate_id], "metrics": [], "overlays": []},
                 "evidence": {
-                    "source": {"gate_drift_csv": os.path.basename(t["gate_csv"])},
+                    # Provenance pointers for audit/triage (C.4)
+                    "source": {
+                        "gate_drift_csv": os.path.basename(t["gate_csv"]),
+                        "row_index": int(row_index),
+                    },
                     "gate": {
                         "gate_id": gate_id,
                         "group": row.get("group", "") or "",
@@ -303,8 +306,10 @@ def main() -> None:
             gate_atoms_by_gate_id[gate_id] = atom
 
         # ---- Metric deltas -> metric_delta atoms (top N by |delta|)
-        metric_candidates: List[Tuple[str, Optional[float], Optional[float], float, Optional[float], str, str]] = []
-        for row in t["metric_rows"]:
+        metric_candidates: List[
+            Tuple[str, Optional[float], Optional[float], float, Optional[float], str, str, int]
+        ] = []
+        for row_index, row in enumerate(t["metric_rows"]):
             metric = str(row.get("metric", "")).strip()
             if not metric:
                 continue
@@ -318,11 +323,13 @@ def main() -> None:
             rel_delta = _safe_float(row.get("rel_delta"))
             present_a = str(row.get("present_a", "")).strip()
             present_b = str(row.get("present_b", "")).strip()
-            metric_candidates.append((metric, a_val, b_val, delta, rel_delta, present_a, present_b))
+            metric_candidates.append((metric, a_val, b_val, delta, rel_delta, present_a, present_b, int(row_index)))
 
         metric_candidates.sort(key=lambda x: abs(x[3]), reverse=True)
 
-        for metric, a_val, b_val, delta, rel_delta, present_a, present_b in metric_candidates[:MAX_METRIC_ATOMS]:
+        for metric, a_val, b_val, delta, rel_delta, present_a, present_b, row_index in metric_candidates[
+            :MAX_METRIC_ATOMS
+        ]:
             severity = _metric_severity(delta, rel_delta)
             title = f"Metric drift: {metric} Δ={delta}"
 
@@ -333,7 +340,11 @@ def main() -> None:
                 "title": title,
                 "refs": {"gates": [], "metrics": [metric], "overlays": []},
                 "evidence": {
-                    "source": {"metric_drift_csv": os.path.basename(t["metric_csv"])},
+                    # Provenance pointers for audit/triage (C.4)
+                    "source": {
+                        "metric_drift_csv": os.path.basename(t["metric_csv"]),
+                        "row_index": int(row_index),
+                    },
                     "metric": {
                         "name": metric,
                         "a": a_val if a_val is not None else "",
@@ -484,9 +495,7 @@ def main() -> None:
 
         # ---- gate_overlay_tension atoms (gate_flip × overlay_change; allowlisted overlays)
         gate_overlay_tensions = 0
-        overlay_names_sorted = sorted(
-            [n for n in overlay_atoms_by_name.keys() if n in OVERLAY_TENSION_ALLOWLIST]
-        )
+        overlay_names_sorted = sorted([n for n in overlay_atoms_by_name.keys() if n in OVERLAY_TENSION_ALLOWLIST])
 
         for gid in gate_ids_sorted:
             g_atom = gate_atoms_by_gate_id.get(gid)
@@ -572,3 +581,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
