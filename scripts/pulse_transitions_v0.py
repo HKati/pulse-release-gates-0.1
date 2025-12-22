@@ -12,7 +12,7 @@ Inputs:
   --b PATH   Run B directory OR a direct status.json path
   --out DIR  Output directory
 
-Optional overlays (if present in the run dirs or near status file paths):
+Optional overlays (if present in the run dirs OR alongside status paths OR repo root):
   - g_field_v0.json         (the "Grail" surface / G-field)
   - paradox_field_v0.json   (paradox field / paradox diagram surface)
 
@@ -127,29 +127,25 @@ def _locate_input(path_or_dir: str, candidates: List[str]) -> str:
 
 def _locate_optional(path_or_dir: str, candidates: List[str]) -> Optional[str]:
     """
-    Optional overlay locator.
+    Best-effort overlay locator.
 
-    If input is a dir: search inside it.
-    If input is a file (status path): search next to the file, then walk up a few parents,
-    then fall back to CWD (repo root in common usage).
+    If user passed a file (status path), search:
+      1) alongside that file (dirname)
+      2) repo working dir (os.getcwd()) as fallback
+
+    If user passed a directory, search within that directory.
     """
+    if os.path.isfile(path_or_dir):
+        base_dir = os.path.dirname(os.path.abspath(path_or_dir))
+        found = _find_first_existing(base_dir, candidates)
+        if found:
+            return found
+        return _find_first_existing(os.getcwd(), candidates)
+
     if os.path.isdir(path_or_dir):
         return _find_first_existing(path_or_dir, candidates)
 
-    if os.path.isfile(path_or_dir):
-        base = os.path.dirname(os.path.abspath(path_or_dir))
-        for _ in range(6):
-            found = _find_first_existing(base, candidates)
-            if found:
-                return found
-            parent = os.path.dirname(base)
-            if parent == base:
-                break
-            base = parent
-        return _find_first_existing(os.getcwd(), candidates)
-
     return None
-
 
 
 def _pick(d: Dict[str, Any], keys: List[str]) -> Optional[Any]:
@@ -170,7 +166,7 @@ class RunInfo:
 
 def _extract_run_meta(status: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Best-effort. We keep this permissive because the repo evolves.
+    Best-effort. Keep permissive because repo evolves.
     """
     meta: Dict[str, Any] = {}
     top_meta = status.get("meta") if isinstance(status.get("meta"), dict) else {}
@@ -191,23 +187,26 @@ def _extract_run_meta(status: Dict[str, Any]) -> Dict[str, Any]:
 def _normalize_gate_value(v: Any) -> Tuple[Optional[bool], Optional[float], Optional[str]]:
     """
     Returns: (pass_bool, numeric_value, notes)
+
     Supports:
       - bool gates
-      - dict gates with status/pass/ok/value/reason
+      - dict gates with status/pass/ok/value/reason/note(s)
       - numeric 0/1 as pass if unambiguous
     """
     if isinstance(v, bool):
         return v, None, None
 
     if isinstance(v, (int, float)) and not isinstance(v, bool):
+        # interpret strictly only if it's exactly 0/1
         if v == 0:
             return False, float(v), None
         if v == 1:
             return True, float(v), None
+        # otherwise numeric but unknown pass semantics
         return None, float(v), None
 
-        if isinstance(v, dict):
-        # common shape: {"group":"...","status":"PASS|FAIL"}
+    if isinstance(v, dict):
+        # common shape: {"group":"safety","status":"PASS"} or {"status":"FAIL"}
         pass_bool: Optional[bool] = None
 
         st = v.get("status")
@@ -218,6 +217,7 @@ def _normalize_gate_value(v: Any) -> Tuple[Optional[bool], Optional[float], Opti
             elif s in ("FAIL", "BLOCK", "BLOCKED", "DENY", "DENIED", "FALSE"):
                 pass_bool = False
 
+        # fallback: explicit boolean flags
         if pass_bool is None:
             p = v.get("pass")
             if p is None:
@@ -229,6 +229,7 @@ def _normalize_gate_value(v: Any) -> Tuple[Optional[bool], Optional[float], Opti
         notes = v.get("reason") or v.get("note") or v.get("notes")
         return pass_bool, num, notes if isinstance(notes, str) else None
 
+    return None, _safe_float(v), None
 
 
 def _dict_top_level_diff(a: Any, b: Any) -> Dict[str, Any]:
@@ -269,6 +270,9 @@ def _dict_top_level_diff(a: Any, b: Any) -> Dict[str, Any]:
 
 
 def _paradox_summary(obj: Any) -> Dict[str, Any]:
+    """
+    Best-effort extraction of paradox candidates/disagreements without hard schema assumptions.
+    """
     if not isinstance(obj, dict):
         return {"note": "non-dict paradox overlay"}
 
@@ -281,7 +285,7 @@ def _paradox_summary(obj: Any) -> Dict[str, Any]:
     if candidates is None:
         return {"note": "no obvious candidates list", "top_level_keys": sorted(obj.keys())}
 
-    ids = []
+    ids: List[str] = []
     for it in candidates:
         if isinstance(it, dict):
             gid = it.get("gate_id") or it.get("id") or it.get("gate")
@@ -321,6 +325,7 @@ def main() -> None:
     out_dir = args.out
     _mkdirp(out_dir)
 
+    # Locate required status.json for each run
     status_a_path = _locate_input(args.a, STATUS_CANDIDATES)
     status_b_path = _locate_input(args.b, STATUS_CANDIDATES)
 
@@ -355,7 +360,7 @@ def main() -> None:
         meta=_extract_run_meta(status_b),
     )
 
-    # Gate drift
+    # Gate drift rows
     all_gate_ids = sorted(set(gates_a.keys()) | set(gates_b.keys()))
     gate_rows: List[Dict[str, Any]] = []
     flips = 0
@@ -370,16 +375,15 @@ def main() -> None:
         group_a = va.get("group") if isinstance(va, dict) else ""
         group_b = vb.get("group") if isinstance(vb, dict) else ""
 
-        st_a = va.get("status") if isinstance(va, dict) else None
-        st_b = vb.get("status") if isinstance(vb, dict) else None
-        status_a = st_a if isinstance(st_a, str) else ("PASS" if pa is True else "FAIL" if pa is False else "")
-        status_b = st_b if isinstance(st_b, str) else ("PASS" if pb is True else "FAIL" if pb is False else "")
+        status_a = va.get("status") if isinstance(va, dict) else ("PASS" if pa is True else "FAIL" if pa is False else "")
+        status_b = vb.get("status") if isinstance(vb, dict) else ("PASS" if pb is True else "FAIL" if pb is False else "")
 
         changed = 0
         if pa is not None and pb is not None and pa != pb:
             changed = 1
             flips += 1
 
+        # thresholds might be keyed by gate id or by metric key; best effort:
         th_a = thresholds_a.get(gid)
         th_b = thresholds_b.get(gid)
         th = th_b if th_b is not None else th_a
@@ -416,7 +420,7 @@ def main() -> None:
         rows=gate_rows,
     )
 
-    # Metric drift
+    # Metric drift rows (numeric + also record non-numeric changes in JSON summary)
     all_metric_keys = sorted(set(metrics_a.keys()) | set(metrics_b.keys()))
     metric_rows: List[Dict[str, Any]] = []
     numeric_deltas: List[Tuple[str, float, float, float]] = []
@@ -466,6 +470,7 @@ def main() -> None:
         rows=metric_rows,
     )
 
+    # Sort top numeric metric deltas
     numeric_deltas.sort(key=lambda x: abs(x[3]), reverse=True)
     top_metric_moves = [
         {"metric": k, "a": a, "b": b, "delta": d}
@@ -480,6 +485,7 @@ def main() -> None:
 
     overlay_out: Dict[str, Any] = {}
 
+    # G-field overlay diff
     if g_a_path or g_b_path:
         g_obj_a = _read_json(g_a_path) if g_a_path else None
         g_obj_b = _read_json(g_b_path) if g_b_path else None
@@ -495,6 +501,7 @@ def main() -> None:
             else {},
         }
 
+    # Paradox field overlay diff
     if p_a_path or p_b_path:
         p_obj_a = _read_json(p_a_path) if p_a_path else None
         p_obj_b = _read_json(p_b_path) if p_b_path else None
@@ -516,6 +523,7 @@ def main() -> None:
     with open(overlay_json, "w", encoding="utf-8") as f:
         json.dump(overlay_out, f, indent=2, ensure_ascii=False, sort_keys=True)
 
+    # Master summary JSON
     summary = {
         "tool": "scripts/pulse_transitions_v0.py",
         "version": "v0",
@@ -569,3 +577,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
