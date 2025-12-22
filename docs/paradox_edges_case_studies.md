@@ -151,5 +151,33 @@ Add 1–2 real (non-fixture) case studies before any deeper “content enrichmen
 - Downstream-friendly: quickly surfaces “gate flip + overlay drift” co-occurrence without re-diffing runs.
 - Evidence-first: edge is only a proven co-occurrence in the same run-pair drift output (no explanation/causality).
 
+---
+
+## Case study — Fixture: gate_overlay_tension (v0)
+
+### Context
+- transitions-dir: `tests/fixtures/transitions_gate_overlay_tension_v0`
+- Goal: Verify deterministic “gate flip + overlay drift” co-occurrence export as edges.
+
+### Evidence (atoms)
+- gate_flip atom_id: `c2fe8b5a2a47`
+- overlay_change atom_id: `0d7beffd4d01`
+- gate_overlay_tension atom_id: `3d5daac129f5`
+  - gate_atom_id: `c2fe8b5a2a47`
+  - overlay_atom_id: `0d7beffd4d01`
+
+### Evidence (edges)
+- edge_id: `a5dacfcbfaf6dc62`
+- type: `gate_overlay_tension`
+- src_atom_id: `c2fe8b5a2a47`
+- dst_atom_id: `0d7beffd4d01`
+- rule: `gate_flip × overlay_change`
+
+### Why it helped
+- Downstream-friendly: quickly surfaces “gate flip + overlay drift” co-occurrence without re-diffing runs.
+- Evidence-first: edge is only a proven co-occurrence in the same run-pair drift output (no explanation/causality).
+
 ### Follow-up
 Add 1–2 real (non-fixture) case studies before deeper “content enrichment” (C.4).
+
+
