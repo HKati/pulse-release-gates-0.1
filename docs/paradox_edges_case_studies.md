@@ -180,4 +180,61 @@ Add 1–2 real (non-fixture) case studies before any deeper “content enrichmen
 ### Follow-up
 Add 1–2 real (non-fixture) case studies before deeper “content enrichment” (C.4).
 
+---
+
+## Case study — Synthetic e2e: runA vs runB (v0)
+
+### Context
+- runs: `out/case_study_e2e/runA` vs `out/case_study_e2e/runB`
+- transitions-dir: `out/case_study_real/transitions_A_vs_B`
+- Goal: Verify deterministic **edges = proven co-occurrences** (no new truth, no causality).
+
+### Evidence (atoms)
+- gate_flip atom_id: `45d1909d0a3b`
+  - gate_id: `quality_helpfulness` (`quality`)
+  - status: `PASS` → `FAIL`
+
+- metric_delta atom_id: `45ee159b769e`
+  - metric: `rdsi`
+  - delta: `-0.020000000000000018` (rel: `-0.02272727272727275`), severity: `warn`
+
+- overlay_change atom_id: `2ab8f560ea34`
+  - overlay: `g_field_v0`
+  - changed_keys_count: `1`
+  - changed_keys_sample: `['points']`
+
+- gate_metric_tension atom_id: `4d3d159e7623`
+  - gate_atom_id: `45d1909d0a3b`
+  - metric_atom_id: `45ee159b769e`
+
+- gate_overlay_tension atom_id: `495dddfbafb9`
+  - gate_atom_id: `45d1909d0a3b`
+  - overlay_atom_id: `2ab8f560ea34`
+
+### Evidence (edges)
+- edge_id: `2e819379f5071b99`
+  - type: `gate_metric_tension`
+  - src_atom_id: `45d1909d0a3b`
+  - dst_atom_id: `45ee159b769e`
+  - rule: `gate_flip × metric_delta(warn|crit)`
+
+- edge_id: `2a56e9f350e001d4`
+  - type: `gate_overlay_tension`
+  - src_atom_id: `45d1909d0a3b`
+  - dst_atom_id: `2ab8f560ea34`
+  - rule: `gate_flip × overlay_change`
+
+### Why it helped
+- Downstream-friendly index: consumers can traverse edges without re-diffing raw runs, while still linking back to concrete atoms/evidence.
+- Evidence-first stays intact: edges assert only **co-occurrence** in the same run-pair drift output (no explanation/causality).
+
+### Follow-up
+Add 1–2 real (non-fixture) case studies before any deeper “content enrichment” (C.4).
+
+### Codex run
+**Summary:** No code changes were necessary; the snippet above was generated from the synthetic e2e runs.  
+**Testing:** ✅ `python - <<'PY' ... PY`
+
+---
+::contentReference[oaicite:0]{index=0}
 
