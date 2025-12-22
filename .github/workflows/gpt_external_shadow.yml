@@ -37,7 +37,7 @@ jobs:
 
       - name: Upload GPT external detection overlay
         if: steps.check_log.outputs.found == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: gpt-external-detection
           path: PULSE_safe_pack_v0/artifacts/gpt_external_detection_v0.json

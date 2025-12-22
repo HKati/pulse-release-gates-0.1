@@ -76,7 +76,7 @@ jobs:
             --output PULSE_safe_pack_v0/artifacts/g_snapshot_report_v0.md
 
       - name: Upload G snapshot report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: g-snapshot-report
           path: PULSE_safe_pack_v0/artifacts/g_snapshot_report_v0.md
