@@ -1,3 +1,4 @@
+
 #!/usr/bin/env python3
 """
 paradox_field_adapter_v0 — stdlib-only generator for paradox_field_v0.json.
@@ -50,6 +51,28 @@ def _sha1_file(path: str) -> str:
 
 def _sha1_text(s: str) -> str:
     return hashlib.sha1(s.encode("utf-8")).hexdigest()
+
+
+def _build_run_context(meta: Dict[str, Any]) -> Dict[str, Any]:
+    # Only keep stable-ish identifiers/hashes; avoid paths.
+    ctx: Dict[str, Any] = {}
+
+    for k in [
+        "status_sha1",
+        "g_field_sha1",
+        "transitions_json_sha1",
+        "transitions_gate_csv_sha1",
+        "transitions_metric_csv_sha1",
+        "transitions_overlay_json_sha1",
+    ]:
+        v = meta.get(k)
+        if isinstance(v, str) and v.strip():
+            ctx[k] = v.strip()
+
+    parts = [f"{k}={ctx[k]}" for k in sorted(ctx.keys())]
+    ctx_id = _sha1_text("|".join(parts) if parts else "no_ctx")[:12]
+    ctx["run_pair_id"] = ctx_id
+    return ctx
 
 
 def _mkdirp_for_file(path: str) -> None:
@@ -562,6 +585,11 @@ def main() -> None:
             if gate_overlay_tensions >= MAX_GATE_OVERLAY_TENSIONS:
                 break
 
+    # ---- C4.2: optional run_context (stable fingerprint for downstream consumers)
+    run_context = _build_run_context(meta)
+    if len(run_context) > 1:
+        meta["run_context"] = run_context
+
     # Deterministic ordering (severity -> type -> atom_id)
     atoms.sort(
         key=lambda a: (
@@ -587,4 +615,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
