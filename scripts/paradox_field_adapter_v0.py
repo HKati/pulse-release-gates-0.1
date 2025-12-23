@@ -509,6 +509,8 @@ def main() -> None:
                     "refs": {"gates": [gid], "metrics": [metric_name], "overlays": []},
                     "evidence": {
                         "rule": "gate_flip × metric_delta(warn|crit)",
+                        "src_atom_id": gate_atom_id,
+                        "dst_atom_id": metric_atom_id,
                         "gate_atom_id": gate_atom_id,
                         "metric_atom_id": metric_atom_id,
                         # Optional summaries (downstream-friendly)
@@ -569,6 +571,8 @@ def main() -> None:
                     "refs": {"gates": [gid], "metrics": [], "overlays": [oname]},
                     "evidence": {
                         "rule": "gate_flip × overlay_change",
+                        "src_atom_id": gate_atom_id,
+                        "dst_atom_id": overlay_atom_id,
                         "gate_atom_id": gate_atom_id,
                         "overlay_atom_id": overlay_atom_id,
                         # Optional summaries (downstream-friendly)
