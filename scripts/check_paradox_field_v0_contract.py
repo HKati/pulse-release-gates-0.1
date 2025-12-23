@@ -1,4 +1,3 @@
-
 #!/usr/bin/env python3
 # scripts/check_paradox_field_v0_contract.py
 
@@ -192,10 +191,30 @@ def main() -> int:
         if typ == "gate_overlay_tension":
             gate_id = ev.get("gate_atom_id")
             over_id = ev.get("overlay_atom_id")
-            if not isinstance(gate_id, str) or not gate_id:
+            if not isinstance(gate_id, str) or not gate_id.strip():
                 die(f"{path}.evidence.gate_atom_id must be a non-empty string")
-            if not isinstance(over_id, str) or not over_id:
+            if not isinstance(over_id, str) or not over_id.strip():
                 die(f"{path}.evidence.overlay_atom_id must be a non-empty string")
+
+            # C4.3: Optional standard aliases (fail-closed when present)
+            src_id = ev.get("src_atom_id")
+            dst_id = ev.get("dst_atom_id")
+            if src_id is not None or dst_id is not None:
+                if not isinstance(src_id, str) or not src_id.strip():
+                    die(f"{path}.evidence.src_atom_id must be a non-empty string when present")
+                if not isinstance(dst_id, str) or not dst_id.strip():
+                    die(f"{path}.evidence.dst_atom_id must be a non-empty string when present")
+                if src_id != gate_id:
+                    die(
+                        f"{path} link mismatch: evidence.src_atom_id must match evidence.gate_atom_id "
+                        f"(got {src_id!r} vs {gate_id!r})"
+                    )
+                if dst_id != over_id:
+                    die(
+                        f"{path} link mismatch: evidence.dst_atom_id must match evidence.overlay_atom_id "
+                        f"(got {dst_id!r} vs {over_id!r})"
+                    )
+
             if gate_id not in id_to_atom:
                 die(f"{path} broken link: gate_atom_id {gate_id!r} not found")
             if over_id not in id_to_atom:
@@ -208,10 +227,30 @@ def main() -> int:
         if typ == "gate_metric_tension":
             gate_id = ev.get("gate_atom_id")
             met_id = ev.get("metric_atom_id")
-            if not isinstance(gate_id, str) or not gate_id:
+            if not isinstance(gate_id, str) or not gate_id.strip():
                 die(f"{path}.evidence.gate_atom_id must be a non-empty string")
-            if not isinstance(met_id, str) or not met_id:
+            if not isinstance(met_id, str) or not met_id.strip():
                 die(f"{path}.evidence.metric_atom_id must be a non-empty string")
+
+            # C4.3: Optional standard aliases (fail-closed when present)
+            src_id = ev.get("src_atom_id")
+            dst_id = ev.get("dst_atom_id")
+            if src_id is not None or dst_id is not None:
+                if not isinstance(src_id, str) or not src_id.strip():
+                    die(f"{path}.evidence.src_atom_id must be a non-empty string when present")
+                if not isinstance(dst_id, str) or not dst_id.strip():
+                    die(f"{path}.evidence.dst_atom_id must be a non-empty string when present")
+                if src_id != gate_id:
+                    die(
+                        f"{path} link mismatch: evidence.src_atom_id must match evidence.gate_atom_id "
+                        f"(got {src_id!r} vs {gate_id!r})"
+                    )
+                if dst_id != met_id:
+                    die(
+                        f"{path} link mismatch: evidence.dst_atom_id must match evidence.metric_atom_id "
+                        f"(got {dst_id!r} vs {met_id!r})"
+                    )
+
             if gate_id not in id_to_atom:
                 die(f"{path} broken link: gate_atom_id {gate_id!r} not found")
             if met_id not in id_to_atom:
@@ -231,3 +270,4 @@ if __name__ == "__main__":
     except BrokenPipeError:
         # allow piping into head, etc.
         sys.exit(0)
+
