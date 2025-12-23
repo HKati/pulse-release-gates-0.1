@@ -1,3 +1,4 @@
+
 #!/usr/bin/env python3
 # scripts/check_paradox_field_v0_contract.py
 
@@ -124,6 +125,19 @@ def main() -> int:
     if "paradox_field_v0" in root and isinstance(root.get("paradox_field_v0"), dict):
         root = as_dict(root.get("paradox_field_v0"), "$.paradox_field_v0")
 
+    # C4.2: Optional run_context checks (non-breaking, fail-closed if present)
+    meta_any = root.get("meta")
+    if meta_any is not None:
+        meta = as_dict(meta_any, "$.meta")
+        rc_any = meta.get("run_context")
+        if rc_any is not None:
+            rc = as_dict(rc_any, "$.meta.run_context")
+            for k, v in rc.items():
+                if not isinstance(k, str) or not k.strip():
+                    die("$.meta.run_context keys must be non-empty strings")
+                if not isinstance(v, str) or not v.strip():
+                    die(f"$.meta.run_context.{k} must be a non-empty string")
+
     atoms_any = root.get("atoms")
     if atoms_any is None:
         die("$.atoms is missing")
@@ -217,4 +231,3 @@ if __name__ == "__main__":
     except BrokenPipeError:
         # allow piping into head, etc.
         sys.exit(0)
-
