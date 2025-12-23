@@ -1,106 +1,138 @@
-
-# ✅ FILE TO REPLACE (copy-paste the whole file)
-# Path: scripts/check_paradox_edges_v0_contract.py
-
-```python
 #!/usr/bin/env python3
 """
-check_paradox_edges_v0_contract.py — fail-closed contract check for paradox_edges_v0.jsonl
+check_paradox_edges_v0_contract.py — fail-closed contract checker for paradox_edges_v0.jsonl.
 
-Goals (v0):
-- Validate JSONL format (each line is a JSON object)
-- Required fields exist with correct types
-- edge_id is unique
-- Deterministic ordering (accept either):
-  A) severity (crit>warn>info) -> type -> edge_id
-  B) type -> edge_id
-- If --atoms is provided: validate links and expected atom types:
-  - gate_metric_tension edge: src=gate_flip, dst=metric_delta, tension_atom_id=gate_metric_tension
-  - gate_overlay_tension edge: src=gate_flip, dst=overlay_change, tension_atom_id=gate_overlay_tension
+This validator is for the *edges* layer (JSONL), and optionally checks link integrity
+against paradox_field_v0.json (atoms).
+
+Why this exists:
+- docs + CI reference `paradox_edges_v0.jsonl`
+- edges are JSONL (1 JSON object per line), not a single JSON object
+- we must preserve:
+  - JSONL parsing robustness
+  - deterministic ordering checks
+  - uniqueness checks
+  - link/type validation against atoms when `--atoms` is provided
+
+Usage:
+  python scripts/check_paradox_edges_v0_contract.py --in out/paradox_edges_v0.jsonl --atoms out/paradox_field_v0.json
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 
-SEVERITY_ORDER: Dict[str, int] = {"crit": 0, "warn": 1, "info": 2}
-ALLOWED_SEVERITIES = set(SEVERITY_ORDER.keys())
+SEVERITY_ORDER = {"crit": 0, "warn": 1, "info": 2}
 
-# Known edge types and expected atom types (src, dst, tension)
-EDGE_EXPECTATIONS: Dict[str, Tuple[str, str, str]] = {
-    "gate_metric_tension": ("gate_flip", "metric_delta", "gate_metric_tension"),
-    "gate_overlay_tension": ("gate_flip", "overlay_change", "gate_overlay_tension"),
+# v0 edge types and their expected atom link types
+EDGE_TYPE_SPECS: Dict[str, Dict[str, str]] = {
+    "gate_metric_tension": {
+        "src_atom_type": "gate_flip",
+        "dst_atom_type": "metric_delta",
+        "tension_atom_type": "gate_metric_tension",
+    },
+    "gate_overlay_tension": {
+        "src_atom_type": "gate_flip",
+        "dst_atom_type": "overlay_change",
+        "tension_atom_type": "gate_overlay_tension",
+    },
 }
 
 
-def die(msg: str) -> None:
+def die(msg: str, code: int = 2) -> None:
     raise SystemExit(f"[edges-contract] {msg}")
 
 
-def req_str(d: Dict[str, Any], key: str, path: str) -> str:
-    v = d.get(key)
-    if not isinstance(v, str) or not v.strip():
-        die(f"{path}.{key} must be a non-empty string")
-    return v
-
-
-def req_dict(d: Dict[str, Any], key: str, path: str) -> Dict[str, Any]:
-    v = d.get(key)
-    if not isinstance(v, dict):
-        die(f"{path}.{key} must be an object/dict")
-    return v
-
-
-def severity_rank(sev: str) -> int:
-    if sev not in SEVERITY_ORDER:
-        die(f"severity must be one of {sorted(ALLOWED_SEVERITIES)} (got {sev!r})")
-    return SEVERITY_ORDER[sev]
-
-
-def check_sorted_non_decreasing(keys: List[Tuple[Any, ...]]) -> bool:
-    for i in range(1, len(keys)):
-        if keys[i - 1] > keys[i]:
-            return False
-    return True
-
-
-def load_atoms_map(atoms_path: str) -> Dict[str, str]:
+def _is_hex(s: Any, n: int) -> bool:
+    if not isinstance(s, str) or len(s) != n:
+        return False
     try:
-        with open(atoms_path, "r", encoding="utf-8") as f:
-            data = json.load(f)
-    except FileNotFoundError:
-        die(f"--atoms file not found: {atoms_path}")
-    except json.JSONDecodeError as e:
-        die(f"--atoms invalid JSON: {e}")
+        int(s, 16)
+        return True
+    except Exception:
+        return False
 
-    if not isinstance(data, dict):
-        die("--atoms root must be an object/dict")
 
-    root = data.get("paradox_field_v0") if isinstance(data.get("paradox_field_v0"), dict) else data
-    atoms = root.get("atoms")
+def _severity_rank(label: Any) -> int:
+    if not isinstance(label, str):
+        return 99
+    return SEVERITY_ORDER.get(label.strip(), 99)
+
+
+def _read_json(path: str) -> Any:
+    with open(path, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def _load_atoms(atoms_path: str) -> Dict[str, Dict[str, Any]]:
+    if not atoms_path:
+        return {}
+    if not os.path.isfile(atoms_path):
+        die(f"--atoms not found: {atoms_path}")
+
+    obj = _read_json(atoms_path)
+    root = obj.get("paradox_field_v0", obj) if isinstance(obj, dict) else {}
+    atoms = root.get("atoms", []) if isinstance(root, dict) else []
     if not isinstance(atoms, list):
-        die("--atoms: missing or invalid atoms list")
+        die(f"atoms file malformed: expected list at paradox_field_v0.atoms: {atoms_path}")
 
-    m: Dict[str, str] = {}
+    by_id: Dict[str, Dict[str, Any]] = {}
     for i, a in enumerate(atoms):
         if not isinstance(a, dict):
-            die(f"--atoms: atoms[{i}] must be an object/dict")
+            continue
         aid = a.get("atom_id")
-        typ = a.get("type")
-        if not isinstance(aid, str) or not aid:
-            die(f"--atoms: atoms[{i}].atom_id must be a non-empty string")
-        if not isinstance(typ, str) or not typ:
-            die(f"--atoms: atoms[{i}].type must be a non-empty string")
-        m[aid] = typ
-    return m
+        atype = a.get("type")
+        if not isinstance(aid, str) or not aid.strip():
+            continue
+        if not isinstance(atype, str) or not atype.strip():
+            continue
+        # last wins, but should be unique anyway
+        by_id[aid] = a
+    return by_id
+
+
+def _edge_key(edge: Dict[str, Any]) -> Tuple[int, str, str]:
+    sev = _severity_rank(edge.get("severity"))
+    et = edge.get("type")
+    eid = edge.get("edge_id")
+    return (sev, str(et or ""), str(eid or ""))
+
+
+def _validate_run_context(run_ctx: Any, line_no: int) -> None:
+    if run_ctx is None:
+        return
+    if not isinstance(run_ctx, dict):
+        die(f"line {line_no}: run_context must be an object if present")
+
+    # Optional but if present must be strings; sha1s should look like sha1.
+    def _opt_sha1(k: str) -> None:
+        v = run_ctx.get(k)
+        if v is None:
+            return
+        if not isinstance(v, str) or not _is_hex(v, 40):
+            die(f"line {line_no}: run_context.{k} must be a 40-hex sha1 if present")
+
+    def _opt_str(k: str) -> None:
+        v = run_ctx.get(k)
+        if v is None:
+            return
+        if not isinstance(v, str) or not v.strip():
+            die(f"line {line_no}: run_context.{k} must be a non-empty string if present")
+
+    _opt_str("run_pair_id")
+    _opt_sha1("transitions_gate_csv_sha1")
+    _opt_sha1("transitions_metric_csv_sha1")
+    _opt_sha1("transitions_overlay_json_sha1")
+    _opt_sha1("transitions_json_sha1")
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="Contract check for paradox_edges_v0.jsonl")
+    ap = argparse.ArgumentParser(description="Contract check for paradox_edges_v0.jsonl (JSONL).")
     ap.add_argument("--in", dest="in_path", required=True, help="Path to paradox_edges_v0.jsonl")
     ap.add_argument(
         "--atoms",
@@ -110,97 +142,120 @@ def main() -> int:
     )
     args = ap.parse_args()
 
-    atoms_type_by_id: Dict[str, str] = {}
-    if args.atoms_path:
-        atoms_type_by_id = load_atoms_map(args.atoms_path)
-
-    try:
-        with open(args.in_path, "r", encoding="utf-8") as f:
-            lines = f.read().splitlines()
-    except FileNotFoundError:
+    if not os.path.isfile(args.in_path):
         die(f"file not found: {args.in_path}")
 
-    edges: List[Dict[str, Any]] = []
-    for ln, line in enumerate(lines, start=1):
-        if not line.strip():
-            continue
-        try:
-            obj = json.loads(line)
-        except json.JSONDecodeError as e:
-            die(f"{args.in_path}:{ln} invalid JSON: {e}")
-        if not isinstance(obj, dict):
-            die(f"{args.in_path}:{ln} must be a JSON object/dict per line")
-        edges.append(obj)
-
-    if not edges:
-        die("edges file is empty (expected >= 1 edge)")
+    atoms_by_id = _load_atoms(args.atoms_path) if args.atoms_path else {}
 
     seen_edge_ids = set()
-    keys_sev: List[Tuple[int, str, str]] = []
-    keys_type: List[Tuple[str, str]] = []
+    prev_key: Optional[Tuple[int, str, str]] = None
+    edges_count = 0
 
-    for i, e in enumerate(edges):
-        path = f"edges[{i}]"
+    with open(args.in_path, "r", encoding="utf-8") as f:
+        for line_no, raw in enumerate(f, start=1):
+            line = raw.strip()
+            if not line:
+                continue
 
-        eid = req_str(e, "edge_id", path)
-        if eid in seen_edge_ids:
-            die(f"duplicate edge_id: {eid!r}")
-        seen_edge_ids.add(eid)
+            try:
+                edge = json.loads(line)
+            except Exception as e:
+                die(f"line {line_no}: invalid JSONL (json decode error): {e}")
 
-        etype = req_str(e, "type", path)
-        sev = req_str(e, "severity", path)
-        srank = severity_rank(sev)
+            if not isinstance(edge, dict):
+                die(f"line {line_no}: edge must be a JSON object")
 
-        src = req_str(e, "src_atom_id", path)
-        dst = req_str(e, "dst_atom_id", path)
-        _ = req_str(e, "rule", path)
+            # ---- Required fields
+            edge_id = edge.get("edge_id")
+            edge_type = edge.get("type")
+            src_atom_id = edge.get("src_atom_id")
+            dst_atom_id = edge.get("dst_atom_id")
+            severity = edge.get("severity")
+            rule = edge.get("rule")
 
-        # tension_atom_id is required for tension edges
-        tension_id = req_str(e, "tension_atom_id", path)
+            if not isinstance(edge_id, str) or not _is_hex(edge_id, 16):
+                die(f"line {line_no}: edge_id must be 16-hex string")
 
-        keys_sev.append((srank, etype, eid))
-        keys_type.append((etype, eid))
+            if edge_id in seen_edge_ids:
+                die(f"line {line_no}: duplicate edge_id: {edge_id}")
+            seen_edge_ids.add(edge_id)
 
-        # Link/type validation if atoms map provided
-        if atoms_type_by_id:
-            if src not in atoms_type_by_id:
-                die(f"{path} broken link: src_atom_id {src!r} not found in atoms")
-            if dst not in atoms_type_by_id:
-                die(f"{path} broken link: dst_atom_id {dst!r} not found in atoms")
-            if tension_id not in atoms_type_by_id:
-                die(f"{path} broken link: tension_atom_id {tension_id!r} not found in atoms")
+            if not isinstance(edge_type, str) or not edge_type.strip():
+                die(f"line {line_no}: type must be a non-empty string")
 
-            # Enforce known edge type expectations
-            exp = EDGE_EXPECTATIONS.get(etype)
-            if exp is not None:
-                exp_src, exp_dst, exp_tension = exp
-                if atoms_type_by_id[src] != exp_src:
+            if edge_type not in EDGE_TYPE_SPECS:
+                die(f"line {line_no}: unknown edge type '{edge_type}' (v0 allowlist: {sorted(EDGE_TYPE_SPECS)})")
+
+            if not isinstance(src_atom_id, str) or not src_atom_id.strip():
+                die(f"line {line_no}: src_atom_id must be a non-empty string")
+
+            if not isinstance(dst_atom_id, str) or not dst_atom_id.strip():
+                die(f"line {line_no}: dst_atom_id must be a non-empty string")
+
+            if not isinstance(severity, str) or severity not in SEVERITY_ORDER:
+                die(f"line {line_no}: severity must be one of {sorted(SEVERITY_ORDER)}")
+
+            if not isinstance(rule, str) or not rule.strip():
+                die(f"line {line_no}: rule must be a non-empty string")
+
+            # ---- Optional but strongly expected for tension edges
+            tension_atom_id = edge.get("tension_atom_id")
+            if tension_atom_id is None:
+                die(f"line {line_no}: missing tension_atom_id (required for v0 tension edges)")
+            if not isinstance(tension_atom_id, str) or not _is_hex(tension_atom_id, 12):
+                die(f"line {line_no}: tension_atom_id must be 12-hex string")
+
+            # ---- Deterministic ordering
+            k = _edge_key(edge)
+            if prev_key is not None and k < prev_key:
+                die(
+                    f"line {line_no}: edges not in deterministic order "
+                    f"(expected non-decreasing by (severity,type,edge_id)); got {k} after {prev_key}"
+                )
+            prev_key = k
+
+            # ---- Optional run_context validation
+            _validate_run_context(edge.get("run_context"), line_no)
+
+            # ---- Link/type validation against atoms (if provided)
+            if atoms_by_id:
+                spec = EDGE_TYPE_SPECS[edge_type]
+
+                def _must_atom(aid: str, what: str) -> Dict[str, Any]:
+                    a = atoms_by_id.get(aid)
+                    if not isinstance(a, dict):
+                        die(f"line {line_no}: {what} atom_id not found in atoms: {aid}")
+                    return a
+
+                src_atom = _must_atom(src_atom_id, "src")
+                dst_atom = _must_atom(dst_atom_id, "dst")
+                tens_atom = _must_atom(tension_atom_id, "tension")
+
+                src_type = src_atom.get("type")
+                dst_type = dst_atom.get("type")
+                tens_type = tens_atom.get("type")
+
+                if src_type != spec["src_atom_type"]:
                     die(
-                        f"{path} type mismatch: src_atom_id must be {exp_src!r} "
-                        f"(got {atoms_type_by_id[src]!r})"
-                    )
-                if atoms_type_by_id[dst] != exp_dst:
-                    die(
-                        f"{path} type mismatch: dst_atom_id must be {exp_dst!r} "
-                        f"(got {atoms_type_by_id[dst]!r})"
-                    )
-                if atoms_type_by_id[tension_id] != exp_tension:
-                    die(
-                        f"{path} type mismatch: tension_atom_id must be {exp_tension!r} "
-                        f"(got {atoms_type_by_id[tension_id]!r})"
+                        f"line {line_no}: src_atom_id type mismatch for '{edge_type}': "
+                        f"expected '{spec['src_atom_type']}', got '{src_type}'"
                     )
 
-    # Deterministic ordering: accept either scheme A or B (fail-closed if neither)
-    ok_a = check_sorted_non_decreasing(keys_sev)
-    ok_b = check_sorted_non_decreasing(keys_type)
-    if not (ok_a or ok_b):
-        die(
-            "edges are not deterministically ordered. Expected either:\n"
-            "A) severity (crit>warn>info) -> type -> edge_id\n"
-            "B) type -> edge_id"
-        )
+                if dst_type != spec["dst_atom_type"]:
+                    die(
+                        f"line {line_no}: dst_atom_id type mismatch for '{edge_type}': "
+                        f"expected '{spec['dst_atom_type']}', got '{dst_type}'"
+                    )
 
-    print("[edges-contract] OK")
+                if tens_type != spec["tension_atom_type"]:
+                    die(
+                        f"line {line_no}: tension_atom_id type mismatch for '{edge_type}': "
+                        f"expected '{spec['tension_atom_type']}', got '{tens_type}'"
+                    )
+
+            edges_count += 1
+
+    print(f"[edges-contract] OK (edges={edges_count})")
     return 0
 
 
@@ -208,4 +263,6 @@ if __name__ == "__main__":
     try:
         raise SystemExit(main())
     except BrokenPipeError:
-        sys.exit(0)
+        # allow piping to head etc.
+        raise SystemExit(0)
+
