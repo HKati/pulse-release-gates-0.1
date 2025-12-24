@@ -1,0 +1,21 @@
+{
+  "paradox_field_v0": {
+    "path_a": "artifacts/paradox_field_v0.json",
+    "path_b": "artifacts/paradox_field_v0.json",
+    "present_a": true,
+    "present_b": true,
+    "sha1_a": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "sha1_b": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "top_level_diff": {
+      "added_keys": [
+        "meta.run_context"
+      ],
+      "changed_keys": [
+        "meta.contract.metric_thresholds.abs_warn",
+        "meta.contract.metric_thresholds.abs_crit"
+      ],
+      "note": "Example: thresholds tuned",
+      "removed_keys": []
+    }
+  }
+}
