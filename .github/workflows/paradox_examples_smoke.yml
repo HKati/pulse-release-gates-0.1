@@ -19,17 +19,10 @@ jobs:
   docs_examples_smoke:
     runs-on: ubuntu-latest
     steps:
-      # IMPORTANT: On pull_request events, explicitly check out PR HEAD,
-      # not an implicit merge commit / stale SHA.
-      - name: Checkout (PR head)
-        if: ${{ github.event_name == 'pull_request' }}
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
-          fetch-depth: 0
-
-      - name: Checkout (push)
-        if: ${{ github.event_name != 'pull_request' }}
+      # Default checkout:
+      # - pull_request: checks out refs/pull/<id>/merge (merged result)
+      # - push: checks out the pushed commit
+      - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
@@ -44,8 +37,11 @@ jobs:
         run: |
           set -euo pipefail
           echo "event_name: ${{ github.event_name }}"
+          echo "github.ref:  ${{ github.ref }}"
           echo "github.sha:  ${{ github.sha }}"
           echo "HEAD:        $(git rev-parse HEAD)"
+          echo "PR head sha: ${{ github.event.pull_request.head.sha }}"
+          echo "PR base sha: ${{ github.event.pull_request.base.sha }}"
           echo ""
           echo "Listing docs/examples/transitions_case_study_v0:"
           ls -la docs/examples/transitions_case_study_v0
