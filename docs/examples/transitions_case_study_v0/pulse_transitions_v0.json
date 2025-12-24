@@ -1,0 +1,9 @@
+{
+  "note": "Docs example run-pair for paradox_field_v0 / paradox_edges_v0",
+  "run_a": {
+    "status_sha1": "1111111111111111111111111111111111111111"
+  },
+  "run_b": {
+    "status_sha1": "2222222222222222222222222222222222222222"
+  }
+}
