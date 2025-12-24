@@ -165,6 +165,37 @@ Add 1–2 real (non-fixture) case studies before deeper “content enrichment”
 ### Follow-up
 Add 1–2 real (non-fixture) case studies before any deeper “content enrichment” (C.4).
 
+---
+
+## Non-fixture example (repo-local inputs)
+
+This example is reproducible from repo-local inputs under:
+
+- `docs/examples/transitions_case_study_v0/`
+
+See also:
+- `docs/examples/transitions_case_study_v0/README.md`
+
+### Reproduce (field → edges → checks)
+
+```bash
+mkdir -p out
+
+python scripts/paradox_field_adapter_v0.py \
+  --transitions-dir docs/examples/transitions_case_study_v0 \
+  --out out/paradox_field_v0.json
+
+python scripts/check_paradox_field_v0_contract.py --in out/paradox_field_v0.json
+
+python scripts/export_paradox_edges_v0.py \
+  --in out/paradox_field_v0.json \
+  --out out/paradox_edges_v0.jsonl
+
+python scripts/check_paradox_edges_v0_contract.py --in out/paradox_edges_v0.jsonl
+python scripts/check_paradox_edges_v0_acceptance_v0.py --in out/paradox_edges_v0.jsonl
+
+
+
 
 
 
