@@ -93,9 +93,43 @@ def _edge_id(edge_type: str, src: str, dst: str, tension_atom_id: str, ctx_id: s
 
 
 def _build_run_context(meta: Dict[str, Any]) -> Dict[str, Any]:
-    # Only keep stable-ish identifiers/hashes; avoid paths.
-    ctx: Dict[str, Any] = {}
+    """
+    Prefer meta.run_context when present (field adapter emits it),
+    otherwise fall back to deriving it from stable sha1 keys in meta.
 
+    Keep only stable-ish identifiers/hashes; avoid paths.
+    """
+    allowed_keys = {
+        "run_pair_id",
+        "status_sha1",
+        "g_field_sha1",
+        "transitions_json_sha1",
+        "transitions_gate_csv_sha1",
+        "transitions_metric_csv_sha1",
+        "transitions_overlay_json_sha1",
+    }
+
+    # 1) Prefer meta.run_context (if present)
+    rc_any = meta.get("run_context")
+    if isinstance(rc_any, dict):
+        ctx: Dict[str, Any] = {}
+        for k, v in rc_any.items():
+            if k in allowed_keys and isinstance(v, str) and v.strip():
+                ctx[str(k)] = v.strip()
+
+        # If run_pair_id is present and valid, trust it
+        rpid = ctx.get("run_pair_id")
+        if isinstance(rpid, str) and rpid.strip():
+            return ctx
+
+        # Else, deterministically derive it from remaining keys
+        parts = [f"{k}={ctx[k]}" for k in sorted(ctx.keys()) if k != "run_pair_id"]
+        ctx_id = _sha1_text("|".join(parts) if parts else "no_ctx")[:12]
+        ctx["run_pair_id"] = ctx_id
+        return ctx
+
+    # 2) Fallback: compute from stable sha1 keys in meta (avoid paths)
+    ctx2: Dict[str, Any] = {}
     for k in [
         "status_sha1",
         "g_field_sha1",
@@ -106,13 +140,13 @@ def _build_run_context(meta: Dict[str, Any]) -> Dict[str, Any]:
     ]:
         v = meta.get(k)
         if isinstance(v, str) and v.strip():
-            ctx[k] = v.strip()
+            ctx2[k] = v.strip()
 
-    # Deterministic context id: hash the sorted key=value pairs
-    parts = [f"{k}={ctx[k]}" for k in sorted(ctx.keys())]
+    parts = [f"{k}={ctx2[k]}" for k in sorted(ctx2.keys())]
     ctx_id = _sha1_text("|".join(parts) if parts else "no_ctx")[:12]
-    ctx["run_pair_id"] = ctx_id
-    return ctx
+    ctx2["run_pair_id"] = ctx_id
+    return ctx2
+
 
 
 def main() -> int:
