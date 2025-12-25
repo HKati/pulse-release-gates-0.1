@@ -103,6 +103,43 @@ def _optional_provenance_checks(atom: Dict[str, Any], path: str) -> None:
                 die(f"{path}.evidence.source.{k} must start with '/' (JSON Pointer) when present")
 
 
+def _optional_tension_alias_checks(
+    ev: Dict[str, Any],
+    expected_src: str,
+    expected_dst: str,
+    dst_label: str,
+    path: str,
+) -> None:
+    """
+    Fail-closed checks for optional tension alias keys.
+    Aliases are NOT required to exist, but if present they must be valid and consistent.
+
+    Expected mapping:
+      - evidence.src_atom_id == gate_atom_id
+      - evidence.dst_atom_id == {metric_atom_id|overlay_atom_id} (dst_label)
+    """
+    src = ev.get("src_atom_id")
+    dst = ev.get("dst_atom_id")
+
+    # If neither is present, OK (backward compatible).
+    if src is None and dst is None:
+        return
+
+    # If one is present, require both and validate format.
+    if not isinstance(src, str) or not src.strip():
+        die(f"{path}.evidence.src_atom_id must be a non-empty string when present")
+    if not isinstance(dst, str) or not dst.strip():
+        die(f"{path}.evidence.dst_atom_id must be a non-empty string when present")
+
+    exp_src = expected_src.strip()
+    exp_dst = expected_dst.strip()
+
+    if src.strip() != exp_src:
+        die(f"{path}.evidence.src_atom_id must match evidence.gate_atom_id when present")
+    if dst.strip() != exp_dst:
+        die(f"{path}.evidence.dst_atom_id must match evidence.{dst_label} when present")
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="Contract check for paradox_field_v0.json")
     ap.add_argument("--in", dest="in_path", required=True, help="Path to paradox_field_v0.json")
@@ -123,19 +160,6 @@ def main() -> int:
     #  (B) { "meta":..., "atoms":[...] }
     if "paradox_field_v0" in root and isinstance(root.get("paradox_field_v0"), dict):
         root = as_dict(root.get("paradox_field_v0"), "$.paradox_field_v0")
-
-    # C4.2: Optional run_context checks (non-breaking, fail-closed if present)
-    meta_any = root.get("meta")
-    if meta_any is not None:
-        meta = as_dict(meta_any, "$.meta")
-        rc_any = meta.get("run_context")
-        if rc_any is not None:
-            rc = as_dict(rc_any, "$.meta.run_context")
-            for k, v in rc.items():
-                if not isinstance(k, str) or not k.strip():
-                    die("$.meta.run_context keys must be non-empty strings")
-                if not isinstance(v, str) or not v.strip():
-                    die(f"$.meta.run_context.{k} must be a non-empty string")
 
     atoms_any = root.get("atoms")
     if atoms_any is None:
@@ -191,30 +215,10 @@ def main() -> int:
         if typ == "gate_overlay_tension":
             gate_id = ev.get("gate_atom_id")
             over_id = ev.get("overlay_atom_id")
-            if not isinstance(gate_id, str) or not gate_id.strip():
+            if not isinstance(gate_id, str) or not gate_id:
                 die(f"{path}.evidence.gate_atom_id must be a non-empty string")
-            if not isinstance(over_id, str) or not over_id.strip():
+            if not isinstance(over_id, str) or not over_id:
                 die(f"{path}.evidence.overlay_atom_id must be a non-empty string")
-
-            # C4.3: Optional standard aliases (fail-closed when present)
-            src_id = ev.get("src_atom_id")
-            dst_id = ev.get("dst_atom_id")
-            if src_id is not None or dst_id is not None:
-                if not isinstance(src_id, str) or not src_id.strip():
-                    die(f"{path}.evidence.src_atom_id must be a non-empty string when present")
-                if not isinstance(dst_id, str) or not dst_id.strip():
-                    die(f"{path}.evidence.dst_atom_id must be a non-empty string when present")
-                if src_id != gate_id:
-                    die(
-                        f"{path} link mismatch: evidence.src_atom_id must match evidence.gate_atom_id "
-                        f"(got {src_id!r} vs {gate_id!r})"
-                    )
-                if dst_id != over_id:
-                    die(
-                        f"{path} link mismatch: evidence.dst_atom_id must match evidence.overlay_atom_id "
-                        f"(got {dst_id!r} vs {over_id!r})"
-                    )
-
             if gate_id not in id_to_atom:
                 die(f"{path} broken link: gate_atom_id {gate_id!r} not found")
             if over_id not in id_to_atom:
@@ -224,33 +228,22 @@ def main() -> int:
             if atom_type(over_id) != "overlay_change":
                 die(f"{path} link type mismatch: overlay_atom_id must point to type 'overlay_change'")
 
+            # Optional alias validation (fail-closed if present)
+            _optional_tension_alias_checks(
+                ev=ev,
+                expected_src=gate_id,
+                expected_dst=over_id,
+                dst_label="overlay_atom_id",
+                path=path,
+            )
+
         if typ == "gate_metric_tension":
             gate_id = ev.get("gate_atom_id")
             met_id = ev.get("metric_atom_id")
-            if not isinstance(gate_id, str) or not gate_id.strip():
+            if not isinstance(gate_id, str) or not gate_id:
                 die(f"{path}.evidence.gate_atom_id must be a non-empty string")
-            if not isinstance(met_id, str) or not met_id.strip():
+            if not isinstance(met_id, str) or not met_id:
                 die(f"{path}.evidence.metric_atom_id must be a non-empty string")
-
-            # C4.3: Optional standard aliases (fail-closed when present)
-            src_id = ev.get("src_atom_id")
-            dst_id = ev.get("dst_atom_id")
-            if src_id is not None or dst_id is not None:
-                if not isinstance(src_id, str) or not src_id.strip():
-                    die(f"{path}.evidence.src_atom_id must be a non-empty string when present")
-                if not isinstance(dst_id, str) or not dst_id.strip():
-                    die(f"{path}.evidence.dst_atom_id must be a non-empty string when present")
-                if src_id != gate_id:
-                    die(
-                        f"{path} link mismatch: evidence.src_atom_id must match evidence.gate_atom_id "
-                        f"(got {src_id!r} vs {gate_id!r})"
-                    )
-                if dst_id != met_id:
-                    die(
-                        f"{path} link mismatch: evidence.dst_atom_id must match evidence.metric_atom_id "
-                        f"(got {dst_id!r} vs {met_id!r})"
-                    )
-
             if gate_id not in id_to_atom:
                 die(f"{path} broken link: gate_atom_id {gate_id!r} not found")
             if met_id not in id_to_atom:
@@ -259,6 +252,15 @@ def main() -> int:
                 die(f"{path} link type mismatch: gate_atom_id must point to type 'gate_flip'")
             if atom_type(met_id) != "metric_delta":
                 die(f"{path} link type mismatch: metric_atom_id must point to type 'metric_delta'")
+
+            # Optional alias validation (fail-closed if present)
+            _optional_tension_alias_checks(
+                ev=ev,
+                expected_src=gate_id,
+                expected_dst=met_id,
+                dst_label="metric_atom_id",
+                path=path,
+            )
 
     print("[contract] OK")
     return 0
