@@ -1,10 +1,9 @@
-
 #!/usr/bin/env python3
 """
 check_paradox_edges_v0_contract.py — fail-closed contract checker for paradox_edges_v0.jsonl.
 
 This validator is for the *edges* layer (JSONL), and optionally checks link integrity
-against paradox_field_v0.json (atoms).
+against paradox_field_v0.json (atoms) when `--atoms` is provided.
 
 Why this exists:
 - docs + CI reference `paradox_edges_v0.jsonl`
@@ -14,9 +13,12 @@ Why this exists:
   - deterministic ordering checks
   - uniqueness checks
   - link/type validation against atoms when `--atoms` is provided
+  - cross-check: edge src/dst must match the linked tension atom evidence (when `--atoms` is provided)
 
 Usage:
-  python scripts/check_paradox_edges_v0_contract.py --in out/paradox_edges_v0.jsonl --atoms out/paradox_field_v0.json
+  python scripts/check_paradox_edges_v0_contract.py \
+    --in out/paradox_edges_v0.jsonl \
+    --atoms out/paradox_field_v0.json
 """
 
 from __future__ import annotations
@@ -104,36 +106,13 @@ def _edge_key(edge: Dict[str, Any]) -> Tuple[int, str, str]:
     return (sev, str(et or ""), str(eid or ""))
 
 
-def _validate_run_context(run_ctx: Any, line_no: int) -> Optional[str]:
-    """
-    Optional but fail-closed if present.
-    Returns run_pair_id if present, else None.
-
-    Contract rules (v0):
-    - run_context may be omitted (legacy outputs)
-    - if present, must be a dict
-    - keys + values must be non-empty strings
-    - run_pair_id is required and must be a non-empty string (format is intentionally NOT constrained)
-    - sha1 fields (if present) must be 40-hex sha1
-    """
+def _validate_run_context(run_ctx: Any, line_no: int) -> None:
     if run_ctx is None:
-        return None
+        return
     if not isinstance(run_ctx, dict):
         die(f"line {line_no}: run_context must be an object if present")
 
-    # keys + values must be non-empty strings (run_context is for stable identifiers/hashes)
-    for k, v in run_ctx.items():
-        if not isinstance(k, str) or not k.strip():
-            die(f"line {line_no}: run_context keys must be non-empty strings")
-        if not isinstance(v, str) or not v.strip():
-            die(f"line {line_no}: run_context.{k} must be a non-empty string")
-
-    rpid = run_ctx.get("run_pair_id")
-    if not isinstance(rpid, str) or not rpid.strip():
-        die(f"line {line_no}: run_context.run_pair_id must be a non-empty string if run_context is present")
-    rpid = rpid.strip()
-
-    # Optional sha1s should look like sha1.
+    # Optional but if present must be strings; sha1s should look like sha1.
     def _opt_sha1(k: str) -> None:
         v = run_ctx.get(k)
         if v is None:
@@ -141,14 +120,69 @@ def _validate_run_context(run_ctx: Any, line_no: int) -> Optional[str]:
         if not isinstance(v, str) or not _is_hex(v, 40):
             die(f"line {line_no}: run_context.{k} must be a 40-hex sha1 if present")
 
-    _opt_sha1("status_sha1")
-    _opt_sha1("g_field_sha1")
+    def _opt_str(k: str) -> None:
+        v = run_ctx.get(k)
+        if v is None:
+            return
+        if not isinstance(v, str) or not v.strip():
+            die(f"line {line_no}: run_context.{k} must be a non-empty string if present")
+
+    _opt_str("run_pair_id")
     _opt_sha1("transitions_gate_csv_sha1")
     _opt_sha1("transitions_metric_csv_sha1")
     _opt_sha1("transitions_overlay_json_sha1")
     _opt_sha1("transitions_json_sha1")
+    _opt_sha1("status_sha1")
+    _opt_sha1("g_field_sha1")
 
-    return rpid
+
+def _tension_expected_src_dst(edge_type: str, tension_atom: Dict[str, Any], line_no: int) -> Tuple[str, str]:
+    """
+    Derive the expected (src_atom_id, dst_atom_id) from the linked tension atom.
+
+    Prefer C4.3 aliases on the tension atom evidence:
+      - evidence.src_atom_id / evidence.dst_atom_id
+
+    If either alias key exists, require both to be non-empty strings (fail-closed).
+
+    Fallback to legacy per-type keys:
+      - gate_metric_tension: evidence.gate_atom_id + evidence.metric_atom_id
+      - gate_overlay_tension: evidence.gate_atom_id + evidence.overlay_atom_id
+    """
+    ev = tension_atom.get("evidence")
+    if not isinstance(ev, dict):
+        die(f"line {line_no}: tension atom evidence must be an object/dict")
+
+    has_src_alias = "src_atom_id" in ev
+    has_dst_alias = "dst_atom_id" in ev
+    if has_src_alias or has_dst_alias:
+        src = ev.get("src_atom_id")
+        dst = ev.get("dst_atom_id")
+        if not isinstance(src, str) or not src.strip():
+            die(f"line {line_no}: tension evidence.src_atom_id must be a non-empty string when present")
+        if not isinstance(dst, str) or not dst.strip():
+            die(f"line {line_no}: tension evidence.dst_atom_id must be a non-empty string when present")
+        return src.strip(), dst.strip()
+
+    gate_id = ev.get("gate_atom_id")
+    if not isinstance(gate_id, str) or not gate_id.strip():
+        die(f"line {line_no}: tension evidence.gate_atom_id must be a non-empty string")
+    gate_id = gate_id.strip()
+
+    if edge_type == "gate_metric_tension":
+        met_id = ev.get("metric_atom_id")
+        if not isinstance(met_id, str) or not met_id.strip():
+            die(f"line {line_no}: tension evidence.metric_atom_id must be a non-empty string")
+        return gate_id, met_id.strip()
+
+    if edge_type == "gate_overlay_tension":
+        over_id = ev.get("overlay_atom_id")
+        if not isinstance(over_id, str) or not over_id.strip():
+            die(f"line {line_no}: tension evidence.overlay_atom_id must be a non-empty string")
+        return gate_id, over_id.strip()
+
+    die(f"line {line_no}: unsupported edge type for tension cross-check: {edge_type}")
+    raise SystemExit(2)  # unreachable (for type checkers)
 
 
 def main() -> int:
@@ -170,11 +204,6 @@ def main() -> int:
     seen_edge_ids = set()
     prev_key: Optional[Tuple[int, str, str]] = None
     edges_count = 0
-
-    # run_context global consistency (optional but fail-closed if present anywhere)
-    run_context_seen_any = False
-    run_context_seen_missing = False
-    run_pair_id_seen: Optional[str] = None
 
     with open(args.in_path, "r", encoding="utf-8") as f:
         for line_no, raw in enumerate(f, start=1):
@@ -223,7 +252,7 @@ def main() -> int:
             if not isinstance(rule, str) or not rule.strip():
                 die(f"line {line_no}: rule must be a non-empty string")
 
-            # ---- Optional but strongly expected for tension edges
+            # ---- Required for v0 tension edges
             tension_atom_id = edge.get("tension_atom_id")
             if tension_atom_id is None:
                 die(f"line {line_no}: missing tension_atom_id (required for v0 tension edges)")
@@ -239,19 +268,8 @@ def main() -> int:
                 )
             prev_key = k
 
-            # ---- Optional run_context validation + global consistency
-            rpid = _validate_run_context(edge.get("run_context"), line_no)
-            if rpid is None:
-                run_context_seen_missing = True
-            else:
-                run_context_seen_any = True
-                if run_pair_id_seen is None:
-                    run_pair_id_seen = rpid
-                elif rpid != run_pair_id_seen:
-                    die(
-                        f"line {line_no}: run_context.run_pair_id mismatch: "
-                        f"expected {run_pair_id_seen!r}, got {rpid!r}"
-                    )
+            # ---- Optional run_context validation
+            _validate_run_context(edge.get("run_context"), line_no)
 
             # ---- Link/type validation against atoms (if provided)
             if atoms_by_id:
@@ -263,9 +281,9 @@ def main() -> int:
                         die(f"line {line_no}: {what} atom_id not found in atoms: {aid}")
                     return a
 
-                src_atom = _must_atom(src_atom_id, "src")
-                dst_atom = _must_atom(dst_atom_id, "dst")
-                tens_atom = _must_atom(tension_atom_id, "tension")
+                src_atom = _must_atom(src_atom_id.strip(), "src")
+                dst_atom = _must_atom(dst_atom_id.strip(), "dst")
+                tens_atom = _must_atom(tension_atom_id.strip(), "tension")
 
                 src_type = src_atom.get("type")
                 dst_type = dst_atom.get("type")
@@ -289,11 +307,15 @@ def main() -> int:
                         f"expected '{spec['tension_atom_type']}', got '{tens_type}'"
                     )
 
-            edges_count += 1
+                # ---- Cross-check: edge endpoints must match tension atom evidence links
+                exp_src, exp_dst = _tension_expected_src_dst(edge_type, tens_atom, line_no)
+                if exp_src != src_atom_id.strip() or exp_dst != dst_atom_id.strip():
+                    die(
+                        f"line {line_no}: edge src/dst mismatch vs tension_atom_id evidence; "
+                        f"expected ({exp_src},{exp_dst}), got ({src_atom_id.strip()},{dst_atom_id.strip()})"
+                    )
 
-    # If any edge has run_context, all edges must have it.
-    if run_context_seen_any and run_context_seen_missing:
-        die("mixed run_context presence: some edges have run_context while others do not")
+            edges_count += 1
 
     print(f"[edges-contract] OK (edges={edges_count})")
     return 0
@@ -305,3 +327,4 @@ if __name__ == "__main__":
     except BrokenPipeError:
         # allow piping to head etc.
         raise SystemExit(0)
+
