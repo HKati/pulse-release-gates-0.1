@@ -1,4 +1,3 @@
-
 #!/usr/bin/env python3
 """
 paradox_field_adapter_v0 — stdlib-only generator for paradox_field_v0.json.
@@ -300,7 +299,7 @@ def main() -> None:
                 "title": title,
                 "refs": {"gates": [gate_id], "metrics": [], "overlays": []},
                 "evidence": {
-                    # Provenance pointers for audit/triage (C.4)
+                    # Provenance pointers for audit/triage (C4.1)
                     "source": {
                         "gate_drift_csv": os.path.basename(t["gate_csv"]),
                         "row_index": int(row_index),
@@ -363,7 +362,7 @@ def main() -> None:
                 "title": title,
                 "refs": {"gates": [], "metrics": [metric], "overlays": []},
                 "evidence": {
-                    # Provenance pointers for audit/triage (C.4)
+                    # Provenance pointers for audit/triage (C4.1)
                     "source": {
                         "metric_drift_csv": os.path.basename(t["metric_csv"]),
                         "row_index": int(row_index),
@@ -420,9 +419,8 @@ def main() -> None:
                             "overlay_name": str(overlay_name),
                             "json_pointer": f"/{str(overlay_name)}",
                             "json_pointer_top_level_diff": f"/{str(overlay_name)}/top_level_diff",
-                         }, 
-                          
-                       "overlay": {
+                        },
+                        "overlay": {
                             "name": str(overlay_name),
                             "present_a": bool(overlay_block.get("present_a")),
                             "present_b": bool(overlay_block.get("present_b")),
@@ -508,14 +506,20 @@ def main() -> None:
                     "title": title,
                     "refs": {"gates": [gid], "metrics": [metric_name], "overlays": []},
                     "evidence": {
-                        "rule": "gate_flip × overlay_change",
+                        "rule": "gate_flip × metric_delta(warn|crit)",
+                        # C4.3 standard aliases (downstream-friendly)
                         "src_atom_id": gate_atom_id,
                         "dst_atom_id": metric_atom_id,
+                        # Specific link keys (kept for backwards compatibility)
                         "gate_atom_id": gate_atom_id,
-                        "overlay_atom_id": overlay_atom_id,
+                        "metric_atom_id": metric_atom_id,
                         # Optional summaries (downstream-friendly)
-                        "gate": (g_atom.get("evidence", {}) or {}).get("gate", {}) if isinstance(g_atom.get("evidence"), dict) else {},
-                        "metric": (m_atom.get("evidence", {}) or {}).get("metric", {}) if isinstance(m_atom.get("evidence"), dict) else {},
+                        "gate": (g_atom.get("evidence", {}) or {}).get("gate", {})
+                        if isinstance(g_atom.get("evidence"), dict)
+                        else {},
+                        "metric": (m_atom.get("evidence", {}) or {}).get("metric", {})
+                        if isinstance(m_atom.get("evidence"), dict)
+                        else {},
                     },
                 }
                 atoms.append(tension)
@@ -571,12 +575,16 @@ def main() -> None:
                     "refs": {"gates": [gid], "metrics": [], "overlays": [oname]},
                     "evidence": {
                         "rule": "gate_flip × overlay_change",
+                        # C4.3 standard aliases (downstream-friendly)
                         "src_atom_id": gate_atom_id,
                         "dst_atom_id": overlay_atom_id,
+                        # Specific link keys (kept for backwards compatibility)
                         "gate_atom_id": gate_atom_id,
                         "overlay_atom_id": overlay_atom_id,
                         # Optional summaries (downstream-friendly)
-                        "gate": (g_atom.get("evidence", {}) or {}).get("gate", {}) if isinstance(g_atom.get("evidence"), dict) else {},
+                        "gate": (g_atom.get("evidence", {}) or {}).get("gate", {})
+                        if isinstance(g_atom.get("evidence"), dict)
+                        else {},
                         "overlay": {
                             "name": oname,
                             "changed_keys_sample": changed_keys_sample,
@@ -597,9 +605,9 @@ def main() -> None:
     # Deterministic ordering (severity -> type -> atom_id)
     atoms.sort(
         key=lambda a: (
-            _severity_rank(a.get("severity", "")),
-            a.get("type", ""),
-            a.get("atom_id", ""),
+            _severity_rank(str(a.get("severity", ""))),
+            str(a.get("type", "")),
+            str(a.get("atom_id", "")),
         )
     )
 
@@ -619,3 +627,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
