@@ -61,6 +61,40 @@ def check_non_decreasing(keys: List[Tuple[int, str, str]]) -> None:
             )
 
 
+def _optional_meta_run_context_checks(root: Dict[str, Any]) -> None:
+    """
+    C4.2: Optional run_context validations (fail-closed if present).
+    - meta is optional
+    - meta.run_context is optional
+    - if meta.run_context is present: must be dict with non-empty string keys/values
+      and must contain run_pair_id as a non-empty string.
+
+    Rationale: prevents field↔edges drift if export drops invalid run_context entries
+    and synthesizes a different run_pair_id.
+    """
+    meta_any = root.get("meta")
+    if meta_any is None:
+        return
+    if not isinstance(meta_any, dict):
+        die("$.meta must be an object/dict when present")
+
+    rc_any = meta_any.get("run_context")
+    if rc_any is None:
+        return
+    if not isinstance(rc_any, dict):
+        die("$.meta.run_context must be an object/dict when present")
+
+    for k, v in rc_any.items():
+        if not isinstance(k, str) or not k.strip():
+            die("$.meta.run_context keys must be non-empty strings")
+        if not isinstance(v, str) or not v.strip():
+            die(f"$.meta.run_context.{k} must be a non-empty string")
+
+    rpid = rc_any.get("run_pair_id")
+    if not isinstance(rpid, str) or not rpid.strip():
+        die("$.meta.run_context.run_pair_id must be a non-empty string when run_context is present")
+
+
 def _optional_provenance_checks(atom: Dict[str, Any], path: str) -> None:
     """
     Fail-closed checks for optional provenance fields.
@@ -160,6 +194,9 @@ def main() -> int:
     #  (B) { "meta":..., "atoms":[...] }
     if "paradox_field_v0" in root and isinstance(root.get("paradox_field_v0"), dict):
         root = as_dict(root.get("paradox_field_v0"), "$.paradox_field_v0")
+
+    # ---- C4.2: optional meta.run_context validations (fail-closed if present)
+    _optional_meta_run_context_checks(root)
 
     atoms_any = root.get("atoms")
     if atoms_any is None:
