@@ -103,13 +103,38 @@ def _edge_key(edge: Dict[str, Any]) -> Tuple[int, str, str]:
     return (sev, str(et or ""), str(eid or ""))
 
 
-def _validate_run_context(run_ctx: Any, line_no: int) -> None:
+def _validate_run_context(run_ctx: Any, line_no: int) -> Optional[str]:
+    """
+    Optional but fail-closed if present.
+    Returns run_pair_id if present, else None.
+
+    Contract rules (v0):
+    - run_context may be omitted (legacy outputs)
+    - if present, must be a dict
+    - keys + values must be non-empty strings
+    - run_pair_id is required and must be 12-hex
+    - sha1 fields (if present) must be 40-hex sha1
+    """
     if run_ctx is None:
-        return
+        return None
     if not isinstance(run_ctx, dict):
         die(f"line {line_no}: run_context must be an object if present")
 
-    # Optional but if present must be strings; sha1s should look like sha1.
+    # keys + values must be non-empty strings (run_context is for stable identifiers/hashes)
+    for k, v in run_ctx.items():
+        if not isinstance(k, str) or not k.strip():
+            die(f"line {line_no}: run_context keys must be non-empty strings")
+        if not isinstance(v, str) or not v.strip():
+            die(f"line {line_no}: run_context.{k} must be a non-empty string")
+
+    rpid = run_ctx.get("run_pair_id")
+    if not isinstance(rpid, str) or not rpid.strip():
+        die(f"line {line_no}: run_context.run_pair_id must be a non-empty string if run_context is present")
+    rpid = rpid.strip()
+    if not _is_hex(rpid, 12):
+        die(f"line {line_no}: run_context.run_pair_id must be a 12-hex string (got {rpid!r})")
+
+    # Optional sha1s should look like sha1.
     def _opt_sha1(k: str) -> None:
         v = run_ctx.get(k)
         if v is None:
@@ -117,18 +142,14 @@ def _validate_run_context(run_ctx: Any, line_no: int) -> None:
         if not isinstance(v, str) or not _is_hex(v, 40):
             die(f"line {line_no}: run_context.{k} must be a 40-hex sha1 if present")
 
-    def _opt_str(k: str) -> None:
-        v = run_ctx.get(k)
-        if v is None:
-            return
-        if not isinstance(v, str) or not v.strip():
-            die(f"line {line_no}: run_context.{k} must be a non-empty string if present")
-
-    _opt_str("run_pair_id")
+    _opt_sha1("status_sha1")
+    _opt_sha1("g_field_sha1")
     _opt_sha1("transitions_gate_csv_sha1")
     _opt_sha1("transitions_metric_csv_sha1")
     _opt_sha1("transitions_overlay_json_sha1")
     _opt_sha1("transitions_json_sha1")
+
+    return rpid
 
 
 def main() -> int:
@@ -150,6 +171,11 @@ def main() -> int:
     seen_edge_ids = set()
     prev_key: Optional[Tuple[int, str, str]] = None
     edges_count = 0
+
+    # run_context global consistency (optional but fail-closed if present anywhere)
+    run_context_seen_any = False
+    run_context_seen_missing = False
+    run_pair_id_seen: Optional[str] = None
 
     with open(args.in_path, "r", encoding="utf-8") as f:
         for line_no, raw in enumerate(f, start=1):
@@ -214,8 +240,19 @@ def main() -> int:
                 )
             prev_key = k
 
-            # ---- Optional run_context validation
-            _validate_run_context(edge.get("run_context"), line_no)
+            # ---- Optional run_context validation + global consistency
+            rpid = _validate_run_context(edge.get("run_context"), line_no)
+            if rpid is None:
+                run_context_seen_missing = True
+            else:
+                run_context_seen_any = True
+                if run_pair_id_seen is None:
+                    run_pair_id_seen = rpid
+                elif rpid != run_pair_id_seen:
+                    die(
+                        f"line {line_no}: run_context.run_pair_id mismatch: "
+                        f"expected {run_pair_id_seen!r}, got {rpid!r}"
+                    )
 
             # ---- Link/type validation against atoms (if provided)
             if atoms_by_id:
@@ -254,6 +291,10 @@ def main() -> int:
                     )
 
             edges_count += 1
+
+    # If any edge has run_context, all edges must have it.
+    if run_context_seen_any and run_context_seen_missing:
+        die("mixed run_context presence: some edges have run_context while others do not")
 
     print(f"[edges-contract] OK (edges={edges_count})")
     return 0
