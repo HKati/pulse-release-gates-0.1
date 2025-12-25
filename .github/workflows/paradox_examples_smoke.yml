@@ -70,5 +70,6 @@ jobs:
            --in out/paradox_edges_v0.jsonl \
            --atoms out/paradox_field_v0.json
           
-          python scripts/check_paradox_examples_transitions_case_study_v0_acceptance.py \
+          scripts/scripts/check_paradox_examples_transitions_case_study_v0_acceptance.py
            --in out/paradox_edges_v0.jsonl
+           
