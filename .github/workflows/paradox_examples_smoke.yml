@@ -66,5 +66,6 @@ jobs:
             --in out/paradox_field_v0.json \
             --out out/paradox_edges_v0.jsonl
 
-          python scripts/check_paradox_edges_v0_contract.py --in out/paradox_edges_v0.jsonl
-
+          python scripts/check_paradox_edges_v0_contract.py \
+           --in out/paradox_edges_v0.jsonl \
+           --atoms out/paradox_field_v0.json
