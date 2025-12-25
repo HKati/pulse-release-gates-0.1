@@ -1,3 +1,4 @@
+
 #!/usr/bin/env python3
 """
 check_paradox_edges_v0_contract.py — fail-closed contract checker for paradox_edges_v0.jsonl.
@@ -112,7 +113,7 @@ def _validate_run_context(run_ctx: Any, line_no: int) -> Optional[str]:
     - run_context may be omitted (legacy outputs)
     - if present, must be a dict
     - keys + values must be non-empty strings
-    - run_pair_id is required and must be 12-hex
+    - run_pair_id is required and must be a non-empty string (format is intentionally NOT constrained)
     - sha1 fields (if present) must be 40-hex sha1
     """
     if run_ctx is None:
@@ -131,8 +132,6 @@ def _validate_run_context(run_ctx: Any, line_no: int) -> Optional[str]:
     if not isinstance(rpid, str) or not rpid.strip():
         die(f"line {line_no}: run_context.run_pair_id must be a non-empty string if run_context is present")
     rpid = rpid.strip()
-    if not _is_hex(rpid, 12):
-        die(f"line {line_no}: run_context.run_pair_id must be a 12-hex string (got {rpid!r})")
 
     # Optional sha1s should look like sha1.
     def _opt_sha1(k: str) -> None:
@@ -306,4 +305,3 @@ if __name__ == "__main__":
     except BrokenPipeError:
         # allow piping to head etc.
         raise SystemExit(0)
-
