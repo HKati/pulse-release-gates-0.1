@@ -486,6 +486,16 @@ run-to-run drift as **atoms** and **tension edges** (co-occurrence only, no caus
 - Export evidence-first edges (JSONL):
   `python scripts/export_paradox_edges_v0.py --in out/paradox_field_v0.json --out out/paradox_edges_v0.jsonl`
 
+Validate edges contract (including link/type integrity):
+python scripts/check_paradox_edges_v0_contract.py --in out/paradox_edges_v0.jsonl --atoms out/paradox_field_v0.json
+
+Reproducible non-fixture example inputs:
+- docs/examples/README.md (includes docs/examples/transitions_case_study_v0/)
+- docs/paradox_edges_case_studies.md
+
+Notes:
+- Do not commit generated outputs under out/**.
+
 Edges are proven co-occurrences derived from atoms; they do not introduce new truth or causality.
 
 ---
