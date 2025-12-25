@@ -148,6 +148,55 @@ def _build_run_context(meta: Dict[str, Any]) -> Dict[str, Any]:
     return ctx2
 
 
+def _tension_src_dst(typ: str, ev: Dict[str, Any], path: str) -> Tuple[str, str]:
+    """
+    Extract (src_atom_id, dst_atom_id) for a tension atom.
+
+    Prefer C4.3 aliases:
+      - evidence.src_atom_id
+      - evidence.dst_atom_id
+
+    Fail-closed if only one alias exists.
+
+    Fallback to legacy keys:
+      - gate_metric_tension: gate_atom_id + metric_atom_id
+      - gate_overlay_tension: gate_atom_id + overlay_atom_id
+    """
+    if not isinstance(ev, dict):
+        die(f"{path}.evidence must be an object/dict")
+
+    has_src_alias = "src_atom_id" in ev
+    has_dst_alias = "dst_atom_id" in ev
+    if has_src_alias or has_dst_alias:
+        src = ev.get("src_atom_id")
+        dst = ev.get("dst_atom_id")
+        if not isinstance(src, str) or not src.strip():
+            die(f"{path}.evidence.src_atom_id must be a non-empty string when present")
+        if not isinstance(dst, str) or not dst.strip():
+            die(f"{path}.evidence.dst_atom_id must be a non-empty string when present")
+        return src.strip(), dst.strip()
+
+    # Legacy fallback (backwards compatibility)
+    gate_id = ev.get("gate_atom_id")
+    if not isinstance(gate_id, str) or not gate_id.strip():
+        die(f"{path}.evidence.gate_atom_id must be a non-empty string")
+    gate_id = gate_id.strip()
+
+    if typ == "gate_metric_tension":
+        met_id = ev.get("metric_atom_id")
+        if not isinstance(met_id, str) or not met_id.strip():
+            die(f"{path}.evidence.metric_atom_id must be a non-empty string")
+        return gate_id, met_id.strip()
+
+    if typ == "gate_overlay_tension":
+        over_id = ev.get("overlay_atom_id")
+        if not isinstance(over_id, str) or not over_id.strip():
+            die(f"{path}.evidence.overlay_atom_id must be a non-empty string")
+        return gate_id, over_id.strip()
+
+    die(f"{path}: unsupported tension type: {typ}")
+    raise SystemExit(2)  # unreachable (for type checkers)
+
 
 def main() -> int:
     ap = argparse.ArgumentParser(description="Export paradox_edges_v0.jsonl from paradox_field_v0.json")
@@ -217,46 +266,32 @@ def main() -> int:
         if not isinstance(ev, dict):
             die(f"$.atoms[{i}].evidence must be an object/dict")
 
-        if typ == "gate_metric_tension":
-            src = ev.get("gate_atom_id")
-            dst = ev.get("metric_atom_id")
-            rule = "gate_flip × metric_delta(warn|crit)"
-            if not isinstance(src, str) or not src.strip():
-                die(f"$.atoms[{i}].evidence.gate_atom_id must be a non-empty string")
-            if not isinstance(dst, str) or not dst.strip():
-                die(f"$.atoms[{i}].evidence.metric_atom_id must be a non-empty string")
-            src = src.strip()
-            dst = dst.strip()
-            if src not in id_to_atom:
-                die(f"$.atoms[{i}] broken link: gate_atom_id {src!r} not found")
-            if dst not in id_to_atom:
-                die(f"$.atoms[{i}] broken link: metric_atom_id {dst!r} not found")
-            if atom_type(src) != "gate_flip":
-                die(f"$.atoms[{i}] link type mismatch: gate_atom_id must point to type 'gate_flip'")
-            if atom_type(dst) != "metric_delta":
-                die(f"$.atoms[{i}] link type mismatch: metric_atom_id must point to type 'metric_delta'")
-
-        elif typ == "gate_overlay_tension":
-            src = ev.get("gate_atom_id")
-            dst = ev.get("overlay_atom_id")
-            rule = "gate_flip × overlay_change"
-            if not isinstance(src, str) or not src.strip():
-                die(f"$.atoms[{i}].evidence.gate_atom_id must be a non-empty string")
-            if not isinstance(dst, str) or not dst.strip():
-                die(f"$.atoms[{i}].evidence.overlay_atom_id must be a non-empty string")
-            src = src.strip()
-            dst = dst.strip()
-            if src not in id_to_atom:
-                die(f"$.atoms[{i}] broken link: gate_atom_id {src!r} not found")
-            if dst not in id_to_atom:
-                die(f"$.atoms[{i}] broken link: overlay_atom_id {dst!r} not found")
-            if atom_type(src) != "gate_flip":
-                die(f"$.atoms[{i}] link type mismatch: gate_atom_id must point to type 'gate_flip'")
-            if atom_type(dst) != "overlay_change":
-                die(f"$.atoms[{i}] link type mismatch: overlay_atom_id must point to type 'overlay_change'")
-
+        # Prefer evidence.rule when present; fallback to stable default strings.
+        rule_any = ev.get("rule")
+        if isinstance(rule_any, str) and rule_any.strip():
+            rule = rule_any.strip()
         else:
-            continue
+            rule = "gate_flip × metric_delta(warn|crit)" if typ == "gate_metric_tension" else "gate_flip × overlay_change"
+
+        # Prefer C4.3 src/dst aliases; fallback to legacy keys.
+        src, dst = _tension_src_dst(typ, ev, f"$.atoms[{i}]")
+
+        # Link existence checks
+        if src not in id_to_atom:
+            die(f"$.atoms[{i}] broken link: src_atom_id {src!r} not found")
+        if dst not in id_to_atom:
+            die(f"$.atoms[{i}] broken link: dst_atom_id {dst!r} not found")
+
+        # Link type checks
+        if atom_type(src) != "gate_flip":
+            die(f"$.atoms[{i}] link type mismatch: src_atom_id must point to type 'gate_flip'")
+
+        if typ == "gate_metric_tension":
+            if atom_type(dst) != "metric_delta":
+                die(f"$.atoms[{i}] link type mismatch: dst_atom_id must point to type 'metric_delta'")
+        elif typ == "gate_overlay_tension":
+            if atom_type(dst) != "overlay_change":
+                die(f"$.atoms[{i}] link type mismatch: dst_atom_id must point to type 'overlay_change'")
 
         eid = _edge_id(typ, src, dst, tension_atom_id, ctx_id)
         if eid in seen_edge_ids:
@@ -298,3 +333,4 @@ if __name__ == "__main__":
         raise SystemExit(main())
     except BrokenPipeError:
         sys.exit(0)
+
