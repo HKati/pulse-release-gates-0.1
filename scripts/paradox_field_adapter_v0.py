@@ -508,11 +508,11 @@ def main() -> None:
                     "title": title,
                     "refs": {"gates": [gid], "metrics": [metric_name], "overlays": []},
                     "evidence": {
-                        "rule": "gate_flip × metric_delta(warn|crit)",
+                        "rule": "gate_flip × overlay_change",
                         "src_atom_id": gate_atom_id,
                         "dst_atom_id": metric_atom_id,
                         "gate_atom_id": gate_atom_id,
-                        "metric_atom_id": metric_atom_id,
+                        "overlay_atom_id": overlay_atom_id,
                         # Optional summaries (downstream-friendly)
                         "gate": (g_atom.get("evidence", {}) or {}).get("gate", {}) if isinstance(g_atom.get("evidence"), dict) else {},
                         "metric": (m_atom.get("evidence", {}) or {}).get("metric", {}) if isinstance(m_atom.get("evidence"), dict) else {},
