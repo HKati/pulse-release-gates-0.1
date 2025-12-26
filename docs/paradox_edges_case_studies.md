@@ -195,7 +195,23 @@ python scripts/check_paradox_edges_v0_contract.py --in out/paradox_edges_v0.json
 python scripts/check_paradox_edges_v0_acceptance_v0.py --in out/paradox_edges_v0.jsonl
 
 
+```
 
+## Tension link alias invariants (C4.3)
 
+All tension atoms (`gate_metric_tension`, `gate_overlay_tension`) emit standardized link aliases:
+
+- `evidence.src_atom_id`
+- `evidence.dst_atom_id`
+- `evidence.rule`
+
+The existing type-specific keys remain for backwards compatibility:
+
+- `gate_atom_id`
+- `metric_atom_id` / `overlay_atom_id`
+
+Contract behavior:
+- These alias keys are optional for backwards compatibility.
+- If present, the contract validates they are non-empty strings and match the canonical link keys (fail-closed).
 
 
