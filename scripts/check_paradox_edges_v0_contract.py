@@ -2,22 +2,28 @@
 """
 check_paradox_edges_v0_contract.py — fail-closed contract checker for paradox_edges_v0.jsonl.
 
-This validator is for the *edges* layer (JSONL), and optionally checks link integrity
-against paradox_field_v0.json (atoms).
-
-Guarantees:
+Validates:
 - JSONL parsing robustness
-- deterministic ordering checks
-- uniqueness checks
-- link/type validation against atoms when `--atoms` is provided
-- run_context validation:
-  - optional for backwards compatibility
-  - BUT if present:
-    - must include non-empty run_pair_id
-    - must be consistent across all edges in the file (on exporter-allowed keys)
+- deterministic ordering (severity, type, edge_id)
+- uniqueness (edge_id)
+- required fields + allowlisted edge types
+- optional run_context validation:
+  - backwards compatible: run_context may be missing
+  - but if present:
+    - must contain non-empty run_pair_id
+    - must be consistent across the whole JSONL file on exporter-allowed keys
+    - disallow mixing edges with/without run_context in the same file
+
+Optional (recommended):
+- when --atoms is provided, validate:
+  - src/dst/tension atom ids exist
+  - src/dst/tension atom types match spec
+  - edge endpoints match the tension atom's evidence links (cross-check)
 
 Usage:
-  python scripts/check_paradox_edges_v0_contract.py --in out/paradox_edges_v0.jsonl --atoms out/paradox_field_v0.json
+  python scripts/check_paradox_edges_v0_contract.py \
+    --in out/paradox_edges_v0.jsonl \
+    --atoms out/paradox_field_v0.json
 """
 
 from __future__ import annotations
@@ -117,8 +123,8 @@ def _edge_key(edge: Dict[str, Any]) -> Tuple[int, str, str]:
 
 def _validate_run_context(run_ctx: Any, line_no: int) -> Dict[str, str]:
     """
-    Validate run_context if present and return a normalized subset
-    aligned with the exporter allowlist.
+    Validate run_context if present and return a normalized subset aligned with
+    the exporter allowlist.
     """
     if run_ctx is None:
         return {}
@@ -126,7 +132,7 @@ def _validate_run_context(run_ctx: Any, line_no: int) -> Dict[str, str]:
     if not isinstance(run_ctx, dict):
         die(f"line {line_no}: run_context must be an object if present")
 
-    # run_pair_id is required if run_context exists (but format is not restricted to hex)
+    # run_pair_id is required if run_context exists (format intentionally not restricted to hex)
     rpid = run_ctx.get("run_pair_id")
     if not isinstance(rpid, str) or not rpid.strip():
         die(f"line {line_no}: run_context.run_pair_id must be a non-empty string if run_context is present")
@@ -153,10 +159,56 @@ def _validate_run_context(run_ctx: Any, line_no: int) -> Dict[str, str]:
         if isinstance(v, str) and v.strip():
             norm[k] = v.strip()
 
-    # Ensure run_pair_id survived normalization (it must)
     if "run_pair_id" not in norm:
         die(f"line {line_no}: run_context.run_pair_id must be present after normalization")
     return norm
+
+
+def _tension_expected_endpoints(
+    edge_type: str, tension_atom: Dict[str, Any], line_no: int
+) -> Tuple[str, str]:
+    """
+    Derive expected (src_atom_id, dst_atom_id) from the tension atom evidence,
+    using standardized aliases when present, otherwise falling back to canonical keys.
+
+    This is the integrity cross-check Codex is asking for:
+    edge endpoints must match the tension atom evidence links.
+    """
+    ev = tension_atom.get("evidence")
+    if not isinstance(ev, dict):
+        die(f"line {line_no}: tension atom evidence must be an object/dict")
+
+    def _pick(name_alias: str, name_canon: str) -> str:
+        v_alias = ev.get(name_alias)
+        v_canon = ev.get(name_canon)
+
+        alias_ok = isinstance(v_alias, str) and v_alias.strip()
+        canon_ok = isinstance(v_canon, str) and v_canon.strip()
+
+        if alias_ok and canon_ok and v_alias.strip() != v_canon.strip():
+            die(
+                f"line {line_no}: tension evidence alias mismatch: "
+                f"{name_alias} != {name_canon} ({v_alias!r} != {v_canon!r})"
+            )
+
+        if alias_ok:
+            return v_alias.strip()
+        if canon_ok:
+            return v_canon.strip()
+
+        die(f"line {line_no}: tension evidence missing {name_alias}/{name_canon}")
+
+    if edge_type == "gate_metric_tension":
+        exp_src = _pick("src_atom_id", "gate_atom_id")
+        exp_dst = _pick("dst_atom_id", "metric_atom_id")
+        return exp_src, exp_dst
+
+    if edge_type == "gate_overlay_tension":
+        exp_src = _pick("src_atom_id", "gate_atom_id")
+        exp_dst = _pick("dst_atom_id", "overlay_atom_id")
+        return exp_src, exp_dst
+
+    die(f"line {line_no}: cannot derive tension endpoints for unknown edge type: {edge_type}")
 
 
 def main() -> int:
@@ -216,14 +268,17 @@ def main() -> int:
             if not isinstance(edge_type, str) or not edge_type.strip():
                 die(f"line {line_no}: type must be a non-empty string")
 
+            edge_type = edge_type.strip()
             if edge_type not in EDGE_TYPE_SPECS:
                 die(f"line {line_no}: unknown edge type '{edge_type}' (v0 allowlist: {sorted(EDGE_TYPE_SPECS)})")
 
             if not isinstance(src_atom_id, str) or not src_atom_id.strip():
                 die(f"line {line_no}: src_atom_id must be a non-empty string")
+            src_atom_id = src_atom_id.strip()
 
             if not isinstance(dst_atom_id, str) or not dst_atom_id.strip():
                 die(f"line {line_no}: dst_atom_id must be a non-empty string")
+            dst_atom_id = dst_atom_id.strip()
 
             if not isinstance(severity, str) or severity not in SEVERITY_ORDER:
                 die(f"line {line_no}: severity must be one of {sorted(SEVERITY_ORDER)}")
@@ -237,6 +292,7 @@ def main() -> int:
                 die(f"line {line_no}: missing tension_atom_id (required for v0 tension edges)")
             if not isinstance(tension_atom_id, str) or not _is_hex(tension_atom_id, 12):
                 die(f"line {line_no}: tension_atom_id must be 12-hex string")
+            tension_atom_id = tension_atom_id.strip()
 
             # ---- Deterministic ordering
             k = _edge_key(edge)
@@ -263,7 +319,6 @@ def main() -> int:
                             f"(expected={file_run_context_norm!r}, got={norm!r})"
                         )
 
-            # If run_context appears, do not allow mixing "present" and "missing"
             if seen_any_run_context and seen_missing_run_context:
                 die(f"line {line_no}: mixed run_context presence across edges (some present, some missing)")
 
@@ -272,7 +327,7 @@ def main() -> int:
                 spec = EDGE_TYPE_SPECS[edge_type]
 
                 def _must_atom(aid: str, what: str) -> Dict[str, Any]:
-                    a = atoms_by_id.get(aid.strip())
+                    a = atoms_by_id.get(aid)
                     if not isinstance(a, dict):
                         die(f"line {line_no}: {what} atom_id not found in atoms: {aid}")
                     return a
@@ -301,6 +356,14 @@ def main() -> int:
                     die(
                         f"line {line_no}: tension_atom_id type mismatch for '{edge_type}': "
                         f"expected '{spec['tension_atom_type']}', got '{tens_type}'"
+                    )
+
+                # ---- Cross-check: edge endpoints must match tension atom evidence links
+                exp_src, exp_dst = _tension_expected_endpoints(edge_type, tens_atom, line_no)
+                if src_atom_id != exp_src or dst_atom_id != exp_dst:
+                    die(
+                        f"line {line_no}: edge endpoints do not match tension evidence for '{edge_type}' "
+                        f"(expected src={exp_src!r}, dst={exp_dst!r}; got src={src_atom_id!r}, dst={dst_atom_id!r})"
                     )
 
             edges_count += 1
