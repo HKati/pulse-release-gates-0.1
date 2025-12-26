@@ -1,0 +1,19 @@
+{
+  "g_field_v0": {
+    "path_a": "g_field_v0.json",
+    "path_b": "g_field_v0.json",
+    "present_a": true,
+    "present_b": true,
+    "sha1_a": "1111111111111111111111111111111111111111",
+    "sha1_b": "2222222222222222222222222222222222222222",
+    "top_level_diff": {
+      "added_keys": [],
+      "removed_keys": [],
+      "changed_keys": [
+        "nodes[0].value",
+        "meta.sample_rate"
+      ],
+      "note": "Example: G-field drift (overlay-only case study)"
+    }
+  }
+}
