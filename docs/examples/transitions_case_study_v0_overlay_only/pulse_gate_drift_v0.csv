@@ -1,0 +1,2 @@
+gate_id,group,status_a,status_b,pass_a,pass_b,flip,value_a,value_b,threshold,notes_a,notes_b,present_a,present_b
+gate_latency_budget,slo,PASS,FAIL,true,false,true,0.85,0.95,0.90,within budget,over budget,1,1
