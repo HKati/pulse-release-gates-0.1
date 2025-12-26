@@ -39,7 +39,7 @@ jobs:
 
       - name: Upload G-EPF overlay artifact
         if: steps.check_g_field.outputs.found == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: g-epf-overlays
           path: PULSE_safe_pack_v0/artifacts/g_epf_overlay_v0.json

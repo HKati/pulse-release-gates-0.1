@@ -37,7 +37,7 @@ jobs:
 
       - name: Upload G-field overlay artifact
         if: steps.check_snapshots.outputs.found == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: g-field-overlays
           path: PULSE_safe_pack_v0/artifacts/g_field_v0.json
