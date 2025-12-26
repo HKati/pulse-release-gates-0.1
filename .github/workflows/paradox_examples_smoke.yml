@@ -40,8 +40,10 @@ jobs:
           echo "github.ref:  ${{ github.ref }}"
           echo "github.sha:  ${{ github.sha }}"
           echo "HEAD:        $(git rev-parse HEAD)"
-          echo "PR head sha: ${{ github.event.pull_request.head.sha }}"
-          echo "PR base sha: ${{ github.event.pull_request.base.sha }}"
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "PR head sha: ${{ github.event.pull_request.head.sha }}"
+            echo "PR base sha: ${{ github.event.pull_request.base.sha }}"
+          fi
           echo ""
           echo "Listing docs/examples/transitions_case_study_v0:"
           ls -la docs/examples/transitions_case_study_v0
@@ -60,16 +62,17 @@ jobs:
             --transitions-dir docs/examples/transitions_case_study_v0 \
             --out out/paradox_field_v0.json
 
-          python scripts/check_paradox_field_v0_contract.py --in out/paradox_field_v0.json
+          python scripts/check_paradox_field_v0_contract.py \
+            --in out/paradox_field_v0.json
 
           python scripts/export_paradox_edges_v0.py \
             --in out/paradox_field_v0.json \
             --out out/paradox_edges_v0.jsonl
 
           python scripts/check_paradox_edges_v0_contract.py \
-           --in out/paradox_edges_v0.jsonl \
-           --atoms out/paradox_field_v0.json
-          
-          scripts/scripts/check_paradox_examples_transitions_case_study_v0_acceptance.py
-           --in out/paradox_edges_v0.jsonl
-           
+            --in out/paradox_edges_v0.jsonl \
+            --atoms out/paradox_field_v0.json
+
+          python scripts/check_paradox_examples_transitions_case_study_v0_acceptance.py \
+            --in out/paradox_edges_v0.jsonl
+
