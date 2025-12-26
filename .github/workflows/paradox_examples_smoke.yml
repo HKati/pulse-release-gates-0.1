@@ -32,7 +32,7 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Debug docs example inputs (fail-fast)
+      - name: Debug workflow context
         shell: bash
         run: |
           set -euo pipefail
@@ -40,14 +40,28 @@ jobs:
           echo "github.ref:  ${{ github.ref }}"
           echo "github.sha:  ${{ github.sha }}"
           echo "HEAD:        $(git rev-parse HEAD)"
+
+      - name: Debug PR context
+        if: github.event_name == 'pull_request'
+        shell: bash
+        run: |
+          set -euo pipefail
           echo "PR head sha: ${{ github.event.pull_request.head.sha }}"
           echo "PR base sha: ${{ github.event.pull_request.base.sha }}"
-          echo ""
+
+      - name: Debug docs example inputs (fail-fast)
+        shell: bash
+        run: |
+          set -euo pipefail
           echo "Listing docs/examples/transitions_case_study_v0:"
           ls -la docs/examples/transitions_case_study_v0
           echo ""
           echo "Checking required overlay input exists:"
           test -f docs/examples/transitions_case_study_v0/pulse_overlay_drift_v0.json
+          echo ""
+          echo "Acceptance script candidates:"
+          ls -la scripts/check_paradox_examples_transitions_case_study_v0_acceptance.py 2>/dev/null || true
+          ls -la scripts/scripts/check_paradox_examples_transitions_case_study_v0_acceptance.py 2>/dev/null || true
 
       - name: Run docs/examples transitions_case_study_v0
         shell: bash
@@ -60,12 +74,28 @@ jobs:
             --transitions-dir docs/examples/transitions_case_study_v0 \
             --out out/paradox_field_v0.json
 
-          python scripts/check_paradox_field_v0_contract.py --in out/paradox_field_v0.json
+          python scripts/check_paradox_field_v0_contract.py \
+            --in out/paradox_field_v0.json
 
           python scripts/export_paradox_edges_v0.py \
             --in out/paradox_field_v0.json \
             --out out/paradox_edges_v0.jsonl
 
           python scripts/check_paradox_edges_v0_contract.py \
-           --in out/paradox_edges_v0.jsonl \
-           --atoms out/paradox_field_v0.json
+            --in out/paradox_edges_v0.jsonl \
+            --atoms out/paradox_field_v0.json
+
+          ACCEPT="scripts/check_paradox_examples_transitions_case_study_v0_acceptance.py"
+          if [ -f "$ACCEPT" ]; then
+            python "$ACCEPT" --in out/paradox_edges_v0.jsonl
+          elif [ -f "scripts/scripts/check_paradox_examples_transitions_case_study_v0_acceptance.py" ]; then
+            python "scripts/scripts/check_paradox_examples_transitions_case_study_v0_acceptance.py" \
+              --in out/paradox_edges_v0.jsonl
+          else
+            echo "[docs_examples_smoke] acceptance script not found in scripts/ or scripts/scripts/"
+            echo "ls -la scripts:"
+            ls -la scripts
+            echo "ls -la scripts/scripts (if exists):"
+            ls -la scripts/scripts || true
+            exit 1
+          fi
