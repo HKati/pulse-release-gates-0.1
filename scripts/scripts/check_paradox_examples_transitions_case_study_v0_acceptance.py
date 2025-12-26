@@ -6,7 +6,7 @@ Acceptance check for docs/examples/transitions_case_study_v0 outputs.
 
 Goal:
 - Validate the example stays reproducible and CI-friendly.
-- Validate field ↔ edges correlation using run_context equality.
+- Validate field ↔ edges correlation using run_context (C4.2).
 - Validate a few semantic invariants (metrics + allowlisted overlay tensions).
 
 This is intentionally strict where it matters (join integrity + semantics),
@@ -23,11 +23,22 @@ import argparse
 import json
 import os
 import sys
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Set, Tuple
 
 
 EXPECTED_METRICS: Set[str] = {"p99_latency", "cpu_util"}
 OVERLAY_ALLOWLIST: Set[str] = {"g_field_v0", "paradox_field_v0"}
+
+# Must match export_paradox_edges_v0._build_run_context() allowlist behavior.
+RUN_CONTEXT_ALLOWED_KEYS: Set[str] = {
+    "run_pair_id",
+    "status_sha1",
+    "g_field_sha1",
+    "transitions_json_sha1",
+    "transitions_gate_csv_sha1",
+    "transitions_metric_csv_sha1",
+    "transitions_overlay_json_sha1",
+}
 
 
 def die(msg: str, code: int = 2) -> None:
@@ -75,6 +86,25 @@ def _req_str(d: Dict[str, Any], k: str, path: str) -> str:
     return v.strip()
 
 
+def _normalize_run_context(rc_any: Any, path: str) -> Dict[str, str]:
+    """
+    Normalize run_context to the allowed subset that the edges exporter emits.
+    This avoids brittleness if meta.run_context contains extra keys that edges drop.
+    """
+    rc = _as_dict(rc_any, path)
+
+    out: Dict[str, str] = {}
+    for k in RUN_CONTEXT_ALLOWED_KEYS:
+        v = rc.get(k)
+        if isinstance(v, str) and v.strip():
+            out[k] = v.strip()
+
+    # run_pair_id must be present for the example (C4.2 intent)
+    if "run_pair_id" not in out:
+        die(f"{path}.run_pair_id must be present and non-empty")
+    return out
+
+
 def _load_field_atoms(atoms_path: str) -> Tuple[Dict[str, Any], Dict[str, Dict[str, Any]], List[Dict[str, Any]]]:
     data = _read_json(atoms_path)
     root = data.get("paradox_field_v0", data) if isinstance(data, dict) else data
@@ -117,7 +147,6 @@ def _extract_overlay_changes(atoms: List[Dict[str, Any]]) -> Set[str]:
 
 
 def _tension_metric_name(tension_atom: Dict[str, Any]) -> str:
-    # Prefer evidence.metric.name; fallback to refs.metrics[0]
     ev = tension_atom.get("evidence")
     if isinstance(ev, dict):
         mm = ev.get("metric")
@@ -134,7 +163,6 @@ def _tension_metric_name(tension_atom: Dict[str, Any]) -> str:
 
 
 def _tension_overlay_name(tension_atom: Dict[str, Any]) -> str:
-    # Prefer evidence.overlay.name; fallback to refs.overlays[0]
     ev = tension_atom.get("evidence")
     if isinstance(ev, dict):
         oo = ev.get("overlay")
@@ -177,24 +205,32 @@ def main() -> int:
     meta, id_to_atom, atoms = _load_field_atoms(atoms_path)
 
     # Require meta.run_context (the example is meant to exercise C4.2)
-    rc = meta.get("run_context")
-    if not isinstance(rc, dict):
+    rc_any = meta.get("run_context")
+    if not isinstance(rc_any, dict):
         die("$.meta.run_context must be an object/dict (example expects run_context present)")
-    _ = _req_str(rc, "run_pair_id", "$.meta.run_context")
+
+    # Normalize to exporter-allowed keys
+    rc_norm = _normalize_run_context(rc_any, "$.meta.run_context")
 
     edges = _read_jsonl(args.edges_path)
     if not edges:
         die("edges JSONL is empty")
 
-    # 1) Field ↔ edges correlation: require exact run_context equality per edge
+    # 1) Field ↔ edges correlation: compare normalized run_context subset (not full dict)
     for i, e in enumerate(edges):
         if not isinstance(e, dict):
             die(f"edges[{i}] must be an object/dict")
-        erc = e.get("run_context")
-        if not isinstance(erc, dict):
+        erc_any = e.get("run_context")
+        if not isinstance(erc_any, dict):
             die(f"edges[{i}].run_context must be an object/dict")
-        if erc != rc:
-            die(f"edges[{i}].run_context does not match field meta.run_context")
+
+        erc_norm = _normalize_run_context(erc_any, f"edges[{i}].run_context")
+
+        if erc_norm != rc_norm:
+            die(
+                f"edges[{i}].run_context does not match field meta.run_context on allowed keys "
+                f"(expected={rc_norm!r}, got={erc_norm!r})"
+            )
 
     # 2) Semantic invariants: map edges → tension atoms → metric/overlay names
     metric_tensions: Set[str] = set()
