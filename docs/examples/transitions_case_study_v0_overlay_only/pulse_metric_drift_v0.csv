@@ -1,0 +1,3 @@
+metric,a,b,delta,rel_delta,present_a,present_b
+p99_latency,0.850,0.855,0.005,0.00588,1,1
+cpu_util,0.600,0.605,0.005,0.00833,1,1
