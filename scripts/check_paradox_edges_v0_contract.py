@@ -13,6 +13,7 @@ Guarantees (v0):
 - optional run_context validation (fail-closed when present)
 - when --atoms is provided:
   - src/dst/tension atom existence + type validation
+  - edge.severity must match the linked tension atom severity
   - edge endpoints must match the linked IDs inside the tension atom evidence
     (prevents swapped/misaligned endpoints)
 
@@ -27,7 +28,6 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import sys
 from typing import Any, Dict, Optional, Tuple
 
 
@@ -314,8 +314,8 @@ def main() -> int:
                         f"line {line_no}: tension_atom_id type mismatch for '{edge_type}': "
                         f"expected '{spec['tension_atom_type']}', got '{tens_type}'"
                     )
-                
-              # Severity integrity: edge.severity must match the tension atom severity
+
+                # Severity integrity: edge.severity must match the tension atom severity
                 tens_sev = tens_atom.get("severity")
                 if not isinstance(tens_sev, str) or tens_sev not in SEVERITY_ORDER:
                     die(
