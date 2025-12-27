@@ -99,13 +99,28 @@ def _load_atoms(atoms_path: str) -> Dict[str, Dict[str, Any]]:
     for a in atoms:
         if not isinstance(a, dict):
             continue
-        aid = a.get("atom_id")
+
+        aid_raw = a.get("atom_id")
         atype = a.get("type")
-        if not isinstance(aid, str) or not aid.strip():
+
+        if not isinstance(aid_raw, str) or not aid_raw.strip():
             continue
         if not isinstance(atype, str) or not atype.strip():
             continue
+
+        # Normalize atom_id keys to match edge-side normalization (src/dst IDs are stripped).
+        aid = aid_raw.strip()
+
+        # Fail-closed on collisions after normalization (whitespace-only differences).
+        if aid in by_id:
+            prev_raw = by_id[aid].get("atom_id")
+            die(
+                "atoms file has duplicate atom_id after strip-normalization: "
+                f"{aid!r} (examples: {prev_raw!r} vs {aid_raw!r})"
+            )
+
         by_id[aid] = a
+
     return by_id
 
 
