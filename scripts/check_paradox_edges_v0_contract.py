@@ -16,6 +16,7 @@ Guarantees (v0):
   - edge.severity must match the linked tension atom severity
   - edge endpoints must match the linked IDs inside the tension atom evidence
     (prevents swapped/misaligned endpoints)
+  - if atoms meta.run_context is present, edges must carry run_context and it must match
 
 Usage:
   python scripts/check_paradox_edges_v0_contract.py \
@@ -28,6 +29,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import sys
 from typing import Any, Dict, Optional, Tuple
 
 
@@ -83,55 +85,7 @@ def _read_json(path: str) -> Any:
         return json.load(f)
 
 
-def _load_atoms(atoms_path: str) -> Dict[str, Dict[str, Any]]:
-    if not atoms_path:
-        return {}
-    if not os.path.isfile(atoms_path):
-        die(f"--atoms not found: {atoms_path}")
-
-    obj = _read_json(atoms_path)
-    root = obj.get("paradox_field_v0", obj) if isinstance(obj, dict) else {}
-    atoms = root.get("atoms", []) if isinstance(root, dict) else []
-    if not isinstance(atoms, list):
-        die(f"atoms file malformed: expected list at paradox_field_v0.atoms: {atoms_path}")
-
-    by_id: Dict[str, Dict[str, Any]] = {}
-    for a in atoms:
-        if not isinstance(a, dict):
-            continue
-
-        aid_raw = a.get("atom_id")
-        atype = a.get("type")
-
-        if not isinstance(aid_raw, str) or not aid_raw.strip():
-            continue
-        if not isinstance(atype, str) or not atype.strip():
-            continue
-
-        # Normalize atom_id keys to match edge-side normalization (src/dst IDs are stripped).
-        aid = aid_raw.strip()
-
-        # Fail-closed on collisions after normalization (whitespace-only differences).
-        if aid in by_id:
-            prev_raw = by_id[aid].get("atom_id")
-            die(
-                "atoms file has duplicate atom_id after strip-normalization: "
-                f"{aid!r} (examples: {prev_raw!r} vs {aid_raw!r})"
-            )
-
-        by_id[aid] = a
-
-    return by_id
-
-
-def _edge_key(edge: Dict[str, Any]) -> Tuple[int, str, str]:
-    sev = _severity_rank(edge.get("severity"))
-    et = edge.get("type")
-    eid = edge.get("edge_id")
-    return (sev, str(et or ""), str(eid or ""))
-
-
-def _validate_run_context(run_ctx: Any, line_no: int) -> None:
+def _validate_run_context(run_ctx: Any, ctx: str) -> None:
     """
     run_context is optional.
     If present, it must be a dict and must contain a non-empty run_pair_id string.
@@ -140,18 +94,18 @@ def _validate_run_context(run_ctx: Any, line_no: int) -> None:
     if run_ctx is None:
         return
     if not isinstance(run_ctx, dict):
-        die(f"line {line_no}: run_context must be an object/dict if present")
+        die(f"{ctx}: run_context must be an object/dict if present")
 
     rpid = run_ctx.get("run_pair_id")
     if not isinstance(rpid, str) or not rpid.strip():
-        die(f"line {line_no}: run_context.run_pair_id must be a non-empty string if run_context is present")
+        die(f"{ctx}: run_context.run_pair_id must be a non-empty string if run_context is present")
 
     def _opt_sha1(k: str) -> None:
         v = run_ctx.get(k)
         if v is None:
             return
         if not isinstance(v, str) or not _is_hex(v, 40):
-            die(f"line {line_no}: run_context.{k} must be a 40-hex sha1 if present")
+            die(f"{ctx}: run_context.{k} must be a 40-hex sha1 if present")
 
     _opt_sha1("transitions_gate_csv_sha1")
     _opt_sha1("transitions_metric_csv_sha1")
@@ -172,6 +126,70 @@ def _normalize_run_context(run_ctx: Dict[str, Any]) -> Dict[str, str]:
         if isinstance(v, str) and v.strip():
             out[k] = v.strip()
     return out
+
+
+def _load_atoms_and_meta_run_context(atoms_path: str) -> Tuple[Dict[str, Dict[str, Any]], Optional[Dict[str, str]]]:
+    """
+    Load atom index (by atom_id) from paradox_field_v0.json, plus optional
+    meta.run_context (normalized) if present.
+    """
+    if not atoms_path:
+        return {}, None
+    if not os.path.isfile(atoms_path):
+        die(f"--atoms not found: {atoms_path}")
+
+    obj = _read_json(atoms_path)
+    root = obj.get("paradox_field_v0", obj) if isinstance(obj, dict) else {}
+    if not isinstance(root, dict):
+        die(f"atoms file malformed: expected object at root/paradox_field_v0: {atoms_path}")
+
+    # Optional meta.run_context (C4.2)
+    meta_ctx_norm: Optional[Dict[str, str]] = None
+    meta_any = root.get("meta")
+    if isinstance(meta_any, dict):
+        rc_any = meta_any.get("run_context")
+        if rc_any is not None:
+            _validate_run_context(rc_any, "--atoms meta")
+            if isinstance(rc_any, dict):
+                meta_ctx_norm = _normalize_run_context(rc_any)
+
+    atoms = root.get("atoms", [])
+    if not isinstance(atoms, list):
+        die(f"atoms file malformed: expected list at paradox_field_v0.atoms: {atoms_path}")
+
+    by_id: Dict[str, Dict[str, Any]] = {}
+    for a in atoms:
+        if not isinstance(a, dict):
+            continue
+
+        aid_raw = a.get("atom_id")
+        atype = a.get("type")
+        if not isinstance(aid_raw, str) or not aid_raw.strip():
+            continue
+        if not isinstance(atype, str) or not atype.strip():
+            continue
+
+        # Normalize atom_id keys to match edge-side normalization (src/dst IDs are stripped).
+        aid = aid_raw.strip()
+
+        # Fail-closed on collisions after normalization (whitespace-only differences).
+        if aid in by_id:
+            prev_raw = by_id[aid].get("atom_id")
+            die(
+                "atoms file has duplicate atom_id after strip-normalization: "
+                f"{aid!r} (examples: {prev_raw!r} vs {aid_raw!r})"
+            )
+
+        by_id[aid] = a
+
+    return by_id, meta_ctx_norm
+
+
+def _edge_key(edge: Dict[str, Any]) -> Tuple[int, str, str]:
+    sev = _severity_rank(edge.get("severity"))
+    et = edge.get("type")
+    eid = edge.get("edge_id")
+    return (sev, str(et or ""), str(eid or ""))
 
 
 def _req_str(d: Dict[str, Any], k: str, ctx: str) -> str:
@@ -195,7 +213,10 @@ def main() -> int:
     if not os.path.isfile(args.in_path):
         die(f"file not found: {args.in_path}")
 
-    atoms_by_id = _load_atoms(args.atoms_path) if args.atoms_path else {}
+    atoms_by_id: Dict[str, Dict[str, Any]] = {}
+    field_ctx_norm: Optional[Dict[str, str]] = None
+    if args.atoms_path:
+        atoms_by_id, field_ctx_norm = _load_atoms_and_meta_run_context(args.atoms_path)
 
     seen_edge_ids = set()
     prev_key: Optional[Tuple[int, str, str]] = None
@@ -280,7 +301,7 @@ def main() -> int:
                 saw_no_ctx = True
             else:
                 saw_ctx = True
-                _validate_run_context(rc_any, line_no)
+                _validate_run_context(rc_any, f"line {line_no}")
                 if not isinstance(rc_any, dict):
                     die(f"line {line_no}: run_context must be an object/dict")
                 rc_norm = _normalize_run_context(rc_any)
@@ -408,6 +429,16 @@ def main() -> int:
 
     if saw_ctx and saw_no_ctx:
         die("mixed presence of run_context within one edges file is not allowed")
+
+    # If the atoms file provides meta.run_context, enforce edges carry it and match it (C4.2).
+    if field_ctx_norm is not None:
+        if first_ctx_norm is None:
+            die("atoms meta.run_context is present but edges are missing run_context (expected propagation)")
+        if first_ctx_norm != field_ctx_norm:
+            die(
+                "edges run_context does not match atoms meta.run_context "
+                f"(edges={first_ctx_norm} atoms={field_ctx_norm})"
+            )
 
     print(f"[edges-contract] OK (edges={edges_count})")
     return 0
