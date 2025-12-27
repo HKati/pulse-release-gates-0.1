@@ -493,6 +493,11 @@ Reproducible non-fixture example inputs:
 - docs/examples/README.md (includes docs/examples/transitions_case_study_v0/)
 - docs/paradox_edges_case_studies.md
 
+Reproducible non-fixture example (recommended)
+- See: `docs/examples/transitions_case_study_v0/README.md`
+- Repo-local + CI-friendly inputs; do not commit generated outputs under `out/**`.
+- CI runs this example via `paradox_examples_smoke` to catch missing/renamed inputs early.
+
 Notes:
 - Do not commit generated outputs under out/**.
 
