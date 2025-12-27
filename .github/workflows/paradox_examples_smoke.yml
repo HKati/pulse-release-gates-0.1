@@ -39,20 +39,38 @@ jobs:
           echo "github.sha:  ${{ github.sha }}"
           echo "HEAD:        $(git rev-parse HEAD)"
 
-          echo ""
-          echo "Listing docs/examples/transitions_case_study_v0:"
-          ls -la docs/examples/transitions_case_study_v0
+          DIR="docs/examples/transitions_case_study_v0"
 
           # Required example inputs (fixed filenames expected by adapters)
-          test -f docs/examples/transitions_case_study_v0/README.md
-          test -f docs/examples/transitions_case_study_v0/pulse_gate_drift_v0.csv
-          test -f docs/examples/transitions_case_study_v0/pulse_metric_drift_v0.csv
-          test -f docs/examples/transitions_case_study_v0/pulse_overlay_drift_v0.json
-          test -f docs/examples/transitions_case_study_v0/pulse_transitions_v0.json
+          REQ_FILES=(
+            "README.md"
+            "pulse_gate_drift_v0.csv"
+            "pulse_metric_drift_v0.csv"
+            "pulse_overlay_drift_v0.json"
+            "pulse_transitions_v0.json"
+          )
+
+          for f in "${REQ_FILES[@]}"; do
+            p="$DIR/$f"
+            if [ ! -f "$p" ]; then
+              echo "[docs_examples_smoke] missing required file: $p"
+              echo ""
+              echo "Listing $DIR:"
+              ls -la "$DIR" || true
+              exit 1
+            fi
+          done
 
           echo ""
           echo "Checking canonical acceptance entrypoint exists:"
-          test -f scripts/check_paradox_examples_transitions_case_study_v0_acceptance.py
+          ACCEPT="scripts/check_paradox_examples_transitions_case_study_v0_acceptance.py"
+          if [ ! -f "$ACCEPT" ]; then
+            echo "[docs_examples_smoke] missing canonical acceptance entrypoint: $ACCEPT"
+            echo ""
+            echo "Listing scripts/:"
+            ls -la scripts || true
+            exit 1
+          fi
 
       - name: Run docs/examples transitions_case_study_v0
         shell: bash
