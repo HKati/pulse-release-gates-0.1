@@ -314,6 +314,20 @@ def main() -> int:
                         f"line {line_no}: tension_atom_id type mismatch for '{edge_type}': "
                         f"expected '{spec['tension_atom_type']}', got '{tens_type}'"
                     )
+                
+              # Severity integrity: edge.severity must match the tension atom severity
+                tens_sev = tens_atom.get("severity")
+                if not isinstance(tens_sev, str) or tens_sev not in SEVERITY_ORDER:
+                    die(
+                        f"line {line_no}: tension atom has invalid severity "
+                        f"(tension_atom_id={tension_atom_id!r}, got={tens_sev!r})"
+                    )
+
+                if tens_sev != severity:
+                    die(
+                        f"line {line_no}: edge.severity does not match tension atom severity "
+                        f"(edge={severity!r} != tension={tens_sev!r}, tension_atom_id={tension_atom_id!r})"
+                    )
 
                 # Cross-check: edge endpoints must match tension atom evidence links
                 tens_ev = tens_atom.get("evidence")
