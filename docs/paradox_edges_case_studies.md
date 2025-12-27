@@ -176,6 +176,22 @@ This example is reproducible from repo-local inputs under:
 See also:
 - `docs/examples/transitions_case_study_v0/README.md`
 
+## Non‑fixture example: transitions_case_study_v0
+
+This case study is fully reproducible from the drift inputs under:
+
+- `docs/examples/transitions_case_study_v0/`
+
+It generates artifacts under `out/**` (do not commit generated artifacts).
+
+### Run (canonical, CI‑friendly)
+
+From repo root:
+
+```bash
+python scripts/check_paradox_examples_transitions_case_study_v0_acceptance.py
+
+
 ### Reproduce (field → edges → checks)
 
 ```bash
@@ -196,6 +212,61 @@ python scripts/check_paradox_edges_v0_acceptance_v0.py --in out/paradox_edges_v0
 
 
 ```
+
+This wrapper runs the end‑to‑end pipeline:
+
+1) generate `paradox_field_v0.json`
+2) validate field contract
+3) export `paradox_edges_v0.jsonl`
+4) validate edges contract (including `--atoms` link integrity)
+5) acceptance checks
+
+## Artifacts to inspect
+
+### `out/paradox_field_v0.json`
+
+- `paradox_field_v0.meta.run_context` is a stable fingerprint when hashes are available
+- atoms are deterministically sorted by `(severity, type, atom_id)`
+
+### `out/paradox_edges_v0.jsonl`
+
+- edges are deterministically sorted by `(severity, type, edge_id)`
+- each edge links:
+  - `src_atom_id`
+  - `dst_atom_id`
+  - `tension_atom_id`
+- if `run_context` is present on any edge, it must be present on all edges and be identical
+
+## Linking edges to atoms (source of truth)
+
+For a tension edge:
+
+- `edge.tension_atom_id` points to the tension atom in the field.
+- `edge.src_atom_id` and `edge.dst_atom_id` point to the endpoint atoms.
+- the tension atom `evidence` contains:
+  - type‑specific link keys (backwards compatible):
+    - `gate_atom_id`
+    - `metric_atom_id` / `overlay_atom_id`
+  - standardized aliases (type‑agnostic consumers):
+    - `src_atom_id`
+    - `dst_atom_id`
+
+### `gate_metric_tension`
+
+- `edge.src_atom_id == tension.evidence.gate_atom_id == tension.evidence.src_atom_id`
+- `edge.dst_atom_id == tension.evidence.metric_atom_id == tension.evidence.dst_atom_id`
+
+### `gate_overlay_tension`
+
+- `edge.src_atom_id == tension.evidence.gate_atom_id == tension.evidence.src_atom_id`
+- `edge.dst_atom_id == tension.evidence.overlay_atom_id == tension.evidence.dst_atom_id`
+
+## Policy
+
+- Commit: `scripts/*.py`, `docs/**`, `tests/fixtures/**`, `.github/workflows/**`
+- Do NOT commit: `out/**` generated artifacts or local logs
+
+---
 
 ## Tension link alias invariants (C4.3)
 
