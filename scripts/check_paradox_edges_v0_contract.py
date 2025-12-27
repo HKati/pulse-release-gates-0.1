@@ -2,22 +2,24 @@
 """
 check_paradox_edges_v0_contract.py — fail-closed contract checker for paradox_edges_v0.jsonl.
 
-This validator is for the *edges* layer (JSONL), and optionally checks link integrity
-against paradox_field_v0.json (atoms).
+Validator for the *edges* layer (JSONL), with optional link integrity checks against
+paradox_field_v0.json (atoms) when `--atoms` is provided.
 
-Guarantees:
-- JSONL parsing robustness
-- deterministic ordering checks
-- uniqueness checks
-- link/type validation against atoms when `--atoms` is provided
-- run_context validation:
-  - optional for backwards compatibility
-  - BUT if present:
-    - must include non-empty run_pair_id
-    - must be consistent across all edges in the file (on exporter-allowed keys)
+Guarantees (v0):
+- JSONL parsing robustness (1 JSON object per line)
+- deterministic ordering (non-decreasing by severity, then type, then edge_id)
+- uniqueness of edge_id
+- required fields for tension edges
+- optional run_context validation (fail-closed when present)
+- when --atoms is provided:
+  - src/dst/tension atom existence + type validation
+  - edge endpoints must match the linked IDs inside the tension atom evidence
+    (prevents swapped/misaligned endpoints)
 
 Usage:
-  python scripts/check_paradox_edges_v0_contract.py --in out/paradox_edges_v0.jsonl --atoms out/paradox_field_v0.json
+  python scripts/check_paradox_edges_v0_contract.py \
+    --in out/paradox_edges_v0.jsonl \
+    --atoms out/paradox_field_v0.json
 """
 
 from __future__ import annotations
@@ -45,7 +47,6 @@ EDGE_TYPE_SPECS: Dict[str, Dict[str, str]] = {
     },
 }
 
-# Must match export_paradox_edges_v0._build_run_context() allowlist behavior.
 RUN_CONTEXT_ALLOWED_KEYS = {
     "run_pair_id",
     "status_sha1",
@@ -104,7 +105,7 @@ def _load_atoms(atoms_path: str) -> Dict[str, Dict[str, Any]]:
             continue
         if not isinstance(atype, str) or not atype.strip():
             continue
-        by_id[aid.strip()] = a
+        by_id[aid] = a
     return by_id
 
 
@@ -115,23 +116,21 @@ def _edge_key(edge: Dict[str, Any]) -> Tuple[int, str, str]:
     return (sev, str(et or ""), str(eid or ""))
 
 
-def _validate_run_context(run_ctx: Any, line_no: int) -> Dict[str, str]:
+def _validate_run_context(run_ctx: Any, line_no: int) -> None:
     """
-    Validate run_context if present and return a normalized subset
-    aligned with the exporter allowlist.
+    run_context is optional.
+    If present, it must be a dict and must contain a non-empty run_pair_id string.
+    If sha1 keys are present, validate they look like sha1 (40 hex).
     """
     if run_ctx is None:
-        return {}
-
+        return
     if not isinstance(run_ctx, dict):
-        die(f"line {line_no}: run_context must be an object if present")
+        die(f"line {line_no}: run_context must be an object/dict if present")
 
-    # run_pair_id is required if run_context exists (but format is not restricted to hex)
     rpid = run_ctx.get("run_pair_id")
     if not isinstance(rpid, str) or not rpid.strip():
         die(f"line {line_no}: run_context.run_pair_id must be a non-empty string if run_context is present")
 
-    # Optional sha1 keys: if present must look like sha1 (40 hex)
     def _opt_sha1(k: str) -> None:
         v = run_ctx.get(k)
         if v is None:
@@ -139,24 +138,32 @@ def _validate_run_context(run_ctx: Any, line_no: int) -> Dict[str, str]:
         if not isinstance(v, str) or not _is_hex(v, 40):
             die(f"line {line_no}: run_context.{k} must be a 40-hex sha1 if present")
 
-    _opt_sha1("status_sha1")
-    _opt_sha1("g_field_sha1")
     _opt_sha1("transitions_gate_csv_sha1")
     _opt_sha1("transitions_metric_csv_sha1")
     _opt_sha1("transitions_overlay_json_sha1")
     _opt_sha1("transitions_json_sha1")
+    _opt_sha1("status_sha1")
+    _opt_sha1("g_field_sha1")
 
-    # Normalize to exporter-allowed keys (ignore extras to avoid brittleness)
-    norm: Dict[str, str] = {}
-    for k in RUN_CONTEXT_ALLOWED_KEYS:
+
+def _normalize_run_context(run_ctx: Dict[str, Any]) -> Dict[str, str]:
+    """
+    Normalize to the stable subset of keys. This keeps comparisons non-brittle
+    if extra keys are added later.
+    """
+    out: Dict[str, str] = {}
+    for k in sorted(RUN_CONTEXT_ALLOWED_KEYS):
         v = run_ctx.get(k)
         if isinstance(v, str) and v.strip():
-            norm[k] = v.strip()
+            out[k] = v.strip()
+    return out
 
-    # Ensure run_pair_id survived normalization (it must)
-    if "run_pair_id" not in norm:
-        die(f"line {line_no}: run_context.run_pair_id must be present after normalization")
-    return norm
+
+def _req_str(d: Dict[str, Any], k: str, ctx: str) -> str:
+    v = d.get(k)
+    if not isinstance(v, str) or not v.strip():
+        die(f"{ctx}.{k} must be a non-empty string")
+    return v.strip()
 
 
 def main() -> int:
@@ -179,10 +186,12 @@ def main() -> int:
     prev_key: Optional[Tuple[int, str, str]] = None
     edges_count = 0
 
-    # run_context consistency across the file (optional, but if present then strict)
-    seen_any_run_context = False
-    seen_missing_run_context = False
-    file_run_context_norm: Optional[Dict[str, str]] = None
+    # run_context consistency (per file): if any edge has run_context, require all edges
+    # to have run_context, and require normalized equality.
+    saw_ctx = False
+    saw_no_ctx = False
+    first_ctx_norm: Optional[Dict[str, str]] = None
+    first_ctx_line: int = 0
 
     with open(args.in_path, "r", encoding="utf-8") as f:
         for line_no, raw in enumerate(f, start=1):
@@ -231,6 +240,9 @@ def main() -> int:
             if not isinstance(rule, str) or not rule.strip():
                 die(f"line {line_no}: rule must be a non-empty string")
 
+            src_atom_id = src_atom_id.strip()
+            dst_atom_id = dst_atom_id.strip()
+
             # ---- Required for v0 tension edges
             tension_atom_id = edge.get("tension_atom_id")
             if tension_atom_id is None:
@@ -247,32 +259,32 @@ def main() -> int:
                 )
             prev_key = k
 
-            # ---- Optional run_context validation + file-level consistency
-            run_ctx_any = edge.get("run_context")
-            if run_ctx_any is None:
-                seen_missing_run_context = True
+            # ---- Optional run_context validation + per-file consistency
+            rc_any = edge.get("run_context")
+            if rc_any is None:
+                saw_no_ctx = True
             else:
-                seen_any_run_context = True
-                norm = _validate_run_context(run_ctx_any, line_no)
-                if file_run_context_norm is None:
-                    file_run_context_norm = norm
-                else:
-                    if norm != file_run_context_norm:
-                        die(
-                            f"line {line_no}: run_context inconsistent across file on allowed keys "
-                            f"(expected={file_run_context_norm!r}, got={norm!r})"
-                        )
+                saw_ctx = True
+                _validate_run_context(rc_any, line_no)
+                if not isinstance(rc_any, dict):
+                    die(f"line {line_no}: run_context must be an object/dict")
+                rc_norm = _normalize_run_context(rc_any)
 
-            # If run_context appears, do not allow mixing "present" and "missing"
-            if seen_any_run_context and seen_missing_run_context:
-                die(f"line {line_no}: mixed run_context presence across edges (some present, some missing)")
+                if first_ctx_norm is None:
+                    first_ctx_norm = rc_norm
+                    first_ctx_line = line_no
+                elif rc_norm != first_ctx_norm:
+                    die(
+                        f"line {line_no}: run_context differs from earlier edge (line {first_ctx_line}); "
+                        "mixed run_context within one edges file is not allowed"
+                    )
 
             # ---- Link/type validation against atoms (if provided)
             if atoms_by_id:
                 spec = EDGE_TYPE_SPECS[edge_type]
 
                 def _must_atom(aid: str, what: str) -> Dict[str, Any]:
-                    a = atoms_by_id.get(aid.strip())
+                    a = atoms_by_id.get(aid)
                     if not isinstance(a, dict):
                         die(f"line {line_no}: {what} atom_id not found in atoms: {aid}")
                     return a
@@ -303,7 +315,70 @@ def main() -> int:
                         f"expected '{spec['tension_atom_type']}', got '{tens_type}'"
                     )
 
+                # Cross-check: edge endpoints must match tension atom evidence links
+                tens_ev = tens_atom.get("evidence")
+                if not isinstance(tens_ev, dict):
+                    die(f"line {line_no}: tension atom evidence must be an object/dict")
+
+                if edge_type == "gate_metric_tension":
+                    exp_src = _req_str(tens_ev, "gate_atom_id", f"line {line_no}: tension.evidence")
+                    exp_dst = _req_str(tens_ev, "metric_atom_id", f"line {line_no}: tension.evidence")
+
+                    if exp_src != src_atom_id:
+                        die(
+                            f"line {line_no}: src_atom_id does not match tension.evidence.gate_atom_id "
+                            f"({src_atom_id!r} != {exp_src!r})"
+                        )
+                    if exp_dst != dst_atom_id:
+                        die(
+                            f"line {line_no}: dst_atom_id does not match tension.evidence.metric_atom_id "
+                            f"({dst_atom_id!r} != {exp_dst!r})"
+                        )
+
+                if edge_type == "gate_overlay_tension":
+                    exp_src = _req_str(tens_ev, "gate_atom_id", f"line {line_no}: tension.evidence")
+                    exp_dst = _req_str(tens_ev, "overlay_atom_id", f"line {line_no}: tension.evidence")
+
+                    if exp_src != src_atom_id:
+                        die(
+                            f"line {line_no}: src_atom_id does not match tension.evidence.gate_atom_id "
+                            f"({src_atom_id!r} != {exp_src!r})"
+                        )
+                    if exp_dst != dst_atom_id:
+                        die(
+                            f"line {line_no}: dst_atom_id does not match tension.evidence.overlay_atom_id "
+                            f"({dst_atom_id!r} != {exp_dst!r})"
+                        )
+
+                # If src/dst aliases exist on the tension atom, they must agree too.
+                if "src_atom_id" in tens_ev:
+                    alias_src = _req_str(tens_ev, "src_atom_id", f"line {line_no}: tension.evidence")
+                    if alias_src != src_atom_id:
+                        die(
+                            f"line {line_no}: src_atom_id does not match tension.evidence.src_atom_id "
+                            f"({src_atom_id!r} != {alias_src!r})"
+                        )
+                if "dst_atom_id" in tens_ev:
+                    alias_dst = _req_str(tens_ev, "dst_atom_id", f"line {line_no}: tension.evidence")
+                    if alias_dst != dst_atom_id:
+                        die(
+                            f"line {line_no}: dst_atom_id does not match tension.evidence.dst_atom_id "
+                            f"({dst_atom_id!r} != {alias_dst!r})"
+                        )
+
+                # If the tension atom has a rule string, it should match the edge rule.
+                if "rule" in tens_ev and isinstance(tens_ev.get("rule"), str) and tens_ev.get("rule", "").strip():
+                    tr = str(tens_ev.get("rule", "")).strip()
+                    if tr and tr != rule.strip():
+                        die(
+                            f"line {line_no}: edge.rule does not match tension.evidence.rule "
+                            f"({rule.strip()!r} != {tr!r})"
+                        )
+
             edges_count += 1
+
+    if saw_ctx and saw_no_ctx:
+        die("mixed presence of run_context within one edges file is not allowed")
 
     print(f"[edges-contract] OK (edges={edges_count})")
     return 0
