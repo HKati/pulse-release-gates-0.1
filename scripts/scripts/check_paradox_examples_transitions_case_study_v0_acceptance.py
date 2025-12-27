@@ -15,6 +15,12 @@ and intentionally NOT hard-pinning file sha1 values (to avoid brittle churn).
 Usage:
   python scripts/check_paradox_examples_transitions_case_study_v0_acceptance.py \
     --in out/paradox_edges_v0.jsonl
+
+Implementation for the docs example acceptance check.
+
+NOTE:
+- Canonical entrypoint: `python scripts/check_paradox_examples_transitions_case_study_v0_acceptance.py ...`
+- This file may live under scripts/scripts for historical reasons; prefer invoking the wrapper.
 """
 
 from __future__ import annotations
