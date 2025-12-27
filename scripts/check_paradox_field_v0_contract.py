@@ -137,7 +137,7 @@ def _optional_provenance_checks(atom: Dict[str, Any], path: str) -> None:
                 die(f"{path}.evidence.source.{k} must start with '/' (JSON Pointer) when present")
 
 
-def _optional_tension_alias_checks(
+def _require_tension_alias_checks(
     ev: Dict[str, Any],
     expected_src: str,
     expected_dst: str,
@@ -145,33 +145,22 @@ def _optional_tension_alias_checks(
     path: str,
 ) -> None:
     """
-    Fail-closed checks for optional tension alias keys.
-    Aliases are NOT required to exist, but if present they must be valid and consistent.
+    C4.3: Required tension alias keys (fail-closed).
 
     Expected mapping:
       - evidence.src_atom_id == gate_atom_id
       - evidence.dst_atom_id == {metric_atom_id|overlay_atom_id} (dst_label)
     """
-    src = ev.get("src_atom_id")
-    dst = ev.get("dst_atom_id")
-
-    # If neither is present, OK (backward compatible).
-    if src is None and dst is None:
-        return
-
-    # If one is present, require both and validate format.
-    if not isinstance(src, str) or not src.strip():
-        die(f"{path}.evidence.src_atom_id must be a non-empty string when present")
-    if not isinstance(dst, str) or not dst.strip():
-        die(f"{path}.evidence.dst_atom_id must be a non-empty string when present")
+    src = req_str(ev, "src_atom_id", f"{path}.evidence")
+    dst = req_str(ev, "dst_atom_id", f"{path}.evidence")
 
     exp_src = expected_src.strip()
     exp_dst = expected_dst.strip()
 
     if src.strip() != exp_src:
-        die(f"{path}.evidence.src_atom_id must match evidence.gate_atom_id when present")
+        die(f"{path}.evidence.src_atom_id must match evidence.gate_atom_id")
     if dst.strip() != exp_dst:
-        die(f"{path}.evidence.dst_atom_id must match evidence.{dst_label} when present")
+        die(f"{path}.evidence.dst_atom_id must match evidence.{dst_label}")
 
 
 def main() -> int:
@@ -252,9 +241,9 @@ def main() -> int:
         if typ == "gate_overlay_tension":
             gate_id = ev.get("gate_atom_id")
             over_id = ev.get("overlay_atom_id")
-            if not isinstance(gate_id, str) or not gate_id:
+            if not isinstance(gate_id, str) or not gate_id.strip():
                 die(f"{path}.evidence.gate_atom_id must be a non-empty string")
-            if not isinstance(over_id, str) or not over_id:
+            if not isinstance(over_id, str) or not over_id.strip():
                 die(f"{path}.evidence.overlay_atom_id must be a non-empty string")
             if gate_id not in id_to_atom:
                 die(f"{path} broken link: gate_atom_id {gate_id!r} not found")
@@ -265,8 +254,8 @@ def main() -> int:
             if atom_type(over_id) != "overlay_change":
                 die(f"{path} link type mismatch: overlay_atom_id must point to type 'overlay_change'")
 
-            # Optional alias validation (fail-closed if present)
-            _optional_tension_alias_checks(
+            # C4.3 required alias validation (fail-closed)
+            _require_tension_alias_checks(
                 ev=ev,
                 expected_src=gate_id,
                 expected_dst=over_id,
@@ -277,9 +266,9 @@ def main() -> int:
         if typ == "gate_metric_tension":
             gate_id = ev.get("gate_atom_id")
             met_id = ev.get("metric_atom_id")
-            if not isinstance(gate_id, str) or not gate_id:
+            if not isinstance(gate_id, str) or not gate_id.strip():
                 die(f"{path}.evidence.gate_atom_id must be a non-empty string")
-            if not isinstance(met_id, str) or not met_id:
+            if not isinstance(met_id, str) or not met_id.strip():
                 die(f"{path}.evidence.metric_atom_id must be a non-empty string")
             if gate_id not in id_to_atom:
                 die(f"{path} broken link: gate_atom_id {gate_id!r} not found")
@@ -290,8 +279,8 @@ def main() -> int:
             if atom_type(met_id) != "metric_delta":
                 die(f"{path} link type mismatch: metric_atom_id must point to type 'metric_delta'")
 
-            # Optional alias validation (fail-closed if present)
-            _optional_tension_alias_checks(
+            # C4.3 required alias validation (fail-closed)
+            _require_tension_alias_checks(
                 ev=ev,
                 expected_src=gate_id,
                 expected_dst=met_id,
