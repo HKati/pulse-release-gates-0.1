@@ -16,7 +16,8 @@ Guarantees (v0):
   - edge.severity must match the linked tension atom severity
   - edge endpoints must match the linked IDs inside the tension atom evidence
     (prevents swapped/misaligned endpoints)
-  - if atoms meta.run_context is present, edges must carry run_context and it must match
+  - if atoms meta.run_context is present and edges are non-empty, edges must carry
+    run_context and it must match
 
 Usage:
   python scripts/check_paradox_edges_v0_contract.py \
@@ -431,7 +432,9 @@ def main() -> int:
         die("mixed presence of run_context within one edges file is not allowed")
 
     # If the atoms file provides meta.run_context, enforce edges carry it and match it (C4.2).
-    if field_ctx_norm is not None:
+    # Allow empty edges files: exporter may legitimately emit zero edges, and there is no
+    # per-edge run_context to compare in that scenario.
+    if field_ctx_norm is not None and edges_count > 0:
         if first_ctx_norm is None:
             die("atoms meta.run_context is present but edges are missing run_context (expected propagation)")
         if first_ctx_norm != field_ctx_norm:
