@@ -9,6 +9,11 @@ The real implementation currently lives here:
 
 This wrapper stabilizes the call site for CI and local runs and avoids
 "Permission denied" issues (always run via `python ...`).
+
+NOTE (canonical entrypoint):
+- This file is the stable CI entrypoint for the docs example acceptance check.
+- Always invoke via `python ...` (do not rely on executable permissions).
+- Keep this path stable even if the implementation moves (it may delegate internally).
 """
 
 from __future__ import annotations
