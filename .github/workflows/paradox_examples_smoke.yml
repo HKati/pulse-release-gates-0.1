@@ -131,6 +131,22 @@ jobs:
           python scripts/check_paradox_examples_transitions_case_study_v0_acceptance.py \
             --in out/paradox_edges_v0.jsonl
 
+      - name: Workflow summary (paradox excerpt)
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo "## Paradox summary (excerpt)" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+          if [ -f out/paradox_summary_v0.md ]; then
+            # Keep the UI glanceable: omit the machine-readable JSON index block.
+            awk 'BEGIN{p=1} /^## Summary index/ {p=0} p{print}' out/paradox_summary_v0.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "_No paradox_summary_v0.md generated._" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
       - name: Upload paradox artifacts
         if: always()
         uses: actions/upload-artifact@v4
