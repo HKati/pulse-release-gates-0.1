@@ -1,0 +1,2 @@
+gate_id,group,status_a,status_b,pass_a,pass_b,flip,value_a,value_b,threshold,notes_a,notes_b,present_a,present_b
+example_gate,controls,PASS,PASS,1,1,0,0.0,0.0,0.5,,,1,1
