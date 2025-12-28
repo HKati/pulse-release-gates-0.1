@@ -1,0 +1,204 @@
+name: paradox_examples_smoke
+
+on:
+  pull_request:
+    paths:
+      - "scripts/**"
+      - "docs/examples/**"
+      - "docs/paradox_edges_case_studies.md"
+      - "tests/fixtures/**"
+      - ".github/workflows/**"
+  push:
+    branches: ["main"]
+    paths:
+      - "scripts/**"
+      - "docs/examples/**"
+      - "docs/paradox_edges_case_studies.md"
+      - "tests/fixtures/**"
+      - ".github/workflows/**"
+
+jobs:
+  docs_examples_smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Verify docs example inputs exist (fail-fast)
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo "event_name: ${{ github.event_name }}"
+          echo "github.ref:  ${{ github.ref }}"
+          echo "github.sha:  ${{ github.sha }}"
+          echo "HEAD:        $(git rev-parse HEAD)"
+
+          DIR="docs/examples/transitions_case_study_v0"
+
+          # Required example inputs (fixed filenames expected by adapters)
+          REQ_FILES=(
+            "README.md"
+            "pulse_gate_drift_v0.csv"
+            "pulse_metric_drift_v0.csv"
+            "pulse_overlay_drift_v0.json"
+            "pulse_transitions_v0.json"
+          )
+
+          for f in "${REQ_FILES[@]}"; do
+            p="$DIR/$f"
+            if [ ! -f "$p" ]; then
+              echo "[docs_examples_smoke] missing required file: $p"
+              echo ""
+              echo "Listing $DIR:"
+              ls -la "$DIR" || true
+              exit 1
+            fi
+          done
+
+          echo ""
+          echo "Checking canonical acceptance entrypoint exists:"
+          ACCEPT="scripts/check_paradox_examples_transitions_case_study_v0_acceptance.py"
+          if [ ! -f "$ACCEPT" ]; then
+            echo "[docs_examples_smoke] missing canonical acceptance entrypoint: $ACCEPT"
+            echo ""
+            echo "Listing scripts/:"
+            ls -la scripts || true
+            exit 1
+          fi
+
+      - name: Prepare out/
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p out
+
+      - name: Generate paradox_field_v0.json
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python scripts/paradox_field_adapter_v0.py \
+            --transitions-dir docs/examples/transitions_case_study_v0 \
+            --out out/paradox_field_v0.json
+
+      - name: Validate field contract
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python scripts/check_paradox_field_v0_contract.py \
+            --in out/paradox_field_v0.json
+
+      - name: Export paradox_edges_v0.jsonl
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python scripts/export_paradox_edges_v0.py \
+            --in out/paradox_field_v0.json \
+            --out out/paradox_edges_v0.jsonl
+
+      - name: Validate edges contract (with --atoms)
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python scripts/check_paradox_edges_v0_contract.py \
+            --in out/paradox_edges_v0.jsonl \
+            --atoms out/paradox_field_v0.json
+
+      - name: Paradox summary (markdown)
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python scripts/inspect_paradox_v0.py \
+            --field out/paradox_field_v0.json \
+            --edges out/paradox_edges_v0.jsonl \
+            --out out/paradox_summary_v0.md
+
+      - name: Regression fixture: empty edges (run_context present)
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mkdir -p out/empty_edges
+
+          python scripts/paradox_field_adapter_v0.py \
+            --transitions-dir tests/fixtures/transitions_empty_edges_v0 \
+            --out out/empty_edges/paradox_field_v0.json
+
+          python scripts/check_paradox_field_v0_contract.py \
+            --in out/empty_edges/paradox_field_v0.json
+
+          python scripts/export_paradox_edges_v0.py \
+            --in out/empty_edges/paradox_field_v0.json \
+            --out out/empty_edges/paradox_edges_v0.jsonl
+
+          python scripts/check_paradox_edges_v0_contract.py \
+            --in out/empty_edges/paradox_edges_v0.jsonl \
+            --atoms out/empty_edges/paradox_field_v0.json
+
+          python scripts/inspect_paradox_v0.py \
+            --field out/empty_edges/paradox_field_v0.json \
+            --edges out/empty_edges/paradox_edges_v0.jsonl \
+            --out out/empty_edges/paradox_summary_v0.md
+
+          python scripts/check_paradox_empty_edges_v0_acceptance.py \
+            --field out/empty_edges/paradox_field_v0.json \
+            --edges out/empty_edges/paradox_edges_v0.jsonl
+
+      - name: Acceptance (canonical wrapper)
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python scripts/check_paradox_examples_transitions_case_study_v0_acceptance.py \
+            --in out/paradox_edges_v0.jsonl
+
+      - name: Workflow summary (paradox excerpt)
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo "## Paradox summary (excerpt)" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+          if [ -f out/paradox_summary_v0.md ]; then
+            awk 'BEGIN{p=1} /^## Summary index/ {p=0} p{print}' out/paradox_summary_v0.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "_No paradox_summary_v0.md generated._" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "## Paradox empty-edges fixture (excerpt)" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+          if [ -f out/empty_edges/paradox_summary_v0.md ]; then
+            awk 'BEGIN{p=1} /^## Summary index/ {p=0} p{print}' out/empty_edges/paradox_summary_v0.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "_No empty-edges paradox summary generated._" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload paradox artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: paradox-artifacts
+          if-no-files-found: warn
+          path: |
+            out/paradox_field_v0.json
+            out/paradox_edges_v0.jsonl
+            out/paradox_summary_v0.md
+            out/empty_edges/paradox_field_v0.json
+            out/empty_edges/paradox_edges_v0.jsonl
+            out/empty_edges/paradox_summary_v0.md
