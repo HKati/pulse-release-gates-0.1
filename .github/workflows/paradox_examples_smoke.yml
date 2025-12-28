@@ -72,28 +72,73 @@ jobs:
             exit 1
           fi
 
-      - name: Run docs/examples transitions_case_study_v0
+      - name: Prepare out/
         shell: bash
         run: |
           set -euo pipefail
-
           mkdir -p out
+
+      - name: Generate paradox_field_v0.json
+        shell: bash
+        run: |
+          set -euo pipefail
 
           python scripts/paradox_field_adapter_v0.py \
             --transitions-dir docs/examples/transitions_case_study_v0 \
             --out out/paradox_field_v0.json
 
+      - name: Validate field contract
+        shell: bash
+        run: |
+          set -euo pipefail
+
           python scripts/check_paradox_field_v0_contract.py \
             --in out/paradox_field_v0.json
+
+      - name: Export paradox_edges_v0.jsonl
+        shell: bash
+        run: |
+          set -euo pipefail
 
           python scripts/export_paradox_edges_v0.py \
             --in out/paradox_field_v0.json \
             --out out/paradox_edges_v0.jsonl
 
+      - name: Validate edges contract (with --atoms)
+        shell: bash
+        run: |
+          set -euo pipefail
+
           python scripts/check_paradox_edges_v0_contract.py \
             --in out/paradox_edges_v0.jsonl \
             --atoms out/paradox_field_v0.json
 
+      - name: Paradox summary (markdown)
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python scripts/inspect_paradox_v0.py \
+            --field out/paradox_field_v0.json \
+            --edges out/paradox_edges_v0.jsonl \
+            --out out/paradox_summary_v0.md
+
+      - name: Acceptance (canonical wrapper)
+        shell: bash
+        run: |
+          set -euo pipefail
+
           python scripts/check_paradox_examples_transitions_case_study_v0_acceptance.py \
             --in out/paradox_edges_v0.jsonl
+
+      - name: Upload paradox artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: paradox-artifacts
+          if-no-files-found: warn
+          path: |
+            out/paradox_field_v0.json
+            out/paradox_edges_v0.jsonl
+            out/paradox_summary_v0.md
 
