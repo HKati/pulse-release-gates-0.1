@@ -1,0 +1,16 @@
+{
+  "paradox_field_v0": {
+    "present_a": true,
+    "present_b": true,
+    "sha1_a": "",
+    "sha1_b": "",
+    "path_a": "",
+    "path_b": "",
+    "top_level_diff": {
+      "added_keys": [],
+      "removed_keys": [],
+      "changed_keys": [],
+      "note": "No overlay changes in this fixture."
+    }
+  }
+}
