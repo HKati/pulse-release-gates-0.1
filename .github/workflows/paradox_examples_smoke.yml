@@ -82,7 +82,6 @@ jobs:
             "pulse_gate_drift_v0.csv"
             "pulse_metric_drift_v0.csv"
             "pulse_overlay_drift_v0.json"
-            "pulse_transitions_v0.json"
           )
 
           for f in "${FIX_REQ_FILES[@]}"; do
@@ -95,6 +94,11 @@ jobs:
               exit 1
             fi
           done
+
+          # transitions JSON is optional for this fixture (adapter reads it only if present)
+          if [ -f "$FIX_DIR/pulse_transitions_v0.json" ]; then
+            echo "[docs_examples_smoke] note: optional empty-edges transitions file present: $FIX_DIR/pulse_transitions_v0.json"
+          fi
 
           echo ""
           echo "Checking empty-edges acceptance script exists:"
