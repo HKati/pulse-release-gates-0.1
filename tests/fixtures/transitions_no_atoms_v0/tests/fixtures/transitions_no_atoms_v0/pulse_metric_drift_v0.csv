@@ -1,0 +1,2 @@
+metric,a,b,delta,rel_delta,present_a,present_b
+metric_noop,0.5,0.5,,,1,1
