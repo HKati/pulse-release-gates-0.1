@@ -520,6 +520,25 @@ gates:
 **CI:** EPF runs as a **separate, CI‑neutral** workflow (`.github/workflows/epf_experiment.yml`).  
 Deterministic, fail‑closed gates in `check_gates.py` remain the **only** release gates.
 
+---
+
+### Paradox quick inspect (projection view)
+
+The smoke workflow generates a deterministic Markdown summary for reviewers:
+
+- `out/paradox_summary_v0.md` (case study)
+- `out/empty_edges/paradox_summary_v0.md` (regression: empty edges with run_context)
+
+Both are uploaded as the `paradox-artifacts` CI artifact.
+
+Local quick inspect:
+
+```bash
+python scripts/inspect_paradox_v0.py \
+  --field out/paradox_field_v0.json \
+  --edges out/paradox_edges_v0.jsonl \
+  --out out/paradox_summary_v0.md
+```
 
 ---
 
