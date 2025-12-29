@@ -74,6 +74,39 @@ jobs:
             exit 1
           fi
 
+          echo ""
+          echo "Checking empty-edges regression fixture inputs exist (fail-fast):"
+          FIX_DIR="tests/fixtures/transitions_empty_edges_v0"
+          FIX_REQ_FILES=(
+            "README.md"
+            "pulse_gate_drift_v0.csv"
+            "pulse_metric_drift_v0.csv"
+            "pulse_overlay_drift_v0.json"
+            "pulse_transitions_v0.json"
+          )
+
+          for f in "${FIX_REQ_FILES[@]}"; do
+            p="$FIX_DIR/$f"
+            if [ ! -f "$p" ]; then
+              echo "[docs_examples_smoke] missing empty-edges fixture file: $p"
+              echo ""
+              echo "Listing $FIX_DIR:"
+              ls -la "$FIX_DIR" || true
+              exit 1
+            fi
+          done
+
+          echo ""
+          echo "Checking empty-edges acceptance script exists:"
+          EMPTY_ACCEPT="scripts/check_paradox_empty_edges_v0_acceptance.py"
+          if [ ! -f "$EMPTY_ACCEPT" ]; then
+            echo "[docs_examples_smoke] missing empty-edges acceptance script: $EMPTY_ACCEPT"
+            echo ""
+            echo "Listing scripts/:"
+            ls -la scripts || true
+            exit 1
+          fi
+
       - name: Prepare out/
         shell: bash
         run: |
