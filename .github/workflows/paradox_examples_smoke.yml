@@ -8,7 +8,6 @@ on:
       - "docs/paradox_edges_case_studies.md"
       - "tests/fixtures/**"
       - ".github/workflows/**"
-      - "github/workflows/**"   # guardrail trigger: ignored workflows placed here
   push:
     branches: ["main"]
     paths:
@@ -17,7 +16,6 @@ on:
       - "docs/paradox_edges_case_studies.md"
       - "tests/fixtures/**"
       - ".github/workflows/**"
-      - "github/workflows/**"   # guardrail trigger: ignored workflows placed here
 
 jobs:
   docs_examples_smoke:
@@ -33,7 +31,7 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Verify docs example inputs exist (fail-fast)
+      - name: Verify inputs exist (fail-fast)
         shell: bash
         run: |
           set -euo pipefail
@@ -43,9 +41,11 @@ jobs:
           echo "github.sha:  ${{ github.sha }}"
           echo "HEAD:        $(git rev-parse HEAD)"
 
+          # -------------------------
+          # Docs example (case study)
+          # -------------------------
           DIR="docs/examples/transitions_case_study_v0"
 
-          # Required example inputs (fixed filenames expected by adapters)
           REQ_FILES=(
             "README.md"
             "pulse_gate_drift_v0.csv"
@@ -54,6 +54,8 @@ jobs:
             "pulse_transitions_v0.json"
           )
 
+          echo ""
+          echo "Checking docs example inputs exist (fail-fast): $DIR"
           for f in "${REQ_FILES[@]}"; do
             p="$DIR/$f"
             if [ ! -f "$p" ]; then
@@ -76,6 +78,9 @@ jobs:
             exit 1
           fi
 
+          # -------------------------
+          # Empty-edges regression fixture
+          # -------------------------
           echo ""
           echo "Checking empty-edges regression fixture inputs exist (fail-fast):"
           FIX_DIR="tests/fixtures/transitions_empty_edges_v0"
@@ -97,11 +102,6 @@ jobs:
             fi
           done
 
-          # transitions JSON is optional for this fixture (adapter reads it only if present)
-          if [ -f "$FIX_DIR/pulse_transitions_v0.json" ]; then
-            echo "[docs_examples_smoke] note: optional empty-edges transitions file present: $FIX_DIR/pulse_transitions_v0.json"
-          fi
-
           echo ""
           echo "Checking empty-edges acceptance script exists:"
           EMPTY_ACCEPT="scripts/check_paradox_empty_edges_v0_acceptance.py"
@@ -113,9 +113,15 @@ jobs:
             exit 1
           fi
 
+          # -------------------------
+          # No-atoms regression fixture
+          # - accept either canonical root, or legacy nested path (warn)
+          # -------------------------
           echo ""
           echo "Checking no-atoms regression fixture inputs exist (fail-fast):"
-          NO_ATOMS_DIR="tests/fixtures/transitions_no_atoms_v0"
+          NO_ATOMS_ROOT="tests/fixtures/transitions_no_atoms_v0"
+          NO_ATOMS_NESTED="$NO_ATOMS_ROOT/tests/fixtures/transitions_no_atoms_v0"
+
           NO_ATOMS_REQ_FILES=(
             "README.md"
             "pulse_gate_drift_v0.csv"
@@ -124,20 +130,27 @@ jobs:
           )
 
           for f in "${NO_ATOMS_REQ_FILES[@]}"; do
-            p="$NO_ATOMS_DIR/$f"
-            if [ ! -f "$p" ]; then
-              echo "[docs_examples_smoke] missing no-atoms fixture file: $p"
+            if [ -f "$NO_ATOMS_ROOT/$f" ]; then
+              : # ok
+            elif [ -f "$NO_ATOMS_NESTED/$f" ]; then
+              echo "[docs_examples_smoke] WARNING: no-atoms fixture file found under nested path:"
+              echo "  $NO_ATOMS_NESTED/$f"
+              echo "  (recommended: move it to $NO_ATOMS_ROOT/$f)"
+            else
+              echo "[docs_examples_smoke] missing no-atoms fixture file in both locations:"
+              echo "  expected: $NO_ATOMS_ROOT/$f"
+              echo "  or:       $NO_ATOMS_NESTED/$f"
               echo ""
-              echo "Listing $NO_ATOMS_DIR:"
-              ls -la "$NO_ATOMS_DIR" || true
+              echo "Listing $NO_ATOMS_ROOT:"
+              ls -la "$NO_ATOMS_ROOT" || true
+              if [ -d "$NO_ATOMS_NESTED" ]; then
+                echo ""
+                echo "Listing $NO_ATOMS_NESTED:"
+                ls -la "$NO_ATOMS_NESTED" || true
+              fi
               exit 1
             fi
           done
-
-          # transitions JSON is optional for this fixture too
-          if [ -f "$NO_ATOMS_DIR/pulse_transitions_v0.json" ]; then
-            echo "[docs_examples_smoke] note: optional no-atoms transitions file present: $NO_ATOMS_DIR/pulse_transitions_v0.json"
-          fi
 
           echo ""
           echo "Checking no-atoms acceptance script exists:"
@@ -150,6 +163,9 @@ jobs:
             exit 1
           fi
 
+          # -------------------------
+          # Repo hygiene: GitHub ignores github/workflows (must be .github/workflows)
+          # -------------------------
           echo ""
           echo "Checking for ignored workflows under github/workflows/:"
           if [ -d github/workflows ]; then
@@ -243,15 +259,50 @@ jobs:
             --field out/empty_edges/paradox_field_v0.json \
             --edges out/empty_edges/paradox_edges_v0.jsonl
 
-      - name: Regression fixture: no atoms (stable empty field)
+      - name: Regression fixture: no atoms / no edges
         shell: bash
         run: |
           set -euo pipefail
 
+          mkdir -p out/no_atoms/input
           mkdir -p out/no_atoms
 
+          ROOT="tests/fixtures/transitions_no_atoms_v0"
+          NESTED="$ROOT/tests/fixtures/transitions_no_atoms_v0"
+
+          REQ=(
+            "README.md"
+            "pulse_gate_drift_v0.csv"
+            "pulse_metric_drift_v0.csv"
+            "pulse_overlay_drift_v0.json"
+          )
+
+          # Stage inputs into out/no_atoms/input with canonical filenames.
+          for f in "${REQ[@]}"; do
+            if [ -f "$ROOT/$f" ]; then
+              cp "$ROOT/$f" "out/no_atoms/input/$f"
+            elif [ -f "$NESTED/$f" ]; then
+              echo "[docs_examples_smoke] WARNING: staging nested no-atoms fixture file:"
+              echo "  $NESTED/$f"
+              echo "  (recommended: move it to $ROOT/$f)"
+              cp "$NESTED/$f" "out/no_atoms/input/$f"
+            else
+              echo "[docs_examples_smoke] missing no-atoms fixture file: $f"
+              exit 1
+            fi
+          done
+
+          # Optional transitions json (adapter treats it as optional)
+          OPT="pulse_transitions_v0.json"
+          if [ -f "$ROOT/$OPT" ]; then
+            cp "$ROOT/$OPT" "out/no_atoms/input/$OPT"
+          elif [ -f "$NESTED/$OPT" ]; then
+            echo "[docs_examples_smoke] WARNING: staging nested optional file: $NESTED/$OPT"
+            cp "$NESTED/$OPT" "out/no_atoms/input/$OPT"
+          fi
+
           python scripts/paradox_field_adapter_v0.py \
-            --transitions-dir tests/fixtures/transitions_no_atoms_v0 \
+            --transitions-dir out/no_atoms/input \
             --out out/no_atoms/paradox_field_v0.json
 
           python scripts/check_paradox_field_v0_contract.py \
