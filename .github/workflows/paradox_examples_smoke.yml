@@ -114,6 +114,43 @@ jobs:
           fi
 
           echo ""
+          echo "Checking no-atoms regression fixture inputs exist (fail-fast):"
+          NO_ATOMS_DIR="tests/fixtures/transitions_no_atoms_v0"
+          NO_ATOMS_REQ_FILES=(
+            "README.md"
+            "pulse_gate_drift_v0.csv"
+            "pulse_metric_drift_v0.csv"
+            "pulse_overlay_drift_v0.json"
+          )
+
+          for f in "${NO_ATOMS_REQ_FILES[@]}"; do
+            p="$NO_ATOMS_DIR/$f"
+            if [ ! -f "$p" ]; then
+              echo "[docs_examples_smoke] missing no-atoms fixture file: $p"
+              echo ""
+              echo "Listing $NO_ATOMS_DIR:"
+              ls -la "$NO_ATOMS_DIR" || true
+              exit 1
+            fi
+          done
+
+          # transitions JSON is optional for this fixture too
+          if [ -f "$NO_ATOMS_DIR/pulse_transitions_v0.json" ]; then
+            echo "[docs_examples_smoke] note: optional no-atoms transitions file present: $NO_ATOMS_DIR/pulse_transitions_v0.json"
+          fi
+
+          echo ""
+          echo "Checking no-atoms acceptance script exists:"
+          NO_ATOMS_ACCEPT="scripts/check_paradox_no_atoms_v0_acceptance.py"
+          if [ ! -f "$NO_ATOMS_ACCEPT" ]; then
+            echo "[docs_examples_smoke] missing no-atoms acceptance script: $NO_ATOMS_ACCEPT"
+            echo ""
+            echo "Listing scripts/:"
+            ls -la scripts || true
+            exit 1
+          fi
+
+          echo ""
           echo "Checking for ignored workflows under github/workflows/:"
           if [ -d github/workflows ]; then
             if find github/workflows -type f \( -name "*.yml" -o -name "*.yaml" \) | grep -q .; then
@@ -206,6 +243,37 @@ jobs:
             --field out/empty_edges/paradox_field_v0.json \
             --edges out/empty_edges/paradox_edges_v0.jsonl
 
+      - name: Regression fixture: no atoms (stable empty field)
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mkdir -p out/no_atoms
+
+          python scripts/paradox_field_adapter_v0.py \
+            --transitions-dir tests/fixtures/transitions_no_atoms_v0 \
+            --out out/no_atoms/paradox_field_v0.json
+
+          python scripts/check_paradox_field_v0_contract.py \
+            --in out/no_atoms/paradox_field_v0.json
+
+          python scripts/export_paradox_edges_v0.py \
+            --in out/no_atoms/paradox_field_v0.json \
+            --out out/no_atoms/paradox_edges_v0.jsonl
+
+          python scripts/check_paradox_edges_v0_contract.py \
+            --in out/no_atoms/paradox_edges_v0.jsonl \
+            --atoms out/no_atoms/paradox_field_v0.json
+
+          python scripts/inspect_paradox_v0.py \
+            --field out/no_atoms/paradox_field_v0.json \
+            --edges out/no_atoms/paradox_edges_v0.jsonl \
+            --out out/no_atoms/paradox_summary_v0.md
+
+          python scripts/check_paradox_no_atoms_v0_acceptance.py \
+            --field out/no_atoms/paradox_field_v0.json \
+            --edges out/no_atoms/paradox_edges_v0.jsonl
+
       - name: Acceptance (canonical wrapper)
         shell: bash
         run: |
@@ -239,6 +307,16 @@ jobs:
             echo "_No empty-edges paradox summary generated._" >> "$GITHUB_STEP_SUMMARY"
           fi
 
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "## Paradox no-atoms fixture (excerpt)" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+          if [ -f out/no_atoms/paradox_summary_v0.md ]; then
+            awk 'BEGIN{p=1} /^## Summary index/ {p=0} p{print}' out/no_atoms/paradox_summary_v0.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "_No no-atoms paradox summary generated._" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
       - name: Upload paradox artifacts
         if: always()
         uses: actions/upload-artifact@v4
@@ -252,4 +330,7 @@ jobs:
             out/empty_edges/paradox_field_v0.json
             out/empty_edges/paradox_edges_v0.jsonl
             out/empty_edges/paradox_summary_v0.md
+            out/no_atoms/paradox_field_v0.json
+            out/no_atoms/paradox_edges_v0.jsonl
+            out/no_atoms/paradox_summary_v0.md
 
