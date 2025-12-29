@@ -8,6 +8,7 @@ on:
       - "docs/paradox_edges_case_studies.md"
       - "tests/fixtures/**"
       - ".github/workflows/**"
+      - "github/workflows/**"   # guardrail trigger: ignored workflows placed here
   push:
     branches: ["main"]
     paths:
@@ -16,6 +17,7 @@ on:
       - "docs/paradox_edges_case_studies.md"
       - "tests/fixtures/**"
       - ".github/workflows/**"
+      - "github/workflows/**"   # guardrail trigger: ignored workflows placed here
 
 jobs:
   docs_examples_smoke:
@@ -82,7 +84,6 @@ jobs:
             "pulse_gate_drift_v0.csv"
             "pulse_metric_drift_v0.csv"
             "pulse_overlay_drift_v0.json"
-            "pulse_transitions_v0.json"
           )
 
           for f in "${FIX_REQ_FILES[@]}"; do
@@ -96,6 +97,11 @@ jobs:
             fi
           done
 
+          # transitions JSON is optional for this fixture (adapter reads it only if present)
+          if [ -f "$FIX_DIR/pulse_transitions_v0.json" ]; then
+            echo "[docs_examples_smoke] note: optional empty-edges transitions file present: $FIX_DIR/pulse_transitions_v0.json"
+          fi
+
           echo ""
           echo "Checking empty-edges acceptance script exists:"
           EMPTY_ACCEPT="scripts/check_paradox_empty_edges_v0_acceptance.py"
@@ -105,6 +111,17 @@ jobs:
             echo "Listing scripts/:"
             ls -la scripts || true
             exit 1
+          fi
+
+          echo ""
+          echo "Checking for ignored workflows under github/workflows/:"
+          if [ -d github/workflows ]; then
+            if find github/workflows -type f \( -name "*.yml" -o -name "*.yaml" \) | grep -q .; then
+              echo "[docs_examples_smoke] found workflow files under github/workflows/ (ignored by GitHub Actions)."
+              echo "Move these files under .github/workflows/:"
+              find github/workflows -type f \( -name "*.yml" -o -name "*.yaml" \) -print
+              exit 1
+            fi
           fi
 
       - name: Prepare out/
