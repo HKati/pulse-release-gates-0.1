@@ -569,7 +569,14 @@ python scripts/inspect_paradox_v0.py \
 
 ## Documentation map
 
+Start here:
+
+- Running PULSE in CI: [docs/QUICKSTART_CORE_v0.md](docs/QUICKSTART_CORE_v0.md) — Minimal steps to run the core pipeline.
+- Understanding the source of truth (`status.json`): [docs/status_json.md](docs/status_json.md) — How to read `status.json` (metrics, gates, consumers).
+- When things fail (triage): [docs/RUNBOOK.md](docs/RUNBOOK.md) — Operational runbook for triage and reruns.
+
 Curated entrypoints (repo-level docs under `docs/`):
+
 
 ### Orientation & contracts
 - [docs/STATE_v0.md](docs/STATE_v0.md) — Current snapshot of PULSE v0 gates, signals, and tooling.
