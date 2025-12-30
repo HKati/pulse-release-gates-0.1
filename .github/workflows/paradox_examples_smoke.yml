@@ -286,6 +286,37 @@ jobs:
             --field out/no_atoms/paradox_field_v0.json \
             --edges out/no_atoms/paradox_edges_v0.jsonl
 
+      - name: Determinism check: paradox markdown summaries
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          check_one () {
+            local field="$1"
+            local edges="$2"
+            local out="$3"
+            local tmp="${out}.tmp"
+
+            if [ ! -f "$out" ]; then
+              echo "::error::Expected summary does not exist: $out"
+              exit 1
+            fi
+
+            python scripts/inspect_paradox_v0.py \
+              --field "$field" \
+              --edges "$edges" \
+              --out "$tmp"
+
+            diff -u "$out" "$tmp"
+            rm -f "$tmp"
+          }
+
+          check_one out/paradox_field_v0.json out/paradox_edges_v0.jsonl out/paradox_summary_v0.md
+          check_one out/empty_edges/paradox_field_v0.json out/empty_edges/paradox_edges_v0.jsonl out/empty_edges/paradox_summary_v0.md
+          check_one out/no_atoms/paradox_field_v0.json out/no_atoms/paradox_edges_v0.jsonl out/no_atoms/paradox_summary_v0.md
+
+          echo "OK: inspect_paradox_v0 markdown output is deterministic."
+
       - name: Acceptance (canonical wrapper)
         shell: bash
         run: |
@@ -345,3 +376,4 @@ jobs:
             out/no_atoms/paradox_field_v0.json
             out/no_atoms/paradox_edges_v0.jsonl
             out/no_atoms/paradox_summary_v0.md
+
