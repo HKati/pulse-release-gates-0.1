@@ -6,12 +6,12 @@ on:
     branches: ["main"]
 
 jobs:
-  case_collision_guardrail:
+  hygiene_guardrails:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
 
-      - name: Repo hygiene: forbid case-insensitive path collisions
+      - name: Repo hygiene: forbid case-insensitive path collisions (file/file + file/dir)
         shell: bash
         run: |
           set -euo pipefail
@@ -21,16 +21,80 @@ jobs:
           import subprocess
 
           files = subprocess.check_output(["git", "ls-files"], text=True).splitlines()
-          m = defaultdict(list)
+
+          # 1) File-vs-file collisions: two tracked files whose full paths differ only by case.
+          files_by_lower = defaultdict(list)
+
+          # 2) File-vs-directory collisions: a tracked file path conflicts with a directory name
+          #    implied by other tracked files.
+          #
+          # Example:
+          #   - file "Foo"
+          #   - file "foo/bar.txt"  (implies directory "foo/")
+          # On case-insensitive filesystems, this fails checkout.
+          dir_required_by_lower = defaultdict(set)  # dir_lower -> {example file that requires this directory}
+
           for f in files:
-              m[f.lower()].append(f)
+              fl = f.lower()
+              files_by_lower[fl].append(f)
 
-          collisions = {k: v for k, v in m.items() if len(v) > 1}
-          if collisions:
-              print("ERROR: case-insensitive path collisions detected:")
-              for _, v in sorted(collisions.items()):
-                  print(" - " + "  |  ".join(v))
-              sys.exit(1)
+              parts = f.split("/")
+              # Collect all directory prefixes for this file path
+              for i in range(1, len(parts)):
+                  d = "/".join(parts[:i])
+                  dir_required_by_lower[d.lower()].add(f)
 
-          print("OK: no case-insensitive collisions.")
+          file_file = {k: v for k, v in files_by_lower.items() if len(v) > 1}
+
+          file_dir = {}
+          for d_lower, examples in dir_required_by_lower.items():
+              if d_lower in files_by_lower:
+                  file_dir[d_lower] = (files_by_lower[d_lower], sorted(examples))
+
+          if not file_file and not file_dir:
+              print("OK: no case-insensitive path collisions.")
+              sys.exit(0)
+
+          if file_file:
+              print("ERROR: case-insensitive file-vs-file collisions detected:")
+              for k in sorted(file_file.keys()):
+                  print(" - " + "  |  ".join(sorted(file_file[k])))
+
+          if file_dir:
+              print("ERROR: case-insensitive file-vs-directory collisions detected:")
+              for d_lower in sorted(file_dir.keys()):
+                  file_paths, examples = file_dir[d_lower]
+                  print(f" - File path(s) collide with directory '{d_lower}/': " + "  |  ".join(sorted(file_paths)))
+                  for ex in examples[:10]:
+                      print("     requires directory for: " + ex)
+                  if len(examples) > 10:
+                      print(f"     ... and {len(examples) - 10} more")
+
+          sys.exit(1)
           PY
+
+      - name: Repo hygiene: forbid ignored workflows under github/workflows/
+        shell: bash
+        run: |
+          set -euo pipefail
+          bad="$(git ls-files | grep -E '^github/workflows/.*\.ya?ml$' || true)"
+          if [ -n "$bad" ]; then
+            echo "::error::Found workflow files under github/workflows/ (ignored by GitHub Actions)."
+            echo "Move these files under .github/workflows/:"
+            echo "$bad" | sed 's/^/ - /'
+            exit 1
+          fi
+          echo "OK: no ignored workflows under github/workflows/."
+
+      - name: Repo hygiene: forbid nested fixtures
+        shell: bash
+        run: |
+          set -euo pipefail
+          bad="$(git ls-files | grep -E '^tests/fixtures/.*/tests/fixtures/' || true)"
+          if [ -n "$bad" ]; then
+            echo "::error::Nested fixture path detected (tests/fixtures/**/tests/fixtures/**)."
+            echo "$bad" | sed 's/^/ - /'
+            exit 1
+          fi
+          echo "OK: no nested fixtures detected."
+
