@@ -1,7 +1,10 @@
 # External detectors
 
+# External detectors
+
 > **Implementation guide (repo-level):** [docs/external_detector_summaries.md](../../docs/external_detector_summaries.md)  
 > (schemas, examples, integration patterns)
+
 
 
 PULSE supports an external detector layer that can enrich the status
@@ -47,8 +50,11 @@ profiles if desired.
 
 For the full, up-to-date top-level documentation in this repository:
 
+For the full, up-to-date top-level documentation in this repository:
+
 - Policy (gating vs advisory, defaults): [docs/EXTERNAL_DETECTORS.md](../../docs/EXTERNAL_DETECTORS.md)
 - External detector summaries (schemas, examples, integration patterns): [docs/external_detector_summaries.md](../../docs/external_detector_summaries.md)
+
 
 
 If you archive this pack (e.g. via Zenodo/DOI), consider including this file plus the two top-level documents above
