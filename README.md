@@ -531,6 +531,10 @@ The smoke workflow generates a deterministic Markdown summary for reviewers:
 
 Both are uploaded as the `paradox-artifacts` CI artifact.
 
+Notes:
+- Projection view only; does not affect CI gating.
+- Edges are co-occurrence only (no causality).
+
 Local quick inspect:
 
 ```bash
