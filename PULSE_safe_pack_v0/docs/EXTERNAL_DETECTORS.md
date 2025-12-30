@@ -1,6 +1,6 @@
 # External detectors
 
-> **Implementation guide:** [external_detector_summaries.md](external_detector_summaries.md)  
+> **Implementation guide (repo-level):** [docs/external_detector_summaries.md](../../docs/external_detector_summaries.md)  
 > (schemas, examples, integration patterns)
 
 
@@ -47,8 +47,9 @@ profiles if desired.
 
 For the full, up-to-date top-level documentation in this repository:
 
-- Policy (gating vs advisory, defaults): docs/EXTERNAL_DETECTORS.md
-- External detector summaries (schemas, examples, integration patterns): docs/external_detector_summaries.md
+- Policy (gating vs advisory, defaults): [docs/EXTERNAL_DETECTORS.md](../../docs/EXTERNAL_DETECTORS.md)
+- External detector summaries (schemas, examples, integration patterns): [docs/external_detector_summaries.md](../../docs/external_detector_summaries.md)
+
 
 If you archive this pack (e.g. via Zenodo/DOI), consider including this file plus the two top-level documents above
 so that external detector behavior remains transparent and reproducible for downstream users.
