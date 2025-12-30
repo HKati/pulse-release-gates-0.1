@@ -28,6 +28,18 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Repo hygiene: forbid nested fixtures
+        shell: bash
+        run: |
+          set -euo pipefail
+          bad="$(git ls-files | grep -E '^tests/fixtures/.*/tests/fixtures/' || true)"
+          if [ -n "$bad" ]; then
+            echo "::error::Nested fixture path detected (tests/fixtures/**/tests/fixtures/**)."
+            echo "$bad" | sed 's/^/ - /'
+            exit 1
+          fi
+          echo "OK: no nested fixtures detected."
+
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
@@ -333,4 +345,3 @@ jobs:
             out/no_atoms/paradox_field_v0.json
             out/no_atoms/paradox_edges_v0.jsonl
             out/no_atoms/paradox_summary_v0.md
-
