@@ -1,5 +1,9 @@
 # External detectors
 
+> **Implementation guide:** [external_detector_summaries.md](external_detector_summaries.md)  
+> (schemas, examples, integration patterns)
+
+
 PULSE supports an external detector layer that can enrich the status
 with additional safety and quality signals (for example: external
 alignment or safety scanners).
@@ -41,12 +45,11 @@ for the main PULSE CI, while still allowing downstream users to wire
 external detectors in advisory-only mode in their own workflows or
 profiles if desired.
 
-For the full, up-to-date guide (including schemas, examples and
-integration patterns), see the top-level documentation in this
-repository:
+For the full, up-to-date top-level documentation in this repository:
 
-- `docs/EXTERNAL_DETECTORS.md`
+- Policy (gating vs advisory, defaults): docs/EXTERNAL_DETECTORS.md
+- External detector summaries (schemas, examples, integration patterns): docs/external_detector_summaries.md
 
-If you archive this pack (e.g. via Zenodo/DOI), consider including both
-this file and the top-level documentation so that external detector
-behaviour remains transparent to downstream users.
+If you archive this pack (e.g. via Zenodo/DOI), consider including this file plus the two top-level documents above
+so that external detector behavior remains transparent and reproducible for downstream users.
+
