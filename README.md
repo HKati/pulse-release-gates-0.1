@@ -576,17 +576,15 @@ Start here:
 - When things fail (triage): [docs/RUNBOOK.md](docs/RUNBOOK.md) — Operational runbook for triage and reruns.
 
 Curated entrypoints (repo-level docs under `docs/`):
-
+> This list is intentionally curated (entrypoint-first).  
+> Full documentation index: [docs/INDEX.md](docs/INDEX.md).
 
 ### Orientation & contracts
 - [docs/STATE_v0.md](docs/STATE_v0.md) — Current snapshot of PULSE v0 gates, signals, and tooling.
-- [docs/QUICKSTART_CORE_v0.md](docs/QUICKSTART_CORE_v0.md) — Minimal steps to run the core pipeline.
-- [docs/RUNBOOK.md](docs/RUNBOOK.md) — Operational runbook for triage and reruns.
 - [docs/STATUS_CONTRACT.md](docs/STATUS_CONTRACT.md) — Contract for `status.json` shape and semantics.
 - [docs/GLOSSARY_v0.md](docs/GLOSSARY_v0.md) — Canonical term definitions used across docs.
 
 ### Status, ledger & external signals
-- [docs/status_json.md](docs/status_json.md) — How to read `status.json` (metrics, gates, consumers).
 - [docs/quality_ledger.md](docs/quality_ledger.md) — Quality Ledger layout and purpose.
 - [docs/refusal_delta_gate.md](docs/refusal_delta_gate.md) — Refusal-delta summary format + fail-closed semantics.
 - [docs/external_detectors.md](docs/external_detectors.md) — Folding external detector summaries into status/ledger.
@@ -595,7 +593,6 @@ Curated entrypoints (repo-level docs under `docs/`):
 - [docs/PULSE_paradox_field_v0_walkthrough.md](docs/PULSE_paradox_field_v0_walkthrough.md) — How to read `paradox_field_v0`.
 - [docs/Pulse_paradox_edges_v0_status.md](docs/Pulse_paradox_edges_v0_status.md) — Status/roadmap for `paradox_edges_v0.jsonl`.
 - [docs/paradox_edges_case_studies.md](docs/paradox_edges_case_studies.md) — Case studies (fixture + non-fixture).
-- [docs/PARADOX_RUNBOOK.md](docs/PARADOX_RUNBOOK.md) — What to do when EPF shadow disagrees with baseline.
 
 ### EPF shadow & hazard diagnostics
 - [docs/PULSE_epf_shadow_quickstart_v0.md](docs/PULSE_epf_shadow_quickstart_v0.md) — Command-level EPF shadow quickstart.
@@ -605,14 +602,13 @@ Curated entrypoints (repo-level docs under `docs/`):
 ### Topology & field-first interpretation
 - [docs/PULSE_topology_overview_v0.md](docs/PULSE_topology_overview_v0.md) — Topology layer overview (diagnostic overlay).
 - [docs/PULSE_decision_field_v0_overview.md](docs/PULSE_decision_field_v0_overview.md) — Decision field v0 overview.
-- [docs/PULSE_decision_engine_v0.md](docs/PULSE_decision_engine_v0.md) — Decision Engine v0 outputs and semantics.
 - [docs/FIELD_FIRST_INTERPRETATION.md](docs/FIELD_FIRST_INTERPRETATION.md) — Field-first interpretation (question as projection).
 
 ### Examples & contributing
 - [docs/examples/README.md](docs/examples/README.md) — Reproducible examples index.
-- [docs/examples/transitions_case_study_v0/README.md](docs/examples/transitions_case_study_v0/README.md) — Transitions → paradox field/edges case study.
 - [docs/PR_SUMMARY_TOOLS.md](docs/PR_SUMMARY_TOOLS.md) — PR summary tooling (canonical scripts).
 - [CONTRIBUTING.md](CONTRIBUTING.md) — Conventions, DCO, and review workflow.
+
 
 ... 
 
