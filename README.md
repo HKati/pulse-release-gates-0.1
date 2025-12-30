@@ -562,35 +562,31 @@ python scripts/inspect_paradox_v0.py \
   - Plug-in adapters via simple JSON/JSONL summaries (e.g., Llama Guard, Prompt Guard, Garak, Azure Evaluations, Promptfoo, DeepEval).
 
 ---
-Documentation map
 
-In addition to this README, the following documents describe how the
-PULSE v0 stack is wired in this repository:
+## Documentation map
 
-- docs/STATE_v0.md  
-  High-level snapshot of the current PULSE v0 state (core gates, EPF,
-  external detectors, RDSI, drift, PR tooling, contributing).
+In addition to this README, the following documents describe how the PULSE v0 stack is wired in this repository:
 
-- docs/PARADOX_RUNBOOK.md  
-  Runbook for handling cases where EPF shadow decisions disagree with
-  the deterministic baseline gates.
+- **Orientation (what runs / what is source of truth)**
+  - `docs/STATE_v0.md` — Current snapshot of PULSE v0 gates, signals, and tooling.
+  - `docs/status_json.md` — Overview of the `status.json` artefact (metrics, gates, consumers).
 
-- docs/RDSI_STABILITY_NOTES.md  
-  Notes on how to interpret the Release Decision Stability Index (RDSI)
-  as a per-run stability signal, and what it does *not* cover.
+- **Stability & drift**
+  - `docs/RDSI_STABILITY_NOTES.md` — How to read RDSI and what it does *not* cover.
+  - `docs/DRIFT_OVERVIEW.md` — How artefacts (gates, ledger, RDSI, EPF, detectors) support drift/governance.
 
-- docs/DRIFT_OVERVIEW.md  
-  Overview of how PULSE artefacts (gates, Quality Ledger, RDSI, EPF,
-  external detectors) can be used in a broader drift/governance story.
+- **Paradox field & edges (evidence-first)**
+  - `docs/FIELD_FIRST_INTERPRETATION.md` — Field-first interpretation; queries are projections (not triggers).
+  - `docs/paradox_edges_case_studies.md` — Evidence-first edge case studies (co-occurrence only).
+  - `docs/PARADOX_RUNBOOK.md` — What to do when EPF shadow conflicts with deterministic baseline gates.
 
-- docs/PR_SUMMARY_TOOLS.md  
-  Description of the PR summary tooling, and which script is considered
-  canonical for Quality Ledger comments vs helper/example scripts.
+- **Reproducible examples**
+  - `docs/examples/README.md` — Index of reproducible examples.
+  - `docs/examples/transitions_case_study_v0/README.md` — Transitions → paradox field/edges case study.
 
-- CONTRIBUTING.md  
-  Contribution conventions (Conventional Commits, DCO, changelog, PR
-  checklist) and how Codex (chatgpt-codex-connector) is used as an
-  external AI reviewer on GitHub.
+- **Contribution & PR tooling**
+  - `docs/PR_SUMMARY_TOOLS.md` — Canonical PR summary tooling references.
+  - `CONTRIBUTING.md` — Contribution rules, DCO, and review workflow.
 
 ... 
 
