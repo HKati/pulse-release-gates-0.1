@@ -2,72 +2,90 @@ name: PULSE CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
     paths-ignore:
-      - 'docs/**'
-      - '**/*.md'
+      - "docs/**"
+      - "**/*.md"
+      - "badges/**"
+      - "reports/**"
   pull_request:
-    branches: [ main ]
+    branches: [main]
     paths-ignore:
-      - 'docs/**'
-      - '**/*.md'
+      - "docs/**"
+      - "**/*.md"
+      - "badges/**"
+      - "reports/**"
   workflow_dispatch: {}
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Least privilege by default: this workflow must not write to the repo.
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   pulse:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
+
     steps:
-      - uses: actions/checkout@v6
+      - name: Checkout
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          persist-credentials: false
 
       - name: Locate PULSE pack
         shell: bash
         run: |
           set -euo pipefail
           ROOT="$GITHUB_WORKSPACE"
+          PACK_DIR=""
+
           if [ -f "$ROOT/PULSE_safe_pack_v0/tools/run_all.py" ]; then
-            echo "PACK_DIR=$ROOT/PULSE_safe_pack_v0" >> "$GITHUB_ENV"
+            PACK_DIR="$ROOT/PULSE_safe_pack_v0"
           elif [ -f "$ROOT/PULSE_safe_pack_v0.zip" ]; then
             unzip -q -o "$ROOT/PULSE_safe_pack_v0.zip"
-            echo "PACK_DIR=$ROOT/PULSE_safe_pack_v0" >> "$GITHUB_ENV"
+            PACK_DIR="$ROOT/PULSE_safe_pack_v0"
           else
-            RUN_ALL=$(find "$ROOT" -type f -name run_all.py -path "*/PULSE_safe_pack_v0/*" | head -n1 || true)
+            RUN_ALL="$(find "$ROOT" -type f -name run_all.py -path "*/PULSE_safe_pack_v0/*" | head -n1 || true)"
             if [ -z "$RUN_ALL" ]; then
               echo "::error::PULSE pack not found in repo root."
               exit 1
             fi
-            echo "PACK_DIR=$(dirname "$(dirname "$RUN_ALL")")" >> "$GITHUB_ENV"
+            PACK_DIR="$(dirname "$(dirname "$RUN_ALL")")"
           fi
 
-      - name: Set up Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: '3.x'
+          echo "PACK_DIR=$PACK_DIR" >> "$GITHUB_ENV"
+          echo "PACK_DIR resolved to: $PACK_DIR"
 
-      - name: Install Python deps (PyYAML)
+      - name: Set up Python
+        uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # v6.1.0
+        with:
+          python-version: "3.11"
+
+      - name: Install Python deps
+        shell: bash
         run: |
+          set -euo pipefail
           python -m pip install --upgrade pip
           python -m pip install pyyaml
 
       - name: Ensure directories
         shell: bash
         run: |
+          set -euo pipefail
           mkdir -p "${{ env.PACK_DIR }}/artifacts/external"
           mkdir -p "${{ env.PACK_DIR }}/examples"
-
-      - name: Hotfix update_badges f-string
-        shell: bash
-        run: |
-          BADGE="$(find "${{ env.PACK_DIR }}" -type f -path '*/tools/ci/update_badges.py' | head -n1 || true)"
-          if [ -n "$BADGE" ]; then
-            sed -i 's/return ff"""/return f"""/g' "$BADGE" || true
-          fi
+          mkdir -p reports
+          mkdir -p badges
 
       - name: Run PULSE
         shell: bash
-        run: python "${{ env.PACK_DIR }}/tools/run_all.py"
+        run: |
+          set -euo pipefail
+          python "${{ env.PACK_DIR }}/tools/run_all.py"
 
       - name: Compute refusal-delta (policy-config)
         shell: bash
@@ -81,6 +99,7 @@ jobs:
             echo "::error::refusal_delta_calc.py not found under ${{ env.PACK_DIR }}"
             exit 1
           fi
+
           REAL="${{ env.PACK_DIR }}/examples/refusal_pairs.jsonl"
           if [ -f "$REAL" ]; then
             PAIRS="$REAL"
@@ -95,6 +114,7 @@ jobs:
             fi
             echo "Using SAMPLE pairs: $PAIRS"
           fi
+
           POL="${{ env.PACK_DIR }}/profiles/pulse_policy.yaml"
           python "$RD" \
             --pairs "$PAIRS" \
@@ -102,32 +122,76 @@ jobs:
             --policy_config "$POL"
 
       - name: Show refusal-delta summary
+        if: always()
         shell: bash
         run: |
+          set -euo pipefail
           echo "----- refusal_delta_summary.json -----"
           cat "${{ env.PACK_DIR }}/artifacts/refusal_delta_summary.json" || true
           echo "-------------------------------------"
 
-            - name: Augment status (external + top-level flags)
-        shell: bash
-        run: |
-          python "${{ env.PACK_DIR }}/tools/augment_status.py" \
-            --status "${{ env.PACK_DIR }}/artifacts/status.json" \
-            --thresholds "${{ env.PACK_DIR }}/profiles/external_thresholds.yaml" \
-            --external_dir "${{ env.PACK_DIR }}/artifacts/external"
-
-
-      - name: Show gates snapshot
-        shell: bash
-        run: |
-          echo "----- status.json (gates) -----"
-          jq '.gates' "${{ env.PACK_DIR }}/artifacts/status.json" || cat "${{ env.PACK_DIR }}/artifacts/status.json" || true
-          echo "--------------------------------"
-
-            - name: Enforce (Fail-Closed)
+      - name: Augment status (external + top-level flags)
         shell: bash
         run: |
           set -euo pipefail
+          STATUS="${{ env.PACK_DIR }}/artifacts/status.json"
+          THRESH="${{ env.PACK_DIR }}/profiles/external_thresholds.yaml"
+          EXT_DIR="${{ env.PACK_DIR }}/artifacts/external"
+
+          if [ ! -f "$STATUS" ]; then
+            echo "::error::status.json not found at $STATUS"
+            exit 1
+          fi
+          if [ ! -f "$THRESH" ]; then
+            echo "::error::external thresholds not found at $THRESH"
+            exit 1
+          fi
+
+          python "${{ env.PACK_DIR }}/tools/augment_status.py" \
+            --status "$STATUS" \
+            --thresholds "$THRESH" \
+            --external_dir "$EXT_DIR"
+
+      - name: External detector summaries (visibility)
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXT_DIR="${{ env.PACK_DIR }}/artifacts/external"
+          if [ -d "$EXT_DIR" ]; then
+            echo "External summary directory: $EXT_DIR"
+            ls -la "$EXT_DIR" || true
+            if ! find "$EXT_DIR" -maxdepth 1 -type f | grep -q .; then
+              echo "::warning::No external detector summaries found. external_all_pass may be trivially true (fail-open)."
+            fi
+          else
+            echo "::warning::External summary directory missing: $EXT_DIR"
+          fi
+
+      - name: Show gates snapshot
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          STATUS="${{ env.PACK_DIR }}/artifacts/status.json"
+          echo "----- status.json (gates) -----"
+          if [ -f "$STATUS" ]; then
+            if command -v jq >/dev/null 2>&1; then
+              jq '.gates' "$STATUS" || cat "$STATUS" || true
+            else
+              cat "$STATUS" || true
+            fi
+          else
+            echo "::warning::No status.json produced."
+          fi
+          echo "--------------------------------"
+
+      - name: Enforce gates (fail-closed)
+        shell: bash
+        run: |
+          set -euo pipefail
+          STATUS="${{ env.PACK_DIR }}/artifacts/status.json"
+
           REQ=(
             pass_controls_refusal effect_present
             psf_monotonicity_ok psf_mono_shift_resilient
@@ -137,56 +201,34 @@ jobs:
             q1_grounded_ok q2_consistency_ok q3_fairness_ok q4_slo_ok
             external_all_pass
           )
+
           if [ -f "${{ env.PACK_DIR }}/examples/refusal_pairs.jsonl" ]; then
             REQ+=(refusal_delta_pass)
             echo "Requiring extra gate: refusal_delta_pass"
           else
             echo "No real pairs; refusal_delta_pass not required"
           fi
+
           python "${{ env.PACK_DIR }}/tools/check_gates.py" \
-            --status "${{ env.PACK_DIR }}/artifacts/status.json" \
+            --status "$STATUS" \
             --require "${REQ[@]}"
 
-
-      - name: Update badges
-        if: always()
-        shell: bash
-        run: |
-          mkdir -p badges
-          python "${{ env.PACK_DIR }}/tools/ci/update_badges.py" \
-            --status "${{ env.PACK_DIR }}/artifacts/status.json" \
-            --assets badges \
-            --out badges
-
-      - name: Commit badge changes [skip ci]
-        if: always()
-        shell: bash
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add badges/*.svg || true
-          if git diff --cached --quiet; then
-            echo "No badge changes."
-          else
-            git commit -m "chore: update badges [skip ci]"
-            git push
-          fi
-
-            - name: Export JUnit & SARIF
+      - name: Export JUnit & SARIF
         if: always()
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p reports
+          STATUS="${{ env.PACK_DIR }}/artifacts/status.json"
+          if [ ! -f "$STATUS" ]; then
+            echo "::warning::No status.json found; skipping JUnit/SARIF export."
+            exit 0
+          fi
 
-          # Make status.json available in the working directory for the tools
-          cp "${{ env.PACK_DIR }}/artifacts/status.json" status.json
+          cp "$STATUS" status.json
 
-          # Run converters; they expect status.json in the current directory
           python "${{ env.PACK_DIR }}/tools/status_to_junit.py"
           python "${{ env.PACK_DIR }}/tools/status_to_sarif.py"
 
-          # If outputs were written to the current dir, move them under reports/
           if [ -f junit.xml ]; then
             mv junit.xml reports/junit.xml
           fi
@@ -194,12 +236,55 @@ jobs:
             mv sarif.json reports/sarif.json
           fi
 
+      - name: Generate badges (artifact only)
+        if: always()
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          STATUS="${{ env.PACK_DIR }}/artifacts/status.json"
+          BADGE_TOOL="${{ env.PACK_DIR }}/tools/ci/update_badges.py"
+
+          if [ ! -f "$STATUS" ]; then
+            echo "::warning::No status.json found; skipping badge generation."
+            exit 0
+          fi
+          if [ ! -f "$BADGE_TOOL" ]; then
+            echo "::warning::update_badges.py not found; skipping badge generation."
+            exit 0
+          fi
+
+          python "$BADGE_TOOL" \
+            --status "$STATUS" \
+            --assets badges \
+            --out badges
+
+      - name: Workflow summary
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          STATUS="${{ env.PACK_DIR }}/artifacts/status.json"
+
+          echo "## PULSE CI summary" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+          if [ -f "$STATUS" ] && command -v jq >/dev/null 2>&1; then
+            echo "### Gates" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo '```json' >> "$GITHUB_STEP_SUMMARY"
+            jq '.gates' "$STATUS" >> "$GITHUB_STEP_SUMMARY" || true
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "_No status.json produced (or jq missing)._ " >> "$GITHUB_STEP_SUMMARY"
+          fi
 
       - name: Upload artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: pulse-report
+          if-no-files-found: warn
           path: |
             ${{ env.PACK_DIR }}/artifacts/**
             badges/*.svg
@@ -209,21 +294,30 @@ jobs:
   tools-tests:
     name: Tools smoke tests
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       contents: read
-    steps:
-      - uses: actions/checkout@v6
 
-      - uses: actions/setup-python@v6
+    steps:
+      - name: Checkout
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
-          python-version: '3.11'
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # v6.1.0
+        with:
+          python-version: "3.11"
 
       - name: Run exporter smoke tests
+        shell: bash
         run: |
+          set -euo pipefail
           python - <<'PY'
-          import pathlib, subprocess, os, sys
+          import pathlib, subprocess, sys
           root = pathlib.Path('.').resolve()
           (root / 'tests' / 'out').mkdir(parents=True, exist_ok=True)
           subprocess.check_call([sys.executable, 'tests/test_exporters.py'])
           print('Exporter smoke tests OK')
           PY
+
