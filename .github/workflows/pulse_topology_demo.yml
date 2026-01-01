@@ -1,29 +1,43 @@
 name: pulse-topology-demo
 
 on:
-  workflow_dispatch:
+  workflow_dispatch: {}
   pull_request:
     paths:
       - "PULSE_safe_pack_v0/tools/**"
       - "docs/**"
       - "schemas/**"
+      - ".github/workflows/pulse_topology_demo.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pulse-topology-demo-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   topology-demo:
     name: Run topology demo (Stability Map + Decision + Dual View)
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          fetch-depth: 1
+          persist-credentials: false
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # v6.1.0
         with:
           python-version: "3.11"
 
       - name: Prepare demo artefacts
+        shell: bash
         run: |
+          set -euo pipefail
           mkdir -p PULSE_safe_pack_v0/artifacts
           cp docs/examples/topology_demo_v0/status.run_002.json \
             PULSE_safe_pack_v0/artifacts/status.json
@@ -31,14 +45,18 @@ jobs:
             PULSE_safe_pack_v0/artifacts/status_epf.json
 
       - name: Build Stability Map (demo)
+        shell: bash
         run: |
+          set -euo pipefail
           python PULSE_safe_pack_v0/tools/build_stability_map.py \
             --status PULSE_safe_pack_v0/artifacts/status.json \
             --status-epf PULSE_safe_pack_v0/artifacts/status_epf.json \
             --out PULSE_safe_pack_v0/artifacts/stability_map.demo.ci.json
 
       - name: Run Decision Engine (demo)
+        shell: bash
         run: |
+          set -euo pipefail
           if [ -f "PULSE_safe_pack_v0/artifacts/stability_map.demo.ci.json" ]; then
             python PULSE_safe_pack_v0/tools/run_decision_engine.py \
               --stability-map PULSE_safe_pack_v0/artifacts/stability_map.demo.ci.json \
@@ -48,7 +66,9 @@ jobs:
           fi
 
       - name: Build Dual View v0 (demo)
+        shell: bash
         run: |
+          set -euo pipefail
           if [ -f "PULSE_safe_pack_v0/artifacts/stability_map.demo.ci.json" ] && \
              [ -f "PULSE_safe_pack_v0/artifacts/decision_trace.demo.ci.json" ]; then
             python PULSE_safe_pack_v0/tools/build_dual_view_v0.py \
@@ -60,14 +80,18 @@ jobs:
           fi
 
       - name: Install jsonschema for validation
+        shell: bash
         run: |
+          set -euo pipefail
           python -m pip install --upgrade pip
-          pip install jsonschema
+          python -m pip install 'jsonschema>=4,<5'
 
       - name: Validate demo artefacts against schemas
-        # Only run validation if the main schema file is present
         if: ${{ hashFiles('schemas/PULSE_stability_map_v0.schema.json') != '' }}
+        shell: bash
         run: |
+          set -euo pipefail
+
           # Validate stability_map demo if present
           if [ -f "PULSE_safe_pack_v0/artifacts/stability_map.demo.ci.json" ]; then
             python -m jsonschema \
@@ -96,7 +120,9 @@ jobs:
           fi
 
       - name: Validate decision trace with helper script
+        shell: bash
         run: |
+          set -euo pipefail
           if [ -f "PULSE_safe_pack_v0/artifacts/decision_trace.demo.ci.json" ]; then
             python PULSE_safe_pack_v0/tools/validate_decision_trace_v0.py \
               --schema schemas/PULSE_decision_trace_v0.schema.json \
@@ -106,10 +132,13 @@ jobs:
           fi
 
       - name: Upload topology demo artefacts
-        uses: actions/upload-artifact@v4
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: pulse-topology-demo
+          if-no-files-found: warn
           path: |
             PULSE_safe_pack_v0/artifacts/stability_map.demo.ci.json
             PULSE_safe_pack_v0/artifacts/decision_trace.demo.ci.json
             PULSE_safe_pack_v0/artifacts/dual_view_v0.demo.ci.json
+
