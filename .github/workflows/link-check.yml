@@ -6,6 +6,8 @@ on:
       - "**/*.md"
       - "docs/**"
       - "examples/**"
+      - "CITATION.cff"
+      - "schemas/**"
       - ".github/workflows/link-check.yml"
       - ".lycheeignore"
       - "lychee.toml"
@@ -16,6 +18,8 @@ on:
       - "**/*.md"
       - "docs/**"
       - "examples/**"
+      - "CITATION.cff"
+      - "schemas/**"
       - ".github/workflows/link-check.yml"
       - ".lycheeignore"
       - "lychee.toml"
@@ -55,7 +59,7 @@ jobs:
             --max-retries 2
             --retry-wait-time 2
             --max-concurrency 8
-            .
+            README.md docs examples CITATION.cff schemas
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
