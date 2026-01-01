@@ -1,35 +1,73 @@
 name: G-field EPF overlay (shadow)
 
 on:
-  workflow_dispatch:
+  workflow_dispatch: {}
   push:
     paths:
-      - 'scripts/g_child_epf_bridge.py'
-      - 'PULSE_safe_pack_v0/artifacts/**'
-      - '.github/workflows/g_epf_overlay_shadow.yml'
+      - "scripts/g_child_epf_bridge.py"
+      - "PULSE_safe_pack_v0/artifacts/**"
+      - ".github/workflows/g_epf_overlay_shadow.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: g-epf-overlay-shadow-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   g-epf-overlay-shadow:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          fetch-depth: 1
+          persist-credentials: false
 
-      - name: Check for G-field overlay
-        id: check_g_field
+      - name: Set up Python
+        uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # v6.1.0
+        with:
+          python-version: "3.11"
+
+      - name: Check for required EPF bridge inputs
+        id: inputs
+        shell: bash
         run: |
-          if [ -f "PULSE_safe_pack_v0/artifacts/g_field_v0.json" ]; then
-            echo "found=true" >> "$GITHUB_OUTPUT"
-            echo "Found G-field overlay: PULSE_safe_pack_v0/artifacts/g_field_v0.json"
+          set -euo pipefail
+
+          req=(
+            "PULSE_safe_pack_v0/artifacts/g_field_v0.json"
+            "PULSE_safe_pack_v0/artifacts/status_baseline.json"
+            "PULSE_safe_pack_v0/artifacts/status_epf.json"
+            "PULSE_safe_pack_v0/artifacts/epf_paradox_summary.json"
+          )
+
+          missing=()
+          for f in "${req[@]}"; do
+            if [ ! -f "$f" ]; then
+              missing+=("$f")
+            fi
+          done
+
+          if [ "${#missing[@]}" -gt 0 ]; then
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "Missing inputs; skipping EPF bridge:"
+            printf ' - %s\n' "${missing[@]}"
           else
-            echo "found=false" >> "$GITHUB_OUTPUT"
-            echo "No G-field overlay found, skipping EPF bridge."
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+            echo "All inputs present; proceeding with EPF bridge."
           fi
 
       - name: Build G-EPF overlay
-        if: steps.check_g_field.outputs.found == 'true'
+        if: steps.inputs.outputs.ready == 'true'
+        shell: bash
         run: |
+          set -euo pipefail
+          mkdir -p PULSE_safe_pack_v0/artifacts
+
           python scripts/g_child_epf_bridge.py \
             --g-field PULSE_safe_pack_v0/artifacts/g_field_v0.json \
             --status-baseline PULSE_safe_pack_v0/artifacts/status_baseline.json \
@@ -38,8 +76,10 @@ jobs:
             --output PULSE_safe_pack_v0/artifacts/g_epf_overlay_v0.json
 
       - name: Upload G-EPF overlay artifact
-        if: steps.check_g_field.outputs.found == 'true'
-        uses: actions/upload-artifact@v4
+        if: steps.inputs.outputs.ready == 'true'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: g-epf-overlays
+          if-no-files-found: warn
           path: PULSE_safe_pack_v0/artifacts/g_epf_overlay_v0.json
+
