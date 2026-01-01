@@ -2,32 +2,51 @@ name: Validate status.json
 
 on:
   push:
-    paths: ['status.json', 'schemas/status.schema.json']
+    paths:
+      - "status.json"
+      - "schemas/status.schema.json"
+      - ".github/workflows/validate-status.yml"
   pull_request:
-    paths: ['status.json', 'schemas/status.schema.json']
-  workflow_dispatch:
+    paths:
+      - "status.json"
+      - "schemas/status.schema.json"
+      - ".github/workflows/validate-status.yml"
+  workflow_dispatch: {}
 
 permissions:
   contents: read
 
 concurrency:
-  group: validate-status
+  group: validate-status-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   validate:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-python@v6
+      - name: Checkout
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
-          python-version: '3.11'
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # v6.1.0
+        with:
+          python-version: "3.11"
+
       - name: Install deps
+        shell: bash
         run: |
+          set -euo pipefail
           python -m pip install -U pip
-          pip install 'jsonschema>=4,<5'
+          python -m pip install 'jsonschema>=4,<5'
+
       - name: Validate status.json against schema
+        shell: bash
         run: |
+          set -euo pipefail
           python - <<'PY'
           import json, sys, jsonschema, pathlib
           schema_path = pathlib.Path('schemas/status.schema.json')
@@ -40,3 +59,4 @@ jobs:
           jsonschema.validate(instance=data, schema=schema)
           print("status.json valid ✅")
           PY
+
