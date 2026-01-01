@@ -8,7 +8,8 @@ on:
   #   - cron: "0 3 * * *"
 
 permissions:
-  contents: write
+  contents: read
+  # Cache save/restore may require Actions scope depending on repo settings.
   actions: write
 
 env:
@@ -22,11 +23,17 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+
+      - name: Ensure logs/ exists (for first run)
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$(dirname "$HISTORY_FILE")"
 
       - name: Restore status history cache
         id: restore-history
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: ${{ env.HISTORY_FILE }}
           key: ${{ env.HISTORY_CACHE_KEY }}
@@ -45,18 +52,19 @@ jobs:
             unzip -q -o "$ROOT/PULSE_safe_pack_v0.zip"
             echo "PACK_DIR=$ROOT/PULSE_safe_pack_v0" >> "$GITHUB_ENV"
           else
-            RUN_ALL=$(find "$ROOT" -type f -name run_all.py -path "*/PULSE_safe_pack_v0/*" | head -n1 || true)
+            RUN_ALL="$(find "$ROOT" -type f -name run_all.py -path "*/PULSE_safe_pack_v0/*" | head -n1 || true)"
             if [ -z "$RUN_ALL" ]; then
               echo "::error::PULSE_safe_pack_v0 not found (expected folder or zip in repo root)."
               exit 1
             fi
-            echo "PACK_DIR=$(dirname "$(dirname "$RUN_ALL")")" >> "$GITHUB_ENV"
+            PACK_DIR="$(dirname "$(dirname "$RUN_ALL")")"
+            echo "PACK_DIR=$PACK_DIR" >> "$GITHUB_ENV"
           fi
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # v6.1.0
         with:
-          python-version: "3.x"
+          python-version: "3.11"
 
       - name: Run PULSE pack (history/drift context)
         shell: bash
@@ -74,6 +82,13 @@ jobs:
             exit 1
           fi
 
+          if [ ! -f "${PACK_DIR}/artifacts/status.json" ]; then
+            echo "::error::Missing ${PACK_DIR}/artifacts/status.json (PULSE run did not produce it)."
+            exit 1
+          fi
+
+          mkdir -p "$(dirname "$HISTORY_FILE")"
+
           python scripts/append_status_history.py \
             --status "${PACK_DIR}/artifacts/status.json" \
             --output "${HISTORY_FILE}" \
@@ -84,31 +99,23 @@ jobs:
         run: |
           set -euo pipefail
 
-          HISTORY_PATH="${HISTORY_FILE}"
-          TMP_DIR="logs/_tmp_diff"
-
-          if [ ! -f "$HISTORY_PATH" ]; then
-            echo "[history-drift] No history file at $HISTORY_PATH, skipping diff."
+          if [ ! -f "$HISTORY_FILE" ]; then
+            echo "[history-drift] No history file at $HISTORY_FILE, skipping diff."
             exit 0
           fi
 
-          python - << 'EOF'
-          import json
-          import os
+          python - <<'PY'
+          import json, os
 
           history_path = os.environ.get("HISTORY_FILE", "logs/status_history.jsonl")
           tmp_dir = "logs/_tmp_diff"
 
-          if not os.path.exists(history_path):
-            print("[history-drift] No history file, skipping.", flush=True)
-            raise SystemExit(0)
-
           with open(history_path, encoding="utf-8") as f:
-            lines = [line for line in f if line.strip()]
+              lines = [line for line in f if line.strip()]
 
           if len(lines) < 2:
-            print("[history-drift] Not enough entries for diff (need at least 2).", flush=True)
-            raise SystemExit(0)
+              print("[history-drift] Not enough entries for diff (need at least 2).", flush=True)
+              raise SystemExit(0)
 
           last = json.loads(lines[-1])
           prev = json.loads(lines[-2])
@@ -119,13 +126,13 @@ jobs:
           curr_path = os.path.join(tmp_dir, "status_curr.json")
 
           with open(prev_path, "w", encoding="utf-8") as f_prev:
-            json.dump(prev["status"], f_prev, ensure_ascii=False)
+              json.dump(prev["status"], f_prev, ensure_ascii=False)
 
           with open(curr_path, "w", encoding="utf-8") as f_curr:
-            json.dump(last["status"], f_curr, ensure_ascii=False)
+              json.dump(last["status"], f_curr, ensure_ascii=False)
 
           print(f"[history-drift] Wrote {prev_path} and {curr_path}", flush=True)
-          EOF
+          PY
 
       - name: Compute minimal diff between last two runs
         shell: bash
@@ -159,16 +166,45 @@ jobs:
             --format markdown \
             --output "logs/diff_last_two_runs.md"
 
-      - name: Save status history cache
+      - name: Workflow summary (diff excerpt)
         if: always()
-        uses: actions/cache/save@v4
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "## History & drift" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+          if [ -f "logs/diff_last_two_runs.md" ]; then
+            echo "### Last two runs (minimal diff)" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            # keep the summary readable
+            sed -n '1,200p' logs/diff_last_two_runs.md >> "$GITHUB_STEP_SUMMARY" || true
+          else
+            echo "_No diff generated (first run or not enough history yet)._ " >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Check history file exists (guard cache save)
+        id: history_present
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -f "$HISTORY_FILE" ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Save status history cache
+        if: ${{ always() && steps.history_present.outputs.present == 'true' }}
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: ${{ env.HISTORY_FILE }}
           key: ${{ env.HISTORY_CACHE_KEY }}
 
       - name: Upload history & drift artefacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: pulse-history-drift
           path: |
@@ -178,3 +214,4 @@ jobs:
             logs/_tmp_diff/status_prev.json
             logs/_tmp_diff/status_curr.json
           if-no-files-found: ignore
+
