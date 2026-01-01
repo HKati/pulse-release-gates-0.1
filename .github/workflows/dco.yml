@@ -1,14 +1,16 @@
 name: DCO Check
+
 on:
   pull_request:
-    types: [opened, synchronize, reopened, edited]
 
 permissions:
   contents: read
   pull-requests: read
 
 jobs:
-  dco:
+  check:
     runs-on: ubuntu-latest
     steps:
-      - uses: tisonkun/actions-dco@v1.1
+      - name: Enforce DCO (Signed-off-by)
+        uses: tisonkun/actions-dco@f1024cd563550b5632e754df11b7d30b73be54a5 # v1.1
+
