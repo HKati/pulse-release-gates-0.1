@@ -1,16 +1,31 @@
 name: Changelog check
+
 on:
   pull_request:
     types: [opened, synchronize, reopened, edited]
 
+permissions:
+  contents: read
+
+concurrency:
+  group: changelog-check-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   enforce:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
+
     steps:
-      - uses: actions/checkout@v6
+      - name: Checkout
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
 
       - name: Compute diff vs base
         id: diff
+        shell: bash
         run: |
           set -euo pipefail
           git fetch origin "${{ github.base_ref }}" --depth=1
@@ -20,10 +35,13 @@ jobs:
 
       - name: Warn if CHANGELOG not updated (soft)
         if: steps.diff.outputs.changed == 'yes'
+        shell: bash
         run: |
+          set -euo pipefail
           # Allowlist: if ONLY docs/.github/badges changed, don't warn
           if grep -Ev '^(docs/|\.github/|badges/)' files.txt | grep -q .; then
             if ! grep -qx 'CHANGELOG.md' files.txt; then
               echo "::warning::No CHANGELOG.md update found in this PR."
             fi
           fi
+
