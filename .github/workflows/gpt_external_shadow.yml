@@ -1,24 +1,42 @@
 name: GPT external detection (shadow)
 
 on:
-  workflow_dispatch:
+  workflow_dispatch: {}
   push:
     paths:
-      - 'scripts/gpt_external_detector.py'
-      - 'logs/**'
-      - '.github/workflows/gpt_external_shadow.yml'
+      - "scripts/gpt_external_detector.py"
+      - "logs/**"
+      - ".github/workflows/gpt_external_shadow.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gpt-external-shadow-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   gpt-external-shadow:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # v6.1.0
+        with:
+          python-version: "3.11"
 
       - name: Check for model invocation log
         id: check_log
+        shell: bash
         run: |
+          set -euo pipefail
           if [ -f "logs/model_invocations.jsonl" ]; then
             echo "found=true" >> "$GITHUB_OUTPUT"
             echo "Found logs/model_invocations.jsonl"
@@ -29,7 +47,9 @@ jobs:
 
       - name: Run GPT external detector
         if: steps.check_log.outputs.found == 'true'
+        shell: bash
         run: |
+          set -euo pipefail
           mkdir -p PULSE_safe_pack_v0/artifacts
           python scripts/gpt_external_detector.py \
             --input logs/model_invocations.jsonl \
@@ -37,7 +57,9 @@ jobs:
 
       - name: Upload GPT external detection overlay
         if: steps.check_log.outputs.found == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: gpt-external-detection
+          if-no-files-found: warn
           path: PULSE_safe_pack_v0/artifacts/gpt_external_detection_v0.json
+
