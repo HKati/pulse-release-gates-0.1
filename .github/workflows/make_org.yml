@@ -4,49 +4,100 @@ on:
   workflow_dispatch:
     inputs:
       source:
-        description: 'Source image path'
-        default: 'hero_dark_4k.png'
+        description: "Source image path"
+        default: "hero_dark_4k.png"
         required: true
       bgcolor:
-        description: 'Background color'
-        default: '#000000'
+        description: "Background color"
+        default: "#000000"
         required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: make-og-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   make_og:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    # This job needs write access because it commits an asset back to the repo.
+    permissions:
+      contents: write
+
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-python@v6
+      - name: Checkout
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
-          python-version: '3.x'
-      - run: pip install pillow
-      - name: Generate og_image_1200x630.png
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # v6.1.0
+        with:
+          python-version: "3.11"
+
+      - name: Install Pillow
+        shell: bash
         run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install "Pillow>=10,<12"
+
+      - name: Generate og_image_1200x630.png
+        shell: bash
+        env:
+          SRC: ${{ inputs.source }}
+          BGCOLOR: ${{ inputs.bgcolor }}
+        run: |
+          set -euo pipefail
+
+          if [ ! -f "$SRC" ]; then
+            echo "::error::Source image not found: $SRC"
+            echo "Repo root listing:"
+            ls -la
+            exit 1
+          fi
+
           python - <<'PY'
           from PIL import Image, ImageOps
           import os
-          src = os.environ.get('SRC','hero_dark_4k.png')
-          out = 'og_image_1200x630.png'
-          W,H = 1200,630
-          bg = os.environ.get('BGCOLOR','#000000')
-          im = Image.open(src).convert('RGB')
-          im2 = ImageOps.contain(im, (W,H))  # arányt tart, nem vág
-          canvas = Image.new('RGB',(W,H),bg)
+
+          src = os.environ.get("SRC", "hero_dark_4k.png")
+          out = "og_image_1200x630.png"
+          W, H = 1200, 630
+          bg = os.environ.get("BGCOLOR", "#000000")
+
+          im = Image.open(src).convert("RGB")
+          im2 = ImageOps.contain(im, (W, H))  # keep aspect ratio, no crop
+          canvas = Image.new("RGB", (W, H), bg)
           canvas.paste(im2, ((W - im2.width)//2, (H - im2.height)//2))
-          canvas.save(out, 'PNG')
-          print('wrote', out)
+          canvas.save(out, "PNG")
+          print("wrote", out)
           PY
+
+      - name: Commit OG image [skip ci]
+        shell: bash
         env:
-          SRC: ${{ github.event.inputs.source }}
-          BGCOLOR: ${{ github.event.inputs.bgcolor }}
-      - name: Commit OG image
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          git config user.name "github-actions[bot]"
+          set -euo pipefail
+
+          git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
           git add og_image_1200x630.png
           if git diff --cached --quiet; then
-            echo "No changes"; exit 0
+            echo "No changes"
+            exit 0
           fi
-          git commit -m "chore(assets): regenerate og_image_1200x630.png"
+
+          git commit -m "chore(assets): regenerate og_image_1200x630.png [skip ci]"
+
+          # Explicit token push (checkout does not persist credentials)
+          git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
           git push
+
