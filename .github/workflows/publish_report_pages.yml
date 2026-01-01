@@ -32,6 +32,8 @@ jobs:
          github.event.workflow_run.head_branch == 'main')
       }}
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+
     environment:
       name: github-pages
       url: ${{ steps.deploy.outputs.page_url }}
@@ -44,12 +46,13 @@ jobs:
           set -euo pipefail
 
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "run_id=${{ inputs.run_id }}" >> "$GITHUB_OUTPUT"
+            run_id="${{ inputs.run_id }}"
           else
-            echo "run_id=${{ github.event.workflow_run.id }}" >> "$GITHUB_OUTPUT"
+            run_id="${{ github.event.workflow_run.id }}"
           fi
 
-          echo "Using run_id: ${{ steps.runid.outputs.run_id }}"
+          echo "run_id=$run_id" >> "$GITHUB_OUTPUT"
+          echo "Using run_id: $run_id"
 
       - name: Download pulse-report artifact (from upstream run)
         uses: dawidd6/action-download-artifact@ac66b43f0e6a346234dd65d4d0c8fbb31cb316e5 # v11
@@ -62,6 +65,8 @@ jobs:
 
       - name: Prepare Pages site
         shell: bash
+        env:
+          RUN_ID: ${{ steps.runid.outputs.run_id }}
         run: |
           set -euo pipefail
 
@@ -110,10 +115,15 @@ jobs:
           PY
           )"
 
+          picked_kind=""
+          picked_path=""
+
           if [ -n "$site_index" ]; then
             site_root="$(dirname "$site_index")"
             echo "Detected site root (index.html): $site_root"
             cp -a "$site_root"/. _site/
+            picked_kind="index"
+            picked_path="$site_index"
 
           elif [ -n "$report_card" ]; then
             card_root="$(dirname "$report_card")"
@@ -124,26 +134,72 @@ jobs:
             # so relative assets (e.g. report_assets/) keep working.
             cp -a "$card_root"/. _site/
 
-            # Promote report_card.html to index.html at the Pages root (Codex regression fix).
+            # Promote report_card.html to index.html at the Pages root.
             cp -a "$report_card" _site/index.html
 
-          else
-            echo "::warning::No index.html or report_card.html found in downloaded artifact; publishing raw files with a minimal landing page."
-            cp -a _artifact/. _site/
+            picked_kind="report_card"
+            picked_path="$report_card"
 
-            cat > _site/index.html <<'HTML'
-          <!doctype html>
-          <html lang="en">
-            <meta charset="utf-8" />
-            <meta name="viewport" content="width=device-width, initial-scale=1" />
-            <title>PULSE report artifact</title>
-            <body>
-              <h1>PULSE report artifact</h1>
-              <p>This Pages site was generated from the <code>pulse-report</code> workflow artifact.</p>
-              <p>If you expected an HTML report, ensure the upstream workflow produces a <code>report_card.html</code> or <code>index.html</code>.</p>
-            </body>
-          </html>
-          HTML
+          else
+            echo "::warning::No index.html or report_card.html found in downloaded artifact; publishing raw files with a landing page."
+            cp -a _artifact/. _site/
+            picked_kind="landing"
+            picked_path="_artifact/"
+
+            # Build a small landing page that also lists discovered HTML files (if any).
+            python3 - <<'PY'
+            import os
+            import pathlib
+            import html as _html
+
+            root = pathlib.Path("_artifact")
+            out = pathlib.Path("_site/index.html")
+
+            repo = os.environ.get("GITHUB_REPOSITORY", "")
+            run_id = os.environ.get("RUN_ID", "")
+
+            html_files = []
+            for p in root.rglob("*.html"):
+              s = p.as_posix()
+              if "/node_modules/" in s:
+                continue
+              try:
+                rel = p.relative_to(root).as_posix()
+              except Exception:
+                continue
+              html_files.append(rel)
+
+            html_files = sorted(set(html_files))[:200]
+
+            run_url = f"https://github.com/{repo}/actions/runs/{run_id}" if repo and run_id else ""
+
+            parts = []
+            parts.append("<!doctype html>")
+            parts.append("<html lang='en'>")
+            parts.append("<meta charset='utf-8' />")
+            parts.append("<meta name='viewport' content='width=device-width, initial-scale=1' />")
+            parts.append("<title>PULSE report artifact</title>")
+            parts.append("<body style='font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;'>")
+            parts.append("<h1>PULSE report artifact</h1>")
+            parts.append("<p>This Pages site was generated from the <code>pulse-report</code> workflow artifact.</p>")
+            if run_url:
+              parts.append(f"<p>Upstream run: <a href='{_html.escape(run_url)}'>{_html.escape(run_url)}</a></p>")
+            parts.append("<p>If you expected an HTML report at the root, ensure the upstream workflow produces a <code>report_card.html</code> or <code>index.html</code>.</p>")
+
+            if html_files:
+              parts.append("<h2>HTML files found in artifact</h2>")
+              parts.append("<ul>")
+              for rel in html_files:
+                href = _html.escape(rel, quote=True)
+                label = _html.escape(rel)
+                parts.append(f"<li><a href='{href}'>{label}</a></li>")
+              parts.append("</ul>")
+            else:
+              parts.append("<p><em>No HTML files found in artifact.</em></p>")
+
+            parts.append("</body></html>")
+            out.write_text("\n".join(parts) + "\n", encoding="utf-8")
+            PY
           fi
 
           # Optional: also surface top-level extras if present in the artifact bundle.
@@ -153,6 +209,15 @@ jobs:
           if [ -d "_artifact/reports" ] && [ ! -d "_site/reports" ]; then
             cp -a "_artifact/reports" "_site/"
           fi
+
+          # Drop a tiny meta file for auditing/debugging (safe, no secrets).
+          cat > _site/_publish_meta.json <<JSON
+          {
+            "run_id": "${RUN_ID}",
+            "picked_kind": "${picked_kind}",
+            "picked_path": "${picked_path}"
+          }
+          JSON
 
           echo ""
           echo "Top-level in _site:"
