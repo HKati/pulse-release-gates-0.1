@@ -1,20 +1,25 @@
 name: EPF experiment (shadow)
 
 on:
-  workflow_dispatch:
+  workflow_dispatch: {}
   push:
     branches: [ main ]
     paths:
-      - 'PULSE_safe_pack_v0/**'
-      - 'tools/**'
-      - 'scripts/**'
-      - 'pulse_gates.yaml'
-      - '.github/workflows/epf_experiment.yml'
+      - "PULSE_safe_pack_v0/**"
+      - "tools/**"
+      - "scripts/**"
+      - "pulse_gates.yaml"
+      - ".github/workflows/epf_experiment.yml"
+
+# Default least-privilege (job-level permissions below keep it explicit too)
+permissions:
+  contents: read
 
 jobs:
   ab-run:
     concurrency:
-      group: epf-shadow
+      # Keep concurrency but avoid cross-branch cancellation by scoping to ref
+      group: epf-shadow-${{ github.ref }}
       cancel-in-progress: true
 
     permissions:
@@ -22,15 +27,19 @@ jobs:
       actions: read
 
     runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v6
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          fetch-depth: 1
+          persist-credentials: false
 
       - name: Setup Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # v6.1.0
         with:
-          python-version: '3.11'
+          python-version: "3.11"
 
       - name: Install deps (PULSE pack if available, else minimal)
         shell: bash
@@ -144,6 +153,7 @@ jobs:
       - name: Compare & summarize
         shell: bash
         run: |
+          set -euo pipefail
           python - <<'PY'
           import json, pathlib
 
@@ -228,11 +238,14 @@ jobs:
           fi
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: epf-ab-artifacts
+          if-no-files-found: warn
           path: |
             status_baseline.json
             status_epf.json
             epf_report.txt
             epf_paradox_summary.json
+
