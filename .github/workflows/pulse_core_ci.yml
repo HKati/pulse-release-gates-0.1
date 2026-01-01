@@ -4,25 +4,33 @@ on:
   push:
     branches: [ main ]
     paths-ignore:
-      - 'docs/**'
-      - '**/*.md'
+      - "docs/**"
+      - "**/*.md"
   pull_request:
     branches: [ main ]
     paths-ignore:
-      - 'docs/**'
-      - '**/*.md'
+      - "docs/**"
+      - "**/*.md"
   workflow_dispatch: {}
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Least privilege: this workflow does not need to write back to the repo.
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   pulse-core:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          persist-credentials: false
 
       - name: Locate PULSE pack
         shell: bash
@@ -45,9 +53,16 @@ jobs:
           fi
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # v6.1.0
         with:
-          python-version: '3.x'
+          python-version: "3.11"
+
+      - name: Install minimal Python deps
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install pyyaml
 
       - name: Run PULSE Core pack
         shell: bash
@@ -56,13 +71,20 @@ jobs:
           python "${PACK_DIR}/tools/run_all.py"
 
       - name: Show gates snapshot
+        if: always()
         shell: bash
         run: |
+          set -euo pipefail
+          STATUS="${PACK_DIR}/artifacts/status.json"
           echo "----- status.json (gates) -----"
-          if command -v jq >/dev/null 2>&1; then
-            jq '.gates' "${PACK_DIR}/artifacts/status.json" || cat "${PACK_DIR}/artifacts/status.json"
+          if [ -f "$STATUS" ]; then
+            if command -v jq >/dev/null 2>&1; then
+              jq '.gates' "$STATUS" || cat "$STATUS"
+            else
+              cat "$STATUS"
+            fi
           else
-            cat "${PACK_DIR}/artifacts/status.json"
+            echo "::warning::No status.json produced at $STATUS"
           fi
           echo "--------------------------------"
 
@@ -70,6 +92,12 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+
+          STATUS="${PACK_DIR}/artifacts/status.json"
+          if [ ! -f "$STATUS" ]; then
+            echo "::error::Missing status.json at $STATUS"
+            exit 1
+          fi
 
           # Core profile: minimal deterministic gates for first-time adopters
           REQ=(
@@ -81,7 +109,7 @@ jobs:
           )
 
           python "${PACK_DIR}/tools/check_gates.py" \
-            --status "${PACK_DIR}/artifacts/status.json" \
+            --status "$STATUS" \
             --require "${REQ[@]}"
 
       - name: Export JUnit & SARIF
@@ -91,8 +119,14 @@ jobs:
           set -euo pipefail
           mkdir -p reports
 
+          STATUS="${PACK_DIR}/artifacts/status.json"
+          if [ ! -f "$STATUS" ]; then
+            echo "::warning::No status.json found; skipping JUnit/SARIF export."
+            exit 0
+          fi
+
           # PULSE converters expect status.json in cwd
-          cp "${PACK_DIR}/artifacts/status.json" status.json
+          cp "$STATUS" status.json
 
           python "${PACK_DIR}/tools/status_to_junit.py" || echo "JUnit export failed (optional)"
           python "${PACK_DIR}/tools/status_to_sarif.py" || echo "SARIF export failed (optional)"
@@ -106,10 +140,12 @@ jobs:
 
       - name: Upload PULSE Core artefacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: pulse-core-report
+          if-no-files-found: warn
           path: |
             ${{ env.PACK_DIR }}/artifacts/**
             reports/junit.xml
             reports/sarif.json
+
