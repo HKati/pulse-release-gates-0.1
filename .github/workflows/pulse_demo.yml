@@ -9,26 +9,44 @@ on:
         options: [baseline, external_fail, refusal_required]
         default: baseline
       ref:
-        description: "Optional git ref to run on (branch/sha/tag)"
+        description: "Optional git ref to run on (branch/sha/tag). If empty, runs on the workflow's SHA."
         required: false
+        type: string
 
+# This workflow does not need to push to the repo or write PR comments.
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
 
-run-name: Pulse Demo — ${{ github.event_name }} — ${{ inputs.scenario || 'baseline' }} @ ${{ github.ref_name }}
+run-name: Pulse Demo — ${{ inputs.scenario || 'baseline' }} @ ${{ inputs.ref || github.ref_name }}
+
 concurrency:
-  group: pulse-demo@${{ github.ref }}@${{ inputs.scenario || 'baseline' }}
+  group: pulse-demo@${{ inputs.ref || github.ref }}@${{ inputs.scenario || 'baseline' }}
   cancel-in-progress: true
 
 jobs:
   demo:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+
     steps:
+      - name: Resolve checkout ref
+        id: ref
+        shell: bash
+        run: |
+          set -euo pipefail
+          ref="${{ inputs.ref }}"
+          if [ -z "$ref" ]; then
+            ref="${{ github.sha }}"
+          fi
+          echo "ref=$ref" >> "$GITHUB_OUTPUT"
+          echo "Checkout ref: $ref"
+
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
-          ref: ${{ inputs.ref || '' }}
+          ref: ${{ steps.ref.outputs.ref }}
+          fetch-depth: 0
+          persist-credentials: false
 
       - name: Locate PULSE pack
         shell: bash
@@ -50,32 +68,37 @@ jobs:
           fi
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # v6.1.0
         with:
-          python-version: '3.x'
+          python-version: "3.11"
 
       - name: Install minimal deps
         shell: bash
         run: |
+          set -euo pipefail
           python -m pip install --upgrade pip
           python -m pip install pyyaml
-          sudo apt-get update -y && sudo apt-get install -y jq
+          sudo apt-get update -y
+          sudo apt-get install -y jq
 
       - name: Ensure dirs
         shell: bash
         run: |
+          set -euo pipefail
           mkdir -p "${{ env.PACK_DIR }}/artifacts/external"
           mkdir -p "${{ env.PACK_DIR }}/examples"
 
       # ---- Scenarios (agent-like simulation; no here-docs) ----
       - name: Scenario | baseline (no synthetic signals)
         if: ${{ inputs.scenario == 'baseline' }}
+        shell: bash
         run: echo "baseline"
 
       - name: Scenario | external_fail (inject failing external detector)
         if: ${{ inputs.scenario == 'external_fail' }}
         shell: bash
         run: |
+          set -euo pipefail
           printf '%s\n' '{"detector":"dummy","pass":false,"reason":"synthetic fail for demo"}' \
             > "${{ env.PACK_DIR }}/artifacts/external/dummy.json"
 
@@ -83,6 +106,7 @@ jobs:
         if: ${{ inputs.scenario == 'refusal_required' }}
         shell: bash
         run: |
+          set -euo pipefail
           printf '%s\n' \
             '{"pair_id":"ex1","plain_refusal":true,"tool_refusal":false}' \
             '{"pair_id":"ex2","plain_refusal":true,"tool_refusal":true}' \
@@ -92,7 +116,9 @@ jobs:
 
       - name: Run Pulse pack
         shell: bash
-        run: python "${{ env.PACK_DIR }}/tools/run_all.py"
+        run: |
+          set -euo pipefail
+          python "${{ env.PACK_DIR }}/tools/run_all.py"
 
       - name: Compute refusal-delta (only if required)
         if: ${{ inputs.scenario == 'refusal_required' }}
@@ -116,6 +142,7 @@ jobs:
       - name: Augment status (external + top-level flags)
         shell: bash
         run: |
+          set -euo pipefail
           python "${{ env.PACK_DIR }}/tools/augment_status.py" \
             --status "${{ env.PACK_DIR }}/artifacts/status.json" \
             --thresholds "${{ env.PACK_DIR }}/profiles/external_thresholds.yaml" \
@@ -124,6 +151,7 @@ jobs:
       - name: Show gates snapshot
         shell: bash
         run: |
+          set -euo pipefail
           echo "----- status.json (gates) -----"
           jq '.gates' "${{ env.PACK_DIR }}/artifacts/status.json" || cat "${{ env.PACK_DIR }}/artifacts/status.json" || true
           echo "--------------------------------"
@@ -150,6 +178,7 @@ jobs:
         if: always()
         shell: bash
         run: |
+          set -euo pipefail
           mkdir -p badges
           python "${{ env.PACK_DIR }}/tools/ci/update_badges.py" \
             --status "${{ env.PACK_DIR }}/artifacts/status.json" \
@@ -158,9 +187,11 @@ jobs:
 
       - name: Upload demo artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: pulse-demo-${{ inputs.scenario || 'baseline' }}
+          if-no-files-found: warn
           path: |
             ${{ env.PACK_DIR }}/artifacts/**
             badges/*.svg
+
