@@ -1,32 +1,49 @@
 name: G snapshot report (shadow)
 
 on:
-  workflow_dispatch:
+  workflow_dispatch: {}
   push:
     paths:
-      - 'scripts/g_snapshot_report.py'
-      - 'PULSE_safe_pack_v0/artifacts/g_field_v0.json'
-      - 'PULSE_safe_pack_v0/artifacts/g_field_stability_v0.json'
-      - 'PULSE_safe_pack_v0/artifacts/g_epf_overlay_v0.json'
-      - 'PULSE_safe_pack_v0/artifacts/gpt_external_detection_v0.json'
-      - '.github/workflows/g_snapshot_report_shadow.yml'
+      - "scripts/g_snapshot_report.py"
+      - "scripts/g_child_field_adapter.py"
+      - "scripts/gpt_external_detector.py"
+      - "scripts/g_child_epf_bridge.py"
+      - "PULSE_safe_pack_v0/artifacts/g_field_v0.json"
+      - "PULSE_safe_pack_v0/artifacts/g_field_stability_v0.json"
+      - "PULSE_safe_pack_v0/artifacts/g_epf_overlay_v0.json"
+      - "PULSE_safe_pack_v0/artifacts/gpt_external_detection_v0.json"
+      - ".github/workflows/g_snapshot_report_shadow.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: g-snapshot-report-shadow-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   g-snapshot-report-shadow:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # v6.1.0
         with:
-          python-version: '3.x'
+          python-version: "3.11"
 
       - name: Rebuild G-field overlay (optional)
+        shell: bash
         run: |
+          set -euo pipefail
           mkdir -p PULSE_safe_pack_v0/artifacts
+
           if [ -f "hpc/g_snapshots.jsonl" ] && [ -f "PULSE_safe_pack_v0/artifacts/status.json" ]; then
             echo "[INFO] Rebuilding g_field_v0 overlay..."
             python scripts/g_child_field_adapter.py \
@@ -38,7 +55,10 @@ jobs:
           fi
 
       - name: Rebuild GPT external detection overlay (optional)
+        shell: bash
         run: |
+          set -euo pipefail
+
           if [ -f "logs/model_invocations.jsonl" ]; then
             mkdir -p PULSE_safe_pack_v0/artifacts
             echo "[INFO] Rebuilding gpt_external_detection_v0 overlay..."
@@ -50,7 +70,10 @@ jobs:
           fi
 
       - name: Rebuild G-EPF overlay (optional)
+        shell: bash
         run: |
+          set -euo pipefail
+
           if [ -f "PULSE_safe_pack_v0/artifacts/g_field_v0.json" ] \
              && [ -f "status_baseline.json" ] \
              && [ -f "status_epf.json" ] \
@@ -68,7 +91,9 @@ jobs:
           fi
 
       - name: Build G snapshot report
+        shell: bash
         run: |
+          set -euo pipefail
           mkdir -p PULSE_safe_pack_v0/artifacts
           python scripts/g_snapshot_report.py \
             --root . \
@@ -76,8 +101,10 @@ jobs:
             --output PULSE_safe_pack_v0/artifacts/g_snapshot_report_v0.md
 
       - name: Upload G snapshot report
-        uses: actions/upload-artifact@v4
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: g-snapshot-report
+          if-no-files-found: warn
           path: PULSE_safe_pack_v0/artifacts/g_snapshot_report_v0.md
 
