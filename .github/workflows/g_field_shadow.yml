@@ -1,24 +1,42 @@
 name: G-field overlays (shadow)
 
 on:
-  workflow_dispatch:
+  workflow_dispatch: {}
   push:
     paths:
-      - 'scripts/g_child_field_adapter.py'
-      - 'hpc/**'
-      - '.github/workflows/g_field_shadow.yml'
+      - "scripts/g_child_field_adapter.py"
+      - "hpc/**"
+      - ".github/workflows/g_field_shadow.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: g-field-shadow-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   g-field-shadow:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # v6.1.0
+        with:
+          python-version: "3.11"
 
       - name: Check for HPC snapshots
         id: check_snapshots
+        shell: bash
         run: |
+          set -euo pipefail
           if [ -f "hpc/g_snapshots.jsonl" ]; then
             echo "found=true" >> "$GITHUB_OUTPUT"
             echo "Found hpc/g_snapshots.jsonl"
@@ -29,7 +47,9 @@ jobs:
 
       - name: Build G-field overlay from HPC snapshots
         if: steps.check_snapshots.outputs.found == 'true'
+        shell: bash
         run: |
+          set -euo pipefail
           mkdir -p PULSE_safe_pack_v0/artifacts
           python scripts/g_child_field_adapter.py \
             --snapshots hpc/g_snapshots.jsonl \
@@ -37,7 +57,9 @@ jobs:
 
       - name: Upload G-field overlay artifact
         if: steps.check_snapshots.outputs.found == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: g-field-overlays
+          if-no-files-found: warn
           path: PULSE_safe_pack_v0/artifacts/g_field_v0.json
+
