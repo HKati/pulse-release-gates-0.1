@@ -1,76 +1,131 @@
-name: Publish latest PULSE report to Pages
+name: Publish report pages
 
 on:
   workflow_run:
-    workflows: ["PULSE CI"]      # must match CI workflow name exactly
+    workflows: ["PULSE CI"]
     types: [completed]
-    branches: [main]             # only when the CI ran on main
+
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: "PULSE CI workflow run id to publish (Actions run ID)"
+        required: true
+        type: string
 
 permissions:
-  actions: read
   contents: read
+  actions: read
   pages: write
   id-token: write
 
 concurrency:
-  group: pages
-  cancel-in-progress: true
+  group: "github-pages"
+  cancel-in-progress: false
 
 jobs:
   deploy:
-    if: >
-      github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.event == 'push' &&
-      github.event.workflow_run.head_branch == 'main' &&
-      github.actor != 'dependabot[bot]' &&
-      vars.PUBLISH_PAGES == 'true'
+    if: >-
+      ${{
+        github.event_name == 'workflow_dispatch' ||
+        (github.event.workflow_run.conclusion == 'success' &&
+         github.event.workflow_run.event == 'push' &&
+         github.event.workflow_run.head_branch == 'main')
+      }}
     runs-on: ubuntu-latest
     environment:
       name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+      url: ${{ steps.deploy.outputs.page_url }}
 
     steps:
-      - name: Download artifact from triggering run
-        uses: dawidd6/action-download-artifact@v11
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          run_id: ${{ github.event.workflow_run.id }}
-          name: pulse-report                  # must match the CI artifact name
-          path: public
-
-      - name: Promote report_card.html as index.html + expose status.json
+      - name: Resolve upstream run id
+        id: runid
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p public/site
-          SRC=$(find public -type f -name report_card.html | head -n1 || true)
-          if [ -n "$SRC" ]; then
-            cp "$SRC" public/site/index.html
+
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "run_id=${{ inputs.run_id }}" >> "$GITHUB_OUTPUT"
           else
-            echo "::warning::report_card.html not found in artifact"
-            echo "<h1>No report_card.html found</h1>" > public/site/index.html
+            echo "run_id=${{ github.event.workflow_run.id }}" >> "$GITHUB_OUTPUT"
           fi
-          SJS=$(find public -type f -name status.json | head -n1 || true)
-          if [ -n "$SJS" ]; then
-            cp "$SJS" public/site/status.json
+
+          echo "Using run_id: ${{ steps.runid.outputs.run_id }}"
+
+      - name: Download pulse-report artifact (from upstream run)
+        uses: dawidd6/action-download-artifact@ac66b43f0e6a346234dd65d4d0c8fbb31cb316e5 # v11
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          run_id: ${{ steps.runid.outputs.run_id }}
+          name: pulse-report
+          path: _artifact
+          if_no_artifact_found: fail
+
+      - name: Prepare Pages site
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          rm -rf _site
+          mkdir -p _site
+
+          # Try to locate a pre-built site root by searching for index.html.
+          # (We prefer "report/pages/site" directories and shallower paths.)
+          site_index="$(python3 - <<'PY'
+          import pathlib
+          root = pathlib.Path("_artifact")
+          candidates = []
+          for p in root.rglob("index.html"):
+              s = str(p).replace("\\\\","/")
+              if "/node_modules/" in s:
+                  continue
+              parts = [x.lower() for x in p.parts]
+              score = 0
+              for kw, w in [("report", 5), ("pages", 5), ("site", 4), ("html", 2), ("docs", 1), ("artifacts", -1)]:
+                  if kw in parts:
+                      score += w
+              score -= len(p.parts)
+              candidates.append((score, p))
+          candidates.sort(reverse=True)
+          print(str(candidates[0][1]) if candidates else "")
+          PY
+          )"
+
+          if [ -n "$site_index" ]; then
+            site_root="$(dirname "$site_index")"
+            echo "Detected site root: $site_root"
+            cp -a "$site_root"/. _site/
           else
-            echo "::warning::status.json not found in artifact"
+            echo "::warning::No index.html found in downloaded artifact; publishing raw files with a minimal landing page."
+            cp -a _artifact/. _site/
+
+            cat > _site/index.html <<'HTML'
+          <!doctype html>
+          <html lang="en">
+            <meta charset="utf-8" />
+            <meta name="viewport" content="width=device-width, initial-scale=1" />
+            <title>PULSE report artifact</title>
+            <body>
+              <h1>PULSE report artifact</h1>
+              <p>This Pages site was generated from the <code>pulse-report</code> workflow artifact.</p>
+              <p>If you expected an HTML report, ensure the upstream workflow produces an <code>index.html</code> (or adjust the site-root detection).</p>
+            </body>
+          </html>
+          HTML
           fi
-          if [ -d public/badges ]; then
-            mkdir -p public/site/badges
-            cp -r public/badges/*.svg public/site/badges/ || true
-          fi
+
+          echo ""
+          echo "Top-level in _site:"
+          ls -la _site | sed 's/^/  /'
 
       - name: Setup Pages
-        uses: actions/configure-pages@v5
-        with:
-          enablement: true                    # create/enable the Pages site if missing
+        uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5.0.0
 
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v4
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b # v4.0.0
         with:
-          path: ./public/site
+          path: _site
 
       - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+        id: deploy
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4.0.5
+
