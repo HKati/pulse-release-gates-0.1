@@ -1,21 +1,70 @@
 name: Gitleaks
+
 on:
   workflow_dispatch: {}
+
+# Least-privilege: this workflow only needs to read the repository content.
+permissions:
+  contents: read
+
+concurrency:
+  group: gitleaks-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   scan:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+
     steps:
-      - uses: actions/checkout@v6
+      - name: Checkout
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           fetch-depth: 0
-      - name: Run Gitleaks
-        uses: gitleaks/gitleaks-action@v2
+          persist-credentials: false
+
+      - name: Run Gitleaks (SARIF, redacted)
+        id: gitleaks
+        uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2.3.9
         with:
-          args: detect --source . --no-banner --report-format sarif --report-path gitleaks.sarif
+          args: detect --source . --no-banner --redact --report-format sarif --report-path gitleaks.sarif
+        env:
+          # Provided automatically by GitHub Actions; used by gitleaks-action for API calls when enabled.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+          # Keep least-privilege: do not comment on PRs (avoids needing pull-requests: write).
+          GITLEAKS_ENABLE_COMMENTS: "false"
+
+          # Avoid double-upload behavior; we upload deterministically below.
+          GITLEAKS_ENABLE_UPLOAD_ARTIFACT: "false"
+
+          # Optional (org accounts per gitleaks-action docs):
+          # GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
+
+        # Advisory mode: keep the workflow non-blocking (you can later flip this to strict).
         continue-on-error: true
-      - uses: actions/upload-artifact@v4
+
+      - name: Upload gitleaks.sarif
         if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: gitleaks-report
           path: gitleaks.sarif
+          if-no-files-found: warn
+
+      - name: Workflow summary
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "## Gitleaks"
+            echo ""
+            if [ -f gitleaks.sarif ]; then
+              echo "- SARIF generated: \`gitleaks.sarif\` (artifact: \`gitleaks-report\`)"
+              echo "- Mode: advisory (continue-on-error=true)"
+            else
+              echo "- ⚠️ No SARIF produced (scan may have failed before writing output)."
+              echo "- Mode: advisory (continue-on-error=true)"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
