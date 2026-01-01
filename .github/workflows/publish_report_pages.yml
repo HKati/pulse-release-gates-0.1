@@ -68,8 +68,7 @@ jobs:
           rm -rf _site
           mkdir -p _site
 
-          # Try to locate a pre-built site root by searching for index.html.
-          # (We prefer "report/pages/site" directories and shallower paths.)
+          # 1) Prefer a real index.html if present (already a proper site root).
           site_index="$(python3 - <<'PY'
           import pathlib
           root = pathlib.Path("_artifact")
@@ -90,12 +89,46 @@ jobs:
           PY
           )"
 
+          # 2) Fallback: many PULSE runs produce report_card.html (no index.html).
+          report_card="$(python3 - <<'PY'
+          import pathlib
+          root = pathlib.Path("_artifact")
+          candidates = []
+          for p in root.rglob("report_card.html"):
+              s = str(p).replace("\\\\","/")
+              if "/node_modules/" in s:
+                  continue
+              parts = [x.lower() for x in p.parts]
+              score = 0
+              for kw, w in [("pulse_safe_pack_v0", 6), ("artifacts", 6), ("report", 3), ("pages", 2), ("site", 1)]:
+                  if kw in parts:
+                      score += w
+              score -= len(p.parts)
+              candidates.append((score, p))
+          candidates.sort(reverse=True)
+          print(str(candidates[0][1]) if candidates else "")
+          PY
+          )"
+
           if [ -n "$site_index" ]; then
             site_root="$(dirname "$site_index")"
-            echo "Detected site root: $site_root"
+            echo "Detected site root (index.html): $site_root"
             cp -a "$site_root"/. _site/
+
+          elif [ -n "$report_card" ]; then
+            card_root="$(dirname "$report_card")"
+            echo "Detected report_card.html: $report_card"
+            echo "Using report_card directory as site root: $card_root"
+
+            # Copy the directory containing report_card.html to the Pages root
+            # so relative assets (e.g. report_assets/) keep working.
+            cp -a "$card_root"/. _site/
+
+            # Promote report_card.html to index.html at the Pages root (Codex regression fix).
+            cp -a "$report_card" _site/index.html
+
           else
-            echo "::warning::No index.html found in downloaded artifact; publishing raw files with a minimal landing page."
+            echo "::warning::No index.html or report_card.html found in downloaded artifact; publishing raw files with a minimal landing page."
             cp -a _artifact/. _site/
 
             cat > _site/index.html <<'HTML'
@@ -107,10 +140,18 @@ jobs:
             <body>
               <h1>PULSE report artifact</h1>
               <p>This Pages site was generated from the <code>pulse-report</code> workflow artifact.</p>
-              <p>If you expected an HTML report, ensure the upstream workflow produces an <code>index.html</code> (or adjust the site-root detection).</p>
+              <p>If you expected an HTML report, ensure the upstream workflow produces a <code>report_card.html</code> or <code>index.html</code>.</p>
             </body>
           </html>
           HTML
+          fi
+
+          # Optional: also surface top-level extras if present in the artifact bundle.
+          if [ -d "_artifact/badges" ] && [ ! -d "_site/badges" ]; then
+            cp -a "_artifact/badges" "_site/"
+          fi
+          if [ -d "_artifact/reports" ] && [ ! -d "_site/reports" ]; then
+            cp -a "_artifact/reports" "_site/"
           fi
 
           echo ""
