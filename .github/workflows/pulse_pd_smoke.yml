@@ -1,3 +1,4 @@
+
 # .github/workflows/pulse_pd_smoke.yml
 name: PULSE-PD smoke (toy pipeline)
 
@@ -14,13 +15,18 @@ on:
       - ".github/workflows/pulse_pd_smoke.yml"
   workflow_dispatch: {}
 
+# Least privilege: this workflow does not need to write to the repo or manage Actions.
 permissions:
   contents: read
-  actions: write
+
+concurrency:
+  group: pulse-pd-smoke-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   smoke:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     env:
       MPLBACKEND: Agg
@@ -28,10 +34,12 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          persist-credentials: false
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # v6.1.0
         with:
           python-version: "3.11"
 
@@ -56,6 +64,7 @@ jobs:
       - name: Run cut-based PD (writes artifacts)
         run: |
           python -m pulse_pd.run_cut_pd --x pulse_pd/examples/X_toy_ci.npz --theta pulse_pd/examples/theta_cuts_example.json --dims 0 1 --out pulse_pd/artifacts_ci
+
       - name: Export zone events (CSV)
         run: |
           python -m pulse_pd.export_zone_events --x pulse_pd/examples/X_toy_ci.npz --theta pulse_pd/examples/theta_cuts_example.json --zones pulse_pd/artifacts_ci/pd_zones_v0.jsonl --out pulse_pd/artifacts_ci/pd_zone_events_v0.csv --topn-per-zone 5 --sort-by pi_norm --ds-M 12 --mi-models 5 --gf-K 4 --seed 0
@@ -193,6 +202,7 @@ jobs:
           print("Keys:", sorted(keys))
           print("Shape:", X.shape)
           PY
+
       - name: Validate Dropzone artifacts (schema)
         run: |
           python - <<'PY'
@@ -244,9 +254,10 @@ jobs:
 
       - name: Upload artifacts (debug)
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: pulse-pd-smoke-artifacts
+          if-no-files-found: warn
           path: |
             pulse_pd/artifacts_ci/**
             pulse_pd/examples/X_toy_ci.npz
