@@ -1,4 +1,3 @@
-
 # .github/workflows/pulse_pd_smoke.yml
 name: PULSE-PD smoke (toy pipeline)
 
@@ -15,7 +14,7 @@ on:
       - ".github/workflows/pulse_pd_smoke.yml"
   workflow_dispatch: {}
 
-# Least privilege: this workflow does not need to write to the repo or manage Actions.
+# Least privilege: this workflow does not need to write to the repo.
 permissions:
   contents: read
 
@@ -36,6 +35,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
+          fetch-depth: 1
           persist-credentials: false
 
       - name: Set up Python
@@ -44,7 +44,9 @@ jobs:
           python-version: "3.11"
 
       - name: Install minimal deps
+        shell: bash
         run: |
+          set -euo pipefail
           python -m pip install --upgrade pip
           python -m pip install numpy matplotlib
 
@@ -252,6 +254,35 @@ jobs:
 
           echo "OK: PULSE-PD toy smoke artifacts present."
 
+      - name: Workflow summary (key artifacts)
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo "## PULSE-PD smoke" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+          files=(
+            "pulse_pd/artifacts_ci/pd_summary.json"
+            "pulse_pd/artifacts_ci/top_pi_events.csv"
+            "pulse_pd/artifacts_ci/pd_scatter.png"
+            "pulse_pd/artifacts_ci/pi_heatmap.png"
+            "pulse_pd/artifacts_ci/pd_run_meta.json"
+            "pulse_pd/artifacts_ci/pd_zones_v0.jsonl"
+            "pulse_pd/artifacts_ci/pd_peaks_v0.json"
+            "pulse_pd/artifacts_ci/pd_zone_events_v0.csv"
+            "pulse_pd/examples/X_toy_ci.npz"
+          )
+
+          for f in "${files[@]}"; do
+            if [ -f "$f" ]; then
+              echo "- ✅ \`$f\`" >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "- ❌ \`$f\` (missing)" >> "$GITHUB_STEP_SUMMARY"
+            fi
+          done
+
       - name: Upload artifacts (debug)
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -261,3 +292,4 @@ jobs:
           path: |
             pulse_pd/artifacts_ci/**
             pulse_pd/examples/X_toy_ci.npz
+
