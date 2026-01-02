@@ -32,51 +32,98 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Check for required EPF bridge inputs
+      - name: Detect EPF bridge inputs (g_field required; others optional)
         id: inputs
         shell: bash
         run: |
           set -euo pipefail
 
-          req=(
-            "PULSE_safe_pack_v0/artifacts/g_field_v0.json"
-            "PULSE_safe_pack_v0/artifacts/status_baseline.json"
-            "PULSE_safe_pack_v0/artifacts/status_epf.json"
-            "PULSE_safe_pack_v0/artifacts/epf_paradox_summary.json"
-          )
+          G_FIELD="PULSE_safe_pack_v0/artifacts/g_field_v0.json"
+          OUT="PULSE_safe_pack_v0/artifacts/g_epf_overlay_v0.json"
 
-          missing=()
-          for f in "${req[@]}"; do
-            if [ ! -f "$f" ]; then
-              missing+=("$f")
-            fi
-          done
+          # Optional candidates (prefer artifacts/, fall back to repo root if present)
+          BASELINE_A="PULSE_safe_pack_v0/artifacts/status_baseline.json"
+          BASELINE_B="status_baseline.json"
 
-          if [ "${#missing[@]}" -gt 0 ]; then
-            echo "ready=false" >> "$GITHUB_OUTPUT"
-            echo "Missing inputs; skipping EPF bridge:"
-            printf ' - %s\n' "${missing[@]}"
-          else
-            echo "ready=true" >> "$GITHUB_OUTPUT"
-            echo "All inputs present; proceeding with EPF bridge."
+          EPF_A="PULSE_safe_pack_v0/artifacts/status_epf.json"
+          EPF_B="status_epf.json"
+
+          PARADOX_A="PULSE_safe_pack_v0/artifacts/epf_paradox_summary.json"
+          PARADOX_B="epf_paradox_summary.json"
+
+          pick_first_existing () {
+            a="$1"; b="$2"
+            if [ -f "$a" ]; then echo "$a"; return 0; fi
+            if [ -f "$b" ]; then echo "$b"; return 0; fi
+            echo ""
+          }
+
+          baseline="$(pick_first_existing "$BASELINE_A" "$BASELINE_B")"
+          epf="$(pick_first_existing "$EPF_A" "$EPF_B")"
+          paradox="$(pick_first_existing "$PARADOX_A" "$PARADOX_B")"
+
+          if [ ! -f "$G_FIELD" ]; then
+            echo "g_field_ok=false" >> "$GITHUB_OUTPUT"
+            echo "Skipping: missing required G-field overlay: $G_FIELD"
+            exit 0
           fi
 
-      - name: Build G-EPF overlay
-        if: steps.inputs.outputs.ready == 'true'
+          echo "g_field_ok=true" >> "$GITHUB_OUTPUT"
+          echo "g_field=$G_FIELD" >> "$GITHUB_OUTPUT"
+          echo "out=$OUT" >> "$GITHUB_OUTPUT"
+
+          # Optional
+          echo "baseline=$baseline" >> "$GITHUB_OUTPUT"
+          echo "epf=$epf" >> "$GITHUB_OUTPUT"
+          echo "paradox=$paradox" >> "$GITHUB_OUTPUT"
+
+          echo "Inputs:"
+          echo " - g_field:  $G_FIELD"
+          echo " - baseline: ${baseline:-<missing>}"
+          echo " - epf:      ${epf:-<missing>}"
+          echo " - paradox:  ${paradox:-<missing>}"
+          echo " - out:      $OUT"
+
+      - name: Build G-EPF overlay (best effort with optional inputs)
+        if: steps.inputs.outputs.g_field_ok == 'true'
         shell: bash
         run: |
           set -euo pipefail
+
           mkdir -p PULSE_safe_pack_v0/artifacts
 
-          python scripts/g_child_epf_bridge.py \
-            --g-field PULSE_safe_pack_v0/artifacts/g_field_v0.json \
-            --status-baseline PULSE_safe_pack_v0/artifacts/status_baseline.json \
-            --status-epf PULSE_safe_pack_v0/artifacts/status_epf.json \
-            --paradox-summary PULSE_safe_pack_v0/artifacts/epf_paradox_summary.json \
-            --output PULSE_safe_pack_v0/artifacts/g_epf_overlay_v0.json
+          args=()
+          args+=(--g-field "${{ steps.inputs.outputs.g_field }}")
+
+          if [ -n "${{ steps.inputs.outputs.baseline }}" ]; then
+            args+=(--status-baseline "${{ steps.inputs.outputs.baseline }}")
+          else
+            echo "[INFO] No baseline status found; running bridge without --status-baseline"
+          fi
+
+          if [ -n "${{ steps.inputs.outputs.epf }}" ]; then
+            args+=(--status-epf "${{ steps.inputs.outputs.epf }}")
+          else
+            echo "[INFO] No EPF status found; running bridge without --status-epf"
+          fi
+
+          if [ -n "${{ steps.inputs.outputs.paradox }}" ]; then
+            args+=(--paradox-summary "${{ steps.inputs.outputs.paradox }}")
+          else
+            echo "[INFO] No paradox summary found; running bridge without --paradox-summary"
+          fi
+
+          args+=(--output "${{ steps.inputs.outputs.out }}")
+
+          echo "Running: python scripts/g_child_epf_bridge.py ${args[*]}"
+          python scripts/g_child_epf_bridge.py "${args[@]}"
+
+          if [ ! -f "${{ steps.inputs.outputs.out }}" ]; then
+            echo "::warning::Bridge completed but output was not created: ${{ steps.inputs.outputs.out }}"
+          fi
 
       - name: Upload G-EPF overlay artifact
-        if: steps.inputs.outputs.ready == 'true'
+        if: steps.inputs.outputs.g_field_ok == 'true'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: g-epf-overlays
