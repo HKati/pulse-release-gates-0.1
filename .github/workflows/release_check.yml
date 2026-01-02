@@ -1,0 +1,46 @@
+name: Release check
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  zenodo-release-check:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout (release tag)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name }}
+          fetch-depth: 0
+
+      - name: Validate Zenodo metadata JSON
+        run: python -m json.tool .zenodo.json > /dev/null
+
+      - name: Check release status (draft/prerelease) and print release URL
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          RELEASE_DRAFT: ${{ github.event.release.draft }}
+          RELEASE_PRERELEASE: ${{ github.event.release.prerelease }}
+          RELEASE_URL: ${{ github.event.release.html_url }}
+        run: |
+          python - <<'PY'
+          import os
+          tag = os.environ.get("RELEASE_TAG", "")
+          url = os.environ.get("RELEASE_URL", "")
+          draft = os.environ.get("RELEASE_DRAFT", "false").lower() == "true"
+          prerelease = os.environ.get("RELEASE_PRERELEASE", "false").lower() == "true"
+
+          print(f"Release tag: {tag}")
+          print(f"Release URL: {url}")
+
+          if draft:
+              raise SystemExit("ERROR: release is draft (should not happen on 'published').")
+          if prerelease:
+              raise SystemExit("ERROR: release is prerelease; publish a final release for Zenodo archiving.")
+
+          print("OK: release is published and not prerelease.")
+          PY
