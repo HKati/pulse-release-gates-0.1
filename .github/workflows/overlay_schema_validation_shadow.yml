@@ -5,6 +5,7 @@ on:
   push:
     paths:
       - "schemas/**"
+      - "schemas/schemas/**"
       - "scripts/validate_overlays.py"
       - "PULSE_safe_pack_v0/artifacts/**"
       - "*.json"
@@ -14,7 +15,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: overlay-schema-shadow-${{ github.ref }}
+  group: overlay-schema-validation-shadow-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -26,6 +27,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
+          fetch-depth: 1
           persist-credentials: false
 
       - name: Set up Python
@@ -44,5 +46,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          if [ ! -f "scripts/validate_overlays.py" ]; then
+            echo "::error::scripts/validate_overlays.py not found."
+            exit 1
+          fi
           python scripts/validate_overlays.py --root .
 
