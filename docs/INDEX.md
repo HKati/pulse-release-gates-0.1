@@ -30,6 +30,7 @@ If you add/rename a doc under `docs/`, please update this index.
 - [Pulse_paradox_edges_v0_status.md](Pulse_paradox_edges_v0_status.md) — Status/roadmap for `paradox_edges_v0.jsonl`.
 - [paradox_edges_case_studies.md](paradox_edges_case_studies.md) — Case studies (fixture + non-fixture).
 - [PARADOX_RUNBOOK.md](PARADOX_RUNBOOK.md) — What to do when EPF shadow disagrees with baseline.
+- [Paradox diagram v0](paradox_diagram_v0.md) — how to generate and read the Mermaid topology view.
 
 ## EPF shadow & hazard diagnostics
 - [PULSE_epf_shadow_quickstart_v0.md](PULSE_epf_shadow_quickstart_v0.md) — Command-level EPF shadow quickstart.
