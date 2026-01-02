@@ -41,7 +41,9 @@ def _read_jsonl(path: Path) -> List[Dict[str, Any]]:
                 except Exception as e:
                     raise RuntimeError(f"Invalid JSONL at {path}:{i}: {e}") from e
                 if not isinstance(obj, dict):
-                    raise RuntimeError(f"Expected JSON object at {path}:{i}, got {type(obj).__name__}")
+                    raise RuntimeError(
+                        f"Expected JSON object at {path}:{i}, got {type(obj).__name__}"
+                    )
                 rows.append(obj)
         return rows
     except RuntimeError:
@@ -110,8 +112,9 @@ def _extract_edges(rows: List[Dict[str, Any]]) -> Tuple[List[Edge], Dict[str, in
     for r in rows:
         stats["rows_total"] += 1
 
-        src = _to_str(_first_key(r, ["src_id", "src", "a", "from"]))
-        dst = _to_str(_first_key(r, ["dst_id", "dst", "b", "to"]))
+        # NOTE: support canonical paradox_edges_v0 keys src_atom_id/dst_atom_id
+        src = _to_str(_first_key(r, ["src_atom_id", "src_id", "src", "a", "from"]))
+        dst = _to_str(_first_key(r, ["dst_atom_id", "dst_id", "dst", "b", "to"]))
 
         if not src or not dst:
             stats["rows_skipped_missing_endpoints"] += 1
@@ -138,7 +141,7 @@ def _extract_edges(rows: List[Dict[str, Any]]) -> Tuple[List[Edge], Dict[str, in
 
 def _dedupe_edges(edges: List[Edge]) -> List[Edge]:
     """
-    Keep max-weight edge per (src,dst,type). Deterministic tie-break: keep lexicographically smaller repr.
+    Keep max-weight edge per (src,dst,type). Deterministic tie-break: keep stable string-min.
     """
     best: Dict[Tuple[str, str, str], Edge] = {}
     for e in edges:
@@ -319,7 +322,9 @@ def _render_markdown(
 
 
 def main(argv: Optional[List[str]] = None) -> int:
-    p = argparse.ArgumentParser(description="Render paradox_edges_v0 as a deterministic Mermaid diagram (Markdown).")
+    p = argparse.ArgumentParser(
+        description="Render paradox_edges_v0 as a deterministic Mermaid diagram (Markdown)."
+    )
     p.add_argument("--field", type=str, default=None, help="Path to paradox_field_v0.json (optional).")
     p.add_argument("--edges", type=str, required=True, help="Path to paradox_edges_v0.jsonl (required).")
     p.add_argument("--out", type=str, required=True, help="Output markdown path (e.g., out/paradox_diagram_v0.md).")
@@ -357,3 +362,4 @@ def main(argv: Optional[List[str]] = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
