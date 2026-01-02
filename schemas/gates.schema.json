@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://hkatilab.github.io/pulse-release-gates-0.1/schemas/gates.schema.json",
+  "$id": "https://hkati.github.io/pulse-release-gates-0.1/schemas/gates.schema.json",
   "title": "PULSE gates.yaml schema (v1)",
   "type": "object",
   "required": ["schemaVersion", "run", "invariants", "quality", "decision"],
@@ -108,3 +108,4 @@
   },
   "additionalProperties": false
 }
+
