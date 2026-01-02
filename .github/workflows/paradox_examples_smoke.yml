@@ -202,6 +202,19 @@ jobs:
             --edges out/paradox_edges_v0.jsonl \
             --out out/paradox_summary_v0.md
 
+      - name: Paradox diagram (mermaid) — case
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python scripts/render_paradox_diagram_v0.py \
+            --field out/paradox_field_v0.json \
+            --edges out/paradox_edges_v0.jsonl \
+            --out out/paradox_diagram_v0.md \
+            --max-nodes 40 \
+            --max-edges 120 \
+            --min-weight 0.0
+
       - name: Regression fixture: empty edges (run_context present)
         shell: bash
         run: |
@@ -232,6 +245,19 @@ jobs:
           python scripts/check_paradox_empty_edges_v0_acceptance.py \
             --field out/empty_edges/paradox_field_v0.json \
             --edges out/empty_edges/paradox_edges_v0.jsonl
+
+      - name: Paradox diagram (mermaid) — empty-edges fixture
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python scripts/render_paradox_diagram_v0.py \
+            --field out/empty_edges/paradox_field_v0.json \
+            --edges out/empty_edges/paradox_edges_v0.jsonl \
+            --out out/empty_edges/paradox_diagram_v0.md \
+            --max-nodes 40 \
+            --max-edges 120 \
+            --min-weight 0.0
 
       - name: Regression fixture: no atoms (stable empty field)
         shell: bash
@@ -264,7 +290,20 @@ jobs:
             --field out/no_atoms/paradox_field_v0.json \
             --edges out/no_atoms/paradox_edges_v0.jsonl
 
-      - name: Determinism check: paradox markdown summaries
+      - name: Paradox diagram (mermaid) — no-atoms fixture
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python scripts/render_paradox_diagram_v0.py \
+            --field out/no_atoms/paradox_field_v0.json \
+            --edges out/no_atoms/paradox_edges_v0.jsonl \
+            --out out/no_atoms/paradox_diagram_v0.md \
+            --max-nodes 40 \
+            --max-edges 120 \
+            --min-weight 0.0
+
+      - name: Determinism check: paradox markdown summaries + diagrams
         shell: bash
         run: |
           set -euo pipefail
@@ -289,11 +328,40 @@ jobs:
             rm -f "$tmp"
           }
 
+          check_diagram () {
+            local field="$1"
+            local edges="$2"
+            local out="$3"
+            local tmp="${out}.tmp"
+
+            if [ ! -f "$out" ]; then
+              echo "::error::Expected diagram does not exist: $out"
+              exit 1
+            fi
+
+            python scripts/render_paradox_diagram_v0.py \
+              --field "$field" \
+              --edges "$edges" \
+              --out "$tmp" \
+              --max-nodes 40 \
+              --max-edges 120 \
+              --min-weight 0.0
+
+            diff -u "$out" "$tmp"
+            rm -f "$tmp"
+          }
+
+          # summaries
           check_one out/paradox_field_v0.json out/paradox_edges_v0.jsonl out/paradox_summary_v0.md
           check_one out/empty_edges/paradox_field_v0.json out/empty_edges/paradox_edges_v0.jsonl out/empty_edges/paradox_summary_v0.md
           check_one out/no_atoms/paradox_field_v0.json out/no_atoms/paradox_edges_v0.jsonl out/no_atoms/paradox_summary_v0.md
 
-          echo "OK: inspect_paradox_v0 markdown output is deterministic."
+          # diagrams
+          check_diagram out/paradox_field_v0.json out/paradox_edges_v0.jsonl out/paradox_diagram_v0.md
+          check_diagram out/empty_edges/paradox_field_v0.json out/empty_edges/paradox_edges_v0.jsonl out/empty_edges/paradox_diagram_v0.md
+          check_diagram out/no_atoms/paradox_field_v0.json out/no_atoms/paradox_edges_v0.jsonl out/no_atoms/paradox_diagram_v0.md
+
+          echo "OK: inspect_paradox_v0 + render_paradox_diagram_v0 outputs are deterministic."
 
       - name: Acceptance (canonical wrapper)
         shell: bash
@@ -319,6 +387,16 @@ jobs:
           fi
 
           echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "## Paradox diagram v0 (case — header)" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+          if [ -f out/paradox_diagram_v0.md ]; then
+            awk 'BEGIN{p=1} /^## Diagram/ {p=0} p{print}' out/paradox_diagram_v0.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "_No paradox diagram generated._" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "## Paradox empty-edges fixture (excerpt)" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
 
@@ -326,6 +404,16 @@ jobs:
             awk 'BEGIN{p=1} /^## Summary index/ {p=0} p{print}' out/empty_edges/paradox_summary_v0.md >> "$GITHUB_STEP_SUMMARY"
           else
             echo "_No empty-edges paradox summary generated._" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "## Paradox diagram v0 (empty-edges — header)" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+          if [ -f out/empty_edges/paradox_diagram_v0.md ]; then
+            awk 'BEGIN{p=1} /^## Diagram/ {p=0} p{print}' out/empty_edges/paradox_diagram_v0.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "_No empty-edges paradox diagram generated._" >> "$GITHUB_STEP_SUMMARY"
           fi
 
           echo "" >> "$GITHUB_STEP_SUMMARY"
@@ -338,6 +426,16 @@ jobs:
             echo "_No no-atoms paradox summary generated._" >> "$GITHUB_STEP_SUMMARY"
           fi
 
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "## Paradox diagram v0 (no-atoms — header)" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+          if [ -f out/no_atoms/paradox_diagram_v0.md ]; then
+            awk 'BEGIN{p=1} /^## Diagram/ {p=0} p{print}' out/no_atoms/paradox_diagram_v0.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "_No no-atoms paradox diagram generated._" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
       - name: Upload paradox artifacts
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -348,10 +446,13 @@ jobs:
             out/paradox_field_v0.json
             out/paradox_edges_v0.jsonl
             out/paradox_summary_v0.md
+            out/paradox_diagram_v0.md
             out/empty_edges/paradox_field_v0.json
             out/empty_edges/paradox_edges_v0.jsonl
             out/empty_edges/paradox_summary_v0.md
+            out/empty_edges/paradox_diagram_v0.md
             out/no_atoms/paradox_field_v0.json
             out/no_atoms/paradox_edges_v0.jsonl
             out/no_atoms/paradox_summary_v0.md
+            out/no_atoms/paradox_diagram_v0.md
 
