@@ -12,6 +12,10 @@ permissions:
   # Cache save/restore may require Actions scope depending on repo settings.
   actions: write
 
+concurrency:
+  group: pulse-history-drift-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   HISTORY_FILE: logs/status_history.jsonl
   HISTORY_CACHE_KEY: pulse-history-${{ github.ref_name }}-${{ github.run_number }}
@@ -20,10 +24,14 @@ env:
 jobs:
   history-drift:
     runs-on: ubuntu-latest
+    timeout-minutes: 25
 
     steps:
       - name: Checkout
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          fetch-depth: 1
+          persist-credentials: false
 
       - name: Ensure logs/ exists (for first run)
         shell: bash
@@ -177,7 +185,6 @@ jobs:
           if [ -f "logs/diff_last_two_runs.md" ]; then
             echo "### Last two runs (minimal diff)" >> "$GITHUB_STEP_SUMMARY"
             echo "" >> "$GITHUB_STEP_SUMMARY"
-            # keep the summary readable
             sed -n '1,200p' logs/diff_last_two_runs.md >> "$GITHUB_STEP_SUMMARY" || true
           else
             echo "_No diff generated (first run or not enough history yet)._ " >> "$GITHUB_STEP_SUMMARY"
@@ -207,11 +214,13 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: pulse-history-drift
+          if-no-files-found: warn
           path: |
             ${{ env.HISTORY_FILE }}
             logs/diff_last_two_runs.json
             logs/diff_last_two_runs.md
             logs/_tmp_diff/status_prev.json
             logs/_tmp_diff/status_curr.json
-          if-no-files-found: ignore
+
+
 
