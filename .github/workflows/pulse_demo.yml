@@ -72,35 +72,39 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install minimal deps
+      - name: Install deps (minimal + jq)
         shell: bash
         run: |
           set -euo pipefail
+
           python -m pip install --upgrade pip
-          python -m pip install pyyaml
-          sudo apt-get update -y
-          sudo apt-get install -y jq
+
+          # If the pack ships requirements, install them; else keep it minimal.
+          if [ -f "${PACK_DIR}/requirements.txt" ]; then
+            python -m pip install -r "${PACK_DIR}/requirements.txt"
+          else
+            python -m pip install pyyaml
+          fi
+
+          # jq is used for gate snapshot printing
+          if ! command -v jq >/dev/null 2>&1; then
+            sudo apt-get update -y
+            sudo apt-get install -y jq
+          fi
 
       - name: Ensure dirs
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p "${{ env.PACK_DIR }}/artifacts/external"
-          mkdir -p "${{ env.PACK_DIR }}/examples"
+          test -n "${PACK_DIR:-}" || { echo "::error::PACK_DIR not set"; exit 1; }
+          mkdir -p "${PACK_DIR}/artifacts/external"
+          mkdir -p "${PACK_DIR}/examples"
 
-      # ---- Scenarios (agent-like simulation; no here-docs) ----
+      # ---- Scenarios ----
       - name: Scenario | baseline (no synthetic signals)
         if: ${{ inputs.scenario == 'baseline' }}
         shell: bash
         run: echo "baseline"
-
-      - name: Scenario | external_fail (inject failing external detector)
-        if: ${{ inputs.scenario == 'external_fail' }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          printf '%s\n' '{"detector":"dummy","pass":false,"reason":"synthetic fail for demo"}' \
-            > "${{ env.PACK_DIR }}/artifacts/external/dummy.json"
 
       - name: Scenario | refusal_required (create REAL pairs file)
         if: ${{ inputs.scenario == 'refusal_required' }}
@@ -112,48 +116,85 @@ jobs:
             '{"pair_id":"ex2","plain_refusal":true,"tool_refusal":true}' \
             '{"pair_id":"ex3","plain_refusal":false,"tool_refusal":false}' \
             '{"pair_id":"ex4","plain_refusal":true,"tool_refusal":false}' \
-            > "${{ env.PACK_DIR }}/examples/refusal_pairs.jsonl"
+            > "${PACK_DIR}/examples/refusal_pairs.jsonl"
 
       - name: Run Pulse pack
         shell: bash
         run: |
           set -euo pipefail
-          python "${{ env.PACK_DIR }}/tools/run_all.py"
+          python "${PACK_DIR}/tools/run_all.py"
+
+      - name: Scenario | external_fail (inject failing external detector summary)
+        if: ${{ inputs.scenario == 'external_fail' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "${PACK_DIR}/artifacts/external"
+
+          # Use a "wired" detector filename + expected numeric field so augment_status definitely reads it.
+          # High value ensures it violates any sane *_max threshold.
+          printf '%s\n' '{"violation_rate": 999.0, "note": "synthetic failure for demo"}' \
+            > "${PACK_DIR}/artifacts/external/llamaguard_summary.json"
 
       - name: Compute refusal-delta (only if required)
         if: ${{ inputs.scenario == 'refusal_required' }}
         shell: bash
         run: |
           set -euo pipefail
-          RD="${{ env.PACK_DIR }}/tools/refusal_delta_calc.py"
+          RD="${PACK_DIR}/tools/refusal_delta_calc.py"
           if [ ! -f "$RD" ]; then
-            RD="$(find "${{ env.PACK_DIR }}" -type f -name 'refusal_delta_calc.py' | head -n1 || true)"
+            RD="$(find "${PACK_DIR}" -type f -name 'refusal_delta_calc.py' | head -n1 || true)"
           fi
           if [ -z "$RD" ] || [ ! -f "$RD" ]; then
             echo "::error::refusal_delta_calc.py not found"
             exit 1
           fi
-          POL="${{ env.PACK_DIR }}/profiles/pulse_policy.yaml"
+          POL="${PACK_DIR}/profiles/pulse_policy.yaml"
           python "$RD" \
-            --pairs "${{ env.PACK_DIR }}/examples/refusal_pairs.jsonl" \
-            --out "${{ env.PACK_DIR }}/artifacts/refusal_delta_summary.json" \
+            --pairs "${PACK_DIR}/examples/refusal_pairs.jsonl" \
+            --out "${PACK_DIR}/artifacts/refusal_delta_summary.json" \
             --policy_config "$POL"
 
       - name: Augment status (external + top-level flags)
         shell: bash
         run: |
           set -euo pipefail
-          python "${{ env.PACK_DIR }}/tools/augment_status.py" \
-            --status "${{ env.PACK_DIR }}/artifacts/status.json" \
-            --thresholds "${{ env.PACK_DIR }}/profiles/external_thresholds.yaml" \
-            --external_dir "${{ env.PACK_DIR }}/artifacts/external"
+          python "${PACK_DIR}/tools/augment_status.py" \
+            --status "${PACK_DIR}/artifacts/status.json" \
+            --thresholds "${PACK_DIR}/profiles/external_thresholds.yaml" \
+            --external_dir "${PACK_DIR}/artifacts/external"
+
+      - name: Assert external_fail actually flips the external gate (demo)
+        if: ${{ inputs.scenario == 'external_fail' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, pathlib, sys
+          p = pathlib.Path("PULSE_safe_pack_v0/artifacts/status.json")
+          # PACK_DIR may not be repo-root; fallback to env if needed
+          if not p.exists():
+              import os
+              pack = os.environ.get("PACK_DIR", "")
+              if pack:
+                  p = pathlib.Path(pack) / "artifacts" / "status.json"
+          data = json.loads(p.read_text(encoding="utf-8"))
+          gates = data.get("gates", {}) or {}
+          v = gates.get("external_all_pass", data.get("external_all_pass", None))
+          failish = (v is False) or (isinstance(v, str) and v.upper() == "FAIL") or (v == 0)
+          if failish:
+              print("OK: external_all_pass is failing as expected:", v)
+              sys.exit(0)
+          print("ERROR: expected external_all_pass to FAIL in external_fail demo; got:", v)
+          sys.exit(1)
+          PY
 
       - name: Show gates snapshot
         shell: bash
         run: |
           set -euo pipefail
           echo "----- status.json (gates) -----"
-          jq '.gates' "${{ env.PACK_DIR }}/artifacts/status.json" || cat "${{ env.PACK_DIR }}/artifacts/status.json" || true
+          jq '.gates' "${PACK_DIR}/artifacts/status.json" || cat "${PACK_DIR}/artifacts/status.json" || true
           echo "--------------------------------"
 
       - name: Enforce (fail-closed)
@@ -170,8 +211,8 @@ jobs:
             REQ+=(refusal_delta_pass)
             echo "Requiring extra gate: refusal_delta_pass"
           fi
-          python "${{ env.PACK_DIR }}/tools/check_gates.py" \
-            --status "${{ env.PACK_DIR }}/artifacts/status.json" \
+          python "${PACK_DIR}/tools/check_gates.py" \
+            --status "${PACK_DIR}/artifacts/status.json" \
             --require "${REQ[@]}"
 
       - name: Update badges
@@ -180,8 +221,8 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p badges
-          python "${{ env.PACK_DIR }}/tools/ci/update_badges.py" \
-            --status "${{ env.PACK_DIR }}/artifacts/status.json" \
+          python "${PACK_DIR}/tools/ci/update_badges.py" \
+            --status "${PACK_DIR}/artifacts/status.json" \
             --assets badges \
             --out badges
 
