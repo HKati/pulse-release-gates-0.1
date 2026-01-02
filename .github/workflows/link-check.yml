@@ -3,7 +3,8 @@ name: Link check
 on:
   pull_request:
     paths:
-      - "**/*.md"
+      - "README.md"
+      - "CHANGELOG.md"
       - "docs/**"
       - "examples/**"
       - "CITATION.cff"
@@ -15,7 +16,8 @@ on:
   push:
     branches: [ main ]
     paths:
-      - "**/*.md"
+      - "README.md"
+      - "CHANGELOG.md"
       - "docs/**"
       - "examples/**"
       - "CITATION.cff"
@@ -44,6 +46,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
+          fetch-depth: 1
           persist-credentials: false
 
       - name: Run Lychee link checker
@@ -59,7 +62,34 @@ jobs:
             --max-retries 2
             --retry-wait-time 2
             --max-concurrency 8
-            README.md docs examples CITATION.cff schemas
+            --format markdown
+            --output lychee_report.md
+            README.md CHANGELOG.md docs examples CITATION.cff schemas
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload lychee report (artifact)
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: lychee-report
+          path: lychee_report.md
+          if-no-files-found: ignore
+
+      - name: Workflow summary (lychee excerpt)
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "## Link check (lychee)" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          if [ -f lychee_report.md ]; then
+            echo "### Report (excerpt)" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            sed -n '1,200p' lychee_report.md >> "$GITHUB_STEP_SUMMARY" || true
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "_No lychee_report.md generated._" >> "$GITHUB_STEP_SUMMARY"
+          fi
 
