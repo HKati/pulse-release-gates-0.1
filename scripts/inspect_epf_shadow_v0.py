@@ -30,6 +30,11 @@ from datetime import datetime, timezone
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 
+EPF_STATE_NOT_PROVIDED = "not_provided"
+EPF_STATE_MISSING_FILE = "missing_file"
+EPF_STATE_PRESENT = "present"
+
+
 # -----------------------------
 # Models
 # -----------------------------
@@ -180,21 +185,31 @@ def _extract_gate_infos(status: Any) -> Dict[str, GateInfo]:
 
     gate_map: Dict[str, GateInfo] = {}
 
-    def add_gate(gate_id_raw: Any, decision_raw: Any, reason: str = "", value: Optional[float] = None, threshold: Optional[float] = None) -> None:
+    def add_gate(
+        gate_id_raw: Any,
+        decision_raw: Any,
+        reason: str = "",
+        value: Optional[float] = None,
+        threshold: Optional[float] = None,
+    ) -> None:
         gid = _to_str(gate_id_raw).strip()
         if not gid:
             return
         decision = _normalize_decision(decision_raw)
-        gate_map[gid] = GateInfo(gate_id=gid, decision=decision, reason=reason, value=value, threshold=threshold)
+        gate_map[gid] = GateInfo(
+            gate_id=gid,
+            decision=decision,
+            reason=reason,
+            value=value,
+            threshold=threshold,
+        )
 
     def handle_dict(container: Dict[str, Any]) -> None:
         for gid, v in container.items():
-            # Simple shapes
             if isinstance(v, (bool, str)):
                 add_gate(gid, v)
                 continue
 
-            # Dict record shapes
             if isinstance(v, dict):
                 decision_raw = _first_key(
                     v,
@@ -216,7 +231,6 @@ def _extract_gate_infos(status: Any) -> Dict[str, GateInfo]:
                 add_gate(gid, decision_raw, reason=reason, value=value, threshold=threshold)
                 continue
 
-            # Unknown/unhandled shapes
             add_gate(gid, None)
 
     def handle_list(container: List[Any]) -> None:
@@ -243,7 +257,6 @@ def _extract_gate_infos(status: Any) -> Dict[str, GateInfo]:
             value, threshold = _extract_value_threshold(item)
             add_gate(gid, decision_raw, reason=reason, value=value, threshold=threshold)
 
-    # Process candidates until we successfully extract something non-empty
     for c in candidates:
         if isinstance(c, dict) and _looks_like_gate_map(c):
             handle_dict(c)
@@ -254,9 +267,7 @@ def _extract_gate_infos(status: Any) -> Dict[str, GateInfo]:
             if gate_map:
                 break
 
-    # As a last resort: some status formats put gate decisions directly at top-level (rare)
     if not gate_map:
-        # Avoid scooping too much; only accept dict values that look like gate records
         for k, v in status.items():
             if isinstance(v, dict) and any(x in v for x in ["pass", "ok", "decision", "status", "state"]):
                 decision_raw = _first_key(v, ["pass", "ok", "decision", "status", "state"])
@@ -268,9 +279,6 @@ def _extract_gate_infos(status: Any) -> Dict[str, GateInfo]:
 
 
 def _summarize_metrics(status: Any, keys: List[str]) -> Dict[str, Any]:
-    """
-    Pull a few optional metrics from status["metrics"] if present.
-    """
     out: Dict[str, Any] = {}
     if not isinstance(status, dict):
         return out
@@ -287,12 +295,6 @@ def _diff_gates(
     baseline: Dict[str, GateInfo],
     epf: Dict[str, GateInfo],
 ) -> Tuple[List[GateDiff], List[str], List[str]]:
-    """
-    Returns:
-      - diffs: list of changed gates (baseline decision != epf decision)
-      - missing_in_epf: gate_ids present in baseline but missing in epf
-      - missing_in_baseline: gate_ids present in epf but missing in baseline
-    """
     baseline_ids = set(baseline.keys())
     epf_ids = set(epf.keys())
 
@@ -315,9 +317,7 @@ def _diff_gates(
                 )
             )
 
-    # deterministic severity-ish ordering
     def severity_rank(d: GateDiff) -> Tuple[int, str]:
-        # Most important first: PASS->FAIL, then FAIL->PASS, then others
         if d.delta == "PASS->FAIL":
             return (0, d.gate_id)
         if d.delta == "FAIL->PASS":
@@ -338,6 +338,7 @@ def _count_by_delta(diffs: List[GateDiff]) -> Dict[str, int]:
 def _render_markdown(
     baseline_path: str,
     epf_path: Optional[str],
+    epf_state: str,
     baseline_gates: Dict[str, GateInfo],
     epf_gates: Dict[str, GateInfo],
     diffs: List[GateDiff],
@@ -346,98 +347,119 @@ def _render_markdown(
     baseline_metrics: Dict[str, Any],
     epf_metrics: Dict[str, Any],
     max_rows: int,
+    include_timestamp: bool,
 ) -> str:
     lines: List[str] = []
     lines.append("# EPF shadow summary v0")
     lines.append("")
     lines.append("## Inputs")
     lines.append(f"- baseline: `{baseline_path}`")
-    if epf_path:
-        lines.append(f"- epf: `{epf_path}`")
-    else:
+
+    if epf_state == EPF_STATE_NOT_PROVIDED:
         lines.append("- epf: _(not provided)_")
+    elif epf_state == EPF_STATE_MISSING_FILE:
+        lines.append(f"- epf: `{epf_path}` _(missing file)_")
+    else:
+        lines.append(f"- epf: `{epf_path}`")
+
     lines.append("")
     lines.append("## Summary")
     lines.append(f"- baseline gates: **{len(baseline_gates)}**")
-    lines.append(f"- epf gates: **{len(epf_gates)}**")
-    lines.append(f"- changed gates: **{len(diffs)}**")
-    if epf_path and not epf_gates:
+
+    if epf_state == EPF_STATE_PRESENT:
+        lines.append(f"- epf gates: **{len(epf_gates)}**")
+        lines.append(f"- changed gates: **{len(diffs)}**")
+    else:
+        lines.append("- epf gates: _(not computed)_")
+        lines.append("- changed gates: _(not computed)_")
+
+    if epf_state == EPF_STATE_MISSING_FILE:
+        lines.append("")
+        lines.append(f"> ⚠️ EPF input was requested but the file was not found: `{epf_path}`")
+        lines.append("> Comparison skipped (baseline extracted only).")
+    elif epf_state == EPF_STATE_PRESENT and epf_path and not epf_gates:
         lines.append("")
         lines.append("> ⚠️ EPF file was provided, but no gates could be extracted from it.")
         lines.append("> This likely means the status format differs from expectations (schema drift) or the file is empty.")
-    if not epf_path:
+    elif epf_state == EPF_STATE_NOT_PROVIDED:
         lines.append("")
         lines.append("> ℹ️ No EPF input provided. This report is informational only (baseline extracted).")
+
     lines.append("")
 
-    # Optional metrics snapshot
-    if baseline_metrics or epf_metrics:
+    if baseline_metrics or (epf_state == EPF_STATE_PRESENT and epf_metrics):
         lines.append("## Key metrics (optional)")
         if baseline_metrics:
             lines.append("- baseline metrics:")
             for k in sorted(baseline_metrics.keys()):
                 lines.append(f"  - `{k}`: `{baseline_metrics[k]}`")
-        if epf_metrics:
+        if epf_state == EPF_STATE_PRESENT and epf_metrics:
             lines.append("- epf metrics:")
             for k in sorted(epf_metrics.keys()):
                 lines.append(f"  - `{k}`: `{epf_metrics[k]}`")
         lines.append("")
 
-    # Delta counts
-    if diffs:
-        by_delta = _count_by_delta(diffs)
-        lines.append("## Delta breakdown")
-        for k in sorted(by_delta.keys()):
-            lines.append(f"- `{k}`: **{by_delta[k]}**")
-        lines.append("")
-
-        lines.append("## Gate diffs (top)")
-        lines.append("")
-        lines.append("| gate_id | baseline | epf | delta | baseline_reason | epf_reason |")
-        lines.append("|---|---:|---:|---:|---|---|")
-
-        shown = 0
-        for d in diffs:
-            if shown >= max_rows:
-                break
-            br = d.baseline_reason.replace("\n", " ").strip()
-            er = d.epf_reason.replace("\n", " ").strip()
-            lines.append(f"| `{d.gate_id}` | `{d.baseline}` | `{d.epf}` | `{d.delta}` | {br} | {er} |")
-            shown += 1
-
-        if len(diffs) > max_rows:
-            lines.append("")
-            lines.append(f"> Showing first **{max_rows}** diffs. Increase `--max-rows` for more.")
-        lines.append("")
-
-    else:
+    if epf_state != EPF_STATE_PRESENT:
         lines.append("## Gate diffs")
         lines.append("")
-        lines.append("_No gate decision differences detected between baseline and EPF._")
+        if epf_state == EPF_STATE_MISSING_FILE:
+            lines.append("_EPF file missing; comparison not performed._")
+        else:
+            lines.append("_No EPF input provided; comparison not performed._")
         lines.append("")
+    else:
+        if diffs:
+            by_delta = _count_by_delta(diffs)
+            lines.append("## Delta breakdown")
+            for k in sorted(by_delta.keys()):
+                lines.append(f"- `{k}`: **{by_delta[k]}**")
+            lines.append("")
 
-    # Missing sections (still useful signals)
-    if missing_in_epf:
-        lines.append("## Gates missing in EPF")
-        lines.append("")
-        lines.append(f"_Present in baseline, missing in EPF: **{len(missing_in_epf)}**_")
-        lines.append("")
-        for gid in missing_in_epf[:max_rows]:
-            lines.append(f"- `{gid}`")
-        if len(missing_in_epf) > max_rows:
-            lines.append(f"- ... (+{len(missing_in_epf) - max_rows} more)")
-        lines.append("")
+            lines.append("## Gate diffs (top)")
+            lines.append("")
+            lines.append("| gate_id | baseline | epf | delta | baseline_reason | epf_reason |")
+            lines.append("|---|---:|---:|---:|---|---|")
 
-    if missing_in_baseline:
-        lines.append("## Gates missing in baseline")
-        lines.append("")
-        lines.append(f"_Present in EPF, missing in baseline: **{len(missing_in_baseline)}**_")
-        lines.append("")
-        for gid in missing_in_baseline[:max_rows]:
-            lines.append(f"- `{gid}`")
-        if len(missing_in_baseline) > max_rows:
-            lines.append(f"- ... (+{len(missing_in_baseline) - max_rows} more)")
-        lines.append("")
+            shown = 0
+            for d in diffs:
+                if shown >= max_rows:
+                    break
+                br = d.baseline_reason.replace("\n", " ").strip()
+                er = d.epf_reason.replace("\n", " ").strip()
+                lines.append(f"| `{d.gate_id}` | `{d.baseline}` | `{d.epf}` | `{d.delta}` | {br} | {er} |")
+                shown += 1
+
+            if len(diffs) > max_rows:
+                lines.append("")
+                lines.append(f"> Showing first **{max_rows}** diffs. Increase `--max-rows` for more.")
+            lines.append("")
+        else:
+            lines.append("## Gate diffs")
+            lines.append("")
+            lines.append("_No gate decision differences detected between baseline and EPF._")
+            lines.append("")
+
+        if missing_in_epf:
+            lines.append("## Gates missing in EPF")
+            lines.append("")
+            lines.append(f"_Present in baseline, missing in EPF: **{len(missing_in_epf)}**_")
+            lines.append("")
+            for gid in missing_in_epf[:max_rows]:
+                lines.append(f"- `{gid}`")
+            if len(missing_in_epf) > max_rows:
+                lines.append(f"- ... (+{len(missing_in_epf) - max_rows} more)")
+            lines.append("")
+
+        if missing_in_baseline:
+            lines.append("## Gates missing in baseline")
+            lines.append("")
+            lines.append(f"_Present in EPF, missing in baseline: **{len(missing_in_baseline)}**_")
+            lines.append("")
+            for gid in missing_in_baseline[:max_rows]:
+                lines.append(f"- `{gid}`")
+            if len(missing_in_baseline) > max_rows:
+                lines.append(f"- ... (+{len(missing_in_baseline) - max_rows} more)")
+            lines.append("")
 
     lines.append("## How to interpret")
     lines.append("")
@@ -450,29 +472,38 @@ def _render_markdown(
     lines.append("This report is deterministic given identical input JSON files:")
     lines.append("- stable sorting of gate IDs")
     lines.append("- stable ordering of deltas (PASS→FAIL first, then FAIL→PASS, then others)")
+    lines.append("- timestamp omitted by default (use `--include-timestamp` to include one)")
     lines.append("")
 
-    lines.append(f"_Generated: `{_utc_now_iso()}`_")
+    if include_timestamp:
+        lines.append(f"_Generated: `{_utc_now_iso()}`_")
+    else:
+        lines.append("_Generated by `scripts/inspect_epf_shadow_v0.py` (timestamp omitted for deterministic diffs)._")
     lines.append("")
+
     return "\n".join(lines)
 
 
 def _render_diff_json(
     baseline_path: str,
     epf_path: Optional[str],
+    epf_state: str,
     diffs: List[GateDiff],
     missing_in_epf: List[str],
     missing_in_baseline: List[str],
     baseline_metrics: Dict[str, Any],
     epf_metrics: Dict[str, Any],
+    include_timestamp: bool,
 ) -> Dict[str, Any]:
     return {
         "schema_version": "epf_shadow_diff_v0",
-        "generated_utc": _utc_now_iso(),
+        "generated_utc": _utc_now_iso() if include_timestamp else None,
         "inputs": {
             "baseline": baseline_path,
             "epf": epf_path,
+            "epf_state": epf_state,
         },
+        "comparison_performed": (epf_state == EPF_STATE_PRESENT),
         "counts": {
             "changed_gates": len(diffs),
             "missing_in_epf": len(missing_in_epf),
@@ -506,12 +537,15 @@ def _render_diff_json(
 # -----------------------------
 
 def main(argv: Optional[List[str]] = None) -> int:
-    p = argparse.ArgumentParser(description="Inspect EPF shadow vs baseline status JSON and emit a deterministic diff summary.")
+    p = argparse.ArgumentParser(
+        description="Inspect EPF shadow vs baseline status JSON and emit a deterministic diff summary."
+    )
     p.add_argument("--baseline", required=True, help="Path to baseline status JSON (e.g., out/status_baseline.json).")
     p.add_argument("--epf", default=None, help="Path to EPF shadow status JSON (optional; if missing, report explains).")
     p.add_argument("--out-md", required=True, help="Path to output markdown summary (e.g., out/epf_shadow_summary_v0.md).")
     p.add_argument("--out-json", default=None, help="Optional path to output diff JSON (e.g., out/epf_shadow_diff_v0.json).")
     p.add_argument("--max-rows", type=int, default=50, help="Max rows to print in markdown tables/lists.")
+    p.add_argument("--include-timestamp", action="store_true", help="Include generation timestamp in outputs (disables strict determinism).")
     args = p.parse_args(argv)
 
     baseline_path = args.baseline
@@ -519,6 +553,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     out_md = args.out_md
     out_json = args.out_json
     max_rows = int(args.max_rows)
+    include_timestamp = bool(args.include_timestamp)
 
     if not os.path.isfile(baseline_path):
         print(f"[inspect_epf_shadow_v0] ERROR: baseline file not found: {baseline_path}", file=sys.stderr)
@@ -531,41 +566,50 @@ def main(argv: Optional[List[str]] = None) -> int:
         return 2
 
     epf_status: Any = None
-    if epf_path:
-        if os.path.isfile(epf_path):
-            try:
-                epf_status = _read_json(epf_path)
-            except Exception as e:
-                print(f"[inspect_epf_shadow_v0] ERROR: failed to parse EPF JSON: {epf_path}\n{e}", file=sys.stderr)
-                return 2
-        else:
-            # EPF is optional; do not fail, but explain in output
-            epf_status = None
+    if not epf_path:
+        epf_state = EPF_STATE_NOT_PROVIDED
+    elif not os.path.isfile(epf_path):
+        epf_state = EPF_STATE_MISSING_FILE
+    else:
+        epf_state = EPF_STATE_PRESENT
+        try:
+            epf_status = _read_json(epf_path)
+        except Exception as e:
+            print(f"[inspect_epf_shadow_v0] ERROR: failed to parse EPF JSON: {epf_path}\n{e}", file=sys.stderr)
+            return 2
 
     baseline_gates = _extract_gate_infos(baseline_status)
-    epf_gates = _extract_gate_infos(epf_status) if epf_status is not None else {}
+    epf_gates = _extract_gate_infos(epf_status) if epf_state == EPF_STATE_PRESENT else {}
 
-    baseline_metrics = _summarize_metrics(baseline_status, keys=["epf_L", "hazard_E", "hazard_zone", "hazard_ok", "hazard_severity"])
-    epf_metrics = _summarize_metrics(epf_status, keys=["epf_L", "hazard_E", "hazard_zone", "hazard_ok", "hazard_severity"]) if epf_status is not None else {}
+    baseline_metrics = _summarize_metrics(
+        baseline_status,
+        keys=["epf_L", "hazard_E", "hazard_zone", "hazard_ok", "hazard_severity"],
+    )
+    epf_metrics = _summarize_metrics(
+        epf_status,
+        keys=["epf_L", "hazard_E", "hazard_zone", "hazard_ok", "hazard_severity"],
+    ) if epf_state == EPF_STATE_PRESENT else {}
 
     diffs: List[GateDiff] = []
     missing_in_epf: List[str] = []
     missing_in_baseline: List[str] = []
 
-    if epf_path and epf_status is not None:
+    if epf_state == EPF_STATE_PRESENT:
         diffs, missing_in_epf, missing_in_baseline = _diff_gates(baseline_gates, epf_gates)
 
     md = _render_markdown(
         baseline_path=baseline_path,
-        epf_path=epf_path if (epf_path and epf_status is not None) else (epf_path if epf_path else None),
+        epf_path=epf_path if epf_path else None,
+        epf_state=epf_state,
         baseline_gates=baseline_gates,
-        epf_gates=epf_gates if (epf_path and epf_status is not None) else {},
+        epf_gates=epf_gates,
         diffs=diffs,
         missing_in_epf=missing_in_epf,
         missing_in_baseline=missing_in_baseline,
         baseline_metrics=baseline_metrics,
         epf_metrics=epf_metrics,
         max_rows=max_rows,
+        include_timestamp=include_timestamp,
     )
 
     _ensure_parent_dir(out_md)
@@ -575,12 +619,14 @@ def main(argv: Optional[List[str]] = None) -> int:
     if out_json:
         payload = _render_diff_json(
             baseline_path=baseline_path,
-            epf_path=epf_path if (epf_path and epf_status is not None) else (epf_path if epf_path else None),
+            epf_path=epf_path if epf_path else None,
+            epf_state=epf_state,
             diffs=diffs,
             missing_in_epf=missing_in_epf,
             missing_in_baseline=missing_in_baseline,
             baseline_metrics=baseline_metrics,
             epf_metrics=epf_metrics,
+            include_timestamp=include_timestamp,
         )
         _ensure_parent_dir(out_json)
         with open(out_json, "w", encoding="utf-8") as f:
@@ -596,3 +642,4 @@ def main(argv: Optional[List[str]] = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
