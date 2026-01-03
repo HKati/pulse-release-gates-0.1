@@ -256,3 +256,80 @@ jobs:
         id: deploy
         uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4.0.5
 
+      # Post-deploy: verify the *public* Pages site serves crawler-critical endpoints.
+      - name: SEO smoke (post-deploy)
+        if: ${{ steps.deploy.outcome == 'success' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          BASE="${{ steps.deploy.outputs.page_url }}"
+          BASE="${BASE%/}"
+
+          if [ -z "${BASE:-}" ]; then
+            echo "::error::No page_url output from deploy step; cannot run SEO smoke."
+            exit 1
+          fi
+
+          echo "Pages base: $BASE"
+
+          fetch () {
+            local url="$1"
+            local out="$2"
+            local i=0
+            while true; do
+              i=$((i+1))
+              if curl -fsSL "$url" -o "$out"; then
+                return 0
+              fi
+              if [ "$i" -ge 10 ]; then
+                echo "::error::Failed to fetch $url after $i attempts."
+                return 1
+              fi
+              echo "Retry $i/10: $url"
+              sleep 3
+            done
+          }
+
+          fetch "$BASE/robots.txt" robots.txt
+          fetch "$BASE/sitemap.xml" sitemap.xml
+
+          # Best-effort homepage fetch (for accidental noindex detection).
+          if curl -fsSL "$BASE/" -o index.html; then
+            :
+          else
+            echo "::warning::Could not fetch homepage HTML; skipping meta robots check."
+            rm -f index.html || true
+          fi
+
+          echo "robots.txt (head):"
+          sed -n '1,120p' robots.txt
+
+          echo "sitemap.xml (head):"
+          sed -n '1,120p' sitemap.xml
+
+          # robots.txt must allow crawling and reference the sitemap
+          grep -Eqi '^User-agent:\s*\*$' robots.txt
+          grep -Eqi '^Allow:\s*/\s*$' robots.txt
+          grep -Eqi "^Sitemap:\s*$BASE/sitemap.xml\s*$" robots.txt
+
+          # sitemap should at least include the homepage
+          grep -q "<loc>$BASE/</loc>" sitemap.xml
+
+          # guardrail: accidental noindex in homepage HTML blocks indexing even if robots is open
+          if [ -f index.html ]; then
+            if grep -Eqi '<meta[^>]+name=["'"'"']robots["'"'"'][^>]+content=["'"'"'][^"'"'"'>]*noindex' index.html; then
+              echo "::error::Found meta robots noindex in homepage HTML. This can block crawlers."
+              exit 1
+            fi
+          fi
+
+          echo "## SEO smoke (post-deploy)" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- base: \`$BASE\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- ✅ robots: \`$BASE/robots.txt\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- ✅ sitemap: \`$BASE/sitemap.xml\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+          echo "OK: post-deploy SEO smoke passed."
+
