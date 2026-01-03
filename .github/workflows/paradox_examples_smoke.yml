@@ -215,7 +215,7 @@ jobs:
             --max-edges 120 \
             --min-weight 0.0
 
-      - name: Regression fixture: empty edges (run_context present)
+      - name: "Regression fixture: empty edges (run_context present)"
         shell: bash
         run: |
           set -euo pipefail
@@ -259,7 +259,7 @@ jobs:
             --max-edges 120 \
             --min-weight 0.0
 
-      - name: Regression fixture: no atoms (stable empty field)
+      - name: "Regression fixture: no atoms (stable empty field)"
         shell: bash
         run: |
           set -euo pipefail
@@ -303,7 +303,7 @@ jobs:
             --max-edges 120 \
             --min-weight 0.0
 
-      - name: Determinism check: paradox markdown summaries + diagrams
+      - name: "Determinism check: paradox markdown summaries + diagrams"
         shell: bash
         run: |
           set -euo pipefail
