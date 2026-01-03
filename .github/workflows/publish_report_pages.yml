@@ -311,10 +311,53 @@ jobs:
             done
           }
 
+          fetch_headers () {
+            local url="$1"
+            local out="$2"
+            local i=0
+            while true; do
+              i=$((i+1))
+              # -I = HEAD, -L = follow redirects, -D = dump headers
+              if curl -fsSIL -D "$out" -o /dev/null "$url"; then
+                return 0
+              fi
+              if [ "$i" -ge 10 ]; then
+                echo "::error::Failed to fetch headers for $url after $i attempts."
+                return 1
+              fi
+              echo "Retry $i/10 (headers): $url"
+              sleep 3
+            done
+          }
+
           fetch "$BASE/robots.txt" robots.txt
           fetch "$BASE/sitemap.xml" sitemap.xml
 
-          # Best-effort homepage fetch (for accidental noindex detection).
+          # Headers: detect hard indexing blocks (X-Robots-Tag: noindex)
+          fetch_headers "$BASE/" headers_home.txt
+          fetch_headers "$BASE/robots.txt" headers_robots.txt
+          fetch_headers "$BASE/sitemap.xml" headers_sitemap.txt
+
+          echo "homepage headers (head):"
+          sed -n '1,120p' headers_home.txt
+
+          check_noindex_header () {
+            local url="$1"
+            local file="$2"
+            if grep -Eqi '^x-robots-tag:\s*.*noindex' "$file"; then
+              echo "::error::X-Robots-Tag noindex detected for $url. This blocks indexing."
+              echo "::error::Fix: Repo Settings → Pages → Search engine visibility must allow indexing."
+              echo "Headers (head):"
+              sed -n '1,200p' "$file"
+              exit 1
+            fi
+          }
+
+          check_noindex_header "$BASE/" headers_home.txt
+          check_noindex_header "$BASE/robots.txt" headers_robots.txt
+          check_noindex_header "$BASE/sitemap.xml" headers_sitemap.txt
+
+          # Best-effort homepage fetch (for meta noindex detection).
           if curl -fsSL "$BASE/" -o index.html; then
             :
           else
@@ -336,12 +379,61 @@ jobs:
           # sitemap should at least include something under the base URL
           grep -q "<loc>$BASE/" sitemap.xml
 
-          # guardrail: accidental noindex in homepage HTML blocks indexing even if robots is open
+          # Validate sitemap is well-formed XML and locs match BASE (defensive)
+          export BASE
+          python3 - <<'PY'
+          import os
+          import xml.etree.ElementTree as ET
+          from pathlib import Path
+
+          BASE = os.environ.get("BASE","").rstrip("/")
+          xml_text = Path("sitemap.xml").read_text(encoding="utf-8", errors="replace")
+
+          try:
+            root = ET.fromstring(xml_text)
+          except Exception as e:
+            raise SystemExit(f"::error::sitemap.xml is not valid XML: {e}")
+
+          locs = [(el.text or "").strip() for el in root.findall(".//{*}loc")]
+          if not locs:
+            raise SystemExit("::error::sitemap.xml contains no <loc> entries.")
+
+          if BASE:
+            ok = any(u == f"{BASE}/" or u.startswith(f"{BASE}/") for u in locs)
+            if not ok:
+              raise SystemExit(f"::error::sitemap.xml <loc> entries do not start with BASE={BASE}/")
+
+          print(f"OK: sitemap.xml parsed; loc_count={len(locs)}")
+          PY
+
+          # Robust meta noindex detection (order/quoting independent)
           if [ -f index.html ]; then
-            if grep -Eqi '<meta[^>]+name=["'"'"']robots["'"'"'][^>]+content=["'"'"'][^"'"'"'>]*noindex' index.html; then
-              echo "::error::Found meta robots noindex in homepage HTML. This can block crawlers."
-              exit 1
-            fi
+            python3 - <<'PY'
+          import re
+          import sys
+          from pathlib import Path
+
+          p = Path("index.html")
+          html = p.read_text(encoding="utf-8", errors="ignore")
+
+          meta_tags = re.findall(r"<meta\b[^>]*>", html, flags=re.I)
+          bad = []
+          for tag in meta_tags:
+            t = tag.lower()
+            if "noindex" not in t:
+              continue
+            # catch name=robots|googlebot OR http-equiv=x-robots-tag
+            if re.search(r"\bname\s*=\s*['\"]?(robots|googlebot)['\"]?\b", t) or re.search(r"\bhttp-equiv\s*=\s*['\"]?x-robots-tag['\"]?\b", t):
+              bad.append(tag.strip())
+
+          if bad:
+            print("::error::Found meta noindex directive(s) in homepage HTML (blocks indexing):")
+            for tag in bad[:10]:
+              print(tag)
+            sys.exit(1)
+
+          print("OK: no meta noindex found in homepage HTML.")
+          PY
           fi
 
           echo "## SEO smoke (post-deploy)" >> "$GITHUB_STEP_SUMMARY"
@@ -349,6 +441,8 @@ jobs:
           echo "- base: \`$BASE\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- ✅ robots: \`$BASE/robots.txt\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- ✅ sitemap: \`$BASE/sitemap.xml\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- ✅ no X-Robots-Tag: noindex" >> "$GITHUB_STEP_SUMMARY"
+          echo "- ✅ sitemap XML parse OK" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
 
           echo "OK: post-deploy SEO smoke passed."
