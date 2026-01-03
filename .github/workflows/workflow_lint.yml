@@ -51,35 +51,43 @@ jobs:
               print("::warning::No workflow files found under .github/workflows/")
               sys.exit(0)
 
-          # Guardrail: this is the exact failure mode you hit.
-          # Unquoted ':' followed by whitespace inside a step name can break YAML parsing in GitHub Actions.
-          colon_name_re = re.compile(r'^\s*-\s*name:\s+[^"\'].*:\s+.*$', re.MULTILINE)
+          # Heuristic for the known footgun.
+          # IMPORTANT: we only use this as a hint when YAML parsing fails
+          # (so we never false-positive on block scalars like `run: |`).
+          colon_name_line_re = re.compile(r'^\s*-\s*name:\s+[^"\'].*:\s+.*$')
 
           ok = True
 
           for f in files:
               text = f.read_text(encoding="utf-8", errors="replace")
-
-              # Extra explicit check for the known footgun (even if parsing succeeds locally).
-              m = colon_name_re.search(text)
-              if m:
-                  line_no = text[:m.start()].count("\n") + 1
-                  print(f"::error file={f},line={line_no}::Unquoted ':' in step name. Quote the value of - name: ...")
-                  ok = False
+              lines = text.splitlines()
 
               try:
                   obj = yaml.safe_load(text)
               except yaml.YAMLError as e:
-                  # Best-effort line extraction
                   line = None
                   col = None
                   mark = getattr(e, "problem_mark", None)
                   if mark is not None:
                       line = mark.line + 1
                       col = mark.column + 1
+
                   loc = f",line={line},col={col}" if line is not None and col is not None else ""
                   msg = str(e).replace("\n", " | ")
                   print(f"::error file={f}{loc}::YAML parse error: {msg}")
+
+                  # Provide an actionable hint if the failing line (or nearby) looks like the unquoted-colon step-name issue.
+                  if line is not None:
+                      for ln in (line - 1, line, line + 1):
+                          if 1 <= ln <= len(lines):
+                              s = lines[ln - 1]
+                              if colon_name_line_re.search(s):
+                                  print(
+                                      f"::error file={f},line={ln}::Likely unquoted ':' in a step name. "
+                                      f"Quote the value of '- name: ...'."
+                                  )
+                                  break
+
                   ok = False
                   continue
 
@@ -102,3 +110,4 @@ jobs:
 
           print(f"OK: validated {len(files)} workflow file(s).")
           PY
+
