@@ -8,8 +8,8 @@ on:
   workflow_dispatch:
     inputs:
       run_id:
-        description: "PULSE CI workflow run id to publish (Actions run ID)"
-        required: true
+        description: "PULSE CI workflow run id to publish (Actions run ID). Optional: leave empty to use latest successful run on main."
+        required: false
         type: string
 
 permissions:
@@ -37,23 +37,58 @@ jobs:
       url: ${{ steps.deploy.outputs.page_url }}
 
     steps:
-      # Checkout kept (harmless); crawler assets are now generated from _site below.
-      - name: Checkout repository (for crawler assets)
+      # Checkout kept (harmless); crawler assets are generated from _site below.
+      - name: Checkout repository
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Resolve upstream run id
         id: runid
         shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
 
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "run_id=${{ inputs.run_id }}" >> "$GITHUB_OUTPUT"
+          echo "event_name: ${GITHUB_EVENT_NAME}"
+          echo "repo:       ${GITHUB_REPOSITORY}"
+
+          # Read optional workflow_dispatch input from the event payload (works even when inputs context is absent).
+          INPUT_RUN_ID="$(python3 -c 'import json,os; ev=json.load(open(os.environ["GITHUB_EVENT_PATH"])); print((ev.get("inputs") or {}).get("run_id","").strip())')"
+
+          if [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
+            if [ -n "${INPUT_RUN_ID}" ]; then
+              RUN_ID="${INPUT_RUN_ID}"
+              echo "Using provided run_id from workflow_dispatch input: ${RUN_ID}"
+            else
+              echo "No run_id provided; selecting latest successful PULSE CI run on main..."
+
+              # Prefer jq (available on ubuntu-latest); keep this YAML-safe (no heredoc).
+              RUN_ID="$(
+                curl -fsSL \
+                  -H "Authorization: Bearer ${GH_TOKEN}" \
+                  -H "Accept: application/vnd.github+json" \
+                  "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/workflows/pulse_ci.yml/runs?branch=main&per_page=50" \
+                | jq -r '.workflow_runs[] | select(.conclusion=="success") | .id' \
+                | head -n 1
+              )"
+
+              if [ -z "${RUN_ID:-}" ] || [ "${RUN_ID}" = "null" ]; then
+                echo "::error::No successful PULSE CI runs found on main (last 50). Provide run_id manually."
+                exit 1
+              fi
+            fi
           else
-            echo "run_id=${{ github.event.workflow_run.id }}" >> "$GITHUB_OUTPUT"
+            # workflow_run trigger: take run id directly from the event payload.
+            RUN_ID="$(python3 -c 'import json,os; ev=json.load(open(os.environ["GITHUB_EVENT_PATH"])); print(str((ev.get("workflow_run") or {}).get("id","")).strip())')"
+            if [ -z "${RUN_ID:-}" ] || [ "${RUN_ID}" = "None" ]; then
+              echo "::error::workflow_run payload missing workflow_run.id; cannot proceed."
+              exit 1
+            fi
+            echo "Using workflow_run.id from event payload: ${RUN_ID}"
           fi
 
-          echo "Using run_id: ${{ steps.runid.outputs.run_id }}"
+          echo "run_id=${RUN_ID}" >> "$GITHUB_OUTPUT"
+          echo "Using run_id: ${RUN_ID}"
 
       - name: Download pulse-report artifact (from upstream run)
         uses: dawidd6/action-download-artifact@ac66b43f0e6a346234dd65d4d0c8fbb31cb316e5 # v11
@@ -134,7 +169,7 @@ jobs:
             # Copy directory containing report_card.html to Pages root so relative assets keep working.
             cp -a "$card_root"/. _site/
 
-            # Promote report_card.html to index.html at the Pages root (regression fix).
+            # Promote report_card.html to index.html at the Pages root.
             cp -a "$report_card" _site/index.html
 
             echo "mode=report_card" >> "$GITHUB_OUTPUT"
@@ -170,19 +205,34 @@ jobs:
             cp -a "_artifact/reports" "_site/"
           fi
 
-          # --- Crawler assets (generate from _site; deterministic for artifact-built Pages) ---
-          BASE="https://hkati.github.io/pulse-release-gates-0.1"
+          # --- Crawler assets (generate from _site; canonical & whitespace-proof) ---
+          OWNER="${GITHUB_REPOSITORY%%/*}"
+          OWNER="${OWNER,,}"
+          REPO="${GITHUB_REPOSITORY#*/}"
+          BASE="https://${OWNER}.github.io/${REPO}"
           BASE="${BASE%/}"
+          export BASE
 
-          cat > _site/robots.txt <<EOF
-          User-agent: *
-          Allow: /
-          Sitemap: ${BASE}/sitemap.xml
-          EOF
-
+          # robots.txt (guaranteed LF newlines, no heredoc indentation pitfalls)
           python3 - <<'PY'
-          import pathlib, datetime
-          BASE = "https://hkati.github.io/pulse-release-gates-0.1".rstrip("/")
+          from pathlib import Path
+          import os
+
+          base = os.environ["BASE"].rstrip("/")
+          Path("_site/robots.txt").write_text(
+              "User-agent: *\n"
+              "Allow: /\n"
+              f"Sitemap: {base}/sitemap.xml\n",
+              encoding="utf-8",
+          )
+          print(f"OK: wrote _site/robots.txt (base={base})")
+          PY
+
+          # sitemap.xml from actual published HTML set
+          python3 - <<'PY'
+          import pathlib, datetime, os
+
+          BASE = os.environ["BASE"].rstrip("/")
           root = pathlib.Path("_site")
 
           urls = []
@@ -197,13 +247,15 @@ jobs:
               raise SystemExit("::error::No HTML files found in _site; cannot generate sitemap.")
 
           now = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
-          lines = ['<?xml version="1.0" encoding="UTF-8"?>',
-                   '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">']
+          lines = [
+              '<?xml version="1.0" encoding="UTF-8"?>',
+              '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+          ]
           for u in urls:
               lines += ["  <url>", f"    <loc>{u}</loc>", f"    <lastmod>{now}</lastmod>", "  </url>"]
           lines.append("</urlset>")
           (root / "sitemap.xml").write_text("\n".join(lines) + "\n", encoding="utf-8")
-          print(f"Generated sitemap.xml with {len(urls)} URLs.")
+          print(f"OK: wrote _site/sitemap.xml with {len(urls)} URLs")
           PY
 
           echo ""
@@ -224,6 +276,14 @@ jobs:
           if [ ! -s "_site/robots.txt" ]; then
             echo "::error::Expected _site/robots.txt to exist and be non-empty before publish."
             ls -la _site || true
+            exit 1
+          fi
+
+          # Guardrail: robots must be multiline
+          if [ "$(wc -l < _site/robots.txt)" -lt 3 ]; then
+            echo "::error::robots.txt must be multi-line (>=3 lines)."
+            echo "--- robots.txt ---"
+            cat _site/robots.txt || true
             exit 1
           fi
 
@@ -285,6 +345,7 @@ jobs:
 
           BASE="${{ steps.deploy.outputs.page_url }}"
           BASE="${BASE%/}"
+          export BASE
 
           if [ -z "${BASE:-}" ]; then
             echo "::error::No page_url output from deploy step; cannot run SEO smoke."
@@ -371,16 +432,41 @@ jobs:
           echo "sitemap.xml (head):"
           sed -n '1,120p' sitemap.xml
 
-          # robots.txt must allow crawling and reference the sitemap
-          grep -Eqi '^User-agent:\s*\*$' robots.txt
-          grep -Eqi '^Allow:\s*/\s*$' robots.txt
-          grep -Eqi "^Sitemap:\s*$BASE/sitemap.xml\s*$" robots.txt
+          # Robust robots validation (avoid regex footguns)
+          python3 - <<'PY'
+          import os, sys
+          from pathlib import Path
+
+          BASE = os.environ.get("BASE","").rstrip("/")
+          txt = Path("robots.txt").read_text(encoding="utf-8", errors="replace").splitlines()
+          norm = [ln.strip() for ln in txt if ln.strip()]
+
+          if len(norm) < 3:
+            print("::error::robots.txt must contain at least 3 non-empty lines.")
+            for ln in txt[:20]:
+              print(ln)
+            sys.exit(1)
+
+          lower = [ln.lower() for ln in norm]
+          need = [
+            "user-agent: *",
+            "allow: /",
+            f"sitemap: {BASE}/sitemap.xml".lower(),
+          ]
+          missing = [x for x in need if x not in lower]
+          if missing:
+            print("::error::robots.txt missing required directive lines:")
+            for m in missing:
+              print(" - " + m)
+            sys.exit(1)
+
+          print("OK: robots.txt directives validated.")
+          PY
 
           # sitemap should at least include something under the base URL
           grep -q "<loc>$BASE/" sitemap.xml
 
           # Validate sitemap is well-formed XML and locs match BASE (defensive)
-          export BASE
           python3 - <<'PY'
           import os
           import xml.etree.ElementTree as ET
@@ -398,15 +484,14 @@ jobs:
           if not locs:
             raise SystemExit("::error::sitemap.xml contains no <loc> entries.")
 
-          if BASE:
-            ok = any(u == f"{BASE}/" or u.startswith(f"{BASE}/") for u in locs)
-            if not ok:
-              raise SystemExit(f"::error::sitemap.xml <loc> entries do not start with BASE={BASE}/")
+          ok = any(u == f"{BASE}/" or u.startswith(f"{BASE}/") for u in locs)
+          if not ok:
+            raise SystemExit(f"::error::sitemap.xml <loc> entries do not start with BASE={BASE}/")
 
           print(f"OK: sitemap.xml parsed; loc_count={len(locs)}")
           PY
 
-          # Robust meta noindex detection (order/quoting independent)
+          # guardrail: accidental noindex in homepage HTML blocks indexing even if robots is open
           if [ -f index.html ]; then
             python3 - <<'PY'
           import re
@@ -422,7 +507,6 @@ jobs:
             t = tag.lower()
             if "noindex" not in t:
               continue
-            # catch name=robots|googlebot OR http-equiv=x-robots-tag
             if re.search(r"\bname\s*=\s*['\"]?(robots|googlebot)['\"]?\b", t) or re.search(r"\bhttp-equiv\s*=\s*['\"]?x-robots-tag['\"]?\b", t):
               bad.append(tag.strip())
 
