@@ -157,36 +157,88 @@ jobs:
           check_noindex_header "${BASE}/robots.txt" _probe/headers_robots.txt
           check_noindex_header "${BASE}/sitemap.xml" _probe/headers_sitemap.txt
 
-          # 2) robots.txt must explicitly allow crawling + point to the canonical sitemap (no regex footguns)
+          # 2) robots.txt must explicitly allow crawling + point to the canonical sitemap
+          #    (treat Disallow: / as a global block only when it applies to User-agent: *)
           python3 - <<'PY'
           import os, sys
           from pathlib import Path
 
           BASE = os.environ["BASE"].rstrip("/")
-          p = Path("_probe/robots.txt")
-          txt = p.read_text(encoding="utf-8", errors="replace").splitlines()
-          norm = [ln.strip() for ln in txt if ln.strip()]
-          lower = [ln.lower() for ln in norm]
 
-          need = [
-              "user-agent: *",
-              "allow: /",
-              f"sitemap: {BASE}/sitemap.xml".lower(),
-          ]
+          def strip_comment(line: str) -> str:
+              # robots.txt comments start with '#'
+              return line.split("#", 1)[0].strip()
 
-          missing = [x for x in need if x not in lower]
-          if missing:
-              print("::error::robots.txt missing required directive lines:")
-              for m in missing:
-                  print(" - " + m)
+          raw_lines = Path("_probe/robots.txt").read_text(encoding="utf-8", errors="replace").splitlines()
+          lines = [strip_comment(ln) for ln in raw_lines]
+          lines = [ln for ln in lines if ln]
+
+          groups = []
+          current = None
+          saw_ua = False
+          preamble = []  # directives before any User-agent
+
+          for ln in lines:
+              if ":" not in ln:
+                  continue
+              key, val = ln.split(":", 1)
+              key = key.strip().lower()
+              val = val.strip()
+
+              if key == "user-agent":
+                  saw_ua = True
+                  # New group if we already have directives in the current one
+                  if current is None or current["directives"]:
+                      current = {"user_agents": [], "directives": []}
+                      groups.append(current)
+                  current["user_agents"].append(val.lower())
+              else:
+                  if not saw_ua:
+                      preamble.append((key, val))
+                      continue
+                  if current is None:
+                      preamble.append((key, val))
+                      continue
+                  current["directives"].append((key, val))
+
+          def has_directive(directives, k, v):
+              k = k.lower()
+              v = v.strip().lower()
+              return any((dk == k and dv.strip().lower() == v) for dk, dv in directives)
+
+          def has_disallow_all(directives):
+              return any((k == "disallow" and v.strip() == "/") for k, v in directives)
+
+          # Required semantics:
+          # - there must be a User-agent: * group
+          # - within that group, Allow: / must be present
+          # - Sitemap must point to BASE/sitemap.xml (can appear anywhere)
+          star_groups = [g for g in groups if "*" in g["user_agents"]]
+          if not star_groups:
+              print("::error::robots.txt missing 'User-agent: *' group.")
               sys.exit(1)
 
-          # Defensive: reject obvious global block
-          if any(ln.lower() == "disallow: /" for ln in norm):
-              print("::error::robots.txt contains 'Disallow: /' (global block).")
+          if not any(has_directive(g["directives"], "allow", "/") for g in star_groups):
+              print("::error::robots.txt missing 'Allow: /' inside the 'User-agent: *' group.")
               sys.exit(1)
 
-          print("OK: robots.txt directives validated.")
+          want_sitemap = f"{BASE}/sitemap.xml".lower()
+          all_directives = preamble + [d for g in groups for d in g["directives"]]
+          if not any(k == "sitemap" and v.strip().lower() == want_sitemap for k, v in all_directives):
+              print(f"::error::robots.txt missing canonical sitemap directive: Sitemap: {BASE}/sitemap.xml")
+              sys.exit(1)
+
+          # Defensive: reject obvious global block only if it applies to UA:* (or appears before any UA)
+          if has_disallow_all(preamble):
+              print("::error::robots.txt contains 'Disallow: /' before any User-agent (treating as global block).")
+              sys.exit(1)
+
+          for g in star_groups:
+              if has_disallow_all(g["directives"]):
+                  print("::error::robots.txt contains 'Disallow: /' inside the 'User-agent: *' group (global block).")
+                  sys.exit(1)
+
+          print("OK: robots.txt directives validated (UA scoping respected).")
           PY
 
           # 3) sitemap.xml must be valid XML, include homepage exactly, and all <loc> under BASE/
@@ -265,3 +317,4 @@ jobs:
             _probe/headers_robots.txt
             _probe/headers_sitemap.txt
             _probe/index.html
+
