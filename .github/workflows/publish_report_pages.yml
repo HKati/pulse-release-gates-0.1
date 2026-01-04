@@ -464,7 +464,8 @@ jobs:
           PY
 
           # sitemap should at least include something under the base URL
-          grep -q "<loc>$BASE/" sitemap.xml
+          # (fixed-string match: avoid treating BASE as a regex where '.' would be a wildcard)
+          grep -Fq "<loc>${BASE}/" sitemap.xml
 
           # Validate sitemap is well-formed XML and locs match BASE (defensive)
           python3 - <<'PY'
