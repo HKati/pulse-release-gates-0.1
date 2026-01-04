@@ -49,35 +49,46 @@ jobs:
         run: |
           set -euo pipefail
 
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            if [ -n "${{ inputs.run_id }}" ]; then
-              RUN_ID="${{ inputs.run_id }}"
+          echo "event_name: ${GITHUB_EVENT_NAME}"
+          echo "repo:       ${GITHUB_REPOSITORY}"
+
+          # Read optional workflow_dispatch input from the event payload (works even when inputs context is absent).
+          INPUT_RUN_ID="$(python3 -c 'import json,os; ev=json.load(open(os.environ["GITHUB_EVENT_PATH"])); print((ev.get("inputs") or {}).get("run_id","").strip())')"
+
+          if [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
+            if [ -n "${INPUT_RUN_ID}" ]; then
+              RUN_ID="${INPUT_RUN_ID}"
+              echo "Using provided run_id from workflow_dispatch input: ${RUN_ID}"
             else
               echo "No run_id provided; selecting latest successful PULSE CI run on main..."
 
+              # Prefer jq (available on ubuntu-latest); keep this YAML-safe (no heredoc).
               RUN_ID="$(
                 curl -fsSL \
                   -H "Authorization: Bearer ${GH_TOKEN}" \
                   -H "Accept: application/vnd.github+json" \
-                  "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/workflows/pulse_ci.yml/runs?branch=main&per_page=20" \
-                | python3 - <<'PY'
-import json, sys
-data = json.load(sys.stdin)
-for r in data.get("workflow_runs", []):
-    if r.get("conclusion") == "success":
-        print(r["id"])
-        break
-else:
-    raise SystemExit("::error::No successful PULSE CI runs found on main (last 20). Provide run_id manually.")
-PY
+                  "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/workflows/pulse_ci.yml/runs?branch=main&per_page=50" \
+                | jq -r '.workflow_runs[] | select(.conclusion=="success") | .id' \
+                | head -n 1
               )"
+
+              if [ -z "${RUN_ID:-}" ] || [ "${RUN_ID}" = "null" ]; then
+                echo "::error::No successful PULSE CI runs found on main (last 50). Provide run_id manually."
+                exit 1
+              fi
             fi
           else
-            RUN_ID="${{ github.event.workflow_run.id }}"
+            # workflow_run trigger: take run id directly from the event payload.
+            RUN_ID="$(python3 -c 'import json,os; ev=json.load(open(os.environ["GITHUB_EVENT_PATH"])); print(str((ev.get("workflow_run") or {}).get("id","")).strip())')"
+            if [ -z "${RUN_ID:-}" ] || [ "${RUN_ID}" = "None" ]; then
+              echo "::error::workflow_run payload missing workflow_run.id; cannot proceed."
+              exit 1
+            fi
+            echo "Using workflow_run.id from event payload: ${RUN_ID}"
           fi
 
-          echo "run_id=$RUN_ID" >> "$GITHUB_OUTPUT"
-          echo "Using run_id: $RUN_ID"
+          echo "run_id=${RUN_ID}" >> "$GITHUB_OUTPUT"
+          echo "Using run_id: ${RUN_ID}"
 
       - name: Download pulse-report artifact (from upstream run)
         uses: dawidd6/action-download-artifact@ac66b43f0e6a346234dd65d4d0c8fbb31cb316e5 # v11
