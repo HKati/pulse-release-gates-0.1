@@ -1,0 +1,66 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://hkati.github.io/pulse-release-gates-0.1/schemas/PULSE_paradox_core_v0.schema.json",
+  "title": "PULSE Paradox Core v0",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["schema", "version", "selection", "atoms", "edges", "core"],
+  "properties": {
+    "schema": { "type": "string", "const": "PULSE_paradox_core_v0" },
+    "version": { "type": "string", "const": "v0" },
+    "selection": {
+      "type": "object",
+      "required": ["k", "metric", "method", "tie_break", "edge_policy"],
+      "properties": {
+        "k": { "type": "integer", "minimum": 0 },
+        "metric": { "type": "string" },
+        "method": { "type": "string" },
+        "tie_break": { "type": "string" },
+        "edge_policy": { "type": "string" },
+        "non_causal_edges": { "type": "boolean" }
+      },
+      "additionalProperties": true
+    },
+    "inputs": { "type": "object", "additionalProperties": true },
+    "run_context": { "type": "object", "additionalProperties": true },
+    "anchor": {},
+    "stats": { "type": "object", "additionalProperties": true },
+    "atoms": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["atom_id", "core_rank", "core_score"],
+        "properties": {
+          "atom_id": { "type": "string" },
+          "core_rank": { "type": "integer", "minimum": 1 },
+          "core_score": { "type": "number" }
+        },
+        "additionalProperties": true
+      }
+    },
+    "edges": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["edge_id", "src_atom_id", "dst_atom_id", "edge_type"],
+        "properties": {
+          "edge_id": { "type": "string" },
+          "src_atom_id": { "type": "string" },
+          "dst_atom_id": { "type": "string" },
+          "edge_type": { "type": "string" },
+          "weight": { "type": "number" }
+        },
+        "additionalProperties": true
+      }
+    },
+    "core": {
+      "type": "object",
+      "required": ["atom_ids", "edge_ids"],
+      "properties": {
+        "atom_ids": { "type": "array", "items": { "type": "string" } },
+        "edge_ids": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": true
+    }
+  }
+}
