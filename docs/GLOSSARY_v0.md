@@ -9,6 +9,117 @@ entries, but the goal is to keep names stable and non-ambiguous.
 
 ---
 
+## Field-first relational terms (v0)
+
+These terms are used by the Paradox / decision-field / topology overlays.
+They are **decision-relative** and **evidence-first**: they describe a structured relationship-space around a release decision
+(PASS/FAIL, STAGE/PROD, or a policy cut). They do **not** assert causality.
+
+### Anchor
+
+**What it means**
+
+An explicit reference frame used to compute deltas, classify drift, and orient the Paradox field. Examples:
+
+- a baseline `status.json` used as the release-governance reference,
+- a policy cut / threshold set (e.g. θ),
+- a specific run context (commit + runner image + seed + profile_id).
+
+**What it is not**
+
+- Not optional when deltas or “orientation” are computed.
+- Not a causal explanation — it is a reference frame.
+
+---
+
+### Atom
+
+**What it means**
+
+The smallest **audit-carrying** unit used in the Paradox field that can be referenced, compared, and traced back to concrete evidence
+(e.g. `status.json`, transitions, logs, or recorded eval summaries).
+
+Atoms are:
+
+- deterministic, evidence-first elements derived from artefacts,
+- decision-relative (their meaning is interpreted relative to an Anchor),
+- suitable nodes for tension / drift / borderline instability analysis.
+
+**What it is not**
+
+- Not a free-form narrative “belief”.
+- Not a causal claim.
+- Not necessarily a failed gate (an atom can represent borderline or shifting behaviour).
+
+---
+
+### Edge
+
+**What it means**
+
+A typed relationship between two Atoms in the Paradox field.
+
+In v0:
+
+- edges represent **evidence-first co-occurrence / association** (not causality),
+- edge weight (if present) represents the *strength* of co-occurrence or tension magnitude as defined by the producing tool,
+- edge direction (if present) is a decision-relative reading aid computed with respect to an Anchor.
+
+**What it is not**
+
+- Not “A causes B” (unless a future version explicitly introduces causal semantics — v0 does not).
+- Not required to be symmetric; the producer may choose directed or undirected edges, but must define the rule.
+
+---
+
+### Orientation
+
+**What it means**
+
+A deterministic, decision-relative “reading direction” for atoms/edges: how the relationship-space is oriented **with respect to an Anchor**.
+
+Orientation answers questions like:
+
+- which findings “push toward FAIL” vs “push toward PASS” under the current reference frame,
+- what changes are interpreted as stabilising vs destabilising in the current context.
+
+**What it is not**
+
+- Not meaningful without an explicit Anchor.
+- Not a release decision by itself.
+
+---
+
+### Core (field core)
+
+**What it means**
+
+A deterministic minimal sub-structure (subgraph / projection) of the Paradox field that is sufficient to reproduce the same orientation
+(and therefore the same reviewer-facing interpretation) under the same Anchor.
+
+The Core exists to make reviewer output readable while preserving auditability.
+
+**What it is not**
+
+- Not the same as **Core profile (PULSE Core)** or **Core gates**.
+- Not allowed to “hide” contradictory evidence — it is a projection for readability, not a filter for truth.
+
+---
+
+### Determinism requirements (field/diagram outputs)
+
+Field-first overlays are audit-compatible only if they are stable under reruns.
+
+**Minimum determinism requirements (v0):**
+1. **Pinned context**: runner image + dependency versions + (CPU/GPU mode if relevant) are part of run context.
+2. **Explicit seed**: any sampling/permutation is seeded and recorded.
+3. **Canonical ordering**: lists (atoms/edges/events) are sorted using a documented rule.
+4. **Stable identifiers**: IDs are derived from canonicalized content or recorded upstream IDs (no random UUIDs).
+5. **No silent external variability**: external calls are avoided, mocked, or fully recorded as inputs.
+6. **Fail-closed contracts (overlay-local)**: missing required fields, broken links, or non-canonical ordering are treated as contract failures by the overlay validator (CI-neutral to core release gates, but strict for the overlay job).
+
+---
+
 ## A
 
 ### artefact
@@ -32,25 +143,24 @@ by tooling, for example:
 
 ## C
 
-### Core profile (PULSE Core)
+### CI fail-closed
 
 **What it means**
 
-A minimal, opinionated set of **deterministic gates** and policies that:
+A CI pattern where:
 
-- is recommended for first-time PULSE adopters,
-- keeps the most important safety and SLO checks **fail-closed**,
-- leaves EPF, paradox, topology and other overlays **opt-in**.
+- certain gates are declared **required**,
+- if any required gate fails, the CI job fails and the release is blocked.
 
-Defined in:
+In PULSE Core:
 
-- `PULSE_safe_pack_v0/profiles/pulse_policy_core.yaml`
-- enforced by the `PULSE Core CI` workflow.
+- the required gate list is explicit (Core gates),
+- PULSE does not auto-retry or override failures.
 
 **What it is not**
 
-- Not a full Governance Pack – it focuses on concrete PASS/FAIL gates.
-- Not tied to any single CI system; GitHub Actions is the first reference.
+- Not a “best-effort” run – there is no silent downgrade on gate failure.
+- Not a recommendation to fail prod deploys automatically on all governance signals.
 
 ---
 
@@ -76,24 +186,25 @@ If any of these fail in a Core CI run, the job should fail (fail-closed).
 
 ---
 
-### CI fail-closed
+### Core profile (PULSE Core)
 
 **What it means**
 
-A CI pattern where:
+A minimal, opinionated set of **deterministic gates** and policies that:
 
-- certain gates are declared **required**,
-- if any required gate fails, the CI job fails and the release is blocked.
+- is recommended for first-time PULSE adopters,
+- keeps the most important safety and SLO checks **fail-closed**,
+- leaves EPF, paradox, topology and other overlays **opt-in**.
 
-In PULSE Core:
+Defined in:
 
-- the required gate list is explicit (Core gates),
-- PULSE does not auto-retry or override failures.
+- `PULSE_safe_pack_v0/profiles/pulse_policy_core.yaml`
+- enforced by the `PULSE Core CI` workflow.
 
 **What it is not**
 
-- Not a “best-effort” run – there is no silent downgrade on gate failure.
-- Not a recommendation to fail prod deploys automatically on all governance signals.
+- Not a full Governance Pack – it focuses on concrete PASS/FAIL gates.
+- Not tied to any single CI system; GitHub Actions is the first reference.
 
 ---
 
@@ -219,7 +330,7 @@ A gate that encodes a **hard safety or invariance property**, for example:
 
 - safety controls behave as expected on reference prompts,
 - sanitisation actually removes sensitive content,
-- monotonicity / idemponence / path-independence properties hold.
+- monotonicity / idempotence / path-independence properties hold.
 
 I-gates are typically treated as **non-negotiable** in safety-critical contexts.
 
@@ -299,6 +410,24 @@ Typically generated alongside `status.json`.
 
 ## R
 
+### RDSI (Release Decision Stability Index)
+
+**What it means**
+
+A scalar index summarising:
+
+- the **stability** of the release decision over time,
+- how robust it is against small perturbations.
+
+High RDSI ≈ “repeating this evaluation is likely to lead to the same decision”.
+
+**What it is not**
+
+- Not a hard gate on its own.
+- Not a standalone performance metric.
+
+---
+
 ### refusal-delta
 
 **What it means**
@@ -319,24 +448,6 @@ Used to detect whether safety interventions are actually changing outcomes.
 
 - Not a raw refusal rate.
 - Not always a gate by itself – in v0 it can be a CI-neutral stability signal.
-
----
-
-### RDSI (Release Decision Stability Index)
-
-**What it means**
-
-A scalar index summarising:
-
-- the **stability** of the release decision over time,
-- how robust it is against small perturbations.
-
-High RDSI ≈ “repeating this evaluation is likely to lead to the same decision”.
-
-**What it is not**
-
-- Not a hard gate on its own.
-- Not a standalone performance metric.
 
 ---
 
@@ -473,3 +584,4 @@ Example: `.github/workflows/pulse_core_ci.yml`.
 
 - Not the only way to run PULSE – local runs and other CI systems are also valid.
 - Not a full Governance Pack runner; it focuses on Core behaviour.
+
