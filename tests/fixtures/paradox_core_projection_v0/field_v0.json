@@ -1,0 +1,11 @@
+{
+  "schema": "PULSE_paradox_field_v0",
+  "run_context": {
+    "run_id": "fixture_run_core_projection_v0"
+  },
+  "atoms": [
+    { "atom_id": "a_02", "severity": 0.9, "summary": "equal-severity atom 2" },
+    { "atom_id": "a_01", "severity": 0.9, "summary": "equal-severity atom 1 (tie-break by id)" },
+    { "atom_id": "a_03", "severity": 0.2, "summary": "low-severity atom 3" }
+  ]
+}
