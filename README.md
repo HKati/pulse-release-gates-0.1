@@ -83,33 +83,33 @@ Release gating is defined only by:
 
 ---
 
-## Clarity First (semantics before Paradox / EPF / Topology)
+### Clarity First (semantics before Paradox / EPF / Topology)
 
 PULSE is deterministic and fail‑closed — but only if we keep the meaning of terms stable.
 Before extending the Paradox diagram/field, EPF shadow layers, drift/history, or any UI/Pages surface, we lock down the semantics below.
 
-### Source of truth (normative)
+**Source of truth (normative):**
 Release decisions are defined only by:
 - `PULSE_safe_pack_v0/tools/check_gates.py`
 - `PULSE_safe_pack_v0/artifacts/status.json`
 - `.github/workflows/pulse_ci.yml` (the required `--require ...` gate set)
 
-### Diagnostic layers (CI‑neutral by default)
-Paradox/EPF/topology/G‑field overlays, hazard probes, drift reports, dashboards, and Pages views are **diagnostic overlays** unless explicitly promoted into the required gate set.
+**Diagnostic layers (CI‑neutral by default):**
+Paradox/EPF/topology/G‑field overlays, hazard probes, drift reports, dashboards, and Pages views are diagnostic overlays unless explicitly promoted into the required gate set.
 
-### Normative vs diagnostic (do not mix)
+**Normative vs diagnostic (do not mix):**
 - **Normative** = can block shipping (PASS/FAIL, STAGE‑PASS/PROD‑PASS).
 - **Diagnostic** = explains/observes stability, tensions, and drift; it must not flip CI outcomes.
 
 Rule: If a diagnostic artefact is missing, reports may show `MISSING/UNKNOWN`, but this must never be silently reinterpreted as `PASS`.
 
-### No semantic drift rule
+**No semantic drift rule:**
 If you change the meaning of any signal/term (e.g. Atom/Edge/Orientation/Core/Anchor, EPF/RDSI/Δ, drift, hazard zones):
 1) update the canonical docs (`docs/GLOSSARY_v0.md`, `docs/STATUS_CONTRACT.md`, `docs/STATE_v0.md`),
-2) track and resolve the ambiguity in `docs/AMBIGUITY_REGISTER_v0.md`,
+2) track and resolve the ambiguity in [`docs/AMBIGUITY_REGISTER_v0.md`](docs/AMBIGUITY_REGISTER_v0.md),
 3) add or update a regression fixture proving determinism.
 
-### UI / Pages rule
+**UI / Pages rule:**
 UI and Pages surfaces must be pure readers/renderers of immutable run artefacts. They must not compute or redefine release semantics.
 
 ---
