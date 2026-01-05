@@ -21,9 +21,8 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-import os
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Tuple
 
 
 SCHEMA_NAME = "PULSE_paradox_core_v0"
@@ -52,6 +51,21 @@ def _load_jsonl(path: Path) -> List[Dict[str, Any]]:
             continue
         rows.append(json.loads(line))
     return rows
+
+
+def _unwrap_paradox_field_v0(field: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Accept both formats:
+    - unwrapped: {"schema": "...", "atoms": [...], ...}
+    - wrapped:   {"paradox_field_v0": {"schema": "...", "atoms": [...], ...}, ...}
+
+    Many repo scripts/adapters emit the wrapped form; we must support it to avoid
+    silently producing an empty core on normal inputs.
+    """
+    inner = field.get("paradox_field_v0")
+    if isinstance(inner, dict):
+        return inner
+    return field
 
 
 def _stable_edge_id(src: str, dst: str, edge_type: str) -> str:
@@ -92,6 +106,8 @@ def build_core(
     k: int,
     metric: str,
 ) -> Dict[str, Any]:
+    field = _unwrap_paradox_field_v0(field)
+
     atoms = field.get("atoms", [])
     if not isinstance(atoms, list):
         raise ValueError("Field 'atoms' must be a list")
