@@ -205,6 +205,43 @@ jobs:
             cp -a "_artifact/reports" "_site/"
           fi
 
+          # --- Legacy report card URLs (must exist in deployed _site/) ---
+
+          # Ensure /report_card.html exists at the published site root.
+          # If upstream artifact already provides it, keep it.
+          # Otherwise copy index.html (so legacy /report_card.html won't 404).
+          if [ ! -f "_site/report_card.html" ] && [ -f "_site/index.html" ]; then
+            cp -a "_site/index.html" "_site/report_card.html"
+          fi
+
+          # Ensure legacy /report_card.htm exists and points to /report_card.html.
+          # Prefer the repo-maintained file if present; otherwise generate it.
+          if [ -f "docs/report_card.htm" ]; then
+            cp -f "docs/report_card.htm" "_site/report_card.htm"
+          else
+            python3 - <<'PY'
+          from pathlib import Path
+          Path("_site/report_card.htm").write_text(
+              "<!doctype html>\n"
+              "<html lang=\"en\">\n"
+              "  <head>\n"
+              "    <meta charset=\"utf-8\" />\n"
+              "    <meta name=\"robots\" content=\"noindex,follow\" />\n"
+              "    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />\n"
+              "    <link rel=\"canonical\" href=\"report_card.html\" />\n"
+              "    <meta http-equiv=\"refresh\" content=\"0; url=report_card.html\" />\n"
+              "    <title>Redirecting…</title>\n"
+              "  </head>\n"
+              "  <body>\n"
+              "    <p>Redirecting to <a href=\"report_card.html\">report_card.html</a>…</p>\n"
+              "  </body>\n"
+              "</html>\n",
+              encoding="utf-8",
+          )
+          print("OK: wrote _site/report_card.htm")
+          PY
+          fi
+
           # --- Crawler assets (generate from _site; canonical & whitespace-proof) ---
           OWNER="${GITHUB_REPOSITORY%%/*}"
           OWNER="${OWNER,,}"
@@ -393,6 +430,8 @@ jobs:
 
           fetch "$BASE/robots.txt" robots.txt
           fetch "$BASE/sitemap.xml" sitemap.xml
+          fetch "$BASE/report_card.html" report_card.html
+          fetch "$BASE/report_card.htm" report_card.htm
 
           # Headers: detect hard indexing blocks (X-Robots-Tag: noindex)
           fetch_headers "$BASE/" headers_home.txt
