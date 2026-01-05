@@ -28,21 +28,22 @@ To resolve a `blocking` item, a PR must include:
 
 ## Register (v0)
 
-| Term | 1‑line meaning (to be finalized) | Layer | Canonical doc link | Status | Notes |
-|------|----------------------------------|-------|--------------------|--------|------|
-| Atom | Minimal evidence unit in the paradox/field layers (decision‑relative statement, not a “thing”) | Diagnostic | docs/GLOSSARY_v0.md | blocking | Must define ID rules + input sources |
-| Edge | Relationship between atoms (co‑occurrence/support/conflict), no causality unless explicitly stated | Diagnostic | docs/GLOSSARY_v0.md | blocking | Must define allowed edge types + direction/polarity |
-| Orientation | Decision‑relative direction (“push toward FAIL/PASS”) encoded deterministically | Diagnostic | docs/GLOSSARY_v0.md | blocking | Must define sign + weight meaning |
-| Anchor | Reference node/context for decision‑relative interpretation (release decision context) | Diagnostic | docs/GLOSSARY_v0.md | blocking | Must define how anchor is derived (run_id/gate_map/etc.) |
-| Core | Deterministic minimal subgraph for reviewers (stable selection rules + tie‑breaks) | Diagnostic | docs/GLOSSARY_v0.md | blocking | Must define core selection algorithm |
-| EPF | Shadow‑only stability/diagnostic layer; never flips CI outcomes | Diagnostic | docs/PULSE_epf_shadow_quickstart_v0.md | review | Clarify “missing EPF” vs “schema drift” semantics |
+| Term | 1‑line meaning | Layer | Canonical doc link | Status | Notes |
+|------|-----------------|-------|--------------------|--------|------|
+| Anchor | Reference frame for decision-relative interpretation (baseline / cut / run context) | Diagnostic | docs/GLOSSARY_v0.md#anchor | resolved | Canonical, non-causal framing; requires explicit anchor for orientation |
+| Atom | Minimal audit-carrying evidence unit in the decision-relative field | Diagnostic | docs/GLOSSARY_v0.md#atom | resolved | Evidence-first; traceable to artefacts; not a narrative belief |
+| Edge | Typed relationship between atoms; co-occurrence/association in v0 (no causality) | Diagnostic | docs/GLOSSARY_v0.md#edge | resolved | Direction/weight are decision-relative aids; no causal semantics in v0 |
+| Orientation | Decision-relative reading direction w.r.t. an Anchor (push PASS/FAIL) | Diagnostic | docs/GLOSSARY_v0.md#orientation | resolved | Meaningless without Anchor; deterministic computation required |
+| Core | Deterministic minimal sub-structure for reviewer readability (projection) | Diagnostic | docs/GLOSSARY_v0.md#core-field-core | resolved | Must be deterministic + explainable; not “Core profile” nor “Core gates” |
+| EPF | Shadow-only stability/diagnostic layer; never flips CI outcomes | Diagnostic | docs/PULSE_epf_shadow_quickstart_v0.md | review | Clarify “missing EPF” vs “schema drift” semantics |
 | RDSI | Release decision stability signal; diagnostic only | Diagnostic | PULSE_safe_pack_v0/docs/METHODS_RDSI_QLEDGER.md | review | Clarify reporting vs enforcement usage |
 | Drift | Compare/history output; useful only with stable, indexable artefacts/surfaces | Diagnostic | docs/STATE_v0.md | review | Define minimal URL + artefact naming contract |
-| Hazard zones | GREEN/AMBER/RED early‑warning classification for field‑relative signals | Diagnostic | docs/epf_relational_grail.md | review | Must define thresholds + calibration notes |
+| Hazard zones | GREEN/AMBER/RED early-warning classification for field-relative signals | Diagnostic | docs/epf_relational_grail.md | review | Must define thresholds + calibration notes |
 
 ---
 
 ## Change log (local to this register)
 
-- v0: initial register created (seed list of high‑risk ambiguous terms)
+- v0: initial register created (seed list of high-risk ambiguous terms)
+- v0: mark field-first terms resolved after canonical definitions were added to `docs/GLOSSARY_v0.md`
 
