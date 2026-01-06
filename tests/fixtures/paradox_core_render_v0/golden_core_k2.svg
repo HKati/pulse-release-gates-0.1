@@ -1,0 +1,10 @@
+python scripts/paradox_core_projection_v0.py \
+  --field tests/fixtures/paradox_core_projection_v0/field_v0.json \
+  --edges tests/fixtures/paradox_core_projection_v0/edges_v0.jsonl \
+  --out out/core_k2.json \
+  --k 2 \
+  --metric severity
+
+python scripts/render_paradox_core_svg_v0.py \
+  --in out/core_k2.json \
+  --out tests/fixtures/paradox_core_render_v0/golden_core_k2.svg
