@@ -118,10 +118,17 @@ def render_svg(
     atoms.sort(key=_canonical_atom_sort_key)
     edges.sort(key=_canonical_edge_sort_key)
 
+    # Header height (used as y-offset for the diagram body).
+    # Must be accounted for in the SVG height to avoid clipping.
+    header_h = pad + 120
+    y_offset = header_h
+
     # Deterministic vertical layout: node i at y = pad + i*(node_h+gap_y)
     n = len(atoms)
-    height = pad * 2 + (n * node_h) + (max(0, n - 1) * gap_y)
-    height = max(height, 240)
+    body_h = pad * 2 + (n * node_h) + (max(0, n - 1) * gap_y)
+
+    # Include header offset in the final SVG height (fixes clipping).
+    height = max(y_offset + body_h, y_offset + 240)
 
     # Node x positions
     x0 = pad
@@ -171,7 +178,7 @@ def render_svg(
     out.append(f'<rect x="0" y="0" width="{width}" height="{height}" fill="#ffffff"/>')
 
     # Header / metadata (deterministic, no timestamps)
-    title = f"Paradox Core v0 — SVG (diagnostic, non-causal)"
+    title = "Paradox Core v0 — SVG (diagnostic, non-causal)"
     out.append(f'<text x="{pad}" y="{pad}" class="title">{_xml_escape(title)}</text>')
 
     meta_line_1 = f"schema={schema} version={version} metric={metric} k={k}"
@@ -187,9 +194,6 @@ def render_svg(
     note = "Edges are association/co-occurrence only (non-causal) in v0. CI-neutral by default."
     out.append(f'<text x="{pad}" y="{pad + 96}" class="small">{_xml_escape(note)}</text>')
 
-    # Shift drawing area down below header
-    y_offset = pad + 120
-
     # Draw edges first (behind nodes)
     for e in edges:
         src = _as_str(e.get("src_atom_id"))
@@ -199,8 +203,7 @@ def render_svg(
         (x_src, y_src) = centers[src]
         (x_dst, y_dst) = centers[dst]
 
-        # Deterministic line endpoints: from right side of src node to left side of dst node
-        # If src == dst, skip (self edges not useful in v0 render)
+        # Skip self-edges in v0 render
         if src == dst:
             continue
 
@@ -227,7 +230,9 @@ def render_svg(
         summary = _shorten(summary, max_summary_len)
 
         y = y_offset + pad + i * (node_h + gap_y)
-        out.append(f'<rect class="node" x="{x0}" y="{y}" width="{node_w}" height="{node_h}" rx="8" ry="8" id="{_xml_escape("atom-" + atom_id)}"/>')
+        out.append(
+            f'<rect class="node" x="{x0}" y="{y}" width="{node_w}" height="{node_h}" rx="8" ry="8" id="{_xml_escape("atom-" + atom_id)}"/>'
+        )
 
         # Text lines (deterministic positions)
         tx = x0 + 12
@@ -276,3 +281,4 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
