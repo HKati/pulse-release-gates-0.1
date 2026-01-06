@@ -641,6 +641,7 @@ Curated entrypoints (repo-level docs under `docs/`):
 - [docs/PULSE_paradox_field_v0_walkthrough.md](docs/PULSE_paradox_field_v0_walkthrough.md) — How to read `paradox_field_v0`.
 - [docs/Pulse_paradox_edges_v0_status.md](docs/Pulse_paradox_edges_v0_status.md) — Status/roadmap for `paradox_edges_v0.jsonl`.
 - [docs/paradox_edges_case_studies.md](docs/paradox_edges_case_studies.md) — Case studies (fixture + non-fixture).
+- [docs/PULSE_paradox_core_v0.md](docs/PULSE_paradox_core_v0.md) — Paradox Core v0 (deterministic core projection + markdown reviewer summary).
 
 ### EPF shadow & hazard diagnostics
 - [docs/PULSE_epf_shadow_quickstart_v0.md](docs/PULSE_epf_shadow_quickstart_v0.md) — Command-level EPF shadow quickstart.
