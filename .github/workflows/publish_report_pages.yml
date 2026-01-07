@@ -242,6 +242,48 @@ jobs:
           PY
           fi
 
+          # --- Paradox Core v0 (static Pages surface; Pages must not compute semantics) ---
+
+          CASE_DIR="docs/examples/transitions_case_study_v0"
+          test -d "$CASE_DIR" || { echo "::error::Missing case study dir: $CASE_DIR"; exit 1; }
+
+          rm -rf out/paradox_pages_v0
+          mkdir -p out/paradox_pages_v0
+
+          # Build paradox_field_v0 + edges from the repo-local case study (deterministic, stdlib-only scripts).
+          python3 scripts/paradox_field_adapter_v0.py \
+            --transitions-dir "$CASE_DIR" \
+            --out out/paradox_pages_v0/paradox_field_v0.json
+
+          python3 scripts/check_paradox_field_v0_contract.py \
+            --in out/paradox_pages_v0/paradox_field_v0.json
+
+          python3 scripts/export_paradox_edges_v0.py \
+            --in out/paradox_pages_v0/paradox_field_v0.json \
+            --out out/paradox_pages_v0/paradox_edges_v0.jsonl
+
+          python3 scripts/check_paradox_edges_v0_contract.py \
+            --in out/paradox_pages_v0/paradox_edges_v0.jsonl \
+            --atoms out/paradox_pages_v0/paradox_field_v0.json
+
+          # Build the deterministic reviewer bundle (core JSON + summary MD + SVG + reviewer card HTML).
+          python3 scripts/paradox_core_reviewer_bundle_v0.py \
+            --field out/paradox_pages_v0/paradox_field_v0.json \
+            --edges out/paradox_pages_v0/paradox_edges_v0.jsonl \
+            --out-dir out/paradox_pages_v0/paradox_core_bundle_v0 \
+            --k 12 \
+            --metric severity
+
+          # Publish the bundle as static assets (no compute in Pages).
+          python3 scripts/pages_publish_paradox_core_bundle_v0.py \
+            --bundle-dir out/paradox_pages_v0/paradox_core_bundle_v0 \
+            --site-dir _site \
+            --mount paradox/core/v0 \
+            --write-index
+
+          # Fail-closed: reviewer card must exist at the mount.
+          test -s "_site/paradox/core/v0/paradox_core_reviewer_card_v0.html" || { echo "::error::Missing published reviewer card under _site/paradox/core/v0"; exit 1; }
+
           # --- Crawler assets (generate from _site; canonical & whitespace-proof) ---
           OWNER="${GITHUB_REPOSITORY%%/*}"
           OWNER="${OWNER,,}"
@@ -277,6 +319,9 @@ jobs:
               rel = p.relative_to(root).as_posix()
               if rel == "index.html":
                   urls.append(f"{BASE}/")
+              elif rel.endswith("/index.html"):
+                  # Prefer directory URL form for nested indexes (GitHub Pages serves these).
+                  urls.append(f"{BASE}/{rel[:-len('index.html')]}")
               else:
                   urls.append(f"{BASE}/{rel}")
 
@@ -353,6 +398,12 @@ jobs:
             echo "- ✅ \`_site/robots.txt\` present" >> "$GITHUB_STEP_SUMMARY"
           else
             echo "- ❌ \`_site/robots.txt\` missing" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          if [ -f "_site/paradox/core/v0/paradox_core_reviewer_card_v0.html" ]; then
+            echo "- ✅ Paradox Core: \`/paradox/core/v0/\` mounted" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "- ❌ Paradox Core: \`/paradox/core/v0/\` missing" >> "$GITHUB_STEP_SUMMARY"
           fi
 
           echo "" >> "$GITHUB_STEP_SUMMARY"
@@ -433,10 +484,15 @@ jobs:
           fetch "$BASE/report_card.html" report_card.html
           fetch "$BASE/report_card.htm" report_card.htm
 
+          # Paradox Core v0 surface (directory + reviewer card)
+          fetch "$BASE/paradox/core/v0/" paradox_core_index.html
+          fetch "$BASE/paradox/core/v0/paradox_core_reviewer_card_v0.html" paradox_core_card.html
+
           # Headers: detect hard indexing blocks (X-Robots-Tag: noindex)
           fetch_headers "$BASE/" headers_home.txt
           fetch_headers "$BASE/robots.txt" headers_robots.txt
           fetch_headers "$BASE/sitemap.xml" headers_sitemap.txt
+          fetch_headers "$BASE/paradox/core/v0/" headers_paradox_core.txt
 
           echo "homepage headers (head):"
           sed -n '1,120p' headers_home.txt
@@ -456,6 +512,7 @@ jobs:
           check_noindex_header "$BASE/" headers_home.txt
           check_noindex_header "$BASE/robots.txt" headers_robots.txt
           check_noindex_header "$BASE/sitemap.xml" headers_sitemap.txt
+          check_noindex_header "$BASE/paradox/core/v0/" headers_paradox_core.txt
 
           # Best-effort homepage fetch (for meta noindex detection).
           if curl -fsSL "$BASE/" -o index.html; then
@@ -510,6 +567,7 @@ jobs:
 
           BASE = os.environ.get("BASE","").rstrip("/")
           home = f"{BASE}/"
+          paradox_core = f"{BASE}/paradox/core/v0/"
 
           xml_text = Path("sitemap.xml").read_text(encoding="utf-8", errors="replace")
 
@@ -526,12 +584,16 @@ jobs:
           if home not in locs:
             raise SystemExit(f"::error::sitemap.xml missing homepage <loc>{home}</loc>")
 
+          # Must include Paradox Core mount (catches accidental publish regressions).
+          if paradox_core not in locs:
+            raise SystemExit(f"::error::sitemap.xml missing Paradox Core <loc>{paradox_core}</loc>")
+
           # Every loc must be under BASE/ (fail closed if any typo slips in).
           bad = [u for u in locs if not (u == home or u.startswith(home))]
           if bad:
             raise SystemExit(f"::error::sitemap.xml contains <loc> outside BASE={home}: {bad[:5]}")
 
-          print(f"OK: sitemap.xml parsed; loc_count={len(locs)}; homepage_present=yes")
+          print(f"OK: sitemap.xml parsed; loc_count={len(locs)}; homepage_present=yes; paradox_core_present=yes")
           PY
 
           # guardrail: accidental noindex in homepage HTML blocks indexing even if robots is open
@@ -568,6 +630,8 @@ jobs:
           echo "- base: \`$BASE\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- ✅ robots: \`$BASE/robots.txt\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- ✅ sitemap: \`$BASE/sitemap.xml\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- ✅ Paradox Core: \`$BASE/paradox/core/v0/\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- ✅ Paradox Core card: \`$BASE/paradox/core/v0/paradox_core_reviewer_card_v0.html\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- ✅ no X-Robots-Tag: noindex" >> "$GITHUB_STEP_SUMMARY"
           echo "- ✅ robots directives OK" >> "$GITHUB_STEP_SUMMARY"
           echo "- ✅ sitemap XML parse OK (canonical, fail-closed)" >> "$GITHUB_STEP_SUMMARY"
