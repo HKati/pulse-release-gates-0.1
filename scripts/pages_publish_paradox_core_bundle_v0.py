@@ -89,7 +89,6 @@ def _safe_mount_parts(mount: str) -> List[str]:
         _fail("Mount must use forward slashes ('/'), not backslashes ('\\')")
 
     m = m.strip("/")
-
     if not m:
         _fail("Mount must not be '/' only")
 
