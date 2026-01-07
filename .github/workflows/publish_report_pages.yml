@@ -247,12 +247,79 @@ jobs:
           CASE_DIR="docs/examples/transitions_case_study_v0"
           test -d "$CASE_DIR" || { echo "::error::Missing case study dir: $CASE_DIR"; exit 1; }
 
+          # Prefer drift/transitions inputs from the downloaded pulse-report artifact if present.
+          # Deterministic selection: score by path heuristics + drift file count, tie-break by path.
+          ARTIFACT_TRANSITIONS_DIR="$(python3 - <<'PY'
+          import fnmatch
+          import pathlib
+
+          root = pathlib.Path("_artifact")
+          cand_counts = {}
+
+          for p in root.rglob("*"):
+            if not p.is_file():
+              continue
+            if fnmatch.fnmatch(p.name, "pulse_*_drift_v0*"):
+              d = p.parent
+              key = str(d).replace("\\\\", "/")
+              cand_counts[key] = cand_counts.get(key, 0) + 1
+
+          scored = []
+          for d, count in cand_counts.items():
+            parts = [x.lower() for x in pathlib.Path(d).parts]
+            score = 0
+
+            # Prefer places where run artifacts usually live.
+            if "pulse_safe_pack_v0" in parts:
+              score += 6
+            if "artifacts" in parts:
+              score += 6
+            if "reports" in parts:
+              score += 2
+            if any("transitions" in x for x in parts):
+              score += 3
+            if "logs" in parts:
+              score += 1
+
+            # Avoid test/fixture-like paths if they ever appear in artifacts.
+            if "tests" in parts:
+              score -= 10
+            if "fixtures" in parts:
+              score -= 10
+
+            # More drift files → better (cap keeps scoring stable).
+            score += min(5, int(count))
+
+            # Prefer shallower paths.
+            score -= len(parts)
+
+            scored.append((score, d))
+
+          scored.sort(key=lambda t: (-t[0], t[1]))
+          print(scored[0][1] if scored else "")
+          PY
+          )"
+
+          TRANSITIONS_DIR=""
+          PARADOX_SOURCE="case_study"
+
+          if [ -n "${ARTIFACT_TRANSITIONS_DIR:-}" ] && [ -d "${ARTIFACT_TRANSITIONS_DIR:-}" ]; then
+            TRANSITIONS_DIR="${ARTIFACT_TRANSITIONS_DIR}"
+            PARADOX_SOURCE="artifact_drift"
+          else
+            TRANSITIONS_DIR="$CASE_DIR"
+          fi
+
+          echo "Paradox Core source: ${PARADOX_SOURCE} (transitions_dir=${TRANSITIONS_DIR})"
+          echo "paradox_source=${PARADOX_SOURCE}" >> "$GITHUB_OUTPUT"
+          echo "paradox_transitions_dir=${TRANSITIONS_DIR}" >> "$GITHUB_OUTPUT"
+
           rm -rf out/paradox_pages_v0
           mkdir -p out/paradox_pages_v0
 
-          # Build paradox_field_v0 + edges from the repo-local case study (deterministic, stdlib-only scripts).
+          # Build paradox_field_v0 + edges from selected transitions dir
           python3 scripts/paradox_field_adapter_v0.py \
-            --transitions-dir "$CASE_DIR" \
+            --transitions-dir "$TRANSITIONS_DIR" \
             --out out/paradox_pages_v0/paradox_field_v0.json
 
           python3 scripts/check_paradox_field_v0_contract.py \
@@ -283,6 +350,28 @@ jobs:
 
           # Fail-closed: reviewer card must exist at the mount.
           test -s "_site/paradox/core/v0/paradox_core_reviewer_card_v0.html" || { echo "::error::Missing published reviewer card under _site/paradox/core/v0"; exit 1; }
+
+          # Provenance (audit-friendly; no timestamps)
+          UPSTREAM_RUN_ID="${{ steps.runid.outputs.run_id }}"
+          export UPSTREAM_RUN_ID PARADOX_SOURCE TRANSITIONS_DIR
+
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+
+          out = {
+            "schema": "PULSE_paradox_pages_source_v0",
+            "version": "v0",
+            "upstream_run_id": os.environ.get("UPSTREAM_RUN_ID", ""),
+            "source": os.environ.get("PARADOX_SOURCE", ""),
+            "transitions_dir": os.environ.get("TRANSITIONS_DIR", ""),
+          }
+
+          p = Path("_site/paradox/core/v0/source_v0.json")
+          p.parent.mkdir(parents=True, exist_ok=True)
+          p.write_text(json.dumps(out, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+          print("OK: wrote", str(p))
+          PY
 
           # --- Crawler assets (generate from _site; canonical & whitespace-proof) ---
           OWNER="${GITHUB_REPOSITORY%%/*}"
@@ -380,6 +469,8 @@ jobs:
           echo "- upstream run_id: \`${{ steps.runid.outputs.run_id }}\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- publish mode: \`${{ steps.prepare.outputs.mode }}\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- site root used: \`${{ steps.prepare.outputs.site_root }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- paradox_source: \`${{ steps.prepare.outputs.paradox_source }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- paradox_transitions_dir: \`${{ steps.prepare.outputs.paradox_transitions_dir }}\`" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
 
           if [ -f "_site/index.html" ]; then
@@ -404,6 +495,12 @@ jobs:
             echo "- ✅ Paradox Core: \`/paradox/core/v0/\` mounted" >> "$GITHUB_STEP_SUMMARY"
           else
             echo "- ❌ Paradox Core: \`/paradox/core/v0/\` missing" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          if [ -f "_site/paradox/core/v0/source_v0.json" ]; then
+            echo "- ✅ Paradox Core provenance: \`/paradox/core/v0/source_v0.json\`" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "- ❌ Paradox Core provenance: \`/paradox/core/v0/source_v0.json\` missing" >> "$GITHUB_STEP_SUMMARY"
           fi
 
           echo "" >> "$GITHUB_STEP_SUMMARY"
@@ -484,15 +581,17 @@ jobs:
           fetch "$BASE/report_card.html" report_card.html
           fetch "$BASE/report_card.htm" report_card.htm
 
-          # Paradox Core v0 surface (directory + reviewer card)
+          # Paradox Core v0 surface (directory + reviewer card + provenance)
           fetch "$BASE/paradox/core/v0/" paradox_core_index.html
           fetch "$BASE/paradox/core/v0/paradox_core_reviewer_card_v0.html" paradox_core_card.html
+          fetch "$BASE/paradox/core/v0/source_v0.json" paradox_core_source.json
 
           # Headers: detect hard indexing blocks (X-Robots-Tag: noindex)
           fetch_headers "$BASE/" headers_home.txt
           fetch_headers "$BASE/robots.txt" headers_robots.txt
           fetch_headers "$BASE/sitemap.xml" headers_sitemap.txt
           fetch_headers "$BASE/paradox/core/v0/" headers_paradox_core.txt
+          fetch_headers "$BASE/paradox/core/v0/source_v0.json" headers_paradox_core_source.txt
 
           echo "homepage headers (head):"
           sed -n '1,120p' headers_home.txt
@@ -513,6 +612,7 @@ jobs:
           check_noindex_header "$BASE/robots.txt" headers_robots.txt
           check_noindex_header "$BASE/sitemap.xml" headers_sitemap.txt
           check_noindex_header "$BASE/paradox/core/v0/" headers_paradox_core.txt
+          check_noindex_header "$BASE/paradox/core/v0/source_v0.json" headers_paradox_core_source.txt
 
           # Best-effort homepage fetch (for meta noindex detection).
           if curl -fsSL "$BASE/" -o index.html; then
@@ -632,10 +732,10 @@ jobs:
           echo "- ✅ sitemap: \`$BASE/sitemap.xml\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- ✅ Paradox Core: \`$BASE/paradox/core/v0/\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- ✅ Paradox Core card: \`$BASE/paradox/core/v0/paradox_core_reviewer_card_v0.html\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- ✅ Paradox Core provenance: \`$BASE/paradox/core/v0/source_v0.json\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- ✅ no X-Robots-Tag: noindex" >> "$GITHUB_STEP_SUMMARY"
           echo "- ✅ robots directives OK" >> "$GITHUB_STEP_SUMMARY"
           echo "- ✅ sitemap XML parse OK (canonical, fail-closed)" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
 
           echo "OK: post-deploy SEO smoke passed."
-
