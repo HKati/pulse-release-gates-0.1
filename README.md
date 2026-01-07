@@ -43,6 +43,10 @@
 
 Releases: https://github.com/HKati/pulse-release-gates-0.1/releases
 
+Paradox Core (shadow reviewer surface): https://hkati.github.io/pulse-release-gates-0.1/paradox/core/v0/
+- Deterministic, CI-neutral by default (diagnostic overlay).
+- Edges are non-causal (co-occurrence/association only).
+- Provenance (source selection): https://hkati.github.io/pulse-release-gates-0.1/paradox/core/v0/source_v0.json
 
 
 # PULSE — Release Gates for Safe & Useful AI
