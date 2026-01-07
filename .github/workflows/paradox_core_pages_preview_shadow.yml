@@ -107,8 +107,9 @@ jobs:
           python scripts/pages_publish_paradox_core_bundle_v0.py \
             --bundle-dir out/paradox_core_bundle_case_study_v0 \
             --site-dir out/site_preview_v0 \
-            --mount paradox/core/v0
-
+            --mount paradox/core/v0 \
+            --write-index
+      
       - name: Step summary
         shell: bash
         run: |
