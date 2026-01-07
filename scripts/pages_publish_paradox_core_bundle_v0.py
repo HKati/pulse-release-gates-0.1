@@ -21,13 +21,14 @@ Design goals:
   - deterministic outputs (stable index.html content; no timestamps)
   - fail-closed if required inputs are missing
   - byte-for-byte copying (no metadata preservation)
+  - prevent mount path traversal / escaping site_dir
 """
 
 from __future__ import annotations
 
 import argparse
 import shutil
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import List
 
 
@@ -58,7 +59,7 @@ def _write_index(dst_dir: Path, target_html: str) -> None:
         '  <meta charset="utf-8" />\n'
         '  <meta name="viewport" content="width=device-width,initial-scale=1" />\n'
         f'  <meta http-equiv="refresh" content="0; url={target_html}" />\n'
-        f"  <link rel=\"canonical\" href=\"{target_html}\" />\n"
+        f'  <link rel="canonical" href="{target_html}" />\n'
         "  <title>Paradox Core Reviewer Card v0</title>\n"
         "</head>\n"
         "<body>\n"
@@ -67,6 +68,55 @@ def _write_index(dst_dir: Path, target_html: str) -> None:
         "</html>\n"
     )
     (dst_dir / "index.html").write_text(content, encoding="utf-8")
+
+
+def _safe_mount_parts(mount: str) -> List[str]:
+    """
+    Convert a user-provided mount string into safe path parts.
+
+    Reject:
+      - empty mounts
+      - backslashes
+      - absolute mounts
+      - '.' or '..' segments
+    """
+    m = str(mount).strip()
+    if not m:
+        _fail("Mount must be non-empty")
+
+    # Enforce forward-slash semantics to avoid platform surprises.
+    if "\\" in m:
+        _fail("Mount must use forward slashes ('/'), not backslashes ('\\')")
+
+    m = m.strip("/")
+
+    if not m:
+        _fail("Mount must not be '/' only")
+
+    p = PurePosixPath(m)
+    if p.is_absolute():
+        _fail(f"Mount must be relative, got absolute mount: {mount!r}")
+
+    parts = [seg for seg in p.parts if seg]
+    for seg in parts:
+        if seg in (".", ".."):
+            _fail(f"Mount contains forbidden path segment {seg!r}: {mount!r}")
+    return parts
+
+
+def _ensure_within_site(site_dir: Path, target_dir: Path) -> None:
+    """
+    Fail-closed if target_dir resolves outside site_dir.
+
+    Uses resolve(strict=False) to normalize and follow symlinks if present.
+    This prevents publishing outside the intended Pages output directory.
+    """
+    site_res = site_dir.resolve(strict=False)
+    target_res = target_dir.resolve(strict=False)
+    try:
+        target_res.relative_to(site_res)
+    except ValueError:
+        _fail(f"Mount escapes site-dir: target={target_res} site={site_res}")
 
 
 def main() -> int:
@@ -95,12 +145,19 @@ def main() -> int:
 
     bundle_dir = Path(args.bundle_dir)
     site_dir = Path(args.site_dir)
-    mount = str(args.mount).strip("/")
 
     if not bundle_dir.exists() or not bundle_dir.is_dir():
         _fail(f"Bundle dir not found: {bundle_dir}")
 
-    target_dir = site_dir / mount
+    # Ensure site-dir exists before resolving containment.
+    site_dir.mkdir(parents=True, exist_ok=True)
+
+    parts = _safe_mount_parts(args.mount)
+    target_dir = site_dir.joinpath(*parts)
+
+    # Fail-closed: do not allow mount to escape the site directory.
+    _ensure_within_site(site_dir, target_dir)
+
     target_dir.mkdir(parents=True, exist_ok=True)
 
     # Fail-closed: all required files must exist.
@@ -125,3 +182,4 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
