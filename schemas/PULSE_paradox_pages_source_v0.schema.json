@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://hkati.github.io/pulse-release-gates-0.1/schemas/PULSE_paradox_pages_source_v0.schema.json",
+  "title": "PULSE Paradox Pages provenance (source_v0)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "version",
+    "upstream_run_id",
+    "source",
+    "transitions_dir"
+  ],
+  "properties": {
+    "schema": {
+      "const": "PULSE_paradox_pages_source_v0"
+    },
+    "version": {
+      "const": "v0"
+    },
+    "upstream_run_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "GitHub Actions run id of the upstream PULSE CI run used to publish Pages."
+    },
+    "source": {
+      "type": "string",
+      "enum": [
+        "artifact_drift",
+        "case_study"
+      ],
+      "description": "Which input source was used to build the Paradox Core Pages surface."
+    },
+    "transitions_dir": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Path (within the workflow workspace) that provided the pulse_*_drift_v0 inputs."
+    }
+  }
+}
