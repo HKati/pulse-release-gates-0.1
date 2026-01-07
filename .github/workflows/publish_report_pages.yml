@@ -249,11 +249,20 @@ jobs:
 
           # Prefer drift/transitions inputs from the downloaded pulse-report artifact if present.
           # Deterministic selection: score by path heuristics + drift file count, tie-break by path.
+          # IMPORTANT: only accept candidates that contain the full required drift file set.
           ARTIFACT_TRANSITIONS_DIR="$(python3 - <<'PY'
           import fnmatch
           import pathlib
 
           root = pathlib.Path("_artifact")
+
+          # scripts/paradox_field_adapter_v0.py minimum required drift set
+          required = [
+            "pulse_gate_drift_v0.csv",
+            "pulse_metric_drift_v0.csv",
+            "pulse_overlay_drift_v0.json",
+          ]
+
           cand_counts = {}
 
           for p in root.rglob("*"):
@@ -266,7 +275,13 @@ jobs:
 
           scored = []
           for d, count in cand_counts.items():
-            parts = [x.lower() for x in pathlib.Path(d).parts]
+            dp = pathlib.Path(d)
+
+            # Fail-closed selection: require the full drift set before considering this dir.
+            if not all((dp / r).is_file() for r in required):
+              continue
+
+            parts = [x.lower() for x in dp.parts]
             score = 0
 
             # Prefer places where run artifacts usually live.
@@ -293,7 +308,7 @@ jobs:
             # Prefer shallower paths.
             score -= len(parts)
 
-            scored.append((score, d))
+            scored.append((score, str(dp).replace("\\\\", "/")))
 
           scored.sort(key=lambda t: (-t[0], t[1]))
           print(scored[0][1] if scored else "")
@@ -303,10 +318,17 @@ jobs:
           TRANSITIONS_DIR=""
           PARADOX_SOURCE="case_study"
 
-          if [ -n "${ARTIFACT_TRANSITIONS_DIR:-}" ] && [ -d "${ARTIFACT_TRANSITIONS_DIR:-}" ]; then
+          # Double-guard in bash too (prevents partial/legacy artifacts from breaking Pages publish)
+          if [ -n "${ARTIFACT_TRANSITIONS_DIR:-}" ] && [ -d "${ARTIFACT_TRANSITIONS_DIR:-}" ] \
+            && [ -f "${ARTIFACT_TRANSITIONS_DIR}/pulse_gate_drift_v0.csv" ] \
+            && [ -f "${ARTIFACT_TRANSITIONS_DIR}/pulse_metric_drift_v0.csv" ] \
+            && [ -f "${ARTIFACT_TRANSITIONS_DIR}/pulse_overlay_drift_v0.json" ]; then
             TRANSITIONS_DIR="${ARTIFACT_TRANSITIONS_DIR}"
             PARADOX_SOURCE="artifact_drift"
           else
+            if [ -n "${ARTIFACT_TRANSITIONS_DIR:-}" ]; then
+              echo "::notice::Artifact drift candidate present but incomplete; falling back to case study: ${ARTIFACT_TRANSITIONS_DIR}"
+            fi
             TRANSITIONS_DIR="$CASE_DIR"
           fi
 
