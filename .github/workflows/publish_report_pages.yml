@@ -117,7 +117,7 @@ jobs:
           root = pathlib.Path("_artifact")
           candidates = []
           for p in root.rglob("index.html"):
-              s = str(p).replace("\\\\","/")
+              s = str(p).replace("\\","/")
               if "/node_modules/" in s:
                   continue
               parts = [x.lower() for x in p.parts]
@@ -138,7 +138,7 @@ jobs:
           root = pathlib.Path("_artifact")
           candidates = []
           for p in root.rglob("report_card.html"):
-              s = str(p).replace("\\\\","/")
+              s = str(p).replace("\\","/")
               if "/node_modules/" in s:
                   continue
               parts = [x.lower() for x in p.parts]
@@ -261,7 +261,7 @@ jobs:
               continue
             if fnmatch.fnmatch(p.name, "pulse_*_drift_v0*"):
               d = p.parent
-              key = str(d).replace("\\\\", "/")
+              key = str(d).replace("\\", "/")
               cand_counts[key] = cand_counts.get(key, 0) + 1
 
           scored = []
@@ -303,10 +303,25 @@ jobs:
           TRANSITIONS_DIR=""
           PARADOX_SOURCE="case_study"
 
-          if [ -n "${ARTIFACT_TRANSITIONS_DIR:-}" ] && [ -d "${ARTIFACT_TRANSITIONS_DIR:-}" ]; then
+          # NEW: require a complete drift file set before selecting artifact dir (avoid partial/old artifacts).
+          has_required_drift_files () {
+            local d="$1"
+            test -f "$d/pulse_gate_drift_v0.csv" && \
+            test -f "$d/pulse_metric_drift_v0.csv" && \
+            test -f "$d/pulse_overlay_drift_v0.json"
+          }
+
+          if [ -n "${ARTIFACT_TRANSITIONS_DIR:-}" ] \
+            && [ -d "${ARTIFACT_TRANSITIONS_DIR:-}" ] \
+            && has_required_drift_files "${ARTIFACT_TRANSITIONS_DIR:-}"; then
             TRANSITIONS_DIR="${ARTIFACT_TRANSITIONS_DIR}"
             PARADOX_SOURCE="artifact_drift"
           else
+            if [ -n "${ARTIFACT_TRANSITIONS_DIR:-}" ] && [ -d "${ARTIFACT_TRANSITIONS_DIR:-}" ]; then
+              echo "::warning::Artifact drift dir exists but is missing required drift files; falling back to case study."
+              echo "::warning::Required: pulse_gate_drift_v0.csv, pulse_metric_drift_v0.csv, pulse_overlay_drift_v0.json"
+              ls -la "${ARTIFACT_TRANSITIONS_DIR:-}" | sed 's/^/::warning::  /' || true
+            fi
             TRANSITIONS_DIR="$CASE_DIR"
           fi
 
