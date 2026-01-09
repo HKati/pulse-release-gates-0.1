@@ -1,0 +1,42 @@
+{
+  "schema": "PULSE_paradox_core_v0",
+  "version": "v0",
+  "selection": {
+    "kind": "top_k",
+    "k": 2,
+    "tie_break": "atom_id_lex"
+  },
+  "atoms": [
+    {
+      "atom_id": "a_01",
+      "core_rank": 1,
+      "core_score": 1.0,
+      "title": "Latency budget flip"
+    },
+    {
+      "atom_id": "a_02",
+      "core_rank": 2,
+      "core_score": 0.9,
+      "title": "p99 latency delta"
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "ce_01",
+      "edge_type": "co_occurs",
+      "rule": "demo_pair",
+      "severity": "low",
+      "src_atom_id": "a_01",
+      "dst_atom_id": "a_02"
+    }
+  ],
+  "core": {
+    "atom_ids": [
+      "a_01",
+      "a_02"
+    ],
+    "edge_ids": [
+      "ce_01"
+    ]
+  }
+}
