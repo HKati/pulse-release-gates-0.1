@@ -2,8 +2,6 @@
   "title": "PULSE: Deterministic Release Gates for Safe & Useful AI",
   "description": "PULSE provides deterministic, fail-closed release gates across Safety (I2–I7), Utility (Q1–Q4) and SLO dimensions. It produces audit artefacts including a human-readable Quality Ledger and SVG badges that summarise pass/fail states. This software package allows developers to enforce safety invariants, utility budgets and service level objectives prior to shipment.",
   "upload_type": "software",
-  "version": "1.0.2",
-  "publication_date": "2025-10-16",
   "language": "eng",
   "creators": [
     {
@@ -35,12 +33,56 @@
       "relation": "isVersionOf",
       "scheme": "doi"
     },
+
+    {
+      "identifier": "10.34740/KAGGLE/DSV/13571702",
+      "relation": "references",
+      "scheme": "doi"
+    },
+    {
+      "identifier": "10.34740/KAGGLE/DSV/13571927",
+      "relation": "references",
+      "scheme": "doi"
+    },
+
+    {
+      "identifier": "https://www.kaggle.com/code/horvatkatalin/pulse-epf-shadow-a-b-reproduce-figures-seeded",
+      "relation": "references",
+      "scheme": "url"
+    },
+    {
+      "identifier": "https://www.kaggle.com/code/horvatkatalin/pulse-demo-offline-quick-start-q3-q4-ledger",
+      "relation": "references",
+      "scheme": "url"
+    },
+
     {
       "identifier": "https://github.com/HKati/pulse-guard-pack",
       "relation": "hasPart",
-      "resource_type": "software",
+      "scheme": "url",
+      "resource_type": "software"
+    },
+
+    {
+      "identifier": "https://hkati.github.io/pulse-release-gates-0.1/",
+      "relation": "references",
+      "scheme": "url"
+    },
+    {
+      "identifier": "https://hkati.github.io/pulse-release-gates-0.1/paradox/core/v0/",
+      "relation": "references",
+      "scheme": "url"
+    },
+    {
+      "identifier": "https://hkati.github.io/pulse-release-gates-0.1/paradox/core/v0/source_v0.json",
+      "relation": "references",
+      "scheme": "url"
+    },
+    {
+      "identifier": "https://github.com/HKati/pulse-release-gates-0.1/releases",
+      "relation": "references",
       "scheme": "url"
     }
   ],
-  "notes": "Reproducibility instructions are included in the repository README (reproduce section)."
+  "notes": "Reproducibility instructions are included in the repository README (reproduce section). For an always up-to-date list of related artefacts, see the README 'Project links (mirrors)' section."
 }
