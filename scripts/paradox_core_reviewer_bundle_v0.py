@@ -34,8 +34,8 @@ from pathlib import Path
 from typing import List, Optional
 
 
-def _run(cmd: List[str]) -> None:
-    r = subprocess.run(cmd, capture_output=True, text=True)
+def _run(cmd: List[str], cwd: Optional[Path] = None) -> None:
+    r = subprocess.run(cmd, capture_output=True, text=True, cwd=str(cwd) if cwd else None)
     if r.returncode != 0:
         raise RuntimeError(
             "Command failed:\n"
@@ -47,15 +47,25 @@ def _run(cmd: List[str]) -> None:
         )
 
 
-def _maybe_relpath(p: Path, base: Path) -> str:
+def _as_repo_path(p: Path, repo_root: Path) -> Path:
     """
-    Prefer repo-relative paths when possible to avoid environment-dependent absolute paths
-    in emitted artifacts (e.g., builder path_hint fields).
+    Interpret relative paths as repo-root-relative (stable for CI and reproducibility).
+    Absolute paths are left unchanged.
+    """
+    if p.is_absolute():
+        return p
+    return repo_root / p
+
+
+def _to_repo_rel_str(p: Path, repo_root: Path) -> str:
+    """
+    Prefer repo-relative strings for subprocess args (keeps path_hint stable),
+    but fall back to absolute if outside repo.
     """
     try:
-        return str(p.resolve().relative_to(base.resolve()))
+        return str(p.resolve().relative_to(repo_root.resolve()))
     except Exception:
-        return str(p)
+        return str(p.resolve())
 
 
 def _write_reviewer_card_html(out_dir: Path, title: str) -> Path:
@@ -73,8 +83,14 @@ def _write_reviewer_card_html(out_dir: Path, title: str) -> Path:
     if summary_md.exists():
         summary_text = summary_md.read_text(encoding="utf-8")
 
+    # Diagram block (IMPORTANT: precompute to avoid f-string expression backslash issues)
+    if diagram_svg.exists():
+        diagram_block_html = f'<img src="{diagram_svg.name}" alt="Paradox Diagram v0 SVG"/>'
+    else:
+        diagram_block_html = "<em>(diagram SVG not present)</em>"
+
     # Build artifact links (relative filenames only; stable).
-    artifact_links = []
+    artifact_links: List[str] = []
     if core_json.exists():
         artifact_links.append(f'<a href="{core_json.name}">{core_json.name}</a>')
     if summary_md.exists():
@@ -154,7 +170,7 @@ def _write_reviewer_card_html(out_dir: Path, title: str) -> Path:
 
     <div class="card">
       <strong>Paradox Diagram v0 — SVG (deterministic render)</strong><br/><br/>
-      {"<img src=\"" + diagram_svg.name + "\" alt=\"Paradox Diagram v0 SVG\"/>" if diagram_svg.exists() else "<em>(diagram SVG not present)</em>"}
+      {diagram_block_html}
     </div>
 
     <div class="card">
@@ -193,9 +209,12 @@ def main() -> int:
 
     repo_root = Path(__file__).resolve().parents[1]
     scripts_dir = repo_root / "scripts"
-
     py = sys.executable
-    out_dir = Path(args.out_dir)
+
+    # Normalize inputs as repo-root-relative by default (deterministic CI behavior)
+    field_path = _as_repo_path(Path(args.field), repo_root)
+    edges_path = _as_repo_path(Path(args.edges), repo_root) if args.edges else None
+    out_dir = _as_repo_path(Path(args.out_dir), repo_root)
     out_dir.mkdir(parents=True, exist_ok=True)
 
     core_json = out_dir / "paradox_core_v0.json"
@@ -205,22 +224,33 @@ def main() -> int:
     diagram_json = out_dir / "paradox_diagram_v0.json"
     diagram_svg = out_dir / "paradox_diagram_v0.svg"
 
+    # Helper strings for subprocess args (prefer repo-relative)
+    field_arg = _to_repo_rel_str(field_path, repo_root)
+    core_json_arg = _to_repo_rel_str(core_json, repo_root)
+    summary_md_arg = _to_repo_rel_str(summary_md, repo_root)
+    core_svg_arg = _to_repo_rel_str(core_svg, repo_root)
+
+    diagram_json_arg = _to_repo_rel_str(diagram_json, repo_root)
+    diagram_svg_arg = _to_repo_rel_str(diagram_svg, repo_root)
+
+    edges_arg = _to_repo_rel_str(edges_path, repo_root) if edges_path else None
+
     # 1) Build core JSON
     cmd_core = [
         py,
         str(scripts_dir / "paradox_core_projection_v0.py"),
         "--field",
-        str(Path(args.field)),
+        field_arg,
         "--out",
-        str(core_json),
+        core_json_arg,
         "--k",
         str(int(args.k)),
         "--metric",
         str(args.metric),
     ]
-    if args.edges:
-        cmd_core += ["--edges", str(Path(args.edges))]
-    _run(cmd_core)
+    if edges_arg:
+        cmd_core += ["--edges", edges_arg]
+    _run(cmd_core, cwd=repo_root)
 
     # 2) Contract check (fail-closed, overlay-local)
     _run(
@@ -228,8 +258,9 @@ def main() -> int:
             py,
             str(scripts_dir / "check_paradox_core_v0_contract.py"),
             "--in",
-            str(core_json),
-        ]
+            core_json_arg,
+        ],
+        cwd=repo_root,
     )
 
     # 3) Markdown summary
@@ -238,10 +269,11 @@ def main() -> int:
             py,
             str(scripts_dir / "inspect_paradox_core_v0.py"),
             "--in",
-            str(core_json),
+            core_json_arg,
             "--out",
-            str(summary_md),
-        ]
+            summary_md_arg,
+        ],
+        cwd=repo_root,
     )
 
     # 4) Deterministic SVG render (core)
@@ -250,9 +282,9 @@ def main() -> int:
             py,
             str(scripts_dir / "render_paradox_core_svg_v0.py"),
             "--in",
-            str(core_json),
+            core_json_arg,
             "--out",
-            str(core_svg),
+            core_svg_arg,
             "--width",
             str(int(args.svg_width)),
             "--node-w",
@@ -261,14 +293,11 @@ def main() -> int:
             str(int(args.node_h)),
             "--max-summary-len",
             str(int(args.max_summary_len)),
-        ]
+        ],
+        cwd=repo_root,
     )
 
     # 5) Build Paradox Diagram v0 (derived strictly from Core artifact)
-    # Prefer repo-relative paths when possible (keeps diagram.inputs.path_hint stable).
-    core_json_arg = _maybe_relpath(core_json, repo_root)
-    diagram_json_arg = _maybe_relpath(diagram_json, repo_root)
-
     cmd_diagram = [
         py,
         str(scripts_dir / "paradox_diagram_from_core_v0.py"),
@@ -277,10 +306,10 @@ def main() -> int:
         "--out",
         diagram_json_arg,
     ]
-    if args.edges:
-        # This is optional in v0; if supplied, it's recorded as an input sha256 in the diagram artifact.
-        cmd_diagram += ["--edges", str(Path(args.edges))]
-    _run(cmd_diagram)
+    if edges_arg:
+        # Optional in v0; recorded as input sha256 only
+        cmd_diagram += ["--edges", edges_arg]
+    _run(cmd_diagram, cwd=repo_root)
 
     # 6) Diagram contract check (fail-closed)
     _run(
@@ -288,8 +317,9 @@ def main() -> int:
             py,
             str(scripts_dir / "check_paradox_diagram_v0_contract.py"),
             "--in",
-            str(diagram_json),
-        ]
+            diagram_json_arg,
+        ],
+        cwd=repo_root,
     )
 
     # 7) Deterministic SVG render (diagram)
@@ -298,10 +328,11 @@ def main() -> int:
             py,
             str(scripts_dir / "render_paradox_diagram_svg_v0.py"),
             "--in",
-            str(diagram_json),
+            diagram_json_arg,
             "--out",
-            str(diagram_svg),
-        ]
+            diagram_svg_arg,
+        ],
+        cwd=repo_root,
     )
 
     # 8) Reviewer card HTML (static, no external deps)
