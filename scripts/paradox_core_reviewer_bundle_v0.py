@@ -2,7 +2,7 @@
 """
 paradox_core_reviewer_bundle_v0.py
 
-Deterministic reviewer bundle builder for Paradox Core v0.
+Deterministic reviewer bundle builder for Paradox Core v0 (+ Paradox Diagram v0).
 
 Inputs:
   - paradox_field_v0.json
@@ -12,6 +12,8 @@ Outputs (in --out-dir):
   - paradox_core_v0.json
   - paradox_core_summary_v0.md
   - paradox_core_v0.svg
+  - paradox_diagram_v0.json
+  - paradox_diagram_v0.svg
   - paradox_core_reviewer_card_v0.html
 
 Design goals:
@@ -19,6 +21,7 @@ Design goals:
   - pinned by construction: delegates to already deterministic scripts
   - no timestamps, no env-dependent absolute paths in HTML
   - produces a single offline-openable reviewer card
+  - semantics live in artifacts; render is render-only
 """
 
 from __future__ import annotations
@@ -44,10 +47,25 @@ def _run(cmd: List[str]) -> None:
         )
 
 
+def _maybe_relpath(p: Path, base: Path) -> str:
+    """
+    Prefer repo-relative paths when possible to avoid environment-dependent absolute paths
+    in emitted artifacts (e.g., builder path_hint fields).
+    """
+    try:
+        return str(p.resolve().relative_to(base.resolve()))
+    except Exception:
+        return str(p)
+
+
 def _write_reviewer_card_html(out_dir: Path, title: str) -> Path:
     core_json = out_dir / "paradox_core_v0.json"
     summary_md = out_dir / "paradox_core_summary_v0.md"
-    svg_file = out_dir / "paradox_core_v0.svg"
+    core_svg = out_dir / "paradox_core_v0.svg"
+
+    diagram_json = out_dir / "paradox_diagram_v0.json"
+    diagram_svg = out_dir / "paradox_diagram_v0.svg"
+
     out_html = out_dir / "paradox_core_reviewer_card_v0.html"
 
     # Read summary as plain text and render in <pre> (no markdown rendering dependency).
@@ -55,8 +73,22 @@ def _write_reviewer_card_html(out_dir: Path, title: str) -> Path:
     if summary_md.exists():
         summary_text = summary_md.read_text(encoding="utf-8")
 
+    # Build artifact links (relative filenames only; stable).
+    artifact_links = []
+    if core_json.exists():
+        artifact_links.append(f'<a href="{core_json.name}">{core_json.name}</a>')
+    if summary_md.exists():
+        artifact_links.append(f'<a href="{summary_md.name}">{summary_md.name}</a>')
+    if core_svg.exists():
+        artifact_links.append(f'<a href="{core_svg.name}">{core_svg.name}</a>')
+    if diagram_json.exists():
+        artifact_links.append(f'<a href="{diagram_json.name}">{diagram_json.name}</a>')
+    if diagram_svg.exists():
+        artifact_links.append(f'<a href="{diagram_svg.name}">{diagram_svg.name}</a>')
+
+    artifacts_html = "\n    ".join(artifact_links) if artifact_links else "<em>(no artifacts found)</em>"
+
     # Stable, dependency-free HTML (no timestamps; only relative links).
-    # SVG is referenced as a file for simplicity (keeps this HTML stable and small).
     page = f"""<!doctype html>
 <html lang="en">
 <head>
@@ -74,6 +106,7 @@ def _write_reviewer_card_html(out_dir: Path, title: str) -> Path:
       opacity: 0.9;
       margin-top: 6px;
       margin-bottom: 18px;
+      line-height: 1.35;
     }}
     .grid {{
       display: grid;
@@ -103,21 +136,25 @@ def _write_reviewer_card_html(out_dir: Path, title: str) -> Path:
 <body>
   <h1>{html.escape(title)}</h1>
   <div class="note">
-    Diagnostic projection only. Edges are association/co-occurrence only (non-causal) in v0.
-    CI-neutral by default unless explicitly promoted.
+    <div><strong>Diagnostic projection only.</strong> CI-neutral by default unless explicitly promoted.</div>
+    <div>Non-causal guardrails: <code>co_occurrence</code> edges are undirected (association only).</div>
+    <div>Arrows are reference-only: <code>atom → reference</code> anchors (not atom → atom causality).</div>
   </div>
 
   <div class="card links">
     <strong>Artifacts</strong><br/>
-    <a href="{core_json.name}">{core_json.name}</a>
-    <a href="{summary_md.name}">{summary_md.name}</a>
-    <a href="{svg_file.name}">{svg_file.name}</a>
+    {artifacts_html}
   </div>
 
   <div class="grid">
     <div class="card">
-      <strong>SVG (deterministic render)</strong><br/><br/>
-      <img src="{svg_file.name}" alt="Paradox Core v0 SVG"/>
+      <strong>Paradox Core v0 — SVG (deterministic render)</strong><br/><br/>
+      <img src="{core_svg.name}" alt="Paradox Core v0 SVG"/>
+    </div>
+
+    <div class="card">
+      <strong>Paradox Diagram v0 — SVG (deterministic render)</strong><br/><br/>
+      {"<img src=\"" + diagram_svg.name + "\" alt=\"Paradox Diagram v0 SVG\"/>" if diagram_svg.exists() else "<em>(diagram SVG not present)</em>"}
     </div>
 
     <div class="card">
@@ -163,7 +200,10 @@ def main() -> int:
 
     core_json = out_dir / "paradox_core_v0.json"
     summary_md = out_dir / "paradox_core_summary_v0.md"
-    svg_file = out_dir / "paradox_core_v0.svg"
+    core_svg = out_dir / "paradox_core_v0.svg"
+
+    diagram_json = out_dir / "paradox_diagram_v0.json"
+    diagram_svg = out_dir / "paradox_diagram_v0.svg"
 
     # 1) Build core JSON
     cmd_core = [
@@ -204,7 +244,7 @@ def main() -> int:
         ]
     )
 
-    # 4) Deterministic SVG render
+    # 4) Deterministic SVG render (core)
     _run(
         [
             py,
@@ -212,7 +252,7 @@ def main() -> int:
             "--in",
             str(core_json),
             "--out",
-            str(svg_file),
+            str(core_svg),
             "--width",
             str(int(args.svg_width)),
             "--node-w",
@@ -224,7 +264,47 @@ def main() -> int:
         ]
     )
 
-    # 5) Reviewer card HTML (static, no external deps)
+    # 5) Build Paradox Diagram v0 (derived strictly from Core artifact)
+    # Prefer repo-relative paths when possible (keeps diagram.inputs.path_hint stable).
+    core_json_arg = _maybe_relpath(core_json, repo_root)
+    diagram_json_arg = _maybe_relpath(diagram_json, repo_root)
+
+    cmd_diagram = [
+        py,
+        str(scripts_dir / "paradox_diagram_from_core_v0.py"),
+        "--core",
+        core_json_arg,
+        "--out",
+        diagram_json_arg,
+    ]
+    if args.edges:
+        # This is optional in v0; if supplied, it's recorded as an input sha256 in the diagram artifact.
+        cmd_diagram += ["--edges", str(Path(args.edges))]
+    _run(cmd_diagram)
+
+    # 6) Diagram contract check (fail-closed)
+    _run(
+        [
+            py,
+            str(scripts_dir / "check_paradox_diagram_v0_contract.py"),
+            "--in",
+            str(diagram_json),
+        ]
+    )
+
+    # 7) Deterministic SVG render (diagram)
+    _run(
+        [
+            py,
+            str(scripts_dir / "render_paradox_diagram_svg_v0.py"),
+            "--in",
+            str(diagram_json),
+            "--out",
+            str(diagram_svg),
+        ]
+    )
+
+    # 8) Reviewer card HTML (static, no external deps)
     _write_reviewer_card_html(out_dir=out_dir, title="Paradox Core Reviewer Card v0")
 
     return 0
