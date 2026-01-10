@@ -255,8 +255,8 @@ def main() -> int:
         diagram_json = out_dir / "paradox_diagram_v0.json"
         diagram_svg = out_dir / "paradox_diagram_v0.svg"
 
-        diagram_builder = scripts_dir / "paradox_diagram_v0.py"
-        diagram_renderer = scripts_dir / "render_paradox_diagram_svg_v0.py"
+        diagram_builder = scripts_dir / "paradox_diagram_from_core_v0.py
+        diagram_renderer = scripts_dir / "render_paradox_diagram_v0.py"
         diagram_checker = scripts_dir / "check_paradox_diagram_v0_contract.py"
 
         if not diagram_builder.exists():
