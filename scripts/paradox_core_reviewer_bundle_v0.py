@@ -2,7 +2,7 @@
 """
 paradox_core_reviewer_bundle_v0.py
 
-Deterministic reviewer bundle builder for Paradox Core v0.
+Deterministic reviewer bundle builder for Paradox Core v0 (+ optional Paradox Diagram v0).
 
 Inputs:
   - paradox_field_v0.json
@@ -13,6 +13,10 @@ Outputs (in --out-dir):
   - paradox_core_summary_v0.md
   - paradox_core_v0.svg
   - paradox_core_reviewer_card_v0.html
+
+Optional (when --with-diagram):
+  - paradox_diagram_v0.json
+  - paradox_diagram_v0.svg
 
 Design goals:
   - CI-neutral (diagnostic overlay)
@@ -28,35 +32,58 @@ import html
 import subprocess
 import sys
 from pathlib import Path
-from typing import List, Optional
+from typing import List
 
 
 def _run(cmd: List[str]) -> None:
+    """
+    Fail-closed runner with captured output, so CI shows a single actionable error block.
+    """
     r = subprocess.run(cmd, capture_output=True, text=True)
     if r.returncode != 0:
         raise RuntimeError(
             "Command failed:\n"
             + " ".join(cmd)
             + "\n\nSTDOUT:\n"
-            + r.stdout
+            + (r.stdout or "")
             + "\n\nSTDERR:\n"
-            + r.stderr
+            + (r.stderr or "")
         )
 
 
-def _write_reviewer_card_html(out_dir: Path, title: str) -> Path:
+def _write_reviewer_card_html(
+    out_dir: Path,
+    title: str,
+    include_diagram: bool,
+) -> Path:
     core_json = out_dir / "paradox_core_v0.json"
     summary_md = out_dir / "paradox_core_summary_v0.md"
-    svg_file = out_dir / "paradox_core_v0.svg"
+    core_svg = out_dir / "paradox_core_v0.svg"
+
+    diagram_json = out_dir / "paradox_diagram_v0.json"
+    diagram_svg = out_dir / "paradox_diagram_v0.svg"
+
     out_html = out_dir / "paradox_core_reviewer_card_v0.html"
 
-    # Read summary as plain text and render in <pre> (no markdown rendering dependency).
     summary_text = ""
     if summary_md.exists():
         summary_text = summary_md.read_text(encoding="utf-8")
 
-    # Stable, dependency-free HTML (no timestamps; only relative links).
-    # SVG is referenced as a file for simplicity (keeps this HTML stable and small).
+    diagram_block = ""
+    diagram_links = ""
+    if include_diagram and diagram_svg.exists():
+        diagram_block = f"""
+    <div class="card">
+      <strong>Paradox Diagram v0 (deterministic render)</strong><br/><br/>
+      <img src="{diagram_svg.name}" alt="Paradox Diagram v0 SVG"/>
+    </div>
+"""
+    if include_diagram and diagram_json.exists():
+        diagram_links = f"""
+    <a href="{diagram_json.name}">{diagram_json.name}</a>
+    <a href="{diagram_svg.name}">{diagram_svg.name}</a>
+"""
+
     page = f"""<!doctype html>
 <html lang="en">
 <head>
@@ -111,14 +138,17 @@ def _write_reviewer_card_html(out_dir: Path, title: str) -> Path:
     <strong>Artifacts</strong><br/>
     <a href="{core_json.name}">{core_json.name}</a>
     <a href="{summary_md.name}">{summary_md.name}</a>
-    <a href="{svg_file.name}">{svg_file.name}</a>
+    <a href="{core_svg.name}">{core_svg.name}</a>
+    {diagram_links}
   </div>
 
   <div class="grid">
     <div class="card">
-      <strong>SVG (deterministic render)</strong><br/><br/>
-      <img src="{svg_file.name}" alt="Paradox Core v0 SVG"/>
+      <strong>Paradox Core v0 SVG (deterministic render)</strong><br/><br/>
+      <img src="{core_svg.name}" alt="Paradox Core v0 SVG"/>
     </div>
+
+    {diagram_block}
 
     <div class="card">
       <strong>Markdown summary (deterministic)</strong><br/><br/>
@@ -152,18 +182,30 @@ def main() -> int:
         default=90,
         help="SVG summary truncation length (default: 90)",
     )
+
+    # Diagram bundle controls
+    ap.add_argument(
+        "--with-diagram",
+        action="store_true",
+        help="Also build Paradox Diagram v0 artifacts (paradox_diagram_v0.json/.svg)",
+    )
+    ap.add_argument(
+        "--diagram-skip-schema",
+        action="store_true",
+        help="Call diagram contract checker with --skip-schema (dep-light CI safe).",
+    )
     args = ap.parse_args()
 
     repo_root = Path(__file__).resolve().parents[1]
     scripts_dir = repo_root / "scripts"
-
     py = sys.executable
+
     out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
     core_json = out_dir / "paradox_core_v0.json"
     summary_md = out_dir / "paradox_core_summary_v0.md"
-    svg_file = out_dir / "paradox_core_v0.svg"
+    core_svg = out_dir / "paradox_core_v0.svg"
 
     # 1) Build core JSON
     cmd_core = [
@@ -182,29 +224,13 @@ def main() -> int:
         cmd_core += ["--edges", str(Path(args.edges))]
     _run(cmd_core)
 
-    # 2) Contract check (fail-closed, overlay-local)
-    _run(
-        [
-            py,
-            str(scripts_dir / "check_paradox_core_v0_contract.py"),
-            "--in",
-            str(core_json),
-        ]
-    )
+    # 2) Contract check core (fail-closed)
+    _run([py, str(scripts_dir / "check_paradox_core_v0_contract.py"), "--in", str(core_json)])
 
     # 3) Markdown summary
-    _run(
-        [
-            py,
-            str(scripts_dir / "inspect_paradox_core_v0.py"),
-            "--in",
-            str(core_json),
-            "--out",
-            str(summary_md),
-        ]
-    )
+    _run([py, str(scripts_dir / "inspect_paradox_core_v0.py"), "--in", str(core_json), "--out", str(summary_md)])
 
-    # 4) Deterministic SVG render
+    # 4) Deterministic SVG render (core)
     _run(
         [
             py,
@@ -212,7 +238,7 @@ def main() -> int:
             "--in",
             str(core_json),
             "--out",
-            str(svg_file),
+            str(core_svg),
             "--width",
             str(int(args.svg_width)),
             "--node-w",
@@ -224,8 +250,36 @@ def main() -> int:
         ]
     )
 
-    # 5) Reviewer card HTML (static, no external deps)
-    _write_reviewer_card_html(out_dir=out_dir, title="Paradox Core Reviewer Card v0")
+    # 5) Optional: Paradox Diagram v0 artifacts
+    if bool(args.with_diagram):
+        diagram_json = out_dir / "paradox_diagram_v0.json"
+        diagram_svg = out_dir / "paradox_diagram_v0.svg"
+
+        diagram_builder = scripts_dir / "paradox_diagram_v0.py"
+        diagram_renderer = scripts_dir / "render_paradox_diagram_svg_v0.py"
+        diagram_checker = scripts_dir / "check_paradox_diagram_v0_contract.py"
+
+        if not diagram_builder.exists():
+            raise RuntimeError(f"Diagram builder script not found: {diagram_builder}")
+        if not diagram_renderer.exists():
+            raise RuntimeError(f"Diagram renderer script not found: {diagram_renderer}")
+        if not diagram_checker.exists():
+            raise RuntimeError(f"Diagram contract checker script not found: {diagram_checker}")
+
+        # 5a) Build diagram JSON from core JSON
+        _run([py, str(diagram_builder), "--in", str(core_json), "--out", str(diagram_json)])
+
+        # 5b) Contract check diagram (fail-closed)
+        cmd_check = [py, str(diagram_checker), "--in", str(diagram_json)]
+        if bool(args.diagram_skip_schema):
+            cmd_check += ["--skip-schema"]
+        _run(cmd_check)
+
+        # 5c) Deterministic diagram SVG render
+        _run([py, str(diagram_renderer), "--in", str(diagram_json), "--out", str(diagram_svg)])
+
+    # 6) Reviewer card HTML (static, no external deps)
+    _write_reviewer_card_html(out_dir=out_dir, title="Paradox Core Reviewer Card v0", include_diagram=bool(args.with_diagram))
 
     return 0
 
