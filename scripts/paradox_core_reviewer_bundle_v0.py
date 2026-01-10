@@ -36,9 +36,6 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 
-# -----------------------------
-# subprocess helpers
-# -----------------------------
 def _run(cmd: List[str], cwd: Optional[Path] = None) -> None:
     r = subprocess.run(cmd, capture_output=True, text=True, cwd=str(cwd) if cwd else None)
     if r.returncode != 0:
@@ -74,7 +71,7 @@ def _to_repo_rel_str(p: Path, repo_root: Path) -> str:
 
 
 # -----------------------------
-# Diagram contract check (dep-free fallback)
+# Paradox Diagram v0: dep-safe contract check
 # -----------------------------
 _DIAGRAM_SCHEMA = "PULSE_paradox_diagram_v0"
 _DIAGRAM_VERSION = 0
@@ -88,40 +85,36 @@ def _has_jsonschema() -> bool:
         return False
 
 
-def _sha256_hex(text: str) -> str:
-    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+def _sha256_hex(s: str) -> str:
+    return hashlib.sha256(s.encode("utf-8")).hexdigest()
 
 
-def _id16(prefix: str, payload: str) -> str:
-    return f"{prefix}{_sha256_hex(payload)[:16]}"
+def _node_id_ref(ref_id: str) -> str:
+    return "r_" + _sha256_hex("ref\n" + ref_id)[:16]
 
 
-def _expected_node_id_reference(ref_id: str) -> str:
-    return _id16("r_", "ref\n" + ref_id)
+def _node_id_atom(core_atom_id: str) -> str:
+    return "n_" + _sha256_hex("atom\n" + core_atom_id)[:16]
 
 
-def _expected_node_id_atom(core_atom_id: str) -> str:
-    return _id16("n_", "atom\n" + core_atom_id)
-
-
-def _expected_edge_id_co_occurrence(a: str, b: str) -> str:
+def _edge_id_co_occurrence(a: str, b: str) -> str:
     aa, bb = sorted([a, b])
-    return _id16("e_", "co_occurrence\n" + aa + "\n" + bb)
+    return "e_" + _sha256_hex("co_occurrence\n" + aa + "\n" + bb)[:16]
 
 
-def _expected_edge_id_reference_relation(atom_node_id: str, ref_node_id: str) -> str:
-    return _id16("e_", "reference_relation\n" + atom_node_id + "\n" + ref_node_id)
+def _edge_id_reference_relation(atom_node_id: str, ref_node_id: str) -> str:
+    return "e_" + _sha256_hex("reference_relation\n" + atom_node_id + "\n" + ref_node_id)[:16]
 
 
 def _find_diagram_obj(raw: Any) -> Dict[str, Any]:
     """
     Accept either:
-      - the diagram artifact itself, or
+      - the diagram artifact itself (schema == PULSE_paradox_diagram_v0), or
       - a wrapper object containing a nested diagram artifact.
     Deterministic unwrap: scan nested dicts in sorted key order.
     """
     if not isinstance(raw, dict):
-        raise ValueError("Diagram input must be a JSON object.")
+        raise ValueError("Diagram input must be a JSON object (dict).")
 
     if raw.get("schema") == _DIAGRAM_SCHEMA:
         return raw
@@ -134,22 +127,21 @@ def _find_diagram_obj(raw: Any) -> Dict[str, Any]:
     raise ValueError(f"Could not locate diagram object with schema == {_DIAGRAM_SCHEMA}.")
 
 
-def _basic_check_paradox_diagram_v0(diagram_path: Path) -> None:
+def _basic_check_paradox_diagram_v0(diagram_json_path: Path) -> None:
     """
-    Minimal, dependency-free fail-closed contract check.
-    (Used only when jsonschema isn't available in the environment.)
+    Dependency-free, fail-closed diagram contract check.
+    Used only when jsonschema is not available in the environment.
 
-    Enforces the two core invariants + determinism basics:
-    - schema/version
-    - required notes codes
-    - node_id/edge_id uniqueness
-    - endpoints exist
-    - co_occurrence: undirected, atom-atom, canonical a<=b, stable edge_id
-    - reference_relation: atom->reference only, directed true if present, stable edge_id
-    - canonical ordering for references/nodes/edges
-    - stable node_id recompute
+    Enforces:
+      - schema/version
+      - required notes codes
+      - references sorted
+      - nodes sorted, node_id uniqueness, node_id recompute
+      - edges sorted, edge_id uniqueness, endpoints exist
+      - co_occurrence: undirected, atom-atom, canonical a<=b, edge_id recompute
+      - reference_relation: atom->reference, directed true if present, edge_id recompute
     """
-    raw = json.loads(diagram_path.read_text(encoding="utf-8"))
+    raw = json.loads(diagram_json_path.read_text(encoding="utf-8"))
     d = _find_diagram_obj(raw)
 
     errors: List[str] = []
@@ -163,7 +155,7 @@ def _basic_check_paradox_diagram_v0(diagram_path: Path) -> None:
     if d.get("version") != _DIAGRAM_VERSION:
         err(f"$.version must be {_DIAGRAM_VERSION}")
 
-    # notes required codes
+    # notes required
     notes = d.get("notes")
     if not isinstance(notes, list):
         err("$.notes must be a list")
@@ -176,7 +168,7 @@ def _basic_check_paradox_diagram_v0(diagram_path: Path) -> None:
             if required not in codes:
                 err(f"$.notes missing required code '{required}'")
 
-    # references ordering
+    # references sorted
     refs = d.get("references")
     if not isinstance(refs, list) or len(refs) < 1:
         err("$.references must be a non-empty list")
@@ -191,11 +183,12 @@ def _basic_check_paradox_diagram_v0(diagram_path: Path) -> None:
         if ref_ids != sorted(ref_ids):
             err("$.references must be sorted by ref_id asc")
 
-    # nodes
+    # nodes: mapping + uniqueness
     nodes = d.get("nodes")
     if not isinstance(nodes, list) or len(nodes) < 1:
         err("$.nodes must be a non-empty list")
         nodes = []
+
     node_by_id: Dict[str, Dict[str, Any]] = {}
     for n in nodes:
         if not isinstance(n, dict):
@@ -210,25 +203,25 @@ def _basic_check_paradox_diagram_v0(diagram_path: Path) -> None:
             continue
         node_by_id[nid] = n
 
-    # node_id recompute
-    for nid, n in sorted(node_by_id.items(), key=lambda kv: kv[0]):
+    # node_id recompute + kind checks
+    for nid, n in node_by_id.items():
         kind = n.get("kind")
         if kind == "reference":
             rid = n.get("ref_id")
             if not isinstance(rid, str) or not rid:
                 err(f"reference node missing ref_id (node_id={nid})")
             else:
-                exp = _expected_node_id_reference(rid)
+                exp = _node_id_ref(rid)
                 if nid != exp:
-                    err(f"reference node_id mismatch (node_id={nid}, expected={exp}, ref_id={rid})")
+                    err(f"reference node_id mismatch (got={nid}, expected={exp}, ref_id={rid})")
         elif kind == "atom":
             aid = n.get("core_atom_id")
             if not isinstance(aid, str) or not aid:
                 err(f"atom node missing core_atom_id (node_id={nid})")
             else:
-                exp = _expected_node_id_atom(aid)
+                exp = _node_id_atom(aid)
                 if nid != exp:
-                    err(f"atom node_id mismatch (node_id={nid}, expected={exp}, core_atom_id={aid})")
+                    err(f"atom node_id mismatch (got={nid}, expected={exp}, core_atom_id={aid})")
         else:
             err(f"unknown node kind '{kind}' (node_id={nid})")
 
@@ -240,7 +233,7 @@ def _basic_check_paradox_diagram_v0(diagram_path: Path) -> None:
 
     node_keys = [node_key(n) for n in nodes if isinstance(n, dict)]
     if node_keys != sorted(node_keys):
-        err("$.nodes must be in canonical order (reference nodes by ref_id, then atoms by rank/core_atom_id)")
+        err("$.nodes must be in canonical order (reference by ref_id, then atoms by rank/core_atom_id)")
 
     # edges
     edges = d.get("edges")
@@ -248,7 +241,7 @@ def _basic_check_paradox_diagram_v0(diagram_path: Path) -> None:
         err("$.edges must be a list")
         edges = []
 
-    edge_ids = set()
+    edge_seen: set[str] = set()
     for e in edges:
         if not isinstance(e, dict):
             err("$.edges contains non-object entry")
@@ -257,11 +250,11 @@ def _basic_check_paradox_diagram_v0(diagram_path: Path) -> None:
         if not isinstance(eid, str) or not eid:
             err("$.edges[].edge_id must be a non-empty string")
             continue
-        if eid in edge_ids:
+        if eid in edge_seen:
             err(f"duplicate edge_id: {eid}")
-        edge_ids.add(eid)
+        edge_seen.add(eid)
 
-    # edge validity + stable ids
+    # edge checks
     seen_ref_rel = False
     for e in edges:
         if not isinstance(e, dict):
@@ -274,7 +267,6 @@ def _basic_check_paradox_diagram_v0(diagram_path: Path) -> None:
         if not isinstance(a, str) or not isinstance(b, str):
             err("edge endpoints a/b must be strings")
             continue
-
         if a not in node_by_id:
             err(f"edge references missing node a={a}")
             continue
@@ -292,7 +284,7 @@ def _basic_check_paradox_diagram_v0(diagram_path: Path) -> None:
                 err("co_occurrence must connect atom <-> atom")
             if a > b:
                 err("co_occurrence endpoints must be canonicalized with a<=b")
-            exp = _expected_edge_id_co_occurrence(a, b)
+            exp = _edge_id_co_occurrence(a, b)
             if isinstance(eid, str) and eid != exp:
                 err(f"co_occurrence edge_id mismatch (got={eid}, expected={exp})")
             if "directed" in e:
@@ -303,7 +295,7 @@ def _basic_check_paradox_diagram_v0(diagram_path: Path) -> None:
                 err("reference_relation must connect atom -> reference (a atom, b reference)")
             if "directed" in e and e.get("directed") is not True:
                 err("reference_relation directed must be true if present")
-            exp = _expected_edge_id_reference_relation(a, b)
+            exp = _edge_id_reference_relation(a, b)
             if isinstance(eid, str) and eid != exp:
                 err(f"reference_relation edge_id mismatch (got={eid}, expected={exp})")
         else:
@@ -330,13 +322,12 @@ def _basic_check_paradox_diagram_v0(diagram_path: Path) -> None:
         err("$.edges must be in canonical order (co_occurrence then reference_relation; within: a,b,edge_id)")
 
     if errors:
-        msg = "Diagram contract violation(s) (dep-free check):\n" + "\n".join(f" - {x}" for x in errors)
-        raise RuntimeError(msg)
+        raise RuntimeError(
+            "Diagram contract violation(s) (dep-free fallback check):\n"
+            + "\n".join(f" - {x}" for x in errors)
+        )
 
 
-# -----------------------------
-# Reviewer card HTML
-# -----------------------------
 def _write_reviewer_card_html(out_dir: Path, title: str) -> Path:
     core_json = out_dir / "paradox_core_v0.json"
     summary_md = out_dir / "paradox_core_summary_v0.md"
@@ -347,16 +338,18 @@ def _write_reviewer_card_html(out_dir: Path, title: str) -> Path:
 
     out_html = out_dir / "paradox_core_reviewer_card_v0.html"
 
+    # Read summary as plain text and render in <pre> (no markdown rendering dependency).
     summary_text = ""
     if summary_md.exists():
         summary_text = summary_md.read_text(encoding="utf-8")
 
-    # Precompute HTML snippet (avoid f-string expression escape pitfalls)
+    # Diagram block (IMPORTANT: precompute to avoid f-string expression backslash issues)
     if diagram_svg.exists():
         diagram_block_html = f'<img src="{diagram_svg.name}" alt="Paradox Diagram v0 SVG"/>'
     else:
         diagram_block_html = "<em>(diagram SVG not present)</em>"
 
+    # Build artifact links (relative filenames only; stable).
     artifact_links: List[str] = []
     if core_json.exists():
         artifact_links.append(f'<a href="{core_json.name}">{core_json.name}</a>')
@@ -371,6 +364,7 @@ def _write_reviewer_card_html(out_dir: Path, title: str) -> Path:
 
     artifacts_html = "\n    ".join(artifact_links) if artifact_links else "<em>(no artifacts found)</em>"
 
+    # Stable, dependency-free HTML (no timestamps; only relative links).
     page = f"""<!doctype html>
 <html lang="en">
 <head>
@@ -451,9 +445,6 @@ def _write_reviewer_card_html(out_dir: Path, title: str) -> Path:
     return out_html
 
 
-# -----------------------------
-# main
-# -----------------------------
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--field", required=True, help="Path to paradox_field_v0.json")
@@ -493,16 +484,16 @@ def main() -> int:
     diagram_json = out_dir / "paradox_diagram_v0.json"
     diagram_svg = out_dir / "paradox_diagram_v0.svg"
 
-    # Helper strings for subprocess args (prefer repo-relative) — resolve via cwd=repo_root
+    # Helper strings for subprocess args (prefer repo-relative)
     field_arg = _to_repo_rel_str(field_path, repo_root)
-    edges_arg = _to_repo_rel_str(edges_path, repo_root) if edges_path else None
-
     core_json_arg = _to_repo_rel_str(core_json, repo_root)
     summary_md_arg = _to_repo_rel_str(summary_md, repo_root)
     core_svg_arg = _to_repo_rel_str(core_svg, repo_root)
 
     diagram_json_arg = _to_repo_rel_str(diagram_json, repo_root)
     diagram_svg_arg = _to_repo_rel_str(diagram_svg, repo_root)
+
+    edges_arg = _to_repo_rel_str(edges_path, repo_root) if edges_path else None
 
     # 1) Build core JSON
     cmd_core = [
@@ -580,8 +571,8 @@ def main() -> int:
     _run(cmd_diagram, cwd=repo_root)
 
     # 6) Diagram contract check:
-    # - If jsonschema exists: run the full contract checker (schema + invariants).
-    # - Else: run a dep-free minimal fail-closed check for invariants (keeps bundle workflows dependency-light).
+    # - full checker if jsonschema is available
+    # - dep-free fallback invariants if jsonschema is missing
     if _has_jsonschema():
         _run(
             [
@@ -593,7 +584,6 @@ def main() -> int:
             cwd=repo_root,
         )
     else:
-        # Dep-free, still fail-closed on real contract violations.
         _basic_check_paradox_diagram_v0(diagram_json)
 
     # 7) Deterministic SVG render (diagram)
