@@ -4,13 +4,14 @@ check_paradox_diagram_v0_contract.py
 
 Fail-closed contract checker for Paradox Diagram v0.
 
-This checker enforces:
-- Schema validation (JSON Schema) when available
+Enforces:
+- Schema validation (JSON Schema) when available (unless --skip-schema)
 - Deterministic invariants (ordering, IDs, endpoint validity, non-causal guardrails)
 
 New:
-- --skip-schema: skip JSON Schema validation (useful in dependency-light CI where jsonschema isn't installed).
-  When --skip-schema is used, invariants still run and failures are still fail-closed.
+- --skip-schema / --skip_schema:
+  Skip JSON Schema validation (useful in dependency-light CI where jsonschema isn't installed).
+  Invariants still run and failures are still fail-closed.
 
 Exit codes:
 - 0 on success
@@ -51,28 +52,6 @@ def _edge_id_reference_relation(atom_node_id: str, ref_node_id: str) -> str:
     return "e_" + _sha256_hex("reference_relation\n" + atom_node_id + "\n" + ref_node_id)[:16]
 
 
-def _find_diagram_obj(raw: Any) -> Dict[str, Any]:
-    """
-    Accept either:
-      - the diagram artifact itself (schema == PULSE_paradox_diagram_v0), or
-      - a wrapper object containing a nested diagram artifact.
-
-    Deterministic unwrap: scan nested dicts in sorted key order.
-    """
-    if not isinstance(raw, dict):
-        raise ValueError("Input must be a JSON object (dict).")
-
-    if raw.get("schema") == DIAGRAM_SCHEMA:
-        return raw
-
-    for k in sorted(raw.keys()):
-        v = raw.get(k)
-        if isinstance(v, dict) and v.get("schema") == DIAGRAM_SCHEMA:
-            return v
-
-    raise ValueError(f"Could not locate diagram object with schema == {DIAGRAM_SCHEMA}.")
-
-
 def _load_json(path: Path) -> Any:
     return json.loads(path.read_text(encoding="utf-8"))
 
@@ -82,6 +61,41 @@ def _load_schema(path: Path) -> Dict[str, Any]:
     if not isinstance(obj, dict):
         raise ValueError("Schema file must be a JSON object.")
     return obj
+
+
+def _find_diagram_obj(raw: Any) -> Dict[str, Any]:
+    """
+    Accept either:
+      - the diagram artifact itself (schema == PULSE_paradox_diagram_v0), or
+      - a wrapper object containing a nested diagram artifact (possibly deeply nested).
+
+    Deterministic unwrap:
+      - dict keys are scanned in sorted order
+      - lists are scanned in natural index order
+    """
+    if not isinstance(raw, dict):
+        raise ValueError("Input must be a JSON object (dict).")
+
+    def walk(x: Any) -> Optional[Dict[str, Any]]:
+        if isinstance(x, dict):
+            if x.get("schema") == DIAGRAM_SCHEMA:
+                return x
+            # Deterministic scan by sorted key
+            for k in sorted(x.keys(), key=lambda kk: str(kk)):
+                res = walk(x.get(k))
+                if res is not None:
+                    return res
+        elif isinstance(x, list):
+            for item in x:
+                res = walk(item)
+                if res is not None:
+                    return res
+        return None
+
+    found = walk(raw)
+    if found is None:
+        raise ValueError(f"Could not locate diagram object with schema == {DIAGRAM_SCHEMA}.")
+    return found
 
 
 def _schema_validate(diagram: Dict[str, Any], schema: Dict[str, Any]) -> None:
@@ -98,14 +112,34 @@ def _schema_validate(diagram: Dict[str, Any], schema: Dict[str, Any]) -> None:
             f"Import error: {e}"
         )
 
-    # Validate with the library's default validator selection (based on $schema if present).
     jsonschema.validate(instance=diagram, schema=schema)
 
 
+def _safe_int(x: Any, default: int) -> int:
+    if isinstance(x, bool):
+        # bool is a subclass of int; reject it as rank
+        return default
+    if isinstance(x, int):
+        return x
+    if isinstance(x, str):
+        try:
+            return int(x)
+        except Exception:
+            return default
+    return default
+
+
 def _node_sort_key(n: Dict[str, Any]) -> Tuple[int, str, int, str]:
+    """
+    Canonical node ordering:
+      - reference nodes first by ref_id asc
+      - then atom nodes by rank asc, then core_atom_id asc
+    """
     if n.get("kind") == "reference":
         return (0, str(n.get("ref_id", "")), 0, "")
-    return (1, "", int(n.get("rank", 10**9)), str(n.get("core_atom_id", "")))
+    # atom (or unknown) falls here; unknown will be caught by invariants anyway
+    rank = _safe_int(n.get("rank"), 10**9)
+    return (1, "", rank, str(n.get("core_atom_id", "")))
 
 
 def _edge_group(kind: str) -> int:
@@ -177,10 +211,16 @@ def _invariants(diagram: Dict[str, Any], allow_metadata_nondeterminism: bool) ->
     if not isinstance(notes, list):
         err("$.notes must be a list")
     else:
-        codes = []
-        for n in notes:
-            if isinstance(n, dict) and isinstance(n.get("code"), str):
-                codes.append(n["code"])
+        codes: List[str] = []
+        for i, n in enumerate(notes):
+            if not isinstance(n, dict):
+                err(f"$.notes[{i}] must be an object")
+                continue
+            code = n.get("code")
+            if not isinstance(code, str) or not code:
+                err(f"$.notes[{i}].code must be a non-empty string")
+                continue
+            codes.append(code)
         for required in ["NON_CAUSAL", "CI_NEUTRAL_DEFAULT"]:
             if required not in codes:
                 err(f"$.notes missing required code '{required}'")
@@ -191,13 +231,17 @@ def _invariants(diagram: Dict[str, Any], allow_metadata_nondeterminism: bool) ->
         err("$.references must be a non-empty list")
         refs = []
     else:
-        ref_ids = []
-        for r in refs:
-            if not isinstance(r, dict) or not isinstance(r.get("ref_id"), str):
-                err("$.references entries must be objects with ref_id")
+        ref_ids: List[str] = []
+        for i, r in enumerate(refs):
+            if not isinstance(r, dict):
+                err(f"$.references[{i}] must be an object")
                 continue
-            ref_ids.append(r["ref_id"])
-        if ref_ids != sorted(ref_ids):
+            rid = r.get("ref_id")
+            if not isinstance(rid, str) or not rid:
+                err(f"$.references[{i}].ref_id must be a non-empty string")
+                continue
+            ref_ids.append(rid)
+        if ref_ids and ref_ids != sorted(ref_ids):
             err("$.references must be sorted by ref_id asc")
 
     # nodes
@@ -207,20 +251,20 @@ def _invariants(diagram: Dict[str, Any], allow_metadata_nondeterminism: bool) ->
         nodes = []
 
     node_by_id: Dict[str, Dict[str, Any]] = {}
-    for n in nodes:
+    for i, n in enumerate(nodes):
         if not isinstance(n, dict):
-            err("$.nodes contains non-object entry")
+            err(f"$.nodes[{i}] contains non-object entry")
             continue
         nid = n.get("node_id")
         if not isinstance(nid, str) or not nid:
-            err("$.nodes[].node_id must be a non-empty string")
+            err(f"$.nodes[{i}].node_id must be a non-empty string")
             continue
         if nid in node_by_id:
             err(f"duplicate node_id: {nid}")
             continue
         node_by_id[nid] = n
 
-    # node_id recompute
+    # node_id recompute + required fields
     for nid, n in node_by_id.items():
         kind = n.get("kind")
         if kind == "reference":
@@ -239,12 +283,17 @@ def _invariants(diagram: Dict[str, Any], allow_metadata_nondeterminism: bool) ->
                 exp = _node_id_atom(aid)
                 if nid != exp:
                     err(f"atom node_id mismatch (got={nid}, expected={exp}, core_atom_id={aid})")
+
+            # rank sanity (skip-schema mode safety)
+            if "rank" in n:
+                if not isinstance(n.get("rank"), int):
+                    err(f"atom node rank must be int when present (node_id={nid})")
         else:
             err(f"unknown node kind '{kind}' (node_id={nid})")
 
     # canonical node ordering
     node_keys = [_node_sort_key(n) for n in nodes if isinstance(n, dict)]
-    if node_keys != sorted(node_keys):
+    if node_keys and node_keys != sorted(node_keys):
         err("$.nodes must be in canonical order (reference by ref_id, then atoms by rank/core_atom_id)")
 
     # edges
@@ -254,13 +303,13 @@ def _invariants(diagram: Dict[str, Any], allow_metadata_nondeterminism: bool) ->
         edges = []
 
     edge_seen: set[str] = set()
-    for e in edges:
+    for i, e in enumerate(edges):
         if not isinstance(e, dict):
-            err("$.edges contains non-object entry")
+            err(f"$.edges[{i}] contains non-object entry")
             continue
         eid = e.get("edge_id")
         if not isinstance(eid, str) or not eid:
-            err("$.edges[].edge_id must be a non-empty string")
+            err(f"$.edges[{i}].edge_id must be a non-empty string")
             continue
         if eid in edge_seen:
             err(f"duplicate edge_id: {eid}")
@@ -268,7 +317,7 @@ def _invariants(diagram: Dict[str, Any], allow_metadata_nondeterminism: bool) ->
 
     # edge endpoints + type rules
     seen_ref_rel = False
-    for e in edges:
+    for i, e in enumerate(edges):
         if not isinstance(e, dict):
             continue
         kind = e.get("kind")
@@ -277,13 +326,13 @@ def _invariants(diagram: Dict[str, Any], allow_metadata_nondeterminism: bool) ->
         eid = e.get("edge_id")
 
         if not isinstance(a, str) or not isinstance(b, str):
-            err("edge endpoints a/b must be strings")
+            err(f"$.edges[{i}]: edge endpoints a/b must be strings")
             continue
         if a not in node_by_id:
-            err(f"edge references missing node a={a}")
+            err(f"$.edges[{i}]: edge references missing node a={a}")
             continue
         if b not in node_by_id:
-            err(f"edge references missing node b={b}")
+            err(f"$.edges[{i}]: edge references missing node b={b}")
             continue
 
         ak = node_by_id[a].get("kind")
@@ -316,7 +365,7 @@ def _invariants(diagram: Dict[str, Any], allow_metadata_nondeterminism: bool) ->
 
     # canonical edge ordering
     edge_keys = [_edge_sort_key(e) for e in edges if isinstance(e, dict)]
-    if edge_keys != sorted(edge_keys):
+    if edge_keys and edge_keys != sorted(edge_keys):
         err("$.edges must be in canonical order (co_occurrence then reference_relation; within: a,b,edge_id)")
 
     # metadata nondeterminism scan
@@ -329,13 +378,41 @@ def _invariants(diagram: Dict[str, Any], allow_metadata_nondeterminism: bool) ->
         raise RuntimeError("Diagram contract violation(s):\n" + "\n".join(f" - {x}" for x in errors))
 
 
+def _repo_root_from_here() -> Path:
+    """
+    Best-effort repo root detection. Falls back to parents[1] (common scripts/ layout).
+    """
+    here = Path(__file__).resolve()
+    for p in [here.parent] + list(here.parents):
+        if (p / "schemas").is_dir():
+            return p
+        if (p / ".git").exists():
+            return p
+    # fallback: scripts/check_*.py -> parents[1] should be repo root
+    try:
+        return here.parents[1]
+    except Exception:
+        return here.parent
+
+
 def _parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
-    repo_root = Path(__file__).resolve().parents[1]
+    repo_root = _repo_root_from_here()
     default_schema = repo_root / "schemas" / "PULSE_paradox_diagram_v0.schema.json"
 
     ap = argparse.ArgumentParser()
-    ap.add_argument("--in", dest="in_path", required=True, help="Path to paradox_diagram_v0.json")
-    ap.add_argument("--schema", dest="schema_path", default=str(default_schema), help="Path to diagram JSON schema")
+    ap.add_argument(
+        "--in",
+        "--input",
+        dest="in_path",
+        required=True,
+        help="Path to paradox_diagram_v0.json (or wrapper JSON containing it)",
+    )
+    ap.add_argument(
+        "--schema",
+        dest="schema_path",
+        default=str(default_schema),
+        help="Path to diagram JSON schema",
+    )
     ap.add_argument(
         "--allow-metadata-nondeterminism",
         action="store_true",
@@ -343,10 +420,15 @@ def _parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     )
     ap.add_argument(
         "--skip-schema",
+        "--skip_schema",
         action="store_true",
         help="Skip JSON Schema validation (useful when jsonschema is unavailable). Invariants still run.",
     )
-    ap.add_argument("--quiet", action="store_true", help="Suppress warnings/errors (exit code still indicates status)")
+    ap.add_argument(
+        "--quiet",
+        action="store_true",
+        help="Suppress warnings/errors output (exit code still indicates status)",
+    )
     return ap.parse_args(argv)
 
 
