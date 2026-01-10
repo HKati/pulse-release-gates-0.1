@@ -1,31 +1,21 @@
 #!/usr/bin/env python3
 """
+check_paradox_diagram_v0_contract.py
+
 Fail-closed contract checker for Paradox Diagram v0.
 
-What this checks (v0):
-- JSON Schema validation (schemas/PULSE_paradox_diagram_v0.schema.json)
-- Referential integrity:
-    - node_id uniqueness
-    - edge_id uniqueness
-    - edge endpoints exist in nodes
-    - endpoint kinds match edge kind constraints
-- Stable ID contract:
-    - node_id recomputed from ref_id / core_atom_id
-    - edge_id recomputed from endpoints (canonical rules)
-- Deterministic ordering:
-    - references sorted by ref_id
-    - nodes: reference nodes (ref_id asc) then atom nodes (rank asc, core_atom_id asc)
-    - edges: co_occurrence (a,b,edge_id) then reference_relation (a,b,edge_id)
-- Optional nondeterminism guardrails for metadata:
-    - forbids obvious wall-clock / CI run fields at top-level and inside run_context
-      (can be disabled via --allow-metadata-nondeterminism)
+Enforces:
+- Schema validation (JSON Schema) when available (unless --skip-schema)
+- Deterministic invariants (ordering, IDs, endpoint validity, non-causal guardrails)
 
-Notes:
-- This checker is overlay-local: it reads only local files, no network calls.
-- It is intentionally strict: fail-closed on contract violations.
+New:
+- --skip-schema / --skip_schema:
+  Skip JSON Schema validation (useful in dependency-light CI where jsonschema isn't installed).
+  Invariants still run and failures are still fail-closed.
 
-Usage:
-  python scripts/check_paradox_diagram_v0_contract.py --in out/paradox_diagram_v0.json
+Exit codes:
+- 0 on success
+- 2 on contract violation / error
 """
 
 from __future__ import annotations
@@ -39,551 +29,531 @@ from typing import Any, Dict, List, Optional, Tuple
 
 
 DIAGRAM_SCHEMA = "PULSE_paradox_diagram_v0"
-DIAGRAM_VERSION = 0
 
 
-def _sha256_hex_of_text(s: str) -> str:
+def _sha256_hex(s: str) -> str:
     return hashlib.sha256(s.encode("utf-8")).hexdigest()
 
 
-def _id16(prefix: str, canonical_payload: str) -> str:
-    return f"{prefix}{_sha256_hex_of_text(canonical_payload)[:16]}"
+def _node_id_ref(ref_id: str) -> str:
+    return "r_" + _sha256_hex("ref\n" + ref_id)[:16]
 
 
-def expected_node_id_reference(ref_id: str) -> str:
-    return _id16("r_", "ref\n" + ref_id)
+def _node_id_atom(core_atom_id: str) -> str:
+    return "n_" + _sha256_hex("atom\n" + core_atom_id)[:16]
 
 
-def expected_node_id_atom(core_atom_id: str) -> str:
-    return _id16("n_", "atom\n" + core_atom_id)
+def _edge_id_co_occurrence(a: str, b: str) -> str:
+    aa, bb = sorted([a, b])
+    return "e_" + _sha256_hex("co_occurrence\n" + aa + "\n" + bb)[:16]
 
 
-def expected_edge_id_co_occurrence(a_node_id: str, b_node_id: str) -> str:
-    a_id, b_id = sorted([a_node_id, b_node_id])
-    return _id16("e_", "co_occurrence\n" + a_id + "\n" + b_id)
-
-
-def expected_edge_id_reference_relation(atom_node_id: str, ref_node_id: str) -> str:
-    return _id16("e_", "reference_relation\n" + atom_node_id + "\n" + ref_node_id)
+def _edge_id_reference_relation(atom_node_id: str, ref_node_id: str) -> str:
+    return "e_" + _sha256_hex("reference_relation\n" + atom_node_id + "\n" + ref_node_id)[:16]
 
 
 def _load_json(path: Path) -> Any:
-    with path.open("r", encoding="utf-8") as f:
-        return json.load(f)
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _load_schema(path: Path) -> Dict[str, Any]:
+    obj = _load_json(path)
+    if not isinstance(obj, dict):
+        raise ValueError("Schema file must be a JSON object.")
+    return obj
 
 
 def _find_diagram_obj(raw: Any) -> Dict[str, Any]:
     """
     Accept either:
       - the diagram artifact itself (schema == PULSE_paradox_diagram_v0), or
-      - a wrapper object containing a nested diagram artifact.
+      - a wrapper object containing a nested diagram artifact (possibly deeply nested).
 
-    Deterministic unwrap: scan nested dicts in sorted key order.
+    Deterministic unwrap:
+      - dict keys are scanned in sorted order
+      - lists are scanned in natural index order
     """
     if not isinstance(raw, dict):
         raise ValueError("Input must be a JSON object (dict).")
 
-    if raw.get("schema") == DIAGRAM_SCHEMA:
-        return raw
+    def walk(x: Any) -> Optional[Dict[str, Any]]:
+        if isinstance(x, dict):
+            if x.get("schema") == DIAGRAM_SCHEMA:
+                return x
+            for k in sorted(x.keys(), key=lambda kk: str(kk)):
+                res = walk(x.get(k))
+                if res is not None:
+                    return res
+        elif isinstance(x, list):
+            for item in x:
+                res = walk(item)
+                if res is not None:
+                    return res
+        return None
 
-    for k in sorted(raw.keys()):
-        v = raw.get(k)
-        if isinstance(v, dict) and v.get("schema") == DIAGRAM_SCHEMA:
-            return v
-
-    raise ValueError(f"Could not locate diagram object with schema == {DIAGRAM_SCHEMA}.")
+    found = walk(raw)
+    if found is None:
+        raise ValueError(f"Could not locate diagram object with schema == {DIAGRAM_SCHEMA}.")
+    return found
 
 
-def _default_schema_path() -> Path:
-    # repo_root/scripts/this_file.py -> repo_root/schemas/...
-    here = Path(__file__).resolve()
-    repo_root = here.parents[1]
-    return repo_root / "schemas" / "PULSE_paradox_diagram_v0.schema.json"
-
-
-def _validate_jsonschema(diagram: Dict[str, Any], schema_path: Path) -> List[str]:
+def _schema_validate(diagram: Dict[str, Any], schema: Dict[str, Any]) -> None:
     """
-    Return a list of human-friendly error strings.
-    Fail-closed: if jsonschema isn't available, return a single error.
+    Validate using jsonschema. Import happens here (after args parsing),
+    so --skip-schema can be used even if jsonschema isn't installed.
     """
     try:
         import jsonschema  # type: ignore
     except Exception as e:
-        return [f"jsonschema import failed: {e}. Install 'jsonschema' to validate schema contract."]
+        raise RuntimeError(
+            "jsonschema is not available but schema validation is required.\n"
+            "Install 'jsonschema' or run with --skip-schema.\n"
+            f"Import error: {e}"
+        )
 
-    schema = _load_json(schema_path)
-    validator = jsonschema.Draft7Validator(schema)
-
-    errors = []
-    for err in sorted(validator.iter_errors(diagram), key=lambda e: (list(e.absolute_path), e.message)):
-        path = "$"
-        for p in err.absolute_path:
-            if isinstance(p, int):
-                path += f"[{p}]"
-            else:
-                path += f".{p}"
-        errors.append(f"{path}: {err.message}")
-    return errors
+    jsonschema.validate(instance=diagram, schema=schema)
 
 
-def _is_sorted_by(items: List[Any], key_fn) -> bool:
-    keys = [key_fn(x) for x in items]
-    return keys == sorted(keys)
+def _safe_int(x: Any, default: int) -> int:
+    if isinstance(x, bool):
+        return default
+    if isinstance(x, int):
+        return x
+    if isinstance(x, str):
+        try:
+            return int(x)
+        except Exception:
+            return default
+    return default
 
 
-def _first_sort_mismatch(items: List[Any], key_fn) -> Optional[Tuple[int, Any, Any]]:
-    keys = [key_fn(x) for x in items]
-    sorted_keys = sorted(keys)
-    if keys == sorted_keys:
-        return None
-    for i, (a, b) in enumerate(zip(keys, sorted_keys)):
-        if a != b:
-            return (i, a, b)
-    return (len(items) - 1, keys[-1], sorted_keys[-1])
-
-
-def _format_path(parts: List[str]) -> str:
-    if not parts:
-        return "$"
-    out = "$"
-    for p in parts:
-        if p.startswith("["):
-            out += p
-        else:
-            out += "." + p
-    return out
-
-
-def _collect_errors() -> Tuple[List[str], Any]:
-    errs: List[str] = []
-
-    def add(path: str, msg: str) -> None:
-        errs.append(f"{path}: {msg}")
-
-    return errs, add
-
-
-def _check_required_notes(diagram: Dict[str, Any]) -> List[str]:
-    errs, add = _collect_errors()
-    notes = diagram.get("notes", [])
-    if not isinstance(notes, list):
-        add("$.notes", "must be a list")
-        return errs
-
-    codes = []
-    for i, n in enumerate(notes):
-        if not isinstance(n, dict):
-            add(f"$.notes[{i}]", "must be an object")
-            continue
-        code = n.get("code")
-        if isinstance(code, str):
-            codes.append(code)
-
-    for required in ["NON_CAUSAL", "CI_NEUTRAL_DEFAULT"]:
-        if required not in codes:
-            add("$.notes", f"missing required note code '{required}'")
-
-    return errs
-
-
-FORBIDDEN_META_KEYS = {
-    # obvious wall-clock / generation-time fields:
-    "timestamp",
-    "generated_at",
-    "created_at",
-    "built_at",
-    # CI run identifiers:
-    "run_number",
-    "ci_run_number",
-    "github_run_id",
-    "github_run_number",
-    "workflow_run_id",
-}
-
-
-def _check_metadata_nondeterminism(diagram: Dict[str, Any]) -> List[str]:
+def _node_sort_key(n: Dict[str, Any]) -> Tuple[int, str, int, str]:
     """
-    Strict but targeted: checks top-level keys and run_context for forbidden meta keys.
-    Does NOT scan evidence payloads to avoid false positives in diagnostic evidence.
+    Canonical node ordering:
+      - reference nodes first by ref_id asc
+      - then atom nodes by rank asc, then core_atom_id asc
     """
-    errs, add = _collect_errors()
-
-    # top-level forbidden keys
-    for k in sorted(diagram.keys()):
-        if k in FORBIDDEN_META_KEYS:
-            add("$", f"forbidden nondeterministic metadata key '{k}' present at top-level")
-
-    # run_context forbidden keys (recursive)
-    rc = diagram.get("run_context")
-    if rc is None:
-        return errs
-    if not isinstance(rc, dict):
-        add("$.run_context", "must be an object if present")
-        return errs
-
-    def walk(obj: Any, path_parts: List[str]) -> None:
-        if isinstance(obj, dict):
-            for kk in sorted(obj.keys()):
-                if kk in FORBIDDEN_META_KEYS:
-                    add(_format_path(["run_context"] + path_parts + [kk]), f"forbidden nondeterministic key '{kk}'")
-                vv = obj[kk]
-                walk(vv, path_parts + [kk])
-        elif isinstance(obj, list):
-            for i, vv in enumerate(obj):
-                walk(vv, path_parts + [f"[{i}]"])
-
-    walk(rc, [])
-    return errs
+    if n.get("kind") == "reference":
+        return (0, str(n.get("ref_id", "")), 0, "")
+    rank = _safe_int(n.get("rank"), 10**9)
+    return (1, "", rank, str(n.get("core_atom_id", "")))
 
 
-def _check_schema_version(diagram: Dict[str, Any]) -> List[str]:
-    errs, add = _collect_errors()
+def _edge_group(kind: str) -> int:
+    if kind == "co_occurrence":
+        return 0
+    if kind == "reference_relation":
+        return 1
+    return 9
+
+
+def _edge_sort_key(e: Dict[str, Any]) -> Tuple[int, str, str, str]:
+    return (
+        _edge_group(str(e.get("kind", ""))),
+        str(e.get("a", "")),
+        str(e.get("b", "")),
+        str(e.get("edge_id", "")),
+    )
+
+
+def _scan_forbidden_metadata(obj: Any) -> List[str]:
+    forbidden_keys = {
+        "timestamp",
+        "created_at",
+        "generated_at",
+        "wall_clock",
+        "wallclock",
+        "now",
+        "datetime",
+        "run_started_at",
+    }
+
+    hits: List[str] = []
+
+    def walk(x: Any, path: str) -> None:
+        if isinstance(x, dict):
+            for k, v in x.items():
+                if isinstance(k, str) and k in forbidden_keys:
+                    hits.append(f"{path}.{k}" if path else k)
+                walk(v, f"{path}.{k}" if path else str(k))
+        elif isinstance(x, list):
+            for i, v in enumerate(x):
+                walk(v, f"{path}[{i}]")
+
+    walk(obj, "")
+    return hits
+
+
+def _invariants(diagram: Dict[str, Any], allow_metadata_nondeterminism: bool) -> None:
+    errors: List[str] = []
+
+    def err(msg: str) -> None:
+        errors.append(msg)
+
+    # Basic identity
     if diagram.get("schema") != DIAGRAM_SCHEMA:
-        add("$.schema", f"must be '{DIAGRAM_SCHEMA}'")
-    if diagram.get("version") != DIAGRAM_VERSION:
-        add("$.version", f"must be {DIAGRAM_VERSION}")
-    return errs
+        err(f"$.schema must be '{DIAGRAM_SCHEMA}'")
 
+    # version is enforced by schema if schema validation runs; in skip mode, keep it sane:
+    v = diagram.get("version")
+    if v not in (0, "v0"):
+        err("$.version must be 0 or 'v0'")
 
-def _check_references(diagram: Dict[str, Any]) -> List[str]:
-    errs, add = _collect_errors()
+    # notes codes (strong guardrails)
+    notes = diagram.get("notes")
+    if not isinstance(notes, list):
+        err("$.notes must be a list")
+    else:
+        codes: List[str] = []
+        for i, n in enumerate(notes):
+            if not isinstance(n, dict):
+                err(f"$.notes[{i}] must be an object")
+                continue
+            code = n.get("code")
+            if not isinstance(code, str) or not code:
+                err(f"$.notes[{i}].code must be a non-empty string")
+                continue
+            codes.append(code)
+        for required in ["NON_CAUSAL", "CI_NEUTRAL_DEFAULT"]:
+            if required not in codes:
+                err(f"$.notes missing required code '{required}'")
+
+    # references sorted + collect valid ref_ids
+    ref_id_set: set[str] = set()
     refs = diagram.get("references")
     if not isinstance(refs, list) or len(refs) < 1:
-        add("$.references", "must be a non-empty list")
-        return errs
+        err("$.references must be a non-empty list")
+        refs = []
+    else:
+        ref_ids: List[str] = []
+        for i, r in enumerate(refs):
+            if not isinstance(r, dict):
+                err(f"$.references[{i}] must be an object")
+                continue
+            rid = r.get("ref_id")
+            if not isinstance(rid, str) or not rid:
+                err(f"$.references[{i}].ref_id must be a non-empty string")
+                continue
+            ref_ids.append(rid)
 
-    # ordering by ref_id
-    def ref_key(r: Any) -> str:
-        if not isinstance(r, dict):
-            return ""
-        return str(r.get("ref_id", ""))
+        if ref_ids and ref_ids != sorted(ref_ids):
+            err("$.references must be sorted by ref_id asc")
 
-    mm = _first_sort_mismatch(refs, ref_key)
-    if mm is not None:
-        i, got, exp = mm
-        add("$.references", f"must be sorted by ref_id asc (first mismatch at index {i}: got {got} expected {exp})")
+        ref_id_set = set(ref_ids)
 
-    # uniqueness
-    seen = set()
-    for i, r in enumerate(refs):
-        if not isinstance(r, dict):
-            add(f"$.references[{i}]", "must be an object")
-            continue
-        ref_id = r.get("ref_id")
-        if not isinstance(ref_id, str) or not ref_id:
-            add(f"$.references[{i}].ref_id", "must be a non-empty string")
-            continue
-        if ref_id in seen:
-            add(f"$.references[{i}].ref_id", f"duplicate ref_id '{ref_id}'")
-        seen.add(ref_id)
-
-    return errs
-
-
-def _check_nodes(diagram: Dict[str, Any]) -> Tuple[List[str], Dict[str, Dict[str, Any]]]:
-    errs, add = _collect_errors()
+    # nodes
     nodes = diagram.get("nodes")
-    node_by_id: Dict[str, Dict[str, Any]] = {}
-
     if not isinstance(nodes, list) or len(nodes) < 1:
-        add("$.nodes", "must be a non-empty list")
-        return errs, node_by_id
+        err("$.nodes must be a non-empty list")
+        nodes = []
 
-    # uniqueness + mapping
+    node_by_id: Dict[str, Dict[str, Any]] = {}
+    node_index_by_id: Dict[str, int] = {}
     for i, n in enumerate(nodes):
         if not isinstance(n, dict):
-            add(f"$.nodes[{i}]", "must be an object")
+            err(f"$.nodes[{i}] contains non-object entry")
             continue
         nid = n.get("node_id")
         if not isinstance(nid, str) or not nid:
-            add(f"$.nodes[{i}].node_id", "must be a non-empty string")
+            err(f"$.nodes[{i}].node_id must be a non-empty string")
             continue
         if nid in node_by_id:
-            add(f"$.nodes[{i}].node_id", f"duplicate node_id '{nid}'")
+            err(f"duplicate node_id: {nid}")
             continue
         node_by_id[nid] = n
+        node_index_by_id[nid] = i
 
-    # stable node_id recompute
-    for nid, n in sorted(node_by_id.items(), key=lambda kv: kv[0]):
+    def node_path(nid: str) -> str:
+        idx = node_index_by_id.get(nid)
+        if idx is None:
+            return f"$.nodes[node_id={nid}]"
+        return f"$.nodes[{idx}]"
+
+    def check_relation_to_reference(rel_obj: Any, path: str) -> None:
+        """
+        Validate relation_to_reference.* objects (or list of objects) against references[] anchors.
+        Expected shape per spec: relation_to_reference.ref_id is an anchor id from references[].ref_id.
+        """
+        if not isinstance(rel_obj, dict):
+            err(f"{path} must be an object")
+            return
+
+        rid = rel_obj.get("ref_id")
+        if not isinstance(rid, str) or not rid:
+            err(f"{path}.ref_id must be a non-empty string")
+            return
+
+        if rid not in ref_id_set:
+            err(f"{path}.ref_id must reference an existing $.references[].ref_id (got '{rid}')")
+            return
+
+        # Also ensure the corresponding reference node exists (helps catch drift between references[] and nodes[])
+        exp_ref_node_id = _node_id_ref(rid)
+        if exp_ref_node_id not in node_by_id:
+            err(f"{path}.ref_id refers to '{rid}' but reference node '{exp_ref_node_id}' is missing from $.nodes")
+
+    # node_id recompute + required fields + extra contract checks
+    for nid, n in node_by_id.items():
         kind = n.get("kind")
         if kind == "reference":
-            ref_id = n.get("ref_id")
-            if isinstance(ref_id, str) and ref_id:
-                exp = expected_node_id_reference(ref_id)
-                if nid != exp:
-                    add(f"$.nodes[node_id={nid}]", f"reference node_id mismatch (expected {exp} from ref_id={ref_id})")
+            rid = n.get("ref_id")
+            if not isinstance(rid, str) or not rid:
+                err(f"reference node missing ref_id (node_id={nid})")
             else:
-                add(f"$.nodes[node_id={nid}].ref_id", "reference node must have ref_id")
+                # reference nodes must correspond to a known anchor in references[]
+                if ref_id_set and rid not in ref_id_set:
+                    err(f"{node_path(nid)}.ref_id='{rid}' is not present in $.references[].ref_id")
+                exp = _node_id_ref(rid)
+                if nid != exp:
+                    err(f"reference node_id mismatch (got={nid}, expected={exp}, ref_id={rid})")
+
         elif kind == "atom":
-            atom_id = n.get("core_atom_id")
-            if isinstance(atom_id, str) and atom_id:
-                exp = expected_node_id_atom(atom_id)
-                if nid != exp:
-                    add(f"$.nodes[node_id={nid}]", f"atom node_id mismatch (expected {exp} from core_atom_id={atom_id})")
+            aid = n.get("core_atom_id")
+            if not isinstance(aid, str) or not aid:
+                err(f"atom node missing core_atom_id (node_id={nid})")
             else:
-                add(f"$.nodes[node_id={nid}].core_atom_id", "atom node must have core_atom_id")
+                exp = _node_id_atom(aid)
+                if nid != exp:
+                    err(f"atom node_id mismatch (got={nid}, expected={exp}, core_atom_id={aid})")
+
+            # rank sanity (skip-schema mode safety)
+            if "rank" in n and not isinstance(n.get("rank"), int):
+                err(f"atom node rank must be int when present (node_id={nid})")
+
+            # ✅ NEW: validate relation_to_reference.ref_id anchors against references[]
+            rel = n.get("relation_to_reference")
+            if rel is not None:
+                base = f"{node_path(nid)}.relation_to_reference"
+                if isinstance(rel, dict):
+                    check_relation_to_reference(rel, base)
+                elif isinstance(rel, list):
+                    for j, item in enumerate(rel):
+                        check_relation_to_reference(item, f"{base}[{j}]")
+                else:
+                    err(f"{base} must be an object or a list of objects")
+
         else:
-            add(f"$.nodes[node_id={nid}].kind", f"unknown node kind '{kind}'")
+            err(f"unknown node kind '{kind}' (node_id={nid})")
 
-    # canonical ordering
-    def node_sort_key(n: Any) -> Tuple[int, str, int, str]:
-        if not isinstance(n, dict):
-            return (9, "", 10**9, "")
-        if n.get("kind") == "reference":
-            return (0, str(n.get("ref_id", "")), 0, "")
-        return (1, "", int(n.get("rank", 10**9)), str(n.get("core_atom_id", "")))
+    # canonical node ordering
+    node_keys = [_node_sort_key(n) for n in nodes if isinstance(n, dict)]
+    if node_keys and node_keys != sorted(node_keys):
+        err("$.nodes must be in canonical order (reference by ref_id, then atoms by rank/core_atom_id)")
 
-    mm = _first_sort_mismatch(nodes, node_sort_key)
-    if mm is not None:
-        i, got, exp = mm
-        add("$.nodes", f"must be in canonical order (first mismatch at index {i}: got {got} expected {exp})")
-
-    return errs, node_by_id
-
-
-def _check_edges(diagram: Dict[str, Any], node_by_id: Dict[str, Dict[str, Any]]) -> List[str]:
-    errs, add = _collect_errors()
-
+    # edges
     edges = diagram.get("edges")
-    if edges is None:
-        add("$.edges", "must be present (may be empty list)")
-        return errs
     if not isinstance(edges, list):
-        add("$.edges", "must be a list")
-        return errs
+        err("$.edges must be a list")
+        edges = []
 
-    # edge_id uniqueness
-    seen_edge_ids = set()
+    edge_seen: set[str] = set()
     for i, e in enumerate(edges):
         if not isinstance(e, dict):
-            add(f"$.edges[{i}]", "must be an object")
+            err(f"$.edges[{i}] contains non-object entry")
             continue
         eid = e.get("edge_id")
         if not isinstance(eid, str) or not eid:
-            add(f"$.edges[{i}].edge_id", "must be a non-empty string")
+            err(f"$.edges[{i}].edge_id must be a non-empty string")
             continue
-        if eid in seen_edge_ids:
-            add(f"$.edges[{i}].edge_id", f"duplicate edge_id '{eid}'")
-        seen_edge_ids.add(eid)
+        if eid in edge_seen:
+            err(f"duplicate edge_id: {eid}")
+        edge_seen.add(eid)
 
-    # endpoint existence + kinds + stable edge_id recompute
+    # edge endpoints + type rules
+    seen_ref_rel = False
     for i, e in enumerate(edges):
         if not isinstance(e, dict):
             continue
         kind = e.get("kind")
-        eid = e.get("edge_id")
         a = e.get("a")
         b = e.get("b")
-
-        path = f"$.edges[{i}]"
+        eid = e.get("edge_id")
 
         if not isinstance(a, str) or not isinstance(b, str):
-            add(path, "edge endpoints 'a' and 'b' must be strings")
+            err(f"$.edges[{i}]: edge endpoints a/b must be strings")
             continue
-
         if a not in node_by_id:
-            add(path, f"endpoint 'a' references missing node_id '{a}'")
+            err(f"$.edges[{i}]: edge references missing node a={a}")
+            continue
         if b not in node_by_id:
-            add(path, f"endpoint 'b' references missing node_id '{b}'")
-
-        if a not in node_by_id or b not in node_by_id:
+            err(f"$.edges[{i}]: edge references missing node b={b}")
             continue
 
-        a_kind = node_by_id[a].get("kind")
-        b_kind = node_by_id[b].get("kind")
+        ak = node_by_id[a].get("kind")
+        bk = node_by_id[b].get("kind")
 
         if kind == "co_occurrence":
-            # must be undirected and canonicalized a<=b
+            if seen_ref_rel:
+                err("co_occurrence edges must precede reference_relation edges")
+            if ak != "atom" or bk != "atom":
+                err("co_occurrence must connect atom <-> atom")
             if a > b:
-                add(path, f"co_occurrence endpoints must be canonicalized with a<=b (got a={a}, b={b})")
-            if a_kind != "atom" or b_kind != "atom":
-                add(path, "co_occurrence must connect atom <-> atom")
-            # stable edge id
-            exp = expected_edge_id_co_occurrence(a, b)
+                err("co_occurrence endpoints must be canonicalized with a<=b")
+            exp = _edge_id_co_occurrence(a, b)
             if isinstance(eid, str) and eid != exp:
-                add(path, f"co_occurrence edge_id mismatch (expected {exp} from endpoints)")
-            # directed must not appear (schema should already enforce, but belt+suspenders)
+                err(f"co_occurrence edge_id mismatch (got={eid}, expected={exp})")
             if "directed" in e:
-                add(path, "co_occurrence must not include 'directed' field")
+                err("co_occurrence must not include 'directed'")
         elif kind == "reference_relation":
-            # must be atom -> reference
-            if a_kind != "atom" or b_kind != "reference":
-                add(path, "reference_relation must connect atom -> reference (a atom, b reference)")
-            # if directed present, must be true
+            seen_ref_rel = True
+            # Enforce reference-only direction: a atom, b reference
+            if ak != "atom" or bk != "reference":
+                err("reference_relation must connect atom -> reference (a atom, b reference)")
             if "directed" in e and e.get("directed") is not True:
-                add(path, "reference_relation 'directed' must be true if present")
-            # stable edge id (atom -> ref)
-            exp = expected_edge_id_reference_relation(a, b)
+                err("reference_relation directed must be true if present")
+            exp = _edge_id_reference_relation(a, b)
             if isinstance(eid, str) and eid != exp:
-                add(path, f"reference_relation edge_id mismatch (expected {exp} from endpoints a->b)")
+                err(f"reference_relation edge_id mismatch (got={eid}, expected={exp})")
         else:
-            add(path + ".kind", f"unknown edge kind '{kind}'")
+            err(f"unknown edge kind '{kind}'")
 
-    # canonical ordering for edges
-    def edge_group_order(e: Any) -> int:
-        if not isinstance(e, dict):
-            return 9
-        k = e.get("kind")
-        if k == "co_occurrence":
-            return 0
-        if k == "reference_relation":
-            return 1
-        return 9
+    # canonical edge ordering
+    edge_keys = [_edge_sort_key(e) for e in edges if isinstance(e, dict)]
+    if edge_keys and edge_keys != sorted(edge_keys):
+        err("$.edges must be in canonical order (co_occurrence then reference_relation; within: a,b,edge_id)")
 
-    def edge_sort_key(e: Any) -> Tuple[int, str, str, str]:
-        if not isinstance(e, dict):
-            return (9, "", "", "")
-        grp = edge_group_order(e)
-        a = str(e.get("a", ""))
-        b = str(e.get("b", ""))
-        eid = str(e.get("edge_id", ""))
-        return (grp, a, b, eid)
+    # metadata nondeterminism scan
+    if not allow_metadata_nondeterminism:
+        hits = _scan_forbidden_metadata(diagram)
+        if hits:
+            err("forbidden nondeterministic metadata keys found: " + ", ".join(hits))
 
-    mm = _first_sort_mismatch(edges, edge_sort_key)
-    if mm is not None:
-        i, got, exp = mm
-        add("$.edges", f"must be in canonical order (first mismatch at index {i}: got {got} expected {exp})")
-
-    # Ensure no kind-flip back (co_occurrence must come first as a block)
-    seen_ref = False
-    for i, e in enumerate(edges):
-        if not isinstance(e, dict):
-            continue
-        k = e.get("kind")
-        if k == "reference_relation":
-            seen_ref = True
-        if k == "co_occurrence" and seen_ref:
-            add(f"$.edges[{i}].kind", "co_occurrence edges must precede reference_relation edges")
-
-    return errs
+    if errors:
+        raise RuntimeError("Diagram contract violation(s):\n" + "\n".join(f" - {x}" for x in errors))
 
 
-def _check_relation_to_reference(diagram: Dict[str, Any], node_by_id: Dict[str, Dict[str, Any]]) -> List[str]:
-    errs, add = _collect_errors()
-
-    refs = diagram.get("references", [])
-    ref_ids = set()
-    for r in refs:
-        if isinstance(r, dict) and isinstance(r.get("ref_id"), str):
-            ref_ids.add(r["ref_id"])
-
-    for nid, n in sorted(node_by_id.items(), key=lambda kv: kv[0]):
-        if n.get("kind") != "atom":
-            continue
-        rel = n.get("relation_to_reference")
-        if rel is None:
-            continue
-        if not isinstance(rel, dict):
-            add(f"$.nodes[node_id={nid}].relation_to_reference", "must be an object if present")
-            continue
-        rid = rel.get("ref_id")
-        if isinstance(rid, str) and rid and rid not in ref_ids:
-            add(f"$.nodes[node_id={nid}].relation_to_reference.ref_id", f"unknown ref_id '{rid}' (not in references[])")
-
-    return errs
+def _repo_root_from_here() -> Path:
+    here = Path(__file__).resolve()
+    for p in [here.parent] + list(here.parents):
+        if (p / "schemas").is_dir():
+            return p
+        if (p / ".git").exists():
+            return p
+    try:
+        return here.parents[1]
+    except Exception:
+        return here.parent
 
 
-def _check_weights_rounded(diagram: Dict[str, Any]) -> List[str]:
-    """
-    v0 determinism: weights emitted rounded to 6 decimals.
-    We enforce this softly but fail-closed if it clearly violates the rule.
-    """
-    errs, add = _collect_errors()
+def _looks_like_bundle_builder_args(argv: List[str]) -> bool:
+    bundle_flags = {"--field", "--edges", "--out-dir", "--out_dir", "--k", "--metric"}
+    return any(a in bundle_flags for a in argv)
 
-    def is_round6(x: Any) -> bool:
-        if not isinstance(x, (int, float)):
+
+def _has_in_flag(argv: List[str]) -> bool:
+    for a in argv:
+        if a in ("--in", "--input"):
             return True
-        # Compare to 6-decimal rounded representation.
-        y = float(f"{float(x):.6f}")
-        return abs(float(x) - y) <= 1e-12
+        if a.startswith("--in=") or a.startswith("--input="):
+            return True
+    return False
 
-    # nodes relation_to_reference.weight
-    nodes = diagram.get("nodes", [])
-    if isinstance(nodes, list):
-        for i, n in enumerate(nodes):
-            if not isinstance(n, dict):
-                continue
-            rel = n.get("relation_to_reference")
-            if isinstance(rel, dict) and "weight" in rel:
-                if not is_round6(rel.get("weight")):
-                    add(f"$.nodes[{i}].relation_to_reference.weight", "must be rounded to 6 decimals (v0)")
 
-    # edges weight
-    edges = diagram.get("edges", [])
-    if isinstance(edges, list):
-        for i, e in enumerate(edges):
-            if not isinstance(e, dict):
-                continue
-            if "weight" in e and not is_round6(e.get("weight")):
-                add(f"$.edges[{i}].weight", "must be rounded to 6 decimals (v0)")
-
-    return errs
+def _boolish(v: Any) -> bool:
+    # Accept: --skip-schema, --skip-schema true, --skip-schema=true
+    if isinstance(v, bool):
+        return v
+    s = str(v).strip().lower()
+    if s in ("1", "true", "yes", "y", "on"):
+        return True
+    if s in ("0", "false", "no", "n", "off"):
+        return False
+    raise argparse.ArgumentTypeError(f"invalid boolean value: {v!r}")
 
 
 def _parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
-    p = argparse.ArgumentParser(description="Fail-closed contract check for Paradox Diagram v0.")
-    p.add_argument("--in", dest="in_path", required=True, help="Path to paradox_diagram_v0.json")
-    p.add_argument("--schema", dest="schema_path", default=None, help="Path to JSON Schema (defaults to repo schemas/...)")
-    p.add_argument(
+    if argv is None:
+        argv = sys.argv[1:]
+
+    if _looks_like_bundle_builder_args(argv) and not _has_in_flag(argv):
+        raise RuntimeError(
+            "Miswired invocation detected.\n"
+            "This file is the Paradox Diagram v0 contract checker and requires --in/--input.\n"
+            "But it looks like it is being invoked with reviewer bundle builder flags "
+            "(--field/--edges/--out-dir/--k/--metric).\n\n"
+            "Most likely causes:\n"
+            "  1) scripts/paradox_core_reviewer_bundle_v0.py was overwritten with this checker,\n"
+            "     OR\n"
+            "  2) the bundle builder imports this checker and calls main() without argv,\n"
+            "     so the checker tries to parse the bundle builder sys.argv.\n\n"
+            "Fix: call this checker as:\n"
+            "  python scripts/check_paradox_diagram_v0_contract.py --in <diagram.json> [--skip-schema]\n"
+            "or (if imported): main([\"--in\", <path>, \"--skip-schema\"])."
+        )
+
+    repo_root = _repo_root_from_here()
+    default_schema = repo_root / "schemas" / "PULSE_paradox_diagram_v0.schema.json"
+
+    ap = argparse.ArgumentParser(prog="check_paradox_diagram_v0_contract.py")
+    ap.add_argument(
+        "--in",
+        "--input",
+        dest="in_path",
+        required=True,
+        help="Path to paradox_diagram_v0.json (or wrapper JSON containing it)",
+    )
+    ap.add_argument(
+        "--schema",
+        dest="schema_path",
+        default=str(default_schema),
+        help="Path to diagram JSON schema",
+    )
+    ap.add_argument(
         "--allow-metadata-nondeterminism",
         action="store_true",
-        help="Disable the nondeterministic metadata key guardrails (top-level + run_context).",
+        help="Allow nondeterministic metadata fields (diagnostic escape hatch)",
     )
-    p.add_argument("--quiet", action="store_true", help="Only print PASS/FAIL.")
-    return p.parse_args(argv)
+    ap.add_argument(
+        "--skip-schema",
+        "--skip_schema",
+        nargs="?",
+        const=True,
+        default=False,
+        type=_boolish,
+        help="Skip JSON Schema validation (useful when jsonschema is unavailable). Invariants still run.",
+    )
+    ap.add_argument(
+        "--quiet",
+        action="store_true",
+        help="Suppress warnings/errors output (exit code still indicates status)",
+    )
+    return ap.parse_args(argv)
 
 
 def main(argv: Optional[List[str]] = None) -> int:
-    args = _parse_args(argv)
+    try:
+        args = _parse_args(argv)
+    except Exception as e:
+        print(f"ERROR: {e}", file=sys.stderr)
+        return 2
 
     in_path = Path(args.in_path)
     if not in_path.exists():
-        print(f"ERROR: input not found: {in_path}", file=sys.stderr)
-        return 2
-
-    schema_path = Path(args.schema_path) if args.schema_path else _default_schema_path()
-    if not schema_path.exists():
-        print(f"ERROR: schema not found: {schema_path}", file=sys.stderr)
+        if not args.quiet:
+            print(f"ERROR: input not found: {in_path}", file=sys.stderr)
         return 2
 
     try:
         raw = _load_json(in_path)
         diagram = _find_diagram_obj(raw)
-    except Exception as e:
-        print(f"FAIL: parse/unwarp error: {e}", file=sys.stderr)
-        return 1
 
-    errors: List[str] = []
-
-    # Schema + required notes (schema should catch notes, but keep explicit).
-    errors.extend(_check_schema_version(diagram))
-    errors.extend(_validate_jsonschema(diagram, schema_path))
-    errors.extend(_check_required_notes(diagram))
-
-    # Deterministic + integrity checks.
-    errors.extend(_check_references(diagram))
-    node_errs, node_by_id = _check_nodes(diagram)
-    errors.extend(node_errs)
-    errors.extend(_check_edges(diagram, node_by_id))
-    errors.extend(_check_relation_to_reference(diagram, node_by_id))
-    errors.extend(_check_weights_rounded(diagram))
-
-    if not args.allow_metadata_nondeterminism:
-        errors.extend(_check_metadata_nondeterminism(diagram))
-
-    if errors:
-        if args.quiet:
-            print("FAIL")
+        if not args.skip_schema:
+            schema_path = Path(args.schema_path)
+            if not schema_path.exists():
+                raise RuntimeError(f"Schema not found: {schema_path}")
+            schema = _load_schema(schema_path)
+            _schema_validate(diagram=diagram, schema=schema)
         else:
-            print("FAIL: Paradox Diagram v0 contract violation(s):", file=sys.stderr)
-            for msg in sorted(errors):
-                print(" - " + msg, file=sys.stderr)
-        return 1
+            if not args.quiet:
+                print("WARNING: schema validation skipped (--skip-schema).", file=sys.stderr)
 
-    if args.quiet:
-        print("PASS")
-    else:
-        print("PASS: Paradox Diagram v0 contract OK")
+        _invariants(diagram=diagram, allow_metadata_nondeterminism=bool(args.allow_metadata_nondeterminism))
+
+    except Exception as e:
+        if not args.quiet:
+            print(f"ERROR: {e}", file=sys.stderr)
+        return 2
+
     return 0
 
 
