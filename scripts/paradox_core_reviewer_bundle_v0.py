@@ -7,6 +7,7 @@ Fail-closed contract checker for Paradox Diagram v0.
 Enforces:
 - Schema validation (JSON Schema) when available (unless --skip-schema)
 - Deterministic invariants (ordering, IDs, endpoint validity, non-causal guardrails)
+- Reference anchor integrity: relation_to_reference.ref_id must exist in references[]
 
 New:
 - --skip-schema / --skip_schema:
@@ -26,7 +27,6 @@ import json
 import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
-
 
 DIAGRAM_SCHEMA = "PULSE_paradox_diagram_v0"
 
@@ -80,7 +80,6 @@ def _find_diagram_obj(raw: Any) -> Dict[str, Any]:
         if isinstance(x, dict):
             if x.get("schema") == DIAGRAM_SCHEMA:
                 return x
-            # Deterministic scan by sorted key
             for k in sorted(x.keys(), key=lambda kk: str(kk)):
                 res = walk(x.get(k))
                 if res is not None:
@@ -117,7 +116,6 @@ def _schema_validate(diagram: Dict[str, Any], schema: Dict[str, Any]) -> None:
 
 def _safe_int(x: Any, default: int) -> int:
     if isinstance(x, bool):
-        # bool is a subclass of int; reject it as rank
         return default
     if isinstance(x, int):
         return x
@@ -137,7 +135,6 @@ def _node_sort_key(n: Dict[str, Any]) -> Tuple[int, str, int, str]:
     """
     if n.get("kind") == "reference":
         return (0, str(n.get("ref_id", "")), 0, "")
-    # atom (or unknown) falls here; unknown will be caught by invariants anyway
     rank = _safe_int(n.get("rank"), 10**9)
     return (1, "", rank, str(n.get("core_atom_id", "")))
 
@@ -197,16 +194,13 @@ def _invariants(diagram: Dict[str, Any], allow_metadata_nondeterminism: bool) ->
     def err(msg: str) -> None:
         errors.append(msg)
 
-    # Basic identity
     if diagram.get("schema") != DIAGRAM_SCHEMA:
         err(f"$.schema must be '{DIAGRAM_SCHEMA}'")
 
-    # version is enforced by schema if schema validation runs; in skip mode, keep it sane:
     v = diagram.get("version")
     if v not in (0, "v0"):
         err("$.version must be 0 or 'v0'")
 
-    # notes codes (strong guardrails)
     notes = diagram.get("notes")
     if not isinstance(notes, list):
         err("$.notes must be a list")
@@ -225,7 +219,8 @@ def _invariants(diagram: Dict[str, Any], allow_metadata_nondeterminism: bool) ->
             if required not in codes:
                 err(f"$.notes missing required code '{required}'")
 
-    # references sorted
+    # references sorted + collect valid ref_ids
+    ref_id_set: set[str] = set()
     refs = diagram.get("references")
     if not isinstance(refs, list) or len(refs) < 1:
         err("$.references must be a non-empty list")
@@ -241,16 +236,19 @@ def _invariants(diagram: Dict[str, Any], allow_metadata_nondeterminism: bool) ->
                 err(f"$.references[{i}].ref_id must be a non-empty string")
                 continue
             ref_ids.append(rid)
+
         if ref_ids and ref_ids != sorted(ref_ids):
             err("$.references must be sorted by ref_id asc")
 
-    # nodes
+        ref_id_set = set(ref_ids)
+
     nodes = diagram.get("nodes")
     if not isinstance(nodes, list) or len(nodes) < 1:
         err("$.nodes must be a non-empty list")
         nodes = []
 
     node_by_id: Dict[str, Dict[str, Any]] = {}
+    node_index_by_id: Dict[str, int] = {}
     for i, n in enumerate(nodes):
         if not isinstance(n, dict):
             err(f"$.nodes[{i}] contains non-object entry")
@@ -263,18 +261,46 @@ def _invariants(diagram: Dict[str, Any], allow_metadata_nondeterminism: bool) ->
             err(f"duplicate node_id: {nid}")
             continue
         node_by_id[nid] = n
+        node_index_by_id[nid] = i
 
-    # node_id recompute + required fields
+    def node_path(nid: str) -> str:
+        idx = node_index_by_id.get(nid)
+        if idx is None:
+            return f"$.nodes[node_id={nid}]"
+        return f"$.nodes[{idx}]"
+
+    def check_relation_to_reference(rel_obj: Any, path: str) -> None:
+        if not isinstance(rel_obj, dict):
+            err(f"{path} must be an object")
+            return
+
+        rid = rel_obj.get("ref_id")
+        if not isinstance(rid, str) or not rid:
+            err(f"{path}.ref_id must be a non-empty string")
+            return
+
+        if rid not in ref_id_set:
+            err(f"{path}.ref_id must reference an existing $.references[].ref_id (got '{rid}')")
+            return
+
+        exp_ref_node_id = _node_id_ref(rid)
+        if exp_ref_node_id not in node_by_id:
+            err(f"{path}.ref_id refers to '{rid}' but reference node '{exp_ref_node_id}' is missing from $.nodes")
+
     for nid, n in node_by_id.items():
         kind = n.get("kind")
+
         if kind == "reference":
             rid = n.get("ref_id")
             if not isinstance(rid, str) or not rid:
                 err(f"reference node missing ref_id (node_id={nid})")
             else:
+                if ref_id_set and rid not in ref_id_set:
+                    err(f"{node_path(nid)}.ref_id='{rid}' is not present in $.references[].ref_id")
                 exp = _node_id_ref(rid)
                 if nid != exp:
                     err(f"reference node_id mismatch (got={nid}, expected={exp}, ref_id={rid})")
+
         elif kind == "atom":
             aid = n.get("core_atom_id")
             if not isinstance(aid, str) or not aid:
@@ -284,19 +310,27 @@ def _invariants(diagram: Dict[str, Any], allow_metadata_nondeterminism: bool) ->
                 if nid != exp:
                     err(f"atom node_id mismatch (got={nid}, expected={exp}, core_atom_id={aid})")
 
-            # rank sanity (skip-schema mode safety)
-            if "rank" in n:
-                if not isinstance(n.get("rank"), int):
-                    err(f"atom node rank must be int when present (node_id={nid})")
+            if "rank" in n and not isinstance(n.get("rank"), int):
+                err(f"atom node rank must be int when present (node_id={nid})")
+
+            rel = n.get("relation_to_reference")
+            if rel is not None:
+                base = f"{node_path(nid)}.relation_to_reference"
+                if isinstance(rel, dict):
+                    check_relation_to_reference(rel, base)
+                elif isinstance(rel, list):
+                    for j, item in enumerate(rel):
+                        check_relation_to_reference(item, f"{base}[{j}]")
+                else:
+                    err(f"{base} must be an object or a list of objects")
+
         else:
             err(f"unknown node kind '{kind}' (node_id={nid})")
 
-    # canonical node ordering
     node_keys = [_node_sort_key(n) for n in nodes if isinstance(n, dict)]
     if node_keys and node_keys != sorted(node_keys):
         err("$.nodes must be in canonical order (reference by ref_id, then atoms by rank/core_atom_id)")
 
-    # edges
     edges = diagram.get("edges")
     if not isinstance(edges, list):
         err("$.edges must be a list")
@@ -315,7 +349,6 @@ def _invariants(diagram: Dict[str, Any], allow_metadata_nondeterminism: bool) ->
             err(f"duplicate edge_id: {eid}")
         edge_seen.add(eid)
 
-    # edge endpoints + type rules
     seen_ref_rel = False
     for i, e in enumerate(edges):
         if not isinstance(e, dict):
@@ -350,9 +383,9 @@ def _invariants(diagram: Dict[str, Any], allow_metadata_nondeterminism: bool) ->
                 err(f"co_occurrence edge_id mismatch (got={eid}, expected={exp})")
             if "directed" in e:
                 err("co_occurrence must not include 'directed'")
+
         elif kind == "reference_relation":
             seen_ref_rel = True
-            # Enforce reference-only direction: a atom, b reference
             if ak != "atom" or bk != "reference":
                 err("reference_relation must connect atom -> reference (a atom, b reference)")
             if "directed" in e and e.get("directed") is not True:
@@ -360,15 +393,14 @@ def _invariants(diagram: Dict[str, Any], allow_metadata_nondeterminism: bool) ->
             exp = _edge_id_reference_relation(a, b)
             if isinstance(eid, str) and eid != exp:
                 err(f"reference_relation edge_id mismatch (got={eid}, expected={exp})")
+
         else:
             err(f"unknown edge kind '{kind}'")
 
-    # canonical edge ordering
     edge_keys = [_edge_sort_key(e) for e in edges if isinstance(e, dict)]
     if edge_keys and edge_keys != sorted(edge_keys):
         err("$.edges must be in canonical order (co_occurrence then reference_relation; within: a,b,edge_id)")
 
-    # metadata nondeterminism scan
     if not allow_metadata_nondeterminism:
         hits = _scan_forbidden_metadata(diagram)
         if hits:
@@ -379,27 +411,52 @@ def _invariants(diagram: Dict[str, Any], allow_metadata_nondeterminism: bool) ->
 
 
 def _repo_root_from_here() -> Path:
-    """
-    Best-effort repo root detection. Falls back to parents[1] (common scripts/ layout).
-    """
     here = Path(__file__).resolve()
     for p in [here.parent] + list(here.parents):
         if (p / "schemas").is_dir():
             return p
         if (p / ".git").exists():
             return p
-    # fallback: scripts/check_*.py -> parents[1] should be repo root
     try:
         return here.parents[1]
     except Exception:
         return here.parent
 
 
+def _looks_like_bundle_builder_args(argv: List[str]) -> bool:
+    bundle_flags = {"--field", "--edges", "--out-dir", "--out_dir", "--k", "--metric"}
+    return any(a in bundle_flags for a in argv)
+
+
+def _has_in_flag(argv: List[str]) -> bool:
+    for a in argv:
+        if a in ("--in", "--input"):
+            return True
+        if a.startswith("--in=") or a.startswith("--input="):
+            return True
+    return False
+
+
 def _parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
+    if argv is None:
+        argv = sys.argv[1:]
+
+    # Early diagnostic for miswired entrypoints in CI
+    if _looks_like_bundle_builder_args(argv) and not _has_in_flag(argv):
+        raise RuntimeError(
+            "Miswired invocation detected.\n"
+            "This file is the Paradox Diagram v0 contract checker and requires --in/--input.\n"
+            "But it looks like it is being invoked with reviewer bundle builder flags "
+            "(--field/--edges/--out-dir/--k/--metric).\n\n"
+            "Fix: call this checker as:\n"
+            "  python scripts/check_paradox_diagram_v0_contract.py --in <diagram.json> [--skip-schema]\n"
+            "or (if imported): main([\"--in\", <path>, \"--skip-schema\"])."
+        )
+
     repo_root = _repo_root_from_here()
     default_schema = repo_root / "schemas" / "PULSE_paradox_diagram_v0.schema.json"
 
-    ap = argparse.ArgumentParser()
+    ap = argparse.ArgumentParser(prog="check_paradox_diagram_v0_contract.py")
     ap.add_argument(
         "--in",
         "--input",
@@ -418,9 +475,11 @@ def _parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
         action="store_true",
         help="Allow nondeterministic metadata fields (diagnostic escape hatch)",
     )
+    # IMPORTANT: keep this as a plain flag; CI calls it as `--skip-schema` (no value)
     ap.add_argument(
         "--skip-schema",
         "--skip_schema",
+        dest="skip_schema",
         action="store_true",
         help="Skip JSON Schema validation (useful when jsonschema is unavailable). Invariants still run.",
     )
@@ -433,7 +492,11 @@ def _parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
 
 
 def main(argv: Optional[List[str]] = None) -> int:
-    args = _parse_args(argv)
+    try:
+        args = _parse_args(argv)
+    except Exception as e:
+        print(f"ERROR: {e}", file=sys.stderr)
+        return 2
 
     in_path = Path(args.in_path)
     if not in_path.exists():
@@ -445,7 +508,6 @@ def main(argv: Optional[List[str]] = None) -> int:
         raw = _load_json(in_path)
         diagram = _find_diagram_obj(raw)
 
-        # Optional schema validation
         if not args.skip_schema:
             schema_path = Path(args.schema_path)
             if not schema_path.exists():
@@ -456,7 +518,6 @@ def main(argv: Optional[List[str]] = None) -> int:
             if not args.quiet:
                 print("WARNING: schema validation skipped (--skip-schema).", file=sys.stderr)
 
-        # Invariants always run (fail-closed)
         _invariants(diagram=diagram, allow_metadata_nondeterminism=bool(args.allow_metadata_nondeterminism))
 
     except Exception as e:
