@@ -13,7 +13,7 @@ Outputs (in --out-dir):
   - paradox_core_summary_v0.md
   - paradox_core_v0.svg
   - paradox_diagram_v0.json
-  - paradox_diagram_v0.svg
+  - paradox_diagram_v0.svg   (best-effort if legacy renderer requires --edges)
   - paradox_core_reviewer_card_v0.html
 
 Design goals:
@@ -76,28 +76,69 @@ def _has_jsonschema() -> bool:
         return False
 
 
-def _pick_diagram_renderer(scripts_dir: Path) -> Path:
+def _render_diagram_svg(
+    *,
+    py: str,
+    scripts_dir: Path,
+    repo_root: Path,
+    field_arg: Optional[str],
+    edges_arg: Optional[str],
+    diagram_json_arg: str,
+    diagram_svg_arg: str,
+) -> None:
     """
-    Prefer the renderer script that exists in the repo today:
-      - scripts/render_paradox_diagram_v0.py
+    Render diagram SVG.
 
-    Keep a forward-compatible fallback in case a *_svg_* variant appears later.
+    Preferred (future): render from diagram JSON if scripts/render_paradox_diagram_svg_v0.py exists:
+      python render_paradox_diagram_svg_v0.py --in <diagram.json> --out <diagram.svg>
+
+    Current repo reality (legacy): scripts/render_paradox_diagram_v0.py renders from FIELD+EDGES:
+      python render_paradox_diagram_v0.py [--field FIELD] --edges EDGES --out OUT
     """
-    # Primary (exists in repo today)
-    cand = scripts_dir / "render_paradox_diagram_v0.py"
-    if cand.exists():
-        return cand
+    json_renderer = scripts_dir / "render_paradox_diagram_svg_v0.py"
+    if json_renderer.exists():
+        _run(
+            [
+                py,
+                str(json_renderer),
+                "--in",
+                diagram_json_arg,
+                "--out",
+                diagram_svg_arg,
+            ],
+            cwd=repo_root,
+        )
+        return
 
-    # Fallback (future)
-    cand_svg = scripts_dir / "render_paradox_diagram_svg_v0.py"
-    if cand_svg.exists():
-        return cand_svg
+    legacy = scripts_dir / "render_paradox_diagram_v0.py"
+    if not legacy.exists():
+        raise FileNotFoundError(
+            "No diagram renderer script found. Expected one of:\n"
+            f" - {legacy}\n"
+            f" - {json_renderer}"
+        )
 
-    raise FileNotFoundError(
-        "No diagram renderer script found. Expected one of:\n"
-        f" - {cand}\n"
-        f" - {cand_svg}"
-    )
+    # Legacy renderer requires --edges. If edges are not provided, do not fail the whole bundle:
+    # the diagram JSON still exists; only the SVG is missing (HTML already handles that gracefully).
+    if not edges_arg:
+        print(
+            "WARNING: diagram SVG render skipped: legacy renderer requires --edges and no --edges was provided.",
+            file=sys.stderr,
+        )
+        return
+
+    cmd = [py, str(legacy)]
+    if field_arg:
+        cmd += ["--field", field_arg]
+    cmd += [
+        "--edges",
+        edges_arg,
+        "--out",
+        diagram_svg_arg,
+        "--title",
+        "Paradox Diagram v0",
+    ]
+    _run(cmd, cwd=repo_root)
 
 
 def _write_reviewer_card_html(out_dir: Path, title: str) -> Path:
@@ -233,8 +274,6 @@ def main() -> int:
         default=90,
         help="SVG summary truncation length (default: 90)",
     )
-
-    # Diagram contract checker schema skip passthrough (aliases)
     ap.add_argument(
         "--diagram-skip-schema",
         "--diagram_skip_schema",
@@ -358,18 +397,15 @@ def main() -> int:
         cmd_diag_contract += ["--skip-schema"]
     _run(cmd_diag_contract, cwd=repo_root)
 
-    # 7) Deterministic SVG render (diagram) — use existing renderer
-    diagram_renderer = _pick_diagram_renderer(scripts_dir)
-    _run(
-        [
-            py,
-            str(diagram_renderer),
-            "--in",
-            diagram_json_arg,
-            "--out",
-            diagram_svg_arg,
-        ],
-        cwd=repo_root,
+    # 7) Diagram SVG render (JSON-based if available, otherwise legacy FIELD+EDGES renderer)
+    _render_diagram_svg(
+        py=py,
+        scripts_dir=scripts_dir,
+        repo_root=repo_root,
+        field_arg=field_arg,
+        edges_arg=edges_arg,
+        diagram_json_arg=diagram_json_arg,
+        diagram_svg_arg=diagram_svg_arg,
     )
 
     # 8) Reviewer card HTML (static, no external deps)
