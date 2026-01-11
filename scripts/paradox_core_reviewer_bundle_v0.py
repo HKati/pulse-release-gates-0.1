@@ -76,6 +76,26 @@ def _has_jsonschema() -> bool:
         return False
 
 
+def _pick_diagram_renderer(scripts_dir: Path) -> Path:
+    """
+    Repo currently contains render_paradox_diagram_v0.py (no _svg_ suffix).
+    Keep a forward-compatible fallback in case a *_svg_* variant appears later.
+    """
+    cand_svg = scripts_dir / "render_paradox_diagram_svg_v0.py"
+    if cand_svg.exists():
+        return cand_svg
+
+    cand = scripts_dir / "render_paradox_diagram_v0.py"
+    if cand.exists():
+        return cand
+
+    raise FileNotFoundError(
+        "No diagram renderer script found. Expected one of:\n"
+        f" - {cand}\n"
+        f" - {cand_svg}"
+    )
+
+
 def _write_reviewer_card_html(out_dir: Path, title: str) -> Path:
     core_json = out_dir / "paradox_core_v0.json"
     summary_md = out_dir / "paradox_core_summary_v0.md"
@@ -90,7 +110,6 @@ def _write_reviewer_card_html(out_dir: Path, title: str) -> Path:
     if summary_md.exists():
         summary_text = summary_md.read_text(encoding="utf-8")
 
-    # Precompute diagram block to avoid any f-string edge cases
     if diagram_svg.exists():
         diagram_block_html = f'<img src="{diagram_svg.name}" alt="Paradox Diagram v0 SVG"/>'
     else:
@@ -226,7 +245,6 @@ def main() -> int:
     scripts_dir = repo_root / "scripts"
     py = sys.executable
 
-    # Normalize inputs as repo-root-relative by default (deterministic CI behavior)
     field_path = _as_repo_path(Path(args.field), repo_root)
     edges_path = _as_repo_path(Path(args.edges), repo_root) if args.edges else None
     out_dir = _as_repo_path(Path(args.out_dir), repo_root)
@@ -239,7 +257,6 @@ def main() -> int:
     diagram_json = out_dir / "paradox_diagram_v0.json"
     diagram_svg = out_dir / "paradox_diagram_v0.svg"
 
-    # Helper strings for subprocess args (prefer repo-relative, but safe via cwd=repo_root)
     field_arg = _to_repo_rel_str(field_path, repo_root)
     edges_arg = _to_repo_rel_str(edges_path, repo_root) if edges_path else None
 
@@ -338,11 +355,12 @@ def main() -> int:
         cmd_diag_contract += ["--skip-schema"]
     _run(cmd_diag_contract, cwd=repo_root)
 
-    # 7) Deterministic SVG render (diagram)
+    # 7) Deterministic SVG render (diagram) — IMPORTANT: call existing renderer script name
+    diagram_renderer = _pick_diagram_renderer(scripts_dir)
     _run(
         [
             py,
-            str(scripts_dir / "render_paradox_diagram_svg_v0.py"),
+            str(diagram_renderer),
             "--in",
             diagram_json_arg,
             "--out",
