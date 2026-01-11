@@ -33,7 +33,7 @@ jobs:
             --k 2 \
             --metric severity
 
-      - name: Guardrail: Paradox Diagram outputs (bundle)
+      - name: "Guardrail: Paradox Diagram outputs (bundle)"
         shell: bash
         run: |
           set -euo pipefail
