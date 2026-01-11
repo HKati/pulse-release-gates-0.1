@@ -14,6 +14,8 @@ Copies (fail-closed if missing):
   - paradox_core_v0.json
   - paradox_core_summary_v0.md
   - paradox_core_v0.svg
+  - paradox_diagram_v0.json
+  - paradox_diagram_v0.svg
   - paradox_core_reviewer_card_v0.html
 
 Design goals:
@@ -36,6 +38,8 @@ REQUIRED_FILES: List[str] = [
     "paradox_core_v0.json",
     "paradox_core_summary_v0.md",
     "paradox_core_v0.svg",
+    "paradox_diagram_v0.json",
+    "paradox_diagram_v0.svg",
     "paradox_core_reviewer_card_v0.html",
 ]
 
@@ -181,4 +185,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
