@@ -78,16 +78,20 @@ def _has_jsonschema() -> bool:
 
 def _pick_diagram_renderer(scripts_dir: Path) -> Path:
     """
-    Repo currently contains render_paradox_diagram_v0.py (no _svg_ suffix).
+    Prefer the renderer script that exists in the repo today:
+      - scripts/render_paradox_diagram_v0.py
+
     Keep a forward-compatible fallback in case a *_svg_* variant appears later.
     """
-    cand_svg = scripts_dir / "render_paradox_diagram_svg_v0.py"
-    if cand_svg.exists():
-        return cand_svg
-
+    # Primary (exists in repo today)
     cand = scripts_dir / "render_paradox_diagram_v0.py"
     if cand.exists():
         return cand
+
+    # Fallback (future)
+    cand_svg = scripts_dir / "render_paradox_diagram_svg_v0.py"
+    if cand_svg.exists():
+        return cand_svg
 
     raise FileNotFoundError(
         "No diagram renderer script found. Expected one of:\n"
@@ -343,7 +347,6 @@ def main() -> int:
     _run(cmd_diagram, cwd=repo_root)
 
     # 6) Diagram contract check (fail-closed invariants always).
-    # If jsonschema is not available, automatically skip schema validation to avoid CI-only failures.
     skip_schema = bool(args.diagram_skip_schema) or (not _has_jsonschema())
     cmd_diag_contract = [
         py,
@@ -355,7 +358,7 @@ def main() -> int:
         cmd_diag_contract += ["--skip-schema"]
     _run(cmd_diag_contract, cwd=repo_root)
 
-    # 7) Deterministic SVG render (diagram) — IMPORTANT: call existing renderer script name
+    # 7) Deterministic SVG render (diagram) — use existing renderer
     diagram_renderer = _pick_diagram_renderer(scripts_dir)
     _run(
         [
