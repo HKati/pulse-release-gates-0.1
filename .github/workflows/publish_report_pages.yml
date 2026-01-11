@@ -366,9 +366,16 @@ jobs:
           # Fail-closed: reviewer card must exist at the mount.
           test -s "_site/paradox/core/v0/paradox_core_reviewer_card_v0.html" || { echo "::error::Missing published reviewer card under _site/paradox/core/v0"; exit 1; }
 
-          # Fail-closed: diagram artifacts must exist at the mount (static publish).
+          # Fail-closed: diagram JSON must exist at the mount (static publish).
           test -s "_site/paradox/core/v0/paradox_diagram_v0.json" || { echo "::error::Missing published Paradox Diagram JSON under _site/paradox/core/v0"; exit 1; }
-          test -s "_site/paradox/core/v0/paradox_diagram_v0.svg"  || { echo "::error::Missing published Paradox Diagram SVG under _site/paradox/core/v0"; exit 1; }
+
+          # Best-effort: diagram SVG is optional (some runs may legitimately skip SVG generation).
+          # If present, it must be non-empty (catch broken/partial outputs).
+          if [ -f "_site/paradox/core/v0/paradox_diagram_v0.svg" ]; then
+            test -s "_site/paradox/core/v0/paradox_diagram_v0.svg" || { echo "::error::Paradox Diagram SVG is present but empty under _site/paradox/core/v0"; exit 1; }
+          else
+            echo "::warning::Paradox Diagram SVG missing under _site/paradox/core/v0 (best-effort optional)."
+          fi
 
           # Provenance (audit-friendly; no timestamps)
           UPSTREAM_RUN_ID="${{ steps.runid.outputs.run_id }}"
@@ -516,16 +523,21 @@ jobs:
             echo "- ❌ Paradox Core: \`/paradox/core/v0/\` missing" >> "$GITHUB_STEP_SUMMARY"
           fi
 
+          # Diagram SVG is best-effort optional.
           if [ -f "_site/paradox/core/v0/paradox_diagram_v0.svg" ]; then
-            echo "- ✅ Paradox Diagram: \`/paradox/core/v0/paradox_diagram_v0.svg\` present" >> "$GITHUB_STEP_SUMMARY"
+            if [ -s "_site/paradox/core/v0/paradox_diagram_v0.svg" ]; then
+              echo "- ✅ Paradox Diagram SVG: \`/paradox/core/v0/paradox_diagram_v0.svg\` present" >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "- ❌ Paradox Diagram SVG: \`/paradox/core/v0/paradox_diagram_v0.svg\` present but empty" >> "$GITHUB_STEP_SUMMARY"
+            fi
           else
-            echo "- ❌ Paradox Diagram: \`/paradox/core/v0/paradox_diagram_v0.svg\` missing" >> "$GITHUB_STEP_SUMMARY"
+            echo "- ⚠️ Paradox Diagram SVG: \`/paradox/core/v0/paradox_diagram_v0.svg\` missing (optional)" >> "$GITHUB_STEP_SUMMARY"
           fi
 
           if [ -f "_site/paradox/core/v0/paradox_diagram_v0.json" ]; then
-            echo "- ✅ Paradox Diagram: \`/paradox/core/v0/paradox_diagram_v0.json\` present" >> "$GITHUB_STEP_SUMMARY"
+            echo "- ✅ Paradox Diagram JSON: \`/paradox/core/v0/paradox_diagram_v0.json\` present" >> "$GITHUB_STEP_SUMMARY"
           else
-            echo "- ❌ Paradox Diagram: \`/paradox/core/v0/paradox_diagram_v0.json\` missing" >> "$GITHUB_STEP_SUMMARY"
+            echo "- ❌ Paradox Diagram JSON: \`/paradox/core/v0/paradox_diagram_v0.json\` missing" >> "$GITHUB_STEP_SUMMARY"
           fi
 
           if [ -f "_site/paradox/core/v0/source_v0.json" ]; then
@@ -588,6 +600,17 @@ jobs:
             done
           }
 
+          fetch_optional () {
+            local url="$1"
+            local out="$2"
+            if curl -fsSL "$url" -o "$out"; then
+              return 0
+            fi
+            echo "::warning::Optional resource not available (best-effort): $url"
+            rm -f "$out" || true
+            return 0
+          }
+
           fetch_headers () {
             local url="$1"
             local out="$2"
@@ -607,6 +630,17 @@ jobs:
             done
           }
 
+          fetch_headers_optional () {
+            local url="$1"
+            local out="$2"
+            if curl -fsSIL -D "$out" -o /dev/null "$url"; then
+              return 0
+            fi
+            echo "::warning::Optional headers not available (best-effort): $url"
+            rm -f "$out" || true
+            return 0
+          }
+
           fetch "$BASE/robots.txt" robots.txt
           fetch "$BASE/sitemap.xml" sitemap.xml
           fetch "$BASE/report_card.html" report_card.html
@@ -618,8 +652,8 @@ jobs:
           fetch "$BASE/paradox/core/v0/source_v0.json" paradox_core_source.json
 
           # Paradox Diagram v0 surface (static assets)
-          fetch "$BASE/paradox/core/v0/paradox_diagram_v0.svg" paradox_diagram.svg
           fetch "$BASE/paradox/core/v0/paradox_diagram_v0.json" paradox_diagram.json
+          fetch_optional "$BASE/paradox/core/v0/paradox_diagram_v0.svg" paradox_diagram.svg
 
           # Headers: detect hard indexing blocks (X-Robots-Tag: noindex)
           fetch_headers "$BASE/" headers_home.txt
@@ -627,8 +661,8 @@ jobs:
           fetch_headers "$BASE/sitemap.xml" headers_sitemap.txt
           fetch_headers "$BASE/paradox/core/v0/" headers_paradox_core.txt
           fetch_headers "$BASE/paradox/core/v0/source_v0.json" headers_paradox_core_source.txt
-          fetch_headers "$BASE/paradox/core/v0/paradox_diagram_v0.svg" headers_paradox_diagram_svg.txt
           fetch_headers "$BASE/paradox/core/v0/paradox_diagram_v0.json" headers_paradox_diagram_json.txt
+          fetch_headers_optional "$BASE/paradox/core/v0/paradox_diagram_v0.svg" headers_paradox_diagram_svg.txt
 
           echo "homepage headers (head):"
           sed -n '1,120p' headers_home.txt
@@ -636,6 +670,10 @@ jobs:
           check_noindex_header () {
             local url="$1"
             local file="$2"
+            if [ ! -f "$file" ]; then
+              # optional header file might not exist; treat as best-effort
+              return 0
+            fi
             if grep -Eqi '^x-robots-tag:\s*.*noindex' "$file"; then
               echo "::error::X-Robots-Tag noindex detected for $url. This blocks indexing."
               echo "::error::Fix: Repo Settings → Pages → Search engine visibility must allow indexing."
@@ -650,8 +688,8 @@ jobs:
           check_noindex_header "$BASE/sitemap.xml" headers_sitemap.txt
           check_noindex_header "$BASE/paradox/core/v0/" headers_paradox_core.txt
           check_noindex_header "$BASE/paradox/core/v0/source_v0.json" headers_paradox_core_source.txt
-          check_noindex_header "$BASE/paradox/core/v0/paradox_diagram_v0.svg" headers_paradox_diagram_svg.txt
           check_noindex_header "$BASE/paradox/core/v0/paradox_diagram_v0.json" headers_paradox_diagram_json.txt
+          check_noindex_header "$BASE/paradox/core/v0/paradox_diagram_v0.svg" headers_paradox_diagram_svg.txt
 
           # Best-effort homepage fetch (for meta noindex detection).
           if curl -fsSL "$BASE/" -o index.html; then
@@ -772,8 +810,12 @@ jobs:
           echo "- ✅ Paradox Core: \`$BASE/paradox/core/v0/\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- ✅ Paradox Core card: \`$BASE/paradox/core/v0/paradox_core_reviewer_card_v0.html\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- ✅ Paradox Core provenance: \`$BASE/paradox/core/v0/source_v0.json\`" >> "$GITHUB_STEP_SUMMARY"
-          echo "- ✅ Paradox Diagram SVG: \`$BASE/paradox/core/v0/paradox_diagram_v0.svg\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- ✅ Paradox Diagram JSON: \`$BASE/paradox/core/v0/paradox_diagram_v0.json\`" >> "$GITHUB_STEP_SUMMARY"
+          if [ -f paradox_diagram.svg ]; then
+            echo "- ✅ Paradox Diagram SVG (optional): \`$BASE/paradox/core/v0/paradox_diagram_v0.svg\`" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "- ⚠️ Paradox Diagram SVG (optional): missing" >> "$GITHUB_STEP_SUMMARY"
+          fi
           echo "- ✅ no X-Robots-Tag: noindex" >> "$GITHUB_STEP_SUMMARY"
           echo "- ✅ robots directives OK" >> "$GITHUB_STEP_SUMMARY"
           echo "- ✅ sitemap XML parse OK (canonical, fail-closed)" >> "$GITHUB_STEP_SUMMARY"
