@@ -241,22 +241,16 @@ def main() -> int:
             continue
 
         if kind == "reference_relation":
-            # Arrow must point to the reference node (b is reference by contract)
-            x1, y1 = mid_left(a)  # atom left edge
+            x1, y1 = mid_left(a)   # atom left edge
             x2, y2 = mid_right(b)  # reference right edge
             lines.append(
                 f'    <line x1="{x1:.1f}" y1="{y1:.1f}" x2="{x2:.1f}" y2="{y2:.1f}" marker-end="url(#arrow)" />'
             )
 
         elif kind == "co_occurrence":
-            # Association only: no arrowheads
             x1, y1 = center(a)
             x2, y2 = center(b)
-            # Use slightly lighter stroke for association edges
             lines.append(f'    <line x1="{x1:.1f}" y1="{y1:.1f}" x2="{x2:.1f}" y2="{y2:.1f}" opacity="0.75" />')
-
-        else:
-            continue
 
     lines.append("  </g>")
 
@@ -278,10 +272,7 @@ def main() -> int:
         else:
             core_atom_id = str(n.get("core_atom_id", "atom"))
             rank = n.get("rank")
-            if isinstance(rank, int):
-                label1 = f"{rank}. {core_atom_id}"
-            else:
-                label1 = core_atom_id
+            label1 = f"{rank}. {core_atom_id}" if isinstance(rank, int) else core_atom_id
 
             label2 = ""
             rel = n.get("relation_to_reference")
@@ -311,7 +302,6 @@ def main() -> int:
 
     lines.append("  </g>")
 
-    # Footer note (static)
     lines.append(
         '  <g id="note" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, &quot;Liberation Mono&quot;, &quot;Courier New&quot;, monospace" font-size="12" opacity="0.85">'
     )
