@@ -366,6 +366,10 @@ jobs:
           # Fail-closed: reviewer card must exist at the mount.
           test -s "_site/paradox/core/v0/paradox_core_reviewer_card_v0.html" || { echo "::error::Missing published reviewer card under _site/paradox/core/v0"; exit 1; }
 
+          # Fail-closed: diagram artifacts must exist at the mount (static publish).
+          test -s "_site/paradox/core/v0/paradox_diagram_v0.json" || { echo "::error::Missing published Paradox Diagram JSON under _site/paradox/core/v0"; exit 1; }
+          test -s "_site/paradox/core/v0/paradox_diagram_v0.svg"  || { echo "::error::Missing published Paradox Diagram SVG under _site/paradox/core/v0"; exit 1; }
+
           # Provenance (audit-friendly; no timestamps)
           UPSTREAM_RUN_ID="${{ steps.runid.outputs.run_id }}"
           export UPSTREAM_RUN_ID PARADOX_SOURCE TRANSITIONS_DIR
@@ -512,6 +516,18 @@ jobs:
             echo "- ❌ Paradox Core: \`/paradox/core/v0/\` missing" >> "$GITHUB_STEP_SUMMARY"
           fi
 
+          if [ -f "_site/paradox/core/v0/paradox_diagram_v0.svg" ]; then
+            echo "- ✅ Paradox Diagram: \`/paradox/core/v0/paradox_diagram_v0.svg\` present" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "- ❌ Paradox Diagram: \`/paradox/core/v0/paradox_diagram_v0.svg\` missing" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          if [ -f "_site/paradox/core/v0/paradox_diagram_v0.json" ]; then
+            echo "- ✅ Paradox Diagram: \`/paradox/core/v0/paradox_diagram_v0.json\` present" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "- ❌ Paradox Diagram: \`/paradox/core/v0/paradox_diagram_v0.json\` missing" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
           if [ -f "_site/paradox/core/v0/source_v0.json" ]; then
             echo "- ✅ Paradox Core provenance: \`/paradox/core/v0/source_v0.json\`" >> "$GITHUB_STEP_SUMMARY"
           else
@@ -601,12 +617,18 @@ jobs:
           fetch "$BASE/paradox/core/v0/paradox_core_reviewer_card_v0.html" paradox_core_card.html
           fetch "$BASE/paradox/core/v0/source_v0.json" paradox_core_source.json
 
+          # Paradox Diagram v0 surface (static assets)
+          fetch "$BASE/paradox/core/v0/paradox_diagram_v0.svg" paradox_diagram.svg
+          fetch "$BASE/paradox/core/v0/paradox_diagram_v0.json" paradox_diagram.json
+
           # Headers: detect hard indexing blocks (X-Robots-Tag: noindex)
           fetch_headers "$BASE/" headers_home.txt
           fetch_headers "$BASE/robots.txt" headers_robots.txt
           fetch_headers "$BASE/sitemap.xml" headers_sitemap.txt
           fetch_headers "$BASE/paradox/core/v0/" headers_paradox_core.txt
           fetch_headers "$BASE/paradox/core/v0/source_v0.json" headers_paradox_core_source.txt
+          fetch_headers "$BASE/paradox/core/v0/paradox_diagram_v0.svg" headers_paradox_diagram_svg.txt
+          fetch_headers "$BASE/paradox/core/v0/paradox_diagram_v0.json" headers_paradox_diagram_json.txt
 
           echo "homepage headers (head):"
           sed -n '1,120p' headers_home.txt
@@ -628,6 +650,8 @@ jobs:
           check_noindex_header "$BASE/sitemap.xml" headers_sitemap.txt
           check_noindex_header "$BASE/paradox/core/v0/" headers_paradox_core.txt
           check_noindex_header "$BASE/paradox/core/v0/source_v0.json" headers_paradox_core_source.txt
+          check_noindex_header "$BASE/paradox/core/v0/paradox_diagram_v0.svg" headers_paradox_diagram_svg.txt
+          check_noindex_header "$BASE/paradox/core/v0/paradox_diagram_v0.json" headers_paradox_diagram_json.txt
 
           # Best-effort homepage fetch (for meta noindex detection).
           if curl -fsSL "$BASE/" -o index.html; then
@@ -748,6 +772,8 @@ jobs:
           echo "- ✅ Paradox Core: \`$BASE/paradox/core/v0/\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- ✅ Paradox Core card: \`$BASE/paradox/core/v0/paradox_core_reviewer_card_v0.html\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- ✅ Paradox Core provenance: \`$BASE/paradox/core/v0/source_v0.json\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- ✅ Paradox Diagram SVG: \`$BASE/paradox/core/v0/paradox_diagram_v0.svg\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- ✅ Paradox Diagram JSON: \`$BASE/paradox/core/v0/paradox_diagram_v0.json\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- ✅ no X-Robots-Tag: noindex" >> "$GITHUB_STEP_SUMMARY"
           echo "- ✅ robots directives OK" >> "$GITHUB_STEP_SUMMARY"
           echo "- ✅ sitemap XML parse OK (canonical, fail-closed)" >> "$GITHUB_STEP_SUMMARY"
