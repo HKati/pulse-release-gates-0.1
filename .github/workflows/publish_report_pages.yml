@@ -407,7 +407,7 @@ jobs:
           BASE="${BASE%/}"
           export BASE
 
-          # robots.txt (guaranteed LF newlines, no heredoc indentation pitfalls)
+          # robots.txt
           python3 - <<'PY'
           from pathlib import Path
           import os
@@ -422,7 +422,7 @@ jobs:
           print(f"OK: wrote _site/robots.txt (base={base})")
           PY
 
-          # sitemap.xml from actual published HTML set
+          # sitemap.xml from published HTML set
           python3 - <<'PY'
           import pathlib, datetime, os
 
@@ -435,7 +435,6 @@ jobs:
               if rel == "index.html":
                   urls.append(f"{BASE}/")
               elif rel.endswith("/index.html"):
-                  # Prefer directory URL form for nested indexes (GitHub Pages serves these).
                   urls.append(f"{BASE}/{rel[:-len('index.html')]}")
               else:
                   urls.append(f"{BASE}/{rel}")
@@ -459,6 +458,40 @@ jobs:
           echo "Top-level in _site:"
           ls -la _site | sed 's/^/  /'
 
+      - name: Publish schemas to Pages output
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [ ! -d "schemas" ]; then
+            echo "::error::schemas/ directory not found in repo root; cannot publish schema URLs."
+            ls -la | sed 's/^/  /' || true
+            exit 1
+          fi
+
+          mkdir -p _site/schemas
+          cp -r schemas/* _site/schemas/
+
+          echo "Schemas published to _site/schemas:"
+          ls -la _site/schemas | sed 's/^/  /' || true
+
+      - name: Verify schema assets present before upload
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [ ! -s "_site/schemas/gates.schema.json" ]; then
+            echo "::error::Expected _site/schemas/gates.schema.json to exist and be non-empty before publish."
+            ls -la _site/schemas || true
+            exit 1
+          fi
+
+          if [ ! -s "_site/schemas/PULSE_paradox_field_v0.schema.json" ]; then
+            echo "::error::Expected _site/schemas/PULSE_paradox_field_v0.schema.json to exist and be non-empty before publish."
+            ls -la _site/schemas || true
+            exit 1
+          fi
+
       - name: Verify crawler assets present before upload
         shell: bash
         run: |
@@ -476,7 +509,6 @@ jobs:
             exit 1
           fi
 
-          # Guardrail: robots must be multiline
           if [ "$(wc -l < _site/robots.txt)" -lt 3 ]; then
             echo "::error::robots.txt must be multi-line (>=3 lines)."
             echo "--- robots.txt ---"
@@ -523,7 +555,6 @@ jobs:
             echo "- ❌ Paradox Core: \`/paradox/core/v0/\` missing" >> "$GITHUB_STEP_SUMMARY"
           fi
 
-          # Diagram SVG is best-effort optional.
           if [ -f "_site/paradox/core/v0/paradox_diagram_v0.svg" ]; then
             if [ -s "_site/paradox/core/v0/paradox_diagram_v0.svg" ]; then
               echo "- ✅ Paradox Diagram SVG: \`/paradox/core/v0/paradox_diagram_v0.svg\` present" >> "$GITHUB_STEP_SUMMARY"
@@ -617,7 +648,6 @@ jobs:
             local i=0
             while true; do
               i=$((i+1))
-              # -I = HEAD, -L = follow redirects, -D = dump headers
               if curl -fsSIL -D "$out" -o /dev/null "$url"; then
                 return 0
               fi
@@ -646,6 +676,10 @@ jobs:
           fetch "$BASE/report_card.html" report_card.html
           fetch "$BASE/report_card.htm" report_card.htm
 
+          # NEW: schema URLs must be public (no 404)
+          fetch "$BASE/schemas/gates.schema.json" schema_gates.schema.json
+          fetch "$BASE/schemas/PULSE_paradox_field_v0.schema.json" schema_paradox_field.schema.json
+
           # Paradox Core v0 surface (directory + reviewer card + provenance)
           fetch "$BASE/paradox/core/v0/" paradox_core_index.html
           fetch "$BASE/paradox/core/v0/paradox_core_reviewer_card_v0.html" paradox_core_card.html
@@ -664,14 +698,10 @@ jobs:
           fetch_headers "$BASE/paradox/core/v0/paradox_diagram_v0.json" headers_paradox_diagram_json.txt
           fetch_headers_optional "$BASE/paradox/core/v0/paradox_diagram_v0.svg" headers_paradox_diagram_svg.txt
 
-          echo "homepage headers (head):"
-          sed -n '1,120p' headers_home.txt
-
           check_noindex_header () {
             local url="$1"
             local file="$2"
             if [ ! -f "$file" ]; then
-              # optional header file might not exist; treat as best-effort
               return 0
             fi
             if grep -Eqi '^x-robots-tag:\s*.*noindex' "$file"; then
@@ -691,7 +721,6 @@ jobs:
           check_noindex_header "$BASE/paradox/core/v0/paradox_diagram_v0.json" headers_paradox_diagram_json.txt
           check_noindex_header "$BASE/paradox/core/v0/paradox_diagram_v0.svg" headers_paradox_diagram_svg.txt
 
-          # Best-effort homepage fetch (for meta noindex detection).
           if curl -fsSL "$BASE/" -o index.html; then
             :
           else
@@ -699,13 +728,7 @@ jobs:
             rm -f index.html || true
           fi
 
-          echo "robots.txt (head):"
-          sed -n '1,120p' robots.txt
-
-          echo "sitemap.xml (head):"
-          sed -n '1,120p' sitemap.xml
-
-          # Robust robots validation (avoid regex footguns)
+          # robots directives
           python3 - <<'PY'
           import os, sys
           from pathlib import Path
@@ -716,8 +739,6 @@ jobs:
 
           if len(norm) < 3:
             print("::error::robots.txt must contain at least 3 non-empty lines.")
-            for ln in txt[:20]:
-              print(ln)
             sys.exit(1)
 
           lower = [ln.lower() for ln in norm]
@@ -736,7 +757,7 @@ jobs:
           print("OK: robots.txt directives validated.")
           PY
 
-          # Validate sitemap is well-formed XML and locs are canonical (regex-safe, fail-closed)
+          # sitemap XML parse
           python3 - <<'PY'
           import os
           import xml.etree.ElementTree as ET
@@ -757,15 +778,12 @@ jobs:
           if not locs:
             raise SystemExit("::error::sitemap.xml contains no <loc> entries.")
 
-          # Must include homepage exactly (canonical).
           if home not in locs:
             raise SystemExit(f"::error::sitemap.xml missing homepage <loc>{home}</loc>")
 
-          # Must include Paradox Core mount (catches accidental publish regressions).
           if paradox_core not in locs:
             raise SystemExit(f"::error::sitemap.xml missing Paradox Core <loc>{paradox_core}</loc>")
 
-          # Every loc must be under BASE/ (fail closed if any typo slips in).
           bad = [u for u in locs if not (u == home or u.startswith(home))]
           if bad:
             raise SystemExit(f"::error::sitemap.xml contains <loc> outside BASE={home}: {bad[:5]}")
@@ -773,11 +791,9 @@ jobs:
           print(f"OK: sitemap.xml parsed; loc_count={len(locs)}; homepage_present=yes; paradox_core_present=yes")
           PY
 
-          # guardrail: accidental noindex in homepage HTML blocks indexing even if robots is open
           if [ -f index.html ]; then
             python3 - <<'PY'
-          import re
-          import sys
+          import re, sys
           from pathlib import Path
 
           p = Path("index.html")
@@ -807,6 +823,8 @@ jobs:
           echo "- base: \`$BASE\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- ✅ robots: \`$BASE/robots.txt\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- ✅ sitemap: \`$BASE/sitemap.xml\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- ✅ schemas: \`$BASE/schemas/gates.schema.json\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- ✅ schemas: \`$BASE/schemas/PULSE_paradox_field_v0.schema.json\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- ✅ Paradox Core: \`$BASE/paradox/core/v0/\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- ✅ Paradox Core card: \`$BASE/paradox/core/v0/paradox_core_reviewer_card_v0.html\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- ✅ Paradox Core provenance: \`$BASE/paradox/core/v0/source_v0.json\`" >> "$GITHUB_STEP_SUMMARY"
