@@ -11,6 +11,10 @@ Design goals:
 - deterministic output (stable ordering, no wall-clock timestamps)
 - fail-closed semantics inside the overlay (UNKNOWN/CLOSED recommendation if inputs missing)
 - does NOT modify or reinterpret normative gate decisions
+
+Note:
+Some status.json variants store gate results nested under results.* (e.g. results.security / results.quality).
+This adapter therefore supports recursive extraction (flattening) when direct "gates" are not present.
 """
 
 from __future__ import annotations
@@ -21,11 +25,26 @@ import json
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Iterable
 
 
 ALLOWED_STATE = ("FIELD_STABLE", "FIELD_STRAINED", "FIELD_COLLAPSED", "UNKNOWN")
 ALLOWED_ACTION = ("OPEN", "SLOW", "CLOSED")
+
+# Keys that often appear inside a gate-record object, e.g. {"some_gate": {"pass": true, ...}}.
+# We do not want these keys to become gate IDs when flattening nested results.* structures.
+_META_LEAF_KEYS = {
+    "pass",
+    "ok",
+    "passed",
+    "is_pass",
+    "success",
+    "status",
+    "result",
+    "outcome",
+    "verdict",
+    "value",
+}
 
 
 def _read_json(path: Path) -> Dict[str, Any]:
@@ -59,7 +78,7 @@ def _gate_pass_value(obj: Any) -> Optional[bool]:
         return obj
     if isinstance(obj, str):
         s = obj.strip().upper()
-        if s in ("PASS", "PASSED", "OK", "TRUE", "GREEN"):
+        if s in ("PASS", "PASSED", "OK", "TRUE", "GREEN", "YES"):
             return True
         if s in ("FAIL", "FAILED", "NO", "FALSE", "RED"):
             return False
@@ -68,26 +87,44 @@ def _gate_pass_value(obj: Any) -> Optional[bool]:
         for k in ("pass", "ok", "passed", "is_pass", "success"):
             if k in obj and isinstance(obj[k], bool):
                 return obj[k]
-        for k in ("status", "result", "outcome"):
+        for k in ("status", "result", "outcome", "verdict"):
             if k in obj and isinstance(obj[k], str):
                 return _gate_pass_value(obj[k])
     return None
+
+
+def _iter_leaves(obj: Any, path: Tuple[str, ...] = ()) -> Iterable[Tuple[Tuple[str, ...], Any]]:
+    """
+    Deterministically yield (path, value) for all non-dict leaves in a nested tree.
+    This allows extracting gate-like PASS/FAIL values from nested status results, e.g.:
+      results.security.<gate>.(pass|status) or results.quality.<gate> = true/false
+    """
+    if isinstance(obj, dict):
+        for k in sorted(obj.keys(), key=lambda x: str(x)):
+            yield from _iter_leaves(obj[k], path + (str(k),))
+    else:
+        yield path, obj
 
 
 def _extract_gate_vector(status: Dict[str, Any]) -> Dict[str, bool]:
     """
     Returns a mapping gate_id -> pass_bool.
     Missing/unparseable gates are omitted.
+
+    Priority:
+    1) status["gates"] (dict or list) if present
+    2) recursively flatten status["gate_results"] / status["results"] / status["checks"]
     """
     out: Dict[str, bool] = {}
 
+    # 1) Preferred: explicit "gates"
     gates = status.get("gates")
     if isinstance(gates, dict):
-        for gid in sorted(gates.keys()):
+        for gid in sorted(gates.keys(), key=lambda x: str(x)):
             v = _gate_pass_value(gates[gid])
             if v is not None:
                 out[str(gid)] = bool(v)
-        return out
+        return dict(sorted(out.items(), key=lambda kv: kv[0]))
 
     if isinstance(gates, list):
         for item in gates:
@@ -101,17 +138,40 @@ def _extract_gate_vector(status: Dict[str, Any]) -> Dict[str, bool]:
                 out[str(gid)] = bool(v)
         return dict(sorted(out.items(), key=lambda kv: kv[0]))
 
-    # fallback: some packs may use "gate_results" or similar
+    # 2) Fallback: nested results/checks structures (recursive flatten)
     for alt in ("gate_results", "results", "checks"):
         g = status.get(alt)
-        if isinstance(g, dict):
-            for gid in sorted(g.keys()):
-                v = _gate_pass_value(g[gid])
-                if v is not None:
-                    out[str(gid)] = bool(v)
-            return out
+        if not isinstance(g, dict):
+            continue
 
-    return out
+        tmp: Dict[str, bool] = {}
+
+        for path, raw in _iter_leaves(g):
+            if not path:
+                continue
+
+            v = _gate_pass_value(raw)
+            if v is None:
+                continue
+
+            leaf = path[-1]
+            # If leaf is a metadata key (pass/status/etc), treat the parent path as the gate id.
+            # Otherwise the leaf itself is the gate id (as part of the path).
+            gid_path = path[:-1] if (leaf in _META_LEAF_KEYS and len(path) >= 2) else path
+            if not gid_path:
+                continue
+
+            gid = ".".join(gid_path)
+
+            # Multiple leaves for the same gate record are normal (e.g. pass + status).
+            # Prefer the first deterministically (sorted traversal ensures stable choice).
+            if gid not in tmp:
+                tmp[gid] = bool(v)
+
+        if tmp:
+            return dict(sorted(tmp.items(), key=lambda kv: kv[0]))
+
+    return {}
 
 
 def _extract_decision(status: Dict[str, Any]) -> Optional[str]:
@@ -273,7 +333,12 @@ def main() -> int:
         if rdsi is not None:
             score = rdsi
             method = "rdsi_proxy"
-            evidence.append({"kind": "note", "message": f"Using RDSI proxy for order-stability: {rdsi:.3f} (no permutation runs)."})
+            evidence.append(
+                {
+                    "kind": "note",
+                    "message": f"Using RDSI proxy for order-stability: {rdsi:.3f} (no permutation runs).",
+                }
+            )
         else:
             evidence.append({"kind": "note", "message": "No permutation runs provided and no RDSI proxy found in status.metrics."})
 
