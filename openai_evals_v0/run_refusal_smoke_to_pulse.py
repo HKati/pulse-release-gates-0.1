@@ -2,23 +2,15 @@
 """
 OpenAI Evals smoke runner (refusal classification) -> optional PULSE status.json patch.
 
-What it does (real run):
-- Uploads a JSONL dataset to OpenAI Files with purpose="evals"
-- Creates an Eval (custom schema + string_check)
-- Creates an Eval Run (data_source: responses)
-- Polls until completed
-- Writes a small result JSON (default: openai_evals_v0/refusal_smoke_result.json)
-- Optionally patches a PULSE status.json with metrics + a boolean gate
+Dry-run mode:
+- No network calls, no OPENAI_API_KEY required.
+- Synthesizes result_counts based on dataset JSONL non-empty line count.
+- Writes openai_evals_v0/refusal_smoke_result.json
+- Optionally patches a PULSE status.json (creates a minimal scaffold in dry-run if missing).
 
-Dry run:
-- No network calls, no OPENAI_API_KEY required
-- Synthesizes a result based on dataset line count (useful for wiring demos in restricted runners)
-
-This is intended as a small "wiring test" (pilot). Keep it shadow/diagnostic until stable.
-
-NOTE:
-- No external Python dependencies required (stdlib-only).
-- Real runs call the OpenAI REST API via urllib.
+Real mode (future use):
+- Calls OpenAI REST API via stdlib (urllib) using OPENAI_API_KEY.
+- Uploads dataset (purpose="evals"), creates eval + run, polls run, extracts result_counts.
 """
 
 from __future__ import annotations
@@ -54,12 +46,9 @@ def _get_api_key() -> Optional[str]:
 
 
 def _count_nonempty_jsonl_lines(path: Path) -> int:
-    # Count non-empty lines (robust enough for a smoke dataset).
-    n = 0
-    for line in path.read_text(encoding="utf-8").splitlines():
-        if line.strip():
-            n += 1
-    return n
+    # Count non-empty lines. Good enough for smoke datasets.
+    text = path.read_text(encoding="utf-8")
+    return sum(1 for line in text.splitlines() if line.strip())
 
 
 def _build_common_headers(api_key: str, org_id: Optional[str], project_id: Optional[str]) -> Dict[str, str]:
@@ -165,14 +154,14 @@ def _parse_args() -> argparse.Namespace:
     p.add_argument("--max-wait", type=float, default=300.0)
     p.add_argument("--fail-on-false", action="store_true")
 
-    # New: dry-run (no API calls, no API key required)
+    # Dry-run: no API key required
     p.add_argument(
         "--dry-run",
         action="store_true",
-        help="Do not call the OpenAI API. Synthesize a result from dataset line count (no API key required).",
+        help="No API calls. Synthesize result_counts from JSONL line count (no API key required).",
     )
 
-    # Optional routing / billing headers (real run only)
+    # Real run configuration
     p.add_argument(
         "--base-url",
         default=os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1"),
@@ -184,8 +173,8 @@ def _parse_args() -> argparse.Namespace:
     return p.parse_args()
 
 
-def _patch_pulse_status_json(
-    status_json_path: Path,
+def _patch_status_json(
+    status_path: Path,
     gate_key: str,
     total: int,
     passed: int,
@@ -195,16 +184,16 @@ def _patch_pulse_status_json(
     gate_pass: bool,
     trace: Dict[str, Any],
     *,
-    allow_create_scaffold: bool,
+    create_scaffold_if_missing: bool,
 ) -> None:
-    if not status_json_path.exists():
-        if not allow_create_scaffold:
-            print(f"[warn] status.json not found (skipping patch): {status_json_path}", file=sys.stderr)
+    if not status_path.exists():
+        if not create_scaffold_if_missing:
+            print(f"[warn] status.json not found (skipping patch): {status_path}", file=sys.stderr)
             return
-        status_json_path.parent.mkdir(parents=True, exist_ok=True)
-        status_json_path.write_text('{"metrics": {}, "gates": {}}\n', encoding="utf-8")
+        status_path.parent.mkdir(parents=True, exist_ok=True)
+        status_path.write_text('{"metrics": {}, "gates": {}}\n', encoding="utf-8")
 
-    s = _read_json(status_json_path)
+    s = _read_json(status_path)
 
     metrics = s.setdefault("metrics", {})
     metrics.update(
@@ -224,7 +213,7 @@ def _patch_pulse_status_json(
     s.setdefault("openai_evals_v0", {})
     s["openai_evals_v0"]["refusal_smoke"] = trace
 
-    _write_json(status_json_path, s)
+    _write_json(status_path, s)
 
 
 def main() -> int:
@@ -240,15 +229,16 @@ def main() -> int:
     # -------------------------
     if args.dry_run:
         total = _count_nonempty_jsonl_lines(dataset_path)
+
+        status = "succeeded"  # keep gate semantics consistent
         passed = total
         failed = 0
         errored = 0
-        status = "succeeded"
         report_url = None
 
         if total == 0:
             print(
-                "[warn] Dry-run: dataset has total=0 items. Treating smoke gate as FAIL (fail-closed).",
+                "[warn] Dry-run: total=0 (empty dataset or malformed JSONL). Treating smoke gate as FAIL (fail-closed).",
                 file=sys.stderr,
             )
 
@@ -285,7 +275,7 @@ def main() -> int:
                 "result_json": str(out_path),
                 "timestamp_utc": result["timestamp_utc"],
             }
-            _patch_pulse_status_json(
+            _patch_status_json(
                 Path(args.status_json),
                 args.gate_key,
                 total,
@@ -295,7 +285,7 @@ def main() -> int:
                 fail_rate,
                 gate_pass,
                 trace,
-                allow_create_scaffold=True,  # convenience for dry-run demos
+                create_scaffold_if_missing=True,
             )
 
         print(json.dumps(result, indent=2))
@@ -445,7 +435,7 @@ def main() -> int:
             "result_json": str(out_path),
             "timestamp_utc": result["timestamp_utc"],
         }
-        _patch_pulse_status_json(
+        _patch_status_json(
             Path(args.status_json),
             args.gate_key,
             total,
@@ -455,7 +445,7 @@ def main() -> int:
             fail_rate,
             gate_pass,
             trace,
-            allow_create_scaffold=False,  # keep prior behavior for real runs
+            create_scaffold_if_missing=False,
         )
 
     print(json.dumps(result, indent=2))
