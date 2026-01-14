@@ -268,25 +268,29 @@ Shadow workflows (GitHub Actions):
 - **G snapshot report (shadow)** – renders a single `g_snapshot_report_v0.md`
   that summarizes which overlays are present and what they contain.
 
+Current overlays:
+
+- **Separation Phase overlay** (`separation_phase_v0.json`)  
+  Snapshot-style diagnostic overlay that classifies the run into:
+  `FIELD_STABLE` / `FIELD_STRAINED` / `FIELD_COLLAPSED` / `UNKNOWN`
+  based on separation-style invariants (order stability, separation integrity, phase dependency).
+
+  > **CI-neutral diagnostic layer.** It never blocks the main PULSE gates and must not change core release-gate semantics.
+
+  - Docs: `docs/SEPARATION_PHASE_v0.md`
+  - Schema: `schemas/separation_phase_v0.schema.json`
+  - Adapter: `scripts/separation_phase_adapter_v0.py`
+  - Contract check: `scripts/check_separation_phase_v0_contract.py`
+  - Renderer (human summary): `scripts/render_separation_phase_overlay_v0_md.py`
+  - Workflow: `.github/workflows/separation_phase_overlay.yml`
+  - Output artifacts:
+    - `PULSE_safe_pack_v0/artifacts/separation_phase_v0.json`
+    - `PULSE_safe_pack_v0/artifacts/separation_phase_overlay_v0.md`
+
 All of these are **fail‑closed only for their own job** (they never block the
 main PULSE gates) and are meant as a safe playground for the internal G‑field
 and GPT diagnostics.
 
-  * Separation Phase overlay (`separation_phase_v0.json`)
-Snapshot-style diagnostic overlay that classifies the run into:
-`FIELD_STABLE` / `FIELD_STRAINED` / `FIELD_COLLAPSED` / `UNKNOWN`
-based on separation-style invariants (order stability, separation integrity, phase dependency).
-
-    * Schema: `schemas/separation_phase_v0.schema.json`
-    * Adapter: `scripts/separation_phase_adapter_v0.py`
-    * Contract check (fail-closed within the overlay): `scripts/check_separation_phase_v0_contract.py`
-    * Renderer (human summary): `scripts/render_separation_phase_overlay_v0_md.py`
-    * Workflow: `.github/workflows/separation_phase_overlay.yml`
-    * Output artifacts:
-      - `PULSE_safe_pack_v0/artifacts/separation_phase_v0.json`
-      - `PULSE_safe_pack_v0/artifacts/separation_phase_overlay_v0.md`
-
-Note: this is a CI-neutral diagnostic layer. It must not change core release gate semantics.
 
 ---
 
