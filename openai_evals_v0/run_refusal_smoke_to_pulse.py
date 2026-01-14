@@ -2,7 +2,7 @@
 """
 OpenAI Evals smoke runner (refusal classification) -> optional PULSE status.json patch.
 
-What it does:
+What it does (real run):
 - Uploads a JSONL dataset to OpenAI Files with purpose="evals"
 - Creates an Eval (custom schema + string_check)
 - Creates an Eval Run (data_source: responses)
@@ -10,11 +10,15 @@ What it does:
 - Writes a small result JSON (default: openai_evals_v0/refusal_smoke_result.json)
 - Optionally patches a PULSE status.json with metrics + a boolean gate
 
+Dry run:
+- No network calls, no OPENAI_API_KEY required
+- Synthesizes a result based on dataset line count (useful for wiring demos in restricted runners)
+
 This is intended as a small "wiring test" (pilot). Keep it shadow/diagnostic until stable.
 
 NOTE:
 - No external Python dependencies required (stdlib-only).
-- Calls the OpenAI REST API via urllib.
+- Real runs call the OpenAI REST API via urllib.
 """
 
 from __future__ import annotations
@@ -27,7 +31,7 @@ import time
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
@@ -47,6 +51,15 @@ def _write_json(path: Path, data: Dict[str, Any]) -> None:
 
 def _get_api_key() -> Optional[str]:
     return os.getenv("OPENAI_API_KEY")
+
+
+def _count_nonempty_jsonl_lines(path: Path) -> int:
+    # Count non-empty lines (robust enough for a smoke dataset).
+    n = 0
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if line.strip():
+            n += 1
+    return n
 
 
 def _build_common_headers(api_key: str, org_id: Optional[str], project_id: Optional[str]) -> Dict[str, str]:
@@ -85,10 +98,10 @@ def _http_json(
         raise RuntimeError(f"Network error calling {url}: {e}") from e
 
 
-def _encode_multipart_form(fields: Dict[str, str], file_field: str, filename: str, file_bytes: bytes) -> tuple[bytes, str]:
+def _encode_multipart_form(fields: Dict[str, str], file_field: str, filename: str, file_bytes: bytes) -> Tuple[bytes, str]:
     boundary = f"----pulse-openai-evals-{uuid.uuid4().hex}"
     crlf = b"\r\n"
-    parts: list[bytes] = []
+    parts = []
 
     for k, v in fields.items():
         parts.append(f"--{boundary}".encode("utf-8"))
@@ -152,6 +165,14 @@ def _parse_args() -> argparse.Namespace:
     p.add_argument("--max-wait", type=float, default=300.0)
     p.add_argument("--fail-on-false", action="store_true")
 
+    # New: dry-run (no API calls, no API key required)
+    p.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Do not call the OpenAI API. Synthesize a result from dataset line count (no API key required).",
+    )
+
+    # Optional routing / billing headers (real run only)
     p.add_argument(
         "--base-url",
         default=os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1"),
@@ -163,21 +184,137 @@ def _parse_args() -> argparse.Namespace:
     return p.parse_args()
 
 
+def _patch_pulse_status_json(
+    status_json_path: Path,
+    gate_key: str,
+    total: int,
+    passed: int,
+    failed: int,
+    errored: int,
+    fail_rate: float,
+    gate_pass: bool,
+    trace: Dict[str, Any],
+    *,
+    allow_create_scaffold: bool,
+) -> None:
+    if not status_json_path.exists():
+        if not allow_create_scaffold:
+            print(f"[warn] status.json not found (skipping patch): {status_json_path}", file=sys.stderr)
+            return
+        status_json_path.parent.mkdir(parents=True, exist_ok=True)
+        status_json_path.write_text('{"metrics": {}, "gates": {}}\n', encoding="utf-8")
+
+    s = _read_json(status_json_path)
+
+    metrics = s.setdefault("metrics", {})
+    metrics.update(
+        {
+            "openai_evals_refusal_smoke_total": total,
+            "openai_evals_refusal_smoke_passed": passed,
+            "openai_evals_refusal_smoke_failed": failed,
+            "openai_evals_refusal_smoke_errored": errored,
+            "openai_evals_refusal_smoke_fail_rate": fail_rate,
+        }
+    )
+
+    gates = s.setdefault("gates", {})
+    gates[gate_key] = gate_pass
+    s[gate_key] = gate_pass  # mirror
+
+    s.setdefault("openai_evals_v0", {})
+    s["openai_evals_v0"]["refusal_smoke"] = trace
+
+    _write_json(status_json_path, s)
+
+
 def main() -> int:
     args = _parse_args()
-
-    api_key = _get_api_key()
-    if not api_key:
-        print("[error] OPENAI_API_KEY is not set.", file=sys.stderr)
-        return 2
-
-    base_url = args.base_url.rstrip("/")
-    headers = _build_common_headers(api_key=api_key, org_id=args.org_id, project_id=args.project_id)
 
     dataset_path = Path(args.dataset)
     if not dataset_path.exists():
         print(f"[error] Dataset file not found: {dataset_path}", file=sys.stderr)
         return 2
+
+    # -------------------------
+    # DRY RUN (no API key, no network)
+    # -------------------------
+    if args.dry_run:
+        total = _count_nonempty_jsonl_lines(dataset_path)
+        passed = total
+        failed = 0
+        errored = 0
+        status = "succeeded"
+        report_url = None
+
+        if total == 0:
+            print(
+                "[warn] Dry-run: dataset has total=0 items. Treating smoke gate as FAIL (fail-closed).",
+                file=sys.stderr,
+            )
+
+        fail_rate = (failed / total) if total else 1.0
+        gate_pass = (status in ("completed", "succeeded")) and (total > 0) and (failed == 0) and (errored == 0)
+
+        result = {
+            "dry_run": True,
+            "timestamp_utc": _utc_now_iso(),
+            "dataset": str(dataset_path),
+            "model": args.model,
+            "file_id": "dryrun-file",
+            "eval_id": "dryrun-eval",
+            "run_id": f"dryrun-run-{uuid.uuid4().hex[:8]}",
+            "report_url": report_url,
+            "status": status,
+            "result_counts": {"total": total, "passed": passed, "failed": failed, "errored": errored},
+            "fail_rate": fail_rate,
+            "gate_key": args.gate_key,
+            "gate_pass": gate_pass,
+        }
+
+        out_path = Path(args.out)
+        _write_json(out_path, result)
+
+        if args.status_json:
+            trace = {
+                "dry_run": True,
+                "eval_id": result["eval_id"],
+                "run_id": result["run_id"],
+                "report_url": report_url,
+                "model": args.model,
+                "dataset": str(dataset_path),
+                "result_json": str(out_path),
+                "timestamp_utc": result["timestamp_utc"],
+            }
+            _patch_pulse_status_json(
+                Path(args.status_json),
+                args.gate_key,
+                total,
+                passed,
+                failed,
+                errored,
+                fail_rate,
+                gate_pass,
+                trace,
+                allow_create_scaffold=True,  # convenience for dry-run demos
+            )
+
+        print(json.dumps(result, indent=2))
+
+        if args.fail_on_false and not gate_pass:
+            return 1
+        return 0
+
+    # -------------------------
+    # REAL RUN (OpenAI API)
+    # -------------------------
+    api_key = _get_api_key()
+    if not api_key:
+        print("[error] OPENAI_API_KEY is not set (required for real runs).", file=sys.stderr)
+        print("Hint: use --dry-run to exercise the wiring without an API key.", file=sys.stderr)
+        return 2
+
+    base_url = args.base_url.rstrip("/")
+    headers = _build_common_headers(api_key=api_key, org_id=args.org_id, project_id=args.project_id)
 
     # 1) Upload dataset (purpose="evals")
     file_resp = _http_multipart(
@@ -279,6 +416,7 @@ def main() -> int:
     gate_pass = (status in ("completed", "succeeded")) and (total > 0) and (failed == 0) and (errored == 0)
 
     result = {
+        "dry_run": False,
         "timestamp_utc": _utc_now_iso(),
         "dataset": str(dataset_path),
         "model": args.model,
@@ -296,41 +434,29 @@ def main() -> int:
     out_path = Path(args.out)
     _write_json(out_path, result)
 
-    # Optional patch of status.json (fail-open vs fail-closed is a policy choice; here we patch if it exists)
     if args.status_json:
-        status_path = Path(args.status_json)
-        if not status_path.exists():
-            print(f"[warn] status.json not found (skipping patch): {status_path}", file=sys.stderr)
-        else:
-            s = _read_json(status_path)
-
-            metrics = s.setdefault("metrics", {})
-            metrics.update(
-                {
-                    "openai_evals_refusal_smoke_total": total,
-                    "openai_evals_refusal_smoke_passed": passed,
-                    "openai_evals_refusal_smoke_failed": failed,
-                    "openai_evals_refusal_smoke_errored": errored,
-                    "openai_evals_refusal_smoke_fail_rate": fail_rate,
-                }
-            )
-
-            gates = s.setdefault("gates", {})
-            gates[args.gate_key] = gate_pass
-            s[args.gate_key] = gate_pass  # mirror
-
-            s.setdefault("openai_evals_v0", {})
-            s["openai_evals_v0"]["refusal_smoke"] = {
-                "eval_id": eval_id,
-                "run_id": run_id,
-                "report_url": report_url,
-                "model": args.model,
-                "dataset": str(dataset_path),
-                "result_json": str(out_path),
-                "timestamp_utc": result["timestamp_utc"],
-            }
-
-            _write_json(status_path, s)
+        trace = {
+            "dry_run": False,
+            "eval_id": eval_id,
+            "run_id": run_id,
+            "report_url": report_url,
+            "model": args.model,
+            "dataset": str(dataset_path),
+            "result_json": str(out_path),
+            "timestamp_utc": result["timestamp_utc"],
+        }
+        _patch_pulse_status_json(
+            Path(args.status_json),
+            args.gate_key,
+            total,
+            passed,
+            failed,
+            errored,
+            fail_rate,
+            gate_pass,
+            trace,
+            allow_create_scaffold=False,  # keep prior behavior for real runs
+        )
 
     print(json.dumps(result, indent=2))
 
