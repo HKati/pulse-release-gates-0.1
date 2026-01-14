@@ -1,0 +1,109 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://hkati.github.io/pulse-release-gates-0.1/schemas/separation_phase_v0.schema.json",
+  "title": "PULSE Separation Phase Overlay v0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "invariants", "state", "recommendation"],
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "separation_phase_v0"
+    },
+    "meta": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "run_id": { "type": "string" },
+        "commit": { "type": "string" },
+        "generator": { "type": "string" },
+        "source_date_epoch": { "type": ["integer", "null"], "minimum": 0 }
+      }
+    },
+    "inputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "status_path": { "type": "string" },
+        "permutation_status_paths": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "invariants": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["order_stability", "separation_integrity", "phase_dependency", "threshold_sensitivity"],
+      "properties": {
+        "order_stability": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["method", "score", "n_runs", "unstable_gates"],
+          "properties": {
+            "method": { "type": "string", "enum": ["permutations", "rdsi_proxy", "unknown"] },
+            "score": { "type": ["number", "null"], "minimum": 0.0, "maximum": 1.0 },
+            "n_runs": { "type": "integer", "minimum": 0 },
+            "unstable_gates": {
+              "type": "array",
+              "items": { "type": "string" }
+            }
+          }
+        },
+        "separation_integrity": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["decision_stable", "notes"],
+          "properties": {
+            "decision_stable": { "type": ["boolean", "null"] },
+            "notes": { "type": "string" }
+          }
+        },
+        "phase_dependency": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["critical_global_phase"],
+          "properties": {
+            "critical_global_phase": { "type": ["boolean", "null"] }
+          }
+        },
+        "threshold_sensitivity": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["threshold_like_gates"],
+          "properties": {
+            "threshold_like_gates": {
+              "type": "array",
+              "items": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "state": {
+      "type": "string",
+      "enum": ["FIELD_STABLE", "FIELD_STRAINED", "FIELD_COLLAPSED", "UNKNOWN"]
+    },
+    "recommendation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["gate_action", "rationale"],
+      "properties": {
+        "gate_action": { "type": "string", "enum": ["OPEN", "SLOW", "CLOSED"] },
+        "rationale": { "type": "string" }
+      }
+    },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["kind", "message"],
+        "properties": {
+          "kind": { "type": "string" },
+          "message": { "type": "string" }
+        }
+      }
+    }
+  }
+}
