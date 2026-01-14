@@ -1,0 +1,111 @@
+name: Separation Phase Overlay (shadow)
+
+on:
+  pull_request:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+concurrency:
+  group: separation-phase-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  separation-phase:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Set SOURCE_DATE_EPOCH (deterministic builds)
+        shell: bash
+        run: |
+          echo "SOURCE_DATE_EPOCH=$(git log -1 --format=%ct)" >> "$GITHUB_ENV"
+
+      - name: Ensure artifacts directory exists
+        shell: bash
+        run: |
+          mkdir -p PULSE_safe_pack_v0/artifacts
+
+      # Best-effort baseline generation:
+      # This workflow is CI-neutral. If baseline generation fails, we still produce an overlay
+      # in UNKNOWN/CLOSED mode rather than failing the workflow early.
+      - name: Generate baseline PULSE status.json (best-effort)
+        shell: bash
+        run: |
+          set +e
+          python PULSE_safe_pack_v0/tools/run_all.py
+          rc=$?
+          echo "PULSE run_all.py exit code: $rc"
+          echo "PULSE_RUN_ALL_EXIT_CODE=$rc" >> "$GITHUB_ENV"
+          exit 0
+
+      - name: Generate separation_phase_v0.json overlay
+        shell: bash
+        run: |
+          python scripts/separation_phase_adapter_v0.py \
+            --status PULSE_safe_pack_v0/artifacts/status.json \
+            --out PULSE_safe_pack_v0/artifacts/separation_phase_v0.json
+
+      - name: Contract check (fail-closed)
+        shell: bash
+        run: |
+          python scripts/check_separation_phase_v0_contract.py \
+            --in PULSE_safe_pack_v0/artifacts/separation_phase_v0.json
+
+      - name: Summarize overlay (job summary)
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          p = Path("PULSE_safe_pack_v0/artifacts/separation_phase_v0.json")
+          d = json.loads(p.read_text(encoding="utf-8"))
+
+          state = d.get("state")
+          rec = d.get("recommendation", {}) or {}
+          action = rec.get("gate_action")
+          rationale = rec.get("rationale")
+
+          unstable = (((d.get("invariants") or {}).get("order_stability") or {}).get("unstable_gates")) or []
+          thresh = (((d.get("invariants") or {}).get("threshold_sensitivity") or {}).get("threshold_like_gates")) or []
+
+          lines = []
+          lines.append("## Separation Phase Overlay (v0)")
+          lines.append("")
+          lines.append(f"- State: **{state}**")
+          lines.append(f"- Recommendation: **{action}**")
+          lines.append(f"- Rationale: {rationale}")
+          lines.append("")
+          lines.append(f"- Baseline generation exit code (run_all.py): `{__import__('os').environ.get('PULSE_RUN_ALL_EXIT_CODE','?')}`")
+          lines.append("")
+          lines.append("### Unstable gates (first 10)")
+          lines.append("")
+          lines.extend([f"- `{g}`" for g in unstable[:10]] or ["- (none)"])
+          lines.append("")
+          lines.append("### Threshold-like gates (first 10)")
+          lines.append("")
+          lines.extend([f"- `{g}`" for g in thresh[:10]] or ["- (none)"])
+
+          Path(__import__("os").environ["GITHUB_STEP_SUMMARY"]).write_text("\n".join(lines) + "\n", encoding="utf-8")
+          PY
+
+      - name: Upload overlay artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: separation-phase-overlay
+          if-no-files-found: error
+          path: |
+            PULSE_safe_pack_v0/artifacts/separation_phase_v0.json
+            PULSE_safe_pack_v0/artifacts/status.json
