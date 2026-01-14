@@ -3,7 +3,7 @@
 check_separation_phase_v0_contract.py
 
 Fail-closed contract check for separation_phase_v0.json
-- strict required keys
+- strict required keys (presence required even if value is null)
 - enum checks
 - type checks
 - stable ordering checks (lists must be sorted)
@@ -14,7 +14,7 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 
 ALLOWED_STATE = {"FIELD_STABLE", "FIELD_STRAINED", "FIELD_COLLAPSED", "UNKNOWN"}
@@ -35,6 +35,10 @@ def require(cond: bool, msg: str) -> None:
         die(msg)
 
 
+def require_key(obj: Dict[str, Any], key: str, msg: str) -> None:
+    require(key in obj, msg)
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--in", dest="inp", required=True)
@@ -50,43 +54,72 @@ def main() -> int:
     inv = data.get("invariants")
     require(isinstance(inv, dict), "invariants must be object")
 
+    # ---- order_stability ----
     os_ = inv.get("order_stability")
     require(isinstance(os_, dict), "invariants.order_stability must be object")
+
+    require_key(os_, "method", "order_stability.method key must be present")
     require(os_.get("method") in ALLOWED_METHOD, "order_stability.method invalid")
-    score = os_.get("score")
+
+    # Codex fix: require key presence (null allowed)
+    require_key(os_, "score", "order_stability.score key must be present (null allowed)")
+    score = os_["score"]
     require(score is None or isinstance(score, (int, float)), "order_stability.score must be number|null")
     if isinstance(score, (int, float)):
         require(0.0 <= float(score) <= 1.0, "order_stability.score must be within [0,1]")
+
+    require_key(os_, "n_runs", "order_stability.n_runs key must be present")
     require(isinstance(os_.get("n_runs"), int) and os_["n_runs"] >= 0, "order_stability.n_runs must be int>=0")
-    ug = os_.get("unstable_gates")
+
+    require_key(os_, "unstable_gates", "order_stability.unstable_gates key must be present")
+    ug = os_["unstable_gates"]
     require(isinstance(ug, list) and all(isinstance(x, str) for x in ug), "unstable_gates must be list[str]")
     require(is_sorted(ug), "unstable_gates must be sorted")
 
+    # ---- separation_integrity ----
     si = inv.get("separation_integrity")
     require(isinstance(si, dict), "invariants.separation_integrity must be object")
-    ds = si.get("decision_stable")
+
+    # Codex fix: require key presence (null allowed)
+    require_key(si, "decision_stable", "separation_integrity.decision_stable key must be present (null allowed)")
+    ds = si["decision_stable"]
     require(ds is None or isinstance(ds, bool), "separation_integrity.decision_stable must be bool|null")
+
+    require_key(si, "notes", "separation_integrity.notes key must be present")
     require(isinstance(si.get("notes"), str), "separation_integrity.notes must be string")
 
+    # ---- phase_dependency ----
     pd = inv.get("phase_dependency")
     require(isinstance(pd, dict), "invariants.phase_dependency must be object")
-    cgp = pd.get("critical_global_phase")
+
+    # Codex fix: require key presence (null allowed)
+    require_key(pd, "critical_global_phase", "phase_dependency.critical_global_phase key must be present (null allowed)")
+    cgp = pd["critical_global_phase"]
     require(cgp is None or isinstance(cgp, bool), "phase_dependency.critical_global_phase must be bool|null")
 
+    # ---- threshold_sensitivity ----
     ts = inv.get("threshold_sensitivity")
     require(isinstance(ts, dict), "invariants.threshold_sensitivity must be object")
-    tlg = ts.get("threshold_like_gates")
+
+    require_key(ts, "threshold_like_gates", "threshold_sensitivity.threshold_like_gates key must be present")
+    tlg = ts["threshold_like_gates"]
     require(isinstance(tlg, list) and all(isinstance(x, str) for x in tlg), "threshold_like_gates must be list[str]")
     require(is_sorted(tlg), "threshold_like_gates must be sorted")
 
+    # ---- top-level state + recommendation ----
     state = data.get("state")
     require(state in ALLOWED_STATE, f"state must be one of {sorted(ALLOWED_STATE)}")
 
     rec = data.get("recommendation")
     require(isinstance(rec, dict), "recommendation must be object")
+
+    require_key(rec, "gate_action", "recommendation.gate_action key must be present")
     require(rec.get("gate_action") in ALLOWED_ACTION, f"gate_action must be one of {sorted(ALLOWED_ACTION)}")
+
+    require_key(rec, "rationale", "recommendation.rationale key must be present")
     require(isinstance(rec.get("rationale"), str) and rec["rationale"].strip(), "rationale must be non-empty string")
 
+    # ---- optional evidence ----
     ev = data.get("evidence", [])
     require(isinstance(ev, list), "evidence must be list if present")
     for i, e in enumerate(ev):
