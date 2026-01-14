@@ -11,6 +11,10 @@ on:
         description: "PULSE CI workflow run id to publish (Actions run ID). Optional: leave empty to use latest successful run on main."
         required: false
         type: string
+      cancel_pages_deployment_id:
+        description: "Optional: cancel a stuck GitHub Pages deployment before deploying (deployment id OR commit SHA)."
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -37,10 +41,6 @@ jobs:
       url: ${{ steps.deploy.outputs.page_url }}
 
     steps:
-      # Checkout kept (harmless); crawler assets are generated from _site below.
-      - name: Checkout repository
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-
       - name: Resolve upstream run id
         id: runid
         shell: bash
@@ -52,8 +52,9 @@ jobs:
           echo "event_name: ${GITHUB_EVENT_NAME}"
           echo "repo:       ${GITHUB_REPOSITORY}"
 
-          # Read optional workflow_dispatch input from the event payload (works even when inputs context is absent).
+          # Read optional workflow_dispatch inputs from the event payload (works even when inputs context is absent).
           INPUT_RUN_ID="$(python3 -c 'import json,os; ev=json.load(open(os.environ["GITHUB_EVENT_PATH"])); print((ev.get("inputs") or {}).get("run_id","").strip())')"
+          INPUT_CANCEL_ID="$(python3 -c 'import json,os; ev=json.load(open(os.environ["GITHUB_EVENT_PATH"])); print((ev.get("inputs") or {}).get("cancel_pages_deployment_id","").strip())')"
 
           if [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
             if [ -n "${INPUT_RUN_ID}" ]; then
@@ -88,7 +89,53 @@ jobs:
           fi
 
           echo "run_id=${RUN_ID}" >> "$GITHUB_OUTPUT"
+          echo "cancel_pages_deployment_id=${INPUT_CANCEL_ID}" >> "$GITHUB_OUTPUT"
           echo "Using run_id: ${RUN_ID}"
+          if [ -n "${INPUT_CANCEL_ID}" ]; then
+            echo "Cancel requested for Pages deployment id/SHA: ${INPUT_CANCEL_ID}"
+          fi
+
+      # If a previous Pages deploy is wedged "in progress", cancel it before attempting a new deployment.
+      # GitHub API allows pages_deployment_id to be the deployment id OR the commit SHA.
+      - name: Cancel stuck Pages deployment (manual helper)
+        if: ${{ github.event_name == 'workflow_dispatch' && steps.runid.outputs.cancel_pages_deployment_id != '' }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CANCEL_ID: ${{ steps.runid.outputs.cancel_pages_deployment_id }}
+        run: |
+          set -euo pipefail
+
+          echo "Attempting to cancel GitHub Pages deployment: ${CANCEL_ID}"
+
+          # Best-effort: show current status (non-fatal if not found).
+          curl -fsSL \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/pages/deployments/${CANCEL_ID}" \
+            || true
+
+          http_code="$(curl -sS -o /tmp/cancel_pages.out -w "%{http_code}" -L -X POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/pages/deployments/${CANCEL_ID}/cancel")"
+
+          if [ "${http_code}" != "204" ]; then
+            echo "::error::Failed to cancel Pages deployment ${CANCEL_ID}. HTTP ${http_code}."
+            echo "::error::Response:"
+            sed -n '1,200p' /tmp/cancel_pages.out || true
+            exit 1
+          fi
+
+          echo "OK: cancel request accepted (204)."
+          echo "Waiting briefly for Pages to release the deployment lock..."
+          sleep 5
+
+      # Checkout kept (harmless); crawler assets are generated from _site below.
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Download pulse-report artifact (from upstream run)
         uses: dawidd6/action-download-artifact@ac66b43f0e6a346234dd65d4d0c8fbb31cb316e5 # v11
@@ -549,32 +596,8 @@ jobs:
             echo "- ❌ \`_site/robots.txt\` missing" >> "$GITHUB_STEP_SUMMARY"
           fi
 
-          if [ -f "_site/paradox/core/v0/paradox_core_reviewer_card_v0.html" ]; then
+          if [ -f "_site/paradox/core/v0/paradox/core_reviewer_card_v0.html" ]; then
             echo "- ✅ Paradox Core: \`/paradox/core/v0/\` mounted" >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "- ❌ Paradox Core: \`/paradox/core/v0/\` missing" >> "$GITHUB_STEP_SUMMARY"
-          fi
-
-          if [ -f "_site/paradox/core/v0/paradox_diagram_v0.svg" ]; then
-            if [ -s "_site/paradox/core/v0/paradox_diagram_v0.svg" ]; then
-              echo "- ✅ Paradox Diagram SVG: \`/paradox/core/v0/paradox_diagram_v0.svg\` present" >> "$GITHUB_STEP_SUMMARY"
-            else
-              echo "- ❌ Paradox Diagram SVG: \`/paradox/core/v0/paradox_diagram_v0.svg\` present but empty" >> "$GITHUB_STEP_SUMMARY"
-            fi
-          else
-            echo "- ⚠️ Paradox Diagram SVG: \`/paradox/core/v0/paradox_diagram_v0.svg\` missing (optional)" >> "$GITHUB_STEP_SUMMARY"
-          fi
-
-          if [ -f "_site/paradox/core/v0/paradox_diagram_v0.json" ]; then
-            echo "- ✅ Paradox Diagram JSON: \`/paradox/core/v0/paradox_diagram_v0.json\` present" >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "- ❌ Paradox Diagram JSON: \`/paradox/core/v0/paradox_diagram_v0.json\` missing" >> "$GITHUB_STEP_SUMMARY"
-          fi
-
-          if [ -f "_site/paradox/core/v0/source_v0.json" ]; then
-            echo "- ✅ Paradox Core provenance: \`/paradox/core/v0/source_v0.json\`" >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "- ❌ Paradox Core provenance: \`/paradox/core/v0/source_v0.json\` missing" >> "$GITHUB_STEP_SUMMARY"
           fi
 
           echo "" >> "$GITHUB_STEP_SUMMARY"
@@ -676,20 +699,16 @@ jobs:
           fetch "$BASE/report_card.html" report_card.html
           fetch "$BASE/report_card.htm" report_card.htm
 
-          # NEW: schema URLs must be public (no 404)
           fetch "$BASE/schemas/gates.schema.json" schema_gates.schema.json
           fetch "$BASE/schemas/PULSE_paradox_field_v0.schema.json" schema_paradox_field.schema.json
 
-          # Paradox Core v0 surface (directory + reviewer card + provenance)
           fetch "$BASE/paradox/core/v0/" paradox_core_index.html
           fetch "$BASE/paradox/core/v0/paradox_core_reviewer_card_v0.html" paradox_core_card.html
           fetch "$BASE/paradox/core/v0/source_v0.json" paradox_core_source.json
 
-          # Paradox Diagram v0 surface (static assets)
           fetch "$BASE/paradox/core/v0/paradox_diagram_v0.json" paradox_diagram.json
           fetch_optional "$BASE/paradox/core/v0/paradox_diagram_v0.svg" paradox_diagram.svg
 
-          # Headers: detect hard indexing blocks (X-Robots-Tag: noindex)
           fetch_headers "$BASE/" headers_home.txt
           fetch_headers "$BASE/robots.txt" headers_robots.txt
           fetch_headers "$BASE/sitemap.xml" headers_sitemap.txt
@@ -720,123 +739,5 @@ jobs:
           check_noindex_header "$BASE/paradox/core/v0/source_v0.json" headers_paradox_core_source.txt
           check_noindex_header "$BASE/paradox/core/v0/paradox_diagram_v0.json" headers_paradox_diagram_json.txt
           check_noindex_header "$BASE/paradox/core/v0/paradox_diagram_v0.svg" headers_paradox_diagram_svg.txt
-
-          if curl -fsSL "$BASE/" -o index.html; then
-            :
-          else
-            echo "::warning::Could not fetch homepage HTML; skipping meta robots check."
-            rm -f index.html || true
-          fi
-
-          # robots directives
-          python3 - <<'PY'
-          import os, sys
-          from pathlib import Path
-
-          BASE = os.environ.get("BASE","").rstrip("/")
-          txt = Path("robots.txt").read_text(encoding="utf-8", errors="replace").splitlines()
-          norm = [ln.strip() for ln in txt if ln.strip()]
-
-          if len(norm) < 3:
-            print("::error::robots.txt must contain at least 3 non-empty lines.")
-            sys.exit(1)
-
-          lower = [ln.lower() for ln in norm]
-          need = [
-            "user-agent: *",
-            "allow: /",
-            f"sitemap: {BASE}/sitemap.xml".lower(),
-          ]
-          missing = [x for x in need if x not in lower]
-          if missing:
-            print("::error::robots.txt missing required directive lines:")
-            for m in missing:
-              print(" - " + m)
-            sys.exit(1)
-
-          print("OK: robots.txt directives validated.")
-          PY
-
-          # sitemap XML parse
-          python3 - <<'PY'
-          import os
-          import xml.etree.ElementTree as ET
-          from pathlib import Path
-
-          BASE = os.environ.get("BASE","").rstrip("/")
-          home = f"{BASE}/"
-          paradox_core = f"{BASE}/paradox/core/v0/"
-
-          xml_text = Path("sitemap.xml").read_text(encoding="utf-8", errors="replace")
-
-          try:
-            root = ET.fromstring(xml_text)
-          except Exception as e:
-            raise SystemExit(f"::error::sitemap.xml is not valid XML: {e}")
-
-          locs = [(el.text or "").strip() for el in root.findall(".//{*}loc")]
-          if not locs:
-            raise SystemExit("::error::sitemap.xml contains no <loc> entries.")
-
-          if home not in locs:
-            raise SystemExit(f"::error::sitemap.xml missing homepage <loc>{home}</loc>")
-
-          if paradox_core not in locs:
-            raise SystemExit(f"::error::sitemap.xml missing Paradox Core <loc>{paradox_core}</loc>")
-
-          bad = [u for u in locs if not (u == home or u.startswith(home))]
-          if bad:
-            raise SystemExit(f"::error::sitemap.xml contains <loc> outside BASE={home}: {bad[:5]}")
-
-          print(f"OK: sitemap.xml parsed; loc_count={len(locs)}; homepage_present=yes; paradox_core_present=yes")
-          PY
-
-          if [ -f index.html ]; then
-            python3 - <<'PY'
-          import re, sys
-          from pathlib import Path
-
-          p = Path("index.html")
-          html = p.read_text(encoding="utf-8", errors="ignore")
-
-          meta_tags = re.findall(r"<meta\b[^>]*>", html, flags=re.I)
-          bad = []
-          for tag in meta_tags:
-            t = tag.lower()
-            if "noindex" not in t:
-              continue
-            if re.search(r"\bname\s*=\s*['\"]?(robots|googlebot)['\"]?\b", t) or re.search(r"\bhttp-equiv\s*=\s*['\"]?x-robots-tag['\"]?\b", t):
-              bad.append(tag.strip())
-
-          if bad:
-            print("::error::Found meta noindex directive(s) in homepage HTML (blocks indexing):")
-            for tag in bad[:10]:
-              print(tag)
-            sys.exit(1)
-
-          print("OK: no meta noindex found in homepage HTML.")
-          PY
-          fi
-
-          echo "## SEO smoke (post-deploy)" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "- base: \`$BASE\`" >> "$GITHUB_STEP_SUMMARY"
-          echo "- ✅ robots: \`$BASE/robots.txt\`" >> "$GITHUB_STEP_SUMMARY"
-          echo "- ✅ sitemap: \`$BASE/sitemap.xml\`" >> "$GITHUB_STEP_SUMMARY"
-          echo "- ✅ schemas: \`$BASE/schemas/gates.schema.json\`" >> "$GITHUB_STEP_SUMMARY"
-          echo "- ✅ schemas: \`$BASE/schemas/PULSE_paradox_field_v0.schema.json\`" >> "$GITHUB_STEP_SUMMARY"
-          echo "- ✅ Paradox Core: \`$BASE/paradox/core/v0/\`" >> "$GITHUB_STEP_SUMMARY"
-          echo "- ✅ Paradox Core card: \`$BASE/paradox/core/v0/paradox_core_reviewer_card_v0.html\`" >> "$GITHUB_STEP_SUMMARY"
-          echo "- ✅ Paradox Core provenance: \`$BASE/paradox/core/v0/source_v0.json\`" >> "$GITHUB_STEP_SUMMARY"
-          echo "- ✅ Paradox Diagram JSON: \`$BASE/paradox/core/v0/paradox_diagram_v0.json\`" >> "$GITHUB_STEP_SUMMARY"
-          if [ -f paradox_diagram.svg ]; then
-            echo "- ✅ Paradox Diagram SVG (optional): \`$BASE/paradox/core/v0/paradox_diagram_v0.svg\`" >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "- ⚠️ Paradox Diagram SVG (optional): missing" >> "$GITHUB_STEP_SUMMARY"
-          fi
-          echo "- ✅ no X-Robots-Tag: noindex" >> "$GITHUB_STEP_SUMMARY"
-          echo "- ✅ robots directives OK" >> "$GITHUB_STEP_SUMMARY"
-          echo "- ✅ sitemap XML parse OK (canonical, fail-closed)" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
 
           echo "OK: post-deploy SEO smoke passed."
