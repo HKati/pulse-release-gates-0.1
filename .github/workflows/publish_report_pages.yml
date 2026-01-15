@@ -873,6 +873,107 @@ jobs:
           print("OK: injected diagnostics links into _site/report_card.html")
           PY
 
+      - name: Generate diagnostics manifest (machine-readable)
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          UPSTREAM_RUN_ID="${{ steps.runid.outputs.run_id }}"
+          PUBLISH_MODE="${{ steps.prepare.outputs.mode }}"
+          PUBLISH_SITE_ROOT="${{ steps.prepare.outputs.site_root }}"
+          export UPSTREAM_RUN_ID PUBLISH_MODE PUBLISH_SITE_ROOT
+
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          site = Path("_site")
+          diag_dir = site / "diagnostics"
+          diag_dir.mkdir(parents=True, exist_ok=True)
+
+          def exists(path: Path) -> bool:
+            return path.exists()
+
+          items = []
+
+          diagnostics_index_path = Path("diagnostics/")
+          diagnostics_index_present = exists(site / "diagnostics" / "index.html")
+          items.append({
+              "id": "diagnostics_index",
+              "paths": {"html": diagnostics_index_path.as_posix()},
+              "present": diagnostics_index_present,
+          })
+
+          separation_paths = {
+              "html": "diagnostics/separation_phase/v0/",
+              "json": "diagnostics/separation_phase/v0/separation_phase_v0.json",
+              "md": "diagnostics/separation_phase/v0/separation_phase_overlay_v0.md",
+          }
+          separation_json_path = site / "diagnostics" / "separation_phase" / "v0" / "separation_phase_v0.json"
+          separation_md_path = site / "diagnostics" / "separation_phase" / "v0" / "separation_phase_overlay_v0.md"
+          separation_html_path = site / "diagnostics" / "separation_phase" / "v0" / "index.html"
+          separation_present = exists(separation_json_path) or exists(separation_md_path) or exists(separation_html_path)
+          separation_item = {
+              "id": "separation_phase_v0",
+              "paths": separation_paths,
+              "present": separation_present,
+          }
+          if separation_json_path.is_file():
+            try:
+              data = json.loads(separation_json_path.read_text(encoding="utf-8"))
+            except json.JSONDecodeError:
+              data = {}
+            if isinstance(data, dict):
+              if "state" in data:
+                separation_item["state"] = data.get("state")
+              recommendation = data.get("recommendation")
+              if isinstance(recommendation, dict) and "gate_action" in recommendation:
+                separation_item["gate_action"] = recommendation.get("gate_action")
+          items.append(separation_item)
+
+          paradox_path = Path("paradox/core/v0/")
+          paradox_present = exists(site / "paradox" / "core" / "v0" / "index.html")
+          items.append({
+              "id": "paradox_core_v0",
+              "paths": {"html": paradox_path.as_posix()},
+              "present": paradox_present,
+          })
+
+          schemas_path = Path("schemas/")
+          schemas_present = exists(site / "schemas")
+          items.append({
+              "id": "schemas",
+              "paths": {"html": schemas_path.as_posix()},
+              "present": schemas_present,
+          })
+
+          report_card_path = Path("report_card.html")
+          report_card_present = exists(site / report_card_path)
+          items.append({
+              "id": "report_card",
+              "paths": {"html": report_card_path.as_posix()},
+              "present": report_card_present,
+          })
+
+          items_sorted = sorted(items, key=lambda item: item["id"])
+
+          manifest = {
+              "schema": "PULSE_diagnostics_manifest_v0",
+              "version": "v0",
+              "upstream_run_id": os.environ.get("UPSTREAM_RUN_ID", ""),
+              "publish": {
+                  "mode": os.environ.get("PUBLISH_MODE", ""),
+                  "site_root": os.environ.get("PUBLISH_SITE_ROOT", ""),
+              },
+              "items": items_sorted,
+          }
+
+          out = diag_dir / "manifest_v0.json"
+          out.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+          print(f"OK: wrote {out}")
+          PY
+
       - name: Verify crawler assets present before upload
         shell: bash
         run: |
@@ -1060,6 +1161,7 @@ jobs:
           fetch_optional "$BASE/diagnostics/separation_phase/v0/separation_phase_overlay_v0.md" separation_phase_overlay_diag.md
           fetch_optional "$BASE/diagnostics/" diagnostics_index.html
           fetch_optional "$BASE/diagnostics.html" diagnostics_redirect.html
+          fetch "$BASE/diagnostics/manifest_v0.json" diagnostics_manifest_v0.json
 
           fetch_headers "$BASE/" headers_home.txt
           fetch_headers "$BASE/robots.txt" headers_robots.txt
