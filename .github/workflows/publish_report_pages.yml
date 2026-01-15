@@ -694,6 +694,12 @@ jobs:
             exit 1
           fi
 
+          if [ ! -s "_site/schemas/separation_phase_v0.schema.json" ]; then
+            echo "::error::Expected _site/schemas/separation_phase_v0.schema.json to exist and be non-empty before publish."
+            ls -la _site/schemas || true
+            exit 1
+          fi
+
       - name: Generate diagnostics landing page
         shell: bash
         run: |
@@ -996,6 +1002,7 @@ jobs:
 
           fetch "$BASE/schemas/gates.schema.json" schema_gates.schema.json
           fetch "$BASE/schemas/PULSE_paradox_field_v0.schema.json" schema_paradox_field.schema.json
+          fetch "$BASE/schemas/separation_phase_v0.schema.json" schema_separation_phase.schema.json
 
           fetch "$BASE/paradox/core/v0/" paradox_core_index.html
           fetch "$BASE/paradox/core/v0/paradox_core_reviewer_card_v0.html" paradox_core_card.html
