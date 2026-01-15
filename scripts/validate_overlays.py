@@ -126,6 +126,21 @@ def main() -> None:
                 sp("gpt_external_detection_v0.json"),
             ],
         ),
+        OverlayConfig(
+            name="separation_phase_v0",
+            schema_candidates=[
+                sp("schemas", "separation_phase_v0.schema.json"),
+                sp("schemas", "schemas", "separation_phase_v0.schema.json"),
+            ],
+            data_candidates=[
+                sp(
+                    "PULSE_safe_pack_v0",
+                    "artifacts",
+                    "separation_phase_v0.json",
+                ),
+                sp("separation_phase_v0.json"),
+            ],
+        ),
     ]
 
     all_ok = True
