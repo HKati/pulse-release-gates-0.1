@@ -694,6 +694,140 @@ jobs:
             exit 1
           fi
 
+      - name: Generate diagnostics landing page
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python3 - <<'PY'
+          from pathlib import Path
+          import html
+
+          site = Path("_site")
+          diag = site / "diagnostics"
+          diag.mkdir(parents=True, exist_ok=True)
+
+          def exists(p: Path) -> bool:
+            return p.exists() and (p.is_file() or p.is_dir())
+
+          # NOTE: this page lives at /diagnostics/index.html,
+          # so use ../ for links that live at the site root.
+          items = []
+
+          if exists(site / "report_card.html"):
+            items.append(("Main report", "../report_card.html", "Primary PULSE report card surface."))
+
+          if exists(site / "schemas"):
+            items.append(("Schemas", "../schemas/", "Published JSON Schemas (contracts)."))
+
+          if exists(site / "paradox" / "core" / "v0" / "index.html"):
+            items.append(("Paradox Core v0", "../paradox/core/v0/", "Static reviewer bundle (audit surface)."))
+
+          sp_dir = site / "diagnostics" / "separation_phase" / "v0"
+          if exists(sp_dir / "separation_phase_v0.json"):
+            items.append(("Separation Phase v0", "separation_phase/v0/", "CI-neutral overlay (FIELD_* classification)."))
+
+          if exists(site / "badges"):
+            items.append(("Badges", "../badges/", "Generated badges (artifact-only)."))
+
+          if exists(site / "reports"):
+            items.append(("Reports", "../reports/", "JUnit/SARIF and other report artifacts."))
+
+          def esc(x: str) -> str:
+            return html.escape(x, quote=True)
+
+          rows = []
+          for title, href, desc in items:
+            rows.append(
+              f'<li><a href="{esc(href)}">{esc(title)}</a>'
+              f'<div style="color:#555;margin-top:4px">{esc(desc)}</div></li>'
+            )
+
+          body = f"""<!doctype html>
+          <html lang="en">
+            <head>
+              <meta charset="utf-8" />
+              <meta name="viewport" content="width=device-width, initial-scale=1" />
+              <title>Diagnostics</title>
+              <style>
+                body {{ font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+                       margin: 24px; max-width: 980px; }}
+                code {{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }}
+                li {{ margin: 14px 0; padding: 12px 14px; border: 1px solid #ddd; border-radius: 10px; background: #fafafa; }}
+                a {{ text-decoration: none; }}
+                a:hover {{ text-decoration: underline; }}
+              </style>
+            </head>
+            <body>
+              <h1>Diagnostics</h1>
+              <p style="color:#555">
+                Static, audit-friendly diagnostic surfaces. These pages do not change normative PULSE gating.
+              </p>
+              <ul style="list-style:none;padding-left:0">
+                {''.join(rows) if rows else '<li>(no diagnostics surfaced in this run)</li>'}
+              </ul>
+            </body>
+          </html>
+          """
+
+          (diag / "index.html").write_text(body + "\n", encoding="utf-8")
+
+          # Convenience redirect at site root: /diagnostics.html -> /diagnostics/
+          (site / "diagnostics.html").write_text(
+            "<!doctype html><html lang=\"en\"><meta charset=\"utf-8\" />"
+            "<meta http-equiv=\"refresh\" content=\"0; url=diagnostics/\" />"
+            "<title>Redirecting…</title><body>"
+            "<p>Redirecting to <a href=\"diagnostics/\">diagnostics/</a>…</p></body></html>\n",
+            encoding="utf-8",
+          )
+
+          print("OK: wrote _site/diagnostics/index.html and _site/diagnostics.html")
+          PY
+
+      - name: Regenerate sitemap.xml from final _site
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          OWNER="${GITHUB_REPOSITORY%%/*}"
+          OWNER="${OWNER,,}"
+          REPO="${GITHUB_REPOSITORY#*/}"
+          BASE="https://${OWNER}.github.io/${REPO}"
+          BASE="${BASE%/}"
+          export BASE
+
+          python3 - <<'PY'
+          import pathlib, datetime, os
+
+          BASE = os.environ["BASE"].rstrip("/")
+          root = pathlib.Path("_site")
+
+          urls = []
+          for p in sorted(root.rglob("*.html")):
+              rel = p.relative_to(root).as_posix()
+              if rel == "index.html":
+                  urls.append(f"{BASE}/")
+              elif rel.endswith("/index.html"):
+                  urls.append(f"{BASE}/{rel[:-len('index.html')]}")
+              else:
+                  urls.append(f"{BASE}/{rel}")
+
+          if not urls:
+              raise SystemExit("::error::No HTML files found in _site; cannot generate sitemap.")
+
+          now = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+          lines = [
+              '<?xml version="1.0" encoding="UTF-8"?>',
+              '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+          ]
+          for u in urls:
+              lines += ["  <url>", f"    <loc>{u}</loc>", f"    <lastmod>{now}</lastmod>", "  </url>"]
+          lines.append("</urlset>")
+
+          (root / "sitemap.xml").write_text("\n".join(lines) + "\n", encoding="utf-8")
+          print(f"OK: rewrote _site/sitemap.xml with {len(urls)} URLs")
+          PY
+
       - name: Verify crawler assets present before upload
         shell: bash
         run: |
@@ -878,6 +1012,8 @@ jobs:
           fetch_optional "$BASE/diagnostics/separation_phase/v0/separation_phase_overlay.html" separation_phase_overlay_diag.html
           fetch_optional "$BASE/diagnostics/separation_phase/v0/separation_phase_v0.json" separation_phase_v0_diag.json
           fetch_optional "$BASE/diagnostics/separation_phase/v0/separation_phase_overlay_v0.md" separation_phase_overlay_diag.md
+          fetch_optional "$BASE/diagnostics/" diagnostics_index.html
+          fetch_optional "$BASE/diagnostics.html" diagnostics_redirect.html
 
           fetch_headers "$BASE/" headers_home.txt
           fetch_headers "$BASE/robots.txt" headers_robots.txt
