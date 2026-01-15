@@ -834,6 +834,45 @@ jobs:
           print(f"OK: rewrote _site/sitemap.xml with {len(urls)} URLs")
           PY
 
+      - name: Inject diagnostics links into report card (best-effort)
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [ ! -f "_site/report_card.html" ]; then
+            echo "::notice::No _site/report_card.html found; skipping diagnostics link injection."
+            exit 0
+          fi
+
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path("_site/report_card.html")
+          text = path.read_text(encoding="utf-8")
+          marker = "<!-- DIAGNOSTICS_LINKS -->"
+
+          block = """<section style="margin:16px 0;padding:12px 14px;border:1px solid #ddd;border-radius:10px;background:#fafafa">
+            <h2 style="margin:0 0 8px 0">Diagnostics</h2>
+            <ul style="margin:0;padding-left:18px">
+              <li><a href="diagnostics/">Diagnostics index</a></li>
+              <li><a href="diagnostics/separation_phase/v0/">Separation Phase overlay (v0)</a></li>
+            </ul>
+            <p style="margin:8px 0 0 0;color:#555">
+              CI-neutral diagnostic overlays. They do not change normative PULSE gate semantics.
+            </p>
+          </section>"""
+
+          if marker in text:
+            updated = text.replace(marker, f"{marker}\n{block}")
+          elif "</body>" in text:
+            updated = text.replace("</body>", f"{block}\n</body>")
+          else:
+            updated = text + "\n" + block + "\n"
+
+          path.write_text(updated + ("\n" if not updated.endswith("\n") else ""), encoding="utf-8")
+          print("OK: injected diagnostics links into _site/report_card.html")
+          PY
+
       - name: Verify crawler assets present before upload
         shell: bash
         run: |
