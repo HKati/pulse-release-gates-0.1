@@ -260,6 +260,9 @@ jobs:
           def esc(x):
             return html.escape("" if x is None else str(x))
 
+          unstable_text = "\n".join(map(str, unstable)) if unstable else "(none)"
+          thresh_text = "\n".join(map(str, thresh)) if thresh else "(none)"
+
           body = f"""<!doctype html>
           <html lang="en">
           <head>
@@ -294,10 +297,10 @@ jobs:
             </ul>
 
             <h2>Unstable gates (first 50)</h2>
-            <pre>{esc("\\n".join(map(str, unstable)) if unstable else "(none)")}</pre>
+            <pre>{esc(unstable_text)}</pre>
 
             <h2>Threshold-like gates (first 50)</h2>
-            <pre>{esc("\\n".join(map(str, thresh)) if thresh else "(none)")}</pre>
+            <pre>{esc(thresh_text)}</pre>
 
             <p class="k">
               Diagnostic-only surface. Must not redefine normative PULSE gating semantics.
