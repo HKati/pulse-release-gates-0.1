@@ -149,6 +149,8 @@ jobs:
       - name: Prepare Pages site
         id: prepare
         shell: bash
+        env:
+          UPSTREAM_RUN_ID: ${{ steps.runid.outputs.run_id }}
         run: |
           set -euo pipefail
 
@@ -309,6 +311,225 @@ jobs:
           )
           PY
           fi
+
+          # --- Paradox Core v0 publish (deterministic, fail-closed) ---
+
+          ARTIFACT_TRANSITIONS_DIR="$(python3 - <<'PY'
+          from pathlib import Path
+
+          root = Path("_artifact")
+          required = {
+              "pulse_gate_drift_v0.csv",
+              "pulse_metric_drift_v0.csv",
+              "pulse_overlay_drift_v0.json",
+          }
+
+          candidates = []
+          for path in root.rglob("pulse_gate_drift_v0.csv"):
+            parent = path.parent
+            if all((parent / name).is_file() for name in required):
+              candidates.append(parent)
+
+          if candidates:
+            selected = sorted({p.as_posix() for p in candidates})[0]
+            print(selected)
+          else:
+            print("")
+          PY
+          )"
+
+          PARADOX_SOURCE=""
+          PARADOX_TRANSITIONS_DIR=""
+
+          if [ -n "$ARTIFACT_TRANSITIONS_DIR" ] && [ -d "$ARTIFACT_TRANSITIONS_DIR" ]; then
+            PARADOX_SOURCE="artifact_drift"
+            PARADOX_TRANSITIONS_DIR="$ARTIFACT_TRANSITIONS_DIR"
+          else
+            CASE_DIR="docs/examples/transitions_case_study_v0"
+            test -d "$CASE_DIR" || { echo "::error::Missing case study dir: $CASE_DIR"; exit 1; }
+
+            if [ -d "$CASE_DIR/transitions" ]; then
+              PARADOX_TRANSITIONS_DIR="$CASE_DIR/transitions"
+            elif [ -d "$CASE_DIR/transitions_gate_metric_tension_v0" ]; then
+              PARADOX_TRANSITIONS_DIR="$CASE_DIR/transitions_gate_metric_tension_v0"
+            elif ls "$CASE_DIR"/pulse_*_drift_v0* >/dev/null 2>&1; then
+              PARADOX_TRANSITIONS_DIR="$CASE_DIR"
+            else
+              PARADOX_TRANSITIONS_DIR="$(find "$CASE_DIR" -maxdepth 2 -type d -name 'transitions*' | sort | head -n 1 || true)"
+            fi
+
+            test -n "${PARADOX_TRANSITIONS_DIR:-}" || { echo "::error::No transitions dir found under: $CASE_DIR"; exit 1; }
+            test -d "$PARADOX_TRANSITIONS_DIR" || { echo "::error::Transitions dir not a directory: $PARADOX_TRANSITIONS_DIR"; exit 1; }
+            PARADOX_SOURCE="case_study"
+          fi
+
+          echo "paradox_source=$PARADOX_SOURCE" >> "$GITHUB_OUTPUT"
+          echo "paradox_transitions_dir=$PARADOX_TRANSITIONS_DIR" >> "$GITHUB_OUTPUT"
+          echo "Paradox Core source: $PARADOX_SOURCE"
+          echo "Paradox Core transitions dir: $PARADOX_TRANSITIONS_DIR"
+          export PARADOX_SOURCE
+          export PARADOX_TRANSITIONS_DIR
+
+          rm -rf out/paradox_core_bundle_v0 out/paradox_field_v0.json out/paradox_edges_v0.jsonl
+          mkdir -p out
+
+          python scripts/paradox_field_adapter_v0.py \
+            --transitions-dir "$PARADOX_TRANSITIONS_DIR" \
+            --out out/paradox_field_v0.json
+
+          python scripts/check_paradox_field_v0_contract.py \
+            --in out/paradox_field_v0.json
+
+          python scripts/export_paradox_edges_v0.py \
+            --in out/paradox_field_v0.json \
+            --out out/paradox_edges_v0.jsonl
+
+          python scripts/check_paradox_edges_v0_contract.py \
+            --in out/paradox_edges_v0.jsonl \
+            --atoms out/paradox_field_v0.json
+
+          python scripts/paradox_core_reviewer_bundle_v0.py \
+            --field out/paradox_field_v0.json \
+            --edges out/paradox_edges_v0.jsonl \
+            --out-dir out/paradox_core_bundle_v0 \
+            --k 12 \
+            --metric severity
+
+          python scripts/pages_publish_paradox_core_bundle_v0.py \
+            --bundle-dir out/paradox_core_bundle_v0 \
+            --site-dir _site \
+            --mount paradox/core/v0 \
+            --write-index
+
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          out = Path("_site/paradox/core/v0/source_v0.json")
+          out.parent.mkdir(parents=True, exist_ok=True)
+
+          data = {
+              "schema": "PULSE_paradox_pages_source_v0",
+              "version": "v0",
+              "upstream_run_id": os.environ.get("UPSTREAM_RUN_ID", ""),
+              "source": os.environ.get("PARADOX_SOURCE", ""),
+              "transitions_dir": os.environ.get("PARADOX_TRANSITIONS_DIR", ""),
+          }
+
+          out.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+          PY
+
+          python scripts/check_paradox_pages_source_v0_contract.py \
+            --in _site/paradox/core/v0/source_v0.json
+
+          test -s _site/paradox/core/v0/paradox_core_reviewer_card_v0.html || {
+            echo "::error::Missing paradox_core_reviewer_card_v0.html in _site/paradox/core/v0";
+            ls -la _site/paradox/core/v0 || true;
+            exit 1;
+          }
+
+          test -s _site/paradox/core/v0/paradox_diagram_v0.json || {
+            echo "::error::Missing paradox_diagram_v0.json in _site/paradox/core/v0";
+            ls -la _site/paradox/core/v0 || true;
+            exit 1;
+          }
+
+          if [ -f "_site/paradox/core/v0/paradox_diagram_v0.svg" ]; then
+            test -s _site/paradox/core/v0/paradox_diagram_v0.svg || {
+              echo "::error::paradox_diagram_v0.svg is present but empty.";
+              exit 1;
+            }
+          fi
+
+          # --- Diagnostics: Separation Phase surface (stable paths + short URLs) ---
+          SEPARATION_SRC="$(python3 - <<'PY'
+          from pathlib import Path
+
+          root = Path("_artifact")
+          candidates = []
+          for p in root.rglob("separation_phase_v0.json"):
+            parent = p.parent
+            candidates.append(parent)
+
+          if candidates:
+            print(sorted({p.as_posix() for p in candidates})[0])
+          else:
+            print("")
+          PY
+          )"
+
+          if [ -n "$SEPARATION_SRC" ] && [ -d "$SEPARATION_SRC" ]; then
+            target_dir="_site/diagnostics/separation_phase/v0"
+            mkdir -p "$target_dir"
+            for name in separation_phase_overlay.html separation_phase_v0.json separation_phase_overlay_v0.md; do
+              if [ -f "$SEPARATION_SRC/$name" ]; then
+                cp -a "$SEPARATION_SRC/$name" "$target_dir/$name"
+              fi
+            done
+            for name in separation_phase_overlay.html separation_phase_v0.json separation_phase_overlay_v0.md; do
+              if [ -f "$target_dir/$name" ]; then
+                cp -a "$target_dir/$name" "_site/$name"
+              fi
+            done
+          fi
+
+          # --- Crawler assets (robots + sitemap) ---
+          BASE_URL="$(python3 - <<'PY'
+          import os
+
+          repo = os.environ.get("GITHUB_REPOSITORY", "")
+          owner = os.environ.get("GITHUB_REPOSITORY_OWNER", "")
+          name = repo.split("/", 1)[1] if "/" in repo else repo
+
+          if name.lower() == f"{owner}.github.io".lower():
+            base = f"https://{owner}.github.io"
+          else:
+            base = f"https://{owner}.github.io/{name}"
+
+          print(base.rstrip("/"))
+          PY
+          )"
+          export BASE_URL
+
+          cat > _site/robots.txt <<EOF
+          User-agent: *
+          Allow: /
+          Sitemap: ${BASE_URL}/sitemap.xml
+          EOF
+
+          python3 - <<'PY'
+          from pathlib import Path
+          import os
+
+          site = Path("_site")
+          base = os.environ.get("BASE_URL", "").rstrip("/")
+          if not base:
+            raise SystemExit("BASE_URL is empty; cannot generate sitemap.xml")
+
+          urls = set()
+          for html in site.rglob("*.html"):
+            rel = html.relative_to(site).as_posix()
+            if rel == "index.html":
+              path = "/"
+            elif rel.endswith("/index.html"):
+              path = "/" + rel[: -len("index.html")]
+            else:
+              path = "/" + rel
+            urls.add(base + path)
+
+          lines = [
+            '<?xml version="1.0" encoding="UTF-8"?>',
+            '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
+          ]
+          for url in sorted(urls):
+            lines.append("  <url>")
+            lines.append(f"    <loc>{url}</loc>")
+            lines.append("  </url>")
+          lines.append("</urlset>")
+
+          (site / "sitemap.xml").write_text("\n".join(lines) + "\n", encoding="utf-8")
+          PY
 
           # NOTE: do not change site-root selection logic above. This step is purely about publishing/validating assets.
 
@@ -719,6 +940,7 @@ jobs:
           fetch "$BASE/schemas/gates.schema.json" schema_gates.schema.json
           fetch "$BASE/schemas/PULSE_paradox_field_v0.schema.json" schema_paradox_field.schema.json
           fetch "$BASE/schemas/separation_phase_v0.schema.json" schema_separation_phase.schema.json
+          fetch "$BASE/schemas/PULSE_diagnostics_manifest_v0.schema.json" schema_diagnostics_manifest.schema.json
 
           fetch "$BASE/paradox/core/v0/" paradox_core_index.html
           fetch "$BASE/paradox/core/v0/paradox_core_reviewer_card_v0.html" paradox_core_card.html
