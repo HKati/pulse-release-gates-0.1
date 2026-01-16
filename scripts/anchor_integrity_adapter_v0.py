@@ -42,24 +42,6 @@ def _safe_read_json(path: Path) -> Tuple[Optional[Dict[str, Any]], Optional[str]
         return None, f"Failed to parse JSON ({path}): {e}"
 
 
-def _float01(x: Any) -> Optional[float]:
-    if x is None:
-        return None
-    if isinstance(x, bool):
-        return None
-    if not isinstance(x, (int, float)):
-        return None
-    v = float(x)
-    if v < 0.0:
-        return None
-    # accept percentage [0..100] as a fallback
-    if 1.0 < v <= 100.0:
-        v = v / 100.0
-    if 0.0 <= v <= 1.0:
-        return v
-    return None
-
-
 def _extract_bool_gate(g: Any) -> Optional[bool]:
     """
     Heuristic: supports common shapes:
@@ -86,14 +68,112 @@ def _extract_bool_gate(g: Any) -> Optional[bool]:
     return None
 
 
+def _walk_gate_like_leaves(obj: Any, path: str, out: Dict[str, Any]) -> None:
+    """
+    Recursively collect "gate-like" leaves from nested dict/list structures.
+
+    - If a dict is directly parseable as a gate result (via _extract_bool_gate),
+      it is treated as a leaf.
+    - Otherwise recurse into dict keys.
+    - Lists are traversed; if an item is a dict with an id-like field, prefer that id.
+    """
+    if isinstance(obj, dict):
+        # Treat dict as leaf if it looks like a gate result
+        if _extract_bool_gate(obj) is not None:
+            out[path] = obj
+            return
+        for k in sorted(obj.keys(), key=lambda x: str(x)):
+            v = obj[k]
+            kp = f"{path}.{k}" if path else str(k)
+            _walk_gate_like_leaves(v, kp, out)
+        return
+
+    if isinstance(obj, list):
+        for i, item in enumerate(obj):
+            # If list element is a dict with an id/name, bind it deterministically
+            if isinstance(item, dict):
+                gid = item.get("id") or item.get("gate_id") or item.get("name")
+                if isinstance(gid, str) and gid.strip():
+                    kp = f"{path}.{gid}" if path else gid.strip()
+                    out[kp] = item
+                    continue
+            kp = f"{path}[{i}]" if path else f"[{i}]"
+            _walk_gate_like_leaves(item, kp, out)
+        return
+
+    # Primitive leaf: may be bool or PASS/FAIL string
+    out[path] = obj
+
+
+def _last_token(p: str) -> str:
+    # Convert "results.security.q1_grounded_ok" -> "q1_grounded_ok"
+    # Convert "foo[0]" -> "foo"
+    t = p.split(".")[-1]
+    if "[" in t:
+        t = t.split("[", 1)[0]
+    return t.strip()
+
+
 def _extract_gates(status: Dict[str, Any]) -> Dict[str, bool]:
+    """
+    Returns mapping gate_id -> pass_bool.
+
+    Supports:
+      - status["gates"] as dict
+      - status["gates"] as list of {id/gate_id/name, ...}
+      - fallback variants: status["gate_results"], status["results"], status["checks"]
+        including nested results.* structures.
+
+    Deterministic: stable ordering, first-wins for duplicate leaf ids (sorted by path).
+    """
     out: Dict[str, bool] = {}
+
+    # 1) Primary: status.gates
     gates = status.get("gates")
+
     if isinstance(gates, dict):
-        for gid in sorted(gates.keys()):
+        for gid in sorted(gates.keys(), key=lambda x: str(x)):
             v = _extract_bool_gate(gates[gid])
             if v is not None:
                 out[str(gid)] = bool(v)
+        return out
+
+    if isinstance(gates, list):
+        tmp: Dict[str, bool] = {}
+        for item in gates:
+            if not isinstance(item, dict):
+                continue
+            gid = item.get("id") or item.get("gate_id") or item.get("name")
+            if not isinstance(gid, str) or not gid.strip():
+                continue
+            v = _extract_bool_gate(item)
+            if v is not None:
+                tmp[gid.strip()] = bool(v)
+        return dict(sorted(tmp.items(), key=lambda kv: kv[0]))
+
+    # 2) Fallback: gate_results / results / checks (possibly nested)
+    for alt in ("gate_results", "results", "checks"):
+        g = status.get(alt)
+        if not isinstance(g, (dict, list)):
+            continue
+
+        leaves: Dict[str, Any] = {}
+        _walk_gate_like_leaves(g, alt, leaves)
+
+        # Deterministic pick: sort by path, then map leaf id (= last token) to bool.
+        for pth in sorted(leaves.keys()):
+            leaf_id = _last_token(pth)
+            if not leaf_id:
+                continue
+            if leaf_id in out:
+                continue  # first wins, deterministic due to sorted paths
+            v = _extract_bool_gate(leaves[pth])
+            if v is not None:
+                out[leaf_id] = bool(v)
+
+        if out:
+            return dict(sorted(out.items(), key=lambda kv: kv[0]))
+
     return out
 
 
@@ -129,7 +209,7 @@ def _anchor_signals_from_status(status: Dict[str, Any]) -> Tuple[Optional[bool],
         evidence.append({"kind": "signal", "message": f"{label}: {gid}={gates[gid]}"})
 
     if used == 0:
-        evidence.append({"kind": "note", "message": "No anchor-proxy gates found in status.gates; treating anchor as unknown."})
+        evidence.append({"kind": "note", "message": "No anchor-proxy gates found in status; treating anchor as unknown."})
         return None, None, evidence
 
     # anchor_presence: if we have any signal and at least one anchor-ish gate is True.
