@@ -492,11 +492,18 @@ jobs:
           )"
           export BASE_URL
 
-          cat > _site/robots.txt <<EOF
-          User-agent: *
-          Allow: /
-          Sitemap: ${BASE_URL}/sitemap.xml
-          EOF
+          python3 - <<'PY'
+          from pathlib import Path
+          import os
+          base = os.environ["BASE_URL"].rstrip("/")
+          Path("_site/robots.txt").write_text(
+              "User-agent: *\n"
+              "Allow: /\n"
+              f"Sitemap: {base}/sitemap.xml\n",
+              encoding="utf-8",
+          )
+          print(f"OK: wrote _site/robots.txt (base={base})")
+          PY
 
           python3 - <<'PY'
           from pathlib import Path
@@ -794,6 +801,9 @@ jobs:
             cat _site/robots.txt || true
             exit 1
           fi
+
+          grep -q '^User-agent:' _site/robots.txt
+          grep -q '^Sitemap:' _site/robots.txt
 
       - name: Workflow summary (Pages publish)
         if: always()
