@@ -235,85 +235,81 @@ jobs:
 
           # 4) Tiny static HTML viewer (no deps) – good for Pages browsing
           python - <<'PY'
-          import json, html, os, sys
+          import json, html, os
           from pathlib import Path
 
-          try:
-            out_json = Path(os.environ["OUT_JSON"])
-            out_html = Path(os.environ["OUT_HTML"])
+          out_json = Path(os.environ["OUT_JSON"])
+          out_html = Path(os.environ["OUT_HTML"])
 
-            d = json.loads(out_json.read_text(encoding="utf-8"))
+          d = json.loads(out_json.read_text(encoding="utf-8"))
 
-            state = d.get("state", "UNKNOWN")
-            rec = d.get("recommendation") or {}
-            action = rec.get("gate_action", "CLOSED")
-            rationale = rec.get("rationale", "")
+          state = d.get("state", "UNKNOWN")
+          rec = d.get("recommendation") or {}
+          action = rec.get("gate_action", "CLOSED")
+          rationale = rec.get("rationale", "")
 
-            inv = d.get("invariants") or {}
-            os_ = inv.get("order_stability") or {}
-            score = os_.get("score")
-            n_runs = os_.get("n_runs")
-            unstable = (os_.get("unstable_gates") or [])[:50]
+          inv = d.get("invariants") or {}
+          os_ = inv.get("order_stability") or {}
+          score = os_.get("score")
+          n_runs = os_.get("n_runs")
+          unstable = (os_.get("unstable_gates") or [])[:50]
 
-            ts = inv.get("threshold_sensitivity") or {}
-            thresh = (ts.get("threshold_like_gates") or [])[:50]
+          ts = inv.get("threshold_sensitivity") or {}
+          thresh = (ts.get("threshold_like_gates") or [])[:50]
 
-            def esc(x):
-              return html.escape("" if x is None else str(x))
+          def esc(x):
+            return html.escape("" if x is None else str(x))
 
-            unstable_text = "\n".join(map(str, unstable)) if unstable else "(none)"
-            thresh_text = "\n".join(map(str, thresh)) if thresh else "(none)"
+          unstable_text = "\n".join(map(str, unstable)) if unstable else "(none)"
+          thresh_text = "\n".join(map(str, thresh)) if thresh else "(none)"
 
-            body = f"""<!doctype html>
-            <html lang="en">
-            <head>
-              <meta charset="utf-8" />
-              <meta name="viewport" content="width=device-width, initial-scale=1" />
-              <title>Separation Phase Overlay (v0)</title>
-              <style>
-                body {{ font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
-                       margin: 24px; max-width: 980px; }}
-                code, pre {{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }}
-                .k {{ color: #555; }}
-                .box {{ padding: 12px 14px; border: 1px solid #ddd; border-radius: 8px; background: #fafafa; }}
-                pre {{ padding: 10px 12px; border: 1px solid #eee; border-radius: 8px; background: #fff; overflow-x: auto; }}
-              </style>
-            </head>
-            <body>
-              <h1>Separation Phase Overlay (v0)</h1>
+          body = f"""<!doctype html>
+          <html lang="en">
+          <head>
+            <meta charset="utf-8" />
+            <meta name="viewport" content="width=device-width, initial-scale=1" />
+            <title>Separation Phase Overlay (v0)</title>
+            <style>
+              body {{ font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+                     margin: 24px; max-width: 980px; }}
+              code, pre {{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }}
+              .k {{ color: #555; }}
+              .box {{ padding: 12px 14px; border: 1px solid #ddd; border-radius: 8px; background: #fafafa; }}
+              pre {{ padding: 10px 12px; border: 1px solid #eee; border-radius: 8px; background: #fff; overflow-x: auto; }}
+            </style>
+          </head>
+          <body>
+            <h1>Separation Phase Overlay (v0)</h1>
 
-              <div class="box">
-                <p><span class="k">State:</span> <strong>{esc(state)}</strong></p>
-                <p><span class="k">Recommendation:</span> <strong>{esc(action)}</strong></p>
-                <p><span class="k">Rationale:</span> {esc(rationale)}</p>
-                <p><span class="k">Order-stability score:</span> <strong>{esc(score)}</strong>
-                   <span class="k">(n_runs={esc(n_runs)})</span></p>
-              </div>
+            <div class="box">
+              <p><span class="k">State:</span> <strong>{esc(state)}</strong></p>
+              <p><span class="k">Recommendation:</span> <strong>{esc(action)}</strong></p>
+              <p><span class="k">Rationale:</span> {esc(rationale)}</p>
+              <p><span class="k">Order-stability score:</span> <strong>{esc(score)}</strong>
+                 <span class="k">(n_runs={esc(n_runs)})</span></p>
+            </div>
 
-              <h2>Artifacts</h2>
-              <ul>
-                <li><a href="separation_phase_v0.json">separation_phase_v0.json</a></li>
-                <li><a href="separation_phase_overlay_v0.md">separation_phase_overlay_v0.md</a></li>
-                <li><a href="status.json">status.json</a></li>
-              </ul>
+            <h2>Artifacts</h2>
+            <ul>
+              <li><a href="separation_phase_v0.json">separation_phase_v0.json</a></li>
+              <li><a href="separation_phase_overlay_v0.md">separation_phase_overlay_v0.md</a></li>
+              <li><a href="status.json">status.json</a></li>
+            </ul>
 
-              <h2>Unstable gates (first 50)</h2>
-              <pre>{esc(unstable_text)}</pre>
+            <h2>Unstable gates (first 50)</h2>
+            <pre>{esc(unstable_text)}</pre>
 
-              <h2>Threshold-like gates (first 50)</h2>
-              <pre>{esc(thresh_text)}</pre>
+            <h2>Threshold-like gates (first 50)</h2>
+            <pre>{esc(thresh_text)}</pre>
 
-              <p class="k">
-                Diagnostic-only surface. Must not redefine normative PULSE gating semantics.
-              </p>
-            </body>
-            </html>
-            """
-            out_html.write_text(body + "\n", encoding="utf-8")
-            print(f"OK: wrote {out_html}")
-          except Exception as exc:
-            print(f"::warning::Separation phase HTML viewer generation failed: {exc}")
-            sys.exit(0)
+            <p class="k">
+              Diagnostic-only surface. Must not redefine normative PULSE gating semantics.
+            </p>
+          </body>
+          </html>
+          """
+          out_html.write_text(body + "\n", encoding="utf-8")
+          print(f"OK: wrote {out_html}")
           PY
 
       - name: Enforce gates (fail-closed)
@@ -364,6 +360,7 @@ jobs:
           fi
           if [ -f sarif.json ]; then
             mv sarif.json reports/sarif.json
+          fi
 
       - name: Generate badges (artifact only)
         if: always()
@@ -406,6 +403,7 @@ jobs:
             echo '```' >> "$GITHUB_STEP_SUMMARY"
           else
             echo "_No status.json produced (or jq missing)._ " >> "$GITHUB_STEP_SUMMARY"
+          fi
 
       - name: Upload artifacts
         if: always()
