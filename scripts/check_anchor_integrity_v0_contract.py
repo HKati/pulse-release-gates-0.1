@@ -54,7 +54,12 @@ def _is_bool_or_null(x: Any) -> bool:
 
 
 def _is_int_or_null_nonneg(x: Any) -> bool:
-    return x is None or (isinstance(x, int) and x >= 0)
+    if x is None:
+        return True
+    # IMPORTANT: bool is a subclass of int in Python → explicitly reject.
+    if isinstance(x, bool):
+        return False
+    return isinstance(x, int) and x >= 0
 
 
 def _is_float01_or_null(x: Any) -> bool:
