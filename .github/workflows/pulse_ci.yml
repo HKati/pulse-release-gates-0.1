@@ -186,6 +186,25 @@ jobs:
           fi
           echo "--------------------------------"
 
+      - name: Generate Anchor Integrity overlay artifacts (diagnostic-only)
+        if: always()
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${SOURCE_DATE_EPOCH:-}" ]; then
+            SOURCE_DATE_EPOCH="$(git log -1 --format=%ct)"
+            echo "SOURCE_DATE_EPOCH=$SOURCE_DATE_EPOCH" >> "$GITHUB_ENV"
+          fi
+
+          STATUS="${{ env.PACK_DIR }}/artifacts/status.json"
+          OUT_JSON="${{ env.PACK_DIR }}/artifacts/anchor_integrity_v0.json"
+          OUT_MD="${{ env.PACK_DIR }}/artifacts/anchor_integrity_overlay_v0.md"
+
+          python scripts/anchor_integrity_adapter_v0.py --status "$STATUS" --out "$OUT_JSON"
+          python scripts/check_anchor_integrity_v0_contract.py --in "$OUT_JSON"
+          python scripts/render_anchor_integrity_overlay_v0_md.py --in "$OUT_JSON" --out "$OUT_MD"
+
       - name: Generate Separation Phase overlay artifacts (diagnostic, for Pages)
         if: always()
         continue-on-error: true
