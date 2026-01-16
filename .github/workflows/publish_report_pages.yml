@@ -277,388 +277,40 @@ jobs:
               "    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />\n"
               "    <link rel=\"canonical\" href=\"report_card.html\" />\n"
               "    <meta http-equiv=\"refresh\" content=\"0; url=report_card.html\" />\n"
-              "    <title>Redirecting…</title>\n"
               "  </head>\n"
               "  <body>\n"
-              "    <p>Redirecting to <a href=\"report_card.html\">report_card.html</a>…</p>\n"
+              "    <p>Redirecting to <a href=\"report_card.html\">report_card.html</a>...</p>\n"
               "  </body>\n"
-              "</html>\n",
-              encoding="utf-8",
+              "</html>\n"
           )
-          print("OK: wrote _site/report_card.htm")
           PY
           fi
 
-          # --- Paradox Core v0 (static Pages surface; Pages must not compute semantics) ---
-
-          CASE_DIR="docs/examples/transitions_case_study_v0"
-          test -d "$CASE_DIR" || { echo "::error::Missing case study dir: $CASE_DIR"; exit 1; }
-
-          # Prefer drift/transitions inputs from the downloaded pulse-report artifact if present.
-          # Deterministic selection: score by path heuristics + drift file count, tie-break by path.
-          ARTIFACT_TRANSITIONS_DIR="$(python3 - <<'PY'
-          import fnmatch
-          import pathlib
-
-          root = pathlib.Path("_artifact")
-          cand_counts = {}
-
-          for p in root.rglob("*"):
-            if not p.is_file():
-              continue
-            if fnmatch.fnmatch(p.name, "pulse_*_drift_v0*"):
-              d = p.parent
-              key = str(d).replace("\\", "/")
-              cand_counts[key] = cand_counts.get(key, 0) + 1
-
-          scored = []
-          for d, count in cand_counts.items():
-            parts = [x.lower() for x in pathlib.Path(d).parts]
-            score = 0
-
-            # Prefer places where run artifacts usually live.
-            if "pulse_safe_pack_v0" in parts:
-              score += 6
-            if "artifacts" in parts:
-              score += 6
-            if "reports" in parts:
-              score += 2
-            if any("transitions" in x for x in parts):
-              score += 3
-            if "logs" in parts:
-              score += 1
-
-            # Avoid test/fixture-like paths if they ever appear in artifacts.
-            if "tests" in parts:
-              score -= 10
-            if "fixtures" in parts:
-              score -= 10
-
-            # More drift files -> better (cap keeps scoring stable).
-            score += min(5, int(count))
-
-            # Prefer shallower paths.
-            score -= len(parts)
-
-            scored.append((score, d))
-
-          scored.sort(key=lambda t: (-t[0], t[1]))
-          print(scored[0][1] if scored else "")
-          PY
-          )"
-
-          TRANSITIONS_DIR=""
-          PARADOX_SOURCE="case_study"
-
-          # NEW: require a complete drift file set before selecting artifact dir (avoid partial/old artifacts).
-          has_required_drift_files () {
-            local d="$1"
-            test -f "$d/pulse_gate_drift_v0.csv" && \
-            test -f "$d/pulse_metric_drift_v0.csv" && \
-            test -f "$d/pulse_overlay_drift_v0.json"
-          }
-
-          if [ -n "${ARTIFACT_TRANSITIONS_DIR:-}" ] \
-            && [ -d "${ARTIFACT_TRANSITIONS_DIR:-}" ] \
-            && has_required_drift_files "${ARTIFACT_TRANSITIONS_DIR:-}"; then
-            TRANSITIONS_DIR="${ARTIFACT_TRANSITIONS_DIR}"
-            PARADOX_SOURCE="artifact_drift"
+          # Ensure /diagnostics.html exists and points to /diagnostics/ (legacy redirect).
+          if [ -f "docs/diagnostics.html" ]; then
+            cp -f "docs/diagnostics.html" "_site/diagnostics.html"
           else
-            if [ -n "${ARTIFACT_TRANSITIONS_DIR:-}" ] && [ -d "${ARTIFACT_TRANSITIONS_DIR:-}" ]; then
-              echo "::warning::Artifact drift dir exists but is missing required drift files; falling back to case study."
-              echo "::warning::Required: pulse_gate_drift_v0.csv, pulse_metric_drift_v0.csv, pulse_overlay_drift_v0.json"
-              ls -la "${ARTIFACT_TRANSITIONS_DIR:-}" | sed 's/^/::warning::  /' || true
-            fi
-            TRANSITIONS_DIR="$CASE_DIR"
-          fi
-
-          echo "Paradox Core source: ${PARADOX_SOURCE} (transitions_dir=${TRANSITIONS_DIR})"
-          echo "paradox_source=${PARADOX_SOURCE}" >> "$GITHUB_OUTPUT"
-          echo "paradox_transitions_dir=${TRANSITIONS_DIR}" >> "$GITHUB_OUTPUT"
-
-          rm -rf out/paradox_pages_v0
-          mkdir -p out/paradox_pages_v0
-
-          # Build paradox_field_v0 + edges from selected transitions dir
-          python3 scripts/paradox_field_adapter_v0.py \
-            --transitions-dir "$TRANSITIONS_DIR" \
-            --out out/paradox_pages_v0/paradox_field_v0.json
-
-          python3 scripts/check_paradox_field_v0_contract.py \
-            --in out/paradox_pages_v0/paradox_field_v0.json
-
-          python3 scripts/export_paradox_edges_v0.py \
-            --in out/paradox_pages_v0/paradox_field_v0.json \
-            --out out/paradox_pages_v0/paradox_edges_v0.jsonl
-
-          python3 scripts/check_paradox_edges_v0_contract.py \
-            --in out/paradox_pages_v0/paradox_edges_v0.jsonl \
-            --atoms out/paradox_pages_v0/paradox_field_v0.json
-
-          # Build the deterministic reviewer bundle (core JSON + summary MD + SVG + reviewer card HTML).
-          python3 scripts/paradox_core_reviewer_bundle_v0.py \
-            --field out/paradox_pages_v0/paradox_field_v0.json \
-            --edges out/paradox_pages_v0/paradox_edges_v0.jsonl \
-            --out-dir out/paradox_pages_v0/paradox_core_bundle_v0 \
-            --k 12 \
-            --metric severity
-
-          # Publish the bundle as static assets (no compute in Pages).
-          python3 scripts/pages_publish_paradox_core_bundle_v0.py \
-            --bundle-dir out/paradox_pages_v0/paradox_core_bundle_v0 \
-            --site-dir _site \
-            --mount paradox/core/v0 \
-            --write-index
-
-          # Fail-closed: reviewer card must exist at the mount.
-          test -s "_site/paradox/core/v0/paradox_core_reviewer_card_v0.html" || { echo "::error::Missing published reviewer card under _site/paradox/core/v0"; exit 1; }
-
-          # Fail-closed: diagram JSON must exist at the mount (static publish).
-          test -s "_site/paradox/core/v0/paradox_diagram_v0.json" || { echo "::error::Missing published Paradox Diagram JSON under _site/paradox/core/v0"; exit 1; }
-
-          # Best-effort: diagram SVG is optional (some runs may legitimately skip SVG generation).
-          # If present, it must be non-empty (catch broken/partial outputs).
-          if [ -f "_site/paradox/core/v0/paradox_diagram_v0.svg" ]; then
-            test -s "_site/paradox/core/v0/paradox_diagram_v0.svg" || { echo "::error::Paradox Diagram SVG is present but empty under _site/paradox/core/v0"; exit 1; }
-          else
-            echo "::warning::Paradox Diagram SVG missing under _site/paradox/core/v0 (best-effort optional)."
-          fi
-
-          # Provenance (audit-friendly; no timestamps)
-          UPSTREAM_RUN_ID="${{ steps.runid.outputs.run_id }}"
-          export UPSTREAM_RUN_ID PARADOX_SOURCE TRANSITIONS_DIR
-
-          python3 - <<'PY'
-          import json, os
+            python3 - <<'PY'
           from pathlib import Path
-
-          out = {
-            "schema": "PULSE_paradox_pages_source_v0",
-            "version": "v0",
-            "upstream_run_id": os.environ.get("UPSTREAM_RUN_ID", ""),
-            "source": os.environ.get("PARADOX_SOURCE", ""),
-            "transitions_dir": os.environ.get("TRANSITIONS_DIR", ""),
-          }
-
-          p = Path("_site/paradox/core/v0/source_v0.json")
-          p.parent.mkdir(parents=True, exist_ok=True)
-          p.write_text(json.dumps(out, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-          print("OK: wrote", str(p))
-          PY
-
-          # --- Crawler assets (generate from _site; canonical & whitespace-proof) ---
-          OWNER="${GITHUB_REPOSITORY%%/*}"
-          OWNER="${OWNER,,}"
-          REPO="${GITHUB_REPOSITORY#*/}"
-          BASE="https://${OWNER}.github.io/${REPO}"
-          BASE="${BASE%/}"
-          export BASE
-
-          # robots.txt
-          python3 - <<'PY'
-          from pathlib import Path
-          import os
-
-          base = os.environ["BASE"].rstrip("/")
-          Path("_site/robots.txt").write_text(
-              "User-agent: *\n"
-              "Allow: /\n"
-              f"Sitemap: {base}/sitemap.xml\n",
-              encoding="utf-8",
+          Path("_site/diagnostics.html").write_text(
+              "<!doctype html>\n"
+              "<html lang=\"en\">\n"
+              "  <head>\n"
+              "    <meta charset=\"utf-8\" />\n"
+              "    <meta name=\"robots\" content=\"noindex,follow\" />\n"
+              "    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />\n"
+              "    <link rel=\"canonical\" href=\"diagnostics/\" />\n"
+              "    <meta http-equiv=\"refresh\" content=\"0; url=diagnostics/\" />\n"
+              "  </head>\n"
+              "  <body>\n"
+              "    <p>Redirecting to <a href=\"diagnostics/\">diagnostics/</a>...</p>\n"
+              "  </body>\n"
+              "</html>\n"
           )
-          print(f"OK: wrote _site/robots.txt (base={base})")
           PY
-
-          # sitemap.xml from published HTML set
-          python3 - <<'PY'
-          import pathlib, datetime, os
-
-          BASE = os.environ["BASE"].rstrip("/")
-          root = pathlib.Path("_site")
-
-          urls = []
-          for p in sorted(root.rglob("*.html")):
-              rel = p.relative_to(root).as_posix()
-              if rel == "index.html":
-                  urls.append(f"{BASE}/")
-              elif rel.endswith("/index.html"):
-                  urls.append(f"{BASE}/{rel[:-len('index.html')]}")
-              else:
-                  urls.append(f"{BASE}/{rel}")
-
-          if not urls:
-              raise SystemExit("::error::No HTML files found in _site; cannot generate sitemap.")
-
-          now = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
-          lines = [
-              '<?xml version="1.0" encoding="UTF-8"?>',
-              '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
-          ]
-          for u in urls:
-              lines += ["  <url>", f"    <loc>{u}</loc>", f"    <lastmod>{now}</lastmod>", "  </url>"]
-          lines.append("</urlset>")
-          (root / "sitemap.xml").write_text("\n".join(lines) + "\n", encoding="utf-8")
-          print(f"OK: wrote _site/sitemap.xml with {len(urls)} URLs")
-          PY
-
-          echo ""
-          echo "Top-level in _site:"
-          ls -la _site | sed 's/^/  /'
-
-      - name: Surface Separation Phase overlay (stable Pages paths)
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          # Prefer the Separation Phase overlay generated by the PULSE pack artifacts, but be robust:
-          # pick the "best" separation_phase_v0.json anywhere in the downloaded artifact bundle.
-          # Bonus if companion files are colocated.
-          SRC_JSON="$(python3 - <<'PY'
-          import pathlib
-
-          root = pathlib.Path("_artifact")
-          candidates = []
-          for p in root.rglob("separation_phase_v0.json"):
-              s = str(p).replace("\\", "/")
-              if "/node_modules/" in s:
-                  continue
-              parts = [x.lower() for x in p.parts]
-              score = 0
-              if "pulse_safe_pack_v0" in parts:
-                  score += 6
-              if "artifacts" in parts:
-                  score += 6
-              if "overlays" in parts:
-                  score += 2
-              if "diagnostics" in parts:
-                  score += 2
-              if "reports" in parts:
-                  score += 1
-              if "tests" in parts or "fixtures" in parts:
-                  score -= 10
-
-              parent = p.parent
-              html = parent / "separation_phase_overlay.html"
-              md = parent / "separation_phase_overlay_v0.md"
-              if html.exists():
-                  score += 3
-              if md.exists():
-                  score += 2
-
-              score -= len(parts)
-              candidates.append((score, p))
-
-          candidates.sort(key=lambda t: (-t[0], str(t[1]).replace("\\", "/")))
-          print(str(candidates[0][1]) if candidates else "")
-          PY
-          )"
-
-          if [ -z "${SRC_JSON:-}" ] || [ ! -f "${SRC_JSON:-}" ]; then
-            echo "::notice::No separation_phase_v0.json found in _artifact; skipping separation phase surfacing."
-            exit 0
           fi
 
-          SRC_DIR="$(dirname "$SRC_JSON")"
-          DEST_DIR="_site/diagnostics/separation_phase/v0"
-
-          mkdir -p "$DEST_DIR"
-
-          echo "Surfacing Separation Phase artifacts from: $SRC_DIR"
-          echo "Into: $DEST_DIR"
-
-          # Always copy JSON (anchor)
-          cp -f "$SRC_DIR/separation_phase_v0.json" "$DEST_DIR/separation_phase_v0.json"
-
-          # Optional companions: prefer colocated files; fall back to best-effort global search.
-          SRC_MD="$SRC_DIR/separation_phase_overlay_v0.md"
-          SRC_HTML="$SRC_DIR/separation_phase_overlay.html"
-
-          if [ ! -f "$SRC_MD" ]; then
-            SRC_MD="$(python3 - <<'PY'
-          import pathlib
-          root = pathlib.Path("_artifact")
-          cands = []
-          for p in root.rglob("separation_phase_overlay_v0.md"):
-              s = str(p).replace("\\", "/")
-              if "/node_modules/" in s:
-                  continue
-              parts = [x.lower() for x in p.parts]
-              score = 0
-              if "pulse_safe_pack_v0" in parts:
-                  score += 6
-              if "artifacts" in parts:
-                  score += 6
-              if "overlays" in parts:
-                  score += 2
-              if "diagnostics" in parts:
-                  score += 2
-              if "reports" in parts:
-                  score += 1
-              if "tests" in parts or "fixtures" in parts:
-                  score -= 10
-              score -= len(parts)
-              cands.append((score, p))
-          cands.sort(key=lambda t: (-t[0], str(t[1]).replace("\\", "/")))
-          print(str(cands[0][1]) if cands else "")
-          PY
-            )"
-          fi
-
-          if [ ! -f "$SRC_HTML" ]; then
-            SRC_HTML="$(python3 - <<'PY'
-          import pathlib
-          root = pathlib.Path("_artifact")
-          cands = []
-          for p in root.rglob("separation_phase_overlay.html"):
-              s = str(p).replace("\\", "/")
-              if "/node_modules/" in s:
-                  continue
-              parts = [x.lower() for x in p.parts]
-              score = 0
-              if "pulse_safe_pack_v0" in parts:
-                  score += 6
-              if "artifacts" in parts:
-                  score += 6
-              if "overlays" in parts:
-                  score += 2
-              if "diagnostics" in parts:
-                  score += 2
-              if "reports" in parts:
-                  score += 1
-              if "tests" in parts or "fixtures" in parts:
-                  score -= 10
-              score -= len(parts)
-              cands.append((score, p))
-          cands.sort(key=lambda t: (-t[0], str(t[1]).replace("\\", "/")))
-          print(str(cands[0][1]) if cands else "")
-          PY
-            )"
-          fi
-
-          if [ -n "${SRC_MD:-}" ] && [ -f "$SRC_MD" ]; then
-            cp -f "$SRC_MD" "$DEST_DIR/separation_phase_overlay_v0.md"
-          else
-            echo "::warning::Missing separation_phase_overlay_v0.md (no candidate found in _artifact)"
-          fi
-
-          if [ -n "${SRC_HTML:-}" ] && [ -f "$SRC_HTML" ]; then
-            cp -f "$SRC_HTML" "$DEST_DIR/separation_phase_overlay.html"
-          else
-            echo "::warning::Missing separation_phase_overlay.html (no candidate found in _artifact)"
-          fi
-
-          # Stable short URLs at site root (convenience/backward compatibility)
-          cp -f "$DEST_DIR/separation_phase_v0.json" "_site/separation_phase_v0.json"
-
-          if [ -f "$DEST_DIR/separation_phase_overlay_v0.md" ]; then
-            cp -f "$DEST_DIR/separation_phase_overlay_v0.md" "_site/separation_phase_overlay_v0.md"
-          fi
-
-          if [ -f "$DEST_DIR/separation_phase_overlay.html" ]; then
-            cp -f "$DEST_DIR/separation_phase_overlay.html" "_site/separation_phase_overlay.html"
-          fi
-
-          echo "OK: Separation Phase artifacts surfaced to stable Pages paths."
+          # NOTE: do not change site-root selection logic above. This step is purely about publishing/validating assets.
 
       - name: Publish schemas to Pages output
         shell: bash
@@ -696,6 +348,12 @@ jobs:
 
           if [ ! -s "_site/schemas/separation_phase_v0.schema.json" ]; then
             echo "::error::Expected _site/schemas/separation_phase_v0.schema.json to exist and be non-empty before publish."
+            ls -la _site/schemas || true
+            exit 1
+          fi
+
+          if [ ! -s "_site/schemas/PULSE_diagnostics_manifest_v0.schema.json" ]; then
+            echo "::error::Expected _site/schemas/PULSE_diagnostics_manifest_v0.schema.json to exist and be non-empty before publish."
             ls -la _site/schemas || true
             exit 1
           fi
@@ -739,186 +397,104 @@ jobs:
           if exists(site / "reports"):
             items.append(("Reports", "../reports/", "JUnit/SARIF and other report artifacts."))
 
-          def esc(x: str) -> str:
-            return html.escape(x, quote=True)
+          if not items:
+            items.append(("No diagnostics assets found", "../", "The site root is available above."))
 
-          rows = []
-          for title, href, desc in items:
-            rows.append(
-              f'<li><a href="{esc(href)}">{esc(title)}</a>'
-              f'<div style="color:#555;margin-top:4px">{esc(desc)}</div></li>'
-            )
+          rows = "\n".join(
+            f"<tr><td><a href=\"{html.escape(url)}\">{html.escape(label)}</a></td>"
+            f"<td>{html.escape(desc)}</td></tr>"
+            for label, url, desc in items
+          )
 
-          body = f"""<!doctype html>
+          content = f"""
+          <!doctype html>
           <html lang="en">
             <head>
               <meta charset="utf-8" />
               <meta name="viewport" content="width=device-width, initial-scale=1" />
-              <title>Diagnostics</title>
+              <title>PULSE diagnostics</title>
               <style>
-                body {{ font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
-                       margin: 24px; max-width: 980px; }}
-                code {{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }}
-                li {{ margin: 14px 0; padding: 12px 14px; border: 1px solid #ddd; border-radius: 10px; background: #fafafa; }}
-                a {{ text-decoration: none; }}
-                a:hover {{ text-decoration: underline; }}
+                body {{
+                  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+                  margin: 2rem;
+                  line-height: 1.5;
+                }}
+                table {{
+                  border-collapse: collapse;
+                  width: 100%;
+                }}
+                th, td {{
+                  border: 1px solid #ddd;
+                  padding: 0.5rem 0.75rem;
+                  text-align: left;
+                }}
+                th {{
+                  background: #f5f5f5;
+                }}
               </style>
             </head>
             <body>
-              <h1>Diagnostics</h1>
-              <p style="color:#555">
-                Static, audit-friendly diagnostic surfaces. These pages do not change normative PULSE gating.
-              </p>
-              <ul style="list-style:none;padding-left:0">
-                {''.join(rows) if rows else '<li>(no diagnostics surfaced in this run)</li>'}
-              </ul>
+              <h1>PULSE diagnostics</h1>
+              <p>Diagnostics assets published with this report run.</p>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Artifact</th>
+                    <th>Description</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows}
+                </tbody>
+              </table>
             </body>
           </html>
           """
 
-          (diag / "index.html").write_text(body + "\n", encoding="utf-8")
-
-          # Convenience redirect at site root: /diagnostics.html -> /diagnostics/
-          (site / "diagnostics.html").write_text(
-            "<!doctype html><html lang=\"en\"><meta charset=\"utf-8\" />"
-            "<meta http-equiv=\"refresh\" content=\"0; url=diagnostics/\" />"
-            "<title>Redirecting…</title><body>"
-            "<p>Redirecting to <a href=\"diagnostics/\">diagnostics/</a>…</p></body></html>\n",
-            encoding="utf-8",
-          )
-
-          print("OK: wrote _site/diagnostics/index.html and _site/diagnostics.html")
+          (diag / "index.html").write_text(content.strip() + "\n", encoding="utf-8")
+          print("OK: wrote diagnostics index.")
           PY
 
-      - name: Regenerate sitemap.xml from final _site
+      - name: Generate diagnostics manifest
         shell: bash
+        env:
+          UPSTREAM_RUN_ID: ${{ steps.runid.outputs.run_id }}
+          PUBLISH_MODE: ${{ steps.prepare.outputs.mode }}
+          PUBLISH_SITE_ROOT: ${{ steps.prepare.outputs.site_root }}
         run: |
           set -euo pipefail
 
-          OWNER="${GITHUB_REPOSITORY%%/*}"
-          OWNER="${OWNER,,}"
-          REPO="${GITHUB_REPOSITORY#*/}"
-          BASE="https://${OWNER}.github.io/${REPO}"
-          BASE="${BASE%/}"
-          export BASE
-
           python3 - <<'PY'
-          import pathlib, datetime, os
+          from __future__ import annotations
 
-          BASE = os.environ["BASE"].rstrip("/")
-          root = pathlib.Path("_site")
-
-          urls = []
-          for p in sorted(root.rglob("*.html")):
-              rel = p.relative_to(root).as_posix()
-              if rel == "index.html":
-                  urls.append(f"{BASE}/")
-              elif rel.endswith("/index.html"):
-                  urls.append(f"{BASE}/{rel[:-len('index.html')]}")
-              else:
-                  urls.append(f"{BASE}/{rel}")
-
-          if not urls:
-              raise SystemExit("::error::No HTML files found in _site; cannot generate sitemap.")
-
-          now = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
-          lines = [
-              '<?xml version="1.0" encoding="UTF-8"?>',
-              '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
-          ]
-          for u in urls:
-              lines += ["  <url>", f"    <loc>{u}</loc>", f"    <lastmod>{now}</lastmod>", "  </url>"]
-          lines.append("</urlset>")
-
-          (root / "sitemap.xml").write_text("\n".join(lines) + "\n", encoding="utf-8")
-          print(f"OK: rewrote _site/sitemap.xml with {len(urls)} URLs")
-          PY
-
-      - name: Inject diagnostics links into report card (best-effort)
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          if [ ! -f "_site/report_card.html" ]; then
-            echo "::notice::No _site/report_card.html found; skipping diagnostics link injection."
-            exit 0
-          fi
-
-          python3 - <<'PY'
-          from pathlib import Path
-
-          path = Path("_site/report_card.html")
-          text = path.read_text(encoding="utf-8")
-          marker = "<!-- DIAGNOSTICS_LINKS -->"
-
-          block = """<section style="margin:16px 0;padding:12px 14px;border:1px solid #ddd;border-radius:10px;background:#fafafa">
-            <h2 style="margin:0 0 8px 0">Diagnostics</h2>
-            <ul style="margin:0;padding-left:18px">
-              <li><a href="diagnostics/">Diagnostics index</a></li>
-              <li><a href="diagnostics/separation_phase/v0/">Separation Phase overlay (v0)</a></li>
-            </ul>
-            <p style="margin:8px 0 0 0;color:#555">
-              CI-neutral diagnostic overlays. They do not change normative PULSE gate semantics.
-            </p>
-          </section>"""
-
-          if marker in text:
-            updated = text.replace(marker, f"{marker}\n{block}")
-          elif "</body>" in text:
-            updated = text.replace("</body>", f"{block}\n</body>")
-          else:
-            updated = text + "\n" + block + "\n"
-
-          path.write_text(updated + ("\n" if not updated.endswith("\n") else ""), encoding="utf-8")
-          print("OK: injected diagnostics links into _site/report_card.html")
-          PY
-
-      - name: Generate diagnostics manifest (machine-readable)
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          UPSTREAM_RUN_ID="${{ steps.runid.outputs.run_id }}"
-          PUBLISH_MODE="${{ steps.prepare.outputs.mode }}"
-          PUBLISH_SITE_ROOT="${{ steps.prepare.outputs.site_root }}"
-          export UPSTREAM_RUN_ID PUBLISH_MODE PUBLISH_SITE_ROOT
-
-          python3 - <<'PY'
           import json
           import os
           from pathlib import Path
+          from typing import List, Dict
 
           site = Path("_site")
           diag_dir = site / "diagnostics"
           diag_dir.mkdir(parents=True, exist_ok=True)
 
-          def exists(path: Path) -> bool:
-            return path.exists()
+          items: List[Dict[str, object]] = []
 
-          items = []
+          def exists(p: Path) -> bool:
+            return p.exists() and (p.is_file() or p.is_dir())
 
-          diagnostics_index_path = Path("diagnostics/")
-          diagnostics_index_present = exists(site / "diagnostics" / "index.html")
-          items.append({
-              "id": "diagnostics_index",
-              "paths": {"html": diagnostics_index_path.as_posix()},
-              "present": diagnostics_index_present,
-          })
-
+          # Separation Phase (diagnostics subdir).
+          separation_dir = Path("diagnostics/separation_phase/v0")
+          separation_present = exists(site / separation_dir / "separation_phase_v0.json")
           separation_paths = {
-              "html": "diagnostics/separation_phase/v0/",
-              "json": "diagnostics/separation_phase/v0/separation_phase_v0.json",
-              "md": "diagnostics/separation_phase/v0/separation_phase_overlay_v0.md",
+              "html": (separation_dir / "separation_phase_overlay.html").as_posix(),
+              "json": (separation_dir / "separation_phase_v0.json").as_posix(),
+              "md": (separation_dir / "separation_phase_overlay_v0.md").as_posix(),
           }
-          separation_json_path = site / "diagnostics" / "separation_phase" / "v0" / "separation_phase_v0.json"
-          separation_md_path = site / "diagnostics" / "separation_phase" / "v0" / "separation_phase_overlay_v0.md"
-          separation_html_path = site / "diagnostics" / "separation_phase" / "v0" / "index.html"
-          separation_present = exists(separation_json_path) or exists(separation_md_path) or exists(separation_html_path)
           separation_item = {
               "id": "separation_phase_v0",
               "paths": separation_paths,
               "present": separation_present,
           }
+          separation_json_path = site / separation_dir / "separation_phase_v0.json"
           if separation_json_path.is_file():
             try:
               data = json.loads(separation_json_path.read_text(encoding="utf-8"))
