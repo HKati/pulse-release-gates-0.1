@@ -1,0 +1,208 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Anchor Integrity v0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "meta",
+    "inputs",
+    "invariants",
+    "state",
+    "recommendation",
+    "evidence"
+  ],
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "anchor_integrity_v0"
+    },
+    "meta": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "run_id",
+        "commit",
+        "generator",
+        "source_date_epoch"
+      ],
+      "properties": {
+        "run_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "commit": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "generator": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_date_epoch": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        }
+      }
+    },
+    "inputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status_path",
+        "paradox_source_path",
+        "scanned_paths"
+      ],
+      "properties": {
+        "status_path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "paradox_source_path": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "scanned_paths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "invariants": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "anchor_presence",
+        "anchor_coverage",
+        "loop_risk",
+        "contradiction_risk",
+        "notes"
+      ],
+      "properties": {
+        "anchor_presence": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "anchor_coverage": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0.0,
+          "maximum": 1.0
+        },
+        "loop_risk": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "low",
+            "medium",
+            "high",
+            null
+          ]
+        },
+        "contradiction_risk": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "low",
+            "medium",
+            "high",
+            null
+          ]
+        },
+        "notes": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "state": {
+      "type": "string",
+      "enum": [
+        "ANCHORED",
+        "PARTIAL",
+        "ANCHOR_LOST",
+        "UNKNOWN"
+      ]
+    },
+    "recommendation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "response_mode",
+        "gate_action",
+        "rationale"
+      ],
+      "properties": {
+        "response_mode": {
+          "type": "string",
+          "enum": [
+            "ANSWER",
+            "BOUNDARY",
+            "ASK_FOR_ANCHOR",
+            "SILENCE"
+          ]
+        },
+        "gate_action": {
+          "type": "string",
+          "enum": [
+            "OPEN",
+            "SLOW",
+            "CLOSED"
+          ]
+        },
+        "rationale": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "message"
+        ],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "minLength": 1
+          },
+          "message": {
+            "type": "string",
+            "minLength": 1
+          },
+          "ref": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      }
+    }
+  }
+}
