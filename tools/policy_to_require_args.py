@@ -4,26 +4,27 @@ policy_to_require_args.py
 
 Purpose
 -------
-Materialize the gate list from `pulse_gate_policy_v0.yml` so CI and local runs
-do not need to hardcode `--require ...` arguments.
+Materialize gate IDs from `pulse_gate_policy_v0.yml` so CI and local runs do not
+hardcode `--require ...` lists.
 
-Outputs
--------
-By default prints the selected gate set as a single space-separated line:
-  pass_controls_refusal effect_present ...
+Behavior
+--------
+- `--set required`:
+    - missing set OR empty set => error (non-zero)
+- `--set advisory`:
+    - missing set OR empty set => valid (exit 0, print nothing)
 
-This is suitable for:
-  --require $(python tools/policy_to_require_args.py)
+Supports inline list forms:
+  advisory: []
+  required: [a, b, c]
 
 Design constraints
 ------------------
 - No external dependencies (no PyYAML).
-- Minimal indentation-based parsing tailored to the policy structure:
+- Minimal parsing tailored to the policy layout under:
     gates:
-      required:
-        - ...
-      advisory:
-        - ...
+      required: ...
+      advisory: ...
 """
 
 from __future__ import annotations
@@ -31,21 +32,46 @@ from __future__ import annotations
 import argparse
 import sys
 from pathlib import Path
-from typing import List
+from typing import List, Tuple
 
 
 def _strip_inline_comment(s: str) -> str:
-    # Remove inline comments while keeping gate ids clean.
-    # Example: "- q1_grounded_ok  # comment" -> "q1_grounded_ok"
+    # Keep it simple: drop anything after '#'
     return s.split("#", 1)[0].strip()
 
 
-def _extract_gate_set(text: str, gate_set: str) -> List[str]:
+def _parse_inline_list(value: str) -> List[str]:
+    """
+    Parses:
+      "[]" -> []
+      "[a, b]" -> ["a", "b"]
+    """
+    v = value.strip()
+    if not (v.startswith("[") and v.endswith("]")):
+        return []
+
+    inner = v[1:-1].strip()
+    if not inner:
+        return []
+
+    parts = [p.strip() for p in inner.split(",")]
+    return [p for p in parts if p]
+
+
+def _extract_gate_set(text: str, gate_set: str) -> Tuple[bool, List[str]]:
     """
     Extracts gates from:
+
       gates:
         <gate_set>:
           - gate_id
+
+    Also supports:
+        <gate_set>: []
+        <gate_set>: [a, b, c]
+
+    Returns:
+      (found_set, gates)
     """
     lines = text.splitlines()
 
@@ -53,6 +79,7 @@ def _extract_gate_set(text: str, gate_set: str) -> List[str]:
     in_set = False
     gates_indent = None
     set_indent = None
+    found_set = False
 
     out: List[str] = []
 
@@ -63,18 +90,22 @@ def _extract_gate_set(text: str, gate_set: str) -> List[str]:
         if not stripped or stripped.startswith("#"):
             continue
 
+        clean = _strip_inline_comment(stripped)
+        if not clean:
+            continue
+
         indent = len(line) - len(line.lstrip(" "))
 
         # Enter "gates:" block
-        if stripped == "gates:":
+        if clean == "gates:":
             in_gates = True
             in_set = False
             gates_indent = indent
             set_indent = None
             continue
 
-        # If we were in gates block and hit a top-level key, exit gates block
-        if in_gates and gates_indent is not None and indent <= gates_indent and stripped.endswith(":") and stripped != "gates:":
+        # Leave "gates:" block when we hit a top-level (or same-level) mapping key
+        if in_gates and gates_indent is not None and indent <= gates_indent and ":" in clean and clean != "gates:":
             in_gates = False
             in_set = False
             gates_indent = None
@@ -83,28 +114,44 @@ def _extract_gate_set(text: str, gate_set: str) -> List[str]:
         if not in_gates:
             continue
 
-        # Enter target set, e.g. "required:"
-        if stripped == f"{gate_set}:":
-            in_set = True
-            set_indent = indent
-            continue
+        # If we are inside a set and hit a sibling key (including inline values), leave the set
+        if in_set and set_indent is not None and indent == set_indent and ":" in clean and not clean.startswith("-"):
+            key = clean.split(":", 1)[0].strip()
+            if key and key != gate_set:
+                in_set = False
+                set_indent = None
+                # do not continue; allow processing of the current line below
 
-        # If we are in the target set and hit a sibling key, leave set
-        if in_set and set_indent is not None and indent == set_indent and stripped.endswith(":") and stripped != f"{gate_set}:":
-            in_set = False
-            set_indent = None
-            continue
+        # Enter target set: "<gate_set>:" or "<gate_set>: []" or "<gate_set>: [a,b]"
+        if ":" in clean and not clean.startswith("-"):
+            key, rest = clean.split(":", 1)
+            key = key.strip()
+            rest = rest.strip()
+
+            if key == gate_set:
+                found_set = True
+                set_indent = indent
+
+                # Inline list form
+                if rest.startswith("[") and rest.endswith("]"):
+                    out.extend(_parse_inline_list(rest))
+                    in_set = False
+                    continue
+
+                # Multi-line list form
+                in_set = True
+                continue
 
         if not in_set:
             continue
 
-        # Capture list items "- <gate_id>"
-        if stripped.startswith("- "):
-            item = _strip_inline_comment(stripped[2:])
-            if item:
-                out.append(item)
+        # Capture list items "- gate_id"
+        if clean.startswith("- "):
+            gate_id = _strip_inline_comment(clean[2:])
+            if gate_id:
+                out.append(gate_id)
 
-    return out
+    return found_set, out
 
 
 def main() -> int:
@@ -134,10 +181,20 @@ def main() -> int:
         return 2
 
     text = p.read_text(encoding="utf-8")
-    gates = _extract_gate_set(text, args.set)
+    found_set, gates = _extract_gate_set(text, args.set)
+
+    # Advisory is optional and may be empty.
+    if args.set == "advisory":
+        if not found_set or not gates:
+            return 0
+
+    # Required must exist and must be non-empty.
+    if not found_set:
+        print(f"[policy_to_require_args] Gate set not found: {args.set}", file=sys.stderr)
+        return 3
 
     if not gates:
-        print(f"[policy_to_require_args] No gates found for set: {args.set}", file=sys.stderr)
+        print(f"[policy_to_require_args] Gate set is empty: {args.set}", file=sys.stderr)
         return 3
 
     if args.format == "newline":
