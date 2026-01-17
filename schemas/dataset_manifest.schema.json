@@ -1,0 +1,210 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PULSE Dataset Manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "manifest_version",
+    "dataset_id",
+    "time_range",
+    "source",
+    "sampling",
+    "hashes",
+    "pii_handling"
+  ],
+  "properties": {
+    "manifest_version": {
+      "type": "string",
+      "description": "Semantic version of the manifest contract.",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "dataset_id": {
+      "type": "string",
+      "description": "Stable identifier for the dataset slice used for evaluation.",
+      "minLength": 1
+    },
+    "generated_at": {
+      "type": "string",
+      "description": "Timestamp when this manifest was generated.",
+      "format": "date-time"
+    },
+    "time_range": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "from",
+        "to"
+      ],
+      "properties": {
+        "from": {
+          "description": "Inclusive lower bound for data collection time window.",
+          "anyOf": [
+            { "type": "string", "format": "date-time" },
+            { "type": "string", "format": "date" }
+          ]
+        },
+        "to": {
+          "description": "Inclusive upper bound for data collection time window.",
+          "anyOf": [
+            { "type": "string", "format": "date-time" },
+            { "type": "string", "format": "date" }
+          ]
+        }
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "uri"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "description": "High-level origin of the dataset.",
+          "enum": [
+            "artifact",
+            "logs",
+            "snapshot",
+            "warehouse_query",
+            "other"
+          ]
+        },
+        "uri": {
+          "type": "string",
+          "description": "Location of the dataset (path, artifact URI, query reference, etc.).",
+          "minLength": 1
+        },
+        "description": {
+          "type": "string",
+          "description": "Human-readable description of the dataset source."
+        }
+      }
+    },
+    "sampling": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "strategy",
+        "n"
+      ],
+      "properties": {
+        "strategy": {
+          "type": "string",
+          "description": "Sampling strategy used to produce the evaluated slice.",
+          "enum": [
+            "full",
+            "random",
+            "stratified",
+            "top_k",
+            "other"
+          ]
+        },
+        "n": {
+          "type": "integer",
+          "description": "Number of examples used in evaluation.",
+          "minimum": 1
+        },
+        "seed": {
+          "type": "integer",
+          "description": "Sampling RNG seed (if applicable)."
+        },
+        "notes": {
+          "type": "string",
+          "description": "Additional notes about sampling (strata, filters, exclusions, etc.)."
+        }
+      }
+    },
+    "pii_handling": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scrubbed"
+      ],
+      "properties": {
+        "scrubbed": {
+          "type": "boolean",
+          "description": "Whether PII scrubbing/redaction was applied."
+        },
+        "method": {
+          "type": "string",
+          "description": "PII scrubbing/redaction method identifier."
+        },
+        "notes": {
+          "type": "string",
+          "description": "Any relevant PII handling notes (coverage, known gaps, etc.)."
+        }
+      }
+    },
+    "labels": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ground_truth_source",
+        "version"
+      ],
+      "properties": {
+        "ground_truth_source": {
+          "type": "string",
+          "description": "Where ground truth / reference labels came from (if applicable).",
+          "minLength": 1
+        },
+        "version": {
+          "type": "string",
+          "description": "Labeling schema or dataset labels version.",
+          "minLength": 1
+        },
+        "notes": {
+          "type": "string",
+          "description": "Labeling notes (guidelines, tooling, QA, etc.)."
+        }
+      }
+    },
+    "hashes": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "input_sha256"
+      ],
+      "properties": {
+        "input_sha256": {
+          "type": "string",
+          "description": "SHA-256 of the evaluation input payload/snapshot.",
+          "pattern": "^[A-Fa-f0-9]{64}$"
+        },
+        "labels_sha256": {
+          "type": "string",
+          "description": "SHA-256 of labels payload (if present).",
+          "pattern": "^[A-Fa-f0-9]{64}$"
+        },
+        "code_sha": {
+          "type": "string",
+          "description": "Git commit hash of the evaluation code (if recorded).",
+          "pattern": "^[A-Fa-f0-9]{7,40}$"
+        }
+      }
+    },
+    "slices": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "dimensions": {
+          "type": "array",
+          "description": "Slice dimensions used for stratification (e.g., locale, user_segment).",
+          "items": { "type": "string", "minLength": 1 },
+          "minItems": 1
+        },
+        "notes": {
+          "type": "string",
+          "description": "Notes about slicing/stratification."
+        }
+      }
+    },
+    "extensions": {
+      "type": "object",
+      "description": "Free-form extensions for project-specific metadata.",
+      "additionalProperties": true
+    }
+  }
+}
