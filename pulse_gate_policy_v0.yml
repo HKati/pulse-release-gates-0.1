@@ -30,7 +30,9 @@ enforcement:
 gates:
   required:
     - pass_controls_refusal
+    - refusal_delta_pass
     - effect_present
+    - external_all_pass
     - psf_monotonicity_ok
     - psf_mono_shift_resilient
     - pass_controls_comm
