@@ -1,0 +1,44 @@
+{
+  "manifest_version": "0.1.0",
+  "dataset_id": "prod-shadow-2026w03",
+  "generated_at": "2026-01-17T00:00:00Z",
+  "time_range": {
+    "from": "2026-01-10",
+    "to": "2026-01-17"
+  },
+  "source": {
+    "kind": "artifact",
+    "uri": "artifacts/eval_inputs/prod-shadow-2026w03.jsonl",
+    "description": "Shadow evaluation slice exported from production telemetry for weekly gating."
+  },
+  "sampling": {
+    "strategy": "stratified",
+    "n": 5000,
+    "seed": 12345,
+    "notes": "Stratified by locale and user_segment; excluded known test accounts and internal traffic."
+  },
+  "pii_handling": {
+    "scrubbed": true,
+    "method": "redact_v2",
+    "notes": "PII redaction applied prior to evaluation; scrub coverage tracked in separate audit logs."
+  },
+  "labels": {
+    "ground_truth_source": "human_labeling",
+    "version": "gt-v2",
+    "notes": "Ground truth labels produced via rubric v2; inter-annotator agreement tracked separately."
+  },
+  "hashes": {
+    "input_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "labels_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "code_sha": "0123456789abcdef0"
+  },
+  "slices": {
+    "dimensions": ["locale", "user_segment"],
+    "notes": "Primary reporting slices used for fairness/consistency stratification."
+  },
+  "extensions": {
+    "owner_team": "pulse",
+    "pipeline": "weekly-shadow",
+    "notes": "Example manifest for documentation and onboarding; replace fields with real provenance."
+  }
+}
