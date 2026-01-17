@@ -319,8 +319,8 @@ jobs:
           REQ="$(python tools/policy_to_require_args.py --policy pulse_gate_policy_v0.yml --set required)"
           echo "Required gates (from policy): $REQ"
 
-          python PULSE_safe_pack_v0/tools/check_gates.py \
-            --status PULSE_safe_pack_v0/artifacts/status.json \
+          python "${{ env.PACK_DIR }}/tools/check_gates.py" \
+            --status "${{ env.PACK_DIR }}/artifacts/status.json" \
             --require $REQ
 
       - name: Export JUnit & SARIF
