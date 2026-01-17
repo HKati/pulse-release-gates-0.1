@@ -312,32 +312,16 @@ jobs:
           print(f"OK: wrote {out_html}")
           PY
 
-      - name: Enforce gates (fail-closed)
-        shell: bash
+      - name: Enforce required gates (policy-driven)
         run: |
-          set -euo pipefail
-          STATUS="${{ env.PACK_DIR }}/artifacts/status.json"
+          # NOTE: do NOT quote $REQ when passing to --require, because check_gates expects
+          # each gate id as a separate CLI argument.
+          REQ="$(python tools/policy_to_require_args.py --policy pulse_gate_policy_v0.yml --set required)"
+          echo "Required gates (from policy): $REQ"
 
-          REQ=(
-            pass_controls_refusal effect_present
-            psf_monotonicity_ok psf_mono_shift_resilient
-            pass_controls_comm psf_commutativity_ok psf_comm_shift_resilient
-            pass_controls_sanit sanitization_effective sanit_shift_resilient
-            psf_action_monotonicity_ok psf_idempotence_ok psf_path_independence_ok psf_pii_monotonicity_ok
-            q1_grounded_ok q2_consistency_ok q3_fairness_ok q4_slo_ok
-            external_all_pass
-          )
-
-          if [ -f "${{ env.PACK_DIR }}/examples/refusal_pairs.jsonl" ]; then
-            REQ+=(refusal_delta_pass)
-            echo "Requiring extra gate: refusal_delta_pass"
-          else
-            echo "No real pairs; refusal_delta_pass not required"
-          fi
-
-          python "${{ env.PACK_DIR }}/tools/check_gates.py" \
-            --status "$STATUS" \
-            --require "${REQ[@]}"
+          python PULSE_safe_pack_v0/tools/check_gates.py \
+            --status PULSE_safe_pack_v0/artifacts/status.json \
+            --require $REQ
 
       - name: Export JUnit & SARIF
         if: always()
