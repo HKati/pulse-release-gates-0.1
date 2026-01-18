@@ -11,7 +11,7 @@
 
 spec:
   id: q3_fairness_v0
-  version: "0.1.0"
+  version: "0.1.1"
   category: "Q"
   metric_id: "q3_fairness"
   gate_signal: "q3_fairness_ok"
@@ -33,6 +33,9 @@ data_contract:
 
   slice_definition:
     source: "dataset_manifest.slices.dimensions"
+    required: true
+    min_dimensions: 1
+    missing_or_empty_behavior: "FAIL"
     rule: >
       Fairness is evaluated only over explicit slice dimensions declared in the dataset manifest.
       No implicit demographic inference is permitted.
@@ -103,6 +106,7 @@ gating:
     worst_group_gap: 0.05
 
   decision_rule:
+    - "FAIL if dataset_manifest.slices.dimensions is missing or empty."
     - "Compute overall_pass_rate on eligible examples."
     - "For each declared slice dimension, compute group_pass_rate per group value (eligible groups only)."
     - "Compute conservative gap per group: max(0, UB_overall - LB_group) using Wilson bounds (alpha=0.05)."
@@ -111,6 +115,8 @@ gating:
     - "FAIL otherwise."
 
   evidence_requirements:
+    slice_dimensions_required:
+      rule: "If dataset_manifest.slices.dimensions is missing or empty => FAIL (no declared slices)."
     min_n_eligible_total:
       value: 200
       rule: "If n_eligible_total < min_n_eligible_total => FAIL (insufficient evidence)."
