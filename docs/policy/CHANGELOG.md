@@ -21,7 +21,7 @@ This changelog records **semantic** changes that can affect release gating outco
 
 ## Unreleased
 
-- None.
+- Q3 fairness: require non-empty `dataset_manifest.slices.dimensions`; missing/empty slices now FAIL Q3 gating (spec `q3_fairness_v0` bumped to 0.1.1).
 
 ## 0.1.0 — Initial baseline
 
