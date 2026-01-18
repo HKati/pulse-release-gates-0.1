@@ -32,9 +32,54 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        uses: actions/checkout@v4
         with:
+          fetch-depth: 0
           persist-credentials: false
+
+      - name: Enforce changelog for policy/spec changes
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Determine diff range depending on event type.
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            BASE="${{ github.event.pull_request.base.sha }}"
+            HEAD="${{ github.event.pull_request.head.sha }}"
+          elif [[ "${{ github.event_name }}" == "push" ]]; then
+            BASE="${{ github.event.before }}"
+            HEAD="${{ github.sha }}"
+          else
+            echo "Skipping changelog enforcement: unsupported event '${{ github.event_name }}'."
+            exit 0
+          fi
+
+          # Handle edge cases (e.g., first commit or unusual events).
+          if [[ -z "${BASE}" || "${BASE}" == "0000000000000000000000000000000000000000" ]]; then
+            echo "Skipping changelog enforcement: BASE SHA is empty/zero."
+            exit 0
+          fi
+
+          echo "Changelog enforcement diff range: ${BASE}..${HEAD}"
+
+          CHANGED="$(git diff --name-only "${BASE}" "${HEAD}" || true)"
+          echo "${CHANGED}" | sed 's/^/changed: /' || true
+
+          # Files that can change release-gating meaning and therefore require changelog updates.
+          SEMANTIC_PATTERN='^(pulse_gate_policy_v0\.yml|metrics/specs/|schemas/dataset_manifest\.schema\.json|examples/dataset_manifest\.example\.json)'
+
+          # Changelog file that must be updated when semantic files change.
+          CHANGELOG_PATH='docs/policy/CHANGELOG.md'
+
+          if echo "${CHANGED}" | grep -Eq "${SEMANTIC_PATTERN}"; then
+            if ! echo "${CHANGED}" | grep -Fxq "${CHANGELOG_PATH}"; then
+              echo "::error::Semantic policy/spec/contract files changed without updating ${CHANGELOG_PATH}."
+              echo "::error::Please add a changelog entry under 'Unreleased' and bump the relevant version(s) if needed."
+              exit 1
+            fi
+          else
+            echo "No semantic policy/spec/contract changes detected; changelog update not required."
+          fi
 
       - name: Locate PULSE pack
         shell: bash
