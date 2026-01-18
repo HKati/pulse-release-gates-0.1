@@ -106,6 +106,7 @@ gating:
     worst_group_gap: 0.05
 
   decision_rule:
+    - "FAIL if dataset manifest is missing."
     - "FAIL if dataset_manifest.slices.dimensions is missing or empty."
     - "Compute overall_pass_rate on eligible examples."
     - "For each declared slice dimension, compute group_pass_rate per group value (eligible groups only)."
