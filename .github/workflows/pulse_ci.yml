@@ -65,21 +65,143 @@ jobs:
           CHANGED="$(git diff --name-only "${BASE}" "${HEAD}" || true)"
           echo "${CHANGED}" | sed 's/^/changed: /' || true
 
-          # Files that can change release-gating meaning and therefore require changelog updates.
+          # Files that can change release-gating meaning and therefore require changelog coverage.
           SEMANTIC_PATTERN='^(pulse_gate_policy_v0\.yml|metrics/specs/|schemas/dataset_manifest\.schema\.json|examples/dataset_manifest\.example\.json)'
 
-          # Changelog file that must be updated when semantic files change.
+          # Changelog file containing semantic change notes.
           CHANGELOG_PATH='docs/policy/CHANGELOG.md'
 
-          if echo "${CHANGED}" | grep -Eq "${SEMANTIC_PATTERN}"; then
-            if ! echo "${CHANGED}" | grep -Fxq "${CHANGELOG_PATH}"; then
-              echo "::error::Semantic policy/spec/contract files changed without updating ${CHANGELOG_PATH}."
-              echo "::error::Please add a changelog entry under 'Unreleased' and bump the relevant version(s) if needed."
-              exit 1
-            fi
-          else
+          # If nothing semantic changed, do nothing.
+          SEMANTIC_CHANGED="$(echo "${CHANGED}" | grep -E "${SEMANTIC_PATTERN}" || true)"
+          if [[ -z "${SEMANTIC_CHANGED}" ]]; then
             echo "No semantic policy/spec/contract changes detected; changelog update not required."
+            exit 0
           fi
+
+          if [[ ! -f "${CHANGELOG_PATH}" ]]; then
+            echo "::error::Changelog not found at ${CHANGELOG_PATH}."
+            exit 1
+          fi
+
+          export SEMANTIC_CHANGED
+          export CHANGELOG_PATH
+
+          python3 - <<'PY'
+          import os, re, sys
+          from pathlib import Path
+
+          changed = [ln.strip() for ln in os.environ["SEMANTIC_CHANGED"].splitlines() if ln.strip()]
+          changelog_path = Path(os.environ["CHANGELOG_PATH"])
+          text = changelog_path.read_text(encoding="utf-8", errors="replace")
+
+          # Accept both "## Unreleased" and "## [Unreleased]" (robust, not brittle).
+          m = re.search(r"^##\s*\[?\s*Unreleased\s*\]?\s*$([\s\S]*?)(?=^##\s+\S|\Z)", text, flags=re.M | re.I)
+          if not m:
+            print("::error::docs/policy/CHANGELOG.md is missing an 'Unreleased' section (expected '## Unreleased' or '## [Unreleased]').")
+            sys.exit(1)
+
+          unrel = m.group(1)
+          unrel_l = unrel.lower()
+
+          def stem_variants(stem: str):
+            s = stem.lower()
+            s2 = re.sub(r"_v\d+$", "", s)  # drop _v0 suffix (q3_fairness_v0 -> q3_fairness)
+            return {
+              s,
+              s2,
+              s2.replace("_", " "),
+              s2.replace("_", "-"),
+            }
+
+          def parse_spec_id_version(path: Path):
+            # Minimal YAML parsing for the spec block: look for top-level "spec:" then id/version inside.
+            in_spec = False
+            spec_id = None
+            spec_ver = None
+
+            for raw in path.read_text(encoding="utf-8", errors="replace").splitlines():
+              line = raw.rstrip("\n")
+              # enter spec block on exact top-level "spec:"
+              if not in_spec and re.match(r"^spec:\s*$", line):
+                in_spec = True
+                continue
+
+              if in_spec:
+                # leaving spec block when another top-level key starts (non-empty and no leading spaces)
+                if re.match(r"^[A-Za-z0-9_]+\s*:\s*$", line) and not line.startswith(" "):
+                  break
+
+                # capture id and version lines inside spec
+                m_id = re.match(r"^\s*id:\s*(.+?)\s*$", line)
+                if m_id and spec_id is None:
+                  spec_id = m_id.group(1).strip().strip('"').strip("'")
+                  continue
+
+                m_ver = re.match(r"^\s*version:\s*(.+?)\s*$", line)
+                if m_ver and spec_ver is None:
+                  spec_ver = m_ver.group(1).strip().strip('"').strip("'")
+                  continue
+
+                if spec_id and spec_ver:
+                  break
+
+            return spec_id, spec_ver
+
+          missing = []
+
+          for p in changed:
+            if p.startswith("metrics/specs/") and p.endswith(".yml"):
+              spec_path = Path(p)
+              if not spec_path.exists():
+                missing.append((p, "spec file missing in workspace"))
+                continue
+
+              spec_id, spec_ver = parse_spec_id_version(spec_path)
+
+              # Fallbacks: use filename stem if spec.id missing (but warn via error).
+              file_stem = spec_path.stem.lower()
+              want_any = set()
+
+              if spec_id:
+                want_any |= stem_variants(spec_id)
+              else:
+                want_any |= stem_variants(file_stem)
+
+              # Require at least one identifier token AND the version string to appear in Unreleased.
+              id_ok = any(tok and tok in unrel_l for tok in want_any)
+              ver_ok = (spec_ver is not None) and (str(spec_ver).strip() in unrel)
+
+              if not id_ok or not ver_ok:
+                reason = []
+                if not id_ok:
+                  reason.append(f"missing id token (expected one of: {sorted(want_any)})")
+                if spec_ver is None:
+                  reason.append("spec.version not found in file")
+                elif not ver_ok:
+                  reason.append(f"missing version '{spec_ver}' in Unreleased")
+                missing.append((p, "; ".join(reason)))
+              continue
+
+            if p == "pulse_gate_policy_v0.yml":
+              if "pulse_gate_policy_v0" not in unrel_l:
+                missing.append((p, "expected mention of 'pulse_gate_policy_v0' in Unreleased"))
+              continue
+
+            if p in ("schemas/dataset_manifest.schema.json", "examples/dataset_manifest.example.json"):
+              # Accept either underscore or spaced mention.
+              if ("dataset_manifest" not in unrel_l) and ("dataset manifest" not in unrel_l):
+                missing.append((p, "expected mention of 'dataset_manifest' (or 'dataset manifest') in Unreleased"))
+              continue
+
+          if missing:
+            print("::error::Semantic policy/spec/contract files changed, but the Unreleased changelog does not cover them.")
+            for path, why in missing:
+              print(f"::error::- {path}: {why}")
+            print("::error::Please add/adjust an entry under 'Unreleased' documenting the semantic change(s) and include the relevant spec.version where applicable.")
+            sys.exit(1)
+
+          print("OK: Unreleased changelog content covers all semantic changes.")
+          PY
 
       - name: Locate PULSE pack
         shell: bash
