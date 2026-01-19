@@ -38,7 +38,7 @@ jobs:
           INPUT_RETRIES="$(python3 -c 'import json,os; ev=json.load(open(os.environ["GITHUB_EVENT_PATH"])); print((ev.get("inputs") or {}).get("max_retries","").strip())')"
 
           OWNER="${GITHUB_REPOSITORY%%/*}"
-          OWNER="${OWNER,,}"
+          OWNER="${OWNER,,}"   # normalize for stable default BASE
           REPO="${GITHUB_REPOSITORY#*/}"
 
           DEFAULT_BASE="https://${OWNER}.github.io/${REPO}"
@@ -241,13 +241,21 @@ jobs:
           print("OK: robots.txt directives validated (UA scoping respected).")
           PY
 
-          # 3) sitemap.xml must be valid XML, include homepage exactly, and all <loc> under BASE/
+          # 3) sitemap.xml must be valid XML, include homepage, and all <loc> under BASE/
+          #    NOTE: Scheme+host are case-insensitive in practice (e.g., HKati vs hkati).
+          #    We normalize scheme+host casing to avoid false failures.
           python3 - <<'PY'
           import os
           import xml.etree.ElementTree as ET
           from pathlib import Path
+          from urllib.parse import urlsplit, urlunsplit
 
-          BASE = os.environ["BASE"].rstrip("/")
+          def canon(u: str) -> str:
+              s = urlsplit(u.strip())
+              return urlunsplit((s.scheme.lower(), s.netloc.lower(), s.path, s.query, s.fragment))
+
+          BASE_RAW = os.environ["BASE"].rstrip("/")
+          BASE = canon(BASE_RAW)
           home = f"{BASE}/"
 
           xml_text = Path("_probe/sitemap.xml").read_text(encoding="utf-8", errors="replace")
@@ -257,7 +265,7 @@ jobs:
           except Exception as e:
               raise SystemExit(f"::error::sitemap.xml is not valid XML: {e}")
 
-          locs = [(el.text or "").strip() for el in root.findall(".//{*}loc")]
+          locs = [canon((el.text or "").strip()) for el in root.findall(".//{*}loc")]
           if not locs:
               raise SystemExit("::error::sitemap.xml contains no <loc> entries.")
 
@@ -301,7 +309,7 @@ jobs:
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "- ✅ no X-Robots-Tag: noindex" >> "$GITHUB_STEP_SUMMARY"
           echo "- ✅ robots directives OK" >> "$GITHUB_STEP_SUMMARY"
-          echo "- ✅ sitemap XML canonical OK" >> "$GITHUB_STEP_SUMMARY"
+          echo "- ✅ sitemap XML canonical OK (host case normalized)" >> "$GITHUB_STEP_SUMMARY"
           echo "- ✅ meta noindex not present (best-effort)" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload probe artifacts
@@ -317,4 +325,3 @@ jobs:
             _probe/headers_robots.txt
             _probe/headers_sitemap.txt
             _probe/index.html
-
