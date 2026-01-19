@@ -63,6 +63,8 @@ jobs:
           echo "Changelog enforcement diff range: ${BASE}..${HEAD}"
 
           CHANGED="$(git diff --name-only "${BASE}" "${HEAD}" || true)"
+          CHANGED_STATUS="$(git diff --name-status "${BASE}" "${HEAD}" || true)"
+
           echo "${CHANGED}" | sed 's/^/changed: /' || true
 
           # Files that can change release-gating meaning and therefore require changelog coverage.
@@ -71,7 +73,6 @@ jobs:
           # Changelog file containing semantic change notes.
           CHANGELOG_PATH='docs/policy/CHANGELOG.md'
 
-          # If nothing semantic changed, do nothing.
           SEMANTIC_CHANGED="$(echo "${CHANGED}" | grep -E "${SEMANTIC_PATTERN}" || true)"
           if [[ -z "${SEMANTIC_CHANGED}" ]]; then
             echo "No semantic policy/spec/contract changes detected; changelog update not required."
@@ -85,6 +86,7 @@ jobs:
 
           export SEMANTIC_CHANGED
           export CHANGELOG_PATH
+          export CHANGED_STATUS
 
           python3 - <<'PY'
           import os, re, sys
@@ -94,7 +96,25 @@ jobs:
           changelog_path = Path(os.environ["CHANGELOG_PATH"])
           text = changelog_path.read_text(encoding="utf-8", errors="replace")
 
-          # Accept both "## Unreleased" and "## [Unreleased]" (robust, not brittle).
+          # Parse git name-status so deletions/renames don't force workspace existence/version parsing.
+          changed_status = os.environ.get("CHANGED_STATUS", "")
+          status_map = {}
+          for ln in changed_status.splitlines():
+            ln = ln.strip()
+            if not ln:
+              continue
+            parts = ln.split("\t")
+            if len(parts) < 2:
+              continue
+            code = parts[0]  # M, A, D, R100, etc.
+            if code.startswith("R") and len(parts) >= 3:
+              # record both old and new paths
+              status_map[parts[1]] = code
+              status_map[parts[2]] = code
+            else:
+              status_map[parts[1]] = code
+
+          # Extract Unreleased section (accept both "## Unreleased" and "## [Unreleased]")
           m = re.search(r"^##\s*\[?\s*Unreleased\s*\]?\s*$([\s\S]*?)(?=^##\s+\S|\Z)", text, flags=re.M | re.I)
           if not m:
             print("::error::docs/policy/CHANGELOG.md is missing an 'Unreleased' section (expected '## Unreleased' or '## [Unreleased]').")
@@ -106,69 +126,74 @@ jobs:
           def stem_variants(stem: str):
             s = stem.lower()
             s2 = re.sub(r"_v\d+$", "", s)  # drop _v0 suffix (q3_fairness_v0 -> q3_fairness)
-            return {
+            cand = {
               s,
               s2,
               s2.replace("_", " "),
               s2.replace("_", "-"),
             }
+            return {c for c in cand if c}
 
           def parse_spec_id_version(path: Path):
-            # Minimal YAML parsing for the spec block: look for top-level "spec:" then id/version inside.
+            # Minimal YAML parsing: find 'spec:' then 'id:' and 'version:' within that block.
             in_spec = False
             spec_id = None
             spec_ver = None
 
             for raw in path.read_text(encoding="utf-8", errors="replace").splitlines():
               line = raw.rstrip("\n")
-              # enter spec block on exact top-level "spec:"
-              if not in_spec and re.match(r"^spec:\s*$", line):
-                in_spec = True
+
+              if not in_spec:
+                if re.match(r"^spec:\s*$", line):
+                  in_spec = True
                 continue
 
-              if in_spec:
-                # leaving spec block when another top-level key starts (non-empty and no leading spaces)
-                if re.match(r"^[A-Za-z0-9_]+\s*:\s*$", line) and not line.startswith(" "):
-                  break
+              # Exit spec block when another top-level key begins.
+              # (Top-level key begins at col 0 and looks like "foo:")
+              if re.match(r"^[A-Za-z0-9_]+\s*:\s*$", line) and not line.startswith(" "):
+                break
 
-                # capture id and version lines inside spec
-                m_id = re.match(r"^\s*id:\s*(.+?)\s*$", line)
-                if m_id and spec_id is None:
-                  spec_id = m_id.group(1).strip().strip('"').strip("'")
-                  continue
+              m_id = re.match(r"^\s*id:\s*(.+?)\s*$", line)
+              if m_id and spec_id is None:
+                spec_id = m_id.group(1).strip().strip('"').strip("'")
+                continue
 
-                m_ver = re.match(r"^\s*version:\s*(.+?)\s*$", line)
-                if m_ver and spec_ver is None:
-                  spec_ver = m_ver.group(1).strip().strip('"').strip("'")
-                  continue
+              m_ver = re.match(r"^\s*version:\s*(.+?)\s*$", line)
+              if m_ver and spec_ver is None:
+                spec_ver = m_ver.group(1).strip().strip('"').strip("'")
+                continue
 
-                if spec_id and spec_ver:
-                  break
+              if spec_id and spec_ver:
+                break
 
             return spec_id, spec_ver
 
           missing = []
 
           for p in changed:
+            # Metric specs: enforce id token + version when file exists and is not deleted/renamed away.
             if p.startswith("metrics/specs/") and p.endswith(".yml"):
+              code = status_map.get(p, "M")
               spec_path = Path(p)
-              if not spec_path.exists():
-                missing.append((p, "spec file missing in workspace"))
+              file_stem = spec_path.stem.lower()
+
+              # Deleted/renamed specs: cannot parse id/version, but still require Unreleased mention.
+              if code.startswith("D") or code.startswith("R") or (not spec_path.exists()):
+                want_any = stem_variants(file_stem)
+                id_ok = any(tok in unrel_l for tok in want_any)
+                if not id_ok:
+                  missing.append((p, f"deleted/renamed spec; expected mention of one of: {sorted(want_any)}"))
                 continue
 
               spec_id, spec_ver = parse_spec_id_version(spec_path)
 
-              # Fallbacks: use filename stem if spec.id missing (but warn via error).
-              file_stem = spec_path.stem.lower()
               want_any = set()
-
               if spec_id:
                 want_any |= stem_variants(spec_id)
               else:
                 want_any |= stem_variants(file_stem)
 
-              # Require at least one identifier token AND the version string to appear in Unreleased.
-              id_ok = any(tok and tok in unrel_l for tok in want_any)
+              id_ok = any(tok in unrel_l for tok in want_any)
               ver_ok = (spec_ver is not None) and (str(spec_ver).strip() in unrel)
 
               if not id_ok or not ver_ok:
@@ -182,13 +207,14 @@ jobs:
                 missing.append((p, "; ".join(reason)))
               continue
 
+            # Policy file
             if p == "pulse_gate_policy_v0.yml":
               if "pulse_gate_policy_v0" not in unrel_l:
                 missing.append((p, "expected mention of 'pulse_gate_policy_v0' in Unreleased"))
               continue
 
+            # Dataset manifest contract
             if p in ("schemas/dataset_manifest.schema.json", "examples/dataset_manifest.example.json"):
-              # Accept either underscore or spaced mention.
               if ("dataset_manifest" not in unrel_l) and ("dataset manifest" not in unrel_l):
                 missing.append((p, "expected mention of 'dataset_manifest' (or 'dataset manifest') in Unreleased"))
               continue
@@ -511,7 +537,6 @@ jobs:
           fi
           if [ -f sarif.json ]; then
             mv sarif.json reports/sarif.json
-          fi
 
       - name: Generate badges (artifact only)
         if: always()
@@ -593,8 +618,8 @@ jobs:
           set -euo pipefail
           python - <<'PY'
           import pathlib, subprocess, sys
-          root = pathlib.Path('.').resolve()
-          (root / 'tests' / 'out').mkdir(parents=True, exist_ok=True)
-          subprocess.check_call([sys.executable, 'tests/test_exporters.py'])
-          print('Exporter smoke tests OK')
+          root = pathlib.Path(".").resolve()
+          (root / "tests" / "out").mkdir(parents=True, exist_ok=True)
+          subprocess.check_call([sys.executable, "tests/test_exporters.py"])
+          print("Exporter smoke tests OK")
           PY
