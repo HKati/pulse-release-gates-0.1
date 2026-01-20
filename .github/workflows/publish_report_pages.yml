@@ -133,7 +133,7 @@ jobs:
           echo "Waiting briefly for Pages to release the deployment lock..."
           sleep 5
 
-      # Checkout kept (harmless); crawler assets are generated from _site below.
+      # Checkout kept (harmless); crawler assets are copied from repo root into _site below.
       - name: Checkout repository
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
@@ -475,67 +475,22 @@ jobs:
           fi
 
           # --- Crawler assets (robots + sitemap) ---
-          BASE_URL="$(python3 - <<'PY'
-          import os
+          # Single source of truth: publish crawler assets from repo root.
+          test -f robots.txt
+          test -f sitemap.xml
+          mkdir -p _site
 
-          repo = os.environ.get("GITHUB_REPOSITORY", "")
-          owner = os.environ.get("GITHUB_REPOSITORY_OWNER", "")
-          name = repo.split("/", 1)[1] if "/" in repo else repo
+          cp -f robots.txt _site/robots.txt
+          cp -f sitemap.xml _site/sitemap.xml
 
-          if name.lower() == f"{owner}.github.io".lower():
-            base = f"https://{owner}.github.io"
-          else:
-            base = f"https://{owner}.github.io/{name}"
-
-          print(base.rstrip("/"))
-          PY
-          )"
-          export BASE_URL
+          # Fail-closed sanity
+          grep -q '^User-agent:' _site/robots.txt
+          grep -q '^Sitemap:' _site/robots.txt
 
           python3 - <<'PY'
-          from pathlib import Path
-          import os
-          base = os.environ["BASE_URL"].rstrip("/")
-          Path("_site/robots.txt").write_text(
-              "User-agent: *\n"
-              "Allow: /\n"
-              f"Sitemap: {base}/sitemap.xml\n",
-              encoding="utf-8",
-          )
-          print(f"OK: wrote _site/robots.txt (base={base})")
-          PY
-
-          python3 - <<'PY'
-          from pathlib import Path
-          import os
-
-          site = Path("_site")
-          base = os.environ.get("BASE_URL", "").rstrip("/")
-          if not base:
-            raise SystemExit("BASE_URL is empty; cannot generate sitemap.xml")
-
-          urls = set()
-          for html in site.rglob("*.html"):
-            rel = html.relative_to(site).as_posix()
-            if rel == "index.html":
-              path = "/"
-            elif rel.endswith("/index.html"):
-              path = "/" + rel[: -len("index.html")]
-            else:
-              path = "/" + rel
-            urls.add(base + path)
-
-          lines = [
-            '<?xml version="1.0" encoding="UTF-8"?>',
-            '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
-          ]
-          for url in sorted(urls):
-            lines.append("  <url>")
-            lines.append(f"    <loc>{url}</loc>")
-            lines.append("  </url>")
-          lines.append("</urlset>")
-
-          (site / "sitemap.xml").write_text("\n".join(lines) + "\n", encoding="utf-8")
+          import xml.etree.ElementTree as ET
+          ET.parse("_site/sitemap.xml")
+          print("OK: sitemap.xml parses as XML")
           PY
 
           # NOTE: do not change site-root selection logic above. This step is purely about publishing/validating assets.
