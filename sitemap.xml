@@ -6,5 +6,10 @@
   <url>
     <loc>https://hkati.github.io/pulse-release-gates-0.1/report_card.html</loc>
   </url>
+  <url>
+    <loc>https://hkati.github.io/pulse-release-gates-0.1/diagnostics/</loc>
+  </url>
+  <url>
+    <loc>https://hkati.github.io/pulse-release-gates-0.1/paradox/core/v0/</loc>
+  </url>
 </urlset>
-
