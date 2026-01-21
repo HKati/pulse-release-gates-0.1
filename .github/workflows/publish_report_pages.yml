@@ -133,7 +133,7 @@ jobs:
           echo "Waiting briefly for Pages to release the deployment lock..."
           sleep 5
 
-      # Checkout kept (harmless); crawler assets are copied from repo root into _site below.
+      # Checkout kept (harmless); crawler assets are prepared under _site below.
       - name: Checkout repository
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
@@ -151,6 +151,7 @@ jobs:
         shell: bash
         env:
           UPSTREAM_RUN_ID: ${{ steps.runid.outputs.run_id }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
 
@@ -475,7 +476,7 @@ jobs:
           fi
 
           # --- Crawler assets (robots + sitemap) ---
-          # Single source of truth: publish crawler assets from repo root.
+          # Copy from repo root, but normalize absolute URLs to the actual Pages base URL.
           test -f robots.txt
           test -f sitemap.xml
           mkdir -p _site
@@ -483,14 +484,142 @@ jobs:
           cp -f robots.txt _site/robots.txt
           cp -f sitemap.xml _site/sitemap.xml
 
+          # Resolve actual Pages base (custom domain aware). Fallback to owner.github.io[/repo].
+          BASE_URL="$(python3 - <<'PY'
+          import json, os, sys, urllib.request
+
+          token = os.environ.get("GH_TOKEN", "")
+          repo  = os.environ.get("GITHUB_REPOSITORY", "")
+          owner = os.environ.get("GITHUB_REPOSITORY_OWNER", "")
+          name  = repo.split("/", 1)[1] if "/" in repo else repo
+
+          def fallback() -> str:
+            if name and owner and name.lower() == f"{owner}.github.io".lower():
+              return f"https://{owner}.github.io"
+            if name and owner:
+              return f"https://{owner}.github.io/{name}"
+            return ""
+
+          if not token or not repo:
+            print(fallback())
+            sys.exit(0)
+
+          req = urllib.request.Request(f"https://api.github.com/repos/{repo}/pages")
+          req.add_header("Authorization", f"Bearer {token}")
+          req.add_header("Accept", "application/vnd.github+json")
+          req.add_header("X-GitHub-Api-Version", "2022-11-28")
+
+          try:
+            with urllib.request.urlopen(req, timeout=20) as r:
+              data = json.load(r)
+            html_url = (data.get("html_url") or "").rstrip("/")
+            print(html_url or fallback())
+          except Exception:
+            print(fallback())
+          PY
+          )"
+          BASE_URL="${BASE_URL%/}"
+
+          if [ -z "${BASE_URL:-}" ]; then
+            echo "::error::Could not resolve Pages base URL."
+            exit 1
+          fi
+
+          echo "Resolved Pages BASE_URL: $BASE_URL"
+          export BASE_URL
+
+          # Normalize robots.txt Sitemap line -> BASE_URL/sitemap.xml
+          python3 - <<'PY'
+          import os, re
+          from pathlib import Path
+
+          base = os.environ["BASE_URL"].rstrip("/")
+          p = Path("_site/robots.txt")
+          lines = p.read_text(encoding="utf-8", errors="replace").splitlines()
+
+          out = []
+          saw = False
+          for ln in lines:
+            if re.match(r"^\s*Sitemap\s*:", ln, flags=re.I):
+              out.append(f"Sitemap: {base}/sitemap.xml")
+              saw = True
+            else:
+              out.append(ln)
+
+          if not saw:
+            if out and out[-1].strip():
+              out.append("")
+            out.append(f"Sitemap: {base}/sitemap.xml")
+
+          p.write_text("\n".join(out).rstrip("\n") + "\n", encoding="utf-8")
+          print("OK: normalized _site/robots.txt Sitemap")
+          PY
+
+          # Normalize sitemap.xml <loc> URLs to BASE_URL (strip old mount prefix if present)
+          python3 - <<'PY'
+          import os
+          import xml.etree.ElementTree as ET
+          from urllib.parse import urlsplit
+
+          base = os.environ["BASE_URL"].rstrip("/")
+          tree = ET.parse("_site/sitemap.xml")
+          root = tree.getroot()
+
+          # Preserve default namespace on write (avoid ns0 prefixes)
+          if root.tag.startswith("{") and "}" in root.tag:
+            ns = root.tag.split("}", 1)[0].strip("{")
+            ET.register_namespace("", ns)
+
+          loc_elems = [el for el in root.iter() if el.tag.endswith("loc")]
+          if not loc_elems:
+            raise SystemExit("No <loc> entries found in _site/sitemap.xml")
+
+          # Detect old mount prefix by looking for a shared first path segment,
+          # but only treat it as mount if at least one URL has 2+ segments.
+          paths = []
+          segs = []
+          for el in loc_elems:
+            u = (el.text or "").strip()
+            if not u:
+              continue
+            sp = urlsplit(u)
+            path = sp.path or "/"
+            paths.append(path)
+            segs.append([s for s in path.split("/") if s])
+
+          mount = ""
+          firsts = [s[0] for s in segs if s]
+          if firsts and all(f == firsts[0] for f in firsts):
+            if any(len(s) >= 2 for s in segs):
+              mount = "/" + firsts[0]
+
+          for el in loc_elems:
+            u = (el.text or "").strip()
+            if not u:
+              continue
+            sp = urlsplit(u)
+            path = sp.path or "/"
+
+            if mount and (path == mount or path.startswith(mount + "/")):
+              path = path[len(mount):] or "/"
+
+            if not path.startswith("/"):
+              path = "/" + path
+
+            el.text = base + path
+
+          tree.write("_site/sitemap.xml", encoding="utf-8", xml_declaration=True)
+          print(f"OK: normalized _site/sitemap.xml locs (mount={mount or '(none)'})")
+          PY
+
           # Fail-closed sanity
           grep -q '^User-agent:' _site/robots.txt
-          grep -q '^Sitemap:' _site/robots.txt
+          grep -q "^Sitemap: ${BASE_URL}/sitemap.xml" _site/robots.txt
 
           python3 - <<'PY'
           import xml.etree.ElementTree as ET
           ET.parse("_site/sitemap.xml")
-          print("OK: sitemap.xml parses as XML")
+          print("OK: sitemap.xml parses as XML after normalization")
           PY
 
           # NOTE: do not change site-root selection logic above. This step is purely about publishing/validating assets.
@@ -897,10 +1026,39 @@ jobs:
             return 0
           }
 
+          fetch "$BASE/" home.html
           fetch "$BASE/robots.txt" robots.txt
           fetch "$BASE/sitemap.xml" sitemap.xml
           fetch "$BASE/report_card.html" report_card.html
           fetch "$BASE/report_card.htm" report_card.htm
+
+          # Fail-closed: robots.txt must point to sitemap under the deployed BASE
+          if ! grep -q "^Sitemap: ${BASE}/sitemap.xml" robots.txt; then
+            echo "::error::robots.txt Sitemap line does not match deployed Pages base (${BASE})."
+            echo "--- robots.txt ---"
+            cat robots.txt || true
+            exit 1
+          fi
+
+          # Fail-closed: sitemap.xml must only contain URLs under BASE (avoid silent misdirect/deindex)
+          python3 - <<'PY'
+          import os, sys
+          import xml.etree.ElementTree as ET
+
+          base = os.environ["BASE"].rstrip("/")
+          tree = ET.parse("sitemap.xml")
+          root = tree.getroot()
+          locs = [(el.text or "").strip() for el in root.iter() if el.tag.endswith("loc")]
+
+          bad = [u for u in locs if u and not (u == base or u == base + "/" or u.startswith(base + "/"))]
+          if bad:
+            print("::error::sitemap.xml contains URLs outside deployed base:")
+            for u in bad[:50]:
+              print(f"::error::- {u}")
+            sys.exit(1)
+
+          print("OK: sitemap locs are under deployed base")
+          PY
 
           fetch "$BASE/schemas/gates.schema.json" schema_gates.schema.json
           fetch "$BASE/schemas/PULSE_paradox_field_v0.schema.json" schema_paradox_field.schema.json
@@ -956,5 +1114,51 @@ jobs:
           check_noindex_header "$BASE/paradox/core/v0/source_v0.json" headers_paradox_core_source.txt
           check_noindex_header "$BASE/paradox/core/v0/paradox_diagram_v0.json" headers_paradox_diagram_json.txt
           check_noindex_header "$BASE/paradox/core/v0/paradox_diagram_v0.svg" headers_paradox_diagram_svg.txt
+
+          # Meta noindex checks (HTML content): fail if primary indexable pages contain meta noindex.
+          check_noindex_meta () {
+            local url="$1"
+            local file="$2"
+            URL="$url" FILE="$file" python3 - <<'PY'
+          import os, re, sys
+          from pathlib import Path
+
+          url = os.environ.get("URL", "")
+          file = Path(os.environ.get("FILE", ""))
+
+          if not file.is_file():
+              sys.exit(0)
+
+          html = file.read_text(encoding="utf-8", errors="ignore")
+
+          metas = re.findall(r"<meta\b[^>]*>", html, flags=re.I)
+          bad = []
+          for tag in metas:
+              tl = tag.lower()
+              if "noindex" not in tl:
+                  continue
+              if re.search(r'name\s*=\s*["\']?(robots|googlebot|bingbot)["\']?', tl):
+                  bad.append(tag.strip())
+                  continue
+              if re.search(r'http-equiv\s*=\s*["\']?x-robots-tag["\']?', tl):
+                  bad.append(tag.strip())
+                  continue
+
+          if bad:
+              print(f"::error::Meta noindex detected in {file} for {url}. This blocks indexing.")
+              for t in bad[:5]:
+                  tt = t.replace("\n", " ").strip()
+                  print("::error::" + (tt[:400] + ("..." if len(tt) > 400 else "")))
+              sys.exit(1)
+          PY
+          }
+
+          check_noindex_meta "$BASE/" home.html
+          check_noindex_meta "$BASE/report_card.html" report_card.html
+          check_noindex_meta "$BASE/paradox/core/v0/" paradox_core_index.html
+          check_noindex_meta "$BASE/paradox/core/v0/paradox_core_reviewer_card_v0.html" paradox_core_card.html
+          if [ -f diagnostics_index.html ]; then
+            check_noindex_meta "$BASE/diagnostics/" diagnostics_index.html
+          fi
 
           echo "OK: post-deploy SEO smoke passed."
