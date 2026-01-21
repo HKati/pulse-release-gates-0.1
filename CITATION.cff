@@ -16,6 +16,7 @@ abstract: |
   services to ensure compliance with documented safety invariants and utility budgets.
 
 repository-code: "https://github.com/HKati/pulse-release-gates-0.1"
+url: "https://github.com/HKati/pulse-release-gates-0.1"
 
 keywords:
   - "release-governance"
@@ -66,7 +67,7 @@ references:
       - family-names: "Horvat"
         given-names: "Katalin"
         affiliation: "EPLabsAI"
-        orcid: "https://orcid.org/0000-0001-9745-3764"
+        orcid: "https://orcid.org/0009-0001-9745-3764"
     year: 2025
     doi: "10.34740/KAGGLE/DSV/13571927"
     url: "https://www.kaggle.com/dsv/13571927"
