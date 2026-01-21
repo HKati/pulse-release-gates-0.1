@@ -133,7 +133,7 @@ jobs:
           echo "Waiting briefly for Pages to release the deployment lock..."
           sleep 5
 
-      # Checkout kept (harmless); crawler assets are prepared under _site below.
+      # Checkout kept (harmless); crawler assets are generated under _site below.
       - name: Checkout repository
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
@@ -476,13 +476,8 @@ jobs:
           fi
 
           # --- Crawler assets (robots + sitemap) ---
-          # Copy from repo root, but normalize absolute URLs to the actual Pages base URL.
-          test -f robots.txt
-          test -f sitemap.xml
+          # Generate deterministically from actual Pages base to avoid base-URL drift.
           mkdir -p _site
-
-          cp -f robots.txt _site/robots.txt
-          cp -f sitemap.xml _site/sitemap.xml
 
           # Resolve actual Pages base (custom domain aware). Fallback to owner.github.io[/repo].
           BASE_URL="$(python3 - <<'PY'
@@ -528,88 +523,40 @@ jobs:
           echo "Resolved Pages BASE_URL: $BASE_URL"
           export BASE_URL
 
-          # Normalize robots.txt Sitemap line -> BASE_URL/sitemap.xml
-          python3 - <<'PY'
-          import os, re
-          from pathlib import Path
-
-          base = os.environ["BASE_URL"].rstrip("/")
-          p = Path("_site/robots.txt")
-          lines = p.read_text(encoding="utf-8", errors="replace").splitlines()
-
-          out = []
-          saw = False
-          for ln in lines:
-            if re.match(r"^\s*Sitemap\s*:", ln, flags=re.I):
-              out.append(f"Sitemap: {base}/sitemap.xml")
-              saw = True
-            else:
-              out.append(ln)
-
-          if not saw:
-            if out and out[-1].strip():
-              out.append("")
-            out.append(f"Sitemap: {base}/sitemap.xml")
-
-          p.write_text("\n".join(out).rstrip("\n") + "\n", encoding="utf-8")
-          print("OK: normalized _site/robots.txt Sitemap")
-          PY
-
-          # Normalize sitemap.xml <loc> URLs to BASE_URL (strip old mount prefix if present)
           python3 - <<'PY'
           import os
           import xml.etree.ElementTree as ET
-          from urllib.parse import urlsplit
+          from pathlib import Path
 
           base = os.environ["BASE_URL"].rstrip("/")
-          tree = ET.parse("_site/sitemap.xml")
-          root = tree.getroot()
+          site = Path("_site")
+          site.mkdir(parents=True, exist_ok=True)
 
-          # Preserve default namespace on write (avoid ns0 prefixes)
-          if root.tag.startswith("{") and "}" in root.tag:
-            ns = root.tag.split("}", 1)[0].strip("{")
-            ET.register_namespace("", ns)
+          # robots.txt (multi-line)
+          robots = [
+              "User-agent: *",
+              "Allow: /",
+              f"Sitemap: {base}/sitemap.xml",
+          ]
+          (site / "robots.txt").write_text("\n".join(robots) + "\n", encoding="utf-8")
 
-          loc_elems = [el for el in root.iter() if el.tag.endswith("loc")]
-          if not loc_elems:
-            raise SystemExit("No <loc> entries found in _site/sitemap.xml")
+          # Stable sitemap entrypoints (do NOT include legacy redirect pages with noindex)
+          urls = [
+              "/",
+              "/report_card.html",
+              "/diagnostics/",
+              "/paradox/core/v0/",
+          ]
 
-          # Detect old mount prefix by looking for a shared first path segment,
-          # but only treat it as mount if at least one URL has 2+ segments.
-          paths = []
-          segs = []
-          for el in loc_elems:
-            u = (el.text or "").strip()
-            if not u:
-              continue
-            sp = urlsplit(u)
-            path = sp.path or "/"
-            paths.append(path)
-            segs.append([s for s in path.split("/") if s])
+          urlset = ET.Element("urlset", {"xmlns": "http://www.sitemaps.org/schemas/sitemap/0.9"})
+          for path in urls:
+              url = ET.SubElement(urlset, "url")
+              loc = ET.SubElement(url, "loc")
+              loc.text = f"{base}{path}"
 
-          mount = ""
-          firsts = [s[0] for s in segs if s]
-          if firsts and all(f == firsts[0] for f in firsts):
-            if any(len(s) >= 2 for s in segs):
-              mount = "/" + firsts[0]
-
-          for el in loc_elems:
-            u = (el.text or "").strip()
-            if not u:
-              continue
-            sp = urlsplit(u)
-            path = sp.path or "/"
-
-            if mount and (path == mount or path.startswith(mount + "/")):
-              path = path[len(mount):] or "/"
-
-            if not path.startswith("/"):
-              path = "/" + path
-
-            el.text = base + path
-
-          tree.write("_site/sitemap.xml", encoding="utf-8", xml_declaration=True)
-          print(f"OK: normalized _site/sitemap.xml locs (mount={mount or '(none)'})")
+          tree = ET.ElementTree(urlset)
+          tree.write(site / "sitemap.xml", encoding="utf-8", xml_declaration=True)
+          print("OK: wrote _site/robots.txt and _site/sitemap.xml")
           PY
 
           # Fail-closed sanity
@@ -619,7 +566,7 @@ jobs:
           python3 - <<'PY'
           import xml.etree.ElementTree as ET
           ET.parse("_site/sitemap.xml")
-          print("OK: sitemap.xml parses as XML after normalization")
+          print("OK: sitemap.xml parses as XML")
           PY
 
           # NOTE: do not change site-root selection logic above. This step is purely about publishing/validating assets.
@@ -1032,15 +979,15 @@ jobs:
           fetch "$BASE/report_card.html" report_card.html
           fetch "$BASE/report_card.htm" report_card.htm
 
-          # Fail-closed: robots.txt must point to sitemap under the deployed BASE
+          # robots.txt must point to the deployed BASE
           if ! grep -q "^Sitemap: ${BASE}/sitemap.xml" robots.txt; then
-            echo "::error::robots.txt Sitemap line does not match deployed Pages base (${BASE})."
+            echo "::error::robots.txt Sitemap does not match deployed Pages base (${BASE})."
             echo "--- robots.txt ---"
             cat robots.txt || true
             exit 1
           fi
 
-          # Fail-closed: sitemap.xml must only contain URLs under BASE (avoid silent misdirect/deindex)
+          # sitemap.xml must only contain URLs under BASE (otherwise crawlers get misdirected)
           python3 - <<'PY'
           import os, sys
           import xml.etree.ElementTree as ET
