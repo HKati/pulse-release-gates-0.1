@@ -1,0 +1,80 @@
+version: gate_registry_v0
+
+rules:
+  gate_id_immutable: true
+  rename_requires_new_id: true
+  deprecate_requires_replacement: true
+
+# Use this registry as the single source of meaning for gate IDs.
+# Gate IDs may be added, but existing meanings must not be edited in-place.
+
+gates:
+  # --- Quality gates ---
+  q1_grounded_ok:
+    category: quality
+    intent: "Groundedness passes under the defined evaluation protocol."
+    stability: stable
+
+  q2_consistency_ok:
+    category: quality
+    intent: "Consistency passes under the defined evaluation protocol."
+    stability: stable
+
+  q3_fairness_ok:
+    category: quality
+    intent: "Fairness criteria pass under the defined evaluation protocol."
+    stability: stable
+
+  q4_slo_ok:
+    category: slo
+    intent: "Latency/cost SLO constraints pass under the defined evaluation protocol."
+    stability: stable
+
+  # --- Invariant-style gates (examples; keep names exactly as implemented) ---
+  psf_monotonicity_ok:
+    category: invariants
+    intent: "Monotonicity invariant holds for the test suite."
+    stability: stable
+
+  psf_commutativity_ok:
+    category: invariants
+    intent: "Commutativity invariant holds for the test suite."
+    stability: stable
+
+  psf_idempotence_ok:
+    category: invariants
+    intent: "Idempotence invariant holds for the test suite."
+    stability: stable
+
+  psf_path_independence_ok:
+    category: invariants
+    intent: "Path-independence invariant holds for the test suite."
+    stability: stable
+
+  psf_action_monotonicity_ok:
+    category: invariants
+    intent: "Action-monotonicity invariant holds for the test suite."
+    stability: stable
+
+  psf_pii_monotonicity_ok:
+    category: invariants
+    intent: "PII monotonicity constraint holds for the test suite."
+    stability: stable
+
+  # --- Controls / sanitization ---
+  sanitization_effective:
+    category: sanitization
+    intent: "Sanitization removes disallowed/sensitive patterns as defined."
+    stability: stable
+
+  sanit_shift_resilient:
+    category: sanitization
+    intent: "Sanitization remains effective under small perturbations."
+    stability: stable
+
+  # --- Diagnostics (must remain non-normative unless explicitly promoted) ---
+  epf_hazard_ok:
+    category: diagnostics
+    intent: "Hazard zone is not RED (diagnostic signal)."
+    stability: experimental
+    default_normative: false
