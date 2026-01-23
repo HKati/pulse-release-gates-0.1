@@ -23,6 +23,7 @@ This changelog records **semantic** changes that can affect release gating outco
 
 - Q3 fairness: fail-closed when dataset manifest or `dataset_manifest.slices.dimensions` is missing/empty; Q3 gating now FAILs without declared slices (spec `q3_fairness_v0` bumped to 0.1.1). (PR: #936)
 
+- q3_fairness_v0 (spec 0.1.1): Require non-empty dataset slice dimensions; fail-closed when missing/empty to prevent fairness checks from being skipped.
 
 ## 0.1.0 — Initial baseline
 
