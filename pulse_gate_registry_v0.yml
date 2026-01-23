@@ -36,9 +36,19 @@ gates:
     intent: "Monotonicity invariant holds for the test suite."
     stability: stable
 
+  psf_mono_shift_resilient:
+    category: invariants
+    intent: "Monotonicity invariant remains valid under shift/perturbation tests."
+    stability: stable
+
   psf_commutativity_ok:
     category: invariants
     intent: "Commutativity invariant holds for the test suite."
+    stability: stable
+
+  psf_comm_shift_resilient:
+    category: invariants
+    intent: "Commutativity invariant remains valid under shift/perturbation tests."
     stability: stable
 
   psf_idempotence_ok:
@@ -81,6 +91,11 @@ gates:
   pass_controls_comm:
     category: controls
     intent: "Pack control suite: comm-related control checks pass under the current run_all protocol."
+    stability: stable
+
+  pass_controls_sanit:
+    category: controls
+    intent: "Pack control suite: sanitization-related control checks pass under the current run_all protocol."
     stability: stable
 
   effect_present:
