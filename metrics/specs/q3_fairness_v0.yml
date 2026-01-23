@@ -11,7 +11,7 @@
 
 spec:
   id: q3_fairness_v0
-  version: "0.1.0"
+  version: "0.1.1"
   category: "Q"
   metric_id: "q3_fairness"
   gate_signal: "q3_fairness_ok"
@@ -29,13 +29,26 @@ references:
 data_contract:
   dataset_manifest:
     required: true
-    rule: "Runs SHOULD carry a dataset manifest; fairness without clear slice/time/source/sampling is ambiguous."
+    rule: >
+      Runs SHOULD carry a dataset manifest; fairness without clear slice/time/source/sampling is ambiguous.
+      If the manifest is missing, Q3 MUST fail (fail-closed).
 
   slice_definition:
     source: "dataset_manifest.slices.dimensions"
+    required: true
+    min_dimensions: 1
+    missing_or_empty_behavior: "FAIL"
     rule: >
       Fairness is evaluated only over explicit slice dimensions declared in the dataset manifest.
       No implicit demographic inference is permitted.
+
+  # NOTE: This spec evaluates fairness on "marginal" slice groups:
+  # for each declared dimension D, evaluate each value v as a group (D=v).
+  grouping_scope:
+    mode: "marginal"
+    note: >
+      Intersectional groups (e.g., locale x user_segment) are not required by this v0 spec.
+      If added later, update spec.version and the changelog.
 
   evaluation_unit:
     name: "example"
@@ -51,6 +64,9 @@ normalization:
   group_key:
     description: "Group membership is derived deterministically from example metadata."
     missing_group_value: "__MISSING__"
+    rule: >
+      For each declared slice dimension D, the group key is (D=value).
+      If metadata[D] is missing, use __MISSING__.
     note: "Missing group values are treated as a group; excessive missingness can fail coverage."
 
 scoring:
@@ -63,7 +79,7 @@ scoring:
 
   per_group_metric:
     id: "group_pass_rate"
-    definition: "Pass rate of eligible examples within each (dimension=value) group."
+    definition: "Pass rate of eligible examples within each group (D=value)."
     formula: "count(pass_labels) / n_eligible_in_group"
 
 aggregation:
@@ -75,7 +91,7 @@ aggregation:
   disparity_metric:
     id: "worst_group_gap"
     definition: >
-      For each group, compute a conservative gap between overall pass rate and group pass rate.
+      For each group, compute a conservative disadvantage gap between the overall pass rate and the group pass rate.
       Use confidence bounds to avoid underestimating disadvantage under sampling noise.
     conservative_gap_definition:
       overall_bound: "wilson_upper_bound(overall_pass_rate, alpha=0.05)"
@@ -103,6 +119,8 @@ gating:
     worst_group_gap: 0.05
 
   decision_rule:
+    - "FAIL if dataset manifest is missing."
+    - "FAIL if dataset_manifest.slices.dimensions is missing or empty."
     - "Compute overall_pass_rate on eligible examples."
     - "For each declared slice dimension, compute group_pass_rate per group value (eligible groups only)."
     - "Compute conservative gap per group: max(0, UB_overall - LB_group) using Wilson bounds (alpha=0.05)."
@@ -111,6 +129,12 @@ gating:
     - "FAIL otherwise."
 
   evidence_requirements:
+    dataset_manifest_required:
+      rule: "If dataset manifest is missing => FAIL (no declared slices / provenance contract)."
+
+    slice_dimensions_required:
+      rule: "If dataset_manifest.slices.dimensions is missing or empty => FAIL (no declared slices)."
+
     min_n_eligible_total:
       value: 200
       rule: "If n_eligible_total < min_n_eligible_total => FAIL (insufficient evidence)."
@@ -124,10 +148,15 @@ gating:
     coverage:
       max_missing_group_fraction:
         value: 0.05
-        rule: "If >5% of eligible examples have missing group labels => FAIL (insufficient slice quality)."
+        rule: >
+          If >5% of eligible examples have missing group labels for any declared dimension
+          (i.e., fall into __MISSING__) => FAIL (insufficient slice quality).
+
       max_excluded_fraction_due_to_small_groups:
         value: 0.10
-        rule: "If >10% of eligible examples fall into excluded (too-small) groups => FAIL (insufficient group evidence)."
+        rule: >
+          If >10% of eligible examples belong to groups excluded due to small n
+          (n_eligible_in_group < min_n_per_group) => FAIL (insufficient group evidence).
 
   # Optional EPF (shadow-only) parameters documented for consistency with the repo's EPF band idea.
   # EPF must remain CI-neutral unless explicitly promoted by policy.
@@ -143,3 +172,5 @@ determinism:
     - "Slice dimensions and group assignment must be deterministic and derived from input metadata."
     - "Do not use LLM-based judges for group assignment or parity checks in CI-required mode."
     - "Sampling seed and dataset snapshot hash should be recorded (dataset manifest)."
+
+# retrigger-ci: changelog entry added under docs/policy/CHANGELOG.md (Unreleased)
