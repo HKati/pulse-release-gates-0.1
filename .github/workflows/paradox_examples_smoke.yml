@@ -30,7 +30,7 @@ jobs:
           fetch-depth: 0
 
       - name: Setup Python
-        uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38 # v5.4.0
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
         with:
           python-version: "3.11"
 
@@ -215,7 +215,7 @@ jobs:
             --max-edges 120 \
             --min-weight 0.0
 
-      - name: Regression fixture: empty edges (run_context present)
+      - name: "Regression fixture: empty edges (run_context present)"
         shell: bash
         run: |
           set -euo pipefail
@@ -259,7 +259,7 @@ jobs:
             --max-edges 120 \
             --min-weight 0.0
 
-      - name: Regression fixture: no atoms (stable empty field)
+      - name: "Regression fixture: no atoms (stable empty field)"
         shell: bash
         run: |
           set -euo pipefail
@@ -303,7 +303,7 @@ jobs:
             --max-edges 120 \
             --min-weight 0.0
 
-      - name: Determinism check: paradox markdown summaries + diagrams
+      - name: "Determinism check: paradox markdown summaries + diagrams"
         shell: bash
         run: |
           set -euo pipefail
@@ -438,7 +438,7 @@ jobs:
 
       - name: Upload paradox artifacts
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: paradox-artifacts
           if-no-files-found: warn

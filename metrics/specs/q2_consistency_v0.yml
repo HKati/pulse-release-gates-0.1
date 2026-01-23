@@ -1,0 +1,124 @@
+# q2_consistency_v0.yml
+# Metric specification (human + governance contract).
+#
+# Q2 Consistency (answer agreement) is about *stability of meaning*:
+# semantically equivalent prompts / repeats should yield agreeing answers.
+#
+# This file is intentionally "spec-first":
+# - It documents the meaning of q2_consistency and the q2_consistency_ok gate.
+# - It does not change runtime behavior by itself.
+# - If implementation semantics change, update this spec + canonical contract docs together.
+
+spec:
+  id: q2_consistency_v0
+  version: "0.1.0"
+  category: "Q"
+  metric_id: "q2_consistency"
+  gate_signal: "q2_consistency_ok"
+  title: "Q2 Consistency"
+  intent: "Equivalent questions should yield agreeing answers."
+
+references:
+  canonical_gate_set: "pulse_gate_policy_v0.yml"
+  status_artifact_hint: "PULSE_safe_pack_v0/artifacts/status.json"
+  dataset_manifest_schema: "schemas/dataset_manifest.schema.json"
+  dataset_manifest_example: "examples/dataset_manifest.example.json"
+
+data_contract:
+  dataset_manifest:
+    required: true
+    rule: "Runs SHOULD carry a dataset manifest to remove ambiguity about slice/time/source/sampling."
+
+  evaluation_unit:
+    name: "agreement_group"
+    description: "A group of K responses to semantically equivalent prompts (paraphrases or repeats)."
+    required_fields:
+      - "group_id"
+      - "responses"
+    constraints:
+      min_k: 2
+
+  equivalence_scope:
+    definition: "Prompts within a group are intended to be semantically equivalent for the target task."
+    grouping_source: "Provided by the dataset generation pipeline; must be deterministic and reproducible."
+
+normalization:
+  answer_signature:
+    description: "Deterministic extraction/normalization applied before agreement comparison."
+    steps:
+      - "extract_final_answer_or_refusal_tag"
+      - "trim_whitespace"
+      - "casefold"
+      - "normalize_unicode_nfkc"
+    refusal_signature: "__REFUSAL__"
+    unknown_signature: "__UNKNOWN__"
+
+  comparator:
+    type: "exact_match"
+    rationale: "Deterministic and audit-friendly; avoids LLM-judge flakiness in CI-required mode."
+    advisory_semantic_judge:
+      allowed: true
+      note: "If added later, it must remain diagnostic (advisory) unless proven deterministic."
+
+scoring:
+  per_group:
+    labels:
+      - "CONSISTENT"
+      - "INCONSISTENT"
+      - "UNKNOWN"
+
+    eligibility:
+      - "Group has >=2 responses with non-UNKNOWN signatures."
+
+    rule:
+      - "CONSISTENT if all eligible signatures in the group are identical."
+      - "INCONSISTENT if there are >=2 distinct eligible signatures in the group."
+      - "UNKNOWN if <2 eligible signatures are available."
+
+aggregation:
+  primary_metric:
+    id: "consistency_rate"
+    definition: "Share of eligible groups labeled CONSISTENT."
+    formula: "count(CONSISTENT) / n_eligible_groups"
+
+statistics:
+  confidence_interval:
+    method: "wilson"
+    alpha: 0.05
+    pass_basis: "lower_bound"
+    rationale: "Conservative gating under sampling noise."
+
+  drift_delta:
+    method: "newcombe"
+    ci_alpha: 0.05
+    note: "Optional diagnostic delta vs baseline; CI-neutral unless explicitly promoted."
+
+gating:
+  threshold:
+    consistency_rate: 0.90
+
+  decision_rule:
+    - "Compute consistency_rate over eligible groups."
+    - "Compute Wilson lower bound (alpha=0.05)."
+    - "PASS iff wilson_lower_bound >= threshold.consistency_rate."
+    - "FAIL otherwise."
+
+  evidence_requirements:
+    min_n_eligible_groups:
+      value: 50
+      rule: "If n_eligible_groups < min_n_eligible_groups => FAIL (insufficient evidence)."
+
+  # Optional EPF (shadow-only) parameters documented for consistency with the repo's EPF band idea.
+  # EPF must remain CI-neutral unless explicitly promoted by policy.
+  epf_shadow_defaults:
+    epsilon: 0.03
+    adapt: true
+    max_risk: 0.20
+    ema_alpha: 0.20
+    min_samples: 5
+
+determinism:
+  requirements:
+    - "Grouping must be deterministic (stable group_id assignment)."
+    - "If multiple samples/repeats are used, seed and sampling parameters must be recorded."
+    - "Avoid non-deterministic semantic judges in CI-required mode."

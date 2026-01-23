@@ -1,0 +1,111 @@
+{
+  "edges": [
+    {
+      "a": "n_11339020e4befbed",
+      "b": "n_fdd73542b1d24194",
+      "edge_id": "e_f0775336d1769186",
+      "evidence": {
+        "core_edges": [
+          {
+            "core_edge_id": "ce_01",
+            "edge_type": "co_occurs",
+            "rule": "demo_pair",
+            "severity": "low"
+          }
+        ]
+      },
+      "kind": "co_occurrence",
+      "weight": 1.0
+    },
+    {
+      "a": "n_11339020e4befbed",
+      "b": "r_bb3ff61791b9df94",
+      "directed": true,
+      "edge_id": "e_9e826c192033df6f",
+      "evidence": {
+        "note": "v0: default attachment to reference anchor (reference-oriented, non-causal)"
+      },
+      "kind": "reference_relation",
+      "weight": 0.0
+    },
+    {
+      "a": "n_fdd73542b1d24194",
+      "b": "r_bb3ff61791b9df94",
+      "directed": true,
+      "edge_id": "e_2aaaba52d157727c",
+      "evidence": {
+        "note": "v0: default attachment to reference anchor (reference-oriented, non-causal)"
+      },
+      "kind": "reference_relation",
+      "weight": 0.0
+    }
+  ],
+  "inputs": {
+    "paradox_core_v0": {
+      "path_hint": "tests/fixtures/paradox_diagram_v0/core_k2.json",
+      "sha256": "447b407b0171e227fa454bbd446360c473a01134a880478875b3edd4cce5dd1a"
+    }
+  },
+  "nodes": [
+    {
+      "kind": "reference",
+      "node_id": "r_bb3ff61791b9df94",
+      "ref_id": "ref.release_decision",
+      "render_hints": {
+        "label": "ref.release_decision",
+        "layer": "reference",
+        "order": 0
+      }
+    },
+    {
+      "core_atom_id": "a_01",
+      "kind": "atom",
+      "node_id": "n_fdd73542b1d24194",
+      "rank": 1,
+      "relation_to_reference": {
+        "orientation": "unknown",
+        "ref_id": "ref.release_decision",
+        "weight": 0.0
+      },
+      "render_hints": {
+        "label": "Latency budget flip",
+        "layer": "atoms",
+        "order": 1
+      }
+    },
+    {
+      "core_atom_id": "a_02",
+      "kind": "atom",
+      "node_id": "n_11339020e4befbed",
+      "rank": 2,
+      "relation_to_reference": {
+        "orientation": "unknown",
+        "ref_id": "ref.release_decision",
+        "weight": 0.0
+      },
+      "render_hints": {
+        "label": "p99 latency delta",
+        "layer": "atoms",
+        "order": 2
+      }
+    }
+  ],
+  "notes": [
+    {
+      "code": "NON_CAUSAL",
+      "text": "This artifact expresses associations (co-occurrence) and reference-oriented relations; it does not assert causality."
+    },
+    {
+      "code": "CI_NEUTRAL_DEFAULT",
+      "text": "Paradox Diagram v0 is diagnostic by default and must not flip CI release gates unless explicitly promoted by policy."
+    }
+  ],
+  "references": [
+    {
+      "kind": "decision",
+      "ref_id": "ref.release_decision"
+    }
+  ],
+  "schema": "PULSE_paradox_diagram_v0",
+  "version": 0
+}

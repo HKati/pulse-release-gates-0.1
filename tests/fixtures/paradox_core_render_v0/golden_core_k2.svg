@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="384" viewBox="0 0 1200 384">
+<style>
+  .title { font-family: monospace; font-size: 16px; font-weight: 700; }
+  .meta  { font-family: monospace; font-size: 12px; opacity: 0.85; }
+  .node  { fill: #ffffff; stroke: #111111; stroke-width: 1; }
+  .edge  { stroke: #111111; stroke-width: 1; opacity: 0.70; }
+  .text  { font-family: monospace; font-size: 13px; }
+  .small { font-family: monospace; font-size: 11px; opacity: 0.85; }
+</style>
+<rect x="0" y="0" width="1200" height="384" fill="#ffffff"/>
+<text x="24" y="24" class="title">Paradox Core v0 — SVG (diagnostic, non-causal)</text>
+<text x="24" y="44" class="meta">schema=PULSE_paradox_core_v0 version=v0 metric=severity k=2</text>
+<text x="24" y="62" class="meta">run_id=fixture_run_core_projection_v0</text>
+<text x="24" y="80" class="meta">field_sha256=f21d20aac5ee34c0bf3e866aa4317e5c933be4433971d39ea2f8163b75a1b9bf</text>
+<text x="24" y="98" class="meta">edges_sha256=4f668c987f3bc6715ba192defe46791b3bde7d767517ceb4f771b2db679b64d7</text>
+<text x="24" y="120" class="small">Edges are association/co-occurrence only (non-causal) in v0. CI-neutral by default.</text>
+<line class="edge" x1="544" y1="200" x2="24" y2="280"/>
+<rect class="node" x="24" y="168" width="520" height="64" rx="8" ry="8" id="atom-a_01"/>
+<text class="text" x="36" y="188">[1] a_01  score=0.900</text>
+<text class="small" x="36" y="206">equal-severity atom 1 (tie-break by id)</text>
+<rect class="node" x="24" y="248" width="520" height="64" rx="8" ry="8" id="atom-a_02"/>
+<text class="text" x="36" y="268">[2] a_02  score=0.900</text>
+<text class="small" x="36" y="286">equal-severity atom 2</text>
+</svg>
+

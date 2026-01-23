@@ -1,0 +1,126 @@
+name: Pages • Paradox Core publish (case study, shadow)
+
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  pages_paradox_core_publish_case_study_shadow:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup Python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        with:
+          python-version: "3.11"
+
+      - name: Locate case study transitions dir (fail-closed)
+        shell: bash
+        run: |
+          set -euo pipefail
+          CASE_DIR="docs/examples/transitions_case_study_v0"
+          test -d "$CASE_DIR" || { echo "Missing case study dir: $CASE_DIR"; exit 1; }
+
+          # Priority order (deterministic):
+          # 1) explicit transitions/ subdir
+          # 2) explicit transitions_gate_metric_tension_v0/ subdir
+          # 3) CASE_DIR itself if it contains pulse_*_drift_v0* files
+          # 4) otherwise, deterministically pick the first transitions* dir (sorted)
+          if [ -d "$CASE_DIR/transitions" ]; then
+            TRANSITIONS_DIR="$CASE_DIR/transitions"
+          elif [ -d "$CASE_DIR/transitions_gate_metric_tension_v0" ]; then
+            TRANSITIONS_DIR="$CASE_DIR/transitions_gate_metric_tension_v0"
+          elif ls "$CASE_DIR"/pulse_*_drift_v0* >/dev/null 2>&1; then
+            TRANSITIONS_DIR="$CASE_DIR"
+          else
+            TRANSITIONS_DIR="$(find "$CASE_DIR" -maxdepth 2 -type d -name 'transitions*' | sort | head -n 1 || true)"
+          fi
+
+          test -n "${TRANSITIONS_DIR:-}" || { echo "No transitions dir found under: $CASE_DIR"; exit 1; }
+          test -d "$TRANSITIONS_DIR" || { echo "Transitions dir not a directory: $TRANSITIONS_DIR"; exit 1; }
+
+          echo "TRANSITIONS_DIR=$TRANSITIONS_DIR" >> "$GITHUB_ENV"
+          echo "Using transitions dir: $TRANSITIONS_DIR"
+
+      - name: Build paradox_field_v0 + edges (case study)
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf out
+          mkdir -p out
+
+          python scripts/paradox_field_adapter_v0.py \
+            --transitions-dir "$TRANSITIONS_DIR" \
+            --out out/paradox_field_v0.json
+
+          python scripts/check_paradox_field_v0_contract.py \
+            --in out/paradox_field_v0.json
+
+          python scripts/export_paradox_edges_v0.py \
+            --in out/paradox_field_v0.json \
+            --out out/paradox_edges_v0.jsonl
+
+          python scripts/check_paradox_edges_v0_contract.py \
+            --in out/paradox_edges_v0.jsonl \
+            --atoms out/paradox_field_v0.json
+
+      - name: Build Paradox Core reviewer bundle (from case study)
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf out/paradox_core_bundle_case_study_v0
+
+          python scripts/paradox_core_reviewer_bundle_v0.py \
+            --field out/paradox_field_v0.json \
+            --edges out/paradox_edges_v0.jsonl \
+            --out-dir out/paradox_core_bundle_case_study_v0 \
+            --k 12 \
+            --metric severity
+
+      - name: Publish bundle into site snapshot (shadow)
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf out/pages_site_case_study_shadow_v0
+
+          python scripts/pages_publish_paradox_core_bundle_v0.py \
+            --bundle-dir out/paradox_core_bundle_case_study_v0 \
+            --site-dir out/pages_site_case_study_shadow_v0 \
+            --mount paradox/core/v0 \
+            --write-index
+
+      - name: Step summary
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "## Pages • Paradox Core publish (case study, shadow)" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- transitions_dir: \`$TRANSITIONS_DIR\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- field: \`out/paradox_field_v0.json\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- edges: \`out/paradox_edges_v0.jsonl\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- bundle: \`out/paradox_core_bundle_case_study_v0\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- site snapshot: \`out/pages_site_case_study_shadow_v0\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- mount: \`paradox/core/v0\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "### Published files" >> "$GITHUB_STEP_SUMMARY"
+          ls -lah out/pages_site_case_study_shadow_v0/paradox/core/v0 | sed 's/^/    /' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload artifact (site snapshot + inputs)
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: pages-paradox-core-case-study-shadow-site-v0
+          path: |
+            out/pages_site_case_study_shadow_v0
+            out/paradox_field_v0.json
+            out/paradox_edges_v0.jsonl
+            out/paradox_core_bundle_case_study_v0
+          if-no-files-found: error

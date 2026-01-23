@@ -1,0 +1,2 @@
+{"edge_id":"e1","src_atom_id":"a_01","dst_atom_id":"a_02","edge_type":"co_occurs","weight":1.0}
+{"edge_id":"e2","src_atom_id":"a_01","dst_atom_id":"a_03","edge_type":"co_occurs","weight":1.0}

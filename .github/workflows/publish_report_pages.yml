@@ -8,8 +8,12 @@ on:
   workflow_dispatch:
     inputs:
       run_id:
-        description: "PULSE CI workflow run id to publish (Actions run ID)"
-        required: true
+        description: "PULSE CI workflow run id to publish (Actions run ID). Optional: leave empty to use latest successful run on main."
+        required: false
+        type: string
+      cancel_pages_deployment_id:
+        description: "Optional: cancel a stuck GitHub Pages deployment before deploying (deployment id OR commit SHA)."
+        required: false
         type: string
 
 permissions:
@@ -40,16 +44,98 @@ jobs:
       - name: Resolve upstream run id
         id: runid
         shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
 
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "run_id=${{ inputs.run_id }}" >> "$GITHUB_OUTPUT"
+          echo "event_name: ${GITHUB_EVENT_NAME}"
+          echo "repo:       ${GITHUB_REPOSITORY}"
+
+          # Read optional workflow_dispatch inputs from the event payload (works even when inputs context is absent).
+          INPUT_RUN_ID="$(python3 -c 'import json,os; ev=json.load(open(os.environ["GITHUB_EVENT_PATH"])); print((ev.get("inputs") or {}).get("run_id","").strip())')"
+          INPUT_CANCEL_ID="$(python3 -c 'import json,os; ev=json.load(open(os.environ["GITHUB_EVENT_PATH"])); print((ev.get("inputs") or {}).get("cancel_pages_deployment_id","").strip())')"
+
+          if [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
+            if [ -n "${INPUT_RUN_ID}" ]; then
+              RUN_ID="${INPUT_RUN_ID}"
+              echo "Using provided run_id from workflow_dispatch input: ${RUN_ID}"
+            else
+              echo "No run_id provided; selecting latest successful PULSE CI run on main..."
+
+              # Prefer jq (available on ubuntu-latest); keep this YAML-safe (no heredoc).
+              RUN_ID="$(
+                curl -fsSL \
+                  -H "Authorization: Bearer ${GH_TOKEN}" \
+                  -H "Accept: application/vnd.github+json" \
+                  "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/workflows/pulse_ci.yml/runs?branch=main&per_page=50" \
+                | jq -r '.workflow_runs[] | select(.conclusion=="success") | .id' \
+                | head -n 1
+              )"
+
+              if [ -z "${RUN_ID:-}" ] || [ "${RUN_ID}" = "null" ]; then
+                echo "::error::No successful PULSE CI runs found on main (last 50). Provide run_id manually."
+                exit 1
+              fi
+            fi
           else
-            echo "run_id=${{ github.event.workflow_run.id }}" >> "$GITHUB_OUTPUT"
+            # workflow_run trigger: take run id directly from the event payload.
+            RUN_ID="$(python3 -c 'import json,os; ev=json.load(open(os.environ["GITHUB_EVENT_PATH"])); print(str((ev.get("workflow_run") or {}).get("id","")).strip())')"
+            if [ -z "${RUN_ID:-}" ] || [ "${RUN_ID}" = "None" ]; then
+              echo "::error::workflow_run payload missing workflow_run.id; cannot proceed."
+              exit 1
+            fi
+            echo "Using workflow_run.id from event payload: ${RUN_ID}"
           fi
 
-          echo "Using run_id: ${{ steps.runid.outputs.run_id }}"
+          echo "run_id=${RUN_ID}" >> "$GITHUB_OUTPUT"
+          echo "cancel_pages_deployment_id=${INPUT_CANCEL_ID}" >> "$GITHUB_OUTPUT"
+          echo "Using run_id: ${RUN_ID}"
+          if [ -n "${INPUT_CANCEL_ID}" ]; then
+            echo "Cancel requested for Pages deployment id/SHA: ${INPUT_CANCEL_ID}"
+          fi
+
+      # If a previous Pages deploy is wedged "in progress", cancel it before attempting a new deployment.
+      # GitHub API allows pages_deployment_id to be the deployment id OR the commit SHA.
+      - name: Cancel stuck Pages deployment (manual helper)
+        if: ${{ github.event_name == 'workflow_dispatch' && steps.runid.outputs.cancel_pages_deployment_id != '' }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CANCEL_ID: ${{ steps.runid.outputs.cancel_pages_deployment_id }}
+        run: |
+          set -euo pipefail
+
+          echo "Attempting to cancel GitHub Pages deployment: ${CANCEL_ID}"
+
+          # Best-effort: show current status (non-fatal if not found).
+          curl -fsSL \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/pages/deployments/${CANCEL_ID}" \
+            || true
+
+          http_code="$(curl -sS -o /tmp/cancel_pages.out -w "%{http_code}" -L -X POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/pages/deployments/${CANCEL_ID}/cancel")"
+
+          if [ "${http_code}" != "204" ]; then
+            echo "::error::Failed to cancel Pages deployment ${CANCEL_ID}. HTTP ${http_code}."
+            echo "::error::Response:"
+            sed -n '1,200p' /tmp/cancel_pages.out || true
+            exit 1
+          fi
+
+          echo "OK: cancel request accepted (204)."
+          echo "Waiting briefly for Pages to release the deployment lock..."
+          sleep 5
+
+      # Checkout kept (harmless); crawler assets are generated under _site below.
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Download pulse-report artifact (from upstream run)
         uses: dawidd6/action-download-artifact@ac66b43f0e6a346234dd65d4d0c8fbb31cb316e5 # v11
@@ -63,6 +149,9 @@ jobs:
       - name: Prepare Pages site
         id: prepare
         shell: bash
+        env:
+          UPSTREAM_RUN_ID: ${{ steps.runid.outputs.run_id }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
 
@@ -78,7 +167,7 @@ jobs:
           root = pathlib.Path("_artifact")
           candidates = []
           for p in root.rglob("index.html"):
-              s = str(p).replace("\\\\","/")
+              s = str(p).replace("\\","/")
               if "/node_modules/" in s:
                   continue
               parts = [x.lower() for x in p.parts]
@@ -99,7 +188,7 @@ jobs:
           root = pathlib.Path("_artifact")
           candidates = []
           for p in root.rglob("report_card.html"):
-              s = str(p).replace("\\\\","/")
+              s = str(p).replace("\\","/")
               if "/node_modules/" in s:
                   continue
               parts = [x.lower() for x in p.parts]
@@ -130,7 +219,7 @@ jobs:
             # Copy directory containing report_card.html to Pages root so relative assets keep working.
             cp -a "$card_root"/. _site/
 
-            # Promote report_card.html to index.html at the Pages root (regression fix).
+            # Promote report_card.html to index.html at the Pages root.
             cp -a "$report_card" _site/index.html
 
             echo "mode=report_card" >> "$GITHUB_OUTPUT"
@@ -166,9 +255,586 @@ jobs:
             cp -a "_artifact/reports" "_site/"
           fi
 
-          echo ""
-          echo "Top-level in _site:"
-          ls -la _site | sed 's/^/  /'
+          # --- Legacy report card URLs (must exist in deployed _site/) ---
+
+          # Ensure /report_card.html exists at the published site root.
+          # If upstream artifact already provides it, keep it.
+          # Otherwise copy index.html (so legacy /report_card.html won't 404).
+          if [ ! -f "_site/report_card.html" ] && [ -f "_site/index.html" ]; then
+            cp -a "_site/index.html" "_site/report_card.html"
+          fi
+
+          # Ensure legacy /report_card.htm exists and points to /report_card.html.
+          # Prefer the repo-maintained file if present; otherwise generate it.
+          if [ -f "docs/report_card.htm" ]; then
+            cp -f "docs/report_card.htm" "_site/report_card.htm"
+          else
+            python3 - <<'PY'
+          from pathlib import Path
+          Path("_site/report_card.htm").write_text(
+              "<!doctype html>\n"
+              "<html lang=\"en\">\n"
+              "  <head>\n"
+              "    <meta charset=\"utf-8\" />\n"
+              "    <meta name=\"robots\" content=\"noindex,follow\" />\n"
+              "    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />\n"
+              "    <link rel=\"canonical\" href=\"report_card.html\" />\n"
+              "    <meta http-equiv=\"refresh\" content=\"0; url=report_card.html\" />\n"
+              "  </head>\n"
+              "  <body>\n"
+              "    <p>Redirecting to <a href=\"report_card.html\">report_card.html</a>...</p>\n"
+              "  </body>\n"
+              "</html>\n"
+          )
+          PY
+          fi
+
+          # Ensure /diagnostics.html exists and points to /diagnostics/ (legacy redirect).
+          if [ -f "docs/diagnostics.html" ]; then
+            cp -f "docs/diagnostics.html" "_site/diagnostics.html"
+          else
+            python3 - <<'PY'
+          from pathlib import Path
+          Path("_site/diagnostics.html").write_text(
+              "<!doctype html>\n"
+              "<html lang=\"en\">\n"
+              "  <head>\n"
+              "    <meta charset=\"utf-8\" />\n"
+              "    <meta name=\"robots\" content=\"noindex,follow\" />\n"
+              "    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />\n"
+              "    <link rel=\"canonical\" href=\"diagnostics/\" />\n"
+              "    <meta http-equiv=\"refresh\" content=\"0; url=diagnostics/\" />\n"
+              "  </head>\n"
+              "  <body>\n"
+              "    <p>Redirecting to <a href=\"diagnostics/\">diagnostics/</a>...</p>\n"
+              "  </body>\n"
+              "</html>\n"
+          )
+          PY
+          fi
+
+          # --- Paradox Core v0 publish (deterministic, fail-closed) ---
+
+          ARTIFACT_TRANSITIONS_DIR="$(python3 - <<'PY'
+          from pathlib import Path
+
+          root = Path("_artifact")
+          required = {
+              "pulse_gate_drift_v0.csv",
+              "pulse_metric_drift_v0.csv",
+              "pulse_overlay_drift_v0.json",
+          }
+
+          candidates = []
+          for path in root.rglob("pulse_gate_drift_v0.csv"):
+            parent = path.parent
+            if all((parent / name).is_file() for name in required):
+              candidates.append(parent)
+
+          if candidates:
+            selected = sorted({p.as_posix() for p in candidates})[0]
+            print(selected)
+          else:
+            print("")
+          PY
+          )"
+
+          PARADOX_SOURCE=""
+          PARADOX_TRANSITIONS_DIR=""
+
+          if [ -n "$ARTIFACT_TRANSITIONS_DIR" ] && [ -d "$ARTIFACT_TRANSITIONS_DIR" ]; then
+            PARADOX_SOURCE="artifact_drift"
+            PARADOX_TRANSITIONS_DIR="$ARTIFACT_TRANSITIONS_DIR"
+          else
+            CASE_DIR="docs/examples/transitions_case_study_v0"
+            test -d "$CASE_DIR" || { echo "::error::Missing case study dir: $CASE_DIR"; exit 1; }
+
+            if [ -d "$CASE_DIR/transitions" ]; then
+              PARADOX_TRANSITIONS_DIR="$CASE_DIR/transitions"
+            elif [ -d "$CASE_DIR/transitions_gate_metric_tension_v0" ]; then
+              PARADOX_TRANSITIONS_DIR="$CASE_DIR/transitions_gate_metric_tension_v0"
+            elif ls "$CASE_DIR"/pulse_*_drift_v0* >/dev/null 2>&1; then
+              PARADOX_TRANSITIONS_DIR="$CASE_DIR"
+            else
+              PARADOX_TRANSITIONS_DIR="$(find "$CASE_DIR" -maxdepth 2 -type d -name 'transitions*' | sort | head -n 1 || true)"
+            fi
+
+            test -n "${PARADOX_TRANSITIONS_DIR:-}" || { echo "::error::No transitions dir found under: $CASE_DIR"; exit 1; }
+            test -d "$PARADOX_TRANSITIONS_DIR" || { echo "::error::Transitions dir not a directory: $PARADOX_TRANSITIONS_DIR"; exit 1; }
+            PARADOX_SOURCE="case_study"
+          fi
+
+          echo "paradox_source=$PARADOX_SOURCE" >> "$GITHUB_OUTPUT"
+          echo "paradox_transitions_dir=$PARADOX_TRANSITIONS_DIR" >> "$GITHUB_OUTPUT"
+          echo "Paradox Core source: $PARADOX_SOURCE"
+          echo "Paradox Core transitions dir: $PARADOX_TRANSITIONS_DIR"
+          export PARADOX_SOURCE
+          export PARADOX_TRANSITIONS_DIR
+
+          rm -rf out/paradox_core_bundle_v0 out/paradox_field_v0.json out/paradox_edges_v0.jsonl
+          mkdir -p out
+
+          python scripts/paradox_field_adapter_v0.py \
+            --transitions-dir "$PARADOX_TRANSITIONS_DIR" \
+            --out out/paradox_field_v0.json
+
+          python scripts/check_paradox_field_v0_contract.py \
+            --in out/paradox_field_v0.json
+
+          python scripts/export_paradox_edges_v0.py \
+            --in out/paradox_field_v0.json \
+            --out out/paradox_edges_v0.jsonl
+
+          python scripts/check_paradox_edges_v0_contract.py \
+            --in out/paradox_edges_v0.jsonl \
+            --atoms out/paradox_field_v0.json
+
+          python scripts/paradox_core_reviewer_bundle_v0.py \
+            --field out/paradox_field_v0.json \
+            --edges out/paradox_edges_v0.jsonl \
+            --out-dir out/paradox_core_bundle_v0 \
+            --k 12 \
+            --metric severity
+
+          python scripts/pages_publish_paradox_core_bundle_v0.py \
+            --bundle-dir out/paradox_core_bundle_v0 \
+            --site-dir _site \
+            --mount paradox/core/v0 \
+            --write-index
+
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          out = Path("_site/paradox/core/v0/source_v0.json")
+          out.parent.mkdir(parents=True, exist_ok=True)
+
+          data = {
+              "schema": "PULSE_paradox_pages_source_v0",
+              "version": "v0",
+              "upstream_run_id": os.environ.get("UPSTREAM_RUN_ID", ""),
+              "source": os.environ.get("PARADOX_SOURCE", ""),
+              "transitions_dir": os.environ.get("PARADOX_TRANSITIONS_DIR", ""),
+          }
+
+          out.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+          PY
+
+          python scripts/check_paradox_pages_source_v0_contract.py \
+            --in _site/paradox/core/v0/source_v0.json
+
+          test -s _site/paradox/core/v0/paradox_core_reviewer_card_v0.html || {
+            echo "::error::Missing paradox_core_reviewer_card_v0.html in _site/paradox/core/v0";
+            ls -la _site/paradox/core/v0 || true;
+            exit 1;
+          }
+
+          test -s _site/paradox/core/v0/paradox_diagram_v0.json || {
+            echo "::error::Missing paradox_diagram_v0.json in _site/paradox/core/v0";
+            ls -la _site/paradox/core/v0 || true;
+            exit 1;
+          }
+
+          if [ -f "_site/paradox/core/v0/paradox_diagram_v0.svg" ]; then
+            test -s _site/paradox/core/v0/paradox_diagram_v0.svg || {
+              echo "::error::paradox_diagram_v0.svg is present but empty.";
+              exit 1;
+            }
+          fi
+
+          # --- Diagnostics: Separation Phase surface (stable paths + short URLs) ---
+          SEPARATION_SRC="$(python3 - <<'PY'
+          from pathlib import Path
+
+          root = Path("_artifact")
+          candidates = []
+          for p in root.rglob("separation_phase_v0.json"):
+            parent = p.parent
+            candidates.append(parent)
+
+          if candidates:
+            print(sorted({p.as_posix() for p in candidates})[0])
+          else:
+            print("")
+          PY
+          )"
+
+          if [ -n "$SEPARATION_SRC" ] && [ -d "$SEPARATION_SRC" ]; then
+            target_dir="_site/diagnostics/separation_phase/v0"
+            mkdir -p "$target_dir"
+            for name in separation_phase_overlay.html separation_phase_v0.json separation_phase_overlay_v0.md; do
+              if [ -f "$SEPARATION_SRC/$name" ]; then
+                cp -a "$SEPARATION_SRC/$name" "$target_dir/$name"
+              fi
+            done
+            for name in separation_phase_overlay.html separation_phase_v0.json separation_phase_overlay_v0.md; do
+              if [ -f "$target_dir/$name" ]; then
+                cp -a "$target_dir/$name" "_site/$name"
+              fi
+            done
+          fi
+
+          # --- Crawler assets (robots + sitemap) ---
+          # Generate deterministically from actual Pages base to avoid base-URL drift.
+          mkdir -p _site
+
+          # Resolve actual Pages base (custom domain aware). Fallback to owner.github.io[/repo].
+          BASE_URL="$(python3 - <<'PY'
+          import json, os, sys, urllib.request
+
+          token = os.environ.get("GH_TOKEN", "")
+          repo  = os.environ.get("GITHUB_REPOSITORY", "")
+          owner = os.environ.get("GITHUB_REPOSITORY_OWNER", "")
+          name  = repo.split("/", 1)[1] if "/" in repo else repo
+
+          def fallback() -> str:
+            if name and owner and name.lower() == f"{owner}.github.io".lower():
+              return f"https://{owner}.github.io"
+            if name and owner:
+              return f"https://{owner}.github.io/{name}"
+            return ""
+
+          if not token or not repo:
+            print(fallback())
+            sys.exit(0)
+
+          req = urllib.request.Request(f"https://api.github.com/repos/{repo}/pages")
+          req.add_header("Authorization", f"Bearer {token}")
+          req.add_header("Accept", "application/vnd.github+json")
+          req.add_header("X-GitHub-Api-Version", "2022-11-28")
+
+          try:
+            with urllib.request.urlopen(req, timeout=20) as r:
+              data = json.load(r)
+            html_url = (data.get("html_url") or "").rstrip("/")
+            print(html_url or fallback())
+          except Exception:
+            print(fallback())
+          PY
+          )"
+          BASE_URL="${BASE_URL%/}"
+
+          if [ -z "${BASE_URL:-}" ]; then
+            echo "::error::Could not resolve Pages base URL."
+            exit 1
+          fi
+
+          echo "Resolved Pages BASE_URL: $BASE_URL"
+          export BASE_URL
+
+          python3 - <<'PY'
+          import os
+          import xml.etree.ElementTree as ET
+          from pathlib import Path
+
+          base = os.environ["BASE_URL"].rstrip("/")
+          site = Path("_site")
+          site.mkdir(parents=True, exist_ok=True)
+
+          # robots.txt (multi-line)
+          robots = [
+              "User-agent: *",
+              "Allow: /",
+              f"Sitemap: {base}/sitemap.xml",
+          ]
+          (site / "robots.txt").write_text("\n".join(robots) + "\n", encoding="utf-8")
+
+          # Stable sitemap entrypoints (do NOT include legacy redirect pages with noindex)
+          urls = [
+              "/",
+              "/report_card.html",
+              "/diagnostics/",
+              "/paradox/core/v0/",
+          ]
+
+          urlset = ET.Element("urlset", {"xmlns": "http://www.sitemaps.org/schemas/sitemap/0.9"})
+          for path in urls:
+              url = ET.SubElement(urlset, "url")
+              loc = ET.SubElement(url, "loc")
+              loc.text = f"{base}{path}"
+
+          tree = ET.ElementTree(urlset)
+          tree.write(site / "sitemap.xml", encoding="utf-8", xml_declaration=True)
+          print("OK: wrote _site/robots.txt and _site/sitemap.xml")
+          PY
+
+          # Fail-closed sanity
+          grep -q '^User-agent:' _site/robots.txt
+          grep -q "^Sitemap: ${BASE_URL}/sitemap.xml" _site/robots.txt
+
+          python3 - <<'PY'
+          import xml.etree.ElementTree as ET
+          ET.parse("_site/sitemap.xml")
+          print("OK: sitemap.xml parses as XML")
+          PY
+
+          # NOTE: do not change site-root selection logic above. This step is purely about publishing/validating assets.
+
+      - name: Publish schemas to Pages output
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [ ! -d "schemas" ]; then
+            echo "::error::schemas/ directory not found in repo root; cannot publish schema URLs."
+            ls -la | sed 's/^/  /' || true
+            exit 1
+          fi
+
+          mkdir -p _site/schemas
+          cp -r schemas/* _site/schemas/
+
+          echo "Schemas published to _site/schemas:"
+          ls -la _site/schemas | sed 's/^/  /' || true
+
+      - name: Verify schema assets present before upload
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [ ! -s "_site/schemas/gates.schema.json" ]; then
+            echo "::error::Expected _site/schemas/gates.schema.json to exist and be non-empty before publish."
+            ls -la _site/schemas || true
+            exit 1
+          fi
+
+          if [ ! -s "_site/schemas/PULSE_paradox_field_v0.schema.json" ]; then
+            echo "::error::Expected _site/schemas/PULSE_paradox_field_v0.schema.json to exist and be non-empty before publish."
+            ls -la _site/schemas || true
+            exit 1
+          fi
+
+          if [ ! -s "_site/schemas/separation_phase_v0.schema.json" ]; then
+            echo "::error::Expected _site/schemas/separation_phase_v0.schema.json to exist and be non-empty before publish."
+            ls -la _site/schemas || true
+            exit 1
+          fi
+
+          if [ ! -s "_site/schemas/PULSE_diagnostics_manifest_v0.schema.json" ]; then
+            echo "::error::Expected _site/schemas/PULSE_diagnostics_manifest_v0.schema.json to exist and be non-empty before publish."
+            ls -la _site/schemas || true
+            exit 1
+          fi
+
+      - name: Generate diagnostics landing page
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python3 - <<'PY'
+          from pathlib import Path
+          import html
+
+          site = Path("_site")
+          diag = site / "diagnostics"
+          diag.mkdir(parents=True, exist_ok=True)
+
+          def exists(p: Path) -> bool:
+            return p.exists() and (p.is_file() or p.is_dir())
+
+          # NOTE: this page lives at /diagnostics/index.html,
+          # so use ../ for links that live at the site root.
+          items = []
+
+          if exists(site / "report_card.html"):
+            items.append(("Main report", "../report_card.html", "Primary PULSE report card surface."))
+
+          if exists(site / "schemas"):
+            items.append(("Schemas", "../schemas/", "Published JSON Schemas (contracts)."))
+
+          if exists(site / "paradox" / "core" / "v0" / "index.html"):
+            items.append(("Paradox Core v0", "../paradox/core/v0/", "Static reviewer bundle (audit surface)."))
+
+          sp_dir = site / "diagnostics" / "separation_phase" / "v0"
+          if exists(sp_dir / "separation_phase_v0.json"):
+            items.append(("Separation Phase v0", "separation_phase/v0/", "CI-neutral overlay (FIELD_* classification)."))
+
+          if exists(site / "badges"):
+            items.append(("Badges", "../badges/", "Generated badges (artifact-only)."))
+
+          if exists(site / "reports"):
+            items.append(("Reports", "../reports/", "JUnit/SARIF and other report artifacts."))
+
+          if not items:
+            items.append(("No diagnostics assets found", "../", "The site root is available above."))
+
+          rows = "\n".join(
+            f"<tr><td><a href=\"{html.escape(url)}\">{html.escape(label)}</a></td>"
+            f"<td>{html.escape(desc)}</td></tr>"
+            for label, url, desc in items
+          )
+
+          content = f"""
+          <!doctype html>
+          <html lang="en">
+            <head>
+              <meta charset="utf-8" />
+              <meta name="viewport" content="width=device-width, initial-scale=1" />
+              <title>PULSE diagnostics</title>
+              <style>
+                body {{
+                  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+                  margin: 2rem;
+                  line-height: 1.5;
+                }}
+                table {{
+                  border-collapse: collapse;
+                  width: 100%;
+                }}
+                th, td {{
+                  border: 1px solid #ddd;
+                  padding: 0.5rem 0.75rem;
+                  text-align: left;
+                }}
+                th {{
+                  background: #f5f5f5;
+                }}
+              </style>
+            </head>
+            <body>
+              <h1>PULSE diagnostics</h1>
+              <p>Diagnostics assets published with this report run.</p>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Artifact</th>
+                    <th>Description</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows}
+                </tbody>
+              </table>
+            </body>
+          </html>
+          """
+
+          (diag / "index.html").write_text(content.strip() + "\n", encoding="utf-8")
+          print("OK: wrote diagnostics index.")
+          PY
+
+      - name: Generate diagnostics manifest
+        shell: bash
+        env:
+          UPSTREAM_RUN_ID: ${{ steps.runid.outputs.run_id }}
+          PUBLISH_MODE: ${{ steps.prepare.outputs.mode }}
+          PUBLISH_SITE_ROOT: ${{ steps.prepare.outputs.site_root }}
+        run: |
+          set -euo pipefail
+
+          python3 - <<'PY'
+          from __future__ import annotations
+
+          import json
+          import os
+          from pathlib import Path
+          from typing import List, Dict
+
+          site = Path("_site")
+          diag_dir = site / "diagnostics"
+          diag_dir.mkdir(parents=True, exist_ok=True)
+
+          items: List[Dict[str, object]] = []
+
+          def exists(p: Path) -> bool:
+            return p.exists() and (p.is_file() or p.is_dir())
+
+          # Separation Phase (diagnostics subdir).
+          separation_dir = Path("diagnostics/separation_phase/v0")
+          separation_present = exists(site / separation_dir / "separation_phase_v0.json")
+          separation_paths = {
+              "html": (separation_dir / "separation_phase_overlay.html").as_posix(),
+              "json": (separation_dir / "separation_phase_v0.json").as_posix(),
+              "md": (separation_dir / "separation_phase_overlay_v0.md").as_posix(),
+          }
+          separation_item = {
+              "id": "separation_phase_v0",
+              "paths": separation_paths,
+              "present": separation_present,
+          }
+          separation_json_path = site / separation_dir / "separation_phase_v0.json"
+          if separation_json_path.is_file():
+            try:
+              data = json.loads(separation_json_path.read_text(encoding="utf-8"))
+            except json.JSONDecodeError:
+              data = {}
+            if isinstance(data, dict):
+              if "state" in data:
+                separation_item["state"] = data.get("state")
+              recommendation = data.get("recommendation")
+              if isinstance(recommendation, dict) and "gate_action" in recommendation:
+                separation_item["gate_action"] = recommendation.get("gate_action")
+          items.append(separation_item)
+
+          paradox_path = Path("paradox/core/v0/")
+          paradox_present = exists(site / "paradox" / "core" / "v0" / "index.html")
+          items.append({
+              "id": "paradox_core_v0",
+              "paths": {"html": paradox_path.as_posix()},
+              "present": paradox_present,
+          })
+
+          schemas_path = Path("schemas/")
+          schemas_present = exists(site / "schemas")
+          items.append({
+              "id": "schemas",
+              "paths": {"html": schemas_path.as_posix()},
+              "present": schemas_present,
+          })
+
+          report_card_path = Path("report_card.html")
+          report_card_present = exists(site / report_card_path)
+          items.append({
+              "id": "report_card",
+              "paths": {"html": report_card_path.as_posix()},
+              "present": report_card_present,
+          })
+
+          items_sorted = sorted(items, key=lambda item: item["id"])
+
+          manifest = {
+              "schema": "PULSE_diagnostics_manifest_v0",
+              "version": "v0",
+              "upstream_run_id": os.environ.get("UPSTREAM_RUN_ID", ""),
+              "publish": {
+                  "mode": os.environ.get("PUBLISH_MODE", ""),
+                  "site_root": os.environ.get("PUBLISH_SITE_ROOT", ""),
+              },
+              "items": items_sorted,
+          }
+
+          out = diag_dir / "manifest_v0.json"
+          out.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+          print(f"OK: wrote {out}")
+          PY
+
+      - name: Verify crawler assets present before upload
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [ ! -s "_site/sitemap.xml" ]; then
+            echo "::error::Expected _site/sitemap.xml to exist and be non-empty before publish."
+            ls -la _site || true
+            exit 1
+          fi
+
+          if [ ! -s "_site/robots.txt" ]; then
+            echo "::error::Expected _site/robots.txt to exist and be non-empty before publish."
+            ls -la _site || true
+            exit 1
+          fi
+
+          if [ "$(wc -l < _site/robots.txt)" -lt 3 ]; then
+            echo "::error::robots.txt must be multi-line (>=3 lines)."
+            echo "--- robots.txt ---"
+            cat _site/robots.txt || true
+            exit 1
+          fi
+
+          grep -q '^User-agent:' _site/robots.txt
+          grep -q '^Sitemap:' _site/robots.txt
 
       - name: Workflow summary (Pages publish)
         if: always()
@@ -181,12 +847,36 @@ jobs:
           echo "- upstream run_id: \`${{ steps.runid.outputs.run_id }}\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- publish mode: \`${{ steps.prepare.outputs.mode }}\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- site root used: \`${{ steps.prepare.outputs.site_root }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- paradox_source: \`${{ steps.prepare.outputs.paradox_source }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- paradox_transitions_dir: \`${{ steps.prepare.outputs.paradox_transitions_dir }}\`" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
 
           if [ -f "_site/index.html" ]; then
             echo "- ✅ \`_site/index.html\` present" >> "$GITHUB_STEP_SUMMARY"
           else
             echo "- ❌ \`_site/index.html\` missing" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          if [ -f "_site/sitemap.xml" ]; then
+            echo "- ✅ \`_site/sitemap.xml\` present" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "- ❌ \`_site/sitemap.xml\` missing" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          if [ -f "_site/robots.txt" ]; then
+            echo "- ✅ \`_site/robots.txt\` present" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "- ❌ \`_site/robots.txt\` missing" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          if [ -f "_site/paradox/core/v0/paradox_core_reviewer_card_v0.html" ]; then
+            echo "- ✅ Paradox Core: \`/paradox/core/v0/\` mounted" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          if [ -f "_site/diagnostics/separation_phase/v0/separation_phase_overlay.html" ]; then
+            echo "- ✅ Separation Phase: \`/diagnostics/separation_phase/v0/\` mounted" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "- ⚠️ Separation Phase: not present in _site (may be absent in this run)" >> "$GITHUB_STEP_SUMMARY"
           fi
 
           echo "" >> "$GITHUB_STEP_SUMMARY"
@@ -207,3 +897,215 @@ jobs:
         id: deploy
         uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4.0.5
 
+      # Post-deploy: verify the *public* Pages site serves crawler-critical endpoints.
+      - name: SEO smoke (post-deploy)
+        if: ${{ steps.deploy.outcome == 'success' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          BASE="${{ steps.deploy.outputs.page_url }}"
+          BASE="${BASE%/}"
+          export BASE
+
+          if [ -z "${BASE:-}" ]; then
+            echo "::error::No page_url output from deploy step; cannot run SEO smoke."
+            exit 1
+          fi
+
+          echo "Pages base: $BASE"
+
+          fetch () {
+            local url="$1"
+            local out="$2"
+            local i=0
+            while true; do
+              i=$((i+1))
+              if curl -fsSL "$url" -o "$out"; then
+                return 0
+              fi
+              if [ "$i" -ge 10 ]; then
+                echo "::error::Failed to fetch $url after $i attempts."
+                return 1
+              fi
+              echo "Retry $i/10: $url"
+              sleep 3
+            done
+          }
+
+          fetch_optional () {
+            local url="$1"
+            local out="$2"
+            if curl -fsSL "$url" -o "$out"; then
+              return 0
+            fi
+            echo "::warning::Optional resource not available (best-effort): $url"
+            rm -f "$out" || true
+            return 0
+          }
+
+          fetch_headers () {
+            local url="$1"
+            local out="$2"
+            local i=0
+            while true; do
+              i=$((i+1))
+              if curl -fsSIL -D "$out" -o /dev/null "$url"; then
+                return 0
+              fi
+              if [ "$i" -ge 10 ]; then
+                echo "::error::Failed to fetch headers for $url after $i attempts."
+                return 1
+              fi
+              echo "Retry $i/10 (headers): $url"
+              sleep 3
+            done
+          }
+
+          fetch_headers_optional () {
+            local url="$1"
+            local out="$2"
+            if curl -fsSIL -D "$out" -o /dev/null "$url"; then
+              return 0
+            fi
+            echo "::warning::Optional headers not available (best-effort): $url"
+            rm -f "$out" || true
+            return 0
+          }
+
+          fetch "$BASE/" home.html
+          fetch "$BASE/robots.txt" robots.txt
+          fetch "$BASE/sitemap.xml" sitemap.xml
+          fetch "$BASE/report_card.html" report_card.html
+          fetch "$BASE/report_card.htm" report_card.htm
+
+          # robots.txt must point to the deployed BASE
+          if ! grep -q "^Sitemap: ${BASE}/sitemap.xml" robots.txt; then
+            echo "::error::robots.txt Sitemap does not match deployed Pages base (${BASE})."
+            echo "--- robots.txt ---"
+            cat robots.txt || true
+            exit 1
+          fi
+
+          # sitemap.xml must only contain URLs under BASE (otherwise crawlers get misdirected)
+          python3 - <<'PY'
+          import os, sys
+          import xml.etree.ElementTree as ET
+
+          base = os.environ["BASE"].rstrip("/")
+          tree = ET.parse("sitemap.xml")
+          root = tree.getroot()
+          locs = [(el.text or "").strip() for el in root.iter() if el.tag.endswith("loc")]
+
+          bad = [u for u in locs if u and not (u == base or u == base + "/" or u.startswith(base + "/"))]
+          if bad:
+            print("::error::sitemap.xml contains URLs outside deployed base:")
+            for u in bad[:50]:
+              print(f"::error::- {u}")
+            sys.exit(1)
+
+          print("OK: sitemap locs are under deployed base")
+          PY
+
+          fetch "$BASE/schemas/gates.schema.json" schema_gates.schema.json
+          fetch "$BASE/schemas/PULSE_paradox_field_v0.schema.json" schema_paradox_field.schema.json
+          fetch "$BASE/schemas/separation_phase_v0.schema.json" schema_separation_phase.schema.json
+          fetch "$BASE/schemas/PULSE_diagnostics_manifest_v0.schema.json" schema_diagnostics_manifest.schema.json
+
+          fetch "$BASE/paradox/core/v0/" paradox_core_index.html
+          fetch "$BASE/paradox/core/v0/paradox_core_reviewer_card_v0.html" paradox_core_card.html
+          fetch "$BASE/paradox/core/v0/source_v0.json" paradox_core_source.json
+
+          fetch "$BASE/paradox/core/v0/paradox_diagram_v0.json" paradox_diagram.json
+          fetch_optional "$BASE/paradox/core/v0/paradox_diagram_v0.svg" paradox_diagram.svg
+
+          # Separation Phase overlay (best-effort: may be absent for older runs)
+          fetch_optional "$BASE/separation_phase_overlay.html" separation_phase_overlay_root.html
+          fetch_optional "$BASE/separation_phase_v0.json" separation_phase_v0_root.json
+          fetch_optional "$BASE/separation_phase_overlay_v0.md" separation_phase_overlay_root.md
+
+          fetch_optional "$BASE/diagnostics/separation_phase/v0/separation_phase_overlay.html" separation_phase_overlay_diag.html
+          fetch_optional "$BASE/diagnostics/separation_phase/v0/separation_phase_v0.json" separation_phase_v0_diag.json
+          fetch_optional "$BASE/diagnostics/separation_phase/v0/separation_phase_overlay_v0.md" separation_phase_overlay_diag.md
+          fetch_optional "$BASE/diagnostics/" diagnostics_index.html
+          fetch_optional "$BASE/diagnostics.html" diagnostics_redirect.html
+          fetch "$BASE/diagnostics/manifest_v0.json" diagnostics_manifest_v0.json
+
+          fetch_headers "$BASE/" headers_home.txt
+          fetch_headers "$BASE/robots.txt" headers_robots.txt
+          fetch_headers "$BASE/sitemap.xml" headers_sitemap.txt
+          fetch_headers "$BASE/paradox/core/v0/" headers_paradox_core.txt
+          fetch_headers "$BASE/paradox/core/v0/source_v0.json" headers_paradox_core_source.txt
+          fetch_headers "$BASE/paradox/core/v0/paradox_diagram_v0.json" headers_paradox_diagram_json.txt
+          fetch_headers_optional "$BASE/paradox/core/v0/paradox_diagram_v0.svg" headers_paradox_diagram_svg.txt
+
+          check_noindex_header () {
+            local url="$1"
+            local file="$2"
+            if [ ! -f "$file" ]; then
+              return 0
+            fi
+            if grep -Eqi '^x-robots-tag:\s*.*noindex' "$file"; then
+              echo "::error::X-Robots-Tag noindex detected for $url. This blocks indexing."
+              echo "::error::Fix: Repo Settings -> Pages -> Search engine visibility must allow indexing."
+              echo "Headers (head):"
+              sed -n '1,200p' "$file"
+              exit 1
+            fi
+          }
+
+          check_noindex_header "$BASE/" headers_home.txt
+          check_noindex_header "$BASE/robots.txt" headers_robots.txt
+          check_noindex_header "$BASE/sitemap.xml" headers_sitemap.txt
+          check_noindex_header "$BASE/paradox/core/v0/" headers_paradox_core.txt
+          check_noindex_header "$BASE/paradox/core/v0/source_v0.json" headers_paradox_core_source.txt
+          check_noindex_header "$BASE/paradox/core/v0/paradox_diagram_v0.json" headers_paradox_diagram_json.txt
+          check_noindex_header "$BASE/paradox/core/v0/paradox_diagram_v0.svg" headers_paradox_diagram_svg.txt
+
+          # Meta noindex checks (HTML content): fail if primary indexable pages contain meta noindex.
+          check_noindex_meta () {
+            local url="$1"
+            local file="$2"
+            URL="$url" FILE="$file" python3 - <<'PY'
+          import os, re, sys
+          from pathlib import Path
+
+          url = os.environ.get("URL", "")
+          file = Path(os.environ.get("FILE", ""))
+
+          if not file.is_file():
+              sys.exit(0)
+
+          html = file.read_text(encoding="utf-8", errors="ignore")
+
+          metas = re.findall(r"<meta\b[^>]*>", html, flags=re.I)
+          bad = []
+          for tag in metas:
+              tl = tag.lower()
+              if "noindex" not in tl:
+                  continue
+              if re.search(r'name\s*=\s*["\']?(robots|googlebot|bingbot)["\']?', tl):
+                  bad.append(tag.strip())
+                  continue
+              if re.search(r'http-equiv\s*=\s*["\']?x-robots-tag["\']?', tl):
+                  bad.append(tag.strip())
+                  continue
+
+          if bad:
+              print(f"::error::Meta noindex detected in {file} for {url}. This blocks indexing.")
+              for t in bad[:5]:
+                  tt = t.replace("\n", " ").strip()
+                  print("::error::" + (tt[:400] + ("..." if len(tt) > 400 else "")))
+              sys.exit(1)
+          PY
+          }
+
+          check_noindex_meta "$BASE/" home.html
+          check_noindex_meta "$BASE/report_card.html" report_card.html
+          check_noindex_meta "$BASE/paradox/core/v0/" paradox_core_index.html
+          check_noindex_meta "$BASE/paradox/core/v0/paradox_core_reviewer_card_v0.html" paradox_core_card.html
+          if [ -f diagnostics_index.html ]; then
+            check_noindex_meta "$BASE/diagnostics/" diagnostics_index.html
+          fi
+
+          echo "OK: post-deploy SEO smoke passed."

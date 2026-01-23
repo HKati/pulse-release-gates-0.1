@@ -1,0 +1,60 @@
+name: Pages • Paradox Core publish (shadow)
+
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  pages_paradox_core_publish_shadow:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup Python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        with:
+          python-version: "3.11"
+
+      - name: Build reviewer bundle (fixture, k=2)
+        run: |
+          rm -rf out/paradox_core_bundle_v0
+          python scripts/paradox_core_reviewer_bundle_v0.py \
+            --field tests/fixtures/paradox_core_projection_v0/field_v0.json \
+            --edges tests/fixtures/paradox_core_projection_v0/edges_v0.jsonl \
+            --out-dir out/paradox_core_bundle_v0 \
+            --k 2 \
+            --metric severity
+
+      - name: Publish bundle into site snapshot (shadow)
+        run: |
+          rm -rf out/pages_site_shadow_v0
+          python scripts/pages_publish_paradox_core_bundle_v0.py \
+            --bundle-dir out/paradox_core_bundle_v0 \
+            --site-dir out/pages_site_shadow_v0 \
+            --mount paradox/core/v0 \
+            --write-index
+
+      - name: Step summary
+        run: |
+          echo "## Pages • Paradox Core publish (shadow)" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- site snapshot: out/pages_site_shadow_v0" >> "$GITHUB_STEP_SUMMARY"
+          echo "- mount: paradox/core/v0" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "### Published files" >> "$GITHUB_STEP_SUMMARY"
+          ls -lah out/pages_site_shadow_v0/paradox/core/v0 | sed 's/^/    /' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload artifact (site snapshot)
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: pages-paradox-core-shadow-site-v0
+          path: out/pages_site_shadow_v0
+          if-no-files-found: error

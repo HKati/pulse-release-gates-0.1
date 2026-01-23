@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PULSE Diagnostics Manifest v0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "version", "upstream_run_id", "publish", "items"],
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "PULSE_diagnostics_manifest_v0"
+    },
+    "version": {
+      "type": "string",
+      "const": "v0"
+    },
+    "upstream_run_id": {
+      "type": "string"
+    },
+    "publish": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "site_root"],
+      "properties": {
+        "mode": { "type": "string" },
+        "site_root": { "type": "string" }
+      }
+    },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "present", "paths"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "present": { "type": "boolean" },
+          "paths": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "html": { "type": "string" },
+              "json": { "type": "string" },
+              "md": { "type": "string" }
+            }
+          },
+          "state": { "type": ["string", "null"] },
+          "gate_action": { "type": ["string", "null"] },
+          "notes": { "type": ["string", "null"] }
+        }
+      }
+    }
+  }
+}

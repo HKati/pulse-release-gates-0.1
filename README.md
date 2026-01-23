@@ -43,6 +43,10 @@
 
 Releases: https://github.com/HKati/pulse-release-gates-0.1/releases
 
+Paradox Core (shadow reviewer surface): https://hkati.github.io/pulse-release-gates-0.1/paradox/core/v0/
+- Deterministic, CI-neutral by default (diagnostic overlay).
+- Edges are non-causal (co-occurrence/association only).
+- Provenance (source selection): https://hkati.github.io/pulse-release-gates-0.1/paradox/core/v0/source_v0.json
 
 
 # PULSE — Release Gates for Safe & Useful AI
@@ -66,6 +70,54 @@ From **findings** to **fuses**. Run **PULSE before you ship**: deterministic, **
 > **TL;DR**: Drop the pack → run → enforce → ship.  
 > PULSE gives PASS/FAIL release gates, a human-readable **Quality Ledger**, and a stability signal (**RDSI**).
 
+---
+
+
+## Clarity First (before Paradox / EPF / Topology work)
+
+PULSE’s **release decisions are deterministic and fail‑closed** by design — but only if we keep the meaning of terms stable.
+Before extending the Paradox diagram/field, EPF shadow layers, drift/history, or any UI/Pages surface, we **must** resolve ambiguous semantics up front.
+
+### Source of truth (normative layer)
+Release gating is defined only by:
+
+- `PULSE_safe_pack_v0/tools/check_gates.py`
+- `PULSE_safe_pack_v0/artifacts/status.json`
+- the CI workflow requirem
+
+---
+
+### Clarity First (semantics before Paradox / EPF / Topology)
+
+PULSE is deterministic and fail‑closed — but only if we keep the meaning of terms stable.
+Before extending the Paradox diagram/field, EPF shadow layers, drift/history, or any UI/Pages surface, we lock down the semantics below.
+
+**Source of truth (normative):**
+Release decisions are defined only by:
+- `PULSE_safe_pack_v0/tools/check_gates.py`
+- `PULSE_safe_pack_v0/artifacts/status.json`
+- `.github/workflows/pulse_ci.yml` (the required `--require ...` gate set)
+
+**Diagnostic layers (CI‑neutral by default):**
+Paradox/EPF/topology/G‑field overlays, hazard probes, drift reports, dashboards, and Pages views are diagnostic overlays unless explicitly promoted into the required gate set.
+
+**Normative vs diagnostic (do not mix):**
+- **Normative** = can block shipping (PASS/FAIL, STAGE‑PASS/PROD‑PASS).
+- **Diagnostic** = explains/observes stability, tensions, and drift; it must not flip CI outcomes.
+
+Rule: If a diagnostic artefact is missing, reports may show `MISSING/UNKNOWN`, but this must never be silently reinterpreted as `PASS`.
+
+**No semantic drift rule:**
+If you change the meaning of any signal/term (e.g. Atom/Edge/Orientation/Core/Anchor, EPF/RDSI/Δ, drift, hazard zones):
+1) update the canonical docs (`docs/GLOSSARY_v0.md`, `docs/STATUS_CONTRACT.md`, `docs/STATE_v0.md`),
+2) track and resolve the ambiguity in [`docs/AMBIGUITY_REGISTER_v0.md`](docs/AMBIGUITY_REGISTER_v0.md),
+3) add or update a regression fixture proving determinism.
+
+**UI / Pages rule:**
+UI and Pages surfaces must be pure readers/renderers of immutable run artefacts. They must not compute or redefine release semantics.
+
+---
+
 ### What’s new
 
 - **External detectors (opt‑in):** merge JSON/JSONL summaries from safety tools into the gate + Quality Ledger.
@@ -84,11 +136,7 @@ python PULSE_safe_pack_v0/tools/run_all.py
 
 python PULSE_safe_pack_v0/tools/check_gates.py \
   --status PULSE_safe_pack_v0/artifacts/status.json \
-  --require pass_controls_refusal effect_present psf_monotonicity_ok psf_mono_shift_resilient \
-    pass_controls_comm psf_commutativity_ok psf_comm_shift_resilient pass_controls_sanit \
-    sanitization_effective sanit_shift_resilient psf_action_monotonicity_ok psf_idempotence_ok \
-    psf_path_independence_ok psf_pii_monotonicity_ok q1_grounded_ok q2_consistency_ok \
-    q3_fairness_ok q4_slo_ok
+  --require $(python tools/policy_to_require_args.py --policy pulse_gate_policy_v0.yml --set required)
 
 
 
@@ -215,6 +263,25 @@ Shadow workflows (GitHub Actions):
   their JSON Schemas.  
 - **G snapshot report (shadow)** – renders a single `g_snapshot_report_v0.md`
   that summarizes which overlays are present and what they contain.
+
+Current overlays:
+
+- **Separation Phase overlay** (`separation_phase_v0.json`)  
+  Snapshot-style diagnostic overlay that classifies the run into:
+  `FIELD_STABLE` / `FIELD_STRAINED` / `FIELD_COLLAPSED` / `UNKNOWN`
+  based on separation-style invariants (order stability, separation integrity, phase dependency).
+
+  > **CI-neutral diagnostic layer.** It never blocks the main PULSE gates and must not change core release-gate semantics.
+
+  - Docs: `docs/SEPARATION_PHASE_v0.md`
+  - Schema: `schemas/separation_phase_v0.schema.json`
+  - Adapter: `scripts/separation_phase_adapter_v0.py`
+  - Contract check: `scripts/check_separation_phase_v0_contract.py`
+  - Renderer (human summary): `scripts/render_separation_phase_overlay_v0_md.py`
+  - Workflow: `.github/workflows/separation_phase_overlay.yml`
+  - Output artifacts:
+    - `PULSE_safe_pack_v0/artifacts/separation_phase_v0.json`
+    - `PULSE_safe_pack_v0/artifacts/separation_phase_overlay_v0.md`
 
 All of these are **fail‑closed only for their own job** (they never block the
 main PULSE gates) and are meant as a safe playground for the internal G‑field
@@ -593,6 +660,7 @@ Curated entrypoints (repo-level docs under `docs/`):
 - [docs/PULSE_paradox_field_v0_walkthrough.md](docs/PULSE_paradox_field_v0_walkthrough.md) — How to read `paradox_field_v0`.
 - [docs/Pulse_paradox_edges_v0_status.md](docs/Pulse_paradox_edges_v0_status.md) — Status/roadmap for `paradox_edges_v0.jsonl`.
 - [docs/paradox_edges_case_studies.md](docs/paradox_edges_case_studies.md) — Case studies (fixture + non-fixture).
+- [docs/PULSE_paradox_core_v0.md](docs/PULSE_paradox_core_v0.md) — Paradox Core v0 (deterministic core projection + markdown reviewer summary).
 
 ### EPF shadow & hazard diagnostics
 - [docs/PULSE_epf_shadow_quickstart_v0.md](docs/PULSE_epf_shadow_quickstart_v0.md) — Command-level EPF shadow quickstart.
