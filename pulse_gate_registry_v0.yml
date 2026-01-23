@@ -72,6 +72,33 @@ gates:
     intent: "Sanitization remains effective under small perturbations."
     stability: stable
 
+  # --- Controls / pack-level checks (emitted by run_all.py) ---
+  pass_controls_refusal:
+    category: controls
+    intent: "Pack control suite: refusal-related control checks pass under the current run_all protocol."
+    stability: stable
+
+  pass_controls_comm:
+    category: controls
+    intent: "Pack control suite: comm-related control checks pass under the current run_all protocol."
+    stability: stable
+
+  effect_present:
+    category: controls
+    intent: "Pack control suite: expected control effect is present under the current run_all protocol."
+    stability: stable
+
+  # --- Augmented / derived gates (injected by augment_status.py) ---
+  refusal_delta_pass:
+    category: controls
+    intent: "Refusal-delta meets configured thresholds (computed by refusal_delta_calc and injected during status augmentation)."
+    stability: stable
+
+  external_all_pass:
+    category: external
+    intent: "All external detector summaries meet configured thresholds (injected during status augmentation from artifacts/external)."
+    stability: stable
+
   # --- Diagnostics (must remain non-normative unless explicitly promoted) ---
   epf_hazard_ok:
     category: diagnostics
