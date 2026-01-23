@@ -172,3 +172,5 @@ determinism:
     - "Slice dimensions and group assignment must be deterministic and derived from input metadata."
     - "Do not use LLM-based judges for group assignment or parity checks in CI-required mode."
     - "Sampling seed and dataset snapshot hash should be recorded (dataset manifest)."
+
+# retrigger-ci: changelog entry added under docs/policy/CHANGELOG.md (Unreleased)
