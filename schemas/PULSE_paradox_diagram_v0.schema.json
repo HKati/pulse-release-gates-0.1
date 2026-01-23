@@ -1,0 +1,273 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "PULSE_paradox_diagram_v0.schema.json",
+  "title": "PULSE Paradox Diagram v0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "version",
+    "inputs",
+    "references",
+    "nodes",
+    "edges",
+    "notes"
+  ],
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "PULSE_paradox_diagram_v0"
+    },
+    "version": {
+      "type": "integer",
+      "const": 0
+    },
+    "run_context": {
+      "type": "object",
+      "description": "Pass-through context for audit/debug. Must not include wall-clock timestamps or other nondeterministic fields (enforced by contract checker, not by schema).",
+      "additionalProperties": true
+    },
+    "inputs": {
+      "$ref": "#/definitions/inputs"
+    },
+    "references": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/definitions/reference"
+      }
+    },
+    "nodes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/definitions/node"
+      }
+    },
+    "edges": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/edge"
+      }
+    },
+    "notes": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "$ref": "#/definitions/note"
+      },
+      "allOf": [
+        {
+          "contains": {
+            "type": "object",
+            "required": ["code"],
+            "properties": {
+              "code": { "const": "NON_CAUSAL" }
+            }
+          }
+        },
+        {
+          "contains": {
+            "type": "object",
+            "required": ["code"],
+            "properties": {
+              "code": { "const": "CI_NEUTRAL_DEFAULT" }
+            }
+          }
+        }
+      ]
+    }
+  },
+  "definitions": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "Lowercase hex SHA-256 digest."
+    },
+    "input_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sha256"],
+      "properties": {
+        "sha256": { "$ref": "#/definitions/sha256" },
+        "path_hint": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Optional human/debug hint; must not be relied on for semantics."
+        }
+      }
+    },
+    "inputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["paradox_core_v0"],
+      "properties": {
+        "paradox_core_v0": { "$ref": "#/definitions/input_ref" },
+        "paradox_edges_v0": { "$ref": "#/definitions/input_ref" }
+      }
+    },
+    "ref_id": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^ref\\.[a-z0-9_.:-]+$"
+    },
+    "reference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ref_id", "kind"],
+      "properties": {
+        "ref_id": { "$ref": "#/definitions/ref_id" },
+        "kind": {
+          "type": "string",
+          "enum": ["decision"],
+          "description": "v0: minimal reference anchor kind."
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "node_id_atom": {
+      "type": "string",
+      "pattern": "^n_[0-9a-f]{16}$",
+      "description": "Atom node id (stable hash prefix)."
+    },
+    "node_id_reference": {
+      "type": "string",
+      "pattern": "^r_[0-9a-f]{16}$",
+      "description": "Reference node id (stable hash prefix)."
+    },
+    "edge_id": {
+      "type": "string",
+      "pattern": "^e_[0-9a-f]{16}$",
+      "description": "Edge id (stable hash prefix)."
+    },
+    "orientation": {
+      "type": "string",
+      "enum": [
+        "unknown",
+        "supports_reference",
+        "challenges_reference",
+        "mixed"
+      ]
+    },
+    "weight": {
+      "type": "number",
+      "minimum": 0.0,
+      "description": "Non-negative weight. v0 emission rounding rules are defined in the spec (docs)."
+    },
+    "evidence": {
+      "type": "object",
+      "description": "Optional evidence payload; diagnostic only.",
+      "additionalProperties": true
+    },
+    "render_hints": {
+      "type": "object",
+      "description": "Optional UI-only hints; must not be required for meaning.",
+      "additionalProperties": true
+    },
+    "relation_to_reference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ref_id", "orientation", "weight"],
+      "properties": {
+        "ref_id": { "$ref": "#/definitions/ref_id" },
+        "orientation": { "$ref": "#/definitions/orientation" },
+        "weight": { "$ref": "#/definitions/weight" }
+      }
+    },
+    "node_reference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["node_id", "kind", "ref_id"],
+      "properties": {
+        "node_id": { "$ref": "#/definitions/node_id_reference" },
+        "kind": { "const": "reference" },
+        "ref_id": { "$ref": "#/definitions/ref_id" },
+        "render_hints": { "$ref": "#/definitions/render_hints" }
+      }
+    },
+    "node_atom": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["node_id", "kind", "core_atom_id", "rank"],
+      "properties": {
+        "node_id": { "$ref": "#/definitions/node_id_atom" },
+        "kind": { "const": "atom" },
+        "core_atom_id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Atom identifier from Paradox Core."
+        },
+        "rank": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Core-derived rank (lower is higher priority)."
+        },
+        "relation_to_reference": { "$ref": "#/definitions/relation_to_reference" },
+        "render_hints": { "$ref": "#/definitions/render_hints" }
+      }
+    },
+    "node": {
+      "oneOf": [
+        { "$ref": "#/definitions/node_reference" },
+        { "$ref": "#/definitions/node_atom" }
+      ]
+    },
+    "edge_co_occurrence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["edge_id", "kind", "a", "b", "weight"],
+      "properties": {
+        "edge_id": { "$ref": "#/definitions/edge_id" },
+        "kind": { "const": "co_occurrence" },
+        "a": { "$ref": "#/definitions/node_id_atom" },
+        "b": { "$ref": "#/definitions/node_id_atom" },
+        "weight": { "$ref": "#/definitions/weight" },
+        "evidence": { "$ref": "#/definitions/evidence" }
+      },
+      "description": "Undirected association edge. No direction fields permitted by schema."
+    },
+    "edge_reference_relation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["edge_id", "kind", "a", "b", "weight"],
+      "properties": {
+        "edge_id": { "$ref": "#/definitions/edge_id" },
+        "kind": { "const": "reference_relation" },
+        "a": { "$ref": "#/definitions/node_id_atom" },
+        "b": { "$ref": "#/definitions/node_id_reference" },
+        "directed": {
+          "type": "boolean",
+          "const": true,
+          "description": "If present, must be true. Reference relations are atom -> reference only."
+        },
+        "weight": { "$ref": "#/definitions/weight" },
+        "evidence": { "$ref": "#/definitions/evidence" }
+      },
+      "description": "Reference-oriented relation edge. Interpreted as a -> b (atom -> reference), not causal."
+    },
+    "edge": {
+      "oneOf": [
+        { "$ref": "#/definitions/edge_co_occurrence" },
+        { "$ref": "#/definitions/edge_reference_relation" }
+      ]
+    },
+    "note": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "text"],
+      "properties": {
+        "code": {
+          "type": "string",
+          "minLength": 1
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  }
+}

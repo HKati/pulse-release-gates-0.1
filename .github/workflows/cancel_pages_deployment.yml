@@ -1,0 +1,106 @@
+name: Cancel Pages deployment
+
+on:
+  workflow_dispatch:
+    inputs:
+      deployment_id_or_sha:
+        description: "GitHub Pages deployment id OR commit SHA to cancel (paste from the deploy-pages error message)"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  pages: write
+
+concurrency:
+  group: "github-pages"
+  cancel-in-progress: false
+
+jobs:
+  cancel:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Resolve cancel target (robust input read)
+        id: target
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Read input from the event payload (works reliably across contexts).
+          TARGET="$(python3 -c 'import json,os; ev=json.load(open(os.environ["GITHUB_EVENT_PATH"])); print((ev.get("inputs") or {}).get("deployment_id_or_sha","").strip())')"
+
+          if [ -z "${TARGET}" ]; then
+            echo "::error::Missing required input: deployment_id_or_sha"
+            exit 1
+          fi
+
+          echo "target=${TARGET}" >> "$GITHUB_OUTPUT"
+          echo "Cancel target: ${TARGET}"
+
+          # Soft validation (do not fail the run on format mismatch).
+          python3 - <<'PY' || true
+          import re, os
+          t = os.environ.get("TARGET","")
+          # numeric deployment id OR hex-ish commit SHA (7..40)
+          ok = bool(re.fullmatch(r"[0-9]+", t) or re.fullmatch(r"[0-9a-fA-F]{7,40}", t))
+          if not ok:
+            print("::warning::Input does not look like a numeric deployment id or a commit SHA. Continuing anyway.")
+          PY
+        env:
+          TARGET: ${{ inputs.deployment_id_or_sha }}
+
+      - name: Show latest Pages build (best effort)
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          echo "Fetching latest Pages build (best-effort)..."
+          curl -fsSL \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/pages/builds/latest" \
+            | head -c 4000 || true
+          echo ""
+
+      - name: Cancel Pages deployment
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TARGET: ${{ steps.target.outputs.target }}
+        run: |
+          set -euo pipefail
+
+          echo "Cancelling GitHub Pages deployment: ${TARGET}"
+          echo "Repo: ${GITHUB_REPOSITORY}"
+
+          http_code="$(curl -sS -o cancel.out -w "%{http_code}" -L -X POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/pages/deployments/${TARGET}/cancel")"
+
+          if [ "${http_code}" != "204" ]; then
+            echo "::error::Failed to cancel Pages deployment ${TARGET} (HTTP ${http_code})."
+            echo "::error::Response:"
+            sed -n '1,200p' cancel.out || true
+            exit 1
+          fi
+
+          echo "OK: cancel accepted (204)."
+          echo "Waiting briefly for Pages to release the deployment lock..."
+          sleep 8
+
+      - name: Summary
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "## Cancel Pages deployment" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- repo: \`${GITHUB_REPOSITORY}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- target: \`${{ steps.target.outputs.target }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Next: re-run the Pages publish workflow that failed with \`in progress deployment\`." >> "$GITHUB_STEP_SUMMARY"

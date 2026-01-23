@@ -19,7 +19,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup Python
-        uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # v6.1.0
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
         with:
           python-version: "3.11"
 
@@ -80,6 +80,28 @@ jobs:
             --k 12 \
             --metric severity
 
+      - name: "Guardrail: Paradox Diagram outputs (case study bundle)"
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # JSON is required (meaning layer)
+          test -s out/paradox_core_bundle_case_study_v0/paradox_diagram_v0.json || {
+            echo "::error::Missing paradox_diagram_v0.json in out/paradox_core_bundle_case_study_v0"
+            ls -la out/paradox_core_bundle_case_study_v0 || true
+            exit 1
+          }
+
+          # SVG is best-effort optional (render layer)
+          if [ -f out/paradox_core_bundle_case_study_v0/paradox_diagram_v0.svg ]; then
+            test -s out/paradox_core_bundle_case_study_v0/paradox_diagram_v0.svg || {
+              echo "::error::paradox_diagram_v0.svg is present but empty"
+              exit 1
+            }
+          else
+            echo "::warning::paradox_diagram_v0.svg missing (best-effort optional)"
+          fi
+
       - name: Step summary
         shell: bash
         run: |
@@ -95,7 +117,7 @@ jobs:
           ls -lah out/paradox_core_bundle_case_study_v0 | sed 's/^/    /' >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload artifact (case study bundle)
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: paradox-core-bundle-case-study-v0
           path: out/paradox_core_bundle_case_study_v0

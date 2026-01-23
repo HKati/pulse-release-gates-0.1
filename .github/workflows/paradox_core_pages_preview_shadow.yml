@@ -19,7 +19,11 @@ jobs:
           persist-credentials: false
 
       - name: Setup Python
+ HKati-patch-821083
         uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # v6.1.0
+
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+ main
         with:
           python-version: "3.11"
 
@@ -107,9 +111,14 @@ jobs:
           python scripts/pages_publish_paradox_core_bundle_v0.py \
             --bundle-dir out/paradox_core_bundle_case_study_v0 \
             --site-dir out/site_preview_v0 \
+ HKati-patch-821083
             --mount paradox/core/v0 \
             --write-index
       
+
+            --mount paradox/core/v0
+
+ main
       - name: Step summary
         shell: bash
         run: |
@@ -126,7 +135,11 @@ jobs:
           find out/site_preview_v0 -maxdepth 4 -type f | sort | sed 's/^/    /' >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload artifact (Pages preview)
+ HKati-patch-821083
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+ main
         with:
           name: paradox-core-pages-preview-v0
           path: out/site_preview_v0

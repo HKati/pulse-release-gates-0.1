@@ -43,6 +43,10 @@
 
 Releases: https://github.com/HKati/pulse-release-gates-0.1/releases
 
+Paradox Core (shadow reviewer surface): https://hkati.github.io/pulse-release-gates-0.1/paradox/core/v0/
+- Deterministic, CI-neutral by default (diagnostic overlay).
+- Edges are non-causal (co-occurrence/association only).
+- Provenance (source selection): https://hkati.github.io/pulse-release-gates-0.1/paradox/core/v0/source_v0.json
 
 
 # PULSE — Release Gates for Safe & Useful AI
@@ -132,11 +136,7 @@ python PULSE_safe_pack_v0/tools/run_all.py
 
 python PULSE_safe_pack_v0/tools/check_gates.py \
   --status PULSE_safe_pack_v0/artifacts/status.json \
-  --require pass_controls_refusal effect_present psf_monotonicity_ok psf_mono_shift_resilient \
-    pass_controls_comm psf_commutativity_ok psf_comm_shift_resilient pass_controls_sanit \
-    sanitization_effective sanit_shift_resilient psf_action_monotonicity_ok psf_idempotence_ok \
-    psf_path_independence_ok psf_pii_monotonicity_ok q1_grounded_ok q2_consistency_ok \
-    q3_fairness_ok q4_slo_ok
+  --require $(python tools/policy_to_require_args.py --policy pulse_gate_policy_v0.yml --set required)
 
 
 
@@ -263,6 +263,25 @@ Shadow workflows (GitHub Actions):
   their JSON Schemas.  
 - **G snapshot report (shadow)** – renders a single `g_snapshot_report_v0.md`
   that summarizes which overlays are present and what they contain.
+
+Current overlays:
+
+- **Separation Phase overlay** (`separation_phase_v0.json`)  
+  Snapshot-style diagnostic overlay that classifies the run into:
+  `FIELD_STABLE` / `FIELD_STRAINED` / `FIELD_COLLAPSED` / `UNKNOWN`
+  based on separation-style invariants (order stability, separation integrity, phase dependency).
+
+  > **CI-neutral diagnostic layer.** It never blocks the main PULSE gates and must not change core release-gate semantics.
+
+  - Docs: `docs/SEPARATION_PHASE_v0.md`
+  - Schema: `schemas/separation_phase_v0.schema.json`
+  - Adapter: `scripts/separation_phase_adapter_v0.py`
+  - Contract check: `scripts/check_separation_phase_v0_contract.py`
+  - Renderer (human summary): `scripts/render_separation_phase_overlay_v0_md.py`
+  - Workflow: `.github/workflows/separation_phase_overlay.yml`
+  - Output artifacts:
+    - `PULSE_safe_pack_v0/artifacts/separation_phase_v0.json`
+    - `PULSE_safe_pack_v0/artifacts/separation_phase_overlay_v0.md`
 
 All of these are **fail‑closed only for their own job** (they never block the
 main PULSE gates) and are meant as a safe playground for the internal G‑field

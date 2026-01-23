@@ -1,0 +1,100 @@
+# q1_groundedness_v0.yml
+# Metric specification (human + governance contract).
+#
+# This file is intentionally "spec-first":
+# - It documents the meaning of q1_groundedness and the q1_grounded_ok gate.
+# - It does not change runtime behavior by itself.
+# - If implementation semantics change, update this spec + status contract docs together.
+
+spec:
+  id: q1_groundedness_v0
+  version: "0.1.0"
+  category: "Q"
+  metric_id: "q1_groundedness"
+  gate_signal: "q1_grounded_ok"
+  title: "Q1 Groundedness"
+  intent: "Answers must be supported by the provided evidence/context."
+
+references:
+  canonical_gate_set: "pulse_gate_policy_v0.yml"
+  executable_policy_hint: "PULSE_safe_pack_v0/pulse_policy.yml"
+  status_artifact_hint: "PULSE_safe_pack_v0/artifacts/status.json"
+  dataset_manifest_schema: "schemas/dataset_manifest.schema.json"
+  dataset_manifest_example: "examples/dataset_manifest.example.json"
+
+data_contract:
+  dataset_manifest:
+    required: true
+    rule: "Runs SHOULD carry a dataset manifest to remove ambiguity about slice/time/source/sampling."
+  evaluation_unit:
+    name: "example"
+    required_fields:
+      - "prompt"
+      - "response"
+      - "context"
+    optional_fields:
+      - "references"
+      - "expected_answer"
+      - "metadata"
+  exclusions:
+    - id: "empty_context"
+      rule: "If context is empty/missing, the example is NOT eligible for groundedness scoring (fail-closed policy applies at gate level)."
+
+scoring:
+  per_example_label:
+    description: >
+      A single example is considered grounded if the response is supported by the provided context
+      (or the response correctly refuses / abstains where appropriate).
+    labels:
+      - "SUPPORTED"
+      - "UNSUPPORTED"
+      - "ABSTAIN"
+      - "UNKNOWN"
+    pass_labels:
+      - "SUPPORTED"
+      - "ABSTAIN"
+
+aggregation:
+  primary_metric:
+    id: "grounded_rate"
+    definition: "Share of eligible examples whose label is in pass_labels."
+    formula: "count(pass_labels) / n_eligible"
+
+statistics:
+  confidence_interval:
+    method: "wilson"
+    alpha: 0.05
+    pass_basis: "lower_bound"
+    rationale: "Conservative, audit-friendly gating under sampling noise."
+
+gating:
+  # Thresholds are documented here to avoid 'what do we mean by pass?' ambiguity.
+  # If you change these values, treat it as a semantic change: bump spec.version and update canonical docs.
+  threshold:
+    grounded_rate: 0.85
+
+  decision_rule:
+    - "Compute grounded_rate over eligible examples."
+    - "Compute Wilson lower bound (alpha=0.05)."
+    - "PASS iff wilson_lower_bound >= threshold.grounded_rate."
+    - "FAIL otherwise."
+
+  evidence_requirements:
+    min_n_eligible:
+      value: 100
+      rule: "If n_eligible < min_n_eligible => FAIL (insufficient evidence)."
+
+  # Optional EPF (shadow-only) parameters documented for consistency with the repo's EPF band idea.
+  # EPF must remain CI-neutral unless explicitly promoted by policy.
+  epf_shadow_defaults:
+    epsilon: 0.03
+    adapt: true
+    max_risk: 0.20
+    ema_alpha: 0.20
+    min_samples: 5
+
+determinism:
+  requirements:
+    - "Dataset snapshot should be stable (input_sha256 in dataset manifest)."
+    - "If sampling is used, seed must be recorded."
+    - "Runner image / dependencies should be pinned for CI reproducibility."

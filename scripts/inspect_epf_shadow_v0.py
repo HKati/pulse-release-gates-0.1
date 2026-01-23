@@ -185,6 +185,8 @@ def _extract_gate_infos(status: Any) -> Dict[str, GateInfo]:
 
     gate_map: Dict[str, GateInfo] = {}
 
+ HKati-patch-142922
+    def add_gate(gate_id_raw: Any, decision_raw: Any, reason: str = "", value: Optional[float] = None, threshold: Optional[float] = None) -> None:
     def add_gate(
         gate_id_raw: Any,
         decision_raw: Any,
@@ -192,10 +194,18 @@ def _extract_gate_infos(status: Any) -> Dict[str, GateInfo]:
         value: Optional[float] = None,
         threshold: Optional[float] = None,
     ) -> None:
+ main
         gid = _to_str(gate_id_raw).strip()
         if not gid:
             return
         decision = _normalize_decision(decision_raw)
+ HKati-patch-142922
+        gate_map[gid] = GateInfo(gate_id=gid, decision=decision, reason=reason, value=value, threshold=threshold)
+
+    def handle_dict(container: Dict[str, Any]) -> None:
+        for gid, v in container.items():
+            # Simple shapes
+
         gate_map[gid] = GateInfo(
             gate_id=gid,
             decision=decision,
@@ -206,10 +216,15 @@ def _extract_gate_infos(status: Any) -> Dict[str, GateInfo]:
 
     def handle_dict(container: Dict[str, Any]) -> None:
         for gid, v in container.items():
+ main
             if isinstance(v, (bool, str)):
                 add_gate(gid, v)
                 continue
 
+ HKati-patch-142922
+            # Dict record shapes
+
+ main
             if isinstance(v, dict):
                 decision_raw = _first_key(
                     v,
@@ -231,6 +246,10 @@ def _extract_gate_infos(status: Any) -> Dict[str, GateInfo]:
                 add_gate(gid, decision_raw, reason=reason, value=value, threshold=threshold)
                 continue
 
+ HKati-patch-142922
+            # Unknown/unhandled shapes
+
+ main
             add_gate(gid, None)
 
     def handle_list(container: List[Any]) -> None:
@@ -257,6 +276,10 @@ def _extract_gate_infos(status: Any) -> Dict[str, GateInfo]:
             value, threshold = _extract_value_threshold(item)
             add_gate(gid, decision_raw, reason=reason, value=value, threshold=threshold)
 
+ HKati-patch-142922
+    # Process candidates until we successfully extract something non-empty
+
+ main
     for c in candidates:
         if isinstance(c, dict) and _looks_like_gate_map(c):
             handle_dict(c)
@@ -267,7 +290,13 @@ def _extract_gate_infos(status: Any) -> Dict[str, GateInfo]:
             if gate_map:
                 break
 
+ HKati-patch-142922
+    # As a last resort: some status formats put gate decisions directly at top-level (rare)
     if not gate_map:
+        # Avoid scooping too much; only accept dict values that look like gate records
+
+    if not gate_map:
+ main
         for k, v in status.items():
             if isinstance(v, dict) and any(x in v for x in ["pass", "ok", "decision", "status", "state"]):
                 decision_raw = _first_key(v, ["pass", "ok", "decision", "status", "state"])
@@ -279,6 +308,12 @@ def _extract_gate_infos(status: Any) -> Dict[str, GateInfo]:
 
 
 def _summarize_metrics(status: Any, keys: List[str]) -> Dict[str, Any]:
+ HKati-patch-142922
+    """
+    Pull a few optional metrics from status["metrics"] if present.
+    """
+
+ main
     out: Dict[str, Any] = {}
     if not isinstance(status, dict):
         return out
@@ -295,6 +330,15 @@ def _diff_gates(
     baseline: Dict[str, GateInfo],
     epf: Dict[str, GateInfo],
 ) -> Tuple[List[GateDiff], List[str], List[str]]:
+ HKati-patch-142922
+    """
+    Returns:
+      - diffs: list of changed gates (baseline decision != epf decision)
+      - missing_in_epf: gate_ids present in baseline but missing in epf
+      - missing_in_baseline: gate_ids present in epf but missing in baseline
+    """
+
+ main
     baseline_ids = set(baseline.keys())
     epf_ids = set(epf.keys())
 
@@ -317,7 +361,13 @@ def _diff_gates(
                 )
             )
 
+ HKati-patch-142922
+    # deterministic severity-ish ordering
     def severity_rank(d: GateDiff) -> Tuple[int, str]:
+        # Most important first: PASS->FAIL, then FAIL->PASS, then others
+
+    def severity_rank(d: GateDiff) -> Tuple[int, str]:
+ main
         if d.delta == "PASS->FAIL":
             return (0, d.gate_id)
         if d.delta == "FAIL->PASS":
@@ -387,6 +437,10 @@ def _render_markdown(
 
     lines.append("")
 
+ HKati-patch-142922
+    # Optional metrics snapshot
+
+ main
     if baseline_metrics or (epf_state == EPF_STATE_PRESENT and epf_metrics):
         lines.append("## Key metrics (optional)")
         if baseline_metrics:
@@ -399,6 +453,10 @@ def _render_markdown(
                 lines.append(f"  - `{k}`: `{epf_metrics[k]}`")
         lines.append("")
 
+ HKati-patch-142922
+    # Only render diffs if we actually compared
+
+ main
     if epf_state != EPF_STATE_PRESENT:
         lines.append("## Gate diffs")
         lines.append("")
@@ -408,6 +466,10 @@ def _render_markdown(
             lines.append("_No EPF input provided; comparison not performed._")
         lines.append("")
     else:
+ HKati-patch-142922
+        # Delta counts
+
+ main
         if diffs:
             by_delta = _count_by_delta(diffs)
             lines.append("## Delta breakdown")
@@ -439,6 +501,10 @@ def _render_markdown(
             lines.append("_No gate decision differences detected between baseline and EPF._")
             lines.append("")
 
+ HKati-patch-142922
+        # Missing sections (still useful signals) — only meaningful when EPF present
+
+ main
         if missing_in_epf:
             lines.append("## Gates missing in EPF")
             lines.append("")
@@ -537,9 +603,13 @@ def _render_diff_json(
 # -----------------------------
 
 def main(argv: Optional[List[str]] = None) -> int:
+ HKati-patch-142922
+    p = argparse.ArgumentParser(description="Inspect EPF shadow vs baseline status JSON and emit a deterministic diff summary.")
+
     p = argparse.ArgumentParser(
         description="Inspect EPF shadow vs baseline status JSON and emit a deterministic diff summary."
     )
+ main
     p.add_argument("--baseline", required=True, help="Path to baseline status JSON (e.g., out/status_baseline.json).")
     p.add_argument("--epf", default=None, help="Path to EPF shadow status JSON (optional; if missing, report explains).")
     p.add_argument("--out-md", required=True, help="Path to output markdown summary (e.g., out/epf_shadow_summary_v0.md).")

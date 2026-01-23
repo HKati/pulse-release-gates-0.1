@@ -15,6 +15,10 @@ Copies (fail-closed if missing):
   - paradox_core_summary_v0.md
   - paradox_core_v0.svg
   - paradox_core_reviewer_card_v0.html
+  - paradox_diagram_v0.json
+
+Copies (best-effort if present):
+  - paradox_diagram_v0.svg
 
 Design goals:
   - CI-neutral (pure publish helper; does not compute semantics)
@@ -32,11 +36,20 @@ from pathlib import Path, PurePosixPath
 from typing import List
 
 
+# Required artifacts: publishing must fail-closed if any of these are missing.
 REQUIRED_FILES: List[str] = [
     "paradox_core_v0.json",
     "paradox_core_summary_v0.md",
     "paradox_core_v0.svg",
     "paradox_core_reviewer_card_v0.html",
+    "paradox_diagram_v0.json",
+]
+
+# Best-effort artifacts: copy if present, do not fail if absent.
+# Rationale: the reviewer bundle may skip diagram SVG generation in valid invocations
+# (e.g., legacy renderer requiring --edges when none are provided).
+OPTIONAL_FILES: List[str] = [
+    "paradox_diagram_v0.svg",
 ]
 
 
@@ -167,9 +180,15 @@ def main() -> int:
     if missing:
         _fail(f"Missing required bundle files in {bundle_dir}: {', '.join(missing)}")
 
-    # Copy files deterministically
+    # Copy required files deterministically
     for name in REQUIRED_FILES:
         _copy_bytes(bundle_dir / name, target_dir / name)
+
+    # Copy optional files deterministically (best-effort)
+    for name in OPTIONAL_FILES:
+        src = bundle_dir / name
+        if src.exists():
+            _copy_bytes(src, target_dir / name)
 
     if args.write_index:
         _write_index(target_dir, "paradox_core_reviewer_card_v0.html")
@@ -181,4 +200,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

@@ -8,10 +8,12 @@ permissions:
   pull-requests: read
 
 jobs:
+ 
   semantic:
-    # skip Dependabot PRs OR if labeled "dependencies"
-    if: ${{ github.actor != 'dependabot[bot]' && !contains(github.event.pull_request.labels.*.name, 'dependencies') }}
+    # Always run so the check is visible/green even for bot PRs.
+    # Skipping validation (when desired) is handled by ignoreLabels below.
     runs-on: ubuntu-latest
+ 
     steps:
       - uses: amannn/action-semantic-pull-request@48f256284bd46cdaab1048c3721360e808335d50 # v6.1.1
         env:
