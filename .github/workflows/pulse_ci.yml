@@ -229,7 +229,7 @@ jobs:
           echo "PACK_DIR resolved to: $PACK_DIR"
 
       - name: Set up Python
-        uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # pinned
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # pinned
         with:
           python-version: "3.11"
 
@@ -586,7 +586,7 @@ jobs:
           persist-credentials: false
 
       - name: Set up Python
-        uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # pinned
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # pinned
         with:
           python-version: "3.11"
 
