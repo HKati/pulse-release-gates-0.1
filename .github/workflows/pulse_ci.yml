@@ -320,6 +320,15 @@ jobs:
             --thresholds "$THRESH" \
             --external_dir "$EXT_DIR"
 
+      - name: Gate registry sync check
+        shell: bash
+        run: |
+          set -euo pipefail
+          python tools/check_gate_registry_sync.py \
+            --status "${{ env.PACK_DIR }}/artifacts/status.json" \
+            --registry pulse_gate_registry_v0.yml \
+            --emit-stubs
+
       - name: External detector summaries (visibility)
         if: always()
         shell: bash
