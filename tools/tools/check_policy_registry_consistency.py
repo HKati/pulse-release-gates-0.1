@@ -27,7 +27,7 @@ import re
 import subprocess
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Set, Tuple
+from typing import Any, Dict, List, Set
 
 import yaml
 
@@ -53,8 +53,31 @@ def _read_yaml(path: Path) -> Dict[str, Any]:
 
 
 def _repo_root() -> Path:
-    # tools/check_policy_registry_consistency.py -> repo root is parent of tools/
-    return Path(__file__).resolve().parents[1]
+    """
+    Resolve repo root robustly even if this file ends up nested (e.g. tools/tools/).
+
+    Strategy:
+    - Walk upwards from this file's directory.
+    - Prefer a directory containing .git.
+    - Fallback to a directory containing both pulse_gate_policy_v0.yml and
+      pulse_gate_registry_v0.yml.
+    """
+    here = Path(__file__).resolve()
+
+    for parent in here.parents:
+        # Standard git checkout (most CI + local dev)
+        if (parent / ".git").exists():
+            return parent
+
+        # Repo-export / tarball / environments without .git
+        if (parent / "pulse_gate_policy_v0.yml").exists() and (parent / "pulse_gate_registry_v0.yml").exists():
+            return parent
+
+    # Very conservative fallback: assume two levels up from tools/tools/...
+    # (kept only as last resort)
+    if len(here.parents) >= 3:
+        return here.parents[2]
+    return here.parent
 
 
 def _policy_to_gate_ids(policy_path: Path, set_name: str) -> List[str]:
@@ -217,4 +240,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
