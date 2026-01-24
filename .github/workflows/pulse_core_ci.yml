@@ -70,6 +70,15 @@ jobs:
           set -euo pipefail
           python "${PACK_DIR}/tools/run_all.py"
 
+      - name: Gate registry sync check
+        shell: bash
+        run: |
+          set -euo pipefail
+          python tools/check_gate_registry_sync.py \
+            --status "${PACK_DIR}/artifacts/status.json" \
+            --registry pulse_gate_registry_v0.yml \
+            --emit-stubs
+
       - name: Show gates snapshot
         if: always()
         shell: bash
@@ -148,4 +157,3 @@ jobs:
             ${{ env.PACK_DIR }}/artifacts/**
             reports/junit.xml
             reports/sarif.json
-
