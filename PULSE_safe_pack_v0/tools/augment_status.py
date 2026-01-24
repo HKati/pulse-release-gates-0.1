@@ -130,6 +130,22 @@ else:
 thr: Dict[str, Any] = yload(args.thresholds) or {}
 ext_dir = os.path.abspath(args.external_dir)
 
+# Diagnostic gate: whether any external detector summary evidence exists.
+# We define "present" as: at least one *_summary.json file exists in external_dir.
+try:
+    external_summaries_present = (
+        os.path.isdir(ext_dir)
+        and any(
+            fn.endswith("_summary.json") and os.path.isfile(os.path.join(ext_dir, fn))
+            for fn in os.listdir(ext_dir)
+        )
+    )
+except Exception:
+    external_summaries_present = False
+
+gates["external_summaries_present"] = bool(external_summaries_present)
+status["external_summaries_present"] = bool(external_summaries_present)
+
 # Ensure we start from a clean list
 external["metrics"] = []
 
