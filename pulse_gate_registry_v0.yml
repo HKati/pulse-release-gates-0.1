@@ -108,7 +108,23 @@ gates:
     category: controls
     intent: "Refusal-delta meets configured thresholds (computed by refusal_delta_calc and injected during status augmentation)."
     stability: stable
-  
+    
+    refusal_delta_pass:
+    category: controls
+    intent: "Refusal-delta meets configured thresholds (computed by refusal_delta_calc and injected during status augmentation)."
+    stability: stable
+
+  external_all_pass:
+    category: external
+    intent: "All external detector summaries meet configured thresholds (computed from artifacts/external by augment_status.py)."
+    stability: stable
+
+  external_summaries_present:
+    category: external
+    intent: "At least one external detector *_summary.json file is present under artifacts/external (evidence available)."
+    stability: experimental
+    default_normative: false
+
   external_summaries_present:
     category: external
     intent: "External detector summary evidence is present under artifacts/external (diagnostic-only signal; indicates whether external_all_pass is evidence-backed)."
