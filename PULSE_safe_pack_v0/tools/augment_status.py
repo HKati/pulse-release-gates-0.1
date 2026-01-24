@@ -21,6 +21,7 @@ gate semantics beyond adding these two deferred gates.
 from __future__ import annotations
 
 import argparse
+import glob
 import json
 import os
 from typing import Any, Dict, Optional
@@ -133,14 +134,21 @@ ext_dir = os.path.abspath(args.external_dir)
 # Ensure we start from a clean list
 external["metrics"] = []
 
-# Diagnostic: do we have any external *_summary.json evidence at all?
-try:
-    external_summaries_present = any(
-        fn.endswith("_summary.json") and os.path.isfile(os.path.join(ext_dir, fn))
-        for fn in os.listdir(ext_dir)
-    )
-except Exception:
-    external_summaries_present = False
+# Evidence presence is separate from pass/fail: we just record whether any
+# external *_summary.json exists under artifacts/external.
+summary_files = []
+if os.path.isdir(ext_dir):
+    summary_files = sorted(glob.glob(os.path.join(ext_dir, "*_summary.json")))
+
+summaries_present = bool(summary_files)
+
+# Mirror into status for visibility / tooling
+external["summaries_present"] = summaries_present
+external["summary_count"] = len(summary_files)
+
+# Also emit as a diagnostic gate (non-normative unless promoted explicitly)
+gates["external_summaries_present"] = summaries_present
+status["external_summaries_present"] = summaries_present
 
 
 def fold_external(
@@ -174,9 +182,22 @@ def fold_external(
         or None if the file was missing.
     """
     path = os.path.join(ext_dir, fname)
-    j = jload(path)
-    if not j:
+    if not os.path.exists(path):
         return None
+
+    j = jload(path)
+    if j is None:
+        thv = float(thr.get(threshold_key, 0.10))
+        external["metrics"].append(
+            {
+                "name": metric_name,
+                "value": default,
+                "threshold": thv,
+                "pass": False,
+                "parse_error": True,
+            }
+        )
+        return False
 
     if key_in_json is not None:
         val = j.get(key_in_json, default)
@@ -283,10 +304,6 @@ external["all_pass"] = ext_all
 # Mirror to gates + top-level, so check_gates.py can consume it
 gates["external_all_pass"] = ext_all
 status["external_all_pass"] = ext_all
-
-external["summaries_present"] = external_summaries_present  # optional mirror
-gates["external_summaries_present"] = external_summaries_present
-status["external_summaries_present"] = external_summaries_present
 
 # ---------------------------------------------------------------------------
 # 3) Write back
