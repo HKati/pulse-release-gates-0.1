@@ -8,13 +8,11 @@ on:
       - "**/*.md"
       - "badges/**"
       - "reports/**"
+      - "!docs/policy/CHANGELOG.md"
+  
   pull_request:
     branches: [main]
-    paths-ignore:
-      - "docs/**"
-      - "**/*.md"
-      - "badges/**"
-      - "reports/**"
+
   workflow_dispatch:
     inputs:
       strict_external_evidence:
@@ -25,6 +23,7 @@ on:
         options:
           - "false"
           - "true"
+
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
