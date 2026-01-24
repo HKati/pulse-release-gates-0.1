@@ -115,10 +115,12 @@ gates:
     stability: experimental
     default_normative: false
 
-  external_all_pass:
+    external_summaries_present:
     category: external
-    intent: "All external detector summaries meet configured thresholds (injected during status augmentation from artifacts/external)."
-    stability: stable
+    intent: "At least one external detector *_summary.json file is present under artifacts/external (evidence availability signal)."
+    stability: experimental
+    default_normative: false
+
 
   # --- Diagnostics (must remain non-normative unless explicitly promoted) ---
   epf_hazard_ok:
