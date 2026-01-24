@@ -338,6 +338,15 @@ jobs:
             --registry pulse_gate_registry_v0.yml \
             --emit-stubs
 
+      - name: Policy ↔ registry consistency check
+        shell: bash
+        run: |
+          set -euo pipefail
+          python tools/tools/check_policy_registry_consistency.py \
+            --registry pulse_gate_registry_v0.yml \
+            --policy pulse_gate_policy_v0.yml \
+            --sets required
+
       - name: Enforce external evidence presence (strict manual mode)
         if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.strict_external_evidence == 'true' }}
         shell: bash
