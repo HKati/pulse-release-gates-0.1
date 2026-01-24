@@ -15,7 +15,16 @@ on:
       - "**/*.md"
       - "badges/**"
       - "reports/**"
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      strict_external_evidence:
+        description: "Require external *_summary.json evidence (fail if missing)"
+        required: false
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -329,14 +338,30 @@ jobs:
             --registry pulse_gate_registry_v0.yml \
             --emit-stubs
 
+      - name: Enforce external evidence presence (strict manual mode)
+        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.strict_external_evidence == 'true' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Strict external evidence enabled: requiring external_summaries_present"
+          python "${{ env.PACK_DIR }}/tools/check_gates.py" \
+            --status "${{ env.PACK_DIR }}/artifacts/status.json" \
+            --require external_summaries_present external_all_pass
+
       - name: External detector summaries (visibility)
         if: always()
         shell: bash
         run: |
           set -euo pipefail
+          STATUS="${{ env.PACK_DIR }}/artifacts/status.json"
           EXT_DIR="${{ env.PACK_DIR }}/artifacts/external"
 
           echo "### External evidence" >> "$GITHUB_STEP_SUMMARY"
+
+          if [ -f "$STATUS" ] && command -v jq >/dev/null 2>&1; then
+            SUMMARY_COUNT="$(jq -r '.external.summary_count // 0' "$STATUS" 2>/dev/null || echo "0")"
+            echo "- external.summary_count (status.json): ${SUMMARY_COUNT}" >> "$GITHUB_STEP_SUMMARY"
+          fi
 
           if [ -d "$EXT_DIR" ]; then
             echo "External summary directory: $EXT_DIR"
