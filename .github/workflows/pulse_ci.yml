@@ -8,13 +8,11 @@ on:
       - "**/*.md"
       - "badges/**"
       - "reports/**"
+      - "!docs/policy/CHANGELOG.md"
+  
   pull_request:
     branches: [main]
-    paths-ignore:
-      - "docs/**"
-      - "**/*.md"
-      - "badges/**"
-      - "reports/**"
+
   workflow_dispatch:
     inputs:
       strict_external_evidence:
@@ -25,6 +23,7 @@ on:
         options:
           - "false"
           - "true"
+
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -248,6 +247,14 @@ jobs:
           set -euo pipefail
           python -m pip install --upgrade pip
           python -m pip install pyyaml
+
+      - name: YAML duplicate-key guard (fail-closed)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python tools/check_yaml_unique_keys.py \
+            pulse_gate_registry_v0.yml \
+            pulse_gate_policy_v0.yml
 
       - name: Ensure directories
         shell: bash
