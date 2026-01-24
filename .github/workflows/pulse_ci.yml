@@ -651,7 +651,14 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Run exporter smoke tests
+      - name: Install minimal Python deps
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install pyyaml
+
+      - name: Run exporter + governance smoke tests
         shell: bash
         run: |
           set -euo pipefail
@@ -662,5 +669,7 @@ jobs:
           (root / "tests" / "out").mkdir(parents=True, exist_ok=True)
 
           subprocess.check_call([sys.executable, "tests/test_exporters.py"])
-          print("Exporter smoke tests OK")
+          subprocess.check_call([sys.executable, "tests/test_tools_governance_smoke.py"])
+
+          print("Exporter + governance smoke tests OK")
           PY
