@@ -335,14 +335,25 @@ jobs:
         run: |
           set -euo pipefail
           EXT_DIR="${{ env.PACK_DIR }}/artifacts/external"
+
+          echo "### External evidence" >> "$GITHUB_STEP_SUMMARY"
+
           if [ -d "$EXT_DIR" ]; then
             echo "External summary directory: $EXT_DIR"
             ls -la "$EXT_DIR" || true
-            if ! find "$EXT_DIR" -maxdepth 1 -type f | grep -q .; then
-              echo "::warning::No external detector summaries found. external_all_pass may be trivially true (fail-open)."
+
+            if ! find "$EXT_DIR" -maxdepth 1 -type f -name '*_summary.json' | grep -q .; then
+              echo "::warning::No external *_summary.json summaries found under $EXT_DIR. external_all_pass may be trivially true (fail-open)."
+              echo "- external_summaries_present: false" >> "$GITHUB_STEP_SUMMARY"
+              echo "- note: external_all_pass may be fail-open when no evidence is present" >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "Found external summaries:"
+              find "$EXT_DIR" -maxdepth 1 -type f -name '*_summary.json' -print || true
+              echo "- external_summaries_present: true" >> "$GITHUB_STEP_SUMMARY"
             fi
           else
             echo "::warning::External summary directory missing: $EXT_DIR"
+            echo "- external_summaries_present: false (missing directory)" >> "$GITHUB_STEP_SUMMARY"
           fi
 
       - name: Show gates snapshot
