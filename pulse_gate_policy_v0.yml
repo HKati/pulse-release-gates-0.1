@@ -17,7 +17,7 @@
 
 policy:
   id: pulse-gate-policy-v0
-  version: "0.1.0"
+  version: "0.1.1"
 
 enforcement:
   required_missing: FAIL
@@ -48,6 +48,14 @@ gates:
     - q1_grounded_ok
     - q2_consistency_ok
     - q3_fairness_ok
+    - q4_slo_ok
+
+  # Minimal deterministic gate set for first-time adopters (PULSE Core CI).
+  core_required:
+    - pass_controls_refusal
+    - pass_controls_sanit
+    - sanitization_effective
+    - q1_grounded_ok
     - q4_slo_ok
 
   # Start empty; promote signals here only after they are proven stable.
