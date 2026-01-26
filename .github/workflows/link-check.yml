@@ -62,9 +62,11 @@ jobs:
             --max-retries 2
             --retry-wait-time 2
             --max-concurrency 8
-            --format markdown
-            --output lychee_report.md
             README.md CHANGELOG.md docs examples CITATION.cff schemas
+          format: markdown
+          output: lychee_report.md
+          fail: true
+          failIfEmpty: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -92,4 +94,3 @@ jobs:
           else
             echo "_No lychee_report.md generated._" >> "$GITHUB_STEP_SUMMARY"
           fi
-
