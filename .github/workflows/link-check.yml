@@ -65,8 +65,10 @@ jobs:
             README.md CHANGELOG.md docs examples CITATION.cff schemas
           format: markdown
           output: lychee_report.md
-          fail: true
-          failIfEmpty: true
+
+          # Advisory on PR/push; strict on schedule/manual runs.
+          fail: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
+          failIfEmpty: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
