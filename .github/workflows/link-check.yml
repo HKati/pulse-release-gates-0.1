@@ -50,7 +50,7 @@ jobs:
           persist-credentials: false
 
       - name: Run Lychee link checker
-        uses: lycheeverse/lychee-action@2b973e86fc7b1f6b36a93795fe2c9c6ae1118621 # v1.10.0
+        uses: lycheeverse/lychee-action@a8c4c7cb88f0c7386610c35eb25108e448569cb0 # v2.7.0
         with:
           args: >-
             --verbose --no-progress
@@ -62,9 +62,13 @@ jobs:
             --max-retries 2
             --retry-wait-time 2
             --max-concurrency 8
-            --format markdown
-            --output lychee_report.md
             README.md CHANGELOG.md docs examples CITATION.cff schemas
+          format: markdown
+          output: lychee_report.md
+
+          # Advisory on PR/push; strict on schedule/manual runs.
+          fail: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
+          failIfEmpty: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -92,4 +96,3 @@ jobs:
           else
             echo "_No lychee_report.md generated._" >> "$GITHUB_STEP_SUMMARY"
           fi
-
