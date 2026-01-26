@@ -223,6 +223,17 @@ It will:
 6. **upload artifacts** (pulse-report: report card + status + badges),
 7. on PRs, post a **Quality Ledger** comment.
 
+### Governance preflight (fail‑closed)
+
+In addition to running the pack, CI enforces repo‑level governance guards:
+
+- **Semantic changelog enforcement:** if `pulse_gate_policy_v0.yml`, `metrics/specs/**`, or dataset‑manifest contracts change, `docs/policy/CHANGELOG.md` must include an entry under **Unreleased** documenting the change.
+- **YAML duplicate‑key guard:** rejects duplicate mapping keys in `pulse_gate_registry_v0.yml` and `pulse_gate_policy_v0.yml` (prevents silent “last key wins” semantics).
+- **Gate registry sync:** every gate emitted in `status.json` must be registered in `pulse_gate_registry_v0.yml`.
+- **Policy ↔ registry consistency:** every gate required by policy must exist in the registry.
+
+Manual strict mode: workflow dispatch input `strict_external_evidence=true` additionally requires `external_summaries_present` (and `external_all_pass`).
+
 > Tip: after making the repo **public**, add a **Branch protection rule** (Settings → Branches) and mark **PULSE CI** as a **required status check**.
 
 ---
