@@ -548,6 +548,7 @@ jobs:
 
       - name: Select require set (core vs full)
         id: require_set
+        if: always()
         shell: bash
         run: |
           set -euo pipefail
@@ -622,11 +623,19 @@ jobs:
       - name: Workflow summary
         if: always()
         shell: bash
+        env:
+          REQ_SET: ${{ steps.require_set.outputs.set }}
+          STRICT_EVIDENCE: ${{ (github.event_name == 'workflow_dispatch' && github.event.inputs.strict_external_evidence == 'true') || startsWith(github.ref, 'refs/tags/v') || startsWith(github.ref, 'refs/tags/V') }}
+          EVENT_NAME: ${{ github.event_name }}
+          REF: ${{ github.ref }}
         run: |
           set -euo pipefail
           STATUS="${{ env.PACK_DIR }}/artifacts/status.json"
 
           echo "## PULSE CI summary" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- require_set: ${REQ_SET:-unknown}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- strict_external_evidence: ${STRICT_EVIDENCE} (event=${EVENT_NAME}, ref=${REF})" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
 
           if [ -f "$STATUS" ] && command -v jq >/dev/null 2>&1; then
@@ -638,6 +647,7 @@ jobs:
           else
             echo "_No status.json produced (or jq missing)._ " >> "$GITHUB_STEP_SUMMARY"
           fi
+
 
       - name: Upload artifacts
         if: always()
