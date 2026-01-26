@@ -20,6 +20,7 @@ This changelog records **semantic** changes that can affect release gating outco
    - Impact / migration notes (if any)
 
 ## Unreleased
+pulse_gate_policy_v0.yml: add core_required gate set (minimal deterministic Core CI); required/advisory enforcement semantics unchanged.
 
 - Q3 fairness: fail-closed when dataset manifest or `dataset_manifest.slices.dimensions` is missing/empty; Q3 gating now FAILs without declared slices (spec `q3_fairness_v0` bumped to 0.1.1). (PR: #936)
 
