@@ -9,7 +9,7 @@ on:
       - "badges/**"
       - "reports/**"
       - "!docs/policy/CHANGELOG.md"
-  
+
   pull_request:
     branches: [main]
 
@@ -23,7 +23,6 @@ on:
         options:
           - "false"
           - "true"
-
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -541,14 +540,28 @@ jobs:
           print(f"OK: wrote {out_html}")
           PY
 
+      - name: Select require set (core vs full)
+        id: require_set
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]]; then
+            SET="core_required"
+          else
+            SET="required"
+          fi
+          echo "set=${SET}" >> "$GITHUB_OUTPUT"
+          echo "Selected require set: ${SET}"
+
       - name: Enforce required gates (policy-driven)
         shell: bash
         run: |
           set -euo pipefail
           # NOTE: do NOT quote $REQ when passing to --require, because check_gates expects
           # each gate id as a separate CLI argument.
-          REQ="$(python tools/policy_to_require_args.py --policy pulse_gate_policy_v0.yml --set required)"
-          echo "Required gates (from policy): $REQ"
+          REQ_SET="${{ steps.require_set.outputs.set }}"
+          REQ="$(python tools/policy_to_require_args.py --policy pulse_gate_policy_v0.yml --set "$REQ_SET")"
+          echo "Required gates (from policy, set=${REQ_SET}): $REQ"
 
           python "${{ env.PACK_DIR }}/tools/check_gates.py" \
             --status "${{ env.PACK_DIR }}/artifacts/status.json" \
