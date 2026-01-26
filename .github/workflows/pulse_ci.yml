@@ -9,7 +9,7 @@ on:
       - "badges/**"
       - "reports/**"
       - "!docs/policy/CHANGELOG.md"
-  
+
   pull_request:
     branches: [main]
 
@@ -23,7 +23,6 @@ on:
         options:
           - "false"
           - "true"
-
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -589,6 +588,7 @@ jobs:
           fi
           if [ -f sarif.json ]; then
             mv sarif.json reports/sarif.json
+          fi
 
       - name: Generate badges (artifact only)
         if: always()
@@ -631,6 +631,7 @@ jobs:
             echo '```' >> "$GITHUB_STEP_SUMMARY"
           else
             echo "_No status.json produced (or jq missing)._ " >> "$GITHUB_STEP_SUMMARY"
+          fi
 
       - name: Upload artifacts
         if: always()
