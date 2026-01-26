@@ -357,7 +357,8 @@ jobs:
             --sets required core_required
             
 
-      - name: "Enforce external evidence presence (strict: manual OR version tag)
+      - name:  "Enforce external evidence presence (strict: manual OR version tag)"
+
         if: ${{ (github.event_name == 'workflow_dispatch' && github.event.inputs.strict_external_evidence == 'true') || startsWith(github.ref, 'refs/tags/v') || startsWith(github.ref, 'refs/tags/V') }}
         shell: bash
         run: |
