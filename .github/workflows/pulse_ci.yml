@@ -158,6 +158,40 @@ jobs:
 
             return spec_id, spec_ver
 
+          def parse_policy_id_version(path: Path):
+            # Minimal YAML parsing for the policy block: look for top-level "policy:" then id/version inside.
+            in_policy = False
+            pol_id = None
+            pol_ver = None
+
+            for raw in path.read_text(encoding="utf-8", errors="replace").splitlines():
+              line = raw.rstrip("\n")
+
+              # enter policy block on exact top-level "policy:"
+              if not in_policy and re.match(r"^policy:\s*$", line):
+                in_policy = True
+                continue
+
+              if in_policy:
+                # leaving policy block when another top-level key starts (non-empty and no leading spaces)
+                if re.match(r"^[A-Za-z0-9_]+\s*:\s*$", line) and not line.startswith(" "):
+                  break
+
+                m_id = re.match(r"^\s*id:\s*(.+?)\s*$", line)
+                if m_id and pol_id is None:
+                  pol_id = m_id.group(1).strip().strip('"').strip("'")
+                  continue
+
+                m_ver = re.match(r"^\s*version:\s*(.+?)\s*$", line)
+                if m_ver and pol_ver is None:
+                  pol_ver = m_ver.group(1).strip().strip('"').strip("'")
+                  continue
+
+                if pol_id and pol_ver:
+                  break
+
+            return pol_id, pol_ver
+
           missing = []
 
           for p in changed:
@@ -194,8 +228,31 @@ jobs:
               continue
 
             if p == "pulse_gate_policy_v0.yml":
-              if "pulse_gate_policy_v0" not in unrel_l:
-                missing.append((p, "expected mention of 'pulse_gate_policy_v0' in Unreleased"))
+              pol_path = Path(p)
+              if not pol_path.exists():
+                missing.append((p, "policy file missing in workspace"))
+                continue
+
+              pol_id, pol_ver = parse_policy_id_version(pol_path)
+
+              want_any = set()
+              if pol_id:
+                want_any |= stem_variants(pol_id)
+              # Always accept filename token too (backward compatible)
+              want_any |= stem_variants("pulse_gate_policy_v0")
+
+              id_ok = any(tok and tok in unrel_l for tok in want_any)
+              ver_ok = (pol_ver is not None) and (str(pol_ver).strip() in unrel)
+
+              if not id_ok or not ver_ok:
+                reason = []
+                if not id_ok:
+                  reason.append(f"missing policy id token (expected one of: {sorted(want_any)})")
+                if pol_ver is None:
+                  reason.append("policy.version not found in file")
+                elif not ver_ok:
+                  reason.append(f"missing version '{pol_ver}' in Unreleased")
+                missing.append((p, "; ".join(reason)))
               continue
 
             if p in ("schemas/dataset_manifest.schema.json", "examples/dataset_manifest.example.json"):
