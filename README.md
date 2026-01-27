@@ -75,20 +75,6 @@ From **findings** to **fuses**. Run **PULSE before you ship**: deterministic, **
 
 ## Clarity First (before Paradox / EPF / Topology work)
 
-PULSE’s **release decisions are deterministic and fail‑closed** by design — but only if we keep the meaning of terms stable.
-Before extending the Paradox diagram/field, EPF shadow layers, drift/history, or any UI/Pages surface, we **must** resolve ambiguous semantics up front.
-
-### Source of truth (normative layer)
-Release gating is defined only by:
-
-- `PULSE_safe_pack_v0/tools/check_gates.py`
-- `PULSE_safe_pack_v0/artifacts/status.json`
-- the CI workflow requirem
-
----
-
-### Clarity First (semantics before Paradox / EPF / Topology)
-
 PULSE is deterministic and fail‑closed — but only if we keep the meaning of terms stable.
 Before extending the Paradox diagram/field, EPF shadow layers, drift/history, or any UI/Pages surface, we lock down the semantics below.
 
