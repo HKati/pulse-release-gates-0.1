@@ -1,7 +1,7 @@
 name: repo-hygiene
 
 on:
-  pull_request:
+  pull_request: {}
   push:
     branches: ["main"]
 
@@ -11,8 +11,89 @@ permissions:
 jobs:
   hygiene_guardrails:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+
     steps:
-      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1 :contentReference[oaicite:1]{index=1}
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+
+      - name: Set up Python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # pinned
+        with:
+          python-version: "3.11"
+
+      - name: Install PyYAML (for workflow YAML guard)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install pyyaml
+
+      - name: "Repo hygiene: validate workflow YAML files (fail-closed)"
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python3 - <<'PY'
+          import re
+          import sys
+          import pathlib
+          import yaml
+
+          root = pathlib.Path(".github/workflows")
+          files = sorted(list(root.glob("*.yml")) + list(root.glob("*.yaml")))
+
+          if not files:
+              print("::warning::No workflow files found under .github/workflows/")
+              sys.exit(0)
+
+          # Guardrail: unquoted ':' + whitespace inside a step name can break YAML parsing in GitHub Actions.
+          colon_name_re = re.compile(r'^\s*-\s*name:\s+[^"\'].*:\s+.*$', re.MULTILINE)
+
+          ok = True
+
+          for f in files:
+              text = f.read_text(encoding="utf-8", errors="replace")
+
+              m = colon_name_re.search(text)
+              if m:
+                  line_no = text[:m.start()].count("\n") + 1
+                  print(
+                      f"::error file={f},line={line_no}::"
+                      "Unquoted ':' in step name. Quote the value or use a block scalar (name: >-)."
+                  )
+                  ok = False
+
+              try:
+                  obj = yaml.safe_load(text)
+              except yaml.YAMLError as e:
+                  # Best-effort line/col extraction
+                  line = None
+                  col = None
+                  mark = getattr(e, "problem_mark", None)
+                  if mark is not None:
+                      line = mark.line + 1
+                      col = mark.column + 1
+                  loc = f",line={line},col={col}" if line is not None and col is not None else ""
+                  msg = str(e).replace("\n", " | ")
+                  print(f"::error file={f}{loc}::YAML parse error: {msg}")
+                  ok = False
+                  continue
+
+              if obj is None:
+                  print(f"::error file={f}::Workflow YAML is empty (safe_load returned None).")
+                  ok = False
+                  continue
+
+              if not isinstance(obj, dict):
+                  print(f"::error file={f}::Workflow YAML must be a mapping at top-level (got {type(obj).__name__}).")
+                  ok = False
+                  continue
+
+          if not ok:
+              sys.exit(1)
+
+          print(f"OK: validated {len(files)} workflow file(s).")
+          PY
 
       - name: "Repo hygiene: forbid case-insensitive path collisions (file/file + file/dir)"
         shell: bash
@@ -100,4 +181,3 @@ jobs:
             exit 1
           fi
           echo "OK: no nested fixtures detected."
-
