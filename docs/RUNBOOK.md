@@ -127,7 +127,7 @@ Rule:
 - “Present but broken” must never be treated as PASS.
 
 
-GOV‑007 — Workflow YAML parse failure (unquoted ':' in step name)
+### GOV‑007 — Workflow YAML parse failure (unquoted ':' in step name)
 Meaning:
 
 A GitHub Actions workflow YAML file failed to parse. A common footgun is an unquoted ':' followed by whitespace inside a step name.
