@@ -200,9 +200,11 @@ PULSE enforces fail‑closed PASS/FAIL gates across Safety (I₂–I₇), Qualit
 **FAIL** (pipeline blocked) • **STAGE-PASS** (staging release) • **PROD-PASS** (production deploy allowed).  
 Break‑glass overrides require justification; the justification is recorded in the Quality Ledger.
 
+
 ## Determinism (caveats)
 
 PULSE is deterministic if the runner image + seeds + CPU/GPU mode are pinned. External detectors and GPU kernel variance can introduce flakiness; EPF (shadow) + RDSI quantify stability without ever changing CI outcomes.
+
 
 ## Native CI outputs
 
@@ -222,6 +224,7 @@ It will:
 5. **update & commit** the SVG badges into `/badges/`,
 6. **upload artifacts** (pulse-report: report card + status + badges),
 7. on PRs, post a **Quality Ledger** comment.
+
 
 ## Governance preflight (fail‑closed)
 
