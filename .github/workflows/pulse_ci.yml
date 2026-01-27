@@ -351,10 +351,41 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+
+          # 1) required set must be consistent
           python tools/tools/check_policy_registry_consistency.py \
             --registry pulse_gate_registry_v0.yml \
             --policy pulse_gate_policy_v0.yml \
-            --sets required core_required
+            --sets required
+
+          # 2) core_required set must be consistent too (PRs enforce this set)
+          python tools/tools/check_policy_registry_consistency.py \
+            --registry pulse_gate_registry_v0.yml \
+            --policy pulse_gate_policy_v0.yml \
+            --sets core_required
+
+          # 3) Guardrail: core_required must be a subset of required (prevents semantic drift)
+          python - <<'PY'
+          import sys
+          import yaml
+
+          with open("pulse_gate_policy_v0.yml", "r", encoding="utf-8") as f:
+              pol = yaml.safe_load(f) or {}
+
+          gates = (pol.get("gates") or {})
+          required = set(gates.get("required") or [])
+          core = set(gates.get("core_required") or [])
+
+          missing = sorted(core - required)
+          if missing:
+              print("::error::gates.core_required must be a subset of gates.required.")
+              for g in missing:
+                  print(f"::error::- {g}")
+              sys.exit(1)
+
+          print("OK: core_required is a subset of required, and both sets are registry-consistent.")
+          PY
+
             
 
       - name: "Enforce external evidence presence (strict: manual OR version tag)"
