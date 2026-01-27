@@ -95,7 +95,7 @@ Local preflight:
     python tools/tools/check_policy_registry_consistency.py --help
 
 
-### GOV‑005 — Strict external evidence required (manual strict mode)
+### GOV‑005 —  Strict external evidence required (manual or version tag)
 
 Meaning:
 - The run required external evidence (e.g. an “evidence present” gate), but evidence was missing/empty.
@@ -107,6 +107,10 @@ Fix:
 - Provide the expected external summaries/artifacts for the run, then re-run CI.
 - Only disable strict mode for non‑release runs where external tools are intentionally not connected.
 
+Triage tip:
+
+- Check the job summary: it prints require_set and strict_external_evidence with event/ref context.
+ 
 Rule of thumb:
 - “Missing evidence” is acceptable only when the pipeline is explicitly configured to be non‑strict for that run type.
 
@@ -121,6 +125,29 @@ Fix:
 
 Rule:
 - “Present but broken” must never be treated as PASS.
+
+
+GOV‑007 — Workflow YAML parse failure (unquoted ':' in step name)
+Meaning:
+
+A GitHub Actions workflow YAML file failed to parse. A common footgun is an unquoted ':' followed by whitespace inside a step name.
+
+Typical symptoms:
+
+- "Unquoted ':' in step name. Quote the value of - name: ..."
+- "YAML parse error: mapping values are not allowed here"
+
+Fix:
+
+- Prefer avoiding ':' in step names, or quote the entire step name using ASCII quotes.
+- If your editor tends to auto-replace quotes, use a block scalar (most robust):
+
+  - name: >-
+      Enforce external evidence presence (strict: manual OR version tag)
+
+Notes:
+
+This is a deterministic, fail-closed guard to prevent broken workflows from silently slipping through.
 
 
 ## Local governance preflight (quick checks)
