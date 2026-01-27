@@ -232,7 +232,9 @@ In addition to running the pack, CI enforces repo‑level governance guards:
 - **Gate registry sync:** every gate emitted in `status.json` must be registered in `pulse_gate_registry_v0.yml`.
 - **Policy ↔ registry consistency:** every gate required by policy must exist in the registry.
 
-Manual strict mode: workflow dispatch input `strict_external_evidence=true` additionally requires `external_summaries_present` (and `external_all_pass`).
+Strict external evidence mode: workflow dispatch input strict_external_evidence=true or version tag pushes (v*/V*) additionally require external_summaries_present (and external_all_pass).
+Policy set selection: pull_request runs enforce core_required; main and version tag runs enforce required (policy-driven).
+
 
 > Tip: after making the repo **public**, add a **Branch protection rule** (Settings → Branches) and mark **PULSE CI** as a **required status check**.
 
