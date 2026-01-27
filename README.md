@@ -223,20 +223,20 @@ It will:
 6. **upload artifacts** (pulse-report: report card + status + badges),
 7. on PRs, post a **Quality Ledger** comment.
 
-### Governance preflight (fail‑closed)
+## Governance preflight (fail‑closed)
 
 In addition to running the pack, CI enforces repo‑level governance guards:
 
 - **Semantic changelog enforcement:** if `pulse_gate_policy_v0.yml`, `metrics/specs/**`, or dataset‑manifest contracts change, `docs/policy/CHANGELOG.md` must include an entry under **Unreleased** documenting the change.
 - **YAML duplicate‑key guard:** rejects duplicate mapping keys in `pulse_gate_registry_v0.yml` and `pulse_gate_policy_v0.yml` (prevents silent “last key wins” semantics).
 - **Gate registry sync:** every gate emitted in `status.json` must be registered in `pulse_gate_registry_v0.yml`.
-- **Policy ↔ registry consistency:** every gate required by policy must exist in the registry.
-
-Strict external evidence mode: workflow dispatch input strict_external_evidence=true or version tag pushes (v*/V*) additionally require external_summaries_present (and external_all_pass).
-Policy set selection: pull_request runs enforce core_required; main and version tag runs enforce required (policy-driven).
-
+- **Policy ↔ registry consistency:** every gate required by policy must exist in the registry (including `core_required`).
+- **Policy set selection:** `pull_request` runs enforce `core_required`; main branch pushes and version tag pushes (`v*`/`V*`) enforce `required` (policy-driven).
+- **Strict external evidence:** workflow dispatch input `strict_external_evidence=true` **or** version tag pushes (`v*`/`V*`) additionally require `external_summaries_present` (and `external_all_pass`).
+- **Workflow YAML guard:** fail‑closed validation of `.github/workflows/*.yml` to prevent broken workflow YAML (e.g., unquoted `:` in step names).
 
 > Tip: after making the repo **public**, add a **Branch protection rule** (Settings → Branches) and mark **PULSE CI** as a **required status check**.
+
 
 ---
 
