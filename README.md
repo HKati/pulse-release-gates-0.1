@@ -31,8 +31,7 @@
 - **Live Quality Ledger:** https://hkati.github.io/pulse-release-gates-0.1/
 
 - **Kaggle Dataset (EPF A/B artifacts, seeded) — DOI:** https://doi.org/10.34740/kaggle/dsv/13571702
-- Kaggle Dataset (baseline demo; deterministic, fail‑closed): https://www.kaggle.com/datasets/horvathkatalin/pulse-baseline-demo-deterministic-fail-closed
-
+- **Kaggle Dataset (PULSE: deterministic, fail-closed release gates) — DOI:** https://doi.org/10.34740/kaggle/dsv/13519727
 
 - **Kaggle Notebook (repro figures — EPF A/B, seeded):**
   https://www.kaggle.com/code/horvathkatalin/pulse-epf-shadow-a-b-reproduce-figures-seeded
