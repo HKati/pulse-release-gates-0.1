@@ -50,27 +50,44 @@ def iter_markdown_files(root: Path) -> Iterable[Path]:
 
 
 def normalize_target(raw: str) -> str:
+    """
+    Extract the link destination (path) from a Markdown link target.
+
+    Supports:
+    - Optional titles: [text](docs/guide.md "Guide")
+    - Angle-bracket destinations: [text](<docs/my file.md> "Guide")
+    - Backslash-escaped spaces in non-angle destinations: [text](docs/my\ file.md)
+    """
     t = raw.strip()
 
-    # Markdown allows an optional title after the destination:
-    #   [text](docs/guide.md "Guide")
-    # and also allows angle-bracket destinations:
-    #   [text](<docs/guide with spaces.md> "Guide")
-    #
-    # We only want the destination portion here (not the title).
+    # 1) Angle-bracket form: destination is inside <...>, title (if any) follows after.
     if t.startswith("<"):
         end = t.find(">")
         if end != -1:
-            # Destination is the content inside <...>
             return t[1:end].strip()
-        # If malformed, fall back to token parsing below.
+        # If malformed, fall back to the generic parser below.
 
-    # Non-angle form: destination ends at first whitespace; the rest is the optional title.
-    # Example: docs/guide.md "Guide"
-    dest = t.split(None, 1)[0].strip()
+    # 2) Non-angle form: parse destination until first *unescaped* whitespace.
+    #    Backslash escapes should keep the next char inside the destination, including spaces.
+    dest_chars: list[str] = []
+    i = 0
+    while i < len(t):
+        c = t[i]
+        if c.isspace():
+            # Unescaped whitespace ends the destination; remaining is optional title.
+            break
+        if c == "\\" and i + 1 < len(t):
+            # Consume escaped next character (including whitespace)
+            dest_chars.append(t[i + 1])
+            i += 2
+            continue
+        dest_chars.append(c)
+        i += 1
 
-    # Drop surrounding quotes if present (rare, but keep backward compatibility)
-    if (dest.startswith('"') and dest.endswith('"')) or (dest.startswith("'") and dest.endswith("'")):
+    dest = "".join(dest_chars).strip()
+
+    # Rare/defensive: strip surrounding quotes around the destination itself.
+    if len(dest) >= 2 and ((dest[0] == dest[-1] == '"') or (dest[0] == dest[-1] == "'")):
         dest = dest[1:-1].strip()
 
     return dest
