@@ -30,11 +30,11 @@ To resolve a `blocking` item, a PR must include:
 
 | Term | 1‑line meaning | Layer | Canonical doc link | Status | Notes |
 |------|-----------------|-------|--------------------|--------|------|
-| Anchor | Reference frame for decision-relative interpretation (baseline / cut / run context) | Diagnostic | [docs/GLOSSARY_v0.md#anchor](docs/GLOSSARY_v0.md#anchor) | resolved | Requires explicit anchor for orientation |
-| Atom | Minimal audit-carrying evidence unit in the decision-relative field | Diagnostic | [docs/GLOSSARY_v0.md#atom](docs/GLOSSARY_v0.md#atom) | resolved | Evidence-first; traceable to artefacts; not a narrative belief |
-| Edge | Typed relationship between atoms; co-occurrence/association in v0 (no causality) | Diagnostic | [docs/GLOSSARY_v0.md#edge](docs/GLOSSARY_v0.md#edge) | resolved | Direction/weight are decision-relative aids; non-causal in v0 |
-| Orientation | Decision-relative reading direction w.r.t. an Anchor (push PASS/FAIL) | Diagnostic | [docs/GLOSSARY_v0.md#orientation](docs/GLOSSARY_v0.md#orientation) | resolved | Meaningless without Anchor; must be deterministic |
-| Core | Deterministic minimal sub-structure for reviewer readability (projection) | Diagnostic | [docs/GLOSSARY_v0.md#core-field-core](docs/GLOSSARY_v0.md#core-field-core) | resolved | Not “Core profile” nor “Core gates”; deterministic tie-breaks required |
+| Anchor | Reference frame for decision-relative interpretation (baseline / cut / run context) | Diagnostic | [docs/GLOSSARY_v0.md#anchor](GLOSSARY_v0.md#anchor) | resolved | Requires explicit anchor for orientation |
+| Atom | Minimal audit-carrying evidence unit in the decision-relative field | Diagnostic | [docs/GLOSSARY_v0.md#atom](GLOSSARY_v0.md#atom) | resolved | Evidence-first; traceable to artefacts; not a narrative belief |
+| Edge | Typed relationship between atoms; co-occurrence/association in v0 (no causality) | Diagnostic | [docs/GLOSSARY_v0.md#edge](GLOSSARY_v0.md#edge) | resolved | Direction/weight are decision-relative aids; non-causal in v0 |
+| Orientation | Decision-relative reading direction w.r.t. an Anchor (push PASS/FAIL) | Diagnostic | [docs/GLOSSARY_v0.md#orientation](GLOSSARY_v0.md#orientation) | resolved | Meaningless without Anchor; must be deterministic |
+| Core | Deterministic minimal sub-structure for reviewer readability (projection) | Diagnostic | [docs/GLOSSARY_v0.md#core-field-core](GLOSSARY_v0.md#core-field-core) | resolved | Not “Core profile” nor “Core gates”; deterministic tie-breaks required |
 | EPF | Shadow-only stability/diagnostic layer; never flips CI outcomes | Diagnostic | docs/PULSE_epf_shadow_quickstart_v0.md | review | Clarify “missing EPF” vs “schema drift” semantics |
 | RDSI | Release decision stability signal; diagnostic only | Diagnostic | PULSE_safe_pack_v0/docs/METHODS_RDSI_QLEDGER.md | review | Clarify reporting vs enforcement usage |
 | Drift | Compare/history output; useful only with stable, indexable artefacts/surfaces | Diagnostic | docs/STATE_v0.md | review | Define minimal URL + artefact naming contract |
