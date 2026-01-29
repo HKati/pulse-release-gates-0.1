@@ -51,36 +51,48 @@ def iter_markdown_files(root: Path) -> Iterable[Path]:
 
 def normalize_target(raw: str) -> str:
     """
-    Extract the link destination (path) from a Markdown link target.
+    Extract the destination (path) from a Markdown link target.
 
-    Supports:
+    Handles:
     - Optional titles: [text](docs/guide.md "Guide")
     - Angle-bracket destinations: [text](<docs/my file.md> "Guide")
-    - Backslash-escaped spaces in non-angle destinations: [text](docs/my\ file.md)
+    - Backslash-escaped spaces/punctuation in non-angle destinations: [text](docs/my\ file.md)
+    - Preserves literal backslashes when they are not escaping whitespace/punctuation.
     """
     t = raw.strip()
 
-    # 1) Angle-bracket form: destination is inside <...>, title (if any) follows after.
+    # 1) Angle-bracket form: destination is exactly inside <...>
     if t.startswith("<"):
         end = t.find(">")
         if end != -1:
             return t[1:end].strip()
-        # If malformed, fall back to the generic parser below.
+        # malformed; fall through
 
-    # 2) Non-angle form: parse destination until first *unescaped* whitespace.
-    #    Backslash escapes should keep the next char inside the destination, including spaces.
+    # CommonMark "backslash-escapable" punctuation set (plus whitespace handling below)
+    BACKSLASH_ESCAPABLE = set(r"""!"#$%&'()*+,-./:;<=>?@[\]^_`{|}~""")
+
+    # 2) Non-angle form: destination ends at first *unescaped* whitespace.
+    #    Backslash escapes are recognized only for:
+    #      - whitespace (to allow docs/my\ file.md)
+    #      - backslash-escapable punctuation
     dest_chars: list[str] = []
     i = 0
     while i < len(t):
         c = t[i]
+
+        # Unescaped whitespace ends destination; remaining is optional title.
         if c.isspace():
-            # Unescaped whitespace ends the destination; remaining is optional title.
             break
+
         if c == "\\" and i + 1 < len(t):
-            # Consume escaped next character (including whitespace)
-            dest_chars.append(t[i + 1])
-            i += 2
-            continue
+            nxt = t[i + 1]
+            if nxt.isspace() or (nxt in BACKSLASH_ESCAPABLE):
+                # Escape: drop the backslash, keep the escaped char
+                dest_chars.append(nxt)
+                i += 2
+                continue
+            # Otherwise: literal backslash (e.g., Windows-style paths) — keep it.
+
         dest_chars.append(c)
         i += 1
 
