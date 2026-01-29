@@ -2,12 +2,12 @@
 """
 Fail-closed presence + parseability check for external detector summaries.
 
-Use-case:
-- In strict/tag builds, ensure external detector summary artefacts exist and are parseable
-  BEFORE computing external_all_pass / release gates.
+Strict semantics:
+- Only *_summary.json and *_summary.jsonl count as external detector evidence.
+  (Avoid accepting unrelated JSON files as "presence".)
 
 Supports:
-- .json (single JSON object)
+- .json  (single JSON object)
 - .jsonl (JSON per line)
 """
 
@@ -27,7 +27,7 @@ def read_json(path: Path) -> object:
 
 
 def read_jsonl(path: Path) -> list[object]:
-    out = []
+    out: list[object] = []
     with path.open("r", encoding="utf-8", errors="strict") as f:
         for i, line in enumerate(f, start=1):
             line = line.strip()
@@ -43,7 +43,6 @@ def read_jsonl(path: Path) -> list[object]:
 def has_any_metric_key(obj: object, metric_keys: tuple[str, ...]) -> bool:
     if isinstance(obj, dict):
         return any(k in obj for k in metric_keys)
-    # If the summary is a list (e.g., jsonl parsed as list), check dict elements
     if isinstance(obj, list):
         for item in obj:
             if isinstance(item, dict) and any(k in item for k in metric_keys):
@@ -52,9 +51,7 @@ def has_any_metric_key(obj: object, metric_keys: tuple[str, ...]) -> bool:
 
 
 def iter_candidate_files(external_dir: Path) -> Iterable[Path]:
-    # Strict semantics: only detector summaries count as evidence.
-    # This aligns with the intended meaning of external_summaries_present:
-    # "At least one external detector *_summary.json file is present".
+    # Strict: only detector summaries count as evidence.
     return sorted(external_dir.glob("*_summary.json")) + sorted(external_dir.glob("*_summary.jsonl"))
 
 
@@ -70,7 +67,7 @@ def main() -> int:
     p.add_argument(
         "--require_metric_key",
         action="store_true",
-        help=f"Additionally require at least one metric key in each summary (default keys: {DEFAULT_METRIC_KEYS}).",
+        help=f"Require at least one metric key in each summary (default keys: {DEFAULT_METRIC_KEYS}).",
     )
     p.add_argument(
         "--metric_keys",
@@ -94,14 +91,13 @@ def main() -> int:
             files = [external_dir / name for name in args.required]
         else:
             files = list(iter_candidate_files(external_dir))
-       if not files:
-          errors.append(
-              f"No external detector summaries found in: {external_dir} "
-              "(expected at least one *_summary.json or *_summary.jsonl)"
-         )
+            if not files:
+                errors.append(
+                    f"No external detector summaries found in: {external_dir} "
+                    "(expected at least one *_summary.json or *_summary.jsonl)"
+                )
 
-
-    # presence + parseability
+    # presence + parseability (+ optional schema-ish check)
     for f in files:
         if not f.exists():
             errors.append(f"Missing required summary: {f}")
