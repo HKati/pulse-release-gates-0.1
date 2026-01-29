@@ -23,7 +23,8 @@ If you add/rename a doc under `docs/`, please update this index.
 - [status_json.md](status_json.md) — How to read `status.json` (metrics, gates, consumers).
 - [quality_ledger.md](quality_ledger.md) — Quality Ledger layout and purpose.
 - [refusal_delta_gate.md](refusal_delta_gate.md) — Refusal-delta summary format + fail-closed semantics.
-- [external_detectors.md](external_detectors.md) — Folding external detector summaries into status/ledger.
+- [EXTERNAL_DETECTORS.md](EXTERNAL_DETECTORS.md) — External detectors policy & modes (gating vs advisory).
+- [external_detector_summaries.md](external_detector_summaries.md) — Folding external detector summaries into status/ledger.
 
 ## Paradox field & edges
 - [PULSE_paradox_field_v0_walkthrough.md](PULSE_paradox_field_v0_walkthrough.md) — How to read `paradox_field_v0`.
