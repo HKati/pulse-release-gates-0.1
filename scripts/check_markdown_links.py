@@ -50,11 +50,30 @@ def iter_markdown_files(root: Path) -> Iterable[Path]:
 
 
 def normalize_target(raw: str) -> str:
-    t = raw.strip().strip("<>").strip()
-    # drop surrounding quotes if present (rare)
-    if (t.startswith('"') and t.endswith('"')) or (t.startswith("'") and t.endswith("'")):
-        t = t[1:-1].strip()
-    return t
+    t = raw.strip()
+
+    # Markdown allows an optional title after the destination:
+    #   [text](docs/guide.md "Guide")
+    # and also allows angle-bracket destinations:
+    #   [text](<docs/guide with spaces.md> "Guide")
+    #
+    # We only want the destination portion here (not the title).
+    if t.startswith("<"):
+        end = t.find(">")
+        if end != -1:
+            # Destination is the content inside <...>
+            return t[1:end].strip()
+        # If malformed, fall back to token parsing below.
+
+    # Non-angle form: destination ends at first whitespace; the rest is the optional title.
+    # Example: docs/guide.md "Guide"
+    dest = t.split(None, 1)[0].strip()
+
+    # Drop surrounding quotes if present (rare, but keep backward compatibility)
+    if (dest.startswith('"') and dest.endswith('"')) or (dest.startswith("'") and dest.endswith("'")):
+        dest = dest[1:-1].strip()
+
+    return dest
 
 
 def is_external_or_anchor(target: str) -> bool:
