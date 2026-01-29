@@ -833,7 +833,7 @@ into CI/CD or audits:
   Refusal delta summary format and the `refusal_delta_pass` gate, including
   fail‑closed behaviour when evaluations are missing.
 
-- [`docs/external_detectors.md`](docs/external_detectors.md)  
+- [docs/EXTERNAL_DETECTORS.md](docs/EXTERNAL_DETECTORS.md) — External detectors policy & modes (gating vs advisory).  
   How external detector summaries (LlamaGuard, Promptfoo, Garak, Azure eval,
   Prompt Guard, …) are folded into `status.json` and the `external_all_pass`
   gate.
