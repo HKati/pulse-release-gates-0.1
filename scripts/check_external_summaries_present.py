@@ -52,11 +52,10 @@ def has_any_metric_key(obj: object, metric_keys: tuple[str, ...]) -> bool:
 
 
 def iter_candidate_files(external_dir: Path) -> Iterable[Path]:
-    # Prefer *_summary.(json|jsonl), fall back to any .json/.jsonl
-    preferred = sorted(external_dir.glob("*_summary.json")) + sorted(external_dir.glob("*_summary.jsonl"))
-    if preferred:
-        return preferred
-    return sorted(external_dir.glob("*.json")) + sorted(external_dir.glob("*.jsonl"))
+    # Strict semantics: only detector summaries count as evidence.
+    # This aligns with the intended meaning of external_summaries_present:
+    # "At least one external detector *_summary.json file is present".
+    return sorted(external_dir.glob("*_summary.json")) + sorted(external_dir.glob("*_summary.jsonl"))
 
 
 def main() -> int:
@@ -95,8 +94,12 @@ def main() -> int:
             files = [external_dir / name for name in args.required]
         else:
             files = list(iter_candidate_files(external_dir))
-            if not files:
-                errors.append(f"No external summary artefacts found in: {external_dir}")
+       if not files:
+          errors.append(
+              f"No external detector summaries found in: {external_dir} "
+              "(expected at least one *_summary.json or *_summary.jsonl)"
+         )
+
 
     # presence + parseability
     for f in files:
