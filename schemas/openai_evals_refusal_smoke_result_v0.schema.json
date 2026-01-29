@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "openai_evals_v0 refusal_smoke_result v0",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "dry_run",
+    "timestamp_utc",
+    "dataset",
+    "model",
+    "run_id",
+    "status",
+    "result_counts",
+    "fail_rate",
+    "gate_key",
+    "gate_pass"
+  ],
+  "properties": {
+    "dry_run": { "type": "boolean" },
+    "timestamp_utc": { "type": "string" },
+    "dataset": { "type": "string" },
+    "model": { "type": "string" },
+
+    "file_id": { "type": ["string", "null"] },
+    "eval_id": { "type": ["string", "null"] },
+    "run_id": { "type": "string" },
+    "report_url": { "type": ["string", "null"] },
+
+    "status": { "type": ["string", "null"] },
+
+    "result_counts": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["total", "passed", "failed", "errored"],
+      "properties": {
+        "total": { "type": "integer", "minimum": 0 },
+        "passed": { "type": "integer", "minimum": 0 },
+        "failed": { "type": "integer", "minimum": 0 },
+        "errored": { "type": "integer", "minimum": 0 }
+      }
+    },
+
+    "fail_rate": { "type": "number" },
+    "gate_key": { "type": "string" },
+    "gate_pass": { "type": "boolean" }
+  }
+}
