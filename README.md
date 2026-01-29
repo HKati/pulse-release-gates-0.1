@@ -656,7 +656,9 @@ Curated entrypoints (repo-level docs under `docs/`):
 ### Status, ledger & external signals
 - [docs/quality_ledger.md](docs/quality_ledger.md) — Quality Ledger layout and purpose.
 - [docs/refusal_delta_gate.md](docs/refusal_delta_gate.md) — Refusal-delta summary format + fail-closed semantics.
-- [docs/external_detectors.md](docs/external_detectors.md) — Folding external detector summaries into status/ledger.
+-  [docs/EXTERNAL_DETECTORS.md](docs/EXTERNAL_DETECTORS.md) — External detectors policy & modes (gating vs advisory).
+- [docs/external_detector_summaries.md](docs/external_detector_summaries.md) — Folding external detector summaries into status/ledger.
+
 
 ### Paradox field & edges
 - [docs/PULSE_paradox_field_v0_walkthrough.md](docs/PULSE_paradox_field_v0_walkthrough.md) — How to read `paradox_field_v0`.
