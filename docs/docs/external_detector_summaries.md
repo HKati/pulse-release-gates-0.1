@@ -1,3 +1,29 @@
+# External detector summaries
+
+This document is the **repo-level implementation guide** for integrating external detector outputs
+into PULSE via archived **JSON / JSONL summaries**.
+
+External detectors can enrich PULSE run artefacts (e.g., `status.json`) with additional safety and
+quality signals (LLM guards, jailbreak scanners, hosted eval APIs, etc.).
+
+> Policy and modes (gating vs advisory): see [`docs/EXTERNAL_DETECTORS.md`](EXTERNAL_DETECTORS.md).  
+> Safe-pack overview: `PULSE_safe_pack_v0/docs/EXTERNAL_DETECTORS.md`.
+
+
+## Why summaries (and not live calls)
+
+To preserve **determinism** and **auditability**, the preferred pattern is:
+
+1. Run external tools in a controlled step/job (offline or dedicated CI job).
+2. Produce immutable outputs (JSON / JSONL summaries).
+3. Archive those outputs as build artefacts (optionally with checksums).
+4. Have PULSE **read and merge** the archived summaries into its `status.json` / Quality Ledger.
+
+If a required external artefact is missing, it must never be silently treated as `PASS`.
+(If you want strict fail-closed behavior for presence, enforce it explicitly in your workflow or via a
+presence gate.)
+
+
 ## External detectors and `augment_status.py`
 
 PULSE treats external safety / risk detectors (LLM guards, jailbreak scanners, hosted eval
@@ -11,14 +37,17 @@ The core CI run produces a minimal `status.json`. After all tests and detectors 
 - set the aggregate `external_all_pass` gate,
 - and expose everything in a single extended `status.json` artefact.
 
+
 ### Where summaries are read from
 
 `augment_status.py` expects detector summaries in a directory passed as:
 
-    python augment_status.py \
-      --status path/to/status.json \
-      --thresholds path/to/thresholds.json \
-      --external_dir path/to/external_summaries
+```bash
+python augment_status.py \
+  --status path/to/status.json \
+  --thresholds path/to/thresholds.json \
+  --external_dir path/to/external_summaries
+```
 
 The `external_dir` is typically populated by small adapter scripts, e.g.:
 
@@ -30,6 +59,7 @@ The `external_dir` is typically populated by small adapter scripts, e.g.:
 
 Each file is a single JSON object containing the key metric for that detector, plus any
 extra metadata the adapter wants to keep.
+
 
 ### Which fields are read
 
@@ -75,40 +105,51 @@ configuration), for example:
 If a summary file is missing or cannot be parsed, that detector is simply skipped and
 does not contribute a metric entry.
 
+> Recommended strict mode: If you require “evidence completeness” (fail-closed on missing summaries),
+> enforce presence explicitly (e.g., a dedicated presence gate such as `external_summaries_present`,
+> or a workflow step that validates all required summaries exist and parse successfully).
+
+
 ### Thresholds and per-detector decisions
 
 Thresholds for external detectors live in `thresholds.json`. For each wired detector:
 
 - the `<detector>_max` key defines the **maximum allowed rate** (inclusive), e.g.:
 
-    {
-      "llamaguard_violation_rate_max": 0.10,
-      "promptfoo_fail_rate_max": 0.05,
-      "garak_issue_rate_max": 0.02,
-      "azure_risk_rate_max": 0.05,
-      "promptguard_attack_detect_rate_max": 0.10
-    }
+```json
+{
+  "llamaguard_violation_rate_max": 0.10,
+  "promptfoo_fail_rate_max": 0.05,
+  "garak_issue_rate_max": 0.02,
+  "azure_risk_rate_max": 0.05,
+  "promptguard_attack_detect_rate_max": 0.10
+}
+```
 
 - `augment_status.py` reads the detector value from the summary,
 - compares `value <= threshold`,
 - and records a metric entry like:
 
-    {
-      "name": "promptguard_attack_detect_rate",
-      "value": 0.20,
-      "threshold": 0.10,
-      "pass": false
-    }
+```json
+{
+  "name": "promptguard_attack_detect_rate",
+  "value": 0.20,
+  "threshold": 0.10,
+  "pass": false
+}
+```
 
 All per-detector metrics are collected under:
 
-    "external": {
-      "metrics": [
-        { "name": "...", "value": ..., "threshold": ..., "pass": true/false },
-        ...
-      ],
-      "all_pass": true/false
-    }
+```json
+"external": {
+  "metrics": [
+    { "name": "...", "value": ..., "threshold": ..., "pass": true/false }
+  ],
+  "all_pass": true/false
+}
+```
+
 
 ### Aggregate policy: `external_all_pass`
 
@@ -133,7 +174,45 @@ This allows:
 
 - CI pipelines to enforce a simple condition such as:
 
-    jq -e '.external_all_pass == true' status.json
+```bash
+jq -e '.external_all_pass == true' status.json
+```
 
 - and downstream tools (e.g. the Quality Ledger) to render both per-detector metrics and
   the aggregate gate in a consistent way.
+
+
+## Summary format recommendations
+
+Even if only one metric is required per detector, prefer summaries that are:
+- self-describing (`tool`, `tool_version` and/or digest, `run_id`, `generated_at`)
+- stable (check IDs and keys don’t drift without a migration note)
+- evidence-light (store large logs elsewhere; include pointers)
+
+Illustrative minimal JSON shape:
+
+```json
+{
+  "tool": "example-detector",
+  "tool_version": "1.2.3",
+  "tool_digest": "sha256:aaaaaaaa...",
+  "run_id": "ci-12345",
+  "generated_at": "2026-01-29T12:00:00Z",
+  "value": 0.03,
+  "notes": "Optional metadata and evidence pointers can live here."
+}
+```
+
+
+## Security & hygiene
+
+- Treat external summaries as **untrusted input**: validate schema; never execute embedded content.
+- Do not embed secrets (API keys) or raw sensitive user data in summaries.
+- Prefer immutable artefacts and consider checksums for audit integrity.
+- Pin tool versions (or record `name@sha256:...`) so behavior changes are explicit.
+
+
+## References
+
+- Policy and modes: `docs/EXTERNAL_DETECTORS.md`
+- Safe-pack overview: `PULSE_safe_pack_v0/docs/EXTERNAL_DETECTORS.md`
