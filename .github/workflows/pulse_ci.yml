@@ -373,7 +373,8 @@ jobs:
           cat "${{ env.PACK_DIR }}/artifacts/refusal_delta_summary.json" || true
           echo "-------------------------------------"
 
-      - name: Strict external evidence: require external summaries present (pre-augment, fail-closed)
+      - name: "Strict external evidence: require external summaries present (pre-augment, fail-closed)"
+
         if: ${{ (github.event_name == 'workflow_dispatch' && github.event.inputs.strict_external_evidence == 'true') || startsWith(github.ref, 'refs/tags/v') || startsWith(github.ref, 'refs/tags/V') }}
         shell: bash
         run: |
