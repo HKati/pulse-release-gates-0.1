@@ -373,6 +373,15 @@ jobs:
           cat "${{ env.PACK_DIR }}/artifacts/refusal_delta_summary.json" || true
           echo "-------------------------------------"
 
+      - name: "Strict external evidence: require external summaries present (pre-augment, fail-closed)"
+
+        if: ${{ (github.event_name == 'workflow_dispatch' && github.event.inputs.strict_external_evidence == 'true') || startsWith(github.ref, 'refs/tags/v') || startsWith(github.ref, 'refs/tags/V') }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXT_DIR="${{ env.PACK_DIR }}/artifacts/external"
+          python scripts/check_external_summaries_present.py --external_dir "$EXT_DIR"
+
       - name: Augment status (external + top-level flags)
         shell: bash
         run: |
@@ -443,8 +452,6 @@ jobs:
           print("OK: core_required is a subset of required, and both sets are registry-consistent.")
           PY
 
-            
-
       - name: "Enforce external evidence presence (strict: manual OR version tag)"
         if: ${{ (github.event_name == 'workflow_dispatch' && github.event.inputs.strict_external_evidence == 'true') || startsWith(github.ref, 'refs/tags/v') || startsWith(github.ref, 'refs/tags/V') }}
         shell: bash
@@ -454,8 +461,6 @@ jobs:
           python "${{ env.PACK_DIR }}/tools/check_gates.py" \
             --status "${{ env.PACK_DIR }}/artifacts/status.json" \
             --require external_summaries_present external_all_pass
-
-
 
       - name: External detector summaries (visibility)
         if: always()
@@ -735,7 +740,6 @@ jobs:
           else
             echo "_No status.json produced (or jq missing)._ " >> "$GITHUB_STEP_SUMMARY"
           fi
-
 
       - name: Upload artifacts
         if: always()
