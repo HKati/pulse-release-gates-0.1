@@ -105,6 +105,9 @@ def main() -> int:
     print("OK: check_external_summaries_present smoke tests passed")
     return 0
 
+def test_smoke() -> None:
+    # Pytest entrypoint: run the same smoke scenarios as the script.
+    assert main() == 0
 
 if __name__ == "__main__":
     raise SystemExit(main())
