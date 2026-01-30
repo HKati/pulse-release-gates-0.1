@@ -306,7 +306,7 @@ jobs:
           set -euo pipefail
 
           # Run the gating pack.
-          python "${{ env.PACK_DIR }}/tools/pack_gates.py" \
+          python "${{ env.PACK_DIR }}/tools/run_all.py" \
             --pack_dir "${{ env.PACK_DIR }}" \
             --gate_policy "${{ env.PACK_DIR }}/pulse_gate_policy_v0.yml"
 
@@ -341,8 +341,17 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python "${{ env.PACK_DIR }}/tools/update_artifacts_for_snapshot.py" \
-            --status "${{ env.PACK_DIR }}/artifacts/status.json"
+
+          SCRIPT="${{ env.PACK_DIR }}/tools/update_artifacts_for_snapshot.py"
+          STATUS="${{ env.PACK_DIR }}/artifacts/status.json"
+
+          if [ ! -f "$SCRIPT" ]; then
+            echo "::warning::update_artifacts_for_snapshot.py not found at $SCRIPT; skipping."
+            exit 0
+          fi
+
+          python "$SCRIPT" \
+            --status "$STATUS"
 
       - name: Write separation overlay and summary
         shell: bash
@@ -635,8 +644,17 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python "${{ env.PACK_DIR }}/tools/status_key_order_diagnosis.py" \
-            --status "${{ env.PACK_DIR }}/artifacts/status.json"
+
+          SCRIPT="${{ env.PACK_DIR }}/tools/status_key_order_diagnosis.py"
+          STATUS="${{ env.PACK_DIR }}/artifacts/status.json"
+
+          if [ ! -f "$SCRIPT" ]; then
+            echo "::warning::status_key_order_diagnosis.py not found at $SCRIPT; skipping."
+            exit 0
+          fi
+
+          python "$SCRIPT" \
+            --status "$STATUS"
 
       - name: Write separation-phase report (HTML)
         shell: bash
