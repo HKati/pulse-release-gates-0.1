@@ -374,7 +374,6 @@ jobs:
           echo "-------------------------------------"
 
       - name: "Strict external evidence: require external summaries present (pre-augment, fail-closed)"
-
         if: ${{ (github.event_name == 'workflow_dispatch' && github.event.inputs.strict_external_evidence == 'true') || startsWith(github.ref, 'refs/tags/v') || startsWith(github.ref, 'refs/tags/V') }}
         shell: bash
         run: |
@@ -481,13 +480,13 @@ jobs:
             echo "External summary directory: $EXT_DIR"
             ls -la "$EXT_DIR" || true
 
-            if ! find "$EXT_DIR" -maxdepth 1 -type f -name '*_summary.json' | grep -q .; then
-              echo "::warning::No external *_summary.json summaries found under $EXT_DIR. external_all_pass may be trivially true (fail-open)."
+            if ! find "$EXT_DIR" -maxdepth 1 -type f \( -name '*_summary.json' -o -name '*_summary.jsonl' \) | grep -q .; then
+              echo "::warning::No external detector *_summary.json / *_summary.jsonl summaries found under $EXT_DIR. external_all_pass may be trivially true (fail-open)."
               echo "- external_summaries_present: false" >> "$GITHUB_STEP_SUMMARY"
               echo "- note: external_all_pass may be fail-open when no evidence is present" >> "$GITHUB_STEP_SUMMARY"
             else
               echo "Found external summaries:"
-              find "$EXT_DIR" -maxdepth 1 -type f -name '*_summary.json' -print || true
+              find "$EXT_DIR" -maxdepth 1 -type f \( -name '*_summary.json' -o -name '*_summary.jsonl' \) -print || true
               echo "- external_summaries_present: true" >> "$GITHUB_STEP_SUMMARY"
             fi
           else
