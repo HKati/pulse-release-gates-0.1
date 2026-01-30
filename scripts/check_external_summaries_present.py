@@ -19,8 +19,16 @@ import sys
 from pathlib import Path
 from typing import Iterable
 
-DEFAULT_METRIC_KEYS = ("value", "rate", "violation_rate", "attack_detect_rate")
-
+DEFAULT_METRIC_KEYS = (
+    "value",
+    "rate",
+    "violation_rate",
+    "attack_detect_rate",
+    # adapter-specific keys (built-in)
+    "fail_rate",
+    "new_critical",
+    "failure_rates",
+)
 
 def read_json(path: Path) -> object:
     return json.loads(path.read_text(encoding="utf-8", errors="strict"))
