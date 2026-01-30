@@ -73,6 +73,10 @@ extra metadata the adapter wants to keep.
 - for Prompt Guard it reads the explicit key:
   - `attack_detect_rate`
 
+**Recommendation:** adapters SHOULD emit a canonical `rate` key for consistency. `value` and
+`violation_rate` are accepted as compatibility keys, and Prompt Guard summaries SHOULD mirror
+`attack_detect_rate` into `rate` as well (same numeric value).
+
 Each detector is wired with a *metric name* (for reporting) and a *threshold key* (for
 configuration), for example:
 
@@ -189,6 +193,38 @@ Even if only one metric is required per detector, prefer summaries that are:
 - stable (check IDs and keys don’t drift without a migration note)
 - evidence-light (store large logs elsewhere; include pointers)
 
+
+### Canonical metric key: `rate`
+
+To reduce schema drift between adapters, strict evidence checking, and `augment_status.py`,
+detector summaries SHOULD provide one canonical numeric key:
+
+- `rate` (preferred): a float in `[0, 1]`
+
+This `rate` can represent a fail/issue/risk/violation rate depending on the detector. The
+detector-specific *metric name* used for reporting (e.g. `promptfoo_fail_rate`, `garak_issue_rate`)
+is assigned by `augment_status.py` and thresholds, not by the JSON key itself.
+
+**Compatibility keys:**
+- `value`: accepted as an alias of `rate`
+- `violation_rate`: accepted for backward compatibility
+- `attack_detect_rate`: Prompt Guard uses this explicitly; adapters SHOULD also mirror it into `rate`
+  (same numeric value)
+
+
+### Adapter normalization rules
+
+If an upstream tool produces tool-specific metric keys, adapters SHOULD normalize into `rate`
+instead of forcing `augment_status.py` to learn per-tool schemas. Examples:
+
+- `fail_rate` → emit `rate`
+- `failure_rates` (object/map) → emit `rate = max(failure_rates.values())` (conservative default)
+- `new_critical` (count) → keep as metadata, but do not rely on it as the sole canonical metric;
+  also emit a numeric `rate` when possible
+
+This keeps release gating stable while still allowing adapters to retain rich tool-specific context.
+
+
 Illustrative minimal JSON shape:
 
 ```json
@@ -198,7 +234,7 @@ Illustrative minimal JSON shape:
   "tool_digest": "sha256:aaaaaaaa...",
   "run_id": "ci-12345",
   "generated_at": "2026-01-29T12:00:00Z",
-  "value": 0.03,
+  "rate": 0.03,
   "notes": "Optional metadata and evidence pointers can live here."
 }
 ```
@@ -244,11 +280,14 @@ Strict mode adds two layers:
 
    Implementation: `scripts/check_external_summaries_present.py`
 
-      Semantics (strict):
+   Semantics (strict):
    - only `*_summary.json` and `*_summary.jsonl` count as detector evidence
    - summaries must be parseable (JSON, or JSONL line-by-line)
-   - each detected summary must contain **at least one expected metric key** (default keys:
-     `value`, `rate`, `violation_rate`, `attack_detect_rate`)
+   - each detected summary must contain at least one recognized metric key
+     - canonical key: `rate` (preferred)
+     - accepted compatibility keys include: `value`, `violation_rate`, `attack_detect_rate`
+     - the checker may also accept a small allowlist of adapter-specific keys (e.g. `fail_rate`,
+       `failure_rates`, `new_critical`) for backward compatibility
    - if missing / unparseable / missing metric keys → the run fails (fail-closed)
 
    In strict mode CI runs `scripts/check_external_summaries_present.py` with `--require_metric_key`.
