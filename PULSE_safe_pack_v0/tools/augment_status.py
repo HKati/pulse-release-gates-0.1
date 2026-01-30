@@ -180,33 +180,83 @@ def jload_json_or_jsonl(path: str):
         except Exception:
             return None
 
+    # Fall back to existing JSON loader used elsewhere in augment_status.py
     return jload(path)
 
-def jload_json_or_jsonl(path: str):
+
+def fold_external(
+    fname: str,
+    threshold_key: str,
+    metric_name: str,
+    key_in_json: Optional[str] = None,
+    default: float = 0.0,
+) -> Optional[bool]:
     """
-    Load either:
-    - JSON object from *.json, or
-    - a single-object JSONL from *.jsonl (exactly one non-empty JSON line).
-
-    Returns dict on success, None on parse error / unsupported shape.
+    Load a single external summary JSON/JSONL and fold it into external.metrics.
+    Returns:
+      - True/False if the detector was found and evaluated
+      - None if the expected summary file does not exist
     """
-    if path.endswith(".jsonl"):
-        try:
-            objs = []
-            with open(path, encoding="utf-8") as f:
-                for line in f:
-                    line = line.strip()
-                    if not line:
-                        continue
-                    objs.append(json.loads(line))
+    path = os.path.join(ext_dir, fname)
+    if not os.path.exists(path):
+        # Allow summary to be stored as .jsonl instead of .json (or vice versa).
+        alt = None
+        if fname.endswith(".json"):
+            alt = os.path.join(ext_dir, fname[:-5] + ".jsonl")
+        elif fname.endswith(".jsonl"):
+            alt = os.path.join(ext_dir, fname[:-6] + ".json")
 
-            if len(objs) == 1 and isinstance(objs[0], dict):
-                return objs[0]
-            return None
-        except Exception:
+        if alt and os.path.exists(alt):
+            path = alt
+        else:
             return None
 
-    return jload(path)
+    thv = float(thr.get(threshold_key, 0.10))
+    j = jload_json_or_jsonl(path)
+
+    if j is None:
+        external["metrics"].append(
+            {
+                "name": metric_name,
+                "value": default,
+                "threshold": thv,
+                "pass": False,
+                "parse_error": True,
+            }
+        )
+        return False
+
+    if key_in_json is not None:
+        raw = j.get(key_in_json, default)
+    else:
+        # Common fallbacks, depending on exporter
+        raw = j.get("value", j.get("rate", j.get("violation_rate", default)))
+
+    try:
+        val = float(raw)
+    except Exception:
+        external["metrics"].append(
+            {
+                "name": metric_name,
+                "value": default,
+                "threshold": thv,
+                "pass": False,
+                "parse_error": True,
+            }
+        )
+        return False
+
+    ok = val <= thv
+    external["metrics"].append(
+        {
+            "name": metric_name,
+            "value": val,
+            "threshold": thv,
+            "pass": ok,
+        }
+    )
+    return ok
+
 
 
 def fold_external(
