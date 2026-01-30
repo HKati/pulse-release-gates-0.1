@@ -216,3 +216,60 @@ Illustrative minimal JSON shape:
 
 - Policy and modes: `docs/EXTERNAL_DETECTORS.md`
 - Safe-pack overview: `PULSE_safe_pack_v0/docs/EXTERNAL_DETECTORS.md`
+
+
+## Strict external evidence in CI (tags / workflow_dispatch)
+
+By default, `augment_status.py` may compute an aggregate external gate in a way that can appear
+trivially passing when **no external summaries were produced** (e.g., detectors were skipped).
+This is convenient for day-to-day PR iteration, but it is risky for releases because it can allow
+a silent “detectors didn’t run” situation.
+
+To make releases fail-closed, this repository enforces **strict external evidence** under:
+
+- **version tags**: `v*` or `V*`
+- **manual runs**: `workflow_dispatch` with `strict_external_evidence=true`
+
+The enforcement is implemented in the main pipeline:
+
+- `.github/workflows/pulse_ci.yml`
+
+### What strict mode does
+
+Strict mode adds two layers:
+
+1) **Pre-augment presence + parseability check (fail-closed)**  
+   Before `augment_status.py` runs, CI checks that the external evidence directory contains at least
+   one detector summary file and that the file(s) are parseable.
+
+   Implementation: `scripts/check_external_summaries_present.py`
+
+   Semantics (strict):
+   - only `*_summary.json` and `*_summary.jsonl` count as detector evidence
+   - JSON must be parseable (and JSONL must be parseable line-by-line)
+   - if missing/unparseable → the run fails (fail-closed)
+
+2) **Gate enforcement after status augmentation**  
+   After `augment_status.py` has folded external metrics into `status.json`, CI enforces both:
+   - `external_summaries_present`
+   - `external_all_pass`
+
+   This keeps the normative “what blocks shipping” rule simple and policy-driven.
+
+### Where evidence is expected
+
+The strict checker is run against the same directory passed to `augment_status.py` as `--external_dir`.
+In the default PULSE CI layout, this directory is:
+
+- `${PACK_DIR}/artifacts/external`
+
+External detector adapters should write their summary artefacts into that directory using the
+`*_summary.json` (or `*_summary.jsonl`) naming convention.
+
+### Downstream usage
+
+If you integrate PULSE in another repository and want strict behavior for releases, replicate the
+same pattern:
+
+- run `scripts/check_external_summaries_present.py --external_dir <external_dir>` before augmentation
+- enforce `external_summaries_present` and `external_all_pass` as required gates for release/tag runs
