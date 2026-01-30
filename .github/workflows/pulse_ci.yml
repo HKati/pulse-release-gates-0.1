@@ -398,7 +398,40 @@ jobs:
             exit 1
           fi
 
-          python "${{ env.PACK_DIR }}/tools/augment_status.py" \
+          echo "::group::augment_status preflight"
+
+          echo "PWD=$(pwd)"
+          echo "GITHUB_WORKSPACE=${GITHUB_WORKSPACE:-}"
+
+          echo "STATUS=$STATUS"
+          echo "THRESH=$THRESH"
+          echo "EXT_DIR=$EXT_DIR"
+
+          # Derive PACK_DIR from STATUS: PACK_DIR/artifacts/status.json -> PACK_DIR
+          PACK_DIR_DERIVED="$(dirname "$(dirname "$STATUS")")"
+          AUGMENT="${PACK_DIR_DERIVED}/tools/augment_status.py"
+
+          echo "PACK_DIR_DERIVED=$PACK_DIR_DERIVED"
+          echo "AUGMENT=$AUGMENT"
+          echo "GIT_SHA=$(git rev-parse HEAD)"
+
+          if [ ! -f "$AUGMENT" ]; then
+            echo "::error::augment_status.py not found at $AUGMENT"
+            exit 1
+          fi
+
+          ls -la "$AUGMENT"
+          wc -l "$AUGMENT"
+          sha256sum "$AUGMENT"
+
+          python -m py_compile "$AUGMENT"
+
+          # If the file is shorter than this, it prints nothing (still useful)
+          nl -ba "$AUGMENT" | sed -n '330,370p' || true
+
+          echo "::endgroup::"
+
+          python "$AUGMENT" \
             --status "$STATUS" \
             --thresholds "$THRESH" \
             --external_dir "$EXT_DIR"
