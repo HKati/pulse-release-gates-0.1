@@ -67,6 +67,13 @@ def main() -> int:
         (d / "llamaguard_summary.json").write_text(json.dumps({"rate": 0.1}) + "\n", encoding="utf-8")
         res = run_checker(repo, d)
         assert_rc(res, 0)
+       
+    # Case 3b: adapter-style key (fail_rate) -> PASS (under --require_metric_key)
+    with tempfile.TemporaryDirectory() as td:
+        d = Path(td)
+        (d / "promptfoo_summary.json").write_text(json.dumps({"fail_rate": 0.02}) + "\n", encoding="utf-8")
+        res = run_checker(repo, d, ["--require_metric_key"])
+        assert_rc(res, 0)
 
     # Case 4: JSONL summary -> PASS
     with tempfile.TemporaryDirectory() as td:
