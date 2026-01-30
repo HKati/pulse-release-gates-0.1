@@ -135,10 +135,16 @@ ext_dir = os.path.abspath(args.external_dir)
 external["metrics"] = []
 
 # Evidence presence is separate from pass/fail: we just record whether any
-# external *_summary.json exists under artifacts/external.
+# external *_summary.json or *_summary.jsonl exists under artifacts/external.
 summary_files = []
 if os.path.isdir(ext_dir):
-    summary_files = sorted(glob.glob(os.path.join(ext_dir, "*_summary.json")))
+    patterns = [
+        os.path.join(ext_dir, "*_summary.json"),
+        os.path.join(ext_dir, "*_summary.jsonl"),
+    ]
+    for pat in patterns:
+        summary_files.extend(glob.glob(pat))
+    summary_files = sorted(set(summary_files))
 
 summaries_present = bool(summary_files)
 
@@ -150,6 +156,31 @@ external["summary_count"] = len(summary_files)
 gates["external_summaries_present"] = summaries_present
 status["external_summaries_present"] = summaries_present
 
+def jload_json_or_jsonl(path: str):
+    """
+    Load either:
+    - JSON object from *.json, or
+    - a single-object JSONL from *.jsonl (exactly one non-empty JSON line).
+
+    Returns dict on success, None on parse error / unsupported shape.
+    """
+    if path.endswith(".jsonl"):
+        try:
+            objs = []
+            with open(path, encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    objs.append(json.loads(line))
+
+            if len(objs) == 1 and isinstance(objs[0], dict):
+                return objs[0]
+            return None
+        except Exception:
+            return None
+
+    return jload(path)
 
 def fold_external(
     fname: str,
@@ -182,10 +213,21 @@ def fold_external(
         or None if the file was missing.
     """
     path = os.path.join(ext_dir, fname)
-    if not os.path.exists(path):
+if not os.path.exists(path):
+    # Allow summary to be stored as .jsonl instead of .json (or vice versa).
+    alt = None
+    if fname.endswith(".json"):
+        alt = os.path.join(ext_dir, fname[:-5] + ".jsonl")
+    elif fname.endswith(".jsonl"):
+        alt = os.path.join(ext_dir, fname[:-6] + ".json")
+
+    if alt and os.path.exists(alt):
+        path = alt
+    else:
         return None
 
-    j = jload(path)
+j = jload_json_or_jsonl(path)
+
     if j is None:
         thv = float(thr.get(threshold_key, 0.10))
         external["metrics"].append(
@@ -291,19 +333,33 @@ if r is not None:
 policy = (thr.get("external_overall_policy") or "all").lower()
 
 if not oks:
-    # No external summaries present -> treat as PASS irrespective of policy.
-    ext_all = True
+    if summaries_present:
+        # Evidence exists, but none of the wired detectors produced a foldable metric.
+        # Fail-closed to avoid “evidence present → empty metrics → trivially PASS”.
+        ext_all = False
+        external["unconsumed_summaries"] = True
+    else:
+        # No external evidence at all -> keep current lenient default.
+        ext_all = True
 else:
     if policy == "all":
         ext_all = all(oks)
     else:  # "any" or anything else -> lenient OR
         ext_all = any(oks)
 
+
 external["all_pass"] = ext_all
 
 # Mirror to gates + top-level, so check_gates.py can consume it
 gates["external_all_pass"] = ext_all
 status["external_all_pass"] = ext_all
+
+metrics_present = bool(external.get("metrics"))
+external["metrics_present"] = metrics_present
+external["metric_count"] = len(external.get("metrics") or [])
+
+gates["external_metrics_present"] = metrics_present
+status["external_metrics_present"] = metrics_present
 
 # ---------------------------------------------------------------------------
 # 3) Write back
