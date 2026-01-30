@@ -379,7 +379,7 @@ jobs:
         run: |
           set -euo pipefail
           EXT_DIR="${{ env.PACK_DIR }}/artifacts/external"
-          python scripts/check_external_summaries_present.py --external_dir "$EXT_DIR"
+          python scripts/check_external_summaries_present.py --external_dir "$EXT_DIR" --require_metric_key
 
       - name: Augment status (external + top-level flags)
         shell: bash
