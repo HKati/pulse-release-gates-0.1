@@ -212,19 +212,34 @@ def fold_external(
         True/False if the file existed and a metric was folded in,
         or None if the file was missing.
     """
-    path = os.path.join(ext_dir, fname)
-if not os.path.exists(path):
-    # Allow summary to be stored as .jsonl instead of .json (or vice versa).
-    alt = None
-    if fname.endswith(".json"):
-        alt = os.path.join(ext_dir, fname[:-5] + ".jsonl")
-    elif fname.endswith(".jsonl"):
-        alt = os.path.join(ext_dir, fname[:-6] + ".json")
+        path = os.path.join(ext_dir, fname)
+    if not os.path.exists(path):
+        # Allow summary to be stored as .jsonl instead of .json (or vice versa).
+        alt = None
+        if fname.endswith(".json"):
+            alt = os.path.join(ext_dir, fname[:-5] + ".jsonl")
+        elif fname.endswith(".jsonl"):
+            alt = os.path.join(ext_dir, fname[:-6] + ".json")
 
-    if alt and os.path.exists(alt):
-        path = alt
-    else:
-        return None
+        if alt and os.path.exists(alt):
+            path = alt
+        else:
+            return None
+
+    j = jload_json_or_jsonl(path)
+    if j is None:
+        thv = float(thr.get(threshold_key, 0.10))
+        external["metrics"].append(
+            {
+                "name": metric_name,
+                "value": default,
+                "threshold": thv,
+                "pass": False,
+                "parse_error": True,
+            }
+        )
+        return False
+
 
 j = jload_json_or_jsonl(path)
 
