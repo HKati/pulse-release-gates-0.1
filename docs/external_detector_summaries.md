@@ -244,10 +244,14 @@ Strict mode adds two layers:
 
    Implementation: `scripts/check_external_summaries_present.py`
 
-   Semantics (strict):
+      Semantics (strict):
    - only `*_summary.json` and `*_summary.jsonl` count as detector evidence
-   - JSON must be parseable (and JSONL must be parseable line-by-line)
-   - if missing/unparseable → the run fails (fail-closed)
+   - summaries must be parseable (JSON, or JSONL line-by-line)
+   - each detected summary must contain **at least one expected metric key** (default keys:
+     `value`, `rate`, `violation_rate`, `attack_detect_rate`)
+   - if missing / unparseable / missing metric keys → the run fails (fail-closed)
+
+   In strict mode CI runs `scripts/check_external_summaries_present.py` with `--require_metric_key`.
 
 2) **Gate enforcement after status augmentation**  
    After `augment_status.py` has folded external metrics into `status.json`, CI enforces both:
