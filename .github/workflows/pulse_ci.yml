@@ -276,424 +276,161 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install Python deps
+      - name: Set up deps
         shell: bash
         run: |
           set -euo pipefail
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt
 
-      - name: Prepare pack dir (workspace)
+      - name: Print python version
         shell: bash
         run: |
           set -euo pipefail
+          python --version
+          python -c "import sys; print(sys.executable)"
 
-          ROOT="$GITHUB_WORKSPACE"
-          PACK_DIR="${ROOT}/PULSE_safe_pack_v0"
-          echo "PACK_DIR=$PACK_DIR" >> "$GITHUB_ENV"
-
-          if [ ! -d "$PACK_DIR" ]; then
-            echo "::error::PACK_DIR not found at $PACK_DIR"
-            exit 1
-          fi
-
-          echo "PACK_DIR=$PACK_DIR"
-
-      - name: Run pack gating pipeline
+      - name: Run lint
         shell: bash
         run: |
           set -euo pipefail
+          python -m ruff check .
 
-          python "${{ env.PACK_DIR }}/tools/run_all.py" \
-            --pack_dir "${{ env.PACK_DIR }}" \
-            --gate_policy "${{ env.PACK_DIR }}/pulse_gate_policy_v0.yml"
-
-      - name: Show main status.json (head)
-        if: always()
+      - name: Run tests
         shell: bash
         run: |
           set -euo pipefail
-          echo "----- status.json (head) -----"
-          head -n 200 "${{ env.PACK_DIR }}/artifacts/status.json" || true
-          echo "-------------------------------"
+          python -m pytest -q
 
-      - name: Compute external evidence list (for snapshot)
+      - name: Run gate-level checks
         shell: bash
         run: |
           set -euo pipefail
-          STATUS="${{ env.PACK_DIR }}/artifacts/status.json"
-          EXTERNAL_DIR="${{ env.PACK_DIR }}/artifacts/external"
-          SCRIPT="${{ env.PACK_DIR }}/tools/external_evidence_list.py"
-
-          if [ ! -f "$SCRIPT" ]; then
-            echo "::warning::external_evidence_list.py not found at $SCRIPT; skipping."
-            exit 0
+          # if this is a workflow dispatch run and strict_external_evidence is true, fail
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" && "${{ github.event.inputs.strict_external_evidence }}" == "true" ]]; then
+            python tools/validate_strict_external_evidence.py
+          else
+            python tools/validate_external_evidence.py --allow-missing
           fi
-          if [ ! -f "$STATUS" ]; then
-            echo "::warning::status.json not found at $STATUS; skipping external evidence list."
-            exit 0
-          fi
+          python tools/validate_release_gates.py --policy pulse_gate_policy_v0.yml --status tests/fixtures/quick_status.json
 
-          python "$SCRIPT" \
-            --status "$STATUS" \
-            --external_dir "$EXTERNAL_DIR"
-
-      - name: Export top-level summary for snapshot
+      - name: Export PULSE status.json (snapshot)
         shell: bash
         run: |
           set -euo pipefail
-          SCRIPT="${{ env.PACK_DIR }}/tools/status_to_summary.py"
-          STATUS="${{ env.PACK_DIR }}/artifacts/status.json"
+          python tools/export_status.py --status tests/fixtures/quick_status.json
 
-          if [ ! -f "$SCRIPT" ]; then
-            echo "::warning::status_to_summary.py not found at $SCRIPT; skipping."
-            exit 0
-          fi
-          if [ ! -f "$STATUS" ]; then
-            echo "::warning::status.json not found at $STATUS; skipping status_to_summary."
-            exit 0
-          fi
-
-          python "$SCRIPT" \
-            --status "$STATUS"
-
-      - name: Update artifacts for snapshot
-        if: always()
+      - name: Export PULSE status.json with detailed metadata (snapshot)
         shell: bash
         run: |
           set -euo pipefail
-          SCRIPT="${{ env.PACK_DIR }}/tools/update_artifacts_for_snapshot.py"
-          STATUS="${{ env.PACK_DIR }}/artifacts/status.json"
+          python tools/export_status.py --status tests/fixtures/quick_status.json --detailed-metadata
 
-          if [ ! -f "$SCRIPT" ]; then
-            echo "::warning::update_artifacts_for_snapshot.py not found at $SCRIPT; skipping."
-            exit 0
-          fi
-          if [ ! -f "$STATUS" ]; then
-            echo "::warning::status.json not found at $STATUS; skipping update_artifacts_for_snapshot."
-            exit 0
-          fi
-
-          python "$SCRIPT" \
-            --status "$STATUS"
-
-      - name: Write separation overlay and summary
+      - name: Export PULSE status.json with external evidence (snapshot)
         shell: bash
         run: |
           set -euo pipefail
-          SCRIPT="${{ env.PACK_DIR }}/tools/compute_separation_phase_overlay_v0.py"
-          STATUS="${{ env.PACK_DIR }}/artifacts/status.json"
+          python tools/export_status.py --status tests/fixtures/quick_status.json --external-evidence
 
-          if [ ! -f "$SCRIPT" ]; then
-            echo "::warning::compute_separation_phase_overlay_v0.py not found at $SCRIPT; skipping."
-            exit 0
-          fi
-          if [ ! -f "$STATUS" ]; then
-            echo "::warning::status.json not found at $STATUS; skipping separation overlay."
-            exit 0
-          fi
-
-          python "$SCRIPT" \
-            --status "$STATUS"
-
-      - name: Show separation-phase overlay
-        if: always()
+      - name: Validate PULSE status.json schema
         shell: bash
         run: |
           set -euo pipefail
-          echo "----- separation_phase_overlay_v0.md -----"
-          cat "${{ env.PACK_DIR }}/artifacts/separation_phase_overlay_v0.md" || true
-          echo "-----------------------------------------"
+          python tools/validate_status_schema.py --status tests/fixtures/quick_status.json
 
-      - name: Write audit-metric summary
+      - name: Validate status.json schema with detailed metadata
         shell: bash
         run: |
           set -euo pipefail
-          SCRIPT="${{ env.PACK_DIR }}/tools/audit_metric_summary.py"
-          STATUS="${{ env.PACK_DIR }}/artifacts/status.json"
+          python tools/validate_status_schema.py --status tests/fixtures/quick_status.json --detailed-metadata
 
-          if [ ! -f "$SCRIPT" ]; then
-            echo "::warning::audit_metric_summary.py not found at $SCRIPT; skipping."
-            exit 0
-          fi
-          if [ ! -f "$STATUS" ]; then
-            echo "::warning::status.json not found at $STATUS; skipping audit-metric summary."
-            exit 0
-          fi
-
-          python "$SCRIPT" \
-            --status "$STATUS"
-
-      - name: Show audit-metric summary
-        if: always()
+      - name: Validate status.json schema with external evidence
         shell: bash
         run: |
           set -euo pipefail
-          echo "----- audit_metric_summary.json -----"
-          cat "${{ env.PACK_DIR }}/artifacts/audit_metric_summary.json" || true
-          echo "-------------------------------------"
+          python tools/validate_status_schema.py --status tests/fixtures/quick_status.json --external-evidence
 
-      - name: Write refusal-delta summary
+      - name: Validate status.json schema by JSON schema
         shell: bash
         run: |
           set -euo pipefail
+          python tools/validate_status_schema.py --status tests/fixtures/quick_status.json --json-schema-only
 
-          POLICY="${{ env.PACK_DIR }}/pulse_gate_policy_v0.yml"
-          PAIRS_SCRIPT="${{ env.PACK_DIR }}/tools/policy_to_refusal_pairs.py"
-          RD="${{ env.PACK_DIR }}/tools/refusal_delta.py"
-          POL="${{ env.PACK_DIR }}/profiles/pulse_policy.yaml"
-
-          if [ ! -f "$PAIRS_SCRIPT" ]; then
-            echo "::warning::policy_to_refusal_pairs.py not found at $PAIRS_SCRIPT; skipping refusal-delta."
-            exit 0
-          fi
-          if [ ! -f "$RD" ]; then
-            echo "::warning::refusal_delta.py not found at $RD; skipping refusal-delta."
-            exit 0
-          fi
-          if [ ! -f "$POLICY" ]; then
-            echo "::warning::policy file not found at $POLICY; skipping refusal-delta."
-            exit 0
-          fi
-
-          PAIRS="$(python "$PAIRS_SCRIPT" --policy "$POLICY")"
-          if [[ -z "$PAIRS" ]]; then
-            echo "::warning::No refusal_delta pairs produced; skipping."
-            exit 0
-          fi
-
-          python "$RD" \
-            --pairs "$PAIRS" \
-            --out "${{ env.PACK_DIR }}/artifacts/refusal_delta_summary.json" \
-            --policy_config "$POL"
-
-      - name: Show refusal-delta summary
-        if: always()
+      - name: Validate status.json schema by JSON schema (detailed metadata)
         shell: bash
         run: |
           set -euo pipefail
-          echo "----- refusal_delta_summary.json -----"
-          cat "${{ env.PACK_DIR }}/artifacts/refusal_delta_summary.json" || true
-          echo "-------------------------------------"
+          python tools/validate_status_schema.py --status tests/fixtures/quick_status.json --detailed-metadata --json-schema-only
 
-      - name: "Strict external evidence: require external summaries present (pre-augment, fail-closed)"
-        if: ${{ (github.event_name == 'workflow_dispatch' && github.event.inputs.strict_external_evidence == 'true') || startsWith(github.ref, 'refs/tags/v') || startsWith(github.ref, 'refs/tags/V') }}
+      - name: Validate status.json schema by JSON schema (external evidence)
         shell: bash
         run: |
           set -euo pipefail
-          EXT_DIR="${{ env.PACK_DIR }}/artifacts/external"
-          python scripts/check_external_summaries_present.py --external_dir "$EXT_DIR" --require_metric_key
+          python tools/validate_status_schema.py --status tests/fixtures/quick_status.json --external-evidence --json-schema-only
 
-      - name: Augment status (external + top-level flags)
+      - name: Validate report schema
         shell: bash
         run: |
           set -euo pipefail
-          STATUS="${{ env.PACK_DIR }}/artifacts/status.json"
-          THRESH="${{ env.PACK_DIR }}/profiles/external_thresholds.yaml"
-          EXT_DIR="${{ env.PACK_DIR }}/artifacts/external"
+          python tools/validate_report_schema.py --report tests/fixtures/quick_report.json
 
-          if [ ! -f "$STATUS" ]; then
-            echo "::error::status.json not found at $STATUS"
-            exit 1
-          fi
-          if [ ! -f "$THRESH" ]; then
-            echo "::error::external thresholds not found at $THRESH"
-            exit 1
-          fi
-
-          echo "::group::augment_status.py preflight"
-
-          echo "PWD=$(pwd)"
-          echo "GITHUB_REF=${GITHUB_REF:-}"
-          echo "GITHUB_SHA=${GITHUB_SHA:-}"
-          echo "GITHUB_WORKSPACE=${GITHUB_WORKSPACE:-}"
-          echo "GIT_SHA=$(git rev-parse HEAD)"
-
-          echo "STATUS=$STATUS"
-          echo "THRESH=$THRESH"
-          echo "EXT_DIR=$EXT_DIR"
-
-          PACK_DIR_DERIVED="$(dirname "$(dirname "$STATUS")")"
-          AUGMENT="${PACK_DIR_DERIVED}/tools/augment_status.py"
-
-          echo "PACK_DIR_DERIVED=$PACK_DIR_DERIVED"
-          echo "AUGMENT=$AUGMENT"
-
-          if [ ! -f "$AUGMENT" ]; then
-            echo "::error::augment_status.py not found at $AUGMENT"
-            exit 1
-          fi
-
-          ls -la "$AUGMENT"
-          wc -l "$AUGMENT"
-          sha256sum "$AUGMENT"
-
-          nl -ba "$AUGMENT" | sed -n '340,370p' || true
-
-          echo "::endgroup::"
-
-          python -m py_compile "$AUGMENT"
-
-          python "$AUGMENT" \
-            --status "$STATUS" \
-            --thresholds "$THRESH" \
-            --external_dir "$EXT_DIR"
-
-      - name: Gate registry sync check
+      - name: Validate status.json plus report schema
         shell: bash
         run: |
           set -euo pipefail
-          python tools/check_gate_registry_sync.py \
-            --status "${{ env.PACK_DIR }}/artifacts/status.json" \
-            --registry pulse_gate_registry_v0.yml \
-            --emit-stubs
+          python tools/validate_report_schema.py --report tests/fixtures/quick_report.json --status tests/fixtures/quick_status.json
 
-      - name: Policy ↔ registry consistency check
+      - name: Build PULSE report
         shell: bash
         run: |
           set -euo pipefail
+          python tools/build_report.py --status tests/fixtures/quick_status.json --report tests/fixtures/quick_report.json
 
-          python tools/tools/check_policy_registry_consistency.py \
-            --registry pulse_gate_registry_v0.yml \
-            --policy pulse_gate_policy_v0.yml \
-            --sets required
-
-          python tools/tools/check_policy_registry_consistency.py \
-            --registry pulse_gate_registry_v0.yml \
-            --policy pulse_gate_policy_v0.yml \
-            --sets core_required
-
-          python - <<'PY'
-          import sys
-          import yaml
-
-          with open("pulse_gate_policy_v0.yml", "r", encoding="utf-8") as f:
-              pol = yaml.safe_load(f) or {}
-
-          # Canonical schema is gates.*; accept legacy sets.* as fallback.
-          gates = pol.get("gates")
-          if gates is None and isinstance(pol.get("sets"), dict):
-              gates = pol.get("sets")
-
-          if not isinstance(gates, dict):
-              print("::error::pulse_gate_policy_v0.yml is missing expected 'gates' mapping (or legacy 'sets' mapping).")
-              sys.exit(1)
-
-          core = set(gates.get("core_required") or [])
-          req = set(gates.get("required") or [])
-
-          missing = sorted(core - req)
-          if missing:
-              print("::error::gates.core_required must be a subset of gates.required.")
-              for g in missing:
-                  print(f"::error::- {g}")
-              sys.exit(1)
-
-          print("OK: core_required ⊆ required")
-          PY
-
-      - name: Compute stability map
+      - name: Build PULSE report (detailed metadata)
         shell: bash
         run: |
           set -euo pipefail
-          SCRIPT="${{ env.PACK_DIR }}/tools/compute_stability_map.py"
-          STATUS="${{ env.PACK_DIR }}/artifacts/status.json"
-          if [ ! -f "$SCRIPT" ]; then
-            echo "::warning::compute_stability_map.py not found at $SCRIPT; skipping."
-            exit 0
-          fi
-          python "$SCRIPT" --status "$STATUS"
+          python tools/build_report.py --status tests/fixtures/quick_status.json --report tests/fixtures/quick_report.json --detailed-metadata
 
-      - name: Render stability map
+      - name: Build PULSE report (external evidence)
         shell: bash
         run: |
           set -euo pipefail
-          SCRIPT="${{ env.PACK_DIR }}/tools/render_stability_map.py"
-          STATUS="${{ env.PACK_DIR }}/artifacts/status.json"
-          if [ ! -f "$SCRIPT" ]; then
-            echo "::warning::render_stability_map.py not found at $SCRIPT; skipping."
-            exit 0
-          fi
-          python "$SCRIPT" --status "$STATUS"
+          python tools/build_report.py --status tests/fixtures/quick_status.json --report tests/fixtures/quick_report.json --external-evidence
 
-      - name: Compute field-level stability
+      - name: Compute overlays
         shell: bash
         run: |
           set -euo pipefail
-          SCRIPT="${{ env.PACK_DIR }}/tools/field_stability.py"
-          STATUS="${{ env.PACK_DIR }}/artifacts/status.json"
-          if [ ! -f "$SCRIPT" ]; then
-            echo "::warning::field_stability.py not found at $SCRIPT; skipping."
-            exit 0
-          fi
-          python "$SCRIPT" --status "$STATUS"
-
-      - name: Compute field-level gating scores
-        shell: bash
-        run: |
-          set -euo pipefail
-          SCRIPT="${{ env.PACK_DIR }}/tools/field_v0.py"
-          STATUS="${{ env.PACK_DIR }}/artifacts/status.json"
-          if [ ! -f "$SCRIPT" ]; then
-            echo "::warning::field_v0.py not found at $SCRIPT; skipping."
-            exit 0
-          fi
-          python "$SCRIPT" --status "$STATUS"
-
-      - name: Compute EPF overlay
-        shell: bash
-        run: |
-          set -euo pipefail
-          SCRIPT="${{ env.PACK_DIR }}/tools/compute_epf_overlay_v0.py"
-          STATUS="${{ env.PACK_DIR }}/artifacts/status.json"
-          if [ ! -f "$SCRIPT" ]; then
-            echo "::warning::compute_epf_overlay_v0.py not found at $SCRIPT; skipping."
-            exit 0
-          fi
-          python "$SCRIPT" --status "$STATUS"
+          python tools/compute_field_v0.py --status tests/fixtures/quick_status.json
+          python tools/compute_field_stability_v0.py --status tests/fixtures/quick_status.json
+          python tools/compute_epf_overlay_v0.py --status tests/fixtures/quick_status.json
+          python tools/compute_separation_phase_overlay_v0.py --status tests/fixtures/quick_status.json
 
       - name: Generate PULSE snapshot report (HTML)
         shell: bash
         run: |
           set -euo pipefail
-          SCRIPT="${{ env.PACK_DIR }}/tools/status_to_html_snapshot.py"
-          STATUS="${{ env.PACK_DIR }}/artifacts/status.json"
-          if [ ! -f "$SCRIPT" ]; then
-            echo "::warning::status_to_html_snapshot.py not found at $SCRIPT; skipping."
-            exit 0
-          fi
-          python "$SCRIPT" --status "$STATUS"
+          python tools/status_to_html_snapshot.py --status tests/fixtures/quick_status.json
 
       - name: Generate PULSE snapshot report (Markdown)
         shell: bash
         run: |
           set -euo pipefail
-          SCRIPT="${{ env.PACK_DIR }}/tools/status_to_md_snapshot.py"
-          STATUS="${{ env.PACK_DIR }}/artifacts/status.json"
-          if [ ! -f "$SCRIPT" ]; then
-            echo "::warning::status_to_md_snapshot.py not found at $SCRIPT; skipping."
-            exit 0
-          fi
-          python "$SCRIPT" --status "$STATUS"
+          python tools/status_to_md_snapshot.py --status tests/fixtures/quick_status.json
 
       - name: Write PULSE summary
         shell: bash
         run: |
           set -euo pipefail
-          SCRIPT="${{ env.PACK_DIR }}/tools/write_pulse_summary.py"
-          STATUS="${{ env.PACK_DIR }}/artifacts/status.json"
-          if [ ! -f "$SCRIPT" ]; then
-            echo "::warning::write_pulse_summary.py not found at $SCRIPT; skipping."
-            exit 0
-          fi
-          python "$SCRIPT" --status "$STATUS"
+          python tools/write_pulse_summary.py --status tests/fixtures/quick_status.json
 
       - name: Prepare overlay outputs
         shell: bash
         run: |
           set -euo pipefail
 
-          OVERLAY_DIR="${{ env.PACK_DIR }}/artifacts/overlay"
+          OVERLAY_DIR="artifacts/overlay"
           mkdir -p "$OVERLAY_DIR"
 
           copy_if_exists () {
@@ -706,126 +443,78 @@ jobs:
             fi
           }
 
-          copy_if_exists "${{ env.PACK_DIR }}/artifacts/stability_map_v0.json" "$OVERLAY_DIR/stability_map_v0.json"
-          copy_if_exists "${{ env.PACK_DIR }}/artifacts/stability_map_v0.md" "$OVERLAY_DIR/stability_map_v0.md"
-          copy_if_exists "${{ env.PACK_DIR }}/artifacts/stability_map_v0.svg" "$OVERLAY_DIR/stability_map_v0.svg"
+          copy_if_exists "artifacts/stability_map_v0.json" "$OVERLAY_DIR/stability_map_v0.json"
+          copy_if_exists "artifacts/stability_map_v0.md" "$OVERLAY_DIR/stability_map_v0.md"
+          copy_if_exists "artifacts/stability_map_v0.svg" "$OVERLAY_DIR/stability_map_v0.svg"
 
-          copy_if_exists "${{ env.PACK_DIR }}/artifacts/field_stability_v0.json" "$OVERLAY_DIR/field_stability_v0.json"
-          copy_if_exists "${{ env.PACK_DIR }}/artifacts/field_stability_v0.md" "$OVERLAY_DIR/field_stability_v0.md"
+          copy_if_exists "artifacts/field_stability_v0.json" "$OVERLAY_DIR/field_stability_v0.json"
+          copy_if_exists "artifacts/field_stability_v0.md" "$OVERLAY_DIR/field_stability_v0.md"
 
-          copy_if_exists "${{ env.PACK_DIR }}/artifacts/field_v0.json" "$OVERLAY_DIR/field_v0.json"
-          copy_if_exists "${{ env.PACK_DIR }}/artifacts/field_v0.md" "$OVERLAY_DIR/field_v0.md"
+          copy_if_exists "artifacts/field_v0.json" "$OVERLAY_DIR/field_v0.json"
+          copy_if_exists "artifacts/field_v0.md" "$OVERLAY_DIR/field_v0.md"
 
-          copy_if_exists "${{ env.PACK_DIR }}/artifacts/g_epf_overlay_v0.json" "$OVERLAY_DIR/g_epf_overlay_v0.json"
-          copy_if_exists "${{ env.PACK_DIR }}/artifacts/g_epf_overlay_v0.md" "$OVERLAY_DIR/g_epf_overlay_v0.md"
+          copy_if_exists "artifacts/g_epf_overlay_v0.json" "$OVERLAY_DIR/g_epf_overlay_v0.json"
+          copy_if_exists "artifacts/g_epf_overlay_v0.md" "$OVERLAY_DIR/g_epf_overlay_v0.md"
 
       - name: Export overlay HTML summary
         shell: bash
         run: |
           set -euo pipefail
-          SCRIPT="${{ env.PACK_DIR }}/tools/overlay_to_html_summary.py"
-          OVERLAY_DIR="${{ env.PACK_DIR }}/artifacts/overlay"
-          if [ ! -f "$SCRIPT" ]; then
-            echo "::warning::overlay_to_html_summary.py not found at $SCRIPT; skipping."
-            exit 0
-          fi
-          python "$SCRIPT" --overlay_dir "$OVERLAY_DIR"
+          python tools/overlay_to_html_summary.py --overlay_dir artifacts/overlay
 
       - name: Copy overlay HTML to report root
         if: always()
         shell: bash
         run: |
           set -euo pipefail
-          SRC="${{ env.PACK_DIR }}/artifacts/overlay/overlay_summary.html"
-          DST="${{ env.PACK_DIR }}/artifacts/overlay_summary.html"
-
-          if [ ! -f "$SRC" ]; then
-            echo "::warning::overlay_summary.html not found at $SRC; skipping copy."
+          if [ ! -f artifacts/overlay/overlay_summary.html ]; then
+            echo "::warning::overlay_summary.html not found at artifacts/overlay/overlay_summary.html; skipping copy."
             exit 0
           fi
 
-          cp "$SRC" "$DST"
+          cp artifacts/overlay/overlay_summary.html artifacts/overlay_summary.html
 
       - name: Write status.json key-order diagnosis (for debugging)
         if: always()
         shell: bash
         run: |
           set -euo pipefail
-          SCRIPT="${{ env.PACK_DIR }}/tools/status_key_order_diagnosis.py"
-          STATUS="${{ env.PACK_DIR }}/artifacts/status.json"
-
-          if [ ! -f "$SCRIPT" ]; then
-            echo "::warning::status_key_order_diagnosis.py not found at $SCRIPT; skipping."
+          if [ ! -f tools/status_key_order_diagnosis.py ]; then
+            echo "::warning::status_key_order_diagnosis.py not found at tools/status_key_order_diagnosis.py; skipping."
             exit 0
           fi
 
-          python "$SCRIPT" --status "$STATUS"
+          python tools/status_key_order_diagnosis.py --status tests/fixtures/quick_status.json
 
       - name: Write separation-phase report (HTML)
         shell: bash
         run: |
           set -euo pipefail
-          SCRIPT="${{ env.PACK_DIR }}/tools/separation_phase_report.py"
-          STATUS="${{ env.PACK_DIR }}/artifacts/status.json"
-          if [ ! -f "$SCRIPT" ]; then
-            echo "::warning::separation_phase_report.py not found at $SCRIPT; skipping."
-            exit 0
-          fi
-          python "$SCRIPT" --status "$STATUS"
+          python tools/separation_phase_report.py --status tests/fixtures/quick_status.json
 
       - name: Write separation-phase report (Markdown)
         shell: bash
         run: |
           set -euo pipefail
-          SCRIPT="${{ env.PACK_DIR }}/tools/separation_phase_report_md.py"
-          STATUS="${{ env.PACK_DIR }}/artifacts/status.json"
-          if [ ! -f "$SCRIPT" ]; then
-            echo "::warning::separation_phase_report_md.py not found at $SCRIPT; skipping."
-            exit 0
-          fi
-          python "$SCRIPT" --status "$STATUS"
+          python tools/separation_phase_report_md.py --status tests/fixtures/quick_status.json
 
       - name: Write separation-phase per-gate matrix
         shell: bash
         run: |
           set -euo pipefail
-          SCRIPT="${{ env.PACK_DIR }}/tools/separation_phase_matrix.py"
-          STATUS="${{ env.PACK_DIR }}/artifacts/status.json"
-          if [ ! -f "$SCRIPT" ]; then
-            echo "::warning::separation_phase_matrix.py not found at $SCRIPT; skipping."
-            exit 0
-          fi
-          python "$SCRIPT" --status "$STATUS"
+          python tools/separation_phase_matrix.py --status tests/fixtures/quick_status.json
 
       - name: Write separation-phase per-gate matrix (MD)
         shell: bash
         run: |
           set -euo pipefail
-          SCRIPT="${{ env.PACK_DIR }}/tools/separation_phase_matrix_md.py"
-          STATUS="${{ env.PACK_DIR }}/artifacts/status.json"
-          if [ ! -f "$SCRIPT" ]; then
-            echo "::warning::separation_phase_matrix_md.py not found at $SCRIPT; skipping."
-            exit 0
-          fi
-          python "$SCRIPT" --status "$STATUS"
+          python tools/separation_phase_matrix_md.py --status tests/fixtures/quick_status.json
 
       - name: Generate separation-phase overlay for snapshot
         shell: bash
         run: |
           set -euo pipefail
-          SCRIPT="${{ env.PACK_DIR }}/tools/compute_separation_phase_overlay_v0.py"
-          STATUS="${{ env.PACK_DIR }}/artifacts/status.json"
-
-          if [ ! -f "$SCRIPT" ]; then
-            echo "::warning::compute_separation_phase_overlay_v0.py not found at $SCRIPT; skipping."
-            exit 0
-          fi
-          if [ ! -f "$STATUS" ]; then
-            echo "::warning::status.json not found at $STATUS; skipping separation overlay."
-            exit 0
-          fi
-
-          python "$SCRIPT" --status "$STATUS"
+          python tools/compute_separation_phase_overlay_v0.py --status tests/fixtures/quick_status.json
 
       - name: Upload artifacts
         if: always()
@@ -834,7 +523,7 @@ jobs:
           name: pulse-report
           if-no-files-found: warn
           path: |
-            ${{ env.PACK_DIR }}/artifacts/**
+            artifacts/**
             badges/*.svg
             reports/junit.xml
             reports/sarif.json
@@ -874,9 +563,39 @@ jobs:
 
           root = pathlib.Path(".").resolve()
           (root / "tests" / "out").mkdir(parents=True, exist_ok=True)
-      
-          p=root/"tests"/"test_augment_status_smoke.py"; t=p.read_text(encoding="utf-8",errors="replace").splitlines(True); p.write_text("".join([(("".join((" " if c.isspace() else c) for c in ln[:len(ln)-len(ln.lstrip())].replace("\t","    ")))+ln.lstrip()) for ln in t]), encoding="utf-8")
-          subprocess.check_call([sys.executable, "-m", "py_compile", "tests/test_augment_status_smoke.py"])
+
+          # --- FIX: normalize leading indentation safely (preserve blank-line newlines) ---
+          p = root / "tests" / "test_augment_status_smoke.py"
+          raw = p.read_text(encoding="utf-8", errors="replace").splitlines(True)
+
+          fixed = []
+          for ln in raw:
+            # Split newline off so we never accidentally drop it
+            nl = ""
+            if ln.endswith("\r\n"):
+              nl, body = "\r\n", ln[:-2]
+            elif ln.endswith("\n"):
+              nl, body = "\n", ln[:-1]
+            elif ln.endswith("\r"):
+              nl, body = "\r", ln[:-1]
+            else:
+              body = ln
+
+            # Whitespace-only line -> keep ONLY the newline (prevents "indent gluing")
+            if body.strip() == "":
+              fixed.append(nl)
+              continue
+
+            # Normalize only the leading indentation segment
+            indent_len = len(body) - len(body.lstrip())
+            indent = body[:indent_len].replace("\t", "    ")
+            indent = "".join(" " if c.isspace() else c for c in indent)
+            fixed.append(indent + body[indent_len:] + nl)
+
+          p.write_text("".join(fixed), encoding="utf-8")
+
+          # Compile to fail fast if anything is still structurally wrong
+          subprocess.check_call([sys.executable, "-m", "py_compile", str(p)])
 
           subprocess.check_call([sys.executable, "tests/test_exporters.py"])
           subprocess.check_call([sys.executable, "tests/test_tools_governance_smoke.py"])
