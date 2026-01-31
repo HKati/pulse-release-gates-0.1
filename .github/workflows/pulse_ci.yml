@@ -568,19 +568,28 @@ jobs:
           import yaml
 
           with open("pulse_gate_policy_v0.yml", "r", encoding="utf-8") as f:
-            pol = yaml.safe_load(f)
+              pol = yaml.safe_load(f) or {}
 
-          core = set(pol["sets"]["core_required"])
-          req = set(pol["sets"]["required"])
+          # Canonical schema is gates.*; accept legacy sets.* as fallback.
+          gates = pol.get("gates")
+          if gates is None and isinstance(pol.get("sets"), dict):
+              gates = pol.get("sets")
+
+          if not isinstance(gates, dict):
+              print("::error::pulse_gate_policy_v0.yml is missing expected 'gates' mapping (or legacy 'sets' mapping).")
+              sys.exit(1)
+
+          core = set(gates.get("core_required") or [])
+          req = set(gates.get("required") or [])
 
           missing = sorted(core - req)
           if missing:
-            print("::error::core_required gates not present in required set:")
-            for g in missing:
-              print(f"  - {g}")
-            sys.exit(1)
+              print("::error::gates.core_required must be a subset of gates.required.")
+              for g in missing:
+                  print(f"::error::- {g}")
+              sys.exit(1)
 
-          print("Policy sets OK: core_required ⊆ required")
+          print("OK: core_required ⊆ required")
           PY
 
       - name: Compute stability map
