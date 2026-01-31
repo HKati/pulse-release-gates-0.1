@@ -79,31 +79,36 @@ def yload(path: str) -> Optional[Dict[str, Any]]:
         return None
 
 
-def coerce_float(x: Any, default: float) -> float:
-    """Coerce a value to float, with defensive handling for dict/list wrappers."""
+def coerce_float_strict(x: Any, default: float) -> tuple[float, bool]:
+    """
+    Coerce a value to float.
+    Returns (value, ok). ok=False means "present but not parseable" -> treat as parse_error.
+    Supports simple wrappers (single-value dict/list), which sometimes appear in adapters.
+    """
     if x is None:
-        return default
+        return default, False
 
     if isinstance(x, (int, float)):
-        return float(x)
+        return float(x), True
 
     if isinstance(x, str):
         try:
-            return float(x.strip())
+            return float(x.strip()), True
         except Exception:
-            return default
+            return default, False
 
-    # Some adapters may emit dicts (e.g., {"failure_rates": {...}} or {"k": 0.1})
     if isinstance(x, dict):
         if len(x) == 1:
             only = next(iter(x.values()))
-            return coerce_float(only, default)
-        return default
+            return coerce_float_strict(only, default)
+        return default, False
 
-    if isinstance(x, list) and len(x) == 1:
-        return coerce_float(x[0], default)
+    if isinstance(x, list):
+        if len(x) == 1:
+            return coerce_float_strict(x[0], default)
+        return default, False
 
-    return default
+    return default, False
 
 
 # ---------------------------------------------------------------------------
@@ -207,6 +212,11 @@ def main() -> int:
 
         Returns True/False if file exists and a metric was folded in,
         or None if file is missing (skipped).
+
+        Policy:
+        - Prefer key_in_json when present
+        - Otherwise keep safe fallbacks (value/rate/violation_rate/...)
+        - If no usable metric exists -> parse_error + fail-closed (no silent default PASS)
         """
         path = os.path.join(ext_dir, fname)
         if not os.path.exists(path):
@@ -234,36 +244,78 @@ def main() -> int:
             )
             return False
 
-        if key_in_json is not None:
-            raw_val = j.get(key_in_json, default)
-        else:
-            keys = [
-                "value",
-                "rate",
-                "violation_rate",
-                "attack_detect_rate",
-                "fail_rate",
-                "new_critical",
-            ]
-            if fallback_keys:
-                keys.extend(list(fallback_keys))
+        raw_val: Any = None
+        found = False
 
-            found = False
-            raw_val = default
+        # 1) Prefer explicit key, but do NOT disable fallback if it's missing.
+        if key_in_json is not None and key_in_json in j:
+            raw_val = j.get(key_in_json)
+            found = True
+
+        # 2) Common fallbacks (covers older and third-party summaries)
+        keys = [
+            "value",
+            "rate",
+            "violation_rate",
+            "attack_detect_rate",
+            "fail_rate",
+            "new_critical",
+        ]
+        if fallback_keys:
+            keys.extend(list(fallback_keys))
+
+        if not found:
             for k in keys:
                 if k in j:
-                    raw_val = j.get(k, default)
+                    raw_val = j.get(k)
                     found = True
                     break
 
-            if not found and "failure_rates" in j and isinstance(j["failure_rates"], dict):
-                fr = j["failure_rates"]
-                if metric_name in fr:
-                    raw_val = fr.get(metric_name, default)
-                else:
-                    raw_val = fr  # may still coerce if single-value dict
+        # 3) Azure-style nested dict: failure_rates
+        #    Prefer exact match (key_in_json -> metric_name), else conservative max numeric.
+        if (not found) and isinstance(j.get("failure_rates"), dict):
+            fr = j["failure_rates"]
+            if key_in_json and key_in_json in fr:
+                raw_val = fr.get(key_in_json)
+                found = True
+            elif metric_name in fr:
+                raw_val = fr.get(metric_name)
+                found = True
+            else:
+                nums = [v for v in fr.values() if isinstance(v, (int, float))]
+                if nums:
+                    raw_val = max(nums)
+                    found = True
 
-        val = coerce_float(raw_val, default)
+        if not found:
+            external["metrics"].append(
+                {
+                    "name": metric_name,
+                    "value": default,
+                    "threshold": thv,
+                    "pass": False,
+                    "parse_error": True,
+                    "missing_metric_key": True,
+                    "expected_key": key_in_json,
+                }
+            )
+            return False
+
+        val, ok_num = coerce_float_strict(raw_val, default)
+        if not ok_num:
+            external["metrics"].append(
+                {
+                    "name": metric_name,
+                    "value": default,
+                    "threshold": thv,
+                    "pass": False,
+                    "parse_error": True,
+                    "bad_metric_value": True,
+                    "expected_key": key_in_json,
+                }
+            )
+            return False
+
         ok = val <= thv
 
         external["metrics"].append(
@@ -307,14 +359,13 @@ def main() -> int:
     if r is not None:
         oks.append(r)
 
-    # 4) Azure eval
+    # 4) Azure eval (prefer canonical key, but keep fallback if missing)
     r = fold_external(
         "azure_eval_summary.json",
         "azure_indirect_jailbreak_rate_max",
         "azure_indirect_jailbreak_rate",
         key_in_json="azure_indirect_jailbreak_rate",
     )
-    
     if r is not None:
         oks.append(r)
 
