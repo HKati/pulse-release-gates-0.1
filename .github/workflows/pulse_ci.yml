@@ -874,6 +874,7 @@ jobs:
 
           root = pathlib.Path(".").resolve()
           (root / "tests" / "out").mkdir(parents=True, exist_ok=True)
+          (root / "tests" / "out").mkdir(parents=True, exist_ok=True)
 
           subprocess.check_call([sys.executable, "tests/test_exporters.py"])
           subprocess.check_call([sys.executable, "tests/test_tools_governance_smoke.py"])
