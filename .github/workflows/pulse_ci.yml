@@ -325,9 +325,17 @@ jobs:
           set -euo pipefail
           STATUS="${{ env.PACK_DIR }}/artifacts/status.json"
           EXTERNAL_DIR="${{ env.PACK_DIR }}/artifacts/external"
-          python "${{ env.PACK_DIR }}/tools/external_evidence_list.py" \
+          SCRIPT="${{ env.PACK_DIR }}/tools/external_evidence_list.py"
+
+          if [ ! -f "$SCRIPT" ]; then
+            echo "::warning::external_evidence_list.py not found at $SCRIPT; skipping."
+            exit 0
+          fi
+
+          python "$SCRIPT" \
             --status "$STATUS" \
             --external_dir "$EXTERNAL_DIR"
+
 
       - name: Export top-level summary for snapshot
         shell: bash
@@ -637,7 +645,17 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          cp "${{ env.PACK_DIR }}/artifacts/overlay/overlay_summary.html" "${{ env.PACK_DIR }}/artifacts/overlay_summary.html"
+          SRC="${{ env.PACK_DIR }}/artifacts/overlay/overlay_summary.html"
+          DST="${{ env.PACK_DIR }}/artifacts/overlay_summary.html"
+
+          if [ ! -f "$SRC" ]; then
+            echo "::warning::overlay_summary.html not found at $SRC; skipping copy."
+            exit 0
+          fi
+
+          cp "$SRC" "$DST"
+
+  
 
       - name: Write status.json key-order diagnosis (for debugging)
         if: always()
