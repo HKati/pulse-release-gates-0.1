@@ -34,7 +34,7 @@ import yaml
 # ---------------------------------------------------------------------------
 
 def jload(path: str) -> Optional[Dict[str, Any]]:
-    """Best-effort JSON loader: returns None on failure."""
+    """Best-effort JSON loader: returns dict or None on failure."""
     try:
         with open(path, encoding="utf-8") as f:
             obj = json.load(f)
@@ -49,7 +49,7 @@ def jload_json_or_jsonl(path: str) -> Optional[Dict[str, Any]]:
       - JSON file containing a single object, or
       - JSONL file where each non-empty line is a JSON object.
 
-    Returns the last successfully parsed object (common pattern for JSONL),
+    Returns the last successfully parsed dict (common JSONL pattern),
     or None on failure.
     """
     try:
@@ -70,7 +70,7 @@ def jload_json_or_jsonl(path: str) -> Optional[Dict[str, Any]]:
 
 
 def yload(path: str) -> Optional[Dict[str, Any]]:
-    """Best-effort YAML loader: returns None on failure."""
+    """Best-effort YAML loader: returns dict or None on failure."""
     try:
         with open(path, encoding="utf-8") as f:
             obj = yaml.safe_load(f)
@@ -82,7 +82,8 @@ def yload(path: str) -> Optional[Dict[str, Any]]:
 def coerce_float_strict(x: Any, default: float) -> tuple[float, bool]:
     """
     Coerce a value to float.
-    Returns (value, ok). ok=False means "present but not parseable" -> treat as parse_error.
+    Returns (value, ok). ok=False means "present but not parseable".
+
     Supports simple wrappers (single-value dict/list), which sometimes appear in adapters.
     """
     if x is None:
@@ -98,12 +99,14 @@ def coerce_float_strict(x: Any, default: float) -> tuple[float, bool]:
             return default, False
 
     if isinstance(x, dict):
+        # allow a single-value dict wrapper
         if len(x) == 1:
             only = next(iter(x.values()))
             return coerce_float_strict(only, default)
         return default, False
 
     if isinstance(x, list):
+        # allow a single-value list wrapper
         if len(x) == 1:
             return coerce_float_strict(x[0], default)
         return default, False
@@ -140,10 +143,7 @@ def main() -> int:
     metrics: Dict[str, Any] = status.setdefault("metrics", {})
     external: Dict[str, Any] = status.setdefault(
         "external",
-        {
-            "metrics": [],
-            "all_pass": True,
-        },
+        {"metrics": [], "all_pass": True},
     )
 
     # -----------------------------------------------------------------------
@@ -173,6 +173,8 @@ def main() -> int:
         gates["refusal_delta_pass"] = rd_pass
         status["refusal_delta_pass"] = rd_pass
     else:
+        # If REAL pairs exist but no summary -> fail-closed.
+        # If only sample exists -> pass (demo / quick-start).
         real_pairs = os.path.join(pack_dir, "examples", "refusal_pairs.jsonl")
         rd_pass = False if os.path.exists(real_pairs) else True
         gates["refusal_delta_pass"] = rd_pass
@@ -184,6 +186,7 @@ def main() -> int:
     thr: Dict[str, Any] = yload(args.thresholds) or {}
     ext_dir = os.path.abspath(args.external_dir)
 
+    # Ensure we start from a clean list
     external["metrics"] = []
 
     summary_files: list[str] = []
@@ -192,10 +195,10 @@ def main() -> int:
         summary_files += sorted(glob.glob(os.path.join(ext_dir, "*_summary.jsonl")))
 
     summaries_present = bool(summary_files)
-
     external["summaries_present"] = summaries_present
     external["summary_count"] = len(summary_files)
 
+    # Diagnostic gate (normative only if policy promotes it)
     gates["external_summaries_present"] = summaries_present
     status["external_summaries_present"] = summaries_present
 
@@ -215,10 +218,12 @@ def main() -> int:
 
         Policy:
         - Prefer key_in_json when present
-        - Otherwise keep safe fallbacks (value/rate/violation_rate/...)
-        - If no usable metric exists -> parse_error + fail-closed (no silent default PASS)
+        - BUT: do NOT disable fallback if key_in_json is missing
+        - If no usable metric exists -> parse_error + fail-closed
         """
         path = os.path.join(ext_dir, fname)
+
+        # allow .json -> .jsonl fallback when caller uses .json
         if not os.path.exists(path):
             if fname.lower().endswith(".json"):
                 alt = os.path.join(ext_dir, fname[:-5] + ".jsonl")
@@ -247,12 +252,12 @@ def main() -> int:
         raw_val: Any = None
         found = False
 
-        # 1) Prefer explicit key, but do NOT disable fallback if it's missing.
+        # 1) Prefer explicit key if present
         if key_in_json is not None and key_in_json in j:
             raw_val = j.get(key_in_json)
             found = True
 
-        # 2) Common fallbacks (covers older and third-party summaries)
+        # 2) Fallback keys (covers older + third-party summaries)
         keys = [
             "value",
             "rate",
@@ -271,10 +276,11 @@ def main() -> int:
                     found = True
                     break
 
-        # 3) Azure-style nested dict: failure_rates
-        #    Prefer exact match (key_in_json -> metric_name), else conservative max numeric.
+        # 3) Nested dict fallback: failure_rates (Azure-style)
+        #    Prefer exact match first, else conservative max numeric.
         if (not found) and isinstance(j.get("failure_rates"), dict):
             fr = j["failure_rates"]
+
             if key_in_json and key_in_json in fr:
                 raw_val = fr.get(key_in_json)
                 found = True
@@ -287,6 +293,7 @@ def main() -> int:
                     raw_val = max(nums)
                     found = True
 
+        # 4) If still nothing -> fail-closed
         if not found:
             external["metrics"].append(
                 {
@@ -359,7 +366,7 @@ def main() -> int:
     if r is not None:
         oks.append(r)
 
-    # 4) Azure eval (prefer canonical key, but keep fallback if missing)
+    # 4) Azure eval (prefer canonical key, but keep fallbacks when missing)
     r = fold_external(
         "azure_eval_summary.json",
         "azure_indirect_jailbreak_rate_max",
@@ -392,6 +399,7 @@ def main() -> int:
     policy = (thr.get("external_overall_policy") or "all").lower()
 
     if not oks:
+        # No external summaries present -> treat as PASS irrespective of policy.
         ext_all = True
     else:
         if policy == "all":
@@ -400,6 +408,7 @@ def main() -> int:
             ext_all = any(oks)
 
     external["all_pass"] = ext_all
+    gatesATES = gates  # (no-op alias; keep gates variable stable for print)
     gates["external_all_pass"] = ext_all
     status["external_all_pass"] = ext_all
 
