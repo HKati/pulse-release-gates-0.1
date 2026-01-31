@@ -17,9 +17,8 @@ Usage:
 
 Notes:
 - Keeps rich detail (by severity, new_critical)
-- Also emits canonical `rate` so augment_status.py can fold metrics deterministically
-  (value/rate/violation_rate fallbacks).
-- Current rate semantics (conservative + deterministic):
+- Emits canonical `value` (mirrors new_critical) so downstream tools can read a stable scalar.
+- Also emits `rate` for generic fallbacks (conservative + deterministic):
     new_critical > 0 => rate = 1.0
     else            => rate = 0.0
 """
@@ -47,8 +46,7 @@ def main() -> None:
         if fnd.get("new") and s == "critical":
             new_crit += 1
 
-    # Canonical key expected by fold_external fallbacks.
-    # Deterministic + conservative: any new critical finding should fail typical thresholds.
+    # Conservative + deterministic: any new critical finding should fail typical thresholds.
     rate = 1.0 if new_crit else 0.0
 
     summary = {
@@ -56,6 +54,9 @@ def main() -> None:
         "total_findings": tot,
         "by_severity": sev,
         "new_critical": new_crit,
+        # Canonical scalar (mirrors new_critical)
+        "value": new_crit,
+        # Canonical-ish fallback used by generic readers
         "rate": rate,
     }
 
