@@ -348,22 +348,9 @@ def fold_external(
         return False
 
 
-j = jload_json_or_jsonl(path)
 
-    if j is None:
-        thv = float(thr.get(threshold_key, 0.10))
-        external["metrics"].append(
-            {
-                "name": metric_name,
-                "value": default,
-                "threshold": thv,
-                "pass": False,
-                "parse_error": True,
-            }
-        )
-        return False
 
-    if key_in_json is not None:
+   if key_in_json is not None:
         val = j.get(key_in_json, default)
     else:
         # Common fallbacks, depending on exporter
