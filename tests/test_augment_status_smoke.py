@@ -38,7 +38,9 @@ def _write_text(path: Path, text: str) -> None:
 def _run_augment(status_path: Path, thresholds_path: Path, external_dir: Path) -> None:
     root = _repo_root()
     script = root / "PULSE_safe_pack_v0" / "tools" / "augment_status.py"
-    assert script.exists(), f"augment_status.py not found at {script}"
+    print(f"[smoke] augment_status.py={script} sha256={__import__('hashlib').sha256(script.read_bytes()).hexdigest()}", flush=True)
+
+  assert script.exists(), f"augment_status.py not found at {script}"
 
     subprocess.check_call(
         [
