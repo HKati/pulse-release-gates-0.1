@@ -39,6 +39,11 @@ def _run_augment(status_path: Path, thresholds_path: Path, external_dir: Path) -
     script = root / "PULSE_safe_pack_v0" / "tools" / "augment_status.py"
     assert script.exists(), f"augment_status.py not found at {script}"
 
+    print(
+        f"[smoke] augment_status.py={script} sha256={__import__('hashlib').sha256(script.read_bytes()).hexdigest()}",
+        flush=True,
+    )
+
     subprocess.check_call(
         [
             sys.executable,
@@ -51,6 +56,7 @@ def _run_augment(status_path: Path, thresholds_path: Path, external_dir: Path) -
             str(external_dir),
         ]
     )
+
 
 
 def test_external_all_pass_true_with_valid_summaries(tmp_path: Path) -> None:
