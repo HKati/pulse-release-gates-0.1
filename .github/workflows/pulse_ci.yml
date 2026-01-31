@@ -341,8 +341,22 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python "${{ env.PACK_DIR }}/tools/status_to_summary.py" \
-            --status "${{ env.PACK_DIR }}/artifacts/status.json"
+          SCRIPT="${{ env.PACK_DIR }}/tools/status_to_summary.py"
+          STATUS="${{ env.PACK_DIR }}/artifacts/status.json"
+
+          if [ ! -f "$STATUS" ]; then
+            echo "::warning::status.json not found at $STATUS; skipping status_to_summary."
+            exit 0
+          fi
+
+          if [ ! -f "$SCRIPT" ]; then
+            echo "::warning::status_to_summary.py not found at $SCRIPT; skipping."
+            exit 0
+          fi
+
+          python "$SCRIPT" \
+            --status "$STATUS"
+
 
       - name: Update artifacts for snapshot
         if: always()
