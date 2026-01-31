@@ -858,28 +858,37 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install minimal Python deps
+      - name: Install Python deps (tools-tests)
         shell: bash
         run: |
           set -euo pipefail
           python -m pip install --upgrade pip
-          python -m pip install pyyaml
+          python -m pip install -r requirements.txt
 
       - name: Run exporter + governance smoke tests
         shell: bash
         run: |
           set -euo pipefail
           python - <<'PY'
-          import pathlib, subprocess, sys
+          import subprocess
+          import sys
 
-          root = pathlib.Path(".").resolve()
-          (root / "tests" / "out").mkdir(parents=True, exist_ok=True)
-          (root / "tests" / "out").mkdir(parents=True, exist_ok=True)
+          tests = [
+              "tests/test_exporters.py",
+              "tests/test_tools_governance_smoke.py",
+              "tests/test_check_external_summaries_present.py",
+              "tests/test_augment_status_smoke.py",
+          ]
 
-          subprocess.check_call([sys.executable, "tests/test_exporters.py"])
-          subprocess.check_call([sys.executable, "tests/test_tools_governance_smoke.py"])
-          subprocess.check_call([sys.executable, "tests/test_check_external_summaries_present.py"])
-          subprocess.check_call([sys.executable, "tests/test_augment_status_smoke.py"])
+          def run(cmd):
+              print("\n+ " + " ".join(cmd), flush=True)
+              subprocess.check_call(cmd)
+
+          for f in tests:
+              run([sys.executable, "-m", "py_compile", f])
+
+          for f in tests:
+              run([sys.executable, f])
 
           print("Exporter + governance smoke tests OK")
           PY
