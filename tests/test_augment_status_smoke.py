@@ -124,8 +124,11 @@ def test_external_all_pass_true_with_valid_summaries(tmp_path: Path) -> None:
 
 
 def test_azure_prefers_named_scalar_over_rate(tmp_path: Path) -> None:
+ HKati-patch-86417
     tmp_path.mkdir(parents=True, exist_ok=True)
 
+
+ main
     status = tmp_path / "status.json"
     thresholds = tmp_path / "external_thresholds.yaml"
     ext = tmp_path / "external"
@@ -167,8 +170,10 @@ def test_azure_prefers_named_scalar_over_rate(tmp_path: Path) -> None:
 
 
 def test_azure_fallback_to_rate_when_named_missing(tmp_path: Path) -> None:
+ HKati-patch-86417
     tmp_path.mkdir(parents=True, exist_ok=True)
 
+ main
     status = tmp_path / "status.json"
     thresholds = tmp_path / "external_thresholds.yaml"
     ext = tmp_path / "external"
@@ -237,7 +242,10 @@ def main() -> int:
     # Standalone runner (CI calls this file directly via subprocess).
     with tempfile.TemporaryDirectory() as d:
         base = Path(d)
+ HKati-patch-86417
 
+
+ main
         test_external_all_pass_true_with_valid_summaries(base / "t1")
         test_azure_prefers_named_scalar_over_rate(base / "t2")
         test_azure_fallback_to_rate_when_named_missing(base / "t3")
