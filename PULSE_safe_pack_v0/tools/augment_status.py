@@ -234,8 +234,13 @@ def main() -> int:
             )
             return False
 
-        if key_in_json is not None:
-            raw_val = j.get(key_in_json, default)
+        # Prefer explicit key if present, but DO NOT disable fallback lookups.
+        raw_val: Any = None
+        found = False
+
+        if key_in_json is not None and key_in_json in j:
+            raw_val = j.get(key_in_json)
+            found = True
         else:
             keys = [
                 "value",
@@ -248,22 +253,63 @@ def main() -> int:
             if fallback_keys:
                 keys.extend(list(fallback_keys))
 
-            found = False
-            raw_val = default
             for k in keys:
                 if k in j:
-                    raw_val = j.get(k, default)
+                    raw_val = j.get(k)
                     found = True
                     break
 
-            if not found and "failure_rates" in j and isinstance(j["failure_rates"], dict):
-                fr = j["failure_rates"]
-                if metric_name in fr:
-                    raw_val = fr.get(metric_name, default)
+            # Azure-style structured output: failure_rates is a dict of per-category/per-metric rates.
+            # If present, prefer exact match (key_in_json, then metric_name), else conservative max numeric.
+            fr = j.get("failure_rates")
+            if (not found) and isinstance(fr, dict):
+                if key_in_json and key_in_json in fr:
+                    raw_val = fr.get(key_in_json)
+                    found = True
+                elif metric_name in fr:
+                    raw_val = fr.get(metric_name)
+                    found = True
                 else:
-                    raw_val = fr  # may still coerce if single-value dict
+                    nums = [float(v) for v in fr.values() if isinstance(v, (int, float))]
+                    if nums:
+                        raw_val = max(nums)
+                        found = True
+
+        if not found:
+            # Fail-closed: metric key missing, do not silently default to 0.0 and pass.
+            external["metrics"].append(
+                {
+                    "name": metric_name,
+                    "value": default,
+                    "threshold": thv,
+                    "pass": False,
+                    "parse_error": True,
+                    "missing_metric_key": True,
+                    "expected_key": key_in_json,
+                }
+            )
+            return False
 
         val = coerce_float(raw_val, default)
+
+        # If we "found" a field but couldn't coerce to float, treat as parse error (fail-closed).
+        # (Avoids accidental pass when raw_val is non-numeric.)
+        if val == default and not (
+            isinstance(raw_val, (int, float)) and float(raw_val) == float(default)
+        ):
+            external["metrics"].append(
+                {
+                    "name": metric_name,
+                    "value": default,
+                    "threshold": thv,
+                    "pass": False,
+                    "parse_error": True,
+                    "bad_metric_value": True,
+                    "expected_key": key_in_json,
+                }
+            )
+            return False
+
         ok = val <= thv
 
         external["metrics"].append(
@@ -314,7 +360,6 @@ def main() -> int:
         "azure_indirect_jailbreak_rate",
         key_in_json="azure_indirect_jailbreak_rate",
     )
-    
     if r is not None:
         oks.append(r)
 
