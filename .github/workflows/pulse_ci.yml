@@ -875,6 +875,8 @@ jobs:
           root = pathlib.Path(".").resolve()
           (root / "tests" / "out").mkdir(parents=True, exist_ok=True)
           (root / "tests" / "out").mkdir(parents=True, exist_ok=True)
+          p=root/"tests"/"test_augment_status_smoke.py"; t=p.read_text(encoding="utf-8",errors="replace").splitlines(True); p.write_text("".join([(("".join((" " if c.isspace() else c) for c in ln[:len(ln)-len(ln.lstrip())].replace("\t","    ")))+ln.lstrip()) for ln in t]), encoding="utf-8")
+          subprocess.check_call([sys.executable, "-m", "py_compile", "tests/test_augment_status_smoke.py"])
 
           subprocess.check_call([sys.executable, "tests/test_exporters.py"])
           subprocess.check_call([sys.executable, "tests/test_tools_governance_smoke.py"])
