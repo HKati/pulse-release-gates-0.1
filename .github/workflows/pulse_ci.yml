@@ -878,5 +878,7 @@ jobs:
           subprocess.check_call([sys.executable, "tests/test_exporters.py"])
           subprocess.check_call([sys.executable, "tests/test_tools_governance_smoke.py"])
           subprocess.check_call([sys.executable, "tests/test_check_external_summaries_present.py"])
+          subprocess.check_call([sys.executable, "tests/test_augment_status_smoke.py"])
+
           print("Exporter + governance smoke tests OK")
           PY
