@@ -312,7 +312,9 @@ def main() -> int:
         "azure_eval_summary.json",
         "azure_indirect_jailbreak_rate_max",
         "azure_indirect_jailbreak_rate",
+        key_in_json="azure_indirect_jailbreak_rate",
     )
+    
     if r is not None:
         oks.append(r)
 
