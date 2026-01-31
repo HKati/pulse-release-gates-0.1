@@ -15,8 +15,10 @@ Usage:
 
 Notes:
 - Writes per-category failure_rates (tool-specific detail)
-- Also writes canonical `rate` (overall failure rate) so augment_status.py can fold metrics
-  deterministically without default fallbacks.
+- Writes canonical overall `rate` for generic folding
+- Also writes canonical scalar fields for downstream gating consistency:
+    - azure_indirect_jailbreak_rate (currently mirrors overall_rate deterministically)
+    - value (mirrors the same scalar)
 """
 import argparse
 import json
@@ -54,13 +56,24 @@ def main() -> None:
     fails_total = sum(cat_fail.values())
     overall_rate = (fails_total / tot) if tot else 0.0
 
+    # Deterministic scalar for policy thresholds:
+    # At ingestion time we may not have a stable category mapping for "indirect jailbreak".
+    # So we mirror the overall failure rate into the named gate scalar for now.
+    azure_indirect_jailbreak_rate = overall_rate
+
     summary = {
         "tool": "azure_eval",
         "total": tot,
         "failures_by_category": cat_fail,
         "failure_rates": rates,
-        # Canonical key expected by fold_external fallbacks
+
+        # Generic canonical key expected by fold_external fallbacks
         "rate": overall_rate,
+
+        # Canonical scalar fields (mirrors the same signal deterministically)
+        "azure_indirect_jailbreak_rate": azure_indirect_jailbreak_rate,
+        "indirect_jailbreak_rate": azure_indirect_jailbreak_rate,  # helpful alias
+        "value": azure_indirect_jailbreak_rate,
     }
 
     with open(a.out, "w", encoding="utf-8") as f:
