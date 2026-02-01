@@ -1,0 +1,158 @@
+name: OpenAI Evals • Refusal smoke (shadow)
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Run mode (dry-run has no network calls / no API key required)"
+        required: true
+        default: "dry-run"
+        type: choice
+        options:
+          - "dry-run"
+          - "real"
+      model:
+        description: "Model to use in real mode"
+        required: true
+        default: "gpt-4.1"
+        type: string
+      fail_on_false:
+        description: "Fail the workflow if gate_pass=false"
+        required: true
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: openai-evals-refusal-smoke-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  refusal_smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # pinned
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # pinned
+        with:
+          python-version: "3.11"
+
+      - name: Install minimal deps
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install pyyaml
+
+      - name: Generate baseline PULSE status (for patch target)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python PULSE_safe_pack_v0/tools/run_all.py
+          test -f PULSE_safe_pack_v0/artifacts/status.json
+
+      - name: Run refusal smoke (OpenAI Evals v0)
+        shell: bash
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_ORGANIZATION: ${{ secrets.OPENAI_ORGANIZATION }}
+          OPENAI_PROJECT: ${{ secrets.OPENAI_PROJECT }}
+        run: |
+          set -euo pipefail
+
+          MODE="${{ github.event.inputs.mode }}"
+          MODEL="${{ github.event.inputs.model }}"
+          FAIL_ON_FALSE="${{ github.event.inputs.fail_on_false }}"
+
+          args=( python openai_evals_v0/run_refusal_smoke_to_pulse.py
+                 --model "$MODEL"
+                 --status-json PULSE_safe_pack_v0/artifacts/status.json )
+
+          if [[ "$MODE" == "dry-run" ]]; then
+            args+=( --dry-run )
+          else
+            if [[ -z "${OPENAI_API_KEY:-}" ]]; then
+              echo "::error::mode=real selected but OPENAI_API_KEY secret is missing."
+              exit 2
+            fi
+          fi
+
+          if [[ "$FAIL_ON_FALSE" == "true" ]]; then
+            args+=( --fail-on-false )
+          fi
+
+          echo "Running: ${args[*]}"
+          "${args[@]}"
+
+      - name: Contract check (refusal_smoke_result.json)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/check_openai_evals_refusal_smoke_result_v0_contract.py \
+            --in openai_evals_v0/refusal_smoke_result.json
+
+      - name: Workflow summary
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          p = Path("openai_evals_v0/refusal_smoke_result.json")
+          print("## OpenAI Evals • Refusal smoke (shadow)")
+
+          if not p.exists():
+              print("")
+              print("_No refusal_smoke_result.json produced._")
+              raise SystemExit(0)
+
+          d = json.loads(p.read_text(encoding="utf-8"))
+          rc = d.get("result_counts") or {}
+          total = rc.get("total")
+          passed = rc.get("passed")
+          failed = rc.get("failed")
+          errored = rc.get("errored")
+
+          print("")
+          print(f"- mode: {'dry-run' if d.get('dry_run') else 'real'}")
+          print(f"- model: {d.get('model')}")
+          print(f"- status: {d.get('status')}")
+          print(f"- gate_key: {d.get('gate_key')}")
+          print(f"- gate_pass: **{d.get('gate_pass')}**")
+          print("")
+          print("### Result counts")
+          print("")
+          print(f"- total: {total}")
+          print(f"- passed: {passed}")
+          print(f"- failed: {failed}")
+          print(f"- errored: {errored}")
+          print("")
+          if d.get("report_url"):
+              print(f"- report_url: {d.get('report_url')}")
+          PY
+        env:
+          GITHUB_STEP_SUMMARY: ${{ github.step_summary }}
+
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # pinned
+        with:
+          name: openai-evals-refusal-smoke-shadow
+          if-no-files-found: warn
+          path: |
+            openai_evals_v0/refusal_smoke_result.json
+            PULSE_safe_pack_v0/artifacts/status.json
