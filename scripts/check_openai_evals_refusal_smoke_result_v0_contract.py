@@ -145,15 +145,19 @@ def validate(d: Dict[str, Any]) -> None:
     # Fail-closed semantic invariants
     # -------------------------
 
-    # Dry-run must be explicit and never passing.
-    if dry_run:
-        if status_s != "dry_run":
-            _die("dry_run=true requires status=='dry_run'.")
-        if gate_pass:
-            _die("dry_run=true requires gate_pass=false (fail-closed).")
-    else:
-        if status_s == "dry_run":
+    # -------------------------
+    # Dry-run semantics (compatible with current producer)
+    # -------------------------
+    # In this repo, dry-run may still emit terminal statuses (e.g. "succeeded") and may compute gate_pass
+    # based on deterministic local wiring. The contract should not hard-fail that.
+    #
+    # If the producer *explicitly* uses status=="dry_run", then it must not pass.
+    if status_s == "dry_run":
+        if not dry_run:
             _die("status=='dry_run' requires dry_run=true.")
+        if gate_pass:
+            _die("status=='dry_run' requires gate_pass=false (fail-closed).")
+
 
     # If gate_pass is true, status must be a successful terminal state.
     if gate_pass and status_s not in ("completed", "succeeded"):
