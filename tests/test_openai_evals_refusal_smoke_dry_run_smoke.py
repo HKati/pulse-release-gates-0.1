@@ -154,6 +154,10 @@ def main() -> int:
     print("OK: openai_evals_v0 refusal smoke dry-run wiring is stable + contract-valid")
     return 0
 
+def test_openai_evals_refusal_smoke_dry_run_smoke() -> None:
+    # Pytest collects this. Any exception inside main() fails the test.
+    assert main() == 0
+
 
 if __name__ == "__main__":
     raise SystemExit(main())
