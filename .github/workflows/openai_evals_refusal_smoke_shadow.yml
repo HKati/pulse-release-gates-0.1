@@ -1,6 +1,19 @@
 name: OpenAI Evals • Refusal smoke (shadow)
 
 on:
+  push:
+    branches: ["main"]
+    paths:
+      - "openai_evals_v0/**"
+      - "scripts/check_openai_evals_refusal_smoke_result_v0_contract.py"
+      - "tests/test_openai_evals_refusal_smoke_dry_run_smoke.py"
+      - ".github/workflows/openai_evals_refusal_smoke_shadow.yml"
+  pull_request:
+    paths:
+      - "openai_evals_v0/**"
+      - "scripts/check_openai_evals_refusal_smoke_result_v0_contract.py"
+      - "tests/test_openai_evals_refusal_smoke_dry_run_smoke.py"
+      - ".github/workflows/openai_evals_refusal_smoke_shadow.yml"
   workflow_dispatch:
     inputs:
       mode:
@@ -56,12 +69,30 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install pyyaml
 
-      - name: Generate baseline PULSE status (for patch target)
+      - name: Prepare status.json patch target
         shell: bash
         run: |
           set -euo pipefail
-          python PULSE_safe_pack_v0/tools/run_all.py
-          test -f PULSE_safe_pack_v0/artifacts/status.json
+          mkdir -p PULSE_safe_pack_v0/artifacts
+
+          EVENT_NAME="${{ github.event_name }}"
+          MODE="dry-run"
+          if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            MODE="${{ github.event.inputs.mode }}"
+          fi
+
+          # For manual real runs: generate a baseline PULSE status via safe pack.
+          if [[ "$EVENT_NAME" == "workflow_dispatch" && "$MODE" == "real" ]]; then
+            python PULSE_safe_pack_v0/tools/run_all.py
+            test -f PULSE_safe_pack_v0/artifacts/status.json
+          else
+            # For push/PR/dry-run: keep it light and deterministic.
+            # Ensure the file exists so the runner can patch it.
+            if [[ ! -f PULSE_safe_pack_v0/artifacts/status.json ]]; then
+              python -c 'import json; from pathlib import Path; p=Path("PULSE_safe_pack_v0/artifacts/status.json"); p.parent.mkdir(parents=True, exist_ok=True); p.write_text(json.dumps({"metrics": {}, "gates": {}}, indent=2) + "\n", encoding="utf-8")'
+            fi
+          fi
+
 
       - name: Run refusal smoke (OpenAI Evals v0)
         shell: bash
@@ -72,12 +103,24 @@ jobs:
         run: |
           set -euo pipefail
 
-          MODE="${{ github.event.inputs.mode }}"
-          MODEL="${{ github.event.inputs.model }}"
-          FAIL_ON_FALSE="${{ github.event.inputs.fail_on_false }}"
+          EVENT_NAME="${{ github.event_name }}"
+
+          # Defaults for push/PR: always dry-run, never fail the workflow on gate_pass=false
+          MODE="dry-run"
+          MODEL="gpt-4.1"
+          FAIL_ON_FALSE="false"
+
+          # For workflow_dispatch: use inputs
+          if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            MODE="${{ github.event.inputs.mode }}"
+            MODEL="${{ github.event.inputs.model }}"
+            FAIL_ON_FALSE="${{ github.event.inputs.fail_on_false }}"
+          fi
 
           args=( python openai_evals_v0/run_refusal_smoke_to_pulse.py
                  --model "$MODEL"
+                 --dataset openai_evals_v0/refusal_smoke.jsonl
+                 --out openai_evals_v0/refusal_smoke_result.json
                  --status-json PULSE_safe_pack_v0/artifacts/status.json )
 
           if [[ "$MODE" == "dry-run" ]]; then
@@ -110,42 +153,42 @@ jobs:
           set -euo pipefail
           python - <<'PY'
           import json
+          import os
           from pathlib import Path
 
+          summary_path = Path(os.environ["GITHUB_STEP_SUMMARY"])
           p = Path("openai_evals_v0/refusal_smoke_result.json")
-          print("## OpenAI Evals • Refusal smoke (shadow)")
+
+          lines = []
+          lines.append("## OpenAI Evals • Refusal smoke (shadow)")
+          lines.append("")
 
           if not p.exists():
-              print("")
-              print("_No refusal_smoke_result.json produced._")
+              lines.append("_No refusal_smoke_result.json produced._")
+              summary_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
               raise SystemExit(0)
 
           d = json.loads(p.read_text(encoding="utf-8"))
           rc = d.get("result_counts") or {}
-          total = rc.get("total")
-          passed = rc.get("passed")
-          failed = rc.get("failed")
-          errored = rc.get("errored")
 
-          print("")
-          print(f"- mode: {'dry-run' if d.get('dry_run') else 'real'}")
-          print(f"- model: {d.get('model')}")
-          print(f"- status: {d.get('status')}")
-          print(f"- gate_key: {d.get('gate_key')}")
-          print(f"- gate_pass: **{d.get('gate_pass')}**")
-          print("")
-          print("### Result counts")
-          print("")
-          print(f"- total: {total}")
-          print(f"- passed: {passed}")
-          print(f"- failed: {failed}")
-          print(f"- errored: {errored}")
-          print("")
+          lines.append(f"- mode: `{'dry-run' if d.get('dry_run') else 'real'}`")
+          lines.append(f"- model: `{d.get('model')}`")
+          lines.append(f"- status: `{d.get('status')}`")
+          lines.append(f"- gate_key: `{d.get('gate_key')}`")
+          lines.append(f"- gate_pass: **{d.get('gate_pass')}**")
+          lines.append("")
+          lines.append("### Result counts")
+          lines.append("")
+          lines.append(f"- total: `{rc.get('total')}`")
+          lines.append(f"- passed: `{rc.get('passed')}`")
+          lines.append(f"- failed: `{rc.get('failed')}`")
+          lines.append(f"- errored: `{rc.get('errored')}`")
+          lines.append(f"- fail_rate: `{d.get('fail_rate')}`")
           if d.get("report_url"):
-              print(f"- report_url: {d.get('report_url')}")
+              lines.append(f"- report_url: `{d.get('report_url')}`")
+
+          summary_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
           PY
-        env:
-          GITHUB_STEP_SUMMARY: ${{ github.step_summary }}
 
       - name: Upload artifacts
         if: always()
