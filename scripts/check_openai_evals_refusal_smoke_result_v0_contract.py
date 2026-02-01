@@ -150,6 +150,10 @@ def validate(d: Dict[str, Any]) -> None:
         if gate_pass:
             _die("gate_pass cannot be true when status is null/empty (fail-closed).")
 
+    # If gate_pass is true, status must be a successful terminal state.
+    if gate_pass and status_s not in ("completed", "succeeded"):
+        _die("gate_pass=true requires status in {completed,succeeded}.")
+
     # If dataset is empty (total==0), must fail closed.
     if total == 0 and gate_pass:
         _die("gate_pass cannot be true when result_counts.total == 0 (fail-closed).")
