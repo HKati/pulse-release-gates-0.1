@@ -89,14 +89,10 @@ jobs:
             # For push/PR/dry-run: keep it light and deterministic.
             # Ensure the file exists so the runner can patch it.
             if [[ ! -f PULSE_safe_pack_v0/artifacts/status.json ]]; then
-              python - <<'PY'
-              import json
-              from pathlib import Path
-              p = Path("PULSE_safe_pack_v0/artifacts/status.json")
-              p.write_text(json.dumps({"metrics": {}, "gates": {}}, indent=2) + "\n", encoding="utf-8")
-              PY
+              python -c 'import json; from pathlib import Path; p=Path("PULSE_safe_pack_v0/artifacts/status.json"); p.parent.mkdir(parents=True, exist_ok=True); p.write_text(json.dumps({"metrics": {}, "gates": {}}, indent=2) + "\n", encoding="utf-8")'
             fi
           fi
+
 
       - name: Run refusal smoke (OpenAI Evals v0)
         shell: bash
