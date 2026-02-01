@@ -38,6 +38,11 @@ def _write_text(path: Path, text: str) -> None:
 def _run_augment(status_path: Path, thresholds_path: Path, external_dir: Path) -> None:
     root = _repo_root()
     script = root / "PULSE_safe_pack_v0" / "tools" / "augment_status.py"
+    print(
+        f"[smoke] augment_status.py={script} sha256={__import__('hashlib').sha256(script.read_bytes()).hexdigest()}",
+        flush=True,
+    )
+
     assert script.exists(), f"augment_status.py not found at {script}"
 
     subprocess.check_call(
@@ -67,6 +72,8 @@ def _find_metric(out: dict, name: str) -> dict:
 
 
 def test_external_all_pass_true_with_valid_summaries(tmp_path: Path) -> None:
+    tmp_path.mkdir(parents=True, exist_ok=True)
+
     status = tmp_path / "status.json"
     thresholds = tmp_path / "external_thresholds.yaml"
     ext = tmp_path / "external"
@@ -117,6 +124,8 @@ def test_external_all_pass_true_with_valid_summaries(tmp_path: Path) -> None:
 
 
 def test_azure_prefers_named_scalar_over_rate(tmp_path: Path) -> None:
+    tmp_path.mkdir(parents=True, exist_ok=True)
+
     status = tmp_path / "status.json"
     thresholds = tmp_path / "external_thresholds.yaml"
     ext = tmp_path / "external"
@@ -158,6 +167,8 @@ def test_azure_prefers_named_scalar_over_rate(tmp_path: Path) -> None:
 
 
 def test_azure_fallback_to_rate_when_named_missing(tmp_path: Path) -> None:
+    tmp_path.mkdir(parents=True, exist_ok=True)
+
     status = tmp_path / "status.json"
     thresholds = tmp_path / "external_thresholds.yaml"
     ext = tmp_path / "external"
@@ -189,6 +200,8 @@ def test_azure_fallback_to_rate_when_named_missing(tmp_path: Path) -> None:
 
 
 def test_parse_error_marks_metric_and_fails(tmp_path: Path) -> None:
+    tmp_path.mkdir(parents=True, exist_ok=True)
+
     status = tmp_path / "status.json"
     thresholds = tmp_path / "external_thresholds.yaml"
     ext = tmp_path / "external"
@@ -224,6 +237,7 @@ def main() -> int:
     # Standalone runner (CI calls this file directly via subprocess).
     with tempfile.TemporaryDirectory() as d:
         base = Path(d)
+
         test_external_all_pass_true_with_valid_summaries(base / "t1")
         test_azure_prefers_named_scalar_over_rate(base / "t2")
         test_azure_fallback_to_rate_when_named_missing(base / "t3")
