@@ -106,10 +106,10 @@ def validate(d: Dict[str, Any]) -> None:
     report_url = _require_key(d, "report_url")
     _expect_str_or_none("report_url", report_url)
 
-    # ✅ IMPORTANT: status is REQUIRED (key must exist) but may be string|null
+    # ✅ status is REQUIRED and must be a non-empty string
     status = _require_key(d, "status")
-    _expect_str_or_none("status", status)
-    status_s = (status or "").strip()
+    _expect_str("status", status)
+    status_s = status.strip()
 
     result_counts = _require_key(d, "result_counts")
     if not isinstance(result_counts, dict):
@@ -145,10 +145,15 @@ def validate(d: Dict[str, Any]) -> None:
     # Fail-closed semantic invariants
     # -------------------------
 
-    # If status is missing/unknown (null/empty), gate_pass must not be True.
-    if (status is None) or (status_s == ""):
+    # Dry-run must be explicit and never passing.
+    if dry_run:
+        if status_s != "dry_run":
+            _die("dry_run=true requires status=='dry_run'.")
         if gate_pass:
-            _die("gate_pass cannot be true when status is null/empty (fail-closed).")
+            _die("dry_run=true requires gate_pass=false (fail-closed).")
+    else:
+        if status_s == "dry_run":
+            _die("status=='dry_run' requires dry_run=true.")
 
     # If gate_pass is true, status must be a successful terminal state.
     if gate_pass and status_s not in ("completed", "succeeded"):
