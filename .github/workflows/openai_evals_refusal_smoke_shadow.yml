@@ -145,6 +145,13 @@ jobs:
           set -euo pipefail
           python scripts/check_openai_evals_refusal_smoke_result_v0_contract.py \
             --in openai_evals_v0/refusal_smoke_result.json
+      
+      - name: Run dry-run smoke test script
+        if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.mode == 'dry-run' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python tests/test_openai_evals_refusal_smoke_dry_run_smoke.py
 
       - name: Workflow summary
         if: always()
