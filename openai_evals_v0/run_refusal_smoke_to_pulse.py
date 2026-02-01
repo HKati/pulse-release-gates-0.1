@@ -149,7 +149,14 @@ def _parse_args() -> argparse.Namespace:
     p.add_argument("--model", default="gpt-4.1")
     p.add_argument("--status-json", default=None)
     p.add_argument("--gate-key", default="openai_evals_refusal_smoke_pass")
-    p.add_argument("--out", default="openai_evals_v0/refusal_smoke_result.json")
+    p.add_argument(
+        "--out",
+        default="openai_evals_v0/refusal_smoke_result.json",
+        help=(
+            "Output JSON path for the refusal smoke result "
+            "(default: openai_evals_v0/refusal_smoke_result.json)."
+        ),
+    )
     p.add_argument("--poll-interval", type=float, default=2.0)
     p.add_argument("--max-wait", type=float, default=300.0)
     p.add_argument("--fail-on-false", action="store_true")
@@ -262,7 +269,9 @@ def main() -> int:
         }
 
         out_path = Path(args.out)
-        _write_json(out_path, result)
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        print(f"[openai_evals_v0] wrote: {out_path}")
 
         if args.status_json:
             trace = {
@@ -389,7 +398,7 @@ def main() -> int:
 
     report_url = last.get("report_url") or report_url
 
-    status = last.get("status")
+    status = last.get("status") or "unknown"
     counts = last.get("result_counts") or {}
     total = int(counts.get("total") or 0)
     passed = int(counts.get("passed") or 0)
@@ -422,7 +431,9 @@ def main() -> int:
     }
 
     out_path = Path(args.out)
-    _write_json(out_path, result)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    print(f"[openai_evals_v0] wrote: {out_path}")
 
     if args.status_json:
         trace = {
