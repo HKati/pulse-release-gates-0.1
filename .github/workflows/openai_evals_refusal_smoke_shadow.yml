@@ -146,6 +146,13 @@ jobs:
           python scripts/check_openai_evals_refusal_smoke_result_v0_contract.py \
             --in openai_evals_v0/refusal_smoke_result.json
       
+      - name: Status patch sanity check (metrics + gate mirror)
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -c $'import json,sys\nfrom pathlib import Path\ns=Path("PULSE_safe_pack_v0/artifacts/status.json")\nif not s.exists():\n  print("::warning::status.json missing (nothing to sanity-check)")\n  sys.exit(0)\nd=json.loads(s.read_text(encoding="utf-8"))\nmetrics=d.get("metrics") or {}\ngates=d.get("gates") or {}\nreq_metrics=[\n  "openai_evals_refusal_smoke_total",\n  "openai_evals_refusal_smoke_passed",\n  "openai_evals_refusal_smoke_failed",\n  "openai_evals_refusal_smoke_errored",\n  "openai_evals_refusal_smoke_fail_rate",\n]\nmissing=[k for k in req_metrics if k not in metrics]\nif missing:\n  print("::warning::missing metrics in status.json: "+", ".join(missing))\nif "openai_evals_refusal_smoke_pass" not in gates:\n  print("::warning::missing gate openai_evals_refusal_smoke_pass in status.json gates")\nelse:\n  gp=gates.get("openai_evals_refusal_smoke_pass")\n  if d.get("openai_evals_refusal_smoke_pass") != gp:\n    print("::warning::top-level mirror openai_evals_refusal_smoke_pass mismatch vs status.gates")\n'
+
       - name: Gate monitor (warn on false; optionally fail on dispatch)
         if: ${{ always() }}
         shell: bash
@@ -217,3 +224,4 @@ jobs:
           path: |
             openai_evals_v0/refusal_smoke_result.json
             PULSE_safe_pack_v0/artifacts/status.json
+            openai_evals_v0/refusal_smoke.jsonl
