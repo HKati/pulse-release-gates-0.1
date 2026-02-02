@@ -70,6 +70,31 @@ If `--status-json` is provided:
 - Trace added under:
   - `openai_evals_v0.refusal_smoke`
 
+## Debugging / triage (shadow)
+
+If the shadow workflow fails or warns, use this checklist:
+
+1) **Download artifacts from the workflow run**
+   - `openai_evals_v0/refusal_smoke_result.json` (canonical output)
+   - `PULSE_safe_pack_v0/artifacts/status.json` (patched)
+
+2) **Interpret the failure mode**
+   - **Contract check failed** → producer/output drift (JSON shape or invariants changed).  
+     Fix: update the runner output or adjust the contract (prefer updating producer first).
+   - **Dry-run smoke test failed** → wiring regression (dataset parsing, status.json patching, trace block).  
+     Fix: run the smoke test locally and compare artifacts.
+   - **Gate monitor warning (`gate_pass != true`)** → diagnostic signal.  
+     In dry-run this may still be deterministic; inspect `result_counts` and `status`.
+
+3) **Where to look first**
+   - Step Summary (in Actions) shows: mode, status, gate_pass, and result_counts.
+   - Artifacts contain the exact JSON used by checks.
+
+4) **Manual runs**
+   - Use workflow_dispatch for `mode=real` only when secrets are configured.
+   - Prefer `mode=dry-run` for deterministic wiring validation.
+
+
 ## CI wiring (shadow)
 The repository includes a non-blocking shadow workflow to continuously validate the wiring and artifact shapes:
 
