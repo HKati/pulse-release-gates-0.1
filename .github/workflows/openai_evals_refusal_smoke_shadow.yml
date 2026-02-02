@@ -146,6 +146,17 @@ jobs:
           python scripts/check_openai_evals_refusal_smoke_result_v0_contract.py \
             --in openai_evals_v0/refusal_smoke_result.json
       
+      - name: Gate monitor (warn on false; optionally fail on dispatch)
+        if: ${{ always() }}
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          FAIL_ON_FALSE: ${{ github.event.inputs.fail_on_false }}
+        run: |
+          set -euo pipefail
+
+          python -c $'import json, os, sys\nfrom pathlib import Path\np=Path("openai_evals_v0/refusal_smoke_result.json")\nif not p.exists():\n  print("::warning::missing openai_evals_v0/refusal_smoke_result.json")\n  sys.exit(0)\ntry:\n  d=json.loads(p.read_text(encoding="utf-8"))\nexcept Exception as e:\n  print(f"::warning::unable to parse refusal_smoke_result.json: {e}")\n  sys.exit(0)\n\ngp=d.get("gate_pass")\nst=d.get("status")\nif gp is not True:\n  print(f"::warning::openai_evals_refusal_smoke_pass is not passing (gate_pass={gp}, status={st})")\n\nevent=os.getenv("EVENT_NAME","")\nfof=os.getenv("FAIL_ON_FALSE","false").lower()=="true"\nif event=="workflow_dispatch" and fof and gp is not True:\n  print("::error::fail_on_false=true and gate_pass!=true")\n  sys.exit(2)\n'
+
       - name: Run dry-run smoke test script
         if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.mode == 'dry-run' }}
         shell: bash
