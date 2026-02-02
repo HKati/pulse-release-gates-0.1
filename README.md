@@ -289,6 +289,19 @@ All of these are **fail‑closed only for their own job** (they never block the
 main PULSE gates) and are meant as a safe playground for the internal G‑field
 and GPT diagnostics.
 
+---
+
+## OpenAI evals pilot (shadow, non-blocking)
+We maintain a diagnostic “shadow” wiring for OpenAI Evals refusal smoke (v0).  
+Workflow: `.github/workflows/openai_evals_refusal_smoke_shadow.yml`
+
+- Push/PR: deterministic **dry-run** (no secrets, no network) + contract check + artifacts
+- workflow_dispatch: optional **real** mode (requires secrets)
+
+Artifacts typically include:
+- `openai_evals_v0/refusal_smoke_result.json`
+- `PULSE_safe_pack_v0/artifacts/status.json`
+- `openai_evals_v0/refusal_smoke.jsonl`
 
 ---
 
