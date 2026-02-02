@@ -37,6 +37,19 @@ on:
         options:
           - "false"
           - "true"
+      confirm_real:
+        description: "Safety latch for mode=real (set to yes to proceed)"
+        required: true
+        default: "no"
+        type: choice
+        options:
+          - "no"
+          - "yes"
+      max_dataset_lines:
+        description: "Max dataset lines allowed in real mode (budget guard)"
+        required: true
+        default: "200"
+        type: string
 
 permissions:
   contents: read
@@ -68,6 +81,54 @@ jobs:
           set -euo pipefail
           python -m pip install --upgrade pip
           python -m pip install pyyaml
+
+      - name: Real-run guardrails (workflow_dispatch only)
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          EVENT_NAME="${{ github.event_name }}"
+          if [[ "$EVENT_NAME" != "workflow_dispatch" ]]; then
+            echo "Not workflow_dispatch; skipping real-run guardrails."
+            exit 0
+          fi
+
+          MODE="${{ github.event.inputs.mode }}"
+          if [[ "$MODE" != "real" ]]; then
+            echo "mode=$MODE; not real; skipping real-run guardrails."
+            exit 0
+          fi
+
+          CONFIRM="${{ github.event.inputs.confirm_real }}"
+          if [[ "$CONFIRM" != "yes" ]]; then
+            echo "::error::mode=real requires confirm_real=yes"
+            exit 2
+          fi
+
+          MAX="${{ github.event.inputs.max_dataset_lines }}"
+          if ! [[ "$MAX" =~ ^[0-9]+$ ]]; then
+            echo "::error::max_dataset_lines must be an integer, got '$MAX'"
+            exit 2
+          fi
+
+          DATASET="openai_evals_v0/refusal_smoke.jsonl"
+          if [[ ! -f "$DATASET" ]]; then
+            echo "::error::dataset missing: $DATASET"
+            exit 2
+          fi
+
+          LINES="$(wc -l < "$DATASET" | tr -d ' ')"
+          if ! [[ "$LINES" =~ ^[0-9]+$ ]]; then
+            echo "::error::unable to count dataset lines for $DATASET"
+            exit 2
+          fi
+
+          if (( LINES > MAX )); then
+            echo "::error::dataset too large for real run: $LINES lines > max_dataset_lines=$MAX"
+            exit 2
+          fi
+
+          echo "Real-run guardrails OK: dataset lines=$LINES <= max_dataset_lines=$MAX"
 
       - name: Prepare status.json patch target
         shell: bash
