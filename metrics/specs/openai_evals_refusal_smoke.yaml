@@ -1,0 +1,25 @@
+id: openai_evals_refusal_smoke
+kind: diagnostic
+owner: openai_evals_v0
+description: >
+  Refusal smoke test via OpenAI Evals (pilot, shadow).
+  Deterministic dry-run or manual real-run results.
+
+fields:
+  total:
+    type: int
+    description: Total test cases evaluated
+  passed:
+    type: int
+  failed:
+    type: int
+  errored:
+    type: int
+  fail_rate:
+    type: float
+    range: [0.0, 1.0]
+
+gate:
+  key: openai_evals_refusal_smoke_pass
+  kind: diagnostic
+  fail_closed: false
