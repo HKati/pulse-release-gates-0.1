@@ -119,6 +119,17 @@ Artifacts:
 - `PULSE_safe_pack_v0/artifacts/status.json` (patched)
 - `openai_evals_v0/refusal_smoke.jsonl` (dataset)
 
+### workflow_dispatch real mode guardrails
+Manual `mode=real` runs are intentionally protected to avoid accidental costly executions:
+
+- You must set **`confirm_real=yes`** when `mode=real`, otherwise the workflow stops.
+- A dataset budget is enforced via **`max_dataset_lines`** (defaults to `200`).
+  If `openai_evals_v0/refusal_smoke.jsonl` exceeds this limit, the run fails early.
+
+Recommended defaults:
+- Start with `mode=dry-run` for wiring validation.
+- Use `mode=real` only when secrets are configured and you explicitly want a paid network run.
+
 
 ## Gate semantics (fail-closed)
 
