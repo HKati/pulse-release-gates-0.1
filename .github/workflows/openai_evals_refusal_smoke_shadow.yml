@@ -93,7 +93,6 @@ jobs:
             fi
           fi
 
-
       - name: Run refusal smoke (OpenAI Evals v0)
         shell: bash
         env:
@@ -145,78 +144,120 @@ jobs:
           set -euo pipefail
           python scripts/check_openai_evals_refusal_smoke_result_v0_contract.py \
             --in openai_evals_v0/refusal_smoke_result.json
-      
-      - name: Status patch sanity check (metrics + gate mirror)
-        if: always()
+
+      - name: Status patch sanity check (warning-only)
+        if: ${{ always() }}
         shell: bash
         run: |
           set -euo pipefail
-          python -c $'import json,sys\nfrom pathlib import Path\ns=Path("PULSE_safe_pack_v0/artifacts/status.json")\nif not s.exists():\n  print("::warning::status.json missing (nothing to sanity-check)")\n  sys.exit(0)\nd=json.loads(s.read_text(encoding="utf-8"))\nmetrics=d.get("metrics") or {}\ngates=d.get("gates") or {}\nreq_metrics=[\n  "openai_evals_refusal_smoke_total",\n  "openai_evals_refusal_smoke_passed",\n  "openai_evals_refusal_smoke_failed",\n  "openai_evals_refusal_smoke_errored",\n  "openai_evals_refusal_smoke_fail_rate",\n]\nmissing=[k for k in req_metrics if k not in metrics]\nif missing:\n  print("::warning::missing metrics in status.json: "+", ".join(missing))\nif "openai_evals_refusal_smoke_pass" not in gates:\n  print("::warning::missing gate openai_evals_refusal_smoke_pass in status.json gates")\nelse:\n  gp=gates.get("openai_evals_refusal_smoke_pass")\n  if d.get("openai_evals_refusal_smoke_pass") != gp:\n    print("::warning::top-level mirror openai_evals_refusal_smoke_pass mismatch vs status.gates")\n'
+          python -c $'import json,sys\nfrom pathlib import Path\n\ns=Path("PULSE_safe_pack_v0/artifacts/status.json")\nif not s.exists():\n  print("::warning::status.json missing (nothing to sanity-check)")\n  sys.exit(0)\n\ntry:\n  d=json.loads(s.read_text(encoding="utf-8"))\nexcept Exception as e:\n  print(f"::warning::status.json is not valid JSON: {e}")\n  sys.exit(0)\n\nif not isinstance(d, dict):\n  print(f"::warning::status.json top-level is not an object: {type(d).__name__}")\n  sys.exit(0)\n\nmetrics=d.get("metrics")\nif metrics is None:\n  metrics={}\nif not isinstance(metrics, dict):\n  print(f"::warning::status.json metrics is not an object: {type(metrics).__name__}")\n  metrics={}\n\ngates=d.get("gates")\nif gates is None:\n  gates={}\nif not isinstance(gates, dict):\n  print(f"::warning::status.json gates is not an object: {type(gates).__name__}")\n  gates={}\n\nreq=[\n  "openai_evals_refusal_smoke_total",\n  "openai_evals_refusal_smoke_passed",\n  "openai_evals_refusal_smoke_failed",\n  "openai_evals_refusal_smoke_errored",\n  "openai_evals_refusal_smoke_fail_rate",\n]\nmissing=[k for k in req if k not in metrics]\nif missing:\n  print("::warning::missing metrics in status.json: "+", ".join(missing))\n\nkey="openai_evals_refusal_smoke_pass"\nif key not in gates:\n  print("::warning::missing gate "+key+" in status.json gates")\nelse:\n  gp=gates.get(key)\n  if d.get(key) != gp:\n    print("::warning::top-level mirror "+key+" mismatch vs status.gates")\n\nsys.exit(0)\n'
 
       - name: Gate monitor (warn on false; optionally fail on dispatch)
         if: ${{ always() }}
         shell: bash
-        env:
-          EVENT_NAME: ${{ github.event_name }}
-          FAIL_ON_FALSE: ${{ github.event.inputs.fail_on_false }}
         run: |
           set -euo pipefail
 
-          python -c $'import json, os, sys\nfrom pathlib import Path\np=Path("openai_evals_v0/refusal_smoke_result.json")\nif not p.exists():\n  print("::warning::missing openai_evals_v0/refusal_smoke_result.json")\n  sys.exit(0)\ntry:\n  d=json.loads(p.read_text(encoding="utf-8"))\nexcept Exception as e:\n  print(f"::warning::unable to parse refusal_smoke_result.json: {e}")\n  sys.exit(0)\n\ngp=d.get("gate_pass")\nst=d.get("status")\nif gp is not True:\n  print(f"::warning::openai_evals_refusal_smoke_pass is not passing (gate_pass={gp}, status={st})")\n\nevent=os.getenv("EVENT_NAME","")\nfof=os.getenv("FAIL_ON_FALSE","false").lower()=="true"\nif event=="workflow_dispatch" and fof and gp is not True:\n  print("::error::fail_on_false=true and gate_pass!=true")\n  sys.exit(2)\n'
+          EVENT_NAME="${{ github.event_name }}"
+          FAIL_ON_FALSE="false"
+          if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            FAIL_ON_FALSE="${{ github.event.inputs.fail_on_false }}"
+          fi
+
+          export EVENT_NAME FAIL_ON_FALSE
+
+          python -c $'import json, os, sys\nfrom pathlib import Path\np=Path("openai_evals_v0/refusal_smoke_result.json")\nif not p.exists():\n  print("::warning::missing openai_evals_v0/refusal_smoke_result.json")\n  sys.exit(0)\ntry:\n  d=json.loads(p.read_text(encoding="utf-8"))\nexcept Exception as e:\n  print(f"::warning::unable to parse refusal_smoke_result.json: {e}")\n  sys.exit(0)\n\ngp=d.get("gate_pass")\nst=d.get("status")\nif gp is not True:\n  print(f"::warning::openai_evals_refusal_smoke_pass is not passing (gate_pass={gp}, status={st})")\n\nevent=os.getenv("EVENT_NAME","")\nfof=os.getenv("FAIL_ON_FALSE","false").lower()==\"true\"\nif event==\"workflow_dispatch\" and fof and gp is not True:\n  print(\"::error::fail_on_false=true and gate_pass!=true\")\n  sys.exit(2)\n'
 
       - name: Run dry-run smoke test script
-        if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.mode == 'dry-run' }}
         shell: bash
         run: |
           set -euo pipefail
-          python tests/test_openai_evals_refusal_smoke_dry_run_smoke.py
+          EVENT_NAME="${{ github.event_name }}"
+          MODE="dry-run"
+          if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            MODE="${{ github.event.inputs.mode }}"
+          fi
+
+          if [[ "$MODE" == "dry-run" ]]; then
+            python tests/test_openai_evals_refusal_smoke_dry_run_smoke.py
+          else
+            echo "Skipping dry-run smoke test script (mode=real)."
+          fi
 
       - name: Workflow summary
-        if: always()
+        if: ${{ always() }}
         shell: bash
         run: |
           set -euo pipefail
           python - <<'PY'
+          import hashlib
           import json
           import os
           from pathlib import Path
-
-          summary_path = Path(os.environ["GITHUB_STEP_SUMMARY"])
-          p = Path("openai_evals_v0/refusal_smoke_result.json")
 
           lines = []
           lines.append("## OpenAI Evals • Refusal smoke (shadow)")
           lines.append("")
 
+          # Run metadata
+          run_no = os.getenv("GITHUB_RUN_NUMBER", "")
+          sha = (os.getenv("GITHUB_SHA", "") or "")[:7]
+          ref = os.getenv("GITHUB_REF_NAME", "")
+          if run_no or sha or ref:
+              lines.append(f"- run: `{run_no}`  sha: `{sha}`  ref: `{ref}`")
+
+          # Dataset fingerprint (for provenance)
+          ds = Path("openai_evals_v0/refusal_smoke.jsonl")
+          if ds.exists():
+              try:
+                  h = hashlib.sha256()
+                  n = 0
+                  with ds.open("rb") as f:
+                      for bline in f:
+                          n += 1
+                          h.update(bline)
+                  lines.append(f"- dataset: `{ds}` (lines={n}, sha256={h.hexdigest()[:12]})")
+              except Exception as e:
+                  lines.append(f"- dataset: `{ds}` (fingerprint error: {e})")
+          else:
+              lines.append("- dataset: `openai_evals_v0/refusal_smoke.jsonl` (missing)")
+
+          lines.append("")
+
+          p = Path("openai_evals_v0/refusal_smoke_result.json")
           if not p.exists():
               lines.append("_No refusal_smoke_result.json produced._")
-              summary_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
-              raise SystemExit(0)
+          else:
+              try:
+                  d = json.loads(p.read_text(encoding="utf-8"))
+                  rc = d.get("result_counts") or {}
+                  lines.append(f"- mode: `{'dry-run' if d.get('dry_run') else 'real'}`")
+                  lines.append(f"- model: `{d.get('model')}`")
+                  lines.append(f"- status: `{d.get('status')}`")
+                  lines.append(f"- gate_key: `{d.get('gate_key')}`")
+                  lines.append(f"- gate_pass: **{d.get('gate_pass')}**")
+                  lines.append("")
+                  lines.append("### Result counts")
+                  lines.append("")
+                  lines.append(f"- total: `{rc.get('total')}`")
+                  lines.append(f"- passed: `{rc.get('passed')}`")
+                  lines.append(f"- failed: `{rc.get('failed')}`")
+                  lines.append(f"- errored: `{rc.get('errored')}`")
+                  lines.append(f"- fail_rate: `{d.get('fail_rate')}`")
+                  if d.get("report_url"):
+                      lines.append(f"- report_url: `{d.get('report_url')}`")
+              except Exception as e:
+                  lines.append(f"_Unable to build summary from refusal_smoke_result.json: {e}_")
 
-          d = json.loads(p.read_text(encoding="utf-8"))
-          rc = d.get("result_counts") or {}
-
-          lines.append(f"- mode: `{'dry-run' if d.get('dry_run') else 'real'}`")
-          lines.append(f"- model: `{d.get('model')}`")
-          lines.append(f"- status: `{d.get('status')}`")
-          lines.append(f"- gate_key: `{d.get('gate_key')}`")
-          lines.append(f"- gate_pass: **{d.get('gate_pass')}**")
-          lines.append("")
-          lines.append("### Result counts")
-          lines.append("")
-          lines.append(f"- total: `{rc.get('total')}`")
-          lines.append(f"- passed: `{rc.get('passed')}`")
-          lines.append(f"- failed: `{rc.get('failed')}`")
-          lines.append(f"- errored: `{rc.get('errored')}`")
-          lines.append(f"- fail_rate: `{d.get('fail_rate')}`")
-          if d.get("report_url"):
-              lines.append(f"- report_url: `{d.get('report_url')}`")
-
-          summary_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+          summary_env = os.getenv("GITHUB_STEP_SUMMARY")
+          if summary_env:
+              Path(summary_env).write_text("\n".join(lines) + "\n", encoding="utf-8")
+          else:
+              print("\n".join(lines))
           PY
 
       - name: Upload artifacts
-        if: always()
+        if: ${{ always() }}
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # pinned
         with:
           name: openai-evals-refusal-smoke-shadow
