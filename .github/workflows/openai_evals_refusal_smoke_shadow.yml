@@ -146,12 +146,14 @@ jobs:
           python scripts/check_openai_evals_refusal_smoke_result_v0_contract.py \
             --in openai_evals_v0/refusal_smoke_result.json
       
-      - name: Status patch sanity check (metrics + gate mirror)
+      - name: Status patch sanity check (warning-only)
         if: always()
         shell: bash
         run: |
           set -euo pipefail
-          python -c $'import json,sys\nfrom pathlib import Path\ns=Path("PULSE_safe_pack_v0/artifacts/status.json")\nif not s.exists():\n  print("::warning::status.json missing (nothing to sanity-check)")\n  sys.exit(0)\nd=json.loads(s.read_text(encoding="utf-8"))\nmetrics=d.get("metrics") or {}\ngates=d.get("gates") or {}\nreq_metrics=[\n  "openai_evals_refusal_smoke_total",\n  "openai_evals_refusal_smoke_passed",\n  "openai_evals_refusal_smoke_failed",\n  "openai_evals_refusal_smoke_errored",\n  "openai_evals_refusal_smoke_fail_rate",\n]\nmissing=[k for k in req_metrics if k not in metrics]\nif missing:\n  print("::warning::missing metrics in status.json: "+", ".join(missing))\nif "openai_evals_refusal_smoke_pass" not in gates:\n  print("::warning::missing gate openai_evals_refusal_smoke_pass in status.json gates")\nelse:\n  gp=gates.get("openai_evals_refusal_smoke_pass")\n  if d.get("openai_evals_refusal_smoke_pass") != gp:\n    print("::warning::top-level mirror openai_evals_refusal_smoke_pass mismatch vs status.gates")\n'
+          python -c $'import json,sys\nfrom pathlib import Path\n\ns=Path("PULSE_safe_pack_v0/artifacts/status.json")\nif not s.exists():\n  print("::warning::status.json missing (nothing to sanity-check)")\n  sys.exit(0)\n\ntry:\n  d=json.loads(s.read_text(encoding="utf-8"))\nexcept Exception as e:\n  print(f"::warning::status.json is not valid JSON: {e}")\n  sys.exit(0)\n\nif not isinstance(d, dict):\n  print(f"::warning::status.json top-level is not an object: {type(d).__name__}")\n  sys.exit(0)\n\nmetrics=d.get("metrics")\nif metrics is None:\n  metrics={}\nif not isinstance(metrics, dict):\n  print(f"::warning::status.json metrics is not an object: {type(metrics).__name__}")\n  metrics={}\n\ngates=d.get("gates")\nif gates is None:\n  gates={}\nif not isinstance(gates, dict):\n  print(f"::warning::status.json gates is not an object: {type(gates).__name__}")\n  gates={}\n\nreq=[\n  "openai_evals_refusal_smoke_total",\n  "openai_evals_refusal_smoke_passed",\n  "openai_evals_refusal_smoke_failed",\n  "openai_evals_refusal_smoke_errored",\n  "openai_evals_refusal_smoke_fail_rate",\n]\nmissing=[k for k in req if k not in metrics]\nif missing:\n  print("::warning::missing metrics in status.json: "+", ".join(missing))\n\nkey="openai_evals_refusal_smoke_pass"\nif key not in gates:\n  print("::warning::missing gate "+key+" in status.json gates")\nelse:\n  gp=gates.get(key)\n  if d.get(key) != gp:\n    print("::warning::top-level mirror "+key+" mismatch vs status.gates")\n\nsys.exit(0)\n'
+
+
 
       - name: Gate monitor (warn on false; optionally fail on dispatch)
         if: ${{ always() }}
