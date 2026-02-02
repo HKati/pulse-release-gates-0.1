@@ -120,10 +120,16 @@ UI and Pages surfaces must be pure readers/renderers of immutable run artefacts.
 ```console
 python PULSE_safe_pack_v0/tools/run_all.py
 
+# Optional (diagnostic): OpenAI evals refusal smoke v0 dry-run (no network / no API key)
+python openai_evals_v0/run_refusal_smoke_to_pulse.py \
+  --dry-run \
+  --dataset openai_evals_v0/refusal_smoke.jsonl \
+  --out openai_evals_v0/refusal_smoke_result.json \
+  --status-json PULSE_safe_pack_v0/artifacts/status.json
+
 python PULSE_safe_pack_v0/tools/check_gates.py \
   --status PULSE_safe_pack_v0/artifacts/status.json \
   --require $(python tools/policy_to_require_args.py --policy pulse_gate_policy_v0.yml --set required)
-
 
 
 ```
