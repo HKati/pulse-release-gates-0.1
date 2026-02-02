@@ -134,6 +134,17 @@ python PULSE_safe_pack_v0/tools/check_gates.py \
 
 ```
 
+### Debugging (when CI warns/fails)
+If the OpenAI evals refusal smoke shadow workflow warns or fails, start here:
+- Workflow: `.github/workflows/openai_evals_refusal_smoke_shadow.yml`
+- Inspect the Step Summary and download artifacts from the run:
+  - `openai_evals_v0/refusal_smoke_result.json`
+  - `PULSE_safe_pack_v0/artifacts/status.json`
+
+More details: see `openai_evals_v0/README.md` → “Debugging / triage (shadow)”.
+
+---
+
 **See the latest Quality Ledger (live):** https://hkati.github.io/pulse-release-gates-0.1/
 
 **Artifacts**
