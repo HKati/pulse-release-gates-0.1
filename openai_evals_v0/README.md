@@ -70,6 +70,31 @@ If `--status-json` is provided:
 - Trace added under:
   - `openai_evals_v0.refusal_smoke`
 
+## CI wiring (shadow)
+The repository includes a non-blocking shadow workflow to continuously validate the wiring and artifact shapes:
+
+- Workflow: `.github/workflows/openai_evals_refusal_smoke_shadow.yml`
+- Push/PR runs are **dry-run** only (no API calls, no secrets required).
+- Manual runs via **workflow_dispatch** can run `mode=real` (requires secrets).
+
+What the workflow does:
+1. Runs the runner in dry-run mode (deterministic).
+2. Validates `openai_evals_v0/refusal_smoke_result.json` via the contract checker:
+   `scripts/check_openai_evals_refusal_smoke_result_v0_contract.py`
+3. Runs the dry-run smoke test script:
+   `tests/test_openai_evals_refusal_smoke_dry_run_smoke.py`
+4. Emits annotations:
+   - contract violations fail the job (fail-closed)
+   - sanity checks are warning-only
+   - gate monitor warns if `gate_pass != true` (optional hard-fail only on workflow_dispatch with `fail_on_false=true`)
+5. Uploads artifacts for inspection.
+
+Artifacts:
+- `openai_evals_v0/refusal_smoke_result.json` (canonical output)
+- `PULSE_safe_pack_v0/artifacts/status.json` (patched)
+- `openai_evals_v0/refusal_smoke.jsonl` (dataset)
+
+
 ## Gate semantics (fail-closed)
 
 The smoke gate only passes when:
