@@ -7,10 +7,10 @@ What this locks in:
 - refusal_smoke_result.json is contract-valid.
 - Optional status.json patching works and is deterministic.
 - Status patching is additive (does not wipe existing fields).
+- --fail-on-false exits non-zero when gate_pass is false, but still writes artifacts.
 
 Notes:
-- This file is runnable directly (python ...), but also exposes pytest entrypoints
-  so CI that uses `pytest` will still execute these checks.
+- Runnable directly (python ...), and exposes pytest entrypoints so CI running `pytest` executes it.
 """
 
 from __future__ import annotations
@@ -32,6 +32,11 @@ def _read_json(p: Path) -> dict:
 
 def _run(cmd: list[str]) -> None:
     subprocess.check_call(cmd)
+
+
+def _run_rc(cmd: list[str]) -> int:
+    p = subprocess.run(cmd, check=False)
+    return p.returncode
 
 
 def _write_seed_status(path: Path) -> None:
@@ -183,6 +188,58 @@ def _test_empty_dataset_fails_closed(root: Path) -> None:
         _assert_has_gate(s, expect=False)
 
 
+def _test_fail_on_false_exits_nonzero_but_writes_outputs(root: Path) -> None:
+    runner = root / "openai_evals_v0" / "run_refusal_smoke_to_pulse.py"
+    contract = root / "scripts" / "check_openai_evals_refusal_smoke_result_v0_contract.py"
+
+    assert runner.exists(), f"missing: {runner}"
+    assert contract.exists(), f"missing: {contract}"
+
+    with tempfile.TemporaryDirectory() as d:
+        base = Path(d)
+        empty = base / "empty.jsonl"
+        empty.write_text("", encoding="utf-8")
+
+        out = base / "refusal_smoke_result.json"
+        status = base / "status.json"
+
+        _write_seed_status(status)
+
+        rc = _run_rc(
+            [
+                sys.executable,
+                str(runner),
+                "--dry-run",
+                "--fail-on-false",
+                "--dataset",
+                str(empty),
+                "--out",
+                str(out),
+                "--status-json",
+                str(status),
+            ]
+        )
+
+        # The runner currently uses exit code 1 when --fail-on-false is set and gate_pass is false.
+        assert rc == 1, f"expected returncode=1 for --fail-on-false when gate fails, got {rc}"
+
+
+        # Even on failure, artifacts must exist for debugging
+        assert out.exists(), "runner must write refusal_smoke_result.json even when --fail-on-false triggers"
+        assert status.exists(), "runner must patch/write status.json even when --fail-on-false triggers"
+
+        # Contract must still pass (output is still a valid artifact)
+        _run([sys.executable, str(contract), "--in", str(out)])
+
+        r = _read_json(out)
+        assert (r.get("result_counts") or {}).get("total", 123456789) == 0, "expected empty dataset => total == 0"
+        assert r.get("gate_pass") is False, "expected gate_pass false in fail-closed case"
+
+        s = _read_json(status)
+        _assert_seed_preserved(s)
+        _assert_has_gate(s, expect=False)
+
+
 # -----------------------
 # Pytest entrypoints
 # -----------------------
@@ -195,6 +252,10 @@ def test_empty_dataset_dry_run_fails_closed_additive_patch() -> None:
     _test_empty_dataset_fails_closed(_repo_root())
 
 
+def test_fail_on_false_writes_artifacts_and_exits_2() -> None:
+    _test_fail_on_false_exits_nonzero_but_writes_outputs(_repo_root())
+
+
 # -----------------------
 # Optional direct runner
 # -----------------------
@@ -203,7 +264,8 @@ def main() -> int:
     root = _repo_root()
     _test_non_empty_dataset(root)
     _test_empty_dataset_fails_closed(root)
-    print("OK: openai_evals_v0 refusal smoke dry-run wiring is stable + contract-valid + additive status patch")
+    _test_fail_on_false_exits_nonzero_but_writes_outputs(root)
+    print("OK: openai_evals_v0 refusal smoke dry-run wiring is stable + contract-valid + additive status patch + fail-on-false semantics")
     return 0
 
 
