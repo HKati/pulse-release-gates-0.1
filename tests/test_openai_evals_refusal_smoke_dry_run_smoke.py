@@ -97,6 +97,14 @@ def _assert_has_gate(status: dict, expect: bool) -> None:
     assert status.get("openai_evals_refusal_smoke_pass") is expect, "top-level mirror missing/mismatch"
 
 
+def _assert_trace_has_provenance(status: dict, expected_lines: int, expected_sha: str) -> None:
+    ev = (status.get("openai_evals_v0") or {}).get("refusal_smoke") or {}
+    assert ev.get("dataset_lines") == expected_lines, (
+        f"trace dataset_lines mismatch: {ev.get('dataset_lines')} != {expected_lines}"
+    )
+    assert ev.get("dataset_sha256") == expected_sha, "trace dataset_sha256 mismatch"
+
+
 def _test_non_empty_dataset(root: Path) -> None:
     runner = root / "openai_evals_v0" / "run_refusal_smoke_to_pulse.py"
     contract = root / "scripts" / "check_openai_evals_refusal_smoke_result_v0_contract.py"
@@ -148,6 +156,7 @@ def _test_non_empty_dataset(root: Path) -> None:
         _assert_seed_preserved(s)
         _assert_has_metrics(s)
         _assert_has_gate(s, expect=True)
+        _assert_trace_has_provenance(s, expected_lines, expected_sha)
 
         # Trace block should exist (non-breaking if shape expands later)
         ev = (s.get("openai_evals_v0") or {}).get("refusal_smoke") or {}
@@ -203,6 +212,7 @@ def _test_empty_dataset_fails_closed(root: Path) -> None:
         _assert_seed_preserved(s)
         _assert_has_metrics(s)
         _assert_has_gate(s, expect=False)
+        _assert_trace_has_provenance(s, expected_lines, expected_sha)
 
 
 def _test_fail_on_false_exits_nonzero_but_writes_outputs(root: Path) -> None:
@@ -258,6 +268,7 @@ def _test_fail_on_false_exits_nonzero_but_writes_outputs(root: Path) -> None:
         s = _read_json(status)
         _assert_seed_preserved(s)
         _assert_has_gate(s, expect=False)
+        _assert_trace_has_provenance(s, expected_lines, expected_sha)
 
 
 # -----------------------
