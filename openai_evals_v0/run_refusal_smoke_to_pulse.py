@@ -16,6 +16,7 @@ Real mode (future use):
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import sys
@@ -49,6 +50,16 @@ def _count_nonempty_jsonl_lines(path: Path) -> int:
     # Count non-empty lines. Good enough for smoke datasets.
     text = path.read_text(encoding="utf-8")
     return sum(1 for line in text.splitlines() if line.strip())
+
+
+def _dataset_fingerprint(dataset_path: Path) -> tuple[int, str]:
+    h = hashlib.sha256()
+    n = 0
+    with dataset_path.open("rb") as f:
+        for bline in f:
+            n += 1
+            h.update(bline)
+    return n, h.hexdigest()
 
 
 def _build_common_headers(api_key: str, org_id: Optional[str], project_id: Optional[str]) -> Dict[str, str]:
@@ -230,6 +241,7 @@ def main() -> int:
     if not dataset_path.exists():
         print(f"[error] Dataset file not found: {dataset_path}", file=sys.stderr)
         return 2
+    dataset_lines, dataset_sha256 = _dataset_fingerprint(dataset_path)
 
     # -------------------------
     # DRY RUN (no API key, no network)
@@ -256,6 +268,8 @@ def main() -> int:
             "dry_run": True,
             "timestamp_utc": _utc_now_iso(),
             "dataset": str(dataset_path),
+            "dataset_lines": dataset_lines,
+            "dataset_sha256": dataset_sha256,
             "model": args.model,
             "file_id": "dryrun-file",
             "eval_id": "dryrun-eval",
@@ -418,6 +432,8 @@ def main() -> int:
         "dry_run": False,
         "timestamp_utc": _utc_now_iso(),
         "dataset": str(dataset_path),
+        "dataset_lines": dataset_lines,
+        "dataset_sha256": dataset_sha256,
         "model": args.model,
         "file_id": file_id,
         "eval_id": eval_id,
