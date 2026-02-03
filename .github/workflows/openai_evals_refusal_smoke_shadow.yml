@@ -246,7 +246,7 @@ jobs:
           fi
 
       - name: Workflow summary
-        if: ${{ always() }}
+        if: always()
         shell: bash
         run: |
           set -euo pipefail
@@ -275,8 +275,25 @@ jobs:
               summary_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
               raise SystemExit(0)
 
-          d = json.loads(p.read_text(encoding="utf-8"))
-          rc = d.get("result_counts") or {}
+          # Best-effort JSON parse: never fail the job because the summary can't parse.
+          try:
+              raw = p.read_text(encoding="utf-8")
+              d = json.loads(raw)
+              if not isinstance(d, dict):
+                  raise TypeError(f"top-level JSON is {type(d).__name__}, expected object")
+          except Exception as e:
+              # GitHub annotation + summary note, then exit 0.
+              print(f"::warning::unable to parse {p.as_posix()}: {e}")
+              lines.append("")
+              lines.append(f"⚠️ Unable to parse `{p.as_posix()}`.")
+              lines.append("")
+              lines.append(f"- error: `{e}`")
+              summary_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+              raise SystemExit(0)
+
+          rc = d.get("result_counts")
+          if not isinstance(rc, dict):
+              rc = {}
 
           # Canonical fields from the artifact (no recomputation here)
           lines.append(f"- mode: `{'dry-run' if d.get('dry_run') else 'real'}`")
@@ -294,7 +311,6 @@ jobs:
           if ds_lines is not None:
               lines.append(f"- dataset_lines: `{ds_lines}`")
           if isinstance(ds_sha, str) and ds_sha.strip():
-              # show short prefix in summary; full value is in the artifact
               lines.append(f"- dataset_sha256: `{ds_sha[:12]}`")
 
           lines.append("")
