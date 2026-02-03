@@ -52,8 +52,12 @@ python openai_evals_v0/run_refusal_smoke_to_pulse.py \
 
 ## Outputs
 
-- `openai_evals_v0/refusal_smoke_result.json`  
+- `openai_evals_v0/refusal_smoke_result.json`
   Contains eval/run IDs, report URL (if provided), status, and result counts.
+
+  Dataset provenance:
+  - `dataset_lines`: line count of the dataset file
+  - `dataset_sha256`: sha256 of the dataset file bytes
 
 If `--status-json` is provided:
 
