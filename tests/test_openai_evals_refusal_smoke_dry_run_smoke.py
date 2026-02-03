@@ -244,6 +244,19 @@ def main() -> int:
         return 2
     dataset_lines, dataset_sha256 = _dataset_fingerprint(dataset_path)
 
+    # CI safety latch:
+    # In GitHub Actions PR/push runs we intentionally do not have OPENAI_API_KEY.
+    # If a caller forgets to pass --dry-run, do not fail the workflow; fall back to dry-run.
+    if not args.dry_run:
+        in_actions = os.getenv("GITHUB_ACTIONS", "").lower() == "true"
+        event_name = os.getenv("GITHUB_EVENT_NAME", "")
+        if in_actions and event_name in ("pull_request", "push") and not _get_api_key():
+            print(
+                f"::warning::OPENAI_API_KEY is not set for {event_name}; falling back to --dry-run.",
+                file=sys.stderr,
+            )
+            args.dry_run = True
+
     # -------------------------
     # DRY RUN (no API key, no network)
     # -------------------------
