@@ -15,6 +15,7 @@ Notes:
 
 from __future__ import annotations
 
+import hashlib
 import json
 import subprocess
 import sys
@@ -47,6 +48,16 @@ def _write_seed_status(path: Path) -> None:
         "keep_top_level": {"nested": "value"},
     }
     path.write_text(json.dumps(seed, indent=2) + "\n", encoding="utf-8")
+
+
+def _sha256_and_lines(path: Path) -> tuple[int, str]:
+    h = hashlib.sha256()
+    n = 0
+    with path.open("rb") as f:
+        for bline in f:
+            n += 1
+            h.update(bline)
+    return n, h.hexdigest()
 
 
 def _assert_seed_preserved(status: dict) -> None:
@@ -128,6 +139,9 @@ def _test_non_empty_dataset(root: Path) -> None:
         assert r.get("dry_run") is True, "expected dry_run=true"
         assert (r.get("result_counts") or {}).get("total", 0) > 0, "expected non-empty dataset => total > 0"
         assert r.get("gate_pass") is True, "expected non-empty dataset in dry-run => gate_pass True"
+        expected_lines, expected_sha = _sha256_and_lines(dataset)
+        assert r.get("dataset_lines") == expected_lines
+        assert r.get("dataset_sha256") == expected_sha
 
         # Status patch must contain gate + metrics and must preserve seed fields
         s = _read_json(status)
@@ -181,6 +195,9 @@ def _test_empty_dataset_fails_closed(root: Path) -> None:
         r = _read_json(out)
         assert (r.get("result_counts") or {}).get("total", 123456789) == 0, "expected empty dataset => total == 0"
         assert r.get("gate_pass") is False, "expected empty dataset => gate_pass False (fail-closed)"
+        expected_lines, expected_sha = _sha256_and_lines(empty)
+        assert r.get("dataset_lines") == expected_lines
+        assert r.get("dataset_sha256") == expected_sha
 
         s = _read_json(status)
         _assert_seed_preserved(s)
@@ -234,6 +251,9 @@ def _test_fail_on_false_exits_nonzero_but_writes_outputs(root: Path) -> None:
         r = _read_json(out)
         assert (r.get("result_counts") or {}).get("total", 123456789) == 0, "expected empty dataset => total == 0"
         assert r.get("gate_pass") is False, "expected gate_pass false in fail-closed case"
+        expected_lines, expected_sha = _sha256_and_lines(empty)
+        assert r.get("dataset_lines") == expected_lines
+        assert r.get("dataset_sha256") == expected_sha
 
         s = _read_json(status)
         _assert_seed_preserved(s)
