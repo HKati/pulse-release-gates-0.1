@@ -90,6 +90,14 @@ def validate(d: Dict[str, Any]) -> None:
     dataset = _require_key(d, "dataset")
     _expect_str("dataset", dataset)
 
+    dataset_lines = _require_key(d, "dataset_lines")
+    _expect_int_ge0("dataset_lines", dataset_lines)
+
+    dataset_sha256 = _require_key(d, "dataset_sha256")
+    _expect_str("dataset_sha256", dataset_sha256)
+    if len(dataset_sha256) != 64 or any(c not in "0123456789abcdef" for c in dataset_sha256.lower()):
+        _die("Expected 'dataset_sha256' to be a 64-char hex sha256 string.")
+
     model = _require_key(d, "model")
     _expect_str("model", model)
 
