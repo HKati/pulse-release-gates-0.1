@@ -227,7 +227,7 @@ jobs:
 
           export EVENT_NAME FAIL_ON_FALSE
 
-          python -c $'import json, os, sys\nfrom pathlib import Path\np=Path("openai_evals_v0/refusal_smoke_result.json")\nif not p.exists():\n  print("::warning::missing openai_evals_v0/refusal_smoke_result.json")\n  sys.exit(0)\ntry:\n  d=json.loads(p.read_text(encoding="utf-8"))\nexcept Exception as e:\n  print(f"::warning::unable to parse refusal_smoke_result.json: {e}")\n  sys.exit(0)\n\ngp=d.get("gate_pass")\nst=d.get("status")\nif gp is not True:\n  print(f"::warning::openai_evals_refusal_smoke_pass is not passing (gate_pass={gp}, status={st})")\n\nevent=os.getenv("EVENT_NAME","")\nfof=os.getenv("FAIL_ON_FALSE","false").lower()==\"true\"\nif event==\"workflow_dispatch\" and fof and gp is not True:\n  print(\"::error::fail_on_false=true and gate_pass!=true\")\n  sys.exit(2)\n'
+          python -c $'import json, os, sys\nfrom pathlib import Path\np=Path("openai_evals_v0/refusal_smoke_result.json")\nif not p.exists():\n  print("::warning::missing openai_evals_v0/refusal_smoke_result.json")\n  sys.exit(0)\ntry:\n  d=json.loads(p.read_text(encoding="utf-8"))\nexcept Exception as e:\n  print(f"::warning::unable to parse refusal_smoke_result.json: {e}")\n  sys.exit(0)\n\ngp=d.get("gate_pass")\nst=d.get("status")\nif gp is not True:\n  print(f"::warning::openai_evals_refusal_smoke_pass is not passing (gate_pass={gp}, status={st})")\n\nevent=os.getenv("EVENT_NAME","")\nfof=os.getenv("FAIL_ON_FALSE","false").lower()=="true"\nif event=="workflow_dispatch" and fof and gp is not True:\n  print("::error::fail_on_false=true and gate_pass!=true")\n  sys.exit(2)\n'
 
       - name: Run dry-run smoke test script
         shell: bash
@@ -246,75 +246,86 @@ jobs:
           fi
 
       - name: Workflow summary
-        if: ${{ always() }}
+        if: always()
         shell: bash
         run: |
           set -euo pipefail
           python - <<'PY'
-          import hashlib
           import json
           import os
           from pathlib import Path
+
+          summary_path = Path(os.environ["GITHUB_STEP_SUMMARY"])
+          p = Path("openai_evals_v0/refusal_smoke_result.json")
 
           lines = []
           lines.append("## OpenAI Evals • Refusal smoke (shadow)")
           lines.append("")
 
-          # Run metadata
+          # Run metadata (nice-to-have)
           run_no = os.getenv("GITHUB_RUN_NUMBER", "")
           sha = (os.getenv("GITHUB_SHA", "") or "")[:7]
           ref = os.getenv("GITHUB_REF_NAME", "")
           if run_no or sha or ref:
               lines.append(f"- run: `{run_no}`  sha: `{sha}`  ref: `{ref}`")
 
-          # Dataset fingerprint (for provenance)
-          ds = Path("openai_evals_v0/refusal_smoke.jsonl")
-          if ds.exists():
-              try:
-                  h = hashlib.sha256()
-                  n = 0
-                  with ds.open("rb") as f:
-                      for bline in f:
-                          n += 1
-                          h.update(bline)
-                  lines.append(f"- dataset: `{ds}` (lines={n}, sha256={h.hexdigest()[:12]})")
-              except Exception as e:
-                  lines.append(f"- dataset: `{ds}` (fingerprint error: {e})")
-          else:
-              lines.append("- dataset: `openai_evals_v0/refusal_smoke.jsonl` (missing)")
+          if not p.exists():
+              lines.append("")
+              lines.append("_No refusal_smoke_result.json produced._")
+              summary_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+              raise SystemExit(0)
+
+          # Best-effort JSON parse: never fail the job because the summary can't parse.
+          try:
+              raw = p.read_text(encoding="utf-8")
+              d = json.loads(raw)
+              if not isinstance(d, dict):
+                  raise TypeError(f"top-level JSON is {type(d).__name__}, expected object")
+          except Exception as e:
+              # GitHub annotation + summary note, then exit 0.
+              print(f"::warning::unable to parse {p.as_posix()}: {e}")
+              lines.append("")
+              lines.append(f"⚠️ Unable to parse `{p.as_posix()}`.")
+              lines.append("")
+              lines.append(f"- error: `{e}`")
+              summary_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+              raise SystemExit(0)
+
+          rc = d.get("result_counts")
+          if not isinstance(rc, dict):
+              rc = {}
+
+          # Canonical fields from the artifact (no recomputation here)
+          lines.append(f"- mode: `{'dry-run' if d.get('dry_run') else 'real'}`")
+          lines.append(f"- model: `{d.get('model')}`")
+          lines.append(f"- status: `{d.get('status')}`")
+          lines.append(f"- gate_key: `{d.get('gate_key')}`")
+          lines.append(f"- gate_pass: **{d.get('gate_pass')}**")
+
+          # Dataset provenance (now part of the contract)
+          ds_path = d.get("dataset")
+          ds_lines = d.get("dataset_lines")
+          ds_sha = d.get("dataset_sha256")
+          if ds_path is not None:
+              lines.append(f"- dataset: `{ds_path}`")
+          if ds_lines is not None:
+              lines.append(f"- dataset_lines: `{ds_lines}`")
+          if isinstance(ds_sha, str) and ds_sha.strip():
+              lines.append(f"- dataset_sha256: `{ds_sha[:12]}`")
 
           lines.append("")
+          lines.append("### Result counts")
+          lines.append("")
+          lines.append(f"- total: `{rc.get('total')}`")
+          lines.append(f"- passed: `{rc.get('passed')}`")
+          lines.append(f"- failed: `{rc.get('failed')}`")
+          lines.append(f"- errored: `{rc.get('errored')}`")
+          lines.append(f"- fail_rate: `{d.get('fail_rate')}`")
 
-          p = Path("openai_evals_v0/refusal_smoke_result.json")
-          if not p.exists():
-              lines.append("_No refusal_smoke_result.json produced._")
-          else:
-              try:
-                  d = json.loads(p.read_text(encoding="utf-8"))
-                  rc = d.get("result_counts") or {}
-                  lines.append(f"- mode: `{'dry-run' if d.get('dry_run') else 'real'}`")
-                  lines.append(f"- model: `{d.get('model')}`")
-                  lines.append(f"- status: `{d.get('status')}`")
-                  lines.append(f"- gate_key: `{d.get('gate_key')}`")
-                  lines.append(f"- gate_pass: **{d.get('gate_pass')}**")
-                  lines.append("")
-                  lines.append("### Result counts")
-                  lines.append("")
-                  lines.append(f"- total: `{rc.get('total')}`")
-                  lines.append(f"- passed: `{rc.get('passed')}`")
-                  lines.append(f"- failed: `{rc.get('failed')}`")
-                  lines.append(f"- errored: `{rc.get('errored')}`")
-                  lines.append(f"- fail_rate: `{d.get('fail_rate')}`")
-                  if d.get("report_url"):
-                      lines.append(f"- report_url: `{d.get('report_url')}`")
-              except Exception as e:
-                  lines.append(f"_Unable to build summary from refusal_smoke_result.json: {e}_")
+          if d.get("report_url"):
+              lines.append(f"- report_url: `{d.get('report_url')}`")
 
-          summary_env = os.getenv("GITHUB_STEP_SUMMARY")
-          if summary_env:
-              Path(summary_env).write_text("\n".join(lines) + "\n", encoding="utf-8")
-          else:
-              print("\n".join(lines))
+          summary_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
           PY
 
       - name: Upload artifacts
