@@ -8,8 +8,9 @@ What this locks in:
 - Optional status.json patching works and is deterministic.
 - Status patching is additive (does not wipe existing fields).
 
-Run:
-  python tests/test_openai_evals_refusal_smoke_dry_run_smoke.py
+Notes:
+- This file is runnable directly (python ...), but also exposes pytest entrypoints
+  so CI that uses `pytest` will still execute these checks.
 """
 
 from __future__ import annotations
@@ -181,6 +182,22 @@ def _test_empty_dataset_fails_closed(root: Path) -> None:
         _assert_has_metrics(s)
         _assert_has_gate(s, expect=False)
 
+
+# -----------------------
+# Pytest entrypoints
+# -----------------------
+
+def test_non_empty_dataset_dry_run_additive_patch() -> None:
+    _test_non_empty_dataset(_repo_root())
+
+
+def test_empty_dataset_dry_run_fails_closed_additive_patch() -> None:
+    _test_empty_dataset_fails_closed(_repo_root())
+
+
+# -----------------------
+# Optional direct runner
+# -----------------------
 
 def main() -> int:
     root = _repo_root()
