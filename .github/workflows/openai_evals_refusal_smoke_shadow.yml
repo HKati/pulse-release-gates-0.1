@@ -172,6 +172,10 @@ jobs:
           set -euo pipefail
 
           EVENT_NAME="${{ github.event_name }}"
+          # PR/push runs are dry-run by design (secrets are not exposed).
+          if [[ "$EVENT_NAME" != "workflow_dispatch" ]]; then
+            echo "::notice::event=$EVENT_NAME -> running in dry-run by policy (secrets are not exposed on PR/push)."
+          fi
 
           # Defaults for push/PR: always dry-run, never fail the workflow on gate_pass=false
           MODE="dry-run"
@@ -327,6 +331,11 @@ jobs:
       - name: Workflow summary
         if: always()
         shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_MODE: ${{ github.event.inputs.mode }}
+          INPUT_CONFIRM_REAL: ${{ github.event.inputs.confirm_real }}
+          INPUT_MAX_DATASET_LINES: ${{ github.event.inputs.max_dataset_lines }}
         run: |
           set -euo pipefail
           python - <<'PY'
@@ -340,6 +349,21 @@ jobs:
           lines = []
           lines.append("## OpenAI Evals • Refusal smoke (shadow)")
           lines.append("")
+
+          event = os.getenv("EVENT_NAME", "")
+          input_mode = os.getenv("INPUT_MODE", "")
+          input_confirm = os.getenv("INPUT_CONFIRM_REAL", "")
+          input_max = os.getenv("INPUT_MAX_DATASET_LINES", "")
+
+          if event and event != "workflow_dispatch":
+              lines.append(f"- policy: event `{event}` forces `dry-run` (secrets are not exposed on PR/push)")
+          elif event == "workflow_dispatch":
+              # Inputs only exist for workflow_dispatch; still useful for audit/triage
+              if input_mode:
+                  lines.append(
+                      f"- inputs: mode=`{input_mode}`  confirm_real=`{input_confirm or 'n/a'}`  "
+                      f"max_dataset_lines=`{input_max or 'n/a'}`"
+                  )
 
           # Run metadata (nice-to-have)
           run_no = os.getenv("GITHUB_RUN_NUMBER", "")
