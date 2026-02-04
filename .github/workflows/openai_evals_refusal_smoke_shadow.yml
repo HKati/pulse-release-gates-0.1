@@ -38,7 +38,7 @@ on:
           - "false"
           - "true"
       confirm_real:
-        description: "Safety latch for mode=real (set to yes to proceed)"
+        description: "Confirm real (paid) run. Must be 'yes' when mode=real."
         required: true
         default: "no"
         type: choice
@@ -46,7 +46,7 @@ on:
           - "no"
           - "yes"
       max_dataset_lines:
-        description: "Max dataset lines allowed in real mode (budget guard)"
+        description: "Budget guard for real runs (max dataset lines)"
         required: true
         default: "200"
         type: string
@@ -138,8 +138,16 @@ jobs:
 
           EVENT_NAME="${{ github.event_name }}"
           MODE="dry-run"
+          CONFIRM_REAL="no"
           if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
             MODE="${{ github.event.inputs.mode }}"
+            CONFIRM_REAL="${{ github.event.inputs.confirm_real }}"
+          fi
+
+          # Fail early before doing anything heavier if real is not explicitly confirmed
+          if [[ "$EVENT_NAME" == "workflow_dispatch" && "$MODE" == "real" && "$CONFIRM_REAL" != "yes" ]]; then
+            echo "::error::mode=real selected but confirm_real!=yes. Re-run with confirm_real=yes."
+            exit 2
           fi
 
           # For manual real runs: generate a baseline PULSE status via safe pack.
@@ -169,12 +177,16 @@ jobs:
           MODE="dry-run"
           MODEL="gpt-4.1"
           FAIL_ON_FALSE="false"
+          CONFIRM_REAL="no"
+          MAX_DATASET_LINES="200"
 
           # For workflow_dispatch: use inputs
           if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
             MODE="${{ github.event.inputs.mode }}"
             MODEL="${{ github.event.inputs.model }}"
             FAIL_ON_FALSE="${{ github.event.inputs.fail_on_false }}"
+            CONFIRM_REAL="${{ github.event.inputs.confirm_real }}"
+            MAX_DATASET_LINES="${{ github.event.inputs.max_dataset_lines }}"
           fi
 
           args=( python openai_evals_v0/run_refusal_smoke_to_pulse.py
@@ -186,6 +198,21 @@ jobs:
           if [[ "$MODE" == "dry-run" ]]; then
             args+=( --dry-run )
           else
+            # Require explicit confirmation for real runs
+            if [[ "$CONFIRM_REAL" != "yes" ]]; then
+              echo "::error::mode=real selected but confirm_real!=yes. Re-run with confirm_real=yes."
+              exit 2
+            fi
+
+            # Validate budget input is an integer (clean error message)
+            if ! [[ "$MAX_DATASET_LINES" =~ ^[0-9]+$ ]]; then
+              echo "::error::max_dataset_lines must be an integer, got: '$MAX_DATASET_LINES'"
+              exit 2
+            fi
+
+            # Pass runner guardrails through
+            args+=( --confirm-real --max-dataset-lines "$MAX_DATASET_LINES" )
+
             if [[ -z "${OPENAI_API_KEY:-}" ]]; then
               echo "::error::mode=real selected but OPENAI_API_KEY secret is missing."
               exit 2
