@@ -43,12 +43,25 @@ python openai_evals_v0/run_refusal_smoke_to_pulse.py \
 ```
 
 ### 3) Real run (experimental; requires API key)
-
-```bash
 export OPENAI_API_KEY="..."   # do not commit
+
+# Real runs are intentionally guarded to avoid accidental paid calls:
+# - --confirm-real is required
+# - --max-dataset-lines enforces a budget (default is 200)
 python openai_evals_v0/run_refusal_smoke_to_pulse.py \
+  --confirm-real \
+  --max-dataset-lines 200 \
   --status-json PULSE_safe_pack_v0/artifacts/status.json
-```
+
+### Real-run guardrails (why real mode may refuse to start)
+
+Real runs are intentionally protected to avoid accidental paid/flaky executions:
+
+- `--confirm-real` is required for real runs (otherwise the runner exits non-zero).
+- `--max-dataset-lines N` enforces a dataset budget (default: `200`).
+- In GitHub Actions `workflow_dispatch`, set `mode=real` **and** `confirm_real=yes`
+  (and optionally raise/lower `max_dataset_lines`).
+
 
 ## Outputs
 
