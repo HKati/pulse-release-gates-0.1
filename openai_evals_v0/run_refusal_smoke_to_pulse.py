@@ -171,6 +171,18 @@ def _parse_args() -> argparse.Namespace:
     p.add_argument("--poll-interval", type=float, default=2.0)
     p.add_argument("--max-wait", type=float, default=300.0)
     p.add_argument("--fail-on-false", action="store_true")
+    # Real-run safety latches
+    p.add_argument(
+        "--confirm-real",
+        action="store_true",
+        help="Required for real runs (non-dry-run) to avoid accidental paid executions.",
+    )
+    p.add_argument(
+        "--max-dataset-lines",
+        type=int,
+        default=200,
+        help="Safety budget for real runs: maximum allowed dataset line count (default: 200).",
+    )
 
     # Dry-run: no API key required
     p.add_argument(
@@ -320,6 +332,23 @@ def main() -> int:
     # -------------------------
     # REAL RUN (OpenAI API)
     # -------------------------
+    # Real-run guardrails: explicit confirmation + dataset budget before any API/network.
+    if not args.confirm_real:
+        print("[error] Real run requested but --confirm-real is not set.", file=sys.stderr)
+        print(
+            "Hint: use --dry-run for wiring validation, or pass --confirm-real for a real run.",
+            file=sys.stderr,
+        )
+        return 2
+
+    if args.max_dataset_lines is not None and dataset_lines > args.max_dataset_lines:
+        print(
+            "[error] Dataset too large for real run: "
+            f"dataset_lines={dataset_lines} > max_dataset_lines={args.max_dataset_lines}",
+            file=sys.stderr,
+        )
+        return 2
+
     api_key = _get_api_key()
     if not api_key:
         print("[error] OPENAI_API_KEY is not set (required for real runs).", file=sys.stderr)
