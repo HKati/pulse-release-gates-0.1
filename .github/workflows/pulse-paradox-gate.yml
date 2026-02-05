@@ -162,13 +162,14 @@ jobs:
 
   pr_comment:
     name: PR triage comment (shadow)
-    if: ${{ github.event_name == 'pull_request' }}
+    if: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository }}
     needs: [paradox_gate]
     runs-on: ubuntu-latest
     timeout-minutes: 5
 
     permissions:
       contents: read
+      pull-requests: write
       issues: write
 
     steps:
@@ -270,4 +271,3 @@ jobs:
                 });
               }
             }
-
