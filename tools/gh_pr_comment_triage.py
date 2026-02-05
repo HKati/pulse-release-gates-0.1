@@ -1,6 +1,7 @@
 # tools/gh_pr_comment_triage.py
 # Használat (CI): python tools/gh_pr_comment_triage.py --summary artifacts/pulse_paradox_gate_summary.json --out triage_comment.md
 import argparse, json, os, sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 TIPS = {
@@ -28,10 +29,18 @@ def num(x):
     except Exception:
         return None
 
+def _utc_now_iso() -> str:
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--summary", required=True, help="pulse_paradox_gate_summary.json (downloaded artifact)")
     ap.add_argument("--out", default="triage_comment.md", help="Output markdown")
+    ap.add_argument(
+        "--diagram-json-out",
+        default="PULSE_safe_pack_v0/artifacts/paradox_diagram_input_v0.json",
+        help="Write paradox diagram input JSON (v0) for future visualization.",
+    )
     args = ap.parse_args()
 
     summary_p = Path(args.summary)
@@ -79,6 +88,27 @@ def main():
     if raw_decision.lower().startswith("decision:"):
         raw_decision = raw_decision.split(":", 1)[1].strip()
     decision_key = _decision_key(raw_decision)
+    decision_raw = raw_decision or None
+
+    settle_time_p95_ms = num(metrics.get("settle_time_p95_ms"))
+    if settle_time_p95_ms is None:
+        settle_time_p95_ms = num(data.get("settle_time_p95_ms"))
+    settle_time_budget_ms = num(metrics.get("settle_time_budget_ms"))
+    if settle_time_budget_ms is None:
+        settle_time_budget_ms = num(data.get("settle_time_budget_ms"))
+    if settle_time_budget_ms is None:
+        settle_time_budget_ms = num(budgets.get("settle_time_p95_ms"))
+    downstream_error_rate = num(metrics.get("downstream_error_rate"))
+    if downstream_error_rate is None:
+        downstream_error_rate = num(data.get("downstream_error_rate"))
+    paradox_density = num(metrics.get("paradox_density"))
+    if paradox_density is None:
+        paradox_density = num(data.get("paradox_density"))
+
+    settle_time_p95_ms = settle_time_p95_ms if settle_time_p95_ms is not None else 0.0
+    settle_time_budget_ms = settle_time_budget_ms if settle_time_budget_ms is not None else 0.0
+    downstream_error_rate = downstream_error_rate if downstream_error_rate is not None else 0.0
+    paradox_density = paradox_density if paradox_density is not None else 0.0
 
     md = []
     md.append("<!-- pulse-triage -->")
@@ -111,6 +141,28 @@ def main():
             f.write("triage_body<<EOF\n")
             f.write("\n".join(md) + "\n")
             f.write("EOF\n")
+
+    diagram = {
+        "schema_version": "v0",
+        "timestamp_utc": _utc_now_iso(),
+        "shadow": True,
+        "decision_key": decision_key,
+        "decision_raw": decision_raw,
+        "source": "tools/gh_pr_comment_triage.py",
+        "metrics": {
+            "settle_time_p95_ms": float(settle_time_p95_ms),
+            "settle_time_budget_ms": float(settle_time_budget_ms),
+            "downstream_error_rate": float(downstream_error_rate),
+            "paradox_density": float(paradox_density),
+        },
+    }
+
+    outp = Path(args.diagram_json_out)
+    outp.parent.mkdir(parents=True, exist_ok=True)
+    outp.write_text(
+        json.dumps(diagram, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
+    )
+    print(f"[paradox] wrote diagram input: {outp}")
 
 if __name__ == "__main__":
     main()
