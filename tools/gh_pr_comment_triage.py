@@ -105,10 +105,22 @@ def main():
     if paradox_density is None:
         paradox_density = num(data.get("paradox_density"))
 
-    settle_time_p95_ms = settle_time_p95_ms if settle_time_p95_ms is not None else 0.0
-    settle_time_budget_ms = settle_time_budget_ms if settle_time_budget_ms is not None else 0.0
-    downstream_error_rate = downstream_error_rate if downstream_error_rate is not None else 0.0
-    paradox_density = paradox_density if paradox_density is not None else 0.0
+    missing_metrics: list[str] = []
+
+    def _float_or_none(name: str, v):
+        if v is None:
+            missing_metrics.append(name)
+            return None
+        try:
+            return float(v)
+        except Exception:
+            missing_metrics.append(name)
+            return None
+
+    settle_time_p95_ms = _float_or_none("settle_time_p95_ms", settle_time_p95_ms)
+    settle_time_budget_ms = _float_or_none("settle_time_budget_ms", settle_time_budget_ms)
+    downstream_error_rate = _float_or_none("downstream_error_rate", downstream_error_rate)
+    paradox_density = _float_or_none("paradox_density", paradox_density)
 
     md = []
     md.append("<!-- pulse-triage -->")
@@ -156,6 +168,13 @@ def main():
             "paradox_density": float(paradox_density),
         },
     }
+    if missing_metrics:
+        print(
+            f"[warn] missing metrics for diagram input: {', '.join(missing_metrics)}",
+            file=sys.stderr,
+        )
+        diagram["missing_metrics"] = missing_metrics
+        diagram["notes"] = f"missing metrics: {', '.join(missing_metrics)}"
 
     outp = Path(args.diagram_json_out)
     outp.parent.mkdir(parents=True, exist_ok=True)
