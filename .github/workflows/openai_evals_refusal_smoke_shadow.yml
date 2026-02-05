@@ -242,7 +242,53 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python -c $'import json,sys\nfrom pathlib import Path\n\ns=Path("PULSE_safe_pack_v0/artifacts/status.json")\nif not s.exists():\n  print("::notice::status.json missing (nothing to sanity-check)")\n  sys.exit(0)\n\ntry:\n  d=json.loads(s.read_text(encoding="utf-8"))\nexcept Exception as e:\n  print(f"::warning::unable to parse status.json (sanity check skipped): {e}")\n  sys.exit(0)\n\nif not isinstance(d, dict):\n  print(f"::warning::status.json top-level is {type(d).__name__} (expected object); sanity check skipped")\n  sys.exit(0)\n\nmetrics=d.get("metrics")\nif metrics is None:\n  metrics={}\nif not isinstance(metrics, dict):\n  print(f"::warning::status.json metrics is {type(metrics).__name__} (expected object); treating as empty")\n  metrics={}\n\ngates=d.get("gates")\nif gates is None:\n  gates={}\nif not isinstance(gates, dict):\n  print(f"::warning::status.json gates is {type(gates).__name__} (expected object); treating as empty")\n  gates={}\n\nreq_metrics=[\n  "openai_evals_refusal_smoke_total",\n  "openai_evals_refusal_smoke_passed",\n  "openai_evals_refusal_smoke_failed",\n  "openai_evals_refusal_smoke_errored",\n  "openai_evals_refusal_smoke_fail_rate",\n]\n\nmissing=[k for k in req_metrics if k not in metrics]\nif missing:\n  print("::warning::missing metrics in status.json: "+", ".join(missing))\n\nkey="openai_evals_refusal_smoke_pass"\nif key not in gates:\n  print(f"::warning::missing gate {key} in status.json gates")\nelse:\n  gp=gates.get(key)\n  if d.get(key) != gp:\n    print(f"::warning::top-level mirror {key} mismatch vs status.gates")\n\nsys.exit(0)\n'
+          python - <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+
+          s = Path("PULSE_safe_pack_v0/artifacts/status.json")
+          if not s.exists():
+              print("::warning::status.json missing (nothing to sanity-check)")
+              raise SystemExit(0)
+
+          try:
+              d = json.loads(s.read_text(encoding="utf-8"))
+          except Exception as e:
+              print(f"::warning::status.json is not valid JSON: {e}")
+              raise SystemExit(0)
+
+          metrics = d.get("metrics")
+          gates = d.get("gates")
+
+          if not isinstance(metrics, dict):
+              print(f"::warning::status.json metrics is not a dict (type={type(metrics).__name__})")
+              metrics = {}
+
+          if not isinstance(gates, dict):
+              print(f"::warning::status.json gates is not a dict (type={type(gates).__name__})")
+              gates = {}
+
+          req_metrics = [
+              "openai_evals_refusal_smoke_total",
+              "openai_evals_refusal_smoke_passed",
+              "openai_evals_refusal_smoke_failed",
+              "openai_evals_refusal_smoke_errored",
+              "openai_evals_refusal_smoke_fail_rate",
+          ]
+
+          missing = [k for k in req_metrics if k not in metrics]
+          if missing:
+              print("::warning::missing metrics in status.json: " + ", ".join(missing))
+
+          gate_key = "openai_evals_refusal_smoke_pass"
+          if gate_key not in gates:
+              print(f"::warning::missing gate {gate_key} in status.json gates")
+          else:
+              gp = gates.get(gate_key)
+              if d.get(gate_key) != gp:
+                  print(f"::warning::top-level mirror {gate_key} mismatch vs status.gates")
+          PY
 
       - name: Gate monitor (warn on false; optionally fail on dispatch)
         if: ${{ always() }}
@@ -322,7 +368,7 @@ jobs:
 
           if not p.exists():
               lines.append("")
-              lines.append("_No refusal_smoke_result.json produced._")
+              lines.append("_No result produced._")
               summary_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
               raise SystemExit(0)
 
