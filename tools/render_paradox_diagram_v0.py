@@ -1,321 +1,188 @@
-name: Pulse • Paradox Gate (shadow)
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Render a deterministic Paradox diagram (v0) as an SVG.
 
-on:
-  pull_request: {}
-  push:
-    branches: [ main ]
+Input (default):
+  PULSE_safe_pack_v0/artifacts/paradox_diagram_input_v0.json
 
-# Default to least privilege; PR commenting job overrides as needed.
-permissions:
-  contents: read
+Output (default):
+  PULSE_safe_pack_v0/artifacts/paradox_diagram_v0.svg
 
-concurrency:
-  group: paradox-gate-${{ github.ref }}
-  cancel-in-progress: true
+Design goals:
+- stdlib-only
+- deterministic output
+- friendly errors (good for shadow workflows)
+"""
 
-env:
-  GATE_REPO: HKati/pulse-release-gates-0.1
-  GATE_REF: gate-v0-zip   # pin to the released tag (consider pinning to a commit SHA for stronger supply-chain)
+from __future__ import annotations
 
-jobs:
-  paradox_gate:
-    name: Run Paradox Gate (shadow)
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
+import argparse
+import json
+import sys
+from pathlib import Path
+from typing import Any, Dict, Optional
 
-    outputs:
-      summary_present: ${{ steps.export.outputs.summary_present }}
-      summary_b64: ${{ steps.export.outputs.summary_b64 }}
-      metrics_src: ${{ steps.metrics_src.outputs.src }}
-      gate_rc: ${{ steps.run_gate.outputs.rc }}
 
-    steps:
-      - name: Checkout Pulse repo
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
-        with:
-          fetch-depth: 1
-          persist-credentials: false
+def _warn(msg: str) -> None:
+    print(f"[paradox:diagram:warn] {msg}", file=sys.stderr)
 
-      - name: Checkout gate repo (tag)
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
-        with:
-          repository: ${{ env.GATE_REPO }}
-          ref: ${{ env.GATE_REF }}
-          path: ./.gates
-          fetch-depth: 1
-          persist-credentials: false
 
-      - name: Verify gate kit exists
-        shell: bash
-        run: |
-          set -euo pipefail
-          test -f ./.gates/pulse_paradox_gate_ci_v1.zip || {
-            echo "::error::Missing ./.gates/pulse_paradox_gate_ci_v1.zip in gate repo checkout."
-            ls -la ./.gates || true
-            exit 1
-          }
+def _die(msg: str) -> None:
+    print(f"[paradox:diagram:error] {msg}", file=sys.stderr)
+    raise SystemExit(2)
 
-      - name: Unpack Paradox Gate kit
-        shell: bash
-        run: |
-          set -euo pipefail
-          rm -rf ./.gates/_ex
-          unzip -q ./.gates/pulse_paradox_gate_ci_v1.zip -d ./.gates/_ex
 
-          G=".gates/_ex/pulse_paradox_gate_ci_v1/pulse/gates/paradox"
-          test -f "$G/gate.py" || {
-            echo "::error::gate.py not found after unzip at: $G/gate.py"
-            find ./.gates/_ex -maxdepth 5 -type f | sed 's/^/ - /' || true
-            exit 1
-          }
+def _svg_escape(s: str) -> str:
+    return (
+        s.replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace('"', "&quot;")
+        .replace("'", "&apos;")
+    )
 
-      - name: Decide metrics source (log vs env fallback)
-        id: metrics_src
-        shell: bash
-        run: |
-          set -euo pipefail
-          if [ -f "logs/decision_log.ndjson" ]; then
-            echo "src=log" >> "$GITHUB_OUTPUT"
-            echo "PF_DECISION_LOG=logs/decision_log.ndjson" >> "$GITHUB_ENV"
-            echo "Using Decision Log at logs/decision_log.ndjson"
-          else
-            echo "src=env" >> "$GITHUB_OUTPUT"
-            echo "PF_PARADOX_DENSITY=0.0" >> "$GITHUB_ENV"
-            echo "PF_SETTLE_P95_MS=0" >> "$GITHUB_ENV"
-            echo "PF_DOWNSTREAM_ERROR_RATE=0.0" >> "$GITHUB_ENV"
-            echo "No decision log found; using env fallback metrics."
-          fi
 
-      - name: Set up Python
-        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
-        with:
-          python-version: "3.11"
+def _read_json_object(path: Path) -> Dict[str, Any]:
+    try:
+        raw = path.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        _die(f"Input file not found: {path}")
+    except Exception as e:
+        _die(f"Unable to read input: {path} ({e})")
 
-      - name: Install minimal deps (gate runtime)
-        shell: bash
-        run: |
-          set -euo pipefail
-          python -m pip install -U pip
-          python -m pip install pyyaml
+    try:
+        d = json.loads(raw)
+    except Exception as e:
+        _die(f"Invalid JSON: {path} ({e})")
 
-      - name: Run Paradox Gate (shadow, non-blocking)
-        id: run_gate
-        shell: bash
-        continue-on-error: true
-        run: |
-          set -euo pipefail
-          mkdir -p artifacts
+    if not isinstance(d, dict):
+        _die(f"Top-level JSON must be an object, got {type(d).__name__}")
+    return d
 
-          G=".gates/_ex/pulse_paradox_gate_ci_v1/pulse/gates/paradox"
 
-          rc=0
-          set +e
-          python "$G/gate.py" --mode shadow --policy "$G/policy.yaml"
-          rc=$?
-          set -e
+def _get_metric(d: Dict[str, Any], key: str) -> Optional[float]:
+    """
+    Pull a metric either from d['metrics'][key] (preferred) or d[key] (fallback).
+    Returns None if missing/unparseable.
+    Rejects booleans explicitly (bool is an int subclass in Python).
+    """
+    v: Any = None
 
-          echo "rc=$rc" >> "$GITHUB_OUTPUT"
-          if [ "$rc" -ne 0 ]; then
-            echo "::warning::Paradox gate exited non-zero (rc=$rc) in shadow mode."
-          fi
+    metrics = d.get("metrics")
+    if isinstance(metrics, dict) and key in metrics:
+        v = metrics.get(key)
+    else:
+        v = d.get(key)
 
-      - name: Workflow summary (paradox gate)
-        if: always()
-        shell: bash
-        run: |
-          set -euo pipefail
+    if v is None:
+        return None
+    if isinstance(v, bool):
+        return None
+    if isinstance(v, (int, float)):
+        return float(v)
+    try:
+        return float(v)
+    except Exception:
+        return None
 
-          echo "## Paradox gate (shadow)" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "- metrics source: \`${{ steps.metrics_src.outputs.src }}\`" >> "$GITHUB_STEP_SUMMARY"
-          echo "- gate rc: \`${{ steps.run_gate.outputs.rc }}\`" >> "$GITHUB_STEP_SUMMARY"
 
-          if [ -f "artifacts/pulse_paradox_gate_summary.json" ]; then
-            echo "- summary: \`artifacts/pulse_paradox_gate_summary.json\` (present)" >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "- summary: _missing_" >> "$GITHUB_STEP_SUMMARY"
-          fi
+def _fmt(v: Optional[float], *, decimals: int = 3, suffix: str = "") -> str:
+    if v is None:
+        return "n/a"
+    return f"{v:.{decimals}f}{suffix}"
 
-      - name: Export summary for PR comment job (base64)
-        id: export
-        if: always()
-        shell: bash
-        run: |
-          set -euo pipefail
-          f="artifacts/pulse_paradox_gate_summary.json"
-          if [ -f "$f" ]; then
-            b64="$(base64 -w 0 "$f")"
-            echo "summary_present=true" >> "$GITHUB_OUTPUT"
-            echo "summary_b64=$b64" >> "$GITHUB_OUTPUT"
-          else
-            echo "summary_present=false" >> "$GITHUB_OUTPUT"
-            echo "summary_b64=" >> "$GITHUB_OUTPUT"
-          fi
 
-      - name: Upload Paradox Gate summary (artifact)
-        if: always()
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
-        with:
-          name: pulse-paradox-gate-summary
-          if-no-files-found: warn
-          path: artifacts/pulse_paradox_gate_summary.json
+def _parse_args() -> argparse.Namespace:
+    p = argparse.ArgumentParser(description="Render Paradox diagram v0 (SVG)")
+    p.add_argument(
+        "--in",
+        dest="inp",
+        default="PULSE_safe_pack_v0/artifacts/paradox_diagram_input_v0.json",
+        help="Path to paradox_diagram_input_v0.json",
+    )
+    p.add_argument(
+        "--out",
+        dest="out",
+        default="PULSE_safe_pack_v0/artifacts/paradox_diagram_v0.svg",
+        help="Output SVG path",
+    )
+    return p.parse_args()
 
-  pr_comment:
-    name: PR triage comment (shadow)
-    if: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository }}
-    needs: [paradox_gate]
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
 
-    permissions:
-      contents: read
-      pull-requests: write
-      issues: write
+def main() -> int:
+    args = _parse_args()
+    inp = Path(args.inp)
+    out = Path(args.out)
 
-    steps:
-      - name: Checkout base (safe tools for commenting)
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
-        with:
-          ref: ${{ github.event.pull_request.base.sha }}
-          fetch-depth: 1
-          persist-credentials: false
+    d = _read_json_object(inp)
 
-      - name: Set up Python
-        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
-        with:
-          python-version: "3.11"
+    schema_version = str(d.get("schema_version") or "unknown")
+    timestamp_utc = str(d.get("timestamp_utc") or "")
+    shadow = d.get("shadow")
+    decision = str(d.get("decision_key") or d.get("decision") or "UNKNOWN")
 
-      - name: Rehydrate paradox gate summary (if present)
-        shell: bash
-        run: |
-          set -euo pipefail
-          mkdir -p artifacts
+    settle_p95 = _get_metric(d, "settle_time_p95_ms")
+    settle_budget = _get_metric(d, "settle_time_budget_ms")
+    downstream_error_rate = _get_metric(d, "downstream_error_rate")
+    paradox_density = _get_metric(d, "paradox_density")
 
-          if [ "${{ needs.paradox_gate.outputs.summary_present }}" = "true" ]; then
-            echo "${{ needs.paradox_gate.outputs.summary_b64 }}" | base64 -d > artifacts/pulse_paradox_gate_summary.json
-            echo "Rehydrated artifacts/pulse_paradox_gate_summary.json"
-          else
-            echo "::warning::No paradox gate summary produced; will post a minimal triage note."
-          fi
+    ratio = None
+    if settle_p95 is not None and settle_budget not in (None, 0.0):
+        ratio = settle_p95 / float(settle_budget)
 
-      - name: Generate PR triage comment (why it failed / what to fix)
-        id: triage
-        shell: bash
-        continue-on-error: true
-        run: |
-          set -euo pipefail
+    missing = d.get("missing_metrics")
+    if not isinstance(missing, list):
+        missing = []
 
-          marker="<!-- pulse-triage -->"
-          out="triage_comment.md"
+    # Very simple deterministic SVG: text summary.
+    width = 980
+    height = 320
+    x0 = 20
+    y = 36
+    line_h = 24
 
-          if [ "${{ needs.paradox_gate.outputs.summary_present }}" != "true" ]; then
-            cat > "$out" <<EOF
-          ${marker}
-          ### Paradox Gate (shadow) — no summary produced
+    svg: list[str] = []
+    svg.append(f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}">')
+    svg.append("<style>")
+    svg.append("text{font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;}")
+    svg.append(".title{font-size:20px;font-weight:600;}")
+    svg.append(".meta{font-size:12px;fill:#444;}")
+    svg.append(".row{font-size:14px;}")
+    svg.append("</style>")
+    svg.append(f'<rect x="0" y="0" width="{width}" height="{height}" fill="#fff" stroke="#ddd"/>')
 
-          The shadow gate did not produce \`artifacts/pulse_paradox_gate_summary.json\`.
+    svg.append(f'<text x="{x0}" y="{y}" class="title">{_svg_escape("PULSE - Paradox diagram (v0)")}</text>')
+    y += line_h
 
-          - metrics source: \`${{ needs.paradox_gate.outputs.metrics_src }}\`
-          - gate rc: \`${{ needs.paradox_gate.outputs.gate_rc }}\`
+    meta = f"schema_version={schema_version}  decision={decision}  shadow={shadow}  timestamp_utc={timestamp_utc}"
+    svg.append(f'<text x="{x0}" y="{y}" class="meta">{_svg_escape(meta)}</text>')
+    y += line_h * 2
 
-          Please check the workflow logs for unzip/runtime failures.
-          EOF
-            exit 0
-          fi
+    rows = [
+        ("settle_time_p95_ms", _fmt(settle_p95, decimals=1, suffix=" ms")),
+        ("settle_time_budget_ms", _fmt(settle_budget, decimals=1, suffix=" ms")),
+        ("settle_ratio", _fmt(ratio, decimals=3) if ratio is not None else "n/a"),
+        ("downstream_error_rate", _fmt(downstream_error_rate, decimals=6)),
+        ("paradox_density", _fmt(paradox_density, decimals=6)),
+    ]
+    for k, v in rows:
+        svg.append(f'<text x="{x0}" y="{y}" class="row">{_svg_escape(k)}: {_svg_escape(str(v))}</text>')
+        y += line_h
 
-          if [ ! -f "tools/gh_pr_comment_triage.py" ]; then
-            cat > "$out" <<EOF
-          ${marker}
-          ### Paradox Gate (shadow) — triage tool missing
+    if missing:
+        y += int(line_h * 0.5)
+        svg.append(
+            f'<text x="{x0}" y="{y}" class="meta">{_svg_escape("missing_metrics: " + ", ".join(map(str, missing)))}</text>'
+        )
 
-          \`tools/gh_pr_comment_triage.py\` is missing on the base branch checkout, so no detailed triage comment was generated.
-          EOF
-            exit 0
-          fi
+    svg.append("</svg>")
 
-          python tools/gh_pr_comment_triage.py \
-            --summary artifacts/pulse_paradox_gate_summary.json \
-            --out "$out"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text("\n".join(svg) + "\n", encoding="utf-8")
+    print(f"[paradox:diagram] wrote: {out}")
+    return 0
 
-      - name: Contract check (paradox diagram input v0)
-        if: always()
-        shell: bash
-        run: |
-          set -euo pipefail
-          f="PULSE_safe_pack_v0/artifacts/paradox_diagram_input_v0.json"
-          if [[ ! -f "$f" ]]; then
-            echo "::warning::missing $f (triage did not produce diagram input)"
-            exit 0
-          fi
-          python scripts/check_paradox_diagram_input_v0_contract.py --in "$f" || \
-            echo "::warning::paradox diagram input contract check failed (shadow; non-gating)"
 
-      - name: Render Paradox diagram (v0 SVG)
-        if: always()
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          IN="PULSE_safe_pack_v0/artifacts/paradox_diagram_input_v0.json"
-          OUT="PULSE_safe_pack_v0/artifacts/paradox_diagram_v0.svg"
-
-          if [[ ! -f "$IN" ]]; then
-            echo "::warning::missing $IN; skipping Paradox diagram render"
-            exit 0
-          fi
-
-          # Best-effort: never fail the job because SVG rendering failed.
-          if ! python tools/render_paradox_diagram_v0.py --in "$IN" --out "$OUT"; then
-            echo "::warning::Paradox diagram render failed; skipping SVG artifact"
-            exit 0
-          fi
-
-          if [[ ! -f "$OUT" ]]; then
-            echo "::warning::renderer did not produce $OUT"
-            exit 0
-          fi
-
-      - name: Upload paradox diagram input (v0)
-        if: always()
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # pinned
-        with:
-          name: paradox-diagram-input-v0
-          if-no-files-found: warn
-          path: |
-            PULSE_safe_pack_v0/artifacts/paradox_diagram_input_v0.json
-            PULSE_safe_pack_v0/artifacts/paradox_diagram_v0.svg
-
-      - name: Post or update PR comment
-        continue-on-error: true
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
-        with:
-          script: |
-            const fs = require('fs');
-            const path = 'triage_comment.md';
-            if (!fs.existsSync(path)) {
-              console.log('No triage_comment.md found — skipping PR comment.');
-            } else {
-              const body = fs.readFileSync(path, 'utf8');
-              const marker = '<!-- pulse-triage -->';
-              const { data: comments } = await github.rest.issues.listComments({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: context.issue.number
-              });
-              const existing = comments.find((c) => c.body && c.body.includes(marker));
-              if (existing) {
-                await github.rest.issues.updateComment({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  comment_id: existing.id,
-                  body
-                });
-              } else {
-                await github.rest.issues.createComment({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  issue_number: context.issue.number,
-                  body
-                });
-              }
-            }
+if __name__ == "__main__":
+    raise SystemExit(main())
