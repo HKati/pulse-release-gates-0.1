@@ -237,6 +237,28 @@ jobs:
             --summary artifacts/pulse_paradox_gate_summary.json \
             --out "$out"
 
+      - name: Contract check (paradox diagram input v0)
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          f="PULSE_safe_pack_v0/artifacts/paradox_diagram_input_v0.json"
+          if [[ ! -f "$f" ]]; then
+            echo "::warning::missing $f (triage did not produce diagram input)"
+            exit 0
+          fi
+          python scripts/check_paradox_diagram_input_v0_contract.py --in "$f" || \
+            echo "::warning::paradox diagram input contract check failed (shadow; non-gating)"
+
+      - name: Upload paradox diagram input (v0)
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # pinned
+        with:
+          name: paradox-diagram-input-v0
+          if-no-files-found: warn
+          path: |
+            PULSE_safe_pack_v0/artifacts/paradox_diagram_input_v0.json
+
       - name: Post or update PR comment
         continue-on-error: true
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
