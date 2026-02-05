@@ -301,6 +301,7 @@ def main() -> int:
 
         if args.status_json:
             trace = {
+                "kind": "diagnostic",
                 "dry_run": True,
                 "eval_id": result["eval_id"],
                 "run_id": result["run_id"],
@@ -482,6 +483,7 @@ def main() -> int:
 
     if args.status_json:
         trace = {
+            "kind": "diagnostic",
             "dry_run": False,
             "eval_id": eval_id,
             "run_id": run_id,
