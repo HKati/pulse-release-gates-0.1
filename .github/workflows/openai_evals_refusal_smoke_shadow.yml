@@ -258,6 +258,13 @@ jobs:
               print(f"::warning::status.json is not valid JSON: {e}")
               raise SystemExit(0)
 
+          if not isinstance(d, dict):
+              print(
+                  "::warning::status.json top-level is not an object "
+                  f"(type={type(d).__name__}); skipping sanity-check"
+              )
+              raise SystemExit(0)
+
           metrics = d.get("metrics")
           gates = d.get("gates")
 
