@@ -9,6 +9,19 @@ TIPS = {
     "paradox_density": "Try: review prompt/context merges, reduce stochasticity for risky paths, tighten benign transforms."
 }
 
+def _decision_key(decision: str) -> str:
+    raw_decision = (str(decision) if decision is not None else "").strip()
+    if raw_decision.lower().startswith("decision:"):
+        raw_decision = raw_decision.split(":", 1)[1].strip()
+    if not raw_decision:
+        return ""
+    return raw_decision.split()[0].split("(")[0].strip().upper()
+
+def _triage_title(decision: str) -> str:
+    if _decision_key(decision) == "NORMAL":
+        return "### PULSE • Paradox Gate — Triage (shadow)"
+    return "### PULSE • Paradox Gate — Why it failed / What to try"
+
 def num(x):
     try:
         return float(x)
@@ -65,14 +78,11 @@ def main():
     raw_decision = (str(decision) if decision is not None else "").strip()
     if raw_decision.lower().startswith("decision:"):
         raw_decision = raw_decision.split(":", 1)[1].strip()
-    decision_key = raw_decision.split()[0].split("(")[0].strip().upper() if raw_decision else ""
+    decision_key = _decision_key(raw_decision)
 
     md = []
     md.append("<!-- pulse-triage -->")
-    title = "### PULSE • Paradox Gate — Why it failed / What to try"
-    if decision_key == "NORMAL":
-        title = "### PULSE • Paradox Gate — Triage (shadow) / What to try"
-    md.append(title)
+    md.append(_triage_title(raw_decision))
     md.append("")
     if decision_key == "NORMAL":
         md.append("_Decision is NORMAL (shadow-only; does not gate merges). No action required._")
