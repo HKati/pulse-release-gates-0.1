@@ -21,7 +21,13 @@
       "type": "string",
       "enum": ["NORMAL", "WARN", "FAIL", "UNKNOWN"]
     },
-    "decision_raw": { "type": ["string", "null"] },
+    "decision_raw": {
+      "anyOf": [
+        { "type": "string", "minLength": 1 },
+        { "type": "null" }
+      ],
+      "description": "Raw decision string used for provenance/debug (e.g. 'NORMAL'). May be null when decision is unavailable."
+    },
 
     "source": { "type": ["string", "null"] },
     "notes": { "type": ["string", "null"] },
