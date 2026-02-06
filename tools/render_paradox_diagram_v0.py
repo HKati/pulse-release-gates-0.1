@@ -61,36 +61,21 @@ def _read_json_object(path: Path) -> Dict[str, Any]:
     return d
 
 
-def _get_metric(d: Dict[str, Any], key: str) -> Optional[float]:
-    """
-    Pull a metric either from d['metrics'][key] (preferred) or d[key] (fallback).
-    Returns None if missing/unparseable.
-    Rejects booleans explicitly (bool is an int subclass in Python).
-    """
-    v: Any = None
-
-    metrics = d.get("metrics")
-    if isinstance(metrics, dict) and key in metrics:
-        v = metrics.get(key)
-    else:
-        v = d.get(key)
-
-    if v is None:
-        return None
-    if isinstance(v, bool):
-        return None
-    if isinstance(v, (int, float)):
-        return float(v)
-    try:
-        return float(v)
-    except Exception:
-        return None
-
-
 def _fmt(v: Optional[float], *, decimals: int = 3, suffix: str = "") -> str:
     if v is None:
         return "n/a"
     return f"{v:.{decimals}f}{suffix}"
+
+
+def _as_float_or_none(value: Any) -> Optional[float]:
+    if value is None or isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    try:
+        return float(value)
+    except Exception:
+        return None
 
 
 def _parse_args() -> argparse.Namespace:
@@ -117,15 +102,24 @@ def main() -> int:
 
     d = _read_json_object(inp)
 
-    schema_version = str(d.get("schema_version") or "unknown")
+    schema_version = str(d.get("schema_version") or d.get("version") or "unknown")
     timestamp_utc = str(d.get("timestamp_utc") or "")
     shadow = d.get("shadow")
     decision = str(d.get("decision_key") or d.get("decision") or "UNKNOWN")
 
-    settle_p95 = _get_metric(d, "settle_time_p95_ms")
-    settle_budget = _get_metric(d, "settle_time_budget_ms")
-    downstream_error_rate = _get_metric(d, "downstream_error_rate")
-    paradox_density = _get_metric(d, "paradox_density")
+    metrics = d.get("metrics")
+    if not isinstance(metrics, dict):
+        metrics = {}
+
+    def _metric(key: str) -> Any:
+        if key in metrics:
+            return metrics.get(key)
+        return d.get(key)
+
+    settle_p95 = _as_float_or_none(_metric("settle_time_p95_ms"))
+    settle_budget = _as_float_or_none(_metric("settle_time_budget_ms"))
+    downstream_error_rate = _as_float_or_none(_metric("downstream_error_rate"))
+    paradox_density = _as_float_or_none(_metric("paradox_density"))
 
     ratio = None
     if settle_p95 is not None and settle_budget not in (None, 0.0):
@@ -186,3 +180,4 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
