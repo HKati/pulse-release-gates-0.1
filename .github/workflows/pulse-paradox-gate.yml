@@ -238,34 +238,35 @@ jobs:
             --out "$out"
 
       - name: Contract check (paradox_diagram_input_v0.json) (best-effort)
+        id: paradox_contract
         if: always()
         shell: bash
         run: |
           set -euo pipefail
           INP="PULSE_safe_pack_v0/artifacts/paradox_diagram_input_v0.json"
 
+          ok="false"
+
           if [[ ! -f "$INP" ]]; then
             echo "::warning::missing $INP (skipping paradox diagram contract + render)"
-            exit 0
+          else
+            if python scripts/check_paradox_diagram_input_v0_contract.py --in "$INP"; then
+              ok="true"
+            else
+              echo "::warning::paradox diagram input contract failed (skipping render; shadow)"
+            fi
           fi
 
-          if ! python scripts/check_paradox_diagram_input_v0_contract.py --in "$INP"; then
-            echo "::warning::paradox diagram input contract failed (continuing; shadow)"
-            exit 0
-          fi
+          echo "ok=$ok" >> "$GITHUB_OUTPUT"
+          exit 0
 
       - name: Render paradox diagram SVG (best-effort)
-        if: always()
+        if: ${{ always() && steps.paradox_contract.outputs.ok == 'true' }}
         shell: bash
         run: |
           set -euo pipefail
           INP="PULSE_safe_pack_v0/artifacts/paradox_diagram_input_v0.json"
           OUT="PULSE_safe_pack_v0/artifacts/paradox_diagram_v0.svg"
-
-          if [[ ! -f "$INP" ]]; then
-            echo "::warning::missing $INP (skipping SVG render)"
-            exit 0
-          fi
 
           if ! python tools/render_paradox_diagram_v0.py --in "$INP" --out "$OUT"; then
             echo "::warning::SVG render failed (continuing; shadow)"
