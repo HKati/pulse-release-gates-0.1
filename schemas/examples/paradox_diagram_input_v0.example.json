@@ -1,0 +1,13 @@
+{
+  "schema_version": "v0",
+  "timestamp_utc": "2026-02-06T00:00:00+00:00",
+  "shadow": true,
+  "decision_key": "NORMAL",
+  "decision_raw": "NORMAL",
+  "metrics": {
+    "settle_time_p95_ms": 10.0,
+    "settle_time_budget_ms": 50.0,
+    "downstream_error_rate": 0.02,
+    "paradox_density": 0.1
+  }
+}
