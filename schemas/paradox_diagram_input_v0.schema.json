@@ -3,7 +3,14 @@
   "$id": "paradox_diagram_input_v0.schema.json",
   "title": "PULSE Paradox diagram input (v0)",
   "type": "object",
-  "required": ["schema_version", "timestamp_utc", "shadow", "decision_key", "metrics"],
+  "required": [
+    "schema_version",
+    "timestamp_utc",
+    "shadow",
+    "decision_key",
+    "decision_raw",
+    "metrics"
+  ],
   "properties": {
     "schema_version": { "const": "v0" },
     "timestamp_utc": { "type": "string", "minLength": 1 },
