@@ -64,7 +64,9 @@ def _expect_str_or_none(name: str, v: Any) -> None:
 
 
 def _expect_number_ge0(name: str, v: Any) -> float:
-    if isinstance(v, bool) or not isinstance(v, (int, float)):
+    if isinstance(v, bool):
+        _die(f"Expected '{name}' to be number, got bool")
+    if not isinstance(v, (int, float)):
         _die(f"Expected '{name}' to be number, got {type(v).__name__}")
     fv = float(v)
     if fv < 0:
@@ -73,7 +75,9 @@ def _expect_number_ge0(name: str, v: Any) -> float:
 
 
 def _expect_number_0_1(name: str, v: Any) -> float:
-    if isinstance(v, bool) or not isinstance(v, (int, float)):
+    if isinstance(v, bool):
+        _die(f"Expected '{name}' to be number, got bool")
+    if not isinstance(v, (int, float)):
         _die(f"Expected '{name}' to be number, got {type(v).__name__}")
     fv = float(v)
     if not (0.0 <= fv <= 1.0):
