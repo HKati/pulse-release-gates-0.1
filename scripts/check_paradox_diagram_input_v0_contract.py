@@ -104,7 +104,7 @@ def validate(d: Dict[str, Any]) -> None:
         _die(f"Invalid decision_key: {decision_key}")
 
     decision_raw = _require_key(d, "decision_raw")
-    _expect_str_or_none("decision_raw", decision_raw)
+    _expect_str("decision_raw", decision_raw)
 
     # Optional metadata
     if "source" in d:
