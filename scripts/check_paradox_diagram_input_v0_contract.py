@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import sys
 from pathlib import Path
 from typing import Any, Dict
@@ -64,14 +65,14 @@ def _expect_str_or_none(name: str, v: Any) -> None:
 
 
 def _expect_number_ge0(name: str, v: Any) -> float:
-    if isinstance(v, bool):
-        _die(f"Expected '{name}' to be number, got bool")
-    if not isinstance(v, (int, float)):
+    if isinstance(v, bool) or not isinstance(v, (int, float)):
         _die(f"Expected '{name}' to be number, got {type(v).__name__}")
-    fv = float(v)
-    if fv < 0:
-        _die(f"Expected '{name}' to be >= 0, got {fv}")
-    return fv
+    f = float(v)
+    if not math.isfinite(f):
+        _die(f"Expected '{name}' to be finite number, got {v}")
+    if f < 0:
+        _die(f"Expected '{name}' to be >= 0, got {v}")
+    return f
 
 
 def _expect_number_0_1(name: str, v: Any) -> float:
