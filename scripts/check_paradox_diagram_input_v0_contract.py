@@ -105,6 +105,9 @@ def validate(d: Dict[str, Any]) -> None:
 
     decision_raw = _require_key(d, "decision_raw")
     _expect_str_or_none("decision_raw", decision_raw)
+    # Align with schema (string|null): if present as string, require non-empty.
+    if decision_raw is not None:
+        _expect_str("decision_raw", decision_raw)
 
     # Optional metadata
     if "source" in d:
