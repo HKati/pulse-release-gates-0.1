@@ -1,0 +1,46 @@
+#!/usr/bin/env python3
+"""
+check_theory_overlay_v0_contract.py
+
+Fail-closed contract checks for theory_overlay_v0.json without external deps.
+"""
+import argparse
+import json
+import sys
+
+REQUIRED_TOP_KEYS = ["schema", "inputs_digest", "gates_shadow", "cases", "evidence"]
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("path", help="Path to theory_overlay_v0.json")
+    args = ap.parse_args()
+
+    data = json.load(open(args.path, "r", encoding="utf-8"))
+
+    for k in REQUIRED_TOP_KEYS:
+        if k not in data:
+            print(f"FAIL: missing top-level key: {k}", file=sys.stderr)
+            return 2
+
+    if data["schema"] != "theory_overlay_v0":
+        print("FAIL: schema must be 'theory_overlay_v0'", file=sys.stderr)
+        return 2
+
+    if not isinstance(data["gates_shadow"], dict):
+        print("FAIL: gates_shadow must be object", file=sys.stderr)
+        return 2
+
+    for gname, g in data["gates_shadow"].items():
+        if "status" not in g:
+            print(f"FAIL: gate {gname} missing status", file=sys.stderr)
+            return 2
+        if g["status"] not in ("PASS", "FAIL", "MISSING"):
+            print(f"FAIL: gate {gname} invalid status {g['status']}", file=sys.stderr)
+            return 2
+
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
