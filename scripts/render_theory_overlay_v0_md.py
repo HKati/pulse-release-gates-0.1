@@ -11,13 +11,17 @@ Usage:
 Notes:
 - stdlib-only
 - deterministic (no timestamps)
-- fail-closed: returns non-zero on invalid input
+- fail-closed: returns non-zero on invalid or incomplete input
 """
 
 import argparse
 import json
 import sys
 from typing import Any, Dict
+
+
+REQUIRED_TOP_KEYS = ["schema", "inputs_digest", "gates_shadow", "cases", "evidence"]
+ALLOWED_GATE_STATUSES = {"PASS", "FAIL", "MISSING"}
 
 
 def _err(msg: str) -> int:
@@ -46,17 +50,22 @@ def main() -> int:
     if not isinstance(data, dict):
         return _err(f"Top-level JSON must be an object, got {type(data).__name__}")
 
-    schema = data.get("schema")
+    # Fail-closed: required keys must be present (schema contract minimum)
+    for k in REQUIRED_TOP_KEYS:
+        if k not in data:
+            return _err(f"Missing required top-level key: {k}")
+
+    schema = data["schema"]
     if schema != "theory_overlay_v0":
         return _err("schema must be exactly 'theory_overlay_v0'")
 
-    inputs_digest = data.get("inputs_digest", "")
-    gates = data.get("gates_shadow", {})
-    cases = data.get("cases", [])
-    evidence = data.get("evidence", {})
+    inputs_digest = data["inputs_digest"]
+    gates = data["gates_shadow"]
+    cases = data["cases"]
+    evidence = data["evidence"]
 
-    if not isinstance(inputs_digest, str):
-        return _err("inputs_digest must be a string")
+    if not isinstance(inputs_digest, str) or not inputs_digest:
+        return _err("inputs_digest must be a non-empty string")
     if not isinstance(gates, dict):
         return _err("gates_shadow must be an object")
     if not isinstance(cases, list):
@@ -64,7 +73,19 @@ def main() -> int:
     if not isinstance(evidence, dict):
         return _err("evidence must be an object")
 
-    # Render
+    # Optional but useful: validate minimal gate entry shape
+    for gname, gval in gates.items():
+        if not isinstance(gname, str) or not gname:
+            return _err("gates_shadow keys must be non-empty strings")
+        if not isinstance(gval, dict):
+            return _err(f"gate '{gname}' must be an object")
+        if "status" not in gval:
+            return _err(f"gate '{gname}' missing required field: status")
+        st = gval["status"]
+        if st not in ALLOWED_GATE_STATUSES:
+            return _err(f"gate '{gname}' has invalid status: {st}")
+
+    # Render (deterministic ordering)
     lines = []
     lines.append("# Theory Overlay v0 (shadow)")
     lines.append("")
@@ -72,16 +93,13 @@ def main() -> int:
     lines.append(f"- inputs_digest: `{inputs_digest}`")
     lines.append("")
     lines.append("## Gates (shadow)")
+
     if not gates:
         lines.append("")
         lines.append("_No gates reported._")
     else:
-        # deterministic: sorted keys
         for name in sorted(gates.keys()):
-            g = gates.get(name, {})
-            if not isinstance(g, dict):
-                lines.append(f"- **{name}**: `INVALID` — gate entry is not an object")
-                continue
+            g = gates[name]
             st = g.get("status", "MISSING")
             reason = g.get("reason", "")
             if reason:
@@ -94,7 +112,6 @@ def main() -> int:
     lines.append("")
     lines.append(f"- count: `{len(cases)}`")
 
-    # Keep evidence small + deterministic
     lines.append("")
     lines.append("## Evidence (top-level keys)")
     if evidence:
