@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "cases": {
+      "type": "array"
+    },
+    "evidence": {
+      "type": "object"
+    },
+    "gates_shadow": {
+      "type": "object"
+    },
+    "inputs_digest": {
+      "type": "string"
+    },
+    "notes": {
+      "type": "array"
+    },
+    "schema": {
+      "const": "theory_overlay_v0",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "inputs_digest",
+    "gates_shadow",
+    "cases",
+    "evidence"
+  ],
+  "title": "theory_overlay_v0",
+  "type": "object"
+}
