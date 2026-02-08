@@ -1,0 +1,15 @@
+{
+  "schema": "theory_overlay_v0",
+  "inputs_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+  "gates_shadow": {
+    "theory_overlay_stub_ok": {
+      "status": "MISSING",
+      "reason": "Placeholder overlay artifact (generation not wired yet)."
+    }
+  },
+  "cases": [],
+  "evidence": {
+    "overlay_source": "manual_stub",
+    "note": "This file exists to exercise the shadow workflow contract check."
+  }
+}
