@@ -1,64 +1,67 @@
-{
-  "schema": "theory_overlay_v0",
-  "inputs_digest": "0000000000000000000000000000000000000000000000000000000000000000",
-  "gates_shadow": {
-    "theory_overlay_stub_ok": {
-      "status": "MISSING",
-      "reason": "Placeholder overlay artifact (generation not wired yet)."
-    },
-    "g_record_horizon_v0": {
-      "status": "MISSING",
-      "reason": "Record-horizon (G/tidality) overlay not wired yet. Schema-compatible scaffold.",
-      "zone": "UNKNOWN",
-      "mode": "UNKNOWN"
-    }
-  },
-  "cases": [
-    {
-      "id": "contract_smoke",
-      "status": "PASS",
-      "message": "theory_overlay_v0 artifact present and contract-check valid"
-    }
-  ],
-  "evidence": {
-    "overlay_source": "manual_stub",
-    "note": "This file exists to exercise the shadow workflow contract check.",
-    "record_horizon_v0": {
-      "status": "MISSING",
-      "expected_inputs": ["u", "T|lnT", "v_L", "lambda_eff"],
-      "expected_params": ["eta", "chi", "ell_0", "M_infty", "b0_A_bits", "epsilon_budget", "rho_coding"],
-      "thresholds": {
-        "Btilde_green": 100,
-        "Btilde_yellow": 10,
-        "Btilde_red": 1,
-        "sharp_Xi": 8,
-        "sharp_F": 10
-      },
-      "constants": {
-        "c_m_per_s": 299792458,
-        "G_m3_per_kg_s2": 6.6743e-11
-      },
-      "formulas": {
-        "alpha0": "alpha0 = eta * (ell_0/c^2) * T",
-        "B_rem_bits": "B_rem ≈ (M_infty * lambda_eff * exp(-u)) / (alpha0 * v_L * (1 + chi*u))",
-        "B_eff_payload_bits": "B_eff_payload = (1-epsilon_budget)*(1-rho_coding)*B_rem",
-        "Btilde_core_units": "Btilde = B_eff_payload / b0_A_bits",
-        "zone": "GREEN if Btilde>=100; YELLOW if 10<=Btilde<100; RED if 1<=Btilde<10; POST if Btilde<1"
-      },
-      "computed": {
-        "B_rem_bits": null,
-        "B_eff_payload_bits": null,
-        "Btilde_core_units": null,
-        "x_ln_Btilde": null,
-        "zone": "UNKNOWN",
-        "mode": "UNKNOWN",
-        "feedback_F": null,
-        "Xi": null,
-        "m_slope": null,
-        "delta_lnT_to_100": null,
-        "delta_lnT_to_10": null,
-        "delta_lnT_to_1": null
-      }
-    }
-  }
-}
+ {
+   "schema": "theory_overlay_v0",
+   "inputs_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+   "gates_shadow": {
+     "theory_overlay_stub_ok": {
+       "status": "MISSING",
+       "reason": "Placeholder overlay artifact (generation not wired yet)."
+     }
++    ,
++    "g_record_horizon_v0": {
++      "status": "MISSING",
++      "reason": "Record-horizon (G/tidality) overlay not wired yet. Schema-compatible scaffold.",
++      "zone": "UNKNOWN",
++      "mode": "UNKNOWN"
++    }
+   },
+-  "cases": [],
++  "cases": [
++    {
++      "id": "contract_smoke",
++      "status": "PASS",
++      "message": "theory_overlay_v0 artifact present and contract-check valid"
++    }
++  ],
+   "evidence": {
+     "overlay_source": "manual_stub",
+-    "note": "This file exists to exercise the shadow workflow contract check."
++    "note": "This file exists to exercise the shadow workflow contract check.",
++    "record_horizon_v0": {
++      "status": "MISSING",
++      "expected_inputs": ["u", "T|lnT", "v_L", "lambda_eff"],
++      "expected_params": ["eta", "chi", "ell_0", "M_infty", "b0_A_bits", "epsilon_budget", "rho_coding"],
++      "thresholds": {
++        "Btilde_green": 100,
++        "Btilde_yellow": 10,
++        "Btilde_red": 1,
++        "sharp_Xi": 8,
++        "sharp_F": 10
++      },
++      "constants": {
++        "c_m_per_s": 299792458,
++        "G_m3_per_kg_s2": 6.6743e-11
++      },
++      "formulas": {
++        "alpha0": "alpha0 = eta * (ell_0/c^2) * T",
++        "B_rem_bits": "B_rem ≈ (M_infty * lambda_eff * exp(-u)) / (alpha0 * v_L * (1 + chi*u))",
++        "B_eff_payload_bits": "B_eff_payload = (1-epsilon_budget)*(1-rho_coding)*B_rem",
++        "Btilde_core_units": "Btilde = B_eff_payload / b0_A_bits",
++        "zone": "GREEN if Btilde>=100; YELLOW if 10<=Btilde<100; RED if 1<=Btilde<10; POST if Btilde<1"
++      },
++      "computed": {
++        "B_rem_bits": null,
++        "B_eff_payload_bits": null,
++        "Btilde_core_units": null,
++        "x_ln_Btilde": null,
++        "zone": "UNKNOWN",
++        "mode": "UNKNOWN",
++        "feedback_F": null,
++        "Xi": null,
++        "m_slope": null,
++        "delta_lnT_to_100": null,
++        "delta_lnT_to_10": null,
++        "delta_lnT_to_1": null
++      }
++    }
+   }
+ }
