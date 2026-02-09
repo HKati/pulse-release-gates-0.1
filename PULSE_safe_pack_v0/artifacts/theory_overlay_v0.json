@@ -8,7 +8,7 @@
     },
     "g_record_horizon_v0": {
       "status": "MISSING",
-      "reason": "Record-horizon (G/tidality) overlay not wired yet. This is a schema-compatible stub.",
+      "reason": "Record-horizon (G/tidality) overlay not wired yet. Schema-compatible scaffold.",
       "zone": "UNKNOWN",
       "mode": "UNKNOWN"
     }
@@ -17,7 +17,7 @@
     {
       "id": "contract_smoke",
       "status": "PASS",
-      "message": "theory_overlay_v0 artifact present and schema-valid"
+      "message": "theory_overlay_v0 artifact present and contract-check valid"
     }
   ],
   "evidence": {
@@ -33,6 +33,10 @@
         "Btilde_red": 1,
         "sharp_Xi": 8,
         "sharp_F": 10
+      },
+      "constants": {
+        "c_m_per_s": 299792458,
+        "G_m3_per_kg_s2": 6.6743e-11
       },
       "formulas": {
         "alpha0": "alpha0 = eta * (ell_0/c^2) * T",
