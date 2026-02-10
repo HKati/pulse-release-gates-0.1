@@ -52,6 +52,12 @@ jobs:
           echo "found=true" >> "$GITHUB_OUTPUT"
           echo "overlay=$overlay" >> "$GITHUB_OUTPUT"
 
+      - name: Contract check (pre) - committed overlay must already be valid
+        if: ${{ steps.locate_overlay.outputs.found == 'true' }}
+        shell: bash
+        run: |
+          python scripts/check_theory_overlay_v0_contract.py --in "${{ steps.locate_overlay.outputs.overlay }}"
+
       - name: Generate theory overlay v0 (record horizon)
         if: ${{ steps.locate_overlay.outputs.found == 'true' }}
         shell: bash
@@ -61,7 +67,7 @@ jobs:
             --out "${{ steps.locate_overlay.outputs.overlay }}" \
             --require-inputs
 
-      - name: Contract check (theory overlay v0)
+      - name: Contract check (post) - generated overlay must be valid
         if: ${{ steps.locate_overlay.outputs.found == 'true' }}
         shell: bash
         run: |
