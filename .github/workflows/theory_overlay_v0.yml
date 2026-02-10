@@ -81,3 +81,13 @@ jobs:
           python scripts/render_theory_overlay_v0_md.py \
             --in  "${{ steps.locate_overlay.outputs.overlay }}" \
             --out "${{ steps.locate_overlay.outputs.overlay_md }}"
+
+      - name: Publish theory overlay summary
+        if: ${{ steps.locate_overlay.outputs.found == 'true' }}
+        shell: bash
+        run: |
+          if [ -f "${{ steps.locate_overlay.outputs.overlay_md }}" ]; then
+            cat "${{ steps.locate_overlay.outputs.overlay_md }}" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "theory_overlay_v0.md not found; nothing to publish." >> "$GITHUB_STEP_SUMMARY"
+          fi
