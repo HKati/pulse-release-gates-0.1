@@ -22,6 +22,7 @@ ALLOWED_GATE_STATUSES = {"PASS", "FAIL", "MISSING"}
 
 C_DEFAULT = 299792458.0
 G_DEFAULT = 6.6743e-11
+HORIZON_B_TILDE = 1.0  # record-horizon definition (hard)
 
 # Gate name we populate
 GATE_NAME = "g_record_horizon_v0"
@@ -419,7 +420,7 @@ def main() -> int:
             zone = "GREEN"
         elif Btilde >= b_yellow:
             zone = "YELLOW"
-        elif Btilde >= b_red:
+        elif Btilde >= HORIZON_B_TILDE:
             zone = "RED"
         else:
             zone = "POST"
@@ -437,6 +438,7 @@ def main() -> int:
         computed["B_rem_bits"] = B_rem_bits
         computed["B_eff_payload_bits"] = B_eff_payload_bits
         computed["Btilde_core_units"] = Btilde
+        computed["horizon_Btilde"] = HORIZON_B_TILDE
         computed["x_ln_Btilde"] = x_ln
         computed["zone"] = zone
         computed["mode"] = mode
@@ -458,16 +460,19 @@ def main() -> int:
         gate["mode"] = mode
 
         # Gate status policy (v0):
-        # - FAIL if POST (horizon passed)
+        # - FAIL if Btilde is below hard record horizon
         # - PASS otherwise (GREEN/YELLOW/RED are diagnostic zones)
-        if zone == "POST":
+        if Btilde < HORIZON_B_TILDE:
             gate["status"] = "FAIL"
-            gate["reason"] = "RECORD_HORIZON: Btilde_core_units < 1 (zone=POST)"
+            gate["reason"] = f"RECORD_HORIZON: Btilde_core_units < {HORIZON_B_TILDE:g} (zone=POST)"
         else:
             gate["status"] = "PASS"
-            # Optional mild note if RED (still PASS in v0)
             if zone == "RED":
-                gate["reason"] = "WARN: zone=RED (near record horizon)"
+                # Optional early warning if configured Btilde_red is above 1 and we are below it
+                if b_red is not None and b_red > HORIZON_B_TILDE and Btilde < b_red:
+                    gate["reason"] = f"WARN: below configured Btilde_red={b_red:g} (near horizon)"
+                else:
+                    gate["reason"] = "WARN: zone=RED (near record horizon)"
             else:
                 gate["reason"] = ""
 
