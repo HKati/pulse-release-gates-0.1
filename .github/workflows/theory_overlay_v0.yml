@@ -52,6 +52,13 @@ jobs:
           echo "found=true" >> "$GITHUB_OUTPUT"
           echo "overlay=$overlay" >> "$GITHUB_OUTPUT"
           echo "overlay_md=PULSE_safe_pack_v0/artifacts/theory_overlay_v0.md" >> "$GITHUB_OUTPUT"
+          bundle="PULSE_safe_pack_v0/artifacts/theory_overlay_inputs_v0.json"
+          echo "bundle=$bundle" >> "$GITHUB_OUTPUT"
+          if [ -f "$bundle" ]; then
+            echo "bundle_found=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "bundle_found=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Contract check (pre) - committed overlay must already be valid
         if: ${{ steps.locate_overlay.outputs.found == 'true' }}
@@ -63,10 +70,17 @@ jobs:
         if: ${{ steps.locate_overlay.outputs.found == 'true' }}
         shell: bash
         run: |
-          python scripts/generate_theory_overlay_v0.py \
-            --in  "${{ steps.locate_overlay.outputs.overlay }}" \
-            --out "${{ steps.locate_overlay.outputs.overlay }}" \
+          cmd=(python scripts/generate_theory_overlay_v0.py
+            --in  "${{ steps.locate_overlay.outputs.overlay }}"
+            --out "${{ steps.locate_overlay.outputs.overlay }}"
             --require-inputs
+          )
+
+          if [ "${{ steps.locate_overlay.outputs.bundle_found }}" = "true" ]; then
+            cmd+=(--bundle "${{ steps.locate_overlay.outputs.bundle }}")
+          fi
+
+          "${cmd[@]}"
 
       - name: Contract check (post) - generated overlay must be valid
         if: ${{ steps.locate_overlay.outputs.found == 'true' }}
