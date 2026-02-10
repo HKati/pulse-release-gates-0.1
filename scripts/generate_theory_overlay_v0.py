@@ -202,7 +202,6 @@ def main() -> int:
         rh["computed"] = {}
 
     computed = rh["computed"]
-    sharp_F_thr = float(rh["thresholds"].get("sharp_F", 10))
 
     # Determine if we have any inputs at all
     required_inputs = {"u": u, "T_or_lnT": (T if T is not None else lnT), "v_L": v_L, "lambda_eff": lambda_eff}
@@ -306,6 +305,25 @@ def main() -> int:
 
     # Compute metrics
     try:
+        # Parse thresholds (fail-closed if malformed)
+        thr = rh.get("thresholds", {})
+        if not isinstance(thr, dict):
+            raise ValueError("invalid thresholds: not an object")
+
+        b_green = _as_float(thr.get("Btilde_green"))
+        b_yellow = _as_float(thr.get("Btilde_yellow"))
+        b_red = _as_float(thr.get("Btilde_red"))
+        sharp_F_thr = _as_float(thr.get("sharp_F"))
+
+        if b_green is None or b_yellow is None or b_red is None:
+            raise ValueError("invalid thresholds: Btilde_green/Btilde_yellow/Btilde_red must be numeric")
+        if sharp_F_thr is None:
+            raise ValueError("invalid threshold: sharp_F")
+
+        # Basic sanity: green >= yellow >= red > 0
+        if not (b_green >= b_yellow >= b_red > 0):
+            raise ValueError("invalid thresholds ordering: require green>=yellow>=red>0")
+
         lnT_val = math.log(T)
         alpha0 = float(eta) * (float(ell_0) / (float(c) ** 2)) * float(T)
         feedback_F = 1.0 + float(chi) * (float(u) + 1.0)
@@ -330,11 +348,11 @@ def main() -> int:
 
         # Zone classification
         zone = "POST"
-        if Btilde >= 100:
+        if Btilde >= b_green:
             zone = "GREEN"
-        elif Btilde >= 10:
+        elif Btilde >= b_yellow:
             zone = "YELLOW"
-        elif Btilde >= 1:
+        elif Btilde >= b_red:
             zone = "RED"
         else:
             zone = "POST"
