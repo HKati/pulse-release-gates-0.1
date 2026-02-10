@@ -139,6 +139,7 @@ def main() -> int:
     u = _as_float(bundle_inputs.get("u")) if bundle_inputs else None
     T = _as_float(bundle_inputs.get("T")) if bundle_inputs else None
     lnT = _as_float(bundle_inputs.get("lnT")) if bundle_inputs else None
+    L = _as_float(bundle_inputs.get("L")) if bundle_inputs else None
     v_L = _as_float(bundle_inputs.get("v_L")) if bundle_inputs else None
     lambda_eff = _as_float(bundle_inputs.get("lambda_eff")) if bundle_inputs else None
 
@@ -148,6 +149,8 @@ def main() -> int:
         T = _get_env_float("THEORY_T")
     if lnT is None:
         lnT = _get_env_float("THEORY_LNT")
+    if L is None:
+        L = _get_env_float("THEORY_L")
     if v_L is None:
         v_L = _get_env_float("THEORY_V_L")
     if lambda_eff is None:
@@ -313,12 +316,15 @@ def main() -> int:
         b_green = _as_float(thr.get("Btilde_green"))
         b_yellow = _as_float(thr.get("Btilde_yellow"))
         b_red = _as_float(thr.get("Btilde_red"))
+        sharp_Xi_thr = _as_float(thr.get("sharp_Xi"))
         sharp_F_thr = _as_float(thr.get("sharp_F"))
 
         if b_green is None or b_yellow is None or b_red is None:
             raise ValueError("invalid thresholds: Btilde_green/Btilde_yellow/Btilde_red must be numeric")
         if sharp_F_thr is None:
             raise ValueError("invalid threshold: sharp_F")
+        if sharp_Xi_thr is None:
+            raise ValueError("invalid threshold: sharp_Xi")
 
         # Basic sanity: green >= yellow >= red > 0
         if not (b_green >= b_yellow >= b_red > 0):
@@ -346,6 +352,67 @@ def main() -> int:
 
         x_ln = math.log(Btilde)
 
+        # Optional history-based slope/Xi projection inputs
+        g_T = None
+        Xi = None
+        m_data = None
+        m_model = None
+        m = None
+        delta_lnT_to_green = None
+        delta_lnT_to_yellow = None
+        delta_lnT_to_red = None
+
+        hist = rh.get("history")
+        prev_lnT = None
+        prev_x = None
+        prev_L = None
+        if isinstance(hist, list):
+            for item in reversed(hist):
+                if not isinstance(item, dict):
+                    continue
+                cand_lnT = _as_float(item.get("lnT"))
+                cand_x = _as_float(item.get("x_ln_Btilde"))
+                if cand_x is None:
+                    cand_x = _as_float(item.get("x"))
+                if cand_lnT is None or cand_x is None:
+                    continue
+                prev_lnT = cand_lnT
+                prev_x = cand_x
+                prev_L = _as_float(item.get("L"))
+                break
+
+        if prev_lnT is not None and prev_x is not None:
+            dt = lnT_val - prev_lnT
+            dx = x_ln - prev_x
+            if dt > 0:
+                m_data = abs(dx / dt)
+
+            if L is not None and prev_L is not None:
+                dL = L - prev_L
+                if dL != 0:
+                    g_T_candidate = dt / dL
+                    if math.isfinite(g_T_candidate) and g_T_candidate != 0:
+                        g_T = g_T_candidate
+                        g_C = alpha0 * (1.0 + float(chi) * (float(u) + 1.0))
+                        Xi_candidate = g_C / g_T
+                        if math.isfinite(Xi_candidate):
+                            Xi = Xi_candidate
+
+            if Xi is not None:
+                m_model_candidate = 1.0 + Xi
+                if math.isfinite(m_model_candidate):
+                    m_model = m_model_candidate
+
+            m = 1.0
+            if m_data is not None and math.isfinite(m_data):
+                m = max(m, m_data)
+            if m_model is not None and math.isfinite(m_model):
+                m = max(m, m_model)
+
+            delta_lnT_to_green = max(0.0, (x_ln - math.log(b_green)) / m)
+            delta_lnT_to_yellow = max(0.0, (x_ln - math.log(b_yellow)) / m)
+            delta_lnT_to_red = max(0.0, (x_ln - math.log(b_red)) / m)
+
         # Zone classification
         zone = "POST"
         if Btilde >= b_green:
@@ -357,8 +424,14 @@ def main() -> int:
         else:
             zone = "POST"
 
-        # Mode (v0): from feedback_F only (Xi optional later)
-        mode = "SHARP" if feedback_F >= sharp_F_thr else "SLOW"
+        # Mode: Xi+F if Xi exists, otherwise fallback to F-only
+        if Xi is not None:
+            mode = "SHARP" if (Xi >= sharp_Xi_thr or feedback_F >= sharp_F_thr) else "SLOW"
+        else:
+            mode = "SHARP" if feedback_F >= sharp_F_thr else "SLOW"
+
+        def _close(a: float, b: float, tol: float = 1e-9) -> bool:
+            return math.isclose(a, b, rel_tol=tol, abs_tol=tol)
 
         # Populate computed
         computed["B_rem_bits"] = B_rem_bits
@@ -368,11 +441,16 @@ def main() -> int:
         computed["zone"] = zone
         computed["mode"] = mode
         computed["feedback_F"] = feedback_F
-        computed["Xi"] = None
-        computed["m_slope"] = None
-        computed["delta_lnT_to_100"] = None
-        computed["delta_lnT_to_10"] = None
-        computed["delta_lnT_to_1"] = None
+        computed["g_T"] = g_T
+        computed["Xi"] = Xi
+        computed["m_slope"] = m
+        computed["delta_lnT_to_green"] = delta_lnT_to_green
+        computed["delta_lnT_to_yellow"] = delta_lnT_to_yellow
+        computed["delta_lnT_to_red"] = delta_lnT_to_red
+
+        computed["delta_lnT_to_100"] = delta_lnT_to_green if delta_lnT_to_green is not None and _close(b_green, 100.0) else None
+        computed["delta_lnT_to_10"] = delta_lnT_to_yellow if delta_lnT_to_yellow is not None and _close(b_yellow, 10.0) else None
+        computed["delta_lnT_to_1"] = delta_lnT_to_red if delta_lnT_to_red is not None and _close(b_red, 1.0) else None
 
         rh["status"] = "OK"
 
