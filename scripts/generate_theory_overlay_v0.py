@@ -385,19 +385,26 @@ def main() -> int:
         if prev_lnT is not None and prev_x is not None:
             dt = lnT_val - prev_lnT
             dx = x_ln - prev_x
+
+            g_T_candidate = None
+            if L is not None and prev_L is not None:
+                dL = L - prev_L
+
+                # Guard with forward (monotonic) lnT and positive progress in L
+                if dt > 0 and dL > 0:
+                    g_T_candidate = dt / dL
+                    if not (math.isfinite(g_T_candidate) and g_T_candidate > 0):
+                        g_T_candidate = None
+
             if dt > 0:
                 m_data = abs(dx / dt)
 
-            if L is not None and prev_L is not None:
-                dL = L - prev_L
-                if dL != 0:
-                    g_T_candidate = dt / dL
-                    if math.isfinite(g_T_candidate) and g_T_candidate != 0:
-                        g_T = g_T_candidate
-                        g_C = alpha0 * (1.0 + float(chi) * (float(u) + 1.0))
-                        Xi_candidate = g_C / g_T
-                        if math.isfinite(Xi_candidate):
-                            Xi = Xi_candidate
+            if g_T_candidate is not None:
+                g_T = g_T_candidate
+                g_C = alpha0 * (1.0 + float(chi) * (float(u) + 1.0))
+                Xi_candidate = g_C / g_T_candidate
+                if math.isfinite(Xi_candidate) and Xi_candidate >= 0:
+                    Xi = Xi_candidate
 
             if Xi is not None:
                 m_model_candidate = 1.0 + Xi
