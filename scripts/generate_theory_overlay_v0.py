@@ -316,7 +316,8 @@ def main() -> int:
         b_green = _as_float(thr.get("Btilde_green"))
         b_yellow = _as_float(thr.get("Btilde_yellow"))
         b_red = _as_float(thr.get("Btilde_red"))
-        sharp_Xi_thr = _as_float(thr.get("sharp_Xi"))
+        sharp_Xi_raw = thr.get("sharp_Xi", 8)  # optional; default to 8
+        sharp_Xi_thr = _as_float(sharp_Xi_raw)
         sharp_F_thr = _as_float(thr.get("sharp_F"))
 
         if b_green is None or b_yellow is None or b_red is None:
@@ -324,7 +325,7 @@ def main() -> int:
         if sharp_F_thr is None:
             raise ValueError("invalid threshold: sharp_F")
         if sharp_Xi_thr is None:
-            raise ValueError("invalid threshold: sharp_Xi")
+            raise ValueError("invalid threshold: sharp_Xi (must be numeric if provided)")
 
         # Basic sanity: green >= yellow >= red > 0
         if not (b_green >= b_yellow >= b_red > 0):
@@ -425,10 +426,9 @@ def main() -> int:
             zone = "POST"
 
         # Mode: Xi+F if Xi exists, otherwise fallback to F-only
-        if Xi is not None:
-            mode = "SHARP" if (Xi >= sharp_Xi_thr or feedback_F >= sharp_F_thr) else "SLOW"
-        else:
-            mode = "SHARP" if feedback_F >= sharp_F_thr else "SLOW"
+        mode = "SHARP" if feedback_F >= sharp_F_thr else "SLOW"
+        if Xi is not None and Xi >= sharp_Xi_thr:
+            mode = "SHARP"
 
         def _close(a: float, b: float, tol: float = 1e-9) -> bool:
             return math.isclose(a, b, rel_tol=tol, abs_tol=tol)
