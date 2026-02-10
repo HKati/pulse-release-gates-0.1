@@ -40,6 +40,11 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: Run generator golden fixtures
+        shell: bash
+        run: |
+          python scripts/test_theory_overlay_v0_generator_fixtures.py
+
       - name: Locate theory_overlay_v0.json
         id: locate_overlay
         shell: bash
