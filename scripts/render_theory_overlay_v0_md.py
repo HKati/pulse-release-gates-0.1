@@ -34,6 +34,10 @@ def _load_json(path: str) -> Any:
         return json.load(f)
 
 
+def _fmt(value: Any) -> str:
+    return "_n/a_" if value is None else str(value)
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(add_help=True)
     ap.add_argument("--in", dest="in_path", required=True, help="Input overlay JSON path.")
@@ -119,6 +123,11 @@ def main() -> int:
             lines.append(f"- `{k}`")
     else:
         lines.append("_none_")
+
+    rh = evidence.get("release_hypothesis")
+    if isinstance(rh, dict):
+        rh_status = _fmt(rh.get("status"))
+        lines.append(f"- evidence_status: `{rh_status}`")
 
     lines.append("")
 
