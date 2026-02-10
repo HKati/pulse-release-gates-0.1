@@ -34,12 +34,8 @@ def _load_json(path: str) -> Any:
         return json.load(f)
 
 
-def _fmt(v: Any) -> str:
-    if v is None:
-        return "_n/a_"
-    if isinstance(v, float):
-        return f"{v:.6g}"
-    return str(v)
+def _fmt(value: Any) -> str:
+    return "_n/a_" if value is None else str(value)
 
 
 def main() -> int:
@@ -128,42 +124,12 @@ def main() -> int:
     else:
         lines.append("_none_")
 
+    rh = evidence.get("release_hypothesis")
+    if isinstance(rh, dict):
+        rh_status = _fmt(rh.get("status"))
+        lines.append(f"- evidence_status: `{rh_status}`")
+
     lines.append("")
-
-    # Optional: Record-horizon (G/tidality) block
-    rh_gate = gates.get("g_record_horizon_v0")
-    rh = evidence.get("record_horizon_v0")
-    if rh_gate is not None or rh is not None:
-        lines.append("## Record horizon (G) diagnostics")
-        lines.append("")
-
-        if isinstance(rh_gate, dict):
-            st = rh_gate.get("status", "MISSING")
-            zone = rh_gate.get("zone", "UNKNOWN")
-            mode = rh_gate.get("mode", "UNKNOWN")
-            reason = rh_gate.get("reason", "")
-            lines.append(f"- shadow_gate: `{st}` (zone=`{zone}`, mode=`{mode}`)")
-            if reason:
-                lines.append(f"  - reason: {reason}")
-        else:
-            lines.append("- shadow_gate: _n/a_")
-
-        if isinstance(rh, dict):
-            rh_status = rh.get("status", "_n/a_")
-            computed = rh.get("computed", {})
-            if not isinstance(computed, dict):
-                computed = {}
-
-            lines.append(f"- evidence_status: `{rh_status}`")
-            lines.append(f"- B̃_core_units: `{_fmt(computed.get('Btilde_core_units'))}`")
-            lines.append(f"- x=ln(B̃): `{_fmt(computed.get('x_ln_Btilde'))}`")
-            lines.append(f"- ΔlnT→100: `{_fmt(computed.get('delta_lnT_to_100'))}`")
-            lines.append(f"- ΔlnT→10: `{_fmt(computed.get('delta_lnT_to_10'))}`")
-            lines.append(f"- ΔlnT→1: `{_fmt(computed.get('delta_lnT_to_1'))}`")
-        else:
-            lines.append("- evidence_status: _n/a_")
-
-        lines.append("")
 
     try:
         with open(args.out_path, "w", encoding="utf-8") as f:
