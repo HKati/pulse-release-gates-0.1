@@ -160,8 +160,12 @@ More details: see `openai_evals_v0/README.md` → “Debugging / triage (shadow)
 **See the latest Quality Ledger (live):** https://hkati.github.io/pulse-release-gates-0.1/
 
 **Artifacts**
-- **Report Card** → `PULSE_safe_pack_v0/artifacts/report_card.html`
-- **Status JSON** → `PULSE_safe_pack_v0/artifacts/status.json`
+
+**Report Card** → `PULSE_safe_pack_v0/artifacts/report_card.html`  
+**Status JSON** → `PULSE_safe_pack_v0/artifacts/status.json`  
+**Paradox Gate triage SVG (shadow)** → `PULSE_safe_pack_v0/artifacts/paradox_diagram_v0.svg` (Docs: [`docs/paradox_gate_triage_svg_v0.md`](docs/paradox_gate_triage_svg_v0.md))
+
+
 
 ### Developer tools (optional)
 
