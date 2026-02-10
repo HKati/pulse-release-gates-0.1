@@ -124,10 +124,52 @@ def main() -> int:
     else:
         lines.append("_none_")
 
-    rh = evidence.get("release_hypothesis")
+    rh = evidence.get("record_horizon_v0")
+    if not isinstance(rh, dict):
+        rh = evidence.get("release_hypothesis")
     if isinstance(rh, dict):
         rh_status = _fmt(rh.get("status"))
+        computed = rh.get("computed", {})
+        if not isinstance(computed, dict):
+            computed = {}
+
+        thresholds = rh.get("thresholds", {})
+        if not isinstance(thresholds, dict):
+            thresholds = {}
+
         lines.append(f"- evidence_status: `{rh_status}`")
+        lines.append(f"- zone: `{_fmt(computed.get('zone'))}`")
+        lines.append(f"- mode: `{_fmt(computed.get('mode'))}`")
+        lines.append(f"- B̃_core_units: `{_fmt(computed.get('Btilde_core_units'))}`")
+        lines.append(f"- x=ln(B̃): `{_fmt(computed.get('x_ln_Btilde'))}`")
+
+        # Useful internals
+        lines.append(f"- feedback_F: `{_fmt(computed.get('feedback_F'))}`")
+        lines.append(f"- Xi: `{_fmt(computed.get('Xi'))}`")
+        lines.append(f"- m_slope: `{_fmt(computed.get('m_slope'))}`")
+
+        # Thresholds (config)
+        lines.append(
+            f"- thresholds(B̃): green=`{_fmt(thresholds.get('Btilde_green'))}`, "
+            f"yellow=`{_fmt(thresholds.get('Btilde_yellow'))}`, "
+            f"red=`{_fmt(thresholds.get('Btilde_red'))}`"
+        )
+
+        # Forecasts: prefer threshold-aware keys if present, else fall back to legacy 100/10/1
+        has_cfg = (
+            ("delta_lnT_to_green" in computed)
+            or ("delta_lnT_to_yellow" in computed)
+            or ("delta_lnT_to_red" in computed)
+        )
+
+        if has_cfg:
+            lines.append(f"- ΔlnT→green: `{_fmt(computed.get('delta_lnT_to_green'))}`")
+            lines.append(f"- ΔlnT→yellow: `{_fmt(computed.get('delta_lnT_to_yellow'))}`")
+            lines.append(f"- ΔlnT→red: `{_fmt(computed.get('delta_lnT_to_red'))}`")
+        else:
+            lines.append(f"- ΔlnT→100: `{_fmt(computed.get('delta_lnT_to_100'))}`")
+            lines.append(f"- ΔlnT→10: `{_fmt(computed.get('delta_lnT_to_10'))}`")
+            lines.append(f"- ΔlnT→1: `{_fmt(computed.get('delta_lnT_to_1'))}`")
 
     lines.append("")
 
