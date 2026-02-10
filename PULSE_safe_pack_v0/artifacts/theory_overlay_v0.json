@@ -13,13 +13,7 @@
       "mode": "UNKNOWN"
     }
   },
-  "cases": [
-    {
-      "id": "contract_smoke",
-      "status": "PASS",
-      "message": "theory_overlay_v0 artifact present and contract-check valid"
-    }
-  ],
+  "cases": [],
   "evidence": {
     "overlay_source": "manual_stub",
     "note": "This file exists to exercise the shadow workflow contract check.",
