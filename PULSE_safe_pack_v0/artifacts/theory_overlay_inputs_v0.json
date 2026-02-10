@@ -1,0 +1,24 @@
+{
+  "meta": {
+    "kind": "theory_overlay_inputs_v0",
+    "source": "demo_fixture",
+    "note": "Demo inputs for shadow overlay wiring. Replace with real pipeline values when available."
+  },
+  "inputs": {
+    "u": 1.0,
+    "T": 0.01,
+    "v_L": 0.1,
+    "lambda_eff": 1.0
+  },
+  "params": {
+    "eta": 1.0,
+    "chi": 10.0,
+    "ell_0": 1.0,
+    "M_infty": 2e-14,
+    "b0_A_bits": 1024,
+    "epsilon_budget": 0.2,
+    "rho_coding": 0.2,
+    "c_m_per_s": 299792458.0,
+    "G_m3_per_kg_s2": 6.6743e-11
+  }
+}
