@@ -1,7 +1,11 @@
-# Paradox diagram v0 (shadow)
+# Paradox Gate triage SVG v0 (shadow)
 
 This repo produces a small **diagnostic (shadow-only)** SVG (“Paradox diagram v0”) from the Paradox Gate triage summary.
 It is **not a release gate** and **does not block merges**.
+
+> Canonical doc filename: `docs/paradox_gate_triage_svg_v0.md`.
+>
+> This page documents the shadow SVG triage flow (`paradox_diagram_input_v0.json` → `paradox_diagram_v0.svg`) used by Paradox Gate diagnostics.
 
 ## What it is
 - A compact visualization of key Paradox Gate metrics:
