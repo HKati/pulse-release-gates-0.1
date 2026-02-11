@@ -21,7 +21,10 @@ It performs (in order):
 3) Contract check (post) on generated overlay JSON
 4) Render markdown summary
 5) Publish markdown to GitHub Actions job summary
-6) Run golden fixture tests for generator semantics
+
+Optional (depending on workflow configuration):
+- Run golden fixture tests for generator semantics (scripts/test_theory_overlay_v0_generator_fixtures.py)
+
 
 ---
 
@@ -194,3 +197,19 @@ not by blocking merges.
 - History ingestion for stable `Xi` / `m_slope` / `ΔlnT` forecasts across runs
 - Promotion path:
   shadow overlay → shadow gate profile → (optional) hard gate
+
+---
+
+## Alert fatigue risk (CI-neutral v0) and mitigation
+
+In v0 the generator is intentionally CI-neutral (it exits 0 even when the shadow gate reports FAIL).
+This avoids blocking merges early, but it can create alert fatigue ("pipeline is green anyway").
+
+Recommended mitigation:
+- Make the Job Summary visually loud (banner + emojis) and emit GitHub annotations (::warning/::error) based on zone/status.
+- Add light-weight trend context (last N runs) to the summary once we have a stable source of history.
+- Promotion path:
+  - shadow overlay (today)
+  - advisory PR check (visible failure but not required / non-blocking)
+  - hard gate (only after calibration and low false-positive rate)
+
