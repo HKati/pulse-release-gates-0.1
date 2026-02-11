@@ -1,0 +1,57 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "theory_overlay_inputs_v0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "schema_version", "source_kind", "provenance", "inputs", "inputs_digest"],
+  "properties": {
+    "schema": { "const": "theory_overlay_inputs_v0" },
+    "schema_version": { "type": "integer", "const": 0 },
+
+    "source_kind": { "type": "string", "enum": ["demo", "pipeline", "manual", "missing"] },
+
+    "provenance": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["generated_at_utc", "generator"],
+      "properties": {
+        "generated_at_utc": { "type": "string" },
+        "generator": { "type": "string" },
+        "git_sha": { "type": ["string", "null"] },
+        "run_id": { "type": ["string", "null"] },
+        "run_url": { "type": ["string", "null"] }
+      }
+    },
+
+    "inputs": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["u", "T", "lnT", "v_L", "lambda_eff"],
+      "properties": {
+        "u": { "type": ["number", "null"] },
+        "T": { "type": ["number", "null"] },
+        "lnT": { "type": ["number", "null"] },
+        "v_L": { "type": ["number", "null"] },
+        "lambda_eff": { "type": ["number", "null"] },
+        "params": { "type": ["object", "null"] },
+        "units": { "type": ["object", "null"] }
+      }
+    },
+
+    "inputs_digest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["algo", "sha256", "canonicalization"],
+      "properties": {
+        "algo": { "const": "sha256" },
+        "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "canonicalization": { "type": "string" }
+      }
+    },
+
+    "raw_errors": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  }
+}
