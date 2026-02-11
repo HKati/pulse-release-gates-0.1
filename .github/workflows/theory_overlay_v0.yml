@@ -86,6 +86,96 @@ jobs:
             --in  "${{ steps.locate_overlay.outputs.overlay }}" \
             --out "${{ steps.locate_overlay.outputs.overlay_md }}"
 
+      - name: Signal theory overlay status (loud)
+        if: ${{ steps.locate_overlay.outputs.found == 'true' }}
+        shell: bash
+        env:
+          OVERLAY_PATH: ${{ steps.locate_overlay.outputs.overlay }}
+        run: |
+          python - <<'PY'
+          import json, os, math
+
+          path = os.environ.get("OVERLAY_PATH")
+          if not path:
+            print("::warning title=Theory Overlay v0::Missing OVERLAY_PATH")
+            raise SystemExit(0)
+
+          def fmt(v):
+            if v is None:
+              return "n/a"
+            if isinstance(v, bool):
+              return str(v)
+            if isinstance(v, (int, float)):
+              x = float(v)
+              if math.isfinite(x):
+                return f"{x:.6g}"
+              return "n/a"
+            s = str(v).strip()
+            return s if s else "n/a"
+
+          try:
+            with open(path, "r", encoding="utf-8") as f:
+              data = json.load(f)
+          except Exception as e:
+            print(f"::error title=Theory Overlay v0::Cannot read overlay JSON: {type(e).__name__}: {e}")
+            raise SystemExit(0)
+
+          gate = (data.get("gates_shadow") or {}).get("g_record_horizon_v0") or {}
+          status = str(gate.get("status") or "MISSING")
+          zone = str(gate.get("zone") or "UNKNOWN")
+          mode = str(gate.get("mode") or "UNKNOWN")
+          reason = str(gate.get("reason") or "").strip()
+
+          computed = (((data.get("evidence") or {}).get("record_horizon_v0") or {}).get("computed") or {})
+          btilde = computed.get("Btilde_core_units")
+          F = computed.get("feedback_F")
+          Xi = computed.get("Xi")
+
+          # Choose severity + emoji
+          emoji = "⚪"
+          sev = None
+
+          if status == "FAIL":
+            emoji = "🔴"
+            sev = "error"
+          elif status == "MISSING":
+            emoji = "🟠"
+            sev = "warning"
+          elif status == "PASS" and zone == "RED":
+            emoji = "🟠"
+            sev = "warning"
+          elif status == "PASS" and zone == "YELLOW":
+            emoji = "🟡"
+          elif status == "PASS" and zone == "GREEN":
+            emoji = "🟢"
+
+          msg = f"{emoji} {status} (zone={zone}, mode={mode}, B̃={fmt(btilde)}, F={fmt(F)}, Xi={fmt(Xi)})"
+          if reason:
+            short = (reason[:180] + "…") if len(reason) > 180 else reason
+            msg += f" — {short}"
+
+          # GitHub annotation (only when it matters)
+          if sev:
+            print(f"::{sev} title=Theory Overlay v0::{msg}")
+
+          # Job summary banner (always)
+          summary = os.environ.get("GITHUB_STEP_SUMMARY")
+          if summary:
+            with open(summary, "a", encoding="utf-8") as f:
+              f.write(f"## {emoji} Theory Overlay v0 signal\n\n")
+              f.write(f"- status: `{status}`\n")
+              f.write(f"- zone: `{zone}`\n")
+              f.write(f"- mode: `{mode}`\n")
+              f.write(f"- B̃_core_units: `{fmt(btilde)}`\n")
+              f.write(f"- feedback_F: `{fmt(F)}`\n")
+              f.write(f"- Xi: `{fmt(Xi)}`\n")
+              if reason:
+                f.write(f"- reason: {reason}\n")
+              f.write("\n---\n\n")
+
+          raise SystemExit(0)
+          PY
+
       - name: Publish theory overlay summary
         if: ${{ steps.locate_overlay.outputs.found == 'true' }}
         shell: bash
