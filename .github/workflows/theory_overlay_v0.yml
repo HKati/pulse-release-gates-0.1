@@ -28,6 +28,7 @@ concurrency:
 
 permissions:
   contents: read
+  actions: write
 
 jobs:
   theory-overlay:
@@ -41,25 +42,6 @@ jobs:
         uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
         with:
           python-version: "3.11"
-
-      - name: Compute overlay history cache scope
-        id: cache_scope
-        shell: bash
-        run: |
-          set -euo pipefail
-          scope="${GITHUB_REF}"
-          scope="${scope//\//_}"
-          scope="${scope//:/_}"
-          echo "scope=$scope" >> "$GITHUB_OUTPUT"
-
-      - name: Restore theory overlay history (cache)
-        id: overlay_history_restore
-        uses: actions/cache/restore@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
-        with:
-          path: .pulse_cache/theory_overlay_v0_history.json
-          key: theory-overlay-v0-history-${{ steps.cache_scope.outputs.scope }}-${{ github.run_id }}
-          restore-keys: |
-            theory-overlay-v0-history-${{ steps.cache_scope.outputs.scope }}-
 
       - name: Locate theory_overlay_v0.json
         id: locate_overlay
@@ -110,8 +92,6 @@ jobs:
         shell: bash
         env:
           OVERLAY_PATH: ${{ steps.locate_overlay.outputs.overlay }}
-          HISTORY_PATH: .pulse_cache/theory_overlay_v0_history.json
-          HISTORY_LEN: "10"
         run: |
           python - <<'PY'
           import json, os, math
@@ -194,88 +174,6 @@ jobs:
                 f.write(f"- reason: {reason}\n")
               f.write("\n---\n\n")
 
-          import time
-
-          hist_path = os.environ.get("HISTORY_PATH", ".pulse_cache/theory_overlay_v0_history.json")
-          hist_len = 10
-          try:
-            hist_len = int(os.environ.get("HISTORY_LEN", "10"))
-          except Exception:
-            hist_len = 10
-          if hist_len < 3:
-            hist_len = 3
-          if hist_len > 25:
-            hist_len = 25
-
-          # Ensure dir
-          os.makedirs(os.path.dirname(hist_path), exist_ok=True)
-
-          # Load history (best-effort)
-          hist = []
-          try:
-            if os.path.exists(hist_path):
-              with open(hist_path, "r", encoding="utf-8") as f:
-                hist = json.load(f)
-              if not isinstance(hist, list):
-                hist = []
-          except Exception:
-            hist = []
-
-          run_id = os.environ.get("GITHUB_RUN_ID", "")
-          sha = os.environ.get("GITHUB_SHA", "")
-          sha7 = sha[:7] if sha else "unknown"
-
-          rec = {
-            "run_id": run_id,
-            "sha": sha,
-            "sha7": sha7,
-            "status": status,
-            "zone": zone,
-            "mode": mode,
-            "Btilde": btilde,
-            "emoji": emoji,
-          }
-
-          # Prepend new record, de-dup by sha7 (best-effort)
-          new_hist = [rec]
-          seen = {sha7}
-          for r in hist:
-            if isinstance(r, dict):
-              s7 = str(r.get("sha7") or "")[:7]
-              if s7 and s7 in seen:
-                continue
-              if s7:
-                seen.add(s7)
-            new_hist.append(r)
-
-          hist = new_hist[:hist_len]
-
-          # Save (deterministic-ish formatting)
-          try:
-            with open(hist_path, "w", encoding="utf-8") as f:
-              json.dump(hist, f, indent=2, sort_keys=True)
-              f.write("\n")
-          except Exception:
-            pass
-
-          # Append trend to summary
-          if summary:
-            with open(summary, "a", encoding="utf-8") as f:
-              f.write(f"## 📈 Recent runs (last {len(hist)})\n\n")
-              f.write("| # | sha | status | zone | mode | B̃ |\n")
-              f.write("|---:|:---:|:---|:---|:---|---:|\n")
-              for i, r in enumerate(hist, start=1):
-                if not isinstance(r, dict):
-                  continue
-                em = str(r.get("emoji") or "⚪")
-                st = str(r.get("status") or "n/a")
-                zn = str(r.get("zone") or "n/a")
-                md = str(r.get("mode") or "n/a")
-                s7 = str(r.get("sha7") or "n/a")
-                bt = r.get("Btilde", None)
-                f.write(f"| {i} | `{s7}` | {em} `{st}` | `{zn}` | `{md}` | `{fmt(bt)}` |\n")
-              f.write("\n---\n\n")
-
           raise SystemExit(0)
           PY
 
@@ -288,10 +186,3 @@ jobs:
           else
             echo "theory_overlay_v0.md not found; nothing to publish." >> "$GITHUB_STEP_SUMMARY"
           fi
-
-      - name: Save theory overlay history (cache)
-        if: ${{ steps.locate_overlay.outputs.found == 'true' }}
-        uses: actions/cache/save@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
-        with:
-          path: .pulse_cache/theory_overlay_v0_history.json
-          key: theory-overlay-v0-history-${{ steps.cache_scope.outputs.scope }}-${{ github.run_id }}
