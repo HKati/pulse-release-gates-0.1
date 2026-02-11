@@ -5,21 +5,27 @@ on:
     paths:
       - ".github/workflows/theory_overlay_v0.yml"
       - "scripts/generate_theory_overlay_v0.py"
+      - "scripts/build_theory_overlay_inputs_v0.py"
+      - "scripts/check_theory_overlay_inputs_v0_contract.py"
       - "scripts/check_theory_overlay_v0_contract.py"
       - "scripts/render_theory_overlay_v0_md.py"
       - "scripts/test_theory_overlay_v0_generator_fixtures.py"
       - "PULSE_safe_pack_v0/artifacts/theory_overlay_v0.json"
       - "PULSE_safe_pack_v0/artifacts/theory_overlay_inputs_v0.json"
+      - "PULSE_safe_pack_v0/fixtures/theory_overlay_inputs_v0.raw.demo.json"
   push:
     branches: ["main"]
     paths:
       - ".github/workflows/theory_overlay_v0.yml"
       - "scripts/generate_theory_overlay_v0.py"
+      - "scripts/build_theory_overlay_inputs_v0.py"
+      - "scripts/check_theory_overlay_inputs_v0_contract.py"
       - "scripts/check_theory_overlay_v0_contract.py"
       - "scripts/render_theory_overlay_v0_md.py"
       - "scripts/test_theory_overlay_v0_generator_fixtures.py"
       - "PULSE_safe_pack_v0/artifacts/theory_overlay_v0.json"
       - "PULSE_safe_pack_v0/artifacts/theory_overlay_inputs_v0.json"
+      - "PULSE_safe_pack_v0/fixtures/theory_overlay_inputs_v0.raw.demo.json"
   workflow_dispatch:
 
 concurrency:
@@ -57,11 +63,6 @@ jobs:
           # Optional inputs bundle (used by generator if present)
           bundle="PULSE_safe_pack_v0/artifacts/theory_overlay_inputs_v0.json"
           echo "bundle=$bundle" >> "$GITHUB_OUTPUT"
-          if [ -f "$bundle" ]; then
-            echo "bundle_found=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "bundle_found=false" >> "$GITHUB_OUTPUT"
-          fi
 
           # Required overlay artifact
           overlay="PULSE_safe_pack_v0/artifacts/theory_overlay_v0.json"
@@ -81,6 +82,22 @@ jobs:
         run: |
           python scripts/check_theory_overlay_v0_contract.py --in "${{ steps.locate_overlay.outputs.overlay }}"
 
+      - name: Build theory_overlay_inputs_v0 bundle
+        if: ${{ steps.locate_overlay.outputs.found == 'true' }}
+        shell: bash
+        run: |
+          python scripts/build_theory_overlay_inputs_v0.py \
+            --raw PULSE_safe_pack_v0/fixtures/theory_overlay_inputs_v0.raw.demo.json \
+            --out "${{ steps.locate_overlay.outputs.bundle }}" \
+            --source-kind demo
+
+      - name: Contract check theory_overlay_inputs_v0 bundle
+        if: ${{ steps.locate_overlay.outputs.found == 'true' }}
+        shell: bash
+        run: |
+          python scripts/check_theory_overlay_inputs_v0_contract.py \
+            --in "${{ steps.locate_overlay.outputs.bundle }}"
+
       - name: Generate theory overlay v0 (record horizon)
         if: ${{ steps.locate_overlay.outputs.found == 'true' }}
         shell: bash
@@ -90,7 +107,7 @@ jobs:
             --out "${{ steps.locate_overlay.outputs.overlay }}" \
             --require-inputs)
 
-          if [ "${{ steps.locate_overlay.outputs.bundle_found }}" = "true" ]; then
+          if [ -f "${{ steps.locate_overlay.outputs.bundle }}" ]; then
             cmd+=(--bundle "${{ steps.locate_overlay.outputs.bundle }}")
           fi
 
