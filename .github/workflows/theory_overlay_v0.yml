@@ -43,17 +43,34 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Locate theory_overlay_v0.json
+      - name: Run generator golden fixtures
+        shell: bash
+        run: |
+          python scripts/test_theory_overlay_v0_generator_fixtures.py
+
+      - name: Locate theory_overlay_v0.json (+inputs bundle)
         id: locate_overlay
         shell: bash
         run: |
           set -euo pipefail
+
+          # Optional inputs bundle (used by generator if present)
+          bundle="PULSE_safe_pack_v0/artifacts/theory_overlay_inputs_v0.json"
+          echo "bundle=$bundle" >> "$GITHUB_OUTPUT"
+          if [ -f "$bundle" ]; then
+            echo "bundle_found=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "bundle_found=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          # Required overlay artifact
           overlay="PULSE_safe_pack_v0/artifacts/theory_overlay_v0.json"
           if [ ! -f "$overlay" ]; then
             echo "::warning::missing $overlay; skipping generate/contract/render."
             echo "found=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
+
           echo "found=true" >> "$GITHUB_OUTPUT"
           echo "overlay=$overlay" >> "$GITHUB_OUTPUT"
           echo "overlay_md=PULSE_safe_pack_v0/artifacts/theory_overlay_v0.md" >> "$GITHUB_OUTPUT"
@@ -68,10 +85,16 @@ jobs:
         if: ${{ steps.locate_overlay.outputs.found == 'true' }}
         shell: bash
         run: |
-          python scripts/generate_theory_overlay_v0.py \
+          cmd=(python scripts/generate_theory_overlay_v0.py \
             --in  "${{ steps.locate_overlay.outputs.overlay }}" \
             --out "${{ steps.locate_overlay.outputs.overlay }}" \
-            --require-inputs
+            --require-inputs)
+
+          if [ "${{ steps.locate_overlay.outputs.bundle_found }}" = "true" ]; then
+            cmd+=(--bundle "${{ steps.locate_overlay.outputs.bundle }}")
+          fi
+
+          "${cmd[@]}"
 
       - name: Contract check (post) - generated overlay must be valid
         if: ${{ steps.locate_overlay.outputs.found == 'true' }}
