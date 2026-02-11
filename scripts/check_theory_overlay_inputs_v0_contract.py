@@ -129,10 +129,14 @@ def _minimal_validate(obj: Any) -> None:
 
 
 def _schema_validate(obj: Any, schema_path: Path) -> None:
+    """
+    Validate with JSON Schema when available, but ALWAYS run custom invariants too.
+    This avoids environment-dependent behavior (jsonschema installed vs not installed).
+    """
     try:
         import jsonschema  # type: ignore
     except ModuleNotFoundError:
-        # No dependency -> fallback
+        # No dependency -> enforce invariants via minimal validator (fail-closed)
         _minimal_validate(obj)
         return
 
@@ -141,6 +145,9 @@ def _schema_validate(obj: Any, schema_path: Path) -> None:
         jsonschema.validate(instance=obj, schema=schema)
     except Exception as e:
         _die(f"schema validation failed: {e}")
+
+    # Always enforce semantic invariants as well (fail-closed)
+    _minimal_validate(obj)
 
 
 def main(argv: Optional[List[str]] = None) -> int:
