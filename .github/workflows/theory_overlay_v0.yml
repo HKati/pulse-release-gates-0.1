@@ -7,9 +7,11 @@ on:
       - "scripts/generate_theory_overlay_v0.py"
       - "scripts/check_theory_overlay_v0_contract.py"
       - "scripts/render_theory_overlay_v0_md.py"
+      - "scripts/build_theory_overlay_inputs_v0.py"
       - "scripts/test_theory_overlay_v0_generator_fixtures.py"
       - "PULSE_safe_pack_v0/artifacts/theory_overlay_v0.json"
       - "PULSE_safe_pack_v0/artifacts/theory_overlay_inputs_v0.json"
+      - "PULSE_safe_pack_v0/fixtures/theory_overlay_inputs_v0.raw.demo.json"
   push:
     branches: ["main"]
     paths:
@@ -17,9 +19,11 @@ on:
       - "scripts/generate_theory_overlay_v0.py"
       - "scripts/check_theory_overlay_v0_contract.py"
       - "scripts/render_theory_overlay_v0_md.py"
+      - "scripts/build_theory_overlay_inputs_v0.py"
       - "scripts/test_theory_overlay_v0_generator_fixtures.py"
       - "PULSE_safe_pack_v0/artifacts/theory_overlay_v0.json"
       - "PULSE_safe_pack_v0/artifacts/theory_overlay_inputs_v0.json"
+      - "PULSE_safe_pack_v0/fixtures/theory_overlay_inputs_v0.raw.demo.json"
   workflow_dispatch:
 
 concurrency:
@@ -47,6 +51,14 @@ jobs:
         shell: bash
         run: |
           python scripts/test_theory_overlay_v0_generator_fixtures.py
+
+      - name: Build theory_overlay_inputs_v0 bundle
+        shell: bash
+        run: |
+          python scripts/build_theory_overlay_inputs_v0.py \
+            --raw PULSE_safe_pack_v0/fixtures/theory_overlay_inputs_v0.raw.demo.json \
+            --out PULSE_safe_pack_v0/artifacts/theory_overlay_inputs_v0.json \
+            --source-kind demo
 
       - name: Locate theory_overlay_v0.json (+inputs bundle)
         id: locate_overlay
