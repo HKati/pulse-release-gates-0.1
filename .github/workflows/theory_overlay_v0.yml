@@ -7,6 +7,7 @@ on:
       - "scripts/generate_theory_overlay_v0.py"
       - "scripts/check_theory_overlay_v0_contract.py"
       - "scripts/render_theory_overlay_v0_md.py"
+      - "scripts/test_theory_overlay_v0_generator_fixtures.py"
       - "PULSE_safe_pack_v0/artifacts/theory_overlay_v0.json"
       - "PULSE_safe_pack_v0/artifacts/theory_overlay_inputs_v0.json"
   push:
@@ -16,6 +17,7 @@ on:
       - "scripts/generate_theory_overlay_v0.py"
       - "scripts/check_theory_overlay_v0_contract.py"
       - "scripts/render_theory_overlay_v0_md.py"
+      - "scripts/test_theory_overlay_v0_generator_fixtures.py"
       - "PULSE_safe_pack_v0/artifacts/theory_overlay_v0.json"
       - "PULSE_safe_pack_v0/artifacts/theory_overlay_inputs_v0.json"
   workflow_dispatch:
