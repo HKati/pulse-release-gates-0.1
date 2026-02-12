@@ -223,3 +223,14 @@ jobs:
           else
             echo "theory_overlay_v0.md not found; nothing to publish." >> "$GITHUB_STEP_SUMMARY"
           fi
+
+      - name: Upload theory overlay v0 artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: theory-overlay-v0
+          if-no-files-found: warn
+          path: |
+            PULSE_safe_pack_v0/artifacts/theory_overlay_inputs_v0.json
+            PULSE_safe_pack_v0/artifacts/theory_overlay_v0.json
+            PULSE_safe_pack_v0/artifacts/theory_overlay_v0.md
