@@ -1,0 +1,10 @@
+{
+  "source_kind": "demo",
+  "inputs": {
+    "u": 1.0,
+    "T": 10.0,
+    "v_L": 1.0,
+    "lambda_eff": 0.1
+  }
+}
+
