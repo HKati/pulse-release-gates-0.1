@@ -8,6 +8,7 @@ on:
       - "scripts/check_theory_overlay_v0_contract.py"
       - "scripts/render_theory_overlay_v0_md.py"
       - "scripts/build_theory_overlay_inputs_v0.py"
+      - "scripts/check_theory_overlay_inputs_v0_contract.py"
       - "scripts/test_theory_overlay_v0_generator_fixtures.py"
       - "schemas/theory_overlay_inputs_v0.schema.json"
       - "PULSE_safe_pack_v0/artifacts/theory_overlay_v0.json"
@@ -21,6 +22,7 @@ on:
       - "scripts/check_theory_overlay_v0_contract.py"
       - "scripts/render_theory_overlay_v0_md.py"
       - "scripts/build_theory_overlay_inputs_v0.py"
+      - "scripts/check_theory_overlay_inputs_v0_contract.py"
       - "scripts/test_theory_overlay_v0_generator_fixtures.py"
       - "schemas/theory_overlay_inputs_v0.schema.json"
       - "PULSE_safe_pack_v0/artifacts/theory_overlay_v0.json"
@@ -61,6 +63,12 @@ jobs:
             --raw PULSE_safe_pack_v0/fixtures/theory_overlay_inputs_v0.raw.demo.json \
             --out PULSE_safe_pack_v0/artifacts/theory_overlay_inputs_v0.json \
             --source-kind demo
+
+      - name: Contract check - theory_overlay_inputs_v0 bundle (fail-closed)
+        shell: bash
+        run: |
+          python scripts/check_theory_overlay_inputs_v0_contract.py \
+            --in PULSE_safe_pack_v0/artifacts/theory_overlay_inputs_v0.json
 
       - name: Locate theory_overlay_v0.json (+inputs bundle)
         id: locate_overlay
@@ -226,7 +234,7 @@ jobs:
 
       - name: Upload theory overlay v0 artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: theory-overlay-v0
           if-no-files-found: warn
