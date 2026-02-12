@@ -1,62 +1,121 @@
 #!/usr/bin/env python3
-import argparse, json, os, sys, hashlib, datetime, pathlib
-from typing import Any, Dict, Tuple, Optional
+import argparse
+import datetime
+import hashlib
+import json
+import math
+import os
+import sys
+from pathlib import Path
+from typing import Any, Dict, Optional, Tuple, List
+
 
 REQ_KEYS = ["u", "T", "lnT", "v_L", "lambda_eff"]
+ALLOWED_SOURCE_KIND = {"demo", "pipeline", "manual", "missing"}
+
 
 def utc_now_iso() -> str:
     return datetime.datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
 
+
 def canonical_json(obj: Any) -> str:
-    # Determinisztikus: sorted keys + no whitespace; NaN/Inf tiltva
     return json.dumps(obj, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False)
+
 
 def sha256_hex(s: str) -> str:
     return hashlib.sha256(s.encode("utf-8")).hexdigest()
 
-def to_number_or_none(x: Any, errors: list, path: str) -> Optional[float]:
+
+def to_number_or_none(x: Any, errors: List[str], path: str) -> Optional[float]:
+    # Reject booleans explicitly (bool is a subclass of int in Python).
+    if isinstance(x, bool):
+        errors.append(f"{path}: invalid type bool")
+        return None
+
     if x is None:
         return None
+
     if isinstance(x, (int, float)):
-        # allow_nan=False majd elkapja a NaN/Inf-et a canonicalizationnél,
-        # de itt is kezelhetjük külön, ha akarod.
-        return float(x)
+        val = float(x)
+        if not math.isfinite(val):
+            errors.append(f"{path}: non-finite number")
+            return None
+        return val
+
     if isinstance(x, str):
+        s = x.strip()
         try:
-            return float(x.strip())
+            val = float(s)
         except Exception:
             errors.append(f"{path}: not parseable number: {x!r}")
             return None
+
+        if not math.isfinite(val):
+            errors.append(f"{path}: non-finite number from string: {x!r}")
+            return None
+        return val
+
     errors.append(f"{path}: invalid type: {type(x).__name__}")
     return None
 
-def extract_inputs(raw: Any) -> Tuple[Dict[str, Any], list]:
-    errors = []
-    if isinstance(raw, dict) and isinstance(raw.get("inputs"), dict):
-        src = raw["inputs"]
-    elif isinstance(raw, dict):
+
+def extract_inputs_and_params(raw: Any) -> Tuple[Dict[str, Any], Optional[Dict[str, Any]], List[str]]:
+    errors: List[str] = []
+    inputs_out: Dict[str, Any] = {k: None for k in REQ_KEYS}
+    params_out: Optional[Dict[str, Any]] = None
+
+    if not isinstance(raw, dict):
+        return inputs_out, None, ["raw: not an object"]
+
+    # Root params (preferred)
+    if "params" in raw:
+        if raw["params"] is None:
+            params_out = None
+        elif isinstance(raw["params"], dict):
+            params_out = raw["params"]
+        else:
+            errors.append("params: root params is not an object/null (ignored)")
+            params_out = None
+
+    # inputs source: raw.inputs if present, otherwise raw root
+    src: Any = raw.get("inputs")
+    if not isinstance(src, dict):
         src = raw
-    else:
-        return ({k: None for k in REQ_KEYS}, ["raw: not an object"])
 
-    out: Dict[str, Any] = {}
-    out["u"] = to_number_or_none(src.get("u"), errors, "inputs.u")
-    out["T"] = to_number_or_none(src.get("T"), errors, "inputs.T")
-    out["lnT"] = to_number_or_none(src.get("lnT"), errors, "inputs.lnT")
-    out["v_L"] = to_number_or_none(src.get("v_L"), errors, "inputs.v_L")
-    out["lambda_eff"] = to_number_or_none(src.get("lambda_eff"), errors, "inputs.lambda_eff")
+    # If upstream provides nested inputs.params, promote to top-level params.
+    if isinstance(src, dict) and "params" in src:
+        nested = src.get("params")
+        if nested is None:
+            pass
+        elif not isinstance(nested, dict):
+            errors.append("params: inputs.params is not an object/null (ignored)")
+        else:
+            if params_out is None:
+                params_out = nested
+                errors.append("params: promoted inputs.params to top-level params")
+            else:
+                errors.append("params: inputs.params ignored (top-level params already present)")
 
-    # opcionális blokkok
-    if "params" in src:
-        out["params"] = src.get("params")
-    if "units" in src:
-        out["units"] = src.get("units")
+    # Extract numeric inputs (never emit params under inputs).
+    inputs_out["u"] = to_number_or_none(src.get("u"), errors, "inputs.u")
+    inputs_out["T"] = to_number_or_none(src.get("T"), errors, "inputs.T")
+    inputs_out["lnT"] = to_number_or_none(src.get("lnT"), errors, "inputs.lnT")
+    inputs_out["v_L"] = to_number_or_none(src.get("v_L"), errors, "inputs.v_L")
+    inputs_out["lambda_eff"] = to_number_or_none(src.get("lambda_eff"), errors, "inputs.lambda_eff")
 
-    # Ha mind T és lnT hiányzik, azt inkább soft hibának jelöljük (shadowban majd FAIL_CLOSED)
-    if out["T"] is None and out["lnT"] is None:
-        errors.append("inputs: both T and lnT are missing/null")
+    # Optional units
+    if isinstance(src, dict) and "units" in src:
+        units = src.get("units")
+        if units is None or isinstance(units, dict):
+            inputs_out["units"] = units
+        else:
+            errors.append("inputs.units: invalid type (must be object/null)")
 
-    return out, errors
+    if inputs_out["T"] is None and inputs_out["lnT"] is None:
+        errors.append("inputs: both T and lnT are missing/null (bundle will fail contract)")
+
+    return inputs_out, params_out, errors
+
 
 def build_provenance() -> Dict[str, Any]:
     git_sha = os.environ.get("GITHUB_SHA")
@@ -70,54 +129,70 @@ def build_provenance() -> Dict[str, Any]:
         "generator": "scripts/build_theory_overlay_inputs_v0.py",
         "git_sha": git_sha,
         "run_id": run_id,
-        "run_url": run_url
+        "run_url": run_url,
     }
 
-def atomic_write(path: pathlib.Path, text: str) -> None:
+
+def atomic_write(path: Path, text: str) -> None:
     tmp = path.with_suffix(path.suffix + ".tmp")
     tmp.write_text(text, encoding="utf-8")
     tmp.replace(path)
+
+
+def normalize_source_kind(candidate: Any, errors: List[str]) -> Optional[str]:
+    if candidate is None:
+        return None
+    if not isinstance(candidate, str):
+        errors.append(f"source_kind_invalid: non-string value ignored: {candidate!r}")
+        return None
+    if candidate not in ALLOWED_SOURCE_KIND:
+        errors.append(f"source_kind_invalid: {candidate!r} (ignored)")
+        return None
+    return candidate
+
 
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--raw", required=True, help="raw input json (fixture or pipeline output)")
     ap.add_argument("--out", required=True, help="output bundle json")
-    ap.add_argument("--source-kind", default=None, choices=["demo","pipeline","manual","missing"])
+    ap.add_argument("--source-kind", default=None, choices=sorted(ALLOWED_SOURCE_KIND))
     args = ap.parse_args()
 
-    raw_path = pathlib.Path(args.raw)
-    raw_obj = None
-    raw_errors = []
+    raw_path = Path(args.raw)
+    raw_obj: Any = {}
+    raw_errors: List[str] = []
+
     try:
         raw_obj = json.loads(raw_path.read_text(encoding="utf-8"))
     except Exception as e:
         raw_errors.append(f"raw_read: {e}")
         raw_obj = {}
 
-    inputs, parse_errors = extract_inputs(raw_obj)
+    inputs, params, parse_errors = extract_inputs_and_params(raw_obj)
     raw_errors.extend(parse_errors)
 
-    # source_kind logika: explicit flag > raw meta > missing/demo fallback
+    # source_kind: explicit flag > validated raw metadata > fallback
     source_kind = args.source_kind
     if source_kind is None and isinstance(raw_obj, dict):
-        source_kind = raw_obj.get("source_kind")
-    if source_kind is None:
-        source_kind = "missing" if raw_errors else "demo"
+        source_kind = normalize_source_kind(raw_obj.get("source_kind"), raw_errors)
 
-    # Digest kizárólag az inputs blokkra (timestamp/provenance ne befolyásolja!)
+    if source_kind is None:
+        severe = any(e.startswith("raw_read:") or e.startswith("raw:") for e in raw_errors)
+        source_kind = "missing" if severe else "demo"
+
+    # Digest over inputs only (provenance must not affect it).
     try:
         canon = canonical_json(inputs)
         digest = sha256_hex(canon)
         canon_note = "json.dumps(sort_keys=True,separators=(',',':'),allow_nan=False) over bundle.inputs"
     except Exception as e:
-        # allow_nan=False itt fogja elkapni a NaN/Inf-et; v0-ban ne borítsunk, inkább nullázzunk és jelezzünk.
         raw_errors.append(f"digest_fail_closed: {e}")
         inputs = {k: None for k in REQ_KEYS}
         canon = canonical_json(inputs)
         digest = sha256_hex(canon)
         canon_note = "fail_closed_reset_inputs_then_canonicalize"
 
-    bundle = {
+    bundle: Dict[str, Any] = {
         "schema": "theory_overlay_inputs_v0",
         "schema_version": 0,
         "source_kind": source_kind,
@@ -126,15 +201,21 @@ def main() -> int:
         "inputs_digest": {
             "algo": "sha256",
             "sha256": digest,
-            "canonicalization": canon_note
-        }
+            "canonicalization": canon_note,
+        },
     }
+
+    # Emit top-level params only
+    if params is not None:
+        bundle["params"] = params
+
     if raw_errors:
         bundle["raw_errors"] = raw_errors
 
-    out_path = pathlib.Path(args.out)
+    out_path = Path(args.out)
     atomic_write(out_path, json.dumps(bundle, indent=2, ensure_ascii=False) + "\n")
     return 0
+
 
 if __name__ == "__main__":
     try:
