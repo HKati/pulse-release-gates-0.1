@@ -324,6 +324,36 @@ and GPT diagnostics.
 
 ---
 
+## Theory Overlay v0 (shadow)
+
+Snapshot-style diagnostic overlay that computes and surfaces theory overlay signals (incl. the record-horizon gate)
+as a CI-visible, contract-checked artifact and a reviewer-friendly markdown summary.
+
+CI-neutral diagnostic layer. It never blocks the main PULSE gates and must not change core release-gate semantics.
+
+Docs: `docs/theory_overlay_v0.md`  
+Schemas:
+- `schemas/theory_overlay_v0.schema.json`
+- `schemas/theory_overlay_inputs_v0.schema.json`
+
+Builder: `scripts/build_theory_overlay_inputs_v0.py`  
+Generator: `scripts/generate_theory_overlay_v0.py`  
+Contract checks:
+- `scripts/check_theory_overlay_inputs_v0_contract.py`
+- `scripts/check_theory_overlay_v0_contract.py`
+Renderer: `scripts/render_theory_overlay_v0_md.py`  
+Workflow: `.github/workflows/theory_overlay_v0.yml`
+
+Output artifacts:
+- `PULSE_safe_pack_v0/artifacts/theory_overlay_inputs_v0.json`
+- `PULSE_safe_pack_v0/artifacts/theory_overlay_v0.json`
+- `PULSE_safe_pack_v0/artifacts/theory_overlay_v0.md`
+
+Tracked demo raw fixture:
+- `PULSE_safe_pack_v0/fixtures/theory_overlay_inputs_v0.raw.demo.json`
+
+---
+
 ## OpenAI evals pilot (shadow, non-blocking)
 We maintain a diagnostic “shadow” wiring for OpenAI Evals refusal smoke (v0).  
 Workflow: `.github/workflows/openai_evals_refusal_smoke_shadow.yml`
