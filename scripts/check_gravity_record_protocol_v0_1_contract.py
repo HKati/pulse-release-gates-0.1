@@ -167,24 +167,47 @@ def _check_profiles(case: Dict[str, Any], path: str, errors: List[str]) -> None:
         errors.append(f"{path}.profiles: must be object")
         return
 
-    # Required: lambda + kappa
-    for key in ("lambda", "kappa"):
-        if key not in profs:
-            errors.append(f"{path}.profiles: missing required '{key}' profile")
+    # Match schema strictness (additionalProperties=false)
+    allowed_keys = {"lambda", "kappa", "s", "g"}
+    extra = set(profs.keys()) - allowed_keys
+    if extra:
+        errors.append(f"{path}.profiles: unknown keys not allowed: {sorted(extra)}")
 
-    # Lambda
-    lam = profs.get("lambda")
-    if isinstance(lam, dict):
-        st = _check_status(lam, f"{path}.profiles.lambda", errors)
-        if st:
-            _check_profile_points(lam, st, f"{path}.profiles.lambda", errors, "lambda")
+    # Required profiles: lambda + kappa (must be objects, not null)
+    if "lambda" not in profs:
+        errors.append(f"{path}.profiles: missing required 'lambda' profile")
+    else:
+        lam = profs.get("lambda")
+        if not isinstance(lam, dict):
+            errors.append(f"{path}.profiles.lambda: must be object")
+        else:
+            st = _check_status(lam, f"{path}.profiles.lambda", errors)
+            if st:
+                _check_profile_points(lam, st, f"{path}.profiles.lambda", errors, "lambda")
 
-    # Kappa
-    kap = profs.get("kappa")
-    if isinstance(kap, dict):
-        st = _check_status(kap, f"{path}.profiles.kappa", errors)
+    if "kappa" not in profs:
+        errors.append(f"{path}.profiles: missing required 'kappa' profile")
+    else:
+        kap = profs.get("kappa")
+        if not isinstance(kap, dict):
+            errors.append(f"{path}.profiles.kappa: must be object")
+        else:
+            st = _check_status(kap, f"{path}.profiles.kappa", errors)
+            if st:
+                _check_profile_points(kap, st, f"{path}.profiles.kappa", errors, "kappa")
+
+    # Optional: s, g (if present -> must be objects; explicit null is not allowed)
+    for opt in ("s", "g"):
+        if opt not in profs:
+            continue
+        p = profs.get(opt)
+        if not isinstance(p, dict):
+            errors.append(f"{path}.profiles.{opt}: must be object")
+            continue
+        st = _check_status(p, f"{path}.profiles.{opt}", errors)
         if st:
-            _check_profile_points(kap, st, f"{path}.profiles.kappa", errors, "kappa")
+            _check_profile_points(p, st, f"{path}.profiles.{opt}", errors, "scalar")
+
 
     # Optional: s, g (scalar profiles)
     for opt in ("s", "g"):
