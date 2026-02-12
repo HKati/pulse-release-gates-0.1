@@ -194,3 +194,13 @@ not by blocking merges.
 - History ingestion for stable `Xi` / `m_slope` / `ΔlnT` forecasts across runs
 - Promotion path:
   shadow overlay → shadow gate profile → (optional) hard gate
+
+---
+
+## Related theory/protocol specs (probe)
+
+These documents are workshop/probe specifications. They do not change normative PULSE release-gate semantics.
+
+- [Time as Consequence (workshop paper, v0.1)](time_as_consequence_v0_1.md)
+- [Time as Consequence (one-pager, v0.1)](time_as_consequence_one_pager_v0_1.md)
+- [Gravity as a Record Test (appendix, v0.1)](gravity_record_protocol_appendix_v0_1.md)
