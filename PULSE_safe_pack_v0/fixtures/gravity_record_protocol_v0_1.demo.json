@@ -1,0 +1,84 @@
+{
+  "schema": "gravity_record_protocol_v0_1",
+  "schema_version": 1,
+  "source_kind": "demo",
+  "provenance": {
+    "generated_at_utc": "2026-02-12T00:00:00Z",
+    "generator": "fixture/gravity_record_protocol_v0_1.demo",
+    "git_sha": null,
+    "run_id": null,
+    "run_url": null,
+    "dataset_doi": null
+  },
+  "inputs_digest": null,
+  "cases": [
+    {
+      "case_id": "demo_two_station_minimal",
+      "description": "Minimal demo case with 2 stations and PASS λ/κ profiles. Optional s/g and derived checks are MISSING.",
+      "stations": [
+        {
+          "station_id": "A",
+          "r_areal": 10.0,
+          "r_label": "r=10",
+          "location": null,
+          "notes": null
+        },
+        {
+          "station_id": "B",
+          "r_areal": 20.0,
+          "r_label": "r=20",
+          "location": null,
+          "notes": null
+        }
+      ],
+      "profiles": {
+        "lambda": {
+          "status": "PASS",
+          "points": [
+            { "r": 10.0, "value": 0.95, "uncertainty": 0.01, "n": 1000 },
+            { "r": 20.0, "value": 1.0, "uncertainty": 0.01, "n": 1000 }
+          ],
+          "units": null,
+          "quality": {
+            "protocol": "two_way_exchange_demo",
+            "notes": "Demo-only; values are illustrative."
+          },
+          "notes": null
+        },
+        "kappa": {
+          "status": "PASS",
+          "points": [
+            { "r": 10.0, "value": 0.98, "uncertainty": 0.005, "n": 1000 },
+            { "r": 20.0, "value": 1.0, "uncertainty": 0.005, "n": 1000 }
+          ],
+          "units": null,
+          "quality": {
+            "protocol": "indexed_pulses_demo",
+            "sent_count": 1000,
+            "identifiable_count_min": 980
+          },
+          "notes": null
+        },
+        "s": { "status": "MISSING", "points": null, "units": null, "quality": null, "notes": "Not measured in demo fixture." },
+        "g": { "status": "MISSING", "points": null, "units": null, "quality": null, "notes": "Not measured in demo fixture." }
+      },
+      "derived": {
+        "g_vs_lambda": {
+          "status": "MISSING",
+          "error_norm": null,
+          "notes": "Derived check requires g + s + λ on a shared grid."
+        }
+      },
+      "wall_classification": {
+        "frequency_wall": "MISSING",
+        "delay_wall": "MISSING",
+        "record_wall": "MISSING",
+        "notes": "Demo fixture does not classify walls."
+      },
+      "meta": {
+        "demo": true
+      }
+    }
+  ],
+  "raw_errors": []
+}
