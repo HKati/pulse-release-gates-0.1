@@ -53,3 +53,10 @@ If you add/rename a doc under `docs/`, please update this index.
 
 - Contributing / workflow:
   - [../CONTRIBUTING.md](../CONTRIBUTING.md)
+
+## Theory & measurement protocols (probe)
+
+- [theory_overlay_v0.md](theory_overlay_v0.md) — Theory Overlay v0 (shadow): contract, workflow wiring, and how to read the overlay artifact.
+- [time_as_consequence_v0_1.md](time_as_consequence_v0_1.md) — Workshop paper (v0.1): “time as consequence” via record-based operational definitions.
+- [time_as_consequence_one_pager_v0_1.md](time_as_consequence_one_pager_v0_1.md) — One-page summary (v0.1) of the record-based time framework.
+- [gravity_record_protocol_appendix_v0_1.md](gravity_record_protocol_appendix_v0_1.md) — Appendix (v0.1): gravity as a record test (λ/s/κ protocols + horizon taxonomy).
