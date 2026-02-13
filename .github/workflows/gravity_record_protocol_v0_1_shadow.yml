@@ -22,7 +22,6 @@ concurrency:
 
 permissions:
   contents: read
-  actions: write
 
 jobs:
   gravity-record-protocol:
@@ -37,6 +36,11 @@ jobs:
         uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
         with:
           python-version: "3.11"
+
+      - name: Install contract deps (jsonschema)
+        shell: bash
+        run: |
+          python -m pip install --disable-pip-version-check "jsonschema==4.23.0"
 
       - name: Contract check (demo fixture)
         shell: bash
