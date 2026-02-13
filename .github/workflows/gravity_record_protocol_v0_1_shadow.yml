@@ -5,6 +5,7 @@ on:
     paths:
       - ".github/workflows/gravity_record_protocol_v0_1_shadow.yml"
       - "scripts/check_gravity_record_protocol_v0_1_contract.py"
+      - "scripts/render_gravity_record_protocol_v0_1_md.py"
       - "schemas/gravity_record_protocol_v0_1.schema.json"
       - "PULSE_safe_pack_v0/fixtures/gravity_record_protocol_v0_1.demo.json"
   push:
@@ -12,6 +13,7 @@ on:
     paths:
       - ".github/workflows/gravity_record_protocol_v0_1_shadow.yml"
       - "scripts/check_gravity_record_protocol_v0_1_contract.py"
+      - "scripts/render_gravity_record_protocol_v0_1_md.py"
       - "schemas/gravity_record_protocol_v0_1.schema.json"
       - "PULSE_safe_pack_v0/fixtures/gravity_record_protocol_v0_1.demo.json"
   workflow_dispatch:
@@ -22,7 +24,6 @@ concurrency:
 
 permissions:
   contents: read
-  actions: write
 
 jobs:
   gravity-record-protocol:
@@ -38,35 +39,64 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Contract check (demo fixture)
+      - name: Install contract deps (jsonschema)
         shell: bash
         run: |
+          python -m pip install --disable-pip-version-check "jsonschema==4.23.0"
+
+      - name: Contract check (demo fixture)
+        id: contract
+        shell: bash
+        run: |
+          set +e
           python scripts/check_gravity_record_protocol_v0_1_contract.py \
             --in PULSE_safe_pack_v0/fixtures/gravity_record_protocol_v0_1.demo.json
+          code=$?
+          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Render Markdown summary
+        if: always()
+        shell: bash
+        run: |
+          python scripts/render_gravity_record_protocol_v0_1_md.py \
+            --in  PULSE_safe_pack_v0/fixtures/gravity_record_protocol_v0_1.demo.json \
+            --out PULSE_safe_pack_v0/artifacts/gravity_record_protocol_v0_1.md || true
 
       - name: Publish summary
         if: always()
         shell: bash
         run: |
           echo "## Gravity Record Protocol v0.1 (shadow)" >> "$GITHUB_STEP_SUMMARY"
-          if [ "${{ job.status }}" = "success" ]; then
+          if [ "${{ steps.contract.outputs.exit_code }}" = "0" ]; then
             echo "- contract: ✅ PASS" >> "$GITHUB_STEP_SUMMARY"
           else
-            echo "- contract: ❌ FAIL" >> "$GITHUB_STEP_SUMMARY"
+            echo "- contract: ❌ FAIL (exit_code=${{ steps.contract.outputs.exit_code }})" >> "$GITHUB_STEP_SUMMARY"
           fi
           echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "Validated inputs:" >> "$GITHUB_STEP_SUMMARY"
-          echo "- fixture: \`PULSE_safe_pack_v0/fixtures/gravity_record_protocol_v0_1.demo.json\`" >> "$GITHUB_STEP_SUMMARY"
-          echo "- schema:  \`schemas/gravity_record_protocol_v0_1.schema.json\`" >> "$GITHUB_STEP_SUMMARY"
-          echo "- checker: \`scripts/check_gravity_record_protocol_v0_1_contract.py\`" >> "$GITHUB_STEP_SUMMARY"
+
+          if [ -f "PULSE_safe_pack_v0/artifacts/gravity_record_protocol_v0_1.md" ]; then
+            cat "PULSE_safe_pack_v0/artifacts/gravity_record_protocol_v0_1.md" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "_Markdown summary not found._" >> "$GITHUB_STEP_SUMMARY"
+          fi
 
       - name: Upload artifacts
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: gravity-record-protocol-v0-1
-          if-no-files-found: error
+          if-no-files-found: warn
           path: |
             PULSE_safe_pack_v0/fixtures/gravity_record_protocol_v0_1.demo.json
             schemas/gravity_record_protocol_v0_1.schema.json
             scripts/check_gravity_record_protocol_v0_1_contract.py
+            scripts/render_gravity_record_protocol_v0_1_md.py
+            PULSE_safe_pack_v0/artifacts/gravity_record_protocol_v0_1.md
+
+      - name: Fail if contract failed
+        if: ${{ steps.contract.outputs.exit_code != '0' }}
+        shell: bash
+        run: |
+          echo "Contract check failed (exit_code=${{ steps.contract.outputs.exit_code }})"
+          exit 1
