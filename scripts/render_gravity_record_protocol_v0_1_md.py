@@ -130,7 +130,8 @@ def main() -> int:
     schema = obj.get("schema")
     schema_version = obj.get("schema_version")
     source_kind = obj.get("source_kind")
-    prov = obj.get("provenance") or {}
+    prov_any = obj.get("provenance")
+    prov = prov_any if isinstance(prov_any, dict) else {}
 
     lines: List[str] = []
     lines.append("# Gravity Record Protocol v0.1 (shadow)")
@@ -190,7 +191,8 @@ def main() -> int:
 
         # Profiles
         lines.append("#### Profiles")
-        profs = case.get("profiles") or {}
+        profs_any = case.get("profiles")
+        profs = profs_any if isinstance(profs_any, dict) else {}
         lines.append(_profile_line("lambda", profs.get("lambda")))
         lines.append(_profile_line("kappa", profs.get("kappa")))
         if "s" in profs:
