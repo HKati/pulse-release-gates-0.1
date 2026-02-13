@@ -1,0 +1,33 @@
+{
+  "source_kind": "demo",
+  "provenance": {
+    "generated_at_utc": "2026-02-12T00:00:00Z",
+    "generator": "fixture/gravity_record_protocol_v0_1.raw.demo"
+  },
+  "cases": [
+    {
+      "case_id": "demo_two_station_minimal",
+      "description": "Raw demo input for the builder (contract-shaped fields will be normalized).",
+      "stations": [
+        { "station_id": "A", "r_areal": 10.0, "r_label": "r=10" },
+        { "station_id": "B", "r_areal": 20.0, "r_label": "r=20" }
+      ],
+      "profiles": {
+        "lambda": {
+          "status": "PASS",
+          "points": [
+            { "r": 10.0, "value": 0.95, "uncertainty": 0.01, "n": 1000 },
+            { "r": 20.0, "value": 1.0, "uncertainty": 0.01, "n": 1000 }
+          ]
+        },
+        "kappa": {
+          "status": "PASS",
+          "points": [
+            { "r": 10.0, "value": 0.98, "uncertainty": 0.005, "n": 1000 },
+            { "r": 20.0, "value": 1.0, "uncertainty": 0.005, "n": 1000 }
+          ]
+        }
+      }
+    }
+  ]
+}
