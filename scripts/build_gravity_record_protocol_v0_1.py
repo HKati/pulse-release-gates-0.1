@@ -1,14 +1,12 @@
-mkdir -p scripts
-
-cat > scripts/build_gravity_record_protocol_v0_1.py <<'PY'
 #!/usr/bin/env python3
 """
-Build a gravity_record_protocol_v0_1 artifact from a loose/raw JSON input.
+Raw -> contract builder for gravity_record_protocol_v0_1.
 
-Goals:
-- Deterministic output (sorted keys, allow_nan=False)
-- Never crash on malformed raw input; record issues in raw_errors
-- Emit a schema/contract-shaped artifact for fail-closed checking + rendering
+Design goals:
+- Deterministic JSON output (sorted keys, allow_nan=False)
+- Never silently coerce bool into numbers
+- Be resilient to malformed raw input: record issues in raw_errors where allowed
+- Emit only schema-declared top-level keys when additionalProperties=false
 """
 
 from __future__ import annotations
@@ -63,9 +61,9 @@ def _is_number_no_bool(x: Any) -> bool:
     return False
 
 
-def _load_top_level_schema_props(schema_path: str, errors: List[str]) -> Optional[Set[str]]:
+def _load_schema_top_level_props(schema_path: str, errors: List[str]) -> Optional[Set[str]]:
     """
-    Best-effort: read schema and return the set of top-level property keys.
+    Best-effort: read schema and return set(schema["properties"].keys()).
     Used to avoid emitting extra top-level keys when additionalProperties=false.
     """
     try:
@@ -78,8 +76,13 @@ def _load_top_level_schema_props(schema_path: str, errors: List[str]) -> Optiona
     if isinstance(props, dict):
         return set(props.keys())
 
-    errors.append(f"schema: {schema_path} has no top-level 'properties' object")
+    errors.append(f"schema: {schema_path} missing top-level 'properties' object")
     return None
+
+
+def _want_top_key(k: str, allowed: Optional[Set[str]]) -> bool:
+    # If schema can't be read, keep the output minimal and safe.
+    return allowed is not None and (k in allowed)
 
 
 def _sanitize_source_kind(raw_obj: Any, override: Optional[str], errors: List[str]) -> str:
@@ -95,14 +98,26 @@ def _sanitize_source_kind(raw_obj: Any, override: Optional[str], errors: List[st
     return "missing"
 
 
-def _sanitize_provenance(raw_obj: Any, gen_at_override: Optional[str], gen_override: Optional[str], errors: List[str]) -> Dict[str, Any]:
+def _sanitize_provenance(
+    raw_obj: Any,
+    generated_at_override: Optional[str],
+    generator_override: Optional[str],
+    errors: List[str],
+) -> Dict[str, Any]:
     prov_raw = raw_obj.get("provenance") if isinstance(raw_obj, dict) else None
-    prov_obj = prov_raw if isinstance(prov_raw, dict) else {}
+    prov = prov_raw if isinstance(prov_raw, dict) else {}
 
-    generated_at_utc = gen_at_override or (prov_obj.get("generated_at_utc") if _is_nonempty_str(prov_obj.get("generated_at_utc")) else None) or _utc_now_iso()
-    generator = gen_override or (prov_obj.get("generator") if _is_nonempty_str(prov_obj.get("generator")) else None) or "scripts/build_gravity_record_protocol_v0_1.py"
+    generated_at_utc = (
+        generated_at_override
+        or (prov.get("generated_at_utc") if _is_nonempty_str(prov.get("generated_at_utc")) else None)
+        or _utc_now_iso()
+    )
+    generator = (
+        generator_override
+        or (prov.get("generator") if _is_nonempty_str(prov.get("generator")) else None)
+        or "scripts/build_gravity_record_protocol_v0_1.py"
+    )
 
-    # Keep provenance minimal and safe (avoid extra keys if schema is strict)
     return {
         "generated_at_utc": generated_at_utc,
         "generator": generator,
@@ -111,16 +126,17 @@ def _sanitize_provenance(raw_obj: Any, gen_at_override: Optional[str], gen_overr
 
 def _extract_raw_cases(raw_obj: Any, errors: List[str]) -> List[Dict[str, Any]]:
     if isinstance(raw_obj, dict):
-        if isinstance(raw_obj.get("cases"), list):
+        cases = raw_obj.get("cases")
+        if isinstance(cases, list):
             out: List[Dict[str, Any]] = []
-            for i, c in enumerate(raw_obj["cases"]):
+            for i, c in enumerate(cases):
                 if isinstance(c, dict):
                     out.append(c)
                 else:
                     errors.append(f"raw.cases[{i}]: expected object")
             return out
 
-        # accept single-case payload
+        # Allow single-case payload (root acts as a case)
         if "stations" in raw_obj or "profiles" in raw_obj:
             return [raw_obj]
 
@@ -130,28 +146,34 @@ def _extract_raw_cases(raw_obj: Any, errors: List[str]) -> List[Dict[str, Any]]:
 
 def _sanitize_station(st: Any, idx: int, errors: List[str]) -> Dict[str, Any]:
     st_obj = st if isinstance(st, dict) else {}
+
     sid = st_obj.get("station_id")
     if not _is_nonempty_str(sid):
         sid = f"S{idx+1}"
         errors.append(f"stations[{idx}].station_id: missing/invalid -> generated '{sid}'")
 
     r_areal = st_obj.get("r_areal")
-    if r_areal is not None and not _is_number_no_bool(r_areal):
-        errors.append(f"stations[{idx}].r_areal: invalid number -> set to null")
-        r_areal = None
-    elif r_areal is not None:
-        r_areal = float(r_areal)
+    if r_areal is not None:
+        if not _is_number_no_bool(r_areal):
+            errors.append(f"stations[{idx}].r_areal: invalid -> set to null")
+            r_areal_out = None
+        else:
+            r_areal_out = float(r_areal)
+    else:
+        r_areal_out = None
 
     r_label = st_obj.get("r_label")
     if r_label is not None and not _is_nonempty_str(r_label):
-        errors.append(f"stations[{idx}].r_label: invalid string -> set to null")
-        r_label = None
+        errors.append(f"stations[{idx}].r_label: invalid -> set to null")
+        r_label_out = None
+    else:
+        r_label_out = r_label.strip() if isinstance(r_label, str) else None
 
-    # IMPORTANT: keep station keys minimal (avoid schema mismatch)
+    # Keep station shape minimal to avoid schema mismatches.
     return {
         "station_id": str(sid).strip(),
-        "r_areal": r_areal,
-        "r_label": r_label.strip() if isinstance(r_label, str) else None,
+        "r_areal": r_areal_out,
+        "r_label": r_label_out,
     }
 
 
@@ -165,10 +187,11 @@ def _sanitize_point(pt: Any, kind: str, where: str, errors: List[str]) -> Option
         errors.append(f"{where}.r: invalid (missing/bool)")
         return None
     if isinstance(r, (int, float)):
-        if not math.isfinite(float(r)):
+        rr = float(r)
+        if not math.isfinite(rr):
             errors.append(f"{where}.r: numeric r must be finite")
             return None
-        r_out: Any = float(r)
+        r_out: Any = rr
     elif isinstance(r, str) and r.strip():
         r_out = r.strip()
     else:
@@ -226,15 +249,14 @@ def _sanitize_profile(raw_prof: Any, kind: str, where: str, errors: List[str]) -
                 if clean is not None:
                     points_out.append(clean)
 
-    # infer status if missing/invalid
     if status is None:
         status = "PASS" if len(points_out) > 0 else "MISSING"
-    # enforce PASS -> non-empty points (otherwise degrade)
+
     if status == "PASS" and len(points_out) == 0:
         errors.append(f"{where}: status=PASS but no valid points remained -> set to MISSING")
         status = "MISSING"
 
-    # IMPORTANT: keep profile keys minimal (avoid schema mismatch)
+    # Keep profile shape minimal to avoid schema mismatches.
     return {
         "status": status,
         "points": points_out if status == "PASS" else None,
@@ -255,7 +277,7 @@ def _compute_inputs_digest(payload: Any, errors: List[str]) -> Optional[Dict[str
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--raw", required=True, help="Raw input JSON")
-    ap.add_argument("--out", required=True, help="Output artifact JSON")
+    ap.add_argument("--out", required=True, help="Output gravity_record_protocol_v0_1 JSON")
     ap.add_argument("--schema", default=DEFAULT_SCHEMA_PATH, help="Schema path (used to avoid extra top-level keys)")
     ap.add_argument("--source-kind", default=None, help="Override source_kind")
     ap.add_argument("--generated-at-utc", default=None, help="Override provenance.generated_at_utc")
@@ -270,11 +292,7 @@ def main() -> int:
         raw_errors.append(f"raw: cannot read JSON: {type(e).__name__}: {e}")
         raw_obj = {}
 
-    schema_props = _load_top_level_schema_props(args.schema, raw_errors)
-
-    def want_top(k: str) -> bool:
-        # If schema can't be read, emit only the safest minimal set later.
-        return schema_props is not None and (k in schema_props)
+    allowed_top = _load_schema_top_level_props(args.schema, raw_errors)
 
     source_kind = _sanitize_source_kind(raw_obj, args.source_kind, raw_errors)
     provenance = _sanitize_provenance(raw_obj, args.generated_at_utc, args.generator, raw_errors)
@@ -303,15 +321,11 @@ def main() -> int:
         if profiles_raw is not None and not isinstance(profiles_raw, dict):
             raw_errors.append(f"{where}.profiles: expected object")
 
+        # Emit only lambda/kappa for baseline compatibility.
         profiles_out: Dict[str, Any] = {
             "lambda": _sanitize_profile(profiles_obj.get("lambda"), "lambda", f"{where}.profiles.lambda", raw_errors),
             "kappa": _sanitize_profile(profiles_obj.get("kappa"), "kappa", f"{where}.profiles.kappa", raw_errors),
         }
-        # optional s/g
-        if "s" in profiles_obj:
-            profiles_out["s"] = _sanitize_profile(profiles_obj.get("s"), "scalar", f"{where}.profiles.s", raw_errors)
-        if "g" in profiles_obj:
-            profiles_out["g"] = _sanitize_profile(profiles_obj.get("g"), "scalar", f"{where}.profiles.g", raw_errors)
 
         cases_out.append(
             {
@@ -321,7 +335,6 @@ def main() -> int:
             }
         )
 
-    # Minimal output (safe even if schema_props is unknown)
     out: Dict[str, Any] = {
         "schema": CONTRACT_NAME,
         "schema_version": SCHEMA_VERSION,
@@ -330,12 +343,10 @@ def main() -> int:
         "cases": cases_out,
     }
 
-    # Optional top-level fields, only if schema declares them
-    if want_top("inputs_digest"):
-        payload = {"source_kind": source_kind, "cases": cases_out}
-        out["inputs_digest"] = _compute_inputs_digest(payload, raw_errors)
+    if _want_top_key("inputs_digest", allowed_top):
+        out["inputs_digest"] = _compute_inputs_digest({"source_kind": source_kind, "cases": cases_out}, raw_errors)
 
-    if want_top("raw_errors"):
+    if _want_top_key("raw_errors", allowed_top):
         out["raw_errors"] = raw_errors
 
     _write_json(args.out, out)
@@ -344,6 +355,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-PY
-
-chmod +x scripts/build_gravity_record_protocol_v0_1.py
