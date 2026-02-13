@@ -173,7 +173,7 @@ def _check_profiles(case: Dict[str, Any], path: str, errors: List[str]) -> None:
     if extra:
         errors.append(f"{path}.profiles: unknown keys not allowed: {sorted(extra)}")
 
-    # Required profiles: lambda + kappa (must be objects, not null)
+    # Required profiles: lambda + kappa (must be objects, not null/string)
     if "lambda" not in profs:
         errors.append(f"{path}.profiles: missing required 'lambda' profile")
     else:
@@ -196,24 +196,11 @@ def _check_profiles(case: Dict[str, Any], path: str, errors: List[str]) -> None:
             if st:
                 _check_profile_points(kap, st, f"{path}.profiles.kappa", errors, "kappa")
 
-    # Optional: s, g (if present -> must be objects; explicit null is not allowed)
+    # Optional: s, g (if present -> must be objects; explicit null not allowed)
     for opt in ("s", "g"):
         if opt not in profs:
             continue
         p = profs.get(opt)
-        if not isinstance(p, dict):
-            errors.append(f"{path}.profiles.{opt}: must be object")
-            continue
-        st = _check_status(p, f"{path}.profiles.{opt}", errors)
-        if st:
-            _check_profile_points(p, st, f"{path}.profiles.{opt}", errors, "scalar")
-
-
-    # Optional: s, g (scalar profiles)
-    for opt in ("s", "g"):
-        p = profs.get(opt)
-        if p is None:
-            continue
         if not isinstance(p, dict):
             errors.append(f"{path}.profiles.{opt}: must be object")
             continue
@@ -285,7 +272,9 @@ def _check_case(case: Any, idx: int, errors: List[str]) -> None:
                 if st == "PASS":
                     en = gvl.get("error_norm")
                     if not _is_number_no_bool(en) or float(en) < 0:
-                        errors.append(f"{path}.derived.g_vs_lambda.error_norm: must be >=0 finite number when status=PASS")
+                        errors.append(
+                            f"{path}.derived.g_vs_lambda.error_norm: must be >=0 finite number when status=PASS"
+                        )
 
     # Optional wall classification
     wc = case.get("wall_classification")
@@ -296,7 +285,9 @@ def _check_case(case: Any, idx: int, errors: List[str]) -> None:
             for key in ("frequency_wall", "delay_wall", "record_wall"):
                 if key in wc and wc[key] is not None:
                     if not isinstance(wc[key], str) or wc[key] not in STATUS_ALLOWED:
-                        errors.append(f"{path}.wall_classification.{key}: must be one of {sorted(STATUS_ALLOWED)} (or absent/null)")
+                        errors.append(
+                            f"{path}.wall_classification.{key}: must be one of {sorted(STATUS_ALLOWED)} (or absent/null)"
+                        )
 
 
 def _minimal_invariants(obj: Any) -> List[str]:
@@ -361,7 +352,11 @@ def _schema_validate(obj: Any, schema_path: str) -> Optional[str]:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--in", dest="in_path", required=True, help="Input JSON artifact to validate")
-    ap.add_argument("--schema", default=DEFAULT_SCHEMA_PATH, help="Schema path (default: schemas/gravity_record_protocol_v0_1.schema.json)")
+    ap.add_argument(
+        "--schema",
+        default=DEFAULT_SCHEMA_PATH,
+        help="Schema path (default: schemas/gravity_record_protocol_v0_1.schema.json)",
+    )
     args = ap.parse_args()
 
     # Load artifact JSON
@@ -376,6 +371,10 @@ def main() -> int:
 
     if schema_err:
         inv_errs.insert(0, schema_err)
+
+    # De-duplicate error lines while preserving order.
+    # Prevents repeated messages from crowding out distinct errors in the compact tail output.
+    inv_errs = list(dict.fromkeys(inv_errs))
 
     if inv_errs:
         # print first error as headline; keep the rest compact
