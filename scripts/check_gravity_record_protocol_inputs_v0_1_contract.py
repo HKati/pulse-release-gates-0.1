@@ -224,8 +224,21 @@ def _check_case(case: Any, idx: int, errors: List[str]) -> None:
     else:
         if len(stations) < 2:
             errors.append(f"{path}.stations: must contain at least 2 stations")
+
+        seen_ids: set[str] = set()
         for i, st in enumerate(stations):
-            _check_station(st, f"{path}.stations[{i}]", errors)
+            sp = f"{path}.stations[{i}]"
+            _check_station(st, sp, errors)
+
+            # Enforce per-case station_id uniqueness (align with downstream artifact contract)
+            if isinstance(st, dict):
+                sid = st.get("station_id")
+                if isinstance(sid, str) and sid.strip():
+                    sid_norm = sid.strip()
+                    if sid_norm in seen_ids:
+                        errors.append(f"{sp}.station_id: duplicate station_id '{sid_norm}'")
+                    else:
+                        seen_ids.add(sid_norm)
 
     profs = case.get("profiles")
     if not isinstance(profs, dict):
