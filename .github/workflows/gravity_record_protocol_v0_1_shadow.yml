@@ -10,6 +10,7 @@ on:
       - "scripts/render_gravity_record_protocol_v0_1_md.py"
       - "scripts/test_gravity_record_protocol_v0_1_builder_fixtures.py"
       - "schemas/gravity_record_protocol_v0_1.schema.json"
+      - "schemas/gravity_record_protocol_inputs_v0_1.schema.json"
       - "PULSE_safe_pack_v0/fixtures/gravity_record_protocol_v0_1.raw.demo.json"
       - "PULSE_safe_pack_v0/fixtures/gravity_record_protocol_v0_1.demo.json"
   push:
@@ -22,6 +23,7 @@ on:
       - "scripts/render_gravity_record_protocol_v0_1_md.py"
       - "scripts/test_gravity_record_protocol_v0_1_builder_fixtures.py"
       - "schemas/gravity_record_protocol_v0_1.schema.json"
+      - "schemas/gravity_record_protocol_inputs_v0_1.schema.json"
       - "PULSE_safe_pack_v0/fixtures/gravity_record_protocol_v0_1.raw.demo.json"
       - "PULSE_safe_pack_v0/fixtures/gravity_record_protocol_v0_1.demo.json"
   workflow_dispatch:
