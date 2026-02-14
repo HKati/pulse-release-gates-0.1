@@ -1,0 +1,273 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "gravity_record_protocol_inputs_v0_1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["source_kind", "cases"],
+  "properties": {
+    "schema": { "const": "gravity_record_protocol_inputs_v0_1" },
+    "schema_version": { "type": "integer", "const": 1 },
+
+    "source_kind": {
+      "type": "string",
+      "enum": ["demo", "measurement", "simulation", "pipeline", "manual", "missing"]
+    },
+
+    "provenance": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["generated_at_utc", "generator"],
+      "properties": {
+        "generated_at_utc": { "type": "string", "minLength": 1 },
+        "generator": { "type": "string", "minLength": 1 },
+        "git_sha": { "type": ["string", "null"] },
+        "run_id": { "type": ["string", "null"] },
+        "run_url": { "type": ["string", "null"] }
+      }
+    },
+
+    "cases": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/case_input_v0_1" }
+    },
+
+    "raw_errors": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  },
+
+  "$defs": {
+    "status_enum": {
+      "type": "string",
+      "enum": ["PASS", "FAIL", "MISSING"]
+    },
+
+    "r_label": {
+      "anyOf": [
+        { "type": "number" },
+        { "type": "string", "minLength": 1 }
+      ]
+    },
+
+    "station_v0_1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["station_id"],
+      "properties": {
+        "station_id": { "type": "string", "minLength": 1 },
+        "r_areal": { "type": ["number", "null"] },
+        "r_label": { "type": ["string", "null"] }
+      }
+    },
+
+    "point_common_v0_1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["r", "value"],
+      "properties": {
+        "r": { "$ref": "#/$defs/r_label" },
+        "value": { "type": "number" },
+        "uncertainty": { "type": ["number", "null"], "minimum": 0 },
+        "n": { "type": ["integer", "null"], "minimum": 0 }
+      }
+    },
+
+    "lambda_point_v0_1": {
+      "allOf": [
+        { "$ref": "#/$defs/point_common_v0_1" },
+        {
+          "properties": {
+            "value": { "type": "number", "exclusiveMinimum": 0 }
+          }
+        }
+      ]
+    },
+
+    "kappa_point_v0_1": {
+      "allOf": [
+        { "$ref": "#/$defs/point_common_v0_1" },
+        {
+          "properties": {
+            "value": { "type": "number", "minimum": 0, "maximum": 1 }
+          }
+        }
+      ]
+    },
+
+    "scalar_point_v0_1": { "$ref": "#/$defs/point_common_v0_1" },
+
+    "profile_status_lambda_v0_1": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["status"],
+      "properties": {
+        "status": { "$ref": "#/$defs/status_enum" },
+        "points": {
+          "type": ["array", "null"],
+          "items": { "$ref": "#/$defs/lambda_point_v0_1" }
+        },
+        "notes": { "type": ["string", "null"] }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "status": { "const": "PASS" } },
+            "required": ["status"]
+          },
+          "then": {
+            "required": ["points"],
+            "properties": { "points": { "type": "array", "minItems": 1 } }
+          }
+        }
+      ]
+    },
+
+    "profile_points_only_lambda_v0_1": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["points"],
+      "properties": {
+        "points": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/lambda_point_v0_1" }
+        },
+        "notes": { "type": ["string", "null"] }
+      }
+    },
+
+    "profile_lambda_input_v0_1": {
+      "anyOf": [
+        { "$ref": "#/$defs/profile_status_lambda_v0_1" },
+        { "$ref": "#/$defs/profile_points_only_lambda_v0_1" }
+      ]
+    },
+
+    "profile_status_kappa_v0_1": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["status"],
+      "properties": {
+        "status": { "$ref": "#/$defs/status_enum" },
+        "points": {
+          "type": ["array", "null"],
+          "items": { "$ref": "#/$defs/kappa_point_v0_1" }
+        },
+        "notes": { "type": ["string", "null"] }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "status": { "const": "PASS" } },
+            "required": ["status"]
+          },
+          "then": {
+            "required": ["points"],
+            "properties": { "points": { "type": "array", "minItems": 1 } }
+          }
+        }
+      ]
+    },
+
+    "profile_points_only_kappa_v0_1": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["points"],
+      "properties": {
+        "points": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/kappa_point_v0_1" }
+        },
+        "notes": { "type": ["string", "null"] }
+      }
+    },
+
+    "profile_kappa_input_v0_1": {
+      "anyOf": [
+        { "$ref": "#/$defs/profile_status_kappa_v0_1" },
+        { "$ref": "#/$defs/profile_points_only_kappa_v0_1" }
+      ]
+    },
+
+    "profile_status_scalar_v0_1": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["status"],
+      "properties": {
+        "status": { "$ref": "#/$defs/status_enum" },
+        "points": {
+          "type": ["array", "null"],
+          "items": { "$ref": "#/$defs/scalar_point_v0_1" }
+        },
+        "notes": { "type": ["string", "null"] }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "status": { "const": "PASS" } },
+            "required": ["status"]
+          },
+          "then": {
+            "required": ["points"],
+            "properties": { "points": { "type": "array", "minItems": 1 } }
+          }
+        }
+      ]
+    },
+
+    "profile_points_only_scalar_v0_1": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["points"],
+      "properties": {
+        "points": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/scalar_point_v0_1" }
+        },
+        "notes": { "type": ["string", "null"] }
+      }
+    },
+
+    "profile_scalar_input_v0_1": {
+      "anyOf": [
+        { "$ref": "#/$defs/profile_status_scalar_v0_1" },
+        { "$ref": "#/$defs/profile_points_only_scalar_v0_1" }
+      ]
+    },
+
+    "profiles_input_v0_1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["lambda", "kappa"],
+      "properties": {
+        "lambda": { "$ref": "#/$defs/profile_lambda_input_v0_1" },
+        "kappa": { "$ref": "#/$defs/profile_kappa_input_v0_1" },
+        "s": { "$ref": "#/$defs/profile_scalar_input_v0_1" },
+        "g": { "$ref": "#/$defs/profile_scalar_input_v0_1" }
+      }
+    },
+
+    "case_input_v0_1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["case_id", "stations", "profiles"],
+      "properties": {
+        "case_id": { "type": "string", "minLength": 1 },
+        "description": { "type": ["string", "null"] },
+        "notes": { "type": ["string", "null"] },
+
+        "stations": {
+          "type": "array",
+          "minItems": 2,
+          "items": { "$ref": "#/$defs/station_v0_1" }
+        },
+
+        "profiles": { "$ref": "#/$defs/profiles_input_v0_1" }
+      }
+    }
+  }
+}
