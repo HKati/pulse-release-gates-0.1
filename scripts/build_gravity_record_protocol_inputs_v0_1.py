@@ -254,11 +254,19 @@ def main() -> int:
         stations = [stations_map[k] for k in sorted(stations_map.keys())]
 
         profiles_out: Dict[str, Any] = {}
+        required_profiles = {"lambda", "kappa"}
+
         for prof in ("lambda", "kappa", "s", "g"):
             pts = prof_map.get(prof) or []
             pts_sorted = sorted(pts, key=lambda p: _r_sort_key(p.get("r")))
+
             if pts_sorted:
+                # points-only encoding (implied PASS)
                 profiles_out[prof] = {"points": pts_sorted}
+            elif prof in required_profiles:
+                # required profiles must always be present; represent missing measurement explicitly
+                profiles_out[prof] = {"status": "MISSING", "points": None}
+            # optional profiles (s/g): omit if no points
 
         case_list.append(
             {
