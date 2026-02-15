@@ -69,8 +69,8 @@ def main() -> int:
         )
         outp = Path(td) / "out.json"
         rc, out, err = _run([*BUILDER, "--rawlog", str(rawlog), "--out", str(outp), "--source-kind", "demo"])
-        if rc == 0:
-            fails.append("[FAIL] duplicate station_id expected non-zero rc, got 0")
+        if rc != 2:
+            fails.append(f"[FAIL] duplicate station_id expected rc=2, got rc={rc}\\nstdout:\\n{out}\\nstderr:\\n{err}")
         if not outp.exists():
             fails.append("[FAIL] duplicate station_id case did not write output file")
 
