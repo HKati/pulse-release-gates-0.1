@@ -52,3 +52,131 @@ Validate a raw bundle:
 ```bash
 python scripts/check_gravity_record_protocol_inputs_v0_1_contract.py \
   --in PULSE_safe_pack_v0/fixtures/gravity_record_protocol_v0_1.raw.demo.json
+
+
+```
+
+## JSONL rawlog adapter (producer-friendly)
+
+This repo supports a minimal JSONL “rawlog” format as a producer-facing input surface for building
+a `gravity_record_protocol_inputs_v0_1` bundle.
+
+It is intended to be:
+- easy to emit from upstream measurement / simulation code,
+- deterministic to rebuild,
+- fail-closed when malformed (with explicit `raw_errors`).
+
+---
+
+### Rawlog format (JSON Lines)
+
+One JSON object per line. Empty lines and comment lines starting with `#` are ignored.
+
+Supported record types:
+
+---
+
+### 1) `meta`
+
+Example (single JSON line):
+
+```json
+{"type":"meta","source_kind":"demo","provenance":{"generated_at_utc":"...Z","generator":"..."}}
+```
+
+Fields:
+- `source_kind` (string): `demo | measurement | simulation | pipeline | manual | missing`
+- `provenance.generated_at_utc` (string, ISO UTC)
+- `provenance.generator` (string)
+
+---
+
+### 2) `station`
+
+Example (single JSON line):
+
+```json
+{"type":"station","case_id":"case_demo_ab","station_id":"A","r_areal":100.0,"r_label":"rA"}
+```
+
+Fields:
+- `case_id` (string, required)
+- `station_id` (string, required; must be unique within a case)
+- `r_areal` (number|null, optional; finite; bools rejected)
+- `r_label` (string|null, optional; non-empty if present)
+
+---
+
+### 3) `point`
+
+Example (single JSON line):
+
+```json
+{"type":"point","case_id":"case_demo_ab","profile":"lambda","r":0,"value":1.0,"uncertainty":0.0,"n":1}
+```
+
+Fields:
+- `case_id` (string, required)
+- `profile` (string, required): `lambda | kappa | s | g`
+- `r` (number or non-empty string, required)
+- `value` (finite number, required; bools rejected)
+- `uncertainty` (>=0 finite number, optional)
+- `n` (>=0 integer, optional)
+
+Domain constraints (enforced at build-time):
+- `lambda.value` must be `> 0`
+- `kappa.value` must be in `[0, 1]`
+
+---
+
+## Builder
+
+Script:
+- `scripts/build_gravity_record_protocol_inputs_v0_1.py`
+
+Demo rawlog fixture:
+- `PULSE_safe_pack_v0/fixtures/gravity_record_protocol_v0_1.rawlog.demo.jsonl`
+
+Build an inputs bundle:
+
+```bash
+python scripts/build_gravity_record_protocol_inputs_v0_1.py \
+  --rawlog PULSE_safe_pack_v0/fixtures/gravity_record_protocol_v0_1.rawlog.demo.jsonl \
+  --out   out/gravity_record_protocol_inputs_v0_1.json \
+  --source-kind demo
+```
+
+Validate the result (fail-closed contract check):
+
+```bash
+python scripts/check_gravity_record_protocol_inputs_v0_1_contract.py \
+  --in out/gravity_record_protocol_inputs_v0_1.json
+```
+
+---
+
+## Required profiles and “missing” representation
+
+Each case must include both `profiles.lambda` and `profiles.kappa`.
+
+If a required profile has no points in the rawlog, the builder emits an explicit missing profile:
+
+```json
+{"status":"MISSING","points":null}
+```
+
+This ensures the builder cannot exit successfully while producing a contract-invalid bundle
+with missing required profile keys.
+
+---
+
+## Fail-closed behavior
+
+The builder always attempts to write the output JSON.
+
+Exit codes:
+- `0` → bundle written and no `raw_errors`
+- `2` → bundle written but `raw_errors` present (contract/protocol violations or malformed rawlog)
+
+When `raw_errors` exist, the bundle is intended for triage (inspect errors) rather than downstream use.
+
