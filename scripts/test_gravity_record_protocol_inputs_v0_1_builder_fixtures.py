@@ -74,6 +74,43 @@ def main() -> int:
         if not outp.exists():
             fails.append("[FAIL] duplicate station_id case did not write output file")
 
+    # 3) PASS: only-lambda input should mark required kappa as missing with explicit null points
+    with tempfile.TemporaryDirectory() as td:
+        rawlog = Path(td) / "only_lambda.jsonl"
+        rawlog.write_text(
+            "\n".join(
+                [
+                    '{"type":"meta","source_kind":"demo","provenance":{"generated_at_utc":"2026-02-15T00:00:00Z","generator":"fixture"}}',
+                    '{"type":"station","case_id":"c","station_id":"A"}',
+                    '{"type":"station","case_id":"c","station_id":"B"}',
+                    '{"type":"point","case_id":"c","profile":"lambda","r":0,"value":1.0}',
+                    "",
+                ]
+            ),
+            encoding="utf-8",
+        )
+        outp = Path(td) / "out.json"
+        rc, out, err = _run([*BUILDER, "--rawlog", str(rawlog), "--out", str(outp), "--source-kind", "demo"])
+        if rc != 0:
+            fails.append(f"[FAIL] only-lambda build rc={rc}\nstdout:\n{out}\nstderr:\n{err}")
+        elif not outp.exists():
+            fails.append("[FAIL] only-lambda case did not write output file")
+        else:
+            obj = _read_json(outp)
+            profiles = obj["cases"][0]["profiles"]
+            kappa = profiles.get("kappa") or {}
+
+            if kappa.get("status") != "MISSING":
+                fails.append(
+                    f"[FAIL] expected profiles.kappa.status == MISSING, got {kappa.get('status')}"
+                )
+
+            # Lock representation: in missing-required-profile case we require explicit null points.
+            if "points" not in kappa or kappa.get("points") is not None:
+                fails.append(
+                    f"[FAIL] expected profiles.kappa.points == null when status=MISSING, got {kappa.get('points')!r}"
+                )
+
     if fails:
         print("\n\n".join(fails), file=sys.stderr)
         print("[fixtures:gravity_record_protocol_inputs_v0_1_builder] FAIL", file=sys.stderr)
