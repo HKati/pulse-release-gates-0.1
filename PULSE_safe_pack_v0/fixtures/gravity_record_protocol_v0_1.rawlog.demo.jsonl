@@ -1,0 +1,7 @@
+{"type":"meta","source_kind":"demo","provenance":{"generated_at_utc":"2026-02-15T00:00:00Z","generator":"fixture:gravity_record_protocol_v0_1.rawlog.demo.jsonl"}}
+{"type":"station","case_id":"case_demo_ab","station_id":"A","r_areal":100.0,"r_label":"rA"}
+{"type":"station","case_id":"case_demo_ab","station_id":"B","r_areal":200.0,"r_label":"rB"}
+{"type":"point","case_id":"case_demo_ab","profile":"lambda","r":0,"value":1.0,"uncertainty":0.0,"n":1}
+{"type":"point","case_id":"case_demo_ab","profile":"lambda","r":1,"value":0.99,"uncertainty":0.0,"n":1}
+{"type":"point","case_id":"case_demo_ab","profile":"kappa","r":0,"value":1.0,"uncertainty":0.0,"n":1}
+{"type":"point","case_id":"case_demo_ab","profile":"kappa","r":1,"value":0.98,"uncertainty":0.0,"n":1}
