@@ -7,6 +7,7 @@ on:
       - "scripts/build_gravity_record_protocol_v0_1.py"
       - "scripts/check_gravity_record_protocol_v0_1_contract.py"
       - "scripts/check_gravity_record_protocol_inputs_v0_1_contract.py"
+      - "scripts/test_gravity_record_protocol_inputs_v0_1_contract_fixtures.py"
       - "scripts/render_gravity_record_protocol_v0_1_md.py"
       - "scripts/test_gravity_record_protocol_v0_1_builder_fixtures.py"
       - "schemas/gravity_record_protocol_v0_1.schema.json"
@@ -19,6 +20,7 @@ on:
       - "scripts/build_gravity_record_protocol_v0_1.py"
       - "scripts/check_gravity_record_protocol_v0_1_contract.py"
       - "scripts/check_gravity_record_protocol_inputs_v0_1_contract.py"
+      - "scripts/test_gravity_record_protocol_inputs_v0_1_contract_fixtures.py"
       - "scripts/render_gravity_record_protocol_v0_1_md.py"
       - "scripts/test_gravity_record_protocol_v0_1_builder_fixtures.py"
       - "schemas/gravity_record_protocol_v0_1.schema.json"
@@ -69,6 +71,17 @@ jobs:
           set +e
           python scripts/check_gravity_record_protocol_inputs_v0_1_contract.py \
             --in PULSE_safe_pack_v0/fixtures/gravity_record_protocol_v0_1.raw.demo.json
+          code=$?
+          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+          exit 0
+
+
+      - name: Run raw inputs contract fixtures (v0.1)
+        id: raw_contract_fixtures
+        shell: bash
+        run: |
+          set +e
+          python scripts/test_gravity_record_protocol_inputs_v0_1_contract_fixtures.py
           code=$?
           echo "exit_code=$code" >> "$GITHUB_OUTPUT"
           exit 0
@@ -124,6 +137,7 @@ jobs:
           echo "## Gravity Record Protocol v0.1 (shadow)" >> "$GITHUB_STEP_SUMMARY"
           echo "- builder_fixtures: exit_code=${{ steps.builder_tests.outputs.exit_code }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- raw_contract: exit_code=${{ steps.raw_contract.outputs.exit_code }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- raw_contract_fixtures: exit_code=${{ steps.raw_contract_fixtures.outputs.exit_code }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- builder: exit_code=${{ steps.build.outputs.exit_code }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- contract: exit_code=${{ steps.contract.outputs.exit_code }}" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
@@ -149,6 +163,7 @@ jobs:
             scripts/build_gravity_record_protocol_v0_1.py
             scripts/check_gravity_record_protocol_v0_1_contract.py
             scripts/check_gravity_record_protocol_inputs_v0_1_contract.py
+            scripts/test_gravity_record_protocol_inputs_v0_1_contract_fixtures.py
             scripts/render_gravity_record_protocol_v0_1_md.py
             scripts/test_gravity_record_protocol_v0_1_builder_fixtures.py
 
@@ -158,9 +173,10 @@ jobs:
         run: |
           bt="${{ steps.builder_tests.outputs.exit_code }}"
           rc="${{ steps.raw_contract.outputs.exit_code }}"
+          rf="${{ steps.raw_contract_fixtures.outputs.exit_code }}"
           b="${{ steps.build.outputs.exit_code }}"
           c="${{ steps.contract.outputs.exit_code }}"
-          if [ "$bt" != "0" ] || [ "$rc" != "0" ] || [ "$b" != "0" ] || [ "$c" != "0" ]; then
-            echo "One or more steps failed: builder_fixtures=$bt raw_contract=$rc builder=$b contract=$c"
+          if [ "$bt" != "0" ] || [ "$rc" != "0" ] || [ "$rf" != "0" ] || [ "$b" != "0" ] || [ "$c" != "0" ]; then
+            echo "One or more steps failed: builder_fixtures=$bt raw_contract=$rc raw_contract_fixtures=$rf builder=$b contract=$c"
             exit 1
           fi
