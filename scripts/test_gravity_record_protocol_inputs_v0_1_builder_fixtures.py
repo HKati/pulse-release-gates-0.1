@@ -51,7 +51,42 @@ def main() -> int:
                 if obj.get("raw_errors"):
                     fails.append(f"[FAIL] demo output contains raw_errors: {obj.get('raw_errors')}")
 
-    # 2) FAIL: duplicate station_id should yield rc=2 (but still write output)
+    # 2) PASS: only lambda points -> required kappa emitted as status=MISSING
+    with tempfile.TemporaryDirectory() as td:
+        rawlog = Path(td) / "only_lambda.jsonl"
+        rawlog.write_text(
+            "\n".join(
+                [
+                    '{"type":"meta","source_kind":"demo","provenance":{"generated_at_utc":"2026-02-15T00:00:00Z","generator":"fixture"}}',
+                    '{"type":"station","case_id":"c","station_id":"A"}',
+                    '{"type":"station","case_id":"c","station_id":"B"}',
+                    '{"type":"point","case_id":"c","profile":"lambda","r":0,"value":1.0}',
+                    "",
+                ]
+            ),
+            encoding="utf-8",
+        )
+        outp = Path(td) / "out.json"
+        rc, out, err = _run([*BUILDER, "--rawlog", str(rawlog), "--out", str(outp), "--source-kind", "demo"])
+        if rc != 0:
+            fails.append(f"[FAIL] only-lambda build expected rc=0, got rc={rc}\nstdout:\n{out}\nstderr:\n{err}")
+        else:
+            rc2, out2, err2 = _run([*CHECKER, "--in", str(outp)])
+            if rc2 != 0:
+                fails.append(
+                    f"[FAIL] only-lambda contract expected PASS rc=0, got rc={rc2}\nstdout:\n{out2}\nstderr:\n{err2}"
+                )
+            else:
+                obj = _read_json(outp)
+                profiles = obj.get("cases", [{}])[0].get("profiles", {})
+                if "kappa" not in profiles:
+                    fails.append("[FAIL] expected profiles.kappa to be emitted")
+                elif profiles["kappa"].get("status") != "MISSING":
+                    fails.append(
+                        f"[FAIL] expected profiles.kappa.status == MISSING, got {profiles['kappa'].get('status')}"
+                    )
+
+    # 3) FAIL: duplicate station_id should yield rc=2 (but still write output)
     with tempfile.TemporaryDirectory() as td:
         rawlog = Path(td) / "dup.jsonl"
         rawlog.write_text(
