@@ -8,10 +8,14 @@ on:
       - "scripts/check_gravity_record_protocol_v0_1_contract.py"
       - "scripts/check_gravity_record_protocol_inputs_v0_1_contract.py"
       - "scripts/test_gravity_record_protocol_inputs_v0_1_contract_fixtures.py"
+      - "scripts/build_gravity_record_protocol_inputs_v0_1.py"
+      - "scripts/test_gravity_record_protocol_inputs_v0_1_builder_fixtures.py"
       - "scripts/render_gravity_record_protocol_v0_1_md.py"
       - "scripts/test_gravity_record_protocol_v0_1_builder_fixtures.py"
       - "schemas/gravity_record_protocol_v0_1.schema.json"
+      - "schemas/gravity_record_protocol_inputs_v0_1.schema.json"
       - "PULSE_safe_pack_v0/fixtures/gravity_record_protocol_v0_1.raw.demo.json"
+      - "PULSE_safe_pack_v0/fixtures/gravity_record_protocol_v0_1.rawlog.demo.jsonl"
       - "PULSE_safe_pack_v0/fixtures/gravity_record_protocol_v0_1.demo.json"
   push:
     branches: ["main"]
@@ -21,10 +25,14 @@ on:
       - "scripts/check_gravity_record_protocol_v0_1_contract.py"
       - "scripts/check_gravity_record_protocol_inputs_v0_1_contract.py"
       - "scripts/test_gravity_record_protocol_inputs_v0_1_contract_fixtures.py"
+      - "scripts/build_gravity_record_protocol_inputs_v0_1.py"
+      - "scripts/test_gravity_record_protocol_inputs_v0_1_builder_fixtures.py"
       - "scripts/render_gravity_record_protocol_v0_1_md.py"
       - "scripts/test_gravity_record_protocol_v0_1_builder_fixtures.py"
       - "schemas/gravity_record_protocol_v0_1.schema.json"
+      - "schemas/gravity_record_protocol_inputs_v0_1.schema.json"
       - "PULSE_safe_pack_v0/fixtures/gravity_record_protocol_v0_1.raw.demo.json"
+      - "PULSE_safe_pack_v0/fixtures/gravity_record_protocol_v0_1.rawlog.demo.jsonl"
       - "PULSE_safe_pack_v0/fixtures/gravity_record_protocol_v0_1.demo.json"
   workflow_dispatch:
 
@@ -53,6 +61,16 @@ jobs:
         shell: bash
         run: |
           python -m pip install --disable-pip-version-check "jsonschema==4.23.0"
+
+      - name: Run inputs contract fixtures (gravity_record_protocol_inputs_v0_1)
+        shell: bash
+        run: |
+          python scripts/test_gravity_record_protocol_inputs_v0_1_contract_fixtures.py
+
+      - name: Run inputs builder fixtures (rawlog -> inputs bundle)
+        shell: bash
+        run: |
+          python scripts/test_gravity_record_protocol_inputs_v0_1_builder_fixtures.py
 
       - name: Builder fixtures (golden)
         id: builder_tests
