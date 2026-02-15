@@ -165,18 +165,22 @@ If a required profile has no points in the rawlog, the builder emits an explicit
 {"status":"MISSING","points":null}
 ```
 
-This ensures the builder cannot exit successfully while producing a contract-invalid bundle
-with missing required profile keys.
+This representation prevents “missing required profile key” failures by emitting required profile objects explicitly (`status: "MISSING"`, `points: null`) instead of omitting the profile object entirely.
 
 ---
 
-## Fail-closed behavior
+## Fail-closed behavior (builder)
 
-The builder always attempts to write the output JSON.
+The builder always attempts to write a JSON output bundle (even when the input is malformed), and records producer-facing issues under `raw_errors`.
 
 Exit codes:
-- `0` → bundle written and no `raw_errors`
-- `2` → bundle written but `raw_errors` present (contract/protocol violations or malformed rawlog)
+- `0` → bundle written **and** `raw_errors` is empty
+- `2` → bundle written **and** `raw_errors` is non-empty
 
-When `raw_errors` exist, the bundle is intended for triage (inspect errors) rather than downstream use.
+Important: the builder is **not** a full contract validator.  
+An exit code of `0` means the raw→bundle transformation did not record producer errors, but it does **not** guarantee the output bundle satisfies the full `gravity_record_protocol_inputs_v0_1` contract (e.g. non-empty `cases`, required profiles, etc.).
+
+For contract enforcement, always run:
+- `python scripts/check_gravity_record_protocol_inputs_v0_1_contract.py --in <bundle.json>`
+
 
