@@ -235,7 +235,6 @@ jobs:
                 # fallback to file stem
                 pol_id = pol_path.stem
               want_any = stem_variants(pol_id)
-
               id_ok = any(tok and tok in unrel_l for tok in want_any)
               ver_ok = (pol_ver is not None) and (str(pol_ver).strip() in unrel)
 
@@ -473,7 +472,6 @@ jobs:
           echo "----- refusal_delta_summary.json -----"
           cat "${{ env.PACK_DIR }}/artifacts/refusal_delta_summary.json" || true
           echo "-------------------------------------"
-
       - name: "Strict external evidence: require external summaries present (pre-augment, fail-closed)"
         if: ${{ (github.event_name == 'workflow_dispatch' && github.event.inputs.strict_external_evidence == 'true') || startsWith(github.ref, 'refs/tags/v') || startsWith(github.ref, 'refs/tags/V') }}
         shell: bash
@@ -567,6 +565,40 @@ jobs:
 
           print(f"OK: non-demo status.version on tag: {v}")
           PY
+
+      - name: "ci: enforce gates via check_gates (policy-derived)"
+
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          STATUS="${{ env.PACK_DIR }}/artifacts/status.json"
+          if [ ! -f "$STATUS" ]; then
+            echo "::error::status.json not found at $STATUS"
+            exit 1
+          fi
+
+          # PR -> core_required, everything else -> required
+          POLICY_SET="required"
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            POLICY_SET="core_required"
+          fi
+
+          # Canonical helper (fail-closed, no PyYAML dependency)
+          REQ_STR="$(python tools/policy_to_require_args.py --policy pulse_gate_policy_v0.yml --set "$POLICY_SET" --format space)"
+          read -r -a REQ <<< "$REQ_STR"
+
+          if (( ${#REQ[@]} == 0 )); then
+            echo "::error::derived gate set is empty: ${POLICY_SET}"
+            exit 1
+          fi
+
+          echo "Enforcing policy gate set: ${POLICY_SET} (${#REQ[@]} gates)"
+          printf '%s\n' "${REQ[@]}" | sed 's/^/ - /'
+
+          python "${{ env.PACK_DIR }}/tools/check_gates.py" \
+            --status "$STATUS" \
+            --require "${REQ[@]}"
 
       - name: Gate registry sync check
         shell: bash
