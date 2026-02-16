@@ -235,9 +235,9 @@ jobs:
                 # fallback to file stem
                 pol_id = pol_path.stem
               want_any = stem_variants(pol_id)
-
               id_ok = any(tok and tok in unrel_l for tok in want_any)
               ver_ok = (pol_ver is not None) and (str(pol_ver).strip() in unrel)
+
               if not id_ok or not ver_ok:
                 reason = []
                 if not id_ok:
@@ -472,7 +472,6 @@ jobs:
           echo "----- refusal_delta_summary.json -----"
           cat "${{ env.PACK_DIR }}/artifacts/refusal_delta_summary.json" || true
           echo "-------------------------------------"
-
       - name: "Strict external evidence: require external summaries present (pre-augment, fail-closed)"
         if: ${{ (github.event_name == 'workflow_dispatch' && github.event.inputs.strict_external_evidence == 'true') || startsWith(github.ref, 'refs/tags/v') || startsWith(github.ref, 'refs/tags/V') }}
         shell: bash
@@ -567,7 +566,7 @@ jobs:
           print(f"OK: non-demo status.version on tag: {v}")
           PY
 
-      - name: "ci: enforce required gates (policy-derived)"
+      - name: ci: enforce gates via check_gates (policy-derived)
         shell: bash
         run: |
           set -euo pipefail
@@ -578,27 +577,22 @@ jobs:
             exit 1
           fi
 
-          # Derive required gate ids from pulse_gate_policy_v0.yml (single source of truth)
-          mapfile -t REQ < <(python - <<'PY'
-          import sys
-          import yaml
+          # PR -> core_required, everything else -> required
+          POLICY_SET="required"
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            POLICY_SET="core_required"
+          fi
 
-          with open("pulse_gate_policy_v0.yml", "r", encoding="utf-8") as f:
-            pol = yaml.safe_load(f) or {}
+          # Canonical helper (fail-closed, no PyYAML dependency)
+          REQ_STR="$(python tools/policy_to_require_args.py --policy pulse_gate_policy_v0.yml --set "$POLICY_SET" --format space)"
+          read -r -a REQ <<< "$REQ_STR"
 
-          req = ((pol.get("policy") or {}).get("gates") or {}).get("required")
-          if not isinstance(req, list) or not req:
-            print("::error::policy.gates.required is empty or invalid")
-            sys.exit(1)
+          if (( ${#REQ[@]} == 0 )); then
+            echo "::error::derived gate set is empty: ${POLICY_SET}"
+            exit 1
+          fi
 
-          for g in req:
-            s = str(g).strip()
-            if s:
-              print(s)
-          PY
-          )
-
-          echo "Required gate set (policy): ${#REQ[@]} gates"
+          echo "Enforcing policy gate set: ${POLICY_SET} (${#REQ[@]} gates)"
           printf '%s\n' "${REQ[@]}" | sed 's/^/ - /'
 
           python "${{ env.PACK_DIR }}/tools/check_gates.py" \
@@ -717,6 +711,7 @@ jobs:
             exit 0
           fi
           python "$SCRIPT" --status "$STATUS"
+
       - name: Generate PULSE snapshot report (HTML)
         shell: bash
         run: |
