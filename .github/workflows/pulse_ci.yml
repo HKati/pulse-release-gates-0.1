@@ -223,6 +223,7 @@ jobs:
                 elif not ver_ok:
                   reason.append(f"missing version '{spec_ver}' in Unreleased")
                 missing.append((p, "; ".join(reason)))
+
             elif p == "pulse_gate_policy_v0.yml":
               pol_path = Path(p)
               if not pol_path.exists():
@@ -234,6 +235,7 @@ jobs:
               if pol_id is None:
                 # fallback to file stem
                 pol_id = pol_path.stem
+
               want_any = stem_variants(pol_id)
               id_ok = any(tok and tok in unrel_l for tok in want_any)
               ver_ok = (pol_ver is not None) and (str(pol_ver).strip() in unrel)
@@ -247,6 +249,7 @@ jobs:
                 elif not ver_ok:
                   reason.append(f"missing version '{pol_ver}' in Unreleased")
                 missing.append((p, "; ".join(reason)))
+
             elif p in ("schemas/dataset_manifest.schema.json", "examples/dataset_manifest.example.json"):
               key = Path(p).stem.replace(".", " ").replace("_", " ").lower()
               if key not in unrel_l:
@@ -301,31 +304,29 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+
           MODE="core"
 
-           # version tag => prod
-           if [[ "${GITHUB_REF:-}" == refs/tags/v* || "${GITHUB_REF:-}" == refs/tags/V* ]]; then
+          # version tag => prod
+          if [[ "${GITHUB_REF:-}" == refs/tags/v* || "${GITHUB_REF:-}" == refs/tags/V* ]]; then
             MODE="prod"
-           fi
+          fi
 
-           # strict workflow_dispatch => prod
-           if [[ "${GITHUB_EVENT_NAME:-}" == "workflow_dispatch" ]]; then
-             STRICT="$(jq -r '.inputs.strict_external_evidence // "false"' "$GITHUB_EVENT_PATH")"
-             if [[ "$STRICT" == "true" ]]; then
-               MODE="prod"
-             fi                                                                                                                                                                                                                                                                                                                                   
-           fi  
-           echo "Running pack in mode: $MODE"
+          # strict workflow_dispatch => prod
+          if [[ "${GITHUB_EVENT_NAME:-}" == "workflow_dispatch" ]]; then
+            STRICT="$(jq -r '.inputs.strict_external_evidence // "false"' "$GITHUB_EVENT_PATH")"
+            if [[ "$STRICT" == "true" ]]; then
+              MODE="prod"
+            fi
+          fi
+
+          echo "Running pack in mode: $MODE"
 
           python "${{ env.PACK_DIR }}/tools/run_all.py" \
             --mode "$MODE" \
             --pack_dir "${{ env.PACK_DIR }}" \
             --gate_policy "${GITHUB_WORKSPACE}/pulse_gate_policy_v0.yml"
 
-          python "${{ env.PACK_DIR }}/tools/run_all.py" \
-            --pack_dir "${{ env.PACK_DIR }}" \
-            --gate_policy "$GITHUB_WORKSPACE/pulse_gate_policy_v0.yml"
-     
       - name: "ci: require prod run_mode on release-grade runs"
         if: startsWith(github.ref, 'refs/tags/v') || startsWith(github.ref, 'refs/tags/V') || (github.event_name == 'workflow_dispatch' && github.event.inputs.strict_external_evidence == 'true')
         shell: bash
@@ -489,7 +490,13 @@ jobs:
 
           POLICY="${GITHUB_WORKSPACE}/pulse_gate_policy_v0.yml"
           PAIRS_SCRIPT="${{ env.PACK_DIR }}/tools/policy_to_refusal_pairs.py"
-          RD="${{ env.PACK_DIR }}/tools/refusal_delta.py"
+
+          # Prefer refusal_delta_calc.py; fallback to refusal_delta.py if present
+          RD="${{ env.PACK_DIR }}/tools/refusal_delta_calc.py"
+          if [ ! -f "$RD" ]; then
+            RD="${{ env.PACK_DIR }}/tools/refusal_delta.py"
+          fi
+
           POLCFG="${{ env.PACK_DIR }}/profiles/pulse_policy.yaml"
 
           OUT="${{ env.PACK_DIR }}/artifacts/refusal_delta_summary.json"
@@ -497,10 +504,10 @@ jobs:
 
           if [ ! -f "$RD" ]; then
             if (( IS_RELEASE )); then
-              echo "::error::refusal_delta.py not found at $RD"
+              echo "::error::refusal-delta tool not found (expected refusal_delta_calc.py or refusal_delta.py under ${{ env.PACK_DIR }}/tools)"
               exit 1
             fi
-            echo "::warning::refusal_delta.py not found at $RD; skipping refusal-delta."
+            echo "::warning::refusal-delta tool not found; skipping refusal-delta."
             exit 0
           fi
 
@@ -550,8 +557,6 @@ jobs:
             fi
             echo "::warning::refusal_delta_summary.json missing after refusal-delta run."
           fi
-   
-    
 
       - name: Show refusal-delta summary
         if: always()
@@ -624,7 +629,7 @@ jobs:
             --status "$STATUS" \
             --thresholds "$THRESH" \
             --external_dir "$EXT_DIR"
-     
+
       - name: "ci: schema validate status.json (status_v1)"
         shell: bash
         run: |
@@ -742,7 +747,6 @@ jobs:
           python "${{ env.PACK_DIR }}/tools/check_gates.py" \
             --status "$STATUS" \
             --require "${REQ[@]}"
-  
 
       - name: Gate registry sync check
         shell: bash
