@@ -301,10 +301,47 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          MODE="core"
+
+           # version tag => prod
+           if [[ "${GITHUB_REF:-}" == refs/tags/v* || "${GITHUB_REF:-}" == refs/tags/V* ]]; then
+            MODE="prod"
+           fi
+
+           # strict workflow_dispatch => prod
+           if [[ "${GITHUB_EVENT_NAME:-}" == "workflow_dispatch" ]]; then
+             STRICT="$(jq -r '.inputs.strict_external_evidence // "false"' "$GITHUB_EVENT_PATH")"
+             if [[ "$STRICT" == "true" ]]; then
+               MODE="prod"
+             fi                                                                                                                                                                                                                                                                                                                                   
+           fi  
+           echo "Running pack in mode: $MODE"
+
+          python "${{ env.PACK_DIR }}/tools/run_all.py" \
+            --mode "$MODE" \
+            --pack_dir "${{ env.PACK_DIR }}" \
+            --gate_policy "${GITHUB_WORKSPACE}/pulse_gate_policy_v0.yml"
 
           python "${{ env.PACK_DIR }}/tools/run_all.py" \
             --pack_dir "${{ env.PACK_DIR }}" \
             --gate_policy "$GITHUB_WORKSPACE/pulse_gate_policy_v0.yml"
+     
+      - name: "ci: require prod run_mode on release-grade runs"
+        if: startsWith(github.ref, 'refs/tags/v') || startsWith(github.ref, 'refs/tags/V') || (github.event_name == 'workflow_dispatch' && github.event.inputs.strict_external_evidence == 'true')
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, sys
+          p="PULSE_safe_pack_v0/artifacts/status.json"
+          s=json.load(open(p,"r",encoding="utf-8"))
+          m=(s.get("metrics") or {})
+          mode=str(m.get("run_mode","")).lower()
+          if mode != "prod":
+            print(f"::error::release-grade run requires metrics.run_mode='prod' (got '{mode}')")
+            sys.exit(1)
+          print("OK: run_mode=prod")
+          PY
 
       - name: Show main status.json (head)
         if: always()
