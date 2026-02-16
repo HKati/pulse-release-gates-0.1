@@ -238,7 +238,6 @@ jobs:
 
               id_ok = any(tok and tok in unrel_l for tok in want_any)
               ver_ok = (pol_ver is not None) and (str(pol_ver).strip() in unrel)
-
               if not id_ok or not ver_ok:
                 reason = []
                 if not id_ok:
@@ -568,6 +567,44 @@ jobs:
           print(f"OK: non-demo status.version on tag: {v}")
           PY
 
+      - name: "ci: enforce required gates (policy-derived)"
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          STATUS="${{ env.PACK_DIR }}/artifacts/status.json"
+          if [ ! -f "$STATUS" ]; then
+            echo "::error::status.json not found at $STATUS"
+            exit 1
+          fi
+
+          # Derive required gate ids from pulse_gate_policy_v0.yml (single source of truth)
+          mapfile -t REQ < <(python - <<'PY'
+          import sys
+          import yaml
+
+          with open("pulse_gate_policy_v0.yml", "r", encoding="utf-8") as f:
+            pol = yaml.safe_load(f) or {}
+
+          req = ((pol.get("policy") or {}).get("gates") or {}).get("required")
+          if not isinstance(req, list) or not req:
+            print("::error::policy.gates.required is empty or invalid")
+            sys.exit(1)
+
+          for g in req:
+            s = str(g).strip()
+            if s:
+              print(s)
+          PY
+          )
+
+          echo "Required gate set (policy): ${#REQ[@]} gates"
+          printf '%s\n' "${REQ[@]}" | sed 's/^/ - /'
+
+          python "${{ env.PACK_DIR }}/tools/check_gates.py" \
+            --status "$STATUS" \
+            --require "${REQ[@]}"
+
       - name: Gate registry sync check
         shell: bash
         run: |
@@ -680,7 +717,6 @@ jobs:
             exit 0
           fi
           python "$SCRIPT" --status "$STATUS"
-
       - name: Generate PULSE snapshot report (HTML)
         shell: bash
         run: |
