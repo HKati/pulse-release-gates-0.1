@@ -30,7 +30,35 @@ art = pathlib.Path(ART_DIR_ENV) if ART_DIR_ENV else (ROOT / "artifacts")
 art.mkdir(parents=True, exist_ok=True)
 
 now = datetime.datetime.utcnow().isoformat() + "Z"
-STATUS_VERSION = "1.0.0-demo"
+import argparse
+import hashlib
+
+def _sha256_file(p: pathlib.Path) -> str | None:
+    try:
+        h = hashlib.sha256()
+        with p.open("rb") as f:
+            for chunk in iter(lambda: f.read(65536), b""):
+                h.update(chunk)
+        return h.hexdigest()
+    except Exception:
+        return None
+
+parser = argparse.ArgumentParser(add_help=True)
+parser.add_argument("--mode", choices=["demo", "core", "prod"],
+                    default=os.getenv("PULSE_RUN_MODE", "demo"))
+# Accept existing workflow args (may be used for provenance even if pack is self-contained)
+parser.add_argument("--pack_dir", default=str(ROOT))
+parser.add_argument("--gate_policy", default=str(REPO_ROOT / "pulse_gate_policy_v0.yml"))
+args, _unknown = parser.parse_known_args()
+
+RUN_MODE = str(args.mode).strip().lower()
+if RUN_MODE == "demo":
+    STATUS_VERSION = "1.0.0-demo"
+elif RUN_MODE == "core":
+    STATUS_VERSION = "1.0.0-core"
+else:
+    STATUS_VERSION = "1.0.0"
+
 
 # Stability Map artefact (additive)
 STABILITY_MAP_SCHEMA_V0 = "epf_stability_map_v0"
@@ -448,32 +476,49 @@ def load_calibration_recommendation(calib_path: pathlib.Path) -> dict:
 # Minimal demo gates (all True by default so CI passes)
 # ---------------------------------------------------------------------------
 
-gates = {
-    "pass_controls_refusal": True,
-    "effect_present": True,
-    "psf_monotonicity_ok": True,
-    "psf_mono_shift_resilient": True,
-    "pass_controls_comm": True,
-    "psf_commutativity_ok": True,
-    "psf_comm_shift_resilient": True,
-    "pass_controls_sanit": True,
-    "sanitization_effective": True,
-    "sanit_shift_resilient": True,
-    "psf_action_monotonicity_ok": True,
-    "psf_idempotence_ok": True,
-    "psf_path_independence_ok": True,
-    "psf_pii_monotonicity_ok": True,
-    "q1_grounded_ok": True,
-    "q2_consistency_ok": True,
-    "q3_fairness_ok": True,
-    "q4_slo_ok": True,
+BASE_GATES = {
+  "pass_controls_refusal": True,
+  "effect_present": True,
+  "psf_monotonicity_ok": True,
+  "psf_mono_shift_resilient": True,
+  "pass_controls_comm": True,
+  "psf_commutativity_ok": True,
+  "psf_comm_shift_resilient": True,
+  "pass_controls_sanit": True,
+  "sanitization_effective": True,
+  "sanit_shift_resilient": True,
+  "psf_action_monotonicity_ok": True,
+  "psf_idempotence_ok": True,
+  "psf_path_independence_ok": True,
+  "psf_pii_monotonicity_ok": True,
+  "q1_grounded_ok": True,
+  "q2_consistency_ok": True,
+  "q3_fairness_ok": True,
+  "q4_slo_ok": True,
 }
 
+if RUN_MODE in ("demo", "core"):
+    gates = dict(BASE_GATES)  # all True (smoke)
+else:
+    # prod: fail-closed baseline until real detectors replace stubs
+    gates = {k: False for k in BASE_GATES.keys()}
+
 metrics = {
-    "RDSI": 0.92,
-    "rdsi_note": "Demo value for CI smoke-run",
-    "build_time": now,
+  "RDSI": 0.92 if RUN_MODE in ("demo", "core") else 0.0,
+  "rdsi_note": ("Demo value for CI smoke-run" if RUN_MODE == "demo"
+                else "Core CI smoke-run" if RUN_MODE == "core"
+                else "PROD placeholder: baseline gates are fail-closed until detectors are wired"),
+  "build_time": now,
 }
+
+metrics["run_mode"] = RUN_MODE
+
+gp = pathlib.Path(str(args.gate_policy))
+metrics["gate_policy_path"] = str(gp)
+h = _sha256_file(gp) if gp.exists() else None
+if h:
+    metrics["gate_policy_sha256"] = h
+
 
 # Baseline gate health excluding hazard shadow gate (topology uses this).
 baseline_ok = compute_baseline_ok(gates)
