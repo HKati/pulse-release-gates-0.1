@@ -578,11 +578,14 @@ jobs:
             exit 1
           fi
 
-          # PR -> core_required, everything else -> required
+          # Default: core_required for branch builds (keeps CI deterministic while optional signals mature)
+           POLICY_SET="core_required"
+
+          # Version tags: enforce full required gate set (release-grade, fail-closed)
+          if [[ "${GITHUB_REF}" == refs/tags/v* || "${GITHUB_REF}" == refs/tags/V* ]]; then
           POLICY_SET="required"
-          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
-            POLICY_SET="core_required"
           fi
+
 
           # Canonical helper (fail-closed, no PyYAML dependency)
           REQ_STR="$(python tools/policy_to_require_args.py --policy pulse_gate_policy_v0.yml --set "$POLICY_SET" --format space)"
