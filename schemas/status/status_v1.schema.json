@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://hkati.github.io/pulse-release-gates-0.1/schemas/status/status_v1.schema.json",
+  "title": "PULSE status.json (v1)",
+  "type": "object",
+  "required": ["version", "created_utc", "gates", "metrics"],
+  "properties": {
+    "version": { "type": "string", "minLength": 1 },
+    "created_utc": { "type": "string", "minLength": 1 },
+
+    "gates": {
+      "type": "object",
+      "additionalProperties": { "type": "boolean" }
+    },
+
+    "metrics": {
+      "type": "object",
+      "additionalProperties": true
+    },
+
+    "external": {
+      "type": "object",
+      "required": ["metrics", "all_pass"],
+      "properties": {
+        "all_pass": { "type": "boolean" },
+        "summaries_present": { "type": "boolean" },
+        "summary_count": { "type": "integer", "minimum": 0 },
+        "metrics": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "pass"],
+            "properties": {
+              "name": { "type": "string", "minLength": 1 },
+              "value": { "type": ["number", "integer", "string", "boolean", "null"] },
+              "threshold": { "type": ["number", "integer", "null"] },
+              "pass": { "type": "boolean" },
+              "parse_error": { "type": "boolean" }
+            },
+            "additionalProperties": true
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+
+    "refusal_delta_pass": { "type": "boolean" },
+    "external_all_pass": { "type": "boolean" },
+    "external_summaries_present": { "type": "boolean" }
+  },
+  "additionalProperties": true
+}
