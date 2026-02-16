@@ -537,6 +537,37 @@ jobs:
             --thresholds "$THRESH" \
             --external_dir "$EXT_DIR"
 
+      - name: "ci: forbid demo status on version tags"
+        if: startsWith(github.ref, 'refs/tags/v') || startsWith(github.ref, 'refs/tags/V')
+        shell: bash
+        run: |
+          set -euo pipefail
+          STATUS="${{ env.PACK_DIR }}/artifacts/status.json"
+          if [ ! -f "$STATUS" ]; then
+            echo "::error::status.json not found at $STATUS"
+            exit 1
+          fi
+
+          export STATUS
+          python - <<'PY'
+          import json, os, sys
+
+          p = os.environ["STATUS"]
+          try:
+            with open(p, "r", encoding="utf-8") as f:
+              s = json.load(f)
+          except Exception as e:
+            print(f"::error::failed to parse status.json: {e}")
+            sys.exit(1)
+
+          v = str(s.get("version", ""))
+          if "demo" in v.lower():
+            print(f"::error::demo status.version is not allowed on version tags: {v}")
+            sys.exit(1)
+
+          print(f"OK: non-demo status.version on tag: {v}")
+          PY
+
       - name: Gate registry sync check
         shell: bash
         run: |
