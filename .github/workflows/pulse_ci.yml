@@ -435,34 +435,66 @@ jobs:
         run: |
           set -euo pipefail
 
-          POLICY="$GITHUB_WORKSPACE/pulse_gate_policy_v0.yml"
+          # Tag build? -> refusal-delta must be computed if pairs exist (fail-closed).
+          IS_TAG=0
+          if [[ "${GITHUB_REF:-}" == refs/tags/v* || "${GITHUB_REF:-}" == refs/tags/V* ]]; then
+            IS_TAG=1
+          fi
+
+          # Canonical locations
+          POLICY="${GITHUB_WORKSPACE}/pulse_gate_policy_v0.yml"
           PAIRS_SCRIPT="${{ env.PACK_DIR }}/tools/policy_to_refusal_pairs.py"
           RD="${{ env.PACK_DIR }}/tools/refusal_delta.py"
           POL="${{ env.PACK_DIR }}/profiles/pulse_policy.yaml"
 
-          if [ ! -f "$PAIRS_SCRIPT" ]; then
-            echo "::warning::policy_to_refusal_pairs.py not found at $PAIRS_SCRIPT; skipping refusal-delta."
-            exit 0
-          fi
+          OUT="${{ env.PACK_DIR }}/artifacts/refusal_delta_summary.json"
+          PAIRS_FILE="${{ env.PACK_DIR }}/examples/refusal_pairs.jsonl"
+
           if [ ! -f "$RD" ]; then
             echo "::warning::refusal_delta.py not found at $RD; skipping refusal-delta."
             exit 0
           fi
-          if [ ! -f "$POLICY" ]; then
-            echo "::warning::policy file not found at $POLICY; skipping refusal-delta."
+
+          # 1) Try to derive pairs from policy (if helper exists)
+          PAIRS=""
+          if [ -f "$PAIRS_SCRIPT" ] && [ -f "$POLICY" ]; then
+            PAIRS="$(python "$PAIRS_SCRIPT" --policy "$POLICY" || true)"
+          fi
+
+          # 2) Fallback: if the pack ships a pairs file, use it as pairs source-of-truth
+          if [[ -z "${PAIRS}" && -f "$PAIRS_FILE" ]]; then
+            echo "::notice::policy_to_refusal_pairs returned empty; using pairs file: $PAIRS_FILE"
+            PAIRS="$PAIRS_FILE"
+          fi
+
+          # 3) If still no pairs: tag => fail, branch => skip
+          if [[ -z "${PAIRS}" ]]; then
+            if (( IS_TAG )); then
+              echo "::error::refusal-delta pairs are required on version tags, but no pairs source was found."
+              echo "::error::Expected either:"
+              echo "::error::- non-empty output from $PAIRS_SCRIPT (policy: $POLICY)"
+              echo "::error::- or an existing pairs file at $PAIRS_FILE"
+              exit 1
+            fi
+            echo "::warning::No refusal-delta pairs available; skipping refusal-delta summary."
             exit 0
           fi
 
-          PAIRS="$(python "$PAIRS_SCRIPT" --policy "$POLICY")"
-          if [[ -z "$PAIRS" ]]; then
-            echo "::warning::No refusal_delta pairs produced; skipping."
-            exit 0
-          fi
-
+          # 4) Compute summary (deterministic, local)
           python "$RD" \
             --pairs "$PAIRS" \
-            --out "${{ env.PACK_DIR }}/artifacts/refusal_delta_summary.json" \
+            --out "$OUT" \
             --policy_config "$POL"
+
+          # 5) Postcondition: summary must exist on tags (fail-closed)
+          if [ ! -f "$OUT" ]; then
+            if (( IS_TAG )); then
+              echo "::error::refusal_delta_summary.json was not created at $OUT"
+              exit 1
+            fi
+            echo "::warning::refusal_delta_summary.json missing after refusal-delta run; augment_status may fail-closed."
+          fi
+    
 
       - name: Show refusal-delta summary
         if: always()
