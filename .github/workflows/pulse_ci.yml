@@ -435,25 +435,60 @@ jobs:
         run: |
           set -euo pipefail
 
-          # Tag build? -> refusal-delta must be computed if pairs exist (fail-closed).
+          # Release-grade runs:
+          # - version tags must be fail-closed
+          # - strict workflow_dispatch should behave like release-grade too
           IS_TAG=0
           if [[ "${GITHUB_REF:-}" == refs/tags/v* || "${GITHUB_REF:-}" == refs/tags/V* ]]; then
             IS_TAG=1
           fi
 
+          IS_STRICT_DISPATCH=0
+          if [[ "${GITHUB_EVENT_NAME:-}" == "workflow_dispatch" ]]; then
+            STRICT="$(jq -r '.inputs.strict_external_evidence // "false"' "$GITHUB_EVENT_PATH")"
+            if [[ "$STRICT" == "true" ]]; then
+              IS_STRICT_DISPATCH=1
+            fi
+          fi
+
+          FAIL_CLOSED=0
+          if (( IS_TAG || IS_STRICT_DISPATCH )); then
+            FAIL_CLOSED=1
+          fi
+
           # Canonical locations
           POLICY="${GITHUB_WORKSPACE}/pulse_gate_policy_v0.yml"
           PAIRS_SCRIPT="${{ env.PACK_DIR }}/tools/policy_to_refusal_pairs.py"
-          RD="${{ env.PACK_DIR }}/tools/refusal_delta.py"
           POL="${{ env.PACK_DIR }}/profiles/pulse_policy.yaml"
 
           OUT="${{ env.PACK_DIR }}/artifacts/refusal_delta_summary.json"
           PAIRS_FILE="${{ env.PACK_DIR }}/examples/refusal_pairs.jsonl"
 
-          if [ ! -f "$RD" ]; then
-            echo "::warning::refusal_delta.py not found at $RD; skipping refusal-delta."
+          # Tool selection (pack drift-safe):
+          # Prefer refusal_delta.py if it exists, else use refusal_delta_calc.py.
+          RD_A="${{ env.PACK_DIR }}/tools/refusal_delta.py"
+          RD_B="${{ env.PACK_DIR }}/tools/refusal_delta_calc.py"
+          RD=""
+
+          if [ -f "$RD_A" ]; then
+            RD="$RD_A"
+          elif [ -f "$RD_B" ]; then
+            RD="$RD_B"
+          fi
+
+          if [[ -z "$RD" ]]; then
+            if (( FAIL_CLOSED )); then
+              echo "::error::refusal-delta tool missing for release-grade run."
+              echo "::error::Expected one of:"
+              echo "::error::- $RD_A"
+              echo "::error::- $RD_B"
+              exit 1
+            fi
+            echo "::warning::refusal-delta tool missing; skipping on non-release-grade run."
             exit 0
           fi
+
+          echo "Using refusal-delta tool: $RD"
 
           # 1) Try to derive pairs from policy (if helper exists)
           PAIRS=""
@@ -467,10 +502,10 @@ jobs:
             PAIRS="$PAIRS_FILE"
           fi
 
-          # 3) If still no pairs: tag => fail, branch => skip
+          # 3) If still no pairs: release-grade => fail, branch => skip
           if [[ -z "${PAIRS}" ]]; then
-            if (( IS_TAG )); then
-              echo "::error::refusal-delta pairs are required on version tags, but no pairs source was found."
+            if (( FAIL_CLOSED )); then
+              echo "::error::refusal-delta pairs are required on release-grade runs, but no pairs source was found."
               echo "::error::Expected either:"
               echo "::error::- non-empty output from $PAIRS_SCRIPT (policy: $POLICY)"
               echo "::error::- or an existing pairs file at $PAIRS_FILE"
@@ -480,20 +515,21 @@ jobs:
             exit 0
           fi
 
-          # 4) Compute summary (deterministic, local)
+          # 4) Compute summary
           python "$RD" \
             --pairs "$PAIRS" \
             --out "$OUT" \
             --policy_config "$POL"
 
-          # 5) Postcondition: summary must exist on tags (fail-closed)
+          # 5) Postcondition: summary must exist on release-grade runs
           if [ ! -f "$OUT" ]; then
-            if (( IS_TAG )); then
+            if (( FAIL_CLOSED )); then
               echo "::error::refusal_delta_summary.json was not created at $OUT"
               exit 1
             fi
             echo "::warning::refusal_delta_summary.json missing after refusal-delta run; augment_status may fail-closed."
           fi
+  
     
 
       - name: Show refusal-delta summary
