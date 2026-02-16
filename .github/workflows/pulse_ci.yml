@@ -566,7 +566,8 @@ jobs:
           print(f"OK: non-demo status.version on tag: {v}")
           PY
 
-      - name: ci: enforce gates via check_gates (policy-derived)
+      - name: "ci: enforce gates via check_gates (policy-derived)"
+
         shell: bash
         run: |
           set -euo pipefail
