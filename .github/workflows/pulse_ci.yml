@@ -578,14 +578,21 @@ jobs:
             exit 1
           fi
 
-          # Default: core_required for branch builds (keeps CI deterministic while optional signals mature)
-           POLICY_SET="core_required"
+          # Default: core_required for branch builds
+          POLICY_SET="core_required"
 
           # Version tags: enforce full required gate set (release-grade, fail-closed)
-          if [[ "${GITHUB_REF}" == refs/tags/v* || "${GITHUB_REF}" == refs/tags/V* ]]; then
-          POLICY_SET="required"
+          if [[ "${GITHUB_REF:-}" == refs/tags/v* || "${GITHUB_REF:-}" == refs/tags/V* ]]; then
+            POLICY_SET="required"
           fi
 
+          # Manual strict runs should behave like release-grade gating too
+          if [[ "${GITHUB_EVENT_NAME:-}" == "workflow_dispatch" ]]; then
+            STRICT="$(jq -r '.inputs.strict_external_evidence // "false"' "$GITHUB_EVENT_PATH")"
+            if [[ "$STRICT" == "true" ]]; then
+              POLICY_SET="required"
+            fi
+          fi
 
           # Canonical helper (fail-closed, no PyYAML dependency)
           REQ_STR="$(python tools/policy_to_require_args.py --policy pulse_gate_policy_v0.yml --set "$POLICY_SET" --format space)"
@@ -602,6 +609,7 @@ jobs:
           python "${{ env.PACK_DIR }}/tools/check_gates.py" \
             --status "$STATUS" \
             --require "${REQ[@]}"
+  
 
       - name: Gate registry sync check
         shell: bash
