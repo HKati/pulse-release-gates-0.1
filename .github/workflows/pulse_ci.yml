@@ -303,7 +303,7 @@ jobs:
 
           python "${{ env.PACK_DIR }}/tools/run_all.py" \
             --pack_dir "${{ env.PACK_DIR }}" \
-            --gate_policy "${{ env.PACK_DIR }}/pulse_gate_policy_v0.yml"
+            --gate_policy "$GITHUB_WORKSPACE/pulse_gate_policy_v0.yml"
 
       - name: Show main status.json (head)
         if: always()
@@ -435,7 +435,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          POLICY="${{ env.PACK_DIR }}/pulse_gate_policy_v0.yml"
+          POLICY="$GITHUB_WORKSPACE/pulse_gate_policy_v0.yml"
           PAIRS_SCRIPT="${{ env.PACK_DIR }}/tools/policy_to_refusal_pairs.py"
           RD="${{ env.PACK_DIR }}/tools/refusal_delta.py"
           POL="${{ env.PACK_DIR }}/profiles/pulse_policy.yaml"
@@ -472,6 +472,7 @@ jobs:
           echo "----- refusal_delta_summary.json -----"
           cat "${{ env.PACK_DIR }}/artifacts/refusal_delta_summary.json" || true
           echo "-------------------------------------"
+
       - name: "Strict external evidence: require external summaries present (pre-augment, fail-closed)"
         if: ${{ (github.event_name == 'workflow_dispatch' && github.event.inputs.strict_external_evidence == 'true') || startsWith(github.ref, 'refs/tags/v') || startsWith(github.ref, 'refs/tags/V') }}
         shell: bash
@@ -567,7 +568,6 @@ jobs:
           PY
 
       - name: "ci: enforce gates via check_gates (policy-derived)"
-
         shell: bash
         run: |
           set -euo pipefail
