@@ -3,9 +3,7 @@ name: PULSE CI
 on:
   push:
     branches: [main]
-    tags:
-      - "v*"
-      - "V*"
+    tags: ["v*", "V*"]
     paths-ignore:
       - "docs/**"
       - "**/*.md"
