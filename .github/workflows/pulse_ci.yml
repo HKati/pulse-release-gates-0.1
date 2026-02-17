@@ -674,7 +674,7 @@ jobs:
           set -euo pipefail
 
           STATUS="${{ env.PACK_DIR }}/artifacts/status.json"
-          SCHEMA="schemas/status/status_v1.schema.json"
+          SCHEMA="$GITHUB_WORKSPACE/schemas/status/status_v1.schema.json"
 
           if [ ! -f "$STATUS" ]; then
             echo "::error::status.json not found at $STATUS"
@@ -685,12 +685,15 @@ jobs:
             exit 1
           fi
 
+          export STATUS
+          export SCHEMA
+
           python - <<'PY'
-          import json, sys
+          import json, os, sys
           from jsonschema import Draft202012Validator
 
-          schema_path = "schemas/status/status_v1.schema.json"
-          status_path = "PULSE_safe_pack_v0/artifacts/status.json"
+          schema_path = os.environ["SCHEMA"]
+          status_path = os.environ["STATUS"]
 
           with open(schema_path, "r", encoding="utf-8") as f:
               schema = json.load(f)
@@ -711,6 +714,7 @@ jobs:
 
           print("OK: status.json is schema-valid (status_v1)")
           PY
+   
      
       - name: Export final summary (post-augment)
         shell: bash
