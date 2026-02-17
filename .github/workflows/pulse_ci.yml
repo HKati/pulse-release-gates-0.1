@@ -1094,6 +1094,55 @@ jobs:
 
           python "$SCRIPT" --status "$STATUS"
 
+      - name: Release-grade artifact postconditions
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          PACK_DIR="${{ env.PACK_DIR }}"
+
+          # Release-grade runs:
+          # - version tags (v*/V*)
+          # - workflow_dispatch with strict_external_evidence=true
+          IS_RELEASE=0
+          if [[ "${GITHUB_REF:-}" == refs/tags/v* || "${GITHUB_REF:-}" == refs/tags/V* ]]; then
+            IS_RELEASE=1
+          fi
+          if [[ "${GITHUB_EVENT_NAME:-}" == "workflow_dispatch" ]]; then
+            STRICT="$(jq -r '.inputs.strict_external_evidence // "false"' "$GITHUB_EVENT_PATH")"
+            if [[ "$STRICT" == "true" ]]; then
+              IS_RELEASE=1
+            fi
+          fi
+
+          req_files=(
+            "$PACK_DIR/artifacts/status_baseline.json"
+            "$PACK_DIR/artifacts/status.json"
+            "$PACK_DIR/artifacts/status_summary_baseline.json"
+            "$PACK_DIR/artifacts/status_summary.json"
+          )
+
+          missing=0
+          for f in "${req_files[@]}"; do
+            if [ ! -f "$f" ]; then
+              if (( IS_RELEASE )); then
+                echo "::error::missing required artifact on release-grade run: $f"
+                missing=1
+              else
+                echo "::warning::missing artifact: $f"
+              fi
+            fi
+          done
+
+          if (( IS_RELEASE )) && (( missing )); then
+            echo "::error::release-grade artifacts incomplete; failing closed."
+            exit 1
+          fi
+
+          echo "OK: artifact postconditions satisfied (IS_RELEASE=$IS_RELEASE)"
+     
+      
       - name: Upload artifacts
         if: always()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # pinned
