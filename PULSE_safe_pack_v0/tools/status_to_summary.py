@@ -79,15 +79,28 @@ def main() -> int:
     failed = total - passed
     failing = [k for k, ok in gate_items if not ok]
 
-    external = status.get("external")
+        external = status.get("external")
+
+    # Prefer gate outcomes from status["gates"] (canonical for enforcement).
     external_all_pass = None
-    if isinstance(external, dict):
+    if isinstance(gates, dict) and "external_all_pass" in gates:
+        external_all_pass = gates.get("external_all_pass")
+
+    # Fallback: external section (if present)
+    if external_all_pass is None and isinstance(external, dict):
         external_all_pass = external.get("all_pass")
-    # also tolerate top-level mirror if present
+
+    # Fallback: top-level mirror (if present)
     if external_all_pass is None:
         external_all_pass = status.get("external_all_pass")
 
-    refusal_delta_pass = status.get("refusal_delta_pass")
+    refusal_delta_pass = None
+    if isinstance(gates, dict) and "refusal_delta_pass" in gates:
+        refusal_delta_pass = gates.get("refusal_delta_pass")
+
+    if refusal_delta_pass is None:
+        refusal_delta_pass = status.get("refusal_delta_pass")
+
 
     summary_json = {
         "schema": "pulse_status_summary_v1",
