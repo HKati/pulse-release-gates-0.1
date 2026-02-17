@@ -2,10 +2,12 @@
 """
 Fail-closed JSON Schema validation for PULSE status artifacts.
 
-This tool is intentionally minimal and CI-friendly:
-- validates a status JSON instance against a given JSON Schema
-- emits GitHub Actions ::error annotations
-- fails closed on any validation error
+Design goals:
+- Validate a status JSON against a given JSON Schema (Draft 2020-12).
+- Emit GitHub Actions compatible ::error annotations for triage.
+- Fail-closed on any validation error.
+- Be CI-friendly: avoid unbounded error collection (respect --max-errors).
+- Be local-friendly: if jsonschema is missing, emit a helpful error instead of a traceback.
 """
 
 from __future__ import annotations
@@ -14,65 +16,120 @@ import argparse
 import json
 import sys
 from pathlib import Path
+from typing import Any
 
 
-def main() -> int:
-    ap = argparse.ArgumentParser(add_help=True)
-    ap.add_argument("--schema", required=True, help="Path to JSON Schema file")
-    ap.add_argument("--status", required=True, help="Path to status JSON instance")
-    ap.add_argument("--max-errors", type=int, default=50, help="Max number of errors to print")
-    args = ap.parse_args()
+def _ga_error(msg: str, *, file: Path | None = None) -> None:
+    if file is not None:
+        print(f"::error file={file}::{msg}")
+    else:
+        print(f"::error::{msg}")
 
-    # Dependency check (fail-closed with a clear message)
+
+def _ga_notice(msg: str) -> None:
+    print(f"::notice::{msg}")
+
+
+def _load_json(path: Path, *, label: str) -> Any | None:
     try:
-        from jsonschema import Draft202012Validator  # type: ignore
-    except ModuleNotFoundError:
-        print("::error::Missing Python dependency: 'jsonschema'")
-        print("::error::Install it with: python -m pip install jsonschema")
-        return 2
+        raw = path.read_text(encoding="utf-8")
     except Exception as e:
-        print(f"::error::Failed to import jsonschema: {e}")
-        return 2
+        _ga_error(f"Failed to read {label}: {e}", file=path)
+        return None
+
+    try:
+        return json.loads(raw)
+    except Exception as e:
+        _ga_error(f"Failed to parse {label} as JSON: {e}", file=path)
+        return None
+
+
+def main(argv: list[str] | None = None) -> int:
+    ap = argparse.ArgumentParser(
+        prog="validate_status_schema.py",
+        description="Fail-closed validation of a status.json artifact against a JSON Schema.",
+    )
+    ap.add_argument("--schema", required=True, help="Path to JSON Schema (Draft 2020-12).")
+    ap.add_argument("--status", required=True, help="Path to status.json to validate.")
+    ap.add_argument(
+        "--max-errors",
+        type=int,
+        default=50,
+        help="Maximum number of validation errors to print (also bounds computation).",
+    )
+    args = ap.parse_args(argv)
 
     schema_path = Path(args.schema)
     status_path = Path(args.status)
 
+    if args.max_errors <= 0:
+        _ga_error("--max-errors must be a positive integer.")
+        return 2
+
     if not schema_path.is_file():
-        print(f"::error file={schema_path}::Schema not found")
+        _ga_error("status schema not found", file=schema_path)
         return 1
 
     if not status_path.is_file():
-        print(f"::error file={status_path}::Status JSON not found")
+        _ga_error("status.json not found", file=status_path)
         return 1
 
-    try:
-        schema = json.loads(schema_path.read_text(encoding="utf-8"))
-    except Exception as e:
-        print(f"::error file={schema_path}::Failed to parse schema JSON: {e}")
+    schema = _load_json(schema_path, label="JSON Schema")
+    if schema is None:
         return 1
+
+    inst = _load_json(status_path, label="status JSON")
+    if inst is None:
+        return 1
+
+    # Import jsonschema lazily so missing dependency yields a nice ::error instead of a traceback.
+    try:
+        from jsonschema import Draft202012Validator  # type: ignore
+    except ModuleNotFoundError:
+        _ga_error(
+            "Missing dependency 'jsonschema'. Install it with: python -m pip install jsonschema"
+        )
+        return 2
+    except Exception as e:
+        _ga_error(f"Failed to import jsonschema: {e}")
+        return 2
 
     try:
         Draft202012Validator.check_schema(schema)
-        v = Draft202012Validator(schema)
     except Exception as e:
-        print(f"::error file={schema_path}::Invalid JSON Schema: {e}")
+        _ga_error(f"Invalid JSON Schema: {e}", file=schema_path)
         return 1
 
+    validator = Draft202012Validator(schema)
+
+    # Bound computation: do not collect unlimited errors, respect --max-errors.
+    errors = []
+    truncated = False
     try:
-        inst = json.loads(status_path.read_text(encoding="utf-8"))
+        for err in validator.iter_errors(inst):
+            errors.append(err)
+            if len(errors) > args.max_errors:
+                truncated = True
+                errors = errors[: args.max_errors]
+                break
     except Exception as e:
-        print(f"::error file={status_path}::Failed to parse status JSON: {e}")
+        _ga_error(f"Validator crashed while iterating errors: {e}", file=status_path)
         return 1
 
-    errors = sorted(v.iter_errors(inst), key=lambda e: (list(e.path), e.message))
     if errors:
-        print(f"::error::status schema validation failed for {status_path}")
-        limit = max(1, int(args.max_errors))
-        for e in errors[:limit]:
+        # Sort only the bounded list for stable output.
+        errors_sorted = sorted(errors, key=lambda e: (list(e.path), e.message))
+
+        _ga_error(
+            f"status.json schema validation failed (showing {len(errors_sorted)} error(s)).",
+            file=status_path,
+        )
+        for e in errors_sorted:
             path = ".".join(str(p) for p in e.path) or "<root>"
-            print(f"::error file={status_path}::{path}: {e.message}")
-        if len(errors) > limit:
-            print(f"::error::... {len(errors) - limit} more error(s) truncated")
+            _ga_error(f"{path}: {e.message}", file=status_path)
+
+        if truncated:
+            _ga_notice(f"Validation output truncated to first {args.max_errors} errors.")
         return 1
 
     print(f"OK: schema-valid: {status_path}")
