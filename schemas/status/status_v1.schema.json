@@ -15,6 +15,10 @@
 
     "metrics": {
       "type": "object",
+      "required": ["run_mode"],
+      "properties": {
+        "run_mode": { "type": "string", "enum": ["demo", "core", "prod"] }
+      },
       "additionalProperties": true
     },
 
