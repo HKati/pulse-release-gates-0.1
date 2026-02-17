@@ -88,6 +88,7 @@ def main() -> int:
     def _as_bool_or_none(x):
     return x if isinstance(x, bool) else None
 
+
 gates = status.get("gates") or {}
 if not isinstance(gates, dict):
     gates = {}
