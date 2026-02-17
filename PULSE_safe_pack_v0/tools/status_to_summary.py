@@ -13,7 +13,6 @@ from __future__ import annotations
 import argparse
 import json
 import pathlib
-import sys
 from datetime import datetime
 from typing import Any
 
@@ -40,6 +39,10 @@ def write_json(path: pathlib.Path, obj: dict[str, Any]) -> None:
     path.write_text(json.dumps(obj, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
+def _as_bool_or_none(x: Any) -> bool | None:
+    return x if isinstance(x, bool) else None
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(add_help=True)
     ap.add_argument("--status", required=True, help="Path to artifacts/status.json")
@@ -62,14 +65,18 @@ def main() -> int:
 
     gates = status.get("gates") or {}
     metrics = status.get("metrics") or {}
+    external = status.get("external") or {}
 
     if not isinstance(gates, dict):
         gates = {}
     if not isinstance(metrics, dict):
         metrics = {}
+    if not isinstance(external, dict):
+        external = {}
 
     run_mode = str(metrics.get("run_mode", "") or "").strip().lower()
 
+    # Deterministic gate list
     gate_items: list[tuple[str, bool]] = []
     for k in sorted(gates.keys(), key=lambda x: str(x)):
         v = gates.get(k)
@@ -85,29 +92,16 @@ def main() -> int:
     # then fall back to status.external / top-level mirrors if present.
     # ---------------------------------------------------------------------
 
-    def _as_bool_or_none(x):
-    return x if isinstance(x, bool) else None
+    # Prefer gates.* (contract-first), then external.all_pass, then top-level mirrors
+    external_all_pass = _as_bool_or_none(gates.get("external_all_pass"))
+    if external_all_pass is None:
+        external_all_pass = _as_bool_or_none(external.get("all_pass"))
+    if external_all_pass is None:
+        external_all_pass = _as_bool_or_none(status.get("external_all_pass"))
 
-
-gates = status.get("gates") or {}
-if not isinstance(gates, dict):
-    gates = {}
-
-external = status.get("external") or {}
-if not isinstance(external, dict):
-    external = {}
-
-# Prefer gates.* (contract-first), then external.all_pass, then top-level mirrors
-external_all_pass = _as_bool_or_none(gates.get("external_all_pass"))
-if external_all_pass is None:
-    external_all_pass = _as_bool_or_none(external.get("all_pass"))
-if external_all_pass is None:
-    external_all_pass = _as_bool_or_none(status.get("external_all_pass"))
-
-refusal_delta_pass = _as_bool_or_none(gates.get("refusal_delta_pass"))
-if refusal_delta_pass is None:
-    refusal_delta_pass = _as_bool_or_none(status.get("refusal_delta_pass"))
-
+    refusal_delta_pass = _as_bool_or_none(gates.get("refusal_delta_pass"))
+    if refusal_delta_pass is None:
+        refusal_delta_pass = _as_bool_or_none(status.get("refusal_delta_pass"))
 
     summary_json: dict[str, Any] = {
         "schema": "pulse_status_summary_v1",
@@ -146,11 +140,13 @@ if refusal_delta_pass is None:
     md_lines.append(f"- passed: **{passed}**")
     md_lines.append(f"- failed: **{failed}**")
     md_lines.append(f"- all_pass: **{str(summary_json['gates']['all_pass']).lower()}**")
+
     if failing:
         md_lines.append("")
         md_lines.append("### Failing gates")
         for g in failing:
             md_lines.append(f"- `{g}`")
+
     md_lines.append("")
     md_lines.append("## Signals")
     md_lines.append(f"- external_all_pass: `{external_all_pass}`")
