@@ -1080,7 +1080,9 @@ jobs:
             "tests/test_tools_governance_smoke.py"
             "tests/test_check_external_summaries_present.py"
             "tests/test_augment_status_smoke.py"
+            "tests/test_run_all_mode_contract.py"
           )
+      
 
           echo "Fail-fast: py_compile smoke scripts"
           python -m py_compile "${tests[@]}"
