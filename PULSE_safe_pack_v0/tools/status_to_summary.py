@@ -84,24 +84,29 @@ def main() -> int:
     # Canonical signals: prefer status.gates.* (contract-aligned),
     # then fall back to status.external / top-level mirrors if present.
     # ---------------------------------------------------------------------
-    external = status.get("external")
 
-    external_all_pass = None
-    if "external_all_pass" in gates:
-        external_all_pass = gates.get("external_all_pass")
+    def _as_bool_or_none(x):
+    return x if isinstance(x, bool) else None
 
-    if external_all_pass is None and isinstance(external, dict):
-        external_all_pass = external.get("all_pass")
+gates = status.get("gates") or {}
+if not isinstance(gates, dict):
+    gates = {}
 
-    if external_all_pass is None:
-        external_all_pass = status.get("external_all_pass")
+external = status.get("external") or {}
+if not isinstance(external, dict):
+    external = {}
 
-    refusal_delta_pass = None
-    if "refusal_delta_pass" in gates:
-        refusal_delta_pass = gates.get("refusal_delta_pass")
+# Prefer gates.* (contract-first), then external.all_pass, then top-level mirrors
+external_all_pass = _as_bool_or_none(gates.get("external_all_pass"))
+if external_all_pass is None:
+    external_all_pass = _as_bool_or_none(external.get("all_pass"))
+if external_all_pass is None:
+    external_all_pass = _as_bool_or_none(status.get("external_all_pass"))
 
-    if refusal_delta_pass is None:
-        refusal_delta_pass = status.get("refusal_delta_pass")
+refusal_delta_pass = _as_bool_or_none(gates.get("refusal_delta_pass"))
+if refusal_delta_pass is None:
+    refusal_delta_pass = _as_bool_or_none(status.get("refusal_delta_pass"))
+
 
     summary_json: dict[str, Any] = {
         "schema": "pulse_status_summary_v1",
