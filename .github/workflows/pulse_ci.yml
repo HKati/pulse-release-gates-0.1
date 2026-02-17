@@ -364,6 +364,14 @@ jobs:
           cp "$SRC" "$DST"
           echo "OK: wrote $DST"
 
+      - name: "ci: schema validate status_baseline.json (status_v1)"
+        shell: bash
+        run: |
+          set -euo pipefail
+          python tools/validate_status_schema.py \
+            --schema "$GITHUB_WORKSPACE/schemas/status/status_v1.schema.json" \
+            --status "${{ env.PACK_DIR }}/artifacts/status_baseline.json"
+    
       - name: "ci: require prod run_mode on release-grade runs"
         if: startsWith(github.ref, 'refs/tags/v') || startsWith(github.ref, 'refs/tags/V') || (github.event_name == 'workflow_dispatch' && github.event.inputs.strict_external_evidence == 'true')
         shell: bash
@@ -672,9 +680,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-
-          STATUS="${{ env.PACK_DIR }}/artifacts/status.json"
-          SCHEMA="$GITHUB_WORKSPACE/schemas/status/status_v1.schema.json"
+          python tools/validate_status_schema.py \
+            --schema "$GITHUB_WORKSPACE/schemas/status/status_v1.schema.json" \
+            --status "${{ env.PACK_DIR }}/artifacts/status.json"
+     
 
           if [ ! -f "$STATUS" ]; then
             echo "::error::status.json not found at $STATUS"
