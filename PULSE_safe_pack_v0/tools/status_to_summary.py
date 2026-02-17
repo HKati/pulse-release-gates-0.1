@@ -59,6 +59,7 @@ def main() -> int:
 
     version = str(status.get("version", "") or "")
     created_utc = str(status.get("created_utc", "") or "")
+
     gates = status.get("gates") or {}
     metrics = status.get("metrics") or {}
 
@@ -69,7 +70,7 @@ def main() -> int:
 
     run_mode = str(metrics.get("run_mode", "") or "").strip().lower()
 
-    gate_items = []
+    gate_items: list[tuple[str, bool]] = []
     for k in sorted(gates.keys(), key=lambda x: str(x)):
         v = gates.get(k)
         gate_items.append((str(k), bool(v is True)))
@@ -79,17 +80,30 @@ def main() -> int:
     failed = total - passed
     failing = [k for k, ok in gate_items if not ok]
 
+    # ---------------------------------------------------------------------
+    # Canonical signals: prefer status.gates.* (contract-aligned),
+    # then fall back to status.external / top-level mirrors if present.
+    # ---------------------------------------------------------------------
     external = status.get("external")
+
     external_all_pass = None
-    if isinstance(external, dict):
+    if "external_all_pass" in gates:
+        external_all_pass = gates.get("external_all_pass")
+
+    if external_all_pass is None and isinstance(external, dict):
         external_all_pass = external.get("all_pass")
-    # also tolerate top-level mirror if present
+
     if external_all_pass is None:
         external_all_pass = status.get("external_all_pass")
 
-    refusal_delta_pass = status.get("refusal_delta_pass")
+    refusal_delta_pass = None
+    if "refusal_delta_pass" in gates:
+        refusal_delta_pass = gates.get("refusal_delta_pass")
 
-    summary_json = {
+    if refusal_delta_pass is None:
+        refusal_delta_pass = status.get("refusal_delta_pass")
+
+    summary_json: dict[str, Any] = {
         "schema": "pulse_status_summary_v1",
         "generated_utc": datetime.utcnow().isoformat() + "Z",
         "status_path": str(status_path),
@@ -114,7 +128,7 @@ def main() -> int:
     out_md = pathlib.Path(args.out_md) if args.out_md else (out_dir / "status_summary.md")
     out_js = pathlib.Path(args.out_json) if args.out_json else (out_dir / "status_summary.json")
 
-    md_lines = []
+    md_lines: list[str] = []
     md_lines.append("# PULSE status summary")
     md_lines.append("")
     md_lines.append(f"- **version:** `{version}`")
