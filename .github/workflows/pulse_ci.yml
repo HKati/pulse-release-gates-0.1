@@ -74,7 +74,8 @@ jobs:
           echo "${CHANGED}" | sed 's/^/changed: /' || true
 
           # Files that can change release-gating meaning and therefore require changelog coverage.
-          SEMANTIC_PATTERN='^(pulse_gate_policy_v0\.yml|metrics/specs/|schemas/dataset_manifest\.schema\.json|examples/dataset_manifest\.example\.json)'
+          SEMANTIC_PATTERN='^(pulse_gate_policy_v0\.yml|metrics/specs/|schemas/dataset_manifest\.schema\.json|examples/dataset_manifest\.example\.json|schemas/status/)'
+
 
           # Changelog file containing semantic change notes.
           CHANGELOG_PATH='docs/policy/CHANGELOG.md'
@@ -247,10 +248,18 @@ jobs:
                 elif not ver_ok:
                   reason.append(f"missing version '{pol_ver}' in Unreleased")
                 missing.append((p, "; ".join(reason)))
-            elif p in ("schemas/dataset_manifest.schema.json", "examples/dataset_manifest.example.json"):
+              
+              elif p in ("schemas/dataset_manifest.schema.json", "examples/dataset_manifest.example.json"):
               key = Path(p).stem.replace(".", " ").replace("_", " ").lower()
               if key not in unrel_l:
                 missing.append((p, f"missing '{key}' mention in Unreleased"))
+
+              
+              elif p.startswith("schemas/status/") and p.endswith(".json"):
+              key = Path(p).stem.replace(".", " ").replace("_", " ").lower()
+              if key not in unrel_l:
+                missing.append((p, f"missing '{key}' mention in Unreleased"))
+
 
           if missing:
             print("::error::Changelog is missing required Unreleased notes for semantic changes:")
