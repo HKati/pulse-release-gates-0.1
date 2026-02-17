@@ -15,8 +15,6 @@ import json
 import sys
 from pathlib import Path
 
-from jsonschema import Draft202012Validator
-
 
 def main() -> int:
     ap = argparse.ArgumentParser(add_help=True)
@@ -24,6 +22,17 @@ def main() -> int:
     ap.add_argument("--status", required=True, help="Path to status JSON instance")
     ap.add_argument("--max-errors", type=int, default=50, help="Max number of errors to print")
     args = ap.parse_args()
+
+    # Dependency check (fail-closed with a clear message)
+    try:
+        from jsonschema import Draft202012Validator  # type: ignore
+    except ModuleNotFoundError:
+        print("::error::Missing Python dependency: 'jsonschema'")
+        print("::error::Install it with: python -m pip install jsonschema")
+        return 2
+    except Exception as e:
+        print(f"::error::Failed to import jsonschema: {e}")
+        return 2
 
     schema_path = Path(args.schema)
     status_path = Path(args.status)
@@ -61,7 +70,6 @@ def main() -> int:
         limit = max(1, int(args.max_errors))
         for e in errors[:limit]:
             path = ".".join(str(p) for p in e.path) or "<root>"
-            # File annotation (no reliable line numbers from jsonschema)
             print(f"::error file={status_path}::{path}: {e.message}")
         if len(errors) > limit:
             print(f"::error::... {len(errors) - limit} more error(s) truncated")
