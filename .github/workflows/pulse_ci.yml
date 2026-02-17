@@ -296,6 +296,29 @@ jobs:
           fi
 
           echo "PACK_DIR=$PACK_DIR"
+      - name: CI pack layout preflight (fail-closed on release-grade)
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          IS_RELEASE=0
+          if [[ "${GITHUB_REF:-}" == refs/tags/v* || "${GITHUB_REF:-}" == refs/tags/V* ]]; then
+            IS_RELEASE=1
+          fi
+
+          if [[ "${GITHUB_EVENT_NAME:-}" == "workflow_dispatch" ]]; then
+            STRICT="$(jq -r '.inputs.strict_external_evidence // "false"' "$GITHUB_EVENT_PATH")"
+            if [[ "$STRICT" == "true" ]]; then
+              IS_RELEASE=1
+            fi
+          fi
+
+          EXTRA=()
+          if (( IS_RELEASE )); then
+            EXTRA+=(--release-grade)
+          fi
+
+          python tools/check_pack_layout.py --pack_dir "${{ env.PACK_DIR }}" "${EXTRA[@]}"
 
       - name: Run pack gating pipeline
         shell: bash
