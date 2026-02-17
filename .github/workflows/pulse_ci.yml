@@ -368,9 +368,14 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+
+          STATUS="${{ env.PACK_DIR }}/artifacts/status_baseline.json"
+          SCHEMA="$GITHUB_WORKSPACE/schemas/status/status_v1.schema.json"
+
           python tools/validate_status_schema.py \
-            --schema "$GITHUB_WORKSPACE/schemas/status/status_v1.schema.json" \
-            --status "${{ env.PACK_DIR }}/artifacts/status_baseline.json"
+            --schema "$SCHEMA" \
+            --status "$STATUS"
+  
     
       - name: "ci: require prod run_mode on release-grade runs"
         if: startsWith(github.ref, 'refs/tags/v') || startsWith(github.ref, 'refs/tags/V') || (github.event_name == 'workflow_dispatch' && github.event.inputs.strict_external_evidence == 'true')
@@ -688,7 +693,6 @@ jobs:
             --schema "$SCHEMA" \
             --status "$STATUS"
 
-     
 
           
            echo "::error::status.json not found at $STATUS"
