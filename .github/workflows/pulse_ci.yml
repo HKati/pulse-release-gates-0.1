@@ -348,7 +348,22 @@ jobs:
           python "${{ env.PACK_DIR }}/tools/run_all.py" \
             --pack_dir "${{ env.PACK_DIR }}" \
             --gate_policy "$GITHUB_WORKSPACE/pulse_gate_policy_v0.yml"
-     
+      
+      - name: Preserve baseline status.json (pre-augment)
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC="${{ env.PACK_DIR }}/artifacts/status.json"
+          DST="${{ env.PACK_DIR }}/artifacts/status_baseline.json"
+
+          if [ ! -f "$SRC" ]; then
+            echo "::error::status.json not found at $SRC"
+            exit 1
+          fi
+
+          cp "$SRC" "$DST"
+          echo "OK: wrote $DST"
+
       - name: "ci: require prod run_mode on release-grade runs"
         if: startsWith(github.ref, 'refs/tags/v') || startsWith(github.ref, 'refs/tags/V') || (github.event_name == 'workflow_dispatch' && github.event.inputs.strict_external_evidence == 'true')
         shell: bash
@@ -396,24 +411,29 @@ jobs:
             --status "$STATUS" \
             --external_dir "$EXTERNAL_DIR"
 
-      - name: Export top-level summary for snapshot
+      - name: Export baseline summary for snapshot (pre-augment)
         shell: bash
         run: |
           set -euo pipefail
           SCRIPT="${{ env.PACK_DIR }}/tools/status_to_summary.py"
-          STATUS="${{ env.PACK_DIR }}/artifacts/status.json"
+          STATUS="${{ env.PACK_DIR }}/artifacts/status_baseline.json"
+          OUT_MD="${{ env.PACK_DIR }}/artifacts/status_summary_baseline.md"
+          OUT_JSON="${{ env.PACK_DIR }}/artifacts/status_summary_baseline.json"
 
           if [ ! -f "$SCRIPT" ]; then
             echo "::warning::status_to_summary.py not found at $SCRIPT; skipping."
             exit 0
           fi
           if [ ! -f "$STATUS" ]; then
-            echo "::warning::status.json not found at $STATUS; skipping status_to_summary."
+            echo "::warning::status_baseline.json not found at $STATUS; skipping baseline summary."
             exit 0
           fi
 
           python "$SCRIPT" \
-            --status "$STATUS"
+            --status "$STATUS" \
+            --out_md "$OUT_MD" \
+            --out_json "$OUT_JSON"
+
 
       - name: Update artifacts for snapshot
         if: always()
@@ -691,6 +711,25 @@ jobs:
 
           print("OK: status.json is schema-valid (status_v1)")
           PY
+     
+      - name: Export final summary (post-augment)
+        shell: bash
+        run: |
+          set -euo pipefail
+          SCRIPT="${{ env.PACK_DIR }}/tools/status_to_summary.py"
+          STATUS="${{ env.PACK_DIR }}/artifacts/status.json"
+
+          if [ ! -f "$SCRIPT" ]; then
+            echo "::warning::status_to_summary.py not found at $SCRIPT; skipping."
+            exit 0
+          fi
+          if [ ! -f "$STATUS" ]; then
+            echo "::warning::status.json not found at $STATUS; skipping final summary."
+            exit 0
+          fi
+
+          # Default outputs: artifacts/status_summary.md + artifacts/status_summary.json
+          python "$SCRIPT" --status "$STATUS"
 
       - name: "ci: forbid demo status on version tags"
         if: startsWith(github.ref, 'refs/tags/v') || startsWith(github.ref, 'refs/tags/V')
