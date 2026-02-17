@@ -33,6 +33,9 @@ now = datetime.datetime.utcnow().isoformat() + "Z"
 import argparse
 import hashlib
 
+SUPPORTED_MODES = ("demo", "core", "prod")
+
+
 def _sha256_file(p: pathlib.Path) -> str | None:
     try:
         h = hashlib.sha256()
@@ -43,13 +46,32 @@ def _sha256_file(p: pathlib.Path) -> str | None:
     except Exception:
         return None
 
+
 parser = argparse.ArgumentParser(add_help=True)
-parser.add_argument("--mode", choices=["demo", "core", "prod"],
-                    default=os.getenv("PULSE_RUN_MODE", "demo"))
+
+_env_raw = os.getenv("PULSE_RUN_MODE")
+_env_mode = _env_raw.strip().lower() if isinstance(_env_raw, str) and _env_raw.strip() else None
+
+if _env_mode is not None and _env_mode not in SUPPORTED_MODES:
+    parser.error(
+        f"Invalid PULSE_RUN_MODE='{_env_raw}'. Expected one of: {', '.join(SUPPORTED_MODES)}"
+    )
+
+_default_mode = _env_mode or "demo"
+
+parser.add_argument(
+    "--mode",
+    type=str.lower,
+    choices=list(SUPPORTED_MODES),
+    default=_default_mode,
+    help="Run profile: demo|core|prod (default: PULSE_RUN_MODE or demo)",
+)
+
 # Accept existing workflow args (may be used for provenance even if pack is self-contained)
 parser.add_argument("--pack_dir", default=str(ROOT))
 parser.add_argument("--gate_policy", default=str(REPO_ROOT / "pulse_gate_policy_v0.yml"))
 args, _unknown = parser.parse_known_args()
+
 
 RUN_MODE = str(args.mode).strip().lower()
 if RUN_MODE == "demo":
