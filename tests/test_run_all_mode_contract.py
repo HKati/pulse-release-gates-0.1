@@ -24,6 +24,12 @@ POLICY = REPO_ROOT / "pulse_gate_policy_v0.yml"
 
 def _run_and_load(*, mode: str | None, extra_env: dict[str, str] | None = None):
     env = os.environ.copy()
+
+    # Hermetic: do not inherit PULSE_RUN_MODE from the runner shell/CI environment.
+    # run_all.py validates PULSE_RUN_MODE before parsing --mode, so an invalid inherited
+    # value would break core/prod tests nondeterministically.
+    env.pop("PULSE_RUN_MODE", None)
+
     if extra_env:
         env.update(extra_env)
 
@@ -102,6 +108,7 @@ def test_run_all_prod_mode() -> None:
 
 
 def test_invalid_env_fails_fast() -> None:
+    # This is the only test that intentionally sets PULSE_RUN_MODE.
     r, status = _run_and_load(mode=None, extra_env={"PULSE_RUN_MODE": "foobar"})
     _assert(r.returncode == 2, f"expected exit code 2 for invalid PULSE_RUN_MODE, got: {r.returncode}\nSTDERR:\n{r.stderr}")
     _assert(status is None, "status.json should not be written when argparse fails fast")
