@@ -680,13 +680,18 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+
+          STATUS="${{ env.PACK_DIR }}/artifacts/status.json"
+          SCHEMA="$GITHUB_WORKSPACE/schemas/status/status_v1.schema.json"
+
           python tools/validate_status_schema.py \
-            --schema "$GITHUB_WORKSPACE/schemas/status/status_v1.schema.json" \
-            --status "${{ env.PACK_DIR }}/artifacts/status.json"
+            --schema "$SCHEMA" \
+            --status "$STATUS"
+
      
 
-          if [ ! -f "$STATUS" ]; then
-            echo "::error::status.json not found at $STATUS"
+          
+           echo "::error::status.json not found at $STATUS"
             exit 1
           fi
           if [ ! -f "$SCHEMA" ]; then
