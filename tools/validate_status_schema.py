@@ -106,35 +106,39 @@ def main(argv: list[str] | None = None) -> int:
     errors = []
     truncated = False
     try:
-        for err in validator.iter_errors(inst):
-            errors.append(err)
-            if len(errors) > args.max_errors:
-                truncated = True
-                errors = errors[: args.max_errors]
-                break
-    except Exception as e:
-        _ga_error(f"Validator crashed while iterating errors: {e}", file=status_path)
-        return 1
+    from jsonschema import Draft202012Validator
+except ModuleNotFoundError:
+    print("::error::Missing dependency: 'jsonschema'. Install it with: pip install jsonschema")
+    return 2
 
-    if errors:
-        # Sort only the bounded list for stable output.
-        errors_sorted = sorted(errors, key=lambda e: (list(e.path), e.message))
+Draft202012Validator.check_schema(schema)
+v = Draft202012Validator(schema)
 
-        _ga_error(
-            f"status.json schema validation failed (showing {len(errors_sorted)} error(s)).",
-            file=status_path,
-        )
-        for e in errors_sorted:
-            path = ".".join(str(p) for p in e.path) or "<root>"
-            _ga_error(f"{path}: {e.message}", file=status_path)
+max_errors = int(args.max_errors)
+collected = []
+truncated = False
 
-        if truncated:
-            _ga_notice(f"Validation output truncated to first {args.max_errors} errors.")
-        return 1
+for err in v.iter_errors(inst):
+    collected.append(err)
+    if len(collected) >= max_errors:
+        truncated = True
+        break
 
-    print(f"OK: schema-valid: {status_path}")
-    return 0
+# Deterministic output for the collected subset
+collected.sort(key=lambda e: (tuple(str(p) for p in e.path), e.message))
 
+if collected:
+    print("::error::status.json schema validation failed:")
+    for e in collected:
+        path = ".".join(str(p) for p in e.path) or "<root>"
+        print(f"::error::{path}: {e.message}")
+    if truncated:
+        print(f"::notice::Output truncated to --max-errors={max_errors}")
+    return 1
 
+print(f"OK: schema-valid: {status_path}")
+return 0
+
+        
 if __name__ == "__main__":
     raise SystemExit(main())
