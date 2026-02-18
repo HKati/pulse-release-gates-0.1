@@ -4,6 +4,10 @@ Smoke test for PULSE_safe_pack_v0/tools/status_to_junit.py.
 
 Runs the exporter on a tiny hermetic status fixture and asserts the produced
 JUnit XML has the expected tests/failures counts and gate testcase names.
+
+This file is intentionally runnable both:
+- as a "pytest-style" test module (test_* function), and
+- as a standalone script (main()) because CI runs `python <file>` directly.
 """
 
 from __future__ import annotations
@@ -16,14 +20,14 @@ import sys
 import tempfile
 import xml.etree.ElementTree as ET
 
-
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
 EXPORTER = REPO_ROOT / "PULSE_safe_pack_v0" / "tools" / "status_to_junit.py"
 
 
 def _run(status_path: pathlib.Path, out_path: pathlib.Path) -> subprocess.CompletedProcess[str]:
     env = os.environ.copy()
-    # Keep the test hermetic: do not rely on PULSE_STATUS/PULSE_JUNIT defaults.
+
+    # Keep the test hermetic: do not rely on environment-driven defaults.
     env.pop("PULSE_STATUS", None)
     env.pop("PULSE_JUNIT", None)
 
@@ -41,6 +45,26 @@ def _run(status_path: pathlib.Path, out_path: pathlib.Path) -> subprocess.Comple
         text=True,
         env=env,
     )
+
+
+def _get_testsuite_root(xml_path: pathlib.Path) -> ET.Element:
+    """
+    Accept either:
+      - <testsuite ...> as root, or
+      - <testsuites><testsuite .../></testsuites> wrapper.
+    """
+    root = ET.parse(xml_path).getroot()
+
+    if root.tag == "testsuite":
+        return root
+
+    if root.tag == "testsuites":
+        ts = root.find("testsuite")
+        if ts is None:
+            raise AssertionError("Expected <testsuite> inside <testsuites>, but none found")
+        return ts
+
+    raise AssertionError(f"Unexpected JUnit XML root element: <{root.tag}>")
 
 
 def test_status_to_junit_smoke() -> None:
@@ -61,7 +85,9 @@ def test_status_to_junit_smoke() -> None:
                 "gate_c": True,
             },
         }
-        status_path.write_text(json.dumps(status), encoding="utf-8")
+
+        # Deterministic fixture writing (nice for debugging / stable diffs)
+        status_path.write_text(json.dumps(status, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
         r = _run(status_path, out_path)
         if r.returncode != 0:
@@ -73,18 +99,17 @@ def test_status_to_junit_smoke() -> None:
 
         assert out_path.is_file(), "Expected JUnit XML output file to be created"
 
-        root = ET.parse(out_path).getroot()
-        assert root.tag == "testsuite", f"Expected <testsuite> root, got <{root.tag}>"
+        testsuite = _get_testsuite_root(out_path)
 
-        tests = int(root.attrib.get("tests", "0"))
-        failures = int(root.attrib.get("failures", "0"))
+        tests = int(testsuite.attrib.get("tests", "0"))
+        failures = int(testsuite.attrib.get("failures", "0"))
         assert tests == 3, f"Expected tests=3, got {tests}"
         assert failures == 1, f"Expected failures=1, got {failures}"
 
-        testcase_names = [tc.attrib.get("name", "") for tc in root.findall("testcase")]
+        testcase_names = [tc.attrib.get("name", "") for tc in testsuite.findall("testcase")]
         assert set(testcase_names) == {"gate_a", "gate_b", "gate_c"}, f"Unexpected testcase names: {testcase_names}"
 
-        for tc in root.findall("testcase"):
+        for tc in testsuite.findall("testcase"):
             name = tc.attrib.get("name")
             has_failure = tc.find("failure") is not None
             if name == "gate_b":
