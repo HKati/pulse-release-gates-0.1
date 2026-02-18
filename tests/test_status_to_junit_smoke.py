@@ -18,10 +18,20 @@ import pathlib
 import subprocess
 import sys
 import tempfile
+from datetime import datetime, timezone
 import xml.etree.ElementTree as ET
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
 EXPORTER = REPO_ROOT / "PULSE_safe_pack_v0" / "tools" / "status_to_junit.py"
+
+def _parse_iso_utc(s: str) -> datetime:
+    s = s.strip()
+    if s.endswith("Z"):
+        s = s[:-1] + "+00:00"
+    dt = datetime.fromisoformat(s)
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
 
 
 def _run(status_path: pathlib.Path, out_path: pathlib.Path) -> subprocess.CompletedProcess[str]:
@@ -100,6 +110,9 @@ def test_status_to_junit_smoke() -> None:
         assert out_path.is_file(), "Expected JUnit XML output file to be created"
 
         testsuite = _get_testsuite_root(out_path)
+        ts_attr = (testsuite.attrib.get("timestamp") or "").strip()
+        assert ts_attr, "Expected testsuite timestamp attribute to be present"
+        assert _parse_iso_utc(ts_attr) == _parse_iso_utc(status["created_utc"])
 
         tests = int(testsuite.attrib.get("tests", "0"))
         failures = int(testsuite.attrib.get("failures", "0"))
