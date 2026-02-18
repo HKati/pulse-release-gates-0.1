@@ -22,6 +22,11 @@ EXPORTER = REPO_ROOT / "PULSE_safe_pack_v0" / "tools" / "status_to_junit.py"
 
 
 def _run(status_path: pathlib.Path, out_path: pathlib.Path) -> subprocess.CompletedProcess[str]:
+    env = os.environ.copy()
+    # Keep the test hermetic: do not rely on PULSE_STATUS/PULSE_JUNIT defaults.
+    env.pop("PULSE_STATUS", None)
+    env.pop("PULSE_JUNIT", None)
+
     return subprocess.run(
         [
             sys.executable,
@@ -34,7 +39,7 @@ def _run(status_path: pathlib.Path, out_path: pathlib.Path) -> subprocess.Comple
         cwd=str(REPO_ROOT),
         capture_output=True,
         text=True,
-        env=os.environ.copy(),
+        env=env,
     )
 
 
@@ -60,7 +65,11 @@ def test_status_to_junit_smoke() -> None:
 
         r = _run(status_path, out_path)
         if r.returncode != 0:
-            raise AssertionError(f"Exporter failed: exit={r.returncode}\nSTDOUT:\n{r.stdout}\nSTDERR:\n{r.stderr}")
+            raise AssertionError(
+                f"Exporter failed: exit={r.returncode}\n"
+                f"STDOUT:\n{r.stdout}\n"
+                f"STDERR:\n{r.stderr}"
+            )
 
         assert out_path.is_file(), "Expected JUnit XML output file to be created"
 
@@ -75,7 +84,6 @@ def test_status_to_junit_smoke() -> None:
         testcase_names = [tc.attrib.get("name", "") for tc in root.findall("testcase")]
         assert set(testcase_names) == {"gate_a", "gate_b", "gate_c"}, f"Unexpected testcase names: {testcase_names}"
 
-        # Ensure failing gate has a <failure> element
         for tc in root.findall("testcase"):
             name = tc.attrib.get("name")
             has_failure = tc.find("failure") is not None
