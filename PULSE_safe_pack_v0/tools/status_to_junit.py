@@ -4,7 +4,9 @@ Export PULSE gate results from status.json to a JUnit XML report.
 
 Design goals:
 - Deterministic output (sorted gates, stable formatting).
-- CI-friendly messages (but this tool is not the normative enforcer).
+- Backwards compatible CLI/env interface:
+    * --status optional; falls back to $PULSE_STATUS, then pack artifacts/status.json
+    * --out optional; falls back to $PULSE_JUNIT, then ./reports/junit.xml
 - Read contract-aligned gates from status["gates"].
 
 NOTE:
@@ -15,6 +17,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import pathlib
 import sys
 from datetime import datetime, timezone
@@ -43,14 +46,45 @@ def _boolish(v: Any) -> bool:
     return v is True
 
 
+def _default_status_path() -> pathlib.Path:
+    # Preferred: env override (legacy interface)
+    env = os.getenv("PULSE_STATUS")
+    if isinstance(env, str) and env.strip():
+        return pathlib.Path(env.strip())
+
+    # Fallback: pack-local default
+    pack_root = pathlib.Path(__file__).resolve().parents[1]  # PULSE_safe_pack_v0
+    return pack_root / "artifacts" / "status.json"
+
+
+def _default_out_path() -> pathlib.Path:
+    # Preferred: env override (legacy interface)
+    env = os.getenv("PULSE_JUNIT")
+    if isinstance(env, str) and env.strip():
+        return pathlib.Path(env.strip())
+
+    # Fallback: repo-root relative default (matches workflow artifact path)
+    return pathlib.Path("reports") / "junit.xml"
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(add_help=True)
-    ap.add_argument("--status", required=True, help="Path to artifacts/status.json")
-    ap.add_argument("--out", default="", help="Output path for JUnit XML (default: ./reports/junit.xml)")
+    ap.add_argument(
+        "--status",
+        default="",
+        help="Path to status.json (default: $PULSE_STATUS or pack artifacts/status.json)",
+    )
+    ap.add_argument(
+        "--out",
+        default="",
+        help="Output path for JUnit XML (default: $PULSE_JUNIT or ./reports/junit.xml)",
+    )
     ap.add_argument("--suite", default="PULSE gates", help="JUnit testsuite name")
     args = ap.parse_args()
 
-    status_path = pathlib.Path(args.status)
+    status_path = pathlib.Path(args.status) if str(args.status).strip() else _default_status_path()
+    out_path = pathlib.Path(args.out) if str(args.out).strip() else _default_out_path()
+
     if not status_path.exists():
         gh_warn(f"status.json not found at {status_path}; skipping JUnit export.")
         return 0
@@ -73,7 +107,6 @@ def main() -> int:
 
     gate_names = sorted((str(k) for k in gates.keys()), key=lambda x: x)
     total = len(gate_names)
-
     failures = 0
 
     ts = datetime.now(timezone.utc).isoformat()
@@ -118,11 +151,9 @@ def main() -> int:
 
     testsuite.set("failures", str(failures))
 
-    out_path = pathlib.Path(args.out) if args.out else (pathlib.Path("reports") / "junit.xml")
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
     tree = ET.ElementTree(testsuite)
-    # Pretty-print (Python 3.11 supports ET.indent)
     try:
         ET.indent(tree, space="  ", level=0)
     except Exception:
