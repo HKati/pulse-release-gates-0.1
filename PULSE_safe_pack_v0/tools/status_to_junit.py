@@ -109,7 +109,8 @@ def main() -> int:
     total = len(gate_names)
     failures = 0
 
-    ts = datetime.now(timezone.utc).isoformat()
+    ts = created_utc.strip() or datetime.now(timezone.utc).isoformat()
+
     testsuite = ET.Element(
         "testsuite",
         attrib={
