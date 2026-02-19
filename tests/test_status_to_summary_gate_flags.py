@@ -1,110 +1,80 @@
 #!/usr/bin/env python3
+from __future__ import annotations
+
 import json
 import os
 import pathlib
 import subprocess
+import sys
 import tempfile
-from typing import Any, Optional, Tuple
 
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
-SCRIPT = REPO_ROOT / "PULSE_safe_pack_v0" / "tools" / "status_to_summary.py"
+TOOL = REPO_ROOT / "PULSE_safe_pack_v0" / "tools" / "status_to_summary.py"
 
 
-def _find_key_recursive(obj: Any, key: str) -> Optional[Any]:
-    if isinstance(obj, dict):
-        if key in obj:
-            return obj[key]
-        for v in obj.values():
-            hit = _find_key_recursive(v, key)
-            if hit is not None:
-                return hit
-    elif isinstance(obj, list):
-        for it in obj:
-            hit = _find_key_recursive(it, key)
-            if hit is not None:
-                return hit
-    return None
+def run(status_path: pathlib.Path) -> dict:
+    env = os.environ.copy()
+    # hermetikus: ne az env döntsön a státuszról
+    env.pop("PULSE_STATUS", None)
+    env.pop("GITHUB_STEP_SUMMARY", None)
+
+    p = subprocess.run(
+        [sys.executable, str(TOOL), "--status", str(status_path), "--gate-flags-json"],
+        cwd=str(REPO_ROOT),
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+    if p.returncode != 0:
+        raise AssertionError(
+            f"status_to_summary failed: exit={p.returncode}\nSTDOUT:\n{p.stdout}\nSTDERR:\n{p.stderr}"
+        )
+    return json.loads(p.stdout)
+
+
+def test_status_to_summary_gate_flags() -> None:
+    assert TOOL.is_file(), f"Missing tool at: {TOOL}"
+
+    with tempfile.TemporaryDirectory() as td:
+        td = pathlib.Path(td)
+        status_path = td / "status.json"
+
+        # v1-min: gates + metrics + created_utc
+        status = {
+            "version": "1.0.0-test",
+            "created_utc": "2026-02-18T00:00:00Z",
+            "metrics": {"run_mode": "core"},
+            "gates": {
+                "gate_00_false": False,
+                "gate_01_str": "true",
+                "gate_02_true": True,
+            },
+        }
+        status_path.write_text(json.dumps(status, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+        payload = run(status_path)
+        rows = payload.get("gate_flags")
+        assert isinstance(rows, list) and rows, "Expected non-empty gate_flags"
+
+        ids = [r.get("gate_id") for r in rows]
+        assert ids == sorted(ids), f"Expected sorted gate ids, got: {ids}"
+
+        by_id = {r["gate_id"]: r for r in rows}
+        assert by_id["gate_02_true"]["flag"] == "PASS"
+        assert by_id["gate_00_false"]["flag"] == "FAIL"
+        assert by_id["gate_01_str"]["flag"] == "FAIL"
 
 
 def main() -> int:
-    if not SCRIPT.is_file():
-        raise SystemExit(f"status_to_summary.py not found at: {SCRIPT}")
-
-    with tempfile.TemporaryDirectory() as td:
-        td_path = pathlib.Path(td)
-        art = td_path / "artifacts"
-        art.mkdir(parents=True, exist_ok=True)
-
-        status_path = art / "status.json"
-        status = {
-            "version": "1.0.0-core",
-            "created_utc": "2026-02-17T00:00:00Z",
-            "metrics": {"run_mode": "core"},
-            "gates": {
-                # IMPORTANT: only gates.*, no top-level mirrors
-                "external_all_pass": True,
-                "refusal_delta_pass": False,
-            },
-            "external": {"all_pass": False},
-        }
-        status_path.write_text(json.dumps(status, indent=2, sort_keys=True), encoding="utf-8")
-
-        before = {p.name for p in art.glob("*")}
-
-        # Run script
-        r = subprocess.run(
-            [sys.executable, str(SCRIPT), "--status", str(status_path)],
-            cwd=str(REPO_ROOT),
-            capture_output=True,
-            text=True,
-            env=os.environ.copy(),
-        )
-        if r.returncode != 0:
-            print("STDOUT:\n", r.stdout)
-            print("STDERR:\n", r.stderr)
-            raise SystemExit(f"status_to_summary.py failed with code {r.returncode}")
-
-        after = {p.name for p in art.glob("*")}
-        created = sorted(list(after - before))
-
-        # Heuristic: look for a newly created JSON summary file
-        candidates = []
-        for name in created:
-            if "summary" in name.lower() and name.lower().endswith(".json"):
-                candidates.append(art / name)
-
-        if not candidates:
-            # fallback: any new json file except status.json
-            for name in created:
-                if name.lower().endswith(".json") and name != "status.json":
-                    candidates.append(art / name)
-
-        if not candidates:
-            raise SystemExit(f"No summary JSON produced. New files: {created}")
-
-        # Validate content contains the gate flags derived from gates.*
-        data = json.loads(candidates[0].read_text(encoding="utf-8"))
-
-        ext_flag = _find_key_recursive(data, "external_all_pass")
-        ref_flag = _find_key_recursive(data, "refusal_delta_pass")
-
-        if ext_flag is None or ref_flag is None:
-            raise SystemExit(
-                f"Summary JSON missing expected keys. "
-                f"external_all_pass={ext_flag}, refusal_delta_pass={ref_flag}"
-            )
-
-        if ext_flag is not True:
-            raise SystemExit(f"Expected external_all_pass=True from gates.*, got {ext_flag}")
-
-        if ref_flag is not False:
-            raise SystemExit(f"Expected refusal_delta_pass=False from gates.*, got {ref_flag}")
-
-    print("OK: status_to_summary reads gate flags from gates.* when mirrors are absent")
+    try:
+        test_status_to_summary_gate_flags()
+    except AssertionError as e:
+        print(f"ERROR: {e}")
+        return 1
+    print("OK: status_to_summary gate flags smoke passed")
     return 0
 
 
 if __name__ == "__main__":
-    import sys
     raise SystemExit(main())
