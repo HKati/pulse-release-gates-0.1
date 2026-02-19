@@ -5,4 +5,5 @@ channels:
 dependencies:
   - python=3.10
   - pyyaml>=6.0
+  - jsonschema>=4.0
   # Add additional dependencies here if your evaluation scripts require them
