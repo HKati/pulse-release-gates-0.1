@@ -1,6 +1,8 @@
 {
+  "$comment": "DEPRECATED (legacy v0.1). Do not use for CI gating. Use schemas/status/status_v1.schema.json instead.",
+  "title": "DEPRECATED: legacy status schema (v0.1)",
+  "description": "This schema is retained for historical/backward compatibility only. The normative status schema is schemas/status/status_v1.schema.json (status v1: {version, created_utc, metrics, gates}).",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "PULSE status.json (v0.1)",
   "type": "object",
   "required": ["run", "results"],
   "properties": {
