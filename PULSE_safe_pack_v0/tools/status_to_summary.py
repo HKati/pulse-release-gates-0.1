@@ -43,11 +43,39 @@ def _as_bool_or_none(x: Any) -> bool | None:
     return x if isinstance(x, bool) else None
 
 
+def is_pass(v: Any) -> bool:
+    # True-only PASS: fail-closed megjelenítés
+    return v is True
+
+
+def build_gate_flags(status: dict[str, Any]) -> list[dict[str, Any]]:
+    gates = status.get("gates") or {}
+    if not isinstance(gates, dict):
+        gates = {}
+
+    out: list[dict[str, Any]] = []
+    for gate_id in sorted((str(k) for k in gates.keys()), key=lambda x: x):
+        v = gates.get(gate_id)
+        out.append(
+            {
+                "gate_id": gate_id,
+                "value": v,
+                "flag": "PASS" if is_pass(v) else "FAIL",
+            }
+        )
+    return out
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(add_help=True)
     ap.add_argument("--status", required=True, help="Path to artifacts/status.json")
     ap.add_argument("--out_md", default="", help="Optional output path for Markdown summary")
     ap.add_argument("--out_json", default="", help="Optional output path for JSON summary")
+    ap.add_argument(
+        "--gate-flags-json",
+        action="store_true",
+        help="Emit gate flags as JSON to stdout (deterministic; True-only PASS).",
+    )
     args = ap.parse_args()
 
     status_path = pathlib.Path(args.status)
@@ -58,6 +86,19 @@ def main() -> int:
     status = safe_read_json(status_path)
     if not isinstance(status, dict):
         gh_warn("status.json is not a JSON object; skipping summary generation.")
+        return 0
+
+    if args.gate_flags_json:
+        rows = build_gate_flags(status)
+        payload = {
+            "counts": {
+                "total": len(rows),
+                "pass": sum(1 for r in rows if r["flag"] == "PASS"),
+                "fail": sum(1 for r in rows if r["flag"] == "FAIL"),
+            },
+            "gate_flags": rows,
+        }
+        print(json.dumps(payload, ensure_ascii=False, indent=2))
         return 0
 
     version = str(status.get("version", "") or "")
