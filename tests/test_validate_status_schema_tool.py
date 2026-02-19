@@ -60,8 +60,11 @@ def _out(r: subprocess.CompletedProcess[str]) -> str:
 def test_repo_status_v1_schema_enforces_boolean_gates() -> None:
     """
     Regression guard: ensure the repo's own status_v1 schema rejects non-boolean gate values.
+    Must remain robust when jsonschema is missing.
     """
     assert STATUS_V1_SCHEMA.is_file(), f"status_v1 schema not found at {STATUS_V1_SCHEMA}"
+
+    have = _have_jsonschema()
 
     with tempfile.TemporaryDirectory() as td:
         td = pathlib.Path(td)
@@ -86,6 +89,14 @@ def test_repo_status_v1_schema_enforces_boolean_gates() -> None:
 
         r_ok = _run(STATUS_V1_SCHEMA, valid_path)
         out_ok = _out(r_ok)
+
+        if not have:
+            # Dependency-light env: tool is expected to fail closed with a clear annotation
+            assert r_ok.returncode == 2, f"Expected exit 2 when jsonschema is missing\n{out_ok}"
+            assert "::error::" in out_ok, f"Expected ::error:: annotation when dependency missing\n{out_ok}"
+            assert "jsonschema" in out_ok.lower(), f"Expected mention of jsonschema in output\n{out_ok}"
+            return
+
         assert r_ok.returncode == 0, f"Expected valid v1 status to pass\n{out_ok}"
 
         r_bad = _run(STATUS_V1_SCHEMA, invalid_path)
@@ -107,7 +118,6 @@ def test_validate_status_schema_tool_smoke() -> None:
         td = pathlib.Path(td)
 
         # Minimal Draft 2020-12 schema for a "status-like" object.
-        # Keep it tiny and hermetic: no repo artifacts required.
         schema = {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
             "type": "object",
@@ -143,9 +153,6 @@ def test_validate_status_schema_tool_smoke() -> None:
 
         have = _have_jsonschema()
 
-        # Always run once to cover either:
-        # - normal validation path (jsonschema present)
-        # - dependency-missing path (jsonschema absent)
         r_ok = _run(schema_path, valid_path)
         out_ok = _out(r_ok)
 
@@ -167,13 +174,11 @@ def test_validate_status_schema_tool_smoke() -> None:
         assert r_bad.returncode != 0, "Expected invalid status to fail validation"
         assert "::error::" in out_bad, f"Expected ::error:: annotations on validation failure\n{out_bad}"
 
-        # Extra regression guard (repo schema): enforce boolean-only gates
-        test_repo_status_v1_schema_enforces_boolean_gates()
-
 
 def main() -> int:
     try:
         test_validate_status_schema_tool_smoke()
+        test_repo_status_v1_schema_enforces_boolean_gates()
     except AssertionError as e:
         print(f"ERROR: {e}")
         return 1
