@@ -1181,6 +1181,7 @@ jobs:
           
           tests=(
              "tests/test_exporters.py"
+             "tests/test_tools_tests_list_smoke.py"
              "tests/test_status_to_junit_smoke.py"
              "tests/test_policy_to_require_args_smoke.py"
              "tests/test_check_gates_fail_closed.py"
