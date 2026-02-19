@@ -4,10 +4,11 @@ Hermetic smoke tests for tools/validate_status_schema.py.
 
 Goals:
 - Runnable as a plain script: python tests/test_validate_status_schema_tool.py
-- Discoverable by pytest: contains test_* functions (no main-only execution)
+- Discoverable by pytest: contains test_* functions
 - Robust when jsonschema is missing:
-    * if jsonschema is installed: validate OK path + FAIL path
-    * if jsonschema is missing: validate the tool emits CI-friendly ::error:: and exits 2
+  * if jsonschema is installed: validate OK path + FAIL path
+  * if jsonschema is missing: tool emits CI-friendly ::error:: and exits 2
+- Regression guard: repo status_v1 schema enforces boolean-only gate values.
 """
 
 from __future__ import annotations
@@ -22,12 +23,12 @@ import tempfile
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
 TOOL = REPO_ROOT / "tools" / "validate_status_schema.py"
+STATUS_V1_SCHEMA = REPO_ROOT / "schemas" / "status" / "status_v1.schema.json"
 
 
 def _have_jsonschema() -> bool:
     try:
         import jsonschema  # noqa: F401
-
         return True
     except Exception:
         return False
@@ -56,8 +57,50 @@ def _out(r: subprocess.CompletedProcess[str]) -> str:
     return (r.stdout or "") + "\n" + (r.stderr or "")
 
 
+def test_repo_status_v1_schema_enforces_boolean_gates() -> None:
+    """
+    Regression guard: ensure the repo's own status_v1 schema rejects non-boolean gate values.
+    """
+    assert STATUS_V1_SCHEMA.is_file(), f"status_v1 schema not found at {STATUS_V1_SCHEMA}"
+
+    with tempfile.TemporaryDirectory() as td:
+        td = pathlib.Path(td)
+
+        valid = {
+            "version": "1.0.0-test",
+            "created_utc": "2026-02-17T00:00:00Z",
+            "metrics": {"run_mode": "core"},
+            "gates": {"q1_grounded_ok": True},
+        }
+        valid_path = td / "valid_status_v1.json"
+        valid_path.write_text(json.dumps(valid), encoding="utf-8")
+
+        invalid = {
+            "version": "1.0.0-test",
+            "created_utc": "2026-02-17T00:00:00Z",
+            "metrics": {"run_mode": "core"},
+            "gates": {"q1_grounded_ok": "true"},  # WRONG TYPE: must be boolean
+        }
+        invalid_path = td / "invalid_status_v1.json"
+        invalid_path.write_text(json.dumps(invalid), encoding="utf-8")
+
+        r_ok = _run(STATUS_V1_SCHEMA, valid_path)
+        out_ok = _out(r_ok)
+        assert r_ok.returncode == 0, f"Expected valid v1 status to pass\n{out_ok}"
+
+        r_bad = _run(STATUS_V1_SCHEMA, invalid_path)
+        out_bad = _out(r_bad)
+        assert r_bad.returncode != 0, "Expected invalid gate type to fail schema validation"
+        assert "::error::" in out_bad, f"Expected CI-friendly ::error:: on schema failure\n{out_bad}"
+        # Keep this assertion loose: message text can vary slightly across jsonschema versions.
+        assert "boolean" in out_bad.lower(), f"Expected mention of boolean type in error output\n{out_bad}"
+
+
 def test_validate_status_schema_tool_smoke() -> None:
-    # pytest will collect this function; script-mode will call it from main().
+    """
+    Minimal hermetic tool test (independent of repo schemas).
+    Also handles dependency-missing behavior deterministically.
+    """
     assert TOOL.is_file(), f"validate_status_schema tool not found at {TOOL}"
 
     with tempfile.TemporaryDirectory() as td:
@@ -77,7 +120,6 @@ def test_validate_status_schema_tool_smoke() -> None:
             },
             "additionalProperties": True,
         }
-
         schema_path = td / "schema.json"
         schema_path.write_text(json.dumps(schema), encoding="utf-8")
 
@@ -108,8 +150,7 @@ def test_validate_status_schema_tool_smoke() -> None:
         out_ok = _out(r_ok)
 
         if not have:
-            # In dependency-light environments, the tool should fail cleanly with exit 2
-            # and emit CI-friendly ::error:: annotation (no traceback requirement).
+            # Dependency-light environments: exit 2 + CI-friendly ::error::
             assert r_ok.returncode == 2, (
                 f"Expected exit 2 when jsonschema is missing, got exit={r_ok.returncode}\n{out_ok}"
             )
@@ -126,6 +167,9 @@ def test_validate_status_schema_tool_smoke() -> None:
         assert r_bad.returncode != 0, "Expected invalid status to fail validation"
         assert "::error::" in out_bad, f"Expected ::error:: annotations on validation failure\n{out_bad}"
 
+        # Extra regression guard (repo schema): enforce boolean-only gates
+        test_repo_status_v1_schema_enforces_boolean_gates()
+
 
 def main() -> int:
     try:
@@ -133,9 +177,13 @@ def main() -> int:
     except AssertionError as e:
         print(f"ERROR: {e}")
         return 1
-
     print("OK: validate_status_schema tool smoke tests passed")
     return 0
+
+
+def test_smoke() -> None:
+    # optional pytest entrypoint
+    assert main() == 0
 
 
 if __name__ == "__main__":
