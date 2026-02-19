@@ -1183,6 +1183,8 @@ jobs:
              "tests/test_exporters.py"
              "tests/test_status_to_junit_smoke.py"
              "tests/test_policy_to_require_args_smoke.py"
+             "tests/test_check_gates_fail_closed.py"
+             "tests/test_policy_to_check_gates_e2e_smoke.py"
              "tests/test_status_to_summary_gate_flags.py"
              "tests/test_tools_governance_smoke.py"
              "tests/test_check_external_summaries_present.py"
