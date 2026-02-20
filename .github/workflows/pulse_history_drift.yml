@@ -41,7 +41,7 @@ jobs:
 
       - name: Restore status history cache
         id: restore-history
-        uses: actions/cache/restore@8b402f58fbc84540c8b491a91e594a4576fec3d7 # v5.0.2
+        uses: actions/cache/restore@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
         with:
           path: ${{ env.HISTORY_FILE }}
           key: ${{ env.HISTORY_CACHE_KEY }}
@@ -204,7 +204,7 @@ jobs:
 
       - name: Save status history cache
         if: ${{ always() && steps.history_present.outputs.present == 'true' }}
-        uses: actions/cache/save@8b402f58fbc84540c8b491a91e594a4576fec3d7 # v5.0.2
+        uses: actions/cache/save@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
         with:
           path: ${{ env.HISTORY_FILE }}
           key: ${{ env.HISTORY_CACHE_KEY }}
