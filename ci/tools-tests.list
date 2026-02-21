@@ -6,9 +6,7 @@
 
 tests/test_exporters.py
 tests/test_tools_tests_list_smoke.py
-
 tests/test_workflow_no_embedded_steps_smoke.py
-
 tests/test_status_to_junit_smoke.py
 tests/test_status_to_sarif_smoke.py
 tests/test_policy_to_require_args_smoke.py
@@ -25,5 +23,3 @@ tests/test_pack_tools_compile.py
 tests/test_paradox_diagram_example_v0_smoke.py
 tests/test_paradox_diagram_renderer_v0_smoke.py
 tests/test_openai_evals_refusal_smoke_dry_run_smoke.py 
-
-tests/test_workflow_no_embedded_steps_smoke.py
