@@ -44,12 +44,13 @@ jobs:
             unzip -q -o "$ROOT/PULSE_safe_pack_v0.zip"
             echo "PACK_DIR=$ROOT/PULSE_safe_pack_v0" >> "$GITHUB_ENV"
           else
-            RUN_ALL=$(find "$ROOT" -type f -name run_all.py -path "*/PULSE_safe_pack_v0/*" | head -n1 || true)
+            RUN_ALL="$(find "$ROOT" -type f -name run_all.py -path "*/PULSE_safe_pack_v0/*" | head -n1 || true)"
             if [ -z "$RUN_ALL" ]; then
               echo "::error::PULSE_safe_pack_v0 not found (expected folder or zip in repo root)."
               exit 1
             fi
-            echo "PACK_DIR=$(dirname "$(dirname "$RUN_ALL")")" >> "$GITHUB_ENV"
+            PACK_DIR="$(dirname "$(dirname "$RUN_ALL")")"
+            echo "PACK_DIR=$PACK_DIR" >> "$GITHUB_ENV"
           fi
 
       - name: Set up Python
@@ -116,14 +117,21 @@ jobs:
             exit 1
           fi
 
-          # Core profile: minimal deterministic gates for first-time adopters
-          REQ=(
-            pass_controls_refusal
-            pass_controls_sanit
-            sanitization_effective
-            q1_grounded_ok
-            q4_slo_ok
+          # Policy-driven: core_required gates come from pulse_gate_policy_v0.yml
+          mapfile -t REQ < <(
+            python tools/policy_to_require_args.py \
+              --policy pulse_gate_policy_v0.yml \
+              --set core_required \
+              --format newline
           )
+
+          if [ "${#REQ[@]}" -eq 0 ]; then
+            echo "::error::core_required gate list is empty (unexpected)."
+            exit 1
+          fi
+
+          echo "Core required gates (${#REQ[@]}):"
+          printf "  - %s\n" "${REQ[@]}"
 
           python "${PACK_DIR}/tools/check_gates.py" \
             --status "$STATUS" \
