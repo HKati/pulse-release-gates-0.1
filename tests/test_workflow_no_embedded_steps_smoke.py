@@ -20,7 +20,7 @@ from typing import List, Tuple
 ROOT = Path(__file__).resolve().parents[1]
 WORKFLOWS_DIR = ROOT / ".github" / "workflows"
 
-# "run: |", "run: |-", "run: >", "run: >-" etc.
+# Matches: "run: |", "run: |-", "run: >", "run: >-" etc.
 RUN_BLOCK_START_RE = re.compile(r"^(\s*)run:\s*[|>].*$")
 
 # Step-like YAML list items that must never appear as raw lines inside a run block.
@@ -35,27 +35,30 @@ def _scan_workflow(path: Path) -> List[Tuple[int, str]]:
     run_indent = 0
 
     for idx, line in enumerate(lines, start=1):
-        m = RUN_BLOCK_START_RE.match(line)
-        if m:
-            in_run = True
-            run_indent = len(m.group(1))
-            continue
+        # We may need to "re-process" a line when we detect we've exited a run block.
+        while True:
+            if not in_run:
+                m = RUN_BLOCK_START_RE.match(line)
+                if m:
+                    in_run = True
+                    run_indent = len(m.group(1))
+                break
 
-        if not in_run:
-            continue
+            # in_run == True: we're inside a YAML block scalar
+            if line.strip() == "":
+                break
 
-        # Still inside a block scalar as long as indentation stays deeper than the `run:` key line.
-        if line.strip() == "":
-            continue
+            indent = len(line) - len(line.lstrip(" "))
+            if indent <= run_indent:
+                # Exited the run block; re-process this line as top-level YAML.
+                in_run = False
+                run_indent = 0
+                continue
 
-        indent = len(line) - len(line.lstrip(" "))
-        if indent <= run_indent:
-            in_run = False
-            run_indent = 0
-            continue
+            if EMBEDDED_STEP_LINE_RE.match(line):
+                hits.append((idx, line))
 
-        if EMBEDDED_STEP_LINE_RE.match(line):
-            hits.append((idx, line))
+            break
 
     return hits
 
