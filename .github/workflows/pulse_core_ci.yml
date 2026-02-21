@@ -44,12 +44,13 @@ jobs:
             unzip -q -o "$ROOT/PULSE_safe_pack_v0.zip"
             echo "PACK_DIR=$ROOT/PULSE_safe_pack_v0" >> "$GITHUB_ENV"
           else
-            RUN_ALL=$(find "$ROOT" -type f -name run_all.py -path "*/PULSE_safe_pack_v0/*" | head -n1 || true)
+            RUN_ALL="$(find "$ROOT" -type f -name run_all.py -path "*/PULSE_safe_pack_v0/*" | head -n1 || true)"
             if [ -z "$RUN_ALL" ]; then
               echo "::error::PULSE_safe_pack_v0 not found (expected folder or zip in repo root)."
               exit 1
             fi
-            echo "PACK_DIR=$(dirname "$(dirname "$RUN_ALL")")" >> "$GITHUB_ENV"
+            PACK_DIR="$(dirname "$(dirname "$RUN_ALL")")"
+            echo "PACK_DIR=$PACK_DIR" >> "$GITHUB_ENV"
           fi
 
       - name: Set up Python
@@ -105,36 +106,36 @@ jobs:
           fi
           echo "--------------------------------"
 
-          - name: Enforce Core gates (fail-closed)
-            shell: bash
-            run: |
-            set -euo pipefail
+      - name: Enforce Core gates (fail-closed)
+        shell: bash
+        run: |
+          set -euo pipefail
 
-            STATUS="${PACK_DIR}/artifacts/status.json"
-            if [ ! -f "$STATUS" ]; then
+          STATUS="${PACK_DIR}/artifacts/status.json"
+          if [ ! -f "$STATUS" ]; then
             echo "::error::Missing status.json at $STATUS"
             exit 1
-            fi
+          fi
 
-            # Policy-driven: core_required gates come from pulse_gate_policy_v0.yml
-            mapfile -t REQ < <(
+          # Policy-driven: core_required gates come from pulse_gate_policy_v0.yml
+          mapfile -t REQ < <(
             python tools/policy_to_require_args.py \
-            --policy pulse_gate_policy_v0.yml \
-            --set core_required \
-            --format newline
+              --policy pulse_gate_policy_v0.yml \
+              --set core_required \
+              --format newline
           )
 
-           if [ "${#REQ[@]}" -eq 0 ]; then
-           echo "::error::core_required gate list is empty (unexpected)."
-           exit 1
-           fi
+          if [ "${#REQ[@]}" -eq 0 ]; then
+            echo "::error::core_required gate list is empty (unexpected)."
+            exit 1
+          fi
 
           echo "Core required gates (${#REQ[@]}):"
           printf "  - %s\n" "${REQ[@]}"
 
           python "${PACK_DIR}/tools/check_gates.py" \
-          --status "$STATUS" \
-          --require "${REQ[@]}" 
+            --status "$STATUS" \
+            --require "${REQ[@]}"
 
       - name: Export JUnit & SARIF
         if: always()
