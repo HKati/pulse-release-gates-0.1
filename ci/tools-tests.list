@@ -21,4 +21,4 @@ tests/test_no_legacy_status_schema_refs_smoke.py
 tests/test_pack_tools_compile.py
 tests/test_paradox_diagram_example_v0_smoke.py
 tests/test_paradox_diagram_renderer_v0_smoke.py
-tests/test_openai_evals_refusal_smoke_dry_run_smoke.py 
+tests/test_openai_evals_refusal_smoke_dry_run_smoke.py
