@@ -1,6 +1,7 @@
 # Tools smoke tests executed by the tools-tests CI job.
 #
 # One path per line. Blank lines and comments are ignored.
+# This manifest must match the current tools-tests suite.
 # This manifest defines the tools smoke suite boundary.
 
 tests/test_exporters.py
