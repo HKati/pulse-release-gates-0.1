@@ -1215,7 +1215,7 @@ jobs:
           echo "Run smoke scripts (one-by-one for clean logs)"
           for t in "${tests[@]}"; do
             echo "==> python $t"
-            python "$t"
+            python "$t" 
           done
 
           echo "Exporter + governance smoke tests OK"
