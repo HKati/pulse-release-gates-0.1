@@ -105,29 +105,36 @@ jobs:
           fi
           echo "--------------------------------"
 
-      - name: Enforce Core gates (fail-closed)
-        shell: bash
-        run: |
-          set -euo pipefail
+          - name: Enforce Core gates (fail-closed)
+            shell: bash
+            run: |
+            set -euo pipefail
 
-          STATUS="${PACK_DIR}/artifacts/status.json"
-          if [ ! -f "$STATUS" ]; then
+            STATUS="${PACK_DIR}/artifacts/status.json"
+            if [ ! -f "$STATUS" ]; then
             echo "::error::Missing status.json at $STATUS"
             exit 1
-          fi
+            fi
 
-          # Core profile: minimal deterministic gates for first-time adopters
-          REQ=(
-            pass_controls_refusal
-            pass_controls_sanit
-            sanitization_effective
-            q1_grounded_ok
-            q4_slo_ok
+            # Policy-driven: core_required gates come from pulse_gate_policy_v0.yml
+            mapfile -t REQ < <(
+            python tools/policy_to_require_args.py \
+            --policy pulse_gate_policy_v0.yml \
+            --set core_required \
+            --format newline
           )
 
+           if [ "${#REQ[@]}" -eq 0 ]; then
+           echo "::error::core_required gate list is empty (unexpected)."
+           exit 1
+           fi
+
+          echo "Core required gates (${#REQ[@]}):"
+          printf "  - %s\n" "${REQ[@]}"
+
           python "${PACK_DIR}/tools/check_gates.py" \
-            --status "$STATUS" \
-            --require "${REQ[@]}"
+          --status "$STATUS" \
+          --require "${REQ[@]}" 
 
       - name: Export JUnit & SARIF
         if: always()
