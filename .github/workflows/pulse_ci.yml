@@ -309,20 +309,34 @@ jobs:
         run: |
           set -euo pipefail
 
-          IS_RELEASE=0
+          PULSE_IS_RELEASE=0
+          PULSE_MODE="core"
+          PULSE_POLICY_SET="core_required"
+
+          # version tags => release-grade + prod + required
           if [[ "${GITHUB_REF:-}" == refs/tags/v* || "${GITHUB_REF:-}" == refs/tags/V* ]]; then
-            IS_RELEASE=1
+            PULSE_IS_RELEASE=1
+            PULSE_MODE="prod"
+            PULSE_POLICY_SET="required"
           fi
 
+          # strict workflow_dispatch => release-grade + prod + required
           if [[ "${GITHUB_EVENT_NAME:-}" == "workflow_dispatch" ]]; then
             STRICT="$(jq -r '.inputs.strict_external_evidence // "false"' "$GITHUB_EVENT_PATH")"
             if [[ "$STRICT" == "true" ]]; then
-              IS_RELEASE=1
+              PULSE_IS_RELEASE=1
+              PULSE_MODE="prod"
+              PULSE_POLICY_SET="required"
             fi
           fi
 
+          echo "PULSE_IS_RELEASE=${PULSE_IS_RELEASE}" >> "$GITHUB_ENV"
+          echo "PULSE_MODE=${PULSE_MODE}" >> "$GITHUB_ENV"
+          echo "PULSE_POLICY_SET=${PULSE_POLICY_SET}" >> "$GITHUB_ENV"
+          echo "Computed flags: IS_RELEASE=$PULSE_IS_RELEASE MODE=$PULSE_MODE POLICY_SET=$PULSE_POLICY_SET"
+
           EXTRA=()
-          if (( IS_RELEASE )); then
+          if (( PULSE_IS_RELEASE )); then
             EXTRA+=(--release-grade)
           fi
 
@@ -332,21 +346,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          MODE="core"
-
-           # version tag => prod
-           if [[ "${GITHUB_REF:-}" == refs/tags/v* || "${GITHUB_REF:-}" == refs/tags/V* ]]; then
-            MODE="prod"
-           fi
-
-           # strict workflow_dispatch => prod
-           if [[ "${GITHUB_EVENT_NAME:-}" == "workflow_dispatch" ]]; then
-             STRICT="$(jq -r '.inputs.strict_external_evidence // "false"' "$GITHUB_EVENT_PATH")"
-             if [[ "$STRICT" == "true" ]]; then
-               MODE="prod"
-             fi                                                                                                                                                                                                                                                                                                                                   
-           fi  
-           echo "Running pack in mode: $MODE"
+          MODE="${PULSE_MODE:-core}"
+          echo "Running pack in mode: $MODE"
 
           python "${{ env.PACK_DIR }}/tools/run_all.py" \
             --mode "$MODE" \
@@ -533,20 +534,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-
-          # Release-grade runs:
-          # - version tags (v*/V*)
-          # - workflow_dispatch with strict_external_evidence=true
-          IS_RELEASE=0
-          if [[ "${GITHUB_REF:-}" == refs/tags/v* || "${GITHUB_REF:-}" == refs/tags/V* ]]; then
-            IS_RELEASE=1
-          fi
-          if [[ "${GITHUB_EVENT_NAME:-}" == "workflow_dispatch" ]]; then
-            STRICT="$(jq -r '.inputs.strict_external_evidence // "false"' "$GITHUB_EVENT_PATH")"
-            if [[ "$STRICT" == "true" ]]; then
-              IS_RELEASE=1
-            fi
-          fi
+          IS_RELEASE="${PULSE_IS_RELEASE:-0}"
 
           POLICY="${GITHUB_WORKSPACE}/pulse_gate_policy_v0.yml"
           PAIRS_SCRIPT="${{ env.PACK_DIR }}/tools/policy_to_refusal_pairs.py"
@@ -761,21 +749,7 @@ jobs:
             exit 1
           fi
 
-          # Default: core_required for branch builds
-          POLICY_SET="core_required"
-
-          # Version tags: enforce full required gate set (release-grade, fail-closed)
-          if [[ "${GITHUB_REF:-}" == refs/tags/v* || "${GITHUB_REF:-}" == refs/tags/V* ]]; then
-            POLICY_SET="required"
-          fi
-
-          # Manual strict runs should behave like release-grade gating too
-          if [[ "${GITHUB_EVENT_NAME:-}" == "workflow_dispatch" ]]; then
-            STRICT="$(jq -r '.inputs.strict_external_evidence // "false"' "$GITHUB_EVENT_PATH")"
-            if [[ "$STRICT" == "true" ]]; then
-              POLICY_SET="required"
-            fi
-          fi
+          POLICY_SET="${PULSE_POLICY_SET:-core_required}"
 
           # Canonical helper (fail-closed, no PyYAML dependency)
           REQ_STR="$(python tools/policy_to_require_args.py --policy pulse_gate_policy_v0.yml --set "$POLICY_SET" --format space)"
