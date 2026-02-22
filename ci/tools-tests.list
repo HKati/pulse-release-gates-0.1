@@ -5,6 +5,7 @@
 
 tests/test_exporters.py
 tests/test_tools_tests_list_smoke.py
+tests/test_workflow_no_embedded_steps_smoke.py
 tests/test_status_to_junit_smoke.py
 tests/test_status_to_sarif_smoke.py
 tests/test_policy_to_require_args_smoke.py
