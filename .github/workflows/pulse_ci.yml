@@ -248,14 +248,12 @@ jobs:
                 elif not ver_ok:
                   reason.append(f"missing version '{pol_ver}' in Unreleased")
                 missing.append((p, "; ".join(reason)))
-              
-              elif p in ("schemas/dataset_manifest.schema.json", "examples/dataset_manifest.example.json"):
+            elif p in ("schemas/dataset_manifest.schema.json", "examples/dataset_manifest.example.json"):
               key = Path(p).stem.replace(".", " ").replace("_", " ").lower()
               if key not in unrel_l:
                 missing.append((p, f"missing '{key}' mention in Unreleased"))
 
-              
-              elif p.startswith("schemas/status/") and p.endswith(".json"):
+            elif p.startswith("schemas/status/") and p.endswith(".json"):
               key = Path(p).stem.replace(".", " ").replace("_", " ").lower()
               if key not in unrel_l:
                 missing.append((p, f"missing '{key}' mention in Unreleased"))
@@ -302,7 +300,7 @@ jobs:
           if [ ! -d "$PACK_DIR" ]; then
             echo "::error::PACK_DIR not found at $PACK_DIR"
             exit 1
-          fi
+          }
 
           echo "PACK_DIR=$PACK_DIR"
       - name: CI pack layout preflight (fail-closed on release-grade)
