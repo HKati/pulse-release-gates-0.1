@@ -353,9 +353,6 @@ jobs:
             --pack_dir "${{ env.PACK_DIR }}" \
             --gate_policy "${GITHUB_WORKSPACE}/pulse_gate_policy_v0.yml"
 
-          python "${{ env.PACK_DIR }}/tools/run_all.py" \
-            --pack_dir "${{ env.PACK_DIR }}" \
-            --gate_policy "$GITHUB_WORKSPACE/pulse_gate_policy_v0.yml"
       
       - name: Preserve baseline status.json (pre-augment)
         shell: bash
