@@ -16,7 +16,10 @@ from pathlib import Path
 import re
 from typing import List, Tuple
 
+ HKati-patch-174823
 
+
+ main
 ROOT = Path(__file__).resolve().parents[1]
 WORKFLOWS_DIR = ROOT / ".github" / "workflows"
 
@@ -85,8 +88,13 @@ def main() -> int:
         print("ERROR: Detected embedded workflow step stanzas inside a `run:` block.\n")
         print("\n".join(problems))
         print(
+ HKati-patch-174823
             "\nFix: ensure every '- name:' / '- run:' / '- uses:' stanza is dedented to be a real YAML step,"
             " not part of a previous step's run script."
+
+            "\nFix: ensure every '- name:' / '- run:' / '- uses:' stanza is dedented to be a real YAML step, "
+            "not part of a previous step's run script."
+ main
         )
         return 1
 
