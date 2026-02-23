@@ -60,3 +60,10 @@ Not a product audit. Not a roadmap. Not a “finished gating engine” demand.
 - Files: `PULSE_safe_pack_v0/tools/augment_status.py`
 - Verification: when `refusal_delta_summary.json` exists next to the baseline `status.json`, augmentation reads it from there.
 - Links: PR=<add>, commit=<add>
+
+### WL-0007 — CI guard: enforce single run_all invocation
+- Discontinuity: a second `tools/run_all.py` call can be accidentally reintroduced, causing artifact overwrite and mode/config drift.
+- Change: add a CI guard that fails if `pulse_ci.yml` contains more than one `tools/run_all.py` occurrence or lacks explicit `--mode`.
+- Files: `ci/check_single_run_all.py`, `.github/workflows/pulse_ci.yml`, `ci/tools-tests.list`
+- Verification: CI fails fast on duplicate run_all or missing --mode; otherwise passes.
+- Links: PR=<add>, commit=<add>
