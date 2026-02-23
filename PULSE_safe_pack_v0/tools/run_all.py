@@ -745,8 +745,7 @@ status = {
   "diagnostics": diagnostics,
 }
 
-with open(art / "status.json", "w", encoding="utf-8") as f:
-    json.dump(status, f, indent=2)
+write_json_artifact(art / "status.json", status)
 
 # ---------------------------------------------------------------------------
 # HTML report card (demo Quality Ledger view)
