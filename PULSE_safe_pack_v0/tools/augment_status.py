@@ -149,8 +149,13 @@ def main() -> int:
     # -----------------------------------------------------------------------
     # 1) Refusal-delta summary -> metrics + gates + top-level mirror
     # -----------------------------------------------------------------------
-    pack_dir = os.path.dirname(os.path.dirname(status_path))  # .../PULSE_safe_pack_v0
-    artifacts_dir = os.path.join(pack_dir, "artifacts")
+    # Pack dir: stable (script location), not derived from status path
+    # Pack dir: stable (script location), not derived from status path
+    pack_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # .../PULSE_safe_pack_v0
+
+    # Artifacts dir: derive from the baseline status.json location
+    artifacts_dir = os.path.dirname(status_path)
+
     rd_path = os.path.join(artifacts_dir, "refusal_delta_summary.json")
 
     rd = jload(rd_path)
