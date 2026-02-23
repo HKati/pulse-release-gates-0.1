@@ -33,3 +33,10 @@ Not a product audit. Not a roadmap. Not a “finished gating engine” demand.
 - Files: `.github/workflows/pulse_ci.yml`
 - Verification: CI green; no duplicated calculations remain.
 - Links: PR=<add>, commit=<add>, issue=<optional>
+
+### WL-0005 — Deterministic baseline status.json writer
+- Discontinuity: run_all writes status.json without sorted keys while augment_status rewrites with sort_keys.
+- Change: write baseline status.json via the deterministic writer (sort_keys + indent).
+- Files: PULSE_safe_pack_v0/tools/run_all.py
+- Verification: CI green; baseline/augmented formatting no longer drifts.
+- Links: PR=<add>, commit=<add>
