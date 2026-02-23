@@ -238,7 +238,6 @@ jobs:
               want_any = stem_variants(pol_id)
               id_ok = any(tok and tok in unrel_l for tok in want_any)
               ver_ok = (pol_ver is not None) and (str(pol_ver).strip() in unrel)
-
               if not id_ok or not ver_ok:
                 reason = []
                 if not id_ok:
@@ -418,11 +417,11 @@ jobs:
           SCRIPT="${{ env.PACK_DIR }}/tools/external_evidence_list.py"
 
           if [ ! -f "$SCRIPT" ]; then
-            echo "::warning::external_evidence_list.py not found at $SCRIPT; skipping."
+            echo "::notice::SKIP: external_evidence_list.py not found at $SCRIPT (optional)"
             exit 0
           fi
           if [ ! -f "$STATUS" ]; then
-            echo "::warning::status.json not found at $STATUS; skipping external evidence list."
+            echo "::notice::SKIP: status.json not found at $STATUS; skipping external evidence list (optional)"
             exit 0
           fi
 
@@ -440,11 +439,11 @@ jobs:
           OUT_JSON="${{ env.PACK_DIR }}/artifacts/status_summary_baseline.json"
 
           if [ ! -f "$SCRIPT" ]; then
-            echo "::warning::status_to_summary.py not found at $SCRIPT; skipping."
+            echo "::notice::SKIP: status_to_summary.py not found at $SCRIPT (optional)"
             exit 0
           fi
           if [ ! -f "$STATUS" ]; then
-            echo "::warning::status_baseline.json not found at $STATUS; skipping baseline summary."
+            echo "::notice::SKIP: status_baseline.json not found at $STATUS; skipping baseline summary (optional)"
             exit 0
           fi
 
@@ -463,11 +462,11 @@ jobs:
           STATUS="${{ env.PACK_DIR }}/artifacts/status.json"
 
           if [ ! -f "$SCRIPT" ]; then
-            echo "::warning::update_artifacts_for_snapshot.py not found at $SCRIPT; skipping."
+            echo "::notice::SKIP: update_artifacts_for_snapshot.py not found at $SCRIPT (optional)"
             exit 0
           fi
           if [ ! -f "$STATUS" ]; then
-            echo "::warning::status.json not found at $STATUS; skipping update_artifacts_for_snapshot."
+            echo "::notice::SKIP: status.json not found at $STATUS; skipping update_artifacts_for_snapshot (optional)"
             exit 0
           fi
 
@@ -482,11 +481,11 @@ jobs:
           STATUS="${{ env.PACK_DIR }}/artifacts/status.json"
 
           if [ ! -f "$SCRIPT" ]; then
-            echo "::warning::compute_separation_phase_overlay_v0.py not found at $SCRIPT; skipping."
+            echo "::notice::SKIP: compute_separation_phase_overlay_v0.py not found at $SCRIPT (optional)"
             exit 0
           fi
           if [ ! -f "$STATUS" ]; then
-            echo "::warning::status.json not found at $STATUS; skipping separation overlay."
+            echo "::notice::SKIP: status.json not found at $STATUS; skipping separation overlay (optional)"
             exit 0
           fi
 
@@ -510,11 +509,11 @@ jobs:
           STATUS="${{ env.PACK_DIR }}/artifacts/status.json"
 
           if [ ! -f "$SCRIPT" ]; then
-            echo "::warning::audit_metric_summary.py not found at $SCRIPT; skipping."
+            echo "::notice::SKIP: audit_metric_summary.py not found at $SCRIPT (optional)"
             exit 0
           fi
           if [ ! -f "$STATUS" ]; then
-            echo "::warning::status.json not found at $STATUS; skipping audit-metric summary."
+            echo "::notice::SKIP: status.json not found at $STATUS; skipping audit-metric summary (optional)"
             exit 0
           fi
 
@@ -549,7 +548,7 @@ jobs:
               echo "::error::refusal_delta.py not found at $RD"
               exit 1
             fi
-            echo "::warning::refusal_delta.py not found at $RD; skipping refusal-delta."
+            echo "::notice::SKIP: refusal_delta.py not found at $RD; skipping refusal-delta (optional)"
             exit 0
           fi
 
@@ -558,7 +557,7 @@ jobs:
               echo "::error::policy config not found at $POLCFG"
               exit 1
             fi
-            echo "::warning::policy config not found at $POLCFG; skipping refusal-delta."
+            echo "::notice::SKIP: policy config not found at $POLCFG; skipping refusal-delta (optional)"
             exit 0
           fi
 
@@ -581,7 +580,7 @@ jobs:
               echo "::error::Expected either non-empty output from $PAIRS_SCRIPT (policy: $POLICY) or file $PAIRS_FILE"
               exit 1
             fi
-            echo "::warning::No refusal-delta pairs available; skipping refusal-delta summary."
+            echo "::notice::SKIP: No refusal-delta pairs available; skipping refusal-delta summary (optional)"
             exit 0
           fi
 
@@ -696,11 +695,11 @@ jobs:
           STATUS="${{ env.PACK_DIR }}/artifacts/status.json"
 
           if [ ! -f "$SCRIPT" ]; then
-            echo "::warning::status_to_summary.py not found at $SCRIPT; skipping."
+            echo "::notice::SKIP: status_to_summary.py not found at $SCRIPT (optional)"
             exit 0
           fi
           if [ ! -f "$STATUS" ]; then
-            echo "::warning::status.json not found at $STATUS; skipping final summary."
+            echo "::notice::SKIP: status.json not found at $STATUS; skipping final summary (optional)"
             exit 0
           fi
 
@@ -717,7 +716,6 @@ jobs:
             echo "::error::status.json not found at $STATUS"
             exit 1
           fi
-
           export STATUS
           python - <<'PY'
           import json, os, sys
@@ -828,7 +826,7 @@ jobs:
           SCRIPT="${{ env.PACK_DIR }}/tools/compute_stability_map.py"
           STATUS="${{ env.PACK_DIR }}/artifacts/status.json"
           if [ ! -f "$SCRIPT" ]; then
-            echo "::warning::compute_stability_map.py not found at $SCRIPT; skipping."
+            echo "::notice::SKIP: compute_stability_map.py not found at $SCRIPT (optional)"
             exit 0
           fi
           python "$SCRIPT" --status "$STATUS"
@@ -840,7 +838,7 @@ jobs:
           SCRIPT="${{ env.PACK_DIR }}/tools/render_stability_map.py"
           STATUS="${{ env.PACK_DIR }}/artifacts/status.json"
           if [ ! -f "$SCRIPT" ]; then
-            echo "::warning::render_stability_map.py not found at $SCRIPT; skipping."
+            echo "::notice::SKIP: render_stability_map.py not found at $SCRIPT (optional)"
             exit 0
           fi
           python "$SCRIPT" --status "$STATUS"
@@ -852,7 +850,7 @@ jobs:
           SCRIPT="${{ env.PACK_DIR }}/tools/field_stability.py"
           STATUS="${{ env.PACK_DIR }}/artifacts/status.json"
           if [ ! -f "$SCRIPT" ]; then
-            echo "::warning::field_stability.py not found at $SCRIPT; skipping."
+            echo "::notice::SKIP: field_stability.py not found at $SCRIPT (optional)"
             exit 0
           fi
           python "$SCRIPT" --status "$STATUS"
@@ -864,7 +862,7 @@ jobs:
           SCRIPT="${{ env.PACK_DIR }}/tools/field_v0.py"
           STATUS="${{ env.PACK_DIR }}/artifacts/status.json"
           if [ ! -f "$SCRIPT" ]; then
-            echo "::warning::field_v0.py not found at $SCRIPT; skipping."
+            echo "::notice::SKIP: field_v0.py not found at $SCRIPT (optional)"
             exit 0
           fi
           python "$SCRIPT" --status "$STATUS"
@@ -876,7 +874,7 @@ jobs:
           SCRIPT="${{ env.PACK_DIR }}/tools/compute_epf_overlay_v0.py"
           STATUS="${{ env.PACK_DIR }}/artifacts/status.json"
           if [ ! -f "$SCRIPT" ]; then
-            echo "::warning::compute_epf_overlay_v0.py not found at $SCRIPT; skipping."
+            echo "::notice::SKIP: compute_epf_overlay_v0.py not found at $SCRIPT (optional)"
             exit 0
           fi
           python "$SCRIPT" --status "$STATUS"
@@ -888,7 +886,7 @@ jobs:
           SCRIPT="${{ env.PACK_DIR }}/tools/status_to_html_snapshot.py"
           STATUS="${{ env.PACK_DIR }}/artifacts/status.json"
           if [ ! -f "$SCRIPT" ]; then
-            echo "::warning::status_to_html_snapshot.py not found at $SCRIPT; skipping."
+            echo "::notice::SKIP: status_to_html_snapshot.py not found at $SCRIPT (optional)"
             exit 0
           fi
           python "$SCRIPT" --status "$STATUS"
@@ -900,7 +898,7 @@ jobs:
           SCRIPT="${{ env.PACK_DIR }}/tools/status_to_md_snapshot.py"
           STATUS="${{ env.PACK_DIR }}/artifacts/status.json"
           if [ ! -f "$SCRIPT" ]; then
-            echo "::warning::status_to_md_snapshot.py not found at $SCRIPT; skipping."
+            echo "::notice::SKIP: status_to_md_snapshot.py not found at $SCRIPT (optional)"
             exit 0
           fi
           python "$SCRIPT" --status "$STATUS"
@@ -912,7 +910,7 @@ jobs:
           SCRIPT="${{ env.PACK_DIR }}/tools/write_pulse_summary.py"
           STATUS="${{ env.PACK_DIR }}/artifacts/status.json"
           if [ ! -f "$SCRIPT" ]; then
-            echo "::warning::write_pulse_summary.py not found at $SCRIPT; skipping."
+            echo "::notice::SKIP: write_pulse_summary.py not found at $SCRIPT (optional)"
             exit 0
           fi
           python "$SCRIPT" --status "$STATUS"
@@ -931,7 +929,7 @@ jobs:
             if [ -f "$src" ]; then
               cp "$src" "$dst"
             else
-              echo "::warning::missing overlay artifact: $src"
+              echo "::notice::SKIP: missing overlay artifact: $src"
             fi
           }
 
@@ -955,7 +953,7 @@ jobs:
           SCRIPT="${{ env.PACK_DIR }}/tools/overlay_to_html_summary.py"
           OVERLAY_DIR="${{ env.PACK_DIR }}/artifacts/overlay"
           if [ ! -f "$SCRIPT" ]; then
-            echo "::warning::overlay_to_html_summary.py not found at $SCRIPT; skipping."
+            echo "::notice::SKIP: overlay_to_html_summary.py not found at $SCRIPT (optional)"
             exit 0
           fi
           python "$SCRIPT" --overlay_dir "$OVERLAY_DIR"
@@ -969,7 +967,7 @@ jobs:
           DST="${{ env.PACK_DIR }}/artifacts/overlay_summary.html"
 
           if [ ! -f "$SRC" ]; then
-            echo "::warning::overlay_summary.html not found at $SRC; skipping copy."
+            echo "::notice::SKIP: overlay_summary.html not found at $SRC (optional)"
             exit 0
           fi
 
@@ -984,7 +982,7 @@ jobs:
           STATUS="${{ env.PACK_DIR }}/artifacts/status.json"
 
           if [ ! -f "$SCRIPT" ]; then
-            echo "::warning::status_key_order_diagnosis.py not found at $SCRIPT; skipping."
+            echo "::notice::SKIP: status_key_order_diagnosis.py not found at $SCRIPT (optional)"
             exit 0
           fi
 
@@ -997,7 +995,7 @@ jobs:
           SCRIPT="${{ env.PACK_DIR }}/tools/separation_phase_report.py"
           STATUS="${{ env.PACK_DIR }}/artifacts/status.json"
           if [ ! -f "$SCRIPT" ]; then
-            echo "::warning::separation_phase_report.py not found at $SCRIPT; skipping."
+            echo "::notice::SKIP: separation_phase_report.py not found at $SCRIPT (optional)"
             exit 0
           fi
           python "$SCRIPT" --status "$STATUS"
@@ -1009,7 +1007,7 @@ jobs:
           SCRIPT="${{ env.PACK_DIR }}/tools/separation_phase_report_md.py"
           STATUS="${{ env.PACK_DIR }}/artifacts/status.json"
           if [ ! -f "$SCRIPT" ]; then
-            echo "::warning::separation_phase_report_md.py not found at $SCRIPT; skipping."
+            echo "::notice::SKIP: separation_phase_report_md.py not found at $SCRIPT (optional)"
             exit 0
           fi
           python "$SCRIPT" --status "$STATUS"
@@ -1021,7 +1019,7 @@ jobs:
           SCRIPT="${{ env.PACK_DIR }}/tools/separation_phase_matrix.py"
           STATUS="${{ env.PACK_DIR }}/artifacts/status.json"
           if [ ! -f "$SCRIPT" ]; then
-            echo "::warning::separation_phase_matrix.py not found at $SCRIPT; skipping."
+            echo "::notice::SKIP: separation_phase_matrix.py not found at $SCRIPT (optional)"
             exit 0
           fi
           python "$SCRIPT" --status "$STATUS"
@@ -1033,7 +1031,7 @@ jobs:
           SCRIPT="${{ env.PACK_DIR }}/tools/separation_phase_matrix_md.py"
           STATUS="${{ env.PACK_DIR }}/artifacts/status.json"
           if [ ! -f "$SCRIPT" ]; then
-            echo "::warning::separation_phase_matrix_md.py not found at $SCRIPT; skipping."
+            echo "::notice::SKIP: separation_phase_matrix_md.py not found at $SCRIPT (optional)"
             exit 0
           fi
           python "$SCRIPT" --status "$STATUS"
@@ -1046,11 +1044,11 @@ jobs:
           STATUS="${{ env.PACK_DIR }}/artifacts/status.json"
 
           if [ ! -f "$SCRIPT" ]; then
-            echo "::warning::compute_separation_phase_overlay_v0.py not found at $SCRIPT; skipping."
+            echo "::notice::SKIP: compute_separation_phase_overlay_v0.py not found at $SCRIPT (optional)"
             exit 0
           fi
           if [ ! -f "$STATUS" ]; then
-            echo "::warning::status.json not found at $STATUS; skipping separation overlay."
+            echo "::notice::SKIP: status.json not found at $STATUS; skipping separation overlay (optional)"
             exit 0
           fi
 
