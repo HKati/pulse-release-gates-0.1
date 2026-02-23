@@ -44,7 +44,10 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-
+     
+      - name: ci guard single run_all invocation
+        run: python ci/check_single_run_all.py
+   
       - name: Enforce changelog for policy/spec changes
         shell: bash
         run: |
