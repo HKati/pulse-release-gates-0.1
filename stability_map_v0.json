@@ -8,7 +8,7 @@
       "commit": "a1b2c3",
       "pack": "PULSE_safe_pack_v0",
 
-      "decision": "STAGE-PASS",   // FAIL / STAGE-PASS / PROD-PASS / UNKNOWN
+      "decision": "STAGE-PASS",   
 
       "gate_summary": {
         "safety_total": 7,
@@ -34,7 +34,7 @@
         "epf_component": 0.08
       },
 
-      "type": "METASTABLE",       // STABLE / METASTABLE / UNSTABLE / PARADOX / COLLAPSE
+      "type": "METASTABLE",      
       "tags": ["model_v3", "new_refusal_policy"]
     }
   ],
