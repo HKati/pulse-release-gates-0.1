@@ -730,11 +730,19 @@ if enforce_hazard:
 else:
     gates["epf_hazard_ok"] = True
 
+stub_profile = "all_true_smoke" if RUN_MODE in ("demo", "core") else "fail_closed_placeholder"
+diagnostics = {
+    "scaffold": True,
+    "gates_stubbed": True,
+    "stub_profile":  stub_profile,
+}
+
 status = {
-    "version": STATUS_VERSION,
-    "created_utc": now,
-    "gates": gates,
-    "metrics": metrics,
+  "version": STATUS_VERSION,
+  "created_utc": now,
+  "gates": gates,
+  "metrics": metrics,
+  "diagnostics": diagnostics,
 }
 
 with open(art / "status.json", "w", encoding="utf-8") as f:
