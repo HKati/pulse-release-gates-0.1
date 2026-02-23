@@ -48,7 +48,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python tools/compute_checksums.py dist artifacts > checksums.txt || echo "# WARN: no artifacts" > checksums.txt
+          python compute_checksums.py dist artifacts > checksums.txt || echo "# WARN: no artifacts" > checksums.txt
           echo "---- checksums.txt (head) ----"
           head -n 20 checksums.txt || true
           echo "------------------------------"
@@ -63,4 +63,3 @@ jobs:
             checksums.txt
             dist/**
             artifacts/**
-
