@@ -115,10 +115,10 @@ jobs:
           fi
 
           rc=0
-          if [ -f tools/check_gates.py ]; then
+          if [ -f PULSE_safe_pack_v0/tools/check_gates.py ]; then
             echo "Running baseline check_gates from tools/..."
             set +e
-            python tools/check_gates.py \
+            python PULSE_safe_pack_v0/tools/check_gates.py \
               --config pulse_gates.yaml \
               --status status_baseline.json \
               --defer-policy fail
