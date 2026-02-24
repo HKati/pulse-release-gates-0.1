@@ -115,16 +115,7 @@ jobs:
           fi
 
           rc=0
-          if [ -f tools/check_gates.py ]; then
-            echo "Running baseline check_gates from tools/..."
-            set +e
-            python tools/check_gates.py \
-              --config pulse_gates.yaml \
-              --status status_baseline.json \
-              --defer-policy fail
-            rc=$?
-            set -e
-          elif [ -f scripts/check_gates.py ]; then
+          if [ -f scripts/check_gates.py ]; then
             echo "Running baseline check_gates from scripts/..."
             set +e
             python scripts/check_gates.py \
@@ -164,18 +155,7 @@ jobs:
           fi
 
           rc=0
-          if [ -f tools/check_gates.py ]; then
-            echo "Running EPF shadow check_gates from tools/..."
-            set +e
-            python tools/check_gates.py \
-              --config pulse_gates.yaml \
-              --status status_epf.json \
-              --epf-shadow \
-              --seed 1737 \
-              --defer-policy warn
-            rc=$?
-            set -e
-          elif [ -f scripts/check_gates.py ]; then
+          if [ -f scripts/check_gates.py ]; then
             echo "Running EPF shadow check_gates from scripts/..."
             set +e
             python scripts/check_gates.py \
@@ -308,4 +288,3 @@ jobs:
             status_epf.json
             epf_report.txt
             epf_paradox_summary.json
-
