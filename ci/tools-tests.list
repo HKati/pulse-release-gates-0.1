@@ -24,3 +24,5 @@ tests/test_paradox_diagram_renderer_v0_smoke.py
 tests/test_openai_evals_refusal_smoke_dry_run_smoke.py
 
 ci/check_single_run_all.py
+
+ci/check_path_refs_exist.py
