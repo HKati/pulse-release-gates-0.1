@@ -72,3 +72,10 @@ Not a product audit. Not a roadmap. Not a “finished gating engine” demand.
 - Files: `ci/check_single_run_all.py`, `.github/workflows/pulse_ci.yml`, `ci/tools-tests.list`
 - Verification: CI fails fast on duplicate run_all or missing --mode; otherwise passes.
 - Links: PR=<add>, commit=<add>
+
+WL-0008 — CI guard: enforce workflow/script path references exist
+Discontinuity: workflows/manifests can reference missing scripts, creating latent CI failures and drift.
+Change: run path-ref guard in tools smoke suite; remove dead checker references from EPF workflow.
+Files: ci/check_path_refs_exist.py, ci/tools-tests.list, .github/workflows/epf_experiment.yml
+Verification: CI green; guard passes on main; no phantom references remain.
+Links: PR=#1314, commit=<merge_sha>
