@@ -54,7 +54,14 @@ jobs:
           # Guardrail: this is the exact failure mode you hit.
           # Unquoted ':' followed by whitespace inside a step name can break YAML parsing in GitHub Actions.
           colon_name_re = re.compile(r'^\s*-\s*name:\s+[^"\'].*:\s+.*$', re.MULTILINE)
-          commit_line_re = re.compile(r'^\s*git\s+commit\b.*$', re.MULTILINE | re.IGNORECASE)
+
+          # Loop-risk guard: detect `git ... commit` lines, including valid global flags before the subcommand
+          # (e.g. `git -c user.name=bot commit -m ...`, `git --no-pager commit -m ...`).
+          # The negative lookahead prevents flags-without-args from accidentally consuming the `commit` token.
+          commit_line_re = re.compile(
+              r'^\s*git(?:\s+(?:-\S+|--\S+)(?:\s+(?!commit(?:\s|$))\S+)?)*\s+commit(?:\s|$).*$',
+              re.MULTILINE | re.IGNORECASE
+          )
 
           def has_contents_write(perms):
               if isinstance(perms, str):
