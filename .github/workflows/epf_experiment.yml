@@ -115,7 +115,20 @@ jobs:
           fi
 
           rc=0
+<<<<<<< HKati-patch-469361
           if [ -f scripts/check_gates.py ]; then
+=======
+          if [ -f PULSE_safe_pack_v0/tools/check_gates.py ]; then
+            echo "Running baseline check_gates from tools/..."
+            set +e
+            python PULSE_safe_pack_v0/tools/check_gates.py \
+              --config pulse_gates.yaml \
+              --status status_baseline.json \
+              --defer-policy fail
+            rc=$?
+            set -e
+          elif [ -f scripts/check_gates.py ]; then
+>>>>>>> main
             echo "Running baseline check_gates from scripts/..."
             set +e
             python scripts/check_gates.py \
