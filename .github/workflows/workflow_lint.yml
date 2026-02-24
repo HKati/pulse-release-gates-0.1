@@ -54,6 +54,14 @@ jobs:
           # Guardrail: this is the exact failure mode you hit.
           # Unquoted ':' followed by whitespace inside a step name can break YAML parsing in GitHub Actions.
           colon_name_re = re.compile(r'^\s*-\s*name:\s+[^"\'].*:\s+.*$', re.MULTILINE)
+          commit_line_re = re.compile(r'^\s*git\s+commit\b.*$', re.MULTILINE | re.IGNORECASE)
+
+          def has_contents_write(perms):
+              if isinstance(perms, str):
+                  return perms.strip().lower() == "write-all"
+              if isinstance(perms, dict):
+                  return str(perms.get("contents", "")).strip().lower() == "write"
+              return False
 
           ok = True
 
@@ -96,6 +104,27 @@ jobs:
               # Minimal sanity: expect at least one of the canonical keys
               if not any(k in obj for k in ("on", "name", "jobs")):
                   print(f"::warning file={f}::Top-level keys look unusual (missing 'on'/'jobs').")
+
+              # Loop-risk guard: workflows that can write back to the repo must use
+              # an explicit CI bypass marker when committing generated files.
+              workflow_write = has_contents_write(obj.get("permissions"))
+              jobs = obj.get("jobs") if isinstance(obj.get("jobs"), dict) else {}
+              job_write = any(
+                  has_contents_write(j.get("permissions"))
+                  for j in jobs.values()
+                  if isinstance(j, dict)
+              )
+
+              if workflow_write or job_write:
+                  for m in commit_line_re.finditer(text):
+                      line_no = text[:m.start()].count("\n") + 1
+                      line = m.group(0).lower()
+                      if "[skip ci]" not in line and "[ci skip]" not in line:
+                          print(
+                              f"::error file={f},line={line_no}::"
+                              "workflows with contents:write must use '[skip ci]' (or '[ci skip]') in git commit commands to avoid CI fix-loop risk."
+                          )
+                          ok = False
 
           if not ok:
               sys.exit(1)
