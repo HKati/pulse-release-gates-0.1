@@ -82,3 +82,10 @@ Not a product audit. Not a roadmap. Not a “finished gating engine” demand.
 - Verification: CI green; workflow-lint passes; git commit loop guard detects `git ... commit` even with global flags and enforces `[skip ci]` / `[ci skip]` on commit commands.
 - - Links: PR=#<ADD>, commits=<ADD>
 + - Links: PR=#1318, commits=dfb80c3, d727500
+
+### WL-0010 — Pages: fail-closed mount parsing + regression tests
+- Discontinuity: mount/path parsing accepted unsafe mount forms and the existing mount test was not a real regression suite (risk of drift and silent re-breaks).
+- Change: validate raw mount input before normalization (fail-closed) and add regression tests that dynamically load the publisher module and assert accept/reject cases.
+- Files: `scripts/pages_publish_paradox_core_bundle_v0.py`, `tests/test_pages_publish_paradox_core_bundle_v0.py`
+- Verification: CI green; `pytest -q tests/test_pages_publish_paradox_core_bundle_v0.py` → 18 passed.
+- Links: PR=#1325, commits=894a850, 47ca0a4, merge=c92b892
