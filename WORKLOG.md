@@ -74,3 +74,10 @@ Not a product audit. Not a roadmap. Not a “finished gating engine” demand.
 - Files: `ci/check_path_refs_exist.py`, `ci/tools-tests.list`, `.github/workflows/epf_experiment.yml`
 - Verification: CI green; guard passes on main; no phantom references remain.
 - Links: PR=#1314, commits=85a985b, c740608, 8974901
+
+### WL-0009 — CI: workflow lint guardrails (YAML parse + git commit loop)
+- Discontinuity: workflow YAML can fail to parse due to unquoted ':' in step names; CI loop guard was fail-open for `git -c ... commit ...` and similar global-flag forms.
+- Change: harden workflow_lint guardrails (colon-name rule + robust git commit detection) to keep CI fail-closed and prevent self-trigger loops in workflows with `contents: write`.
+- Files: `.github/workflows/workflow_lint.yml`
+- Verification: CI green; workflow-lint passes; git commit loop guard detects `git ... commit` even with global flags and enforces `[skip ci]` / `[ci skip]` on commit commands.
+- Links: PR=#<ADD>, commits=<ADD>
