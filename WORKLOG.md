@@ -15,14 +15,7 @@ Not a product audit. Not a roadmap. Not a “finished gating engine” demand.
 - Scaffold: scaffold/stub behavior is machine-readable (no “looks like PASS”).
 
 ## Active items
-- WL-0001 — CI: single run_all invocation (prevent artifact overwrite / mode drift)
-- WL-0002 — CI: centralize release-grade flags (mode + policy set)
-- WL-0003 — CI: normalize optional tool SKIP messaging (reduce phantom-feature noise)
-- WL-0004 — Status: scaffold marker for stub gates (machine-readable)
-- WL-0005 — Status: write baseline status.json deterministically
-- WL-0006 — Augment status uses baseline artifact directory (path coherence)
-- WL-0007 — CI guard: enforce single run_all invocation (fail fast)
-- WL-0008 — CI guard: enforce workflow/script path references exist
+- (none)
 
 ## Ledger
 
