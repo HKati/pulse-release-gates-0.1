@@ -1,40 +1,56 @@
-def _safe_mount_parts(mount: str) -> List[str]:
-    """
-    Convert a user-provided mount string into safe path parts.
+from importlib.util import module_from_spec, spec_from_file_location
+from pathlib import Path
 
-    Reject:
-      - empty mounts
-      - backslashes
-      - absolute mounts
-      - '.' or '..' segments (including embedded '/./')
-      - empty segments (e.g. 'a//b')
-    """
-    raw = str(mount).strip()
-    if not raw:
-        _fail("Mount must be non-empty")
+import pytest
 
-    # Enforce forward-slash semantics to avoid platform surprises.
-    if "\\" in raw:
-        _fail("Mount must use forward slashes ('/'), not backslashes ('\\')")
 
-    # Reject absolute mounts BEFORE stripping slashes.
-    if raw.startswith("/"):
-        _fail(f"Mount must be relative, got absolute mount: {mount!r}")
+def _load_target_module():
+    module_path = Path(__file__).resolve().parents[1] / "scripts" / "pages_publish_paradox_core_bundle_v0.py"
+    spec = spec_from_file_location("pages_publish_paradox_core_bundle_v0", module_path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"Failed to load module from {module_path}")
+    module = module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
-    raw = raw.strip("/")
-    if not raw:
-        _fail("Mount must not be '/' only")
 
-    # IMPORTANT: reject dot-segments BEFORE any normalization.
-    raw_parts = raw.split("/")
-    for seg in raw_parts:
-        if seg in ("", ".", ".."):
-            _fail(f"Mount contains forbidden path segment {seg!r}: {mount!r}")
+@pytest.fixture(scope="module")
+def target():
+    return _load_target_module()
 
-    # Keep a POSIX-path sanity check.
-    p = PurePosixPath("/".join(raw_parts))
-    if p.is_absolute():
-        _fail(f"Mount must be relative, got absolute mount: {mount!r}")
 
-    return raw_parts
+@pytest.mark.parametrize(
+    "mount, expected",
+    [
+        ("paradox/core", ["paradox", "core"]),
+        ("  paradox/core  ", ["paradox", "core"]),
+        ("paradox", ["paradox"]),
+        ("paradox/core/", ["paradox", "core"]),
+        ("paradox/core///", ["paradox", "core"]),
+    ],
+)
+def test_safe_mount_parts_accepts_valid_mounts(target, mount, expected):
+    assert target._safe_mount_parts(mount) == expected
 
+
+@pytest.mark.parametrize(
+    "mount",
+    [
+        "",
+        "   ",
+        "/",
+        "///",
+        "/paradox/core",
+        "paradox\\core",
+        "a//b",
+        "a/./b",
+        "a/../b",
+        "./a",
+        "../a",
+        "a/.",
+        "a/..",
+    ],
+)
+def test_safe_mount_parts_rejects_unsafe_mounts(target, mount):
+    with pytest.raises(SystemExit):
+        target._safe_mount_parts(mount)
