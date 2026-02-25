@@ -83,36 +83,46 @@ def _write_index(dst_dir: Path, target_html: str) -> None:
     (dst_dir / "index.html").write_text(content, encoding="utf-8")
 
 
-def _safe_mount_parts(mount: str) -> List[str]:
+def _safe_mount_parts(mount: str) -> list[str]:
     """
     Convert a user-provided mount string into safe path parts.
 
-    Reject:
-      - empty mounts
+    Reject (fail-closed, BEFORE normalization):
+      - empty mounts (after stripping whitespace)
       - backslashes
-      - absolute mounts
-      - '.' or '..' segments
+      - absolute mounts (leading '/')
+      - empty segments (e.g. 'a//b')
+      - dot segments '.' and '..' (e.g. 'a/./b', 'a/../b')
+    Returns: raw path segments (no normalization applied).
     """
-    m = str(mount).strip()
-    if not m:
+    raw = str(mount).strip()
+    if not raw:
         _fail("Mount must be non-empty")
 
     # Enforce forward-slash semantics to avoid platform surprises.
-    if "\\" in m:
+    if "\\" in raw:
         _fail("Mount must use forward slashes ('/'), not backslashes ('\\')")
 
-    m = m.strip("/")
-    if not m:
+    # Reject absolute mounts BEFORE stripping slashes.
+    if raw.startswith("/"):
+        _fail(f"Mount must be relative, got absolute mount: {mount!r}")
+
+    # Allow outer slashes, but do not allow the degenerate '/'-only case.
+    raw = raw.strip("/")
+    if not raw:
         _fail("Mount must not be '/' only")
 
-    p = PurePosixPath(m)
+    # IMPORTANT: reject empty and dot segments BEFORE any normalization.
+    parts = raw.split("/")
+    for seg in parts:
+        if seg in ("", ".", ".."):
+            _fail(f"Mount contains forbidden path segment {seg!r}: {mount!r}")
+
+    # Keep a POSIX-path sanity check.
+    p = PurePosixPath("/".join(parts))
     if p.is_absolute():
         _fail(f"Mount must be relative, got absolute mount: {mount!r}")
 
-    parts = [seg for seg in p.parts if seg]
-    for seg in parts:
-        if seg in (".", ".."):
-            _fail(f"Mount contains forbidden path segment {seg!r}: {mount!r}")
     return parts
 
 
