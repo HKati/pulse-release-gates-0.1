@@ -80,4 +80,5 @@ Not a product audit. Not a roadmap. Not a “finished gating engine” demand.
 - Change: harden workflow_lint guardrails (colon-name rule + robust git commit detection) to keep CI fail-closed and prevent self-trigger loops in workflows with `contents: write`.
 - Files: `.github/workflows/workflow_lint.yml`
 - Verification: CI green; workflow-lint passes; git commit loop guard detects `git ... commit` even with global flags and enforces `[skip ci]` / `[ci skip]` on commit commands.
-- Links: PR=#<ADD>, commits=<ADD>
+- - Links: PR=#<ADD>, commits=<ADD>
++ - Links: PR=#1318, commits=dfb80c3, d727500
