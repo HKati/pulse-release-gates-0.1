@@ -1,9 +1,3 @@
-name: pulse_env
-channels:
-  - defaults
-  - conda-forge
-dependencies:
-  - python=3.10
-  - pyyaml>=6.0
-  - jsonschema>=4.0
-  # Add additional dependencies here if your evaluation scripts require them
+name: pulse-release-gates-0.1-env
+channels: [conda-forge]
+dependencies: [python=3.11, pip, pip: [numpy, scipy, jsonschema>=4,<5, pyyaml, jinja2, matplotlib]]
