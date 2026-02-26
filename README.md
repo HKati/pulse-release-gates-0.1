@@ -255,6 +255,7 @@ In addition to running the pack, CI enforces repo‑level governance guards:
 - **Policy ↔ registry consistency:** every gate required by policy must exist in the registry (including `core_required`).
 - **Policy set selection:** `pull_request` runs enforce `core_required`; main branch pushes and version tag pushes (`v*`/`V*`) enforce `required` (policy-driven).
 - **Strict external evidence:** workflow dispatch input `strict_external_evidence=true` **or** version tag pushes (`v*`/`V*`) additionally require `external_summaries_present` (and `external_all_pass`).
+- **Note (default vs strict):** External detector summaries are opt-in. If no external summaries are provided, `external_all_pass` is computed as PASS by design. For release-grade enforcement, enable **strict external evidence** (`strict_external_evidence=true` or version tag pushes) so `external_summaries_present` is required in addition to `external_all_pass`. In strict mode, missing or failing summaries fail CI (fail-closed) until valid evidence is provided.
 - **Workflow YAML guard (workflow_lint.yml):** fail‑closed validation of `.github/workflows/*.yml` to prevent broken workflow YAML (e.g., unquoted `:` in step names).
 
 > Tip: after making the repo **public**, add a **Branch protection rule** (Settings → Branches) and mark **PULSE CI** as a **required status check**.
