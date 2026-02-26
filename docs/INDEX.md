@@ -61,3 +61,4 @@ If you add/rename a doc under `docs/`, please update this index.
 - [time_as_consequence_one_pager_v0_1.md](time_as_consequence_one_pager_v0_1.md) — One-page summary (v0.1) of the record-based time framework.
 - [gravity_record_protocol_appendix_v0_1.md](gravity_record_protocol_appendix_v0_1.md) — Appendix (v0.1): gravity as a record test (λ/s/κ protocols + horizon taxonomy).
 - [gravity_record_protocol_inputs_v0_1.md](gravity_record_protocol_inputs_v0_1.md) — Inputs bundle spec (v0.1): raw producer contract for Gravity Record Protocol runs.
+- [gravity_record_protocol_decodability_wall_v0_1.md](gravity_record_protocol_decodability_wall_v0_1.md) — Decodability Wall spec (v0.1): operational decodability threshold + critical radius definition and calibration notes.
