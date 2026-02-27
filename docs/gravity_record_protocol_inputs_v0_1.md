@@ -12,6 +12,11 @@ this bundle and have it validated fail-closed before we build the contract artif
 - Contract checker: `scripts/check_gravity_record_protocol_inputs_v0_1_contract.py`
 - Builder (raw → contract artifact): `scripts/build_gravity_record_protocol_v0_1.py`
 
+## Diagnostics / probes (non-gating)
+
+- [gravity_record_protocol_decodability_wall_v0_1.md](gravity_record_protocol_decodability_wall_v0_1.md) — Decodability Wall spec (v0.1): operational boundary + critical radius summary (`r_c`); produces optional diagnostic artefacts (not a CI gate).
+
+
 ## Minimal contract
 
 Top-level:
