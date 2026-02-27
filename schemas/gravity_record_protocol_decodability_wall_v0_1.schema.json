@@ -1,0 +1,97 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Gravity Record Protocol — Decodability Wall (v0.1)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["artifact_kind", "version", "cases"],
+  "properties": {
+    "artifact_kind": { "const": "decodability_wall_v0_1" },
+    "version": { "const": "v0.1" },
+
+    "source_inputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "path"],
+      "properties": {
+        "schema": { "type": "string" },
+        "path": { "type": "string" },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    },
+
+    "config": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "alphabet_size": { "type": "integer", "minimum": 2 },
+        "log_base": { "type": "string", "enum": ["log2", "ln"] },
+        "units": { "type": "string", "enum": ["bits_per_tick", "nats_per_tick"] },
+        "method": { "type": "string", "enum": ["linear_interp", "step"] },
+        "tie_break": { "type": "string", "enum": ["lowest_r"] }
+      }
+    },
+
+    "cases": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["case_id", "wall_state"],
+        "properties": {
+          "case_id": { "type": "string", "minLength": 1 },
+
+          "wall_state": {
+            "type": "string",
+            "enum": [
+              "wall_found",
+              "no_wall_in_range",
+              "always_not_decodable",
+              "insufficient_points",
+              "unsupported_non_numeric_r",
+              "missing_kappa",
+              "missing_requirement",
+              "non_monotone_warning"
+            ]
+          },
+
+          "r_c": { "type": ["number", "null"] },
+
+          "bracket": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["r_ok", "r_fail"],
+            "properties": {
+              "r_ok": { "type": "number" },
+              "r_fail": { "type": "number" }
+            }
+          },
+
+          "diagnostics": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "r_min": { "type": "number" },
+              "r_max": { "type": "number" },
+              "n_points": { "type": "integer", "minimum": 0 },
+              "crossings": { "type": "integer", "minimum": 0 }
+            }
+          },
+
+          "warnings": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        }
+      }
+    },
+
+    "errors": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  }
+}
