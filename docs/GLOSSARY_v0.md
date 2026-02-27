@@ -208,6 +208,15 @@ Defined in:
 
 ---
 
+### critical radius (r_c)
+#### What it means
+The radius (or scale parameter) at which the protocol’s decodability criterion reaches the required threshold (e.g. C(r_c)=h_req). Serves as a compact, reviewable summary of where the boundary sits for a given run/context.
+
+#### What it is not
+- Not a universal constant; it is context- and protocol-dependent.
+- Not a guarantee of stability outside the recorded conditions.
+---
+
 ## D
 
 ### Decision Engine
@@ -229,6 +238,17 @@ Runs in **shadow mode** by default (does not change PASS/FAIL).
 
 - Not a replacement for human governance.
 - Not a magic “AI judge” – it is a rule-based policy surface.
+
+---
+
+### Decodability Wall (Gravity Record Protocol)
+#### What it means
+An operational measurement boundary defined from recorded signals: the point (often expressed via a critical radius r_c) where the decodability criterion crosses a required threshold (h_req). Used to make “decodable vs not-decodable (under this protocol)” auditable and repeatable.
+
+#### What it is not
+- Not a physical “wall” or a causal barrier in the system.
+- Not a security guarantee by itself.
+- Not a substitute for recording inputs/contexts; it only makes the boundary explicit given those records.
 
 ---
 
