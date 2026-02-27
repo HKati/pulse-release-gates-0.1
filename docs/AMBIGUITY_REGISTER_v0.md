@@ -39,6 +39,8 @@ To resolve a `blocking` item, a PR must include:
 | RDSI | Release decision stability signal; diagnostic only | Diagnostic | PULSE_safe_pack_v0/docs/METHODS_RDSI_QLEDGER.md | review | Clarify reporting vs enforcement usage |
 | Drift | Compare/history output; useful only with stable, indexable artefacts/surfaces | Diagnostic | docs/STATE_v0.md | review | Define minimal URL + artefact naming contract |
 | Hazard zones | GREEN/AMBER/RED early-warning classification for field-relative signals | Diagnostic | docs/epf_relational_grail.md | review | Must define thresholds + calibration notes |
+| Decodability Wall | Operational boundary where decodability crosses a threshold (κ); “wall” is non-physical | Diagnostic | [docs/GLOSSARY_v0.md#decodability-wall](GLOSSARY_v0.md#decodability-wall) | review | Not a security boundary and not a CI gate. See also `gravity_record_protocol_decodability_wall_v0_1.md` for protocol + determinism notes/fit rules. |
+| critical radius (r_c) | Scalar summary of the wall location: threshold-crossing radius under κ rule | Diagnostic | [docs/GLOSSARY_v0.md#critical-radius-r_c](GLOSSARY_v0.md#critical-radius-r_c) | review | Must specify solver/fit, binning, rounding, and tie-breaks to be deterministic. |
 
 ---
 
@@ -46,4 +48,4 @@ To resolve a `blocking` item, a PR must include:
 
 - v0: initial register created (seed list of high-risk ambiguous terms)
 - v0: mark field-first terms resolved after canonical definitions were added to `docs/GLOSSARY_v0.md`
-
+- v0: add Decodability Wall (and r_c) to register to prevent “wall == gate/block” semantic drift
