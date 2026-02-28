@@ -371,12 +371,36 @@ def build_case(case_in: Dict[str, Any], log_sigma: float, margin: float) -> Dict
     case_errors.extend(lam_pts_errs)
     case_errors.extend(kap_pts_errs)
 
-    if any(not is_number(p.get("r")) for p in (lam_points_raw + kap_points_raw) if isinstance(p, dict)):
+    had_non_numeric_r = any(
+        not is_number(p.get("r"))
+        for p in (lam_points_raw + kap_points_raw)
+        if isinstance(p, dict)
+    )
+    if had_non_numeric_r:
         warnings.append("non-numeric r values were ignored for wall math")
 
+    lam_numeric_count = len(lam_map)
+    kap_numeric_count = len(kap_map)
     common_rs = sorted(set(lam_map.keys()) & set(kap_map.keys()))
+
     if len(common_rs) < 1:
         case_errors.append("no matched numeric r points between lambda and kappa")
+
+        # Both profiles have usable numeric samples, but their numeric r grids do not overlap.
+        # This is NOT a non-numeric-r problem.
+        if lam_numeric_count > 0 and kap_numeric_count > 0:
+            warnings.append("lambda and kappa have disjoint numeric r grids")
+            return {
+                "case_id": case_id,
+                "wall_state": "insufficient_points",
+                "r_c": None,
+                "diagnostics": {"n_points": 0, "crossings": 0},
+                "warnings": warnings,
+                "_case_errors": case_errors,
+            }
+
+        # If we cannot form usable overlap because one side has no usable numeric r support,
+        # keep the more specific non-numeric/unsupported classification.
         return {
             "case_id": case_id,
             "wall_state": "unsupported_non_numeric_r",
@@ -531,6 +555,7 @@ def build_artifact(
         "config": {
             "alphabet_size": alphabet_size,
             "log_base": log_base,
+            "margin": margin,
             "units": "bits_per_tick" if log_base == "log2" else "nats_per_tick",
             "method": "linear_interp",
             "tie_break": "lowest_r",
@@ -718,6 +743,7 @@ def main(argv: List[str]) -> int:
             "config": {
                 "alphabet_size": getattr(args, "alphabet_size", None),
                 "log_base": getattr(args, "log_base", None),
+                "margin": getattr(args, "margin", None),
                 "units": "bits_per_tick" if getattr(args, "log_base", None) == "log2" else "nats_per_tick",
                 "method": "linear_interp",
                 "tie_break": "lowest_r",
