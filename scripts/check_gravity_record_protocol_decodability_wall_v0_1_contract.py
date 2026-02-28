@@ -75,12 +75,20 @@ def _is_finite_json_number(x: Any) -> bool:
     - int or float
     - BUT NOT bool (Python quirk: bool is subclass of int)
     - finite (no inf/nan)
+
+    Important: do NOT convert large ints to float (can OverflowError).
     """
     if isinstance(x, bool):
         return False
-    if not isinstance(x, (int, float)):
-        return False
-    return math.isfinite(float(x))
+
+    # Large JSON integers are valid; treat all ints as finite without float conversion.
+    if isinstance(x, int):
+        return True
+
+    if isinstance(x, float):
+        return math.isfinite(x)
+
+    return False
 
 
 def _extra_strictness_checks(doc: Any) -> List[str]:
