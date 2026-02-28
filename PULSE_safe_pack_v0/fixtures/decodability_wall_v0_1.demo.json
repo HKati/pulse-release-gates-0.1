@@ -4,7 +4,7 @@
   "source_inputs": {
     "schema": "gravity_record_protocol_inputs_v0_1",
     "path": "PULSE_safe_pack_v0/fixtures/gravity_record_protocol_inputs_v0_1.demo.json",
-    "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    "sha256": "79725037fc4c9e787818d9ab3add7c9cce7b27d2fef011ee6954e9566a191573"
   },
   "config": {
     "alphabet_size": 2,
