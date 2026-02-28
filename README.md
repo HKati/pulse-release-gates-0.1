@@ -725,6 +725,14 @@ Curated entrypoints (repo-level docs under `docs/`):
 > This list is intentionally curated (entrypoint-first).  
 > Full documentation index: [docs/INDEX.md](docs/INDEX.md).
 
+### Verified theory/probe path
+
+- [docs/gravity_record_protocol_decodability_wall_v0_1.md](docs/gravity_record_protocol_decodability_wall_v0_1.md) — Decodability Wall spec (v0.1): operational threshold, file roles, canonical 4-step flow, fail-closed notes, and outputs.
+- [docs/gravity_record_protocol_inputs_v0_1.md](docs/gravity_record_protocol_inputs_v0_1.md) — Gravity Record Protocol inputs bundle spec (v0.1).
+- [PULSE_safe_pack_v0/fixtures/gravity_record_protocol_inputs_v0_1.demo.json](PULSE_safe_pack_v0/fixtures/gravity_record_protocol_inputs_v0_1.demo.json) — committed demo input fixture.
+- [PULSE_safe_pack_v0/fixtures/decodability_wall_v0_1.demo.json](PULSE_safe_pack_v0/fixtures/decodability_wall_v0_1.demo.json) — committed demo wall fixture.
+- ✅ Green end-to-end demo path verified locally (repo root): build inputs → check inputs → build wall → check wall; generated local outputs: `out/gravity_record_protocol_inputs_v0_1.json`, `out/decodability_wall_v0_1.json`; verification summary: `sha_match = True`, `wall_errors = []`, `wall_state = wall_found`.
+
 ### Orientation & contracts
 - [docs/STATE_v0.md](docs/STATE_v0.md) — Current snapshot of PULSE v0 gates, signals, and tooling.
 - [docs/STATUS_CONTRACT.md](docs/STATUS_CONTRACT.md) — Contract for `status.json` shape and semantics.
