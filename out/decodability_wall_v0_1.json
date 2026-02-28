@@ -1,0 +1,35 @@
+{
+  "artifact_kind": "decodability_wall_v0_1",
+  "cases": [
+    {
+      "bracket": {
+        "r_fail": 1.0,
+        "r_ok": 0.0
+      },
+      "case_id": "case_demo_ab",
+      "diagnostics": {
+        "crossings": 1,
+        "n_points": 2,
+        "r_max": 1.0,
+        "r_min": 0.0
+      },
+      "r_c": 0.0,
+      "wall_state": "wall_found",
+      "warnings": []
+    }
+  ],
+  "config": {
+    "alphabet_size": 2,
+    "log_base": "log2",
+    "method": "linear_interp",
+    "tie_break": "lowest_r",
+    "units": "bits_per_tick"
+  },
+  "errors": [],
+  "source_inputs": {
+    "path": "out/gravity_record_protocol_inputs_v0_1.json",
+    "schema": "gravity_record_protocol_inputs_v0_1",
+    "sha256": "79725037fc4c9e787818d9ab3add7c9cce7b27d2fef011ee6954e9566a191573"
+  },
+  "version": "v0.1"
+}
