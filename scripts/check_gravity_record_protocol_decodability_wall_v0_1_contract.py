@@ -70,24 +70,12 @@ def _format_schema_error(err: Any) -> str:
 
 
 def _is_finite_json_number(x: Any) -> bool:
-    """
-    JSON number in practice:
-    - int or float
-    - BUT NOT bool (Python quirk: bool is subclass of int)
-    - finite (no inf/nan)
-
-    Important: do NOT convert large ints to float (can OverflowError).
-    """
     if isinstance(x, bool):
         return False
-
-    # Large JSON integers are valid; treat all ints as finite without float conversion.
     if isinstance(x, int):
         return True
-
     if isinstance(x, float):
         return math.isfinite(x)
-
     return False
 
 
