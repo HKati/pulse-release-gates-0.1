@@ -1,0 +1,60 @@
+{
+  "cases": [
+    {
+      "case_id": "case_demo_ab",
+      "profiles": {
+        "kappa": {
+          "points": [
+            {
+              "n": 1,
+              "r": 0.0,
+              "uncertainty": 0.0,
+              "value": 1.0
+            },
+            {
+              "n": 1,
+              "r": 1.0,
+              "uncertainty": 0.0,
+              "value": 0.98
+            }
+          ]
+        },
+        "lambda": {
+          "points": [
+            {
+              "n": 1,
+              "r": 0.0,
+              "uncertainty": 0.0,
+              "value": 1.0
+            },
+            {
+              "n": 1,
+              "r": 1.0,
+              "uncertainty": 0.0,
+              "value": 0.99
+            }
+          ]
+        }
+      },
+      "stations": [
+        {
+          "r_areal": 100.0,
+          "r_label": "rA",
+          "station_id": "A"
+        },
+        {
+          "r_areal": 200.0,
+          "r_label": "rB",
+          "station_id": "B"
+        }
+      ]
+    }
+  ],
+  "provenance": {
+    "generated_at_utc": "2026-02-15T00:00:00Z",
+    "generator": "fixture:gravity_record_protocol_v0_1.rawlog.demo.jsonl"
+  },
+  "schema": "gravity_record_protocol_inputs_v0_1",
+  "schema_version": 1,
+  "source_kind": "demo"
+}
