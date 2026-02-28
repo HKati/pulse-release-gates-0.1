@@ -1,0 +1,27 @@
+{
+  "artifact_kind": "decodability_wall_v0_1",
+  "version": "v0.1",
+  "source_inputs": {
+    "schema": "gravity_record_protocol_inputs_v0_1",
+    "path": "PULSE_safe_pack_v0/fixtures/gravity_record_protocol_inputs_v0_1.demo.json",
+    "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "config": {
+    "alphabet_size": 2,
+    "log_base": "log2",
+    "units": "bits_per_tick",
+    "method": "linear_interp",
+    "tie_break": "lowest_r"
+  },
+  "cases": [
+    {
+      "case_id": "case_demo_ab",
+      "wall_state": "wall_found",
+      "r_c": 10.5,
+      "bracket": { "r_ok": 10.0, "r_fail": 11.0 },
+      "diagnostics": { "r_min": 0.0, "r_max": 20.0, "n_points": 21, "crossings": 1 },
+      "warnings": []
+    }
+  ],
+  "errors": []
+}
