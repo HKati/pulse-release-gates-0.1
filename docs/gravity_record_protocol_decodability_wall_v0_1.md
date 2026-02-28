@@ -13,6 +13,25 @@
 
 ---
 
+ ## What this doc is — and is not
+
+This page is the documentation/spec for the decodability wall artifact and workflow.
+
+It is:
+- the human-readable explanation of the wall contract,
+- the place that names the schema, builder, checker, fixtures, and generated output paths,
+- the place that shows the canonical local build/check flow.
+
+It is not:
+- a runtime JSON artifact,
+- the canonical machine-readable contract,
+- a replacement for committed demo fixtures.
+
+> Non-claim: this page is **not** a runtime output.
+> The canonical machine-readable contract lives in `schemas/gravity_record_protocol_decodability_wall_v0_1.schema.json`.
+
+---
+
 ## Why this doc exists
 
 This repository uses an applied notion of a *threshold (“wall”)*: a point where a record stream becomes **non-decodable** under a capacity constraint.
@@ -26,6 +45,40 @@ This document exists to make the problem statement explicit and non-hand-wavy:
 
 > Non-claim: this does **not** assert a physical “horizon” statement.  
 > It defines an **operational** threshold in an information/decodability model.
+
+---
+
+## File roles
+
+This workflow uses separate files for contract, build/check, fixtures, generated outputs, and documentation.
+
+### Upstream input bundle path
+- `PULSE_safe_pack_v0/fixtures/gravity_record_protocol_v0_1.rawlog.demo.jsonl`
+  - demo rawlog source for the input bundle flow
+- `scripts/build_gravity_record_protocol_inputs_v0_1.py`
+  - builds `out/gravity_record_protocol_inputs_v0_1.json`
+- `scripts/check_gravity_record_protocol_inputs_v0_1_contract.py`
+  - validates the generated input bundle artifact
+- `PULSE_safe_pack_v0/fixtures/gravity_record_protocol_inputs_v0_1.demo.json`
+  - committed demo input bundle fixture
+- `out/gravity_record_protocol_inputs_v0_1.json`
+  - generated input bundle artifact
+
+### Decodability wall path
+- `schemas/gravity_record_protocol_decodability_wall_v0_1.schema.json`
+  - canonical machine-readable contract for the wall artifact
+- `scripts/build_gravity_record_protocol_decodability_wall_v0_1.py`
+  - builds `out/decodability_wall_v0_1.json` from an input bundle
+- `scripts/check_gravity_record_protocol_decodability_wall_v0_1_contract.py`
+  - validates the wall artifact
+- `PULSE_safe_pack_v0/fixtures/decodability_wall_v0_1.demo.json`
+  - committed demo wall fixture
+- `out/decodability_wall_v0_1.json`
+  - generated wall output artifact
+
+### Documentation
+- `docs/gravity_record_protocol_decodability_wall_v0_1.md`
+  - this documentation/spec page; not a runtime output
 
 ---
 
@@ -192,6 +245,7 @@ If you change κ-modeling, you are changing the operational wall.
 
 ## Suggested artifact schema (informative)
 
+This section is illustrative only. The canonical machine-readable contract lives in `schemas/gravity_record_protocol_decodability_wall_v0_1.schema.json`.
 If this wall is produced by a detector/gate, record a minimal payload:
 
 ```json
@@ -223,6 +277,39 @@ If this wall is produced by a detector/gate, record a minimal payload:
 
 ---
 
+## Canonical happy path
+
+Use the following 4-step flow for the demo path.
+
+```bash
+python scripts/build_gravity_record_protocol_inputs_v0_1.py \
+  --rawlog PULSE_safe_pack_v0/fixtures/gravity_record_protocol_v0_1.rawlog.demo.jsonl \
+  --out out/gravity_record_protocol_inputs_v0_1.json \
+  --source-kind demo
+
+python scripts/check_gravity_record_protocol_inputs_v0_1_contract.py \
+  --in out/gravity_record_protocol_inputs_v0_1.json
+
+python scripts/build_gravity_record_protocol_decodability_wall_v0_1.py \
+  --in out/gravity_record_protocol_inputs_v0_1.json \
+  --out out/decodability_wall_v0_1.json \
+  --alphabet-size 2 \
+  --log-base log2
+
+python scripts/check_gravity_record_protocol_decodability_wall_v0_1_contract.py \
+  --in out/decodability_wall_v0_1.json
+```
+
+## Fail-closed notes
+
+The build/check flow is fail-closed.
+
+- If `--in` does not point to a valid input bundle artifact, the wall builder cannot produce a contract-valid wall artifact.
+- The wall checker expects a JSON artifact under `--in`.
+- The wall checker is not intended to validate `.md` files.
+
+---
+
 ## Ambiguity note
 
 The word “wall” is overloaded (physical horizon, policy wall, safety wall, etc.).
@@ -251,3 +338,30 @@ These are “why the comparison is non-hand-wavy” references:
   (useful when your “tick” is short).
 
 (If you need GR-specific motivation, keep it separate and explicitly marked as “motivating context”, not as the operational definition.)
+
+## Outputs
+
+This workflow produces a compact wall artifact.
+
+- Schema: `schemas/gravity_record_protocol_decodability_wall_v0_1.schema.json`
+- Builder: `scripts/build_gravity_record_protocol_decodability_wall_v0_1.py`
+- Checker: `scripts/check_gravity_record_protocol_decodability_wall_v0_1_contract.py`
+- Output: `out/decodability_wall_v0_1.json` (per-case summary, diff-friendly)
+
+Example:
+```json
+{
+  "artifact_kind": "decodability_wall_v0_1",
+  "cases": [{
+    "case_id": "case_demo_ab",
+    "bracket": { "r_fail": 1.0, "r_ok": 0.0 },
+    "diagnostics": { "crossings": 1, "n_points": 2, "r_min": 0.0, "r_max": 1.0 },
+    "r_c": 0.0,
+    "wall_state": "wall_found",
+    "warnings": []
+  }],
+  "config": { "alphabet_size": 2, "log_base": "log2", "method": "linear_interp", "tie_break": "lowest_r", "units": "bits_per_tick" },
+  "errors": [],
+  "source_inputs": { "path": "out/gravity_record_protocol_inputs_v0_1.json", "schema": "gravity_record_protocol_inputs_v0_1", "sha256": "79725037fc4c9e787818d9ab3add7c9cce7b27d2fef011ee6954e9566a191573" },
+  "version": "v0.1"
+}
