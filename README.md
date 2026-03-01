@@ -187,7 +187,10 @@ change any CI behaviour or gate logic.
 
 3. **Run it**:
    - Open **Actions → PULSE CI → Run workflow** (or push a PR).
-   - PULSE will generate: `status.json`, `report_card.html`, CI badges, and a PR comment.
+   - PULSE will generate `status.json` and `report_card.html`; derivative artifacts (for example badges) may also be generated in the run workspace.
+   - The default workflow is **artifact-first** and **least-privilege**: it uploads artifacts and keeps repository mutation disabled by default.
+   - Badge write-back, PR comments, and Pages snapshots are **optional publish surfaces** and should live in a separate opt-in workflow with explicit write permissions.
+
 
 **Ritual:** _Run PULSE before you ship._  
 PULSE enforces fail‑closed PASS/FAIL gates across Safety (I₂–I₇), Quality (Q₁–Q₄), and SLO budgets, on archived logs.
@@ -212,7 +215,7 @@ PULSE enforces fail‑closed PASS/FAIL gates across Safety (I₂–I₇), Qualit
 **Outputs**
 - **Quality Ledger** (human-readable table in the report card)
 - **RDSI** (Release Decision Stability Index) + Δ with CIs
-- **Badges** (PASS/FAIL, RDSI, Q-Ledger) in `/badges/`
+- **Badges** (generated derivative artifacts; repository write-back is optional and disabled by default)
 
 ## Decision levels
 
@@ -231,19 +234,23 @@ From `status.json`, PULSE exports **JUnit** (Tests tab) and **SARIF** (Security 
 
 ---
 
-## CI — already wired
+## CI — primary gating workflow
 
-This repository ships with a single workflow: `.github/workflows/pulse_ci.yml`
+The primary release-gating workflow is: `.github/workflows/pulse_ci.yml`
+
+Other workflows in this repository may exist for shadow diagnostics, workflow validation, or research experiments; unless explicitly promoted into the required gate set, they do not change release outcomes.
 
 It will:
+
 1. locate/unzip the pack (`PULSE_safe_pack_v0/` or `PULSE_safe_pack_v0.zip`),
 2. **run** the checks,
 3. **enforce** (fail-closed) the required gates,
 4. **augment** status with optional external detector summaries,
-5. **update & commit** the SVG badges into `/badges/`,
-6. **upload artifacts** (pulse-report: report card + status + badges),
-7. on PRs, post a **Quality Ledger** comment.
+5. **generate** derivative artifacts (for example ledger/report/badges) inside the run workspace,
+6. **upload artifacts** (for example `status.json`, `report_card.html`, `reports/`, and generated badges when present),
+7. keep **repository write-back disabled by default**.
 
+Optional publish surfaces such as PR comments, badge commits, and Pages snapshots should be implemented in a separate opt-in workflow with explicit write permissions.
 
 ## Governance preflight (fail‑closed)
 
