@@ -13,7 +13,7 @@ It is meant for humans who need to **sign off** on a release:
 The HTML artefact is:
 
 - local: `PULSE_safe_pack_v0/artifacts/report_card.html`
-- live demo: the GitHub Pages snapshot linked from the README.
+- optional static snapshot: a repository may publish a GitHub Pages view, but this is not required by the default CI contract.
 
 > The CI always treats `status.json` as the source of truth.  
 > The Quality Ledger is a **view** on that JSON, arranged for humans.
@@ -34,17 +34,15 @@ PULSE_safe_pack_v0/artifacts/status.json
 
 PULSE_safe_pack_v0/artifacts/report_card.html ← the Quality Ledger
 
-The CI workflow (.github/workflows/pulse_ci.yml) publishes the ledger
-as:
+The CI workflow (`.github/workflows/pulse_ci.yml`) treats the ledger as an artifact-first output:
+- it uploads the ledger as a build artifact,
+- it may surface related CI-native outputs where configured,
+- it keeps repository mutation disabled by default.
 
-a build artefact (ZIP),
+Optional PR comments and static Pages snapshots are separate publish surfaces and should be enabled explicitly in a dedicated write-capable workflow.
 
-a PR comment (for GitHub PRs),
-
-optionally a static snapshot on GitHub Pages.
-
-No additional configuration is needed: as long as status.json
-is present and valid, the Quality Ledger can be rendered.
+No additional configuration is needed to render the Quality Ledger from a valid `status.json`.
+Additional publish surfaces are optional and repository-specific.
 
 2. What problem the Quality Ledger solves
 
