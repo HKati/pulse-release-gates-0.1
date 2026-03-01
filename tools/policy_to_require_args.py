@@ -13,6 +13,8 @@ Behavior
     - missing set OR empty set => error (non-zero)
 - `--set core_required`:
     - missing set OR empty set => error (non-zero)
+- `--set release_required`:
+    - missing set OR empty set => error (non-zero)
 - `--set advisory`:
     - missing set OR empty set => valid (exit 0, print nothing)
 
@@ -20,6 +22,7 @@ Supports inline list forms:
   advisory: []
   required: [a, b, c]
   core_required: [a, b, c]
+  release_required: [a, b, c]
 
 Design constraints
 ------------------
@@ -28,6 +31,7 @@ Design constraints
     gates:
       required: ...
       core_required: ...
+      release_required: ...
       advisory: ...
 """
 
@@ -168,7 +172,7 @@ def main() -> int:
     ap.add_argument(
         "--set",
         default="required",
-        choices=["required", "core_required", "advisory"],
+        choices=["required", "core_required", "release_required", "advisory"],
         help="Which gate set to print (default: required)",
     )
     ap.add_argument(
@@ -192,7 +196,8 @@ def main() -> int:
         if not found_set or not gates:
             return 0
 
-    # Required-like sets must exist and must be non-empty.
+    # Required-like sets (required, core_required, release_required)
+    # must exist and must be non-empty.
     if not found_set:
         print(f"[policy_to_require_args] Gate set not found: {args.set}", file=sys.stderr)
         return 3
