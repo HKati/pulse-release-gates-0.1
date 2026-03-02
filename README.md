@@ -41,12 +41,12 @@
 - **DOI (versioned, Zenodo):** https://doi.org/10.5281/zenodo.17373002
 - **DOI (concept, all versions, Zenodo):** https://doi.org/10.5281/zenodo.17214908
 
-Releases: https://github.com/HKati/pulse-release-gates-0.1/releases
+- **Releases:** https://github.com/HKati/pulse-release-gates-0.1/releases
 
-Paradox Core (shadow reviewer surface): https://hkati.github.io/pulse-release-gates-0.1/paradox/core/v0/
-- Deterministic, CI-neutral by default (diagnostic overlay).
-- Edges are non-causal (co-occurrence/association only).
-- Provenance (source selection): https://hkati.github.io/pulse-release-gates-0.1/paradox/core/v0/source_v0.json
+- **Paradox Core (shadow reviewer surface):** https://hkati.github.io/pulse-release-gates-0.1/paradox/core/v0/
+  - Deterministic, CI-neutral by default (diagnostic overlay).
+  - Edges are non-causal (co-occurrence/association only).
+  - Provenance (source selection): https://hkati.github.io/pulse-release-gates-0.1/paradox/core/v0/source_v0.json
 
 
 # PULSE — Release Gates for Safe & Useful AI
@@ -156,8 +156,6 @@ If the OpenAI evals refusal smoke shadow workflow warns or fails, start here:
 More details: see `openai_evals_v0/README.md` → “Debugging / triage (shadow)”.
 
 ---
-
-**See the latest Quality Ledger (live):** https://hkati.github.io/pulse-release-gates-0.1/
 
 **Artifacts**
 
@@ -282,7 +280,7 @@ This repo now exposes a small “G‑field” surface as CI‑neutral overlays.
 They do **not** change any gates or release decisions; they only add extra
 diagnostic layers on top of the existing PULSE status.
 
-Current overlays:
+Additional overlays:
 
 - **G‑field overlay (`g_field_v0.json`)**  
   Snapshot of the internal G‑child field for recent traces / scenarios.  
@@ -1001,9 +999,6 @@ Human authors retain full responsibility for the design, verification, and decis
 
 - [Lighthouse Case #1](PULSE_safe_pack_v0/docs/LIGHTHOUSE_CASE_1.md)
 - [Competitor Radar (2025)](PULSE_safe_pack_v0/docs/COMPETITOR_RADAR_2025.md)
-
-## License & contact
-
 
 ## License & contact
 
