@@ -1105,6 +1105,54 @@ jobs:
 
           echo "OK: artifact postconditions satisfied (IS_RELEASE=$IS_RELEASE)"
      
+          - name: Write SARIF upload metadata
+          if: always()
+          shell: bash
+          run: |
+          set -euo pipefail
+
+          META_DIR="${{ env.PACK_DIR }}/artifacts/meta"
+          META_FILE="${META_DIR}/sarif_upload.json"
+          mkdir -p "${META_DIR}"
+
+          EVENT_NAME="${GITHUB_EVENT_NAME}"
+          REF="${GITHUB_REF}"
+          SHA="${GITHUB_SHA}"
+          PR_NUMBER=""
+          IS_FORK="false"
+
+          if [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]]; then
+            PR_NUMBER="${{ github.event.pull_request.number }}"
+            HEAD_REPO="${{ github.event.pull_request.head.repo.full_name }}"
+            BASE_REPO="${{ github.repository }}"
+            if [[ -n "${HEAD_REPO}" && "${HEAD_REPO}" != "${BASE_REPO}" ]]; then
+              IS_FORK="true"
+            fi
+          fi
+
+          if [[ "${IS_FORK}" == "true" ]]; then
+            IS_FORK_JSON=true
+          else
+            IS_FORK_JSON=false
+          fi
+
+          jq -n \
+            --arg event_name "${EVENT_NAME}" \
+            --arg ref "${REF}" \
+            --arg sha "${SHA}" \
+            --arg pr_number "${PR_NUMBER}" \
+            --argjson is_fork "${IS_FORK_JSON}" \
+            '{
+              event_name: $event_name,
+              ref: $ref,
+              sha: $sha,
+              pr_number: (if $pr_number == "" then null else ($pr_number | tonumber) end),
+              is_fork: $is_fork
+            }' > "${META_FILE}"
+
+          echo "Wrote SARIF upload metadata to ${META_FILE}"
+        
+      
       
       - name: Upload artifacts
         if: always()
