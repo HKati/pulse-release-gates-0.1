@@ -108,7 +108,7 @@ UI and Pages surfaces must be pure readers/renderers of immutable run artefacts.
 
 - **External detectors (opt‑in):** merge JSON/JSONL summaries from safety tools into the gate + Quality Ledger.
 - **Refusal‑delta:** stability signal for refusal policies (audit‑friendly quantification).
-- **JUnit & SARIF:** export artifacts for CI dashboards and code scanning.
+- **JUnit & SARIF:**  write `reports/junit.xml` and `reports/sarif.json` as workflow artifacts; an optional separate `upload_sarif.yml` workflow can publish SARIF into GitHub Code Scanning.
 - **First‑run stays simple:** defaults unchanged; optional pieces can be enabled later.
 
 ➡️ Full notes: see [Releases](https://github.com/HKati/pulse-release-gates-0.1/releases) and [CHANGELOG](./CHANGELOG.md).
@@ -187,9 +187,9 @@ change any CI behaviour or gate logic.
 
 3. **Run it**:
    - Open **Actions → PULSE CI → Run workflow** (or push a PR).
-   - PULSE will generate `status.json` and `report_card.html`; derivative artifacts (for example badges) may also be generated in the run workspace.
+   - PULSE will generate `status.json`, `report_card.html`, and, when exporters are present, `reports/junit.xml` + `reports/sarif.json`; derivative artifacts (for example badges) may also be generated in the run workspace.
    - The default workflow is **artifact-first** and **least-privilege**: it uploads artifacts and keeps repository mutation disabled by default.
-   - Badge write-back, PR comments, and Pages snapshots are **optional publish surfaces** and should live in a separate opt-in workflow with explicit write permissions.
+   - GitHub-native publish surfaces — for example SARIF upload to **Security → Code scanning alerts**, badge write-back, PR comments, or Pages snapshots — should live in separate opt-in workflows with explicit write permissions.
 
 
 **Ritual:** _Run PULSE before you ship._  
@@ -230,7 +230,12 @@ PULSE is deterministic if the runner image + seeds + CPU/GPU mode are pinned. Ex
 
 ## Native CI outputs
 
-From `status.json`, PULSE exports **JUnit** (Tests tab) and **SARIF** (Security → Code scanning alerts) into `reports/` and uploads them as CI artifacts.
+From `status.json`, PULSE can export **JUnit XML** and **SARIF** into `reports/` and upload them as CI artifacts.
+
+- `reports/junit.xml` — JUnit XML for downstream test-report tooling / CI consumers.
+- `reports/sarif.json` — SARIF for GitHub Code Scanning or any other SARIF consumer.
+
+The primary `.github/workflows/pulse_ci.yml` workflow stays read-only and artifact-first. If you want GitHub-native code-scanning alerts, add the optional `.github/workflows/upload_sarif.yml` workflow.
 
 ---
 
@@ -250,7 +255,7 @@ It will:
 6. **upload artifacts** (for example `status.json`, `report_card.html`, `reports/`, and generated badges when present),
 7. keep **repository write-back disabled by default**.
 
-Optional publish surfaces such as PR comments, badge commits, and Pages snapshots should be implemented in a separate opt-in workflow with explicit write permissions.
+Optional native publication — for example SARIF upload into GitHub Code Scanning — and other publish surfaces such as PR comments, badge commits, and Pages snapshots should be implemented in separate opt-in workflows with explicit write permissions.
 
 ## Governance preflight (fail‑closed)
 
