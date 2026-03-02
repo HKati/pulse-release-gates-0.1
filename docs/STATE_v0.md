@@ -1,158 +1,190 @@
-# PULSE v0 – state snapshot (EP-go1 / EPLabsAI)
+# PULSE v0 — current state snapshot
 
-This note summarises the current state of the PULSE v0 architecture in
-this repository, as maintained by the EP-go1 / E•Paradox Labs (EPLabsAI)
-workshop.
+> High-level reader note for where the repository currently stands.
+> This is a snapshot, not the normative contract.
 
-It is not a full design document; it is a quick, human-readable
-"where things are" snapshot.
+For normative semantics, use:
 
----
-
-## 1. Core gates and safe-pack
-
-- The core PULSE deterministic release gates live in:
-
-  - `PULSE_safe_pack_v0/` (safe-pack),
-  - `PULSE_safe_pack_v0/pulse_policy.yml` (policy source of truth).
-
-- These gates are:
-  - **fail-closed** – any required gate failure blocks the release,
-  - CI-enforced via the main `pulse_ci` workflow.
-
-- External documentation:
-  - README and methods docs describe which gates exist and what they
-    check.
-  - The Quality Ledger is the human-readable record of outcomes.
-
-Status: **stable, production-facing**.
+- `docs/STATUS_CONTRACT.md`
+- `docs/GLOSSARY_v0.md`
+- `pulse_gate_policy_v0.yml`
+- `.github/workflows/pulse_ci.yml`
 
 ---
 
-## 2. EPF & Paradox (shadow layer)
+## 1. What is normative today
 
-- EPF is wired as a **shadow-only** evaluation:
+The normative release path is anchored to:
 
-  - `.github/workflows/epf_experiment.yml` runs a non-blocking A/B
-    between baseline gates and EPF shadow logic.
-  - Outputs include:
-    - `status_baseline.json`
-    - `status_epf.json`
-    - `epf_report.txt`
-    - `epf_paradox_summary.json`
+- the final run artefact: `PULSE_safe_pack_v0/artifacts/status.json`
+- gate enforcement: `PULSE_safe_pack_v0/tools/check_gates.py`
+- repo-level gate policy: `pulse_gate_policy_v0.yml`
+- the primary CI wiring: `.github/workflows/pulse_ci.yml`
 
-- GitHub Actions Summary shows:
+Release semantics are intended to stay fail-closed:
 
-  - ✅ when EPF and baseline agree on all gates,
-  - ⚠️ when some gates have different decisions (paradox candidates).
+- missing required gates fail,
+- required gates must be literal boolean `true` to pass,
+- diagnostic overlays must not silently change shipping decisions.
 
-- Human guidance:
-
-  - `docs/PARADOX_RUNBOOK.md` explains what a maintainer should do when
-    EPF and baseline disagree (inspect, classify, decide, record).
-
-Status: **diagnostic, research-focused, CI-neutral**.
+This is the stable center of the repository.
 
 ---
 
-## 3. External detectors
+## 2. Core path for first-time adopters
 
-- External detectors are supported via an integration layer:
+The repository now exposes a smaller Core profile for first integrations:
 
-  - Safe-pack docs:
-    - `PULSE_safe_pack_v0/docs/EXTERNAL_DETECTORS.md`
+- `PULSE_safe_pack_v0/profiles/pulse_policy_core.yaml`
 
-- Two conceptual modes:
+That profile is:
 
-  1. **Gating mode (current default in this repo)**  
-     - External summaries are combined into a gate such as
-       `external_all_pass`.
-     - The main CI includes this gate in the required set.
-     - When metrics cross configured thresholds, CI fails.
+- `experimental`
+- minimal by design
+- aimed at first-time adopters
 
-  2. **Advisory / shadow mode**  
-     - Results are logged for analysis and governance only.
-     - Not currently the default wiring in this repository, but
-       supported conceptually and for downstream configurations.
+Its documented `core_required_gates` are:
 
-Status: **gating by default in this repo, with advisory-only mode
-available by configuration**.
+- `pass_controls_refusal`
+- `pass_controls_sanit`
+- `sanitization_effective`
+- `q1_grounded_ok`
+- `q4_slo_ok`
 
----
-
-## 4. RDSI & stability signals
-
-- RDSI (Release Decision Stability Index) is a **per-run stability
-  signal**:
-
-  - It asks: "If we perturb conditions slightly, how stable is the
-    PASS/FAIL decision?"
-  - High RDSI → robust decisions; low RDSI → fragile decisions.
-
-- It does **not** implement full long-term drift monitoring on its own.
-
-- Documentation:
-
-  - Methods: `PULSE_safe_pack_v0/docs/METHODS_RDSI_QLEDGER.md`
-  - Human notes: `docs/RDSI_STABILITY_NOTES.md`
-
-Status: **in use as a stability overlay; no automatic drift control**.
+The Core profile also includes a refusal-delta policy block, but that block is
+CI-neutral by design: it is meant for tooling and review surfaces, not for
+silently replacing deterministic gate outcomes.
 
 ---
 
-## 5. Drift and governance
+## 3. External detectors: supported, but not universally mandatory
 
-- PULSE emits rich artefacts (gates, ledgers, RDSI, EPF, optional
-  external detectors), but:
+External detectors are part of the repository model, but the current policy is
+layered.
 
-  - does **not** ship a full time-series drift monitoring / alerting
-    system,
-  - does **not** auto-adjust thresholds or policies.
+At repo level:
 
-- Drift-aware usage is described in:
+- external detector adoption is optional,
+- aggregate external results can be promoted into required gating,
+- evidence presence is a separate question from aggregate pass/fail.
 
-  - `docs/DRIFT_OVERVIEW.md`
+In practice, the repository policy distinguishes between:
 
-Status: **drift analysis is expected to be handled by higher-level
-governance / monitoring built on top of PULSE artefacts**.
+- a broader `required` gate set, which can include
+  `external_all_pass`,
+- and a smaller `core_required` set, which stays focused on a minimal
+  deterministic path.
 
----
+That means:
 
-## 6. PR summaries and tooling
+- external detector signals can be normative,
+- but they are not the universal default for every integration path.
 
-- Canonical PR summary path:
+For more detail, see:
 
-  - `PULSE_safe_pack_v0/tools/ci/pr_comment_qledger.py`
-
-- Top-level helper / example:
-
-  - `docs/PR_SUMMARY_TOOLS.md` explains roles and usage.
-
-Status: **PR summary tooling available; pack commenter is canonical**.
-
----
-
-## 7. Contributing & automation
-
-- Conventions:
-
-  - Conventional Commits / semantic PR titles,
-  - DCO sign-off,
-  - changelog updates under `[Unreleased]`.
-
-- External AI review:
-
-  - Codex (`chatgpt-codex-connector`) is configured as a GitHub
-    integration to review PRs.
-  - P1 findings are treated as **merge-blocking** until addressed.
-
-- See:
-
-  - `CONTRIBUTING.md` for the full contributor guidance.
+- `docs/EXTERNAL_DETECTORS.md`
+- `docs/external_detector_summaries.md`
+- `PULSE_safe_pack_v0/docs/EXTERNAL_DETECTORS.md`
 
 ---
 
-This state snapshot is v0-flavoured: it will likely evolve as EPF,
-Paradox Resolution, and drift tooling mature. When making significant
-changes to the architecture, please consider updating this file so that
-new readers can see, at a glance, where the system stands.
+## 4. Status artefact and Quality Ledger
+
+The main safe-pack entrypoint currently produces at least:
+
+- `PULSE_safe_pack_v0/artifacts/status.json`
+- `PULSE_safe_pack_v0/artifacts/report_card.html`
+
+Recommended interpretation:
+
+- `status.json` is the machine-readable source of truth for one run
+- `report_card.html` is the human-readable Quality Ledger view over that run
+
+The ledger is an explanation layer, not a second decision engine.
+
+When present, stability signals such as RDSI belong in the interpretation /
+review layer unless a repository explicitly promotes them into required policy.
+
+---
+
+## 5. EPF, hazard, and paradox layers
+
+EPF and related paradox handling remain diagnostic / shadow-oriented in the
+current repository model.
+
+The dedicated EPF shadow workflow:
+
+- `.github/workflows/epf_experiment.yml`
+
+produces comparison artefacts such as:
+
+- `status_baseline.json`
+- `status_epf.json`
+- `epf_report.txt`
+- `epf_paradox_summary.json`
+
+These artefacts are intended to help maintainers inspect tension between the
+deterministic baseline and the shadow EPF view.
+
+They should inform policy evolution, not silently override the main fail-closed
+release path.
+
+For operational guidance, see:
+
+- `docs/PARADOX_RUNBOOK.md`
+
+---
+
+## 6. Drift and governance
+
+PULSE already exposes several artefacts that are useful for drift-aware
+governance:
+
+- deterministic gate outcomes
+- `status.json`
+- Quality Ledger / report card
+- optional external detector summaries
+- EPF / paradox shadow artefacts
+
+However, the repository does **not** currently ship a full long-horizon drift
+monitoring system with built-in time-series alerting or automatic threshold
+adaptation.
+
+That broader drift story is still expected to be built on top of archived PULSE
+artefacts.
+
+For the current high-level framing, see:
+
+- `docs/DRIFT_OVERVIEW.md`
+
+---
+
+## 7. Practical reading of the repo today
+
+A good mental model for the repository today is:
+
+- **core deterministic release gating** at the center,
+- **artifact-first reporting** around it,
+- **diagnostic overlays** layered on top,
+- and **governance / audit surfaces** growing around the same immutable run
+  artefacts.
+
+The repo is no longer best described as “just one fixed gate pack”.
+It is better understood as:
+
+- a deterministic release-governance core,
+- plus additive diagnostic and review layers,
+- with explicit separation between normative and diagnostic meaning.
+
+---
+
+## 8. What should be kept stable
+
+When the architecture evolves, the following should remain stable:
+
+- the normative source of release meaning,
+- the separation between normative and diagnostic layers,
+- fail-closed handling of required gates,
+- artifact-first review and auditability.
+
+If one of those changes, update the canonical docs in the same change set.
