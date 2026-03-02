@@ -1105,10 +1105,10 @@ jobs:
 
           echo "OK: artifact postconditions satisfied (IS_RELEASE=$IS_RELEASE)"
      
-          - name: Write SARIF upload metadata
-          if: always()
-          shell: bash
-          run: |
+      - name: Write SARIF upload metadata
+        if: always()
+        shell: bash
+        run: |
           set -euo pipefail
 
           META_DIR="${{ env.PACK_DIR }}/artifacts/meta"
@@ -1151,6 +1151,7 @@ jobs:
             }' > "${META_FILE}"
 
           echo "Wrote SARIF upload metadata to ${META_FILE}"
+      
         
       
       
