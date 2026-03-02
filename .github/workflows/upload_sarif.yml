@@ -1,0 +1,183 @@
+name: Upload PULSE SARIF
+
+on:
+  workflow_run:
+    workflows: ["PULSE CI"]
+    types: [completed]
+
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: "Completed PULSE CI run ID"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+  security-events: write
+
+jobs:
+  upload-sarif:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Resolve source run
+        id: src
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          INPUT_RUN_ID: ${{ github.event.inputs.run_id }}
+        run: |
+          set -euo pipefail
+
+          api_get() {
+            curl -fsSL \
+              -H "Authorization: Bearer ${GH_TOKEN}" \
+              -H "Accept: application/vnd.github+json" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "$1"
+          }
+
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            RUN_ID="${INPUT_RUN_ID}"
+          else
+            RUN_ID="${{ github.event.workflow_run.id }}"
+          fi
+
+          if [[ -z "${RUN_ID}" ]]; then
+            echo "::error::Missing source workflow run id."
+            exit 1
+          fi
+
+          echo "run_id=${RUN_ID}" >> "$GITHUB_OUTPUT"
+
+          api_get "https://api.github.com/repos/${REPO}/actions/runs/${RUN_ID}" > run.json
+
+          RUN_NAME="$(jq -r '.name // ""' run.json)"
+          if [[ "${RUN_NAME}" != "PULSE CI" ]]; then
+            echo "::error::Expected workflow name 'PULSE CI', got '${RUN_NAME}'."
+            exit 1
+          fi
+
+      - name: Resolve upload target
+        id: target
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          api_get() {
+            curl -fsSL \
+              -H "Authorization: Bearer ${GH_TOKEN}" \
+              -H "Accept: application/vnd.github+json" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "$1"
+          }
+
+          EVENT="$(jq -r '.event // ""' run.json)"
+          HEAD_BRANCH="$(jq -r '.head_branch // ""' run.json)"
+          HEAD_SHA="$(jq -r '.head_sha // ""' run.json)"
+          BASE_REPO="$(jq -r '.repository.full_name // ""' run.json)"
+          HEAD_REPO="$(jq -r '.head_repository.full_name // ""' run.json)"
+          PR_NUMBER="$(jq -r '.pull_requests[0].number // ""' run.json)"
+
+          if [[ -z "${HEAD_SHA}" ]]; then
+            echo "::warning::Missing head_sha; skipping SARIF upload."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "reason=missing_head_sha" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [[ "${EVENT}" == "pull_request" ]]; then
+            if [[ -n "${HEAD_REPO}" && "${HEAD_REPO}" != "${BASE_REPO}" ]]; then
+              echo "::notice::Skipping SARIF upload for fork PR run."
+              echo "skip=true" >> "$GITHUB_OUTPUT"
+              echo "reason=fork_pr" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+
+            if [[ -z "${PR_NUMBER}" ]]; then
+              echo "::warning::workflow_run has no pull request number; skipping SARIF upload."
+              echo "skip=true" >> "$GITHUB_OUTPUT"
+              echo "reason=missing_pr_number" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+
+            PR_JSON="$(api_get "https://api.github.com/repos/${BASE_REPO}/pulls/${PR_NUMBER}")"
+            PR_MERGE_SHA="$(jq -r '.merge_commit_sha // ""' <<<"${PR_JSON}")"
+            TARGET_SHA="${HEAD_SHA}"
+            if [[ -n "${PR_MERGE_SHA}" ]]; then
+              TARGET_SHA="${PR_MERGE_SHA}"
+            else
+              echo "::warning::PR merge_commit_sha missing; falling back to workflow_run.head_sha."
+            fi
+
+            echo "ref=refs/pull/${PR_NUMBER}/merge" >> "$GITHUB_OUTPUT"
+            echo "sha=${TARGET_SHA}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [[ -z "${HEAD_BRANCH}" ]]; then
+            echo "::warning::Missing head_branch; skipping SARIF upload."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "reason=missing_head_branch" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          ENC_BRANCH="$(jq -rn --arg x "${HEAD_BRANCH}" '$x|@uri')"
+
+          if api_get "https://api.github.com/repos/${BASE_REPO}/git/ref/heads/${ENC_BRANCH}" >/dev/null 2>&1; then
+            echo "ref=refs/heads/${HEAD_BRANCH}" >> "$GITHUB_OUTPUT"
+            echo "sha=${HEAD_SHA}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if api_get "https://api.github.com/repos/${BASE_REPO}/git/ref/tags/${ENC_BRANCH}" >/dev/null 2>&1; then
+            echo "ref=refs/tags/${HEAD_BRANCH}" >> "$GITHUB_OUTPUT"
+            echo "sha=${HEAD_SHA}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "::warning::Could not resolve a branch or tag ref for '${HEAD_BRANCH}'; skipping SARIF upload."
+          echo "skip=true" >> "$GITHUB_OUTPUT"
+          echo "reason=unresolved_ref" >> "$GITHUB_OUTPUT"
+
+      - name: Download pulse-report artifact
+        if: steps.target.outputs.skip != 'true'
+        uses: actions/download-artifact@v4
+        with:
+          name: pulse-report
+          path: _pulse_artifacts
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ steps.src.outputs.run_id }}
+
+      - name: Check SARIF presence
+        id: sarif
+        if: steps.target.outputs.skip != 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          SARIF="_pulse_artifacts/reports/sarif.json"
+          if [[ ! -f "${SARIF}" ]]; then
+            echo "::notice::No reports/sarif.json artifact found in run ${{ steps.src.outputs.run_id }}; nothing to upload."
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "present=true" >> "$GITHUB_OUTPUT"
+          echo "path=${SARIF}" >> "$GITHUB_OUTPUT"
+
+      - name: Upload SARIF to GitHub code scanning
+        if: steps.target.outputs.skip != 'true' && steps.sarif.outputs.present == 'true'
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: ${{ steps.sarif.outputs.path }}
+          ref: ${{ steps.target.outputs.ref }}
+          sha: ${{ steps.target.outputs.sha }}
+          category: pulse-gates
