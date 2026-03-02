@@ -137,7 +137,7 @@ Example workflow:
       workflow_dispatch: {}
 
     permissions:
-      contents: write
+      contents: read
 
     jobs:
       pulse-core:
@@ -207,7 +207,7 @@ Example workflow:
                 --status "${PACK_DIR}/artifacts/status.json" \
                 --require "${REQ[@]}"
 
-          - name: Export JUnit & SARIF
+          - name: Export JUnit & SARIF artifacts
             if: always()
             shell: bash
             run: |
@@ -242,8 +242,10 @@ This job:
 1. locates the PULSE safe-pack,
 2. runs the pack (`tools/run_all.py`),
 3. enforces **only** the Core gate set (fail-closed),
-4. exports JUnit + SARIF,
+4. exports JUnit + SARIF artefacts,
 5. uploads artefacts for later inspection.
+
+Keep this Core workflow read-only. If you want GitHub-native code-scanning alerts, add a second opt-in workflow (for example `.github/workflows/upload_sarif.yml`) with narrowly scoped `security-events: write` permissions.
 
 ---
 
@@ -255,10 +257,8 @@ After a Core run you get at least:
   → machine-readable gate outcomes and metrics.
 - `PULSE_safe_pack_v0/artifacts/report_card.html`  
   → human-readable Quality Ledger excerpt for the run.
-- `reports/junit.xml`  
-  → gates surfaced as tests in the CI “Tests” tab.
-- `reports/sarif.json`  
-  → optional code-scanning style issues (if your CI supports SARIF).
+- `reports/junit.xml` → JUnit XML for downstream test-report tooling or CI consumers.
+- `reports/sarif.json` → SARIF ready for GitHub Code Scanning or any other SA  
 
 Typical flow:
 
