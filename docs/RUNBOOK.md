@@ -1,178 +1,269 @@
-# PULSE Runbook — 5‑minute quickstart (+ governance triage)
+# PULSE Runbook
 
-This page shows the minimal, copy‑pasteable way to run PULSE locally and where to find the outputs.
-No external runners are required.
+Minimal local run, fastest CI triage path, and fail-closed governance fixes.
 
-## Local (Linux/macOS, Python 3.11)
+---
 
-Run:
+## 1. Fastest local run
 
-    python PULSE_safe_pack_v0/tools/run_all.py
+From repo root:
 
-Outputs (always):
+```bash
+python PULSE_safe_pack_v0/tools/run_all.py
+```
 
-    PULSE_safe_pack_v0/artifacts/status.json
-    PULSE_safe_pack_v0/artifacts/report_card.html
+Expected outputs:
 
-Optional outputs (if exporters are wired in your run/CI):
+- `PULSE_safe_pack_v0/artifacts/status.json`
+- `PULSE_safe_pack_v0/artifacts/report_card.html`
 
-    reports/junit.xml
-    reports/sarif.json
+Optional outputs (when exporters are wired and succeed):
 
+- `reports/junit.xml`
+- `reports/sarif.json`
 
-## When CI is red: fastest path
+Recommended immediate validation:
 
-1) Open the failing job logs and look for a short code or a clear failure reason.
-2) If the failure is a governance guard, use the section below (GOV‑00x).
-3) Apply the fix and re-run CI.
+```bash
+python tools/validate_status_schema.py \
+  --schema schemas/status/status_v1.schema.json \
+  --status PULSE_safe_pack_v0/artifacts/status.json
+```
 
-Governance guards are intentionally fail‑closed: they exist to prevent silent semantic drift.
+---
 
+## 2. When CI is red: fastest path
 
-## Governance failures (fail‑closed guards)
+1. Open the failing job logs and find the first clear failure reason.
+2. If the failure is a governance guard, jump to the matching GOV-00x section below.
+3. Apply the fix locally.
+4. Re-run the relevant workflow.
 
-### GOV‑001 — Unreleased coverage missing (semantic changelog enforcement)
+Governance guards are intentionally fail-closed: they exist to prevent silent semantic drift.
 
-Meaning:
-- A release‑meaning file changed, but `docs/policy/CHANGELOG.md` has no entry under `Unreleased`.
+---
 
-Typical triggers:
+## 3. Governance failures (fail-closed guards)
+
+---
+
+### GOV-001 — Unreleased coverage missing
+
+#### Meaning
+
+A release-meaning file changed, but `docs/policy/CHANGELOG.md` has no matching entry under **Unreleased**.
+
+#### Typical triggers
+
 - `pulse_gate_policy_v0.yml`
 - `metrics/specs/**`
-- dataset‑manifest contracts / specs / schemas (repo‑specific “release‑meaning” set)
+- dataset manifest contracts / schemas / examples
+- status schema / contract changes
 
-Fix:
-1) Add a short entry under `Unreleased` in `docs/policy/CHANGELOG.md` describing:
-   - what changed
-   - why it changed
-   - (if applicable) the spec id/version that changed
-2) Re-run CI.
+#### Fix
 
-Notes:
-- This guard is an audit trail: it forces the semantic delta to be explicit.
+Add a short entry under **Unreleased** in `docs/policy/CHANGELOG.md`.
 
+Describe:
 
-### GOV‑002 — Duplicate YAML key found (unique‑keys guard)
+- what changed,
+- why it changed,
+- and, when applicable, the spec / policy id and version.
 
-Meaning:
-- A YAML mapping contains duplicate keys; some YAML parsers silently overwrite earlier keys (“last wins” drift).
+Re-run CI.
 
-Fix:
-- Remove/merge the duplicate keys in the reported YAML file(s).
+#### Why this guard exists
 
-Local preflight:
+It forces semantic deltas to be explicit and reviewable.
 
-    python tools/check_yaml_unique_keys.py pulse_gate_registry_v0.yml pulse_gate_policy_v0.yml
+---
 
+### GOV-002 — Duplicate YAML key found
 
-### GOV‑003 — Gate id missing in registry (status.json ↔ registry sync)
+#### Meaning
 
-Meaning:
-- `status.json` emitted a gate id that is not present in `pulse_gate_registry_v0.yml`.
+A YAML mapping contains duplicate keys. Some parsers silently keep the last one, which can change meaning without an obvious diff.
 
-Why this exists:
-- Prevents “new gates” from being introduced without a registry entry (name/intent/metadata).
+#### Fix
 
-Fix options:
-- Register the new gate id in `pulse_gate_registry_v0.yml` (preferred), or
-- Stop emitting the gate id from the producer/augmenter.
+Remove or merge the duplicate keys in the reported file.
 
-Local preflight (see `--help` for expected args, if any):
+#### Local preflight
 
-    python tools/check_gate_registry_sync.py --help
+```bash
+python tools/check_yaml_unique_keys.py \
+  pulse_gate_registry_v0.yml \
+  pulse_gate_policy_v0.yml
+```
 
+---
 
-### GOV‑004 — Policy ↔ registry mismatch (consistency guard)
+### GOV-003 — Gate id missing in registry
 
-Meaning:
-- Policy requires a gate that does not exist in the registry (or does not match expected registry metadata).
+#### Meaning
 
-Fix:
-- Update policy or registry so required gates are registered consistently.
+`status.json` emitted a gate id that is not registered in `pulse_gate_registry_v0.yml`.
 
-Local preflight:
+#### Why this guard exists
 
-    python tools/tools/check_policy_registry_consistency.py --help
+It prevents new gates from appearing in enforcement or reporting without registry metadata.
 
+#### Fix options
 
-### GOV‑005 —  Strict external evidence required (manual or version tag)
+- Register the new gate id in `pulse_gate_registry_v0.yml`, or
+- Stop emitting the gate id from the producer / augmenter.
 
-Meaning:
-- The run required external evidence (e.g. an “evidence present” gate), but evidence was missing/empty.
+#### Local preflight
 
-When it happens:
-- Typically on workflow dispatch with `strict_external_evidence=true`, or other release‑like enforcement modes.
+```bash
+python tools/check_gate_registry_sync.py \
+  --status PULSE_safe_pack_v0/artifacts/status.json \
+  --registry pulse_gate_registry_v0.yml
+```
 
-Fix:
-- Provide the expected external summaries/artifacts for the run, then re-run CI.
-- Only disable strict mode for non‑release runs where external tools are intentionally not connected.
+---
 
-Triage tip:
+### GOV-004 — Policy ↔ registry mismatch
 
-- Check the job summary: it prints require_set and strict_external_evidence with event/ref context.
- 
-Rule of thumb:
-- “Missing evidence” is acceptable only when the pipeline is explicitly configured to be non‑strict for that run type.
+#### Meaning
 
+Policy requires a gate that is missing from the registry, or requires a gate that is marked non-normative by default.
 
-### GOV‑006 — External evidence parse error (fail‑closed parsing)
+#### Fix
 
-Meaning:
-- An external evidence file exists but is invalid/unreadable JSON.
+Update policy and registry so required gates are registered consistently and remain normative by design.
 
-Fix:
-- Regenerate the evidence artifact and ensure it is valid JSON before re-running CI.
+#### Local preflight
 
-Rule:
-- “Present but broken” must never be treated as PASS.
+```bash
+python tools/tools/check_policy_registry_consistency.py \
+  --registry pulse_gate_registry_v0.yml \
+  --policy pulse_gate_policy_v0.yml \
+  --sets required core_required
+```
 
+---
 
-### GOV‑007 — Workflow YAML parse failure (unquoted ':' in step name)
+### GOV-005 — Strict external evidence required
 
-Meaning:
+#### Meaning
 
-- A GitHub Actions workflow YAML file failed to parse. A common footgun is an unquoted `:` followed by whitespace inside a step name.
+The run required external evidence, but evidence was missing or empty.
 
-Typical symptoms:
+#### When it happens
 
-- `Unquoted ':' in step name. Quote the value of - name: ...`
+Typically on:
+
+- `workflow_dispatch` runs with `strict_external_evidence=true`, or
+- version tag pushes such as `v*` / `V*`.
+
+#### Fix
+
+Provide the expected external summaries / artifacts for the run.
+
+Re-run CI.
+
+#### Rule of thumb
+
+Missing evidence is acceptable only when the pipeline is explicitly running in a non-strict mode.
+
+---
+
+### GOV-006 — External evidence parse error
+
+#### Meaning
+
+An external evidence file exists, but the JSON is invalid or unreadable.
+
+#### Fix
+
+Regenerate the evidence artifact and ensure it is valid JSON before re-running CI.
+
+#### Rule
+
+Present-but-broken evidence must never be treated as PASS.
+
+---
+
+### GOV-007 — Workflow YAML parse failure
+
+#### Meaning
+
+A GitHub Actions workflow file failed to parse.
+
+A common footgun is an unquoted `:` followed by whitespace inside a step name.
+
+#### Typical symptoms
+
+- Unquoted `:` in step name
 - `YAML parse error: mapping values are not allowed here`
 
-Fix:
+#### Fix
 
-- Prefer avoiding `:` in step names, or quote the entire step name using plain ASCII quotes (`'` or `"`).
-- If your editor tends to auto-replace quotes, use a block scalar (most robust):
+- Prefer avoiding `:` in step names, or
+- Quote the whole step name using plain ASCII quotes, or
+- Use a block scalar when the name is long.
 
-  ```yml
-  - name: >-
-      Enforce external evidence presence (strict: manual OR version tag)
+#### Robust example
 
+```yaml
+- name: >-
+    Enforce external evidence presence (strict: manual OR version tag)
+```
 
+---
 
-Notes:
+## 4. Local governance preflight
 
-This is a deterministic, fail-closed guard to prevent broken workflows from silently slipping through.
+From repo root, these checks mirror the core fail-closed governance path:
 
+### YAML duplicate-key guard
 
-## Local governance preflight (quick checks)
+```bash
+python tools/check_yaml_unique_keys.py \
+  pulse_gate_registry_v0.yml \
+  pulse_gate_policy_v0.yml
+```
 
-From repo root, these should mirror what CI enforces:
+### Status schema validation
 
-YAML unique keys:
+```bash
+python tools/validate_status_schema.py \
+  --schema schemas/status/status_v1.schema.json \
+  --status PULSE_safe_pack_v0/artifacts/status.json
+```
 
-    python tools/check_yaml_unique_keys.py pulse_gate_registry_v0.yml pulse_gate_policy_v0.yml
+### Gate registry sync
 
-Gate registry sync (status.json ↔ registry):
+```bash
+python tools/check_gate_registry_sync.py \
+  --status PULSE_safe_pack_v0/artifacts/status.json \
+  --registry pulse_gate_registry_v0.yml
+```
 
-    python tools/check_gate_registry_sync.py --help
+### Policy ↔ registry consistency
 
-Policy ↔ registry consistency:
+```bash
+python tools/tools/check_policy_registry_consistency.py \
+  --registry pulse_gate_registry_v0.yml \
+  --policy pulse_gate_policy_v0.yml \
+  --sets required core_required
+```
 
-    python tools/tools/check_policy_registry_consistency.py --help
+---
 
+## 5. Practical tips
 
-## Practical tips
+- If you change anything release-meaningful, update `docs/policy/CHANGELOG.md` under **Unreleased** in the same PR.
+- Keep diagnostic overlays CI-neutral unless they are explicitly promoted into the required gate set.
+- If you must break-glass, record the justification in the appropriate audit surface for the repo.
+- If a local preflight command fails, fix that first before re-running the full workflow.
 
-- If you change anything “release‑meaning” (policy/spec/contract), update `docs/policy/CHANGELOG.md` under `Unreleased` in the same PR.
-- Keep diagnostic overlays CI‑neutral unless explicitly promoted into the required gate set.
-- If you must break-glass, record the justification in the appropriate audit surface (ledger/changelog) per repo policy.
+---
+
+## 6. Related docs
+
+- `docs/status_json.md` — how to read `status.json`
+- `docs/STATUS_CONTRACT.md` — stable public contract for `status.json`
+- `docs/QUICKSTART_CORE_v0.md` — minimal Core CI wiring
+- `README.md` — repo-level overview and CI model
