@@ -295,13 +295,14 @@ Meaning:
 
 Possible reviewer-facing posture:
 
-- `release_state: STAGE_ONLY`
+- `release_state:  PROD_OK`
 - `stability_type: unstably_good`
 
 Meaning:
 
 - deterministic baseline still passes
-- but paradox/stability context suggests caution
+- paradox/stability context is noisier, so reviewer confidence is softer than in the quiet case
+- this is not the same as a baseline-driven downgrade
 
 ### Baseline FAIL
 
