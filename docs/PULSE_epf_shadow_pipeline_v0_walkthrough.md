@@ -358,23 +358,43 @@ If the disagreement matters, continue with:
 A close local reproduction of the current workflow is:
 
 ```bash
-python PULSE_safe_pack_v0/tools/run_all.py
+python PULSE_safe_pack_v0/tools/run_all.py || true
 
-cp PULSE_safe_pack_v0/artifacts/status.json status_baseline.json
-cp PULSE_safe_pack_v0/artifacts/status.json status_epf.json
+if [ -f PULSE_safe_pack_v0/artifacts/status.json ]; then
+  cp PULSE_safe_pack_v0/artifacts/status.json status.json
+else
+  echo '{"metrics": {}}' > status.json
+fi
 
-python scripts/check_gates.py \
-  --config pulse_gates.yaml \
-  --status status_baseline.json \
-  --defer-policy fail
+if [ -f status.json ]; then
+  cp status.json status_baseline.json
+  cp status.json status_epf.json
+else
+  echo '{"decisions": {}}' > status_baseline.json
+  echo '{"experiments":{"epf":{}}}' > status_epf.json
+fi
 
-python scripts/check_gates.py \
-  --config pulse_gates.yaml \
-  --status status_epf.json \
-  --epf-shadow \
-  --seed 1737 \
-  --defer-policy warn
+if [ -f pulse_gates.yaml ] && [ -f scripts/check_gates.py ]; then
+  python scripts/check_gates.py \
+    --config pulse_gates.yaml \
+    --status status_baseline.json \
+    --defer-policy fail
+
+  python scripts/check_gates.py \
+    --config pulse_gates.yaml \
+    --status status_epf.json \
+    --epf-shadow \
+    --seed 1737 \
+    --defer-policy warn
+else
+  echo "Stub/degraded local reproduction: pulse_gates.yaml or scripts/check_gates.py missing."
+fi
+
 ```
+
+This mirrors the current CI behavior more closely, including the stub fallback
+path when `run_all.py` does not produce `PULSE_safe_pack_v0/artifacts/status.json`
+or when the EPF checker/config inputs are missing.
 
 Then inspect:
 
