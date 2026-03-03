@@ -20,11 +20,7 @@ Important boundary:
 
 For the EPF ↔ topology conceptual bridge, see:
 
-HKati-patch-953555
-- `docs/PULSE_topology_epf_hook_v0.md`
-
 - `docs/PULSE_topology_epf_hook.md`
- main
 
 For the current repository state and normative boundary, see:
 
@@ -193,7 +189,7 @@ Bad topology uses of EPF would be:
 
 For the detailed bridge, see:
 
-- `docs/PULSE_topology_epf_hook.md`
+- `docs/PULSE_topology_epf_hook_v0.md`
 
 ---
 
@@ -328,7 +324,7 @@ reviewed update.
 
 ## 11. Related docs
 
-- `docs/PULSE_topology_epf_hook.md`
+- `docs/PULSE_topology_epf_hook_v0.md`
 - `docs/PULSE_decision_field_v0_overview.md`
 - `docs/PULSE_epf_shadow_quickstart_v0.md`
 - `docs/PULSE_epf_shadow_pipeline_v0_walkthrough.md`
