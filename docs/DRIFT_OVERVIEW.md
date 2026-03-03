@@ -1,170 +1,258 @@
 # Drift and governance overview (v0)
 
-This document sketches how PULSE can be used as part of a broader
-drift/governance story, and what is currently *in scope* vs *out of
-scope* for the repository.
+> High-level note on how PULSE artefacts can support drift-aware governance.
+> This page is descriptive, not a second decision engine.
 
-It is intentionally high-level: it does not prescribe a single drift
-monitoring stack, but outlines how existing PULSE signals can be
-combined over time.
+For normative release semantics, use:
 
----
-
-## What we call "drift"
-
-In this context, "drift" can refer to several related phenomena:
-
-- **Model drift** – the behaviour of a model changes over versions
-  (e.g. new checkpoint, new fine-tuning) in ways that affect safety or
-  quality metrics.
-- **Data / workload drift** – the distribution of inputs or use cases
-  shifts (e.g. new languages, domains, or prompt patterns).
-- **Policy drift** – the gate policies, thresholds or profiles change
-  over time (intentionally or accidentally).
-- **Tooling drift** – changes in evaluation tooling, detectors or
-  reference datasets that affect measured metrics.
-
-PULSE does not attempt to "freeze" any of these, but aims to make
-changes **observable and auditable** via:
-
-- deterministic, fail-closed gates,
-- the Quality Ledger,
-- per-run stability signals such as RDSI,
-- optional external detectors and EPF experiments.
+- `pulse_gate_policy_v0.yml`
+- `.github/workflows/pulse_ci.yml`
+- `docs/STATUS_CONTRACT.md`
+- `docs/status_json.md`
 
 ---
 
-## Existing building blocks
+## 1. What we mean by “drift”
 
-Today, the repository already provides several components that are
-useful for drift-aware governance:
+In this repository, “drift” can refer to several related but distinct changes:
 
-- **Deterministic gates and policies**
-  - Strict thresholds and profiles (`pulse_policy.yml`, `profiles/`)
-    encode the current expectations.
-  - Any change to these profiles is versioned and can be reviewed.
+- **Model drift**
+  - model behaviour changes across versions, checkpoints, or fine-tuning updates.
 
-- **Quality Ledger**
-  - Each CI run can produce a structured ledger of gate outcomes,
-    reason codes and key metrics.
-  - Over time, these ledgers form a history of model and policy
-    behaviour.
+- **Data / workload drift**
+  - the input mix changes over time:
+    - new prompt patterns,
+    - new languages,
+    - new customer segments,
+    - new usage scenarios.
 
-- **RDSI (Release Decision Stability Index)**
-  - Per-run stability signal under small perturbations.
-  - Helps identify decisions that are fragile vs robust in the current
-    configuration.
-  - See `docs/RDSI_STABILITY_NOTES.md` for more detail.
+- **Policy drift**
+  - release meaning changes because thresholds, required gates, or profiles change.
 
-- **EPF and paradox reporting**
-  - Shadow evaluations near thresholds can surface cases where the
-    deterministic gates and adaptive logic disagree.
-  - `epf_report.txt` and `epf_paradox_summary.json` highlight gates
-    that are borderline or potentially miscalibrated.
-  - See `docs/PARADOX_RUNBOOK.md` for handling such cases.
+- **Tooling drift**
+  - evaluator, detector, dataset, or contract changes alter what gets measured.
 
-- **External detectors (optional)**
-  - External tools can add safety/quality signals that are either
-    gating or advisory, depending on configuration.
-  - See `PULSE_safe_pack_v0/docs/EXTERNAL_DETECTORS.md` for details.
-
-Taken together, these form a rich **audit trail** that drift analysis
-can build on.
+PULSE does not try to freeze all of these.
+Instead, it tries to make them **observable, auditable, and reviewable** via
+immutable run artefacts.
 
 ---
 
-## What is *not* implemented (yet)
+## 2. What PULSE already gives you today
 
-This repository does **not** ship a full drift monitoring or anomaly
-detection system. In particular, it does not include:
+PULSE already emits several artefacts that are useful for drift-aware
+governance.
 
-- automatic time-series storage and dashboards for all metrics,
-- built-in alerts when metrics or RDSI change beyond some global
-  threshold over many runs,
-- automatic adaptation of thresholds or policies based on observed
-  drift.
+### Deterministic release state
 
-All of these are deliberately left to higher-level governance systems
-or to downstream integrations (e.g. internal dashboards, notebooks,
-or external monitoring platforms).
+The central machine-readable artefact is:
 
----
+- `PULSE_safe_pack_v0/artifacts/status.json`
 
-## How to use PULSE data for drift (practical sketch)
+This is the most important anchor for later drift analysis, because it records
+the gate outcomes and measured signals for one concrete run.
 
-Even without a dedicated drift service, you can start building a
-drift-aware view of your system by:
+### Human-readable review surface
 
-1. **Persisting run artefacts**
-   - Archive the Quality Ledger, RDSI outputs, and key status files
-     for important runs (for example via your CI artefact storage,
-     object storage, or Zenodo snapshots).
-   - Tag snapshots with model version, dataset version, and policy
-     version where applicable.
+The corresponding human-readable artefact is:
 
-2. **Sampling a history window**
-   - Periodically (e.g. weekly), sample a set of recent runs:
-     - read their ledgers,
-     - extract key metrics and RDSI values,
-     - group by model/policy version.
+- `PULSE_safe_pack_v0/artifacts/report_card.html`
 
-3. **Looking for directional patterns**
-   - For each metric of interest (e.g. groundedness, refusal rate):
-     - plot or tabulate its values over the sampled runs,
-     - look for monotonic trends (steady degradation or improvement).
-   - For RDSI:
-     - watch for sustained drops in stability over multiple runs.
+This Quality Ledger is useful when humans need to compare runs, inspect
+failures, and archive review context.
 
-4. **Combining with EPF/paradox signals**
-   - Check whether gates that appear frequently in paradox reports or
-     borderline states are also the ones drifting.
-   - Use this to prioritise which policies to revisit first.
+### Policy-grounded release meaning
 
-5. **Feeding back into governance**
-   - When a drift pattern is identified and confirmed:
-     - open a tracked change (issue/PR/ticket) describing:
-       - what drift was observed,
-       - which metrics/gates are affected,
-       - what change is proposed (threshold adjustment, new tests,
-         model rollback, etc.).
-     - apply changes through the usual CI+review process so that the
-       governance trail remains intact.
+The repository’s release meaning is grounded in:
 
----
+- `pulse_gate_policy_v0.yml`
+- `PULSE_safe_pack_v0/tools/check_gates.py`
+- `.github/workflows/pulse_ci.yml`
 
-## Possible future directions
+This matters for drift work because “the model changed” and “the policy changed”
+are not the same story.
 
-Future versions of PULSE or downstream systems could add more explicit
-support for drift analysis, for example:
+### Optional external evidence
 
-- a small CLI or library that:
-  - ingests multiple Quality Ledgers and RDSI reports,
-  - computes basic summaries and trend metrics,
-  - exports data to plotting tools or dashboards.
+External detector summaries can be folded into the final status artefact.
 
-- a "governance topology" layer that:
-  - aggregates state from multiple repositories or services,
-  - defines organisation-level drift policies,
-  - provides a central view of model and gate evolution.
+This makes it possible to track, over time:
 
-Those extensions are intentionally out of scope for the current
-repository, but this document can serve as a design seed for such
-work.
+- whether external evidence was present,
+- whether it passed overall,
+- and whether detector results themselves are trending.
+
+### EPF / paradox shadow artefacts
+
+The EPF shadow path can emit comparison artefacts such as:
+
+- `status_baseline.json`
+- `status_epf.json`
+- `epf_report.txt`
+- `epf_paradox_summary.json`
+
+These are especially useful when drift shows up first as borderline or unstable
+behaviour near thresholds.
 
 ---
 
-## Summary
+## 3. What this repository does *not* implement (yet)
 
-- PULSE already provides several useful signals for drift-aware
-  governance: deterministic gates, Quality Ledger, RDSI, EPF, and
-  optional external detectors.
-- The repository does **not** include a full drift monitoring
-  solution; instead, it exposes rich artefacts that can be analysed
-  over time.
-- Drift analysis today is expected to be orchestrated by higher-level
-  tools or manual workflows that consume these artefacts and feed
-  results back into policy changes.
+This repository does **not** currently ship a full long-horizon drift monitoring
+system.
 
-This keeps PULSE focused: it is a **reliable, auditable gate and
-signal generator**, while broader, long-term drift handling remains a
-responsibility of governance and monitoring layers built on top of it.
+In particular, it does not include:
+
+- a built-in multi-run metrics store,
+- automatic time-series dashboards for all gates and metrics,
+- automatic alerts on long-horizon drift,
+- autonomous threshold adaptation,
+- automatic policy rewriting based on observed trends.
+
+Those responsibilities are intentionally left to higher-level governance,
+analytics, or monitoring layers built on top of archived PULSE artefacts.
+
+---
+
+## 4. Practical drift questions you can already answer
+
+Even without a dedicated drift platform, archived PULSE runs can already help
+answer questions such as:
+
+- Did a newer model version start failing `q1_grounded_ok` more often?
+- Did `q4_slo_ok` become less stable after an infrastructure change?
+- Are refusal-delta or RDSI signals weakening over recent runs?
+- Are external detectors appearing more often, or failing more often?
+- Are EPF paradox candidates clustering around the same gate?
+- Did a release outcome change because of model/data behaviour, or because the
+  policy changed?
+
+This is already useful governance value, even before adding a full trend system.
+
+---
+
+## 5. Recommended drift-aware workflow
+
+A practical low-friction workflow is:
+
+1. **Archive important run artefacts**
+   - at minimum:
+     - `status.json`
+     - `report_card.html`
+   - and, when relevant:
+     - external detector summaries
+     - EPF / paradox artefacts
+     - optional JUnit / SARIF exports
+
+2. **Tag runs with provenance**
+   - model version
+   - dataset version
+   - policy version / commit
+   - release context
+
+3. **Compare history windows**
+   - sample a recent window of runs,
+   - group by model / policy / environment,
+   - compare key metrics and gate outcomes.
+
+4. **Separate signal types**
+   - behaviour drift,
+   - policy drift,
+   - tooling drift,
+   - evidence-availability drift.
+
+5. **Feed conclusions back through normal review**
+   - if drift is real and important:
+     - open an issue / PR / tracked change,
+     - document the observed pattern,
+     - update policy or tests through the normal fail-closed review path.
+
+This keeps drift handling auditable instead of ad hoc.
+
+---
+
+## 6. External evidence nuance
+
+For drift work, external detector evidence has two separate questions:
+
+### A. Was evidence present at all?
+
+This is about summary presence / parseability.
+
+### B. Did the folded evidence pass overall?
+
+This is about aggregate detector outcome.
+
+These are not the same thing.
+
+When you study external-detector drift, do not look only at aggregate pass/fail.
+Also track whether evidence was actually present and usable.
+
+For release-grade workflows, strict evidence requirements should be enabled
+explicitly rather than inferred indirectly.
+
+---
+
+## 7. EPF and paradox as drift prioritisation signals
+
+EPF / paradox artefacts are useful not because they replace deterministic gates,
+but because they can highlight **where drift pressure is accumulating**.
+
+Good examples:
+
+- a gate that still passes deterministically, but increasingly shows paradox
+  candidates in shadow mode,
+- a threshold that repeatedly flips under small perturbations,
+- a quality metric that is technically passing but becoming operationally fragile.
+
+That makes EPF/paradox a prioritisation surface for humans:
+
+- which thresholds need review,
+- which evaluations need richer coverage,
+- which model changes deserve rollback or staging-only treatment.
+
+---
+
+## 8. Recommended archive bundle for drift/governance work
+
+For important runs, archive together:
+
+- `PULSE_safe_pack_v0/artifacts/status.json`
+- `PULSE_safe_pack_v0/artifacts/report_card.html`
+- the policy version / commit that governed the run
+- external detector summaries, when used
+- EPF / paradox artefacts, when produced
+- any human review note, waiver, or release decision record
+
+This makes later reconstruction much easier.
+
+---
+
+## 9. Future directions
+
+Reasonable future extensions could include:
+
+- a small history CLI that ingests multiple `status.json` files,
+- drift summaries across a rolling window of runs,
+- trend views for RDSI, refusal-delta, and key quality gates,
+- organisation-level governance dashboards spanning multiple repos or services.
+
+Those are natural next layers, but they are intentionally outside the current
+repository’s core scope.
+
+---
+
+## 10. Summary
+
+Today, PULSE is best understood as:
+
+- a **deterministic release-state generator**,
+- an **artifact-first review surface**,
+- and a **good substrate for drift-aware governance**.
+
+It is **not** yet a full drift monitoring platform.
+
+That separation is healthy:
+PULSE produces trustworthy run artefacts,
+while long-horizon drift handling can be built on top of them without changing
+the core release semantics.
