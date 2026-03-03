@@ -1,313 +1,380 @@
-# PULSE Topology v0 – CLI demo
+# PULSE topology v0 CLI demo
 
-This document shows how to run the Topology v0 overlays **entirely from the CLI**,
-without touching CI workflows.
+> Practical CLI demo path for the optional topology layer on top of
+> deterministic PULSE artifacts.
 
-The goal is to go from a baseline PULSE run to three additional artefacts:
+This page is a **hands-on demo guide**.
 
-- `paradox_field_v0.json` – paradox atoms over gates
-- `stability_map_v0_demo.json` (optional) – a tiny demo stability map cell
-- `decision_engine_v0.json` – a compact decision overlay with release + stability type
+It is for readers who want to see how the current topology-family tools fit
+together from the command line without confusing demo outputs with the
+repository’s normative release path.
 
-on top of a single `status.json` produced by the safe pack.
+Important boundary:
 
-> **Scope:** this is a *demo* pipeline for exploration and governance.
-> It does not change core PULSE gating or CI behaviour.
+- the deterministic baseline remains the source of truth for release gating
+- topology tools are optional and diagnostic
+- CLI demo outputs are reviewer-facing artifacts, not automatic policy rewrites
+
+For the conceptual layer, see:
+
+- `docs/PULSE_topology_v0_design_note.md`
+- `docs/PULSE_topology_v0_methods.md`
+- `docs/PULSE_topology_overview_v0.md`
+- `docs/PULSE_decision_field_v0_overview.md`
+
+For the quickest Decision Engine path, see:
+
+- `docs/PULSE_topology_v0_quickstart_decision_engine_v0.md`
 
 ---
 
-## 0. Prerequisites
+## 1. What this CLI demo is for
 
-From the repo root:
+Use this page if you want to:
 
-    pip install -r requirements.txt
+- start from a real baseline `status.json`,
+- generate optional topology inputs from the command line,
+- inspect the current live tool CLIs in your checkout,
+- and produce a compact reviewer-facing topology summary.
 
-(optionally in a virtual environment).
+This is the CLI-level “show me the moving parts” page.
 
-All commands below assume you run them from the repository root.
+It is **not** the normative release workflow.
 
 ---
 
-## 1. Run the PULSE safe pack (baseline status.json)
+## 2. Minimum prerequisites
 
-First, run the standard PULSE safe pack to produce a `status.json` artefact.
+You should have:
 
-    python PULSE_safe_pack_v0/tools/run_all.py
+- a checked-out repo,
+- Python available,
+- a baseline run artifact:
+  - `PULSE_safe_pack_v0/artifacts/status.json`
 
-This will populate:
+Recommended companion artifact:
+
+- `PULSE_safe_pack_v0/artifacts/report_card.html`
+
+If you do not have a real baseline `status.json`, stop here.  
+The topology family should not be treated as authoritative without it.
+
+---
+
+## 3. Demo flow at a glance
+
+The shortest honest CLI demo is:
+
+1. run the deterministic baseline,
+2. generate optional paradox context,
+3. inspect optional Stability Map tooling,
+4. inspect/run the Decision Engine,
+5. read the output as a reviewer-facing summary.
+
+A good mental model is:
+
+- baseline first
+- optional context second
+- compact summary last
+
+---
+
+## 4. Step 1 — Produce the deterministic baseline
+
+From repo root:
+
+```bash
+python PULSE_safe_pack_v0/tools/run_all.py
+```
+
+Expected baseline artifacts:
+
+- `PULSE_safe_pack_v0/artifacts/status.json`
+- `PULSE_safe_pack_v0/artifacts/report_card.html`
+
+Quick sanity check:
+
+```bash
+python tools/validate_status_schema.py \
+  --schema schemas/status/status_v1.schema.json \
+  --status PULSE_safe_pack_v0/artifacts/status.json
+```
+
+Interpretation:
+
+this is the authoritative machine-readable baseline for the rest of the demo
+
+---
+
+## 5. Step 2 — Generate optional paradox context
+
+Create a working output directory:
+
+```bash
+mkdir -p out
+```
+
+Then generate a paradox field from the baseline artifact directory:
+
+```bash
+python PULSE_safe_pack_v0/tools/pulse_paradox_atoms_v0.py \
+  --status-dir PULSE_safe_pack_v0/artifacts \
+  --output out/paradox_field_v0.json
+```
+
+You can inspect the live CLI anytime with:
+
+```bash
+python PULSE_safe_pack_v0/tools/pulse_paradox_atoms_v0.py --help
+```
+
+Expected output:
+
+- `out/paradox_field_v0.json`
+
+Interpretation:
+
+- this is optional conflict/tension structure for later reviewer interpretation
+- it does not change baseline release semantics
+
+---
+
+## 6. Step 3 — Inspect the Stability Map demo surface
+
+The repository currently exposes a demo Stability Map tool surface.
+
+Start by inspecting the live CLI in your checkout:
+
+```bash
+python PULSE_safe_pack_v0/tools/pulse_stability_map_demo_v0.py --help
+```
+
+What matters conceptually:
+
+- the current repo-level surface is a demo/prototype Stability Map path
+- it is useful for learning the topology stack
+- it should not be overstated as a fully generalized production stability-map pipeline
+
+If your local checkout exposes an output file, keep it alongside the other demo
+artifacts.
+
+Typical demo output name:
+
+- `stability_map_v0_demo.json`
+
+Interpretation:
+
+- this gives you an optional stability-oriented topology input
+- it is diagnostic context, not a normative gate artifact
+
+---
+
+## 7. Step 4 — Inspect the Decision Engine CLI
+
+Now inspect the live Decision Engine surface:
+
+```bash
+python PULSE_safe_pack_v0/tools/pulse_decision_engine_v0.py --help
+```
+
+The current repo-level expectation is:
+
+- required input:
+  - one baseline `status.json`
+- optional inputs:
+  - Stability Map
+  - paradox field
+- output:
+  - `decision_engine_v0.json`
+
+The exact CLI flag spelling should follow the live `--help` output in your own
+checkout.
+
+That is the safest and most honest CLI-demo rule.
+
+---
+
+## 8. Step 5 — Run the Decision Engine with the artifacts you actually have
+
+Run the Decision Engine using:
+
+- the required baseline `PULSE_safe_pack_v0/artifacts/status.json`
+- optional `out/paradox_field_v0.json`, if produced
+- optional Stability Map demo artifact, if produced
+
+Write the result to a compact output such as:
+
+- `out/decision_engine_v0.json`
+
+Follow the exact flag names from:
+
+```bash
+python PULSE_safe_pack_v0/tools/pulse_decision_engine_v0.py --help
+```
+
+Do not fabricate optional inputs just to make the output look richer.
+
+Missing optional context is better than invented context.
+
+---
+
+## 9. Minimal demo modes
+
+You do not need the full stack every time.
+
+### Mode A — Baseline only
+
+Inputs:
 
 - `PULSE_safe_pack_v0/artifacts/status.json`
 
-The exact contents depend on your configuration, but we assume:
+Use when:
 
-- `status.json` contains:
-  - top-level `gates` → boolean gate flags,
-  - optional `metrics` (e.g. RDSI-like metrics),
-  - metadata about the run.
+- you want the smallest possible reviewer-facing summary
+- you are only proving the Decision Engine path works
 
-This is the **only required input** for the CLI demo.
+### Mode B — Baseline + paradox field
 
----
+Inputs:
 
-## 2. Build paradox_field_v0 from status artefacts
+- baseline `status.json`
+- `out/paradox_field_v0.json`
 
-Next, we mine paradox atoms from the gate patterns in one or more `status.json`
-artefacts. For the simplest demo, we use the safe pack’s default `artifacts/`
-directory as the source.
+Use when:
 
-    python PULSE_safe_pack_v0/tools/pulse_paradox_atoms_v0.py \
-      --status-dir PULSE_safe_pack_v0/artifacts \
-      --output PULSE_safe_pack_v0/artifacts/paradox_field_v0.json \
-      --max-atom-size 4
+- you want conflict/tension structure in the summary
+- you want a more honest description of fragile runs
 
-This writes:
+### Mode C — Baseline + paradox field + Stability Map
 
-- `PULSE_safe_pack_v0/artifacts/paradox_field_v0.json`
+Inputs:
 
-with structure:
+- baseline `status.json`
+- `out/paradox_field_v0.json`
+- Stability Map demo artifact, if available
 
-    {
-      "paradox_field_v0": {
-        "version": "PULSE_paradox_field_v0",
-        "generated_at_utc": "...",
-        "source": {
-          "status_dir": "PULSE_safe_pack_v0/artifacts",
-          "run_count": 1
-        },
-        "atoms": [
-          {
-            "atom_id": "atom_0000",
-            "gates": ["quality.q3_fairness_ok", "slo.q4_slo_ok"],
-            "minimal": true,
-            "severity": 0.9
-          }
-        ]
-      }
-    }
+Use when:
 
-Where:
-
-- `atoms[]` are **paradox atoms**:
-  - minimal unsatisfiable gate sets (MUS) in the local decision field.
-- `severity` is a simple `[0,1]` score for how “hard” the paradox is
-  (e.g. how often the atom appears across runs, or how extreme the tradeoff is).
-
-You can inspect the file directly, for example:
-
-    jq '.paradox_field_v0.atoms[0]' PULSE_safe_pack_v0/artifacts/paradox_field_v0.json
-
-(or use any JSON viewer you prefer).
+- you want the richest current topology demo path
+- you are building reviewer notes or dashboard prototypes
 
 ---
 
-## 3. (Optional) Build a demo stability_map_v0
+## 10. How to read the demo outputs
 
-For a full Topology v0 picture, we also want a notion of **stability / curvature**
-over a small region of the decision field. The demo tool constructs a synthetic
-2×2 cell for the fairness–SLO–EPF example.
+Recommended reading order:
 
-    python PULSE_safe_pack_v0/tools/pulse_stability_map_demo_v0.py \
-      --output PULSE_safe_pack_v0/artifacts/stability_map_v0_demo.json
+1. baseline `status.json`
+2. baseline `report_card.html`
+3. optional `paradox_field_v0.json`
+4. optional Stability Map artifact
+5. `decision_engine_v0.json`
 
-This writes:
+This order matters.
 
-- `PULSE_safe_pack_v0/artifacts/stability_map_v0_demo.json`
-
-with structure like:
-
-    {
-      "stability_map_v0": {
-        "version": "PULSE_stability_map_v0_demo",
-        "generated_at_utc": "...",
-        "cells": [
-          {
-            "id": "cell_fairness_slo_epf_demo",
-            "profile": "demo_profile_v0",
-            "dataset_snapshot": "logs_demo_2025Q1",
-            "axes": {
-              "alpha_fairness": [0.7, 0.8],
-              "slo_budget": [0.9, 0.95]
-            },
-            "runs": { },
-            "gates": { },
-            "delta_bend": 1,
-            "tags": [
-              "topology_demo_v0",
-              "fairness_vs_slo",
-              "epf_interaction"
-            ]
-          }
-        ]
-      }
-    }
-
-Key field:
-
-- `delta_bend` – a simple Δ‑curvature signal for that cell:
-  - `0` → flat / linear region,
-  - `>0` → curved / unstable region (e.g. fairness–SLO tradeoff with EPF).
-
-You can inspect it with:
-
-    jq '.stability_map_v0.cells[0]' PULSE_safe_pack_v0/artifacts/stability_map_v0_demo.json
-
-> If you don’t care about stability yet, you can skip this step.
-> Decision Engine v0 will still run, just with less topology signal.
+It keeps the compact topology summary anchored to the evidence beneath it.
 
 ---
 
-## 4. Run Decision Engine v0
+## 11. Example reviewer interpretations
 
-Now we combine:
+### Baseline PASS, quiet optional context
 
-- the core `status.json`,
-- the optional `stability_map_v0_demo.json`,
-- the optional `paradox_field_v0.json`
+Possible reviewer-facing posture:
 
-into a compact `decision_engine_v0.json` overlay.
+- `release_state: PROD_OK`
+- `stability_type: stable_good`
 
-### 4.1. With both stability map and paradox field
+Meaning:
 
-    python PULSE_safe_pack_v0/tools/pulse_decision_engine_v0.py \
-      --status PULSE_safe_pack_v0/artifacts/status.json \
-      --stability-map PULSE_safe_pack_v0/artifacts/stability_map_v0_demo.json \
-      --paradox-field PULSE_safe_pack_v0/artifacts/paradox_field_v0.json \
-      --output PULSE_safe_pack_v0/artifacts/decision_engine_v0.json
+- positive baseline
+- low reviewer concern
+- ordinary confidence
 
-### 4.2. Without stability map or paradox field
+### Baseline PASS, noisier optional context
 
-You can also run with only `status.json`:
+Possible reviewer-facing posture:
 
-    python PULSE_safe_pack_v0/tools/pulse_decision_engine_v0.py \
-      --status PULSE_safe_pack_v0/artifacts/status.json \
-      --output PULSE_safe_pack_v0/artifacts/decision_engine_v0.json
+- `release_state: STAGE_ONLY`
+- `stability_type: unstably_good`
 
-In that case the corresponding summary sections in the output will be `null`, and
-`stability_type` will be classified using only gate information.
+Meaning:
 
----
+- deterministic baseline still passes
+- but paradox/stability context suggests caution
 
-## 5. Inspecting decision_engine_v0
+### Baseline FAIL
 
-The Decision Engine v0 output looks like:
+Possible reviewer-facing posture:
 
-    {
-      "decision_engine_v0": {
-        "version": "PULSE_decision_engine_v0",
-        "generated_at_utc": "...",
-        "inputs": {
-          "status_path": "PULSE_safe_pack_v0/artifacts/status.json",
-          "stability_map_path": "PULSE_safe_pack_v0/artifacts/stability_map_v0_demo.json",
-          "paradox_field_path": "PULSE_safe_pack_v0/artifacts/paradox_field_v0.json"
-        },
-        "release_state": "PROD_OK",
-        "stability_type": "unstably_good",
-        "status_summary": {
-          "gate_count": 42,
-          "failed_gates": [],
-          "passed_gates": [
-            "quality.q3_fairness_ok",
-            "slo.q4_slo_ok"
-          ],
-          "rdsi": 0.94
-        },
-        "stability_summary": {
-          "cell_count": 1,
-          "delta_bend_max": 1.0
-        },
-        "paradox_summary": {
-          "atom_count": 3,
-          "severe_atom_count": 1
-        }
-      }
-    }
+- `release_state: BLOCK`
+- `stability_type: stable_bad or unstably_bad`
 
-You can inspect it with:
+Meaning:
 
-    jq '.decision_engine_v0' PULSE_safe_pack_v0/artifacts/decision_engine_v0.json
+- the baseline still governs
+- optional context may explain the posture more honestly, but does not silently undo the failure
 
 ---
 
-## 6. Interpreting release_state and stability_type
+## 12. What remains normative
 
-### 6.1. release_state
+Keep this boundary stable:
 
-A coarse label derived from gate outcomes:
+- deterministic baseline gating remains authoritative
+- topology CLI artifacts remain diagnostic
+- Decision Engine output is a compact reviewer-facing summary
+- missing optional artifacts must never be treated as evidence of calm or PASS
 
-- `PROD_OK`  
-  – no failed gates in `status.json`.
-- `STAGE_ONLY`  
-  – only a small fraction of gates fail.
-- `BLOCK`  
-  – many gates fail.
-- `UNKNOWN`  
-  – no gates found or gate data incomplete.
-
-This does **not** change `check_gates.py` or CI decisions; it is a diagnostic
-overlay for governance and dashboards.
-
-### 6.2. stability_type
-
-A combined label from:
-
-- `release_state` (good / bad / boundary),
-- topology signal:
-  - `delta_bend_max` from `stability_map_v0`, and/or
-  - `atom_count` / `severe_atom_count` from `paradox_field_v0`.
-
-Intuition:
-
-- If `release_state = "PROD_OK"` and we have **non-trivial topology**  
-  (`delta_bend_max > 0` or `atom_count > 0`):
-
-  - we label it as **`unstably_good`**:
-    > “Green, but on a curved / paradox-rich region of the field.”
-
-- If `release_state = "PROD_OK"` and the topology signal is flat / empty:
-
-  - we label it as **`stable_good`**:
-    > “Green and locally flat; no strong curvature or paradox atoms detected.”
-
-- If `release_state = "BLOCK"` and topology is non-trivial:
-
-  - we label it as **`unstably_bad`**:
-    > “Blocked and also on a curved / paradox region.”
-
-- If `release_state = "BLOCK"` and topology is flat:
-
-  - we label it as **`stable_bad`**:
-    > “Blocked but the failure is stable; the field around it is locally simple.”
-
-- If `release_state = "STAGE_ONLY"`:
-
-  - we use boundary labels (e.g. `boundary`, `boundary_simple`),
-  - indicating the decision is on a frontier region (e.g. between Q₃ and Q₄ thresholds).
+If a compact topology summary and the deterministic baseline disagree, the
+baseline wins.
 
 ---
 
-## 7. Using this in practice
+## 13. Recommended demo archive bundle
 
-Once you have:
+When this CLI demo produces a result worth keeping, archive together:
 
-- `status.json`
-- `paradox_field_v0.json`
-- `stability_map_v0_demo.json` (optional)
-- `decision_engine_v0.json`
+- `PULSE_safe_pack_v0/artifacts/status.json`
+- `PULSE_safe_pack_v0/artifacts/report_card.html`
+- `out/paradox_field_v0.json`, when produced
+- Stability Map demo output, when produced
+- `out/decision_engine_v0.json`, when produced
+- any short reviewer note derived from the same run
 
-you can:
+This makes the demo chain reconstructible later.
 
-- feed them into dashboards,
-- attach them to release reviews,
-- track how often your releases land in:
-  - `stable_good` vs `unstably_good` regions,
-  - which paradox atoms keep reappearing (e.g. fairness vs SLO),
-  - how the field curvature (`delta_bend`) evolves over time.
+---
 
-The key point is:
+## 14. Common mistakes to avoid
 
-> Topology v0 turns a single “pass/fail” surface into an explicit decision field,
-> with paradox atoms and stability structure that can be inspected, audited and
-> governed.
+Do not:
 
-This CLI demo is the simplest way to see that field *without* relying on CI
-workflows.
+- skip the baseline and read only the compact summary
+- treat demo outputs as silent policy changes
+- assume missing optional overlays imply stability
+- fabricate topology inputs
+- confuse a useful reviewer-facing summary with the normative release contract
+
+The CLI demo is valuable precisely because it stays honest about those limits.
+
+---
+
+## 15. Summary
+
+The shortest honest topology CLI demo is:
+
+- produce a real deterministic baseline
+- optionally generate paradox context
+- optionally inspect/use the Stability Map demo surface
+- run the Decision Engine against the artifacts you actually have
+- read the result as a reviewer-facing interpretation layer
+
+That is enough to make the topology stack useful for:
+
+- demos
+- governance prototypes
+- reviewer handoff
+- dashboard experiments
+
+without blurring the repository’s normative release boundary.
