@@ -274,11 +274,16 @@ This keeps the summary anchored to evidence.
 
 ### Baseline PASS + calm diagnostics
 
+
+```md
+
 Possible summary:
 
-```
+```text
 release_state: PROD_OK
-stability_type: stable_good
+stability_type: unstably_good
+```
+
 ```
 
 Meaning:
@@ -300,8 +305,9 @@ stability_type: unstably_good
 
 Meaning:
 
-- still positive deterministically
-- but reviewer caution is more honest than routine production confidence
+- deterministic baseline still passes
+- the current Decision Engine still summarizes the release state as `PROD_OK`
+- but `stability_type: unstably_good` signals that reviewer caution is more honest than routine production confidence
 
 ---
 
