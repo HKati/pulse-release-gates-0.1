@@ -20,7 +20,7 @@ Important boundary:
 
 For the EPF ↔ topology conceptual bridge, see:
 
-- `docs/PULSE_topology_epf_hook.md`
+- `docs/PULSE_topology_epf_hook_v0.md`
 
 For the current repository state and normative boundary, see:
 
