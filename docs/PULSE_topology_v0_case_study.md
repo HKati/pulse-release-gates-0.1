@@ -174,18 +174,19 @@ A compact reviewer-facing Decision Engine style output for this same case might
 look like:
 
 ```json
+
 {
-  "release_state": "STAGE_ONLY",
+  "release_state": "PROD_OK",
   "stability_type": "unstably_good",
   "reason": "Deterministic baseline remains positive, but optional shadow/paradox context suggests boundary fragility and elevated reviewer caution."
 }
+
 ```
 
 Interpretation:
 
-- `STAGE_ONLY` here is a review/governance summary
-- it is **not**, by itself, the normative release policy
-- it is the topology layer’s honest compression of the broader picture
+- `PROD_OK` here reflects the current compact release-state classifier for a passing baseline      - `unstably_good` carries the fragility / caution signal
+- this is still a reviewer-facing summary, not a rewrite of normative release policy 
 
 This is exactly the kind of output that is useful in dashboards, PR summaries,
 or reviewer handoff notes.
