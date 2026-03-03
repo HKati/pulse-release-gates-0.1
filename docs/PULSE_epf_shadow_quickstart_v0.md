@@ -1,38 +1,44 @@
-# PULSE EPF shadow pipeline v0 – quickstart
+# PULSE EPF shadow quickstart (v0)
 
-Status: v0, shadow-only  
-Audience: developers who already run the PULSE Topology v0 pipeline and want
-to try the EPF + paradox field layer without changing gate logic.
+> Command-level quickstart for the optional EPF shadow comparison path.
 
-This is a minimal, command-level quickstart. For full details, see:
+This guide shows the **current practical EPF shadow flow** used in this
+repository.
 
-- `docs/PULSE_epf_shadow_pipeline_v0_walkthrough.md`
-- `docs/PULSE_paradox_field_v0_walkthrough.md`
-- `docs/PULSE_paradox_field_v0_case_study.md`
+Important boundary:
 
----
+- the deterministic baseline remains the source of truth for release gating
+- EPF shadow is diagnostic and CI-neutral
+- disagreement between baseline and EPF is something to inspect, not an
+  automatic policy rewrite
 
-## 1. Prerequisites
+For disagreement triage, see:
 
-You should already have a working PULSE topology pipeline that produces:
+- `docs/PARADOX_RUNBOOK.md`
 
-- `stability_map.json` (Topology v0 + Stability Map v0), and
-- optionally EPF-related fields (`epf.available`, `epf.L`, `epf.shadow_pass`).
+For the broader repository state, see:
 
-How you obtain `stability_map.json` is out of scope for this quickstart;
-see `docs/PULSE_topology_v0_methods.md` for the topology pipeline.
-
-All commands below are intended to be run from the repo root.
+- `docs/STATE_v0.md`
+- `docs/DRIFT_OVERVIEW.md`
 
 ---
 
-## 2. Single-run EPF shadow pipeline
+## 1. What this quickstart is for
 
-This section shows the minimal set of commands to project the EPF signal and
-paradox field onto a single run, and produce a decision-level summary.
+Use this quickstart if you want to:
 
-### Step 1 – Enrich Stability Map with paradox / EPF field
+- run the current EPF shadow experiment locally,
+- understand what the GitHub workflow is doing,
+- inspect baseline vs EPF shadow differences,
+- reproduce `epf_report.txt` / `epf_paradox_summary.json` style outputs.
 
-```bash
-python PULSE_safe_pack_v0/tools/build_paradox_epf_fields_v0.py \
-  --map stability_map.json
+This is **not** the main release-gating path.
+
+---
+
+## 2. Current workflow at a glance
+
+The repository ships an optional workflow:
+
+```text
+.github/workflows/epf_experiment.yml
