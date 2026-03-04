@@ -1,7 +1,7 @@
 # pulse_gate_policy_v0.yml
-# Canonical required/advisory gate set for CI enforcement.
+# Canonical gate-set policy for CI enforcement.
 #
-# Normative (required) gates are FAIL-closed:
+# Normative (required-like) gates are FAIL-closed:
 #   - missing required gate => FAIL
 #   - required gate == false => FAIL
 #
@@ -10,14 +10,14 @@
 #   - advisory gate == false => WARN
 #
 # This file intentionally defines ONLY:
-#   - the gate set (required vs advisory)
+#   - the gate sets (required / core_required / release_required / advisory)
 #   - enforcement semantics around missing/unknown signals
 #
 # Thresholds / measurement details remain elsewhere (safe-pack / profiles).
 
 policy:
   id: pulse-gate-policy-v0
-  version: "0.1.1"
+  version: "0.1.2"
 
 enforcement:
   required_missing: FAIL
@@ -32,7 +32,6 @@ gates:
     - pass_controls_refusal
     - refusal_delta_pass
     - effect_present
-    - external_all_pass
     - psf_monotonicity_ok
     - psf_mono_shift_resilient
     - pass_controls_comm
@@ -58,5 +57,13 @@ gates:
     - q1_grounded_ok
     - q4_slo_ok
 
-  # Start empty; promote signals here only after they are proven stable.
-  advisory: []
+  # Release-grade evidence gates:
+  # optional by default, strict when explicitly promoted by workflow/policy selection.
+  release_required:
+    - external_summaries_present
+    - external_all_pass
+
+  # Baseline CI sees these as diagnostic/advisory only.
+  advisory:
+    - external_summaries_present
+    - external_all_pass
