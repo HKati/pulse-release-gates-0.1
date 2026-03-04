@@ -1,350 +1,329 @@
 # PULSE topology ↔ EPF hook (v0)
 
-> Conceptual bridge between the EPF shadow layer and the optional topology layer.
+> Conceptual bridge between EPF shadow inputs and topology v0 as an artifact-derived field family.
 
-This note explains how to think about the relationship between:
+This note explains how EPF shadow artifacts connect to topology v0.
 
-- the deterministic baseline release path,
-- the EPF shadow comparison path,
-- and the optional topology / decision-field overlays.
+It defines the hook as a structural relation between:
+
+- deterministic archived release artifacts
+- EPF shadow artifacts
+- topology outputs derived from archived evidence
+
+It does not define release semantics. Release semantics are specified in:
+
+- `docs/STATE_v0.md`
+- `docs/status_json.md`
+- `docs/STATUS_CONTRACT.md`
 
 Important boundary:
 
-- the baseline deterministic path remains the source of truth for release gating
-- EPF shadow remains diagnostic and CI-neutral
-- the topology layer remains an optional reader / interpreter over archived artefacts
+- release polarity is read from deterministic archived artifacts
+- EPF shadow remains a diagnostic signal family
+- topology outputs remain artifact-derived
+- topology outputs do not silently mutate the recorded release result
+- missing EPF artifacts remain explicitly missing
 
-This document is conceptual by design.
-It explains the hook between layers; it does not redefine release semantics.
+Reading convention:
+
+- relations in this note are to be read as **boundary, adjacency, co-occurrence, pressure, distortion, concentration, or transition relations**
+- they are **not to be read as simple causal arrows unless explicitly stated**
 
 For the current EPF experiment flow, see:
 
-- [PULSE_epf_shadow_quickstart_v0.md](PULSE_epf_shadow_quickstart_v0.md)
-- [PULSE_epf_shadow_pipeline_v0_walkthrough.md](PULSE_epf_shadow_pipeline_v0_walkthrough.md)
-- [PARADOX_RUNBOOK.md](PARADOX_RUNBOOK.md)
+- `docs/PULSE_epf_shadow_quickstart_v0.md`
+- `docs/PULSE_epf_shadow_pipeline_v0_walkthrough.md`
+- `docs/PARADOX_RUNBOOK.md`
 
 For the broader topology picture, see:
 
-- [PULSE_topology_overview_v0.md](PULSE_topology_overview_v0.md)
-- [PULSE_decision_field_v0_overview.md](PULSE_decision_field_v0_overview.md)
+- `docs/PULSE_topology_overview_v0.md`
+- `docs/PULSE_topology_v0_design_note.md`
+- `docs/PULSE_decision_field_v0_overview.md`
+
+For methods / pipeline details, see:
+
+- `docs/PULSE_topology_v0_methods.md`
+- `docs/PULSE_topology_v0_case_study.md`
 
 ---
 
 ## 1. Why this hook exists
 
-PULSE already has a clear deterministic center:
+Deterministic run artifacts record the release result, but they do not by themselves preserve perturbation sensitivity near decision boundaries.
 
-- one run produces a machine-readable `status.json`
-- the main CI path enforces fail-closed gate outcomes
-- optional diagnostic layers can be added on top
+The same release polarity can arise from materially different local conditions.
 
-EPF shadow and topology belong to that optional outer layer, but they are not
-the same thing.
+For example, a run may be:
 
-A useful mental split is:
+- robustly separated from a relevant boundary
+- boundary-close under small perturbation
+- locally fragile
+- disagreement-clustered
+- pressure-loaded around one gate family
 
-- **baseline gates** answer:
-  - “What is the deterministic release decision?”
-
-- **EPF shadow** answers:
-  - “How fragile does that decision look near the decision boundary?”
-
-- **topology / decision-field overlays** answer:
-  - “How should humans interpret the broader stability pattern across the run?”
-
-This file exists to keep those roles distinct.
+The EPF ↔ topology hook exists so that topology can preserve that boundary-sensitive structure without silently rewriting release semantics.
 
 ---
 
-## 2. Normative boundary
+## 2. What EPF shadow contributes
 
-The normative release path remains anchored to:
+In topology terms, EPF shadow is a boundary-sensitive and perturbation-sensitive signal family.
 
-- the final `status.json`
-- deterministic gate enforcement
-- the primary release CI workflow
+When archived EPF artifacts are present, they may expose:
 
-That means:
+- near-threshold flips under small perturbation
+- disagreement clustering
+- repeated fragility around a gate family
+- accumulation of local pressure near a threshold
+- other instability-bearing patterns when materialized
 
-- a passing EPF shadow result must not silently rescue a failing baseline run
-- a worrying topology interpretation must not silently rewrite release policy
-- a missing shadow artefact must not be reinterpreted as “stable”
+This makes EPF valuable for topology because topology is trying to retain field structure that flat decision outputs do not carry on their own.
 
-Baseline first, shadow second, topology third.
+EPF is therefore not a second release authority.
 
-That order should remain stable.
+It is a high-value input family for reading boundary pressure, fragility, and local instability.
 
 ---
 
-## 3. Current artefact relationship
+## 3. What topology reads from EPF
 
-### 3.1 Baseline artefacts
+When topology reads archived EPF artifacts, it should read them as signals about:
 
-The baseline safe-pack flow produces the core artefacts:
+- boundary proximity
+- perturbation sensitivity
+- local instability / fragility
+- pressure concentration
+- disagreement clustering
+- possible paradox accumulation
+- evidence completeness when EPF is absent or degraded
+
+These are structural signals.
+
+They are not, by themselves, a replacement for deterministic release semantics.
+
+---
+
+## 4. The intended hook
+
+A clean conceptual split is:
+
+- deterministic archived artifacts carry the recorded release result
+- EPF shadow artifacts expose perturbation-sensitive boundary behavior
+- topology preserves the combined structural read when archived evidence is available
+
+Within that broader topology picture:
+
+- Stability Map v0 carries polarity + stability + completeness
+- the decision field exposes a decision-oriented projection of that structure
+- Decision Engine v0 may compress selected parts of that read into compact downstream labels
+
+These are related roles over one archived evidence chain.
+
+They are not competing release authorities.
+
+---
+
+## 5. Current artifact relationship
+
+A practical artifact view of the hook is:
+
+### 5.1 Deterministic archived artifacts
+
+Core baseline artifacts include:
 
 - `PULSE_safe_pack_v0/artifacts/status.json`
 - `PULSE_safe_pack_v0/artifacts/report_card.html`
 
-Interpretation:
+These artifacts carry the recorded release result and the archived baseline read for the run.
 
-- `status.json` = machine-readable release state
-- `report_card.html` = human-readable review surface
+### 5.2 EPF shadow artifacts
 
-### 3.2 EPF shadow artefacts
-
-The EPF experiment path can additionally produce comparison artefacts such as:
+The current EPF experiment path may additionally produce artifacts such as:
 
 - `status_baseline.json`
 - `status_epf.json`
 - `epf_report.txt`
 - `epf_paradox_summary.json`
 
-Interpretation:
+These artifacts provide perturbation-sensitive comparison context for the same run or experiment branch.
 
-- `status_baseline.json` = deterministic reference inside the EPF experiment
-- `status_epf.json` = shadow-side comparison state
-- `epf_report.txt` / `epf_paradox_summary.json` = disagreement summaries for triage
+### 5.3 Topology artifacts
 
-### 3.3 Topology artefacts
+Topology-related artifacts may include, when produced:
 
-The topology layer is optional and diagnostic.
+- `stability_map_v0*.json`
+- `paradox_field_v0.json`
+- `decision_engine_v0.json`
 
-Conceptually it reads baseline artefacts and may use optional EPF context to
-produce higher-level views such as:
+This hook is intentionally artifact-first and conceptual.
 
-- stability maps
-- decision-field overlays
-- decision-engine summaries
-- reviewer-facing narratives
-
-Important nuance:
-
-- the **conceptual topology model** can use optional EPF signals,
-- but some topology components in the repo are still demo / design-note level.
-
-So this hook is intentionally **artifact-first and conceptual**, not a claim that
-every topology component already consumes live EPF shadow outputs today.
+It defines how archived EPF outputs may enrich topology reads; it does not claim that every topology component already consumes live EPF shadow outputs on every run.
 
 ---
 
-## 4. The intended hook
+## 6. Good topology-level uses of EPF
 
-The intended EPF → topology hook is:
+Valid uses of EPF shadow inside topology include:
 
-1. **baseline provides the authoritative state**
-   - gates, metrics, release outcome
+### A. Distinguishing robust positive from boundary-close positive
 
-2. **EPF shadow adds fragility context**
-   - near-threshold sensitivity
-   - shadow disagreement
-   - optional contraction / stability hints (for example `epf_L`-style signals)
+A deterministic positive result may still sit close to a threshold boundary.
 
-3. **topology consumes both as interpretation inputs**
-   - not to replace the baseline,
-   - but to describe whether the run looks:
-     - stable,
-     - unstable,
-     - paradox-prone,
-     - or review-heavy.
+EPF helps topology preserve the difference between:
 
-This means EPF should enrich topology mainly along three axes:
+- a cleanly stable positive
+- a technically positive but pressure-loaded positive
 
-- **boundary sensitivity**
-- **local stability / fragility**
-- **paradox prioritisation**
+### B. Raising instability classification when perturbations repeatedly flip outcomes
 
----
+If small perturbations repeatedly change local outcomes, topology can use that to mark:
 
-## 5. What EPF should contribute to topology
+- fragility
+- instability concentration
+- boundary stress
 
-Good topology-level uses of EPF shadow include:
+without silently changing the recorded release polarity.
 
-### A. Stability context
+### C. Contributing to paradox / tension structure
 
-A deterministic PASS can still be operationally fragile.
+When disagreement patterns cluster in one gate family or local region, topology can preserve that as:
 
-EPF shadow is useful when topology wants to say:
+- paradox pressure
+- recurring local tension
+- concentrated instability
 
-- this run is passing, but only narrowly
-- this run is passing, but repeatedly fragile near threshold
-- this run deserves staging caution rather than confident production language
+### D. Keeping absence explicit
 
-### B. Boundary-pressure signals
-
-EPF is especially useful near threshold boundaries.
-
-Topology can use that to distinguish:
-
-- “cleanly stable PASS”
-from
-- “technically PASS, but pressure is accumulating”
-
-### C. Paradox / review prioritisation
-
-When the same kinds of shadow disagreements repeat, topology can surface that as:
-
-- governance pressure,
-- reviewer attention,
-- or a candidate area for richer coverage and future policy discussion.
-
-### D. More honest reviewer narratives
-
-Without EPF-style shadow context, a topology layer can look cleaner than the run
-really is.
-
-With EPF context, topology can say:
-
-- “the release state is acceptable, but it is not comfortably robust”
-- “the baseline is authoritative, but the shadow path suggests operational fragility”
-
-That is a real improvement in reviewer honesty.
+If EPF artifacts are missing, degraded, or not produced for a run, topology should expose that absence rather than silently interpreting it as calmness or stability.
 
 ---
 
-## 6. What EPF should *not* do inside topology
+## 7. What EPF should not do inside topology
 
 EPF should **not** be used to:
 
-- silently override baseline gate outcomes
-- bypass the main CI / policy path
-- transform one shadow disagreement into an implicit release-policy rewrite
-- treat missing EPF artefacts as evidence of stability
-- make topology outputs look more authoritative than the baseline artefacts
+- silently overrule deterministic baseline artifacts
+- convert one shadow disagreement into a policy rewrite
+- remap a negative operational result to positive from shadow context alone
+- remap a positive operational result to negative without explicit contract support
+- treat missing EPF artifacts as stability, calmness, or positivity
+- imply that topology has become a live control loop over EPF behavior
 
-A useful check:
+A useful check is:
 
-If the topology output would cause a reader to think
-“this overrules the baseline release decision,”
-the hook has become too strong.
-
----
-
-## 7. Suggested artifact-first flow
-
-A clean layering model is:
-
-### Step 1 — Run the deterministic baseline
-
-Produce and archive:
-
-- `status.json`
-- `report_card.html`
-
-### Step 2 — Optionally run EPF shadow
-
-Produce and archive:
-
-- `status_epf.json`
-- `epf_report.txt`
-- `epf_paradox_summary.json`
-
-### Step 3 — Build optional topology overlays
-
-Read archived artefacts only.
-
-Possible inputs:
-
-- baseline `status.json`
-- optional EPF shadow artefacts
-- optional paradox / field overlays
-
-### Step 4 — Emit reviewer-facing topology views
-
-Examples:
-
-- stability summaries
-- decision-engine outputs
-- topology dashboards
-- field / paradox views
-
-These outputs remain **diagnostic governance surfaces** unless a future reviewed
-policy explicitly promotes them into a normative role.
+if a topology output would make a reader think “this overrules the recorded deterministic release result,” the hook has become too strong.
 
 ---
 
-## 8. Interpretation patterns
+## 8. Practical reading order
 
-### Case 1 — Baseline PASS, EPF quiet
+A practical reading order for one run is:
 
-Topology can describe this as a relatively stable positive state.
+1. Read the deterministic archived baseline
+   - `status.json`
+   - report card / ledger artifacts
 
-Examples:
+2. Read EPF shadow artifacts, when present
+   - `status_baseline.json`
+   - `status_epf.json`
+   - `epf_report.txt`
+   - `epf_paradox_summary.json`
 
-- stable_good-like language
-- low reviewer concern
-- ordinary archival / rollout path
+3. Read other field-sensitive artifacts, when present
+   - paradox / field outputs
+   - external evidence summaries
+   - other signal-family artifacts
 
-### Case 2 — Baseline PASS, EPF warns or disagrees
+4. Read topology projections
+   - Stability Map artifacts
+   - decision-field read
+   - compact downstream encodings, when produced
 
-Topology can describe this as:
+This is an evidence-trace order, not a hierarchy of release authority.
 
-- unstable or review-heavy positive state
-- staging caution
-- candidate for richer evaluation
-
-But the baseline PASS remains authoritative.
-
-### Case 3 — Baseline FAIL, EPF PASS
-
-Topology may note:
-
-- boundary sensitivity
-- possible false-fail pressure
-- need for more evidence
-
-But it must **not** convert this into an automatic unblock.
-
-### Case 4 — Repeated shadow disagreement on the same gate family
-
-Topology can escalate this as:
-
-- persistent fragility
-- governance debt
-- threshold / coverage review candidate
-
-That is a good topology use-case.
-It is still not the same thing as a direct policy rewrite.
+It keeps interpretation anchored to archived artifacts.
 
 ---
 
-## 9. Decision Engine note
+## 9. Interpretation patterns
 
-If a topology / decision-engine layer emits diagnostic outputs such as:
+### Case 1 — Deterministic positive, EPF quiet
 
-- `BLOCK`
-- `STAGE_ONLY`
-- `PROD_OK`
+Topology may read this as:
 
-those should be interpreted as **review / governance summaries** unless and until
-the repository explicitly makes them normative.
+- positive polarity
+- stable classification
+- low boundary pressure
+- no concentrated disagreement structure
 
-The main release decision still belongs to the deterministic gate path.
+### Case 2 — Deterministic positive, EPF repeatedly disagrees
 
-This distinction matters a lot:
-a diagnostic decision-engine vocabulary may overlap with release language,
-but it is not automatically the release authority.
+Topology may read this as:
+
+- positive polarity
+- unstable / fragile or paradox-loaded classification
+- elevated boundary sensitivity
+- local pressure concentration
+
+The polarity can remain positive while the stability read changes materially.
+
+### Case 3 — Deterministic negative, EPF differs
+
+Topology may read this as:
+
+- negative polarity
+- boundary-sensitive or fragile negative state
+- possible false-separation pressure
+- need for more explicit structural interpretation
+
+But the hook must not convert this into an automatic unblock.
+
+### Case 4 — EPF missing or degraded
+
+Topology should read this as:
+
+- reduced evidence completeness
+- limited boundary-sensitive visibility
+- explicit absence of one signal family
+
+It should not read this as stability.
 
 ---
 
-## 10. Design invariant
+## 10. Design invariants
 
-Keep this invariant stable:
+A healthy EPF ↔ topology hook keeps these invariants stable:
 
-- **baseline** = normative decision
-- **EPF shadow** = fragility / disagreement signal
-- **topology** = optional interpretation layer over archived artefacts
-
-As long as that ordering is preserved, the repository can grow richer review
-surfaces without blurring release semantics.
+- release polarity remains derivable from deterministic archived artifacts
+- EPF enriches the field read rather than overwriting it
+- topology remains artifact-derived
+- missing EPF inputs remain explicitly missing
+- missing EPF diagnostics never imply stability or positivity
+- the same release polarity may correspond to different stability reads
+- outputs remain traceable to archived artifacts
+- relation language defaults to boundary, adjacency, pressure, distortion, concentration, or transition unless explicitly marked causal
+- the hook must not become an implicit release-policy rewrite
 
 ---
 
-## 11. Related docs
+## 11. Summary
 
-- [PULSE_topology_overview_v0.md](PULSE_topology_overview_v0.md)
-- [PULSE_decision_field_v0_overview.md](PULSE_decision_field_v0_overview.md)
-- [PULSE_epf_shadow_quickstart_v0.md](PULSE_epf_shadow_quickstart_v0.md)
-- [PULSE_epf_shadow_pipeline_v0_walkthrough.md](PULSE_epf_shadow_pipeline_v0_walkthrough.md)
-- [PARADOX_RUNBOOK.md](PARADOX_RUNBOOK.md)
-- [STATE_v0.md](STATE_v0.md)
-- [DRIFT_OVERVIEW.md](DRIFT_OVERVIEW.md)
+The EPF ↔ topology hook is best understood as a structural bridge between:
+
+- deterministic archived release artifacts
+- EPF shadow artifacts
+- topology outputs derived from archived evidence
+
+Its job is to let topology preserve:
+
+- boundary pressure
+- perturbation sensitivity
+- local fragility
+- disagreement clustering
+- paradox concentration
+- evidence completeness
+
+without silently changing release semantics.
+
+EPF is therefore a high-value topology input family, not a second release authority.
