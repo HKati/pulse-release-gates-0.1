@@ -1,18 +1,21 @@
 # PULSE topology v0 design note
 
-> Conceptual design note for the optional topology layer and Stability Map v0.
+Conceptual design note for topology v0 and Stability Map v0.
 
-This note describes the **design intent** of the topology layer.
+This note defines topology v0 as a structural, field-oriented read over archived PULSE run artifacts.
 
-It is not the normative release contract.
-It is the conceptual layer that explains how topology should sit on top of
-deterministic PULSE run artifacts.
+It does not define release semantics. Release semantics are specified in:
 
-Important boundary:
+- `docs/STATE_v0.md`
+- `docs/status_json.md`
+- `docs/STATUS_CONTRACT.md`
 
-- the deterministic baseline remains the source of truth for release gating
-- topology is an optional diagnostic / interpretation layer
-- topology outputs must not silently rewrite release semantics
+Topology is derived from the same archived artifacts and must not silently mutate the operational release result recorded by the deterministic run path.
+
+Reading convention:
+
+- relations in this note are to be read as **region, adjacency, boundary, co-occurrence, pressure, distortion, or transition relations**
+- they are **not to be read as simple causal arrows unless explicitly stated**
 
 For the broader overview, see:
 
@@ -25,7 +28,7 @@ For methods / pipeline details, see:
 - `docs/PULSE_topology_v0_methods.md`
 - `docs/PULSE_topology_v0_case_study.md`
 
-For the normative boundary, see:
+For the release-semantics boundary, see:
 
 - `docs/STATE_v0.md`
 - `docs/status_json.md`
@@ -33,410 +36,468 @@ For the normative boundary, see:
 
 ---
 
-## 1. Design scope
+# 1. Design scope
 
-The topology layer exists to help reviewers interpret a run beyond raw PASS/FAIL.
+Topology v0 preserves field structure that flat PASS/FAIL summaries and scalar gate results do not carry.
 
-The core deterministic layer already answers:
+The topology component is used to retain and expose:
 
-- did the run pass or fail the required gates?
-- what metrics were recorded?
-- what does the release ledger show?
+- region membership  
+- boundary proximity  
+- adjacency between states  
+- local distortion  
+- instability / fragility  
+- recurring paradox pressure or tension concentration  
 
-Topology adds a second kind of question:
+The deterministic run path already records gate outcomes, measured values, and release artifacts. Topology does not replace that record. It preserves structural distinctions within the same evidence.
 
-- how stable does this run look?
-- is this a clean PASS or a fragile PASS?
-- where is tension / paradox pressure building?
-- what reviewer posture does this run call for?
-
-That makes topology a **review and governance design layer**.
+Topology is introduced because the same operational release result can arise from materially different field configurations. A flat decision result does not preserve whether a run is boundary-close, locally distorted, paradox-loaded, or unstable under nearby perturbation.
 
 ---
 
-## 2. Design goals
+# 2. Design goals
 
-The topology layer should satisfy five goals.
+Topology v0 should satisfy the following goals.
 
-### A. Stay artifact-first
+### A. Stay artifact-derived
 
-Topology should be computed from archived, immutable run artifacts rather than
-live hidden computation.
+Topology must be derivable from archived, immutable run artifacts rather than hidden live computation.
 
-### B. Stay diagnostically useful
+### B. Preserve field distinctions
 
-Topology should help reviewers see fragility, instability, and tension that do
-not fit cleanly into a single gate boolean.
+Topology must retain distinctions that are lost in flat decision summaries, including:
 
-### C. Preserve the normative boundary
+- region  
+- boundary  
+- adjacency  
+- distortion  
+- instability  
+- concentrated paradox pressure  
 
-Topology must never silently replace the deterministic release decision.
+### C. Preserve release semantics
 
-### D. Support compact reviewer summaries
+Topology must not silently change the operational release result recorded by the deterministic run path.
 
-Topology should make it easier to say:
+### D. Support stability classification
 
-- stable_good
-- unstably_good
-- stable_bad
-- unstably_bad
-- unknown
+Topology may expose:
 
-or similar reviewer-facing state language without pretending that those labels
-are themselves the source of truth for release gating.
+- `stable_good`
+- `unstably_good`
+- `stable_bad`
+- `unstably_bad`
+- `unknown`
 
-### E. Compose with optional overlays
+or equivalent state families, provided that those state families remain reproducible from archived artifacts and do not replace the underlying signal structure.
 
-Topology should be able to consume optional context such as:
+### E. Compose with non-uniform signal families
 
-- EPF shadow outputs
-- paradox / field overlays
-- hazard-style overlays
-- external evidence context
+Topology should be able to consume:
 
-without requiring all of them to exist on every run.
+- EPF shadow outputs  
+- paradox / field outputs  
+- hazard-style signals  
+- external evidence  
 
----
-
-## 3. Core idea: two-axis interpretation
-
-A useful topology design starts from two separate axes.
-
-### Axis 1 — Baseline release polarity
-
-This comes from the deterministic baseline path.
-
-Conceptually:
-
-- positive release state
-- negative release state
-- unknown / incomplete
-
-This axis is anchored to the actual baseline artifacts and gate enforcement.
-
-### Axis 2 — Stability posture
-
-This is diagnostic.
-
-It asks whether the run looks:
-
-- stable
-- fragile / unstable
-- paradox-prone / review-heavy
-- unknown
-
-This second axis can use optional signals such as:
-
-- EPF shadow disagreement
-- boundary sensitivity
-- paradox overlays
-- hazard or instability indicators
-
-The Stability Map then combines these two axes into a reviewer-facing posture.
+when present, without assuming uniform availability across runs.
 
 ---
 
-## 4. Stability Map v0 (design intent)
+# 3. Core structure: two-axis map
 
-The Stability Map is the topology layer’s core summary projection.
+A topology read is organized along two axes.
 
-Its job is to turn one run’s archived evidence into a compact stability-oriented
-state that is easy to inspect and compare.
+### Axis 1 — Release polarity
 
-At design level, the Stability Map should answer:
+This axis is derived from deterministic run artifacts.
 
-1. Is the baseline run positive or negative?
-2. Does the run look stable or fragile?
-3. Is there enough evidence to say that honestly?
-4. Is reviewer caution warranted?
+Possible values:
 
-This is why the Stability Map is not just another metric.
-It is a **structured interpretation surface**.
+- positive  
+- negative  
+- unknown / incomplete  
 
----
-
-## 5. Conceptual state families
-
-At design level, the topology layer should support a small family of reviewer
-states.
-
-These are **conceptual state families**, not by themselves the normative release
-contract.
-
-### `stable_good`
-
-Use when:
-
-- the deterministic baseline is positive
-- and diagnostic signals are quiet enough that the run looks robust
-
-Interpretation:
-
-- ordinary release confidence
-- low reviewer concern
-
-### `unstably_good`
-
-Use when:
-
-- the deterministic baseline is still positive
-- but shadow / paradox / boundary signals suggest fragility
-
-Interpretation:
-
-- technically acceptable
-- operationally fragile
-- staging caution or reviewer attention may be appropriate
-
-### `stable_bad`
-
-Use when:
-
-- the deterministic baseline is negative
-- and the broader diagnostics do not suggest unusual ambiguity
-
-Interpretation:
-
-- the run is failing, and that failure is not merely a borderline artifact
-
-### `unstably_bad`
-
-Use when:
-
-- the deterministic baseline is negative
-- and diagnostic signals show instability, paradox pressure, or unresolved tension
-
-Interpretation:
-
-- failing and fragile
-- stronger follow-up or deeper triage likely needed
-
-### `unknown`
-
-Use when:
-
-- key artifacts are missing
-- evidence is incomplete
-- or the diagnostic context is too degraded to support an honest interpretation
-
-Important rule:
-
-- `unknown` must never be silently upgraded to a positive state.
+This axis records the operational release result carried by archived artifacts.
 
 ---
 
-## 6. Transition design
+### Axis 2 — Stability classification
 
-The design note should also define how topology states can change over time or
-between runs.
+This axis is derived from field-sensitive signals.
 
-### `stable_good -> unstably_good`
+Possible values:
+
+- stable  
+- unstable / fragile  
+- paradox-loaded  
+- unknown  
+
+Signals may include:
+
+- EPF shadow disagreement  
+- boundary sensitivity  
+- paradox signals  
+- hazard or instability indicators  
+
+The same release polarity can correspond to different stability classifications.  
+Topology exists to preserve that non-equivalence.
+
+The Stability Map stores the pairing of these axes together with contributing signals and evidence completeness.
+
+---
+
+# 4. Stability Map v0
+
+Stability Map v0 is the minimal topology carrier for a single run.
+
+At minimum, it must preserve:
+
+- release polarity  
+- stability classification  
+- evidence completeness  
+- contributing signal families  
+- boundary / paradox / instability markers when present  
+
+It is not a scalar confidence score and not a narrative summary.  
+It is the smallest state form that still retains the structural distinctions topology is meant to preserve.
+
+---
+
+# 5. Conceptual state families
+
+Topology v0 should support the following state families as pairings of release polarity and stability classification.
+
+These state families are **not the release contract**.
+
+---
+
+### stable_good
+
+Minimal condition set:
+
+- release polarity = positive  
+- stability classification = stable  
+
+Typical signal pattern:
+
+- low boundary sensitivity  
+- no material EPF disagreement  
+- no concentrated paradox pressure  
+
+---
+
+### unstably_good
+
+Minimal condition set:
+
+- release polarity = positive  
+- stability classification = unstable / fragile  
+
+Typical signal pattern:
+
+- near-threshold behavior  
+- elevated boundary sensitivity  
+- EPF disagreement, paradox pressure, or both  
+
+---
+
+### stable_bad
+
+Minimal condition set:
+
+- release polarity = negative  
+- stability classification = stable  
+
+Typical signal pattern:
+
+- negative result without elevated ambiguity or instability  
+
+---
+
+### unstably_bad
+
+Minimal condition set:
+
+- release polarity = negative  
+- stability classification = unstable / fragile or paradox-loaded  
+
+Typical signal pattern:
+
+- negative result with instability, ambiguity, or concentrated paradox pressure  
+
+---
+
+### unknown
+
+Minimal condition set:
+
+- key artifacts missing  
+- evidence incomplete  
+- signal availability degraded  
+
+Constraint:
+
+```
+unknown must not be remapped to positive by topology alone
+```
+
+---
+
+# 6. Transition design
+
+Transition labels describe changes between runs or re-evaluations with different evidence.  
+They do not justify silent reinterpretation of a fixed artifact set.
+
+---
+
+### stable_good → unstably_good
 
 Typical causes:
 
-- new EPF shadow disagreement
-- repeated near-threshold fragility
-- paradox / field tension appearing around a gate family
+- new EPF shadow disagreement  
+- repeated near-threshold sensitivity  
+- emerging local paradox pressure  
 
-Meaning:
+Invariant:
 
-- the run still passes deterministically
-- but reviewer confidence should drop
-
-### `unstably_good -> stable_good`
-
-Typical causes:
-
-- added evaluation coverage
-- reduced boundary sensitivity
-- paradox / fragility signals disappearing in repeated runs
-
-Meaning:
-
-- the run remains positive and now also looks calmer
-
-### `stable_bad -> unstably_bad`
-
-Typical causes:
-
-- new instability or paradox pressure layered onto an already failing run
-- shadow disagreement suggesting the failure region is noisy or poorly understood
-
-Meaning:
-
-- still failing, but now harder to interpret as a simple deterministic miss
-
-### `unstably_bad -> stable_bad`
-
-Typical causes:
-
-- better evidence
-- reduced ambiguity
-- a cleaner understanding of why the failure exists
-
-Meaning:
-
-- still negative, but more interpretable and less noisy
-
-### `* -> unknown`
-
-Typical causes:
-
-- missing key artifacts
-- broken shadow / overlay inputs
-- degraded runs that cannot support an honest stability interpretation
-
-Meaning:
-
-- topology should surface uncertainty rather than invent confidence
+- release polarity remains positive  
+- stability classification changes from stable to fragile  
 
 ---
 
-## 7. Relationship to Decision Engine v0
+### unstably_good → stable_good
 
-The Decision Engine is a **consumer** of topology-like summaries, not the
-topology layer’s replacement.
+Typical causes:
 
-A good split is:
+- added evidence coverage  
+- reduced boundary sensitivity  
+- disappearance of instability or paradox signals across repeated runs  
 
-- Stability Map = “what posture does this run occupy?”
-- Decision Engine = “how do we summarize that posture compactly for reviewers?”
+Invariant:
 
-This can lead to reviewer-facing outputs such as:
+- release polarity remains positive  
+- stability classification changes from fragile to stable  
+
+---
+
+### stable_bad → unstably_bad
+
+Typical causes:
+
+- new instability or paradox pressure added to an already negative run  
+- shadow disagreement indicating a noisy or weakly separated failure region  
+
+Invariant:
+
+- release polarity remains negative  
+- stability classification changes from stable to fragile or paradox-loaded  
+
+---
+
+### unstably_bad → stable_bad
+
+Typical causes:
+
+- improved evidence completeness  
+- reduced ambiguity  
+- cleaner separation of the negative region  
+
+Invariant:
+
+- release polarity remains negative  
+- stability classification changes from fragile or paradox-loaded to stable  
+
+---
+
+### * → unknown
+
+Typical causes:
+
+- missing key artifacts  
+- broken signal inputs  
+- degraded evidence completeness  
+
+Invariant:
+
+- topology surfaces absence rather than inventing stability or confidence  
+
+---
+
+# 7. Relationship to Decision Engine v0
+
+Topology and Decision Engine v0 are distinct components.
+
+Topology produces a **structural state description from archived artifacts**.
+
+Decision Engine v0 may consume that state description and project it to compact operational labels such as:
 
 - `BLOCK`
 - `STAGE_ONLY`
 - `PROD_OK`
 - `UNKNOWN`
 
-But these outputs should remain **diagnostic summaries** unless the repository
-explicitly promotes them into normative policy.
+Unless explicitly specified in:
 
-The baseline deterministic gate path remains authoritative.
+- `STATE_v0.md`
+- `status_json.md`
+- `STATUS_CONTRACT.md`
 
----
-
-## 8. Relationship to EPF shadow
-
-EPF shadow is one of the most useful optional inputs to topology.
-
-EPF helps topology ask:
-
-- is the decision boundary fragile?
-- are small perturbations flipping outcomes?
-- is this run barely passing rather than comfortably passing?
-- is paradox pressure accumulating around a gate family?
-
-That is exactly why EPF belongs in topology as **context**, not as release
-authority.
-
-Good EPF use in topology:
-
-- flag boundary pressure
-- distinguish robust PASS from fragile PASS
-- prioritize reviewer attention
-- support governance follow-up
-
-Bad EPF use in topology:
-
-- silently rescuing a failing deterministic baseline
-- silently rewriting release semantics from one shadow disagreement
-- treating missing EPF artifacts as evidence of calm or stability
+those downstream labels **do not redefine release semantics**.
 
 ---
 
-## 9. Relationship to paradox / field overlays
+# 8. Relationship to EPF shadow
 
-Paradox / field overlays often capture conflict structure that topology can
-summarize at a higher level.
+EPF shadow is a high-value topology input because it exposes perturbation sensitivity and disagreement patterns near decision boundaries.
 
-They are useful when the reviewer needs to know:
+Relevant EPF contributions include:
 
-- whether tension keeps recurring in one gate family
-- whether conflict is local or broad
-- whether fragility is isolated or systemic
+- boundary pressure  
+- near-boundary flips under small perturbation  
+- disagreement clustering  
+- accumulation of instability around a gate family  
 
-Topology should therefore treat paradox outputs as:
+Valid EPF use in topology:
 
-- optional interpretation inputs
-- not as a new normative gate layer
+- mark boundary pressure  
+- separate robust positive from boundary-close positive  
+- increase instability classification when repeated perturbations flip outcomes  
+- contribute to paradox / tension accumulation when disagreement clusters  
 
-This keeps the architecture composable.
+Invalid EPF use in topology:
 
----
-
-## 10. Recommended output shape (conceptual)
-
-A topology-oriented output should make it easy to answer:
-
-- what is the baseline release posture?
-- what is the stability posture?
-- which signals contributed to that interpretation?
-- what reviewer action, if any, is suggested?
-
-A compact conceptual shape might therefore include:
-
-- baseline release polarity
-- stability type
-- supporting signals / overlays
-- a short reviewer summary
-- optional recommended posture:
-  - routine
-  - caution
-  - deeper review
-
-This design note does not lock the exact schema.
-The schema belongs in the methods/schema layer.
+- remap a negative operational result to positive from a single shadow disagreement  
+- remap a positive operational result to negative without explicit contract support  
+- treat missing EPF artifacts as calmness or stability  
 
 ---
 
-## 11. Non-goals
+# 9. Relationship to paradox / field outputs
+
+Paradox / field outputs expose conflict structure that topology can preserve without flattening it into one gate result.
+
+Useful preserved distinctions include:
+
+- recurrence within a gate family  
+- locality versus spread of tension  
+- isolated versus systemic fragility  
+- clustering versus separation of conflict patterns  
+
+Topology may ingest these outputs when available.  
+Their absence must be represented as absence, not as zero tension.
+
+Paradox / field outputs are signal families for topology.  
+They do not by themselves create undocumented release semantics.
+
+---
+
+# 10. Recommended output shape
+
+A topology output should expose, at minimum:
+
+- release polarity  
+- stability classification  
+- evidence completeness  
+- contributing signal families  
+- missing-input markers  
+- boundary / paradox / instability markers when present  
+- derived state family, if materialized  
+
+This design note does **not lock the exact schema**.  
+The exact schema belongs in the **methods / schema layer**.
+
+---
+
+# 11. Non-goals
 
 Topology v0 should **not** try to do the following:
 
-- replace deterministic gating
-- hide policy rewrites inside reviewer language
-- require every optional overlay on every run
-- turn missing diagnostics into positive evidence
-- become a live online control loop
-- make release semantics depend on undocumented runtime behavior
+- replace deterministic gate evaluation  
+- hide release-semantic changes inside topology labels  
+- require every signal family on every run  
+- interpret missing diagnostics as stability, calmness, or positivity  
+- collapse topology into a single scalar or compact narrative label  
+- become a live online control loop  
+- make release behavior depend on undocumented runtime state  
 
-If one of those becomes necessary, it should be promoted through explicit policy
-and contract changes, not quietly via topology docs.
+If any of those become necessary, they must be introduced through **explicit contract or policy changes** rather than through topology text.
 
 ---
 
-## 12. Design invariants
+# 12. Design invariants
 
 A healthy topology design keeps these invariants stable:
 
-- deterministic baseline remains normative
-- topology remains artifact-first
-- optional overlays remain optional
-- missing diagnostics never become silent PASS
-- reviewer-facing summaries remain reproducible from archived artifacts
-- interpretation language does not become an implicit release-policy rewrite
-
-These invariants matter more than any one label or visualization.
+- release polarity remains derivable from deterministic artifacts and is not mutated by topology  
+- topology remains artifact-derived  
+- relation language defaults to adjacency, co-occurrence, pressure, distortion, or transition unless explicitly marked causal  
+- missing inputs remain explicitly missing  
+- missing diagnostics never imply stability or positivity  
+- the same release polarity may correspond to different stability classifications, and topology must preserve that distinction  
+- topology states remain reproducible from archived artifacts  
+- topology language must not become an implicit release-policy rewrite  
 
 ---
 
-## 13. Summary
+# 13. Summary
 
-Topology v0 is best understood as:
+Topology v0 is a **field-structural read over archived PULSE artifacts**.
 
-- a **structured interpretation layer**
-- over **deterministic archived run artifacts**
-- with a **Stability Map** at its center
-- and optional EPF / paradox context around it
+Its central carrier is the **Stability Map**, which pairs:
 
-Its purpose is not to decide from scratch.
+- release polarity  
+- stability classification  
+- contributing signals  
 
-Its purpose is to help reviewers distinguish:
+It exists to preserve distinctions that flat decision outputs lose, especially:
 
-- ordinary confidence,
-- fragile confidence,
-- clean failure,
-- and instability-heavy failure
+- region  
+- boundary  
+- adjacency  
+- distortion  
+- instability  
+- paradox pressure  
 
-without blurring the repository’s normative release boundary.
+It does **not redefine release semantics**, and it must remain reproducible from archived evidence.
+
+---
+
+# Commit / PR / merge szöveg ehhez az első körhöz
+
+## Commit title
+
+```
+docs(topology): restore engineering detail in design note
+```
+
+## Commit body
+
+```
+restore field-structural topology mechanics
+
+remove narrative, reviewer, and governance framing
+
+keep release-semantics boundary explicit without hierarchy language
+
+preserve valid references and scope boundaries
+```
+
+## PR title
+
+```
+Restore engineering detail in PULSE_topology_v0_design_note.md
+```
+
+## PR body
+
+```
+Why: The file drifted from field-structural engineering content toward narrative and flattening language.
+
+Restored: topology as a structural read over archived artifacts; region, boundary, adjacency, distortion, instability, and paradox-pressure handling.
+
+Removed: source-of-truth wording, reviewer/governance framing, compact-summary language, and other flattening phrases.
+
+Preserved: release-semantics boundary, cross-references, and current file scope.
+
+Not in scope: new language-problem element, repo-wide terminology pass, unrelated docs.
+```
