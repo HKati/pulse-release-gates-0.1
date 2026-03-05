@@ -109,7 +109,8 @@ For example, a compact summary surface may include a structure like:
   "shadow_pass": true,
   "L": 0.94,
   "posture": "boundary_sensitive",
-  "summary": "EPF shadow available; signal suggests locally unstable or near-boundary behaviour."
+  "posture": "epf_boundary_sensitive",
+"summary": "EPF shadow available; signal suggests locally unstable or near-boundary behaviour."
 }
 ```
 
