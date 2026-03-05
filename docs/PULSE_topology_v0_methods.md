@@ -1,23 +1,24 @@
 # PULSE topology v0 methods
 
-> CLI-level methods note for the optional topology layer and Stability Map v0
-> pipeline.
+> CLI-level methods note for topology-related diagnostic artifacts and the
+> current Stability Map v0 surface.
 
 This document explains the **current methods surface** for topology-related
 artifacts in this repository.
 
 It is intentionally method-oriented:
 
-- what the current tools are,
-- what they read,
-- what they emit,
-- and how they should be interpreted.
+- which tools and artifact surfaces currently exist
+- what they read
+- what they emit
+- and how their outputs should be read
 
 Important boundary:
 
-- the deterministic baseline remains the source of truth for release gating
-- topology methods are optional and diagnostic
-- topology outputs must not silently rewrite release semantics
+- the deterministic release path records the run outcome in archived artifacts
+- topology methods are artifact-derived and diagnostic
+- topology outputs do not silently rewrite release semantics or act as a second
+  release authority
 
 For the conceptual layer, see:
 
@@ -35,33 +36,35 @@ For examples, see:
 
 ## 1. Method scope
 
-The topology family is meant to work **on top of archived run artifacts**.
+The topology family operates **on archived run artifacts**.
 
 The central question is not:
 
-- “how do we replace the baseline release gates?”
+- “how do we replace deterministic release gates?”
 
 It is:
 
-- “how do we derive a stability-oriented interpretation from existing deterministic artifacts?”
+- “how do we preserve structural distinctions from existing deterministic
+  artifacts — such as boundary proximity, instability, paradox pressure, or
+  evidence incompleteness?”
 
 That means the topology methods layer should stay focused on:
 
-- artifact flow,
-- input/output contracts,
-- optional overlays,
-- and reviewer-facing summaries.
+- artifact flow
+- input/output contracts
+- diagnostic projections and summary surfaces
+- evidence-linked interpretation
 
 ---
 
-## 2. Normative boundary
+## 2. Release-semantics boundary
 
-Keep this order stable:
+The methods layer follows a reading boundary rather than a policy hierarchy:
 
-1. **deterministic baseline**
-   - authoritative release decision
+1. **deterministic release artifacts**
+   - record the run outcome and release polarity
 
-2. **optional diagnostic overlays**
+2. **optional diagnostic artifacts**
    - EPF shadow
    - paradox / field overlays
    - external evidence context
@@ -70,18 +73,20 @@ Keep this order stable:
 3. **topology methods and outputs**
    - stability-oriented summaries
    - decision-engine style outputs
-   - dual-view / reviewer surfaces
+   - dual-view surfaces
 
-If a topology output and the deterministic gate path disagree, the deterministic
-gate path wins.
+If a topology output and the deterministic release artifact appear to diverge,
+the role of the topology layer is to surface that divergence explicitly rather
+than silently replace the recorded release outcome.
 
-This methods note does not define new release policy.
+This methods note does not define a new release contract.
 
 ---
 
 ## 3. Current repo-level tool surface
 
-The current repo-level topology surface is intentionally modest.
+The current repo-level topology surface is intentionally modest and
+artifact-derived.
 
 ### 3.1 Paradox field
 
@@ -97,37 +102,34 @@ Method role:
 - derives `paradox_field_v0.json`
 - summarizes paradox atoms and a severity score
 
-Use this when you want a structured paradox/field input for later topology interpretation.
-
----
+Use this when you want a structured paradox/field input for later topology
+interpretation.
 
 ### 3.2 Stability Map v0 (current CLI surface)
 
 Tool:
 
-```
+```text
 PULSE_safe_pack_v0/tools/pulse_stability_map_demo_v0.py
 ```
 
 Current role:
 
 - produces a demo stability-map artifact
-- represents the topology idea in a minimal synthetic form
-- is **not yet the same thing as a fully general multi-run production stability-map builder**
+- expresses the topology/stability idea in a minimal synthetic form
+- is **not yet the same thing as a fully general multi-run production
+  stability-map builder**
 
 That distinction matters.
 
-The current repo gives you a working demo method surface for Stability Map
-thinking, not a claim that the entire long-term topology stack is already
-fully generalized.
-
----
+The current repo gives you a working demo surface for Stability Map thinking,
+not a claim that the long-term topology stack is already fully generalized.
 
 ### 3.3 Decision Engine v0
 
 Tool:
 
-```
+```text
 PULSE_safe_pack_v0/tools/pulse_decision_engine_v0.py
 ```
 
@@ -139,12 +141,12 @@ Current method role:
   - `paradox_field_v0`
 - emits a compact `decision_engine_v0.json`
 
-Typical fields include reviewer-facing summaries such as:
+Typical fields include compact summary fields such as:
 
 - `release_state`
 - `stability_type`
 
-This is a summarization layer, not a replacement for deterministic gating.
+This is a summarization surface, not a replacement for deterministic gating.
 
 ---
 
@@ -152,20 +154,17 @@ This is a summarization layer, not a replacement for deterministic gating.
 
 A clean topology method pipeline looks like this.
 
-### Step 1 — Produce the deterministic baseline
+### Step 1 — Produce the deterministic run artifact
 
 Required artifact:
 
-```
+```text
 PULSE_safe_pack_v0/artifacts/status.json
 ```
 
 This is the anchor artifact for all later interpretation.
 
-Without this file, topology methods should not pretend to have an authoritative
-release view.
-
----
+Without this file, topology methods should not fabricate a release reading.
 
 ### Step 2 — Optionally produce paradox / field context
 
@@ -174,10 +173,9 @@ Optional artifact family:
 - `paradox_field_v0.json`
 - related paradox / field summaries
 
-These artifacts are useful when the run has conflict structure, recurring gate
-tension, or reviewer-visible instability that should be described more honestly.
-
----
+These artifacts are useful when the run contains conflict structure, recurring
+boundary tension, or evidence patterns that should be preserved explicitly
+rather than flattened into PASS/FAIL.
 
 ### Step 3 — Optionally produce stability-map context
 
@@ -187,7 +185,7 @@ Current repo-level surface:
 
 Method intent:
 
-convert baseline polarity + diagnostic stability context into a compact
+convert release polarity plus diagnostic stability context into a compact
 stability-oriented representation.
 
 Conceptually, this is where labels such as:
@@ -198,12 +196,11 @@ Conceptually, this is where labels such as:
 - `unstably_bad`
 - `unknown`
 
-become methodologically meaningful.
+become methodologically meaningful as structural descriptions rather than policy
+classes.
 
 The exact schema belongs to the schema/artifact layer; the methods layer cares
-about how those states are derived and interpreted.
-
----
+about how those states are derived, evidence-linked, and interpreted.
 
 ### Step 4 — Run the Decision Engine
 
@@ -212,20 +209,18 @@ The Decision Engine then consumes:
 - the required baseline `status.json`
 - optional topology/paradox/stability inputs
 
-and emits a compact reviewer-facing decision artifact.
+and emits a compact summary artifact.
 
 Typical intent:
 
-compress the current run into a summary posture without hiding the evidence
-underneath it.
-
----
+compress the current run into a compact read without hiding or replacing the
+underlying evidence chain.
 
 ### Step 5 — Render optional dual views
 
 The final optional step is to expose the same run in two compatible forms:
 
-- a concise human-readable reviewer summary
+- a concise human-readable summary
 - a machine-readable compact artifact
 
 This is where the broader “Dual View” idea lives.
@@ -234,8 +229,8 @@ This is where the broader “Dual View” idea lives.
 
 ## 5. Input contracts (method view)
 
-From a methods perspective, the topology family has **one required input** and
-several optional ones.
+From a methods perspective, the topology family has one required input and
+several optional diagnostic inputs.
 
 ### Required
 
@@ -247,36 +242,40 @@ several optional ones.
 - paradox / field artifact
 - EPF shadow context
 - external evidence context
-- other diagnostic overlays that remain artifact-first
+- other diagnostic overlays that remain artifact-derived
 
 Method rule:
 
-optional inputs may enrich the interpretation, but missing optional inputs must
-never be silently reinterpreted as stability or PASS.
+optional inputs may enrich the structural read, but missing optional inputs must
+never be silently reinterpreted as stability, completeness, or PASS.
 
 ---
 
 ## 6. Output contracts (method view)
 
-Topology methods should aim to emit artifacts that answer four questions cleanly:
+Topology methods should aim to emit artifacts that answer four questions
+cleanly:
 
-1. What is the baseline release polarity?
-2. What is the stability posture?
-3. Which optional signals influenced that interpretation?
-4. What reviewer posture is suggested?
+1. What release polarity or outcome is recorded in the deterministic artifact chain?
+2. What stability profile, uncertainty, or fragility is visible?
+3. Which optional signals contributed to that interpretation?
+4. Which evidence references allow the interpretation to be reconstructed?
 
 A useful compact output therefore tends to contain:
 
-- baseline-oriented summary
-- stability type
+- recorded release summary
+- stability type or uncertainty state
 - supporting input references
-- short reviewer-facing narrative
+- short artifact-traceable narrative
 
-Optional compact action posture such as:
+Optional compact handling cues, when a renderer chooses to expose them, may
+include:
 
 - `routine`
 - `caution`
 - `deeper review`
+
+Such cues summarize interpretation; they do **not** redefine release policy.
 
 This is a methods rule, not a commitment to one exact renderer layout.
 
@@ -284,29 +283,30 @@ This is a methods rule, not a commitment to one exact renderer layout.
 
 ## 7. Interpretation rules
 
-### Rule A — Baseline first
+### Rule A — Anchor in archived release artifacts
 
-Always anchor interpretation to the deterministic baseline artifact.
+Always anchor interpretation to the deterministic archived artifact chain.
 
-### Rule B — Optional context enriches, not overrules
+### Rule B — Diagnostic context enriches rather than overrides
 
-EPF, paradox, and other overlays can make the picture more honest, but they do
-not automatically change release policy.
+EPF, paradox, and other overlays can make the picture more honest or more
+granular, but they do not automatically change release policy.
 
 ### Rule C — Unknown stays unknown
 
-If key inputs are missing or degraded, the topology layer should surface
-uncertainty rather than invent confidence.
+If key inputs are missing, degraded, or incomplete, the topology layer should
+surface uncertainty explicitly rather than manufacture confidence.
 
-### Rule D — Reviewer language must remain audit-friendly
+### Rule D — Language must remain evidence-linked and audit-friendly
 
 Topology output should be:
 
-- reproducible,
-- explainable,
-- and traceable back to archived artifacts.
+- reproducible
+- explainable
+- traceable back to archived artifacts
 
-That is more important than squeezing everything into a single label.
+Preserving the evidence chain matters more than collapsing everything into a
+single label.
 
 ---
 
@@ -314,20 +314,22 @@ That is more important than squeezing everything into a single label.
 
 Given the current repo surface, a practical reading is:
 
-- `status.json` gives the deterministic baseline
-- paradox/field outputs add conflict structure when present
-- the Stability Map demo expresses the intended stability-map style of thinking
-- the Decision Engine gives a compact reviewer-facing summary
+- `status.json` records the deterministic release outcome
+- paradox/field outputs preserve conflict structure when present
+- the Stability Map demo expresses the intended stability-typing surface in
+  minimal form
+- the Decision Engine compresses the available artifact chain into a compact
+  summary without erasing evidence links
 
-This means the present method layer is already useful for:
+This means the present methods layer is already useful for:
 
 - demos
-- governance prototypes
-- reviewer workflows
+- triage workflows
 - dashboard experiments
 - design validation
 
-while still being honest that some topology pieces remain demo/prototype-grade.
+while remaining honest that some topology surfaces are still demo/prototype
+grade.
 
 ---
 
@@ -341,41 +343,46 @@ For any run where topology interpretation matters, archive together:
 - `stability_map_v0*.json`, when produced
 - `paradox_field_v0.json`, when produced
 - EPF shadow artifacts, when relevant
-- any reviewer-facing summary generated from the same run
+- any human-readable summary generated from the same run
 
-This keeps the full interpretation chain reconstructible.
+This keeps both the evidence chain and the interpretation chain
+reconstructible.
 
 ---
 
 ## 10. Non-goals of the methods layer
 
-The topology methods layer should **not**:
+The topology methods layer should not:
 
 - redefine the deterministic release contract
 - hide release-policy changes inside diagnostic summaries
 - require every optional overlay on every run
 - treat missing diagnostics as positive evidence
-- imply that a current demo tool is already a full general production method
-- become a shadow control loop over the main CI path
+- imply that a current demo surface is already a fully general production
+  method
+- function as a hidden second release path or shadow control loop over the main
+  CI path
 
-If one of those is ever needed, it should be promoted explicitly through policy,
-schema, and workflow review.
+If one of those is ever needed, it should be promoted explicitly through
+schema, workflow, and policy review.
 
 ---
 
 ## 11. Summary
 
-Topology v0 methods are best understood as an artifact-first optional method stack:
+Topology v0 methods are best understood as an artifact-derived diagnostic stack:
 
-1. deterministic baseline first
-2. optional paradox/stability context second
-3. reviewer-facing summaries third
+- archived deterministic artifacts record the release outcome
+- optional paradox / EPF / stability context preserves structural distinctions
+  that PASS/FAIL would flatten away
+- compact summary surfaces expose that structure without rewriting release
+  semantics
 
 Today, the current repo-level tool surface supports that direction through:
 
 - paradox field generation
 - a Stability Map demo path
-- and a Decision Engine that reads baseline artifacts plus optional overlays
+- a Decision Engine that reads baseline artifacts plus optional overlays
 
-That is already enough to support analysis, dashboards, and governance
-prototyping without blurring the repository’s normative release boundary.
+That is already enough to support analysis, triage, dashboards, and method
+validation without blurring the repository’s release boundary.
