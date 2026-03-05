@@ -1,22 +1,31 @@
 # Paradox runbook
 
-> What to do when EPF shadow disagrees with the baseline deterministic decision.
+> What to do when EPF shadow disagrees with the deterministic baseline in the current shadow comparison workflow.
 
-This runbook is for **shadow disagreement triage**.
+This runbook explains how to triage disagreement between baseline and EPF shadow artifacts produced by the current EPF experiment workflow.
 
-It applies when the EPF shadow workflow reports that one or more gates have a
-different decision in shadow mode than in the baseline deterministic run.
+It does not define release semantics. Release semantics are specified in:
+
+- `docs/STATE_v0.md`
+- `docs/status_json.md`
+- `docs/STATUS_CONTRACT.md`
 
 Important boundary:
 
-- the baseline deterministic path remains the source of truth for release gating
-- EPF shadow disagreement is a diagnostic signal, not an automatic release rewrite
+- deterministic archived artifacts carry the recorded baseline result for the experiment flow
+- EPF shadow disagreement is a diagnostic signal, not an automatic policy rewrite
+- missing or degraded inputs remain explicit
 
-For the broader repository model, see:
+For workflow details, see:
 
-- `docs/STATE_v0.md`
-- `docs/DRIFT_OVERVIEW.md`
-- `docs/status_json.md`
+- `docs/PULSE_epf_shadow_quickstart_v0.md`
+- `docs/PULSE_epf_shadow_pipeline_v0_walkthrough.md`
+
+For the topology-facing interpretation path, see:
+
+- `docs/PULSE_topology_epf_hook_v0.md`
+- `docs/PULSE_topology_overview_v0.md`
+- `docs/PULSE_decision_field_v0_overview.md`
 
 For normative release meaning, use:
 
@@ -28,48 +37,53 @@ For normative release meaning, use:
 
 ## 1. When this runbook applies
 
-Use this runbook when the EPF shadow workflow reports something like:
+Use this runbook when the EPF shadow workflow reports one or more gate-level differences between baseline and EPF shadow outputs.
 
-- “EPF shadow detected N gate(s) with different decisions than the baseline.”
-
-Typical artefacts to inspect are:
+Typical artifacts to inspect are:
 
 - `status_baseline.json`
 - `status_epf.json`
 - `epf_report.txt`
 - `epf_paradox_summary.json`
 
-This is a **triage path**, not a second release policy.
+This is a triage path over archived comparison artifacts.  
+It is not a second release authority.
 
 ---
 
 ## 2. Current workflow model
 
-The current EPF shadow workflow does the following:
+The current EPF shadow workflow is a shared-input A/B comparison flow.
 
-1. tries to produce a baseline `status.json` via `PULSE_safe_pack_v0/tools/run_all.py`
-2. copies that baseline into:
+At a high level, it:
+
+1. tries to produce a common `status.json` via `PULSE_safe_pack_v0/tools/run_all.py`
+2. falls back to a stub `status.json` if no real baseline artifact appears
+3. copies that common input into:
    - `status_baseline.json`
    - `status_epf.json`
-3. runs the baseline deterministic checker with:
+4. runs the deterministic checker with:
    - `python scripts/check_gates.py --config pulse_gates.yaml --status status_baseline.json --defer-policy fail`
-4. runs the EPF shadow checker with:
+5. runs the EPF shadow checker with:
    - `python scripts/check_gates.py --config pulse_gates.yaml --status status_epf.json --epf-shadow --seed 1737 --defer-policy warn`
-5. compares baseline vs EPF decisions
-6. writes:
+6. compares baseline vs EPF-side decisions
+7. writes:
    - `epf_report.txt`
    - `epf_paradox_summary.json`
 
-This means a paradox candidate is currently a **difference between baseline and
-EPF shadow decisions under the EPF experiment workflow**, not a direct change to
-the main release gate set.
+This means a paradox candidate is currently:
+
+- a gate-level decision delta surfaced by the EPF shadow experiment workflow
+
+not:
+
+- a direct change to the main release-semantics contract
 
 ---
 
-## 3. First question: was this a real run or a stub?
+## 3. First question: was this a real run or a degraded run?
 
-Before interpreting any disagreement, verify that the workflow actually had real
-inputs.
+Before interpreting any disagreement, verify that the workflow had real enough inputs.
 
 Check `epf_report.txt` and the job logs for:
 
@@ -78,28 +92,56 @@ Check `epf_report.txt` and the job logs for:
 - baseline checker return code
 - EPF checker return code
 
-Also check whether the workflow fell back to stub mode because:
+Also check whether the workflow fell back to stub or degraded mode because:
 
-- `PULSE_safe_pack_v0/artifacts/status.json` was missing, or
-- `pulse_gates.yaml` was missing.
+- `PULSE_safe_pack_v0/artifacts/status.json` was missing after `run_all.py`
+- `pulse_gates.yaml` was missing
+- `scripts/check_gates.py` was missing
+- command failures left one or both branches too partial to trust
 
-### If the run was stub / degraded
+### If the run was degraded
 
-Do **not** treat the disagreement as a real paradox signal.
+Do not treat the disagreement as a real paradox signal yet.
 
 Fix the wiring first:
 
-- make sure `run_all.py` produces a baseline status artefact
+- make sure `run_all.py` produces a baseline status artifact when expected
 - make sure `pulse_gates.yaml` exists
 - make sure `scripts/check_gates.py` is present and runnable
-
-Then re-run the workflow.
+- re-run before drawing release or topology conclusions
 
 ---
 
-## 4. Gather the comparison evidence
+## 4. What counts as a disagreement
 
-For a real paradox candidate, collect these artefacts together:
+The current compare step reads:
+
+- baseline decisions from `status_baseline.json["decisions"]`
+- EPF-side decisions from `status_epf.json["experiments"]["epf"]`
+
+On the EPF side, if a gate entry is a dictionary, the comparison normalizes it by reading:
+
+1. `decision`
+2. otherwise `status`
+3. otherwise the raw value
+
+A gate is counted as changed only when:
+
+- the EPF-side value is present
+- and the EPF-side value differs from the baseline-side value
+
+Important nuance:
+
+- `False` and `0` count as real values
+- `None` means the EPF-side decision is absent
+
+So if a gate is simply absent on the EPF side, that is degraded evidence or missing signal surface, not a confirmed decision delta.
+
+---
+
+## 5. Gather the comparison evidence
+
+For a real-enough paradox candidate, collect these artifacts together:
 
 - `status_baseline.json`
 - `status_epf.json`
@@ -110,16 +152,17 @@ Recommended extras:
 
 - the corresponding `PULSE_safe_pack_v0/artifacts/status.json`
 - the corresponding `PULSE_safe_pack_v0/artifacts/report_card.html`
-- the commit / PR that triggered the run
-- any threshold/config file that changed in the same PR
+- the triggering commit / PR
+- the relevant `pulse_gates.yaml` diff, if any
+- the relevant checker / helper code diff, if any
 
-The goal is to keep the disagreement reproducible and reviewable.
+The goal is to keep the disagreement reproducible, reviewable, and traceable.
 
 ---
 
-## 5. Classify the disagreement
+## 6. Classify the disagreement
 
-A paradox candidate is not automatically “bad”.
+A paradox candidate is not automatically bad.  
 First classify what kind of disagreement it is.
 
 ### A. Boundary sensitivity
@@ -132,16 +175,16 @@ Typical signs:
 
 Interpretation:
 
-- this is a stability warning around a boundary,
-- not necessarily a bug.
+- this is a stability warning around a boundary
+- not necessarily a bug
 
 Typical action:
 
-- record it,
-- inspect whether the threshold is too sharp or the evidence too thin,
-- consider richer evaluation coverage before changing policy.
+- record it
+- inspect whether the threshold is too sharp or the evidence too thin
+- consider richer evaluation coverage before changing policy
 
-### B. Missing / weak evidence
+### B. Missing or weak evidence
 
 Typical signs:
 
@@ -152,30 +195,30 @@ Typical signs:
 
 Interpretation:
 
-- the disagreement may be an artefact of missing information.
+- the disagreement may be an artifact of missing information
 
 Typical action:
 
-- improve data collection or artefact generation,
-- re-run before drawing governance conclusions.
+- improve data collection or artifact generation
+- re-run before drawing stronger conclusions
 
 ### C. Config drift
 
 Typical signs:
 
 - `pulse_gates.yaml` changed
-- threshold / `epsilon` / `adapt` / `min_samples` changed
+- threshold, `epsilon`, `adapt`, or `min_samples` changed
 - the disagreement appears immediately after config edits
 
 Interpretation:
 
-- the meaning of the shadow experiment changed.
+- the meaning of the shadow experiment changed
 
 Typical action:
 
-- review the config diff directly,
-- decide whether the change was intentional,
-- document why the altered shadow behavior is acceptable.
+- review the config diff directly
+- decide whether the change was intentional
+- document why the altered shadow behavior is acceptable or not
 
 ### D. Implementation drift
 
@@ -183,17 +226,17 @@ Typical signs:
 
 - `scripts/check_gates.py` changed
 - EPF helper logic changed
-- the disagreement appears after checker / adapter edits rather than model changes
+- the disagreement appears after checker or adapter edits rather than model changes
 
 Interpretation:
 
-- this is tooling drift, not necessarily model drift.
+- this is tooling drift, not necessarily model drift
 
 Typical action:
 
-- inspect the code diff,
-- add or update a regression fixture,
-- avoid changing release meaning implicitly through shadow tooling.
+- inspect the code diff
+- add or update a regression fixture
+- avoid changing release meaning implicitly through shadow tooling
 
 ### E. Real behavioral fragility
 
@@ -201,125 +244,164 @@ Typical signs:
 
 - the disagreement repeats across reruns
 - the same gate repeatedly shows borderline instability
-- EPF shadow consistently warns where the baseline barely passes
+- EPF shadow consistently warns where the baseline barely passes or barely fails
 
 Interpretation:
 
-- this is the most interesting class:
-  the release decision may be technically deterministic, but operationally fragile.
+- the release result may be technically deterministic, but structurally fragile
 
 Typical action:
 
-- keep the finding visible,
-- consider staging-only rollout, more data, or broader evaluation,
-- discuss whether a future policy or threshold update is justified.
+- keep the finding visible
+- consider staging-only rollout, more data, or broader evaluation
+- discuss whether a future policy or threshold update is justified
+
+### F. Non-reproducible or environment-sensitive result
+
+Typical signs:
+
+- the disagreement appears once but disappears on close reruns
+- local reproduction does not match CI
+- dependency or environment changes plausibly explain the difference
+
+Interpretation:
+
+- the signal is not yet stable enough to treat as a strong paradox candidate
+
+Typical action:
+
+- record the mismatch
+- pin down the environment difference
+- avoid policy conclusions until reproduction is stable
 
 ---
 
-## 6. Decision rules
+## 7. Response patterns
 
-### Case 1 — Baseline FAIL, EPF PASS
+### Case 1 - Baseline FAIL, EPF PASS
 
-Treat the **baseline FAIL** as authoritative for release gating.
-
-Do **not** let EPF shadow “rescue” a failing release automatically.
+Treat the baseline FAIL as the recorded baseline result for the experiment flow.  
+Do not let EPF shadow rescue a failing release automatically.
 
 Reasonable next steps:
 
 - inspect whether the gate is too brittle near threshold
 - collect more evidence
-- open a tracked issue / PR if the pattern repeats
+- open a tracked issue or PR if the pattern repeats
 - only change normative policy through a deliberate reviewed change
 
-### Case 2 — Baseline PASS, EPF FAIL or DEFER
+### Case 2 - Baseline PASS, EPF FAIL or DEFER
 
-The normative release path still says PASS, but the shadow path is warning that
-the decision may be fragile.
+The baseline branch still records PASS, but the shadow path is warning that the decision may be fragile.
 
 Reasonable next steps:
 
 - treat it as a stability warning
 - consider staging-only or extra review
 - expand evaluation coverage if the same gate keeps appearing
-- avoid silently rewriting main release semantics based on one shadow run
+- feed the result into topology or decision-field interpretation if that helps preserve the structure
 
-### Case 3 — Repeated disagreement on the same gate
+### Case 3 - Repeated disagreement on the same gate
 
-Escalate from “interesting shadow signal” to “tracked governance problem”.
+Escalate from “interesting shadow signal” to “tracked problem”.
 
 Reasonable next steps:
 
-- add coverage / fixtures
+- add coverage or fixtures
 - inspect whether the threshold definition is still appropriate
-- decide whether the signal should stay diagnostic or eventually be promoted into
-  a stricter policy path
+- decide whether the signal should stay diagnostic or be promoted into stricter policy later
 
-Promotion into normative policy should happen in a normal reviewed PR, not
-inside shadow triage.
+Promotion into normative policy should happen in a normal reviewed PR, not inside shadow triage.
+
+### Case 4 - EPF-side decision absent
+
+Treat this as missing or degraded evidence first.  
+Do not flatten it into “no difference”.
+
+Reasonable next steps:
+
+- inspect `status_epf.json`
+- verify whether the EPF branch actually materialized the gate output
+- fix the artifact generation path before interpreting the result
 
 ---
 
-## 7. What to edit — and what not to edit
+## 8. What to edit - and what not to edit
 
-### If the problem is data / evidence quality
+### If the problem is data or evidence quality
 
 Fix:
 
-- dataset / fixture quality
-- missing artefacts
+- dataset or fixture quality
+- missing artifacts
 - insufficient evidence collection
 - reproducibility gaps
 
-### If the problem is EPF shadow configuration
+### If the problem is EPF shadow configuration or tooling
 
 Fix or review:
 
 - `pulse_gates.yaml`
 - `scripts/check_gates.py`
-- EPF helper / adapter logic
+- EPF helper or adapter logic
 
-These changes affect the **shadow experiment** and should stay clearly
-distinguished from the main release gate semantics.
+These changes affect the shadow experiment and should stay clearly distinguished from the main release-semantics contract.
 
 ### If the problem really changes release meaning
 
-Then the change belongs in the **normative layer**, for example:
+Then the change belongs in the normative layer, for example:
 
 - `pulse_gate_policy_v0.yml`
-- the main release-gating docs / contracts
-- the required CI path
+- `.github/workflows/pulse_ci.yml`
+- `docs/STATUS_CONTRACT.md`
+- related release-gating docs or schemas
 
 That kind of change should also come with:
 
 - changelog coverage
-- reviewable explanation
+- a reviewable explanation
 - and, ideally, a regression fixture or reproducible example
 
 Do not smuggle a release-policy rewrite into “just fixing the paradox runbook”.
 
 ---
 
-## 8. Local reproduction
+## 9. Local reproduction
 
 A close local reproduction of the current shadow workflow is:
 
 ```bash
-python PULSE_safe_pack_v0/tools/run_all.py
+python PULSE_safe_pack_v0/tools/run_all.py || true
 
-cp PULSE_safe_pack_v0/artifacts/status.json status_baseline.json
-cp PULSE_safe_pack_v0/artifacts/status.json status_epf.json
+if [ -f PULSE_safe_pack_v0/artifacts/status.json ]; then
+  cp PULSE_safe_pack_v0/artifacts/status.json status.json
+else
+  echo '{"metrics": {}}' > status.json
+fi
 
-python scripts/check_gates.py \
-  --config pulse_gates.yaml \
-  --status status_baseline.json \
-  --defer-policy fail
+if [ -f status.json ]; then
+  cp status.json status_baseline.json
+  cp status.json status_epf.json
+else
+  echo '{"decisions": {}}' > status_baseline.json
+  echo '{"experiments":{"epf":{}}}' > status_epf.json
+fi
 
-python scripts/check_gates.py \
-  --config pulse_gates.yaml \
-  --status status_epf.json \
-  --epf-shadow \
-  --seed 1737 \
-  --defer-policy warn
+if [ -f pulse_gates.yaml ] && [ -f scripts/check_gates.py ]; then
+  python scripts/check_gates.py \
+    --config pulse_gates.yaml \
+    --status status_baseline.json \
+    --defer-policy fail
+
+  python scripts/check_gates.py \
+    --config pulse_gates.yaml \
+    --status status_epf.json \
+    --epf-shadow \
+    --seed 1737 \
+    --defer-policy warn
+else
+  echo "Stub/degraded local reproduction: pulse_gates.yaml or scripts/check_gates.py missing."
+fi
 ```
 
 Then compare:
@@ -327,53 +409,53 @@ Then compare:
 - baseline decisions in `status_baseline.json`
 - shadow decisions under `status_epf.json["experiments"]["epf"]`
 
-If local reproduction does not reproduce the CI disagreement, record that as
-a non-reproducible or environment-sensitive result.
+If local reproduction does not reproduce the CI disagreement, record that as a non-reproducible or environment-sensitive result.
 
 ---
 
-## 9. What to record in the issue / PR
+## 10. What to record in the issue or PR
 
 When a paradox candidate is real enough to track, record:
 
-- affected gate id(s)
+- affected gate id or ids
 - baseline decision
-- EPF shadow decision
-- whether the run was fully real or partially stubbed
-- the triggering PR / commit
+- EPF shadow decision, or explicit absence on the EPF side
+- whether the run was fully real or partially degraded
+- the triggering PR or commit
 - whether the disagreement reproduced
 - your classification:
   - boundary sensitivity
-  - missing evidence
+  - missing or weak evidence
   - config drift
   - implementation drift
   - real behavioral fragility
+  - non-reproducible or environment-sensitive result
 - the chosen action:
   - ignore for now
   - add coverage
   - tune shadow config
-  - stage-only caution
+  - staging-only caution
   - propose normative policy change
 
 This keeps the shadow layer useful instead of noisy.
 
 ---
 
-## 10. Summary
+## 11. Summary
 
 A paradox candidate means:
 
-“the shadow interpretation disagreed with the baseline,”
+- the shadow interpretation disagreed with the deterministic baseline inside the current EPF experiment workflow
 
 not:
 
-“the main release policy has already changed.”
+- the main release policy has already changed
 
 Use the disagreement to:
 
-- inspect fragility,
-- improve coverage,
-- and prioritise governance work.
+- inspect fragility
+- improve coverage
+- prioritize tracked work
+- feed topology or decision-field interpretation when that adds structural clarity
 
-Keep the deterministic baseline authoritative until a deliberate reviewed change
-promotes a new rule into the normative path.
+Keep the release-semantics boundary explicit.
