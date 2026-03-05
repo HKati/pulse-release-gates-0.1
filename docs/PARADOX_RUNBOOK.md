@@ -46,7 +46,8 @@ Typical artifacts to inspect are:
 - `epf_report.txt`
 - `epf_paradox_summary.json`
 
-This is a triage path over archived comparison artifacts.  
+This is a triage path over archived comparison artifacts.
+
 It is not a second release authority.
 
 ---
@@ -152,9 +153,9 @@ Recommended extras:
 
 - the corresponding `PULSE_safe_pack_v0/artifacts/status.json`
 - the corresponding `PULSE_safe_pack_v0/artifacts/report_card.html`
-- the triggering commit / PR
+- the triggering commit or PR
 - the relevant `pulse_gates.yaml` diff, if any
-- the relevant checker / helper code diff, if any
+- the relevant checker or helper code diff, if any
 
 The goal is to keep the disagreement reproducible, reviewable, and traceable.
 
@@ -162,7 +163,8 @@ The goal is to keep the disagreement reproducible, reviewable, and traceable.
 
 ## 6. Classify the disagreement
 
-A paradox candidate is not automatically bad.  
+A paradox candidate is not automatically bad.
+
 First classify what kind of disagreement it is.
 
 ### A. Boundary sensitivity
@@ -280,7 +282,8 @@ Typical action:
 
 ### Case 1 - Baseline FAIL, EPF PASS
 
-Treat the baseline FAIL as the recorded baseline result for the experiment flow.  
+Treat the baseline FAIL as the recorded baseline result for the experiment flow.
+
 Do not let EPF shadow rescue a failing release automatically.
 
 Reasonable next steps:
@@ -303,7 +306,7 @@ Reasonable next steps:
 
 ### Case 3 - Repeated disagreement on the same gate
 
-Escalate from “interesting shadow signal” to “tracked problem”.
+Escalate from "interesting shadow signal" to "tracked problem".
 
 Reasonable next steps:
 
@@ -315,8 +318,9 @@ Promotion into normative policy should happen in a normal reviewed PR, not insid
 
 ### Case 4 - EPF-side decision absent
 
-Treat this as missing or degraded evidence first.  
-Do not flatten it into “no difference”.
+Treat this as missing or degraded evidence first.
+
+Do not flatten it into "no difference".
 
 Reasonable next steps:
 
@@ -360,18 +364,33 @@ That kind of change should also come with:
 
 - changelog coverage
 - a reviewable explanation
-- and, ideally, a regression fixture or reproducible example
+- ideally, a regression fixture or reproducible example
 
-Do not smuggle a release-policy rewrite into “just fixing the paradox runbook”.
+Do not smuggle a release-policy rewrite into "just fixing the paradox runbook".
 
 ---
 
 ## 9. Local reproduction
 
-A close local reproduction of the current shadow workflow is:
+A close local reproduction of the current shadow workflow, including the compare-and-summarize step, is:
 
 ```bash
-python PULSE_safe_pack_v0/tools/run_all.py || true
+deps_rc=0
+runall_rc=0
+base_rc=0
+epf_rc=0
+
+python -m pip install -U pip || true
+
+if [ -f PULSE_safe_pack_v0/requirements.txt ]; then
+  python -m pip install -r PULSE_safe_pack_v0/requirements.txt || deps_rc=$?
+else
+  python -m pip install numpy 'jsonschema>=4,<5' || deps_rc=$?
+fi
+
+if [ -f PULSE_safe_pack_v0/tools/run_all.py ]; then
+  python PULSE_safe_pack_v0/tools/run_all.py || runall_rc=$?
+fi
 
 if [ -f PULSE_safe_pack_v0/artifacts/status.json ]; then
   cp PULSE_safe_pack_v0/artifacts/status.json status.json
@@ -381,33 +400,121 @@ fi
 
 if [ -f status.json ]; then
   cp status.json status_baseline.json
-  cp status.json status_epf.json
 else
   echo '{"decisions": {}}' > status_baseline.json
+fi
+
+if [ ! -f pulse_gates.yaml ]; then
+  echo "pulse_gates.yaml not found; baseline gate evaluation stays in stub mode."
+else
+  if [ -f scripts/check_gates.py ]; then
+    python scripts/check_gates.py \
+      --config pulse_gates.yaml \
+      --status status_baseline.json \
+      --defer-policy fail || base_rc=$?
+  fi
+fi
+
+if [ -f status.json ]; then
+  cp status.json status_epf.json
+else
   echo '{"experiments":{"epf":{}}}' > status_epf.json
 fi
 
-if [ -f pulse_gates.yaml ] && [ -f scripts/check_gates.py ]; then
-  python scripts/check_gates.py \
-    --config pulse_gates.yaml \
-    --status status_baseline.json \
-    --defer-policy fail
-
-  python scripts/check_gates.py \
-    --config pulse_gates.yaml \
-    --status status_epf.json \
-    --epf-shadow \
-    --seed 1737 \
-    --defer-policy warn
+if [ ! -f pulse_gates.yaml ]; then
+  echo "pulse_gates.yaml not found; EPF shadow run stays in stub mode."
 else
-  echo "Stub/degraded local reproduction: pulse_gates.yaml or scripts/check_gates.py missing."
+  if [ -f scripts/check_gates.py ]; then
+    python scripts/check_gates.py \
+      --config pulse_gates.yaml \
+      --status status_epf.json \
+      --epf-shadow \
+      --seed 1737 \
+      --defer-policy warn || epf_rc=$?
+  fi
 fi
+
+DEPS_RC="$deps_rc" RUNALL_RC="$runall_rc" BASE_RC="$base_rc" EPF_RC="$epf_rc" python - <<'PY'
+import json
+import os
+import pathlib
+
+def load_json(path, default):
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return default
+
+a = load_json("status_baseline.json", {"decisions": {}})
+b = load_json("status_epf.json", {"experiments": {"epf": {}}})
+
+da = a.get("decisions", {}) or {}
+db = (b.get("experiments", {}) or {}).get("epf", {}) or {}
+
+dec_epf = {}
+for k, v in db.items():
+    if isinstance(v, dict):
+        dec = v.get("decision", v.get("status", v))
+    else:
+        dec = v
+    dec_epf[k] = dec
+
+total = len(da)
+diffs = []
+
+for k, v in da.items():
+    dv = dec_epf.get(k, None)
+    if dv is not None and dv != v:
+        diffs.append((k, v, dv))
+
+deps_rc = os.environ.get("DEPS_RC", "")
+runall_rc = os.environ.get("RUNALL_RC", "")
+base_rc = os.environ.get("BASE_RC", "")
+epf_rc = os.environ.get("EPF_RC", "")
+
+summary = ""
+summary += f"Deps install rc: {deps_rc}\n"
+summary += f"run_all.py rc: {runall_rc}\n"
+summary += f"baseline check_gates rc: {base_rc}\n"
+summary += f"epf check_gates rc: {epf_rc}\n"
+summary += "\n"
+summary += f"Total baseline gates: {total}\n"
+summary += f"Changed (baseline->EPF): {len(diffs)}\n"
+
+for k, ba, ep in diffs[:20]:
+    summary += f"- {k}: {ba} -> {ep}\n"
+
+pathlib.Path("epf_report.txt").write_text(summary, encoding="utf-8")
+
+paradox = {
+    "deps_rc": deps_rc,
+    "runall_rc": runall_rc,
+    "baseline_rc": base_rc,
+    "epf_rc": epf_rc,
+    "total_gates": total,
+    "changed": len(diffs),
+    "examples": [
+        {"gate": k, "baseline": ba, "epf": ep}
+        for k, ba, ep in diffs[:5]
+    ],
+}
+
+pathlib.Path("epf_paradox_summary.json").write_text(
+    json.dumps(paradox, indent=2, ensure_ascii=False),
+    encoding="utf-8",
+)
+
+print(summary)
+PY
 ```
 
-Then compare:
+Then inspect:
 
-- baseline decisions in `status_baseline.json`
-- shadow decisions under `status_epf.json["experiments"]["epf"]`
+- `epf_report.txt`
+- `epf_paradox_summary.json`
+- `status_baseline.json`
+- `status_epf.json`
 
 If local reproduction does not reproduce the CI disagreement, record that as a non-reproducible or environment-sensitive result.
 
