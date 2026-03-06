@@ -1,10 +1,8 @@
 # PULSE topology v0 methods
 
-> CLI-level methods note for topology-related diagnostic artifacts and the
-> current Stability Map v0 surface.
+> CLI-level methods note for topology-related diagnostic artifacts and the current topology tool surface.
 
-This document explains the **current methods surface** for topology-related
-artifacts in this repository.
+This document explains the **current methods surface** for topology-related artifacts in this repository.
 
 It is intentionally method-oriented:
 
@@ -13,12 +11,12 @@ It is intentionally method-oriented:
 - what they emit
 - and how their outputs should be read
 
-Important boundary:
+## Important boundary
 
 - the deterministic release path records the run outcome in archived artifacts
 - topology methods are artifact-derived and diagnostic
-- topology outputs do not silently rewrite release semantics or act as a second
-  release authority
+- topology outputs do not silently rewrite release semantics or act as a second release authority
+- missing optional inputs must remain explicitly missing (missing ≠ stable)
 
 For the conceptual layer, see:
 
@@ -44,9 +42,7 @@ The central question is not:
 
 It is:
 
-- “how do we preserve structural distinctions from existing deterministic
-  artifacts — such as boundary proximity, instability, paradox pressure, or
-  evidence incompleteness?”
+- “how do we preserve structural distinctions from existing deterministic artifacts — such as boundary proximity, instability, paradox pressure, or evidence incompleteness?”
 
 That means the topology methods layer should stay focused on:
 
@@ -65,7 +61,7 @@ The methods layer follows a reading boundary rather than a policy hierarchy:
    - record the run outcome and release polarity
 
 2. **optional diagnostic artifacts**
-   - EPF shadow
+   - EPF shadow comparison artifacts
    - paradox / field overlays
    - external evidence context
    - hazard-style signals
@@ -75,9 +71,7 @@ The methods layer follows a reading boundary rather than a policy hierarchy:
    - decision-engine style outputs
    - dual-view surfaces
 
-If a topology output and the deterministic release artifact appear to diverge,
-the role of the topology layer is to surface that divergence explicitly rather
-than silently replace the recorded release outcome.
+If a topology output and the deterministic release artifact appear to diverge, the role of the topology layer is to surface that divergence explicitly rather than silently replace the recorded release outcome.
 
 This methods note does not define a new release contract.
 
@@ -85,8 +79,7 @@ This methods note does not define a new release contract.
 
 ## 3. Current repo-level tool surface
 
-The current repo-level topology surface is intentionally modest and
-artifact-derived.
+The current repo-level topology surface is intentionally modest and artifact-derived.
 
 ### 3.1 Paradox field
 
@@ -102,10 +95,29 @@ Method role:
 - derives `paradox_field_v0.json`
 - summarizes paradox atoms and a severity score
 
-Use this when you want a structured paradox/field input for later topology
-interpretation.
+Use this when you want a structured paradox/field input for later topology interpretation.
 
-### 3.2 Stability Map v0 (current CLI surface)
+### 3.2 Stability-related artifacts (current surfaces)
+
+Today there are **two distinct “stability-like” artifact surfaces** in the repo.  
+They are related in spirit, but they are **not the same schema** and should not be treated as interchangeable.
+
+#### A) Safe-pack additive EPF hazard stability artifact
+
+Produced by the deterministic safe-pack (`run_all.py`) as an **additive diagnostic artifact**:
+
+```text
+PULSE_safe_pack_v0/artifacts/epf_stability_map_v0.json
+```
+
+This file is a hazard-oriented stability snapshot (zone/threshold/provenance style data). It is useful as an optional diagnostic signal family and for drift/history work.
+
+Important nuance:
+
+- it is **not** the same surface as the `stability_map_v0` demo artifact described below
+- Decision Engine’s `--stability-map` input currently expects the `stability_map_v0`-style shape (cells + `delta_bend`), so passing `epf_stability_map_v0.json` as that input will not produce meaningful stability-map summaries
+
+#### B) Stability Map v0 demo artifact (current CLI surface)
 
 Tool:
 
@@ -115,15 +127,11 @@ PULSE_safe_pack_v0/tools/pulse_stability_map_demo_v0.py
 
 Current role:
 
-- produces a demo stability-map artifact
+- produces a **demo** `stability_map_v0` artifact
 - expresses the topology/stability idea in a minimal synthetic form
-- is **not yet the same thing as a fully general multi-run production
-  stability-map builder**
+- is **not** yet the same thing as a fully general multi-run production stability-map builder
 
-That distinction matters.
-
-The current repo gives you a working demo surface for Stability Map thinking,
-not a claim that the long-term topology stack is already fully generalized.
+This demo surface exists to make the Stability Map idea tangible without claiming full production generality.
 
 ### 3.3 Decision Engine v0
 
@@ -137,7 +145,7 @@ Current method role:
 
 - reads one required `status.json` artifact
 - may also read optional overlays such as:
-  - `stability_map_v0`
+  - `stability_map_v0` (demo surface today)
   - `paradox_field_v0`
 - emits a compact `decision_engine_v0.json`
 
@@ -154,7 +162,7 @@ This is a summarization surface, not a replacement for deterministic gating.
 
 A clean topology method pipeline looks like this.
 
-### Step 1 — Produce the deterministic run artifact
+### Step 1 — Produce the deterministic run artifacts
 
 Required artifact:
 
@@ -162,9 +170,15 @@ Required artifact:
 PULSE_safe_pack_v0/artifacts/status.json
 ```
 
-This is the anchor artifact for all later interpretation.
+This is the anchor artifact for all later interpretation. Without this file, topology methods should not fabricate a release reading.
 
-Without this file, topology methods should not fabricate a release reading.
+Recommended companion:
+
+- `PULSE_safe_pack_v0/artifacts/report_card.html`
+
+Optional additive diagnostic artifact (when present):
+
+- `PULSE_safe_pack_v0/artifacts/epf_stability_map_v0.json`
 
 ### Step 2 — Optionally produce paradox / field context
 
@@ -173,20 +187,17 @@ Optional artifact family:
 - `paradox_field_v0.json`
 - related paradox / field summaries
 
-These artifacts are useful when the run contains conflict structure, recurring
-boundary tension, or evidence patterns that should be preserved explicitly
-rather than flattened into PASS/FAIL.
+These artifacts are useful when the run contains conflict structure, recurring boundary tension, or evidence patterns that should be preserved explicitly rather than flattened into PASS/FAIL.
 
-### Step 3 — Optionally produce stability-map context
+### Step 3 — Optionally produce Stability Map context
 
 Current repo-level surface:
 
-- a demo Stability Map generator
+- a **demo** Stability Map generator producing a `stability_map_v0`-style artifact
 
 Method intent:
 
-convert release polarity plus diagnostic stability context into a compact
-stability-oriented representation.
+- convert release polarity plus diagnostic stability context into a compact stability-oriented representation
 
 Conceptually, this is where labels such as:
 
@@ -196,11 +207,9 @@ Conceptually, this is where labels such as:
 - `unstably_bad`
 - `unknown`
 
-become methodologically meaningful as structural descriptions rather than policy
-classes.
+become methodologically meaningful as structural descriptions rather than policy classes.
 
-The exact schema belongs to the schema/artifact layer; the methods layer cares
-about how those states are derived, evidence-linked, and interpreted.
+The exact schema belongs to the schema/artifact layer; the methods layer cares about how those states are derived, evidence-linked, and interpreted.
 
 ### Step 4 — Run the Decision Engine
 
@@ -213,8 +222,7 @@ and emits a compact summary artifact.
 
 Typical intent:
 
-compress the current run into a compact read without hiding or replacing the
-underlying evidence chain.
+- compress the current run into a compact read without hiding or replacing the underlying evidence chain
 
 ### Step 5 — Render optional dual views
 
@@ -229,8 +237,7 @@ This is where the broader “Dual View” idea lives.
 
 ## 5. Input contracts (method view)
 
-From a methods perspective, the topology family has one required input and
-several optional diagnostic inputs.
+From a methods perspective, the topology family has one required input and several optional diagnostic inputs.
 
 ### Required
 
@@ -238,23 +245,22 @@ several optional diagnostic inputs.
 
 ### Optional
 
-- Stability Map artifact
-- paradox / field artifact
-- EPF shadow context
+- paradox / field artifact (`paradox_field_v0.json`)
+- Stability Map v0 demo artifact (`stability_map_v0*`)
+- safe-pack additive EPF hazard stability artifact (`epf_stability_map_v0.json`)
+- EPF shadow comparison context (A/B workflow outputs)
 - external evidence context
 - other diagnostic overlays that remain artifact-derived
 
 Method rule:
 
-optional inputs may enrich the structural read, but missing optional inputs must
-never be silently reinterpreted as stability, completeness, or PASS.
+- optional inputs may enrich the structural read, but missing optional inputs must never be silently reinterpreted as stability, completeness, or PASS
 
 ---
 
 ## 6. Output contracts (method view)
 
-Topology methods should aim to emit artifacts that answer four questions
-cleanly:
+Topology methods should aim to emit artifacts that answer four questions cleanly:
 
 1. What release polarity or outcome is recorded in the deterministic artifact chain?
 2. What stability profile, uncertainty, or fragility is visible?
@@ -266,10 +272,9 @@ A useful compact output therefore tends to contain:
 - recorded release summary
 - stability type or uncertainty state
 - supporting input references
-- short artifact-traceable narrative
+- short, artifact-traceable narrative
 
-Optional compact handling cues, when a renderer chooses to expose them, may
-include:
+Optional compact handling cues, when a renderer chooses to expose them, may include:
 
 - `routine`
 - `caution`
@@ -289,13 +294,11 @@ Always anchor interpretation to the deterministic archived artifact chain.
 
 ### Rule B — Diagnostic context enriches rather than overrides
 
-EPF, paradox, and other overlays can make the picture more honest or more
-granular, but they do not automatically change release policy.
+EPF, paradox, and other overlays can make the picture more honest or more granular, but they do not automatically change release policy.
 
 ### Rule C — Unknown stays unknown
 
-If key inputs are missing, degraded, or incomplete, the topology layer should
-surface uncertainty explicitly rather than manufacture confidence.
+If key inputs are missing, degraded, or incomplete, the topology layer should surface uncertainty explicitly rather than manufacture confidence.
 
 ### Rule D — Language must remain evidence-linked and audit-friendly
 
@@ -305,8 +308,7 @@ Topology output should be:
 - explainable
 - traceable back to archived artifacts
 
-Preserving the evidence chain matters more than collapsing everything into a
-single label.
+Preserving the evidence chain matters more than collapsing everything into a single label.
 
 ---
 
@@ -316,10 +318,9 @@ Given the current repo surface, a practical reading is:
 
 - `status.json` records the deterministic release outcome
 - paradox/field outputs preserve conflict structure when present
-- the Stability Map demo expresses the intended stability-typing surface in
-  minimal form
-- the Decision Engine compresses the available artifact chain into a compact
-  summary without erasing evidence links
+- `epf_stability_map_v0.json` (when present) adds hazard-oriented stability context from the safe-pack
+- the Stability Map demo expresses the intended stability-typing surface in minimal form
+- the Decision Engine compresses the available artifact chain into a compact summary without erasing evidence links
 
 This means the present methods layer is already useful for:
 
@@ -328,8 +329,7 @@ This means the present methods layer is already useful for:
 - dashboard experiments
 - design validation
 
-while remaining honest that some topology surfaces are still demo/prototype
-grade.
+while remaining honest that some topology surfaces are still demo/prototype grade.
 
 ---
 
@@ -340,13 +340,13 @@ For any run where topology interpretation matters, archive together:
 - `status.json`
 - `report_card.html`
 - `decision_engine_v0.json`, when produced
-- `stability_map_v0*.json`, when produced
 - `paradox_field_v0.json`, when produced
+- `stability_map_v0*.json`, when produced
+- `epf_stability_map_v0.json`, when present
 - EPF shadow artifacts, when relevant
 - any human-readable summary generated from the same run
 
-This keeps both the evidence chain and the interpretation chain
-reconstructible.
+This keeps both the evidence chain and the interpretation chain reconstructible.
 
 ---
 
@@ -358,13 +358,10 @@ The topology methods layer should not:
 - hide release-policy changes inside diagnostic summaries
 - require every optional overlay on every run
 - treat missing diagnostics as positive evidence
-- imply that a current demo surface is already a fully general production
-  method
-- function as a hidden second release path or shadow control loop over the main
-  CI path
+- imply that a current demo surface is already a fully general production method
+- function as a hidden second release path or shadow control loop over the main CI path
 
-If one of those is ever needed, it should be promoted explicitly through
-schema, workflow, and policy review.
+If one of those is ever needed, it should be promoted explicitly through schema, workflow, and policy review.
 
 ---
 
@@ -373,16 +370,14 @@ schema, workflow, and policy review.
 Topology v0 methods are best understood as an artifact-derived diagnostic stack:
 
 - archived deterministic artifacts record the release outcome
-- optional paradox / EPF / stability context preserves structural distinctions
-  that PASS/FAIL would flatten away
-- compact summary surfaces expose that structure without rewriting release
-  semantics
+- optional paradox / EPF / stability context preserves structural distinctions that PASS/FAIL would flatten away
+- compact summary surfaces expose that structure without rewriting release semantics
 
 Today, the current repo-level tool surface supports that direction through:
 
 - paradox field generation
 - a Stability Map demo path
+- an additive safe-pack EPF hazard stability artifact
 - a Decision Engine that reads baseline artifacts plus optional overlays
 
-That is already enough to support analysis, triage, dashboards, and method
-validation without blurring the repository’s release boundary.
+That is already enough to support analysis, triage, dashboards, and method validation without blurring the repository’s release boundary.
