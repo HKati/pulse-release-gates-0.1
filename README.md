@@ -789,12 +789,13 @@ JSON and narrative views.
 
 It consists of:
 
-- **Stability Map v0** – aggregates `status.json` and optional EPF metrics
-  into a stability score and stability type per run.
-- **Decision Engine v0** – reads the Stability Map and produces a structured
-  decision trace (BLOCK / STAGE_ONLY / PROD_OK + explanation).
-- **Dual View v0** – a shared human + agent view of the same data
-  (short narrative + machine‑friendly JSON).
+It consists of:
+
+  * Stability Map v0 — stability/topology diagnostic surface. The repo currently ships:
+    * graph-style Stability Map (`states` + `transitions`) — schema/fixture
+    * cell-style Stability Map (`cells` + `delta_bend`) — demo/tooling + Decision Engine summaries
+  * Decision Engine v0 — reads `status.json` (required) plus optional overlays (stability map + paradox field) and emits `decision_engine_v0.json` (compact diagnostic summary). `decision_trace_v0*.json` is a separate dashboard/demo trace surface.
+  * Dual View v0 — aligned human + machine view over the same archived artefact chain (short    narrative + machine-friendly JSON). 
 
 
 ## Docs & specs
@@ -807,8 +808,10 @@ It consists of:
   – CLI-level methods, including Stability Map v0 pipeline.
 - `docs/PULSE_topology_v0_case_study.md`  
   – Real-world style case study for Topology v0.
-- `schemas/PULSE_stability_map_v0.schema.json`  
-  – Stability Map v0 JSON schema (includes `paradox_field_v0` and `epf_field_v0`).
+  * `schemas/PULSE_stability_map_v0.schema.json`
+– Graph-style Stability Map v0 JSON schema (`states` + `transitions`).
+  * `schemas/PULSE_stability_map_cells_v0.schema.json`
+– Cell-style Stability Map v0 JSON schema (`cells` + `delta_bend`; demo/tooling + Decision Engine summaries).
 
 **Paradox field & memory metrics v0**
 
