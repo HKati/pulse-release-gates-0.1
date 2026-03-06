@@ -1,85 +1,58 @@
 # PULSE topology v0 CLI demo
 
-> Practical CLI demo path for the optional topology layer on top of
-> deterministic PULSE artifacts.
+> Practical CLI demo path for the topology family on top of deterministic PULSE artifacts.
 
-This page is a **hands-on demo guide**.
+This page is for readers who want to see how the current topology-family tools fit together from the command line **without confusing demo outputs with the repository’s normative release path**.
 
-It is for readers who want to see how the current topology-family tools fit
-together from the command line without confusing demo outputs with the
-repository’s normative release path.
+This page does not define release semantics. Release semantics are specified in:
 
-Important boundary:
+- `docs/STATE_v0.md`
+- `docs/status_json.md`
+- `docs/STATUS_CONTRACT.md`
+- `pulse_gate_policy_v0.yml`
+- `.github/workflows/pulse_ci.yml`
 
-- the deterministic baseline remains the source of truth for release gating
+## Important boundary
+
+- deterministic baseline artifacts record the run outcome
 - topology tools are optional and diagnostic
-- CLI demo outputs are reviewer-facing artifacts, not automatic policy rewrites
+- demo artifacts are not policy surfaces
+- missing optional artifacts remain explicitly missing (missing ≠ stable)
 
-For the conceptual layer, see:
+Related docs:
 
-- `docs/PULSE_topology_v0_design_note.md`
 - `docs/PULSE_topology_v0_methods.md`
-- `docs/PULSE_topology_overview_v0.md`
-- `docs/PULSE_decision_field_v0_overview.md`
-
-For the quickest Decision Engine path, see:
-
 - `docs/PULSE_topology_v0_quickstart_decision_engine_v0.md`
+- `docs/PULSE_decision_engine_v0.md`
+- `docs/PARADOX_RUNBOOK.md`
 
 ---
 
-## 1. What this CLI demo is for
+## 1. What this demo is for
 
-Use this page if you want to:
+Use this page to:
 
-- start from a real baseline `status.json`,
-- generate optional topology inputs from the command line,
-- inspect the current live tool CLIs in your checkout,
-- and produce a compact reviewer-facing topology summary.
-
-This is the CLI-level “show me the moving parts” page.
-
-It is **not** the normative release workflow.
+- start from a real deterministic baseline (`status.json`)
+- optionally generate paradox/field context
+- optionally generate a Stability Map **demo** artifact
+- run Decision Engine v0 against artifacts you actually have
+- read the output as a compact diagnostic overlay (not a policy rewrite)
 
 ---
 
-## 2. Minimum prerequisites
+## 2. Prerequisites
 
-You should have:
+You need:
 
-- a checked-out repo,
-- Python available,
-- a baseline run artifact:
-  - `PULSE_safe_pack_v0/artifacts/status.json`
+- a checked-out repo
+- Python available
+- the safe-pack tools and artifacts directory present
 
-Recommended companion artifact:
-
-- `PULSE_safe_pack_v0/artifacts/report_card.html`
-
-If you do not have a real baseline `status.json`, stop here.  
-The topology family should not be treated as authoritative without it.
+This demo assumes you are running from the repo root.
 
 ---
 
-## 3. Demo flow at a glance
-
-The shortest honest CLI demo is:
-
-1. run the deterministic baseline,
-2. generate optional paradox context,
-3. inspect optional Stability Map tooling,
-4. inspect/run the Decision Engine,
-5. read the output as a reviewer-facing summary.
-
-A good mental model is:
-
-- baseline first
-- optional context second
-- compact summary last
-
----
-
-## 4. Step 1 — Produce the deterministic baseline
+## 3. Step 1 — Produce the deterministic baseline
 
 From repo root:
 
@@ -92,7 +65,13 @@ Expected baseline artifacts:
 - `PULSE_safe_pack_v0/artifacts/status.json`
 - `PULSE_safe_pack_v0/artifacts/report_card.html`
 
-Quick sanity check:
+Optional additive diagnostic artifact that may also appear (safe-pack output):
+
+- `PULSE_safe_pack_v0/artifacts/epf_stability_map_v0.json`
+
+Stop here if `status.json` is missing — topology demos should not fabricate baseline artifacts.
+
+Optional schema sanity check (if the validator exists in your repo snapshot):
 
 ```bash
 python tools/validate_status_schema.py \
@@ -100,21 +79,17 @@ python tools/validate_status_schema.py \
   --status PULSE_safe_pack_v0/artifacts/status.json
 ```
 
-Interpretation:
-
-this is the authoritative machine-readable baseline for the rest of the demo
-
 ---
 
-## 5. Step 2 — Generate optional paradox context
+## 4. Step 2 — Generate optional paradox context
 
-Create a working output directory:
+Create an output directory:
 
 ```bash
 mkdir -p out
 ```
 
-Then generate a paradox field from the baseline artifact directory:
+Generate paradox field:
 
 ```bash
 python PULSE_safe_pack_v0/tools/pulse_paradox_atoms_v0.py \
@@ -122,260 +97,177 @@ python PULSE_safe_pack_v0/tools/pulse_paradox_atoms_v0.py \
   --output out/paradox_field_v0.json
 ```
 
-You can inspect the live CLI anytime with:
-
-```bash
-python PULSE_safe_pack_v0/tools/pulse_paradox_atoms_v0.py --help
-```
-
-Expected output:
+Output:
 
 - `out/paradox_field_v0.json`
 
-Interpretation:
-
-- this is optional conflict/tension structure for later reviewer interpretation
-- it does not change baseline release semantics
+Use this when you want conflict/tension structure to remain explicit rather than flattened into one gate result.
 
 ---
 
-## 6. Step 3 — Inspect the Stability Map demo surface
+## 5. Step 3 — Generate a Stability Map demo artifact (optional)
 
-The repository currently exposes a demo Stability Map tool surface.
-
-Start by inspecting the live CLI in your checkout:
+This is a **demo-only** artifact used for topology exploration:
 
 ```bash
-python PULSE_safe_pack_v0/tools/pulse_stability_map_demo_v0.py --help
+python PULSE_safe_pack_v0/tools/pulse_stability_map_demo_v0.py \
+  --output out/stability_map_v0_demo.json
 ```
 
-What matters conceptually:
+Output:
 
-- the current repo-level surface is a demo/prototype Stability Map path
-- it is useful for learning the topology stack
-- it should not be overstated as a fully generalized production stability-map pipeline
+- `out/stability_map_v0_demo.json`
 
-If your local checkout exposes an output file, keep it alongside the other demo
-artifacts.
+### Important nuance: two “stability-like” artifacts exist
 
-Typical demo output name:
+- `PULSE_safe_pack_v0/artifacts/epf_stability_map_v0.json`  
+  *Safe-pack additive diagnostic artifact (hazard/zone style).*
 
-- `stability_map_v0_demo.json`
+- `out/stability_map_v0_demo.json`  
+  *Demo Stability Map v0 surface (cells + stability-map style fields).*
 
-Interpretation:
+These are **not the same schema**.
 
-- this gives you an optional stability-oriented topology input
-- it is diagnostic context, not a normative gate artifact
+Decision Engine’s `--stability-map` input currently expects the **stability_map_v0-style** shape (demo surface), so passing `epf_stability_map_v0.json` there will not produce meaningful stability-map summaries.
+
+If you do not have a real stability-map artifact, skip this step.
 
 ---
 
-## 7. Step 4 — Inspect the Decision Engine CLI
+## 6. Step 4 — Run Decision Engine v0
 
-Now inspect the live Decision Engine surface:
+Decision Engine v0 is a compact diagnostic summary overlay derived from archived artifacts.
+
+### Baseline only
 
 ```bash
-python PULSE_safe_pack_v0/tools/pulse_decision_engine_v0.py --help
+python PULSE_safe_pack_v0/tools/pulse_decision_engine_v0.py \
+  --status PULSE_safe_pack_v0/artifacts/status.json \
+  --output out/decision_engine_v0.json
 ```
 
-The current repo-level expectation is:
+### Baseline + paradox field (optional)
 
-- required input:
-  - one baseline `status.json`
-- optional inputs:
-  - Stability Map
-  - paradox field
-- output:
-  - `decision_engine_v0.json`
+```bash
+python PULSE_safe_pack_v0/tools/pulse_decision_engine_v0.py \
+  --status PULSE_safe_pack_v0/artifacts/status.json \
+  --paradox-field out/paradox_field_v0.json \
+  --output out/decision_engine_v0.json
+```
 
-The exact CLI flag spelling should follow the live `--help` output in your own
-checkout.
+### Baseline + stability-map demo + paradox field (optional)
 
-That is the safest and most honest CLI-demo rule.
+```bash
+python PULSE_safe_pack_v0/tools/pulse_decision_engine_v0.py \
+  --status PULSE_safe_pack_v0/artifacts/status.json \
+  --stability-map out/stability_map_v0_demo.json \
+  --paradox-field out/paradox_field_v0.json \
+  --output out/decision_engine_v0.json
+```
 
----
-
-## 8. Step 5 — Run the Decision Engine with the artifacts you actually have
-
-Run the Decision Engine using:
-
-- the required baseline `PULSE_safe_pack_v0/artifacts/status.json`
-- optional `out/paradox_field_v0.json`, if produced
-- optional Stability Map demo artifact, if produced
-
-Write the result to a compact output such as:
+Output:
 
 - `out/decision_engine_v0.json`
 
-Follow the exact flag names from:
+If you ever suspect CLI drift, confirm flags via:
 
 ```bash
 python PULSE_safe_pack_v0/tools/pulse_decision_engine_v0.py --help
 ```
 
-Do not fabricate optional inputs just to make the output look richer.
+---
 
-Missing optional context is better than invented context.
+## 7. Reading order (recommended)
+
+This demo stays honest if you read artifacts in evidence-trace order:
+
+1. `PULSE_safe_pack_v0/artifacts/status.json`
+2. `PULSE_safe_pack_v0/artifacts/report_card.html`
+3. optional `out/paradox_field_v0.json`
+4. optional `out/stability_map_v0_demo.json`
+5. `out/decision_engine_v0.json`
+
+The compact summary is useful **only when the evidence chain beneath it is real**.
 
 ---
 
-## 9. Minimal demo modes
+## 8. Minimal demo modes
 
-You do not need the full stack every time.
+You do not need every optional overlay.
 
 ### Mode A — Baseline only
 
 Inputs:
 
-- `PULSE_safe_pack_v0/artifacts/status.json`
+- `status.json`
 
-Use when:
+Outputs:
 
-- you want the smallest possible reviewer-facing summary
-- you are only proving the Decision Engine path works
+- `decision_engine_v0.json`
+
+Best for:
+
+- fastest “does it run?” demo
+- smallest archive bundle
 
 ### Mode B — Baseline + paradox field
 
 Inputs:
 
-- baseline `status.json`
-- `out/paradox_field_v0.json`
+- `status.json`
+- `paradox_field_v0.json`
 
-Use when:
+Best for:
 
-- you want conflict/tension structure in the summary
-- you want a more honest description of fragile runs
+- making conflict/tension structure visible in compact form
 
-### Mode C — Baseline + paradox field + Stability Map
+### Mode C — Baseline + stability-map demo + paradox field
 
 Inputs:
 
-- baseline `status.json`
-- `out/paradox_field_v0.json`
-- Stability Map demo artifact, if available
+- `status.json`
+- `stability_map_v0_demo.json`
+- `paradox_field_v0.json`
 
-Use when:
+Best for:
 
-- you want the richest current topology demo path
-- you are building reviewer notes or dashboard prototypes
-
----
-
-## 10. How to read the demo outputs
-
-Recommended reading order:
-
-1. baseline `status.json`
-2. baseline `report_card.html`
-3. optional `paradox_field_v0.json`
-4. optional Stability Map artifact
-5. `decision_engine_v0.json`
-
-This order matters.
-
-It keeps the compact topology summary anchored to the evidence beneath it.
+- richer stability posture demonstrations and exploration
 
 ---
 
-## 11. Example reviewer interpretations
+## 9. Common mistakes to avoid
 
-### Baseline PASS, quiet optional context
+Do **not**:
 
-Possible reviewer-facing posture:
-
-- `release_state: PROD_OK`
-- `stability_type: stable_good`
-
-Meaning:
-
-- positive baseline
-- low reviewer concern
-- ordinary confidence
-
-### Baseline PASS, noisier optional context
-
-Possible reviewer-facing posture:
-
-- `release_state:  PROD_OK`
-- `stability_type: unstably_good`
-
-Meaning:
-
-- deterministic baseline still passes
-- paradox/stability context is noisier, so reviewer confidence is softer than in the quiet case
-- this is not the same as a baseline-driven downgrade
-
-### Baseline FAIL
-
-Possible reviewer-facing posture:
-
-- `release_state: BLOCK`
-- `stability_type: stable_bad or unstably_bad`
-
-Meaning:
-
-- the baseline still governs
-- optional context may explain the posture more honestly, but does not silently undo the failure
+- run Decision Engine without a real baseline `status.json`
+- treat demo stability artifacts as policy surfaces
+- pass `epf_stability_map_v0.json` as `--stability-map` and assume it means the same thing
+- assume missing overlays imply stability or low risk
+- archive only the compact summary without the baseline artifacts
 
 ---
 
-## 12. What remains normative
+## 10. Recommended archive bundle
 
-Keep this boundary stable:
-
-- deterministic baseline gating remains authoritative
-- topology CLI artifacts remain diagnostic
-- Decision Engine output is a compact reviewer-facing summary
-- missing optional artifacts must never be treated as evidence of calm or PASS
-
-If a compact topology summary and the deterministic baseline disagree, the
-baseline wins.
-
----
-
-## 13. Recommended demo archive bundle
-
-When this CLI demo produces a result worth keeping, archive together:
+If the demo produces something worth keeping, archive together:
 
 - `PULSE_safe_pack_v0/artifacts/status.json`
 - `PULSE_safe_pack_v0/artifacts/report_card.html`
-- `out/paradox_field_v0.json`, when produced
-- Stability Map demo output, when produced
-- `out/decision_engine_v0.json`, when produced
-- any short reviewer note derived from the same run
+- `out/decision_engine_v0.json`
+- optional `out/paradox_field_v0.json`
+- optional `out/stability_map_v0_demo.json`
+- optional `PULSE_safe_pack_v0/artifacts/epf_stability_map_v0.json` (if present)
 
-This makes the demo chain reconstructible later.
-
----
-
-## 14. Common mistakes to avoid
-
-Do not:
-
-- skip the baseline and read only the compact summary
-- treat demo outputs as silent policy changes
-- assume missing optional overlays imply stability
-- fabricate topology inputs
-- confuse a useful reviewer-facing summary with the normative release contract
-
-The CLI demo is valuable precisely because it stays honest about those limits.
+This keeps later reconstruction straightforward.
 
 ---
 
-## 15. Summary
+## 11. Summary
 
-The shortest honest topology CLI demo is:
+Shortest honest CLI demo path:
 
-- produce a real deterministic baseline
-- optionally generate paradox context
-- optionally inspect/use the Stability Map demo surface
-- run the Decision Engine against the artifacts you actually have
-- read the result as a reviewer-facing interpretation layer
-
-That is enough to make the topology stack useful for:
-
-- demos
-- governance prototypes
-- reviewer handoff
-- dashboard experiments
-
-without blurring the repository’s normative release boundary.
+1. produce a deterministic baseline
+2. optionally generate paradox context
+3. optionally generate a Stability Map demo artifact
+4. run Decision Engine against real artifacts
+5. interpret the output as a diagnostic overlay, not a policy rewrite
