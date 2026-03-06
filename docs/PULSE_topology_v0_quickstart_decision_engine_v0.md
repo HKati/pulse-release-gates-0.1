@@ -1,25 +1,32 @@
 # PULSE topology v0 quickstart: Decision Engine v0
 
-> Fastest practical path to a reviewer-facing Decision Engine summary on top of
-> deterministic PULSE artifacts.
+> Fastest practical path from one deterministic baseline run to one compact Decision Engine summary artifact.
 
-This quickstart shows how to use the current Decision Engine surface without
-blurring the repository’s normative boundary.
+This quickstart shows how to use the current Decision Engine surface without blurring the repository’s release-semantics boundary.
 
-Important boundary:
+This page does not define release semantics. Release semantics are specified in:
 
-- the deterministic baseline remains the source of truth for release gating
-- the Decision Engine is optional and diagnostic
-- Decision Engine outputs summarize reviewer posture; they do not silently
-  rewrite release policy
+- `docs/STATE_v0.md`
+- `docs/status_json.md`
+- `docs/STATUS_CONTRACT.md`
+- `pulse_gate_policy_v0.yml`
+- `.github/workflows/pulse_ci.yml`
+
+## Important boundary
+
+- the deterministic baseline artifacts carry the recorded run outcome
+- Decision Engine is optional and diagnostic
+- Decision Engine outputs are compact summaries; they do not silently rewrite release policy
+- missing optional context must remain explicit (missing ≠ stable)
 
 For the broader conceptual layer, see:
 
 - `docs/PULSE_topology_v0_design_note.md`
 - `docs/PULSE_topology_v0_methods.md`
 - `docs/PULSE_topology_overview_v0.md`
+- `docs/PULSE_decision_engine_v0.md`
 
-For the EPF/paradox side, see:
+For EPF/paradox triage, see:
 
 - `docs/PARADOX_RUNBOOK.md`
 - `docs/PULSE_epf_shadow_quickstart_v0.md`
@@ -35,15 +42,13 @@ Use this page if you want the fastest route from:
 
 to:
 
-- one compact, reviewer-facing topology summary
-
-using the current Decision Engine surface.
+- one compact, dashboard-friendly `decision_engine_v0.json` artifact.
 
 This quickstart is intentionally practical:
 
 - start from the baseline `status.json`
 - add optional context only if you already have it
-- produce a compact decision artifact for dashboards, review notes, or handoff
+- produce a compact decision artifact for dashboards, triage notes, or handoff
 
 ---
 
@@ -57,17 +62,22 @@ PULSE_safe_pack_v0/artifacts/status.json
 
 That baseline artifact is non-negotiable.
 
+Recommended companion:
+
+- `PULSE_safe_pack_v0/artifacts/report_card.html`
+
 Optional enrichments are:
 
 - `paradox_field_v0.json`
-- `stability_map_v0*.json`
-- other topology/diagnostic overlays that remain artifact-first
+- `stability_map_v0*.json` (demo/topology surface)
+- EPF shadow A/B artifacts (when relevant)
+- other diagnostic overlays that remain artifact-derived
 
-The idea is simple:
+Reading order (evidence-trace order):
 
-- baseline first
-- optional context second
-- Decision Engine summary last
+1. baseline artifacts first
+2. optional diagnostics next
+3. Decision Engine output last as a compact summary
 
 ---
 
@@ -86,8 +96,7 @@ Expected baseline artifacts:
 - `PULSE_safe_pack_v0/artifacts/status.json`
 - `PULSE_safe_pack_v0/artifacts/report_card.html`
 
-If you do not have a valid baseline `status.json`, stop here.  
-The Decision Engine should not be treated as authoritative without it.
+If you do not have a valid baseline `status.json`, stop here.
 
 ---
 
@@ -105,66 +114,82 @@ python PULSE_safe_pack_v0/tools/pulse_paradox_atoms_v0.py \
 
 This gives you an optional:
 
-```
+```text
 out/paradox_field_v0.json
 ```
 
-Use it when you want conflict/tension structure to inform the reviewer summary.
+Use it when you want recurring tension/conflict structure to inform the compact summary.
 
 ---
 
 ### Step 3 — Optionally prepare stability-map context
 
-If you already have a Stability Map artifact from the repo’s demo/topology path,
-keep it alongside the baseline artifact.
+If you already have a `stability_map_v0`-style artifact (for example from the demo/topology path), keep it alongside the baseline artifact.
 
 Typical example name:
 
-```
-stability_map_v0_demo.json
+```text
+out/stability_map_v0_demo.json
 ```
 
-This is optional.
+If you want the demo artifact:
 
-Do not invent a fake stability-map file just to satisfy the Decision Engine.  
-Missing optional context is better than fabricated context.
+```bash
+python PULSE_safe_pack_v0/tools/pulse_stability_map_demo_v0.py \
+  --output out/stability_map_v0_demo.json
+```
+
+Important nuance:
+
+- the safe-pack may also emit `PULSE_safe_pack_v0/artifacts/epf_stability_map_v0.json`
+- that file is a different diagnostic surface and is **not** the same schema as the `stability_map_v0` demo input expected by Decision Engine’s `--stability-map`
+
+If you do not have a real stability-map artifact, skip this step. Missing optional context is better than fabricated context.
 
 ---
 
-### Step 4 — Inspect the live Decision Engine CLI
+### Step 4 — Run the Decision Engine
 
-Before running the tool, inspect the current live CLI in your checkout:
+Output target:
+
+```text
+out/decision_engine_v0.json
+```
+
+#### Baseline only
+
+```bash
+python PULSE_safe_pack_v0/tools/pulse_decision_engine_v0.py \
+  --status PULSE_safe_pack_v0/artifacts/status.json \
+  --output out/decision_engine_v0.json
+```
+
+#### Baseline + paradox field (optional)
+
+```bash
+python PULSE_safe_pack_v0/tools/pulse_decision_engine_v0.py \
+  --status PULSE_safe_pack_v0/artifacts/status.json \
+  --paradox-field out/paradox_field_v0.json \
+  --output out/decision_engine_v0.json
+```
+
+#### Baseline + stability-map demo + paradox field (optional)
+
+```bash
+python PULSE_safe_pack_v0/tools/pulse_decision_engine_v0.py \
+  --status PULSE_safe_pack_v0/artifacts/status.json \
+  --stability-map out/stability_map_v0_demo.json \
+  --paradox-field out/paradox_field_v0.json \
+  --output out/decision_engine_v0.json
+```
+
+Tip:
+
+- if you ever suspect the CLI changed, you can still confirm via:
 
 ```bash
 python PULSE_safe_pack_v0/tools/pulse_decision_engine_v0.py --help
 ```
-
-This is the safest quickstart because the artifact contract is more stable than
-any one branch’s exact CLI flag spelling.
-
-What matters methodologically is:
-
-- required baseline input: `status.json`
-- optional inputs: Stability Map / paradox field overlays
-- output: `decision_engine_v0.json`
-
----
-
-### Step 5 — Run the Decision Engine with the artifacts you actually have
-
-Run the Decision Engine against:
-
-- the required baseline `status.json`
-- optional `paradox_field_v0.json`, if present
-- optional `stability_map_v0*.json`, if present
-
-Output target:
-
-```
-decision_engine_v0.json
-```
-
-The exact CLI flags should follow the live `--help` output in your checked-out tree.
 
 ---
 
@@ -180,7 +205,7 @@ Inputs:
 
 Good for:
 
-- the smallest possible reviewer-facing summary
+- the smallest possible compact summary
 - proving the Decision Engine path works
 - demos and handoff notes
 
@@ -199,16 +224,16 @@ Inputs:
 
 Good for:
 
-- showing recurring tension/conflict structure
-- making fragile runs easier to summarize honestly
+- making conflict/tension structure visible in compact form
+- more honest summaries for fragile-looking runs
 
 Tradeoff:
 
-- still no dedicated Stability Map context
+- still no dedicated stability-map context
 
 ---
 
-### Mode C — Baseline + Stability Map + paradox field
+### Mode C — Baseline + stability map + paradox field
 
 Inputs:
 
@@ -218,9 +243,9 @@ Inputs:
 
 Good for:
 
-- richer reviewer-facing summaries
+- richer compact summaries
 - stability posture + tension posture together
-- dashboards and governance prototypes
+- dashboards and exploration
 
 Tradeoff:
 
@@ -230,41 +255,34 @@ Tradeoff:
 
 ## 5. What the output is for
 
-A typical Decision Engine output is meant to compress a run into a compact,
-reviewer-facing posture.
+A typical Decision Engine output compresses a run into a compact posture label set.
 
-Common fields may include summaries such as:
+Common fields include:
 
-- `release_state`
-  - e.g. `BLOCK`, `STAGE_ONLY`, `PROD_OK`, `UNKNOWN`
-
-- `stability_type`
-  - e.g. `stable_good`, `unstably_good`, `stable_bad`, `unstably_bad`
+- `release_state` (e.g. `BLOCK`, `STAGE_ONLY`, `PROD_OK`, `UNKNOWN`)
+- `stability_type` (e.g. `stable_good`, `unstably_good`, `stable_bad`, `unstably_bad`, `boundary*`, `unknown`)
 
 Interpretation rule:
 
-these are diagnostic review summaries.  
-They are **not automatically the same thing as the normative release decision**.
-
-That distinction matters a lot.
+- these are diagnostic compact summaries
+- they are **not automatically the same thing as the normative release decision**
 
 ---
 
 ## 6. How to read the result
 
-A good reading order is:
+Recommended reading order:
 
-1. read the deterministic baseline first  
-   - `status.json`  
+1. Read the deterministic baseline first
+   - `status.json`
    - `report_card.html`
 
-2. inspect optional diagnostic context  
-   - paradox field  
-   - Stability Map  
-   - EPF shadow outputs, if relevant
+2. Inspect optional diagnostic context (if present)
+   - paradox field
+   - Stability Map demo artifact
+   - EPF shadow outputs, when relevant
 
-3. read the Decision Engine output last  
-   as a compact summary of reviewer posture
+3. Read `decision_engine_v0.json` last as a compact summary
 
 This keeps the summary anchored to evidence.
 
@@ -274,7 +292,6 @@ This keeps the summary anchored to evidence.
 
 ### Baseline PASS + calm diagnostics
 
-
 Possible summary:
 
 ```text
@@ -282,13 +299,10 @@ release_state: PROD_OK
 stability_type: stable_good
 ```
 
-```
-
 Meaning:
 
 - positive baseline
-- low reviewer concern
-- ordinary confidence
+- low diagnostic concern
 
 ---
 
@@ -296,7 +310,7 @@ Meaning:
 
 Possible summary:
 
-```
+```text
 release_state: PROD_OK
 stability_type: unstably_good
 ```
@@ -304,8 +318,8 @@ stability_type: unstably_good
 Meaning:
 
 - deterministic baseline still passes
-- the  Decision Engine keeps the release state as `PROD_OK`
-- but `stability_type: unstably_good` signals that reviewer caution is more honest than routine production confidence
+- the compact label stays `PROD_OK`
+- but `unstably_good` signals that caution is more honest than routine confidence
 
 ---
 
@@ -313,15 +327,15 @@ Meaning:
 
 Possible summary:
 
-```
+```text
 release_state: BLOCK
-stability_type: stable_bad or unstably_bad
+stability_type: stable_bad  (or unstably_bad)
 ```
 
 Meaning:
 
 - the baseline still governs
-- optional overlays may explain the failure posture, but do not silently undo it
+- optional overlays may explain failure posture, but do not silently undo it
 
 ---
 
@@ -329,13 +343,12 @@ Meaning:
 
 Keep this boundary stable:
 
-- the deterministic gate path remains authoritative
-- the Decision Engine remains a reviewer-facing summarizer
+- deterministic gates remain authoritative for release semantics
+- Decision Engine remains a compact diagnostic summarizer
 - optional overlays enrich interpretation, not policy
 - missing diagnostic artifacts must never become silent PASS signals
 
-If a Decision Engine summary and the deterministic baseline disagree,  
-the baseline wins.
+If a Decision Engine summary and the deterministic baseline disagree, the baseline wins.
 
 ---
 
@@ -345,11 +358,11 @@ For any run where the Decision Engine output matters, archive together:
 
 - `PULSE_safe_pack_v0/artifacts/status.json`
 - `PULSE_safe_pack_v0/artifacts/report_card.html`
-- `decision_engine_v0.json`
-- `paradox_field_v0.json`, when produced
-- `stability_map_v0*.json`, when produced
+- `out/decision_engine_v0.json`
+- `out/paradox_field_v0.json`, when produced
+- `out/stability_map_v0_demo.json`, when produced
 - EPF shadow artifacts, when relevant
-- any short reviewer note derived from the same run
+- any short note derived from the same run
 
 This makes the summary reconstructible later.
 
@@ -360,10 +373,10 @@ This makes the summary reconstructible later.
 Do **not**:
 
 - run the Decision Engine without a real baseline `status.json`
-- treat a reviewer-facing summary as a silent policy rewrite
+- treat a compact summary as a silent policy rewrite
 - assume missing overlays imply calm/stable behavior
 - fabricate optional artifacts just to make the output look richer
-- skip the baseline artifacts and read only the compact decision summary
+- skip baseline artifacts and read only the compact summary
 
 The compact summary is useful **only when the evidence chain under it is real**.
 
@@ -371,16 +384,9 @@ The compact summary is useful **only when the evidence chain under it is real**.
 
 ## 11. Summary
 
-The fastest honest path is:
+Fastest honest path:
 
 1. produce a deterministic baseline
 2. optionally add paradox / stability context
 3. run the Decision Engine
-4. read the result as a reviewer-facing summary, not as a replacement for policy
-
-That is where Decision Engine v0 is most useful today:
-
-- dashboards
-- governance notes
-- reviewer handoff
-- and compact “what posture does this run deserve?” summaries
+4. read the result as a compact diagnostic summary, not as a replacement for policy
