@@ -1,20 +1,11 @@
-# PULSE Decision Engine EPF v0 - Design note
+# PULSE Decision Engine EPF v0 — Design note
 
-> Status: draft (design note only)  
-> Scope: how EPF shadow signals can be surfaced in compact summary / read surfaces without changing deterministic release semantics.
+> Status: draft (design note only).  
+> Scope: how EPF shadow signals can be surfaced in compact summary/read surfaces **without changing deterministic release semantics**.
 
-This note describes how experimental EPF shadow signals can be carried from
-stability-oriented diagnostic artifacts into Decision Engine and Dual View
-surfaces.
+This note describes how experimental EPF shadow signals can be carried from archived comparison artifacts into **Decision Engine** and **Dual View** surfaces.
 
-The goal is **not** to introduce a second release path.
-
-EPF remains an **optional diagnostic signal family**: it can highlight boundary
-sensitivity, perturbation response, or locally unstable behavior, but it must
-not silently rewrite the recorded deterministic run outcome or CI pass/fail
-behavior.
-
-This note does not define release semantics. Release semantics are specified in:
+It does **not** define release semantics. Release semantics are specified in:
 
 - `docs/STATE_v0.md`
 - `docs/status_json.md`
@@ -22,63 +13,64 @@ This note does not define release semantics. Release semantics are specified in:
 - `pulse_gate_policy_v0.yml`
 - `.github/workflows/pulse_ci.yml`
 
----
-
 ## Important boundary
 
-- deterministic archived artifacts carry the recorded release result for a run
-- EPF shadow is diagnostic and CI-neutral by default
-- EPF surfacing may enrich stability-oriented summaries
-- EPF surfacing must not silently mutate the recorded release result
-- missing EPF evidence must remain explicit
+- Deterministic archived artifacts carry the recorded release result for a run.
+- EPF shadow is an **optional diagnostic signal family**.
+- EPF surfacing may enrich stability-oriented summaries.
+- EPF surfacing must **not** silently mutate CI behavior or the recorded baseline result.
+- Missing EPF evidence must remain explicit (**missing ≠ clean**).
 
 Related docs:
 
 - EPF workflow: `docs/PULSE_epf_shadow_quickstart_v0.md`, `docs/PULSE_epf_shadow_pipeline_v0_walkthrough.md`
 - EPF triage: `docs/PARADOX_RUNBOOK.md`
-- EPF <-> topology relation: `docs/PULSE_topology_epf_hook_v0.md`
-- Decision Engine overview: `docs/PULSE_decision_engine_v0.md`
+- EPF ↔ topology: `docs/PULSE_topology_epf_hook_v0.md`
+- Decision Engine: `docs/PULSE_decision_engine_v0.md`
 - Topology overview: `docs/PULSE_topology_overview_v0.md`, `docs/PULSE_decision_field_v0_overview.md`
 
 ---
 
-# 1. Design intent
+## 1. Design intent
 
-The purpose of surfacing EPF is to preserve structural distinctions that a
-single release label would otherwise flatten away.
+The purpose of surfacing EPF is to preserve structural distinctions that a single release label would otherwise flatten away.
 
 In particular:
 
 - the same release polarity can coexist with different stability profiles
-- a "good" outcome near a boundary is not equivalent to a robustly stable one
+- a “good” outcome near a boundary is not equivalent to a robustly stable one
 - missing EPF context is not positive evidence
-- diagnostic concern should become visible without becoming a hidden policy override
+- diagnostic concern should become visible **without becoming a hidden policy override**
 
-This design note treats EPF as a **diagnostic read** over archived evidence, not
-as a release authority.
+This design note treats EPF as a **diagnostic read** over archived evidence, not as a release authority.
 
 ---
 
-# 2. Current EPF carriers
+## 2. Current EPF carriers
 
-EPF can appear in multiple artifact surfaces depending on which workflow paths
-were used for the run.
+EPF can appear in multiple artifact surfaces depending on which workflow paths were used for the run.
 
-## 2.1 EPF shadow workflow outputs (comparison surface)
+### 2.1 EPF shadow workflow outputs (comparison surface)
 
 In the current shadow A/B workflow, EPF evidence may be visible via:
 
-- `status_epf.json` (shadow-side output)
 - `status_baseline.json` (baseline-side output)
+- `status_epf.json` (shadow-side output)
 - `epf_report.txt` (human-readable delta summary)
 - `epf_paradox_summary.json` (machine-readable delta summary)
 
-This is an archived comparison surface. It is not a policy rewrite surface.
+Operational detail (current workflow convention):
 
-## 2.2 Stability-oriented / topology-oriented carriers (per-run or per-state)
+- baseline decisions are read from `status_baseline.json["decisions"]`
+- EPF shadow decisions are read from `status_epf.json["experiments"]["epf"]`
+- EPF entries may be either a raw scalar/bool, or a dict that contains `decision` (preferred)
 
-On the stability-oriented side of the repository, EPF may appear as a diagnostic
-block in a run- or state-level carrier.
+This is an archived comparison surface.  
+It is **not** a policy rewrite surface.
+
+### 2.2 Stability/topology-oriented carriers (per-run or per-state)
+
+On the stability/topology side, EPF may appear as a per-run/per-state diagnostic block.
 
 A representative shape is:
 
@@ -92,26 +84,23 @@ A representative shape is:
 }
 ```
 
-A practical reading of these fields is:
+A practical reading:
 
 - `available`: whether EPF shadow evidence is present for the run/state
 - `L`: a compact perturbation / contraction-style scalar (scale depends on producer)
-- `shadow_pass`: whether the shadow evaluation remained within an expected region
+- `shadow_pass`: whether shadow evaluation remained within an expected region
 
 The exact derivation and thresholding logic belongs to the producing method.
 
-This note is about how EPF information should be surfaced and interpreted
-downstream, not about redefining producers.
+This note is about how EPF information should be surfaced and interpreted downstream, not about redefining producers.
 
 ---
 
-# 3. EPF semantics
+## 3. EPF semantics
 
 EPF should be read as a **boundary / perturbation signal family**.
 
-It is useful when a run appears acceptable at the deterministic release level
-but still shows signs of fragility, instability, or boundary sensitivity under a
-nearby shadow view.
+It is useful when a run appears acceptable at the deterministic release level but still shows signs of fragility, instability, or boundary sensitivity under a nearby shadow view.
 
 EPF can help distinguish cases such as:
 
@@ -123,15 +112,13 @@ EPF can help distinguish cases such as:
 
 Important design point:
 
-EPF can refine the structural read **without redefining the recorded release
-outcome**.
+> EPF can refine the structural read **without redefining the recorded release outcome**.
 
 ---
 
-# 4. Decision Engine surfacing
+## 4. Decision Engine surfacing
 
-Decision Engine should treat EPF as an optional diagnostic input that enriches a
-compact run summary.
+Decision Engine should treat EPF as an optional diagnostic input that enriches a compact run summary.
 
 It may surface EPF through fields such as:
 
@@ -141,7 +128,7 @@ It may surface EPF through fields such as:
 - evidence references to originating artifact(s)
 - a short, non-policy summary string (optional)
 
-Example compact machine-readable surface:
+Example machine-readable surface:
 
 ```json
 {
@@ -152,7 +139,8 @@ Example compact machine-readable surface:
     "posture": "epf_boundary_sensitive",
     "evidence_refs": [
       "status_epf.json",
-      "epf_paradox_summary.json"
+      "epf_paradox_summary.json",
+      "epf_report.txt"
     ],
     "summary": "EPF shadow available; signal suggests near-boundary or locally unstable behavior."
   }
@@ -162,20 +150,20 @@ Example compact machine-readable surface:
 Notes:
 
 - field names may vary by renderer or artifact version
-- semantic stability matters more than spelling
+- semantic stability matters more than exact spelling
 
 Behavioral rules:
 
-- EPF may influence `stability_type` or related stability-oriented summaries
-- EPF may influence reviewer / triage cues
-- EPF must not silently overwrite the recorded release outcome
-- EPF absence must remain visible as absence, not be converted into confidence
+- EPF may influence `stability_type` (or similar stability posture summaries)
+- EPF may influence reviewer/triage cues
+- EPF must **not** silently overwrite the recorded baseline release outcome
+- EPF absence must remain visible as absence (do not convert missing into confidence)
 
 Decision Engine should **surface EPF**, not promote it into a hidden second gate.
 
 ---
 
-# 5. Dual View surfacing
+## 5. Dual View surfacing
 
 Dual View should expose the same EPF meaning in both aligned surfaces:
 
@@ -184,42 +172,35 @@ Dual View should expose the same EPF meaning in both aligned surfaces:
 
 Human-facing examples:
 
-- "EPF shadow available; signal is clean."
-- "EPF shadow available; result appears boundary-sensitive."
-- "EPF shadow unavailable; stability interpretation remains incomplete."
+- “EPF shadow available; signal is clean.”
+- “EPF shadow available; result appears boundary-sensitive.”
+- “EPF shadow unavailable; stability interpretation remains incomplete.”
 
 Machine-facing requirements:
 
 - whether EPF was present
-- whether the shadow signal passed or raised concern
+- whether shadow signal passed or raised concern
 - any coarse EPF posture label
-- references back to relevant supporting artifact(s)
+- references back to supporting artifact(s)
 
-If a legacy path still uses older surface names (for example, trace-style inputs
-like `decision_trace.json`), EPF meaning should remain stable across those
-surfaces.
-
-If a future path consolidates summary data under `decision_engine_v0.json`, the
-EPF interpretation should remain the same.
+If a legacy path still uses older surface names (for example trace-style inputs such as `decision_trace_v0`), EPF meaning should remain stable across those surfaces.
 
 Compression is allowed.  
 Semantic drift is not.
 
 ---
 
-# 6. Interpretation rules
+## 6. Interpretation rules
 
-## Rule A — Recorded release outcome stays recorded
+### Rule A — Recorded release outcome stays recorded
 
-EPF must not silently replace or rewrite the deterministic outcome captured in
-archived run artifacts.
+EPF must not silently replace or rewrite the deterministic outcome captured in archived run artifacts.
 
-## Rule B — Structural detail is the point
+### Rule B — Structural detail is the point
 
-The value of EPF is to preserve distinctions such as fragility, instability,
-boundary proximity, or local non-contractive behavior.
+EPF exists to preserve distinctions such as fragility, instability, boundary proximity, or local non-contractive behavior.
 
-## Rule C — Missing stays missing
+### Rule C — Missing stays missing
 
 If EPF evidence is not available, downstream surfaces should say so explicitly.
 
@@ -230,24 +211,21 @@ Missing EPF is **not equivalent to**:
 - PASS
 - low risk
 
-## Rule D — Human and machine surfaces must agree
+### Rule D — Human and machine surfaces must agree
 
-Any EPF summary shown to humans must match the structured fields shown to
-tools.
+Any EPF summary shown to humans must match the structured fields shown to tools.
 
-## Rule E — Evidence links should remain reconstructible
+### Rule E — Evidence links should remain reconstructible
 
-A reader should be able to follow EPF surfacing back to the originating artifact
-chain without ambiguity.
+A reader should be able to follow EPF surfacing back to the originating artifact chain without ambiguity.
 
 ---
 
-# 7. Suggested coarse posture vocabulary
+## 7. Suggested coarse posture vocabulary
 
-To avoid overclaiming precision, downstream surfaces should prefer a small,
-audit-friendly EPF vocabulary.
+To avoid overclaiming precision, downstream surfaces should prefer a small, audit-friendly EPF vocabulary.
 
-Examples include:
+Examples:
 
 - `epf_clear`
 - `epf_boundary_sensitive`
@@ -255,14 +233,12 @@ Examples include:
 - `epf_unavailable`
 - `epf_unknown`
 
-These are summary labels.
-
-They are not substitutes for the underlying evidence and must not be treated as
-automatic release-policy classes.
+These are summary labels.  
+They are not substitutes for the underlying evidence and must not be treated as automatic release-policy classes.
 
 ---
 
-# 8. Non-goals
+## 8. Non-goals
 
 This design note does **not** propose that EPF should:
 
@@ -273,21 +249,17 @@ This design note does **not** propose that EPF should:
 - hide threshold changes inside renderer language
 - collapse stability interpretation into a single opaque score
 
-If any of those behaviors are ever desired, they should be introduced explicitly
-through schema, workflow, and policy review.
+If any of those behaviors are ever desired, they should be introduced explicitly through schema/workflow/policy review.
 
 ---
 
-# 9. Summary
+## 9. Summary
 
-EPF in Decision Engine / Dual View should be understood as a **diagnostic
-surface for boundary-sensitive structure**.
+EPF in Decision Engine / Dual View should be understood as a **diagnostic surface for boundary-sensitive structure**.
 
-Its purpose is to make local instability, perturbation sensitivity, or evidence
-incompleteness visible in compact summary artifacts.
+Its purpose is to make local instability, perturbation sensitivity, or evidence incompleteness visible in compact summary artifacts.
 
-That additional visibility is valuable precisely because it **does not rewrite
-the deterministic release outcome**.
+That additional visibility is valuable precisely because it **does not rewrite the deterministic release outcome**.
 
 Design goal:
 
