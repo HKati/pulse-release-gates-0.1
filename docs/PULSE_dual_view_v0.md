@@ -1,28 +1,31 @@
 # PULSE Dual View v0 — Human + Machine Read
 
-This document introduces **PULSE Dual View v0** as a paired presentation
-surface over the same archived artifact chain.
+This document introduces **PULSE Dual View v0** as a paired presentation surface over the same archived artifact chain.
 
-The goal is not to create a second decision source.
-
+The goal is **not** to create a second decision source.  
 The goal is to expose the same run in two compatible forms:
 
 - a concise human-readable summary
 - a structured machine-readable representation
 
-Both views must remain traceable to the **same underlying archived artifacts**
-and must preserve the same release-semantics boundary.
+Both views must remain traceable to the **same underlying archived artifacts** and must preserve the same release-semantics boundary.
 
-Dual View v0 is therefore best understood as a **projection layer** over
-artifact-derived diagnostic outputs, such as:
+This page does **not** define release semantics. Release semantics are specified in:
+
+- `docs/STATE_v0.md`
+- `docs/status_json.md`
+- `docs/STATUS_CONTRACT.md`
+- `pulse_gate_policy_v0.yml`
+- `.github/workflows/pulse_ci.yml`
+
+Dual View v0 is best understood as a **projection layer** over artifact-derived diagnostic outputs, such as:
 
 - deterministic run artifacts (for example `status.json`)
 - optional stability-oriented artifacts (for example `stability_map_v0*.json`)
 - optional paradox / field artifacts (for example `paradox_field_v0.json`)
 - compact summary artifacts (for example `decision_engine_v0.json`)
 
-It does not define a new release contract, and it must not silently rewrite the
-recorded run outcome.
+It does not define a new release contract, and it must not silently rewrite the recorded run outcome.
 
 ---
 
@@ -41,8 +44,7 @@ It exists to make the same archived run legible in two aligned modes:
 - a human-facing compact summary
 - a machine-facing structured record
 
-The Dual View artifact should therefore be derived from already archived
-artifacts rather than treated as an independent authority.
+The Dual View artifact should be derived from already archived artifacts rather than treated as an independent authority.
 
 A valid Dual View output should make it easy to answer:
 
@@ -71,15 +73,13 @@ It may summarize:
 - paradox / conflict structure
 - artifact references
 
-It must not silently replace the recorded result in the deterministic artifact
-chain.
+It must not silently replace the recorded result in the deterministic artifact chain.
 
 ---
 
 ## 3. Input surface
 
-From a methods perspective, Dual View v0 has one anchor input and several
-optional diagnostic inputs.
+From a methods perspective, Dual View v0 has one anchor input and several optional diagnostic inputs.
 
 ### Required anchor
 
@@ -95,8 +95,8 @@ optional diagnostic inputs.
 
 Method rule:
 
-missing optional inputs must remain visible as missing context, not be
-reinterpreted as confidence, stability, or PASS.
+- missing optional inputs must remain visible as missing context
+- missing optional inputs must not be reinterpreted as confidence, stability, or PASS
 
 ---
 
@@ -104,19 +104,16 @@ reinterpreted as confidence, stability, or PASS.
 
 The core requirement of Dual View is **alignment**.
 
-The human-readable surface and the machine-readable surface must describe the
-same run-level interpretation.
+The human-readable surface and the machine-readable surface must describe the same run-level interpretation.
 
 That means:
 
 - the same release outcome should appear in both views
 - the same stability or uncertainty posture should appear in both views
 - the same supporting artifacts should be recoverable from both views
-- any compression in the human summary should remain faithful to the structured
-  fields underneath it
+- any compression in the human summary should remain faithful to the structured fields underneath it
 
-The human-facing layer may be shorter.
-
+The human-facing layer may be shorter.  
 The machine-facing layer may be more explicit.
 
 But they should not imply different conclusions.
@@ -131,19 +128,15 @@ Always anchor the Dual View output in archived artifacts from the same run.
 
 ### Rule B — Diagnostic structure is preserved, not flattened away
 
-Where available, stability, paradox, EPF, or evidence-completeness signals
-should be carried through rather than collapsed into a single PASS/FAIL-style
-summary.
+Where available, stability, paradox, EPF, or evidence-completeness signals should be carried through rather than collapsed into a single PASS/FAIL-style summary.
 
 ### Rule C — Unknown stays unknown
 
-If supporting context is missing, degraded, or incomplete, the Dual View should
-surface that uncertainty explicitly.
+If supporting context is missing, degraded, or incomplete, the Dual View should surface that uncertainty explicitly.
 
 ### Rule D — Summary must remain traceable
 
-A reader or tool should be able to move from Dual View back to the supporting
-artifact chain without ambiguity.
+A reader or tool should be able to move from Dual View back to the supporting artifact chain without ambiguity.
 
 ---
 
@@ -153,13 +146,10 @@ A practical reading of Dual View v0 is:
 
 - `status.json` records the deterministic run outcome
 - optional topology / paradox / EPF artifacts preserve structural detail
-- `decision_engine_v0.json` may compress parts of that detail into a compact
-  summary surface
-- `dual_view_v0.json` presents the same interpretation in aligned
-  human-readable and machine-readable forms
+- `decision_engine_v0.json` may compress parts of that detail into a compact summary surface
+- `dual_view_v0.json` presents the same interpretation in aligned human-readable and machine-readable forms
 
-In that sense, Dual View is not a new decision layer.
-
+In that sense, Dual View is not a new decision layer.  
 It is a **legibility layer over the same archived evidence chain**.
 
 ---
@@ -178,14 +168,11 @@ Dual View v0 should not:
 
 ## 8. Summary
 
-PULSE Dual View v0 is best understood as an artifact-derived presentation layer
-with two aligned surfaces:
+PULSE Dual View v0 is best understood as an artifact-derived presentation layer with two aligned surfaces:
 
 - one for human reading
 - one for machine consumption
 
-Both surfaces should remain faithful to the same archived artifact chain and
-should preserve the same release-semantics boundary.
+Both surfaces should remain faithful to the same archived artifact chain and should preserve the same release-semantics boundary.
 
-Dual View improves readability and integration value, but it does not redefine
-the recorded run outcome.
+Dual View improves readability and integration value, but it does not redefine the recorded run outcome.
