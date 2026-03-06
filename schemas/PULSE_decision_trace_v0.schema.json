@@ -3,7 +3,7 @@
   "$id": "https://example.org/schemas/PULSE_decision_trace_v0.schema.json",
   "title": "PULSE Decision Trace v0",
   "type": "object",
-  "description": "Schema for decision_trace.json produced by the PULSE Decision Engine v0.",
+  "description": "Schema for decision_trace_v0*.json diagnostic trace artefacts used by dashboard/demo surfaces. This is a presentation layer that may be derived from status.json and optional topology/Decision Engine overlays; it is not the primary output of pulse_decision_engine_v0.py.",
   "required": ["version", "state_id", "action", "risk_level", "summary", "details"],
   "properties": {
     "version": {
