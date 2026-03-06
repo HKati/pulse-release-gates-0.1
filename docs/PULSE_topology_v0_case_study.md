@@ -1,339 +1,283 @@
 # PULSE topology v0 case study
 
-> Real-world-style worked example for reading one run through the optional
-> topology layer.
+> Status: draft — case study / worked example.  
+> Scope: one-run, artifact-derived “field read” that preserves boundary/fragility/paradox structure **without** changing deterministic release semantics.
 
-This case study is **illustrative but realistic**.
+This case study shows a practical reading order for one archived run:
 
-It is designed to show how a reviewer can interpret a run using:
+1) deterministic baseline artifacts (what was recorded)  
+2) optional diagnostic signal families (EPF shadow / paradox-field / external evidence)  
+3) a topology-style stability posture that keeps structural distinctions visible  
 
-- the deterministic baseline artifacts,
-- optional EPF/paradox-style diagnostic context,
-- and a topology-style summary layer.
+This page does **not** define release semantics. Release semantics are specified in:
 
-Important boundary:
+- `docs/STATE_v0.md`
+- `docs/status_json.md`
+- `docs/STATUS_CONTRACT.md`
+- `pulse_gate_policy_v0.yml`
+- `.github/workflows/pulse_ci.yml`
 
-- the deterministic baseline remains the source of truth for release gating
-- the topology layer remains diagnostic
-- the case study shows reviewer interpretation, not an automatic policy rewrite
+Related docs:
 
-For the conceptual layer, see:
+- Concept: `docs/PULSE_topology_v0_design_note.md`
+- Overview: `docs/PULSE_topology_overview_v0.md`
+- Decision-field view: `docs/PULSE_decision_field_v0_overview.md`
+- Methods: `docs/PULSE_topology_v0_methods.md`
+- EPF/paradox triage: `docs/PARADOX_RUNBOOK.md`
 
-- `docs/PULSE_topology_v0_design_note.md`
-- `docs/PULSE_topology_v0_methods.md`
-- `docs/PULSE_topology_overview_v0.md`
+---
 
-For the EPF/paradox side, see:
+## Important boundary
 
-- `docs/PULSE_epf_shadow_quickstart_v0.md`
-- `docs/PULSE_epf_shadow_pipeline_v0_walkthrough.md`
-- `docs/PARADOX_RUNBOOK.md`
+- The deterministic archived artifacts record the baseline release result for a run.
+- Topology/Decision Engine are **artifact-derived diagnostic overlays**.
+- Topology may refine **stability posture** (boundary pressure, fragility, paradox concentration, evidence completeness).
+- Topology must not silently rewrite CI outcomes or the recorded baseline result.
+- Missing diagnostics remain explicit (missing ≠ stable, missing ≠ PASS).
 
 ---
 
 ## 1. Scenario
 
-Assume a release candidate for a retrieval-heavy assistant has just completed a
-deterministic PULSE run.
+Assume a release candidate completes a deterministic PULSE run.
 
-The baseline run is positive:
+Baseline signals look “green”:
 
-- the required deterministic gates pass
-- the report card looks broadly healthy
-- no single gate blocks shipping
+- required gates pass for the configured required set
+- the run is recorded as acceptable by the deterministic artifact chain
 
-But the run does **not** feel comfortably boring.
+But optional diagnostics suggest the run is not “boring”:
 
-Optional diagnostics suggest that the release is:
+- near-threshold behaviour on an important quality dimension
+- boundary sensitivity under a shadow/perturbation view (EPF)
+- recurring tension/co-occurrence patterns in a small gate family (paradox/field view)
 
-- near-threshold on an important quality dimension,
-- beginning to show boundary sensitivity under shadow analysis,
-- and accumulating reviewer-visible tension.
-
-This is exactly the kind of situation where a topology-style interpretation is
-more useful than a plain PASS/FAIL reading.
+This is exactly where topology helps: it keeps “PASS but fragile” distinct from “PASS and robust”.
 
 ---
 
-## 2. Baseline deterministic reading
+## 2. Artifact chain for this case
 
-The baseline artifacts are:
+### Required baseline artifacts
+
+These anchor the run and its recorded outcome:
 
 - `PULSE_safe_pack_v0/artifacts/status.json`
 - `PULSE_safe_pack_v0/artifacts/report_card.html`
 
-A reviewer starts here first.
+### Optional diagnostic artifacts (when present)
 
-### Example baseline reading
+These enrich the structural read but do not change the baseline record:
 
-- deterministic release posture: positive
-- required gates: PASS
-- obvious blocker: none
-- immediate release meaning: baseline says the run is acceptable
+- EPF shadow artifacts (if the EPF pipeline was run)
+- paradox/field artifacts such as `paradox_field_v0.json`
+- external detector summaries (if folded in)
+- hazard/instability probes (if produced)
 
-At this stage, the baseline is still the authoritative answer.
+### Optional topology / compact projection outputs
 
-A topology layer is only allowed to interpret what comes next; it is not allowed
-to replace this baseline decision.
+These are “read surfaces” derived from the above:
 
----
-
-## 3. Optional diagnostic context
-
-Now the reviewer looks at additional diagnostic surfaces.
-
-### 3.1 EPF shadow signal
-
-The EPF shadow path suggests that one important boundary is fragile:
-
-- under a nearby shadow interpretation, one gate becomes less comfortable,
-- or a previously clean pass starts to look near-threshold and warning-heavy.
-
-This does **not** change the baseline result.  
-It changes the reviewer’s confidence in how *robust* that result feels.
-
-### 3.2 Paradox / field signal
-
-A paradox-style view suggests that the same family of signals keeps appearing
-together when the run is stressed:
-
-- a quality gate is not failing deterministically,
-- but it is involved in recurring tension with another release-relevant signal,
-- and the pattern is no longer isolated enough to ignore casually.
-
-Again, this is not a new release gate.  
-It is evidence that the run is becoming **review-heavy**.
-
-### 3.3 Optional external evidence context
-
-If external detector summaries are present, they can further shape the reviewer
-picture:
-
-- perhaps all folded detector rows still pass overall,
-- but evidence presence is uneven,
-- or the run’s broader evidence posture feels less complete than ideal.
-
-This still does not replace the deterministic baseline.  
-It enriches the interpretation.
+- Stability Map–style artifacts (demo/prototype or future generalized builders)
+- `decision_engine_v0.json` (compact diagnostic overlay)
 
 ---
 
-## 4. What topology adds
+## 3. Baseline deterministic reading
 
-Without topology, the reviewer is left with a blunt summary:
+Start with baseline artifacts first.
 
-- “baseline PASS”
+Minimal baseline interpretation:
 
-With topology, the reviewer can say something more honest:
+- recorded polarity/outcome: positive (for the required set)
+- failed required gates: none
+- release meaning: “acceptable per baseline artifacts”
 
-- “baseline PASS, but not comfortably”
-- “the run is acceptable, though it looks operationally fragile”
-- “this is a candidate for staging caution rather than routine production confidence”
+Invariant:
 
-That is the key value of the topology layer.
-
-It adds a **stability posture** on top of the baseline release polarity.
+> Any later topology label must remain anchored to this recorded baseline outcome, not replace it.
 
 ---
 
-## 5. Topology reading of this run
+## 4. Optional diagnostic context (when available)
 
-A topology-oriented reading of this scenario would likely be:
+### 4.1 EPF shadow signal (optional)
 
-### Baseline release polarity
+When EPF shadow evidence is present, it can reveal boundary behaviour such as:
 
-- positive
+- small perturbations flipping a nearby outcome
+- local non-robustness around a threshold
+- disagreement clustering around a gate family
 
-### Stability posture
+Interpretation rule:
 
-- fragile / unstable rather than calm
+- EPF refines stability posture (fragility / boundary pressure).
+- EPF does not overwrite the baseline outcome.
 
-### Paradox pressure
+### 4.2 Paradox / field signal (optional)
 
-- present but not yet strong enough to replace the release decision
+When paradox/field outputs are present, they preserve conflict structure such as:
 
-### Reviewer posture
+- recurrence within a gate family
+- locality vs spread of tension
+- isolated vs systemic fragility
+- concentration vs diffusion of paradox pressure
 
-- caution
-- staging-first or extra review may be more honest than “ordinary PROD confidence”
+Interpretation rule:
 
-A topology-style summary for this case is therefore:
+- paradox/field outputs are diagnostic signal families
+- their absence must remain absence (not “zero tension”)
+
+### 4.3 Evidence completeness (optional)
+
+Track whether key evidence families are present.
+
+Rule:
+
+> Missing inputs stay missing. Don’t interpret missing as calmness.
+
+---
+
+## 5. Topology-style read of this run
+
+A topology interpretation for the scenario might be:
+
+- release polarity: positive (baseline)
+- stability posture: unstable / fragile
+- paradox pressure: present but localized
+- evidence completeness: partial (if some optional families are missing)
+
+A compact topology label for this pairing:
 
 - `unstably_good`
 
-That label means:
+Meaning:
 
-- the baseline run is still positive,
-- but the optional diagnostic context says the positivity is not comfortably robust.
+- baseline is positive
+- but the run is boundary-close / fragile under available diagnostics
 
 ---
 
-## 6. Decision-engine style summary
+## 6. Decision Engine overlay (illustrative but tool-shaped)
 
-A compact reviewer-facing Decision Engine style output for this same case might
-look like:
+A compact Decision Engine artifact can encode the same posture in a stable, machine-readable way.
+
+Example snippet (illustrative values):
 
 ```json
-
 {
-  "release_state": "PROD_OK",
-  "stability_type": "unstably_good",
-  "reason": "Deterministic baseline remains positive, but optional shadow/paradox context suggests boundary fragility and elevated reviewer caution."
+  "decision_engine_v0": {
+    "version": "PULSE_decision_engine_v0",
+    "generated_at_utc": "2025-01-10T12:34:56Z",
+    "inputs": {
+      "status_path": "PULSE_safe_pack_v0/artifacts/status.json",
+      "stability_map_path": "out/stability_map_v0_demo.json",
+      "paradox_field_path": "out/paradox_field_v0.json"
+    },
+    "release_state": "PROD_OK",
+    "stability_type": "unstably_good",
+    "status_summary": {
+      "gate_count": 42,
+      "failed_gates": [],
+      "passed_gates": [
+        "quality.q3_fairness_ok",
+        "slo.q4_slo_ok"
+      ],
+      "rdsi": 0.94
+    },
+    "stability_summary": {
+      "cell_count": 1,
+      "delta_bend_max": 1.0
+    },
+    "paradox_summary": {
+      "atom_count": 3,
+      "severe_atom_count": 1
+    }
+  }
 }
-
 ```
 
 Interpretation:
 
-- `PROD_OK` here reflects the current compact release-state classifier for a passing baseline      - `unstably_good` carries the fragility / caution signal
-- this is still a reviewer-facing summary, not a rewrite of normative release policy 
-
-This is exactly the kind of output that is useful in dashboards, PR summaries,
-or reviewer handoff notes.
+- `release_state` is a compact baseline-derived encoding (diagnostic label, not the release contract)
+- `stability_type` carries the fragility cue (`unstably_good`)
+- the artifact remains reconstructible via `inputs.*_path`
 
 ---
 
 ## 7. Why this is better than plain PASS/FAIL
 
-If the repo only said:
+A plain:
 
 ```
 PASS
 ```
 
-then reviewers might infer:
+often gets treated as “routine confidence”.
 
-“safe to treat as ordinary production confidence”
+Topology preserves the distinction:
 
-But that would flatten away important context.
+> “not blocked” is not always the same as “robust and boring”
 
-The topology layer lets the repo preserve a more faithful statement:
-
-- the run is currently acceptable,
-- but the acceptance is fragile enough to deserve caution.
-
-That is governance value.
-
-It helps teams avoid the common mistake of equating:
-
-“not currently blocked”
-
-with
-
-“robust and boring enough for routine release.”
+That prevents boundary-close PASS cases from being silently treated as routine.
 
 ---
 
-## 8. What topology does not do in this case
+## 8. What topology does not do
 
-Even in this more interesting case, topology must still respect the normative
-boundary.
-
-It does **not**:
+Topology is not allowed to:
 
 - silently convert baseline PASS into baseline FAIL
 - silently change required gate policy
-- rescue a failing baseline with a prettier narrative
+- “rescue” a failing baseline with nicer narrative
 - treat missing diagnostics as evidence of stability
 
-So the correct reading is:
-
-- baseline remains authoritative
-- topology contributes reviewer posture
-- policy changes still belong in the normal reviewed normative path
+If policy needs to change, it belongs in the explicit contract/policy/workflow path.
 
 ---
 
-## 9. Recommended reviewer action
+## 9. Practical follow-up actions (when this repeats)
 
-For a case like this, a reasonable reviewer response is:
+When a run repeatedly lands in a boundary-sensitive posture:
 
-- keep the deterministic baseline result visible and unchanged
-- record that the run looks `unstably_good`
-- prefer a cautious rollout posture
-- inspect whether the same instability repeats on later runs
-- open a tracked follow-up if the same gate family keeps appearing under
-  shadow/paradox pressure
+- keep the baseline outcome visible and unchanged
+- record the diagnostic stability posture (`unstably_good`)
+- check whether the same gate family keeps clustering under EPF/paradox signals
+- if it repeats, open a tracked follow-up to investigate the threshold region and evidence coverage
 
-This is the kind of case where topology is most valuable:  
-it improves judgment **before** the deterministic baseline starts failing.
+Topology is most valuable **before the baseline starts failing**: it makes early fragility visible.
 
 ---
 
-## 10. Artifact chain for this case
+## 10. Contrasting cases (mental calibration)
 
-A practical artifact chain for this case looks like:
+### Case A — stable_good
 
-### Required baseline artifacts
+- baseline positive
+- quiet optional context (if present)
+- low boundary pressure / low paradox concentration
 
-- `status.json`
-- `report_card.html`
+### Case B — unstably_good (this case study)
 
-### Optional diagnostic artifacts
-
-- EPF shadow outputs
-- paradox / field outputs
-- optional external detector summaries
-
-### Optional topology outputs
-
-- stability-oriented summary
-- decision-engine style compact summary
-- reviewer-facing narrative / dashboard entry
-
-This preserves a clean evidence stack:
-
-1. baseline evidence first
-2. optional context second
-3. topology interpretation last
+- baseline positive
+- boundary sensitivity / non-trivial paradox structure / partial evidence completeness
+- still positive, but fragile
 
 ---
 
-## 11. A contrasting case
+## 11. Summary
 
-It helps to compare this with two simpler cases.
+Baseline answers:
 
-### Case A — `stable_good`
+> “Is the run currently acceptable per deterministic artifacts?”
 
-- baseline PASS
-- shadow context quiet
-- little to no paradox pressure
-- ordinary production confidence
+Topology adds:
 
-### Case B — `unstably_good` (this case study)
+> “How structurally comfortable is that answer (robust vs boundary-close vs under-observed)?”
 
-- baseline PASS
-- shadow context warning-heavy
-- recurring tension visible
-- staging caution or extra review feels appropriate
+In this case study, the honest posture is:
 
-The topology layer is what makes that distinction explicit and reusable.
-
----
-
-## 12. Summary
-
-This case study shows why **Topology v0** matters.
-
-The deterministic baseline still answers:
-
-> “is the run currently acceptable?”
-
-The topology layer adds a second, reviewer-facing question:
-
-> “how comfortable should we feel about that answer?”
-
-In this worked example, the right interpretation is not:
-
-- “blocked”
-
-and not:
-
-- “routine production confidence”
-
-It is:
-
-- **positive, but fragile**
-- **`unstably_good`**
-
-Caution is warranted even though the baseline still passes.
+```
+positive, but fragile
+unstably_good
+```
