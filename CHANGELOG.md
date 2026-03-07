@@ -26,6 +26,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 - `publish_report_pages.yml`: copy `status.json` to site root; improve concurrency safety.
+- Makefile: `reproduce` is now fail-closed locally and no longer hides `run_all.py` failures.
+- Makefile: added explicit `reproduce-soft` for permissive local/demo execution.
+- Makefile: checksum generation now uses the repo-root `compute_checksums.py`.
+- Makefile: checksum manifest is emitted atomically to avoid self-hash inconsistency when hashing the current directory.
 
 ### Docs
 - `CITATION.cff`: add ORCID for Katalin Horvat; add software reference to ChatGPT (GPT‑5 Pro).
