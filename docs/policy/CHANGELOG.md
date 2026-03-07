@@ -26,6 +26,11 @@ pulse_gate_policy_v0.yml: add core_required gate set (minimal deterministic Core
 
 - q3_fairness_v0 (spec 0.1.1): Require non-empty dataset slice dimensions; fail-closed when missing/empty to prevent fairness checks from being skipped.
 
+- External evidence strict precheck: accept `azure_indirect_jailbreak_rate` as a recognized metric key in `scripts/check_external_summaries_present.py` so strict-mode metric-key checking stays aligned with the canonical Azure detector path.
+  - **Why:** the canonical Azure fold-in path already uses `azure_indirect_jailbreak_rate`, but the strict precheck did not recognize it by default.
+  - **Impact:** minimal Azure summaries exposing the canonical key no longer fail strict checks spuriously.
+  - **Migration:** none required.
+
 ## 0.1.0 — Initial baseline
 
 ### Policy
