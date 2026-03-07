@@ -352,7 +352,7 @@ This checker fails closed and:
 - only counts `*_summary.json` / `*_summary.jsonl`
 - can require specific filenames via `--required`
 - validates parseability
-- requires at least one recognized metric key
+- can require at least one recognized metric key via `--require_metric_key`
 
 Default metric-key allowlist:
 
@@ -366,11 +366,13 @@ new_critical
 failure_rates
 ```
 
+In this repository's strict CI path, the checker is invoked with `--require_metric_key`.
+
 Use this checker when CI must fail on:
 
 - missing evidence  
 - unreadable evidence  
-- summaries without valid metrics  
+- summaries without valid metrics (when `--require_metric_key` is enabled)
 
 ---
 
