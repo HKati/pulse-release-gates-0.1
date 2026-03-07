@@ -19,10 +19,10 @@ For the safe-pack overview, see:
 
 To preserve determinism and auditability, the preferred pattern is:
 
-1. run external tools in a controlled step or dedicated job,
-2. write immutable JSON / JSONL summaries,
-3. archive those summaries as artefacts,
-4. let PULSE fold the archived summaries into the final `status.json`.
+1. run external tools in a controlled step or dedicated job  
+2. write immutable JSON / JSONL summaries  
+3. archive those summaries as artefacts  
+4. let PULSE fold the archived summaries into the final `status.json`  
 
 This keeps release semantics tied to immutable run artefacts instead of live network calls.
 
@@ -47,20 +47,22 @@ python PULSE_safe_pack_v0/tools/augment_status.py \
 
 Key inputs:
 
-- `--status` → baseline `status.json` to augment
-- `--thresholds` → YAML file containing detector thresholds and aggregate policy
+- `--status` → baseline status.json to augment  
+- `--thresholds` → YAML file containing detector thresholds and aggregate policy  
 - `--external_dir` → directory containing `*_summary.json` / `*_summary.jsonl`
 
 Within `external_dir`, the current implementation scans for:
 
-- `*_summary.json`
-- `*_summary.jsonl`
+```
+*_summary.json
+*_summary.jsonl
+```
 
 It then writes results back into the same final `status.json`.
 
 ---
 
-## 3. What gets written into `status.json`
+## 3. What gets written into status.json
 
 After augmentation, external detector information may appear in three places.
 
@@ -100,127 +102,173 @@ After augmentation, external detector information may appear in three places.
 
 Recommended consumer rule:
 
-- read `gates.*` first,
-- treat top-level mirrors as convenience only.
+- read `gates.*` first  
+- treat top-level mirrors as convenience only  
 
 ---
 
 ## 4. Built-in detector mappings (current implementation)
 
-The current `augment_status.py` wiring folds these built-in detector summaries.
+Each detector is wired with a metric name (for reporting) and a threshold key
+(for configuration), for example:
 
 ### LlamaGuard
 
 - summary file: `llamaguard_summary.json`
-- threshold key: `llamaguard_violation_rate_max`
+- threshold key in `thresholds.json`: `llamaguard_violation_rate_max`
 - reported metric name: `llamaguard_violation_rate`
-
-### Prompt Guard
-
-- summary file: `promptguard_summary.json`
-- threshold key: `promptguard_attack_detect_rate_max`
-- reported metric name: `promptguard_attack_detect_rate`
-- preferred explicit JSON key: `attack_detect_rate`
-
-### Garak
-
-- summary file: `garak_summary.json`
-- threshold key: `garak_new_critical_max`
-- reported metric name: `garak_new_critical`
-- preferred explicit JSON key: `new_critical`
-
-### Azure eval
-
-- summary file: `azure_eval_summary.json`
-- threshold key: `azure_indirect_jailbreak_rate_max`
-- reported metric name: `azure_indirect_jailbreak_rate`
-- preferred explicit JSON key: `azure_indirect_jailbreak_rate`
 
 ### Promptfoo
 
 - summary file: `promptfoo_summary.json`
 - threshold key: `promptfoo_fail_rate_max`
-- reported metric name: `promptfoo_fail_rate`
-- preferred explicit JSON key: `fail_rate`
+- metric name: `promptfoo_fail_rate`
+- preferred JSON field: `fail_rate`
+
+### Garak
+
+- summary file: `garak_summary.json`
+- threshold key: `garak_new_critical_max`
+- metric name: `garak_new_critical`
+- preferred JSON field: `new_critical`
+
+### Azure eval
+
+- summary file: `azure_eval_summary.json`
+- threshold key: `azure_indirect_jailbreak_rate_max`
+- metric name: `azure_indirect_jailbreak_rate`
+- preferred JSON field: `azure_indirect_jailbreak_rate`
+
+### Prompt Guard
+
+- summary file: `promptguard_summary.json`
+- threshold key: `promptguard_attack_detect_rate_max`
+- metric name: `promptguard_attack_detect_rate`
+- preferred JSON field: `attack_detect_rate`
 
 ### DeepEval
 
 - summary file: `deepeval_summary.json`
 - threshold key: `deepeval_fail_rate_max`
-- reported metric name: `deepeval_fail_rate`
-- preferred explicit JSON key: `fail_rate`
+- metric name: `deepeval_fail_rate`
+- preferred JSON field: `fail_rate`
 
-If a built-in summary file is missing, that detector is skipped.
+If a summary file is missing, that detector is skipped and contributes no metric entry.
+
+If a summary is present but malformed, see fail-closed parse behavior below.
+
+---
+
+## Threshold behavior
+
+For each wired detector:
+
+the `_max` key defines the maximum allowed detector value (rate or count).
+
+Example thresholds:
+
+```json
+{
+  "llamaguard_violation_rate_max": 0.01,
+  "promptfoo_fail_rate_max": 0.10,
+  "garak_new_critical_max": 0,
+  "azure_indirect_jailbreak_rate_max": 0.02,
+  "deepeval_fail_rate_max": 0.10,
+  "promptguard_attack_detect_rate_max": 0.01
+}
+```
+
+`augment_status.py`:
+
+- reads the detector value from the summary  
+- compares `value <= threshold`  
+- records a metric entry like:
+
+```json
+{
+  "name": "promptguard_attack_detect_rate",
+  "value": 0.20,
+  "threshold": 0.10,
+  "pass": false
+}
+```
 
 ---
 
 ## 5. Metric key resolution and parse behavior
 
-For each built-in detector, `augment_status.py` resolves the metric value in the following order.
+### Which fields are read
 
-### 5.1 Preferred explicit key
+`augment_status.py` accepts a small generic set of scalar keys:
 
-If a detector has an explicit expected key and that key exists, it is used first.
+- `rate`
+- `value`
+- `violation_rate`
 
-Examples:
+Detector-specific preferred keys include:
 
 - Prompt Guard → `attack_detect_rate`
 - Garak → `new_critical`
 - Azure eval → `azure_indirect_jailbreak_rate`
 - Promptfoo / DeepEval → `fail_rate`
 
-### 5.2 Compatibility fallback keys
+Recommendation:
 
-If the preferred explicit key is absent, the implementation falls back to a built-in compatibility key list:
+Adapters SHOULD emit a canonical `rate` key when the signal is naturally a rate.
 
-- `value`
-- `rate`
-- `violation_rate`
-- `attack_detect_rate`
-- `fail_rate`
-- `new_critical`
+Detector-specific keys remain valid when the native scalar is more precise.
 
-### 5.3 Nested `failure_rates` fallback
+Prompt Guard summaries SHOULD mirror `attack_detect_rate` into `rate` when convenient.
+
+---
+
+### 5.1 Nested `failure_rates` fallback
 
 If no direct key is found and the summary contains a `failure_rates` object, the implementation tries:
 
-- the explicit key inside `failure_rates`,
-- the metric name inside `failure_rates`,
-- otherwise the conservative maximum numeric value in that object.
+- the explicit key inside `failure_rates`
+- the metric name inside `failure_rates`
+- otherwise the conservative maximum numeric value in that object
 
-### 5.4 Present-but-broken summaries fail closed
+---
+
+### 5.2 Present-but-broken summaries fail closed
 
 If the summary file exists but:
 
-- cannot be parsed,
-- has no usable metric key,
-- or has a non-numeric metric value,
+- cannot be parsed
+- has no usable metric key
+- or has a non-numeric metric value
 
 the detector is not silently skipped.
 
 Instead, PULSE appends a metric row with:
 
-- `"pass": false`
-- `"parse_error": true`
+```json
+"pass": false,
+"parse_error": true
+```
 
-and may also include flags such as:
+Possible additional flags:
 
-- `"missing_metric_key": true`
-- `"bad_metric_value": true`
-- `"expected_key": "..."`
+```json
+"missing_metric_key": true
+"bad_metric_value": true
+"expected_key": "..."
+```
 
 Important rule:
 
-- missing files are skipped,
-- present-but-broken files fail closed at the detector-row level.
+- missing files are skipped  
+- present-but-broken files fail closed at the detector-row level  
 
 ---
 
 ## 6. Aggregate policy: `external_all_pass`
 
-After all built-in detector mappings are evaluated, PULSE computes the aggregate external gate.
+After all detector mappings are evaluated, PULSE computes the aggregate external gate.
 
-The aggregate policy is read from the thresholds YAML as:
+The aggregate policy is read from thresholds YAML:
 
 ```
 external_overall_policy
@@ -228,122 +276,150 @@ external_overall_policy
 
 Current behavior:
 
-- `"all"` (default) → all folded detector rows must pass
-- `"any"` → at least one folded detector row must pass
+- `"all"` (default) → all detector rows must pass  
+- `"any"` → at least one detector row must pass  
 
 The result is written to:
 
-- `external.all_pass`
-- `gates.external_all_pass`
-- top-level `external_all_pass`
+```
+external.all_pass
+gates.external_all_pass
+external_all_pass
+```
 
 ### Important nuance
 
-If no built-in detector result is folded at all, the current implementation defaults the aggregate external result to:
+If no detector result is folded at all, the implementation defaults to:
 
 ```
-true
+external_all_pass = true
 ```
 
-This is why evidence presence must be tracked separately.
+Therefore evidence presence must be tracked separately.
 
 ---
 
 ## 7. Evidence presence vs aggregate pass
 
-The implementation deliberately tracks two different questions.
+Two different questions are tracked.
 
 ### 7.1 Were any external summaries present?
 
 Represented by:
 
-- `external.summaries_present`
-- `external.summary_count`
-- `gates.external_summaries_present`
-- top-level `external_summaries_present`
+```
+external.summaries_present
+external.summary_count
+gates.external_summaries_present
+external_summaries_present
+```
 
-This presence signal is based on matching files in `external_dir`:
+Detected by matching:
 
-- `*_summary.json`
-- `*_summary.jsonl`
+```
+*_summary.json
+*_summary.jsonl
+```
 
-### 7.2 Did the folded external evidence pass overall?
+---
+
+### 7.2 Did the folded evidence pass overall?
 
 Represented by:
 
-- `external.all_pass`
-- `gates.external_all_pass`
-- top-level `external_all_pass`
+```
+external.all_pass
+gates.external_all_pass
+external_all_pass
+```
 
-These two questions are not the same.
+These are **not the same question**.
 
-A workflow that cares about evidence completeness should check `external_summaries_present` explicitly, not only `external_all_pass`.
+Evidence completeness checks should use `external_summaries_present`.
 
 ---
 
 ## 8. Strict external evidence
 
-For release-grade paths, this repo also uses a separate strict presence + parseability checker:
+Release-grade paths may use the strict checker:
 
 ```
 scripts/check_external_summaries_present.py
 ```
 
-That checker is designed to fail closed.
+This checker fails closed and:
 
-It:
+- only counts `*_summary.json` / `*_summary.jsonl`
+- can require specific filenames via `--required`
+- validates parseability
+- requires at least one recognized metric key
 
-- only counts `*_summary.json` and `*_summary.jsonl` as detector evidence,
-- can require specific filenames via `--required`,
-- validates parseability,
-- can require at least one recognized metric key.
+Default metric-key allowlist:
 
-Its default metric-key allowlist is:
+```
+value
+rate
+violation_rate
+attack_detect_rate
+fail_rate
+new_critical
+failure_rates
+```
 
-- `value`
-- `rate`
-- `violation_rate`
-- `attack_detect_rate`
-- `fail_rate`
-- `new_critical`
-- `failure_rates`
+Use this checker when CI must fail on:
 
-This strict checker is the right tool when the workflow must fail on:
-
-- missing evidence,
-- unreadable evidence,
-- summaries that do not contain a recognized metric key.
+- missing evidence  
+- unreadable evidence  
+- summaries without valid metrics  
 
 ---
 
 ## 9. Summary format recommendations
 
-Even if only one numeric metric is required for gating, summaries should still be self-describing.
+Even if only one numeric metric is required, summaries should remain self-describing.
 
-### Recommended fields
+Recommended fields:
 
 - `tool`
-- `tool_version` and/or immutable digest
+- `tool_version` or immutable digest
 - `run_id`
 - `generated_at`
-- a canonical numeric metric key when possible
-- optional notes / evidence pointers
+- canonical numeric metric
+- optional notes or evidence references
 
-### Recommended canonical numeric key
-
-To reduce schema drift between adapters, strict checking, and augmentation, adapters should prefer one canonical numeric field:
+### Recommended canonical key
 
 ```
 rate
 ```
 
-Compatibility aliases may still be emitted when useful:
+Compatibility aliases may still be emitted:
 
-- `value`
-- `violation_rate`
-- `attack_detect_rate`
-- `fail_rate`
-- `new_critical`
+```
+value
+violation_rate
+attack_detect_rate
+fail_rate
+new_critical
+```
+
+### Canonical metric key vs detector metric names
+
+Detector metric names (e.g. `promptfoo_fail_rate`) are assigned by
+`augment_status.py`, not by the JSON key.
+
+---
+
+### Adapter normalization examples
+
+Examples:
+
+- `fail_rate` → emit `rate`
+- `failure_rates` map → emit `rate = max(values)`
+- `new_critical` → keep as metadata but avoid using it as the sole canonical metric
+- `azure_indirect_jailbreak_rate` → acceptable but mirror to `rate` when practical
+
+---
 
 ### Illustrative minimal JSON shape
 
@@ -365,16 +441,19 @@ Compatibility aliases may still be emitted when useful:
 
 If external detector behavior in CI looks wrong, check in this order:
 
-1. Is `external_dir` the directory you expect?
-2. Are the summary filenames matched by `*_summary.json` / `*_summary.jsonl`?
-3. Are the files parseable JSON / JSONL?
-4. Do they contain one of the expected metric keys?
-5. Does the detector use the current built-in mapping name and threshold key?
-6. Did the final `status.json` record:
-   - `external.metrics`
-   - `external.summaries_present`
-   - `gates.external_all_pass`
-   - `gates.external_summaries_present`
+1. Is `external_dir` the expected directory?
+2. Do filenames match `*_summary.json` / `*_summary.jsonl`?
+3. Are files parseable JSON / JSONL?
+4. Do they contain expected metric keys?
+5. Does the detector mapping name and threshold match?
+6. Does final `status.json` record:
+
+```
+external.metrics
+external.summaries_present
+gates.external_all_pass
+gates.external_summaries_present
+```
 
 For related docs, see:
 
