@@ -16,6 +16,11 @@ and then wires these into:
 The resulting extended status.json is consumed by check_gates.py
 and reporting tooling, but it does not change the core deterministic
 gate semantics beyond adding these two deferred gates.
+
+Optional strict mode:
+- when --require_external_summaries is enabled, missing external summaries
+  make external_all_pass fail closed
+- default behavior remains onboarding-friendly unless that flag is used
 """
 
 from __future__ import annotations
@@ -131,6 +136,14 @@ def main() -> int:
         required=True,
         help="Directory containing *_summary.(json|jsonl) files from external tools",
     )
+    parser.add_argument(
+        "--require_external_summaries",
+        action="store_true",
+        help=(
+            "Fail-closed when no external summary files are present. "
+            "Default behavior remains permissive for onboarding unless this flag is set."
+        ),
+    )
     args = parser.parse_args()
 
     status_path = os.path.abspath(args.status)
@@ -149,7 +162,6 @@ def main() -> int:
     # -----------------------------------------------------------------------
     # 1) Refusal-delta summary -> metrics + gates + top-level mirror
     # -----------------------------------------------------------------------
-    # Pack dir: stable (script location), not derived from status path
     # Pack dir: stable (script location), not derived from status path
     pack_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # .../PULSE_safe_pack_v0
 
@@ -404,8 +416,14 @@ def main() -> int:
     policy = (thr.get("external_overall_policy") or "all").lower()
 
     if not oks:
-        # No external summaries present -> treat as PASS irrespective of policy.
-        ext_all = True
+        # Default/onboarding: no folded external evidence does not fail the run.
+        # Strict/release-grade: fail closed only when summaries are explicitly required
+        # and none are present on disk. Filename/metric-key strictness belongs to the
+        # dedicated precheck path.
+        if args.require_external_summaries and not summaries_present:
+            ext_all = False
+        else:
+            ext_all = True
     else:
         if policy == "all":
             ext_all = all(oks)
