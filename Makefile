@@ -1,26 +1,34 @@
 .PHONY: reproduce reproduce-soft checksums
 
+PYTHON ?= python
+CHECKSUMS_OUT ?= checksums.txt
+
 # Install dependencies, run the PULSE pack, and generate checksums.
 # `reproduce` is strict/fail-closed.
 reproduce:
 	@echo "Installing dependencies..."
-	python -m pip install --quiet -r requirements.txt
+	$(PYTHON) -m pip install --quiet -r requirements.txt
 	@echo "Running PULSE pack to generate artefacts..."
-	python PULSE_safe_pack_v0/tools/run_all.py
-	@echo "Computing checksums..."
-	python ./compute_checksums.py . > checksums.txt
+	$(PYTHON) PULSE_safe_pack_v0/tools/run_all.py
+	@$(MAKE) --no-print-directory checksums
 	@echo "Done. Artefacts and checksums are available in the current directory."
 
-# Permissive local/demo variant that preserves the previous soft-fail behavior explicitly.
+# Permissive local/demo variant that keeps soft-fail behavior explicit.
 reproduce-soft:
 	@echo "Installing dependencies..."
-	python -m pip install --quiet -r requirements.txt
+	$(PYTHON) -m pip install --quiet -r requirements.txt
 	@echo "Running PULSE pack to generate artefacts (soft mode)..."
-	python PULSE_safe_pack_v0/tools/run_all.py || true
-	@echo "Computing checksums..."
-	python ./compute_checksums.py . > checksums.txt
+	-$(PYTHON) PULSE_safe_pack_v0/tools/run_all.py
+	@$(MAKE) --no-print-directory checksums
 	@echo "Done. Artefacts and checksums are available in the current directory."
 
-# Compute SHA-256 checksums for the current directory using the repo-root tool.
+# Compute SHA-256 checksums of top-level files under the current directory
+# without hashing the output manifest itself.
 checksums:
-	python ./compute_checksums.py . > checksums.txt
+	@echo "Computing checksums..."
+	@set -e; \
+	tmp_file="$$(mktemp)"; \
+	trap 'rm -f "$$tmp_file"' EXIT; \
+	rm -f "$(CHECKSUMS_OUT)"; \
+	$(PYTHON) ./compute_checksums.py . > "$$tmp_file"; \
+	mv "$$tmp_file" "$(CHECKSUMS_OUT)"
