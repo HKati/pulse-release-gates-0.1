@@ -1,0 +1,22 @@
+{
+  "spec_id": "q1_groundedness_v0",
+  "spec_version": "0.1.0",
+  "run_id": "q1-ref-2026-03-09T20:00:00Z",
+  "created_utc": "2026-03-09T20:00:00Z",
+  "n": 120,
+  "score": 0.92,
+  "threshold": 0.9,
+  "pass": true,
+  "method": {
+    "kind": "reference",
+    "deterministic": true,
+    "notes": "Shadow/reference run; not yet promoted into normative release gating."
+  },
+  "provenance": {
+    "input_manifest": "examples/q1_reference_input_manifest.json",
+    "tool": "PULSE_q1_reference",
+    "tool_version": "0.1.0-dev",
+    "git_sha": "example-q1-ref"
+  },
+  "notes": "Minimal example artefact for schema consumers and tests."
+}
