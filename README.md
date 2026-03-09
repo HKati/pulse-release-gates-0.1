@@ -72,6 +72,25 @@ From **findings** to **fuses**. Run **PULSE before you ship**: deterministic, **
 
 ---
 
+## Start here
+
+Choose one path first:
+
+- **First run / adopter path** → [`docs/QUICKSTART_CORE_v0.md`](docs/QUICKSTART_CORE_v0.md)  
+  Minimal path to run the core pipeline on a repo.
+
+- **Release semantics / source-of-truth path** → [`docs/STATUS_CONTRACT.md`](docs/STATUS_CONTRACT.md) and [`docs/status_json.md`](docs/status_json.md)  
+  Read these first if you need to understand what actually gates shipping.
+
+- **Strict external evidence path** → [`docs/EXTERNAL_DETECTORS.md`](docs/EXTERNAL_DETECTORS.md) and [`docs/external_detector_summaries.md`](docs/external_detector_summaries.md)  
+  Use these if external summaries must be present and fail closed in release-grade paths.
+
+- **Triage / operational path** → [`docs/RUNBOOK.md`](docs/RUNBOOK.md)  
+  Start here when CI is red and you need the shortest path to diagnosis.
+
+- **Topology / Paradox / EPF / overlays** → see the deep docs map further below  
+  These are diagnostic layers unless explicitly promoted into the required gate set.
+
 
 ## Clarity First (before Paradox / EPF / Topology work)
 
@@ -723,7 +742,7 @@ python scripts/inspect_paradox_v0.py \
 
 ---
 
-## Documentation map
+## Deep docs  map
 
 Start here:
 
@@ -919,28 +938,14 @@ For a detailed overview and examples, see:
 
 ---
 
-## Documentation
+## Core reference pages
 
-PULSE ships a few focused docs pages for people integrating the safe-pack
-into CI/CD or audits:
+For the shortest canonical references, start with:
 
-- [`docs/status_json.md`](docs/status_json.md)  
-  Overview of the `status.json` artefact: metrics, gates and how other
-  tools consume it.
-
-- [`docs/refusal_delta_gate.md`](docs/refusal_delta_gate.md)  
-  Refusal delta summary format and the `refusal_delta_pass` gate, including
-  fail‑closed behaviour when evaluations are missing.
-
-- [docs/EXTERNAL_DETECTORS.md](docs/EXTERNAL_DETECTORS.md) — External detectors policy & modes (gating vs advisory).  
-  How external detector summaries (LlamaGuard, Promptfoo, Garak, Azure eval,
-  Prompt Guard, …) are folded into `status.json` and the `external_all_pass`
-  gate.
-
-- [`docs/quality_ledger.md`](docs/quality_ledger.md)  
-  Human‑facing PULSE Quality Ledger (report_card.html): layout, purpose and
-  how it relates to `status.json`.
-
+- [`docs/status_json.md`](docs/status_json.md)
+- [`docs/STATUS_CONTRACT.md`](docs/STATUS_CONTRACT.md)
+- [`docs/EXTERNAL_DETECTORS.md`](docs/EXTERNAL_DETECTORS.md)
+- [`docs/quality_ledger.md`](docs/quality_ledger.md)
 
 ---
 
