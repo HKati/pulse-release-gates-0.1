@@ -50,17 +50,44 @@ MIN_N_ELIGIBLE = 100
 Z_95 = 1.959963984540054
 
 
-def _created_utc_default() -> str:
+def _created_utc_from_source_date_epoch() -> str | None:
     """
-    Repro-friendly timestamp source:
-    - prefer SOURCE_DATE_EPOCH when available
-    - else fall back to current UTC time
+    Stable timestamp source for deterministic artefacts.
+    Returns an ISO UTC string when SOURCE_DATE_EPOCH is set and valid,
+    otherwise returns None.
     """
     sde = os.getenv("SOURCE_DATE_EPOCH", "").strip()
-    if sde.isdigit():
-        ts = int(sde)
-        return dt.datetime.fromtimestamp(ts, tz=dt.timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
-    return dt.datetime.now(tz=dt.timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    if not sde:
+        return None
+    if not sde.isdigit():
+        raise ValueError("SOURCE_DATE_EPOCH must be an integer Unix timestamp")
+    ts = int(sde)
+    return (
+        dt.datetime.fromtimestamp(ts, tz=dt.timezone.utc)
+        .replace(microsecond=0)
+        .isoformat()
+        .replace("+00:00", "Z")
+    )
+
+
+def _resolve_created_utc(explicit_created_utc: str) -> str:
+    """
+    Deterministic created_utc resolution:
+    - prefer explicit --created_utc
+    - else use SOURCE_DATE_EPOCH
+    - else fail closed
+    """
+    explicit_created_utc = explicit_created_utc.strip()
+    if explicit_created_utc:
+        return explicit_created_utc
+
+    from_sde = _created_utc_from_source_date_epoch()
+    if from_sde is not None:
+        return from_sde
+
+    raise ValueError(
+        "Deterministic output requires --created_utc or SOURCE_DATE_EPOCH"
+    )
 
 
 def _wilson_lower_bound(successes: int, n: int, z: float = Z_95) -> float:
@@ -202,12 +229,16 @@ def main() -> int:
         "--input_manifest",
         required=True,
         help="Dataset/input manifest path recorded into provenance.",
-    )
-    parser.add_argument("--run_id", required=True, help="Stable run identifier for this summary.")
-    parser.add_argument(
+        parser.add_argument(
         "--created_utc",
         default="",
-        help="UTC timestamp to embed in the artefact. Defaults to SOURCE_DATE_EPOCH or current UTC time.",
+        help=(
+            "UTC timestamp to embed in the artefact. "
+            "Required unless SOURCE_DATE_EPOCH is set."
+        ),
+    )
+    parser.add_argument("--run_id", required=True, help="Stable run identifier for this summary.")
+    p
     )
     parser.add_argument(
         "--tool",
@@ -236,7 +267,10 @@ def main() -> int:
 
     n_total, n_eligible, counts = _load_jsonl_labels(labels_path)
 
-    created_utc = args.created_utc.strip() or _created_utc_default()
+        try:
+        created_utc = _resolve_created_utc(args.created_utc)
+    except ValueError as e:
+        parser.error(str(e))
 
     summary = _build_summary(
         run_id=args.run_id.strip(),
