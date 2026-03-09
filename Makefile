@@ -22,8 +22,7 @@ reproduce-soft:
 	@$(MAKE) --no-print-directory checksums
 	@echo "Done. Artefacts and checksums are available in the current directory."
 
-# Compute SHA-256 checksums of top-level files under the current directory
-# without hashing the output manifest itself.
+# Compute SHA-256 checksums without hashing the output manifest itself.
 checksums:
 	@echo "Computing checksums..."
 	@set -e; \
