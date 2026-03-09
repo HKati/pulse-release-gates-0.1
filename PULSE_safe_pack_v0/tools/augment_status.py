@@ -431,7 +431,6 @@ def main() -> int:
             ext_all = any(oks)
 
     external["all_pass"] = ext_all
-    gatesATES = gates  # (no-op alias; keep gates variable stable for print)
     gates["external_all_pass"] = ext_all
     status["external_all_pass"] = ext_all
 
