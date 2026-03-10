@@ -96,7 +96,9 @@ def _wilson_lower_bound(successes: int, n: int, z: float = Z_95) -> float:
     phat = successes / n
     denom = 1.0 + (z * z) / n
     center = phat + (z * z) / (2.0 * n)
-    margin = z * math.sqrt((phat * (1.0 - phat) / n) + ((z * z) / (4.0 * n * n)))
+    margin = z * math.sqrt(
+        (phat * (1.0 - phat) / n) + ((z * z) / (4.0 * n * n))
+    )
     return max(0.0, (center - margin) / denom)
 
 
@@ -123,14 +125,18 @@ def _load_jsonl_labels(path: Path) -> tuple[int, int, dict[str, int]]:
 
             eligible = obj.get("eligible", True)
             if not isinstance(eligible, bool):
-                raise ValueError(f"{path}: line {lineno} has non-boolean 'eligible' field")
+                raise ValueError(
+                    f"{path}: line {lineno} has non-boolean 'eligible' field"
+                )
 
             if not eligible:
                 continue
 
             label = obj.get("label")
             if not isinstance(label, str):
-                raise ValueError(f"{path}: line {lineno} is missing string field 'label'")
+                raise ValueError(
+                    f"{path}: line {lineno} is missing string field 'label'"
+                )
 
             label = label.strip().upper()
             if label not in ALLOWED_LABELS:
@@ -223,18 +229,27 @@ def _build_summary(
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--labels_jsonl", required=True, help="Path to per-example groundedness labels JSONL.")
-    parser.add_argument("--out", required=True, help="Path to output Q1 summary artefact JSON.")
+    parser.add_argument(
+        "--labels_jsonl",
+        required=True,
+        help="Path to per-example groundedness labels JSONL.",
+    )
+    parser.add_argument(
+        "--out",
+        required=True,
+        help="Path to output Q1 summary artefact JSON.",
+    )
     parser.add_argument(
         "--input_manifest",
         required=True,
         help="Dataset/input manifest path recorded into provenance.",
- HKati-patch-305353
-
     )
-    parser.add_argument("--run_id", required=True, help="Stable run identifier for this summary.")
- main
-        parser.add_argument(
+    parser.add_argument(
+        "--run_id",
+        required=True,
+        help="Stable run identifier for this summary.",
+    )
+    parser.add_argument(
         "--created_utc",
         default="",
         help=(
@@ -242,13 +257,6 @@ def main() -> int:
             "Required unless SOURCE_DATE_EPOCH is set."
         ),
     )
- HKati-patch-305353
-    parser.add_argument("--run_id", required=True, help="Stable run identifier for this summary.")
-    p
-    )
-
-    
- main
     parser.add_argument(
         "--tool",
         default="PULSE_q1_reference",
@@ -276,7 +284,7 @@ def main() -> int:
 
     n_total, n_eligible, counts = _load_jsonl_labels(labels_path)
 
-        try:
+    try:
         created_utc = _resolve_created_utc(args.created_utc)
     except ValueError as e:
         parser.error(str(e))
@@ -300,21 +308,23 @@ def main() -> int:
         json.dump(summary, f, indent=2, sort_keys=True)
         f.write("\n")
 
-    print(json.dumps(
-        {
-            "out": str(out_path),
-            "spec_id": summary["spec_id"],
-            "spec_version": summary["spec_version"],
-            "n": summary["n"],
-            "score": summary["score"],
-            "threshold": summary["threshold"],
-            "pass": summary["pass"],
-            "wilson_lower_bound": summary["wilson_lower_bound"],
-            "insufficient_evidence": summary["insufficient_evidence"],
-        },
-        indent=2,
-        sort_keys=True,
-    ))
+    print(
+        json.dumps(
+            {
+                "out": str(out_path),
+                "spec_id": summary["spec_id"],
+                "spec_version": summary["spec_version"],
+                "n": summary["n"],
+                "score": summary["score"],
+                "threshold": summary["threshold"],
+                "pass": summary["pass"],
+                "wilson_lower_bound": summary["wilson_lower_bound"],
+                "insufficient_evidence": summary["insufficient_evidence"],
+            },
+            indent=2,
+            sort_keys=True,
+        )
+    )
     return 0
 
 
