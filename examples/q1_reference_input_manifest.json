@@ -27,8 +27,8 @@
     "notes": "Per-example labels are carried by the checked-in JSONL fixture for shadow/reference use."
   },
   "hashes": {
-  "input_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-}
+    "input_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
   "extensions": {
     "owner_team": "pulse",
     "lane": "q1_reference",
