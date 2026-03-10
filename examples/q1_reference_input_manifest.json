@@ -1,0 +1,40 @@
+{
+  "manifest_version": "0.1.0",
+  "dataset_id": "q1-reference-pass-120-v0",
+  "generated_at": "2026-03-09T20:00:00Z",
+  "time_range": {
+    "from": "2026-03-09",
+    "to": "2026-03-09"
+  },
+  "source": {
+    "kind": "artifact",
+    "uri": "examples/q1_reference_labels.pass_120.jsonl",
+    "description": "Planned checked-in Q1 reference labels fixture for deterministic groundedness summary builds."
+  },
+  "sampling": {
+    "strategy": "full",
+    "n": 120,
+    "notes": "Full checked-in fixture; no runtime sampling; stable ordering expected for deterministic smoke/rebuild workflows."
+  },
+  "pii_handling": {
+    "scrubbed": true,
+    "method": "fixture_only",
+    "notes": "Example/smoke artefact only; fixture must not contain live user data or recoverable PII."
+  },
+  "labels": {
+    "ground_truth_source": "checked_in_reference_fixture",
+    "version": "q1-reference-pass-120-v0",
+    "notes": "Per-example labels are carried by the checked-in JSONL fixture for shadow/reference use."
+  },
+  "hashes": {
+  "input_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+}
+  "extensions": {
+    "owner_team": "pulse",
+    "lane": "q1_reference",
+    "track": "shadow",
+    "pipeline": "artifact-first",
+    "promotion_state": "non_normative",
+    "notes": "Example manifest that anchors the Q1 reference lane to a checked-in fixture path without changing runtime gating semantics."
+  }
+}
