@@ -229,6 +229,11 @@ def main() -> int:
         "--input_manifest",
         required=True,
         help="Dataset/input manifest path recorded into provenance.",
+ HKati-patch-305353
+
+    )
+    parser.add_argument("--run_id", required=True, help="Stable run identifier for this summary.")
+ main
         parser.add_argument(
         "--created_utc",
         default="",
@@ -237,9 +242,13 @@ def main() -> int:
             "Required unless SOURCE_DATE_EPOCH is set."
         ),
     )
+ HKati-patch-305353
     parser.add_argument("--run_id", required=True, help="Stable run identifier for this summary.")
     p
     )
+
+    
+ main
     parser.add_argument(
         "--tool",
         default="PULSE_q1_reference",
