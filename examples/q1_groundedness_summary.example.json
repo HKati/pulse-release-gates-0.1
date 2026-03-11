@@ -1,22 +1,45 @@
 {
+  "alpha": 0.05,
+  "counts": {
+    "ABSTAIN": 0,
+    "SUPPORTED": 120,
+    "UNKNOWN": 0,
+    "UNSUPPORTED": 0,
+    "n_eligible": 120,
+    "n_excluded": 0,
+    "n_total": 120
+  },
+  "created_utc": "2026-03-09T20:00:00Z",
+  "decision_rule": [
+    "Compute grounded_rate over eligible examples.",
+    "Compute Wilson lower bound (alpha=0.05).",
+    "PASS iff n_eligible >= 100 and wilson_lower_bound >= 0.85.",
+    "FAIL otherwise."
+  ],
+  "grounded_rate": 1.0,
+  "insufficient_evidence": false,
+  "method": {
+    "deterministic": true,
+    "kind": "reference",
+    "notes": "Reducer over archived per-example groundedness labels."
+  },
+  "min_n_eligible": 100,
+  "n": 120,
+  "notes": "Minimal example artefact for schema consumers and tests.",
+  "pass": true,
+  "pass_basis": "wilson_lower_bound",
+  "primary_metric_id": "grounded_rate",
+  "provenance": {
+    "git_sha": "example-q1-ref",
+    "input_manifest": "examples/q1_reference_input_manifest.json",
+    "labels_jsonl": "examples/q1_reference_labels.pass_120.jsonl",
+    "tool": "PULSE_q1_reference",
+    "tool_version": "0.1.0-dev"
+  },
+  "run_id": "q1-ref-2026-03-09T20:00:00Z",
+  "score": 1.0,
   "spec_id": "q1_groundedness_v0",
   "spec_version": "0.1.0",
-  "run_id": "q1-ref-2026-03-09T20:00:00Z",
-  "created_utc": "2026-03-09T20:00:00Z",
-  "n": 120,
-  "score": 0.92,
-  "threshold": 0.9,
-  "pass": true,
-  "method": {
-    "kind": "reference",
-    "deterministic": true,
-    "notes": "Shadow/reference run; not yet promoted into normative release gating."
-  },
-  "provenance": {
-    "input_manifest": "examples/q1_reference_input_manifest.json",
-    "tool": "PULSE_q1_reference",
-    "tool_version": "0.1.0-dev",
-    "git_sha": "example-q1-ref"
-  },
-  "notes": "Minimal example artefact for schema consumers and tests."
+  "threshold": 0.85,
+  "wilson_lower_bound": 0.9689808335812966
 }
