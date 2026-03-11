@@ -28,7 +28,7 @@
   },
   "hashes": {
   "input_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-}
+ },
   "extensions": {
     "owner_team": "pulse",
     "lane": "q1_reference",
