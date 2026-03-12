@@ -7,6 +7,7 @@ as written by run_all.py, and enriches it with:
 
 - refusal-delta summary (if present),
 - external detector summaries (when configured),
+- optional Q1 reference shadow summary fold-in under meta.*,
 
 and then wires these into:
 - gates.refusal_delta_pass
@@ -14,8 +15,9 @@ and then wires these into:
 - external.metrics / external.all_pass
 
 The resulting extended status.json is consumed by check_gates.py
-and reporting tooling, but it does not change the core deterministic
-gate semantics beyond adding these two deferred gates.
+and reporting tooling. The Q1 reference shadow fold-in is additive
+and non-normative: it is written under meta.* only and does not change
+core gate semantics.
 
 Optional strict mode:
 - when --require_external_summaries is enabled, missing external summaries
@@ -27,6 +29,7 @@ from __future__ import annotations
 
 import argparse
 import glob
+import hashlib
 import json
 import os
 from typing import Any, Dict, Optional
@@ -84,6 +87,17 @@ def yload(path: str) -> Optional[Dict[str, Any]]:
         return None
 
 
+def jload_with_raw_bytes(path: str) -> tuple[Optional[Dict[str, Any]], Optional[bytes]]:
+    """Best-effort JSON loader that also returns raw file bytes."""
+    try:
+        with open(path, "rb") as f:
+            raw = f.read()
+        obj = json.loads(raw.decode("utf-8"))
+        return (obj if isinstance(obj, dict) else None), raw
+    except Exception:
+        return None, None
+
+
 def coerce_float_strict(x: Any, default: float) -> tuple[float, bool]:
     """
     Coerce a value to float.
@@ -119,6 +133,61 @@ def coerce_float_strict(x: Any, default: float) -> tuple[float, bool]:
     return default, False
 
 
+def ensure_meta(status: Dict[str, Any]) -> Dict[str, Any]:
+    """Ensure status['meta'] is a dict and return it."""
+    meta = status.get("meta")
+    if isinstance(meta, dict):
+        return meta
+    meta = {}
+    status["meta"] = meta
+    return meta
+
+
+def fold_q1_reference_shadow(status: Dict[str, Any], summary_path: Optional[str]) -> None:
+    """
+    Optionally fold a valid Q1 reference summary into status["meta"]["q1_reference_shadow"].
+
+    Behavior:
+    - if summary_path is None: no-op
+    - if explicitly provided but invalid / missing / incomplete: omit the block
+    - if valid and complete: copy / map fields without recomputation
+    """
+    if summary_path is None:
+        return
+
+    existing_meta = status.get("meta")
+    if isinstance(existing_meta, dict):
+        existing_meta.pop("q1_reference_shadow", None)
+
+    abs_path = os.path.abspath(summary_path)
+    q1, raw = jload_with_raw_bytes(abs_path)
+    if q1 is None or raw is None:
+        return
+
+    required_fields = (
+        "pass",
+        "grounded_rate",
+        "wilson_lower_bound",
+        "n_eligible",
+        "threshold",
+    )
+    if any(field not in q1 for field in required_fields):
+        return
+
+    meta = ensure_meta(status)
+    meta["q1_reference_shadow"] = {
+        "pass": q1["pass"],
+        "grounded_rate": q1["grounded_rate"],
+        "wilson_lower_bound": q1["wilson_lower_bound"],
+        "n_eligible": q1["n_eligible"],
+        "threshold": q1["threshold"],
+        "summary_artifact": {
+            "path": abs_path,
+            "sha256": hashlib.sha256(raw).hexdigest(),
+        },
+    }
+
+
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
@@ -141,7 +210,15 @@ def main() -> int:
         action="store_true",
         help=(
             "Fail-closed when no external summary files are present. "
-            "Default behavior remains permissive for onboarding unless this flag is set."
+            "Default behavior remains permissive for onboarding unless this flag is used."
+        ),
+    )
+    parser.add_argument(
+        "--q1-reference-summary",
+        dest="q1_reference_summary",
+        help=(
+            "Optional Q1 reference summary JSON artefact to fold into "
+            'status["meta"]["q1_reference_shadow"]'
         ),
     )
     args = parser.parse_args()
@@ -435,7 +512,12 @@ def main() -> int:
     status["external_all_pass"] = ext_all
 
     # -----------------------------------------------------------------------
-    # 3) Write back
+    # 3) Optional Q1 reference shadow fold-in -> meta.q1_reference_shadow
+    # -----------------------------------------------------------------------
+    fold_q1_reference_shadow(status, args.q1_reference_summary)
+
+    # -----------------------------------------------------------------------
+    # 4) Write back
     # -----------------------------------------------------------------------
     with open(status_path, "w", encoding="utf-8") as f:
         json.dump(status, f, indent=2, sort_keys=True)
