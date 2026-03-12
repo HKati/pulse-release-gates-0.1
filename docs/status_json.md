@@ -15,8 +15,7 @@ This file is the anchor for:
 - human-readable reporting,
 - audit / archival / diffing.
 
-A single `status.json` should correspond to exactly one concrete run and one
-release candidate / model/service configuration.
+A single `status.json` should correspond to exactly one concrete run and one release candidate / model/service configuration.
 
 ---
 
@@ -41,7 +40,7 @@ and it requires `metrics.run_mode` to be one of:
 - `core`
 - `prod`
 
-For the concise public contract, see [STATUS_CONTRACT.md](STATUS_CONTRACT.md).
+For the concise public contract, see [STATUS_CONTRACT.md](STATUS_CONTRACT.md).  
 This page is the fuller walkthrough.
 
 Local validation helper:
@@ -62,13 +61,12 @@ Typical flow:
 2. `PULSE_safe_pack_v0/tools/augment_status.py` may enrich that file with:
    - refusal-delta metrics and gate,
    - external detector summaries,
-   - convenience mirror fields.
-3. `PULSE_safe_pack_v0/tools/check_gates.py` enforces the required gate set on
-   the final `status.json`.
+   - convenience mirror fields,
+   - optional shadow-only fold-ins under `meta.*`.
+3. `PULSE_safe_pack_v0/tools/check_gates.py` enforces the required gate set on the final `status.json`.
 4. Renderers such as the Quality Ledger read the same final artefact.
 
-If your workflow also keeps a `status_baseline.json`, treat it as an
-intermediate artefact.
+If your workflow also keeps a `status_baseline.json`, treat it as an intermediate artefact.  
 The final enforcement input is still the final `status.json`.
 
 ---
@@ -102,6 +100,19 @@ A typical layout looks like this:
     "summary_count": 0,
     "metrics": []
   },
+  "meta": {
+    "q1_reference_shadow": {
+      "pass": true,
+      "grounded_rate": 0.94,
+      "wilson_lower_bound": 0.90,
+      "n_eligible": 120,
+      "threshold": 0.90,
+      "summary_artifact": {
+        "path": "out/q1/reference_summary.json",
+        "sha256": "..."
+      }
+    }
+  },
   "refusal_delta_pass": true,
   "external_all_pass": true,
   "external_summaries_present": false
@@ -113,7 +124,8 @@ Interpretation:
 - `metrics` describe what was measured.
 - `gates` describe the boolean decisions derived from those signals.
 - top-level mirror fields are optional convenience copies for simple consumers.
-- the `external` section is a structured home for external-detector evidence.
+- `external` is a structured home for external-detector evidence.
+- `meta.*` is a good home for optional diagnostic / shadow fold-ins that improve visibility without changing release semantics.
 
 ---
 
@@ -137,8 +149,7 @@ At minimum, it must contain:
 
 ### `gates`
 
-A JSON object mapping gate ids to booleans.
-
+A JSON object mapping gate ids to booleans.  
 This is the normative home for release-relevant gate outcomes.
 
 ---
@@ -156,8 +167,7 @@ The safe-pack entrypoint `run_all.py` selects the mode via:
 - CLI: `--mode demo|core|prod`
 - or environment: `PULSE_RUN_MODE`
 
-Treat `run_mode` as important provenance: it tells consumers whether they are
-looking at a demo-style run, a minimal Core run, or a production-style run.
+Treat `run_mode` as important provenance: it tells consumers whether they are looking at a demo-style run, a minimal Core run, or a production-style run.
 
 ---
 
@@ -206,6 +216,7 @@ Depending on configured summaries, examples may include:
 - `metrics.deepeval_fail_rate`
 
 Not every run will contain every metric.
+
 Consumers should tolerate additive growth in `metrics`.
 
 ---
@@ -230,11 +241,9 @@ For enforcement, PASS is strict:
 
 - a gate PASSES only if its value is the literal boolean `true`
 - `false`, `null`, missing values, strings, and numbers are **not** PASS
+- missing required gates fail closed
 
-Missing required gates fail closed.
-
-That is why machine consumers should always read gate outcomes from
-`status["gates"]` first.
+That is why machine consumers should always read gate outcomes from `status["gates"]` first.
 
 ---
 
@@ -257,10 +266,86 @@ Recommended rule:
 
 ---
 
-## 9. External detector section (`external`)
+## 9. Optional shadow fold-ins (`meta.*`)
 
-When external summaries are folded in, `augment_status.py` maintains a
-structured `external` section.
+`meta` is a good home for optional, additive, non-normative visibility blocks.
+
+These blocks allow producers to copy a compact summary of a diagnostic / shadow artefact
+into the final `status.json` so that renderers and reviewers can see it in one place
+without turning it into a required gate.
+
+### Recommended Q1 shadow location
+
+```text
+status["meta"]["q1_reference_shadow"]
+```
+
+### Recommended shape
+
+```json
+{
+  "meta": {
+    "q1_reference_shadow": {
+      "pass": true,
+      "grounded_rate": 0.94,
+      "wilson_lower_bound": 0.90,
+      "n_eligible": 120,
+      "threshold": 0.90,
+      "summary_artifact": {
+        "path": "out/q1/reference_summary.json",
+        "sha256": "..."
+      }
+    }
+  }
+}
+```
+
+### Meaning of the fields
+
+- `pass` — copied summary-level PASS / FAIL from the source artefact
+- `grounded_rate` — copied grounded rate from the source artefact
+- `wilson_lower_bound` — copied lower confidence bound from the source artefact
+- `n_eligible` — copied eligible sample count from the source artefact
+- `threshold` — copied threshold from the source artefact; descriptive only
+- `summary_artifact.path` — path of the source summary artefact
+- `summary_artifact.sha256` — SHA-256 of the raw file bytes of the source summary artefact
+
+### Rules
+
+1. **All-or-nothing fold-in**  
+   If the source artefact is missing, invalid, or not parseable, omit the whole block.
+
+2. **Source fidelity**  
+   The block is a copy / mapping of selected source-summary fields.  
+   It is not a second computation path and must not introduce new release semantics.
+
+3. **Normative isolation**  
+   `meta.q1_reference_shadow` must not be used as a replacement for `gates.*`
+   and must not change required-gate enforcement.
+
+4. **Absence is neutral**  
+   If the block is absent, that does not itself imply PASS or FAIL.
+
+5. **Renderer discipline**  
+   Human-readable surfaces may display this block, but they must not:
+   - recompute it,
+   - infer missing values as PASS,
+   - derive a different overall release decision from it,
+   - implicitly promote it into policy.
+
+### Non-goals
+
+- adding a new required gate
+- writing under `gates.*`
+- changing `check_gates.py`
+- changing release policy
+- changing overall decision semantics
+
+---
+
+## 10. External detector section (`external`)
+
+When external summaries are folded in, `augment_status.py` maintains a structured `external` section.
 
 Typical shape:
 
@@ -302,8 +387,7 @@ and may also include:
 
 ### Important nuance: evidence presence vs aggregate pass
 
-Do **not** interpret `external_all_pass == true` as proof that external evidence
-was actually present.
+Do **not** interpret `external_all_pass == true` as proof that external evidence was actually present.
 
 Current augmentation behavior distinguishes two questions:
 
@@ -317,16 +401,13 @@ Current augmentation behavior distinguishes two questions:
    - `gates.external_all_pass`
    - optional mirror: `external_all_pass`
 
-If no external summary files are present, current augmentation still sets the
-aggregate external result to PASS by default, while separately surfacing that
-summary presence is false.
+If no external summary files are present, current augmentation still sets the aggregate external result to PASS by default, while separately surfacing that summary presence is false.
 
-So if your workflow cares about *evidence existence*, check
-`external_summaries_present` (or its gate form), not just `external_all_pass`.
+So if your workflow cares about *evidence existence*, check `external_summaries_present` (or its gate form), not just `external_all_pass`.
 
 ---
 
-## 10. Relationship to the main tools
+## 11. Relationship to the main tools
 
 ### `run_all.py`
 
@@ -338,7 +419,8 @@ So if your workflow cares about *evidence existence*, check
 
 - reads the baseline `status.json`,
 - folds in refusal-delta and external detector summaries,
-- writes derived gates and convenience mirrors back into the same file.
+- may add optional shadow-only blocks under `meta.*`,
+- writes derived fields back into the same file.
 
 ### `validate_status_schema.py`
 
@@ -353,26 +435,25 @@ So if your workflow cares about *evidence existence*, check
 
 ### Human-readable renderers
 
-Tools such as the Quality Ledger read `metrics`, `gates`, and related sections
-from the final artefact and should remain pure readers / renderers.
+Tools such as the Quality Ledger read `metrics`, `gates`, and related sections from the final artefact and should remain pure readers / renderers.
+
+They may surface optional shadow blocks such as `meta.q1_reference_shadow`, but they must not redefine release semantics or silently upgrade unknown / missing evidence into PASS.
 
 ---
 
-## 11. Consumer guidance
+## 12. Consumer guidance
 
 Recommended consumer rules:
 
 1. **Validate first** if machine correctness matters.
 2. **Read `gates.*` first** for release decisions.
-3. **Use `metrics.*` for explanation and drill-down**, not as a replacement for
-   gate outcomes.
-4. **Check evidence-presence fields explicitly** when external evidence matters:
+3. **Use `metrics.*` and `meta.*` for explanation and drill-down**, not as a replacement for gate outcomes.
+4. **Check evidence-presence fields explicitly** when evidence existence matters:
    - `external.summaries_present`
    - `gates.external_summaries_present`
-5. **Use the final augmented `status.json`** for release reasoning, not an
-   intermediate baseline file.
-6. **Treat additive fields as normal**: new metrics and optional sections may
-   appear over time without breaking the contract.
+5. **Treat optional shadow fold-ins as descriptive only** unless a future policy explicitly promotes them.
+6. **Use the final augmented `status.json`** for release reasoning, not an intermediate baseline file.
+7. **Treat additive fields as normal**: new metrics and optional sections may appear over time without breaking the contract.
 
 Because `status.json` is plain JSON, it is well-suited for:
 
@@ -384,7 +465,7 @@ Because `status.json` is plain JSON, it is well-suited for:
 
 ---
 
-## 12. Contract evolution
+## 13. Contract evolution
 
 The public compatibility boundary is the schema:
 
@@ -392,8 +473,9 @@ The public compatibility boundary is the schema:
 schemas/status/status_v1.schema.json
 ```
 
-If stable semantics change, update the relevant contract docs and changelog in
-the same change set.
+If stable semantics change, update the relevant contract docs and changelog in the same change set.
+
+If any optional shadow fold-in is later promoted into normative gating, document that promotion as a separate policy / contract change rather than silently reinterpreting an existing descriptive field.
 
 See also:
 
