@@ -37,10 +37,10 @@ This is a minimal stable example, not an exhaustive field catalog.
 
 The current schema requires these top-level fields:
 
-- `version` — non-empty string  
-- `created_utc` — creation timestamp string  
-- `metrics` — object containing at least `run_mode`  
-- `gates` — object mapping gate ids to booleans  
+- `version` — non-empty string
+- `created_utc` — creation timestamp string
+- `metrics` — object containing at least `run_mode`
+- `gates` — object mapping gate ids to booleans
 
 `metrics.run_mode` must be one of:
 
@@ -54,15 +54,15 @@ The current schema requires these top-level fields:
 
 Gate outcomes live normatively under:
 
-```
+```text
 status["gates"]
 ```
 
 For release enforcement, PASS is strict:
 
 - a gate PASSES only if its value is the literal boolean `true`
-- `false`, `null`, missing values, strings, and numbers are **not** PASS  
-- Missing required gates fail closed.
+- `false`, `null`, missing values, strings, and numbers are **not** PASS
+- missing required gates fail closed
 
 ---
 
@@ -99,13 +99,102 @@ Consumers should read `gates.*` first when available and treat top-level mirrors
 
 ---
 
+## Optional shadow fold-ins
+
+Some producers may copy selected fields from diagnostic / shadow artefacts into `status.json`
+under `meta.*` for visibility only.
+
+These fold-ins are:
+
+- optional,
+- additive,
+- non-normative,
+- and must not alter release decisions, required gate sets, or gate semantics.
+
+### Q1 reference shadow
+
+Recommended location:
+
+```text
+status["meta"]["q1_reference_shadow"]
+```
+
+Purpose:
+
+Expose a compact summary of a Q1 reference summary artefact for human readers
+and renderer surfaces without creating a new required gate or changing release policy.
+
+Suggested shape:
+
+```json
+{
+  "meta": {
+    "q1_reference_shadow": {
+      "pass": true,
+      "grounded_rate": 0.94,
+      "wilson_lower_bound": 0.90,
+      "n_eligible": 120,
+      "threshold": 0.90,
+      "summary_artifact": {
+        "path": "out/q1/reference_summary.json",
+        "sha256": "..."
+      }
+    }
+  }
+}
+```
+
+Rules:
+
+1. **Fold-in is all-or-nothing.**  
+   If the source artefact is missing, invalid, or not parseable, omit the whole block.
+
+2. **Source fidelity.**  
+   Values in `meta.q1_reference_shadow` are copied / mapped from the source summary artefact.  
+   They are not recomputed and must not introduce new release semantics.  
+   `threshold` mirrors the source summary's `threshold` field and is descriptive only.
+
+3. **Hash meaning.**  
+   `summary_artifact.sha256` refers to the raw file bytes of the source summary artefact.
+
+4. **Consumer rule.**  
+   Renderers may display this block, but consumers must not treat it as normative gate evidence.
+
+5. **Absence is neutral.**  
+   Presence or absence of this block does not change PASS/FAIL, STAGE-PASS/PROD-PASS,
+   or required-gate enforcement.
+
+Non-goals:
+
+- no changes under `gates.*`
+- no `check_gates.py` behavior change
+- no policy change
+- no promotion
+- no overall decision change
+
+---
+
 ## Typical lifecycle
 
 Typical pipeline flow:
 
-- `PULSE_safe_pack_v0/tools/run_all.py` writes the status artifact.
-- Optional augmentation may add derived metrics or external summaries.
+- `PULSE_safe_pack_v0/tools/run_all.py` writes the baseline status artefact.
+- Optional augmentation may add derived metrics, external summaries, or shadow-only fold-ins under `meta.*`.
 - `PULSE_safe_pack_v0/tools/check_gates.py` enforces required gates on the final `status.json`.
+- Human-readable renderers read the same final artefact.
+
+---
+
+## Invariants
+
+- **Gate isolation**  
+  Presence or absence of `meta.q1_reference_shadow` must not change release outcomes.
+
+- **Read-only presentation**  
+  Renderer surfaces may display the block but must not derive normative outcomes from it.
+
+- **Source fidelity**  
+  The block is a copy / mapping of selected source-summary fields, not a recomputed decision layer.
 
 ---
 
@@ -113,6 +202,7 @@ Typical pipeline flow:
 
 This is a public-alpha contract:
 
-- the schema is the normative compatibility boundary  
-- additive fields are allowed  
-- semantic changes to stable fields should be documented in the changelog and related docs  
+- the schema is the normative compatibility boundary
+- additive fields are allowed
+- semantic changes to stable fields should be documented in the changelog and related docs
+- if any shadow fold-in is later promoted into gating, that promotion must be documented as a separate normative change
