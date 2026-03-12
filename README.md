@@ -947,6 +947,13 @@ For the shortest canonical references, start with:
 - [`docs/EXTERNAL_DETECTORS.md`](docs/EXTERNAL_DETECTORS.md)
 - [`docs/quality_ledger.md`](docs/quality_ledger.md)
 
+### Q1 reference lane (shadow)
+- [`docs/Q1_REFERENCE_TRACK.md`](docs/Q1_REFERENCE_TRACK.md) — Overview of the checked-in Q1 reference groundedness lane.
+- `examples/q1_reference_input_manifest.json` — checked-in input manifest
+- `examples/q1_reference_labels.pass_120.jsonl` — canonical pass fixture
+- `examples/q1_groundedness_summary.example.json` — checked-in summary example
+- `tests/test_q1_reference_golden_path.py` — end-to-end golden-path smoke
+
 ---
 
 ## How to cite
