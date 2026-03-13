@@ -79,6 +79,27 @@ def resolve_gate_policy_path(status_path: Path, metrics: Dict[str, Any]) -> Path
             return cand
     return candidates[0]
 
+def policy_gate_sets(policy: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Return the gate-set mapping from the policy document.
+
+    Canonical shape in this repo is top-level:
+      gates:
+        required: [...]
+        core_required: [...]
+        advisory: [...]
+
+    Keep a nested fallback for compatibility with older or alternate shapes.
+    """
+    top_level = as_dict(policy.get("gates"))
+    if top_level:
+        return top_level
+
+    nested = as_dict(as_dict(policy.get("policy")).get("gates"))
+    if nested:
+        return nested
+
+    return {}
 
 def select_required_gates(status: Dict[str, Any], *, status_path: Path) -> tuple[List[str], str]:
     """
@@ -110,7 +131,7 @@ def select_required_gates(status: Dict[str, Any], *, status_path: Path) -> tuple
         return [], "unresolved"
 
     policy = yload(policy_path)
-    gates_block = as_dict(as_dict(policy.get("policy")).get("gates"))
+    gates_block = policy_gate_sets(policy)
     selected = as_str_list(gates_block.get(set_name))
     if selected:
         return selected, f"policy:{set_name}"
