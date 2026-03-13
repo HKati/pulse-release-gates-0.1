@@ -78,7 +78,7 @@ def run_augment(
         str(external_dir),
     ]
     if q1_reference_summary is not None:
-        cmd.extend(["--q1-reference-summary", str(q1_reference_summary)])
+          cmd.extend(["--q1_reference_summary", str(q1_reference_summary)])
 
     result = subprocess.run(cmd, capture_output=True, text=True)
     assert result.returncode == 0, result.stderr or result.stdout
