@@ -4,7 +4,11 @@ import subprocess
 import sys
 from pathlib import Path
 
-from PULSE_safe_pack_v0.tools.render_quality_ledger import write_quality_ledger
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from PULSE_safe_pack_v0.tools.render_quality_ledger import write_quality_ledger  # noqa: E402
 
 
 def write_json(path: Path, obj: dict) -> None:
@@ -14,6 +18,7 @@ def write_json(path: Path, obj: dict) -> None:
 
 def read_text(path: Path) -> str:
     return path.read_text(encoding="utf-8")
+
 
 def write_policy(path: Path) -> None:
     path.write_text(
@@ -42,17 +47,30 @@ def write_policy(path: Path) -> None:
         encoding="utf-8",
     )
 
+
 def test_write_quality_ledger_renders_from_status_path(tmp_path: Path) -> None:
     status_path = tmp_path / "status.json"
     out_path = tmp_path / "report_card.html"
+    policy_path = tmp_path / "pulse_gate_policy_v0.yml"
+    write_policy(policy_path)
 
     write_json(
         status_path,
         {
             "version": "1.0.0-core",
             "created_utc": "2026-02-17T12:34:56Z",
-            "metrics": {"run_mode": "core", "RDSI": 0.93},
-            "gates": {"q1_grounded_ok": True, "q4_slo_ok": True},
+            "metrics": {
+                "run_mode": "core",
+                "RDSI": 0.93,
+                "gate_policy_path": str(policy_path),
+            },
+            "gates": {
+                "pass_controls_refusal": True,
+                "pass_controls_sanit": True,
+                "sanitization_effective": True,
+                "q1_grounded_ok": True,
+                "q4_slo_ok": True,
+            },
         },
     )
 
@@ -104,13 +122,44 @@ def test_write_quality_ledger_tolerates_missing_optional_sections(tmp_path: Path
 
     html = read_text(out_path)
     assert "PULSE Quality Ledger" in html
-    assert "DEMO-PASS" not in html  # no gates => not all-pass
-    assert "FAIL" in html or "PASS" in html
+    assert "UNKNOWN" in html
+
+
+def test_advisory_gate_does_not_flip_decision_banner(tmp_path: Path) -> None:
+    status_path = tmp_path / "status.json"
+    out_path = tmp_path / "report_card.html"
+    policy_path = tmp_path / "pulse_gate_policy_v0.yml"
+    write_policy(policy_path)
+
+    write_json(
+        status_path,
+        {
+            "version": "1.0.0-core",
+            "created_utc": "2026-02-17T12:34:56Z",
+            "metrics": {
+                "run_mode": "core",
+                "gate_policy_path": str(policy_path),
+            },
+            "gates": {
+                "pass_controls_refusal": True,
+                "pass_controls_sanit": True,
+                "sanitization_effective": True,
+                "q1_grounded_ok": True,
+                "q4_slo_ok": True,
+                "external_summaries_present": False,
+            },
+        },
+    )
+
+    write_quality_ledger(status_path, out_path)
+
+    html = read_text(out_path)
+    assert "STAGE-PASS" in html
+    assert "external_summaries_present" in html
 
 
 def test_run_all_still_writes_report_card_via_renderer(tmp_path: Path) -> None:
-    repo_root = Path(__file__).resolve().parents[1]
-    script = repo_root / "PULSE_safe_pack_v0" / "tools" / "run_all.py"
+    script = REPO_ROOT / "PULSE_safe_pack_v0" / "tools" / "run_all.py"
     artifact_dir = tmp_path / "artifacts"
 
     env = dict(os.environ)
@@ -119,7 +168,7 @@ def test_run_all_still_writes_report_card_via_renderer(tmp_path: Path) -> None:
 
     result = subprocess.run(
         [sys.executable, str(script), "--mode", "demo"],
-        cwd=str(repo_root),
+        cwd=str(REPO_ROOT),
         env=env,
         capture_output=True,
         text=True,
