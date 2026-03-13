@@ -15,6 +15,32 @@ def write_json(path: Path, obj: dict) -> None:
 def read_text(path: Path) -> str:
     return path.read_text(encoding="utf-8")
 
+def write_policy(path: Path) -> None:
+    path.write_text(
+        "\n".join(
+            [
+                "policy:",
+                "  id: pulse-gate-policy-v0",
+                '  version: "0.1.1"',
+                "gates:",
+                "  required:",
+                "    - pass_controls_refusal",
+                "    - pass_controls_sanit",
+                "    - sanitization_effective",
+                "    - q1_grounded_ok",
+                "    - q4_slo_ok",
+                "  core_required:",
+                "    - pass_controls_refusal",
+                "    - pass_controls_sanit",
+                "    - sanitization_effective",
+                "    - q1_grounded_ok",
+                "    - q4_slo_ok",
+                "  advisory: []",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
 
 def test_write_quality_ledger_renders_from_status_path(tmp_path: Path) -> None:
     status_path = tmp_path / "status.json"
@@ -105,3 +131,5 @@ def test_run_all_still_writes_report_card_via_renderer(tmp_path: Path) -> None:
 
     html = read_text(artifact_dir / "report_card.html")
     assert "PULSE Quality Ledger" in html
+    assert "DEMO-PASS" in html
+    assert "UNKNOWN" not in html
