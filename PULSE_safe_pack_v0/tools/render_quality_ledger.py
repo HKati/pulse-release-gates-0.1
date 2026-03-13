@@ -22,6 +22,8 @@ from html import escape
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Tuple
 
+import yaml
+
 
 def jload(path: Path) -> Dict[str, Any]:
     with path.open("r", encoding="utf-8") as f:
@@ -39,6 +41,83 @@ def as_list(value: Any) -> List[Any]:
     return value if isinstance(value, list) else []
 
 
+def as_str_list(value: Any) -> List[str]:
+    if not isinstance(value, list):
+        return []
+    out: List[str] = []
+    for x in value:
+        s = str(x).strip()
+        if s:
+            out.append(s)
+    return out
+
+
+def yload(path: Path) -> Dict[str, Any]:
+    try:
+        with path.open("r", encoding="utf-8") as f:
+            obj = yaml.safe_load(f)
+        return obj if isinstance(obj, dict) else {}
+    except Exception:
+        return {}
+
+
+def resolve_gate_policy_path(status_path: Path, metrics: Dict[str, Any]) -> Path | None:
+    raw = metrics.get("gate_policy_path")
+    if not isinstance(raw, str) or not raw.strip():
+        return None
+
+    p = Path(raw.strip())
+    if p.is_absolute():
+        return p
+
+    candidates = [
+        (Path.cwd() / p).resolve(),
+        (status_path.parent / p).resolve(),
+    ]
+    for cand in candidates:
+        if cand.exists():
+            return cand
+    return candidates[0]
+
+
+def select_required_gates(status: Dict[str, Any], *, status_path: Path) -> tuple[List[str], str]:
+    """
+    Resolve the gate IDs that are actually decision-bearing for the ledger banner.
+
+    Resolution order:
+    1. metrics.required_gates (explicit future-proof override)
+    2. gate policy file + selected set name
+       - metrics.required_gate_set when present
+       - else heuristic: core/demo -> core_required, prod -> required
+
+    Returns: (gate_ids, source_label)
+    """
+    metrics = as_dict(status.get("metrics"))
+
+    explicit = as_str_list(metrics.get("required_gates"))
+    if explicit:
+        return explicit, "metrics.required_gates"
+
+    set_name_raw = metrics.get("required_gate_set")
+    if isinstance(set_name_raw, str) and set_name_raw.strip():
+        set_name = set_name_raw.strip()
+    else:
+        run_mode = str(metrics.get("run_mode", "")).strip().lower()
+        set_name = "core_required" if run_mode in {"demo", "core"} else "required"
+
+    policy_path = resolve_gate_policy_path(status_path, metrics)
+    if policy_path is None:
+        return [], "unresolved"
+
+    policy = yload(policy_path)
+    gates_block = as_dict(as_dict(policy.get("policy")).get("gates"))
+    selected = as_str_list(gates_block.get(set_name))
+    if selected:
+        return selected, f"policy:{set_name}"
+
+    return [], "unresolved"
+
+
 def html_text(value: Any) -> str:
     if value is None:
         return "—"
@@ -53,14 +132,18 @@ def gate_status_parts(ok: bool) -> Tuple[str, str]:
     return ("PASS", "status-pass") if ok else ("FAIL", "status-fail")
 
 
-def decision_from_status(status: Dict[str, Any]) -> Tuple[str, str]:
+def decision_from_status(status: Dict[str, Any], *, status_path: Path) -> Tuple[str, str]:
     metrics = as_dict(status.get("metrics"))
     gates = as_dict(status.get("gates"))
 
-    all_pass = bool(gates) and all(v is True for v in gates.values())
+    required_gate_ids, _decision_source = select_required_gates(status, status_path=status_path)
+    if not required_gate_ids:
+        return "UNKNOWN", "badge-unknown"
+
+    all_required_pass = all(gates.get(gate_id) is True for gate_id in required_gate_ids)
     run_mode = str(metrics.get("run_mode", "")).strip().lower()
 
-    if not all_pass:
+    if not all_required_pass:
         return "FAIL", "badge-fail"
     if run_mode == "prod":
         return "PROD-PASS", "badge-pass"
@@ -329,7 +412,7 @@ def render_quality_ledger(status: Dict[str, Any], *, status_path: Path) -> str:
     gates = as_dict(status.get("gates"))
     diagnostics = as_dict(status.get("diagnostics"))
 
-    decision_label, decision_class = decision_from_status(status)
+    decision_label, decision_class = decision_from_status(status, status_path=status_path)
     gate_buckets = build_gate_buckets(gates)
 
     header_meta = render_meta_list(
@@ -431,6 +514,10 @@ def render_quality_ledger(status: Dict[str, Any], *, status_path: Path) -> str:
     .badge-fail {{
       background: var(--fail-bg);
       color: var(--fail-fg);
+    }}
+    .badge-unknown {{
+      background: var(--note-bg);
+      color: var(--muted);
     }}
     .meta-grid {{
       display: grid;
@@ -534,14 +621,20 @@ def main() -> int:
     status_path = Path(args.status).resolve()
     out_path = Path(args.out).resolve()
 
+    rendered = write_quality_ledger(status_path, out_path)
+
+    print("Rendered", rendered)
+    return 0
+
+
+def write_quality_ledger(status_path: Path, out_path: Path) -> Path:
     status = jload(status_path)
     html = render_quality_ledger(status, status_path=status_path)
 
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-    out_path.write_text(html, encoding="utf-8")
-
-    print("Rendered", out_path)
-    return 0
+    resolved_out = out_path.resolve()
+    resolved_out.parent.mkdir(parents=True, exist_ok=True)
+    resolved_out.write_text(html, encoding="utf-8")
+    return resolved_out
 
 
 if __name__ == "__main__":
