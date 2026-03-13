@@ -260,13 +260,16 @@ def main() -> int:
         ),
     )
     parser.add_argument(
-        "--q1_reference_summary",
-        default=None,
-        help=(
-            "Optional path to q1_reference_summary.json. "
-            "When valid and complete, copied into meta.q1_reference_shadow."
-        ),
-    )
+    "--q1-reference-summary",
+    "--q1_reference_summary",
+    dest="q1_reference_summary",
+    help=(
+        "Optional Q1 reference summary JSON artefact to fold into "
+        'status["meta"]["q1_reference_shadow"]'
+    ),
+)
+        
+  
     args = parser.parse_args()
 
     status_path = os.path.abspath(args.status)
