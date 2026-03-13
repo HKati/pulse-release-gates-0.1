@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import argparse
 import glob
+import hashlib
 import json
 import os
 from typing import Any, Dict, Optional
@@ -46,6 +47,16 @@ def jload(path: str) -> Optional[Dict[str, Any]]:
         return obj if isinstance(obj, dict) else None
     except Exception:
         return None
+
+
+def jload_with_raw_bytes(path: str) -> tuple[Optional[Dict[str, Any]], Optional[bytes]]:
+    """Best-effort JSON loader returning (dict, raw_bytes) or (None, None) on failure."""
+    try:
+        raw = open(path, "rb").read()
+        obj = json.loads(raw)
+        return (obj, raw) if isinstance(obj, dict) else (None, None)
+    except Exception:
+        return None, None
 
 
 def jload_json_or_jsonl(path: str) -> Optional[Dict[str, Any]]:
@@ -119,6 +130,110 @@ def coerce_float_strict(x: Any, default: float) -> tuple[float, bool]:
     return default, False
 
 
+def ensure_meta(status: Dict[str, Any]) -> Dict[str, Any]:
+    """Ensure status has a dict-valued meta block and return it."""
+    meta = status.get("meta")
+    if isinstance(meta, dict):
+        return meta
+    status["meta"] = {}
+    return status["meta"]
+
+
+def extract_q1_n_eligible(q1: Dict[str, Any]) -> tuple[Optional[Any], bool]:
+    """
+    Extract the eligible-count source for q1_reference_shadow.n_eligible.
+
+    Accepted source shapes:
+    - top-level n_eligible
+    - canonical top-level n
+    - nested counts.n_eligible
+
+    Returns (value, found).
+    """
+    if "n_eligible" in q1:
+        return q1["n_eligible"], True
+
+    if "n" in q1:
+        return q1["n"], True
+
+    counts = q1.get("counts")
+    if isinstance(counts, dict) and "n_eligible" in counts:
+        return counts["n_eligible"], True
+
+    return None, False
+
+
+def build_q1_reference_shadow_block(
+    q1: Dict[str, Any],
+    *,
+    abs_path: str,
+    raw: bytes,
+) -> Optional[Dict[str, Any]]:
+    """
+    Build the q1_reference_shadow block from a valid source summary.
+
+    Required source fields:
+    - pass
+    - grounded_rate
+    - wilson_lower_bound
+    - threshold
+    - eligible-count source: n_eligible OR canonical n OR counts.n_eligible
+    """
+    required_fields = (
+        "pass",
+        "grounded_rate",
+        "wilson_lower_bound",
+        "threshold",
+    )
+    if any(field not in q1 for field in required_fields):
+        return None
+
+    n_eligible, found_n = extract_q1_n_eligible(q1)
+    if not found_n:
+        return None
+
+    return {
+        "pass": q1["pass"],
+        "grounded_rate": q1["grounded_rate"],
+        "wilson_lower_bound": q1["wilson_lower_bound"],
+        "n_eligible": n_eligible,
+        "threshold": q1["threshold"],
+        "summary_artifact": {
+            "path": abs_path,
+            "sha256": hashlib.sha256(raw).hexdigest(),
+        },
+    }
+
+
+def fold_q1_reference_shadow(status: Dict[str, Any], summary_path: Optional[str]) -> None:
+    """
+    Optionally fold a valid Q1 reference summary into status["meta"]["q1_reference_shadow"].
+
+    Behavior:
+    - if summary_path is None: no-op
+    - if explicitly provided but invalid / missing / incomplete: omit the block
+    - if valid and complete: copy / map fields without recomputation
+    """
+    if summary_path is None:
+        return
+
+    existing_meta = status.get("meta")
+    if isinstance(existing_meta, dict):
+        existing_meta.pop("q1_reference_shadow", None)
+
+    abs_path = os.path.abspath(summary_path)
+    q1, raw = jload_with_raw_bytes(abs_path)
+    if q1 is None or raw is None:
+        return
+
+    shadow = build_q1_reference_shadow_block(q1, abs_path=abs_path, raw=raw)
+    if shadow is None:
+        return
+
+    meta = ensure_meta(status)
+    meta["q1_reference_shadow"] = shadow
+
+
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
@@ -142,6 +257,14 @@ def main() -> int:
         help=(
             "Fail-closed when no external summary files are present. "
             "Default behavior remains permissive for onboarding unless this flag is set."
+        ),
+    )
+    parser.add_argument(
+        "--q1_reference_summary",
+        default=None,
+        help=(
+            "Optional path to q1_reference_summary.json. "
+            "When valid and complete, copied into meta.q1_reference_shadow."
         ),
     )
     args = parser.parse_args()
@@ -435,7 +558,12 @@ def main() -> int:
     status["external_all_pass"] = ext_all
 
     # -----------------------------------------------------------------------
-    # 3) Write back
+    # 3) Optional Q1 reference summary shadow fold-in
+    # -----------------------------------------------------------------------
+    fold_q1_reference_shadow(status, args.q1_reference_summary)
+
+    # -----------------------------------------------------------------------
+    # 4) Write back
     # -----------------------------------------------------------------------
     with open(status_path, "w", encoding="utf-8") as f:
         json.dump(status, f, indent=2, sort_keys=True)
