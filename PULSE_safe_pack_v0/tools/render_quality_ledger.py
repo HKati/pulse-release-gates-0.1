@@ -612,29 +612,35 @@ def render_quality_ledger(status: Dict[str, Any], *, status_path: Path) -> str:
     return html
 
 
+def write_quality_ledger(status_path: Path | str, out_path: Path | str) -> Path:
+    """
+    Render Quality Ledger HTML from an explicit status.json path into an output path.
+
+    Pure reader / renderer:
+    - reads status.json
+    - writes HTML
+    - does not mutate the source artefact
+    """
+    status_path = Path(status_path).resolve()
+    out_path = Path(out_path).resolve()
+
+    status = jload(status_path)
+    html = render_quality_ledger(status, status_path=status_path)
+
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(html, encoding="utf-8")
+    return out_path
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--status", required=True, help="Path to status.json")
     parser.add_argument("--out", required=True, help="Output HTML path")
     args = parser.parse_args()
 
-    status_path = Path(args.status).resolve()
-    out_path = Path(args.out).resolve()
-
-    rendered = write_quality_ledger(status_path, out_path)
-
-    print("Rendered", rendered)
+    out_path = write_quality_ledger(args.status, args.out)
+    print("Rendered", out_path)
     return 0
-
-
-def write_quality_ledger(status_path: Path, out_path: Path) -> Path:
-    status = jload(status_path)
-    html = render_quality_ledger(status, status_path=status_path)
-
-    resolved_out = out_path.resolve()
-    resolved_out.parent.mkdir(parents=True, exist_ok=True)
-    resolved_out.write_text(html, encoding="utf-8")
-    return resolved_out
 
 
 if __name__ == "__main__":
