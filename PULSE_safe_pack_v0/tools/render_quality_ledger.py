@@ -79,6 +79,7 @@ def resolve_gate_policy_path(status_path: Path, metrics: Dict[str, Any]) -> Path
             return cand
     return candidates[0]
 
+
 def policy_gate_sets(policy: Dict[str, Any]) -> Dict[str, Any]:
     """
     Return the gate-set mapping from the policy document.
@@ -100,6 +101,32 @@ def policy_gate_sets(policy: Dict[str, Any]) -> Dict[str, Any]:
         return nested
 
     return {}
+
+
+def html_text(value: Any) -> str:
+    if value is None:
+        return "—"
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, float):
+        return f"{value:.3f}"
+    return escape(str(value))
+
+
+def html_short_hash(value: Any, prefix_len: int = 12) -> str:
+    if not isinstance(value, str):
+        return html_text(value)
+    s = value.strip()
+    if not s:
+        return "—"
+    if len(s) <= prefix_len:
+        return escape(s)
+    return f'<span title="{escape(s)}">{escape(s[:prefix_len])}…</span>'
+
+
+def gate_status_parts(ok: bool) -> Tuple[str, str]:
+    return ("PASS", "status-pass") if ok else ("FAIL", "status-fail")
+
 
 def select_required_gates(status: Dict[str, Any], *, status_path: Path) -> tuple[List[str], str]:
     """
@@ -132,25 +159,12 @@ def select_required_gates(status: Dict[str, Any], *, status_path: Path) -> tuple
 
     policy = yload(policy_path)
     gates_block = policy_gate_sets(policy)
+
     selected = as_str_list(gates_block.get(set_name))
     if selected:
         return selected, f"policy:{set_name}"
 
     return [], "unresolved"
-
-
-def html_text(value: Any) -> str:
-    if value is None:
-        return "—"
-    if isinstance(value, bool):
-        return "true" if value else "false"
-    if isinstance(value, float):
-        return f"{value:.3f}"
-    return escape(str(value))
-
-
-def gate_status_parts(ok: bool) -> Tuple[str, str]:
-    return ("PASS", "status-pass") if ok else ("FAIL", "status-fail")
 
 
 def decision_from_status(status: Dict[str, Any], *, status_path: Path) -> Tuple[str, str]:
@@ -173,10 +187,6 @@ def decision_from_status(status: Dict[str, Any], *, status_path: Path) -> Tuple[
     if run_mode == "demo":
         return "DEMO-PASS", "badge-pass"
     return "PASS", "badge-pass"
-
-
-def metric_value(metrics: Dict[str, Any], key: str) -> str:
-    return html_text(metrics.get(key))
 
 
 def render_meta_list(rows: Iterable[Tuple[str, Any]]) -> str:
@@ -210,10 +220,7 @@ def build_gate_buckets(gates: Dict[str, Any]) -> Dict[str, List[Tuple[str, bool]
             or s == "effect_present"
         ):
             buckets["safety"].append((s, ok))
-        elif (
-            s in {"refusal_delta_pass", "epf_hazard_ok"}
-            or s.startswith("external_")
-        ):
+        elif s in {"refusal_delta_pass", "epf_hazard_ok"} or s.startswith("external_"):
             buckets["stability"].append((s, ok))
         else:
             buckets["other"].append((s, ok))
@@ -340,6 +347,49 @@ def render_external_section(status: Dict[str, Any]) -> str:
         f"<tbody>{summary_html}</tbody>"
         "</table>"
         f"{detectors_table}"
+        "</section>"
+    )
+
+
+def render_q1_reference_shadow_section(status: Dict[str, Any]) -> str:
+    meta = as_dict(status.get("meta"))
+    q1 = as_dict(meta.get("q1_reference_shadow"))
+    if not q1:
+        return ""
+
+    summary_artifact = as_dict(q1.get("summary_artifact"))
+
+    rows = [
+        ("meta.q1_reference_shadow.pass", html_text(q1.get("pass"))),
+        ("meta.q1_reference_shadow.grounded_rate", html_text(q1.get("grounded_rate"))),
+        ("meta.q1_reference_shadow.wilson_lower_bound", html_text(q1.get("wilson_lower_bound"))),
+        ("meta.q1_reference_shadow.n_eligible", html_text(q1.get("n_eligible"))),
+        ("meta.q1_reference_shadow.threshold", html_text(q1.get("threshold"))),
+        ("meta.q1_reference_shadow.summary_artifact.path", html_text(summary_artifact.get("path"))),
+        (
+            "meta.q1_reference_shadow.summary_artifact.sha256",
+            html_short_hash(summary_artifact.get("sha256")),
+        ),
+    ]
+
+    body = "".join(
+        "<tr>"
+        f"<td><code>{escape(name)}</code></td>"
+        f"<td>{value_html}</td>"
+        "</tr>"
+        for name, value_html in rows
+    )
+
+    return (
+        "<section class='panel'>"
+        "<h2>Q1 reference shadow</h2>"
+        "<p class='subtle'>"
+        "Shadow-only visibility block. Descriptive only; not normative gate evidence."
+        "</p>"
+        "<table class='ledger-table'>"
+        "<thead><tr><th>Field</th><th>Value</th></tr></thead>"
+        f"<tbody>{body}</tbody>"
+        "</table>"
         "</section>"
     )
 
@@ -616,6 +666,7 @@ def render_quality_ledger(status: Dict[str, Any], *, status_path: Path) -> str:
     {render_gate_table("Quality gates", gate_buckets["quality"])}
     {render_refusal_delta_section(metrics, gates)}
     {render_external_section(status)}
+    {render_q1_reference_shadow_section(status)}
     {render_hazard_section(metrics)}
     {render_gate_table("Other gates", gate_buckets["other"])}
     {render_gate_table("Stability / auxiliary gates", gate_buckets["stability"])}
@@ -666,3 +717,4 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
