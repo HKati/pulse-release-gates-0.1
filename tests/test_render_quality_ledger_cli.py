@@ -3,6 +3,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+REPO_ROOT = Path(__file__).resolve().parents[1]
+
 
 def write_json(path: Path, obj: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -38,10 +40,11 @@ def test_render_quality_ledger_cli_smoke_status_out(tmp_path: Path) -> None:
         },
     )
 
-    script = Path("PULSE_safe_pack_v0/tools/render_quality_ledger.py").resolve()
+    script = REPO_ROOT / "PULSE_safe_pack_v0" / "tools" / "render_quality_ledger.py"
 
     result = subprocess.run(
         [sys.executable, str(script), "--status", str(status_path), "--out", str(out_path)],
+        cwd=str(REPO_ROOT),
         capture_output=True,
         text=True,
     )
