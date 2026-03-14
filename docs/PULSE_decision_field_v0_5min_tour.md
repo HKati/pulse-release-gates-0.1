@@ -146,7 +146,7 @@ added later (see `PULSE_topology_v0_cli_demo.md`).
 Command:
 
 
-python PULSE_safe_pack_v0/tools/PULSE_safe_pack_v0/tools/pulse_paradox_atoms_v0.py \
+python PULSE_safe_pack_v0/tools/pulse_paradox_atoms_v0.py \
   --status-dir PULSE_safe_pack_v0/artifacts \
   --output PULSE_safe_pack_v0/artifacts/paradox_field_v0.json \
   --max-atom-size 4
