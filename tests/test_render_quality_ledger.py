@@ -24,55 +24,55 @@ def write_policy(path: Path) -> None:
     path.write_text(
         "\n".join(
             [
-                "policy:",
-                "  id: pulse-gate-policy-v0",
-                '  version: "0.1.1"',
-                "gates:",
-                "  required:",
-                "    - pass_controls_refusal",
-                "    - pass_controls_sanit",
-                "    - sanitization_effective",
-                "    - q1_grounded_ok",
-                "    - q4_slo_ok",
-                "  core_required:",
-                "    - pass_controls_refusal",
-                "    - pass_controls_sanit",
-                "    - sanitization_effective",
-                "    - q1_grounded_ok",
-                "    - q4_slo_ok",
-                "  advisory: []",
-                "",
+                'id: pulse-gate-policy-v0',
+                'version: "0.1.1"',
+                'gates:',
+                '  required:',
+                '    - pass_controls_refusal',
+                '    - pass_controls_sanit',
+                '    - sanitization_effective',
+                '    - q1_grounded_ok',
+                '    - q4_slo_ok',
+                '  core_required:',
+                '    - pass_controls_refusal',
+                '    - pass_controls_sanit',
+                '    - sanitization_effective',
+                '    - q1_grounded_ok',
+                '    - q4_slo_ok',
+                '  advisory: []',
+                '',
             ]
         ),
         encoding="utf-8",
     )
 
 
+def core_pass_status(policy_path: Path) -> dict:
+    return {
+        "version": "1.0.0-core",
+        "created_utc": "2026-02-17T12:34:56Z",
+        "metrics": {
+            "run_mode": "core",
+            "RDSI": 0.93,
+            "gate_policy_path": str(policy_path),
+        },
+        "gates": {
+            "pass_controls_refusal": True,
+            "pass_controls_sanit": True,
+            "sanitization_effective": True,
+            "q1_grounded_ok": True,
+            "q4_slo_ok": True,
+        },
+    }
+
+
 def test_write_quality_ledger_renders_from_status_path(tmp_path: Path) -> None:
     status_path = tmp_path / "status.json"
     out_path = tmp_path / "report_card.html"
     policy_path = tmp_path / "pulse_gate_policy_v0.yml"
-    write_policy(policy_path)
 
-    write_json(
-        status_path,
-        {
-            "version": "1.0.0-core",
-            "created_utc": "2026-02-17T12:34:56Z",
-            "metrics": {
-                "run_mode": "core",
-                "RDSI": 0.93,
-                "gate_policy_path": str(policy_path),
-            },
-            "gates": {
-                "pass_controls_refusal": True,
-                "pass_controls_sanit": True,
-                "sanitization_effective": True,
-                "q1_grounded_ok": True,
-                "q4_slo_ok": True,
-            },
-        },
-    )
+    write_policy(policy_path)
+    write_json(status_path, core_pass_status(policy_path))
 
     rendered = write_quality_ledger(status_path, out_path)
 
@@ -87,13 +87,13 @@ def test_write_quality_ledger_renders_from_status_path(tmp_path: Path) -> None:
 def test_write_quality_ledger_is_read_only_over_status_json(tmp_path: Path) -> None:
     status_path = tmp_path / "status.json"
     out_path = tmp_path / "report_card.html"
-
     original = {
         "version": "1.0.0-demo",
         "created_utc": "2026-02-17T12:34:56Z",
         "metrics": {"run_mode": "demo"},
         "gates": {"q1_grounded_ok": True},
     }
+
     write_json(status_path, original)
     before = status_path.read_bytes()
 
@@ -129,27 +129,11 @@ def test_advisory_gate_does_not_flip_decision_banner(tmp_path: Path) -> None:
     status_path = tmp_path / "status.json"
     out_path = tmp_path / "report_card.html"
     policy_path = tmp_path / "pulse_gate_policy_v0.yml"
-    write_policy(policy_path)
 
-    write_json(
-        status_path,
-        {
-            "version": "1.0.0-core",
-            "created_utc": "2026-02-17T12:34:56Z",
-            "metrics": {
-                "run_mode": "core",
-                "gate_policy_path": str(policy_path),
-            },
-            "gates": {
-                "pass_controls_refusal": True,
-                "pass_controls_sanit": True,
-                "sanitization_effective": True,
-                "q1_grounded_ok": True,
-                "q4_slo_ok": True,
-                "external_summaries_present": False,
-            },
-        },
-    )
+    write_policy(policy_path)
+    status = core_pass_status(policy_path)
+    status["gates"]["external_summaries_present"] = False
+    write_json(status_path, status)
 
     write_quality_ledger(status_path, out_path)
 
@@ -158,10 +142,72 @@ def test_advisory_gate_does_not_flip_decision_banner(tmp_path: Path) -> None:
     assert "external_summaries_present" in html
 
 
+def test_q1_reference_shadow_section_renders_when_present(tmp_path: Path) -> None:
+    status_path = tmp_path / "status.json"
+    out_path = tmp_path / "report_card.html"
+    policy_path = tmp_path / "pulse_gate_policy_v0.yml"
+
+    write_policy(policy_path)
+    status = core_pass_status(policy_path)
+    status["meta"] = {
+        "q1_reference_shadow": {
+            "pass": True,
+            "grounded_rate": 0.875,
+            "wilson_lower_bound": 0.812,
+            "n_eligible": 24,
+            "threshold": 0.8,
+            "summary_artifact": {
+                "path": "artifacts/q1_reference_summary.json",
+                "sha256": "a" * 64,
+            },
+        }
+    }
+    write_json(status_path, status)
+
+    write_quality_ledger(status_path, out_path)
+
+    html = read_text(out_path)
+    assert "STAGE-PASS" in html
+    assert "Q1 reference shadow" in html
+    assert (
+        "Shadow-only visibility block. Descriptive only; not normative gate evidence."
+        in html
+    )
+    assert "meta.q1_reference_shadow.pass" in html
+    assert "true" in html
+    assert "meta.q1_reference_shadow.grounded_rate" in html
+    assert "0.875" in html
+    assert "meta.q1_reference_shadow.wilson_lower_bound" in html
+    assert "0.812" in html
+    assert "meta.q1_reference_shadow.n_eligible" in html
+    assert "24" in html
+    assert "meta.q1_reference_shadow.threshold" in html
+    assert "0.800" in html
+    assert "meta.q1_reference_shadow.summary_artifact.path" in html
+    assert "artifacts/q1_reference_summary.json" in html
+    assert "meta.q1_reference_shadow.summary_artifact.sha256" in html
+    assert "aaaaaaaaaaaa…" in html
+
+
+def test_q1_reference_shadow_section_is_absent_when_missing(tmp_path: Path) -> None:
+    status_path = tmp_path / "status.json"
+    out_path = tmp_path / "report_card.html"
+    policy_path = tmp_path / "pulse_gate_policy_v0.yml"
+
+    write_policy(policy_path)
+    write_json(status_path, core_pass_status(policy_path))
+
+    write_quality_ledger(status_path, out_path)
+
+    html = read_text(out_path)
+    assert "STAGE-PASS" in html
+    assert "Q1 reference shadow" not in html
+    assert "meta.q1_reference_shadow" not in html
+
+
 def test_run_all_still_writes_report_card_via_renderer(tmp_path: Path) -> None:
     script = REPO_ROOT / "PULSE_safe_pack_v0" / "tools" / "run_all.py"
     artifact_dir = tmp_path / "artifacts"
-
     env = dict(os.environ)
     env["PULSE_ARTIFACT_DIR"] = str(artifact_dir)
     env["PULSE_RUN_MODE"] = "demo"
