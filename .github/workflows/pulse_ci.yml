@@ -1117,7 +1117,7 @@ jobs:
           PULSE_REF: ${{ github.ref }}
           PULSE_SHA: ${{ github.sha }}
           PULSE_PR_NUMBER: ${{ github.event_name == 'pull_request' && github.event.pull_request.number || '' }}
-          PULSE_IS_FORK: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork || false }}
+          PULSE_IS_FORK: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.id != github.event.pull_request.base.repo.id || false }}
         run: |
           set -euo pipefail
 
