@@ -1105,52 +1105,47 @@ jobs:
 
           echo "OK: artifact postconditions satisfied (IS_RELEASE=$IS_RELEASE)"
      
-      - name: Write SARIF upload metadata
+      - name: Export JUnit and SARIF from final status
         if: always()
         shell: bash
+        env:
+          PACK_DIR: ${{ env.PACK_DIR }}
+          PULSE_STATUS: ${{ env.PACK_DIR }}/artifacts/status.json
+          PULSE_JUNIT: ${{ env.PACK_DIR }}/artifacts/reports/junit.xml
+          PULSE_SARIF: ${{ env.PACK_DIR }}/artifacts/reports/sarif.json
+          PULSE_EVENT_NAME: ${{ github.event_name }}
+          PULSE_REF: ${{ github.ref }}
+          PULSE_SHA: ${{ github.sha }}
+          PULSE_PR_NUMBER: ${{ github.event_name == 'pull_request' && github.event.pull_request.number || '' }}
+          PULSE_IS_FORK: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork || false }}
         run: |
           set -euo pipefail
 
-          META_DIR="${{ env.PACK_DIR }}/artifacts/meta"
-          META_FILE="${META_DIR}/sarif_upload.json"
-          mkdir -p "${META_DIR}"
+          mkdir -p "${PACK_DIR}/artifacts/reports" "${PACK_DIR}/artifacts/meta"
 
-          EVENT_NAME="${GITHUB_EVENT_NAME}"
-          REF="${GITHUB_REF}"
-          SHA="${GITHUB_SHA}"
-          PR_NUMBER=""
-          IS_FORK="false"
+          python "${PACK_DIR}/tools/status_to_junit.py"
+          python "${PACK_DIR}/tools/status_to_sarif.py"
 
-          if [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]]; then
-            PR_NUMBER="${{ github.event.pull_request.number }}"
-            HEAD_REPO="${{ github.event.pull_request.head.repo.full_name }}"
-            BASE_REPO="${{ github.repository }}"
-            if [[ -n "${HEAD_REPO}" && "${HEAD_REPO}" != "${BASE_REPO}" ]]; then
-              IS_FORK="true"
-            fi
-          fi
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
 
-          if [[ "${IS_FORK}" == "true" ]]; then
-            IS_FORK_JSON=true
-          else
-            IS_FORK_JSON=false
-          fi
+          pr_number_raw = str(os.environ.get("PULSE_PR_NUMBER", "")).strip()
+          pr_number = int(pr_number_raw) if pr_number_raw else None
 
-          jq -n \
-            --arg event_name "${EVENT_NAME}" \
-            --arg ref "${REF}" \
-            --arg sha "${SHA}" \
-            --arg pr_number "${PR_NUMBER}" \
-            --argjson is_fork "${IS_FORK_JSON}" \
-            '{
-              event_name: $event_name,
-              ref: $ref,
-              sha: $sha,
-              pr_number: (if $pr_number == "" then null else ($pr_number | tonumber) end),
-              is_fork: $is_fork
-            }' > "${META_FILE}"
+          meta = {
+              "event_name": os.environ["PULSE_EVENT_NAME"],
+              "ref": os.environ["PULSE_REF"],
+              "sha": os.environ["PULSE_SHA"],
+              "pr_number": pr_number,
+              "is_fork": str(os.environ.get("PULSE_IS_FORK", "false")).lower() == "true",
+          }
 
-          echo "Wrote SARIF upload metadata to ${META_FILE}"
+          out = Path(os.environ["PACK_DIR"]) / "artifacts" / "meta" / "sarif_upload.json"
+          out.write_text(json.dumps(meta, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+          print(f"Wrote {out}")
+          PY
       
         
       
@@ -1245,6 +1240,7 @@ jobs:
         run: |
           set -euo pipefail
           python -m pytest -q \
+            tests/test_exporters.py \
             tests/test_render_quality_ledger.py \
             tests/test_render_quality_ledger_cli.py \
             tests/test_render_quality_ledger_decision_logic.py \
