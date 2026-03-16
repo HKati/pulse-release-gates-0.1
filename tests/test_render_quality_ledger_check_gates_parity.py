@@ -159,7 +159,9 @@ def test_explicit_required_gates_override_matches_check_gates(tmp_path: Path) ->
     assert run_check_gates(status_path, required_gate_ids) == 0
 
 
-def test_unresolved_gate_selection_yields_unknown_without_check_gates(tmp_path: Path) -> None:
+def test_unresolved_gate_selection_yields_unknown_without_check_gates(
+    tmp_path: Path,
+) -> None:
     policy_path = tmp_path / "pulse_gate_policy_v0.yml"
     status_path = tmp_path / "status.json"
 
