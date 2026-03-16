@@ -1248,8 +1248,9 @@ jobs:
 
           tests=()
           declare -A seen=()
-
-          while IFS= read -r raw; do
+          raw=''
+          
+            while IFS= read -r raw || [[ -n "${raw:-}" ]]; do
             line="$(printf '%s' "$raw" | sed -e 's/[[:space:]]*#.*$//' -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
             [[ -z "$line" ]] && continue
 
