@@ -1238,12 +1238,52 @@ jobs:
       - name: Run render-quality-ledger pytest suite
         shell: bash
         run: |
-         set -euo pipefail
-         python -m pytest -q \
-         tests/test_exporters.py \
-         tests/test_render_quality_ledger.py \
-         tests/test_render_quality_ledger_cli.py \
-         tests/test_render_quality_ledger_decision_logic.py \
-         tests/test_render_quality_ledger_decision_edges.py \
-         tests/test_render_quality_ledger_diagnostic_sections.py \
-         tests/test_render_quality_ledger_check_gates_parity.py
+          set -euo pipefail
+
+          list_file="ci/render-quality-ledger-tests.list"
+          if [[ ! -f "${list_file}" ]]; then
+            echo "::error::Missing render-quality-ledger manifest: ${list_file}"
+            exit 1
+          fi
+
+          tests=()
+          declare -A seen=()
+
+          while IFS= read -r raw; do
+            line="$(printf '%s' "$raw" | sed -e 's/[[:space:]]*#.*$//' -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+            [[ -z "$line" ]] && continue
+
+            if [[ "$line" =~ [[:space:]] ]]; then
+              echo "::error::Invalid entry in ${list_file} (expected one path per line): '${raw}'"
+              exit 1
+            fi
+
+            if [[ "$line" != tests/* ]]; then
+              echo "::error::Invalid entry in ${list_file} (expected tests/* path): '${line}'"
+              exit 1
+            fi
+
+            if [[ -n "${seen[$line]+x}" ]]; then
+              echo "::error::Duplicate entry in ${list_file}: ${line}"
+              exit 1
+            fi
+            seen["$line"]=1
+
+            if [[ ! -f "$line" ]]; then
+              echo "::error::Listed pytest target not found: ${line}"
+              exit 1
+            fi
+
+            tests+=("$line")
+          done < "${list_file}"
+
+          if [[ "${#tests[@]}" -eq 0 ]]; then
+            echo "::error::No tests found in ${list_file} after filtering."
+            exit 1
+          fi
+
+          echo "render-quality-ledger manifest (${#tests[@]} entries):"
+          printf ' - %s\n' "${tests[@]}"
+
+          python -m pytest -q "${tests[@]}"
+
