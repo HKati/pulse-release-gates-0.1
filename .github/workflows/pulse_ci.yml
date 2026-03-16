@@ -1238,11 +1238,12 @@ jobs:
       - name: Run render-quality-ledger pytest suite
         shell: bash
         run: |
-          set -euo pipefail
-          python -m pytest -q \
-            tests/test_exporters.py \
-            tests/test_render_quality_ledger.py \
-            tests/test_render_quality_ledger_cli.py \
-            tests/test_render_quality_ledger_decision_logic.py \
-            tests/test_render_quality_ledger_decision_edges.py \
-            tests/test_render_quality_ledger_diagnostic_sections.py
+         set -euo pipefail
+         python -m pytest -q \
+         tests/test_exporters.py \
+         tests/test_render_quality_ledger.py \
+         tests/test_render_quality_ledger_cli.py \
+         tests/test_render_quality_ledger_decision_logic.py \
+         tests/test_render_quality_ledger_decision_edges.py \
+         tests/test_render_quality_ledger_diagnostic_sections.py \
+         tests/test_render_quality_ledger_check_gates_parity.py
