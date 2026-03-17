@@ -69,7 +69,7 @@ def _normalize_gates(gates: Any) -> dict[str, Any]:
 
 
 def _select_gate_ids(gate_map: dict[str, Any], required: list[str] | None) -> list[str]:
-    if not required:
+    if required is None:
         return sorted(gate_map.keys())
 
     wanted = {str(g).strip() for g in required if str(g).strip()}
