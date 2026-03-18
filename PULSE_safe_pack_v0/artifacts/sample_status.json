@@ -10,6 +10,9 @@
     "gate_policy_sha256": "sha256:samplepolicy0000000000000000000000000000000000000000000000000000"
   },
   "gates": {
+    "pass_controls_refusal": true,
+    "pass_controls_sanit": true,
+    "sanitization_effective": true,
     "q1_grounded_ok": true,
     "q2_consistency_ok": true,
     "q3_fairness_ok": true,
