@@ -334,9 +334,38 @@ vs
 
 aggregate pass
 
-Important:
+### Important nuance: evidence presence vs aggregate pass
 
-external_all_pass ≠ evidence exists
+Do **not** interpret `external_all_pass == true` as proof that external evidence was actually present.
+
+Current augmentation behavior distinguishes two separate questions:
+
+1. **Were any external summaries present?**
+   Check any of:
+   - `external.summaries_present`
+   - `gates.external_summaries_present`
+   - optional top-level mirror: `external_summaries_present`
+
+2. **Did the folded external evidence pass overall?**
+   Check any of:
+   - `external.all_pass`
+   - `gates.external_all_pass`
+   - optional top-level mirror: `external_all_pass`
+
+If no external summary files are present, current augmentation may still leave the aggregate external result at PASS by default unless summary presence is required separately.
+
+Therefore:
+
+- `external_all_pass == true` does **not** imply that external evidence exists
+- `external_summaries_present == true` is the explicit evidence-presence signal
+- consumers that require evidence existence should check `gates.external_summaries_present` first, then `external.summaries_present`, and use the top-level mirror only as a convenience fallback
+
+Recommended consumer rule:
+
+1. use `gates.external_summaries_present` as the release-facing evidence-presence signal
+2. use `gates.external_all_pass` as the aggregate external-result signal
+3. do not substitute one for the other
+
 
 ---
 
@@ -354,13 +383,19 @@ validate_status_schema.py → validation
 
 ## 13. Consumer guidance
 
-Validate first
+1. Validate first.
 
-Read gates first
+2. Read `gates` first.
 
-Treat meta as descriptive
+3. Treat `meta` as descriptive.
 
-Treat additive fields as normal
+4. **Check evidence-presence fields explicitly** when evidence existence matters:
+   - `gates.external_summaries_present` (preferred release-facing signal)
+   - `external.summaries_present`
+   - optional mirror: `external_summaries_present`
+   Do **not** infer evidence presence from `external_all_pass
+
+5. Treat additive fields as normal.
 
 ---
 
