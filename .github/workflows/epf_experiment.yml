@@ -87,15 +87,11 @@ jobs:
               echo "Using PULSE_safe_pack_v0/artifacts/status.json as shared input"
             else
               echo "::warning::status.json not found after run_all.py; using v1-shaped stub status.json"
-              cat > status.json <<'JSON'
-{"version":"1.0.0-shadow-stub","created_utc":"1970-01-01T00:00:00Z","metrics":{"run_mode":"core"},"gates":{}}
-JSON
+              printf '%s\n' '{"version":"1.0.0-shadow-stub","created_utc":"1970-01-01T00:00:00Z","metrics":{"run_mode":"core"},"gates":{}}' > status.json
             fi
           else
             echo "::warning::PULSE_safe_pack_v0/tools/run_all.py not found; using v1-shaped stub status.json"
-            cat > status.json <<'JSON'
-{"version":"1.0.0-shadow-stub","created_utc":"1970-01-01T00:00:00Z","metrics":{"run_mode":"core"},"gates":{}}
-JSON
+            printf '%s\n' '{"version":"1.0.0-shadow-stub","created_utc":"1970-01-01T00:00:00Z","metrics":{"run_mode":"core"},"gates":{}}' > status.json
           fi
 
           echo "runall_rc=$runall_rc" >> "$GITHUB_OUTPUT"
@@ -109,9 +105,7 @@ JSON
           if [ -f status.json ]; then
             cp status.json status_baseline.json
           else
-            cat > status_baseline.json <<'JSON'
-{"version":"1.0.0-shadow-stub","created_utc":"1970-01-01T00:00:00Z","metrics":{"run_mode":"core"},"gates":{}}
-JSON
+            printf '%s\n' '{"version":"1.0.0-shadow-stub","created_utc":"1970-01-01T00:00:00Z","metrics":{"run_mode":"core"},"gates":{}}' > status_baseline.json
           fi
 
           if [ ! -f pulse_gates.yaml ]; then
@@ -150,9 +144,7 @@ JSON
           if [ -f status.json ]; then
             cp status.json status_epf.json
           else
-            cat > status_epf.json <<'JSON'
-{"version":"1.0.0-shadow-stub","created_utc":"1970-01-01T00:00:00Z","metrics":{"run_mode":"core"},"gates":{}}
-JSON
+            printf '%s\n' '{"version":"1.0.0-shadow-stub","created_utc":"1970-01-01T00:00:00Z","metrics":{"run_mode":"core"},"gates":{}}' > status_epf.json
           fi
 
           if [ ! -f pulse_gates.yaml ]; then
