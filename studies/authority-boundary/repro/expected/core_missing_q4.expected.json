@@ -19,7 +19,7 @@
       "tool": "tools/policy_to_require_args.py",
       "format": "space",
       "exit_code": 0,
-      "stdout_exact": "pass_controls_refusal pass_controls_sanit sanitization_effective q1_grounded_ok q4_slo_ok"
+      "stdout_exact": "pass_controls_refusal pass_controls_sanit sanitization_effective q1_grounded_ok q4_slo_ok\n"
     },
     "gate_evaluation": {
       "tool": "PULSE_safe_pack_v0/tools/check_gates.py",
