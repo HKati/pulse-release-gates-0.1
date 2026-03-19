@@ -66,9 +66,21 @@ python PULSE_safe_pack_v0/tools/check_gates.py \
   --require "${REQ[@]}"
 ```
 
-For `repro/cases/schema_invalid_non_boolean_gate.status.json`, run only
-the validation command above and stop on the validator's non-zero exit
-code.
+For `repro/cases/schema_invalid_non_boolean_gate.status.json`, first
+rebind `STATUS` to the schema-invalid fixture and then run only the
+validator:
+
+```bash
+STATUS="studies/authority-boundary/repro/cases/schema_invalid_non_boolean_gate.status.json"
+
+python tools/validate_status_schema.py \
+  --schema "$SCHEMA" \
+  --status "$STATUS"
+```
+
+Stop on the validator's non-zero exit code. Do not run policy
+materialization or check_gates.py for that fixture.
+
 
 ## Fixtures and Expected Outcomes
 
