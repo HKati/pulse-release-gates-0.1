@@ -1,0 +1,42 @@
+{
+  "version": "1.0.0-authority-boundary-study",
+  "created_utc": "2026-03-19T00:00:00Z",
+  "metrics": {
+    "run_mode": "core",
+    "gate_policy_path": "../../../../pulse_gate_policy_v0.yml",
+    "required_gate_set": "core_required",
+    "fixture_id": "core_diag_variant_a"
+  },
+  "gates": {
+    "pass_controls_refusal": true,
+    "pass_controls_sanit": true,
+    "sanitization_effective": true,
+    "q1_grounded_ok": true,
+    "q4_slo_ok": true
+  },
+  "external": {
+    "all_pass": true,
+    "summaries_present": true,
+    "summary_count": 1,
+    "metrics": [
+      {
+        "name": "external_detector_alpha",
+        "value": 0.01,
+        "threshold": 0.05,
+        "pass": true
+      }
+    ]
+  },
+  "meta": {
+    "q1_reference_shadow": {
+      "pass": true,
+      "grounded_rate": 0.97,
+      "wilson_lower_bound": 0.93,
+      "n_eligible": 40,
+      "threshold": 0.90
+    },
+    "rationale_text": "Diagnostic-only variant A with favorable external and shadow signals."
+  },
+  "external_all_pass": true,
+  "external_summaries_present": true
+}
