@@ -20,19 +20,30 @@ It must not silently change release meaning.
 
 ## Normative Boundary
 
-Core release semantics remain defined by the existing PULSE release path:
+Core release semantics remain defined by the existing PULSE release path
+and its authority-bearing artifacts:
 
-- `PULSE_safe_pack_v0/tools/check_gates.py`
-- `PULSE_safe_pack_v0/artifacts/status.json`
-- `.github/workflows/pulse_ci.yml`
-- the active required gate policy used by CI
+- `schemas/status/status_v1.schema.json` — normative `status.json`
+  compatibility boundary
+- `pulse_gate_policy_v0.yml` — canonical policy source for required /
+  advisory gate sets and their enforcement semantics
+- `PULSE_safe_pack_v0/tools/check_gates.py` — fail-closed gate evaluator
+- `PULSE_safe_pack_v0/artifacts/status.json` — evaluated status artifact
+- `.github/workflows/pulse_ci.yml` — CI entrypoint that validates
+  `status.json` against the active schema, selects the active policy set,
+  derives the enforced required gate list from `pulse_gate_policy_v0.yml`,
+  and passes that list to `check_gates.py`
 
-For the canonical contract, read:
+For explanatory contract docs, read:
 
 - `docs/STATUS_CONTRACT.md`
 - `docs/status_json.md`
 
-This study may analyze, restate, or test those mechanics, but it does not override them.
+This study may analyze, restate, or test those mechanics, but it does
+not override them.
+
+It must not validate against stale schema assumptions or stale
+required-gate assumptions after schema or policy changes.
 
 ## Research Question
 
