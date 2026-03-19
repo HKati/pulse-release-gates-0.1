@@ -3,8 +3,8 @@
   "created_utc": "2026-03-19T00:00:00Z",
   "metrics": {
     "run_mode": "core",
-    "gate_policy_path": "pulse_gate_policy_v0.yml",
-    "gate_policy_slice": "core_required",
+    "gate_policy_path": "../../../../pulse_gate_policy_v0.yml",
+    "required_gate_set": "core_required",
     "fixture_id": "core_pass"
   },
   "gates": {
