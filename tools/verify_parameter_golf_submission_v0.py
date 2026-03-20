@@ -198,6 +198,21 @@ def emit_load_error(*, as_json: bool, error_kind: str, message: str) -> None:
     else:
         print(f"ERROR: {message}", file=sys.stderr)
 
+def emit_load_error(*, as_json: bool, error_kind: str, message: str) -> None:
+    if as_json:
+        print(
+            json.dumps(
+                {
+                    "valid_schema": False,
+                    "error_kind": error_kind,
+                    "error": message,
+                },
+                indent=2,
+            )
+        )
+    else:
+        print(f"ERROR: {message}", file=sys.stderr)
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Validate a Parameter Golf evidence artifact."
@@ -226,7 +241,7 @@ def main() -> int:
     evidence_path = Path(args.evidence)
     schema_path = Path(args.schema)
 
-        try:
+            try:
         evidence = load_json(evidence_path)
     except FileNotFoundError:
         emit_load_error(
