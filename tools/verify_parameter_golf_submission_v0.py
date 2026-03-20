@@ -9,8 +9,6 @@ import sys
 from pathlib import Path
 from typing import Any
 
-import jsonschema
-
 
 DEFAULT_SCHEMA = (
     Path(__file__).resolve().parents[1]
@@ -19,13 +17,34 @@ DEFAULT_SCHEMA = (
 )
 
 
+class MissingDependencyError(RuntimeError):
+    """Raised when an optional runtime dependency is unavailable."""
+
+
+def _load_jsonschema() -> Any:
+    try:
+        import jsonschema  # type: ignore
+    except ModuleNotFoundError as exc:
+        raise MissingDependencyError(
+            "Missing dependency: 'jsonschema'. Install it with: pip install jsonschema"
+        ) from exc
+    return jsonschema
+
+
 def load_json(path: Path) -> Any:
     with path.open("r", encoding="utf-8") as f:
         return json.load(f)
 
 
-def validate_schema(evidence: dict[str, Any], schema: dict[str, Any]) -> None:
-    jsonschema.validate(instance=evidence, schema=schema)
+def validate_schema(
+    evidence: dict[str, Any],
+    schema: dict[str, Any],
+    jsonschema_mod: Any,
+) -> None:
+    validator_cls = jsonschema_mod.validators.validator_for(schema)
+    validator_cls.check_schema(schema)
+    validator = validator_cls(schema)
+    validator.validate(evidence)
 
 
 def semantic_checks(evidence: dict[str, Any]) -> list[str]:
@@ -123,6 +142,32 @@ def build_summary(evidence: dict[str, Any], warnings: list[str]) -> dict[str, An
     }
 
 
+def emit_invalid_result(
+    *,
+    as_json: bool,
+    error_kind: str,
+    message: str,
+    path_key: str | None = None,
+    path_value: list[Any] | None = None,
+) -> None:
+    if as_json:
+        payload: dict[str, Any] = {
+            "valid_schema": False,
+            "error_kind": error_kind,
+            "error": message,
+        }
+        if path_key and path_value:
+            payload[path_key] = path_value
+        print(json.dumps(payload, indent=2))
+        return
+
+    print("INVALID")
+    print(message)
+    if path_key and path_value:
+        label = "schema path" if path_key == "schema_path" else "path"
+        print(f"At {label}: {'/'.join(map(str, path_value))}")
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Validate a Parameter Golf evidence artifact."
@@ -170,24 +215,42 @@ def main() -> int:
         return 1
 
     try:
-        validate_schema(evidence, schema)
-    except jsonschema.ValidationError as exc:
+        jsonschema_mod = _load_jsonschema()
+    except MissingDependencyError as exc:
         if args.json:
             print(
                 json.dumps(
                     {
                         "valid_schema": False,
-                        "error": exc.message,
-                        "path": list(exc.absolute_path),
+                        "error_kind": "missing_dependency",
+                        "error": str(exc),
                     },
                     indent=2,
                 )
             )
         else:
-            print("INVALID")
-            print(f"Schema validation failed: {exc.message}")
-            if exc.absolute_path:
-                print(f"At path: {'/'.join(map(str, exc.absolute_path))}")
+            print(f"ERROR: {exc}", file=sys.stderr)
+        return 2
+
+    try:
+        validate_schema(evidence, schema, jsonschema_mod)
+    except jsonschema_mod.ValidationError as exc:
+        emit_invalid_result(
+            as_json=args.json,
+            error_kind="validation_error",
+            message=f"Schema validation failed: {exc.message}",
+            path_key="path",
+            path_value=list(exc.absolute_path),
+        )
+        return 1
+    except jsonschema_mod.SchemaError as exc:
+        emit_invalid_result(
+            as_json=args.json,
+            error_kind="schema_error",
+            message=f"Provided schema is invalid: {exc.message}",
+            path_key="schema_path",
+            path_value=list(exc.absolute_schema_path),
+        )
         return 1
 
     warnings = semantic_checks(evidence)
