@@ -55,25 +55,41 @@ def semantic_checks(evidence: dict[str, Any]) -> list[str]:
     model_bytes = artifact.get("model_bytes_int8_zlib")
     total_bytes = artifact.get("total_bytes_int8_zlib")
     limit_bytes = artifact.get("artifact_limit_bytes", 16_000_000)
+    tokenizer_counted = artifact.get("tokenizer_counted")
+    tokenizer_bytes = artifact.get("tokenizer_bytes_if_counted")
 
-    if (
-        isinstance(code_bytes, int)
-        and isinstance(model_bytes, int)
-        and isinstance(total_bytes, int)
-        and total_bytes != code_bytes + model_bytes
-    ):
-        warnings.append(
-            "artifact.total_bytes_int8_zlib does not equal "
-            "artifact.code_bytes + artifact.model_bytes_int8_zlib"
-        )
+    expected_total: int | None = None
+    if isinstance(code_bytes, int) and isinstance(model_bytes, int):
+        expected_total = code_bytes + model_bytes
+
+        if tokenizer_counted is True:
+            if isinstance(tokenizer_bytes, int):
+                expected_total += tokenizer_bytes
+            else:
+                warnings.append(
+                    "tokenizer_counted is true but tokenizer_bytes_if_counted is missing/non-integer"
+                )
+                expected_total = None
+
+    if expected_total is not None and isinstance(total_bytes, int):
+        if total_bytes != expected_total:
+            if tokenizer_counted is True:
+                warnings.append(
+                    "artifact.total_bytes_int8_zlib does not equal "
+                    "artifact.code_bytes + artifact.model_bytes_int8_zlib + "
+                    "artifact.tokenizer_bytes_if_counted"
+                )
+            else:
+                warnings.append(
+                    "artifact.total_bytes_int8_zlib does not equal "
+                    "artifact.code_bytes + artifact.model_bytes_int8_zlib"
+                )
 
     if isinstance(total_bytes, int) and isinstance(limit_bytes, int) and total_bytes > limit_bytes:
         warnings.append(
             f"artifact total ({total_bytes}) exceeds declared limit ({limit_bytes})"
         )
 
-    tokenizer_counted = artifact.get("tokenizer_counted")
-    tokenizer_bytes = artifact.get("tokenizer_bytes_if_counted")
     if tokenizer_counted is False and tokenizer_bytes in (None, 0):
         warnings.append(
             "tokenizer_counted is false but tokenizer_bytes_if_counted is missing/zero; "
@@ -167,6 +183,20 @@ def emit_invalid_result(
         label = "schema path" if path_key == "schema_path" else "path"
         print(f"At {label}: {'/'.join(map(str, path_value))}")
 
+def emit_load_error(*, as_json: bool, error_kind: str, message: str) -> None:
+    if as_json:
+        print(
+            json.dumps(
+                {
+                    "valid_schema": False,
+                    "error_kind": error_kind,
+                    "error": message,
+                },
+                indent=2,
+            )
+        )
+    else:
+        print(f"ERROR: {message}", file=sys.stderr)
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
@@ -196,22 +226,38 @@ def main() -> int:
     evidence_path = Path(args.evidence)
     schema_path = Path(args.schema)
 
-    try:
+        try:
         evidence = load_json(evidence_path)
     except FileNotFoundError:
-        print(f"ERROR: evidence file not found: {evidence_path}", file=sys.stderr)
+        emit_load_error(
+            as_json=args.json,
+            error_kind="evidence_file_not_found",
+            message=f"evidence file not found: {evidence_path}",
+        )
         return 1
     except json.JSONDecodeError as exc:
-        print(f"ERROR: invalid JSON in evidence file: {exc}", file=sys.stderr)
+        emit_load_error(
+            as_json=args.json,
+            error_kind="evidence_json_decode_error",
+            message=f"invalid JSON in evidence file: {exc}",
+        )
         return 1
 
     try:
         schema = load_json(schema_path)
     except FileNotFoundError:
-        print(f"ERROR: schema file not found: {schema_path}", file=sys.stderr)
+        emit_load_error(
+            as_json=args.json,
+            error_kind="schema_file_not_found",
+            message=f"schema file not found: {schema_path}",
+        )
         return 1
     except json.JSONDecodeError as exc:
-        print(f"ERROR: invalid JSON in schema file: {exc}", file=sys.stderr)
+        emit_load_error(
+            as_json=args.json,
+            error_kind="schema_json_decode_error",
+            message=f"invalid JSON in schema file: {exc}",
+        )
         return 1
 
     try:
