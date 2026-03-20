@@ -63,6 +63,7 @@ def test_verifier_rejects_schema_violation(tmp_path: Path) -> None:
     )
     assert proc.returncode == 1
     assert "INVALID" in proc.stdout
+ feat/parameter-golf-v0-sidecar
 
 def test_verifier_strict_accepts_counted_tokenizer_bytes(tmp_path: Path) -> None:
     evidence = json.loads(EXAMPLE_PATH.read_text(encoding="utf-8"))
@@ -197,3 +198,5 @@ def test_verifier_json_mode_reports_invalid_schema_json(tmp_path: Path) -> None:
     payload = json.loads(proc.stdout)
     assert payload["valid_schema"] is False
     assert payload["error_kind"] == "schema_json_decode_error"
+
+ main
