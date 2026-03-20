@@ -19,6 +19,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Core policy profile `PULSE_safe_pack_v0/profiles/pulse_policy_core.yaml`:
   - documents the minimal recommended deterministic gate set for first-time PULSE adopters
   - encodes a CI-neutral refusal-delta stability policy without changing the existing fail-closed behaviour
+- Core policy profile `PULSE_safe_pack_v0/profiles/pulse_policy_core.yaml`:
+  - documents the minimal recommended deterministic gate set for first-time PULSE adopters
+  - encodes a CI-neutral refusal-delta stability policy without changing the existing fail-closed behaviour
+- Add a shadow-only `parameter_golf_v0` sidecar for OpenAI Parameter Golf submission evidence: schema, verifier, example artifact, docs, tests, and an upstream issue-comment draft.
 
 ### Changed
 - README: add DOI badge above the PULSE badges; keep badges.
@@ -30,6 +34,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Makefile: added explicit `reproduce-soft` for permissive local/demo execution.
 - Makefile: checksum generation now uses the repo-root `compute_checksums.py`.
 - Makefile: checksum manifest is emitted atomically to avoid self-hash inconsistency when hashing the current directory.
+- Harden `tools/verify_parameter_golf_submission_v0.py` to fail cleanly when `jsonschema` is missing or the supplied schema is malformed, wire `tests/test_parameter_golf_submission_evidence_v0.py` into `ci/tools-tests.list`, account for counted tokenizer bytes in total-size checks, and honor `--json` for early evidence/schema load errors so machine-readable verifier output stays structured in failure cases.
+- Account for counted tokenizer bytes in `tools/verify_parameter_golf_submission_v0.py` total-size checks and honor `--json` for early evidence/schema load errors so machine-readable verifier output stays structured in failure cases.
 
 ### Docs
 - `CITATION.cff`: add ORCID for Katalin Horvat; add software reference to ChatGPT (GPT‑5 Pro).
