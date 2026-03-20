@@ -1,0 +1,48 @@
+{
+  "schema_version": "0.1",
+  "submission_type": "non_record",
+  "artifact": {
+    "code_bytes": 18234,
+    "model_bytes_raw": 28642177,
+    "model_bytes_int8_zlib": 14970543,
+    "total_bytes_int8_zlib": 14988777,
+    "artifact_limit_bytes": 16000000,
+    "tokenizer_counted": false,
+    "tokenizer_bytes_if_counted": 215432
+  },
+  "train": {
+    "train_wallclock_s": 598.4,
+    "max_wallclock_s": 600.0,
+    "world_size": 8,
+    "gpu_type": "H100 SXM",
+    "seed": 1337
+  },
+  "evaluation": {
+    "mode": "sliding_window",
+    "seq_len": 4096,
+    "stride": 64,
+    "val_loss": 3.1415,
+    "val_bpb": 1.1925,
+    "eval_wallclock_s": 71.3,
+    "roundtrip_val_loss": 3.2052,
+    "roundtrip_val_bpb": 1.2194
+  },
+  "stats": {
+    "run_logs": [
+      "logs/run_seed1337.log",
+      "logs/run_seed1338.log",
+      "logs/run_seed1339.log"
+    ],
+    "n_runs": 3,
+    "p_value": 0.008,
+    "comparison_target": "current_sota",
+    "claim_exemption_reason": null
+  },
+  "provenance": {
+    "source_repo": "openai/parameter-golf",
+    "source_commit": "example-commit",
+    "record_path": "records/track_10min_16mb/example_submission",
+    "generated_by": "verify_parameter_golf_submission_v0.py",
+    "notes": "Example artifact for schema and verifier smoke tests."
+  }
+}
