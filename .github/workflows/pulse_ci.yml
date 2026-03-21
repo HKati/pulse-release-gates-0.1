@@ -1252,7 +1252,7 @@ jobs:
 
           echo "Exporter + governance smoke tests OK"
 
-      - name: Run render-quality-ledger pytest suite
+      - name: Run targeted pytest suite
         shell: bash
         run: |
           set -euo pipefail
@@ -1300,7 +1300,7 @@ jobs:
             exit 1
           fi
 
-          echo "render-quality-ledger manifest (${#tests[@]} entries):"
+          echo "pytest manifest (${#tests[@]} entries):"
           printf ' - %s\n' "${tests[@]}"
 
           python -m pytest -q "${tests[@]}"
