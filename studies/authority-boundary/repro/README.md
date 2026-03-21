@@ -29,7 +29,7 @@ For schema-valid fixtures, use this order:
 
 1. Validate the fixture against the status v1 schema.
 2. Derive the required gate list from the pinned policy slice.
-3. Evaluate gates with check_gates.py.
+3. Evaluate gates with `check_gates.py`.
 4. Record exit code and stdout/stderr.
 
 For the schema-invalid fixture, stop at step 1 and preserve the
@@ -66,18 +66,33 @@ python PULSE_safe_pack_v0/tools/check_gates.py \
   --require "${REQ[@]}"
 ```
 
-For `repro/cases/schema_invalid_non_boolean_gate.status.json`, run only
-the validation command above and stop on the validator's non-zero exit
-code.
+For `repro/cases/schema_invalid_non_boolean_gate.status.json`, first
+rebind `STATUS` to the schema-invalid fixture and then run only the
+validator:
+
+```bash
+STATUS="studies/authority-boundary/repro/cases/schema_invalid_non_boolean_gate.status.json"
+
+python tools/validate_status_schema.py \
+  --schema "$SCHEMA" \
+  --status "$STATUS"
+SCHEMA_RC=$?
+if [ "$SCHEMA_RC" -ne 0 ]; then
+  exit "$SCHEMA_RC"
+fi
+```
+
+Stop on the validator's non-zero exit code. Do not run policy
+materialization or `check_gates.py` for that fixture.
 
 ## Fixtures and Expected Outcomes
 
-| Fixture | Schema valid | Gate evaluation | Expected exit | Canonical meaning |
-|---|---|---|---|---|
+| Fixture | Schema valid | Gate evaluation | Expected canonical exit | Canonical meaning |
+|---|---|---|---:|---|
 | `repro/cases/core_pass.status.json` | yes | yes | 0 | all required gates PASS |
 | `repro/cases/core_missing_q4.status.json` | yes | yes | 2 | missing required gate |
 | `repro/cases/core_false_q4.status.json` | yes | yes | 1 | present-but-false required gate |
-| `repro/cases/schema_invalid_non_boolean_gate.status.json` | no | no | n/a | schema boundary failure |
+| `repro/cases/schema_invalid_non_boolean_gate.status.json` | no | no | 1 | schema boundary failure |
 | `repro/cases/core_diag_variant_a.status.json` | yes | yes | 0 | PASS with favorable diagnostics |
 | `repro/cases/core_diag_variant_b.status.json` | yes | yes | 0 | PASS with adverse diagnostics |
 
@@ -112,20 +127,19 @@ Use these as the primary observables for this study:
 
 - schema validation success/failure
 - derived required gate list for `core_required`
-- `check_gates.py` exit code
-- `check_gates.py` stdout/stderr
+- `check_gates.py` exit code for schema-valid fixtures
+- validator exit code for the schema-invalid fixture
+- stdout/stderr from the canonical stopping point
 
 Human-readable renderers may be useful for inspection, but they are not
 the canonical oracle for study conclusions.
 
 ## Notes
 
-If the schema, policy file, or evaluator behavior changes, this file
-must be reviewed for drift.
-
-If a future study pins a different policy slice, state that change
-explicitly here and in `claims_to_checks.md`.
-
-`schema_invalid_non_boolean_gate.status.json` intentionally omits
-policy-resolution metadata so it cannot be mistaken for a canonical
-gate-evaluation case when schema validation is skipped.
+- If the schema, policy file, or evaluator behavior changes, this file
+  must be reviewed for drift.
+- If a future study pins a different policy slice, state that change
+  explicitly here and in `claims_to_checks.md`.
+- `schema_invalid_non_boolean_gate.status.json` intentionally omits
+  policy-resolution metadata so it cannot be mistaken for a canonical
+  gate-evaluation case when schema validation is skipped.
