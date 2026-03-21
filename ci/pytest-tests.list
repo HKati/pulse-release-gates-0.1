@@ -1,0 +1,13 @@
+# Targeted pytest manifest executed by the main PULSE CI job.
+#
+# One path per line. Blank lines and comments are ignored.
+# This manifest may include non-normative shadow/sidecar regressions.
+
+tests/test_exporters.py
+tests/test_render_quality_ledger.py
+tests/test_render_quality_ledger_cli.py
+tests/test_render_quality_ledger_decision_logic.py
+tests/test_render_quality_ledger_decision_edges.py
+tests/test_render_quality_ledger_diagnostic_sections.py
+tests/test_render_quality_ledger_check_gates_parity.py
+tests/test_parameter_golf_submission_evidence_v0.py
