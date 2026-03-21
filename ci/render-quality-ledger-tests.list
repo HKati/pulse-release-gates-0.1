@@ -10,3 +10,4 @@ tests/test_render_quality_ledger_decision_logic.py
 tests/test_render_quality_ledger_decision_edges.py
 tests/test_render_quality_ledger_diagnostic_sections.py
 tests/test_render_quality_ledger_check_gates_parity.py
+tests/test_parameter_golf_submission_evidence_v0.py
