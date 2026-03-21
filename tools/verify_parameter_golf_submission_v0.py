@@ -38,10 +38,21 @@ def load_json(path: Path) -> Any:
 
 def validate_schema(
     evidence: dict[str, Any],
-    schema: dict[str, Any],
+    schema: dict[str, Any] | bool,
     jsonschema_mod: Any,
 ) -> None:
-    validator_cls = jsonschema_mod.validators.validator_for(schema)
+    if not isinstance(schema, (dict, bool)):
+        raise jsonschema_mod.SchemaError(
+            "Provided schema must be a JSON object or boolean schema"
+        )
+
+    try:
+        validator_cls = jsonschema_mod.validators.validator_for(schema)
+    except TypeError as exc:
+        raise jsonschema_mod.SchemaError(
+            f"Provided schema is invalid: {exc}"
+        ) from exc
+
     validator_cls.check_schema(schema)
     validator = validator_cls(schema)
     validator.validate(evidence)
