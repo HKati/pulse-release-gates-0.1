@@ -13,13 +13,13 @@
       "exit_code": 1,
       "stdout_contains": [
         "::error::status.json schema validation failed:",
- HKati-patch-685318
+ 
         "gates.q4_slo_ok:",
-        "boolean"
-
+      
+        "boolean",
         "::error::gates.q4_slo_ok:",
         "is not of type 'boolean'"
- main
+ 
       ]
     },
     "policy_materialization": {
