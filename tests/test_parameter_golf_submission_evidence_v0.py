@@ -63,55 +63,22 @@ def test_verifier_rejects_schema_violation(tmp_path: Path) -> None:
     )
     assert proc.returncode == 1
     assert "INVALID" in proc.stdout
- feat/parameter-golf-v0-sidecar
 
-def test_verifier_strict_accepts_counted_tokenizer_bytes(tmp_path: Path) -> None:
-    evidence = json.loads(EXAMPLE_PATH.read_text(encoding="utf-8"))
-    evidence["artifact"]["tokenizer_counted"] = True
-    evidence["artifact"]["tokenizer_bytes_if_counted"] = 321
-    evidence["artifact"]["total_bytes_int8_zlib"] = (
-        evidence["artifact"]["code_bytes"]
-        + evidence["artifact"]["model_bytes_int8_zlib"]
-        + evidence["artifact"]["tokenizer_bytes_if_counted"]
-    )
 
-    evidence_path = tmp_path / "counted-tokenizer.json"
-    evidence_path.write_text(json.dumps(evidence), encoding="utf-8")
-
+def test_verifier_reports_missing_jsonschema_cleanly() -> None:
     proc = subprocess.run(
-        [sys.executable, str(TOOL_PATH), "--evidence", str(evidence_path), "--strict"],
+        [sys.executable, "-S", str(TOOL_PATH), "--evidence", str(EXAMPLE_PATH)],
         capture_output=True,
         text=True,
         check=False,
     )
-    assert proc.returncode == 0, proc.stderr + proc.stdout
-    assert "Warnings:" not in proc.stdout
+    assert proc.returncode == 2
+    assert "Missing dependency: 'jsonschema'" in (proc.stderr + proc.stdout)
 
 
-def test_verifier_json_mode_reports_missing_evidence_file(tmp_path: Path) -> None:
-    missing_path = tmp_path / "missing-evidence.json"
-
-    proc = subprocess.run(
-        [
-            sys.executable,
-            str(TOOL_PATH),
-            "--evidence",
-            str(missing_path),
-            "--json",
-        ],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    assert proc.returncode == 1
-    payload = json.loads(proc.stdout)
-    assert payload["valid_schema"] is False
-    assert payload["error_kind"] == "evidence_file_not_found"
-
-
-def test_verifier_json_mode_reports_invalid_schema_json(tmp_path: Path) -> None:
+def test_verifier_rejects_invalid_custom_schema_json(tmp_path: Path) -> None:
     bad_schema_path = tmp_path / "bad-schema.json"
-    bad_schema_path.write_text("{not valid json", encoding="utf-8")
+    bad_schema_path.write_text(json.dumps({"type": 123}), encoding="utf-8")
 
     proc = subprocess.run(
         [
@@ -130,75 +97,7 @@ def test_verifier_json_mode_reports_invalid_schema_json(tmp_path: Path) -> None:
     assert proc.returncode == 1
     payload = json.loads(proc.stdout)
     assert payload["valid_schema"] is False
-    assert payload["error_kind"] == "schema_json_decode_error"
-
-def test_verifier_strict_accepts_counted_tokenizer_bytes(tmp_path: Path) -> None:
-    evidence = json.loads(EXAMPLE_PATH.read_text(encoding="utf-8"))
-    evidence["artifact"]["tokenizer_counted"] = True
-    evidence["artifact"]["tokenizer_bytes_if_counted"] = 321
-    evidence["artifact"]["total_bytes_int8_zlib"] = (
-        evidence["artifact"]["code_bytes"]
-        + evidence["artifact"]["model_bytes_int8_zlib"]
-        + evidence["artifact"]["tokenizer_bytes_if_counted"]
-    )
-
-    evidence_path = tmp_path / "counted-tokenizer.json"
-    evidence_path.write_text(json.dumps(evidence), encoding="utf-8")
-
-    proc = subprocess.run(
-        [sys.executable, str(TOOL_PATH), "--evidence", str(evidence_path), "--strict"],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    assert proc.returncode == 0, proc.stderr + proc.stdout
-    assert "Warnings:" not in proc.stdout
-
-
-def test_verifier_json_mode_reports_missing_evidence_file(tmp_path: Path) -> None:
-    missing_path = tmp_path / "missing-evidence.json"
-
-    proc = subprocess.run(
-        [
-            sys.executable,
-            str(TOOL_PATH),
-            "--evidence",
-            str(missing_path),
-            "--json",
-        ],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    assert proc.returncode == 1
-    payload = json.loads(proc.stdout)
-    assert payload["valid_schema"] is False
-    assert payload["error_kind"] == "evidence_file_not_found"
-
-
-def test_verifier_json_mode_reports_invalid_schema_json(tmp_path: Path) -> None:
-    bad_schema_path = tmp_path / "bad-schema.json"
-    bad_schema_path.write_text("{not valid json", encoding="utf-8")
-
-    proc = subprocess.run(
-        [
-            sys.executable,
-            str(TOOL_PATH),
-            "--evidence",
-            str(EXAMPLE_PATH),
-            "--schema",
-            str(bad_schema_path),
-            "--json",
-        ],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    assert proc.returncode == 1
-    payload = json.loads(proc.stdout)
-    assert payload["valid_schema"] is False
-    assert payload["error_kind"] == "schema_json_decode_error"
-
+    assert payload["error_kind"] == "schema_error"
 
 
 def test_verifier_rejects_scalar_custom_schema_json(tmp_path: Path) -> None:
@@ -223,3 +122,134 @@ def test_verifier_rejects_scalar_custom_schema_json(tmp_path: Path) -> None:
     payload = json.loads(proc.stdout)
     assert payload["valid_schema"] is False
     assert payload["error_kind"] == "schema_error"
+
+
+def test_verifier_strict_accepts_counted_tokenizer_bytes(tmp_path: Path) -> None:
+    evidence = json.loads(EXAMPLE_PATH.read_text(encoding="utf-8"))
+    evidence["artifact"]["tokenizer_counted"] = True
+    evidence["artifact"]["tokenizer_bytes_if_counted"] = 321
+    evidence["artifact"]["total_bytes_int8_zlib"] = (
+        evidence["artifact"]["code_bytes"]
+        + evidence["artifact"]["model_bytes_int8_zlib"]
+        + evidence["artifact"]["tokenizer_bytes_if_counted"]
+    )
+
+    evidence_path = tmp_path / "counted-tokenizer.json"
+    evidence_path.write_text(json.dumps(evidence), encoding="utf-8")
+
+    proc = subprocess.run(
+        [sys.executable, str(TOOL_PATH), "--evidence", str(evidence_path), "--strict"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert proc.returncode == 0, proc.stderr + proc.stdout
+    assert "Warnings:" not in proc.stdout
+
+
+def test_verifier_warns_when_counted_tokenizer_bytes_missing(tmp_path: Path) -> None:
+    evidence = json.loads(EXAMPLE_PATH.read_text(encoding="utf-8"))
+    evidence["artifact"]["tokenizer_counted"] = True
+    evidence["artifact"].pop("tokenizer_bytes_if_counted", None)
+
+    evidence_path = tmp_path / "missing-counted-tokenizer.json"
+    evidence_path.write_text(json.dumps(evidence), encoding="utf-8")
+
+    proc = subprocess.run(
+        [sys.executable, str(TOOL_PATH), "--evidence", str(evidence_path), "--strict"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert proc.returncode == 1
+    assert "tokenizer_counted is true but tokenizer_bytes_if_counted is missing/non-integer" in proc.stdout
+
+
+def test_verifier_json_mode_reports_missing_evidence_file(tmp_path: Path) -> None:
+    missing_path = tmp_path / "missing-evidence.json"
+
+    proc = subprocess.run(
+        [
+            sys.executable,
+            str(TOOL_PATH),
+            "--evidence",
+            str(missing_path),
+            "--json",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert proc.returncode == 1
+    payload = json.loads(proc.stdout)
+    assert payload["valid_schema"] is False
+    assert payload["error_kind"] == "evidence_file_not_found"
+
+
+def test_verifier_json_mode_reports_invalid_evidence_json(tmp_path: Path) -> None:
+    bad_evidence_path = tmp_path / "bad-evidence.json"
+    bad_evidence_path.write_text("{not valid json", encoding="utf-8")
+
+    proc = subprocess.run(
+        [
+            sys.executable,
+            str(TOOL_PATH),
+            "--evidence",
+            str(bad_evidence_path),
+            "--json",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert proc.returncode == 1
+    payload = json.loads(proc.stdout)
+    assert payload["valid_schema"] is False
+    assert payload["error_kind"] == "evidence_json_decode_error"
+
+
+def test_verifier_json_mode_reports_missing_schema_file(tmp_path: Path) -> None:
+    missing_schema_path = tmp_path / "missing-schema.json"
+
+    proc = subprocess.run(
+        [
+            sys.executable,
+            str(TOOL_PATH),
+            "--evidence",
+            str(EXAMPLE_PATH),
+            "--schema",
+            str(missing_schema_path),
+            "--json",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert proc.returncode == 1
+    payload = json.loads(proc.stdout)
+    assert payload["valid_schema"] is False
+    assert payload["error_kind"] == "schema_file_not_found"
+
+
+def test_verifier_json_mode_reports_invalid_schema_json(tmp_path: Path) -> None:
+    bad_schema_path = tmp_path / "bad-schema.json"
+    bad_schema_path.write_text("{not valid json", encoding="utf-8")
+
+    proc = subprocess.run(
+        [
+            sys.executable,
+            str(TOOL_PATH),
+            "--evidence",
+            str(EXAMPLE_PATH),
+            "--schema",
+            str(bad_schema_path),
+            "--json",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert proc.returncode == 1
+    payload = json.loads(proc.stdout)
+    assert payload["valid_schema"] is False
+    assert payload["error_kind"] == "schema_json_decode_error"
