@@ -9,11 +9,6 @@ import sys
 from pathlib import Path
 from typing import Any
 
- feat/parameter-golf-v0-sidecar
-
-import jsonschema
-
- main
 
 DEFAULT_SCHEMA = (
     Path(__file__).resolve().parents[1]
@@ -22,7 +17,6 @@ DEFAULT_SCHEMA = (
 )
 
 
- feat/parameter-golf-v0-sidecar
 class MissingDependencyError(RuntimeError):
     """Raised when an optional runtime dependency is unavailable."""
 
@@ -37,14 +31,11 @@ def _load_jsonschema() -> Any:
     return jsonschema
 
 
-
- main
 def load_json(path: Path) -> Any:
     with path.open("r", encoding="utf-8") as f:
         return json.load(f)
 
 
- feat/parameter-golf-v0-sidecar
 def validate_schema(
     evidence: dict[str, Any],
     schema: dict[str, Any],
@@ -55,10 +46,6 @@ def validate_schema(
     validator = validator_cls(schema)
     validator.validate(evidence)
 
-def validate_schema(evidence: dict[str, Any], schema: dict[str, Any]) -> None:
-    jsonschema.validate(instance=evidence, schema=schema)
- main
-
 
 def semantic_checks(evidence: dict[str, Any]) -> list[str]:
     warnings: list[str] = []
@@ -68,7 +55,6 @@ def semantic_checks(evidence: dict[str, Any]) -> list[str]:
     model_bytes = artifact.get("model_bytes_int8_zlib")
     total_bytes = artifact.get("total_bytes_int8_zlib")
     limit_bytes = artifact.get("artifact_limit_bytes", 16_000_000)
- feat/parameter-golf-v0-sidecar
     tokenizer_counted = artifact.get("tokenizer_counted")
     tokenizer_bytes = artifact.get("tokenizer_bytes_if_counted")
 
@@ -99,29 +85,15 @@ def semantic_checks(evidence: dict[str, Any]) -> list[str]:
                     "artifact.code_bytes + artifact.model_bytes_int8_zlib"
                 )
 
-
     if (
-        isinstance(code_bytes, int)
-        and isinstance(model_bytes, int)
-        and isinstance(total_bytes, int)
-        and total_bytes != code_bytes + model_bytes
+        isinstance(total_bytes, int)
+        and isinstance(limit_bytes, int)
+        and total_bytes > limit_bytes
     ):
-        warnings.append(
-            "artifact.total_bytes_int8_zlib does not equal "
-            "artifact.code_bytes + artifact.model_bytes_int8_zlib"
-        )
- main
-
-    if isinstance(total_bytes, int) and isinstance(limit_bytes, int) and total_bytes > limit_bytes:
         warnings.append(
             f"artifact total ({total_bytes}) exceeds declared limit ({limit_bytes})"
         )
 
- feat/parameter-golf-v0-sidecar
-
-    tokenizer_counted = artifact.get("tokenizer_counted")
-    tokenizer_bytes = artifact.get("tokenizer_bytes_if_counted")
- main
     if tokenizer_counted is False and tokenizer_bytes in (None, 0):
         warnings.append(
             "tokenizer_counted is false but tokenizer_bytes_if_counted is missing/zero; "
@@ -190,7 +162,6 @@ def build_summary(evidence: dict[str, Any], warnings: list[str]) -> dict[str, An
     }
 
 
- feat/parameter-golf-v0-sidecar
 def emit_invalid_result(
     *,
     as_json: bool,
@@ -205,16 +176,18 @@ def emit_invalid_result(
             "error_kind": error_kind,
             "error": message,
         }
-        if path_key and path_value:
+        if path_key is not None and path_value is not None:
             payload[path_key] = path_value
         print(json.dumps(payload, indent=2))
         return
 
     print("INVALID")
     print(message)
-    if path_key and path_value:
+    if path_key is not None and path_value is not None:
         label = "schema path" if path_key == "schema_path" else "path"
-        print(f"At {label}: {'/'.join(map(str, path_value))}")
+        rendered_path = "/".join(map(str, path_value)) if path_value else "<root>"
+        print(f"At {label}: {rendered_path}")
+
 
 def emit_load_error(*, as_json: bool, error_kind: str, message: str) -> None:
     if as_json:
@@ -231,23 +204,7 @@ def emit_load_error(*, as_json: bool, error_kind: str, message: str) -> None:
     else:
         print(f"ERROR: {message}", file=sys.stderr)
 
-def emit_load_error(*, as_json: bool, error_kind: str, message: str) -> None:
-    if as_json:
-        print(
-            json.dumps(
-                {
-                    "valid_schema": False,
-                    "error_kind": error_kind,
-                    "error": message,
-                },
-                indent=2,
-            )
-        )
-    else:
-        print(f"ERROR: {message}", file=sys.stderr)
 
-
- main
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Validate a Parameter Golf evidence artifact."
@@ -276,8 +233,7 @@ def main() -> int:
     evidence_path = Path(args.evidence)
     schema_path = Path(args.schema)
 
- feat/parameter-golf-v0-sidecar
-            try:
+    try:
         evidence = load_json(evidence_path)
     except FileNotFoundError:
         emit_load_error(
@@ -292,20 +248,11 @@ def main() -> int:
             error_kind="evidence_json_decode_error",
             message=f"invalid JSON in evidence file: {exc}",
         )
-
-    try:
-        evidence = load_json(evidence_path)
-    except FileNotFoundError:
-        print(f"ERROR: evidence file not found: {evidence_path}", file=sys.stderr)
-        return 1
-    except json.JSONDecodeError as exc:
-        print(f"ERROR: invalid JSON in evidence file: {exc}", file=sys.stderr) main
         return 1
 
     try:
         schema = load_json(schema_path)
     except FileNotFoundError:
- feat/parameter-golf-v0-sidecar
         emit_load_error(
             as_json=args.json,
             error_kind="schema_file_not_found",
@@ -323,35 +270,18 @@ def main() -> int:
     try:
         jsonschema_mod = _load_jsonschema()
     except MissingDependencyError as exc:
-
-        print(f"ERROR: schema file not found: {schema_path}", file=sys.stderr)
-        return 1
-    except json.JSONDecodeError as exc:
-        print(f"ERROR: invalid JSON in schema file: {exc}", file=sys.stderr)
-        return 1
-
-    try:
-        validate_schema(evidence, schema)
-    except jsonschema.ValidationError as exc:
-   main
         if args.json:
             print(
                 json.dumps(
                     {
                         "valid_schema": False,
- feat/parameter-golf-v0-sidecar
                         "error_kind": "missing_dependency",
                         "error": str(exc),
-
-                        "error": exc.message,
-                        "path": list(exc.absolute_path),
- main
                     },
                     indent=2,
                 )
             )
         else:
- feat/parameter-golf-v0-sidecar
             print(f"ERROR: {exc}", file=sys.stderr)
         return 2
 
@@ -374,12 +304,6 @@ def main() -> int:
             path_key="schema_path",
             path_value=list(exc.absolute_schema_path),
         )
-
-            print("INVALID")
-            print(f"Schema validation failed: {exc.message}")
-            if exc.absolute_path:
-                print(f"At path: {'/'.join(map(str, exc.absolute_path))}")
- main
         return 1
 
     warnings = semantic_checks(evidence)
