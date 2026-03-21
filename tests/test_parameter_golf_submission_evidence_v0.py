@@ -199,4 +199,27 @@ def test_verifier_json_mode_reports_invalid_schema_json(tmp_path: Path) -> None:
     assert payload["valid_schema"] is False
     assert payload["error_kind"] == "schema_json_decode_error"
 
- main
+
+
+def test_verifier_rejects_scalar_custom_schema_json(tmp_path: Path) -> None:
+    scalar_schema_path = tmp_path / "scalar-schema.json"
+    scalar_schema_path.write_text("0", encoding="utf-8")
+
+    proc = subprocess.run(
+        [
+            sys.executable,
+            str(TOOL_PATH),
+            "--evidence",
+            str(EXAMPLE_PATH),
+            "--schema",
+            str(scalar_schema_path),
+            "--json",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert proc.returncode == 1
+    payload = json.loads(proc.stdout)
+    assert payload["valid_schema"] is False
+    assert payload["error_kind"] == "schema_error"
