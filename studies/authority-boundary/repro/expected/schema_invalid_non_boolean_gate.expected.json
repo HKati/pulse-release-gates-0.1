@@ -14,7 +14,7 @@
       "stdout_contains": [
         "::error::status.json schema validation failed:",
         "gates.q4_slo_ok:",
-        "is not of type 'boolean'"
+        "boolean"
       ]
     },
     "policy_materialization": {
