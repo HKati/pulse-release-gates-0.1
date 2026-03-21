@@ -67,7 +67,7 @@ def test_verifier_rejects_schema_violation(tmp_path: Path) -> None:
 
 def test_verifier_reports_missing_jsonschema_cleanly() -> None:
     proc = subprocess.run(
-        [sys.executable, "-S", str(TOOL_PATH), "--evidence", str(EXAMPLE_PATH)],
+        [sys.executable, "-I", "-S", str(TOOL_PATH), "--evidence", str(EXAMPLE_PATH)],
         capture_output=True,
         text=True,
         check=False,
