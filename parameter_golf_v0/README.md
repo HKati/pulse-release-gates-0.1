@@ -40,11 +40,11 @@ consistently.
 
 This companion exists to prototype that surface in a way that is:
 
-- schema-first,
-- audit-friendly,
-- CI-neutral,
-- non-blocking,
-- explicitly non-normative.
+- schema-first
+- audit-friendly
+- non-blocking
+- explicitly non-normative
+- neutral with respect to **PULSE release decisions**
 
 ## Current v0 scope
 
@@ -101,6 +101,11 @@ normative path.
 
 ## Quick start
 
+Run the commands below from the **repository root**.
+
+If you are reading this file from `parameter_golf_v0/`, first change to
+the repository root before running the examples.
+
 ### 1. Validate the example evidence artifact
 
 ```bash
@@ -125,24 +130,30 @@ python tools/check_parameter_golf_review_receipt_roundtrip_v0.py
 
 The roundtrip checker verifies that:
 
-example evidence  
-→ receipt renderer  
-→ committed example review receipt  
+```text
+example evidence
+→ receipt renderer
+→ committed example review receipt
+```
 
 remains deterministic.
 
 ## Normative boundary
 
-This work remains strictly shadow-only.
+This work remains strictly **shadow-only**.
 
-It does not:
+It does **not**:
 
 - add new PULSE required gates
-- mutate status.json
-- change CI outcomes
+- mutate `status.json`
+- change PULSE release outcomes
 - redefine Parameter Golf rules
 - create a new counted submission path
 - promote evidence validity into release authority
+
+This companion **may still be exercised by repository CI** as a shadow
+regression surface. That does not make it part of normative PULSE
+release authority.
 
 Missing, malformed, or schema-invalid evidence may be reported as
 invalid by the verifier or renderer, but this must not change PULSE
@@ -150,7 +161,7 @@ release outcomes unless a future policy explicitly promotes it.
 
 ## Non-goals
 
-This companion is not trying to:
+This companion is **not** trying to:
 
 - become a Parameter Golf replacement
 - enforce upstream challenge rules from inside PULSE
@@ -162,14 +173,14 @@ This companion is not trying to:
 
 At v0, the companion demonstrates three concrete things:
 
-- a submission's evidentiary surface can be expressed in a small,
-  machine-readable artifact
+1. a submission's evidentiary surface can be expressed in a small,
+   machine-readable artifact
 
-- that artifact can be validated and summarized without changing the
-  underlying challenge path
+2. that artifact can be validated and summarized without changing the
+   underlying challenge path
 
-- a reviewer-facing receipt can be generated deterministically from the
-  same evidence
+3. a reviewer-facing receipt can be generated deterministically from the
+   same evidence
 
 That is enough to support upstream discussion with a concrete artifact,
 rather than only a conceptual proposal.
