@@ -905,6 +905,7 @@ jobs:
             exit 0
           fi
           python "$SCRIPT" --status "$STATUS"
+          
 
       - name: Write PULSE summary
         shell: bash
