@@ -34,7 +34,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Harden `tools/verify_parameter_golf_submission_v0.py` to fail cleanly when `jsonschema` is missing or the supplied schema is malformed.
 - Account for counted tokenizer bytes in `tools/verify_parameter_golf_submission_v0.py` total-size checks.
 - Honor `--json` for early evidence/schema load errors so machine-readable verifier output stays structured in failure cases.
-- Execute `tests/test_parameter_golf_submission_evidence_v0.py` through the CI pytest manifest (`ci/render-quality-ledger-tests.list`).
+- Execute `tests/test_parameter_golf_submission_evidence_v0.py` through the CI pytest manifest (`ci/pytest-tests.list`).
 
 ### Docs
 - `CITATION.cff`: add ORCID for Katalin Horvat; add software reference to ChatGPT (GPT-5 Pro).
