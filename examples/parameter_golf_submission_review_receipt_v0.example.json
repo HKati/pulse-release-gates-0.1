@@ -61,7 +61,7 @@
     "changes_pulse_release_outcome": false
   },
   "notes": [
-    "Example review receipt derived from the v0 example evidence artifact.",
+    "Generated from a v0 Parameter Golf evidence artifact.",
     "This artifact is diagnostic only and does not change PULSE release outcomes."
   ]
 }
