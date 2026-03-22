@@ -76,7 +76,7 @@ def build_review_surface(evidence: dict[str, Any]) -> dict[str, Any]:
     stats = evidence.get("stats", {})
 
     total_bytes = artifact.get("total_bytes_int8_zlib")
-    limit_bytes = artifact.get("artifact_limit_bytes", 16_000_000)
+    limit_bytes = artifact.get("artifact_limit_bytes")
     train_wallclock_s = train.get("train_wallclock_s")
     max_wallclock_s = train.get("max_wallclock_s")
     run_logs = stats.get("run_logs") or []
@@ -203,9 +203,35 @@ def build_invalid_receipt(
         "notes": [
             "Generated from a v0 Parameter Golf evidence artifact.",
             "This artifact is diagnostic only and does not change PULSE release outcomes.",
-            "Schema-invalid evidence remains outside any normative PULSE path.",
+            "Invalid or unreadable evidence remains outside any normative PULSE path.",
         ],
     }
+
+
+def emit_invalid_receipt_and_return(
+    *,
+    evidence_path: Path,
+    schema_path: Path,
+    output_path: Path | None,
+    error_kind: str,
+    message: str,
+    exit_code: int = 1,
+    stderr_message: str | None = None,
+    path_key: str | None = None,
+    path_value: list[Any] | None = None,
+) -> int:
+    payload = build_invalid_receipt(
+        evidence_path=evidence_path,
+        schema_path=schema_path,
+        error_kind=error_kind,
+        message=message,
+        path_key=path_key,
+        path_value=path_value,
+    )
+    emit_json(payload, output_path)
+    if stderr_message is not None:
+        print(stderr_message, file=sys.stderr)
+    return exit_code
 
 
 def main() -> int:
@@ -217,26 +243,57 @@ def main() -> int:
     try:
         evidence = load_json(evidence_path)
     except FileNotFoundError:
-        print(f"ERROR: evidence file not found: {evidence_path}", file=sys.stderr)
-        return 1
+        return emit_invalid_receipt_and_return(
+            evidence_path=evidence_path,
+            schema_path=schema_path,
+            output_path=output_path,
+            error_kind="evidence_file_not_found",
+            message=f"Evidence file not found: {evidence_path}",
+            stderr_message=f"ERROR: evidence file not found: {evidence_path}",
+        )
     except json.JSONDecodeError as exc:
-        print(f"ERROR: invalid JSON in evidence file: {exc}", file=sys.stderr)
-        return 1
+        return emit_invalid_receipt_and_return(
+            evidence_path=evidence_path,
+            schema_path=schema_path,
+            output_path=output_path,
+            error_kind="evidence_json_decode_error",
+            message=f"Invalid JSON in evidence file: {exc}",
+            stderr_message=f"ERROR: invalid JSON in evidence file: {exc}",
+        )
 
     try:
         schema = load_json(schema_path)
     except FileNotFoundError:
-        print(f"ERROR: schema file not found: {schema_path}", file=sys.stderr)
-        return 1
+        return emit_invalid_receipt_and_return(
+            evidence_path=evidence_path,
+            schema_path=schema_path,
+            output_path=output_path,
+            error_kind="schema_file_not_found",
+            message=f"Schema file not found: {schema_path}",
+            stderr_message=f"ERROR: schema file not found: {schema_path}",
+        )
     except json.JSONDecodeError as exc:
-        print(f"ERROR: invalid JSON in schema file: {exc}", file=sys.stderr)
-        return 1
+        return emit_invalid_receipt_and_return(
+            evidence_path=evidence_path,
+            schema_path=schema_path,
+            output_path=output_path,
+            error_kind="schema_json_decode_error",
+            message=f"Invalid JSON in schema file: {exc}",
+            stderr_message=f"ERROR: invalid JSON in schema file: {exc}",
+        )
 
     try:
         jsonschema_mod = _load_jsonschema()
     except MissingDependencyError as exc:
-        print(f"ERROR: {exc}", file=sys.stderr)
-        return 2
+        return emit_invalid_receipt_and_return(
+            evidence_path=evidence_path,
+            schema_path=schema_path,
+            output_path=output_path,
+            error_kind="missing_dependency",
+            message=str(exc),
+            stderr_message=f"ERROR: {exc}",
+            exit_code=2,
+        )
 
     try:
         validate_schema(evidence, schema, jsonschema_mod)
