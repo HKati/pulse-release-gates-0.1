@@ -905,6 +905,7 @@ jobs:
             exit 0
           fi
           python "$SCRIPT" --status "$STATUS"
+          
 
       - name: Write PULSE summary
         shell: bash
@@ -1257,9 +1258,9 @@ jobs:
         run: |
           set -euo pipefail
 
-          list_file="ci/render-quality-ledger-tests.list"
+          list_file="ci/pytest-tests.list"
           if [[ ! -f "${list_file}" ]]; then
-            echo "::error::Missing render-quality-ledger manifest: ${list_file}"
+            echo "::error::Missing pytest manifest: ${list_file}"
             exit 1
           fi
 
