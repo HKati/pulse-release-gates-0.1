@@ -14,7 +14,31 @@ DEFAULT_SCHEMA = (
     / "schemas"
     / "parameter_golf_submission_evidence_v0.schema.json"
 )
-DEFAULT_ARTIFACT_LIMIT_BYTES = 16_000_000
+
+
+def resolve_artifact_limit_default(schema: dict[str, Any] | bool) -> int | None:
+    """Extract artifact.artifact_limit_bytes.default from the selected schema."""
+    if not isinstance(schema, dict):
+        return None
+
+    properties = schema.get("properties")
+    if not isinstance(properties, dict):
+        return None
+
+    artifact = properties.get("artifact")
+    if not isinstance(artifact, dict):
+        return None
+
+    artifact_properties = artifact.get("properties")
+    if not isinstance(artifact_properties, dict):
+        return None
+
+    artifact_limit_schema = artifact_properties.get("artifact_limit_bytes")
+    if not isinstance(artifact_limit_schema, dict):
+        return None
+
+    default_value = artifact_limit_schema.get("default")
+    return default_value if isinstance(default_value, int) else None
 
 
 class MissingDependencyError(RuntimeError):
@@ -57,7 +81,10 @@ def validate_schema(
     validator.validate(evidence)
 
 
-def semantic_checks(evidence: dict[str, Any]) -> list[str]:
+def semantic_checks(
+    evidence: dict[str, Any],
+    artifact_limit_default: int | None = None,
+) -> list[str]:
     warnings: list[str] = []
 
     artifact = evidence.get("artifact", {})
@@ -72,8 +99,8 @@ def semantic_checks(evidence: dict[str, Any]) -> list[str]:
     limit_is_defaulted = False
     if isinstance(declared_limit_bytes, int):
         effective_limit_bytes = declared_limit_bytes
-    elif declared_limit_bytes is None:
-        effective_limit_bytes = DEFAULT_ARTIFACT_LIMIT_BYTES
+    elif declared_limit_bytes is None and isinstance(artifact_limit_default, int):
+        effective_limit_bytes = artifact_limit_default
         limit_is_defaulted = True
 
     expected_total: int | None = None
@@ -110,7 +137,7 @@ def semantic_checks(evidence: dict[str, Any]) -> list[str]:
     ):
         if limit_is_defaulted:
             warnings.append(
-                f"artifact total ({total_bytes}) exceeds effective default limit ({effective_limit_bytes})"
+                f"artifact total ({total_bytes}) exceeds effective schema-default limit ({effective_limit_bytes})"
             )
         else:
             warnings.append(
@@ -172,7 +199,11 @@ def semantic_checks(evidence: dict[str, Any]) -> list[str]:
     return warnings
 
 
-def build_summary(evidence: dict[str, Any], warnings: list[str]) -> dict[str, Any]:
+def build_summary(
+    evidence: dict[str, Any],
+    warnings: list[str],
+    artifact_limit_default: int | None = None,
+) -> dict[str, Any]:
     artifact = evidence.get("artifact", {})
     evaluation = evidence.get("evaluation", {})
 
@@ -180,7 +211,7 @@ def build_summary(evidence: dict[str, Any], warnings: list[str]) -> dict[str, An
     effective_limit_bytes = (
         declared_limit_bytes
         if isinstance(declared_limit_bytes, int)
-        else DEFAULT_ARTIFACT_LIMIT_BYTES
+        else artifact_limit_default
     )
 
     return {
@@ -303,6 +334,8 @@ def main() -> int:
         )
         return 1
 
+    artifact_limit_default = resolve_artifact_limit_default(schema)
+
     try:
         jsonschema_mod = _load_jsonschema()
     except MissingDependencyError as exc:
@@ -342,8 +375,15 @@ def main() -> int:
         )
         return 1
 
-    warnings = semantic_checks(evidence)
-    result = build_summary(evidence, warnings)
+    warnings = semantic_checks(
+        evidence,
+        artifact_limit_default=artifact_limit_default,
+    )
+    result = build_summary(
+        evidence,
+        warnings,
+        artifact_limit_default=artifact_limit_default,
+    )
 
     if args.json:
         print(json.dumps(result, indent=2))
@@ -352,10 +392,15 @@ def main() -> int:
         artifact_limit = result["summary"]["artifact_limit_bytes"]
         artifact_limit_declared = result["summary"]["artifact_limit_bytes_declared"]
 
-        if artifact_limit_declared is None:
+        if artifact_limit_declared is None and artifact_limit is None:
+            bytes_fragment = (
+                f"{artifact_total} "
+                "(artifact_limit_bytes undeclared; selected schema has no default)"
+            )
+        elif artifact_limit_declared is None:
             bytes_fragment = (
                 f"{artifact_total}/{artifact_limit} "
-                "(effective default; artifact_limit_bytes undeclared)"
+                "(effective schema default; artifact_limit_bytes undeclared)"
             )
         else:
             bytes_fragment = f"{artifact_total}/{artifact_limit}"
