@@ -14,6 +14,7 @@ DEFAULT_SCHEMA = (
     / "schemas"
     / "parameter_golf_submission_evidence_v0.schema.json"
 )
+DEFAULT_ARTIFACT_LIMIT_BYTES = 16_000_000
 
 
 class MissingDependencyError(RuntimeError):
@@ -63,9 +64,17 @@ def semantic_checks(evidence: dict[str, Any]) -> list[str]:
     code_bytes = artifact.get("code_bytes")
     model_bytes = artifact.get("model_bytes_int8_zlib")
     total_bytes = artifact.get("total_bytes_int8_zlib")
-    limit_bytes = artifact.get("artifact_limit_bytes")
+    declared_limit_bytes = artifact.get("artifact_limit_bytes")
     tokenizer_counted = artifact.get("tokenizer_counted")
     tokenizer_bytes = artifact.get("tokenizer_bytes_if_counted")
+
+    effective_limit_bytes: int | None = None
+    limit_is_defaulted = False
+    if isinstance(declared_limit_bytes, int):
+        effective_limit_bytes = declared_limit_bytes
+    elif declared_limit_bytes is None:
+        effective_limit_bytes = DEFAULT_ARTIFACT_LIMIT_BYTES
+        limit_is_defaulted = True
 
     expected_total: int | None = None
     if isinstance(code_bytes, int) and isinstance(model_bytes, int):
@@ -96,12 +105,17 @@ def semantic_checks(evidence: dict[str, Any]) -> list[str]:
 
     if (
         isinstance(total_bytes, int)
-        and isinstance(limit_bytes, int)
-        and total_bytes > limit_bytes
+        and isinstance(effective_limit_bytes, int)
+        and total_bytes > effective_limit_bytes
     ):
-        warnings.append(
-            f"artifact total ({total_bytes}) exceeds declared limit ({limit_bytes})"
-        )
+        if limit_is_defaulted:
+            warnings.append(
+                f"artifact total ({total_bytes}) exceeds effective default limit ({effective_limit_bytes})"
+            )
+        else:
+            warnings.append(
+                f"artifact total ({total_bytes}) exceeds declared limit ({effective_limit_bytes})"
+            )
 
     if tokenizer_counted is False and tokenizer_bytes in (None, 0):
         warnings.append(
@@ -161,6 +175,14 @@ def semantic_checks(evidence: dict[str, Any]) -> list[str]:
 def build_summary(evidence: dict[str, Any], warnings: list[str]) -> dict[str, Any]:
     artifact = evidence.get("artifact", {})
     evaluation = evidence.get("evaluation", {})
+
+    declared_limit_bytes = artifact.get("artifact_limit_bytes")
+    effective_limit_bytes = (
+        declared_limit_bytes
+        if isinstance(declared_limit_bytes, int)
+        else DEFAULT_ARTIFACT_LIMIT_BYTES
+    )
+
     return {
         "valid_schema": True,
         "warning_count": len(warnings),
@@ -168,7 +190,8 @@ def build_summary(evidence: dict[str, Any], warnings: list[str]) -> dict[str, An
         "summary": {
             "submission_type": evidence.get("submission_type"),
             "total_bytes_int8_zlib": artifact.get("total_bytes_int8_zlib"),
-            "artifact_limit_bytes": artifact.get("artifact_limit_bytes"),
+            "artifact_limit_bytes": effective_limit_bytes,
+            "artifact_limit_bytes_declared": declared_limit_bytes,
             "evaluation_mode": evaluation.get("mode"),
             "val_bpb": evaluation.get("val_bpb"),
         },
@@ -327,11 +350,15 @@ def main() -> int:
     else:
         artifact_total = result["summary"]["total_bytes_int8_zlib"]
         artifact_limit = result["summary"]["artifact_limit_bytes"]
-        bytes_fragment = (
-            f"{artifact_total}/{artifact_limit}"
-            if artifact_limit is not None
-            else f"{artifact_total} (artifact_limit_bytes undeclared)"
-        )
+        artifact_limit_declared = result["summary"]["artifact_limit_bytes_declared"]
+
+        if artifact_limit_declared is None:
+            bytes_fragment = (
+                f"{artifact_total}/{artifact_limit} "
+                "(effective default; artifact_limit_bytes undeclared)"
+            )
+        else:
+            bytes_fragment = f"{artifact_total}/{artifact_limit}"
 
         print("VALID")
         print(
