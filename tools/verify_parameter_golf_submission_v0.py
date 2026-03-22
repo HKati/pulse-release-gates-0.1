@@ -9,7 +9,6 @@ import sys
 from pathlib import Path
 from typing import Any
 
-
 DEFAULT_SCHEMA = (
     Path(__file__).resolve().parents[1]
     / "schemas"
@@ -26,7 +25,8 @@ def _load_jsonschema() -> Any:
         import jsonschema  # type: ignore
     except ModuleNotFoundError as exc:
         raise MissingDependencyError(
-            "Missing dependency: 'jsonschema'. Install it with: pip install jsonschema"
+            "Missing dependency: 'jsonschema'.\n"
+            "Install it with: pip install jsonschema"
         ) from exc
     return jsonschema
 
@@ -49,9 +49,7 @@ def validate_schema(
     try:
         validator_cls = jsonschema_mod.validators.validator_for(schema)
     except TypeError as exc:
-        raise jsonschema_mod.SchemaError(
-            f"Provided schema is invalid: {exc}"
-        ) from exc
+        raise jsonschema_mod.SchemaError(f"Provided schema is invalid: {exc}") from exc
 
     validator_cls.check_schema(schema)
     validator = validator_cls(schema)
@@ -65,7 +63,7 @@ def semantic_checks(evidence: dict[str, Any]) -> list[str]:
     code_bytes = artifact.get("code_bytes")
     model_bytes = artifact.get("model_bytes_int8_zlib")
     total_bytes = artifact.get("total_bytes_int8_zlib")
-    limit_bytes = artifact.get("artifact_limit_bytes", 16_000_000)
+    limit_bytes = artifact.get("artifact_limit_bytes")
     tokenizer_counted = artifact.get("tokenizer_counted")
     tokenizer_bytes = artifact.get("tokenizer_bytes_if_counted")
 
@@ -130,8 +128,10 @@ def semantic_checks(evidence: dict[str, Any]) -> list[str]:
 
     if mode == "sliding_window" and stride in (None, 0):
         warnings.append("evaluation.mode is sliding_window but stride is missing")
+
     if mode == "standard" and stride not in (None,):
         warnings.append("evaluation.mode is standard but stride is present")
+
     if val_bpb is None:
         warnings.append("evaluation.val_bpb is missing")
 
@@ -143,10 +143,12 @@ def semantic_checks(evidence: dict[str, Any]) -> list[str]:
 
     if p_value is not None and n_runs is None:
         warnings.append("stats.p_value is present but stats.n_runs is missing")
+
     if isinstance(n_runs, int) and len(run_logs) > 0 and len(run_logs) != n_runs:
         warnings.append(
             f"stats.n_runs ({n_runs}) does not match number of run_logs ({len(run_logs)})"
         )
+
     if evidence.get("submission_type") == "record":
         if not run_logs and not exemption:
             warnings.append(
@@ -166,7 +168,7 @@ def build_summary(evidence: dict[str, Any], warnings: list[str]) -> dict[str, An
         "summary": {
             "submission_type": evidence.get("submission_type"),
             "total_bytes_int8_zlib": artifact.get("total_bytes_int8_zlib"),
-            "artifact_limit_bytes": artifact.get("artifact_limit_bytes", 16_000_000),
+            "artifact_limit_bytes": artifact.get("artifact_limit_bytes"),
             "evaluation_mode": evaluation.get("mode"),
             "val_bpb": evaluation.get("val_bpb"),
         },
@@ -196,7 +198,7 @@ def emit_invalid_result(
     print(message)
     if path_key is not None and path_value is not None:
         label = "schema path" if path_key == "schema_path" else "path"
-        rendered_path = "/".join(map(str, path_value)) if path_value else "<root>"
+        rendered_path = "/".join(map(str, path_value)) if path_value else ""
         print(f"At {label}: {rendered_path}")
 
 
@@ -323,6 +325,14 @@ def main() -> int:
     if args.json:
         print(json.dumps(result, indent=2))
     else:
+        artifact_total = result["summary"]["total_bytes_int8_zlib"]
+        artifact_limit = result["summary"]["artifact_limit_bytes"]
+        bytes_fragment = (
+            f"{artifact_total}/{artifact_limit}"
+            if artifact_limit is not None
+            else f"{artifact_total} (artifact_limit_bytes undeclared)"
+        )
+
         print("VALID")
         print(
             "Submission type: "
@@ -332,9 +342,9 @@ def main() -> int:
             "val_bpb: "
             f"{result['summary']['val_bpb']} | "
             "bytes: "
-            f"{result['summary']['total_bytes_int8_zlib']}/"
-            f"{result['summary']['artifact_limit_bytes']}"
+            f"{bytes_fragment}"
         )
+
         if warnings:
             print("Warnings:")
             for item in warnings:
