@@ -2,7 +2,7 @@
 
 ## Abstract
 
-Large language models (LLMs) are powerful generators, but they are weak sole authorities for release-critical decisions. Their outputs remain sensitive to context interpretation, decoding choices, and branch competition; generative systems can become unfaithful to source state; and model-based judging introduces biases of their own. We present **PULSE (Deterministic Release Gates for Safe & Useful AI)** as a deterministic release-control layer that evaluates explicit artifacts under fail-closed policy. Under fixed normative artifacts, schema version, evaluator implementation, and gate policy, PULSE yields reproducible and auditable release outcomes. We formalize a separation between **generation** and **release authority**, define three operational invariants—**reproducibility under fixed artifacts**, **fail-closed gate semantics**, and **diagnostic non-override**—and ground them in the current repository study surface pinned to `schemas/status/status_v1.schema.json`, `pulse_gate_policy_v0.yml` with policy slice `core_required`, `PULSE_safe_pack_v0/tools/check_gates.py`, `PULSE_safe_pack_v0/artifacts/status.json`, and `.github/workflows/pulse_ci.yml`. The contribution is a systems claim rather than a new claim about model behavior: final release authority in LLM-mediated workflows should be externalized to a deterministic evaluator over explicit, versioned artifacts.
+Large language models (LLMs) are powerful generators, but they are weak sole authorities for release-critical decisions. Their outputs remain sensitive to context interpretation, decoding choices, and branch competition; generative systems can become unfaithful to source state; and model-based judging introduces biases of their own. We present **PULSE (Deterministic Release Gates for Safe & Useful AI)** as a deterministic release-control layer that evaluates explicit artifacts under fail-closed policy. Under fixed normative artifacts, schema version, evaluator implementation, and gate policy, PULSE yields reproducible and auditable release outcomes. We formalize a separation between **generation** and **release authority**, define three operational invariants—**reproducibility under fixed artifacts**, **fail-closed gate semantics**, and **diagnostic non-override**—and ground them in the current repository study surface pinned to `schemas/status/status_v1.schema.json`, `pulse_gate_policy_v0.yml` with policy slice `core_required`, `PULSE_safe_pack_v0/tools/check_gates.py`, `PULSE_safe_pack_v0/artifacts/status.json`, and the `pull_request` execution path in `.github/workflows/pulse_ci.yml`, where the active study policy remains `core_required`. The contribution is a systems claim rather than a new claim about model behavior: final release authority in LLM-mediated workflows should be externalized to a deterministic evaluator over explicit, versioned artifacts.
 
 ## 1. Introduction
 
@@ -39,7 +39,7 @@ The current normative boundary is anchored to the following repository artifacts
 - policy slice `core_required`
 - `PULSE_safe_pack_v0/tools/check_gates.py`
 - `PULSE_safe_pack_v0/artifacts/status.json`
-- `.github/workflows/pulse_ci.yml`
+- `.github/workflows/pulse_ci.yml`  (scoped to the `pull_request` execution path that selects `core_required`)
 
 Within that pinned surface, the active gate set for the study is the `core_required` slice of `pulse_gate_policy_v0.yml`, whose required gates are:
 
@@ -52,6 +52,8 @@ Within that pinned surface, the active gate set for the study is the `core_requi
 The study documentation further separates three roles. `claims_to_checks.md` states the claims and the intended mapping from claims to observable checks. `repro/README.md` specifies the canonical execution order and the observables to record. The release evaluator itself remains the existing deterministic tooling anchored by the status schema, the policy file, and `check_gates.py`.
 
 A conservative point matters here. The policy materialization step from `pulse_gate_policy_v0.yml` to the required gate list is part of the reproduction procedure described in `repro/README.md`. This paper relies on that documented procedure, rather than introducing a new helper path or alternate evaluator.
+
+A second scope note matters here. The workflow reference is intentionally narrow. This study does not claim replay stability across every supported execution mode in `.github/workflows/pulse_ci.yml`. The fixture-backed reproduction surface aligns to the `pull_request` path where the workflow selects `core_required`; main-branch pushes, version-tag pushes, and strict `workflow_dispatch` runs are outside the initial executable study surface.
 
 ## 4. PULSE Model
 
@@ -193,6 +195,8 @@ The fixture surface operationalizes the three invariants without introducing new
 
 The initial executable boundary-phase surface covers `C1–C5` as mapped in `claims_to_checks.md`. This is the right initial boundary for the study: it is narrow enough to be reproducible and concrete enough to expose the architecture’s authority split.
 
+This means the initial executable boundary phase is a `core_required` study surface. It is not a full replay of the broader release-tag or strict-dispatch paths that can switch policy selection to `required` and add external-evidence requirements.
+
 `C6` remains outside the initial executable fixture set. It should be treated as a future extension of the study surface, not as hidden missing proof inside this paper. That boundary is intentional. The present paper argues for the architecture and grounds it in the current repository pin; it does not claim that every possible authority-boundary extension has already been fixture-backed.
 
 For exact mapping details and execution notes, the paper should be read together with `claims_to_checks.md` and `repro/README.md`.
@@ -213,7 +217,7 @@ The central issue in release-critical LLM workflows is not merely that a model m
 
 Under PULSE, models may generate, summarize, classify, and assist. Release status, however, is determined only by explicit normative artifacts under fixed schema, evaluator logic, and gate policy. The resulting guarantee is not truth in the broad sense. It is reproducible policy evaluation under stated conditions.
 
-Within the current repository study pin, that claim is inspectable. The schema, policy slice, evaluator, workflow entrypoint, fixture cases, and expected observables are all named explicitly. That is the right level of ambition for this phase. A release decision that cannot be reproduced from versioned artifacts and a fixed evaluator should not be considered valid.
+Within the current repository study pin, that claim is inspectable.
 
 ## References
 
