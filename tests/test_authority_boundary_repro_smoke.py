@@ -144,8 +144,11 @@ def _assert_repo_paths_exist() -> None:
 
 
 def _assert_schema_valid_case(case_name: str) -> None:
-    expected = _load_expected(case_name)["expected"]
+    expected_doc = _load_expected(case_name)
+    expected = expected_doc["expected"]
     status_path = _status_path(case_name)
+
+    assert expected_doc["canonical_study_pin"]["policy_set"] == POLICY_SET
 
     validate_proc = _validate_status(status_path)
     _assert_rc(validate_proc, expected["schema_validation"]["exit_code"])
@@ -173,8 +176,11 @@ def test_authority_boundary_repro_smoke() -> None:
     for case_name in SCHEMA_VALID_CASES:
         _assert_schema_valid_case(case_name)
 
-    expected = _load_expected(SCHEMA_INVALID_CASE)["expected"]
+    expected_doc = _load_expected(SCHEMA_INVALID_CASE)
+    expected = expected_doc["expected"]
     status_path = _status_path(SCHEMA_INVALID_CASE)
+
+    assert expected_doc["canonical_study_pin"]["policy_set"] == POLICY_SET
 
     validate_proc = _validate_status(status_path)
     _assert_rc(validate_proc, expected["schema_validation"]["exit_code"])
