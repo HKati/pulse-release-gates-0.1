@@ -20,48 +20,110 @@ def _decode_json_pointer_token(token: str) -> str:
     return token.replace("~1", "/").replace("~0", "~")
 
 
+def _resolve_local_anchor(
+    schema_root: dict[str, Any] | bool,
+    anchor: str,
+) -> Any | None:
+    """Resolve a local $anchor / $dynamicAnchor like '#artifact'."""
+
+    if not isinstance(schema_root, dict):
+        return None
+
+    def walk(node: Any) -> Any | None:
+        if isinstance(node, dict):
+            if node.get("$anchor") == anchor or node.get("$dynamicAnchor") == anchor:
+                return node
+            for value in node.values():
+                found = walk(value)
+                if found is not None:
+                    return found
+            return None
+
+        if isinstance(node, list):
+            for item in node:
+                found = walk(item)
+                if found is not None:
+                    return found
+
+        return None
+
+    return walk(schema_root)
+
+
 def _resolve_local_ref(
     schema_root: dict[str, Any] | bool,
     ref: str,
 ) -> Any | None:
-    """Resolve a local JSON Pointer ref like '#/$defs/...' against the selected schema."""
+    """Resolve a local JSON Pointer or local anchor ref against the selected schema."""
     if not isinstance(schema_root, dict):
         return None
 
     if ref == "#":
         return schema_root
 
-    if not ref.startswith("#/"):
-        return None
+    if ref.startswith("#/"):
+        current: Any = schema_root
+        for raw_token in ref[2:].split("/"):
+            token = _decode_json_pointer_token(raw_token)
 
-    current: Any = schema_root
-    for raw_token in ref[2:].split("/"):
-        token = _decode_json_pointer_token(raw_token)
+            if isinstance(current, dict):
+                if token not in current:
+                    return None
+                current = current[token]
+                continue
 
-        if isinstance(current, dict):
-            if token not in current:
-                return None
-            current = current[token]
-            continue
+            if isinstance(current, list):
+                try:
+                    index = int(token)
+                except ValueError:
+                    return None
+                if index < 0 or index >= len(current):
+                    return None
+                current = current[index]
+                continue
 
-        if isinstance(current, list):
-            try:
-                index = int(token)
-            except ValueError:
-                return None
-            if index < 0 or index >= len(current):
-                return None
-            current = current[index]
-            continue
+            return None
 
-        return None
+        return current
 
-    return current
+    if ref.startswith("#") and len(ref) > 1:
+        return _resolve_local_anchor(schema_root, ref[1:])
+
+    return None
+
+
+def _branch_matches_instance(
+    branch_schema: Any,
+    instance: Any,
+    schema_root: dict[str, Any] | bool,
+    jsonschema_mod: Any | None,
+) -> bool:
+    """Return True only when a union branch matches the current instance."""
+    if isinstance(branch_schema, bool):
+        return branch_schema
+
+    if not isinstance(branch_schema, dict) or jsonschema_mod is None:
+        return False
+
+    try:
+        validator_cls = jsonschema_mod.validators.validator_for(schema_root)
+        validator_cls.check_schema(schema_root)
+        root_validator = validator_cls(schema_root)
+
+        if hasattr(root_validator, "evolve"):
+            return root_validator.evolve(schema=branch_schema).is_valid(instance)
+
+        # Fallback for older validator implementations.
+        return validator_cls(branch_schema).is_valid(instance)
+    except Exception:
+        return False
 
 
 def _iter_composed_subschemas(
     schema_node: Any,
     schema_root: dict[str, Any] | bool,
+    instance: Any = None,
+    jsonschema_mod: Any | None = None,
     seen_refs: set[str] | None = None,
 ):
     """Yield a schema node plus locally composed/ref-resolved subschemas."""
@@ -84,27 +146,50 @@ def _iter_composed_subschemas(
             yield from _iter_composed_subschemas(
                 target,
                 schema_root,
-                seen_refs | {ref},
+                instance=instance,
+                jsonschema_mod=jsonschema_mod,
+                seen_refs=seen_refs | {ref},
             )
 
-    for key in ("allOf", "anyOf", "oneOf"):
+    branch = schema_node.get("allOf")
+    if isinstance(branch, list):
+        for item in branch:
+            yield from _iter_composed_subschemas(
+                item,
+                schema_root,
+                instance=instance,
+                jsonschema_mod=jsonschema_mod,
+                seen_refs=seen_refs,
+            )
+
+    for key in ("anyOf", "oneOf"):
         branch = schema_node.get(key)
-        if isinstance(branch, list):
+        if isinstance(branch, list) and jsonschema_mod is not None:
             for item in branch:
-                yield from _iter_composed_subschemas(
-                    item,
-                    schema_root,
-                    seen_refs,
-                )
+                if _branch_matches_instance(item, instance, schema_root, jsonschema_mod):
+                    yield from _iter_composed_subschemas(
+                        item,
+                        schema_root,
+                        instance=instance,
+                        jsonschema_mod=jsonschema_mod,
+                        seen_refs=seen_refs,
+                    )
 
 
 def _collect_property_schemas(
     schema_node: Any,
     property_name: str,
     schema_root: dict[str, Any] | bool,
+    instance: Any = None,
+    jsonschema_mod: Any | None = None,
 ) -> list[Any]:
     matches: list[Any] = []
-    for node in _iter_composed_subschemas(schema_node, schema_root):
+    for node in _iter_composed_subschemas(
+        schema_node,
+        schema_root,
+        instance=instance,
+        jsonschema_mod=jsonschema_mod,
+    ):
         if not isinstance(node, dict):
             continue
         props = node.get("properties")
@@ -113,19 +198,40 @@ def _collect_property_schemas(
     return matches
 
 
-def resolve_artifact_limit_default(schema: dict[str, Any] | bool) -> int | None:
-    """Resolve artifact.artifact_limit_bytes.default through local schema composition."""
+def resolve_artifact_limit_default(
+    schema: dict[str, Any] | bool,
+    evidence: dict[str, Any] | None = None,
+    jsonschema_mod: Any | None = None,
+) -> int | None:
+    """Resolve artifact.artifact_limit_bytes.default for the current evidence instance.
+
+    Direct properties, local $ref, local anchors, and allOf are always followed.
+    anyOf / oneOf branches are only considered when they match the current
+    evidence instance.
+    """
     if not isinstance(schema, dict):
         return None
 
+    artifact_instance = None
+    if isinstance(evidence, dict):
+        artifact_instance = evidence.get("artifact")
+
     defaults: list[int] = []
 
-    artifact_schemas = _collect_property_schemas(schema, "artifact", schema)
+    artifact_schemas = _collect_property_schemas(
+        schema,
+        "artifact",
+        schema,
+        instance=evidence,
+        jsonschema_mod=jsonschema_mod,
+    )
     for artifact_schema in artifact_schemas:
         limit_schemas = _collect_property_schemas(
             artifact_schema,
             "artifact_limit_bytes",
             schema,
+            instance=artifact_instance,
+            jsonschema_mod=jsonschema_mod,
         )
         for limit_schema in limit_schemas:
             if not isinstance(limit_schema, dict):
@@ -434,8 +540,6 @@ def main() -> int:
         )
         return 1
 
-    artifact_limit_default = resolve_artifact_limit_default(schema)
-
     try:
         jsonschema_mod = _load_jsonschema()
     except MissingDependencyError as exc:
@@ -474,6 +578,12 @@ def main() -> int:
             path_value=list(exc.absolute_schema_path),
         )
         return 1
+
+    artifact_limit_default = resolve_artifact_limit_default(
+        schema,
+        evidence=evidence,
+        jsonschema_mod=jsonschema_mod,
+    )
 
     warnings = semantic_checks(
         evidence,
