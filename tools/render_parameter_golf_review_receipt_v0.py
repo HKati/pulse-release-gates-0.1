@@ -14,6 +14,7 @@ from verify_parameter_golf_submission_v0 import (
     MissingDependencyError,
     _load_jsonschema,
     load_json,
+    resolve_artifact_limit_default,
     semantic_checks,
     validate_schema,
 )
@@ -282,6 +283,8 @@ def main() -> int:
             stderr_message=f"ERROR: invalid JSON in schema file: {exc}",
         )
 
+    artifact_limit_default = resolve_artifact_limit_default(schema)
+
     try:
         jsonschema_mod = _load_jsonschema()
     except MissingDependencyError as exc:
@@ -320,7 +323,10 @@ def main() -> int:
         emit_json(payload, output_path)
         return 1
 
-    warnings = semantic_checks(evidence)
+    warnings = semantic_checks(
+        evidence,
+        artifact_limit_default=artifact_limit_default,
+    )
     payload = build_receipt(
         evidence_path=evidence_path,
         schema_path=schema_path,
