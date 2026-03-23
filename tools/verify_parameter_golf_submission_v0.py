@@ -16,29 +16,129 @@ DEFAULT_SCHEMA = (
 )
 
 
+def _decode_json_pointer_token(token: str) -> str:
+    return token.replace("~1", "/").replace("~0", "~")
+
+
+def _resolve_local_ref(
+    schema_root: dict[str, Any] | bool,
+    ref: str,
+) -> Any | None:
+    """Resolve a local JSON Pointer ref like '#/$defs/...' against the selected schema."""
+    if not isinstance(schema_root, dict):
+        return None
+
+    if ref == "#":
+        return schema_root
+
+    if not ref.startswith("#/"):
+        return None
+
+    current: Any = schema_root
+    for raw_token in ref[2:].split("/"):
+        token = _decode_json_pointer_token(raw_token)
+
+        if isinstance(current, dict):
+            if token not in current:
+                return None
+            current = current[token]
+            continue
+
+        if isinstance(current, list):
+            try:
+                index = int(token)
+            except ValueError:
+                return None
+            if index < 0 or index >= len(current):
+                return None
+            current = current[index]
+            continue
+
+        return None
+
+    return current
+
+
+def _iter_composed_subschemas(
+    schema_node: Any,
+    schema_root: dict[str, Any] | bool,
+    seen_refs: set[str] | None = None,
+):
+    """Yield a schema node plus locally composed/ref-resolved subschemas."""
+    if seen_refs is None:
+        seen_refs = set()
+
+    if isinstance(schema_node, bool):
+        yield schema_node
+        return
+
+    if not isinstance(schema_node, dict):
+        return
+
+    yield schema_node
+
+    ref = schema_node.get("$ref")
+    if isinstance(ref, str) and ref not in seen_refs:
+        target = _resolve_local_ref(schema_root, ref)
+        if target is not None:
+            yield from _iter_composed_subschemas(
+                target,
+                schema_root,
+                seen_refs | {ref},
+            )
+
+    for key in ("allOf", "anyOf", "oneOf"):
+        branch = schema_node.get(key)
+        if isinstance(branch, list):
+            for item in branch:
+                yield from _iter_composed_subschemas(
+                    item,
+                    schema_root,
+                    seen_refs,
+                )
+
+
+def _collect_property_schemas(
+    schema_node: Any,
+    property_name: str,
+    schema_root: dict[str, Any] | bool,
+) -> list[Any]:
+    matches: list[Any] = []
+    for node in _iter_composed_subschemas(schema_node, schema_root):
+        if not isinstance(node, dict):
+            continue
+        props = node.get("properties")
+        if isinstance(props, dict) and property_name in props:
+            matches.append(props[property_name])
+    return matches
+
+
 def resolve_artifact_limit_default(schema: dict[str, Any] | bool) -> int | None:
-    """Extract artifact.artifact_limit_bytes.default from the selected schema."""
+    """Resolve artifact.artifact_limit_bytes.default through local schema composition."""
     if not isinstance(schema, dict):
         return None
 
-    properties = schema.get("properties")
-    if not isinstance(properties, dict):
-        return None
+    defaults: list[int] = []
 
-    artifact = properties.get("artifact")
-    if not isinstance(artifact, dict):
-        return None
+    artifact_schemas = _collect_property_schemas(schema, "artifact", schema)
+    for artifact_schema in artifact_schemas:
+        limit_schemas = _collect_property_schemas(
+            artifact_schema,
+            "artifact_limit_bytes",
+            schema,
+        )
+        for limit_schema in limit_schemas:
+            if not isinstance(limit_schema, dict):
+                continue
+            default_value = limit_schema.get("default")
+            if isinstance(default_value, int):
+                defaults.append(default_value)
 
-    artifact_properties = artifact.get("properties")
-    if not isinstance(artifact_properties, dict):
-        return None
+    unique_defaults = list(dict.fromkeys(defaults))
+    if len(unique_defaults) == 1:
+        return unique_defaults[0]
 
-    artifact_limit_schema = artifact_properties.get("artifact_limit_bytes")
-    if not isinstance(artifact_limit_schema, dict):
-        return None
-
-    default_value = artifact_limit_schema.get("default")
-    return default_value if isinstance(default_value, int) else None
+    return None
 
 
 class MissingDependencyError(RuntimeError):
