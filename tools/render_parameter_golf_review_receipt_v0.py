@@ -70,30 +70,39 @@ def build_validation_block(warnings: list[str]) -> dict[str, Any]:
     }
 
 
-def build_review_surface(evidence: dict[str, Any]) -> dict[str, Any]:
+def build_review_surface(
+    evidence: dict[str, Any],
+    artifact_limit_default: int | None = None,
+) -> dict[str, Any]:
     artifact = evidence.get("artifact", {})
     train = evidence.get("train", {})
     evaluation = evidence.get("evaluation", {})
     stats = evidence.get("stats", {})
 
     total_bytes = artifact.get("total_bytes_int8_zlib")
-    limit_bytes = artifact.get("artifact_limit_bytes")
+    declared_limit_bytes = artifact.get("artifact_limit_bytes")
+    effective_limit_bytes = (
+        declared_limit_bytes
+        if isinstance(declared_limit_bytes, int)
+        else artifact_limit_default
+    )
+
     train_wallclock_s = train.get("train_wallclock_s")
     max_wallclock_s = train.get("max_wallclock_s")
     run_logs = stats.get("run_logs") or []
 
     artifact_within_limit: bool | None = None
-    if isinstance(total_bytes, int) and isinstance(limit_bytes, int):
-        artifact_within_limit = total_bytes <= limit_bytes
+    if isinstance(total_bytes, int) and isinstance(effective_limit_bytes, int):
+        artifact_within_limit = total_bytes <= effective_limit_bytes
 
     train_within_declared_max: bool | None = None
     if isinstance(train_wallclock_s, (int, float)) and isinstance(max_wallclock_s, (int, float)):
         train_within_declared_max = train_wallclock_s <= max_wallclock_s
 
-    return {
+    review_surface: dict[str, Any] = {
         "submission_type": evidence.get("submission_type"),
         "artifact_total_bytes_int8_zlib": total_bytes,
-        "artifact_limit_bytes": limit_bytes,
+        "artifact_limit_bytes": declared_limit_bytes,
         "artifact_within_limit": artifact_within_limit,
         "evaluation_mode": evaluation.get("mode"),
         "val_bpb": evaluation.get("val_bpb"),
@@ -105,6 +114,12 @@ def build_review_surface(evidence: dict[str, Any]) -> dict[str, Any]:
         "p_value": stats.get("p_value"),
         "comparison_target": stats.get("comparison_target"),
     }
+
+    if declared_limit_bytes is None and isinstance(effective_limit_bytes, int):
+        review_surface["artifact_limit_bytes_effective"] = effective_limit_bytes
+        review_surface["artifact_limit_source"] = "schema_default"
+
+    return review_surface
 
 
 def build_claim_breakdown(evidence: dict[str, Any]) -> dict[str, Any]:
@@ -146,6 +161,7 @@ def build_receipt(
     schema_path: Path,
     evidence: dict[str, Any],
     warnings: list[str],
+    artifact_limit_default: int | None = None,
 ) -> dict[str, Any]:
     return {
         "receipt_version": "0.1",
@@ -156,7 +172,10 @@ def build_receipt(
             "verifier": str(VERIFIER_PATH.as_posix()),
         },
         "validation": build_validation_block(warnings),
-        "review_surface": build_review_surface(evidence),
+        "review_surface": build_review_surface(
+            evidence,
+            artifact_limit_default=artifact_limit_default,
+        ),
         "claim_breakdown": build_claim_breakdown(evidence),
         "normative_boundary": {
             "shadow_only": True,
@@ -283,8 +302,6 @@ def main() -> int:
             stderr_message=f"ERROR: invalid JSON in schema file: {exc}",
         )
 
-    artifact_limit_default = resolve_artifact_limit_default(schema)
-
     try:
         jsonschema_mod = _load_jsonschema()
     except MissingDependencyError as exc:
@@ -323,6 +340,11 @@ def main() -> int:
         emit_json(payload, output_path)
         return 1
 
+    artifact_limit_default = resolve_artifact_limit_default(
+        schema,
+        evidence=evidence,
+        jsonschema_mod=jsonschema_mod,
+    )
     warnings = semantic_checks(
         evidence,
         artifact_limit_default=artifact_limit_default,
@@ -332,6 +354,7 @@ def main() -> int:
         schema_path=schema_path,
         evidence=evidence,
         warnings=warnings,
+        artifact_limit_default=artifact_limit_default,
     )
     emit_json(payload, output_path)
     return 0
