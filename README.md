@@ -92,6 +92,33 @@ Choose one path first:
   These are diagnostic layers unless explicitly promoted into the required gate set.
 
 
+## Workflow map (2-minute orientation)
+
+Before opening `.github/workflows/`, keep this split in mind:
+
+- **Primary release gate**
+  - `.github/workflows/pulse_ci.yml`
+  - This is the primary release-gating workflow.
+
+- **Repo / workflow guardrails**
+  - Governance preflight and workflow validation checks
+  - These protect repo and workflow integrity; they are not a second release-decision engine.
+
+- **Shadow / diagnostic workflows**
+  - Overlays, dry-runs, experiments, and extra diagnostic artifacts
+  - They may validate their own contracts, but they do not change release outcomes by default.
+
+- **Publication / GitHub-native surfaces**
+  - Examples: SARIF upload, PR comments, badge write-back, Pages snapshots
+  - These should remain separate opt-in workflows with explicit write permissions.
+
+Rule:
+Only the primary release-gating workflow changes release outcomes by default.
+Shadow and publication workflows must stay non-normative unless explicitly promoted into the required gate set.
+
+See also: `docs/WORKFLOW_MAP.md`
+
+
 ## Clarity First (before Paradox / EPF / Topology work)
 
 PULSE is deterministic and fail‑closed — but only if we keep the meaning of terms stable.
