@@ -21,12 +21,56 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install PyYAML (for workflow YAML guard)
+      - name: Install PyYAML (for workflow YAML guards)
         shell: bash
         run: |
           set -euo pipefail
-          python -m pip install --upgrade pip
-          python -m pip install pyyaml
+          python -m pip install --disable-pip-version-check "pyyaml==6.0.2"
+
+      - name: "Repo hygiene: enforce Python version sync (environment.yml vs workflows)"
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import pathlib
+          import re
+          import sys
+
+          import yaml
+
+          env = pathlib.Path("environment.yml")
+          workflows = pathlib.Path(".github/workflows")
+          version_re = re.compile(r"^\s*python-version\s*:\s*['\"]?([^'\"\n]+)", re.MULTILINE)
+
+          data = yaml.safe_load(env.read_text(encoding="utf-8"))
+          deps = data.get("dependencies", []) if isinstance(data, dict) else []
+
+          env_version = None
+          for dep in deps:
+              if isinstance(dep, str) and dep.startswith("python="):
+                  env_version = dep.split("=", 1)[1].strip()
+                  break
+
+          if not env_version:
+              print("::error::No python=<version> dependency found in environment.yml")
+              sys.exit(1)
+
+          mismatches = []
+          for wf in sorted(workflows.glob("*.yml")) + sorted(workflows.glob("*.yaml")):
+              text = wf.read_text(encoding="utf-8", errors="replace")
+              for declared in version_re.findall(text):
+                  declared = declared.strip()
+                  if declared != env_version:
+                      mismatches.append((wf.as_posix(), declared))
+
+          if mismatches:
+              print(f"::error::Python version drift detected. environment.yml uses {env_version}.")
+              for wf, declared in mismatches:
+                  print(f"::error file={wf}::python-version={declared} (expected {env_version})")
+              sys.exit(1)
+
+          print(f"OK: environment.yml python={env_version} matches all workflow python-version declarations.")
+          PY
 
       - name: "Repo hygiene: validate workflow YAML files (fail-closed)"
         shell: bash
