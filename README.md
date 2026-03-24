@@ -65,7 +65,7 @@ Choose one path first:
   Start here when CI is red and you need the shortest path to diagnosis.
 
 - **Topology / Paradox / EPF / overlays** → [`docs/OPTIONAL_LAYERS.md`](docs/OPTIONAL_LAYERS.md)  
-  Use this after the core path. These are diagnostic layers unless explicitly promoted into the required gate set.
+  Use this after the core path. It maps diagnostic overlays, shadow workflows, and external companion surfaces such as Parameter Golf v0. These layers remain non-normative unless explicitly promoted into the required gate set. 
 
 --- 
 
