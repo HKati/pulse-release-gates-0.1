@@ -25,30 +25,6 @@
 **See the latest Quality Ledger (live):** https://hkati.github.io/pulse-release-gates-0.1/
 
 
-### Project links (mirrors)
-
-- **Repo:** https://github.com/HKati/pulse-release-gates-0.1
-- **Live Quality Ledger:** https://hkati.github.io/pulse-release-gates-0.1/
-
-- **Kaggle Dataset (EPF A/B artifacts, seeded) — DOI:** https://doi.org/10.34740/kaggle/dsv/13571702
-- **Kaggle Dataset (PULSE: deterministic, fail-closed release gates) — DOI:** https://doi.org/10.34740/kaggle/dsv/13519727
-
-- **Kaggle Notebook (repro figures — EPF A/B, seeded):**
-  https://www.kaggle.com/code/horvathkatalin/pulse-epf-shadow-a-b-reproduce-figures-seeded
-- **Kaggle Notebook (offline quick start — Ledger & Q3+Q4):**
-  https://www.kaggle.com/code/horvathkatalin/pulse-demo-offline-quick-start-q3-q4-ledger
-
-- **DOI (versioned, Zenodo):** https://doi.org/10.5281/zenodo.17373002
-- **DOI (concept, all versions, Zenodo):** https://doi.org/10.5281/zenodo.17214908
-
-- **Releases:** https://github.com/HKati/pulse-release-gates-0.1/releases
-
-- **Paradox Core (shadow reviewer surface):** https://hkati.github.io/pulse-release-gates-0.1/paradox/core/v0/
-  - Deterministic, CI-neutral by default (diagnostic overlay).
-  - Edges are non-causal (co-occurrence/association only).
-  - Provenance (source selection): https://hkati.github.io/pulse-release-gates-0.1/paradox/core/v0/source_v0.json
-
-
 # PULSE — Release Gates for Safe & Useful AI
 
 #### AI Release Stability Engineering
@@ -91,7 +67,7 @@ Choose one path first:
 - **Topology / Paradox / EPF / overlays** → see the deep docs map further below  
   These are diagnostic layers unless explicitly promoted into the required gate set.
 
-
+  
 ## Workflow map (2-minute orientation)
 
 Before opening `.github/workflows/`, keep this split in mind:
@@ -191,6 +167,14 @@ python PULSE_safe_pack_v0/tools/check_gates.py \
   --require $(python tools/policy_to_require_args.py --policy pulse_gate_policy_v0.yml --set required)
 ```
 
+> Core path note
+> If you only need deterministic release gating, you can stop here and continue with:
+> - `docs/STATUS_CONTRACT.md`
+> - `docs/status_json.md`
+> - `docs/RUNBOOK.md`
+>
+> Optional overlays, shadow workflows, and publication surfaces are mapped here:
+> `docs/OPTIONAL_LAYERS.md`
 
 ### Debugging (when CI warns/fails)
 If the OpenAI evals refusal smoke shadow workflow warns or fails, start here:
@@ -1027,12 +1011,39 @@ fail-closed release-governance layer for LLM applications, with:
 This repository contains the reference implementation of the safe-pack, profiles, schemas, tools and
 CI wiring corresponding to the preprint.
 
+---
+
+## Research / publication links
+
+<details>
+<summary><strong>Mirrors, datasets, notebooks, DOI, releases, and live Pages surfaces</strong></summary>
+
+- **Repo:** https://github.com/HKati/pulse-release-gates-0.1
+- **Live Quality Ledger:** https://hkati.github.io/pulse-release-gates-0.1/
+
+- **Kaggle Dataset (EPF A/B artifacts, seeded) — DOI:** https://doi.org/10.34740/kaggle/dsv/13571702
+- **Kaggle Dataset (PULSE: deterministic, fail-closed release gates) — DOI:** https://doi.org/10.34740/kaggle/dsv/13519727
+
+- **Kaggle Notebook (repro figures — EPF A/B, seeded):** https://www.kaggle.com/code/horvathkatalin/pulse-epf-shadow-a-b-reproduce-figures-seeded
+- **Kaggle Notebook (offline quick start — Ledger & Q3+Q4):** https://www.kaggle.com/code/horvathkatalin/pulse-demo-offline-quick-start-q3-q4-ledger
+
+- **DOI (versioned, Zenodo):** https://doi.org/10.5281/zenodo.17373002
+- **DOI (concept, all versions, Zenodo):** https://doi.org/10.5281/zenodo.17214908
+
+- **Releases:** https://github.com/HKati/pulse-release-gates-0.1/releases
+
+- **Paradox Core (shadow reviewer surface):** https://hkati.github.io/pulse-release-gates-0.1/paradox/core/v0/
+  - Deterministic, CI-neutral by default (diagnostic overlay).
+  - Edges are non-causal (co-occurrence/association only).
+  - Provenance (source selection): https://hkati.github.io/pulse-release-gates-0.1/paradox/core/v0/source_v0.json
+
+</details>
 
 ---
 
 ## Acknowledgments
 
-This work used **ChatGPT (GPT‑5 Pro)** for drafting support, CI workflow tips, and repo‑hygiene suggestions.  
+This work used **ChatGPT (GPT‑ Pro)** for drafting support, CI workflow tips, and repo‑hygiene suggestions.  
 Human authors retain full responsibility for the design, verification, and decisions.
 
 ---
