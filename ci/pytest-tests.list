@@ -1,7 +1,7 @@
-# Render-quality-ledger pytest suite executed by the main PULSE CI job.
+# Targeted pytest manifest executed by the main PULSE CI job.
 #
 # One path per line. Blank lines and comments are ignored.
-# This manifest must match the current render-quality-ledger pytest suite.
+# This manifest may include non-normative shadow/sidecar regressions.
 
 tests/test_exporters.py
 tests/test_render_quality_ledger.py

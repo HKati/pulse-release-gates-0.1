@@ -1,0 +1,67 @@
+{
+  "receipt_version": "0.1",
+  "receipt_kind": "parameter_golf_submission_review_receipt_v0",
+  "generated_from": {
+    "evidence_path": "examples/parameter_golf_submission_evidence_v0.example.json",
+    "schema_path": "schemas/parameter_golf_submission_evidence_v0.schema.json",
+    "verifier": "tools/verify_parameter_golf_submission_v0.py"
+  },
+  "validation": {
+    "valid_schema": true,
+    "warning_count": 0,
+    "warnings": []
+  },
+  "review_surface": {
+    "submission_type": "non_record",
+    "artifact_total_bytes_int8_zlib": 14988777,
+    "artifact_limit_bytes": 16000000,
+    "artifact_within_limit": true,
+    "evaluation_mode": "sliding_window",
+    "val_bpb": 1.1925,
+    "train_wallclock_s": 598.4,
+    "max_train_wallclock_s": 600.0,
+    "train_within_declared_max": true,
+    "n_runs": 3,
+    "run_log_count": 3,
+    "p_value": 0.008,
+    "comparison_target": "current_sota"
+  },
+  "claim_breakdown": {
+    "artifact_accounting": {
+      "counted_code_bytes": 18234,
+      "compressed_model_bytes": 14970543,
+      "artifact_total_bytes": 14988777,
+      "tokenizer_counted": false,
+      "tokenizer_bytes_if_counted": 215432
+    },
+    "evaluation": {
+      "mode": "sliding_window",
+      "seq_len": 4096,
+      "stride": 64,
+      "val_loss": 3.1415,
+      "val_bpb": 1.1925,
+      "eval_wallclock_s": 71.3,
+      "roundtrip_val_loss": 3.2052,
+      "roundtrip_val_bpb": 1.2194
+    },
+    "statistical_evidence": {
+      "n_runs": 3,
+      "run_logs": [
+        "logs/run_seed1337.log",
+        "logs/run_seed1338.log",
+        "logs/run_seed1339.log"
+      ],
+      "p_value": 0.008,
+      "comparison_target": "current_sota",
+      "claim_exemption_reason": null
+    }
+  },
+  "normative_boundary": {
+    "shadow_only": true,
+    "changes_pulse_release_outcome": false
+  },
+  "notes": [
+    "Generated from a v0 Parameter Golf evidence artifact.",
+    "This artifact is diagnostic only and does not change PULSE release outcomes."
+  ]
+}

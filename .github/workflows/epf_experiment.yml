@@ -3,7 +3,7 @@ name: EPF experiment (shadow)
 on:
   workflow_dispatch: {}
   push:
-    branches: [ main ]
+    branches: [main]
     paths:
       - "PULSE_safe_pack_v0/**"
       - "tools/**"
@@ -19,7 +19,6 @@ jobs:
     concurrency:
       group: epf-shadow-${{ github.ref }}
       cancel-in-progress: true
-
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
@@ -40,9 +39,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python -m pip install -U pip
 
+          python -m pip install -U pip
           deps_rc=0
+
           if [ -f PULSE_safe_pack_v0/requirements.txt ]; then
             echo "Installing PULSE_safe_pack_v0 requirements..."
             set +e
@@ -58,21 +58,23 @@ jobs:
           fi
 
           echo "rc=$deps_rc" >> "$GITHUB_OUTPUT"
+
           if [ "$deps_rc" -ne 0 ]; then
             echo "::warning::Dependency install failed (rc=$deps_rc). Continuing in stub/best-effort mode."
           fi
 
-      - name: Prepare inputs from PULSE pack baseline (or stub)
+      - name: Prepare shared input from PULSE pack baseline (core mode) or stub
         id: prepare
         shell: bash
         run: |
           set -euo pipefail
 
           runall_rc=0
+
           if [ -f PULSE_safe_pack_v0/tools/run_all.py ]; then
-            echo "Running PULSE_safe_pack_v0/tools/run_all.py to produce baseline status.json..."
+            echo "Running PULSE_safe_pack_v0/tools/run_all.py --mode core to produce baseline status.json..."
             set +e
-            python PULSE_safe_pack_v0/tools/run_all.py
+            python PULSE_safe_pack_v0/tools/run_all.py --mode core
             runall_rc=$?
             set -e
 
@@ -82,41 +84,39 @@ jobs:
 
             if [ -f PULSE_safe_pack_v0/artifacts/status.json ]; then
               cp PULSE_safe_pack_v0/artifacts/status.json status.json
-              echo "Using PULSE_safe_pack_v0/artifacts/status.json as baseline status.json"
+              echo "Using PULSE_safe_pack_v0/artifacts/status.json as shared input"
             else
-              echo "::warning::status.json not found after run_all.py; using stub status.json"
-              echo '{"metrics": {}}' > status.json
+              echo "::warning::status.json not found after run_all.py; using v1-shaped stub status.json"
+              printf '%s\n' '{"version":"1.0.0-shadow-stub","created_utc":"1970-01-01T00:00:00Z","metrics":{"run_mode":"core"},"gates":{}}' > status.json
             fi
           else
-            echo "::warning::PULSE_safe_pack_v0/tools/run_all.py not found; using stub status.json"
-            echo '{"metrics": {}}' > status.json
+            echo "::warning::PULSE_safe_pack_v0/tools/run_all.py not found; using v1-shaped stub status.json"
+            printf '%s\n' '{"version":"1.0.0-shadow-stub","created_utc":"1970-01-01T00:00:00Z","metrics":{"run_mode":"core"},"gates":{}}' > status.json
           fi
 
           echo "runall_rc=$runall_rc" >> "$GITHUB_OUTPUT"
 
-      - name: Baseline (deterministic) or stub
+      - name: Baseline (diagnostic compare branch) or stub
         id: base
         shell: bash
         run: |
           set -euo pipefail
 
-          # Start from status.json (real baseline or stub)
           if [ -f status.json ]; then
             cp status.json status_baseline.json
           else
-            echo '{"decisions": {}}' > status_baseline.json
+            printf '%s\n' '{"version":"1.0.0-shadow-stub","created_utc":"1970-01-01T00:00:00Z","metrics":{"run_mode":"core"},"gates":{}}' > status_baseline.json
           fi
 
-          # If there is no EPF gate config, stay in stub mode
           if [ ! -f pulse_gates.yaml ]; then
-            echo "::warning::pulse_gates.yaml not found; baseline gate evaluation will run in stub mode."
+            echo "::warning::pulse_gates.yaml not found; baseline compare branch will stay in stub mode."
             echo "rc=0" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
           rc=0
           if [ -f scripts/check_gates.py ]; then
-            echo "Running baseline check_gates from scripts/..."
+            echo "Running baseline compare branch via scripts/check_gates.py ..."
             set +e
             python scripts/check_gates.py \
               --config pulse_gates.yaml \
@@ -125,13 +125,14 @@ jobs:
             rc=$?
             set -e
           else
-            echo "No checker found; keeping stub status_baseline.json"
+            echo "::warning::scripts/check_gates.py not found; keeping baseline artifact as shared-input copy."
             rc=0
           fi
 
           echo "rc=$rc" >> "$GITHUB_OUTPUT"
+
           if [ "$rc" -ne 0 ]; then
-            echo "::warning::Baseline check_gates exited non-zero (rc=$rc)."
+            echo "::warning::Baseline compare branch exited non-zero (rc=$rc)."
           fi
 
       - name: EPF shadow run (non-blocking) or stub
@@ -140,23 +141,21 @@ jobs:
         run: |
           set -euo pipefail
 
-          # EPF shadow run starts from the same baseline input
           if [ -f status.json ]; then
             cp status.json status_epf.json
           else
-            echo '{"experiments":{"epf":{}}}' > status_epf.json
+            printf '%s\n' '{"version":"1.0.0-shadow-stub","created_utc":"1970-01-01T00:00:00Z","metrics":{"run_mode":"core"},"gates":{}}' > status_epf.json
           fi
 
-          # If there is no EPF gate config, stay in stub mode
           if [ ! -f pulse_gates.yaml ]; then
-            echo "::warning::pulse_gates.yaml not found; EPF shadow run will use stub decisions."
+            echo "::warning::pulse_gates.yaml not found; EPF shadow branch will stay in stub mode."
             echo "rc=0" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
           rc=0
           if [ -f scripts/check_gates.py ]; then
-            echo "Running EPF shadow check_gates from scripts/..."
+            echo "Running EPF shadow compare branch via scripts/check_gates.py ..."
             set +e
             python scripts/check_gates.py \
               --config pulse_gates.yaml \
@@ -167,16 +166,17 @@ jobs:
             rc=$?
             set -e
           else
-            echo "No checker found; keeping stub status_epf.json"
+            echo "::warning::scripts/check_gates.py not found; keeping EPF artifact as shared-input copy."
             rc=0
           fi
 
           echo "rc=$rc" >> "$GITHUB_OUTPUT"
+
           if [ "$rc" -ne 0 ]; then
-            echo "::warning::EPF check_gates exited non-zero (rc=$rc)."
+            echo "::warning::EPF compare branch exited non-zero (rc=$rc)."
           fi
 
-      - name: Compare & summarize
+      - name: Compare diagnostic outputs and summarize
         shell: bash
         env:
           DEPS_RC: ${{ steps.deps.outputs.rc }}
@@ -185,8 +185,11 @@ jobs:
           EPF_RC: ${{ steps.epf.outputs.rc }}
         run: |
           set -euo pipefail
+
           python - <<'PY'
-          import json, pathlib, os
+          import json
+          import os
+          import pathlib
 
           def load_json(path, default):
               try:
@@ -195,25 +198,23 @@ jobs:
               except Exception:
                   return default
 
-          a = load_json("status_baseline.json", {"decisions": {}})
-          b = load_json("status_epf.json", {"experiments": {"epf": {}}})
+          baseline = load_json("status_baseline.json", {})
+          epf = load_json("status_epf.json", {})
 
-          da = a.get("decisions", {}) or {}
-          db = (b.get("experiments", {}) or {}).get("epf", {}) or {}
+          baseline_decisions = baseline.get("decisions", {}) or {}
+          epf_shadow = (epf.get("experiments", {}) or {}).get("epf", {}) or {}
 
-          dec_epf = {}
-          for k, v in db.items():
+          epf_decisions = {}
+          for k, v in epf_shadow.items():
               if isinstance(v, dict):
                   dec = v.get("decision", v.get("status", v))
               else:
                   dec = v
-              dec_epf[k] = dec
+              epf_decisions[k] = dec
 
-          total = len(da)
           diffs = []
-          for k, v in da.items():
-              dv = dec_epf.get(k, None)
-              # IMPORTANT: dv may be False/0; treat that as a real value.
+          for k, v in baseline_decisions.items():
+              dv = epf_decisions.get(k, None)
               if dv is not None and dv != v:
                   diffs.append((k, v, dv))
 
@@ -225,10 +226,13 @@ jobs:
           summary = ""
           summary += f"Deps install rc: {deps_rc}\n"
           summary += f"run_all.py rc: {runall_rc}\n"
-          summary += f"baseline check_gates rc: {base_rc}\n"
-          summary += f"epf check_gates rc: {epf_rc}\n"
+          summary += f"baseline compare rc: {base_rc}\n"
+          summary += f"epf compare rc: {epf_rc}\n"
           summary += "\n"
-          summary += f"Total baseline gates: {total}\n"
+          summary += "This workflow is diagnostic / CI-neutral.\n"
+          summary += "The repository's release authority remains the final status.json + required gate enforcement path.\n"
+          summary += "\n"
+          summary += f"Total baseline compare decisions: {len(baseline_decisions)}\n"
           summary += f"Changed (baseline->EPF): {len(diffs)}\n"
 
           for k, ba, ep in diffs[:20]:
@@ -242,21 +246,25 @@ jobs:
               "runall_rc": runall_rc,
               "baseline_rc": base_rc,
               "epf_rc": epf_rc,
-              "total_gates": total,
+              "total_gates": len(baseline_decisions),
               "changed": len(diffs),
-              "examples": [{"gate": k, "baseline": ba, "epf": ep} for k, ba, ep in diffs[:5]],
+              "examples": [
+                  {"gate": k, "baseline": ba, "epf": ep}
+                  for k, ba, ep in diffs[:5]
+              ],
           }
+
           pathlib.Path("epf_paradox_summary.json").write_text(
               json.dumps(paradox, indent=2, ensure_ascii=False),
-              encoding="utf-8"
+              encoding="utf-8",
           )
           PY
 
           {
-            echo "### EPF Shadow Summary";
-            echo '```';
-            cat epf_report.txt;
-            echo '```';
+            echo "### EPF Shadow Summary"
+            echo '```'
+            cat epf_report.txt
+            echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
           if [ -f epf_paradox_summary.json ]; then
@@ -269,11 +277,12 @@ jobs:
               data = {}
           print(data.get("changed", 0))
           PY
-            )"
+          )"
+
             if [ "$changed" -gt 0 ] 2>/dev/null; then
-              echo "⚠️ EPF shadow detected ${changed} gate(s) with different decisions than the baseline." >> "$GITHUB_STEP_SUMMARY"
+              echo "⚠️ EPF shadow detected ${changed} diagnostic decision delta(s) versus the baseline compare branch." >> "$GITHUB_STEP_SUMMARY"
             else
-              echo "✅ EPF shadow run: no gate-level decision changes detected." >> "$GITHUB_STEP_SUMMARY"
+              echo "✅ EPF shadow run: no diagnostic decision deltas detected." >> "$GITHUB_STEP_SUMMARY"
             fi
           fi
 
@@ -284,6 +293,7 @@ jobs:
           name: epf-ab-artifacts
           if-no-files-found: warn
           path: |
+            status.json
             status_baseline.json
             status_epf.json
             epf_report.txt

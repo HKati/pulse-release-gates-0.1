@@ -4,12 +4,14 @@ on:
   push:
     paths:
       - "status.json"
-      - "schemas/status.schema.json"
+      - "schemas/status/status_v1.schema.json"
+      - "tools/validate_status_schema.py"
       - ".github/workflows/validate-status.yml"
   pull_request:
     paths:
       - "status.json"
-      - "schemas/status.schema.json"
+      - "schemas/status/status_v1.schema.json"
+      - "tools/validate_status_schema.py"
       - ".github/workflows/validate-status.yml"
   workflow_dispatch: {}
 
@@ -41,22 +43,21 @@ jobs:
         run: |
           set -euo pipefail
           python -m pip install -U pip
-          python -m pip install 'jsonschema>=4,<5'
+          python -m pip install "jsonschema>=4,<5"
 
-      - name: Validate status.json against schema
+      - name: Validate status.json against v1 schema
         shell: bash
         run: |
           set -euo pipefail
-          python - <<'PY'
-          import json, sys, jsonschema, pathlib
-          schema_path = pathlib.Path('schemas/status.schema.json')
-          status_path = pathlib.Path('status.json')
-          if not status_path.exists():
-              print("No status.json present; nothing to validate.")
-              sys.exit(0)
-          schema = json.loads(schema_path.read_text(encoding='utf-8'))
-          data   = json.loads(status_path.read_text(encoding='utf-8'))
-          jsonschema.validate(instance=data, schema=schema)
-          print("status.json valid ✅")
-          PY
 
+          STATUS_PATH="status.json"
+          SCHEMA_PATH="schemas/status/status_v1.schema.json"
+
+          if [[ ! -f "${STATUS_PATH}" ]]; then
+            echo "No status.json present; nothing to validate."
+            exit 0
+          fi
+
+          python tools/validate_status_schema.py \
+            --schema "${SCHEMA_PATH}" \
+            --status "${STATUS_PATH}"

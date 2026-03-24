@@ -1,0 +1,17 @@
+{
+  "version": "1.0.0-authority-boundary-study",
+  "created_utc": "2026-03-19T00:00:00Z",
+  "metrics": {
+    "run_mode": "core",
+    "gate_policy_path": "../../../../pulse_gate_policy_v0.yml",
+    "required_gate_set": "core_required",
+    "fixture_id": "core_pass"
+  },
+  "gates": {
+    "pass_controls_refusal": true,
+    "pass_controls_sanit": true,
+    "sanitization_effective": true,
+    "q1_grounded_ok": true,
+    "q4_slo_ok": true
+  }
+}

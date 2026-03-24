@@ -905,6 +905,7 @@ jobs:
             exit 0
           fi
           python "$SCRIPT" --status "$STATUS"
+          
 
       - name: Write PULSE summary
         shell: bash
@@ -1124,7 +1125,24 @@ jobs:
           mkdir -p "${PACK_DIR}/artifacts/reports" "${PACK_DIR}/artifacts/meta"
 
           python "${PACK_DIR}/tools/status_to_junit.py"
-          python "${PACK_DIR}/tools/status_to_sarif.py"
+
+          POLICY_SET="${PULSE_POLICY_SET:-core_required}"
+          REQ=()
+
+          if REQ_STR="$(python tools/policy_to_require_args.py --policy pulse_gate_policy_v0.yml --set "$POLICY_SET" --format space 2>/dev/null)"; then
+            if [[ -n "${REQ_STR}" ]]; then
+              read -r -a REQ <<< "$REQ_STR"
+            fi
+          else
+            echo "::warning::Failed to derive SARIF gate list for policy set '${POLICY_SET}'; exporting all gates."
+          fi
+
+          if (( ${#REQ[@]} > 0 )); then
+            python "${PACK_DIR}/tools/status_to_sarif.py" --require "${REQ[@]}"
+          else
+            python "${PACK_DIR}/tools/status_to_sarif.py"
+          fi
+
 
           python - <<'PY'
           import json
@@ -1235,14 +1253,14 @@ jobs:
 
           echo "Exporter + governance smoke tests OK"
 
-      - name: Run render-quality-ledger pytest suite
+      - name: Run targeted pytest suite
         shell: bash
         run: |
           set -euo pipefail
 
-          list_file="ci/render-quality-ledger-tests.list"
+          list_file="ci/pytest-tests.list"
           if [[ ! -f "${list_file}" ]]; then
-            echo "::error::Missing render-quality-ledger manifest: ${list_file}"
+            echo "::error::Missing pytest manifest: ${list_file}"
             exit 1
           fi
 
@@ -1283,7 +1301,7 @@ jobs:
             exit 1
           fi
 
-          echo "render-quality-ledger manifest (${#tests[@]} entries):"
+          echo "pytest manifest (${#tests[@]} entries):"
           printf ' - %s\n' "${tests[@]}"
 
           python -m pytest -q "${tests[@]}"

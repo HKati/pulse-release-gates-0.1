@@ -62,11 +62,35 @@ def _now_utc_z() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
+def _normalize_gates(gates: Any) -> dict[str, Any]:
+    if not isinstance(gates, dict):
+        return {}
+    return {str(k): v for k, v in gates.items()}
+
+
+def _select_gate_ids(gate_map: dict[str, Any], required: list[str] | None) -> list[str]:
+    if required is None:
+        return sorted(gate_map.keys())
+
+    wanted = {str(g).strip() for g in required if str(g).strip()}
+    missing = sorted(wanted - set(gate_map.keys()))
+    for gid in missing:
+        gh_warn(f"SARIF filter gate not present in status.json: {gid}")
+
+    return sorted(gid for gid in gate_map.keys() if gid in wanted)
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(add_help=True)
     ap.add_argument("--status", default="", help="Path to status.json (default: $PULSE_STATUS or pack artifacts/status.json)")
     ap.add_argument("--out", default="", help="Output path for SARIF JSON (default: $PULSE_SARIF or ./reports/sarif.json)")
     ap.add_argument("--tool-name", default="PULSE", help="SARIF tool.driver.name")
+    ap.add_argument(
+        "--require",
+        nargs="*",
+        default=None,
+        help="Optional gate IDs to include in SARIF export; if omitted, include all gates.",
+    )
     args = ap.parse_args()
 
     status_path = pathlib.Path(args.status) if str(args.status).strip() else _default_status_path()
@@ -81,11 +105,8 @@ def main() -> int:
         gh_warn("status.json is not a JSON object; skipping SARIF export.")
         return 0
 
-    gates = status.get("gates") or {}
-    if not isinstance(gates, dict):
-        gates = {}
-
-    gate_ids = sorted((str(k) for k in gates.keys()), key=lambda x: x)
+    gates = _normalize_gates(status.get("gates") or {})
+    gate_ids = _select_gate_ids(gates, args.require)
 
     # Deterministic rule set (all gates become rules; only failing gates become results)
     rules: list[dict[str, Any]] = []
