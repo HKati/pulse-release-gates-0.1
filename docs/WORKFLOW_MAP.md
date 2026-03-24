@@ -73,6 +73,20 @@ If you are opening this repository for the first time, use this order:
 - This family may also include PR comments, badge write-back, or Pages snapshots.
 - Keep these separate from the primary release-gating workflow.
 
+### E. Auxiliary security workflows
+**Purpose:** repository hygiene, investigation, and security publication
+
+- Examples:
+  - `.github/workflows/gitleaks.yml`
+  - `.github/workflows/secret_sweep.yml`
+  - `.github/workflows/secret_history.yml`
+  - `.github/workflows/secret_full_sweep.yml`
+  - `.github/workflows/upload_sarif.yml`
+
+- These workflows help detect, summarize, sanitize, or publish security findings.
+- By default they do not define release outcomes.
+- Keep them separate from the primary release-gating workflow unless a policy explicitly promotes them into the required gate set.
+
 ## Read this together with
 
 - `README.md`
@@ -88,5 +102,6 @@ Before adding a new workflow, decide which category it belongs to:
 - **guardrail**
 - **shadow / diagnostic**
 - **publication**
+- **auxiliary security**
 
 If that role is not stated clearly, the workflow becomes too easy to misread.
