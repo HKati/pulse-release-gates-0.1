@@ -26,6 +26,8 @@ pulse_gate_policy_v0.yml: add core_required gate set (minimal deterministic Core
 
 - q3_fairness_v0 (spec 0.1.1): Require non-empty dataset slice dimensions; fail-closed when missing/empty to prevent fairness checks from being skipped.
 
+- pulse-gate-policy-v0 (policy 0.1.2): introduce a dedicated `release_required` set for external-evidence release gating, while keeping `external_all_pass` in `required` for the currently enforced release-grade paths. This prepares the policy split without weakening live release gating. (PR: #1352)
+
 ## 0.1.0 — Initial baseline
 
 ### Policy
