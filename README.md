@@ -67,10 +67,7 @@ Choose one path first:
 - **Topology / Paradox / EPF / overlays** → see the deep docs map further below  
   These are diagnostic layers unless explicitly promoted into the required gate set.
 
-- Optional layers / research surfaces → `docs/OPTIONAL_LAYERS.md`
-  Open these only after the core path. They are diagnostic / research surfaces unless explicitly promoted into the required gate set.
-
-
+  
 ## Workflow map (2-minute orientation)
 
 Before opening `.github/workflows/`, keep this split in mind:
