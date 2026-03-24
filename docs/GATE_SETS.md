@@ -15,7 +15,9 @@ If this page and the policy disagree, the policy and workflow enforcement win.
 ## Current enforcement summary
 
 - `pull_request` runs enforce `core_required`
-- `main` branch pushes and version tag pushes (`v*` / `V*`) enforce `required`
+- pushes to `main` enforce `core_required` by default
+- version tag pushes (`v*` / `V*`) enforce `required`
+- `workflow_dispatch` runs enforce `core_required` by default; with `strict_external_evidence=true`, they enforce `required`
 - required gates are fail-closed on missing / false
 - the `advisory` set is currently empty
 
