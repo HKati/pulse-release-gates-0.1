@@ -102,5 +102,6 @@ Before adding a new workflow, decide which category it belongs to:
 - **guardrail**
 - **shadow / diagnostic**
 - **publication**
+- **auxiliary security**
 
 If that role is not stated clearly, the workflow becomes too easy to misread.
