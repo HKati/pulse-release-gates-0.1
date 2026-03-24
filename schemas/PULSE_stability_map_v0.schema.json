@@ -3,7 +3,7 @@
   "$id": "https://example.org/schemas/PULSE_stability_map_v0.schema.json",
   "title": "PULSE Stability Map v0",
   "type": "object",
-  "description": "Schema for stability_map.json produced by PULSE topology v0.",
+  "description": "Schema for the graph-style Stability Map v0 (states + transitions). This matches stability_map_v0.json. For the cell-style (cells + delta_bend) stability map used by demo tooling and Decision Engine summaries, see schemas/PULSE_stability_map_cells_v0.schema.json.",
   "required": [
     "version",
     "generated_at",

@@ -1,129 +1,162 @@
-## Refusal delta gate and `refusal_delta_summary.json`
+# Refusal-delta gate
 
-PULSE can use a refusal delta evaluation as one of the core safety signals in the
-release gate. The idea is to compare a candidate model against a baseline on a set of
-refusal‑focused prompts and quantify how much more (or less) it refuses.
+> How `refusal_delta_summary.json` is folded into the final PULSE `status.json`.
 
-The raw evaluation produces a summary file:
+PULSE can fold a refusal-delta evaluation into the final status artefact as a
+derived gate.
 
-- `artifacts/refusal_delta_summary.json` (inside the safe-pack)
+The raw evaluation artefact is:
 
-This file is consumed by `PULSE_safe_pack_v0/tools/augment_status.py`, which:
+- `PULSE_safe_pack_v0/artifacts/refusal_delta_summary.json`
 
-- copies key statistics into `metrics.*`,
-- and sets the `refusal_delta_pass` gate and its top-level mirror on `status.json`.
+The consumer is:
 
-### Where the summary is expected
+- `PULSE_safe_pack_v0/tools/augment_status.py`
 
-`augment_status.py` derives the safe-pack root from the `--status` path:
+That augmenter:
 
-- if `--status` is `<pack_dir>/artifacts/status.json`, then
-- it looks for `<pack_dir>/artifacts/refusal_delta_summary.json`.
+- copies key refusal-delta statistics into `metrics.*`,
+- sets `gates.refusal_delta_pass`,
+- and may also write the top-level convenience mirror
+  `status["refusal_delta_pass"]`.
 
-If the file exists and is valid JSON, it is used to populate metrics and gate values.
-If it does not exist, PULSE falls back to a **fail-closed** logic based on the presence
-of real refusal pairs (see below).
+Whether `refusal_delta_pass` is actually release-blocking depends on the gate
+set enforced by policy in CI.
 
-### Fields in `refusal_delta_summary.json`
+---
 
-A typical summary might look like:
+## 1. Where the summary is read from
+
+`augment_status.py` is invoked with a baseline status path, for example:
+
+```bash
+python PULSE_safe_pack_v0/tools/augment_status.py \
+  --status PULSE_safe_pack_v0/artifacts/status.json \
+  --thresholds external_thresholds.yaml \
+  --external_dir external_summaries
+```
+
+From that input it resolves:
+
+- the **artifacts directory** from the `--status` path, and
+- the refusal-delta summary as the sibling file:
+
+```text
+PULSE_safe_pack_v0/artifacts/refusal_delta_summary.json
+```
+
+The pack root used for fallback checks is resolved from the script location,
+not from the `--status` path.
+
+---
+
+## 2. Typical `refusal_delta_summary.json` structure
+
+A typical summary can look like this:
 
 ```json
 {
   "n": 100,
-  "delta": 0.05,
-  "ci_low": 0.02,
-  "ci_high": 0.08,
+  "delta": 0.07,
+  "ci_low": 0.03,
+  "ci_high": 0.11,
   "policy": "balanced",
-  "delta_min": 0.10,
-  "delta_strict": 0.20,
+  "delta_min": 0.05,
+  "delta_strict": 0.10,
   "p_mcnemar": 0.01,
   "pass_min": true,
   "pass_strict": false,
   "pass": true
 }
+```
 
-augment_status.py maps these fields into the metrics section of status.json:
+The important field for the final gate is:
 
-metrics.refusal_delta_n – number of evaluated pairs (n)
+- `pass` — the overall refusal-delta decision that becomes
+  `gates.refusal_delta_pass`
 
-metrics.refusal_delta – estimated refusal delta (delta)
+The other fields are retained as supporting evidence in `metrics.*`.
 
-metrics.refusal_delta_ci_low – lower bound of confidence interval (ci_low)
+---
 
-metrics.refusal_delta_ci_high – upper bound of confidence interval (ci_high)
+## 3. Mapping into `status.json`
 
-metrics.refusal_policy – evaluation policy name (policy, e.g. "balanced")
+When the summary is present and valid JSON, `augment_status.py` maps it into the
+final `status.json` as follows.
 
-metrics.refusal_delta_min – minimal acceptable delta (delta_min)
+### Metrics
 
-metrics.refusal_delta_strict – stricter target delta (delta_strict)
+- `metrics.refusal_delta_n` ← `n`
+- `metrics.refusal_delta` ← `delta`
+- `metrics.refusal_delta_ci_low` ← `ci_low`
+- `metrics.refusal_delta_ci_high` ← `ci_high`
+- `metrics.refusal_policy` ← `policy`
+- `metrics.refusal_delta_min` ← `delta_min`
+- `metrics.refusal_delta_strict` ← `delta_strict`
+- `metrics.refusal_p_mcnemar` ← `p_mcnemar`
+- `metrics.refusal_pass_min` ← `pass_min`
+- `metrics.refusal_pass_strict` ← `pass_strict`
 
-metrics.refusal_p_mcnemar – p-value from McNemar’s test (p_mcnemar)
+### Gate outcome
 
-metrics.refusal_pass_min – whether the minimal target passed (pass_min)
+- `gates.refusal_delta_pass` ← `pass`
 
-metrics.refusal_pass_strict – whether the strict target passed (pass_strict)
+### Convenience mirror
 
-The overall refusal delta gate is derived from the pass field:
+- `status["refusal_delta_pass"]` ← same boolean as the gate
 
-gates.refusal_delta_pass – true/false copy of summary["pass"]
+The normative location for the gate remains:
 
-status["refusal_delta_pass"] – top-level mirror for convenience
+```json
+status["gates"]["refusal_delta_pass"]
+```
 
-Fail-closed behaviour when no summary is present
+The top-level mirror is only a convenience field for simple consumers.
 
-If refusal_delta_summary.json is missing, augment_status.py checks for:
+---
 
-<pack_dir>/examples/refusal_pairs.jsonl
+## 4. Missing-summary fallback (current code behavior)
 
-This file is expected to contain the real refusal evaluation pairs used in the
-pipeline. The semantics are:
+If `refusal_delta_summary.json` is missing, the current fallback is simple and
+explicit.
 
-if examples/refusal_pairs.jsonl exists but there is no
-artifacts/refusal_delta_summary.json:
+`augment_status.py` checks for:
 
-PULSE assumes something went wrong in the evaluation step,
+```text
+PULSE_safe_pack_v0/examples/refusal_pairs.jsonl
+```
 
-and sets the gate to fail-closed:
+Then it applies this logic:
 
-"gates": {
-  "refusal_delta_pass": false
-},
-"refusal_delta_pass": false
+- if `examples/refusal_pairs.jsonl` **exists** but there is **no**
+  `artifacts/refusal_delta_summary.json`:
+  - `gates.refusal_delta_pass = false`
+  - `status["refusal_delta_pass"] = false`
 
+- if `examples/refusal_pairs.jsonl` **does not exist** and there is **no**
+  summary:
+  - `gates.refusal_delta_pass = true`
+  - `status["refusal_delta_pass"] = true`
 
-if examples/refusal_pairs.jsonl does not exist and there is no summary:
+This is the current code-level fallback behavior and should be documented
+exactly as implemented.
 
-PULSE assumes that no real refusal evaluation was configured for this pack,
+---
 
-and treats the gate as pass by default:
+## 5. Example extended `status.json` fragment
 
+After augmentation, a status artefact may include:
 
-"gates": {
-  "refusal_delta_pass": true
-},
-"refusal_delta_pass": true
-
-
-This behaviour helps avoid silent false positives (shipping a model whose refusal delta
-was never computed) while still allowing safe-packs that do not use refusal evaluations
-at all.
-
-How this shows up in status.json
-
-After augment_status.py runs, the extended status.json will include:
-
-
+```json
 {
   "metrics": {
     "refusal_delta_n": 100,
-    "refusal_delta": 0.05,
-    "refusal_delta_ci_low": 0.02,
-    "refusal_delta_ci_high": 0.08,
+    "refusal_delta": 0.07,
+    "refusal_delta_ci_low": 0.03,
+    "refusal_delta_ci_high": 0.11,
     "refusal_policy": "balanced",
-    "refusal_delta_min": 0.10,
-    "refusal_delta_strict": 0.20,
+    "refusal_delta_min": 0.05,
+    "refusal_delta_strict": 0.10,
     "refusal_p_mcnemar": 0.01,
     "refusal_pass_min": true,
     "refusal_pass_strict": false
@@ -133,15 +166,45 @@ After augment_status.py runs, the extended status.json will include:
   },
   "refusal_delta_pass": true
 }
+```
 
+---
 
+## 6. How to consume it
 
-CI pipelines can then:
+Recommended consumer rules:
 
-treat refusal_delta_pass as a gate in combination with other signals, and
+1. Read the normative gate from:
 
-surface the detailed metrics in dashboards or human-readable ledgers for
-incident response and audit.
+   ```json
+   status["gates"]["refusal_delta_pass"]
+   ```
 
-::contentReference[oaicite:0]{index=0}
+2. Treat the top-level `status["refusal_delta_pass"]` as optional convenience
+   only.
 
+3. Use the detailed refusal metrics for:
+   - dashboards,
+   - the Quality Ledger,
+   - audit / incident review,
+   - comparison across releases.
+
+4. If refusal-delta is expected in your workflow, archive the summary alongside
+   the final `status.json`.
+
+---
+
+## 7. Triage checklist
+
+If refusal-delta behaves unexpectedly in CI:
+
+- check whether `artifacts/refusal_delta_summary.json` exists,
+- validate that it is valid JSON,
+- confirm the `pass` field is present and has the intended boolean value,
+- check whether `PULSE_safe_pack_v0/examples/refusal_pairs.jsonl` exists,
+- inspect the final `status.json` after augmentation, not just the baseline.
+
+For the broader `status.json` contract, see:
+
+- [STATUS_CONTRACT.md](STATUS_CONTRACT.md)
+- [status_json.md](status_json.md)

@@ -1,0 +1,66 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://example.org/schemas/PULSE_stability_map_cells_v0.schema.json",
+  "title": "PULSE Stability Map v0 (cells)",
+  "type": "object",
+  "description": "Schema for the cell-style stability_map_v0 artefact (cells + delta_bend) produced by pulse_stability_map_demo_v0.py and consumed by pulse_decision_engine_v0.py. Diagnostic overlay only; does not define release semantics.",
+  "oneOf": [
+    { "$ref": "#/$defs/WrappedCellMap" },
+    { "$ref": "#/$defs/BareCellMap" }
+  ],
+  "$defs": {
+    "WrappedCellMap": {
+      "type": "object",
+      "required": ["stability_map_v0"],
+      "properties": {
+        "stability_map_v0": { "$ref": "#/$defs/CellMapBody" }
+      },
+      "additionalProperties": true
+    },
+    "BareCellMap": {
+      "$ref": "#/$defs/CellMapBody"
+    },
+    "CellMapBody": {
+      "type": "object",
+      "required": ["version", "generated_at_utc", "cells"],
+      "properties": {
+        "version": {
+          "type": "string",
+          "description": "Cell-style stability map producer/version marker.",
+          "examples": ["PULSE_stability_map_v0_demo"]
+        },
+        "generated_at_utc": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO8601 UTC timestamp when the artefact was generated."
+        },
+        "cells": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/StabilityCell" }
+        }
+      },
+      "additionalProperties": true
+    },
+    "StabilityCell": {
+      "type": "object",
+      "required": ["id", "delta_bend"],
+      "properties": {
+        "id": { "type": "string" },
+        "profile": { "type": ["string", "null"] },
+        "dataset_snapshot": { "type": ["string", "null"] },
+        "axes": { "type": "object", "additionalProperties": true },
+        "runs": { "type": "object", "additionalProperties": true },
+        "gates": { "type": "object", "additionalProperties": true },
+        "delta_bend": {
+          "type": "number",
+          "description": "Max absolute discrete curvature proxy across gates/axes."
+        },
+        "tags": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "additionalProperties": true
+    }
+  }
+}

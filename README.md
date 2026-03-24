@@ -41,12 +41,12 @@
 - **DOI (versioned, Zenodo):** https://doi.org/10.5281/zenodo.17373002
 - **DOI (concept, all versions, Zenodo):** https://doi.org/10.5281/zenodo.17214908
 
-Releases: https://github.com/HKati/pulse-release-gates-0.1/releases
+- **Releases:** https://github.com/HKati/pulse-release-gates-0.1/releases
 
-Paradox Core (shadow reviewer surface): https://hkati.github.io/pulse-release-gates-0.1/paradox/core/v0/
-- Deterministic, CI-neutral by default (diagnostic overlay).
-- Edges are non-causal (co-occurrence/association only).
-- Provenance (source selection): https://hkati.github.io/pulse-release-gates-0.1/paradox/core/v0/source_v0.json
+- **Paradox Core (shadow reviewer surface):** https://hkati.github.io/pulse-release-gates-0.1/paradox/core/v0/
+  - Deterministic, CI-neutral by default (diagnostic overlay).
+  - Edges are non-causal (co-occurrence/association only).
+  - Provenance (source selection): https://hkati.github.io/pulse-release-gates-0.1/paradox/core/v0/source_v0.json
 
 
 # PULSE — Release Gates for Safe & Useful AI
@@ -71,6 +71,25 @@ From **findings** to **fuses**. Run **PULSE before you ship**: deterministic, **
 > PULSE gives PASS/FAIL release gates, a human-readable **Quality Ledger**, and a stability signal (**RDSI**).
 
 ---
+
+## Start here
+
+Choose one path first:
+
+- **First run / adopter path** → [`docs/QUICKSTART_CORE_v0.md`](docs/QUICKSTART_CORE_v0.md)  
+  Minimal path to run the core pipeline on a repo.
+
+- **Release semantics / source-of-truth path** → [`docs/STATUS_CONTRACT.md`](docs/STATUS_CONTRACT.md) and [`docs/status_json.md`](docs/status_json.md)  
+  Read these first if you need to understand what actually gates shipping.
+
+- **Strict external evidence path** → [`docs/EXTERNAL_DETECTORS.md`](docs/EXTERNAL_DETECTORS.md) and [`docs/external_detector_summaries.md`](docs/external_detector_summaries.md)  
+  Use these if external summaries must be present and fail closed in release-grade paths.
+
+- **Triage / operational path** → [`docs/RUNBOOK.md`](docs/RUNBOOK.md)  
+  Start here when CI is red and you need the shortest path to diagnosis.
+
+- **Topology / Paradox / EPF / overlays** → see the deep docs map further below  
+  These are diagnostic layers unless explicitly promoted into the required gate set.
 
 
 ## Clarity First (before Paradox / EPF / Topology work)
@@ -108,7 +127,7 @@ UI and Pages surfaces must be pure readers/renderers of immutable run artefacts.
 
 - **External detectors (opt‑in):** merge JSON/JSONL summaries from safety tools into the gate + Quality Ledger.
 - **Refusal‑delta:** stability signal for refusal policies (audit‑friendly quantification).
-- **JUnit & SARIF:** export artifacts for CI dashboards and code scanning.
+- **JUnit & SARIF:**  write `reports/junit.xml` and `reports/sarif.json` as workflow artifacts; an optional separate `upload_sarif.yml` workflow can publish SARIF into GitHub Code Scanning.
 - **First‑run stays simple:** defaults unchanged; optional pieces can be enabled later.
 
 ➡️ Full notes: see [Releases](https://github.com/HKati/pulse-release-gates-0.1/releases) and [CHANGELOG](./CHANGELOG.md).
@@ -157,8 +176,6 @@ More details: see `openai_evals_v0/README.md` → “Debugging / triage (shadow)
 
 ---
 
-**See the latest Quality Ledger (live):** https://hkati.github.io/pulse-release-gates-0.1/
-
 **Artifacts**
 
 **Report Card** → `PULSE_safe_pack_v0/artifacts/report_card.html`  
@@ -187,9 +204,9 @@ change any CI behaviour or gate logic.
 
 3. **Run it**:
    - Open **Actions → PULSE CI → Run workflow** (or push a PR).
-   - PULSE will generate `status.json` and `report_card.html`; derivative artifacts (for example badges) may also be generated in the run workspace.
+   - PULSE will generate `status.json`, `report_card.html`, and, when exporters are present, `reports/junit.xml` + `reports/sarif.json`; derivative artifacts (for example badges) may also be generated in the run workspace.
    - The default workflow is **artifact-first** and **least-privilege**: it uploads artifacts and keeps repository mutation disabled by default.
-   - Badge write-back, PR comments, and Pages snapshots are **optional publish surfaces** and should live in a separate opt-in workflow with explicit write permissions.
+   - GitHub-native publish surfaces — for example SARIF upload to **Security → Code scanning alerts**, badge write-back, PR comments, or Pages snapshots — should live in separate opt-in workflows with explicit write permissions.
 
 
 **Ritual:** _Run PULSE before you ship._  
@@ -230,7 +247,12 @@ PULSE is deterministic if the runner image + seeds + CPU/GPU mode are pinned. Ex
 
 ## Native CI outputs
 
-From `status.json`, PULSE exports **JUnit** (Tests tab) and **SARIF** (Security → Code scanning alerts) into `reports/` and uploads them as CI artifacts.
+From `status.json`, PULSE can export **JUnit XML** and **SARIF** into `reports/` and upload them as CI artifacts.
+
+- `reports/junit.xml` — JUnit XML for downstream test-report tooling / CI consumers.
+- `reports/sarif.json` — SARIF for GitHub Code Scanning or any other SARIF consumer.
+
+The primary `.github/workflows/pulse_ci.yml` workflow stays read-only and artifact-first. If you want GitHub-native code-scanning alerts, add the optional `.github/workflows/upload_sarif.yml` workflow.
 
 ---
 
@@ -250,7 +272,7 @@ It will:
 6. **upload artifacts** (for example `status.json`, `report_card.html`, `reports/`, and generated badges when present),
 7. keep **repository write-back disabled by default**.
 
-Optional publish surfaces such as PR comments, badge commits, and Pages snapshots should be implemented in a separate opt-in workflow with explicit write permissions.
+Optional native publication — for example SARIF upload into GitHub Code Scanning — and other publish surfaces such as PR comments, badge commits, and Pages snapshots should be implemented in separate opt-in workflows with explicit write permissions.
 
 ## Governance preflight (fail‑closed)
 
@@ -277,7 +299,7 @@ This repo now exposes a small “G‑field” surface as CI‑neutral overlays.
 They do **not** change any gates or release decisions; they only add extra
 diagnostic layers on top of the existing PULSE status.
 
-Current overlays:
+Additional overlays:
 
 - **G‑field overlay (`g_field_v0.json`)**  
   Snapshot of the internal G‑child field for recent traces / scenarios.  
@@ -720,7 +742,7 @@ python scripts/inspect_paradox_v0.py \
 
 ---
 
-## Documentation map
+## Deep docs  map
 
 Start here:
 
@@ -786,12 +808,13 @@ JSON and narrative views.
 
 It consists of:
 
-- **Stability Map v0** – aggregates `status.json` and optional EPF metrics
-  into a stability score and stability type per run.
-- **Decision Engine v0** – reads the Stability Map and produces a structured
-  decision trace (BLOCK / STAGE_ONLY / PROD_OK + explanation).
-- **Dual View v0** – a shared human + agent view of the same data
-  (short narrative + machine‑friendly JSON).
+It consists of:
+
+  * Stability Map v0 — stability/topology diagnostic surface. The repo currently ships:
+    * graph-style Stability Map (`states` + `transitions`) — schema/fixture
+    * cell-style Stability Map (`cells` + `delta_bend`) — demo/tooling + Decision Engine summaries
+  * Decision Engine v0 — reads `status.json` (required) plus optional overlays (stability map + paradox field) and emits `decision_engine_v0.json` (compact diagnostic summary). `decision_trace_v0*.json` is a separate dashboard/demo trace surface.
+  * Dual View v0 — aligned human + machine view over the same archived artefact chain (short    narrative + machine-friendly JSON). 
 
 
 ## Docs & specs
@@ -804,8 +827,10 @@ It consists of:
   – CLI-level methods, including Stability Map v0 pipeline.
 - `docs/PULSE_topology_v0_case_study.md`  
   – Real-world style case study for Topology v0.
-- `schemas/PULSE_stability_map_v0.schema.json`  
-  – Stability Map v0 JSON schema (includes `paradox_field_v0` and `epf_field_v0`).
+  * `schemas/PULSE_stability_map_v0.schema.json`
+– Graph-style Stability Map v0 JSON schema (`states` + `transitions`).
+  * `schemas/PULSE_stability_map_cells_v0.schema.json`
+– Cell-style Stability Map v0 JSON schema (`cells` + `delta_bend`; demo/tooling + Decision Engine summaries).
 
 **Paradox field & memory metrics v0**
 
@@ -913,28 +938,21 @@ For a detailed overview and examples, see:
 
 ---
 
-## Documentation
+## Core reference pages
 
-PULSE ships a few focused docs pages for people integrating the safe-pack
-into CI/CD or audits:
+For the shortest canonical references, start with:
 
-- [`docs/status_json.md`](docs/status_json.md)  
-  Overview of the `status.json` artefact: metrics, gates and how other
-  tools consume it.
+- [`docs/status_json.md`](docs/status_json.md)
+- [`docs/STATUS_CONTRACT.md`](docs/STATUS_CONTRACT.md)
+- [`docs/EXTERNAL_DETECTORS.md`](docs/EXTERNAL_DETECTORS.md)
+- [`docs/quality_ledger.md`](docs/quality_ledger.md)
 
-- [`docs/refusal_delta_gate.md`](docs/refusal_delta_gate.md)  
-  Refusal delta summary format and the `refusal_delta_pass` gate, including
-  fail‑closed behaviour when evaluations are missing.
-
-- [docs/EXTERNAL_DETECTORS.md](docs/EXTERNAL_DETECTORS.md) — External detectors policy & modes (gating vs advisory).  
-  How external detector summaries (LlamaGuard, Promptfoo, Garak, Azure eval,
-  Prompt Guard, …) are folded into `status.json` and the `external_all_pass`
-  gate.
-
-- [`docs/quality_ledger.md`](docs/quality_ledger.md)  
-  Human‑facing PULSE Quality Ledger (report_card.html): layout, purpose and
-  how it relates to `status.json`.
-
+### Q1 reference lane (shadow)
+- [`docs/Q1_REFERENCE_TRACK.md`](docs/Q1_REFERENCE_TRACK.md) — Overview of the checked-in Q1 reference groundedness lane.
+- `examples/q1_reference_input_manifest.json` — checked-in input manifest
+- `examples/q1_reference_labels.pass_120.jsonl` — canonical pass fixture
+- `examples/q1_groundedness_summary.example.json` — checked-in summary example
+- `tests/test_q1_reference_golden_path.py` — end-to-end golden-path smoke
 
 ---
 
@@ -996,9 +1014,6 @@ Human authors retain full responsibility for the design, verification, and decis
 
 - [Lighthouse Case #1](PULSE_safe_pack_v0/docs/LIGHTHOUSE_CASE_1.md)
 - [Competitor Radar (2025)](PULSE_safe_pack_v0/docs/COMPETITOR_RADAR_2025.md)
-
-## License & contact
-
 
 ## License & contact
 

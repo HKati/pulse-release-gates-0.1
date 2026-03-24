@@ -8,13 +8,14 @@ status.json and related artifacts under the pack's artifacts directory,
 which are then consumed by CI workflows and reporting tools.
 """
 
-import os
-import json
+import argparse
 import datetime
+import hashlib
+import json
+import os
 import pathlib
-import sys
 import subprocess
-from html import escape
+import sys
 from typing import Optional, Tuple
 
 
@@ -23,6 +24,10 @@ REPO_ROOT = ROOT.parent
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+from PULSE_safe_pack_v0.tools.render_quality_ledger import (  # noqa: E402
+    write_quality_ledger,
+)
+
 # Allow tests / callers to override artifact output directory.
 # Default remains pack_root/artifacts to preserve existing behavior.
 ART_DIR_ENV = os.getenv("PULSE_ARTIFACT_DIR")
@@ -30,8 +35,6 @@ art = pathlib.Path(ART_DIR_ENV) if ART_DIR_ENV else (ROOT / "artifacts")
 art.mkdir(parents=True, exist_ok=True)
 
 now = datetime.datetime.utcnow().isoformat() + "Z"
-import argparse
-import hashlib
 
 SUPPORTED_MODES = ("demo", "core", "prod")
 
@@ -106,10 +109,10 @@ from PULSE_safe_pack_v0.epf.epf_hazard_policy import (  # noqa: E402
     evaluate_hazard_gate,
 )
 from PULSE_safe_pack_v0.epf.epf_hazard_forecast import (  # noqa: E402
-    DEFAULT_WARN_THRESHOLD,
-    DEFAULT_CRIT_THRESHOLD,
-    CALIBRATED_WARN_THRESHOLD,
     CALIBRATED_CRIT_THRESHOLD,
+    CALIBRATED_WARN_THRESHOLD,
+    DEFAULT_CRIT_THRESHOLD,
+    DEFAULT_WARN_THRESHOLD,
     MIN_CALIBRATION_SAMPLES,
 )
 
@@ -122,7 +125,11 @@ except Exception:  # pragma: no cover
     _HAZARD_CALIB_PATH_DEFAULT = ROOT / "artifacts" / "epf_hazard_thresholds_v0.json"
 
 _hazard_calib_candidate = art / pathlib.Path(_HAZARD_CALIB_PATH_DEFAULT).name
-HAZARD_CALIB_PATH = _hazard_calib_candidate if _hazard_calib_candidate.exists() else pathlib.Path(_HAZARD_CALIB_PATH_DEFAULT)
+HAZARD_CALIB_PATH = (
+    _hazard_calib_candidate
+    if _hazard_calib_candidate.exists()
+    else pathlib.Path(_HAZARD_CALIB_PATH_DEFAULT)
+)
 
 
 # ---------------------------------------------------------------------------
@@ -297,7 +304,7 @@ def build_epf_field_snapshots(
 
 
 # ---------------------------------------------------------------------------
-# Helpers for EPF hazard history / sparkline + UI formatting
+# Helpers for EPF hazard history / context
 # ---------------------------------------------------------------------------
 
 def load_hazard_E_history(
@@ -334,54 +341,6 @@ def load_hazard_E_history(
                 values.append(float(E))
 
     return values[-max_points:] if values else []
-
-
-def build_E_sparkline_svg(values, width: int = 160, height: int = 40) -> str:
-    if len(values) < 2:
-        return ""
-
-    min_v = min(values)
-    max_v = max(values)
-    if max_v == min_v:
-        max_v = min_v + 1.0
-
-    padding = 4
-    inner_w = width - 2 * padding
-    inner_h = height - 2 * padding
-
-    points = []
-    n = len(values)
-    for i, v in enumerate(values):
-        t = i / (n - 1) if n > 1 else 0.0
-        x = padding + t * inner_w
-        norm = (v - min_v) / (max_v - min_v)
-        y = height - padding - norm * inner_h
-        points.append(f"{x:.1f},{y:.1f}")
-
-    points_str = " ".join(points)
-
-    svg = f"""<svg viewBox="0 0 {width} {height}" width="{width}" height="{height}" role="img" aria-label="Recent E history">
-  <polyline fill="none" stroke="#4f46e5" stroke-width="1.5" points="{points_str}" />
-</svg>"""
-    return svg
-
-
-def format_top_contributors(contribs, k: int = 3) -> str:
-    if not isinstance(contribs, list) or not contribs:
-        return "none"
-
-    parts = []
-    for c in contribs[:k]:
-        if not isinstance(c, dict):
-            continue
-        key = escape(str(c.get("key", "UNKNOWN")))
-        contrib = c.get("contrib")
-        if isinstance(contrib, (int, float)):
-            parts.append(f"{key}({float(contrib):.2f})")
-        else:
-            parts.append(key)
-
-    return ", ".join(parts) if parts else "none"
 
 
 def load_last_hazard_feature_context(
@@ -439,17 +398,6 @@ def load_last_hazard_feature_context(
     return (keys, src, bool(active))
 
 
-def format_feature_keys(keys: list[str], preview: int = 6) -> str:
-    if not keys:
-        return "none"
-
-    shown = keys[:preview]
-    shown_esc = [escape(k) for k in shown]
-    if len(keys) > preview:
-        return ", ".join(shown_esc) + f" +{len(keys) - preview} more"
-    return ", ".join(shown_esc)
-
-
 def load_calibration_recommendation(calib_path: pathlib.Path) -> dict:
     out = {
         "present": False,
@@ -499,24 +447,24 @@ def load_calibration_recommendation(calib_path: pathlib.Path) -> dict:
 # ---------------------------------------------------------------------------
 
 BASE_GATES = {
-  "pass_controls_refusal": True,
-  "effect_present": True,
-  "psf_monotonicity_ok": True,
-  "psf_mono_shift_resilient": True,
-  "pass_controls_comm": True,
-  "psf_commutativity_ok": True,
-  "psf_comm_shift_resilient": True,
-  "pass_controls_sanit": True,
-  "sanitization_effective": True,
-  "sanit_shift_resilient": True,
-  "psf_action_monotonicity_ok": True,
-  "psf_idempotence_ok": True,
-  "psf_path_independence_ok": True,
-  "psf_pii_monotonicity_ok": True,
-  "q1_grounded_ok": True,
-  "q2_consistency_ok": True,
-  "q3_fairness_ok": True,
-  "q4_slo_ok": True,
+    "pass_controls_refusal": True,
+    "effect_present": True,
+    "psf_monotonicity_ok": True,
+    "psf_mono_shift_resilient": True,
+    "pass_controls_comm": True,
+    "psf_commutativity_ok": True,
+    "psf_comm_shift_resilient": True,
+    "pass_controls_sanit": True,
+    "sanitization_effective": True,
+    "sanit_shift_resilient": True,
+    "psf_action_monotonicity_ok": True,
+    "psf_idempotence_ok": True,
+    "psf_path_independence_ok": True,
+    "psf_pii_monotonicity_ok": True,
+    "q1_grounded_ok": True,
+    "q2_consistency_ok": True,
+    "q3_fairness_ok": True,
+    "q4_slo_ok": True,
 }
 
 if RUN_MODE in ("demo", "core"):
@@ -526,11 +474,15 @@ else:
     gates = {k: False for k in BASE_GATES.keys()}
 
 metrics = {
-  "RDSI": 0.92 if RUN_MODE in ("demo", "core") else 0.0,
-  "rdsi_note": ("Demo value for CI smoke-run" if RUN_MODE == "demo"
-                else "Core CI smoke-run" if RUN_MODE == "core"
-                else "PROD placeholder: baseline gates are fail-closed until detectors are wired"),
-  "build_time": now,
+    "RDSI": 0.92 if RUN_MODE in ("demo", "core") else 0.0,
+    "rdsi_note": (
+        "Demo value for CI smoke-run"
+        if RUN_MODE == "demo"
+        else "Core CI smoke-run"
+        if RUN_MODE == "core"
+        else "PROD placeholder: baseline gates are fail-closed until detectors are wired"
+    ),
+    "build_time": now,
 }
 
 metrics["run_mode"] = RUN_MODE
@@ -612,39 +564,29 @@ metrics["hazard_T_scaled"] = hazard_T_scaled
 metrics["hazard_contributors_top"] = hazard_contributors_top
 
 # Feature-mode context (from the last log event for this gate_id)
-hazard_feature_keys, hazard_feature_mode_source, hazard_feature_mode_active = load_last_hazard_feature_context(
-    hazard_log_path,
-    gate_id=hazard_gate_id,
+hazard_feature_keys, hazard_feature_mode_source, hazard_feature_mode_active = (
+    load_last_hazard_feature_context(
+        hazard_log_path,
+        gate_id=hazard_gate_id,
+    )
 )
 metrics["hazard_feature_keys"] = hazard_feature_keys
 metrics["hazard_feature_count"] = int(len(hazard_feature_keys))
 metrics["hazard_feature_mode_source"] = str(hazard_feature_mode_source)
 metrics["hazard_feature_mode_active"] = bool(hazard_feature_mode_active)
+feature_mode_label = "ON" if bool(hazard_feature_mode_active) else "OFF"
 
 # Calibration recommendation summary (if present)
 calib_summary = load_calibration_recommendation(pathlib.Path(HAZARD_CALIB_PATH))
 metrics["hazard_recommended_count"] = int(calib_summary.get("recommended_count", 0) or 0)
 metrics["hazard_recommend_min_coverage"] = calib_summary.get("min_coverage")
 metrics["hazard_recommend_max_features"] = calib_summary.get("max_features")
-metrics["hazard_feature_allowlist_count"] = int(calib_summary.get("feature_allowlist_count", 0) or 0)
+metrics["hazard_feature_allowlist_count"] = int(
+    calib_summary.get("feature_allowlist_count", 0) or 0
+)
 
-# E-history sparkline (per series)
+# E-history for Stability Map artefact
 E_history = load_hazard_E_history(hazard_log_path, max_points=20, gate_id=hazard_gate_id)
-hazard_history_svg = build_E_sparkline_svg(E_history)
-if E_history and hazard_history_svg:
-    history_fragment = (
-        '<div class="epf-hazard-history">'
-        '<span class="epf-hazard-history-label">Recent E history</span>'
-        f"{hazard_history_svg}"
-        "</div>"
-    )
-else:
-    history_fragment = (
-        '<div class="epf-hazard-history">'
-        '<span class="epf-hazard-history-label">Recent E history</span>'
-        '<span class="epf-hazard-history-empty">Not enough hazard history yet</span>'
-        "</div>"
-    )
 
 # Threshold regime label (for UI + Stability Map)
 calib_is_effective = (
@@ -694,7 +636,9 @@ stability_map_payload = {
         "used_feature_count": int(features_used_n),
         "used_feature_keys": list(hazard_feature_keys),
         "recommended_count": int(rec_n),
-        "recommend_min_coverage": float(rec_min_cov) if isinstance(rec_min_cov, (int, float)) else None,
+        "recommend_min_coverage": (
+            float(rec_min_cov) if isinstance(rec_min_cov, (int, float)) else None
+        ),
         "recommend_max_features": int(rec_max_feats) if isinstance(rec_max_feats, int) else None,
     },
     "thresholds": {
@@ -734,462 +678,29 @@ stub_profile = "all_true_smoke" if RUN_MODE in ("demo", "core") else "fail_close
 diagnostics = {
     "scaffold": True,
     "gates_stubbed": True,
-    "stub_profile":  stub_profile,
+    "stub_profile": stub_profile,
 }
 
 status = {
-  "version": STATUS_VERSION,
-  "created_utc": now,
-  "gates": gates,
-  "metrics": metrics,
-  "diagnostics": diagnostics,
+    "version": STATUS_VERSION,
+    "created_utc": now,
+    "gates": gates,
+    "metrics": metrics,
+    "diagnostics": diagnostics,
 }
 
-write_json_artifact(art / "status.json", status)
+status_path = art / "status.json"
+write_json_artifact(status_path, status)
 
 # ---------------------------------------------------------------------------
-# HTML report card (demo Quality Ledger view)
+# HTML report card via Quality Ledger renderer
 # ---------------------------------------------------------------------------
 
-all_gates_pass = all(gates.values())
-decision_label = "DEMO-PASS" if all_gates_pass else "DEMO-FAIL"
+report_card_path = art / "report_card.html"
+write_quality_ledger(status_path, report_card_path)
 
-zone = metrics["hazard_zone"]
-if zone == "GREEN":
-    hazard_badge_class = "badge-green"
-elif zone == "AMBER":
-    hazard_badge_class = "badge-amber"
-elif zone == "RED":
-    hazard_badge_class = "badge-red"
-else:
-    hazard_badge_class = "badge-unknown"
-
-topo_region = str(metrics.get("hazard_topology_region", "unknown"))
-if topo_region == "stably_good":
-    topo_badge_class = "badge-topo-good"
-elif topo_region == "unstably_good":
-    topo_badge_class = "badge-topo-ugood"
-elif topo_region == "stably_bad":
-    topo_badge_class = "badge-topo-bad"
-elif topo_region == "unstably_bad":
-    topo_badge_class = "badge-topo-ubad"
-else:
-    topo_badge_class = "badge-topo-unknown"
-
-scale_badge_class = "badge-scaled" if hazard_T_scaled else "badge-unscaled"
-scale_badge_text = "SCALED" if hazard_T_scaled else "UNSCALED"
-contributors_text = format_top_contributors(hazard_contributors_top, k=3)
-
-features_used_text = format_feature_keys(hazard_feature_keys, preview=6)
-
-feature_mode_label = "ON" if bool(hazard_feature_mode_active) else "OFF"
-feature_mode_source_text = escape(str(hazard_feature_mode_source))
-
-rec_min_cov_text = f"{float(rec_min_cov):.2f}" if isinstance(rec_min_cov, (int, float)) else "n/a"
-
-hazard_gate_id_text = escape(str(metrics.get("hazard_gate_id", "unknown")))
-baseline_ok_text = "OK" if bool(metrics.get("hazard_baseline_ok")) else "FAIL"
-
-stability_map_filename_text = escape(STABILITY_MAP_FILENAME)
-stability_map_schema_text = escape(STABILITY_MAP_SCHEMA_V0)
-
-gate_rows = []
-for name, ok in sorted(gates.items()):
-    status_class = "status-pass" if ok else "status-fail"
-    status_text = "✅ PASS" if ok else "❌ FAIL"
-    gate_rows.append(
-        f'            <tr><td>{name}</td>'
-        f'<td><span class="{status_class}">{status_text}</span></td></tr>'
-    )
-gate_rows_html = "\n".join(gate_rows)
-
-html = f"""<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <title>PULSE Report Card — demo</title>
-    <style>
-      :root {{
-        color: #111827;
-        background-color: #f9fafb;
-        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      }}
-      body {{
-        margin: 0;
-        padding: 1.5rem;
-        background-color: #f9fafb;
-      }}
-      .prc-shell {{
-        max-width: 900px;
-        margin: 0 auto;
-        background: #ffffff;
-        border-radius: 12px;
-        box-shadow: 0 10px 30px rgba(15, 23, 42, 0.12);
-        padding: 1.5rem 2rem 2rem;
-      }}
-      h1 {{
-        margin: 0 0 0.25rem;
-        font-size: 1.5rem;
-      }}
-      h2 {{
-        margin-top: 1.5rem;
-        font-size: 1.1rem;
-      }}
-      .prc-meta {{
-        margin: 0;
-        font-size: 0.8rem;
-        color: #6b7280;
-      }}
-      .prc-strip {{
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        gap: 0.75rem;
-        margin-top: 1rem;
-        padding: 0.75rem 1rem;
-        border-radius: 10px;
-        background: linear-gradient(90deg, #0f172a, #1f2937);
-        color: #e5e7eb;
-        font-size: 0.9rem;
-      }}
-      .strip-left,
-      .strip-right {{
-        display: flex;
-        flex-wrap: wrap;
-        align-items: center;
-        gap: 0.5rem;
-      }}
-      .badge {{
-        display: inline-block;
-        padding: 0.15rem 0.6rem;
-        border-radius: 999px;
-        font-size: 0.8rem;
-        font-weight: 600;
-        letter-spacing: 0.02em;
-        text-transform: uppercase;
-      }}
-      .badge-decision {{
-        background: rgba(34, 197, 94, 0.18);
-        color: #bbf7d0;
-        border: 1px solid rgba(34, 197, 94, 0.6);
-      }}
-      .badge-rdsi {{
-        background: rgba(59, 130, 246, 0.18);
-        color: #bfdbfe;
-        border: 1px solid rgba(59, 130, 246, 0.6);
-      }}
-      .badge-green {{
-        background: rgba(34, 197, 94, 0.15);
-        color: #bbf7d0;
-        border: 1px solid rgba(34, 197, 94, 0.5);
-      }}
-      .badge-amber {{
-        background: rgba(245, 158, 11, 0.18);
-        color: #fed7aa;
-        border: 1px solid rgba(245, 158, 11, 0.6);
-      }}
-      .badge-red {{
-        background: rgba(248, 113, 113, 0.18);
-        color: #fecaca;
-        border: 1px solid rgba(248, 113, 113, 0.6);
-      }}
-      .badge-unknown {{
-        background: rgba(148, 163, 184, 0.18);
-        color: #e5e7eb;
-        border: 1px solid rgba(148, 163, 184, 0.6);
-      }}
-
-      /* Topology badges (diagnostic overlay) */
-      .badge-topo-good {{
-        background: rgba(34, 197, 94, 0.15);
-        color: #bbf7d0;
-        border: 1px solid rgba(34, 197, 94, 0.5);
-      }}
-      .badge-topo-ugood {{
-        background: rgba(245, 158, 11, 0.18);
-        color: #fed7aa;
-        border: 1px solid rgba(245, 158, 11, 0.6);
-      }}
-      .badge-topo-bad {{
-        background: rgba(248, 113, 113, 0.18);
-        color: #fecaca;
-        border: 1px solid rgba(248, 113, 113, 0.6);
-      }}
-      .badge-topo-ubad {{
-        background: rgba(244, 63, 94, 0.18);
-        color: #fecdd3;
-        border: 1px solid rgba(244, 63, 94, 0.6);
-      }}
-      .badge-topo-unknown {{
-        background: rgba(148, 163, 184, 0.18);
-        color: #e5e7eb;
-        border: 1px solid rgba(148, 163, 184, 0.6);
-      }}
-
-      .badge-scaled {{
-        background: rgba(16, 185, 129, 0.16);
-        color: #a7f3d0;
-        border: 1px solid rgba(16, 185, 129, 0.55);
-      }}
-      .badge-unscaled {{
-        background: rgba(148, 163, 184, 0.18);
-        color: #e5e7eb;
-        border: 1px solid rgba(148, 163, 184, 0.6);
-      }}
-      .strip-note {{
-        font-size: 0.78rem;
-        opacity: 0.9;
-      }}
-      .epf-hazard-panel {{
-        margin-top: 1.25rem;
-        padding: 0.9rem 1rem;
-        border-radius: 10px;
-        border: 1px solid #e5e7eb;
-        background: #f9fafb;
-        font-size: 0.88rem;
-      }}
-      .epf-hazard-header {{
-        display: flex;
-        justify-content: space-between;
-        align-items: baseline;
-        gap: 0.75rem;
-        margin-bottom: 0.5rem;
-      }}
-      .epf-hazard-title {{
-        font-weight: 600;
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        flex-wrap: wrap;
-      }}
-      .epf-hazard-metrics {{
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.75rem;
-        margin: 0.2rem 0 0.3rem;
-      }}
-      .epf-hazard-metric span {{
-        display: block;
-        font-size: 0.78rem;
-      }}
-      .epf-hazard-metric span:first-child {{
-        text-transform: uppercase;
-        letter-spacing: 0.04em;
-        color: #6b7280;
-      }}
-      .epf-hazard-metric span:last-child {{
-        font-weight: 600;
-      }}
-      .epf-hazard-reason {{
-        margin: 0.35rem 0 0;
-        font-size: 0.8rem;
-        color: #4b5563;
-      }}
-      .epf-hazard-contrib {{
-        margin-top: 0.45rem;
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.5rem;
-        align-items: baseline;
-        font-size: 0.8rem;
-        color: #4b5563;
-      }}
-      .epf-hazard-contrib-label {{
-        text-transform: uppercase;
-        letter-spacing: 0.08em;
-        color: #6b7280;
-        font-size: 0.75rem;
-      }}
-      .epf-hazard-footnote {{
-        margin: 0.4rem 0 0;
-        font-size: 0.75rem;
-        color: #6b7280;
-      }}
-      .epf-hazard-history {{
-        margin-top: 0.6rem;
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-      }}
-      .epf-hazard-history-label {{
-        font-size: 0.78rem;
-        color: #6b7280;
-        text-transform: uppercase;
-        letter-spacing: 0.08em;
-      }}
-      .epf-hazard-history-empty {{
-        font-size: 0.78rem;
-        color: #9ca3af;
-      }}
-      .epf-hazard-history svg {{
-        display: block;
-      }}
-      table.gate-table {{
-        width: 100%;
-        border-collapse: collapse;
-        margin-top: 1.25rem;
-        font-size: 0.86rem;
-      }}
-      table.gate-table th,
-      table.gate-table td {{
-        padding: 0.4rem 0.5rem;
-        border-bottom: 1px solid #e5e7eb;
-      }}
-      table.gate-table th {{
-        text-align: left;
-        font-size: 0.78rem;
-        text-transform: uppercase;
-        letter-spacing: 0.08em;
-        color: #6b7280;
-      }}
-      table.gate-table td:nth-child(2) {{
-        width: 6.5rem;
-        text-align: center;
-        font-weight: 600;
-      }}
-      .status-pass {{
-        color: #15803d;
-      }}
-      .status-fail {{
-        color: #b91c1c;
-      }}
-      footer {{
-        margin-top: 1.25rem;
-        font-size: 0.75rem;
-        color: #9ca3af;
-      }}
-      @media (max-width: 640px) {{
-        .prc-shell {{
-          padding: 1.25rem 1.2rem 1.5rem;
-        }}
-        .prc-strip {{
-          flex-direction: column;
-          align-items: flex-start;
-        }}
-      }}
-    </style>
-  </head>
-  <body>
-    <main class="prc-shell">
-      <header>
-        <h1>PULSE — Demo Report Card</h1>
-        <p class="prc-meta">
-          Build: {now} · Status version: {STATUS_VERSION}
-        </p>
-      </header>
-
-      <section class="prc-strip">
-        <div class="strip-left">
-          <span class="badge badge-decision">{decision_label}</span>
-          <span class="badge badge-rdsi">RDSI {metrics['RDSI']:.2f}</span>
-          <span class="badge {topo_badge_class}">{escape(topo_region)}</span>
-        </div>
-        <div class="strip-right">
-          <span class="badge {hazard_badge_class}">Hazard {metrics['hazard_zone']}</span>
-          <span class="strip-note">
-            id={hazard_gate_id_text} · seedT={seed_T_points} · baseline={baseline_ok_text} ·
-            E={metrics['hazard_E']:.3f} · {'OK' if metrics['hazard_ok'] else 'BLOCKED'} · {metrics['hazard_severity']} severity ·
-            {scale_badge_text} · F={features_used_n} · {feature_mode_label}
-          </span>
-        </div>
-      </section>
-
-      <section class="epf-hazard-panel">
-        <div class="epf-hazard-header">
-          <div class="epf-hazard-title">
-            EPF Relational Grail — hazard signal
-            <span class="badge {scale_badge_class}">{scale_badge_text}</span>
-          </div>
-          <div class="epf-hazard-metrics">
-            <div class="epf-hazard-metric">
-              <span>E index</span>
-              <span>{metrics['hazard_E']:.3f}</span>
-            </div>
-            <div class="epf-hazard-metric">
-              <span>T distance</span>
-              <span>{metrics['hazard_T']:.3f}</span>
-            </div>
-            <div class="epf-hazard-metric">
-              <span>Stability S</span>
-              <span>{metrics['hazard_S']:.3f}</span>
-            </div>
-            <div class="epf-hazard-metric">
-              <span>Drift D</span>
-              <span>{metrics['hazard_D']:.3f}</span>
-            </div>
-          </div>
-        </div>
-
-        <p class="epf-hazard-reason">
-          {escape(str(metrics['hazard_reason']))}
-        </p>
-
-        <div class="epf-hazard-contrib">
-          <span class="epf-hazard-contrib-label">Topology</span>
-          <span>
-            region={escape(topo_region)} · baseline={baseline_ok_text} · zone={escape(str(metrics['hazard_zone']))}
-          </span>
-        </div>
-
-        <div class="epf-hazard-contrib">
-          <span class="epf-hazard-contrib-label">Stability map</span>
-          <span>
-            schema={stability_map_schema_text} · artifact={stability_map_filename_text}
-          </span>
-        </div>
-
-        <div class="epf-hazard-contrib">
-          <span class="epf-hazard-contrib-label">Top contributors</span>
-          <span>{contributors_text}</span>
-        </div>
-
-        <div class="epf-hazard-contrib">
-          <span class="epf-hazard-contrib-label">Feature mode</span>
-          <span>
-            {feature_mode_label} · source={feature_mode_source_text}
-            · used {features_used_n}: {features_used_text}
-            · recommended {rec_n} (min_coverage ≥ {rec_min_cov_text})
-          </span>
-        </div>
-
-        <p class="epf-hazard-footnote">
-          Thresholds: warn ≈ {CALIBRATED_WARN_THRESHOLD:.3f}, crit ≈ {CALIBRATED_CRIT_THRESHOLD:.3f}
-          ({threshold_regime}; requires ≥{MIN_CALIBRATION_SAMPLES} log entries for calibration to take effect).
-        </p>
-
-        {history_fragment}
-      </section>
-
-      <section>
-        <h2>Gate summary</h2>
-        <table class="gate-table">
-          <thead>
-            <tr>
-              <th>Gate</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody>
-{gate_rows_html}
-          </tbody>
-        </table>
-      </section>
-
-      <footer>
-        Demo-only artefact generated from PULSE_safe_pack_v0/tools/run_all.py.
-        Deterministic, fail-closed gates remain the source of truth; the EPF Relational Grail
-        hazard signal is surfaced as a diagnostic overlay.
-      </footer>
-    </main>
-  </body>
-</html>
-"""
-
-with open(art / "report_card.html", "w", encoding="utf-8") as f:
-    f.write(html)
-
-print("Wrote", art / "status.json")
-print("Wrote", art / "report_card.html")
+print("Wrote", status_path)
+print("Wrote", report_card_path)
 print("Wrote", stability_map_path)
 print(
     "Logged EPF hazard probe:",

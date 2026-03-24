@@ -1,0 +1,38 @@
+{
+  "kind": "study-expected-outcome-v1",
+  "fixture": "repro/cases/core_diag_variant_b.status.json",
+  "status_path": "studies/authority-boundary/repro/cases/core_diag_variant_b.status.json",
+  "canonical_study_pin": {
+    "schema_path": "schemas/status/status_v1.schema.json",
+    "policy_path": "pulse_gate_policy_v0.yml",
+    "policy_set": "core_required"
+  },
+  "expected": {
+    "schema_validation": {
+      "tool": "tools/validate_status_schema.py",
+      "exit_code": 0,
+      "stdout_contains": [
+        "OK: schema-valid: studies/authority-boundary/repro/cases/core_diag_variant_b.status.json"
+      ]
+    },
+    "policy_materialization": {
+      "tool": "tools/policy_to_require_args.py",
+      "format": "space",
+      "exit_code": 0,
+      "stdout_exact": "pass_controls_refusal pass_controls_sanit sanitization_effective q1_grounded_ok q4_slo_ok"
+    },
+    "gate_evaluation": {
+      "tool": "PULSE_safe_pack_v0/tools/check_gates.py",
+      "exit_code": 0,
+      "stdout_contains": [
+        "[OK] All required gates PASS"
+      ]
+    }
+  },
+  "canonical_meaning": "PASS with adverse diagnostics",
+  "notes": [
+    "This file is non-normative and records the expected observable outcome for the pinned study path.",
+    "This fixture keeps the same normative gate bundle as the paired diagnostic variant while varying only non-authoritative diagnostic layers.",
+    "If the schema, policy file, or evaluator behavior changes, this file must be reviewed for drift."
+  ]
+}

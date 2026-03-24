@@ -1,347 +1,487 @@
-# PULSE Topology v0 – governance patterns
+# PULSE topology v0 governance patterns
 
-This document describes governance usage patterns for the Topology v0 stack:
+> Practical governance patterns for using topology / Decision Engine outputs
+> without blurring the repository’s normative release boundary.
 
-- `status.json` (baseline PULSE safe pack)
-- `paradox_field_v0.json` (paradox atoms)
-- `stability_map_v0` (optional stability / curvature overlay)
-- `decision_engine_v0.json` (release_state + stability_type + summaries)
+This page is about **how to use topology artifacts well** in review and
+governance.
 
-The focus is not on how to compute these artefacts, but on how a **release
-board / governance process** can use them to make decisions.
+It is not a release-policy contract by itself.
 
-For technical details, see:
+Important boundary:
 
-- `docs/PULSE_decision_engine_v0_spec.md`
+- the deterministic baseline remains the source of truth for release gating
+- topology outputs are optional and diagnostic
+- governance patterns should enrich human judgment, not silently rewrite policy
+
+For the conceptual layer, see:
+
+- `docs/PULSE_topology_v0_design_note.md`
+- `docs/PULSE_topology_v0_methods.md`
+- `docs/PULSE_topology_overview_v0.md`
+- `docs/PULSE_decision_field_v0_overview.md`
+
+For worked examples and quickstarts, see:
+
+- `docs/PULSE_topology_v0_case_study.md`
+- `docs/PULSE_topology_v0_quickstart_decision_engine_v0.md`
 - `docs/PULSE_topology_v0_cli_demo.md`
-- `docs/PULSE_topology_v0_mini_example_fairness_slo_epf.md`
 
 ---
 
-## 1. Core vocabulary recap
+## 1. Why governance patterns matter
 
-### 1.1. release_state
+A deterministic baseline gives a hard answer:
 
-From `decision_engine_v0.decision_engine_v0.release_state`:
+- PASS / FAIL at the required-gate layer
 
-- `PROD_OK` – all gates satisfied
-- `STAGE_ONLY` – limited failures; suitable for staging / shadow only
-- `BLOCK` – many gates failed; do not release
-- `UNKNOWN` – no usable gate information
+That is necessary, but often not sufficient for good release governance.
 
-### 1.2. stability_type
+Reviewers also need to know things like:
 
-From `decision_engine_v0.decision_engine_v0.stability_type`:
+- does this PASS look robust or fragile?
+- does this run deserve routine confidence or cautious rollout?
+- are we seeing recurring tension that should become tracked governance work?
+- is the current result trustworthy, borderline, or under-evidenced?
 
-- `stable_good` – good decision in a locally flat region
-  (no strong curvature or paradox atoms)
-- `unstably_good` – good decision in a curved / paradox-rich region
-  (“green, but the field is bent here”)
-- `stable_bad` – bad decision in a flat region
-  (blocked, but in a simple, stable way)
-- `unstably_bad` – bad decision in a curved region
-  (blocked + high structural tension)
-- `boundary_simple` – boundary decision with simple topology
-  (STAGE_ONLY, but topology is flat)
-- `boundary` – boundary decision with non-trivial topology
-  (STAGE_ONLY + curvature / paradox)
-- `unknown` – not enough information to classify
+This is where topology helps.
 
-Topology signals come from:
-
-- `stability_summary.delta_bend_max` (from stability map)
-- `paradox_summary.atom_count` / `severe_atom_count` (from paradox field)
+Topology should improve **judgment quality** without becoming an unreviewed second
+policy engine.
 
 ---
 
-## 2. Pattern A – PROD_OK + unstably_good
+## 2. The foundational rule
 
-### 2.1. Situation
+Always apply this order:
 
-- `release_state = "PROD_OK"`
-- `stability_type = "unstably_good"`
+1. **baseline deterministic artifacts first**
+   - `status.json`
+   - Quality Ledger / report card
 
-Example snippet:
+2. **optional diagnostic context second**
+   - paradox / field artifacts
+   - Stability Map context
+   - EPF shadow outputs
+   - external evidence posture
 
-    {
-      "release_state": "PROD_OK",
-      "stability_type": "unstably_good",
-      "status_summary": {
-        "gate_count": 42,
-        "failed_gates": [],
-        "passed_gates": [
-          "quality.q3_fairness_ok",
-          "slo.q4_slo_ok"
-        ],
-        "rdsi": 0.94
-      },
-      "stability_summary": {
-        "cell_count": 1,
-        "delta_bend_max": 1.0
-      },
-      "paradox_summary": {
-        "atom_count": 3,
-        "severe_atom_count": 1
-      }
-    }
+3. **topology / Decision Engine summary last**
+   - reviewer-facing compression of the picture
 
-Interpretation:
+This ordering is the single most important governance pattern.
 
-- All gates are green – a classic system would simply say “ship it”.
-- Topology v0 says:
-  - there is at least one non-trivial **paradox atom** in `paradox_field_v0`,
-  - and/or non-zero curvature (`delta_bend_max > 0`).
-
-Governance view:
-
-> “We are on a good outcome, but sitting on a structurally tense region of
-> the field (e.g. fairness vs SLO vs EPF).”
-
-### 2.2. Governance pattern
-
-Possible policy:
-
-1. **Allow automatic production release** (same as PROD_OK today).
-
-2. **Require human sign-off when `stability_type = "unstably_good"`**, for example:
-
-   - Attach the decision engine overlay to the release ticket.
-   - Show:
-     - the `paradox_summary` counts, and
-     - the top few atoms from `paradox_field_v0`.
-   - Require a short justification for why the paradox is acceptable **for now**
-     (e.g. “this fairness–SLO tradeoff is expected under current load pattern”).
-
-3. **Track “unstably_good” frequency over time**:
-
-   - If a given paradox atom (e.g. `{q3_fairness_ok, q4_slo_ok}`) appears
-     repeatedly, treat it as a structural issue:
-     - e.g. escalate to model design / data / SLO owners.
-
-Governance outcome:
-
-- The system can still move fast (green is green), but:
-  - **“unstably_good” is not invisible**.
-  - It gains a special status: allowed, but under tension, and logged.
+If people read only the compact topology summary and skip the baseline evidence,
+governance quality gets worse, not better.
 
 ---
 
-## 3. Pattern B – STAGE_ONLY + boundary / boundary_simple
+## 3. Pattern: baseline-first signoff
 
-### 3.1. Situation
+### When to use it
 
-`release_state = "STAGE_ONLY"` indicates a frontier region.
+Use this pattern on every release review, even when topology outputs exist.
 
-Two subtypes:
+### How it works
 
-- `stability_type = "boundary_simple"`
-  – frontier, but topology is flat / simple.
-- `stability_type = "boundary"`
-  – frontier, and topology is curved / paradox-rich.
+Start with the baseline artifacts and answer:
 
-Example (simple):
+- what does the deterministic baseline say?
+- what gates actually failed?
+- what metrics and evidence are present?
+- what is the current normative release posture?
 
-    {
-      "release_state": "STAGE_ONLY",
-      "stability_type": "boundary_simple"
-    }
+Only after that should you read:
 
-Example (non-trivial):
+- Decision Engine summaries
+- topology narratives
+- dashboard views
 
-    {
-      "release_state": "STAGE_ONLY",
-      "stability_type": "boundary",
-      "stability_summary": {
-        "delta_bend_max": 1.0
-      },
-      "paradox_summary": {
-        "atom_count": 2
-      }
-    }
+### Why this pattern is healthy
 
-### 3.2. Governance pattern
+It preserves the repo’s core invariant:
 
-Common practice:
+- the baseline deterministic path remains normative
+- topology remains interpretation
 
-1. **Treat STAGE_ONLY as “shadow or limited rollout only”**
-
-   - Allowed targets:
-     - staging environments,
-     - dark-launch,
-     - small percentage canary.
-
-2. Distinguish between:
-
-   - **boundary_simple**
-     - frontier, but simple.
-     - typical rule: allow automatic stage/canary, log, no mandatory meeting.
-
-   - **boundary**
-     - frontier with non-trivial topology.
-     - typical rule:
-       - require release review before rollout beyond staging,
-       - inspect paradox atoms and relevant metrics.
-
-3. Optional: use paradox atoms as “why this is a boundary” explanation:
-
-   - show the atom responsible for the boundary classification:
-     - e.g. `{"gates": ["policy.p1_user_harm_ok", "perf.slo_latency_ok"]}`.
-
-Governance outcome:
-
-- The *type* of frontier becomes explicit:
-  - “safe frontier” (`boundary_simple`) vs “tense frontier” (`boundary`).
+This is the safest pattern for avoiding semantic drift.
 
 ---
 
-## 4. Pattern C – BLOCK + stable_bad / unstably_bad
+## 4. Pattern: robust PASS
 
-### 4.1. Situation
+### Typical evidence shape
 
-`release_state = "BLOCK"` – gating logic says: do not release.
+- baseline required gates pass
+- optional diagnostics are quiet
+- no meaningful paradox pressure is visible
+- evidence looks complete enough for ordinary confidence
 
-Two stability flavours:
+### Typical reviewer reading
 
-- `stable_bad` – bad decision in a flat region.
-- `unstably_bad` – bad decision in a curved / paradox region.
+A compact reviewer-facing topology summary may look like:
 
-Example (stable_bad):
+```text
+release_state: PROD_OK
+stability_type: stable_good
+```
 
-    {
-      "release_state": "BLOCK",
-      "stability_type": "stable_bad",
-      "status_summary": {
-        "failed_gates": [
-          "safety.s1_blocking"
-        ]
-      }
-    }
+### Governance action
 
-Example (unstably_bad):
+Reasonable response:
 
-    {
-      "release_state": "BLOCK",
-      "stability_type": "unstably_bad",
-      "status_summary": {
-        "failed_gates": [
-          "safety.s1_blocking"
-        ]
-      },
-      "paradox_summary": {
-        "atom_count": 4,
-        "severe_atom_count": 2
-      }
-    }
+- ordinary release confidence
+- normal archival / signoff
+- no extra caution beyond standard process
 
-### 4.2. Governance pattern
+### Why topology still helps here
 
-Baseline:
-
-- In both cases, the **release is blocked**.
-- The difference is where to focus investigation.
-
-Recommended action split:
-
-1. `stable_bad`:
-
-   - the failure is locally simple:
-     - e.g. one or two obvious gate violations,
-     - no non-trivial paradox structure.
-   - focus:
-     - fix the failing gates,
-     - no need to reorganise the decision field.
-
-2. `unstably_bad`:
-
-   - the failure occurs in a **paradox-rich** region:
-     - multiple MUS atoms,
-     - non-zero curvature.
-   - focus:
-     - treat this as a structural issue:
-       - conflicting requirements,
-       - misaligned SLOs,
-       - inconsistent fairness/EPF constraints.
-     - involve stakeholders beyond the immediate model owner:
-       - policy, risk, infra.
-
-Governance outcome:
-
-- “BLOCK” remains, but:
-  - `unstably_bad` signals that not only the model, but the **field itself**
-    is problematic,
-  - it calls for a holistic intervention, not just parameter tuning.
+Even when the run is boring, topology helps by making the “boringness” explicit
+and reusable in dashboards, board views, or review notes.
 
 ---
 
-## 5. Pattern D – UNKNOWN
+## 5. Pattern: fragile PASS
 
-### 5.1. Situation
+### Typical evidence shape
 
-`release_state = "UNKNOWN"` or `stability_type = "unknown"`:
+- baseline required gates still pass
+- but optional diagnostics are noisy:
+  - EPF shadow pressure
+  - paradox tension
+  - repeated near-threshold behavior
+  - incomplete reviewer comfort
 
-- missing / empty `status.json`,
-- incompatible format,
-- or the decision engine cannot make a meaningful classification.
+### Typical reviewer reading
 
-### 5.2. Governance pattern
+A compact topology summary may look like:
 
-Treat UNKNOWN as a **telemetry / observability failure**:
+```text
+release_state: PROD_OK
+stability_type: unstably_good
+```
 
-- before release:
-  - avoid automatic rollout,
-  - require the PULSE pipeline to be fixed or overridden explicitly.
-- after release:
-  - treat it as an incident in governance / observability:
-    - “why are we blind to the decision field?”
+### Governance action
 
-If the field is empty, that itself is information: **we cannot see** –  
-and that is a risk.
+Reasonable response:
 
----
+- keep the baseline PASS unchanged
+- prefer caution in rollout posture
+- consider extra review, staged rollout, or tighter observation
+- open follow-up work if the same pattern repeats
 
-## 6. Integration patterns
+### Why this pattern matters
 
-### 6.1. Dashboard integration
+This is probably the most important topology governance pattern.
 
-A simple dashboard widget can use:
+It prevents teams from collapsing:
 
-- `release_state`
-- `stability_type`
-- `paradox_summary.atom_count`
-- `stability_summary.delta_bend_max`
+“not blocked”
 
-Example columns:
+into
 
-- release id
-- release_state
-- stability_type
-- paradox atoms
-- max delta_bend
+“comfortably production-ready.”
 
-Colouring:
-
-- `unstably_good` – green background + amber border,
-- `boundary` – amber,
-- `unstably_bad` – red + marker for “structural tension”.
-
-### 6.2. Policy hook
-
-A simple policy sketch:
-
-- if `release_state = "BLOCK"` → CI blocks,
-- if `release_state = "PROD_OK"` and `stability_type = "stable_good"`  
-  → automatic release,
-- if `release_state = "PROD_OK"` and `stability_type = "unstably_good"`  
-  → manual sign-off required,
-- if `release_state = "STAGE_ONLY"`  
-  → staging / canary only, never full prod without review.
-
-Decision Engine v0 does not enforce this policy by itself – it provides a
-**vocabulary** on top of which policy can be defined.
+Topology is doing useful work here precisely because it preserves that nuance.
 
 ---
 
-Topology v0 thus turns the classic “pass/fail” surface into a **decision field**:
-we do not only see *what* happened in a release, but also *in what kind of
-field structure* the decision was made – stable, curved, paradox-rich or
-on a frontier region.
+## 6. Pattern: clean FAIL
+
+### Typical evidence shape
+
+- deterministic baseline fails
+- diagnostics do not suggest unusual ambiguity
+- the run looks negative in a fairly ordinary way
+
+### Typical reviewer reading
+
+A compact topology-style summary may look like:
+
+```text
+release_state: BLOCK
+stability_type: stable_bad
+```
+
+### Governance action
+
+Reasonable response:
+
+- keep the baseline FAIL authoritative
+- fix the underlying issue
+- rerun after remediation
+- avoid over-reading optional overlays
+
+### Why this pattern is healthy
+
+It avoids the opposite mistake:
+using richer dashboards to make a straightforward failure look more debatable
+than it really is.
+
+---
+
+## 7. Pattern: unstable FAIL
+
+### Typical evidence shape
+
+- deterministic baseline fails
+- diagnostics are also noisy:
+  - paradox pressure
+  - shadow disagreement
+  - unstable or degraded evidence posture
+  - unclear failure boundary
+
+### Typical reviewer reading
+
+A compact topology-style summary may look like:
+
+```text
+release_state: BLOCK
+stability_type: unstably_bad
+```
+
+### Governance action
+
+Reasonable response:
+
+- treat the release as blocked
+- also treat the case as a higher-priority triage / governance problem
+- inspect whether the failure is:
+  - a simple miss
+  - a coverage problem
+  - a threshold problem
+  - a tooling / evidence-quality problem
+
+### Why this pattern matters
+
+It helps reviewers distinguish:
+
+“failing, but ordinary”
+
+from
+
+“failing, and operationally confusing.”
+
+That difference changes how much process attention the run deserves.
+
+---
+
+## 8. Pattern: reviewer caution without policy rewrite
+
+This is the core governance use-case for topology.
+
+### Healthy form
+
+- baseline remains unchanged
+- topology expresses caution through:
+  - `stability_type`
+  - reviewer narrative
+  - board / dashboard wording
+  - rollout posture recommendations
+
+### Unhealthy form
+
+- topology output is treated as if it silently changed required policy
+- reviewers start reading a compact summary as the new source of truth
+- a passing baseline is described as blocked without policy review
+- missing diagnostics are treated as if they imply calm / confidence
+
+If you find yourselves drifting toward the unhealthy form, stop and push the
+change back into:
+
+- policy
+- CI
+- contracts
+- reviewed changelog-backed updates
+
+---
+
+## 9. Pattern: stage with caution
+
+This is a governance action pattern, not necessarily a literal classifier rule.
+
+### When to use it
+
+Use it when:
+
+- the baseline still passes
+- the topology layer says the run is fragile
+- reviewers want to preserve momentum without pretending the run is boring
+
+### What it means in practice
+
+Possible actions:
+
+- narrower exposure
+- staged rollout
+- additional manual review
+- more telemetry / observation after release
+- explicit follow-up issue tied to the same run
+
+### Why this is useful
+
+It lets teams express caution operationally
+without falsely claiming that the baseline deterministic decision already changed.
+
+---
+
+## 10. Pattern: repeated fragility becomes tracked work
+
+A single fragile run may be noise.  
+A repeated fragile pattern is governance information.
+
+### Trigger signs
+
+- the same gate family keeps showing paradox pressure
+- multiple runs cluster around the same near-threshold region
+- `unstably_good` style readings recur
+- evidence posture is repeatedly weaker than desired
+
+### Governance action
+
+Reasonable response:
+
+- open a tracked issue
+- add evaluation coverage
+- review thresholds and evidence shape
+- decide whether a future policy change is needed
+
+### Why this pattern matters
+
+Topology becomes most valuable when it helps you see trends in reviewer burden
+before the deterministic baseline starts failing broadly.
+
+---
+
+## 11. Pattern: evidence completeness is separate from release posture
+
+Topology should not hide evidence gaps.
+
+### Good governance question
+
+“Did we have enough evidence to feel confident?”
+
+### Different good governance question
+
+“What did the current baseline classifier say?”
+
+These are not the same question.
+
+A run can be:
+
+- baseline-positive
+
+but
+
+- reviewer-uncomfortable because evidence completeness is poor
+
+That should remain visible.
+
+It should not be flattened into a fake calm PASS.
+
+---
+
+## 12. Pattern: archive the interpretation chain
+
+A topology summary is only useful later if the evidence chain remains intact.
+
+### Recommended archive bundle
+
+- `status.json`
+- `report_card.html`
+- `decision_engine_v0.json`, when produced
+- `paradox_field_v0.json`, when produced
+- Stability Map artifact, when produced
+- EPF shadow artifacts, when relevant
+- any reviewer note / rollout decision tied to the same run
+
+### Why this matters
+
+Good governance is not just about making a decision.  
+It is also about being able to reconstruct why that decision made sense later.
+
+---
+
+## 13. Anti-patterns
+
+Avoid these.
+
+### Anti-pattern A — dashboard supremacy
+
+Bad habit:
+
+- treating a dashboard or compact summary as more authoritative than `status.json`
+
+### Anti-pattern B — topology as secret policy
+
+Bad habit:
+
+- using topology wording to effectively change release semantics without a policy change
+
+### Anti-pattern C — fabricated completeness
+
+Bad habit:
+
+- acting as if missing overlays imply quiet diagnostics
+
+### Anti-pattern D — one-run overreaction
+
+Bad habit:
+
+- taking one noisy optional signal and immediately rewriting thresholds or policy
+
+### Anti-pattern E — compact-summary-only review
+
+Bad habit:
+
+- reviewers approving or rejecting runs from the compact summary alone
+
+All of these reduce auditability and semantic clarity.
+
+---
+
+## 14. A practical review template
+
+A simple governance checklist for one run:
+
+### Baseline
+
+- What does the deterministic baseline say?
+
+### Evidence
+
+- Is evidence complete enough to trust the result?
+
+### Diagnostics
+
+- Are optional overlays quiet, fragile, or noisy?
+
+### Topology summary
+
+- Does the run look `stable_good`, `unstably_good`, `stable_bad`, `unstably_bad`, or `unknown`?
+
+### Action
+
+- ordinary release
+- cautious rollout
+- deeper review
+- blocked and remediate
+- tracked follow-up for repeated fragility
+
+This is a good lightweight governance pattern because it keeps the evidence chain
+visible all the way through.
+
+---
+
+## 15. Summary
+
+Topology governance works best when it does three things well:
+
+- preserves the deterministic baseline as the source of truth
+- adds honest reviewer posture on top of that baseline
+- turns recurring fragility into visible, tracked governance work
+
+That is the real value of topology in this repository:
+
+- not hidden policy
+- not a second gate engine
+- but better structured judgment over archived run artifacts.

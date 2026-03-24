@@ -13,7 +13,8 @@ Use this guide if you want to:
 - start with a **small, opinionated set of deterministic gates**,
 - *not* worry (yet) about EPF, paradox, topology, or governance overlays.
 
-The Core profile is designed as the recommended starting point.  
+The Core profile is designed as the recommended starting point.
+
 You can layer the advanced features on top later.
 
 ---
@@ -24,22 +25,25 @@ In your repository root:
 
 1. Copy the PULSE pack folder:
 
-        PULSE_safe_pack_v0/
+   - `PULSE_safe_pack_v0/`
 
    or unzip the pack archive:
 
-        PULSE_safe_pack_v0.zip → PULSE_safe_pack_v0/
+   - `PULSE_safe_pack_v0.zip` → `PULSE_safe_pack_v0/`
 
-2. Commit the folder to your repo.  
-   The safe-pack is self-contained; it does not require a global install.
+2. Commit the folder to your repo.
+
+The safe-pack is self-contained; it does not require a global install.
 
 The default layout looks like:
 
-        PULSE_safe_pack_v0/
-          tools/
-          artifacts/
-          profiles/
-          ...
+```text
+PULSE_safe_pack_v0/
+  tools/
+  artifacts/
+  profiles/
+  ...
+```
 
 ---
 
@@ -47,67 +51,85 @@ The default layout looks like:
 
 The Core profile is defined in:
 
-        PULSE_safe_pack_v0/profiles/pulse_policy_core.yaml
+```
+PULSE_safe_pack_v0/profiles/pulse_policy_core.yaml
+```
 
 Key fields:
 
-- `profile_id: "core_v0"`
-- `label: "PULSE Core (minimal deterministic gates)"`
-- `status: "experimental"` (candidate for promotion to default later)
+```
+profile_id: "core_v0"
+
+label: "PULSE Core (minimal deterministic gates)"
+
+status: "experimental" (candidate for promotion to default later)
+```
 
 The Core profile:
 
-- defines the **minimal recommended deterministic gate set** for first-time PULSE adopters,
-- keeps the most important safety and SLO checks **fail-closed**,
-- leaves EPF, paradox, topology and other overlays **opt-in**,
-- includes a **CI-neutral refusal-delta stability policy** for future tooling.
+- defines the minimal recommended deterministic gate set for first-time PULSE adopters,
+- keeps the most important safety and SLO checks fail-closed,
+- leaves EPF, paradox, topology and other overlays opt-in,
+- includes a CI-neutral refusal-delta stability policy for future tooling.
+
+---
 
 ### 3.1 Core required gates
 
 The Core profile’s `core_required_gates` list contains:
 
-- `pass_controls_refusal`
-- `pass_controls_sanit`
-- `sanitization_effective`
-- `q1_grounded_ok`
-- `q4_slo_ok`
+```
+pass_controls_refusal
+pass_controls_sanit
+sanitization_effective
+q1_grounded_ok
+q4_slo_ok
+```
 
-When you wire PULSE Core into CI, these are the gates that should be treated as **required**:  
+When you wire PULSE Core into CI, these are the gates that should be treated as required:  
 if any of them FAIL, the Core job should fail and block the release.
+
+---
 
 ### 3.2 Optional per-gate config
 
-The profile can also include per-gate configuration under `gates:`.  
+The profile can also include per-gate configuration under `gates:`.
+
 For example:
 
-    gates:
-      - id: q1_groundedness
-        threshold: 0.85
-        epsilon: 0.03
-        adapt: true
-        max_risk: 0.20
-        ema_alpha: 0.20
-        min_samples: 5
+```yaml
+gates:
+  - id: q1_groundedness
+    threshold: 0.85
+    epsilon: 0.03
+    adapt: true
+    max_risk: 0.20
+    ema_alpha: 0.20
+    min_samples: 5
+```
 
 If a gate is not listed there, the built-in defaults apply.
 
+---
+
 ### 3.3 Refusal-delta policy (CI-neutral)
 
-The `refusal_delta` block in the Core profile describes how we interpret  
-refusal-delta stability in tooling and dashboards:
+The `refusal_delta` block in the Core profile describes how we interpret refusal-delta stability in tooling and dashboards:
 
-    refusal_delta:
-      policy: "balanced"      # "balanced" | "strict"
-      delta_min: 0.05         # +5 percentage points improvement (plain - tool)
-      delta_strict: 0.10      # +10 percentage points for strict mode
-      alpha: 0.05             # 95% confidence for intervals / tests
-      require_significance: true
-      significance: "mcnemar" # "mcnemar" | "ci"
-      ci_neutral: true        # never flips PASS/FAIL on its own
+```yaml
+refusal_delta:
+  policy: "balanced"        # "balanced" | "strict"
+  delta_min: 0.05           # +5 percentage points improvement (plain - tool)
+  delta_strict: 0.10        # +10 percentage points for strict mode
+  alpha: 0.05               # 95% confidence for intervals / tests
+  require_significance: true
+  significance: "mcnemar"   # "mcnemar" | "ci"
+  ci_neutral: true          # never flips PASS/FAIL on its own
+```
 
-In v0 this is **CI-neutral**:
+In v0 this is CI-neutral:
 
-- it does *not* change PASS/FAIL by itself,
+- it does not change PASS/FAIL by itself,
 - it is meant to be consumed by stability tooling and dashboards,
 - CI remains fail-closed only on the deterministic gates listed in `core_required_gates`.
 
@@ -117,156 +139,161 @@ In v0 this is **CI-neutral**:
 
 To wire PULSE Core into GitHub Actions, create a new workflow:
 
-        .github/workflows/pulse_core_ci.yml
+```
+.github/workflows/pulse_core_ci.yml
+```
 
 Example workflow:
 
-    name: PULSE Core CI
+```yaml
+name: PULSE Core CI
 
-    on:
-      push:
-        branches: [ main ]
-        paths-ignore:
-          - 'docs/**'
-          - '**/*.md'
-      pull_request:
-        branches: [ main ]
-        paths-ignore:
-          - 'docs/**'
-          - '**/*.md'
-      workflow_dispatch: {}
+on:
+  push:
+    branches: [ main ]
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
+  pull_request:
+    branches: [ main ]
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
+  workflow_dispatch: {}
 
-    permissions:
-      contents: write
+permissions:
+  contents: read
 
-    jobs:
-      pulse-core:
-        runs-on: ubuntu-latest
+jobs:
+  pulse-core:
+    runs-on: ubuntu-latest
 
-        steps:
-          - name: Checkout
-            uses: actions/checkout@v4
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-          - name: Locate PULSE pack
-            shell: bash
-            run: |
-              set -euo pipefail
-              ROOT="$GITHUB_WORKSPACE"
+      - name: Locate PULSE pack
+        shell: bash
+        run: |
+          set -euo pipefail
 
-              if [ -d "$ROOT/PULSE_safe_pack_v0" ]; then
-                echo "PACK_DIR=$ROOT/PULSE_safe_pack_v0" >> "$GITHUB_ENV"
-              elif [ -f "$ROOT/PULSE_safe_pack_v0.zip" ]; then
-                unzip -q -o "$ROOT/PULSE_safe_pack_v0.zip"
-                echo "PACK_DIR=$ROOT/PULSE_safe_pack_v0" >> "$GITHUB_ENV"
-              else
-                RUN_ALL=$(find "$ROOT" -type f -name run_all.py -path "*/PULSE_safe_pack_v0/*" | head -n1 || true)
-                if [ -z "$RUN_ALL" ]; then
-                  echo "::error::PULSE_safe_pack_v0 not found (expected folder or zip in repo root)."
-                  exit 1
-                fi
-                echo "PACK_DIR=$(dirname "$(dirname "$RUN_ALL")")" >> "$GITHUB_ENV"
-              fi
+          ROOT="$GITHUB_WORKSPACE"
 
-          - name: Set up Python
-            uses: actions/setup-python@v5
-            with:
-              python-version: '3.x'
+          if [ -d "$ROOT/PULSE_safe_pack_v0" ]; then
+            echo "PACK_DIR=$ROOT/PULSE_safe_pack_v0" >> "$GITHUB_ENV"
+          elif [ -f "$ROOT/PULSE_safe_pack_v0.zip" ]; then
+            unzip -q -o "$ROOT/PULSE_safe_pack_v0.zip"
+            echo "PACK_DIR=$ROOT/PULSE_safe_pack_v0" >> "$GITHUB_ENV"
+          else
+            RUN_ALL=$(find "$ROOT" -type f -name run_all.py -path "*/PULSE_safe_pack_v0/*" | head -n1 || true)
+            if [ -z "$RUN_ALL" ]; then
+              echo "::error::PULSE_safe_pack_v0 not found (expected folder or zip in repo root)."
+              exit 1
+            fi
+            echo "PACK_DIR=$(dirname "$(dirname "$RUN_ALL")")" >> "$GITHUB_ENV"
+          fi
 
-          - name: Run PULSE Core pack
-            shell: bash
-            run: |
-              set -euo pipefail
-              python "${PACK_DIR}/tools/run_all.py"
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
 
-          - name: Show gates snapshot
-            shell: bash
-            run: |
-              echo "----- status.json (gates) -----"
-              if command -v jq >/dev/null 2>&1; then
-                jq '.gates' "${PACK_DIR}/artifacts/status.json" || cat "${PACK_DIR}/artifacts/status.json"
-              else
-                cat "${PACK_DIR}/artifacts/status.json"
-              fi
-              echo "--------------------------------"
+      - name: Run PULSE Core pack
+        shell: bash
+        run: |
+          set -euo pipefail
+          python "${PACK_DIR}/tools/run_all.py"
 
-          - name: Enforce Core gates (fail-closed)
-            shell: bash
-            run: |
-              set -euo pipefail
+      - name: Show gates snapshot
+        shell: bash
+        run: |
+          echo "----- status.json (gates) -----"
+          if command -v jq >/dev/null 2>&1; then
+            jq '.gates' "${PACK_DIR}/artifacts/status.json" || cat "${PACK_DIR}/artifacts/status.json"
+          else
+            cat "${PACK_DIR}/artifacts/status.json"
+          fi
+          echo "--------------------------------"
 
-              # Core profile: minimal deterministic gates for first-time adopters
-              REQ=(
-                pass_controls_refusal
-                pass_controls_sanit
-                sanitization_effective
-                q1_grounded_ok
-                q4_slo_ok
-              )
+      - name: Enforce Core gates (fail-closed)
+        shell: bash
+        run: |
+          set -euo pipefail
 
-              python "${PACK_DIR}/tools/check_gates.py" \
-                --status "${PACK_DIR}/artifacts/status.json" \
-                --require "${REQ[@]}"
+          # Core profile: minimal deterministic gates for first-time adopters
+          REQ=(
+            pass_controls_refusal
+            pass_controls_sanit
+            sanitization_effective
+            q1_grounded_ok
+            q4_slo_ok
+          )
 
-          - name: Export JUnit & SARIF
-            if: always()
-            shell: bash
-            run: |
-              set -euo pipefail
-              mkdir -p reports
+          python "${PACK_DIR}/tools/check_gates.py" \
+            --status "${PACK_DIR}/artifacts/status.json" \
+            --require "${REQ[@]}"
 
-              # PULSE converters expect status.json in cwd
-              cp "${PACK_DIR}/artifacts/status.json" status.json
+      - name: Export JUnit & SARIF artifacts
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
 
-              python "${PACK_DIR}/tools/status_to_junit.py" || echo "JUnit export failed (optional)"
-              python "${PACK_DIR}/tools/status_to_sarif.py" || echo "SARIF export failed (optional)"
+          mkdir -p reports
 
-              if [ -f junit.xml ]; then
-                mv junit.xml reports/junit.xml
-              fi
-              if [ -f sarif.json ]; then
-                mv sarif.json reports/sarif.json
-              fi
+          # PULSE converters expect status.json in cwd
+          cp "${PACK_DIR}/artifacts/status.json" status.json
 
-          - name: Upload PULSE Core artefacts
-            if: always()
-            uses: actions/upload-artifact@v4
-            with:
-              name: pulse-core-report
-              path: |
-                ${{ env.PACK_DIR }}/artifacts/**
-                reports/junit.xml
-                reports/sarif.json
+          python "${PACK_DIR}/tools/status_to_junit.py" || echo "JUnit export failed (optional)"
+          python "${PACK_DIR}/tools/status_to_sarif.py" || echo "SARIF export failed (optional)"
+
+          if [ -f junit.xml ]; then
+            mv junit.xml reports/junit.xml
+          fi
+
+          if [ -f sarif.json ]; then
+            mv sarif.json reports/sarif.json
+          fi
+
+      - name: Upload PULSE Core artefacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pulse-core-report
+          path: |
+            ${{ env.PACK_DIR }}/artifacts/**
+            reports/junit.xml
+            reports/sarif.json
+```
 
 This job:
 
-1. locates the PULSE safe-pack,
-2. runs the pack (`tools/run_all.py`),
-3. enforces **only** the Core gate set (fail-closed),
-4. exports JUnit + SARIF,
-5. uploads artefacts for later inspection.
+- locates the PULSE safe-pack,
+- runs the pack (`tools/run_all.py`),
+- enforces only the Core gate set (fail-closed),
+- exports JUnit + SARIF artefacts,
+- uploads artefacts for later inspection.
+
+Keep this Core workflow read-only. If you want GitHub-native code-scanning alerts, add a second opt-in workflow (for example `.github/workflows/upload_sarif.yml`) with narrowly scoped `security-events: write` permissions.
 
 ---
 
 ## 5. Interpreting the results
 
-After a Core run you get at least:
+After a Core run you should expect at least:
 
-- `PULSE_safe_pack_v0/artifacts/status.json`  
-  → machine-readable gate outcomes and metrics.
-- `PULSE_safe_pack_v0/artifacts/report_card.html`  
-  → human-readable Quality Ledger excerpt for the run.
-- `reports/junit.xml`  
-  → gates surfaced as tests in the CI “Tests” tab.
-- `reports/sarif.json`  
-  → optional code-scanning style issues (if your CI supports SARIF).
+- `PULSE_safe_pack_v0/artifacts/status.json` → machine-readable gate outcomes and metrics.
+- `PULSE_safe_pack_v0/artifacts/report_card.html` → human-readable Quality Ledger excerpt for the run.
+
+When exporters are present and succeed, you may also get:
+
+- `reports/junit.xml` → JUnit XML for downstream test-report tooling or CI consumers.
+- `reports/sarif.json` → SARIF ready for GitHub Code Scanning or any other SARIF consumer.
 
 Typical flow:
 
-- **All Core gates PASS**  
-  → the Core job succeeds, and the release can continue.
-
-- **Any Core gate FAILS**  
-  → the Core job fails, and the release is blocked until:
+- All Core gates PASS → the Core job succeeds, and the release can continue.
+- Any Core gate FAILS → the Core job fails, and the release is blocked until:
   - the underlying issue is fixed, or
   - thresholds / policies are consciously updated in your own process.
 
@@ -281,5 +308,4 @@ Once the Core profile feels stable in your pipeline, you can gradually enable:
 - the Decision Engine in shadow mode,
 - G-field / GPT overlays for governance views.
 
-These advanced layers are part of the broader governance and topology story  
-and can be adopted incrementally **without weakening** the Core fail-closed gates.
+These advanced layers are part of the broader governance and topology story and can be adopted incrementally without weakening the Core fail-closed gates.

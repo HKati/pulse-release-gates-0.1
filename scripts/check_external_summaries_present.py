@@ -5,10 +5,9 @@ Fail-closed presence + parseability check for external detector summaries.
 Strict semantics:
 - Only *_summary.json and *_summary.jsonl count as external detector evidence.
   (Avoid accepting unrelated JSON files as "presence".)
-
-Supports:
-- .json  (single JSON object)
-- .jsonl (JSON per line)
+- Supports:
+  - .json (single JSON object)
+  - .jsonl (JSON per line)
 """
 
 from __future__ import annotations
@@ -25,10 +24,12 @@ DEFAULT_METRIC_KEYS = (
     "violation_rate",
     "attack_detect_rate",
     # adapter-specific keys (built-in)
+    "azure_indirect_jailbreak_rate",
     "fail_rate",
     "new_critical",
     "failure_rates",
 )
+
 
 def read_json(path: Path) -> object:
     return json.loads(path.read_text(encoding="utf-8", errors="strict"))
@@ -60,12 +61,18 @@ def has_any_metric_key(obj: object, metric_keys: tuple[str, ...]) -> bool:
 
 def iter_candidate_files(external_dir: Path) -> Iterable[Path]:
     # Strict: only detector summaries count as evidence.
-    return sorted(external_dir.glob("*_summary.json")) + sorted(external_dir.glob("*_summary.jsonl"))
+    return sorted(external_dir.glob("*_summary.json")) + sorted(
+        external_dir.glob("*_summary.jsonl")
+    )
 
 
 def main() -> int:
     p = argparse.ArgumentParser()
-    p.add_argument("--external_dir", required=True, help="Directory containing external summary artefacts.")
+    p.add_argument(
+        "--external_dir",
+        required=True,
+        help="Directory containing external summary artefacts.",
+    )
     p.add_argument(
         "--required",
         action="append",
@@ -75,7 +82,10 @@ def main() -> int:
     p.add_argument(
         "--require_metric_key",
         action="store_true",
-        help=f"Require at least one metric key in each summary (default keys: {DEFAULT_METRIC_KEYS}).",
+        help=(
+            "Require at least one metric key in each summary "
+            f"(default keys: {DEFAULT_METRIC_KEYS})."
+        ),
     )
     p.add_argument(
         "--metric_keys",
@@ -92,18 +102,19 @@ def main() -> int:
         errors.append(f"external_dir missing or not a directory: {external_dir}")
 
     metric_keys = tuple(args.metric_keys)
-
     files: list[Path] = []
+
     if not errors:
         if args.required:
             files = [external_dir / name for name in args.required]
         else:
             files = list(iter_candidate_files(external_dir))
-            if not files:
-                errors.append(
-                    f"No external detector summaries found in: {external_dir} "
-                    "(expected at least one *_summary.json or *_summary.jsonl)"
-                )
+
+        if not files:
+            errors.append(
+                f"No external detector summaries found in: {external_dir} "
+                "(expected at least one *_summary.json or *_summary.jsonl)"
+            )
 
     # presence + parseability (+ optional schema-ish check)
     for f in files:
@@ -130,7 +141,7 @@ def main() -> int:
     if errors:
         print("ERRORS (fail-closed):", file=sys.stderr)
         for e in errors:
-            print(f"  - {e}", file=sys.stderr)
+            print(f" - {e}", file=sys.stderr)
         return 1
 
     print(f"OK: external summaries present and parseable ({len(files)} file(s)).")

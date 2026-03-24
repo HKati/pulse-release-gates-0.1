@@ -1,0 +1,105 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://hkati.github.io/pulse-release-gates-0.1/schemas/metrics/q1_groundedness_summary_v0.schema.json",
+  "title": "Q1 Reference Groundedness Summary Contract (v0)",
+  "description": "Schema for deterministic, artifact-first Q1 groundedness reference summaries used as a shadow/reference measurement track in PULSE.",
+  "type": "object",
+  "required": [
+    "spec_id",
+    "spec_version",
+    "run_id",
+    "created_utc",
+    "n",
+    "score",
+    "threshold",
+    "pass",
+    "method",
+    "provenance"
+  ],
+  "properties": {
+    "spec_id": {
+      "type": "string",
+      "const": "q1_groundedness_v0"
+    },
+    "spec_version": {
+      "type": "string",
+      "const": "0.1.0"
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "created_utc": {
+      "type": "string",
+      "minLength": 1
+    },
+    "n": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "score": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "threshold": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "pass": {
+      "type": "boolean"
+    },
+    "method": {
+      "type": "object",
+      "required": [
+        "kind",
+        "deterministic"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "reference"
+        },
+        "deterministic": {
+          "type": "boolean",
+          "const": true
+        },
+        "notes": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true
+    },
+    "provenance": {
+      "type": "object",
+      "required": [
+        "input_manifest",
+        "tool"
+      ],
+      "properties": {
+        "input_manifest": {
+          "type": "string",
+          "minLength": 1
+        },
+        "tool": {
+          "type": "string",
+          "minLength": 1
+        },
+        "tool_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "git_sha": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": true
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": true
+}

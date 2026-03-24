@@ -1,0 +1,40 @@
+{
+  "kind": "study-expected-outcome-v1",
+  "fixture": "repro/cases/schema_invalid_non_boolean_gate.status.json",
+  "status_path": "studies/authority-boundary/repro/cases/schema_invalid_non_boolean_gate.status.json",
+  "canonical_study_pin": {
+    "schema_path": "schemas/status/status_v1.schema.json",
+    "policy_path": "pulse_gate_policy_v0.yml",
+    "policy_set": "core_required"
+  },
+  "expected": {
+    "schema_validation": {
+      "tool": "tools/validate_status_schema.py",
+      "exit_code": 1,
+      "stdout_contains": [
+        "::error::status.json schema validation failed:",
+ 
+        "gates.q4_slo_ok:",
+      
+        "boolean",
+        "::error::gates.q4_slo_ok:",
+        "is not of type 'boolean'"
+ 
+      ]
+    },
+    "policy_materialization": {
+      "skipped": true,
+      "reason": "canonical path stops at schema validation failure"
+    },
+    "gate_evaluation": {
+      "skipped": true,
+      "reason": "schema-invalid fixture; do not treat direct gate-evaluator output as canonical"
+    }
+  },
+  "canonical_meaning": "schema boundary failure",
+  "notes": [
+    "This file is non-normative and records the expected observable outcome for the pinned study path.",
+    "This fixture is expected to stop at schema validation and must not be interpreted as a canonical gate-evaluation case.",
+    "If the schema, policy file, or evaluator behavior changes, this file must be reviewed for drift."
+  ]
+}

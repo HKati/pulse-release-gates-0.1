@@ -1,59 +1,111 @@
 # External detectors
 
-> **Implementation guide (repo-level):**  
-> [`docs/external_detector_summaries.md`](../../docs/external_detector_summaries.md)  
-> (schemas, examples, integration patterns)
+> Portable safe-pack note for archived external detector evidence.
 
-PULSE supports an external detector layer that can enrich the status with additional safety and
-quality signals (for example: external alignment or safety scanners).
+This safe-pack supports folding archived external detector summaries into the
+final PULSE `status.json`.
 
-The PULSE safe-pack itself does **not** hard-wire any specific external detector implementation.
-Instead, it defines an interface and expects integrations to:
+It does **not** hard-wire live detector calls into the normative release path.
+Whether external detector signals are advisory or release-blocking is decided by
+the integrating repository’s policy and workflow.
 
-- run external tools (e.g. model scanners, policy checkers),
-- write their findings into an extended status structure (typically via JSON/JSONL summaries),
-- respect the policy encoded in the profile (thresholds, risk limits, and whether external results
-  are gating or advisory).
+Repo-level docs:
 
+- Policy overview: [`../../docs/EXTERNAL_DETECTORS.md`](../../docs/EXTERNAL_DETECTORS.md)
+- Implementation guide: [`../../docs/external_detector_summaries.md`](../../docs/external_detector_summaries.md)
 
-## Gating vs advisory modes
+---
 
-There are two conceptual ways to use external detectors:
+## 1. Portable integration model
 
-1. **Gating mode (this repository’s default)**  
-   In the main pipeline, external summaries are combined into a composite gate such as
-   `external_all_pass`. The CI workflow (`.github/workflows/pulse_ci.yml`) includes this gate in the
-   enforced gate list, and `tools/augment_status.py` computes the flag from external metrics and
-   thresholds.
+Recommended pattern:
 
-   When external detectors are enabled and any metric crosses the configured threshold,
-   `external_all_pass` becomes `FAIL`, and CI will **fail** as part of deterministic gating.
-   In other words, in this configuration external detectors *do* contribute to pass/fail outcomes.
+1. run the external tool separately,
+2. write an immutable JSON / JSONL summary,
+3. archive that summary with the run artefacts,
+4. fold it into the final `status.json` via
+   `PULSE_safe_pack_v0/tools/augment_status.py`,
+5. enforce only those external gates that the integrating repo explicitly
+   promotes.
 
-2. **Advisory / shadow mode**  
-   The same interface can be used in a purely advisory way (for example in shadow workflows or
-   research runs), where external findings are logged for analysis, reporting and governance but are
-   **not** wired into any required gate. In that setup, external detectors are CI-neutral and do not
-   change the release decision.
+This keeps the safe-pack deterministic, artifact-first, and audit-ready.
 
-This repository ships the **gating** configuration by default for the main PULSE CI, while still
-allowing downstream users to wire external detectors in advisory-only mode in their own workflows or
-profiles if desired.
+---
 
+## 2. Advisory vs normative use
 
-## Repo-level documentation
+The safe-pack is **detector-capable**, not detector-mandatory.
 
-For the full, up-to-date top-level documentation in this repository:
+Typical modes:
 
-- Policy (gating vs advisory, defaults):  
-  [`docs/EXTERNAL_DETECTORS.md`](../../docs/EXTERNAL_DETECTORS.md)
+- **Advisory / shadow**
+  - detector findings are visible in `status.json` and reports,
+  - but do not change the release decision.
 
-- External detector summaries (schemas, examples, integration patterns):  
-  [`docs/external_detector_summaries.md`](../../docs/external_detector_summaries.md)
+- **Normative / gated**
+  - an integrating repository may promote an aggregate external gate such as
+    `gates.external_all_pass` into its required gate set.
 
+Do not assume one global default outside the integrating repo’s own policy.
 
-## Archival note
+---
 
-If you archive this pack (e.g. via Zenodo/DOI), consider including this file plus the two
-repo-level documents above so that external detector behavior remains transparent and reproducible
-for downstream users.
+## 3. Evidence presence is a separate question
+
+Aggregate detector pass/fail is not the same thing as evidence completeness.
+
+A repository may separately require:
+
+- external summary artefacts to be present,
+- the summary files to be parseable,
+- and the summaries to contain recognized metric keys.
+
+This should be enforced explicitly by repo policy / workflow.
+
+If evidence is missing or broken, it must never be silently reinterpreted as
+`PASS`.
+
+---
+
+## 4. Expected summary artefacts
+
+Typical accepted forms are:
+
+- `*_summary.json`
+- `*_summary.jsonl`
+
+Good summary artefacts are:
+
+- small,
+- immutable,
+- self-describing,
+- easy to archive,
+- easy to audit later.
+
+---
+
+## 5. Where results appear
+
+After augmentation, external detector information may appear in:
+
+- `PULSE_safe_pack_v0/artifacts/status.json`
+- the structured `external` section of the final status artefact
+- derived gates such as `gates.external_all_pass`
+- human-readable reporting such as the Quality Ledger
+
+Exact merge behavior, built-in detector mappings, and strict evidence semantics
+live at repo level:
+
+- [`../../docs/external_detector_summaries.md`](../../docs/external_detector_summaries.md)
+
+---
+
+## 6. Archival note
+
+If you archive the safe-pack (for example via Zenodo / DOI), include this file
+together with the repo-level external detector docs so downstream users can
+reconstruct:
+
+- what detector evidence was expected,
+- how summaries were folded in,
+- and whether those signals were advisory or normative in the integrating repo.

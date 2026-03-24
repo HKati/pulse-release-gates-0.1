@@ -115,7 +115,7 @@ jobs:
           ls -lah out/pages_site_case_study_shadow_v0/paradox/core/v0 | sed 's/^/    /' >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload artifact (site snapshot + inputs)
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: pages-paradox-core-case-study-shadow-site-v0
           path: |

@@ -1,300 +1,357 @@
-# PULSE Decision Field v0 – Topology + Decision Engine overview
+# PULSE decision field overview (v0)
 
-This document gives a high-level overview of the **Decision Field v0**
-layer in PULSE:
+> High-level overview of the decision-field layer inside topology v0.
 
-- how the different artefacts fit together:
-  - `status.json`
-  - `paradox_field_v0.json`
-  - `stability_map_v0`
-  - `decision_engine_v0.json`
-  - (optionally) `decision_trace_v0`
-  - and `Pulse Demo v1`,
-- and how they collectively define a **decision field** instead of a
-  single pass/fail surface.
+This note defines the decision field as a decision-oriented, field-structural projection over archived PULSE run artifacts.
 
-It is a conceptual hub that points to the more detailed docs and examples.
+It makes decision-relevant structure legible without flattening a run to bare PASS/FAIL and without silently rewriting the deterministic release result.
 
----
+It does not define release semantics. Release semantics are specified in:
 
-## 1. Motivation – from pass/fail to decision field
+* `docs/STATE_v0.md`
+* `docs/status_json.md`
+* `docs/STATUS_CONTRACT.md`
 
-Classic eval pipelines reduce everything to:
+Important boundary:
 
-- a single score (e.g. accuracy, RDSI),
-- or a small set of gating decisions (pass/fail).
+* release polarity is read from deterministic archived artifacts;
+* decision-field outputs remain artifact-derived;
+* decision-field outputs do not silently mutate the recorded release result;
+* missing signal families remain explicitly missing.
 
-This is powerful, but it hides:
+For the broader topology picture, see:
 
-- **paradoxical regions** (incompatible constraints that all look “correct”),
-- **curved / unstable regions** (small changes in conditions flip the outcome),
-- **meta-states** (e.g. being in a paradox field vs a simple region).
+* `docs/PULSE_topology_overview_v0.md`
+* `docs/PULSE_topology_v0_design_note.md`
+* `docs/PULSE_topology_epf_hook_v0.md`
 
-PULSE Decision Field v0 introduces an explicit **field view**:
+For methods / pipeline details, see:
 
-> Instead of just “did we pass?”, we ask:
->  
-> **“Where in the decision field are we, and how stable is that region?”**
-
-This is expressed through a small stack of artefacts.
+* `docs/PULSE_topology_v0_methods.md`
+* `docs/PULSE_topology_v0_case_study.md`
 
 ---
 
-## 2. Layer 1 – `status.json` (baseline PULSE safe pack)
+## 1. What the decision field is
 
-Produced by the standard PULSE safe pack:
+The decision field is a decision-oriented read of the topology surface for a single archived run.
 
-- path: `PULSE_safe_pack_v0/artifacts/status.json` (by default)
-- contains:
-  - `gates` → boolean gate flags (policy, safety, quality, SLO, etc.),
-  - `metrics` → scalar signals (e.g. RDSI),
-  - metadata about the run.
+Its purpose is not to decide from scratch and not to replace deterministic gate evaluation.
 
-In Decision Field v0, `status.json` is:
+Its purpose is to preserve decision-relevant structure that a flat deterministic result does not carry on its own, including:
 
-- the **base layer**:
-  - it defines what “green” / “red” means at the gate level,
-  - it is the source of truth for the initial `release_state`.
+* release polarity
+* stability classification
+* boundary proximity
+* local pressure or distortion
+* evidence completeness
+* concentration of instability or paradox structure
 
-Related docs:
-
-- (core PULSE docs)
-- `docs/PULSE_topology_v0_cli_demo.md` – CLI path from `status.json` to overlays.
+Downstream renderers may summarize this read for humans or tools, but the decision field itself is the structural projection, not the summary wording.
 
 ---
 
-## 3. Layer 2 – `paradox_field_v0.json` (paradox atoms)
+## 2. Why it exists
 
-PULSE mines **paradox atoms** over the gate patterns by looking at:
+The same deterministic release result can arise from materially different field conditions.
 
-- multiple `status.json` artefacts in a directory, and
-- minimal unsatisfiable sets (MUS) of gates.
+A run may be:
 
-The resulting artefact:
+* clearly separated from relevant boundaries,
+* boundary-close under perturbation,
+* locally unstable,
+* paradox-loaded,
+* or only partially observed because key signal families are missing.
 
-- path: `PULSE_safe_pack_v0/artifacts/paradox_field_v0.json`
-- root object: `paradox_field_v0`
-- key contents:
-  - `atoms[]`:
-    - each atom has:
-      - `gates`: a small set of gate identifiers,
-      - `minimal`: whether this is a MUS,
-      - `severity`: an approximate weight / impact.
+Those distinctions matter for honest interpretation, archive reading, and downstream compact encodings.
 
-Interpretation:
-
-- each atom represents a **local paradox**:
-  - a set of constraints that cannot all be satisfied together in a
-    particular region of the field,
-  - e.g. fairness vs SLO, safety vs latency.
-
-In Decision Field v0, `paradox_field_v0` exposes:
-
-- **where** structural tensions live,
-- **which** combinations of gates keep causing trouble.
-
-Related docs:
-
-- `docs/PULSE_topology_v0_mini_example_fairness_slo_epf.md`
-- `docs/PULSE_topology_v0_cli_demo.md`
+The decision field exists to preserve those distinctions in decision-oriented form.
 
 ---
 
-## 4. Layer 3 – `stability_map_v0` (field curvature / topology)
+## 3. Core decision-field coordinates
 
-Stability maps capture a coarse notion of:
+The decision field is easiest to read as a compact structural projection with three persistent components.
 
-- **curvature** in the decision field,
-- over regions defined by a small number of axes (e.g. fairness threshold,
-  SLO budget, EPF settings).
+### A. Release polarity
 
-A demo stability map:
+Release polarity is derived from deterministic archived artifacts.
 
-- path: `PULSE_safe_pack_v0/artifacts/stability_map_v0_demo.json`
-- root object: `stability_map_v0`
-- key contents:
-  - `cells[]`:
-    - `axes`: parameter ranges for this cell,
-    - `delta_bend`: a small integer capturing curvature in this region.
+Typical values:
 
-Interpretation:
+* positive
+* negative
+* unknown / incomplete
 
-- `delta_bend ≈ 0` → locally flat / linear region,
-- `delta_bend > 0` → curved / unstable region.
+Release polarity is a coarse abstraction of the deterministic release result, not a replacement for named contract states.
 
-In Decision Field v0, `stability_map_v0` provides:
+### B. Stability classification
 
-- a **geometric signal**:
-  - how sensitive this region is,
-  - whether small changes are likely to flip decisions.
+Stability classification is derived from field-sensitive signal families.
 
-Related docs:
+Typical values:
 
-- `docs/PULSE_topology_v0_cli_demo.md`
-- `docs/PULSE_topology_v0_governance_patterns.md`
+* stable
+* unstable / fragile
+* paradox-loaded
+* unknown
 
----
+This classification tells you whether the same polarity sits in a robust, pressured, distorted, or under-observed region.
 
-## 5. Layer 4 – `decision_engine_v0.json` (field-aware decision overlay)
+### C. Evidence completeness / signal availability
 
-The Decision Engine v0 combines:
+A decision-field read should keep explicit track of:
 
-- `status.json`
-- `paradox_field_v0.json` (optional)
-- `stability_map_v0` (optional)
+* which signal families were present,
+* which were missing,
+* and where the read is limited by degraded evidence.
 
-into a compact overlay:
-
-- path: `PULSE_safe_pack_v0/artifacts/decision_engine_v0.json`
-- root object: `decision_engine_v0`
-- key fields:
-  - `release_state`:
-    - `PROD_OK`, `STAGE_ONLY`, `BLOCK`, `UNKNOWN`
-  - `stability_type`:
-    - `stable_good`, `unstably_good`,
-    - `stable_bad`, `unstably_bad`,
-    - `boundary_simple`, `boundary`, `unknown`
-  - `status_summary`, `stability_summary`, `paradox_summary`:
-    - small summaries of each layer.
-
-Interpretation:
-
-- `release_state` says “what is the coarse decision?”
-- `stability_type` says “what kind of region are we in?”
-
-Examples:
-
-- `PROD_OK + stable_good`  
-  → green, locally flat, no strong paradox/curvature signals.
-
-- `PROD_OK + unstably_good`  
-  → green, but in a curved / paradox-rich region.
-
-- `BLOCK + unstably_bad`  
-  → blocked and in a structurally tense region.
-
-Related docs:
-
-- `docs/PULSE_decision_engine_v0_spec.md`
-- `docs/PULSE_topology_v0_governance_patterns.md`
-- `docs/PULSE_decision_engine_v0_unstably_good_example.md`
-- `docs/PULSE_decision_engine_v0_unstably_bad_example.md`
+Missing inputs must remain visible as absence; they must not be silently converted into stability, calmness, or positivity.
 
 ---
 
-## 6. Layer 5 – Decision trace and dual views (optional)
+## 4. Relationship to topology
 
-While Decision Engine v0 is a **summary**, the decision trace captures a
-more detailed **path** through the decision field:
+The decision field belongs to the broader topology family.
 
-- `decision_trace_v0`:
-  - a sequence of steps/events that show how the decision was built up
-    over time (or over different overlays),
-  - potentially including intermediate release_state / stability_type
-    at each step.
+A clean conceptual split is:
 
-A dual-view artefact (e.g. `dual_view_v0`) can capture:
+* topology v0 = the broader field-structural family
+* Stability Map v0 = the minimal carrier of polarity + stability + completeness
+* decision field = the decision-oriented projection of that structure
+* Decision Engine v0 = a compact downstream encoding derived from archived evidence
 
-- the **machine** view:
-  - raw gates, metrics, atoms, cells,
-- the **human** view:
-  - curated explanations,
-  - governance decisions,
-  - sign-offs.
+These are related roles, not competing release authorities.
 
-These are optional in Decision Field v0, but they are natural extensions
-once the field vocabulary (`release_state`, `stability_type`, paradox
-atoms, curvature) is in place.
-
-Related tools/docs (if present):
-
-- `PULSE_safe_pack_v0/tools/validate_decision_trace_v0.py`
-- `PULSE_safe_pack_v0/tools/build_dual_view_v0.py`
-- future docs for decision_trace / dual_view.
+The decision field therefore sits inside the topology picture as the place where structural distinctions become legible in decision-relevant coordinates.
 
 ---
 
-## 7. Layer 6 – Pulse Demo v1 (paradox stability showcase)
+## 5. What the decision field reads
 
-`docs/PULSE_demo_v1_paradox_stability_showcase.md` presents a focused,
-narrative demo:
+The decision field should remain artifact-derived.
 
-- a paradoxical prompt (liar sentence),
-- typical unstable behaviour from classical LLMs,
-- a Pulse-style **field-level response**:
-  - identifying a paradox state instead of forcing true/false.
+Its natural inputs are archived artifacts such as:
 
-It also introduces illustrative field metrics:
+* `PULSE_safe_pack_v0/artifacts/status.json`
+* `PULSE_safe_pack_v0/artifacts/report_card.html`
+* `stability_map_v0*.json`, when produced
+* `paradox_field_v0.json`, when produced
+* optional EPF shadow outputs
+* optional external evidence summaries
 
-- RDSI – Release Decision Stability Index,
-- EPF shadow field tension,
-- Δ-direction error,
-- a meta-state signal.
+This keeps the decision-field read:
 
-These are:
+* reproducible,
+* reviewable,
+* auditable,
+* and traceable back to immutable run artifacts.
 
-- **not yet a formal schema**,
-- but a **target for future implementations** of field-level stability
-  metrics over paradoxical regions.
-
----
-
-## 8. How the pieces fit together
-
-A typical Decision Field v0 flow looks like:
-
-1. **Run the safe pack**
-
-   - produce `status.json` with gates and metrics.
-
-2. **Build the paradox field**
-
-   - run `pulse_paradox_atoms_v0.py` on one or more status artefacts,
-   - get `paradox_field_v0.json`.
-
-3. **(Optional) Build a stability map**
-
-   - run a demo or real stability map builder,
-   - get `stability_map_v0*.json`.
-
-4. **Run Decision Engine v0**
-
-   - combine `status.json` + `paradox_field_v0.json` + `stability_map_v0`,
-   - get `decision_engine_v0.json` with `release_state` and `stability_type`.
-
-5. **Use in governance / dashboards**
-
-   - release boards:
-     - use `release_state` + `stability_type` + summaries.
-   - dashboards:
-     - highlight `unstably_good`, `boundary`, `unstably_bad` regions.
-
-6. **(Optional) Extend with decision traces and dual views**
-
-   - generate `decision_trace_v0` for path-level visibility,
-   - generate `dual_view_v0` for combined human/machine perspectives.
+It should not depend on hidden live computation that creates new release meaning.
 
 ---
 
-## 9. Summary
+## 6. What the decision field tries to express
 
-Decision Field v0 is the **conceptual layer** that ties together:
+The decision field is useful when bare PASS/FAIL is not enough.
 
-- **status (gates + metrics)** → “what happened?”
-- **paradox field** → “which constraints are in tension?”
-- **stability map** → “how curved / sensitive is this region?”
-- **decision engine overlay** → “what is the coarse decision and what kind of
-  region is it?”
-- **demo and examples** → “how does this look in practice?”
+Typical questions include:
 
-It moves PULSE beyond:
+* is this positive result robust or boundary-close?
+* is this negative result cleanly separated or pressure-loaded?
+* is instability local or concentrated?
+* is paradox structure isolated or recurring?
+* is the read materially limited by missing evidence?
 
-- “just another safety config” or
-- “just another eval score”,
+That means the decision field is less about narrative posture and more about preserving a structurally honest decision read.
 
-towards a **field-level representation of decisions** where paradox,
-curvature and structural tension are:
+When materialized, this may align with state families such as:
 
-- explicit,
-- measurable,
-- and available to both machines and governance processes.
+* `stable_good`
+* `unstably_good`
+* `stable_bad`
+* `unstably_bad`
+* `unknown`
+
+Those are field encodings, not replacement release semantics.
+
+---
+
+## 7. Relationship to the Decision Engine
+
+A decision field is richer than a single compact label, but it pairs naturally with Decision Engine v0.
+
+For example, a Decision Engine may compress archived evidence into labels such as:
+
+* `BLOCK`
+* `STAGE_ONLY`
+* `PROD_OK`
+* `UNKNOWN`
+
+Those labels are downstream encodings of a broader field read.
+
+Unless explicitly promoted through the release contract, they do not redefine release semantics.
+
+A useful rule is:
+
+* the decision field preserves structure;
+* the Decision Engine compresses selected parts of that structure for downstream use.
+
+---
+
+## 8. Relationship to EPF shadow
+
+EPF shadow is a high-value input to the decision field because it exposes boundary sensitivity and perturbation behavior near decision thresholds.
+
+Relevant EPF contributions include:
+
+* near-boundary flips under small perturbation
+* disagreement clustering
+* repeated fragility around a gate family
+* local pressure near a release boundary
+
+Valid EPF use in the decision field:
+
+* distinguish robust positive from boundary-close positive
+* raise instability classification when perturbation repeatedly changes outcomes
+* mark pressure concentration near a threshold
+* keep boundary sensitivity visible in the archived read
+
+Invalid EPF use in the decision field:
+
+* silently overrule the deterministic baseline
+* reinterpret one shadow disagreement as a policy rewrite
+* treat missing EPF artifacts as stability or calmness
+
+---
+
+## 9. Relationship to paradox / field outputs
+
+Paradox / field outputs expose conflict structure that the decision field can preserve in decision-oriented form.
+
+Useful preserved distinctions include:
+
+* recurrence within a gate family
+* locality versus spread of tension
+* isolated versus systemic fragility
+* clustering versus separation of conflict patterns
+
+These outputs enrich the decision-field read when present.
+
+Their absence must be represented as absence, not as zero tension.
+
+---
+
+## 10. Typical interpretation patterns
+
+### Case A — Deterministic positive result, quiet diagnostics
+
+A decision-field read may show:
+
+* positive polarity
+* stable classification
+* low boundary pressure
+* no concentrated paradox structure
+
+### Case B — Deterministic positive result, noisy diagnostics
+
+A decision-field read may show:
+
+* positive polarity
+* unstable / fragile or paradox-loaded classification
+* elevated boundary sensitivity
+* pressure concentration or disagreement clustering
+
+The polarity can stay positive while the stability read changes materially.
+
+### Case C — Deterministic negative result, cleaner separation
+
+A decision-field read may show:
+
+* negative polarity
+* stable or low-ambiguity classification
+* limited boundary pressure
+* no material paradox concentration
+
+### Case D — Repeated disagreement in one gate family
+
+A decision-field read may keep the same polarity while surfacing:
+
+* recurrent local instability
+* low separation around a threshold
+* concentrated paradox pressure
+* evidence that the same region remains structurally stressed
+
+---
+
+## 11. Recommended reading order
+
+A practical reading order for one run is:
+
+1. Read the deterministic archived baseline
+
+   * `status.json`
+   * report card / ledger artifacts
+
+2. Read optional signal families
+
+   * EPF shadow outputs
+   * paradox / field outputs
+   * external evidence summaries, when present
+
+3. Read the decision-field projection
+
+   * polarity
+   * stability classification
+   * completeness markers
+   * boundary / paradox / instability markers
+
+This keeps the decision-field interpretation anchored to archived evidence.
+
+---
+
+## 12. Non-goals
+
+The decision field should not:
+
+* replace deterministic gate evaluation
+* hide release-policy changes inside topology language
+* require every signal family on every run
+* treat missing diagnostics as positive evidence
+* collapse the run into a single prose-only summary
+* become a live online control loop
+* make release behavior depend on undocumented runtime state
+
+If one of those becomes necessary, it should be introduced through explicit contract or policy changes.
+
+---
+
+## 13. Design invariants
+
+A healthy decision-field layer keeps these invariants stable:
+
+* release polarity remains derivable from deterministic artifacts
+* the decision field remains artifact-derived
+* the same release polarity may correspond to different stability reads
+* missing inputs remain explicitly missing
+* missing diagnostics never imply stability or positivity
+* outputs remain traceable to archived artifacts
+* relation language defaults to boundary, adjacency, pressure, distortion, concentration, or transition unless explicitly marked causal
+* decision-field language must not become an implicit release-policy rewrite
+
+---
+
+## 14. Summary
+
+The decision field is a decision-oriented, field-structural projection over archived PULSE artifacts.
+
+It exists to preserve decision-relevant distinctions that a flat deterministic result loses, especially:
+
+* polarity
+* stability
+* completeness
+* boundary pressure
+* instability concentration
+* paradox structure
+
+It remains artifact-derived, reproducible from archived evidence, and separate from the release-semantics contract.

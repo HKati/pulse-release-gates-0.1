@@ -1,0 +1,165 @@
+name: Upload PULSE SARIF
+
+on:
+  workflow_run:
+    workflows: ["PULSE CI"]
+    types: [completed]
+
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: "Completed PULSE CI run ID"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+  security-events: write
+
+jobs:
+  upload-sarif:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Resolve source run
+        id: src
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          INPUT_RUN_ID: ${{ github.event.inputs.run_id }}
+        run: |
+          set -euo pipefail
+
+          api_get() {
+            curl -fsSL \
+              -H "Authorization: Bearer ${GH_TOKEN}" \
+              -H "Accept: application/vnd.github+json" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "$1"
+          }
+
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            RUN_ID="${INPUT_RUN_ID}"
+          else
+            RUN_ID="${{ github.event.workflow_run.id }}"
+          fi
+
+          if [[ -z "${RUN_ID}" ]]; then
+            echo "::error::Missing source workflow run id."
+            exit 1
+          fi
+
+          echo "run_id=${RUN_ID}" >> "$GITHUB_OUTPUT"
+
+          api_get "https://api.github.com/repos/${REPO}/actions/runs/${RUN_ID}" > run.json
+
+          RUN_NAME="$(jq -r '.name // ""' run.json)"
+          if [[ "${RUN_NAME}" != "PULSE CI" ]]; then
+            echo "::error::Expected workflow name 'PULSE CI', got '${RUN_NAME}'."
+            exit 1
+          fi
+
+      - name: Download pulse-report artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: pulse-report
+          path: _pulse_artifacts
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ steps.src.outputs.run_id }}
+
+      - name: Read source SARIF metadata
+        id: target
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mapfile -t meta_files < <(
+            find _pulse_artifacts -type f \
+              \( -path '*/meta/sarif_upload.json' -o -path '*/artifacts/meta/sarif_upload.json' \) \
+              | sort
+          )
+
+          if [[ "${#meta_files[@]}" -eq 0 ]]; then
+            echo "::warning::No SARIF upload metadata artifact found; skipping upload."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "reason=missing_metadata" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [[ "${#meta_files[@]}" -gt 1 ]]; then
+            echo "::error::Multiple SARIF upload metadata files found."
+            printf ' - %s\n' "${meta_files[@]}"
+            exit 1
+          fi
+
+          META="${meta_files[0]}"
+          EVENT_NAME="$(jq -r '.event_name // ""' "${META}")"
+          REF="$(jq -r '.ref // ""' "${META}")"
+          SHA="$(jq -r '.sha // ""' "${META}")"
+          IS_FORK="$(jq -r '.is_fork // false' "${META}")"
+
+          if [[ -z "${REF}" || -z "${SHA}" ]]; then
+            echo "::warning::Source SARIF metadata is missing ref/sha; skipping upload."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "reason=missing_ref_or_sha" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          case "${REF}" in
+            refs/heads/*|refs/tags/*|refs/pull/*/merge|refs/pull/*/head) ;;
+            *)
+              echo "::error::Unsupported ref in source SARIF metadata: ${REF}"
+              exit 1
+              ;;
+          esac
+
+          if [[ "${EVENT_NAME}" == "pull_request" && "${IS_FORK}" == "true" ]]; then
+            echo "::notice::Skipping SARIF upload for fork PR run."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "reason=fork_pr" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "ref=${REF}" >> "$GITHUB_OUTPUT"
+          echo "sha=${SHA}" >> "$GITHUB_OUTPUT"
+
+      - name: Check SARIF presence
+        id: sarif
+        if: steps.target.outputs.skip != 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mapfile -t sarif_files < <(
+            find _pulse_artifacts -type f \
+              \( -path '*/reports/sarif.json' -o -path '*/artifacts/reports/sarif.json' \) \
+              | sort
+          )
+
+          if [[ "${#sarif_files[@]}" -eq 0 ]]; then
+            echo "::notice::No reports/sarif.json artifact found in run ${{ steps.src.outputs.run_id }}; nothing to upload."
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [[ "${#sarif_files[@]}" -gt 1 ]]; then
+            echo "::error::Multiple reports/sarif.json files found."
+            printf ' - %s\n' "${sarif_files[@]}"
+            exit 1
+          fi
+
+          echo "present=true" >> "$GITHUB_OUTPUT"
+          echo "path=${sarif_files[0]}" >> "$GITHUB_OUTPUT"
+
+      - name: Upload SARIF to GitHub code scanning
+        if: steps.target.outputs.skip != 'true' && steps.sarif.outputs.present == 'true'
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: ${{ steps.sarif.outputs.path }}
+          ref: ${{ steps.target.outputs.ref }}
+          sha: ${{ steps.target.outputs.sha }}
+          category: pulse-gates
