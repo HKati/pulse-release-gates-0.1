@@ -275,6 +275,39 @@ The primary release-gating workflow is: `.github/workflows/pulse_ci.yml`
 
 Other workflows in this repository may exist for shadow diagnostics, workflow validation, or research experiments; unless explicitly promoted into the required gate set, they do not change release outcomes.
 
+### Auxiliary security workflows
+
+The repository also ships auxiliary security workflows.
+
+These are supporting hygiene / investigation / publication workflows.
+They may scan, summarize, sanitize, or publish security findings, but they do not define shipping decisions unless they are explicitly promoted into the required gate set.
+
+Current examples:
+
+- `.github/workflows/gitleaks.yml`
+  - Manual (`workflow_dispatch`) repository secret scan.
+  - Advisory by default; uploads `gitleaks.sarif` as an artifact.
+
+- `.github/workflows/secret_sweep.yml`
+  - Manual working-tree grep for common secret-like patterns.
+  - Soft warning helper; not the primary release gate.
+
+- `.github/workflows/secret_history.yml`
+  - Manual TruffleHog history scan.
+  - Produces sanitized findings and summaries for review.
+
+- `.github/workflows/secret_full_sweep.yml`
+  - Manual deeper sweep across working tree and git history.
+  - Intended for audit / cleanup / investigation support.
+
+- `.github/workflows/upload_sarif.yml`
+  - Optional publication workflow for SARIF into GitHub-native code-scanning surfaces.
+  - Kept separate from the primary release-gating workflow.
+
+Rule:
+To understand what blocks shipping, start with `.github/workflows/pulse_ci.yml`.
+Auxiliary security workflows support hygiene and review; they are not a second release-decision engine.
+
 It will:
 
 1. locate/unzip the pack (`PULSE_safe_pack_v0/` or `PULSE_safe_pack_v0.zip`),
