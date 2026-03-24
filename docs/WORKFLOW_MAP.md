@@ -1,44 +1,44 @@
 # Workflow map
 
-Ez az oldal gyors orientációt ad a repo GitHub Actions workflow-jaihoz.
+This page gives a fast orientation to the repository's GitHub Actions workflows.
 
 ## One-line rule
 
-Alapértelmezésben csak a primary release-gating workflow vesz részt a release outcome meghatározásában.
+By default, only the primary release-gating workflow participates in release outcome decisions.
 
-A shadow / diagnostic / publication / validation workflow-k lehetnek saját magukon belül fail-closedek, de önmagukban nem változtatják meg a fő release döntést, hacsak nincsenek kifejezetten promotálva a required gate setbe.
+Shadow, diagnostic, publication, and validation workflows may be fail-closed within their own scope, but they do not change the main release outcome unless they are explicitly promoted into the required gate set.
 
 ## 2-minute orientation
 
-Ha most nyitod meg először a repót, ezt a sorrendet kövesd:
+If you are opening this repository for the first time, use this order:
 
 1. **Shipping / release decision**
    - `.github/workflows/pulse_ci.yml`
-   - Ez a primary release-gating workflow.
+   - This is the primary release-gating workflow.
 
 2. **Repo / workflow guardrails**
    - `workflow_lint.yml`
-   - Governance preflight jellegű ellenőrzések.
-   - Céljuk: a workflow- és policy-réteg épségének védelme.
+   - Governance preflight and workflow validation checks.
+   - These protect workflow and repo integrity; they are not a second release-decision engine.
 
 3. **Shadow / diagnostic workflows**
-   - Ezek extra jeleket, overlayeket, riportokat vagy kutatási artefaktumokat adnak.
-   - Alapból CI-neutral rétegként kezelendők.
-   - Példák:
+   - These produce extra signals, overlays, reports, or research artifacts.
+   - By default, treat them as CI-neutral diagnostic layers.
+   - Examples:
      - `.github/workflows/openai_evals_refusal_smoke_shadow.yml`
      - `.github/workflows/separation_phase_overlay.yml`
      - `.github/workflows/theory_overlay_v0.yml`
      - `.github/workflows/epf_experiment.yml`
-     - G-field / G-snapshot / overlay validation jellegű shadow workflow-k
+     - G-field / G-snapshot / overlay-validation shadow workflows
 
 4. **Publication / GitHub-native surfaces**
-   - Ezek a GitHub felületére publikálnak vagy külön native surface-eket töltenek.
-   - Opt-in workflow-k legyenek, explicit write permissionnel.
-   - Példák:
+   - These publish to GitHub-native surfaces or other outward-facing channels.
+   - Keep these as opt-in workflows with explicit write permissions.
+   - Examples:
      - `.github/workflows/upload_sarif.yml`
-     - PR comment
+     - PR comments
      - badge write-back
-     - Pages snapshot
+     - Pages snapshots
 
 ## Workflow families
 
@@ -46,31 +46,32 @@ Ha most nyitod meg először a repót, ezt a sorrendet kövesd:
 **Purpose:** release decision
 
 - Canonical workflow: `.github/workflows/pulse_ci.yml`
-- Ez futtatja a fő packot, érvényesíti a required gate-eket, és a release-döntési maghoz tartozik.
-- Ha azt akarod megérteni, hogy mi blokkolhat szállítást, itt kezdd.
+- This runs the main pack, enforces required gates, and belongs to the normative release path.
+- If you want to understand what can block shipping, start here.
 
 ### B. Repo / workflow guardrails
-**Purpose:** repo-integritás, workflow-integritás, governance preflight
+**Purpose:** repo integrity, workflow integrity, governance preflight
 
-- Ide tartoznak azok a workflow-k, amelyek a workflow YAML-ek, policy wiring vagy kapcsolódó guardrail-ek épségét védik.
-- Ezek nem új release-szemantikát hoznak létre, hanem a meglévő mechanika sérülését akadályozzák.
+- These workflows protect workflow YAML, policy wiring, and related guardrails.
+- They do not create a second release semantic layer.
+- Their job is to prevent damage or ambiguity in the existing mechanism.
 
 ### C. Shadow / diagnostic workflows
-**Purpose:** extra diagnosztika, kutatási vagy magyarázó rétegek
+**Purpose:** extra diagnostics, research layers, or explanatory surfaces
 
-- Ezek overlayeket, extra JSON/MD artefaktumokat, kutatási összehasonlításokat vagy dry-run jellegű jeleket állíthatnak elő.
-- Fontos szabály:
-  - **magyarázhatnak**
-  - **összehasonlíthatnak**
-  - **figyelmeztethetnek**
-  - de alapból **nem változtathatják meg** a release outcome-ot
+- These workflows may produce overlays, extra JSON/Markdown artifacts, research comparisons, or dry-run signals.
+- Important rule:
+  - they may **explain**
+  - they may **compare**
+  - they may **warn**
+  - but by default they do **not** change the release outcome
 
 ### D. Publication / platform integration workflows
-**Purpose:** GitHub-native vagy más felületre publikálás
+**Purpose:** publication to GitHub-native or external-facing surfaces
 
-- Ilyen például a SARIF feltöltés GitHub Code Scanningbe.
-- Ide tartozhat PR comment, badge write-back vagy Pages snapshot is.
-- Ezeket külön kell tartani a primary gating workflow-tól.
+- Example: SARIF upload into GitHub Code Scanning.
+- This family may also include PR comments, badge write-back, or Pages snapshots.
+- Keep these separate from the primary release-gating workflow.
 
 ## Read this together with
 
@@ -81,11 +82,11 @@ Ha most nyitod meg először a repót, ezt a sorrendet kövesd:
 
 ## Practical rule for contributors
 
-Ha új workflow-t adsz hozzá, előbb döntsd el:
+Before adding a new workflow, decide which category it belongs to:
 
 - **release-gating**
 - **guardrail**
-- **shadow/diagnostic**
+- **shadow / diagnostic**
 - **publication**
 
-Ha ez nincs világosan kimondva, a workflow túl könnyen félreérthető lesz.
+If that role is not stated clearly, the workflow becomes too easy to misread.
