@@ -66,3 +66,7 @@ If you add/rename a doc under `docs/`, please update this index.
 - [gravity_record_protocol_appendix_v0_1.md](gravity_record_protocol_appendix_v0_1.md) — Appendix (v0.1): gravity as a record test (λ/s/κ protocols + horizon taxonomy).
 - [gravity_record_protocol_inputs_v0_1.md](gravity_record_protocol_inputs_v0_1.md) — Inputs bundle spec (v0.1): raw producer contract for Gravity Record Protocol runs.
 - [gravity_record_protocol_decodability_wall_v0_1.md](gravity_record_protocol_decodability_wall_v0_1.md) — Decodability Wall spec (v0.1): operational decodability threshold + critical radius definition and calibration notes.
+
+## Optional layers & research surfaces
+
+- `docs/OPTIONAL_LAYERS.md` — Shadow workflows, overlays, experiments, and publication surfaces that do not define release outcomes by default.
