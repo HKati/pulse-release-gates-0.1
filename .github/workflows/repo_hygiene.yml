@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   hygiene_guardrails:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest  
     timeout-minutes: 10
 
     steps:
