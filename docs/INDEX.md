@@ -18,6 +18,7 @@ If you add/rename a doc under `docs/`, please update this index.
 - [QUICKSTART_CORE_v0.md](QUICKSTART_CORE_v0.md) — Minimal steps to run the core pipeline.
 - [RUNBOOK.md](RUNBOOK.md) — Operational runbook for triage and reruns.
 - [STATUS_CONTRACT.md](STATUS_CONTRACT.md) — Contract for `status.json` shape and semantics.
+- [GATE_SETS.md](GATE_SETS.md) — Human-readable matrix of the current `core_required` and `required` policy sets.
 - [GLOSSARY_v0.md](GLOSSARY_v0.md) — Canonical term definitions used across docs.
 
 ## Status, ledger & external signals
