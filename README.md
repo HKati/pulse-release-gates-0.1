@@ -64,10 +64,11 @@ Choose one path first:
 - **Triage / operational path** → [`docs/RUNBOOK.md`](docs/RUNBOOK.md)  
   Start here when CI is red and you need the shortest path to diagnosis.
 
-- **Topology / Paradox / EPF / overlays** → see the deep docs map further below  
-  These are diagnostic layers unless explicitly promoted into the required gate set.
+- **Topology / Paradox / EPF / overlays** → [`docs/OPTIONAL_LAYERS.md`](docs/OPTIONAL_LAYERS.md)  
+  Use this after the core path. These are diagnostic layers unless explicitly promoted into the required gate set.
 
-  
+--- 
+
 ## Workflow map (2-minute orientation)
 
 Before opening `.github/workflows/`, keep this split in mind:
@@ -94,6 +95,7 @@ Shadow and publication workflows must stay non-normative unless explicitly promo
 
 See also: `docs/WORKFLOW_MAP.md`
 
+---
 
 ## Clarity First (before Paradox / EPF / Topology work)
 
