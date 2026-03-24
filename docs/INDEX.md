@@ -69,4 +69,9 @@ If you add/rename a doc under `docs/`, please update this index.
 
 ## Optional layers & research surfaces
 
-- `docs/OPTIONAL_LAYERS.md` — Shadow workflows, overlays, experiments, and publication surfaces that do not define release outcomes by default.
+- [OPTIONAL_LAYERS.md](OPTIONAL_LAYERS.md) — Shadow workflows, overlays, experiments, and publication surfaces that do not define release outcomes by default.
+
+### External challenge companions
+
+- [../parameter_golf_v0/README.md](../parameter_golf_v0/README.md) — Parameter Golf v0 shadow-only evidence companion.
+- [parameter_golf_submission_evidence_v0.md](parameter_golf_submission_evidence_v0.md) — Notes on the Parameter Golf submission-evidence contract and reviewer-facing receipt surface.
