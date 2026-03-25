@@ -20,6 +20,15 @@ This changelog records **semantic** changes that can affect release gating outco
    - Impact / migration notes (if any)
 
 ## Unreleased
+
+- `pulse_gate_policy_v0.yml` (policy 0.2.0):
+  - Changed: add `detectors_materialized_ok` to `gates.required` and `gates.core_required`.
+  - Changed: release-grade workflow now enforces `required ∪ release_required`.
+  - Changed: release-grade augmentation requires external summaries fail-closed.
+  - Why: scaffold / placeholder booleans must not be misread as shipping evidence.
+  - Impact: first-run Core CI now fails closed until real measurements are wired; release-grade runs also require external evidence presence plus aggregate pass.
+  - Migration: wire deterministic producers for the required gates before enabling strict release workflows.
+
 pulse_gate_policy_v0.yml: add core_required gate set (minimal deterministic Core CI); required/advisory enforcement semantics unchanged.
 
 - Q3 fairness: fail-closed when dataset manifest or `dataset_manifest.slices.dimensions` is missing/empty; Q3 gating now FAILs without declared slices (spec `q3_fairness_v0` bumped to 0.1.1). (PR: #936)
