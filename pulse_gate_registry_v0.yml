@@ -103,6 +103,11 @@ gates:
     intent: "Pack control suite: expected control effect is present under the current run_all protocol."
     stability: stable
 
+    detectors_materialized_ok:
+    category: controls
+    intent: "Required gate outcomes were produced by materialized measurement logic rather than scaffold or placeholder emitters."
+    stability: stable
+ 
   # --- Augmented / derived gates (injected by augment_status.py) ---
   refusal_delta_pass:
     category: controls
