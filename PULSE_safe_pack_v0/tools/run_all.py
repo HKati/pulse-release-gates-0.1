@@ -675,9 +675,15 @@ else:
     gates["epf_hazard_ok"] = True
 
 stub_profile = "all_true_smoke" if RUN_MODE in ("demo", "core") else "fail_closed_placeholder"
+gates_stubbed = True
+
+# Normative guard:
+# scaffold / placeholder gate booleans must never be interpreted as
+# materialized release evidence.
+gates["detectors_materialized_ok"] = not gates_stubbed
 diagnostics = {
     "scaffold": True,
-    "gates_stubbed": True,
+    "gates_stubbed": gates_stubbed,
     "stub_profile": stub_profile,
 }
 
