@@ -27,7 +27,7 @@ enforcement:
   unknown_gate_in_status: WARN
   external_detectors_default: ADVISORY
 
-gates:
+gates:  
   required:
     - detectors_materialized_ok
     - pass_controls_refusal
