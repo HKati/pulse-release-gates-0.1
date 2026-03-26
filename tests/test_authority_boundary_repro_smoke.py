@@ -28,7 +28,6 @@ SCHEMA_VALID_CASES = [
 ]
 SCHEMA_INVALID_CASE = "schema_invalid_non_boolean_gate"
 EXPECTED_REQUIRED_GATES = [
-    "detectors_materialized_ok",
     "pass_controls_refusal",
     "pass_controls_sanit",
     "sanitization_effective",
