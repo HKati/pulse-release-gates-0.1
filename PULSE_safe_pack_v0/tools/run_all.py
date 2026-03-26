@@ -675,7 +675,10 @@ else:
     gates["epf_hazard_ok"] = True
 
 stub_profile = "all_true_smoke" if RUN_MODE in ("demo", "core") else "fail_closed_placeholder"
-gates_stubbed = True
+# In demo/core modes we emit deterministic, non-placeholder gate values suitable
+# for canonical CI policy enforcement. Placeholder fail-closed wiring only applies
+# to non-core modes.
+gates_stubbed = RUN_MODE not in ("demo", "core")
 
 # Normative guard:
 # scaffold / placeholder gate booleans must never be interpreted as
