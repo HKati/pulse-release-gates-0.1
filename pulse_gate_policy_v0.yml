@@ -17,7 +17,7 @@
 
 policy:
   id: pulse-gate-policy-v0
-  version: "0.1.2"
+   version: "0.2.0"
 
 enforcement:
   required_missing: FAIL
@@ -29,6 +29,7 @@ enforcement:
 
 gates:
   required:
+    - detectors_materialized_ok
     - pass_controls_refusal
     - refusal_delta_pass
     - effect_present
@@ -51,6 +52,7 @@ gates:
 
   # Minimal deterministic gate set for first-time adopters (PULSE Core CI).
   core_required:
+    - detectors_materialized_ok
     - pass_controls_refusal
     - pass_controls_sanit
     - sanitization_effective
