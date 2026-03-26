@@ -8,7 +8,7 @@ status.json and related artifacts under the pack's artifacts directory,
 which are then consumed by CI workflows and reporting tools.
 """
 
-import argparse
+import argparse 
 import datetime
 import hashlib
 import json
