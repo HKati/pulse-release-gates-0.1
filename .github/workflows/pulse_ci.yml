@@ -1110,10 +1110,6 @@ jobs:
         if: always()
         shell: bash
         env:
-          PACK_DIR: ${{ env.PACK_DIR }}
-          PULSE_STATUS: ${{ env.PACK_DIR }}/artifacts/status.json
-          PULSE_JUNIT: ${{ env.PACK_DIR }}/artifacts/reports/junit.xml
-          PULSE_SARIF: ${{ env.PACK_DIR }}/artifacts/reports/sarif.json
           PULSE_EVENT_NAME: ${{ github.event_name }}
           PULSE_REF: ${{ github.ref }}
           PULSE_SHA: ${{ github.sha }}
@@ -1121,6 +1117,17 @@ jobs:
           PULSE_IS_FORK: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.id != github.event.pull_request.base.repo.id || false }}
         run: |
           set -euo pipefail
+
+          PACK_DIR="${PACK_DIR:-${GITHUB_WORKSPACE}/PULSE_safe_pack_v0}"
+          if [[ ! -d "${PACK_DIR}" ]]; then
+            echo "::error::PACK_DIR not found at ${PACK_DIR}"
+            exit 1
+          fi
+
+          export PACK_DIR
+          export PULSE_STATUS="${PACK_DIR}/artifacts/status.json"
+          export PULSE_JUNIT="${PACK_DIR}/artifacts/reports/junit.xml"
+          export PULSE_SARIF="${PACK_DIR}/artifacts/reports/sarif.json"
 
           mkdir -p "${PACK_DIR}/artifacts/reports" "${PACK_DIR}/artifacts/meta"
 
