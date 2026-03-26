@@ -153,6 +153,7 @@ def _generate_normalized_outputs() -> tuple[str, str, str]:
             "PULSE_JUNIT",
             "PULSE_SARIF",
             "PULSE_ARTIFACT_DIR",
+            "EPF_HAZARD_ENFORCE",
         ):
             env.pop(key, None)
 
