@@ -20,20 +20,12 @@ This changelog records **semantic** changes that can affect release gating outco
    - Impact / migration notes (if any)
 
 ## Unreleased
-pulse_gate_policy_v0.yml: add core_required gate set (minimal deterministic Core CI); required/advisory enforcement semantics unchanged.
 
-- Q3 fairness: fail-closed when dataset manifest or `dataset_manifest.slices.dimensions` is missing/empty; Q3 gating now FAILs without declared slices (spec `q3_fairness_v0` bumped to 0.1.1). (PR: #936)
-
-- q3_fairness_v0 (spec 0.1.1): Require non-empty dataset slice dimensions; fail-closed when missing/empty to prevent fairness checks from being skipped.
-
- HKati-patch-558331
-- pulse-gate-policy-v0 (policy 0.1.2): introduce a dedicated `release_required` set for external-evidence release gating, while keeping `external_all_pass` in `required` for the currently enforced release-grade paths. This prepares the policy split without weakening live release gating. (PR: #1352)
-
-- External evidence strict precheck: accept `azure_indirect_jailbreak_rate` as a recognized metric key in `scripts/check_external_summaries_present.py` so strict-mode metric-key checking stays aligned with the canonical Azure detector path.
-  - **Why:** the canonical Azure fold-in path already uses `azure_indirect_jailbreak_rate`, but the strict precheck did not recognize it by default.
-  - **Impact:** minimal Azure summaries exposing the canonical key no longer fail strict checks spuriously.
-  - **Migration:** none required.
- main
+- `pulse_gate_policy_v0.yml` (policy 0.2.0):
+  - Changed: add `detectors_materialized_ok` to `gates.required` and `gates.core_required`.
+  - Why: scaffold / placeholder booleans must not be misread as materialized release evidence.
+  - Impact: policy consumers deriving `required` or `core_required` now fail closed until detectors are materialized.
+  - Migration: wire deterministic producers for the required gates before treating scaffold output as passing evidence.
 
 ## 0.1.0 — Initial baseline
 
