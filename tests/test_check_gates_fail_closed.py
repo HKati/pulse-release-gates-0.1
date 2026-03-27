@@ -63,10 +63,12 @@ def test_check_gates_fail_closed() -> None:
             {
                 "gate_true": True,
                 "gate_false": False,
-                "gate_str": "true",  # should NOT pass
+                "gate_str": "true",   # should NOT pass
+                "gate_none": None,    # should NOT pass
+                "gate_int": 1,        # should NOT pass
             },
         )
-
+       
         # PASS
         p = _run(status_path, ["gate_true"])
         _assert_rc(p, 0)
@@ -79,6 +81,15 @@ def test_check_gates_fail_closed() -> None:
         p = _run(status_path, ["gate_str"])
         _assert_rc(p, 1)
 
+        # FAIL (None)
+        p = _run(status_path, ["gate_none"])
+        _assert_rc(p, 1)
+
+        # FAIL (int truthy)
+        p = _run(status_path, ["gate_int"])
+        _assert_rc(p, 1)
+
+        
         # Missing gate => exit 2
         p = _run(status_path, ["missing_gate"])
         _assert_rc(p, 2)
