@@ -106,7 +106,7 @@ def test_repo_status_v1_schema_enforces_boolean_gates() -> None:
         # Keep this assertion loose: message text can vary slightly across jsonschema versions.
         assert "boolean" in out_bad.lower(), f"Expected mention of boolean type in error output\n{out_bad}"
 
-      invalid_mode = {
+              invalid_mode = {
             "version": "1.0.0-test",
             "created_utc": "2026-02-17T00:00:00Z",
             "metrics": {"run_mode": "staging"},
@@ -139,7 +139,7 @@ def test_repo_status_v1_schema_enforces_boolean_gates() -> None:
         out_gates = _out(r_gates)
         assert r_gates.returncode != 0, "Expected non-object gates to fail schema validation"
         assert "::error::" in out_gates, f"Expected CI-friendly ::error:: on invalid gates shape\n{out_gates}"
-        assert "object" in out_gates.lower(), f"Expected object type mention in error output\n{out_gates}"
+        assert "object" in out_gates.lower(), f"Expected object type mention in error output\n{out_gates}"          
 
 def test_validate_status_schema_tool_smoke() -> None:
     """
