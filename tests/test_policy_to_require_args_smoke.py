@@ -62,7 +62,7 @@ def test_policy_to_require_args_smoke() -> None:
     with tempfile.TemporaryDirectory() as td:
         td = pathlib.Path(td)
 
-        # 1) Happy path: multiline required + inline core_required + empty advisory
+        # 1) Happy path: multiline required + inline core_required + inline release_required + empty advisory 
         policy1 = td / "policy1.yml"
         policy1.write_text(
             textwrap.dedent(
@@ -75,6 +75,7 @@ def test_policy_to_require_args_smoke() -> None:
                     - gate_a
                     - gate_b  # inline comment should be ignored
                   core_required: [gate_a]
+                  release_required: [gate_rel_a, gate_rel_b]
                   advisory: []
                 """
             ),
@@ -89,6 +90,11 @@ def test_policy_to_require_args_smoke() -> None:
         _assert_rc(p, 0)
         assert (p.stdout or "").strip() == "gate_a"
 
+        p = _run(policy1, "release_required", "newline")
+        _assert_rc(p, 0)
+        assert _stdout_lines(p) == ["gate_rel_a", "gate_rel_b"]
+ 
+        
         p = _run(policy1, "advisory", "newline")
         _assert_rc(p, 0)
         assert (p.stdout or "").strip() == ""
@@ -149,7 +155,46 @@ def test_policy_to_require_args_smoke() -> None:
         p = _run(policy4, "required", "newline")
         _assert_rc(p, 3)
 
-        # 5) Policy file not found => rc 2
+         # 5) release_required missing set => fail closed (non-zero)
+        policy5 = td / "policy5_missing_release_required.yml"
+        policy5.write_text(
+            textwrap.dedent(
+                """\
+                policy:
+                  id: test
+                  version: "0.0.0"
+                gates:
+                  required: [gate_x, gate_y]
+                  core_required: [gate_x]
+                  advisory: [note_only]
+                """
+            ),
+            encoding="utf-8",
+        )
+        p = _run(policy5, "release_required", "newline")
+        _assert_rc(p, 3)
+
+        # 6) release_required empty => fail closed (non-zero)
+        policy6 = td / "policy6_empty_release_required.yml"
+        policy6.write_text(
+            textwrap.dedent(
+                """\
+                policy:
+                  id: test
+                  version: "0.0.0"
+                gates:
+                  required: [gate_x, gate_y]
+                  core_required: [gate_x]
+                  release_required: []
+                  advisory: []
+                """
+            ),
+            encoding="utf-8",
+        )
+        p = _run(policy6, "release_required", "newline")
+        _assert_rc(p, 3)
+
+        # 7) Policy file not found => rc 2
         missing = td / "does_not_exist.yml"
         p = _run(missing, "required", "newline")
         _assert_rc(p, 2)
