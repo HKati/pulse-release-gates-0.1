@@ -108,7 +108,7 @@ def _normalize_junit(xml_text: str) -> str:
 
     buf = io.BytesIO()
     tree.write(buf, encoding="utf-8", xml_declaration=True)
-    return buf.getvalue().decode("utf-8")
+    return buf.getvalue().decode("utf-8") + "\n"
 
 
 def _normalize_sarif(data: dict[str, Any]) -> dict[str, Any]:
