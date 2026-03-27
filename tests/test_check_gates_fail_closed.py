@@ -102,6 +102,16 @@ def test_check_gates_fail_closed() -> None:
         p = _run(status_path, ["gate_true", "gate_true"])
         _assert_rc(p, 0)
 
+        # Missing status file => exit 2
+        missing_status_path = td / "missing_status.json"
+        p = _run(missing_status_path, ["gate_true"])
+        _assert_rc(p, 2)
+
+        # Invalid JSON status file => exit 2
+        invalid_status_path = td / "invalid_status.json"
+        invalid_status_path.write_text("{not valid json", encoding="utf-8")
+        p = _run(invalid_status_path, ["gate_true"])
+        _assert_rc(p, 2)
 
 def main() -> int:
     try:
