@@ -14,7 +14,8 @@ import xml.etree.ElementTree as ET
 from typing import Any
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
-PACK_DIR = REPO_ROOT / "PULSE_safe_pack_v0"
+DEFAULT_PACK_DIR = REPO_ROOT / "PULSE_safe_pack_v0"
+PACK_DIR = pathlib.Path(os.environ.get("PACK_DIR", str(DEFAULT_PACK_DIR)))
 RUN_ALL = PACK_DIR / "tools" / "run_all.py"
 VALIDATE = REPO_ROOT / "tools" / "validate_status_schema.py"
 JUNIT_EXPORTER = PACK_DIR / "tools" / "status_to_junit.py"
