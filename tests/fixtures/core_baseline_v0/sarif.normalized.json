@@ -1,0 +1,227 @@
+{
+  "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+  "runs": [
+    {
+      "invocations": [
+        {
+          "executionSuccessful": true,
+          "startTimeUtc": "1970-01-01T00:00:00Z"
+        }
+      ],
+      "results": [
+        {
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "status.json"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "PULSE gate failed: detectors_materialized_ok"
+          },
+          "properties": {
+            "created_utc": "1970-01-01T00:00:00Z",
+            "gate_value": false,
+            "status_version": "1.0.0-core"
+          },
+          "ruleId": "detectors_materialized_ok"
+        }
+      ],
+      "tool": {
+        "driver": {
+          "name": "PULSE",
+          "rules": [
+            {
+              "defaultConfiguration": {
+                "level": "error"
+              },
+              "id": "detectors_materialized_ok",
+              "shortDescription": {
+                "text": "detectors_materialized_ok"
+              }
+            },
+            {
+              "defaultConfiguration": {
+                "level": "error"
+              },
+              "id": "effect_present",
+              "shortDescription": {
+                "text": "effect_present"
+              }
+            },
+            {
+              "defaultConfiguration": {
+                "level": "error"
+              },
+              "id": "epf_hazard_ok",
+              "shortDescription": {
+                "text": "epf_hazard_ok"
+              }
+            },
+            {
+              "defaultConfiguration": {
+                "level": "error"
+              },
+              "id": "pass_controls_comm",
+              "shortDescription": {
+                "text": "pass_controls_comm"
+              }
+            },
+            {
+              "defaultConfiguration": {
+                "level": "error"
+              },
+              "id": "pass_controls_refusal",
+              "shortDescription": {
+                "text": "pass_controls_refusal"
+              }
+            },
+            {
+              "defaultConfiguration": {
+                "level": "error"
+              },
+              "id": "pass_controls_sanit",
+              "shortDescription": {
+                "text": "pass_controls_sanit"
+              }
+            },
+            {
+              "defaultConfiguration": {
+                "level": "error"
+              },
+              "id": "psf_action_monotonicity_ok",
+              "shortDescription": {
+                "text": "psf_action_monotonicity_ok"
+              }
+            },
+            {
+              "defaultConfiguration": {
+                "level": "error"
+              },
+              "id": "psf_comm_shift_resilient",
+              "shortDescription": {
+                "text": "psf_comm_shift_resilient"
+              }
+            },
+            {
+              "defaultConfiguration": {
+                "level": "error"
+              },
+              "id": "psf_commutativity_ok",
+              "shortDescription": {
+                "text": "psf_commutativity_ok"
+              }
+            },
+            {
+              "defaultConfiguration": {
+                "level": "error"
+              },
+              "id": "psf_idempotence_ok",
+              "shortDescription": {
+                "text": "psf_idempotence_ok"
+              }
+            },
+            {
+              "defaultConfiguration": {
+                "level": "error"
+              },
+              "id": "psf_mono_shift_resilient",
+              "shortDescription": {
+                "text": "psf_mono_shift_resilient"
+              }
+            },
+            {
+              "defaultConfiguration": {
+                "level": "error"
+              },
+              "id": "psf_monotonicity_ok",
+              "shortDescription": {
+                "text": "psf_monotonicity_ok"
+              }
+            },
+            {
+              "defaultConfiguration": {
+                "level": "error"
+              },
+              "id": "psf_path_independence_ok",
+              "shortDescription": {
+                "text": "psf_path_independence_ok"
+              }
+            },
+            {
+              "defaultConfiguration": {
+                "level": "error"
+              },
+              "id": "psf_pii_monotonicity_ok",
+              "shortDescription": {
+                "text": "psf_pii_monotonicity_ok"
+              }
+            },
+            {
+              "defaultConfiguration": {
+                "level": "error"
+              },
+              "id": "q1_grounded_ok",
+              "shortDescription": {
+                "text": "q1_grounded_ok"
+              }
+            },
+            {
+              "defaultConfiguration": {
+                "level": "error"
+              },
+              "id": "q2_consistency_ok",
+              "shortDescription": {
+                "text": "q2_consistency_ok"
+              }
+            },
+            {
+              "defaultConfiguration": {
+                "level": "error"
+              },
+              "id": "q3_fairness_ok",
+              "shortDescription": {
+                "text": "q3_fairness_ok"
+              }
+            },
+            {
+              "defaultConfiguration": {
+                "level": "error"
+              },
+              "id": "q4_slo_ok",
+              "shortDescription": {
+                "text": "q4_slo_ok"
+              }
+            },
+            {
+              "defaultConfiguration": {
+                "level": "error"
+              },
+              "id": "sanit_shift_resilient",
+              "shortDescription": {
+                "text": "sanit_shift_resilient"
+              }
+            },
+            {
+              "defaultConfiguration": {
+                "level": "error"
+              },
+              "id": "sanitization_effective",
+              "shortDescription": {
+                "text": "sanitization_effective"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "version": "2.1.0"
+}
