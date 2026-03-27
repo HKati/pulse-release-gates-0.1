@@ -106,6 +106,40 @@ def test_repo_status_v1_schema_enforces_boolean_gates() -> None:
         # Keep this assertion loose: message text can vary slightly across jsonschema versions.
         assert "boolean" in out_bad.lower(), f"Expected mention of boolean type in error output\n{out_bad}"
 
+      invalid_mode = {
+            "version": "1.0.0-test",
+            "created_utc": "2026-02-17T00:00:00Z",
+            "metrics": {"run_mode": "staging"},
+            "gates": {"q1_grounded_ok": True},
+        }
+        invalid_mode_path = td / "invalid_run_mode_status_v1.json"
+        invalid_mode_path.write_text(json.dumps(invalid_mode), encoding="utf-8")
+
+        r_mode = _run(STATUS_V1_SCHEMA, invalid_mode_path)
+        out_mode = _out(r_mode)
+        assert r_mode.returncode != 0, "Expected invalid run_mode to fail schema validation"
+        assert "::error::" in out_mode, f"Expected CI-friendly ::error:: on invalid run_mode\n{out_mode}"
+        assert (
+            "run_mode" in out_mode.lower()
+            or "demo" in out_mode.lower()
+            or "core" in out_mode.lower()
+            or "prod" in out_mode.lower()
+        ), f"Expected run_mode enum context in error output\n{out_mode}"
+
+        invalid_gates_shape = {
+            "version": "1.0.0-test",
+            "created_utc": "2026-02-17T00:00:00Z",
+            "metrics": {"run_mode": "core"},
+            "gates": [],
+        }
+        invalid_gates_shape_path = td / "invalid_gates_shape_status_v1.json"
+        invalid_gates_shape_path.write_text(json.dumps(invalid_gates_shape), encoding="utf-8")
+
+        r_gates = _run(STATUS_V1_SCHEMA, invalid_gates_shape_path)
+        out_gates = _out(r_gates)
+        assert r_gates.returncode != 0, "Expected non-object gates to fail schema validation"
+        assert "::error::" in out_gates, f"Expected CI-friendly ::error:: on invalid gates shape\n{out_gates}"
+        assert "object" in out_gates.lower(), f"Expected object type mention in error output\n{out_gates}"
 
 def test_validate_status_schema_tool_smoke() -> None:
     """
