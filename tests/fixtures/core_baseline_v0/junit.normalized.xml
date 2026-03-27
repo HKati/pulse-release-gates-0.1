@@ -1,0 +1,31 @@
+This XML file does not appear to have any style information associated with it. The document tree is shown below.
+<testsuite name="PULSE gates" tests="20" failures="1" errors="0" skipped="0" timestamp="1970-01-01T00:00:00Z">
+<properties>
+<property name="status_path" value="status.json"/>
+<property name="status_version" value="1.0.0-core"/>
+<property name="created_utc" value="1970-01-01T00:00:00Z"/>
+<property name="run_mode" value="core"/>
+</properties>
+<testcase classname="PULSE.gates" name="detectors_materialized_ok" time="0">
+<failure message="Gate failed: detectors_materialized_ok" type="gate_failed">status.gates['detectors_materialized_ok']=False</failure>
+</testcase>
+<testcase classname="PULSE.gates" name="effect_present" time="0"/>
+<testcase classname="PULSE.gates" name="epf_hazard_ok" time="0"/>
+<testcase classname="PULSE.gates" name="pass_controls_comm" time="0"/>
+<testcase classname="PULSE.gates" name="pass_controls_refusal" time="0"/>
+<testcase classname="PULSE.gates" name="pass_controls_sanit" time="0"/>
+<testcase classname="PULSE.gates" name="psf_action_monotonicity_ok" time="0"/>
+<testcase classname="PULSE.gates" name="psf_comm_shift_resilient" time="0"/>
+<testcase classname="PULSE.gates" name="psf_commutativity_ok" time="0"/>
+<testcase classname="PULSE.gates" name="psf_idempotence_ok" time="0"/>
+<testcase classname="PULSE.gates" name="psf_mono_shift_resilient" time="0"/>
+<testcase classname="PULSE.gates" name="psf_monotonicity_ok" time="0"/>
+<testcase classname="PULSE.gates" name="psf_path_independence_ok" time="0"/>
+<testcase classname="PULSE.gates" name="psf_pii_monotonicity_ok" time="0"/>
+<testcase classname="PULSE.gates" name="q1_grounded_ok" time="0"/>
+<testcase classname="PULSE.gates" name="q2_consistency_ok" time="0"/>
+<testcase classname="PULSE.gates" name="q3_fairness_ok" time="0"/>
+<testcase classname="PULSE.gates" name="q4_slo_ok" time="0"/>
+<testcase classname="PULSE.gates" name="sanit_shift_resilient" time="0"/>
+<testcase classname="PULSE.gates" name="sanitization_effective" time="0"/>
+</testsuite>
