@@ -1,5 +1,9 @@
 # HARDENING_PLAN
 
+## Governing principle
+
+Modern development is built on queryable, auditable, and reproducible system state; interfaces are views, never the source of truth.
+
 **Status:** maintainer-facing working plan for the v0 maturity pass
 **Purpose:** make v0 stable, auditable, and boringly reliable before any v2 work begins  
 **Scope:** release semantics, CI enforcement, dependency truth, packaging, repository structure, and documentation clarity  
