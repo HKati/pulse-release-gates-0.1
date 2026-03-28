@@ -441,15 +441,16 @@ def _pulse_ci_has_release_grade_prod_guard(yml_text: str) -> bool:
         has_ok = 'print("OK: run_mode=prod")' in block_text
 
         return bool(
-            has_release_if
+            has_if
             and has_status_read
+            and has_metrics_extract
             and has_mode_extract
             and has_prod_check
             and has_error
             and has_ok
         )
-
-    return False
+   
+  return False
 
 
 def test_pulse_ci_keeps_release_grade_prod_guard() -> None:
@@ -460,8 +461,9 @@ def test_pulse_ci_keeps_release_grade_prod_guard() -> None:
             "pulse_ci.yml must keep the release-grade run_mode=prod guard in the "
             "'ci: require prod run_mode on release-grade runs' step.\n"
             "Fix: keep the release-grade if-condition, read status.json, extract "
-            "metrics.run_mode, fail if it is not 'prod', and emit the explicit "
-            "error/OK messages."
+            "metrics, read metrics.run_mode, fail if it is not 'prod', and emit "
+            "the explicit error/OK messages."
+            
         )
 
 
