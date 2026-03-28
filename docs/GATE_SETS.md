@@ -16,8 +16,8 @@ If this page and the policy disagree, the policy and workflow enforcement win.
 
 - `pull_request` runs enforce `core_required`
 - pushes to `main` enforce `core_required` by default
-- version tag pushes (`v*` / `V*`) enforce `required`
-- `workflow_dispatch` runs enforce `core_required` by default; with `strict_external_evidence=true`, they enforce `required`
+- version tag pushes (`v*` / `V*`) enter release-grade mode and enforce `required + release_required`
+- `workflow_dispatch` runs enforce `core_required` by default; with `strict_external_evidence=true`, they enter release-grade mode and enforce `required + release_required`
 - required gates are fail-closed on missing / false
 - the `advisory` set is currently empty
 
@@ -45,6 +45,20 @@ If this page and the policy disagree, the policy and workflow enforcement win.
 | `psf_pii_monotonicity_ok` | No | Yes |
 | `q2_consistency_ok` | No | Yes |
 | `q3_fairness_ok` | No | Yes |
+
+
+## Canonical release-grade rule
+
+For v0, the canonical release-grade enforce set is:
+
+`required + release_required`
+
+where `release_required` currently contains:
+
+- `external_summaries_present`
+- `external_all_pass`
+
+Implementation note: the current workflow materializes this as `PULSE_POLICY_SET="required"` plus explicit strict external evidence checks. This page states the canonical release-grade rule in one place so policy intent and CI behavior can be read together without ambiguity.
 
 ## Strict external evidence note
 
