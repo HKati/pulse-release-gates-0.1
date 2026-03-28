@@ -47,29 +47,18 @@ If this page and the policy disagree, the policy and workflow enforcement win.
 | `q3_fairness_ok` | No | Yes |
 
 
-## Canonical release-grade rule
-
-For v0, the canonical release-grade enforce set is:
-
-`required + release_required`
-
-where `release_required` currently contains:
-
-- `external_summaries_present`
-- `external_all_pass`
-
-Implementation note: the current workflow materializes this as `PULSE_POLICY_SET="required"` plus explicit strict external evidence checks. This page states the canonical release-grade rule in one place so policy intent and CI behavior can be read together without ambiguity.
-
 ## Strict external evidence note
 
-`external_summaries_present` is not part of the base policy sets listed above.
-
-In strict external evidence mode, workflow enforcement additionally requires:
+`release_required` is a policy-defined evidence set that currently contains:
 
 - `external_summaries_present`
 - `external_all_pass`
 
-Use strict mode for release-grade paths when external summaries must be present and fail closed.
+In the current v0 workflow implementation, release-grade mode still enforces `required` via `PULSE_POLICY_SET="required"`.
+
+Strict external evidence mode additionally makes evidence presence fail closed in the workflow path, but the workflow does not yet materialize `release_required` as a separate `check_gates.py` enforce set.
+
+Therefore, do not describe the current workflow as enforcing `required + release_required` unless `.github/workflows/pulse_ci.yml` is changed accordingly in the same change.
 
 ## Practical rule
 
