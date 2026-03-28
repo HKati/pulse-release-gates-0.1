@@ -357,24 +357,22 @@ def _pulse_ci_has_nonempty_policy_set_guard(yml_text: str) -> bool:
             'REQ_STR="$(python tools/policy_to_require_args.py --policy pulse_gate_policy_v0.yml --set "$POLICY_SET" --format space)"'
             in block_text
         )
-        empty_guard_block = re.search(
-            r'if \(\( \$\{#REQ\[@\]\} == 0 \)\); then(?P<body>.*?)fi',
-            block_text,
-            flags=re.S,
-        )
-
-        has_empty_guard = empty_guard_block is not None
-        has_error = False
-        has_exit = False
-        if empty_guard_block is not None:
-            empty_body = empty_guard_block.group("body")
-            has_error = 'echo "::error::derived gate set is empty: ${POLICY_SET}"' in empty_body
-            has_exit = "exit 1" in empty_body
         has_check_gates = 'python "${{ env.PACK_DIR }}/tools/check_gates.py" \\' in block_text
+
+        m = re.search(
+            r'if \(\( \$\{#REQ\[@\]\} == 0 \)\); then(?P<branch>.*?)^\s*fi\s*$',
+            
+            block_text,
+            flags=re.M | re.S,
+        )
+        if not m:
+            return False
+        empty_branch = m.group("branch")
+        has_error = 'echo "::error::derived gate set is empty: ${POLICY_SET}"' in empty_branch
+        has_exit = bool(re.search(r'^\s*exit 1\s*$', empty_branch, flags=re.M))
 
         return bool(
             has_policy_derivation
-            and has_empty_guard
             and has_error
             and has_exit
             and has_check_gates
