@@ -357,9 +357,19 @@ def _pulse_ci_has_nonempty_policy_set_guard(yml_text: str) -> bool:
             'REQ_STR="$(python tools/policy_to_require_args.py --policy pulse_gate_policy_v0.yml --set "$POLICY_SET" --format space)"'
             in block_text
         )
-        has_empty_guard = 'if (( ${#REQ[@]} == 0 )); then' in block_text
-        has_error = 'echo "::error::derived gate set is empty: ${POLICY_SET}"' in block_text
-        has_exit = "exit 1" in block_text
+        empty_guard_block = re.search(
+            r'if \(\( \$\{#REQ\[@\]\} == 0 \)\); then(?P<body>.*?)fi',
+            block_text,
+            flags=re.S,
+        )
+
+        has_empty_guard = empty_guard_block is not None
+        has_error = False
+        has_exit = False
+        if empty_guard_block is not None:
+            empty_body = empty_guard_block.group("body")
+            has_error = 'echo "::error::derived gate set is empty: ${POLICY_SET}"' in empty_body
+            has_exit = "exit 1" in empty_body
         has_check_gates = 'python "${{ env.PACK_DIR }}/tools/check_gates.py" \\' in block_text
 
         return bool(
