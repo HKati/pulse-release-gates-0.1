@@ -195,13 +195,63 @@ def test_tools_tests_list_covers_smoke_scripts() -> None:
         )
 
 
+
+
+def test_pytest_tests_list_keeps_core_baseline() -> None:
+    manifest_path = ROOT / "ci" / "pytest-tests.list"
+
+    if not WORKFLOW.is_file():
+        raise AssertionError(f"Missing workflow file: {WORKFLOW}")
+    if not manifest_path.is_file():
+        raise AssertionError(f"Missing pytest manifest: {manifest_path}")
+
+    manifest: List[str] = []
+    for raw in manifest_path.read_text(encoding="utf-8", errors="replace").splitlines():
+        line = raw.split("#", 1)[0].strip()
+        if not line:
+            continue
+
+        parts = line.split()
+        if len(parts) != 1:
+            raise AssertionError(
+                f"Invalid manifest line in {manifest_path} (expected one path per line): {raw!r}"
+            )
+        manifest.append(parts[0])
+
+    if not manifest:
+        raise AssertionError(f"Manifest is empty after filtering: {manifest_path}")
+
+    _assert_no_duplicates(manifest, "ci/pytest-tests.list")
+
+    yml = WORKFLOW.read_text(encoding="utf-8", errors="replace")
+    if "ci/pytest-tests.list" not in yml:
+        raise AssertionError(
+            "Targeted pytest manifest wiring not detected in pulse_ci.yml.\n"
+            "Fix: update the targeted pytest step to read ci/pytest-tests.list."
+        )
+
+    missing_files = [rel for rel in manifest if not (ROOT / rel).is_file()]
+    if missing_files:
+        raise AssertionError(
+            "ci/pytest-tests.list references missing files:\n"
+            + "\n".join(f" - {m}" for m in missing_files)
+        )
+
+    required = "tests/test_core_baseline_v0.py"
+    if required not in manifest:
+        raise AssertionError(
+            "Targeted pytest manifest must include tests/test_core_baseline_v0.py.\n\n"
+            "Fix: add it to ci/pytest-tests.list."
+        )
+
 def main() -> int:
     try:
         test_tools_tests_list_covers_smoke_scripts()
+        test_pytest_tests_list_keeps_core_baseline()
     except AssertionError as e:
         print(f"ERROR: {e}")
         return 1
-    print("OK: tools-tests suite is coherent and manifest covers all smoke scripts")
+    print("OK: tools-tests suite is coherent and targeted pytest manifest keeps core baseline")
     return 0
 
 
