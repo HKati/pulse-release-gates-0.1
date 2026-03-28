@@ -28,6 +28,7 @@ from typing import List, Optional, Set
 ROOT = Path(__file__).resolve().parents[1]
 WORKFLOW = ROOT / ".github" / "workflows" / "pulse_ci.yml"
 CORE_WORKFLOW = ROOT / ".github" / "workflows" / "pulse_core_ci.yml"
+ENV_FILE = ROOT / "environment.yml"
 MANIFEST = ROOT / "ci" / "tools-tests.list"
 TESTS_DIR = ROOT / "tests"
 
@@ -291,17 +292,48 @@ def test_pulse_core_ci_keeps_core_baseline_step() -> None:
         )
 
 
+def test_pulse_core_ci_python_version_aligns_with_environment() -> None:
+    if not CORE_WORKFLOW.is_file():
+        raise AssertionError(f"Missing core workflow file: {CORE_WORKFLOW}")
+    if not ENV_FILE.is_file():
+        raise AssertionError(f"Missing environment file: {ENV_FILE}")
+
+    yml = CORE_WORKFLOW.read_text(encoding="utf-8", errors="replace")
+    env_text = ENV_FILE.read_text(encoding="utf-8", errors="replace")
+
+    if not re.search(r'^\s*python-version:\s*["\']?3\.11["\']?\s*$', yml, flags=re.M):
+        raise AssertionError(
+            "pulse_core_ci.yml must set Python 3.11 in the Set up Python step."
+        )
+
+    has_block_python_pin = re.search(
+        r"^\s*-\s*python=3\.11\s*$",
+        env_text,
+        flags=re.M,
+    )
+    has_inline_python_pin = re.search(
+        r"^\s*dependencies:\s*\[.*\bpython=3\.11\b.*\]\s*$",
+        env_text,
+        flags=re.M,
+    )
+
+    if not (has_block_python_pin or has_inline_python_pin):
+        raise AssertionError(
+            "environment.yml must pin python=3.11 to match pulse_core_ci.yml "
+            "(block or inline YAML form)."
+        )
+
+
 def main() -> int:
     try:
         test_tools_tests_list_covers_smoke_scripts()
-        test_pytest_tests_list_keeps_core_baseline()
-        test_pulse_core_ci_keeps_core_baseline_step()
+        test_pulse_core_ci_python_version_aligns_with_environment()
     except AssertionError as e:
         print(f"ERROR: {e}")
         return 1
     print(
-        "OK: tools-tests suite is coherent, targeted pytest manifest keeps "
-        "core baseline, and pulse_core_ci keeps the baseline step"
+        "OK: tools-tests suite is coherent and pulse_core_ci Python version "
+        "aligns with environment.yml"
     )
     return 0
 
