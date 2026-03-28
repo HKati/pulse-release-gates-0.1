@@ -27,6 +27,7 @@ from typing import List, Optional, Set
 
 ROOT = Path(__file__).resolve().parents[1]
 WORKFLOW = ROOT / ".github" / "workflows" / "pulse_ci.yml"
+CORE_WORKFLOW = ROOT / ".github" / "workflows" / "pulse_core_ci.yml"
 MANIFEST = ROOT / "ci" / "tools-tests.list"
 TESTS_DIR = ROOT / "tests"
 
@@ -244,14 +245,64 @@ def test_pytest_tests_list_keeps_core_baseline() -> None:
             "Fix: add it to ci/pytest-tests.list."
         )
 
+
+def _core_baseline_check_step_present(yml_text: str) -> bool:
+    lines = yml_text.splitlines()
+    step_name_rx = re.compile(r"^\s*-\s*name:\s*Run core baseline check test\s*$")
+
+    i = 0
+    while i < len(lines):
+        if not step_name_rx.match(lines[i]):
+            i += 1
+            continue
+
+        step_indent = len(lines[i]) - len(lines[i].lstrip())
+        j = i + 1
+        block: List[str] = []
+
+        while j < len(lines):
+            cur = lines[j]
+            stripped = cur.lstrip()
+            indent = len(cur) - len(stripped)
+
+            if stripped.startswith("- name:") and indent <= step_indent:
+                break
+
+            block.append(cur)
+            j += 1
+
+        block_text = "\n".join(block)
+        return 'python -m pytest -q tests/test_core_baseline_v0.py' in block_text
+
+    return False
+
+
+def test_pulse_core_ci_keeps_core_baseline_step() -> None:
+    if not CORE_WORKFLOW.is_file():
+        raise AssertionError(f"Missing core workflow file: {CORE_WORKFLOW}")
+
+    yml = CORE_WORKFLOW.read_text(encoding="utf-8", errors="replace")
+    if not _core_baseline_check_step_present(yml):
+        raise AssertionError(
+            "Core baseline wiring not detected in the "
+            "'Run core baseline check test' step of pulse_core_ci.yml.\n"
+            "Fix: keep that step and make it run "
+            "python -m pytest -q tests/test_core_baseline_v0.py."
+        )
+
+
 def main() -> int:
     try:
         test_tools_tests_list_covers_smoke_scripts()
         test_pytest_tests_list_keeps_core_baseline()
+        test_pulse_core_ci_keeps_core_baseline_step()
     except AssertionError as e:
         print(f"ERROR: {e}")
         return 1
-    print("OK: tools-tests suite is coherent and targeted pytest manifest keeps core baseline")
+    print(
+        "OK: tools-tests suite is coherent, targeted pytest manifest keeps "
+        "core baseline, and pulse_core_ci keeps the baseline step"
+    )
     return 0
 
 
