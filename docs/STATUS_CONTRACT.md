@@ -64,6 +64,23 @@ For release enforcement, PASS is strict:
 - `false`, `null`, missing values, strings, and numbers are **not** PASS
 - missing required gates fail closed
 
+## Normative consumer rule
+
+For release decisions, the authoritative inputs are:
+
+- `status["gates"]`
+- the active CI / workflow-materialized required gate set
+- `PULSE_safe_pack_v0/tools/check_gates.py`
+
+Therefore:
+
+- `meta.*`, `external`, top-level convenience mirrors, dashboards, Pages views,
+  and rendered reports are descriptive surfaces only unless a policy explicitly
+  promotes them
+- diagnostic layers must not flip, replace, or silently reinterpret a CI outcome
+- if a diagnostic artefact is missing, it may be shown as `MISSING` or `UNKNOWN`,
+  but it must not be silently treated as `PASS`
+
 ---
 
 ## Optional additive fields
