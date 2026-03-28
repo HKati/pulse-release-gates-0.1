@@ -1,3 +1,4 @@
+```markdown
 # The PULSE status artefact (`status.json`)
 
 > Central machine-readable artefact for one PULSE run.
@@ -10,16 +11,12 @@ PULSE_safe_pack_v0/artifacts/status.json
 
 This file is the anchor for:
 
-CI enforcement,
+- CI enforcement
+- derived-signal augmentation
+- human-readable reporting
+- audit / archival / diffing
 
-derived-signal augmentation,
-
-human-readable reporting,
-
-audit / archival / diffing.
-
-A single status.json should correspond to exactly one concrete run
-and one release candidate / model/service configuration.
+A single status.json should correspond to exactly one concrete run and one release candidate / model/service configuration.
 
 ---
 
@@ -27,29 +24,24 @@ and one release candidate / model/service configuration.
 
 The stable public contract is defined by:
 
+```text
 schemas/status/status_v1.schema.json
+```
 
 That schema currently requires the top-level fields:
 
-version
+- version
+- created_utc
+- metrics
+- gates
 
-created_utc
+and it requires `metrics.run_mode` to be one of:
 
-metrics
+- demo
+- core
+- prod
 
-gates
-
-and it requires metrics.run_mode to be one of:
-
-demo
-
-core
-
-prod
-
-For the concise public contract, see STATUS_CONTRACT.md.
-
-This page is the fuller walkthrough.
+For the concise public contract, see `STATUS_CONTRACT.md`.
 
 Local validation helper:
 
@@ -63,69 +55,54 @@ python tools/validate_status_schema.py \
 
 ## 2. Authority boundary
 
-The current repository model uses a single final status.json artefact,
-but its fields do not all have the same semantic role.
+The current repository model uses a single final `status.json` artefact, but its fields do not all have the same semantic role.
 
 ### Normative authority
 
 The normative release-relevant surface is:
 
+```text
 status["gates"]
+```
 
 interpreted in the context of:
 
-the active policy / workflow-required gate set
-
-status["metrics"]["run_mode"]
+- the active policy / workflow-required gate set
+- `status["metrics"]["run_mode"]`
 
 ### Required contract / provenance anchors
 
 These fields are still part of the public contract and must validate:
 
-status["version"]
-
-status["created_utc"]
-
-status["metrics"]
-
-status["gates"]
+- `status["version"]`
+- `status["created_utc"]`
+- `status["metrics"]`
+- `status["gates"]`
 
 However:
 
-version and created_utc are not themselves gate outcomes
-
-they are required contract / provenance fields, not release decisions
+- `version` and `created_utc` are not themselves gate outcomes
+- they are required contract / provenance fields, not release decisions
 
 ### Non-authoritative / descriptive layers
 
 These are additive and non-normative unless a future policy explicitly promotes them:
 
-top-level convenience mirrors
-
-external
-
-meta.*
-
-renderer-friendly summaries
-
-provenance hints and reproducibility hints under metrics.*
+- top-level convenience mirrors
+- external
+- `meta.*`
+- renderer-friendly summaries
+- provenance hints under `metrics.*`
 
 ### No top-level decision authority
 
-status.json should not be treated as having a separate top-level
-authority decision field that overrides gates.*.
+`status.json` should not contain a top-level decision field overriding `gates.*`.
 
-If a human-readable summary, badge, report card, CLI, or workflow wants an
-overall decision such as PASS / FAIL / STAGE-PASS, that value should be
-derived from:
+Any PASS / FAIL summary must be derived from:
 
-gates.*
-
-the required gate set
-
-and the relevant policy / workflow context
-
-It must not silently replace them.
+- `gates.*`
+- required gate set
+- policy / workflow context
 
 ---
 
@@ -133,31 +110,22 @@ It must not silently replace them.
 
 Typical flow:
 
-PULSE_safe_pack_v0/tools/run_all.py writes the baseline status.json.
+1. `run_all.py` → baseline `status.json`
+2. `augment_status.py` → enrichment:
+   - refusal-delta metrics and gate
+   - external summaries
+   - mirror fields
+   - shadow fold-ins (`meta.*`)
+3. `check_gates.py` → enforcement
+4. renderers (e.g. Quality Ledger) → read final artefact
 
-PULSE_safe_pack_v0/tools/augment_status.py may enrich that file with:
+`status_baseline.json` is intermediate only.
 
-refusal-delta metrics and gate,
-
-external detector summaries,
-
-convenience mirror fields,
-
-optional shadow-only fold-ins under meta.*.
-
-PULSE_safe_pack_v0/tools/check_gates.py enforces the required gate set on the final status.json.
-
-Renderers such as the Quality Ledger read the same final artefact.
-
-If your workflow also keeps a status_baseline.json, treat it as an
-intermediate artefact. The final enforcement input is still the final
-status.json.
+Final authority = final `status.json`.
 
 ---
 
 ## 4. High-level shape
-
-A typical layout looks like this:
 
 ```json
 {
@@ -203,254 +171,143 @@ A typical layout looks like this:
 }
 ```
 
-Interpretation:
-
-metrics describe what was measured and record useful run/provenance hints
-
-gates describe the boolean decisions derived from those signals
-
-top-level mirror fields are optional convenience copies for simple consumers
-
-external is a structured home for external-detector evidence
-
-meta.* is a good home for optional diagnostic / shadow fold-ins that improve visibility without changing release semantics
-
 ---
 
 ## 5. Required stable fields
 
 ### version
-
-A non-empty string describing the status contract / producer version.
+Non-empty string.
 
 ### created_utc
-
-A non-empty timestamp string indicating when the artefact was created.
-
-This is required by the current public contract, but it is not itself a
-release-decision field.
+Timestamp string.
 
 ### metrics
-
-A JSON object containing measured signals and provenance hints.
-
-At minimum, it must contain:
-
-metrics.run_mode
+Must include:
+- `metrics.run_mode`
 
 ### gates
-
-A JSON object mapping gate ids to booleans.
-
-This is the normative home for release-relevant gate outcomes.
+Map of gate_id → boolean.
 
 ---
 
 ## 6. Run modes
 
-metrics.run_mode is currently one of:
+`metrics.run_mode` ∈:
 
-demo
-
-core
-
-prod
-
-The safe-pack entrypoint run_all.py selects the mode via:
-
-CLI: --mode demo|core|prod
-
-or environment: PULSE_RUN_MODE
-
-Treat run_mode as important provenance and policy context.
+- demo
+- core
+- prod
 
 ---
 
-## 7. metrics: measured signals and receipt-like hints
+## 7. metrics
 
-metrics is intentionally additive.
-
-It can contain many fields beyond the required run_mode.
-
-Important rule:
-
-metrics.* may explain, trace, or contextualize decisions
-
-it does not replace the normative role of gates.*
+- descriptive
+- additive
+- non-normative
 
 ---
 
-## 8. gates: normative release decisions
+## 8. gates
 
-gates is the normative map of release decisions.
+Normative decision layer.
 
-Strict PASS semantics:
+Strict PASS:
 
-a gate PASSES only if its value is the literal boolean true
+```text
+value === true
+```
 
-missing required gates fail closed
+Missing → fail closed.
 
 ---
 
 ## 9. Top-level mirrors
 
-Convenience fields such as:
+Examples:
 
-status["refusal_delta_pass"]
+- `refusal_delta_pass`
+- `external_all_pass`
 
-status["external_all_pass"]
+Rule:
 
-status["external_summaries_present"]
-
-Recommended rule:
-
-read status["gates"][...] first
+```text
+gates first
+```
 
 ---
 
-## 10. Optional shadow fold-ins (meta.*)
-
-meta is a home for optional, non-normative visibility blocks.
+## 10. meta.*
 
 Rules:
 
-All-or-nothing fold-in
-
-Source fidelity
-
-Normative isolation
-
-Absence is neutral
+- all-or-nothing
+- source fidelity
+- normative isolation
+- absence is neutral
 
 ---
 
-## 11. External detector section (external)
+## 11. external
 
-external distinguishes:
+### Two signals:
 
-evidence presence
+**Presence:**
+- `gates.external_summaries_present`
+- `external.summaries_present`
 
-vs
+**Aggregate:**
+- `gates.external_all_pass`
+- `external.all_pass`
 
-aggregate pass
+### Critical rule:
 
-### Important nuance: evidence presence vs aggregate pass
+```text
+external_all_pass ≠ evidence exists
+```
 
-Do **not** interpret `external_all_pass == true` as proof that external evidence was actually present.
+### Release-grade condition:
 
-Current augmentation behavior distinguishes two separate questions:
-
-1. **Were any external summaries present?**
-   Check any of:
-   - `external.summaries_present`
-   - `gates.external_summaries_present`
-   - optional top-level mirror: `external_summaries_present`
-
-2. **Did the folded external evidence pass overall?**
-   Check any of:
-   - `external.all_pass`
-   - `gates.external_all_pass`
-   - optional top-level mirror: `external_all_pass`
-
-If no external summary files are present, current augmentation may still leave the aggregate external result at PASS by default unless summary presence is required separately.
-
-Therefore:
-
-- `external_all_pass == true` does **not** imply that external evidence exists
-- `external_summaries_present == true` is the explicit evidence-presence signal
-- consumers that require evidence existence should check `gates.external_summaries_present` first, then `external.summaries_present`, and use the top-level mirror only as a convenience fallback
-
-Recommended consumer rule:
-
-1. use `gates.external_summaries_present` as the release-facing evidence-presence signal
-2. use `gates.external_all_pass` as the aggregate external-result signal
-3. do not substitute one for the other
-
-### Release-grade reading rule
-
-For v0 release-grade interpretation, external evidence is PASS only if both of the following are true:
-
-1. `gates.external_summaries_present == true`
-2. `gates.external_all_pass == true`
-
-Therefore:
-
-* `external_all_pass == true` on its own is **not** a release-grade PASS
-* presence must be established explicitly before the aggregate external result is treated as release-relevant
-* this is a semantic reading rule for release-grade consumers; it does not by itself change onboarding-friendly default augmentation behavior
-
+```text
+external_summaries_present == true
+AND
+external_all_pass == true
+```
 
 ---
 
-## 12. Relationship to the main tools
+## 12. Tools
 
-run_all.py → baseline
-
-augment_status.py → enrichment
-
-check_gates.py → enforcement
-
-validate_status_schema.py → validation
+- run_all.py → baseline
+- augment_status.py → enrichment
+- check_gates.py → enforcement
+- validate_status_schema.py → validation
 
 ---
 
 ## 13. Consumer guidance
 
-1. Validate first.
-
-2. Read `gates` first.
-
-3. Treat `meta` as descriptive.
-
-4. **Check evidence-presence fields explicitly** when evidence existence matters:
-   - `gates.external_summaries_present` (preferred release-facing signal)
-
-
----
-
-## 12. Relationship to the main tools
-
-run_all.py → baseline
-
-augment_status.py → enrichment
-
-check_gates.py → enforcement
-
-validate_status_schema.py → validation
-
----
-
-## 13. Consumer guidance
-
-1. Validate first.
-
-2. Read `gates` first.
-
-3. Treat `meta` as descriptive.
-
-4. **Check evidence-presence fields explicitly** when evidence existence matters:
-   - `gates.external_summaries_present` (preferred release-facing signal)
-   - `external.summaries_present`
-   - optional mirror: `external_summaries_present`
-   Do **not** infer evidence presence from `external_all_pass
-
-5. Treat additive fields as normal.
+- validate first
+- read gates first
+- meta = descriptive
+- do not infer presence from pass
 
 ---
 
 ## 14. Contract evolution
 
-Schema is the compatibility boundary:
+Boundary:
 
+```text
 schemas/status/status_v1.schema.json
-
-Future changes must be explicit.
+```
 
 ---
 
-## See also:
+## See also
 
-- `STATUS_CONTRACT.md`
-- `quality_ledger.md`
-- `refusal_delta_gate.md`
-- `RUNBOOK.md`
+- STATUS_CONTRACT.md
+- quality_ledger.md
+- refusal_delta_gate.md
+- RUNBOOK.md
+```
