@@ -538,6 +538,63 @@ def test_pulse_ci_keeps_status_v1_schema_validation_steps() -> None:
             "expected status path."
         )
 
+def _pulse_ci_has_strict_external_summary_precheck(yml_text: str) -> bool:
+    lines = yml_text.splitlines()
+    step_name_rx = re.compile(
+        r'^\s*-\s*name:\s*["\']?Strict external evidence: require external summaries present \(pre-augment, fail-closed\)["\']?\s*$'
+    )
+
+    i = 0
+    while i < len(lines):
+        if not step_name_rx.match(lines[i]):
+            i += 1
+            continue
+
+        step_indent = len(lines[i]) - len(lines[i].lstrip())
+        j = i + 1
+        block: List[str] = []
+
+        while j < len(lines):
+            cur = lines[j]
+            stripped = cur.lstrip()
+            indent = len(cur) - len(stripped)
+
+            if stripped.startswith("- name:") and indent <= step_indent:
+                break
+
+            block.append(cur)
+            j += 1
+
+        block_text = "\n".join(block)
+
+        has_if = re.search(
+            r"\(\s*github\.event_name\s*==\s*'workflow_dispatch'\s*&&\s*"
+            r"github\.event\.inputs\.strict_external_evidence\s*==\s*'true'\s*\)\s*\|\|\s*"
+            r"startsWith\(github\.ref,\s*'refs/tags/v'\)\s*\|\|\s*"
+            r"startsWith\(github\.ref,\s*'refs/tags/V'\)",
+            block_text,
+        )
+
+        has_ext_dir = 'EXT_DIR="${{ env.PACK_DIR }}/artifacts/external"' in block_text
+        has_checker = 'python scripts/check_external_summaries_present.py --external_dir "$EXT_DIR" --require_metric_key' in block_text
+
+        return bool(has_if and has_ext_dir and has_checker)
+
+    return False
+
+
+def test_pulse_ci_keeps_strict_external_summary_precheck() -> None:
+    yml = WORKFLOW.read_text(encoding="utf-8", errors="replace")
+
+    if not _pulse_ci_has_strict_external_summary_precheck(yml):
+        raise AssertionError(
+            "pulse_ci.yml must keep the strict external evidence pre-augment "
+            "summary-presence check.\n"
+            "Fix: keep the named step, the release-grade/strict if-condition, "
+            'EXT_DIR="${{ env.PACK_DIR }}/artifacts/external", and the '
+            "check_external_summaries_present.py invocation with "
+            "--require_metric_key."
+        )
 
 def main() -> int:
     try:
@@ -552,8 +609,9 @@ def main() -> int:
     print(
         "OK: tools-tests suite is coherent, pulse_core_ci baseline wiring is kept, "
         "pulse_ci retains the fail-closed guard for empty derived gate sets, "
-        "release-grade runs still require run_mode=prod, and both status_v1 "
-        "schema-validation steps are anchored"
+          "release-grade runs still require run_mode=prod, both status_v1 "
+        "schema-validation steps are anchored, and strict external summary "
+        "presence precheck is kept"
     )
     return 0
 
