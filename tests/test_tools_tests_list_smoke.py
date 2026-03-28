@@ -603,6 +603,7 @@ def main() -> int:
         test_pulse_ci_fails_closed_on_empty_derived_gate_set()
         test_pulse_ci_keeps_release_grade_prod_guard()
         test_pulse_ci_keeps_status_v1_schema_validation_steps()
+        test_pulse_ci_keeps_strict_external_summary_precheck()
     except AssertionError as e:
         print(f"ERROR: {e}")
         return 1
