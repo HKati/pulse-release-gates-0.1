@@ -324,16 +324,78 @@ def test_pulse_core_ci_python_version_aligns_with_environment() -> None:
         )
 
 
+def _pulse_ci_has_nonempty_policy_set_guard(yml_text: str) -> bool:
+    lines = yml_text.splitlines()
+    step_name_rx = re.compile(
+        r'^\s*-\s*name:\s*["\']?ci: enforce gates via check_gates \(policy-derived\)["\']?\s*$'
+    )
+
+    i = 0
+    while i < len(lines):
+        if not step_name_rx.match(lines[i]):
+            i += 1
+            continue
+
+        step_indent = len(lines[i]) - len(lines[i].lstrip())
+        j = i + 1
+        block: List[str] = []
+
+        while j < len(lines):
+            cur = lines[j]
+            stripped = cur.lstrip()
+            indent = len(cur) - len(stripped)
+
+            if stripped.startswith("- name:") and indent <= step_indent:
+                break
+
+            block.append(cur)
+            j += 1
+
+        block_text = "\n".join(block)
+
+        has_policy_derivation = (
+            'REQ_STR="$(python tools/policy_to_require_args.py --policy pulse_gate_policy_v0.yml --set "$POLICY_SET" --format space)"'
+            in block_text
+        )
+        has_empty_guard = 'if (( ${#REQ[@]} == 0 )); then' in block_text
+        has_error = 'echo "::error::derived gate set is empty: ${POLICY_SET}"' in block_text
+        has_exit = "exit 1" in block_text
+        has_check_gates = 'python "${{ env.PACK_DIR }}/tools/check_gates.py" \\' in block_text
+
+        return bool(
+            has_policy_derivation
+            and has_empty_guard
+            and has_error
+            and has_exit
+            and has_check_gates
+        )
+
+    return False
+
+
+def test_pulse_ci_fails_closed_on_empty_derived_gate_set() -> None:
+    yml = WORKFLOW.read_text(encoding="utf-8", errors="replace")
+
+    if not _pulse_ci_has_nonempty_policy_set_guard(yml):
+        raise AssertionError(
+            "pulse_ci.yml must fail closed when the policy-derived gate set is empty "
+            "in the 'ci: enforce gates via check_gates (policy-derived)' step.\n"
+            "Fix: keep the REQ derivation, the empty-set check, the explicit "
+            "::error:: message, and exit 1 before check_gates.py runs."
+        )
+
+
 def main() -> int:
     try:
         test_tools_tests_list_covers_smoke_scripts()
         test_pulse_core_ci_python_version_aligns_with_environment()
+        test_pulse_ci_fails_closed_on_empty_derived_gate_set()
     except AssertionError as e:
         print(f"ERROR: {e}")
         return 1
     print(
-        "OK: tools-tests suite is coherent and pulse_core_ci Python version "
-        "aligns with environment.yml"
+         "OK: tools-tests suite is coherent, pulse_core_ci baseline wiring is kept, "
+        "and pulse_ci retains the fail-closed guard for empty derived gate sets"
     )
     return 0
 
