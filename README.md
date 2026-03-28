@@ -330,7 +330,7 @@ In addition to running the pack, CI enforces repo‑level governance guards:
 - **Policy ↔ registry consistency:** every gate required by policy must exist in the registry (including `core_required`).
 - **Policy set selection:** `pull_request` runs and pushes to `main` enforce `core_required` by default; version tag pushes (`v*`/`V*`) and `workflow_dispatch` runs with `strict_external_evidence=true` enforce `required` (policy-driven).
 - **Human-readable gate-set summary:** [`docs/GATE_SETS.md`](docs/GATE_SETS.md) — Current `core_required` / `required` policy matrix.
-- **Strict external evidence:** workflow dispatch input `strict_external_evidence=true` **or** version tag pushes (`v*`/`V*`) additionally require `external_summaries_present` (and `external_all_pass`).
+- **Strict external evidence:** workflow dispatch input `strict_external_evidence=true` or version tag pushes (`v*`/`V*`) additionally add a workflow-level fail-closed presence check for `external_summaries_present`. The current v0 workflow does not yet materialize `release_required` as a separate `check_gates.py` enforce set.
 - **Note (default vs strict):** External detector summaries are opt-in. If no external summaries are provided, `external_all_pass` is computed as PASS by design. For release-grade enforcement, enable **strict external evidence** (`strict_external_evidence=true` or version tag pushes) so `external_summaries_present` is required in addition to `external_all_pass`. In strict mode, missing or failing summaries fail CI (fail-closed) until valid evidence is provided.
 - **Workflow YAML guard (workflow_lint.yml):** fail‑closed validation of `.github/workflows/*.yml` to prevent broken workflow YAML (e.g., unquoted `:` in step names).
 
