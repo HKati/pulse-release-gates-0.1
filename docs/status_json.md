@@ -198,6 +198,25 @@ Map of gate_id → boolean.
 - core
 - prod
 
+### v0 meaning of `prod`
+
+For v0, `prod` should be read as a **guarded release lane**, not as a claim that
+every final production detector is already fully wired.
+
+Current `run_all.py` behavior is intentionally asymmetric:
+
+- `demo` and `core` start from all-true baseline gates for smoke / core paths
+- `prod` starts from a fail-closed placeholder baseline until real detectors
+  replace the stubs
+
+Therefore, in v0:
+
+- `run_mode=prod` means the run is in the guarded release lane
+- it does **not** mean the lane is already a fully feature-complete, final
+  production measurement lane
+- this is a semantic interpretation rule for operators and maintainers, not a
+  change to gate logic
+
 ---
 
 ## 7. metrics
