@@ -464,6 +464,79 @@ def test_pulse_ci_keeps_release_grade_prod_guard() -> None:
             "the explicit error/OK messages."
         )
 
+def _pulse_ci_has_status_v1_schema_validation(
+    yml_text: str,
+    step_name: str,
+    expected_status_path: str,
+) -> bool:
+    lines = yml_text.splitlines()
+    step_name_rx = re.compile(
+        rf'^\s*-\s*name:\s*["\']?{re.escape(step_name)}["\']?\s*$'
+    )
+
+    i = 0
+    while i < len(lines):
+        if not step_name_rx.match(lines[i]):
+            i += 1
+            continue
+
+        step_indent = len(lines[i]) - len(lines[i].lstrip())
+        j = i + 1
+        block: List[str] = []
+
+        while j < len(lines):
+            cur = lines[j]
+            stripped = cur.lstrip()
+            indent = len(cur) - len(stripped)
+
+            if stripped.startswith("- name:") and indent <= step_indent:
+                break
+
+            block.append(cur)
+            j += 1
+
+        block_text = "\n".join(block)
+
+        has_status = f'STATUS="{expected_status_path}"' in block_text
+        has_schema = 'SCHEMA="$GITHUB_WORKSPACE/schemas/status/status_v1.schema.json"' in block_text
+        has_validate = 'python tools/validate_status_schema.py \\' in block_text
+        has_schema_arg = '--schema "$SCHEMA"' in block_text
+        has_status_arg = '--status "$STATUS"' in block_text
+
+        return bool(
+            has_status
+            and has_schema
+            and has_validate
+            and has_schema_arg
+            and has_status_arg
+        )
+
+    return False
+
+
+def test_pulse_ci_keeps_status_v1_schema_validation_steps() -> None:
+    yml = WORKFLOW.read_text(encoding="utf-8", errors="replace")
+
+    has_baseline = _pulse_ci_has_status_v1_schema_validation(
+        yml,
+        "ci: schema validate status_baseline.json (status_v1)",
+        "${{ env.PACK_DIR }}/artifacts/status_baseline.json",
+    )
+    has_final = _pulse_ci_has_status_v1_schema_validation(
+        yml,
+        "ci: schema validate status.json (status_v1)",
+        "${{ env.PACK_DIR }}/artifacts/status.json",
+    )
+
+    if not (has_baseline and has_final):
+        raise AssertionError(
+            "pulse_ci.yml must keep both status_v1 schema-validation steps:\n"
+            "- ci: schema validate status_baseline.json (status_v1)\n"
+            "- ci: schema validate status.json (status_v1)\n\n"
+            "Fix: keep both named steps and make each of them call "
+            "tools/validate_status_schema.py with the status_v1 schema and the "
+            "expected status path."
+        )
 
 
 def main() -> int:
@@ -472,13 +545,15 @@ def main() -> int:
         test_pulse_core_ci_python_version_aligns_with_environment()
         test_pulse_ci_fails_closed_on_empty_derived_gate_set()
         test_pulse_ci_keeps_release_grade_prod_guard()
+        test_pulse_ci_keeps_status_v1_schema_validation_steps()
     except AssertionError as e:
         print(f"ERROR: {e}")
         return 1
     print(
         "OK: tools-tests suite is coherent, pulse_core_ci baseline wiring is kept, "
         "pulse_ci retains the fail-closed guard for empty derived gate sets, "
-        "and release-grade runs still require run_mode=prod"
+        "release-grade runs still require run_mode=prod, and both status_v1 "
+        "schema-validation steps are anchored"
     )
     return 0
 
