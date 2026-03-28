@@ -32,6 +32,37 @@ python tools/validate_status_schema.py \
 
 ---
 
+## 1.5 Reference execution lane (v0)
+
+For v0, the reference execution lane is the GitHub-hosted **PULSE Core CI**
+lane.
+
+Use it as the default reference when reproducing CI results, triaging drift, or
+deciding whether a local run disagrees with the instrument’s canonical runtime
+envelope.
+
+Reference lane facts for the current repo state:
+
+- runner: `ubuntu-latest`
+- Python: `3.11`
+- workflow: `.github/workflows/pulse_core_ci.yml`
+
+Runtime notes:
+
+- `requirements.txt` is intentionally thin and currently documents the minimal
+  core dependency contract
+- `environment.yml` is a broader convenience environment and must not be read as
+  the primary reference lane by itself
+
+Practical rule:
+
+If a local run disagrees with CI, treat the reference lane first as authoritative
+for v0 triage unless the discrepancy is itself the bug under investigation.
+
+---
+
+---
+
 ## 2. When CI is red: fastest path
 
 1. Open the failing job logs and find the first clear failure reason.
