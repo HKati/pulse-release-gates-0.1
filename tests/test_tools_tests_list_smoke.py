@@ -194,7 +194,41 @@ def test_tools_tests_list_covers_smoke_scripts() -> None:
             + "\n".join(f"  - {s}" for s in stale)
         )
 
+def _targeted_pytest_step_uses_manifest(yml_text: str) -> bool:
+    lines = yml_text.splitlines()
+    step_name_rx = re.compile(r"^\s*-\s*name:\s*Run targeted pytest suite\s*$")
 
+    i = 0
+    while i < len(lines):
+        if not step_name_rx.match(lines[i]):
+            i += 1
+            continue
+
+        step_indent = len(lines[i]) - len(lines[i].lstrip())
+        j = i + 1
+        block: List[str] = []
+
+        while j < len(lines):
+            cur = lines[j]
+            stripped = cur.lstrip()
+            indent = len(cur) - len(stripped)
+
+            if stripped.startswith("- name:") and indent <= step_indent:
+                break
+
+            block.append(cur)
+            j += 1
+
+        block_text = "\n".join(block)
+        has_manifest = re.search(
+            r'^\s*list_file\s*=\s*["\']?ci/pytest-tests\.list["\']?\s*$',
+            block_text,
+            flags=re.M,
+        )
+        has_pytest = 'python -m pytest -q "${tests[@]}"' in block_text
+        return bool(has_manifest and has_pytest)
+
+    return False
 
 
 def test_pytest_tests_list_keeps_core_baseline() -> None:
@@ -224,10 +258,12 @@ def test_pytest_tests_list_keeps_core_baseline() -> None:
     _assert_no_duplicates(manifest, "ci/pytest-tests.list")
 
     yml = WORKFLOW.read_text(encoding="utf-8", errors="replace")
-    if "ci/pytest-tests.list" not in yml:
+    if not _targeted_pytest_step_uses_manifest(yml):
         raise AssertionError(
-            "Targeted pytest manifest wiring not detected in pulse_ci.yml.\n"
-            "Fix: update the targeted pytest step to read ci/pytest-tests.list."
+            "Targeted pytest manifest wiring not detected in the "
+            "'Run targeted pytest suite' step of pulse_ci.yml.\n"
+            'Fix: make that step assign list_file="ci/pytest-tests.list" '
+            'and run python -m pytest -q "${tests[@]}".'
         )
 
     missing_files = [rel for rel in manifest if not (ROOT / rel).is_file()]
