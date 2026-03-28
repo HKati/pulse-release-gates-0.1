@@ -421,17 +421,16 @@ def _pulse_ci_has_release_grade_prod_guard(yml_text: str) -> bool:
 
         block_text = "\n".join(block)
 
-        has_release_if = (
-            "startsWith(github.ref, 'refs/tags/v')"
-            in block_text
-            and "startsWith(github.ref, 'refs/tags/V')"
-            in block_text
-            and "github.event_name == 'workflow_dispatch'"
-            in block_text
-            and "github.event.inputs.strict_external_evidence == 'true'"
-            in block_text
+         # Lock the actual release-grade if-expression structure.
+        has_if = re.search(
+            r"startsWith\(github\.ref,\s*'refs/tags/v'\)\s*\|\|\s*"
+            r"startsWith\(github\.ref,\s*'refs/tags/V'\)\s*\|\|\s*"
+            r"\(\s*github\.event_name\s*==\s*'workflow_dispatch'\s*&&\s*"
+            r"github\.event\.inputs\.strict_external_evidence\s*==\s*'true'\s*\)",
+            block_text,
         )
         has_status_read = 'p="PULSE_safe_pack_v0/artifacts/status.json"' in block_text
+        has_metrics_extract = 'm=(s.get("metrics") or {})' in block_text
         has_mode_extract = 'mode=str(m.get("run_mode","")).lower()' in block_text
         has_prod_check = 'if mode != "prod":' in block_text
         has_error = (
@@ -441,8 +440,9 @@ def _pulse_ci_has_release_grade_prod_guard(yml_text: str) -> bool:
         has_ok = 'print("OK: run_mode=prod")' in block_text
 
         return bool(
-            has_release_if
+            has_if
             and has_status_read
+            and has_metrics_extract
             and has_mode_extract
             and has_prod_check
             and has_error
@@ -460,8 +460,8 @@ def test_pulse_ci_keeps_release_grade_prod_guard() -> None:
             "pulse_ci.yml must keep the release-grade run_mode=prod guard in the "
             "'ci: require prod run_mode on release-grade runs' step.\n"
             "Fix: keep the release-grade if-condition, read status.json, extract "
-            "metrics.run_mode, fail if it is not 'prod', and emit the explicit "
-            "error/OK messages."
+            "metrics, read metrics.run_mode, fail if it is not 'prod', and emit "
+            "the explicit error/OK messages."
         )
 
 
@@ -476,7 +476,7 @@ def main() -> int:
         print(f"ERROR: {e}")
         return 1
     print(
-         "OK: tools-tests suite is coherent, pulse_core_ci baseline wiring is kept, "
+        "OK: tools-tests suite is coherent, pulse_core_ci baseline wiring is kept, "
         "pulse_ci retains the fail-closed guard for empty derived gate sets, "
         "and release-grade runs still require run_mode=prod"
     )
