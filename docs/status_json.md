@@ -366,6 +366,45 @@ Recommended consumer rule:
 2. use `gates.external_all_pass` as the aggregate external-result signal
 3. do not substitute one for the other
 
+### Release-grade reading rule
+
+For v0 release-grade interpretation, external evidence is PASS only if both of the following are true:
+
+1. `gates.external_summaries_present == true`
+2. `gates.external_all_pass == true`
+
+Therefore:
+
+* `external_all_pass == true` on its own is **not** a release-grade PASS
+* presence must be established explicitly before the aggregate external result is treated as release-relevant
+* this is a semantic reading rule for release-grade consumers; it does not by itself change onboarding-friendly default augmentation behavior
+
+
+---
+
+## 12. Relationship to the main tools
+
+run_all.py → baseline
+
+augment_status.py → enrichment
+
+check_gates.py → enforcement
+
+validate_status_schema.py → validation
+
+---
+
+## 13. Consumer guidance
+
+1. Validate first.
+
+2. Read `gates` first.
+
+3. Treat `meta` as descriptive.
+
+4. **Check evidence-presence fields explicitly** when evidence existence matters:
+   - `gates.external_summaries_present` (preferred release-facing signal)
+
 
 ---
 
