@@ -392,21 +392,98 @@ def test_pulse_ci_fails_closed_on_empty_derived_gate_set() -> None:
             "::error:: message, and exit 1 before check_gates.py runs."
         )
 
+def _pulse_ci_has_release_grade_prod_guard(yml_text: str) -> bool:
+    lines = yml_text.splitlines()
+    step_name_rx = re.compile(
+        r'^\s*-\s*name:\s*["\']?ci: require prod run_mode on release-grade runs["\']?\s*$'
+    )
+
+    i = 0
+    while i < len(lines):
+        if not step_name_rx.match(lines[i]):
+            i += 1
+            continue
+
+        step_indent = len(lines[i]) - len(lines[i].lstrip())
+        j = i + 1
+        block: List[str] = []
+
+        while j < len(lines):
+            cur = lines[j]
+            stripped = cur.lstrip()
+            indent = len(cur) - len(stripped)
+
+            if stripped.startswith("- name:") and indent <= step_indent:
+                break
+
+            block.append(cur)
+            j += 1
+
+        block_text = "\n".join(block)
+
+        has_release_if = (
+            "startsWith(github.ref, 'refs/tags/v')"
+            in block_text
+            and "startsWith(github.ref, 'refs/tags/V')"
+            in block_text
+            and "github.event_name == 'workflow_dispatch'"
+            in block_text
+            and "github.event.inputs.strict_external_evidence == 'true'"
+            in block_text
+        )
+        has_status_read = 'p="PULSE_safe_pack_v0/artifacts/status.json"' in block_text
+        has_mode_extract = 'mode=str(m.get("run_mode","")).lower()' in block_text
+        has_prod_check = 'if mode != "prod":' in block_text
+        has_error = (
+            "::error::release-grade run requires metrics.run_mode='prod'"
+            in block_text
+        )
+        has_ok = 'print("OK: run_mode=prod")' in block_text
+
+        return bool(
+            has_release_if
+            and has_status_read
+            and has_mode_extract
+            and has_prod_check
+            and has_error
+            and has_ok
+        )
+
+    return False
+
+
+def test_pulse_ci_keeps_release_grade_prod_guard() -> None:
+    yml = WORKFLOW.read_text(encoding="utf-8", errors="replace")
+
+    if not _pulse_ci_has_release_grade_prod_guard(yml):
+        raise AssertionError(
+            "pulse_ci.yml must keep the release-grade run_mode=prod guard in the "
+            "'ci: require prod run_mode on release-grade runs' step.\n"
+            "Fix: keep the release-grade if-condition, read status.json, extract "
+            "metrics.run_mode, fail if it is not 'prod', and emit the explicit "
+            "error/OK messages."
+        )
+
+
 
 def main() -> int:
     try:
         test_tools_tests_list_covers_smoke_scripts()
         test_pulse_core_ci_python_version_aligns_with_environment()
         test_pulse_ci_fails_closed_on_empty_derived_gate_set()
+        test_pulse_ci_keeps_release_grade_prod_guard()
     except AssertionError as e:
         print(f"ERROR: {e}")
         return 1
     print(
          "OK: tools-tests suite is coherent, pulse_core_ci baseline wiring is kept, "
-        "and pulse_ci retains the fail-closed guard for empty derived gate sets"
+        "pulse_ci retains the fail-closed guard for empty derived gate sets, "
+        "and release-grade runs still require run_mode=prod"
     )
     return 0
 
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
+    
