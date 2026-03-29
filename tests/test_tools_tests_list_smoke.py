@@ -599,6 +599,8 @@ def test_pulse_ci_keeps_strict_external_summary_precheck() -> None:
 def main() -> int:
     try:
         test_tools_tests_list_covers_smoke_scripts()
+        test_pytest_tests_list_keeps_core_baseline()
+        test_pulse_core_ci_keeps_core_baseline_step()
         test_pulse_core_ci_python_version_aligns_with_environment()
         test_pulse_ci_fails_closed_on_empty_derived_gate_set()
         test_pulse_ci_keeps_release_grade_prod_guard()
