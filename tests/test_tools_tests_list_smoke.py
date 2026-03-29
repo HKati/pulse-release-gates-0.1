@@ -644,27 +644,38 @@ def test_runbook_keeps_v0_core_runtime_surface() -> None:
         )
 
 def test_requirements_txt_keeps_minimal_core_runtime_contract() -> None:
-    if not REQ_FILE.is_file():
-        raise AssertionError(f"Missing requirements file: {REQ_FILE}")
+    req = ROOT / "requirements.txt"
+    if not req.is_file():
+        raise AssertionError(f"Missing requirements file: {req}")
 
-    raw_lines = REQ_FILE.read_text(encoding="utf-8", errors="replace").splitlines()
     entries: List[str] = []
-
-    for raw in raw_lines:
+    for raw in req.read_text(encoding="utf-8", errors="replace").splitlines():
         line = raw.split("#", 1)[0].strip()
-        if not line:
-            continue
-        entries.append(line)
+        if line:
+            entries.append(line)
 
     if not entries:
         raise AssertionError("requirements.txt must not be empty.")
 
+    def _canonical_req_name(entry: str) -> str:
+        base = entry.split(";", 1)[0]
+        base = re.sub(r"\s+", "", base)
+        m = re.match(r"^([A-Za-z0-9_.-]+)", base)
+        if not m:
+            return ""
+        return re.sub(r"[-_.]+", "-", m.group(1)).lower()
+
+    present_names = {
+        name for name in (_canonical_req_name(e) for e in entries) if name
+    }
+
     required_pkgs = ("pyyaml", "jsonschema")
-    for pkg in required_pkgs:
-        if not any(re.match(rf"^{re.escape(pkg)}(?:[<>=!~].*)?$", e) for e in entries):
-            raise AssertionError(
-                f"requirements.txt must keep {pkg} in the minimal core runtime contract."
-            )
+    missing = [pkg for pkg in required_pkgs if pkg not in present_names]
+    if missing:
+        raise AssertionError(
+            "requirements.txt must keep the minimal core runtime contract:\n"
+            + "\n".join(f" - {pkg}" for pkg in missing)
+        )
 
 def main() -> int:
     try:
