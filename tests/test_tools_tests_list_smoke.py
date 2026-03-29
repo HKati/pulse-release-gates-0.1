@@ -30,6 +30,7 @@ WORKFLOW = ROOT / ".github" / "workflows" / "pulse_ci.yml"
 CORE_WORKFLOW = ROOT / ".github" / "workflows" / "pulse_core_ci.yml"
 RUNBOOK = ROOT / "docs" / "RUNBOOK.md"
 ENV_FILE = ROOT / "environment.yml"
+REQ_FILE = ROOT / "requirements.txt"
 MANIFEST = ROOT / "ci" / "tools-tests.list"
 TESTS_DIR = ROOT / "tests"
 
@@ -642,6 +643,39 @@ def test_runbook_keeps_v0_core_runtime_surface() -> None:
             "reference core runtime lane."
         )
 
+def test_requirements_txt_keeps_minimal_core_runtime_contract() -> None:
+    req = ROOT / "requirements.txt"
+    if not req.is_file():
+        raise AssertionError(f"Missing requirements file: {req}")
+
+    entries: List[str] = []
+    for raw in req.read_text(encoding="utf-8", errors="replace").splitlines():
+        line = raw.split("#", 1)[0].strip()
+        if line:
+            entries.append(line)
+
+    if not entries:
+        raise AssertionError("requirements.txt must not be empty.")
+
+    def _canonical_req_name(entry: str) -> str:
+        base = entry.split(";", 1)[0]
+        base = re.sub(r"\s+", "", base)
+        m = re.match(r"^([A-Za-z0-9_.-]+)", base)
+        if not m:
+            return ""
+        return re.sub(r"[-_.]+", "-", m.group(1)).lower()
+
+    present_names = {
+        name for name in (_canonical_req_name(e) for e in entries) if name
+    }
+
+    required_pkgs = ("pyyaml", "jsonschema")
+    missing = [pkg for pkg in required_pkgs if pkg not in present_names]
+    if missing:
+        raise AssertionError(
+            "requirements.txt must keep the minimal core runtime contract:\n"
+            + "\n".join(f" - {pkg}" for pkg in missing)
+        )
 
 def main() -> int:
     try:
@@ -654,6 +688,7 @@ def main() -> int:
         test_pulse_ci_keeps_status_v1_schema_validation_steps()
         test_pulse_ci_keeps_strict_external_summary_precheck()
         test_runbook_keeps_v0_core_runtime_surface()
+        test_requirements_txt_keeps_minimal_core_runtime_contract()
     except AssertionError as e:
         print(f"ERROR: {e}")
         return 1
@@ -662,7 +697,8 @@ def main() -> int:
         "pulse_ci retains the fail-closed guard for empty derived gate sets, "
         "release-grade runs still require run_mode=prod, both status_v1 "
         "schema-validation steps are anchored, strict external summary presence "
-        "precheck is kept, and the v0 core runtime surface remains aligned"
+        "precheck is kept, the v0 core runtime surface remains aligned, and "
+        "requirements.txt retains the minimal core runtime contract"
     )
     return 0
 
