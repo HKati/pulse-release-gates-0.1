@@ -59,6 +59,30 @@ Practical rule:
 If a local run disagrees with CI, treat the reference lane first as authoritative
 for v0 triage unless the discrepancy is itself the bug under investigation.
 
+### Core runtime surface (v0)
+
+For v0, treat the core runtime surface as the minimum execution envelope used by
+the reference lane.
+
+Current v0 core runtime surface:
+
+- workflow: `.github/workflows/pulse_core_ci.yml`
+- Python: `3.11`
+- install path: `python -m pip install -r requirements.txt pytest`
+- minimal core dependency contract: `requirements.txt`
+
+Interpretation rules:
+
+- `requirements.txt` is the primary core runtime surface for the current v0
+  reference lane
+- `environment.yml` is a broader convenience environment and must not be read
+  as the canonical core runtime definition by itself
+- if a tool or library is not required by the reference lane, do not assume it
+  is part of the instrument’s canonical core runtime
+
+This is an execution-hardening rule for reproducibility and triage. It does not
+by itself change packaging or dependency policy.
+
 ---
 
 ---
