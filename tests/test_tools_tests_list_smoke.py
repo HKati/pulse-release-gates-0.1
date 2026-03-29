@@ -28,6 +28,7 @@ from typing import List, Optional, Set
 ROOT = Path(__file__).resolve().parents[1]
 WORKFLOW = ROOT / ".github" / "workflows" / "pulse_ci.yml"
 CORE_WORKFLOW = ROOT / ".github" / "workflows" / "pulse_core_ci.yml"
+RUNBOOK = ROOT / "docs" / "RUNBOOK.md"
 ENV_FILE = ROOT / "environment.yml"
 MANIFEST = ROOT / "ci" / "tools-tests.list"
 TESTS_DIR = ROOT / "tests"
@@ -596,6 +597,52 @@ def test_pulse_ci_keeps_strict_external_summary_precheck() -> None:
             "--require_metric_key."
         )
 
+def test_runbook_keeps_v0_core_runtime_surface() -> None:
+    if not CORE_WORKFLOW.is_file():
+        raise AssertionError(f"Missing core workflow file: {CORE_WORKFLOW}")
+    if not RUNBOOK.is_file():
+        raise AssertionError(f"Missing runbook file: {RUNBOOK}")
+
+    yml = CORE_WORKFLOW.read_text(encoding="utf-8", errors="replace")
+    runbook = RUNBOOK.read_text(encoding="utf-8", errors="replace")
+
+    if "## 1.5 Reference execution lane (v0)" not in runbook:
+        raise AssertionError(
+            "RUNBOOK.md must keep the v0 reference execution lane section."
+        )
+
+    if "### Core runtime surface (v0)" not in runbook:
+        raise AssertionError(
+            "RUNBOOK.md must keep the v0 core runtime surface section."
+        )
+
+    required_runbook_snippets = [
+        "workflow: `.github/workflows/pulse_core_ci.yml`",
+        "Python: `3.11`",
+        "install path: `python -m pip install -r requirements.txt pytest`",
+        "minimal core dependency contract: `requirements.txt`",
+        "`requirements.txt` is the primary core runtime surface",
+        "`environment.yml` is a broader convenience environment",
+    ]
+    missing = [s for s in required_runbook_snippets if s not in runbook]
+    if missing:
+        raise AssertionError(
+            "RUNBOOK.md is missing required core runtime surface statements:\n"
+            + "\n".join(f" - {m}" for m in missing)
+        )
+
+    if not re.search(r'^\s*python-version:\s*["\']?3\.11["\']?\s*$', yml, flags=re.M):
+        raise AssertionError(
+            "pulse_core_ci.yml must set Python 3.11 in the Set up Python step."
+        )
+
+    if 'python -m pip install -r requirements.txt pytest' not in yml:
+        raise AssertionError(
+            "pulse_core_ci.yml must install requirements.txt and pytest in the "
+            "reference core runtime lane."
+        )
+
+
 def main() -> int:
     try:
         test_tools_tests_list_covers_smoke_scripts()
@@ -606,15 +653,16 @@ def main() -> int:
         test_pulse_ci_keeps_release_grade_prod_guard()
         test_pulse_ci_keeps_status_v1_schema_validation_steps()
         test_pulse_ci_keeps_strict_external_summary_precheck()
+        test_runbook_keeps_v0_core_runtime_surface()
     except AssertionError as e:
         print(f"ERROR: {e}")
         return 1
     print(
         "OK: tools-tests suite is coherent, pulse_core_ci baseline wiring is kept, "
         "pulse_ci retains the fail-closed guard for empty derived gate sets, "
-          "release-grade runs still require run_mode=prod, both status_v1 "
-        "schema-validation steps are anchored, and strict external summary "
-        "presence precheck is kept"
+        "release-grade runs still require run_mode=prod, both status_v1 "
+        "schema-validation steps are anchored, strict external summary presence "
+        "precheck is kept, and the v0 core runtime surface remains aligned"
     )
     return 0
 
