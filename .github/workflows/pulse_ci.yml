@@ -315,20 +315,20 @@ jobs:
           PULSE_MODE="core"
           PULSE_POLICY_SET="core_required"
 
-          # version tags => release-grade + prod + required
+          # version tags => release-grade + prod; release_required is materialized later
           if [[ "${GITHUB_REF:-}" == refs/tags/v* || "${GITHUB_REF:-}" == refs/tags/V* ]]; then
             PULSE_IS_RELEASE=1
             PULSE_MODE="prod"
-            # version tags => release-grade + prod + release_required
+            PULSE_POLICY_SET="required"
           fi
 
-          # strict workflow_dispatch => release-grade + prod + release_required
+          # strict workflow_dispatch => release-grade + prod; release_required is materialized later
           if [[ "${GITHUB_EVENT_NAME:-}" == "workflow_dispatch" ]]; then
             STRICT="$(jq -r '.inputs.strict_external_evidence // "false"' "$GITHUB_EVENT_PATH")"
             if [[ "$STRICT" == "true" ]]; then
               PULSE_IS_RELEASE=1
               PULSE_MODE="prod"
-              PULSE_POLICY_SET="release_required"
+              PULSE_POLICY_SET="required"
             fi
           fi
 
