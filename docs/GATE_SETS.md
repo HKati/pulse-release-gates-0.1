@@ -19,7 +19,7 @@ enforcement win.
 The policy currently defines four gate sets:
 
 * `core_required` — minimal deterministic gate set for the core CI lane
-* `required` — the main normative base gate set
+* `required` — the main normative gate set used by the current release-grade workflow path
 * `release_required` — policy-defined release-evidence gates
 * `advisory` — diagnostic-only gates that must not block shipping
 
@@ -37,12 +37,12 @@ The current policy-defined `advisory` set also contains:
 
 * `pull_request` runs enforce `core_required`
 * pushes to `main` enforce `core_required` by default
-* version tag pushes (`v*` / `V*`) enforce `required + release_required` 
+* version tag pushes (`v*` / `V*`) enforce `required`
 * `workflow_dispatch` runs enforce `core_required` by default; with
- `strict_external_evidence=true`, they enforce `required + release_required`
+ `strict_external_evidence=true`, they enforce `required`
 * required-like gates are fail-closed on missing / false
 * advisory gates do not block shipping
-* release-grade runs materialize `release_required` alongside `required` at the
+* `release_required` is policy-defined, but it is not yet materialized as a separate `check_gates.py` enforce set in the current v0 workflow
 
 ## Gate matrix (policy-defined)
 
@@ -72,34 +72,36 @@ The current policy-defined `advisory` set also contains:
 
 ## Strict external evidence note
 
-`release_required` is a policy-defined evidence set, and the release-grade
-workflow now materializes it alongside `required` at the final
-`check_gates.py` step.
+`release_required` is a policy-defined evidence set.
 
-Strict external evidence mode still keeps the workflow-level fail-closed
-precheck for external summaries before augmentation continues, and
-release-grade augmentation also runs with `--require_external_summaries`.
+In the current v0 workflow implementation, release-grade mode still enforces
+`required` via `PULSE_POLICY_SET="required"`.
+
+Strict external evidence mode additionally adds a workflow-level fail-closed
+presence check for external summaries before augmentation continues.
 
 That means:
 
-* the release-grade workflow should now be described as enforcing 
+* the current workflow does not yet materialize `release_required` as a
+  separate `check_gates.py` enforce set
+* the current workflow should not be described as enforcing
   `required + release_required`
-* external evidence is checked both before augmentation and at the final
-  gate-enforcement step
-* the core/default path remains onboarding-friendly and continues to enforce
-  `core_required`
+* if `.github/workflows/pulse_ci.yml` is later changed to materialize
+  `release_required` explicitly, this page should be updated in the same
+  change
 
 ## Practical release-grade reading rule
 
 For the current v0 workflow, the shortest accurate answer to
 “what blocks shipping on the release-grade path?” is:
 
-1. `required + release_required` gates enforced through `check_gates.py`
+1. `required` gates enforced through `check_gates.py`
 2. `run_mode=prod` enforced on release-grade runs
-3. external summary presence is enforced fail-closed before augmentation, and
-   release-grade augmentation runs in strict external-summary mode   
+3. if strict external evidence mode is enabled, external summary presence is
+   enforced fail-closed in the workflow path
 
-This now matches the current workflow behavior.
+This is narrower than `required + release_required`, and it is the wording
+that matches the current workflow behavior.
 
 ## Practical rule
 
