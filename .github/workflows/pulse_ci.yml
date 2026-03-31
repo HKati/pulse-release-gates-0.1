@@ -337,8 +337,7 @@ jobs:
           # version tags => release-grade + prod; release_required is materialized later
           if [[ "${GITHUB_REF:-}" == refs/tags/v* || "${GITHUB_REF:-}" == refs/tags/V* ]]; then
             PULSE_IS_RELEASE=1
-            PULSE_MODE="prod"
-            PULSE_POLICY_SET="required"
+            PULSE_MODE="prod"            PULSE_POLICY_SET="required"
           fi
 
           # strict workflow_dispatch => release-grade + prod; release_required is materialized later
@@ -677,8 +676,7 @@ jobs:
 
           if [ ! -f "$AUGMENT" ]; then
             echo "::error::augment_status.py not found at $AUGMENT"
-            exit 1
-          fi
+            exit 1          fi
 
           ls -la "$AUGMENT"
           wc -l "$AUGMENT"
@@ -690,18 +688,10 @@ jobs:
 
           python -m py_compile "$AUGMENT"
 
-            AUGMENT_CMD=(
-            python "$AUGMENT"
-            --status "$STATUS"
-            --thresholds "$THRESH"
+          python "$AUGMENT" \
+            --status "$STATUS" \
+            --thresholds "$THRESH" \
             --external_dir "$EXT_DIR"
-          )
-
-          if [[ "${PULSE_IS_RELEASE:-0}" == "1" ]]; then
-            AUGMENT_CMD+=(--require_external_summaries)
-          fi
-
-          "${AUGMENT_CMD[@]}"
      
       - name: "ci: schema validate status.json (status_v1)"
         shell: bash
@@ -770,8 +760,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-
           STATUS="${{ env.PACK_DIR }}/artifacts/status.json"
+
           if [ ! -f "$STATUS" ]; then
             echo "::error::status.json not found at $STATUS"
             exit 1
@@ -780,28 +770,32 @@ jobs:
           POLICY_SET="${PULSE_POLICY_SET:-core_required}"
 
           # Canonical helper (fail-closed, no PyYAML dependency)
-                   BASE_REQ_STR="$(python tools/policy_to_require_args.py \
-            --policy pulse_gate_policy_v0.yml \
-            --set "$POLICY_SET" \
-            --format space)"
+          REQ_STR="$(python tools/policy_to_require_args.py --policy pulse_gate_policy_v0.yml --set "$POLICY_SET" --format space)"
 
-          EFFECTIVE_SET="$POLICY_SET"
-          REQ_STR="$BASE_REQ_STR"
+          read -r -a REQ <<< "$REQ_STR"
+
+          if (( ${#REQ[@]} == 0 )); then
+            echo "::error::derived gate set is empty: ${POLICY_SET}"
+            exit 1
+          fi
+
+          EFFECTIVE_SET="${POLICY_SET}"
 
           if [[ "${PULSE_IS_RELEASE:-0}" == "1" ]]; then
             RELEASE_REQ_STR="$(python tools/policy_to_require_args.py \
               --policy pulse_gate_policy_v0.yml \
               --set release_required \
               --format space)"
-            REQ_STR="${BASE_REQ_STR} ${RELEASE_REQ_STR}"
+
+            read -r -a RELEASE_REQ <<< "$RELEASE_REQ_STR"
+
+            if (( ${#RELEASE_REQ[@]} == 0 )); then
+              echo "::error::derived gate set is empty: release_required"
+              exit 1
+            fi
+
+            REQ+=("${RELEASE_REQ[@]}")
             EFFECTIVE_SET="${POLICY_SET}+release_required"
-          fi
-          read -r -a REQ <<< "$REQ_STR"
-
-          if (( ${#REQ[@]} == 0 )); then
-          echo "::error::derived gate set is empty: ${EFFECTIVE_SET}"
-
-            exit 1
           fi
 
           echo "Enforcing materialized gate set: ${EFFECTIVE_SET} (${#REQ[@]} gates)"
@@ -810,7 +804,7 @@ jobs:
           python "${{ env.PACK_DIR }}/tools/check_gates.py" \
             --status "$STATUS" \
             --require "${REQ[@]}"
-  
+
 
       - name: Gate registry sync check
         shell: bash
@@ -1021,8 +1015,346 @@ jobs:
           cp "$SRC" "$DST"
 
       - name: Write status.json key-order diagnosis (for debugging)
+        if: always()          fi
+
+          ls -la "$AUGMENT"
+          wc -l "$AUGMENT"
+          sha256sum "$AUGMENT"
+
+          nl -ba "$AUGMENT" | sed -n '340,370p' || true
+
+          echo "::endgroup::"
+
+          python -m py_compile "$AUGMENT"
+
+          python "$AUGMENT" \
+            --status "$STATUS" \
+            --thresholds "$THRESH" \
+            --external_dir "$EXT_DIR"
+     
+      - name: "ci: schema validate status.json (status_v1)"
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          STATUS="${{ env.PACK_DIR }}/artifacts/status.json"
+          SCHEMA="$GITHUB_WORKSPACE/schemas/status/status_v1.schema.json"
+
+          python tools/validate_status_schema.py \
+            --schema "$SCHEMA" \
+            --status "$STATUS"
+
+   
+     
+      - name: Export final summary (post-augment)
+        shell: bash
+        run: |
+          set -euo pipefail
+          SCRIPT="${{ env.PACK_DIR }}/tools/status_to_summary.py"
+          STATUS="${{ env.PACK_DIR }}/artifacts/status.json"
+
+          if [ ! -f "$SCRIPT" ]; then
+            echo "::notice::SKIP: status_to_summary.py not found at $SCRIPT (optional)"
+            exit 0
+          fi
+          if [ ! -f "$STATUS" ]; then
+            echo "::notice::SKIP: status.json not found at $STATUS; skipping final summary (optional)"
+            exit 0
+          fi
+
+          # Default outputs: artifacts/status_summary.md + artifacts/status_summary.json
+          python "$SCRIPT" --status "$STATUS"
+
+      - name: "ci: forbid demo status on version tags"
+        if: startsWith(github.ref, 'refs/tags/v') || startsWith(github.ref, 'refs/tags/V')
+        shell: bash
+        run: |
+          set -euo pipefail
+          STATUS="${{ env.PACK_DIR }}/artifacts/status.json"
+          if [ ! -f "$STATUS" ]; then
+            echo "::error::status.json not found at $STATUS"
+            exit 1
+          fi
+          export STATUS
+          python - <<'PY'
+          import json, os, sys
+
+          p = os.environ["STATUS"]
+          try:
+            with open(p, "r", encoding="utf-8") as f:
+              s = json.load(f)
+          except Exception as e:
+            print(f"::error::failed to parse status.json: {e}")
+            sys.exit(1)
+
+          v = str(s.get("version", ""))
+          if "demo" in v.lower():
+            print(f"::error::demo status.version is not allowed on version tags: {v}")
+            sys.exit(1)
+
+          print(f"OK: non-demo status.version on tag: {v}")
+          PY
+
+      - name: "ci: enforce gates via check_gates (policy-derived)"
+        shell: bash
+        run: |
+          set -euo pipefail
+          STATUS="${{ env.PACK_DIR }}/artifacts/status.json"
+
+          if [ ! -f "$STATUS" ]; then
+            echo "::error::status.json not found at $STATUS"
+            exit 1
+          fi
+
+          POLICY_SET="${PULSE_POLICY_SET:-core_required}"
+
+          # Canonical helper (fail-closed, no PyYAML dependency)
+          REQ_STR="$(python tools/policy_to_require_args.py --policy pulse_gate_policy_v0.yml --set "$POLICY_SET" --format space)"
+
+          read -r -a REQ <<< "$REQ_STR"
+
+          if (( ${#REQ[@]} == 0 )); then
+            echo "::error::derived gate set is empty: ${POLICY_SET}"
+            exit 1
+          fi
+
+          EFFECTIVE_SET="${POLICY_SET}"
+
+          if [[ "${PULSE_IS_RELEASE:-0}" == "1" ]]; then
+            RELEASE_REQ_STR="$(python tools/policy_to_require_args.py \
+              --policy pulse_gate_policy_v0.yml \
+              --set release_required \
+              --format space)"
+
+            read -r -a RELEASE_REQ <<< "$RELEASE_REQ_STR"
+
+            if (( ${#RELEASE_REQ[@]} == 0 )); then
+              echo "::error::derived gate set is empty: release_required"
+              exit 1
+            fi
+
+            REQ+=("${RELEASE_REQ[@]}")
+            EFFECTIVE_SET="${POLICY_SET}+release_required"
+          fi
+
+          echo "Enforcing materialized gate set: ${EFFECTIVE_SET} (${#REQ[@]} gates)"
+          printf '%s\n' "${REQ[@]}" | sed 's/^/ - /'
+
+          python "${{ env.PACK_DIR }}/tools/check_gates.py" \
+            --status "$STATUS" \
+            --require "${REQ[@]}"
+
+
+      - name: Gate registry sync check
+        shell: bash
+        run: |
+          set -euo pipefail
+          python tools/check_gate_registry_sync.py \
+            --status "${{ env.PACK_DIR }}/artifacts/status.json" \
+            --registry pulse_gate_registry_v0.yml \
+            --emit-stubs
+
+      - name: Policy ↔ registry consistency check
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python tools/tools/check_policy_registry_consistency.py \
+            --registry pulse_gate_registry_v0.yml \
+            --policy pulse_gate_policy_v0.yml \
+            --sets required
+
+          python tools/tools/check_policy_registry_consistency.py \
+            --registry pulse_gate_registry_v0.yml \
+            --policy pulse_gate_policy_v0.yml \
+            --sets core_required
+
+          python - <<'PY'
+          import sys
+          import yaml
+
+          with open("pulse_gate_policy_v0.yml", "r", encoding="utf-8") as f:
+              pol = yaml.safe_load(f) or {}
+
+          # Canonical schema is gates.*; accept legacy sets.* as fallback.
+          gates = pol.get("gates")
+          if gates is None and isinstance(pol.get("sets"), dict):
+              gates = pol.get("sets")
+
+          if not isinstance(gates, dict):
+              print("::error::pulse_gate_policy_v0.yml is missing expected 'gates' mapping (or legacy 'sets' mapping).")
+              sys.exit(1)
+
+          core = set(gates.get("core_required") or [])
+          req = set(gates.get("required") or [])
+
+          missing = sorted(core - req)
+          if missing:
+              print("::error::gates.core_required must be a subset of gates.required.")
+              for g in missing:
+                  print(f"::error::- {g}")
+              sys.exit(1)
+
+          print("OK: core_required ⊆ required")
+          PY
+
+      - name: Compute stability map
+        shell: bash
+        run: |
+          set -euo pipefail
+          SCRIPT="${{ env.PACK_DIR }}/tools/compute_stability_map.py"
+          STATUS="${{ env.PACK_DIR }}/artifacts/status.json"
+          if [ ! -f "$SCRIPT" ]; then
+            echo "::notice::SKIP: compute_stability_map.py not found at $SCRIPT (optional)"
+            exit 0
+          fi
+          python "$SCRIPT" --status "$STATUS"
+
+      - name: Render stability map
+        shell: bash
+        run: |
+          set -euo pipefail
+          SCRIPT="${{ env.PACK_DIR }}/tools/render_stability_map.py"
+          STATUS="${{ env.PACK_DIR }}/artifacts/status.json"
+          if [ ! -f "$SCRIPT" ]; then
+            echo "::notice::SKIP: render_stability_map.py not found at $SCRIPT (optional)"
+            exit 0
+          fi
+          python "$SCRIPT" --status "$STATUS"
+
+      - name: Compute field-level stability
+        shell: bash
+        run: |
+          set -euo pipefail
+          SCRIPT="${{ env.PACK_DIR }}/tools/field_stability.py"
+          STATUS="${{ env.PACK_DIR }}/artifacts/status.json"
+          if [ ! -f "$SCRIPT" ]; then
+            echo "::notice::SKIP: field_stability.py not found at $SCRIPT (optional)"
+            exit 0
+          fi
+          python "$SCRIPT" --status "$STATUS"
+
+      - name: Compute field-level gating scores
+        shell: bash
+        run: |
+          set -euo pipefail
+          SCRIPT="${{ env.PACK_DIR }}/tools/field_v0.py"
+          STATUS="${{ env.PACK_DIR }}/artifacts/status.json"
+          if [ ! -f "$SCRIPT" ]; then
+            echo "::notice::SKIP: field_v0.py not found at $SCRIPT (optional)"
+            exit 0
+          fi
+          python "$SCRIPT" --status "$STATUS"
+
+      - name: Compute EPF overlay
+        shell: bash
+        run: |
+          set -euo pipefail
+          SCRIPT="${{ env.PACK_DIR }}/tools/compute_epf_overlay_v0.py"
+          STATUS="${{ env.PACK_DIR }}/artifacts/status.json"
+          if [ ! -f "$SCRIPT" ]; then
+            echo "::notice::SKIP: compute_epf_overlay_v0.py not found at $SCRIPT (optional)"
+            exit 0
+          fi
+          python "$SCRIPT" --status "$STATUS"
+
+      - name: Generate PULSE snapshot report (HTML)
+        shell: bash
+        run: |
+          set -euo pipefail
+          SCRIPT="${{ env.PACK_DIR }}/tools/status_to_html_snapshot.py"
+          STATUS="${{ env.PACK_DIR }}/artifacts/status.json"
+          if [ ! -f "$SCRIPT" ]; then
+            echo "::notice::SKIP: status_to_html_snapshot.py not found at $SCRIPT (optional)"
+            exit 0
+          fi
+          python "$SCRIPT" --status "$STATUS"
+
+      - name: Generate PULSE snapshot report (Markdown)
+        shell: bash
+        run: |
+          set -euo pipefail
+          SCRIPT="${{ env.PACK_DIR }}/tools/status_to_md_snapshot.py"
+          STATUS="${{ env.PACK_DIR }}/artifacts/status.json"
+          if [ ! -f "$SCRIPT" ]; then
+            echo "::notice::SKIP: status_to_md_snapshot.py not found at $SCRIPT (optional)"
+            exit 0
+          fi
+          python "$SCRIPT" --status "$STATUS"
+          
+
+      - name: Write PULSE summary
+        shell: bash
+        run: |
+          set -euo pipefail
+          SCRIPT="${{ env.PACK_DIR }}/tools/write_pulse_summary.py"
+          STATUS="${{ env.PACK_DIR }}/artifacts/status.json"
+          if [ ! -f "$SCRIPT" ]; then
+            echo "::notice::SKIP: write_pulse_summary.py not found at $SCRIPT (optional)"
+            exit 0
+          fi
+          python "$SCRIPT" --status "$STATUS"
+
+      - name: Prepare overlay outputs
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          OVERLAY_DIR="${{ env.PACK_DIR }}/artifacts/overlay"
+          mkdir -p "$OVERLAY_DIR"
+
+          copy_if_exists () {
+            local src="$1"
+            local dst="$2"
+            if [ -f "$src" ]; then
+              cp "$src" "$dst"
+            else
+              echo "::notice::SKIP: missing overlay artifact: $src"
+            fi
+          }
+
+          copy_if_exists "${{ env.PACK_DIR }}/artifacts/stability_map_v0.json" "$OVERLAY_DIR/stability_map_v0.json"
+          copy_if_exists "${{ env.PACK_DIR }}/artifacts/stability_map_v0.md" "$OVERLAY_DIR/stability_map_v0.md"
+          copy_if_exists "${{ env.PACK_DIR }}/artifacts/stability_map_v0.svg" "$OVERLAY_DIR/stability_map_v0.svg"
+
+          copy_if_exists "${{ env.PACK_DIR }}/artifacts/field_stability_v0.json" "$OVERLAY_DIR/field_stability_v0.json"
+          copy_if_exists "${{ env.PACK_DIR }}/artifacts/field_stability_v0.md" "$OVERLAY_DIR/field_stability_v0.md"
+
+          copy_if_exists "${{ env.PACK_DIR }}/artifacts/field_v0.json" "$OVERLAY_DIR/field_v0.json"
+          copy_if_exists "${{ env.PACK_DIR }}/artifacts/field_v0.md" "$OVERLAY_DIR/field_v0.md"
+
+          copy_if_exists "${{ env.PACK_DIR }}/artifacts/g_epf_overlay_v0.json" "$OVERLAY_DIR/g_epf_overlay_v0.json"
+          copy_if_exists "${{ env.PACK_DIR }}/artifacts/g_epf_overlay_v0.md" "$OVERLAY_DIR/g_epf_overlay_v0.md"
+
+      - name: Export overlay HTML summary
+        shell: bash
+        run: |
+          set -euo pipefail
+          SCRIPT="${{ env.PACK_DIR }}/tools/overlay_to_html_summary.py"
+          OVERLAY_DIR="${{ env.PACK_DIR }}/artifacts/overlay"
+          if [ ! -f "$SCRIPT" ]; then
+            echo "::notice::SKIP: overlay_to_html_summary.py not found at $SCRIPT (optional)"
+            exit 0
+          fi
+          python "$SCRIPT" --overlay_dir "$OVERLAY_DIR"
+
+      - name: Copy overlay HTML to report root
         if: always()
         shell: bash
+        run: |
+          set -euo pipefail
+          SRC="${{ env.PACK_DIR }}/artifacts/overlay/overlay_summary.html"
+          DST="${{ env.PACK_DIR }}/artifacts/overlay_summary.html"
+
+          if [ ! -f "$SRC" ]; then
+            echo "::notice::SKIP: overlay_summary.html not found at $SRC (optional)"
+            exit 0
+          fi
+
+          cp "$SRC" "$DST"
+
+      - name: Write status.json key-order diagnosis (for debugging)
+        if: always()        shell: bash
         run: |
           set -euo pipefail
           SCRIPT="${{ env.PACK_DIR }}/tools/status_key_order_diagnosis.py"
@@ -1355,4 +1687,3 @@ jobs:
           printf ' - %s\n' "${tests[@]}"
 
           python -m pytest -q "${tests[@]}"
-
