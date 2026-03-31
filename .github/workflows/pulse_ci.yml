@@ -690,10 +690,18 @@ jobs:
 
           python -m py_compile "$AUGMENT"
 
-          python "$AUGMENT" \
-            --status "$STATUS" \
-            --thresholds "$THRESH" \
+            AUGMENT_CMD=(
+            python "$AUGMENT"
+            --status "$STATUS"
+            --thresholds "$THRESH"
             --external_dir "$EXT_DIR"
+          )
+
+          if [[ "${PULSE_IS_RELEASE:-0}" == "1" ]]; then
+            AUGMENT_CMD+=(--require_external_summaries)
+          fi
+
+          "${AUGMENT_CMD[@]}"
      
       - name: "ci: schema validate status.json (status_v1)"
         shell: bash
@@ -772,15 +780,31 @@ jobs:
           POLICY_SET="${PULSE_POLICY_SET:-core_required}"
 
           # Canonical helper (fail-closed, no PyYAML dependency)
-          REQ_STR="$(python tools/policy_to_require_args.py --policy pulse_gate_policy_v0.yml --set "$POLICY_SET" --format space)"
+                   BASE_REQ_STR="$(python tools/policy_to_require_args.py \
+            --policy pulse_gate_policy_v0.yml \
+            --set "$POLICY_SET" \
+            --format space)"
+
+          EFFECTIVE_SET="$POLICY_SET"
+          REQ_STR="$BASE_REQ_STR"
+
+          if [[ "${PULSE_IS_RELEASE:-0}" == "1" ]]; then
+            RELEASE_REQ_STR="$(python tools/policy_to_require_args.py \
+              --policy pulse_gate_policy_v0.yml \
+              --set release_required \
+              --format space)"
+            REQ_STR="${BASE_REQ_STR} ${RELEASE_REQ_STR}"
+            EFFECTIVE_SET="${POLICY_SET}+release_required"
+          fi
           read -r -a REQ <<< "$REQ_STR"
 
           if (( ${#REQ[@]} == 0 )); then
-            echo "::error::derived gate set is empty: ${POLICY_SET}"
+          echo "::error::derived gate set is empty: ${EFFECTIVE_SET}"
+
             exit 1
           fi
 
-          echo "Enforcing policy gate set: ${POLICY_SET} (${#REQ[@]} gates)"
+          echo "Enforcing materialized gate set: ${EFFECTIVE_SET} (${#REQ[@]} gates)"
           printf '%s\n' "${REQ[@]}" | sed 's/^/ - /'
 
           python "${{ env.PACK_DIR }}/tools/check_gates.py" \
