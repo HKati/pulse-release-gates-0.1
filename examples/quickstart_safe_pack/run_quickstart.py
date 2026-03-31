@@ -66,29 +66,28 @@ def main() -> None:
     # Groundedness (Q1)
     grounded = metrics.get("q1_groundedness")
     grounded_min = thresholds.get("q1_groundedness_min")
+    gate_q1 = gates.get("Q1_groundedness_pass")
     if grounded is not None and grounded_min is not None:
         print(
             f"Groundedness (Q1): {fmt_pct(grounded)} "
-            f"(target ≥ {fmt_pct(grounded_min)})"
+            f"(target ≥ {fmt_pct(grounded_min)}) -> Q1_groundedness_pass = {gate_q1}"
         )
 
-    # Latency SLO (Q4)
-    p95 = metrics.get("q4_latency_p95_ms")
-    p95_max = thresholds.get("q4_latency_p95_max_ms")
+    # Latency SLO
+    p95 = metrics.get("slo_latency_p95_ms")
+    p95_max = thresholds.get("slo_latency_p95_max_ms")
+    gate_latency = gates.get("SLO_latency_p95_pass")
     if p95 is not None and p95_max is not None:
         print(
-            f"Latency p95 (Q4): {p95:.0f} ms "
-            f"(SLO ≤ {p95_max:.0f} ms)"
+            f"Latency p95 (SLO): {p95:.0f} ms "
+            f"(SLO ≤ {p95_max:.0f} ms) -> SLO_latency_p95_pass = {gate_latency}"
         )
 
     # Combined quality/SLO gate and overall decision
-    gate_quality_slo = gates.get("quality_slo_pass")
-    gate_overall = gates.get("overall_pass")
-
-    if gate_quality_slo is not None:
-        print(f"\nQuality/SLO gate: quality_slo_pass = {gate_quality_slo}")
-    if gate_overall is not None:
-        print(f"Overall gate:     overall_pass = {gate_overall}")
+    if "quality_slo_pass" in gates:
+        print(f"\nQuality/SLO gate: quality_slo_pass = {gates['quality_slo_pass']}")
+    if "overall_pass" in gates:
+        print(f"Overall gate:     overall_pass = {gates['overall_pass']}")
 
     print(
         "\nDone. For a fuller human-readable view, see the Quality Ledger "
