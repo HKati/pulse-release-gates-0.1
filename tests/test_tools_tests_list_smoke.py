@@ -355,9 +355,15 @@ def _pulse_ci_has_nonempty_policy_set_guard(yml_text: str) -> bool:
 
         block_text = "\n".join(block)
 
-        has_policy_derivation = (
-            'REQ_STR="$(python tools/policy_to_require_args.py --policy pulse_gate_policy_v0.yml --set "$POLICY_SET" --format space)"'
-            in block_text
+        has_policy_derivation = bool(
+            re.search(
+                r'REQ_STR="\$\(python tools/policy_to_require_args\.py(?:\s+\\\n\s*|\s+)'
+                r'--policy pulse_gate_policy_v0\.yml(?:\s+\\\n\s*|\s+)'
+                r'--set "\$POLICY_SET"(?:\s+\\\n\s*|\s+)'
+                r'--format space\)"',
+                block_text,
+                flags=re.M,
+            )
         )
         has_check_gates = 'python "${{ env.PACK_DIR }}/tools/check_gates.py" \\' in block_text
 
@@ -705,5 +711,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
-    
