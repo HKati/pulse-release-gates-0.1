@@ -49,10 +49,10 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-     
+
       - name: ci guard single run_all invocation
         run: python ci/check_single_run_all.py
-   
+
       - name: Enforce changelog for semantic changes
         shell: bash
         run: |
@@ -82,8 +82,7 @@ jobs:
           echo "${CHANGED}" | sed 's/^/changed: /' || true
 
           # Files that can change release-gating meaning and therefore require changelog coverage.
-                    SEMANTIC_PATTERN='^(pulse_gate_policy_v0\.yml|metrics/specs/.*|schemas/dataset_manifest\.schema\.json|examples/dataset_manifest\.example\.json|schemas/status/.*|docs/(GLOSSARY_v0\.md|STATUS_CONTRACT\.md|STATE_v0\.md|AMBIGUITY_REGISTER_v0\.md))$'
-
+          SEMANTIC_PATTERN='^(pulse_gate_policy_v0\.yml|metrics/specs/.*|schemas/dataset_manifest\.schema\.json|examples/dataset_manifest\.example\.json|schemas/status/.*|docs/(GLOSSARY_v0\.md|STATUS_CONTRACT\.md|STATE_v0\.md|AMBIGUITY_REGISTER_v0\.md))$'
 
           # Changelog file containing semantic change notes.
           CHANGELOG_PATH='docs/policy/CHANGELOG.md'
@@ -91,7 +90,7 @@ jobs:
           # If nothing semantic changed, do nothing.
           SEMANTIC_CHANGED="$(echo "${CHANGED}" | grep -E "${SEMANTIC_PATTERN}" || true)"
           if [[ -z "${SEMANTIC_CHANGED}" ]]; then
-                        echo "No semantic changes detected; changelog update not required."
+            echo "No semantic changes detected; changelog update not required."
             exit 0
           fi
 
@@ -199,12 +198,12 @@ jobs:
 
             return pol_id, pol_ver
 
-           def canonical_doc_tokens(path_str: str):
+          def canonical_doc_tokens(path_str: str):
             stem = Path(path_str).stem.lower()
             if stem == "state_v0":
               return {"state_v0", "state v0", "state-v0"}
-            return stem_variants(stem) 
-          
+            return stem_variants(stem)
+
           missing = []
 
           for p in changed:
@@ -265,12 +264,11 @@ jobs:
               key = Path(p).stem.replace(".", " ").replace("_", " ").lower()
               if key not in unrel_l:
                 missing.append((p, f"missing '{key}' mention in Unreleased"))
-
             elif p.startswith("schemas/status/") and p.endswith(".json"):
               key = Path(p).stem.replace(".", " ").replace("_", " ").lower()
               if key not in unrel_l:
                 missing.append((p, f"missing '{key}' mention in Unreleased"))
-                        elif p in (
+            elif p in (
               "docs/GLOSSARY_v0.md",
               "docs/STATUS_CONTRACT.md",
               "docs/STATE_v0.md",
@@ -319,12 +317,12 @@ jobs:
           echo "PACK_DIR=$PACK_DIR" >> "$GITHUB_ENV"
 
           if [ ! -d "$PACK_DIR" ]; then
-          echo "::error::PACK_DIR not found at $PACK_DIR"
-          exit 1
+            echo "::error::PACK_DIR not found at $PACK_DIR"
+            exit 1
           fi
-          
 
           echo "PACK_DIR=$PACK_DIR"
+
       - name: CI pack layout preflight (fail-closed on release-grade)
         shell: bash
         run: |
@@ -375,7 +373,6 @@ jobs:
             --pack_dir "${{ env.PACK_DIR }}" \
             --gate_policy "${GITHUB_WORKSPACE}/pulse_gate_policy_v0.yml"
 
-      
       - name: Preserve baseline status.json (pre-augment)
         shell: bash
         run: |
@@ -402,8 +399,7 @@ jobs:
           python tools/validate_status_schema.py \
             --schema "$SCHEMA" \
             --status "$STATUS"
-  
-    
+
       - name: "ci: require prod run_mode on release-grade runs"
         if: startsWith(github.ref, 'refs/tags/v') || startsWith(github.ref, 'refs/tags/V') || (github.event_name == 'workflow_dispatch' && github.event.inputs.strict_external_evidence == 'true')
         shell: bash
@@ -473,7 +469,6 @@ jobs:
             --status "$STATUS" \
             --out_md "$OUT_MD" \
             --out_json "$OUT_JSON"
-
 
       - name: Update artifacts for snapshot
         if: always()
@@ -620,8 +615,6 @@ jobs:
             fi
             echo "::warning::refusal_delta_summary.json missing after refusal-delta run."
           fi
-   
-    
 
       - name: Show refusal-delta summary
         if: always()
@@ -690,11 +683,19 @@ jobs:
 
           python -m py_compile "$AUGMENT"
 
-          python "$AUGMENT" \
-            --status "$STATUS" \
-            --thresholds "$THRESH" \
+          AUGMENT_CMD=(
+            python "$AUGMENT"
+            --status "$STATUS"
+            --thresholds "$THRESH"
             --external_dir "$EXT_DIR"
-     
+          )
+
+          if [[ "${PULSE_IS_RELEASE:-0}" == "1" ]]; then
+            AUGMENT_CMD+=(--require_external_summaries)
+          fi
+
+          "${AUGMENT_CMD[@]}"
+
       - name: "ci: schema validate status.json (status_v1)"
         shell: bash
         run: |
@@ -707,8 +708,6 @@ jobs:
             --schema "$SCHEMA" \
             --status "$STATUS"
 
-   
-     
       - name: Export final summary (post-augment)
         shell: bash
         run: |
@@ -762,8 +761,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-
           STATUS="${{ env.PACK_DIR }}/artifacts/status.json"
+
           if [ ! -f "$STATUS" ]; then
             echo "::error::status.json not found at $STATUS"
             exit 1
@@ -772,7 +771,11 @@ jobs:
           POLICY_SET="${PULSE_POLICY_SET:-core_required}"
 
           # Canonical helper (fail-closed, no PyYAML dependency)
-          REQ_STR="$(python tools/policy_to_require_args.py --policy pulse_gate_policy_v0.yml --set "$POLICY_SET" --format space)"
+          REQ_STR="$(python tools/policy_to_require_args.py \
+            --policy pulse_gate_policy_v0.yml \
+            --set "$POLICY_SET" \
+            --format space)"
+
           read -r -a REQ <<< "$REQ_STR"
 
           if (( ${#REQ[@]} == 0 )); then
@@ -780,13 +783,31 @@ jobs:
             exit 1
           fi
 
-          echo "Enforcing policy gate set: ${POLICY_SET} (${#REQ[@]} gates)"
+          EFFECTIVE_SET="${POLICY_SET}"
+
+          if [[ "${PULSE_IS_RELEASE:-0}" == "1" ]]; then
+            RELEASE_REQ_STR="$(python tools/policy_to_require_args.py \
+              --policy pulse_gate_policy_v0.yml \
+              --set release_required \
+              --format space)"
+
+            read -r -a RELEASE_REQ <<< "$RELEASE_REQ_STR"
+
+            if (( ${#RELEASE_REQ[@]} == 0 )); then
+              echo "::error::derived gate set is empty: release_required"
+              exit 1
+            fi
+
+            REQ+=("${RELEASE_REQ[@]}")
+            EFFECTIVE_SET="${POLICY_SET}+release_required"
+          fi
+
+          echo "Enforcing materialized gate set: ${EFFECTIVE_SET} (${#REQ[@]} gates)"
           printf '%s\n' "${REQ[@]}" | sed 's/^/ - /'
 
           python "${{ env.PACK_DIR }}/tools/check_gates.py" \
             --status "$STATUS" \
             --require "${REQ[@]}"
-  
 
       - name: Gate registry sync check
         shell: bash
@@ -924,7 +945,6 @@ jobs:
             exit 0
           fi
           python "$SCRIPT" --status "$STATUS"
-          
 
       - name: Write PULSE summary
         shell: bash
@@ -1124,7 +1144,7 @@ jobs:
           fi
 
           echo "OK: artifact postconditions satisfied (IS_RELEASE=$IS_RELEASE)"
-     
+
       - name: Export JUnit and SARIF from final status
         if: always()
         shell: bash
@@ -1169,7 +1189,6 @@ jobs:
             python "${PACK_DIR}/tools/status_to_sarif.py"
           fi
 
-
           python - <<'PY'
           import json
           import os
@@ -1190,10 +1209,7 @@ jobs:
           out.write_text(json.dumps(meta, indent=2, sort_keys=True) + "\n", encoding="utf-8")
           print(f"Wrote {out}")
           PY
-      
-        
-      
-      
+
       - name: Upload artifacts
         if: always()
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # pinned
@@ -1236,37 +1252,36 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-           
+
           # tools-tests suite: read from manifest (field source of truth)
           list_file="ci/tools-tests.list"
           if [[ ! -f "${list_file}" ]]; then
-          echo "::error::Missing tools-tests manifest: ${list_file}"
-          exit 1
+            echo "::error::Missing tools-tests manifest: ${list_file}"
+            exit 1
           fi
 
           tests=()
           while IFS= read -r raw; do
-          # Strip comments + trim
-          line="$(printf '%s' "$raw" | sed -e 's/[[:space:]]*#.*$//' -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
-          [[ -z "$line" ]] && continue
+            # Strip comments + trim
+            line="$(printf '%s' "$raw" | sed -e 's/[[:space:]]*#.*$//' -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+            [[ -z "$line" ]] && continue
 
-          # Enforce: one path per line (no internal whitespace)
-          if [[ "$line" =~ [[:space:]] ]]; then
-          echo "::error::Invalid entry in ${list_file} (expected one path per line): '${raw}'"
-          exit 1
-          fi
+            # Enforce: one path per line (no internal whitespace)
+            if [[ "$line" =~ [[:space:]] ]]; then
+              echo "::error::Invalid entry in ${list_file} (expected one path per line): '${raw}'"
+              exit 1
+            fi
 
-          tests+=("$line")
+            tests+=("$line")
           done < "${list_file}"
 
           if [[ "${#tests[@]}" -eq 0 ]]; then
-          echo "::error::No tests found in ${list_file} after filtering."
-          exit 1
+            echo "::error::No tests found in ${list_file} after filtering."
+            exit 1
           fi
 
           echo "tools-tests manifest (${#tests[@]} entries):"
           printf '  - %s\n' "${tests[@]}"
-      
 
           echo "Fail-fast: py_compile smoke scripts"
           python -m py_compile "${tests[@]}"
@@ -1274,7 +1289,7 @@ jobs:
           echo "Run smoke scripts (one-by-one for clean logs)"
           for t in "${tests[@]}"; do
             echo "==> python $t"
-            python "$t" 
+            python "$t"
           done
 
           echo "Exporter + governance smoke tests OK"
@@ -1293,8 +1308,8 @@ jobs:
           tests=()
           declare -A seen=()
           raw=''
-          
-            while IFS= read -r raw || [[ -n "${raw:-}" ]]; do
+
+          while IFS= read -r raw || [[ -n "${raw:-}" ]]; do
             line="$(printf '%s' "$raw" | sed -e 's/[[:space:]]*#.*$//' -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
             [[ -z "$line" ]] && continue
 
@@ -1331,4 +1346,3 @@ jobs:
           printf ' - %s\n' "${tests[@]}"
 
           python -m pytest -q "${tests[@]}"
-
