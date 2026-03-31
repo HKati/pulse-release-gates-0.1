@@ -1095,7 +1095,7 @@ jobs:
           print(f"OK: non-demo status.version on tag: {v}")
           PY
 
-      - name: "ci: enforce gates via check_gates (policy-derived)"
+           - name: "ci: enforce gates via check_gates (policy-derived)"
         shell: bash
         run: |
           set -euo pipefail
@@ -1109,7 +1109,10 @@ jobs:
           POLICY_SET="${PULSE_POLICY_SET:-core_required}"
 
           # Canonical helper (fail-closed, no PyYAML dependency)
-          REQ_STR="$(python tools/policy_to_require_args.py --policy pulse_gate_policy_v0.yml --set "$POLICY_SET" --format space)"
+          REQ_STR="$(python tools/policy_to_require_args.py \
+            --policy pulse_gate_policy_v0.yml \
+            --set "$POLICY_SET" \
+            --format space)"
 
           read -r -a REQ <<< "$REQ_STR"
 
