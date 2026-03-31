@@ -4,12 +4,17 @@ on:
   push:
     branches: [main]
     tags: ["v*", "V*"]
-    paths-ignore:
-      - "docs/**"
-      - "**/*.md"
-      - "badges/**"
-      - "reports/**"
-      - "!docs/policy/CHANGELOG.md"
+      paths:
+      - "**"
+      - "!docs/**"
+      - "!**/*.md"
+      - "!badges/**"
+      - "!reports/**"
+      - "docs/policy/CHANGELOG.md"
+      - "docs/GLOSSARY_v0.md"
+      - "docs/STATUS_CONTRACT.md"
+      - "docs/STATE_v0.md"
+      - "docs/AMBIGUITY_REGISTER_v0.md"
 
   pull_request:
     branches: [main]
@@ -48,7 +53,7 @@ jobs:
       - name: ci guard single run_all invocation
         run: python ci/check_single_run_all.py
    
-      - name: Enforce changelog for policy/spec changes
+      - name: Enforce changelog for semantic changes
         shell: bash
         run: |
           set -euo pipefail
@@ -77,7 +82,7 @@ jobs:
           echo "${CHANGED}" | sed 's/^/changed: /' || true
 
           # Files that can change release-gating meaning and therefore require changelog coverage.
-          SEMANTIC_PATTERN='^(pulse_gate_policy_v0\.yml|metrics/specs/|schemas/dataset_manifest\.schema\.json|examples/dataset_manifest\.example\.json|schemas/status/)'
+                    SEMANTIC_PATTERN='^(pulse_gate_policy_v0\.yml|metrics/specs/.*|schemas/dataset_manifest\.schema\.json|examples/dataset_manifest\.example\.json|schemas/status/.*|docs/(GLOSSARY_v0\.md|STATUS_CONTRACT\.md|STATE_v0\.md|AMBIGUITY_REGISTER_v0\.md))$'
 
 
           # Changelog file containing semantic change notes.
@@ -86,7 +91,7 @@ jobs:
           # If nothing semantic changed, do nothing.
           SEMANTIC_CHANGED="$(echo "${CHANGED}" | grep -E "${SEMANTIC_PATTERN}" || true)"
           if [[ -z "${SEMANTIC_CHANGED}" ]]; then
-            echo "No semantic policy/spec/contract changes detected; changelog update not required."
+                        echo "No semantic changes detected; changelog update not required."
             exit 0
           fi
 
@@ -194,6 +199,12 @@ jobs:
 
             return pol_id, pol_ver
 
+           def canonical_doc_tokens(path_str: str):
+            stem = Path(path_str).stem.lower()
+            if stem == "state_v0":
+              return {"state_v0", "state v0", "state-v0"}
+            return stem_variants(stem) 
+          
           missing = []
 
           for p in changed:
@@ -259,7 +270,15 @@ jobs:
               key = Path(p).stem.replace(".", " ").replace("_", " ").lower()
               if key not in unrel_l:
                 missing.append((p, f"missing '{key}' mention in Unreleased"))
-
+                        elif p in (
+              "docs/GLOSSARY_v0.md",
+              "docs/STATUS_CONTRACT.md",
+              "docs/STATE_v0.md",
+              "docs/AMBIGUITY_REGISTER_v0.md",
+            ):
+              want_any = canonical_doc_tokens(p)
+              if not any(tok and tok in unrel_l for tok in want_any):
+                missing.append((p, f"missing doc token (expected one of: {sorted(want_any)})"))
 
           if missing:
             print("::error::Changelog is missing required Unreleased notes for semantic changes:")
