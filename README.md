@@ -141,19 +141,50 @@ UI and Pages surfaces must be pure readers/renderers of immutable run artefacts.
 
 ## Quickstart
 
+There are two honest entry points.
+
+### Fast local smoke (pack only)
+
 ```console
 python PULSE_safe_pack_v0/tools/run_all.py
 ```
 
+Use this for quick local inspection only.
+
+It is useful when you want to:
+- inspect the current artefact shape
+- sanity-check that the pack runs locally
+- look at the generated `status.json` / `report_card.html`
+
+It is **not** the canonical Core CI reproduction path.
+
+### Canonical Core lane
+
+For the truthful Core first-run path, start with:
+
+- `docs/QUICKSTART_CORE_v0.md`
+- `docs/RUNBOOK.md`
+
+That path is the canonical Core reference lane. It:
+- runs the pack explicitly in `core` mode
+- validates `status.json`
+- materializes `core_required` from `pulse_gate_policy_v0.yml`
+- enforces the required gates fail-closed
+
+After a `core`-mode run, the canonical local gate check is:
+
+```console
+python PULSE_safe_pack_v0/tools/check_gates.py \
+  --status PULSE_safe_pack_v0/artifacts/status.json \
+  --require $(python tools/policy_to_require_args.py --policy pulse_gate_policy_v0.yml --set core_required)
+```
+
 ### Optional diagnostics (shadow)
 
-Some checks run as *diagnostic/shadow* signals (they may warn but should not block merges):
+Some checks run as diagnostic/shadow signals (they may warn but should not block merges):
 
-- **OpenAI Evals • Refusal smoke (shadow)**: on PR/push it runs **dry-run by policy** (secrets are not exposed).
-  The canonical output is written to: `openai_evals_v0/refusal_smoke_result.json`
-  and uploaded as a workflow artifact in GitHub Actions.
-- **Real runs** are only available via `workflow_dispatch` and require explicit confirmation/budget
-  (see `openai_evals_v0/README.md`).
+- **OpenAI Evals • Refusal smoke (shadow):** on PR/push it runs dry-run by policy (secrets are not exposed). The canonical output is written to: `openai_evals_v0/refusal_smoke_result.json` and uploaded as a workflow artifact in GitHub Actions.
+- **Real runs** are only available via `workflow_dispatch` and require explicit confirmation/budget (see `openai_evals_v0/README.md`).
 
 ```console
 python openai_evals_v0/run_refusal_smoke_to_pulse.py \
@@ -163,14 +194,10 @@ python openai_evals_v0/run_refusal_smoke_to_pulse.py \
   --status-json PULSE_safe_pack_v0/artifacts/status.json
 ```
 
-```console
-python PULSE_safe_pack_v0/tools/check_gates.py \
-  --status PULSE_safe_pack_v0/artifacts/status.json \
-  --require $(python tools/policy_to_require_args.py --policy pulse_gate_policy_v0.yml --set required)
-```
-
 > Core path note
-> If you only need deterministic release gating, you can stop here and continue with:
+> If you only need deterministic release gating, stop after the Core path and continue with:
+>
+> - `docs/QUICKSTART_CORE_v0.md`
 > - `docs/STATUS_CONTRACT.md`
 > - `docs/status_json.md`
 > - `docs/RUNBOOK.md`
@@ -196,7 +223,6 @@ More details: see `openai_evals_v0/README.md` → “Debugging / triage (shadow)
 **Paradox Gate triage SVG (shadow)** → `PULSE_safe_pack_v0/artifacts/paradox_diagram_v0.svg` (Docs: [`docs/paradox_gate_triage_svg_v0.md`](docs/paradox_gate_triage_svg_v0.md))
 
 
-
 ### Developer tools (optional)
 
 These helpers are intended for local validation and inspection; they do not
@@ -210,19 +236,28 @@ change any CI behaviour or gate logic.
 
 ### Try PULSE on your repo (5 minutes)
 
-1. **Copy the pack** to your repo root:
-   - `PULSE_safe_pack_v0/` (or unzip `PULSE_safe_pack_v0.zip`).
+Pick one adoption shape first.
 
-2. **Add the CI workflow**: copy `.github/workflows/pulse_ci.yml` from this repo.
+1. **Pack-only local smoke**
+   - Copy `PULSE_safe_pack_v0/` into your repo root.
+   - Run:
+     ```console
+     python PULSE_safe_pack_v0/tools/run_all.py
+     ```
+   - Good for local exploration and tool inspection.
+   - Not the same as the canonical Core CI lane.
 
-3. **Run it**:
-   - Open **Actions → PULSE CI → Run workflow** (or push a PR).
-   - PULSE will generate `status.json`, `report_card.html`, and, when exporters are present, `reports/junit.xml` + `reports/sarif.json`; derivative artifacts (for example badges) may also be generated in the run workspace.
-   - The default workflow is **artifact-first** and **least-privilege**: it uploads artifacts and keeps repository mutation disabled by default.
-   - GitHub-native publish surfaces — for example SARIF upload to **Security → Code scanning alerts**, badge write-back, PR comments, or Pages snapshots — should live in separate opt-in workflows with explicit write permissions.
+2. **Canonical Core lane**
+   - Follow `docs/QUICKSTART_CORE_v0.md`.
+   - Start with the documented Core slice and `.github/workflows/pulse_core_ci.yml`.
+   - Use this path when you want the real deterministic first-adopter lane.
 
+3. **Repo-level primary release gate**
+   - Add `.github/workflows/pulse_ci.yml` only after the Core lane is understood and stable in your repo.
+   - This is the primary release-gating workflow for the full repo path.
+   - Release-grade runs use the workflow-effective gate set described in `docs/GATE_SETS.md`.
 
-**Ritual:** _Run PULSE before you ship._  
+Ritual: Run PULSE before you ship.  
 PULSE enforces fail‑closed PASS/FAIL gates across Safety (I₂–I₇), Quality (Q₁–Q₄), and SLO budgets, on archived logs.
 
 ---
@@ -328,11 +363,11 @@ In addition to running the pack, CI enforces repo‑level governance guards:
 - **YAML duplicate‑key guard:** rejects duplicate mapping keys in `pulse_gate_registry_v0.yml` and `pulse_gate_policy_v0.yml` (prevents silent “last key wins” semantics).
 - **Gate registry sync:** every gate emitted in `status.json` must be registered in `pulse_gate_registry_v0.yml`.
 - **Policy ↔ registry consistency:** every gate required by policy must exist in the registry (including `core_required`).
-- **Policy set selection:** `pull_request` runs and pushes to `main` enforce `core_required` by default; version tag pushes (`v*`/`V*`) and `workflow_dispatch` runs with `strict_external_evidence=true` enforce `required` (policy-driven).
+- **Policy set selection:** `pull_request` runs, pushes to `main`, and default `workflow_dispatch` runs enforce `core_required`.
 - **Human-readable gate-set summary:** [`docs/GATE_SETS.md`](docs/GATE_SETS.md) — Current `core_required` / `required` / `release_required` policy matrix and current workflow enforcement summary.
-- **Strict external evidence:** workflow dispatch input `strict_external_evidence=true` **or** version tag pushes (`v*`/`V*`) additionally add a workflow-level fail-closed presence check for external summaries before augmentation continues. The current v0 workflow does not yet materialize `release_required` as a separate `check_gates.py` enforce set.
-- **Note (default vs strict):** External detector summaries are opt-in. If no external summaries are provided, `external_all_pass` is computed as PASS by design. For the current v0 workflow, enable **strict external evidence** (`strict_external_evidence=true` or version tag pushes) when external summary presence must fail closed in the workflow path. This tightens evidence-presence handling without materializing `release_required` as a separate `check_gates.py` enforce set.  
-- **Workflow YAML guard (workflow_lint.yml):** fail‑closed validation of `.github/workflows/*.yml` to prevent broken workflow YAML (e.g., unquoted `:` in step names).
+- **Strict external evidence:** workflow dispatch input `strict_external_evidence=true` **or** version tag pushes (`v*`/`V*`) keep an earlier workflow-level fail-closed presence check for external summaries before augmentation continues.
+- **Note (default vs strict):** External detector summaries are opt-in. If no external summaries are provided, `external_all_pass` is computed as PASS by design in non-release paths. In release-grade paths, the effective enforced set is `required + release_required`, so external evidence presence and aggregate external pass are both part of the final fail-closed path.
+- **Workflow YAML guard (workflow_lint.yml):** fail-closed validation of `.github/workflows/*.yml` to prevent broken workflow YAML (e.g., unquoted `:` in step names). 
 
 > Tip: after making the repo **public**, add a **Branch protection rule** (Settings → Branches) and mark **PULSE CI** as a **required status check**.
 
