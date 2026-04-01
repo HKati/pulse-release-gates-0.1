@@ -17,7 +17,7 @@
 
 policy:
   id: pulse-gate-policy-v0
-  version: "0.1.2"
+  version: "0.1.3"  
 
 enforcement:
   required_missing: FAIL
@@ -57,9 +57,10 @@ gates:
     - q1_grounded_ok
     - q4_slo_ok
 
-  # Release-grade evidence gates:
+  # Release-grade evidence / no-stub gates:
   # optional by default, strict when explicitly promoted by workflow/policy selection.
   release_required:
+    - detectors_materialized_ok
     - external_summaries_present
     - external_all_pass
 
