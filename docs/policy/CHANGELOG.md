@@ -21,11 +21,11 @@ This changelog records **semantic** changes that can affect release gating outco
 
 ## Unreleased
 
-- `pulse_gate_policy_v0.yml` (policy 0.2.0):
-  - Changed: add `detectors_materialized_ok` to `gates.required` and `gates.core_required`.
-  - Why: scaffold / placeholder booleans must not be misread as materialized release evidence.
-  - Impact: policy consumers deriving `required` or `core_required` now fail closed until detectors are materialized.
-  - Migration: wire deterministic producers for the required gates before treating scaffold output as passing evidence.
+- `pulse_gate_policy_v0.yml` / `pulse-gate-policy-v0` (policy 0.1.3):
+  - Changed: add `detectors_materialized_ok` to `gates.release_required`.
+  - Why: scaffold / placeholder booleans must not be misread as materialized release evidence in release-grade paths.
+  - Impact: policy consumers deriving `release_required` now fail closed until detectors are materialized.
+  - Migration: wire deterministic producers for the release-grade detector-backed gates before treating scaffold output as passing release evidence.
 
 ## 0.1.0 — Initial baseline
 
