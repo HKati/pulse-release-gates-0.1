@@ -28,13 +28,37 @@ Use this rule:
 - reproducing a red build, baseline drift, or local-vs-CI mismatch → start with the Core lane
 - reasoning about repo-level shipping behavior → inspect the active release workflow and its required gate set
 
+## 1.5 Reference execution lane (v0)
+
+For v0, the reference execution lane is the GitHub-hosted **PULSE Core CI** lane.
+
+Use it as the default reference when reproducing CI results, triaging drift, or deciding whether a local run disagrees with the instrument’s canonical runtime envelope.
+
 Reference lane facts for the current repo state:
 
 - runner: `ubuntu-latest`
+- workflow: `.github/workflows/pulse_core_ci.yml`
+- Python: `3.11`
+
+### Core runtime surface (v0)
+
+For v0, treat the core runtime surface as the minimum execution envelope used by the reference lane.
+
+Current v0 core runtime surface:
+
+- workflow: `.github/workflows/pulse_core_ci.yml`
 - Python: `3.11`
 - install path: `python -m pip install -r requirements.txt pytest`
-- `requirements.txt` is the canonical minimal core runtime contract
-- `environment.yml` is a broader convenience environment and is not by itself the reference runtime
+- minimal core dependency contract: `requirements.txt`
+
+Interpretation rules:
+
+- `requirements.txt` is the primary core runtime surface for the current v0 reference lane
+- `environment.yml` is a broader convenience environment and must not be read as the canonical core runtime definition by itself
+- if a tool or library is not required by the reference lane, do not assume it is part of the instrument’s canonical core runtime
+
+This is an execution-hardening rule for reproducibility and triage.  
+It does not by itself change packaging or dependency policy.
 
 Normative reading order:
 
