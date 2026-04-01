@@ -56,8 +56,11 @@ The current renderer computes the banner from required gates plus `metrics.run_m
 2. otherwise the gate policy file referenced by `metrics.gate_policy_path`, using:
    - `metrics.required_gate_set`, when present
    - else `core_required` for `run_mode = demo` or `core`
-   - else `required` for `run_mode = prod`
+   - else `required` for any other run mode, including `prod`, missing, or unexpected values
 3. if no required gate set can be resolved, the banner becomes `UNKNOWN`
+
+A missing or unexpected `run_mode` does not by itself force `UNKNOWN`.
+`UNKNOWN` is reserved for cases where the renderer cannot resolve a decision-bearing required gate set.
 
 ### Banner mapping
 
@@ -65,7 +68,7 @@ The current renderer computes the banner from required gates plus `metrics.run_m
 - all required gates pass and `run_mode = prod` → `PROD-PASS`
 - all required gates pass and `run_mode = core` → `STAGE-PASS`
 - all required gates pass and `run_mode = demo` → `DEMO-PASS`
-- all required gates pass with some other run mode → `PASS`
+- all required gates pass with any other run mode, including missing or unexpected values → `PASS`
 
 This keeps the ledger aligned with gate enforcement rather than with any descriptive top-level label.
 
