@@ -31,7 +31,7 @@
     "RDSI": 0.92,
     "build_time": "1970-01-01T00:00:00Z",
     "gate_policy_path": "pulse_gate_policy_v0.yml",
-    "gate_policy_sha256": "42fe31c7b199b1c90766b4fe7b40d378bd028dea22cfc51311afcc75f1724527",
+    "gate_policy_sha256": "e1cdf26ae7bca113289b8267cbc9db451f0cef40ba08879255db851433ced4a5",
     "git_sha": "<GIT_SHA>",
     "hazard_D": 0.0,
     "hazard_E": 0.07999999999999996,
