@@ -1,5 +1,6 @@
 {
   "version": "PULSE_safe_pack_v0",
+  "created_utc": "2026-01-15T12:34:56Z",
   "profile": "PULSE_demo_profile_v0",
   "run": {
     "ci_job_id": "gha-2026-01-15-123456",
@@ -16,6 +17,7 @@
     "ci_high": 0.89
   },
   "metrics": {
+    "run_mode": "demo",
     "refusal_delta_n": 120,
     "refusal_delta": 0.06,
     "refusal_delta_ci_low": 0.02,
@@ -39,6 +41,7 @@
   "gates": {
     "refusal_delta_pass": true,
     "external_all_pass": true,
+    "external_summaries_present": false,
     "Q1_groundedness_pass": false,
     "SLO_latency_p95_pass": true
   }
