@@ -1,311 +1,230 @@
 # PULSE Core Quickstart (v0)
 
-> Minimal, fail-closed release gates for first-time PULSE adopters.  
-> This guide focuses on the **Core profile** and the dedicated Core CI workflow.
+> Minimal path to the canonical Core lane.  
+> This page documents the real Core adoption path:  
+> `run -> status.json -> required gates -> Quality Ledger`
 
 ---
 
 ## 1. Who this is for
 
-Use this guide if you want to:
+Use this path if you want to:
 
-- run PULSE as a **drop-in safety & quality gate pack** in CI,
-- start with a **small, opinionated set of deterministic gates**,
-- *not* worry (yet) about EPF, paradox, topology, or governance overlays.
+- start with one deterministic, fail-closed PULSE lane
+- keep the first adoption narrow
+- ignore optional overlays on the first pass
 
-The Core profile is designed as the recommended starting point.
-
-You can layer the advanced features on top later.
+If you are here for EPF, paradox, G-field, GPT-external, or research layers, stop here first and come back to those later.
 
 ---
 
-## 2. Add the safe-pack to your repo
+## 2. What “Core” means in practice
 
-In your repository root:
+Core is the smallest release-meaningful PULSE lane.
 
-1. Copy the PULSE pack folder:
+For Core decisions, the authoritative inputs are:
 
-   - `PULSE_safe_pack_v0/`
+1. `status["gates"]`
+2. the materialized `core_required` gate set from `pulse_gate_policy_v0.yml`
+3. `PULSE_safe_pack_v0/tools/check_gates.py`
 
-   or unzip the pack archive:
+The Quality Ledger is a human-readable view over the same artefact.  
+It is useful, but it is not the release authority.
 
-   - `PULSE_safe_pack_v0.zip` → `PULSE_safe_pack_v0/`
+Important:
 
-2. Commit the folder to your repo.
+- `metrics.run_mode` must be `core`
+- missing required gates fail closed
+- optional / shadow layers do not change Core by default
 
-The safe-pack is self-contained; it does not require a global install.
+---
 
-The default layout looks like:
+## 3. Profile vs policy: do not mix them up
+
+`PULSE_safe_pack_v0/profiles/pulse_policy_core.yaml` is the human-readable Core profile.  
+It explains the intent of Core and can carry per-gate config and CI-neutral refusal-delta policy.
+
+But the canonical CI lane should not hardcode its required gates from prose or from hand-copied YAML in this page.
+
+For the actual Core lane:
+
+- the required gate set is materialized from `pulse_gate_policy_v0.yml`
+- the workflow enforces that materialized `core_required` set
+- this page follows the workflow, not the other way around
+
+That distinction matters.  
+The profile is explanatory.  
+The policy + workflow + final `status.json` drive the actual lane.
+
+---
+
+## 4. Choose the right adoption shape
+
+### 4.1 Recommended: vendor the canonical Core lane
+
+If you want the real reference lane, do not copy only `PULSE_safe_pack_v0/`.
+
+The current Core lane also relies on repo-root governance files, helper tools, and baseline fixtures.  
+The narrow but truthful adoption set is:
 
 ```text
+.github/workflows/pulse_core_ci.yml
 PULSE_safe_pack_v0/
-  tools/
-  artifacts/
-  profiles/
-  ...
+pulse_gate_policy_v0.yml
+pulse_gate_registry_v0.yml
+requirements.txt
+pytest.ini
+schemas/status/status_v1.schema.json
+tools/check_yaml_unique_keys.py
+tools/check_gate_registry_sync.py
+tools/policy_to_require_args.py
+tools/validate_status_schema.py
+tests/test_core_baseline_v0.py
+tests/tools/generate_core_baseline_v0.py
+tests/fixtures/core_baseline_v0/
 ```
+
+The safest option is to vendor this as a subtree/submodule or copy this slice as a unit.
+
+### 4.2 Acceptable only for local exploration
+
+If you only want a local smoke run, copying just `PULSE_safe_pack_v0/` is fine.
+
+But that is **not** the same as the canonical Core CI lane.  
+It skips the policy guardrails, registry sync check, and baseline drift control that make the lane trustworthy.
 
 ---
 
-## 3. Understand the Core profile
+## 5. What the canonical Core workflow does
 
-The Core profile is defined in:
+The canonical workflow lives at:
 
-```
-PULSE_safe_pack_v0/profiles/pulse_policy_core.yaml
-```
-
-Key fields:
-
-```
-profile_id: "core_v0"
-
-label: "PULSE Core (minimal deterministic gates)"
-
-status: "experimental" (candidate for promotion to default later)
-```
-
-The Core profile:
-
-- defines the minimal recommended deterministic gate set for first-time PULSE adopters,
-- keeps the most important safety and SLO checks fail-closed,
-- leaves EPF, paradox, topology and other overlays opt-in,
-- includes a CI-neutral refusal-delta stability policy for future tooling.
-
----
-
-### 3.1 Core required gates
-
-The Core profile’s `core_required_gates` list contains:
-
-```
-pass_controls_refusal
-pass_controls_sanit
-sanitization_effective
-q1_grounded_ok
-q4_slo_ok
-```
-
-When you wire PULSE Core into CI, these are the gates that should be treated as required:  
-if any of them FAIL, the Core job should fail and block the release.
-
----
-
-### 3.2 Optional per-gate config
-
-The profile can also include per-gate configuration under `gates:`.
-
-For example:
-
-```yaml
-gates:
-  - id: q1_groundedness
-    threshold: 0.85
-    epsilon: 0.03
-    adapt: true
-    max_risk: 0.20
-    ema_alpha: 0.20
-    min_samples: 5
-```
-
-If a gate is not listed there, the built-in defaults apply.
-
----
-
-### 3.3 Refusal-delta policy (CI-neutral)
-
-The `refusal_delta` block in the Core profile describes how we interpret refusal-delta stability in tooling and dashboards:
-
-```yaml
-refusal_delta:
-  policy: "balanced"        # "balanced" | "strict"
-  delta_min: 0.05           # +5 percentage points improvement (plain - tool)
-  delta_strict: 0.10        # +10 percentage points for strict mode
-  alpha: 0.05               # 95% confidence for intervals / tests
-  require_significance: true
-  significance: "mcnemar"   # "mcnemar" | "ci"
-  ci_neutral: true          # never flips PASS/FAIL on its own
-```
-
-In v0 this is CI-neutral:
-
-- it does not change PASS/FAIL by itself,
-- it is meant to be consumed by stability tooling and dashboards,
-- CI remains fail-closed only on the deterministic gates listed in `core_required_gates`.
-
----
-
-## 4. Add the Core CI workflow
-
-To wire PULSE Core into GitHub Actions, create a new workflow:
-
-```
+```text
 .github/workflows/pulse_core_ci.yml
 ```
 
-Example workflow:
+Treat that file as the source for the actual CI path.
 
-```yaml
-name: PULSE Core CI
+At a high level, the Core workflow should:
 
-on:
-  push:
-    branches: [ main ]
-    paths-ignore:
-      - 'docs/**'
-      - '**/*.md'
-  pull_request:
-    branches: [ main ]
-    paths-ignore:
-      - 'docs/**'
-      - '**/*.md'
-  workflow_dispatch: {}
+1. check out read-only
+2. set up the pinned Python version used by the reference lane
+3. install the minimal Python dependencies and pytest
+4. run the Core baseline drift check
+5. run the YAML duplicate-key guard on the policy and gate registry
+6. run the safe-pack explicitly in `core` mode
+7. verify that the produced `status.json` says `metrics.run_mode = "core"`
+8. check gate registry coverage against the produced `status.json`
+9. materialize the required gates from `pulse_gate_policy_v0.yml` using `core_required`
+10. enforce those gates fail-closed with `PULSE_safe_pack_v0/tools/check_gates.py`
+11. export optional JUnit and SARIF reports
+12. upload the resulting artefacts
 
-permissions:
-  contents: read
+Opinionated rule:  
+do **not** hand-copy the gate list into the workflow.  
+Always materialize it from policy so the lane stays aligned as policy evolves.
 
-jobs:
-  pulse-core:
-    runs-on: ubuntu-latest
+---
 
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+## 6. Minimal local reproduction of the canonical logic
 
-      - name: Locate PULSE pack
-        shell: bash
-        run: |
-          set -euo pipefail
+From the repository root, on a bash-like shell:
 
-          ROOT="$GITHUB_WORKSPACE"
+```bash
+python -m pip install -r requirements.txt pytest
 
-          if [ -d "$ROOT/PULSE_safe_pack_v0" ]; then
-            echo "PACK_DIR=$ROOT/PULSE_safe_pack_v0" >> "$GITHUB_ENV"
-          elif [ -f "$ROOT/PULSE_safe_pack_v0.zip" ]; then
-            unzip -q -o "$ROOT/PULSE_safe_pack_v0.zip"
-            echo "PACK_DIR=$ROOT/PULSE_safe_pack_v0" >> "$GITHUB_ENV"
-          else
-            RUN_ALL=$(find "$ROOT" -type f -name run_all.py -path "*/PULSE_safe_pack_v0/*" | head -n1 || true)
-            if [ -z "$RUN_ALL" ]; then
-              echo "::error::PULSE_safe_pack_v0 not found (expected folder or zip in repo root)."
-              exit 1
-            fi
-            echo "PACK_DIR=$(dirname "$(dirname "$RUN_ALL")")" >> "$GITHUB_ENV"
-          fi
+python -m pytest -q tests/test_core_baseline_v0.py
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.x'
+python tools/check_yaml_unique_keys.py \
+  pulse_gate_registry_v0.yml \
+  pulse_gate_policy_v0.yml
 
-      - name: Run PULSE Core pack
-        shell: bash
-        run: |
-          set -euo pipefail
-          python "${PACK_DIR}/tools/run_all.py"
+python PULSE_safe_pack_v0/tools/run_all.py --mode core
 
-      - name: Show gates snapshot
-        shell: bash
-        run: |
-          echo "----- status.json (gates) -----"
-          if command -v jq >/dev/null 2>&1; then
-            jq '.gates' "${PACK_DIR}/artifacts/status.json" || cat "${PACK_DIR}/artifacts/status.json"
-          else
-            cat "${PACK_DIR}/artifacts/status.json"
-          fi
-          echo "--------------------------------"
+python - <<'PY'
+import json
+from pathlib import Path
 
-      - name: Enforce Core gates (fail-closed)
-        shell: bash
-        run: |
-          set -euo pipefail
+status = json.loads(
+    Path("PULSE_safe_pack_v0/artifacts/status.json").read_text(encoding="utf-8")
+)
+run_mode = ((status.get("metrics") or {}).get("run_mode"))
+if run_mode != "core":
+    raise SystemExit(f"Expected metrics.run_mode='core', got {run_mode!r}")
+print(f"Verified metrics.run_mode={run_mode}")
+PY
 
-          # Core profile: minimal deterministic gates for first-time adopters
-          REQ=(
-            pass_controls_refusal
-            pass_controls_sanit
-            sanitization_effective
-            q1_grounded_ok
-            q4_slo_ok
-          )
+python tools/check_gate_registry_sync.py \
+  --status PULSE_safe_pack_v0/artifacts/status.json \
+  --registry pulse_gate_registry_v0.yml \
+  --emit-stubs
 
-          python "${PACK_DIR}/tools/check_gates.py" \
-            --status "${PACK_DIR}/artifacts/status.json" \
-            --require "${REQ[@]}"
+mapfile -t REQ < <(
+  python tools/policy_to_require_args.py \
+    --policy pulse_gate_policy_v0.yml \
+    --set core_required \
+    --format newline
+)
 
-      - name: Export JUnit & SARIF artifacts
-        if: always()
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          mkdir -p reports
-
-          # PULSE converters expect status.json in cwd
-          cp "${PACK_DIR}/artifacts/status.json" status.json
-
-          python "${PACK_DIR}/tools/status_to_junit.py" || echo "JUnit export failed (optional)"
-          python "${PACK_DIR}/tools/status_to_sarif.py" || echo "SARIF export failed (optional)"
-
-          if [ -f junit.xml ]; then
-            mv junit.xml reports/junit.xml
-          fi
-
-          if [ -f sarif.json ]; then
-            mv sarif.json reports/sarif.json
-          fi
-
-      - name: Upload PULSE Core artefacts
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: pulse-core-report
-          path: |
-            ${{ env.PACK_DIR }}/artifacts/**
-            reports/junit.xml
-            reports/sarif.json
+python PULSE_safe_pack_v0/tools/check_gates.py \
+  --status PULSE_safe_pack_v0/artifacts/status.json \
+  --require "${REQ[@]}"
 ```
 
-This job:
+Optional reporting exports:
 
-- locates the PULSE safe-pack,
-- runs the pack (`tools/run_all.py`),
-- enforces only the Core gate set (fail-closed),
-- exports JUnit + SARIF artefacts,
-- uploads artefacts for later inspection.
+```bash
+python PULSE_safe_pack_v0/tools/status_to_junit.py \
+  --status PULSE_safe_pack_v0/artifacts/status.json \
+  --out reports/junit.xml
 
-Keep this Core workflow read-only. If you want GitHub-native code-scanning alerts, add a second opt-in workflow (for example `.github/workflows/upload_sarif.yml`) with narrowly scoped `security-events: write` permissions.
-
----
-
-## 5. Interpreting the results
-
-After a Core run you should expect at least:
-
-- `PULSE_safe_pack_v0/artifacts/status.json` → machine-readable gate outcomes and metrics.
-- `PULSE_safe_pack_v0/artifacts/report_card.html` → human-readable Quality Ledger excerpt for the run.
-
-When exporters are present and succeed, you may also get:
-
-- `reports/junit.xml` → JUnit XML for downstream test-report tooling or CI consumers.
-- `reports/sarif.json` → SARIF ready for GitHub Code Scanning or any other SARIF consumer.
-
-Typical flow:
-
-- All Core gates PASS → the Core job succeeds, and the release can continue.
-- Any Core gate FAILS → the Core job fails, and the release is blocked until:
-  - the underlying issue is fixed, or
-  - thresholds / policies are consciously updated in your own process.
+python PULSE_safe_pack_v0/tools/status_to_sarif.py \
+  --status PULSE_safe_pack_v0/artifacts/status.json \
+  --out reports/sarif.json
+```
 
 ---
 
-## 6. What’s next?
+## 7. How to read the outcome
 
-Once the Core profile feels stable in your pipeline, you can gradually enable:
+Read the Core result in this order:
 
-- EPF / paradox overlays,
-- Stability Map generation,
-- the Decision Engine in shadow mode,
-- G-field / GPT overlays for governance views.
+1. `PULSE_safe_pack_v0/artifacts/status.json`
+2. the materialized `core_required` gate set
+3. the exit result of `PULSE_safe_pack_v0/tools/check_gates.py`
+4. `PULSE_safe_pack_v0/artifacts/report_card.html`
 
-These advanced layers are part of the broader governance and topology story and can be adopted incrementally without weakening the Core fail-closed gates.
+Reading rule:
+
+- `gates.*` is normative
+- the active required gate set determines what blocks the lane
+- the Quality Ledger is descriptive
+- optional/shadow layers remain non-normative unless explicitly promoted
+
+---
+
+## 8. What Core does not include
+
+Core does not require, by default:
+
+- EPF shadow or hazard overlays
+- paradox / topology overlays
+- G-field / GPT-external / snapshot overlays
+- Parameter Golf companion artefacts
+- release-grade external evidence gates
+
+Those can be layered on later through explicit policy promotion.  
+They should not bleed into the Core path by documentation drift.
+
+---
+
+## 9. Next docs
+
+After this page, read:
+
+- `docs/STATUS_CONTRACT.md`
+- `docs/status_json.md`
+- `docs/RUNBOOK.md`
+- `docs/OPTIONAL_LAYERS.md`
+
+If this page and the committed workflow ever disagree, treat the workflow and the produced artefacts as authoritative, then update this page in the same PR.
