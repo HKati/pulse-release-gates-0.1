@@ -757,6 +757,56 @@ jobs:
           print(f"OK: non-demo status.version on tag: {v}")
           PY
 
+      - name: "ci: forbid stubbed status on release-grade runs"
+        if: ${{ startsWith(github.ref, 'refs/tags/v') || startsWith(github.ref, 'refs/tags/V') || (github.event_name == 'workflow_dispatch' && github.event.inputs.strict_external_evidence == 'true') }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          STATUS="${{ env.PACK_DIR }}/artifacts/status.json"
+
+          if [ ! -f "$STATUS" ]; then
+            echo "::error::status.json not found at $STATUS"
+            exit 1
+          fi
+
+          export STATUS
+          python - <<'PY'
+          import json
+          import os
+          import sys
+
+          p = os.environ["STATUS"]
+
+          try:
+              with open(p, "r", encoding="utf-8") as f:
+                  s = json.load(f)
+          except Exception as e:
+              print(f"::error::failed to parse status.json: {e}")
+              sys.exit(1)
+
+          gates = s.get("gates") or {}
+          diagnostics = s.get("diagnostics") or {}
+
+          det_ok = gates.get("detectors_materialized_ok")
+          gates_stubbed = diagnostics.get("gates_stubbed")
+
+          if det_ok is not True:
+              print("::error::release-grade run requires gates.detectors_materialized_ok = true")
+              print(f"::error::observed detectors_materialized_ok={det_ok!r}")
+              sys.exit(1)
+
+          if gates_stubbed is True:
+              print("::error::release-grade run must not emit diagnostics.gates_stubbed=true")
+              print(f"::error::observed gates_stubbed={gates_stubbed!r}")
+              sys.exit(1)
+
+          print(
+              "OK: release-grade status is not stubbed "
+              f"(detectors_materialized_ok={det_ok!r}, gates_stubbed={gates_stubbed!r})"
+          )
+          PY
+
       - name: "ci: enforce gates via check_gates (policy-derived)"
         shell: bash
         run: |
