@@ -1,48 +1,69 @@
 # Gate sets
 
-This page is a human-readable summary of the current policy-defined gate sets
-and the current CI enforcement paths.
-
-## Normative source of truth
-
-The normative source of truth remains:
-
-* `pulse_gate_policy_v0.yml`
-* `PULSE_safe_pack_v0/tools/check_gates.py`
-* `.github/workflows/pulse_ci.yml`
-
-If this page and the policy or workflow disagree, the policy and workflow
-enforcement win.
-
 ## Policy-defined gate sets
+
+This page is the human-readable summary of:
+
+- the policy-defined gate sets in `pulse_gate_policy_v0.yml`
+- the current workflow-effective enforcement shape in `.github/workflows/pulse_ci.yml`
+
+If this page and the committed workflow ever disagree, treat the workflow as authoritative and update this page in the same PR.
 
 The policy currently defines four gate sets:
 
-* `core_required` — minimal deterministic gate set for the core CI lane
-* `required` — the main normative gate set used by the current release-grade workflow path
-* `release_required` — policy-defined release-evidence gates
-* `advisory` — diagnostic-only gates that must not block shipping
+- `core_required` — minimal deterministic gate set for the Core CI lane
+- `required` — the main normative baseline gate set
+- `release_required` — release-evidence gates promoted in release-grade runs
+- `advisory` — diagnostic-only gates that must not block shipping unless explicitly promoted
 
 The current policy-defined `release_required` set contains:
 
-* `external_summaries_present`
-* `external_all_pass`
+- `external_summaries_present`
+- `external_all_pass`
 
 The current policy-defined `advisory` set also contains:
 
-* `external_summaries_present`
-* `external_all_pass`
+- `external_summaries_present`
+- `external_all_pass`
+
+That overlap is intentional.
+
+These gates remain diagnostic by default in non-release lanes, and are promoted into the effective release-grade enforce set by the workflow.
 
 ## Current workflow enforcement summary
 
-* `pull_request` runs enforce `core_required`
-* pushes to `main` enforce `core_required` by default
-* version tag pushes (`v*` / `V*`) enforce `required`
-* `workflow_dispatch` runs enforce `core_required` by default; with
- `strict_external_evidence=true`, they enforce `required`
-* required-like gates are fail-closed on missing / false
-* advisory gates do not block shipping
-* `release_required` is policy-defined, but it is not yet materialized as a separate `check_gates.py` enforce set in the current v0 workflow
+The current workflow behavior is:
+
+- `pull_request` runs enforce `core_required`
+- pushes to `main` enforce `core_required`
+- version tag pushes (`v*` / `V*`) run release-grade in `prod` mode, set the base policy set to `required`, and then materialize the effective enforce set as `required + release_required`
+- `workflow_dispatch` runs enforce `core_required` by default
+- `workflow_dispatch` runs with `strict_external_evidence=true` run release-grade in `prod` mode, set the base policy set to `required`, and then materialize the effective enforce set as `required + release_required`
+- required-like gates are fail-closed on missing / false
+- advisory gates do not block shipping unless explicitly promoted into the active enforce set
+
+Strict external evidence also keeps an earlier workflow-level fail-closed presence check for external summaries before augmentation continues.
+
+That early check is useful because it fails fast on missing evidence before the final augmented `status.json` is enforced.
+
+## Effective workflow sets
+
+The most useful mental model is:
+
+| Lane | `metrics.run_mode` | Workflow-effective enforce set |
+|---|---|---|
+| Core CI (`pull_request`, push to `main`, manual default) | `core` | `core_required` |
+| Release-grade tag push (`v*` / `V*`) | `prod` | `required + release_required` |
+| Release-grade manual run (`strict_external_evidence=true`) | `prod` | `required + release_required` |
+
+This page distinguishes between:
+
+- policy-defined sets
+- workflow-effective enforcement
+
+That distinction matters.
+
+A set can exist in policy without always being active in every lane.
 
 ## Gate matrix (policy-defined)
 
@@ -72,45 +93,15 @@ The current policy-defined `advisory` set also contains:
 
 ## Strict external evidence note
 
-`release_required` is a policy-defined evidence set.
+`release_required` is now materialized in the current v0 workflow for release-grade paths.
 
-In the current v0 workflow implementation, release-grade mode still enforces
-`required` via `PULSE_POLICY_SET="required"`.
+That means strict external evidence is not only a pre-augment workflow guard anymore.
+In release-grade paths, the final effective fail-closed gate set is:
 
-Strict external evidence mode additionally adds a workflow-level fail-closed
-presence check for external summaries before augmentation continues.
+- `required`
+- plus `release_required`
 
-That means:
+The pre-augment external-summary presence check still remains valuable because it fails early on missing evidence before augmentation continues.
 
-* the current workflow does not yet materialize `release_required` as a
-  separate `check_gates.py` enforce set
-* the current workflow should not be described as enforcing
-  `required + release_required`
-* if `.github/workflows/pulse_ci.yml` is later changed to materialize
-  `release_required` explicitly, this page should be updated in the same
-  change
-
-## Practical release-grade reading rule
-
-For the current v0 workflow, the shortest accurate answer to
-“what blocks shipping on the release-grade path?” is:
-
-1. `required` gates enforced through `check_gates.py`
-2. `run_mode=prod` enforced on release-grade runs
-3. if strict external evidence mode is enabled, external summary presence is
-   enforced fail-closed in the workflow path
-
-This is narrower than `required + release_required`, and it is the wording
-that matches the current workflow behavior.
-
-## Practical rule
-
-If you need the shortest accurate answer to “what blocks shipping?”, read this
-page together with:
-
-* `pulse_gate_policy_v0.yml`
-* `docs/STATUS_CONTRACT.md`
-* `docs/RUNBOOK.md`
-
-Use this page for human orientation. Use the policy file and workflow
-enforcement as the normative truth.
+In non-release lanes, external evidence stays out of the active enforce set by default.
+That keeps the core path narrow and deterministic, while still allowing diagnostic evidence collection.
