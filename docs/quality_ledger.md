@@ -1,115 +1,126 @@
 # PULSE Quality Ledger
 
-> Human-readable explanation layer over `status.json`.
+Human-readable view over one immutable `status.json` artefact.
 
-The **Quality Ledger** is the HTML report generated from  
-`PULSE_safe_pack_v0/artifacts/status.json`.
+This page documents the current renderer behavior, not an aspirational UI.
+If the renderer changes, this page should change in the same PR.
 
-It is intended for humans who need to review, approve, or audit a release decision:
-
-- release owners and product leads,
-- safety / red-team reviewers,
-- compliance & audit,
-- platform / MLOps teams operating CI.
-
-The main artefact is:
-
-- local: `PULSE_safe_pack_v0/artifacts/report_card.html`
-- live demo: the GitHub Pages snapshot linked from the README
-
-> CI always treats `status.json` as the source of truth.  
-> The Quality Ledger is a view over that JSON, not a second decision engine.
-
----
-
-## 1. Where it comes from
-
-When you run:
+The Quality Ledger is currently rendered by:
 
 ```bash
-python PULSE_safe_pack_v0/tools/run_all.py
+python PULSE_safe_pack_v0/tools/render_quality_ledger.py \
+  --status PULSE_safe_pack_v0/artifacts/status.json \
+  --out PULSE_safe_pack_v0/artifacts/report_card.html
 ```
 
-PULSE generates at least:
+It reads a single final `status.json` and writes a static HTML report.
 
-- `PULSE_safe_pack_v0/artifacts/status.json`
-- `PULSE_safe_pack_v0/artifacts/report_card.html` ← the Quality Ledger
-
-In the default artifact-first CI model, the ledger is uploaded as a workflow artefact.
-
-GitHub-native publication surfaces — such as PR comments or Pages snapshots —  
-should be treated as separate opt-in workflows with explicit permissions,  
-not as required parts of the main gating path.
-
-No extra configuration is required to render the ledger locally:  
-if `status.json` is present and valid, the safe-pack can produce the report.
+Optional publication surfaces such as GitHub Pages snapshots or PR comments remain opt-in presentation layers.
+They are not required parts of the normative gating path.
 
 ---
 
-## 2. What problem the Quality Ledger solves
+## 1. Authority boundary
 
-`status.json` is machine-friendly but dense:
+Read `gates.*` first.
 
-- nested objects,
-- metrics,
-- thresholds,
-- gate booleans,
-- optional external summaries.
+For release decisions, the authoritative inputs remain:
 
-The Quality Ledger makes that information reviewable by humans. It:
+- `status["gates"]`
+- the active required gate set
+- `PULSE_safe_pack_v0/tools/check_gates.py`
 
-- flattens important signals into tables and panels,
-- groups evidence by release-decision questions,
-- surfaces thresholds and PASS/FAIL outcomes together,
-- adds short explanations for failed or borderline gates,
-- keeps the review anchored to one immutable run artefact.
+The ledger is a descriptive explanation layer over that same artefact.
 
-It is intentionally conservative:  
-if something is unclear or missing in the JSON, the ledger should surface that ambiguity instead of silently presenting it as a PASS.
+If the ledger and CI ever disagree, treat:
+
+- `status.json`
+- required gate selection
+- gate enforcement
+
+as authoritative, and treat the renderer as buggy.
+
+Top-level convenience or descriptive fields must not override `gates.*`.
+
+A top-level `decision` field, when present, is descriptive only and is not the source of the ledger banner.
 
 ---
 
-## 3. Typical structure
+## 2. How the current renderer derives the decision banner
 
-A typical Quality Ledger includes the following sections.
+The current renderer computes the banner from required gates plus `metrics.run_mode`.
 
-### Header / run metadata
+### Required gate resolution order
 
-Usually includes:
+1. `metrics.required_gates`, when explicitly present
+2. otherwise the gate policy file referenced by `metrics.gate_policy_path`, using:
+   - `metrics.required_gate_set`, when present
+   - else `core_required` for `run_mode = demo` or `core`
+   - else `required` for any other run mode, including `prod`, missing, or unexpected values
+3. if no required gate set can be resolved, the banner becomes `UNKNOWN`
 
-- model / service or release identifier,
-- commit or tag,
-- CI run id / timestamp,
-- profile or run mode.
+A missing or unexpected `run_mode` does not by itself force `UNKNOWN`.
+`UNKNOWN` is reserved for cases where the renderer cannot resolve a decision-bearing required gate set.
 
-### Decision strip
+### Banner mapping
 
-A compact banner with:
+- any required gate missing or not literally `true` → `FAIL`
+- all required gates pass and `run_mode = prod` → `PROD-PASS`
+- all required gates pass and `run_mode = core` → `STAGE-PASS`
+- all required gates pass and `run_mode = demo` → `DEMO-PASS`
+- all required gates pass with any other run mode, including missing or unexpected values → `PASS`
 
-- overall decision (for example `FAIL`, `STAGE-PASS`, or `PROD-PASS`),
-- RDSI and related stability signals when present,
-- any break-glass note or justification, if the workflow surfaced one.
+This keeps the ledger aligned with gate enforcement rather than with any descriptive top-level label.
 
-### Safety gates
+---
 
-A table of release-relevant safety checks, for example:
+## 3. What the current HTML actually surfaces
 
-- refusal / control checks,
-- sanitization-related gates,
-- other deterministic invariants emitted into `gates.*`.
+The current renderer is intentionally narrow and deterministic.
 
-### Quality gates
+### Header metadata
 
-Product-facing checks such as:
+The header currently surfaces selected fields such as:
 
-- groundedness,
-- consistency,
-- fairness,
-- latency / cost / SLO budgets.
+- `version`
+- `created_utc`
+- `metrics.run_mode`
+- `metrics.git_sha`
+- `metrics.run_key`
+- `metrics.RDSI`
 
-### Stability / refusal-delta section
+### Gate tables
 
-When refusal-delta metrics are present, the ledger can surface:
+The renderer groups `gates.*` into presentation buckets.
+
+Current v0 bucketing is name-based:
+
+- **Quality gates**
+  - gate ids starting with `q1_`, `q2_`, `q3_`, or `q4_`
+- **Safety gates**
+  - gate ids starting with `pass_controls_` or `psf_`
+  - gate ids containing `sanit`
+  - `effect_present`
+- **Stability / auxiliary gates**
+  - `refusal_delta_pass`
+  - `epf_hazard_ok`
+  - gate ids starting with `external_`
+- **Other gates**
+  - everything else
+
+This bucketing is a renderer heuristic.
+It is not a normative policy layer.
+
+The generic gate tables currently show:
+
+- gate id
+- PASS / FAIL
+
+They do **not** currently render per-gate threshold explanations for every gate.
+
+### Refusal-delta section
+
+When refusal-delta fields are present, the renderer shows:
 
 - `metrics.refusal_delta_n`
 - `metrics.refusal_delta`
@@ -121,110 +132,147 @@ When refusal-delta metrics are present, the ledger can surface:
 - `metrics.refusal_pass_strict`
 - `gates.refusal_delta_pass`
 
-### External detectors (optional)
+### External detectors section
 
-If external summaries were folded into `status.json`, the ledger can show:
+When an `external` block is present, the renderer shows:
 
-- one row per detector,
-- measured value,
-- configured threshold,
-- detector-level PASS/FAIL,
-- aggregate external result.
+- `external.all_pass`
+- `external.summaries_present`
+- `external.summary_count`
 
-### Traceability / archive hints
+and, when available, one detector row per entry in `external.metrics[]`:
 
-The ledger can point reviewers to:
+- detector name
+- measured value
+- threshold
+- PASS / FAIL
 
-- `status.json`,
-- optional JUnit / SARIF exports,
-- detector summaries,
-- other immutable run artefacts useful for audit or incident review.
+Critical reading rule:
 
----
+- `external.all_pass` answers the aggregate result question
+- `external.summaries_present` answers the evidence-presence question
 
-## 4. Relationship to status.json
+Those are not the same signal.
 
-The Quality Ledger is a pure reader / renderer.
+### Shadow / diagnostic sections
 
-It should only explain data already present in immutable run artefacts, especially:
+The current renderer can also show:
 
-- top-level metadata fields,
-- `metrics.*`,
-- `gates.*`,
-- optional `external.*` summaries.
+- `meta.q1_reference_shadow`
+- selected `metrics.hazard_*` fields as an EPF hazard overlay
+- the `diagnostics` object
+- a traceability section
 
-It must not:
+These are visibility surfaces.
+They do not create new normative gate semantics.
 
-- redefine release semantics,
-- compute a different gate outcome than CI,
-- silently upgrade unknown / missing evidence into PASS.
+### Traceability section
 
-If a discrepancy is ever observed between the ledger and CI behaviour,  
-`status.json` and `check_gates.py` win; the renderer should be considered buggy.
+The current traceability section surfaces:
 
-For the stable public contract, see `STATUS_CONTRACT.md`.  
-For the fuller walkthrough, see `status_json.md`.
-
----
-
-## 5. How humans are expected to use it
-
-Typical review flow:
-
-### 1. Scan the decision strip
-
-- Is the run `FAIL`, `STAGE-PASS`, or `PROD-PASS`?
-- Are stability signals clearly good, borderline, or missing?
-
-### 2. Inspect failed or borderline gates
-
-- any failed safety gates,
-- any failed quality gates,
-- any failing external detector rows,
-- any refusal-delta or stability warnings.
-
-### 3. Read the justification
-
-- which threshold was applied,
-- which metric missed it,
-- whether the issue looks like a data / quality / safety / ops problem.
-
-### 4. Archive the decision context
-
-- keep the ledger together with `status.json`,
-- keep optional exports and detector summaries when they exist,
-- retain enough context for future audit or incident response.
-
-Because the ledger is static HTML, it can be attached to tickets, archived with deployment material, or shared with reviewers without giving them CI access.
+- the resolved `status.json` path used for rendering
+- `version`
+- `created_utc`
+- `metrics.gate_policy_path`
+- `metrics.gate_policy_sha256`
+- `metrics.git_sha`
+- `metrics.run_key`
 
 ---
 
-## 6. Extensibility rules
+## 4. What the current renderer does **not** do
 
-New sections can be added to the Quality Ledger as long as they remain explanation layers.
+This is important for V2 truthfulness.
+
+The current renderer does **not**:
+
+- mutate `status.json`
+- compute an alternative decision model
+- treat missing required gates as PASS
+- promote `meta.*`, `external`, or shadow overlays into normative authority
+- automatically link JUnit / SARIF exports
+- provide a generic root-cause explanation for every failed gate
+- guarantee threshold text beside every gate row
+- use a top-level `decision` field as release authority
+
+If a future renderer adds any of the above, this page should be updated in the same PR.
+
+---
+
+## 5. How humans should read the ledger
+
+Recommended reading order:
+
+1. **Confirm run identity**
+   - is this the correct model / run / artefact?
+2. **Read the banner**
+   - `FAIL`, `DEMO-PASS`, `STAGE-PASS`, `PROD-PASS`, or `UNKNOWN`
+3. **Read `gates.*` next**
+   - inspect failed quality, safety, stability, and other gates
+4. **Check external pass vs evidence presence**
+   - do not infer evidence existence from aggregate pass alone
+5. **Use shadow / diagnostic panels as context**
+   - helpful for investigation
+   - non-normative for release enforcement
+6. **Archive the run context**
+   - keep the ledger together with the exact `status.json`
+
+---
+
+## 6. Guidance for maintainers
+
+Keep this document aligned with the actual renderer.
+
+When changing:
+
+- section layout
+- banner derivation
+- gate bucketing
+- external panel shape
+- shadow panel visibility
+- traceability fields
+
+update this page in the same PR.
+
+Normative changes must happen in this order:
+
+1. status / schema / policy
+2. gate enforcement
+3. renderer behavior
+4. documentation
+
+Not the other way around.
+
+---
+
+## 7. Safe extension rules
+
+New ledger panels are safe when they remain pure explanation layers over immutable artefacts.
 
 Safe extensions include:
 
-- extra fairness slices,
-- organisation-specific compliance checklists,
-- richer detector panels,
-- reviewer-facing trace summaries.
+- richer detector tables
+- organisation-specific review panels
+- better traceability surfacing
+- additional shadow-only context blocks
 
-The invariants are:
+The invariants remain:
 
-- CI logic remains centralised in the safe-pack and gate scripts,
-- the ledger remains deterministic and reproducible,
-- release semantics stay anchored to `status.json` and gate enforcement,
-- optional UI / Pages surfaces remain pure readers of immutable run artefacts.
+- `status.json` stays the authoritative machine artefact
+- required gate enforcement stays outside the renderer
+- shadow visibility stays descriptive unless explicitly promoted elsewhere
+- missing or unknown evidence must not be silently shown as PASS
+- the rendered output should remain deterministic from the input artefact
 
 ---
 
-## 7. Minimal reviewer checklist
+## 8. Related docs
 
-Before signing off a release from the ledger, confirm:
-
-- the run identity is clear,
-- the overall decision is clear,
-- failed gates are visible and explained,
-- any external evidence is clearly present / absent,
-- the underlying `status.json` for this run is archived.
+- [STATUS_CONTRACT.md](STATUS_CONTRACT.md)
+- [status_json.md](status_json.md)
+- [quality_ledger_example.md](quality_ledger_example.md)
+- [refusal_delta_gate.md](refusal_delta_gate.md)
+- [EXTERNAL_DETECTORS.md](EXTERNAL_DETECTORS.md)
+- [external_detector_summaries.md](external_detector_summaries.md)
+- [RUNBOOK.md](RUNBOOK.md)
+- [quickstart safe-pack README](../examples/quickstart_safe_pack/README.md)
