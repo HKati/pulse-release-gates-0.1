@@ -15,7 +15,7 @@ concurrency:
 
 env:
   GATE_REPO: HKati/pulse-release-gates-0.1
-  GATE_REF: gate-v0-zip   # pin to the released tag (consider pinning to a commit SHA for stronger supply-chain)
+  GATE_REF: d0f883ada7891e56a9daf570843d0624b3e8ee60 # gate-v0-zip
 
 jobs:
   paradox_gate:
