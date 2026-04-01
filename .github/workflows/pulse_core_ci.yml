@@ -83,7 +83,35 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python "${PACK_DIR}/tools/run_all.py"
+                   python "${PACK_DIR}/tools/run_all.py" --mode core
+
+      - name: Assert core run mode
+        shell: bash
+        run: |
+          set -euo pipefail
+          STATUS="${PACK_DIR}/artifacts/status.json"
+
+          if [ ! -f "$STATUS" ]; then
+            echo "::error::Missing status.json at $STATUS"
+            exit 1
+          fi
+
+          python - "$STATUS" <<'PY'
+          import json
+          import pathlib
+          import sys
+
+          status_path = pathlib.Path(sys.argv[1])
+          status = json.loads(status_path.read_text(encoding="utf-8"))
+          run_mode = ((status.get("metrics") or {}).get("run_mode"))
+
+          if run_mode != "core":
+              raise SystemExit(
+                  f"Expected metrics.run_mode='core' in {status_path}, got {run_mode!r}"
+              )
+
+          print(f"Verified metrics.run_mode={run_mode}")
+          PY
 
       - name: Gate registry sync check
         shell: bash
