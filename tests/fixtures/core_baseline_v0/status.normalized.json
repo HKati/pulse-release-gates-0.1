@@ -6,7 +6,7 @@
     "stub_profile": "all_true_smoke"
   },
   "gates": {
-    "detectors_materialized_ok": false,
+    "detectors_materialized_ok": false, 
     "effect_present": true,
     "epf_hazard_ok": true,
     "pass_controls_comm": true,
