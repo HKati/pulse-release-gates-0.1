@@ -15,7 +15,7 @@ import datetime as _dt
 import json
 import sys
 from pathlib import Path
-from typing import Any, Dict, Iterable, List
+from typing import Any, Dict, List
 
 
 def _die(msg: str) -> None:
@@ -61,14 +61,16 @@ def _expect_plain_int(name: str, v: Any) -> int:
         _die(f"Expected '{name}' to be int, got {type(v).__name__}")
     return v
 
+
 def _expect_int_ge0(name: str, v: Any) -> int:
     v_i = _expect_plain_int(name, v)
     if v_i < 0:
         _die(f"Expected '{name}' to be >= 0, got {v_i}")
     return v_i
 
+
 def _expect_int_ge1(name: str, v: Any) -> int:
-      v_i = _expect_plain_int(name, v)
+    v_i = _expect_plain_int(name, v)
     if v_i < 1:
         _die(f"Expected '{name}' to be >= 1, got {v_i}")
     return v_i
@@ -98,7 +100,7 @@ def _expect_counter_map(name: str, v: Any) -> Dict[str, int]:
     for k, val in d.items():
         if not isinstance(k, str) or not k.strip():
             _die(f"Expected all keys in '{name}' to be non-empty strings")
-              val_i = _expect_plain_int(f"{name}[{k}]", val)
+        val_i = _expect_plain_int(f"{name}[{k}]", val)
         if val_i < 0:
             _die(f"Expected '{name}[{k}]' to be >= 0, got {val_i}")
         out[k] = val_i
@@ -122,15 +124,19 @@ def _normalize_counter_key(value: str | None) -> str | None:
     return s or None
 
 
-def _validate_record(idx: int, rec: Any, seen_idxs: set[int]) -> Dict[str, Any]:
-    name = f"records[{idx}]"
+def _validate_record(
+    list_idx: int,
+    rec: Any,
+    seen_record_idxs: set[int],
+) -> Dict[str, Any]:
+    name = f"records[{list_idx}]"
     d = _expect_dict(name, rec)
 
     rec_idx = _require_key(d, "idx")
     rec_idx_i = _expect_int_ge1(f"{name}.idx", rec_idx)
-    if rec_idx_i in seen_idxs:
+    if rec_idx_i in seen_record_idxs:
         _die(f"Duplicate record idx detected: {rec_idx_i}")
-    seen_idxs.add(rec_idx_i)
+    seen_record_idxs.add(rec_idx_i)
 
     rec_id = _require_key(d, "id")
     _expect_str_or_none(f"{name}.id", rec_id)
@@ -195,9 +201,9 @@ def validate(d: Dict[str, Any]) -> None:
     records_raw = _require_key(d, "records")
     records = _expect_list("records", records_raw)
 
-    seen_idxs: set[int] = set()
+    seen_record_idxs: set[int] = set()
     validated_records = [
-        _validate_record(i, rec, seen_idxs) for i, rec in enumerate(records)
+        _validate_record(i, rec, seen_record_idxs) for i, rec in enumerate(records)
     ]
 
     computed_total = len(validated_records)
