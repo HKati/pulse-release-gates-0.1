@@ -123,7 +123,7 @@ def main():
     paradox_density = _float_or_none("paradox_density", paradox_density)
 
     md = []
-    md.append("<!-- pulse-triage -->")
+    md.append("<!-- pulse:paradox-gate:shadow -->")
     md.append(_triage_title(raw_decision))
     md.append("")
     if decision_key == "NORMAL":
