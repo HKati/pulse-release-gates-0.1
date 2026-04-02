@@ -52,21 +52,25 @@ The current v0 companion consists of:
 
 - one evidence contract:
   - `schemas/parameter_golf_submission_evidence_v0.schema.json`
-
+- one review-receipt contract:
+  - `schemas/parameter_golf_submission_review_receipt_v0.schema.json`
 - one verifier:
   - `tools/verify_parameter_golf_submission_v0.py`
-
 - one example evidence artifact:
   - `examples/parameter_golf_submission_evidence_v0.example.json`
-
 - one review-receipt renderer:
   - `tools/render_parameter_golf_review_receipt_v0.py`
-
 - one example review receipt:
   - `examples/parameter_golf_submission_review_receipt_v0.example.json`
-
 - one deterministic roundtrip checker:
   - `tools/check_parameter_golf_review_receipt_roundtrip_v0.py`
+  - validates both the committed and freshly rendered receipts against the review-receipt schema
+  - then checks deterministic equality against the committed example receipt
+- one shadow CI companion:
+  - `.github/workflows/parameter_golf_shadow.yml`
+  - verifies the checked-in example evidence
+  - runs the review-receipt roundtrip check on PR / push
+  - remains shadow-only and does not change PULSE release outcomes
 
 ## What the evidence contract covers
 
