@@ -36,7 +36,7 @@ jobs:
           fetch-depth: 1
           persist-credentials: false
 
-      - name: Checkout gate repo (tag)
+      - name: Checkout gate repo (pinned commit)
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           repository: ${{ env.GATE_REPO }}
@@ -205,7 +205,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          marker="<!-- pulse-triage -->"
+          marker="<!-- pulse:paradox-gate:shadow -->"
           out="triage_comment.md"
 
           if [ "${{ needs.paradox_gate.outputs.summary_present }}" != "true" ]; then
@@ -295,17 +295,32 @@ jobs:
           script: |
             const fs = require('fs');
             const path = 'triage_comment.md';
+
             if (!fs.existsSync(path)) {
               console.log('No triage_comment.md found — skipping PR comment.');
             } else {
-              const body = fs.readFileSync(path, 'utf8');
-              const marker = '<!-- pulse-triage -->';
+              const oldMarker = '<!-- pulse-triage -->';
+              const newMarker = '<!-- pulse:paradox-gate:shadow -->';
+
+              let body = fs.readFileSync(path, 'utf8');
+
+              if (body.includes(oldMarker)) {
+                body = body.split(oldMarker).join(newMarker);
+              }
+              if (!body.includes(newMarker)) {
+                body = `${newMarker}\n${body}`;
+              }
+
               const { data: comments } = await github.rest.issues.listComments({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: context.issue.number
               });
-              const existing = comments.find((c) => c.body && c.body.includes(marker));
+
+              const existing =
+                comments.find((c) => c.body && c.body.includes(newMarker)) ||
+                comments.find((c) => c.body && c.body.includes(oldMarker));
+
               if (existing) {
                 await github.rest.issues.updateComment({
                   owner: context.repo.owner,
