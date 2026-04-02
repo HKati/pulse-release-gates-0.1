@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schemas/g_field_v0.schema.json",
+  "title": "G-field Overlay v0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "source",
+    "created_at",
+    "run_id",
+    "summary",
+    "points"
+  ],
+  "properties": {
+    "version": {
+      "const": "g_field_v0"
+    },
+    "source": {
+      "const": "internal_hpc_g_child"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "run_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "num_points",
+        "g_mean",
+        "g_std"
+      ],
+      "properties": {
+        "num_points": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "g_mean": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "g_std": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        }
+      }
+    },
+    "points": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "g_value"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "g_value": {
+            "type": "number"
+          }
+        }
+      }
+    }
+  }
+}
