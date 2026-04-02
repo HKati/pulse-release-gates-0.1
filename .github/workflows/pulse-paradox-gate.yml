@@ -205,7 +205,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          marker="<!-- pulse-triage -->"
+          marker="<!-- pulse:paradox-gate:shadow -->"
           out="triage_comment.md"
 
           if [ "${{ needs.paradox_gate.outputs.summary_present }}" != "true" ]; then
@@ -299,7 +299,7 @@ jobs:
               console.log('No triage_comment.md found — skipping PR comment.');
             } else {
               const body = fs.readFileSync(path, 'utf8');
-              const marker = '<!-- pulse-triage -->';
+              const marker = '<!-- pulse:paradox-gate:shadow -->';
               const { data: comments } = await github.rest.issues.listComments({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
