@@ -14,10 +14,16 @@ import argparse
 import datetime as _dt
 import json
 import math
+import re
 import statistics
 import sys
 from pathlib import Path
 from typing import Any, Dict, List
+
+
+_RFC3339_UTC_Z_RE = re.compile(
+    r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$"
+)
 
 
 def _die(msg: str) -> None:
@@ -103,15 +109,24 @@ def _expect_number_or_none(name: str, v: Any) -> float | None:
 
 def _expect_datetime_utc_z(name: str, v: Any) -> None:
     s = _expect_str(name, v)
-    if not s.endswith("Z"):
-        _die(f"Expected '{name}' to end with 'Z', got {s!r}")
+    if not _RFC3339_UTC_Z_RE.fullmatch(s):
+        _die(
+            f"Expected '{name}' to be RFC3339 UTC datetime "
+            f"(YYYY-MM-DDTHH:MM:SS[.fff]Z), got {s!r}"
+        )
     try:
         _dt.datetime.fromisoformat(s.replace("Z", "+00:00"))
     except ValueError as exc:
         _die(f"Expected '{name}' to be RFC3339/ISO-8601 UTC timestamp: {exc}")
 
 
-def _float_equal(a: float, b: float, *, rel_tol: float = 1e-12, abs_tol: float = 1e-12) -> bool:
+def _float_equal(
+    a: float,
+    b: float,
+    *,
+    rel_tol: float = 1e-12,
+    abs_tol: float = 1e-12,
+) -> bool:
     return math.isclose(a, b, rel_tol=rel_tol, abs_tol=abs_tol)
 
 
