@@ -1,0 +1,180 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schemas/parameter_golf_submission_review_receipt_v0.schema.json",
+  "title": "Parameter Golf Submission Review Receipt v0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "shadow_only",
+    "changes_pulse_release_outcome",
+    "submission_type",
+    "artifact",
+    "evaluation",
+    "review_surface"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "parameter_golf_submission_review_receipt_v0"
+    },
+    "shadow_only": {
+      "type": "boolean"
+    },
+    "changes_pulse_release_outcome": {
+      "type": "boolean"
+    },
+    "submission_type": {
+      "type": "string",
+      "enum": [
+        "record",
+        "report"
+      ]
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "total_bytes",
+        "artifact_limit_bytes",
+        "within_limit"
+      ],
+      "properties": {
+        "format": {
+          "type": "string"
+        },
+        "total_bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "artifact_limit_bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "within_limit": {
+          "type": "boolean"
+        }
+      }
+    },
+    "train": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "wallclock_seconds": {
+          "type": "number",
+          "minimum": 0
+        },
+        "max_allowed_seconds": {
+          "type": "number",
+          "minimum": 0
+        },
+        "within_limit": {
+          "type": "boolean"
+        }
+      }
+    },
+    "evaluation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "val_bpb"
+      ],
+      "properties": {
+        "val_bpb": {
+          "type": "number"
+        },
+        "nats_to_target": {
+          "type": "number"
+        }
+      }
+    },
+    "stats": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "p_value": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "ci95_low": {
+          "type": "number"
+        },
+        "ci95_high": {
+          "type": "number"
+        },
+        "n_runs": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "code_ref": {
+          "type": "string"
+        },
+        "weights_ref": {
+          "type": "string"
+        },
+        "data_ref": {
+          "type": "string"
+        },
+        "run_logs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "review_surface": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifact_within_limit"
+      ],
+      "properties": {
+        "artifact_within_limit": {
+          "type": "boolean"
+        },
+        "train_within_limit": {
+          "type": "boolean"
+        },
+        "val_bpb": {
+          "type": "number"
+        },
+        "p_value": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "n_runs": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "submission_type": {
+            "const": "record"
+          }
+        },
+        "required": [
+          "submission_type"
+        ]
+      },
+      "then": {
+        "required": [
+          "train"
+        ]
+      }
+    }
+  ]
+}
