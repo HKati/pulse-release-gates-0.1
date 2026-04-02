@@ -1,0 +1,384 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schemas/parameter_golf_submission_review_receipt_v0.schema.json",
+  "title": "Parameter Golf Submission Review Receipt v0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "receipt_version",
+    "receipt_kind",
+    "generated_from",
+    "validation",
+    "normative_boundary",
+    "notes"
+  ],
+  "properties": {
+    "receipt_version": {
+      "const": "0.1"
+    },
+    "receipt_kind": {
+      "const": "parameter_golf_submission_review_receipt_v0"
+    },
+    "generated_from": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "evidence_path",
+        "schema_path",
+        "verifier"
+      ],
+      "properties": {
+        "evidence_path": {
+          "type": "string"
+        },
+        "schema_path": {
+          "type": "string"
+        },
+        "verifier": {
+          "type": "string"
+        }
+      }
+    },
+    "validation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "valid_schema",
+        "warning_count",
+        "warnings"
+      ],
+      "properties": {
+        "valid_schema": {
+          "type": "boolean"
+        },
+        "warning_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "error_kind": {
+          "type": "string"
+        },
+        "error": {
+          "type": "string"
+        },
+        "path": {
+          "type": "array",
+          "items": {
+            "anyOf": [
+              { "type": "string" },
+              { "type": "integer" }
+            ]
+          }
+        },
+        "schema_path": {
+          "type": "array",
+          "items": {
+            "anyOf": [
+              { "type": "string" },
+              { "type": "integer" }
+            ]
+          }
+        }
+      }
+    },
+    "review_surface": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "submission_type",
+        "artifact_total_bytes_int8_zlib",
+        "artifact_limit_bytes",
+        "artifact_within_limit",
+        "evaluation_mode",
+        "val_bpb",
+        "train_wallclock_s",
+        "max_train_wallclock_s",
+        "train_within_declared_max",
+        "n_runs",
+        "run_log_count",
+        "p_value",
+        "comparison_target"
+      ],
+      "properties": {
+        "submission_type": {
+          "anyOf": [
+            {
+              "type": "string",
+              "enum": [
+                "record",
+                "non_record",
+                "non_record_unlimited_compute",
+                "baseline",
+                "other"
+              ]
+            },
+            { "type": "null" }
+          ]
+        },
+        "artifact_total_bytes_int8_zlib": {
+          "anyOf": [
+            { "type": "integer", "minimum": 0 },
+            { "type": "null" }
+          ]
+        },
+        "artifact_limit_bytes": {
+          "anyOf": [
+            { "type": "integer", "minimum": 0 },
+            { "type": "null" }
+          ]
+        },
+        "artifact_within_limit": {
+          "type": ["boolean", "null"]
+        },
+        "evaluation_mode": {
+          "type": ["string", "null"]
+        },
+        "val_bpb": {
+          "type": ["number", "null"]
+        },
+        "train_wallclock_s": {
+          "type": ["number", "null"]
+        },
+        "max_train_wallclock_s": {
+          "type": ["number", "null"]
+        },
+        "train_within_declared_max": {
+          "type": ["boolean", "null"]
+        },
+        "n_runs": {
+          "type": ["integer", "null"],
+          "minimum": 0
+        },
+        "run_log_count": {
+          "type": ["integer", "null"],
+          "minimum": 0
+        },
+        "p_value": {
+          "type": ["number", "null"],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "comparison_target": {
+          "type": ["string", "null"]
+        },
+        "artifact_limit_bytes_effective": {
+          "type": ["integer", "null"],
+          "minimum": 0
+        },
+        "artifact_limit_source": {
+          "type": ["string", "null"]
+        }
+      }
+    },
+    "claim_breakdown": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifact_accounting",
+        "evaluation",
+        "statistical_evidence"
+      ],
+      "properties": {
+        "artifact_accounting": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "counted_code_bytes",
+            "compressed_model_bytes",
+            "artifact_total_bytes",
+            "tokenizer_counted",
+            "tokenizer_bytes_if_counted"
+          ],
+          "properties": {
+            "counted_code_bytes": {
+              "type": ["integer", "null"],
+              "minimum": 0
+            },
+            "compressed_model_bytes": {
+              "type": ["integer", "null"],
+              "minimum": 0
+            },
+            "artifact_total_bytes": {
+              "type": ["integer", "null"],
+              "minimum": 0
+            },
+            "tokenizer_counted": {
+              "type": ["boolean", "null"]
+            },
+            "tokenizer_bytes_if_counted": {
+              "type": ["integer", "null"],
+              "minimum": 0
+            }
+          }
+        },
+        "evaluation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "mode",
+            "seq_len",
+            "stride",
+            "val_loss",
+            "val_bpb",
+            "eval_wallclock_s",
+            "roundtrip_val_loss",
+            "roundtrip_val_bpb"
+          ],
+          "properties": {
+            "mode": {
+              "type": ["string", "null"]
+            },
+            "seq_len": {
+              "type": ["integer", "null"],
+              "minimum": 0
+            },
+            "stride": {
+              "type": ["integer", "null"],
+              "minimum": 0
+            },
+            "val_loss": {
+              "type": ["number", "null"]
+            },
+            "val_bpb": {
+              "type": ["number", "null"]
+            },
+            "eval_wallclock_s": {
+              "type": ["number", "null"]
+            },
+            "roundtrip_val_loss": {
+              "type": ["number", "null"]
+            },
+            "roundtrip_val_bpb": {
+              "type": ["number", "null"]
+            }
+          }
+        },
+        "statistical_evidence": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "n_runs",
+            "run_logs",
+            "p_value",
+            "comparison_target",
+            "claim_exemption_reason"
+          ],
+          "properties": {
+            "n_runs": {
+              "type": ["integer", "null"],
+              "minimum": 0
+            },
+            "run_logs": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                { "type": "null" }
+              ]
+            },
+            "p_value": {
+              "type": ["number", "null"],
+              "minimum": 0,
+              "maximum": 1
+            },
+            "comparison_target": {
+              "type": ["string", "null"]
+            },
+            "claim_exemption_reason": {
+              "type": ["string", "null"]
+            }
+          }
+        }
+      }
+    },
+    "normative_boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "shadow_only",
+        "changes_pulse_release_outcome"
+      ],
+      "properties": {
+        "shadow_only": {
+          "const": true
+        },
+        "changes_pulse_release_outcome": {
+          "const": false
+        }
+      }
+    },
+    "notes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "validation": {
+            "type": "object",
+            "properties": {
+              "valid_schema": {
+                "const": true
+              }
+            },
+            "required": [
+              "valid_schema"
+            ]
+          }
+        },
+        "required": [
+          "validation"
+        ]
+      },
+      "then": {
+        "required": [
+          "review_surface",
+          "claim_breakdown"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "validation": {
+            "type": "object",
+            "properties": {
+              "valid_schema": {
+                "const": false
+              }
+            },
+            "required": [
+              "valid_schema"
+            ]
+          }
+        },
+        "required": [
+          "validation"
+        ]
+      },
+      "then": {
+        "properties": {
+          "validation": {
+            "required": [
+              "error_kind",
+              "error"
+            ]
+          }
+        }
+      }
+    }
+  ]
+}
