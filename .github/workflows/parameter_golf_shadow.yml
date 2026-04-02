@@ -1,0 +1,68 @@
+name: Parameter Golf v0 (shadow)
+
+on:
+  pull_request: {}
+  push:
+    branches: [ main ]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: parameter-golf-shadow-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  parameter_golf_shadow:
+    name: Verify Parameter Golf companion (shadow)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        with:
+          python-version: "3.11"
+
+      - name: Install minimal deps
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -U pip
+          python -m pip install jsonschema
+
+      - name: Verify example evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          python tools/verify_parameter_golf_submission_v0.py \
+            --evidence examples/parameter_golf_submission_evidence_v0.example.json \
+            --json
+
+      - name: Check review receipt roundtrip
+        shell: bash
+        run: |
+          set -euo pipefail
+          python tools/check_parameter_golf_review_receipt_roundtrip_v0.py
+
+      - name: Workflow summary
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo "## Parameter Golf v0 (shadow)"
+            echo
+            echo "- verifier: \`tools/verify_parameter_golf_submission_v0.py\`"
+            echo "- roundtrip: \`tools/check_parameter_golf_review_receipt_roundtrip_v0.py\`"
+            echo "- evidence: \`examples/parameter_golf_submission_evidence_v0.example.json\`"
+            echo "- expected receipt: \`examples/parameter_golf_submission_review_receipt_v0.example.json\`"
+            echo
+            echo "Shadow-only CI companion. This workflow must not affect the main PULSE release gates."
+          } >> "$GITHUB_STEP_SUMMARY"
