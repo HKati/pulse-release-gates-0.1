@@ -5,6 +5,8 @@ on:
   push:
     paths:
       - "scripts/gpt_external_detector.py"
+      - "scripts/check_gpt_external_detection_v0_contract.py"
+      - "schemas/gpt_external_detection_v0.schema.json"
       - "logs/**"
       - ".github/workflows/gpt_external_shadow.yml"
 
@@ -55,6 +57,14 @@ jobs:
             --input logs/model_invocations.jsonl \
             --output PULSE_safe_pack_v0/artifacts/gpt_external_detection_v0.json
 
+      - name: Contract check (gpt_external_detection_v0)
+        if: steps.check_log.outputs.found == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/check_gpt_external_detection_v0_contract.py \
+            --in PULSE_safe_pack_v0/artifacts/gpt_external_detection_v0.json
+
       - name: Upload GPT external detection overlay
         if: steps.check_log.outputs.found == 'true'
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
@@ -62,4 +72,3 @@ jobs:
           name: gpt-external-detection
           if-no-files-found: warn
           path: PULSE_safe_pack_v0/artifacts/gpt_external_detection_v0.json
-
