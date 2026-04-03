@@ -2,81 +2,263 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "schemas/g_epf_overlay_v0.schema.json",
   "title": "G-EPF Overlay v0",
-  "type": "object",
-  "additionalProperties": false,
-  "required": [
-    "version",
-    "created_at",
-    "g_field",
-    "status_baseline",
-    "status_epf",
-    "epf_paradox_summary",
-    "diagnostics"
+  "description": "Schema for current G-EPF shadow overlays. Accepts both the committed demo overlay shape and the bridge-generated overlay shape.",
+  "anyOf": [
+    {
+      "$ref": "#/$defs/demo_overlay"
+    },
+    {
+      "$ref": "#/$defs/bridge_overlay"
+    }
   ],
-  "properties": {
-    "version": {
-      "const": "g_epf_overlay_v0"
-    },
-    "created_at": {
+  "$defs": {
+    "iso_utc_z": {
       "type": "string",
-      "format": "date-time"
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$"
     },
-    "g_field": {
+
+    "point_like": {
       "type": "object",
-      "additionalProperties": true
-    },
-    "status_baseline": {
-      "type": [
-        "object",
-        "null"
+      "required": [
+        "id",
+        "g_value"
       ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "g_value": {
+          "type": "number"
+        }
+      },
       "additionalProperties": true
     },
-    "status_epf": {
-      "type": [
-        "object",
-        "null"
-      ],
-      "additionalProperties": true
-    },
-    "epf_paradox_summary": {
-      "type": [
-        "object",
-        "null"
-      ],
-      "additionalProperties": true
-    },
-    "diagnostics": {
+
+    "demo_overlay": {
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "paradox_gate_ids",
-        "g_points_on_paradox_gates"
+        "version",
+        "created_at",
+        "source",
+        "meta",
+        "summary",
+        "panels",
+        "g_field",
+        "diagnostics"
       ],
       "properties": {
-        "paradox_gate_ids": {
-          "type": "array",
-          "items": {
-            "type": "string",
-            "minLength": 1
+        "version": {
+          "type": "string",
+          "pattern": "^g_epf_overlay_v0(?:-.+)?$"
+        },
+        "created_at": {
+          "$ref": "#/$defs/iso_utc_z"
+        },
+        "source": {
+          "type": "string",
+          "minLength": 1
+        },
+        "meta": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "overlay_id": {
+              "type": "string"
+            },
+            "epf_version": {
+              "type": "string"
+            },
+            "generated_at": {
+              "$ref": "#/$defs/iso_utc_z"
+            },
+            "source_run_id": {
+              "type": "string"
+            },
+            "source_files": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
           }
         },
-        "g_points_on_paradox_gates": {
+        "summary": {
+          "type": "object",
+          "additionalProperties": true,
+          "required": [
+            "total_gates",
+            "gates_in_epf_band",
+            "gates_changed_by_epf",
+            "gates_with_paradox_flag",
+            "shadow_pass",
+            "notes"
+          ],
+          "properties": {
+            "total_gates": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "gates_in_epf_band": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "gates_changed_by_epf": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "gates_with_paradox_flag": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "shadow_pass": {
+              "type": "boolean"
+            },
+            "notes": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "panels": {
           "type": "array",
           "items": {
-            "type": "object",
-            "additionalProperties": true,
-            "required": [
-              "id",
-              "g_value"
-            ],
-            "properties": {
-              "id": {
+            "$ref": "#/$defs/demo_panel"
+          }
+        },
+        "g_field": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "diagnostics": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      }
+    },
+
+    "demo_panel": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "gate_id",
+        "baseline_decision"
+      ],
+      "properties": {
+        "panel_id": {
+          "type": "string"
+        },
+        "gate_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "baseline_decision": {
+          "type": "string"
+        },
+        "epf_shadow_decision": {
+          "type": "string"
+        },
+        "in_epf_band": {
+          "type": "boolean"
+        },
+        "distance_to_threshold": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "epf_L": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "risk_band": {
+          "type": "string"
+        },
+        "paradox": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "metrics": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "notes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+
+    "bridge_overlay": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "created_at",
+        "g_field",
+        "status_baseline",
+        "status_epf",
+        "epf_paradox_summary",
+        "diagnostics"
+      ],
+      "properties": {
+        "version": {
+          "const": "g_epf_overlay_v0"
+        },
+        "created_at": {
+          "$ref": "#/$defs/iso_utc_z"
+        },
+        "g_field": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "status_baseline": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": true
+        },
+        "status_epf": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": true
+        },
+        "epf_paradox_summary": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": true
+        },
+        "diagnostics": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "paradox_gate_ids",
+            "g_points_on_paradox_gates"
+          ],
+          "properties": {
+            "paradox_gate_ids": {
+              "type": "array",
+              "items": {
                 "type": "string",
                 "minLength": 1
-              },
-              "g_value": {
-                "type": "number"
+              }
+            },
+            "g_points_on_paradox_gates": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/point_like"
               }
             }
           }
