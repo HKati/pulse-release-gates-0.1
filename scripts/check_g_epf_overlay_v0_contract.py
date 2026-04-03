@@ -28,6 +28,7 @@ from typing import Any, Dict, List, Set
 _RFC3339_UTC_Z_RE = re.compile(
     r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$"
 )
+_DEMO_VERSION_RE = re.compile(r"^g_epf_overlay_v0(?:-.+)?$")
 
 
 def _die(msg: str) -> None:
@@ -158,9 +159,8 @@ def _extract_gate_ids(obj: Any) -> List[str]:
 
 def _validate_point_like(name: str, point: Any) -> Dict[str, Any]:
     d = _expect_dict(name, point)
-    point_id = _expect_str(f"{name}.id", _require_key(d, "id"))
-    g_value = _expect_plain_number(f"{name}.g_value", _require_key(d, "g_value"))
-    _ = point_id, g_value
+    _expect_str(f"{name}.id", _require_key(d, "id"))
+    _expect_plain_number(f"{name}.g_value", _require_key(d, "g_value"))
     return d
 
 
@@ -178,7 +178,9 @@ def _validate_demo_panel(idx: int, panel: Any) -> Dict[str, Any]:
     if "in_epf_band" in d:
         _expect_bool(f"{name}.in_epf_band", d["in_epf_band"])
     if "distance_to_threshold" in d:
-        _expect_number_or_none(f"{name}.distance_to_threshold", d["distance_to_threshold"])
+        _expect_number_or_none(
+            f"{name}.distance_to_threshold", d["distance_to_threshold"]
+        )
     if "epf_L" in d:
         _expect_number_or_none(f"{name}.epf_L", d["epf_L"])
     if "risk_band" in d:
@@ -193,6 +195,10 @@ def _validate_demo_panel(idx: int, panel: Any) -> Dict[str, Any]:
         _validate_string_array(f"{name}.notes", d["notes"])
 
     return d
+
+
+def _is_unknown_decision(v: Any) -> bool:
+    return isinstance(v, str) and v.strip().upper() == "UNKNOWN"
 
 
 def _validate_demo_overlay(d: Dict[str, Any]) -> None:
@@ -212,10 +218,10 @@ def _validate_demo_overlay(d: Dict[str, Any]) -> None:
     )
 
     version = _expect_str("version", _require_key(d, "version"))
-    if not version.startswith("g_epf_overlay_v0"):
+    if not _DEMO_VERSION_RE.fullmatch(version):
         _die(
             f"Unsupported demo overlay version: {version!r} "
-            "(expected prefix 'g_epf_overlay_v0')"
+            "(expected 'g_epf_overlay_v0' or 'g_epf_overlay_v0-...')"
         )
 
     _expect_datetime_utc_z("created_at", _require_key(d, "created_at"))
@@ -263,6 +269,7 @@ def _validate_demo_overlay(d: Dict[str, Any]) -> None:
         for p in validated_panels
         if isinstance(p.get("baseline_decision"), str)
         and isinstance(p.get("epf_shadow_decision"), str)
+        and not _is_unknown_decision(p.get("epf_shadow_decision"))
         and p["baseline_decision"] != p["epf_shadow_decision"]
     )
     computed_paradox = sum(
