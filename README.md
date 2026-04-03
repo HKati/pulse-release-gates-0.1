@@ -410,7 +410,7 @@ Shadow workflows (GitHub Actions):
   - `separation_phase_v0`
 - **G snapshot report (shadow)** – builds paired markdown + JSON snapshot artifacts from the available shadow overlays and contract-checks the JSON report.
 
-Current overlays:
+More shadow overlays:
 
 - **Separation Phase overlay** (`separation_phase_v0.json`)  
   Snapshot-style diagnostic overlay that classifies the run into:
@@ -436,31 +436,30 @@ All of these are **fail‑closed only for their own job** (they never block the 
 
 ## Theory Overlay v0 (shadow)
 
-Snapshot-style diagnostic overlay that computes and surfaces theory overlay signals (incl. the record-horizon gate)
-as a CI-visible, contract-checked artifact and a reviewer-friendly markdown summary.
+Snapshot-style diagnostic overlay that computes and surfaces theory overlay signals
+(incl. the record-horizon gate) as a CI-visible, contract-checked artifact and a
+reviewer-friendly markdown summary.
 
-CI-neutral diagnostic layer. It never blocks the main PULSE gates and must not change core release-gate semantics.
+> **CI-neutral diagnostic layer.**
+> It never blocks the main PULSE gates and must not change core release-gate semantics.
 
-Docs: `docs/theory_overlay_v0.md`  
-Schemas:
-- `schemas/theory_overlay_v0.schema.json`
-- `schemas/theory_overlay_inputs_v0.schema.json`
-
-Builder: `scripts/build_theory_overlay_inputs_v0.py`  
-Generator: `scripts/generate_theory_overlay_v0.py`  
-Contract checks:
-- `scripts/check_theory_overlay_inputs_v0_contract.py`
-- `scripts/check_theory_overlay_v0_contract.py`
-Renderer: `scripts/render_theory_overlay_v0_md.py`  
-Workflow: `.github/workflows/theory_overlay_v0.yml`
-
-Output artifacts:
-- `PULSE_safe_pack_v0/artifacts/theory_overlay_inputs_v0.json`
-- `PULSE_safe_pack_v0/artifacts/theory_overlay_v0.json`
-- `PULSE_safe_pack_v0/artifacts/theory_overlay_v0.md`
-
-Tracked demo raw fixture:
-- `PULSE_safe_pack_v0/fixtures/theory_overlay_inputs_v0.raw.demo.json`
+- Docs: `docs/theory_overlay_v0.md`
+- Schemas:
+  - `schemas/theory_overlay_v0.schema.json`
+  - `schemas/theory_overlay_inputs_v0.schema.json`
+- Builder: `scripts/build_theory_overlay_inputs_v0.py`
+- Generator: `scripts/generate_theory_overlay_v0.py`
+- Contract checks:
+  - `scripts/check_theory_overlay_inputs_v0_contract.py`
+  - `scripts/check_theory_overlay_v0_contract.py`
+- Renderer: `scripts/render_theory_overlay_v0_md.py`
+- Workflow: `.github/workflows/theory_overlay_v0.yml`
+- Output artifacts:
+  - `PULSE_safe_pack_v0/artifacts/theory_overlay_inputs_v0.json`
+  - `PULSE_safe_pack_v0/artifacts/theory_overlay_v0.json`
+  - `PULSE_safe_pack_v0/artifacts/theory_overlay_v0.md`
+- Tracked demo raw fixture:
+  - `PULSE_safe_pack_v0/fixtures/theory_overlay_inputs_v0.raw.demo.json`
 
 ---
 
@@ -500,23 +499,6 @@ The JSON artifact is the contract-checked machine-readable snapshot for downstre
 This workflow remains **CI-neutral** and is intended for diagnostic and governance dashboards.  
 It does not change core release outcomes.
 
----
-
-### Roadmap (shadow layer)
-
-The current G-shadow layer is intentionally minimal: a small set of overlays and a shadow-only snapshot report that can be shipped safely in the PULSE safe pack. Next steps we are planning (non-breaking, iterative) include:
-
-- **EPF overlay 2.0**  
-  Move from the current demo EPF panel to a more realistic EPF diagnostics overlay (richer fields, clearer mapping to gates, better summary in the snapshot report).
-
-- **G‑field stability summaries**  
-  Build on the current conservative, contract-checked `g_field_stability_v0` shadow artifact toward gate-level stability summaries and, optionally, simple historical trends.
-
-- **GPT usage overlays**  
-  Refine the GPT external detection overlay with scenario / product-line breakdowns and clearer attribution of “internal vs external” usage in the snapshot.
-
-- **Docs & UX for overlays**  
-  Add short “how to add a new overlay” guidance and more snapshot examples, so that teams can plug in additional overlays without touching the core release gates.
 
 ---
 
