@@ -8,9 +8,11 @@ This script is CI-neutral:
 - If a data file is missing, it prints an INFO message and continues.
 - If a data file is present but fails validation, it exits with code 1.
 
-Note:
-- g_field_stability_v0 remains diagnostic-only for now and is intentionally
-  not part of this validation script yet.
+Notes:
+- Shadow overlays remain diagnostic-only unless explicitly promoted elsewhere.
+- g_field_stability_v0 now participates in the schema sweep, but it remains
+  a shadow/diagnostic overlay; semantic contract checks still live in its
+  dedicated checker.
 """
 
 from __future__ import annotations
@@ -54,7 +56,6 @@ def _first_existing(candidates: Sequence[Path]) -> Optional[Path]:
 def _validate_overlay(name: str, schema_path: Path, data_path: Path) -> bool:
     schema = _load_json(schema_path)
     data = _load_json(data_path)
-
     try:
         jsonschema.validate(instance=data, schema=schema)
     except jsonschema.ValidationError as e:
@@ -79,6 +80,7 @@ def main() -> None:
         help="Root directory of the repo (default: current directory).",
     )
     args = parser.parse_args()
+
     root = Path(args.root).resolve()
 
     def sp(*parts: str) -> Path:
@@ -96,8 +98,17 @@ def main() -> None:
                 sp("g_field_v0.json"),
             ],
         ),
-        # g_field_stability_v0 is intentionally not validated here yet;
-        # it is a diagnostic-only overlay and its contract is still evolving.
+        OverlayConfig(
+            name="g_field_stability_v0",
+            schema_candidates=[
+                sp("schemas", "g_field_stability_v0.schema.json"),
+                sp("schemas", "schemas", "g_field_stability_v0.schema.json"),
+            ],
+            data_candidates=[
+                sp("PULSE_safe_pack_v0", "artifacts", "g_field_stability_v0.json"),
+                sp("g_field_stability_v0.json"),
+            ],
+        ),
         OverlayConfig(
             name="g_epf_overlay_v0",
             schema_candidates=[
@@ -159,7 +170,7 @@ def main() -> None:
                 f"[ERROR] {cfg.name}: schema file not found under any of:\n"
             )
             for cand in cfg.schema_candidates:
-                sys.stderr.write(f" - {cand}\n")
+                sys.stderr.write(f"  - {cand}\n")
             all_ok = False
             continue
 
