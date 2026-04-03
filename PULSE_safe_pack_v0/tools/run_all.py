@@ -16,7 +16,8 @@ import os
 import pathlib
 import subprocess
 import sys
-from typing import Optional, Tuple
+import tempfile
+from typing import Any, Optional, Tuple
 
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
@@ -467,23 +468,68 @@ BASE_GATES = {
     "q4_slo_ok": True,
 }
 
-if RUN_MODE in ("demo", "core"):
-    gates = dict(BASE_GATES)  # all True (smoke)
+gate_sources = {k: "uninitialized" for k in BASE_GATES.keys()}
+
+if RUN_MODE == "demo":
+    gates = dict(BASE_GATES)
+    gate_sources = {k: "demo_smoke" for k in BASE_GATES.keys()}
+    rdsi_value = 0.92
+    rdsi_note = "Demo value for CI smoke-run"
+    scaffold = True
+    gates_stubbed = True
+    stub_profile = "all_true_smoke"
+
+elif RUN_MODE == "core":
+    gates = {k: False for k in BASE_GATES.keys()}
+    gate_sources = {k: "unmaterialized_fail_closed" for k in BASE_GATES.keys()}
+
+    q1_pass, q1_materialized, q1_source = materialize_q1_grounded_ok(
+        REPO_ROOT,
+        created_utc=now,
+    )
+    gates["q1_grounded_ok"] = q1_pass
+    gate_sources["q1_grounded_ok"] = q1_source
+
+    rdsi_value = 0.0
+    rdsi_note = (
+        "Core materialize-or-fail-closed run: only gates with real deterministic "
+        "evidence may surface as True; unresolved gates remain False."
+    )
+    scaffold = False
+    gates_stubbed = False
+    stub_profile = "materialize_or_fail_closed"
+
 else:
-    # prod: fail-closed baseline until real detectors replace stubs
+    gate_sources = {k: "prod_fail_closed_placeholder" for k in BASE_GATES.keys()}
+    rdsi_value = 0.0
+    rdsi_note = (
+        "PROD placeholder: baseline gates are fail-closed until release-grade "
+        "detectors are wired"
+    )
+    scaffold = True
+    gates_stubbed = True
+    stub_profile = "fail_closed_placeholder"
     gates = {k: False for k in BASE_GATES.keys()}
 
 metrics = {
-    "RDSI": 0.92 if RUN_MODE in ("demo", "core") else 0.0,
-    "rdsi_note": (
-        "Demo value for CI smoke-run"
-        if RUN_MODE == "demo"
-        else "Core CI smoke-run"
-        if RUN_MODE == "core"
-        else "PROD placeholder: baseline gates are fail-closed until detectors are wired"
-    ),
+    "RDSI": rdsi_value,
+    "rdsi_note": rdsi_note,
     "build_time": now,
 }
+
+if RUN_MODE == "core":
+    materialized = sorted(
+        [k for k, src in gate_sources.items() if src == "materialized_from_q1_reference"]
+    )
+    unresolved = sorted(
+        [k for k, src in gate_sources.items() if src != "materialized_from_q1_reference"]
+    )
+    metrics["core_truth_mode"] = "materialize_or_fail_closed"
+    metrics["core_materialized_gates"] = materialized
+    metrics["core_unmaterialized_gates"] = unresolved
+    metrics["core_materialized_gate_count"] = int(len(materialized))
+    metrics["core_unmaterialized_gate_count"] = int(len(unresolved))
+    metrics["core_q1_source"] = gate_sources.get("q1_grounded_ok", "unknown")
 
 metrics["run_mode"] = RUN_MODE
 
@@ -674,15 +720,19 @@ if enforce_hazard:
 else:
     gates["epf_hazard_ok"] = True
 
-stub_profile = "all_true_smoke" if RUN_MODE in ("demo", "core") else "fail_closed_placeholder"
-gates_stubbed = True
-
 # Normative guard:
-# scaffold / placeholder gate booleans must never be interpreted as
-# materialized release evidence.
-gates["detectors_materialized_ok"] = not gates_stubbed
+# detectors_materialized_ok is release-grade only.
+# In Core, it stays false until the required evidence path is fully materialized.
+if RUN_MODE == "core":
+    unresolved_count = metrics.get("core_unmaterialized_gate_count", 1)
+    gates["detectors_materialized_ok"] = bool(
+        isinstance(unresolved_count, int) and unresolved_count == 0
+    )
+else:
+    gates["detectors_materialized_ok"] = False
+
 diagnostics = {
-    "scaffold": True,
+    "scaffold": scaffold,
     "gates_stubbed": gates_stubbed,
     "stub_profile": stub_profile,
 }
