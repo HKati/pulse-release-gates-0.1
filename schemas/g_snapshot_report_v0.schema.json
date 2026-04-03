@@ -1,0 +1,215 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schemas/g_snapshot_report_v0.schema.json",
+  "title": "G snapshot report v0",
+  "description": "Schema for the JSON report emitted by scripts/g_snapshot_report.py --format json.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "generated_at",
+    "sources",
+    "g_field",
+    "g_field_stability",
+    "g_epf",
+    "gpt_external"
+  ],
+  "properties": {
+    "version": {
+      "const": "g_snapshot_report_v0"
+    },
+    "generated_at": {
+      "$ref": "#/$defs/iso_utc_z"
+    },
+    "sources": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "g_field_v0",
+        "g_field_stability_v0",
+        "g_epf_overlay_v0",
+        "gpt_external_detection_v0"
+      ],
+      "properties": {
+        "g_field_v0": {
+          "type": "boolean"
+        },
+        "g_field_stability_v0": {
+          "type": "boolean"
+        },
+        "g_epf_overlay_v0": {
+          "type": "boolean"
+        },
+        "gpt_external_detection_v0": {
+          "type": "boolean"
+        }
+      }
+    },
+    "g_field": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "num_points",
+            "g_mean",
+            "g_std",
+            "g_min",
+            "g_max"
+          ],
+          "properties": {
+            "num_points": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "g_mean": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "g_std": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0
+            },
+            "g_min": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "g_max": {
+              "type": [
+                "number",
+                "null"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "g_field_stability": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": true
+    },
+    "g_epf": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "num_paradox_gates",
+            "num_g_points_on_paradox_gates",
+            "g_on_paradox_min",
+            "g_on_paradox_max"
+          ],
+          "properties": {
+            "num_paradox_gates": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "num_g_points_on_paradox_gates": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "g_on_paradox_min": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "g_on_paradox_max": {
+              "type": [
+                "number",
+                "null"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "gpt_external": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "total_records",
+            "num_external_gpt",
+            "num_internal",
+            "num_unknown",
+            "top_vendors",
+            "top_models"
+          ],
+          "properties": {
+            "total_records": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "num_external_gpt": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "num_internal": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "num_unknown": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "top_vendors": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/ranked_counter_entry"
+              }
+            },
+            "top_models": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/ranked_counter_entry"
+              }
+            }
+          }
+        }
+      ]
+    }
+  },
+  "$defs": {
+    "iso_utc_z": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$"
+    },
+    "ranked_counter_entry": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "prefixItems": [
+        {
+          "type": "string",
+          "minLength": 1
+        },
+        {
+          "type": "integer",
+          "minimum": 0
+        }
+      ],
+      "items": false
+    }
+  }
+}
