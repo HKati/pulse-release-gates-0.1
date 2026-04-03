@@ -17,7 +17,7 @@ import pathlib
 import subprocess
 import sys
 import tempfile
-from typing import Any, Optional, Tuple
+from typing import Any, Optional
 
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
@@ -442,6 +442,82 @@ def load_calibration_recommendation(calib_path: pathlib.Path) -> dict:
 
     return out
 
+def _run_json_tool(
+    cmd: list[str],
+    *,
+    cwd: pathlib.Path,
+    out_path: pathlib.Path,
+) -> tuple[bool, dict[str, Any] | None, str | None]:
+    result = subprocess.run(
+        cmd,
+        cwd=str(cwd),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    if result.returncode != 0:
+        detail = result.stderr.strip() or result.stdout.strip()
+        return False, None, f"exit={result.returncode}; detail={detail}"
+
+    if not out_path.is_file():
+        return False, None, "tool did not emit output JSON"
+
+    try:
+        payload = json.loads(out_path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        return False, None, f"invalid JSON output: {exc}"
+
+    if not isinstance(payload, dict):
+        return False, None, f"tool output must be a JSON object, got {type(payload).__name__}"
+
+    return True, payload, None
+
+
+def materialize_q1_grounded_ok(
+    repo_root: pathlib.Path,
+    *,
+    created_utc: str,
+) -> tuple[bool, bool, str]:
+    runner = repo_root / "PULSE_safe_pack_v0" / "tools" / "build_q1_reference_summary.py"
+    manifest = repo_root / "examples" / "q1_reference_input_manifest.json"
+    labels = repo_root / "examples" / "q1_reference_labels.pass_120.jsonl"
+
+    missing = [p for p in (runner, manifest, labels) if not p.is_file()]
+    if missing:
+        return False, False, "missing_inputs_or_runner"
+
+    with tempfile.TemporaryDirectory() as td:
+        out_path = pathlib.Path(td) / "q1_reference_summary.json"
+        cmd = [
+            sys.executable,
+            str(runner),
+            "--labels_jsonl",
+            str(labels),
+            "--out",
+            str(out_path),
+            "--input_manifest",
+            str(manifest),
+            "--run_id",
+            f"core-q1-{created_utc}",
+            "--created_utc",
+            created_utc,
+            "--tool",
+            "PULSE_q1_reference",
+            "--tool_version",
+            "0.1.0-dev",
+            "--notes",
+            "Core materialization from checked-in Q1 reference fixture.",
+        ]
+
+        ok, payload, err = _run_json_tool(cmd, cwd=repo_root, out_path=out_path)
+        if not ok or payload is None:
+            return False, False, err or "q1 runner failed"
+
+        passed = payload.get("pass")
+        if not isinstance(passed, bool):
+            return False, False, "q1 summary missing boolean 'pass'"
+
+        return bool(passed), True, "materialized_from_q1_reference"
 
 # ---------------------------------------------------------------------------
 # Minimal demo gates (all True by default so CI passes)
