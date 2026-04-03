@@ -1,141 +1,87 @@
 {
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "G-EPF overlay v0",
-  "description": "Shadow-only EPF diagnostic overlay for G-field / EPF. v0 contract.",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schemas/g_epf_overlay_v0.schema.json",
+  "title": "G-EPF Overlay v0",
   "type": "object",
-  "required": ["version", "created_at", "source", "panels"],
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "created_at",
+    "g_field",
+    "status_baseline",
+    "status_epf",
+    "epf_paradox_summary",
+    "diagnostics"
+  ],
   "properties": {
     "version": {
-      "type": "string",
-      "description": "Overlay version identifier (kept for v0 compatibility)."
+      "const": "g_epf_overlay_v0"
     },
     "created_at": {
       "type": "string",
-      "format": "date-time",
-      "description": "Timestamp when this overlay JSON was created."
+      "format": "date-time"
     },
-    "source": {
-      "type": "string",
-      "description": "Short string describing the overlay source (demo, pipeline, etc.)."
-    },
-
-    "meta": {
-      "type": "object",
-      "description": "Additional metadata for the EPF overlay.",
-      "properties": {
-        "overlay_id": { "type": "string" },
-        "epf_version": { "type": "string" },
-        "generated_at": { "type": "string", "format": "date-time" },
-        "source_run_id": { "type": "string" },
-        "source_files": {
-          "type": "array",
-          "items": { "type": "string" }
-        }
-      },
-      "additionalProperties": true
-    },
-
-    "summary": {
-      "type": "object",
-      "description": "Top-level summary counters for the EPF overlay.",
-      "properties": {
-        "total_gates": { "type": "integer", "minimum": 0 },
-        "gates_in_epf_band": { "type": "integer", "minimum": 0 },
-        "gates_changed_by_epf": { "type": "integer", "minimum": 0 },
-        "gates_with_paradox_flag": { "type": "integer", "minimum": 0 },
-        "shadow_pass": { "type": "boolean" },
-        "notes": {
-          "type": "array",
-          "items": { "type": "string" }
-        }
-      },
-      "additionalProperties": true
-    },
-
-    "panels": {
-      "type": "array",
-      "description": "Per-gate EPF diagnostic panels.",
-      "items": {
-        "$ref": "#/definitions/panel"
-      }
-    },
-
     "g_field": {
       "type": "object",
-      "description": "Reserved for G-field / EPF cross-linking or extra diagnostics.",
       "additionalProperties": true
     },
-
+    "status_baseline": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": true
+    },
+    "status_epf": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": true
+    },
+    "epf_paradox_summary": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": true
+    },
     "diagnostics": {
       "type": "object",
-      "description": "Free-form diagnostics for EPF configuration, band, etc.",
-      "additionalProperties": true
-    }
-  },
-  "additionalProperties": false,
-  "definitions": {
-    "panel": {
-      "type": "object",
-      "required": ["gate_id", "baseline_decision"],
+      "additionalProperties": false,
+      "required": [
+        "paradox_gate_ids",
+        "g_points_on_paradox_gates"
+      ],
       "properties": {
-        "panel_id": {
-          "type": "string",
-          "description": "Stable identifier for this EPF panel."
-        },
-        "gate_id": {
-          "type": "string",
-          "description": "ID of the gate this panel refers to (e.g. q1_grounded_ok)."
-        },
-        "baseline_decision": {
-          "type": "string",
-          "description": "Deterministic baseline decision for the gate."
-        },
-        "epf_shadow_decision": {
-          "type": "string",
-          "description": "EPF shadow decision for the gate (never used for CI gating)."
-        },
-        "in_epf_band": {
-          "type": "boolean",
-          "description": "True if the gate is inside the EPF band around the threshold."
-        },
-        "distance_to_threshold": {
-          "type": ["number", "null"],
-          "description": "Absolute distance to the gate threshold (if available)."
-        },
-        "epf_L": {
-          "type": ["number", "null"],
-          "description": "Local contraction proxy for the EPF layer (if available)."
-        },
-        "risk_band": {
-          "type": "string",
-          "description": "Optional risk band label (e.g. low/medium/high)."
-        },
-        "paradox": {
-          "type": "object",
-          "description": "Optional paradox metadata for this gate.",
-          "properties": {
-            "has_paradox": { "type": "boolean" },
-            "paradox_type": { "type": "string" },
-            "severity": { "type": "string" },
-            "summary": { "type": "string" }
-          },
-          "additionalProperties": true
-        },
-        "metrics": {
-          "type": "object",
-          "description": "Numeric metrics for baseline vs EPF.",
-          "properties": {
-            "baseline_value": { "type": ["number", "null"] },
-            "epf_value": { "type": ["number", "null"] }
-          },
-          "additionalProperties": true
-        },
-        "notes": {
+        "paradox_gate_ids": {
           "type": "array",
-          "items": { "type": "string" }
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "g_points_on_paradox_gates": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": true,
+            "required": [
+              "id",
+              "g_value"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "g_value": {
+                "type": "number"
+              }
+            }
+          }
         }
-      },
-      "additionalProperties": true
+      }
     }
   }
 }
