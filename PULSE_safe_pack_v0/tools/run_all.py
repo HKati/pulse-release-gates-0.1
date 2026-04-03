@@ -17,7 +17,7 @@ import pathlib
 import subprocess
 import sys
 import tempfile
-from typing import Any, Optional
+from typing import Any, Optional, Tuple
 
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
@@ -442,6 +442,7 @@ def load_calibration_recommendation(calib_path: pathlib.Path) -> dict:
 
     return out
 
+
 def _run_json_tool(
     cmd: list[str],
     *,
@@ -519,8 +520,12 @@ def materialize_q1_grounded_ok(
 
         return bool(passed), True, "materialized_from_q1_reference"
 
+
 # ---------------------------------------------------------------------------
-# Minimal demo gates (all True by default so CI passes)
+# Gate truth split:
+# - demo  -> explicit smoke/scaffold
+# - core  -> materialize-or-fail-closed
+# - prod  -> fail-closed placeholder until release-grade detectors are wired
 # ---------------------------------------------------------------------------
 
 BASE_GATES = {
@@ -576,6 +581,7 @@ elif RUN_MODE == "core":
     stub_profile = "materialize_or_fail_closed"
 
 else:
+    gates = {k: False for k in BASE_GATES.keys()}
     gate_sources = {k: "prod_fail_closed_placeholder" for k in BASE_GATES.keys()}
     rdsi_value = 0.0
     rdsi_note = (
@@ -585,7 +591,6 @@ else:
     scaffold = True
     gates_stubbed = True
     stub_profile = "fail_closed_placeholder"
-    gates = {k: False for k in BASE_GATES.keys()}
 
 metrics = {
     "RDSI": rdsi_value,
