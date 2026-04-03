@@ -5,6 +5,8 @@ on:
   push:
     paths:
       - "scripts/g_child_epf_bridge.py"
+      - "scripts/check_g_epf_overlay_v0_contract.py"
+      - "schemas/g_epf_overlay_v0.schema.json"
       - "PULSE_safe_pack_v0/artifacts/**"
       - ".github/workflows/g_epf_overlay_shadow.yml"
 
@@ -44,17 +46,22 @@ jobs:
           # Optional candidates (prefer artifacts/, fall back to repo root if present)
           BASELINE_A="PULSE_safe_pack_v0/artifacts/status_baseline.json"
           BASELINE_B="status_baseline.json"
-
           EPF_A="PULSE_safe_pack_v0/artifacts/status_epf.json"
           EPF_B="status_epf.json"
-
           PARADOX_A="PULSE_safe_pack_v0/artifacts/epf_paradox_summary.json"
           PARADOX_B="epf_paradox_summary.json"
 
           pick_first_existing () {
-            a="$1"; b="$2"
-            if [ -f "$a" ]; then echo "$a"; return 0; fi
-            if [ -f "$b" ]; then echo "$b"; return 0; fi
+            a="$1"
+            b="$2"
+            if [ -f "$a" ]; then
+              echo "$a"
+              return 0
+            fi
+            if [ -f "$b" ]; then
+              echo "$b"
+              return 0
+            fi
             echo ""
           }
 
@@ -78,18 +85,17 @@ jobs:
           echo "paradox=$paradox" >> "$GITHUB_OUTPUT"
 
           echo "Inputs:"
-          echo " - g_field:  $G_FIELD"
-          echo " - baseline: ${baseline:-<missing>}"
-          echo " - epf:      ${epf:-<missing>}"
-          echo " - paradox:  ${paradox:-<missing>}"
-          echo " - out:      $OUT"
+          echo " - g_field: $G_FIELD"
+          echo " - baseline: ${baseline:-}"
+          echo " - epf: ${epf:-}"
+          echo " - paradox: ${paradox:-}"
+          echo " - out: $OUT"
 
       - name: Build G-EPF overlay (best effort with optional inputs)
         if: steps.inputs.outputs.g_field_ok == 'true'
         shell: bash
         run: |
           set -euo pipefail
-
           mkdir -p PULSE_safe_pack_v0/artifacts
 
           args=()
@@ -122,6 +128,14 @@ jobs:
             echo "::warning::Bridge completed but output was not created: ${{ steps.inputs.outputs.out }}"
           fi
 
+      - name: Contract check (g_epf_overlay_v0)
+        if: steps.inputs.outputs.g_field_ok == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/check_g_epf_overlay_v0_contract.py \
+            --in "${{ steps.inputs.outputs.out }}"
+
       - name: Upload G-EPF overlay artifact
         if: steps.inputs.outputs.g_field_ok == 'true'
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
@@ -129,4 +143,3 @@ jobs:
           name: g-epf-overlays
           if-no-files-found: warn
           path: PULSE_safe_pack_v0/artifacts/g_epf_overlay_v0.json
-
