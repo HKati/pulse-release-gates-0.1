@@ -5,6 +5,8 @@ on:
   push:
     paths:
       - "scripts/g_snapshot_report.py"
+      - "scripts/check_g_snapshot_report_v0_contract.py"
+      - "schemas/g_snapshot_report_v0.schema.json"
       - "scripts/g_child_field_adapter.py"
       - "scripts/gpt_external_detector.py"
       - "scripts/g_child_epf_bridge.py"
@@ -43,7 +45,6 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p PULSE_safe_pack_v0/artifacts
-
           if [ -f "hpc/g_snapshots.jsonl" ] && [ -f "PULSE_safe_pack_v0/artifacts/status.json" ]; then
             echo "[INFO] Rebuilding g_field_v0 overlay..."
             python scripts/g_child_field_adapter.py \
@@ -58,7 +59,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-
           if [ -f "logs/model_invocations.jsonl" ]; then
             mkdir -p PULSE_safe_pack_v0/artifacts
             echo "[INFO] Rebuilding gpt_external_detection_v0 overlay..."
@@ -73,11 +73,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-
           if [ -f "PULSE_safe_pack_v0/artifacts/g_field_v0.json" ] \
-             && [ -f "status_baseline.json" ] \
-             && [ -f "status_epf.json" ] \
-             && [ -f "epf_paradox_summary.json" ]; then
+            && [ -f "status_baseline.json" ] \
+            && [ -f "status_epf.json" ] \
+            && [ -f "epf_paradox_summary.json" ]; then
             mkdir -p PULSE_safe_pack_v0/artifacts
             echo "[INFO] Rebuilding g_epf_overlay_v0 overlay..."
             python scripts/g_child_epf_bridge.py \
@@ -90,7 +89,7 @@ jobs:
             echo "[INFO] Missing EPF baseline/EPF/paradox inputs, skipping G-EPF overlay rebuild."
           fi
 
-      - name: Build G snapshot report
+      - name: Build G snapshot report (markdown)
         shell: bash
         run: |
           set -euo pipefail
@@ -100,11 +99,30 @@ jobs:
             --format markdown \
             --output PULSE_safe_pack_v0/artifacts/g_snapshot_report_v0.md
 
+      - name: Build G snapshot report (json)
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p PULSE_safe_pack_v0/artifacts
+          python scripts/g_snapshot_report.py \
+            --root . \
+            --format json \
+            --output PULSE_safe_pack_v0/artifacts/g_snapshot_report_v0.json
+
+      - name: Contract check (g_snapshot_report_v0 json)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/check_g_snapshot_report_v0_contract.py \
+            --root . \
+            --in PULSE_safe_pack_v0/artifacts/g_snapshot_report_v0.json
+
       - name: Upload G snapshot report
         if: always()
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: g-snapshot-report
           if-no-files-found: warn
-          path: PULSE_safe_pack_v0/artifacts/g_snapshot_report_v0.md
-
+          path: |
+            PULSE_safe_pack_v0/artifacts/g_snapshot_report_v0.md
+            PULSE_safe_pack_v0/artifacts/g_snapshot_report_v0.json
