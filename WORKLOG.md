@@ -15,7 +15,8 @@ Not a product audit. Not a roadmap. Not a “finished gating engine” demand.
 - Scaffold: scaffold/stub behavior is machine-readable (no “looks like PASS”).
 
 ## Active items
-- (none)
+- `g_field_stability_v0`: add a conservative contract checker first; keep umbrella validation unchanged until that checker exists.
+- G snapshot docs truth-repair: repo docs should match current public `main` behavior (markdown + JSON artifacts plus JSON contract check in the shadow workflow).
 
 ## Ledger
 
@@ -50,7 +51,7 @@ Not a product audit. Not a roadmap. Not a “finished gating engine” demand.
 ### WL-0005 — Deterministic baseline status.json writer
 - Discontinuity: run_all writes status.json without sorted keys while augment_status rewrites with sort_keys.
 - Change: write baseline status.json via the deterministic writer (sort_keys + indent).
-- Files: PULSE_safe_pack_v0/tools/run_all.py
+- Files: `PULSE_safe_pack_v0/tools/run_all.py`
 - Verification: CI green; baseline/augmented formatting no longer drifts.
 - Links: PR=#1311, commit=4c32484
 
@@ -80,8 +81,7 @@ Not a product audit. Not a roadmap. Not a “finished gating engine” demand.
 - Change: harden workflow_lint guardrails (colon-name rule + robust git commit detection) to keep CI fail-closed and prevent self-trigger loops in workflows with `contents: write`.
 - Files: `.github/workflows/workflow_lint.yml`
 - Verification: CI green; workflow-lint passes; git commit loop guard detects `git ... commit` even with global flags and enforces `[skip ci]` / `[ci skip]` on commit commands.
-- - Links: PR=#<ADD>, commits=<ADD>
-+ - Links: PR=#1318, commits=dfb80c3, d727500
+- Links: PR=#1318, commits=dfb80c3, d727500
 
 ### WL-0010 — Pages: fail-closed mount parsing + regression tests
 - Discontinuity: mount/path parsing accepted unsafe mount forms and the existing mount test was not a real regression suite (risk of drift and silent re-breaks).
@@ -89,3 +89,10 @@ Not a product audit. Not a roadmap. Not a “finished gating engine” demand.
 - Files: `scripts/pages_publish_paradox_core_bundle_v0.py`, `tests/test_pages_publish_paradox_core_bundle_v0.py`
 - Verification: CI green; `pytest -q tests/test_pages_publish_paradox_core_bundle_v0.py` → 18 passed.
 - Links: PR=#1325, commits=894a850, 47ca0a4, merge=c92b892
+
+### WL-0011 — Shadow overlay bookkeeping: align worklog with public main
+- Discontinuity: internal handover/bookkeeping treated the `g_snapshot_report_v0` umbrella validation step as pending, but public `main` already validates `g_snapshot_report_v0` and `separation_phase_v0` in `scripts/validate_overlays.py`. The shadow workflow already emits both `g_snapshot_report_v0.md` and `g_snapshot_report_v0.json`, then runs `check_g_snapshot_report_v0_contract.py` on the JSON artifact.
+- Change: align the worklog to the actual public `main` state; record snapshot umbrella wiring as done; keep `g_field_stability_v0` as the next contract-hardening target, with any umbrella promotion deferred until a conservative checker exists.
+- Files: `WORKLOG.md`
+- Verification: `WORKLOG.md` no longer describes snapshot umbrella wiring as pending and names `g_field_stability_v0` contract hardening as the next mechanical step.
+- Links: PR=#TBD, commit=TBD
