@@ -378,38 +378,37 @@ In addition to running the pack, CI enforces repo‑level governance guards:
 ## G‑field & shadow overlays
 
 This repo now exposes a small “G‑field” surface as CI‑neutral overlays.  
-They do **not** change any gates or release decisions; they only add extra
-diagnostic layers on top of the existing PULSE status.
+They do **not** change any gates or release decisions; they only add extra diagnostic layers on top of the existing PULSE status.
 
 Additional overlays:
 
-- **G‑field overlay (`g_field_v0.json`)**  
-  Snapshot of the internal G‑child field for recent traces / scenarios.  
-  Produced by `scripts/g_child_field_adapter.py` from `hpc/g_snapshots.jsonl`
-  (when present) and wired into the G‑field overlays (shadow) workflow.
+- **G-field overlay (`g_field_v0.json`)**  
+  Snapshot of the internal G-child field for recent traces / scenarios.  
+  Produced by `scripts/g_child_field_adapter.py` from `hpc/g_snapshots.jsonl` (when present) and wired into the G-field overlays (shadow) workflow.
 
 - **G‑field stability overlay (`g_field_stability_v0.json`)**  
-  Tiny synthetic example that shows how multiple `g_field_v0` runs can be
-  summarized into a single stability view (number of runs, global mean/std,
-  unstable gates, etc.).  
-  Used only for schema validation and for the “Stability” section in the
-  G‑snapshot report.
+  Small synthetic/demo shadow overlay that shows how multiple `g_field_v0` runs can be summarized into a single stability view (`num_runs`, global mean/std, unstable gates, etc.).  
+  It now has a dedicated conservative contract checker: `scripts/check_g_field_stability_v0_contract.py`.  
+  It also participates in the umbrella overlay schema validation sweep.  
+  It remains **shadow-only** and does not change core release semantics.
 
 - **GPT external detection overlay (`gpt_external_detection_v0.json`)**  
-  Sample view over `logs/model_invocations.jsonl`, counting how many
-  internal‑HPC vs external GPT calls happened, broken down by vendor and model.  
+  Sample view over `logs/model_invocations.jsonl`, counting how many internal‑HPC vs external GPT calls happened, broken down by vendor and model.  
   This is only a diagnostic shadow overlay; it does not enforce any policy.
 
 Shadow workflows (GitHub Actions):
 
-- **G‑field overlays (shadow)** – rebuilds `g_field_v0.json` from HPC snapshots.  
-- **G‑EPF overlay (shadow)** – bridges EPF / Paradox outputs into a G‑EPF overlay.  
-- **GPT external detection (shadow)** – scans `logs/model_invocations.jsonl`
-  and emits `gpt_external_detection_v0.json`.  
-- **Overlay schema validation (shadow)** – validates all overlays against
-  their JSON Schemas.  
-- **G snapshot report (shadow)** – renders a single `g_snapshot_report_v0.md`
-  that summarizes which overlays are present and what they contain.
+- **G‑field overlays (shadow)** – rebuilds `g_field_v0.json` from HPC snapshots.
+- **G‑EPF overlay (shadow)** – bridges EPF / Paradox outputs into a G‑EPF overlay.
+- **GPT external detection (shadow)** – scans `logs/model_invocations.jsonl` and emits `gpt_external_detection_v0.json`.
+- **Overlay schema validation (shadow)** – validates current overlay artifacts against their JSON Schemas, including:
+  - `g_field_v0`
+  - `g_field_stability_v0`
+  - `g_epf_overlay_v0`
+  - `gpt_external_detection_v0`
+  - `g_snapshot_report_v0`
+  - `separation_phase_v0`
+- **G snapshot report (shadow)** – builds paired markdown + JSON snapshot artifacts from the available shadow overlays and contract-checks the JSON report.
 
 Current overlays:
 
@@ -418,7 +417,8 @@ Current overlays:
   `FIELD_STABLE` / `FIELD_STRAINED` / `FIELD_COLLAPSED` / `UNKNOWN`
   based on separation-style invariants (order stability, separation integrity, phase dependency).
 
-  > **CI-neutral diagnostic layer.** It never blocks the main PULSE gates and must not change core release-gate semantics.
+> **CI-neutral diagnostic layer.**  
+> It never blocks the main PULSE gates and must not change core release-gate semantics.
 
   - Docs: `docs/SEPARATION_PHASE_v0.md`
   - Schema: `schemas/separation_phase_v0.schema.json`
@@ -430,9 +430,7 @@ Current overlays:
     - `PULSE_safe_pack_v0/artifacts/separation_phase_v0.json`
     - `PULSE_safe_pack_v0/artifacts/separation_phase_overlay_v0.md`
 
-All of these are **fail‑closed only for their own job** (they never block the
-main PULSE gates) and are meant as a safe playground for the internal G‑field
-and GPT diagnostics.
+All of these are **fail‑closed only for their own job** (they never block the main PULSE gates) and are meant as a safe playground for the internal G‑field, EPF, separation-phase, and GPT diagnostics.
 
 ---
 
@@ -482,47 +480,43 @@ Artifacts typically include:
 
 ## G snapshot report (v0)
 
-PULSE ships a shadow workflow that summarizes internal G-field and GPT
-external usage into a single markdown report.
+PULSE ships a shadow workflow that summarizes internal G-field and GPT external usage into paired reviewer-facing and machine-readable snapshot artifacts.
 
 - Workflow: **“G snapshot report (shadow)”** (GitHub Actions)
 - Inputs (if present):
   - `g_field_v0.json` (G-child overlay)
   - `g_field_stability_v0.json` (stability overlay, optional)
   - `g_epf_overlay_v0.json` (EPF overlay, optional)
-  - `gpt_external_detection_v0.json` (GPT sentinel overlay, built from
-    `logs/model_invocations.jsonl`)
-- Output artifact:
+  - `gpt_external_detection_v0.json` (GPT sentinel overlay, built from `logs/model_invocations.jsonl`)
+- Output artifacts:
   - `PULSE_safe_pack_v0/artifacts/g_snapshot_report_v0.md`
+  - `PULSE_safe_pack_v0/artifacts/g_snapshot_report_v0.json`
+- Contract check:
+  - `scripts/check_g_snapshot_report_v0_contract.py`
 
-The report shows, for each overlay, whether it is present/missing, plus:
-basic G-field stats (mean/min/max) and GPT usage stats (internal vs
-external calls, top vendors and models). It is CI-neutral and intended
-for diagnostic and governance dashboards.
+The markdown artifact is the human-readable summary.  
+The JSON artifact is the contract-checked machine-readable snapshot for downstream diagnostics and overlay validation.
+
+This workflow remains **CI-neutral** and is intended for diagnostic and governance dashboards.  
+It does not change core release outcomes.
 
 ---
 
 ### Roadmap (shadow layer)
 
-The current G-shadow layer is intentionally minimal: a small set of overlays and a
-shadow-only snapshot report that can be shipped safely in the PULSE safe pack.
-Next steps we are planning (non‑breaking, iterative) include:
+The current G-shadow layer is intentionally minimal: a small set of overlays and a shadow-only snapshot report that can be shipped safely in the PULSE safe pack. Next steps we are planning (non-breaking, iterative) include:
 
 - **EPF overlay 2.0**  
-  Move from the current demo EPF panel to a more realistic EPF diagnostics overlay
-  (richer fields, clearer mapping to gates, better summary in the snapshot report).
+  Move from the current demo EPF panel to a more realistic EPF diagnostics overlay (richer fields, clearer mapping to gates, better summary in the snapshot report).
 
 - **G‑field stability summaries**  
-  Extend the `g_field_stability` overlay from a raw diagnostic JSON block to
-  gate-level stability summaries and (optionally) simple historical trends.
+  Build on the current conservative, contract-checked `g_field_stability_v0` shadow artifact toward gate-level stability summaries and, optionally, simple historical trends.
 
 - **GPT usage overlays**  
-  Refine the GPT external detection overlay with scenario / product‑line breakdowns
-  and clearer attribution of “internal vs external” usage in the snapshot.
+  Refine the GPT external detection overlay with scenario / product-line breakdowns and clearer attribution of “internal vs external” usage in the snapshot.
 
 - **Docs & UX for overlays**  
-  Add short “how to add a new overlay” guidance and more snapshot examples, so that
-  teams can plug in additional overlays without touching the core release gates.
+  Add short “how to add a new overlay” guidance and more snapshot examples, so that teams can plug in additional overlays without touching the core release gates.
 
 ---
 
