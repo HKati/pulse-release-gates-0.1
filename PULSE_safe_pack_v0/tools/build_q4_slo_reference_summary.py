@@ -17,6 +17,7 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import json
+import math
 import os
 from pathlib import Path
 from typing import Any
@@ -67,30 +68,58 @@ def _expect_plain_int(name: str, value: Any) -> int:
     return value
 
 
+def _expect_nonnegative_int(name: str, value: Any) -> int:
+    value_i = _expect_plain_int(name, value)
+    if value_i < 0:
+        raise ValueError(f"{name} must be >= 0")
+    return value_i
+
+
 def _expect_plain_number(name: str, value: Any) -> float:
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         raise ValueError(f"{name} must be a number")
-    return float(value)
+    value_f = float(value)
+    if not math.isfinite(value_f):
+        raise ValueError(f"{name} must be a finite number")
+    return value_f
+
+
+def _expect_nonnegative_number(name: str, value: Any) -> float:
+    value_f = _expect_plain_number(name, value)
+    if value_f < 0:
+        raise ValueError(f"{name} must be >= 0")
+    return value_f
+
+
+def _expect_positive_number(name: str, value: Any) -> float:
+    value_f = _expect_plain_number(name, value)
+    if value_f <= 0:
+        raise ValueError(f"{name} must be > 0")
+    return value_f
+
+
+def _reject_nonfinite_json_constant(value: str) -> None:
+    raise ValueError(f"non-finite JSON constant not allowed in input: {value}")
 
 
 def _load_stats_json(path: Path) -> tuple[int, float, float]:
     try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
+        payload = json.loads(
+            path.read_text(encoding="utf-8"),
+            parse_constant=_reject_nonfinite_json_constant,
+        )
     except json.JSONDecodeError as e:
         raise ValueError(f"{path}: invalid JSON: {e}") from e
 
     obj = _expect_object(str(path), payload)
 
-    n_requests = _expect_plain_int("n_requests", obj.get("n_requests"))
-    latency_p95_ms = _expect_plain_number("latency_ms_p95", obj.get("latency_ms_p95"))
-    cost_p95_usd = _expect_plain_number("cost_usd_p95", obj.get("cost_usd_p95"))
-
-    if n_requests < 0:
-        raise ValueError("n_requests must be >= 0")
-    if latency_p95_ms < 0:
-        raise ValueError("latency_ms_p95 must be >= 0")
-    if cost_p95_usd < 0:
-        raise ValueError("cost_usd_p95 must be >= 0")
+    n_requests = _expect_nonnegative_int("n_requests", obj.get("n_requests"))
+    latency_p95_ms = _expect_nonnegative_number(
+        "latency_ms_p95", obj.get("latency_ms_p95")
+    )
+    cost_p95_usd = _expect_nonnegative_number(
+        "cost_usd_p95", obj.get("cost_usd_p95")
+    )
 
     return n_requests, latency_p95_ms, cost_p95_usd
 
@@ -150,12 +179,8 @@ def _build_summary(
         "pass_basis": "latency_and_cost_p95_with_min_requests",
         "primary_metric_id": "q4_slo_budget_conjunction",
         "budget_ratios": {
-            "latency_p95_ratio": (
-                latency_p95_ms / latency_budget_ms if latency_budget_ms > 0 else None
-            ),
-            "cost_p95_ratio": (
-                cost_p95_usd / cost_budget_usd if cost_budget_usd > 0 else None
-            ),
+            "latency_p95_ratio": latency_p95_ms / latency_budget_ms,
+            "cost_p95_ratio": cost_p95_usd / cost_budget_usd,
         },
         "method": method,
         "provenance": provenance,
@@ -195,10 +220,16 @@ def main() -> int:
     stats_path = Path(args.stats_json)
     out_path = Path(args.out)
 
-    n_requests, latency_p95_ms, cost_p95_usd = _load_stats_json(stats_path)
-
     try:
         created_utc = _resolve_created_utc(args.created_utc)
+        latency_budget_ms = _expect_positive_number(
+            "--latency_budget_ms", args.latency_budget_ms
+        )
+        cost_budget_usd = _expect_positive_number(
+            "--cost_budget_usd", args.cost_budget_usd
+        )
+        min_requests = _expect_nonnegative_int("--min_requests", args.min_requests)
+        n_requests, latency_p95_ms, cost_p95_usd = _load_stats_json(stats_path)
     except ValueError as e:
         parser.error(str(e))
 
@@ -214,14 +245,14 @@ def main() -> int:
         n_requests=n_requests,
         latency_p95_ms=latency_p95_ms,
         cost_p95_usd=cost_p95_usd,
-        latency_budget_ms=float(args.latency_budget_ms),
-        cost_budget_usd=float(args.cost_budget_usd),
-        min_requests=int(args.min_requests),
+        latency_budget_ms=latency_budget_ms,
+        cost_budget_usd=cost_budget_usd,
+        min_requests=min_requests,
     )
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
     with out_path.open("w", encoding="utf-8") as f:
-        json.dump(summary, f, indent=2, sort_keys=True)
+        json.dump(summary, f, indent=2, sort_keys=True, allow_nan=False)
         f.write("\n")
 
     print(
@@ -240,6 +271,7 @@ def main() -> int:
             },
             indent=2,
             sort_keys=True,
+            allow_nan=False,
         )
     )
     return 0
