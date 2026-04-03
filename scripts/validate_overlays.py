@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """
 validate_overlays.py
 
@@ -8,9 +8,12 @@ This script is CI-neutral:
 - If a data file is missing, it prints an INFO message and continues.
 - If a data file is present but fails validation, it exits with code 1.
 
-Note: the g_field_stability_v0 overlay is diagnostic-only for now and is
-not part of this validation script.
+Note:
+- g_field_stability_v0 remains diagnostic-only for now and is intentionally
+  not part of this validation script yet.
 """
+
+from __future__ import annotations
 
 import argparse
 import json
@@ -23,8 +26,8 @@ try:
     import jsonschema
 except ImportError:
     sys.stderr.write(
-        "[ERROR] jsonschema package is required. Install with "
-        "`pip install jsonschema`.\n"
+        "[ERROR] jsonschema package is required. "
+        "Install with `pip install jsonschema`.\n"
     )
     sys.exit(1)
 
@@ -55,18 +58,14 @@ def _validate_overlay(name: str, schema_path: Path, data_path: Path) -> bool:
     try:
         jsonschema.validate(instance=data, schema=schema)
     except jsonschema.ValidationError as e:
-        sys.stderr.write(
-            f"[ERROR] {name}: validation failed for {data_path}\n"
-        )
+        sys.stderr.write(f"[ERROR] {name}: validation failed for {data_path}\n")
         sys.stderr.write(f"  Message: {e.message}\n")
         if e.path:
             sys.stderr.write(f"  Path: {'/'.join(map(str, e.path))}\n")
         sys.stderr.write(f"  Schema: {schema_path}\n")
         return False
 
-    sys.stderr.write(
-        f"[INFO] {name}: OK ({data_path} matches {schema_path})\n"
-    )
+    sys.stderr.write(f"[INFO] {name}: OK ({data_path} matches {schema_path})\n")
     return True
 
 
@@ -82,7 +81,6 @@ def main() -> None:
     args = parser.parse_args()
     root = Path(args.root).resolve()
 
-    # Helper to make candidate lists shorter to write.
     def sp(*parts: str) -> Path:
         return root.joinpath(*parts)
 
@@ -118,12 +116,19 @@ def main() -> None:
                 sp("schemas", "schemas", "gpt_external_detection_v0.schema.json"),
             ],
             data_candidates=[
-                sp(
-                    "PULSE_safe_pack_v0",
-                    "artifacts",
-                    "gpt_external_detection_v0.json",
-                ),
+                sp("PULSE_safe_pack_v0", "artifacts", "gpt_external_detection_v0.json"),
                 sp("gpt_external_detection_v0.json"),
+            ],
+        ),
+        OverlayConfig(
+            name="g_snapshot_report_v0",
+            schema_candidates=[
+                sp("schemas", "g_snapshot_report_v0.schema.json"),
+                sp("schemas", "schemas", "g_snapshot_report_v0.schema.json"),
+            ],
+            data_candidates=[
+                sp("PULSE_safe_pack_v0", "artifacts", "g_snapshot_report_v0.json"),
+                sp("g_snapshot_report_v0.json"),
             ],
         ),
         OverlayConfig(
@@ -133,11 +138,7 @@ def main() -> None:
                 sp("schemas", "schemas", "separation_phase_v0.schema.json"),
             ],
             data_candidates=[
-                sp(
-                    "PULSE_safe_pack_v0",
-                    "artifacts",
-                    "separation_phase_v0.json",
-                ),
+                sp("PULSE_safe_pack_v0", "artifacts", "separation_phase_v0.json"),
                 sp("separation_phase_v0.json"),
             ],
         ),
@@ -150,9 +151,7 @@ def main() -> None:
         data_path = _first_existing(cfg.data_candidates)
 
         if data_path is None:
-            sys.stderr.write(
-                f"[INFO] {cfg.name}: data file not found, skipping.\n"
-            )
+            sys.stderr.write(f"[INFO] {cfg.name}: data file not found, skipping.\n")
             continue
 
         if schema_path is None:
@@ -160,7 +159,7 @@ def main() -> None:
                 f"[ERROR] {cfg.name}: schema file not found under any of:\n"
             )
             for cand in cfg.schema_candidates:
-                sys.stderr.write(f"  - {cand}\n")
+                sys.stderr.write(f" - {cand}\n")
             all_ok = False
             continue
 
