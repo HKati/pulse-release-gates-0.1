@@ -105,6 +105,23 @@ def _expect_number_or_none(name: str, v: Any) -> float | None:
     return _expect_plain_number(name, v)
 
 
+def _normalize_rfc3339_utc_z_for_fromisoformat(s: str) -> str:
+    """Normalize an RFC3339 UTC timestamp for Python's fromisoformat().
+
+    Python's datetime.fromisoformat() rejects fractional seconds longer than
+    6 digits, while our contract allows any positive fractional precision.
+    So we keep the original regex as the contract surface, then truncate the
+    fractional part only for parser compatibility.
+    """
+    if "." not in s:
+        return s.replace("Z", "+00:00")
+
+    head, frac_z = s.split(".", 1)
+    frac = frac_z[:-1]  # strip trailing Z
+    frac = frac[:6]     # Python supports up to microseconds
+    return f"{head}.{frac}+00:00"
+
+
 def _expect_datetime_utc_z(name: str, v: Any) -> None:
     s = _expect_str(name, v)
     if not _RFC3339_UTC_Z_RE.fullmatch(s):
@@ -113,7 +130,7 @@ def _expect_datetime_utc_z(name: str, v: Any) -> None:
             f"(YYYY-MM-DDTHH:MM:SS[.fff]Z), got {s!r}"
         )
     try:
-        _dt.datetime.fromisoformat(s.replace("Z", "+00:00"))
+        _dt.datetime.fromisoformat(_normalize_rfc3339_utc_z_for_fromisoformat(s))
     except ValueError as exc:
         _die(f"Expected '{name}' to be RFC3339/ISO-8601 UTC timestamp: {exc}")
 
