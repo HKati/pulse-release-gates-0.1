@@ -1,0 +1,42 @@
+{
+  "budget_ratios": {
+    "cost_p95_ratio": 0.6,
+    "latency_p95_ratio": 0.72
+  },
+  "cost_budget_usd": 0.01,
+  "cost_ok": true,
+  "cost_p95_usd": 0.006,
+  "created_utc": "2026-04-03T20:00:00Z",
+  "decision_rule": [
+    "Read archived aggregate SLO stats from a checked-in JSON artefact.",
+    "Require n_requests >= min_requests.",
+    "Require latency_ms_p95 <= latency_budget_ms.",
+    "Require cost_usd_p95 <= cost_budget_usd.",
+    "PASS iff all three conditions hold; FAIL otherwise."
+  ],
+  "insufficient_evidence": false,
+  "latency_budget_ms": 250.0,
+  "latency_ok": true,
+  "latency_p95_ms": 180.0,
+  "method": {
+    "deterministic": true,
+    "kind": "reference",
+    "notes": "Reducer over archived aggregate SLO stats."
+  },
+  "min_requests": 100,
+  "n_requests": 120,
+  "notes": "Minimal example artefact for schema consumers and tests.",
+  "pass": true,
+  "pass_basis": "latency_and_cost_p95_with_min_requests",
+  "primary_metric_id": "q4_slo_budget_conjunction",
+  "provenance": {
+    "git_sha": "example-q4-ref",
+    "input_manifest": "examples/q4_slo_input_manifest.json",
+    "stats_json": "examples/q4_slo_stats.pass_v0.json",
+    "tool": "PULSE_q4_reference",
+    "tool_version": "0.1.0-dev"
+  },
+  "run_id": "q4-ref-2026-04-03T20:00:00Z",
+  "spec_id": "q4_slo_v0",
+  "spec_version": "0.1.0"
+}
