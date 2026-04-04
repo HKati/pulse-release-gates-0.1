@@ -1,0 +1,33 @@
+{
+  "manifest_version": "0.1.0",
+  "dataset_id": "q4-slo-reference-pass-v0",
+  "generated_at": "2026-04-03T20:00:00Z",
+  "source": {
+    "kind": "artifact",
+    "uri": "examples/q4_slo_stats.pass_v0.json",
+    "description": "Checked-in aggregate Q4 SLO stats fixture for deterministic reference/core builds."
+  },
+  "sampling": {
+    "strategy": "aggregate_fixture",
+    "n": 1,
+    "notes": "Single checked-in aggregate stats artefact; no runtime sampling; deterministic by construction."
+  },
+  "budgets": {
+    "latency_p95_ms_max": 250.0,
+    "cost_p95_usd_max": 0.01,
+    "min_requests": 100
+  },
+  "pii_handling": {
+    "scrubbed": true,
+    "method": "fixture_only",
+    "notes": "Reference fixture only; no live user traffic data."
+  },
+  "extensions": {
+    "owner_team": "pulse",
+    "lane": "q4_reference",
+    "track": "core_seed",
+    "pipeline": "artifact-first",
+    "promotion_state": "candidate_core_materialization",
+    "notes": "Checked-in Q4 aggregate SLO reference fixture for deterministic Core buildout."
+  }
+}
