@@ -39,6 +39,12 @@ now = datetime.datetime.utcnow().isoformat() + "Z"
 
 SUPPORTED_MODES = ("demo", "core", "prod")
 
+# Only these pre-hazard numeric metrics are allowed to enter the EPF coordinate
+# vector. Bookkeeping counts / provenance numerics must not perturb hazard math.
+FIELD_NUMERIC_METRIC_ALLOWLIST = {
+    "RDSI",
+}
+
 
 def _sha256_file(p: pathlib.Path) -> str | None:
     try:
@@ -54,7 +60,11 @@ def _sha256_file(p: pathlib.Path) -> str | None:
 parser = argparse.ArgumentParser(add_help=True)
 
 _env_raw = os.getenv("PULSE_RUN_MODE")
-_env_mode = _env_raw.strip().lower() if isinstance(_env_raw, str) and _env_raw.strip() else None
+_env_mode = (
+    _env_raw.strip().lower()
+    if isinstance(_env_raw, str) and _env_raw.strip()
+    else None
+)
 
 if _env_mode is not None and _env_mode not in SUPPORTED_MODES:
     parser.error(
@@ -141,7 +151,11 @@ def get_git_sha(repo_root: pathlib.Path) -> Optional[str]:
     """
     Best-effort git SHA for provenance (fail-open).
     """
-    sha = os.getenv("GITHUB_SHA") or os.getenv("CI_COMMIT_SHA") or os.getenv("BUILD_SOURCEVERSION")
+    sha = (
+        os.getenv("GITHUB_SHA")
+        or os.getenv("CI_COMMIT_SHA")
+        or os.getenv("BUILD_SOURCEVERSION")
+    )
     if isinstance(sha, str) and sha.strip():
         return sha.strip()
 
@@ -254,26 +268,23 @@ def build_epf_field_snapshots(
     """
     Build a flat dotted-key EPF field snapshot + deterministic reference anchor.
 
-    Design intent (Grail-hű):
+    Design intent:
       - current_snapshot is a FIELD coordinate vector (not an alert payload)
       - reference_snapshot is a stable suggestion anchor
       - deterministic and numeric-only
-
-    Returns:
-        (current_snapshot, reference_snapshot, stability_metrics)
+      - only explicit field metrics may influence hazard math
     """
     current: dict = {}
 
-    # 1) Numeric metrics -> metrics.<key>
-    # Exclude hazard_* derived fields and obvious non-numeric info.
+    # 1) Numeric field metrics -> metrics.<key>
     for k in sorted(metrics.keys(), key=lambda x: str(x)):
         ks = str(k)
-        if ks.startswith("hazard_"):
-            continue
-        if ks in ("build_time", "rdsi_note", "git_sha", "run_key"):
+        if ks not in FIELD_NUMERIC_METRIC_ALLOWLIST:
             continue
 
         v = metrics.get(k)
+        if isinstance(v, bool):
+            continue
         if isinstance(v, (int, float)):
             current[f"metrics.{ks}"] = float(v)
 
@@ -285,13 +296,13 @@ def build_epf_field_snapshots(
         ok = gates.get(name) is True
         current[f"gates.{name}"] = 1.0 if ok else 0.0
 
-    # 3) Stability metrics (forecast reads RDSI if present)
+    # 3) Stability metrics
     stability: dict = {}
     rdsi = metrics.get("RDSI")
-    if isinstance(rdsi, (int, float)):
+    if isinstance(rdsi, (int, float)) and not isinstance(rdsi, bool):
         stability["RDSI"] = float(rdsi)
 
-    # 4) Deterministic reference anchor for this coordinate system
+    # 4) Deterministic reference anchor
     reference: dict = {}
     for key in sorted(current.keys()):
         if key == "metrics.RDSI":
@@ -603,6 +614,8 @@ BASE_GATES = {
 }
 
 gate_sources = {k: "uninitialized" for k in BASE_GATES.keys()}
+core_materialized: list[str] = []
+core_unresolved: list[str] = []
 
 if RUN_MODE == "demo":
     gates = dict(BASE_GATES)
@@ -631,6 +644,21 @@ elif RUN_MODE == "core":
     gates["q4_slo_ok"] = q4_pass
     gate_sources["q4_slo_ok"] = q4_source
 
+    core_materialized = sorted(
+        [
+            k
+            for k, src in gate_sources.items()
+            if isinstance(src, str) and src.startswith("materialized_from_")
+        ]
+    )
+    core_unresolved = sorted(
+        [
+            k
+            for k, src in gate_sources.items()
+            if not (isinstance(src, str) and src.startswith("materialized_from_"))
+        ]
+    )
+
     rdsi_value = 0.0
     rdsi_note = (
         "Core materialize-or-fail-closed run: only gates with real deterministic "
@@ -656,32 +684,8 @@ metrics = {
     "RDSI": rdsi_value,
     "rdsi_note": rdsi_note,
     "build_time": now,
+    "run_mode": RUN_MODE,
 }
-
-if RUN_MODE == "core":
-    materialized = sorted(
-        [
-            k
-            for k, src in gate_sources.items()
-            if isinstance(src, str) and src.startswith("materialized_from_")
-        ]
-    )
-    unresolved = sorted(
-        [
-            k
-            for k, src in gate_sources.items()
-            if not (isinstance(src, str) and src.startswith("materialized_from_"))
-        ]
-    )
-    metrics["core_truth_mode"] = "materialize_or_fail_closed"
-    metrics["core_materialized_gates"] = materialized
-    metrics["core_unmaterialized_gates"] = unresolved
-    metrics["core_materialized_gate_count"] = int(len(materialized))
-    metrics["core_unmaterialized_gate_count"] = int(len(unresolved))
-    metrics["core_q1_source"] = gate_sources.get("q1_grounded_ok", "unknown")
-    metrics["core_q4_source"] = gate_sources.get("q4_slo_ok", "unknown")
-
-metrics["run_mode"] = RUN_MODE
 
 gp = pathlib.Path(str(args.gate_policy))
 metrics["gate_policy_path"] = str(gp)
@@ -781,6 +785,16 @@ metrics["hazard_feature_allowlist_count"] = int(
     calib_summary.get("feature_allowlist_count", 0) or 0
 )
 
+# Add core bookkeeping only AFTER hazard math is computed.
+if RUN_MODE == "core":
+    metrics["core_truth_mode"] = "materialize_or_fail_closed"
+    metrics["core_materialized_gates"] = core_materialized
+    metrics["core_unmaterialized_gates"] = core_unresolved
+    metrics["core_materialized_gate_count"] = int(len(core_materialized))
+    metrics["core_unmaterialized_gate_count"] = int(len(core_unresolved))
+    metrics["core_q1_source"] = gate_sources.get("q1_grounded_ok", "unknown")
+    metrics["core_q4_source"] = gate_sources.get("q4_slo_ok", "unknown")
+
 # E-history for Stability Map artefact
 E_history = load_hazard_E_history(hazard_log_path, max_points=20, gate_id=hazard_gate_id)
 
@@ -874,10 +888,7 @@ else:
 # detectors_materialized_ok is release-grade only.
 # In Core, it stays false until the required evidence path is fully materialized.
 if RUN_MODE == "core":
-    unresolved_count = metrics.get("core_unmaterialized_gate_count", 1)
-    gates["detectors_materialized_ok"] = bool(
-        isinstance(unresolved_count, int) and unresolved_count == 0
-    )
+    gates["detectors_materialized_ok"] = bool(len(core_unresolved) == 0)
 else:
     gates["detectors_materialized_ok"] = False
 
