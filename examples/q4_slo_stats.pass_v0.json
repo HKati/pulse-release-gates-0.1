@@ -1,0 +1,9 @@
+{
+  "spec_id": "q4_slo_input_v0",
+  "spec_version": "0.1.0",
+  "created_utc": "2026-04-03T20:00:00Z",
+  "n_requests": 120,
+  "latency_ms_p95": 180.0,
+  "cost_usd_p95": 0.006,
+  "notes": "Checked-in aggregate SLO stats fixture for deterministic Core/reference builds."
+}
