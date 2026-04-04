@@ -16,6 +16,7 @@ import os
 import pathlib
 import subprocess
 import sys
+import tempfile
 from typing import Optional, Tuple
 
 
@@ -98,6 +99,95 @@ def write_json_artifact(path: pathlib.Path, payload: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8") as f:
         json.dump(payload, f, indent=2, sort_keys=True)
+
+def _run_json_tool(
+    cmd: list[str],
+    *,
+    cwd: pathlib.Path,
+    out_path: pathlib.Path,
+) -> tuple[bool, dict | None, str]:
+    try:
+        proc = subprocess.run(
+            cmd,
+            cwd=str(cwd),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            check=False,
+        )
+    except Exception as e:
+        return False, None, f"tool_exec_error: {e}"
+
+    if proc.returncode != 0:
+        stderr = (proc.stderr or "").strip()
+        return False, None, stderr or f"tool_returncode_{proc.returncode}"
+
+    if not out_path.is_file():
+        return False, None, "missing_output_json"
+
+    try:
+        with out_path.open("r", encoding="utf-8") as f:
+            payload = json.load(f)
+    except Exception as e:
+        return False, None, f"invalid_output_json: {e}"
+
+    if not isinstance(payload, dict):
+        return False, None, "output_json_not_object"
+
+    return True, payload, ""
+
+
+def materialize_q4_slo_ok(
+    repo_root: pathlib.Path,
+    *,
+    created_utc: str,
+) -> tuple[bool, bool, str]:
+    runner = repo_root / "PULSE_safe_pack_v0" / "tools" / "build_q4_slo_reference_summary.py"
+    manifest = repo_root / "examples" / "q4_slo_input_manifest.json"
+    stats = repo_root / "examples" / "q4_slo_stats.pass_v0.json"
+
+    missing = [p for p in (runner, manifest, stats) if not p.is_file()]
+    if missing:
+        return False, False, "missing_inputs_or_runner"
+
+    with tempfile.TemporaryDirectory() as td:
+        out_path = pathlib.Path(td) / "q4_reference_summary.json"
+        cmd = [
+            sys.executable,
+            str(runner),
+            "--stats_json",
+            str(stats),
+            "--out",
+            str(out_path),
+            "--input_manifest",
+            str(manifest),
+            "--run_id",
+            f"core-q4-{created_utc}",
+            "--created_utc",
+            created_utc,
+            "--tool",
+            "PULSE_q4_reference",
+            "--tool_version",
+            "0.1.0-dev",
+            "--notes",
+            "Core materialization from checked-in Q4 aggregate SLO fixture.",
+            "--latency_budget_ms",
+            "250",
+            "--cost_budget_usd",
+            "0.01",
+            "--min_requests",
+            "100",
+        ]
+
+        ok, payload, err = _run_json_tool(cmd, cwd=repo_root, out_path=out_path)
+        if not ok or payload is None:
+            return False, False, err or "q4 runner failed"
+
+        passed = payload.get("pass")
+        if not isinstance(passed, bool):
+            return False, False, "q4 summary missing boolean 'pass'"
+
+        return bool(passed), True, "materialized_from_q4_reference"
 
 
 from PULSE_safe_pack_v0.epf.epf_hazard_adapter import (  # noqa: E402
@@ -473,6 +563,19 @@ else:
     # prod: fail-closed baseline until real detectors replace stubs
     gates = {k: False for k in BASE_GATES.keys()}
 
+gate_sources = {k: "unresolved_stub" for k in gates.keys()}
+
+if RUN_MODE == "core":
+    q4_pass, q4_materialized, q4_source = materialize_q4_slo_ok(
+        REPO_ROOT,
+        created_utc=now,
+    )
+    gates["q4_slo_ok"] = q4_pass
+    gate_sources["q4_slo_ok"] = q4_source
+    metrics_q4_materialized = q4_materialized
+else:
+    metrics_q4_materialized = False
+
 metrics = {
     "RDSI": 0.92 if RUN_MODE in ("demo", "core") else 0.0,
     "rdsi_note": (
@@ -486,6 +589,27 @@ metrics = {
 }
 
 metrics["run_mode"] = RUN_MODE
+metrics["q4_slo_materialized"] = bool(metrics_q4_materialized)
+if RUN_MODE == "core":
+    metrics["core_q4_source"] = gate_sources.get("q4_slo_ok", "unknown")
+materialized = sorted(
+    [
+        k
+        for k, src in gate_sources.items()
+        if isinstance(src, str) and src.startswith("materialized_from_")
+    ]
+)
+unresolved = sorted(
+    [
+        k
+        for k, src in gate_sources.items()
+        if not (isinstance(src, str) and src.startswith("materialized_from_"))
+    ]
+)
+metrics["materialized_gate_count"] = len(materialized)
+metrics["unresolved_gate_count"] = len(unresolved)
+metrics["materialized_gates"] = materialized
+metrics["unresolved_gates"] = unresolved
 
 gp = pathlib.Path(str(args.gate_policy))
 metrics["gate_policy_path"] = str(gp)
