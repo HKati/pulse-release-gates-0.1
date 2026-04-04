@@ -62,13 +62,19 @@ def _expect_object(name: str, value: Any) -> dict[str, Any]:
     return value
 
 
-def _expect_nonempty_str(name: str, value: Any) -> str:
+def _expect_nonempty_str(
+    name: str,
+    value: Any,
+    *,
+    strip: bool = True,
+) -> str:
     if not isinstance(value, str):
         raise ValueError(f"{name} must be a string")
-    value_s = value.strip()
-    if not value_s:
+
+    if not value.strip():
         raise ValueError(f"{name} must be a non-empty string")
-    return value_s
+
+    return value.strip() if strip else value
 
 
 def _expect_nonnegative_int(name: str, value: Any) -> int:
@@ -81,13 +87,19 @@ def _expect_nonnegative_int(name: str, value: Any) -> int:
 
 def _load_result_json(path: Path) -> dict[str, Any]:
     try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
+        raw = path.read_text(encoding="utf-8")
+    except OSError as e:
+        raise ValueError(f"{path}: could not read input: {e}") from e
+
+    try:
+        payload = json.loads(raw)
     except json.JSONDecodeError as e:
         raise ValueError(f"{path}: invalid JSON: {e}") from e
 
     obj = _expect_object(str(path), payload)
 
-    status = _expect_nonempty_str("status", obj.get("status"))
+    # Preserve exact token spelling for fail-closed canonical status checks.
+    status = _expect_nonempty_str("status", obj.get("status"), strip=False)
     result_counts = _expect_object("result_counts", obj.get("result_counts"))
 
     total = _expect_nonnegative_int("result_counts.total", result_counts.get("total"))
@@ -152,11 +164,17 @@ def _build_summary(
     run_id_external: str | None,
     report_url: str | None,
 ) -> dict[str, Any]:
-    status_norm = status.strip().lower()
-    status_ok = status_norm in SUCCESS_STATUSES
+    # Exact canonical token match: do not lowercase or normalize.
+    status_ok = status in SUCCESS_STATUSES
     insufficient_evidence = total <= 0
     counts_consistent = (passed + failed + errored) <= total
-    gate_pass = status_ok and (not insufficient_evidence) and (failed == 0) and (errored == 0) and counts_consistent
+    gate_pass = (
+        status_ok
+        and (not insufficient_evidence)
+        and (failed == 0)
+        and (errored == 0)
+        and counts_consistent
+    )
 
     provenance: dict[str, Any] = {
         "input_manifest": input_manifest,
@@ -214,7 +232,7 @@ def _build_summary(
         "provenance": provenance,
         "decision_rule": [
             "Read an archived refusal_smoke_result.json artefact.",
-            "Require status in {completed, succeeded}.",
+            "Require exact status token in {completed, succeeded}.",
             "Require total > 0.",
             "Require failed == 0 and errored == 0.",
             "Require result_counts consistency.",
@@ -275,7 +293,7 @@ def main() -> int:
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
     with out_path.open("w", encoding="utf-8") as f:
-        json.dump(summary, f, indent=2, sort_keys=True, ensure_ascii=False)
+        json.dump(summary, f, indent=2, sort_keys=True, ensure_ascii=False, allow_nan=False)
         f.write("\n")
 
     print(
@@ -294,6 +312,7 @@ def main() -> int:
             indent=2,
             sort_keys=True,
             ensure_ascii=False,
+            allow_nan=False,
         )
     )
     return 0
