@@ -12,6 +12,7 @@ import argparse
 import datetime
 import hashlib
 import json
+import math
 import os
 import pathlib
 import subprocess
@@ -38,6 +39,29 @@ art.mkdir(parents=True, exist_ok=True)
 now = datetime.datetime.utcnow().isoformat() + "Z"
 
 SUPPORTED_MODES = ("demo", "core", "prod")
+
+FIELD_SNAPSHOT_METRIC_EXCLUSIONS = {
+    "build_time",
+    "rdsi_note",
+    "git_sha",
+    "run_key",
+    # bookkeeping / provenance counts must not distort EPF field coordinates
+    "core_materialized_gate_count",
+    "core_unmaterialized_gate_count",
+}
+
+
+def _is_finite_real_number(value: Any) -> bool:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return False
+    try:
+        return math.isfinite(float(value))
+    except (OverflowError, ValueError):
+        return False
+
+
+def _gate_source_is_materialized(source: str) -> bool:
+    return isinstance(source, str) and source.startswith("materialized_from_")
 
 
 def _sha256_file(p: pathlib.Path) -> str | None:
@@ -75,7 +99,6 @@ parser.add_argument(
 parser.add_argument("--pack_dir", default=str(ROOT))
 parser.add_argument("--gate_policy", default=str(REPO_ROOT / "pulse_gate_policy_v0.yml"))
 args, _unknown = parser.parse_known_args()
-
 
 RUN_MODE = str(args.mode).strip().lower()
 if RUN_MODE == "demo":
@@ -204,7 +227,7 @@ def load_hazard_T_history(
 
             hazard = obj.get("hazard", {}) or {}
             T = hazard.get("T")
-            if isinstance(T, (int, float)):
+            if _is_finite_real_number(T):
                 values.append(float(T))
 
     return values[-max_points:]
@@ -270,11 +293,11 @@ def build_epf_field_snapshots(
         ks = str(k)
         if ks.startswith("hazard_"):
             continue
-        if ks in ("build_time", "rdsi_note", "git_sha", "run_key"):
+        if ks in FIELD_SNAPSHOT_METRIC_EXCLUSIONS:
             continue
 
         v = metrics.get(k)
-        if isinstance(v, (int, float)):
+        if _is_finite_real_number(v):
             current[f"metrics.{ks}"] = float(v)
 
     # 2) Gate outcomes -> gates.<name> (bool -> 0/1)
@@ -288,7 +311,7 @@ def build_epf_field_snapshots(
     # 3) Stability metrics (forecast reads RDSI if present)
     stability: dict = {}
     rdsi = metrics.get("RDSI")
-    if isinstance(rdsi, (int, float)):
+    if _is_finite_real_number(rdsi):
         stability["RDSI"] = float(rdsi)
 
     # 4) Deterministic reference anchor for this coordinate system
@@ -338,7 +361,7 @@ def load_hazard_E_history(
 
             hazard = obj.get("hazard", {}) or {}
             E = hazard.get("E")
-            if isinstance(E, (int, float)):
+            if _is_finite_real_number(E):
                 values.append(float(E))
 
     return values[-max_points:] if values else []
@@ -435,12 +458,13 @@ def load_calibration_recommendation(calib_path: pathlib.Path) -> dict:
     if isinstance(knobs, dict):
         mc = knobs.get("min_coverage")
         mf = knobs.get("max_features")
-        if isinstance(mc, (int, float)):
+        if _is_finite_real_number(mc):
             out["min_coverage"] = float(mc)
-        if isinstance(mf, int):
+        if isinstance(mf, int) and not isinstance(mf, bool):
             out["max_features"] = int(mf)
 
     return out
+
 
 def _run_json_tool(
     cmd: list[str],
@@ -520,8 +544,9 @@ def materialize_q1_grounded_ok(
 
     return bool(passed), True, "materialized_from_q1_reference"
 
+
 # ---------------------------------------------------------------------------
-# # Minimal demo gates
+# Minimal demo gates
 # Gate truth split:
 # - demo -> explicit smoke/scaffold
 # - core -> materialize-or-fail-closed
@@ -594,16 +619,17 @@ else:
     stub_profile = "fail_closed_placeholder"
 
 metrics = {
-   "RDSI": rdsi_value,
+    "RDSI": rdsi_value,
     "rdsi_note": rdsi_note,
     "build_time": now,
 }
+
 if RUN_MODE == "core":
     materialized = sorted(
-        [k for k, src in gate_sources.items() if src == "materialized_from_q1_reference"]
+        [k for k, src in gate_sources.items() if _gate_source_is_materialized(src)]
     )
     unresolved = sorted(
-        [k for k, src in gate_sources.items() if src != "materialized_from_q1_reference"]
+        [k for k, src in gate_sources.items() if not _gate_source_is_materialized(src)]
     )
     metrics["core_truth_mode"] = "materialize_or_fail_closed"
     metrics["core_materialized_gates"] = materialized
@@ -764,9 +790,13 @@ stability_map_payload = {
         "used_feature_keys": list(hazard_feature_keys),
         "recommended_count": int(rec_n),
         "recommend_min_coverage": (
-            float(rec_min_cov) if isinstance(rec_min_cov, (int, float)) else None
+            float(rec_min_cov) if _is_finite_real_number(rec_min_cov) else None
         ),
-        "recommend_max_features": int(rec_max_feats) if isinstance(rec_max_feats, int) else None,
+        "recommend_max_features": (
+            int(rec_max_feats)
+            if isinstance(rec_max_feats, int) and not isinstance(rec_max_feats, bool)
+            else None
+        ),
     },
     "thresholds": {
         "regime": str(threshold_regime),
@@ -809,10 +839,13 @@ else:
 if RUN_MODE == "core":
     unresolved_count = metrics.get("core_unmaterialized_gate_count", 1)
     gates["detectors_materialized_ok"] = bool(
-        isinstance(unresolved_count, int) and unresolved_count == 0
+        isinstance(unresolved_count, int)
+        and not isinstance(unresolved_count, bool)
+        and unresolved_count == 0
     )
 else:
     gates["detectors_materialized_ok"] = False
+
 diagnostics = {
     "scaffold": scaffold,
     "gates_stubbed": gates_stubbed,
