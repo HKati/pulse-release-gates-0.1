@@ -65,12 +65,6 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt pytest
 
-      - name: Run core baseline check test
-        shell: bash
-        run: |
-          set -euo pipefail
-          python -m pytest -q tests/test_core_baseline_v0.py
-
       - name: YAML duplicate-key guard (fail-closed)
         shell: bash
         run: |
@@ -112,6 +106,19 @@ jobs:
 
           print(f"Verified metrics.run_mode={run_mode}")
           PY
+
+      - name: Assert core status is not scaffold/stubbed
+        shell: bash
+        run: |
+          set -euo pipefail
+          STATUS="${PACK_DIR}/artifacts/status.json"
+          if [ ! -f "$STATUS" ]; then
+            echo "::error::Missing status.json at $STATUS"
+            exit 1
+          fi
+          python ci/check_status_not_stubbed.py \
+            --status "$STATUS" \
+            --lane-label core
 
       - name: Gate registry sync check
         shell: bash
@@ -207,3 +214,10 @@ jobs:
             ${{ env.PACK_DIR }}/artifacts/**
             reports/junit.xml
             reports/sarif.json
+
+      - name: Run core baseline check test
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pytest -q tests/test_core_baseline_v0.py
