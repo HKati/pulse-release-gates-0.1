@@ -30,8 +30,6 @@ from PULSE_safe_pack_v0.tools.render_quality_ledger import (  # noqa: E402
     write_quality_ledger,
 )
 
-# Allow tests / callers to override artifact output directory.
-# Default remains pack_root/artifacts to preserve existing behavior.
 ART_DIR_ENV = os.getenv("PULSE_ARTIFACT_DIR")
 art = pathlib.Path(ART_DIR_ENV) if ART_DIR_ENV else (ROOT / "artifacts")
 art.mkdir(parents=True, exist_ok=True)
@@ -45,7 +43,6 @@ FIELD_SNAPSHOT_METRIC_EXCLUSIONS = {
     "rdsi_note",
     "git_sha",
     "run_key",
-    # bookkeeping / provenance counts must not distort EPF field coordinates
     "core_materialized_gate_count",
     "core_unmaterialized_gate_count",
 }
@@ -94,8 +91,6 @@ parser.add_argument(
     default=_default_mode,
     help="Run profile: demo|core|prod (default: PULSE_RUN_MODE or demo)",
 )
-
-# Accept existing workflow args (may be used for provenance even if pack is self-contained)
 parser.add_argument("--pack_dir", default=str(ROOT))
 parser.add_argument("--gate_policy", default=str(REPO_ROOT / "pulse_gate_policy_v0.yml"))
 args, _unknown = parser.parse_known_args()
@@ -108,17 +103,11 @@ elif RUN_MODE == "core":
 else:
     STATUS_VERSION = "1.0.0"
 
-
-# Stability Map artefact (additive)
 STABILITY_MAP_SCHEMA_V0 = "epf_stability_map_v0"
 STABILITY_MAP_FILENAME = "epf_stability_map_v0.json"
 
 
 def write_json_artifact(path: pathlib.Path, payload: dict) -> None:
-    """
-    Deterministic JSON artifact writer (sort_keys + indent).
-    Fail-closed is not desired here: this is diagnostic output.
-    """
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8") as f:
         json.dump(payload, f, indent=2, sort_keys=True)
@@ -140,7 +129,6 @@ from PULSE_safe_pack_v0.epf.epf_hazard_forecast import (  # noqa: E402
     MIN_CALIBRATION_SAMPLES,
 )
 
-# Calibration path: prefer same filename inside the selected artifacts dir, if present.
 try:
     from PULSE_safe_pack_v0.epf.epf_hazard_forecast import (  # noqa: E402
         CALIBRATION_PATH as _HAZARD_CALIB_PATH_DEFAULT,
@@ -156,18 +144,10 @@ HAZARD_CALIB_PATH = (
 )
 
 
-# ---------------------------------------------------------------------------
-# Helpers for provenance / cross-run drift seeding
-# ---------------------------------------------------------------------------
-
 def get_git_sha(repo_root: pathlib.Path) -> Optional[str]:
-    """
-    Best-effort git SHA for provenance (fail-open).
-    """
     sha = os.getenv("GITHUB_SHA") or os.getenv("CI_COMMIT_SHA") or os.getenv("BUILD_SOURCEVERSION")
     if isinstance(sha, str) and sha.strip():
         return sha.strip()
-
     try:
         out = subprocess.check_output(
             ["git", "rev-parse", "HEAD"],
@@ -181,9 +161,6 @@ def get_git_sha(repo_root: pathlib.Path) -> Optional[str]:
 
 
 def get_run_key() -> Optional[str]:
-    """
-    Best-effort CI run identity (fail-open).
-    """
     parts = []
     for k in (
         "GITHUB_RUN_ID",
@@ -204,10 +181,6 @@ def load_hazard_T_history(
     gate_id: str,
     max_points: int = 20,
 ) -> list[float]:
-    """
-    Load recent hazard T history for a given gate_id from epf_hazard_log.jsonl.
-    Returns oldest->newest, last max_points items.
-    """
     if not log_path.exists():
         return []
 
@@ -234,10 +207,6 @@ def load_hazard_T_history(
 
 
 def compute_baseline_ok(gates: dict) -> bool:
-    """
-    Baseline pass/fail excluding the hazard shadow gate if present.
-    This prevents topology from becoming self-referential.
-    """
     for k, v in gates.items():
         if str(k) == "epf_hazard_ok":
             continue
@@ -247,12 +216,6 @@ def compute_baseline_ok(gates: dict) -> bool:
 
 
 def classify_topology_region(*, baseline_ok: bool, hazard_zone: str) -> str:
-    """
-    Field topology region (diagnostic overlay):
-      - stably_good / unstably_good / stably_bad / unstably_bad / unknown
-
-    Stable is GREEN; anything else is "unstable" (AMBER/RED).
-    """
     z = str(hazard_zone or "").upper()
     if z == "GREEN":
         stable = True
@@ -274,21 +237,8 @@ def build_epf_field_snapshots(
     metrics: dict,
     gates: dict,
 ) -> Tuple[dict, dict, dict]:
-    """
-    Build a flat dotted-key EPF field snapshot + deterministic reference anchor.
-
-    Design intent (Grail-hű):
-      - current_snapshot is a FIELD coordinate vector (not an alert payload)
-      - reference_snapshot is a stable suggestion anchor
-      - deterministic and numeric-only
-
-    Returns:
-        (current_snapshot, reference_snapshot, stability_metrics)
-    """
     current: dict = {}
 
-    # 1) Numeric metrics -> metrics.<key>
-    # Exclude hazard_* derived fields and obvious non-numeric info.
     for k in sorted(metrics.keys(), key=lambda x: str(x)):
         ks = str(k)
         if ks.startswith("hazard_"):
@@ -300,21 +250,17 @@ def build_epf_field_snapshots(
         if _is_finite_real_number(v):
             current[f"metrics.{ks}"] = float(v)
 
-    # 2) Gate outcomes -> gates.<name> (bool -> 0/1)
-    # Exclude shadow hazard gate to keep the coordinate system non-self-referential.
     for name in sorted(gates.keys(), key=lambda x: str(x)):
         if str(name) == "epf_hazard_ok":
             continue
         ok = gates.get(name) is True
         current[f"gates.{name}"] = 1.0 if ok else 0.0
 
-    # 3) Stability metrics (forecast reads RDSI if present)
     stability: dict = {}
     rdsi = metrics.get("RDSI")
     if _is_finite_real_number(rdsi):
         stability["RDSI"] = float(rdsi)
 
-    # 4) Deterministic reference anchor for this coordinate system
     reference: dict = {}
     for key in sorted(current.keys()):
         if key == "metrics.RDSI":
@@ -327,21 +273,12 @@ def build_epf_field_snapshots(
     return current, reference, stability
 
 
-# ---------------------------------------------------------------------------
-# Helpers for EPF hazard history / context
-# ---------------------------------------------------------------------------
-
 def load_hazard_E_history(
     log_path: pathlib.Path,
     *,
     max_points: int = 20,
     gate_id: Optional[str] = None,
 ) -> list[float]:
-    """
-    Load up to max_points hazard E values from epf_hazard_log.jsonl.
-
-    If gate_id is provided, only values from that series are returned.
-    """
     if not log_path.exists():
         return []
 
@@ -372,13 +309,6 @@ def load_last_hazard_feature_context(
     *,
     gate_id: Optional[str] = None,
 ) -> tuple[list[str], str, bool]:
-    """
-    Read the last valid JSON event from epf_hazard_log.jsonl and return:
-      (feature_keys, feature_mode_source, feature_mode_active)
-
-    If gate_id is provided, selects the last entry for that series.
-    Fail-open for older logs.
-    """
     if not log_path.exists():
         return ([], "none", False)
 
@@ -492,9 +422,7 @@ def _run_json_tool(
         return False, None, f"invalid JSON output: {exc}"
 
     if not isinstance(payload, dict):
-        return False, None, (
-            f"tool output must be a JSON object, got {type(payload).__name__}"
-        )
+        return False, None, f"tool output must be a JSON object, got {type(payload).__name__}"
 
     return True, payload, None
 
@@ -512,20 +440,17 @@ def materialize_q1_grounded_ok(
     if missing:
         return False, False, "missing_inputs_or_runner"
 
-    labels_arg = "examples/q1_reference_labels.pass_120.jsonl"
-    manifest_arg = "examples/q1_reference_input_manifest.json"
-
     with tempfile.TemporaryDirectory() as td:
         out_path = pathlib.Path(td) / "q1_reference_summary.json"
         cmd = [
             sys.executable,
             str(runner),
             "--labels_jsonl",
-            labels_arg,
+            "examples/q1_reference_labels.pass_120.jsonl",
             "--out",
             str(out_path),
             "--input_manifest",
-            manifest_arg,
+            "examples/q1_reference_input_manifest.json",
             "--run_id",
             f"core-q1-{created_utc}",
             "--created_utc",
@@ -567,10 +492,8 @@ def _load_q4_reference_budgets(manifest_path: pathlib.Path) -> tuple[float, floa
 
     if not _is_finite_real_number(latency_budget_ms) or float(latency_budget_ms) <= 0:
         raise ValueError("budgets.latency_p95_ms_max must be a positive finite number")
-
     if not _is_finite_real_number(cost_budget_usd) or float(cost_budget_usd) <= 0:
         raise ValueError("budgets.cost_p95_usd_max must be a positive finite number")
-
     if isinstance(min_requests, bool) or not isinstance(min_requests, int) or min_requests < 0:
         raise ValueError("budgets.min_requests must be a non-negative integer")
 
@@ -595,20 +518,17 @@ def materialize_q4_slo_ok(
     except ValueError as exc:
         return False, False, f"invalid_q4_manifest: {exc}"
 
-    stats_arg = "examples/q4_slo_stats.pass_v0.json"
-    manifest_arg = "examples/q4_slo_input_manifest.json"
-
     with tempfile.TemporaryDirectory() as td:
         out_path = pathlib.Path(td) / "q4_reference_summary.json"
         cmd = [
             sys.executable,
             str(runner),
             "--stats_json",
-            stats_arg,
+            "examples/q4_slo_stats.pass_v0.json",
             "--out",
             str(out_path),
             "--input_manifest",
-            manifest_arg,
+            "examples/q4_slo_input_manifest.json",
             "--run_id",
             f"core-q4-{created_utc}",
             "--created_utc",
@@ -650,20 +570,17 @@ def materialize_pass_controls_refusal(
     if missing:
         return False, False, "missing_inputs_or_runner"
 
-    manifest_arg = "examples/refusal_smoke_input_manifest.json"
-    result_arg = "examples/refusal_smoke_result.pass_v0.json"
-
     with tempfile.TemporaryDirectory() as td:
         out_path = pathlib.Path(td) / "refusal_reference_summary.json"
         cmd = [
             sys.executable,
             str(runner),
             "--result_json",
-            result_arg,
+            "examples/refusal_smoke_result.pass_v0.json",
             "--out",
             str(out_path),
             "--input_manifest",
-            manifest_arg,
+            "examples/refusal_smoke_input_manifest.json",
             "--run_id",
             f"core-refusal-{created_utc}",
             "--created_utc",
@@ -685,14 +602,6 @@ def materialize_pass_controls_refusal(
 
     return bool(passed), True, "materialized_from_refusal_reference"
 
-
-# ---------------------------------------------------------------------------
-# Minimal demo gates
-# Gate truth split:
-# - demo -> explicit smoke/scaffold
-# - core -> materialize-or-fail-closed
-# - prod -> fail-closed placeholder until release-grade detectors are wired
-# ---------------------------------------------------------------------------
 
 BASE_GATES = {
     "pass_controls_refusal": True,
@@ -730,23 +639,16 @@ elif RUN_MODE == "core":
     gates = {k: False for k in BASE_GATES.keys()}
     gate_sources = {k: "unmaterialized_fail_closed" for k in BASE_GATES.keys()}
 
-    q1_pass, _q1_materialized, q1_source = materialize_q1_grounded_ok(
-        REPO_ROOT,
-        created_utc=now,
-    )
+    q1_pass, _q1_materialized, q1_source = materialize_q1_grounded_ok(REPO_ROOT, created_utc=now)
     gates["q1_grounded_ok"] = q1_pass
     gate_sources["q1_grounded_ok"] = q1_source
 
-    q4_pass, _q4_materialized, q4_source = materialize_q4_slo_ok(
-        REPO_ROOT,
-        created_utc=now,
-    )
+    q4_pass, _q4_materialized, q4_source = materialize_q4_slo_ok(REPO_ROOT, created_utc=now)
     gates["q4_slo_ok"] = q4_pass
     gate_sources["q4_slo_ok"] = q4_source
 
     refusal_pass, _refusal_materialized, refusal_source = materialize_pass_controls_refusal(
-        REPO_ROOT,
-        created_utc=now,
+        REPO_ROOT, created_utc=now
     )
     gates["pass_controls_refusal"] = refusal_pass
     gate_sources["pass_controls_refusal"] = refusal_source
@@ -761,7 +663,6 @@ elif RUN_MODE == "core":
     stub_profile = "materialize_or_fail_closed"
 
 else:
-    # prod: fail-closed baseline until real detectors replace stubs
     gates = {k: False for k in BASE_GATES.keys()}
     gate_sources = {k: "prod_fail_closed_placeholder" for k in BASE_GATES.keys()}
     rdsi_value = 0.0
@@ -780,12 +681,8 @@ metrics = {
 }
 
 if RUN_MODE == "core":
-    materialized = sorted(
-        [k for k, src in gate_sources.items() if _gate_source_is_materialized(src)]
-    )
-    unresolved = sorted(
-        [k for k, src in gate_sources.items() if not _gate_source_is_materialized(src)]
-    )
+    materialized = sorted([k for k, src in gate_sources.items() if _gate_source_is_materialized(src)])
+    unresolved = sorted([k for k, src in gate_sources.items() if not _gate_source_is_materialized(src)])
     metrics["core_truth_mode"] = "materialize_or_fail_closed"
     metrics["core_materialized_gates"] = materialized
     metrics["core_unmaterialized_gates"] = unresolved
@@ -803,16 +700,9 @@ h = _sha256_file(gp) if gp.exists() else None
 if h:
     metrics["gate_policy_sha256"] = h
 
-
-# Baseline gate health excluding hazard shadow gate (topology uses this).
 baseline_ok = compute_baseline_ok(gates)
 metrics["hazard_baseline_ok"] = bool(baseline_ok)
 
-# ---------------------------------------------------------------------------
-# EPF hazard probe (field snapshot + cross-run drift seeding)
-# ---------------------------------------------------------------------------
-
-# Provenance (fail-open)
 run_key = get_run_key()
 git_sha = get_git_sha(REPO_ROOT)
 if run_key:
@@ -821,17 +711,13 @@ if git_sha:
     metrics["git_sha"] = git_sha
 
 hazard_log_path = art / "epf_hazard_log.jsonl"
-
-# Stable series id for the field
 hazard_gate_id = "EPF_field_main"
 metrics["hazard_gate_id"] = hazard_gate_id
 
-# Seed drift across runs (history_T)
 seed_T = load_hazard_T_history(hazard_log_path, gate_id=hazard_gate_id, max_points=10)
 metrics["hazard_seed_T_points"] = int(len(seed_T))
 hazard_runtime = HazardRuntimeState(history_T=list(seed_T))
 
-# Build Grail field snapshots (flat dotted keys)
 current_snapshot, reference_snapshot, stability_metrics = build_epf_field_snapshots(metrics, gates)
 
 hazard_state = probe_hazard_and_append_log(
@@ -851,7 +737,6 @@ hazard_state = probe_hazard_and_append_log(
 
 hazard_decision = evaluate_hazard_gate(hazard_state, cfg=HazardGateConfig())
 
-# Surface hazard metrics into status.json metrics.
 metrics["hazard_T"] = hazard_state.T
 metrics["hazard_S"] = hazard_state.S
 metrics["hazard_D"] = hazard_state.D
@@ -861,7 +746,6 @@ metrics["hazard_reason"] = hazard_state.reason
 metrics["hazard_ok"] = hazard_decision.ok
 metrics["hazard_severity"] = hazard_decision.severity
 
-# Field topology overlay (diagnostic)
 hazard_topology_region = classify_topology_region(
     baseline_ok=bool(baseline_ok),
     hazard_zone=str(hazard_state.zone),
@@ -873,12 +757,8 @@ hazard_contributors_top = getattr(hazard_state, "contributors_top", []) or []
 metrics["hazard_T_scaled"] = hazard_T_scaled
 metrics["hazard_contributors_top"] = hazard_contributors_top
 
-# Feature-mode context (from the last log event for this gate_id)
 hazard_feature_keys, hazard_feature_mode_source, hazard_feature_mode_active = (
-    load_last_hazard_feature_context(
-        hazard_log_path,
-        gate_id=hazard_gate_id,
-    )
+    load_last_hazard_feature_context(hazard_log_path, gate_id=hazard_gate_id)
 )
 metrics["hazard_feature_keys"] = hazard_feature_keys
 metrics["hazard_feature_count"] = int(len(hazard_feature_keys))
@@ -886,7 +766,6 @@ metrics["hazard_feature_mode_source"] = str(hazard_feature_mode_source)
 metrics["hazard_feature_mode_active"] = bool(hazard_feature_mode_active)
 feature_mode_label = "ON" if bool(hazard_feature_mode_active) else "OFF"
 
-# Calibration recommendation summary (if present)
 calib_summary = load_calibration_recommendation(pathlib.Path(HAZARD_CALIB_PATH))
 metrics["hazard_recommended_count"] = int(calib_summary.get("recommended_count", 0) or 0)
 metrics["hazard_recommend_min_coverage"] = calib_summary.get("min_coverage")
@@ -895,19 +774,13 @@ metrics["hazard_feature_allowlist_count"] = int(
     calib_summary.get("feature_allowlist_count", 0) or 0
 )
 
-# E-history for Stability Map artefact
 E_history = load_hazard_E_history(hazard_log_path, max_points=20, gate_id=hazard_gate_id)
 
-# Threshold regime label (for UI + Stability Map)
 calib_is_effective = (
     CALIBRATED_WARN_THRESHOLD != DEFAULT_WARN_THRESHOLD
     or CALIBRATED_CRIT_THRESHOLD != DEFAULT_CRIT_THRESHOLD
 )
 threshold_regime = "CALIBRATED" if calib_is_effective else "BASELINE"
-
-# ---------------------------------------------------------------------------
-# Stability Map artefact (v0)
-# ---------------------------------------------------------------------------
 
 seed_T_points = int(metrics.get("hazard_seed_T_points", 0) or 0)
 features_used_n = int(metrics.get("hazard_feature_count", 0) or 0)
@@ -937,7 +810,6 @@ stability_map_payload = {
     "series": {
         "seed_T_points": int(seed_T_points),
         "history_E": list(E_history),
-        # hazard_runtime.history_T already includes seeds + current T (adapter appends).
         "history_T": list((hazard_runtime.history_T or [])[-20:]),
     },
     "feature_mode": {
@@ -973,14 +845,9 @@ stability_map_payload = {
 stability_map_path = art / STABILITY_MAP_FILENAME
 write_json_artifact(stability_map_path, stability_map_payload)
 
-# Keep status metrics additive and safely excluded from field snapshots (hazard_* prefix).
 metrics["hazard_stability_map_written"] = True
 metrics["hazard_stability_map_schema"] = STABILITY_MAP_SCHEMA_V0
 metrics["hazard_stability_map_path"] = str(stability_map_path)
-
-# ---------------------------------------------------------------------------
-# Shadow hazard gate (ENV-flag-enforceable)
-# ---------------------------------------------------------------------------
 
 enforce_hazard = os.getenv("EPF_HAZARD_ENFORCE", "0") == "1"
 if enforce_hazard:
@@ -988,11 +855,6 @@ if enforce_hazard:
 else:
     gates["epf_hazard_ok"] = True
 
-# Normative guard:
-# scaffold / placeholder gate booleans must never be interpreted as
-# materialized release evidence.
-# detectors_materialized_ok is release-grade only.
-# In Core, it stays false until the required evidence path is fully materialized.
 if RUN_MODE == "core":
     unresolved_count = metrics.get("core_unmaterialized_gate_count", 1)
     gates["detectors_materialized_ok"] = bool(
@@ -1019,10 +881,6 @@ status = {
 
 status_path = art / "status.json"
 write_json_artifact(status_path, status)
-
-# ---------------------------------------------------------------------------
-# HTML report card via Quality Ledger renderer
-# ---------------------------------------------------------------------------
 
 report_card_path = art / "report_card.html"
 write_quality_ledger(status_path, report_card_path)
