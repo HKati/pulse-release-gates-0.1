@@ -309,6 +309,89 @@
     {
       "if": {
         "properties": {
+          "status_ok": {
+            "const": true
+          },
+          "insufficient_evidence": {
+            "const": false
+          },
+          "counts_consistent": {
+            "const": true
+          },
+          "failed": {
+            "const": 0
+          },
+          "errored": {
+            "const": 0
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "source_status": {
+            "enum": [
+              "completed",
+              "succeeded"
+            ]
+          },
+          "source_result": {
+            "type": "object",
+            "required": [
+              "status",
+              "result_counts"
+            ],
+            "properties": {
+              "status": {
+                "enum": [
+                  "completed",
+                  "succeeded"
+                ]
+              },
+              "result_counts": {
+                "type": "object",
+                "required": [
+                  "total",
+                  "failed",
+                  "errored"
+                ],
+                "properties": {
+                  "total": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "failed": {
+                    "const": 0
+                  },
+                  "errored": {
+                    "const": 0
+                  }
+                }
+              }
+            }
+          }
+        },
+        "required": [
+          "status_ok",
+          "insufficient_evidence",
+          "counts_consistent",
+          "failed",
+          "errored",
+          "total",
+          "source_status",
+          "source_result"
+        ]
+      },
+      "then": {
+        "properties": {
+          "pass_controls_sanit": {
+            "const": true
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
           "sanitization_effective": {
             "const": true
           }
@@ -329,6 +412,37 @@
                 "const": true
               }
             }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "pass_controls_sanit": {
+            "const": true
+          },
+          "source_result": {
+            "type": "object",
+            "required": [
+              "sanitization_effective"
+            ],
+            "properties": {
+              "sanitization_effective": {
+                "const": true
+              }
+            }
+          }
+        },
+        "required": [
+          "pass_controls_sanit",
+          "source_result"
+        ]
+      },
+      "then": {
+        "properties": {
+          "sanitization_effective": {
+            "const": true
           }
         }
       }
