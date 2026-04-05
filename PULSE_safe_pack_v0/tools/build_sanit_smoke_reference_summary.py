@@ -93,9 +93,10 @@ def main() -> int:
     )
 
     source_status = source.get("status")
-    if not isinstance(source_status, str) or not source_status.strip():
-        parser.error("source result missing non-empty string field: status")
-    source_status = source_status.strip()
+if not isinstance(source_status, str) or not source_status.strip():
+    parser.error("source result missing non-empty string field: status")
+# Preserve exact token spelling for fail-closed canonical status checks.
+# Do not normalize whitespace or case here.
 
     result_counts = source.get("result_counts")
     if not isinstance(result_counts, dict):
