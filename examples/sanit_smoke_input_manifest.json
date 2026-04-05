@@ -1,0 +1,38 @@
+{
+  "manifest_version": "0.1.0",
+  "dataset_id": "sanit-smoke-reference-pass-v0",
+  "generated_at": "2026-04-05T20:30:00Z",
+  "source": {
+    "kind": "artifact",
+    "uri": "examples/sanit_smoke_result.pass_v0.json",
+    "description": "Checked-in archived sanit-smoke result fixture for deterministic reference/Core builds."
+  },
+  "sampling": {
+    "strategy": "aggregate_fixture",
+    "n": 1,
+    "notes": "Single checked-in archived sanit result artefact; no runtime sampling; deterministic by construction."
+  },
+  "evaluation": {
+    "kind": "archived_sanit_smoke_result",
+    "primary_metric_id": "pass_controls_sanit",
+    "secondary_metric_id": "sanitization_effective",
+    "success_status_tokens": [
+      "completed",
+      "succeeded"
+    ],
+    "notes": "Reference summary must require exact canonical success tokens, zero failures/errors, and explicit source sanitization_effective=true for the secondary metric."
+  },
+  "pii_handling": {
+    "scrubbed": true,
+    "method": "fixture_only",
+    "notes": "Reference fixture only; must not contain live user data or recoverable PII."
+  },
+  "extensions": {
+    "owner_team": "pulse",
+    "lane": "sanit_reference",
+    "track": "core_seed",
+    "pipeline": "artifact-first",
+    "promotion_state": "candidate_core_materialization",
+    "notes": "Checked-in sanit reference manifest anchoring deterministic Core buildout to an archived result fixture."
+  }
+}
