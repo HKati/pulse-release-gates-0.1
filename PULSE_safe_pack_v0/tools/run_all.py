@@ -16,6 +16,7 @@ import os
 import pathlib
 import subprocess
 import sys
+import tempfile
 from typing import Optional, Tuple
 
 
@@ -173,6 +174,96 @@ def get_run_key() -> Optional[str]:
             parts.append(f"{k}={v.strip()}")
     return "|".join(parts) if parts else None
 
+def _run_json_tool(
+    cmd: list[str],
+    *,
+    cwd: pathlib.Path,
+    out_path: pathlib.Path,
+) -> tuple[bool, Optional[dict], Optional[str]]:
+    """
+    Execute a JSON-emitting helper and parse the generated payload.
+    """
+    try:
+        proc = subprocess.run(
+            cmd,
+            cwd=str(cwd),
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except Exception as exc:
+        return False, None, f"tool_exec_error:{exc}"
+
+    if proc.returncode != 0:
+        stderr = (proc.stderr or "").strip()
+        stdout = (proc.stdout or "").strip()
+        detail = stderr or stdout or f"exit_{proc.returncode}"
+        return False, None, f"tool_nonzero:{detail}"
+
+    try:
+        payload = json.loads(out_path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        return False, None, f"tool_output_parse_error:{exc}"
+
+    if not isinstance(payload, dict):
+        return False, None, "tool_output_not_object"
+
+    return True, payload, None
+
+
+def materialize_sanit_controls(
+    repo_root: pathlib.Path,
+    *,
+    created_utc: str,
+) -> tuple[bool, bool, bool, str]:
+    runner = repo_root / "PULSE_safe_pack_v0" / "tools" / "build_sanit_smoke_reference_summary.py"
+    manifest = repo_root / "examples" / "sanit_smoke_input_manifest.json"
+    result_json = repo_root / "examples" / "sanit_smoke_result.pass_v0.json"
+
+    missing = [p for p in (runner, manifest, result_json) if not p.is_file()]
+    if missing:
+        return False, False, False, "missing_inputs_or_runner"
+
+    with tempfile.TemporaryDirectory() as td:
+        out_path = pathlib.Path(td) / "sanit_reference_summary.json"
+        cmd = [
+            sys.executable,
+            str(runner),
+            "--result_json",
+            "examples/sanit_smoke_result.pass_v0.json",
+            "--out",
+            str(out_path),
+            "--input_manifest",
+            "examples/sanit_smoke_input_manifest.json",
+            "--run_id",
+            f"core-sanit-{created_utc}",
+            "--created_utc",
+            created_utc,
+            "--tool",
+            "PULSE_sanit_reference",
+            "--tool_version",
+            "0.1.0-dev",
+            "--notes",
+            "Core materialization from checked-in sanit reference fixture.",
+        ]
+        ok, payload, err = _run_json_tool(cmd, cwd=repo_root, out_path=out_path)
+        if not ok or payload is None:
+            return False, False, False, err or "sanit runner failed"
+
+    pass_controls_sanit = payload.get("pass_controls_sanit")
+    sanitization_effective = payload.get("sanitization_effective")
+
+    if not isinstance(pass_controls_sanit, bool):
+        return False, False, False, "sanit summary missing boolean 'pass_controls_sanit'"
+    if not isinstance(sanitization_effective, bool):
+        return False, False, False, "sanit summary missing boolean 'sanitization_effective'"
+
+    return (
+        bool(pass_controls_sanit),
+        bool(sanitization_effective),
+        True,
+        "materialized_from_sanit_reference",
+    )
 
 def load_hazard_T_history(
     log_path: pathlib.Path,
@@ -473,6 +564,18 @@ else:
     # prod: fail-closed baseline until real detectors replace stubs
     gates = {k: False for k in BASE_GATES.keys()}
 
+gate_sources = {k: "stubbed" for k in gates.keys()}
+
+if RUN_MODE == "core":
+    sanit_pass, sanit_effective, _sanit_materialized, sanit_source = materialize_sanit_controls(
+        REPO_ROOT,
+        created_utc=now,
+    )
+    gates["pass_controls_sanit"] = sanit_pass
+    gates["sanitization_effective"] = sanit_effective
+    gate_sources["pass_controls_sanit"] = sanit_source
+    gate_sources["sanitization_effective"] = sanit_source
+
 metrics = {
     "RDSI": 0.92 if RUN_MODE in ("demo", "core") else 0.0,
     "rdsi_note": (
@@ -486,6 +589,9 @@ metrics = {
 }
 
 metrics["run_mode"] = RUN_MODE
+
+if RUN_MODE == "core":
+    metrics["core_sanit_source"] = gate_sources.get("pass_controls_sanit", "unknown")
 
 gp = pathlib.Path(str(args.gate_policy))
 metrics["gate_policy_path"] = str(gp)
