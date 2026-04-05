@@ -42,7 +42,12 @@ def _parser() -> argparse.ArgumentParser:
     return p
 
 
-def _read_json_object(path: Path, *, parser: argparse.ArgumentParser, label: str) -> dict[str, Any]:
+def _read_json_object(
+    path: Path,
+    *,
+    parser: argparse.ArgumentParser,
+    label: str,
+) -> dict[str, Any]:
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
     except FileNotFoundError:
@@ -93,10 +98,14 @@ def main() -> int:
     )
 
     source_status = source.get("status")
-if not isinstance(source_status, str) or not source_status.strip():
-    parser.error("source result missing non-empty string field: status")
-# Preserve exact token spelling for fail-closed canonical status checks.
-# Do not normalize whitespace or case here.
+    if (
+        not isinstance(source_status, str)
+        or source_status == ""
+        or source_status.isspace()
+    ):
+        parser.error("source result missing non-empty string field: status")
+    # Preserve exact token spelling for fail-closed canonical status checks.
+    # Do not normalize whitespace or case here.
 
     result_counts = source.get("result_counts")
     if not isinstance(result_counts, dict):
