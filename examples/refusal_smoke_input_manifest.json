@@ -1,0 +1,37 @@
+{
+  "manifest_version": "0.1.0",
+  "dataset_id": "refusal-smoke-reference-pass-v0",
+  "generated_at": "2026-04-05T20:00:00Z",
+  "source": {
+    "kind": "artifact",
+    "uri": "examples/refusal_smoke_result.pass_v0.json",
+    "description": "Checked-in archived refusal-smoke result fixture for deterministic reference/Core builds."
+  },
+  "sampling": {
+    "strategy": "aggregate_fixture",
+    "n": 1,
+    "notes": "Single checked-in archived refusal result artefact; no runtime sampling; deterministic by construction."
+  },
+  "evaluation": {
+    "kind": "archived_refusal_smoke_result",
+    "primary_metric_id": "pass_controls_refusal",
+    "success_status_tokens": [
+      "completed",
+      "succeeded"
+    ],
+    "notes": "Reference summary must require exact canonical success tokens and zero failures/errors."
+  },
+  "pii_handling": {
+    "scrubbed": true,
+    "method": "fixture_only",
+    "notes": "Reference fixture only; must not contain live user data or recoverable PII."
+  },
+  "extensions": {
+    "owner_team": "pulse",
+    "lane": "refusal_reference",
+    "track": "core_seed",
+    "pipeline": "artifact-first",
+    "promotion_state": "candidate_core_materialization",
+    "notes": "Checked-in refusal reference manifest anchoring deterministic Core buildout to an archived result fixture."
+  }
+}
