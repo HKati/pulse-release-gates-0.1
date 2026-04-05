@@ -12,11 +12,13 @@ import argparse
 import datetime
 import hashlib
 import json
+import math
 import os
 import pathlib
 import subprocess
 import sys
-from typing import Optional, Tuple
+import tempfile
+from typing import Any, Optional, Tuple
 
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
@@ -37,6 +39,29 @@ art.mkdir(parents=True, exist_ok=True)
 now = datetime.datetime.utcnow().isoformat() + "Z"
 
 SUPPORTED_MODES = ("demo", "core", "prod")
+
+FIELD_SNAPSHOT_METRIC_EXCLUSIONS = {
+    "build_time",
+    "rdsi_note",
+    "git_sha",
+    "run_key",
+    # bookkeeping / provenance counts must not distort EPF field coordinates
+    "core_materialized_gate_count",
+    "core_unmaterialized_gate_count",
+}
+
+
+def _is_finite_real_number(value: Any) -> bool:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return False
+    try:
+        return math.isfinite(float(value))
+    except (OverflowError, ValueError):
+        return False
+
+
+def _gate_source_is_materialized(source: str) -> bool:
+    return isinstance(source, str) and source.startswith("materialized_from_")
 
 
 def _sha256_file(p: pathlib.Path) -> str | None:
@@ -74,7 +99,6 @@ parser.add_argument(
 parser.add_argument("--pack_dir", default=str(ROOT))
 parser.add_argument("--gate_policy", default=str(REPO_ROOT / "pulse_gate_policy_v0.yml"))
 args, _unknown = parser.parse_known_args()
-
 
 RUN_MODE = str(args.mode).strip().lower()
 if RUN_MODE == "demo":
@@ -203,7 +227,7 @@ def load_hazard_T_history(
 
             hazard = obj.get("hazard", {}) or {}
             T = hazard.get("T")
-            if isinstance(T, (int, float)):
+            if _is_finite_real_number(T):
                 values.append(float(T))
 
     return values[-max_points:]
@@ -269,11 +293,11 @@ def build_epf_field_snapshots(
         ks = str(k)
         if ks.startswith("hazard_"):
             continue
-        if ks in ("build_time", "rdsi_note", "git_sha", "run_key"):
+        if ks in FIELD_SNAPSHOT_METRIC_EXCLUSIONS:
             continue
 
         v = metrics.get(k)
-        if isinstance(v, (int, float)):
+        if _is_finite_real_number(v):
             current[f"metrics.{ks}"] = float(v)
 
     # 2) Gate outcomes -> gates.<name> (bool -> 0/1)
@@ -287,7 +311,7 @@ def build_epf_field_snapshots(
     # 3) Stability metrics (forecast reads RDSI if present)
     stability: dict = {}
     rdsi = metrics.get("RDSI")
-    if isinstance(rdsi, (int, float)):
+    if _is_finite_real_number(rdsi):
         stability["RDSI"] = float(rdsi)
 
     # 4) Deterministic reference anchor for this coordinate system
@@ -337,7 +361,7 @@ def load_hazard_E_history(
 
             hazard = obj.get("hazard", {}) or {}
             E = hazard.get("E")
-            if isinstance(E, (int, float)):
+            if _is_finite_real_number(E):
                 values.append(float(E))
 
     return values[-max_points:] if values else []
@@ -434,16 +458,191 @@ def load_calibration_recommendation(calib_path: pathlib.Path) -> dict:
     if isinstance(knobs, dict):
         mc = knobs.get("min_coverage")
         mf = knobs.get("max_features")
-        if isinstance(mc, (int, float)):
+        if _is_finite_real_number(mc):
             out["min_coverage"] = float(mc)
-        if isinstance(mf, int):
+        if isinstance(mf, int) and not isinstance(mf, bool):
             out["max_features"] = int(mf)
 
     return out
 
 
+def _run_json_tool(
+    cmd: list[str],
+    *,
+    cwd: pathlib.Path,
+    out_path: pathlib.Path,
+) -> tuple[bool, dict[str, Any] | None, str | None]:
+    result = subprocess.run(
+        cmd,
+        cwd=str(cwd),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    if result.returncode != 0:
+        detail = result.stderr.strip() or result.stdout.strip()
+        return False, None, f"exit={result.returncode}; detail={detail}"
+
+    if not out_path.is_file():
+        return False, None, "tool did not emit output JSON"
+
+    try:
+        payload = json.loads(out_path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        return False, None, f"invalid JSON output: {exc}"
+
+    if not isinstance(payload, dict):
+        return False, None, (
+            f"tool output must be a JSON object, got {type(payload).__name__}"
+        )
+
+    return True, payload, None
+
+
+def materialize_q1_grounded_ok(
+    repo_root: pathlib.Path,
+    *,
+    created_utc: str,
+) -> tuple[bool, bool, str]:
+    runner = repo_root / "PULSE_safe_pack_v0" / "tools" / "build_q1_reference_summary.py"
+    manifest = repo_root / "examples" / "q1_reference_input_manifest.json"
+    labels = repo_root / "examples" / "q1_reference_labels.pass_120.jsonl"
+
+    missing = [p for p in (runner, manifest, labels) if not p.is_file()]
+    if missing:
+        return False, False, "missing_inputs_or_runner"
+
+    labels_arg = "examples/q1_reference_labels.pass_120.jsonl"
+    manifest_arg = "examples/q1_reference_input_manifest.json"
+
+    with tempfile.TemporaryDirectory() as td:
+        out_path = pathlib.Path(td) / "q1_reference_summary.json"
+        cmd = [
+            sys.executable,
+            str(runner),
+            "--labels_jsonl",
+            labels_arg,
+            "--out",
+            str(out_path),
+            "--input_manifest",
+            manifest_arg,
+            "--run_id",
+            f"core-q1-{created_utc}",
+            "--created_utc",
+            created_utc,
+            "--tool",
+            "PULSE_q1_reference",
+            "--tool_version",
+            "0.1.0-dev",
+            "--notes",
+            "Core materialization from checked-in Q1 reference fixture.",
+        ]
+        ok, payload, err = _run_json_tool(cmd, cwd=repo_root, out_path=out_path)
+        if not ok or payload is None:
+            return False, False, err or "q1 runner failed"
+
+    passed = payload.get("pass")
+    if not isinstance(passed, bool):
+        return False, False, "q1 summary missing boolean 'pass'"
+
+    return bool(passed), True, "materialized_from_q1_reference"
+
+
+def _load_q4_reference_budgets(manifest_path: pathlib.Path) -> tuple[float, float, int]:
+    try:
+        payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        raise ValueError(f"invalid Q4 manifest JSON: {exc}") from exc
+
+    if not isinstance(payload, dict):
+        raise ValueError("Q4 manifest must be a JSON object")
+
+    budgets = payload.get("budgets")
+    if not isinstance(budgets, dict):
+        raise ValueError("Q4 manifest missing object 'budgets'")
+
+    latency_budget_ms = budgets.get("latency_p95_ms_max")
+    cost_budget_usd = budgets.get("cost_p95_usd_max")
+    min_requests = budgets.get("min_requests")
+
+    if not _is_finite_real_number(latency_budget_ms) or float(latency_budget_ms) <= 0:
+        raise ValueError("budgets.latency_p95_ms_max must be a positive finite number")
+
+    if not _is_finite_real_number(cost_budget_usd) or float(cost_budget_usd) <= 0:
+        raise ValueError("budgets.cost_p95_usd_max must be a positive finite number")
+
+    if isinstance(min_requests, bool) or not isinstance(min_requests, int) or min_requests < 0:
+        raise ValueError("budgets.min_requests must be a non-negative integer")
+
+    return float(latency_budget_ms), float(cost_budget_usd), int(min_requests)
+
+
+def materialize_q4_slo_ok(
+    repo_root: pathlib.Path,
+    *,
+    created_utc: str,
+) -> tuple[bool, bool, str]:
+    runner = repo_root / "PULSE_safe_pack_v0" / "tools" / "build_q4_slo_reference_summary.py"
+    manifest = repo_root / "examples" / "q4_slo_input_manifest.json"
+    stats = repo_root / "examples" / "q4_slo_stats.pass_v0.json"
+
+    missing = [p for p in (runner, manifest, stats) if not p.is_file()]
+    if missing:
+        return False, False, "missing_inputs_or_runner"
+
+    try:
+        latency_budget_ms, cost_budget_usd, min_requests = _load_q4_reference_budgets(manifest)
+    except ValueError as exc:
+        return False, False, f"invalid_q4_manifest: {exc}"
+
+    stats_arg = "examples/q4_slo_stats.pass_v0.json"
+    manifest_arg = "examples/q4_slo_input_manifest.json"
+
+    with tempfile.TemporaryDirectory() as td:
+        out_path = pathlib.Path(td) / "q4_reference_summary.json"
+        cmd = [
+            sys.executable,
+            str(runner),
+            "--stats_json",
+            stats_arg,
+            "--out",
+            str(out_path),
+            "--input_manifest",
+            manifest_arg,
+            "--run_id",
+            f"core-q4-{created_utc}",
+            "--created_utc",
+            created_utc,
+            "--tool",
+            "PULSE_q4_reference",
+            "--tool_version",
+            "0.1.0-dev",
+            "--notes",
+            "Core materialization from checked-in Q4 SLO reference fixture.",
+            "--latency_budget_ms",
+            str(latency_budget_ms),
+            "--cost_budget_usd",
+            str(cost_budget_usd),
+            "--min_requests",
+            str(min_requests),
+        ]
+        ok, payload, err = _run_json_tool(cmd, cwd=repo_root, out_path=out_path)
+        if not ok or payload is None:
+            return False, False, err or "q4 runner failed"
+
+    passed = payload.get("pass")
+    if not isinstance(passed, bool):
+        return False, False, "q4 summary missing boolean 'pass'"
+
+    return bool(passed), True, "materialized_from_q4_reference"
+
+
 # ---------------------------------------------------------------------------
-# Minimal demo gates (all True by default so CI passes)
+# Minimal demo gates
+# Gate truth split:
+# - demo -> explicit smoke/scaffold
+# - core -> materialize-or-fail-closed
+# - prod -> fail-closed placeholder until release-grade detectors are wired
 # ---------------------------------------------------------------------------
 
 BASE_GATES = {
@@ -467,23 +666,77 @@ BASE_GATES = {
     "q4_slo_ok": True,
 }
 
-if RUN_MODE in ("demo", "core"):
-    gates = dict(BASE_GATES)  # all True (smoke)
+gate_sources = {k: "uninitialized" for k in BASE_GATES.keys()}
+
+if RUN_MODE == "demo":
+    gates = dict(BASE_GATES)
+    gate_sources = {k: "demo_smoke" for k in BASE_GATES.keys()}
+    rdsi_value = 0.92
+    rdsi_note = "Demo value for CI smoke-run"
+    scaffold = True
+    gates_stubbed = True
+    stub_profile = "all_true_smoke"
+
+elif RUN_MODE == "core":
+    gates = {k: False for k in BASE_GATES.keys()}
+    gate_sources = {k: "unmaterialized_fail_closed" for k in BASE_GATES.keys()}
+
+    q1_pass, _q1_materialized, q1_source = materialize_q1_grounded_ok(
+        REPO_ROOT,
+        created_utc=now,
+    )
+    gates["q1_grounded_ok"] = q1_pass
+    gate_sources["q1_grounded_ok"] = q1_source
+
+    q4_pass, _q4_materialized, q4_source = materialize_q4_slo_ok(
+        REPO_ROOT,
+        created_utc=now,
+    )
+    gates["q4_slo_ok"] = q4_pass
+    gate_sources["q4_slo_ok"] = q4_source
+
+    rdsi_value = 0.0
+    rdsi_note = (
+        "Core materialize-or-fail-closed run: only gates with real deterministic "
+        "evidence may surface as True; unresolved gates remain False."
+    )
+    scaffold = False
+    gates_stubbed = False
+    stub_profile = "materialize_or_fail_closed"
+
 else:
     # prod: fail-closed baseline until real detectors replace stubs
     gates = {k: False for k in BASE_GATES.keys()}
+    gate_sources = {k: "prod_fail_closed_placeholder" for k in BASE_GATES.keys()}
+    rdsi_value = 0.0
+    rdsi_note = (
+        "PROD placeholder: baseline gates are fail-closed until release-grade "
+        "detectors are wired"
+    )
+    scaffold = True
+    gates_stubbed = True
+    stub_profile = "fail_closed_placeholder"
 
 metrics = {
-    "RDSI": 0.92 if RUN_MODE in ("demo", "core") else 0.0,
-    "rdsi_note": (
-        "Demo value for CI smoke-run"
-        if RUN_MODE == "demo"
-        else "Core CI smoke-run"
-        if RUN_MODE == "core"
-        else "PROD placeholder: baseline gates are fail-closed until detectors are wired"
-    ),
+    "RDSI": rdsi_value,
+    "rdsi_note": rdsi_note,
     "build_time": now,
 }
+
+if RUN_MODE == "core":
+    materialized = sorted(
+        [k for k, src in gate_sources.items() if _gate_source_is_materialized(src)]
+    )
+    unresolved = sorted(
+        [k for k, src in gate_sources.items() if not _gate_source_is_materialized(src)]
+    )
+    metrics["core_truth_mode"] = "materialize_or_fail_closed"
+    metrics["core_materialized_gates"] = materialized
+    metrics["core_unmaterialized_gates"] = unresolved
+    metrics["core_materialized_gate_count"] = int(len(materialized))
+    metrics["core_unmaterialized_gate_count"] = int(len(unresolved))
+    metrics["core_q1_source"] = gate_sources.get("q1_grounded_ok", "unknown")
+    metrics["core_q4_source"] = gate_sources.get("q4_slo_ok", "unknown")
 
 metrics["run_mode"] = RUN_MODE
 
@@ -637,9 +890,13 @@ stability_map_payload = {
         "used_feature_keys": list(hazard_feature_keys),
         "recommended_count": int(rec_n),
         "recommend_min_coverage": (
-            float(rec_min_cov) if isinstance(rec_min_cov, (int, float)) else None
+            float(rec_min_cov) if _is_finite_real_number(rec_min_cov) else None
         ),
-        "recommend_max_features": int(rec_max_feats) if isinstance(rec_max_feats, int) else None,
+        "recommend_max_features": (
+            int(rec_max_feats)
+            if isinstance(rec_max_feats, int) and not isinstance(rec_max_feats, bool)
+            else None
+        ),
     },
     "thresholds": {
         "regime": str(threshold_regime),
@@ -674,15 +931,23 @@ if enforce_hazard:
 else:
     gates["epf_hazard_ok"] = True
 
-stub_profile = "all_true_smoke" if RUN_MODE in ("demo", "core") else "fail_closed_placeholder"
-gates_stubbed = True
-
 # Normative guard:
 # scaffold / placeholder gate booleans must never be interpreted as
 # materialized release evidence.
-gates["detectors_materialized_ok"] = not gates_stubbed
+# detectors_materialized_ok is release-grade only.
+# In Core, it stays false until the required evidence path is fully materialized.
+if RUN_MODE == "core":
+    unresolved_count = metrics.get("core_unmaterialized_gate_count", 1)
+    gates["detectors_materialized_ok"] = bool(
+        isinstance(unresolved_count, int)
+        and not isinstance(unresolved_count, bool)
+        and unresolved_count == 0
+    )
+else:
+    gates["detectors_materialized_ok"] = False
+
 diagnostics = {
-    "scaffold": True,
+    "scaffold": scaffold,
     "gates_stubbed": gates_stubbed,
     "stub_profile": stub_profile,
 }
