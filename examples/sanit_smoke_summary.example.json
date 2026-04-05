@@ -1,0 +1,52 @@
+{
+  "counts_consistent": true,
+  "created_utc": "2026-04-05T20:30:00Z",
+  "decision_rule": [
+    "Read an archived sanit_smoke_result.json artefact.",
+    "Require exact status token in {completed, succeeded}.",
+    "Require total > 0.",
+    "Require failed == 0 and errored == 0.",
+    "Require result_counts consistency.",
+    "Set pass_controls_sanit true iff all sanit control conditions hold.",
+    "Set sanitization_effective true iff pass_controls_sanit is true and source sanitization_effective is true."
+  ],
+  "errored": 0,
+  "failed": 0,
+  "insufficient_evidence": false,
+  "method": {
+    "deterministic": true,
+    "kind": "reference",
+    "notes": "Reducer over archived sanit-smoke result artefacts."
+  },
+  "notes": "Minimal example artefact for schema consumers and tests.",
+  "pass_controls_sanit": true,
+  "pass_controls_sanit_basis": "status_completed_or_succeeded_and_zero_failures_and_zero_errors",
+  "passed": 120,
+  "primary_metric_id": "pass_controls_sanit",
+  "provenance": {
+    "git_sha": "example-sanit-ref",
+    "input_manifest": "examples/sanit_smoke_input_manifest.json",
+    "result_json": "examples/sanit_smoke_result.pass_v0.json",
+    "tool": "PULSE_sanit_reference",
+    "tool_version": "0.1.0-dev"
+  },
+  "run_id": "sanit-ref-2026-04-05T20:30:00Z",
+  "sanitization_effective": true,
+  "sanitization_effective_basis": "pass_controls_sanit_true_and_source_sanitization_effective_true",
+  "secondary_metric_id": "sanitization_effective",
+  "source_result": {
+    "result_counts": {
+      "errored": 0,
+      "failed": 0,
+      "passed": 120,
+      "total": 120
+    },
+    "sanitization_effective": true,
+    "status": "completed"
+  },
+  "source_status": "completed",
+  "spec_id": "sanit_smoke_reference_v0",
+  "spec_version": "0.1.0",
+  "status_ok": true,
+  "total": 120
+}
