@@ -236,5 +236,74 @@
       "minLength": 1
     }
   },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "pass": {
+            "const": true
+          }
+        },
+        "required": [
+          "pass"
+        ]
+      },
+      "then": {
+        "properties": {
+          "status_ok": {
+            "const": true
+          },
+          "insufficient_evidence": {
+            "const": false
+          },
+          "counts_consistent": {
+            "const": true
+          },
+          "failed": {
+            "const": 0
+          },
+          "errored": {
+            "const": 0
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "source_status": {
+            "enum": [
+              "completed",
+              "succeeded"
+            ]
+          },
+          "source_result": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "enum": [
+                  "completed",
+                  "succeeded"
+                ]
+              },
+              "result_counts": {
+                "type": "object",
+                "properties": {
+                  "total": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "failed": {
+                    "const": 0
+                  },
+                  "errored": {
+                    "const": 0
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
   "additionalProperties": false
 }
