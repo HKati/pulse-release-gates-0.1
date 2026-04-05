@@ -1,0 +1,338 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://hkati.github.io/pulse-release-gates-0.1/schemas/metrics/sanit_smoke_reference_summary_v0.schema.json",
+  "title": "Sanit Smoke Reference Summary Contract (v0)",
+  "description": "Schema for deterministic, artifact-first sanit-smoke reference summaries used for Core/reference materialization in PULSE.",
+  "type": "object",
+  "required": [
+    "spec_id",
+    "spec_version",
+    "run_id",
+    "created_utc",
+    "source_status",
+    "status_ok",
+    "total",
+    "passed",
+    "failed",
+    "errored",
+    "insufficient_evidence",
+    "counts_consistent",
+    "pass_controls_sanit",
+    "pass_controls_sanit_basis",
+    "sanitization_effective",
+    "sanitization_effective_basis",
+    "primary_metric_id",
+    "secondary_metric_id",
+    "source_result",
+    "method",
+    "provenance",
+    "decision_rule"
+  ],
+  "properties": {
+    "spec_id": {
+      "type": "string",
+      "const": "sanit_smoke_reference_v0"
+    },
+    "spec_version": {
+      "type": "string",
+      "const": "0.1.0"
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "created_utc": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source_status": {
+      "type": "string",
+      "minLength": 1
+    },
+    "status_ok": {
+      "type": "boolean"
+    },
+    "total": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "passed": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "failed": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "errored": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "insufficient_evidence": {
+      "type": "boolean"
+    },
+    "counts_consistent": {
+      "type": "boolean"
+    },
+    "pass_controls_sanit": {
+      "type": "boolean"
+    },
+    "pass_controls_sanit_basis": {
+      "type": "string",
+      "const": "status_completed_or_succeeded_and_zero_failures_and_zero_errors"
+    },
+    "sanitization_effective": {
+      "type": "boolean"
+    },
+    "sanitization_effective_basis": {
+      "type": "string",
+      "const": "pass_controls_sanit_true_and_source_sanitization_effective_true"
+    },
+    "primary_metric_id": {
+      "type": "string",
+      "const": "pass_controls_sanit"
+    },
+    "secondary_metric_id": {
+      "type": "string",
+      "const": "sanitization_effective"
+    },
+    "source_result": {
+      "type": "object",
+      "required": [
+        "status",
+        "result_counts",
+        "sanitization_effective"
+      ],
+      "properties": {
+        "status": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sanitization_effective": {
+          "type": "boolean"
+        },
+        "result_counts": {
+          "type": "object",
+          "required": [
+            "total",
+            "passed",
+            "failed",
+            "errored"
+          ],
+          "properties": {
+            "total": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "passed": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "failed": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "errored": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "method": {
+      "type": "object",
+      "required": [
+        "kind",
+        "deterministic",
+        "notes"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "reference"
+        },
+        "deterministic": {
+          "type": "boolean",
+          "const": true
+        },
+        "notes": {
+          "type": "string",
+          "const": "Reducer over archived sanit-smoke result artefacts."
+        }
+      },
+      "additionalProperties": false
+    },
+    "provenance": {
+      "type": "object",
+      "required": [
+        "input_manifest",
+        "result_json",
+        "tool",
+        "tool_version"
+      ],
+      "properties": {
+        "input_manifest": {
+          "type": "string",
+          "minLength": 1
+        },
+        "result_json": {
+          "type": "string",
+          "minLength": 1
+        },
+        "tool": {
+          "type": "string",
+          "minLength": 1
+        },
+        "tool_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "git_sha": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "decision_rule": {
+      "type": "array",
+      "minItems": 7,
+      "maxItems": 7,
+      "prefixItems": [
+        {
+          "type": "string",
+          "const": "Read an archived sanit_smoke_result.json artefact."
+        },
+        {
+          "type": "string",
+          "const": "Require exact status token in {completed, succeeded}."
+        },
+        {
+          "type": "string",
+          "const": "Require total > 0."
+        },
+        {
+          "type": "string",
+          "const": "Require failed == 0 and errored == 0."
+        },
+        {
+          "type": "string",
+          "const": "Require result_counts consistency."
+        },
+        {
+          "type": "string",
+          "const": "Set pass_controls_sanit true iff all sanit control conditions hold."
+        },
+        {
+          "type": "string",
+          "const": "Set sanitization_effective true iff pass_controls_sanit is true and source sanitization_effective is true."
+        }
+      ],
+      "items": false
+    },
+    "notes": {
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "pass_controls_sanit": {
+            "const": true
+          }
+        },
+        "required": [
+          "pass_controls_sanit"
+        ]
+      },
+      "then": {
+        "properties": {
+          "status_ok": {
+            "const": true
+          },
+          "insufficient_evidence": {
+            "const": false
+          },
+          "counts_consistent": {
+            "const": true
+          },
+          "failed": {
+            "const": 0
+          },
+          "errored": {
+            "const": 0
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "source_status": {
+            "enum": [
+              "completed",
+              "succeeded"
+            ]
+          },
+          "source_result": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "enum": [
+                  "completed",
+                  "succeeded"
+                ]
+              },
+              "result_counts": {
+                "type": "object",
+                "properties": {
+                  "total": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "failed": {
+                    "const": 0
+                  },
+                  "errored": {
+                    "const": 0
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "sanitization_effective": {
+            "const": true
+          }
+        },
+        "required": [
+          "sanitization_effective"
+        ]
+      },
+      "then": {
+        "properties": {
+          "pass_controls_sanit": {
+            "const": true
+          },
+          "source_result": {
+            "type": "object",
+            "properties": {
+              "sanitization_effective": {
+                "const": true
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "additionalProperties": false
+}
