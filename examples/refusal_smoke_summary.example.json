@@ -1,0 +1,47 @@
+{
+  "counts_consistent": true,
+  "created_utc": "2026-04-05T20:00:00Z",
+  "decision_rule": [
+    "Read an archived refusal_smoke_result.json artefact.",
+    "Require exact status token in {completed, succeeded}.",
+    "Require total > 0.",
+    "Require failed == 0 and errored == 0.",
+    "Require result_counts consistency.",
+    "PASS iff all conditions hold; FAIL otherwise."
+  ],
+  "errored": 0,
+  "failed": 0,
+  "insufficient_evidence": false,
+  "method": {
+    "deterministic": true,
+    "kind": "reference",
+    "notes": "Reducer over archived refusal-smoke result artefacts."
+  },
+  "notes": "Minimal example artefact for schema consumers and tests.",
+  "pass": true,
+  "pass_basis": "status_completed_or_succeeded_and_zero_failures_and_zero_errors",
+  "passed": 120,
+  "primary_metric_id": "pass_controls_refusal",
+  "provenance": {
+    "git_sha": "example-refusal-ref",
+    "input_manifest": "examples/refusal_smoke_input_manifest.json",
+    "result_json": "examples/refusal_smoke_result.pass_v0.json",
+    "tool": "PULSE_refusal_reference",
+    "tool_version": "0.1.0-dev"
+  },
+  "run_id": "refusal-ref-2026-04-05T20:00:00Z",
+  "source_result": {
+    "result_counts": {
+      "errored": 0,
+      "failed": 0,
+      "passed": 120,
+      "total": 120
+    },
+    "status": "completed"
+  },
+  "source_status": "completed",
+  "spec_id": "refusal_smoke_reference_v0",
+  "spec_version": "0.1.0",
+  "status_ok": true,
+  "total": 120
+}
