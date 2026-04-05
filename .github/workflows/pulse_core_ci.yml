@@ -85,6 +85,46 @@ jobs:
           set -euo pipefail
                    python "${PACK_DIR}/tools/run_all.py" --mode core
 
+      - name: Print core status summary
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          STATUS="${PACK_DIR}/artifacts/status.json"
+          if [ ! -f "$STATUS" ]; then
+            echo "::warning::Missing status.json at $STATUS"
+            exit 0
+          fi
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          status_path = Path(os.environ["PACK_DIR"]) / "artifacts" / "status.json"
+          payload = json.loads(status_path.read_text(encoding="utf-8"))
+          metrics = payload.get("metrics", {}) or {}
+          diagnostics = payload.get("diagnostics", {}) or {}
+          gates = payload.get("gates", {}) or {}
+
+          summary = {
+              "run_mode": metrics.get("run_mode"),
+              "core_truth_mode": metrics.get("core_truth_mode"),
+              "core_q1_source": metrics.get("core_q1_source"),
+              "core_q4_source": metrics.get("core_q4_source"),
+              "core_refusal_source": metrics.get("core_refusal_source"),
+              "diagnostics": diagnostics,
+              "gates_subset": {
+                  "pass_controls_refusal": gates.get("pass_controls_refusal"),
+                  "pass_controls_sanit": gates.get("pass_controls_sanit"),
+                  "sanitization_effective": gates.get("sanitization_effective"),
+                  "q1_grounded_ok": gates.get("q1_grounded_ok"),
+                  "q4_slo_ok": gates.get("q4_slo_ok"),
+                  "detectors_materialized_ok": gates.get("detectors_materialized_ok"),
+              },
+          }
+          print(json.dumps(summary, indent=2, sort_keys=True))
+          PY
+
       - name: Assert core run mode
         shell: bash
         run: |
