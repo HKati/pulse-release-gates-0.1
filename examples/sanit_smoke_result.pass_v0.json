@@ -1,0 +1,10 @@
+{
+  "status": "completed",
+  "sanitization_effective": true,
+  "result_counts": {
+    "total": 120,
+    "passed": 120,
+    "failed": 0,
+    "errored": 0
+  }
+}
