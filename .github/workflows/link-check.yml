@@ -13,6 +13,7 @@ on:
       - ".lycheeignore"
       - "lychee.toml"
       - ".github/config/lychee.toml"
+
   push:
     branches: [ main ]
     paths:
@@ -26,9 +27,11 @@ on:
       - ".lycheeignore"
       - "lychee.toml"
       - ".github/config/lychee.toml"
+
   workflow_dispatch: {}
+
   schedule:
-    - cron: "0 3 * * 1"  # every Monday 03:00 UTC
+    - cron: "0 3 * * 1" # every Monday 03:00 UTC
 
 permissions:
   contents: read
@@ -53,7 +56,8 @@ jobs:
         uses: lycheeverse/lychee-action@8646ba30535128ac92d33dfc9133794bfdd9b411 # v2.8.0
         with:
           args: >-
-            --verbose --no-progress
+            --verbose
+            --no-progress
             --accept 200,206,301,302,303,307,308,429
             --exclude "https://www\.kaggle\.com/.*"
             --exclude "^mailto:"
@@ -65,7 +69,6 @@ jobs:
             README.md CHANGELOG.md docs examples CITATION.cff schemas
           format: markdown
           output: lychee_report.md
-
           # Advisory on PR/push; strict on schedule/manual runs.
           fail: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
           failIfEmpty: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
@@ -87,6 +90,7 @@ jobs:
           set -euo pipefail
           echo "## Link check (lychee)" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
+
           if [ -f lychee_report.md ]; then
             echo "### Report (excerpt)" >> "$GITHUB_STEP_SUMMARY"
             echo "" >> "$GITHUB_STEP_SUMMARY"
