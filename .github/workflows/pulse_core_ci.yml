@@ -254,15 +254,21 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          OUT_DIR="${RUNNER_TEMP}/core-baseline-generated"
+          rm -rf "$OUT_DIR"
+          mkdir -p "$OUT_DIR"
+          echo "CORE_BASELINE_ARTIFACT_DIR=$OUT_DIR" >> "$GITHUB_ENV"
+
           python tests/tools/generate_core_baseline_v0.py --write-golden
+
+          cp tests/fixtures/core_baseline_v0/status.normalized.json "$OUT_DIR"/
+          cp tests/fixtures/core_baseline_v0/junit.normalized.xml "$OUT_DIR"/
+          cp tests/fixtures/core_baseline_v0/sarif.normalized.json "$OUT_DIR"/
 
       - name: Upload regenerated core baseline fixtures
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: core-baseline-generated
           if-no-files-found: error
-          path: |
-            tests/fixtures/core_baseline_v0/status.normalized.json
-            tests/fixtures/core_baseline_v0/junit.normalized.xml
-            tests/fixtures/core_baseline_v0/sarif.normalized.json
+          path: ${{ env.CORE_BASELINE_ARTIFACT_DIR }}/**
