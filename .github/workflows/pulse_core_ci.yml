@@ -248,3 +248,21 @@ jobs:
         run: |
           set -euo pipefail
           python -m pytest -q tests/test_core_baseline_v0.py 
+
+      - name: Regenerate core baseline fixtures for inspection
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          python tests/tools/generate_core_baseline_v0.py --write-golden
+
+      - name: Upload regenerated core baseline fixtures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: core-baseline-generated
+          if-no-files-found: error
+          path: |
+            tests/fixtures/core_baseline_v0/status.normalized.json
+            tests/fixtures/core_baseline_v0/junit.normalized.xml
+            tests/fixtures/core_baseline_v0/sarif.normalized.json
