@@ -12,11 +12,13 @@ import argparse
 import datetime
 import hashlib
 import json
+import math
 import os
 import pathlib
 import subprocess
 import sys
-from typing import Optional, Tuple
+import tempfile
+from typing import Any, Optional, Tuple
 
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
@@ -28,8 +30,6 @@ from PULSE_safe_pack_v0.tools.render_quality_ledger import (  # noqa: E402
     write_quality_ledger,
 )
 
-# Allow tests / callers to override artifact output directory.
-# Default remains pack_root/artifacts to preserve existing behavior.
 ART_DIR_ENV = os.getenv("PULSE_ARTIFACT_DIR")
 art = pathlib.Path(ART_DIR_ENV) if ART_DIR_ENV else (ROOT / "artifacts")
 art.mkdir(parents=True, exist_ok=True)
@@ -37,6 +37,28 @@ art.mkdir(parents=True, exist_ok=True)
 now = datetime.datetime.utcnow().isoformat() + "Z"
 
 SUPPORTED_MODES = ("demo", "core", "prod")
+
+FIELD_SNAPSHOT_METRIC_EXCLUSIONS = {
+    "build_time",
+    "rdsi_note",
+    "git_sha",
+    "run_key",
+    "core_materialized_gate_count",
+    "core_unmaterialized_gate_count",
+}
+
+
+def _is_finite_real_number(value: Any) -> bool:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return False
+    try:
+        return math.isfinite(float(value))
+    except (OverflowError, ValueError):
+        return False
+
+
+def _gate_source_is_materialized(source: str) -> bool:
+    return isinstance(source, str) and source.startswith("materialized_from_")
 
 
 def _sha256_file(p: pathlib.Path) -> str | None:
@@ -69,12 +91,9 @@ parser.add_argument(
     default=_default_mode,
     help="Run profile: demo|core|prod (default: PULSE_RUN_MODE or demo)",
 )
-
-# Accept existing workflow args (may be used for provenance even if pack is self-contained)
 parser.add_argument("--pack_dir", default=str(ROOT))
 parser.add_argument("--gate_policy", default=str(REPO_ROOT / "pulse_gate_policy_v0.yml"))
 args, _unknown = parser.parse_known_args()
-
 
 RUN_MODE = str(args.mode).strip().lower()
 if RUN_MODE == "demo":
@@ -84,17 +103,11 @@ elif RUN_MODE == "core":
 else:
     STATUS_VERSION = "1.0.0"
 
-
-# Stability Map artefact (additive)
 STABILITY_MAP_SCHEMA_V0 = "epf_stability_map_v0"
 STABILITY_MAP_FILENAME = "epf_stability_map_v0.json"
 
 
 def write_json_artifact(path: pathlib.Path, payload: dict) -> None:
-    """
-    Deterministic JSON artifact writer (sort_keys + indent).
-    Fail-closed is not desired here: this is diagnostic output.
-    """
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8") as f:
         json.dump(payload, f, indent=2, sort_keys=True)
@@ -116,7 +129,6 @@ from PULSE_safe_pack_v0.epf.epf_hazard_forecast import (  # noqa: E402
     MIN_CALIBRATION_SAMPLES,
 )
 
-# Calibration path: prefer same filename inside the selected artifacts dir, if present.
 try:
     from PULSE_safe_pack_v0.epf.epf_hazard_forecast import (  # noqa: E402
         CALIBRATION_PATH as _HAZARD_CALIB_PATH_DEFAULT,
@@ -132,18 +144,10 @@ HAZARD_CALIB_PATH = (
 )
 
 
-# ---------------------------------------------------------------------------
-# Helpers for provenance / cross-run drift seeding
-# ---------------------------------------------------------------------------
-
 def get_git_sha(repo_root: pathlib.Path) -> Optional[str]:
-    """
-    Best-effort git SHA for provenance (fail-open).
-    """
     sha = os.getenv("GITHUB_SHA") or os.getenv("CI_COMMIT_SHA") or os.getenv("BUILD_SOURCEVERSION")
     if isinstance(sha, str) and sha.strip():
         return sha.strip()
-
     try:
         out = subprocess.check_output(
             ["git", "rev-parse", "HEAD"],
@@ -157,9 +161,6 @@ def get_git_sha(repo_root: pathlib.Path) -> Optional[str]:
 
 
 def get_run_key() -> Optional[str]:
-    """
-    Best-effort CI run identity (fail-open).
-    """
     parts = []
     for k in (
         "GITHUB_RUN_ID",
@@ -180,10 +181,6 @@ def load_hazard_T_history(
     gate_id: str,
     max_points: int = 20,
 ) -> list[float]:
-    """
-    Load recent hazard T history for a given gate_id from epf_hazard_log.jsonl.
-    Returns oldest->newest, last max_points items.
-    """
     if not log_path.exists():
         return []
 
@@ -203,17 +200,13 @@ def load_hazard_T_history(
 
             hazard = obj.get("hazard", {}) or {}
             T = hazard.get("T")
-            if isinstance(T, (int, float)):
+            if _is_finite_real_number(T):
                 values.append(float(T))
 
     return values[-max_points:]
 
 
 def compute_baseline_ok(gates: dict) -> bool:
-    """
-    Baseline pass/fail excluding the hazard shadow gate if present.
-    This prevents topology from becoming self-referential.
-    """
     for k, v in gates.items():
         if str(k) == "epf_hazard_ok":
             continue
@@ -223,12 +216,6 @@ def compute_baseline_ok(gates: dict) -> bool:
 
 
 def classify_topology_region(*, baseline_ok: bool, hazard_zone: str) -> str:
-    """
-    Field topology region (diagnostic overlay):
-      - stably_good / unstably_good / stably_bad / unstably_bad / unknown
-
-    Stable is GREEN; anything else is "unstable" (AMBER/RED).
-    """
     z = str(hazard_zone or "").upper()
     if z == "GREEN":
         stable = True
@@ -250,47 +237,30 @@ def build_epf_field_snapshots(
     metrics: dict,
     gates: dict,
 ) -> Tuple[dict, dict, dict]:
-    """
-    Build a flat dotted-key EPF field snapshot + deterministic reference anchor.
-
-    Design intent (Grail-hű):
-      - current_snapshot is a FIELD coordinate vector (not an alert payload)
-      - reference_snapshot is a stable suggestion anchor
-      - deterministic and numeric-only
-
-    Returns:
-        (current_snapshot, reference_snapshot, stability_metrics)
-    """
     current: dict = {}
 
-    # 1) Numeric metrics -> metrics.<key>
-    # Exclude hazard_* derived fields and obvious non-numeric info.
     for k in sorted(metrics.keys(), key=lambda x: str(x)):
         ks = str(k)
         if ks.startswith("hazard_"):
             continue
-        if ks in ("build_time", "rdsi_note", "git_sha", "run_key"):
+        if ks in FIELD_SNAPSHOT_METRIC_EXCLUSIONS:
             continue
 
         v = metrics.get(k)
-        if isinstance(v, (int, float)):
+        if _is_finite_real_number(v):
             current[f"metrics.{ks}"] = float(v)
 
-    # 2) Gate outcomes -> gates.<name> (bool -> 0/1)
-    # Exclude shadow hazard gate to keep the coordinate system non-self-referential.
     for name in sorted(gates.keys(), key=lambda x: str(x)):
         if str(name) == "epf_hazard_ok":
             continue
         ok = gates.get(name) is True
         current[f"gates.{name}"] = 1.0 if ok else 0.0
 
-    # 3) Stability metrics (forecast reads RDSI if present)
     stability: dict = {}
     rdsi = metrics.get("RDSI")
-    if isinstance(rdsi, (int, float)):
+    if _is_finite_real_number(rdsi):
         stability["RDSI"] = float(rdsi)
 
-    # 4) Deterministic reference anchor for this coordinate system
     reference: dict = {}
     for key in sorted(current.keys()):
         if key == "metrics.RDSI":
@@ -303,21 +273,12 @@ def build_epf_field_snapshots(
     return current, reference, stability
 
 
-# ---------------------------------------------------------------------------
-# Helpers for EPF hazard history / context
-# ---------------------------------------------------------------------------
-
 def load_hazard_E_history(
     log_path: pathlib.Path,
     *,
     max_points: int = 20,
     gate_id: Optional[str] = None,
 ) -> list[float]:
-    """
-    Load up to max_points hazard E values from epf_hazard_log.jsonl.
-
-    If gate_id is provided, only values from that series are returned.
-    """
     if not log_path.exists():
         return []
 
@@ -337,7 +298,7 @@ def load_hazard_E_history(
 
             hazard = obj.get("hazard", {}) or {}
             E = hazard.get("E")
-            if isinstance(E, (int, float)):
+            if _is_finite_real_number(E):
                 values.append(float(E))
 
     return values[-max_points:] if values else []
@@ -348,13 +309,6 @@ def load_last_hazard_feature_context(
     *,
     gate_id: Optional[str] = None,
 ) -> tuple[list[str], str, bool]:
-    """
-    Read the last valid JSON event from epf_hazard_log.jsonl and return:
-      (feature_keys, feature_mode_source, feature_mode_active)
-
-    If gate_id is provided, selects the last entry for that series.
-    Fail-open for older logs.
-    """
     if not log_path.exists():
         return ([], "none", False)
 
@@ -434,17 +388,275 @@ def load_calibration_recommendation(calib_path: pathlib.Path) -> dict:
     if isinstance(knobs, dict):
         mc = knobs.get("min_coverage")
         mf = knobs.get("max_features")
-        if isinstance(mc, (int, float)):
+        if _is_finite_real_number(mc):
             out["min_coverage"] = float(mc)
-        if isinstance(mf, int):
+        if isinstance(mf, int) and not isinstance(mf, bool):
             out["max_features"] = int(mf)
 
     return out
 
 
-# ---------------------------------------------------------------------------
-# Minimal demo gates (all True by default so CI passes)
-# ---------------------------------------------------------------------------
+def _run_json_tool(
+    cmd: list[str],
+    *,
+    cwd: pathlib.Path,
+    out_path: pathlib.Path,
+) -> tuple[bool, dict[str, Any] | None, str | None]:
+    result = subprocess.run(
+        cmd,
+        cwd=str(cwd),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    if result.returncode != 0:
+        detail = result.stderr.strip() or result.stdout.strip()
+        return False, None, f"exit={result.returncode}; detail={detail}"
+
+    if not out_path.is_file():
+        return False, None, "tool did not emit output JSON"
+
+    try:
+        payload = json.loads(out_path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        return False, None, f"invalid JSON output: {exc}"
+
+    if not isinstance(payload, dict):
+        return False, None, f"tool output must be a JSON object, got {type(payload).__name__}"
+
+    return True, payload, None
+
+
+def materialize_q1_grounded_ok(
+    repo_root: pathlib.Path,
+    *,
+    created_utc: str,
+) -> tuple[bool, bool, str]:
+    runner = repo_root / "PULSE_safe_pack_v0" / "tools" / "build_q1_reference_summary.py"
+    manifest = repo_root / "examples" / "q1_reference_input_manifest.json"
+    labels = repo_root / "examples" / "q1_reference_labels.pass_120.jsonl"
+
+    missing = [p for p in (runner, manifest, labels) if not p.is_file()]
+    if missing:
+        return False, False, "missing_inputs_or_runner"
+
+    with tempfile.TemporaryDirectory() as td:
+        out_path = pathlib.Path(td) / "q1_reference_summary.json"
+        cmd = [
+            sys.executable,
+            str(runner),
+            "--labels_jsonl",
+            "examples/q1_reference_labels.pass_120.jsonl",
+            "--out",
+            str(out_path),
+            "--input_manifest",
+            "examples/q1_reference_input_manifest.json",
+            "--run_id",
+            f"core-q1-{created_utc}",
+            "--created_utc",
+            created_utc,
+            "--tool",
+            "PULSE_q1_reference",
+            "--tool_version",
+            "0.1.0-dev",
+            "--notes",
+            "Core materialization from checked-in Q1 reference fixture.",
+        ]
+        ok, payload, err = _run_json_tool(cmd, cwd=repo_root, out_path=out_path)
+        if not ok or payload is None:
+            return False, False, err or "q1 runner failed"
+
+    passed = payload.get("pass")
+    if not isinstance(passed, bool):
+        return False, False, "q1 summary missing boolean 'pass'"
+
+    return bool(passed), True, "materialized_from_q1_reference"
+
+
+def _load_q4_reference_budgets(manifest_path: pathlib.Path) -> tuple[float, float, int]:
+    try:
+        payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        raise ValueError(f"invalid Q4 manifest JSON: {exc}") from exc
+
+    if not isinstance(payload, dict):
+        raise ValueError("Q4 manifest must be a JSON object")
+
+    budgets = payload.get("budgets")
+    if not isinstance(budgets, dict):
+        raise ValueError("Q4 manifest missing object 'budgets'")
+
+    latency_budget_ms = budgets.get("latency_p95_ms_max")
+    cost_budget_usd = budgets.get("cost_p95_usd_max")
+    min_requests = budgets.get("min_requests")
+
+    if not _is_finite_real_number(latency_budget_ms) or float(latency_budget_ms) <= 0:
+        raise ValueError("budgets.latency_p95_ms_max must be a positive finite number")
+    if not _is_finite_real_number(cost_budget_usd) or float(cost_budget_usd) <= 0:
+        raise ValueError("budgets.cost_p95_usd_max must be a positive finite number")
+    if isinstance(min_requests, bool) or not isinstance(min_requests, int) or min_requests < 0:
+        raise ValueError("budgets.min_requests must be a non-negative integer")
+
+    return float(latency_budget_ms), float(cost_budget_usd), int(min_requests)
+
+
+def materialize_q4_slo_ok(
+    repo_root: pathlib.Path,
+    *,
+    created_utc: str,
+) -> tuple[bool, bool, str]:
+    runner = repo_root / "PULSE_safe_pack_v0" / "tools" / "build_q4_slo_reference_summary.py"
+    manifest = repo_root / "examples" / "q4_slo_input_manifest.json"
+    stats = repo_root / "examples" / "q4_slo_stats.pass_v0.json"
+
+    missing = [p for p in (runner, manifest, stats) if not p.is_file()]
+    if missing:
+        return False, False, "missing_inputs_or_runner"
+
+    try:
+        latency_budget_ms, cost_budget_usd, min_requests = _load_q4_reference_budgets(manifest)
+    except ValueError as exc:
+        return False, False, f"invalid_q4_manifest: {exc}"
+
+    with tempfile.TemporaryDirectory() as td:
+        out_path = pathlib.Path(td) / "q4_reference_summary.json"
+        cmd = [
+            sys.executable,
+            str(runner),
+            "--stats_json",
+            "examples/q4_slo_stats.pass_v0.json",
+            "--out",
+            str(out_path),
+            "--input_manifest",
+            "examples/q4_slo_input_manifest.json",
+            "--run_id",
+            f"core-q4-{created_utc}",
+            "--created_utc",
+            created_utc,
+            "--tool",
+            "PULSE_q4_reference",
+            "--tool_version",
+            "0.1.0-dev",
+            "--notes",
+            "Core materialization from checked-in Q4 SLO reference fixture.",
+            "--latency_budget_ms",
+            str(latency_budget_ms),
+            "--cost_budget_usd",
+            str(cost_budget_usd),
+            "--min_requests",
+            str(min_requests),
+        ]
+        ok, payload, err = _run_json_tool(cmd, cwd=repo_root, out_path=out_path)
+        if not ok or payload is None:
+            return False, False, err or "q4 runner failed"
+
+    passed = payload.get("pass")
+    if not isinstance(passed, bool):
+        return False, False, "q4 summary missing boolean 'pass'"
+
+    return bool(passed), True, "materialized_from_q4_reference"
+
+
+def materialize_pass_controls_refusal(
+    repo_root: pathlib.Path,
+    *,
+    created_utc: str,
+) -> tuple[bool, bool, str]:
+    runner = repo_root / "PULSE_safe_pack_v0" / "tools" / "build_refusal_smoke_reference_summary.py"
+    manifest = repo_root / "examples" / "refusal_smoke_input_manifest.json"
+    result_json = repo_root / "examples" / "refusal_smoke_result.pass_v0.json"
+
+    missing = [p for p in (runner, manifest, result_json) if not p.is_file()]
+    if missing:
+        return False, False, "missing_inputs_or_runner"
+
+    with tempfile.TemporaryDirectory() as td:
+        out_path = pathlib.Path(td) / "refusal_reference_summary.json"
+        cmd = [
+            sys.executable,
+            str(runner),
+            "--result_json",
+            "examples/refusal_smoke_result.pass_v0.json",
+            "--out",
+            str(out_path),
+            "--input_manifest",
+            "examples/refusal_smoke_input_manifest.json",
+            "--run_id",
+            f"core-refusal-{created_utc}",
+            "--created_utc",
+            created_utc,
+            "--tool",
+            "PULSE_refusal_reference",
+            "--tool_version",
+            "0.1.0-dev",
+            "--notes",
+            "Core materialization from checked-in refusal reference fixture.",
+        ]
+        ok, payload, err = _run_json_tool(cmd, cwd=repo_root, out_path=out_path)
+        if not ok or payload is None:
+            return False, False, err or "refusal runner failed"
+
+    passed = payload.get("pass")
+    if not isinstance(passed, bool):
+        return False, False, "refusal summary missing boolean 'pass'"
+
+    return bool(passed), True, "materialized_from_refusal_reference"
+
+
+def materialize_sanit_controls(
+    repo_root: pathlib.Path,
+    *,
+    created_utc: str,
+) -> tuple[bool, bool, bool, str]:
+    runner = repo_root / "PULSE_safe_pack_v0" / "tools" / "build_sanit_smoke_reference_summary.py"
+    manifest = repo_root / "examples" / "sanit_smoke_input_manifest.json"
+    result_json = repo_root / "examples" / "sanit_smoke_result.pass_v0.json"
+
+    missing = [p for p in (runner, manifest, result_json) if not p.is_file()]
+    if missing:
+        return False, False, False, "missing_inputs_or_runner"
+
+    with tempfile.TemporaryDirectory() as td:
+        out_path = pathlib.Path(td) / "sanit_reference_summary.json"
+        cmd = [
+            sys.executable,
+            str(runner),
+            "--result_json",
+            "examples/sanit_smoke_result.pass_v0.json",
+            "--out",
+            str(out_path),
+            "--input_manifest",
+            "examples/sanit_smoke_input_manifest.json",
+            "--run_id",
+            f"core-sanit-{created_utc}",
+            "--created_utc",
+            created_utc,
+            "--tool",
+            "PULSE_sanit_reference",
+            "--tool_version",
+            "0.1.0-dev",
+            "--notes",
+            "Core materialization from checked-in sanit reference fixture.",
+        ]
+        ok, payload, err = _run_json_tool(cmd, cwd=repo_root, out_path=out_path)
+        if not ok or payload is None:
+            return False, False, False, err or "sanit runner failed"
+
+    pass_controls_sanit = payload.get("pass_controls_sanit")
+    sanitization_effective = payload.get("sanitization_effective")
+
+    if not isinstance(pass_controls_sanit, bool):
+        return False, False, False, "sanit summary missing boolean 'pass_controls_sanit'"
+    if not isinstance(sanitization_effective, bool):
+        return False, False, False, "sanit summary missing boolean 'sanitization_effective'"
+
+    return (
+        bool(pass_controls_sanit),
+        bool(sanitization_effective),
+        True,
+        "materialized_from_sanit_reference",
+    )
+
 
 BASE_GATES = {
     "pass_controls_refusal": True,
@@ -467,23 +679,84 @@ BASE_GATES = {
     "q4_slo_ok": True,
 }
 
-if RUN_MODE in ("demo", "core"):
-    gates = dict(BASE_GATES)  # all True (smoke)
-else:
-    # prod: fail-closed baseline until real detectors replace stubs
+gate_sources = {k: "uninitialized" for k in BASE_GATES.keys()}
+
+if RUN_MODE == "demo":
+    gates = dict(BASE_GATES)
+    gate_sources = {k: "demo_smoke" for k in BASE_GATES.keys()}
+    rdsi_value = 0.92
+    rdsi_note = "Demo value for CI smoke-run"
+    scaffold = True
+    gates_stubbed = True
+    stub_profile = "all_true_smoke"
+
+elif RUN_MODE == "core":
     gates = {k: False for k in BASE_GATES.keys()}
+    gate_sources = {k: "unmaterialized_fail_closed" for k in BASE_GATES.keys()}
+
+    q1_pass, _q1_materialized, q1_source = materialize_q1_grounded_ok(REPO_ROOT, created_utc=now)
+    gates["q1_grounded_ok"] = q1_pass
+    gate_sources["q1_grounded_ok"] = q1_source
+
+    q4_pass, _q4_materialized, q4_source = materialize_q4_slo_ok(REPO_ROOT, created_utc=now)
+    gates["q4_slo_ok"] = q4_pass
+    gate_sources["q4_slo_ok"] = q4_source
+
+    refusal_pass, _refusal_materialized, refusal_source = materialize_pass_controls_refusal(
+        REPO_ROOT,
+        created_utc=now,
+    )
+    gates["pass_controls_refusal"] = refusal_pass
+    gate_sources["pass_controls_refusal"] = refusal_source
+
+    sanit_pass, sanit_effective, _sanit_materialized, sanit_source = materialize_sanit_controls(
+        REPO_ROOT,
+        created_utc=now,
+    )
+    gates["pass_controls_sanit"] = sanit_pass
+    gates["sanitization_effective"] = sanit_effective
+    gate_sources["pass_controls_sanit"] = sanit_source
+    gate_sources["sanitization_effective"] = sanit_source
+
+    rdsi_value = 0.0
+    rdsi_note = (
+        "Core materialize-or-fail-closed run: only gates with real deterministic "
+        "evidence may surface as True; unresolved gates remain False."
+    )
+    scaffold = False
+    gates_stubbed = False
+    stub_profile = "materialize_or_fail_closed"
+
+else:
+    gates = {k: False for k in BASE_GATES.keys()}
+    gate_sources = {k: "prod_fail_closed_placeholder" for k in BASE_GATES.keys()}
+    rdsi_value = 0.0
+    rdsi_note = (
+        "PROD placeholder: baseline gates are fail-closed until release-grade "
+        "detectors are wired"
+    )
+    scaffold = True
+    gates_stubbed = True
+    stub_profile = "fail_closed_placeholder"
 
 metrics = {
-    "RDSI": 0.92 if RUN_MODE in ("demo", "core") else 0.0,
-    "rdsi_note": (
-        "Demo value for CI smoke-run"
-        if RUN_MODE == "demo"
-        else "Core CI smoke-run"
-        if RUN_MODE == "core"
-        else "PROD placeholder: baseline gates are fail-closed until detectors are wired"
-    ),
+    "RDSI": rdsi_value,
+    "rdsi_note": rdsi_note,
     "build_time": now,
 }
+
+if RUN_MODE == "core":
+    materialized = sorted([k for k, src in gate_sources.items() if _gate_source_is_materialized(src)])
+    unresolved = sorted([k for k, src in gate_sources.items() if not _gate_source_is_materialized(src)])
+    metrics["core_truth_mode"] = "materialize_or_fail_closed"
+    metrics["core_materialized_gates"] = materialized
+    metrics["core_unmaterialized_gates"] = unresolved
+    metrics["core_materialized_gate_count"] = int(len(materialized))
+    metrics["core_unmaterialized_gate_count"] = int(len(unresolved))
+    metrics["core_q1_source"] = gate_sources.get("q1_grounded_ok", "unknown")
+    metrics["core_q4_source"] = gate_sources.get("q4_slo_ok", "unknown")
+    metrics["core_refusal_source"] = gate_sources.get("pass_controls_refusal", "unknown")
+    metrics["core_sanit_source"] = gate_sources.get("pass_controls_sanit", "unknown")
 
 metrics["run_mode"] = RUN_MODE
 
@@ -493,16 +766,9 @@ h = _sha256_file(gp) if gp.exists() else None
 if h:
     metrics["gate_policy_sha256"] = h
 
-
-# Baseline gate health excluding hazard shadow gate (topology uses this).
 baseline_ok = compute_baseline_ok(gates)
 metrics["hazard_baseline_ok"] = bool(baseline_ok)
 
-# ---------------------------------------------------------------------------
-# EPF hazard probe (field snapshot + cross-run drift seeding)
-# ---------------------------------------------------------------------------
-
-# Provenance (fail-open)
 run_key = get_run_key()
 git_sha = get_git_sha(REPO_ROOT)
 if run_key:
@@ -511,17 +777,13 @@ if git_sha:
     metrics["git_sha"] = git_sha
 
 hazard_log_path = art / "epf_hazard_log.jsonl"
-
-# Stable series id for the field
 hazard_gate_id = "EPF_field_main"
 metrics["hazard_gate_id"] = hazard_gate_id
 
-# Seed drift across runs (history_T)
 seed_T = load_hazard_T_history(hazard_log_path, gate_id=hazard_gate_id, max_points=10)
 metrics["hazard_seed_T_points"] = int(len(seed_T))
 hazard_runtime = HazardRuntimeState(history_T=list(seed_T))
 
-# Build Grail field snapshots (flat dotted keys)
 current_snapshot, reference_snapshot, stability_metrics = build_epf_field_snapshots(metrics, gates)
 
 hazard_state = probe_hazard_and_append_log(
@@ -541,7 +803,6 @@ hazard_state = probe_hazard_and_append_log(
 
 hazard_decision = evaluate_hazard_gate(hazard_state, cfg=HazardGateConfig())
 
-# Surface hazard metrics into status.json metrics.
 metrics["hazard_T"] = hazard_state.T
 metrics["hazard_S"] = hazard_state.S
 metrics["hazard_D"] = hazard_state.D
@@ -551,7 +812,6 @@ metrics["hazard_reason"] = hazard_state.reason
 metrics["hazard_ok"] = hazard_decision.ok
 metrics["hazard_severity"] = hazard_decision.severity
 
-# Field topology overlay (diagnostic)
 hazard_topology_region = classify_topology_region(
     baseline_ok=bool(baseline_ok),
     hazard_zone=str(hazard_state.zone),
@@ -563,12 +823,8 @@ hazard_contributors_top = getattr(hazard_state, "contributors_top", []) or []
 metrics["hazard_T_scaled"] = hazard_T_scaled
 metrics["hazard_contributors_top"] = hazard_contributors_top
 
-# Feature-mode context (from the last log event for this gate_id)
 hazard_feature_keys, hazard_feature_mode_source, hazard_feature_mode_active = (
-    load_last_hazard_feature_context(
-        hazard_log_path,
-        gate_id=hazard_gate_id,
-    )
+    load_last_hazard_feature_context(hazard_log_path, gate_id=hazard_gate_id)
 )
 metrics["hazard_feature_keys"] = hazard_feature_keys
 metrics["hazard_feature_count"] = int(len(hazard_feature_keys))
@@ -576,7 +832,6 @@ metrics["hazard_feature_mode_source"] = str(hazard_feature_mode_source)
 metrics["hazard_feature_mode_active"] = bool(hazard_feature_mode_active)
 feature_mode_label = "ON" if bool(hazard_feature_mode_active) else "OFF"
 
-# Calibration recommendation summary (if present)
 calib_summary = load_calibration_recommendation(pathlib.Path(HAZARD_CALIB_PATH))
 metrics["hazard_recommended_count"] = int(calib_summary.get("recommended_count", 0) or 0)
 metrics["hazard_recommend_min_coverage"] = calib_summary.get("min_coverage")
@@ -585,19 +840,13 @@ metrics["hazard_feature_allowlist_count"] = int(
     calib_summary.get("feature_allowlist_count", 0) or 0
 )
 
-# E-history for Stability Map artefact
 E_history = load_hazard_E_history(hazard_log_path, max_points=20, gate_id=hazard_gate_id)
 
-# Threshold regime label (for UI + Stability Map)
 calib_is_effective = (
     CALIBRATED_WARN_THRESHOLD != DEFAULT_WARN_THRESHOLD
     or CALIBRATED_CRIT_THRESHOLD != DEFAULT_CRIT_THRESHOLD
 )
 threshold_regime = "CALIBRATED" if calib_is_effective else "BASELINE"
-
-# ---------------------------------------------------------------------------
-# Stability Map artefact (v0)
-# ---------------------------------------------------------------------------
 
 seed_T_points = int(metrics.get("hazard_seed_T_points", 0) or 0)
 features_used_n = int(metrics.get("hazard_feature_count", 0) or 0)
@@ -627,7 +876,6 @@ stability_map_payload = {
     "series": {
         "seed_T_points": int(seed_T_points),
         "history_E": list(E_history),
-        # hazard_runtime.history_T already includes seeds + current T (adapter appends).
         "history_T": list((hazard_runtime.history_T or [])[-20:]),
     },
     "feature_mode": {
@@ -637,9 +885,13 @@ stability_map_payload = {
         "used_feature_keys": list(hazard_feature_keys),
         "recommended_count": int(rec_n),
         "recommend_min_coverage": (
-            float(rec_min_cov) if isinstance(rec_min_cov, (int, float)) else None
+            float(rec_min_cov) if _is_finite_real_number(rec_min_cov) else None
         ),
-        "recommend_max_features": int(rec_max_feats) if isinstance(rec_max_feats, int) else None,
+        "recommend_max_features": (
+            int(rec_max_feats)
+            if isinstance(rec_max_feats, int) and not isinstance(rec_max_feats, bool)
+            else None
+        ),
     },
     "thresholds": {
         "regime": str(threshold_regime),
@@ -659,14 +911,9 @@ stability_map_payload = {
 stability_map_path = art / STABILITY_MAP_FILENAME
 write_json_artifact(stability_map_path, stability_map_payload)
 
-# Keep status metrics additive and safely excluded from field snapshots (hazard_* prefix).
 metrics["hazard_stability_map_written"] = True
 metrics["hazard_stability_map_schema"] = STABILITY_MAP_SCHEMA_V0
 metrics["hazard_stability_map_path"] = str(stability_map_path)
-
-# ---------------------------------------------------------------------------
-# Shadow hazard gate (ENV-flag-enforceable)
-# ---------------------------------------------------------------------------
 
 enforce_hazard = os.getenv("EPF_HAZARD_ENFORCE", "0") == "1"
 if enforce_hazard:
@@ -674,15 +921,18 @@ if enforce_hazard:
 else:
     gates["epf_hazard_ok"] = True
 
-stub_profile = "all_true_smoke" if RUN_MODE in ("demo", "core") else "fail_closed_placeholder"
-gates_stubbed = True
+if RUN_MODE == "core":
+    unresolved_count = metrics.get("core_unmaterialized_gate_count", 1)
+    gates["detectors_materialized_ok"] = bool(
+        isinstance(unresolved_count, int)
+        and not isinstance(unresolved_count, bool)
+        and unresolved_count == 0
+    )
+else:
+    gates["detectors_materialized_ok"] = False
 
-# Normative guard:
-# scaffold / placeholder gate booleans must never be interpreted as
-# materialized release evidence.
-gates["detectors_materialized_ok"] = not gates_stubbed
 diagnostics = {
-    "scaffold": True,
+    "scaffold": scaffold,
     "gates_stubbed": gates_stubbed,
     "stub_profile": stub_profile,
 }
@@ -697,10 +947,6 @@ status = {
 
 status_path = art / "status.json"
 write_json_artifact(status_path, status)
-
-# ---------------------------------------------------------------------------
-# HTML report card via Quality Ledger renderer
-# ---------------------------------------------------------------------------
 
 report_card_path = art / "report_card.html"
 write_quality_ledger(status_path, report_card_path)
