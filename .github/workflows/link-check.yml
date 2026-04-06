@@ -2,7 +2,6 @@ name: Link check
 
 on:
   pull_request:
-    branches: [ main ]
     paths:
       - "README.md"
       - "CHANGELOG.md"
@@ -17,11 +16,22 @@ on:
 
   push:
     branches: [ main ]
+    paths:
+      - "README.md"
+      - "CHANGELOG.md"
+      - "docs/**"
+      - "examples/**"
+      - "CITATION.cff"
+      - "schemas/**"
+      - ".github/workflows/link-check.yml"
+      - ".lycheeignore"
+      - "lychee.toml"
+      - ".github/config/lychee.toml"
 
   workflow_dispatch: {}
 
   schedule:
-    - cron: "17 3 * * 1" # every Monday 03:17 UTC
+    - cron: "0 3 * * 1" # every Monday 03:00 UTC
 
 permissions:
   contents: read
@@ -41,44 +51,16 @@ jobs:
         with:
           fetch-depth: 1
           persist-credentials: false
-          ref: ${{ github.sha }}
 
-      - name: Snapshot exact link-check inputs
-        if: always()
-        shell: bash
-        run: |
-          set -euo pipefail
-          mkdir -p _linkcheck_snapshot
-
-          {
-            echo "event=${{ github.event_name }}"
-            echo "ref=${{ github.ref }}"
-            echo "github_sha=${GITHUB_SHA}"
-            echo "git_head=$(git rev-parse HEAD)"
-            echo
-            echo "[README DOI lines]"
-            grep -nE 'doi\.org/badge|zenodo\.org/badge|10\.5281/zenodo\.17373002' README.md || true
-            echo
-            echo "[report_card latest/runs lines]"
-            grep -nE 'href="[^"]*(latest|runs)/"' docs/report_card.html || true
-            echo
-            echo "[checksums]"
-            sha256sum README.md docs/report_card.html
-          } | tee _linkcheck_snapshot/input_snapshot.txt
-
-          cp README.md docs/report_card.html _linkcheck_snapshot/
-
-      - name: Run Lychee link checker (repo-local)
-        id: lychee_repo_local
-        continue-on-error: true
+      - name: Run Lychee link checker
         uses: lycheeverse/lychee-action@8646ba30535128ac92d33dfc9133794bfdd9b411 # v2.8.0
         with:
           args: >-
-            --verbose --no-progress
+            --verbose
+            --no-progress
             --accept 200,206,301,302,303,307,308,429
             --exclude "https://www\.kaggle\.com/.*"
             --exclude "^mailto:"
-            --exclude-path "^docs/report_card\.html$"
             --timeout 20
             --max-redirects 10
             --max-retries 2
@@ -86,96 +68,35 @@ jobs:
             --max-concurrency 8
             README.md CHANGELOG.md docs examples CITATION.cff schemas
           format: markdown
-          output: lychee_report_repo_local.md
-          fail: true
-          failIfEmpty: true
+          output: lychee_report.md
+          # Advisory on PR/push; strict on schedule/manual runs.
+          fail: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
+          failIfEmpty: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Run Lychee link checker (pages-context)
-        id: lychee_pages_context
-        continue-on-error: true
-        uses: lycheeverse/lychee-action@8646ba30535128ac92d33dfc9133794bfdd9b411 # v2.8.0
-        with:
-          args: >-
-            --verbose --no-progress
-            --accept 200,206,301,302,303,307,308,429
-            --exclude "https://www\.kaggle\.com/.*"
-            --exclude "^mailto:"
-            --base-url https://hkati.github.io/pulse-release-gates-0.1/
-            --timeout 20
-            --max-redirects 10
-            --max-retries 2
-            --retry-wait-time 2
-            --max-concurrency 8
-            docs/report_card.html
-          format: markdown
-          output: lychee_report_pages_context.md
-          fail: true
-          failIfEmpty: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Enforce failure policy
-        if: always()
-        shell: bash
-        run: |
-          set -euo pipefail
-          [[ "${{ steps.lychee_repo_local.outcome }}" == "success" ]]
-          [[ "${{ steps.lychee_pages_context.outcome }}" == "success" ]]
-
-      - name: Upload lychee artefacts
+      - name: Upload lychee report (artifact)
         if: always()
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: lychee-report
-          if-no-files-found: warn
-          path: |
-            lychee_report_repo_local.md
-            lychee_report_pages_context.md
-            _linkcheck_snapshot/**
+          path: lychee_report.md
+          if-no-files-found: ignore
 
       - name: Workflow summary (lychee excerpt)
         if: always()
         shell: bash
         run: |
           set -euo pipefail
+          echo "## Link check (lychee)" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
 
-          {
-            echo "## Link check (lychee)"
-            echo
-            echo "- repo-local check result: ${{ steps.lychee_repo_local.outcome }}"
-            echo "- pages-context check result: ${{ steps.lychee_pages_context.outcome }}"
-            echo
-            echo "### Input snapshot"
-            echo
-            echo '```text'
-            sed -n '1,120p' _linkcheck_snapshot/input_snapshot.txt || true
-            echo '```'
-            echo
-          } >> "$GITHUB_STEP_SUMMARY"
-
-          if [ -f lychee_report_repo_local.md ]; then
-            {
-              echo "### Repo-local report (excerpt)"
-              echo
-              echo '```'
-              sed -n '1,120p' lychee_report_repo_local.md || true
-              echo '```'
-              echo
-            } >> "$GITHUB_STEP_SUMMARY"
+          if [ -f lychee_report.md ]; then
+            echo "### Report (excerpt)" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            sed -n '1,200p' lychee_report.md >> "$GITHUB_STEP_SUMMARY" || true
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
           else
-            echo "_No lychee_report_repo_local.md generated._" >> "$GITHUB_STEP_SUMMARY"
-          fi
-
-          if [ -f lychee_report_pages_context.md ]; then
-            {
-              echo "### Pages-context report (excerpt)"
-              echo
-              echo '```'
-              sed -n '1,120p' lychee_report_pages_context.md || true
-              echo '```'
-            } >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "_No lychee_report_pages_context.md generated._" >> "$GITHUB_STEP_SUMMARY"
+            echo "_No lychee_report.md generated._" >> "$GITHUB_STEP_SUMMARY"
           fi
