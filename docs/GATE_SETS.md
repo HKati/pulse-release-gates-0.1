@@ -18,6 +18,7 @@ The policy currently defines four gate sets:
 
 The current policy-defined `release_required` set contains:
 
+- `detectors_materialized_ok`
 - `external_summaries_present`
 - `external_all_pass`
 
@@ -68,7 +69,7 @@ A set can exist in policy without always being active in every lane.
 ## Gate matrix (policy-defined)
 
 | Gate | `core_required` | `required` | `release_required` | `advisory` |
-|---|---:|---:|---:|---:|
+|---|---|---|---|---|
 | `pass_controls_refusal` | Yes | Yes | No | No |
 | `refusal_delta_pass` | No | Yes | No | No |
 | `effect_present` | No | Yes | No | No |
@@ -88,6 +89,7 @@ A set can exist in policy without always being active in every lane.
 | `q2_consistency_ok` | No | Yes | No | No |
 | `q3_fairness_ok` | No | Yes | No | No |
 | `q4_slo_ok` | Yes | Yes | No | No |
+| `detectors_materialized_ok` | No | No | Yes | No |
 | `external_summaries_present` | No | No | Yes | Yes |
 | `external_all_pass` | No | No | Yes | Yes |
 
@@ -95,13 +97,11 @@ A set can exist in policy without always being active in every lane.
 
 `release_required` is now materialized in the current v0 workflow for release-grade paths.
 
-That means strict external evidence is not only a pre-augment workflow guard anymore.
-In release-grade paths, the final effective fail-closed gate set is:
+That means strict external evidence is not only a pre-augment workflow guard anymore. In release-grade paths, the final effective fail-closed gate set is:
 
 - `required`
 - plus `release_required`
 
 The pre-augment external-summary presence check still remains valuable because it fails early on missing evidence before augmentation continues.
 
-In non-release lanes, external evidence stays out of the active enforce set by default.
-That keeps the core path narrow and deterministic, while still allowing diagnostic evidence collection.
+In non-release lanes, external evidence stays out of the active enforce set by default. That keeps the core path narrow and deterministic, while still allowing diagnostic evidence collection.
