@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+
 """
 Run all PULSE safe-pack checks and generate core artifacts.
 
@@ -18,9 +19,9 @@ import subprocess
 import sys
 from typing import Optional, Tuple
 
-
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 REPO_ROOT = ROOT.parent
+
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
@@ -53,7 +54,11 @@ def _sha256_file(p: pathlib.Path) -> str | None:
 parser = argparse.ArgumentParser(add_help=True)
 
 _env_raw = os.getenv("PULSE_RUN_MODE")
-_env_mode = _env_raw.strip().lower() if isinstance(_env_raw, str) and _env_raw.strip() else None
+_env_mode = (
+    _env_raw.strip().lower()
+    if isinstance(_env_raw, str) and _env_raw.strip()
+    else None
+)
 
 if _env_mode is not None and _env_mode not in SUPPORTED_MODES:
     parser.error(
@@ -73,17 +78,17 @@ parser.add_argument(
 # Accept existing workflow args (may be used for provenance even if pack is self-contained)
 parser.add_argument("--pack_dir", default=str(ROOT))
 parser.add_argument("--gate_policy", default=str(REPO_ROOT / "pulse_gate_policy_v0.yml"))
+
 args, _unknown = parser.parse_known_args()
 
-
 RUN_MODE = str(args.mode).strip().lower()
+
 if RUN_MODE == "demo":
     STATUS_VERSION = "1.0.0-demo"
 elif RUN_MODE == "core":
     STATUS_VERSION = "1.0.0-core"
 else:
     STATUS_VERSION = "1.0.0"
-
 
 # Stability Map artefact (additive)
 STABILITY_MAP_SCHEMA_V0 = "epf_stability_map_v0"
@@ -93,6 +98,7 @@ STABILITY_MAP_FILENAME = "epf_stability_map_v0.json"
 def write_json_artifact(path: pathlib.Path, payload: dict) -> None:
     """
     Deterministic JSON artifact writer (sort_keys + indent).
+
     Fail-closed is not desired here: this is diagnostic output.
     """
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -131,16 +137,20 @@ HAZARD_CALIB_PATH = (
     else pathlib.Path(_HAZARD_CALIB_PATH_DEFAULT)
 )
 
-
 # ---------------------------------------------------------------------------
 # Helpers for provenance / cross-run drift seeding
 # ---------------------------------------------------------------------------
+
 
 def get_git_sha(repo_root: pathlib.Path) -> Optional[str]:
     """
     Best-effort git SHA for provenance (fail-open).
     """
-    sha = os.getenv("GITHUB_SHA") or os.getenv("CI_COMMIT_SHA") or os.getenv("BUILD_SOURCEVERSION")
+    sha = (
+        os.getenv("GITHUB_SHA")
+        or os.getenv("CI_COMMIT_SHA")
+        or os.getenv("BUILD_SOURCEVERSION")
+    )
     if isinstance(sha, str) and sha.strip():
         return sha.strip()
 
@@ -197,21 +207,19 @@ def load_hazard_T_history(
                 obj = json.loads(line)
             except json.JSONDecodeError:
                 continue
-
             if str(obj.get("gate_id", "")) != str(gate_id):
                 continue
-
             hazard = obj.get("hazard", {}) or {}
             T = hazard.get("T")
             if isinstance(T, (int, float)):
                 values.append(float(T))
-
     return values[-max_points:]
 
 
 def compute_baseline_ok(gates: dict) -> bool:
     """
     Baseline pass/fail excluding the hazard shadow gate if present.
+
     This prevents topology from becoming self-referential.
     """
     for k, v in gates.items():
@@ -225,7 +233,8 @@ def compute_baseline_ok(gates: dict) -> bool:
 def classify_topology_region(*, baseline_ok: bool, hazard_zone: str) -> str:
     """
     Field topology region (diagnostic overlay):
-      - stably_good / unstably_good / stably_bad / unstably_bad / unknown
+
+    - stably_good / unstably_good / stably_bad / unstably_bad / unknown
 
     Stable is GREEN; anything else is "unstable" (AMBER/RED).
     """
@@ -254,12 +263,12 @@ def build_epf_field_snapshots(
     Build a flat dotted-key EPF field snapshot + deterministic reference anchor.
 
     Design intent (Grail-hű):
-      - current_snapshot is a FIELD coordinate vector (not an alert payload)
-      - reference_snapshot is a stable suggestion anchor
-      - deterministic and numeric-only
+    - current_snapshot is a FIELD coordinate vector (not an alert payload)
+    - reference_snapshot is a stable suggestion anchor
+    - deterministic and numeric-only
 
     Returns:
-        (current_snapshot, reference_snapshot, stability_metrics)
+    (current_snapshot, reference_snapshot, stability_metrics)
     """
     current: dict = {}
 
@@ -271,7 +280,6 @@ def build_epf_field_snapshots(
             continue
         if ks in ("build_time", "rdsi_note", "git_sha", "run_key"):
             continue
-
         v = metrics.get(k)
         if isinstance(v, (int, float)):
             current[f"metrics.{ks}"] = float(v)
@@ -307,6 +315,7 @@ def build_epf_field_snapshots(
 # Helpers for EPF hazard history / context
 # ---------------------------------------------------------------------------
 
+
 def load_hazard_E_history(
     log_path: pathlib.Path,
     *,
@@ -339,7 +348,6 @@ def load_hazard_E_history(
             E = hazard.get("E")
             if isinstance(E, (int, float)):
                 values.append(float(E))
-
     return values[-max_points:] if values else []
 
 
@@ -350,9 +358,10 @@ def load_last_hazard_feature_context(
 ) -> tuple[list[str], str, bool]:
     """
     Read the last valid JSON event from epf_hazard_log.jsonl and return:
-      (feature_keys, feature_mode_source, feature_mode_active)
+    (feature_keys, feature_mode_source, feature_mode_active)
 
     If gate_id is provided, selects the last entry for that series.
+
     Fail-open for older logs.
     """
     if not log_path.exists():
@@ -378,7 +387,6 @@ def load_last_hazard_feature_context(
         return ([], "none", False)
 
     hazard = last_obj.get("hazard", {}) or {}
-
     keys_raw = hazard.get("feature_keys")
     keys: list[str] = []
     if isinstance(keys_raw, list):
@@ -504,7 +512,6 @@ def _materialize_core_gates(
         "core_refusal_source": "missing_reference_artifact",
         "core_sanit_source": "missing_reference_artifact",
     }
-
     created_utc = now
     run_id = "core_reference_seed_v0"
     git_sha = get_git_sha(REPO_ROOT) or ""
@@ -613,14 +620,13 @@ def _materialize_core_gates(
         sanit_summary = _read_json(sanit_out) or {}
         pass_controls_sanit = sanit_summary.get("pass_controls_sanit")
         sanitization_effective = sanit_summary.get("sanitization_effective")
-
         if isinstance(pass_controls_sanit, bool):
             gates["pass_controls_sanit"] = bool(pass_controls_sanit)
-
         if isinstance(sanitization_effective, bool):
             gates["sanitization_effective"] = bool(sanitization_effective)
-
-        if isinstance(pass_controls_sanit, bool) and isinstance(sanitization_effective, bool):
+        if isinstance(pass_controls_sanit, bool) and isinstance(
+            sanitization_effective, bool
+        ):
             core_sources["core_sanit_source"] = "checked_in_reference_artifact"
 
     gates["detectors_materialized_ok"] = all(
@@ -632,7 +638,6 @@ def _materialize_core_gates(
             "core_sanit_source",
         )
     )
-
     metrics.update(core_sources)
 
 
@@ -668,7 +673,6 @@ h = _sha256_file(gp) if gp.exists() else None
 if h:
     metrics["gate_policy_sha256"] = h
 
-
 # Baseline gate health excluding hazard shadow gate (topology uses this).
 baseline_ok = compute_baseline_ok(gates)
 metrics["hazard_baseline_ok"] = bool(baseline_ok)
@@ -676,10 +680,10 @@ metrics["hazard_baseline_ok"] = bool(baseline_ok)
 # ---------------------------------------------------------------------------
 # EPF hazard probe (field snapshot + cross-run drift seeding)
 # ---------------------------------------------------------------------------
-
 # Provenance (fail-open)
 run_key = get_run_key()
 git_sha = get_git_sha(REPO_ROOT)
+
 if run_key:
     metrics["run_key"] = run_key
 if git_sha:
@@ -694,10 +698,13 @@ metrics["hazard_gate_id"] = hazard_gate_id
 # Seed drift across runs (history_T)
 seed_T = load_hazard_T_history(hazard_log_path, gate_id=hazard_gate_id, max_points=10)
 metrics["hazard_seed_T_points"] = int(len(seed_T))
+
 hazard_runtime = HazardRuntimeState(history_T=list(seed_T))
 
 # Build Grail field snapshots (flat dotted keys)
-current_snapshot, reference_snapshot, stability_metrics = build_epf_field_snapshots(metrics, gates)
+current_snapshot, reference_snapshot, stability_metrics = build_epf_field_snapshots(
+    metrics, gates
+)
 
 hazard_state = probe_hazard_and_append_log(
     gate_id=hazard_gate_id,
@@ -713,7 +720,6 @@ hazard_state = probe_hazard_and_append_log(
         "git_sha": git_sha,
     },
 )
-
 hazard_decision = evaluate_hazard_gate(hazard_state, cfg=HazardGateConfig())
 
 # Surface hazard metrics into status.json metrics.
@@ -745,10 +751,12 @@ hazard_feature_keys, hazard_feature_mode_source, hazard_feature_mode_active = (
         gate_id=hazard_gate_id,
     )
 )
+
 metrics["hazard_feature_keys"] = hazard_feature_keys
 metrics["hazard_feature_count"] = int(len(hazard_feature_keys))
 metrics["hazard_feature_mode_source"] = str(hazard_feature_mode_source)
 metrics["hazard_feature_mode_active"] = bool(hazard_feature_mode_active)
+
 feature_mode_label = "ON" if bool(hazard_feature_mode_active) else "OFF"
 
 # Calibration recommendation summary (if present)
@@ -814,7 +822,9 @@ stability_map_payload = {
         "recommend_min_coverage": (
             float(rec_min_cov) if isinstance(rec_min_cov, (int, float)) else None
         ),
-        "recommend_max_features": int(rec_max_feats) if isinstance(rec_max_feats, int) else None,
+        "recommend_max_features": (
+            int(rec_max_feats) if isinstance(rec_max_feats, int) else None
+        ),
     },
     "thresholds": {
         "regime": str(threshold_regime),
@@ -844,6 +854,7 @@ metrics["hazard_stability_map_path"] = str(stability_map_path)
 # ---------------------------------------------------------------------------
 
 enforce_hazard = os.getenv("EPF_HAZARD_ENFORCE", "0") == "1"
+
 if enforce_hazard:
     gates["epf_hazard_ok"] = hazard_decision.ok
 else:
@@ -892,6 +903,7 @@ write_quality_ledger(status_path, report_card_path)
 print("Wrote", status_path)
 print("Wrote", report_card_path)
 print("Wrote", stability_map_path)
+
 print(
     "Logged EPF hazard probe:",
     f"gate_id={hazard_gate_id}",
