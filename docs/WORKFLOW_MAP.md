@@ -28,6 +28,7 @@ If you are opening this repository for the first time, use this order:
      - `.github/workflows/openai_evals_refusal_smoke_shadow.yml`
      - `.github/workflows/separation_phase_overlay.yml`
      - `.github/workflows/theory_overlay_v0.yml`
+     - `.github/workflows/relational_gain_shadow.yml`
      - `.github/workflows/epf_experiment.yml`
      - G-field / G-snapshot / overlay-validation shadow workflows
 
@@ -65,6 +66,9 @@ If you are opening this repository for the first time, use this order:
   - they may **compare**
   - they may **warn**
   - but by default they do **not** change the release outcome
+- Example:
+  - `.github/workflows/relational_gain_shadow.yml`
+  - Runs the relational gain Shadow path, writes a shadow artifact, and folds the result under    `meta.relational_gain_shadow` without changing the main release outcome.
 
 ### D. Publication / platform integration workflows
 **Purpose:** publication to GitHub-native or external-facing surfaces
