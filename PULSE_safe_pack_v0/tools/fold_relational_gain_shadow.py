@@ -7,11 +7,15 @@ Fold a Shadow-only relational gain artifact into status.json under:
     status["meta"]["relational_gain_shadow"]
 
 Rules:
-- additive only
+- additive only (when artifact exists)
 - non-normative
 - all-or-nothing
 - absence is neutral if --if-present is used
 - must not modify gates.*
+
+Note on --if-present:
+- if artifact is missing, stale meta.relational_gain_shadow is removed
+- all other status/meta content is preserved
 """
 
 from __future__ import annotations
@@ -26,6 +30,7 @@ from typing import Any
 
 
 ALLOWED_VERDICTS = {"PASS", "WARN", "FAIL"}
+EXPECTED_CHECKER_VERSION = "relational_gain_v0"
 
 
 def _eprint(msg: str) -> None:
@@ -65,7 +70,11 @@ def _write_json(path: Path, payload: dict[str, Any]) -> None:
 
 
 def _is_finite_number(value: Any) -> bool:
-    return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(float(value))
+    return (
+        isinstance(value, (int, float))
+        and not isinstance(value, bool)
+        and math.isfinite(float(value))
+    )
 
 
 def _read_required_number(container: dict[str, Any], key: str) -> float:
@@ -97,8 +106,11 @@ def _build_fold_in(
     shadow_artifact_path: Path,
 ) -> dict[str, Any]:
     checker_version = shadow_artifact.get("checker_version")
-    if not isinstance(checker_version, str) or not checker_version.strip():
-        _fail("shadow artifact is missing a valid 'checker_version'")
+    if checker_version != EXPECTED_CHECKER_VERSION:
+        _fail(
+            "shadow artifact has unexpected 'checker_version': "
+            f"expected '{EXPECTED_CHECKER_VERSION}', got {checker_version!r}"
+        )
 
     verdict = shadow_artifact.get("verdict")
     if verdict not in ALLOWED_VERDICTS:
@@ -143,9 +155,32 @@ def _fold_into_status(
     if "gates" in fold_in:
         _fail("fold-in must not introduce gates.* content")
 
-    meta = dict(meta)
-    meta["relational_gain_shadow"] = fold_in
-    out["meta"] = meta
+    meta_out = dict(meta)
+    meta_out["relational_gain_shadow"] = fold_in
+    out["meta"] = meta_out
+    return out
+
+
+def _drop_existing_fold_in(status_payload: dict[str, Any]) -> dict[str, Any]:
+    out = dict(status_payload)
+
+    meta = out.get("meta")
+    if meta is None:
+        return out
+    if not isinstance(meta, dict):
+        _fail("status.json field 'meta' must be an object if present")
+
+    if "relational_gain_shadow" not in meta:
+        return out
+
+    meta_out = dict(meta)
+    meta_out.pop("relational_gain_shadow", None)
+
+    if meta_out:
+        out["meta"] = meta_out
+    else:
+        out.pop("meta", None)
+
     return out
 
 
@@ -174,8 +209,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--if-present",
         action="store_true",
         help=(
-            "If the shadow artifact is missing, leave status unchanged and exit 0 "
-            "instead of failing."
+            "If the shadow artifact is missing, remove stale "
+            "meta.relational_gain_shadow and exit 0 instead of failing."
         ),
     )
     return parser.parse_args(argv)
@@ -192,7 +227,8 @@ def main(argv: list[str] | None = None) -> int:
 
     if not shadow_artifact_path.exists():
         if args.if_present:
-            _write_json(out_path, status_payload)
+            cleaned_status = _drop_existing_fold_in(status_payload)
+            _write_json(out_path, cleaned_status)
             return 0
         _fail(f"shadow artifact not found: {shadow_artifact_path}")
 
