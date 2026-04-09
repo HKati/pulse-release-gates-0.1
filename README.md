@@ -194,6 +194,55 @@ python openai_evals_v0/run_refusal_smoke_to_pulse.py \
   --status-json PULSE_safe_pack_v0/artifacts/status.json
 ```
 
+### Relational Gain (shadow)
+
+PULSE ships a Shadow-only relational gain module for checking whether local connections or closed cycles amplify deviation beyond the admitted bound.
+
+This layer is diagnostic only:
+- it does not emit a normative gate under `gates.*`
+- it does not change release semantics
+- it folds its result into `status.json` only under `meta.relational_gain_shadow`
+
+Main components:
+
+- checker: `PULSE_safe_pack_v0/tools/check_relational_gain.py`
+- fold-in tool: `PULSE_safe_pack_v0/tools/fold_relational_gain_shadow.py`
+- runner: `PULSE_safe_pack_v0/tools/run_relational_gain_shadow.py`
+- workflow: `.github/workflows/relational_gain_shadow.yml`
+- scope note: `docs/shadow_relational_gain_v0.md`
+- rationale paper: `docs/papers/equivalence_drift_and_grounded_new_element.md`
+
+Primary shadow artifact:
+
+- `PULSE_safe_pack_v0/artifacts/relational_gain_shadow_v0.json`
+
+Optional folded status surface:
+
+- `status.json["meta"]["relational_gain_shadow"]`
+
+Example local run:
+
+```bash
+python PULSE_safe_pack_v0/tools/run_relational_gain_shadow.py \
+  --status PULSE_safe_pack_v0/artifacts/status.json \
+  --input tests/fixtures/relational_gain_v0/pass.json \
+  --artifact-out PULSE_safe_pack_v0/artifacts/relational_gain_shadow_v0.json \
+  --status-out PULSE_safe_pack_v0/artifacts/status.relational_gain_shadow.json
+```
+
+Neutral-absence mode:
+
+```bash
+python PULSE_safe_pack_v0/tools/run_relational_gain_shadow.py \
+  --status PULSE_safe_pack_v0/artifacts/status.json \
+  --input PULSE_safe_pack_v0/artifacts/does_not_exist.json \
+  --if-input-present \
+  --artifact-out PULSE_safe_pack_v0/artifacts/relational_gain_shadow_v0.json \
+  --status-out PULSE_safe_pack_v0/artifacts/status.relational_gain_shadow.absent.json
+```
+
+This module remains Shadow-only unless explicitly promoted later.
+
 > Core path note
 > If you only need deterministic release gating, stop after the Core path and continue with:
 >
@@ -401,6 +450,7 @@ Shadow workflows (GitHub Actions):
 - **G‑field overlays (shadow)** – rebuilds `g_field_v0.json` from HPC snapshots.
 - **G‑EPF overlay (shadow)** – bridges EPF / Paradox outputs into a G‑EPF overlay.
 - **GPT external detection (shadow)** – scans `logs/model_invocations.jsonl` and emits `gpt_external_detection_v0.json`.
+- **Relational Gain (shadow)** – runs the relational gain checker, writes `relational_gain_shadow_v0.json`, and folds the result into `status.json["meta"]["relational_gain_shadow"]` without changing the current normative gate surface.
 - **Overlay schema validation (shadow)** – validates current overlay artifacts against their JSON Schemas, including:
   - `g_field_v0`
   - `g_field_stability_v0`
