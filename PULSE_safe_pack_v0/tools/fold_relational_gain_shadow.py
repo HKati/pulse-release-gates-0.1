@@ -167,17 +167,23 @@ def _drop_existing_fold_in(status_payload: dict[str, Any]) -> dict[str, Any]:
     meta = out.get("meta")
     if meta is None:
         return out
+
+     # Neutral-absence path:
+    # if meta is present but not an object, preserve the payload unchanged.
+    # This keeps --if-present neutral for schema-valid payloads that do not
+    # type-constrain meta.
+    
     if not isinstance(meta, dict):
-        _fail("status.json field 'meta' must be an object if present")
+        return out
 
     if "relational_gain_shadow" not in meta:
         return out
 
-    meta_out = dict(meta)
-    meta_out.pop("relational_gain_shadow", None)
+    meta = dict(meta)
+    meta.pop("relational_gain_shadow", None)
 
-    if meta_out:
-        out["meta"] = meta_out
+    if meta:
+        out["meta"] = meta
     else:
         out.pop("meta", None)
 
