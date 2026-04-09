@@ -1,0 +1,7 @@
+{
+  "edge_gains": [0.42, 0.71, 0.88],
+  "cycle_gains": [0.63, 0.79],
+  "metrics": {
+    "relational_gain_warn_threshold": 0.95
+  }
+}
