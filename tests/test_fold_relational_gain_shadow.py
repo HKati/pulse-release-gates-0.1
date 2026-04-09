@@ -109,3 +109,24 @@ def test_checker_version_mismatch_fails_closed(tmp_path: Path) -> None:
 
     assert result.returncode == 2
     assert "unexpected 'checker_version'" in result.stderr
+
+def test_if_present_missing_artifact_preserves_non_object_meta(tmp_path: Path) -> None:
+    status_path = tmp_path / "status.json"
+    missing_shadow_artifact_path = tmp_path / "missing_shadow.json"
+    out_path = tmp_path / "status.folded.json"
+
+    status_payload = _minimal_status()
+    status_payload["meta"] = "legacy-non-object-meta"
+    _write_json(status_path, status_payload)
+
+    result = _run_fold(
+        status_path,
+        missing_shadow_artifact_path,
+        "--if-present",
+        "--out",
+        str(out_path),
+    )
+
+    assert result.returncode == 0, result.stderr
+    folded = json.loads(out_path.read_text(encoding="utf-8"))
+    assert folded == status_payload
