@@ -1,0 +1,167 @@
+name: Relational Gain (shadow)
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/relational_gain_shadow.yml"
+      - "PULSE_safe_pack_v0/tools/check_relational_gain.py"
+      - "PULSE_safe_pack_v0/tools/fold_relational_gain_shadow.py"
+      - "PULSE_safe_pack_v0/tools/run_relational_gain_shadow.py"
+      - "tests/test_check_relational_gain.py"
+      - "tests/test_fold_relational_gain_shadow.py"
+      - "tests/test_run_relational_gain_shadow.py"
+      - "tests/fixtures/relational_gain_v0/**"
+      - "docs/shadow_relational_gain_v0.md"
+      - "docs/papers/equivalence_drift_and_grounded_new_element.md"
+
+  push:
+    branches: ["main"]
+    paths:
+      - ".github/workflows/relational_gain_shadow.yml"
+      - "PULSE_safe_pack_v0/tools/check_relational_gain.py"
+      - "PULSE_safe_pack_v0/tools/fold_relational_gain_shadow.py"
+      - "PULSE_safe_pack_v0/tools/run_relational_gain_shadow.py"
+      - "tests/test_check_relational_gain.py"
+      - "tests/test_fold_relational_gain_shadow.py"
+      - "tests/test_run_relational_gain_shadow.py"
+      - "tests/fixtures/relational_gain_v0/**"
+      - "docs/shadow_relational_gain_v0.md"
+      - "docs/papers/equivalence_drift_and_grounded_new_element.md"
+
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: relational-gain-shadow-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  relational-gain-shadow:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        with:
+          python-version: "3.11"
+
+      - name: Install minimal test/runtime dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt pytest
+
+      - name: Run relational gain test suite
+        shell: bash
+        run: |
+          set -euo pipefail
+          pytest -q \
+            tests/test_check_relational_gain.py \
+            tests/test_fold_relational_gain_shadow.py \
+            tests/test_run_relational_gain_shadow.py
+
+      - name: Seed minimal status.json for shadow smoke
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p PULSE_safe_pack_v0/artifacts
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          payload = {
+              "version": "1.0.0-core",
+              "created_utc": "2026-04-09T00:00:00Z",
+              "metrics": {
+                  "run_mode": "core"
+              },
+              "gates": {
+                  "pass_controls_refusal": True
+              },
+              "meta": {
+                  "existing_shadow": {
+                      "note": "preserve me"
+                  }
+              }
+          }
+
+          Path("PULSE_safe_pack_v0/artifacts/status.seed.json").write_text(
+              json.dumps(payload, indent=2, sort_keys=True) + "\n",
+              encoding="utf-8",
+          )
+          PY
+
+      - name: Run relational gain shadow runner (PASS smoke)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python PULSE_safe_pack_v0/tools/run_relational_gain_shadow.py \
+            --status PULSE_safe_pack_v0/artifacts/status.seed.json \
+            --input tests/fixtures/relational_gain_v0/pass.json \
+            --artifact-out PULSE_safe_pack_v0/artifacts/relational_gain_shadow_v0.json \
+            --status-out PULSE_safe_pack_v0/artifacts/status.relational_gain_shadow.json
+
+      - name: Validate folded shadow block
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          path = Path("PULSE_safe_pack_v0/artifacts/status.relational_gain_shadow.json")
+          data = json.loads(path.read_text(encoding="utf-8"))
+          shadow = data.get("meta", {}).get("relational_gain_shadow")
+          if not isinstance(shadow, dict):
+              raise SystemExit("missing meta.relational_gain_shadow")
+          if shadow.get("verdict") != "PASS":
+              raise SystemExit(f"expected PASS verdict, got {shadow.get('verdict')!r}")
+          PY
+
+      - name: Run neutral-absence smoke
+        shell: bash
+        run: |
+          set -euo pipefail
+          python PULSE_safe_pack_v0/tools/run_relational_gain_shadow.py \
+            --status PULSE_safe_pack_v0/artifacts/status.relational_gain_shadow.json \
+            --input PULSE_safe_pack_v0/artifacts/does_not_exist.json \
+            --if-input-present \
+            --artifact-out PULSE_safe_pack_v0/artifacts/relational_gain_shadow_v0.json \
+            --status-out PULSE_safe_pack_v0/artifacts/status.relational_gain_shadow.absent.json
+
+      - name: Validate neutral absence
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          path = Path("PULSE_safe_pack_v0/artifacts/status.relational_gain_shadow.absent.json")
+          data = json.loads(path.read_text(encoding="utf-8"))
+          meta = data.get("meta", {})
+          if "relational_gain_shadow" in meta:
+              raise SystemExit("relational_gain_shadow should be absent after neutral-absence path")
+          PY
+
+      - name: Upload relational gain shadow artifacts
+        if: always()
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: relational-gain-shadow
+          if-no-files-found: warn
+          path: |
+            PULSE_safe_pack_v0/artifacts/relational_gain_shadow_v0.json
+            PULSE_safe_pack_v0/artifacts/status.seed.json
+            PULSE_safe_pack_v0/artifacts/status.relational_gain_shadow.json
+            PULSE_safe_pack_v0/artifacts/status.relational_gain_shadow.absent.json
