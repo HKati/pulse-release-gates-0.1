@@ -113,24 +113,35 @@ def _extract_gains(
     edge_key: str,
     cycle_key: str,
 ) -> tuple[list[float], list[float]]:
-    # 1) top-level shape
-    edge_found, edge_gains = _read_gain_list(payload, edge_key)
-    cycle_found, cycle_gains = _read_gain_list(payload, cycle_key)
-
-    if edge_found or cycle_found:
-        return edge_gains, cycle_gains
-
-    # 2) optional nested metrics.relational_gain shape
     metrics = payload.get("metrics")
+    nested: dict[str, Any] = {}
     if isinstance(metrics, dict):
-        nested = metrics.get("relational_gain")
-        if isinstance(nested, dict):
-            edge_found, edge_gains = _read_gain_list(nested, edge_key)
-            cycle_found, cycle_gains = _read_gain_list(nested, cycle_key)
-            if edge_found or cycle_found:
-                return edge_gains, cycle_gains
+        maybe_nested = metrics.get("relational_gain")
+        if isinstance(maybe_nested, dict):
+            nested = maybe_nested
 
-    return [], []
+    top_edge_found, top_edge_gains = _read_gain_list(payload, edge_key)
+    top_cycle_found, top_cycle_gains = _read_gain_list(payload, cycle_key)
+
+    nested_edge_found, nested_edge_gains = _read_gain_list(nested, edge_key)
+    nested_cycle_found, nested_cycle_gains = _read_gain_list(nested, cycle_key)
+
+    if top_edge_found and nested_edge_found:
+        _fail(
+            f"ambiguous schema: '{edge_key}' is present both at top level "
+            "and under metrics.relational_gain"
+        )
+
+    if top_cycle_found and nested_cycle_found:
+        _fail(
+            f"ambiguous schema: '{cycle_key}' is present both at top level "
+            "and under metrics.relational_gain"
+        )
+
+    edge_gains = top_edge_gains if top_edge_found else nested_edge_gains
+    cycle_gains = top_cycle_gains if top_cycle_found else nested_cycle_gains
+
+    return edge_gains, cycle_gains
 
 
 def _read_warn_threshold(payload: dict[str, Any], explicit: float | None) -> float:
