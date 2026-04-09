@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - ".github/workflows/relational_gain_shadow.yml"
+      - "requirements.txt"
       - "PULSE_safe_pack_v0/tools/check_relational_gain.py"
       - "PULSE_safe_pack_v0/tools/fold_relational_gain_shadow.py"
       - "PULSE_safe_pack_v0/tools/run_relational_gain_shadow.py"
@@ -18,6 +19,7 @@ on:
     branches: ["main"]
     paths:
       - ".github/workflows/relational_gain_shadow.yml"
+      - "requirements.txt"
       - "PULSE_safe_pack_v0/tools/check_relational_gain.py"
       - "PULSE_safe_pack_v0/tools/fold_relational_gain_shadow.py"
       - "PULSE_safe_pack_v0/tools/run_relational_gain_shadow.py"
@@ -136,7 +138,7 @@ jobs:
             --status PULSE_safe_pack_v0/artifacts/status.relational_gain_shadow.json \
             --input PULSE_safe_pack_v0/artifacts/does_not_exist.json \
             --if-input-present \
-            --artifact-out PULSE_safe_pack_v0/artifacts/relational_gain_shadow_v0.json \
+            --artifact-out PULSE_safe_pack_v0/artifacts/relational_gain_shadow_absent_v0.json \
             --status-out PULSE_safe_pack_v0/artifacts/status.relational_gain_shadow.absent.json
 
       - name: Validate neutral absence
@@ -147,11 +149,15 @@ jobs:
           import json
           from pathlib import Path
 
-          path = Path("PULSE_safe_pack_v0/artifacts/status.relational_gain_shadow.absent.json")
-          data = json.loads(path.read_text(encoding="utf-8"))
+          status_path = Path("PULSE_safe_pack_v0/artifacts/status.relational_gain_shadow.absent.json")
+          data = json.loads(status_path.read_text(encoding="utf-8"))
           meta = data.get("meta", {})
           if "relational_gain_shadow" in meta:
               raise SystemExit("relational_gain_shadow should be absent after neutral-absence path")
+
+          absent_artifact = Path("PULSE_safe_pack_v0/artifacts/relational_gain_shadow_absent_v0.json")
+          if absent_artifact.exists():
+              raise SystemExit("neutral-absence path should not leave a shadow artifact behind")   
           PY
 
       - name: Upload relational gain shadow artifacts
