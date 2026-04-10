@@ -1,0 +1,111 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schemas/relational_gain_shadow_v0.schema.json",
+  "title": "Relational Gain Shadow Artifact v0",
+  "description": "Schema for the current shadow-only Relational Gain v0 artifact emitted by check_relational_gain.py.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "checker_version",
+    "verdict",
+    "input",
+    "metrics"
+  ],
+  "properties": {
+    "checker_version": {
+      "type": "string",
+      "const": "relational_gain_v0",
+      "description": "Exact checker version expected by the current fold-in path."
+    },
+    "verdict": {
+      "type": "string",
+      "enum": [
+        "PASS",
+        "WARN",
+        "FAIL"
+      ],
+      "description": "Shadow-only checker verdict."
+    },
+    "input": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Path to the input JSON consumed by the checker."
+        }
+      }
+    },
+    "metrics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "checked_edges",
+        "checked_cycles",
+        "max_edge_gain",
+        "max_cycle_gain",
+        "warn_threshold",
+        "offending_edges",
+        "offending_cycles",
+        "near_boundary_edges",
+        "near_boundary_cycles"
+      ],
+      "properties": {
+        "checked_edges": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "checked_cycles": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "max_edge_gain": {
+          "type": "number",
+          "minimum": 0
+        },
+        "max_cycle_gain": {
+          "type": "number",
+          "minimum": 0
+        },
+        "warn_threshold": {
+          "type": "number",
+          "minimum": 0
+        },
+        "offending_edges": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/non_negative_number"
+          }
+        },
+        "offending_cycles": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/non_negative_number"
+          }
+        },
+        "near_boundary_edges": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/non_negative_number"
+          }
+        },
+        "near_boundary_cycles": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/non_negative_number"
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "non_negative_number": {
+      "type": "number",
+      "minimum": 0
+    }
+  }
+}
