@@ -267,6 +267,60 @@ Rules:
 
 ---
 
+### Example: `meta.relational_gain_shadow`
+
+A Shadow-only relational gain run may fold a descriptive summary into:
+
+```text
+status["meta"]["relational_gain_shadow"]
+```
+
+This fold-in is:
+
+- additive
+- non-normative
+- optional
+- absence-neutral
+- not a replacement for `gates.*`
+
+Recommended shape:
+
+```json
+{
+  "meta": {
+    "relational_gain_shadow": {
+      "verdict": "PASS",
+      "max_edge_gain": 0.83,
+      "max_cycle_gain": 0.91,
+      "warn_threshold": 0.95,
+      "checked_edges": 18,
+      "checked_cycles": 4,
+      "artifact": {
+        "path": "PULSE_safe_pack_v0/artifacts/relational_gain_shadow_v0.json",
+        "sha256": "..."
+      }
+    }
+  }
+}
+```
+
+Interpretation rules:
+
+- `verdict` here is a Shadow checker verdict, not a release decision
+- this fold-in must not introduce or override `gates.*`
+- `FAIL` inside `meta.relational_gain_shadow` is descriptive unless a future policy explicitly promotes relational gain into a normative gate set
+- absence of `meta.relational_gain_shadow` is neutral and must not be read as failure
+
+Primary artifact:
+
+```text
+PULSE_safe_pack_v0/artifacts/relational_gain_shadow_v0.json
+```
+
+Use this surface when you want a compact, audit-linked summary of the relational gain Shadow layer inside the final `status.json` without changing the current release semantics.
+
+---
+
 ## 11. external
 
 ### Two signals:
