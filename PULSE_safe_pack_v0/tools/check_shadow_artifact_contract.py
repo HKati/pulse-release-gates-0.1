@@ -180,23 +180,28 @@ def validate_shadow_artifact(
         if field not in obj:
             _add_issue(errors, field, f"missing required field: {field}")
 
-    artifact_version = obj.get("artifact_version")
-    if artifact_version is not None and not _is_non_empty_str(artifact_version):
-        _add_issue(errors, "artifact_version", "artifact_version must be a non-empty string")
+    if "artifact_version" in obj:
+        artifact_version = obj["artifact_version"]
+        if not _is_non_empty_str(artifact_version):
+            _add_issue(errors, "artifact_version", "artifact_version must be a non-empty string")
+    else:
+        artifact_version = None
 
-    layer_id = obj.get("layer_id")
-    if layer_id is not None and not _is_non_empty_str(layer_id):
-        _add_issue(errors, "layer_id", "layer_id must be a non-empty string")
+    if "layer_id" in obj:
+        layer_id = obj["layer_id"]
+        if not _is_non_empty_str(layer_id):
+            _add_issue(errors, "layer_id", "layer_id must be a non-empty string")
+        elif expected_layer_id is not None and layer_id != expected_layer_id:
+            _add_issue(
+                errors,
+                "layer_id",
+                f"layer_id must match expected layer id: {expected_layer_id}",
+            )
+    else:
+        layer_id = None
 
-    if expected_layer_id is not None and layer_id is not None and layer_id != expected_layer_id:
-        _add_issue(
-            errors,
-            "layer_id",
-            f"layer_id must match expected layer id: {expected_layer_id}",
-        )
-
-    producer = obj.get("producer")
-    if producer is not None:
+    if "producer" in obj:
+        producer = obj["producer"]
         if not isinstance(producer, dict):
             _add_issue(errors, "producer", "producer must be an object")
         else:
@@ -209,44 +214,50 @@ def validate_shadow_artifact(
                     "producer.version must be a non-empty string",
                 )
 
-    created_utc = obj.get("created_utc")
-    if created_utc is not None and not _is_utc_rfc3339_z(created_utc):
-        _add_issue(
-            errors,
-            "created_utc",
-            "created_utc must be a canonical RFC3339 / ISO-8601 UTC timestamp ending in Z",
-        )
+    if "created_utc" in obj:
+        created_utc = obj["created_utc"]
+        if not _is_utc_rfc3339_z(created_utc):
+            _add_issue(
+                errors,
+                "created_utc",
+                "created_utc must be a canonical RFC3339 / ISO-8601 UTC timestamp ending in Z",
+            )
 
-    run_reality_state = obj.get("run_reality_state")
-    if run_reality_state is not None and run_reality_state not in RUN_REALITY_STATES:
-        _add_issue(
-            errors,
-            "run_reality_state",
-            "run_reality_state must be one of: real, partial, stub, degraded, invalid, absent",
-        )
+    if "run_reality_state" in obj:
+        run_reality_state = obj["run_reality_state"]
+        if run_reality_state not in RUN_REALITY_STATES:
+            _add_issue(
+                errors,
+                "run_reality_state",
+                "run_reality_state must be one of: real, partial, stub, degraded, invalid, absent",
+            )
+    else:
+        run_reality_state = None
 
-    verdict = obj.get("verdict")
-    if verdict is not None and verdict not in VERDICTS:
-        _add_issue(
-            errors,
-            "verdict",
-            "verdict must be one of: pass, warn, fail, unknown, invalid, absent",
-        )
+    if "verdict" in obj:
+        verdict = obj["verdict"]
+        if verdict not in VERDICTS:
+            _add_issue(
+                errors,
+                "verdict",
+                "verdict must be one of: pass, warn, fail, unknown, invalid, absent",
+            )
+    else:
+        verdict = None
 
-    relation_scope = obj.get("relation_scope")
-    if relation_scope is not None:
-        _validate_relation_scope(relation_scope, "relation_scope", errors)
+    if "relation_scope" in obj:
+        _validate_relation_scope(obj["relation_scope"], "relation_scope", errors)
 
-    summary = obj.get("summary")
-    if summary is not None:
+    if "summary" in obj:
+        summary = obj["summary"]
         if not isinstance(summary, dict):
             _add_issue(errors, "summary", "summary must be an object")
         else:
             if not _is_non_empty_str(summary.get("headline")):
                 _add_issue(errors, "summary.headline", "summary.headline must be a non-empty string")
 
-    reasons = obj.get("reasons")
-    if reasons is not None:
+    if "reasons" in obj:
+        reasons = obj["reasons"]
         if not isinstance(reasons, list):
             _add_issue(errors, "reasons", "reasons must be an array")
         elif len(reasons) == 0:
@@ -255,25 +266,32 @@ def validate_shadow_artifact(
             for idx, reason in enumerate(reasons):
                 _validate_reason(reason, f"reasons[{idx}]", errors)
 
-    degraded_reasons = obj.get("degraded_reasons", [])
-    if degraded_reasons is not None:
+    if "degraded_reasons" in obj:
+        degraded_reasons = obj["degraded_reasons"]
         if not isinstance(degraded_reasons, list):
             _add_issue(errors, "degraded_reasons", "degraded_reasons must be an array")
         else:
             for idx, reason in enumerate(degraded_reasons):
                 _validate_reason(reason, f"degraded_reasons[{idx}]", errors)
+    else:
+        degraded_reasons = []
 
-    source_artifacts = obj.get("source_artifacts")
-    if source_artifacts is not None:
+    if "source_artifacts" in obj:
+        source_artifacts = obj["source_artifacts"]
         if not isinstance(source_artifacts, list):
             _add_issue(errors, "source_artifacts", "source_artifacts must be an array")
         else:
             for idx, source_artifact in enumerate(source_artifacts):
                 _validate_source_artifact(source_artifact, f"source_artifacts[{idx}]", errors)
+    else:
+        source_artifacts = None
 
-    foldin_eligible = obj.get("foldin_eligible")
-    if foldin_eligible is not None and not isinstance(foldin_eligible, bool):
-        _add_issue(errors, "foldin_eligible", "foldin_eligible must be a boolean")
+    if "foldin_eligible" in obj:
+        foldin_eligible = obj["foldin_eligible"]
+        if not isinstance(foldin_eligible, bool):
+            _add_issue(errors, "foldin_eligible", "foldin_eligible must be a boolean")
+    else:
+        foldin_eligible = None
 
     if run_reality_state != "absent":
         if isinstance(source_artifacts, list) and len(source_artifacts) == 0:
