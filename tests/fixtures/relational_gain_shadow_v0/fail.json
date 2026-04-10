@@ -5,13 +5,13 @@
     "path": "tests/fixtures/relational_gain_v0/fail_edge.json"
   },
   "metrics": {
-    "checked_edges": 3,
+    "checked_edges": 2,
     "checked_cycles": 2,
-    "max_edge_gain": 1.07,
-    "max_cycle_gain": 0.72,
+    "max_edge_gain": 1.08,
+    "max_cycle_gain": 0.91,
     "warn_threshold": 0.95,
     "offending_edges": [
-      1.07
+      1.08
     ],
     "offending_cycles": [],
     "near_boundary_edges": [],
