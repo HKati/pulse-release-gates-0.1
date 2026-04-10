@@ -93,7 +93,11 @@ Rule:
 Only the primary release-gating workflow changes release outcomes by default.
 Shadow and publication workflows must stay non-normative unless explicitly promoted into the required gate set.
 
+HKati-patch-326654
 See also:  [docs/WORKFLOW_MAP.md](docs/WORKFLOW_MAP.md)
+=======
+See also: [docs/WORKFLOW_MAP.md](docs/WORKFLOW_MAP.md)
+> main
 
 ---
 
@@ -254,7 +258,8 @@ This module remains Shadow-only unless explicitly promoted later.
 > [docs/OPTIONAL_LAYERS.md](docs/OPTIONAL_LAYERS.md)
 
 > Optional overlays, shadow workflows, and publication surfaces are mapped here:
-
+ HKati-patch-326654
+> [docs/OPTIONAL_LAYERS.md](docs/OPTIONAL_LAYERS.md main
 
 ### Debugging (when CI warns/fails)
 If the OpenAI evals refusal smoke shadow workflow warns or fails, start here:
