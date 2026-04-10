@@ -1,0 +1,200 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schemas/shadow_artifact_common_v0.schema.json",
+  "title": "Shadow Artifact Common v0",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "artifact_version",
+    "layer_id",
+    "producer",
+    "created_utc",
+    "run_reality_state",
+    "verdict",
+    "source_artifacts",
+    "summary",
+    "reasons"
+  ],
+  "properties": {
+    "artifact_version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "layer_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9_]+$"
+    },
+    "producer": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "name",
+        "version"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "contract_checker_version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "created_utc": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "run_reality_state": {
+      "type": "string",
+      "enum": [
+        "real",
+        "partial",
+        "stub",
+        "degraded",
+        "invalid",
+        "absent"
+      ]
+    },
+    "verdict": {
+      "type": "string",
+      "enum": [
+        "pass",
+        "warn",
+        "fail",
+        "unknown",
+        "invalid",
+        "absent"
+      ]
+    },
+    "foldin_eligible": {
+      "type": "boolean"
+    },
+    "relation_scope": {
+      "oneOf": [
+        {
+          "type": "string",
+          "minLength": 1
+        },
+        {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        {
+          "type": "object"
+        }
+      ]
+    },
+    "source_artifacts": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/source_artifact"
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "headline"
+      ],
+      "properties": {
+        "headline": {
+          "type": "string",
+          "minLength": 1
+        },
+        "details": {
+          "type": "string"
+        }
+      }
+    },
+    "reasons": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/reason"
+      }
+    },
+    "degraded_reasons": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/reason"
+      }
+    },
+    "checks": {
+      "type": "object"
+    },
+    "payload": {
+      "type": "object"
+    }
+  },
+  "$defs": {
+    "source_artifact": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "artifact_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[A-Fa-f0-9]{64}$"
+        },
+        "role": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "anyOf": [
+        {
+          "required": [
+            "artifact_id"
+          ]
+        },
+        {
+          "required": [
+            "path"
+          ]
+        }
+      ]
+    },
+    "reason": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "code",
+        "message"
+      ],
+      "properties": {
+        "code": {
+          "type": "string",
+          "minLength": 1
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1
+        },
+        "severity": {
+          "type": "string",
+          "enum": [
+            "info",
+            "warn",
+            "error"
+          ]
+        }
+      }
+    }
+  }
+}
