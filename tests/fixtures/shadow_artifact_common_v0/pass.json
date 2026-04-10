@@ -1,41 +1,40 @@
 {
-  "artifact_version": "epf_comparison_v0",
-  "layer_id": "epf_shadow_experiment_v0",
+  "artifact_version": "relational_gain_shadow_v0",
+  "layer_id": "relational_gain_shadow",
   "producer": {
-    "name": "run_epf_shadow.py",
+    "name": "check_relational_gain.py",
     "version": "0.1.0"
   },
   "contract_checker_version": "shadow_artifact_common_v0",
-  "created_utc": "2026-04-10T12:05:00Z",
-  "run_reality_state": "degraded",
-  "verdict": "warn",
-  "foldin_eligible": false,
+  "created_utc": "2026-04-10T12:00:00Z",
+  "run_reality_state": "real",
+  "verdict": "pass",
+  "foldin_eligible": true,
   "source_artifacts": [
     {
-      "path": "PULSE_safe_pack_v0/artifacts/status_baseline.json",
-      "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-      "role": "baseline_status"
+      "path": "PULSE_safe_pack_v0/artifacts/status.json",
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "role": "status_baseline"
     }
   ],
+  "relation_scope": [
+    "edge_gain",
+    "cycle_gain"
+  ],
   "summary": {
-    "headline": "EPF comparison degraded",
-    "details": "Comparison produced a partial shadow read only."
+    "headline": "Relational Gain shadow check passed",
+    "details": "No duplicate extraction, no cycle violation, and no edge warning."
   },
   "reasons": [
     {
-      "code": "epf.shadow.partial",
-      "message": "Comparison completed with degraded confidence.",
-      "severity": "warn"
+      "code": "shadow.contract.ok",
+      "message": "Artifact satisfies common shadow contract envelope.",
+      "severity": "info"
     }
   ],
-  "degraded_reasons": [
-    {
-      "code": "epf.stub_side_detected",
-      "message": "One side of the comparison was stub-like.",
-      "severity": "warn"
-    }
-  ],
+  "degraded_reasons": [],
   "payload": {
-    "comparison_valid": false
+    "edge_gain_verdict": "pass",
+    "cycle_gain_verdict": "pass"
   }
 }
