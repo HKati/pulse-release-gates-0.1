@@ -2,7 +2,7 @@
 <img alt="Run PULSE before you ship." src="hero_dark_4k.png" width="100%">
 
 <p align="center">
-  <em>Prefer a light version?</em>
+  <em>Prefer a light version?</em> 
 </p>
 
 <details>
