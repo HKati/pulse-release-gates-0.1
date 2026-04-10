@@ -11,9 +11,13 @@
   "verdict": "pass",
   "foldin_eligible": false,
   "source_artifacts": [],
+  "relation_scope": [
+    "edge_gain",
+    "cycle_gain"
+  ],
   "summary": {
     "headline": "Invalid absent fixture",
-    "details": "This fixture intentionally violates the common contract."
+    "details": "This fixture intentionally violates the common contract absent verdict rule."
   },
   "reasons": [
     {
@@ -22,5 +26,6 @@
       "severity": "error"
     }
   ],
-  "degraded_reasons": []
+  "degraded_reasons": [],
+  "payload": {}
 }
