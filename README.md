@@ -93,7 +93,7 @@ Rule:
 Only the primary release-gating workflow changes release outcomes by default.
 Shadow and publication workflows must stay non-normative unless explicitly promoted into the required gate set.
 
-See also: `docs/WORKFLOW_MAP.md`
+See also:  [docs/WORKFLOW_MAP.md](docs/WORKFLOW_MAP.md)
 
 ---
 
@@ -209,8 +209,8 @@ Main components:
 - fold-in tool: `PULSE_safe_pack_v0/tools/fold_relational_gain_shadow.py`
 - runner: `PULSE_safe_pack_v0/tools/run_relational_gain_shadow.py`
 - workflow: `.github/workflows/relational_gain_shadow.yml`
-- scope note: `docs/shadow_relational_gain_v0.md`
-- rationale paper: `docs/papers/equivalence_drift_and_grounded_new_element.md`
+- scope note: [docs/shadow_relational_gain_v0.md](docs/shadow_relational_gain_v0.md)
+- rationale paper: [docs/papers/equivalence_drift_and_grounded_new_element.md](docs/papers/equivalence_drift_and_grounded_new_element.md)
 
 Primary shadow artifact:
 
@@ -251,8 +251,10 @@ This module remains Shadow-only unless explicitly promoted later.
 > - `docs/status_json.md`
 > - `docs/RUNBOOK.md`
 >
+> [docs/OPTIONAL_LAYERS.md](docs/OPTIONAL_LAYERS.md)
+
 > Optional overlays, shadow workflows, and publication surfaces are mapped here:
-> `docs/OPTIONAL_LAYERS.md`
+
 
 ### Debugging (when CI warns/fails)
 If the OpenAI evals refusal smoke shadow workflow warns or fails, start here:
