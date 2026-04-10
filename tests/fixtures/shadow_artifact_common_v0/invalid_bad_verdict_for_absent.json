@@ -1,0 +1,26 @@
+{
+  "artifact_version": "relational_gain_shadow_v0",
+  "layer_id": "relational_gain_shadow",
+  "producer": {
+    "name": "run_relational_gain_shadow.py",
+    "version": "0.1.0"
+  },
+  "contract_checker_version": "shadow_artifact_common_v0",
+  "created_utc": "2026-04-10T12:15:00Z",
+  "run_reality_state": "absent",
+  "verdict": "pass",
+  "foldin_eligible": false,
+  "source_artifacts": [],
+  "summary": {
+    "headline": "Invalid absent fixture",
+    "details": "This fixture intentionally violates the common contract."
+  },
+  "reasons": [
+    {
+      "code": "test.invalid.absent_verdict",
+      "message": "Absent runs must not use pass verdict.",
+      "severity": "error"
+    }
+  ],
+  "degraded_reasons": []
+}
