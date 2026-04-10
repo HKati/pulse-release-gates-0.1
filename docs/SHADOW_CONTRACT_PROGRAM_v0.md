@@ -258,6 +258,16 @@ Use the following terms consistently.
   - explicitly promoted into the required gate set by policy
   - no longer shadow by default
 
+`current_stage` must use only the defined contract-state vocabulary.
+
+Planned movement must be expressed separately, for example via
+`target_stage` and/or `promotion_blockers`.
+
+Do not encode target state inside `current_stage`.
+
+If present, `target_stage` should also use the documented contract-state vocabulary,
+but it represents intended movement, not current classification.
+
 ### Run reality state
 
 - `real`
@@ -346,7 +356,8 @@ Each registered shadow layer should have a record like this.
 layer_id: relational_gain_shadow
 family: relation-dynamics
 default_role: shadow diagnostic
-current_stage: shadow-contracted
+current_stage: research
+target_stage: shadow-contracted
 owner_surface:
   - docs
   - workflow
@@ -372,18 +383,18 @@ notes: Shadow-only. Must not write under gates.*.
 This is the initial repo-level inventory seed for the current shadow / optional family.
 It is a management surface, not a promotion statement.
 
-| Layer / family | Proposed `layer_id` | Current stage | Default role | Primary artifact status | `status.json` fold-in | Next hardening step |
-|---|---|---:|---|---|---|---|
-| OpenAI evals refusal smoke | `openai_evals_refusal_smoke_shadow` | research | shadow diagnostic | artifact present | none | schema + semantic checker |
-| Separation phase overlay | `separation_phase_overlay_v0` | research | shadow diagnostic | artifact present | none | schema + consumer rule |
-| Theory overlay v0 | `theory_overlay_v0` | research | shadow diagnostic | artifact present | none | schema + degraded model |
-| G-field / G snapshot family | `g_field_snapshot_family_v0` | research | shadow diagnostic | mixed / family-level | none | split family contracts |
-| Relational Gain v0 | `relational_gain_shadow` | shadow-contracted target | shadow diagnostic | artifact present | `meta.relational_gain_shadow` | land schema + contract checker |
-| EPF experiment / hazard | `epf_shadow_experiment_v0` | research | research diagnostic | artifact family present | none | comparison contract + real/stub classifier |
-| Topology family | `topology_family_v0` | research | artifact-derived topology | partial family artifacts | none | standalone schema set |
-| Decision-field family | `decision_field_v0` | research | decision-oriented shadow read | partial family artifacts | none | vocabulary contract + artifact schema |
-| Parameter Golf v0 | `parameter_golf_submission_evidence_v0` | shadow-contracted target | external challenge companion | artifact present | none | sync inventory with companion schema |
-| Publication surfaces | `publication_surfaces_family` | research | opt-in platform integration | N/A | none | consumer-only registry rules |
+| Layer / family | Proposed `layer_id` | Current stage | Target stage | Default role | Primary artifact status | `status.json` fold-in | Next hardening step |
+|---|---|---|---|---|---|---|---|
+| OpenAI evals refusal smoke | `openai_evals_refusal_smoke_shadow` | research | — | shadow diagnostic | artifact present | none | schema + semantic checker |
+| Separation phase overlay | `separation_phase_overlay_v0` | research | — | shadow diagnostic | artifact present | none | schema + consumer rule |
+| Theory overlay v0 | `theory_overlay_v0` | research | — | shadow diagnostic | artifact present | none | schema + degraded model |
+| G-field / G snapshot family | `g_field_snapshot_family_v0` | research | — | shadow diagnostic | mixed / family-level | none | split family contracts |
+| Relational Gain v0 | `relational_gain_shadow` | research | shadow-contracted | shadow diagnostic | artifact present | `meta.relational_gain_shadow` | land schema + contract checker |
+| EPF experiment / hazard | `epf_shadow_experiment_v0` | research | — | research diagnostic | artifact family present | none | comparison contract + real/stub classifier |
+| Topology family | `topology_family_v0` | research | — | artifact-derived topology | partial family artifacts | none | standalone schema set |
+| Decision-field family | `decision_field_v0` | research | — | decision-oriented shadow read | partial family artifacts | none | vocabulary contract + artifact schema |
+| Parameter Golf v0 | `parameter_golf_submission_evidence_v0` | research | shadow-contracted | external challenge companion | artifact present | none | sync inventory with companion schema |
+| Publication surfaces | `publication_surfaces_family` | research | — | opt-in platform integration | N/A | none | consumer-only registry rules |
 
 ---
 
@@ -401,6 +412,10 @@ That registry may be YAML, JSON, or markdown-backed, but it must at least declar
 - checker path,
 - fold-in path,
 - and promotion blockers.
+
+Registry surfaces must keep `current_stage` enum-clean.
+
+Aspirational or planned movement belongs in `target_stage`, not in `current_stage`.
 
 If a layer is not in the registry, it should be treated as unregistered research.
 
