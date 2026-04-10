@@ -39,6 +39,7 @@ A common shadow artifact must contain:
 - `run_reality_state`
 - `verdict`
 - `source_artifacts`
+- `relation_scope`
 - `summary`
 - `reasons`
 
@@ -102,6 +103,28 @@ Optional fields may include:
 - `sha256`
 - `role`
 
+### `relation_scope`
+
+Required relation-context identifier for the artifact.
+
+This field states which relational context the artifact describes.
+
+Without `relation_scope`, audit trails and cross-run comparison can become
+ambiguous for layers that emit more than one relation surface.
+
+Allowed shapes:
+
+- non-empty string
+- non-empty array of non-empty strings
+- non-empty object for layer-specific structured scope
+
+`relation_scope` must remain specific enough to distinguish parallel
+relation outputs emitted by the same layer family.
+
+It is required even for `absent` runs.
+
+Absence of input is still a scoped result, not an unscoped result.
+
 ### `summary`
 
 Object with at least:
@@ -133,7 +156,6 @@ The common scaffold also allows:
 
 - `contract_checker_version`
 - `foldin_eligible`
-- `relation_scope`
 - `degraded_reasons`
 - `checks`
 - `payload`
@@ -145,6 +167,13 @@ Layer-specific contracts may require some of these.
 ## Common semantic rules
 
 The common checker must enforce the following rules.
+
+### Relation scope requirements
+
+`relation_scope` must always be present.
+
+It must identify the relation context being described, including
+`absent` runs.
 
 ### Real runs
 
