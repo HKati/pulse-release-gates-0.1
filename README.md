@@ -875,6 +875,8 @@ Curated entrypoints (repo-level docs under `docs/`):
 - [docs/STATE_v0.md](docs/STATE_v0.md) — Current snapshot of PULSE v0 gates, signals, and tooling.
 - [docs/STATUS_CONTRACT.md](docs/STATUS_CONTRACT.md) — Contract for `status.json` shape and semantics.
 - [docs/GLOSSARY_v0.md](docs/GLOSSARY_v0.md) — Canonical term definitions used across docs.
+- [WORKFLOW_MAP.md](WORKFLOW_MAP.md) — Fast orientation for Core, shadow, research, and platform workflows.
+- [OPTIONAL_LAYERS.md](OPTIONAL_LAYERS.md) — Optional diagnostic, research, and platform layers that do not define release outcomes by default.
 
 ### Status, ledger & external signals
 - [docs/quality_ledger.md](docs/quality_ledger.md) — Quality Ledger layout and purpose.
@@ -898,6 +900,11 @@ Curated entrypoints (repo-level docs under `docs/`):
 - [docs/PULSE_topology_overview_v0.md](docs/PULSE_topology_overview_v0.md) — Topology layer overview (diagnostic overlay).
 - [docs/PULSE_decision_field_v0_overview.md](docs/PULSE_decision_field_v0_overview.md) — Decision field v0 overview.
 - [docs/FIELD_FIRST_INTERPRETATION.md](docs/FIELD_FIRST_INTERPRETATION.md) — Field-first interpretation (question as projection).
+
+### Shadow layers & explanatory papers
+
+- [shadow_relational_gain_v0.md](shadow_relational_gain_v0.md) — Relational Gain v0 scope, artifact contract, CLI contract, fixtures, and Shadow-only boundary.
+- [papers/equivalence_drift_and_grounded_new_element.md](papers/equivalence_drift_and_grounded_new_element.md) — Explanatory paper on equivalence drift and the grounded introduction of the new Shadow-only element.
 
 ### Examples & contributing
 - [docs/examples/README.md](docs/examples/README.md) — Reproducible examples index.
