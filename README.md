@@ -27,7 +27,7 @@
 
 # PULSE — Release Gates for Safe & Useful AI
 
-#### AI Release Stability Engineering
+#### AI Release Stability Engineering 
 
 > 💡 **Continuous expansion**
 >
