@@ -12,6 +12,7 @@
     "run_reality_state",
     "verdict",
     "source_artifacts",
+    "relation_scope",
     "summary",
     "reasons"
   ],
@@ -83,13 +84,15 @@
         },
         {
           "type": "array",
+          "minItems": 1, 
           "items": {
             "type": "string",
             "minLength": 1
           }
         },
         {
-          "type": "object"
+          "type": "object",
+          "minProperties": 1
         }
       ]
     },
