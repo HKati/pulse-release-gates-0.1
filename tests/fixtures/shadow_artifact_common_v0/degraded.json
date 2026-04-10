@@ -17,6 +17,9 @@
       "role": "baseline_status"
     }
   ],
+  "relation_scope": [
+    "baseline_vs_epf_comparison"
+  ],
   "summary": {
     "headline": "EPF comparison degraded",
     "details": "Comparison produced a partial shadow read only."
