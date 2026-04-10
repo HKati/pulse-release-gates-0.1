@@ -11,6 +11,10 @@
   "verdict": "absent",
   "foldin_eligible": false,
   "source_artifacts": [],
+  "relation_scope": [
+    "edge_gain",
+    "cycle_gain"
+  ],
   "summary": {
     "headline": "Relational Gain shadow input absent",
     "details": "No shadow artifact was materialized for this run."
