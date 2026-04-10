@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -32,6 +33,10 @@ DEGRADED_STATES = {
     "degraded",
 }
 
+UTC_RFC3339_Z_RE = re.compile(
+    r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$"
+)
+
 
 def _is_non_empty_str(value: Any) -> bool:
     return isinstance(value, str) and value.strip() != ""
@@ -41,8 +46,10 @@ def _add_issue(issues: list[dict[str, str]], path: str, message: str) -> None:
     issues.append({"path": path, "message": message})
 
 
-def _parse_datetime(value: Any) -> bool:
+def _is_utc_rfc3339_z(value: Any) -> bool:
     if not _is_non_empty_str(value):
+        return False
+    if UTC_RFC3339_Z_RE.fullmatch(value) is None:
         return False
     try:
         datetime.fromisoformat(value.replace("Z", "+00:00"))
@@ -101,6 +108,45 @@ def _validate_source_artifact(
                 _add_issue(errors, f"{path}.sha256", "sha256 must be hexadecimal")
 
 
+def _validate_relation_scope(
+    value: Any,
+    path: str,
+    errors: list[dict[str, str]],
+) -> None:
+    if isinstance(value, str):
+        if not _is_non_empty_str(value):
+            _add_issue(
+                errors,
+                path,
+                "relation_scope must be a non-empty string, non-empty array of non-empty strings, or non-empty object",
+            )
+        return
+
+    if isinstance(value, list):
+        if len(value) == 0:
+            _add_issue(errors, path, "relation_scope array must not be empty")
+            return
+        for idx, item in enumerate(value):
+            if not _is_non_empty_str(item):
+                _add_issue(
+                    errors,
+                    f"{path}[{idx}]",
+                    "relation_scope array items must be non-empty strings",
+                )
+        return
+
+    if isinstance(value, dict):
+        if len(value) == 0:
+            _add_issue(errors, path, "relation_scope object must not be empty")
+        return
+
+    _add_issue(
+        errors,
+        path,
+        "relation_scope must be a non-empty string, non-empty array of non-empty strings, or non-empty object",
+    )
+
+
 def validate_shadow_artifact(
     obj: Any,
     expected_layer_id: str | None = None,
@@ -125,6 +171,7 @@ def validate_shadow_artifact(
         "run_reality_state",
         "verdict",
         "source_artifacts",
+        "relation_scope",
         "summary",
         "reasons",
     ]
@@ -163,11 +210,11 @@ def validate_shadow_artifact(
                 )
 
     created_utc = obj.get("created_utc")
-    if created_utc is not None and not _parse_datetime(created_utc):
+    if created_utc is not None and not _is_utc_rfc3339_z(created_utc):
         _add_issue(
             errors,
             "created_utc",
-            "created_utc must be an RFC3339 / ISO-8601 timestamp",
+            "created_utc must be a canonical RFC3339 / ISO-8601 UTC timestamp ending in Z",
         )
 
     run_reality_state = obj.get("run_reality_state")
@@ -185,6 +232,10 @@ def validate_shadow_artifact(
             "verdict",
             "verdict must be one of: pass, warn, fail, unknown, invalid, absent",
         )
+
+    relation_scope = obj.get("relation_scope")
+    if relation_scope is not None:
+        _validate_relation_scope(relation_scope, "relation_scope", errors)
 
     summary = obj.get("summary")
     if summary is not None:
