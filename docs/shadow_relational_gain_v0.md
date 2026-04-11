@@ -1,248 +1,352 @@
-# Relational Gain v0 — Initial Scope
+# Shadow Relational Gain v0
 
-## Decision
+Relational Gain v0 is a **shadow-only** diagnostic layer.
 
-This first version is:
+It evaluates relational gain signals from a dedicated input artifact,
+writes a separate shadow artifact, and may fold a summary into
+`status.json` under `meta.relational_gain_shadow`.
 
-- shadow-only
-- non-normative
-- not emitted under `gates.*`
-- not added to policy yet
-- not added to the registry yet
-- not added to `core_required` or `required` yet
+It does **not** participate in normative release authority.
 
-## Goal
+---
 
-Provide a deterministic, fail-closed checker that:
+## Status
 
-- evaluates edge gains
-- evaluates cycle gains
-- writes a separate artifact
-- can optionally fold a short, non-normative shadow summary under `meta.*`
+Relational Gain v0 is implemented as a working shadow module with:
 
-## Files to create in the first round
+- dedicated checker logic,
+- dedicated fold-in logic,
+- dedicated runner,
+- dedicated schema,
+- layer-specific contract checker,
+- canonical PASS / WARN / FAIL fixtures,
+- checker regression tests,
+- non-interference tests,
+- and a dedicated shadow workflow.
 
-1. `docs/shadow_relational_gain_v0.md`
-2. `PULSE_safe_pack_v0/tools/check_relational_gain.py`
-3. `tests/test_check_relational_gain.py`
-4. `tests/fixtures/relational_gain_v0/pass.json`
-5. `tests/fixtures/relational_gain_v0/warn.json`
-6. `tests/fixtures/relational_gain_v0/fail_edge.json`
-7. `tests/fixtures/relational_gain_v0/fail_cycle.json`
+This means the module is no longer just a research note or ad hoc
+shadow experiment.
 
-## Output artifact
+It now has an explicit machine-readable and testable contract surface.
 
-The checker’s primary output should be a separate artifact:
+Registry / promotion-state updates should still be recorded separately in
+repo-level shadow inventory surfaces.
 
-`PULSE_safe_pack_v0/artifacts/relational_gain_shadow_v0.json`
+---
 
-## Shadow artifact contract (v0)
+## Role
 
-The shadow artifact must be self-contained and audit-friendly.
+Relational Gain v0 exists to read relational gain input and produce a
+bounded diagnostic verdict over two dimensions:
 
-Recommended artifact path:
+- edge gain
+- cycle gain
 
-`PULSE_safe_pack_v0/artifacts/relational_gain_shadow_v0.json`
+It is intended for shadow review, artifact analysis, and governance
+visibility.
 
-Recommended minimal artifact shape:
+It is **not** a release gate.
 
-```json
-{
-  "checker_version": "relational_gain_v0",
-  "verdict": "PASS",
-  "input": {
-    "path": "PULSE_safe_pack_v0/artifacts/relational_gain_input_v0.json"
-  },
-  "metrics": {
-    "checked_edges": 18,
-    "checked_cycles": 4,
-    "max_edge_gain": 0.83,
-    "max_cycle_gain": 0.91,
-    "warn_threshold": 0.95,
-    "offending_edges": [],
-    "offending_cycles": [],
-    "near_boundary_edges": [],
-    "near_boundary_cycles": []
-  }
-}
+---
+
+## Non-goals
+
+Relational Gain v0 does **not**:
+
+- write under `gates.*`,
+- modify required gate sets,
+- change `check_gates.py` release semantics,
+- convert a blocked release into an allowed one,
+- or gain normative authority by being present in `status.json`.
+
+---
+
+## Current flow
+
+The current shadow flow is:
+
+1. `check_relational_gain.py`
+   - reads relational gain input
+   - computes edge/cycle metrics
+   - emits a shadow artifact
+
+2. `fold_relational_gain_shadow.py`
+   - reads the shadow artifact
+   - folds a summary into `status["meta"]["relational_gain_shadow"]`
+
+3. `run_relational_gain_shadow.py`
+   - orchestrates checker + artifact write + fold-in
+
+The fold-in is additive and non-normative.
+
+---
+
+## Shadow artifact
+
+Current artifact path:
+
+```text
+PULSE_safe_pack_v0/artifacts/relational_gain_shadow_v0.json
 ```
 
-Notes:
+Current artifact schema:
 
-- the artifact should be complete enough to stand on its own
-- the artifact is the audit surface
-- later fold-ins may stay shorter because the artifact remains the full record
-- if richer edge/cycle identifiers become available later, the offending/near-boundary arrays may evolve from raw numbers into structured objects
-
-## Optional meta fold-in
-
-The optional `status.json` fold-in must remain short and descriptive.
-
-Recommended location:
-
-`status["meta"]["relational_gain_shadow"]`
-
-Recommended minimal shape:
-
-```json
-{
-  "meta": {
-    "relational_gain_shadow": {
-      "verdict": "PASS",
-      "max_edge_gain": 0.83,
-      "max_cycle_gain": 0.91,
-      "warn_threshold": 0.95,
-      "checked_edges": 18,
-      "checked_cycles": 4,
-      "artifact": {
-        "path": "PULSE_safe_pack_v0/artifacts/relational_gain_shadow_v0.json",
-        "sha256": "..."
-      }
-    }
-  }
-}
+```text
+schemas/relational_gain_shadow_v0.schema.json
 ```
 
-Rules:
+Current artifact contract checker:
 
-- keep this fold-in short
-- do not move detailed diagnostics here
-- do not place this under `gates.*`
-- absence is neutral
-- presence is descriptive only
-
-## Checker semantics (v0)
-
-This checker is Shadow-only.
-
-Decision semantics:
-
-- `FAIL` -> checker-level fail-closed
-- `WARN` -> shadow warning only
-- `PASS` -> shadow success only
-
-Important:
-
-- `WARN` must not participate in gate semantics in v0
-- `PASS` / `WARN` / `FAIL` are checker verdicts, not policy-level release decisions
-- no normative gate is introduced in this round
-
-## Checker CLI contract (v0)
-
-Recommended CLI:
-
-```bash
-python check_relational_gain.py --input INPUT_JSON
-python check_relational_gain.py --input INPUT_JSON --out OUTPUT_JSON
-python check_relational_gain.py --input INPUT_JSON --warn-threshold 0.95
-python check_relational_gain.py --input INPUT_JSON --require-data
+```text
+PULSE_safe_pack_v0/tools/check_relational_gain_contract.py
 ```
 
-Recommended arguments:
+The current artifact shape is tied to the actual output of
+`check_relational_gain.py` and includes:
 
-- `--input` : required input JSON
-- `--out` : optional output artifact path
-- `--warn-threshold` : optional override
-- `--edge-key` : optional key name override, default `edge_gains`
-- `--cycle-key` : optional key name override, default `cycle_gains`
-- `--require-data` : fail if neither edge nor cycle data is present
+- `checker_version`
+- `verdict`
+- `input.path`
+- `metrics.checked_edges`
+- `metrics.checked_cycles`
+- `metrics.max_edge_gain`
+- `metrics.max_cycle_gain`
+- `metrics.warn_threshold`
+- `metrics.offending_edges`
+- `metrics.offending_cycles`
+- `metrics.near_boundary_edges`
+- `metrics.near_boundary_cycles`
 
-Recommended exit codes:
+This page documents the **current actual artifact**, not a future
+migrated common-envelope form.
 
-- `0` -> `PASS`
-- `0` -> `WARN`
-- `1` -> `FAIL`
-- `2` -> invalid input / parse error / schema error / runtime read-write error
+---
 
-## Initial fixtures (v0)
+## Verdict semantics
 
-The first-round fixture set should stay exactly this small:
+Relational Gain v0 emits one of:
 
-- `tests/fixtures/relational_gain_v0/pass.json`
-- `tests/fixtures/relational_gain_v0/warn.json`
-- `tests/fixtures/relational_gain_v0/fail_edge.json`
-- `tests/fixtures/relational_gain_v0/fail_cycle.json`
+- `PASS`
+- `WARN`
+- `FAIL`
 
-Recommended contents:
+Interpretation:
 
-### `pass.json`
+- `PASS`
+  - no offending edge/cycle gains
+  - no near-boundary edge/cycle gains
+- `WARN`
+  - no offending gains
+  - at least one near-boundary gain
+- `FAIL`
+  - at least one offending gain
 
-```json
-{
-  "edge_gains": [0.42, 0.71, 0.88],
-  "cycle_gains": [0.63, 0.79],
-  "metrics": {
-    "relational_gain_warn_threshold": 0.95
-  }
-}
+These verdicts are checker-local shadow diagnostics.
+
+They do **not** become release verdicts.
+
+---
+
+## Fold-in surface
+
+If fold-in succeeds, the shadow summary appears at:
+
+```text
+status["meta"]["relational_gain_shadow"]
 ```
 
-Expected result:
+The folded summary is expected to expose the current shadow result in a
+compact status-facing form, including:
 
-- `verdict`: `PASS`
-- exit code: `0`
+- `verdict`
+- `max_edge_gain`
+- `max_cycle_gain`
+- `warn_threshold`
+- `checked_edges`
+- `checked_cycles`
+- artifact reference metadata
 
-### `warn.json`
+Fold-in must remain:
 
-```json
-{
-  "edge_gains": [0.42, 0.95, 0.97],
-  "cycle_gains": [0.73, 0.91],
-  "metrics": {
-    "relational_gain_warn_threshold": 0.95
-  }
-}
+- optional,
+- additive,
+- non-normative,
+- and removable when the artifact is stale or absent.
+
+---
+
+## Neutral absence
+
+Relational Gain v0 supports neutral absence through runner-level
+`--if-input-present` behavior.
+
+In that mode:
+
+- missing input does not become a hard failure,
+- no shadow artifact is required,
+- stale `meta.relational_gain_shadow` content is removed,
+- unrelated `meta.*` content is preserved,
+- and release semantics remain unchanged.
+
+Neutral absence is a shadow hygiene rule, not a release rule.
+
+---
+
+## Contract-hardening surfaces
+
+Relational Gain v0 now has the following hardening surfaces:
+
+### Layer-specific schema
+
+```text
+schemas/relational_gain_shadow_v0.schema.json
 ```
 
-Expected result:
+### Layer-specific contract checker
 
-- `verdict`: `WARN`
-- exit code: `0`
-
-### `fail_edge.json`
-
-```json
-{
-  "edge_gains": [0.42, 1.08],
-  "cycle_gains": [0.73, 0.91],
-  "metrics": {
-    "relational_gain_warn_threshold": 0.95
-  }
-}
+```text
+PULSE_safe_pack_v0/tools/check_relational_gain_contract.py
 ```
 
-Expected result:
+### Canonical fixtures
 
-- `verdict`: `FAIL`
-- exit code: `1`
-
-### `fail_cycle.json`
-
-```json
-{
-  "edge_gains": [0.42, 0.88],
-  "cycle_gains": [0.73, 1.04],
-  "metrics": {
-    "relational_gain_warn_threshold": 0.95
-  }
-}
+```text
+tests/fixtures/relational_gain_shadow_v0/pass.json
+tests/fixtures/relational_gain_shadow_v0/warn.json
+tests/fixtures/relational_gain_shadow_v0/fail.json
 ```
 
-Expected result:
+### Checker regression tests
 
-- `verdict`: `FAIL`
-- exit code: `1`
+```text
+tests/test_check_relational_gain_contract.py
+```
 
-## Test expectations (v0)
+### Non-interference coverage
 
-Minimum expected tests:
+```text
+tests/test_relational_gain_non_interference.py
+```
 
-- `pass` fixture -> exit `0`, verdict `PASS`
-- `warn` fixture -> exit `0`, verdict `WARN`
-- `fail_edge` fixture -> exit `1`, verdict `FAIL`
-- `fail_cycle` fixture -> exit `1`, verdict `FAIL`
+### Dedicated workflow
 
-Optional later negative test:
+```text
+.github/workflows/relational_gain_shadow.yml
+```
 
-- malformed input -> exit `2`
+---
 
+## Non-interference guarantee
+
+Relational Gain v0 must remain non-interfering with normative release
+behavior.
+
+The required invariant is:
+
+- same `check_gates.py`
+- same required gate set
+- same release outcome
+- before and after Relational Gain fold-in
+
+This is covered by dedicated end-to-end non-interference tests.
+
+The shadow layer may add or remove `meta.relational_gain_shadow`, but it
+must not alter the authoritative `gates` surface or the release result
+derived from it.
+
+---
+
+## Invariants
+
+Relational Gain v0 must satisfy all of the following:
+
+- it remains shadow-only
+- it never writes under `gates.*`
+- it never changes required gate meaning
+- fold-in is additive only
+- exact artifact `checker_version` is enforced
+- neutral absence remains neutral
+- stale shadow state may be removed
+- unrelated `meta.*` content must be preserved
+- release outcomes must remain identical before and after fold-in
+
+---
+
+## File map
+
+### Docs
+
+```text
+docs/shadow_relational_gain_v0.md
+docs/papers/equivalence_drift_and_grounded_new_element.md
+```
+
+### Tools
+
+```text
+PULSE_safe_pack_v0/tools/check_relational_gain.py
+PULSE_safe_pack_v0/tools/check_relational_gain_contract.py
+PULSE_safe_pack_v0/tools/fold_relational_gain_shadow.py
+PULSE_safe_pack_v0/tools/run_relational_gain_shadow.py
+```
+
+### Schema
+
+```text
+schemas/relational_gain_shadow_v0.schema.json
+```
+
+### Fixtures
+
+```text
+tests/fixtures/relational_gain_v0/*
+tests/fixtures/relational_gain_shadow_v0/*
+```
+
+### Tests
+
+```text
+tests/test_check_relational_gain.py
+tests/test_check_relational_gain_contract.py
+tests/test_fold_relational_gain_shadow.py
+tests/test_run_relational_gain_shadow.py
+tests/test_relational_gain_non_interference.py
+```
+
+### Workflow
+
+```text
+.github/workflows/relational_gain_shadow.yml
+```
+
+---
+
+## Promotion boundary
+
+Relational Gain v0 is now a hardened shadow module, but it is still
+shadow-only.
+
+Any movement beyond that must be explicit.
+
+In particular, none of the following are implied by this hardening work:
+
+- advisory authority,
+- policy binding,
+- required-gate promotion,
+- release-required status.
+
+Those changes, if they ever happen, must be recorded separately in
+policy and registry surfaces.
+
+---
+
+## Summary
+
+Relational Gain v0 is now a fully implemented and contract-hardened
+shadow module.
+
+It is documented, schema-bound, checker-validated, regression-tested,
+non-interference-tested, and workflow-wired.
+
+It remains strictly non-normative, and its role is to add disciplined
+shadow visibility without changing release authority.
