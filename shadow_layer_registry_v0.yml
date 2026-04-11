@@ -1,0 +1,26 @@
+version: "shadow_layer_registry_v0"
+
+layers:
+  - layer_id: relational_gain_shadow
+    family: relation-dynamics
+    current_stage: shadow-contracted
+    target_stage: advisory
+    default_role: shadow diagnostic
+    consumer_authority: review-only
+    primary_entrypoint: .github/workflows/relational_gain_shadow.yml
+    primary_artifact: PULSE_safe_pack_v0/artifacts/relational_gain_shadow_v0.json
+    status_foldin: meta.relational_gain_shadow
+    schema: schemas/relational_gain_shadow_v0.schema.json
+    semantic_checker: PULSE_safe_pack_v0/tools/check_relational_gain_contract.py
+    fixtures:
+      - tests/fixtures/relational_gain_shadow_v0/pass.json
+      - tests/fixtures/relational_gain_shadow_v0/warn.json
+      - tests/fixtures/relational_gain_shadow_v0/fail.json
+    tests:
+      - tests/test_check_relational_gain_contract.py
+      - tests/test_relational_gain_non_interference.py
+    run_reality_states:
+      - real
+      - absent
+    normative: false
+    notes: Shadow-only. Contract-hardened. Must not write under gates.*.
