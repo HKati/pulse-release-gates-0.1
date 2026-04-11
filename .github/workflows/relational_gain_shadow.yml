@@ -5,13 +5,18 @@ on:
     paths:
       - ".github/workflows/relational_gain_shadow.yml"
       - "requirements.txt"
+      - "schemas/relational_gain_shadow_v0.schema.json"
       - "PULSE_safe_pack_v0/tools/check_relational_gain.py"
+      - "PULSE_safe_pack_v0/tools/check_relational_gain_contract.py"
       - "PULSE_safe_pack_v0/tools/fold_relational_gain_shadow.py"
       - "PULSE_safe_pack_v0/tools/run_relational_gain_shadow.py"
       - "tests/test_check_relational_gain.py"
+      - "tests/test_check_relational_gain_contract.py"
       - "tests/test_fold_relational_gain_shadow.py"
       - "tests/test_run_relational_gain_shadow.py"
+      - "tests/test_relational_gain_non_interference.py"
       - "tests/fixtures/relational_gain_v0/**"
+      - "tests/fixtures/relational_gain_shadow_v0/**"
       - "docs/shadow_relational_gain_v0.md"
       - "docs/papers/equivalence_drift_and_grounded_new_element.md"
 
@@ -20,13 +25,18 @@ on:
     paths:
       - ".github/workflows/relational_gain_shadow.yml"
       - "requirements.txt"
+      - "schemas/relational_gain_shadow_v0.schema.json"
       - "PULSE_safe_pack_v0/tools/check_relational_gain.py"
+      - "PULSE_safe_pack_v0/tools/check_relational_gain_contract.py"
       - "PULSE_safe_pack_v0/tools/fold_relational_gain_shadow.py"
       - "PULSE_safe_pack_v0/tools/run_relational_gain_shadow.py"
       - "tests/test_check_relational_gain.py"
+      - "tests/test_check_relational_gain_contract.py"
       - "tests/test_fold_relational_gain_shadow.py"
       - "tests/test_run_relational_gain_shadow.py"
+      - "tests/test_relational_gain_non_interference.py"
       - "tests/fixtures/relational_gain_v0/**"
+      - "tests/fixtures/relational_gain_shadow_v0/**"
       - "docs/shadow_relational_gain_v0.md"
       - "docs/papers/equivalence_drift_and_grounded_new_element.md"
 
@@ -69,8 +79,10 @@ jobs:
           set -euo pipefail
           pytest -q \
             tests/test_check_relational_gain.py \
+            tests/test_check_relational_gain_contract.py \
             tests/test_fold_relational_gain_shadow.py \
-            tests/test_run_relational_gain_shadow.py
+            tests/test_run_relational_gain_shadow.py \
+            tests/test_relational_gain_non_interference.py
 
       - name: Seed minimal status.json for shadow smoke
         shell: bash
@@ -113,6 +125,14 @@ jobs:
             --artifact-out PULSE_safe_pack_v0/artifacts/relational_gain_shadow_v0.json \
             --status-out PULSE_safe_pack_v0/artifacts/status.relational_gain_shadow.json
 
+      - name: Validate produced shadow artifact against Relational Gain contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          python PULSE_safe_pack_v0/tools/check_relational_gain_contract.py \
+            --input PULSE_safe_pack_v0/artifacts/relational_gain_shadow_v0.json \
+            --output PULSE_safe_pack_v0/artifacts/relational_gain_shadow_contract_check.json
+
       - name: Validate folded shadow block
         shell: bash
         run: |
@@ -123,9 +143,11 @@ jobs:
 
           path = Path("PULSE_safe_pack_v0/artifacts/status.relational_gain_shadow.json")
           data = json.loads(path.read_text(encoding="utf-8"))
+
           shadow = data.get("meta", {}).get("relational_gain_shadow")
           if not isinstance(shadow, dict):
               raise SystemExit("missing meta.relational_gain_shadow")
+
           if shadow.get("verdict") != "PASS":
               raise SystemExit(f"expected PASS verdict, got {shadow.get('verdict')!r}")
           PY
@@ -151,13 +173,14 @@ jobs:
 
           status_path = Path("PULSE_safe_pack_v0/artifacts/status.relational_gain_shadow.absent.json")
           data = json.loads(status_path.read_text(encoding="utf-8"))
+
           meta = data.get("meta", {})
           if "relational_gain_shadow" in meta:
               raise SystemExit("relational_gain_shadow should be absent after neutral-absence path")
 
           absent_artifact = Path("PULSE_safe_pack_v0/artifacts/relational_gain_shadow_absent_v0.json")
           if absent_artifact.exists():
-              raise SystemExit("neutral-absence path should not leave a shadow artifact behind")   
+              raise SystemExit("neutral-absence path should not leave a shadow artifact behind")
           PY
 
       - name: Upload relational gain shadow artifacts
@@ -168,6 +191,7 @@ jobs:
           if-no-files-found: warn
           path: |
             PULSE_safe_pack_v0/artifacts/relational_gain_shadow_v0.json
+            PULSE_safe_pack_v0/artifacts/relational_gain_shadow_contract_check.json
             PULSE_safe_pack_v0/artifacts/status.seed.json
             PULSE_safe_pack_v0/artifacts/status.relational_gain_shadow.json
             PULSE_safe_pack_v0/artifacts/status.relational_gain_shadow.absent.json
