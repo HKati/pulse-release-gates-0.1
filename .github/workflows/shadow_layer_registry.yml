@@ -1,0 +1,128 @@
+name: Shadow Layer Registry
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/shadow_layer_registry.yml"
+      - "requirements.txt"
+      - "shadow_layer_registry_v0.yml"
+      - "schemas/shadow_layer_registry_v0.schema.json"
+      - "PULSE_safe_pack_v0/tools/check_shadow_layer_registry.py"
+      - "tests/fixtures/shadow_layer_registry_v0/**"
+      - "tests/test_check_shadow_layer_registry.py"
+
+      # Referenced Relational Gain surfaces currently registered in the registry.
+      - ".github/workflows/relational_gain_shadow.yml"
+      - "schemas/relational_gain_shadow_v0.schema.json"
+      - "PULSE_safe_pack_v0/tools/check_relational_gain_contract.py"
+      - "tests/fixtures/relational_gain_shadow_v0/**"
+      - "tests/test_check_relational_gain_contract.py"
+      - "tests/test_relational_gain_non_interference.py"
+
+  push:
+    branches: ["main"]
+    paths:
+      - ".github/workflows/shadow_layer_registry.yml"
+      - "requirements.txt"
+      - "shadow_layer_registry_v0.yml"
+      - "schemas/shadow_layer_registry_v0.schema.json"
+      - "PULSE_safe_pack_v0/tools/check_shadow_layer_registry.py"
+      - "tests/fixtures/shadow_layer_registry_v0/**"
+      - "tests/test_check_shadow_layer_registry.py"
+
+      # Referenced Relational Gain surfaces currently registered in the registry.
+      - ".github/workflows/relational_gain_shadow.yml"
+      - "schemas/relational_gain_shadow_v0.schema.json"
+      - "PULSE_safe_pack_v0/tools/check_relational_gain_contract.py"
+      - "tests/fixtures/relational_gain_shadow_v0/**"
+      - "tests/test_check_relational_gain_contract.py"
+      - "tests/test_relational_gain_non_interference.py"
+
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: shadow-layer-registry-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  shadow-layer-registry:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        with:
+          python-version: "3.11"
+
+      - name: Install minimal test/runtime dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt pytest pyyaml
+
+      - name: Run shadow layer registry test suite
+        shell: bash
+        run: |
+          set -euo pipefail
+          pytest -q tests/test_check_shadow_layer_registry.py
+
+      - name: Validate registry YAML
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p PULSE_safe_pack_v0/artifacts
+          python PULSE_safe_pack_v0/tools/check_shadow_layer_registry.py \
+            --input shadow_layer_registry_v0.yml \
+            --output PULSE_safe_pack_v0/artifacts/shadow_layer_registry_contract_check.json
+
+      - name: Validate canonical registry JSON pass fixture
+        shell: bash
+        run: |
+          set -euo pipefail
+          python PULSE_safe_pack_v0/tools/check_shadow_layer_registry.py \
+            --input tests/fixtures/shadow_layer_registry_v0/pass.json \
+            --output PULSE_safe_pack_v0/artifacts/shadow_layer_registry_fixture_check.json
+
+      - name: Validate registry checker output surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          path = Path("PULSE_safe_pack_v0/artifacts/shadow_layer_registry_contract_check.json")
+          data = json.loads(path.read_text(encoding="utf-8"))
+
+          if data.get("ok") is not True:
+              raise SystemExit("registry contract check did not succeed")
+
+          if data.get("registry_version") != "shadow_layer_registry_v0":
+              raise SystemExit(
+                  f"unexpected registry_version: {data.get('registry_version')!r}"
+              )
+
+          if data.get("layer_count", 0) < 1:
+              raise SystemExit("expected at least one registered shadow layer")
+          PY
+
+      - name: Upload shadow layer registry artifacts
+        if: always()
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: shadow-layer-registry
+          if-no-files-found: warn
+          path: |
+            PULSE_safe_pack_v0/artifacts/shadow_layer_registry_contract_check.json
+            PULSE_safe_pack_v0/artifacts/shadow_layer_registry_fixture_check.json
