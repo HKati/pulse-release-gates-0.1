@@ -388,7 +388,7 @@ It is a management surface, not a promotion statement.
 | Separation phase overlay | `separation_phase_overlay_v0` | research | — | shadow diagnostic | artifact present | none | schema + consumer rule |
 | Theory overlay v0 | `theory_overlay_v0` | research | — | shadow diagnostic | artifact present | none | schema + degraded model |
 | G-field / G snapshot family | `g_field_snapshot_family_v0` | research | — | shadow diagnostic | mixed / family-level | none | split family contracts |
-| Relational Gain v0 | `relational_gain_shadow` | research |  shadow-contracted | advisory | shadow diagnostic | artifact contracted | `meta.relational_gain_shadow` | advisory evaluation only if explicitly pursued |
+| Relational Gain v0 | `relational_gain_shadow` | shadow-contracted | advisory | shadow diagnostic | artifact contracted | `meta.relational_gain_shadow` | advisory evaluation only if explicitly pursued |
 | EPF experiment / hazard | `epf_shadow_experiment_v0` | research | — | research diagnostic | artifact family present | none | comparison contract + real/stub classifier |
 | Topology family | `topology_family_v0` | research | — | artifact-derived topology | partial family artifacts | none | standalone schema set |
 | Decision-field family | `decision_field_v0` | research | — | decision-oriented shadow read | partial family artifacts | none | vocabulary contract + artifact schema |
