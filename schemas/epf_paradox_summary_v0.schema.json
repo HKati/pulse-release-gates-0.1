@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schemas/epf_paradox_summary_v0.schema.json",
+  "title": "EPF Paradox Summary v0",
+  "description": "Schema for the current epf_paradox_summary.json artifact emitted by the EPF experiment shadow workflow.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "deps_rc",
+    "runall_rc",
+    "baseline_rc",
+    "epf_rc",
+    "total_gates",
+    "changed",
+    "examples"
+  ],
+  "properties": {
+    "deps_rc": {
+      "type": "string",
+      "pattern": "^-?[0-9]+$",
+      "description": "Dependency-install step return code as recorded by the current workflow."
+    },
+    "runall_rc": {
+      "type": "string",
+      "pattern": "^-?[0-9]+$",
+      "description": "run_all.py step return code as recorded by the current workflow."
+    },
+    "baseline_rc": {
+      "type": "string",
+      "pattern": "^-?[0-9]+$",
+      "description": "Baseline check_gates step return code as recorded by the current workflow."
+    },
+    "epf_rc": {
+      "type": "string",
+      "pattern": "^-?[0-9]+$",
+      "description": "EPF shadow check_gates step return code as recorded by the current workflow."
+    },
+    "total_gates": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Number of baseline gates considered in the comparison."
+    },
+    "changed": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Number of baseline->EPF gate decision differences recorded."
+    },
+    "examples": {
+      "type": "array",
+      "description": "Sample changed gates emitted by the current workflow.",
+      "items": {
+        "$ref": "#/$defs/example"
+      }
+    }
+  },
+  "$defs": {
+    "example": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "gate",
+        "baseline",
+        "epf"
+      ],
+      "properties": {
+        "gate": {
+          "type": "string",
+          "minLength": 1
+        },
+        "baseline": {},
+        "epf": {}
+      }
+    }
+  }
+}
