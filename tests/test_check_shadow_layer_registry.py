@@ -7,11 +7,10 @@ import sys
 from pathlib import Path
 from typing import Any
 
-import pytest
-
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "PULSE_safe_pack_v0" / "tools" / "check_shadow_layer_registry.py"
 FIXTURES = ROOT / "tests" / "fixtures" / "shadow_layer_registry_v0"
+REGISTRY = ROOT / "shadow_layer_registry_v0.yml"
 
 
 def _run(input_path: Path, *extra_args: str) -> subprocess.CompletedProcess[str]:
@@ -37,6 +36,17 @@ def _load_checker_module():
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+def test_registry_yaml_is_valid() -> None:
+    result = _run(REGISTRY)
+    assert result.returncode == 0, result.stdout + result.stderr
+
+    payload = _stdout_json(result)
+    assert payload["ok"] is True
+    assert payload["neutral"] is False
+    assert payload["registry_version"] == "shadow_layer_registry_v0"
+    assert payload["layer_count"] >= 1
 
 
 def test_pass_fixture_is_valid() -> None:
@@ -71,17 +81,9 @@ def test_missing_input_fails_without_if_input_present() -> None:
     assert any(issue["path"] == "input" for issue in payload["errors"])
 
 
-def test_duplicate_layer_id_fails(tmp_path: Path) -> None:
-    fixture = _load_fixture("pass.json")
-    duplicate = json.loads(json.dumps(fixture["layers"][0]))
-    duplicate["notes"] = "Duplicate layer entry for negative test."
-    fixture["layers"].append(duplicate)
-
-    path = tmp_path / "duplicate_layer_id.json"
-    _write_json(path, fixture)
-
-    result = _run(path)
-    assert result.returncode == 1
+def test_duplicate_layer_id_fixture_fails() -> None:
+    result = _run(FIXTURES / "duplicate_layer_id.json")
+    assert result.returncode == 1, result.stdout + result.stderr
 
     payload = _stdout_json(result)
     assert payload["ok"] is False
