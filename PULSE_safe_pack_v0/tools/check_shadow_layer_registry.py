@@ -190,9 +190,6 @@ def _validate_enum_string_array(
 
 
 def _load_registry(path: Path) -> Any:
-    if yaml is None:
-        raise ValueError("PyYAML is required to read shadow layer registry files")
-
     try:
         text = path.read_text(encoding="utf-8")
     except FileNotFoundError:
@@ -200,11 +197,18 @@ def _load_registry(path: Path) -> Any:
     except OSError as exc:
         raise ValueError(f"failed to read {path}: {exc}") from exc
 
-    try:
-        if path.suffix.lower() == ".json":
+    if path.suffix.lower() == ".json":
+        try:
             return json.loads(text)
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"invalid registry syntax: {exc}") from exc
+
+    if yaml is None:
+        raise ValueError("PyYAML is required to read non-JSON shadow layer registry files")
+
+    try:
         return yaml.safe_load(text)
-    except (json.JSONDecodeError, yaml.YAMLError) as exc:  # type: ignore[attr-defined]
+    except yaml.YAMLError as exc:  # type: ignore[attr-defined]
         raise ValueError(f"invalid registry syntax: {exc}") from exc
 
 
