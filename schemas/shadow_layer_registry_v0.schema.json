@@ -1,0 +1,215 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schemas/shadow_layer_registry_v0.schema.json",
+  "title": "Shadow Layer Registry v0",
+  "description": "Machine-readable registry for shadow layers.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "layers"
+  ],
+  "properties": {
+    "version": {
+      "type": "string",
+      "const": "shadow_layer_registry_v0"
+    },
+    "layers": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/layer"
+      }
+    }
+  },
+  "$defs": {
+    "contract_stage": {
+      "type": "string",
+      "enum": [
+        "research",
+        "shadow-contracted",
+        "advisory",
+        "release-candidate",
+        "release-required"
+      ]
+    },
+    "consumer_authority": {
+      "type": "string",
+      "enum": [
+        "display-only",
+        "review-only",
+        "advisory-only",
+        "policy-bound"
+      ]
+    },
+    "run_reality_state": {
+      "type": "string",
+      "enum": [
+        "real",
+        "partial",
+        "stub",
+        "degraded",
+        "invalid",
+        "absent"
+      ]
+    },
+    "non_empty_string": {
+      "type": "string",
+      "minLength": 1
+    },
+    "path_string": {
+      "type": "string",
+      "minLength": 1
+    },
+    "layer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "layer_id",
+        "family",
+        "current_stage",
+        "default_role",
+        "consumer_authority",
+        "run_reality_states",
+        "normative",
+        "notes"
+      ],
+      "properties": {
+        "layer_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9_]+$"
+        },
+        "family": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9_-]*$"
+        },
+        "current_stage": {
+          "$ref": "#/$defs/contract_stage"
+        },
+        "target_stage": {
+          "$ref": "#/$defs/contract_stage"
+        },
+        "default_role": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "consumer_authority": {
+          "$ref": "#/$defs/consumer_authority"
+        },
+        "owner_surface": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "enum": [
+              "docs",
+              "workflow",
+              "tool",
+              "renderer"
+            ]
+          }
+        },
+        "primary_entrypoint": {
+          "$ref": "#/$defs/path_string"
+        },
+        "primary_artifact": {
+          "$ref": "#/$defs/path_string"
+        },
+        "status_foldin": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "schema": {
+          "$ref": "#/$defs/path_string"
+        },
+        "semantic_checker": {
+          "$ref": "#/$defs/path_string"
+        },
+        "fixtures": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/path_string"
+          }
+        },
+        "tests": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/path_string"
+          }
+        },
+        "run_reality_states": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/run_reality_state"
+          }
+        },
+        "promotion_blockers": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/non_empty_string"
+          }
+        },
+        "normative": {
+          "type": "boolean"
+        },
+        "notes": {
+          "$ref": "#/$defs/non_empty_string"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "current_stage": {
+                "enum": [
+                  "shadow-contracted",
+                  "advisory",
+                  "release-candidate",
+                  "release-required"
+                ]
+              }
+            },
+            "required": [
+              "current_stage"
+            ]
+          },
+          "then": {
+            "required": [
+              "primary_entrypoint",
+              "primary_artifact",
+              "schema",
+              "semantic_checker",
+              "fixtures",
+              "tests"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "normative": {
+                "const": true
+              }
+            },
+            "required": [
+              "normative"
+            ]
+          },
+          "then": {
+            "properties": {
+              "current_stage": {
+                "const": "release-required"
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}
