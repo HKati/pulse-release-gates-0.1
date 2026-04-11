@@ -25,10 +25,37 @@ the required gate set.
 | Separation phase overlay | shadow diagnostic | `.github/workflows/separation_phase_overlay.yml` | `separation_phase_v0.json`, markdown summary | No |
 | Theory overlay v0 | shadow diagnostic | `.github/workflows/theory_overlay_v0.yml` | overlay JSON + markdown summary | No |
 | G-field / G snapshot surfaces | shadow diagnostic | G-field / snapshot shadow workflows | overlay JSONs + snapshot markdown | No |
-| Relational Gain v0 | shadow diagnostic | `.github/workflows/relational_gain_shadow.yml` | `relational_gain_shadow_v0.json`, folded `meta.relational_gain_shadow` | No |
+| Relational Gain v0 | shadow diagnostic (contract-hardened) | `.github/workflows/relational_gain_shadow.yml` | `relational_gain_shadow_v0.json`, folded `meta.relational_gain_shadow` | No |
 | EPF experiment / hazard | research diagnostic | `.github/workflows/epf_experiment.yml` and EPF docs | `status_epf.json`, reports, hazard logs | No |
 | Parameter Golf v0 | external challenge companion | `../parameter_golf_v0/README.md` | submission evidence JSON + review receipt | No |
 | Publication surfaces | opt-in platform integration | `upload_sarif.yml`, PR comments, badge write-back, Pages snapshots | GitHub-native / published surfaces | No |
+
+## Contract-hardened shadow modules
+
+### Relational Gain v0
+
+**Entry point:** [`.github/workflows/relational_gain_shadow.yml`](../.github/workflows/relational_gain_shadow.yml)  
+**Detailed doc:** [`shadow_relational_gain_v0.md`](shadow_relational_gain_v0.md)
+
+Relational Gain v0 is now a **contract-hardened shadow-only** module.
+
+Current hardening surface:
+
+- schema:
+  - `../schemas/relational_gain_shadow_v0.schema.json`
+- contract checker:
+  - `../PULSE_safe_pack_v0/tools/check_relational_gain_contract.py`
+- canonical fixtures:
+  - `../tests/fixtures/relational_gain_shadow_v0/pass.json`
+  - `../tests/fixtures/relational_gain_shadow_v0/warn.json`
+  - `../tests/fixtures/relational_gain_shadow_v0/fail.json`
+- checker regression tests:
+  - `../tests/test_check_relational_gain_contract.py`
+- non-interference coverage:
+  - `../tests/test_relational_gain_non_interference.py`
+
+It remains **non-normative**.
+Its artifact and folded `meta.relational_gain_shadow` summary do not change release authority unless a future policy explicitly promotes the layer.
 
 ## External challenge companions
 
