@@ -10,7 +10,7 @@ For a fuller field-by-field walkthrough, see [status_json.md](status_json.md).
 
 ---
 
-## Minimal stable example
+## Minimal stable example 
 
 ```json
 {
@@ -188,6 +188,76 @@ Non-goals:
 - no policy change
 - no promotion
 - no overall decision change
+
+### Relational Gain shadow
+
+Recommended location:
+
+```text
+status["meta"]["relational_gain_shadow"]
+```
+
+Purpose:
+
+Expose a compact summary of the Relational Gain shadow artifact for
+human readers and renderer surfaces without creating a new required
+gate or changing release policy.
+
+Suggested shape:
+
+```json
+{
+  "meta": {
+    "relational_gain_shadow": {
+      "verdict": "WARN",
+      "max_edge_gain": 0.97,
+      "max_cycle_gain": 0.91,
+      "warn_threshold": 0.95,
+      "checked_edges": 3,
+      "checked_cycles": 2,
+      "artifact": {
+        "path": "PULSE_safe_pack_v0/artifacts/relational_gain_shadow_v0.json",
+        "sha256": "..."
+      }
+    }
+  }
+}
+```
+
+Rules:
+
+1. **Fold-in is all-or-nothing.**  
+   If the source artifact is missing, invalid, or not parseable, omit the
+   whole block.
+
+2. **Source fidelity.**  
+   Values in `meta.relational_gain_shadow` are copied / mapped from the
+   Relational Gain shadow artifact. They are not recomputed and must not
+   introduce new release semantics.
+
+3. **Shadow verdict only.**  
+   `verdict` reflects the Relational Gain shadow diagnostic result
+   (`PASS`, `WARN`, or `FAIL`) and is descriptive only. It must not be
+   treated as a release verdict.
+
+4. **Consumer rule.**  
+   Renderers may display this block, but consumers must not treat it as
+   normative gate evidence.
+
+5. **Absence is neutral.**  
+   Presence or absence of this block does not change PASS/FAIL,
+   STAGE-PASS/PROD-PASS, or required-gate enforcement. Stale
+   `meta.relational_gain_shadow` content may be removed when the shadow
+   input is absent in neutral-absence mode.
+
+Non-goals:
+
+- no changes under `gates.*`
+- no `check_gates.py` behavior change
+- no policy change
+- no promotion
+- no overall decision change
+
 
 ---
 
