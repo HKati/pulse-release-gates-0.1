@@ -22,14 +22,6 @@ def _stdout_json(result: subprocess.CompletedProcess[str]) -> dict[str, Any]:
     return json.loads(result.stdout)
 
 
-def _load_fixture(name: str) -> dict[str, Any]:
-    return json.loads((FIXTURES / name).read_text(encoding="utf-8"))
-
-
-def _write_json(path: Path, payload: dict[str, Any]) -> None:
-    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-
-
 def _load_checker_module():
     spec = importlib.util.spec_from_file_location("check_shadow_layer_registry", SCRIPT)
     assert spec is not None and spec.loader is not None
@@ -132,16 +124,9 @@ def test_target_stage_lower_than_current_fixture_fails() -> None:
     )
 
 
-def test_higher_stage_requires_schema_field(tmp_path: Path) -> None:
-    fixture = _load_fixture("pass.json")
-    layer = fixture["layers"][0]
-    del layer["schema"]
-
-    path = tmp_path / "invalid_missing_schema_for_shadow_contracted.json"
-    _write_json(path, fixture)
-
-    result = _run(path)
-    assert result.returncode == 1
+def test_missing_schema_for_shadow_contracted_fixture_fails() -> None:
+    result = _run(FIXTURES / "missing_schema_for_shadow_contracted.json")
+    assert result.returncode == 1, result.stdout + result.stderr
 
     payload = _stdout_json(result)
     assert payload["ok"] is False
