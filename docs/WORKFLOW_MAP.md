@@ -52,10 +52,42 @@ If you are opening this repository for the first time, use this order:
 
 ### B. Repo / workflow guardrails
 **Purpose:** repo integrity, workflow integrity, governance preflight
-
 - These workflows protect workflow YAML, policy wiring, and related guardrails.
 - They do not create a second release semantic layer.
 - Their job is to prevent damage or ambiguity in the existing mechanism.
+
+#### Shadow layer registry workflow
+
+**Workflow:** `.github/workflows/shadow_layer_registry.yml`
+
+**Purpose:** validate the machine-readable shadow layer registry surface.
+
+Current registry stack:
+
+- `shadow_layer_registry_v0.yml`
+- `schemas/shadow_layer_registry_v0.schema.json`
+- `PULSE_safe_pack_v0/tools/check_shadow_layer_registry.py`
+- `tests/test_check_shadow_layer_registry.py`
+
+Current canonical registry fixture:
+
+- `tests/fixtures/shadow_layer_registry_v0/pass.json`
+
+Current registered layer:
+
+- `relational_gain_shadow`
+
+Boundary:
+
+- registry validation is descriptive and governance-facing
+- it does not change release semantics
+- it does not promote a layer by registry presence alone
+- it does not create normative authority
+
+Current relation to Relational Gain:
+
+- the registry currently tracks the contract-hardened Relational Gain shadow pilot
+- the dedicated registry workflow also watches the currently referenced Relational Gain surfaces
 
 ### C. Shadow / diagnostic workflows
 **Purpose:** extra diagnostics, research layers, or explanatory surfaces
