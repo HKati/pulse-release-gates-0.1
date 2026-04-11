@@ -399,9 +399,24 @@ It is a management surface, not a promotion statement.
 
 ## Registry rule
 
-Once this program is adopted, every shadow layer should appear in a single registry surface.
+The current machine-readable registry surface is:
 
-That registry may be YAML, JSON, or markdown-backed, but it must at least declare:
+```text
+shadow_layer_registry_v0.yml
+```
+
+Associated validation surfaces:
+
+```text
+schemas/shadow_layer_registry_v0.schema.json
+PULSE_safe_pack_v0/tools/check_shadow_layer_registry.py
+.github/workflows/shadow_layer_registry.yml
+```
+
+Every shadow layer that is treated as machine-registered should appear in
+this registry surface.
+
+That registry must at least declare:
 
 - layer identity,
 - contract state,
@@ -414,9 +429,21 @@ That registry may be YAML, JSON, or markdown-backed, but it must at least declar
 
 Registry surfaces must keep `current_stage` enum-clean.
 
-Aspirational or planned movement belongs in `target_stage`, not in `current_stage`.
+Aspirational or planned movement belongs in `target_stage`, not in
+`current_stage`.
 
-If a layer is not in the registry, it should be treated as unregistered research.
+If a layer is not present in `shadow_layer_registry_v0.yml`, it is not
+yet machine-registered.
+
+Important distinction:
+
+- seeded inventory rows in this document remain useful management references,
+- but they do not become machine-registered entries until they are
+  explicitly added to `shadow_layer_registry_v0.yml`.
+
+Until migration happens, absence from the registry should be read as
+**not yet registry-backed**, not as implicit promotion, demotion, or
+policy significance.
 
 ---
 
