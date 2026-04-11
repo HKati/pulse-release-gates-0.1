@@ -17,6 +17,7 @@
     "layers": {
       "type": "array",
       "minItems": 1,
+      "uniqueItems": true,
       "items": {
         "$ref": "#/$defs/layer"
       }
@@ -206,7 +207,32 @@
               "current_stage": {
                 "const": "release-required"
               }
-            }
+            },
+            "required": [
+              "current_stage"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "current_stage": {
+                "const": "release-required"
+              }
+            },
+            "required": [
+              "current_stage"
+            ]
+          },
+          "then": {
+            "properties": {
+              "normative": {
+                "const": true
+              }
+            },
+            "required": [
+              "normative"
+            ]
           }
         }
       ]
