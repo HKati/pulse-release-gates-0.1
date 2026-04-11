@@ -119,17 +119,9 @@ def test_normative_true_without_release_required_fixture_fails() -> None:
     )
 
 
-def test_target_stage_must_not_be_lower_than_current_stage(tmp_path: Path) -> None:
-    fixture = _load_fixture("pass.json")
-    layer = fixture["layers"][0]
-    layer["current_stage"] = "advisory"
-    layer["target_stage"] = "research"
-
-    path = tmp_path / "invalid_target_stage_lower_than_current.json"
-    _write_json(path, fixture)
-
-    result = _run(path)
-    assert result.returncode == 1
+def test_target_stage_lower_than_current_fixture_fails() -> None:
+    result = _run(FIXTURES / "target_stage_lower_than_current.json")
+    assert result.returncode == 1, result.stdout + result.stderr
 
     payload = _stdout_json(result)
     assert payload["ok"] is False
