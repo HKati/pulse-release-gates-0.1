@@ -10,7 +10,7 @@ For a fuller field-by-field walkthrough, see [status_json.md](status_json.md).
 
 ---
 
-## Minimal stable example
+## Minimal stable example 
 
 ```json
 {
