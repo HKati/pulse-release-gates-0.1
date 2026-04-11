@@ -106,16 +106,9 @@ def test_release_required_non_normative_fixture_fails() -> None:
     )
 
 
-def test_normative_true_requires_release_required_stage(tmp_path: Path) -> None:
-    fixture = _load_fixture("pass.json")
-    layer = fixture["layers"][0]
-    layer["normative"] = True
-
-    path = tmp_path / "invalid_normative_true_without_release_required.json"
-    _write_json(path, fixture)
-
-    result = _run(path)
-    assert result.returncode == 1
+def test_normative_true_without_release_required_fixture_fails() -> None:
+    result = _run(FIXTURES / "normative_true_without_release_required.json")
+    assert result.returncode == 1, result.stdout + result.stderr
 
     payload = _stdout_json(result)
     assert payload["ok"] is False
