@@ -356,8 +356,8 @@ Each registered shadow layer should have a record like this.
 layer_id: relational_gain_shadow
 family: relation-dynamics
 default_role: shadow diagnostic
-current_stage: research
-target_stage: shadow-contracted
+current_stage: shadow-contracted
+target_stage: advisory
 owner_surface:
   - docs
   - workflow
@@ -367,13 +367,12 @@ primary_artifact: PULSE_safe_pack_v0/artifacts/relational_gain_shadow_v0.json
 status_foldin: meta.relational_gain_shadow
 schema: schemas/relational_gain_shadow_v0.schema.json
 semantic_checker: PULSE_safe_pack_v0/tools/check_relational_gain_contract.py
-run_reality_states: [real, degraded, invalid, absent]
+run_reality_states: [real, absent]
 consumer_authority: review-only
 non_interference_test: tests/test_relational_gain_non_interference.py
 promotion_blockers:
-  - schema not landed
-  - contract checker not landed
-notes: Shadow-only. Must not write under gates.*.
+ - advisory promotion not evaluated
+notes: Shadow-only. Contract-hardened. Must not write under gates.*.
 ```
 
 ---
@@ -389,7 +388,7 @@ It is a management surface, not a promotion statement.
 | Separation phase overlay | `separation_phase_overlay_v0` | research | — | shadow diagnostic | artifact present | none | schema + consumer rule |
 | Theory overlay v0 | `theory_overlay_v0` | research | — | shadow diagnostic | artifact present | none | schema + degraded model |
 | G-field / G snapshot family | `g_field_snapshot_family_v0` | research | — | shadow diagnostic | mixed / family-level | none | split family contracts |
-| Relational Gain v0 | `relational_gain_shadow` | research | shadow-contracted | shadow diagnostic | artifact present | `meta.relational_gain_shadow` | land schema + contract checker |
+| Relational Gain v0 | `relational_gain_shadow` | research |  shadow-contracted | advisory | shadow diagnostic | artifact contracted | `meta.relational_gain_shadow` | advisory evaluation only if explicitly pursued |
 | EPF experiment / hazard | `epf_shadow_experiment_v0` | research | — | research diagnostic | artifact family present | none | comparison contract + real/stub classifier |
 | Topology family | `topology_family_v0` | research | — | artifact-derived topology | partial family artifacts | none | standalone schema set |
 | Decision-field family | `decision_field_v0` | research | — | decision-oriented shadow read | partial family artifacts | none | vocabulary contract + artifact schema |
