@@ -67,6 +67,18 @@ def test_changed_positive_without_examples_fixture_fails() -> None:
     )
 
 
+def test_duplicate_gate_examples_fixture_fails() -> None:
+    result = _run(FIXTURES / "duplicate_gate_examples.json")
+    assert result.returncode == 1, result.stdout + result.stderr
+
+    payload = _stdout_json(result)
+    assert payload["ok"] is False
+    assert any(
+        issue["path"] == "examples[1].gate" and "duplicate gate example" in issue["message"]
+        for issue in payload["errors"]
+    )
+
+
 def test_missing_input_is_neutral_with_if_input_present() -> None:
     result = _run(FIXTURES / "does_not_exist.json", "--if-input-present")
     assert result.returncode == 0, result.stdout + result.stderr
@@ -120,37 +132,6 @@ def test_examples_length_must_not_exceed_changed(tmp_path: Path) -> None:
     assert payload["ok"] is False
     assert any(
         issue["path"] == "examples" and "examples length must not exceed changed" in issue["message"]
-        for issue in payload["errors"]
-    )
-
-
-def test_duplicate_gate_examples_fail(tmp_path: Path) -> None:
-    fixture = _load_fixture("pass.json")
-    fixture["total_gates"] = 3
-    fixture["changed"] = 2
-    fixture["examples"] = [
-        {
-            "gate": "q1_grounded_ok",
-            "baseline": True,
-            "epf": False,
-        },
-        {
-            "gate": "q1_grounded_ok",
-            "baseline": False,
-            "epf": True,
-        },
-    ]
-
-    path = tmp_path / "duplicate_gate_examples.json"
-    _write_json(path, fixture)
-
-    result = _run(path)
-    assert result.returncode == 1, result.stdout + result.stderr
-
-    payload = _stdout_json(result)
-    assert payload["ok"] is False
-    assert any(
-        issue["path"] == "examples[1].gate" and "duplicate gate example" in issue["message"]
         for issue in payload["errors"]
     )
 
