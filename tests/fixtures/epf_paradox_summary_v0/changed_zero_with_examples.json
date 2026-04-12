@@ -1,0 +1,15 @@
+{
+  "deps_rc": "0",
+  "runall_rc": "0",
+  "baseline_rc": "0",
+  "epf_rc": "0",
+  "total_gates": 2,
+  "changed": 0,
+  "examples": [
+    {
+      "gate": "q1_grounded_ok",
+      "baseline": true,
+      "epf": false
+    }
+  ]
+}
