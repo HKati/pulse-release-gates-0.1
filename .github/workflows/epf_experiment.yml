@@ -1,15 +1,30 @@
 name: EPF experiment (shadow)
 
 on:
-  workflow_dispatch: {}
-  push:
-    branches: [main]
+  pull_request:
     paths:
+      - ".github/workflows/epf_experiment.yml"
       - "PULSE_safe_pack_v0/**"
       - "tools/**"
       - "scripts/**"
       - "pulse_gates.yaml"
+      - "schemas/epf_paradox_summary_v0.schema.json"
+      - "tests/fixtures/epf_paradox_summary_v0/**"
+      - "tests/test_check_epf_paradox_summary_contract.py"
+
+  push:
+    branches: ["main"]
+    paths:
       - ".github/workflows/epf_experiment.yml"
+      - "PULSE_safe_pack_v0/**"
+      - "tools/**"
+      - "scripts/**"
+      - "pulse_gates.yaml"
+      - "schemas/epf_paradox_summary_v0.schema.json"
+      - "tests/fixtures/epf_paradox_summary_v0/**"
+      - "tests/test_check_epf_paradox_summary_contract.py"
+
+  workflow_dispatch: {}
 
 permissions:
   contents: read
@@ -39,10 +54,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-
           python -m pip install -U pip
           deps_rc=0
-
           if [ -f PULSE_safe_pack_v0/requirements.txt ]; then
             echo "Installing PULSE_safe_pack_v0 requirements..."
             set +e
@@ -56,32 +69,38 @@ jobs:
             deps_rc=$?
             set -e
           fi
-
           echo "rc=$deps_rc" >> "$GITHUB_OUTPUT"
-
           if [ "$deps_rc" -ne 0 ]; then
             echo "::warning::Dependency install failed (rc=$deps_rc). Continuing in stub/best-effort mode."
           fi
+
+      - name: Install test dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install pytest
+
+      - name: Run EPF paradox summary contract tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          pytest -q tests/test_check_epf_paradox_summary_contract.py
 
       - name: Prepare shared input from PULSE pack baseline (core mode) or stub
         id: prepare
         shell: bash
         run: |
           set -euo pipefail
-
           runall_rc=0
-
           if [ -f PULSE_safe_pack_v0/tools/run_all.py ]; then
             echo "Running PULSE_safe_pack_v0/tools/run_all.py --mode core to produce baseline status.json..."
             set +e
             python PULSE_safe_pack_v0/tools/run_all.py --mode core
             runall_rc=$?
             set -e
-
             if [ "$runall_rc" -ne 0 ]; then
               echo "::warning::run_all.py exited non-zero (rc=$runall_rc). Will use stub if status.json is missing."
             fi
-
             if [ -f PULSE_safe_pack_v0/artifacts/status.json ]; then
               cp PULSE_safe_pack_v0/artifacts/status.json status.json
               echo "Using PULSE_safe_pack_v0/artifacts/status.json as shared input"
@@ -93,7 +112,6 @@ jobs:
             echo "::warning::PULSE_safe_pack_v0/tools/run_all.py not found; using v1-shaped stub status.json"
             printf '%s\n' '{"version":"1.0.0-shadow-stub","created_utc":"1970-01-01T00:00:00Z","metrics":{"run_mode":"core"},"gates":{}}' > status.json
           fi
-
           echo "runall_rc=$runall_rc" >> "$GITHUB_OUTPUT"
 
       - name: Baseline (diagnostic compare branch) or stub
@@ -101,7 +119,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-
           if [ -f status.json ]; then
             cp status.json status_baseline.json
           else
@@ -130,7 +147,6 @@ jobs:
           fi
 
           echo "rc=$rc" >> "$GITHUB_OUTPUT"
-
           if [ "$rc" -ne 0 ]; then
             echo "::warning::Baseline compare branch exited non-zero (rc=$rc)."
           fi
@@ -140,7 +156,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-
           if [ -f status.json ]; then
             cp status.json status_epf.json
           else
@@ -171,7 +186,6 @@ jobs:
           fi
 
           echo "rc=$rc" >> "$GITHUB_OUTPUT"
-
           if [ "$rc" -ne 0 ]; then
             echo "::warning::EPF compare branch exited non-zero (rc=$rc)."
           fi
@@ -185,7 +199,6 @@ jobs:
           EPF_RC: ${{ steps.epf.outputs.rc }}
         run: |
           set -euo pipefail
-
           python - <<'PY'
           import json
           import os
@@ -234,7 +247,6 @@ jobs:
           summary += "\n"
           summary += f"Total baseline compare decisions: {len(baseline_decisions)}\n"
           summary += f"Changed (baseline->EPF): {len(diffs)}\n"
-
           for k, ba, ep in diffs[:20]:
               summary += f"- {k}: {ba} -> {ep}\n"
 
@@ -253,7 +265,6 @@ jobs:
                   for k, ba, ep in diffs[:5]
               ],
           }
-
           pathlib.Path("epf_paradox_summary.json").write_text(
               json.dumps(paradox, indent=2, ensure_ascii=False),
               encoding="utf-8",
@@ -277,14 +288,42 @@ jobs:
               data = {}
           print(data.get("changed", 0))
           PY
-          )"
-
+            )"
             if [ "$changed" -gt 0 ] 2>/dev/null; then
               echo "⚠️ EPF shadow detected ${changed} diagnostic decision delta(s) versus the baseline compare branch." >> "$GITHUB_STEP_SUMMARY"
             else
               echo "✅ EPF shadow run: no diagnostic decision deltas detected." >> "$GITHUB_STEP_SUMMARY"
             fi
           fi
+
+      - name: Validate produced EPF paradox summary artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          python PULSE_safe_pack_v0/tools/check_epf_paradox_summary_contract.py \
+            --input epf_paradox_summary.json \
+            --output epf_paradox_summary_contract_check.json
+
+      - name: Validate EPF checker output surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          path = Path("epf_paradox_summary_contract_check.json")
+          data = json.loads(path.read_text(encoding="utf-8"))
+
+          if data.get("ok") is not True:
+              raise SystemExit("EPF paradox summary contract check did not succeed")
+
+          if data.get("total_gates") is None:
+              raise SystemExit("expected total_gates in EPF contract check output")
+
+          if data.get("changed") is None:
+              raise SystemExit("expected changed in EPF contract check output")
+          PY
 
       - name: Upload artifacts
         if: always()
@@ -298,3 +337,4 @@ jobs:
             status_epf.json
             epf_report.txt
             epf_paradox_summary.json
+            epf_paradox_summary_contract_check.json
