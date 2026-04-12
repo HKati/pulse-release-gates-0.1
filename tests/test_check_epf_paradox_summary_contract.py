@@ -92,6 +92,18 @@ def test_example_without_difference_fixture_fails() -> None:
     )
 
 
+def test_examples_longer_than_changed_fixture_fails() -> None:
+    result = _run(FIXTURES / "examples_longer_than_changed.json")
+    assert result.returncode == 1, result.stdout + result.stderr
+
+    payload = _stdout_json(result)
+    assert payload["ok"] is False
+    assert any(
+        issue["path"] == "examples" and "examples length must not exceed changed" in issue["message"]
+        for issue in payload["errors"]
+    )
+
+
 def test_missing_input_is_neutral_with_if_input_present() -> None:
     result = _run(FIXTURES / "does_not_exist.json", "--if-input-present")
     assert result.returncode == 0, result.stdout + result.stderr
@@ -127,24 +139,6 @@ def test_examples_must_be_empty_when_changed_is_zero(tmp_path: Path) -> None:
     assert payload["ok"] is False
     assert any(
         issue["path"] == "examples" and "examples must be empty when changed is 0" in issue["message"]
-        for issue in payload["errors"]
-    )
-
-
-def test_examples_length_must_not_exceed_changed(tmp_path: Path) -> None:
-    fixture = _load_fixture("pass.json")
-    fixture["changed"] = 1
-
-    path = tmp_path / "examples_longer_than_changed.json"
-    _write_json(path, fixture)
-
-    result = _run(path)
-    assert result.returncode == 1, result.stdout + result.stderr
-
-    payload = _stdout_json(result)
-    assert payload["ok"] is False
-    assert any(
-        issue["path"] == "examples" and "examples length must not exceed changed" in issue["message"]
         for issue in payload["errors"]
     )
 
