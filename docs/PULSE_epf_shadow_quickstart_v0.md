@@ -1,10 +1,14 @@
 # PULSE EPF shadow quickstart (v0)
 
 > Command-level quickstart for the current EPF shadow comparison path.
+>
+> This guide shows how to run the current EPF shadow comparison flow
+> locally, how to read the resulting artifacts, and how to validate the
+> current EPF paradox summary contract surface.
+>
+> It does **not** define release semantics.
 
-This guide shows how to run the current EPF shadow comparison flow locally and how to read the resulting artifacts.
-
-It does not define release semantics. Release semantics are specified in:
+Release semantics are specified in:
 
 - `docs/STATE_v0.md`
 - `docs/status_json.md`
@@ -43,6 +47,7 @@ Use this quickstart if you want to:
 - inspect baseline vs EPF shadow differences
 - reproduce the main comparison inputs
 - determine whether a disagreement is real or degraded
+- validate the current `epf_paradox_summary.json` artifact shape
 
 This is **not** the main release-gating path.
 
@@ -74,7 +79,7 @@ It compares the two and writes:
 
 The uploaded artifact bundle is:
 
-```
+```text
 epf-ab-artifacts
 ```
 
@@ -148,7 +153,8 @@ if [ -f pulse_gates.yaml ] && [ -f scripts/check_gates.py ]; then
 fi
 ```
 
-This mirrors the current GitHub Actions workflow more closely than assuming `run_all.py` always produced a real baseline artifact.
+This mirrors the current GitHub Actions workflow more closely than
+assuming `run_all.py` always produced a real baseline artifact.
 
 ---
 
@@ -166,11 +172,13 @@ This records the baseline release read for the experiment flow.
 
 ### EPF shadow branch
 
-The EPF shadow branch is a boundary-sensitive diagnostic read over the same common input.
+The EPF shadow branch is a boundary-sensitive diagnostic read over the
+same common input.
 
 Interpret it as:
 
-> “If shadow EPF logic is enabled near the boundary, what looks fragile, pressure-loaded, or different?”
+> “If shadow EPF logic is enabled near the boundary, what looks fragile,
+> pressure-loaded, or different?”
 
 This does **not automatically change the recorded baseline result**.
 
@@ -202,44 +210,139 @@ For a minimal local reproduction without the compare step, start with:
 
 ---
 
-## 6. Stub / degraded mode matters
+## 6. Current paradox summary contract surface
+
+The current EPF comparison summary artifact is:
+
+```text
+epf_paradox_summary.json
+```
+
+Current machine-readable schema:
+
+```text
+schemas/epf_paradox_summary_v0.schema.json
+```
+
+Current layer-specific contract checker:
+
+```text
+PULSE_safe_pack_v0/tools/check_epf_paradox_summary_contract.py
+```
+
+Current canonical positive fixture:
+
+```text
+tests/fixtures/epf_paradox_summary_v0/pass.json
+```
+
+Current canonical negative fixture:
+
+```text
+tests/fixtures/epf_paradox_summary_v0/changed_exceeds_total_gates.json
+```
+
+Current checker regression tests:
+
+```text
+tests/test_check_epf_paradox_summary_contract.py
+```
+
+The current artifact shape includes:
+
+- `deps_rc`
+- `runall_rc`
+- `baseline_rc`
+- `epf_rc`
+- `total_gates`
+- `changed`
+- `examples`
+
+This contract is tied to the **current actual workflow-emitted artifact**.
+
+It does **not** make the EPF path normative.
+
+---
+
+## 7. Local contract validation
+
+After producing or editing an EPF paradox summary artifact locally, validate it with:
+
+```bash
+python PULSE_safe_pack_v0/tools/check_epf_paradox_summary_contract.py \
+  --input epf_paradox_summary.json
+```
+
+Optional JSON result output:
+
+```bash
+python PULSE_safe_pack_v0/tools/check_epf_paradox_summary_contract.py \
+  --input epf_paradox_summary.json \
+  --output epf_paradox_summary_contract_check.json
+```
+
+Neutral absence mode:
+
+```bash
+python PULSE_safe_pack_v0/tools/check_epf_paradox_summary_contract.py \
+  --input epf_paradox_summary.json \
+  --if-input-present
+```
+
+Interpretation:
+
+- `ok: true` means the artifact matches the current EPF summary contract
+- `ok: false` means the artifact shape or semantics drifted
+- `neutral: true` is only for missing-input neutral absence handling
+
+---
+
+## 8. Stub / degraded mode matters
 
 The current workflow is best-effort.
 
-That means it can fall back to degraded or stub behavior if key inputs are missing.
+That means it can fall back to degraded or stub behavior if key inputs
+are missing.
 
 ### Common degraded cases
 
 #### A. `run_all.py` did not produce a real baseline
 
-If `PULSE_safe_pack_v0/artifacts/status.json` is missing after `run_all.py`, the workflow falls back to a stub `status.json`.
+If `PULSE_safe_pack_v0/artifacts/status.json` is missing after
+`run_all.py`, the workflow falls back to a stub `status.json`.
 
 #### B. `pulse_gates.yaml` is missing
 
-If `pulse_gates.yaml` is absent, both baseline and EPF comparison stay in stub mode.
+If `pulse_gates.yaml` is absent, both baseline and EPF comparison stay
+in stub mode.
 
 #### C. `scripts/check_gates.py` is missing
 
-If the checker is absent, the workflow keeps stub-style outputs instead of a real comparison.
+If the checker is absent, the workflow keeps stub-style outputs instead
+of a real comparison.
 
 #### D. The checker ran, but the run is still too partial to trust
 
-If command failures, missing dependencies, or other runtime problems leave the run incomplete, treat the result as degraded until verified.
+If command failures, missing dependencies, or other runtime problems
+leave the run incomplete, treat the result as degraded until verified.
 
 ### Practical rule
 
-Before treating a disagreement as meaningful, first confirm the run was real enough, not just present.
+Before treating a disagreement as meaningful, first confirm the run was
+real enough, not just present.
 
 Use:
 
 - job logs
 - `epf_report.txt`, when available
+- `epf_paradox_summary.json`
+- `epf_paradox_summary_contract_check.json`, when available
 - the actual JSON artifacts
 - local command output, for local reproductions
 
 ---
 
-## 7. How to read disagreement
+## 9. How to read disagreement
 
 A difference between baseline and EPF shadow usually means one or more of these:
 
@@ -261,6 +364,7 @@ Instead:
 
 - confirm the run was real enough
 - inspect the affected gate(s)
+- validate the summary artifact
 - classify the disagreement
 - decide whether this is:
   - just a shadow warning
@@ -268,30 +372,35 @@ Instead:
   - a config issue
   - something important enough to track
 
-If the disagreement is real, it is good input for topology / decision-field interpretation.  
+If the disagreement is real, it is good input for topology /
+decision-field interpretation.
+
 It is **not an automatic release override**.
 
 For the full triage path, use:
 
-```
+```text
 docs/PARADOX_RUNBOOK.md
 ```
 
 ---
 
-## 8. What stays explicit
+## 10. What stays explicit
 
 Keep this boundary explicit:
 
 - deterministic archived artifacts carry the recorded baseline result
 - the EPF shadow path is diagnostic
+- the paradox summary artifact is descriptive
+- contract validation checks the summary surface, not release semantics
 - policy changes belong in explicit contract / CI / workflow changes, not in shadow quick fixes
 
-That is what keeps EPF shadow useful without turning it into a hidden release rewrite.
+That is what keeps EPF shadow useful without turning it into a hidden
+release rewrite.
 
 ---
 
-## 9. Minimal checklist
+## 11. Minimal checklist
 
 Before you trust an EPF shadow result, confirm:
 
@@ -300,13 +409,14 @@ Before you trust an EPF shadow result, confirm:
 - `scripts/check_gates.py` ran successfully, or you knowingly stayed in stub mode
 - `status_baseline.json` is real enough for your comparison goal
 - `status_epf.json` is real enough for your comparison goal
+- `epf_paradox_summary.json` validates against the current contract
 - any reported disagreement is reproducible
 
 If those conditions are not met, fix the wiring first.
 
 ---
 
-## 10. Related docs
+## 12. Related docs
 
 - `docs/PARADOX_RUNBOOK.md` — disagreement triage path
 - `docs/PULSE_topology_epf_hook_v0.md` — how EPF shadow connects to topology
@@ -314,3 +424,4 @@ If those conditions are not met, fix the wiring first.
 - `docs/PULSE_decision_field_v0_overview.md` — decision-oriented topology read
 - `docs/STATE_v0.md` — repository release model
 - `docs/status_json.md` — how to read the status artifacts
+- `docs/OPTIONAL_LAYERS.md` — optional/research layer map
