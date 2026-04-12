@@ -62,7 +62,8 @@ def test_changed_positive_without_examples_fixture_fails() -> None:
     payload = _stdout_json(result)
     assert payload["ok"] is False
     assert any(
-        issue["path"] == "examples" and "examples must be non-empty when changed is greater than 0" in issue["message"]
+        issue["path"] == "examples"
+        and "examples must be non-empty when changed is greater than 0" in issue["message"]
         for issue in payload["errors"]
     )
 
@@ -75,6 +76,18 @@ def test_duplicate_gate_examples_fixture_fails() -> None:
     assert payload["ok"] is False
     assert any(
         issue["path"] == "examples[1].gate" and "duplicate gate example" in issue["message"]
+        for issue in payload["errors"]
+    )
+
+
+def test_example_without_difference_fixture_fails() -> None:
+    result = _run(FIXTURES / "example_without_difference.json")
+    assert result.returncode == 1, result.stdout + result.stderr
+
+    payload = _stdout_json(result)
+    assert payload["ok"] is False
+    assert any(
+        issue["path"] == "examples[0]" and "baseline and epf must differ" in issue["message"]
         for issue in payload["errors"]
     )
 
@@ -132,24 +145,6 @@ def test_examples_length_must_not_exceed_changed(tmp_path: Path) -> None:
     assert payload["ok"] is False
     assert any(
         issue["path"] == "examples" and "examples length must not exceed changed" in issue["message"]
-        for issue in payload["errors"]
-    )
-
-
-def test_baseline_and_epf_must_differ_inside_example(tmp_path: Path) -> None:
-    fixture = _load_fixture("pass.json")
-    fixture["examples"][0]["epf"] = fixture["examples"][0]["baseline"]
-
-    path = tmp_path / "example_without_difference.json"
-    _write_json(path, fixture)
-
-    result = _run(path)
-    assert result.returncode == 1, result.stdout + result.stderr
-
-    payload = _stdout_json(result)
-    assert payload["ok"] is False
-    assert any(
-        issue["path"] == "examples[0]" and "baseline and epf must differ" in issue["message"]
         for issue in payload["errors"]
     )
 
