@@ -19,6 +19,13 @@ on:
       - "tests/test_check_relational_gain_contract.py"
       - "tests/test_relational_gain_non_interference.py"
 
+      # Referenced EPF surfaces currently registered in the registry.
+      - ".github/workflows/epf_experiment.yml"
+      - "schemas/epf_paradox_summary_v0.schema.json"
+      - "PULSE_safe_pack_v0/tools/check_epf_paradox_summary_contract.py"
+      - "tests/fixtures/epf_paradox_summary_v0/**"
+      - "tests/test_check_epf_paradox_summary_contract.py"
+
   push:
     branches: ["main"]
     paths:
@@ -37,6 +44,13 @@ on:
       - "tests/fixtures/relational_gain_shadow_v0/**"
       - "tests/test_check_relational_gain_contract.py"
       - "tests/test_relational_gain_non_interference.py"
+
+      # Referenced EPF surfaces currently registered in the registry.
+      - ".github/workflows/epf_experiment.yml"
+      - "schemas/epf_paradox_summary_v0.schema.json"
+      - "PULSE_safe_pack_v0/tools/check_epf_paradox_summary_contract.py"
+      - "tests/fixtures/epf_paradox_summary_v0/**"
+      - "tests/test_check_epf_paradox_summary_contract.py"
 
   workflow_dispatch: {}
 
@@ -113,8 +127,8 @@ jobs:
                   f"unexpected registry_version: {data.get('registry_version')!r}"
               )
 
-          if data.get("layer_count", 0) < 1:
-              raise SystemExit("expected at least one registered shadow layer")
+          if data.get("layer_count", 0) < 2:
+              raise SystemExit("expected at least two registered shadow layers")
           PY
 
       - name: Upload shadow layer registry artifacts
