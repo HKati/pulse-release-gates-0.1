@@ -20,14 +20,6 @@ def _stdout_json(result: subprocess.CompletedProcess[str]) -> dict[str, Any]:
     return json.loads(result.stdout)
 
 
-def _load_fixture(name: str) -> dict[str, Any]:
-    return json.loads((FIXTURES / name).read_text(encoding="utf-8"))
-
-
-def _write_json(path: Path, payload: dict[str, Any]) -> None:
-    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-
-
 def test_pass_fixture_is_valid() -> None:
     result = _run(FIXTURES / "pass.json")
     assert result.returncode == 0, result.stdout + result.stderr
@@ -116,6 +108,19 @@ def test_invalid_rc_string_fixture_fails() -> None:
     )
 
 
+def test_changed_zero_with_examples_fixture_fails() -> None:
+    result = _run(FIXTURES / "changed_zero_with_examples.json")
+    assert result.returncode == 1, result.stdout + result.stderr
+
+    payload = _stdout_json(result)
+    assert payload["ok"] is False
+    assert any(
+        issue["path"] == "examples"
+        and "examples must be empty when changed is 0" in issue["message"]
+        for issue in payload["errors"]
+    )
+
+
 def test_missing_input_is_neutral_with_if_input_present() -> None:
     result = _run(FIXTURES / "does_not_exist.json", "--if-input-present")
     assert result.returncode == 0, result.stdout + result.stderr
@@ -135,21 +140,3 @@ def test_missing_input_fails_without_if_input_present() -> None:
     assert payload["ok"] is False
     assert payload["neutral"] is False
     assert any(issue["path"] == "input" for issue in payload["errors"])
-
-
-def test_examples_must_be_empty_when_changed_is_zero(tmp_path: Path) -> None:
-    fixture = _load_fixture("pass.json")
-    fixture["changed"] = 0
-
-    path = tmp_path / "changed_zero_with_examples.json"
-    _write_json(path, fixture)
-
-    result = _run(path)
-    assert result.returncode == 1, result.stdout + result.stderr
-
-    payload = _stdout_json(result)
-    assert payload["ok"] is False
-    assert any(
-        issue["path"] == "examples" and "examples must be empty when changed is 0" in issue["message"]
-        for issue in payload["errors"]
-    )
