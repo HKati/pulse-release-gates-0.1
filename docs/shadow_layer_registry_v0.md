@@ -192,22 +192,25 @@ These rules are enforced by both:
 
 ---
 
-## Current registered layer
+## Current registered layers
 
 The current registry is seeded with:
 
 ```text
 relational_gain_shadow
+epf_shadow_experiment_v0
 ```
 
-This layer is currently recorded as:
+### relational_gain_shadow
+
+Current recorded state:
 
 - `current_stage: shadow-contracted`
 - `target_stage: advisory`
 - `consumer_authority: review-only`
 - `normative: false`
 
-Its current registered surfaces include:
+Current registered surfaces include:
 
 - `.github/workflows/relational_gain_shadow.yml`
 - `schemas/relational_gain_shadow_v0.schema.json`
@@ -217,6 +220,30 @@ Its current registered surfaces include:
 - `tests/fixtures/relational_gain_shadow_v0/fail.json`
 - `tests/test_check_relational_gain_contract.py`
 - `tests/test_relational_gain_non_interference.py`
+
+### epf_shadow_experiment_v0
+
+Current recorded state:
+
+- `current_stage: research`
+- `target_stage: shadow-contracted`
+- `consumer_authority: review-only`
+- `normative: false`
+
+Current registered surfaces include:
+
+- `.github/workflows/epf_experiment.yml`
+- `schemas/epf_paradox_summary_v0.schema.json`
+- `PULSE_safe_pack_v0/tools/check_epf_paradox_summary_contract.py`
+- `tests/fixtures/epf_paradox_summary_v0/pass.json`
+- `tests/fixtures/epf_paradox_summary_v0/changed_exceeds_total_gates.json`
+- `tests/fixtures/epf_paradox_summary_v0/changed_positive_without_examples.json`
+- `tests/fixtures/epf_paradox_summary_v0/duplicate_gate_examples.json`
+- `tests/fixtures/epf_paradox_summary_v0/example_without_difference.json`
+- `tests/fixtures/epf_paradox_summary_v0/examples_longer_than_changed.json`
+- `tests/fixtures/epf_paradox_summary_v0/invalid_rc_string.json`
+- `tests/fixtures/epf_paradox_summary_v0/changed_zero_with_examples.json`
+- `tests/test_check_epf_paradox_summary_contract.py`
 
 ---
 
@@ -255,8 +282,8 @@ It currently validates:
 - the registry checker tests,
 - and the registry checker output surface.
 
-It also watches currently referenced Relational Gain surfaces so the
-registered layer cannot silently drift away from the registry contract.
+It also watches currently referenced Relational Gain and EPF surfaces so
+registered layers cannot silently drift away from the registry contract.
 
 ---
 
