@@ -44,6 +44,7 @@
         "partial",
         "stub",
         "degraded",
+        "invalid",
         "absent"
       ]
     },
