@@ -208,6 +208,33 @@ Defined in:
 
 ---
 
+### contract-hardened summary surface
+
+**What it means**  
+A shadow artifact surface that already has:
+
+- a stable machine-readable shape,
+- a versioned schema,
+- a layer-specific semantic checker,
+- canonical fixtures,
+- and regression coverage,
+
+while the broader line or workflow family it belongs to may still remain
+in `research` state.
+
+Typical use:
+
+- the artifact itself is contract-disciplined,
+- but the surrounding research line is not yet promoted as a whole.
+
+**What it is not**
+
+- Not the same as promoting the whole shadow line.
+- Not a normative release surface.
+- Not a claim that the broader workflow family is already `shadow-contracted`.
+
+---
+
 ### critical radius (r_c)
 #### What it means
 The radius (or scale parameter) at which the protocol’s decodability criterion reaches the required threshold (e.g. C(r_c)=h_req). Serves as a compact, reviewable summary of where the boundary sits for a given run/context.
@@ -361,6 +388,55 @@ I-gates are typically treated as **non-negotiable** in safety-critical contexts.
 
 ---
 
+## M
+
+### machine-registered
+
+**What it means**  
+A shadow layer is machine-registered when it appears in the repository's
+machine-readable shadow registry surface (for example
+`shadow_layer_registry_v0.yml`) with its declared stage, authority
+boundary, artifact path, schema/checker references, and supporting
+fixtures/tests.
+
+Machine-registration means the layer is tracked by registry-aware
+tooling and validation.
+
+**What it is not**
+
+- Not automatic promotion.
+- Not normative authority.
+- Not equivalent to being release-required.
+- Not the same as merely being mentioned in a docs inventory table.
+
+---
+
+## N
+
+### non-interference
+
+**What it means**  
+A shadow-layer property stating that, under the same required gate set
+and the same normative enforcement path, adding, folding, or removing
+the shadow layer does not change the release outcome.
+
+Typical proof shape:
+
+- release outcome before shadow fold-in,
+- release outcome after shadow fold-in,
+- same `check_gates.py`,
+- same required gates,
+- same result.
+
+**What it is not**
+
+- Not “the shadow layer has no value”.
+- Not “the shadow layer cannot write any artifact”.
+- Not a claim that the layer has no diagnostic effect.
+- Not optional for a shadow layer that is being hardened toward trusted review use.
+
+---
+
 ## O
 
 ### overlay
@@ -469,6 +545,24 @@ Used to detect whether safety interventions are actually changing outcomes.
 - Not a raw refusal rate.
 - Not always a gate by itself – in v0 it can be a CI-neutral stability signal.
 
+### research diagnostic
+
+**What it means**  
+A shadow or experimental layer that is useful for inspection, comparison,
+explanation, or hypothesis testing, but whose current repo-level stage is
+still `research`.
+
+A research diagnostic layer may already have meaningful tooling around
+it, and may even have machine-readable artifact validation for one
+surface, while still remaining non-promoted as a broader line.
+
+**What it is not**
+
+- Not a normative release surface.
+- Not the same as `shadow-contracted`.
+- Not a synonym for “unimportant”.
+- Not evidence that the layer may change release authority.
+
 ---
 
 ## S
@@ -492,6 +586,31 @@ Contains:
 
 - Not a global installation; it is designed to live inside each target repo.
 - Not tied to a single CI system.
+
+---
+
+### shadow-contracted
+
+**What it means**  
+A shadow layer state where the layer already has a stable contract
+surface, including at minimum:
+
+- stable `layer_id`,
+- primary artifact,
+- versioned schema,
+- semantic checker,
+- canonical fixtures,
+- and regression tests.
+
+A `shadow-contracted` layer is still non-normative by default, but it is
+no longer just an informal research note or ad hoc shadow experiment.
+
+**What it is not**
+
+- Not advisory or policy-bound by default.
+- Not release-required.
+- Not permission to write under `gates.*`.
+- Not equivalent to promotion into the normative decision path.
 
 ---
 
