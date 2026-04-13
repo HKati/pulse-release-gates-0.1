@@ -1,0 +1,149 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schemas/epf_shadow_run_manifest_v0.schema.json",
+  "title": "EPF Shadow Run Manifest v0",
+  "description": "Machine-readable manifest for the broader EPF shadow run, built on top of the common shadow artifact contract.",
+  "allOf": [
+    {
+      "$ref": "shadow_artifact_common_v0.schema.json"
+    },
+    {
+      "type": "object",
+      "required": [
+        "payload"
+      ],
+      "properties": {
+        "artifact_version": {
+          "const": "epf_shadow_run_manifest_v0"
+        },
+        "layer_id": {
+          "const": "epf_shadow_experiment_v0"
+        },
+        "relation_scope": {
+          "const": "baseline_vs_epf_shadow"
+        },
+        "payload": {
+          "$ref": "#/$defs/payload"
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "int_string": {
+      "type": "string",
+      "pattern": "^-?[0-9]+$"
+    },
+    "path_string": {
+      "type": "string",
+      "minLength": 1
+    },
+    "branch_state": {
+      "type": "string",
+      "enum": [
+        "real",
+        "partial",
+        "stub",
+        "degraded",
+        "absent"
+      ]
+    },
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "command_rcs",
+        "branch_states",
+        "artifacts",
+        "comparison"
+      ],
+      "properties": {
+        "command_rcs": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "deps_rc",
+            "runall_rc",
+            "baseline_rc",
+            "epf_rc"
+          ],
+          "properties": {
+            "deps_rc": {
+              "$ref": "#/$defs/int_string"
+            },
+            "runall_rc": {
+              "$ref": "#/$defs/int_string"
+            },
+            "baseline_rc": {
+              "$ref": "#/$defs/int_string"
+            },
+            "epf_rc": {
+              "$ref": "#/$defs/int_string"
+            }
+          }
+        },
+        "branch_states": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "baseline_state",
+            "epf_state"
+          ],
+          "properties": {
+            "baseline_state": {
+              "$ref": "#/$defs/branch_state"
+            },
+            "epf_state": {
+              "$ref": "#/$defs/branch_state"
+            }
+          }
+        },
+        "artifacts": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "baseline_status_path",
+            "epf_status_path",
+            "paradox_summary_path"
+          ],
+          "properties": {
+            "baseline_status_path": {
+              "$ref": "#/$defs/path_string"
+            },
+            "epf_status_path": {
+              "$ref": "#/$defs/path_string"
+            },
+            "paradox_summary_path": {
+              "$ref": "#/$defs/path_string"
+            },
+            "epf_report_path": {
+              "$ref": "#/$defs/path_string"
+            }
+          }
+        },
+        "comparison": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "total_gates",
+            "changed",
+            "example_count"
+          ],
+          "properties": {
+            "total_gates": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "changed": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "example_count": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        }
+      }
+    }
+  }
+}
