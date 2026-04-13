@@ -26,7 +26,7 @@ the required gate set.
 | Theory overlay v0 | shadow diagnostic | `.github/workflows/theory_overlay_v0.yml` | overlay JSON + markdown summary | No |
 | G-field / G snapshot surfaces | shadow diagnostic | G-field / snapshot shadow workflows | overlay JSONs + snapshot markdown | No |
 | Relational Gain v0 | shadow diagnostic (contract-hardened) | `.github/workflows/relational_gain_shadow.yml` | `relational_gain_shadow_v0.json`, folded `meta.relational_gain_shadow` | No |
-| EPF experiment / hazard | research diagnostic | `.github/workflows/epf_experiment.yml` and EPF docs | `status_epf.json`, reports, hazard logs | No |
+| EPF experiment / hazard | research diagnostic (summary artifact contract-hardened) | `.github/workflows/epf_experiment.yml` | `epf_paradox_summary.json` | No |
 | Parameter Golf v0 | external challenge companion | `../parameter_golf_v0/README.md` | submission evidence JSON + review receipt | No |
 | Publication surfaces | opt-in platform integration | `upload_sarif.yml`, PR comments, badge write-back, Pages snapshots | GitHub-native / published surfaces | No |
 
@@ -56,6 +56,39 @@ Current hardening surface:
 
 It remains **non-normative**.
 Its artifact and folded `meta.relational_gain_shadow` summary do not change release authority unless a future policy explicitly promotes the layer.
+
+### EPF experiment / hazard
+
+**Entry point:** [`.github/workflows/epf_experiment.yml`](../.github/workflows/epf_experiment.yml)  
+**Detailed doc:** [`PULSE_epf_shadow_quickstart_v0.md`](PULSE_epf_shadow_quickstart_v0.md)
+
+The broader EPF line remains a **research diagnostic** path.
+
+However, the current `epf_paradox_summary.json` surface is now
+**contract-hardened**.
+
+Current hardening surface:
+
+- schema:
+  - `../schemas/epf_paradox_summary_v0.schema.json`
+- contract checker:
+  - `../PULSE_safe_pack_v0/tools/check_epf_paradox_summary_contract.py`
+- canonical fixtures:
+  - `../tests/fixtures/epf_paradox_summary_v0/pass.json`
+  - `../tests/fixtures/epf_paradox_summary_v0/changed_exceeds_total_gates.json`
+  - `../tests/fixtures/epf_paradox_summary_v0/changed_positive_without_examples.json`
+  - `../tests/fixtures/epf_paradox_summary_v0/duplicate_gate_examples.json`
+  - `../tests/fixtures/epf_paradox_summary_v0/example_without_difference.json`
+  - `../tests/fixtures/epf_paradox_summary_v0/examples_longer_than_changed.json`
+  - `../tests/fixtures/epf_paradox_summary_v0/invalid_rc_string.json`
+  - `../tests/fixtures/epf_paradox_summary_v0/changed_zero_with_examples.json`
+- checker regression tests:
+  - `../tests/test_check_epf_paradox_summary_contract.py`
+
+This surface remains **non-normative**.
+
+Its artifact is descriptive and diagnostic only, and does not change
+release authority.
 
 ## External challenge companions
 
