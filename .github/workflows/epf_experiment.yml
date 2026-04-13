@@ -249,17 +249,22 @@ jobs:
               except Exception:
                   return default
 
+          def rc_is_nonzero(value: str) -> bool:
+              return value not in {"", "0"}
+
           def derive_overall_state(baseline_state: str, epf_state: str) -> str:
               if "invalid" in {baseline_state, epf_state}:
                   return "invalid"
               if baseline_state == "absent" and epf_state == "absent":
                   return "absent"
-              if baseline_state == "real" and epf_state == "real":
-                  return "real"
               if "stub" in {baseline_state, epf_state}:
                   return "stub"
               if "partial" in {baseline_state, epf_state}:
                   return "partial"
+              if "degraded" in {baseline_state, epf_state}:
+                  return "degraded"
+              if baseline_state == "real" and epf_state == "real":
+                  return "real"  
               return "degraded"
 
           baseline = load_json("status_baseline.json", {})
@@ -289,6 +294,13 @@ jobs:
           base_state = os.environ.get("BASE_STATE", "stub")
           epf_state = os.environ.get("EPF_STATE", "stub")
 
+          prereq_degraded = rc_is_nonzero(deps_rc) or rc_is_nonzero(runall_rc)
+          if prereq_degraded:
+              if base_state == "real":
+                  base_state = "degraded"
+              if epf_state == "real":
+                  epf_state = "degraded"
+
           summary = ""
           summary += f"Deps install rc: {deps_rc}\n"
           summary += f"run_all.py rc: {runall_rc}\n"
@@ -296,6 +308,8 @@ jobs:
           summary += f"epf compare rc: {epf_rc}\n"
           summary += f"baseline branch state: {base_state}\n"
           summary += f"epf branch state: {epf_state}\n"
+          if prereq_degraded:
+              summary += "prereq state: degraded due to non-zero deps_rc and/or runall_rc\n"
           summary += "\n"
           summary += "This workflow is diagnostic / CI-neutral.\n"
           summary += "The repository's release authority remains the final status.json + required gate enforcement path.\n"
@@ -304,7 +318,8 @@ jobs:
           summary += f"Changed (baseline->EPF): {len(diffs)}\n"
           for k, ba, ep in diffs[:20]:
               summary += f"- {k}: {ba} -> {ep}\n"
-
+              if prereq_degraded:
+              summary += "prereq state: degraded due to non-zero deps_rc and/or runall_rc\n"
           pathlib.Path("epf_report.txt").write_text(summary, encoding="utf-8")
           print(summary)
 
@@ -345,7 +360,16 @@ jobs:
               }
           ]
           degraded_reasons = []
-          if overall_state in {"partial", "stub", "degraded"}:
+                    if prereq_degraded:
+              degraded_reasons.append(
+                  {
+                      "code": "epf.shadow.run_manifest.prereq_nonzero_rc",
+                      "message": "At least one setup/preparation command exited non-zero before branch comparison.",
+                      "severity": "warn",
+                  }
+              )
+
+          if overall_state in {"partial", "stub", "degraded"} and (base_state != "real" or epf_state != "real"):
               degraded_reasons.append(
                   {
                       "code": "epf.shadow.run_manifest.non_real_branch",
