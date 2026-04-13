@@ -321,6 +321,45 @@ Use this surface when you want a compact, audit-linked summary of the relational
 
 ---
 
+### Not every shadow artifact folds into `status.json`
+
+Machine-registered shadow layers do not all use a `meta.*` fold-in.
+
+Current example:
+
+- `relational_gain_shadow`
+  - may fold a compact summary into:
+    - `status["meta"]["relational_gain_shadow"]`
+
+Counter-example:
+
+- `epf_shadow_experiment_v0`
+  - is machine-registered,
+  - but its current primary artifact is:
+    - `epf_paradox_summary.json`
+  - and its current diagnostic workflow also produces:
+    - `status_baseline.json`
+    - `status_epf.json`
+    - `epf_report.txt`
+
+Interpretation rule:
+
+- a machine-registered shadow layer may surface itself either:
+  - as an additive `meta.*` fold-in inside the final `status.json`, or
+  - as a separate diagnostic artifact outside the final normative status surface
+
+Important boundary:
+
+- the absence of an EPF block under `status["meta"]` is currently expected
+- this absence must not be read as failure
+- `epf_paradox_summary.json` is descriptive and diagnostic only
+- it does not change the normative authority of `status["gates"]`
+
+If a future EPF status fold-in is introduced, that should be documented as
+a separate additive, non-normative status surface.
+
+---
+
 ## 11. external
 
 ### Two signals:
