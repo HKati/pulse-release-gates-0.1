@@ -39,6 +39,11 @@ This changelog records **semantic** changes that can affect release gating outco
   - Impact: clarifies the current repository architecture for readers; no change to release authority, required gates, or `check_gates.py` behavior.
   - Migration: none. `docs/STATE_v0.md` remains a descriptive state snapshot, not a normative contract surface.
 
+- `docs/GLOSSARY_v0.md` / `glossary`:
+  - Changed: added the missing shadow-program and registry terminology needed to describe the current repository state more precisely, including `shadow-contracted`, `machine-registered`, `research diagnostic`, `contract-hardened summary surface`, and `non-interference`.
+  - Why: outside readers could already encounter these distinctions in the repo state, but the glossary did not yet define them explicitly.
+  - Impact: clarifies the current shadow-contract program, machine-readable registry, Relational Gain pilot state, and the EPF split between the broader research line and the hardened summary surface; no change to release authority, required gates, or `check_gates.py` behavior.
+  - Migration: none. This is a terminology and interpretation update only.
 
 ## 0.1.0 — Initial baseline
 
