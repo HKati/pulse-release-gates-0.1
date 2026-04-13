@@ -21,7 +21,6 @@ This changelog records **semantic** changes that can affect release gating outco
 
 ## Unreleased
 
-
 - `pulse_gate_policy_v0.yml` / `pulse-gate-policy-v0` (policy 0.1.3):
   - Changed: add `detectors_materialized_ok` to `gates.release_required`.
   - Why: scaffold / placeholder booleans must not be misread as materialized release evidence in release-grade paths.
@@ -33,6 +32,12 @@ This changelog records **semantic** changes that can affect release gating outco
   - Why: make the public status contract reflect the implemented Relational Gain shadow fold-in behavior.
   - Impact: clarifies consumer expectations for `meta.relational_gain_shadow`; no change to release authority, required gates, or `check_gates.py` behavior.
   - Migration: none. Consumers must continue treating `meta.relational_gain_shadow` as non-normative shadow metadata.
+
+- `docs/STATE_v0.md` / `state v0`:
+  - Changed: refreshed the repository state snapshot to reflect the current deterministic release core, shadow contract program, machine-readable shadow layer registry stack, contract-hardened Relational Gain pilot, and the EPF split between the broader research line and the hardened paradox-summary surface.
+  - Why: the previous state snapshot no longer matched the current repo shape and understated the current shadow-program maturity.
+  - Impact: clarifies the current repository architecture for readers; no change to release authority, required gates, or `check_gates.py` behavior.
+  - Migration: none. `docs/STATE_v0.md` remains a descriptive state snapshot, not a normative contract surface.
 
 
 ## 0.1.0 — Initial baseline
