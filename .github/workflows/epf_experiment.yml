@@ -9,8 +9,11 @@ on:
       - "scripts/**"
       - "pulse_gates.yaml"
       - "schemas/epf_paradox_summary_v0.schema.json"
+      - "schemas/epf_shadow_run_manifest_v0.schema.json"
       - "tests/fixtures/epf_paradox_summary_v0/**"
+      - "tests/fixtures/epf_shadow_run_manifest_v0/**"
       - "tests/test_check_epf_paradox_summary_contract.py"
+      - "tests/test_check_epf_shadow_run_manifest_contract.py"
 
   push:
     branches: ["main"]
@@ -21,8 +24,11 @@ on:
       - "scripts/**"
       - "pulse_gates.yaml"
       - "schemas/epf_paradox_summary_v0.schema.json"
+      - "schemas/epf_shadow_run_manifest_v0.schema.json"
       - "tests/fixtures/epf_paradox_summary_v0/**"
+      - "tests/fixtures/epf_shadow_run_manifest_v0/**"
       - "tests/test_check_epf_paradox_summary_contract.py"
+      - "tests/test_check_epf_shadow_run_manifest_contract.py"
 
   workflow_dispatch: {}
 
@@ -80,11 +86,13 @@ jobs:
           set -euo pipefail
           python -m pip install pytest
 
-      - name: Run EPF paradox summary contract tests
+      - name: Run EPF contract test suite
         shell: bash
         run: |
           set -euo pipefail
-          pytest -q tests/test_check_epf_paradox_summary_contract.py
+          pytest -q \
+            tests/test_check_epf_paradox_summary_contract.py \
+            tests/test_check_epf_shadow_run_manifest_contract.py
 
       - name: Prepare shared input from PULSE pack baseline (core mode) or stub
         id: prepare
@@ -92,6 +100,7 @@ jobs:
         run: |
           set -euo pipefail
           runall_rc=0
+          input_mode=stub
           if [ -f PULSE_safe_pack_v0/tools/run_all.py ]; then
             echo "Running PULSE_safe_pack_v0/tools/run_all.py --mode core to produce baseline status.json..."
             set +e
@@ -103,6 +112,7 @@ jobs:
             fi
             if [ -f PULSE_safe_pack_v0/artifacts/status.json ]; then
               cp PULSE_safe_pack_v0/artifacts/status.json status.json
+              input_mode=real
               echo "Using PULSE_safe_pack_v0/artifacts/status.json as shared input"
             else
               echo "::warning::status.json not found after run_all.py; using v1-shaped stub status.json"
@@ -113,10 +123,13 @@ jobs:
             printf '%s\n' '{"version":"1.0.0-shadow-stub","created_utc":"1970-01-01T00:00:00Z","metrics":{"run_mode":"core"},"gates":{}}' > status.json
           fi
           echo "runall_rc=$runall_rc" >> "$GITHUB_OUTPUT"
+          echo "input_mode=$input_mode" >> "$GITHUB_OUTPUT"
 
       - name: Baseline (diagnostic compare branch) or stub
         id: base
         shell: bash
+        env:
+          INPUT_MODE: ${{ steps.prepare.outputs.input_mode }}
         run: |
           set -euo pipefail
           if [ -f status.json ]; then
@@ -128,32 +141,44 @@ jobs:
           if [ ! -f pulse_gates.yaml ]; then
             echo "::warning::pulse_gates.yaml not found; baseline compare branch will stay in stub mode."
             echo "rc=0" >> "$GITHUB_OUTPUT"
+            echo "state=stub" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [ ! -f scripts/check_gates.py ]; then
+            echo "::warning::scripts/check_gates.py not found; baseline compare branch will stay in stub mode."
+            echo "rc=0" >> "$GITHUB_OUTPUT"
+            echo "state=stub" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
           rc=0
-          if [ -f scripts/check_gates.py ]; then
-            echo "Running baseline compare branch via scripts/check_gates.py ..."
-            set +e
-            python scripts/check_gates.py \
-              --config pulse_gates.yaml \
-              --status status_baseline.json \
-              --defer-policy fail
-            rc=$?
-            set -e
+          echo "Running baseline compare branch via scripts/check_gates.py ..."
+          set +e
+          python scripts/check_gates.py \
+            --config pulse_gates.yaml \
+            --status status_baseline.json \
+            --defer-policy fail
+          rc=$?
+          set -e
+
+          if [ "$rc" -ne 0 ]; then
+            echo "::warning::Baseline compare branch exited non-zero (rc=$rc)."
+            state=degraded
+          elif [ "${INPUT_MODE}" = "real" ]; then
+            state=real
           else
-            echo "::warning::scripts/check_gates.py not found; keeping baseline artifact as shared-input copy."
-            rc=0
+            state=stub
           fi
 
           echo "rc=$rc" >> "$GITHUB_OUTPUT"
-          if [ "$rc" -ne 0 ]; then
-            echo "::warning::Baseline compare branch exited non-zero (rc=$rc)."
-          fi
+          echo "state=$state" >> "$GITHUB_OUTPUT"
 
       - name: EPF shadow run (non-blocking) or stub
         id: epf
         shell: bash
+        env:
+          INPUT_MODE: ${{ steps.prepare.outputs.input_mode }}
         run: |
           set -euo pipefail
           if [ -f status.json ]; then
@@ -165,30 +190,40 @@ jobs:
           if [ ! -f pulse_gates.yaml ]; then
             echo "::warning::pulse_gates.yaml not found; EPF shadow branch will stay in stub mode."
             echo "rc=0" >> "$GITHUB_OUTPUT"
+            echo "state=stub" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [ ! -f scripts/check_gates.py ]; then
+            echo "::warning::scripts/check_gates.py not found; EPF shadow branch will stay in stub mode."
+            echo "rc=0" >> "$GITHUB_OUTPUT"
+            echo "state=stub" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
           rc=0
-          if [ -f scripts/check_gates.py ]; then
-            echo "Running EPF shadow compare branch via scripts/check_gates.py ..."
-            set +e
-            python scripts/check_gates.py \
-              --config pulse_gates.yaml \
-              --status status_epf.json \
-              --epf-shadow \
-              --seed 1737 \
-              --defer-policy warn
-            rc=$?
-            set -e
+          echo "Running EPF shadow compare branch via scripts/check_gates.py ..."
+          set +e
+          python scripts/check_gates.py \
+            --config pulse_gates.yaml \
+            --status status_epf.json \
+            --epf-shadow \
+            --seed 1737 \
+            --defer-policy warn
+          rc=$?
+          set -e
+
+          if [ "$rc" -ne 0 ]; then
+            echo "::warning::EPF compare branch exited non-zero (rc=$rc)."
+            state=degraded
+          elif [ "${INPUT_MODE}" = "real" ]; then
+            state=real
           else
-            echo "::warning::scripts/check_gates.py not found; keeping EPF artifact as shared-input copy."
-            rc=0
+            state=stub
           fi
 
           echo "rc=$rc" >> "$GITHUB_OUTPUT"
-          if [ "$rc" -ne 0 ]; then
-            echo "::warning::EPF compare branch exited non-zero (rc=$rc)."
-          fi
+          echo "state=$state" >> "$GITHUB_OUTPUT"
 
       - name: Compare diagnostic outputs and summarize
         shell: bash
@@ -197,12 +232,15 @@ jobs:
           RUNALL_RC: ${{ steps.prepare.outputs.runall_rc }}
           BASE_RC: ${{ steps.base.outputs.rc }}
           EPF_RC: ${{ steps.epf.outputs.rc }}
+          BASE_STATE: ${{ steps.base.outputs.state }}
+          EPF_STATE: ${{ steps.epf.outputs.state }}
         run: |
           set -euo pipefail
           python - <<'PY'
           import json
           import os
           import pathlib
+          from datetime import datetime, timezone
 
           def load_json(path, default):
               try:
@@ -210,6 +248,19 @@ jobs:
                       return json.load(f)
               except Exception:
                   return default
+
+          def derive_overall_state(baseline_state: str, epf_state: str) -> str:
+              if "invalid" in {baseline_state, epf_state}:
+                  return "invalid"
+              if baseline_state == "absent" and epf_state == "absent":
+                  return "absent"
+              if baseline_state == "real" and epf_state == "real":
+                  return "real"
+              if "stub" in {baseline_state, epf_state}:
+                  return "stub"
+              if "partial" in {baseline_state, epf_state}:
+                  return "partial"
+              return "degraded"
 
           baseline = load_json("status_baseline.json", {})
           epf = load_json("status_epf.json", {})
@@ -235,12 +286,16 @@ jobs:
           runall_rc = os.environ.get("RUNALL_RC", "")
           base_rc = os.environ.get("BASE_RC", "")
           epf_rc = os.environ.get("EPF_RC", "")
+          base_state = os.environ.get("BASE_STATE", "stub")
+          epf_state = os.environ.get("EPF_STATE", "stub")
 
           summary = ""
           summary += f"Deps install rc: {deps_rc}\n"
           summary += f"run_all.py rc: {runall_rc}\n"
           summary += f"baseline compare rc: {base_rc}\n"
           summary += f"epf compare rc: {epf_rc}\n"
+          summary += f"baseline branch state: {base_state}\n"
+          summary += f"epf branch state: {epf_state}\n"
           summary += "\n"
           summary += "This workflow is diagnostic / CI-neutral.\n"
           summary += "The repository's release authority remains the final status.json + required gate enforcement path.\n"
@@ -253,6 +308,11 @@ jobs:
           pathlib.Path("epf_report.txt").write_text(summary, encoding="utf-8")
           print(summary)
 
+          summary_examples = [
+              {"gate": k, "baseline": ba, "epf": ep}
+              for k, ba, ep in diffs[:5]
+          ]
+
           paradox = {
               "deps_rc": deps_rc,
               "runall_rc": runall_rc,
@@ -260,13 +320,107 @@ jobs:
               "epf_rc": epf_rc,
               "total_gates": len(baseline_decisions),
               "changed": len(diffs),
-              "examples": [
-                  {"gate": k, "baseline": ba, "epf": ep}
-                  for k, ba, ep in diffs[:5]
-              ],
+              "examples": summary_examples,
           }
           pathlib.Path("epf_paradox_summary.json").write_text(
-              json.dumps(paradox, indent=2, ensure_ascii=False),
+              json.dumps(paradox, indent=2, ensure_ascii=False) + "\n",
+              encoding="utf-8",
+          )
+
+          overall_state = derive_overall_state(base_state, epf_state)
+          if overall_state == "real":
+              verdict = "pass" if len(diffs) == 0 else "warn"
+          elif overall_state in {"partial", "stub", "degraded"}:
+              verdict = "warn"
+          elif overall_state == "invalid":
+              verdict = "invalid"
+          else:
+              verdict = "absent"
+
+          reasons = [
+              {
+                  "code": "epf.shadow.run_manifest.generated",
+                  "message": "EPF shadow run manifest generated from the current workflow outputs.",
+                  "severity": "info",
+              }
+          ]
+          degraded_reasons = []
+          if overall_state in {"partial", "stub", "degraded"}:
+              degraded_reasons.append(
+                  {
+                      "code": "epf.shadow.run_manifest.non_real_branch",
+                      "message": "At least one EPF branch was not real in the current workflow run.",
+                      "severity": "warn",
+                  }
+              )
+
+          manifest = {
+              "artifact_version": "epf_shadow_run_manifest_v0",
+              "layer_id": "epf_shadow_experiment_v0",
+              "producer": {
+                  "name": "epf_experiment_workflow",
+                  "version": "0.1.0",
+              },
+              "created_utc": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+              "run_reality_state": overall_state,
+              "verdict": verdict,
+              "source_artifacts": [
+                  {
+                      "path": "status_baseline.json",
+                      "role": "baseline_status",
+                  },
+                  {
+                      "path": "status_epf.json",
+                      "role": "epf_status",
+                  },
+                  {
+                      "path": "epf_paradox_summary.json",
+                      "role": "paradox_summary",
+                  },
+                  {
+                      "path": "epf_report.txt",
+                      "role": "epf_report",
+                  },
+              ],
+              "relation_scope": "baseline_vs_epf_shadow",
+              "summary": {
+                  "headline": "EPF shadow run manifest generated",
+                  "details": (
+                      f"Baseline state={base_state}, EPF state={epf_state}, "
+                      f"changed={len(diffs)}, overall_state={overall_state}."
+                  ),
+              },
+              "reasons": reasons,
+              "payload": {
+                  "command_rcs": {
+                      "deps_rc": deps_rc,
+                      "runall_rc": runall_rc,
+                      "baseline_rc": base_rc,
+                      "epf_rc": epf_rc,
+                  },
+                  "branch_states": {
+                      "baseline_state": base_state,
+                      "epf_state": epf_state,
+                  },
+                  "artifacts": {
+                      "baseline_status_path": "status_baseline.json",
+                      "epf_status_path": "status_epf.json",
+                      "paradox_summary_path": "epf_paradox_summary.json",
+                      "epf_report_path": "epf_report.txt",
+                  },
+                  "comparison": {
+                      "total_gates": len(baseline_decisions),
+                      "changed": len(diffs),
+                      "example_count": len(summary_examples),
+                  },
+              },
+          }
+
+          if degraded_reasons:
+              manifest["degraded_reasons"] = degraded_reasons
+
+          pathlib.Path("epf_shadow_run_manifest.json").write_text(
+              json.dumps(manifest, indent=2, ensure_ascii=False) + "\n",
               encoding="utf-8",
           )
           PY
@@ -304,7 +458,15 @@ jobs:
             --input epf_paradox_summary.json \
             --output epf_paradox_summary_contract_check.json
 
-      - name: Validate EPF checker output surface
+      - name: Validate produced EPF shadow run manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          python PULSE_safe_pack_v0/tools/check_epf_shadow_run_manifest_contract.py \
+            --input epf_shadow_run_manifest.json \
+            --output epf_shadow_run_manifest_contract_check.json
+
+      - name: Validate EPF checker output surfaces
         shell: bash
         run: |
           set -euo pipefail
@@ -312,17 +474,28 @@ jobs:
           import json
           from pathlib import Path
 
-          path = Path("epf_paradox_summary_contract_check.json")
-          data = json.loads(path.read_text(encoding="utf-8"))
+          summary_check = json.loads(Path("epf_paradox_summary_contract_check.json").read_text(encoding="utf-8"))
+          manifest_check = json.loads(Path("epf_shadow_run_manifest_contract_check.json").read_text(encoding="utf-8"))
 
-          if data.get("ok") is not True:
+          if summary_check.get("ok") is not True:
               raise SystemExit("EPF paradox summary contract check did not succeed")
 
-          if data.get("total_gates") is None:
-              raise SystemExit("expected total_gates in EPF contract check output")
+          if summary_check.get("total_gates") is None:
+              raise SystemExit("expected total_gates in EPF paradox summary contract check output")
 
-          if data.get("changed") is None:
-              raise SystemExit("expected changed in EPF contract check output")
+          if summary_check.get("changed") is None:
+              raise SystemExit("expected changed in EPF paradox summary contract check output")
+
+          if manifest_check.get("ok") is not True:
+              raise SystemExit("EPF shadow run manifest contract check did not succeed")
+
+          if manifest_check.get("artifact_version") != "epf_shadow_run_manifest_v0":
+              raise SystemExit(
+                  f"unexpected manifest artifact_version: {manifest_check.get('artifact_version')!r}"
+              )
+
+          if manifest_check.get("run_reality_state") is None:
+              raise SystemExit("expected run_reality_state in EPF shadow run manifest contract check output")
           PY
 
       - name: Upload artifacts
@@ -338,3 +511,5 @@ jobs:
             epf_report.txt
             epf_paradox_summary.json
             epf_paradox_summary_contract_check.json
+            epf_shadow_run_manifest.json
+            epf_shadow_run_manifest_contract_check.json
