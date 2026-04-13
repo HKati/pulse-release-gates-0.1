@@ -248,7 +248,7 @@ jobs:
                       return json.load(f)
               except Exception:
                   return default
-
+   
           def rc_is_nonzero(value: str) -> bool:
               return value not in {"", "0"}
 
@@ -359,6 +359,7 @@ jobs:
                   "severity": "info",
               }
           ]
+  
           degraded_reasons = []
                     if prereq_degraded:
               degraded_reasons.append(
