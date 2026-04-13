@@ -248,7 +248,7 @@ jobs:
                       return json.load(f)
               except Exception:
                   return default
-   
+
           def rc_is_nonzero(value: str) -> bool:
               return value not in {"", "0"}
 
@@ -264,7 +264,7 @@ jobs:
               if "degraded" in {baseline_state, epf_state}:
                   return "degraded"
               if baseline_state == "real" and epf_state == "real":
-                  return "real"  
+                  return "real"
               return "degraded"
 
           baseline = load_json("status_baseline.json", {})
@@ -318,8 +318,7 @@ jobs:
           summary += f"Changed (baseline->EPF): {len(diffs)}\n"
           for k, ba, ep in diffs[:20]:
               summary += f"- {k}: {ba} -> {ep}\n"
-              if prereq_degraded:
-              summary += "prereq state: degraded due to non-zero deps_rc and/or runall_rc\n"
+
           pathlib.Path("epf_report.txt").write_text(summary, encoding="utf-8")
           print(summary)
 
@@ -359,9 +358,9 @@ jobs:
                   "severity": "info",
               }
           ]
-  
+
           degraded_reasons = []
-                    if prereq_degraded:
+          if prereq_degraded:
               degraded_reasons.append(
                   {
                       "code": "epf.shadow.run_manifest.prereq_nonzero_rc",
