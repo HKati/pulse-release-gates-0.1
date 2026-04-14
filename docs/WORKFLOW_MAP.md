@@ -107,8 +107,8 @@ Current relation to Relational Gain:
 **Workflow:** `.github/workflows/epf_experiment.yml`
 
 **Purpose:** compare the deterministic baseline read and the EPF shadow
-read over the same common input, then archive a diagnostic disagreement
-summary.
+read over the same common input, archive the disagreement summary, and
+record the broader EPF run context.
 
 Current workflow-emitted artifacts:
 
@@ -116,8 +116,16 @@ Current workflow-emitted artifacts:
 - `status_epf.json`
 - `epf_report.txt`
 - `epf_paradox_summary.json`
+- `epf_shadow_run_manifest.json`
 
-Current contract-hardened summary surface:
+Current primary registered EPF surface:
+
+- `schemas/epf_shadow_run_manifest_v0.schema.json`
+- `PULSE_safe_pack_v0/tools/check_epf_shadow_run_manifest_contract.py`
+- `tests/fixtures/epf_shadow_run_manifest_v0/pass.json`
+- `tests/test_check_epf_shadow_run_manifest_contract.py`
+
+Current secondary contract-hardened diagnostic surface:
 
 - `schemas/epf_paradox_summary_v0.schema.json`
 - `PULSE_safe_pack_v0/tools/check_epf_paradox_summary_contract.py`
@@ -134,8 +142,9 @@ Boundary:
 Current state:
 
 - the broader EPF line remains `research`
-- the current `epf_paradox_summary.json` surface is contract-hardened
-- the workflow validates the produced summary artifact directly
+- the primary machine-registered EPF surface is now the broader run manifest
+- the paradox summary remains a secondary contract-hardened diagnostic artifact
+- the workflow validates both produced EPF contract surfaces directly
 
 ### D. Publication / platform integration workflows
 **Purpose:** publication to GitHub-native or external-facing surfaces
