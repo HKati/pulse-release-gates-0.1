@@ -230,9 +230,19 @@ Current recorded state:
 - `consumer_authority: review-only`
 - `normative: false`
 
-Current registered surfaces include:
+Primary registered surface:
 
 - `.github/workflows/epf_experiment.yml`
+- `epf_shadow_run_manifest.json`
+- `schemas/epf_shadow_run_manifest_v0.schema.json`
+- `PULSE_safe_pack_v0/tools/check_epf_shadow_run_manifest_contract.py`
+- `tests/fixtures/epf_shadow_run_manifest_v0/pass.json`
+- `tests/fixtures/epf_shadow_run_manifest_v0/changed_without_warn.json`
+- `tests/test_check_epf_shadow_run_manifest_contract.py`
+
+Secondary contract-hardened diagnostic surface:
+
+- `epf_paradox_summary.json`
 - `schemas/epf_paradox_summary_v0.schema.json`
 - `PULSE_safe_pack_v0/tools/check_epf_paradox_summary_contract.py`
 - `tests/fixtures/epf_paradox_summary_v0/pass.json`
@@ -244,6 +254,13 @@ Current registered surfaces include:
 - `tests/fixtures/epf_paradox_summary_v0/invalid_rc_string.json`
 - `tests/fixtures/epf_paradox_summary_v0/changed_zero_with_examples.json`
 - `tests/test_check_epf_paradox_summary_contract.py`
+
+Interpretation:
+
+- the broader EPF line remains `research`
+- the primary machine-registered EPF surface is now the broader run manifest
+- the paradox summary remains a secondary contract-hardened diagnostic artifact
+- neither surface is normative
 
 ---
 
@@ -282,8 +299,10 @@ It currently validates:
 - the registry checker tests,
 - and the registry checker output surface.
 
-It also watches currently referenced Relational Gain and EPF surfaces so
-registered layers cannot silently drift away from the registry contract.
+It also watches currently referenced Relational Gain surfaces, the EPF
+primary run-manifest surfaces, and the EPF secondary paradox-summary
+surfaces so registered layers cannot silently drift away from the
+registry contract.
 
 ---
 
