@@ -210,90 +210,159 @@ For a minimal local reproduction without the compare step, start with:
 
 ---
 
-## 6. Current paradox summary contract surface
+## 6. Current EPF artifact contract surfaces
 
-The current EPF comparison summary artifact is:
+The current EPF shadow flow now has **two** contract-relevant artifact
+surfaces.
 
-```text
+### A. Paradox summary surface
+
+Current artifact:
+
 epf_paradox_summary.json
-```
 
 Current machine-readable schema:
 
-```text
 schemas/epf_paradox_summary_v0.schema.json
-```
 
 Current layer-specific contract checker:
 
-```text
 PULSE_safe_pack_v0/tools/check_epf_paradox_summary_contract.py
-```
 
 Current canonical positive fixture:
 
-```text
 tests/fixtures/epf_paradox_summary_v0/pass.json
-```
-
-Current canonical negative fixture:
-
-```text
-tests/fixtures/epf_paradox_summary_v0/changed_exceeds_total_gates.json
-```
 
 Current checker regression tests:
 
-```text
 tests/test_check_epf_paradox_summary_contract.py
-```
 
-The current artifact shape includes:
+This surface summarizes baseline vs EPF comparison at the disagreement level.
 
-- `deps_rc`
-- `runall_rc`
-- `baseline_rc`
-- `epf_rc`
-- `total_gates`
-- `changed`
-- `examples`
+Its current shape includes:
 
-This contract is tied to the **current actual workflow-emitted artifact**.
+- deps_rc
+- runall_rc
+- baseline_rc
+- epf_rc
+- total_gates
+- changed
+- examples
 
-It does **not** make the EPF path normative.
+This surface is already contract-hardened, but remains descriptive and
+non-normative.
+
+### B. Broader EPF run-manifest surface
+
+Current artifact:
+
+epf_shadow_run_manifest.json
+
+Current machine-readable schema:
+
+schemas/epf_shadow_run_manifest_v0.schema.json
+
+Current layer-specific contract checker:
+
+PULSE_safe_pack_v0/tools/check_epf_shadow_run_manifest_contract.py
+
+Current canonical positive fixture:
+
+tests/fixtures/epf_shadow_run_manifest_v0/pass.json
+
+Current checker regression tests:
+
+tests/test_check_epf_shadow_run_manifest_contract.py
+
+This surface records the broader EPF run context around the comparison,
+including:
+
+- common shadow artifact identity
+- run_reality_state
+- verdict
+- source_artifacts
+- relation_scope
+- summary
+- reasons
+- payload.command_rcs
+- payload.branch_states
+- payload.artifacts
+- payload.comparison
+
+### Interpretation
+
+- the paradox summary surface captures disagreement output  
+- the run manifest surface captures run context, branch states,
+  referenced artifacts, and comparison counters  
+
+Both remain diagnostic and non-normative.
+
+They do not change the normative authority of the final
+status.json["gates"] path.
 
 ---
 
 ## 7. Local contract validation
 
-After producing or editing an EPF paradox summary artifact locally, validate it with:
+After producing or editing EPF artifacts locally, validate them separately.
 
-```bash
+### Validate the paradox summary
+
+~~~bash
 python PULSE_safe_pack_v0/tools/check_epf_paradox_summary_contract.py \
   --input epf_paradox_summary.json
-```
+~~~
 
 Optional JSON result output:
 
-```bash
+~~~bash
 python PULSE_safe_pack_v0/tools/check_epf_paradox_summary_contract.py \
   --input epf_paradox_summary.json \
   --output epf_paradox_summary_contract_check.json
-```
+~~~
 
-Neutral absence mode:
+### Validate the broader run manifest
 
-```bash
+~~~bash
+python PULSE_safe_pack_v0/tools/check_epf_shadow_run_manifest_contract.py \
+  --input epf_shadow_run_manifest.json
+~~~
+
+Optional JSON result output:
+
+~~~bash
+python PULSE_safe_pack_v0/tools/check_epf_shadow_run_manifest_contract.py \
+  --input epf_shadow_run_manifest.json \
+  --output epf_shadow_run_manifest_contract_check.json
+~~~
+
+### Neutral absence mode
+
+Paradox summary:
+
+~~~bash
 python PULSE_safe_pack_v0/tools/check_epf_paradox_summary_contract.py \
   --input epf_paradox_summary.json \
   --if-input-present
-```
+~~~
 
-Interpretation:
+Run manifest:
 
-- `ok: true` means the artifact matches the current EPF summary contract
-- `ok: false` means the artifact shape or semantics drifted
-- `neutral: true` is only for missing-input neutral absence handling
+~~~bash
+python PULSE_safe_pack_v0/tools/check_epf_shadow_run_manifest_contract.py \
+  --input epf_shadow_run_manifest.json \
+  --if-input-present
+~~~
+
+### Interpretation
+
+- ok: true → the artifact matches its current EPF contract  
+- ok: false → the artifact shape or semantics drifted  
+- neutral: true → only for missing-input handling  
+
+Use the summary checker for disagreement-surface validation.  
+
+Use the run-manifest checker for broader EPF branch/run-context validation.
 
 ---
 
