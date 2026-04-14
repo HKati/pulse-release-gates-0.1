@@ -3,14 +3,6 @@ name: Shadow Layer Registry
 on:
   pull_request:
     paths:
-      - ".github/workflows/shadow_layer_registry.yml"
-      - "requirements.txt"
-      - "shadow_layer_registry_v0.yml"
-      - "schemas/shadow_layer_registry_v0.schema.json"
-      - "PULSE_safe_pack_v0/tools/check_shadow_layer_registry.py"
-      - "tests/fixtures/shadow_layer_registry_v0/**"
-      - "tests/test_check_shadow_layer_registry.py"
-
       # Referenced Relational Gain surfaces currently registered in the registry.
       - ".github/workflows/relational_gain_shadow.yml"
       - "schemas/relational_gain_shadow_v0.schema.json"
@@ -19,8 +11,14 @@ on:
       - "tests/test_check_relational_gain_contract.py"
       - "tests/test_relational_gain_non_interference.py"
 
-      # Referenced EPF surfaces currently registered in the registry.
+      # Referenced EPF primary run-manifest surfaces currently registered in the registry.
       - ".github/workflows/epf_experiment.yml"
+      - "schemas/epf_shadow_run_manifest_v0.schema.json"
+      - "PULSE_safe_pack_v0/tools/check_epf_shadow_run_manifest_contract.py"
+      - "tests/fixtures/epf_shadow_run_manifest_v0/**"
+      - "tests/test_check_epf_shadow_run_manifest_contract.py"
+
+      # Secondary EPF contract surfaces still coupled to the registered EPF line.
       - "schemas/epf_paradox_summary_v0.schema.json"
       - "PULSE_safe_pack_v0/tools/check_epf_paradox_summary_contract.py"
       - "tests/fixtures/epf_paradox_summary_v0/**"
@@ -29,14 +27,6 @@ on:
   push:
     branches: ["main"]
     paths:
-      - ".github/workflows/shadow_layer_registry.yml"
-      - "requirements.txt"
-      - "shadow_layer_registry_v0.yml"
-      - "schemas/shadow_layer_registry_v0.schema.json"
-      - "PULSE_safe_pack_v0/tools/check_shadow_layer_registry.py"
-      - "tests/fixtures/shadow_layer_registry_v0/**"
-      - "tests/test_check_shadow_layer_registry.py"
-
       # Referenced Relational Gain surfaces currently registered in the registry.
       - ".github/workflows/relational_gain_shadow.yml"
       - "schemas/relational_gain_shadow_v0.schema.json"
@@ -45,8 +35,14 @@ on:
       - "tests/test_check_relational_gain_contract.py"
       - "tests/test_relational_gain_non_interference.py"
 
-      # Referenced EPF surfaces currently registered in the registry.
+      # Referenced EPF primary run-manifest surfaces currently registered in the registry.
       - ".github/workflows/epf_experiment.yml"
+      - "schemas/epf_shadow_run_manifest_v0.schema.json"
+      - "PULSE_safe_pack_v0/tools/check_epf_shadow_run_manifest_contract.py"
+      - "tests/fixtures/epf_shadow_run_manifest_v0/**"
+      - "tests/test_check_epf_shadow_run_manifest_contract.py"
+
+      # Secondary EPF contract surfaces still coupled to the registered EPF line.
       - "schemas/epf_paradox_summary_v0.schema.json"
       - "PULSE_safe_pack_v0/tools/check_epf_paradox_summary_contract.py"
       - "tests/fixtures/epf_paradox_summary_v0/**"
