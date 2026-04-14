@@ -26,7 +26,7 @@ the required gate set.
 | Theory overlay v0 | shadow diagnostic | `.github/workflows/theory_overlay_v0.yml` | overlay JSON + markdown summary | No |
 | G-field / G snapshot surfaces | shadow diagnostic | G-field / snapshot shadow workflows | overlay JSONs + snapshot markdown | No |
 | Relational Gain v0 | shadow diagnostic (contract-hardened) | `.github/workflows/relational_gain_shadow.yml` | `relational_gain_shadow_v0.json`, folded `meta.relational_gain_shadow` | No |
-| EPF experiment / hazard | research diagnostic (summary artifact contract-hardened) | `.github/workflows/epf_experiment.yml` | `epf_paradox_summary.json` | No |
+| EPF experiment / hazard | research diagnostic (run-manifest primary; summary surface also contract-hardened) | `.github/workflows/epf_experiment.yml` | `epf_shadow_run_manifest.json`, `epf_paradox_summary.json` | No |
 | Parameter Golf v0 | external challenge companion | `../parameter_golf_v0/README.md` | submission evidence JSON + review receipt | No |
 | Publication surfaces | opt-in platform integration | `upload_sarif.yml`, PR comments, badge write-back, Pages snapshots | GitHub-native / published surfaces | No |
 
@@ -64,10 +64,26 @@ Its artifact and folded `meta.relational_gain_shadow` summary do not change rele
 
 The broader EPF line remains a **research diagnostic** path.
 
-However, the current `epf_paradox_summary.json` surface is now
-**contract-hardened**.
+Its current **primary** machine-registered surface is now:
 
-Current hardening surface:
+- `epf_shadow_run_manifest.json`
+
+The current `epf_paradox_summary.json` surface remains a **secondary
+contract-hardened diagnostic artifact**.
+
+Current primary hardening surface:
+
+- schema:
+  - `../schemas/epf_shadow_run_manifest_v0.schema.json`
+- contract checker:
+  - `../PULSE_safe_pack_v0/tools/check_epf_shadow_run_manifest_contract.py`
+- canonical fixtures:
+  - `../tests/fixtures/epf_shadow_run_manifest_v0/pass.json`
+  - `../tests/fixtures/epf_shadow_run_manifest_v0/changed_without_warn.json`
+- checker regression tests:
+  - `../tests/test_check_epf_shadow_run_manifest_contract.py`
+
+Current secondary summary surface:
 
 - schema:
   - `../schemas/epf_paradox_summary_v0.schema.json`
@@ -85,10 +101,10 @@ Current hardening surface:
 - checker regression tests:
   - `../tests/test_check_epf_paradox_summary_contract.py`
 
-This surface remains **non-normative**.
+Both surfaces remain **non-normative**.
 
-Its artifact is descriptive and diagnostic only, and does not change
-release authority.
+They are descriptive and diagnostic only, and do not change release
+authority.
 
 ## External challenge companions
 
