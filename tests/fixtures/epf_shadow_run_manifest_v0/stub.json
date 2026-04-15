@@ -1,0 +1,71 @@
+{
+  "artifact_version": "epf_shadow_run_manifest_v0",
+  "layer_id": "epf_shadow_experiment_v0",
+  "producer": {
+    "name": "epf_experiment_workflow",
+    "version": "0.1.0"
+  },
+  "created_utc": "2026-04-13T12:50:00Z",
+  "run_reality_state": "stub",
+  "verdict": "warn",
+  "source_artifacts": [
+    {
+      "path": "status_baseline.json",
+      "role": "baseline_status"
+    },
+    {
+      "path": "status_epf.json",
+      "role": "epf_status"
+    },
+    {
+      "path": "epf_paradox_summary.json",
+      "role": "paradox_summary"
+    },
+    {
+      "path": "epf_report.txt",
+      "role": "epf_report"
+    }
+  ],
+  "relation_scope": "baseline_vs_epf_shadow",
+  "summary": {
+    "headline": "EPF shadow run manifest validated in stub mode",
+    "details": "The broader EPF run-manifest contract is satisfied for a stub-mode run where baseline and EPF branches are both non-real."
+  },
+  "reasons": [
+    {
+      "code": "epf.run_manifest.stub",
+      "message": "The EPF run manifest is valid, but the run stayed in stub mode.",
+      "severity": "warn"
+    }
+  ],
+  "degraded_reasons": [
+    {
+      "code": "epf.shadow.run_manifest.stub_mode",
+      "message": "This canonical positive fixture models a stub overall run state.",
+      "severity": "warn"
+    }
+  ],
+  "payload": {
+    "command_rcs": {
+      "deps_rc": "0",
+      "runall_rc": "0",
+      "baseline_rc": "0",
+      "epf_rc": "0"
+    },
+    "branch_states": {
+      "baseline_state": "stub",
+      "epf_state": "stub"
+    },
+    "artifacts": {
+      "baseline_status_path": "status_baseline.json",
+      "epf_status_path": "status_epf.json",
+      "paradox_summary_path": "epf_paradox_summary.json",
+      "epf_report_path": "epf_report.txt"
+    },
+    "comparison": {
+      "total_gates": 0,
+      "changed": 0,
+      "example_count": 0
+    }
+  }
+}
