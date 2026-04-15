@@ -79,7 +79,15 @@ Current primary hardening surface:
   - `../PULSE_safe_pack_v0/tools/check_epf_shadow_run_manifest_contract.py`
 - canonical fixtures:
   - `../tests/fixtures/epf_shadow_run_manifest_v0/pass.json`
+  - `../tests/fixtures/epf_shadow_run_manifest_v0/degraded.json`
   - `../tests/fixtures/epf_shadow_run_manifest_v0/changed_without_warn.json`
+  - `../tests/fixtures/epf_shadow_run_manifest_v0/changed_exceeds_total_gates.json`
+  - `../tests/fixtures/epf_shadow_run_manifest_v0/example_count_exceeds_changed.json`
+  - `../tests/fixtures/epf_shadow_run_manifest_v0/real_zero_changed_wrong_verdict.json`
+  - `../tests/fixtures/epf_shadow_run_manifest_v0/same_status_paths.json`
+  - `../tests/fixtures/epf_shadow_run_manifest_v0/missing_epf_report_source_artifact.json`
+  - `../tests/fixtures/epf_shadow_run_manifest_v0/invalid_overall_without_invalid_branch.json`
+  - `../tests/fixtures/epf_shadow_run_manifest_v0/degraded_without_nonreal_branch.json`
 - checker regression tests:
   - `../tests/test_check_epf_shadow_run_manifest_contract.py`
 
