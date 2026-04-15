@@ -4,7 +4,7 @@
 >
 > This guide shows how to run the current EPF shadow comparison flow
 > locally, how to read the resulting artifacts, and how to validate the
-> current EPF paradox summary contract surface.
+> current EPF contract surfaces.
 >
 > It does **not** define release semantics.
 
@@ -47,7 +47,7 @@ Use this quickstart if you want to:
 - inspect baseline vs EPF shadow differences
 - reproduce the main comparison inputs
 - determine whether a disagreement is real or degraded
-- validate the current `epf_paradox_summary.json` artifact shape
+- validate the current EPF artifact contract surfaces
 
 This is **not** the main release-gating path.
 
@@ -76,6 +76,7 @@ It compares the two and writes:
 
 - `epf_report.txt`
 - `epf_paradox_summary.json`
+- `epf_shadow_run_manifest.json`
 
 The uploaded artifact bundle is:
 
@@ -88,6 +89,7 @@ The quick way to think about it:
 - baseline branch = deterministic read over the common input
 - EPF shadow branch = boundary-sensitive shadow read over the same input
 - comparison output = archived disagreement summary for inspection
+- run-manifest output = archived broader EPF run context for inspection
 
 ---
 
@@ -180,13 +182,13 @@ Interpret it as:
 > “If shadow EPF logic is enabled near the boundary, what looks fragile,
 > pressure-loaded, or different?”
 
-This does **not automatically change the recorded baseline result**.
+This does **not** automatically change the recorded baseline result.
 
 ---
 
 ## 5. Expected outputs
 
-After a successful local comparison flow, the main artifacts are:
+After a successful local comparison flow, the main branch artifacts are:
 
 - `status_baseline.json`
 - `status_epf.json`
@@ -195,13 +197,15 @@ In GitHub Actions, the workflow also writes and uploads:
 
 - `epf_report.txt`
 - `epf_paradox_summary.json`
+- `epf_shadow_run_manifest.json`
 
 Recommended reading order for a workflow run:
 
 1. `epf_report.txt`
 2. `epf_paradox_summary.json`
-3. `status_baseline.json`
-4. `status_epf.json`
+3. `epf_shadow_run_manifest.json`
+4. `status_baseline.json`
+5. `status_epf.json`
 
 For a minimal local reproduction without the compare step, start with:
 
@@ -219,86 +223,137 @@ surfaces.
 
 Current artifact:
 
+```text
 epf_paradox_summary.json
+```
 
 Current machine-readable schema:
 
+```text
 schemas/epf_paradox_summary_v0.schema.json
+```
 
 Current layer-specific contract checker:
 
+```text
 PULSE_safe_pack_v0/tools/check_epf_paradox_summary_contract.py
+```
 
 Current canonical positive fixture:
 
+```text
 tests/fixtures/epf_paradox_summary_v0/pass.json
+```
+
+Current canonical negative fixtures include:
+
+```text
+tests/fixtures/epf_paradox_summary_v0/changed_exceeds_total_gates.json
+tests/fixtures/epf_paradox_summary_v0/changed_positive_without_examples.json
+tests/fixtures/epf_paradox_summary_v0/duplicate_gate_examples.json
+tests/fixtures/epf_paradox_summary_v0/example_without_difference.json
+tests/fixtures/epf_paradox_summary_v0/examples_longer_than_changed.json
+tests/fixtures/epf_paradox_summary_v0/invalid_rc_string.json
+tests/fixtures/epf_paradox_summary_v0/changed_zero_with_examples.json
+```
 
 Current checker regression tests:
 
+```text
 tests/test_check_epf_paradox_summary_contract.py
+```
 
 This surface summarizes baseline vs EPF comparison at the disagreement level.
 
 Its current shape includes:
 
-- deps_rc
-- runall_rc
-- baseline_rc
-- epf_rc
-- total_gates
-- changed
-- examples
+- `deps_rc`
+- `runall_rc`
+- `baseline_rc`
+- `epf_rc`
+- `total_gates`
+- `changed`
+- `examples`
 
-This surface is already contract-hardened, but remains descriptive and
-non-normative.
+This surface is already contract-hardened, but remains **descriptive and
+non-normative**.
 
 ### B. Broader EPF run-manifest surface
 
 Current artifact:
 
+```text
 epf_shadow_run_manifest.json
+```
 
 Current machine-readable schema:
 
+```text
 schemas/epf_shadow_run_manifest_v0.schema.json
+```
 
 Current layer-specific contract checker:
 
+```text
 PULSE_safe_pack_v0/tools/check_epf_shadow_run_manifest_contract.py
+```
 
-Current canonical positive fixture:
+Current canonical positive fixtures:
 
+```text
 tests/fixtures/epf_shadow_run_manifest_v0/pass.json
+tests/fixtures/epf_shadow_run_manifest_v0/degraded.json
+```
+
+Current canonical negative fixtures include:
+
+```text
+tests/fixtures/epf_shadow_run_manifest_v0/changed_without_warn.json
+tests/fixtures/epf_shadow_run_manifest_v0/changed_exceeds_total_gates.json
+tests/fixtures/epf_shadow_run_manifest_v0/example_count_exceeds_changed.json
+tests/fixtures/epf_shadow_run_manifest_v0/real_zero_changed_wrong_verdict.json
+tests/fixtures/epf_shadow_run_manifest_v0/same_status_paths.json
+tests/fixtures/epf_shadow_run_manifest_v0/missing_epf_report_source_artifact.json
+tests/fixtures/epf_shadow_run_manifest_v0/invalid_overall_without_invalid_branch.json
+tests/fixtures/epf_shadow_run_manifest_v0/degraded_without_nonreal_branch.json
+```
 
 Current checker regression tests:
 
+```text
 tests/test_check_epf_shadow_run_manifest_contract.py
+```
 
 This surface records the broader EPF run context around the comparison,
 including:
 
 - common shadow artifact identity
-- run_reality_state
-- verdict
-- source_artifacts
-- relation_scope
-- summary
-- reasons
-- payload.command_rcs
-- payload.branch_states
-- payload.artifacts
-- payload.comparison
+- `run_reality_state`
+- `verdict`
+- `source_artifacts`
+- `relation_scope`
+- `summary`
+- `reasons`
+- `payload.command_rcs`
+- `payload.branch_states`
+- `payload.artifacts`
+- `payload.comparison`
 
 ### Interpretation
 
-- the paradox summary surface captures disagreement output  
+- the paradox summary surface captures disagreement output
 - the run manifest surface captures run context, branch states,
-  referenced artifacts, and comparison counters  
+  referenced artifacts, and comparison counters
+
+Its fixture set now includes both valid real/degraded examples and
+targeted negative cases for verdict consistency, counter consistency,
+artifact-path separation, source-artifact coverage, and branch-state
+consistency.
 
 Both remain diagnostic and non-normative.
 
-They do not change the normative authority of the final
-status.json["gates"] path.
+They do **not** change the normative authority of the final
+`status.json["gates"]` path.
 
 ---
 
@@ -308,59 +363,59 @@ After producing or editing EPF artifacts locally, validate them separately.
 
 ### Validate the paradox summary
 
-~~~bash
+```bash
 python PULSE_safe_pack_v0/tools/check_epf_paradox_summary_contract.py \
   --input epf_paradox_summary.json
-~~~
+```
 
 Optional JSON result output:
 
-~~~bash
+```bash
 python PULSE_safe_pack_v0/tools/check_epf_paradox_summary_contract.py \
   --input epf_paradox_summary.json \
   --output epf_paradox_summary_contract_check.json
-~~~
+```
 
 ### Validate the broader run manifest
 
-~~~bash
+```bash
 python PULSE_safe_pack_v0/tools/check_epf_shadow_run_manifest_contract.py \
   --input epf_shadow_run_manifest.json
-~~~
+```
 
 Optional JSON result output:
 
-~~~bash
+```bash
 python PULSE_safe_pack_v0/tools/check_epf_shadow_run_manifest_contract.py \
   --input epf_shadow_run_manifest.json \
   --output epf_shadow_run_manifest_contract_check.json
-~~~
+```
 
 ### Neutral absence mode
 
 Paradox summary:
 
-~~~bash
+```bash
 python PULSE_safe_pack_v0/tools/check_epf_paradox_summary_contract.py \
   --input epf_paradox_summary.json \
   --if-input-present
-~~~
+```
 
 Run manifest:
 
-~~~bash
+```bash
 python PULSE_safe_pack_v0/tools/check_epf_shadow_run_manifest_contract.py \
   --input epf_shadow_run_manifest.json \
   --if-input-present
-~~~
+```
 
 ### Interpretation
 
-- ok: true → the artifact matches its current EPF contract  
-- ok: false → the artifact shape or semantics drifted  
-- neutral: true → only for missing-input handling  
+- `ok: true` means the artifact matches its current EPF contract
+- `ok: false` means the artifact shape or semantics drifted
+- `neutral: true` is only for missing-input neutral absence handling
 
-Use the summary checker for disagreement-surface validation.  
+Use the summary checker for disagreement-surface validation.
 
 Use the run-manifest checker for broader EPF branch/run-context validation.
 
@@ -406,6 +461,8 @@ Use:
 - `epf_report.txt`, when available
 - `epf_paradox_summary.json`
 - `epf_paradox_summary_contract_check.json`, when available
+- `epf_shadow_run_manifest.json`, when available
+- `epf_shadow_run_manifest_contract_check.json`, when available
 - the actual JSON artifacts
 - local command output, for local reproductions
 
@@ -434,6 +491,7 @@ Instead:
 - confirm the run was real enough
 - inspect the affected gate(s)
 - validate the summary artifact
+- validate the broader run manifest
 - classify the disagreement
 - decide whether this is:
   - just a shadow warning
@@ -444,7 +502,7 @@ Instead:
 If the disagreement is real, it is good input for topology /
 decision-field interpretation.
 
-It is **not an automatic release override**.
+It is **not** an automatic release override.
 
 For the full triage path, use:
 
@@ -461,7 +519,8 @@ Keep this boundary explicit:
 - deterministic archived artifacts carry the recorded baseline result
 - the EPF shadow path is diagnostic
 - the paradox summary artifact is descriptive
-- contract validation checks the summary surface, not release semantics
+- the run-manifest artifact is descriptive
+- contract validation checks these surfaces, not release semantics
 - policy changes belong in explicit contract / CI / workflow changes, not in shadow quick fixes
 
 That is what keeps EPF shadow useful without turning it into a hidden
@@ -479,6 +538,7 @@ Before you trust an EPF shadow result, confirm:
 - `status_baseline.json` is real enough for your comparison goal
 - `status_epf.json` is real enough for your comparison goal
 - `epf_paradox_summary.json` validates against the current contract
+- `epf_shadow_run_manifest.json` validates against the current contract
 - any reported disagreement is reproducible
 
 If those conditions are not met, fix the wiring first.
