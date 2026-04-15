@@ -38,6 +38,13 @@
       "severity": "error"
     }
   ],
+  "degraded_reasons": [
+    {
+      "code": "epf.shadow.run_manifest.synthetic_degraded_state",
+      "message": "This fixture declares a degraded overall state in order to isolate the non-real branch requirement.",
+      "severity": "warn"
+    }
+  ],
   "payload": {
     "command_rcs": {
       "deps_rc": "0",
