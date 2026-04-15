@@ -91,6 +91,19 @@ def test_real_zero_changed_wrong_verdict_fixture_fails() -> None:
     )
 
 
+def test_same_status_paths_fixture_fails() -> None:
+    result = _run(FIXTURES / "same_status_paths.json")
+    assert result.returncode == 1, result.stdout + result.stderr
+
+    payload = _stdout_json(result)
+    assert payload["ok"] is False
+    assert any(
+        issue["path"] == "payload.artifacts"
+        and "baseline_status_path and epf_status_path must differ" in issue["message"]
+        for issue in payload["errors"]
+    )
+
+
 def test_missing_input_is_neutral_with_if_input_present() -> None:
     result = _run(FIXTURES / "does_not_exist.json", "--if-input-present")
     assert result.returncode == 0, result.stdout + result.stderr
@@ -111,25 +124,6 @@ def test_missing_input_fails_without_if_input_present() -> None:
     assert payload["ok"] is False
     assert payload["neutral"] is False
     assert any(issue["path"] == "input" for issue in payload["errors"])
-
-
-def test_baseline_and_epf_status_paths_must_differ(tmp_path: Path) -> None:
-    fixture = _load_fixture("pass.json")
-    fixture["payload"]["artifacts"]["epf_status_path"] = fixture["payload"]["artifacts"]["baseline_status_path"]
-
-    path = tmp_path / "same_status_paths.json"
-    _write_json(path, fixture)
-
-    result = _run(path)
-    assert result.returncode == 1, result.stdout + result.stderr
-
-    payload = _stdout_json(result)
-    assert payload["ok"] is False
-    assert any(
-        issue["path"] == "payload.artifacts"
-        and "baseline_status_path and epf_status_path must differ" in issue["message"]
-        for issue in payload["errors"]
-    )
 
 
 def test_source_artifacts_must_cover_payload_artifacts(tmp_path: Path) -> None:
