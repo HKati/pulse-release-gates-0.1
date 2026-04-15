@@ -20,14 +20,6 @@ def _stdout_json(result: subprocess.CompletedProcess[str]) -> dict[str, Any]:
     return json.loads(result.stdout)
 
 
-def _load_fixture(name: str) -> dict[str, Any]:
-    return json.loads((FIXTURES / name).read_text(encoding="utf-8"))
-
-
-def _write_json(path: Path, payload: dict[str, Any]) -> None:
-    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-
-
 def test_pass_fixture_is_valid() -> None:
     result = _run(FIXTURES / "pass.json")
     assert result.returncode == 0, result.stdout + result.stderr
@@ -117,6 +109,19 @@ def test_missing_epf_report_source_artifact_fixture_fails() -> None:
     )
 
 
+def test_invalid_overall_without_invalid_branch_fixture_fails() -> None:
+    result = _run(FIXTURES / "invalid_overall_without_invalid_branch.json")
+    assert result.returncode == 1, result.stdout + result.stderr
+
+    payload = _stdout_json(result)
+    assert payload["ok"] is False
+    assert any(
+        issue["path"] == "payload.branch_states"
+        and "at least one branch must be invalid" in issue["message"]
+        for issue in payload["errors"]
+    )
+
+
 def test_missing_input_is_neutral_with_if_input_present() -> None:
     result = _run(FIXTURES / "does_not_exist.json", "--if-input-present")
     assert result.returncode == 0, result.stdout + result.stderr
@@ -137,25 +142,3 @@ def test_missing_input_fails_without_if_input_present() -> None:
     assert payload["ok"] is False
     assert payload["neutral"] is False
     assert any(issue["path"] == "input" for issue in payload["errors"])
-
-
-def test_invalid_overall_state_requires_invalid_branch(tmp_path: Path) -> None:
-    fixture = _load_fixture("pass.json")
-    fixture["run_reality_state"] = "invalid"
-    fixture["verdict"] = "invalid"
-    fixture["payload"]["branch_states"]["baseline_state"] = "real"
-    fixture["payload"]["branch_states"]["epf_state"] = "real"
-
-    path = tmp_path / "invalid_overall_without_invalid_branch.json"
-    _write_json(path, fixture)
-
-    result = _run(path)
-    assert result.returncode == 1, result.stdout + result.stderr
-
-    payload = _stdout_json(result)
-    assert payload["ok"] is False
-    assert any(
-        issue["path"] == "payload.branch_states"
-        and "at least one branch must be invalid" in issue["message"]
-        for issue in payload["errors"]
-    )
