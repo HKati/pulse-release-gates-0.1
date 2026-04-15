@@ -104,6 +104,19 @@ def test_same_status_paths_fixture_fails() -> None:
     )
 
 
+def test_missing_epf_report_source_artifact_fixture_fails() -> None:
+    result = _run(FIXTURES / "missing_epf_report_source_artifact.json")
+    assert result.returncode == 1, result.stdout + result.stderr
+
+    payload = _stdout_json(result)
+    assert payload["ok"] is False
+    assert any(
+        issue["path"] == "source_artifacts"
+        and "epf_report.txt" in issue["message"]
+        for issue in payload["errors"]
+    )
+
+
 def test_missing_input_is_neutral_with_if_input_present() -> None:
     result = _run(FIXTURES / "does_not_exist.json", "--if-input-present")
     assert result.returncode == 0, result.stdout + result.stderr
@@ -124,29 +137,6 @@ def test_missing_input_fails_without_if_input_present() -> None:
     assert payload["ok"] is False
     assert payload["neutral"] is False
     assert any(issue["path"] == "input" for issue in payload["errors"])
-
-
-def test_source_artifacts_must_cover_payload_artifacts(tmp_path: Path) -> None:
-    fixture = _load_fixture("pass.json")
-    fixture["source_artifacts"] = [
-        item
-        for item in fixture["source_artifacts"]
-        if item["path"] != "epf_report.txt"
-    ]
-
-    path = tmp_path / "missing_epf_report_source_artifact.json"
-    _write_json(path, fixture)
-
-    result = _run(path)
-    assert result.returncode == 1, result.stdout + result.stderr
-
-    payload = _stdout_json(result)
-    assert payload["ok"] is False
-    assert any(
-        issue["path"] == "source_artifacts"
-        and "epf_report.txt" in issue["message"]
-        for issue in payload["errors"]
-    )
 
 
 def test_invalid_overall_state_requires_invalid_branch(tmp_path: Path) -> None:
