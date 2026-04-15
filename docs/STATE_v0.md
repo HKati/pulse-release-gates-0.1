@@ -197,28 +197,64 @@ It is now a fully implemented and contract-disciplined shadow pilot.
 
 ---
 
-## 8. EPF line: broader research path, narrower hardened summary surface
+## 8. EPF line: broader research path, primary run-manifest surface, secondary hardened summary surface
 
 The broader EPF line remains **research-stage** and diagnostic.
 
-That is still the right top-level classification.
+That is still the correct top-level classification.
 
-However, the current `epf_paradox_summary.json` surface is now
-contract-hardened.
+However, the EPF line now has **two** contract-relevant artifact surfaces.
+
+### Primary registered EPF surface
+
+The current primary machine-registered EPF surface is:
+
+- `epf_shadow_run_manifest.json`
+
+Current primary-surface hardening includes:
+
+- `schemas/epf_shadow_run_manifest_v0.schema.json`
+- `PULSE_safe_pack_v0/tools/check_epf_shadow_run_manifest_contract.py`
+- canonical positive and negative fixtures under:
+  - `tests/fixtures/epf_shadow_run_manifest_v0/`
+- `tests/test_check_epf_shadow_run_manifest_contract.py`
+- workflow-level production and validation in:
+  - `.github/workflows/epf_experiment.yml`
+- machine-registration in:
+  - `shadow_layer_registry_v0.yml`
+
+This primary surface records:
+
+- broader EPF run context
+- branch states
+- source artifact references
+- comparison counters
+- overall `run_reality_state`
+- manifest-level `verdict`
+
+### Secondary contract-hardened diagnostic surface
+
+The current secondary EPF surface is:
+
+- `epf_paradox_summary.json`
 
 Current summary-surface hardening includes:
 
 - `schemas/epf_paradox_summary_v0.schema.json`
 - `PULSE_safe_pack_v0/tools/check_epf_paradox_summary_contract.py`
-- canonical positive and negative fixtures
+- canonical positive and negative fixtures under:
+  - `tests/fixtures/epf_paradox_summary_v0/`
 - `tests/test_check_epf_paradox_summary_contract.py`
-- workflow-level validation in `.github/workflows/epf_experiment.yml`
-- machine-registration in `shadow_layer_registry_v0.yml`
+- workflow-level production and validation in:
+  - `.github/workflows/epf_experiment.yml`
+
+This secondary surface summarizes disagreement output at the comparison level.
 
 So the correct current reading is:
 
 - **broader EPF line** → research diagnostic
-- **current paradox summary surface** → contract-hardened, non-normative summary artifact
+- **primary registered EPF surface** → broader run-manifest, non-normative
+- **secondary EPF surface** → contract-hardened paradox summary, non-normative
 
 This distinction matters.
 
