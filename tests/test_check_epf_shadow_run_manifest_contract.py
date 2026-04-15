@@ -122,6 +122,19 @@ def test_invalid_overall_without_invalid_branch_fixture_fails() -> None:
     )
 
 
+def test_degraded_without_nonreal_branch_fixture_fails() -> None:
+    result = _run(FIXTURES / "degraded_without_nonreal_branch.json")
+    assert result.returncode == 1, result.stdout + result.stderr
+
+    payload = _stdout_json(result)
+    assert payload["ok"] is False
+    assert any(
+        issue["path"] == "payload.branch_states"
+        and "at least one branch must be non-real" in issue["message"]
+        for issue in payload["errors"]
+    )
+
+
 def test_missing_input_is_neutral_with_if_input_present() -> None:
     result = _run(FIXTURES / "does_not_exist.json", "--if-input-present")
     assert result.returncode == 0, result.stdout + result.stderr
