@@ -78,6 +78,19 @@ def test_example_count_exceeds_changed_fixture_fails() -> None:
     )
 
 
+def test_real_zero_changed_wrong_verdict_fixture_fails() -> None:
+    result = _run(FIXTURES / "real_zero_changed_wrong_verdict.json")
+    assert result.returncode == 1, result.stdout + result.stderr
+
+    payload = _stdout_json(result)
+    assert payload["ok"] is False
+    assert any(
+        issue["path"] == "verdict"
+        and "must use verdict='pass' when changed=0" in issue["message"]
+        for issue in payload["errors"]
+    )
+
+
 def test_missing_input_is_neutral_with_if_input_present() -> None:
     result = _run(FIXTURES / "does_not_exist.json", "--if-input-present")
     assert result.returncode == 0, result.stdout + result.stderr
@@ -98,25 +111,6 @@ def test_missing_input_fails_without_if_input_present() -> None:
     assert payload["ok"] is False
     assert payload["neutral"] is False
     assert any(issue["path"] == "input" for issue in payload["errors"])
-
-
-def test_real_run_with_zero_changed_requires_pass_verdict(tmp_path: Path) -> None:
-    fixture = _load_fixture("pass.json")
-    fixture["verdict"] = "warn"
-
-    path = tmp_path / "real_zero_changed_wrong_verdict.json"
-    _write_json(path, fixture)
-
-    result = _run(path)
-    assert result.returncode == 1, result.stdout + result.stderr
-
-    payload = _stdout_json(result)
-    assert payload["ok"] is False
-    assert any(
-        issue["path"] == "verdict"
-        and "must use verdict='pass' when changed=0" in issue["message"]
-        for issue in payload["errors"]
-    )
 
 
 def test_baseline_and_epf_status_paths_must_differ(tmp_path: Path) -> None:
