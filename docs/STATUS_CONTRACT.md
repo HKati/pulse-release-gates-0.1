@@ -258,6 +258,37 @@ Non-goals:
 - no promotion
 - no overall decision change
 
+---
+
+### Not every machine-registered shadow layer folds into the final status
+
+Current counter-example:
+
+- `epf_shadow_experiment_v0`
+
+The broader EPF line is machine-registered, but its current contract
+surfaces remain external to the final normative status artifact.
+
+Current EPF surfaces:
+
+- primary registered surface:
+  - `epf_shadow_run_manifest.json`
+- secondary contract-hardened diagnostic surface:
+  - `epf_paradox_summary.json`
+
+Interpretation rule:
+
+- the absence of an EPF-specific `meta.*` block in the final `status.json`
+  is currently expected
+- that absence must not be interpreted as failure
+- those EPF artifact surfaces remain descriptive and diagnostic only
+- they do not change the normative authority of:
+  - `status.json["gates"]`
+  - the materialized required gate set
+  - `check_gates.py`
+
+If a future EPF fold-in surface is added to `status.json`, it should be
+documented explicitly as an additive, non-normative status surface.
 
 ---
 
