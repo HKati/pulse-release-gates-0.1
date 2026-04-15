@@ -303,6 +303,7 @@ Current canonical positive fixtures:
 ```text
 tests/fixtures/epf_shadow_run_manifest_v0/pass.json
 tests/fixtures/epf_shadow_run_manifest_v0/degraded.json
+tests/fixtures/epf_shadow_run_manifest_v0/stub.json
 ```
 
 Current canonical negative fixtures include:
@@ -345,8 +346,8 @@ including:
 - the run manifest surface captures run context, branch states,
   referenced artifacts, and comparison counters
 
-Its fixture set now includes both valid real/degraded examples and
-targeted negative cases for verdict consistency, counter consistency,
+Its fixture set now includes valid real, degraded, and stub examples,
+plus targeted negative cases for verdict consistency, counter consistency,
 artifact-path separation, source-artifact coverage, and branch-state
 consistency.
 
