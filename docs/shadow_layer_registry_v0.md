@@ -238,6 +238,7 @@ Primary registered surface:
 - `PULSE_safe_pack_v0/tools/check_epf_shadow_run_manifest_contract.py`
 - `tests/fixtures/epf_shadow_run_manifest_v0/pass.json`
 - `tests/fixtures/epf_shadow_run_manifest_v0/degraded.json`
+- `tests/fixtures/epf_shadow_run_manifest_v0/stub.json`
 - `tests/fixtures/epf_shadow_run_manifest_v0/changed_without_warn.json`
 - `tests/fixtures/epf_shadow_run_manifest_v0/changed_exceeds_total_gates.json`
 - `tests/fixtures/epf_shadow_run_manifest_v0/example_count_exceeds_changed.json`
