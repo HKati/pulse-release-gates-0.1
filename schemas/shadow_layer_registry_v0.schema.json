@@ -125,7 +125,15 @@
         "semantic_checker": {
           "$ref": "#/$defs/path_string"
         },
-        "fixtures": {
+        "valid_fixtures": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/path_string"
+          }
+        },
+        "invalid_fixtures": {
           "type": "array",
           "minItems": 1,
           "uniqueItems": true,
@@ -186,7 +194,7 @@
               "primary_artifact",
               "schema",
               "semantic_checker",
-              "fixtures",
+              "valid_fixtures",
               "tests"
             ]
           }
