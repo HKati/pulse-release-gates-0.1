@@ -82,6 +82,8 @@ LAYER_ALLOWED = LAYER_REQUIRED | {
     "schema",
     "semantic_checker",
     "fixtures",
+    "valid_fixtures",
+    "invalid_fixtures",
     "tests",
     "promotion_blockers",
 }
@@ -416,7 +418,48 @@ def validate_shadow_layer_registry(obj: Any) -> dict[str, Any]:
                         errors=errors,
                         must_exist=True,
                     )
+            valid_fixtures: list[str] | None = None
+        invalid_fixtures: list[str] | None = None
 
+        if "valid_fixtures" in layer:
+            valid_fixtures = _validate_non_empty_string_array(
+                layer.get("valid_fixtures"),
+                path=f"{path_prefix}.valid_fixtures",
+                errors=errors,
+            )
+            if valid_fixtures is not None:
+                for fixture_idx, fixture in enumerate(valid_fixtures):
+                    _validate_repo_relative_path(
+                        fixture,
+                        path=f"{path_prefix}.valid_fixtures[{fixture_idx}]",
+                        errors=errors,
+                        must_exist=True,
+                    )
+
+        if "invalid_fixtures" in layer:
+            invalid_fixtures = _validate_non_empty_string_array(
+                layer.get("invalid_fixtures"),
+                path=f"{path_prefix}.invalid_fixtures",
+                errors=errors,
+            )
+            if invalid_fixtures is not None:
+                for fixture_idx, fixture in enumerate(invalid_fixtures):
+                    _validate_repo_relative_path(
+                        fixture,
+                        path=f"{path_prefix}.invalid_fixtures[{fixture_idx}]",
+                        errors=errors,
+                        must_exist=True,
+                    )
+
+        if valid_fixtures is not None and invalid_fixtures is not None:
+            overlap = sorted(set(valid_fixtures) & set(invalid_fixtures))
+            for item in overlap:
+                _add_issue(
+                    errors,
+                    f"{path_prefix}.invalid_fixtures",
+                    f"fixture must not appear in both valid_fixtures and invalid_fixtures: {item}",
+                )
+        
         if "tests" in layer:
             tests = _validate_non_empty_string_array(
                 layer.get("tests"),
@@ -459,7 +502,6 @@ def validate_shadow_layer_registry(obj: Any) -> dict[str, Any]:
                 "primary_artifact",
                 "schema",
                 "semantic_checker",
-                "fixtures",
                 "tests",
             ):
                 if required_field not in layer:
@@ -469,6 +511,13 @@ def validate_shadow_layer_registry(obj: Any) -> dict[str, Any]:
                         f"{required_field} is required when current_stage is {current_stage_s}",
                     )
 
+                    if "fixtures" not in layer and "valid_fixtures" not in layer:
+                _add_issue(
+                    errors,
+                    f"{path_prefix}.valid_fixtures",
+                    f"fixtures or valid_fixtures is required when current_stage is {current_stage_s}",
+                )
+        
         if normative is True and current_stage_s != "release-required":
             _add_issue(
                 errors,
