@@ -56,6 +56,21 @@ def test_stub_fixture_is_valid() -> None:
     assert payload["verdict"] == "warn"
 
 
+def test_partial_fixture_is_valid() -> None:
+    result = _run(FIXTURES / "partial.json")
+    assert result.returncode == 0, result.stdout + result.stderr
+
+    payload = _stdout_json(result)
+    assert payload["ok"] is True
+    assert payload["neutral"] is False
+    assert payload["artifact_version"] == "epf_shadow_run_manifest_v0"
+    assert payload["run_reality_state"] == "partial"
+    assert payload["verdict"] == "warn"
+
+
+def test_changed_without_warn_fixture_fails() -> None:
+
+
 def test_changed_without_warn_fixture_fails() -> None:
     result = _run(FIXTURES / "changed_without_warn.json")
     assert result.returncode == 1, result.stdout + result.stderr
