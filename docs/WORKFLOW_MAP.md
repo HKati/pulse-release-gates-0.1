@@ -70,24 +70,22 @@ Current registry stack:
 - `tests/test_check_shadow_layer_registry.py`
 
 Current canonical registry fixture:
-
 - `tests/fixtures/shadow_layer_registry_v0/pass.json`
 
-Current registered layer:
-
+Current registered layers:
 - `relational_gain_shadow`
+- `epf_shadow_experiment_v0`
 
 Boundary:
-
 - registry validation is descriptive and governance-facing
 - it does not change release semantics
 - it does not promote a layer by registry presence alone
 - it does not create normative authority
 
-Current relation to Relational Gain:
-
-- the registry currently tracks the contract-hardened Relational Gain shadow pilot
-- the dedicated registry workflow also watches the currently referenced Relational Gain surfaces
+Current registry coverage:
+- the registry tracks the contract-hardened Relational Gain shadow pilot
+- the registry also tracks the EPF shadow experiment line as a research diagnostic layer
+- for EPF, the primary registered surface is the broader run manifest rather than the paradox summary
 
 ### C. Shadow / diagnostic workflows
 **Purpose:** extra diagnostics, research layers, or explanatory surfaces
@@ -119,10 +117,9 @@ Current workflow-emitted artifacts:
 - `epf_shadow_run_manifest.json`
 
 Current primary registered EPF surface:
-
 - `schemas/epf_shadow_run_manifest_v0.schema.json`
 - `PULSE_safe_pack_v0/tools/check_epf_shadow_run_manifest_contract.py`
-- `tests/fixtures/epf_shadow_run_manifest_v0/pass.json`
+- canonical positive fixtures under `tests/fixtures/epf_shadow_run_manifest_v0/` (`pass`, `degraded`, `stub`, `partial`)
 - `tests/test_check_epf_shadow_run_manifest_contract.py`
 
 Current secondary contract-hardened diagnostic surface:
