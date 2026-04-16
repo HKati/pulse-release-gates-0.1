@@ -347,10 +347,7 @@ including:
 - the run manifest surface captures run context, branch states,
   referenced artifacts, and comparison counters
 
-Its fixture set now includes valid real, degraded, and stub examples,
-plus targeted negative cases for verdict consistency, counter consistency,
-artifact-path separation, source-artifact coverage, and branch-state
-consistency.
+Its fixture set now includes valid real, degraded, stub, and partial examples,
 
 Both remain diagnostic and non-normative.
 
