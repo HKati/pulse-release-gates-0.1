@@ -496,7 +496,7 @@ def validate_shadow_layer_registry(obj: Any) -> dict[str, Any]:
         if not _is_non_empty_str(layer.get("notes")):
             _add_issue(errors, f"{path_prefix}.notes", "notes must be a non-empty string")
 
-        if current_stage_s in HIGHER_STAGES:
+                if current_stage_s in HIGHER_STAGES:
             for required_field in (
                 "primary_entrypoint",
                 "primary_artifact",
@@ -511,7 +511,7 @@ def validate_shadow_layer_registry(obj: Any) -> dict[str, Any]:
                         f"{required_field} is required when current_stage is {current_stage_s}",
                     )
 
-                    if "fixtures" not in layer and "valid_fixtures" not in layer:
+            if "fixtures" not in layer and "valid_fixtures" not in layer:
                 _add_issue(
                     errors,
                     f"{path_prefix}.valid_fixtures",
