@@ -27,7 +27,7 @@
 
 # PULSE — Release Gates for Safe & Useful AI
 
-#### AI Release Stability Engineering
+#### [PULSE is a deterministic, auditable decision layer for release governance, designed to run consistently across environments.](#start-here)
 
 > 💡 **Continuous expansion**
 >
@@ -1140,8 +1140,8 @@ CI wiring corresponding to the preprint.
 
 ## Acknowledgments
 
-This work used **ChatGPT (GPT‑ Pro)** for drafting support, CI workflow tips, and repo‑hygiene suggestions.  
-Human authors retain full responsibility for the design, verification, and decisions.
+PULSE is developed through human–machine collaboration, including ChatGPT support for drafting, CI workflow refinement, and repo-hygiene suggestions.
+Human authors retain full responsibility for the design, verification, and release decisions.
 
 ---
 
