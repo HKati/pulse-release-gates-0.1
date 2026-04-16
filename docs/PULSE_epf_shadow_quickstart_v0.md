@@ -304,6 +304,7 @@ Current canonical positive fixtures:
 tests/fixtures/epf_shadow_run_manifest_v0/pass.json
 tests/fixtures/epf_shadow_run_manifest_v0/degraded.json
 tests/fixtures/epf_shadow_run_manifest_v0/stub.json
+tests/fixtures/epf_shadow_run_manifest_v0/partial.json
 ```
 
 Current canonical negative fixtures include:
