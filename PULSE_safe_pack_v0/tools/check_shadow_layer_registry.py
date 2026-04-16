@@ -404,6 +404,10 @@ def validate_shadow_layer_registry(obj: Any) -> dict[str, Any]:
                 must_exist=True,
             )
 
+        fixtures: list[str] | None = None
+        valid_fixtures: list[str] | None = None
+        invalid_fixtures: list[str] | None = None
+
         if "fixtures" in layer:
             fixtures = _validate_non_empty_string_array(
                 layer.get("fixtures"),
@@ -418,8 +422,6 @@ def validate_shadow_layer_registry(obj: Any) -> dict[str, Any]:
                         errors=errors,
                         must_exist=True,
                     )
-            valid_fixtures: list[str] | None = None
-        invalid_fixtures: list[str] | None = None
 
         if "valid_fixtures" in layer:
             valid_fixtures = _validate_non_empty_string_array(
@@ -459,7 +461,7 @@ def validate_shadow_layer_registry(obj: Any) -> dict[str, Any]:
                     f"{path_prefix}.invalid_fixtures",
                     f"fixture must not appear in both valid_fixtures and invalid_fixtures: {item}",
                 )
-        
+
         if "tests" in layer:
             tests = _validate_non_empty_string_array(
                 layer.get("tests"),
@@ -496,7 +498,7 @@ def validate_shadow_layer_registry(obj: Any) -> dict[str, Any]:
         if not _is_non_empty_str(layer.get("notes")):
             _add_issue(errors, f"{path_prefix}.notes", "notes must be a non-empty string")
 
-                if current_stage_s in HIGHER_STAGES:
+        if current_stage_s in HIGHER_STAGES:
             for required_field in (
                 "primary_entrypoint",
                 "primary_artifact",
@@ -517,7 +519,7 @@ def validate_shadow_layer_registry(obj: Any) -> dict[str, Any]:
                     f"{path_prefix}.valid_fixtures",
                     f"fixtures or valid_fixtures is required when current_stage is {current_stage_s}",
                 )
-        
+
         if normative is True and current_stage_s != "release-required":
             _add_issue(
                 errors,
