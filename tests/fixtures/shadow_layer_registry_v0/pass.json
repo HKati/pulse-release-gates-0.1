@@ -1,33 +1,67 @@
-{
-  "version": "shadow_layer_registry_v0",
-  "layers": [
-    {
-      "layer_id": "relational_gain_shadow",
-      "family": "relation-dynamics",
-      "current_stage": "shadow-contracted",
-      "target_stage": "advisory",
-      "default_role": "shadow diagnostic",
-      "consumer_authority": "review-only",
-      "primary_entrypoint": ".github/workflows/relational_gain_shadow.yml",
-      "primary_artifact": "PULSE_safe_pack_v0/artifacts/relational_gain_shadow_v0.json",
-      "status_foldin": "meta.relational_gain_shadow",
-      "schema": "schemas/relational_gain_shadow_v0.schema.json",
-      "semantic_checker": "PULSE_safe_pack_v0/tools/check_relational_gain_contract.py",
-      "fixtures": [
-        "tests/fixtures/relational_gain_shadow_v0/pass.json",
-        "tests/fixtures/relational_gain_shadow_v0/warn.json",
-        "tests/fixtures/relational_gain_shadow_v0/fail.json"
-      ],
-      "tests": [
-        "tests/test_check_relational_gain_contract.py",
-        "tests/test_relational_gain_non_interference.py"
-      ],
-      "run_reality_states": [
-        "real",
-        "absent"
-      ],
-      "normative": false,
-      "notes": "Shadow-only. Contract-hardened. Must not write under gates.*."
-    }
-  ]
-}
+version: "shadow_layer_registry_v0"
+
+layers:
+  - layer_id: relational_gain_shadow
+    family: relation-dynamics
+    current_stage: shadow-contracted
+    target_stage: advisory
+    default_role: shadow diagnostic
+    consumer_authority: review-only
+    primary_entrypoint: .github/workflows/relational_gain_shadow.yml
+    primary_artifact: PULSE_safe_pack_v0/artifacts/relational_gain_shadow_v0.json
+    status_foldin: meta.relational_gain_shadow
+    schema: schemas/relational_gain_shadow_v0.schema.json
+    semantic_checker: PULSE_safe_pack_v0/tools/check_relational_gain_contract.py
+    valid_fixtures:
+      - tests/fixtures/relational_gain_shadow_v0/pass.json
+      - tests/fixtures/relational_gain_shadow_v0/warn.json
+      - tests/fixtures/relational_gain_shadow_v0/fail.json
+    tests:
+      - tests/test_check_relational_gain_contract.py
+      - tests/test_relational_gain_non_interference.py
+    run_reality_states:
+      - real
+      - absent
+    normative: false
+    notes: Shadow-only. Contract-hardened. Must not write under gates.*.
+
+  - layer_id: epf_shadow_experiment_v0
+    family: epf-shadow
+    current_stage: research
+    target_stage: shadow-contracted
+    default_role: research diagnostic
+    consumer_authority: review-only
+    owner_surface:
+      - docs
+      - workflow
+      - tool
+    primary_entrypoint: .github/workflows/epf_experiment.yml
+    primary_artifact: epf_shadow_run_manifest.json
+    schema: schemas/epf_shadow_run_manifest_v0.schema.json
+    semantic_checker: PULSE_safe_pack_v0/tools/check_epf_shadow_run_manifest_contract.py
+    valid_fixtures:
+      - tests/fixtures/epf_shadow_run_manifest_v0/pass.json
+      - tests/fixtures/epf_shadow_run_manifest_v0/degraded.json
+      - tests/fixtures/epf_shadow_run_manifest_v0/stub.json
+      - tests/fixtures/epf_shadow_run_manifest_v0/partial.json
+    invalid_fixtures:
+      - tests/fixtures/epf_shadow_run_manifest_v0/changed_without_warn.json
+      - tests/fixtures/epf_shadow_run_manifest_v0/changed_exceeds_total_gates.json
+      - tests/fixtures/epf_shadow_run_manifest_v0/example_count_exceeds_changed.json
+      - tests/fixtures/epf_shadow_run_manifest_v0/real_zero_changed_wrong_verdict.json
+      - tests/fixtures/epf_shadow_run_manifest_v0/same_status_paths.json
+      - tests/fixtures/epf_shadow_run_manifest_v0/missing_epf_report_source_artifact.json
+      - tests/fixtures/epf_shadow_run_manifest_v0/invalid_overall_without_invalid_branch.json
+      - tests/fixtures/epf_shadow_run_manifest_v0/degraded_without_nonreal_branch.json
+    tests:
+      - tests/test_check_epf_shadow_run_manifest_contract.py
+      - tests/test_check_epf_paradox_summary_contract.py
+    run_reality_states:
+      - real
+      - partial
+      - stub
+      - degraded
+      - invalid
+      - absent
+    normative: false
+    notes: Research/shadow diagnostic. The broader EPF line remains non-normative. The primary registered surface is now the EPF shadow run manifest; the paradox summary remains a contract-hardened secondary diagnostic artifact.
