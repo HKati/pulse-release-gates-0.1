@@ -212,26 +212,26 @@ Each contracted shadow layer must have at least one end-to-end test proving:
 
 If that proof is missing, the layer is not promotion-ready.
 
-### 10. Fixture matrix
+### 10.
+Fixture matrix
 
-Each layer must have fixtures for at least:
-
-- pass / healthy case,
-- warn / tension case,
-- fail / invalid case,
+Each layer must have a fixture matrix that distinguishes, when relevant:
+- valid fixtures (healthy, warn/tension, or other contract-valid states),
+- invalid fixtures (contract-breaking or consistency-failing cases),
 - absent case,
 - stale fold-in case when fold-in exists,
 - version mismatch case,
 - and duplicate / ambiguity case when the layer reads more than one source shape.
 
+The exact split may differ by layer, but contracted shadow surfaces should make valid and invalid fixture roles explicit where machine-readable registry surfaces track them separately.
+
 ### 11. Change discipline
 
 Any semantic change to a contracted shadow layer must update in the same change set:
-
 - the docs,
 - the schema,
 - the checker,
-- the fixtures,
+- the fixture matrix (including valid / invalid fixture roles where applicable),
 - and the workflow contract if workflow behavior changed.
 
 ---
@@ -367,6 +367,10 @@ primary_artifact: PULSE_safe_pack_v0/artifacts/relational_gain_shadow_v0.json
 status_foldin: meta.relational_gain_shadow
 schema: schemas/relational_gain_shadow_v0.schema.json
 semantic_checker: PULSE_safe_pack_v0/tools/check_relational_gain_contract.py
+valid_fixtures:
+  - tests/fixtures/example/pass.json
+invalid_fixtures:
+  - tests/fixtures/example/invalid.json
 run_reality_states: [real, absent]
 consumer_authority: review-only
 non_interference_test: tests/test_relational_gain_non_interference.py
