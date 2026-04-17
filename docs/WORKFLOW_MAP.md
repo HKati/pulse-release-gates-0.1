@@ -59,11 +59,9 @@ If you are opening this repository for the first time, use this order:
 #### Shadow layer registry workflow
 
 **Workflow:** `.github/workflows/shadow_layer_registry.yml`
-
 **Purpose:** validate the machine-readable shadow layer registry surface.
 
 Current registry stack:
-
 - `shadow_layer_registry_v0.yml`
 - `schemas/shadow_layer_registry_v0.schema.json`
 - `PULSE_safe_pack_v0/tools/check_shadow_layer_registry.py`
@@ -85,7 +83,7 @@ Boundary:
 Current registry coverage:
 - the registry tracks the contract-hardened Relational Gain shadow pilot
 - the registry also tracks the EPF shadow experiment line as a research diagnostic layer
-- for EPF, the primary registered surface is the broader run manifest rather than the paradox summary
+- the registry now uses explicit fixture-role buckets (`valid_fixtures` / `invalid_fixtures`) with `fixtures` retained as a transitional alias
 
 ### C. Shadow / diagnostic workflows
 **Purpose:** extra diagnostics, research layers, or explanatory surfaces
@@ -103,45 +101,39 @@ Current registry coverage:
 #### EPF experiment (shadow)
 
 **Workflow:** `.github/workflows/epf_experiment.yml`
-
-**Purpose:** compare the deterministic baseline read and the EPF shadow
-read over the same common input, archive the disagreement summary, and
-record the broader EPF run context.
+**Purpose:** compare the deterministic baseline read and the EPF shadow read
+over the same common input, then archive diagnostic disagreement artifacts.
 
 Current workflow-emitted artifacts:
-
 - `status_baseline.json`
 - `status_epf.json`
 - `epf_report.txt`
-- `epf_paradox_summary.json`
 - `epf_shadow_run_manifest.json`
+- `epf_paradox_summary.json`
 
 Current primary registered EPF surface:
 - `schemas/epf_shadow_run_manifest_v0.schema.json`
 - `PULSE_safe_pack_v0/tools/check_epf_shadow_run_manifest_contract.py`
-- canonical positive fixtures under `tests/fixtures/epf_shadow_run_manifest_v0/` (`pass`, `degraded`, `stub`, `partial`)
+- canonical positive fixtures under `tests/fixtures/epf_shadow_run_manifest_v0/`
+  (`pass`, `degraded`, `stub`, `partial`)
 - `tests/test_check_epf_shadow_run_manifest_contract.py`
 
-Current secondary contract-hardened diagnostic surface:
-
+Current secondary contract-hardened summary surface:
 - `schemas/epf_paradox_summary_v0.schema.json`
 - `PULSE_safe_pack_v0/tools/check_epf_paradox_summary_contract.py`
 - `tests/fixtures/epf_paradox_summary_v0/pass.json`
 - `tests/test_check_epf_paradox_summary_contract.py`
 
 Boundary:
-
 - diagnostic / CI-neutral
 - does not change release semantics
 - does not override the recorded baseline release result
 - disagreement is inspection input, not automatic policy rewrite
 
 Current state:
-
 - the broader EPF line remains `research`
-- the primary machine-registered EPF surface is now the broader run manifest
-- the paradox summary remains a secondary contract-hardened diagnostic artifact
-- the workflow validates both produced EPF contract surfaces directly
+- the primary registered EPF surface is the broader run manifest
+- the paradox summary remains a contract-hardened secondary diagnostic artifact
 
 ### D. Publication / platform integration workflows
 **Purpose:** publication to GitHub-native or external-facing surfaces
