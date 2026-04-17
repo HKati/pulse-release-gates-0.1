@@ -51,6 +51,63 @@ def test_pass_fixture_is_valid() -> None:
     assert payload["registry_version"] == "shadow_layer_registry_v0"
     assert payload["layer_count"] == 1
 
+def test_legacy_fixtures_alias_is_still_valid(tmp_path: Path) -> None:
+    payload = json.loads((FIXTURES / "pass.json").read_text(encoding="utf-8"))
+    layer = payload["layers"][0]
+    layer["fixtures"] = layer.pop("valid_fixtures")
+
+    input_path = tmp_path / "legacy_fixtures_alias.json"
+    input_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+    result = _run(input_path)
+    assert result.returncode == 0, result.stdout + result.stderr
+
+    out = _stdout_json(result)
+    assert out["ok"] is True
+    assert out["neutral"] is False
+
+
+def test_overlapping_fixture_buckets_fail(tmp_path: Path) -> None:
+    payload = json.loads((FIXTURES / "pass.json").read_text(encoding="utf-8"))
+    layer = payload["layers"][0]
+    overlap_item = layer["valid_fixtures"][0]
+    layer["invalid_fixtures"] = [overlap_item]
+
+    input_path = tmp_path / "overlapping_fixture_buckets.json"
+    input_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+    result = _run(input_path)
+    assert result.returncode == 1, result.stdout + result.stderr
+
+    out = _stdout_json(result)
+    assert out["ok"] is False
+    assert any(
+        issue["path"] == "layers[0].invalid_fixtures"
+        and "both valid_fixtures and invalid_fixtures" in issue["message"]
+        for issue in out["errors"]
+    )
+
+
+def test_higher_stage_requires_fixtures_or_valid_fixtures(tmp_path: Path) -> None:
+    payload = json.loads((FIXTURES / "pass.json").read_text(encoding="utf-8"))
+    layer = payload["layers"][0]
+    layer.pop("valid_fixtures", None)
+    layer.pop("fixtures", None)
+
+    input_path = tmp_path / "missing_fixture_bucket.json"
+    input_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+    result = _run(input_path)
+    assert result.returncode == 1, result.stdout + result.stderr
+
+    out = _stdout_json(result)
+    assert out["ok"] is False
+    assert any(
+        issue["path"] == "layers[0].valid_fixtures"
+        and "fixtures or valid_fixtures is required" in issue["message"]
+        for issue in out["errors"]
+    )
+
 
 def test_missing_input_is_neutral_with_if_input_present() -> None:
     result = _run(FIXTURES / "does_not_exist.json", "--if-input-present")
