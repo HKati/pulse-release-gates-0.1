@@ -462,6 +462,19 @@ def validate_shadow_layer_registry(obj: Any) -> dict[str, Any]:
                     f"fixture must not appear in both valid_fixtures and invalid_fixtures: {item}",
                 )
 
+        if "fixtures" in layer and "valid_fixtures" in layer:
+            _add_issue(
+                errors,
+                f"{path_prefix}.valid_fixtures",
+                "fixtures and valid_fixtures must not be used together",
+            )
+        elif "fixtures" in layer:
+            _add_issue(
+                warnings,
+                f"{path_prefix}.fixtures",
+                "fixtures is a transitional alias; prefer valid_fixtures",
+            )
+        
         if "tests" in layer:
             tests = _validate_non_empty_string_array(
                 layer.get("tests"),
