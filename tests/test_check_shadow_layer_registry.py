@@ -65,7 +65,31 @@ def test_legacy_fixtures_alias_is_still_valid(tmp_path: Path) -> None:
     out = _stdout_json(result)
     assert out["ok"] is True
     assert out["neutral"] is False
+    assert any(
+        issue["path"] == "layers[0].fixtures"
+        and "transitional alias" in issue["message"]
+        for issue in out["warnings"]
+    )
 
+
+def test_fixtures_and_valid_fixtures_together_fail(tmp_path: Path) -> None:
+    payload = json.loads((FIXTURES / "pass.json").read_text(encoding="utf-8"))
+    layer = payload["layers"][0]
+    layer["fixtures"] = list(layer["valid_fixtures"])
+
+    input_path = tmp_path / "fixtures_and_valid_fixtures_together.json"
+    input_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+    result = _run(input_path)
+    assert result.returncode == 1, result.stdout + result.stderr
+
+    out = _stdout_json(result)
+    assert out["ok"] is False
+    assert any(
+        issue["path"] == "layers[0].valid_fixtures"
+        and "must not be used together" in issue["message"]
+        for issue in out["errors"]
+    )
 
 def test_overlapping_fixture_buckets_fail(tmp_path: Path) -> None:
     payload = json.loads((FIXTURES / "pass.json").read_text(encoding="utf-8"))
