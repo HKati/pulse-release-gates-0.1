@@ -40,12 +40,11 @@ the required gate set.
 Relational Gain v0 is now a **contract-hardened shadow-only** module.
 
 Current hardening surface:
-
 - schema:
   - `../schemas/relational_gain_shadow_v0.schema.json`
 - contract checker:
   - `../PULSE_safe_pack_v0/tools/check_relational_gain_contract.py`
-- canonical fixtures:
+- canonical valid fixtures:
   - `../tests/fixtures/relational_gain_shadow_v0/pass.json`
   - `../tests/fixtures/relational_gain_shadow_v0/warn.json`
   - `../tests/fixtures/relational_gain_shadow_v0/fail.json`
@@ -72,16 +71,16 @@ The current `epf_paradox_summary.json` surface remains a **secondary
 contract-hardened diagnostic artifact**.
 
 Current primary hardening surface:
-
 - schema:
   - `../schemas/epf_shadow_run_manifest_v0.schema.json`
 - contract checker:
   - `../PULSE_safe_pack_v0/tools/check_epf_shadow_run_manifest_contract.py`
-- canonical fixtures:
+- canonical valid fixtures:
   - `../tests/fixtures/epf_shadow_run_manifest_v0/pass.json`
   - `../tests/fixtures/epf_shadow_run_manifest_v0/degraded.json`
   - `../tests/fixtures/epf_shadow_run_manifest_v0/stub.json`
   - `../tests/fixtures/epf_shadow_run_manifest_v0/partial.json`
+- canonical invalid fixtures:
   - `../tests/fixtures/epf_shadow_run_manifest_v0/changed_without_warn.json`
   - `../tests/fixtures/epf_shadow_run_manifest_v0/changed_exceeds_total_gates.json`
   - `../tests/fixtures/epf_shadow_run_manifest_v0/example_count_exceeds_changed.json`
