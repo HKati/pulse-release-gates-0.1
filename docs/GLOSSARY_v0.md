@@ -216,7 +216,7 @@ A shadow artifact surface that already has:
 - a stable machine-readable shape,
 - a versioned schema,
 - a layer-specific semantic checker,
-- canonical fixtures,
+- canonical valid fixtures, and where relevant canonical invalid fixtures,
 - and regression coverage,
 
 while the broader line or workflow family it belongs to may still remain
@@ -396,8 +396,7 @@ I-gates are typically treated as **non-negotiable** in safety-critical contexts.
 A shadow layer is machine-registered when it appears in the repository's
 machine-readable shadow registry surface (for example
 `shadow_layer_registry_v0.yml`) with its declared stage, authority
-boundary, artifact path, schema/checker references, and supporting
-fixtures/tests.
+boundary, artifact path, schema/checker references, and supporting valid/invalid fixtures and tests where those roles are tracked separately.
 
 Machine-registration means the layer is tracked by registry-aware
 tooling and validation.
@@ -599,7 +598,7 @@ surface, including at minimum:
 - primary artifact,
 - versioned schema,
 - semantic checker,
-- canonical fixtures,
+- a canonical fixture matrix (including valid and invalid fixtures where applicable),
 - and regression tests.
 
 A `shadow-contracted` layer is still non-normative by default, but it is
