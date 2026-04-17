@@ -136,6 +136,13 @@ Each layer entry may describe:
 - `normative`
 - `notes`
 
+Transition semantics:
+- `valid_fixtures` is the preferred field for contract-valid examples.
+- `invalid_fixtures` holds deliberate contract-breaking or consistency-failing examples.
+- `fixtures` remains accepted as a transitional alias for `valid_fixtures`.
+- `fixtures` and `valid_fixtures` must not be used together in the same layer entry.
+- use of `fixtures` on its own remains rollout-valid, but it is no longer the preferred steady-state form.
+
 The schema and checker together define which of these are required and
 which stage-dependent constraints apply.
 
