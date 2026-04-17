@@ -13,7 +13,7 @@
       "status_foldin": "meta.relational_gain_shadow",
       "schema": "schemas/relational_gain_shadow_v0.schema.json",
       "semantic_checker": "PULSE_safe_pack_v0/tools/check_relational_gain_contract.py",
-      "fixtures": [
+      "valid_fixtures": [
         "tests/fixtures/relational_gain_shadow_v0/pass.json",
         "tests/fixtures/relational_gain_shadow_v0/warn.json",
         "tests/fixtures/relational_gain_shadow_v0/fail.json"
