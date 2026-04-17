@@ -24,7 +24,7 @@ It provides a single place to record:
 - authority boundary,
 - artifact and fold-in surfaces,
 - schema and checker references,
-- fixtures and tests,
+- fixtures buckets and tests,
 - and run-reality states.
 
 This lets repo-level consumers reason about shadow layers without
@@ -81,7 +81,7 @@ The registry is intended to answer repo-level questions such as:
 - Which checker and schema define the layer contract?
 - Where is the layer artifact expected?
 - Where does it fold into `status.json`, if at all?
-- What tests and fixtures currently back the layer?
+- What valid/invalid fixtures and tests currently back the layer?
 
 This is useful for governance, renderer discipline, and future registry-driven tooling.
 
@@ -127,7 +127,9 @@ Each layer entry may describe:
 - `status_foldin`
 - `schema`
 - `semantic_checker`
-- `fixtures`
+- `fixtures` (transitional alias)
+- `valid_fixtures`
+- `invalid_fixtures`
 - `tests`
 - `run_reality_states`
 - `promotion_blockers`
@@ -215,9 +217,15 @@ Current registered surfaces include:
 - `.github/workflows/relational_gain_shadow.yml`
 - `schemas/relational_gain_shadow_v0.schema.json`
 - `PULSE_safe_pack_v0/tools/check_relational_gain_contract.py`
+
+Current valid fixtures:
+
 - `tests/fixtures/relational_gain_shadow_v0/pass.json`
 - `tests/fixtures/relational_gain_shadow_v0/warn.json`
 - `tests/fixtures/relational_gain_shadow_v0/fail.json`
+
+Supporting tests:
+
 - `tests/test_check_relational_gain_contract.py`
 - `tests/test_relational_gain_non_interference.py`
 
@@ -236,10 +244,16 @@ Primary registered surface:
 - `epf_shadow_run_manifest.json`
 - `schemas/epf_shadow_run_manifest_v0.schema.json`
 - `PULSE_safe_pack_v0/tools/check_epf_shadow_run_manifest_contract.py`
+
+Current valid fixtures:
+
 - `tests/fixtures/epf_shadow_run_manifest_v0/pass.json`
 - `tests/fixtures/epf_shadow_run_manifest_v0/degraded.json`
 - `tests/fixtures/epf_shadow_run_manifest_v0/stub.json`
 - `tests/fixtures/epf_shadow_run_manifest_v0/partial.json`
+
+Current invalid fixtures:
+
 - `tests/fixtures/epf_shadow_run_manifest_v0/changed_without_warn.json`
 - `tests/fixtures/epf_shadow_run_manifest_v0/changed_exceeds_total_gates.json`
 - `tests/fixtures/epf_shadow_run_manifest_v0/example_count_exceeds_changed.json`
@@ -248,6 +262,9 @@ Primary registered surface:
 - `tests/fixtures/epf_shadow_run_manifest_v0/missing_epf_report_source_artifact.json`
 - `tests/fixtures/epf_shadow_run_manifest_v0/invalid_overall_without_invalid_branch.json`
 - `tests/fixtures/epf_shadow_run_manifest_v0/degraded_without_nonreal_branch.json`
+
+Supporting tests:
+
 - `tests/test_check_epf_shadow_run_manifest_contract.py`
 
 Secondary contract-hardened diagnostic surface:
