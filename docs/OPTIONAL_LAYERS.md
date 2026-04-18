@@ -70,35 +70,31 @@ Its current **primary** machine-registered surface is now:
 The current `epf_paradox_summary.json` surface remains a **secondary
 contract-hardened diagnostic artifact**.
 
-Current primary hardening surface:
-- schema:
-  - `../schemas/epf_shadow_run_manifest_v0.schema.json`
-- contract checker:
-  - `../PULSE_safe_pack_v0/tools/check_epf_shadow_run_manifest_contract.py`
-- canonical valid fixtures:
-  - `../tests/fixtures/epf_shadow_run_manifest_v0/pass.json`
-  - `../tests/fixtures/epf_shadow_run_manifest_v0/degraded.json`
-  - `../tests/fixtures/epf_shadow_run_manifest_v0/stub.json`
-  - `../tests/fixtures/epf_shadow_run_manifest_v0/partial.json`
-- canonical invalid fixtures:
-  - `../tests/fixtures/epf_shadow_run_manifest_v0/changed_without_warn.json`
-  - `../tests/fixtures/epf_shadow_run_manifest_v0/changed_exceeds_total_gates.json`
-  - `../tests/fixtures/epf_shadow_run_manifest_v0/example_count_exceeds_changed.json`
-  - `../tests/fixtures/epf_shadow_run_manifest_v0/real_zero_changed_wrong_verdict.json`
-  - `../tests/fixtures/epf_shadow_run_manifest_v0/same_status_paths.json`
-  - `../tests/fixtures/epf_shadow_run_manifest_v0/missing_epf_report_source_artifact.json`
-  - `../tests/fixtures/epf_shadow_run_manifest_v0/invalid_overall_without_invalid_branch.json`
-  - `../tests/fixtures/epf_shadow_run_manifest_v0/degraded_without_nonreal_branch.json`
-- checker regression tests:
-  - `../tests/test_check_epf_shadow_run_manifest_contract.py`
-
 Current secondary summary surface:
 
 - schema:
   - `../schemas/epf_paradox_summary_v0.schema.json`
 - contract checker:
   - `../PULSE_safe_pack_v0/tools/check_epf_paradox_summary_contract.py`
-- canonical fixtures:
+- canonical valid fixtures:
+  - `../tests/fixtures/epf_paradox_summary_v0/pass.json`
+- canonical invalid fixtures:
+  - `../tests/fixtures/epf_paradox_summary_v0/changed_exceeds_total_gates.json`
+  - `../tests/fixtures/epf_paradox_summary_v0/changed_positive_without_examples.json`
+  - `../tests/fixtures/epf_paradox_summary_v0/changed_zero_with_examples.json`
+  - `../tests/fixtures/epf_paradox_summary_v0/duplicate_gate_examples.json`
+  - `../tests/fixtures/epf_paradox_summary_v0/example_without_difference.json`
+  - `../tests/fixtures/epf_paradox_summary_v0/examples_longer_than_changed.json`
+  - `../tests/fixtures/epf_paradox_summary_v0/invalid_rc_string.json`
+- checker regression tests:
+  - `../tests/test_check_epf_paradox_summary_contract.py`
+
+Current secondary summary surface:
+
+- schema:
+  - `../schemas/epf_paradox_summary_v0.schema.json`
+- contract checker:
+  - `../PULSE_safe_pack_v0/tools/check_epf_paradox_summary_contract.py`                             - canonical valid fixtures:
   - `../tests/fixtures/epf_paradox_summary_v0/pass.json`
   - `../tests/fixtures/epf_paradox_summary_v0/changed_exceeds_total_gates.json`
   - `../tests/fixtures/epf_paradox_summary_v0/changed_positive_without_examples.json`
