@@ -902,11 +902,9 @@ Curated entrypoints (repo-level docs under `docs/`):
 - [docs/epf_relational_grail.md](docs/epf_relational_grail.md) — Relational hazard overview + calibration/CLI examples.
 - [docs/epf_hazard_inspect.md](docs/epf_hazard_inspect.md) — Inspect `epf_hazard_log.jsonl` from the CLI.
 
-### Research use
+---
 
-PULSE can also be used as a reproducible empirical instrument for safety-evaluation and release-governance experiments across external compute environments.
-
-HPC or large-scale runs should preserve the normative source-of-truth boundary: core release decisions remain defined by `status.json`, the materialized required gate set, and `check_gates.py`; shadow outputs remain diagnostic unless explicitly promoted by policy.
+PULSE is designed as an artifact-first
 
 ### Topology & field-first interpretation
 - [docs/PULSE_topology_overview_v0.md](docs/PULSE_topology_overview_v0.md) — Topology layer overview (diagnostic overlay).
