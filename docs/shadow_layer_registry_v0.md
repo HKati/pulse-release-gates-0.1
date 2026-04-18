@@ -148,6 +148,21 @@ which stage-dependent constraints apply.
 
 ---
 
+### Canonical registry self-check fixtures
+
+The registry self-check surface currently includes:
+
+- `tests/fixtures/shadow_layer_registry_v0/pass.json`
+- `tests/fixtures/shadow_layer_registry_v0/overlapping_fixture_buckets.json`
+- `tests/fixtures/shadow_layer_registry_v0/fixtures_and_valid_fixtures_together.json`
+
+These fixtures cover:
+- canonical passing registry structure,
+- invalid overlap between `valid_fixtures` and `invalid_fixtures`,
+- and invalid simultaneous use of `fixtures` with `valid_fixtures`.
+
+---
+
 ## Stage model
 
 The current contract-stage vocabulary is:
