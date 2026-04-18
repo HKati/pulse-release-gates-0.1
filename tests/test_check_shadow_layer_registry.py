@@ -72,15 +72,8 @@ def test_legacy_fixtures_alias_is_still_valid(tmp_path: Path) -> None:
     )
 
 
-def test_fixtures_and_valid_fixtures_together_fail(tmp_path: Path) -> None:
-    payload = json.loads((FIXTURES / "pass.json").read_text(encoding="utf-8"))
-    layer = payload["layers"][0]
-    layer["fixtures"] = list(layer["valid_fixtures"])
-
-    input_path = tmp_path / "fixtures_and_valid_fixtures_together.json"
-    input_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
-
-    result = _run(input_path)
+def test_fixtures_and_valid_fixtures_together_fail() -> None:
+    result = _run(FIXTURES / "fixtures_and_valid_fixtures_together.json")
     assert result.returncode == 1, result.stdout + result.stderr
 
     out = _stdout_json(result)
@@ -91,16 +84,8 @@ def test_fixtures_and_valid_fixtures_together_fail(tmp_path: Path) -> None:
         for issue in out["errors"]
     )
 
-def test_overlapping_fixture_buckets_fail(tmp_path: Path) -> None:
-    payload = json.loads((FIXTURES / "pass.json").read_text(encoding="utf-8"))
-    layer = payload["layers"][0]
-    overlap_item = layer["valid_fixtures"][0]
-    layer["invalid_fixtures"] = [overlap_item]
-
-    input_path = tmp_path / "overlapping_fixture_buckets.json"
-    input_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
-
-    result = _run(input_path)
+def test_overlapping_fixture_buckets_fail() -> None:
+    result = _run(FIXTURES / "overlapping_fixture_buckets.json")
     assert result.returncode == 1, result.stdout + result.stderr
 
     out = _stdout_json(result)
@@ -110,7 +95,6 @@ def test_overlapping_fixture_buckets_fail(tmp_path: Path) -> None:
         and "both valid_fixtures and invalid_fixtures" in issue["message"]
         for issue in out["errors"]
     )
-
 
 def test_higher_stage_requires_fixtures_or_valid_fixtures(tmp_path: Path) -> None:
     payload = json.loads((FIXTURES / "pass.json").read_text(encoding="utf-8"))
