@@ -97,8 +97,7 @@ Current secondary summary surface:
 - schema:
   - `../schemas/epf_paradox_summary_v0.schema.json`
 - contract checker:
-  - `../PULSE_safe_pack_v0/tools/check_epf_paradox_summary_contract.py`
-- canonical fixtures:
+  - `../PULSE_safe_pack_v0/tools/check_epf_paradox_summary_contract.py`                             - canonical valid / invalid fixtures:
   - `../tests/fixtures/epf_paradox_summary_v0/pass.json`
   - `../tests/fixtures/epf_paradox_summary_v0/changed_exceeds_total_gates.json`
   - `../tests/fixtures/epf_paradox_summary_v0/changed_positive_without_examples.json`
