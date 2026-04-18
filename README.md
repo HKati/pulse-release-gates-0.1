@@ -609,9 +609,10 @@ It:
   - deterministic baseline → `status_baseline.json`,
   - EPF shadow → `status_epf.json`,
 - compares the two and emits:
+  - `epf_shadow_run_manifest.json` – primary registered EPF shadow run-manifest surface; diagnostic and non-normative
   - `epf_report.txt` – human-readable summary of baseline vs EPF decisions,
-  - `epf_paradox_summary.json` – structured list of gates where EPF
-    disagrees with baseline (paradox candidates).
+  - `epf_paradox_summary.json` – secondary contract-hardened EPF
+    diagnostic summary (paradox candidates).
 
 The EPF experiment workflow is **optional and CI-neutral**. It is intended
 for research and diagnostics (borderline gates, paradox analysis) and does
@@ -722,8 +723,9 @@ Paradox Diagram for decision-field analysis around selection cuts/θ (DS/MI/GF �
 
 - `status_baseline.json` – deterministic decisions (source of truth)
 - `status_epf.json` – EPF shadow metrics, traces & decisions (incl. `metrics.epf_L`)
+- `epf_shadow_run_manifest.json` – primary registered EPF shadow run-manifest surface; diagnostic and non-normative
 - `epf_report.txt` – A/B diff summary of baseline vs EPF decisions
-- `epf_paradox_summary.json` – structured summary (total gates, changed gates, sample baseline→EPF deltas)
+- `epf_paradox_summary.json` – secondary contract-hardened EPF diagnostic summary
 - `epf_hazard_log.jsonl`  
   Line-oriented JSON log produced by the EPF hazard adapter. Each line
   is a single hazard probe event with the following structure:
@@ -876,6 +878,12 @@ Curated entrypoints (repo-level docs under `docs/`):
 - [docs/STATUS_CONTRACT.md](docs/STATUS_CONTRACT.md) — Contract for `status.json` shape and semantics.
 - [docs/GLOSSARY_v0.md](docs/GLOSSARY_v0.md) — Canonical term definitions used across docs.
 
+### Shadow governance & contract surfaces
+- [docs/WORKFLOW_MAP.md](docs/WORKFLOW_MAP.md) — Workflow authority map, including the shadow registry and EPF primary/secondary surfaces.
+- [docs/shadow_layer_registry_v0.md](docs/shadow_layer_registry_v0.md) — Machine-readable shadow layer registry, fixture buckets, transitional alias semantics, and canonical self-check fixtures.
+- [docs/SHADOW_CONTRACT_PROGRAM_v0.md](docs/SHADOW_CONTRACT_PROGRAM_v0.md) — Shadow contract program, staged hardening model, and fixture-matrix discipline.
+- [docs/OPTIONAL_LAYERS.md](docs/OPTIONAL_LAYERS.md) — Non-normative optional layers, including Relational Gain and EPF shadow surfaces.
+
 ### Status, ledger & external signals
 - [docs/quality_ledger.md](docs/quality_ledger.md) — Quality Ledger layout and purpose.
 - [docs/refusal_delta_gate.md](docs/refusal_delta_gate.md) — Refusal-delta summary format + fail-closed semantics.
@@ -893,6 +901,12 @@ Curated entrypoints (repo-level docs under `docs/`):
 - [docs/PULSE_epf_shadow_quickstart_v0.md](docs/PULSE_epf_shadow_quickstart_v0.md) — Command-level EPF shadow quickstart.
 - [docs/epf_relational_grail.md](docs/epf_relational_grail.md) — Relational hazard overview + calibration/CLI examples.
 - [docs/epf_hazard_inspect.md](docs/epf_hazard_inspect.md) — Inspect `epf_hazard_log.jsonl` from the CLI.
+
+### Research use
+
+PULSE can also be used as a reproducible empirical instrument for safety-evaluation and release-governance experiments across external compute environments.
+
+HPC or large-scale runs should preserve the normative source-of-truth boundary: core release decisions remain defined by `status.json`, the materialized required gate set, and `check_gates.py`; shadow outputs remain diagnostic unless explicitly promoted by policy.
 
 ### Topology & field-first interpretation
 - [docs/PULSE_topology_overview_v0.md](docs/PULSE_topology_overview_v0.md) — Topology layer overview (diagnostic overlay).
