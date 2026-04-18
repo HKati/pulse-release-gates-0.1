@@ -27,7 +27,7 @@
 
 # PULSE — Release Gates for Safe & Useful AI
 
-#### [PULSE is a deterministic, auditable decision layer for release governance, designed to run consistently across environments.](#start-here)
+#### [PULSE is an artifact-defined, deterministic release-governance layer: `status.json`, materialized required gates, and `check_gates.py` define the release decision.](#start-here)
 
 > 💡 **Continuous expansion**
 >
