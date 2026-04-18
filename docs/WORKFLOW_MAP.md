@@ -67,8 +67,10 @@ Current registry stack:
 - `PULSE_safe_pack_v0/tools/check_shadow_layer_registry.py`
 - `tests/test_check_shadow_layer_registry.py`
 
-Current canonical registry fixture:
+Current canonical registry fixtures:
 - `tests/fixtures/shadow_layer_registry_v0/pass.json`
+- `tests/fixtures/shadow_layer_registry_v0/overlapping_fixture_buckets.json`
+- `tests/fixtures/shadow_layer_registry_v0/fixtures_and_valid_fixtures_together.json`
 
 Current registered layers:
 - `relational_gain_shadow`
@@ -84,6 +86,7 @@ Current registry coverage:
 - the registry tracks the contract-hardened Relational Gain shadow pilot
 - the registry also tracks the EPF shadow experiment line as a research diagnostic layer
 - the registry now uses explicit fixture-role buckets (`valid_fixtures` / `invalid_fixtures`) with `fixtures` retained as a transitional alias
+- registry self-check coverage now includes canonical invalid examples for bucket overlap and alias-collision semantics
 
 ### C. Shadow / diagnostic workflows
 **Purpose:** extra diagnostics, research layers, or explanatory surfaces
