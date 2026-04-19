@@ -5,6 +5,8 @@ import argparse
 import datetime as dt
 import hashlib
 import json
+import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -50,19 +52,31 @@ def _rel(path: Path) -> str:
         return str(path)
 
 
-def _run_command(cmd: list[str], *, name: str) -> dict[str, Any]:
+def _run_command(
+    cmd: list[str],
+    *,
+    name: str,
+    env: dict[str, str] | None = None,
+) -> dict[str, Any]:
     started = _utc_now()
+
+    run_env = os.environ.copy()
+    if env:
+        run_env.update(env)
+
     proc = subprocess.run(
         cmd,
         cwd=REPO_ROOT,
         capture_output=True,
         text=True,
         check=False,
+        env=run_env,
     )
 
     return {
         "name": name,
         "cmd": cmd,
+        "env_overrides": env or {},
         "started_utc": started,
         "finished_utc": _utc_now(),
         "returncode": proc.returncode,
@@ -149,7 +163,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default=str(DEFAULT_STATUS),
         help=(
             "Path to the status.json artifact used for gate checking. "
-            "For status-source=generate-core this is the generated output path."
+            "For status-source=generate-core this is the requested generated output path."
         ),
     )
     parser.add_argument(
@@ -184,8 +198,10 @@ def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
 
     out_path = Path(args.out)
-    status_path = Path(args.status)
+    if not out_path.is_absolute():
+        out_path = REPO_ROOT / out_path
 
+    status_path = Path(args.status)
     if not status_path.is_absolute():
         status_path = REPO_ROOT / status_path
 
@@ -204,13 +220,21 @@ def main(argv: list[str] | None = None) -> int:
     for path in missing:
         errors.append(f"required file missing: {_rel(path)}")
 
-    status_source = {
+    status_source: dict[str, Any] = {
         "mode": args.status_source,
         "status_path": _rel(status_path),
         "status_exists_before_run": status_path.exists(),
     }
 
     if not errors and args.status_source == "generate-core":
+        artifact_dir = status_path.parent
+        artifact_dir.mkdir(parents=True, exist_ok=True)
+
+        generated_status_path = artifact_dir / "status.json"
+
+        status_source["generated_artifact_dir"] = _rel(artifact_dir)
+        status_source["generated_status_path"] = _rel(generated_status_path)
+
         commands.append(
             _run_command(
                 [
@@ -224,11 +248,22 @@ def main(argv: list[str] | None = None) -> int:
                     str(GATE_POLICY),
                 ],
                 name="generate_core_status",
+                env={"PULSE_ARTIFACT_DIR": str(artifact_dir)},
             )
         )
 
         if commands[-1]["returncode"] != 0:
             errors.append("failed to generate local Core status artifact")
+        elif not generated_status_path.exists():
+            errors.append(f"generated status artifact missing: {_rel(generated_status_path)}")
+        elif generated_status_path.resolve() != status_path.resolve():
+            shutil.copyfile(generated_status_path, status_path)
+            warnings.append(
+                "copied generated Core status artifact from "
+                f"{_rel(generated_status_path)} to requested --status path {_rel(status_path)}"
+            )
+
+    status_source["status_exists_after_generation"] = status_path.exists()
 
     if not status_path.exists():
         errors.append(f"status artifact missing: {_rel(status_path)}")
@@ -239,8 +274,8 @@ def main(argv: list[str] | None = None) -> int:
         if args.gate_mode == "core":
             core_required, cmd = _materialize_gate_set("core_required")
             commands.append(cmd)
-            materialized_gate_sets["core_required"] = core_required
 
+            materialized_gate_sets["core_required"] = core_required
             required_gates = core_required
 
             if not required_gates:
@@ -322,6 +357,8 @@ def main(argv: list[str] | None = None) -> int:
             "status-source=existing was selected, but the status artifact did not "
             "exist before this smoke run."
         )
+
+    status_source["status_exists_after_run"] = status_path.exists()
 
     report = {
         "ok": len(errors) == 0,
