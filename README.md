@@ -97,6 +97,22 @@ See also: [docs/WORKFLOW_MAP.md](docs/WORKFLOW_MAP.md)
 
 ---
 
+### Shadow registry
+
+PULSE includes a machine-readable shadow layer registry for governance-facing diagnostic surfaces.
+
+Registered shadow layers remain non-normative by default: registry presence does not promote a layer into release authority and does not change `gates.*` semantics.
+
+The registry uses explicit fixture-role buckets:
+
+- `valid_fixtures` for contract-valid examples,
+- `invalid_fixtures` for deliberate contract-breaking or consistency-failing examples,
+- `fixtures` as a transitional alias for `valid_fixtures`.
+
+`fixtures` and `valid_fixtures` must not be used together in the same layer entry.
+
+---
+
 ## Clarity First (before Paradox / EPF / Topology work)
 
 PULSE is deterministic and fail‑closed — but only if we keep the meaning of terms stable.
@@ -611,12 +627,10 @@ It:
 - compares the two and emits:
   - `epf_shadow_run_manifest.json` – primary registered EPF shadow run-manifest surface; diagnostic and non-normative
   - `epf_report.txt` – human-readable summary of baseline vs EPF decisions,
-  - `epf_paradox_summary.json` – secondary contract-hardened EPF
-    diagnostic summary (paradox candidates).
+  - `epf_shadow_run_manifest.json` – primary registered EPF run-manifest surface,
+  - `epf_paradox_summary.json` – secondary contract-hardened diagnostic summary.
 
-The EPF experiment workflow is **optional and CI-neutral**. It is intended
-for research and diagnostics (borderline gates, paradox analysis) and does
-not participate in release gating.
+The EPF experiment workflow is optional and CI-neutral. Its primary registered surface is the broader run manifest; the paradox summary remains a secondary diagnostic artifact. Neither surface participates in release gating unless explicitly promoted into the required gate set. 
 
 For guidance on what to do when baseline and EPF disagree on specific
 gates, see:
