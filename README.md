@@ -918,7 +918,7 @@ Curated entrypoints (repo-level docs under `docs/`):
 
 ---
 
-PULSE is designed as an artifact-first
+PULSE is designed as an artifact-first system: release decisions are derived from explicit, versioned artifacts rather than implicit runtime state.
 
 ### Topology & field-first interpretation
 - [docs/PULSE_topology_overview_v0.md](docs/PULSE_topology_overview_v0.md) — Topology layer overview (diagnostic overlay).
@@ -939,8 +939,6 @@ The topology layer is an optional, diagnostic overlay on top of the
 deterministic PULSE release gates. It **never** changes `status.json` or
 CI pass/fail behaviour; it only reads existing artefacts and produces extra
 JSON and narrative views.
-
-It consists of:
 
 It consists of:
 
