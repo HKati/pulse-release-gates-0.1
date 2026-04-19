@@ -117,6 +117,9 @@ def test_existing_missing_status_fails_closed(tmp_path: Path) -> None:
         "status artifact missing" in error
         for error in payload["errors"]
     )
+
+   if __name__ == "__main__":
+    raise SystemExit(subprocess.call([sys.executable, "-m", "pytest", "-q", __file__])) 
     assert any(
         "status-source=existing was selected" in warning
         for warning in payload["warnings"]
