@@ -25,7 +25,7 @@
 **See the latest Quality Ledger (live):** https://hkati.github.io/pulse-release-gates-0.1/
 
 
-# PULSE — Release Gates for Safe & Useful AI
+# PULSEmech — Release Gates for Safe & Useful AI
 
 #### [PULSE is an artifact-defined, deterministic release-governance layer: `status.json`, materialized required gates, and `check_gates.py` define the release decision.](#start-here)
 
