@@ -1,14 +1,13 @@
-
 ## Summary
-<!-- Röviden: mi változik és miért? -->
+# <!-- Briefly describe what changes and why. -->
 
-## What’s included
-- [ ] Code
-- [ ] Docs
-- [ ] CI/workflow
-- Paths/Files touched:
+## What's included
+# - [ ] Code
+# - [ ] Docs
+# - [ ] CI/workflow
+# - Paths/files touched:
 
 ## CI usage
-```yaml
-# (opcionális) Ide tegyél egy minimális snippetet,
-# hogyan fut a változtatás a CI-ben.
+# ```yaml
+# Optional: add a minimal snippet showing how this change runs in CI.
+# ```
