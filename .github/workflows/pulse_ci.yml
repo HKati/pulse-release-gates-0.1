@@ -1238,7 +1238,7 @@ jobs:
             echo "- target: \`${TARGET}\`"
             echo "- materializer exit code: \`${rc}\`"
             echo "- artifact: \`${OUT_PATH}\`"
-          } >> "${GITHUB_STEP_SUMMARY}
+          } >> "${GITHUB_STEP_SUMMARY}"
 
       - name: Export JUnit and SARIF from final status
         if: always()
