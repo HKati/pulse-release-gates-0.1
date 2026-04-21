@@ -25,6 +25,7 @@ tests/test_openai_evals_refusal_smoke_dry_run_smoke.py
 tests/test_render_quality_ledger_tests_list_smoke.py
 tests/test_authority_boundary_repro_smoke.py 
 tests/test_release_decision_v0_smoke.py
+tests/test_release_decision_v0_schema_smoke.py
 
 tools/operator_handoff_smoke.py
 
