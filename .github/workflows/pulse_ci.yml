@@ -1240,6 +1240,48 @@ jobs:
             echo "- artifact: \`${OUT_PATH}\`"
           } >> "${GITHUB_STEP_SUMMARY}"
 
+      - name: "Release decision v0: render ledger section"
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          PACK_DIR="${{ env.PACK_DIR }}"
+          INPUT_PATH="${PACK_DIR}/artifacts/release_decision_v0.json"
+          OUT_PATH="${PACK_DIR}/artifacts/release_decision_v0_ledger_section.html"
+          SCHEMA_PATH="schemas/release_decision_v0.schema.json"
+
+          echo "release_decision_v0 ledger input=${INPUT_PATH}"
+          echo "release_decision_v0 ledger out=${OUT_PATH}"
+          echo "release_decision_v0 schema=${SCHEMA_PATH}"
+
+          set +e
+          python "${PACK_DIR}/tools/render_release_decision_ledger_section.py" \
+            --input "${INPUT_PATH}" \
+            --schema "${SCHEMA_PATH}" \
+            --out "${OUT_PATH}"
+          rc=$?
+          set -e
+
+          echo "release_decision_v0 ledger renderer exit code: ${rc}"
+
+          if [[ -f "${OUT_PATH}" ]]; then
+            echo "OK: release_decision_v0 ledger section written: ${OUT_PATH}"
+          else
+            echo "::warning::release_decision_v0 ledger section was not written"
+          fi
+
+          if [[ "${rc}" -ne 0 ]]; then
+            echo "::warning::release_decision_v0 ledger renderer returned ${rc}; artifact may contain INVALID/MISSING output"
+          fi
+
+          {
+            printf '### Release decision v0 Ledger section\n\n'
+            printf -- '- renderer exit code: `%s`\n' "${rc}"
+            printf -- '- input: `%s`\n' "${INPUT_PATH}"
+            printf -- '- output: `%s`\n' "${OUT_PATH}"
+          } >> "${GITHUB_STEP_SUMMARY}"
+
       - name: Export JUnit and SARIF from final status
         if: always()
         shell: bash
