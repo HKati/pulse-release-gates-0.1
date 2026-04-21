@@ -86,16 +86,81 @@ def _get_path(obj: Any, dotted: str) -> Any:
     return cur
 
 
-def _is_truthy_path(obj: Any, *paths: str) -> bool:
-    return any(_get_path(obj, path) is True for path in paths)
+STUB_FLAG_PATHS = (
+    "diagnostics.gates_stubbed",
+    "metrics.gates_stubbed",
+    "meta.diagnostics.gates_stubbed",
+)
+
+SCAFFOLD_FLAG_PATHS = (
+    "diagnostics.scaffold",
+    "metrics.scaffold",
+    "meta.diagnostics.scaffold",
+)
+
+STUB_PROFILE_PATHS = (
+    "diagnostics.stub_profile",
+    "metrics.stub_profile",
+    "meta.diagnostics.stub_profile",
+)
+
+NEUTRAL_STUB_PROFILES = {
+    "",
+    "none",
+    "false",
+    "real",
+    "not_stubbed",
+}
 
 
-def _first_present(obj: Any, *paths: str) -> Any:
+def _blocking_flag_present(obj: Any, *paths: str) -> bool:
+    """Return true when any flag path blocks release-level pass.
+
+    Boolean true blocks.
+    Boolean false is neutral.
+    Missing values are neutral.
+    Any present non-boolean value blocks fail-closed because scaffold/stub
+    diagnostics must not be silently ignored when malformed.
+    """
     for path in paths:
         value = _get_path(obj, path)
-        if value is not None:
-            return value
-    return None
+
+        if value is None:
+            continue
+
+        if value is True:
+            return True
+
+        if value is False:
+            continue
+
+        return True
+
+    return False
+
+
+def _stub_profile_blocks(value: Any) -> bool:
+    """Return true when a stub_profile value blocks release-level pass.
+
+    Strings are normalized and compared against the known neutral profiles.
+    Boolean false is neutral.
+    Boolean true blocks.
+    Any other present non-null value blocks fail-closed.
+    """
+    if value is None:
+        return False
+
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        return normalized not in NEUTRAL_STUB_PROFILES
+
+    if value is False:
+        return False
+
+    if value is True:
+        return True
+
+    return True
 
 
 def _value_type(value: Any) -> str:
@@ -185,35 +250,18 @@ def _policy_gate_set(policy: dict[str, Any], name: str) -> list[str]:
 
 
 def _stubbed(status: dict[str, Any]) -> bool:
-    if _is_truthy_path(
-        status,
-        "diagnostics.gates_stubbed",
-        "metrics.gates_stubbed",
-        "meta.diagnostics.gates_stubbed",
-    ):
+    if _blocking_flag_present(status, *STUB_FLAG_PATHS):
         return True
 
-    stub_profile = _first_present(
-        status,
-        "diagnostics.stub_profile",
-        "metrics.stub_profile",
-        "meta.diagnostics.stub_profile",
-    )
-
-    if isinstance(stub_profile, str):
-        normalized = stub_profile.strip().lower()
-        return normalized not in {"", "none", "false", "real", "not_stubbed"}
+    for path in STUB_PROFILE_PATHS:
+        if _stub_profile_blocks(_get_path(status, path)):
+            return True
 
     return False
 
 
 def _scaffold(status: dict[str, Any]) -> bool:
-    return _is_truthy_path(
-        status,
-        "diagnostics.scaffold",
-        "metrics.scaffold",
-        "meta.diagnostics.scaffold",
-    )
+    return _blocking_flag_present(status, *SCAFFOLD_FLAG_PATHS)
 
 
 def _add_reason(reasons: list[str], reason: str) -> None:
