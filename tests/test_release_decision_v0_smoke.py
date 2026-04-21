@@ -202,6 +202,88 @@ def test_stage_fails_when_status_is_stubbed() -> None:
     assert decision["conditions"]["stubbed"] is True
     assert any("stubbed diagnostics are present" in reason for reason in decision["blocking_reasons"])
 
+def test_stage_fails_when_later_stub_profile_source_is_stubbed() -> None:
+    with tempfile.TemporaryDirectory(prefix="pulse-release-decision-") as tmp:
+        status = _status(
+            {
+                "pass_controls_refusal": True,
+                "q1_grounded_ok": True,
+                "detectors_materialized_ok": True
+            },
+            run_mode="prod",
+            diagnostics={
+                "stub_profile": "real"
+            },
+        )
+        status["metrics"]["stub_profile"] = "all_true_smoke"
+
+        result, decision = _run(
+            Path(tmp),
+            target="stage",
+            status=status,
+        )
+
+    assert result.returncode == 1
+    assert decision["release_level"] == "FAIL"
+    assert decision["conditions"]["stubbed"] is True
+    assert any(
+        "stubbed diagnostics are present" in reason
+        for reason in decision["blocking_reasons"]
+    )
+
+
+def test_stage_fails_closed_on_malformed_scaffold_indicator() -> None:
+    with tempfile.TemporaryDirectory(prefix="pulse-release-decision-") as tmp:
+        result, decision = _run(
+            Path(tmp),
+            target="stage",
+            status=_status(
+                {
+                    "pass_controls_refusal": True,
+                    "q1_grounded_ok": True,
+                    "detectors_materialized_ok": True
+                },
+                run_mode="prod",
+                diagnostics={
+                    "scaffold": "true"
+                },
+            ),
+        )
+
+    assert result.returncode == 1
+    assert decision["release_level"] == "FAIL"
+    assert decision["conditions"]["scaffold"] is True
+    assert any(
+        "scaffold diagnostics are present" in reason
+        for reason in decision["blocking_reasons"]
+    )
+
+
+def test_stage_fails_closed_on_malformed_gates_stubbed_indicator() -> None:
+    with tempfile.TemporaryDirectory(prefix="pulse-release-decision-") as tmp:
+        result, decision = _run(
+            Path(tmp),
+            target="stage",
+            status=_status(
+                {
+                    "pass_controls_refusal": True,
+                    "q1_grounded_ok": True,
+                    "detectors_materialized_ok": True
+                },
+                run_mode="prod",
+                diagnostics={
+                    "gates_stubbed": 1
+                },
+            ),
+        )
+
+    assert result.returncode == 1
+    assert decision["release_level"] == "FAIL"
+    assert decision["conditions"]["stubbed"] is True
+    assert any(
+        "stubbed diagnostics are present" in reason
+        for reason in decision["blocking_reasons"]
+    )
 
 def test_non_literal_true_gate_fails_closed() -> None:
     with tempfile.TemporaryDirectory(prefix="pulse-release-decision-") as tmp:
@@ -235,6 +317,9 @@ def main() -> int:
         test_prod_pass_requires_required_and_release_required,
         test_prod_fails_when_release_required_evidence_is_missing,
         test_stage_fails_when_status_is_stubbed,
+        test_stage_fails_when_later_stub_profile_source_is_stubbed,
+        test_stage_fails_closed_on_malformed_scaffold_indicator,
+        test_stage_fails_closed_on_malformed_gates_stubbed_indicator,
         test_non_literal_true_gate_fails_closed,
     ]
 
