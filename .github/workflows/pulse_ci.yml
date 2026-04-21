@@ -1195,6 +1195,51 @@ jobs:
 
           echo "OK: artifact postconditions satisfied (IS_RELEASE=$IS_RELEASE)"
 
+      - name: "Release decision v0: materialize artifact"
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          PACK_DIR="${{ env.PACK_DIR }}"
+          STATUS_PATH="${PACK_DIR}/artifacts/status.json"
+          OUT_PATH="${PACK_DIR}/artifacts/release_decision_v0.json"
+          TARGET="stage"
+
+          if [[ "${{ startsWith(github.ref, 'refs/tags/v') || startsWith(github.ref, 'refs/tags/V') || (github.event_name == 'workflow_dispatch' && github.event.inputs.strict_external_evidence == 'true') }}" == "true" ]]; then
+            TARGET="prod"
+          fi
+
+          echo "release_decision_v0 target=${TARGET}"
+          echo "release_decision_v0 status=${STATUS_PATH}"
+          echo "release_decision_v0 out=${OUT_PATH}"
+
+          set +e
+          python "${PACK_DIR}/tools/materialize_release_decision.py" \
+            --status "${STATUS_PATH}" \
+            --policy pulse_gate_policy_v0.yml \
+            --target "${TARGET}" \
+            --out "${OUT_PATH}" \
+            --status-schema schemas/status/status_v1.schema.json
+          rc=$?
+          set -e
+
+          echo "release_decision_v0 materializer exit code: ${rc}"
+
+          if [[ -f "${OUT_PATH}" ]]; then
+            echo "OK: release_decision_v0 artifact written: ${OUT_PATH}"
+          else
+            echo "::warning::release_decision_v0 artifact was not written"
+          fi
+
+          {
+            echo "### Release decision v0"
+            echo ""
+            echo "- target: \`${TARGET}\`"
+            echo "- materializer exit code: \`${rc}\`"
+            echo "- artifact: \`${OUT_PATH}\`"
+          } >> "${GITHUB_STEP_SUMMARY}
+
       - name: Export JUnit and SARIF from final status
         if: always()
         shell: bash
