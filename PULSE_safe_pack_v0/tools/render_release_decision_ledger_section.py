@@ -24,14 +24,7 @@ DEFAULT_OUT = (
     / "release_decision_v0_ledger_section.html"
 )
 
-EXPECTED_SCHEMA = "pulse_release_decision_v0"
-
-VALID_RELEASE_LEVELS = {
-    "FAIL",
-    "STAGE-PASS",
-    "PROD-PASS",
-}
-
+DEFAULT_SCHEMA = REPO_ROOT / "schemas" / "release_decision_v0.schema.json"
 
 def _rel(path: Path) -> str:
     try:
@@ -302,17 +295,52 @@ def _render_invalid(input_path: Path, error: str) -> str:
 """.strip()
 
 
-def _basic_artifact_error(payload: Any) -> str | None:
+def _release_decision_artifact_error(payload: Any, schema_path: Path) -> str | None:
     if not isinstance(payload, dict):
         return "release decision artifact root is not an object"
 
-    schema = payload.get("schema")
-    if schema != EXPECTED_SCHEMA:
-        return f"unexpected schema value: {schema!r}"
+    if not schema_path.exists():
+        return f"release decision schema is missing: {_rel(schema_path)}"
 
-    level = payload.get("release_level")
-    if level not in VALID_RELEASE_LEVELS:
-        return f"unexpected release_level value: {level!r}"
+    try:
+        import jsonschema
+    except Exception as exc:
+        return f"jsonschema import failed: {exc}"
+
+    try:
+        schema_payload = _read_json(schema_path)
+    except Exception as exc:
+        return f"release decision schema could not be read: {exc}"
+
+    try:
+        jsonschema.Draft202012Validator.check_schema(schema_payload)
+    except Exception as exc:
+        return f"release decision schema is not a valid JSON Schema: {exc}"
+
+    try:
+        validator = jsonschema.Draft202012Validator(
+            schema_payload,
+            format_checker=jsonschema.FormatChecker(),
+        )
+        errors = sorted(validator.iter_errors(payload), key=lambda e: list(e.path))
+    except Exception as exc:
+        return f"release decision artifact schema validation failed to run: {exc}"
+
+    if errors:
+        rendered_errors = []
+        for error in errors[:5]:
+            path = ".".join(str(part) for part in error.path) or "<root>"
+            rendered_errors.append(f"{path}: {error.message}")
+
+        suffix = ""
+        if len(errors) > 5:
+            suffix = f" (+{len(errors) - 5} more)"
+
+        return (
+            "release decision artifact failed schema validation: "
+            + "; ".join(rendered_errors)
+            + suffix
+        )
 
     return None
 
@@ -387,7 +415,9 @@ def _render_release_decision(input_path: Path, payload: dict[str, Any]) -> str:
 """.strip()
 
 
-def render_release_decision_section(input_path: Path) -> tuple[str, int]:
+def render_release_decision_section(
+    input_path: Path, schema_path: Path = DEFAULT_SCHEMA
+) -> tuple[str, int]:
     if not input_path.exists():
         return _render_missing(input_path), 0
 
@@ -396,7 +426,7 @@ def render_release_decision_section(input_path: Path) -> tuple[str, int]:
     except Exception as exc:
         return _render_invalid(input_path, str(exc)), 1
 
-    error = _basic_artifact_error(payload)
+    error = _release_decision_artifact_error(payload, schema_path)
     if error is not None:
         return _render_invalid(input_path, error), 1
 
@@ -422,6 +452,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Path to write the rendered HTML fragment.",
     )
     parser.add_argument(
+        "--schema",
+        default=str(DEFAULT_SCHEMA),
+        help="Path to schemas/release_decision_v0.schema.json.",
+    )
+    parser.add_argument(
         "--strict-missing",
         action="store_true",
         help="Return exit code 1 when the release decision artifact is missing.",
@@ -435,13 +470,16 @@ def main(argv: list[str] | None = None) -> int:
 
     input_path = Path(args.input)
     out_path = Path(args.out)
+    schema_path = Path(args.schema)
 
     if not input_path.is_absolute():
         input_path = REPO_ROOT / input_path
     if not out_path.is_absolute():
         out_path = REPO_ROOT / out_path
+    if not schema_path.is_absolute():
+        schema_path = REPO_ROOT / schema_path
 
-    rendered, rc = render_release_decision_section(input_path)
+    rendered, rc = render_release_decision_section(input_path, schema_path)
 
     if args.strict_missing and not input_path.exists():
         rc = 1
