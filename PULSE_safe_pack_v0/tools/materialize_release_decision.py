@@ -20,6 +20,34 @@ DEFAULT_STATUS = REPO_ROOT / "PULSE_safe_pack_v0" / "artifacts" / "status.json"
 DEFAULT_POLICY = REPO_ROOT / "pulse_gate_policy_v0.yml"
 DEFAULT_OUT = REPO_ROOT / "PULSE_safe_pack_v0" / "artifacts" / "release_decision_v0.json"
 
+_MISSING = object()
+
+STUB_FLAG_PATHS = (
+    "diagnostics.gates_stubbed",
+    "metrics.gates_stubbed",
+    "meta.diagnostics.gates_stubbed",
+)
+
+SCAFFOLD_FLAG_PATHS = (
+    "diagnostics.scaffold",
+    "metrics.scaffold",
+    "meta.diagnostics.scaffold",
+)
+
+STUB_PROFILE_PATHS = (
+    "diagnostics.stub_profile",
+    "metrics.stub_profile",
+    "meta.diagnostics.stub_profile",
+)
+
+NEUTRAL_STUB_PROFILES = {
+    "",
+    "none",
+    "false",
+    "real",
+    "not_stubbed",
+}
+
 
 def _utc_now() -> str:
     return dt.datetime.now(dt.timezone.utc).isoformat().replace("+00:00", "Z")
@@ -78,78 +106,72 @@ def _git_sha() -> str | None:
 
 
 def _get_path(obj: Any, dotted: str) -> Any:
+    """Return a dotted path value, using None for both missing and explicit null.
+
+    Use _get_path_or_missing when the distinction between missing and explicit
+    JSON null matters.
+    """
+    value = _get_path_or_missing(obj, dotted)
+    if value is _MISSING:
+        return None
+    return value
+
+
+def _get_path_or_missing(obj: Any, dotted: str) -> Any:
+    """Return a dotted path value or _MISSING when any component is absent.
+
+    This intentionally preserves explicit JSON null as None, so callers can
+    distinguish a missing diagnostic flag from a present-but-null malformed flag.
+    """
     cur = obj
     for part in dotted.split("."):
         if not isinstance(cur, dict) or part not in cur:
-            return None
+            return _MISSING
         cur = cur[part]
     return cur
 
 
-STUB_FLAG_PATHS = (
-    "diagnostics.gates_stubbed",
-    "metrics.gates_stubbed",
-    "meta.diagnostics.gates_stubbed",
-)
-
-SCAFFOLD_FLAG_PATHS = (
-    "diagnostics.scaffold",
-    "metrics.scaffold",
-    "meta.diagnostics.scaffold",
-)
-
-STUB_PROFILE_PATHS = (
-    "diagnostics.stub_profile",
-    "metrics.stub_profile",
-    "meta.diagnostics.stub_profile",
-)
-
-NEUTRAL_STUB_PROFILES = {
-    "",
-    "none",
-    "false",
-    "real",
-    "not_stubbed",
-}
-
-
 def _blocking_flag_present(obj: Any, *paths: str) -> bool:
-    """Return true when any flag path blocks release-level pass.
+    """Return true when any diagnostic flag blocks release-level pass.
 
-    Boolean true blocks.
-    Boolean false is neutral.
     Missing values are neutral.
-    Any present non-boolean value blocks fail-closed because scaffold/stub
-    diagnostics must not be silently ignored when malformed.
+
+    Boolean false is neutral.
+    Boolean true blocks.
+
+    Any present non-boolean value, including explicit JSON null, blocks
+    fail-closed. Diagnostic scaffold/stub flags must not be silently ignored
+    when malformed.
     """
     for path in paths:
-        value = _get_path(obj, path)
+        value = _get_path_or_missing(obj, path)
 
-        if value is None:
+        if value is _MISSING:
+            continue
+
+        if value is False:
             continue
 
         if value is True:
             return True
 
-        if value is False:
-            continue
-
+        # Present but malformed: null, string, number, array, object, etc.
         return True
 
     return False
 
 
 def _stub_profile_blocks(value: Any) -> bool:
-    """Return true when a stub_profile value blocks release-level pass.
+    """Return true when a present stub_profile value blocks release-level pass.
 
-    Strings are normalized and compared against the known neutral profiles.
+    Missing values must be handled by the caller.
+
+    Strings are normalized and compared against known neutral profiles.
     Boolean false is neutral.
     Boolean true blocks.
-    Any other present non-null value blocks fail-closed.
+    Explicit null and any other present non-string/non-boolean value block
+    fail-closed.
     """
-    if value is None:
-        return False
-
     if isinstance(value, str):
         normalized = value.strip().lower()
         return normalized not in NEUTRAL_STUB_PROFILES
@@ -160,7 +182,26 @@ def _stub_profile_blocks(value: Any) -> bool:
     if value is True:
         return True
 
+    # Present but malformed, including explicit JSON null.
     return True
+
+
+def _stubbed(status: dict[str, Any]) -> bool:
+    if _blocking_flag_present(status, *STUB_FLAG_PATHS):
+        return True
+
+    for path in STUB_PROFILE_PATHS:
+        value = _get_path_or_missing(status, path)
+        if value is _MISSING:
+            continue
+        if _stub_profile_blocks(value):
+            return True
+
+    return False
+
+
+def _scaffold(status: dict[str, Any]) -> bool:
+    return _blocking_flag_present(status, *SCAFFOLD_FLAG_PATHS)
 
 
 def _value_type(value: Any) -> str:
@@ -247,21 +288,6 @@ def _policy_gate_set(policy: dict[str, Any], name: str) -> list[str]:
         out.append(item)
 
     return out
-
-
-def _stubbed(status: dict[str, Any]) -> bool:
-    if _blocking_flag_present(status, *STUB_FLAG_PATHS):
-        return True
-
-    for path in STUB_PROFILE_PATHS:
-        if _stub_profile_blocks(_get_path(status, path)):
-            return True
-
-    return False
-
-
-def _scaffold(status: dict[str, Any]) -> bool:
-    return _blocking_flag_present(status, *SCAFFOLD_FLAG_PATHS)
 
 
 def _add_reason(reasons: list[str], reason: str) -> None:
@@ -441,7 +467,7 @@ def _materialize_decision(
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Materialize the PULSE release_decision_v0 artifact."
+        description="Materialize the PULSEmech release_decision_v0 artifact."
     )
 
     parser.add_argument(
@@ -528,7 +554,10 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    out_path.write_text(json.dumps(decision, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    out_path.write_text(
+        json.dumps(decision, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
 
     print(json.dumps(decision, indent=2, sort_keys=True))
 
