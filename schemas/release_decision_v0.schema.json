@@ -1,149 +1,389 @@
-"allOf": [
-  {
-    "if": {
-      "properties": {
-        "release_level": {
-          "const": "STAGE-PASS"
-        }
-      },
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://eplabsai.example/schemas/release_decision_v0.schema.json",
+  "title": "PULSEmech Release Decision v0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "version",
+    "created_utc",
+    "producer",
+    "target",
+    "release_level",
+    "status_path",
+    "policy_path",
+    "active_gate_sets",
+    "effective_required_gates",
+    "required_gates_passed",
+    "conditions",
+    "status_schema_validation",
+    "gate_results",
+    "blocking_reasons",
+    "decision_basis"
+  ],
+  "properties": {
+    "schema": {
+      "const": "pulse_release_decision_v0"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^0\\.[0-9]+\\.[0-9]+$"
+    },
+    "created_utc": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "producer": {
+      "type": "object",
+      "additionalProperties": false,
       "required": [
-        "release_level"
+        "name",
+        "version"
+      ],
+      "properties": {
+        "name": {
+          "const": "materialize_release_decision.py"
+        },
+        "version": {
+          "type": "string"
+        }
+      }
+    },
+    "target": {
+      "type": "string",
+      "enum": [
+        "stage",
+        "prod"
       ]
     },
-    "then": {
+    "release_level": {
+      "type": "string",
+      "enum": [
+        "FAIL",
+        "STAGE-PASS",
+        "PROD-PASS"
+      ]
+    },
+    "status_path": {
+      "type": "string"
+    },
+    "policy_path": {
+      "type": "string"
+    },
+    "status_sha256": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "policy_sha256": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "git_sha": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "run_mode": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "active_gate_sets": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1
+    },
+    "effective_required_gates": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "required_gates_passed": {
+      "type": "boolean"
+    },
+    "conditions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "detectors_materialized_ok",
+        "external_summaries_present",
+        "external_all_pass",
+        "stubbed",
+        "scaffold",
+        "no_stubbed_gates",
+        "external_evidence_mode"
+      ],
       "properties": {
-        "target": {
-          "const": "stage"
+        "detectors_materialized_ok": {
+          "type": "boolean"
         },
-        "active_gate_sets": {
-          "prefixItems": [
-            {
-              "const": "required"
-            }
-          ],
-          "minItems": 1,
-          "maxItems": 1
+        "external_summaries_present": {
+          "type": "boolean"
         },
-        "effective_required_gates": {
-          "minItems": 1
+        "external_all_pass": {
+          "type": "boolean"
         },
-        "required_gates_passed": {
-          "const": true
+        "stubbed": {
+          "type": "boolean"
         },
-        "conditions": {
-          "properties": {
-            "detectors_materialized_ok": {
-              "const": true
-            },
-            "external_evidence_mode": {
-              "const": "advisory"
-            },
-            "stubbed": {
-              "const": false
-            },
-            "scaffold": {
-              "const": false
-            },
-            "no_stubbed_gates": {
-              "const": true
-            }
-          }
+        "scaffold": {
+          "type": "boolean"
         },
-        "gate_results": {
-          "minItems": 1,
-          "items": {
-            "properties": {
-              "present": {
-                "const": true
-              },
-              "passed": {
-                "const": true
-              }
-            }
-          }
+        "no_stubbed_gates": {
+          "type": "boolean"
         },
-        "blocking_reasons": {
-          "maxItems": 0
+        "external_evidence_mode": {
+          "type": "string",
+          "enum": [
+            "advisory",
+            "required"
+          ]
         }
+      }
+    },
+    "status_schema_validation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mode",
+        "ok",
+        "schema_path",
+        "errors"
+      ],
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": [
+            "not_requested",
+            "validated"
+          ]
+        },
+        "ok": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "schema_path": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "errors": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "gate_results": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "gate_id",
+          "present",
+          "passed",
+          "value_type",
+          "reason"
+        ],
+        "properties": {
+          "gate_id": {
+            "type": "string"
+          },
+          "present": {
+            "type": "boolean"
+          },
+          "passed": {
+            "type": "boolean"
+          },
+          "value_type": {
+            "type": "string"
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      }
+    },
+    "blocking_reasons": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "decision_basis": {
+      "type": "array",
+      "items": {
+        "type": "string"
       }
     }
   },
-  {
-    "if": {
-      "properties": {
-        "release_level": {
-          "const": "PROD-PASS"
-        }
-      },
-      "required": [
-        "release_level"
-      ]
-    },
-    "then": {
-      "properties": {
-        "target": {
-          "const": "prod"
-        },
-        "active_gate_sets": {
-          "prefixItems": [
-            {
-              "const": "required"
-            },
-            {
-              "const": "release_required"
-            }
-          ],
-          "minItems": 2,
-          "maxItems": 2
-        },
-        "effective_required_gates": {
-          "minItems": 1
-        },
-        "required_gates_passed": {
-          "const": true
-        },
-        "conditions": {
-          "properties": {
-            "detectors_materialized_ok": {
-              "const": true
-            },
-            "external_summaries_present": {
-              "const": true
-            },
-            "external_all_pass": {
-              "const": true
-            },
-            "external_evidence_mode": {
-              "const": "required"
-            },
-            "stubbed": {
-              "const": false
-            },
-            "scaffold": {
-              "const": false
-            },
-            "no_stubbed_gates": {
-              "const": true
-            }
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "release_level": {
+            "const": "STAGE-PASS"
           }
         },
-        "gate_results": {
-          "minItems": 1,
-          "items": {
+        "required": [
+          "release_level"
+        ]
+      },
+      "then": {
+        "properties": {
+          "target": {
+            "const": "stage"
+          },
+          "active_gate_sets": {
+            "prefixItems": [
+              {
+                "const": "required"
+              }
+            ],
+            "minItems": 1,
+            "maxItems": 1
+          },
+          "effective_required_gates": {
+            "minItems": 1
+          },
+          "required_gates_passed": {
+            "const": true
+          },
+          "conditions": {
             "properties": {
-              "present": {
+              "detectors_materialized_ok": {
                 "const": true
               },
-              "passed": {
+              "external_evidence_mode": {
+                "const": "advisory"
+              },
+              "stubbed": {
+                "const": false
+              },
+              "scaffold": {
+                "const": false
+              },
+              "no_stubbed_gates": {
                 "const": true
               }
             }
+          },
+          "gate_results": {
+            "minItems": 1,
+            "items": {
+              "properties": {
+                "present": {
+                  "const": true
+                },
+                "passed": {
+                  "const": true
+                }
+              }
+            }
+          },
+          "blocking_reasons": {
+            "maxItems": 0
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "release_level": {
+            "const": "PROD-PASS"
           }
         },
-        "blocking_reasons": {
-          "maxItems": 0
+        "required": [
+          "release_level"
+        ]
+      },
+      "then": {
+        "properties": {
+          "target": {
+            "const": "prod"
+          },
+          "active_gate_sets": {
+            "prefixItems": [
+              {
+                "const": "required"
+              },
+              {
+                "const": "release_required"
+              }
+            ],
+            "minItems": 2,
+            "maxItems": 2
+          },
+          "effective_required_gates": {
+            "minItems": 1
+          },
+          "required_gates_passed": {
+            "const": true
+          },
+          "conditions": {
+            "properties": {
+              "detectors_materialized_ok": {
+                "const": true
+              },
+              "external_summaries_present": {
+                "const": true
+              },
+              "external_all_pass": {
+                "const": true
+              },
+              "external_evidence_mode": {
+                "const": "required"
+              },
+              "stubbed": {
+                "const": false
+              },
+              "scaffold": {
+                "const": false
+              },
+              "no_stubbed_gates": {
+                "const": true
+              }
+            }
+          },
+          "gate_results": {
+            "minItems": 1,
+            "items": {
+              "properties": {
+                "present": {
+                  "const": true
+                },
+                "passed": {
+                  "const": true
+                }
+              }
+            }
+          },
+          "blocking_reasons": {
+            "maxItems": 0
+          }
         }
       }
     }
-  }
-]
+  ]
+}
