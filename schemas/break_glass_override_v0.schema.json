@@ -319,7 +319,8 @@
             "type": [
               "null",
               "string"
-            ]
+            ],
+            "format": "date-time"
           }
         },
         "not": {
@@ -385,6 +386,7 @@
         "required": [
           "review",
           "risk_acceptance",
+          "expires_utc",
           "revocation",
           "followups"
         ],
@@ -395,6 +397,10 @@
                 "const": "accepted"
               }
             }
+          },
+          "expires_utc": {
+            "type": "string",
+            "format": "date-time"
           },
           "followups": {
             "minItems": 1
