@@ -1349,6 +1349,143 @@ jobs:
             ${{ env.PACK_DIR }}/artifacts/release_decision_v0_ledger_section.html
             ${{ env.PACK_DIR }}/artifacts/report_card.with_release_decision.html
       
+      - name: "Release decision v0: summarize artifact"
+        if: always()
+        shell: bash
+        env:
+          RELEASE_DECISION_PATH: ${{ env.PACK_DIR }}/artifacts/release_decision_v0.json
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          from __future__ import annotations
+
+          import json
+          import os
+          from pathlib import Path
+          from typing import Any
+
+
+          decision_path = Path(os.environ["RELEASE_DECISION_PATH"])
+          summary_path = Path(os.environ["GITHUB_STEP_SUMMARY"])
+
+
+          def _safe_text(value: Any) -> str:
+              if value is None:
+                  return "missing"
+              text = str(value)
+              return text.replace("\n", " ").replace("\r", " ").strip()
+
+
+          def _list_text(value: Any) -> str:
+              if isinstance(value, list):
+                  if not value:
+                      return "none"
+                  return ", ".join(_safe_text(item) for item in value)
+              if value is None:
+                  return "missing"
+              return _safe_text(value)
+
+
+          def _write_summary(markdown: str) -> None:
+              with summary_path.open("a", encoding="utf-8") as f:
+                  f.write(markdown.rstrip() + "\n")
+
+
+          lines: list[str] = []
+          lines.append("### Release decision v0 summary")
+          lines.append("")
+
+          if not decision_path.exists():
+              print(f"::warning::release_decision_v0 artifact missing: {decision_path}")
+              lines.append("- status: `missing`")
+              lines.append(f"- artifact: `{decision_path}`")
+              lines.append("")
+              lines.append("The workflow did not find a materialized release decision artifact.")
+              _write_summary("\n".join(lines))
+              raise SystemExit(0)
+
+          try:
+              payload = json.loads(decision_path.read_text(encoding="utf-8"))
+          except Exception as exc:
+              print(f"::warning::release_decision_v0 artifact is not valid JSON: {exc}")
+              lines.append("- status: `invalid-json`")
+              lines.append(f"- artifact: `{decision_path}`")
+              lines.append(f"- error: `{_safe_text(exc)}`")
+              _write_summary("\n".join(lines))
+              raise SystemExit(0)
+
+          if not isinstance(payload, dict):
+              print("::warning::release_decision_v0 artifact root is not an object")
+              lines.append("- status: `invalid-root`")
+              lines.append(f"- artifact: `{decision_path}`")
+              _write_summary("\n".join(lines))
+              raise SystemExit(0)
+
+          conditions = payload.get("conditions")
+          if not isinstance(conditions, dict):
+              conditions = {}
+
+          blocking_reasons = payload.get("blocking_reasons")
+          if not isinstance(blocking_reasons, list):
+              blocking_reasons = []
+
+          decision_basis = payload.get("decision_basis")
+          if not isinstance(decision_basis, list):
+              decision_basis = []
+
+          release_level = _safe_text(payload.get("release_level"))
+          target = _safe_text(payload.get("target"))
+          run_mode = _safe_text(payload.get("run_mode"))
+          required_gates_passed = _safe_text(payload.get("required_gates_passed"))
+
+          lines.append(f"- artifact: `{decision_path}`")
+          lines.append(f"- release level: `{release_level}`")
+          lines.append(f"- target: `{target}`")
+          lines.append(f"- run mode: `{run_mode}`")
+          lines.append(f"- active gate sets: `{_list_text(payload.get('active_gate_sets'))}`")
+          lines.append(f"- required gates passed: `{required_gates_passed}`")
+          lines.append(
+              f"- external evidence mode: "
+              f"`{_safe_text(conditions.get('external_evidence_mode'))}`"
+          )
+          lines.append(f"- detectors materialized: `{_safe_text(conditions.get('detectors_materialized_ok'))}`")
+          lines.append(f"- external summaries present: `{_safe_text(conditions.get('external_summaries_present'))}`")
+          lines.append(f"- external all pass: `{_safe_text(conditions.get('external_all_pass'))}`")
+          lines.append(f"- stubbed: `{_safe_text(conditions.get('stubbed'))}`")
+          lines.append(f"- scaffold: `{_safe_text(conditions.get('scaffold'))}`")
+          lines.append("")
+
+          if blocking_reasons:
+              lines.append("#### Blocking reasons")
+              lines.append("")
+              for reason in blocking_reasons[:10]:
+                  lines.append(f"- {_safe_text(reason)}")
+              if len(blocking_reasons) > 10:
+                  lines.append(f"- ... {len(blocking_reasons) - 10} more")
+              lines.append("")
+          else:
+              lines.append("Blocking reasons: `none`")
+              lines.append("")
+
+          if decision_basis:
+              lines.append("#### Decision basis")
+              lines.append("")
+              for item in decision_basis[:8]:
+                  lines.append(f"- {_safe_text(item)}")
+              if len(decision_basis) > 8:
+                  lines.append(f"- ... {len(decision_basis) - 8} more")
+              lines.append("")
+
+          lines.append(
+              "> This summary is read-only. It does not replace `status.json`, "
+              "`check_gates.py`, the materialized required gate set, or the primary "
+              "release-gating workflow."
+          )
+
+          _write_summary("\n".join(lines))
+          PY
+      
       - name: Export JUnit and SARIF from final status
         if: always()
         shell: bash
