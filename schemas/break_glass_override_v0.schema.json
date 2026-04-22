@@ -319,7 +319,8 @@
             "type": [
               "null",
               "string"
-            ]
+            ],
+            "format": "date-time"
           }
         },
         "not": {
@@ -385,6 +386,7 @@
         "required": [
           "review",
           "risk_acceptance",
+          "expires_utc",
           "revocation",
           "followups"
         ],
@@ -396,7 +398,10 @@
               }
             }
           },
+          HKati-patch-958740
            "expires_utc": {
+          "expires_utc": {
+ main
             "type": "string",
             "format": "date-time"
           },
