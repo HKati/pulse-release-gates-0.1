@@ -1337,6 +1337,18 @@ jobs:
             printf -- '- output: `%s`\n' "${OUT_PATH}"
           } >> "${GITHUB_STEP_SUMMARY}"
       
+      - name: "Upload release decision v0 artifact bundle"
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # pinned
+        with:
+          name: release-decision-v0
+          if-no-files-found: warn
+          path: |
+            ${{ env.PACK_DIR }}/artifacts/status.json
+            ${{ env.PACK_DIR }}/artifacts/release_decision_v0.json
+            ${{ env.PACK_DIR }}/artifacts/release_decision_v0_ledger_section.html
+            ${{ env.PACK_DIR }}/artifacts/report_card.with_release_decision.html
+      
       - name: Export JUnit and SARIF from final status
         if: always()
         shell: bash
