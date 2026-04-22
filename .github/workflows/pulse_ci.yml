@@ -1282,6 +1282,61 @@ jobs:
             printf -- '- output: `%s`\n' "${OUT_PATH}"
           } >> "${GITHUB_STEP_SUMMARY}"
 
+      - name: "Release decision v0: compose report card"
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          PACK_DIR="${{ env.PACK_DIR }}"
+          REPORT_PATH="${PACK_DIR}/artifacts/report_card.html"
+          SECTION_PATH="${PACK_DIR}/artifacts/release_decision_v0_ledger_section.html"
+          OUT_PATH="${PACK_DIR}/artifacts/report_card.with_release_decision.html"
+
+          echo "release_decision_v0 report=${REPORT_PATH}"
+          echo "release_decision_v0 section=${SECTION_PATH}"
+          echo "release_decision_v0 composed=${OUT_PATH}"
+
+          if [[ ! -f "${REPORT_PATH}" ]]; then
+            echo "::warning::report_card.html is missing; skipping release decision report composition"
+            {
+              printf '### Release decision v0 composed report\n\n'
+              printf -- '- status: `skipped`\n'
+              printf -- '- reason: `report_card.html missing`\n'
+              printf -- '- expected report: `%s`\n' "${REPORT_PATH}"
+            } >> "${GITHUB_STEP_SUMMARY}"
+            exit 0
+          fi
+
+          set +e
+          python "${PACK_DIR}/tools/insert_release_decision_ledger_section.py" \
+            --report "${REPORT_PATH}" \
+            --section "${SECTION_PATH}" \
+            --out "${OUT_PATH}" \
+            --allow-missing-section
+          rc=$?
+          set -e
+
+          echo "release_decision_v0 report composition exit code: ${rc}"
+
+          if [[ -f "${OUT_PATH}" ]]; then
+            echo "OK: composed release decision report written: ${OUT_PATH}"
+          else
+            echo "::warning::composed release decision report was not written"
+          fi
+
+          if [[ "${rc}" -ne 0 ]]; then
+            echo "::warning::release_decision_v0 report composition returned ${rc}; composed report may be unavailable"
+          fi
+
+          {
+            printf '### Release decision v0 composed report\n\n'
+            printf -- '- composer exit code: `%s`\n' "${rc}"
+            printf -- '- report: `%s`\n' "${REPORT_PATH}"
+            printf -- '- section: `%s`\n' "${SECTION_PATH}"
+            printf -- '- output: `%s`\n' "${OUT_PATH}"
+          } >> "${GITHUB_STEP_SUMMARY}"
+      
       - name: Export JUnit and SARIF from final status
         if: always()
         shell: bash
