@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import datetime as dt
 import hashlib
 import json
 import sys
@@ -64,6 +65,25 @@ def _format_error_path(error: Any) -> str:
     return path or "<root>"
 
 
+def _parse_datetime(value: Any) -> dt.datetime | None:
+    if not isinstance(value, str) or not value.strip():
+        return None
+
+    text = value.strip()
+    if text.endswith("Z"):
+        text = text[:-1] + "+00:00"
+
+    try:
+        parsed = dt.datetime.fromisoformat(text)
+    except ValueError:
+        return None
+
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=dt.timezone.utc)
+
+    return parsed.astimezone(dt.timezone.utc)
+
+
 def _validate_with_schema(
     *,
     payload: Any,
@@ -108,6 +128,11 @@ def _validate_with_schema(
     return errors
 
 
+def _has_nonempty_list(payload: dict[str, Any], key: str) -> bool:
+    value = payload.get(key)
+    return isinstance(value, list) and len(value) > 0
+
+
 def _semantic_errors(payload: dict[str, Any]) -> list[str]:
     errors: list[str] = []
 
@@ -140,8 +165,7 @@ def _semantic_errors(payload: dict[str, Any]) -> list[str]:
         if payload.get("expires_utc") in (None, ""):
             errors.append("accepted override requires a non-null expires_utc")
 
-        followups = payload.get("followups")
-        if not isinstance(followups, list) or not followups:
+        if not _has_nonempty_list(payload, "followups"):
             errors.append("accepted override requires at least one follow-up")
 
         if "revocation" in payload:
@@ -165,8 +189,7 @@ def _semantic_errors(payload: dict[str, Any]) -> list[str]:
         if payload.get("expires_utc") in (None, ""):
             errors.append("expired override requires expires_utc")
 
-        followups = payload.get("followups")
-        if not isinstance(followups, list) or not followups:
+        if not _has_nonempty_list(payload, "followups"):
             errors.append("expired override requires at least one follow-up")
 
         if "revocation" in payload:
@@ -179,13 +202,27 @@ def _semantic_errors(payload: dict[str, Any]) -> list[str]:
                 "revoked override must preserve the original accepted review decision"
             )
 
-        followups = payload.get("followups")
-        if not isinstance(followups, list) or not followups:
+        if payload.get("expires_utc") in (None, ""):
+            errors.append(
+                "revoked override requires expires_utc from the original accepted override"
+            )
+
+        if not _has_nonempty_list(payload, "followups"):
             errors.append("revoked override requires at least one follow-up")
 
         revocation = payload.get("revocation")
         if not isinstance(revocation, dict):
             errors.append("revoked override requires a revocation record")
+        else:
+            expires_utc = _parse_datetime(payload.get("expires_utc"))
+            revoked_utc = _parse_datetime(revocation.get("revoked_utc"))
+
+            if expires_utc is not None and revoked_utc is not None:
+                if revoked_utc >= expires_utc:
+                    errors.append(
+                        "revoked override requires revocation.revoked_utc to be "
+                        "before the original expires_utc authorization window"
+                    )
 
     return errors
 
