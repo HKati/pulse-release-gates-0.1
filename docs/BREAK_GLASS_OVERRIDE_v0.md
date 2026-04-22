@@ -237,6 +237,7 @@ review is required from the original accepted override
 risk_acceptance is required
 expires_utc is required and must preserve the original accepted override expiry
 revocation is required
+followups is required and must contain at least one item
 status records that the accepted override was withdrawn before expiry
 ```
 
