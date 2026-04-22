@@ -70,7 +70,7 @@ def _parse_datetime(value: Any) -> dt.datetime | None:
         return None
 
     text = value.strip()
-    if text.endswith("Z"):
+    if text[-1:].lower() == "z":
         text = text[:-1] + "+00:00"
 
     try:
@@ -216,6 +216,16 @@ def _semantic_errors(payload: dict[str, Any]) -> list[str]:
         else:
             expires_utc = _parse_datetime(payload.get("expires_utc"))
             revoked_utc = _parse_datetime(revocation.get("revoked_utc"))
+
+             if expires_utc is None:
+                errors.append(
+                    "revoked override requires expires_utc to be a parseable date-time"
+                )
+
+            if revoked_utc is None:
+                errors.append(
+                    "revoked override requires revocation.revoked_utc to be a parseable date-time"
+                )
 
             if expires_utc is not None and revoked_utc is not None:
                 if revoked_utc >= expires_utc:
