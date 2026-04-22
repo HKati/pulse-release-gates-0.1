@@ -396,6 +396,10 @@
               }
             }
           },
+           "expires_utc": {
+            "type": "string",
+            "format": "date-time"
+          },
           "followups": {
             "minItems": 1
           }
