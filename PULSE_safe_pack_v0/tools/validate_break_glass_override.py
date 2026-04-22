@@ -207,7 +207,8 @@ def _semantic_errors(payload: dict[str, Any]) -> list[str]:
                 "revoked override requires expires_utc from the original accepted override"
             )
 
-        if not _has_nonempty_list(payload, "followups"):
+         followups = payload.get("followups")
+        if not isinstance(followups, list) or not followups:
             errors.append("revoked override requires at least one follow-up")
 
         revocation = payload.get("revocation")
@@ -216,7 +217,15 @@ def _semantic_errors(payload: dict[str, Any]) -> list[str]:
         else:
             expires_utc = _parse_datetime(payload.get("expires_utc"))
             revoked_utc = _parse_datetime(revocation.get("revoked_utc"))
+            if expires_utc is None:
+                errors.append(
+                    "revoked override requires expires_utc to be a parseable date-time"
+                )
 
+            if revoked_utc is None:
+                errors.append(
+                    "revoked override requires revocation.revoked_utc to be a parseable date-time"
+                )
              if expires_utc is None:
                 errors.append(
                     "revoked override requires expires_utc to be a parseable date-time"
