@@ -398,7 +398,10 @@
               }
             }
           },
+          HKati-patch-958740
+           "expires_utc": {
           "expires_utc": {
+ main
             "type": "string",
             "format": "date-time"
           },
