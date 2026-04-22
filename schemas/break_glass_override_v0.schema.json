@@ -1,0 +1,406 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://eplabsai.example/schemas/break_glass_override_v0.schema.json",
+  "title": "PULSEmech Break-glass Override v0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "version",
+    "created_utc",
+    "override_id",
+    "status",
+    "target",
+    "release_decision_path",
+    "release_decision_sha256",
+    "release_level_before_override",
+    "requested_by",
+    "request_reason"
+  ],
+  "properties": {
+    "schema": {
+      "const": "pulse_break_glass_override_v0"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^0\\.[0-9]+\\.[0-9]+$"
+    },
+    "created_utc": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "override_id": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^BG-[A-Za-z0-9_.:-]+$"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "requested",
+        "accepted",
+        "rejected",
+        "expired",
+        "revoked"
+      ]
+    },
+    "target": {
+      "type": "string",
+      "enum": [
+        "stage",
+        "prod"
+      ]
+    },
+    "release_decision_path": {
+      "type": "string",
+      "minLength": 1
+    },
+    "release_decision_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "release_level_before_override": {
+      "type": "string",
+      "enum": [
+        "FAIL",
+        "STAGE-PASS",
+        "PROD-PASS"
+      ]
+    },
+    "requested_by": {
+      "type": "string",
+      "minLength": 1
+    },
+    "request_reason": {
+      "type": "string",
+      "minLength": 1
+    },
+    "review": {
+      "$ref": "#/$defs/review"
+    },
+    "risk_acceptance": {
+      "$ref": "#/$defs/risk_acceptance"
+    },
+    "expires_utc": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "followups": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/followup"
+      }
+    },
+    "revocation": {
+      "$ref": "#/$defs/revocation"
+    }
+  },
+  "$defs": {
+    "review": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "reviewed_by",
+        "reviewed_utc",
+        "decision",
+        "decision_reason"
+      ],
+      "properties": {
+        "reviewed_by": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reviewed_utc": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "decision": {
+          "type": "string",
+          "enum": [
+            "accepted",
+            "rejected"
+          ]
+        },
+        "decision_reason": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "risk_acceptance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scope",
+        "known_risks",
+        "mitigations"
+      ],
+      "properties": {
+        "scope": {
+          "type": "string",
+          "minLength": 1
+        },
+        "known_risks": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1
+        },
+        "mitigations": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "followup": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "owner",
+        "due_utc",
+        "action"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "owner": {
+          "type": "string",
+          "minLength": 1
+        },
+        "due_utc": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "action": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "revocation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "revoked_by",
+        "revoked_utc",
+        "revocation_reason"
+      ],
+      "properties": {
+        "revoked_by": {
+          "type": "string",
+          "minLength": 1
+        },
+        "revoked_utc": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "revocation_reason": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "requested"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "not": {
+          "anyOf": [
+            {
+              "required": [
+                "review"
+              ]
+            },
+            {
+              "required": [
+                "risk_acceptance"
+              ]
+            },
+            {
+              "required": [
+                "expires_utc"
+              ]
+            },
+            {
+              "required": [
+                "revocation"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "accepted"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "required": [
+          "review",
+          "risk_acceptance",
+          "expires_utc",
+          "followups"
+        ],
+        "properties": {
+          "review": {
+            "properties": {
+              "decision": {
+                "const": "accepted"
+              }
+            }
+          },
+          "expires_utc": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "followups": {
+            "minItems": 1
+          }
+        },
+        "not": {
+          "required": [
+            "revocation"
+          ]
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "rejected"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "required": [
+          "review"
+        ],
+        "properties": {
+          "review": {
+            "properties": {
+              "decision": {
+                "const": "rejected"
+              }
+            }
+          },
+          "expires_utc": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "not": {
+          "required": [
+            "revocation"
+          ]
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "expired"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "required": [
+          "review",
+          "risk_acceptance",
+          "expires_utc",
+          "followups"
+        ],
+        "properties": {
+          "review": {
+            "properties": {
+              "decision": {
+                "const": "accepted"
+              }
+            }
+          },
+          "expires_utc": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "followups": {
+            "minItems": 1
+          }
+        },
+        "not": {
+          "required": [
+            "revocation"
+          ]
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "revoked"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "required": [
+          "review",
+          "risk_acceptance",
+          "revocation",
+          "followups"
+        ],
+        "properties": {
+          "review": {
+            "properties": {
+              "decision": {
+                "const": "accepted"
+              }
+            }
+          },
+          "followups": {
+            "minItems": 1
+          }
+        }
+      }
+    }
+  ]
+}
