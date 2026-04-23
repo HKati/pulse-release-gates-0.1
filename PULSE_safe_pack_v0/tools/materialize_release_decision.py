@@ -467,7 +467,7 @@ def _materialize_decision(
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Materialize the PULSEmech release_decision_v0 artifact."
+        description="Materialize the PULSE release_decision_v0 artifact."
     )
 
     parser.add_argument(
