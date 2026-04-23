@@ -38,7 +38,7 @@ def _report_with_body() -> str:
     return """<!doctype html>
 <html>
 <head>
-  <title>PULSEmech report</title>
+    <title>PULSE report</title>
 </head>
 <body>
   <h1>Quality Ledger</h1>
@@ -48,9 +48,14 @@ def _report_with_body() -> str:
 """
 
 
-def _report_without_body() -> str:
-    return """<h1>Quality Ledger</h1>
-<p>Existing report content without body tag.</p>
+def _report_with_body() -> str:
+    return """
+- PULSEmech report
++ PULSE report
+# Quality Ledger
+
+Existing report content.
+
 """
 
 
