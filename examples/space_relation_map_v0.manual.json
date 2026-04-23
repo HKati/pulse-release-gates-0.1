@@ -1,0 +1,256 @@
+{
+  "schema": "pulse_space_relation_map_v0",
+  "version": "0.1.0",
+  "mode": "manual",
+  "authority": "descriptive_only",
+  "spaces": [
+    {
+      "id": "core",
+      "role": "normative_release_authority"
+    },
+    {
+      "id": "guardrail",
+      "role": "integrity_protection"
+    },
+    {
+      "id": "shadow",
+      "role": "diagnostic_overlay"
+    },
+    {
+      "id": "publication",
+      "role": "reader_surface"
+    },
+    {
+      "id": "external",
+      "role": "evidence_source"
+    }
+  ],
+  "elements": [
+    {
+      "id": "status_json",
+      "kind": "artifact"
+    },
+    {
+      "id": "gate_policy",
+      "kind": "policy"
+    },
+    {
+      "id": "check_gates",
+      "kind": "tool"
+    },
+    {
+      "id": "run_all",
+      "kind": "tool"
+    },
+    {
+      "id": "augment_status",
+      "kind": "tool"
+    },
+    {
+      "id": "pulse_ci",
+      "kind": "workflow"
+    },
+    {
+      "id": "quality_ledger",
+      "kind": "report"
+    },
+    {
+      "id": "external_summary",
+      "kind": "artifact"
+    },
+    {
+      "id": "paradox_overlay",
+      "kind": "overlay"
+    }
+  ],
+  "placements": [
+    {
+      "element_id": "status_json",
+      "space_id": "core"
+    },
+    {
+      "element_id": "gate_policy",
+      "space_id": "core"
+    },
+    {
+      "element_id": "check_gates",
+      "space_id": "core"
+    },
+    {
+      "element_id": "run_all",
+      "space_id": "core"
+    },
+    {
+      "element_id": "augment_status",
+      "space_id": "core"
+    },
+    {
+      "element_id": "pulse_ci",
+      "space_id": "core"
+    },
+    {
+      "element_id": "quality_ledger",
+      "space_id": "publication"
+    },
+    {
+      "element_id": "external_summary",
+      "space_id": "external"
+    },
+    {
+      "element_id": "paradox_overlay",
+      "space_id": "shadow"
+    }
+  ],
+  "relations": [
+    {
+      "id": "rel_pulse_ci_anchors_to_gate_policy",
+      "type": "anchors_to",
+      "from": {
+        "kind": "element",
+        "id": "pulse_ci"
+      },
+      "to": {
+        "kind": "element",
+        "id": "gate_policy"
+      }
+    },
+    {
+      "id": "rel_check_gates_reads_status",
+      "type": "reads",
+      "from": {
+        "kind": "element",
+        "id": "check_gates"
+      },
+      "to": {
+        "kind": "element",
+        "id": "status_json"
+      }
+    },
+    {
+      "id": "rel_check_gates_enforces_core",
+      "type": "enforces",
+      "from": {
+        "kind": "element",
+        "id": "check_gates"
+      },
+      "to": {
+        "kind": "space",
+        "id": "core"
+      }
+    },
+    {
+      "id": "rel_run_all_materializes_status",
+      "type": "materializes",
+      "from": {
+        "kind": "element",
+        "id": "run_all"
+      },
+      "to": {
+        "kind": "element",
+        "id": "status_json"
+      }
+    },
+    {
+      "id": "rel_augment_status_materializes_status",
+      "type": "materializes",
+      "from": {
+        "kind": "element",
+        "id": "augment_status"
+      },
+      "to": {
+        "kind": "element",
+        "id": "status_json"
+      }
+    },
+    {
+      "id": "rel_external_summary_feeds_augment_status",
+      "type": "feeds",
+      "from": {
+        "kind": "element",
+        "id": "external_summary"
+      },
+      "to": {
+        "kind": "element",
+        "id": "augment_status"
+      }
+    },
+    {
+      "id": "rel_quality_ledger_reads_status",
+      "type": "reads",
+      "from": {
+        "kind": "element",
+        "id": "quality_ledger"
+      },
+      "to": {
+        "kind": "element",
+        "id": "status_json"
+      }
+    },
+    {
+      "id": "rel_quality_ledger_cannot_override_core",
+      "type": "cannot_override",
+      "from": {
+        "kind": "element",
+        "id": "quality_ledger"
+      },
+      "to": {
+        "kind": "space",
+        "id": "core"
+      }
+    },
+    {
+      "id": "rel_paradox_observes_status",
+      "type": "observes",
+      "from": {
+        "kind": "element",
+        "id": "paradox_overlay"
+      },
+      "to": {
+        "kind": "element",
+        "id": "status_json"
+      }
+    },
+    {
+      "id": "rel_paradox_cannot_override_core",
+      "type": "cannot_override",
+      "from": {
+        "kind": "element",
+        "id": "paradox_overlay"
+      },
+      "to": {
+        "kind": "space",
+        "id": "core"
+      }
+    },
+    {
+      "id": "rel_external_may_promote_if_policy_core",
+      "type": "may_promote_if_policy",
+      "from": {
+        "kind": "element",
+        "id": "external_summary"
+      },
+      "to": {
+        "kind": "space",
+        "id": "core"
+      }
+    }
+  ],
+  "invariants": [
+    {
+      "id": "inv_core_defines_shipping",
+      "statement": "Only core defines shipping decisions."
+    },
+    {
+      "id": "inv_publication_non_authoritative",
+      "statement": "Publication surfaces read and present results but do not define shipping."
+    },
+    {
+      "id": "inv_shadow_non_override",
+      "statement": "Shadow layers may observe and diagnose but cannot override core."
+    },
+    {
+      "id": "inv_external_requires_explicit_promotion",
+      "statement": "External evidence becomes normatively relevant only when policy or workflow explicitly promotes it."
+    }
+  ]
+}
