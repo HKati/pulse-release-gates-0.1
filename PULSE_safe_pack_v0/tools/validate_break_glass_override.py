@@ -363,7 +363,7 @@ def validate_break_glass_override(
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Validate a PULSEmech break_glass_override_v0 artifact."
+        description="Validate a PULSE break_glass_override_v0 artifact."
     )
 
     parser.add_argument(
