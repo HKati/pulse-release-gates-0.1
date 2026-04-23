@@ -38,11 +38,11 @@ def _report_with_body() -> str:
     return """<!doctype html>
 <html>
 <head>
-  <title>PULSEmech report</title>
+<title>PULSE report</title>
 </head>
 <body>
-  <h1>Quality Ledger</h1>
-  <p>Existing report content.</p>
+<h1>Quality Ledger</h1>
+<p>Existing report content.</p>
 </body>
 </html>
 """
