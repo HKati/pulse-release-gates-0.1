@@ -309,7 +309,7 @@ restore missing external evidence
 rerun release-grade detector pipeline
 file post-release incident review
 tighten policy or detector coverage
-re-run PULSEmech release decision after remediation
+re-run PULSE release decision after remediation
 ```
 
 Follow-ups are part of the governance record.
