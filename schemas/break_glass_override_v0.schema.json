@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://eplabsai.example/schemas/break_glass_override_v0.schema.json",
-  "title": "PULSE Release Decision v0",
+  "title": "PULSE Break-glass Override v0",
   "type": "object",
   "additionalProperties": false,
   "required": [
