@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://eplabsai.example/schemas/release_decision_v0.schema.json",
-  "title": "PULSEmech Release Decision v0",
+  "title": "PULSE Release Decision v0",
   "type": "object",
   "additionalProperties": false,
   "required": [
