@@ -27,7 +27,7 @@
 
 # PULSE — Release Gates for Safe & Useful AI
 
-#### [PULSE is an artifact-defined, deterministic release-governance layer: `status.json`, materialized required gates, and `check_gates.py` define the release decision.](#start-here)
+#### [AI Release Stability Engineering](#ai-release-stability-engineering)
 
 > 💡 **Continuous expansion**
 >
