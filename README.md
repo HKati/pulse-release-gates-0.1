@@ -64,6 +64,12 @@ Choose one path first:
 - **Triage / operational path** → [`docs/RUNBOOK.md`](docs/RUNBOOK.md)  
   Start here when CI is red and you need the shortest path to diagnosis.
 
+- **Topology / authority-boundary path** → [`docs/SPACE_RELATION_MAP_v0.md`](docs/SPACE_RELATION_MAP_v0.md)
+  Use this when you need the machine-readable topology view of PULSE:
+  spaces, elements, placements, relations, and invariants.
+  This layer is descriptive-only. It clarifies authority boundaries
+  but does not define shipping decisions.
+
 - **Topology / Paradox / EPF / overlays** → [`docs/OPTIONAL_LAYERS.md`](docs/OPTIONAL_LAYERS.md)  
   Use this after the core path. It maps diagnostic overlays, shadow workflows, and external companion surfaces such as Parameter Golf v0. These layers remain non-normative unless explicitly promoted into the required gate set. 
 
