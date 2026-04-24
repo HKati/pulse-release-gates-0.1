@@ -71,7 +71,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
 
-     artifact = _repo_path(args.artifact)
+    artifact = _repo_path(args.artifact)
     schema = _repo_path(args.schema)
     out = _repo_path(args.out)
 
