@@ -25,6 +25,12 @@ def _default_schema_path() -> Path:
             return candidate
     return DEFAULT_SCHEMA_CANDIDATES[0]
 
+def _repo_path(value: str) -> Path:
+    path = Path(value)
+    if path.is_absolute():
+        return path
+    return REPO_ROOT / path
+
 
 def _run(label: str, *args: Path | str) -> None:
     cp = subprocess.run(
@@ -64,9 +70,9 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
 
-    artifact = Path(args.artifact)
-    schema = Path(args.schema)
-    out = Path(args.out)
+     artifact = _repo_path(args.artifact)
+    schema = _repo_path(args.schema)
+    out = _repo_path(args.out)
 
     _run(
         "space relation map validation",
