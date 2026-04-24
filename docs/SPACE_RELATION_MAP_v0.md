@@ -87,6 +87,23 @@ This is especially useful for showing:
 
 ---
 
+## Summary pointer
+
+The topology artifact may include a machine-readable `summary_ref`
+pointer to its canonical rendered summary.
+
+Current convention:
+
+- format: `markdown`
+- path: `reports/topology/space_relation_map_v0_summary.md`
+- producer: `tools/build_space_relation_map_summary.py`
+
+This pointer is descriptive only.
+It helps tools and readers locate the canonical rendered summary, but it
+does not add release authority.
+
+---
+
 ## Core concepts
 
 ### Spaces
