@@ -70,14 +70,20 @@ This is especially useful for showing:
 - `tools/render_space_relation_map_summary.py`
   - renders a human-readable markdown summary
 
+- `tools/build_space_relation_map_summary.py`
+  - validates and renders the topology summary to a canonical output path
+
 - `tests/test_validate_space_relation_map_tool.py`
   - validator smoke test
 
 - `tests/test_render_space_relation_map_summary_tool.py`
   - renderer smoke test
 
+- `tests/test_build_space_relation_map_summary_tool.py`
+  - builder smoke test
+
 - `ci/tools-tests.list`
-  - includes both topology tool smoke tests
+  - includes validator, renderer, and builder topology tool smoke tests
 
 ---
 
@@ -182,7 +188,20 @@ python tools/render_space_relation_map_summary.py \
   examples/space_relation_map_v0.manual.json \
   --out /tmp/space_relation_map_v0_summary.md
 ```
+---
+## Build
 
+Build the validated topology summary to the canonical repo output path:
+
+```bash
+python tools/build_space_relation_map_summary.py
+```
+
+Default output:
+
+```text
+reports/topology/space_relation_map_v0_summary.md
+```
 ---
 
 ## Non-goals in v0
