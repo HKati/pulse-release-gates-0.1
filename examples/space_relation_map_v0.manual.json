@@ -3,6 +3,11 @@
   "version": "0.1.0",
   "mode": "manual",
   "authority": "descriptive_only",
+  "summary_ref": {
+    "format": "markdown",
+    "path": "reports/topology/space_relation_map_v0_summary.md",
+    "producer": "tools/build_space_relation_map_summary.py"
+  },
   "spaces": [
     {
       "id": "core",
