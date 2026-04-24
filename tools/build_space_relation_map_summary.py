@@ -25,6 +25,7 @@ def _default_schema_path() -> Path:
             return candidate
     return DEFAULT_SCHEMA_CANDIDATES[0]
 
+
 def _repo_path(value: str) -> Path:
     path = Path(value)
     if path.is_absolute():
