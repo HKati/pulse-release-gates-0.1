@@ -1,0 +1,16 @@
+{
+  "version": "test",
+  "created_utc": "2026-04-25T00:00:00Z",
+  "gates": {
+    "q1_grounded_ok": true,
+    "q4_slo_ok": true
+  },
+  "metrics": {
+    "run_mode": "core"
+  },
+  "diagnostics": {
+    "gates_stubbed": true,
+    "scaffold": true,
+    "stub_profile": "all_true_smoke"
+  }
+}
