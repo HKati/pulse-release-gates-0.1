@@ -1,0 +1,19 @@
+{
+  "version": "test",
+  "created_utc": "2026-04-25T00:00:00Z",
+  "gates": {
+    "q1_grounded_ok": true,
+    "q4_slo_ok": true,
+    "detectors_materialized_ok": true,
+    "external_summaries_present": true,
+    "external_all_pass": true
+  },
+  "metrics": {
+    "run_mode": "prod"
+  },
+  "diagnostics": {
+    "gates_stubbed": false,
+    "scaffold": false,
+    "stub_profile": "materialized_evidence"
+  }
+}
