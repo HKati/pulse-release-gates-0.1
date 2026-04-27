@@ -80,13 +80,30 @@ def _as_set(value: Any, label: str, errors: list[str]) -> set[str]:
     return out
 
 
+def _object_section(manifest: dict[str, Any], name: str, errors: list[str]) -> dict[str, Any]:
+    """Return a top-level object section or record a validation error.
+
+    Schema validation already rejects non-object sections, but semantic validation
+    must not crash before the checker can report normal fail-closed errors.
+    """
+    if name not in manifest or manifest.get(name) is None:
+        return {}
+
+    value = manifest.get(name)
+    if not isinstance(value, dict):
+        errors.append(f"{name} must be an object")
+        return {}
+
+    return value
+
+
 def _semantic_validate(manifest: dict[str, Any]) -> list[str]:
     errors: list[str] = []
 
-    authority = manifest.get("authority") or {}
-    evaluation = manifest.get("evaluation") or {}
-    decision = manifest.get("decision") or {}
-    diagnostics = manifest.get("diagnostics") or {}
+    authority = _object_section(manifest, "authority", errors)
+    evaluation = _object_section(manifest, "evaluation", errors)
+    decision = _object_section(manifest, "decision", errors)
+    diagnostics = _object_section(manifest, "diagnostics", errors)
 
     required_gates = _as_set(
         authority.get("effective_required_gates"),
@@ -185,7 +202,7 @@ def _semantic_validate(manifest: dict[str, Any]) -> list[str]:
             "missing_required_gates is non-empty"
         )
 
-    if decision.get("fail_closed") is not True:
+    if decision and decision.get("fail_closed") is not True:
         errors.append("decision.fail_closed must be true")
 
     if diagnostics:
@@ -210,7 +227,6 @@ def _semantic_validate(manifest: dict[str, Any]) -> list[str]:
                     )
 
     return errors
-
 
 def validate_manifest(manifest_path: Path, schema_path: Path) -> list[str]:
     try:
