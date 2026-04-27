@@ -85,8 +85,11 @@ def _object_section(manifest: dict[str, Any], name: str, errors: list[str]) -> d
 
     Schema validation already rejects non-object sections, but semantic validation
     must not crash before the checker can report normal fail-closed errors.
+
+    Missing optional sections are neutral. Explicit null or other non-object values
+    are malformed and must be reported as validation errors.
     """
-    if name not in manifest or manifest.get(name) is None:
+    if name not in manifest:
         return {}
 
     value = manifest.get(name)
