@@ -51,13 +51,6 @@ recorded release evidence
 
 Release gates are the deterministic enforcement mechanism inside the broader PULSE release-governance layer.
 
-
-> 💡 **Continuous expansion**
->
-> PULSE is not a frozen snapshot. The core release gate semantics are stable,
-> but the safe pack, docs and examples are under active, ongoing expansion.
-> Expect new profiles, detectors and ledger views to appear over time.
-
 The normative release path is:
 
 ```text
@@ -70,6 +63,14 @@ release evidence
 ```
 
 > **TL;DR**: Existing systems produce release evidence. PULSE binds that evidence to declared policy, evaluates it deterministically, enforces the release boundary in CI, and records the decision for audit.
+
+---
+
+> 💡 **Continuous expansion**
+>
+> PULSE is not a frozen snapshot. The release-authority core is explicit and versioned,
+> while the safe pack, documentation, examples, profiles, detectors, overlays,
+> and ledger views are under active expansion.
 
 ---
 
