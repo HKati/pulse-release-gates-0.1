@@ -1,4 +1,4 @@
-![PULSEmech architecture map: artifact-first governance, shadow diagnostics, normative release authority, traceability, and release output.](hero_pulsemech_architecture_map_v0_1.svg)
+[![PULSEmech architecture map: artifact-first governance, shadow diagnostics, normative release authority, traceability, and release output.](hero_pulsemech_architecture_map_v0_1.svg)](docs/PULSEMECH_ARCHITECTURE_MAP_v0_1.md)
 
 <details>
   <summary><strong>Project badges and live release surfaces</strong></summary>
