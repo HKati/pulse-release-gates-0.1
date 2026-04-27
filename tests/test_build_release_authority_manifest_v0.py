@@ -198,3 +198,8 @@ def test_builds_required_plus_release_required_manifest(tmp_path: Path) -> None:
 
     check = run_checker(tmp_path / "release_authority_v0.json")
     assert check.returncode == 0, check.stderr
+
+if __name__ == "__main__":
+    import pytest
+
+    raise SystemExit(pytest.main([__file__]))
