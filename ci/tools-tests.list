@@ -27,6 +27,7 @@ tests/test_paradox_diagram_renderer_v0_smoke.py
 tests/test_openai_evals_refusal_smoke_dry_run_smoke.py
 tests/test_render_quality_ledger_tests_list_smoke.py
 tests/test_authority_boundary_repro_smoke.py 
+tests/test_check_release_authority_manifest_v0.py
 tests/test_release_decision_v0_smoke.py
 tests/test_release_decision_v0_schema_smoke.py
 tests/test_insert_release_decision_ledger_section_smoke.py 
