@@ -104,7 +104,7 @@ Choose the path that matches the release-governance question you need to answer.
 Before opening `.github/workflows/`, keep this  authority split in mind.
 
 
-- **Primary release-governance 
+- **Primary release-governance workflow**
   - `.github/workflows/pulse_ci.yml`
   - This is the primary CI workflow for enforcing the declared release gate policy.
 
@@ -350,7 +350,7 @@ Choose the integration shape that matches the release-governance boundary you wa
    - Applies the workflow-effective gate set described in `docs/GATE_SETS.md`.
    - Produces the release decision record, Quality Ledger, and CI artifacts for the repository release path. 
 
-Release gates are the deterministic enforcement mechanism inside the broader PULSE release-governance layer
+Release gates are the deterministic enforcement mechanism inside the broader PULSE release-governance layer.
 
 ---
 
