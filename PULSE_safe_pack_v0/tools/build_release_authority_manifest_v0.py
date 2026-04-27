@@ -318,8 +318,10 @@ def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
         "sha256": _sha256(policy_path),
     }
     policy_version = policy_meta.get("version")
-    if policy_version:
-        gate_policy_ref["version"] = str(policy_version)
+    if policy_version is not None:
+        policy_version_s = str(policy_version).strip()
+        if policy_version_s:
+            gate_policy_ref["version"] = policy_version_s
 
     manifest = {
         "schema_version": "release_authority_v0",
