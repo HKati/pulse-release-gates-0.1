@@ -312,6 +312,15 @@ def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
     if not isinstance(registry_version, str):
         registry_version = str(registry_version)
 
+    gate_policy_ref = {
+        "path": str(policy_path),
+        "policy_id": str(policy_meta.get("id") or "pulse-gate-policy-v0"),
+        "sha256": _sha256(policy_path),
+    }
+    policy_version = policy_meta.get("version")
+    if policy_version:
+        gate_policy_ref["version"] = str(policy_version)
+
     manifest = {
         "schema_version": "release_authority_v0",
         "created_utc": args.created_utc or _utc_now(),
@@ -327,12 +336,7 @@ def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
                 "path": str(status_path),
                 "sha256": _sha256(status_path),
             },
-            "gate_policy": {
-                "path": str(policy_path),
-                "policy_id": str(policy_meta.get("id") or "pulse-gate-policy-v0"),
-                "version": str(policy_meta.get("version") or ""),
-                "sha256": _sha256(policy_path),
-            },
+            "gate_policy": gate_policy_ref,
             "gate_registry": {
                 "path": str(registry_path),
                 "version": registry_version,
