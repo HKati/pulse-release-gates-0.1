@@ -1,33 +1,70 @@
-<!-- HERO (dark default) -->
-<img alt="Run PULSE before you ship." src="hero_dark_4k.png" width="100%">
 
-<p align="center">
-  <em>Prefer a light version?</em>
-</p>
+<!-- HERO / architecture orientation map -->
+<img
+  alt="PULSEmech architecture map: artifact-first governance, shadow diagnostics, normative release authority, traceability, and release output."
+  src="hero_pulsemech_architecture_map_v0_1.svg"
+  width="100%"
+>
 
 <details>
-  <summary><strong>Show light hero</strong></summary>
-  <img alt="Run PULSE before you ship. (light)" src="hero_light_4k.png" width="100%">
+  <summary><strong>Project badges and live release surfaces</strong></summary>
+
+  <p align="center">
+    <img src="pulse_grail.svg" width="90" alt="Pulse Holy Grail" />
+  </p>
+
+  <p align="center">
+    <img
+      src="https://img.shields.io/badge/PULSE-HOLY%20GRAIL-%237DF9FF?style=for-the-badge&logo=codesandbox&logoColor=white"
+      alt="Pulse Holy Grail badge"
+    >
+    <a href="https://hkati.github.io/pulse-release-gates-0.1/">
+      <img src="badges/pulse_status.svg" alt="PULSE status">
+    </a>
+    <a href="https://hkati.github.io/pulse-release-gates-0.1/status.json">
+      <img src="badges/rdsi.svg" alt="RDSI">
+    </a>
+    <a href="https://hkati.github.io/pulse-release-gates-0.1/#quality-ledger">
+      <img src="badges/q_ledger.svg" alt="Q-Ledger">
+    </a>
+  </p>
+
+- **Quality Ledger:** https://hkati.github.io/pulse-release-gates-0.1/
+- **Status JSON:** https://hkati.github.io/pulse-release-gates-0.1/status.json
 </details>
-
-
-<p align="center">
-  <img src="pulse_grail.svg" width="110" alt="Pulse Holy Grail" />
-</p>
-
-
-![Pulse Holy Grail](https://img.shields.io/badge/PULSE-HOLY%20GRAIL-%237DF9FF?style=for-the-badge&logo=codesandbox&logoColor=white)
-[![DOI](https://doi.org/badge/DOI/10.5281/zenodo.17373002.svg)](https://doi.org/10.5281/zenodo.17373002)
-[![PULSE](badges/pulse_status.svg)](https://hkati.github.io/pulse-release-gates-0.1/)
-[![RDSI](badges/rdsi.svg)](https://hkati.github.io/pulse-release-gates-0.1/status.json)
-[![Q‑Ledger](badges/q_ledger.svg)](https://hkati.github.io/pulse-release-gates-0.1/#quality-ledger)
-
-**See the latest Quality Ledger (live):** https://hkati.github.io/pulse-release-gates-0.1/
-
 
 # PULSE — Release Gates for Safe & Useful AI
 
-#### [AI Release Stability Engineering](#ai-release-stability-engineering)
+#### Deterministic release-governance layer for LLM applications and AI-enabled systems
+
+**See the latest Quality Ledger (live):** https://hkati.github.io/pulse-release-gates-0.1/
+
+<  <a href="https://doi.org/10.5281/zenodo.17373002">
+    <img src="https://doi.org/badge/DOI/10.5281/zenodo.17373002.svg" alt="DOI">
+  </a>
+</p>
+
+PULSE is a deterministic, fail-closed release-governance layer for LLM applications and AI-enabled systems. It is built above existing application, model, evaluation, and deployment pipelines. At the release boundary, PULSE evaluates recorded release evidence against declared gate policy and emits an auditable release decision record.
+
+Release evidence can include safety and consistency invariants, product quality gates, SLO budgets, external detector summaries, run metadata, logs, and release-stability signals. Policy defines which evidence and gates carry release authority. Evaluation is deterministic, explicit, and fail-closed.
+
+The output is a governed release surface:
+- machine-readable release status,
+- enforced gate outcomes,
+- a human-readable Quality Ledger,
+- CI-native reports and artifacts,
+- release-stability signals such as RDSI,
+- traceable release-state records.
+
+```text
+recorded release evidence
++ declared gate policy
++ deterministic evaluator
+→ auditable release decision record
+```
+
+Release gates are the deterministic enforcement mechanism inside the broader PULSE release-governance layer.
+
 
 > 💡 **Continuous expansion**
 >
@@ -35,16 +72,18 @@
 > but the safe pack, docs and examples are under active, ongoing expansion.
 > Expect new profiles, detectors and ledger views to appear over time.
 
-From **findings** to **fuses**. Run **PULSE before you ship**: deterministic, **fail-closed** gates that turn red-team insights into **release decisions** for both safety (I₂–I₇) and product utility (Q₁–Q₄). Offline, CI-enforced, audit-ready.
+The normative release path is:
 
-<p>
-  <img src="badges/pulse_status.svg" height="20" alt="PULSE status">
-  <img src="badges/rdsi.svg" height="20" alt="RDSI">
-  <img src="badges/q_ledger.svg" height="20" alt="Q-Ledger">
-</p>
+```text
+release evidence
+→ status.json
+→ declared gate policy
+→ check_gates.py
+→ primary CI release workflow
+→ release decision record
+```
 
-> **TL;DR**: Drop the pack → run → enforce → ship.  
-> PULSE gives PASS/FAIL release gates, a human-readable **Quality Ledger**, and a stability signal (**RDSI**).
+> **TL;DR**: Existing systems produce release evidence. PULSE binds that evidence to declared policy, evaluates it deterministically, enforces the release boundary in CI, and records the decision for audit.
 
 ---
 
