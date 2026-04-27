@@ -264,6 +264,14 @@
           },
           "default": []
         },
+        "advisory_gates_present": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/gate_id"
+          },
+          "default": []
+        },
         "publication_surfaces_present": {
           "type": "array",
           "items": {
