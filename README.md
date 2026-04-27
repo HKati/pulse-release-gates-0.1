@@ -77,56 +77,53 @@ release evidence
 
 ## Start here
 
-Choose one path first:
+Choose the path that matches the release-governance question you need to answer.
 
-- **First run / adopter path** → [`docs/QUICKSTART_CORE_v0.md`](docs/QUICKSTART_CORE_v0.md)  
-  Minimal path to run the core pipeline on a repo.
+- **Core integration path** → [`docs/QUICKSTART_CORE_v0.md`](docs/QUICKSTART_CORE_v0.md)  
+  Minimal path for attaching the PULSE Core release-governance lane to an existing repository and CI workflow.
 
-- **Release semantics / source-of-truth path** → [`docs/STATUS_CONTRACT.md`](docs/STATUS_CONTRACT.md) and [`docs/status_json.md`](docs/status_json.md)  
-  Read these first if you need to understand what actually gates shipping.
+- **Release authority / source-of-truth path** → [`docs/STATUS_CONTRACT.md`](docs/STATUS_CONTRACT.md) and [`docs/status_json.md`](docs/status_json.md)  
+  Read these first to understand how recorded evidence, status contracts, gate policy, and CI enforcement define release authority.
 
-- **Strict external evidence path** → [`docs/EXTERNAL_DETECTORS.md`](docs/EXTERNAL_DETECTORS.md) and [`docs/external_detector_summaries.md`](docs/external_detector_summaries.md)  
-  Use these if external summaries must be present and fail closed in release-grade paths.
+- **External evidence integration path** → [`docs/EXTERNAL_DETECTORS.md`](docs/EXTERNAL_DETECTORS.md) and [`docs/external_detector_summaries.md`](docs/external_detector_summaries.md)  
+  Use these when external detector summaries must be folded into the release evidence surface and enforced in release-grade paths.
 
-- **Triage / operational path** → [`docs/RUNBOOK.md`](docs/RUNBOOK.md)  
-  Start here when CI is red and you need the shortest path to diagnosis.
+- **Operational triage path** → [`docs/RUNBOOK.md`](docs/RUNBOOK.md)  
+  Start here when a release lane is red and the decision record needs diagnosis.
 
-- **Topology / authority-boundary path** → [`docs/SPACE_RELATION_MAP_v0.md`](docs/SPACE_RELATION_MAP_v0.md)
-  Use this when you need the machine-readable topology view of PULSE:
-  spaces, elements, placements, relations, and invariants.
-  This layer is descriptive-only. It clarifies authority boundaries
-  but does not define shipping decisions.
+- **Authority-boundary / topology path** → [`docs/SPACE_RELATION_MAP_v0.md`](docs/SPACE_RELATION_MAP_v0.md)  
+  Use this to inspect the machine-readable topology view of spaces, elements, placements, relations, and invariants.
 
-- **Topology / Paradox / EPF / overlays** → [`docs/OPTIONAL_LAYERS.md`](docs/OPTIONAL_LAYERS.md)  
-  Use this after the core path. It maps diagnostic overlays, shadow workflows, and external companion surfaces such as Parameter Golf v0. These layers remain non-normative unless explicitly promoted into the required gate set. 
+- **Diagnostic overlays path** → [`docs/OPTIONAL_LAYERS.md`](docs/OPTIONAL_LAYERS.md)  
+  Use this after the Core path to understand shadow workflows, topology, EPF, Paradox, G-field, relational gain, and other diagnostic governance layers.
 
 --- 
 
-## Workflow map (2-minute orientation)
+## Release authority map
 
-Before opening `.github/workflows/`, keep this split in mind:
+Before opening `.github/workflows/`, keep this  authority split in mind.
 
-- **Primary release gate**
+
+- **Primary release-governance 
   - `.github/workflows/pulse_ci.yml`
-  - This is the primary release-gating workflow.
+  - This is the primary CI workflow for enforcing the declared release gate policy.
 
 - **Repo / workflow guardrails**
   - Governance preflight and workflow validation checks
-  - These protect repo and workflow integrity; they are not a second release-decision engine.
+  - These protect repository and workflow integrity around the release-governance lane.
 
 - **Shadow / diagnostic workflows**
-  - Overlays, dry-runs, experiments, and extra diagnostic artifacts
-  - They may validate their own contracts, but they do not change release outcomes by default.
+   - Overlays, dry-runs, experiments, and diagnostic artifacts
+  - These provide review and governance evidence under their declared authority status.
 
 - **Publication / GitHub-native surfaces**
   - Examples: SARIF upload, PR comments, badge write-back, Pages snapshots
-  - These should remain separate opt-in workflows with explicit write permissions.
+  - These publish or render release evidence and should remain separate opt-in workflows with explicit write permissions.
 
 Rule:
-Only the primary release-gating workflow changes release outcomes by default.
-Shadow and publication workflows must stay non-normative unless explicitly promoted into the required gate set.
+release authority is carried by the primary release-governance workflow and its declared required gate set. Shadow, diagnostic, and publication workflows preserve their declared authority status unless explicitly promoted into the required gate set.
 
-See also: [docs/WORKFLOW_MAP.md](docs/WORKFLOW_MAP.md)
+See also:  [`docs/WORKFLOW_MAP.md`](docs/WORKFLOW_MAP.md)
 
 ---
 
@@ -190,26 +187,26 @@ UI and Pages surfaces must be pure readers/renderers of immutable run artefacts.
 
 ## Quickstart
 
-There are two honest entry points.
+There are two practical entry points: local artifact inspection and the canonical Core release-governance lane.
 
-### Fast local smoke (pack only)
+### Fast local smoke — artifact inspection
 
 ```console
 python PULSE_safe_pack_v0/tools/run_all.py
 ```
 
-Use this for quick local inspection only.
+Use this for local inspection of the safe-pack and generated artifacts.
 
 It is useful when you want to:
 - inspect the current artefact shape
 - sanity-check that the pack runs locally
 - look at the generated `status.json` / `report_card.html`
 
-It is **not** the canonical Core CI reproduction path.
+This is an inspection path, not the canonical Core CI release-governance lane.
 
-### Canonical Core lane
+### Canonical Core release-governance lane
 
-For the truthful Core first-run path, start with:
+For the Core first-run path, start with:
 
 - `docs/QUICKSTART_CORE_v0.md`
 - `docs/RUNBOOK.md`
@@ -332,53 +329,52 @@ change any CI behaviour or gate logic.
   `schemas/PULSE_decision_trace_v0.schema.json` using `jsonschema`.
 - Memory / trace dashboard demo → `PULSE_safe_pack_v0/examples/PULSE_memory_trace_dashboard_v0_demo.ipynb`
 
-### Try PULSE on your repo (5 minutes)
+### Integration shapes
 
-Pick one adoption shape first.
+Choose the integration shape that matches the release-governance boundary you want to exercise.
 
 1. **Pack-only local smoke**
-   - Copy `PULSE_safe_pack_v0/` into your repo root.
-   - Run:
-     ```console
-     python PULSE_safe_pack_v0/tools/run_all.py
-     ```
-   - Good for local exploration and tool inspection.
-   - Not the same as the canonical Core CI lane.
+   - Runs the safe-pack locally for artifact inspection.
+   - Useful for checking generated `status.json`, reports, and tool behavior.
+   - This is an inspection path, not the canonical release-authority lane.
 
-2. **Canonical Core lane**
+2. **Core release-governance lane**
    - Follow `docs/QUICKSTART_CORE_v0.md`.
-   - Start with the documented Core slice and `.github/workflows/pulse_core_ci.yml`.
-   - Use this path when you want the real deterministic first-adopter lane.
+   - Runs the Core profile in CI.
+   - Validates `status.json`.
+   - Materializes the required gate set from policy.
+   - Enforces the declared gates fail-closed. 
 
-3. **Repo-level primary release gate**
-   - Add `.github/workflows/pulse_ci.yml` only after the Core lane is understood and stable in your repo.
-   - This is the primary release-gating workflow for the full repo path.
-   - Release-grade runs use the workflow-effective gate set described in `docs/GATE_SETS.md`.
+ 3. **Repository-level primary release gate**
+   - Uses `.github/workflows/pulse_ci.yml`.
+   - Applies the workflow-effective gate set described in `docs/GATE_SETS.md`.
+   - Produces the release decision record, Quality Ledger, and CI artifacts for the repository release path. 
 
-Ritual: Run PULSE before you ship.  
-PULSE enforces fail‑closed PASS/FAIL gates across Safety (I₂–I₇), Quality (Q₁–Q₄), and SLO budgets, on archived logs.
+Release gates are the deterministic enforcement mechanism inside the broader PULSE release-governance layer
 
 ---
 
-## What PULSE checks
+## Release evidence evaluated by PULSE
 
-**Safety invariants (I₂–I₇)** — deterministic PASS/FAIL gates:
+PULSE evaluates release evidence under declared policy. In Core and release-grade paths, evidence is normalized into `status.json`, checked against registered gate semantics, and enforced through the required gate set.
+
+**Safety and consistency invariants (I₂–I₇)** — deterministic PASS/FAIL evidence:
 - Monotonicity (incl. shift-resilience)
 - Commutativity (incl. shift-resilience)
 - Sanitization effectiveness (incl. shift-resilience)
 - Action-monotonicity, Idempotence, Path-independence
 - PII-leak monotonicity
 
-**Quality gates (Q₁–Q₄)** — product-facing guardrails:
+**Quality gates (Q₁–Q₄)** — product-facing release evidence:
 - Q₁ **Groundedness** (RAG factuality)
 - Q₂ **Consistency** (answer agreement)
 - Q₃ **Fairness** (parity / equalized odds)
 - Q₄ **SLOs** (p95 latency & cost budgets)
 
-**Outputs**
-- **Quality Ledger** (human-readable table in the report card)
-- **RDSI** (Release Decision Stability Index) + Δ with CIs
-- **Badges** (generated derivative artifacts; repository write-back is optional and disabled by default)
+**Release-governance outputs**
+- **Quality Ledger** — human-readable release decision surface
+- **RDSI** — Release Decision Stability Index with deltas / confidence intervals where available
+- **CI artifacts** — `status.json`, report card, JUnit, SARIF, badges, and registered diagnostic artifacts
 
 ## Decision levels
 
