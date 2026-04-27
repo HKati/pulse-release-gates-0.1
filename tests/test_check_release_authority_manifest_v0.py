@@ -98,3 +98,28 @@ def test_diagnostic_surface_must_not_be_normative(tmp_path: Path) -> None:
 
     assert result.returncode != 0
     assert "normative" in result.stderr
+
+
+def test_non_object_top_level_sections_report_errors(tmp_path: Path) -> None:
+    data = load_fixture("core_pass.json")
+    data["authority"] = "oops"
+
+    path = write_fixture(tmp_path, "non_object_authority.json", data)
+    result = run_checker(path)
+
+    assert result.returncode != 0
+    assert "authority must be an object" in result.stderr
+    assert "Traceback" not in result.stderr
+
+
+def test_null_top_level_sections_report_errors(tmp_path: Path) -> None:
+    for section in ("authority", "evaluation", "decision", "diagnostics"):
+        data = load_fixture("core_pass.json")
+        data[section] = None
+
+        path = write_fixture(tmp_path, f"null_{section}.json", data)
+        result = run_checker(path)
+
+        assert result.returncode != 0
+        assert f"{section} must be an object" in result.stderr
+        assert "Traceback" not in result.stderr
