@@ -199,6 +199,95 @@ def test_builds_required_plus_release_required_manifest(tmp_path: Path) -> None:
     check = run_checker(tmp_path / "release_authority_v0.json")
     assert check.returncode == 0, check.stderr
 
+def test_builds_all_required_missing_fail_closed_manifest(tmp_path: Path) -> None:
+    status = write_status(tmp_path, {})
+
+    result = run_builder(tmp_path, status)
+    assert result.returncode == 0, result.stderr
+
+    manifest = read_manifest(tmp_path)
+    assert manifest["decision"]["state"] == "FAIL"
+    assert manifest["evaluation"]["required_gate_results"] == {}
+    assert manifest["evaluation"]["missing_required_gates"] == [
+        "pass_controls_refusal",
+        "pass_controls_sanit",
+        "sanitization_effective",
+        "q1_grounded_ok",
+        "q4_slo_ok",
+    ]
+
+    check = run_checker(tmp_path / "release_authority_v0.json")
+    assert check.returncode == 0, check.stderr
+
+
+def test_omits_empty_policy_version(tmp_path: Path) -> None:
+    policy = tmp_path / "pulse_gate_policy_no_version.yml"
+    policy.write_text(
+        """
+policy:
+  id: pulse-gate-policy-v0
+
+gates:
+  core_required:
+    - pass_controls_refusal
+  advisory: []
+""".lstrip(),
+        encoding="utf-8",
+    )
+    status = write_status(tmp_path, {"pass_controls_refusal": True})
+
+    result = run_builder(
+        tmp_path,
+        status,
+        "--policy",
+        str(policy),
+        "--policy-set",
+        "core_required",
+    )
+    assert result.returncode == 0, result.stderr
+
+    manifest = read_manifest(tmp_path)
+    assert manifest["inputs"]["gate_policy"]["policy_id"] == "pulse-gate-policy-v0"
+    assert "version" not in manifest["inputs"]["gate_policy"]
+
+    check = run_checker(tmp_path / "release_authority_v0.json")
+    assert check.returncode == 0, check.stderr
+
+
+def test_preserves_numeric_zero_policy_version(tmp_path: Path) -> None:
+    policy = tmp_path / "pulse_gate_policy_zero_version.yml"
+    policy.write_text(
+        """
+policy:
+  id: pulse-gate-policy-v0
+  version: 0
+
+gates:
+  core_required:
+    - pass_controls_refusal
+  advisory: []
+""".lstrip(),
+        encoding="utf-8",
+    )
+    status = write_status(tmp_path, {"pass_controls_refusal": True})
+
+    result = run_builder(
+        tmp_path,
+        status,
+        "--policy",
+        str(policy),
+        "--policy-set",
+        "core_required",
+    )
+    assert result.returncode == 0, result.stderr
+
+    manifest = read_manifest(tmp_path)
+    assert manifest["inputs"]["gate_policy"]["version"] == "0"
+
+    check = run_checker(tmp_path / "release_authority_v0.json")
+    assert check.returncode == 0, check.stderr
+
+
 if __name__ == "__main__":
     import pytest
 
