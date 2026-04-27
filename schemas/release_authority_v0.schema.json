@@ -189,7 +189,6 @@
         },
         "required_gate_results": {
           "type": "object",
-          "minProperties": 1,
           "additionalProperties": {
             "type": "boolean"
           },
