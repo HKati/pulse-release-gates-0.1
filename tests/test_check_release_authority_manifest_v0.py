@@ -123,3 +123,8 @@ def test_null_top_level_sections_report_errors(tmp_path: Path) -> None:
         assert result.returncode != 0
         assert f"{section} must be an object" in result.stderr
         assert "Traceback" not in result.stderr
+
+if __name__ == "__main__":
+    import pytest
+
+    raise SystemExit(pytest.main([__file__]))
