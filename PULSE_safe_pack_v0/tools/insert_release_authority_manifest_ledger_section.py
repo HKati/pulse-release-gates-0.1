@@ -171,12 +171,10 @@ def main() -> int:
     updated = _replace_or_insert(report_text, section)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(updated, encoding="utf-8")
- 
-  print(f"OK: wrote release authority manifest section to {out}")
+
+    print(f"OK: wrote release authority manifest section to {out}")
     return 0
 
 
 if __name__ == "__main__":
     raise SystemExit(main())
-  
-
