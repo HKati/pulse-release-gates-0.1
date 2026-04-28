@@ -27,6 +27,7 @@ default artifact path: PULSE_safe_pack_v0/artifacts/release_authority_v0.json
 primary CI audit-sidecar build: present
 primary CI artifact upload: present
 primary CI artifact name: release-authority-v0
+primary CI step summary: present
 primary CI authority role: non-normative / non-blocking
 ```
 
@@ -54,6 +55,10 @@ Implemented v0 surfaces:
   - artifact name: `release-authority-v0`
   - retention: 30 days
   - upload role: non-normative publication surface
+  - primary workflow Step Summary visibility:
+  - `.github/workflows/pulse_ci.yml`
+  - summary role: run-level audit visibility
+  - authority role: non-normative / non-blocking
 
 This document describes the v0 manifest contract and its authority boundary.
 
@@ -512,11 +517,13 @@ tests/test_build_release_authority_manifest_v0.py
 This ensures the release-authority checker and builder regression tests run under
 the repository tools-test path.
 
-The primary workflow now builds, validates, and uploads the manifest as a
-dedicated non-blocking audit artifact named `release-authority-v0`.
+The primary workflow now builds, validates, uploads, and summarizes the manifest
+as a dedicated non-blocking audit surface. The Step Summary records whether the
+manifest was produced, the artifact name, the workspace path, and the audit-only
+authority role.
 
-This upload is a publication / traceability surface. It does not change release
-authority, gate semantics, or `check_gates.py` behavior.
+The Step Summary is a visibility surface. It does not change release authority,
+gate semantics, `status.json`, `check_gates.py`, or the primary release decision.
 
 ---
 
