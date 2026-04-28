@@ -807,6 +807,71 @@ jobs:
           )
           PY
 
+      - name: Build release authority manifest (audit-only)
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          STATUS="${{ env.PACK_DIR }}/artifacts/status.json"
+          OUT="${{ env.PACK_DIR }}/artifacts/release_authority_v0.json"
+          BUILDER="${{ env.PACK_DIR }}/tools/build_release_authority_manifest_v0.py"
+          CHECKER="${{ env.PACK_DIR }}/tools/check_release_authority_manifest_v0.py"
+          SCHEMA="${GITHUB_WORKSPACE}/schemas/release_authority_v0.schema.json"
+          POLICY="${GITHUB_WORKSPACE}/pulse_gate_policy_v0.yml"
+          REGISTRY="${GITHUB_WORKSPACE}/pulse_gate_registry_v0.yml"
+          EVALUATOR="${{ env.PACK_DIR }}/tools/check_gates.py"
+
+          AUTH_POLICY_SET="${PULSE_POLICY_SET:-core_required}"
+          if [[ "${PULSE_IS_RELEASE:-0}" == "1" ]]; then
+            AUTH_POLICY_SET="required+release_required"
+          fi
+
+          if [[ ! -f "$STATUS" ]]; then
+            echo "::warning::release authority manifest skipped: status.json not found at $STATUS"
+            exit 0
+          fi
+
+          if [[ ! -f "$BUILDER" || ! -f "$CHECKER" || ! -f "$SCHEMA" ]]; then
+            echo "::warning::release authority manifest skipped: builder/checker/schema missing"
+            exit 0
+          fi
+
+          set +e
+          python "$BUILDER" \
+            --status "$STATUS" \
+            --policy "$POLICY" \
+            --registry "$REGISTRY" \
+            --evaluator "$EVALUATOR" \
+            --policy-set "$AUTH_POLICY_SET" \
+            --out "$OUT" \
+            --workflow-name "${GITHUB_WORKFLOW:-PULSE CI}" \
+            --event-name "${GITHUB_EVENT_NAME:-unknown}" \
+            --ref "${GITHUB_REF:-unknown}" \
+            --git-sha "${GITHUB_SHA:-0000000000000000000000000000000000000000}"
+
+          BUILD_RC=$?
+          set -e
+
+          if [[ "$BUILD_RC" -ne 0 ]]; then
+            echo "::warning::release authority manifest build failed; audit sidecar not produced"
+            exit 0
+          fi
+
+          set +e
+          python "$CHECKER" \
+            --manifest "$OUT" \
+            --schema "$SCHEMA"
+
+          CHECK_RC=$?
+          set -e
+
+          if [[ "$CHECK_RC" -ne 0 ]]; then
+            echo "::warning::release authority manifest validation failed; audit sidecar is non-normative"
+            exit 0
+          fi
+
+          echo "OK: release authority manifest audit sidecar ready at $OUT"
+    
       - name: "ci: enforce gates via check_gates (policy-derived)"
         shell: bash
         run: |
