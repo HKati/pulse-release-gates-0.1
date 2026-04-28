@@ -25,6 +25,8 @@ stage: v0 contract surface implemented
 normative: false
 default artifact path: PULSE_safe_pack_v0/artifacts/release_authority_v0.json
 primary CI audit-sidecar build: present
+primary CI artifact upload: present
+primary CI artifact name: release-authority-v0
 primary CI authority role: non-normative / non-blocking
 ```
 
@@ -47,6 +49,11 @@ Implemented v0 surfaces:
   - `ci/tools-tests.list`
 - primary workflow audit-sidecar step:
   - `.github/workflows/pulse_ci.yml`
+- primary workflow audit artifact upload:
+  - `.github/workflows/pulse_ci.yml`
+  - artifact name: `release-authority-v0`
+  - retention: 30 days
+  - upload role: non-normative publication surface
 
 This document describes the v0 manifest contract and its authority boundary.
 
@@ -505,7 +512,11 @@ tests/test_build_release_authority_manifest_v0.py
 This ensures the release-authority checker and builder regression tests run under
 the repository tools-test path.
 
-The manifest is not yet wired as a primary `pulse_ci.yml` artifact output.
+The primary workflow now builds, validates, and uploads the manifest as a
+dedicated non-blocking audit artifact named `release-authority-v0`.
+
+This upload is a publication / traceability surface. It does not change release
+authority, gate semantics, or `check_gates.py` behavior.
 
 ---
 
@@ -596,12 +607,11 @@ Current v0 surfaces exist and are tested.
 
 Remaining future work may include:
 
-1. optional explicit release-authority manifest upload / retention hardening,
-2. optional renderer / Quality Ledger link to the manifest,
-3. optional end-to-end workflow-level non-interference coverage after primary CI
-   artifact wiring,
-4. optional run metadata enrichment (`run_id`, `attempt`, actor),
-5. optional artifact references for additional diagnostic surfaces.
+1. Quality Ledger / Pages link to the uploaded release authority manifest,
+2. optional audit bundle packaging for release-grade runs,
+3. optional run metadata enrichment (`run_id`, `attempt`, actor),
+4. optional artifact references for additional diagnostic surfaces,
+5. non-stubbed release-grade reference run publication.
 
 Any future promotion into primary workflow output should remain documentation-only
 or artifact-only unless accompanied by an explicit policy change.
