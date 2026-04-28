@@ -33,6 +33,7 @@ tests/test_release_authority_manifest_non_interference.py
 tests/test_release_decision_v0_smoke.py
 tests/test_release_decision_v0_schema_smoke.py
 tests/test_insert_release_decision_ledger_section_smoke.py 
+tests/test_insert_release_authority_manifest_ledger_section.py
 
 tools/operator_handoff_smoke.py
 
