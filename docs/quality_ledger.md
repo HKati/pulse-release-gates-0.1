@@ -46,7 +46,69 @@ A top-level `decision` field, when present, is descriptive only and is not the s
 
 ---
 
-## 2. How the current renderer derives the decision banner
+## 2. Release authority manifest section
+## 2. Release authority manifest section
+
+The Quality Ledger may include a `Release authority manifest` section when
+`release_authority_v0.json` is available for the run.
+
+This section is inserted by:
+
+```text
+PULSE_safe_pack_v0/tools/insert_release_authority_manifest_ledger_section.py
+```
+
+The section is a reader / renderer surface. It links or summarizes the release
+authority manifest for human review, but it does not compute, redefine, or
+override the release decision.
+
+The section may show:
+
+- manifest presence or `MISSING/UNKNOWN`
+- manifest link
+- audit / traceability role
+- non-normative / non-blocking authority status
+- decision state recorded in the manifest
+- run mode
+- policy set
+- effective required gate count
+- failed required gate count
+- missing required gate count
+- advisory gate context
+- shadow-surface non-normativity
+
+Authority rule:
+
+```text
+status.json + declared gate policy + check_gates.py + primary CI workflow
+= release authority
+```
+
+```text
+Quality Ledger release-authority section
+= human-readable audit visibility
+```
+
+If the manifest is missing, the Quality Ledger may show `MISSING/UNKNOWN`.
+That absence must not be silently reinterpreted as `PASS`, and it must not
+change the release decision.
+
+The inserted section is idempotent and bounded by HTML markers:
+
+```html
+<!-- PULSE_RELEASE_AUTHORITY_MANIFEST_SECTION_START -->
+<!-- PULSE_RELEASE_AUTHORITY_MANIFEST_SECTION_END -->
+```
+
+This allows the section to be replaced safely on repeated rendering or
+post-processing.
+
+For the manifest contract, see
+[docs/release_authority_manifest_v0.md](release_authority_manifest_v0.md).
+
+---
+
+## 3. How the current renderer derives the decision banner
 
 The current renderer computes the banner from required gates plus `metrics.run_mode`.
 
@@ -74,7 +136,7 @@ This keeps the ledger aligned with gate enforcement rather than with any descrip
 
 ---
 
-## 3. What the current HTML actually surfaces
+## 4. What the current HTML actually surfaces
 
 The current renderer is intentionally narrow and deterministic.
 
@@ -180,7 +242,7 @@ The current traceability section surfaces:
 
 ---
 
-## 4. What the current renderer does **not** do
+## 5. What the current renderer does **not** do
 
 This is important for V2 truthfulness.
 
@@ -199,7 +261,7 @@ If a future renderer adds any of the above, this page should be updated in the s
 
 ---
 
-## 5. How humans should read the ledger
+## 6. How humans should read the ledger
 
 Recommended reading order:
 
@@ -219,7 +281,7 @@ Recommended reading order:
 
 ---
 
-## 6. Guidance for maintainers
+## 6. How humans should read the ledger
 
 Keep this document aligned with the actual renderer.
 
@@ -245,7 +307,7 @@ Not the other way around.
 
 ---
 
-## 7. Safe extension rules
+## 8. Safe extension rules
 
 New ledger panels are safe when they remain pure explanation layers over immutable artefacts.
 
@@ -266,7 +328,7 @@ The invariants remain:
 
 ---
 
-## 8. Related docs
+## 9. Related docs
 
 - [STATUS_CONTRACT.md](STATUS_CONTRACT.md)
 - [status_json.md](status_json.md)
