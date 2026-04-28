@@ -106,6 +106,52 @@ post-processing.
 For the manifest contract, see
 [docs/release_authority_manifest_v0.md](release_authority_manifest_v0.md).
 
+## Release authority audit bundle
+
+Workflow runs may publish a dedicated release authority audit bundle named:
+
+```text
+release-authority-audit-bundle
+```
+
+The bundle groups the human-readable Quality Ledger and the machine-readable
+release authority artifacts for the same run.
+
+Current bundle contents:
+
+- `report_card.html`
+- `release_authority_v0.json`
+- `status.json`
+
+Purpose:
+
+- `report_card.html` gives the human-readable Quality Ledger view.
+- `release_authority_v0.json` records the evidence-policy-evaluator chain for audit.
+- `status.json` remains the machine-readable release evidence source for the run.
+
+Authority rule:
+
+```text
+status.json + declared gate policy + check_gates.py + primary CI workflow
+= release authority
+```
+
+```text
+release-authority-audit-bundle
+= review / audit / traceability package
+```
+
+The audit bundle is a publication and review surface. It does not compute,
+redefine, or override the release decision.
+
+If a bundle item is missing, reviewers should treat that as an audit visibility
+gap, not as a release PASS. Missing audit bundle content must not be silently
+reinterpreted as successful release evidence.
+
+For the release authority manifest contract, see:
+
+[docs/release_authority_manifest_v0.md](release_authority_manifest_v0.md).
+
 ---
 
 ## 3. How the current renderer derives the decision banner
