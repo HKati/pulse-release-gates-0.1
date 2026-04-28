@@ -24,7 +24,8 @@ Current status:
 stage: v0 contract surface implemented
 normative: false
 default artifact path: PULSE_safe_pack_v0/artifacts/release_authority_v0.json
-primary CI artifact wiring: not yet promoted into the main release workflow
+primary CI audit-sidecar build: present
+primary CI authority role: non-normative / non-blocking
 ```
 
 Implemented v0 surfaces:
@@ -44,6 +45,8 @@ Implemented v0 surfaces:
   - `tests/test_release_authority_manifest_non_interference.py`
 - tools-test manifest coverage:
   - `ci/tools-tests.list`
+- primary workflow audit-sidecar step:
+  - `.github/workflows/pulse_ci.yml`
 
 This document describes the v0 manifest contract and its authority boundary.
 
@@ -111,8 +114,8 @@ The path is intentionally under `artifacts/` because the manifest describes a
 specific run, not a static repository policy.
 
 At the current v0 stage, the builder can produce this artifact, and tests cover
-its behavior. The manifest is not yet required as a primary release workflow
-output.
+its behavior. The primary workflow can now build and validate the manifest as an audit-only
+sidecar. The step is non-blocking and does not change release outcomes.
 
 ---
 
@@ -593,7 +596,7 @@ Current v0 surfaces exist and are tested.
 
 Remaining future work may include:
 
-1. optional wiring into the primary `pulse_ci.yml` artifact upload path,
+1. optional explicit release-authority manifest upload / retention hardening,
 2. optional renderer / Quality Ledger link to the manifest,
 3. optional end-to-end workflow-level non-interference coverage after primary CI
    artifact wiring,
