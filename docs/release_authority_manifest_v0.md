@@ -29,6 +29,8 @@ primary CI artifact upload: present
 primary CI artifact name: release-authority-v0
 primary CI step summary: present
 primary CI Quality Ledger section: present
+primary CI audit bundle upload: present
+primary CI audit bundle artifact name: release-authority-audit-bundle
 primary CI authority role: non-normative / non-blocking
 ```
 
@@ -67,6 +69,14 @@ Implemented v0 surfaces:
 - primary workflow Quality Ledger post-processing:
   - `.github/workflows/pulse_ci.yml`
   - section role: human-readable audit visibility
+  - authority role: non-normative / non-blocking
+ - primary workflow audit bundle:
+  - `.github/workflows/pulse_ci.yml`
+  - artifact name: `release-authority-audit-bundle`
+  - bundle contents:
+    - `report_card.html`
+    - `release_authority_v0.json`
+    - `status.json`
   - authority role: non-normative / non-blocking
 
 This document describes the v0 manifest contract and its authority boundary.
@@ -534,6 +544,16 @@ role of the manifest and links to `release_authority_v0.json` when that artifact
 is available alongside the rendered report. It does not change release authority,
 gate semantics, `status.json`, `check_gates.py`, or the primary release decision.
 
+The primary workflow now stages and uploads a dedicated release authority audit
+bundle named `release-authority-audit-bundle`.
+
+The bundle groups the human-readable Quality Ledger, the machine-readable
+release authority manifest, and the final `status.json` into one review artifact.
+
+This bundle is a publication / traceability surface. It does not change release
+authority, gate semantics, `status.json`, `check_gates.py`, or the primary
+release decision.
+
 ---
 
 ## Shadow and diagnostic handling
@@ -624,10 +644,10 @@ Current v0 surfaces exist and are tested.
 Remaining future work may include:
 
 1. public Pages / artifact-bundle hardening for the Quality Ledger → manifest link,
-2. optional audit bundle packaging for release-grade runs,
-3. optional run metadata enrichment (`run_id`, `attempt`, actor),
-4. optional artifact references for additional diagnostic surfaces,
-5. non-stubbed release-grade reference run publication.
+2. optional run metadata enrichment (`run_id`, `attempt`, actor),
+3. optional artifact references for additional diagnostic surfaces,
+4. non-stubbed release-grade reference run publication,
+5. audit bundle retention / review workflow hardening for release-grade runs.
 
 Any future promotion into primary workflow output should remain documentation-only
 or artifact-only unless accompanied by an explicit policy change.
