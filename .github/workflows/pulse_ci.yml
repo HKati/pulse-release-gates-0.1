@@ -947,6 +947,59 @@ jobs:
 
           echo "OK: release authority manifest section inserted into Quality Ledger"
 
+      - name: Stage release authority audit bundle (audit-only)
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          BUNDLE="${{ env.PACK_DIR }}/artifacts/release_authority_audit_bundle"
+          REPORT="${{ env.PACK_DIR }}/artifacts/report_card.html"
+          MANIFEST="${{ env.PACK_DIR }}/artifacts/release_authority_v0.json"
+          STATUS="${{ env.PACK_DIR }}/artifacts/status.json"
+
+          rm -rf "$BUNDLE"
+          mkdir -p "$BUNDLE"
+
+          if [[ -f "$REPORT" ]]; then
+            cp "$REPORT" "$BUNDLE/report_card.html"
+          else
+            echo "::warning::release authority audit bundle: report_card.html not found"
+          fi
+
+          if [[ -f "$MANIFEST" ]]; then
+            cp "$MANIFEST" "$BUNDLE/release_authority_v0.json"
+          else
+            echo "::warning::release authority audit bundle: release_authority_v0.json not found"
+          fi
+
+          if [[ -f "$STATUS" ]]; then
+            cp "$STATUS" "$BUNDLE/status.json"
+          else
+            echo "::warning::release authority audit bundle: status.json not found"
+          fi
+
+          {
+            echo "### Release authority audit bundle"
+            echo
+            echo "| Field | Value |"
+            echo "|---|---|"
+            echo "| Role | Audit / traceability bundle |"
+            echo "| Authority | Non-normative / non-blocking |"
+            echo "| Artifact | \`release-authority-audit-bundle\` |"
+            echo "| Workspace path | \`$BUNDLE\` |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload release authority audit bundle (audit-only)
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: release-authority-audit-bundle
+          path: ${{ env.PACK_DIR }}/artifacts/release_authority_audit_bundle/
+          if-no-files-found: warn
+          retention-days: 30
+
       - name: "ci: enforce gates via check_gates (policy-derived)"
         shell: bash
         run: |
