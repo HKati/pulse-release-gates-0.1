@@ -47,7 +47,6 @@ A top-level `decision` field, when present, is descriptive only and is not the s
 ---
 
 ## 2. Release authority manifest section
-## 2. Release authority manifest section
 
 The Quality Ledger may include a `Release authority manifest` section when
 `release_authority_v0.json` is available for the run.
