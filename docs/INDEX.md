@@ -21,7 +21,7 @@ If you add/rename a doc under `docs/`, please update this index.
 - [GATE_SETS.md](GATE_SETS.md) — Human-readable matrix of the current `core_required` and `required` policy sets.
 - [GLOSSARY_v0.md](GLOSSARY_v0.md) — Canonical term definitions used across docs.
 - [PULSEMECH_ARCHITECTURE_MAP_v0_1.md](PULSEMECH_ARCHITECTURE_MAP_v0_1.md) — How to read the PULSEmech architecture map and its release-authority boundary.
-- [release_authority_manifest_v0.md](release_authority_manifest_v0.md) — Proposed audit manifest for recording the release-authority chain across evidence, policy, evaluator, workflow lane, and decision output.
+- [release_authority_manifest_v0.md](release_authority_manifest_v0.md) — Implemented v0 audit-manifest contract surface for recording the release-authority chain across evidence, policy, evaluator, workflow lane, decision output, and diagnostic context. 
 
 ## Status, ledger & external signals
 
