@@ -41,6 +41,7 @@ Implemented v0 surfaces:
 - regression tests:
   - `tests/test_check_release_authority_manifest_v0.py`
   - `tests/test_build_release_authority_manifest_v0.py`
+  - `tests/test_release_authority_manifest_non_interference.py`
 - tools-test manifest coverage:
   - `ci/tools-tests.list`
 
@@ -477,6 +478,7 @@ Regression tests:
 ```text
 tests/test_check_release_authority_manifest_v0.py
 tests/test_build_release_authority_manifest_v0.py
+tests/test_release_authority_manifest_non_interference.py
 ```
 
 Both tests include top-level pytest runners so they execute correctly when invoked
@@ -593,8 +595,8 @@ Remaining future work may include:
 
 1. optional wiring into the primary `pulse_ci.yml` artifact upload path,
 2. optional renderer / Quality Ledger link to the manifest,
-3. non-interference test coverage comparing `check_gates.py` results before and
-   after manifest generation in an end-to-end workflow,
+3. optional end-to-end workflow-level non-interference coverage after primary CI
+   artifact wiring,
 4. optional run metadata enrichment (`run_id`, `attempt`, actor),
 5. optional artifact references for additional diagnostic surfaces.
 
