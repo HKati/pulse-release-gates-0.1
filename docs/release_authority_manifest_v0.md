@@ -3,7 +3,7 @@
 
 ## Purpose
 
-`release_authority_v0.json` is a proposed audit manifest for the PULSE
+`release_authority_v0.json` is the audit manifest for the PULSE
 release-authority chain.
 
 Its role is to record, in one machine-readable artifact, which evidence,
@@ -18,28 +18,42 @@ It is not a new release-decision engine.
 
 ## Status
 
-This document specifies the intended v0 shape and authority boundary for the
-future release authority manifest.
-
 Current status:
 
 ```text
-stage: proposed
+stage: v0 contract surface implemented
 normative: false
-artifact: PULSE_safe_pack_v0/artifacts/release_authority_v0.json
+default artifact path: PULSE_safe_pack_v0/artifacts/release_authority_v0.json
+primary CI artifact wiring: not yet promoted into the main release workflow
 ```
 
-This document does not change:
+Implemented v0 surfaces:
+
+- schema:
+  - `schemas/release_authority_v0.schema.json`
+- builder:
+  - `PULSE_safe_pack_v0/tools/build_release_authority_manifest_v0.py`
+- checker:
+  - `PULSE_safe_pack_v0/tools/check_release_authority_manifest_v0.py`
+- canonical fixtures:
+  - `tests/fixtures/release_authority_v0/core_pass.json`
+  - `tests/fixtures/release_authority_v0/core_fail_missing_gate.json`
+- regression tests:
+  - `tests/test_check_release_authority_manifest_v0.py`
+  - `tests/test_build_release_authority_manifest_v0.py`
+- tools-test manifest coverage:
+  - `ci/tools-tests.list`
+
+This document describes the v0 manifest contract and its authority boundary.
+
+It does not change:
 
 - release semantics,
 - gate policy,
 - `status.json` semantics,
 - CI behavior,
-- checker behavior,
+- checker behavior for existing release gates,
 - shadow-layer authority.
-
-Implementation should happen in a later change set with a schema, builder,
-fixtures, tests, and CI artifact wiring.
 
 ---
 
@@ -58,8 +72,8 @@ PULSE already separates release authority across several stable surfaces:
 - Shadow registries and overlays provide diagnostic evidence without changing
   release authority by default.
 
-The release authority manifest should bind these surfaces into one auditable
-decision record.
+The release authority manifest binds these surfaces into one auditable decision
+record.
 
 ---
 
@@ -84,7 +98,9 @@ The manifest must be derived from that path.
 
 ---
 
-## Proposed artifact path
+## Artifact path
+
+Default builder output path:
 
 ```text
 PULSE_safe_pack_v0/artifacts/release_authority_v0.json
@@ -92,6 +108,10 @@ PULSE_safe_pack_v0/artifacts/release_authority_v0.json
 
 The path is intentionally under `artifacts/` because the manifest describes a
 specific run, not a static repository policy.
+
+At the current v0 stage, the builder can produce this artifact, and tests cover
+its behavior. The manifest is not yet required as a primary release workflow
+output.
 
 ---
 
@@ -123,7 +143,15 @@ release_authority_v0 =
 
 ---
 
-## Proposed minimal shape
+## Manifest shape
+
+The v0 manifest shape is validated by:
+
+```text
+schemas/release_authority_v0.schema.json
+```
+
+A representative Core PASS manifest:
 
 ```json
 {
@@ -151,6 +179,10 @@ release_authority_v0 =
       "path": "pulse_gate_registry_v0.yml",
       "version": "gate_registry_v0",
       "sha256": "..."
+    },
+    "evaluator": {
+      "path": "PULSE_safe_pack_v0/tools/check_gates.py",
+      "sha256": "..."
     }
   },
   "authority": {
@@ -162,7 +194,11 @@ release_authority_v0 =
       "q1_grounded_ok",
       "q4_slo_ok"
     ],
-    "release_required_materialized": false
+    "release_required_materialized": false,
+    "advisory_gates": [
+      "external_summaries_present",
+      "external_all_pass"
+    ]
   },
   "evaluation": {
     "evaluator": "PULSE_safe_pack_v0/tools/check_gates.py",
@@ -184,10 +220,25 @@ release_authority_v0 =
   "diagnostics": {
     "shadow_surfaces_present": [],
     "shadow_surfaces_non_normative": true,
-    "status_meta_foldins": []
+    "status_meta_foldins": [],
+    "advisory_gates_present": [
+      "external_summaries_present",
+      "external_all_pass"
+    ],
+    "publication_surfaces_present": []
   }
 }
 ```
+
+A representative missing-required-gate manifest is tracked in:
+
+```text
+tests/fixtures/release_authority_v0/core_fail_missing_gate.json
+```
+
+That fixture models a fail-closed audit state where an effective required gate is
+missing from `required_gate_results`, listed under `missing_required_gates`, and
+the decision state is `FAIL`.
 
 ---
 
@@ -251,6 +302,8 @@ At minimum:
 - `gate_policy`
 - `gate_registry`
 
+The builder also records the evaluator path and hash.
+
 Recommended for each artifact:
 
 - `path`
@@ -258,7 +311,11 @@ Recommended for each artifact:
 
 Policy and registry entries may also include their declared IDs / versions.
 
-The manifest should hash file bytes, not rendered text.
+`inputs.gate_policy.version` is optional. When the policy does not define a
+version, the builder omits the field rather than emitting an empty string. Numeric
+versions such as `0` are preserved as non-empty strings.
+
+The manifest hashes file bytes, not rendered text.
 
 ---
 
@@ -268,14 +325,15 @@ Required.
 
 Records which policy lane carried release authority for this run.
 
-Recommended fields:
+Fields include:
 
 - `policy_set`
 - `effective_required_gates`
 - `release_required_materialized`
+- `advisory_gates`
 
-`effective_required_gates` should describe the gate set actually enforced by the
-workflow for this run, not merely a policy-defined set that exists in the repo.
+`effective_required_gates` describes the gate set actually enforced or audited
+for this run, not merely a policy-defined set that exists in the repository.
 
 This distinction matters because a policy-defined set can exist without being
 active in every lane.
@@ -288,7 +346,7 @@ Required.
 
 Records the deterministic evaluator result over the effective required gate set.
 
-Recommended fields:
+Fields include:
 
 - `evaluator`
 - `evaluator_sha256`
@@ -296,7 +354,7 @@ Recommended fields:
 - `failed_required_gates`
 - `missing_required_gates`
 
-The manifest should not reinterpret gate values.
+The manifest does not reinterpret gate values.
 
 For required gates, PASS remains strict:
 
@@ -304,6 +362,10 @@ For required gates, PASS remains strict:
 literal true = PASS
 false / null / missing / non-boolean = not PASS
 ```
+
+`required_gate_results` may be empty when all effective required gates are
+missing from `status.json`. In that case, the missing gate set carries the
+fail-closed audit state, and the decision state must be `FAIL`.
 
 ---
 
@@ -313,7 +375,7 @@ Required.
 
 Records the release decision state derived from evaluation.
 
-Initial v0 values may include:
+Current v0 values include:
 
 ```text
 PASS
@@ -323,9 +385,10 @@ PROD-PASS
 UNKNOWN
 ```
 
-The builder should use the existing PULSE decision vocabulary where available.
+The checker requires `decision.state = FAIL` when `failed_required_gates` or
+`missing_required_gates` is non-empty.
 
-`fail_closed` should be `true` for standard PULSE release-authority runs.
+`fail_closed` must be `true`.
 
 ---
 
@@ -335,16 +398,109 @@ Optional, but recommended.
 
 Records diagnostic and shadow surfaces present during the run.
 
-Recommended fields:
+Fields include:
 
 - `shadow_surfaces_present`
 - `shadow_surfaces_non_normative`
 - `status_meta_foldins`
-- optional `advisory_gates_present`
-- optional `publication_surfaces_present`
+- `advisory_gates_present`
+- `publication_surfaces_present`
 
-Diagnostic information is descriptive only unless a policy explicitly promotes
-a signal into the required gate set.
+Diagnostic information is descriptive only unless a policy explicitly promotes a
+signal into the required gate set.
+
+The checker rejects diagnostic surfaces marked as normative by default.
+
+---
+
+## Builder
+
+Builder path:
+
+```text
+PULSE_safe_pack_v0/tools/build_release_authority_manifest_v0.py
+```
+
+The builder can derive a manifest from:
+
+- a recorded `status.json`,
+- `pulse_gate_policy_v0.yml`,
+- `pulse_gate_registry_v0.yml`,
+- an evaluator path,
+- and workflow/run context arguments or environment variables.
+
+Covered builder scenarios include:
+
+- Core PASS manifest generation,
+- missing required gate → FAIL manifest generation,
+- failed required gate → FAIL manifest generation,
+- all required gates missing → FAIL manifest generation,
+- release-grade `required+release_required` manifest generation,
+- missing policy version omitted,
+- numeric `policy.version: 0` preserved as `"0"`.
+
+---
+
+## Checker
+
+Checker path:
+
+```text
+PULSE_safe_pack_v0/tools/check_release_authority_manifest_v0.py
+```
+
+The checker validates:
+
+- JSON Schema conformance,
+- required gate result consistency,
+- missing gate representation,
+- failed gate representation,
+- `FAIL` decisions for failed or missing required gates,
+- non-normative diagnostic surfaces,
+- malformed non-object / null top-level sections without traceback output.
+
+The checker reports normal validation errors for malformed manifests.
+
+---
+
+## Tests and fixtures
+
+Canonical fixtures:
+
+```text
+tests/fixtures/release_authority_v0/core_pass.json
+tests/fixtures/release_authority_v0/core_fail_missing_gate.json
+```
+
+Regression tests:
+
+```text
+tests/test_check_release_authority_manifest_v0.py
+tests/test_build_release_authority_manifest_v0.py
+```
+
+Both tests include top-level pytest runners so they execute correctly when invoked
+through `ci/tools-tests.list` with:
+
+```text
+python "$t"
+```
+
+---
+
+## CI manifest coverage
+
+The tools-test manifest includes:
+
+```text
+tests/test_check_release_authority_manifest_v0.py
+tests/test_build_release_authority_manifest_v0.py
+```
+
+This ensures the release-authority checker and builder regression tests run under
+the repository tools-test path.
+
+The manifest is not yet wired as a primary `pulse_ci.yml` artifact output.
 
 ---
 
@@ -372,32 +528,33 @@ It must not silently convert them into required gates.
 
 ## Release-grade behavior
 
-For release-grade runs, the manifest should clearly distinguish:
+For release-grade runs, the manifest distinguishes:
 
 ```text
 policy-defined required sets
 workflow-effective enforce set
 ```
 
-For example, a release-grade run may enforce:
+For example, a release-grade run may enforce or audit:
 
 ```text
 required + release_required
 ```
 
-while a Core lane may enforce:
+while a Core lane may enforce or audit:
 
 ```text
 core_required
 ```
 
-The manifest should record the workflow-effective set actually enforced.
+The manifest records the workflow-effective set represented for the run.
 
 ---
 
 ## Non-interference requirement
 
-Adding the release authority manifest must not change the release outcome.
+Adding or building the release authority manifest must not change the release
+outcome.
 
 The expected proof shape is:
 
@@ -409,7 +566,8 @@ same required gate set
 same release outcome
 ```
 
-Implementation should include a regression test for this property.
+The current v0 builder and checker are adjacent audit tooling and do not modify
+`status.json`, gate policy, or existing gate-checker behavior.
 
 ---
 
@@ -427,112 +585,54 @@ The release authority manifest is not:
 
 ---
 
-## Proposed implementation plan
+## Remaining implementation work
 
-A future implementation should add the following in separate, reviewable steps.
+Current v0 surfaces exist and are tested.
 
-### Step 1 — Schema
+Remaining future work may include:
 
-```text
-schemas/release_authority_v0.schema.json
-```
+1. optional wiring into the primary `pulse_ci.yml` artifact upload path,
+2. optional renderer / Quality Ledger link to the manifest,
+3. non-interference test coverage comparing `check_gates.py` results before and
+   after manifest generation in an end-to-end workflow,
+4. optional run metadata enrichment (`run_id`, `attempt`, actor),
+5. optional artifact references for additional diagnostic surfaces.
 
-The schema should validate required top-level fields and basic artifact shapes.
-
-### Step 2 — Builder
-
-```text
-tools/build_release_authority_manifest_v0.py
-```
-
-or, if the implementation belongs inside the safe-pack:
-
-```text
-PULSE_safe_pack_v0/tools/build_release_authority_manifest_v0.py
-```
-
-The builder should:
-
-1. read `status.json`,
-2. read the gate policy,
-3. materialize or receive the workflow-effective required gate set,
-4. evaluate or consume the evaluator result,
-5. hash declared input files,
-6. write `release_authority_v0.json`.
-
-### Step 3 — Fixtures
-
-Suggested fixtures:
-
-```text
-tests/fixtures/release_authority_v0/core_pass.json
-tests/fixtures/release_authority_v0/core_fail_missing_gate.json
-tests/fixtures/release_authority_v0/prod_release_required.json
-tests/fixtures/release_authority_v0/shadow_context_non_normative.json
-```
-
-### Step 4 — Contract checker
-
-```text
-PULSE_safe_pack_v0/tools/check_release_authority_manifest_v0.py
-```
-
-The checker should validate:
-
-- schema conformance,
-- required gate result consistency,
-- missing-gate fail-closed representation,
-- shadow non-normativity,
-- and artifact reference shape.
-
-### Step 5 — Non-interference tests
-
-Add tests proving manifest generation does not alter:
-
-- `status.json`,
-- required gate sets,
-- `check_gates.py` outcomes,
-- release semantics.
-
-### Step 6 — CI artifact wiring
-
-Upload the manifest as a CI artifact after gate enforcement.
-
-The manifest should be produced for audit and replay, not for changing the
-current run outcome.
+Any future promotion into primary workflow output should remain documentation-only
+or artifact-only unless accompanied by an explicit policy change.
 
 ---
 
 ## Reviewer checklist
 
-When reviewing an implementation of `release_authority_v0.json`, check:
+When reviewing release-authority manifest changes, check:
 
-1. Does it preserve `status.json` as the evidence source?
+1. Does the change preserve `status.json` as the evidence source?
 2. Does it preserve `check_gates.py` as the evaluator?
 3. Does it record the workflow-effective required gate set?
 4. Does it distinguish required, release-required, and advisory surfaces?
 5. Does it treat shadow layers as non-normative by default?
 6. Does it hash input artifacts?
 7. Does it avoid recomputing or redefining gate semantics?
-8. Does it include non-interference test coverage?
+8. Does it include non-interference test coverage where behavior changes?
 9. Does it remain an audit manifest rather than a second decision engine?
 
 ---
 
 ## Summary
 
-`release_authority_v0.json` should make the release-authority chain explicit.
+`release_authority_v0.json` makes the release-authority chain explicit.
 
-It should answer:
+It answers:
 
 ```text
 What evidence was evaluated?
 Which policy carried authority?
-Which required gates were enforced?
+Which required gates were represented?
 Which evaluator produced the result?
 Which diagnostics were present but non-normative?
 What release decision record was produced?
 ```
 
-That is the missing audit surface between the existing `status.json`, gate policy,
-CI enforcement, and Quality Ledger.
+That is the audit surface between the existing `status.json`, gate policy, CI
+enforcement, and Quality Ledger.
