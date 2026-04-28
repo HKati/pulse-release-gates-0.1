@@ -882,6 +882,36 @@ jobs:
           if-no-files-found: warn
           retention-days: 30
 
+      - name: Summarize release authority manifest (audit-only)
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          OUT="${{ env.PACK_DIR }}/artifacts/release_authority_v0.json"
+
+          {
+            echo "### Release authority manifest"
+            echo
+            echo "| Field | Value |"
+            echo "|---|---|"
+            echo "| Role | Audit / traceability sidecar |"
+            echo "| Authority | Non-normative / non-blocking |"
+            echo "| CI artifact | \`release-authority-v0\` |"
+            echo "| Workspace path | \`$OUT\` |"
+
+            if [[ -f "$OUT" ]]; then
+              echo "| Status | Present |"
+            else
+              echo "| Status | Missing / not produced |"
+            fi
+
+            echo
+            echo "The release authority manifest records the evidence-policy-evaluator chain for audit."
+            echo "It does not change release semantics, gate policy, \`status.json\`, \`check_gates.py\`, or the primary release decision."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+ 
       - name: "ci: enforce gates via check_gates (policy-derived)"
         shell: bash
         run: |
