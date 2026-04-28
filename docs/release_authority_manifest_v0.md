@@ -28,6 +28,7 @@ primary CI audit-sidecar build: present
 primary CI artifact upload: present
 primary CI artifact name: release-authority-v0
 primary CI step summary: present
+primary CI Quality Ledger section: present
 primary CI authority role: non-normative / non-blocking
 ```
 
@@ -53,11 +54,19 @@ Implemented v0 surfaces:
 - primary workflow audit artifact upload:
   - `.github/workflows/pulse_ci.yml`
   - artifact name: `release-authority-v0`
-  - retention: 30 days
+  - retention: 30 days 
   - upload role: non-normative publication surface
   - primary workflow Step Summary visibility:
   - `.github/workflows/pulse_ci.yml`
   - summary role: run-level audit visibility
+  - authority role: non-normative / non-blocking
+- Quality Ledger section inserter:
+  - `PULSE_safe_pack_v0/tools/insert_release_authority_manifest_ledger_section.py`
+- Quality Ledger section regression tests:
+  - `tests/test_insert_release_authority_manifest_ledger_section.py`
+- primary workflow Quality Ledger post-processing:
+  - `.github/workflows/pulse_ci.yml`
+  - section role: human-readable audit visibility
   - authority role: non-normative / non-blocking
 
 This document describes the v0 manifest contract and its authority boundary.
@@ -517,12 +526,12 @@ tests/test_build_release_authority_manifest_v0.py
 This ensures the release-authority checker and builder regression tests run under
 the repository tools-test path.
 
-The primary workflow now builds, validates, uploads, and summarizes the manifest
-as a dedicated non-blocking audit surface. The Step Summary records whether the
-manifest was produced, the artifact name, the workspace path, and the audit-only
-authority role.
+The primary workflow now builds, validates, uploads, summarizes, and inserts a
+release authority manifest section into the Quality Ledger.
 
-The Step Summary is a visibility surface. It does not change release authority,
+The inserted section is a reader / renderer surface. It records the audit-only
+role of the manifest and links to `release_authority_v0.json` when that artifact
+is available alongside the rendered report. It does not change release authority,
 gate semantics, `status.json`, `check_gates.py`, or the primary release decision.
 
 ---
@@ -614,7 +623,7 @@ Current v0 surfaces exist and are tested.
 
 Remaining future work may include:
 
-1. Quality Ledger / Pages link to the uploaded release authority manifest,
+1. public Pages / artifact-bundle hardening for the Quality Ledger → manifest link,
 2. optional audit bundle packaging for release-grade runs,
 3. optional run metadata enrichment (`run_id`, `attempt`, actor),
 4. optional artifact references for additional diagnostic surfaces,
