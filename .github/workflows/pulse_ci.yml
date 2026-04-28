@@ -911,7 +911,42 @@ jobs:
             echo "It does not change release semantics, gate policy, \`status.json\`, \`check_gates.py\`, or the primary release decision."
           } >> "$GITHUB_STEP_SUMMARY"
 
- 
+      - name: Insert release authority manifest section into Quality Ledger (audit-only)
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          REPORT="${{ env.PACK_DIR }}/artifacts/report_card.html"
+          MANIFEST="${{ env.PACK_DIR }}/artifacts/release_authority_v0.json"
+          TOOL="${{ env.PACK_DIR }}/tools/insert_release_authority_manifest_ledger_section.py"
+
+          if [[ ! -f "$REPORT" ]]; then
+            echo "::warning::release authority ledger section skipped: report_card.html not found at $REPORT"
+            exit 0
+          fi
+
+          if [[ ! -f "$TOOL" ]]; then
+            echo "::warning::release authority ledger section skipped: inserter tool not found at $TOOL"
+            exit 0
+          fi
+
+          set +e
+          python "$TOOL" \
+            --report "$REPORT" \
+            --manifest "$MANIFEST" \
+            --href "release_authority_v0.json"
+
+          INSERT_RC=$?
+          set -e
+
+          if [[ "$INSERT_RC" -ne 0 ]]; then
+            echo "::warning::release authority ledger section insertion failed; Quality Ledger left unchanged"
+            exit 0
+          fi
+
+          echo "OK: release authority manifest section inserted into Quality Ledger"
+
       - name: "ci: enforce gates via check_gates (policy-derived)"
         shell: bash
         run: |
