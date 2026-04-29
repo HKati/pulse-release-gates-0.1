@@ -29,10 +29,13 @@ authority.
 
 ## Status
 
-- stage: reference definition  
+- stage: reference definition + qualification checker implemented  
 - normative: false  
 - target lane: release-grade  
 - authority role: documentation / operational guidance  
+- checker: PULSE_safe_pack_v0/tools/check_release_grade_reference_run_v0.py  
+- test coverage: tests/test_check_release_grade_reference_run_v0.py  
+- tools-test coverage: ci/tools-tests.list  
 
 The reference run definition describes how to produce and review a release-grade
 PULSE run. It does not create a new gate and does not promote any diagnostic
@@ -306,6 +309,53 @@ A run can be called a release-grade reference run only if the following are true
 - The release authority audit bundle is produced.  
 - Diagnostic / shadow / publication surfaces remain non-normative unless
   explicitly promoted by policy.  
+
+---
+
+## Qualification checker
+
+The release-grade reference run criteria are supported by a checker:
+
+```text
+PULSE_safe_pack_v0/tools/check_release_grade_reference_run_v0.py
+```
+
+The checker qualifies candidate runs for operational review. It is not a
+release-decision engine and does not replace check_gates.py.
+
+It checks, among other things:
+
+- `status.metrics.run_mode = "prod"`  
+- no stubbed gate surface  
+- materialized detector evidence  
+- external summary presence and pass gates  
+- release authority manifest presence  
+- `required + release_required` policy-set representation  
+- successful manifest decision state  
+- optional Quality Ledger presence  
+- optional audit bundle contents  
+
+The checker is covered by:
+
+```text
+tests/test_check_release_grade_reference_run_v0.py
+```
+
+and is wired into:
+
+```text
+ci/tools-tests.list
+```
+
+Authority rule:
+
+```text
+check_gates.py = release authority evaluator
+check_release_grade_reference_run_v0.py = release-grade reference qualification checker
+```
+
+The checker can reject a candidate reference run as insufficient for reference
+purposes without redefining the underlying release decision.
 
 ---
 
