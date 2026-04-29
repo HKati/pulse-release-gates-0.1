@@ -1,0 +1,108 @@
+{
+  "schema_version": "release_authority_v0",
+  "created_utc": "2026-04-27T00:00:00Z",
+  "run_identity": {
+    "run_mode": "prod",
+    "workflow_name": "PULSE CI",
+    "event_name": "workflow_dispatch",
+    "ref": "refs/heads/main",
+    "git_sha": "0000000000000000000000000000000000000000"
+  },
+  "inputs": {
+    "status_json": {
+      "path": "PULSE_safe_pack_v0/artifacts/status.json",
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "gate_policy": {
+      "path": "pulse_gate_policy_v0.yml",
+      "policy_id": "pulse-gate-policy-v0",
+      "version": "0.1.3",
+      "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    },
+    "gate_registry": {
+      "path": "pulse_gate_registry_v0.yml",
+      "version": "gate_registry_v0",
+      "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    "evaluator": {
+      "path": "PULSE_safe_pack_v0/tools/check_gates.py",
+      "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+    }
+  },
+  "authority": {
+    "policy_set": "required+release_required",
+    "effective_required_gates": [
+      "pass_controls_refusal",
+      "refusal_delta_pass",
+      "effect_present",
+      "psf_monotonicity_ok",
+      "psf_mono_shift_resilient",
+      "pass_controls_comm",
+      "psf_commutativity_ok",
+      "psf_comm_shift_resilient",
+      "pass_controls_sanit",
+      "sanitization_effective",
+      "sanit_shift_resilient",
+      "psf_action_monotonicity_ok",
+      "psf_idempotence_ok",
+      "psf_path_independence_ok",
+      "psf_pii_monotonicity_ok",
+      "q1_grounded_ok",
+      "q2_consistency_ok",
+      "q3_fairness_ok",
+      "q4_slo_ok",
+      "detectors_materialized_ok",
+      "external_summaries_present",
+      "external_all_pass"
+    ],
+    "release_required_materialized": true,
+    "advisory_gates": [
+      "external_summaries_present",
+      "external_all_pass"
+    ]
+  },
+  "evaluation": {
+    "evaluator": "PULSE_safe_pack_v0/tools/check_gates.py",
+    "evaluator_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "required_gate_results": {
+      "pass_controls_refusal": true,
+      "refusal_delta_pass": true,
+      "effect_present": true,
+      "psf_monotonicity_ok": true,
+      "psf_mono_shift_resilient": true,
+      "pass_controls_comm": true,
+      "psf_commutativity_ok": true,
+      "psf_comm_shift_resilient": true,
+      "pass_controls_sanit": true,
+      "sanitization_effective": true,
+      "sanit_shift_resilient": true,
+      "psf_action_monotonicity_ok": true,
+      "psf_idempotence_ok": true,
+      "psf_path_independence_ok": true,
+      "psf_pii_monotonicity_ok": true,
+      "q1_grounded_ok": true,
+      "q2_consistency_ok": true,
+      "q3_fairness_ok": true,
+      "q4_slo_ok": true,
+      "detectors_materialized_ok": true,
+      "external_summaries_present": true,
+      "external_all_pass": true
+    },
+    "failed_required_gates": [],
+    "missing_required_gates": []
+  },
+  "decision": {
+    "state": "PROD-PASS",
+    "fail_closed": true
+  },
+  "diagnostics": {
+    "shadow_surfaces_present": [],
+    "shadow_surfaces_non_normative": true,
+    "status_meta_foldins": [],
+    "advisory_gates_present": [
+      "external_summaries_present",
+      "external_all_pass"
+    ],
+    "publication_surfaces_present": []
+  }
+}
