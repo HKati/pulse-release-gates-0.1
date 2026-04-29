@@ -88,6 +88,9 @@ Choose the path that matches the release-governance question you need to answer.
 - **External evidence integration path** → [`docs/EXTERNAL_DETECTORS.md`](docs/EXTERNAL_DETECTORS.md) and [`docs/external_detector_summaries.md`](docs/external_detector_summaries.md)  
   Use these when external detector summaries must be folded into the release evidence surface and enforced in release-grade paths.
 
+- **Release-grade reference run path** → [`docs/release_grade_reference_run_v0.md`](docs/release_grade_reference_run_v0.md)  
+  Use this to understand what counts as a non-stubbed, materialized-evidence release-grade PULSE reference run, and how it differs from the minimal Core lane.
+
 - **Operational triage path** → [`docs/RUNBOOK.md`](docs/RUNBOOK.md)  
   Start here when a release lane is red and the decision record needs diagnosis.
 
