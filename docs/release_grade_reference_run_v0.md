@@ -360,6 +360,44 @@ The checker can reject a candidate reference run as insufficient for reference
 purposes without redefining the underlying release decision.
 
 ---
+## Example package
+
+A minimal example package is available at:
+
+```text
+examples/release_grade_reference_run_v0/
+```
+
+It contains:
+
+```text
+README.md
+status.release_grade.pass.example.json
+release_authority_v0.release_grade.pass.example.json
+```
+
+The package shows the expected artifact shape for a non-stubbed,
+materialized-evidence release-grade reference run.
+
+From the repository root, the example can be inspected with:
+
+```text
+python PULSE_safe_pack_v0/tools/check_release_grade_reference_run_v0.py \
+  --status examples/release_grade_reference_run_v0/status.release_grade.pass.example.json \
+  --manifest examples/release_grade_reference_run_v0/release_authority_v0.release_grade.pass.example.json
+```
+
+Expected result:
+
+```text
+OK: release-grade reference run criteria satisfied
+```
+
+This example package is a reference surface only. It does not prove that a real
+production release occurred, and it does not change release semantics, gate
+policy, status.json, check_gates.py, or release authority.
+
+---
 
 ## Primary workflow visibility
 
@@ -471,6 +509,9 @@ Release-grade reference run = materialized evidence release-governance reference
 
 Suggested next steps:
 
+- The example package under `examples/release_grade_reference_run_v0/` now
+  shows the expected artifact shape. A real non-stubbed release-grade
+  reference run remains future work.  
 - Produce one non-stubbed release-grade reference run.  
 - Archive its `status.json`, Quality Ledger, release authority manifest, and
   audit bundle.  
