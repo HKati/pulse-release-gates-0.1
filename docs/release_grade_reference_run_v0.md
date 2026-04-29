@@ -36,6 +36,8 @@ authority.
 - checker: PULSE_safe_pack_v0/tools/check_release_grade_reference_run_v0.py  
 - test coverage: tests/test_check_release_grade_reference_run_v0.py  
 - tools-test coverage: ci/tools-tests.list  
+- primary workflow advisory qualification: present  
+- primary workflow authority role: non-normative / non-blocking  
 
 The reference run definition describes how to produce and review a release-grade
 PULSE run. It does not create a new gate and does not promote any diagnostic
@@ -356,6 +358,56 @@ check_release_grade_reference_run_v0.py = release-grade reference qualification 
 
 The checker can reject a candidate reference run as insufficient for reference
 purposes without redefining the underlying release decision.
+
+---
+
+## Primary workflow visibility
+
+The primary PULSE workflow runs the release-grade reference qualification checker
+as an advisory visibility step for release-grade runs.
+
+Workflow surface:
+
+```text
+.github/workflows/pulse_ci.yml
+```
+
+The workflow step checks the candidate run using:
+
+```text
+PULSE_safe_pack_v0/tools/check_release_grade_reference_run_v0.py
+```
+
+and reports the result in the GitHub Step Summary.
+
+This step is:
+
+- advisory  
+- non-normative  
+- non-blocking  
+- release-grade only  
+
+If the checker fails, the workflow emits a warning and records the result as
+Not qualified, but the normal release outcome is still determined by the
+existing release-authority path:
+
+```text
+status.json
++ declared gate policy
++ workflow-effective required gate set
++ check_gates.py
++ primary CI workflow
+```
+
+The qualification step answers a different question:
+
+Does this run satisfy the documented release-grade reference-run criteria?
+
+It does not answer:
+
+Should this release pass?
+
+That decision remains with the normal PULSE release-authority path.
 
 ---
 
