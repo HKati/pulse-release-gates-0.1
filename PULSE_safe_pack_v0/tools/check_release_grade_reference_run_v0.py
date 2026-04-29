@@ -69,13 +69,12 @@ def _check_status(status: dict[str, Any], errors: list[str]) -> None:
     if run_mode != "prod":
         errors.append(f"status.metrics.run_mode must be 'prod' for a release-grade reference run (got {run_mode!r})")
 
-    diagnostics = status.get("diagnostics") or {}
-    if diagnostics is not None and not isinstance(diagnostics, dict):
-        errors.append("status.diagnostics must be an object when present")
-        diagnostics = {}
-
-    if diagnostics.get("gates_stubbed") is True:
-        errors.append("status.diagnostics.gates_stubbed must not be true for a release-grade reference run")
+    if "diagnostics" in status:
+        diagnostics = status.get("diagnostics")
+        if not isinstance(diagnostics, dict):
+            errors.append("status.diagnostics must be an object when present")
+        elif diagnostics.get("gates_stubbed") is True:
+            errors.append("status.diagnostics.gates_stubbed must not be true for a release-grade reference run")
 
     for gate in RELEASE_REQUIRED_GATES:
         _gate_true(gates, gate, errors)
@@ -143,13 +142,13 @@ def _check_manifest(manifest: dict[str, Any], errors: list[str]) -> None:
     if decision.get("fail_closed") is not True:
         errors.append("manifest.decision.fail_closed must be true")
 
-    diagnostics = manifest.get("diagnostics") or {}
-    if diagnostics is not None and not isinstance(diagnostics, dict):
-        errors.append("manifest.diagnostics must be an object when present")
-        diagnostics = {}
-
-    if diagnostics and diagnostics.get("shadow_surfaces_non_normative") is not True:
-        errors.append("manifest.diagnostics.shadow_surfaces_non_normative must be true when diagnostics is present")
+    if "diagnostics" in manifest:
+        diagnostics = manifest.get("diagnostics")
+        if not isinstance(diagnostics, dict):
+            errors.append("manifest.diagnostics must be an object when present")
+        elif diagnostics.get("shadow_surfaces_non_normative") is not True:
+            errors.append("manifest.diagnostics.shadow_surfaces_non_normative must be true when diagnostics is present")
+            
 
 
 def _check_optional_file(path: Path | None, label: str, errors: list[str]) -> None:
