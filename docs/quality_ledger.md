@@ -326,7 +326,7 @@ Recommended reading order:
 
 ---
 
-## 6. How humans should read the ledger
+## 7. Keeping this document aligned
 
 Keep this document aligned with the actual renderer.
 
