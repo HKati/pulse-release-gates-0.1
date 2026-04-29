@@ -990,6 +990,74 @@ jobs:
             echo "| Workspace path | \`$BUNDLE\` |"
           } >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Check release-grade reference run qualification (advisory)
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          CHECKER="${{ env.PACK_DIR }}/tools/check_release_grade_reference_run_v0.py"
+          STATUS="${{ env.PACK_DIR }}/artifacts/status.json"
+          MANIFEST="${{ env.PACK_DIR }}/artifacts/release_authority_v0.json"
+          REPORT="${{ env.PACK_DIR }}/artifacts/report_card.html"
+          BUNDLE="${{ env.PACK_DIR }}/artifacts/release_authority_audit_bundle"
+
+          {
+            echo "### Release-grade reference qualification"
+            echo
+            echo "| Field | Value |"
+            echo "|---|---|"
+            echo "| Role | Advisory reference-run qualification |"
+            echo "| Authority | Non-normative / non-blocking |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [[ "${PULSE_IS_RELEASE:-0}" != "1" ]]; then
+            {
+              echo "| Status | Skipped |"
+              echo "| Reason | Not a release-grade run |"
+              echo
+              echo "This check only qualifies release-grade runs as candidate reference runs."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          if [[ ! -f "$CHECKER" ]]; then
+            echo "::warning::release-grade reference checker not found at $CHECKER"
+            {
+              echo "| Status | Skipped |"
+              echo "| Reason | Checker missing |"
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          set +e
+          python "$CHECKER" \
+            --status "$STATUS" \
+            --manifest "$MANIFEST" \
+            --report "$REPORT" \
+            --audit-bundle-dir "$BUNDLE"
+
+          CHECK_RC=$?
+          set -e
+
+          if [[ "$CHECK_RC" -ne 0 ]]; then
+            echo "::warning::release-grade reference qualification failed; release outcome unchanged"
+            {
+              echo "| Status | Not qualified |"
+              echo "| Result | Checker returned $CHECK_RC |"
+              echo
+              echo "The run may still be evaluated by the normal release authority path. This qualification check is advisory and does not change release outcome."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          {
+            echo "| Status | Qualified |"
+            echo "| Result | Candidate release-grade reference run |"
+            echo
+            echo "This advisory check confirms the run satisfies the documented release-grade reference criteria."
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Upload release authority audit bundle (audit-only)
         if: always()
         continue-on-error: true
