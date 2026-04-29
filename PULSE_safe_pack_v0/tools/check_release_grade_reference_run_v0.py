@@ -69,7 +69,7 @@ def _check_status(status: dict[str, Any], errors: list[str]) -> None:
     if run_mode != "prod":
         errors.append(f"status.metrics.run_mode must be 'prod' for a release-grade reference run (got {run_mode!r})")
 
-        if "diagnostics" in status:
+    if "diagnostics" in status:
         diagnostics = status.get("diagnostics")
         if not isinstance(diagnostics, dict):
             errors.append("status.diagnostics must be an object when present")
@@ -142,14 +142,13 @@ def _check_manifest(manifest: dict[str, Any], errors: list[str]) -> None:
     if decision.get("fail_closed") is not True:
         errors.append("manifest.decision.fail_closed must be true")
 
-        if "diagnostics" in manifest:
+    if "diagnostics" in manifest:
         diagnostics = manifest.get("diagnostics")
         if not isinstance(diagnostics, dict):
             errors.append("manifest.diagnostics must be an object when present")
         elif diagnostics.get("shadow_surfaces_non_normative") is not True:
-            errors.append(
-                "manifest.diagnostics.shadow_surfaces_non_normative must be true when diagnostics is present"
-            )
+            errors.append("manifest.diagnostics.shadow_surfaces_non_normative must be true when diagnostics is present")
+            
 
 
 def _check_optional_file(path: Path | None, label: str, errors: list[str]) -> None:
