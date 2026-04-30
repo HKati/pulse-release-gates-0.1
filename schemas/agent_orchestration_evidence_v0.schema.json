@@ -47,9 +47,7 @@
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "task_id",
-        "tracker",
-        "title"
+        "task_id"
       ],
       "properties": {
         "task_id": {
@@ -165,8 +163,7 @@
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "human_accepted",
-        "reviewer_notes"
+        "human_accepted"
       ],
       "properties": {
         "human_accepted": {
