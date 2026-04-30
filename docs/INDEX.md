@@ -31,6 +31,7 @@ If you add/rename a doc under `docs/`, please update this index.
 - [refusal_delta_gate.md](refusal_delta_gate.md) — Refusal-delta summary format + fail-closed semantics.
 - [EXTERNAL_DETECTORS.md](EXTERNAL_DETECTORS.md) — External detectors policy & modes (gating vs advisory).
 - [external_detector_summaries.md](external_detector_summaries.md) — Folding external detector summaries into status/ledger.
+- [AGENT_ORCHESTRATION_EVIDENCE_BRIDGE_v0.md](AGENT_ORCHESTRATION_EVIDENCE_BRIDGE_v0.md) — Boundary for treating agent-orchestration proof-of-work as diagnostic release evidence without granting release authority.
 
 ## Paradox field & edges
 
