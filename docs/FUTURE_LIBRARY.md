@@ -315,3 +315,74 @@ The helper code lives in:
     ]
   }
 
+```
+
+```
+
+## Evidence Connection State v0 — parked diagnostic candidate
+
+`Evidence Connection State v0` is a parked diagnostic candidate for describing
+whether an input, claim, question, review surface, or agent-produced work item is
+connected to recorded evidence in the PULSE artifact trail.
+
+The layer would not decide release outcomes.
+
+It would describe evidence linkage.
+
+Possible diagnostic states:
+
+```text
+CONNECTED
+PARTIAL
+MISSING
+STALE
+OUT_OF_SCOPE
+AMBIGUOUS
+```
+
+Primary question:
+
+```text
+Does this input or claim have a valid connection to recorded evidence?
+```
+
+Related PULSE surfaces:
+
+```text
+status.json
+release_authority_v0.json
+Quality Ledger
+release-authority-audit-bundle
+agent orchestration evidence
+field / topology diagnostics
+```
+
+Authority boundary:
+
+```text
+Evidence Connection State = diagnostic evidence-linkage signal
+check_gates.py = release authority evaluator
+```
+
+This candidate must remain non-normative unless explicitly promoted through the
+normal PULSE policy path:
+
+```text
+pulse_gate_policy_v0.yml
+pulse_gate_registry_v0.yml
+STATUS_CONTRACT
+fixtures
+tests
+workflow-effective required gate set
+```
+
+It must not silently create:
+
+- release PASS,
+- release FAIL,
+- gate promotion,
+- dashboard-derived authority,
+- or a second release-decision engine.
+
+Future implementation, if pursued, should begin as a reader / diagnostic surface
+over existing artifacts rather than as a new gate.
