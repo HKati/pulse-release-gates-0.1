@@ -315,10 +315,9 @@ The helper code lives in:
     ]
   }
 
-
 ```
 
-````
+```
 
 ## Evidence Connection State v0 — parked diagnostic candidate
 
