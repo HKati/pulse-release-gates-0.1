@@ -1,0 +1,38 @@
+{
+  "schema_version": "agent_orchestration_evidence_v0",
+  "source": "symphony",
+  "evidence_role": "diagnostic",
+  "normative": false,
+  "release_authority": false,
+  "created_utc": "2026-04-27T00:00:00Z",
+  "task": {
+    "task_id": "TASK-123",
+    "tracker": "linear",
+    "title": "Example agent-produced implementation task",
+    "task_url": "https://example.invalid/tasks/TASK-123"
+  },
+  "agent_run": {
+    "agent_run_id": "agent-run-001",
+    "workspace_id": "workspace-001",
+    "execution_mode": "isolated",
+    "status": "completed"
+  },
+  "proof_of_work": {
+    "proof_of_work_present": true,
+    "pr_url": "https://example.invalid/pull/123",
+    "ci_status": "pass",
+    "review_status": "approved",
+    "walkthrough_artifact": "https://example.invalid/artifacts/walkthrough-123",
+    "complexity_summary": "Example implementation completed in an isolated agent workspace and returned reviewable proof-of-work artifacts."
+  },
+  "human_review": {
+    "human_accepted": true,
+    "reviewer_notes": "Example payload only. Human acceptance here records task-level review context, not PULSE release authority."
+  },
+  "pulse_ingestion": {
+    "recommended_fold_in_target": "status.meta.agent_work_evidence",
+    "gate_promotion": false,
+    "release_decision_claim": "none",
+    "authority_boundary": "Agent orchestration evidence is diagnostic by default. It must not be interpreted as PASS or release authority unless explicitly promoted by declared gate policy."
+  }
+}
