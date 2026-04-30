@@ -1,0 +1,208 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/HKati/pulse-release-gates-0.1/schemas/agent_orchestration_evidence_v0.schema.json",
+  "title": "PULSE Agent Orchestration Evidence v0",
+  "description": "Diagnostic evidence payload for agent-orchestration proof-of-work. This schema validates shape only; it does not grant release authority.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "source",
+    "evidence_role",
+    "normative",
+    "release_authority",
+    "created_utc",
+    "task",
+    "agent_run",
+    "proof_of_work",
+    "human_review",
+    "pulse_ingestion"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "agent_orchestration_evidence_v0"
+    },
+    "source": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Agent-orchestration evidence source, for example symphony."
+    },
+    "evidence_role": {
+      "const": "diagnostic",
+      "description": "Agent orchestration evidence is diagnostic by default."
+    },
+    "normative": {
+      "type": "boolean",
+      "const": false
+    },
+    "release_authority": {
+      "type": "boolean",
+      "const": false
+    },
+    "created_utc": {
+      "type": "string",
+      "minLength": 1
+    },
+    "task": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "task_id",
+        "tracker",
+        "title"
+      ],
+      "properties": {
+        "task_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "tracker": {
+          "type": "string",
+          "minLength": 1
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "task_url": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "agent_run": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "agent_run_id",
+        "workspace_id",
+        "execution_mode",
+        "status"
+      ],
+      "properties": {
+        "agent_run_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "workspace_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "execution_mode": {
+          "type": "string",
+          "enum": [
+            "isolated",
+            "shared",
+            "unknown"
+          ]
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "completed",
+            "failed",
+            "cancelled",
+            "unknown"
+          ]
+        }
+      }
+    },
+    "proof_of_work": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "proof_of_work_present",
+        "ci_status",
+        "review_status"
+      ],
+      "properties": {
+        "proof_of_work_present": {
+          "type": "boolean"
+        },
+        "pr_url": {
+          "type": "string",
+          "minLength": 1
+        },
+        "ci_status": {
+          "type": "string",
+          "enum": [
+            "pass",
+            "fail",
+            "pending",
+            "not_run",
+            "unknown"
+          ]
+        },
+        "review_status": {
+          "type": "string",
+          "enum": [
+            "approved",
+            "changes_requested",
+            "pending",
+            "not_reviewed",
+            "unknown"
+          ]
+        },
+        "walkthrough_artifact": {
+          "type": "string",
+          "minLength": 1
+        },
+        "complexity_summary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "logs_artifact": {
+          "type": "string",
+          "minLength": 1
+        },
+        "risk_notes": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "human_review": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "human_accepted",
+        "reviewer_notes"
+      ],
+      "properties": {
+        "human_accepted": {
+          "type": "boolean"
+        },
+        "reviewer_notes": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "pulse_ingestion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "recommended_fold_in_target",
+        "gate_promotion",
+        "release_decision_claim",
+        "authority_boundary"
+      ],
+      "properties": {
+        "recommended_fold_in_target": {
+          "const": "status.meta.agent_work_evidence"
+        },
+        "gate_promotion": {
+          "type": "boolean",
+          "const": false
+        },
+        "release_decision_claim": {
+          "const": "none"
+        },
+        "authority_boundary": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  }
+}
