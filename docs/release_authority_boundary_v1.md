@@ -244,3 +244,48 @@ The authority boundary remains unchanged:
 the release decision is produced by declared-policy gate enforcement and recorded through CI outcome.
 
 Everything else preserves, explains, verifies, or reconstructs that decision.
+
+## Example execution
+
+These commands are examples for a materialized PULSE-REF release-grade reference artifact.
+
+Replace the placeholder paths with artifacts produced by an actual release-grade reference run:
+
+- `<path/to/release-reference/status.json>`
+- `<path/to/release_authority_v1.json>`
+- `<path/to/audit_bundle>`
+
+These commands are not expected to pass against an incomplete Core, smoke, staging, or stubbed state. Failure in that case is expected and indicates that incomplete evidence is not being treated as release-grade.
+
+Advisory/manual mode first:
+
+```bash
+python ci/check_release_reference_complete_v1.py \
+  --status <path/to/release-reference/status.json> \
+  --policy pulse_gate_policy_v0.yml \
+  --required-sets required,release_required \
+  --allowed-run-modes prod \
+  --require-nonstubbed \
+  --require-detectors-materialized \
+  --require-external-summaries \
+  --require-release-authority <path/to/release_authority_v1.json> \
+  --require-audit-bundle <path/to/audit_bundle> \
+  --warn-only
+```
+
+Blocking mode:
+
+```bash
+python ci/check_release_reference_complete_v1.py \
+  --status <path/to/release-reference/status.json> \
+  --policy pulse_gate_policy_v0.yml \
+  --required-sets required,release_required \
+  --allowed-run-modes prod \
+  --require-nonstubbed \
+  --require-detectors-materialized \
+  --require-external-summaries \
+  --require-release-authority <path/to/release_authority_v1.json> \
+  --require-audit-bundle <path/to/audit_bundle>
+```
+
+This guard checks release-grade completeness. It does not create release authority, replace check_gates.py, or make release-authority manifests, audit bundles, ledgers, dashboards, summaries, or publication surfaces normative.
