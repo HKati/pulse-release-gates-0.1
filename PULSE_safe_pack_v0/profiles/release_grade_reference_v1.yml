@@ -1,0 +1,112 @@
+profile_id: release_grade_reference_v1
+profile_kind: release_grade_reference
+schema_version: 1
+
+description: >
+  PULSE-REF release-grade reference profile. This profile is used to exercise
+  the externally verifiable release-grade reference path for PULSE.
+
+authority_boundary:
+  normative_decision_path:
+    - recorded_evidence
+    - status_json
+    - declared_gate_policy
+    - materialized_required_gate_set
+    - strict_gate_checking
+    - ci_outcome
+  non_normative_surfaces:
+    - quality_ledger
+    - dashboards
+    - summaries
+    - review_views
+    - publication_surfaces
+    - release_authority_manifests
+    - audit_bundles
+    - benchmark_summaries
+    - verification_reports
+
+run_requirements:
+  run_mode: prod
+  allow_stubbed_gates: false
+  require_materialized_detector_evidence: true
+  require_external_summaries: true
+  require_release_authority_manifest: true
+  require_audit_bundle: true
+  require_publication_snapshot: true
+  require_verification_instructions: true
+
+gate_policy:
+  effective_required_sets:
+    - required
+    - release_required
+  pass_semantics:
+    required_gate_passes_only_on_literal_boolean_true: true
+    missing_required_gate_fails_closed: true
+    advisory_gate_is_non_authoritative_unless_promoted_by_policy: true
+
+evidence_presence:
+  missing_required_evidence_behavior: fail
+  implicit_pass_fallback_allowed: false
+  require_external_summary_presence: true
+  require_detector_materialization: true
+  require_refusal_delta_evidence_when_release_required: true
+
+external_evidence:
+  require_canonical_summary_schema: true
+  require_tool_identity: true
+  require_tool_version: true
+  require_metric_keys: true
+  require_threshold_reference: true
+  require_dataset_or_subject_digest: true
+  require_signer_identity: true
+  require_verification_before_fold_in: true
+
+provenance:
+  require_artifact_hashes: true
+  require_expected_workflow_identity: true
+  require_attestation_or_attestation_plan: true
+  require_offline_verification_notes: true
+
+publication_consistency:
+  require_atomic_snapshot: true
+  require_run_id: true
+  require_git_sha: true
+  require_status_hash: true
+  require_manifest_hash: true
+  require_audit_bundle_hash: true
+  latest_pointer_is_non_authoritative: true
+
+non_interference:
+  explanatory_surfaces_may_preserve_explain_or_reconstruct: true
+  explanatory_surfaces_must_not_authorize_block_override_or_reinterpret: true
+  second_decision_path_allowed: false
+
+benchmark_targets:
+  fixture_categories:
+    - valid_evidence
+    - missing_evidence
+    - malformed_evidence
+    - stale_artifact
+    - false_gate
+    - unsigned_summary
+    - signer_mismatch
+    - dashboard_status_disagreement
+    - publication_mismatch
+    - implicit_fallback_attempt
+    - agent_diagnostic_artifact_promoted_incorrectly
+
+acceptance:
+  pass_if:
+    - release_grade_reference_run_is_non_stubbed
+    - detector_evidence_is_materialized
+    - required_and_release_required_gates_are_policy_bound_and_passing
+    - external_evidence_is_validated_before_fold_in
+    - audit_trace_is_reconstructible
+    - publication_surfaces_point_to_same_run
+  fail_if:
+    - gates_stubbed_true
+    - detectors_materialized_ok_false
+    - external_summaries_missing
+    - missing_required_evidence_passes_by_fallback
+    - unsigned_or_malformed_release_grade_summary_is_folded_in
+    - ledger_manifest_or_publication_surface_changes_decision
