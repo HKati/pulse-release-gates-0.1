@@ -75,36 +75,60 @@ def get_nested_bool(data: dict[str, Any], path: list[str]) -> Any:
         cur = cur.get(key)
     return cur
 
+def _normalize_gate_list(candidate: Any) -> list[str]:
+    """Normalize a gate-list candidate into a list of gate names."""
+    if not isinstance(candidate, list):
+        return []
+
+    gates: list[str] = []
+    for item in candidate:
+        if isinstance(item, str):
+            gates.append(item)
+        elif isinstance(item, dict):
+            for key in ("name", "gate", "id"):
+                value = item.get(key)
+                if isinstance(value, str):
+                    gates.append(value)
+                    break
+
+    return gates
+
 
 def extract_gate_set(policy: dict[str, Any], set_name: str) -> list[str]:
     """
-    Extract a gate set from common policy layouts.
+    Extract a gate set from supported policy layouts.
 
     Supported shapes include:
-    - {"required": [...]}
-    - {"release_required": [...]}
-    - {"gate_sets": {"required": [...]}}
-    - {"sets": {"required": [...]}}
+        - {"gates": {"required": [...]}}              # canonical PULSE format
+    - {"gates": {"release_required": [...]}}      # canonical PULSE format
+    - {"required": [...]}                         # simple / legacy format
+    - {"release_required": [...]}                 # simple / legacy format
+    - {"gate_sets": {"required": [...]}}          # alternate format
+    - {"sets": {"required": [...]}}               # alternate format
     """
 
     candidates: list[Any] = []
 
+    # Canonical PULSE policy format:
+    # gates.required / gates.release_required
+    gates_container = policy.get("gates")
+    if isinstance(gates_container, dict) and set_name in gates_container:
+        candidates.append(gates_container.get(set_name))
+
+    # Simple / legacy top-level format.
+    
     if set_name in policy:
         candidates.append(policy.get(set_name))
 
+    # Alternate nested formats.
     for container_key in ("gate_sets", "sets"):
         container = policy.get(container_key)
         if isinstance(container, dict) and set_name in container:
             candidates.append(container.get(set_name))
 
     for candidate in candidates:
-        if isinstance(candidate, list):
-            gates: list[str] = []
-            for item in candidate:
-                if isinstance(item, str):
-                    gates.append(item)
-                elif isinstance(item, dict) and isinstance(item.get("name"), str):
-                    gates.append(item["name"])
+          gates = _normalize_gate_list(candidate)
+        if gates:
             return gates
 
     return []
