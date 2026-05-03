@@ -81,13 +81,32 @@ def extract_gate_set(policy: dict[str, Any], set_name: str) -> list[str]:
     Extract a gate set from common policy layouts.
 
     Supported shapes include:
+    - {"gates": {"required": [...]}}
     - {"required": [...]}
-    - {"release_required": [...]}
     - {"gate_sets": {"required": [...]}}
     - {"sets": {"required": [...]}}
     """
+    def _normalize_gate_list(candidate: Any) -> list[str]:
+        if not isinstance(candidate, list):
+            return []
+
+        gates: list[str] = []
+        for item in candidate:
+            if isinstance(item, str):
+                gates.append(item)
+            elif isinstance(item, dict):
+                for key in ("name", "gate", "id"):
+                    value = item.get(key)
+                    if isinstance(value, str):
+                        gates.append(value)
+                        break
+        return gates
 
     candidates: list[Any] = []
+
+    gates_container = policy.get("gates")
+    if isinstance(gates_container, dict) and set_name in gates_container:
+        candidates.append(gates_container.get(set_name))
 
     if set_name in policy:
         candidates.append(policy.get(set_name))
@@ -98,13 +117,8 @@ def extract_gate_set(policy: dict[str, Any], set_name: str) -> list[str]:
             candidates.append(container.get(set_name))
 
     for candidate in candidates:
-        if isinstance(candidate, list):
-            gates: list[str] = []
-            for item in candidate:
-                if isinstance(item, str):
-                    gates.append(item)
-                elif isinstance(item, dict) and isinstance(item.get("name"), str):
-                    gates.append(item["name"])
+        gates = _normalize_gate_list(candidate)
+        if gates:
             return gates
 
     return []
