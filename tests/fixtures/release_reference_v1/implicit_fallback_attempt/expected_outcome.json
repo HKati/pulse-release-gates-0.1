@@ -1,0 +1,23 @@
+{
+  "fixture_id": "release_reference_v1/implicit_fallback_attempt",
+  "expected_result": "FAIL",
+  "expected_reason": "detectors_materialized_ok is false. This fixture isolates non-materialized detector evidence as the only intended failing condition while keeping all non-target required and release_required gates passing.",
+  "expected_guard": "ci/check_release_reference_complete_v1.py",
+  "expected_checks": {
+    "run_mode": "prod",
+    "gates_stubbed": false,
+    "detectors_materialized_ok": false,
+    "external_summaries_present": true,
+    "external_all_pass": true,
+    "required_gates_literal_true": true,
+    "release_required_gates_literal_true_except_detectors_materialized_ok": true
+  },
+  "expected_failure": {
+    "gate": "detectors_materialized_ok",
+    "value": false,
+    "failure_mode": "non_materialized_detector_evidence",
+    "non_target_required_gates_passing": true,
+    "non_target_release_required_gates_passing": true
+  },
+  "authority_boundary": "This fixture does not define release authority. It exercises fail-closed behavior for non-materialized detector evidence through the declared-policy gate-enforcement path and the PULSE-REF release-grade completeness guard."
+}
