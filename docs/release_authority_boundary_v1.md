@@ -235,16 +235,6 @@ FAIL if:
 - public surfaces can drift without detection
 - verification requires hidden state or maintainer explanation
 
-## Summary
-
-PULSE-REF strengthens the existing PULSE release-authority system by making the release-grade path externally verifiable.
-
-The authority boundary remains unchanged:
-
-the release decision is produced by declared-policy gate enforcement and recorded through CI outcome.
-
-Everything else preserves, explains, verifies, or reconstructs that decision.
-
 ## Example execution
 
 These commands are examples for a materialized PULSE-REF release-grade reference artifact.
@@ -288,4 +278,16 @@ python ci/check_release_reference_complete_v1.py \
   --require-audit-bundle <path/to/audit_bundle>
 ```
 
-This guard checks release-grade completeness. It does not create release authority, replace check_gates.py, or make release-authority manifests, audit bundles, ledgers, dashboards, summaries, or publication surfaces normative.
+This guard checks release-grade completeness. It does not create release authority, replace `check_gates.py`, or make release-authority manifests, audit bundles, ledgers, dashboards, summaries, or publication surfaces normative.
+
+Ez pontosan tartja a PULSE authority boundaryt: a guard csak release-grade completeness ellenőrzés, nem döntési engine. Ez összhangban van a PULSE műszaki magjával: a normatív döntés a declared-policy gate-enforcement pathból jön, a Ledger / manifest / audit bundle pedig audit és preservation felület.
+
+## Summary
+
+PULSE-REF strengthens the existing PULSE release-authority system by making the release-grade path externally verifiable.
+
+The authority boundary remains unchanged:
+
+the release decision is produced by declared-policy gate enforcement and recorded through CI outcome.
+
+Everything else preserves, explains, verifies, or reconstructs that decision.
