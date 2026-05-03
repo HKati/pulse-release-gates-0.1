@@ -5,11 +5,11 @@
     "run_mode": "prod",
     "fixture_id": "release_reference_v1/missing_external",
     "fixture_kind": "negative_release_reference",
-    "description": "Negative PULSE-REF release-grade reference fixture where external summaries are missing. Release-grade validation must fail closed."
+    "description": "Negative PULSE-REF release-grade reference fixture where external summaries are missing. Release-grade validation must fail closed on the missing summary presence condition."
   },
   "diagnostics": {
     "gates_stubbed": false,
-    "fixture_note": "This fixture is non-stubbed but intentionally lacks required external summary evidence."
+    "fixture_note": "This fixture is non-stubbed and isolates missing external summary presence as the only intended failing gate."
   },
   "gates": {
     "pass_controls_refusal": true,
@@ -33,12 +33,12 @@
     "q4_slo_ok": true,
     "detectors_materialized_ok": true,
     "external_summaries_present": false,
-    "external_all_pass": false
+    "external_all_pass": true
   },
   "evidence": {
     "detectors_materialized": true,
     "external_summaries_present": false,
-    "external_summary_mode": "missing",
-    "authority_boundary": "This fixture exercises release-grade fail-closed behavior for missing external evidence. It does not create release authority."
+    "external_summary_mode": "missing_presence_fixture",
+    "authority_boundary": "This fixture isolates release-grade fail-closed behavior for missing external summary presence. It does not create release authority."
   }
 }
