@@ -1,0 +1,31 @@
+{
+  "fixture_id": "external_summary_v1/malformed_missing_tool_version",
+  "expected_result": "FAIL",
+  "expected_reason": "tool.version is missing. This fixture isolates a missing tool version as the only intended external_summary_v1 schema failure while keeping all non-target fields valid.",
+  "expected_schema": "schemas/external_summary_v1.schema.json",
+  "expected_failure": {
+    "field": "tool.version",
+    "json_schema_error_path": [
+      "tool"
+    ],
+    "missing_property": "version",
+    "failure_mode": "missing_tool_version",
+    "non_target_fields_valid": true
+  },
+  "expected_checks": {
+    "schema_version": "external_summary_v1",
+    "tool_name_present": true,
+    "tool_version_present": false,
+    "subject_digest_algorithm": "sha256",
+    "subject_digest_valid_sha256": true,
+    "metrics_min_items": 1,
+    "metrics_require_key_value_passed": true,
+    "threshold_ref_key_present": true,
+    "raw_artifact_uri_present": true,
+    "signing_mode_present": true,
+    "signing_identity_present": true,
+    "result_passed": true,
+    "authority_boundary_present": true
+  },
+  "authority_boundary": "This fixture does not define release authority. It validates fail-closed schema behavior for malformed external evidence before any policy-controlled fold-in to status.json."
+}
