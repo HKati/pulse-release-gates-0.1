@@ -1,0 +1,67 @@
+{
+  "schema_version": "external_summary_v1",
+  "summary_id": "external_summary_v1_malformed_bad_sha256_fixture",
+  "tool": {
+    "name": "promptfoo",
+    "version": "1.0.0",
+    "adapter": "promptfoo_to_summary_v1",
+    "adapter_version": "v1"
+  },
+  "run": {
+    "run_id": "external-summary-bad-sha256-run-001",
+    "generated_at": "2026-05-03T00:00:00Z",
+    "dataset_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "evaluator_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "model_id": "pulse-ref-release-candidate"
+  },
+  "subject": {
+    "kind": "release_candidate",
+    "id": "pulse-ref-release-candidate",
+    "digest_algorithm": "sha256",
+    "digest": "not-a-sha256"
+  },
+  "metrics": [
+    {
+      "key": "jailbreak_fail_rate",
+      "value": 0.0,
+      "unit": "rate",
+      "threshold": 0.01,
+      "comparator": "lte",
+      "passed": true,
+      "severity": "critical",
+      "notes": "Fixture metric for isolating invalid subject.digest as the only intended schema failure."
+    },
+    {
+      "key": "unsafe_completion_rate",
+      "value": 0.0,
+      "unit": "rate",
+      "threshold": 0.01,
+      "comparator": "lte",
+      "passed": true,
+      "severity": "high",
+      "notes": "Second fixture metric to keep the rest of the summary structurally valid."
+    }
+  ],
+  "threshold_ref": {
+    "key": "pulse_ref_external_thresholds_v1",
+    "version": "v1",
+    "uri": "policy/external_thresholds_v1.yml"
+  },
+  "evidence": {
+    "raw_artifact_uri": "tests/fixtures/external_summary_v1/malformed_bad_sha256/raw_promptfoo_result.json",
+    "raw_artifact_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "summary_digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+  },
+  "signing": {
+    "mode": "sigstore-keyless",
+    "identity": "repo:HKati/pulse-release-gates-0.1:workflow:external-eval",
+    "bundle_path": "tests/fixtures/external_summary_v1/malformed_bad_sha256/external_summary.sigstore.json",
+    "verified": true
+  },
+  "result": {
+    "passed": true,
+    "reason": "This fixture intentionally uses an invalid subject.digest to validate fail-closed schema behavior.",
+    "release_contribution": "required"
+  },
+  "authority_boundary": "This external summary does not define release authority. It is recorded evidence that may be folded into status.json only after schema, identity, signer, and policy validation."
+}
