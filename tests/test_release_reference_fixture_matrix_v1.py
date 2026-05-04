@@ -47,6 +47,27 @@ def fixture_dirs() -> list[Path]:
     return dirs
 
 
+def extract_guard_errors(output: str) -> list[str]:
+    """Extract bullet error lines emitted by the PULSE-REF guard."""
+    errors: list[str] = []
+    in_errors = False
+
+    for raw_line in output.splitlines():
+        line = raw_line.strip()
+
+        if line == "Errors:":
+            in_errors = True
+            continue
+
+        if in_errors and line.startswith("Result:"):
+            break
+
+        if in_errors and line.startswith("- "):
+            errors.append(line[2:])
+
+    return errors
+
+
 class TestReleaseReferenceFixtureMatrixV1(unittest.TestCase):
     def test_fixture_matrix_matches_expected_guard_outcomes(self) -> None:
         fixtures = fixture_dirs()
@@ -112,15 +133,51 @@ class TestReleaseReferenceFixtureMatrixV1(unittest.TestCase):
 
                     expected_failure = expected.get("expected_failure", {})
                     target = expected_failure.get("gate") or expected_failure.get("field")
-                    if target:
-                        self.assertIn(
-                            target,
-                            output,
-                            msg=(
-                                "Expected guard output to mention the intended failing gate/field "
-                                f"{target!r}.\nOutput:\n{output}"
-                            ),
-                        )
+
+                    self.assertIsInstance(
+                        target,
+                        str,
+                        msg=(
+                            "FAIL fixture must declare expected_failure.gate "
+                            f"or expected_failure.field: {expected_path}"
+                        ),
+                    )
+                    self.assertTrue(
+                        target,
+                        msg=f"FAIL fixture expected failure target must be non-empty: {expected_path}",
+                    )
+
+                    errors = extract_guard_errors(output)
+                    self.assertGreater(
+                        len(errors),
+                        0,
+                        msg=f"Expected guard output to include structured error lines.\nOutput:\n{output}",
+                    )
+
+                    matching_errors = [error for error in errors if target in error]
+                    unexpected_errors = [error for error in errors if target not in error]
+
+                    self.assertGreater(
+                        len(matching_errors),
+                        0,
+                        msg=(
+                            "Expected guard errors to mention the intended failing gate/field "
+                            f"{target!r}.\nErrors:\n{errors}\nOutput:\n{output}"
+                        ),
+                    )
+
+                    self.assertEqual(
+                        unexpected_errors,
+                        [],
+                        msg=(
+                            "FAIL fixture produced unrelated guard errors. "
+                            "Each negative fixture must isolate one expected failure mode.\n"
+                            f"Expected target: {target!r}\n"
+                            f"Unexpected errors: {unexpected_errors}\n"
+                            f"All errors: {errors}\n"
+                            f"Output:\n{output}"
+                        ),
+                    )
 
                 else:
                     self.fail(f"Unsupported expected_result: {expected_result!r}")
