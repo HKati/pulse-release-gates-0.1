@@ -185,7 +185,7 @@
         },
         "fold_in_allowed": {
           "type": "boolean",
-          "description": "Whether the verified envelope is allowed to be folded into release evidence under declared policy."
+          "description": "Whether the verified envelope is allowed to be folded into release evidence under declared policy. If true, verification.verified must also be true."
         }
       }
     },
@@ -200,6 +200,44 @@
       "additionalProperties": true
     }
   },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "policy_context": {
+            "properties": {
+              "fold_in_allowed": {
+                "const": true
+              }
+            },
+            "required": [
+              "fold_in_allowed"
+            ]
+          }
+        },
+        "required": [
+          "policy_context"
+        ]
+      },
+      "then": {
+        "properties": {
+          "verification": {
+            "properties": {
+              "verified": {
+                "const": true
+              }
+            },
+            "required": [
+              "verified"
+            ]
+          }
+        },
+        "required": [
+          "verification"
+        ]
+      }
+    }
+  ],
   "$defs": {
     "sha256_digest": {
       "type": "string",
