@@ -31,7 +31,7 @@ EXPECTED_ACTIVE_FIXTURES = {
     "malformed_missing_subject_digest",
     "malformed_bad_sha256",
     "malformed_empty_metrics",
-    "missing_authority_boundary"
+    "missing_authority_boundary",
 }
 
 
@@ -73,6 +73,111 @@ class TestExternalSummaryFixtureMatrixV1(unittest.TestCase):
         self.schema = load_json(SUMMARY_SCHEMA_PATH)
         self.jsonschema.Draft202012Validator.check_schema(self.schema)
         self.validator = self.jsonschema.Draft202012Validator(self.schema)
+
+    def assert_isolated_schema_failure(
+        self,
+        *,
+        fixture_dir: Path,
+        expected_path: Path,
+        errors: list[Any],
+        expected_failure: dict[str, Any],
+    ) -> None:
+        """Verify that a negative fixture fails for exactly one intended schema reason."""
+        target_path = expected_failure.get("json_schema_error_path")
+
+        self.assertIsInstance(
+            target_path,
+            list,
+            msg=(
+                "FAIL fixture must declare expected_failure.json_schema_error_path.\n"
+                f"Fixture metadata: {expected_path}"
+            ),
+        )
+
+        self.assertEqual(
+            len(errors),
+            1,
+            msg=(
+                "FAIL fixture must isolate exactly one schema-validation error.\n"
+                f"Fixture: {fixture_dir.name}\n"
+                f"Expected path: {target_path!r}\n"
+                f"Observed paths: {error_paths(errors)!r}\n"
+                f"Messages: {[error.message for error in errors]!r}"
+            ),
+        )
+
+        error = errors[0]
+        observed_path = list(error.path)
+
+        self.assertEqual(
+            observed_path,
+            target_path,
+            msg=(
+                "FAIL fixture produced a schema error at the wrong path.\n"
+                f"Fixture: {fixture_dir.name}\n"
+                f"Expected path: {target_path!r}\n"
+                f"Observed path: {observed_path!r}\n"
+                f"Message: {error.message!r}"
+            ),
+        )
+
+        missing_property = expected_failure.get("missing_property")
+        if missing_property is not None:
+            self.assertEqual(
+                error.validator,
+                "required",
+                msg=(
+                    "Expected a required-property schema failure.\n"
+                    f"Fixture: {fixture_dir.name}\n"
+                    f"Missing property: {missing_property!r}\n"
+                    f"Validator: {error.validator!r}\n"
+                    f"Message: {error.message!r}"
+                ),
+            )
+            self.assertIn(
+                missing_property,
+                error.message,
+                msg=(
+                    "Expected schema error message to mention the missing property.\n"
+                    f"Fixture: {fixture_dir.name}\n"
+                    f"Missing property: {missing_property!r}\n"
+                    f"Message: {error.message!r}"
+                ),
+            )
+            if isinstance(error.validator_value, list):
+                self.assertIn(
+                    missing_property,
+                    error.validator_value,
+                    msg=(
+                        "Missing property should be listed in the schema required list.\n"
+                        f"Fixture: {fixture_dir.name}\n"
+                        f"Missing property: {missing_property!r}\n"
+                        f"Required list: {error.validator_value!r}"
+                    ),
+                )
+
+        if "invalid_value" in expected_failure:
+            invalid_value = expected_failure["invalid_value"]
+            self.assertEqual(
+                error.instance,
+                invalid_value,
+                msg=(
+                    "Expected schema error to be caused by the declared invalid value.\n"
+                    f"Fixture: {fixture_dir.name}\n"
+                    f"Expected invalid value: {invalid_value!r}\n"
+                    f"Observed instance: {error.instance!r}\n"
+                    f"Message: {error.message!r}"
+                ),
+            )
+
+        self.assertTrue(
+            expected_failure.get("non_target_fields_valid"),
+            msg=(
+                "FAIL fixture metadata must declare non_target_fields_valid=true "
+                "to preserve isolated failure-mode semantics.\n"
+                f"Fixture metadata: {expected_path}"
+            ),
+        )
 
     def test_expected_active_fixture_set_is_present(self) -> None:
         discovered = {path.name for path in fixture_dirs()}
@@ -136,49 +241,12 @@ class TestExternalSummaryFixtureMatrixV1(unittest.TestCase):
                     )
 
                     expected_failure = expected.get("expected_failure", {})
-                    target_path = expected_failure.get("json_schema_error_path")
-
-                    self.assertIsInstance(
-                        target_path,
-                        list,
-                        msg=(
-                            "FAIL fixture must declare expected_failure.json_schema_error_path.\n"
-                            f"Fixture: {expected_path}"
-                        ),
+                    self.assert_isolated_schema_failure(
+                        fixture_dir=fixture_dir,
+                        expected_path=expected_path,
+                        errors=errors,
+                        expected_failure=expected_failure,
                     )
-
-                    paths = error_paths(errors)
-                    unexpected_paths = [path for path in paths if path != target_path]
-
-                    self.assertEqual(
-                        unexpected_paths,
-                        [],
-                        msg=(
-                            "FAIL fixture produced unrelated schema-validation errors. "
-                            "Each negative external summary fixture must isolate one expected failure mode.\n"
-                            f"Expected path: {target_path!r}\n"
-                            f"All paths: {paths!r}\n"
-                            f"Messages: {[error.message for error in errors]!r}"
-                        ),
-                    )
-
-                    missing_property = expected_failure.get("missing_property")
-                    if missing_property:
-                        self.assertTrue(
-                            any(missing_property in error.message for error in errors),
-                            msg=(
-                                "Expected schema errors to mention the missing property.\n"
-                                f"Missing property: {missing_property!r}\n"
-                                f"Messages: {[error.message for error in errors]!r}"
-                            ),
-                        )
-
-                    invalid_value = expected_failure.get("invalid_value")
-                    if invalid_value is not None:
-                        self.assertTrue(
-                            errors,
-                            msg="Expected invalid-value fixture to produce at least one schema error.",
-                        )
 
                 else:
                     self.fail(f"Unsupported expected_result: {expected_result!r}")
