@@ -1,0 +1,220 @@
+schema_version: external_signers_v1
+policy_id: pulse_ref_external_signers_v1
+
+description: >
+  PULSE-REF signer and verification policy for release-grade external
+  detector, evaluation, and review summaries. This policy defines which
+  external summary envelopes may be considered eligible for policy-controlled
+  fold-in to status.json. It does not create release authority.
+
+authority_boundary:
+  statement: >
+    This signer policy does not define release authority. It governs whether
+    external evidence envelopes satisfy signer, identity, digest, and
+    verification requirements before any policy-controlled fold-in to status.json.
+    The normative release decision remains produced by declared-policy gate
+    enforcement and recorded through the CI outcome.
+  does_not:
+    - authorize_release
+    - block_release_as_second_engine
+    - override_check_gates
+    - make_ledgers_or_manifests_normative
+    - replace_status_json_policy_gate_enforcement
+
+release_grade_defaults:
+  require_schema_valid_summary: true
+  require_schema_valid_envelope: true
+  require_summary_digest: true
+  require_subject_digest: true
+  require_tool_identity: true
+  require_tool_version: true
+  require_threshold_ref: true
+  require_signer_identity: true
+  require_verification_before_fold_in: true
+  allow_unsigned_release_grade: false
+  allow_unverified_fold_in: false
+
+fold_in_rules:
+  required:
+    fold_in_allowed_requires_verified: true
+    fold_in_allowed_requires_allowed_signer: true
+    fold_in_allowed_requires_summary_digest_match: true
+    fold_in_allowed_requires_subject_digest: true
+  advisory:
+    fold_in_allowed_requires_verified: true
+    fold_in_allowed_requires_allowed_signer: true
+    fold_in_allowed_requires_summary_digest_match: true
+    fold_in_allowed_requires_subject_digest: true
+  diagnostic:
+    fold_in_allowed_requires_verified: false
+    fold_in_allowed_requires_allowed_signer: false
+    fold_in_allowed_requires_summary_digest_match: true
+    fold_in_allowed_requires_subject_digest: false
+
+allowed_signing_modes:
+  release_grade:
+    - sigstore-keyless
+    - sigstore-kms
+    - github-attestation
+    - kms
+  advisory:
+    - sigstore-keyless
+    - sigstore-kms
+    - github-attestation
+    - kms
+  diagnostic:
+    - sigstore-keyless
+    - sigstore-kms
+    - github-attestation
+    - kms
+    - unsigned
+    - other
+
+unsigned_policy:
+  release_grade:
+    allowed: false
+    reason: >
+      Release-grade external evidence must not be folded into release evidence
+      when unsigned or unverified.
+  advisory:
+    allowed: false
+    reason: >
+      Advisory external evidence should also be signed when used in
+      release-adjacent review.
+  diagnostic:
+    allowed: true
+    reason: >
+      Unsigned summaries may be retained as diagnostic evidence only. They must
+      not become release authority unless later verified and promoted by declared
+      policy.
+
+allowed_identities:
+  github_actions:
+    description: >
+      GitHub Actions workflow identities allowed for internally generated
+      external summaries or attestations.
+    identities:
+      - pattern: "repo:HKati/pulse-release-gates-0.1:workflow:*"
+        modes:
+          - github-attestation
+          - sigstore-keyless
+        release_contributions:
+          - required
+          - advisory
+          - diagnostic
+
+  eplabsai:
+    description: >
+      EPLabsAI / PULSE maintainer-controlled signing identity namespace for
+      release-grade reference artifacts and local external-summary prototypes.
+    identities:
+      - pattern: "eplabsai:pulse-ref:*"
+        modes:
+          - sigstore-keyless
+          - sigstore-kms
+          - kms
+        release_contributions:
+          - required
+          - advisory
+          - diagnostic
+
+  external_review:
+    description: >
+      Placeholder namespace for later external verifier identities. Concrete
+      identities must be added before they can be used for release-grade fold-in.
+    identities: []
+
+tool_policies:
+  promptfoo:
+    release_grade_contribution_allowed: true
+    allowed_identity_groups:
+      - github_actions
+      - eplabsai
+      - external_review
+    require_dataset_digest: true
+    require_subject_digest: true
+    require_threshold_ref: true
+
+  deepeval:
+    release_grade_contribution_allowed: true
+    allowed_identity_groups:
+      - github_actions
+      - eplabsai
+      - external_review
+    require_dataset_digest: true
+    require_subject_digest: true
+    require_threshold_ref: true
+
+  azure_eval:
+    release_grade_contribution_allowed: true
+    allowed_identity_groups:
+      - github_actions
+      - eplabsai
+      - external_review
+    require_dataset_digest: true
+    require_subject_digest: true
+    require_threshold_ref: true
+
+  garak:
+    release_grade_contribution_allowed: true
+    allowed_identity_groups:
+      - github_actions
+      - eplabsai
+      - external_review
+    require_dataset_digest: true
+    require_subject_digest: true
+    require_threshold_ref: true
+
+  openai_evals_shadow:
+    release_grade_contribution_allowed: false
+    allowed_identity_groups:
+      - github_actions
+      - eplabsai
+    require_dataset_digest: true
+    require_subject_digest: true
+    require_threshold_ref: true
+    reason: >
+      Shadow evaluation outputs may be retained as diagnostic or advisory
+      evidence until explicitly promoted by declared PULSE policy.
+
+verification_requirements:
+  envelope:
+    verification_verified_must_be_true_when_fold_in_allowed_true: true
+    summary_digest_algorithm: sha256
+    subject_digest_algorithm: sha256
+    reject_digest_mismatch: true
+    reject_missing_signer_identity: true
+    reject_unverified_release_grade_fold_in: true
+
+  summary:
+    schema_version: external_summary_v1
+    require_metrics_min_items: 1
+    require_metric_keys: true
+    require_metric_passed_boolean: true
+    require_result_passed_boolean: true
+
+failure_behavior:
+  malformed_summary: fail_closed
+  malformed_envelope: fail_closed
+  missing_summary_digest: fail_closed
+  missing_subject_digest: fail_closed
+  missing_signer_identity: fail_closed
+  signer_identity_not_allowed: fail_closed
+  signing_mode_not_allowed: fail_closed
+  fold_in_allowed_true_but_verification_false: fail_closed
+  unsigned_release_grade_summary: fail_closed
+
+diagnostic_allowances:
+  retain_unsigned_as_diagnostic: true
+  retain_unverified_as_diagnostic: true
+  diagnostic_retention_does_not_authorize_release: true
+  diagnostic_retention_requires_explicit_non_authoritative_label: true
+
+review_notes:
+  - >
+    This policy is intentionally conservative for release-grade evidence.
+    Unsigned or unverified external summaries may remain useful for diagnosis,
+    but they must not become release authority.
+  - >
+    Concrete external reviewer identities should be added only after the
+    corresponding verification workflow or signing mechanism is available.
