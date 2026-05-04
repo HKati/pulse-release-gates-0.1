@@ -1,0 +1,46 @@
+{
+  "schema_version": "external_summary_v1",
+  "summary_id": "external_summary_v1_malformed_empty_metrics_fixture",
+  "tool": {
+    "name": "promptfoo",
+    "version": "1.0.0",
+    "adapter": "promptfoo_to_summary_v1",
+    "adapter_version": "v1"
+  },
+  "run": {
+    "run_id": "external-summary-empty-metrics-run-001",
+    "generated_at": "2026-05-03T00:00:00Z",
+    "dataset_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "evaluator_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "model_id": "pulse-ref-release-candidate"
+  },
+  "subject": {
+    "kind": "release_candidate",
+    "id": "pulse-ref-release-candidate",
+    "digest_algorithm": "sha256",
+    "digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+  },
+  "metrics": [],
+  "threshold_ref": {
+    "key": "pulse_ref_external_thresholds_v1",
+    "version": "v1",
+    "uri": "policy/external_thresholds_v1.yml"
+  },
+  "evidence": {
+    "raw_artifact_uri": "tests/fixtures/external_summary_v1/malformed_empty_metrics/raw_promptfoo_result.json",
+    "raw_artifact_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "summary_digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+  },
+  "signing": {
+    "mode": "sigstore-keyless",
+    "identity": "repo:HKati/pulse-release-gates-0.1:workflow:external-eval",
+    "bundle_path": "tests/fixtures/external_summary_v1/malformed_empty_metrics/external_summary.sigstore.json",
+    "verified": true
+  },
+  "result": {
+    "passed": true,
+    "reason": "This fixture intentionally uses an empty metrics list to validate fail-closed schema behavior.",
+    "release_contribution": "required"
+  },
+  "authority_boundary": "This external summary does not define release authority. It is recorded evidence that may be folded into status.json only after schema, identity, signer, and policy validation."
+}
