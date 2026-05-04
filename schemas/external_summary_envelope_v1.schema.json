@@ -1,0 +1,210 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://hkati.github.io/pulse-release-gates-0.1/schemas/external_summary_envelope_v1.schema.json",
+  "title": "PULSE External Summary Envelope v1",
+  "description": "Release-grade verification envelope for PULSE external summaries. This envelope binds a canonical external summary artifact to digest, signer, verification, and policy context. It does not create release authority.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "envelope_id",
+    "summary_ref",
+    "summary_digest",
+    "signing",
+    "verification",
+    "policy_context",
+    "authority_boundary"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "external_summary_envelope_v1",
+      "description": "Canonical envelope schema version identifier."
+    },
+    "envelope_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Stable identifier for this external summary envelope."
+    },
+    "summary_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "uri",
+        "schema_version"
+      ],
+      "properties": {
+        "uri": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Path or URI to the canonical external summary artifact."
+        },
+        "schema_version": {
+          "type": "string",
+          "const": "external_summary_v1",
+          "description": "Expected schema version of the wrapped external summary."
+        },
+        "summary_id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Optional summary_id from the wrapped external summary."
+        }
+      }
+    },
+    "summary_digest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "algorithm",
+        "value"
+      ],
+      "properties": {
+        "algorithm": {
+          "type": "string",
+          "const": "sha256",
+          "description": "Digest algorithm used for the wrapped external summary artifact."
+        },
+        "value": {
+          "$ref": "#/$defs/sha256_digest",
+          "description": "SHA-256 digest of the wrapped external summary artifact."
+        }
+      }
+    },
+    "signing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mode",
+        "identity"
+      ],
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": [
+            "sigstore-keyless",
+            "sigstore-kms",
+            "github-attestation",
+            "kms",
+            "unsigned",
+            "other"
+          ],
+          "description": "Signing or attestation mode used for the external summary."
+        },
+        "identity": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Signer identity, workflow identity, KMS identity, or explicit unsigned identity marker."
+        },
+        "issuer": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Optional OIDC issuer, certificate issuer, or trust domain."
+        },
+        "bundle_uri": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Path or URI to signature, attestation, or transparency bundle."
+        },
+        "certificate_subject": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Optional certificate subject or identity claim."
+        }
+      }
+    },
+    "verification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "verified",
+        "verified_at",
+        "verifier"
+      ],
+      "properties": {
+        "verified": {
+          "type": "boolean",
+          "description": "Whether signature / attestation verification succeeded before release-decision fold-in."
+        },
+        "verified_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "UTC timestamp when verification was performed."
+        },
+        "verifier": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "name",
+            "version"
+          ],
+          "properties": {
+            "name": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Verifier tool name."
+            },
+            "version": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Verifier tool version, commit, or stable label."
+            }
+          }
+        },
+        "result_reason": {
+          "type": "string",
+          "description": "Optional human-readable verification result reason."
+        }
+      }
+    },
+    "policy_context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "signer_policy_ref",
+        "release_contribution"
+      ],
+      "properties": {
+        "signer_policy_ref": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Path, URI, or key identifying the signer policy used for verification."
+        },
+        "threshold_policy_ref": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Optional path, URI, or key identifying the threshold policy used by the summary."
+        },
+        "release_contribution": {
+          "type": "string",
+          "enum": [
+            "required",
+            "advisory",
+            "diagnostic"
+          ],
+          "description": "Declared contribution mode for the wrapped external summary."
+        },
+        "fold_in_allowed": {
+          "type": "boolean",
+          "description": "Whether the verified envelope is allowed to be folded into release evidence under declared policy."
+        }
+      }
+    },
+    "authority_boundary": {
+      "type": "string",
+      "const": "This external summary envelope does not define release authority. It records digest, signer, verification, and policy context for external evidence before any policy-controlled fold-in to status.json.",
+      "description": "Authority-boundary statement."
+    },
+    "extensions": {
+      "type": "object",
+      "description": "Optional non-normative extension fields for environment-specific verification metadata.",
+      "additionalProperties": true
+    }
+  },
+  "$defs": {
+    "sha256_digest": {
+      "type": "string",
+      "pattern": "^[a-fA-F0-9]{64}$",
+      "description": "Hex-encoded SHA-256 digest."
+    }
+  }
+}
