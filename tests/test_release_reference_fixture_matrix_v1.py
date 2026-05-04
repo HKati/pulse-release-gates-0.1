@@ -46,7 +46,9 @@ def fixture_dirs() -> list[Path]:
 
     return dirs
 
+
 def extract_guard_errors(output: str) -> list[str]:
+    """Extract bullet error lines emitted by the PULSE-REF guard."""
     errors: list[str] = []
     in_errors = False
 
@@ -131,27 +133,25 @@ class TestReleaseReferenceFixtureMatrixV1(unittest.TestCase):
 
                     expected_failure = expected.get("expected_failure", {})
                     target = expected_failure.get("gate") or expected_failure.get("field")
-                                      self.assertIsInstance(
+
+                    self.assertIsInstance(
                         target,
                         str,
                         msg=(
-                            "Expected FAIL fixtures to set expected_failure.gate or "
-                            f"expected_failure.field.\nFixture: {fixture_dir.name}"
+                            "FAIL fixture must declare expected_failure.gate "
+                            f"or expected_failure.field: {expected_path}"
                         ),
                     )
                     self.assertTrue(
                         target,
-                        msg=(
-                            "Expected FAIL fixtures to set a non-empty expected_failure.gate or "
-                            f"expected_failure.field.\nFixture: {fixture_dir.name}"
-                        ),
+                        msg=f"FAIL fixture expected failure target must be non-empty: {expected_path}",
                     )
 
                     errors = extract_guard_errors(output)
                     self.assertGreater(
                         len(errors),
                         0,
-                        msg=f"Expected FAIL guard output to include Errors entries.\nOutput:\n{output}",
+                        msg=f"Expected guard output to include structured error lines.\nOutput:\n{output}",
                     )
 
                     matching_errors = [error for error in errors if target in error]
@@ -161,17 +161,21 @@ class TestReleaseReferenceFixtureMatrixV1(unittest.TestCase):
                         len(matching_errors),
                         0,
                         msg=(
-                            "Expected at least one guard error to mention the intended failing "
-                            f"target {target!r}.\nErrors:\n" + "\n".join(errors)
+                            "Expected guard errors to mention the intended failing gate/field "
+                            f"{target!r}.\nErrors:\n{errors}\nOutput:\n{output}"
                         ),
                     )
+
                     self.assertEqual(
                         unexpected_errors,
                         [],
                         msg=(
-                            "Expected FAIL fixture guard errors to be isolated to the intended "
-                            f"target {target!r}, but found unrelated errors:\n"
-                            + "\n".join(unexpected_errors)
+                            "FAIL fixture produced unrelated guard errors. "
+                            "Each negative fixture must isolate one expected failure mode.\n"
+                            f"Expected target: {target!r}\n"
+                            f"Unexpected errors: {unexpected_errors}\n"
+                            f"All errors: {errors}\n"
+                            f"Output:\n{output}"
                         ),
                     )
 
