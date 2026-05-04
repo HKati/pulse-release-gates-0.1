@@ -11,3 +11,6 @@
 # ```yaml
 # Optional: add a minimal snippet showing how this change runs in CI.
 # ```
+
+__pycache__/
+*.py[cod]
