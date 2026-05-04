@@ -1,0 +1,22 @@
+{
+  "fixture_id": "external_summary_v1/valid",
+  "expected_result": "PASS",
+  "expected_reason": "The fixture is a valid canonical external_summary_v1 artifact with schema version, tool identity, run metadata, subject digest, canonical metrics, threshold reference, evidence artifact reference, signer information, aggregate result, and authority-boundary statement.",
+  "expected_schema": "schemas/external_summary_v1.schema.json",
+  "expected_checks": {
+    "schema_version": "external_summary_v1",
+    "tool_name_present": true,
+    "tool_version_present": true,
+    "subject_digest_algorithm": "sha256",
+    "subject_digest_valid_sha256": true,
+    "metrics_min_items": 1,
+    "metrics_require_key_value_passed": true,
+    "threshold_ref_key_present": true,
+    "raw_artifact_uri_present": true,
+    "signing_mode_present": true,
+    "signing_identity_present": true,
+    "result_passed": true,
+    "authority_boundary_present": true
+  },
+  "authority_boundary": "This fixture does not define release authority. It validates the canonical external summary evidence shape before any policy-controlled fold-in to status.json."
+}
