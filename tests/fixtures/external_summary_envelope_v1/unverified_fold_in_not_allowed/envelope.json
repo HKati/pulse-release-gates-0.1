@@ -1,0 +1,36 @@
+{
+  "schema_version": "external_summary_envelope_v1",
+  "envelope_id": "external_summary_envelope_v1_unverified_fold_in_not_allowed_fixture",
+  "summary_ref": {
+    "uri": "tests/fixtures/external_summary_v1/valid/external_summary.json",
+    "schema_version": "external_summary_v1",
+    "summary_id": "external_summary_v1_valid_promptfoo_fixture"
+  },
+  "summary_digest": {
+    "algorithm": "sha256",
+    "value": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+  },
+  "signing": {
+    "mode": "sigstore-keyless",
+    "identity": "repo:HKati/pulse-release-gates-0.1:workflow:external-eval",
+    "issuer": "https://token.actions.githubusercontent.com",
+    "bundle_uri": "tests/fixtures/external_summary_envelope_v1/unverified_fold_in_not_allowed/external_summary.sigstore.json",
+    "certificate_subject": "repo:HKati/pulse-release-gates-0.1:workflow:external-eval"
+  },
+  "verification": {
+    "verified": false,
+    "verified_at": "2026-05-03T00:00:00Z",
+    "verifier": {
+      "name": "pulse-external-summary-verifier",
+      "version": "v1"
+    },
+    "result_reason": "This fixture intentionally keeps verification.verified=false while policy_context.fold_in_allowed=false to validate that unverified evidence may be retained only as non-fold-in evidence."
+  },
+  "policy_context": {
+    "signer_policy_ref": "policy/external_signers_v1.yml",
+    "threshold_policy_ref": "policy/external_thresholds_v1.yml",
+    "release_contribution": "diagnostic",
+    "fold_in_allowed": false
+  },
+  "authority_boundary": "This external summary envelope does not define release authority. It records digest, signer, verification, and policy context for external evidence before any policy-controlled fold-in to status.json."
+}
