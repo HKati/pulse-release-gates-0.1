@@ -1,0 +1,21 @@
+{
+  "fixture_id": "external_summary_envelope_v1_missing_verifier_identity",
+  "expected_result": "fail",
+  "expected_schema": "schemas/external_summary_envelope_v1.schema.json",
+  "expected_failure": {
+    "field": "verification.verifier.name",
+    "json_schema_error_path": [
+      "verification",
+      "verifier"
+    ],
+    "missing_property": "name",
+    "non_target_fields_valid": true
+  },
+  "expected_checks": {
+    "schema_validation": "fail",
+    "failure_isolated_to_target_field": true,
+    "verification_before_fold_in_not_target": true,
+    "authority_boundary_preserved": true
+  },
+  "authority_boundary": "This fixture does not define release authority. It is malformed external evidence envelope data used for schema validation only. External summaries and envelopes may become release evidence only through schema, identity, signer, digest, verification, and policy-controlled fold-in to status.json. The normative release decision remains produced by declared-policy gate enforcement and recorded through the CI outcome."
+}
