@@ -8,7 +8,7 @@
   },
   "summary_digest": {
     "algorithm": "sha256",
-    "value": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+    "value": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
   },
   "signing": {
     "mode": "sigstore-keyless",
