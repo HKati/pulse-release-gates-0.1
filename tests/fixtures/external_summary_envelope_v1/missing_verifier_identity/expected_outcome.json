@@ -1,0 +1,38 @@
+{
+  "fixture_id": "external_summary_envelope_v1/missing_verifier_identity",
+  "expected_result": "FAIL",
+  "expected_reason": "verification.verifier.name is missing. This fixture isolates a missing verifier identity as the only intended external_summary_envelope_v1 schema failure while keeping all non-target fields valid.",
+  "expected_schema": "schemas/external_summary_envelope_v1.schema.json",
+  "expected_failure": {
+    "field": "verification.verifier.name",
+    "json_schema_error_path": [
+      "verification",
+      "verifier"
+    ],
+    "missing_property": "name",
+    "failure_mode": "missing_verifier_identity",
+    "non_target_fields_valid": true
+  },
+  "expected_checks": {
+    "schema_version": "external_summary_envelope_v1",
+    "summary_ref_uri_present": true,
+    "summary_ref_schema_version": "external_summary_v1",
+    "summary_ref_summary_id_matches_referenced_summary": true,
+    "summary_digest_present": true,
+    "summary_digest_algorithm": "sha256",
+    "summary_digest_matches_referenced_summary": true,
+    "summary_digest_valid_sha256": true,
+    "signing_mode_present": true,
+    "signing_identity_present": true,
+    "verification_verified": true,
+    "verification_verified_at_present": true,
+    "verification_verifier_name_present": false,
+    "verification_verifier_version_present": true,
+    "policy_context_signer_policy_ref_present": true,
+    "policy_context_release_contribution": "required",
+    "policy_context_fold_in_allowed": true,
+    "verification_before_fold_in_satisfied": true,
+    "authority_boundary_present": true
+  },
+  "authority_boundary": "This fixture metadata does not define release authority. It documents an expected fail-closed schema-validation outcome for malformed external evidence before any policy-controlled fold-in to status.json."
+}
