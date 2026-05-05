@@ -1,0 +1,28 @@
+{
+  "fixture_id": "external_summary_envelope_v1/unverified_fold_in_not_allowed",
+  "expected_result": "PASS",
+  "expected_reason": "verification.verified is false and policy_context.fold_in_allowed is false. This fixture validates that unverified external evidence may be retained as non-fold-in diagnostic evidence without becoming release authority.",
+  "expected_schema": "schemas/external_summary_envelope_v1.schema.json",
+  "expected_checks": {
+    "schema_version": "external_summary_envelope_v1",
+    "summary_ref_uri_present": true,
+    "summary_ref_schema_version": "external_summary_v1",
+    "summary_ref_summary_id_matches_referenced_summary": true,
+    "summary_digest_present": true,
+    "summary_digest_algorithm": "sha256",
+    "summary_digest_matches_referenced_summary": true,
+    "summary_digest_valid_sha256": true,
+    "signing_mode_present": true,
+    "signing_identity_present": true,
+    "verification_verified": false,
+    "verification_verified_at_present": true,
+    "verification_verifier_name_present": true,
+    "verification_verifier_version_present": true,
+    "policy_context_signer_policy_ref_present": true,
+    "policy_context_release_contribution": "diagnostic",
+    "policy_context_fold_in_allowed": false,
+    "verification_before_fold_in_satisfied": true,
+    "authority_boundary_present": true
+  },
+  "authority_boundary": "This fixture metadata does not define release authority. It documents an expected PASS schema-validation outcome for unverified external evidence that is explicitly not fold-in eligible."
+}
