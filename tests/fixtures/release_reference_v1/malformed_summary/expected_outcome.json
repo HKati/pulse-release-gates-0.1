@@ -1,0 +1,25 @@
+{
+  "fixture_id": "release_reference_v1/malformed_summary",
+  "expected_result": "FAIL",
+  "expected_reason": "external_all_pass is false. This fixture isolates a release-grade external evidence contract failure while keeping external_summaries_present=true, detectors_materialized_ok=true, diagnostics.gates_stubbed=false, and all non-target required gates passing.",
+  "expected_guard": "ci/check_release_reference_complete_v1.py",
+  "expected_failure": {
+    "gate": "external_all_pass",
+    "value": false,
+    "failure_mode": "malformed_external_summary_contract",
+    "non_target_required_gates_passing": true,
+    "non_target_release_required_gates_passing": true
+  },
+  "expected_checks": {
+    "run_mode": "prod",
+    "gates_stubbed": false,
+    "detectors_materialized_ok": true,
+    "external_summaries_present": true,
+    "external_all_pass": false,
+    "required_gates_literal_true": true,
+    "release_required_gates_literal_true_except_external_all_pass": true,
+    "external_summary_contract_result": "fail",
+    "external_summary_contract_failure_mode": "malformed_summary"
+  },
+  "authority_boundary": "This fixture does not define release authority. It documents an expected fail-closed release-grade outcome when external evidence fails the external summary contract before policy-controlled release authorization."
+}
