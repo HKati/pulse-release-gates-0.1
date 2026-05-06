@@ -68,6 +68,24 @@ def extract_guard_errors(output: str) -> list[str]:
     return errors
 
 
+def expected_extra_required_gates(expected: dict[str, Any]) -> list[str]:
+    """Return additional fixture-specific release-grade gates."""
+    gates = expected.get("expected_extra_required_gates", [])
+    if gates is None:
+        return []
+
+    if not isinstance(gates, list):
+        raise TypeError("expected_extra_required_gates must be a list when present.")
+
+    out: list[str] = []
+    for gate in gates:
+        if not isinstance(gate, str) or not gate:
+            raise TypeError("expected_extra_required_gates entries must be non-empty strings.")
+        out.append(gate)
+
+    return out
+
+
 class TestReleaseReferenceFixtureMatrixV1(unittest.TestCase):
     def test_fixture_matrix_matches_expected_guard_outcomes(self) -> None:
         fixtures = fixture_dirs()
@@ -103,6 +121,9 @@ class TestReleaseReferenceFixtureMatrixV1(unittest.TestCase):
                     "--require-detectors-materialized",
                     "--require-external-summaries",
                 ]
+
+                for gate in expected_extra_required_gates(expected):
+                    cmd.extend(["--require-gate", gate])
 
                 proc = subprocess.run(
                     cmd,
