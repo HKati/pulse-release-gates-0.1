@@ -6,16 +6,20 @@ This script takes the core PULSE status artefact (gate results + metrics),
 as written by run_all.py, and enriches it with:
 
 - refusal-delta summary (if present),
+- refusal-delta evidence-presence state,
 - external detector summaries (when configured),
 
 and then wires these into:
+
 - gates.refusal_delta_pass
+- gates.refusal_delta_evidence_present
 - gates.external_all_pass
 - external.metrics / external.all_pass
 
 The resulting extended status.json is consumed by check_gates.py
-and reporting tooling, but it does not change the core deterministic
-gate semantics beyond adding these two deferred gates.
+and reporting tooling. It does not create a second decision engine:
+release authority remains declared-policy gate enforcement over the
+materialized status artefact.
 
 Optional strict mode:
 - when --require_external_summaries is enabled, missing external summaries
@@ -38,6 +42,7 @@ import yaml
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def jload(path: str) -> Optional[Dict[str, Any]]:
     """Best-effort JSON loader: returns dict or None on failure."""
@@ -238,6 +243,7 @@ def fold_q1_reference_shadow(status: Dict[str, Any], summary_path: Optional[str]
 # Main
 # ---------------------------------------------------------------------------
 
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--status", required=True, help="Path to baseline status.json")
@@ -260,16 +266,15 @@ def main() -> int:
         ),
     )
     parser.add_argument(
-    "--q1-reference-summary",
-    "--q1_reference_summary",
-    dest="q1_reference_summary",
-    help=(
-        "Optional Q1 reference summary JSON artefact to fold into "
-        'status["meta"]["q1_reference_shadow"]'
-    ),
-)
-        
-  
+        "--q1-reference-summary",
+        "--q1_reference_summary",
+        dest="q1_reference_summary",
+        help=(
+            "Optional Q1 reference summary JSON artefact to fold into "
+            'status["meta"]["q1_reference_shadow"]'
+        ),
+    )
+
     args = parser.parse_args()
 
     status_path = os.path.abspath(args.status)
@@ -288,18 +293,26 @@ def main() -> int:
     # -----------------------------------------------------------------------
     # 1) Refusal-delta summary -> metrics + gates + top-level mirror
     # -----------------------------------------------------------------------
-    # Pack dir: stable (script location), not derived from status path
+    # Pack dir: stable (script location), not derived from status path.
     pack_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # .../PULSE_safe_pack_v0
 
-    # Artifacts dir: derive from the baseline status.json location
+    # Artifacts dir: derive from the baseline status.json location.
     artifacts_dir = os.path.dirname(status_path)
 
     rd_path = os.path.join(artifacts_dir, "refusal_delta_summary.json")
 
     rd = jload(rd_path)
+    refusal_delta_evidence_present = False
 
     if rd is not None:
-        metrics["refusal_delta_n"] = rd.get("n", 0)
+        try:
+            refusal_delta_n = int(rd.get("n", 0) or 0)
+        except (TypeError, ValueError):
+            refusal_delta_n = 0
+
+        refusal_delta_evidence_present = refusal_delta_n > 0
+
+        metrics["refusal_delta_n"] = refusal_delta_n
         metrics["refusal_delta"] = rd.get("delta", 0.0)
         metrics["refusal_delta_ci_low"] = rd.get("ci_low", 0.0)
         metrics["refusal_delta_ci_high"] = rd.get("ci_high", 0.0)
@@ -323,13 +336,16 @@ def main() -> int:
         gates["refusal_delta_pass"] = rd_pass
         status["refusal_delta_pass"] = rd_pass
 
+    gates["refusal_delta_evidence_present"] = bool(refusal_delta_evidence_present)
+    status["refusal_delta_evidence_present"] = bool(refusal_delta_evidence_present)
+
     # -----------------------------------------------------------------------
     # 2) External detectors fold-in -> external.metrics + gates + top-level mirror
     # -----------------------------------------------------------------------
     thr: Dict[str, Any] = yload(args.thresholds) or {}
     ext_dir = os.path.abspath(args.external_dir)
 
-    # Ensure we start from a clean list
+    # Ensure we start from a clean list.
     external["metrics"] = []
 
     summary_files: list[str] = []
@@ -341,7 +357,7 @@ def main() -> int:
     external["summaries_present"] = summaries_present
     external["summary_count"] = len(summary_files)
 
-    # Diagnostic gate (normative only if policy promotes it)
+    # Diagnostic gate (normative only if policy promotes it).
     gates["external_summaries_present"] = summaries_present
     status["external_summaries_present"] = summaries_present
 
@@ -395,12 +411,12 @@ def main() -> int:
         raw_val: Any = None
         found = False
 
-        # 1) Prefer explicit key if present
+        # 1) Prefer explicit key if present.
         if key_in_json is not None and key_in_json in j:
             raw_val = j.get(key_in_json)
             found = True
 
-        # 2) Fallback keys (covers older + third-party summaries)
+        # 2) Fallback keys (covers older + third-party summaries).
         keys = [
             "value",
             "rate",
@@ -419,7 +435,7 @@ def main() -> int:
                     found = True
                     break
 
-        # 3) Nested dict fallback: failure_rates (Azure-style)
+        # 3) Nested dict fallback: failure_rates (Azure-style).
         #    Prefer exact match first, else conservative max numeric.
         if (not found) and isinstance(j.get("failure_rates"), dict):
             fr = j["failure_rates"]
@@ -436,7 +452,7 @@ def main() -> int:
                     raw_val = max(nums)
                     found = True
 
-        # 4) If still nothing -> fail-closed
+        # 4) If still nothing -> fail-closed.
         if not found:
             external["metrics"].append(
                 {
