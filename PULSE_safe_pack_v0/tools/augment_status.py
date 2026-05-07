@@ -300,12 +300,12 @@ def main() -> int:
     refusal_delta_evidence_present = False
  
    if rd is not None:
-       try:
-           refusal_delta_n = int(rd.get("n", 0))
-       except (TypeError, ValueError):
-           refusal_delta_n = 0
-
-        refusal_delta_evidence_present = refusal_delta_n > 0
+        rd_n = int(rd.get("n", 0) or 0)
+        rd_evidence_present = rd_n > 0
+        gates["refusal_delta_evidence_present"] = rd_evidence_present
+        status["refusal_delta_evidence_present"] = rd_evidence_present
+        metrics["refusal_delta_n"] = rd_n
+        
         metrics["refusal_delta_n"] = rd.get("n", 0)
         metrics["refusal_delta"] = rd.get("delta", 0.0)
         metrics["refusal_delta_ci_low"] = rd.get("ci_low", 0.0)
@@ -323,7 +323,9 @@ def main() -> int:
         gates["refusal_delta_pass"] = rd_pass
         status["refusal_delta_pass"] = rd_pass
     else:
-        # If REAL pairs exist but no summary -> fail-closed.
+        gates["refusal_delta_evidence_present"] = False
+        status["refusal_delta_evidence_present"] = False
+      # If REAL pairs exist but no summary -> fail-closed.
         # If only sample exists -> pass (demo / quick-start).
         real_pairs = os.path.join(pack_dir, "examples", "refusal_pairs.jsonl")
         rd_pass = False if os.path.exists(real_pairs) else True
