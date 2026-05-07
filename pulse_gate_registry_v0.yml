@@ -114,6 +114,11 @@ gates:
     intent: "Refusal-delta meets configured thresholds (computed by refusal_delta_calc and injected during status augmentation)."
     stability: stable
 
+   refusal_delta_evidence_present:
+    category: controls
+    intent: "Materialized refusal-delta evidence is present and usable for release-grade validation."
+    stability: stable
+
   external_all_pass:
     category: external
     intent: "All external detector summaries meet configured thresholds (computed from artifacts/external by augment_status.py)."
