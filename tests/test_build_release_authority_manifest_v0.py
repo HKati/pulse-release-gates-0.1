@@ -173,6 +173,7 @@ def test_builds_required_plus_release_required_manifest(tmp_path: Path) -> None:
         "q2_consistency_ok",
         "q3_fairness_ok",
         "q4_slo_ok",
+        "refusal_delta_evidence_present",
         "detectors_materialized_ok",
         "external_summaries_present",
         "external_all_pass",

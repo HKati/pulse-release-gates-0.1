@@ -60,6 +60,7 @@ gates:
   # Release-grade evidence / no-stub gates:
   # optional by default, strict when explicitly promoted by workflow/policy selection.
   release_required:
+    - refusal_delta_evidence_present
     - detectors_materialized_ok
     - external_summaries_present
     - external_all_pass
