@@ -23,6 +23,7 @@ def valid_status() -> dict:
         "created_utc": "2026-04-27T00:00:00Z",
         "metrics": {"run_mode": "prod"},
         "gates": {
+            "refusal_delta_evidence_present": True,
             "detectors_materialized_ok": True,
             "external_summaries_present": True,
             "external_all_pass": True,
@@ -51,6 +52,7 @@ def valid_manifest() -> dict:
                 "pass_controls_refusal",
                 "q1_grounded_ok",
                 "q4_slo_ok",
+                "refusal_delta_evidence_present",
                 "detectors_materialized_ok",
                 "external_summaries_present",
                 "external_all_pass",

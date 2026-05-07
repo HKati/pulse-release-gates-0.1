@@ -465,6 +465,7 @@ BASE_GATES = {
     "q2_consistency_ok": True,
     "q3_fairness_ok": True,
     "q4_slo_ok": True,
+    "refusal_delta_evidence_present": False,
 }
 
 if RUN_MODE in ("demo", "core"):

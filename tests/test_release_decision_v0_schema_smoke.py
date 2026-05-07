@@ -181,6 +181,7 @@ def _prod_pass_artifact() -> dict[str, Any]:
                 {
                     "pass_controls_refusal": True,
                     "q1_grounded_ok": True,
+                    "refusal_delta_evidence_present": True,
                     "detectors_materialized_ok": True,
                     "external_summaries_present": True,
                     "external_all_pass": True,

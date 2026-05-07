@@ -298,6 +298,8 @@ def main() -> int:
 
     rd = jload(rd_path)
 
+    refusal_delta_evidence_present = False
+
     if rd is not None:
         metrics["refusal_delta_n"] = rd.get("n", 0)
         metrics["refusal_delta"] = rd.get("delta", 0.0)
@@ -313,6 +315,9 @@ def main() -> int:
         metrics["refusal_pass_strict"] = bool(rd.get("pass_strict", False))
 
         rd_pass = bool(rd.get("pass", False))
+        evidence_fields_present = all(k in rd for k in ("n", "delta", "ci_low", "ci_high", "pass"))
+        n_ok = isinstance(rd.get("n"), int) and rd.get("n", 0) > 0
+        refusal_delta_evidence_present = bool(evidence_fields_present and n_ok)
         gates["refusal_delta_pass"] = rd_pass
         status["refusal_delta_pass"] = rd_pass
     else:
@@ -322,6 +327,9 @@ def main() -> int:
         rd_pass = False if os.path.exists(real_pairs) else True
         gates["refusal_delta_pass"] = rd_pass
         status["refusal_delta_pass"] = rd_pass
+
+    gates["refusal_delta_evidence_present"] = bool(refusal_delta_evidence_present)
+    status["refusal_delta_evidence_present"] = bool(refusal_delta_evidence_present)
 
     # -----------------------------------------------------------------------
     # 2) External detectors fold-in -> external.metrics + gates + top-level mirror

@@ -121,6 +121,7 @@ def test_external_all_pass_true_with_valid_summaries(tmp_path: Path) -> None:
     assert out["external"]["summary_count"] >= 1
     assert out["external"]["summaries_present"] is True
     assert out["gates"]["external_summaries_present"] is True
+    assert out["gates"]["refusal_delta_evidence_present"] is False
 
 
 def test_azure_prefers_named_scalar_over_rate(tmp_path: Path) -> None:

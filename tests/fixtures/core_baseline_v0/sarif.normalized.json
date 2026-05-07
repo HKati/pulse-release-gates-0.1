@@ -32,6 +32,30 @@
             "status_version": "1.0.0-core"
           },
           "ruleId": "detectors_materialized_ok"
+        },
+        {
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "status.json"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "PULSE gate failed: refusal_delta_evidence_present"
+          },
+          "properties": {
+            "created_utc": "1970-01-01T00:00:00Z",
+            "gate_value": false,
+            "status_version": "1.0.0-core"
+          },
+          "ruleId": "refusal_delta_evidence_present"
         }
       ],
       "tool": {
@@ -198,6 +222,15 @@
               "id": "q4_slo_ok",
               "shortDescription": {
                 "text": "q4_slo_ok"
+              }
+            },
+            {
+              "defaultConfiguration": {
+                "level": "error"
+              },
+              "id": "refusal_delta_evidence_present",
+              "shortDescription": {
+                "text": "refusal_delta_evidence_present"
               }
             },
             {
