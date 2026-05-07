@@ -449,6 +449,7 @@ def load_calibration_recommendation(calib_path: pathlib.Path) -> dict:
 BASE_GATES = {
     "pass_controls_refusal": True,
     "effect_present": True,
+    "refusal_delta_evidence_present": False,
     "psf_monotonicity_ok": True,
     "psf_mono_shift_resilient": True,
     "pass_controls_comm": True,
