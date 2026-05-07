@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='utf-8'?>
-<testsuite name="PULSE gates" tests="20" failures="1" errors="0" skipped="0" timestamp="1970-01-01T00:00:00Z">
+<testsuite name="PULSE gates" tests="21" failures="2" errors="0" skipped="0" timestamp="1970-01-01T00:00:00Z">
   <properties>
     <property name="status_path" value="status.json" />
     <property name="status_version" value="1.0.0-core" />
@@ -26,6 +26,9 @@
   <testcase classname="PULSE.gates" name="q2_consistency_ok" time="0" />
   <testcase classname="PULSE.gates" name="q3_fairness_ok" time="0" />
   <testcase classname="PULSE.gates" name="q4_slo_ok" time="0" />
+  <testcase classname="PULSE.gates" name="refusal_delta_evidence_present" time="0">
+    <failure message="Gate failed: refusal_delta_evidence_present" type="gate_failed">status.gates['refusal_delta_evidence_present']=False</failure>
+  </testcase>
   <testcase classname="PULSE.gates" name="sanit_shift_resilient" time="0" />
   <testcase classname="PULSE.gates" name="sanitization_effective" time="0" />
 </testsuite>
