@@ -297,9 +297,11 @@ def main() -> int:
     rd_path = os.path.join(artifacts_dir, "refusal_delta_summary.json")
 
     rd = jload(rd_path)
+    refusal_delta_evidence_present = False
 
-    if rd is not None:
-        metrics["refusal_delta_n"] = rd.get("n", 0)
+  if rd is not None:
+        rd_n = rd.get("n", 0)
+        metrics["refusal_delta_n"] = rd_n
         metrics["refusal_delta"] = rd.get("delta", 0.0)
         metrics["refusal_delta_ci_low"] = rd.get("ci_low", 0.0)
         metrics["refusal_delta_ci_high"] = rd.get("ci_high", 0.0)
@@ -312,6 +314,11 @@ def main() -> int:
         metrics["refusal_pass_min"] = bool(rd.get("pass_min", False))
         metrics["refusal_pass_strict"] = bool(rd.get("pass_strict", False))
 
+        try:
+            refusal_delta_evidence_present = bool(int(rd_n) > 0)
+        except Exception:
+            refusal_delta_evidence_present = False
+   
         rd_pass = bool(rd.get("pass", False))
         gates["refusal_delta_pass"] = rd_pass
         status["refusal_delta_pass"] = rd_pass
@@ -322,7 +329,10 @@ def main() -> int:
         rd_pass = False if os.path.exists(real_pairs) else True
         gates["refusal_delta_pass"] = rd_pass
         status["refusal_delta_pass"] = rd_pass
+        refusal_delta_evidence_present = False
 
+    gates["refusal_delta_evidence_present"] = bool(refusal_delta_evidence_present)  
+  
     # -----------------------------------------------------------------------
     # 2) External detectors fold-in -> external.metrics + gates + top-level mirror
     # -----------------------------------------------------------------------
