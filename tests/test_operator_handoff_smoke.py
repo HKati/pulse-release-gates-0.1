@@ -211,7 +211,7 @@ def test_release_grade_accepts_existing_release_reference_status() -> None:
 
         status_source = payload["status_source"]
         assert status_source["mode"] == "existing"
-        assert status_source["status_path"] == str(fixture_status)
+        assert status_source["status_path"] ==  expected_status_path
         assert status_source["status_exists_before_run"] is True
         assert status_source["status_exists_after_generation"] is True
         assert status_source["status_exists_after_run"] is True
