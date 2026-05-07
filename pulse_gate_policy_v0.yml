@@ -17,7 +17,7 @@
 
 policy:
   id: pulse-gate-policy-v0
-  version: "0.1.3"  
+  version: "0.1.4"
 
 enforcement:
   required_missing: FAIL
@@ -63,6 +63,7 @@ gates:
     - detectors_materialized_ok
     - external_summaries_present
     - external_all_pass
+    - refusal_delta_evidence_present
 
   # Baseline CI sees these as diagnostic/advisory only.
   advisory:
