@@ -114,7 +114,11 @@ gates:
     intent: "Refusal-delta meets configured thresholds (computed by refusal_delta_calc and injected during status augmentation)."
     stability: stable
 
+ HKati-patch-367546
    refusal_delta_evidence_present:
+
+  refusal_delta_evidence_present:
+ main
     category: controls
     intent: "Materialized refusal-delta evidence is present and usable for release-grade validation."
     stability: stable
