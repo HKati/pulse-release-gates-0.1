@@ -10,6 +10,9 @@ Goals:
 - Specifically validate Azure behavior:
   - prefer azure_indirect_jailbreak_rate over generic rate/value when both exist
   - fallback to rate when the named scalar is missing
+- Validate refusal-delta evidence-presence materialization:
+  - missing refusal_delta_summary.json -> refusal_delta_evidence_present=false
+  - materialized refusal_delta_summary.json with n > 0 -> refusal_delta_evidence_present=true
 """
 
 from __future__ import annotations
@@ -39,7 +42,8 @@ def _run_augment(status_path: Path, thresholds_path: Path, external_dir: Path) -
     root = _repo_root()
     script = root / "PULSE_safe_pack_v0" / "tools" / "augment_status.py"
     print(
-        f"[smoke] augment_status.py={script} sha256={__import__('hashlib').sha256(script.read_bytes()).hexdigest()}",
+        f"[smoke] augment_status.py={script} "
+        f"sha256={__import__('hashlib').sha256(script.read_bytes()).hexdigest()}",
         flush=True,
     )
 
@@ -98,18 +102,22 @@ def test_external_all_pass_true_with_valid_summaries(tmp_path: Path) -> None:
         ),
     )
 
-    # JSON with canonical-ish keys
+    # JSON with canonical-ish keys.
     _write_json(ext / "llamaguard_summary.json", {"violation_rate": 0.10})
     _write_json(ext / "promptguard_summary.json", {"attack_detect_rate": 0.05})
     _write_json(ext / "garak_summary.json", {"new_critical": 0})
 
-    # Azure: provide both named scalar and rate (should still pass under lenient threshold)
+    # Azure: provide both named scalar and rate.
     _write_json(
         ext / "azure_eval_summary.json",
-        {"azure_indirect_jailbreak_rate": 0.01, "rate": 0.19, "failure_rates": {"x": 0.01}},
+        {
+            "azure_indirect_jailbreak_rate": 0.01,
+            "rate": 0.19,
+            "failure_rates": {"x": 0.01},
+        },
     )
 
-    # JSONL (common in pipelines)
+    # JSONL, common in pipelines.
     _write_text(ext / "promptfoo_summary.jsonl", '{"fail_rate": 0.02}\n')
     _write_text(ext / "deepeval_summary.jsonl", '{"fail_rate": 0.03}\n')
 
@@ -134,8 +142,8 @@ def test_azure_prefers_named_scalar_over_rate(tmp_path: Path) -> None:
     _write_json(status, {"gates": {}, "metrics": {}})
 
     # Strict enough to demonstrate preference:
-    # - named scalar is 0.07 (should FAIL)
-    # - rate is 0.01 (would PASS if incorrectly used)
+    # - named scalar is 0.07, should FAIL
+    # - rate is 0.01, would PASS if incorrectly used
     _write_text(
         thresholds,
         "\n".join(
@@ -187,7 +195,7 @@ def test_azure_fallback_to_rate_when_named_missing(tmp_path: Path) -> None:
         ),
     )
 
-    # No named scalar -> should fall back to rate (=0.03) and PASS
+    # No named scalar -> should fall back to rate (=0.03) and PASS.
     _write_json(ext / "azure_eval_summary.json", {"rate": 0.03, "failure_rates": {"x": 0.03}})
 
     _run_augment(status, thresholds, ext)
@@ -220,7 +228,7 @@ def test_parse_error_marks_metric_and_fails(tmp_path: Path) -> None:
         ),
     )
 
-    # Invalid JSON -> parse_error True, pass False, external_all_pass False
+    # Invalid JSON -> parse_error True, pass False, external_all_pass False.
     _write_text(ext / "llamaguard_summary.json", "{not json")
 
     _run_augment(status, thresholds, ext)
@@ -232,8 +240,10 @@ def test_parse_error_marks_metric_and_fails(tmp_path: Path) -> None:
     assert m.get("parse_error") is True
     assert m["pass"] is False
 
+
 def test_refusal_delta_evidence_missing_is_materialized_false(tmp_path: Path) -> None:
     tmp_path.mkdir(parents=True, exist_ok=True)
+
     status = tmp_path / "status.json"
     thresholds = tmp_path / "external_thresholds.yaml"
     ext = tmp_path / "external"
@@ -241,6 +251,7 @@ def test_refusal_delta_evidence_missing_is_materialized_false(tmp_path: Path) ->
 
     _write_json(status, {"gates": {}, "metrics": {}})
     _write_text(thresholds, "external_overall_policy: all\n")
+
     _run_augment(status, thresholds, ext)
 
     out = _load_status(status)
@@ -250,6 +261,7 @@ def test_refusal_delta_evidence_missing_is_materialized_false(tmp_path: Path) ->
 
 def test_refusal_delta_evidence_materialized_n_gt_zero_is_true(tmp_path: Path) -> None:
     tmp_path.mkdir(parents=True, exist_ok=True)
+
     status = tmp_path / "status.json"
     thresholds = tmp_path / "external_thresholds.yaml"
     ext = tmp_path / "external"
@@ -259,16 +271,27 @@ def test_refusal_delta_evidence_materialized_n_gt_zero_is_true(tmp_path: Path) -
     _write_text(thresholds, "external_overall_policy: all\n")
     _write_json(
         tmp_path / "refusal_delta_summary.json",
-        {"n": 3, "delta": 0.25, "pass": True, "pass_min": True, "pass_strict": True},
+        {
+            "n": 3,
+            "delta": 0.25,
+            "pass": True,
+            "pass_min": True,
+            "pass_strict": True,
+        },
     )
+
     _run_augment(status, thresholds, ext)
 
     out = _load_status(status)
     assert out["gates"]["refusal_delta_evidence_present"] is True
     assert out["refusal_delta_evidence_present"] is True
+    assert out["gates"]["refusal_delta_pass"] is True
+    assert out["refusal_delta_pass"] is True
+    assert out["metrics"]["refusal_delta_n"] == 3
+
 
 def main() -> int:
-    # Standalone runner (CI calls this file directly via subprocess).
+    # Standalone runner; CI calls this file directly via subprocess.
     with tempfile.TemporaryDirectory() as d:
         base = Path(d)
 
@@ -278,8 +301,8 @@ def main() -> int:
         test_parse_error_marks_metric_and_fails(base / "t4")
         test_refusal_delta_evidence_missing_is_materialized_false(base / "t5")
         test_refusal_delta_evidence_materialized_n_gt_zero_is_true(base / "t6")
- 
-  print("augment_status smoke tests: OK")
+
+    print("augment_status smoke tests: OK")
     return 0
 
 
