@@ -117,6 +117,7 @@ def test_external_all_pass_true_with_valid_summaries(tmp_path: Path) -> None:
 
     out = _load_status(status)
     assert out["gates"]["external_all_pass"] is True
+    assert out["gates"]["refusal_delta_evidence_present"] is False
     assert out["external"]["all_pass"] is True
     assert out["external"]["summary_count"] >= 1
     assert out["external"]["summaries_present"] is True
@@ -160,6 +161,7 @@ def test_azure_prefers_named_scalar_over_rate(tmp_path: Path) -> None:
     _run_augment(status, thresholds, ext)
 
     out = _load_status(status)
+    assert out["gates"]["refusal_delta_evidence_present"] is False
     assert out["gates"]["external_all_pass"] is False
     m = _find_metric(out, "azure_indirect_jailbreak_rate")
     assert abs(float(m["value"]) - 0.07) < 1e-9
@@ -194,6 +196,7 @@ def test_azure_fallback_to_rate_when_named_missing(tmp_path: Path) -> None:
 
     out = _load_status(status)
     assert out["gates"]["external_all_pass"] is True
+    assert out["gates"]["refusal_delta_evidence_present"] is False
     m = _find_metric(out, "azure_indirect_jailbreak_rate")
     assert abs(float(m["value"]) - 0.03) < 1e-9
     assert m["pass"] is True
@@ -227,7 +230,8 @@ def test_parse_error_marks_metric_and_fails(tmp_path: Path) -> None:
 
     out = _load_status(status)
     assert out["gates"]["external_all_pass"] is False
-
+    assert out["gates"]["refusal_delta_evidence_present"] is False
+ 
     m = _find_metric(out, "llamaguard_violation_rate")
     assert m.get("parse_error") is True
     assert m["pass"] is False
