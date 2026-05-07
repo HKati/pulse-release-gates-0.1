@@ -21,6 +21,12 @@ This changelog records **semantic** changes that can affect release gating outco
 
 ## Unreleased
 
+- `pulse_gate_policy_v0.yml` / `pulse-gate-policy-v0` (policy 0.1.4):
+  - Changed: add `refusal_delta_evidence_present` to `gates.release_required`.
+  - Why: release-grade validation must not infer PASS from missing refusal-delta evidence.
+  - Impact: policy consumers deriving `release_required` now fail closed unless refusal-delta evidence presence is explicitly materialized and true.
+  - Migration: ensure `refusal_delta_evidence_present` is produced by the status path before using release-grade validation. #2218 materialized the gate and registered it.
+
 - `pulse_gate_policy_v0.yml` / `pulse-gate-policy-v0` (policy 0.1.3):
   - Changed: add `detectors_materialized_ok` to `gates.release_required`.
   - Why: scaffold / placeholder booleans must not be misread as materialized release evidence in release-grade paths.
