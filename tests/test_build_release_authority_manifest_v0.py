@@ -176,6 +176,7 @@ def test_builds_required_plus_release_required_manifest(tmp_path: Path) -> None:
         "detectors_materialized_ok",
         "external_summaries_present",
         "external_all_pass",
+        "refusal_delta_evidence_present",
     ]
     status = write_status(tmp_path, {gate: True for gate in required_gates}, run_mode="prod")
 
