@@ -232,6 +232,59 @@ def test_parse_error_marks_metric_and_fails(tmp_path: Path) -> None:
     assert m.get("parse_error") is True
     assert m["pass"] is False
 
+def test_refusal_delta_evidence_present_false_when_summary_missing(tmp_path: Path) -> None:
+    tmp_path.mkdir(parents=True, exist_ok=True)
+
+    status = tmp_path / "status.json"
+    thresholds = tmp_path / "external_thresholds.yaml"
+    ext = tmp_path / "external"
+    ext.mkdir(parents=True, exist_ok=True)
+
+    _write_json(status, {"gates": {}, "metrics": {}})
+    _write_text(thresholds, "external_overall_policy: all\n")
+
+    _run_augment(status, thresholds, ext)
+
+    out = _load_status(status)
+
+    assert out["gates"]["refusal_delta_evidence_present"] is False
+
+
+def test_refusal_delta_evidence_present_true_when_summary_materialized(tmp_path: Path) -> None:
+    tmp_path.mkdir(parents=True, exist_ok=True)
+
+    status = tmp_path / "status.json"
+    thresholds = tmp_path / "external_thresholds.yaml"
+    ext = tmp_path / "external"
+    ext.mkdir(parents=True, exist_ok=True)
+
+    _write_json(status, {"gates": {}, "metrics": {}})
+    _write_text(thresholds, "external_overall_policy: all\n")
+
+    _write_json(
+        tmp_path / "refusal_delta_summary.json",
+        {
+            "n": 3,
+            "delta": 0.2,
+            "ci_low": 0.1,
+            "ci_high": 0.3,
+            "policy": "balanced",
+            "delta_min": 0.1,
+            "delta_strict": 0.1,
+            "p_mcnemar": 0.01,
+            "pass_min": True,
+            "pass_strict": True,
+            "pass": True,
+        },
+    )
+
+    _run_augment(status, thresholds, ext)
+
+    out = _load_status(status)
+
+    assert out["gates"]["refusal_delta_evidence_present"] is True
+    assert out["gates"]["refusal_delta_pass"] is True
+    assert out["metrics"]["refusal_delta_n"] == 3
 
 def main() -> int:
     # Standalone runner (CI calls this file directly via subprocess).
