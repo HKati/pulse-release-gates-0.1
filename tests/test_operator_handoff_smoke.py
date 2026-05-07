@@ -175,6 +175,7 @@ def test_existing_missing_status_fails_closed() -> None:
             for warning in payload["warnings"]
         )
 
+
 def test_release_grade_accepts_existing_release_reference_status() -> None:
     fixture_status = (
         ROOT
@@ -184,6 +185,9 @@ def test_release_grade_accepts_existing_release_reference_status() -> None:
         / "refusal_delta_evidence_present"
         / "status.json"
     )
+    expected_status_path = str(fixture_status.relative_to(ROOT))
+
+    assert fixture_status.exists(), f"missing release-reference fixture: {fixture_status}"
 
     with tempfile.TemporaryDirectory(prefix="pulse-operator-handoff-") as tmp:
         tmp_path = Path(tmp)
@@ -211,7 +215,7 @@ def test_release_grade_accepts_existing_release_reference_status() -> None:
 
         status_source = payload["status_source"]
         assert status_source["mode"] == "existing"
-        assert status_source["status_path"] ==  expected_status_path
+        assert status_source["status_path"] == expected_status_path
         assert status_source["status_exists_before_run"] is True
         assert status_source["status_exists_after_generation"] is True
         assert status_source["status_exists_after_run"] is True
@@ -227,6 +231,7 @@ def test_release_grade_accepts_existing_release_reference_status() -> None:
         assert "materialize_release_required" in command_names
         assert "check_gates_release-grade" in command_names
         assert "check_shadow_layer_registry" in command_names
+
 
 def main() -> int:
     try:
