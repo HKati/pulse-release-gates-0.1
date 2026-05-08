@@ -282,6 +282,15 @@ def main(argv: list[str] | None = None) -> int:
         if status_obj is None:
             errors.append(f"status artifact is not a JSON object: {_rel(status_path)}")
         else:
+            metrics = status_obj.get("metrics")
+            run_mode = metrics.get("run_mode") if isinstance(metrics, dict) else None
+
+            if run_mode != "prod":
+                errors.append(
+                    "release-grade gate-mode requires metrics.run_mode=prod; "
+                    f"found {run_mode!r}."
+                )
+         
             diagnostics = status_obj.get("diagnostics")
             gates_stubbed = (
                 isinstance(diagnostics, dict)
