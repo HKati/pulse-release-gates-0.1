@@ -306,7 +306,37 @@ def main(argv: list[str] | None = None) -> int:
                     f"found {gates_stubbed_value!r}. "
                     "stubbed status evidence must not be treated as release-grade evidence."
                 )
+          
+            scaffold_value = (
+                diagnostics.get("scaffold")
+                if isinstance(diagnostics, dict)
+                else None
+            )
 
+            if scaffold_value is True:
+                errors.append(
+                    "release-grade gate-mode requires diagnostics.scaffold!=true; "
+                    "scaffold status evidence must not be treated as release-grade evidence."
+                )
+
+            stub_profile_present = (
+                isinstance(diagnostics, dict)
+                and "stub_profile" in diagnostics
+            )
+            stub_profile_value = (
+                diagnostics.get("stub_profile")
+                if isinstance(diagnostics, dict)
+                else None
+            )
+
+            if stub_profile_present:
+                errors.append(
+                    "release-grade gate-mode requires diagnostics.stub_profile to be absent; "
+                    f"found {stub_profile_value!r}. "
+                    "stub-profiled status evidence must not be treated as release-grade evidence."
+                )
+
+    
     materialized_gate_sets: dict[str, list[str]] = {}
 
     if not errors:
