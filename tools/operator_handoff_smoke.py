@@ -291,7 +291,7 @@ def main(argv: list[str] | None = None) -> int:
                     f"found {run_mode!r}."
                 )
          
-            diagnostics = status_obj.get("diagnostics")
+             diagnostics = status_obj.get("diagnostics")
              gates_stubbed_value = (
                 diagnostics.get("gates_stubbed")
                 if isinstance(diagnostics, dict)
