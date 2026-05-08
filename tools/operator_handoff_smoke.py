@@ -144,6 +144,7 @@ def _file_inventory(paths: list[Path]) -> list[dict[str, Any]]:
 
     return out
 
+
 def _load_status_artifact(path: Path) -> dict[str, Any] | None:
     try:
         obj = json.loads(path.read_text(encoding="utf-8"))
@@ -151,6 +152,7 @@ def _load_status_artifact(path: Path) -> dict[str, Any] | None:
         return None
 
     return obj if isinstance(obj, dict) else None
+
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
@@ -275,7 +277,7 @@ def main(argv: list[str] | None = None) -> int:
     if not status_path.exists():
         errors.append(f"status artifact missing: {_rel(status_path)}")
 
-        if not errors and args.gate_mode == "release-grade":
+    if not errors and args.gate_mode == "release-grade":
         status_obj = _load_status_artifact(status_path)
         if status_obj is None:
             errors.append(f"status artifact is not a JSON object: {_rel(status_path)}")
@@ -291,7 +293,7 @@ def main(argv: list[str] | None = None) -> int:
                     "release-grade gate-mode requires diagnostics.gates_stubbed=false; "
                     "stubbed status evidence must not be treated as release-grade evidence."
                 )
-   
+
     materialized_gate_sets: dict[str, list[str]] = {}
 
     if not errors:
