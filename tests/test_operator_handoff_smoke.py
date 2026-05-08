@@ -943,6 +943,92 @@ def test_release_grade_existing_missing_required_gate_fails_closed() -> None:
             for error in payload["errors"]
         )
 
+def test_release_grade_existing_scaffold_markers_fail_closed() -> None:
+    source_status = (
+        ROOT
+        / "tests"
+        / "fixtures"
+        / "release_reference_v1"
+        / "refusal_delta_evidence_present"
+        / "status.json"
+    )
+
+    assert source_status.exists(), f"missing release-reference fixture: {source_status}"
+
+    cases = [
+        (
+            "scaffold_true",
+            {"scaffold": True},
+            [
+                "diagnostics.scaffold!=true",
+                "scaffold status evidence",
+            ],
+        ),
+        (
+            "stub_profile_present",
+            {"stub_profile": "all_true_smoke"},
+            [
+                "diagnostics.stub_profile to be absent",
+                "stub-profiled status evidence",
+            ],
+        ),
+    ]
+
+    for case_id, diagnostic_updates, expected_error_fragments in cases:
+        with tempfile.TemporaryDirectory(prefix="pulse-operator-handoff-") as tmp:
+            tmp_path = Path(tmp)
+            status_path = tmp_path / f"operator_handoff_status.{case_id}.json"
+            report_path = (
+                tmp_path
+                / f"operator_handoff_smoke.release_grade.{case_id}.json"
+            )
+
+            status_obj = _read_json(source_status)
+            diagnostics = status_obj.setdefault("diagnostics", {})
+            diagnostics.update(diagnostic_updates)
+
+            status_path.write_text(
+                json.dumps(status_obj, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+
+            result = _run(
+                "--gate-mode",
+                "release-grade",
+                "--status-source",
+                "existing",
+                "--status",
+                str(status_path),
+                "--out",
+                str(report_path),
+            )
+
+            _assert_returncode(result, 1)
+
+            assert report_path.exists()
+
+            payload = _read_json(report_path)
+
+            assert payload["ok"] is False
+            assert payload["gate_mode"] == "release-grade"
+
+            status_source = payload["status_source"]
+            assert status_source["mode"] == "existing"
+            assert status_source["status_path"] == str(status_path)
+            assert status_source["status_exists_before_run"] is True
+            assert status_source["status_exists_after_generation"] is True
+            assert status_source["status_exists_after_run"] is True
+
+            assert payload["commands"] == []
+            assert payload["materialized_gate_sets"] == {}
+            assert payload["effective_required_gates"] == []
+
+            for fragment in expected_error_fragments:
+                assert any(
+                    fragment in error
+                    for error in payload["errors"]
+                )
+
 def main() -> int:
     try:
         test_generate_core_honors_custom_status_path()
@@ -959,6 +1045,7 @@ def main() -> int:
         test_release_grade_existing_core_baseline_status_fails_closed()
         test_release_grade_existing_false_required_gate_fails_closed()
         test_release_grade_existing_missing_required_gate_fails_closed()
+        test_release_grade_existing_scaffold_markers_fail_closed()
     except AssertionError as exc:
         print(f"ERROR: {exc}")
         return 1
