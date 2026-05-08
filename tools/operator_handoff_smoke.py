@@ -292,14 +292,16 @@ def main(argv: list[str] | None = None) -> int:
                 )
          
             diagnostics = status_obj.get("diagnostics")
-            gates_stubbed = (
-                isinstance(diagnostics, dict)
-                and diagnostics.get("gates_stubbed") is True
+             gates_stubbed_value = (
+                diagnostics.get("gates_stubbed")
+                if isinstance(diagnostics, dict)
+                else None
             )
 
-            if gates_stubbed:
+            if gates_stubbed_value is not False:
                 errors.append(
                     "release-grade gate-mode requires diagnostics.gates_stubbed=false; "
+                    f"found {gates_stubbed_value!r}. "
                     "stubbed status evidence must not be treated as release-grade evidence."
                 )
 
