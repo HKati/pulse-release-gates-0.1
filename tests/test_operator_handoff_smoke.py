@@ -1029,6 +1029,75 @@ def test_release_grade_existing_scaffold_markers_fail_closed() -> None:
                     for error in payload["errors"]
                 )
 
+def test_release_grade_existing_stale_policy_hash_fails_closed() -> None:
+    source_status = (
+        ROOT
+        / "tests"
+        / "fixtures"
+        / "release_reference_v1"
+        / "refusal_delta_evidence_present"
+        / "status.json"
+    )
+
+    assert source_status.exists(), f"missing release-reference fixture: {source_status}"
+
+    with tempfile.TemporaryDirectory(prefix="pulse-operator-handoff-") as tmp:
+        tmp_path = Path(tmp)
+        status_path = tmp_path / "operator_handoff_status.stale_policy_hash.json"
+        report_path = (
+            tmp_path
+            / "operator_handoff_smoke.release_grade.stale_policy_hash.json"
+        )
+
+        status_obj = _read_json(source_status)
+        metrics = status_obj.setdefault("metrics", {})
+        metrics["gate_policy_sha256"] = "0" * 64
+
+        status_path.write_text(
+            json.dumps(status_obj, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+
+        result = _run(
+            "--gate-mode",
+            "release-grade",
+            "--status-source",
+            "existing",
+            "--status",
+            str(status_path),
+            "--out",
+            str(report_path),
+        )
+
+        _assert_returncode(result, 1)
+
+        assert report_path.exists()
+
+        payload = _read_json(report_path)
+
+        assert payload["ok"] is False
+        assert payload["gate_mode"] == "release-grade"
+
+        status_source = payload["status_source"]
+        assert status_source["mode"] == "existing"
+        assert status_source["status_path"] == str(status_path)
+        assert status_source["status_exists_before_run"] is True
+        assert status_source["status_exists_after_generation"] is True
+        assert status_source["status_exists_after_run"] is True
+
+        assert payload["commands"] == []
+        assert payload["materialized_gate_sets"] == {}
+        assert payload["effective_required_gates"] == []
+
+        assert any(
+            "metrics.gate_policy_sha256" in error
+            for error in payload["errors"]
+        )
+        assert any(
+            "current declared gate policy" in error
+            for error in payload["errors"]
+        )
+
 def main() -> int:
     try:
         test_generate_core_honors_custom_status_path()
@@ -1046,6 +1115,7 @@ def main() -> int:
         test_release_grade_existing_false_required_gate_fails_closed()
         test_release_grade_existing_missing_required_gate_fails_closed()
         test_release_grade_existing_scaffold_markers_fail_closed()
+        test_release_grade_existing_stale_policy_hash_fails_closed()
     except AssertionError as exc:
         print(f"ERROR: {exc}")
         return 1
