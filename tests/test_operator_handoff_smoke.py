@@ -714,6 +714,70 @@ def test_release_grade_existing_missing_stubbed_diagnostic_fails_closed() -> Non
             for error in payload["errors"]
         )
 
+def test_release_grade_existing_core_baseline_status_fails_closed() -> None:
+    fixture_status = (
+        ROOT
+        / "tests"
+        / "fixtures"
+        / "core_baseline_v0"
+        / "status.normalized.json"
+    )
+    expected_status_path = str(fixture_status.relative_to(ROOT))
+
+    assert fixture_status.exists(), f"missing core baseline fixture: {fixture_status}"
+
+    with tempfile.TemporaryDirectory(prefix="pulse-operator-handoff-") as tmp:
+        tmp_path = Path(tmp)
+        report_path = tmp_path / "operator_handoff_smoke.release_grade.core_baseline.json"
+
+        result = _run(
+            "--gate-mode",
+            "release-grade",
+            "--status-source",
+            "existing",
+            "--status",
+            str(fixture_status),
+            "--out",
+            str(report_path),
+        )
+
+        _assert_returncode(result, 1)
+
+        assert report_path.exists()
+
+        payload = _read_json(report_path)
+
+        assert payload["ok"] is False
+        assert payload["gate_mode"] == "release-grade"
+
+        status_source = payload["status_source"]
+        assert status_source["mode"] == "existing"
+        assert status_source["status_path"] == expected_status_path
+        assert status_source["status_exists_before_run"] is True
+        assert status_source["status_exists_after_generation"] is True
+        assert status_source["status_exists_after_run"] is True
+
+        assert payload["commands"] == []
+        assert payload["materialized_gate_sets"] == {}
+        assert payload["effective_required_gates"] == []
+
+        assert any(
+            "metrics.run_mode=prod" in error
+            for error in payload["errors"]
+        )
+        assert any(
+            "found 'core'" in error
+            for error in payload["errors"]
+        )
+        assert any(
+            "diagnostics.gates_stubbed=false" in error
+            for error in payload["errors"]
+        )
+        assert any(
+            "found True" in error
+            for error in payload["errors"]
+        )
+
 def main() -> int:
     try:
         test_generate_core_honors_custom_status_path()
@@ -727,6 +791,7 @@ def main() -> int:
         test_release_grade_existing_non_prod_run_mode_fails_closed()
         test_release_grade_existing_malformed_status_fails_closed()
         test_release_grade_existing_missing_stubbed_diagnostic_fails_closed()
+        test_release_grade_existing_core_baseline_status_fails_closed()
     except AssertionError as exc:
         print(f"ERROR: {exc}")
         return 1
