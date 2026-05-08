@@ -853,6 +853,96 @@ def test_release_grade_existing_false_required_gate_fails_closed() -> None:
             for error in payload["errors"]
         )
 
+def test_release_grade_existing_missing_required_gate_fails_closed() -> None:
+    source_status = (
+        ROOT
+        / "tests"
+        / "fixtures"
+        / "release_reference_v1"
+        / "refusal_delta_evidence_present"
+        / "status.json"
+    )
+    expected_missing_gate = "refusal_delta_evidence_present"
+
+    assert source_status.exists(), f"missing release-reference fixture: {source_status}"
+
+    with tempfile.TemporaryDirectory(prefix="pulse-operator-handoff-") as tmp:
+        tmp_path = Path(tmp)
+        status_path = tmp_path / "operator_handoff_status.missing_required_gate.json"
+        report_path = (
+            tmp_path
+            / "operator_handoff_smoke.release_grade.missing_required_gate.json"
+        )
+
+        status_obj = _read_json(source_status)
+        gates = status_obj.get("gates")
+        assert isinstance(gates, dict), "source fixture must contain object-valued gates"
+
+        gates.pop(expected_missing_gate, None)
+        assert expected_missing_gate not in gates
+
+        status_path.write_text(
+            json.dumps(status_obj, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+
+        result = _run(
+            "--gate-mode",
+            "release-grade",
+            "--status-source",
+            "existing",
+            "--status",
+            str(status_path),
+            "--out",
+            str(report_path),
+        )
+
+        _assert_returncode(result, 1)
+
+        assert report_path.exists()
+
+        payload = _read_json(report_path)
+
+        assert payload["ok"] is False
+        assert payload["gate_mode"] == "release-grade"
+
+        status_source = payload["status_source"]
+        assert status_source["mode"] == "existing"
+        assert status_source["status_path"] == str(status_path)
+        assert status_source["status_exists_before_run"] is True
+        assert status_source["status_exists_after_generation"] is True
+        assert status_source["status_exists_after_run"] is True
+
+        assert "required" in payload["materialized_gate_sets"]
+        assert "release_required" in payload["materialized_gate_sets"]
+        assert expected_missing_gate in payload["effective_required_gates"]
+
+        command_names = [command["name"] for command in payload["commands"]]
+
+        assert "materialize_required" in command_names
+        assert "materialize_release_required" in command_names
+        assert "check_gates_release-grade" in command_names
+
+        check_command = next(
+            command
+            for command in payload["commands"]
+            if command["name"] == "check_gates_release-grade"
+        )
+
+        assert check_command["ok"] is False
+        assert check_command["returncode"] != 0
+
+        combined_output = (
+            f"{check_command.get('stdout', '')}\n"
+            f"{check_command.get('stderr', '')}"
+        )
+        assert expected_missing_gate in combined_output
+
+        assert any(
+            "gate check failed in release-grade mode" in error
+            for error in payload["errors"]
+        )
+
 def main() -> int:
     try:
         test_generate_core_honors_custom_status_path()
@@ -868,6 +958,7 @@ def main() -> int:
         test_release_grade_existing_missing_stubbed_diagnostic_fails_closed()
         test_release_grade_existing_core_baseline_status_fails_closed()
         test_release_grade_existing_false_required_gate_fails_closed()
+        test_release_grade_existing_missing_required_gate_fails_closed()
     except AssertionError as exc:
         print(f"ERROR: {exc}")
         return 1
