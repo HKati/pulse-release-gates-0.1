@@ -293,7 +293,7 @@ def main(argv: list[str] | None = None) -> int:
                     f"found {run_mode!r}."
                 )
 
-           if isinstance(metrics, dict) and "gate_policy_sha256" in metrics:
+            if isinstance(metrics, dict) and "gate_policy_sha256" in metrics:
                 status_policy_sha = metrics.get("gate_policy_sha256")
                 current_policy_sha = _sha256(GATE_POLICY)
 
@@ -317,7 +317,7 @@ def main(argv: list[str] | None = None) -> int:
                     f"found {gates_stubbed_value!r}. "
                     "stubbed status evidence must not be treated as release-grade evidence."
                 )
-          
+
             scaffold_value = (
                 diagnostics.get("scaffold")
                 if isinstance(diagnostics, dict)
@@ -347,7 +347,6 @@ def main(argv: list[str] | None = None) -> int:
                     "stub-profiled status evidence must not be treated as release-grade evidence."
                 )
 
-    
     materialized_gate_sets: dict[str, list[str]] = {}
 
     if not errors:
