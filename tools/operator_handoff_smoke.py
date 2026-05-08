@@ -304,6 +304,17 @@ def main(argv: list[str] | None = None) -> int:
                         f"found {status_policy_sha!r}, expected {current_policy_sha!r}."
                     )
 
+            if isinstance(metrics, dict) and "gate_policy_path" in metrics:
+                status_policy_path = metrics.get("gate_policy_path")
+                current_policy_path = _rel(GATE_POLICY)
+
+                if status_policy_path != current_policy_path:
+                    errors.append(
+                        "release-grade gate-mode requires metrics.gate_policy_path "
+                        "to match the current declared gate policy path; "
+                        f"found {status_policy_path!r}, expected {current_policy_path!r}."
+                    )
+
             diagnostics = status_obj.get("diagnostics")
             gates_stubbed_value = (
                 diagnostics.get("gates_stubbed")
