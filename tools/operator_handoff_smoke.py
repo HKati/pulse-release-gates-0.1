@@ -264,7 +264,9 @@ def main(argv: list[str] | None = None) -> int:
         if commands[-1]["returncode"] != 0:
             errors.append("failed to generate local Core status artifact")
         elif not generated_status_path.exists():
-            errors.append(f"generated status artifact missing: {_rel(generated_status_path)}")
+            errors.append(
+                f"generated status artifact missing: {_rel(generated_status_path)}"
+            )
         elif generated_status_path.resolve() != status_path.resolve():
             shutil.copyfile(generated_status_path, status_path)
             warnings.append(
@@ -290,16 +292,18 @@ def main(argv: list[str] | None = None) -> int:
                     "release-grade gate-mode requires metrics.run_mode=prod; "
                     f"found {run_mode!r}."
                 )
-         
+
             diagnostics = status_obj.get("diagnostics")
-            gates_stubbed = (
-                isinstance(diagnostics, dict)
-                and diagnostics.get("gates_stubbed") is True
+            gates_stubbed_value = (
+                diagnostics.get("gates_stubbed")
+                if isinstance(diagnostics, dict)
+                else None
             )
 
-            if gates_stubbed:
+            if gates_stubbed_value is not False:
                 errors.append(
                     "release-grade gate-mode requires diagnostics.gates_stubbed=false; "
+                    f"found {gates_stubbed_value!r}. "
                     "stubbed status evidence must not be treated as release-grade evidence."
                 )
 
@@ -410,7 +414,10 @@ def main(argv: list[str] | None = None) -> int:
     }
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    out_path.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    out_path.write_text(
+        json.dumps(report, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
 
     print(json.dumps(report, indent=2, sort_keys=True))
 
