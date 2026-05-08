@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import subprocess
 import sys
@@ -26,6 +27,14 @@ def _run(*args: str) -> subprocess.CompletedProcess[str]:
 def _read_json(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
 
+def _sha256_file(path: Path) -> str:
+    h = hashlib.sha256()
+
+    with path.open("rb") as f:
+        for chunk in iter(lambda: f.read(65536), b""):
+            h.update(chunk)
+
+    return h.hexdigest()
 
 def _assert_returncode(
     result: subprocess.CompletedProcess[str],
@@ -1098,6 +1107,79 @@ def test_release_grade_existing_stale_policy_hash_fails_closed() -> None:
             for error in payload["errors"]
         )
 
+def test_release_grade_existing_matching_policy_hash_passes() -> None:
+    source_status = (
+        ROOT
+        / "tests"
+        / "fixtures"
+        / "release_reference_v1"
+        / "refusal_delta_evidence_present"
+        / "status.json"
+    )
+    policy_path = ROOT / "pulse_gate_policy_v0.yml"
+
+    assert source_status.exists(), f"missing release-reference fixture: {source_status}"
+    assert policy_path.exists(), f"missing gate policy: {policy_path}"
+
+    with tempfile.TemporaryDirectory(prefix="pulse-operator-handoff-") as tmp:
+        tmp_path = Path(tmp)
+        status_path = tmp_path / "operator_handoff_status.matching_policy_hash.json"
+        report_path = (
+            tmp_path
+            / "operator_handoff_smoke.release_grade.matching_policy_hash.json"
+        )
+
+        status_obj = _read_json(source_status)
+        metrics = status_obj.setdefault("metrics", {})
+        assert isinstance(metrics, dict), "source fixture must contain object-valued metrics"
+
+        metrics["gate_policy_sha256"] = _sha256_file(policy_path)
+
+        status_path.write_text(
+            json.dumps(status_obj, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+
+        result = _run(
+            "--gate-mode",
+            "release-grade",
+            "--status-source",
+            "existing",
+            "--status",
+            str(status_path),
+            "--out",
+            str(report_path),
+        )
+
+        _assert_returncode(result, 0)
+
+        assert report_path.exists()
+
+        payload = _read_json(report_path)
+
+        assert payload["ok"] is True
+        assert payload["gate_mode"] == "release-grade"
+        assert payload["errors"] == []
+
+        status_source = payload["status_source"]
+        assert status_source["mode"] == "existing"
+        assert status_source["status_path"] == str(status_path)
+        assert status_source["status_exists_before_run"] is True
+        assert status_source["status_exists_after_generation"] is True
+        assert status_source["status_exists_after_run"] is True
+
+        assert "required" in payload["materialized_gate_sets"]
+        assert "release_required" in payload["materialized_gate_sets"]
+
+        assert "refusal_delta_evidence_present" in payload["effective_required_gates"]
+
+        command_names = [command["name"] for command in payload["commands"]]
+
+        assert "materialize_required" in command_names
+        assert "materialize_release_required" in command_names
+        assert "check_gates_release-grade" in command_names
+        assert "check_shadow_layer_registry" in command_names
+
 def main() -> int:
     try:
         test_generate_core_honors_custom_status_path()
@@ -1116,6 +1198,7 @@ def main() -> int:
         test_release_grade_existing_missing_required_gate_fails_closed()
         test_release_grade_existing_scaffold_markers_fail_closed()
         test_release_grade_existing_stale_policy_hash_fails_closed()
+        test_release_grade_existing_matching_policy_hash_passes()
     except AssertionError as exc:
         print(f"ERROR: {exc}")
         return 1
