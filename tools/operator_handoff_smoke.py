@@ -318,68 +318,80 @@ def main(argv: list[str] | None = None) -> int:
                     )
 
             diagnostics = status_obj.get("diagnostics")
-            if not isinstance(diagnostics, dict):
-                diagnostics = {}
+            gates_stubbed_value = (
+                diagnostics.get("gates_stubbed")
+                if isinstance(diagnostics, dict)
+                else None
+            )
 
-            gates_stubbed = diagnostics.get("gates_stubbed")
-            if gates_stubbed is not False:
+            if gates_stubbed_value is not False:
                 errors.append(
                     "release-grade gate-mode requires diagnostics.gates_stubbed=false; "
-                    f"found {gates_stubbed!r}."
+                    f"found {gates_stubbed_value!r}. "
+                    "stubbed status evidence must not be treated as release-grade evidence."
                 )
-                errors.append("release-grade gate-mode rejects stubbed status evidence.")
 
-            scaffold = diagnostics.get("scaffold")
-            if scaffold is True:
+            scaffold_value = (
+                diagnostics.get("scaffold")
+                if isinstance(diagnostics, dict)
+                else None
+            )
+
+            if scaffold_value is True:
                 errors.append(
                     "release-grade gate-mode requires diagnostics.scaffold!=true; "
-                    f"found {scaffold!r}."
+                    "scaffold status evidence must not be treated as release-grade evidence."
                 )
-                errors.append("release-grade gate-mode rejects scaffold status evidence.")
 
-            if "stub_profile" in diagnostics:
+            stub_profile_present = (
+                isinstance(diagnostics, dict)
+                and "stub_profile" in diagnostics
+            )
+            stub_profile_value = (
+                diagnostics.get("stub_profile")
+                if isinstance(diagnostics, dict)
+                else None
+            )
+
+            if stub_profile_present:
                 errors.append(
                     "release-grade gate-mode requires diagnostics.stub_profile to be absent; "
-                    f"found {diagnostics.get('stub_profile')!r}."
-                )
-                errors.append(
-                    "release-grade gate-mode rejects stub-profiled status evidence."
+                    f"found {stub_profile_value!r}. "
+                    "stub-profiled status evidence must not be treated as release-grade evidence."
                 )
 
     materialized_gate_sets: dict[str, list[str]] = {}
-    effective_required_gates: list[str] = []
 
     if not errors:
         if args.gate_mode == "core":
-            core_gates, materialize_result = _materialize_gate_set("core_required")
-            commands.append(materialize_result)
+            core_required, cmd = _materialize_gate_set("core_required")
+            commands.append(cmd)
 
-            if materialize_result["returncode"] != 0:
-                errors.append("failed to materialize core_required gate set")
-            else:
-                materialized_gate_sets["core_required"] = core_gates
-                effective_required_gates = core_gates
+            materialized_gate_sets["core_required"] = core_required
+            required_gates = core_required
+
+            if not required_gates:
+                errors.append("core_required materialized to an empty gate set")
+
         else:
-            required_gates, required_result = _materialize_gate_set("required")
-            release_gates, release_result = _materialize_gate_set("release_required")
-            commands.extend([required_result, release_result])
+            required, cmd_required = _materialize_gate_set("required")
+            release_required, cmd_release = _materialize_gate_set("release_required")
 
-            if required_result["returncode"] != 0:
-                errors.append("failed to materialize required gate set")
-            if release_result["returncode"] != 0:
-                errors.append("failed to materialize release_required gate set")
+            commands.append(cmd_required)
+            commands.append(cmd_release)
 
-            if not errors:
-                materialized_gate_sets["required"] = required_gates
-                materialized_gate_sets["release_required"] = release_gates
-                effective_required_gates = _unique_preserve_order(
-                    [*required_gates, *release_gates]
-                )
+            materialized_gate_sets["required"] = required
+            materialized_gate_sets["release_required"] = release_required
 
-    if not errors and args.status_source == "existing":
-        warnings.append(
-            "status-source=existing was selected; generation step was skipped by design."
-        )
+            required_gates = _unique_preserve_order(required + release_required)
+
+            if not required:
+                errors.append("required materialized to an empty gate set")
+            if not release_required:
+                errors.append("release_required materialized to an empty gate set")
+
+    else:
+        required_gates = []
 
     if not errors:
         commands.append(
@@ -389,8 +401,8 @@ def main(argv: list[str] | None = None) -> int:
                     str(CHECK_GATES),
                     "--status",
                     str(status_path),
-                    "--required",
-                    *effective_required_gates,
+                    "--require",
+                    *required_gates,
                 ],
                 name=f"check_gates_{args.gate_mode}",
             )
@@ -405,41 +417,65 @@ def main(argv: list[str] | None = None) -> int:
                 [
                     sys.executable,
                     str(SHADOW_REGISTRY_CHECKER),
-                    "--registry",
+                    "--input",
                     str(SHADOW_REGISTRY),
-                    "--gate-registry",
-                    str(GATE_REGISTRY),
-                    "--policy",
-                    str(GATE_POLICY),
                 ],
                 name="check_shadow_layer_registry",
             )
         )
 
         if commands[-1]["returncode"] != 0:
-            errors.append("shadow layer registry check failed")
+            errors.append("shadow layer registry validation failed")
+
+    if not errors and args.include_tests:
+        test_targets = [
+            "tests/test_check_shadow_layer_registry.py",
+            "tests/test_check_epf_shadow_run_manifest_contract.py",
+            "tests/test_check_epf_paradox_summary_contract.py",
+        ]
+
+        commands.append(
+            _run_command(
+                [sys.executable, "-m", "pytest", "-q", *test_targets],
+                name="pytest_handoff_regressions",
+            )
+        )
+
+        if commands[-1]["returncode"] != 0:
+            errors.append("handoff regression pytest targets failed")
+
+    if args.status_source == "existing" and not status_source["status_exists_before_run"]:
+        warnings.append(
+            "status-source=existing was selected, but the status artifact did not "
+            "exist before this smoke run."
+        )
 
     status_source["status_exists_after_run"] = status_path.exists()
     status_source["status_sha256_after_run"] = _sha256(status_path)
 
-    payload: dict[str, Any] = {
-        "ok": not errors,
-        "generated_utc": _utc_now(),
+    report = {
+        "ok": len(errors) == 0,
+        "created_utc": _utc_now(),
+        "repo_root": str(REPO_ROOT),
         "gate_mode": args.gate_mode,
         "status_source": status_source,
         "materialized_gate_sets": materialized_gate_sets,
-        "effective_required_gates": effective_required_gates,
-        "required_files": _file_inventory(required_files),
-        "status_file_inventory": _file_inventory([status_path]),
+        "effective_required_gates": required_gates,
+        "files": _file_inventory(required_files + [status_path]),
         "commands": commands,
         "warnings": warnings,
         "errors": errors,
     }
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    out_path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+    out_path.write_text(
+        json.dumps(report, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
 
-    return 0 if not errors else 1
+    print(json.dumps(report, indent=2, sort_keys=True))
+
+    return 0 if report["ok"] else 1
 
 
 if __name__ == "__main__":
