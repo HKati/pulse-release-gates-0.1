@@ -1,0 +1,71 @@
+# pulse_gate_policy_v0.yml
+# Canonical gate-set policy for CI enforcement.
+#
+# Normative (required-like) gates are FAIL-closed:
+#   - missing required gate => FAIL
+#   - required gate == false => FAIL
+#
+# Diagnostic (advisory) gates never block shipping:
+#   - missing advisory gate => WARN
+#   - advisory gate == false => WARN
+#
+# This file intentionally defines ONLY:
+#   - the gate sets (required / core_required / release_required / advisory)
+#   - enforcement semantics around missing/unknown signals
+#
+# Thresholds / measurement details remain elsewhere (safe-pack / profiles).
+
+policy:
+  id: pulse-gate-policy-v0
+  version: "0.1.4"
+
+enforcement:
+  required_missing: FAIL
+  required_false: FAIL
+  advisory_missing: WARN
+  advisory_false: WARN
+  unknown_gate_in_status: WARN
+  external_detectors_default: ADVISORY
+
+gates:
+  required:
+    - pass_controls_refusal
+    - refusal_delta_pass
+    - effect_present
+    - psf_monotonicity_ok
+    - psf_mono_shift_resilient
+    - pass_controls_comm
+    - psf_commutativity_ok
+    - psf_comm_shift_resilient
+    - pass_controls_sanit
+    - sanitization_effective
+    - sanit_shift_resilient
+    - psf_action_monotonicity_ok
+    - psf_idempotence_ok
+    - psf_path_independence_ok
+    - psf_pii_monotonicity_ok
+    - q1_grounded_ok
+    - q2_consistency_ok
+    - q3_fairness_ok
+    - q4_slo_ok
+
+  # Minimal deterministic gate set for first-time adopters (PULSE Core CI).
+  core_required:
+    - pass_controls_refusal
+    - pass_controls_sanit
+    - sanitization_effective
+    - q1_grounded_ok
+    - q4_slo_ok
+
+  # Release-grade evidence / no-stub gates:
+  # optional by default, strict when explicitly promoted by workflow/policy selection.
+  release_required:
+    - detectors_materialized_ok
+    - external_summaries_present
+    - external_all_pass
+    - refusal_delta_evidence_present
+
+  # Baseline CI sees these as diagnostic/advisory only.
+  advisory:
+    - external_summaries_present
+    - external_all_pass
