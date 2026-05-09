@@ -42,6 +42,7 @@ tests/test_pulse_ref_release_reference_package_schema_v0.py
 tests/test_pulse_ref_materialized_gate_sets_schema_v0.py
 tests/test_pulse_ref_ci_outcome_schema_v0.py
 tests/test_pulse_ref_package_digests_schema_v0.py
+tests/test_pulse_ref_operator_handoff_report_schema_v0.py
 tests/test_agent_orchestration_evidence_schema_v0.py
 tests/test_check_agent_orchestration_evidence_v0.py
 
