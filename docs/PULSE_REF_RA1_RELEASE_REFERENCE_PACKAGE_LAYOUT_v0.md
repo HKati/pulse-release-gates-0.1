@@ -430,26 +430,47 @@ Suggested content:
 {
   "schema": "pulse_ref_package_digests_v0",
   "algorithm": "sha256",
-  "artifacts": [
-    {
-      "path": "status/status.json",
-      "sha256": "<sha256>"
-    },
-    {
-      "path": "policy/pulse_gate_policy_v0.yml",
-      "sha256": "<sha256>"
-    },
-    {
-      "path": "handoff/operator_handoff_report.json",
-      "sha256": "<sha256>"
-    }
-  ]
+  "created_utc": "2026-05-09T00:00:00Z",
+  "package_id": "pulse-ref-ra1-example",
+  "artifacts": {
+    "status/status.json": "0000000000000000000000000000000000000000000000000000000000000000",
+    "policy/pulse_gate_policy_v0.yml": "1111111111111111111111111111111111111111111111111111111111111111",
+    "gates/materialized_gate_sets.json": "2222222222222222222222222222222222222222222222222222222222222222",
+    "handoff/operator_handoff_report.json": "3333333333333333333333333333333333333333333333333333333333333333",
+    "ci/ci_outcome.json": "4444444444444444444444444444444444444444444444444444444444444444"
+  },
+  "authority_boundary": {
+    "digest_role": "artifact_integrity_verification",
+    "creates_release_authority": false
+  }
 }
 ```
+
+The `artifacts` field is an object map from package-relative artifact paths to SHA-256 digests.
+
+This map form is intentional.
+
+It avoids representing the same artifact path multiple times in a normal parsed JSON object and supports deterministic external verification.
+
+Array-style entries such as:
+
+```json
+[
+  {
+    "path": "status/status.json",
+    "sha256": "..."
+  }
+]
+```
+
+are not the RA1 package digests schema form.
+
+Producers that use array-style internal representations should normalize them into the package digest object-map form before validation.
 
 The digest manifest supports reproducibility and external verification.
 
 It does not create release authority.
+
 
 ## Minimum viable RA1 package
 
