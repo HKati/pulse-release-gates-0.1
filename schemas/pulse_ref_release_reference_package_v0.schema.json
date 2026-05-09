@@ -1,0 +1,158 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pulse-ref.local/schemas/pulse_ref_release_reference_package_v0.schema.json",
+  "title": "PULSE-REF Release-Reference Package Manifest v0",
+  "type": "object",
+  "required": [
+    "schema",
+    "package_id",
+    "created_utc",
+    "run_key",
+    "git_sha",
+    "status_artifact",
+    "gate_policy",
+    "gate_registry",
+    "materialized_gate_sets",
+    "operator_handoff_report",
+    "release_authority_manifest",
+    "ci_outcome",
+    "package_digests",
+    "authority_boundary"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema": {
+      "const": "pulse_ref_release_reference_package_v0"
+    },
+    "package_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "created_utc": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "run_key": {
+      "type": "string",
+      "minLength": 1
+    },
+    "git_sha": {
+      "type": "string",
+      "minLength": 1
+    },
+    "status_artifact": {
+      "$ref": "#/$defs/artifact_ref"
+    },
+    "gate_policy": {
+      "$ref": "#/$defs/artifact_ref"
+    },
+    "gate_registry": {
+      "$ref": "#/$defs/artifact_ref"
+    },
+    "materialized_gate_sets": {
+      "$ref": "#/$defs/artifact_ref"
+    },
+    "operator_handoff_report": {
+      "$ref": "#/$defs/artifact_ref"
+    },
+    "release_authority_manifest": {
+      "$ref": "#/$defs/artifact_ref"
+    },
+    "audit_bundle": {
+      "$ref": "#/$defs/directory_ref"
+    },
+    "ci_outcome": {
+      "$ref": "#/$defs/artifact_ref"
+    },
+    "publication_snapshot": {
+      "$ref": "#/$defs/artifact_ref"
+    },
+    "external_evidence": {
+      "$ref": "#/$defs/external_evidence"
+    },
+    "package_digests": {
+      "$ref": "#/$defs/artifact_ref"
+    },
+    "authority_boundary": {
+      "type": "object",
+      "required": [
+        "normative_decision_path",
+        "package_role",
+        "creates_release_authority"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "normative_decision_path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "package_role": {
+          "const": "audit_preservation_reconstruction"
+        },
+        "creates_release_authority": {
+          "const": false
+        }
+      }
+    }
+  },
+  "$defs": {
+    "relative_path": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?!.*\\\\)(?!.*(?:^|/)\\.\\.(?:/|$)).+$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "artifact_ref": {
+      "type": "object",
+      "required": [
+        "path",
+        "sha256"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/relative_path"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "directory_ref": {
+      "type": "object",
+      "required": [
+        "path"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/relative_path"
+        },
+        "sha256_manifest_path": {
+          "$ref": "#/$defs/relative_path"
+        }
+      }
+    },
+    "external_evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "summaries": {
+          "$ref": "#/$defs/directory_ref"
+        },
+        "envelopes": {
+          "$ref": "#/$defs/directory_ref"
+        },
+        "signers_policy": {
+          "$ref": "#/$defs/artifact_ref"
+        },
+        "verification_results": {
+          "$ref": "#/$defs/artifact_ref"
+        }
+      }
+    }
+  }
+}
