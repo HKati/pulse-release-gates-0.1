@@ -233,6 +233,7 @@ def main(argv: list[str] | None = None) -> int:
         "mode": args.status_source,
         "status_path": _rel(status_path),
         "status_exists_before_run": status_path.exists(),
+        "status_sha256_before_run": _sha256(status_path),
     }
 
     if not errors and args.status_source == "generate-core":
@@ -275,6 +276,7 @@ def main(argv: list[str] | None = None) -> int:
             )
 
     status_source["status_exists_after_generation"] = status_path.exists()
+    status_source["status_sha256_after_generation"] = _sha256(status_path)
 
     if not status_path.exists():
         errors.append(f"status artifact missing: {_rel(status_path)}")
@@ -449,6 +451,7 @@ def main(argv: list[str] | None = None) -> int:
         )
 
     status_source["status_exists_after_run"] = status_path.exists()
+    status_source["status_sha256_after_run"] = _sha256(status_path)
 
     report = {
         "ok": len(errors) == 0,

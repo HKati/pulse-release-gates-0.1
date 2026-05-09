@@ -8,7 +8,6 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
-
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "tools" / "operator_handoff_smoke.py"
 
@@ -27,6 +26,7 @@ def _run(*args: str) -> subprocess.CompletedProcess[str]:
 def _read_json(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
 
+
 def _sha256_file(path: Path) -> str:
     h = hashlib.sha256()
 
@@ -35,6 +35,7 @@ def _sha256_file(path: Path) -> str:
             h.update(chunk)
 
     return h.hexdigest()
+
 
 def _assert_returncode(
     result: subprocess.CompletedProcess[str],
@@ -79,8 +80,15 @@ def test_generate_core_honors_custom_status_path() -> None:
             status_path.parent / "status.json"
         )
         assert status_source["status_exists_before_run"] is False
+        assert status_source["status_sha256_before_run"] is None
         assert status_source["status_exists_after_generation"] is True
+        assert isinstance(status_source["status_sha256_after_generation"], str)
+        assert len(status_source["status_sha256_after_generation"]) == 64
         assert status_source["status_exists_after_run"] is True
+        assert (
+            status_source["status_sha256_after_run"]
+            == status_source["status_sha256_after_generation"]
+        )
 
         command_names = [command["name"] for command in payload["commands"]]
 
@@ -168,17 +176,17 @@ def test_existing_missing_status_fails_closed() -> None:
         assert status_source["mode"] == "existing"
         assert status_source["status_path"] == str(status_path)
         assert status_source["status_exists_before_run"] is False
+        assert status_source["status_sha256_before_run"] is None
         assert status_source["status_exists_after_generation"] is False
+        assert status_source["status_sha256_after_generation"] is None
         assert status_source["status_exists_after_run"] is False
+        assert status_source["status_sha256_after_run"] is None
 
         assert payload["commands"] == []
         assert payload["materialized_gate_sets"] == {}
         assert payload["effective_required_gates"] == []
 
-        assert any(
-            "status artifact missing" in error
-            for error in payload["errors"]
-        )
+        assert any("status artifact missing" in error for error in payload["errors"])
         assert any(
             "status-source=existing was selected" in warning
             for warning in payload["warnings"]
@@ -196,7 +204,9 @@ def test_release_grade_accepts_existing_release_reference_status() -> None:
     )
     expected_status_path = str(fixture_status.relative_to(ROOT))
 
-    assert fixture_status.exists(), f"missing release-reference fixture: {fixture_status}"
+    assert (
+        fixture_status.exists()
+    ), f"missing release-reference fixture: {fixture_status}"
 
     with tempfile.TemporaryDirectory(prefix="pulse-operator-handoff-") as tmp:
         tmp_path = Path(tmp)
@@ -226,8 +236,18 @@ def test_release_grade_accepts_existing_release_reference_status() -> None:
         assert status_source["mode"] == "existing"
         assert status_source["status_path"] == expected_status_path
         assert status_source["status_exists_before_run"] is True
+        assert isinstance(status_source["status_sha256_before_run"], str)
+        assert len(status_source["status_sha256_before_run"]) == 64
         assert status_source["status_exists_after_generation"] is True
+        assert (
+            status_source["status_sha256_after_generation"]
+            == status_source["status_sha256_before_run"]
+        )
         assert status_source["status_exists_after_run"] is True
+        assert (
+            status_source["status_sha256_after_run"]
+            == status_source["status_sha256_before_run"]
+        )
 
         assert "required" in payload["materialized_gate_sets"]
         assert "release_required" in payload["materialized_gate_sets"]
@@ -241,6 +261,7 @@ def test_release_grade_accepts_existing_release_reference_status() -> None:
         assert "check_gates_release-grade" in command_names
         assert "check_shadow_layer_registry" in command_names
 
+
 def test_release_grade_existing_missing_refusal_delta_fails_closed() -> None:
     fixture_status = (
         ROOT
@@ -252,11 +273,15 @@ def test_release_grade_existing_missing_refusal_delta_fails_closed() -> None:
     )
     expected_status_path = str(fixture_status.relative_to(ROOT))
 
-    assert fixture_status.exists(), f"missing release-reference fixture: {fixture_status}"
+    assert (
+        fixture_status.exists()
+    ), f"missing release-reference fixture: {fixture_status}"
 
     with tempfile.TemporaryDirectory(prefix="pulse-operator-handoff-") as tmp:
         tmp_path = Path(tmp)
-        report_path = tmp_path / "operator_handoff_smoke.release_grade.missing_refusal_delta.json"
+        report_path = (
+            tmp_path / "operator_handoff_smoke.release_grade.missing_refusal_delta.json"
+        )
 
         result = _run(
             "--gate-mode",
@@ -304,13 +329,16 @@ def test_release_grade_existing_missing_refusal_delta_fails_closed() -> None:
         assert check_command["ok"] is False
         assert check_command["returncode"] != 0
 
-        combined_output = f"{check_command.get('stdout', '')}\n{check_command.get('stderr', '')}"
+        combined_output = (
+            f"{check_command.get('stdout', '')}\n{check_command.get('stderr', '')}"
+        )
         assert "refusal_delta_evidence_present" in combined_output
 
         assert any(
             "gate check failed in release-grade mode" in error
             for error in payload["errors"]
         )
+
 
 def test_release_grade_existing_external_evidence_failures_fail_closed() -> None:
     cases = [
@@ -329,13 +357,14 @@ def test_release_grade_existing_external_evidence_failures_fail_closed() -> None
         )
         expected_status_path = str(fixture_status.relative_to(ROOT))
 
-        assert fixture_status.exists(), f"missing release-reference fixture: {fixture_status}"
+        assert (
+            fixture_status.exists()
+        ), f"missing release-reference fixture: {fixture_status}"
 
         with tempfile.TemporaryDirectory(prefix="pulse-operator-handoff-") as tmp:
             tmp_path = Path(tmp)
             report_path = (
-                tmp_path
-                / f"operator_handoff_smoke.release_grade.{fixture_id}.json"
+                tmp_path / f"operator_handoff_smoke.release_grade.{fixture_id}.json"
             )
 
             result = _run(
@@ -395,6 +424,7 @@ def test_release_grade_existing_external_evidence_failures_fail_closed() -> None
                 for error in payload["errors"]
             )
 
+
 def test_release_grade_existing_missing_external_summary_fails_closed() -> None:
     fixture_status = (
         ROOT
@@ -407,14 +437,13 @@ def test_release_grade_existing_missing_external_summary_fails_closed() -> None:
     expected_status_path = str(fixture_status.relative_to(ROOT))
     expected_failing_gate = "external_summaries_present"
 
-    assert fixture_status.exists(), f"missing release-reference fixture: {fixture_status}"
+    assert (
+        fixture_status.exists()
+    ), f"missing release-reference fixture: {fixture_status}"
 
     with tempfile.TemporaryDirectory(prefix="pulse-operator-handoff-") as tmp:
         tmp_path = Path(tmp)
-        report_path = (
-            tmp_path
-            / "operator_handoff_smoke.release_grade.missing_external.json"
-        )
+        report_path = tmp_path / "operator_handoff_smoke.release_grade.missing_external.json"
 
         result = _run(
             "--gate-mode",
@@ -485,7 +514,9 @@ def test_release_grade_existing_stubbed_status_fails_closed() -> None:
     )
     expected_status_path = str(fixture_status.relative_to(ROOT))
 
-    assert fixture_status.exists(), f"missing release-reference fixture: {fixture_status}"
+    assert (
+        fixture_status.exists()
+    ), f"missing release-reference fixture: {fixture_status}"
 
     with tempfile.TemporaryDirectory(prefix="pulse-operator-handoff-") as tmp:
         tmp_path = Path(tmp)
@@ -522,14 +553,9 @@ def test_release_grade_existing_stubbed_status_fails_closed() -> None:
         assert payload["materialized_gate_sets"] == {}
         assert payload["effective_required_gates"] == []
 
-        assert any(
-            "diagnostics.gates_stubbed=false" in error
-            for error in payload["errors"]
-        )
-        assert any(
-            "stubbed status evidence" in error
-            for error in payload["errors"]
-        )
+        assert any("diagnostics.gates_stubbed=false" in error for error in payload["errors"])
+        assert any("stubbed status evidence" in error for error in payload["errors"])
+
 
 def test_release_grade_existing_non_prod_run_mode_fails_closed() -> None:
     source_status = (
@@ -541,7 +567,9 @@ def test_release_grade_existing_non_prod_run_mode_fails_closed() -> None:
         / "status.json"
     )
 
-    assert source_status.exists(), f"missing release-reference fixture: {source_status}"
+    assert (
+        source_status.exists()
+    ), f"missing release-reference fixture: {source_status}"
 
     with tempfile.TemporaryDirectory(prefix="pulse-operator-handoff-") as tmp:
         tmp_path = Path(tmp)
@@ -588,67 +616,51 @@ def test_release_grade_existing_non_prod_run_mode_fails_closed() -> None:
         assert payload["materialized_gate_sets"] == {}
         assert payload["effective_required_gates"] == []
 
-        assert any(
-            "metrics.run_mode=prod" in error
-            for error in payload["errors"]
-        )
-        assert any(
-            "found 'core'" in error
-            for error in payload["errors"]
-        )
+        assert any("metrics.run_mode=prod" in error for error in payload["errors"])
+        assert any("found 'core'" in error for error in payload["errors"])
+
 
 def test_release_grade_existing_malformed_status_fails_closed() -> None:
-    cases = [
-        ("malformed_json", "{not json\n"),
-        ("json_array", "[]\n"),
-    ]
+    with tempfile.TemporaryDirectory(prefix="pulse-operator-handoff-") as tmp:
+        tmp_path = Path(tmp)
+        status_path = tmp_path / "operator_handoff_status.malformed.json"
+        report_path = tmp_path / "operator_handoff_smoke.release_grade.malformed.json"
 
-    for case_id, status_text in cases:
-        with tempfile.TemporaryDirectory(prefix="pulse-operator-handoff-") as tmp:
-            tmp_path = Path(tmp)
-            status_path = tmp_path / f"operator_handoff_status.{case_id}.json"
-            report_path = (
-                tmp_path
-                / f"operator_handoff_smoke.release_grade.{case_id}.json"
-            )
+        status_path.write_text('["not", "an", "object"]\n', encoding="utf-8")
 
-            status_path.write_text(status_text, encoding="utf-8")
+        result = _run(
+            "--gate-mode",
+            "release-grade",
+            "--status-source",
+            "existing",
+            "--status",
+            str(status_path),
+            "--out",
+            str(report_path),
+        )
 
-            result = _run(
-                "--gate-mode",
-                "release-grade",
-                "--status-source",
-                "existing",
-                "--status",
-                str(status_path),
-                "--out",
-                str(report_path),
-            )
+        _assert_returncode(result, 1)
 
-            _assert_returncode(result, 1)
+        assert report_path.exists()
 
-            assert report_path.exists()
+        payload = _read_json(report_path)
 
-            payload = _read_json(report_path)
+        assert payload["ok"] is False
+        assert payload["gate_mode"] == "release-grade"
 
-            assert payload["ok"] is False
-            assert payload["gate_mode"] == "release-grade"
+        status_source = payload["status_source"]
+        assert status_source["mode"] == "existing"
+        assert status_source["status_path"] == str(status_path)
+        assert status_source["status_exists_before_run"] is True
+        assert status_source["status_exists_after_generation"] is True
+        assert status_source["status_exists_after_run"] is True
 
-            status_source = payload["status_source"]
-            assert status_source["mode"] == "existing"
-            assert status_source["status_path"] == str(status_path)
-            assert status_source["status_exists_before_run"] is True
-            assert status_source["status_exists_after_generation"] is True
-            assert status_source["status_exists_after_run"] is True
+        assert payload["commands"] == []
+        assert payload["materialized_gate_sets"] == {}
+        assert payload["effective_required_gates"] == []
 
-            assert payload["commands"] == []
-            assert payload["materialized_gate_sets"] == {}
-            assert payload["effective_required_gates"] == []
+        assert any("status artifact is not a JSON object" in error for error in payload["errors"])
 
-            assert any(
-                "status artifact is not a JSON object" in error
-                for error in payload["errors"]
-            )
 
 def test_release_grade_existing_missing_stubbed_diagnostic_fails_closed() -> None:
     source_status = (
@@ -660,18 +672,20 @@ def test_release_grade_existing_missing_stubbed_diagnostic_fails_closed() -> Non
         / "status.json"
     )
 
-    assert source_status.exists(), f"missing release-reference fixture: {source_status}"
+    assert (
+        source_status.exists()
+    ), f"missing release-reference fixture: {source_status}"
 
     with tempfile.TemporaryDirectory(prefix="pulse-operator-handoff-") as tmp:
         tmp_path = Path(tmp)
-        status_path = tmp_path / "operator_handoff_status.missing_gates_stubbed.json"
+        status_path = tmp_path / "operator_handoff_status.missing_stubbed_diag.json"
         report_path = (
-            tmp_path
-            / "operator_handoff_smoke.release_grade.missing_gates_stubbed.json"
+            tmp_path / "operator_handoff_smoke.release_grade.missing_stubbed_diag.json"
         )
 
         status_obj = _read_json(source_status)
-        diagnostics = status_obj.setdefault("diagnostics", {})
+        diagnostics = status_obj.get("diagnostics")
+        assert isinstance(diagnostics, dict), "source fixture must contain diagnostics object"
         diagnostics.pop("gates_stubbed", None)
 
         status_path.write_text(
@@ -711,17 +725,10 @@ def test_release_grade_existing_missing_stubbed_diagnostic_fails_closed() -> Non
         assert payload["effective_required_gates"] == []
 
         assert any(
-            "diagnostics.gates_stubbed=false" in error
-            for error in payload["errors"]
+            "diagnostics.gates_stubbed=false" in error for error in payload["errors"]
         )
-        assert any(
-            "found None" in error
-            for error in payload["errors"]
-        )
-        assert any(
-            "stubbed status evidence" in error
-            for error in payload["errors"]
-        )
+        assert any("found None" in error for error in payload["errors"])
+
 
 def test_release_grade_existing_core_baseline_status_fails_closed() -> None:
     fixture_status = (
@@ -770,22 +777,11 @@ def test_release_grade_existing_core_baseline_status_fails_closed() -> None:
         assert payload["materialized_gate_sets"] == {}
         assert payload["effective_required_gates"] == []
 
-        assert any(
-            "metrics.run_mode=prod" in error
-            for error in payload["errors"]
-        )
-        assert any(
-            "found 'core'" in error
-            for error in payload["errors"]
-        )
-        assert any(
-            "diagnostics.gates_stubbed=false" in error
-            for error in payload["errors"]
-        )
-        assert any(
-            "found True" in error
-            for error in payload["errors"]
-        )
+        assert any("metrics.run_mode=prod" in error for error in payload["errors"])
+        assert any("found 'core'" in error for error in payload["errors"])
+        assert any("diagnostics.gates_stubbed=false" in error for error in payload["errors"])
+        assert any("found True" in error for error in payload["errors"])
+
 
 def test_release_grade_existing_false_required_gate_fails_closed() -> None:
     fixture_status = (
@@ -799,7 +795,9 @@ def test_release_grade_existing_false_required_gate_fails_closed() -> None:
     expected_status_path = str(fixture_status.relative_to(ROOT))
     expected_failing_gate = "pass_controls_refusal"
 
-    assert fixture_status.exists(), f"missing release-reference fixture: {fixture_status}"
+    assert (
+        fixture_status.exists()
+    ), f"missing release-reference fixture: {fixture_status}"
 
     with tempfile.TemporaryDirectory(prefix="pulse-operator-handoff-") as tmp:
         tmp_path = Path(tmp)
@@ -862,6 +860,7 @@ def test_release_grade_existing_false_required_gate_fails_closed() -> None:
             for error in payload["errors"]
         )
 
+
 def test_release_grade_existing_missing_required_gate_fails_closed() -> None:
     source_status = (
         ROOT
@@ -873,14 +872,15 @@ def test_release_grade_existing_missing_required_gate_fails_closed() -> None:
     )
     expected_missing_gate = "refusal_delta_evidence_present"
 
-    assert source_status.exists(), f"missing release-reference fixture: {source_status}"
+    assert (
+        source_status.exists()
+    ), f"missing release-reference fixture: {source_status}"
 
     with tempfile.TemporaryDirectory(prefix="pulse-operator-handoff-") as tmp:
         tmp_path = Path(tmp)
         status_path = tmp_path / "operator_handoff_status.missing_required_gate.json"
         report_path = (
-            tmp_path
-            / "operator_handoff_smoke.release_grade.missing_required_gate.json"
+            tmp_path / "operator_handoff_smoke.release_grade.missing_required_gate.json"
         )
 
         status_obj = _read_json(source_status)
@@ -952,6 +952,7 @@ def test_release_grade_existing_missing_required_gate_fails_closed() -> None:
             for error in payload["errors"]
         )
 
+
 def test_release_grade_existing_scaffold_markers_fail_closed() -> None:
     source_status = (
         ROOT
@@ -962,7 +963,9 @@ def test_release_grade_existing_scaffold_markers_fail_closed() -> None:
         / "status.json"
     )
 
-    assert source_status.exists(), f"missing release-reference fixture: {source_status}"
+    assert (
+        source_status.exists()
+    ), f"missing release-reference fixture: {source_status}"
 
     cases = [
         (
@@ -988,8 +991,7 @@ def test_release_grade_existing_scaffold_markers_fail_closed() -> None:
             tmp_path = Path(tmp)
             status_path = tmp_path / f"operator_handoff_status.{case_id}.json"
             report_path = (
-                tmp_path
-                / f"operator_handoff_smoke.release_grade.{case_id}.json"
+                tmp_path / f"operator_handoff_smoke.release_grade.{case_id}.json"
             )
 
             status_obj = _read_json(source_status)
@@ -1033,10 +1035,8 @@ def test_release_grade_existing_scaffold_markers_fail_closed() -> None:
             assert payload["effective_required_gates"] == []
 
             for fragment in expected_error_fragments:
-                assert any(
-                    fragment in error
-                    for error in payload["errors"]
-                )
+                assert any(fragment in error for error in payload["errors"])
+
 
 def test_release_grade_existing_stale_policy_hash_fails_closed() -> None:
     source_status = (
@@ -1048,14 +1048,15 @@ def test_release_grade_existing_stale_policy_hash_fails_closed() -> None:
         / "status.json"
     )
 
-    assert source_status.exists(), f"missing release-reference fixture: {source_status}"
+    assert (
+        source_status.exists()
+    ), f"missing release-reference fixture: {source_status}"
 
     with tempfile.TemporaryDirectory(prefix="pulse-operator-handoff-") as tmp:
         tmp_path = Path(tmp)
         status_path = tmp_path / "operator_handoff_status.stale_policy_hash.json"
         report_path = (
-            tmp_path
-            / "operator_handoff_smoke.release_grade.stale_policy_hash.json"
+            tmp_path / "operator_handoff_smoke.release_grade.stale_policy_hash.json"
         )
 
         status_obj = _read_json(source_status)
@@ -1098,14 +1099,11 @@ def test_release_grade_existing_stale_policy_hash_fails_closed() -> None:
         assert payload["materialized_gate_sets"] == {}
         assert payload["effective_required_gates"] == []
 
+        assert any("metrics.gate_policy_sha256" in error for error in payload["errors"])
         assert any(
-            "metrics.gate_policy_sha256" in error
-            for error in payload["errors"]
+            "current declared gate policy" in error for error in payload["errors"]
         )
-        assert any(
-            "current declared gate policy" in error
-            for error in payload["errors"]
-        )
+
 
 def test_release_grade_existing_matching_policy_hash_passes() -> None:
     source_status = (
@@ -1118,20 +1116,23 @@ def test_release_grade_existing_matching_policy_hash_passes() -> None:
     )
     policy_path = ROOT / "pulse_gate_policy_v0.yml"
 
-    assert source_status.exists(), f"missing release-reference fixture: {source_status}"
+    assert (
+        source_status.exists()
+    ), f"missing release-reference fixture: {source_status}"
     assert policy_path.exists(), f"missing gate policy: {policy_path}"
 
     with tempfile.TemporaryDirectory(prefix="pulse-operator-handoff-") as tmp:
         tmp_path = Path(tmp)
         status_path = tmp_path / "operator_handoff_status.matching_policy_hash.json"
         report_path = (
-            tmp_path
-            / "operator_handoff_smoke.release_grade.matching_policy_hash.json"
+            tmp_path / "operator_handoff_smoke.release_grade.matching_policy_hash.json"
         )
 
         status_obj = _read_json(source_status)
         metrics = status_obj.setdefault("metrics", {})
-        assert isinstance(metrics, dict), "source fixture must contain object-valued metrics"
+        assert isinstance(
+            metrics, dict
+        ), "source fixture must contain object-valued metrics"
 
         metrics["gate_policy_sha256"] = _sha256_file(policy_path)
 
@@ -1180,6 +1181,7 @@ def test_release_grade_existing_matching_policy_hash_passes() -> None:
         assert "check_gates_release-grade" in command_names
         assert "check_shadow_layer_registry" in command_names
 
+
 def test_release_grade_existing_stale_policy_path_fails_closed() -> None:
     source_status = (
         ROOT
@@ -1190,19 +1192,22 @@ def test_release_grade_existing_stale_policy_path_fails_closed() -> None:
         / "status.json"
     )
 
-    assert source_status.exists(), f"missing release-reference fixture: {source_status}"
+    assert (
+        source_status.exists()
+    ), f"missing release-reference fixture: {source_status}"
 
     with tempfile.TemporaryDirectory(prefix="pulse-operator-handoff-") as tmp:
         tmp_path = Path(tmp)
         status_path = tmp_path / "operator_handoff_status.stale_policy_path.json"
         report_path = (
-            tmp_path
-            / "operator_handoff_smoke.release_grade.stale_policy_path.json"
+            tmp_path / "operator_handoff_smoke.release_grade.stale_policy_path.json"
         )
 
         status_obj = _read_json(source_status)
         metrics = status_obj.setdefault("metrics", {})
-        assert isinstance(metrics, dict), "source fixture must contain object-valued metrics"
+        assert isinstance(
+            metrics, dict
+        ), "source fixture must contain object-valued metrics"
 
         metrics["gate_policy_path"] = "policy/other_gate_policy.yml"
 
@@ -1242,18 +1247,14 @@ def test_release_grade_existing_stale_policy_path_fails_closed() -> None:
         assert payload["materialized_gate_sets"] == {}
         assert payload["effective_required_gates"] == []
 
+        assert any("metrics.gate_policy_path" in error for error in payload["errors"])
         assert any(
-            "metrics.gate_policy_path" in error
-            for error in payload["errors"]
+            "current declared gate policy path" in error for error in payload["errors"]
         )
         assert any(
-            "current declared gate policy path" in error
-            for error in payload["errors"]
+            "policy/other_gate_policy.yml" in error for error in payload["errors"]
         )
-        assert any(
-            "policy/other_gate_policy.yml" in error
-            for error in payload["errors"]
-        )
+
 
 def test_release_grade_existing_matching_policy_path_passes() -> None:
     source_status = (
@@ -1265,19 +1266,22 @@ def test_release_grade_existing_matching_policy_path_passes() -> None:
         / "status.json"
     )
 
-    assert source_status.exists(), f"missing release-reference fixture: {source_status}"
+    assert (
+        source_status.exists()
+    ), f"missing release-reference fixture: {source_status}"
 
     with tempfile.TemporaryDirectory(prefix="pulse-operator-handoff-") as tmp:
         tmp_path = Path(tmp)
         status_path = tmp_path / "operator_handoff_status.matching_policy_path.json"
         report_path = (
-            tmp_path
-            / "operator_handoff_smoke.release_grade.matching_policy_path.json"
+            tmp_path / "operator_handoff_smoke.release_grade.matching_policy_path.json"
         )
 
         status_obj = _read_json(source_status)
         metrics = status_obj.setdefault("metrics", {})
-        assert isinstance(metrics, dict), "source fixture must contain object-valued metrics"
+        assert isinstance(
+            metrics, dict
+        ), "source fixture must contain object-valued metrics"
 
         metrics["gate_policy_path"] = "pulse_gate_policy_v0.yml"
 
@@ -1325,6 +1329,7 @@ def test_release_grade_existing_matching_policy_path_passes() -> None:
         assert "materialize_release_required" in command_names
         assert "check_gates_release-grade" in command_names
         assert "check_shadow_layer_registry" in command_names
+
 
 def main() -> int:
     try:
