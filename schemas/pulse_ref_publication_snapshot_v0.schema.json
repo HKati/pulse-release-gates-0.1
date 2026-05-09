@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pulse-ref.local/schemas/pulse_ref_publication_snapshot_v0.schema.json",
+  "title": "PULSE-REF Publication Snapshot v0",
+  "type": "object",
+  "required": [
+    "schema",
+    "snapshot_created_utc",
+    "quality_ledger_url",
+    "status_json_url",
+    "release_authority_manifest_url",
+    "audit_bundle_url",
+    "creates_release_authority"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema": {
+      "const": "pulse_ref_publication_snapshot_v0"
+    },
+    "snapshot_created_utc": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "package_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "run_key": {
+      "type": "string",
+      "minLength": 1
+    },
+    "git_sha": {
+      "$ref": "#/$defs/git_sha"
+    },
+    "quality_ledger_url": {
+      "$ref": "#/$defs/https_url"
+    },
+    "status_json_url": {
+      "$ref": "#/$defs/https_url"
+    },
+    "release_authority_manifest_url": {
+      "$ref": "#/$defs/https_url"
+    },
+    "audit_bundle_url": {
+      "$ref": "#/$defs/https_url"
+    },
+    "operator_handoff_report_url": {
+      "$ref": "#/$defs/https_url"
+    },
+    "ci_outcome_url": {
+      "$ref": "#/$defs/https_url"
+    },
+    "package_manifest_url": {
+      "$ref": "#/$defs/https_url"
+    },
+    "package_digests_url": {
+      "$ref": "#/$defs/https_url"
+    },
+    "publication_surface": {
+      "type": "string",
+      "minLength": 1
+    },
+    "creates_release_authority": {
+      "const": false
+    }
+  },
+  "$defs": {
+    "https_url": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^https://"
+    },
+    "git_sha": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{40}$"
+    }
+  }
+}
