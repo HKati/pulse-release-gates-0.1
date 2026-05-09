@@ -1,0 +1,113 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pulse-ref.local/schemas/pulse_ref_ci_outcome_v0.schema.json",
+  "title": "PULSE-REF CI Outcome v0",
+  "type": "object",
+  "required": [
+    "schema",
+    "provider",
+    "workflow",
+    "run_id",
+    "run_url",
+    "commit_sha",
+    "gate_check_job",
+    "gate_check_conclusion",
+    "created_utc",
+    "authority_boundary"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema": {
+      "const": "pulse_ref_ci_outcome_v0"
+    },
+    "provider": {
+      "const": "github_actions"
+    },
+    "workflow": {
+      "$ref": "#/$defs/non_empty_string"
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[0-9]+$"
+    },
+    "run_url": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^https://github\\.com/.+/actions/runs/[0-9]+"
+    },
+    "repository": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"
+    },
+    "commit_sha": {
+      "$ref": "#/$defs/git_sha"
+    },
+    "run_attempt": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "gate_check_job": {
+      "$ref": "#/$defs/non_empty_string"
+    },
+    "gate_check_conclusion": {
+      "$ref": "#/$defs/github_conclusion"
+    },
+    "created_utc": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "started_utc": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "completed_utc": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "authority_boundary": {
+      "type": "object",
+      "required": [
+        "normative_decision_path",
+        "ci_role",
+        "creates_release_authority"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "normative_decision_path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "ci_role": {
+          "const": "records_declared_policy_enforcement"
+        },
+        "creates_release_authority": {
+          "const": false
+        }
+      }
+    }
+  },
+  "$defs": {
+    "non_empty_string": {
+      "type": "string",
+      "minLength": 1
+    },
+    "git_sha": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{40}$"
+    },
+    "github_conclusion": {
+      "type": "string",
+      "enum": [
+        "success",
+        "failure",
+        "neutral",
+        "cancelled",
+        "skipped",
+        "timed_out",
+        "action_required"
+      ]
+    }
+  }
+}
