@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pulse-ref.local/schemas/pulse_ref_materialized_gate_sets_v0.schema.json",
+  "title": "PULSE-REF Materialized Gate Sets v0",
+  "type": "object",
+  "required": [
+    "schema",
+    "policy_path",
+    "policy_sha256",
+    "sets",
+    "effective_required_gates",
+    "authority_boundary"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema": {
+      "const": "pulse_ref_materialized_gate_sets_v0"
+    },
+    "policy_path": {
+      "$ref": "#/$defs/relative_path"
+    },
+    "policy_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "sets": {
+      "type": "object",
+      "required": [
+        "required",
+        "release_required"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "required": {
+          "$ref": "#/$defs/gate_id_array"
+        },
+        "release_required": {
+          "$ref": "#/$defs/gate_id_array"
+        }
+      }
+    },
+    "effective_required_gates": {
+      "$ref": "#/$defs/gate_id_array"
+    },
+    "authority_boundary": {
+      "type": "object",
+      "required": [
+        "source",
+        "materialization_role",
+        "creates_release_authority"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "source": {
+          "const": "declared_gate_policy"
+        },
+        "materialization_role": {
+          "const": "required_gate_set_reconstruction"
+        },
+        "creates_release_authority": {
+          "const": false
+        }
+      }
+    }
+  },
+  "$defs": {
+    "relative_path": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?!.*\\\\)(?!.*(?:^|/)\\.\\.(?:/|$)).+$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "gate_id": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+    },
+    "gate_id_array": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/gate_id"
+      },
+      "uniqueItems": true
+    }
+  }
+}
