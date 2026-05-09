@@ -17,6 +17,38 @@
     "errors"
   ],
   "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "materialized_gate_sets": {
+            "type": "object",
+            "maxProperties": 0
+          }
+        },
+        "required": [
+          "materialized_gate_sets"
+        ]
+      },
+      "then": {
+        "properties": {
+          "ok": {
+            "const": false
+          },
+          "effective_required_gates": {
+            "$ref": "#/$defs/gate_id_array_empty"
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "effective_required_gates": {
+            "$ref": "#/$defs/gate_id_array_non_empty"
+          }
+        }
+      }
+    }
+  ],
   "properties": {
     "schema": {
       "const": "pulse_ref_operator_handoff_report_v0"
@@ -81,23 +113,10 @@
       }
     },
     "materialized_gate_sets": {
-      "type": "object",
-      "required": [
-        "required",
-        "release_required"
-      ],
-      "additionalProperties": false,
-      "properties": {
-        "required": {
-          "$ref": "#/$defs/gate_id_array"
-        },
-        "release_required": {
-          "$ref": "#/$defs/gate_id_array"
-        }
-      }
+      "$ref": "#/$defs/materialized_gate_sets"
     },
     "effective_required_gates": {
-      "$ref": "#/$defs/gate_id_array"
+      "$ref": "#/$defs/gate_id_array_any"
     },
     "files": {
       "type": "array",
@@ -164,13 +183,48 @@
       "minLength": 1,
       "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
     },
-    "gate_id_array": {
+    "gate_id_array_any": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/gate_id"
+      },
+      "uniqueItems": true
+    },
+    "gate_id_array_empty": {
+      "type": "array",
+      "maxItems": 0
+    },
+    "gate_id_array_non_empty": {
       "type": "array",
       "minItems": 1,
       "items": {
         "$ref": "#/$defs/gate_id"
       },
       "uniqueItems": true
+    },
+    "materialized_gate_sets": {
+      "oneOf": [
+        {
+          "type": "object",
+          "maxProperties": 0
+        },
+        {
+          "type": "object",
+          "required": [
+            "required",
+            "release_required"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "required": {
+              "$ref": "#/$defs/gate_id_array_non_empty"
+            },
+            "release_required": {
+              "$ref": "#/$defs/gate_id_array_non_empty"
+            }
+          }
+        }
+      ]
     },
     "file_inventory_entry": {
       "type": "object",
