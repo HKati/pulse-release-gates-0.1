@@ -79,6 +79,7 @@
     },
     "gate_id_array": {
       "type": "array",
+      "minItems": 1,
       "items": {
         "$ref": "#/$defs/gate_id"
       },
