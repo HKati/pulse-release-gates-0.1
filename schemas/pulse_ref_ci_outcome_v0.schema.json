@@ -8,6 +8,7 @@
     "provider",
     "workflow",
     "run_id",
+    "run_attempt",
     "run_url",
     "commit_sha",
     "gate_check_job",
@@ -31,6 +32,10 @@
       "minLength": 1,
       "pattern": "^[0-9]+$"
     },
+    "run_attempt": {
+      "type": "integer",
+      "minimum": 1
+    },
     "run_url": {
       "type": "string",
       "minLength": 1,
@@ -43,10 +48,6 @@
     },
     "commit_sha": {
       "$ref": "#/$defs/git_sha"
-    },
-    "run_attempt": {
-      "type": "integer",
-      "minimum": 1
     },
     "gate_check_job": {
       "$ref": "#/$defs/non_empty_string"
@@ -100,13 +101,15 @@
     "github_conclusion": {
       "type": "string",
       "enum": [
-        "success",
+        "action_required",
+        "cancelled",
         "failure",
         "neutral",
-        "cancelled",
         "skipped",
-        "timed_out",
-        "action_required"
+        "stale",
+        "startup_failure",
+        "success",
+        "timed_out"
       ]
     }
   }
