@@ -75,6 +75,30 @@ The supplied status artifact must parse as a JSON object.
 
 Malformed JSON or non-object JSON values fail closed before gate materialization.
 
+### Status artifact digest traceability
+
+The operator handoff report records SHA-256 digests for the supplied status artifact in the `status_source` block.
+
+The recorded fields are:
+
+```text
+status_sha256_before_run
+status_sha256_after_generation
+status_sha256_after_run
+```
+
+For missing status artifacts, the digest value is null.
+
+For generated Core handoff, the status artifact may be absent before generation and present after generation.
+
+For existing release-grade handoff, the digest should remain stable across the handoff check unless the status artifact is intentionally rewritten by the selected path.
+
+These digest fields bind the operator handoff report to the exact byte content of the status artifact used during reconstruction.
+
+They are audit and traceability fields.
+
+They do not create release authority, do not override gate policy, and do not create a second release-decision path.
+
 ### Prod run mode
 
 Release-grade handoff requires:
