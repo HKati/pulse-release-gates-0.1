@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pulse-ref.local/schemas/pulse_ref_package_digests_v0.schema.json",
+  "title": "PULSE-REF Package Digests v0",
+  "type": "object",
+  "required": [
+    "schema",
+    "algorithm",
+    "artifacts",
+    "authority_boundary"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema": {
+      "const": "pulse_ref_package_digests_v0"
+    },
+    "algorithm": {
+      "const": "sha256"
+    },
+    "created_utc": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "package_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "artifacts": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {
+        "$ref": "#/$defs/relative_path"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/sha256"
+      }
+    },
+    "authority_boundary": {
+      "type": "object",
+      "required": [
+        "digest_role",
+        "creates_release_authority"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "digest_role": {
+          "const": "artifact_integrity_verification"
+        },
+        "creates_release_authority": {
+          "const": false
+        }
+      }
+    }
+  },
+  "$defs": {
+    "relative_path": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?!.*\\\\)(?!.*(?:^|/)\\.\\.(?:/|$)).+$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  }
+}
