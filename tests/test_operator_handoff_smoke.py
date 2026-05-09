@@ -731,15 +731,16 @@ def test_release_grade_existing_missing_stubbed_diagnostic_fails_closed() -> Non
 
 
 def test_release_grade_existing_core_baseline_status_fails_closed() -> None:
-    source_status = (
+    fixture_status = (
         ROOT
         / "tests"
         / "fixtures"
-        / "core_baseline_v1"
-        / "status.json"
+        / "core_baseline_v0"
+        / "status.normalized.json"
     )
+    expected_status_path = str(fixture_status.relative_to(ROOT))
 
-    assert source_status.exists(), f"missing core-baseline fixture: {source_status}"
+    assert fixture_status.exists(), f"missing core baseline fixture: {fixture_status}"
 
     with tempfile.TemporaryDirectory(prefix="pulse-operator-handoff-") as tmp:
         tmp_path = Path(tmp)
@@ -751,7 +752,7 @@ def test_release_grade_existing_core_baseline_status_fails_closed() -> None:
             "--status-source",
             "existing",
             "--status",
-            str(source_status),
+            str(fixture_status),
             "--out",
             str(report_path),
         )
@@ -767,7 +768,7 @@ def test_release_grade_existing_core_baseline_status_fails_closed() -> None:
 
         status_source = payload["status_source"]
         assert status_source["mode"] == "existing"
-        assert status_source["status_path"] == str(source_status.relative_to(ROOT))
+        assert status_source["status_path"] == expected_status_path
         assert status_source["status_exists_before_run"] is True
         assert status_source["status_exists_after_generation"] is True
         assert status_source["status_exists_after_run"] is True
@@ -777,6 +778,7 @@ def test_release_grade_existing_core_baseline_status_fails_closed() -> None:
         assert payload["effective_required_gates"] == []
 
         assert any("metrics.run_mode=prod" in error for error in payload["errors"])
+        assert any("found 'core'" in error for error in payload["errors"])
         assert any("diagnostics.gates_stubbed=false" in error for error in payload["errors"])
         assert any("found True" in error for error in payload["errors"])
 
