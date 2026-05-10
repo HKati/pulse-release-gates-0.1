@@ -24,6 +24,16 @@ def _read_json(path: Path) -> dict[str, Any]:
 def _write_json(path: Path, obj: dict[str, Any]) -> None:
     path.write_text(json.dumps(obj, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
+def _sha256_file(path: Path) -> str:
+    import hashlib
+
+    h = hashlib.sha256()
+
+    with path.open("rb") as f:
+        for chunk in iter(lambda: f.read(65536), b""):
+            h.update(chunk)
+
+    return h.hexdigest()
 
 def _run(package_root: Path, out_path: Path) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
@@ -136,11 +146,108 @@ def test_digest_mismatch_fails_with_schema_valid_report() -> None:
         assert failing_checks[0]["ok"] is False
         assert failing_checks[0]["actual_sha256"] is not None
 
+def test_symlinked_artifact_outside_package_root_fails_with_schema_valid_report() -> None:
+    with tempfile.TemporaryDirectory(prefix="pulse-ra1-verifier-") as tmp:
+        tmp_path = Path(tmp)
+        package_copy = tmp_path / "package"
+        out_path = tmp_path / "verifier_report.symlink_fail.json"
+        outside_status = tmp_path / "outside_status.json"
+
+        shutil.copytree(PACKAGE, package_copy)
+
+        outside_status.write_text(
+            json.dumps(
+                {
+                    "outside": True,
+                    "note": "This file is outside the package root.",
+                },
+                indent=2,
+                sort_keys=True,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        outside_sha = _sha256_file(outside_status)
+
+        status_path = package_copy / "status" / "status.json"
+        status_path.unlink()
+
+        try:
+            status_path.symlink_to(outside_status)
+        except (OSError, NotImplementedError):
+            return
+
+        digests_path = package_copy / "digests" / "package_digests.json"
+        digests = _read_json(digests_path)
+        digests["artifacts"]["status/status.json"] = outside_sha
+        _write_json(digests_path, digests)
+
+        manifest_path = package_copy / "package_manifest.json"
+        manifest = _read_json(manifest_path)
+        manifest["status_artifact"]["sha256"] = outside_sha
+        manifest["package_digests"]["sha256"] = _sha256_file(digests_path)
+        _write_json(manifest_path, manifest)
+
+        result = _run(package_copy, out_path)
+
+        assert result.returncode == 1
+        assert out_path.exists()
+
+        report = _read_json(out_path)
+        _validate_report(report)
+
+        assert report["ok"] is False
+        assert any(
+            "resolves outside package root" in error
+            for error in report["errors"]
+        )
+
+def test_malformed_digest_string_fails_with_schema_valid_report() -> None:
+    with tempfile.TemporaryDirectory(prefix="pulse-ra1-verifier-") as tmp:
+        tmp_path = Path(tmp)
+        package_copy = tmp_path / "package"
+        out_path = tmp_path / "verifier_report.malformed_digest.json"
+
+        shutil.copytree(PACKAGE, package_copy)
+
+        manifest_path = package_copy / "package_manifest.json"
+        manifest = _read_json(manifest_path)
+        manifest["status_artifact"]["sha256"] = "not-a-sha"
+        _write_json(manifest_path, manifest)
+
+        result = _run(package_copy, out_path)
+
+        assert result.returncode == 1
+        assert out_path.exists()
+
+        report = _read_json(out_path)
+        _validate_report(report)
+
+        assert report["ok"] is False
+        assert any(
+            "expected_sha256 is not a lowercase SHA-256 digest" in error
+            for error in report["errors"]
+        )
+
+        status_checks = [
+            check
+            for check in report["artifact_digests_checked"]
+            if (
+                check["artifact_path"] == "status/status.json"
+                and check.get("source") == "package_manifest"
+            )
+        ]
+
+        assert len(status_checks) == 1
+        assert status_checks[0]["ok"] is False
+        assert status_checks[0]["expected_sha256"] == "0" * 64
 
 def main() -> int:
     tests = [
         test_valid_ra1_minimal_package_verifies,
         test_digest_mismatch_fails_with_schema_valid_report,
+        test_symlinked_artifact_outside_package_root_fails_with_schema_valid_report,
+        test_malformed_digest_string_fails_with_schema_valid_report,
     ]
 
     try:
