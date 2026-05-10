@@ -84,6 +84,7 @@ def test_expected_ra1_minimal_package_artifacts_exist() -> None:
         "release_authority/release_authority_manifest.json",
         "ci/ci_outcome.json",
         "publication/publication_snapshot.json",
+        "digests/package_digests.json",
     ]
 
     missing = [
@@ -112,6 +113,10 @@ def test_ra1_minimal_package_json_artifacts_validate_schemas() -> None:
         (
             "publication/publication_snapshot.json",
             "schemas/pulse_ref_publication_snapshot_v0.schema.json",
+        ),
+         (
+            "digests/package_digests.json",
+            "schemas/pulse_ref_package_digests_v0.schema.json",
         ),
     ]
 
@@ -304,6 +309,48 @@ def test_ci_outcome_and_publication_snapshot_preserve_boundary() -> None:
     assert publication["git_sha"] == ci_outcome["commit_sha"]
     assert ci_outcome["run_url"] == publication["ci_outcome_url"]
 
+def test_package_digests_match_current_fixture_artifacts() -> None:
+    package_digests = _read_json("digests/package_digests.json")
+
+    assert package_digests["schema"] == "pulse_ref_package_digests_v0"
+    assert package_digests["algorithm"] == "sha256"
+
+    boundary = package_digests["authority_boundary"]
+    assert boundary["digest_role"] == "artifact_integrity_verification"
+    assert boundary["creates_release_authority"] is False
+
+    artifacts = package_digests["artifacts"]
+
+    expected_artifacts = [
+        "README.md",
+        "status/status.json",
+        "policy/pulse_gate_policy_v0.yml",
+        "policy/pulse_gate_registry_v0.yml",
+        "gates/materialized_gate_sets.json",
+        "handoff/operator_handoff_report.json",
+        "release_authority/release_authority_manifest.json",
+        "ci/ci_outcome.json",
+        "publication/publication_snapshot.json",
+    ]
+
+    assert sorted(artifacts) == sorted(expected_artifacts)
+
+    mismatches = []
+
+    for rel_path in expected_artifacts:
+        actual_sha = _sha256_file(_artifact(rel_path))
+        expected_sha = artifacts[rel_path]
+
+        if actual_sha != expected_sha:
+            mismatches.append(
+                {
+                    "path": rel_path,
+                    "expected": expected_sha,
+                    "actual": actual_sha,
+                }
+            )
+
+    assert mismatches == []
 
 def main() -> int:
     tests = [
@@ -315,7 +362,10 @@ def main() -> int:
         test_handoff_report_matches_status_and_materialized_gate_sets,
         test_release_authority_manifest_matches_package_core,
         test_ci_outcome_and_publication_snapshot_preserve_boundary,
+        test_package_digests_match_current_fixture_artifacts,
     ]
+    
+    
 
     try:
         for test in tests:
