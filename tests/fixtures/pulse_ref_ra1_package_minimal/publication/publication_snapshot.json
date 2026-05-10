@@ -1,0 +1,15 @@
+{
+  "schema": "pulse_ref_publication_snapshot_v0",
+  "snapshot_created_utc": "2026-05-09T00:00:00Z",
+  "package_id": "pulse-ref-ra1-minimal",
+  "run_key": "pulse-ref-ra1-minimal-fixture",
+  "git_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "quality_ledger_url": "https://hkati.github.io/pulse-release-gates-0.1/",
+  "status_json_url": "https://hkati.github.io/pulse-release-gates-0.1/status.json",
+  "release_authority_manifest_url": "https://hkati.github.io/pulse-release-gates-0.1/release_authority_manifest.json",
+  "audit_bundle_url": "https://hkati.github.io/pulse-release-gates-0.1/audit_bundle/",
+  "operator_handoff_report_url": "https://hkati.github.io/pulse-release-gates-0.1/operator_handoff_report.json",
+  "ci_outcome_url": "https://github.com/HKati/pulse-release-gates-0.1/actions/runs/22560000001",
+  "publication_surface": "github_pages_fixture",
+  "creates_release_authority": false
+}
