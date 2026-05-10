@@ -432,7 +432,7 @@ def main() -> int:
         test_release_authority_manifest_matches_package_core,
         test_ci_outcome_and_publication_snapshot_preserve_boundary,
         test_package_digests_match_current_fixture_artifacts,
-        test_package_manifest_matches_current_fixture_artifact
+        test_package_manifest_matches_current_fixture_artifacts,
     ]
     
     
