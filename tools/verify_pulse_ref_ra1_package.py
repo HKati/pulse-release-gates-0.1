@@ -73,6 +73,48 @@ def _is_safe_relative_path(value: Any) -> bool:
 
     return True
 
+def _is_sha256(value: Any) -> bool:
+    if not isinstance(value, str):
+        return False
+    if len(value) != 64:
+        return False
+    return all(char in "0123456789abcdef" for char in value)
+
+
+def _report_safe_sha256(value: Any) -> str:
+    return value if _is_sha256(value) else "0" * 64
+
+
+def _resolve_package_artifact(
+    package_root: Path,
+    artifact_path: str,
+) -> tuple[Path | None, str | None]:
+    if not _is_safe_relative_path(artifact_path):
+        return None, f"unsafe artifact path: {artifact_path!r}"
+
+    try:
+        resolved_root = package_root.resolve(strict=True)
+    except FileNotFoundError:
+        return None, f"package root does not exist: {package_root}"
+
+    candidate = resolved_root / artifact_path
+
+    try:
+        resolved_candidate = candidate.resolve(strict=True)
+    except FileNotFoundError:
+        return candidate, None
+    except OSError as exc:
+        return None, f"could not resolve artifact path {artifact_path!r}: {exc}"
+
+    try:
+        resolved_candidate.relative_to(resolved_root)
+    except ValueError:
+        return None, (
+            f"artifact path {artifact_path!r} resolves outside package root: "
+            f"{resolved_candidate}"
+        )
+
+    return resolved_candidate, None
 
 def _package_path(package_root: Path, rel_path: str) -> Path:
     return package_root / rel_path
@@ -151,34 +193,46 @@ def _digest_check(
     source: str,
     errors: list[str],
 ) -> dict[str, Any]:
-    if not _is_safe_relative_path(artifact_path):
-        message = f"unsafe artifact path: {artifact_path!r}"
-        errors.append(message)
-        return {
-            "artifact_path": artifact_path if isinstance(artifact_path, str) else "<invalid>",
-            "expected_sha256": expected_sha256,
-            "actual_sha256": None,
-            "ok": False,
-            "source": source,
-            "message": message,
-        }
+    report_expected_sha256 = _report_safe_sha256(expected_sha256)
+    expected_sha256_valid = _is_sha256(expected_sha256)
 
-    actual_sha256 = _sha256_file(_package_path(package_root, artifact_path))
-    ok = actual_sha256 == expected_sha256
+    artifact_file, path_error = _resolve_package_artifact(package_root, artifact_path)
+
+    actual_sha256 = _sha256_file(artifact_file) if artifact_file is not None else None
+
+    ok = (
+        path_error is None
+        and expected_sha256_valid
+        and actual_sha256 == expected_sha256
+    )
 
     result: dict[str, Any] = {
-        "artifact_path": artifact_path,
-        "expected_sha256": expected_sha256,
+        "artifact_path": artifact_path if isinstance(artifact_path, str) else "<invalid>",
+        "expected_sha256": report_expected_sha256,
         "actual_sha256": actual_sha256,
         "ok": ok,
         "source": source,
     }
 
-    if not ok:
-        message = (
+    messages: list[str] = []
+
+    if path_error is not None:
+        messages.append(path_error)
+
+    if not expected_sha256_valid:
+        messages.append(
+            f"{artifact_path} expected_sha256 is not a lowercase SHA-256 digest: "
+            f"{expected_sha256!r}"
+        )
+
+    if path_error is None and expected_sha256_valid and actual_sha256 != expected_sha256:
+        messages.append(
             f"{artifact_path} digest mismatch: "
             f"expected={expected_sha256} actual={actual_sha256}"
         )
+
+    if messages:
+        message = "; ".join(messages)
         errors.append(message)
         result["message"] = message
 
@@ -218,7 +272,6 @@ def _check_package_id_consistency(
         result["message"] = message
 
     return result
-
 
 def _check_authority_boundary(
     *,
