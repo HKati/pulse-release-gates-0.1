@@ -4,7 +4,7 @@
   "created_utc": "2026-05-09T00:00:00Z",
   "package_id": "pulse-ref-ra1-minimal",
   "artifacts": {
-    "README.md": "031bd247d8d2a9c5a11a49483d1d4f888ff6084f057c054e5f8faf9fe366643d",
+    "README.md": "e0ad9c8fb414ff25641fc699834185f5d1d71a69c51008f2fc82d265e5346224",
     "status/status.json": "f691f35160927cf029028159b78a59be1655a8dad6aeece743a027043a0feb8b",
     "policy/pulse_gate_policy_v0.yml": "b5bb00d060382c88fa2f944dbd3df21591acf0d437cbc0fec8c4be58b430e2f4",
     "policy/pulse_gate_registry_v0.yml": "d5fef7e1eb9623102a2f5931f31eac87ea7a2ab3bc58a485a07be374bd4ef12d",
