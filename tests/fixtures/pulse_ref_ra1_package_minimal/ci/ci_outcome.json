@@ -1,0 +1,20 @@
+{
+  "schema": "pulse_ref_ci_outcome_v0",
+  "provider": "github_actions",
+  "workflow": "PULSE CI",
+  "run_id": "22560000001",
+  "run_attempt": 1,
+  "run_url": "https://github.com/HKati/pulse-release-gates-0.1/actions/runs/22560000001",
+  "repository": "HKati/pulse-release-gates-0.1",
+  "commit_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "gate_check_job": "Tools smoke tests",
+  "gate_check_conclusion": "success",
+  "created_utc": "2026-05-09T00:00:00Z",
+  "started_utc": "2026-05-09T00:00:00Z",
+  "completed_utc": "2026-05-09T00:00:03Z",
+  "authority_boundary": {
+    "normative_decision_path": "status.json -> declared gate policy -> materialized required gates -> strict gate checking -> CI outcome",
+    "ci_role": "records_declared_policy_enforcement",
+    "creates_release_authority": false
+  }
+}
