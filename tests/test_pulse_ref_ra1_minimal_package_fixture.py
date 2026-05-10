@@ -76,6 +76,7 @@ def _unique_preserve_order(items: list[str]) -> list[str]:
 def test_expected_ra1_minimal_package_artifacts_exist() -> None:
     expected = [
         "README.md",
+        "package_manifest.json",
         "status/status.json",
         "policy/pulse_gate_policy_v0.yml",
         "policy/pulse_gate_registry_v0.yml",
@@ -98,6 +99,10 @@ def test_expected_ra1_minimal_package_artifacts_exist() -> None:
 
 def test_ra1_minimal_package_json_artifacts_validate_schemas() -> None:
     targets = [
+        (
+            "package_manifest.json",
+            "schemas/pulse_ref_release_reference_package_v0.schema.json",
+        ),
         (
             "gates/materialized_gate_sets.json",
             "schemas/pulse_ref_materialized_gate_sets_v0.schema.json",
@@ -352,6 +357,70 @@ def test_package_digests_match_current_fixture_artifacts() -> None:
 
     assert mismatches == []
 
+def test_package_manifest_matches_current_fixture_artifacts() -> None:
+    manifest = _read_json("package_manifest.json")
+
+    assert manifest["schema"] == "pulse_ref_release_reference_package_v0"
+    assert manifest["package_id"] == "pulse-ref-ra1-minimal"
+    assert manifest["run_key"] == "pulse-ref-ra1-minimal-fixture"
+    assert manifest["git_sha"] == "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+
+    expected_refs = {
+        "status_artifact": "status/status.json",
+        "gate_policy": "policy/pulse_gate_policy_v0.yml",
+        "gate_registry": "policy/pulse_gate_registry_v0.yml",
+        "materialized_gate_sets": "gates/materialized_gate_sets.json",
+        "operator_handoff_report": "handoff/operator_handoff_report.json",
+        "release_authority_manifest": "release_authority/release_authority_manifest.json",
+        "ci_outcome": "ci/ci_outcome.json",
+        "publication_snapshot": "publication/publication_snapshot.json",
+        "package_digests": "digests/package_digests.json",
+    }
+
+    mismatches = []
+
+    for field, rel_path in expected_refs.items():
+        artifact_ref = manifest[field]
+
+        if artifact_ref["path"] != rel_path:
+            mismatches.append(
+                {
+                    "field": field,
+                    "expected_path": rel_path,
+                    "actual_path": artifact_ref["path"],
+                }
+            )
+            continue
+
+        actual_sha = _sha256_file(_artifact(rel_path))
+        expected_sha = artifact_ref["sha256"]
+
+        if actual_sha != expected_sha:
+            mismatches.append(
+                {
+                    "field": field,
+                    "path": rel_path,
+                    "expected_sha": expected_sha,
+                    "actual_sha": actual_sha,
+                }
+            )
+
+    assert mismatches == []
+
+    boundary = manifest["authority_boundary"]
+    assert boundary["package_role"] == "audit_preservation_reconstruction"
+    assert boundary["creates_release_authority"] is False
+
+    ci_outcome = _read_json("ci/ci_outcome.json")
+    publication = _read_json("publication/publication_snapshot.json")
+    release_authority = _read_json("release_authority/release_authority_manifest.json")
+
+    assert manifest["git_sha"] == ci_outcome["commit_sha"]
+    assert manifest["git_sha"] == publication["git_sha"]
+    assert manifest["git_sha"] == release_authority["run_identity"]["git_sha"]
+
+    assert manifest["run_key"] == publication["run_key"]
+
 def main() -> int:
     tests = [
         test_expected_ra1_minimal_package_artifacts_exist,
@@ -363,6 +432,7 @@ def main() -> int:
         test_release_authority_manifest_matches_package_core,
         test_ci_outcome_and_publication_snapshot_preserve_boundary,
         test_package_digests_match_current_fixture_artifacts,
+        test_package_manifest_matches_current_fixture_artifact
     ]
     
     
