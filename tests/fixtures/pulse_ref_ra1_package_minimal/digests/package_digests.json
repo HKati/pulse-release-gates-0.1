@@ -9,7 +9,7 @@
     "policy/pulse_gate_policy_v0.yml": "b5bb00d060382c88fa2f944dbd3df21591acf0d437cbc0fec8c4be58b430e2f4",
     "policy/pulse_gate_registry_v0.yml": "d5fef7e1eb9623102a2f5931f31eac87ea7a2ab3bc58a485a07be374bd4ef12d",
     "gates/materialized_gate_sets.json": "a8fe356f2a610d6cb2745fe7f7b5857c8c39969b55da3d9da4b6e2213c6eed9f",
-    "handoff/operator_handoff_report.json": "e79974738ac7f8d2099b939870734d9f90eb7d1bcf046b6b12c25bf5de234917"
+    "handoff/operator_handoff_report.json": "e79974738ac7f8d2099b939870734d9f90eb7d1bcf046b6b12c25bf5de234917",
     "release_authority/release_authority_manifest.json": "0b086ba9a75bff347f969883cda6c1a512f4a4827718536fb915ecf39e4bedf3",
     "ci/ci_outcome.json": "c7e6421f0bf9ec6d7ba32db2416f06ea413adbef85420f8932782e628cf5da03",
     "publication/publication_snapshot.json": "56468e6014a39b7435d07d975b0c293842febf2af23bcc8cdf0843160f2898c2"
