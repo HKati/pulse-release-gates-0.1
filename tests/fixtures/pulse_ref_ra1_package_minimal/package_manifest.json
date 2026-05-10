@@ -1,0 +1,48 @@
+{
+  "schema": "pulse_ref_release_reference_package_v0",
+  "package_id": "pulse-ref-ra1-minimal",
+  "created_utc": "2026-05-09T00:00:00Z",
+  "run_key": "pulse-ref-ra1-minimal-fixture",
+  "git_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "status_artifact": {
+    "path": "status/status.json",
+    "sha256": "f691f35160927cf029028159b78a59be1655a8dad6aeece743a027043a0feb8b"
+  },
+  "gate_policy": {
+    "path": "policy/pulse_gate_policy_v0.yml",
+    "sha256": "b5bb00d060382c88fa2f944dbd3df21591acf0d437cbc0fec8c4be58b430e2f4"
+  },
+  "gate_registry": {
+    "path": "policy/pulse_gate_registry_v0.yml",
+    "sha256": "d5fef7e1eb9623102a2f5931f31eac87ea7a2ab3bc58a485a07be374bd4ef12d"
+  },
+  "materialized_gate_sets": {
+    "path": "gates/materialized_gate_sets.json",
+    "sha256": "a8fe356f2a610d6cb2745fe7f7b5857c8c39969b55da3d9da4b6e2213c6eed9f"
+  },
+  "operator_handoff_report": {
+    "path": "handoff/operator_handoff_report.json",
+    "sha256": "e79974738ac7f8d2099b939870734d9f90eb7d1bcf046b6b12c25bf5de234917"
+  },
+  "release_authority_manifest": {
+    "path": "release_authority/release_authority_manifest.json",
+    "sha256": "0b086ba9a75bff347f969883cda6c1a512f4a4827718536fb915ecf39e4bedf3"
+  },
+  "ci_outcome": {
+    "path": "ci/ci_outcome.json",
+    "sha256": "c7e6421f0bf9ec6d7ba32db2416f06ea413adbef85420f8932782e628cf5da03"
+  },
+  "publication_snapshot": {
+    "path": "publication/publication_snapshot.json",
+    "sha256": "56468e6014a39b7435d07d975b0c293842febf2af23bcc8cdf0843160f2898c2"
+  },
+  "package_digests": {
+    "path": "digests/package_digests.json",
+    "sha256": "4bf66efc9d72366932f3edf9704a6d8d0662ef1b1fec04dc0cbe92e1ace1237a"
+  },
+  "authority_boundary": {
+    "normative_decision_path": "status.json -> declared gate policy -> materialized required gates -> strict gate checking -> CI outcome",
+    "package_role": "audit_preservation_reconstruction",
+    "creates_release_authority": false
+  }
+}
