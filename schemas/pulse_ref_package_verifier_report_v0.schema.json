@@ -1,0 +1,243 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pulse-ref.local/schemas/pulse_ref_package_verifier_report_v0.schema.json",
+  "title": "PULSE-REF Package Verifier Report v0",
+  "type": "object",
+  "required": [
+    "schema",
+    "ok",
+    "package_root",
+    "checked_utc",
+    "schemas_validated",
+    "artifact_digests_checked",
+    "cross_artifact_checks",
+    "warnings",
+    "errors",
+    "authority_boundary"
+  ],
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "ok": {
+            "const": true
+          }
+        },
+        "required": [
+          "ok"
+        ]
+      },
+      "then": {
+        "properties": {
+          "errors": {
+            "type": "array",
+            "maxItems": 0
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "ok": {
+            "const": false
+          }
+        },
+        "required": [
+          "ok"
+        ]
+      },
+      "then": {
+        "properties": {
+          "errors": {
+            "type": "array",
+            "minItems": 1
+          }
+        }
+      }
+    }
+  ],
+  "properties": {
+    "schema": {
+      "const": "pulse_ref_package_verifier_report_v0"
+    },
+    "ok": {
+      "type": "boolean"
+    },
+    "package_root": {
+      "type": "string",
+      "minLength": 1
+    },
+    "package_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "run_key": {
+      "type": "string",
+      "minLength": 1
+    },
+    "git_sha": {
+      "$ref": "#/$defs/git_sha"
+    },
+    "checked_utc": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "schemas_validated": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/schema_check"
+      }
+    },
+    "artifact_digests_checked": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/digest_check"
+      }
+    },
+    "cross_artifact_checks": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/check_result"
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/message"
+      }
+    },
+    "errors": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/message"
+      }
+    },
+    "authority_boundary": {
+      "type": "object",
+      "required": [
+        "verifier_role",
+        "creates_release_authority"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "verifier_role": {
+          "const": "external_reconstruction_check"
+        },
+        "creates_release_authority": {
+          "const": false
+        }
+      }
+    }
+  },
+  "$defs": {
+    "message": {
+      "type": "string",
+      "minLength": 1
+    },
+    "relative_path": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?!.*\\\\)(?!.*(?:^|/)\\.\\.(?:/|$)).+$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "nullable_sha256": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/sha256"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "git_sha": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{40}$"
+    },
+    "check_result": {
+      "type": "object",
+      "required": [
+        "name",
+        "ok"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "ok": {
+          "type": "boolean"
+        },
+        "path": {
+          "$ref": "#/$defs/relative_path"
+        },
+        "message": {
+          "$ref": "#/$defs/message"
+        }
+      }
+    },
+    "schema_check": {
+      "type": "object",
+      "required": [
+        "artifact_path",
+        "schema_path",
+        "ok"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "artifact_path": {
+          "$ref": "#/$defs/relative_path"
+        },
+        "schema_path": {
+          "$ref": "#/$defs/relative_path"
+        },
+        "ok": {
+          "type": "boolean"
+        },
+        "message": {
+          "$ref": "#/$defs/message"
+        }
+      }
+    },
+    "digest_check": {
+      "type": "object",
+      "required": [
+        "artifact_path",
+        "expected_sha256",
+        "actual_sha256",
+        "ok"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "artifact_path": {
+          "$ref": "#/$defs/relative_path"
+        },
+        "expected_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "actual_sha256": {
+          "$ref": "#/$defs/nullable_sha256"
+        },
+        "ok": {
+          "type": "boolean"
+        },
+        "source": {
+          "type": "string",
+          "enum": [
+            "package_manifest",
+            "package_digests"
+          ]
+        },
+        "message": {
+          "$ref": "#/$defs/message"
+        }
+      }
+    }
+  }
+}
