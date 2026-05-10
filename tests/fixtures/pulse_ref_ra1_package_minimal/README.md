@@ -1,12 +1,12 @@
 # PULSE-REF RA1 Minimal Release-Reference Package Fixture
 
-Status: partially populated RA1 fixture  
+Status: manifest-bound RA1 minimal fixture  
 Scope: PULSE-REF RA1 externally verifiable release-reference package  
 Authority: non-normative test fixture / package-layout anchor
 
 ## Purpose
 
-This fixture directory is the target location for the first minimal PULSE-REF RA1 release-reference package.
+This fixture directory contains the current minimal PULSE-REF RA1 release-reference package.
 
 RA1 packages bind the artifacts needed for external reconstruction of the PULSE release-authority path:
 
@@ -23,9 +23,9 @@ The package preserves and verifies the release decision trail.
 
 It does not create release authority.
 
-## Intended package layout
+## Package layout
 
-The minimal RA1 package fixture uses this target layout:
+The minimal RA1 package fixture uses this layout:
 
 ```text
 pulse_ref_ra1_package_minimal/
@@ -57,6 +57,7 @@ pulse_ref_ra1_package_minimal/
 The fixture currently includes these package artifacts:
 
 ```text
+package_manifest.json
 status/status.json
 policy/pulse_gate_policy_v0.yml
 policy/pulse_gate_registry_v0.yml
@@ -65,6 +66,7 @@ handoff/operator_handoff_report.json
 release_authority/release_authority_manifest.json
 ci/ci_outcome.json
 publication/publication_snapshot.json
+digests/package_digests.json
 ```
 
 These artifacts establish the current RA1 minimal package chain:
@@ -77,20 +79,51 @@ status.json
 -> release authority manifest
 -> CI outcome
 -> publication snapshot
+-> package digest manifest
+-> package manifest
 ```
 
-## Pending package artifacts
+## Digest binding
 
-The fixture intentionally does not yet include:
+The fixture includes:
 
 ```text
-package_manifest.json
 digests/package_digests.json
 ```
 
-These should be added only after the currently populated artifacts are stable enough to be bound by digest.
+The digest manifest records SHA-256 bindings for the current fixture payload artifacts.
 
-The package manifest and digest manifest will bind the package into a stronger externally verifiable artifact set.
+It intentionally does not hash itself.
+
+It also intentionally does not hash `package_manifest.json` in this fixture version, because the package manifest references the digest manifest. Avoiding a circular digest relationship keeps this minimal hand-authored fixture stable and externally checkable.
+
+The package manifest records the SHA-256 of the digest manifest instead.
+
+## Package manifest binding
+
+The fixture includes:
+
+```text
+package_manifest.json
+```
+
+The package manifest binds the current RA1 package artifacts:
+
+```text
+status artifact
+packaged gate policy
+gate registry
+materialized gate sets
+operator handoff report
+release authority manifest
+CI outcome
+publication snapshot
+package digest manifest
+```
+
+The package manifest is an audit / preservation / reconstruction artifact.
+
+It does not authorize release independently.
 
 ## Optional or later-stage areas
 
@@ -124,6 +157,8 @@ status artifact satisfies all effective required gates
 handoff report matches status and materialized gate-set artifacts
 release authority manifest matches the package core
 CI outcome and publication snapshot preserve the non-authority boundary
+package_digests.json matches current fixture artifact byte contents
+package_manifest.json references existing artifacts with matching SHA-256 values
 ```
 
 This test is registered in:
@@ -136,16 +171,14 @@ so the fixture validation runs in the tools smoke suite.
 
 ## Verification intent
 
-Future package-level validation should extend the current fixture checks to include:
+Future package-level validation may extend the current fixture checks to include:
 
 ```text
-package_digests.json matches artifact byte contents
-package_manifest.json references existing artifacts
-package_manifest.json references the package digest manifest
-status digest matches operator handoff status_source digest
-policy digest matches materialized gate-set metadata
-CI outcome is bound to the same run identity
-publication snapshot does not create release authority
+audit bundle contents
+external evidence artifacts
+external verifier instructions
+package generator output parity
+publication snapshot links to package manifest and package digests
 ```
 
 ## Authority boundary
@@ -185,18 +218,6 @@ They do not authorize release independently.
 
 ## Current state
 
-The RA1 minimal package fixture is partially populated and actively smoke-tested.
+The RA1 minimal package fixture is populated through package manifest and digest manifest binding and is actively smoke-tested.
 
-The next implementation step should add digest binding:
-
-```text
-digests/package_digests.json
-```
-
-After that, the package manifest can be added:
-
-```text
-package_manifest.json
-```
-
-The package manifest should reference the populated artifacts and the digest manifest without creating release authority.
+The next implementation step should move from fixture validation toward a package generator or verifier workflow that can produce and check the same artifact structure automatically.
