@@ -605,6 +605,7 @@ def _check_status_satisfies_effective_required_gates(
         errors=errors,
     )
 
+
 def _check_handoff_matches_status_and_gate_sets(
     *,
     package_root: Path,
@@ -857,14 +858,14 @@ def verify_package(package_root: Path) -> dict[str, Any]:
                 errors=errors,
             )
         )
-       cross_artifact_checks.append(
+        cross_artifact_checks.append(
             _check_handoff_matches_status_and_gate_sets(
                 package_root=package_root,
                 manifest=manifest,
                 errors=errors,
             )
         )
-   
+
         authority_boundary = manifest.get("authority_boundary")
         creates_release_authority = (
             authority_boundary.get("creates_release_authority")
@@ -898,7 +899,7 @@ def verify_package(package_root: Path) -> dict[str, Any]:
                         source="package_digests",
                         errors=errors,
                     )
-                )     
+                )
 
         authority_boundary = digests.get("authority_boundary")
         creates_release_authority = (
