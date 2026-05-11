@@ -128,6 +128,7 @@ def test_valid_ra1_minimal_package_verifies() -> None:
 
         assert "materialized_gate_sets_match_policy" in cross_check_names
         assert "status_satisfies_effective_required_gates" in cross_check_names
+        assert "handoff_matches_status_and_gate_sets" in cross_check_names
 
 def test_digest_mismatch_fails_with_schema_valid_report() -> None:
     with tempfile.TemporaryDirectory(prefix="pulse-ra1-verifier-") as tmp:
@@ -418,6 +419,107 @@ def test_materialized_gate_set_policy_mismatch_fails_with_schema_valid_report() 
         assert gate_set_checks[0]["ok"] is False
         assert "sets.required does not match" in gate_set_checks[0]["message"]
 
+def test_handoff_status_digest_mismatch_fails_with_schema_valid_report() -> None:
+    with tempfile.TemporaryDirectory(prefix="pulse-ra1-verifier-") as tmp:
+        tmp_path = Path(tmp)
+        package_copy = tmp_path / "package"
+        out_path = tmp_path / "verifier_report.handoff_status_digest.json"
+
+        shutil.copytree(PACKAGE, package_copy)
+
+        handoff_path = package_copy / "handoff" / "operator_handoff_report.json"
+        handoff = _read_json(handoff_path)
+        handoff["status_source"]["status_sha256_before_run"] = "0" * 64
+        _write_json(handoff_path, handoff)
+
+        handoff_sha = _sha256_file(handoff_path)
+
+        digests_path = package_copy / "digests" / "package_digests.json"
+        digests = _read_json(digests_path)
+        digests["artifacts"]["handoff/operator_handoff_report.json"] = handoff_sha
+        _write_json(digests_path, digests)
+
+        digests_sha = _sha256_file(digests_path)
+
+        manifest_path = package_copy / "package_manifest.json"
+        manifest = _read_json(manifest_path)
+        manifest["operator_handoff_report"]["sha256"] = handoff_sha
+        manifest["package_digests"]["sha256"] = digests_sha
+        _write_json(manifest_path, manifest)
+
+        result = _run(package_copy, out_path)
+
+        assert result.returncode == 1
+        assert out_path.exists()
+
+        report = _read_json(out_path)
+        _validate_report(report)
+
+        assert report["ok"] is False
+
+        handoff_checks = [
+            check
+            for check in report["cross_artifact_checks"]
+            if check["name"] == "handoff_matches_status_and_gate_sets"
+        ]
+
+        assert len(handoff_checks) == 1
+        assert handoff_checks[0]["ok"] is False
+        assert "status_sha256_before_run mismatch" in handoff_checks[0]["message"]
+
+
+def test_handoff_effective_required_gates_mismatch_fails_with_schema_valid_report() -> None:
+    with tempfile.TemporaryDirectory(prefix="pulse-ra1-verifier-") as tmp:
+        tmp_path = Path(tmp)
+        package_copy = tmp_path / "package"
+        out_path = tmp_path / "verifier_report.handoff_effective_gates.json"
+
+        shutil.copytree(PACKAGE, package_copy)
+
+        handoff_path = package_copy / "handoff" / "operator_handoff_report.json"
+        handoff = _read_json(handoff_path)
+        handoff["effective_required_gates"] = [
+            gate_id
+            for gate_id in handoff["effective_required_gates"]
+            if gate_id != "q4_slo_ok"
+        ]
+        _write_json(handoff_path, handoff)
+
+        handoff_sha = _sha256_file(handoff_path)
+
+        digests_path = package_copy / "digests" / "package_digests.json"
+        digests = _read_json(digests_path)
+        digests["artifacts"]["handoff/operator_handoff_report.json"] = handoff_sha
+        _write_json(digests_path, digests)
+
+        digests_sha = _sha256_file(digests_path)
+
+        manifest_path = package_copy / "package_manifest.json"
+        manifest = _read_json(manifest_path)
+        manifest["operator_handoff_report"]["sha256"] = handoff_sha
+        manifest["package_digests"]["sha256"] = digests_sha
+        _write_json(manifest_path, manifest)
+
+        result = _run(package_copy, out_path)
+
+        assert result.returncode == 1
+        assert out_path.exists()
+
+        report = _read_json(out_path)
+        _validate_report(report)
+
+        assert report["ok"] is False
+
+        handoff_checks = [
+            check
+            for check in report["cross_artifact_checks"]
+            if check["name"] == "handoff_matches_status_and_gate_sets"
+        ]
+
+        assert len(handoff_checks) == 1
+        assert handoff_checks[0]["ok"] is False
+        assert "effective_required_gates does not match" in handoff_checks[0]["message"]
+
 def main() -> int:
     tests = [
         test_valid_ra1_minimal_package_verifies,
@@ -427,6 +529,8 @@ def main() -> int:
         test_schema_invalid_package_artifact_fails_with_schema_valid_report,
         test_false_effective_required_gate_fails_with_schema_valid_report,
         test_materialized_gate_set_policy_mismatch_fails_with_schema_valid_report,
+        test_handoff_status_digest_mismatch_fails_with_schema_valid_report,
+        test_handoff_effective_required_gates_mismatch_fails_with_schema_valid_report,
     ]
 
     try:

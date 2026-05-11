@@ -606,6 +606,130 @@ def _check_status_satisfies_effective_required_gates(
     )
 
 
+def _check_handoff_matches_status_and_gate_sets(
+    *,
+    package_root: Path,
+    manifest: dict[str, Any],
+    errors: list[str],
+) -> dict[str, Any]:
+    handoff_path = _manifest_artifact_path(manifest, "operator_handoff_report")
+    status_path = _manifest_artifact_path(manifest, "status_artifact")
+    gate_sets_path = _manifest_artifact_path(manifest, "materialized_gate_sets")
+
+    if handoff_path is None or status_path is None or gate_sets_path is None:
+        return _cross_check_result(
+            name="handoff_matches_status_and_gate_sets",
+            ok=False,
+            path="handoff/operator_handoff_report.json",
+            message=(
+                "package manifest must reference operator_handoff_report, "
+                "status_artifact, and materialized_gate_sets"
+            ),
+            errors=errors,
+        )
+
+    handoff, handoff_error = _load_package_json_artifact(package_root, handoff_path)
+    if handoff_error is not None or handoff is None:
+        return _cross_check_result(
+            name="handoff_matches_status_and_gate_sets",
+            ok=False,
+            path=handoff_path,
+            message=handoff_error or f"could not load handoff artifact: {handoff_path}",
+            errors=errors,
+        )
+
+    gate_sets, gate_sets_error = _load_package_json_artifact(package_root, gate_sets_path)
+    if gate_sets_error is not None or gate_sets is None:
+        return _cross_check_result(
+            name="handoff_matches_status_and_gate_sets",
+            ok=False,
+            path=gate_sets_path,
+            message=gate_sets_error or f"could not load gate sets: {gate_sets_path}",
+            errors=errors,
+        )
+
+    status_file, status_path_error = _resolve_package_artifact(package_root, status_path)
+    if status_path_error is not None or status_file is None:
+        return _cross_check_result(
+            name="handoff_matches_status_and_gate_sets",
+            ok=False,
+            path=status_path,
+            message=status_path_error or f"could not resolve status path: {status_path}",
+            errors=errors,
+        )
+
+    status_sha = _sha256_file(status_file)
+    failures: list[str] = []
+
+    if handoff.get("ok") is not True:
+        failures.append(f"handoff ok must be true, found {handoff.get('ok')!r}")
+
+    if handoff.get("gate_mode") != "release-grade":
+        failures.append(
+            f"handoff gate_mode must be 'release-grade', found {handoff.get('gate_mode')!r}"
+        )
+
+    status_source = handoff.get("status_source")
+    if not isinstance(status_source, dict):
+        failures.append("handoff status_source must be an object")
+        status_source = {}
+
+    if status_source.get("mode") != "existing":
+        failures.append(
+            f"handoff status_source.mode must be 'existing', "
+            f"found {status_source.get('mode')!r}"
+        )
+
+    if status_source.get("status_path") != status_path:
+        failures.append(
+            f"handoff status_source.status_path mismatch: "
+            f"expected {status_path!r}, found {status_source.get('status_path')!r}"
+        )
+
+    for field in (
+        "status_sha256_before_run",
+        "status_sha256_after_generation",
+        "status_sha256_after_run",
+    ):
+        if status_source.get(field) != status_sha:
+            failures.append(
+                f"handoff status_source.{field} mismatch: "
+                f"expected {status_sha!r}, found {status_source.get(field)!r}"
+            )
+
+    sets = gate_sets.get("sets")
+    if not isinstance(sets, dict):
+        failures.append("materialized gate sets must contain object-valued sets")
+        sets = {}
+
+    if handoff.get("materialized_gate_sets") != sets:
+        failures.append("handoff materialized_gate_sets does not match package gate sets")
+
+    if handoff.get("effective_required_gates") != gate_sets.get("effective_required_gates"):
+        failures.append(
+            "handoff effective_required_gates does not match package gate sets"
+        )
+
+    boundary = handoff.get("authority_boundary")
+    creates_release_authority = (
+        boundary.get("creates_release_authority")
+        if isinstance(boundary, dict)
+        else None
+    )
+    if creates_release_authority is not False:
+        failures.append(
+            "handoff authority_boundary.creates_release_authority must be false"
+        )
+
+    return _cross_check_result(
+        name="handoff_matches_status_and_gate_sets",
+        ok=failures == [],
+        path=handoff_path,
+        message="; ".join(failures) if failures else None,
+        errors=errors,
+    )
+
+
 def verify_package(package_root: Path) -> dict[str, Any]:
     package_root = package_root.resolve()
 
@@ -729,6 +853,13 @@ def verify_package(package_root: Path) -> dict[str, Any]:
         )
         cross_artifact_checks.append(
             _check_status_satisfies_effective_required_gates(
+                package_root=package_root,
+                manifest=manifest,
+                errors=errors,
+            )
+        )
+        cross_artifact_checks.append(
+            _check_handoff_matches_status_and_gate_sets(
                 package_root=package_root,
                 manifest=manifest,
                 errors=errors,
