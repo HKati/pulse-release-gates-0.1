@@ -108,6 +108,18 @@ def test_valid_ra1_minimal_package_verifies() -> None:
         assert "package_manifest" in digest_sources
         assert "package_digests" in digest_sources
 
+        schema_paths = {
+            check["artifact_path"]
+            for check in report["schemas_validated"]
+        }
+
+        assert "package_manifest.json" in schema_paths
+        assert "digests/package_digests.json" in schema_paths
+        assert "gates/materialized_gate_sets.json" in schema_paths
+        assert "handoff/operator_handoff_report.json" in schema_paths
+        assert "release_authority/release_authority_manifest.json" in schema_paths
+        assert "ci/ci_outcome.json" in schema_paths
+        assert "publication/publication_snapshot.json" in schema_paths
 
 def test_digest_mismatch_fails_with_schema_valid_report() -> None:
     with tempfile.TemporaryDirectory(prefix="pulse-ra1-verifier-") as tmp:
@@ -242,12 +254,64 @@ def test_malformed_digest_string_fails_with_schema_valid_report() -> None:
         assert status_checks[0]["ok"] is False
         assert status_checks[0]["expected_sha256"] == "0" * 64
 
+def test_schema_invalid_package_artifact_fails_with_schema_valid_report() -> None:
+    with tempfile.TemporaryDirectory(prefix="pulse-ra1-verifier-") as tmp:
+        tmp_path = Path(tmp)
+        package_copy = tmp_path / "package"
+        out_path = tmp_path / "verifier_report.schema_fail.json"
+
+        shutil.copytree(PACKAGE, package_copy)
+
+        publication_path = package_copy / "publication" / "publication_snapshot.json"
+        publication = _read_json(publication_path)
+        publication["creates_release_authority"] = True
+        _write_json(publication_path, publication)
+
+        publication_sha = _sha256_file(publication_path)
+
+        digests_path = package_copy / "digests" / "package_digests.json"
+        digests = _read_json(digests_path)
+        digests["artifacts"]["publication/publication_snapshot.json"] = publication_sha
+        _write_json(digests_path, digests)
+
+        digests_sha = _sha256_file(digests_path)
+
+        manifest_path = package_copy / "package_manifest.json"
+        manifest = _read_json(manifest_path)
+        manifest["publication_snapshot"]["sha256"] = publication_sha
+        manifest["package_digests"]["sha256"] = digests_sha
+        _write_json(manifest_path, manifest)
+
+        result = _run(package_copy, out_path)
+
+        assert result.returncode == 1
+        assert out_path.exists()
+
+        report = _read_json(out_path)
+        _validate_report(report)
+
+        assert report["ok"] is False
+
+        publication_schema_checks = [
+            check
+            for check in report["schemas_validated"]
+            if check["artifact_path"] == "publication/publication_snapshot.json"
+        ]
+
+        assert len(publication_schema_checks) == 1
+        assert publication_schema_checks[0]["ok"] is False
+        assert any(
+            "publication/publication_snapshot.json schema validation failed" in error
+            for error in report["errors"]
+        )
+
 def main() -> int:
     tests = [
         test_valid_ra1_minimal_package_verifies,
         test_digest_mismatch_fails_with_schema_valid_report,
         test_symlinked_artifact_outside_package_root_fails_with_schema_valid_report,
         test_malformed_digest_string_fails_with_schema_valid_report,
+        test_schema_invalid_package_artifact_fails_with_schema_valid_report,
     ]
 
     try:

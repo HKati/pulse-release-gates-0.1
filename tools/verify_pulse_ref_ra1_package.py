@@ -20,11 +20,31 @@ PACKAGE_MANIFEST_SCHEMA = (
 PACKAGE_DIGESTS_SCHEMA = (
     REPO_ROOT / "schemas" / "pulse_ref_package_digests_v0.schema.json"
 )
-
+MATERIALIZED_GATE_SETS_SCHEMA = (
+    REPO_ROOT / "schemas" / "pulse_ref_materialized_gate_sets_v0.schema.json"
+)
+OPERATOR_HANDOFF_REPORT_SCHEMA = (
+    REPO_ROOT / "schemas" / "pulse_ref_operator_handoff_report_v0.schema.json"
+)
+RELEASE_AUTHORITY_SCHEMA = REPO_ROOT / "schemas" / "release_authority_v0.schema.json"
+CI_OUTCOME_SCHEMA = REPO_ROOT / "schemas" / "pulse_ref_ci_outcome_v0.schema.json"
+PUBLICATION_SNAPSHOT_SCHEMA = (
+    REPO_ROOT / "schemas" / "pulse_ref_publication_snapshot_v0.schema.json"
+)
 
 PACKAGE_MANIFEST_SCHEMA_PATH = "schemas/pulse_ref_release_reference_package_v0.schema.json"
 PACKAGE_DIGESTS_SCHEMA_PATH = "schemas/pulse_ref_package_digests_v0.schema.json"
-
+MATERIALIZED_GATE_SETS_SCHEMA_PATH = (
+    "schemas/pulse_ref_materialized_gate_sets_v0.schema.json"
+)
+OPERATOR_HANDOFF_REPORT_SCHEMA_PATH = (
+    "schemas/pulse_ref_operator_handoff_report_v0.schema.json"
+)
+RELEASE_AUTHORITY_SCHEMA_PATH = "schemas/release_authority_v0.schema.json"
+CI_OUTCOME_SCHEMA_PATH = "schemas/pulse_ref_ci_outcome_v0.schema.json"
+PUBLICATION_SNAPSHOT_SCHEMA_PATH = (
+    "schemas/pulse_ref_publication_snapshot_v0.schema.json"
+)
 
 ARTIFACT_REF_FIELDS = [
     "status_artifact",
@@ -36,6 +56,34 @@ ARTIFACT_REF_FIELDS = [
     "ci_outcome",
     "publication_snapshot",
     "package_digests",
+]
+
+ARTIFACT_SCHEMA_TARGETS = [
+    (
+        "materialized_gate_sets",
+        MATERIALIZED_GATE_SETS_SCHEMA_PATH,
+        MATERIALIZED_GATE_SETS_SCHEMA,
+    ),
+    (
+        "operator_handoff_report",
+        OPERATOR_HANDOFF_REPORT_SCHEMA_PATH,
+        OPERATOR_HANDOFF_REPORT_SCHEMA,
+    ),
+    (
+        "release_authority_manifest",
+        RELEASE_AUTHORITY_SCHEMA_PATH,
+        RELEASE_AUTHORITY_SCHEMA,
+    ),
+    (
+        "ci_outcome",
+        CI_OUTCOME_SCHEMA_PATH,
+        CI_OUTCOME_SCHEMA,
+    ),
+    (
+        "publication_snapshot",
+        PUBLICATION_SNAPSHOT_SCHEMA_PATH,
+        PUBLICATION_SNAPSHOT_SCHEMA,
+    ),
 ]
 
 
@@ -72,6 +120,11 @@ def _is_safe_relative_path(value: Any) -> bool:
         return False
 
     return True
+
+
+def _report_safe_path(value: Any) -> str:
+    return value if _is_safe_relative_path(value) else "_invalid_artifact_path"
+
 
 def _is_sha256(value: Any) -> bool:
     if not isinstance(value, str):
@@ -115,9 +168,6 @@ def _resolve_package_artifact(
         )
 
     return resolved_candidate, None
-
-def _package_path(package_root: Path, rel_path: str) -> Path:
-    return package_root / rel_path
 
 
 def _read_json(path: Path) -> tuple[dict[str, Any] | None, str | None]:
@@ -185,6 +235,20 @@ def _schema_check(
     }
 
 
+def _load_package_json_artifact(
+    package_root: Path,
+    rel_path: str,
+) -> tuple[dict[str, Any] | None, str | None]:
+    artifact_file, path_error = _resolve_package_artifact(package_root, rel_path)
+
+    if path_error is not None:
+        return None, path_error
+    if artifact_file is None:
+        return None, f"artifact path could not be resolved: {rel_path}"
+
+    return _read_json(artifact_file)
+
+
 def _digest_check(
     *,
     package_root: Path,
@@ -207,7 +271,7 @@ def _digest_check(
     )
 
     result: dict[str, Any] = {
-        "artifact_path": artifact_path if isinstance(artifact_path, str) else "<invalid>",
+        "artifact_path": _report_safe_path(artifact_path),
         "expected_sha256": report_expected_sha256,
         "actual_sha256": actual_sha256,
         "ok": ok,
@@ -272,6 +336,7 @@ def _check_package_id_consistency(
         result["message"] = message
 
     return result
+
 
 def _check_authority_boundary(
     *,
@@ -362,6 +427,54 @@ def verify_package(package_root: Path) -> dict[str, Any]:
                 )
             )
 
+        for field, schema_path, schema_file in ARTIFACT_SCHEMA_TARGETS:
+            artifact_ref = manifest.get(field)
+
+            if not isinstance(artifact_ref, dict):
+                continue
+
+            rel_path = artifact_ref.get("path")
+
+            if not isinstance(rel_path, str):
+                message = f"{field} must contain string path"
+                errors.append(message)
+                schemas_validated.append(
+                    {
+                        "artifact_path": "_invalid_artifact_path",
+                        "schema_path": schema_path,
+                        "ok": False,
+                        "message": message,
+                    }
+                )
+                continue
+
+            artifact_obj, artifact_error = _load_package_json_artifact(
+                package_root,
+                rel_path,
+            )
+
+            if artifact_error is not None:
+                schemas_validated.append(
+                    {
+                        "artifact_path": _report_safe_path(rel_path),
+                        "schema_path": schema_path,
+                        "ok": False,
+                        "message": artifact_error,
+                    }
+                )
+                errors.append(f"{rel_path} could not be loaded: {artifact_error}")
+                continue
+
+            schemas_validated.append(
+                _schema_check(
+                    artifact_path=_report_safe_path(rel_path),
+                    schema_path=schema_path,
+                    instance=artifact_obj,
+                    schema_file=schema_file,
+                    errors=errors,
+                )
+            )
+
         authority_boundary = manifest.get("authority_boundary")
         creates_release_authority = (
             authority_boundary.get("creates_release_authority")
@@ -382,7 +495,9 @@ def verify_package(package_root: Path) -> dict[str, Any]:
         if isinstance(artifacts, dict):
             for rel_path, expected_sha256 in artifacts.items():
                 if not isinstance(rel_path, str) or not isinstance(expected_sha256, str):
-                    errors.append("digest manifest artifacts must map string path to string sha256")
+                    errors.append(
+                        "digest manifest artifacts must map string path to string sha256"
+                    )
                     continue
 
                 artifact_digests_checked.append(
