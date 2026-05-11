@@ -33,7 +33,9 @@
 
 PULSE is a deterministic, fail-closed release-governance layer for LLM applications and AI-enabled systems. It is built above existing application, model, evaluation, and deployment pipelines. At the release boundary, PULSE evaluates recorded release evidence against declared gate policy and emits an auditable release decision record.
 
-PULSE implements [pre-materialization gate mechanics](docs/PULSE_PRE_MATERIALIZATION_GATE_MECHANICS_v0.md) for release authority: recorded safety, quality, detector, stability, CI, and review evidence is checked under declared policy before unsupported release decisions can materialize.
+PULSE is an evidence-bound release-authority layer for AI-assisted production work.
+
+It implements [pre-materialization gate mechanics](docs/PULSE_PRE_MATERIALIZATION_GATE_MECHANICS_v0.md): recorded safety, quality, detector, stability, CI, and review evidence is checked against declared gate policy before unsupported release decisions can materialize.
 
 Release evidence can include safety and consistency invariants, product quality gates, SLO budgets, external detector summaries, run metadata, logs, and release-stability signals. Policy defines which evidence and gates carry release authority. Evaluation is deterministic, explicit, and fail-closed.
 
