@@ -27,7 +27,7 @@
 
 <p>
   <a href="https://doi.org/10.5281/zenodo.17373002">
-    <img src="https://doi.org/badge/DOI/10.5281/zenodo.17373002.svg" alt="DOI">
+    <img src="https://zenodo.org/badge/DOI/10.5281/zenodo.17373002.svg" alt="DOI">
   </a>
 </p>
 
