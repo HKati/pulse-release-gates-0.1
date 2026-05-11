@@ -86,6 +86,7 @@ ARTIFACT_SCHEMA_TARGETS = [
     ),
 ]
 
+
 def _utc_now() -> str:
     return dt.datetime.now(dt.timezone.utc).isoformat().replace("+00:00", "Z")
 
@@ -120,8 +121,10 @@ def _is_safe_relative_path(value: Any) -> bool:
 
     return True
 
+
 def _report_safe_path(value: Any) -> str:
     return value if _is_safe_relative_path(value) else "_invalid_artifact_path"
+
 
 def _is_sha256(value: Any) -> bool:
     if not isinstance(value, str):
@@ -165,9 +168,6 @@ def _resolve_package_artifact(
         )
 
     return resolved_candidate, None
-
-def _package_path(package_root: Path, rel_path: str) -> Path:
-    return package_root / rel_path
 
 
 def _read_json(path: Path) -> tuple[dict[str, Any] | None, str | None]:
@@ -234,6 +234,7 @@ def _schema_check(
         "ok": True,
     }
 
+
 def _load_package_json_artifact(
     package_root: Path,
     rel_path: str,
@@ -246,6 +247,7 @@ def _load_package_json_artifact(
         return None, f"artifact path could not be resolved: {rel_path}"
 
     return _read_json(artifact_file)
+
 
 def _digest_check(
     *,
@@ -335,53 +337,6 @@ def _check_package_id_consistency(
 
     return result
 
-        for field, schema_path, schema_file in ARTIFACT_SCHEMA_TARGETS:
-            artifact_ref = manifest.get(field)
-
-            if not isinstance(artifact_ref, dict):
-                continue
-
-            rel_path = artifact_ref.get("path")
-
-            if not isinstance(rel_path, str):
-                message = f"{field} must contain string path"
-                errors.append(message)
-                schemas_validated.append(
-                    {
-                        "artifact_path": "_invalid_artifact_path",
-                        "schema_path": schema_path,
-                        "ok": False,
-                        "message": message,
-                    }
-                )
-                continue
-
-            artifact_obj, artifact_error = _load_package_json_artifact(
-                package_root,
-                rel_path,
-            )
-
-            if artifact_error is not None:
-                schemas_validated.append(
-                    {
-                        "artifact_path": _report_safe_path(rel_path),
-                        "schema_path": schema_path,
-                        "ok": False,
-                        "message": artifact_error,
-                    }
-                )
-                errors.append(f"{rel_path} could not be loaded: {artifact_error}")
-                continue
-
-            schemas_validated.append(
-                _schema_check(
-                    artifact_path=_report_safe_path(rel_path),
-                    schema_path=schema_path,
-                    instance=artifact_obj,
-                    schema_file=schema_file,
-                    errors=errors,
-                )
-            )
 
 def _check_authority_boundary(
     *,
@@ -472,6 +427,54 @@ def verify_package(package_root: Path) -> dict[str, Any]:
                 )
             )
 
+        for field, schema_path, schema_file in ARTIFACT_SCHEMA_TARGETS:
+            artifact_ref = manifest.get(field)
+
+            if not isinstance(artifact_ref, dict):
+                continue
+
+            rel_path = artifact_ref.get("path")
+
+            if not isinstance(rel_path, str):
+                message = f"{field} must contain string path"
+                errors.append(message)
+                schemas_validated.append(
+                    {
+                        "artifact_path": "_invalid_artifact_path",
+                        "schema_path": schema_path,
+                        "ok": False,
+                        "message": message,
+                    }
+                )
+                continue
+
+            artifact_obj, artifact_error = _load_package_json_artifact(
+                package_root,
+                rel_path,
+            )
+
+            if artifact_error is not None:
+                schemas_validated.append(
+                    {
+                        "artifact_path": _report_safe_path(rel_path),
+                        "schema_path": schema_path,
+                        "ok": False,
+                        "message": artifact_error,
+                    }
+                )
+                errors.append(f"{rel_path} could not be loaded: {artifact_error}")
+                continue
+
+            schemas_validated.append(
+                _schema_check(
+                    artifact_path=_report_safe_path(rel_path),
+                    schema_path=schema_path,
+                    instance=artifact_obj,
+                    schema_file=schema_file,
+                    errors=errors,
+                )
+            )
+
         authority_boundary = manifest.get("authority_boundary")
         creates_release_authority = (
             authority_boundary.get("creates_release_authority")
@@ -492,7 +495,9 @@ def verify_package(package_root: Path) -> dict[str, Any]:
         if isinstance(artifacts, dict):
             for rel_path, expected_sha256 in artifacts.items():
                 if not isinstance(rel_path, str) or not isinstance(expected_sha256, str):
-                    errors.append("digest manifest artifacts must map string path to string sha256")
+                    errors.append(
+                        "digest manifest artifacts must map string path to string sha256"
+                    )
                     continue
 
                 artifact_digests_checked.append(
