@@ -121,6 +121,14 @@ def test_valid_ra1_minimal_package_verifies() -> None:
         assert "ci/ci_outcome.json" in schema_paths
         assert "publication/publication_snapshot.json" in schema_paths
 
+        cross_check_names = {
+            check["name"]
+            for check in report["cross_artifact_checks"]
+        }
+
+        assert "materialized_gate_sets_match_policy" in cross_check_names
+        assert "status_satisfies_effective_required_gates" in cross_check_names
+
 def test_digest_mismatch_fails_with_schema_valid_report() -> None:
     with tempfile.TemporaryDirectory(prefix="pulse-ra1-verifier-") as tmp:
         tmp_path = Path(tmp)
@@ -305,6 +313,111 @@ def test_schema_invalid_package_artifact_fails_with_schema_valid_report() -> Non
             for error in report["errors"]
         )
 
+def test_false_effective_required_gate_fails_with_schema_valid_report() -> None:
+    with tempfile.TemporaryDirectory(prefix="pulse-ra1-verifier-") as tmp:
+        tmp_path = Path(tmp)
+        package_copy = tmp_path / "package"
+        out_path = tmp_path / "verifier_report.false_gate.json"
+
+        shutil.copytree(PACKAGE, package_copy)
+
+        status_path = package_copy / "status" / "status.json"
+        status = _read_json(status_path)
+        status["gates"]["q4_slo_ok"] = False
+        _write_json(status_path, status)
+
+        status_sha = _sha256_file(status_path)
+
+        digests_path = package_copy / "digests" / "package_digests.json"
+        digests = _read_json(digests_path)
+        digests["artifacts"]["status/status.json"] = status_sha
+        _write_json(digests_path, digests)
+
+        digests_sha = _sha256_file(digests_path)
+
+        manifest_path = package_copy / "package_manifest.json"
+        manifest = _read_json(manifest_path)
+        manifest["status_artifact"]["sha256"] = status_sha
+        manifest["package_digests"]["sha256"] = digests_sha
+        _write_json(manifest_path, manifest)
+
+        result = _run(package_copy, out_path)
+
+        assert result.returncode == 1
+        assert out_path.exists()
+
+        report = _read_json(out_path)
+        _validate_report(report)
+
+        assert report["ok"] is False
+
+        status_checks = [
+            check
+            for check in report["cross_artifact_checks"]
+            if check["name"] == "status_satisfies_effective_required_gates"
+        ]
+
+        assert len(status_checks) == 1
+        assert status_checks[0]["ok"] is False
+        assert "q4_slo_ok" in status_checks[0]["message"]
+        assert any(
+            "false effective required gates" in error
+            for error in report["errors"]
+        )
+
+
+def test_materialized_gate_set_policy_mismatch_fails_with_schema_valid_report() -> None:
+    with tempfile.TemporaryDirectory(prefix="pulse-ra1-verifier-") as tmp:
+        tmp_path = Path(tmp)
+        package_copy = tmp_path / "package"
+        out_path = tmp_path / "verifier_report.gate_set_mismatch.json"
+
+        shutil.copytree(PACKAGE, package_copy)
+
+        gate_sets_path = package_copy / "gates" / "materialized_gate_sets.json"
+        gate_sets = _read_json(gate_sets_path)
+        gate_sets["sets"]["required"] = [
+            gate_id
+            for gate_id in gate_sets["sets"]["required"]
+            if gate_id != "q4_slo_ok"
+        ]
+        _write_json(gate_sets_path, gate_sets)
+
+        gate_sets_sha = _sha256_file(gate_sets_path)
+
+        digests_path = package_copy / "digests" / "package_digests.json"
+        digests = _read_json(digests_path)
+        digests["artifacts"]["gates/materialized_gate_sets.json"] = gate_sets_sha
+        _write_json(digests_path, digests)
+
+        digests_sha = _sha256_file(digests_path)
+
+        manifest_path = package_copy / "package_manifest.json"
+        manifest = _read_json(manifest_path)
+        manifest["materialized_gate_sets"]["sha256"] = gate_sets_sha
+        manifest["package_digests"]["sha256"] = digests_sha
+        _write_json(manifest_path, manifest)
+
+        result = _run(package_copy, out_path)
+
+        assert result.returncode == 1
+        assert out_path.exists()
+
+        report = _read_json(out_path)
+        _validate_report(report)
+
+        assert report["ok"] is False
+
+        gate_set_checks = [
+            check
+            for check in report["cross_artifact_checks"]
+            if check["name"] == "materialized_gate_sets_match_policy"
+        ]
+
+        assert len(gate_set_checks) == 1
+        assert gate_set_checks[0]["ok"] is False
+        assert "sets.required does not match" in gate_set_checks[0]["message"]
+
 def main() -> int:
     tests = [
         test_valid_ra1_minimal_package_verifies,
@@ -312,6 +425,8 @@ def main() -> int:
         test_symlinked_artifact_outside_package_root_fails_with_schema_valid_report,
         test_malformed_digest_string_fails_with_schema_valid_report,
         test_schema_invalid_package_artifact_fails_with_schema_valid_report,
+        test_false_effective_required_gate_fails_with_schema_valid_report,
+        test_materialized_gate_set_policy_mismatch_fails_with_schema_valid_report,
     ]
 
     try:
