@@ -9,6 +9,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
+import yaml
 from jsonschema import Draft202012Validator
 
 
@@ -137,6 +138,17 @@ def _is_sha256(value: Any) -> bool:
 def _report_safe_sha256(value: Any) -> str:
     return value if _is_sha256(value) else "0" * 64
 
+def _unique_preserve_order(items: list[str]) -> list[str]:
+    seen: set[str] = set()
+    out: list[str] = []
+
+    for item in items:
+        if item in seen:
+            continue
+        seen.add(item)
+        out.append(item)
+
+    return out
 
 def _resolve_package_artifact(
     package_root: Path,
@@ -248,6 +260,18 @@ def _load_package_json_artifact(
 
     return _read_json(artifact_file)
 
+def _manifest_artifact_path(
+    manifest: dict[str, Any],
+    field: str,
+) -> str | None:
+    artifact_ref = manifest.get(field)
+
+    if not isinstance(artifact_ref, dict):
+        return None
+
+    rel_path = artifact_ref.get("path")
+
+    return rel_path if isinstance(rel_path, str) else None
 
 def _digest_check(
     *,
@@ -359,6 +383,212 @@ def _check_authority_boundary(
         result["message"] = message
 
     return result
+
+def _cross_check_result(
+    *,
+    name: str,
+    ok: bool,
+    path: str,
+    message: str | None = None,
+    errors: list[str],
+) -> dict[str, Any]:
+    result: dict[str, Any] = {
+        "name": name,
+        "ok": ok,
+        "path": _report_safe_path(path),
+    }
+
+    if not ok:
+        error_message = message or f"{name} failed"
+        errors.append(error_message)
+        result["message"] = error_message
+
+    return result
+
+
+def _check_materialized_gate_sets_match_policy(
+    *,
+    package_root: Path,
+    manifest: dict[str, Any],
+    errors: list[str],
+) -> dict[str, Any]:
+    policy_path = _manifest_artifact_path(manifest, "gate_policy")
+    gate_sets_path = _manifest_artifact_path(manifest, "materialized_gate_sets")
+
+    if policy_path is None or gate_sets_path is None:
+        return _cross_check_result(
+            name="materialized_gate_sets_match_policy",
+            ok=False,
+            path="gates/materialized_gate_sets.json",
+            message="package manifest must reference gate_policy and materialized_gate_sets",
+            errors=errors,
+        )
+
+    policy_file, policy_path_error = _resolve_package_artifact(package_root, policy_path)
+    if policy_path_error is not None or policy_file is None:
+        return _cross_check_result(
+            name="materialized_gate_sets_match_policy",
+            ok=False,
+            path=policy_path,
+            message=policy_path_error or f"could not resolve policy path: {policy_path}",
+            errors=errors,
+        )
+
+    gate_sets, gate_sets_error = _load_package_json_artifact(package_root, gate_sets_path)
+    if gate_sets_error is not None or gate_sets is None:
+        return _cross_check_result(
+            name="materialized_gate_sets_match_policy",
+            ok=False,
+            path=gate_sets_path,
+            message=gate_sets_error or f"could not load gate sets: {gate_sets_path}",
+            errors=errors,
+        )
+
+    try:
+        policy = yaml.safe_load(policy_file.read_text(encoding="utf-8"))
+    except Exception as exc:
+        return _cross_check_result(
+            name="materialized_gate_sets_match_policy",
+            ok=False,
+            path=policy_path,
+            message=f"could not load packaged policy YAML: {exc}",
+            errors=errors,
+        )
+
+    try:
+        required = list(policy["gates"]["required"])
+        release_required = list(policy["gates"]["release_required"])
+    except Exception as exc:
+        return _cross_check_result(
+            name="materialized_gate_sets_match_policy",
+            ok=False,
+            path=policy_path,
+            message=f"packaged policy does not expose required gate sets: {exc}",
+            errors=errors,
+        )
+
+    effective = _unique_preserve_order(required + release_required)
+
+    mismatches: list[str] = []
+
+    if gate_sets.get("policy_path") != policy_path:
+        mismatches.append(
+            f"policy_path mismatch: expected {policy_path!r}, "
+            f"found {gate_sets.get('policy_path')!r}"
+        )
+
+    policy_sha = _sha256_file(policy_file)
+    if gate_sets.get("policy_sha256") != policy_sha:
+        mismatches.append(
+            f"policy_sha256 mismatch: expected {policy_sha!r}, "
+            f"found {gate_sets.get('policy_sha256')!r}"
+        )
+
+    sets = gate_sets.get("sets")
+    if not isinstance(sets, dict):
+        mismatches.append("materialized gate sets must contain object-valued sets")
+    else:
+        if sets.get("required") != required:
+            mismatches.append("sets.required does not match packaged policy gates.required")
+        if sets.get("release_required") != release_required:
+            mismatches.append(
+                "sets.release_required does not match packaged policy gates.release_required"
+            )
+
+    if gate_sets.get("effective_required_gates") != effective:
+        mismatches.append(
+            "effective_required_gates does not equal ordered required + release_required"
+        )
+
+    return _cross_check_result(
+        name="materialized_gate_sets_match_policy",
+        ok=mismatches == [],
+        path=gate_sets_path,
+        message="; ".join(mismatches) if mismatches else None,
+        errors=errors,
+    )
+
+
+def _check_status_satisfies_effective_required_gates(
+    *,
+    package_root: Path,
+    manifest: dict[str, Any],
+    errors: list[str],
+) -> dict[str, Any]:
+    status_path = _manifest_artifact_path(manifest, "status_artifact")
+    gate_sets_path = _manifest_artifact_path(manifest, "materialized_gate_sets")
+
+    if status_path is None or gate_sets_path is None:
+        return _cross_check_result(
+            name="status_satisfies_effective_required_gates",
+            ok=False,
+            path="status/status.json",
+            message="package manifest must reference status_artifact and materialized_gate_sets",
+            errors=errors,
+        )
+
+    status, status_error = _load_package_json_artifact(package_root, status_path)
+    if status_error is not None or status is None:
+        return _cross_check_result(
+            name="status_satisfies_effective_required_gates",
+            ok=False,
+            path=status_path,
+            message=status_error or f"could not load status artifact: {status_path}",
+            errors=errors,
+        )
+
+    gate_sets, gate_sets_error = _load_package_json_artifact(package_root, gate_sets_path)
+    if gate_sets_error is not None or gate_sets is None:
+        return _cross_check_result(
+            name="status_satisfies_effective_required_gates",
+            ok=False,
+            path=gate_sets_path,
+            message=gate_sets_error or f"could not load gate sets: {gate_sets_path}",
+            errors=errors,
+        )
+
+    metrics = status.get("metrics")
+    diagnostics = status.get("diagnostics")
+    gates = status.get("gates")
+    effective_required_gates = gate_sets.get("effective_required_gates")
+
+    failures: list[str] = []
+
+    run_mode = metrics.get("run_mode") if isinstance(metrics, dict) else None
+    if run_mode != "prod":
+        failures.append(f"status metrics.run_mode must be 'prod', found {run_mode!r}")
+
+    gates_stubbed = diagnostics.get("gates_stubbed") if isinstance(diagnostics, dict) else None
+    if gates_stubbed is not False:
+        failures.append(
+            f"status diagnostics.gates_stubbed must be false, found {gates_stubbed!r}"
+        )
+
+    if not isinstance(gates, dict):
+        failures.append("status gates must be an object")
+        gates = {}
+
+    if not isinstance(effective_required_gates, list):
+        failures.append("effective_required_gates must be an array")
+        effective_required_gates = []
+
+    missing = [gate_id for gate_id in effective_required_gates if gate_id not in gates]
+    false_gates = [
+        gate_id for gate_id in effective_required_gates if gates.get(gate_id) is not True
+    ]
+
+    if missing:
+        failures.append(f"missing effective required gates: {', '.join(missing)}")
+    if false_gates:
+        failures.append(f"false effective required gates: {', '.join(false_gates)}")
+
+    return _cross_check_result(
+        name="status_satisfies_effective_required_gates",
+        ok=failures == [],
+        path=status_path,
+        message="; ".join(failures) if failures else None,
+        errors=errors,
+    )
 
 
 def verify_package(package_root: Path) -> dict[str, Any]:
@@ -475,6 +705,22 @@ def verify_package(package_root: Path) -> dict[str, Any]:
                 )
             )
 
+      
+       cross_artifact_checks.append(
+            _check_materialized_gate_sets_match_policy(
+                package_root=package_root,
+                manifest=manifest,
+                errors=errors,
+            )
+        )
+        cross_artifact_checks.append(
+            _check_status_satisfies_effective_required_gates(
+                package_root=package_root,
+                manifest=manifest,
+                errors=errors,
+            )
+        )
+        
         authority_boundary = manifest.get("authority_boundary")
         creates_release_authority = (
             authority_boundary.get("creates_release_authority")
