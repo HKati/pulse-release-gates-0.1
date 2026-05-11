@@ -138,6 +138,7 @@ def _is_sha256(value: Any) -> bool:
 def _report_safe_sha256(value: Any) -> str:
     return value if _is_sha256(value) else "0" * 64
 
+
 def _unique_preserve_order(items: list[str]) -> list[str]:
     seen: set[str] = set()
     out: list[str] = []
@@ -149,6 +150,7 @@ def _unique_preserve_order(items: list[str]) -> list[str]:
         out.append(item)
 
     return out
+
 
 def _resolve_package_artifact(
     package_root: Path,
@@ -260,6 +262,7 @@ def _load_package_json_artifact(
 
     return _read_json(artifact_file)
 
+
 def _manifest_artifact_path(
     manifest: dict[str, Any],
     field: str,
@@ -272,6 +275,7 @@ def _manifest_artifact_path(
     rel_path = artifact_ref.get("path")
 
     return rel_path if isinstance(rel_path, str) else None
+
 
 def _digest_check(
     *,
@@ -383,6 +387,7 @@ def _check_authority_boundary(
         result["message"] = message
 
     return result
+
 
 def _cross_check_result(
     *,
@@ -558,7 +563,11 @@ def _check_status_satisfies_effective_required_gates(
     if run_mode != "prod":
         failures.append(f"status metrics.run_mode must be 'prod', found {run_mode!r}")
 
-    gates_stubbed = diagnostics.get("gates_stubbed") if isinstance(diagnostics, dict) else None
+    gates_stubbed = (
+        diagnostics.get("gates_stubbed")
+        if isinstance(diagnostics, dict)
+        else None
+    )
     if gates_stubbed is not False:
         failures.append(
             f"status diagnostics.gates_stubbed must be false, found {gates_stubbed!r}"
@@ -572,9 +581,15 @@ def _check_status_satisfies_effective_required_gates(
         failures.append("effective_required_gates must be an array")
         effective_required_gates = []
 
-    missing = [gate_id for gate_id in effective_required_gates if gate_id not in gates]
+    missing = [
+        gate_id
+        for gate_id in effective_required_gates
+        if gate_id not in gates
+    ]
     false_gates = [
-        gate_id for gate_id in effective_required_gates if gates.get(gate_id) is not True
+        gate_id
+        for gate_id in effective_required_gates
+        if gates.get(gate_id) is not True
     ]
 
     if missing:
@@ -705,8 +720,7 @@ def verify_package(package_root: Path) -> dict[str, Any]:
                 )
             )
 
-      
-       cross_artifact_checks.append(
+        cross_artifact_checks.append(
             _check_materialized_gate_sets_match_policy(
                 package_root=package_root,
                 manifest=manifest,
@@ -720,7 +734,7 @@ def verify_package(package_root: Path) -> dict[str, Any]:
                 errors=errors,
             )
         )
-        
+
         authority_boundary = manifest.get("authority_boundary")
         creates_release_authority = (
             authority_boundary.get("creates_release_authority")
