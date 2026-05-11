@@ -1,0 +1,16 @@
+{
+  "schema": "pulse_workshop_status_v0",
+  "status": "OPEN",
+  "label": "Visitor hours active",
+  "summary": "Public artifact surface is available.",
+  "updated_utc": "2026-05-09T00:00:00Z",
+  "signals": {
+    "release_authority_path": "ok",
+    "publication_surface": "ok",
+    "scheduled_link_check": "ok"
+  },
+  "authority_boundary": {
+    "status_surface_role": "public_visibility_and_maintenance",
+    "creates_release_authority": false
+  }
+}
