@@ -729,6 +729,247 @@ def _check_handoff_matches_status_and_gate_sets(
         errors=errors,
     )
 
+def _check_release_authority_manifest_matches_package_core(
+    *,
+    package_root: Path,
+    manifest: dict[str, Any],
+    errors: list[str],
+) -> dict[str, Any]:
+    release_authority_path = _manifest_artifact_path(
+        manifest,
+        "release_authority_manifest",
+    )
+    status_path = _manifest_artifact_path(manifest, "status_artifact")
+    policy_path = _manifest_artifact_path(manifest, "gate_policy")
+    registry_path = _manifest_artifact_path(manifest, "gate_registry")
+    gate_sets_path = _manifest_artifact_path(manifest, "materialized_gate_sets")
+
+    if (
+        release_authority_path is None
+        or status_path is None
+        or policy_path is None
+        or registry_path is None
+        or gate_sets_path is None
+    ):
+        return _cross_check_result(
+            name="release_authority_manifest_matches_package_core",
+            ok=False,
+            path="release_authority/release_authority_manifest.json",
+            message=(
+                "package manifest must reference release_authority_manifest, "
+                "status_artifact, gate_policy, gate_registry, and materialized_gate_sets"
+            ),
+            errors=errors,
+        )
+
+    release_authority, release_authority_error = _load_package_json_artifact(
+        package_root,
+        release_authority_path,
+    )
+    if release_authority_error is not None or release_authority is None:
+        return _cross_check_result(
+            name="release_authority_manifest_matches_package_core",
+            ok=False,
+            path=release_authority_path,
+            message=(
+                release_authority_error
+                or f"could not load release authority artifact: {release_authority_path}"
+            ),
+            errors=errors,
+        )
+
+    gate_sets, gate_sets_error = _load_package_json_artifact(package_root, gate_sets_path)
+    if gate_sets_error is not None or gate_sets is None:
+        return _cross_check_result(
+            name="release_authority_manifest_matches_package_core",
+            ok=False,
+            path=gate_sets_path,
+            message=gate_sets_error or f"could not load gate sets: {gate_sets_path}",
+            errors=errors,
+        )
+
+    status_file, status_error = _resolve_package_artifact(package_root, status_path)
+    policy_file, policy_error = _resolve_package_artifact(package_root, policy_path)
+    registry_file, registry_error = _resolve_package_artifact(package_root, registry_path)
+
+    if status_error is not None or status_file is None:
+        return _cross_check_result(
+            name="release_authority_manifest_matches_package_core",
+            ok=False,
+            path=status_path,
+            message=status_error or f"could not resolve status path: {status_path}",
+            errors=errors,
+        )
+
+    if policy_error is not None or policy_file is None:
+        return _cross_check_result(
+            name="release_authority_manifest_matches_package_core",
+            ok=False,
+            path=policy_path,
+            message=policy_error or f"could not resolve policy path: {policy_path}",
+            errors=errors,
+        )
+
+    if registry_error is not None or registry_file is None:
+        return _cross_check_result(
+            name="release_authority_manifest_matches_package_core",
+            ok=False,
+            path=registry_path,
+            message=registry_error or f"could not resolve registry path: {registry_path}",
+            errors=errors,
+        )
+
+    status_sha = _sha256_file(status_file)
+    policy_sha = _sha256_file(policy_file)
+    registry_sha = _sha256_file(registry_file)
+
+    failures: list[str] = []
+
+    run_identity = release_authority.get("run_identity")
+    if not isinstance(run_identity, dict):
+        failures.append("release authority run_identity must be an object")
+        run_identity = {}
+
+    if run_identity.get("run_mode") != "prod":
+        failures.append(
+            f"release authority run_identity.run_mode must be 'prod', "
+            f"found {run_identity.get('run_mode')!r}"
+        )
+
+    inputs = release_authority.get("inputs")
+    if not isinstance(inputs, dict):
+        failures.append("release authority inputs must be an object")
+        inputs = {}
+
+    status_input = inputs.get("status_json")
+    if not isinstance(status_input, dict):
+        failures.append("release authority inputs.status_json must be an object")
+        status_input = {}
+
+    if status_input.get("path") != status_path:
+        failures.append(
+            f"inputs.status_json.path mismatch: expected {status_path!r}, "
+            f"found {status_input.get('path')!r}"
+        )
+    if status_input.get("sha256") != status_sha:
+        failures.append(
+            f"inputs.status_json.sha256 mismatch: expected {status_sha!r}, "
+            f"found {status_input.get('sha256')!r}"
+        )
+
+    policy_input = inputs.get("gate_policy")
+    if not isinstance(policy_input, dict):
+        failures.append("release authority inputs.gate_policy must be an object")
+        policy_input = {}
+
+    if policy_input.get("path") != policy_path:
+        failures.append(
+            f"inputs.gate_policy.path mismatch: expected {policy_path!r}, "
+            f"found {policy_input.get('path')!r}"
+        )
+    if policy_input.get("sha256") != policy_sha:
+        failures.append(
+            f"inputs.gate_policy.sha256 mismatch: expected {policy_sha!r}, "
+            f"found {policy_input.get('sha256')!r}"
+        )
+
+    registry_input = inputs.get("gate_registry")
+    if not isinstance(registry_input, dict):
+        failures.append("release authority inputs.gate_registry must be an object")
+        registry_input = {}
+
+    if registry_input.get("path") != registry_path:
+        failures.append(
+            f"inputs.gate_registry.path mismatch: expected {registry_path!r}, "
+            f"found {registry_input.get('path')!r}"
+        )
+    if registry_input.get("sha256") != registry_sha:
+        failures.append(
+            f"inputs.gate_registry.sha256 mismatch: expected {registry_sha!r}, "
+            f"found {registry_input.get('sha256')!r}"
+        )
+
+    authority = release_authority.get("authority")
+    if not isinstance(authority, dict):
+        failures.append("release authority authority must be an object")
+        authority = {}
+
+    effective_required_gates = gate_sets.get("effective_required_gates")
+    if not isinstance(effective_required_gates, list):
+        failures.append("package gate_sets.effective_required_gates must be an array")
+        effective_required_gates = []
+
+    if authority.get("policy_set") != "required+release_required":
+        failures.append(
+            f"authority.policy_set must be 'required+release_required', "
+            f"found {authority.get('policy_set')!r}"
+        )
+
+    if authority.get("release_required_materialized") is not True:
+        failures.append("authority.release_required_materialized must be true")
+
+    if authority.get("effective_required_gates") != effective_required_gates:
+        failures.append(
+            "authority.effective_required_gates does not match package gate sets"
+        )
+
+    evaluation = release_authority.get("evaluation")
+    if not isinstance(evaluation, dict):
+        failures.append("release authority evaluation must be an object")
+        evaluation = {}
+
+    required_gate_results = evaluation.get("required_gate_results")
+    if not isinstance(required_gate_results, dict):
+        failures.append("evaluation.required_gate_results must be an object")
+        required_gate_results = {}
+
+    expected_results = {gate_id: True for gate_id in effective_required_gates}
+
+    if required_gate_results != expected_results:
+        failures.append(
+            "evaluation.required_gate_results does not match effective required gates"
+        )
+
+    if evaluation.get("failed_required_gates") != []:
+        failures.append(
+            f"evaluation.failed_required_gates must be [], "
+            f"found {evaluation.get('failed_required_gates')!r}"
+        )
+
+    if evaluation.get("missing_required_gates") != []:
+        failures.append(
+            f"evaluation.missing_required_gates must be [], "
+            f"found {evaluation.get('missing_required_gates')!r}"
+        )
+
+    decision = release_authority.get("decision")
+    if not isinstance(decision, dict):
+        failures.append("release authority decision must be an object")
+        decision = {}
+
+    if decision.get("state") != "PASS":
+        failures.append(
+            f"decision.state must be 'PASS', found {decision.get('state')!r}"
+        )
+
+    if decision.get("fail_closed") is not True:
+        failures.append("decision.fail_closed must be true")
+
+    diagnostics = release_authority.get("diagnostics")
+    if not isinstance(diagnostics, dict):
+        failures.append("release authority diagnostics must be an object")
+        diagnostics = {}
+
+    if diagnostics.get("shadow_surfaces_non_normative") is not True:
+        failures.append("diagnostics.shadow_surfaces_non_normative must be true")
+
+    return _cross_check_result(
+        name="release_authority_manifest_matches_package_core",
+        ok=failures == [],
+        path=release_authority_path,
+        message="; ".join(failures) if failures else None,
+        errors=errors,
+    )
 
 def verify_package(package_root: Path) -> dict[str, Any]:
     package_root = package_root.resolve()
@@ -865,7 +1106,14 @@ def verify_package(package_root: Path) -> dict[str, Any]:
                 errors=errors,
             )
         )
-
+        cross_artifact_checks.append(
+            _check_release_authority_manifest_matches_package_core(
+                package_root=package_root,
+                manifest=manifest,
+                errors=errors,
+            )
+        )
+   
         authority_boundary = manifest.get("authority_boundary")
         creates_release_authority = (
             authority_boundary.get("creates_release_authority")
