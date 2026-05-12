@@ -971,6 +971,173 @@ def _check_release_authority_manifest_matches_package_core(
         errors=errors,
     )
 
+def _check_ci_outcome_and_publication_match_release_identity(
+    *,
+    package_root: Path,
+    manifest: dict[str, Any],
+    errors: list[str],
+) -> dict[str, Any]:
+    ci_outcome_path = _manifest_artifact_path(manifest, "ci_outcome")
+    publication_path = _manifest_artifact_path(manifest, "publication_snapshot")
+    release_authority_path = _manifest_artifact_path(
+        manifest,
+        "release_authority_manifest",
+    )
+
+    if (
+        ci_outcome_path is None
+        or publication_path is None
+        or release_authority_path is None
+    ):
+        return _cross_check_result(
+            name="ci_outcome_and_publication_match_release_identity",
+            ok=False,
+            path="ci/ci_outcome.json",
+            message=(
+                "package manifest must reference ci_outcome, "
+                "publication_snapshot, and release_authority_manifest"
+            ),
+            errors=errors,
+        )
+
+    ci_outcome, ci_error = _load_package_json_artifact(package_root, ci_outcome_path)
+    if ci_error is not None or ci_outcome is None:
+        return _cross_check_result(
+            name="ci_outcome_and_publication_match_release_identity",
+            ok=False,
+            path=ci_outcome_path,
+            message=ci_error or f"could not load CI outcome artifact: {ci_outcome_path}",
+            errors=errors,
+        )
+
+    publication, publication_error = _load_package_json_artifact(
+        package_root,
+        publication_path,
+    )
+    if publication_error is not None or publication is None:
+        return _cross_check_result(
+            name="ci_outcome_and_publication_match_release_identity",
+            ok=False,
+            path=publication_path,
+            message=(
+                publication_error
+                or f"could not load publication snapshot artifact: {publication_path}"
+            ),
+            errors=errors,
+        )
+
+    release_authority, release_authority_error = _load_package_json_artifact(
+        package_root,
+        release_authority_path,
+    )
+    if release_authority_error is not None or release_authority is None:
+        return _cross_check_result(
+            name="ci_outcome_and_publication_match_release_identity",
+            ok=False,
+            path=release_authority_path,
+            message=(
+                release_authority_error
+                or f"could not load release authority artifact: {release_authority_path}"
+            ),
+            errors=errors,
+        )
+
+    failures: list[str] = []
+
+    if ci_outcome.get("provider") != "github_actions":
+        failures.append(
+            f"ci_outcome.provider must be 'github_actions', "
+            f"found {ci_outcome.get('provider')!r}"
+        )
+
+    if ci_outcome.get("gate_check_conclusion") != "success":
+        failures.append(
+            f"ci_outcome.gate_check_conclusion must be 'success', "
+            f"found {ci_outcome.get('gate_check_conclusion')!r}"
+        )
+
+    run_attempt = ci_outcome.get("run_attempt")
+    if not isinstance(run_attempt, int) or run_attempt < 1:
+        failures.append(
+            f"ci_outcome.run_attempt must be an integer >= 1, found {run_attempt!r}"
+        )
+
+    ci_boundary = ci_outcome.get("authority_boundary")
+    ci_creates_release_authority = (
+        ci_boundary.get("creates_release_authority")
+        if isinstance(ci_boundary, dict)
+        else None
+    )
+    if ci_creates_release_authority is not False:
+        failures.append(
+            "ci_outcome authority_boundary.creates_release_authority must be false"
+        )
+
+    run_identity = release_authority.get("run_identity")
+    if not isinstance(run_identity, dict):
+        failures.append("release authority run_identity must be an object")
+        run_identity = {}
+
+    if str(ci_outcome.get("run_id")) != str(run_identity.get("run_id")):
+        failures.append(
+            f"ci_outcome.run_id mismatch: expected {run_identity.get('run_id')!r}, "
+            f"found {ci_outcome.get('run_id')!r}"
+        )
+
+    if str(ci_outcome.get("run_attempt")) != str(run_identity.get("attempt")):
+        failures.append(
+            f"ci_outcome.run_attempt mismatch: expected {run_identity.get('attempt')!r}, "
+            f"found {ci_outcome.get('run_attempt')!r}"
+        )
+
+    if ci_outcome.get("commit_sha") != run_identity.get("git_sha"):
+        failures.append(
+            f"ci_outcome.commit_sha mismatch: expected {run_identity.get('git_sha')!r}, "
+            f"found {ci_outcome.get('commit_sha')!r}"
+        )
+
+    if publication.get("creates_release_authority") is not False:
+        failures.append("publication_snapshot.creates_release_authority must be false")
+
+    if publication.get("git_sha") != ci_outcome.get("commit_sha"):
+        failures.append(
+            f"publication_snapshot.git_sha mismatch: "
+            f"expected {ci_outcome.get('commit_sha')!r}, "
+            f"found {publication.get('git_sha')!r}"
+        )
+
+    if publication.get("ci_outcome_url") != ci_outcome.get("run_url"):
+        failures.append(
+            f"publication_snapshot.ci_outcome_url mismatch: "
+            f"expected {ci_outcome.get('run_url')!r}, "
+            f"found {publication.get('ci_outcome_url')!r}"
+        )
+
+    manifest_package_id = manifest.get("package_id")
+    if (
+        isinstance(manifest_package_id, str)
+        and publication.get("package_id") != manifest_package_id
+    ):
+        failures.append(
+            f"publication_snapshot.package_id mismatch: "
+            f"expected {manifest_package_id!r}, found {publication.get('package_id')!r}"
+        )
+        
+    manifest_run_key = manifest.get("run_key")
+    if isinstance(manifest_run_key, str) and publication.get("run_key") != manifest_run_key:
+        failures.append(
+            f"publication_snapshot.run_key mismatch: "
+            f"expected {manifest_run_key!r}, found {publication.get('run_key')!r}"
+        )
+
+    return _cross_check_result(
+        name="ci_outcome_and_publication_match_release_identity",
+        ok=failures == [],
+        path=ci_outcome_path,
+        message="; ".join(failures) if failures else None,
+        errors=errors,
+    )
+
 def verify_package(package_root: Path) -> dict[str, Any]:
     package_root = package_root.resolve()
 
@@ -1113,7 +1280,14 @@ def verify_package(package_root: Path) -> dict[str, Any]:
                 errors=errors,
             )
         )
-   
+          cross_artifact_checks.append(
+            _check_ci_outcome_and_publication_match_release_identity(
+                package_root=package_root,
+                manifest=manifest,
+                errors=errors,
+            )
+        )
+      
         authority_boundary = manifest.get("authority_boundary")
         creates_release_authority = (
             authority_boundary.get("creates_release_authority")
