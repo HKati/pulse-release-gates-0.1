@@ -130,6 +130,7 @@ def test_valid_ra1_minimal_package_verifies() -> None:
         assert "status_satisfies_effective_required_gates" in cross_check_names
         assert "handoff_matches_status_and_gate_sets" in cross_check_names
         assert "release_authority_manifest_matches_package_core" in cross_check_names
+        assert "ci_outcome_and_publication_match_release_identity" in cross_check_names
 
 def test_digest_mismatch_fails_with_schema_valid_report() -> None:
     with tempfile.TemporaryDirectory(prefix="pulse-ra1-verifier-") as tmp:
@@ -637,6 +638,104 @@ def test_release_authority_effective_gates_mismatch_fails_with_schema_valid_repo
             in release_authority_checks[0]["message"]
         )
 
+def test_ci_outcome_commit_mismatch_fails_with_schema_valid_report() -> None:
+    with tempfile.TemporaryDirectory(prefix="pulse-ra1-verifier-") as tmp:
+        tmp_path = Path(tmp)
+        package_copy = tmp_path / "package"
+        out_path = tmp_path / "verifier_report.ci_commit_mismatch.json"
+
+        shutil.copytree(PACKAGE, package_copy)
+
+        ci_path = package_copy / "ci" / "ci_outcome.json"
+        ci_outcome = _read_json(ci_path)
+        ci_outcome["commit_sha"] = "b" * 40
+        _write_json(ci_path, ci_outcome)
+
+        ci_sha = _sha256_file(ci_path)
+
+        digests_path = package_copy / "digests" / "package_digests.json"
+        digests = _read_json(digests_path)
+        digests["artifacts"]["ci/ci_outcome.json"] = ci_sha
+        _write_json(digests_path, digests)
+
+        digests_sha = _sha256_file(digests_path)
+
+        manifest_path = package_copy / "package_manifest.json"
+        manifest = _read_json(manifest_path)
+        manifest["ci_outcome"]["sha256"] = ci_sha
+        manifest["package_digests"]["sha256"] = digests_sha
+        _write_json(manifest_path, manifest)
+
+        result = _run(package_copy, out_path)
+
+        assert result.returncode == 1
+        assert out_path.exists()
+
+        report = _read_json(out_path)
+        _validate_report(report)
+
+        assert report["ok"] is False
+
+        ci_checks = [
+            check
+            for check in report["cross_artifact_checks"]
+            if check["name"] == "ci_outcome_and_publication_match_release_identity"
+        ]
+
+        assert len(ci_checks) == 1
+        assert ci_checks[0]["ok"] is False
+        assert "ci_outcome.commit_sha mismatch" in ci_checks[0]["message"]
+
+
+def test_publication_ci_url_mismatch_fails_with_schema_valid_report() -> None:
+    with tempfile.TemporaryDirectory(prefix="pulse-ra1-verifier-") as tmp:
+        tmp_path = Path(tmp)
+        package_copy = tmp_path / "package"
+        out_path = tmp_path / "verifier_report.publication_ci_url.json"
+
+        shutil.copytree(PACKAGE, package_copy)
+
+        publication_path = package_copy / "publication" / "publication_snapshot.json"
+        publication = _read_json(publication_path)
+        publication["ci_outcome_url"] = (
+            "https://github.com/HKati/pulse-release-gates-0.1/actions/runs/999999999"
+        )
+        _write_json(publication_path, publication)
+
+        publication_sha = _sha256_file(publication_path)
+
+        digests_path = package_copy / "digests" / "package_digests.json"
+        digests = _read_json(digests_path)
+        digests["artifacts"]["publication/publication_snapshot.json"] = publication_sha
+        _write_json(digests_path, digests)
+
+        digests_sha = _sha256_file(digests_path)
+
+        manifest_path = package_copy / "package_manifest.json"
+        manifest = _read_json(manifest_path)
+        manifest["publication_snapshot"]["sha256"] = publication_sha
+        manifest["package_digests"]["sha256"] = digests_sha
+        _write_json(manifest_path, manifest)
+
+        result = _run(package_copy, out_path)
+
+        assert result.returncode == 1
+        assert out_path.exists()
+
+        report = _read_json(out_path)
+        _validate_report(report)
+
+        assert report["ok"] is False
+
+        ci_checks = [
+            check
+            for check in report["cross_artifact_checks"]
+            if check["name"] == "ci_outcome_and_publication_match_release_identity"
+        ]
+
+        assert len(ci_checks) == 1
+        assert ci_checks[0]["ok"] is False
+        assert "publication_snapshot.ci_outcome_url mismatch" in ci_checks[0]["message"]
 
 def main() -> int:
     tests = [
@@ -651,6 +750,8 @@ def main() -> int:
         test_handoff_effective_required_gates_mismatch_fails_with_schema_valid_report,
         test_release_authority_status_digest_mismatch_fails_with_schema_valid_report,
         test_release_authority_effective_gates_mismatch_fails_with_schema_valid_report,
+        test_ci_outcome_commit_mismatch_fails_with_schema_valid_report,
+        test_publication_ci_url_mismatch_fails_with_schema_valid_report,
     ]
 
     try:
