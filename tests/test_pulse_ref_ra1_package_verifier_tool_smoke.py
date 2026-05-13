@@ -136,7 +136,13 @@ def test_valid_ra1_minimal_package_verifies() -> None:
         assert "package_digests_cover_manifest_payload" in cross_check_names
         assert "package_inventory_matches_manifest" in cross_check_names
         assert "package_manifest_uses_canonical_layout" in cross_check_names
-      
+        assert "package_payload_files_are_regular_files" in cross_check_names
+        assert "package_manifest_uses_canonical_layout" in cross_check_names
+        assert "package_identity_matches_release_surfaces" in cross_check_names
+        assert "package_manifest_authority_boundary" in cross_check_names
+        assert "package_digests_authority_boundary" in cross_check_names
+        assert "package_id_consistency" in cross_check_names
+     
         cross_check_order = [
             check["name"]
             for check in report["cross_artifact_checks"]
@@ -1011,6 +1017,39 @@ def test_noncanonical_status_artifact_path_fails_with_schema_valid_report() -> N
         assert "status_artifact path mismatch" in layout_checks[0]["message"]
         assert "status/status.alt.json" in layout_checks[0]["message"]
 
+def test_package_manifest_git_sha_mismatch_fails_with_schema_valid_report() -> None:
+    with tempfile.TemporaryDirectory(prefix="pulse-ra1-verifier-") as tmp:
+        tmp_path = Path(tmp)
+        package_copy = tmp_path / "package"
+        out_path = tmp_path / "verifier_report.package_manifest_git_sha.json"
+
+        shutil.copytree(PACKAGE, package_copy)
+
+        manifest_path = package_copy / "package_manifest.json"
+        manifest = _read_json(manifest_path)
+        manifest["git_sha"] = "b" * 40
+        _write_json(manifest_path, manifest)
+
+        result = _run(package_copy, out_path)
+
+        assert result.returncode == 1
+        assert out_path.exists()
+
+        report = _read_json(out_path)
+        _validate_report(report)
+
+        assert report["ok"] is False
+
+        identity_checks = [
+            check
+            for check in report["cross_artifact_checks"]
+            if check["name"] == "package_identity_matches_release_surfaces"
+        ]
+
+        assert len(identity_checks) == 1
+        assert identity_checks[0]["ok"] is False
+        assert "package_manifest.git_sha mismatch" in identity_checks[0]["message"]
+    
 
 def main() -> int:
     tests = [
@@ -1032,6 +1071,7 @@ def main() -> int:
         test_untracked_package_file_fails_with_schema_valid_report,
         test_missing_package_file_fails_with_schema_valid_report,
         test_noncanonical_status_artifact_path_fails_with_schema_valid_report,
+        test_package_manifest_git_sha_mismatch_fails_with_schema_valid_report,
     ]
 
     try:
