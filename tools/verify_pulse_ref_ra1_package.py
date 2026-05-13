@@ -1213,6 +1213,64 @@ def _check_package_digests_cover_manifest_payload(
         errors=errors,
     )
 
+def _package_file_inventory(package_root: Path) -> set[str]:
+    files: set[str] = set()
+
+    for path in package_root.rglob("*"):
+        if not (path.is_file() or path.is_symlink()):
+            continue
+
+        files.add(path.relative_to(package_root).as_posix())
+
+    return files
+
+
+def _check_package_inventory_matches_manifest(
+    *,
+    package_root: Path,
+    manifest: dict[str, Any],
+    errors: list[str],
+) -> dict[str, Any]:
+    expected: set[str] = {
+        "README.md",
+        "package_manifest.json",
+    }
+    failures: list[str] = []
+
+    for field in ARTIFACT_REF_FIELDS:
+        rel_path = _manifest_artifact_path(manifest, field)
+
+        if rel_path is None:
+            continue
+
+        if not _is_safe_relative_path(rel_path):
+            failures.append(
+                f"manifest field {field} has unsafe artifact path: {rel_path!r}"
+            )
+            continue
+
+        expected.add(rel_path)
+
+    actual = _package_file_inventory(package_root)
+
+    missing = sorted(expected - actual)
+    unexpected = sorted(actual - expected)
+
+    if missing:
+        failures.append("package inventory missing expected files: " + ", ".join(missing))
+
+    if unexpected:
+        failures.append(
+            "package inventory contains unexpected files: " + ", ".join(unexpected)
+        )
+
+    return _cross_check_result(
+        name="package_inventory_matches_manifest",
+        ok=failures == [],
+        path="package_manifest.json",
+        message="; ".join(failures) if failures else None,
+        errors=errors,
+    )
 
 def verify_package(package_root: Path) -> dict[str, Any]:
     package_root = package_root.resolve()
@@ -1365,6 +1423,13 @@ def verify_package(package_root: Path) -> dict[str, Any]:
         )
         cross_artifact_checks.append(
             _check_package_digests_cover_manifest_payload(
+                package_root=package_root,
+                manifest=manifest,
+                errors=errors,
+            )
+        )
+        cross_artifact_checks.append(
+            _check_package_inventory_matches_manifest(
                 package_root=package_root,
                 manifest=manifest,
                 errors=errors,

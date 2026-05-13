@@ -134,7 +134,8 @@ def test_valid_ra1_minimal_package_verifies() -> None:
         assert "release_authority_manifest_matches_package_core" in cross_check_names
         assert "ci_outcome_and_publication_match_release_identity" in cross_check_names
         assert "package_digests_cover_manifest_payload" in cross_check_names
- 
+        assert "package_inventory_matches_manifest" in cross_check_names
+      
         cross_check_order = [
             check["name"]
             for check in report["cross_artifact_checks"]
@@ -851,6 +852,85 @@ def test_unexpected_package_digest_entry_fails_with_schema_valid_report() -> Non
         assert "extra/unused.json" in coverage_checks[0]["message"]
         assert "unexpected artifact entries" in coverage_checks[0]["message"]
 
+def test_untracked_package_file_fails_with_schema_valid_report() -> None:
+    with tempfile.TemporaryDirectory(prefix="pulse-ra1-verifier-") as tmp:
+        tmp_path = Path(tmp)
+        package_copy = tmp_path / "package"
+        out_path = tmp_path / "verifier_report.untracked_file.json"
+
+        shutil.copytree(PACKAGE, package_copy)
+
+        extra_dir = package_copy / "extra"
+        extra_dir.mkdir()
+        extra_file = extra_dir / "untracked.json"
+        extra_file.write_text(
+            json.dumps(
+                {
+                    "untracked": True,
+                    "note": "This file is present in the package but not declared.",
+                },
+                indent=2,
+                sort_keys=True,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
+        result = _run(package_copy, out_path)
+
+        assert result.returncode == 1
+        assert out_path.exists()
+
+        report = _read_json(out_path)
+        _validate_report(report)
+
+        assert report["ok"] is False
+
+        inventory_checks = [
+            check
+            for check in report["cross_artifact_checks"]
+            if check["name"] == "package_inventory_matches_manifest"
+        ]
+
+        assert len(inventory_checks) == 1
+        assert inventory_checks[0]["ok"] is False
+        assert "extra/untracked.json" in inventory_checks[0]["message"]
+        assert "unexpected files" in inventory_checks[0]["message"]
+
+
+def test_missing_package_file_fails_with_schema_valid_report() -> None:
+    with tempfile.TemporaryDirectory(prefix="pulse-ra1-verifier-") as tmp:
+        tmp_path = Path(tmp)
+        package_copy = tmp_path / "package"
+        out_path = tmp_path / "verifier_report.missing_file.json"
+
+        shutil.copytree(PACKAGE, package_copy)
+
+        readme_path = package_copy / "README.md"
+        readme_path.unlink()
+
+        result = _run(package_copy, out_path)
+
+        assert result.returncode == 1
+        assert out_path.exists()
+
+        report = _read_json(out_path)
+        _validate_report(report)
+
+        assert report["ok"] is False
+
+        inventory_checks = [
+            check
+            for check in report["cross_artifact_checks"]
+            if check["name"] == "package_inventory_matches_manifest"
+        ]
+
+        assert len(inventory_checks) == 1
+        assert inventory_checks[0]["ok"] is False
+        assert "README.md" in inventory_checks[0]["message"]
+        assert "missing expected files" in inventory_checks[0]["message"]
+
+
 def main() -> int:
     tests = [
         test_valid_ra1_minimal_package_verifies,
@@ -868,6 +948,8 @@ def main() -> int:
         test_publication_ci_url_mismatch_fails_with_schema_valid_report,
         test_missing_package_digest_entry_fails_with_schema_valid_report,
         test_unexpected_package_digest_entry_fails_with_schema_valid_report,
+        test_untracked_package_file_fails_with_schema_valid_report,
+        test_missing_package_file_fails_with_schema_valid_report,
     ]
 
     try:
