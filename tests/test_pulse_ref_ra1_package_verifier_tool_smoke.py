@@ -135,6 +135,7 @@ def test_valid_ra1_minimal_package_verifies() -> None:
         assert "ci_outcome_and_publication_match_release_identity" in cross_check_names
         assert "package_digests_cover_manifest_payload" in cross_check_names
         assert "package_inventory_matches_manifest" in cross_check_names
+        assert "package_manifest_uses_canonical_layout" in cross_check_names
       
         cross_check_order = [
             check["name"]
@@ -930,6 +931,86 @@ def test_missing_package_file_fails_with_schema_valid_report() -> None:
         assert "README.md" in inventory_checks[0]["message"]
         assert "missing expected files" in inventory_checks[0]["message"]
 
+def test_noncanonical_status_artifact_path_fails_with_schema_valid_report() -> None:
+    with tempfile.TemporaryDirectory(prefix="pulse-ra1-verifier-") as tmp:
+        tmp_path = Path(tmp)
+        package_copy = tmp_path / "package"
+        out_path = tmp_path / "verifier_report.noncanonical_status_path.json"
+
+        shutil.copytree(PACKAGE, package_copy)
+
+        old_status_path = package_copy / "status" / "status.json"
+        new_status_path = package_copy / "status" / "status.alt.json"
+
+        new_status_path.write_text(
+            old_status_path.read_text(encoding="utf-8"),
+            encoding="utf-8",
+        )
+        old_status_path.unlink()
+
+        status_sha = _sha256_file(new_status_path)
+
+        handoff_path = package_copy / "handoff" / "operator_handoff_report.json"
+        handoff = _read_json(handoff_path)
+        handoff["status_source"]["status_path"] = "status/status.alt.json"
+        handoff["status_source"]["status_sha256_before_run"] = status_sha
+        handoff["status_source"]["status_sha256_after_generation"] = status_sha
+        handoff["status_source"]["status_sha256_after_run"] = status_sha
+        _write_json(handoff_path, handoff)
+        handoff_sha = _sha256_file(handoff_path)
+
+        release_authority_path = (
+            package_copy
+            / "release_authority"
+            / "release_authority_manifest.json"
+        )
+        release_authority = _read_json(release_authority_path)
+        release_authority["inputs"]["status_json"]["path"] = "status/status.alt.json"
+        release_authority["inputs"]["status_json"]["sha256"] = status_sha
+        _write_json(release_authority_path, release_authority)
+        release_authority_sha = _sha256_file(release_authority_path)
+
+        digests_path = package_copy / "digests" / "package_digests.json"
+        digests = _read_json(digests_path)
+        digests["artifacts"].pop("status/status.json")
+        digests["artifacts"]["status/status.alt.json"] = status_sha
+        digests["artifacts"]["handoff/operator_handoff_report.json"] = handoff_sha
+        digests["artifacts"][
+            "release_authority/release_authority_manifest.json"
+        ] = release_authority_sha
+        _write_json(digests_path, digests)
+        digests_sha = _sha256_file(digests_path)
+
+        manifest_path = package_copy / "package_manifest.json"
+        manifest = _read_json(manifest_path)
+        manifest["status_artifact"]["path"] = "status/status.alt.json"
+        manifest["status_artifact"]["sha256"] = status_sha
+        manifest["operator_handoff_report"]["sha256"] = handoff_sha
+        manifest["release_authority_manifest"]["sha256"] = release_authority_sha
+        manifest["package_digests"]["sha256"] = digests_sha
+        _write_json(manifest_path, manifest)
+
+        result = _run(package_copy, out_path)
+
+        assert result.returncode == 1
+        assert out_path.exists()
+
+        report = _read_json(out_path)
+        _validate_report(report)
+
+        assert report["ok"] is False
+
+        layout_checks = [
+            check
+            for check in report["cross_artifact_checks"]
+            if check["name"] == "package_manifest_uses_canonical_layout"
+        ]
+
+        assert len(layout_checks) == 1
+        assert layout_checks[0]["ok"] is False
+        assert "status_artifact path mismatch" in layout_checks[0]["message"]
+        assert "status/status.alt.json" in layout_checks[0]["message"]
+
 
 def main() -> int:
     tests = [
@@ -950,6 +1031,7 @@ def main() -> int:
         test_unexpected_package_digest_entry_fails_with_schema_valid_report,
         test_untracked_package_file_fails_with_schema_valid_report,
         test_missing_package_file_fails_with_schema_valid_report,
+        test_noncanonical_status_artifact_path_fails_with_schema_valid_report,
     ]
 
     try:
