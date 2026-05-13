@@ -1356,14 +1356,14 @@ def verify_package(package_root: Path) -> dict[str, Any]:
                 errors=errors,
             )
         )
-          cross_artifact_checks.append(
+        cross_artifact_checks.append(
             _check_ci_outcome_and_publication_match_release_identity(
                 package_root=package_root,
                 manifest=manifest,
                 errors=errors,
             )
         )
-          cross_artifact_checks.append(
+        cross_artifact_checks.append(
             _check_package_digests_cover_manifest_payload(
                 package_root=package_root,
                 manifest=manifest,
