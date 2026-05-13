@@ -1284,6 +1284,52 @@ def _check_package_inventory_matches_manifest(
         errors=errors,
     )
 
+def _check_package_payload_files_are_regular_files(
+    *,
+    package_root: Path,
+    manifest: dict[str, Any],
+    errors: list[str],
+) -> dict[str, Any]:
+    expected_paths: list[str] = [
+        "README.md",
+        "package_manifest.json",
+    ]
+
+    for field in ARTIFACT_REF_FIELDS:
+        rel_path = _manifest_artifact_path(manifest, field)
+
+        if rel_path is not None:
+            expected_paths.append(rel_path)
+
+    failures: list[str] = []
+
+    for rel_path in sorted(set(expected_paths)):
+        if not _is_safe_relative_path(rel_path):
+            failures.append(f"unsafe package payload path: {rel_path!r}")
+            continue
+
+        artifact_path = package_root / rel_path
+
+        if artifact_path.is_symlink():
+            failures.append(
+                f"package payload artifact must be a regular file, found symlink: {rel_path}"
+            )
+            continue
+
+        if not artifact_path.is_file():
+            failures.append(
+                f"package payload artifact missing or not a regular file: {rel_path}"
+            )
+
+    return _cross_check_result(
+        name="package_payload_files_are_regular_files",
+        ok=failures == [],
+        path="package_manifest.json",
+        message="; ".join(failures) if failures else None,
+        errors=errors,
+    )
+
+
 def _check_package_manifest_uses_canonical_layout(
     *,
     manifest: dict[str, Any],
@@ -1470,6 +1516,13 @@ def verify_package(package_root: Path) -> dict[str, Any]:
         )
         cross_artifact_checks.append(
             _check_package_inventory_matches_manifest(
+                package_root=package_root,
+                manifest=manifest,
+                errors=errors,
+            )
+        )
+        cross_artifact_checks.append(
+            _check_package_payload_files_are_regular_files(
                 package_root=package_root,
                 manifest=manifest,
                 errors=errors,
