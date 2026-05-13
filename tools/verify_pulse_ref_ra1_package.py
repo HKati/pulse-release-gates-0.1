@@ -1138,6 +1138,82 @@ def _check_ci_outcome_and_publication_match_release_identity(
         errors=errors,
     )
 
+
+def _check_package_digests_cover_manifest_payload(
+    *,
+    package_root: Path,
+    manifest: dict[str, Any],
+    errors: list[str],
+) -> dict[str, Any]:
+    digests_path = _manifest_artifact_path(manifest, "package_digests")
+
+    if digests_path is None:
+        return _cross_check_result(
+            name="package_digests_cover_manifest_payload",
+            ok=False,
+            path="digests/package_digests.json",
+            message="package manifest must reference package_digests",
+            errors=errors,
+        )
+
+    digests, digests_error = _load_package_json_artifact(package_root, digests_path)
+    if digests_error is not None or digests is None:
+        return _cross_check_result(
+            name="package_digests_cover_manifest_payload",
+            ok=False,
+            path=digests_path,
+            message=digests_error or f"could not load digest manifest: {digests_path}",
+            errors=errors,
+        )
+
+    artifacts = digests.get("artifacts")
+    if not isinstance(artifacts, dict):
+        return _cross_check_result(
+            name="package_digests_cover_manifest_payload",
+            ok=False,
+            path=digests_path,
+            message="package_digests artifacts must be an object",
+            errors=errors,
+        )
+
+    expected_paths: list[str] = ["README.md"]
+
+    for field in ARTIFACT_REF_FIELDS:
+        if field == "package_digests":
+            continue
+
+        rel_path = _manifest_artifact_path(manifest, field)
+        if rel_path is not None:
+            expected_paths.append(rel_path)
+
+    expected = set(expected_paths)
+    actual = set(artifacts.keys())
+
+    missing = sorted(expected - actual)
+    unexpected = sorted(actual - expected)
+
+    failures: list[str] = []
+
+    if missing:
+        failures.append(
+            "package_digests missing expected payload artifacts: " + ", ".join(missing)
+        )
+
+    if unexpected:
+        failures.append(
+            "package_digests contains unexpected artifact entries: "
+            + ", ".join(unexpected)
+        )
+
+    return _cross_check_result(
+        name="package_digests_cover_manifest_payload",
+        ok=failures == [],
+        path=digests_path,
+        message="; ".join(failures) if failures else None,
+        errors=errors,
+    )
+
+
 def verify_package(package_root: Path) -> dict[str, Any]:
     package_root = package_root.resolve()
 
@@ -1282,6 +1358,13 @@ def verify_package(package_root: Path) -> dict[str, Any]:
         )
         cross_artifact_checks.append(
             _check_ci_outcome_and_publication_match_release_identity(
+                package_root=package_root,
+                manifest=manifest,
+                errors=errors,
+            )
+        )
+        cross_artifact_checks.append(
+            _check_package_digests_cover_manifest_payload(
                 package_root=package_root,
                 manifest=manifest,
                 errors=errors,

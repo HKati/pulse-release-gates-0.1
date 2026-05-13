@@ -133,7 +133,8 @@ def test_valid_ra1_minimal_package_verifies() -> None:
         assert "handoff_matches_status_and_gate_sets" in cross_check_names
         assert "release_authority_manifest_matches_package_core" in cross_check_names
         assert "ci_outcome_and_publication_match_release_identity" in cross_check_names
-
+        assert "package_digests_cover_manifest_payload" in cross_check_names
+ 
         cross_check_order = [
             check["name"]
             for check in report["cross_artifact_checks"]
@@ -750,6 +751,106 @@ def test_publication_ci_url_mismatch_fails_with_schema_valid_report() -> None:
         assert ci_checks[0]["ok"] is False
         assert "publication_snapshot.ci_outcome_url mismatch" in ci_checks[0]["message"]
 
+
+def test_missing_package_digest_entry_fails_with_schema_valid_report() -> None:
+    with tempfile.TemporaryDirectory(prefix="pulse-ra1-verifier-") as tmp:
+        tmp_path = Path(tmp)
+        package_copy = tmp_path / "package"
+        out_path = tmp_path / "verifier_report.missing_digest_entry.json"
+
+        shutil.copytree(PACKAGE, package_copy)
+
+        digests_path = package_copy / "digests" / "package_digests.json"
+        digests = _read_json(digests_path)
+        digests["artifacts"].pop("ci/ci_outcome.json")
+        _write_json(digests_path, digests)
+
+        digests_sha = _sha256_file(digests_path)
+
+        manifest_path = package_copy / "package_manifest.json"
+        manifest = _read_json(manifest_path)
+        manifest["package_digests"]["sha256"] = digests_sha
+        _write_json(manifest_path, manifest)
+
+        result = _run(package_copy, out_path)
+
+        assert result.returncode == 1
+        assert out_path.exists()
+
+        report = _read_json(out_path)
+        _validate_report(report)
+
+        assert report["ok"] is False
+
+        coverage_checks = [
+            check
+            for check in report["cross_artifact_checks"]
+            if check["name"] == "package_digests_cover_manifest_payload"
+        ]
+
+        assert len(coverage_checks) == 1
+        assert coverage_checks[0]["ok"] is False
+        assert "ci/ci_outcome.json" in coverage_checks[0]["message"]
+        assert "missing expected payload artifacts" in coverage_checks[0]["message"]
+
+
+def test_unexpected_package_digest_entry_fails_with_schema_valid_report() -> None:
+    with tempfile.TemporaryDirectory(prefix="pulse-ra1-verifier-") as tmp:
+        tmp_path = Path(tmp)
+        package_copy = tmp_path / "package"
+        out_path = tmp_path / "verifier_report.unexpected_digest_entry.json"
+
+        shutil.copytree(PACKAGE, package_copy)
+
+        extra_dir = package_copy / "extra"
+        extra_dir.mkdir()
+        extra_artifact = extra_dir / "unused.json"
+        extra_artifact.write_text(
+            json.dumps(
+                {
+                    "unused": True,
+                    "note": "This artifact is not referenced by the package manifest.",
+                },
+                indent=2,
+                sort_keys=True,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
+        digests_path = package_copy / "digests" / "package_digests.json"
+        digests = _read_json(digests_path)
+        digests["artifacts"]["extra/unused.json"] = _sha256_file(extra_artifact)
+        _write_json(digests_path, digests)
+
+        digests_sha = _sha256_file(digests_path)
+
+        manifest_path = package_copy / "package_manifest.json"
+        manifest = _read_json(manifest_path)
+        manifest["package_digests"]["sha256"] = digests_sha
+        _write_json(manifest_path, manifest)
+
+        result = _run(package_copy, out_path)
+
+        assert result.returncode == 1
+        assert out_path.exists()
+
+        report = _read_json(out_path)
+        _validate_report(report)
+
+        assert report["ok"] is False
+
+        coverage_checks = [
+            check
+            for check in report["cross_artifact_checks"]
+            if check["name"] == "package_digests_cover_manifest_payload"
+        ]
+
+        assert len(coverage_checks) == 1
+        assert coverage_checks[0]["ok"] is False
+        assert "extra/unused.json" in coverage_checks[0]["message"]
+        assert "unexpected artifact entries" in coverage_checks[0]["message"]
+
 def main() -> int:
     tests = [
         test_valid_ra1_minimal_package_verifies,
@@ -765,6 +866,8 @@ def main() -> int:
         test_release_authority_effective_gates_mismatch_fails_with_schema_valid_report,
         test_ci_outcome_commit_mismatch_fails_with_schema_valid_report,
         test_publication_ci_url_mismatch_fails_with_schema_valid_report,
+        test_missing_package_digest_entry_fails_with_schema_valid_report,
+        test_unexpected_package_digest_entry_fails_with_schema_valid_report,
     ]
 
     try:
