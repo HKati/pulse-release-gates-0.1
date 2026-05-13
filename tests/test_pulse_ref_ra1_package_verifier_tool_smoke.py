@@ -24,6 +24,7 @@ def _read_json(path: Path) -> dict[str, Any]:
 def _write_json(path: Path, obj: dict[str, Any]) -> None:
     path.write_text(json.dumps(obj, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
+
 def _sha256_file(path: Path) -> str:
     import hashlib
 
@@ -34,6 +35,7 @@ def _sha256_file(path: Path) -> str:
             h.update(chunk)
 
     return h.hexdigest()
+
 
 def _run(package_root: Path, out_path: Path) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
@@ -131,6 +133,17 @@ def test_valid_ra1_minimal_package_verifies() -> None:
         assert "handoff_matches_status_and_gate_sets" in cross_check_names
         assert "release_authority_manifest_matches_package_core" in cross_check_names
         assert "ci_outcome_and_publication_match_release_identity" in cross_check_names
+
+        cross_check_order = [
+            check["name"]
+            for check in report["cross_artifact_checks"]
+        ]
+        assert cross_check_order.index(
+            "release_authority_manifest_matches_package_core"
+        ) < cross_check_order.index(
+            "ci_outcome_and_publication_match_release_identity"
+        )
+
 
 def test_digest_mismatch_fails_with_schema_valid_report() -> None:
     with tempfile.TemporaryDirectory(prefix="pulse-ra1-verifier-") as tmp:
