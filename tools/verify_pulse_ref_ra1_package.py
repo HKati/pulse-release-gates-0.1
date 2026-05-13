@@ -59,6 +59,18 @@ ARTIFACT_REF_FIELDS = [
     "package_digests",
 ]
 
+CANONICAL_RA1_ARTIFACT_PATHS = {
+    "status_artifact": "status/status.json",
+    "gate_policy": "policy/pulse_gate_policy_v0.yml",
+    "gate_registry": "policy/pulse_gate_registry_v0.yml",
+    "materialized_gate_sets": "gates/materialized_gate_sets.json",
+    "operator_handoff_report": "handoff/operator_handoff_report.json",
+    "release_authority_manifest": "release_authority/release_authority_manifest.json",
+    "ci_outcome": "ci/ci_outcome.json",
+    "publication_snapshot": "publication/publication_snapshot.json",
+    "package_digests": "digests/package_digests.json",
+}
+
 ARTIFACT_SCHEMA_TARGETS = [
     (
         "materialized_gate_sets",
@@ -1272,6 +1284,34 @@ def _check_package_inventory_matches_manifest(
         errors=errors,
     )
 
+def _check_package_manifest_uses_canonical_layout(
+    *,
+    manifest: dict[str, Any],
+    errors: list[str],
+) -> dict[str, Any]:
+    failures: list[str] = []
+
+    for field, expected_path in CANONICAL_RA1_ARTIFACT_PATHS.items():
+        rel_path = _manifest_artifact_path(manifest, field)
+
+        if rel_path is None:
+            failures.append(f"package manifest missing {field}.path")
+            continue
+
+        if rel_path != expected_path:
+            failures.append(
+                f"{field} path mismatch: expected {expected_path!r}, found {rel_path!r}"
+            )
+
+    return _cross_check_result(
+        name="package_manifest_uses_canonical_layout",
+        ok=failures == [],
+        path="package_manifest.json",
+        message="; ".join(failures) if failures else None,
+        errors=errors,
+    )
+
+
 def verify_package(package_root: Path) -> dict[str, Any]:
     package_root = package_root.resolve()
 
@@ -1431,6 +1471,12 @@ def verify_package(package_root: Path) -> dict[str, Any]:
         cross_artifact_checks.append(
             _check_package_inventory_matches_manifest(
                 package_root=package_root,
+                manifest=manifest,
+                errors=errors,
+            )
+        )
+        cross_artifact_checks.append(
+            _check_package_manifest_uses_canonical_layout(
                 manifest=manifest,
                 errors=errors,
             )
