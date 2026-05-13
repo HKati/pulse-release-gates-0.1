@@ -1357,6 +1357,143 @@ def _check_package_manifest_uses_canonical_layout(
         errors=errors,
     )
 
+def _is_git_sha(value: Any) -> bool:
+    if not isinstance(value, str):
+        return False
+    if len(value) != 40:
+        return False
+    return all(char in "0123456789abcdef" for char in value)
+
+
+def _check_package_identity_matches_release_surfaces(
+    *,
+    package_root: Path,
+    manifest: dict[str, Any],
+    digests: dict[str, Any] | None,
+    errors: list[str],
+) -> dict[str, Any]:
+    package_id = manifest.get("package_id")
+    run_key = manifest.get("run_key")
+    git_sha = manifest.get("git_sha")
+
+    failures: list[str] = []
+
+    if not isinstance(package_id, str) or not package_id:
+        failures.append("package_manifest.package_id must be a non-empty string")
+
+    if not isinstance(run_key, str) or not run_key:
+        failures.append("package_manifest.run_key must be a non-empty string")
+
+    if not _is_git_sha(git_sha):
+        failures.append("package_manifest.git_sha must be a 40-character lowercase git SHA")
+
+    if isinstance(digests, dict):
+        digest_package_id = digests.get("package_id")
+        if digest_package_id not in (None, package_id):
+            failures.append(
+                f"package_digests.package_id mismatch: "
+                f"expected {package_id!r}, found {digest_package_id!r}"
+            )
+    else:
+        failures.append("package_digests must be available for package identity check")
+
+    release_authority_path = _manifest_artifact_path(
+        manifest,
+        "release_authority_manifest",
+    )
+    ci_outcome_path = _manifest_artifact_path(manifest, "ci_outcome")
+    publication_path = _manifest_artifact_path(manifest, "publication_snapshot")
+
+    release_authority: dict[str, Any] | None = None
+    ci_outcome: dict[str, Any] | None = None
+    publication: dict[str, Any] | None = None
+
+    if release_authority_path is None:
+        failures.append("package manifest must reference release_authority_manifest")
+    else:
+        release_authority, release_authority_error = _load_package_json_artifact(
+            package_root,
+            release_authority_path,
+        )
+        if release_authority_error is not None or release_authority is None:
+            failures.append(
+                release_authority_error
+                or f"could not load release authority artifact: {release_authority_path}"
+            )
+
+    if ci_outcome_path is None:
+        failures.append("package manifest must reference ci_outcome")
+    else:
+        ci_outcome, ci_error = _load_package_json_artifact(
+            package_root,
+            ci_outcome_path,
+        )
+        if ci_error is not None or ci_outcome is None:
+            failures.append(
+                ci_error or f"could not load CI outcome artifact: {ci_outcome_path}"
+            )
+
+    if publication_path is None:
+        failures.append("package manifest must reference publication_snapshot")
+    else:
+        publication, publication_error = _load_package_json_artifact(
+            package_root,
+            publication_path,
+        )
+        if publication_error is not None or publication is None:
+            failures.append(
+                publication_error
+                or f"could not load publication snapshot artifact: {publication_path}"
+            )
+
+    if release_authority is not None:
+        run_identity = release_authority.get("run_identity")
+        if not isinstance(run_identity, dict):
+            failures.append("release_authority.run_identity must be an object")
+            run_identity = {}
+
+        if isinstance(git_sha, str) and run_identity.get("git_sha") != git_sha:
+            failures.append(
+                f"package_manifest.git_sha mismatch with "
+                f"release_authority.run_identity.git_sha: "
+                f"expected {git_sha!r}, found {run_identity.get('git_sha')!r}"
+            )
+
+    if ci_outcome is not None and isinstance(git_sha, str):
+        if ci_outcome.get("commit_sha") != git_sha:
+            failures.append(
+                f"package_manifest.git_sha mismatch with ci_outcome.commit_sha: "
+                f"expected {git_sha!r}, found {ci_outcome.get('commit_sha')!r}"
+            )
+
+    if publication is not None:
+        if isinstance(package_id, str) and publication.get("package_id") != package_id:
+            failures.append(
+                f"package_manifest.package_id mismatch with "
+                f"publication_snapshot.package_id: "
+                f"expected {package_id!r}, found {publication.get('package_id')!r}"
+            )
+
+        if isinstance(run_key, str) and publication.get("run_key") != run_key:
+            failures.append(
+                f"package_manifest.run_key mismatch with publication_snapshot.run_key: "
+                f"expected {run_key!r}, found {publication.get('run_key')!r}"
+            )
+
+        if isinstance(git_sha, str) and publication.get("git_sha") != git_sha:
+            failures.append(
+                f"package_manifest.git_sha mismatch with publication_snapshot.git_sha: "
+                f"expected {git_sha!r}, found {publication.get('git_sha')!r}"
+            )
+
+    return _cross_check_result(
+        name="package_identity_matches_release_surfaces",
+        ok=failures == [],
+        path="package_manifest.json",
+        message="; ".join(failures) if failures else None,
+        errors=errors,
+    )
+
 
 def verify_package(package_root: Path) -> dict[str, Any]:
     package_root = package_root.resolve()
@@ -1534,7 +1671,15 @@ def verify_package(package_root: Path) -> dict[str, Any]:
                 errors=errors,
             )
         )
-      
+        cross_artifact_checks.append(
+            _check_package_identity_matches_release_surfaces(
+                package_root=package_root,
+                manifest=manifest,
+                digests=digests,
+                errors=errors,
+            )
+        )
+
         authority_boundary = manifest.get("authority_boundary")
         creates_release_authority = (
             authority_boundary.get("creates_release_authority")
