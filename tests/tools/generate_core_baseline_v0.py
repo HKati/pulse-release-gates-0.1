@@ -160,6 +160,13 @@ def _generate_normalized_outputs() -> tuple[str, str, str]:
 
         env["PULSE_ARTIFACT_DIR"] = str(artifacts_dir)
 
+        # Seed deterministic CI provenance so the generated core baseline
+        # always includes the same provenance fields before normalization.
+        env["GITHUB_SHA"] = "0" * 40
+        env["GITHUB_RUN_ID"] = "0"
+        env["GITHUB_RUN_NUMBER"] = "0"
+        env["GITHUB_WORKFLOW"] = "core-baseline"
+        
         _run(
             [
                 sys.executable,
