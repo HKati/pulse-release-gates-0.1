@@ -28,11 +28,11 @@
 **PULSE-REF RA1 operating proof:** [docs/PULSE_REF_RA1_OPERATING_PROOF_v0.md](docs/PULSE_REF_RA1_OPERATING_PROOF_v0.md)  
 **RA1 operating proof smoke:** `python tests/test_pulse_ref_ra1_operating_proof_smoke.py`
 
-<p>
-  <a href="https://doi.org/10.5281/zenodo.17373002">
-    <img src="https://zenodo.org/badge/DOI/10.5281/zenodo.17373002.svg" alt="DOI">
-  </a>
-</p>
+[![PULSE release DOI: 10.5281/zenodo.17373002](https://zenodo.org/badge/DOI/10.5281/zenodo.17373002.svg)](https://doi.org/10.5281/zenodo.17373002)
+
+**Release DOI:** https://doi.org/10.5281/zenodo.17373002  
+**Concept DOI:** https://doi.org/10.5281/zenodo.17214908  
+**Preprint DOI:** https://doi.org/10.5281/zenodo.17833583
 
 PULSE is a deterministic, fail-closed release-governance layer for LLM applications and AI-enabled systems. It is built above existing application, model, evaluation, and deployment pipelines. At the release boundary, PULSE evaluates recorded release evidence against declared gate policy and emits an auditable release decision record.
 
