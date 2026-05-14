@@ -45,8 +45,21 @@ From that input it resolves:
 PULSE_safe_pack_v0/artifacts/refusal_delta_summary.json
 ```
 
-The pack root used for fallback checks is resolved from the script location,
-not from the `--status` path.
+The pack root used for fallback checks is resolved from the `--status` path.
+
+For a status artifact at:
+
+```text
+<pack>/artifacts/status.json
+```
+
+the fallback refusal-pairs path is:
+
+```text
+<pack>/examples/refusal_pairs.jsonl
+```
+
+This keeps fallback behavior scoped to the pack being augmented, not to the script location or thresholds file location.
 
 ---
 
