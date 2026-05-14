@@ -355,7 +355,7 @@ def recommend_features(
 
     cand_sorted = sorted(cand, key=rank_key)
     selected = cand_sorted[:max_features_i]
-    recommended = [k for (k, _cov, _spread, _present) in selected]
+    recommended = sorted(k for (k, _cov, _spread, _present) in selected)
 
     meta = {
         "max_features": max_features_i,
