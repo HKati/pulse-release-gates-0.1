@@ -106,6 +106,25 @@ The RA1 operating proof can be exercised through one smoke entry point:
 python tests/test_pulse_ref_ra1_operating_proof_smoke.py
 ```
 
+The smoke also writes a machine-readable proof summary:
+
+```text
+tests/out/pulse_ref_ra1_operating_proof_summary.json
+```
+
+The summary records:
+
+```text
+command names;
+command arguments;
+return codes;
+pass/fail status;
+stdout/stderr;
+proof-summary authority boundary with creates_release_authority=false.
+```
+
+The summary is a test aggregation record only. It does not authorize release.
+
 Expected result:
 
 ```text
