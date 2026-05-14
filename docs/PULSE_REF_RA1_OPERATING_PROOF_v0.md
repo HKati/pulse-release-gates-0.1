@@ -100,6 +100,27 @@ The verifier enforces the canonical artifact paths declared in `package_manifest
 
 ## Positive proof
 
+The RA1 operating proof can be exercised through one smoke entry point:
+
+```bash
+python tests/test_pulse_ref_ra1_operating_proof_smoke.py
+```
+
+Expected result:
+
+```text
+OK: PULSE-REF RA1 operating proof smoke passed
+```
+
+This command aggregates:
+
+```text
+verifier compile check;
+RA1 package verifier smoke;
+verifier report schema smoke;
+RA1 minimal package fixture smoke.
+```
+
 The canonical RA1 minimal fixture is expected to verify successfully:
 
 ```bash
