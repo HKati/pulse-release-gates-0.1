@@ -25,7 +25,8 @@
 
 **See the latest Quality Ledger (live):** https://hkati.github.io/pulse-release-gates-0.1/
 
-**PULSE-REF RA1 operating proof:** [docs/PULSE_REF_RA1_OPERATING_PROOF_v0.md](docs/PULSE_REF_RA1_OPERATING_PROOF_v0.md)
+**PULSE-REF RA1 operating proof:** [docs/PULSE_REF_RA1_OPERATING_PROOF_v0.md](docs/PULSE_REF_RA1_OPERATING_PROOF_v0.md)  
+**RA1 operating proof smoke:** `python tests/test_pulse_ref_ra1_operating_proof_smoke.py`
 
 <p>
   <a href="https://doi.org/10.5281/zenodo.17373002">
