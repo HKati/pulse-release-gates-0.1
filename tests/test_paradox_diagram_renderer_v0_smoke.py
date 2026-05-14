@@ -33,6 +33,7 @@ def test_paradox_diagram_renderer_produces_svg(tmp_path: Path) -> None:
                     "settle_time_budget_ms": 50.0,
                     "downstream_error_rate": 0.02,
                     "paradox_density": 0.1
+               },
             },
             indent=2,
         )
