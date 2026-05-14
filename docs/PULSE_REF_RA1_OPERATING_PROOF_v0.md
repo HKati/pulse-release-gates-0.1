@@ -215,6 +215,25 @@ Optional pytest form:
 python -m pytest -q tests/test_pulse_ref_ra1_minimal_package_fixture.py
 ```
 
+## Current audit status
+
+Latest RA1 verifier consistency/coverage audit result: PASS.
+
+The audit confirmed that:
+
+- `tools/verify_pulse_ref_ra1_package.py` compiles;
+- the RA1 verifier smoke test passes;
+- the verifier report schema smoke passes;
+- the RA1 minimal package fixture smoke passes;
+- tools-test manifest wiring is coherent;
+- pytest smoke coverage passes;
+- every emitted verifier cross-artifact check is asserted by smoke coverage;
+- every smoke cross-check expectation is emitted by the verifier;
+- `package_identity_matches_release_surfaces` is implemented, emitted, asserted, and negatively tested;
+- no remaining P1/P2 issue was found in the RA1 verifier consistency/coverage scope.
+
+This closes the previously identified RA1 verifier consistency/coverage drift.
+
 ## What this proves
 
 This proves that the RA1 reference package can be reconstructed as an artifact-bound release-state package.
