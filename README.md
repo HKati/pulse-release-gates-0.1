@@ -28,7 +28,7 @@
 
 # PULSE — Release Gates for Safe & Useful AI
 
-**Concept DOI / all versions:** https://doi.org/10.5281/zenodo.17214908
+[![Concept DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.17214908.svg)](https://doi.org/10.5281/zenodo.17214908)
 
 #### Deterministic release-governance layer for LLM applications and AI-enabled systems
 
