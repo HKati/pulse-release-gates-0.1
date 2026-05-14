@@ -158,7 +158,7 @@ def render_summary(core: Dict[str, Any], max_atoms: int, max_edges: int, max_sum
     lines.append("# Paradox Core Summary v0")
     lines.append("")
     lines.append("> Diagnostic projection. Edges are association/co-occurrence only (non-causal).")
-    lines.append("> This summary must not redefine or flip CI release semantics.")
+    lines.append("> This summary is CI-neutral and must not redefine or flip CI release semantics.")
     lines.append("")
 
     lines.append("## Identity")
