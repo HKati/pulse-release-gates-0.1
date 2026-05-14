@@ -43,7 +43,7 @@
   "inputs": {
     "paradox_core_v0": {
       "path_hint": "tests/fixtures/paradox_diagram_v0/core_k2.json",
-      "sha256": "447b407b0171e227fa454bbd446360c473a01134a880478875b3edd4cce5dd1a"
+      "sha256": "5299d6f2cdada95a5f44eda66571bfa8ef3f3c8fbd8c7864f8108a3fe2dc8467"
     }
   },
   "nodes": [
