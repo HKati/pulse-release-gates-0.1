@@ -3,16 +3,7 @@
 <details>
   <summary><strong>Project badges and live release surfaces</strong></summary>
 
-<p align="center">
-  <img src="pulse_grail.svg" width="90" alt="Pulse Holy Grail">
-</p>
-
-<p align="center">
-  <img src="https://img.shields.io/badge/PULSE-HOLY%20GRAIL-%237DF9FF?style=for-the-badge&logo=codesandbox&logoColor=white" alt="Pulse Holy Grail badge">
-  <a href="https://hkati.github.io/pulse-release-gates-0.1/"><img src="badges/pulse_status.svg" alt="PULSE status"></a>
-  <a href="https://hkati.github.io/pulse-release-gates-0.1/status.json"><img src="badges/rdsi.svg" alt="RDSI"></a>
-  <a href="https://hkati.github.io/pulse-release-gates-0.1/#quality-ledger"><img src="badges/q_ledger.svg" alt="Q-Ledger"></a>
-</p>
+[![DOI](https://zenodo.org/badge/1061766508.svg)](https://zenodo.org/badge/latestdoi/1061766508)
 
 - **Quality Ledger:** https://hkati.github.io/pulse-release-gates-0.1/
 - **Status JSON:** https://hkati.github.io/pulse-release-gates-0.1/status.json
@@ -28,17 +19,7 @@
 **PULSE-REF RA1 operating proof:** [docs/PULSE_REF_RA1_OPERATING_PROOF_v0.md](docs/PULSE_REF_RA1_OPERATING_PROOF_v0.md)  
 **RA1 operating proof smoke:** `python tests/test_pulse_ref_ra1_operating_proof_smoke.py`
 
-<p>
-  <a href="https://doi.org/10.5281/zenodo.17373002" title="PULSE release DOI">
-    <img src="https://zenodo.org/badge/DOI/10.5281/zenodo.17373002.svg" alt="PULSE release DOI: 10.5281/zenodo.17373002">
-  </a>
-  <a href="https://doi.org/10.5281/zenodo.17214908" title="PULSE concept DOI">
-    <img src="https://zenodo.org/badge/DOI/10.5281/zenodo.17214908.svg" alt="PULSE concept DOI: 10.5281/zenodo.17214908">
-  </a>
-  <a href="https://doi.org/10.5281/zenodo.17833583" title="PULSE preprint DOI">
-    <img src="https://zenodo.org/badge/DOI/10.5281/zenodo.17833583.svg" alt="PULSE preprint DOI: 10.5281/zenodo.17833583">
-  </a>
-</p>
+
 
 PULSE is a deterministic, fail-closed release-governance layer for LLM applications and AI-enabled systems. It is built above existing application, model, evaluation, and deployment pipelines. At the release boundary, PULSE evaluates recorded release evidence against declared gate policy and emits an auditable release decision record.
 
