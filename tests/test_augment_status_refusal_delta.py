@@ -116,6 +116,37 @@ def test_refusal_delta_fail_closed_if_pairs_exist_and_no_summary(tmp_path: Path)
     assert data["refusal_delta_pass"] is False
 
 
+def test_refusal_delta_fallback_ignores_thresholds_location_pairs(tmp_path: Path):
+    """
+    Refusal-delta fallback must resolve refusal_pairs.jsonl from the pack that
+    owns the status artifact, not from the thresholds file location.
+    """
+    pack_dir = tmp_path / "pack"
+    artifacts_dir = pack_dir / "artifacts"
+    artifacts_dir.mkdir(parents=True, exist_ok=True)
+
+    status_path = artifacts_dir / "status.json"
+    write_json(status_path, {})
+
+    thresholds_root = tmp_path / "thresholds_root"
+    thresholds_path = thresholds_root / "thresholds.json"
+    write_json(thresholds_path, {})
+
+    external_dir = tmp_path / "external"
+    external_dir.mkdir(parents=True, exist_ok=True)
+
+    thresholds_pairs = thresholds_root / "examples" / "refusal_pairs.jsonl"
+    thresholds_pairs.parent.mkdir(parents=True, exist_ok=True)
+    thresholds_pairs.write_text("dummy\n", encoding="utf-8")
+
+    run_augment_status(status_path, thresholds_path, external_dir)
+
+    data = json.loads(status_path.read_text(encoding="utf-8"))
+
+    assert data["gates"]["refusal_delta_pass"] is True
+    assert data["refusal_delta_pass"] is True
+
+
 def test_refusal_delta_pass_if_no_pairs_and_no_summary(tmp_path: Path):
     """
     If there is no summary and no real refusal_pairs.jsonl,
