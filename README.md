@@ -25,6 +25,8 @@
 
 **See the latest Quality Ledger (live):** https://hkati.github.io/pulse-release-gates-0.1/
 
+**PULSE-REF RA1 operating proof:** [docs/PULSE_REF_RA1_OPERATING_PROOF_v0.md](docs/PULSE_REF_RA1_OPERATING_PROOF_v0.md)
+
 <p>
   <a href="https://doi.org/10.5281/zenodo.17373002">
     <img src="https://zenodo.org/badge/DOI/10.5281/zenodo.17373002.svg" alt="DOI">
