@@ -46,4 +46,6 @@ def test_paradox_diagram_renderer_produces_svg(tmp_path: Path) -> None:
 
     assert out.exists(), "renderer did not produce SVG"
     txt = out.read_text(encoding="utf-8")
-    assert "<svg" in txt and "Paradox diagram (v0)" in txt
+    assert "<svg" in txt
+    assert "PULSE - Paradox diagram (v0)" in txt
+    assert "schema_version=v0" in txt
