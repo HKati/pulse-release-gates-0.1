@@ -37,6 +37,18 @@ PULSE is an evidence-bound release-authority layer for AI-assisted production wo
 
 It implements [pre-materialization gate mechanics](docs/PULSE_PRE_MATERIALIZATION_GATE_MECHANICS_v0.md): recorded safety, quality, detector, stability, CI, and review evidence is checked against declared gate policy before unsupported release decisions can materialize.
 
+## Why PULSE
+
+Post-event control is not release control.
+
+Post-release control surfaces operate after release effects have already propagated: they detect, explain, patch, or audit.
+
+PULSE places the control point before release.
+
+Recorded evidence is checked against declared gate policy; required gates are materialized; missing required evidence, missing required gates, or non-true required gate values fail closed.
+
+The result is an evidence-bound release-authority path, not a post-event dashboard.
+
 Release evidence can include safety and consistency invariants, product quality gates, SLO budgets, external detector summaries, run metadata, logs, and release-stability signals. Policy defines which evidence and gates carry release authority. Evaluation is deterministic, explicit, and fail-closed.
 
 The output is a governed release surface:
