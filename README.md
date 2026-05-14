@@ -37,7 +37,7 @@
 **PULSE-REF RA1 operating proof:** [docs/PULSE_REF_RA1_OPERATING_PROOF_v0.md](docs/PULSE_REF_RA1_OPERATING_PROOF_v0.md)  
 **RA1 operating proof smoke:** `python tests/test_pulse_ref_ra1_operating_proof_smoke.py`
 
-
+**Repair verification checkpoint:** [docs/PULSE_REPAIR_VERIFICATION_CHECKPOINT_2026-05-15.md](docs/PULSE_REPAIR_VERIFICATION_CHECKPOINT_2026-05-15.md) — full pytest clean: `659 passed, 42 subtests passed, 0 failed`
 
 PULSE is a deterministic, fail-closed release-governance layer for LLM applications and AI-enabled systems. It is built above existing application, model, evaluation, and deployment pipelines. At the release boundary, PULSE evaluates recorded release evidence against declared gate policy and emits an auditable release decision record.
 
