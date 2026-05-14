@@ -28,11 +28,17 @@
 **PULSE-REF RA1 operating proof:** [docs/PULSE_REF_RA1_OPERATING_PROOF_v0.md](docs/PULSE_REF_RA1_OPERATING_PROOF_v0.md)  
 **RA1 operating proof smoke:** `python tests/test_pulse_ref_ra1_operating_proof_smoke.py`
 
-[![PULSE release DOI: 10.5281/zenodo.17373002](https://zenodo.org/badge/DOI/10.5281/zenodo.17373002.svg)](https://doi.org/10.5281/zenodo.17373002)
-
-**Release DOI:** https://doi.org/10.5281/zenodo.17373002  
-**Concept DOI:** https://doi.org/10.5281/zenodo.17214908  
-**Preprint DOI:** https://doi.org/10.5281/zenodo.17833583
+<p>
+  <a href="https://doi.org/10.5281/zenodo.17373002" title="PULSE release DOI">
+    <img src="https://zenodo.org/badge/DOI/10.5281/zenodo.17373002.svg" alt="PULSE release DOI: 10.5281/zenodo.17373002">
+  </a>
+  <a href="https://doi.org/10.5281/zenodo.17214908" title="PULSE concept DOI">
+    <img src="https://zenodo.org/badge/DOI/10.5281/zenodo.17214908.svg" alt="PULSE concept DOI: 10.5281/zenodo.17214908">
+  </a>
+  <a href="https://doi.org/10.5281/zenodo.17833583" title="PULSE preprint DOI">
+    <img src="https://zenodo.org/badge/DOI/10.5281/zenodo.17833583.svg" alt="PULSE preprint DOI: 10.5281/zenodo.17833583">
+  </a>
+</p>
 
 PULSE is a deterministic, fail-closed release-governance layer for LLM applications and AI-enabled systems. It is built above existing application, model, evaluation, and deployment pipelines. At the release boundary, PULSE evaluates recorded release evidence against declared gate policy and emits an auditable release decision record.
 
