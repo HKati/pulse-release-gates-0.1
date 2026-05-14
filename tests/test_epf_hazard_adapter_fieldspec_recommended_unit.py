@@ -133,7 +133,7 @@ def test_autowire_honors_recommended_features(monkeypatch, tmp_path: pathlib.Pat
 
     entry_a = _read_last_log_entry(run_a)
     assert entry_a["hazard"]["feature_mode_active"] is True
-    assert entry_a["hazard"]["feature_mode_source"] == "calibration_autowire"
+    assert entry_a["hazard"]["feature_mode_source"] == "recommended_features"
     assert entry_a["hazard"]["feature_keys"] == ["a.b"]
 
     # Case B: explicit empty recommended_features means deny-all -> no feature mode.
@@ -161,4 +161,4 @@ def test_autowire_honors_recommended_features(monkeypatch, tmp_path: pathlib.Pat
     entry_b = _read_last_log_entry(run_b)
     assert entry_b["hazard"]["feature_mode_active"] is False
     assert entry_b["hazard"]["feature_keys"] == []
-    assert entry_b["hazard"]["feature_mode_source"] == "none"
+    assert entry_b["hazard"]["feature_mode_source"] == "recommended_features"
