@@ -191,6 +191,40 @@ def test_digest_mismatch_fails_with_schema_valid_report() -> None:
         assert failing_checks[0]["ok"] is False
         assert failing_checks[0]["actual_sha256"] is not None
 
+
+def test_package_manifest_git_sha_mismatch_fails_with_schema_valid_report() -> None:
+    with tempfile.TemporaryDirectory(prefix="pulse-ra1-verifier-") as tmp:
+        tmp_path = Path(tmp)
+        package_copy = tmp_path / "package"
+        out_path = tmp_path / "verifier_report.git_sha_mismatch.json"
+
+        shutil.copytree(PACKAGE, package_copy)
+
+        manifest_path = package_copy / "package_manifest.json"
+        manifest = _read_json(manifest_path)
+        manifest["git_sha"] = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        _write_json(manifest_path, manifest)
+
+        result = _run(package_copy, out_path)
+
+        assert result.returncode == 1
+        assert out_path.exists()
+
+        report = _read_json(out_path)
+        _validate_report(report)
+
+        assert report["ok"] is False
+
+        identity_checks = [
+            check
+            for check in report["cross_artifact_checks"]
+            if check["name"] == "package_identity_matches_release_surfaces"
+        ]
+
+        assert len(identity_checks) == 1
+        assert identity_checks[0]["ok"] is False
+
+
 def test_symlinked_artifact_outside_package_root_fails_with_schema_valid_report() -> None:
     with tempfile.TemporaryDirectory(prefix="pulse-ra1-verifier-") as tmp:
         tmp_path = Path(tmp)

@@ -1389,7 +1389,9 @@ def _check_package_identity_matches_release_surfaces(
 
     if isinstance(digests, dict):
         digest_package_id = digests.get("package_id")
-        if digest_package_id not in (None, package_id):
+        if not isinstance(digest_package_id, str) or not digest_package_id:
+            failures.append("package_digests.package_id must be a non-empty string")
+        elif digest_package_id != package_id:
             failures.append(
                 f"package_digests.package_id mismatch: "
                 f"expected {package_id!r}, found {digest_package_id!r}"
