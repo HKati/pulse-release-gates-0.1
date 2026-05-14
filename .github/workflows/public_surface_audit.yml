@@ -1,0 +1,182 @@
+name: Public surface audit
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Audit public Pages and crawler surfaces
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          BASE="https://hkati.github.io/pulse-release-gates-0.1"
+
+          echo "Base: ${BASE}"
+
+          python3 - <<'PY'
+          import json
+          import re
+          import subprocess
+          import sys
+          import xml.etree.ElementTree as ET
+          from urllib.parse import urlparse
+
+          BASE = "https://hkati.github.io/pulse-release-gates-0.1"
+
+          URLS = [
+              f"{BASE}/",
+              f"{BASE}/robots.txt",
+              f"{BASE}/sitemap.xml",
+              f"{BASE}/status.json",
+              f"{BASE}/report_card.html",
+          ]
+
+          AGENTS = {
+              "default": "curl-public-surface-audit/1.0",
+              "googlebot": "Googlebot/2.1 (+http://www.google.com/bot.html)",
+              "bingbot": "Mozilla/5.0 (compatible; bingbot/2.0; +http://www.bing.com/bingbot.htm)",
+              "commoncrawl": "CCBot/2.0 (https://commoncrawl.org/faq/)",
+          }
+
+          def run(cmd):
+              return subprocess.run(cmd, text=True, capture_output=True, check=False)
+
+          def fetch(url, agent="curl-public-surface-audit/1.0"):
+              proc = run(["curl", "-sSL", "-A", agent, "--max-time", "30", "-D", "-", url])
+              return proc.returncode, proc.stdout, proc.stderr
+
+          def head(url, agent="curl-public-surface-audit/1.0"):
+              proc = run(["curl", "-sSIL", "-A", agent, "--max-time", "30", url])
+              return proc.returncode, proc.stdout, proc.stderr
+
+          errors = []
+
+          print("=== HEAD checks ===")
+          for url in URLS:
+              rc, out, err = head(url)
+              print(f"\n--- {url} ---")
+              print(out or err)
+              if rc != 0:
+                  errors.append(f"curl HEAD failed for {url}: rc={rc}")
+                  continue
+
+              first = out.splitlines()[0] if out.splitlines() else ""
+              if " 200 " not in first and not first.endswith(" 200"):
+                  errors.append(f"{url} did not return HTTP 200 first status line: {first}")
+
+              if re.search(r"(?im)^x-robots-tag:.*noindex", out):
+                  errors.append(f"{url} has X-Robots-Tag noindex")
+
+          print("\n=== crawler user-agent GET checks ===")
+          for agent_name, agent in AGENTS.items():
+              for url in [f"{BASE}/", f"{BASE}/robots.txt", f"{BASE}/sitemap.xml"]:
+                  rc, out, err = fetch(url, agent)
+                  print(f"\n--- {agent_name} {url} ---")
+                  print(out[:1200] if out else err)
+                  if rc != 0:
+                      errors.append(f"{agent_name} GET failed for {url}: rc={rc}")
+                      continue
+                  header_first = out.splitlines()[0] if out.splitlines() else ""
+                  if " 403 " in header_first or " 403" in out[:200]:
+                      errors.append(f"{agent_name} appears blocked by 403 for {url}")
+
+          print("\n=== homepage meta checks ===")
+          rc, homepage, err = fetch(f"{BASE}/")
+          if rc != 0:
+              errors.append(f"homepage fetch failed: rc={rc}")
+              homepage = ""
+
+          if re.search(r'(?is)<meta[^>]+name=["\']robots["\'][^>]+noindex', homepage):
+              errors.append("homepage contains meta robots noindex")
+
+          if re.search(r"(?i)nofollow", homepage):
+              errors.append("homepage contains nofollow marker")
+
+          canonical = re.findall(r'(?is)<link[^>]+rel=["\']canonical["\'][^>]*>', homepage)
+          print("canonical:", canonical[:3])
+          if not canonical:
+              errors.append("homepage missing canonical link")
+          elif "https://hkati.github.io/pulse-release-gates-0.1/" not in canonical[0]:
+              errors.append(f"homepage canonical does not point to project root: {canonical[0]}")
+
+          print("\n=== robots.txt check ===")
+          rc, robots, err = fetch(f"{BASE}/robots.txt")
+          print(robots or err)
+          if rc != 0 or not robots:
+              errors.append("robots.txt could not be fetched")
+          else:
+              if "User-agent:" not in robots:
+                  errors.append("robots.txt missing User-agent")
+              if f"Sitemap: {BASE}/sitemap.xml" not in robots:
+                  errors.append("robots.txt missing exact project sitemap reference")
+
+          print("\n=== sitemap.xml check ===")
+          rc, sitemap, err = fetch(f"{BASE}/sitemap.xml")
+          print(sitemap or err)
+          if rc != 0 or not sitemap:
+              errors.append("sitemap.xml could not be fetched")
+              locs = []
+          else:
+              try:
+                  root = ET.fromstring(sitemap.split("<?xml", 1)[-1] if "HTTP/" in sitemap[:100] else sitemap)
+              except Exception:
+                  # curl -D - includes headers; strip to XML body
+                  body_start = sitemap.find("<?xml")
+                  body = sitemap[body_start:] if body_start != -1 else sitemap
+                  try:
+                      root = ET.fromstring(body)
+                  except Exception as exc:
+                      errors.append(f"sitemap XML parse failed: {exc}")
+                      root = None
+
+              locs = []
+              if root is not None:
+                  ns = {"sm": "http://www.sitemaps.org/schemas/sitemap/0.9"}
+                  locs = [e.text for e in root.findall(".//sm:loc", ns) if e.text]
+                  print("LOC_COUNT:", len(locs))
+                  for loc in locs:
+                      print("LOC:", loc)
+                      if not loc.startswith(BASE + "/"):
+                          errors.append(f"sitemap loc outside project base: {loc}")
+
+          print("\n=== sitemap loc HEAD checks ===")
+          for loc in locs:
+              rc, out, err = head(loc)
+              first = out.splitlines()[0] if out.splitlines() else ""
+              print(loc, "=>", first or err)
+              if rc != 0:
+                  errors.append(f"sitemap loc HEAD failed: {loc} rc={rc}")
+              elif " 200 " not in first and not first.endswith(" 200"):
+                  errors.append(f"sitemap loc not HTTP 200: {loc} => {first}")
+
+          print("\n=== status / ledger consistency smoke ===")
+          rc, status_text, err = fetch(f"{BASE}/status.json")
+          if rc != 0:
+              errors.append("status.json fetch failed")
+          else:
+              body_start = status_text.find("{")
+              body = status_text[body_start:] if body_start != -1 else status_text
+              try:
+                  status = json.loads(body)
+                  print("status.created_utc:", status.get("created_utc"))
+                  print("status.run_key:", (status.get("metrics") or {}).get("run_key"))
+                  print("status.git_sha:", (status.get("metrics") or {}).get("git_sha"))
+              except Exception as exc:
+                  errors.append(f"status.json parse failed: {exc}")
+
+          print("\n=== result ===")
+          if errors:
+              print("FAIL")
+              for error in errors:
+                  print("ERROR:", error)
+              sys.exit(1)
+
+          print("PASS: public surface audit clean")
+          PY
