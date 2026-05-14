@@ -21,14 +21,18 @@ def test_paradox_diagram_renderer_produces_svg(tmp_path: Path) -> None:
     inp.write_text(
         json.dumps(
             {
-                "version": "v0",
+                "schema_version": "v0",
                 "timestamp_utc": "2026-02-06T00:00:00+00:00",
-                "decision": "NORMAL",
+                "shadow": True,
+                "decision_key": "NORMAL",
                 "decision_raw": "NORMAL",
-                "settle_time_p95_ms": 10.0,
-                "settle_time_budget_ms": 50.0,
-                "downstream_error_rate": 0.02,
-                "paradox_density": 0.1,
+                "source": "test_paradox_diagram_renderer_v0_smoke",
+                "notes": "renderer smoke fixture",
+                "metrics": {
+                    "settle_time_p95_ms": 10.0,
+                    "settle_time_budget_ms": 50.0,
+                    "downstream_error_rate": 0.02,
+                    "paradox_density": 0.1
             },
             indent=2,
         )
@@ -41,4 +45,4 @@ def test_paradox_diagram_renderer_produces_svg(tmp_path: Path) -> None:
 
     assert out.exists(), "renderer did not produce SVG"
     txt = out.read_text(encoding="utf-8")
-    assert "<svg" in txt and "Paradox Diagram v0" in txt
+    assert "<svg" in txt and "Paradox diagram (v0)" in txt
