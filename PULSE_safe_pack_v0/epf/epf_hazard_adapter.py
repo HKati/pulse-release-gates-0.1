@@ -612,7 +612,21 @@ def _maybe_enable_feature_mode_from_calibration(
         preserve_empty=True,
     )
 
-    effective_allow = _combine_allowlists(runtime_allow, artifact_allow, recommended_allow)
+    if runtime_allow is not None and artifact_allow is not None:
+        feature_mode_source = "runtime_and_artifact_allowlist"
+        effective_allow = _combine_allowlists(runtime_allow, artifact_allow)
+    elif runtime_allow is not None:
+        feature_mode_source = "runtime_allowlist"
+        effective_allow = runtime_allow
+    elif artifact_allow is not None:
+        feature_mode_source = "artifact_allowlist"
+        effective_allow = artifact_allow
+    elif recommended_allow is not None:
+        feature_mode_source = "recommended_features"
+        effective_allow = recommended_allow
+    else:
+        feature_mode_source = "snapshot_intersection"
+        effective_allow = None
 
     keys = _select_feature_keys_for_autowire(
         list(scalers.keys()),
@@ -620,12 +634,17 @@ def _maybe_enable_feature_mode_from_calibration(
         reference_snapshot=reference_snapshot,
         allowlist=effective_allow,
     )
+   
+    cfg.feature_mode_source = feature_mode_source 
+   
     if not keys:
-        return False, None, None
+        cfg.feature_mode_active = False
+        return False, [], feature_mode_source
 
     cfg.feature_scalers = {k: scalers[k] for k in keys}
     cfg.feature_specs = [FeatureSpec(key=k) for k in keys]
-    return True, keys, "calibration_autowire"
+    cfg.feature_mode_active = True
+    return True, keys, feature_mode_source
 
 
 def probe_hazard_and_append_log(
