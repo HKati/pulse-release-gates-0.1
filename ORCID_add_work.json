@@ -1,7 +1,7 @@
 {
   "title": "PULSE: Deterministic Release Gates for Safe & Useful AI (Software)",
   "type": "software",
-  "doi": "10.5281/zenodo.17214909",
+  "doi": "10.5281/zenodo.17214908",
   "year": 2025,
   "authors": [
     {
@@ -14,4 +14,5 @@
     }
   ],
   "description": "Software package implementing deterministic release gates across safety, utility and SLO dimensions."
+
 }
