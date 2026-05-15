@@ -525,6 +525,42 @@ jobs:
           echo "Resolved Pages BASE_URL: $BASE_URL"
           export BASE_URL
 
+          # Ensure published HTML entrypoints expose canonical URLs for crawlers.
+          python3 - <<'PY'
+          import os
+          import re
+          from pathlib import Path
+          from html import escape
+
+          base = os.environ["BASE_URL"].rstrip("/")
+
+          targets = {
+              Path("_site/index.html"): f"{base}/",
+              Path("_site/report_card.html"): f"{base}/report_card.html",
+          }
+
+          canonical_re = re.compile(
+              r'(?is)<link[^>]+rel=["\']canonical["\'][^>]*>'
+          )
+
+          for path, canonical in targets.items():
+              if not path.is_file():
+                  continue
+
+              html = path.read_text(encoding="utf-8")
+              link = f'<link rel="canonical" href="{escape(canonical, quote=True)}">'
+
+              if canonical_re.search(html):
+                  html = canonical_re.sub(link, html, count=1)
+              elif "<head>" in html:
+                  html = html.replace("<head>", f"<head>\n  {link}", 1)
+              else:
+                  raise SystemExit(f"missing <head> in {path}")
+
+              path.write_text(html, encoding="utf-8")
+              print(f"OK: canonical set for {path}: {canonical}")
+          PY
+         
           python3 - <<'PY'
           import os
           import xml.etree.ElementTree as ET
