@@ -84,51 +84,20 @@ PULSE release authority is carried by the recorded artifact chain. Required gate
 
 Quality Ledger, release authority manifests, audit bundles, dashboards, and public Pages surfaces record, preserve, or display the decision trail. Authorization remains bound to the ordered PULSEmech tuple.
 
-## Why PULSE
+## Release-boundary mechanics
 
-Post-event control is not release control.
+PULSEmech places the release decision before deployment. Release effects are allowed to propagate only after the recorded artifact chain satisfies declared policy.
 
-Post-release control surfaces operate after release effects have already propagated: they detect, explain, patch, or audit.
-
-PULSE places the control point before release.
-
-Recorded evidence is checked against declared gate policy; required gates are materialized; missing required evidence, missing required gates, or non-true required gate values fail closed.
-
-The result is an evidence-bound release-authority path, not a post-event dashboard.
-
-Release evidence can include safety and consistency invariants, product quality gates, SLO budgets, external detector summaries, run metadata, logs, and release-stability signals. Policy defines which evidence and gates carry release authority. Evaluation is deterministic, explicit, and fail-closed.
-
-The output is a governed release surface:
-- machine-readable release status,
-- enforced gate outcomes,
-- a human-readable Quality Ledger,
-- CI-native reports and artifacts,
-- release-stability signals such as RDSI,
-- traceable release-state records.
+The release-boundary decision is evaluated as:
 
 ```text
 recorded release evidence
-+ declared gate policy
-+ deterministic evaluator
-→ auditable release decision record
-```
-
-Release gates are the deterministic enforcement mechanism inside the broader PULSE release-governance layer.
-
-The normative release path is:
-
-```text
-recorded evidence
 → status.json
 → declared gate policy
 → materialized required gate set
-→ strict gate checking
-→ CI decision
+→ strict fail-closed CI checking
+→ CI allow/block release decision
 ```
-
-Release authority manifests, audit bundles, ledgers, dashboards, and public Pages surfaces preserve, publish, or display the decision trail.
-
-> **TL;DR**: Existing systems produce release evidence. PULSE binds that evidence to declared policy, evaluates it deterministically, enforces the release boundary in CI, and records the decision for audit.
 
 ---
 
