@@ -68,7 +68,7 @@ Decision surfaces are separated as follows:
 
 | Layer | Boundary | Normative decision basis | Decision |
 | --- | --- | --- | --- |
-| PULSE (PULSEmech) | Release boundary, before deployment | Recorded release evidence + declared gate policy + materialized required gate set | Deterministic, fail-closed CI allow/block release decision |
+| PULSE (PULSEmech) | Release boundary, before deployment | Recorded release evidence + status.json + declared gate policy + materialized required gate set | Deterministic, fail-closed CI allow/block release decision |
 | Runtime guardrails | Live interaction boundary, during use | Individual prompt/output/tool-call state | Allow, block, rewrite, route, or refuse an interaction |
 
 Keywords: AI release governance, release authority, release-decision integrity, fail-closed CI, artifact-first governance, safety evidence, detector evidence, release gates, audit trail, pre-deployment control.
