@@ -2,12 +2,22 @@ name: Public surface audit
 
 on:
   workflow_dispatch:
+  workflow_run:
+    workflows: ["Publish report pages"]
+    types: [completed]
+    branches: [main]
 
 permissions:
   contents: read
 
 jobs:
   audit:
+    if: >-
+      ${{
+        github.event_name == 'workflow_dispatch' ||
+        (github.event_name == 'workflow_run' &&
+         github.event.workflow_run.conclusion == 'success')
+      }}
     runs-on: ubuntu-latest
 
     steps:
@@ -25,18 +35,25 @@ jobs:
           import re
           import subprocess
           import sys
+          import time
           import xml.etree.ElementTree as ET
-          from urllib.parse import urlparse
 
           BASE = "https://hkati.github.io/pulse-release-gates-0.1"
 
-          URLS = [
+          REQUIRED_URLS = [
               f"{BASE}/",
               f"{BASE}/robots.txt",
               f"{BASE}/sitemap.xml",
               f"{BASE}/status.json",
               f"{BASE}/report_card.html",
           ]
+
+          STABLE_SITEMAP_URLS = {
+              f"{BASE}/",
+              f"{BASE}/report_card.html",
+              f"{BASE}/diagnostics/",
+              f"{BASE}/paradox/core/v0/",
+          }
 
           AGENTS = {
               "default": "curl-public-surface-audit/1.0",
@@ -56,19 +73,39 @@ jobs:
               proc = run(["curl", "-sSIL", "-A", agent, "--max-time", "30", url])
               return proc.returncode, proc.stdout, proc.stderr
 
+          def status_line(text):
+              return text.splitlines()[0] if text.splitlines() else ""
+
+          def is_http_200(line):
+              return " 200 " in line or line.endswith(" 200")
+
+          def check_with_retry(url, *, method="head", agent="curl-public-surface-audit/1.0", attempts=5, wait_seconds=8):
+              call = head if method == "head" else fetch
+              last = (1, "", "")
+              for i in range(1, attempts + 1):
+                  rc, out, err = call(url, agent)
+                  last = (rc, out, err)
+                  first = status_line(out)
+                  if rc == 0 and is_http_200(first):
+                      return rc, out, err
+                  if i < attempts:
+                      print(f"retry {i}/{attempts} for {method.upper()} {url}; status={first!r} rc={rc}")
+                      time.sleep(wait_seconds)
+              return last
+
           errors = []
 
-          print("=== HEAD checks ===")
-          for url in URLS:
-              rc, out, err = head(url)
+          print("=== HEAD checks: required public URLs ===")
+          for url in REQUIRED_URLS:
+              rc, out, err = check_with_retry(url, method="head")
               print(f"\n--- {url} ---")
               print(out or err)
               if rc != 0:
                   errors.append(f"curl HEAD failed for {url}: rc={rc}")
                   continue
 
-              first = out.splitlines()[0] if out.splitlines() else ""
-              if " 200 " not in first and not first.endswith(" 200"):
+              first = status_line(out)
+              if not is_http_200(first):
                   errors.append(f"{url} did not return HTTP 200 first status line: {first}")
 
               if re.search(r"(?im)^x-robots-tag:.*noindex", out):
@@ -77,18 +114,18 @@ jobs:
           print("\n=== crawler user-agent GET checks ===")
           for agent_name, agent in AGENTS.items():
               for url in [f"{BASE}/", f"{BASE}/robots.txt", f"{BASE}/sitemap.xml"]:
-                  rc, out, err = fetch(url, agent)
+                  rc, out, err = check_with_retry(url, method="get", agent=agent)
                   print(f"\n--- {agent_name} {url} ---")
                   print(out[:1200] if out else err)
                   if rc != 0:
                       errors.append(f"{agent_name} GET failed for {url}: rc={rc}")
                       continue
-                  header_first = out.splitlines()[0] if out.splitlines() else ""
-                  if " 403 " in header_first or " 403" in out[:200]:
+                  first = status_line(out)
+                  if " 403 " in first or " 403" in out[:200]:
                       errors.append(f"{agent_name} appears blocked by 403 for {url}")
 
           print("\n=== homepage meta checks ===")
-          rc, homepage, err = fetch(f"{BASE}/")
+          rc, homepage, err = check_with_retry(f"{BASE}/", method="get")
           if rc != 0:
               errors.append(f"homepage fetch failed: rc={rc}")
               homepage = ""
@@ -103,40 +140,37 @@ jobs:
           print("canonical:", canonical[:3])
           if not canonical:
               errors.append("homepage missing canonical link")
-          elif "https://hkati.github.io/pulse-release-gates-0.1/" not in canonical[0]:
+          elif f'{BASE}/' not in canonical[0]:
               errors.append(f"homepage canonical does not point to project root: {canonical[0]}")
 
           print("\n=== robots.txt check ===")
-          rc, robots, err = fetch(f"{BASE}/robots.txt")
+          rc, robots, err = check_with_retry(f"{BASE}/robots.txt", method="get")
           print(robots or err)
           if rc != 0 or not robots:
               errors.append("robots.txt could not be fetched")
           else:
               if "User-agent:" not in robots:
                   errors.append("robots.txt missing User-agent")
+              if "Disallow:" in robots and re.search(r"(?im)^disallow:\s*/\s*$", robots):
+                  errors.append("robots.txt disallows full crawl")
               if f"Sitemap: {BASE}/sitemap.xml" not in robots:
                   errors.append("robots.txt missing exact project sitemap reference")
 
           print("\n=== sitemap.xml check ===")
-          rc, sitemap, err = fetch(f"{BASE}/sitemap.xml")
+          rc, sitemap, err = check_with_retry(f"{BASE}/sitemap.xml", method="get")
           print(sitemap or err)
+          locs = []
           if rc != 0 or not sitemap:
               errors.append("sitemap.xml could not be fetched")
-              locs = []
           else:
+              body_start = sitemap.find("<?xml")
+              body = sitemap[body_start:] if body_start != -1 else sitemap
               try:
-                  root = ET.fromstring(sitemap.split("<?xml", 1)[-1] if "HTTP/" in sitemap[:100] else sitemap)
-              except Exception:
-                  # curl -D - includes headers; strip to XML body
-                  body_start = sitemap.find("<?xml")
-                  body = sitemap[body_start:] if body_start != -1 else sitemap
-                  try:
-                      root = ET.fromstring(body)
-                  except Exception as exc:
-                      errors.append(f"sitemap XML parse failed: {exc}")
-                      root = None
+                  root = ET.fromstring(body)
+              except Exception as exc:
+                  errors.append(f"sitemap XML parse failed: {exc}")
+                  root = None
 
-              locs = []
               if root is not None:
                   ns = {"sm": "http://www.sitemaps.org/schemas/sitemap/0.9"}
                   locs = [e.text for e in root.findall(".//sm:loc", ns) if e.text]
@@ -146,18 +180,22 @@ jobs:
                       if not loc.startswith(BASE + "/"):
                           errors.append(f"sitemap loc outside project base: {loc}")
 
+                  missing_stable = sorted(STABLE_SITEMAP_URLS - set(locs))
+                  if missing_stable:
+                      errors.append(f"sitemap missing stable entries: {missing_stable}")
+
           print("\n=== sitemap loc HEAD checks ===")
           for loc in locs:
-              rc, out, err = head(loc)
-              first = out.splitlines()[0] if out.splitlines() else ""
+              rc, out, err = check_with_retry(loc, method="head")
+              first = status_line(out)
               print(loc, "=>", first or err)
               if rc != 0:
                   errors.append(f"sitemap loc HEAD failed: {loc} rc={rc}")
-              elif " 200 " not in first and not first.endswith(" 200"):
+              elif not is_http_200(first):
                   errors.append(f"sitemap loc not HTTP 200: {loc} => {first}")
 
           print("\n=== status / ledger consistency smoke ===")
-          rc, status_text, err = fetch(f"{BASE}/status.json")
+          rc, status_text, err = check_with_retry(f"{BASE}/status.json", method="get")
           if rc != 0:
               errors.append("status.json fetch failed")
           else:
