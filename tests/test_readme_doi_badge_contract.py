@@ -4,17 +4,17 @@ ROOT = Path(__file__).resolve().parents[1]
 README = ROOT / "README.md"
 
 
-def test_readme_top_doi_badge_uses_concept_doi() -> None:
+def test_readme_top_doi_badge_uses_zenodo_repository_route() -> None:
     text = README.read_text(encoding="utf-8")
     assert (
-        "[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.17214908.svg)]"
-        "(https://doi.org/10.5281/zenodo.17214908)" in text
+        "[![DOI](https://zenodo.org/badge/1061766508.svg)]"
+        "(https://zenodo.org/badge/latestdoi/1061766508)" in text
     )
 
 
-def test_readme_top_doi_badge_not_latestdoi() -> None:
+def test_readme_zenodo_records_include_concept_doi_all_versions() -> None:
     text = README.read_text(encoding="utf-8")
-    assert "https://zenodo.org/badge/latestdoi/1061766508" not in text
+    assert "- **Concept DOI / all versions:** https://doi.org/10.5281/zenodo.17214908" in text
 
 
 def test_readme_zenodo_records_identifies_current_release_v111() -> None:
