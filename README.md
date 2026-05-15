@@ -92,6 +92,9 @@ The release-boundary decision is evaluated as:
 
 ```text
 recorded release evidence
+→ status.json
+→ declared gate policy
+→ materialized required gate set
 → strict fail-closed CI checking
 → CI allow/block release decision
 ```
