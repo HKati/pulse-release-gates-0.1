@@ -35,26 +35,41 @@
 
 #### Deterministic release-governance layer for LLM applications and AI-enabled systems
 
-PULSE is an existing artifact-first release-governance / release-authority system for AI applications.
+PULSE operates through **PULSEmech release-authority mechanics**.
 
-PULSE structures recorded safety, quality, detector, stability, CI, and review evidence into deterministic, fail-closed release decisions under declared policy.
+PULSEmech release authority is evaluated from recorded artifact state under declared policy. Recorded safety, quality, detector, stability, CI, and review evidence is represented through `status.json`; declared gate policy defines the required decision conditions; the required gate set is materialized; strict fail-closed CI checking emits a deterministic allow/block release decision.
+
+### PULSEmech release-authority tuple
+
+PULSEmech release authority is evaluated over the ordered decision tuple:
+
+```text
+(recorded release evidence,
+ status.json,
+ declared gate policy,
+ materialized required gate set,
+ strict fail-closed CI checking)
+→ CI allow/block release decision
+```
+
+
+The CI workflow is the enforcement surface. Recorded artifact state under declared policy is the decision basis.
+
+Quality Ledger, dashboards, release authority manifests, audit bundles, and public Pages surfaces record, preserve, or display the decision trail. Authorization remains bound to the ordered PULSEmech tuple.
+
+Runtime controls operate at the live interaction boundary. Runtime outputs enter the release-authority path when they are recorded as release evidence, represented through `status.json`, materialized into the required gate set, and checked under declared policy.
 
 ### Where PULSE sits
 
-PULSE operates before release/deployment.  
-It evaluates recorded release evidence against declared policy, materializes the required gate set, and produces a CI-enforced release decision.
+PULSE acts at the release boundary, before deployment.  
+Runtime guardrails act at the live interaction boundary, during use.
 
-Runtime guardrails operate during live use.  
-They act on individual prompts, outputs, tool calls, and live interaction boundaries.
+Decision surfaces are separated as follows:
 
-The layers are complementary:  
-PULSE protects release integrity.  
-Runtime guardrails protect live interactions.
-
-| Layer | When it acts | Input | Decision |
+| Layer | Boundary | Normative decision basis | Decision |
 | --- | --- | --- | --- |
-| PULSE | Before release/deployment | Recorded evidence + declared policy | Allow or block release |
-| Runtime guardrails | During live use | Individual prompt/output/tool interaction | Allow, block, rewrite, route, or refuse response |
+| PULSE (PULSEmech) | Release boundary, before deployment | Recorded release evidence + declared gate policy + materialized required gate set | Deterministic, fail-closed CI allow/block release decision |
+| Runtime guardrails | Live interaction boundary, during use | Individual prompt/output/tool-call state | Allow, block, rewrite, route, or refuse an interaction |
 
 Keywords: AI release governance, release authority, release-decision integrity, fail-closed CI, artifact-first governance, safety evidence, detector evidence, release gates, audit trail, pre-deployment control.
 
@@ -65,11 +80,9 @@ Keywords: AI release governance, release authority, release-decision integrity, 
 
 **Repair verification checkpoint:** [docs/PULSE_REPAIR_VERIFICATION_CHECKPOINT_2026-05-15.md](docs/PULSE_REPAIR_VERIFICATION_CHECKPOINT_2026-05-15.md) — full pytest clean: `659 passed, 42 subtests passed, 0 failed`
 
-PULSE is a deterministic, fail-closed release-governance layer for LLM applications and AI-enabled systems. It is built above existing application, model, evaluation, and deployment pipelines. At the release boundary, PULSE evaluates recorded release evidence against declared gate policy and emits an auditable release decision record.
+PULSE release authority is carried by the recorded artifact chain. Required gates are explicit, materialized, and checked before release effects can propagate. Missing required evidence, missing required gates, invalid status artifacts, and non-true required gate values fail closed.
 
-PULSE is an evidence-bound release-authority layer for AI-assisted production work.
-
-It implements [pre-materialization gate mechanics](docs/PULSE_PRE_MATERIALIZATION_GATE_MECHANICS_v0.md): recorded safety, quality, detector, stability, CI, and review evidence is checked against declared gate policy before unsupported release decisions can materialize.
+Quality Ledger, release authority manifests, audit bundles, dashboards, and public Pages surfaces record, preserve, or display the decision trail. Authorization remains bound to the ordered PULSEmech tuple.
 
 ## Why PULSE
 
@@ -113,7 +126,7 @@ recorded evidence
 → CI decision
 ```
 
-Release authority manifests, audit bundles, ledgers, dashboards, and public Pages surfaces preserve, publish, or display the decision trail. They do not authorize, block, override, or create a second release-decision path.
+Release authority manifests, audit bundles, ledgers, dashboards, and public Pages surfaces preserve, publish, or display the decision trail.
 
 > **TL;DR**: Existing systems produce release evidence. PULSE binds that evidence to declared policy, evaluates it deterministically, enforces the release boundary in CI, and records the decision for audit.
 
