@@ -57,7 +57,7 @@ The CI workflow is the enforcement surface. Recorded artifact state under declar
 
 Quality Ledger, dashboards, release authority manifests, audit bundles, and public Pages surfaces record, preserve, or display the decision trail. Authorization remains bound to the ordered PULSEmech tuple.
 
-Runtime controls operate at the live interaction boundary. Runtime outputs enter the release-authority path when they are recorded as release evidence, represented through `status.json`, materialized into the required gate set, and checked under declared policy.
+Runtime controls operate at the live interaction boundary. Runtime observations affect PULSE only when recorded as release evidence in the artifact state and evaluated under declared policy.
 
 ### Where PULSE sits
 
