@@ -32,6 +32,29 @@
 
 #### Deterministic release-governance layer for LLM applications and AI-enabled systems
 
+PULSE is an existing artifact-first release-governance / release-authority system for AI applications.
+
+PULSE structures recorded safety, quality, detector, stability, CI, and review evidence into deterministic, fail-closed release decisions under declared policy.
+
+### Where PULSE sits
+
+PULSE operates before release/deployment.  
+It evaluates recorded release evidence against declared policy, materializes the required gate set, and produces a CI-enforced release decision.
+
+Runtime guardrails operate during live use.  
+They act on individual prompts, outputs, tool calls, and live interaction boundaries.
+
+The layers are complementary:  
+PULSE protects release integrity.  
+Runtime guardrails protect live interactions.
+
+| Layer | When it acts | Input | Decision |
+| --- | --- | --- | --- |
+| PULSE | Before release/deployment | Recorded evidence + declared policy | Allow or block release |
+| Runtime guardrails | During live use | Individual prompt/output/tool interaction | Allow, block, rewrite, route, or refuse response |
+
+Keywords: AI release governance, release authority, release-decision integrity, fail-closed CI, artifact-first governance, safety evidence, detector evidence, release gates, audit trail, pre-deployment control.
+
 **See the latest Quality Ledger (live):** https://hkati.github.io/pulse-release-gates-0.1/
 
 **PULSE-REF RA1 operating proof:** [docs/PULSE_REF_RA1_OPERATING_PROOF_v0.md](docs/PULSE_REF_RA1_OPERATING_PROOF_v0.md)  
@@ -79,13 +102,15 @@ Release gates are the deterministic enforcement mechanism inside the broader PUL
 The normative release path is:
 
 ```text
-release evidence
+recorded evidence
 → status.json
 → declared gate policy
-→ check_gates.py
-→ primary CI release workflow
-→ release decision record
+→ materialized required gate set
+→ strict gate checking
+→ CI decision
 ```
+
+Release authority manifests, audit bundles, ledgers, dashboards, and public Pages surfaces preserve, publish, or display the decision trail. They do not authorize, block, override, or create a second release-decision path.
 
 > **TL;DR**: Existing systems produce release evidence. PULSE binds that evidence to declared policy, evaluates it deterministically, enforces the release boundary in CI, and records the decision for audit.
 
