@@ -26,8 +26,8 @@ keywords:
   - "CI"
 
 # The specific release you want others to cite
-doi: "10.5281/zenodo.17373002"
-version: "v1.0.2"
+doi: "10.5281/zenodo.18203404"
+version: "v1.1.1"
 date-released: "2025-10-18"
 
 # The all-versions (concept) DOI so the badge can stay stable across releases
@@ -45,9 +45,9 @@ preferred-citation:
       orcid: "https://orcid.org/0009-0001-9745-3764"
       affiliation: "EPLabsAI"
     - name: "EPLabsAI"
-  version: "v1.0.2"
-  doi: "10.5281/zenodo.17373002"
-  url: "https://doi.org/10.5281/zenodo.17373002"
+  version: "v1.1.1"
+  doi: "10.5281/zenodo.18203404"
+  url: "https://doi.org/10.5281/zenodo.18203404"
 
 references:
   - type: dataset
