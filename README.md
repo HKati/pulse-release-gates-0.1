@@ -33,6 +33,14 @@
 
 [![DOI](https://zenodo.org/badge/1061766508.svg)](https://zenodo.org/badge/latestdoi/1061766508)
 
+
+> 🚧 **Closed for technical maintenance**
+>
+> The machine we would use for this work is currently under repair. 
+>
+> PULSE remains active.
+
+
 #### Deterministic release-governance layer for LLM applications and AI-enabled systems
 
 PULSE operates through **PULSEmech release-authority mechanics**.
