@@ -1,52 +1,14 @@
-[![PULSEmech architecture map: artifact-first governance, shadow diagnostics, normative release authority, traceability, and release output.](hero_pulsemech_architecture_map_v0_1.svg)](docs/PULSEMECH_ARCHITECTURE_MAP_v0_1.md)
-
-<details>
-  <summary><strong>Project badges, Zenodo records, and live release surfaces</strong></summary>
-
-<p align="center">
-  <img src="pulse_grail.svg" width="90" alt="Pulse Holy Grail">
-</p>
-
-<p align="center">
-  <img src="https://img.shields.io/badge/PULSE-HOLY%20GRAIL-%237DF9FF?style=for-the-badge&logo=codesandbox&logoColor=white" alt="Pulse Holy Grail badge">
-  <a href="https://hkati.github.io/pulse-release-gates-0.1/"><img src="badges/pulse_status.svg" alt="PULSE status"></a>
-  <a href="https://hkati.github.io/pulse-release-gates-0.1/status.json"><img src="badges/rdsi.svg" alt="RDSI"></a>
-  <a href="https://hkati.github.io/pulse-release-gates-0.1/#quality-ledger"><img src="badges/q_ledger.svg" alt="Q-Ledger"></a>
-</p>
-
-### Zenodo records
-
-- **Concept DOI / all versions:** https://doi.org/10.5281/zenodo.17214908
-- **Current release DOI / v1.1.1:** https://doi.org/10.5281/zenodo.18203404
-- **Previous release DOI / v1.0.2:** https://doi.org/10.5281/zenodo.17373002
-- **Previous release DOI / v1.0.1:** https://doi.org/10.5281/zenodo.17214909
-- **Preprint DOI:** https://doi.org/10.5281/zenodo.17833583
-
-### Live release surfaces
-
-- **Quality Ledger:** https://hkati.github.io/pulse-release-gates-0.1/
-- **Status JSON:** https://hkati.github.io/pulse-release-gates-0.1/status.json
-
-</details>
-
-# PULSE — Release Gates for Safe & Useful AI
-
-> 🚧 **Technically closed**
->
-> This workspace is temporarily closed for technical correction.
->
-> PULSE remains active.
-
-[![DOI](https://zenodo.org/badge/1061766508.svg)](https://zenodo.org/badge/latestdoi/1061766508)
-
-
 # PULSE — Release Authority for Safe & Useful AI
 
-### Artifact-first release-governance / release-authority system for AI applications
+### PULSE is an artifact-first release-governance / release-authority system for AI applications.
 
 PULSE structures recorded safety, quality, detector, stability, CI, and review evidence into deterministic, fail-closed release decisions under declared policy.
 
 The mechanism is PULSEmech: an artifact-first, policy-declared, gate-materialized, CI-enforced release-authority mechanism for AI applications and AI-enabled systems.
+
+## PULSEmech architecture map
+
+[![PULSEmech architecture map: artifact-first governance, shadow diagnostics, normative release authority, traceability, and release output.](hero_pulsemech_architecture_map_v0_1.svg)](docs/PULSEMECH_ARCHITECTURE_MAP_v0_1.md)
 
 ## Mechanical identity
 
@@ -138,6 +100,38 @@ Choose the path that matches the release-authority question you need to answer.
 - Authority-boundary / topology path → `docs/SPACE_RELATION_MAP_v0.md`
 - Diagnostic overlays path → `docs/OPTIONAL_LAYERS.md`
 
+[![DOI](https://zenodo.org/badge/1061766508.svg)](https://zenodo.org/badge/latestdoi/1061766508)
+
+---
+
+<details>
+  <summary><strong>Project badges, Zenodo records, and live release surfaces</strong></summary>
+
+<p align="center">
+  <img src="pulse_grail.svg" width="90" alt="Pulse Holy Grail">
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/PULSE-HOLY%20GRAIL-%237DF9FF?style=for-the-badge&logo=codesandbox&logoColor=white" alt="Pulse Holy Grail badge">
+  <a href="https://hkati.github.io/pulse-release-gates-0.1/"><img src="badges/pulse_status.svg" alt="PULSE status"></a>
+  <a href="https://hkati.github.io/pulse-release-gates-0.1/status.json"><img src="badges/rdsi.svg" alt="RDSI"></a>
+  <a href="https://hkati.github.io/pulse-release-gates-0.1/#quality-ledger"><img src="badges/q_ledger.svg" alt="Q-Ledger"></a>
+</p>
+
+### Zenodo records
+
+- **Concept DOI / all versions:** https://doi.org/10.5281/zenodo.17214908
+- **Current release DOI / v1.1.1:** https://doi.org/10.5281/zenodo.18203404
+- **Previous release DOI / v1.0.2:** https://doi.org/10.5281/zenodo.17373002
+- **Previous release DOI / v1.0.1:** https://doi.org/10.5281/zenodo.17214909
+- **Preprint DOI:** https://doi.org/10.5281/zenodo.17833583
+
+### Live release surfaces
+
+- **Quality Ledger:** https://hkati.github.io/pulse-release-gates-0.1/
+- **Status JSON:** https://hkati.github.io/pulse-release-gates-0.1/status.json
+
+</details>
 
 ---
 
