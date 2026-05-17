@@ -33,15 +33,16 @@
 
 [![DOI](https://zenodo.org/badge/1061766508.svg)](https://zenodo.org/badge/latestdoi/1061766508)
 
-#### PULSEmech release authority — artifact-bound release decisions before deployment
+
+#### PULSEmech release authority for pre-deployment AI release decisions
 
 ## What PULSE does
 
-PULSE is an artifact-first release-authority mechanism for AI applications and AI-enabled systems.
+PULSE implements **PULSEmech**: an artifact-first release-authority mechanism for AI applications and AI-enabled systems.
 
-The mechanism is **PULSEmech**: a pre-deployment release-decision path that converts recorded safety, quality, detector, stability, CI, and review evidence into a deterministic, fail-closed CI allow/block decision under declared policy.
+PULSEmech evaluates recorded safety, quality, detector, stability, CI, and review evidence before deployment and materializes a deterministic, fail-closed CI allow/block decision under declared policy.
 
-PULSEmech places release authority before deployment. Recorded evidence becomes machine-readable release state; declared gate policy defines the required gates for the selected release lane; the required gate set is materialized; and CI enforces that set through strict, true-only, fail-closed checking.
+Recorded evidence becomes machine-readable release state. Declared gate policy defines the required gates for the selected release lane. The required gate set is materialized from policy. CI enforces that materialized set through strict, true-only, fail-closed checking.
 
 The PULSEmech decision path is:
 
@@ -79,7 +80,7 @@ PULSE acts at the release boundary, before deployment. Runtime guardrails act at
 | PULSE / PULSEmech | Release boundary, before deployment | Recorded release evidence + `status.json` + declared gate policy + materialized required gate set | Deterministic, fail-closed CI allow/block release decision |
 | Runtime guardrails | Live interaction boundary, during use | Individual prompt, output, or tool-call state | Allow, block, rewrite, route, or refuse an interaction |
 
-Keywords: PULSEmech, release authority, release-authority mechanism, pre-deployment release decision, artifact-bound release state, CI allow/block decision, fail-closed CI, declared gate policy, materialized required gates, recorded safety evidence, detector evidence, release evidence, audit trail.
+Keywords: PULSEmech, release authority, release-authority mechanism, pre-deployment AI release decision, artifact-first release evidence, machine-readable release state, CI allow/block decision, fail-closed CI, declared gate policy, materialized required gates, safety evidence, detector evidence, audit trail.
 
 ## Current verification checkpoint
 
@@ -98,7 +99,6 @@ Required gates are explicit, materialized, and checked before release effects ca
 > and ledger views remain under active expansion.
 
 ---
-
 
 ---
 
