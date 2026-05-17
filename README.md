@@ -88,17 +88,6 @@ Required gates are explicit, materialized, and checked before release effects ca
 | invalid `status.json` | block |
 | required gate value is not literal `true` | block |
 
-## Start here
-
-Choose the path that matches the release-authority question you need to answer.
-
-- Core integration path → `docs/QUICKSTART_CORE_v0.md`
-- Release authority / source-of-truth path → `docs/STATUS_CONTRACT.md` and `docs/status_json.md`
-- External evidence integration path → `docs/EXTERNAL_DETECTORS.md` and `docs/external_detector_summaries.md`
-- Release-grade reference run path → `docs/release_grade_reference_run_v0.md`
-- Operational triage path → `docs/RUNBOOK.md`
-- Authority-boundary / topology path → `docs/SPACE_RELATION_MAP_v0.md`
-- Diagnostic overlays path → `docs/OPTIONAL_LAYERS.md`
 
 [![DOI](https://zenodo.org/badge/1061766508.svg)](https://zenodo.org/badge/latestdoi/1061766508)
 
@@ -145,28 +134,28 @@ Choose the path that matches the release-authority question you need to answer.
 
 ## Start here
 
-Choose the path that matches the release-governance question you need to answer.
+Choose the path that matches the release-authority question you need to answer.
 
 - **Core integration path** → [`docs/QUICKSTART_CORE_v0.md`](docs/QUICKSTART_CORE_v0.md)  
-  Minimal path for attaching the PULSE Core release-governance lane to an existing repository and CI workflow.
+  Minimal path for attaching the PULSE Core lane to an existing repository and CI workflow. Use this for first integration and core smoke operation; it is not a full release-grade reference run.
 
 - **Release authority / source-of-truth path** → [`docs/STATUS_CONTRACT.md`](docs/STATUS_CONTRACT.md) and [`docs/status_json.md`](docs/status_json.md)  
-  Read these first to understand how recorded evidence, status contracts, gate policy, and CI enforcement define release authority.
+  Read these first to understand how recorded evidence, status contracts, declared gate policy, materialized required gate sets, and strict CI enforcement define PULSE release authority.
 
 - **External evidence integration path** → [`docs/EXTERNAL_DETECTORS.md`](docs/EXTERNAL_DETECTORS.md) and [`docs/external_detector_summaries.md`](docs/external_detector_summaries.md)  
-  Use these when external detector summaries must be folded into the release evidence surface and enforced in release-grade paths.
+  Use these when external detector summaries must be recorded, validated, and folded into the release evidence surface before they can be enforced as required gates under declared policy.
 
 - **Release-grade reference run path** → [`docs/release_grade_reference_run_v0.md`](docs/release_grade_reference_run_v0.md)  
   Use this to understand what counts as a non-stubbed, materialized-evidence release-grade PULSE reference run, and how it differs from the minimal Core lane.
 
 - **Operational triage path** → [`docs/RUNBOOK.md`](docs/RUNBOOK.md)  
-  Start here when a release lane is red and the decision record needs diagnosis.
+  Start here when a release lane is blocked or red and the evidence-to-decision record needs diagnosis.
 
 - **Authority-boundary / topology path** → [`docs/SPACE_RELATION_MAP_v0.md`](docs/SPACE_RELATION_MAP_v0.md)  
-  Use this to inspect the machine-readable topology view of spaces, elements, placements, relations, and invariants.
+  Use this to inspect the machine-readable topology view of spaces, elements, placements, relations, and invariants. This path maps authority boundaries and diagnostic surfaces; it does not create a second release-decision path.
 
 - **Diagnostic overlays path** → [`docs/OPTIONAL_LAYERS.md`](docs/OPTIONAL_LAYERS.md)  
-  Use this after the Core path to understand shadow workflows, topology, EPF, Paradox, G-field, relational gain, and other diagnostic governance layers.
+  Use this after the Core path to understand shadow and diagnostic layers, including topology, EPF, Paradox, G-field, relational gain, and related overlays. These layers are non-normative unless explicitly folded into recorded release evidence and enforced as required gates under declared policy.
 
 --- 
 
