@@ -164,16 +164,16 @@ Choose the path that matches the release-authority question you need to answer.
 Before opening `.github/workflows/`, keep this  authority split in mind.
 
 
-- **Primary release-governance workflow**
+- **Primary release- authority workflow**
   - `.github/workflows/pulse_ci.yml`
   - This is the primary CI workflow for enforcing the declared release gate policy.
 
 - **Repo / workflow guardrails**
   - Governance preflight and workflow validation checks
-  - These protect repository and workflow integrity around the release-governance lane.
+  - These protect repository and workflow integrity around the release- authority lane.
 
 - **Shadow / diagnostic workflows**
-   - Overlays, dry-runs, experiments, and diagnostic artifacts
+  - Overlays, dry-runs, experiments, and diagnostic artifacts
   - These provide review and governance evidence under their declared authority status.
 
 - **Publication / GitHub-native surfaces**
@@ -181,7 +181,7 @@ Before opening `.github/workflows/`, keep this  authority split in mind.
   - These publish or render release evidence and should remain separate opt-in workflows with explicit write permissions.
 
 Rule:
-release authority is carried by the primary release-governance workflow and its declared required gate set. Shadow, diagnostic, and publication workflows preserve their declared authority status unless explicitly promoted into the required gate set.
+release authority is carried by the primary release-authority workflow and its declared required gate set. Shadow, diagnostic, and publication workflows preserve their declared authority status unless explicitly promoted into the required gate set.
 
 See also:  [`docs/WORKFLOW_MAP.md`](docs/WORKFLOW_MAP.md)
 
@@ -247,7 +247,7 @@ UI and Pages surfaces must be pure readers/renderers of immutable run artefacts.
 
 ## Quickstart
 
-There are two practical entry points: local artifact inspection and the canonical Core release-governance lane.
+There are two practical entry points: local artifact inspection and the canonical Core release- authority lane.
 
 ### Fast local smoke — artifact inspection
 
@@ -262,7 +262,7 @@ It is useful when you want to:
 - sanity-check that the pack runs locally
 - look at the generated `status.json` / `report_card.html`
 
-This is an inspection path, not the canonical Core CI release-governance lane.
+This is an inspection path, not the canonical Core CI release-authority lane.
 
 ### Canonical Core release-governance lane
 
@@ -391,14 +391,14 @@ change any CI behaviour or gate logic.
 
 ### Integration shapes
 
-Choose the integration shape that matches the release-governance boundary you want to exercise.
+Choose the integration shape that matches the release-authority boundary you want to exercise.
 
 1. **Pack-only local smoke**
    - Runs the safe-pack locally for artifact inspection.
    - Useful for checking generated `status.json`, reports, and tool behavior.
    - This is an inspection path, not the canonical release-authority lane.
 
-2. **Core release-governance lane**
+2. **Core release-authority lane**
    - Follow `docs/QUICKSTART_CORE_v0.md`.
    - Runs the Core profile in CI.
    - Validates `status.json`.
