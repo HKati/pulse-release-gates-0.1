@@ -21,6 +21,12 @@ This changelog records **semantic** changes that can affect release gating outco
 
 ## Unreleased
 
+- `pulse_gate_policy_v0.yml` / `pulse-gate-policy-v0` (policy 0.1.5):
+  - Changed: release policy documentation/tests/workflow now use a dedicated `ci/check_release_no_stub_status.py` release-grade guard and canonical strict external-summary precheck coverage.
+  - Why: keep release fail-closed no-stub enforcement centralized and test-covered while preventing decoy non-summary JSON artifacts from passing strict evidence prechecks.
+  - Impact: release-grade CI now calls the shared guard script directly, and regression tests explicitly lock no-stub + strict external-summary behavior.
+  - Migration: none for policy consumers; CI maintainers should keep using `ci/check_release_no_stub_status.py` for release-grade status enforcement.
+
 - `pulse_gate_policy_v0.yml` / `pulse-gate-policy-v0` (policy 0.1.4):
   - Changed: add `refusal_delta_evidence_present` to `gates.release_required`.
   - Why: release-grade validation must not infer PASS from missing refusal-delta evidence.
