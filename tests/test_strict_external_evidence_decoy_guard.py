@@ -1,13 +1,35 @@
 from __future__ import annotations
 
-import yaml
+import json
+import subprocess
+import sys
+import tempfile
 from pathlib import Path
 
 
-def test_release_required_contains_expected_gates() -> None:
-    policy = yaml.safe_load(Path('pulse_gate_policy_v0.yml').read_text(encoding='utf-8'))
-    rel = policy['gates']['release_required']
-    assert 'detectors_materialized_ok' in rel
-    assert 'external_summaries_present' in rel
-    assert 'external_all_pass' in rel
-    assert 'refusal_delta_evidence_present' in rel
+ROOT = Path(__file__).resolve().parents[1]
+TOOL = ROOT / "scripts" / "check_external_summaries_present.py"
+
+
+def test_decoy_summary_does_not_count_as_external_evidence() -> None:
+    with tempfile.TemporaryDirectory() as tmpdir:
+        external_dir = Path(tmpdir)
+        (external_dir / "foo_summary.json").write_text(
+            json.dumps({"value": 0}),
+            encoding="utf-8",
+        )
+
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(TOOL),
+                "--external_dir",
+                str(external_dir),
+                "--require_metric_key",
+            ],
+            text=True,
+            capture_output=True,
+        )
+
+    assert result.returncode != 0
+    assert "No canonical external detector summaries" in result.stderr
