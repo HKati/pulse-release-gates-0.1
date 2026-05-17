@@ -8,7 +8,7 @@ The mechanism is PULSEmech: an artifact-first, policy-declared, gate-materialize
 
 ## PULSEmech architecture map
 
-[![PULSEmech architecture map: artifact-first governance, shadow diagnostics, normative release authority, traceability, and release output.](hero_pulsemech_architecture_map_v0_1.svg)](docs/PULSEMECH_ARCHITECTURE_MAP_v0_1.md)
+[![PULSEmech architecture map: artifact-first evidence flow, shadow diagnostics, normative release authority, traceability, and release output.](hero_pulsemech_architecture_map_v0_1.svg)](docs/PULSEMECH_ARCHITECTURE_MAP_v0_1.md)
 
 ## Mechanical identity
 
