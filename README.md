@@ -33,70 +33,21 @@
 
 [![DOI](https://zenodo.org/badge/1061766508.svg)](https://zenodo.org/badge/latestdoi/1061766508)
 
+#### PULSEmech release authority for AI applications and AI-enabled systems
 
-> 🚧 **Closed for technical maintenance**
->
-> The machine we would use for this work is currently under repair. 
->
-> PULSE remains active.
+## What PULSE does
 
+PULSE is an existing artifact-first release-governance / release-authority system for AI applications.
 
-#### Deterministic release-governance layer for LLM applications and AI-enabled systems
+PULSE implements **PULSEmech**: an artifact-first, policy-declared, gate-materialized, CI-enforced release-decision path.
 
-PULSE operates through **PULSEmech release-authority mechanics**.
+PULSE structures recorded safety, quality, detector, stability, CI, and review evidence into deterministic, fail-closed release decisions under declared policy.
 
-PULSEmech release authority is evaluated from recorded artifact state under declared policy. Recorded safety, quality, detector, stability, CI, and review evidence is represented through `status.json`; declared gate policy defines the required decision conditions; the required gate set is materialized; strict fail-closed CI checking emits a deterministic allow/block release decision.
+PULSE places the release decision before deployment. Recorded evidence becomes machine-readable release state; declared policy defines the required gates; the required gate set is materialized; and CI emits an allow/block decision through strict, true-only, fail-closed checking.
 
-### PULSEmech release-authority tuple
+## PULSEmech release-authority mechanics
 
-PULSEmech release authority is evaluated over the ordered decision tuple:
-
-```text
-(recorded release evidence,
- status.json,
- declared gate policy,
- materialized required gate set,
- strict fail-closed CI checking)
-→ CI allow/block release decision
-```
-
-
-The CI workflow is the enforcement surface. Recorded artifact state under declared policy is the decision basis.
-
-Quality Ledger, dashboards, release authority manifests, audit bundles, and public Pages surfaces record, preserve, or display the decision trail. Authorization remains bound to the ordered PULSEmech tuple.
-
-Runtime controls operate at the live interaction boundary. Runtime observations affect PULSE only when recorded as release evidence in the artifact state and evaluated under declared policy.
-
-### Where PULSE sits
-
-PULSE acts at the release boundary, before deployment.  
-Runtime guardrails act at the live interaction boundary, during use.
-
-Decision surfaces are separated as follows:
-
-| Layer | Boundary | Normative decision basis | Decision |
-| --- | --- | --- | --- |
-| PULSE (PULSEmech) | Release boundary, before deployment | Recorded release evidence + status.json + declared gate policy + materialized required gate set | Deterministic, fail-closed CI allow/block release decision |
-| Runtime guardrails | Live interaction boundary, during use | Individual prompt/output/tool-call state | Allow, block, rewrite, route, or refuse an interaction |
-
-Keywords: AI release governance, release authority, release-decision integrity, fail-closed CI, artifact-first governance, safety evidence, detector evidence, release gates, audit trail, pre-deployment control.
-
-**See the latest Quality Ledger (live):** https://hkati.github.io/pulse-release-gates-0.1/
-
-**PULSE-REF RA1 operating proof:** [docs/PULSE_REF_RA1_OPERATING_PROOF_v0.md](docs/PULSE_REF_RA1_OPERATING_PROOF_v0.md)  
-**RA1 operating proof smoke:** `python tests/test_pulse_ref_ra1_operating_proof_smoke.py`
-
-**Repair verification checkpoint:** [docs/PULSE_REPAIR_VERIFICATION_CHECKPOINT_2026-05-15.md](docs/PULSE_REPAIR_VERIFICATION_CHECKPOINT_2026-05-15.md) — full pytest clean: `659 passed, 42 subtests passed, 0 failed`
-
-PULSE release authority is carried by the recorded artifact chain. Required gates are explicit, materialized, and checked before release effects can propagate. Missing required evidence, missing required gates, invalid status artifacts, and non-true required gate values fail closed.
-
-Quality Ledger, release authority manifests, audit bundles, dashboards, and public Pages surfaces record, preserve, or display the decision trail. Authorization remains bound to the ordered PULSEmech tuple.
-
-## Release-boundary mechanics
-
-PULSEmech places the release decision before deployment. Release effects are allowed to propagate only after the recorded artifact chain satisfies declared policy.
-
-The release-boundary decision is evaluated as:
+Release authority in PULSE is carried by the PULSEmech decision path:
 
 ```text
 recorded release evidence
@@ -106,6 +57,39 @@ recorded release evidence
 → strict fail-closed CI checking
 → CI allow/block release decision
 ```
+
+`status.json` is the machine-readable release-state artifact and the single machine source of truth for recorded release state in the gate-checking path.
+
+Declared gate policy defines the required gates for the selected release lane.
+
+The required gate set is materialized from policy.
+
+CI enforces the materialized required gate set with strict, true-only, fail-closed checking and emits the allow/block release decision.
+
+Quality Ledger, dashboards, release authority manifests, audit bundles, badges, and public Pages surfaces preserve, summarize, visualize, or publish the decision trail. They do not authorize, block, override, or create an independent release-decision path.
+
+Diagnostic and shadow outputs affect release authority only when their results are folded into recorded release evidence and enforced as required gates under declared policy.
+
+Runtime guardrails operate at the live interaction boundary. Runtime observations affect a PULSE release decision only when they are recorded as release evidence and evaluated under declared policy.
+
+## Where PULSE sits
+
+PULSE acts at the release boundary, before deployment. Runtime guardrails act at the live interaction boundary, during use.
+
+| Layer | Boundary | Normative decision basis | Decision |
+|---|---|---|---|
+| PULSE / PULSEmech | Release boundary, before deployment | Recorded release evidence + `status.json` + declared gate policy + materialized required gate set | Deterministic, fail-closed CI allow/block release decision |
+| Runtime guardrails | Live interaction boundary, during use | Individual prompt, output, or tool-call state | Allow, block, rewrite, route, or refuse an interaction |
+
+Keywords: AI release governance, release authority, release-decision integrity, fail-closed CI, artifact-first governance, safety evidence, detector evidence, release gates, audit trail, pre-deployment control.
+
+## Current verification checkpoint
+
+- **PULSE-REF RA1 operating proof:** [`docs/PULSE_REF_RA1_OPERATING_PROOF_v0.md`](docs/PULSE_REF_RA1_OPERATING_PROOF_v0.md)
+- **RA1 operating proof smoke:** `python tests/test_pulse_ref_ra1_operating_proof_smoke.py`
+- **Recorded verification checkpoint, 2026-05-15:** [`docs/PULSE_REPAIR_VERIFICATION_CHECKPOINT_2026-05-15.md`](docs/PULSE_REPAIR_VERIFICATION_CHECKPOINT_2026-05-15.md) — full pytest checkpoint: `659 passed, 42 subtests passed, 0 failed`
+
+Required gates are explicit, materialized, and checked before release effects can propagate. Missing required evidence, missing required gates, invalid status artifacts, and non-true required gate values fail closed.
 
 ---
 
