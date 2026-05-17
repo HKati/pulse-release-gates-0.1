@@ -31,6 +31,12 @@
 
 # PULSE — Release Gates for Safe & Useful AI
 
+> 🚧 **Technically closed**
+>
+> This workspace is temporarily closed for technical correction.
+>
+> PULSE remains active.
+
 [![DOI](https://zenodo.org/badge/1061766508.svg)](https://zenodo.org/badge/latestdoi/1061766508)
 
 
