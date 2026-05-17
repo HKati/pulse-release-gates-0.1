@@ -40,30 +40,28 @@
 [![DOI](https://zenodo.org/badge/1061766508.svg)](https://zenodo.org/badge/latestdoi/1061766508)
 
 
-# PULSE — Release Gates for Safe & Useful AI
+# PULSE — Release Authority for Safe & Useful AI
 
-#### PULSEmech release authority for pre-deployment AI release decisions
+### Artifact-first release-governance / release-authority system for AI applications
 
-## Definition
+PULSE structures recorded safety, quality, detector, stability, CI, and review evidence into deterministic, fail-closed release decisions under declared policy.
 
-PULSE release-authority identity is defined by the PULSEmech deterministic decision tuple.
+The mechanism is PULSEmech: an artifact-first, policy-declared, gate-materialized, CI-enforced release-authority mechanism for AI applications and AI-enabled systems.
 
-PULSEmech is an artifact-first, policy-declared, gate-materialized, CI-enforced release-authority mechanism for AI applications and AI-enabled systems.
+## Mechanical identity
 
-The normative PULSEmech decision tuple is:
+PULSE release-authority identity is defined by the PULSEmech deterministic decision tuple:
 
-```text
-(recorded release evidence,
- status.json,
- declared gate policy,
- materialized required gate set,
- strict fail-closed CI checking)
-→ CI allow/block release decision
-```
+    (recorded release evidence,
+     status.json,
+     declared gate policy,
+     materialized required gate set,
+     strict fail-closed CI checking)
+    → CI allow/block release decision
 
-## Tuple semantics
+## Normative decision path
 
-| Tuple element | Mechanical role |
+| Step | Release-authority role |
 |---|---|
 | recorded release evidence | Safety, quality, detector, stability, CI, and review evidence recorded before deployment |
 | `status.json` | Machine-readable release-state artifact for recorded release state |
@@ -72,60 +70,73 @@ The normative PULSEmech decision tuple is:
 | strict fail-closed CI checking | True-only CI enforcement over the materialized required gate set |
 | CI allow/block release decision | Deterministic release decision emitted by CI |
 
-## Release-authority mechanics
-
-PULSEmech evaluates recorded release evidence before deployment.
+PULSEmech evaluates release evidence before deployment.
 
 Recorded release evidence becomes machine-readable release state through `status.json`.
-
 Declared gate policy defines the required gates for the selected release lane.
-
 The required gate set is materialized from policy.
-
 CI enforces the materialized required gate set through strict, true-only, fail-closed checking.
 
-The CI result is the allow/block release decision.
+The CI result is the release decision.
 
 ## Authority boundary
 
 | Surface | Mechanical role | Authority status |
 |---|---|---|
-| PULSEmech decision tuple | Computes the release decision | Normative |
-| CI enforcement | Emits the allow/block result | Normative |
-| Quality Ledger | Displays the decision trail | Non-normative |
-| Release authority manifest | Records the decision trail | Non-normative |
-| Audit bundle | Preserves reconstructable evidence trail | Non-normative |
-| Dashboards, badges, Pages | Publish or display release state | Non-normative |
-| Diagnostic and shadow outputs | Produce candidate evidence signals | Non-normative unless folded into recorded release evidence and enforced as required gates under declared policy |
-| Runtime guardrails | Operate at live interaction boundary | Outside pre-deployment release authority unless observations are recorded as release evidence and evaluated under declared policy |
+| PULSEmech decision tuple | Defines the release-authority mechanism | Normative |
+| `status.json` | Carries machine-readable release state | Normative input |
+| Declared gate policy | Defines required gate sets by lane | Normative input |
+| Materialized required gate set | Concrete enforced gate set | Normative input |
+| `check_gates.py` / CI enforcement | Enforces true-only required gates fail-closed | Normative |
+| Quality Ledger | Displays the decision trail | Non-normative reader surface |
+| Release authority manifest | Records the decision trail | Non-normative trace surface |
+| Audit bundle | Preserves reconstructable evidence trail | Non-normative audit surface |
+| Dashboards, badges, Pages | Publish or display release state | Non-normative presentation surfaces |
+| Diagnostic and shadow outputs | Produce candidate evidence signals | Non-normative unless explicitly folded into recorded release evidence and enforced as required gates under declared policy |
 
-## Where PULSE sits
+## Release boundary
 
-PULSE acts at the release boundary, before deployment. Runtime guardrails act at the live interaction boundary, during use.
+PULSE acts at the release boundary, before deployment.
 
 | Layer | Boundary | Normative decision basis | Decision |
 |---|---|---|---|
 | PULSE / PULSEmech | Release boundary, before deployment | Recorded release evidence + `status.json` + declared gate policy + materialized required gate set | Deterministic, fail-closed CI allow/block release decision |
-| Runtime guardrails | Live interaction boundary, during use | Individual prompt, output, or tool-call state | Allow, block, rewrite, route, or refuse an interaction |
+| Runtime guardrails | Live interaction boundary, during use | Individual prompt, output, or tool-call state | Interaction-level allow, block, rewrite, route, or refuse |
 
-Keywords: PULSEmech, release authority, release-authority mechanism, deterministic release-authority decision tuple, pre-deployment AI release decision, artifact-first release evidence, machine-readable release state, `status.json`, CI allow/block decision, fail-closed CI, declared gate policy, materialized required gates, safety evidence, detector evidence, audit trail.
+## Public release surfaces
+
+- Quality Ledger: https://hkati.github.io/pulse-release-gates-0.1/
+- Live Status JSON: https://hkati.github.io/pulse-release-gates-0.1/status.json
+- Concept DOI / all versions: https://doi.org/10.5281/zenodo.17214908
+- Current release DOI / v1.1.1: https://doi.org/10.5281/zenodo.18203404
+- Preprint DOI: https://doi.org/10.5281/zenodo.17833583
 
 ## Current verification checkpoint
 
-- **PULSE-REF RA1 operating proof:** [`docs/PULSE_REF_RA1_OPERATING_PROOF_v0.md`](docs/PULSE_REF_RA1_OPERATING_PROOF_v0.md)
-- **RA1 operating proof smoke:** `python tests/test_pulse_ref_ra1_operating_proof_smoke.py`
-- **Recorded verification checkpoint, 2026-05-15:** [`docs/PULSE_REPAIR_VERIFICATION_CHECKPOINT_2026-05-15.md`](docs/PULSE_REPAIR_VERIFICATION_CHECKPOINT_2026-05-15.md) — full pytest checkpoint: `659 passed, 42 subtests passed, 0 failed`
+- PULSE-REF RA1 operating proof: `docs/PULSE_REF_RA1_OPERATING_PROOF_v0.md`
+- RA1 operating proof smoke: `python tests/test_pulse_ref_ra1_operating_proof_smoke.py`
+- Recorded verification checkpoint, 2026-05-15: `docs/PULSE_REPAIR_VERIFICATION_CHECKPOINT_2026-05-15.md`
 
 Required gates are explicit, materialized, and checked before release effects can propagate.
 
-Fail-closed cases:
-
-| Case | Release decision |
+| Fail-closed case | Release decision |
 |---|---|
 | missing required evidence | block |
 | missing required gate | block |
 | invalid `status.json` | block |
 | required gate value is not literal `true` | block |
+
+## Start here
+
+Choose the path that matches the release-authority question you need to answer.
+
+- Core integration path → `docs/QUICKSTART_CORE_v0.md`
+- Release authority / source-of-truth path → `docs/STATUS_CONTRACT.md` and `docs/status_json.md`
+- External evidence integration path → `docs/EXTERNAL_DETECTORS.md` and `docs/external_detector_summaries.md`
+- Release-grade reference run path → `docs/release_grade_reference_run_v0.md`
+- Operational triage path → `docs/RUNBOOK.md`
+- Authority-boundary / topology path → `docs/SPACE_RELATION_MAP_v0.md`
+- Diagnostic overlays path → `docs/OPTIONAL_LAYERS.md`
 
 
 ---
