@@ -37,13 +37,11 @@
 
 ## What PULSE does
 
-PULSE is an existing artifact-first release-governance / release-authority system for AI applications.
+PULSE is an artifact-first release-authority mechanism for AI applications and AI-enabled systems.
 
-PULSE implements **PULSEmech**: an artifact-first, policy-declared, gate-materialized, CI-enforced release-decision path.
+PULSE implements **PULSEmech**: a pre-deployment release-decision mechanism that converts recorded safety, quality, detector, stability, CI, and review evidence into a deterministic, fail-closed CI allow/block decision under declared policy.
 
-PULSE structures recorded safety, quality, detector, stability, CI, and review evidence into deterministic, fail-closed release decisions under declared policy.
-
-PULSE places the release decision before deployment. Recorded evidence becomes machine-readable release state; declared policy defines the required gates; the required gate set is materialized; and CI emits an allow/block decision through strict, true-only, fail-closed checking.
+The decision is made before deployment. Recorded evidence becomes machine-readable release state; declared policy defines the required gates for the selected release lane; the required gate set is materialized; and CI enforces that set through strict, true-only, fail-closed checking.
 
 ## PULSEmech release-authority mechanics
 
@@ -81,7 +79,7 @@ PULSE acts at the release boundary, before deployment. Runtime guardrails act at
 | PULSE / PULSEmech | Release boundary, before deployment | Recorded release evidence + `status.json` + declared gate policy + materialized required gate set | Deterministic, fail-closed CI allow/block release decision |
 | Runtime guardrails | Live interaction boundary, during use | Individual prompt, output, or tool-call state | Allow, block, rewrite, route, or refuse an interaction |
 
-Keywords: AI release governance, release authority, release-decision integrity, fail-closed CI, artifact-first governance, safety evidence, detector evidence, release gates, audit trail, pre-deployment control.
+Keywords: AI release authority, PULSEmech, release-decision mechanism, pre-deployment release decision, deterministic allow/block decision, fail-closed CI, artifact-first release evidence, declared gate policy, materialized required gates, safety evidence, detector evidence, audit trail.
 
 ## Current verification checkpoint
 
@@ -90,6 +88,16 @@ Keywords: AI release governance, release authority, release-decision integrity, 
 - **Recorded verification checkpoint, 2026-05-15:** [`docs/PULSE_REPAIR_VERIFICATION_CHECKPOINT_2026-05-15.md`](docs/PULSE_REPAIR_VERIFICATION_CHECKPOINT_2026-05-15.md) — full pytest checkpoint: `659 passed, 42 subtests passed, 0 failed`
 
 Required gates are explicit, materialized, and checked before release effects can propagate. Missing required evidence, missing required gates, invalid status artifacts, and non-true required gate values fail closed.
+
+---
+
+> **Active development boundary**
+>
+> The PULSEmech release-authority core is explicit and versioned.
+> The safe pack, documentation, examples, profiles, detectors, overlays,
+> and ledger views remain under active expansion.
+
+---
 
 ---
 
