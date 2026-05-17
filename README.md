@@ -41,6 +41,21 @@ CI enforces the materialized required gate set through strict, true-only, fail-c
 
 The CI result is the release decision.
 
+## Pre-materialization mechanics
+
+PULSE is pre-materialization gate mechanics for release authority: required evidence must materialize before release-grade validation, while unsupported authority must not materialize as a release decision.
+
+This is a non-normative explanatory anchor for the release-authority boundary. The normative release decision remains the PULSEmech path above:
+
+recorded release evidence
+→ `status.json`
+→ declared gate policy
+→ materialized required gate set
+→ strict fail-closed CI checking
+→ CI allow/block release decision
+
+See [`docs/PULSE_PRE_MATERIALIZATION_GATE_MECHANICS_v0.md`](docs/PULSE_PRE_MATERIALIZATION_GATE_MECHANICS_v0.md).
+
 ## Authority boundary
 
 | Surface | Mechanical role | Authority status |
