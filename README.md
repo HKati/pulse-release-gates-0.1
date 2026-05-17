@@ -1,15 +1,14 @@
-[![PULSEmech architecture map: artifact-first governance, shadow diagnostics, normative release authority, traceability, and release output.](hero_pulsemech_architecture_map_v0_1.svg)](docs/PULSEMECH_ARCHITECTURE_MAP_v0_1.md)
-
-
 # PULSE — Release Authority for Safe & Useful AI
-  
-[![DOI](https://zenodo.org/badge/1061766508.svg)](https://zenodo.org/badge/latestdoi/1061766508)
 
-## Artifact-first release-governance / release-authority system for AI applications
+### PULSE is an artifact-first release-governance / release-authority system for AI applications.
 
 PULSE structures recorded safety, quality, detector, stability, CI, and review evidence into deterministic, fail-closed release decisions under declared policy.
 
 The mechanism is PULSEmech: an artifact-first, policy-declared, gate-materialized, CI-enforced release-authority mechanism for AI applications and AI-enabled systems.
+
+## PULSEmech architecture map
+
+[![PULSEmech architecture map: artifact-first governance, shadow diagnostics, normative release authority, traceability, and release output.](hero_pulsemech_architecture_map_v0_1.svg)](docs/PULSEMECH_ARCHITECTURE_MAP_v0_1.md)
 
 ## Mechanical identity
 
@@ -101,6 +100,7 @@ Choose the path that matches the release-authority question you need to answer.
 - Authority-boundary / topology path → `docs/SPACE_RELATION_MAP_v0.md`
 - Diagnostic overlays path → `docs/OPTIONAL_LAYERS.md`
 
+[![DOI](https://zenodo.org/badge/1061766508.svg)](https://zenodo.org/badge/latestdoi/1061766508)
 
 ---
 
