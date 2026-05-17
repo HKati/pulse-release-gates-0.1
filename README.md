@@ -247,7 +247,7 @@ UI and Pages surfaces must be pure readers/renderers of immutable run artefacts.
 
 ## Quickstart
 
-There are two practical entry points: local artifact inspection and the canonical Core release- authority lane.
+There are two practical entry points: local artifact inspection and the canonical Core release-authority lane.
 
 ### Fast local smoke — artifact inspection
 
@@ -264,7 +264,7 @@ It is useful when you want to:
 
 This is an inspection path, not the canonical Core CI release-authority lane.
 
-### Canonical Core release-governance lane
+### Canonical Core release-authority lane
 
 For the Core first-run path, start with:
 
@@ -410,7 +410,7 @@ Choose the integration shape that matches the release-authority boundary you wan
    - Applies the workflow-effective gate set described in `docs/GATE_SETS.md`.
    - Produces the release decision record, Quality Ledger, and CI artifacts for the repository release path. 
 
-Release gates are the deterministic enforcement mechanism inside the broader PULSE release-governance layer.
+Release gates are the deterministic enforcement mechanism inside the broader PULSE release-authority system.
 
 ---
 
@@ -431,7 +431,7 @@ PULSE evaluates release evidence under declared policy. In Core and release-grad
 - Q₃ **Fairness** (parity / equalized odds)
 - Q₄ **SLOs** (p95 latency & cost budgets)
 
-**Release-governance outputs**
+**Release-decision outputs**
 - **Quality Ledger** — human-readable release decision surface
 - **RDSI** — Release Decision Stability Index with deltas / confidence intervals where available
 - **CI artifacts** — `status.json`, report card, JUnit, SARIF, badges, and registered diagnostic artifacts
