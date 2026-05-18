@@ -84,9 +84,6 @@ PULSE acts at the release boundary, before deployment.
 
 - Quality Ledger: https://hkati.github.io/pulse-release-gates-0.1/
 - Live Status JSON: https://hkati.github.io/pulse-release-gates-0.1/status.json
-- Concept DOI / all versions: https://doi.org/10.5281/zenodo.17214908
-- Current release DOI / v1.1.1: https://doi.org/10.5281/zenodo.18203404
-- Preprint DOI: https://doi.org/10.5281/zenodo.17833583
 
 ## Current verification checkpoint
 
