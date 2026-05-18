@@ -1,13 +1,11 @@
 #!/usr/bin/env python3
-"""
-Fail-closed presence + parseability check for external detector summaries.
+"""Fail-closed presence + parseability check for external detector summaries.
 
-Strict semantics:
-- Only *_summary.json and *_summary.jsonl count as external detector evidence.
-  (Avoid accepting unrelated JSON files as "presence".)
-- Supports:
-  - .json (single JSON object)
-  - .jsonl (JSON per line)
+Strict release semantics:
+- decoy files such as foo_summary.json must not count as external detector evidence;
+- canonical detector summary filenames count;
+- --required can override the canonical list with explicit expected filenames;
+- --require_metric_key checks that each accepted file contains at least one metric key.
 """
 
 from __future__ import annotations
@@ -18,12 +16,27 @@ import sys
 from pathlib import Path
 from typing import Iterable
 
+
+CANONICAL_SUMMARY_FILENAMES = (
+    "llamaguard_summary.json",
+    "llamaguard_summary.jsonl",
+    "promptguard_summary.json",
+    "promptguard_summary.jsonl",
+    "garak_summary.json",
+    "garak_summary.jsonl",
+    "azure_eval_summary.json",
+    "azure_eval_summary.jsonl",
+    "promptfoo_summary.json",
+    "promptfoo_summary.jsonl",
+    "deepeval_summary.json",
+    "deepeval_summary.jsonl",
+)
+
 DEFAULT_METRIC_KEYS = (
     "value",
     "rate",
     "violation_rate",
     "attack_detect_rate",
-    # adapter-specific keys (built-in)
     "azure_indirect_jailbreak_rate",
     "fail_rate",
     "new_critical",
@@ -37,114 +50,115 @@ def read_json(path: Path) -> object:
 
 def read_jsonl(path: Path) -> list[object]:
     out: list[object] = []
-    with path.open("r", encoding="utf-8", errors="strict") as f:
-        for i, line in enumerate(f, start=1):
+    with path.open("r", encoding="utf-8", errors="strict") as handle:
+        for line_no, line in enumerate(handle, start=1):
             line = line.strip()
             if not line:
                 continue
             try:
                 out.append(json.loads(line))
-            except json.JSONDecodeError as e:
-                raise ValueError(f"{path}: invalid JSON on line {i}: {e}") from e
+            except json.JSONDecodeError as exc:
+                raise ValueError(f"{path}: invalid JSON on line {line_no}: {exc}") from exc
     return out
 
 
 def has_any_metric_key(obj: object, metric_keys: tuple[str, ...]) -> bool:
     if isinstance(obj, dict):
-        return any(k in obj for k in metric_keys)
+        return any(key in obj for key in metric_keys)
+
     if isinstance(obj, list):
-        for item in obj:
-            if isinstance(item, dict) and any(k in item for k in metric_keys):
-                return True
+        return any(
+            isinstance(item, dict) and any(key in item for key in metric_keys)
+            for item in obj
+        )
+
     return False
 
 
 def iter_candidate_files(external_dir: Path) -> Iterable[Path]:
-    # Strict: only detector summaries count as evidence.
-    return sorted(external_dir.glob("*_summary.json")) + sorted(
-        external_dir.glob("*_summary.jsonl")
-    )
+    for filename in CANONICAL_SUMMARY_FILENAMES:
+        path = external_dir / filename
+        if path.exists():
+            yield path
+
+
+def parse_summary(path: Path) -> object:
+    if path.suffix.lower() == ".jsonl":
+        return read_jsonl(path)
+    return read_json(path)
 
 
 def main() -> int:
-    p = argparse.ArgumentParser()
-    p.add_argument(
+    parser = argparse.ArgumentParser(
+        description="Fail-closed external detector summary precheck."
+    )
+    parser.add_argument(
         "--external_dir",
         required=True,
-        help="Directory containing external summary artefacts.",
+        help="Directory containing external detector summary artifacts.",
     )
-    p.add_argument(
+    parser.add_argument(
         "--required",
         action="append",
         default=[],
-        help="Required summary filename (repeatable). Example: --required llamaguard_summary.json",
+        help="Required summary filename. Repeat for multiple files.",
     )
-    p.add_argument(
+    parser.add_argument(
         "--require_metric_key",
         action="store_true",
-        help=(
-            "Require at least one metric key in each summary "
-            f"(default keys: {DEFAULT_METRIC_KEYS})."
-        ),
+        help="Require at least one expected metric key in each accepted summary.",
     )
-    p.add_argument(
+    parser.add_argument(
         "--metric_keys",
         nargs="*",
         default=list(DEFAULT_METRIC_KEYS),
         help="Override metric keys checked by --require_metric_key.",
     )
-    args = p.parse_args()
+    args = parser.parse_args()
 
     external_dir = Path(args.external_dir)
+    metric_keys = tuple(args.metric_keys)
     errors: list[str] = []
 
     if not external_dir.exists() or not external_dir.is_dir():
         errors.append(f"external_dir missing or not a directory: {external_dir}")
 
-    metric_keys = tuple(args.metric_keys)
     files: list[Path] = []
-
     if not errors:
         if args.required:
-            files = [external_dir / name for name in args.required]
+            files = [external_dir / filename for filename in args.required]
         else:
             files = list(iter_candidate_files(external_dir))
 
         if not files:
             errors.append(
-                f"No external detector summaries found in: {external_dir} "
-                "(expected at least one *_summary.json or *_summary.jsonl)"
+                f"No canonical external detector summaries found in: {external_dir} "
+                f"(expected one of: {', '.join(CANONICAL_SUMMARY_FILENAMES)})"
             )
 
-    # presence + parseability (+ optional schema-ish check)
-    for f in files:
-        if not f.exists():
-            errors.append(f"Missing required summary: {f}")
+    for path in files:
+        if not path.exists():
+            errors.append(f"Missing required summary: {path}")
             continue
 
         try:
-            if f.suffix.lower() == ".jsonl":
-                obj = read_jsonl(f)
-            else:
-                obj = read_json(f)
-        except Exception as e:
-            errors.append(f"Unparseable summary: {f} ({e})")
+            obj = parse_summary(path)
+        except Exception as exc:
+            errors.append(f"Unparseable summary: {path} ({exc})")
             continue
 
-        if args.require_metric_key:
-            if not has_any_metric_key(obj, metric_keys):
-                errors.append(
-                    f"Summary has no expected metric key {metric_keys}: {f} "
-                    "(use --metric_keys to customize or omit --require_metric_key)"
-                )
+        if args.require_metric_key and not has_any_metric_key(obj, metric_keys):
+            errors.append(
+                f"Summary has no expected metric key {metric_keys}: {path}"
+            )
 
     if errors:
         print("ERRORS (fail-closed):", file=sys.stderr)
-        for e in errors:
-            print(f" - {e}", file=sys.stderr)
+        for error in errors:
+            print(f" - {error}", file=sys.stderr)
         return 1
 
-    print(f"OK: external summaries present and parseable ({len(files)} file(s)).")
+    print(f"OK: canonical external summaries present and parseable ({len(files)} file(s)).")
     return 0
 
 

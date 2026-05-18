@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 """
-Smoke tests for scripts/check_external_summaries_present.py
+Smoke tests for scripts/check_external_summaries_present.py.
 
-We intentionally run the script as a subprocess (as CI does), and assert return codes.
-This catches syntax/indentation regressions and semantics regressions.
+The checker is intentionally exercised as a subprocess, matching CI behavior.
 
-No external deps; stdlib only.
+Security invariant:
+- default strict/release discovery is canonical-only;
+- decoy or non-canonical *_summary.json/jsonl files must fail by default;
+- explicit --required may override discovery for an explicitly named operator check.
 """
 
 from __future__ import annotations
@@ -17,7 +19,11 @@ import tempfile
 from pathlib import Path
 
 
-def run_checker(repo: Path, external_dir: Path, extra_args: list[str] | None = None) -> subprocess.CompletedProcess[str]:
+def run_checker(
+    repo: Path,
+    external_dir: Path,
+    extra_args: list[str] | None = None,
+) -> subprocess.CompletedProcess[str]:
     script = repo / "scripts" / "check_external_summaries_present.py"
     if not script.exists():
         raise FileNotFoundError(f"Missing checker script at: {script}")
@@ -48,73 +54,124 @@ def assert_rc(res: subprocess.CompletedProcess[str], expected: int) -> None:
 def main() -> int:
     repo = Path(__file__).resolve().parents[1]
 
-    # Case 1: empty directory -> FAIL (no *_summary.json/.jsonl evidence)
+    # Case 1: empty directory -> FAIL
     with tempfile.TemporaryDirectory() as td:
         d = Path(td)
         res = run_checker(repo, d)
         assert_rc(res, 1)
 
-    # Case 2: unrelated JSON present -> still FAIL (must not accept random *.json)
+    # Case 2: unrelated JSON present -> FAIL
     with tempfile.TemporaryDirectory() as td:
         d = Path(td)
-        (d / "metadata.json").write_text(json.dumps({"hello": "world"}) + "\n", encoding="utf-8")
+        (d / "metadata.json").write_text(
+            json.dumps({"hello": "world"}) + "\n",
+            encoding="utf-8",
+        )
         res = run_checker(repo, d)
         assert_rc(res, 1)
 
-    # Case 3: valid *_summary.json -> PASS
+    # Case 3: decoy JSON summary -> FAIL by default
     with tempfile.TemporaryDirectory() as td:
         d = Path(td)
-        (d / "llamaguard_summary.json").write_text(json.dumps({"rate": 0.1}) + "\n", encoding="utf-8")
+        (d / "foo_summary.json").write_text(
+            json.dumps({"value": 0.0}) + "\n",
+            encoding="utf-8",
+        )
+        res = run_checker(repo, d)
+        assert_rc(res, 1)
+
+    # Case 4: decoy JSONL summary -> FAIL by default
+    with tempfile.TemporaryDirectory() as td:
+        d = Path(td)
+        (d / "foo_summary.jsonl").write_text(
+            '{"rate": 0.0}\n',
+            encoding="utf-8",
+        )
+        res = run_checker(repo, d)
+        assert_rc(res, 1)
+
+    # Case 5: canonical JSON summary -> PASS
+    with tempfile.TemporaryDirectory() as td:
+        d = Path(td)
+        (d / "llamaguard_summary.json").write_text(
+            json.dumps({"rate": 0.1}) + "\n",
+            encoding="utf-8",
+        )
         res = run_checker(repo, d)
         assert_rc(res, 0)
-       
-    # Case 3b: adapter-style key (fail_rate) -> PASS (under --require_metric_key)
+
+    # Case 6: canonical JSONL summary -> PASS
     with tempfile.TemporaryDirectory() as td:
         d = Path(td)
-        (d / "promptfoo_summary.json").write_text(json.dumps({"fail_rate": 0.02}) + "\n", encoding="utf-8")
+        (d / "llamaguard_summary.jsonl").write_text(
+            '{"rate": 0.0}\n',
+            encoding="utf-8",
+        )
+        res = run_checker(repo, d)
+        assert_rc(res, 0)
+
+    # Case 7: canonical adapter-style key -> PASS under --require_metric_key
+    with tempfile.TemporaryDirectory() as td:
+        d = Path(td)
+        (d / "promptfoo_summary.json").write_text(
+            json.dumps({"fail_rate": 0.02}) + "\n",
+            encoding="utf-8",
+        )
         res = run_checker(repo, d, ["--require_metric_key"])
         assert_rc(res, 0)
 
-    # Case 4: JSONL summary -> PASS
+    # Case 8: canonical summary without metric key -> FAIL under --require_metric_key
     with tempfile.TemporaryDirectory() as td:
         d = Path(td)
-        (d / "foo_summary.jsonl").write_text('{"rate": 0.0}\n', encoding="utf-8")
-        res = run_checker(repo, d)
-        assert_rc(res, 0)
+        (d / "promptfoo_summary.json").write_text(
+            json.dumps({"note": "no metric here"}) + "\n",
+            encoding="utf-8",
+        )
+        res = run_checker(repo, d, ["--require_metric_key"])
+        assert_rc(res, 1)
 
-    # Case 5: unparseable summary -> FAIL
+    # Case 9: malformed canonical summary -> FAIL
     with tempfile.TemporaryDirectory() as td:
         d = Path(td)
-        (d / "bad_summary.json").write_text('{"rate":', encoding="utf-8")
+        (d / "llamaguard_summary.json").write_text(
+            '{"rate":',
+            encoding="utf-8",
+        )
         res = run_checker(repo, d)
         assert_rc(res, 1)
 
-    # Case 6: --required missing file -> FAIL
+    # Case 10: --required missing file -> FAIL
     with tempfile.TemporaryDirectory() as td:
         d = Path(td)
         res = run_checker(repo, d, ["--required", "missing_summary.json"])
         assert_rc(res, 1)
 
-    # Case 7: --require_metric_key enforces metric keys (FAIL then PASS)
+    # Case 11: non-canonical metric summary -> FAIL by default,
+    # but PASS when explicitly named by --required.
     with tempfile.TemporaryDirectory() as td:
         d = Path(td)
+        (d / "empty_summary.json").write_text(
+            json.dumps({"value": 0.0}) + "\n",
+            encoding="utf-8",
+        )
 
-        # Has *_summary.json but no metric key -> FAIL under require_metric_key
-        (d / "empty_summary.json").write_text(json.dumps({"note": "no metric here"}) + "\n", encoding="utf-8")
         res = run_checker(repo, d, ["--require_metric_key"])
         assert_rc(res, 1)
 
-        # Add a metric key -> PASS
-        (d / "empty_summary.json").write_text(json.dumps({"value": 0.0}) + "\n", encoding="utf-8")
-        res = run_checker(repo, d, ["--require_metric_key"])
+        res = run_checker(
+            repo,
+            d,
+            ["--required", "empty_summary.json", "--require_metric_key"],
+        )
         assert_rc(res, 0)
 
     print("OK: check_external_summaries_present smoke tests passed")
     return 0
 
+
 def test_smoke() -> None:
-    # Pytest entrypoint: run the same smoke scenarios as the script.
     assert main() == 0
+
 
 if __name__ == "__main__":
     raise SystemExit(main())
