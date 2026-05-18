@@ -43,12 +43,12 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install minimal deps
+      - name: Install analysis deps
         shell: bash
         run: |
           set -euo pipefail
           python -m pip install --upgrade pip
-          python -m pip install numpy matplotlib
+          python -m pip install -r requirements-analysis.txt
 
       - name: HEP adapters compile/import (deps-free)
         run: |
