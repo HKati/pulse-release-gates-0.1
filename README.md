@@ -1,7 +1,7 @@
 # PULSE — Artifact-Bound Release Authority for AI Release Decisions
 
 
-PULSE introduces artifact-bound release authority: AI release decisions are made from recorded evidence, declared policy, materialized required gates, and fail-closed CI enforcement.
+PULSE introduces artifact-bound release authority: AI release decisions are made from recorded evidence, declared policy, materialized required gate set, and fail-closed CI enforcement.
 
 PULSEmech converts recorded release evidence into deterministic, fail-closed CI allow/block release decisions before deployment under declared policy.
 
