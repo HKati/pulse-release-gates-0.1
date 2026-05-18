@@ -83,6 +83,43 @@ Therefore:
 
 ---
 
+## Release-grade status contract overlay
+
+The base status schema remains `schemas/status/status_v1.schema.json`.
+
+That schema is intentionally usable across demo, core, and prod status artifacts.
+
+Release-grade runs additionally validate the status artifact against:
+
+`schemas/status/release_grade_status_v1.schema.json`
+
+This overlay applies only to release-grade paths, including version-tag release runs and strict external evidence workflow dispatches.
+
+The release-grade status contract requires:
+
+- `metrics.run_mode` is literal `prod`;
+- `diagnostics` is present and object-valued;
+- `diagnostics.gates_stubbed` is literal `false`;
+- `diagnostics.scaffold` is literal `false`;
+- `gates.detectors_materialized_ok` is literal `true`.
+
+This overlay is an input-contract guard.
+
+It does not create a second release-decision path.
+
+The normative release decision remains:
+
+recorded release evidence  
+→ `status.json`  
+→ declared gate policy  
+→ materialized required gate set  
+→ strict fail-closed gate checking  
+→ CI allow/block release decision
+
+The overlay prevents malformed, missing, stubbed, scaffolded, or non-materialized release-grade status artifacts from entering the release-authority path.
+
+---
+
 ## Optional additive fields
 
 The schema also allows additive fields such as:
