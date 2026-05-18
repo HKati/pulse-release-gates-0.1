@@ -1553,6 +1553,179 @@ def test_handoff_authority_boundary_true_fails_with_schema_valid_report() -> Non
             in handoff_checks[0]["message"]
         )
 
+def test_release_authority_decision_fail_closed_false_fails_with_schema_valid_report() -> None:
+    with tempfile.TemporaryDirectory(prefix="pulse-ra1-verifier-") as tmp:
+        tmp_path = Path(tmp)
+        package_copy = tmp_path / "package"
+        out_path = tmp_path / "verifier_report.release_authority_fail_closed.json"
+
+        shutil.copytree(PACKAGE, package_copy)
+
+        release_authority_path = (
+            package_copy
+            / "release_authority"
+            / "release_authority_manifest.json"
+        )
+        release_authority = _read_json(release_authority_path)
+        release_authority["decision"]["fail_closed"] = False
+        _write_json(release_authority_path, release_authority)
+
+        release_authority_sha = _sha256_file(release_authority_path)
+
+        digests_path = package_copy / "digests" / "package_digests.json"
+        digests = _read_json(digests_path)
+        digests["artifacts"][
+            "release_authority/release_authority_manifest.json"
+        ] = release_authority_sha
+        _write_json(digests_path, digests)
+
+        digests_sha = _sha256_file(digests_path)
+
+        manifest_path = package_copy / "package_manifest.json"
+        manifest = _read_json(manifest_path)
+        manifest["release_authority_manifest"]["sha256"] = release_authority_sha
+        manifest["package_digests"]["sha256"] = digests_sha
+        _write_json(manifest_path, manifest)
+
+        result = _run(package_copy, out_path)
+
+        assert result.returncode == 1
+        assert out_path.exists()
+        assert "Traceback" not in result.stderr
+
+        report = _read_json(out_path)
+        _validate_report(report)
+
+        assert report["ok"] is False
+
+        release_authority_checks = [
+            check
+            for check in report["cross_artifact_checks"]
+            if check["name"] == "release_authority_manifest_matches_package_core"
+        ]
+
+        assert len(release_authority_checks) == 1
+        assert release_authority_checks[0]["ok"] is False
+        assert "decision.fail_closed must be true" in release_authority_checks[0]["message"]
+
+
+def test_release_authority_shadow_surfaces_normative_fails_with_schema_valid_report() -> None:
+    with tempfile.TemporaryDirectory(prefix="pulse-ra1-verifier-") as tmp:
+        tmp_path = Path(tmp)
+        package_copy = tmp_path / "package"
+        out_path = tmp_path / "verifier_report.release_authority_shadow_normative.json"
+
+        shutil.copytree(PACKAGE, package_copy)
+
+        release_authority_path = (
+            package_copy
+            / "release_authority"
+            / "release_authority_manifest.json"
+        )
+        release_authority = _read_json(release_authority_path)
+        release_authority["diagnostics"]["shadow_surfaces_non_normative"] = False
+        _write_json(release_authority_path, release_authority)
+
+        release_authority_sha = _sha256_file(release_authority_path)
+
+        digests_path = package_copy / "digests" / "package_digests.json"
+        digests = _read_json(digests_path)
+        digests["artifacts"][
+            "release_authority/release_authority_manifest.json"
+        ] = release_authority_sha
+        _write_json(digests_path, digests)
+
+        digests_sha = _sha256_file(digests_path)
+
+        manifest_path = package_copy / "package_manifest.json"
+        manifest = _read_json(manifest_path)
+        manifest["release_authority_manifest"]["sha256"] = release_authority_sha
+        manifest["package_digests"]["sha256"] = digests_sha
+        _write_json(manifest_path, manifest)
+
+        result = _run(package_copy, out_path)
+
+        assert result.returncode == 1
+        assert out_path.exists()
+        assert "Traceback" not in result.stderr
+
+        report = _read_json(out_path)
+        _validate_report(report)
+
+        assert report["ok"] is False
+
+        release_authority_checks = [
+            check
+            for check in report["cross_artifact_checks"]
+            if check["name"] == "release_authority_manifest_matches_package_core"
+        ]
+
+        assert len(release_authority_checks) == 1
+        assert release_authority_checks[0]["ok"] is False
+        assert (
+            "diagnostics.shadow_surfaces_non_normative must be true"
+            in release_authority_checks[0]["message"]
+        )
+
+
+def test_release_authority_required_gate_results_mismatch_fails_with_schema_valid_report() -> None:
+    with tempfile.TemporaryDirectory(prefix="pulse-ra1-verifier-") as tmp:
+        tmp_path = Path(tmp)
+        package_copy = tmp_path / "package"
+        out_path = tmp_path / "verifier_report.release_authority_required_results.json"
+
+        shutil.copytree(PACKAGE, package_copy)
+
+        release_authority_path = (
+            package_copy
+            / "release_authority"
+            / "release_authority_manifest.json"
+        )
+        release_authority = _read_json(release_authority_path)
+        release_authority["evaluation"]["required_gate_results"].pop("q4_slo_ok", None)
+        _write_json(release_authority_path, release_authority)
+
+        release_authority_sha = _sha256_file(release_authority_path)
+
+        digests_path = package_copy / "digests" / "package_digests.json"
+        digests = _read_json(digests_path)
+        digests["artifacts"][
+            "release_authority/release_authority_manifest.json"
+        ] = release_authority_sha
+        _write_json(digests_path, digests)
+
+        digests_sha = _sha256_file(digests_path)
+
+        manifest_path = package_copy / "package_manifest.json"
+        manifest = _read_json(manifest_path)
+        manifest["release_authority_manifest"]["sha256"] = release_authority_sha
+        manifest["package_digests"]["sha256"] = digests_sha
+        _write_json(manifest_path, manifest)
+
+        result = _run(package_copy, out_path)
+
+        assert result.returncode == 1
+        assert out_path.exists()
+        assert "Traceback" not in result.stderr
+
+        report = _read_json(out_path)
+        _validate_report(report)
+
+        assert report["ok"] is False
+
+        release_authority_checks = [
+            check
+            for check in report["cross_artifact_checks"]
+            if check["name"] == "release_authority_manifest_matches_package_core"
+        ]
+
+        assert len(release_authority_checks) == 1
+        assert release_authority_checks[0]["ok"] is False
+        assert (
+            "evaluation.required_gate_results does not match effective required gates"
+            in release_authority_checks[0]["message"]
+        )
+
 
 def main() -> int:
     tests = [
@@ -1568,6 +1741,9 @@ def main() -> int:
         test_handoff_authority_boundary_true_fails_with_schema_valid_report,
         test_release_authority_status_digest_mismatch_fails_with_schema_valid_report,
         test_release_authority_effective_gates_mismatch_fails_with_schema_valid_report,
+        test_release_authority_decision_fail_closed_false_fails_with_schema_valid_report,
+        test_release_authority_shadow_surfaces_normative_fails_with_schema_valid_report,
+        test_release_authority_required_gate_results_mismatch_fails_with_schema_valid_report,
         test_ci_outcome_commit_mismatch_fails_with_schema_valid_report,
         test_publication_ci_url_mismatch_fails_with_schema_valid_report,
         test_missing_package_digest_entry_fails_with_schema_valid_report,
