@@ -5,6 +5,7 @@ import argparse
 import datetime as dt
 import hashlib
 import json
+import re
 import sys
 from pathlib import Path
 from typing import Any
@@ -99,6 +100,59 @@ ARTIFACT_SCHEMA_TARGETS = [
     ),
 ]
 
+GATE_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:-]*$")
+
+
+def _safe_value(value: Any) -> str:
+    try:
+        rendered = repr(value)
+    except Exception:
+        rendered = f"<unrepresentable {type(value).__name__}>"
+
+    if len(rendered) > 160:
+        return rendered[:157] + "..."
+
+    return rendered
+
+
+def _is_gate_id(value: Any) -> bool:
+    return isinstance(value, str) and bool(GATE_ID_RE.fullmatch(value))
+
+
+def _validate_gate_id_array(
+    *,
+    name: str,
+    value: Any,
+    failures: list[str],
+) -> list[str] | None:
+    if not isinstance(value, list):
+        failures.append(f"{name} must be an array of gate ID strings")
+        return None
+
+    out: list[str] = []
+    seen: set[str] = set()
+    local_failures: list[str] = []
+
+    for index, item in enumerate(value):
+        if not _is_gate_id(item):
+            local_failures.append(
+                f"{name}[{index}] must be a string gate ID, found "
+                f"{type(item).__name__}: {_safe_value(item)}"
+            )
+            continue
+
+        if item in seen:
+            local_failures.append(f"{name}[{index}] duplicates gate ID {item!r}")
+            continue
+
+        seen.add(item)
+        out.append(item)
+
+    if local_failures:
+        failures.extend(local_failures)
+        return None
+
+    return out
 
 def _utc_now() -> str:
     return dt.datetime.now(dt.timezone.utc).isoformat().replace("+00:00", "Z")
@@ -473,8 +527,9 @@ def _check_materialized_gate_sets_match_policy(
         )
 
     try:
-        required = list(policy["gates"]["required"])
-        release_required = list(policy["gates"]["release_required"])
+        policy_gates = policy["gates"]
+        raw_required = policy_gates["required"]
+        raw_release_required = policy_gates["release_required"]
     except Exception as exc:
         return _cross_check_result(
             name="materialized_gate_sets_match_policy",
@@ -484,9 +539,22 @@ def _check_materialized_gate_sets_match_policy(
             errors=errors,
         )
 
-    effective = _unique_preserve_order(required + release_required)
-
     mismatches: list[str] = []
+
+    required = _validate_gate_id_array(
+        name="policy.gates.required",
+        value=raw_required,
+        failures=mismatches,
+    )
+    release_required = _validate_gate_id_array(
+        name="policy.gates.release_required",
+        value=raw_release_required,
+        failures=mismatches,
+    )
+
+    effective: list[str] | None = None
+    if required is not None and release_required is not None:
+        effective = _unique_preserve_order(required + release_required)
 
     if gate_sets.get("policy_path") != policy_path:
         mismatches.append(
@@ -505,17 +573,40 @@ def _check_materialized_gate_sets_match_policy(
     if not isinstance(sets, dict):
         mismatches.append("materialized gate sets must contain object-valued sets")
     else:
-        if sets.get("required") != required:
-            mismatches.append("sets.required does not match packaged policy gates.required")
-        if sets.get("release_required") != release_required:
-            mismatches.append(
-                "sets.release_required does not match packaged policy gates.release_required"
-            )
-
-    if gate_sets.get("effective_required_gates") != effective:
-        mismatches.append(
-            "effective_required_gates does not equal ordered required + release_required"
+        materialized_required = _validate_gate_id_array(
+            name="materialized_gate_sets.sets.required",
+            value=sets.get("required"),
+            failures=mismatches,
         )
+        materialized_release_required = _validate_gate_id_array(
+            name="materialized_gate_sets.sets.release_required",
+            value=sets.get("release_required"),
+            failures=mismatches,
+        )
+
+        if required is not None and materialized_required is not None:
+            if materialized_required != required:
+                mismatches.append(
+                    "sets.required does not match packaged policy gates.required"
+                )
+
+        if release_required is not None and materialized_release_required is not None:
+            if materialized_release_required != release_required:
+                mismatches.append(
+                    "sets.release_required does not match packaged policy gates.release_required"
+                )
+
+    materialized_effective = _validate_gate_id_array(
+        name="materialized_gate_sets.effective_required_gates",
+        value=gate_sets.get("effective_required_gates"),
+        failures=mismatches,
+    )
+
+    if effective is not None and materialized_effective is not None:
+        if materialized_effective != effective:
+            mismatches.append(
+                "effective_required_gates does not equal ordered required + release_required"
+            )
 
     return _cross_check_result(
         name="materialized_gate_sets_match_policy",
@@ -589,25 +680,28 @@ def _check_status_satisfies_effective_required_gates(
         failures.append("status gates must be an object")
         gates = {}
 
-    if not isinstance(effective_required_gates, list):
-        failures.append("effective_required_gates must be an array")
-        effective_required_gates = []
+    effective_required_gate_ids = _validate_gate_id_array(
+        name="materialized_gate_sets.effective_required_gates",
+        value=effective_required_gates,
+        failures=failures,
+    )
 
-    missing = [
-        gate_id
-        for gate_id in effective_required_gates
-        if gate_id not in gates
-    ]
-    false_gates = [
-        gate_id
-        for gate_id in effective_required_gates
-        if gates.get(gate_id) is not True
-    ]
+    if effective_required_gate_ids is not None:
+        missing = [
+            gate_id
+            for gate_id in effective_required_gate_ids
+            if gate_id not in gates
+        ]
+        false_gates = [
+            gate_id
+            for gate_id in effective_required_gate_ids
+            if gates.get(gate_id) is not True
+        ]
 
-    if missing:
-        failures.append(f"missing effective required gates: {', '.join(missing)}")
-    if false_gates:
-        failures.append(f"false effective required gates: {', '.join(false_gates)}")
+        if missing:
+            failures.append(f"missing effective required gates: {', '.join(missing)}")
+        if false_gates:
+            failures.append(f"false effective required gates: {', '.join(false_gates)}")
 
     return _cross_check_result(
         name="status_satisfies_effective_required_gates",
@@ -907,9 +1001,13 @@ def _check_release_authority_manifest_matches_package_core(
         authority = {}
 
     effective_required_gates = gate_sets.get("effective_required_gates")
-    if not isinstance(effective_required_gates, list):
-        failures.append("package gate_sets.effective_required_gates must be an array")
-        effective_required_gates = []
+    effective_required_gate_ids = _validate_gate_id_array(
+        name="package gate_sets.effective_required_gates",
+        value=effective_required_gates,
+        failures=failures,
+    )
+    if effective_required_gate_ids is None:
+        effective_required_gate_ids = []
 
     if authority.get("policy_set") != "required+release_required":
         failures.append(
@@ -920,10 +1018,17 @@ def _check_release_authority_manifest_matches_package_core(
     if authority.get("release_required_materialized") is not True:
         failures.append("authority.release_required_materialized must be true")
 
-    if authority.get("effective_required_gates") != effective_required_gates:
-        failures.append(
-            "authority.effective_required_gates does not match package gate sets"
-        )
+    authority_effective_required_gates = _validate_gate_id_array(
+        name="release_authority.authority.effective_required_gates",
+        value=authority.get("effective_required_gates"),
+        failures=failures,
+    )
+
+    if authority_effective_required_gates is not None:
+        if authority_effective_required_gates != effective_required_gate_ids:
+            failures.append(
+                "authority.effective_required_gates does not match package gate sets"
+            )
 
     evaluation = release_authority.get("evaluation")
     if not isinstance(evaluation, dict):
@@ -935,7 +1040,7 @@ def _check_release_authority_manifest_matches_package_core(
         failures.append("evaluation.required_gate_results must be an object")
         required_gate_results = {}
 
-    expected_results = {gate_id: True for gate_id in effective_required_gates}
+    expected_results = {gate_id: True for gate_id in effective_required_gate_ids}
 
     if required_gate_results != expected_results:
         failures.append(
