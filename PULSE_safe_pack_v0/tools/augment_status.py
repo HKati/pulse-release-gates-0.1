@@ -238,6 +238,42 @@ def fold_q1_reference_shadow(status: Dict[str, Any], summary_path: Optional[str]
     meta = ensure_meta(status)
     meta["q1_reference_shadow"] = shadow
 
+CANONICAL_EXTERNAL_SUMMARY_FILENAMES = (
+    "llamaguard_summary.json",
+    "llamaguard_summary.jsonl",
+    "promptguard_summary.json",
+    "promptguard_summary.jsonl",
+    "garak_summary.json",
+    "garak_summary.jsonl",
+    "azure_eval_summary.json",
+    "azure_eval_summary.jsonl",
+    "promptfoo_summary.json",
+    "promptfoo_summary.jsonl",
+    "deepeval_summary.json",
+    "deepeval_summary.jsonl",
+)
+
+
+def list_external_summary_files(ext_dir: str) -> list[str]:
+    if not os.path.isdir(ext_dir):
+        return []
+
+    files = sorted(glob.glob(os.path.join(ext_dir, "*_summary.json")))
+    files += sorted(glob.glob(os.path.join(ext_dir, "*_summary.jsonl")))
+    return sorted(files)
+
+
+def list_canonical_external_summary_files(ext_dir: str) -> list[str]:
+    if not os.path.isdir(ext_dir):
+        return []
+
+    out: list[str] = []
+    for filename in CANONICAL_EXTERNAL_SUMMARY_FILENAMES:
+        path = os.path.join(ext_dir, filename)
+        if os.path.exists(path):
+            out.append(path)
+    return sorted(out)
+
 
 # ---------------------------------------------------------------------------
 # Main
@@ -350,16 +386,29 @@ def main() -> int:
     # Ensure we start from a clean list.
     external["metrics"] = []
 
-    summary_files: list[str] = []
-    if os.path.isdir(ext_dir):
-        summary_files = sorted(glob.glob(os.path.join(ext_dir, "*_summary.json")))
-        summary_files += sorted(glob.glob(os.path.join(ext_dir, "*_summary.jsonl")))
+    summary_files = list_external_summary_files(ext_dir)
+    canonical_summary_files = list_canonical_external_summary_files(ext_dir)
 
-    summaries_present = bool(summary_files)
+    summary_file_set = set(summary_files)
+    canonical_summary_file_set = set(canonical_summary_files)
+    unrecognized_summary_files = sorted(summary_file_set - canonical_summary_file_set)
+
+    # Only canonical detector summaries count as release-relevant external
+    # summary presence. Generic *_summary.json/jsonl files remain diagnostic
+    # observations and must not satisfy release-required evidence gates.
+    summaries_present = bool(canonical_summary_files)
+
     external["summaries_present"] = summaries_present
     external["summary_count"] = len(summary_files)
 
-    # Diagnostic gate (normative only if policy promotes it).
+    external["canonical_summary_count"] = len(canonical_summary_files)
+    external["unrecognized_summary_count"] = len(unrecognized_summary_files)
+    external["unrecognized_summaries"] = [
+        os.path.basename(path) for path in unrecognized_summary_files
+    ]
+
+    # Diagnostic gate unless policy promotes it; when promoted, it is backed by
+    # canonical detector summary presence, not arbitrary decoy filenames.
     gates["external_summaries_present"] = summaries_present
     status["external_summaries_present"] = summaries_present
 
@@ -561,10 +610,12 @@ def main() -> int:
 
     if not oks:
         # Default/onboarding: no folded external evidence does not fail the run.
-        # Strict/release-grade: fail closed only when summaries are explicitly required
-        # and none are present on disk. Filename/metric-key strictness belongs to the
-        # dedicated precheck path.
-        if args.require_external_summaries and not summaries_present:
+        # Strict/release-grade: at least one recognized detector summary must be
+        # successfully folded before external_all_pass can become true.
+        #
+        # Decoy-only, unrecognized-only, malformed-only, or no-folded-result
+        # evidence states must not materialize into release authority.
+        if args.require_external_summaries:
             ext_all = False
         else:
             ext_all = True
