@@ -103,7 +103,7 @@ Required gates are explicit, materialized, and checked before release effects ca
 | required gate value is not literal `true` | block |
 
 
-[![DOI](https://zenodo.org/badge/1061766508.svg)](https://zenodo.org/badge/latestdoi/1061766508)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.17214908.svg)](https://doi.org/10.5281/zenodo.17214908)
 
 ---
 
