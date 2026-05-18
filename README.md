@@ -103,7 +103,7 @@ Required gates are explicit, materialized, and checked before release effects ca
 | required gate value is not literal `true` | block |
 
 
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.17214908.svg)](https://doi.org/10.5281/zenodo.17214908)
+[![DOI](https://doi.org/badge/DOI/10.5281/zenodo.17373002.svg)](https://doi.org/10.5281/zenodo.17373002)
 
 ---
 
@@ -123,9 +123,8 @@ Required gates are explicit, materialized, and checked before release effects ca
 
 ### Zenodo records
 
+- **Current release DOI / v1.0.2:** https://doi.org/10.5281/zenodo.17373002
 - **Concept DOI / all versions:** https://doi.org/10.5281/zenodo.17214908
-- **Current release DOI / v1.1.1:** https://doi.org/10.5281/zenodo.18203404
-- **Previous release DOI / v1.0.2:** https://doi.org/10.5281/zenodo.17373002
 - **Previous release DOI / v1.0.1:** https://doi.org/10.5281/zenodo.17214909
 - **Preprint DOI:** https://doi.org/10.5281/zenodo.17833583
 
