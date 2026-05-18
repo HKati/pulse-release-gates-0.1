@@ -1,0 +1,6 @@
+-r requirements.txt
+
+# Optional analysis / PULSE-PD runtime dependencies.
+# These are not part of the minimal core release-authority runtime.
+numpy>=1.26
+matplotlib>=3.8
