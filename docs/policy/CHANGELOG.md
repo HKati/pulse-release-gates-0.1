@@ -21,6 +21,10 @@ This changelog records **semantic** changes that can affect release gating outco
 
 ## Unreleased
 
+- Hardened strict external evidence fold-in so release-grade paths fail closed
+  when no recognized detector summary is successfully folded. Decoy-only or
+  unrecognized-only external summaries no longer allow `external_all_pass=true`
+  in strict mode.
 - `pulse_gate_policy_v0.yml` / `pulse-gate-policy-v0` (policy 0.1.5):
   - Changed: release policy documentation/tests/workflow now use a dedicated `ci/check_release_no_stub_status.py` release-grade guard and canonical strict external-summary precheck coverage.
   - Why: keep release fail-closed no-stub enforcement centralized and test-covered while preventing decoy non-summary JSON artifacts from passing strict evidence prechecks.
