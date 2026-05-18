@@ -42,6 +42,8 @@ jobs:
   pulse:
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    env:
+      PACK_DIR: ${{ github.workspace }}/PULSE_safe_pack_v0
 
     steps:
       - name: Checkout
