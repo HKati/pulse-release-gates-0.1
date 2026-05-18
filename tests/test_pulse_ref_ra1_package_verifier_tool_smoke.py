@@ -1131,6 +1131,113 @@ def test_malformed_effective_required_gate_id_fails_without_crash() -> None:
         )
 
 
+def test_unsafe_manifest_artifact_path_fails_with_schema_valid_report() -> None:
+    with tempfile.TemporaryDirectory(prefix="pulse-ra1-verifier-") as tmp:
+        tmp_path = Path(tmp)
+        package_copy = tmp_path / "package"
+        out_path = tmp_path / "verifier_report.unsafe_manifest_path.json"
+
+        shutil.copytree(PACKAGE, package_copy)
+
+        manifest_path = package_copy / "package_manifest.json"
+        manifest = _read_json(manifest_path)
+        manifest["status_artifact"]["path"] = "../outside/status.json"
+        _write_json(manifest_path, manifest)
+
+        result = _run(package_copy, out_path)
+
+        assert result.returncode == 1
+        assert out_path.exists()
+        assert "Traceback" not in result.stderr
+
+        report = _read_json(out_path)
+        _validate_report(report)
+
+        assert report["ok"] is False
+        assert any(
+            "unsafe artifact path" in error
+            or "schema validation failed" in error
+            or "does not match" in error
+            for error in report["errors"]
+        )
+
+def test_package_digests_self_digest_mismatch_fails_with_schema_valid_report() -> None:
+    with tempfile.TemporaryDirectory(prefix="pulse-ra1-verifier-") as tmp:
+        tmp_path = Path(tmp)
+        package_copy = tmp_path / "package"
+        out_path = tmp_path / "verifier_report.package_digests_self_mismatch.json"
+
+        shutil.copytree(PACKAGE, package_copy)
+
+        digests_path = package_copy / "digests" / "package_digests.json"
+        digests = _read_json(digests_path)
+
+        # Mutate the digest manifest itself without updating the package_manifest
+        # reference to digests/package_digests.json. This must be detected as a
+        # package-manifest digest mismatch.
+        digests["package_id"] = "tampered-package-id"
+        _write_json(digests_path, digests)
+
+        result = _run(package_copy, out_path)
+
+        assert result.returncode == 1
+        assert out_path.exists()
+        assert "Traceback" not in result.stderr
+
+        report = _read_json(out_path)
+        _validate_report(report)
+
+        assert report["ok"] is False
+
+        digest_checks = [
+            check
+            for check in report["artifact_digests_checked"]
+            if (
+                check["artifact_path"] == "digests/package_digests.json"
+                and check.get("source") == "package_manifest"
+            )
+        ]
+
+        assert len(digest_checks) == 1
+        assert digest_checks[0]["ok"] is False
+        assert digest_checks[0]["actual_sha256"] is not None
+        assert any(
+            "digests/package_digests.json digest mismatch" in error
+            for error in report["errors"]
+        )
+
+
+def test_unsafe_manifest_artifact_path_fails_with_schema_valid_report() -> None:
+    with tempfile.TemporaryDirectory(prefix="pulse-ra1-verifier-") as tmp:
+        tmp_path = Path(tmp)
+        package_copy = tmp_path / "package"
+        out_path = tmp_path / "verifier_report.unsafe_manifest_path.json"
+
+        shutil.copytree(PACKAGE, package_copy)
+
+        manifest_path = package_copy / "package_manifest.json"
+        manifest = _read_json(manifest_path)
+        manifest["status_artifact"]["path"] = "../outside/status.json"
+        _write_json(manifest_path, manifest)
+
+        result = _run(package_copy, out_path)
+
+        assert result.returncode == 1
+        assert out_path.exists()
+        assert "Traceback" not in result.stderr
+
+        report = _read_json(out_path)
+        _validate_report(report)
+
+        assert report["ok"] is False
+        assert any(
+            "unsafe artifact path" in error
+            or "schema validation failed" in error
+            or "does not match" in error
+            for error in report["errors"]
+        )
+
+
 def main() -> int:
     tests = [
         test_valid_ra1_minimal_package_verifies,
@@ -1153,6 +1260,8 @@ def main() -> int:
         test_noncanonical_status_artifact_path_fails_with_schema_valid_report,
         test_package_manifest_git_sha_mismatch_fails_with_schema_valid_report,
         test_malformed_effective_required_gate_id_fails_without_crash,
+        test_package_digests_self_digest_mismatch_fails_with_schema_valid_report,
+        test_unsafe_manifest_artifact_path_fails_with_schema_valid_report,
     ]
 
     try:
