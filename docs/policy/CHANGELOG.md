@@ -21,6 +21,7 @@ This changelog records **semantic** changes that can affect release gating outco
 
 ## Unreleased
 
+- Added `release grade status v1 schema` as a release-grade status contract overlay. Release-grade paths can now validate explicit `prod` run mode, non-stub diagnostics, non-scaffold diagnostics, and detector materialization before release-authority enforcement continues.
 - Hardened strict external evidence fold-in so release-grade paths fail closed
   when no recognized detector summary is successfully folded. Decoy-only or
   unrecognized-only external summaries no longer allow `external_all_pass=true`

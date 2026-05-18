@@ -42,6 +42,8 @@ jobs:
   pulse:
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    env:
+      PACK_DIR: ${{ github.workspace }}/PULSE_safe_pack_v0
 
     steps:
       - name: Checkout
@@ -708,6 +710,20 @@ jobs:
             --schema "$SCHEMA" \
             --status "$STATUS"
 
+      - name: "ci: validate release-grade status contract"
+        if: ${{ startsWith(github.ref, 'refs/tags/v') || startsWith(github.ref, 'refs/tags/V') || (github.event_name == 'workflow_dispatch' && github.event.inputs.strict_external_evidence == 'true') }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          STATUS="${{ env.PACK_DIR }}/artifacts/status.json"
+          SCHEMA="$GITHUB_WORKSPACE/schemas/status/release_grade_status_v1.schema.json"
+
+          python tools/validate_status_schema.py \
+            --schema "$SCHEMA" \
+            --status "$STATUS" \
+            --max-errors 20
+      
       - name: Export final summary (post-augment)
         shell: bash
         run: |

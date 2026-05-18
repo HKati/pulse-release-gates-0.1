@@ -1,0 +1,114 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://hkati.github.io/pulse-release-gates-0.1/schemas/status/release_grade_status_v1.schema.json",
+  "title": "PULSE release-grade status contract (v1)",
+  "type": "object",
+  "required": [
+    "version",
+    "created_utc",
+    "gates",
+    "metrics",
+    "diagnostics"
+  ],
+  "properties": {
+    "version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "created_utc": {
+      "type": "string",
+      "minLength": 1
+    },
+    "metrics": {
+      "type": "object",
+      "required": [
+        "run_mode"
+      ],
+      "properties": {
+        "run_mode": {
+          "const": "prod"
+        }
+      },
+      "additionalProperties": true
+    },
+    "gates": {
+      "type": "object",
+      "required": [
+        "detectors_materialized_ok"
+      ],
+      "properties": {
+        "detectors_materialized_ok": {
+          "const": true
+        },
+        "external_summaries_present": {
+          "type": "boolean"
+        },
+        "external_all_pass": {
+          "type": "boolean"
+        },
+        "refusal_delta_evidence_present": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": {
+        "type": "boolean"
+      }
+    },
+    "diagnostics": {
+      "type": "object",
+      "required": [
+        "gates_stubbed",
+        "scaffold"
+      ],
+      "properties": {
+        "gates_stubbed": {
+          "const": false
+        },
+        "scaffold": {
+          "const": false
+        },
+        "stub_profile": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true
+    },
+    "external": {
+      "type": "object",
+      "properties": {
+        "all_pass": {
+          "type": "boolean"
+        },
+        "summaries_present": {
+          "type": "boolean"
+        },
+        "summary_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "canonical_summary_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unrecognized_summary_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "metrics": {
+          "type": "array"
+        }
+      },
+      "additionalProperties": true
+    },
+    "external_all_pass": {
+      "type": "boolean"
+    },
+    "external_summaries_present": {
+      "type": "boolean"
+    },
+    "refusal_delta_evidence_present": {
+      "type": "boolean"
+    }
+  },
+  "additionalProperties": true
+}
