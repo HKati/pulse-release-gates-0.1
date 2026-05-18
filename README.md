@@ -1,10 +1,12 @@
-# PULSE — Release Authority for Safe & Useful AI
+# PULSE — Artifact-Bound Release Authority for AI Release Decisions
 
-### PULSE is an artifact-first release-governance / release-authority system for AI applications.
+
+PULSE introduces artifact-bound release authority: AI release decisions are made from recorded evidence, declared policy, materialized required gates, and fail-closed CI enforcement.
+
+PULSEmech converts recorded release evidence into deterministic, fail-closed CI allow/block release decisions before deployment under declared policy.
 
 PULSE structures recorded safety, quality, detector, stability, CI, and review evidence into deterministic, fail-closed release decisions under declared policy.
 
-The mechanism is PULSEmech: an artifact-first, policy-declared, gate-materialized, CI-enforced release-authority mechanism for AI applications and AI-enabled systems.
 
 ## PULSEmech architecture map
 
