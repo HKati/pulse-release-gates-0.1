@@ -1238,6 +1238,144 @@ def test_unsafe_manifest_artifact_path_fails_with_schema_valid_report() -> None:
         )
 
 
+def test_publication_git_sha_mismatch_fails_with_schema_valid_report() -> None:
+    with tempfile.TemporaryDirectory(prefix="pulse-ra1-verifier-") as tmp:
+        tmp_path = Path(tmp)
+        package_copy = tmp_path / "package"
+        out_path = tmp_path / "verifier_report.publication_git_sha.json"
+
+        shutil.copytree(PACKAGE, package_copy)
+
+        publication_path = package_copy / "publication" / "publication_snapshot.json"
+        publication = _read_json(publication_path)
+        publication["git_sha"] = "b" * 40
+        _write_json(publication_path, publication)
+
+        publication_sha = _sha256_file(publication_path)
+
+        digests_path = package_copy / "digests" / "package_digests.json"
+        digests = _read_json(digests_path)
+        digests["artifacts"]["publication/publication_snapshot.json"] = publication_sha
+        _write_json(digests_path, digests)
+
+        digests_sha = _sha256_file(digests_path)
+
+        manifest_path = package_copy / "package_manifest.json"
+        manifest = _read_json(manifest_path)
+        manifest["publication_snapshot"]["sha256"] = publication_sha
+        manifest["package_digests"]["sha256"] = digests_sha
+        _write_json(manifest_path, manifest)
+
+        result = _run(package_copy, out_path)
+
+        assert result.returncode == 1
+        assert out_path.exists()
+        assert "Traceback" not in result.stderr
+
+        report = _read_json(out_path)
+        _validate_report(report)
+
+        assert report["ok"] is False
+
+        ci_checks = [
+            check
+            for check in report["cross_artifact_checks"]
+            if check["name"] == "ci_outcome_and_publication_match_release_identity"
+        ]
+
+        assert len(ci_checks) == 1
+        assert ci_checks[0]["ok"] is False
+        assert "publication_snapshot.git_sha mismatch" in ci_checks[0]["message"]
+
+
+def test_publication_package_id_mismatch_fails_with_schema_valid_report() -> None:
+    with tempfile.TemporaryDirectory(prefix="pulse-ra1-verifier-") as tmp:
+        tmp_path = Path(tmp)
+        package_copy = tmp_path / "package"
+        out_path = tmp_path / "verifier_report.publication_package_id.json"
+
+        shutil.copytree(PACKAGE, package_copy)
+
+        publication_path = package_copy / "publication" / "publication_snapshot.json"
+        publication = _read_json(publication_path)
+        publication["package_id"] = "tampered-publication-package-id"
+        _write_json(publication_path, publication)
+
+        publication_sha = _sha256_file(publication_path)
+
+        digests_path = package_copy / "digests" / "package_digests.json"
+        digests = _read_json(digests_path)
+        digests["artifacts"]["publication/publication_snapshot.json"] = publication_sha
+        _write_json(digests_path, digests)
+
+        digests_sha = _sha256_file(digests_path)
+
+        manifest_path = package_copy / "package_manifest.json"
+        manifest = _read_json(manifest_path)
+        manifest["publication_snapshot"]["sha256"] = publication_sha
+        manifest["package_digests"]["sha256"] = digests_sha
+        _write_json(manifest_path, manifest)
+
+        result = _run(package_copy, out_path)
+
+        assert result.returncode == 1
+        assert out_path.exists()
+        assert "Traceback" not in result.stderr
+
+        report = _read_json(out_path)
+        _validate_report(report)
+
+        assert report["ok"] is False
+        assert any(
+            "publication_snapshot.package_id mismatch" in error
+            for error in report["errors"]
+        )
+
+
+def test_publication_run_key_mismatch_fails_with_schema_valid_report() -> None:
+    with tempfile.TemporaryDirectory(prefix="pulse-ra1-verifier-") as tmp:
+        tmp_path = Path(tmp)
+        package_copy = tmp_path / "package"
+        out_path = tmp_path / "verifier_report.publication_run_key.json"
+
+        shutil.copytree(PACKAGE, package_copy)
+
+        publication_path = package_copy / "publication" / "publication_snapshot.json"
+        publication = _read_json(publication_path)
+        publication["run_key"] = "tampered-publication-run-key"
+        _write_json(publication_path, publication)
+
+        publication_sha = _sha256_file(publication_path)
+
+        digests_path = package_copy / "digests" / "package_digests.json"
+        digests = _read_json(digests_path)
+        digests["artifacts"]["publication/publication_snapshot.json"] = publication_sha
+        _write_json(digests_path, digests)
+
+        digests_sha = _sha256_file(digests_path)
+
+        manifest_path = package_copy / "package_manifest.json"
+        manifest = _read_json(manifest_path)
+        manifest["publication_snapshot"]["sha256"] = publication_sha
+        manifest["package_digests"]["sha256"] = digests_sha
+        _write_json(manifest_path, manifest)
+
+        result = _run(package_copy, out_path)
+
+        assert result.returncode == 1
+        assert out_path.exists()
+        assert "Traceback" not in result.stderr
+
+        report = _read_json(out_path)
+        _validate_report(report)
+
+        assert report["ok"] is False
+        assert any(
+            "publication_snapshot.run_key mismatch" in error
+            for error in report["errors"]
+        )
+
+
 def main() -> int:
     tests = [
         test_valid_ra1_minimal_package_verifies,
@@ -1262,6 +1400,9 @@ def main() -> int:
         test_malformed_effective_required_gate_id_fails_without_crash,
         test_package_digests_self_digest_mismatch_fails_with_schema_valid_report,
         test_unsafe_manifest_artifact_path_fails_with_schema_valid_report,
+        test_publication_git_sha_mismatch_fails_with_schema_valid_report,
+        test_publication_package_id_mismatch_fails_with_schema_valid_report,
+        test_publication_run_key_mismatch_fails_with_schema_valid_report,
     ]
 
     try:
