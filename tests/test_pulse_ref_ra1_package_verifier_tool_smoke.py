@@ -1084,6 +1084,52 @@ def test_package_manifest_git_sha_mismatch_fails_with_schema_valid_report() -> N
         assert identity_checks[0]["ok"] is False
         assert "package_manifest.git_sha mismatch" in identity_checks[0]["message"]
     
+def test_malformed_effective_required_gate_id_fails_without_crash() -> None:
+    with tempfile.TemporaryDirectory(prefix="pulse-ra1-verifier-") as tmp:
+        tmp_path = Path(tmp)
+        package_copy = tmp_path / "package"
+        out_path = tmp_path / "verifier_report.malformed_gate_id.json"
+
+        shutil.copytree(PACKAGE, package_copy)
+
+        gate_sets_path = package_copy / "gates" / "materialized_gate_sets.json"
+        gate_sets = _read_json(gate_sets_path)
+        gate_sets["effective_required_gates"] = [
+            {"bad": "gate-id-object"}
+        ]
+        _write_json(gate_sets_path, gate_sets)
+
+        gate_sets_sha = _sha256_file(gate_sets_path)
+
+        digests_path = package_copy / "digests" / "package_digests.json"
+        digests = _read_json(digests_path)
+        digests["artifacts"]["gates/materialized_gate_sets.json"] = gate_sets_sha
+        _write_json(digests_path, digests)
+
+        digests_sha = _sha256_file(digests_path)
+
+        manifest_path = package_copy / "package_manifest.json"
+        manifest = _read_json(manifest_path)
+        manifest["materialized_gate_sets"]["sha256"] = gate_sets_sha
+        manifest["package_digests"]["sha256"] = digests_sha
+        _write_json(manifest_path, manifest)
+
+        result = _run(package_copy, out_path)
+
+        assert result.returncode == 1
+        assert out_path.exists()
+        assert "Traceback" not in result.stderr
+
+        report = _read_json(out_path)
+        _validate_report(report)
+
+        assert report["ok"] is False
+        assert any(
+            "effective_required_gates" in error
+            and "must be a string gate ID" in error
+            for error in report["errors"]
+        )
+
 
 def main() -> int:
     tests = [
@@ -1106,6 +1152,7 @@ def main() -> int:
         test_missing_package_file_fails_with_schema_valid_report,
         test_noncanonical_status_artifact_path_fails_with_schema_valid_report,
         test_package_manifest_git_sha_mismatch_fails_with_schema_valid_report,
+        test_malformed_effective_required_gate_id_fails_without_crash,
     ]
 
     try:
