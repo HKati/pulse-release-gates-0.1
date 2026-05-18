@@ -1501,6 +1501,59 @@ def test_ci_outcome_authority_boundary_true_fails_with_schema_valid_report() -> 
         assert ci_checks[0]["ok"] is False
         assert "ci_outcome authority_boundary.creates_release_authority must be false" in ci_checks[0]["message"]
 
+def test_handoff_authority_boundary_true_fails_with_schema_valid_report() -> None:
+    with tempfile.TemporaryDirectory(prefix="pulse-ra1-verifier-") as tmp:
+        tmp_path = Path(tmp)
+        package_copy = tmp_path / "package"
+        out_path = tmp_path / "verifier_report.handoff_authority.json"
+
+        shutil.copytree(PACKAGE, package_copy)
+
+        handoff_path = package_copy / "handoff" / "operator_handoff_report.json"
+        handoff = _read_json(handoff_path)
+        handoff["authority_boundary"]["creates_release_authority"] = True
+        _write_json(handoff_path, handoff)
+
+        handoff_sha = _sha256_file(handoff_path)
+
+        digests_path = package_copy / "digests" / "package_digests.json"
+        digests = _read_json(digests_path)
+        digests["artifacts"]["handoff/operator_handoff_report.json"] = handoff_sha
+        _write_json(digests_path, digests)
+
+        digests_sha = _sha256_file(digests_path)
+
+        manifest_path = package_copy / "package_manifest.json"
+        manifest = _read_json(manifest_path)
+        manifest["operator_handoff_report"]["sha256"] = handoff_sha
+        manifest["package_digests"]["sha256"] = digests_sha
+        _write_json(manifest_path, manifest)
+
+        result = _run(package_copy, out_path)
+
+        assert result.returncode == 1
+        assert out_path.exists()
+        assert "Traceback" not in result.stderr
+
+        report = _read_json(out_path)
+        _validate_report(report)
+
+        assert report["ok"] is False
+
+        handoff_checks = [
+            check
+            for check in report["cross_artifact_checks"]
+            if check["name"] == "handoff_matches_status_and_gate_sets"
+        ]
+
+        assert len(handoff_checks) == 1
+        assert handoff_checks[0]["ok"] is False
+        assert (
+            "handoff authority_boundary.creates_release_authority must be false"
+            in handoff_checks[0]["message"]
+        )
+
+
 def main() -> int:
     tests = [
         test_valid_ra1_minimal_package_verifies,
@@ -1512,6 +1565,7 @@ def main() -> int:
         test_materialized_gate_set_policy_mismatch_fails_with_schema_valid_report,
         test_handoff_status_digest_mismatch_fails_with_schema_valid_report,
         test_handoff_effective_required_gates_mismatch_fails_with_schema_valid_report,
+        test_handoff_authority_boundary_true_fails_with_schema_valid_report,
         test_release_authority_status_digest_mismatch_fails_with_schema_valid_report,
         test_release_authority_effective_gates_mismatch_fails_with_schema_valid_report,
         test_ci_outcome_commit_mismatch_fails_with_schema_valid_report,
