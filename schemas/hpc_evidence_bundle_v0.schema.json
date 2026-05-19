@@ -1,0 +1,226 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://hkati.github.io/pulse-release-gates-0.1/schemas/hpc_evidence_bundle_v0.schema.json",
+  "title": "PULSE HPC Evidence Bundle v0",
+  "type": "object",
+  "required": [
+    "schema",
+    "authority_status",
+    "creates_release_authority",
+    "run_identity",
+    "code_identity",
+    "input_manifest",
+    "environment",
+    "evidence_items",
+    "summary_metrics",
+    "provenance",
+    "reconstruction",
+    "result"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema": {
+      "const": "hpc_evidence_bundle_v0"
+    },
+    "authority_status": {
+      "const": "diagnostic_non_normative"
+    },
+    "creates_release_authority": {
+      "const": false
+    },
+    "run_identity": {
+      "type": "object",
+      "required": ["run_id", "run_started_utc"],
+      "additionalProperties": true,
+      "properties": {
+        "run_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "run_started_utc": {
+          "type": "string",
+          "minLength": 1
+        },
+        "run_completed_utc": {
+          "type": "string"
+        },
+        "run_mode": {
+          "enum": ["local_hpc_sim", "compute_scale", "hpc"]
+        }
+      }
+    },
+    "code_identity": {
+      "type": "object",
+      "required": ["repository", "git_sha"],
+      "additionalProperties": true,
+      "properties": {
+        "repository": {
+          "type": "string",
+          "minLength": 1
+        },
+        "git_sha": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "ref": {
+          "type": "string"
+        }
+      }
+    },
+    "input_manifest": {
+      "type": "object",
+      "required": ["path", "sha256"],
+      "additionalProperties": true,
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "dataset_identity": {
+          "type": "string"
+        },
+        "sample_identity": {
+          "type": "string"
+        }
+      }
+    },
+    "environment": {
+      "type": "object",
+      "required": ["runtime_surface"],
+      "additionalProperties": true,
+      "properties": {
+        "runtime_surface": {
+          "enum": ["local_hpc_sim", "compute_scale", "hpc"]
+        },
+        "scheduler": {
+          "type": "string"
+        },
+        "node_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "accelerator_class": {
+          "type": "string"
+        },
+        "container_digest": {
+          "type": "string"
+        }
+      }
+    },
+    "evidence_items": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "path",
+          "role",
+          "evidence_status",
+          "folded_into_status"
+        ],
+        "additionalProperties": true,
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "role": {
+            "enum": [
+              "detector_summary",
+              "stability_measurement",
+              "pulse_pd_artifact",
+              "raw_trace",
+              "summary_metric",
+              "provenance_record",
+              "package_manifest",
+              "audit_bundle",
+              "other"
+            ]
+          },
+          "evidence_status": {
+            "enum": ["present", "missing", "failed", "unverified"]
+          },
+          "sha256": {
+            "type": ["string", "null"],
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "schema_path": {
+            "type": "string"
+          },
+          "folded_into_status": {
+            "type": "boolean"
+          },
+          "policy_route": {
+            "type": "object",
+            "required": ["policy_path", "gate_id"],
+            "additionalProperties": true,
+            "properties": {
+              "policy_path": {
+                "type": "string",
+                "minLength": 1
+              },
+              "gate_id": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        }
+      }
+    },
+    "summary_metrics": {
+      "type": "object",
+      "additionalProperties": {
+        "type": ["number", "integer", "string", "boolean", "null"]
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "required": ["command"],
+      "additionalProperties": true,
+      "properties": {
+        "command": {
+          "type": "string",
+          "minLength": 1
+        },
+        "seed": {
+          "type": ["integer", "string", "null"]
+        },
+        "detector_config": {
+          "type": "string"
+        },
+        "threshold_ref": {
+          "type": "string"
+        },
+        "notes": {
+          "type": "string"
+        }
+      }
+    },
+    "reconstruction": {
+      "type": "object",
+      "required": ["instructions"],
+      "additionalProperties": true,
+      "properties": {
+        "instructions": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "result": {
+      "enum": ["complete", "incomplete", "invalid"]
+    },
+    "notes": {
+      "type": "string"
+    }
+  }
+}
