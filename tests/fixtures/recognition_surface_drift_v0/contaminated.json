@@ -1,0 +1,63 @@
+{
+  "schema": "recognition_surface_drift_v0",
+  "authority_status": "diagnostic_non_normative",
+  "invariant": "non_normative_recognition_surfaces_must_not_override_normative_artifact_inspection",
+  "normative_artifact_basis": [
+    {
+      "path": "status.json",
+      "role": "machine-readable release state",
+      "authority_status": "normative_input"
+    },
+    {
+      "path": "pulse_gate_policy_v0.yml",
+      "role": "declared gate policy",
+      "authority_status": "normative_input"
+    },
+    {
+      "path": "PULSE_safe_pack_v0/tools/check_gates.py",
+      "role": "strict gate enforcement",
+      "authority_status": "normative_enforcement"
+    }
+  ],
+  "recognition_surfaces": [
+    {
+      "surface_id": "presentation-title",
+      "surface_type": "title",
+      "authority_status": "non_normative_recognition_surface",
+      "path_or_label": "external title variant"
+    }
+  ],
+  "analysis_runs": [
+    {
+      "run_id": "mechanism-first",
+      "condition": "mechanism_first",
+      "normative_artifacts_available": true,
+      "recognition_surface_available": false,
+      "system_classification": "artifact-bound release authority",
+      "authority_basis": "normative_artifact_inspection",
+      "claims": [
+        "release decision is produced by status evidence, declared policy, materialized required gates, and strict CI checking"
+      ]
+    },
+    {
+      "run_id": "recognition-captured",
+      "condition": "recognition_surface_variant",
+      "normative_artifacts_available": true,
+      "recognition_surface_available": true,
+      "system_classification": "dashboard framework",
+      "authority_basis": "recognition_surface",
+      "claims": [
+        "presentation layer changed the classification despite unchanged normative artifacts"
+      ]
+    }
+  ],
+  "drift": {
+    "identity_classification_changed": true,
+    "authority_boundary_changed": true,
+    "normative_path_changed": true,
+    "mechanical_claims_changed": true,
+    "drift_score": 0.9
+  },
+  "result": "contaminated",
+  "notes": "Recognition surface changed the analytic classification despite unchanged normative artifact basis."
+}
