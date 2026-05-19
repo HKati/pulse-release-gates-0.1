@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import shlex
 from pathlib import Path
 
 
@@ -12,8 +13,67 @@ ANALYSIS_REQ = ROOT / "requirements-analysis.txt"
 PULSE_PD_WORKFLOW = ROOT / ".github" / "workflows" / "pulse_pd_smoke.yml"
 
 
+ANALYSIS_PACKAGES = {"numpy", "matplotlib"}
+
+
 def _read(path: Path) -> str:
     return path.read_text(encoding="utf-8")
+
+
+def _package_name(token: str) -> str:
+    """Return the normalized package name from a pip requirement token."""
+    token = token.strip()
+
+    for separator in ("==", ">=", "<=", "~=", "!=", ">", "<", "["):
+        if separator in token:
+            token = token.split(separator, 1)[0]
+
+    return token.strip().lower().replace("_", "-")
+
+
+def _is_pip_install_line(line: str) -> bool:
+    try:
+        parts = shlex.split(line)
+    except ValueError:
+        return False
+
+    if not parts:
+        return False
+
+    # python -m pip install ...
+    if len(parts) >= 4 and parts[0] == "python" and parts[1:4] == ["-m", "pip", "install"]:
+        return True
+
+    # pip install ...
+    if len(parts) >= 2 and parts[0] == "pip" and parts[1] == "install":
+        return True
+
+    return False
+
+
+def _inline_analysis_installs(workflow_text: str) -> list[str]:
+    offenders: list[str] = []
+
+    for raw_line in workflow_text.splitlines():
+        line = raw_line.strip()
+
+        if not line or line.startswith("#"):
+            continue
+
+        if not _is_pip_install_line(line):
+            continue
+
+        try:
+            parts = shlex.split(line)
+        except ValueError:
+            continue
+
+        normalized_tokens = {_package_name(part) for part in parts}
+
+        if normalized_tokens & ANALYSIS_PACKAGES:
+            offenders.append(line)
+
+    return offenders
 
 
 def test_analysis_requirements_manifest_exists_and_extends_core() -> None:
@@ -40,7 +100,13 @@ def test_pulse_pd_workflow_installs_analysis_manifest_not_inline_packages() -> N
     text = _read(PULSE_PD_WORKFLOW)
 
     assert "python -m pip install -r requirements-analysis.txt" in text
-    assert "python -m pip install numpy matplotlib" not in text
+
+    offenders = _inline_analysis_installs(text)
+    assert offenders == [], (
+        "PULSE-PD workflow must not install analysis packages inline. "
+        "Use requirements-analysis.txt instead. Offending lines: "
+        + "; ".join(offenders)
+    )
 
 
 def main() -> int:
