@@ -36,6 +36,9 @@ It is the authority-materialization path inside the field.
 PULSE should be read as:
 
 Every PULSE element belongs to the field by its role and authority status, not by architectural distance.
+There is no center-and-margin hierarchy here.
+
+There is a field, and each element matters by role, authority status, and relation to the normative materialization path.
 
 field  
 → role-bearing points  
