@@ -54,6 +54,5 @@
       "resource_type": "software",
       "scheme": "url"
     }
-  ],
-  "notes": "The stable Concept DOI preserves the PULSE version family. Release-specific version and publication date are derived from the GitHub release/tag by Zenodo. The normative PULSE release decision remains bound to the PULSEmech path: recorded release evidence -> status.json -> declared gate policy -> materialized required gate set -> strict fail-closed CI checking -> CI allow/block release decision."
+  ]
 }
