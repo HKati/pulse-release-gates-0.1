@@ -52,6 +52,7 @@ tests/test_pulse_ref_ra1_minimal_package_fixture.py
 tests/test_pulse_ref_ra1_operating_proof_smoke.py
 tests/test_agent_orchestration_evidence_schema_v0.py
 tests/test_check_agent_orchestration_evidence_v0.py
+tests/test_recognition_surface_drift_v0_contract.py
 
 tools/operator_handoff_smoke.py
 

@@ -1,0 +1,146 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://hkati.github.io/pulse-release-gates-0.1/schemas/recognition_surface_drift_v0.schema.json",
+  "title": "PULSE Recognition Surface Drift v0",
+  "type": "object",
+  "required": [
+    "schema",
+    "authority_status",
+    "invariant",
+    "normative_artifact_basis",
+    "recognition_surfaces",
+    "analysis_runs",
+    "drift",
+    "result"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema": {
+      "const": "recognition_surface_drift_v0"
+    },
+    "authority_status": {
+      "const": "diagnostic_non_normative"
+    },
+    "invariant": {
+      "const": "non_normative_recognition_surfaces_must_not_override_normative_artifact_inspection"
+    },
+    "normative_artifact_basis": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["path", "role", "authority_status"],
+        "additionalProperties": false,
+        "properties": {
+          "path": { "type": "string", "minLength": 1 },
+          "role": { "type": "string", "minLength": 1 },
+          "authority_status": {
+            "enum": ["normative", "normative_input", "normative_enforcement"]
+          }
+        }
+      }
+    },
+    "recognition_surfaces": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["surface_id", "surface_type", "authority_status"],
+        "additionalProperties": true,
+        "properties": {
+          "surface_id": { "type": "string", "minLength": 1 },
+          "surface_type": {
+            "enum": [
+              "title",
+              "summary",
+              "about",
+              "topic",
+              "badge",
+              "doi_metadata",
+              "citation_metadata",
+              "social_preview",
+              "dashboard",
+              "visual_presentation",
+              "other"
+            ]
+          },
+          "authority_status": {
+            "const": "non_normative_recognition_surface"
+          },
+          "path_or_label": { "type": "string" },
+          "content_hash": { "type": "string" }
+        }
+      }
+    },
+    "analysis_runs": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "object",
+        "required": [
+          "run_id",
+          "condition",
+          "normative_artifacts_available",
+          "recognition_surface_available",
+          "system_classification",
+          "authority_basis"
+        ],
+        "additionalProperties": true,
+        "properties": {
+          "run_id": { "type": "string", "minLength": 1 },
+          "condition": {
+            "enum": [
+              "mechanism_first",
+              "recognition_surface_variant",
+              "recognition_surface_removed",
+              "recognition_surface_neutralized"
+            ]
+          },
+          "normative_artifacts_available": { "type": "boolean" },
+          "recognition_surface_available": { "type": "boolean" },
+          "system_classification": { "type": "string", "minLength": 1 },
+          "authority_basis": {
+            "enum": [
+              "normative_artifact_inspection",
+              "recognition_surface",
+              "mixed",
+              "unknown"
+            ]
+          },
+          "claims": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        }
+      }
+    },
+    "drift": {
+      "type": "object",
+      "required": [
+        "identity_classification_changed",
+        "authority_boundary_changed",
+        "normative_path_changed",
+        "mechanical_claims_changed",
+        "drift_score"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "identity_classification_changed": { "type": "boolean" },
+        "authority_boundary_changed": { "type": "boolean" },
+        "normative_path_changed": { "type": "boolean" },
+        "mechanical_claims_changed": { "type": "boolean" },
+        "drift_score": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    },
+    "result": {
+      "enum": ["stable", "unstable", "contaminated"]
+    },
+    "notes": {
+      "type": "string"
+    }
+  }
+}
