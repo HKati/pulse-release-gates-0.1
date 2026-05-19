@@ -115,16 +115,20 @@ same internal artifact basis
 
 ## Diagnostic output
 
-PULSE defines and validates this condition as:
+PULSE defines, builds on demand, and validates this condition as:
 
 `recognition_surface_drift_v0`
 
 The diagnostic contract is implemented by:
 
 - `schemas/recognition_surface_drift_v0.schema.json`
+- `scripts/build_recognition_surface_drift_v0.py`
 - `scripts/check_recognition_surface_drift_v0_contract.py`
 - `tests/fixtures/recognition_surface_drift_v0/`
 - `tests/test_recognition_surface_drift_v0_contract.py`
+- `tests/test_build_recognition_surface_drift_v0.py`
+
+The builder can produce a `recognition_surface_drift_v0` diagnostic artifact from a structured input bundle containing normative artifact basis, recognition surfaces, and analysis-run summaries.
 
 The diagnostic result is non-normative by default.
 
