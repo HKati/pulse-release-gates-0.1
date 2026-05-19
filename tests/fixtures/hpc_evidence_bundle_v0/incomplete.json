@@ -1,0 +1,45 @@
+{
+  "schema": "hpc_evidence_bundle_v0",
+  "authority_status": "diagnostic_non_normative",
+  "creates_release_authority": false,
+  "run_identity": {
+    "run_id": "hpc-demo-002",
+    "run_started_utc": "2026-05-19T00:00:00Z",
+    "run_mode": "local_hpc_sim"
+  },
+  "code_identity": {
+    "repository": "HKati/pulse-release-gates-0.1",
+    "git_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "input_manifest": {
+    "path": "hpc/input_manifest.demo.json",
+    "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  },
+  "environment": {
+    "runtime_surface": "local_hpc_sim",
+    "scheduler": "local"
+  },
+  "evidence_items": [
+    {
+      "path": "hpc/artifacts/detector_summary.json",
+      "role": "detector_summary",
+      "evidence_status": "missing",
+      "sha256": null,
+      "folded_into_status": false
+    }
+  ],
+  "summary_metrics": {
+    "num_trials": 0
+  },
+  "provenance": {
+    "command": "python scripts/run_hpc_demo.py --config hpc/input_manifest.demo.json",
+    "seed": 0
+  },
+  "reconstruction": {
+    "instructions": [
+      "Evidence bundle is incomplete; rerun the recorded command after restoring detector output."
+    ]
+  },
+  "result": "incomplete",
+  "notes": "Incomplete diagnostic bundle. Missing evidence must not become release authority."
+}
