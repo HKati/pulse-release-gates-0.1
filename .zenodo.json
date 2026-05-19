@@ -1,8 +1,6 @@
 {
   "title": "PULSE: Deterministic Release Gates for Safe & Useful AI",
-  "publication_date": "2025-10-18",
-  "version": "v1.0.2",
-  "description": "PULSE provides deterministic, fail-closed release gates across Safety (I2–I7), Utility (Q1–Q4) and SLO dimensions. It produces audit artefacts including a human-readable Quality Ledger and SVG badges that summarise pass/fail states. This software package allows developers to enforce safety invariants, utility budgets and service level objectives prior to shipment.",
+  "description": "PULSE is an artifact-bound release-authority mechanism for AI release decisions. Recorded release evidence is evaluated through status.json, declared gate policy, materialized required gates, and strict fail-closed CI checking to produce a deterministic CI allow/block release decision before deployment.",
   "upload_type": "software",
   "language": "eng",
   "license": "Apache-2.0",
@@ -21,20 +19,18 @@
     }
   ],
   "keywords": [
-    "release-governance",
-    "ai-safety",
-    "evaluations",
-    "guardrails",
-    "SLO",
-    "deterministic",
-    "fail-closed",
-    "reproducibility",
-    "auditability",
+    "pulsemech",
+    "artifact-bound",
+    "release-authority",
+    "ai-release-decisions",
+    "evidence-bound",
+    "materialized-gates",
+    "policy-declared",
+    "fail-closed-ci",
     "quality-ledger",
-    "badges",
-    "mlops",
-    "artificial intelligence",
-    "computer science"
+    "rdsi",
+    "auditability",
+    "reproducibility"
   ],
   "related_identifiers": [
     {
@@ -51,13 +47,7 @@
       "identifier": "https://github.com/HKati/pulse-release-gates-0.1",
       "relation": "isSupplementTo",
       "scheme": "url"
-    },
-    {
-      "identifier": "https://github.com/HKati/pulse-guard-pack",
-      "relation": "hasPart",
-      "resource_type": "software",
-      "scheme": "url"
     }
   ],
-  "notes": "This software release is accompanied by a cs.AI preprint archived as a separate Zenodo publication. Reproducibility instructions and CI/CD integration details are provided in the repository README."
+  "notes": "The stable Concept DOI preserves the PULSE version family. Release-specific version and publication date are derived from the GitHub release/tag by Zenodo. The normative PULSE release decision remains bound to the PULSEmech path: recorded release evidence -> status.json -> declared gate policy -> materialized required gate set -> strict fail-closed CI checking -> CI allow/block release decision."
 }
