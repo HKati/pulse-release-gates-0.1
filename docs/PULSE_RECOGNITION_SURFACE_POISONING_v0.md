@@ -127,8 +127,8 @@ It may support review, triage, or hardening, but it does not authorize, block, o
 
 Non-normative recognition surfaces must not override normative artifact inspection.
 
-Hungarian workshop form:
+Recognition surfaces are not authority.
 
-A felismerési felület nem lehet autoritás.  
-A forma nem előzheti meg a mechanikát.  
-Előbb a műszer. Utána a kirakat.
+Form must not precede mechanics.
+
+Mechanism first; presentation second.
