@@ -115,9 +115,16 @@ same internal artifact basis
 
 ## Diagnostic output
 
-PULSE records this condition as:
+PULSE defines and validates this condition as:
 
 `recognition_surface_drift_v0`
+
+The diagnostic contract is implemented by:
+
+- `schemas/recognition_surface_drift_v0.schema.json`
+- `scripts/check_recognition_surface_drift_v0_contract.py`
+- `tests/fixtures/recognition_surface_drift_v0/`
+- `tests/test_recognition_surface_drift_v0_contract.py`
 
 The diagnostic result is non-normative by default.
 
