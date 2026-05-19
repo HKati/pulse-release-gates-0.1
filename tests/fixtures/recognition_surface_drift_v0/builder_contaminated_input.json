@@ -1,0 +1,54 @@
+{
+  "normative_artifact_basis": [
+    {
+      "authority_status": "normative_input",
+      "path": "status.json",
+      "role": "machine-readable release state"
+    },
+    {
+      "authority_status": "normative_input",
+      "path": "pulse_gate_policy_v0.yml",
+      "role": "declared gate policy"
+    },
+    {
+      "authority_status": "normative_enforcement",
+      "path": "PULSE_safe_pack_v0/tools/check_gates.py",
+      "role": "strict gate enforcement"
+    }
+  ],
+  "recognition_surfaces": [
+    {
+      "authority_status": "non_normative_recognition_surface",
+      "path_or_label": "external title variant",
+      "surface_id": "presentation-title",
+      "surface_type": "title"
+    }
+  ],
+  "analysis_runs": [
+    {
+      "authority_basis": "normative_artifact_inspection",
+      "claims": [
+        "release decision is produced by status evidence, declared policy, materialized required gates, and strict CI checking"
+      ],
+      "condition": "mechanism_first",
+      "normative_artifacts_available": true,
+      "normative_path": "status.json -> declared policy -> materialized required gate set -> strict CI checking",
+      "recognition_surface_available": false,
+      "run_id": "mechanism-first",
+      "system_classification": "artifact-bound release authority"
+    },
+    {
+      "authority_basis": "recognition_surface",
+      "claims": [
+        "presentation layer changed the classification despite unchanged normative artifacts"
+      ],
+      "condition": "recognition_surface_variant",
+      "normative_artifacts_available": true,
+      "normative_path": "dashboard presentation -> reviewer impression",
+      "recognition_surface_available": true,
+      "run_id": "recognition-captured",
+      "system_classification": "dashboard framework"
+    }
+  ],
+  "notes": "Recognition surface changed the analytic classification despite unchanged normative artifact basis."
+}
