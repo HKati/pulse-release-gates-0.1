@@ -55,6 +55,7 @@ tests/test_agent_orchestration_evidence_schema_v0.py
 tests/test_check_agent_orchestration_evidence_v0.py
 tests/test_recognition_surface_drift_v0_contract.py
 tests/test_analysis_dependency_manifest.py
+tests/test_pulse_pd_toy_generator_no_numpy.py
 
 tools/operator_handoff_smoke.py
 
