@@ -1,0 +1,28 @@
+{
+  "schema": "evidence_fold_in_admissibility_v0",
+  "authority_status": "diagnostic_non_normative",
+  "creates_release_authority": false,
+  "invariant": "non_normative_field_points_must_not_enter_recorded_release_evidence_without_mechanical_admissibility",
+  "candidates": [
+    {
+      "candidate_id": "readme-title",
+      "source_surface_type": "recognition_surface",
+      "source_authority_status": "recognition_non_normative",
+      "evidence_role": "recognition_diagnostic",
+      "source_artifact": {
+        "path": "README.md",
+        "sha256": null
+      },
+      "schema_path": null,
+      "schema_valid": false,
+      "digest_valid": false,
+      "verification_status": "not_applicable",
+      "folded_into_status_requested": false,
+      "policy_route": null,
+      "admissibility": "rejected",
+      "reason": "Recognition surfaces are not admissible for release-evidence fold-in by themselves."
+    }
+  ],
+  "result": "rejected",
+  "notes": "Recognition surfaces may orient attention but are not release evidence by themselves."
+}
