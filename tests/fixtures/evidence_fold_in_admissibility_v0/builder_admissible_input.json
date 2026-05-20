@@ -1,0 +1,24 @@
+{
+  "candidates": [
+    {
+      "candidate_id": "hpc-detector-summary",
+      "source_surface_type": "hpc_evidence_bundle",
+      "source_authority_status": "diagnostic_non_normative",
+      "evidence_role": "hpc_evidence",
+      "source_artifact": {
+        "path": "hpc/artifacts/detector_summary.json",
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "schema_path": "schemas/hpc_evidence_bundle_v0.schema.json",
+      "schema_valid": true,
+      "digest_valid": true,
+      "verification_status": "verified",
+      "folded_into_status_requested": true,
+      "policy_route": {
+        "policy_path": "pulse_gate_policy_v0.yml",
+        "gate_id": "external_all_pass"
+      }
+    }
+  ],
+  "notes": "Builder input for admissible fold-in evidence."
+}

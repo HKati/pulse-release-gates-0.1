@@ -32,6 +32,14 @@ def _is_sha256(value: Any) -> bool:
     return all(char in "0123456789abcdef" for char in value)
 
 
+def _is_real_artifact_path(value: Any) -> bool:
+    return (
+        isinstance(value, str)
+        and bool(value.strip())
+        and value != "_missing_source_artifact_path"
+    )
+
+
 def _schema_errors(instance: dict[str, Any]) -> list[str]:
     schema = _load_json(SCHEMA_PATH)
     Draft202012Validator.check_schema(schema)
@@ -87,9 +95,14 @@ def _semantic_errors(instance: dict[str, Any]) -> list[str]:
 
         source_surface_type = candidate.get("source_surface_type")
         source_artifact = candidate.get("source_artifact")
+
+        artifact_path = None
         sha256 = None
         if isinstance(source_artifact, dict):
+            artifact_path = source_artifact.get("path")
             sha256 = source_artifact.get("sha256")
+
+        artifact_path_valid = _is_real_artifact_path(artifact_path)
 
         schema_valid = candidate.get("schema_valid")
         digest_valid = candidate.get("digest_valid")
@@ -126,6 +139,10 @@ def _semantic_errors(instance: dict[str, Any]) -> list[str]:
             if folded_requested is not True:
                 errors.append(
                     f"{candidate_id}: admissible evidence must request status fold-in"
+                )
+            if not artifact_path_valid:
+                errors.append(
+                    f"{candidate_id}: admissible evidence requires valid source_artifact.path"
                 )
             if not _is_sha256(sha256):
                 errors.append(

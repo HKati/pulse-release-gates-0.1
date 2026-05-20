@@ -126,6 +126,19 @@ def test_result_must_match_candidate_admissibility_mix() -> None:
     assert "result must be" in (result.stderr + result.stdout)
 
 
+def test_admissible_candidate_requires_real_source_artifact_path() -> None:
+    payload = _read(ADMISSIBLE)
+    payload["candidates"][0]["source_artifact"]["path"] = "_missing_source_artifact_path"
+
+    with tempfile.TemporaryDirectory() as td:
+        path = Path(td) / "bad.json"
+        _write(path, payload)
+        result = _run(path)
+
+    assert result.returncode == 1
+    assert "source_artifact.path" in (result.stderr + result.stdout)
+
+
 def main() -> int:
     try:
         test_admissible_fixture_is_valid()
@@ -135,6 +148,7 @@ def main() -> int:
         test_admissible_candidate_requires_verified_status()
         test_advisory_only_candidate_must_not_request_fold_in()
         test_recognition_surface_cannot_be_admissible_for_fold_in()
+        test_admissible_candidate_requires_real_source_artifact_path()
         test_result_must_match_candidate_admissibility_mix()
     except AssertionError as exc:
         print(f"ERROR: {exc}")

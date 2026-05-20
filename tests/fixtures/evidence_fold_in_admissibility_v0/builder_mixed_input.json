@@ -1,0 +1,59 @@
+{
+  "candidates": [
+    {
+      "candidate_id": "hpc-detector-summary",
+      "source_surface_type": "hpc_evidence_bundle",
+      "source_authority_status": "diagnostic_non_normative",
+      "evidence_role": "hpc_evidence",
+      "source_artifact": {
+        "path": "hpc/artifacts/detector_summary.json",
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "schema_path": "schemas/hpc_evidence_bundle_v0.schema.json",
+      "schema_valid": true,
+      "digest_valid": true,
+      "verification_status": "verified",
+      "folded_into_status_requested": true,
+      "policy_route": {
+        "policy_path": "pulse_gate_policy_v0.yml",
+        "gate_id": "external_all_pass"
+      }
+    },
+    {
+      "candidate_id": "pulse-pd-summary",
+      "source_surface_type": "pulse_pd_artifact",
+      "source_authority_status": "diagnostic_non_normative",
+      "evidence_role": "analysis_evidence",
+      "source_artifact": {
+        "path": "pulse_pd/artifacts/pd_summary.json",
+        "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      "schema_path": null,
+      "schema_valid": false,
+      "digest_valid": true,
+      "verification_status": "not_applicable",
+      "folded_into_status_requested": false,
+      "policy_route": null
+    },
+    {
+      "candidate_id": "readme-title",
+      "source_surface_type": "recognition_surface",
+      "source_authority_status": "recognition_non_normative",
+      "evidence_role": "recognition_diagnostic",
+      "source_artifact": {
+        "path": "README.md",
+        "sha256": null
+      },
+      "schema_path": null,
+      "schema_valid": false,
+      "digest_valid": false,
+      "verification_status": "not_applicable",
+      "folded_into_status_requested": true,
+      "policy_route": {
+        "policy_path": "pulse_gate_policy_v0.yml",
+        "gate_id": "external_all_pass"
+      }
+    }
+  ],
+  "notes": "Builder input with admissible, advisory-only, and rejected candidates."
+}
