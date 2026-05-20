@@ -168,12 +168,38 @@ def test_recognition_surface_fold_in_request_is_rejected() -> None:
     assert recognition["folded_into_status_requested"] is False
     assert "Recognition surfaces are not admissible" in recognition["reason"]
 
+def test_builder_rejects_fold_in_request_without_source_artifact_path() -> None:
+    payload = _read(ADMISSIBLE_INPUT)
+    payload["candidates"][0]["source_artifact"].pop("path", None)
+
+    with tempfile.TemporaryDirectory() as td:
+        input_path = Path(td) / "input.json"
+        out_path = Path(td) / "evidence_fold_in_admissibility_v0.json"
+        _write(input_path, payload)
+
+        result = _run_builder(input_path, out_path)
+        assert result.returncode == 0, result.stderr + result.stdout
+        assert out_path.exists()
+
+        check = _run_checker(out_path)
+        assert check.returncode == 0, check.stderr + check.stdout
+
+        artifact = _read(out_path)
+
+    candidate = artifact["candidates"][0]
+    assert artifact["result"] == "rejected"
+    assert candidate["admissibility"] == "rejected"
+    assert candidate["folded_into_status_requested"] is False
+    assert candidate["source_artifact"]["path"] == "_missing_source_artifact_path"
+    assert "source_artifact.path" in candidate["reason"]
+
 
 def main() -> int:
     try:
         test_builder_outputs_admissible_valid_artifact()
         test_builder_outputs_mixed_valid_artifact()
         test_builder_rejects_input_without_candidates()
+        test_builder_rejects_fold_in_request_without_source_artifact_path()
         test_builder_rejects_fold_in_request_without_policy_route()
         test_recognition_surface_fold_in_request_is_rejected()
     except AssertionError as exc:
