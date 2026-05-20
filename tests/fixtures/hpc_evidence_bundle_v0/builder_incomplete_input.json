@@ -1,0 +1,60 @@
+{
+  "run_identity": {
+    "run_id": "hpc-builder-incomplete-001",
+    "run_started_utc": "2026-05-19T00:00:00Z",
+    "run_mode": "local_hpc_sim"
+  },
+  "code_identity": {
+    "repository": "HKati/pulse-release-gates-0.1",
+    "git_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "ref": "refs/heads/main"
+  },
+  "input_manifest": {
+    "path": "hpc/input_manifest.builder.incomplete.json",
+    "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "dataset_identity": "builder-demo-dataset",
+    "sample_identity": "builder-demo-sample"
+  },
+  "environment": {
+    "runtime_surface": "local_hpc_sim",
+    "scheduler": "local",
+    "node_count": 1,
+    "accelerator_class": "cpu"
+  },
+  "evidence_items": [
+    {
+      "path": "hpc/artifacts/detector_summary.json",
+      "role": "detector_summary",
+      "evidence_status": "missing",
+      "sha256": null,
+      "schema_path": "schemas/external_detector_summary_v0.schema.json",
+      "folded_into_status": false
+    },
+    {
+      "path": "hpc/artifacts/pulse_pd_summary.json",
+      "role": "pulse_pd_artifact",
+      "evidence_status": "present",
+      "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "folded_into_status": false
+    }
+  ],
+  "summary_metrics": {
+    "num_trials": 64,
+    "detector_pass_rate": null,
+    "max_observed_failure_rate": null
+  },
+  "provenance": {
+    "command": "python scripts/run_hpc_demo.py --config hpc/input_manifest.builder.incomplete.json",
+    "seed": 0,
+    "detector_config": "demo-detector-config",
+    "threshold_ref": "pulse_gate_policy_v0.yml"
+  },
+  "reconstruction": {
+    "instructions": [
+      "Evidence bundle is incomplete.",
+      "Restore the missing detector output.",
+      "Rerun the recorded command with the recorded input manifest."
+    ]
+  },
+  "notes": "Incomplete builder input. Missing evidence must not become release authority."
+}
