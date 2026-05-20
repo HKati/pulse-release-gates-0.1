@@ -561,6 +561,65 @@ jobs:
               print(f"OK: canonical set for {path}: {canonical}")
           PY
          
+          # --- Stable /latest/ alias ---
+          # Keep artifact-provided /latest/index.html if upstream already produced one.
+          # Otherwise create a stable alias from the current site root.
+          python3 - <<'PY'
+          import os
+          import re
+          from pathlib import Path
+          from html import escape
+
+          base = os.environ["BASE_URL"].rstrip("/")
+
+          latest = Path("_site/latest/index.html")
+          if latest.exists():
+              print("OK: keeping artifact-provided _site/latest/index.html")
+              raise SystemExit(0)
+
+          src = Path("_site/index.html")
+          if not src.is_file():
+              src = Path("_site/report_card.html")
+
+          if not src.is_file():
+              raise SystemExit(
+                  "missing _site/index.html and _site/report_card.html; "
+                  "cannot create /latest/ alias"
+              )
+
+          latest.parent.mkdir(parents=True, exist_ok=True)
+          html = src.read_text(encoding="utf-8")
+
+          canonical = f"{base}/latest/"
+          link = f'<link rel="canonical" href="{escape(canonical, quote=True)}">'
+          canonical_re = re.compile(
+              r'(?is)<link[^>]+rel=["\']canonical["\'][^>]*>'
+          )
+
+          if canonical_re.search(html):
+              html = canonical_re.sub(link, html, count=1)
+          elif "<head>" in html:
+              html = html.replace("<head>", f"<head>\n  {link}", 1)
+          else:
+              html = (
+                  "<!doctype html>\n"
+                  "<html lang=\"en\">\n"
+                  "<head>\n"
+                  f"  {link}\n"
+                  "  <meta charset=\"utf-8\" />\n"
+                  "  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />\n"
+                  "  <title>PULSE latest report</title>\n"
+                  "</head>\n"
+                  "<body>\n"
+                  + html +
+                  "\n</body>\n"
+                  "</html>\n"
+              )
+
+          latest.write_text(html, encoding="utf-8")
+          print(f"OK: wrote {latest} as stable /latest/ alias")
+          PY
+          
           python3 - <<'PY'
           import os
           import xml.etree.ElementTree as ET
@@ -581,6 +640,7 @@ jobs:
           # Stable sitemap entrypoints (do NOT include legacy redirect pages with noindex)
           urls = [
               "/",
+              "/latest/",
               "/report_card.html",
               "/diagnostics/",
               "/paradox/core/v0/",
