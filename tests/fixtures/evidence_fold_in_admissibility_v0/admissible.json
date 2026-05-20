@@ -1,0 +1,31 @@
+{
+  "schema": "evidence_fold_in_admissibility_v0",
+  "authority_status": "diagnostic_non_normative",
+  "creates_release_authority": false,
+  "invariant": "non_normative_field_points_must_not_enter_recorded_release_evidence_without_mechanical_admissibility",
+  "candidates": [
+    {
+      "candidate_id": "hpc-detector-summary",
+      "source_surface_type": "hpc_evidence_bundle",
+      "source_authority_status": "diagnostic_non_normative",
+      "evidence_role": "hpc_evidence",
+      "source_artifact": {
+        "path": "hpc/artifacts/detector_summary.json",
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "schema_path": "schemas/hpc_evidence_bundle_v0.schema.json",
+      "schema_valid": true,
+      "digest_valid": true,
+      "verification_status": "verified",
+      "folded_into_status_requested": true,
+      "policy_route": {
+        "policy_path": "pulse_gate_policy_v0.yml",
+        "gate_id": "external_all_pass"
+      },
+      "admissibility": "admissible_for_fold_in",
+      "reason": "Digest-backed, schema-valid, verified evidence with explicit policy route."
+    }
+  ],
+  "result": "admissible",
+  "notes": "Admissible evidence may enter a future fold-in process, but this artifact does not create release authority."
+}
