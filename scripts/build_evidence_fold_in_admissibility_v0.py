@@ -146,7 +146,7 @@ def _evidence_role_default(source_surface_type: str) -> str:
     return "other"
 
 
-def _source_artifact(candidate: dict[str, Any]) -> dict[str, Any]:
+def _source_artifact(candidate: dict[str, Any]) -> tuple[dict[str, Any], bool]:
     raw = candidate.get("source_artifact")
     if isinstance(raw, dict):
         path = raw.get("path")
@@ -155,7 +155,9 @@ def _source_artifact(candidate: dict[str, Any]) -> dict[str, Any]:
         path = candidate.get("path")
         sha256 = candidate.get("sha256")
 
-    if not isinstance(path, str) or not path:
+    path_valid = isinstance(path, str) and bool(path.strip())
+
+    if not path_valid:
         path = "_missing_source_artifact_path"
 
     if not _is_sha256(sha256):
@@ -164,7 +166,7 @@ def _source_artifact(candidate: dict[str, Any]) -> dict[str, Any]:
     return {
         "path": path,
         "sha256": sha256,
-    }
+    }, path_valid
 
 
 def _policy_route(value: Any) -> dict[str, Any] | None:
@@ -219,7 +221,7 @@ def _candidate_result(candidate: dict[str, Any]) -> dict[str, Any]:
         _evidence_role_default(source_surface_type),
     )
 
-    source_artifact = _source_artifact(candidate)
+    source_artifact, source_artifact_path_valid = _source_artifact(candidate)
     sha256 = source_artifact["sha256"]
 
     schema_path = candidate.get("schema_path")
@@ -257,6 +259,11 @@ def _candidate_result(candidate: dict[str, Any]) -> dict[str, Any]:
         reason = (
             "Recognition surfaces are not admissible for release-evidence "
             "fold-in by themselves."
+     if not source_artifact_path_valid:
+        admissibility = "rejected"
+        folded_into_status_requested = False
+        reason = "Candidate lacks valid source_artifact.path."
+    elif source_surface_type == "recognition_surface":  
         )
     elif fold_requested and not missing:
         admissibility = "admissible_for_fold_in"
