@@ -257,6 +257,13 @@ jobs:
             cp -a "_artifact/reports" "_site/"
           fi
 
+          # Ensure stable /latest public path is always present from repo docs surface.
+          # This avoids relying on upstream artifact layout for latest landing availability.
+          if [ -f "docs/latest/index.html" ]; then
+            mkdir -p "_site/latest"
+            cp -f "docs/latest/index.html" "_site/latest/index.html"
+          fi
+      
           # --- Legacy report card URLs (must exist in deployed _site/) ---
 
           # Ensure /report_card.html exists at the published site root.
