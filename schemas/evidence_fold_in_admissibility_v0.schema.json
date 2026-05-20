@@ -1,0 +1,166 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://hkati.github.io/pulse-release-gates-0.1/schemas/evidence_fold_in_admissibility_v0.schema.json",
+  "title": "PULSE Evidence Fold-In Admissibility v0",
+  "type": "object",
+  "required": [
+    "schema",
+    "authority_status",
+    "creates_release_authority",
+    "invariant",
+    "candidates",
+    "result"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema": {
+      "const": "evidence_fold_in_admissibility_v0"
+    },
+    "authority_status": {
+      "const": "diagnostic_non_normative"
+    },
+    "creates_release_authority": {
+      "const": false
+    },
+    "invariant": {
+      "const": "non_normative_field_points_must_not_enter_recorded_release_evidence_without_mechanical_admissibility"
+    },
+    "candidates": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "candidate_id",
+          "source_surface_type",
+          "source_authority_status",
+          "evidence_role",
+          "source_artifact",
+          "schema_valid",
+          "digest_valid",
+          "verification_status",
+          "folded_into_status_requested",
+          "admissibility"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "candidate_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "source_surface_type": {
+            "enum": [
+              "external_detector_summary",
+              "hpc_evidence_bundle",
+              "pulse_pd_artifact",
+              "recognition_surface",
+              "recognition_surface_drift",
+              "ra1_verifier_report",
+              "audit_bundle",
+              "publication_snapshot",
+              "diagnostic_overlay",
+              "other"
+            ]
+          },
+          "source_authority_status": {
+            "enum": [
+              "non_normative",
+              "diagnostic_non_normative",
+              "audit_non_normative",
+              "publication_non_normative",
+              "recognition_non_normative"
+            ]
+          },
+          "evidence_role": {
+            "enum": [
+              "detector_evidence",
+              "hpc_evidence",
+              "analysis_evidence",
+              "recognition_diagnostic",
+              "audit_evidence",
+              "publication_evidence",
+              "other"
+            ]
+          },
+          "source_artifact": {
+            "type": "object",
+            "required": [
+              "path",
+              "sha256"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "path": {
+                "type": "string",
+                "minLength": 1
+              },
+              "sha256": {
+                "type": ["string", "null"],
+                "pattern": "^[0-9a-f]{64}$"
+              }
+            }
+          },
+          "schema_path": {
+            "type": ["string", "null"]
+          },
+          "schema_valid": {
+            "type": "boolean"
+          },
+          "digest_valid": {
+            "type": "boolean"
+          },
+          "verification_status": {
+            "enum": [
+              "verified",
+              "unverified",
+              "failed",
+              "not_applicable"
+            ]
+          },
+          "folded_into_status_requested": {
+            "type": "boolean"
+          },
+          "policy_route": {
+            "type": ["object", "null"],
+            "required": [
+              "policy_path",
+              "gate_id"
+            ],
+            "additionalProperties": true,
+            "properties": {
+              "policy_path": {
+                "type": "string",
+                "minLength": 1
+              },
+              "gate_id": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          },
+          "admissibility": {
+            "enum": [
+              "admissible_for_fold_in",
+              "advisory_only",
+              "rejected"
+            ]
+          },
+          "reason": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "result": {
+      "enum": [
+        "admissible",
+        "advisory_only",
+        "rejected",
+        "mixed"
+      ]
+    },
+    "notes": {
+      "type": "string"
+    }
+  }
+}
