@@ -241,7 +241,9 @@ def _candidate_result(candidate: dict[str, Any]) -> dict[str, Any]:
     policy_route = _policy_route(candidate.get("policy_route"))
 
     missing: list[str] = []
-
+    
+    if not source_artifact_path_valid:
+        missing.append("valid source_artifact.path")
     if not _is_sha256(sha256):
         missing.append("valid source_artifact.sha256")
     if not schema_valid:
@@ -253,17 +255,16 @@ def _candidate_result(candidate: dict[str, Any]) -> dict[str, Any]:
     if policy_route is None:
         missing.append("policy_route")
 
-    if source_surface_type == "recognition_surface":
+    if not source_artifact_path_valid:
+        admissibility = "rejected"
+        folded_into_status_requested = False
+        reason = "Candidate lacks valid source_artifact.path."
+    elif source_surface_type == "recognition_surface":
         admissibility = "rejected"
         folded_into_status_requested = False
         reason = (
             "Recognition surfaces are not admissible for release-evidence "
             "fold-in by themselves."
-     if not source_artifact_path_valid:
-        admissibility = "rejected"
-        folded_into_status_requested = False
-        reason = "Candidate lacks valid source_artifact.path."
-    elif source_surface_type == "recognition_surface":  
         )
     elif fold_requested and not missing:
         admissibility = "admissible_for_fold_in"
