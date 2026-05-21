@@ -60,6 +60,7 @@ tests/test_pulse_pd_toy_generator_no_numpy.py
 tests/test_hpc_evidence_bundle_v0_contract.py
 tests/test_evidence_fold_in_admissibility_v0_contract.py
 tests/test_field_point_authority_map_v0_contract.py
+tests/test_build_field_point_authority_map_v0.py
 
 tools/operator_handoff_smoke.py
 
