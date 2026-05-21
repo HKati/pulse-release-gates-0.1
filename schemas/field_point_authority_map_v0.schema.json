@@ -1,0 +1,159 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://hkati.github.io/pulse-release-gates-0.1/schemas/field_point_authority_map_v0.schema.json",
+  "title": "PULSE Field-Point Authority Map v0",
+  "type": "object",
+  "required": [
+    "schema",
+    "authority_status",
+    "creates_release_authority",
+    "invariant",
+    "normative_materialization_path",
+    "field_points",
+    "result"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema": {
+      "const": "field_point_authority_map_v0"
+    },
+    "authority_status": {
+      "const": "diagnostic_non_normative"
+    },
+    "creates_release_authority": {
+      "const": false
+    },
+    "invariant": {
+      "const": "field_points_must_declare_role_and_authority_status_before_interpretation"
+    },
+    "normative_materialization_path": {
+      "type": "array",
+      "minItems": 5,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "field_points": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "field_point_id",
+          "path_or_label",
+          "surface_type",
+          "authority_status",
+          "field_role",
+          "relation_to_normative_path",
+          "can_affect_release_decision",
+          "creates_release_authority"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "field_point_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "path_or_label": {
+            "type": "string",
+            "minLength": 1
+          },
+          "surface_type": {
+            "enum": [
+              "recorded_release_evidence",
+              "status_artifact",
+              "declared_policy",
+              "materialized_gate_set",
+              "ci_enforcement",
+              "ci_decision",
+              "quality_ledger",
+              "release_authority_manifest",
+              "audit_bundle",
+              "dashboard",
+              "pages",
+              "badge",
+              "doi_record",
+              "citation_metadata",
+              "readme",
+              "about",
+              "diagnostic_contract",
+              "hpc_evidence_bundle",
+              "evidence_fold_in_admissibility",
+              "pulse_pd_artifact",
+              "recognition_surface",
+              "recognition_surface_drift",
+              "optional_analysis_surface",
+              "other"
+            ]
+          },
+          "authority_status": {
+            "enum": [
+              "normative_input",
+              "normative_enforcement",
+              "normative_decision",
+              "diagnostic_non_normative",
+              "audit_non_normative",
+              "publication_non_normative",
+              "recognition_non_normative",
+              "optional_analysis_non_normative",
+              "proposed_non_normative"
+            ]
+          },
+          "field_role": {
+            "type": "string",
+            "minLength": 1
+          },
+          "relation_to_normative_path": {
+            "enum": [
+              "normative_path_member",
+              "candidate_evidence_surface",
+              "diagnostic_observer",
+              "audit_reconstruction",
+              "publication_reader",
+              "recognition_surface",
+              "optional_analysis",
+              "future_proposed"
+            ]
+          },
+          "can_affect_release_decision": {
+            "type": "boolean"
+          },
+          "creates_release_authority": {
+            "const": false
+          },
+          "policy_route": {
+            "type": ["object", "null"],
+            "required": [
+              "policy_path",
+              "gate_id"
+            ],
+            "additionalProperties": true,
+            "properties": {
+              "policy_path": {
+                "type": "string",
+                "minLength": 1
+              },
+              "gate_id": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          },
+          "notes": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "result": {
+      "enum": [
+        "valid",
+        "invalid"
+      ]
+    },
+    "notes": {
+      "type": "string"
+    }
+  }
+}
