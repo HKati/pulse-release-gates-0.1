@@ -141,12 +141,14 @@ def _require_string(name: str, value: Any) -> str:
     return value
 
 
-def _require_string_list(name: str, value: Any) -> list[str]:
+def _require_string_list(
+    name: str,
+    value: Any,
+    *,
+    min_items: int = 1,
+) -> list[str]:
     if not isinstance(value, list):
         raise ValueError(f"{name} must be an array")
-
-    if not value:
-        raise ValueError(f"{name} must not be empty")
 
     out: list[str] = []
 
@@ -154,6 +156,9 @@ def _require_string_list(name: str, value: Any) -> list[str]:
         if not isinstance(item, str) or not item.strip():
             raise ValueError(f"{name}[{index}] must be a non-empty string")
         out.append(item)
+
+    if len(out) < min_items:
+        raise ValueError(f"{name} must contain at least {min_items} entries")
 
     return out
 
@@ -427,9 +432,10 @@ def _semantic_errors(
 
 
 def build(input_obj: dict[str, Any]) -> dict[str, Any]:
-    normative_materialization_path = _require_string_list(
+     normative_materialization_path = _require_string_list(
         "normative_materialization_path",
         input_obj.get("normative_materialization_path"),
+        min_items=5,
     )
     raw_field_points = _require_field_points(input_obj.get("field_points"))
 
