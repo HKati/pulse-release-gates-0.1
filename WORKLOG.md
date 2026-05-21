@@ -96,3 +96,10 @@ Not a product audit. Not a roadmap. Not a “finished gating engine” demand.
 - Files: `WORKLOG.md`
 - Verification: `WORKLOG.md` no longer describes snapshot umbrella wiring as pending and names `g_field_stability_v0` contract hardening as the next mechanical step.
 - Links: PR=#TBD, commit=TBD
+
+### WL-0012 — Workshop chain stability check (builders/checkers/tools-tests)
+- Request: verify that the fresh workshop chain remains stable across builder/checker and tools-test paths.
+- Change: executed the full `ci/tools-tests.list` manifest as a single pytest invocation to validate repository toolchain stability coverage.
+- Files: `ci/tools-tests.list`, `WORKLOG.md`
+- Verification: `pytest -q $(awk 'NF && $1 !~ /^#/' ci/tools-tests.list)` → 461 passed.
+- Links: PR=#TBD, commit=TBD
