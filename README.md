@@ -105,6 +105,7 @@ Required gates are explicit, materialized, and checked before release effects ca
 
 [![DOI](https://doi.org/badge/DOI/10.5281/zenodo.17373002.svg)](https://doi.org/10.5281/zenodo.17373002)
 
+[![DOI](https://zenodo.org/badge/1061766508.svg)](https://zenodo.org/badge/latestdoi/1061766508)
 ---
 
 <details>
