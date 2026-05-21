@@ -26,8 +26,11 @@ ACCIDENTAL_CURRENT_RELEASE_RECORD = (
     "- **Current release DOI / v1.1.1:** "
     "https://doi.org/10.5281/zenodo.18203404"
 )
-ACCIDENTAL_LATEST_DOI_ROUTE = "https://zenodo.org/badge/latestdoi/1061766508"
-ACCIDENTAL_REPOSITORY_BADGE = "https://zenodo.org/badge/1061766508.svg"
+LEGACY_REPOSITORY_LATESTDOI_ROUTE = "https://zenodo.org/badge/latestdoi/1061766508"
+LEGACY_REPOSITORY_BADGE = "https://zenodo.org/badge/1061766508.svg"
+LEGACY_REPOSITORY_MARKDOWN_BADGE = (
+    f"[![DOI]({LEGACY_REPOSITORY_BADGE})]({LEGACY_REPOSITORY_LATESTDOI_ROUTE})"
+)
 
 
 def _read(path: Path) -> str:
@@ -49,12 +52,18 @@ def test_readme_zenodo_records_match_april_known_good_release_identity() -> None
     assert PREPRINT_RECORD in text
 
 
-def test_readme_does_not_use_accidental_current_release_or_latestdoi_route() -> None:
+def test_readme_blocks_accidental_current_release_but_preserves_legacy_repository_badge_surface() -> None:
     text = _read(README)
 
     assert ACCIDENTAL_CURRENT_RELEASE_RECORD not in text
-    assert ACCIDENTAL_LATEST_DOI_ROUTE not in text
-    assert ACCIDENTAL_REPOSITORY_BADGE not in text
+    assert LEGACY_REPOSITORY_MARKDOWN_BADGE in text
+
+
+def test_readme_exposes_legacy_repository_badge_routes_for_crawlers() -> None:
+    text = _read(README)
+
+    assert LEGACY_REPOSITORY_BADGE in text
+    assert LEGACY_REPOSITORY_LATESTDOI_ROUTE in text
 
 
 def test_docs_index_doi_badge_uses_versioned_release_doi() -> None:
@@ -64,8 +73,8 @@ def test_docs_index_doi_badge_uses_versioned_release_doi() -> None:
     assert VERSIONED_RELEASE_BADGE in text
 
 
-def test_docs_index_does_not_use_accidental_latestdoi_route() -> None:
+def test_docs_index_does_not_use_legacy_repository_badge_routes() -> None:
     text = _read(DOCS_INDEX)
 
-    assert ACCIDENTAL_LATEST_DOI_ROUTE not in text
-    assert ACCIDENTAL_REPOSITORY_BADGE not in text
+    assert LEGACY_REPOSITORY_LATESTDOI_ROUTE not in text
+    assert LEGACY_REPOSITORY_BADGE not in text
