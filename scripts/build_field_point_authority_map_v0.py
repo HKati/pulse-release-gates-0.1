@@ -432,7 +432,7 @@ def _semantic_errors(
 
 
 def build(input_obj: dict[str, Any]) -> dict[str, Any]:
-     normative_materialization_path = _require_string_list(
+    normative_materialization_path = _require_string_list(
         "normative_materialization_path",
         input_obj.get("normative_materialization_path"),
         min_items=5,
