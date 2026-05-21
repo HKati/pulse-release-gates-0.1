@@ -1,0 +1,83 @@
+{
+  "schema": "field_point_authority_map_v0",
+  "authority_status": "diagnostic_non_normative",
+  "creates_release_authority": false,
+  "invariant": "field_points_must_declare_role_and_authority_status_before_interpretation",
+  "normative_materialization_path": [
+    "status-json",
+    "declared-gate-policy",
+    "strict-ci-checking",
+    "ci-allow-block-decision",
+    "recorded-release-evidence"
+  ],
+  "field_points": [
+    {
+      "field_point_id": "recorded-release-evidence",
+      "path_or_label": "recorded release evidence",
+      "surface_type": "recorded_release_evidence",
+      "authority_status": "normative_input",
+      "field_role": "Recorded evidence.",
+      "relation_to_normative_path": "normative_path_member",
+      "can_affect_release_decision": true,
+      "creates_release_authority": false,
+      "policy_route": null
+    },
+    {
+      "field_point_id": "status-json",
+      "path_or_label": "status.json",
+      "surface_type": "status_artifact",
+      "authority_status": "normative_input",
+      "field_role": "Machine-readable release state artifact.",
+      "relation_to_normative_path": "normative_path_member",
+      "can_affect_release_decision": true,
+      "creates_release_authority": false,
+      "policy_route": null
+    },
+    {
+      "field_point_id": "declared-gate-policy",
+      "path_or_label": "pulse_gate_policy_v0.yml",
+      "surface_type": "declared_policy",
+      "authority_status": "normative_input",
+      "field_role": "Declared gate policy.",
+      "relation_to_normative_path": "normative_path_member",
+      "can_affect_release_decision": true,
+      "creates_release_authority": false,
+      "policy_route": null
+    },
+    {
+      "field_point_id": "strict-ci-checking",
+      "path_or_label": "check_gates.py",
+      "surface_type": "ci_enforcement",
+      "authority_status": "normative_enforcement",
+      "field_role": "Strict CI checking.",
+      "relation_to_normative_path": "normative_path_member",
+      "can_affect_release_decision": true,
+      "creates_release_authority": false,
+      "policy_route": null
+    },
+    {
+      "field_point_id": "ci-allow-block-decision",
+      "path_or_label": "CI allow/block decision",
+      "surface_type": "ci_decision",
+      "authority_status": "normative_decision",
+      "field_role": "CI decision.",
+      "relation_to_normative_path": "normative_path_member",
+      "can_affect_release_decision": true,
+      "creates_release_authority": false,
+      "policy_route": null
+    },
+    {
+      "field_point_id": "quality-ledger",
+      "path_or_label": "Quality Ledger",
+      "surface_type": "quality_ledger",
+      "authority_status": "publication_non_normative",
+      "field_role": "Invalid: publication surface affects release decision.",
+      "relation_to_normative_path": "publication_reader",
+      "can_affect_release_decision": true,
+      "creates_release_authority": false,
+      "policy_route": null
+    }
+  ],
+  "result": "invalid",
+  "notes": "Invalid fixture: Quality Ledger must remain reader surface."
+}
