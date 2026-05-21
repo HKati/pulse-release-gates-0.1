@@ -1,0 +1,63 @@
+{
+  "normative_materialization_path": [
+    "recorded-release-evidence",
+    "status-json",
+    "declared-gate-policy",
+    "materialized-required-gate-set",
+    "strict-ci-checking",
+    "ci-allow-block-decision"
+  ],
+  "field_points": [
+    {
+      "field_point_id": "recorded-release-evidence",
+      "path_or_label": "recorded release evidence",
+      "surface_type": "recorded_release_evidence",
+      "field_role": "Recorded evidence."
+    },
+    {
+      "field_point_id": "status-json",
+      "path_or_label": "status.json",
+      "surface_type": "status_artifact",
+      "field_role": "Machine-readable release state."
+    },
+    {
+      "field_point_id": "declared-gate-policy",
+      "path_or_label": "pulse_gate_policy_v0.yml",
+      "surface_type": "declared_policy",
+      "field_role": "Declared gate policy."
+    },
+    {
+      "field_point_id": "materialized-required-gate-set",
+      "path_or_label": "materialized required gate set",
+      "surface_type": "materialized_gate_set",
+      "field_role": "Materialized required gate set."
+    },
+    {
+      "field_point_id": "strict-ci-checking",
+      "path_or_label": "check_gates.py / CI enforcement",
+      "surface_type": "ci_enforcement",
+      "field_role": "Strict CI checking."
+    },
+    {
+      "field_point_id": "ci-allow-block-decision",
+      "path_or_label": "CI allow/block decision",
+      "surface_type": "ci_decision",
+      "field_role": "CI decision."
+    },
+    {
+      "field_point_id": "quality-ledger",
+      "path_or_label": "Quality Ledger",
+      "surface_type": "quality_ledger",
+      "field_role": "Invalid: publication surface claims decision effect.",
+      "can_affect_release_decision": true
+    },
+    {
+      "field_point_id": "readme",
+      "path_or_label": "README.md",
+      "surface_type": "readme",
+      "field_role": "Invalid: recognition surface claims decision effect.",
+      "can_affect_release_decision": true
+    }
+  ],
+  "notes": "Builder input for an invalid field-point authority map."
+}
