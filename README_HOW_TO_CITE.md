@@ -11,7 +11,7 @@ This DOI points to the exact version of the PULSE software. Use it when reproduc
 
 ## Preprint citation
 
-Horvat, Katalin; EPLabsAI (2025). *PULSE: Deterministic Release Gates for Safe & Useful AI*. Preprint. Zenodo. DOI: [10.5281/zenodo.17214909](https://doi.org/10.5281/zenodo.17214909)
+Horvat, Katalin; EPLabsAI (2025). *PULSE: Deterministic Release Gates for Safe & Useful AI*. Preprint. Zenodo. DOI: [10.5281/zenodo.17833583](https://doi.org/10.5281/zenodo.17833583)
 
 The preprint describes the theoretical foundations of PULSE and provides case studies. Cite it alongside the software when discussing the methods or architecture.
 
