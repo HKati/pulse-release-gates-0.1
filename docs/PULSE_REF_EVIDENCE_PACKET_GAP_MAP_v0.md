@@ -7,6 +7,7 @@ Authority status: non-normative planning and diagnostic document
 ## Core statement
 
 A release-grade PULSE reference is not merely a run.
+A release-grade reference is not merely a run.
 
 A release-grade reference is a closed, reconstructable evidence packet.
 
