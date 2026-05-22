@@ -466,37 +466,4 @@ recorded release evidence
 → declared-policy CI allow/block release decision
 ```
 
-## Pre-merge check
 
-Docs-only anchor check:
-
-```bash
-python - <<'PY'
-from pathlib import Path
-
-p = Path("docs/PULSE_REF_EVIDENCE_PACKET_LAYOUT_v0.md")
-text = p.read_text(encoding="utf-8")
-
-required = [
-    "pulse_ref_evidence_packet_v0/",
-    "status/status.json",
-    "policy/pulse_gate_policy_v0.yml",
-    "policy/pulse_gate_registry_v0.yml",
-    "gates/materialized_gate_sets.json",
-    "ci/ci_outcome.json",
-    "release_authority/release_authority_manifest.json",
-    "digests/package_digests.json",
-    "handoff/operator_handoff_report.json",
-    "publication/publication_snapshot.json",
-    "field/field_point_authority_map_v0.json",
-    "admissibility/evidence_fold_in_admissibility_v0.json",
-    "does not create release authority",
-    "release-grade reference is not merely a run",
-]
-
-for token in required:
-    assert token in text, token
-
-print("OK: PULSE-REF evidence packet layout anchors present")
-PY
-```
