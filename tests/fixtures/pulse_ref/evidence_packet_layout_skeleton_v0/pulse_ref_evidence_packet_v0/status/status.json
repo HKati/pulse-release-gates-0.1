@@ -1,0 +1,11 @@
+{
+  "schema": "pulse_ref_evidence_packet_layout_placeholder_v0",
+  "fixture_type": "layout_skeleton_placeholder",
+  "release_grade_evidence": false,
+  "creates_release_authority": false,
+  "authority_boundary": {
+    "creates_release_authority": false,
+    "note": "Layout skeleton placeholder only. Not release-grade evidence."
+  },
+  "placeholder_path": "status/status.json"
+}
