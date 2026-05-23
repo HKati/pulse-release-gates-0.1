@@ -81,9 +81,9 @@ See [`docs/PULSE_PRE_MATERIALIZATION_GATE_MECHANICS_v0.md`](docs/PULSE_PRE_MATER
 
 PULSE acts at the release boundary, before deployment.
 
-| Layer | Boundary | Normative decision basis | Decision |
+| Authority boundary | Operational boundary | Normative decision basis | Decision |
 |---|---|---|---|
-| PULSE / PULSEmech | Release boundary, before deployment | Recorded release evidence + `status.json` + declared gate policy + materialized required gate set | Deterministic, fail-closed CI allow/block release decision |
+| PULSE / PULSEmech | Release boundary, before deployment | Recorded release evidence + `status.json` + declared gate policy + materialized required gate set + strict fail-closed CI enforcement | Declared-policy CI allow/block release decision |
 | Runtime guardrails | Live interaction boundary, during use | Individual prompt, output, or tool-call state | Interaction-level allow, block, rewrite, route, or refuse |
 
 ## Public release surfaces
@@ -206,9 +206,8 @@ See also:  [`docs/WORKFLOW_MAP.md`](docs/WORKFLOW_MAP.md)
 
 ### Diagnostic surface registry
 
+PULSE includes a machine-readable diagnostic surface registry for shadow and diagnostic field points.
 Registered diagnostic surfaces remain non-normative by default: registry presence does not promote a surface into release authority and does not change `gates.*` semantics.
-
-Registered shadow layers remain non-normative by default: registry presence does not promote a layer into release authority and does not change `gates.*` semantics.
 
 The registry uses explicit fixture-role buckets:
 
@@ -231,8 +230,8 @@ Release decisions are defined only by:
 - `PULSE_safe_pack_v0/artifacts/status.json`
 - `.github/workflows/pulse_ci.yml` (the required `--require ...` gate set)
 
-**Diagnostic layers (CI‑neutral by default):**
-Paradox/EPF/topology/G‑field overlays, hazard probes, drift reports, dashboards, and Pages views are diagnostic overlays unless explicitly promoted into the required gate set.
+**Diagnostic surfaces (CI‑neutral by default):**
+Paradox/EPF/topology/G‑field overlays, hazard probes, drift reports, dashboards, and Pages views are diagnostic surfaces unless explicitly promoted into the required gate set.
 
 **Normative vs diagnostic (do not mix):**
 - **Normative** = can block shipping (PASS/FAIL, STAGE‑PASS/PROD‑PASS).
