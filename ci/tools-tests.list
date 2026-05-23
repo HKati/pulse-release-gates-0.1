@@ -70,3 +70,4 @@ ci/check_single_run_all.py
 ci/check_path_refs_exist.py
 
 
+tests/test_readme_release_authority_category_signal_v0.py
