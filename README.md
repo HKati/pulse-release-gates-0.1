@@ -1,16 +1,20 @@
 # PULSE — Artifact-Bound Release Authority for AI Release Decisions
 
+PULSE is an evolving artifact-bound release-authority field instrument for AI applications and AI-enabled systems.
 
-PULSE introduces artifact-bound release authority: AI release decisions are made from recorded evidence, declared policy, materialized required gate set, and fail-closed CI enforcement.
+PULSE fills the structural gap between probabilistic AI behavior and deterministic software release permission.
+
+PULSE defines a release-authority category for AI releases: release permission is not inferred from scores, dashboards, reports, governance review, or pipeline success.
+
+PULSE breaks from process-based trust to evidence-state release authority: recorded safety, quality, detector, stability, CI, and review evidence must materialize into `status.json`, declared policy, materialized required gates, and strict fail-closed CI gate enforcement before it can become a release decision.
+
+PULSEmech is the mechanism: an artifact-bound, policy-declared, gate-materialized, CI-enforced evidence-to-decision path.
 
 PULSEmech converts recorded release evidence into deterministic, fail-closed CI allow/block release decisions before deployment under declared policy.
 
-PULSE structures recorded safety, quality, detector, stability, CI, and review evidence into deterministic, fail-closed release decisions under declared policy.
+## PULSEmech release-authority materialization map
 
-
-## PULSEmech architecture map
-
-[![PULSEmech architecture map: artifact-first evidence flow, shadow diagnostics, normative release authority, traceability, and release output.](hero_pulsemech_architecture_map_v0_1.svg)](docs/PULSEMECH_ARCHITECTURE_MAP_v0_1.md)
+[![PULSEmech release-authority materialization map: recorded evidence, declared policy, materialized required gates, strict fail-closed CI enforcement, traceability, and release output.](hero_pulsemech_architecture_map_v0_1.svg)](docs/PULSEMECH_ARCHITECTURE_MAP_v0_1.md)
 
 ## Mechanical identity
 
@@ -41,7 +45,7 @@ Declared gate policy defines the required gates for the selected release lane.
 The required gate set is materialized from policy.
 CI enforces the materialized required gate set through strict, true-only, fail-closed checking.
 
-The CI result is the release decision.
+The declared-policy gate-enforcement CI outcome is the release decision.
 
 ## Pre-materialization mechanics
 
@@ -140,9 +144,9 @@ Required gates are explicit, materialized, and checked before release effects ca
 
 > 💡 **Continuous expansion**
 >
-> PULSE is not a frozen snapshot. The release-authority core is explicit and versioned,
-> while the safe pack, documentation, examples, profiles, detectors, overlays,
-> and ledger views are under active expansion.
+> PULSE is not a frozen snapshot. The release-authority materialization path is explicit and versioned,
+> while the safe pack, documentation, examples, profiles, detectors, diagnostic surfaces,
+> reader surfaces, and future evidence-packet work remain under active expansion.
 
 ---
 
@@ -159,8 +163,8 @@ Choose the path that matches the release-authority question you need to answer.
 - **External evidence integration path** → [`docs/EXTERNAL_DETECTORS.md`](docs/EXTERNAL_DETECTORS.md) and [`docs/external_detector_summaries.md`](docs/external_detector_summaries.md)  
   Use these when external detector summaries must be recorded, validated, and folded into the release evidence surface before they can be enforced as required gates under declared policy.
 
-- **Release-grade reference run path** → [`docs/release_grade_reference_run_v0.md`](docs/release_grade_reference_run_v0.md)  
-  Use this to understand what counts as a non-stubbed, materialized-evidence release-grade PULSE reference run, and how it differs from the minimal Core lane.
+- **Release-grade evidence packet path** → [`docs/PULSE_REF_EVIDENCE_PACKET_GAP_MAP_v0.md`](docs/PULSE_REF_EVIDENCE_PACKET_GAP_MAP_v0.md) and [`docs/PULSE_REF_EVIDENCE_PACKET_LAYOUT_v0.md`](docs/PULSE_REF_EVIDENCE_PACKET_LAYOUT_v0.md)  
+  Use these to understand why a release-grade PULSE reference is not merely a run, but a closed, digest-backed, reconstructable evidence packet.
 
 - **Operational triage path** → [`docs/RUNBOOK.md`](docs/RUNBOOK.md)  
   Start here when a release lane is blocked or red and the evidence-to-decision record needs diagnosis.
@@ -168,42 +172,41 @@ Choose the path that matches the release-authority question you need to answer.
 - **Authority-boundary / topology path** → [`docs/SPACE_RELATION_MAP_v0.md`](docs/SPACE_RELATION_MAP_v0.md)  
   Use this to inspect the machine-readable topology view of spaces, elements, placements, relations, and invariants. This path maps authority boundaries and diagnostic surfaces; it does not create a second release-decision path.
 
-- **Diagnostic overlays path** → [`docs/OPTIONAL_LAYERS.md`](docs/OPTIONAL_LAYERS.md)  
-  Use this after the Core path to understand shadow and diagnostic layers, including topology, EPF, Paradox, G-field, relational gain, and related overlays. These layers are non-normative unless explicitly folded into recorded release evidence and enforced as required gates under declared policy.
+- **Diagnostic surfaces path** → [`docs/OPTIONAL_LAYERS.md`](docs/OPTIONAL_LAYERS.md)  
+  Use this after the Core path to understand shadow and diagnostic surfaces, including topology, EPF, Paradox, G-field, relational gain, and related overlays. These surfaces are non-normative unless explicitly folded into recorded release evidence and enforced as required gates under declared policy. 
 
 --- 
 
-## Release authority map
+## Release-authority field map
 
-Before opening `.github/workflows/`, keep this  authority split in mind.
+Before opening `.github/workflows/`, keep this authority split in mind.
 
-
-- **Primary release- authority workflow**
+- **Primary release-authority gate-enforcement workflow**
   - `.github/workflows/pulse_ci.yml`
-  - This is the primary CI workflow for enforcing the declared release gate policy.
+  - This is the primary CI workflow for enforcing the declared release-authority gate policy.
 
 - **Repo / workflow guardrails**
-  - Governance preflight and workflow validation checks
-  - These protect repository and workflow integrity around the release- authority lane.
+  - Preflight and workflow validation checks
+  - These protect repository and workflow integrity around the release-authority lane.
 
 - **Shadow / diagnostic workflows**
   - Overlays, dry-runs, experiments, and diagnostic artifacts
-  - These provide review and governance evidence under their declared authority status.
+  - These provide diagnostic evidence under their declared authority status. 
 
 - **Publication / GitHub-native surfaces**
   - Examples: SARIF upload, PR comments, badge write-back, Pages snapshots
   - These publish or render release evidence and should remain separate opt-in workflows with explicit write permissions.
 
 Rule:
-release authority is carried by the primary release-authority workflow and its declared required gate set. Shadow, diagnostic, and publication workflows preserve their declared authority status unless explicitly promoted into the required gate set.
+release authority is carried by the declared-policy gate-enforcement path and its materialized required gate set. Shadow, diagnostic, and publication workflows preserve their declared authority status unless explicitly promoted into the required gate set.
 
 See also:  [`docs/WORKFLOW_MAP.md`](docs/WORKFLOW_MAP.md)
 
 ---
 
-### Shadow registry
+### Diagnostic surface registry
 
-PULSE includes a machine-readable shadow layer registry for governance-facing diagnostic surfaces.
+Registered diagnostic surfaces remain non-normative by default: registry presence does not promote a surface into release authority and does not change `gates.*` semantics.
 
 Registered shadow layers remain non-normative by default: registry presence does not promote a layer into release authority and does not change `gates.*` semantics.
 
@@ -220,7 +223,7 @@ The registry uses explicit fixture-role buckets:
 ## Clarity First (before Paradox / EPF / Topology work)
 
 PULSE is deterministic and fail‑closed — but only if we keep the meaning of terms stable.
-Before extending the Paradox diagram/field, EPF shadow layers, drift/history, or any UI/Pages surface, we lock down the semantics below.
+Before extending the Paradox diagram/field, EPF diagnostic surfaces, drift/history, or any UI/Pages surface, we lock down the semantics below.
 
 **Source of truth (normative):**
 Release decisions are defined only by:
@@ -546,7 +549,7 @@ In addition to running the pack, CI enforces repo‑level governance guards:
 ## G‑field & shadow overlays
 
 This repo now exposes a small “G‑field” surface as CI‑neutral overlays.  
-They do **not** change any gates or release decisions; they only add extra diagnostic layers on top of the existing PULSE status.
+They do **not** change any gates or release decisions; they only add extra diagnostic surfaces on top of the existing PULSE status.
 
 Additional overlays:
 
@@ -665,8 +668,7 @@ PULSE ships a shadow workflow that summarizes internal G-field and GPT external 
 The markdown artifact is the human-readable summary.  
 The JSON artifact is the contract-checked machine-readable snapshot for downstream diagnostics and overlay validation.
 
-This workflow remains **CI-neutral** and is intended for diagnostic and governance dashboards.  
-It does not change core release outcomes.
+This workflow remains **CI-neutral** and is intended for diagnostic and diagnostic dashboards. 
 
 
 ---
@@ -997,7 +999,7 @@ Curated entrypoints (repo-level docs under `docs/`):
 
 ### Shadow governance & contract surfaces
 - [docs/WORKFLOW_MAP.md](docs/WORKFLOW_MAP.md) — Workflow authority map, including the shadow registry and EPF primary/secondary surfaces.
-- [docs/shadow_layer_registry_v0.md](docs/shadow_layer_registry_v0.md) — Machine-readable shadow layer registry, fixture buckets, transitional alias semantics, and canonical self-check fixtures.
+- [docs/shadow_layer_registry_v0.md](docs/shadow_layer_registry_v0.md) — Machine-readable diagnostic surface registry, fixture buckets, transitional alias semantics, and canonical self-check fixtures.
 - [docs/SHADOW_CONTRACT_PROGRAM_v0.md](docs/SHADOW_CONTRACT_PROGRAM_v0.md) — Shadow contract program, staged hardening model, and fixture-matrix discipline.
 - [docs/OPTIONAL_LAYERS.md](docs/OPTIONAL_LAYERS.md) — Non-normative optional layers, including Relational Gain and EPF shadow surfaces.
 
@@ -1073,7 +1075,7 @@ It consists of:
 - [PULSE paradox field and memory metrics v0](docs/PULSE_paradox_field_v0.md) – mathematical semantics for the paradox layer, tension/severity/priority and the memory fields.
 
 
-**EPF shadow layer & paradox field**
+**EPF diagnostic surface & paradox field**
 
 - `docs/PULSE_topology_epf_hook.md`  
   – How EPF hooks into the topology conceptually.
@@ -1223,7 +1225,7 @@ This repository is accompanied by the cs.AI preprint:
 > DOI: [10.5281/zenodo.17833583](https://doi.org/10.5281/zenodo.17833583)
 
 The preprint provides the mathematical and governance background for PULSE as a deterministic,
-fail-closed release-governance layer for LLM applications, with:
+fail-closed release-authority layer for LLM applications, with:
 
 - safety/consistency invariants (I2–I7),
 - quality gates (Q1–Q4) with Wilson intervals and Newcombe deltas,
