@@ -41,7 +41,6 @@ REQUIRED_FRONT_DOOR_ANCHORS = [
     "Release authority in PULSE is a materialized evidence state",
     "recorded release evidence is bound to `status.json`, declared gate policy, materialized required gates, and strict fail-closed CI gate enforcement",
     "the declared-policy CI outcome becomes the release decision",
-    "PULSE breaks from process-based trust to evidence-state release authority",
     "PULSEmech is the mechanism",
     "artifact-bound, policy-declared, gate-materialized, CI-enforced evidence-to-decision path",
     "The declared-policy gate-enforcement CI outcome is the release decision.",
