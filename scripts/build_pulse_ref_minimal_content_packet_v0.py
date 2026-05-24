@@ -1,19 +1,21 @@
 #!/usr/bin/env python3
-"""Build a minimal content-bearing PULSE-REF evidence packet v0.
-
-This builder produces a non-authoritative, non-release-grade packet scaffold with
-minimal content payloads at canonical paths and a package digest manifest.
-
-It does not run RA1 and does not create release authority.
-"""
+"""Smoke tests for build_pulse_ref_minimal_content_packet_v0.py."""
 
 from __future__ import annotations
 
-import argparse
 import hashlib
 import json
+import subprocess
+import sys
+import tempfile
 from pathlib import Path
 from typing import Any
+
+from jsonschema import Draft202012Validator
+
+
+ROOT = Path(__file__).resolve().parents[1]
+BUILDER = ROOT / "scripts" / "build_pulse_ref_minimal_content_packet_v0.py"
 
 CANONICAL_PATHS = [
     "README.md",
@@ -39,123 +41,277 @@ CANONICAL_PATHS = [
     "reconstruction/reconstruction_instructions.md",
 ]
 
+STRICT_SCHEMA_TARGETS = {
+    "status/status.json": "schemas/status/status_v1.schema.json",
+    "audit/release_authority_audit_bundle/status.json": (
+        "schemas/status/status_v1.schema.json"
+    ),
+    "gates/materialized_gate_sets.json": (
+        "schemas/pulse_ref_materialized_gate_sets_v0.schema.json"
+    ),
+    "ci/ci_outcome.json": "schemas/pulse_ref_ci_outcome_v0.schema.json",
+    "release_authority/release_authority_manifest.json": (
+        "schemas/release_authority_v0.schema.json"
+    ),
+    "audit/release_authority_audit_bundle/release_authority_manifest.json": (
+        "schemas/release_authority_v0.schema.json"
+    ),
+    "publication/publication_snapshot.json": (
+        "schemas/pulse_ref_publication_snapshot_v0.schema.json"
+    ),
+    "digests/package_digests.json": "schemas/pulse_ref_package_digests_v0.schema.json",
+}
 
-def _sha256_bytes(data: bytes) -> str:
-    return hashlib.sha256(data).hexdigest()
+SKELETON_PLACEHOLDER_MARKERS = [
+    "pulse_ref_evidence_packet_layout_placeholder_v0",
+    "layout_skeleton_placeholder",
+]
+
+FORBIDDEN_DIRECT_CLAIMS = [
+    "This document creates release authority.",
+    "This packet creates release authority.",
+    "This packet is release-grade evidence.",
+    "This packet is RA1 verifier output.",
+    "This packet is a declared-policy CI release decision.",
+]
 
 
-def _write(path: Path, text: str) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(text, encoding="utf-8")
+def _run(out_dir: Path) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        [
+            sys.executable,
+            str(BUILDER),
+            "--out-dir",
+            str(out_dir),
+        ],
+        cwd=str(ROOT),
+        text=True,
+        capture_output=True,
+        check=False,
+    )
 
 
-def _json_text(obj: dict[str, Any]) -> str:
-    return json.dumps(obj, indent=2, sort_keys=True) + "\n"
+def _read_json(path: Path) -> dict[str, Any]:
+    obj = json.loads(path.read_text(encoding="utf-8"))
+    assert isinstance(obj, dict)
+    return obj
 
 
-def _base_obj(schema: str, packet_id: str) -> dict[str, Any]:
-    return {
-        "schema": schema,
-        "packet_id": packet_id,
-        "release_grade_evidence": False,
-        "creates_release_authority": False,
-        "authority_boundary": {
-            "creates_release_authority": False,
-            "is_release_authority": False,
-            "is_ra1_verifier": False,
-            "declared_policy_ci_release_decision": False,
-        },
-    }
+def _sha256(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def build_packet(out_dir: Path, packet_dir_name: str = "pulse_ref_evidence_packet_v0") -> Path:
-    packet_root = out_dir / packet_dir_name
-    packet_root.mkdir(parents=True, exist_ok=True)
-    packet_id = "pulse-ref-minimal-content-packet-v0"
+def _schema_errors(instance: dict[str, Any], schema_path: Path) -> list[str]:
+    schema = _read_json(schema_path)
+    Draft202012Validator.check_schema(schema)
 
-    _write(packet_root / "README.md", """# PULSE-REF minimal content-bearing packet v0
+    validator = Draft202012Validator(schema)
+    errors = sorted(
+        validator.iter_errors(instance),
+        key=lambda error: list(error.absolute_path),
+    )
 
-Status: generated minimal content packet (non-authoritative)
+    return [
+        f"{list(error.absolute_path)}: {error.message}"
+        for error in errors
+    ]
 
-This packet is content-bearing, digest-backed, and reconstructable for smoke purposes.
-It is not release-grade evidence.
-It does not authorize, block, override, or create release authority.
-It is not RA1 and not a declared-policy CI release decision.
-""")
 
-    _write(packet_root / "policy/pulse_gate_policy_v0.yml", """schema: pulse_gate_policy_v0
-release_grade_evidence: false
-creates_release_authority: false
-note: minimal content policy stub for packet reconstruction only
-""")
-    _write(packet_root / "policy/pulse_gate_registry_v0.yml", """schema: pulse_gate_registry_v0
-release_grade_evidence: false
-creates_release_authority: false
-note: minimal content registry stub for packet reconstruction only
-""")
+def _walk_json(value: Any) -> list[Any]:
+    found = [value]
 
-    json_files: dict[str, dict[str, Any]] = {
-        "status/status.json": {**_base_obj("status_v1", packet_id), "result": "non_authoritative_placeholder_with_content"},
-        "gates/materialized_gate_sets.json": {**_base_obj("pulse_ref_materialized_gate_sets_v0", packet_id), "effective_required_gates": ["q1", "q2", "q3", "q4"]},
-        "ci/ci_outcome.json": {**_base_obj("pulse_ref_ci_outcome_v0", packet_id), "gate_check_conclusion": "non_authoritative_reference_only"},
-        "release_authority/release_authority_manifest.json": {**_base_obj("release_authority_v0", packet_id), "release_decision": "not_authoritative"},
-        "audit/release_authority_audit_bundle/status.json": {**_base_obj("status_v1", packet_id), "note": "audit copy"},
-        "audit/release_authority_audit_bundle/release_authority_manifest.json": {**_base_obj("release_authority_v0", packet_id), "note": "audit copy"},
-        "handoff/operator_handoff_report.json": {**_base_obj("pulse_ref_operator_handoff_report_v0", packet_id), "gate_mode": "reference"},
-        "publication/publication_snapshot.json": {**_base_obj("pulse_ref_publication_snapshot_v0", packet_id), "public_surfaces": ["readme"]},
-        "field/field_point_authority_map_v0.json": {**_base_obj("field_point_authority_map_v0", packet_id), "authority_status": "diagnostic_non_normative"},
-        "admissibility/evidence_fold_in_admissibility_v0.json": {**_base_obj("evidence_fold_in_admissibility_v0", packet_id), "admissibility": "non_normative"},
-        "hpc/hpc_evidence_bundle_v0.json": {**_base_obj("hpc_evidence_bundle_v0", packet_id), "content_class": "optional_diagnostic"},
-        "recognition/recognition_surface_drift_v0.json": {**_base_obj("recognition_surface_drift_v0", packet_id), "drift_assessment": "not_evaluated"},
-    }
+    if isinstance(value, dict):
+        for child in value.values():
+            found.extend(_walk_json(child))
+    elif isinstance(value, list):
+        for child in value:
+            found.extend(_walk_json(child))
 
-    for rel, obj in json_files.items():
-        _write(packet_root / rel, _json_text(obj))
+    return found
 
-    _write(packet_root / "audit/release_authority_audit_bundle/README.md", "Non-release-grade audit bundle placeholder with minimal content.\n")
-    _write(packet_root / "audit/release_authority_audit_bundle/report_card.html", "<html><body><h1>Non-authoritative report card placeholder</h1></body></html>\n")
-    _write(packet_root / "external/summaries/README.md", "External summaries are optional and non-authoritative in this packet.\n")
-    _write(packet_root / "reconstruction/reconstruction_instructions.md", "Reconstruction: verify digests in digests/package_digests.json against listed files.\n")
 
-    package_manifest = {
-        **_base_obj("pulse_ref_evidence_packet_minimal_content_packet_v0", packet_id),
-        "fixture_type": "minimal_content_bearing_packet",
-        "canonical_paths": CANONICAL_PATHS,
-        "content_bearing": True,
-        "digest_backed": True,
-        "reconstructable": True,
-    }
-    _write(packet_root / "package_manifest.json", _json_text(package_manifest))
+def _assert_no_authority_claim(obj: dict[str, Any], rel_path: str) -> None:
+    def visit(value: Any, path: str) -> None:
+        if isinstance(value, dict):
+            for key, child in value.items():
+                child_path = f"{path}.{key}"
+                if key == "creates_release_authority":
+                    assert child is False, f"{rel_path}: {child_path} must be false"
+                if key == "release_grade_evidence":
+                    assert child is False, f"{rel_path}: {child_path} must be false"
+                visit(child, child_path)
+        elif isinstance(value, list):
+            for index, child in enumerate(value):
+                visit(child, f"{path}[{index}]")
 
-    digest_map: dict[str, str] = {}
-    for rel in CANONICAL_PATHS:
-        if rel == "digests/package_digests.json":
-            continue
-        data = (packet_root / rel).read_bytes()
-        digest_map[rel] = _sha256_bytes(data)
+    visit(obj, "$")
 
-    package_digests = {
-        **_base_obj("pulse_ref_package_digests_v0", packet_id),
-        "artifact_digests_sha256": digest_map,
-        "artifact_paths": sorted(digest_map.keys()),
-        "missing_artifact_handling": "fail_closed",
-        "unexpected_artifact_handling": "diagnostic_only",
-    }
-    _write(packet_root / "digests/package_digests.json", _json_text(package_digests))
 
-    return packet_root
+def _build_packet() -> tuple[tempfile.TemporaryDirectory[str], Path]:
+    td = tempfile.TemporaryDirectory()
+    out = Path(td.name)
+    result = _run(out)
+
+    assert result.returncode == 0, result.stdout + result.stderr
+
+    packet_root = out / "pulse_ref_evidence_packet_v0"
+    assert packet_root.is_dir()
+
+    return td, packet_root
+
+
+def test_minimal_packet_builder_creates_canonical_files() -> None:
+    td, packet_root = _build_packet()
+
+    try:
+        for rel_path in CANONICAL_PATHS:
+            assert (packet_root / rel_path).is_file(), rel_path
+    finally:
+        td.cleanup()
+
+
+def test_minimal_packet_builder_avoids_skeleton_placeholder_markers() -> None:
+    td, packet_root = _build_packet()
+
+    try:
+        combined = "\n".join(
+            path.read_text(encoding="utf-8", errors="replace")
+            for path in packet_root.rglob("*")
+            if path.is_file()
+        )
+
+        for marker in SKELETON_PLACEHOLDER_MARKERS:
+            assert marker not in combined, marker
+
+        for claim in FORBIDDEN_DIRECT_CLAIMS:
+            assert claim not in combined, claim
+    finally:
+        td.cleanup()
+
+
+def test_minimal_packet_builder_strict_schema_payloads_validate() -> None:
+    td, packet_root = _build_packet()
+
+    try:
+        for rel_path, schema_rel in STRICT_SCHEMA_TARGETS.items():
+            instance = _read_json(packet_root / rel_path)
+            schema_path = ROOT / schema_rel
+
+            errors = _schema_errors(instance, schema_path)
+            assert errors == [], f"{rel_path}: {errors}"
+    finally:
+        td.cleanup()
+
+
+def test_minimal_packet_preserves_non_authority_boundary() -> None:
+    td, packet_root = _build_packet()
+
+    try:
+        manifest = _read_json(packet_root / "package_manifest.json")
+
+        assert manifest["content_bearing"] is True
+        assert manifest["digest_backed"] is True
+        assert manifest["reconstructable"] is True
+        assert manifest["release_grade_evidence"] is False
+        assert manifest["creates_release_authority"] is False
+        assert manifest["not_ra1_verifier_output"] is True
+        assert manifest["not_declared_policy_ci_release_decision"] is True
+
+        for rel_path in CANONICAL_PATHS:
+            if not rel_path.endswith(".json"):
+                continue
+
+            obj = _read_json(packet_root / rel_path)
+            _assert_no_authority_claim(obj, rel_path)
+
+            for value in _walk_json(obj):
+                if isinstance(value, str):
+                    assert "This document creates release authority." not in value
+                    assert "This packet creates release authority." not in value
+                    assert "This packet is release-grade evidence." not in value
+
+    finally:
+        td.cleanup()
+
+
+def test_minimal_packet_status_and_ci_remain_non_release_grade() -> None:
+    td, packet_root = _build_packet()
+
+    try:
+        status = _read_json(packet_root / "status/status.json")
+        ci_outcome = _read_json(packet_root / "ci/ci_outcome.json")
+        release_authority = _read_json(
+            packet_root / "release_authority/release_authority_manifest.json"
+        )
+
+        assert status["metrics"]["run_mode"] == "core"
+        assert status["diagnostics"]["release_grade_reference"] is False
+        assert status["diagnostics"]["not_ra1_verifier_output"] is True
+        assert status["diagnostics"]["not_declared_policy_ci_release_decision"] is True
+        assert status["gates"]["detectors_materialized_ok"] is False
+        assert status["gates"]["external_summaries_present"] is False
+        assert status["gates"]["external_all_pass"] is False
+        assert status["gates"]["refusal_delta_evidence_present"] is False
+
+        assert ci_outcome["gate_check_conclusion"] == "neutral"
+        assert ci_outcome["authority_boundary"]["creates_release_authority"] is False
+        assert "not a declared-policy release decision" in (
+            ci_outcome["authority_boundary"]["normative_decision_path"].lower()
+        )
+
+        assert release_authority["run_identity"]["run_mode"] == "core"
+        assert release_authority["authority"]["policy_set"] == "core_required"
+        assert release_authority["authority"]["release_required_materialized"] is False
+        assert release_authority["decision"]["state"] == "UNKNOWN"
+        assert release_authority["decision"]["fail_closed"] is True
+        assert (
+            release_authority["diagnostics"]["shadow_surfaces_non_normative"]
+            is True
+        )
+    finally:
+        td.cleanup()
+
+
+def test_minimal_packet_digest_manifest_matches_payload_files() -> None:
+    td, packet_root = _build_packet()
+
+    try:
+        digests = _read_json(packet_root / "digests/package_digests.json")
+
+        assert digests["schema"] == "pulse_ref_package_digests_v0"
+        assert digests["algorithm"] == "sha256"
+        assert "artifacts" in digests
+
+        assert "artifact_digests_sha256" not in digests
+        assert "artifact_paths" not in digests
+        assert "digests/package_digests.json" not in digests["artifacts"]
+
+        for rel_path, expected_sha256 in digests["artifacts"].items():
+            assert rel_path in CANONICAL_PATHS, rel_path
+            assert (packet_root / rel_path).is_file(), rel_path
+            assert _sha256(packet_root / rel_path) == expected_sha256, rel_path
+    finally:
+        td.cleanup()
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Build PULSE-REF minimal content packet v0")
-    parser.add_argument("--out-dir", required=True, help="Output directory where packet folder is created")
-    parser.add_argument("--packet-dir-name", default="pulse_ref_evidence_packet_v0")
-    args = parser.parse_args()
+    try:
+        test_minimal_packet_builder_creates_canonical_files()
+        test_minimal_packet_builder_avoids_skeleton_placeholder_markers()
+        test_minimal_packet_builder_strict_schema_payloads_validate()
+        test_minimal_packet_preserves_non_authority_boundary()
+        test_minimal_packet_status_and_ci_remain_non_release_grade()
+        test_minimal_packet_digest_manifest_matches_payload_files()
+    except AssertionError as exc:
+        print(f"ERROR: {exc}")
+        return 1
 
-    out_dir = Path(args.out_dir)
-    packet_root = build_packet(out_dir, args.packet_dir_name)
-    print(f"OK: built minimal content-bearing packet: {packet_root}")
+    print("OK: PULSE-REF minimal content packet builder smoke passed")
     return 0
+
+
+def test_smoke() -> None:
+    assert main() == 0
 
 
 if __name__ == "__main__":
