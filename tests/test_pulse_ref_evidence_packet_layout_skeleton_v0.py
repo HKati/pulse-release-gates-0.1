@@ -297,6 +297,28 @@ def test_checker_rejects_report_card_contradictory_authority_claim() -> None:
     finally:
         td.cleanup()
 
+
+def test_checker_rejects_repeated_whitespace_authority_claim() -> None:
+    td, packet_root = _copy_skeleton()
+
+    try:
+        readme_path = packet_root / "README.md"
+        readme_path.write_text(
+            readme_path.read_text(encoding="utf-8")
+            + "\n\nThis skeleton creates release  authority.\n",
+            encoding="utf-8",
+        )
+
+        result = _run_checker(packet_root)
+
+        combined = result.stdout + result.stderr
+        assert result.returncode == 1
+        assert "README.md" in combined
+        assert "contradictory authority claim" in combined
+    finally:
+        td.cleanup()
+
+
 def main() -> int:
     try:
         test_layout_skeleton_root_exists()
@@ -311,6 +333,7 @@ def main() -> int:
         test_checker_rejects_external_summaries_readme_contradictory_authority_claim()
         test_checker_rejects_reconstruction_contradictory_authority_claim()
         test_checker_rejects_report_card_contradictory_authority_claim()
+        test_checker_rejects_repeated_whitespace_authority_claim()
     except AssertionError as exc:
         print(f"ERROR: {exc}")
         return 1
