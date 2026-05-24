@@ -4,7 +4,7 @@ PULSE is an evolving artifact-bound release-authority field instrument for AI ap
 
 PULSE fills the structural gap between probabilistic AI behavior and deterministic software release permission.
 
-PULSE defines a release-authority category for AI releases: release permission is not inferred from scores, dashboards, reports, governance review, or pipeline success.
+Release authority in PULSE is a materialized evidence state: recorded release evidence is bound to `status.json`, declared gate policy, materialized required gates, and strict fail-closed CI gate enforcement before the declared-policy CI outcome becomes the release decision.
 
 PULSE breaks from process-based trust to evidence-state release authority: recorded safety, quality, detector, stability, CI, and review evidence must materialize into `status.json`, declared policy, materialized required gates, and strict fail-closed CI gate enforcement before it can become a release decision.
 
