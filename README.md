@@ -6,8 +6,6 @@ PULSE fills the structural gap between probabilistic AI behavior and determinist
 
 Release authority in PULSE is a materialized evidence state: recorded release evidence is bound to `status.json`, declared gate policy, materialized required gates, and strict fail-closed CI gate enforcement before the declared-policy CI outcome becomes the release decision.
 
-PULSE breaks from process-based trust to evidence-state release authority: recorded safety, quality, detector, stability, CI, and review evidence must materialize into `status.json`, declared policy, materialized required gates, and strict fail-closed CI gate enforcement before it can become a release decision.
-
 PULSEmech is the mechanism: an artifact-bound, policy-declared, gate-materialized, CI-enforced evidence-to-decision path.
 
 PULSEmech converts recorded release evidence into deterministic, fail-closed CI allow/block release decisions before deployment under declared policy.
