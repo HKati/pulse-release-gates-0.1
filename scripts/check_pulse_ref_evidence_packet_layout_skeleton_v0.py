@@ -103,25 +103,34 @@ ALLOWED_AUTHORITY_DISCLAIMER_PHRASES = [
 
 CONTRADICTORY_AUTHORITY_PATTERNS = [
     (
-         re.compile(r"\bcreates?\s+release[-\s]authority\b", re.IGNORECASE),
+        re.compile(r"\bcreates?\s+release[-\s]+authority\b", re.IGNORECASE),
         "must not claim it creates release authority",
     ),
     (
-         re.compile(r"\bcan\s+create\s+release[-\s]authority\b", re.IGNORECASE),
+        re.compile(r"\bcan\s+create\s+release[-\s]+authority\b", re.IGNORECASE),
         "must not claim it can create release authority",
     ),
     (
-         re.compile(r"\bmay\s+create\s+release[-\s]authority\b", re.IGNORECASE),
+        re.compile(r"\bmay\s+create\s+release[-\s]+authority\b", re.IGNORECASE),
         "must not claim it may create release authority",
     ),
     (
-         re.compile(r"\bwill\s+create\s+release[-\s]authority\b", re.IGNORECASE),
+        re.compile(r"\bwill\s+create\s+release[-\s]+authority\b", re.IGNORECASE),
         "must not claim it will create release authority",
+    ),
+    (
+        re.compile(r"\bauthorizes?\s+release[-\s]+authority\b", re.IGNORECASE),
+        "must not claim it authorizes release authority",
+    ),
+    (
+        re.compile(r"\boverrides?\s+release[-\s]+authority\b", re.IGNORECASE),
+        "must not claim it overrides release authority",
     ),
     (
         re.compile(r"\bis\s+release-grade\s+evidence\b", re.IGNORECASE),
         "must not claim it is release-grade evidence",
     ),
+    (
         re.compile(r"\bis\s+a\s+release-grade\s+audit\s+bundle\b", re.IGNORECASE),
         "must not claim it is a release-grade audit bundle",
     ),
@@ -137,7 +146,7 @@ CONTRADICTORY_AUTHORITY_PATTERNS = [
         "must not claim it satisfies release-grade external evidence requirements",
     ),
     (
-         re.compile(
+        re.compile(
             r"\bis\s+reconstructable\s+release-grade\s+evidence\b",
             re.IGNORECASE,
         ),
