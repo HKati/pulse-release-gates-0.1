@@ -74,9 +74,10 @@ def test_checker_rejects_missing_canonical_path() -> None:
 
         result = _run_checker(packet_root)
 
+        combined = result.stdout + result.stderr
         assert result.returncode == 1
-        assert "missing canonical paths" in (result.stdout + result.stderr)
-        assert "status/status.json" in (result.stdout + result.stderr)
+        assert "missing canonical paths" in combined
+        assert "status/status.json" in combined
     finally:
         td.cleanup()
 
@@ -98,15 +99,16 @@ def test_checker_rejects_manifest_canonical_path_drift() -> None:
 
         result = _run_checker(packet_root)
 
+        combined = result.stdout + result.stderr
         assert result.returncode == 1
-        assert "canonical_paths mismatch" in (result.stdout + result.stderr)
-        assert "ci/ci_outcome.json" in (result.stdout + result.stderr)
-        assert "ci/not_ci_outcome.json" in (result.stdout + result.stderr)
+        assert "canonical_paths mismatch" in combined
+        assert "ci/ci_outcome.json" in combined
+        assert "ci/not_ci_outcome.json" in combined
     finally:
         td.cleanup()
 
 
-def test_checker_rejects_placeholder_authority_claim() -> None:
+def test_checker_rejects_json_placeholder_authority_claim() -> None:
     td, packet_root = _copy_skeleton()
 
     try:
@@ -120,8 +122,9 @@ def test_checker_rejects_placeholder_authority_claim() -> None:
 
         result = _run_checker(packet_root)
 
-        assert result.returncode == 1
         combined = result.stdout + result.stderr
+        assert result.returncode == 1
+        assert "field/field_point_authority_map_v0.json" in combined
         assert "creates_release_authority=false" in combined
         assert "authority_boundary.creates_release_authority must be false" in combined
     finally:
@@ -141,14 +144,135 @@ def test_checker_rejects_placeholder_path_mismatch() -> None:
 
         result = _run_checker(packet_root)
 
+        combined = result.stdout + result.stderr
         assert result.returncode == 1
-        assert "placeholder_path" in (result.stdout + result.stderr)
-        assert "ci/ci_outcome.json" in (result.stdout + result.stderr)
+        assert "placeholder_path" in combined
+        assert "ci/ci_outcome.json" in combined
     finally:
         td.cleanup()
 
 
-def test_checker_rejects_reconstruction_authority_claim() -> None:
+def test_checker_rejects_yaml_placeholder_structural_authority_claim() -> None:
+    td, packet_root = _copy_skeleton()
+
+    try:
+        policy_path = packet_root / "policy" / "pulse_gate_policy_v0.yml"
+
+        policy_path.write_text(
+            "schema: pulse_ref_evidence_packet_layout_placeholder_v0\n"
+            "fixture_type: layout_skeleton_placeholder\n"
+            "release_grade_evidence: false\n"
+            "creates_release_authority: true\n"
+            "authority_boundary:\n"
+            "  creates_release_authority: true\n"
+            "  note: \"contains creates_release_authority: false as text only\"\n"
+            "placeholder_path: policy/pulse_gate_policy_v0.yml\n",
+            encoding="utf-8",
+        )
+
+        result = _run_checker(packet_root)
+
+        combined = result.stdout + result.stderr
+        assert result.returncode == 1
+        assert "policy/pulse_gate_policy_v0.yml" in combined
+        assert "creates_release_authority" in combined
+        assert "authority_boundary.creates_release_authority must be false" in combined
+    finally:
+        td.cleanup()
+
+
+def test_checker_rejects_root_readme_missing_authority_disclaimer() -> None:
+    td, packet_root = _copy_skeleton()
+
+    try:
+        readme_path = packet_root / "README.md"
+        readme_path.write_text(
+            "# PULSE-REF Evidence Packet Layout Skeleton v0\n\n"
+            "This file intentionally omits the authority-boundary disclaimer.\n",
+            encoding="utf-8",
+        )
+
+        result = _run_checker(packet_root)
+
+        combined = result.stdout + result.stderr
+        assert result.returncode == 1
+        assert "README.md" in combined
+        assert "does not authorize, block, override, or create release authority" in combined
+    finally:
+        td.cleanup()
+
+
+def test_checker_rejects_root_readme_contradictory_authority_claim() -> None:
+    td, packet_root = _copy_skeleton()
+
+    try:
+        readme_path = packet_root / "README.md"
+        readme_path.write_text(
+            readme_path.read_text(encoding="utf-8")
+            + "\n\nThis skeleton creates release authority.\n",
+            encoding="utf-8",
+        )
+
+        result = _run_checker(packet_root)
+
+        combined = result.stdout + result.stderr
+        assert result.returncode == 1
+        assert "README.md" in combined
+        assert "contradictory authority claim" in combined
+    finally:
+        td.cleanup()
+
+
+def test_checker_rejects_audit_readme_contradictory_authority_claim() -> None:
+    td, packet_root = _copy_skeleton()
+
+    try:
+        audit_readme_path = (
+            packet_root
+            / "audit"
+            / "release_authority_audit_bundle"
+            / "README.md"
+        )
+
+        audit_readme_path.write_text(
+            audit_readme_path.read_text(encoding="utf-8")
+            + "\n\nThis audit bundle creates release authority.\n",
+            encoding="utf-8",
+        )
+
+        result = _run_checker(packet_root)
+
+        combined = result.stdout + result.stderr
+        assert result.returncode == 1
+        assert "audit/release_authority_audit_bundle/README.md" in combined
+        assert "contradictory authority claim" in combined
+    finally:
+        td.cleanup()
+
+
+def test_checker_rejects_external_summaries_readme_contradictory_authority_claim() -> None:
+    td, packet_root = _copy_skeleton()
+
+    try:
+        external_readme_path = packet_root / "external" / "summaries" / "README.md"
+
+        external_readme_path.write_text(
+            external_readme_path.read_text(encoding="utf-8")
+            + "\n\nThis external summaries directory satisfies release-grade external evidence requirements.\n",
+            encoding="utf-8",
+        )
+
+        result = _run_checker(packet_root)
+
+        combined = result.stdout + result.stderr
+        assert result.returncode == 1
+        assert "external/summaries/README.md" in combined
+        assert "contradictory authority claim" in combined
+    finally:
+        td.cleanup()
+
+
+def test_checker_rejects_reconstruction_missing_authority_disclaimer() -> None:
     td, packet_root = _copy_skeleton()
 
     try:
@@ -166,11 +290,63 @@ def test_checker_rejects_reconstruction_authority_claim() -> None:
 
         result = _run_checker(packet_root)
 
+        combined = result.stdout + result.stderr
         assert result.returncode == 1
-        assert "reconstruction/reconstruction_instructions.md" in (
-            result.stdout + result.stderr
+        assert "reconstruction/reconstruction_instructions.md" in combined
+        assert "does not create release authority" in combined
+    finally:
+        td.cleanup()
+
+
+def test_checker_rejects_reconstruction_contradictory_authority_claim() -> None:
+    td, packet_root = _copy_skeleton()
+
+    try:
+        reconstruction_path = (
+            packet_root
+            / "reconstruction"
+            / "reconstruction_instructions.md"
         )
-        assert "does not create release authority" in (result.stdout + result.stderr)
+
+        reconstruction_path.write_text(
+            reconstruction_path.read_text(encoding="utf-8")
+            + "\n\nThis skeleton is reconstructable release-grade evidence.\n",
+            encoding="utf-8",
+        )
+
+        result = _run_checker(packet_root)
+
+        combined = result.stdout + result.stderr
+        assert result.returncode == 1
+        assert "reconstruction/reconstruction_instructions.md" in combined
+        assert "contradictory authority claim" in combined
+    finally:
+        td.cleanup()
+
+
+def test_checker_rejects_report_card_contradictory_authority_claim() -> None:
+    td, packet_root = _copy_skeleton()
+
+    try:
+        report_path = (
+            packet_root
+            / "audit"
+            / "release_authority_audit_bundle"
+            / "report_card.html"
+        )
+
+        report_path.write_text(
+            report_path.read_text(encoding="utf-8")
+            + "\n<p>This report card creates release authority.</p>\n",
+            encoding="utf-8",
+        )
+
+        result = _run_checker(packet_root)
+
+        combined = result.stdout + result.stderr
+        assert result.returncode == 1
+        assert "audit/release_authority_audit_bundle/report_card.html" in combined
+        assert "contradictory authority claim" in combined
     finally:
         td.cleanup()
 
@@ -180,9 +356,16 @@ def main() -> int:
         test_checker_accepts_layout_skeleton_fixture()
         test_checker_rejects_missing_canonical_path()
         test_checker_rejects_manifest_canonical_path_drift()
-        test_checker_rejects_placeholder_authority_claim()
+        test_checker_rejects_json_placeholder_authority_claim()
         test_checker_rejects_placeholder_path_mismatch()
-        test_checker_rejects_reconstruction_authority_claim()
+        test_checker_rejects_yaml_placeholder_structural_authority_claim()
+        test_checker_rejects_root_readme_missing_authority_disclaimer()
+        test_checker_rejects_root_readme_contradictory_authority_claim()
+        test_checker_rejects_audit_readme_contradictory_authority_claim()
+        test_checker_rejects_external_summaries_readme_contradictory_authority_claim()
+        test_checker_rejects_reconstruction_missing_authority_disclaimer()
+        test_checker_rejects_reconstruction_contradictory_authority_claim()
+        test_checker_rejects_report_card_contradictory_authority_claim()
     except AssertionError as exc:
         print(f"ERROR: {exc}")
         return 1
