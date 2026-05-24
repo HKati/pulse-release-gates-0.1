@@ -62,3 +62,31 @@ release-grade evidence packet
 
 release authority
 = only the declared-policy gate-enforcement CI outcome
+```
+
+## Minimum packet identity content
+
+A packet must include stable identity attributes (for example packet id, scope id, creation timestamp, and version marker) sufficient to correlate all artifacts to one evidence packet instance.
+
+## Minimum status artifact content
+
+`status.json` must include explicit outcome states, decision context pointers, and integrity references required to evaluate whether the packet can be considered complete for release evaluation.
+
+## Minimum materialized gate-set content
+
+The packet must enumerate the materialized required gate set and each gate's evaluated outcome so policy conformance can be reconstructed without inference.
+
+## Minimum CI outcome content
+
+The packet must carry the CI outcome record proving strict fail-closed CI gate enforcement and preserving the declared-policy allow/block release decision.
+
+## Minimum negative conditions
+
+A packet is not valid for release-grade use when required identity, status, gate-set, or CI outcome evidence is missing, placeholder-only, unverifiable, or contradictory.
+
+## This document does not change:
+
+- The authoritative release policy source.
+- The requirement that gate outcomes be policy-declared and fail-closed.
+- The rule that release authority is created only by the declared-policy gate-enforcement CI outcome.
+- Existing verifier responsibilities and separation of duties.
