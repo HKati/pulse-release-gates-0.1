@@ -68,6 +68,26 @@ release authority
 
 A packet must include stable identity attributes (for example packet id, scope id, creation timestamp, and version marker) sufficient to correlate all artifacts to one evidence packet instance.
 
+## Minimum run identity content
+
+A future packet must bind the packet to a specific run identity.
+
+Minimum run identity content:
+
+- CI provider or execution environment;
+- run ID;
+- run number or equivalent;
+- run attempt;
+- workflow name;
+- workflow ref or path;
+- commit SHA;
+- event type or trigger class;
+- run URL or archived run reference, when available.
+
+Run identity is not release authority.
+
+Run identity supports reconstruction.
+
 ## Minimum status artifact content
 
 `status.json` must include explicit outcome states, decision context pointers, and integrity references required to evaluate whether the packet can be considered complete for release evaluation.
