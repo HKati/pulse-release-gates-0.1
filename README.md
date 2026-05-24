@@ -1,10 +1,11 @@
 # PULSE — Artifact-Bound Release Authority for AI Release Decisions
 
+
+Release authority in PULSE is a materialized evidence state: recorded release evidence is bound to `status.json`, declared gate policy, materialized required gates, and strict fail-closed CI gate enforcement before the declared-policy CI outcome becomes the release decision.
+
 PULSE is an evolving artifact-bound release-authority field instrument for AI applications and AI-enabled systems.
 
 PULSE fills the structural gap between probabilistic AI behavior and deterministic software release permission.
-
-Release authority in PULSE is a materialized evidence state: recorded release evidence is bound to `status.json`, declared gate policy, materialized required gates, and strict fail-closed CI gate enforcement before the declared-policy CI outcome becomes the release decision.
 
 PULSEmech is the mechanism: an artifact-bound, policy-declared, gate-materialized, CI-enforced evidence-to-decision path.
 
