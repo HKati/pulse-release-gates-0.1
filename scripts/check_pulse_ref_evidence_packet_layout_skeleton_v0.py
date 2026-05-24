@@ -14,9 +14,11 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 from pathlib import Path
 from typing import Any
 
+import yaml
 
 CANONICAL_PATHS = [
     "README.md",
@@ -83,7 +85,93 @@ def _load_json(path: Path, errors: list[str]) -> dict[str, Any] | None:
 
     return obj
 
+ALLOWED_AUTHORITY_DISCLAIMER_PHRASES = [
+    "does not authorize, block, override, or create release authority",
+    "does not create release authority",
+    "not release-grade evidence",
+    "not a release-grade audit bundle",
+    "not a release-grade report card",
+    "does not satisfy release-grade external evidence requirements",
+    "not reconstructable release-grade evidence",
+]
 
+CONTRADICTORY_AUTHORITY_PATTERNS = [
+    (
+        re.compile(r"\bcreates\s+release\s+authority\b", re.IGNORECASE),
+        "must not claim it creates release authority",
+    ),
+    (
+        re.compile(r"\bcan\s+create\s+release\s+authority\b", re.IGNORECASE),
+        "must not claim it can create release authority",
+    ),
+    (
+        re.compile(r"\bmay\s+create\s+release\s+authority\b", re.IGNORECASE),
+        "must not claim it may create release authority",
+    ),
+    (
+        re.compile(r"\bwill\s+create\s+release\s+authority\b", re.IGNORECASE),
+        "must not claim it will create release authority",
+    ),
+    (
+        re.compile(r"\bis\s+a\s+release-grade\s+audit\s+bundle\b", re.IGNORECASE),
+        "must not claim it is a release-grade audit bundle",
+    ),
+    (
+        re.compile(r"\bis\s+a\s+release-grade\s+report\s+card\b", re.IGNORECASE),
+        "must not claim it is a release-grade report card",
+    ),
+    (
+        re.compile(r"\bis\s+release-grade\s+evidence\b", re.IGNORECASE),
+        "must not claim it is release-grade evidence",
+    ),
+    (
+        re.compile(
+            r"\bsatisfies\s+release-grade\s+external\s+evidence\s+requirements\b",
+            re.IGNORECASE,
+        ),
+        "must not claim it satisfies release-grade external evidence requirements",
+    ),
+    (
+        re.compile(r"\bis\s+reconstructable\s+release-grade\s+evidence\b", re.IGNORECASE),
+        "must not claim it is reconstructable release-grade evidence",
+    ),
+]
+
+
+def _load_yaml(path: Path, errors: list[str]) -> dict[str, Any] | None:
+    try:
+        obj = yaml.safe_load(path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        errors.append(f"{path}: YAML parse failed: {exc}")
+        return None
+
+    if not isinstance(obj, dict):
+        errors.append(f"{path}: YAML value must be an object")
+        return None
+
+    return obj
+
+
+def _text_without_allowed_disclaimers(text: str) -> str:
+    lowered = text.lower()
+
+    for phrase in ALLOWED_AUTHORITY_DISCLAIMER_PHRASES:
+        lowered = lowered.replace(phrase, "")
+
+    return lowered
+
+
+def _check_no_contradictory_authority_claims(
+    *,
+    rel_path: str,
+    text: str,
+    errors: list[str],
+) -> None:
+    checked = _text_without_allowed_disclaimers(text)
+
+    for pattern, message in CONTRADICTORY_AUTHORITY_PATTERNS:
+        if pattern.search(checked):
+            errors.append(f"{rel_path}: contradictory authority claim detected: {message}")
 def _read_text(path: Path, errors: list[str]) -> str:
     try:
         return path.read_text(encoding="utf-8")
@@ -228,25 +316,40 @@ def _check_json_placeholders(packet_root: Path, errors: list[str]) -> None:
 
 def _check_yaml_placeholders(packet_root: Path, errors: list[str]) -> None:
     for rel_path in YAML_PLACEHOLDER_PATHS:
-        text = _read_text(packet_root / rel_path, errors)
+        obj = _load_yaml(packet_root / rel_path, errors)
 
-        required = [
-            "schema: pulse_ref_evidence_packet_layout_placeholder_v0",
-            "fixture_type: layout_skeleton_placeholder",
-            "release_grade_evidence: false",
-            "creates_release_authority: false",
-            "authority_boundary:",
-            "  creates_release_authority: false",
-            f"placeholder_path: {rel_path}",
-        ]
+        if obj is None:
+            continue
 
-        for token in required:
-            if token not in text:
-                errors.append(f"{rel_path}: missing YAML placeholder token: {token}")
+        expected_fields = {
+            "schema": "pulse_ref_evidence_packet_layout_placeholder_v0",
+            "fixture_type": "layout_skeleton_placeholder",
+            "release_grade_evidence": False,
+            "creates_release_authority": False,
+            "placeholder_path": rel_path,
+        }
+
+        for key, expected in expected_fields.items():
+            if obj.get(key) != expected:
+                errors.append(
+                    f"{rel_path}: {key} must be {expected!r}, "
+                    f"found {obj.get(key)!r}"
+                )
+
+        boundary = obj.get("authority_boundary")
+        if not isinstance(boundary, dict):
+            errors.append(f"{rel_path}: authority_boundary must be an object")
+        elif boundary.get("creates_release_authority") is not False:
+            errors.append(
+                f"{rel_path}: authority_boundary.creates_release_authority must be false"
+            )
+
+        _check_authority_boundary(rel_path=rel_path, obj=obj, errors=errors)
 
 
 def _check_readme_boundaries(packet_root: Path, errors: list[str]) -> None:
-    root_readme = _read_text(packet_root / "README.md", errors)
+    root_readme_path = "README.md"
+    root_readme = _read_text(packet_root / root_readme_path, errors)
 
     root_required = [
         "layout skeleton fixture",
@@ -261,49 +364,87 @@ def _check_readme_boundaries(packet_root: Path, errors: list[str]) -> None:
 
     for token in root_required:
         if token not in root_readme:
-            errors.append(f"README.md: missing authority-boundary token: {token}")
+            errors.append(f"{root_readme_path}: missing authority-boundary token: {token}")
+
+    _check_no_contradictory_authority_claims(
+        rel_path=root_readme_path,
+        text=root_readme,
+        errors=errors,
+    )
 
     audit_readme_path = "audit/release_authority_audit_bundle/README.md"
     audit_readme = _read_text(packet_root / audit_readme_path, errors)
 
-    for token in [
+    audit_required = [
         "not a release-grade audit bundle",
         "does not create release authority",
-    ]:
+    ]
+
+    for token in audit_required:
         if token not in audit_readme:
             errors.append(f"{audit_readme_path}: missing token: {token}")
+
+    _check_no_contradictory_authority_claims(
+        rel_path=audit_readme_path,
+        text=audit_readme,
+        errors=errors,
+    )
 
     external_readme_path = "external/summaries/README.md"
     external_readme = _read_text(packet_root / external_readme_path, errors)
 
-    for token in [
+    external_required = [
         "does not contain canonical detector evidence",
         "does not satisfy release-grade external evidence requirements",
-    ]:
+    ]
+
+    for token in external_required:
         if token not in external_readme:
             errors.append(f"{external_readme_path}: missing token: {token}")
+
+    _check_no_contradictory_authority_claims(
+        rel_path=external_readme_path,
+        text=external_readme,
+        errors=errors,
+    )
 
     reconstruction_path = "reconstruction/reconstruction_instructions.md"
     reconstruction = _read_text(packet_root / reconstruction_path, errors)
 
-    for token in [
+    reconstruction_required = [
         "This skeleton is not reconstructable release-grade evidence.",
         "This skeleton does not create release authority.",
-    ]:
+    ]
+
+    for token in reconstruction_required:
         if token not in reconstruction:
             errors.append(f"{reconstruction_path}: missing token: {token}")
+
+    _check_no_contradictory_authority_claims(
+        rel_path=reconstruction_path,
+        text=reconstruction,
+        errors=errors,
+    )
 
 
 def _check_report_card_placeholder(packet_root: Path, errors: list[str]) -> None:
     rel_path = "audit/release_authority_audit_bundle/report_card.html"
     text = _read_text(packet_root / rel_path, errors)
 
-    for token in [
+    required = [
         "not a release-grade report card",
         "does not create release authority",
-    ]:
+    ]
+
+    for token in required:
         if token not in text:
             errors.append(f"{rel_path}: missing token: {token}")
+
+    _check_no_contradictory_authority_claims(
+        rel_path=rel_path,
+        text=text,
+        errors=errors,
+    )
 
 
 def check_packet_root(packet_root: Path) -> tuple[bool, list[str]]:
