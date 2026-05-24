@@ -84,6 +84,12 @@ def _load_json(path: Path, errors: list[str]) -> dict[str, Any] | None:
         return None
 
     return obj
+def _read_text(path: Path, errors: list[str]) -> str:
+    try:
+        return path.read_text(encoding="utf-8")
+    except Exception as exc:
+        errors.append(f"{path}: text read failed: {exc}")
+        return ""
 
 ALLOWED_AUTHORITY_DISCLAIMER_PHRASES = [
     "does not authorize, block, override, or create release authority",
@@ -97,20 +103,32 @@ ALLOWED_AUTHORITY_DISCLAIMER_PHRASES = [
 
 CONTRADICTORY_AUTHORITY_PATTERNS = [
     (
-        re.compile(r"\bcreates\s+release\s+authority\b", re.IGNORECASE),
+        re.compile(r"\bcreates?\s+release[-\s]+authority\b", re.IGNORECASE),
         "must not claim it creates release authority",
     ),
     (
-        re.compile(r"\bcan\s+create\s+release\s+authority\b", re.IGNORECASE),
+        re.compile(r"\bcan\s+create\s+release[-\s]+authority\b", re.IGNORECASE),
         "must not claim it can create release authority",
     ),
     (
-        re.compile(r"\bmay\s+create\s+release\s+authority\b", re.IGNORECASE),
+        re.compile(r"\bmay\s+create\s+release[-\s]+authority\b", re.IGNORECASE),
         "must not claim it may create release authority",
     ),
     (
-        re.compile(r"\bwill\s+create\s+release\s+authority\b", re.IGNORECASE),
+        re.compile(r"\bwill\s+create\s+release[-\s]+authority\b", re.IGNORECASE),
         "must not claim it will create release authority",
+    ),
+    (
+        re.compile(r"\bauthorizes?\s+release[-\s]+authority\b", re.IGNORECASE),
+        "must not claim it authorizes release authority",
+    ),
+    (
+        re.compile(r"\boverrides?\s+release[-\s]+authority\b", re.IGNORECASE),
+        "must not claim it overrides release authority",
+    ),
+    (
+        re.compile(r"\bis\s+release-grade\s+evidence\b", re.IGNORECASE),
+        "must not claim it is release-grade evidence",
     ),
     (
         re.compile(r"\bis\s+a\s+release-grade\s+audit\s+bundle\b", re.IGNORECASE),
@@ -121,10 +139,6 @@ CONTRADICTORY_AUTHORITY_PATTERNS = [
         "must not claim it is a release-grade report card",
     ),
     (
-        re.compile(r"\bis\s+release-grade\s+evidence\b", re.IGNORECASE),
-        "must not claim it is release-grade evidence",
-    ),
-    (
         re.compile(
             r"\bsatisfies\s+release-grade\s+external\s+evidence\s+requirements\b",
             re.IGNORECASE,
@@ -132,7 +146,10 @@ CONTRADICTORY_AUTHORITY_PATTERNS = [
         "must not claim it satisfies release-grade external evidence requirements",
     ),
     (
-        re.compile(r"\bis\s+reconstructable\s+release-grade\s+evidence\b", re.IGNORECASE),
+        re.compile(
+            r"\bis\s+reconstructable\s+release-grade\s+evidence\b",
+            re.IGNORECASE,
+        ),
         "must not claim it is reconstructable release-grade evidence",
     ),
 ]
@@ -156,7 +173,7 @@ def _text_without_allowed_disclaimers(text: str) -> str:
     lowered = text.lower()
 
     for phrase in ALLOWED_AUTHORITY_DISCLAIMER_PHRASES:
-        lowered = lowered.replace(phrase, "")
+        lowered = lowered.replace(phrase.lower(), "")
 
     return lowered
 
@@ -171,13 +188,9 @@ def _check_no_contradictory_authority_claims(
 
     for pattern, message in CONTRADICTORY_AUTHORITY_PATTERNS:
         if pattern.search(checked):
-            errors.append(f"{rel_path}: contradictory authority claim detected: {message}")
-def _read_text(path: Path, errors: list[str]) -> str:
-    try:
-        return path.read_text(encoding="utf-8")
-    except Exception as exc:
-        errors.append(f"{path}: text read failed: {exc}")
-        return ""
+            errors.append(
+                f"{rel_path}: contradictory authority claim detected: {message}"
+            )
 
 
 def _package_file_inventory(packet_root: Path) -> set[str]:
