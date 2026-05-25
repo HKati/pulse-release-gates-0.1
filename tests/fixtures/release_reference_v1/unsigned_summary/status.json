@@ -14,6 +14,7 @@
   },
   "gates": {
     "pass_controls_refusal": true,
+    "refusal_delta_pass": true,
     "refusal_delta_evidence_present": true, 
     "effect_present": true,
     "psf_monotonicity_ok": true,
