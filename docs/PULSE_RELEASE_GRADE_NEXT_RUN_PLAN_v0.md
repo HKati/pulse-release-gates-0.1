@@ -17,13 +17,25 @@ recorded release evidence
 → declared gate policy  
 → materialized required gate set  
 → strict fail-closed CI checking  
-→ CI allow/block release decision
+docs/PULSE_RELEASE_GRADE_NEXT_RUN_PLAN_v0.md
 
 The release-grade reference run is the next anchor for fellowship-stage and HPC-supported validation work.
 
+## Run terminology
+
+In this plan, “run” means the recorded, artifact-bound reference state produced by a run.
+
+It includes the preserved `status.json`, declared policy, materialized required gate set, declared-policy gate-enforcement CI outcome, release authority manifest, audit bundle, artifact hashes, reader-surface parity checks, and reconstruction evidence.
+
+It does not mean an ephemeral CI event by itself.
+
+A release-grade reference run is accepted only when its recorded artifacts reconstruct the declared-policy release decision.
+
 ## Core thesis
 
-PULSE already has a working release-authority core.
+## Run terminology
+
+PULSE already has a working release-authority materialization path.
 
 The next step is to produce a reference run where that core operates on materialized release-grade evidence rather than scaffolded or stubbed surfaces.
 
@@ -52,9 +64,9 @@ recorded release evidence
 → declared gate policy  
 → materialized required gate set  
 → strict fail-closed CI checking  
-→ CI allow/block release decision
+PULSE already has a working release-authority materialization path.
 
-Reader, audit, preservation, publication, HPC, and diagnostic surfaces may render, preserve, inspect, or validate the decision.
+Reader, audit, preservation, publication, HPC, and diagnostic surfaces may render, preserve, inspect, or support reconstruction and consistency review of the decision.
 
 They do not create a second release-decision engine.
 
@@ -207,8 +219,9 @@ A release-grade candidate must block if required evidence is represented only by
 
 The run should explicitly check:
 
-- `gates_stubbed` is absent or false according to the status contract
-- `scaffold` is absent or false according to the status contract
+- `diagnostics.gates_stubbed` is explicitly `false`, or an equivalent current status-contract field explicitly records non-stubbed evidence
+- `diagnostics.scaffold` is explicitly `false`, or an equivalent current status-contract field explicitly records non-scaffolded evidence
+- missing, malformed, non-boolean, stripped, or fallback release-grade diagnostics fail closed unless the current status contract defines a stricter equivalent field
 - stub profile markers are absent from release-grade evidence
 - detector materialization evidence is present when required
 - required external summaries are present when required
@@ -309,7 +322,7 @@ Pass criteria:
 18. artifact hashes are recorded
 19. run identity is preserved
 20. release decision can be reconstructed from archived artifacts
-21. CI outcome matches reconstructed gate evaluation
+21. declared-policy gate-enforcement CI outcome matches reconstructed gate evaluation
 
 A release-grade reference run is not accepted merely because a public page displays a passing state.
 
@@ -384,7 +397,7 @@ The release authority manifest should record:
 - recorded `status.json` hash
 - materialized required gate set
 - materialized required gate set hash
-- CI outcome
+- declared-policy gate-enforcement CI outcome
 - gate evaluation result
 - external summary references when required
 - audit bundle reference
@@ -469,7 +482,7 @@ A reconstruction check should verify:
 - enforced gate set equals materialized required gate set
 - all required gates are literal boolean `true` for pass candidates
 - block candidates fail closed
-- CI outcome matches reconstructed gate result
+- declared-policy gate-enforcement CI outcome matches reconstructed gate result 
 - manifest hashes match artifact hashes
 - audit bundle contains required artifacts
 - reader surfaces match recorded source artifacts
