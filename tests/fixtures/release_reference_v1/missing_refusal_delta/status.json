@@ -9,7 +9,8 @@
   },
   "diagnostics": {
     "gates_stubbed": false,
-    "fixture_note": "This fixture isolates refusal_delta_evidence_present=false as the intended failing release-grade evidence-presence gate while keeping refusal_delta_pass=true and non-target gates passing."
+    "fixture_note": "This fixture isolates refusal_delta_evidence_present=false as the intended failing release-grade evidence-presence gate while keeping refusal_delta_pass=true and non-target gates passing.",
+    "scaffold": false
   },
   "gates": {
     "pass_controls_refusal": true,
