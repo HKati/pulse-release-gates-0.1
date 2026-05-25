@@ -9,7 +9,8 @@
   },
   "diagnostics": {
     "gates_stubbed": false,
-    "fixture_note": "This fixture is intentionally non-stubbed for release-reference guard validation."
+    "fixture_note": "This fixture is intentionally non-stubbed for release-reference guard validation.",
+    "scaffold": false
   },
   "gates": {
     "pass_controls_refusal": true,
