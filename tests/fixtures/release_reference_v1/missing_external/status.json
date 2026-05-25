@@ -9,6 +9,7 @@
   },
   "diagnostics": {
     "gates_stubbed": false,
+    "scaffold": false,
     "fixture_note": "This fixture is non-stubbed and isolates missing external summary presence as the only intended failing gate."
   },
   "gates": {
