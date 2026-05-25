@@ -118,6 +118,7 @@ class TestReleaseReferenceFixtureMatrixV1(unittest.TestCase):
                     "--allowed-run-modes",
                     "prod",
                     "--require-nonstubbed",
+                    "--require-nonscaffolded",
                     "--require-detectors-materialized",
                     "--require-external-summaries",
                 ]

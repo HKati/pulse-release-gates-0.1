@@ -176,7 +176,13 @@ def main() -> int:
     parser.add_argument(
         "--require-nonstubbed",
         action="store_true",
-        help="Require diagnostics.gates_stubbed != true.",
+        help="Require diagnostics.gates_stubbed == false.",
+    )
+
+    parser.add_argument(
+        "--require-nonscaffolded",
+        action="store_true",
+        help="Require diagnostics.scaffold == false.",
     )
 
     parser.add_argument(
@@ -256,10 +262,23 @@ def main() -> int:
 
     if args.require_nonstubbed:
         gates_stubbed = diagnostics.get("gates_stubbed")
-        if gates_stubbed is True:
-            errors.append("diagnostics.gates_stubbed is true; release-grade reference must be non-stubbed.")
+        if gates_stubbed is not False:
+            errors.append(
+                "diagnostics.gates_stubbed must be literal boolean false "
+                f"for release-grade reference; got {gates_stubbed!r}."
+            )
         else:
-            notes.append("non-stubbed check passed: diagnostics.gates_stubbed is not true.")
+            notes.append("non-stubbed check passed: diagnostics.gates_stubbed is literal false.")
+
+    if args.require_nonscaffolded:
+        scaffold = diagnostics.get("scaffold")
+        if scaffold is not False:
+            errors.append(
+                "diagnostics.scaffold must be literal boolean false "
+                f"for release-grade reference; got {scaffold!r}."
+            )
+        else:
+            notes.append("non-scaffolded check passed: diagnostics.scaffold is literal false.")
 
     if args.require_detectors_materialized:
         value = gates.get("detectors_materialized_ok")

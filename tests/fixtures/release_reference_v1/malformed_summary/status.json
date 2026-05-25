@@ -9,7 +9,8 @@
   },
   "diagnostics": {
     "gates_stubbed": false,
-    "fixture_note": "This fixture isolates external_all_pass=false as the intended failing release-required gate while keeping external_summaries_present=true and non-target gates passing."
+    "fixture_note": "This fixture is non-stubbed and isolates external_all_pass=false as the only intended failing release-required gate.",
+    "scaffold": false
   },
   "gates": {
     "pass_controls_refusal": true,

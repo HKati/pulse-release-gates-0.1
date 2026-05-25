@@ -9,7 +9,8 @@
   },
   "diagnostics": {
     "gates_stubbed": false,
-    "fixture_note": "This fixture validates the positive control for refusal_delta_evidence_present=true while all required and release_required gates pass."
+    "fixture_note": "This fixture validates the positive control for refusal_delta_evidence_present=true while all required and release_required gates pass.",
+    "scaffold": false
   },
   "gates": {
     "pass_controls_refusal": true,

@@ -9,7 +9,8 @@
   },
   "diagnostics": {
     "gates_stubbed": false,
-    "fixture_note": "This fixture isolates one required gate set to false as the only intended failing condition."
+    "fixture_note": "This fixture isolates one required gate set to false as the only intended failing condition.",
+    "scaffold": false
   },
   "gates": {
     "pass_controls_refusal": false,
