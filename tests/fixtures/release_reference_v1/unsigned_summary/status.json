@@ -9,11 +9,12 @@
   },
   "diagnostics": {
     "gates_stubbed": false,
-    "fixture_note": "This fixture isolates external_all_pass=false as the intended failing release-required gate for unsigned or signer-policy-invalid external evidence."
+    "fixture_note": "This fixture isolates external_all_pass=false as the intended failing release-required gate for unsigned or signer-policy-invalid external evidence.",
+    "scaffold": false
   },
   "gates": {
     "pass_controls_refusal": true,
-    "refusal_delta_pass": true,
+    "refusal_delta_evidence_present": true,
     "refusal_delta_evidence_present": true,  
     "effect_present": true,
     "psf_monotonicity_ok": true,
