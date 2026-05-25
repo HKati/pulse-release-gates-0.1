@@ -9,11 +9,12 @@
   },
   "diagnostics": {
     "gates_stubbed": false,
-    "fixture_note": "This fixture isolates detectors_materialized_ok=false as the intended failing condition while keeping non-target gates passing."
+    "fixture_note": "This fixture isolates detectors_materialized_ok=false as the intended failing condition while keeping non-target gates passing.",
+    "scaffold": false
   },
   "gates": {
     "pass_controls_refusal": true,
-    "refusal_delta_pass": true,
+    "refusal_delta_evidence_present": true,
     "refusal_delta_evidence_present": true,  
     "effect_present": true,
     "psf_monotonicity_ok": true,
