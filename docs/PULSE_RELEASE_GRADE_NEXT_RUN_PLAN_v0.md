@@ -35,7 +35,7 @@ A release-grade reference run is accepted only when its recorded artifacts recon
 
 PULSE already has a working release-authority materialization path.
 
-The next step is to produce a reference run where that core operates on materialized release-grade evidence rather than scaffolded or stubbed surfaces.
+The next step is to produce a reference run where that materialization path operates on release-grade evidence rather than scaffolded or stubbed surfaces.
 
 The release-grade next run must show that PULSE can preserve:
 
@@ -47,7 +47,7 @@ The release-grade next run must show that PULSE can preserve:
 - audit reconstruction
 - reader-surface parity
 - archived artifact identity
-- deterministic allow/block decision
+- deterministic declared-policy allow/block decision  
 
 The run should be small enough to audit and strong enough to serve as the baseline for later HPC candidate-state validation.
 
@@ -641,7 +641,7 @@ The reference run is successful when:
 10. reader parity is verified
 11. decision is reconstructable
 12. archived artifacts preserve run identity
-13. CI decision and reconstructed decision match
+13. declared-policy CI decision and reconstructed decision match
 14. the resulting reference state can anchor HPC validation
 
 ## Follow-up work
