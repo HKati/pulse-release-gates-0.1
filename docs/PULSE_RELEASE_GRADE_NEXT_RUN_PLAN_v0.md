@@ -17,7 +17,7 @@ recorded release evidence
 → declared gate policy  
 → materialized required gate set  
 → strict fail-closed CI checking  
-docs/PULSE_RELEASE_GRADE_NEXT_RUN_PLAN_v0.md
+→ declared-policy CI allow/block release decision
 
 The release-grade reference run is the next anchor for fellowship-stage and HPC-supported validation work.
 
@@ -32,8 +32,6 @@ It does not mean an ephemeral CI event by itself.
 A release-grade reference run is accepted only when its recorded artifacts reconstruct the declared-policy release decision.
 
 ## Core thesis
-
-## Run terminology
 
 PULSE already has a working release-authority materialization path.
 
@@ -64,7 +62,7 @@ recorded release evidence
 → declared gate policy  
 → materialized required gate set  
 → strict fail-closed CI checking  
-PULSE already has a working release-authority materialization path.
+→ declared-policy CI allow/block release decision
 
 Reader, audit, preservation, publication, HPC, and diagnostic surfaces may render, preserve, inspect, or support reconstruction and consistency review of the decision.
 
