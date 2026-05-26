@@ -13,7 +13,7 @@ PULSE materializes recorded candidate release evidence into artifact-bound relea
 
 Release permission is produced by the complete materialization path: recorded evidence, machine-readable release state, declared policy, materialized required gates, and strict fail-closed CI enforcement.
 
-The declared-policy CI outcome is the terminal enforcement record of that materialization path.
+The declared-policy CI outcome is the terminal enforcement resoult of that materialization path.
 
 PULSE fills the structural gap between probabilistic AI behavior and deterministic software release permission.
 
