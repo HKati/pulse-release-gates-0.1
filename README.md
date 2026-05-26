@@ -15,6 +15,8 @@ Release permission is produced by the complete materialization path: recorded ev
 
 The declared-policy CI outcome is the terminal enforcement record of that materialization path.
 
+PULSE fills the structural gap between probabilistic AI behavior and deterministic software release permission.
+
 The transition handled by PULSE is:
 
 probabilistic AI behavior  
