@@ -47,6 +47,14 @@ Represents a release-grade candidate where gates or detector outputs are stubbed
 
 Release-grade paths must not pass when `gates_stubbed=true` or equivalent stub indicators are present.
 
+### scaffolded
+
+Expected outcome: FAIL.
+
+Represents a release-grade candidate where diagnostics mark the state as scaffolded.
+
+Release-grade paths must not pass when `diagnostics.scaffold=true` or equivalent scaffold indicators are present.
+
 ### malformed_summary
 
 Expected outcome: FAIL.
