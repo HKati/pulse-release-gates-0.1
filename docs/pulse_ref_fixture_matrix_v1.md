@@ -24,7 +24,8 @@ python ci/check_release_reference_complete_v1.py \
   --required-sets required,release_required \
   --allowed-run-modes prod \
   --require-nonstubbed \
-  --require-detectors-materialized \
+ --require-nonscaffolded \
+ --require-detectors-materialized \
   --require-external-summaries
 ```
 
@@ -203,12 +204,14 @@ Covered fixture cases:
 - positive release-grade reference candidate
 - missing external summary presence
 - stubbed diagnostics
+- scaffolded release-grade diagnostics
 - false required gate
 - non-materialized detector evidence / implicit fallback attempt
 
 Covered PULSE-REF hardening properties:
 
 - non-stubbed release-grade qualification
+- explicit non-scaffolded release-grade qualification
 - explicit external evidence presence
 - strict required-gate literal-true semantics
 - detector materialization requirement
