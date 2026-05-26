@@ -42,7 +42,7 @@ REQUIRED_FRONT_DOOR_ANCHORS = [
     "These surfaces produce, record, or render candidate release evidence",
     "PULSE materializes recorded candidate release evidence into artifact-bound release-authority state before deployment",
     "Release permission is produced by the complete materialization path",
-    "The declared-policy CI outcome is the terminal enforcement record of that materialization path",
+    "The declared-policy CI outcome is the recorded terminal enforcement result of that materialization path",
     "probabilistic AI behavior",
     "recorded candidate release evidence",
     "artifact-bound release-authority state",
