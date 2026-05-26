@@ -79,6 +79,22 @@ This fixture isolates:
 
 All required and release_required gates remain passing.
 
+### scaffolded
+
+Expected result: FAIL.
+
+Purpose:
+
+Validates fail-closed behavior when diagnostics indicate scaffolded release-grade evidence.
+
+This fixture isolates:
+
+- `diagnostics.scaffold: true`
+
+All required and release_required gates remain passing.
+
+Release-grade reference validation must not infer PASS from scaffolded evidence even when gate values appear passing.
+
 ### false_gate
 
 Expected result: FAIL.
