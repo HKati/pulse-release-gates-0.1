@@ -1,0 +1,24 @@
+{
+  "fixture_id": "release_reference_v1/scaffolded",
+  "expected_result": "FAIL",
+  "expected_reason": "diagnostics.scaffold is true. This fixture isolates scaffolded diagnostics as the only intended failing condition while keeping all required and release_required gates passing.",
+  "expected_guard": "ci/check_release_reference_complete_v1.py",
+  "expected_checks": {
+    "run_mode": "prod",
+    "gates_stubbed": false,
+    "scaffold": true,
+    "detectors_materialized_ok": true,
+    "external_summaries_present": true,
+    "external_all_pass": true,
+    "required_gates_literal_true": true,
+    "release_required_gates_literal_true": true
+  },
+  "expected_failure": {
+    "field": "diagnostics.scaffold",
+    "value": true,
+    "failure_mode": "scaffolded_release_grade_evidence",
+    "non_target_required_gates_passing": true,
+    "non_target_release_required_gates_passing": true
+  },
+  "authority_boundary": "This fixture does not define release authority. It exercises fail-closed behavior for scaffolded diagnostics through the declared-policy gate-enforcement path and the PULSE-REF release-grade completeness guard."
+}
