@@ -36,8 +36,17 @@ FRONT_DOOR_END_MARKERS = [
 
 REQUIRED_FRONT_DOOR_ANCHORS = [
     "PULSE — Artifact-Bound Release Authority for AI Release Decisions",
-    "PULSE is an evolving artifact-bound release-authority field instrument",
+    "PULSE is an artifact-bound release-authority system for AI applications and AI-enabled systems",
     "PULSE fills the structural gap between probabilistic AI behavior and deterministic software release permission",
+    "The evidence-producing surfaces for PULSE include AI applications, model behavior, evaluation suites, detector systems, review processes, logs, dashboards, and deployment pipelines",
+    "These surfaces produce, record, or render candidate release evidence",
+    "PULSE materializes recorded candidate release evidence into artifact-bound release-authority state before deployment",
+    "Release permission is produced by the complete materialization path",
+    "The declared-policy CI outcome is the terminal enforcement record of that materialization path",
+    "probabilistic AI behavior",
+    "recorded candidate release evidence",
+    "artifact-bound release-authority state",
+    "deterministic software release permission",
     "Release authority in PULSE is a materialized evidence state",
     "recorded release evidence is bound to `status.json`, declared gate policy, materialized required gates, and strict fail-closed CI gate enforcement",
     "the declared-policy CI outcome becomes the release decision",
