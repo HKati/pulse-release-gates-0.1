@@ -1,0 +1,48 @@
+{
+  "version": "1.0",
+  "created_utc": "2026-05-04T00:00:00Z",
+  "metrics": {
+    "run_mode": "prod",
+    "fixture_id": "release_reference_v1/scaffolded",
+    "fixture_kind": "negative_release_reference",
+    "description": "Negative PULSE-REF release-grade reference fixture where diagnostics.scaffold=true while required and release_required gates appear passing. Release-grade validation must fail closed on scaffolded evidence."
+  },
+  "diagnostics": {
+    "gates_stubbed": false,
+    "scaffold": true,
+    "fixture_note": "This fixture isolates diagnostics.scaffold=true as the only intended failing condition while keeping all required and release_required gates passing."
+  },
+  "gates": {
+    "pass_controls_refusal": true,
+    "refusal_delta_pass": true,
+    "refusal_delta_evidence_present": true,
+    "effect_present": true,
+    "psf_monotonicity_ok": true,
+    "psf_mono_shift_resilient": true,
+    "pass_controls_comm": true,
+    "psf_commutativity_ok": true,
+    "psf_comm_shift_resilient": true,
+    "pass_controls_sanit": true,
+    "sanitization_effective": true,
+    "sanit_shift_resilient": true,
+    "psf_action_monotonicity_ok": true,
+    "psf_idempotence_ok": true,
+    "psf_path_independence_ok": true,
+    "psf_pii_monotonicity_ok": true,
+    "q1_grounded_ok": true,
+    "q2_consistency_ok": true,
+    "q3_fairness_ok": true,
+    "q4_slo_ok": true,
+    "detectors_materialized_ok": true,
+    "external_summaries_present": true,
+    "external_all_pass": true
+  },
+  "evidence": {
+    "detectors_materialized": true,
+    "external_summaries_present": true,
+    "external_summary_mode": "fixture",
+    "scaffold_evidence_mode": "scaffolded_fixture",
+    "expected_behavior": "scaffolded release-grade evidence must fail closed even when required and release_required gates appear passing",
+    "authority_boundary": "This fixture does not define release authority. It exercises fail-closed release-grade behavior when diagnostics.scaffold=true."
+  }
+}
