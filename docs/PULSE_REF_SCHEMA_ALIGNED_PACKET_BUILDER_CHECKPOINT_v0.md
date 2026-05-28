@@ -210,6 +210,21 @@ The generated packet includes:
 
 The publication snapshot surface is omitted by the builder until a canonical publication surface exists.
 
+## Current v0 packet-completeness boundary
+
+The current schema-aligned pass-fixture packet builder emits a reconstructable v0 packet candidate.
+
+The current v0 output contract covers recorded status, source expected-outcome metadata, declared policy, gate registry, policy-derived materialized gate sets, CI outcome, release-authority manifest, operator handoff report, package digests, audit bundle, external summary note, and reconstruction instructions.
+
+Field-point authority-map and evidence-fold-in admissibility artifacts are reserved for the next packet-completeness layer.
+
+The reserved next-layer surfaces are:
+
+- `field/field_point_authority_map_v0.json`
+- `admissibility/evidence_fold_in_admissibility_v0.json`
+
+This boundary preserves the earlier packet-baseline and handoff direction while keeping the current v0 builder contract mechanically accurate.
+
 ## Builder hardening now included
 
 The builder now protects the reviewed failure modes:
