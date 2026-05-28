@@ -62,7 +62,11 @@ def _sha256_file(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def _validate_json_schema(instance_path: Path, schema_path: Path) -> list[str]:
+def _validate_json_schema(
+    instance_path: Path,
+    schema_path: Path,
+    display_path: str,
+) -> list[str]:
     schema = _load_schema(schema_path)
     Draft202012Validator.check_schema(schema)
     validator = Draft202012Validator(schema)
@@ -74,7 +78,7 @@ def _validate_json_schema(instance_path: Path, schema_path: Path) -> list[str]:
     )
 
     return [
-        f"{instance_path.relative_to(ROOT)}: {list(error.absolute_path)}: {error.message}"
+        f"{display_path}: {list(error.absolute_path)}: {error.message}"
         for error in errors
     ]
 
@@ -133,12 +137,12 @@ def _validate_schema_targets(packet_root: Path) -> list[str]:
         artifact = packet_root / rel_path
         if not artifact.is_file():
             continue
-        errors.extend(_validate_json_schema(artifact, ROOT / schema_rel))
+        errors.extend(_validate_json_schema(artifact, ROOT / schema_rel, rel_path))
 
     for rel_path, schema_rel in OPTIONAL_SCHEMA_TARGETS.items():
         artifact = packet_root / rel_path
         if artifact.is_file():
-            errors.extend(_validate_json_schema(artifact, ROOT / schema_rel))
+            errors.extend(_validate_json_schema(artifact, ROOT / schema_rel, rel_path))
 
     if (packet_root / "release_authority/release_authority_manifest.json").is_file():
         errors.extend(_validate_release_authority_manifest(packet_root))
