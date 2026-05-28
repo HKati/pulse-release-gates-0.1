@@ -216,12 +216,120 @@ def _validate_policy_derived_materialized_gates(packet_root: Path) -> list[str]:
     return errors
 
 
+def _validate_artifact_ref(
+    *,
+    packet_root: Path,
+    ref: Any,
+    field: str,
+    optional: bool,
+) -> list[str]:
+    errors: list[str] = []
+
+    label = "optional artifact ref" if optional else "artifact ref"
+
+    if not isinstance(ref, dict):
+        errors.append(f"package_manifest.json: invalid {label} {field}")
+        return errors
+
+    rel_path = ref.get("path")
+    expected_sha = ref.get("sha256")
+
+    if not isinstance(rel_path, str) or not isinstance(expected_sha, str):
+        errors.append(f"package_manifest.json: invalid {label} {field}")
+        return errors
+
+    artifact = packet_root / rel_path
+    if not artifact.is_file():
+        errors.append(
+            f"package_manifest.json: {label} {field} points to missing {rel_path}"
+        )
+        return errors
+
+    actual_sha = _sha256_file(artifact)
+    if actual_sha != expected_sha:
+        errors.append(f"package_manifest.json: sha256 mismatch for {field}")
+
+    return errors
+
+
+def _is_safe_packet_relative_path(rel_path: str) -> bool:
+    if not rel_path:
+        return False
+
+    if "\\" in rel_path:
+        return False
+
+    path = Path(rel_path)
+
+    if path.is_absolute():
+        return False
+
+    return ".." not in path.parts
+
+
+def _validate_artifact_ref(
+    *,
+    packet_root: Path,
+    ref: Any,
+    field: str,
+    optional: bool,
+    expected_path: str | None = None,
+) -> list[str]:
+    errors: list[str] = []
+
+    label = "optional artifact ref" if optional else "artifact ref"
+
+    if not isinstance(ref, dict):
+        errors.append(f"package_manifest.json: invalid {label} {field}")
+        return errors
+
+    rel_path = ref.get("path")
+    expected_sha = ref.get("sha256")
+
+    if not isinstance(rel_path, str) or not isinstance(expected_sha, str):
+        errors.append(f"package_manifest.json: invalid {label} {field}")
+        return errors
+
+    if not _is_safe_packet_relative_path(rel_path):
+        errors.append(f"package_manifest.json: unsafe {label} {field} path {rel_path!r}")
+        return errors
+
+    if expected_path is not None and rel_path != expected_path:
+        errors.append(
+            f"package_manifest.json: {field} must reference canonical path "
+            f"{expected_path}, got {rel_path}"
+        )
+        return errors
+
+    packet_root_resolved = packet_root.resolve()
+    artifact = (packet_root_resolved / rel_path).resolve()
+
+    try:
+        artifact.relative_to(packet_root_resolved)
+    except ValueError:
+        errors.append(f"package_manifest.json: unsafe {label} {field} path {rel_path!r}")
+        return errors
+
+    if not artifact.is_file():
+        errors.append(
+            f"package_manifest.json: {label} {field} points to missing {rel_path}"
+        )
+        return errors
+
+    actual_sha = _sha256_file(artifact)
+    if actual_sha != expected_sha:
+        errors.append(f"package_manifest.json: sha256 mismatch for {field}")
+
+    return errors
+
+
 def _validate_package_manifest_refs(packet_root: Path) -> list[str]:
     manifest_path = packet_root / "package_manifest.json"
     if not manifest_path.is_file():
         return []
 
     manifest = _load_json(manifest_path)
+
     ref_fields = [
         "status_artifact",
         "gate_policy",
@@ -233,6 +341,10 @@ def _validate_package_manifest_refs(packet_root: Path) -> list[str]:
         "package_digests",
     ]
 
+    optional_ref_fields = {
+        "publication_snapshot": "publication/publication_snapshot.json",
+    }
+
     errors: list[str] = []
 
     for field in ref_fields:
@@ -241,23 +353,31 @@ def _validate_package_manifest_refs(packet_root: Path) -> list[str]:
             errors.append(f"package_manifest.json: missing artifact ref {field}")
             continue
 
-        rel_path = ref.get("path")
-        expected_sha = ref.get("sha256")
+        errors.extend(
+            _validate_artifact_ref(
+                packet_root=packet_root,
+                ref=ref,
+                field=field,
+                optional=False,
+            )
+        )
 
-        if not isinstance(rel_path, str) or not isinstance(expected_sha, str):
-            errors.append(f"package_manifest.json: invalid artifact ref {field}")
+    for field, expected_path in optional_ref_fields.items():
+        if field not in manifest:
             continue
 
-        artifact = packet_root / rel_path
-        if not artifact.is_file():
-            errors.append(f"package_manifest.json: ref {field} points to missing {rel_path}")
-            continue
-
-        actual_sha = _sha256_file(artifact)
-        if actual_sha != expected_sha:
-            errors.append(f"package_manifest.json: sha256 mismatch for {field}")
+        errors.extend(
+            _validate_artifact_ref(
+                packet_root=packet_root,
+                ref=manifest.get(field),
+                field=field,
+                optional=True,
+                expected_path=expected_path,
+            )
+        )
 
     return errors
+
 
 
 def _validate_package_digest_refs(packet_root: Path) -> list[str]:
