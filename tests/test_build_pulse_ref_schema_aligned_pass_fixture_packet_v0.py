@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import subprocess
 import sys
@@ -44,6 +45,19 @@ def _load_json(path: Path) -> dict[str, Any]:
     data = json.loads(path.read_text(encoding="utf-8"))
     assert isinstance(data, dict)
     return data
+
+
+def _load_builder_module() -> Any:
+    spec = importlib.util.spec_from_file_location(
+        "build_pulse_ref_schema_aligned_pass_fixture_packet_v0",
+        BUILDER,
+    )
+    assert spec is not None
+    assert spec.loader is not None
+
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 def _run_builder(out_dir: Path) -> Path:
@@ -170,6 +184,106 @@ def test_builder_emits_canonical_ci_and_handoff_shapes() -> None:
         assert handoff["authority_boundary"]["creates_release_authority"] is False
 
 
+def test_builder_rejects_false_required_gate_in_pass_fixture() -> None:
+    builder = _load_builder_module()
+
+    status = _load_json(SOURCE_STATUS)
+    effective_required = ["pass_controls_refusal"]
+
+    status["gates"]["pass_controls_refusal"] = False
+
+    try:
+        builder._status_gate_results(status, effective_required)
+    except ValueError as exc:
+        assert "must be literal true" in str(exc)
+        assert "pass_controls_refusal" in str(exc)
+    else:
+        raise AssertionError("builder accepted a false required gate")
+
+
+def test_release_reference_guard_rejects_stubbed_source_status() -> None:
+    builder = _load_builder_module()
+
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp_status = Path(tmp) / "status.json"
+        status = _load_json(SOURCE_STATUS)
+        status["diagnostics"]["gates_stubbed"] = True
+        tmp_status.write_text(
+            json.dumps(status, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+
+        try:
+            builder._run_release_reference_guard(tmp_status)
+        except RuntimeError as exc:
+            assert "release-reference completeness guard" in str(exc)
+        else:
+            raise AssertionError("builder accepted a stubbed source status")
+
+
+def test_builder_handoff_commands_are_replayable() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        packet_root = _run_builder(Path(tmp))
+        handoff = _load_json(packet_root / "handoff/operator_handoff_report.json")
+
+        for command in handoff["commands"]:
+            cmd = command["cmd"]
+            assert cmd, command["name"]
+            assert Path(cmd[0]).is_absolute(), command["name"]
+
+            result = subprocess.run(
+                cmd,
+                cwd=Path(tmp),
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                check=False,
+            )
+
+            assert result.returncode == command["returncode"], (
+                command["name"],
+                result.stdout,
+                result.stderr,
+            )
+
+        check_command = next(
+            command
+            for command in handoff["commands"]
+            if command["name"] == "check_gates_release-grade"
+        )
+
+        assert str(ROOT / "PULSE_safe_pack_v0" / "tools" / "check_gates.py") in check_command["cmd"]
+        assert str(packet_root / "status" / "status.json") in check_command["cmd"]
+
+
+def test_builder_accepts_relative_out_dir_from_non_repo_cwd() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        cwd = Path(tmp)
+        out_dir = Path("relative-out")
+
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(BUILDER),
+                "--out-dir",
+                str(out_dir),
+            ],
+            cwd=cwd,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+        )
+
+        assert result.returncode == 0, result.stdout + result.stderr
+
+        packet_root = cwd / out_dir / "pulse_ref_evidence_packet_v0"
+        assert packet_root.is_dir()
+
+        checker = _run_checker(packet_root)
+        assert checker.returncode == 0, checker.stdout + checker.stderr
+
+
 def main() -> int:
     try:
         test_builder_file_exists()
@@ -179,6 +293,10 @@ def main() -> int:
         test_builder_materializes_gates_from_declared_policy()
         test_builder_emits_canonical_packet_manifest_and_digests()
         test_builder_emits_canonical_ci_and_handoff_shapes()
+        test_builder_rejects_false_required_gate_in_pass_fixture()
+        test_release_reference_guard_rejects_stubbed_source_status()
+        test_builder_handoff_commands_are_replayable()
+        test_builder_accepts_relative_out_dir_from_non_repo_cwd()
     except AssertionError as exc:
         print(f"ERROR: {exc}")
         return 1
