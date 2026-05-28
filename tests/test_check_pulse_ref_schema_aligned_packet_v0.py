@@ -128,6 +128,24 @@ def test_checker_rejects_materialized_gates_not_policy_derived() -> None:
         td.cleanup()
 
 
+def test_checker_rejects_publication_snapshot_manifest_sha_mismatch() -> None:
+    td, packet_root = _copy_package()
+    try:
+        manifest_path = packet_root / "package_manifest.json"
+        payload = _read_json(manifest_path)
+        payload["publication_snapshot"]["sha256"] = "0" * 64
+        _write_json(manifest_path, payload)
+
+        result = _run_checker(packet_root)
+        combined = result.stdout + result.stderr
+
+        assert result.returncode == 1, combined
+        assert "package_manifest.json" in combined, combined
+        assert "sha256 mismatch for publication_snapshot" in combined, combined
+    finally:
+        td.cleanup()
+
+
 def main() -> int:
     try:
         test_checker_accepts_ra1_minimal_package_fixture()
