@@ -142,7 +142,42 @@ def _extract_policy_metadata(policy_path: Path) -> tuple[str, str]:
     return policy_id, version
 
 
-def _status_gate_results(status: dict[str, Any], effective_required: list[str]) -> dict[str, bool]:
+def _run_release_reference_guard(status_path: Path) -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(ROOT / "ci" / "check_release_reference_complete_v1.py"),
+            "--status",
+            str(status_path),
+            "--policy",
+            str(ROOT / "pulse_gate_policy_v0.yml"),
+            "--required-sets",
+            "required,release_required",
+            "--allowed-run-modes",
+            "prod",
+            "--require-nonstubbed",
+            "--require-nonscaffolded",
+            "--require-detectors-materialized",
+            "--require-external-summaries",
+        ],
+        cwd=ROOT,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+
+    if result.returncode != 0:
+        raise RuntimeError(
+            "source pass fixture failed release-reference completeness guard:\n"
+            + (result.stdout.strip() or result.stderr.strip() or "no output")
+        )
+
+
+def _status_gate_results(
+    status: dict[str, Any],
+    effective_required: list[str],
+) -> dict[str, bool]:
     gates = status.get("gates")
     if not isinstance(gates, dict):
         raise ValueError("source status has no gates object")
@@ -150,9 +185,12 @@ def _status_gate_results(status: dict[str, Any], effective_required: list[str]) 
     results: dict[str, bool] = {}
     for gate in effective_required:
         value = gates.get(gate)
-        if not isinstance(value, bool):
-            raise ValueError(f"required gate {gate!r} is missing or non-boolean: {value!r}")
-        results[gate] = value
+        if value is not True:
+            raise ValueError(
+                f"required gate {gate!r} must be literal true for the pass-fixture "
+                f"packet builder; got {value!r}"
+            )
+        results[gate] = True
 
     return results
 
@@ -362,10 +400,10 @@ def _write_handoff_report(
         {
             "name": "materialize_required",
             "cmd": [
-                "python",
-                "tools/policy_to_require_args.py",
+                sys.executable,
+                str(ROOT / "tools" / "policy_to_require_args.py"),
                 "--policy",
-                "policy/pulse_gate_policy_v0.yml",
+                str(packet_root / "policy" / "pulse_gate_policy_v0.yml"),
                 "--set",
                 "required",
                 "--format",
@@ -382,10 +420,10 @@ def _write_handoff_report(
         {
             "name": "materialize_release_required",
             "cmd": [
-                "python",
-                "tools/policy_to_require_args.py",
+                sys.executable,
+                str(ROOT / "tools" / "policy_to_require_args.py"),
                 "--policy",
-                "policy/pulse_gate_policy_v0.yml",
+                str(packet_root / "policy" / "pulse_gate_policy_v0.yml"),
                 "--set",
                 "release_required",
                 "--format",
@@ -402,10 +440,10 @@ def _write_handoff_report(
         {
             "name": "check_gates_release-grade",
             "cmd": [
-                "python",
-                "PULSE_safe_pack_v0/tools/check_gates.py",
+                sys.executable,
+                str(ROOT / "PULSE_safe_pack_v0" / "tools" / "check_gates.py"),
                 "--status",
-                "status/status.json",
+                str(packet_root / "status" / "status.json"),
                 "--require",
                 *effective_required,
             ],
@@ -450,7 +488,6 @@ def _write_handoff_report(
         },
     }
 
-    # Keep status referenced so source status JSON has been loaded before handoff.
     if status.get("metrics", {}).get("fixture_id") != "release_reference_v1/pass":
         raise ValueError("source status must be release_reference_v1/pass")
 
@@ -586,6 +623,7 @@ def _write_package_manifest(packet_root: Path) -> None:
 
 
 def build(out_dir: Path) -> Path:
+    out_dir = out_dir.expanduser().resolve()
     packet_root = out_dir / PACKAGE_ROOT_NAME
 
     if packet_root.exists():
@@ -602,6 +640,8 @@ def build(out_dir: Path) -> Path:
         if not required_path.is_file():
             raise FileNotFoundError(required_path)
 
+    _run_release_reference_guard(source_status)
+
     status = _load_json(source_status)
     expected = _load_json(source_expected)
 
@@ -616,8 +656,6 @@ def build(out_dir: Path) -> Path:
 
     gate_sets = _write_materialized_gate_sets(packet_root)
 
-    # Fail early when the source fixture no longer satisfies the policy-derived
-    # effective required gate set.
     _status_gate_results(status, gate_sets["effective_required_gates"])
 
     _write_ci_outcome(packet_root)
