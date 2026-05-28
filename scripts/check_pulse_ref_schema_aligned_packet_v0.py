@@ -216,42 +216,6 @@ def _validate_policy_derived_materialized_gates(packet_root: Path) -> list[str]:
     return errors
 
 
-def _validate_artifact_ref(
-    *,
-    packet_root: Path,
-    ref: Any,
-    field: str,
-    optional: bool,
-) -> list[str]:
-    errors: list[str] = []
-
-    label = "optional artifact ref" if optional else "artifact ref"
-
-    if not isinstance(ref, dict):
-        errors.append(f"package_manifest.json: invalid {label} {field}")
-        return errors
-
-    rel_path = ref.get("path")
-    expected_sha = ref.get("sha256")
-
-    if not isinstance(rel_path, str) or not isinstance(expected_sha, str):
-        errors.append(f"package_manifest.json: invalid {label} {field}")
-        return errors
-
-    artifact = packet_root / rel_path
-    if not artifact.is_file():
-        errors.append(
-            f"package_manifest.json: {label} {field} points to missing {rel_path}"
-        )
-        return errors
-
-    actual_sha = _sha256_file(artifact)
-    if actual_sha != expected_sha:
-        errors.append(f"package_manifest.json: sha256 mismatch for {field}")
-
-    return errors
-
-
 def _is_safe_packet_relative_path(rel_path: str) -> bool:
     if not rel_path:
         return False
