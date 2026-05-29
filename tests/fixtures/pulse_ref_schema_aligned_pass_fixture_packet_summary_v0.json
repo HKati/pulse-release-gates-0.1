@@ -1,0 +1,344 @@
+{
+  "authority_boundary_flags": {
+    "ci_outcome": {
+      "ci_role": "records_declared_policy_enforcement",
+      "creates_release_authority": false,
+      "normative_decision_path": "recorded release evidence -> recorded status.json artifact -> declared gate policy -> materialized required gate set -> strict fail-closed CI gate enforcement -> declared-policy CI allow/block release decision"
+    },
+    "materialized_gate_sets": {
+      "creates_release_authority": false,
+      "materialization_role": "required_gate_set_reconstruction",
+      "source": "declared_gate_policy"
+    },
+    "operator_handoff_report": {
+      "creates_release_authority": false,
+      "handoff_role": "release_grade_reconstruction"
+    },
+    "package_digests": {
+      "creates_release_authority": false,
+      "digest_role": "artifact_integrity_verification"
+    },
+    "package_manifest": {
+      "creates_release_authority": false,
+      "normative_decision_path": "recorded release evidence -> recorded status.json artifact -> declared gate policy -> materialized required gate set -> strict fail-closed CI gate enforcement -> declared-policy CI allow/block release decision",
+      "package_role": "audit_preservation_reconstruction"
+    }
+  },
+  "ci_outcome_core": {
+    "authority_boundary": {
+      "ci_role": "records_declared_policy_enforcement",
+      "creates_release_authority": false,
+      "normative_decision_path": "recorded release evidence -> recorded status.json artifact -> declared gate policy -> materialized required gate set -> strict fail-closed CI gate enforcement -> declared-policy CI allow/block release decision"
+    },
+    "gate_check_conclusion": "success",
+    "gate_check_job": "Tools smoke tests",
+    "provider": "github_actions",
+    "repository": "HKati/pulse-release-gates-0.1",
+    "schema": "pulse_ref_ci_outcome_v0",
+    "workflow": "PULSE CI"
+  },
+  "digest_artifact_keys": [
+    "README.md",
+    "audit/release_authority_audit_bundle/README.md",
+    "audit/release_authority_audit_bundle/release_authority_manifest.json",
+    "audit/release_authority_audit_bundle/status.json",
+    "ci/ci_outcome.json",
+    "external/summaries/README.md",
+    "gates/materialized_gate_sets.json",
+    "handoff/operator_handoff_report.json",
+    "policy/pulse_gate_policy_v0.yml",
+    "policy/pulse_gate_registry_v0.yml",
+    "reconstruction/reconstruction_instructions.md",
+    "reconstruction/source_expected_outcome.json",
+    "release_authority/release_authority_manifest.json",
+    "status/status.json"
+  ],
+  "handoff_command_kinds": [
+    "materialize_required",
+    "materialize_release_required",
+    "check_gates_release-grade"
+  ],
+  "handoff_commands_normalized": [
+    {
+      "cmd": [
+        "<PYTHON>",
+        "<REPO_ROOT>/tools/policy_to_require_args.py",
+        "--policy",
+        "<PACKET_ROOT>/policy/pulse_gate_policy_v0.yml",
+        "--set",
+        "required",
+        "--format",
+        "space"
+      ],
+      "env_overrides": {},
+      "name": "materialize_required",
+      "ok": true,
+      "returncode": 0,
+      "stderr": "",
+      "stdout": "pass_controls_refusal refusal_delta_pass effect_present psf_monotonicity_ok psf_mono_shift_resilient pass_controls_comm psf_commutativity_ok psf_comm_shift_resilient pass_controls_sanit sanitization_effective sanit_shift_resilient psf_action_monotonicity_ok psf_idempotence_ok psf_path_independence_ok psf_pii_monotonicity_ok q1_grounded_ok q2_consistency_ok q3_fairness_ok q4_slo_ok\n"
+    },
+    {
+      "cmd": [
+        "<PYTHON>",
+        "<REPO_ROOT>/tools/policy_to_require_args.py",
+        "--policy",
+        "<PACKET_ROOT>/policy/pulse_gate_policy_v0.yml",
+        "--set",
+        "release_required",
+        "--format",
+        "space"
+      ],
+      "env_overrides": {},
+      "name": "materialize_release_required",
+      "ok": true,
+      "returncode": 0,
+      "stderr": "",
+      "stdout": "detectors_materialized_ok external_summaries_present external_all_pass refusal_delta_evidence_present\n"
+    },
+    {
+      "cmd": [
+        "<PYTHON>",
+        "<REPO_ROOT>/PULSE_safe_pack_v0/tools/check_gates.py",
+        "--status",
+        "<PACKET_ROOT>/status/status.json",
+        "--require",
+        "pass_controls_refusal",
+        "refusal_delta_pass",
+        "effect_present",
+        "psf_monotonicity_ok",
+        "psf_mono_shift_resilient",
+        "pass_controls_comm",
+        "psf_commutativity_ok",
+        "psf_comm_shift_resilient",
+        "pass_controls_sanit",
+        "sanitization_effective",
+        "sanit_shift_resilient",
+        "psf_action_monotonicity_ok",
+        "psf_idempotence_ok",
+        "psf_path_independence_ok",
+        "psf_pii_monotonicity_ok",
+        "q1_grounded_ok",
+        "q2_consistency_ok",
+        "q3_fairness_ok",
+        "q4_slo_ok",
+        "detectors_materialized_ok",
+        "external_summaries_present",
+        "external_all_pass",
+        "refusal_delta_evidence_present"
+      ],
+      "env_overrides": {},
+      "name": "check_gates_release-grade",
+      "ok": true,
+      "returncode": 0,
+      "stderr": "",
+      "stdout": "All required gates passed.\n"
+    }
+  ],
+  "json_artifact_schemas": {
+    "audit/release_authority_audit_bundle/release_authority_manifest.json": "release_authority_v0",
+    "ci/ci_outcome.json": "pulse_ref_ci_outcome_v0",
+    "digests/package_digests.json": "pulse_ref_package_digests_v0",
+    "gates/materialized_gate_sets.json": "pulse_ref_materialized_gate_sets_v0",
+    "handoff/operator_handoff_report.json": "pulse_ref_operator_handoff_report_v0",
+    "package_manifest.json": "pulse_ref_release_reference_package_v0",
+    "release_authority/release_authority_manifest.json": "release_authority_v0"
+  },
+  "materialized_gate_sets": {
+    "authority_boundary": {
+      "creates_release_authority": false,
+      "materialization_role": "required_gate_set_reconstruction",
+      "source": "declared_gate_policy"
+    },
+    "effective_required_gates": [
+      "pass_controls_refusal",
+      "refusal_delta_pass",
+      "effect_present",
+      "psf_monotonicity_ok",
+      "psf_mono_shift_resilient",
+      "pass_controls_comm",
+      "psf_commutativity_ok",
+      "psf_comm_shift_resilient",
+      "pass_controls_sanit",
+      "sanitization_effective",
+      "sanit_shift_resilient",
+      "psf_action_monotonicity_ok",
+      "psf_idempotence_ok",
+      "psf_path_independence_ok",
+      "psf_pii_monotonicity_ok",
+      "q1_grounded_ok",
+      "q2_consistency_ok",
+      "q3_fairness_ok",
+      "q4_slo_ok",
+      "detectors_materialized_ok",
+      "external_summaries_present",
+      "external_all_pass",
+      "refusal_delta_evidence_present"
+    ],
+    "policy_path": "policy/pulse_gate_policy_v0.yml",
+    "schema": "pulse_ref_materialized_gate_sets_v0",
+    "sets": {
+      "release_required": [
+        "detectors_materialized_ok",
+        "external_summaries_present",
+        "external_all_pass",
+        "refusal_delta_evidence_present"
+      ],
+      "required": [
+        "pass_controls_refusal",
+        "refusal_delta_pass",
+        "effect_present",
+        "psf_monotonicity_ok",
+        "psf_mono_shift_resilient",
+        "pass_controls_comm",
+        "psf_commutativity_ok",
+        "psf_comm_shift_resilient",
+        "pass_controls_sanit",
+        "sanitization_effective",
+        "sanit_shift_resilient",
+        "psf_action_monotonicity_ok",
+        "psf_idempotence_ok",
+        "psf_path_independence_ok",
+        "psf_pii_monotonicity_ok",
+        "q1_grounded_ok",
+        "q2_consistency_ok",
+        "q3_fairness_ok",
+        "q4_slo_ok"
+      ]
+    }
+  },
+  "package_manifest_named_refs": {
+    "audit_bundle": {
+      "path": "audit/release_authority_audit_bundle"
+    },
+    "ci_outcome": {
+      "path": "ci/ci_outcome.json"
+    },
+    "gate_policy": {
+      "path": "policy/pulse_gate_policy_v0.yml"
+    },
+    "gate_registry": {
+      "path": "policy/pulse_gate_registry_v0.yml"
+    },
+    "materialized_gate_sets": {
+      "path": "gates/materialized_gate_sets.json"
+    },
+    "operator_handoff_report": {
+      "path": "handoff/operator_handoff_report.json"
+    },
+    "package_digests": {
+      "path": "digests/package_digests.json"
+    },
+    "release_authority_manifest": {
+      "path": "release_authority/release_authority_manifest.json"
+    },
+    "status_artifact": {
+      "path": "status/status.json"
+    }
+  },
+  "packet_root_name": "pulse_ref_evidence_packet_v0",
+  "release_authority_decision_core": {
+    "authority": {
+      "advisory_gates": [
+        "external_summaries_present",
+        "external_all_pass"
+      ],
+      "effective_required_gates": [
+        "pass_controls_refusal",
+        "refusal_delta_pass",
+        "effect_present",
+        "psf_monotonicity_ok",
+        "psf_mono_shift_resilient",
+        "pass_controls_comm",
+        "psf_commutativity_ok",
+        "psf_comm_shift_resilient",
+        "pass_controls_sanit",
+        "sanitization_effective",
+        "sanit_shift_resilient",
+        "psf_action_monotonicity_ok",
+        "psf_idempotence_ok",
+        "psf_path_independence_ok",
+        "psf_pii_monotonicity_ok",
+        "q1_grounded_ok",
+        "q2_consistency_ok",
+        "q3_fairness_ok",
+        "q4_slo_ok",
+        "detectors_materialized_ok",
+        "external_summaries_present",
+        "external_all_pass",
+        "refusal_delta_evidence_present"
+      ],
+      "policy_set": "required+release_required",
+      "release_required_materialized": true
+    },
+    "decision": {
+      "fail_closed": true,
+      "state": "PASS"
+    },
+    "diagnostics": {
+      "shadow_surfaces_non_normative": true
+    },
+    "evaluation": {
+      "evaluator": "PULSE_safe_pack_v0/tools/check_gates.py",
+      "failed_required_gates": [],
+      "missing_required_gates": [],
+      "required_gate_results": {
+        "detectors_materialized_ok": true,
+        "effect_present": true,
+        "external_all_pass": true,
+        "external_summaries_present": true,
+        "pass_controls_comm": true,
+        "pass_controls_refusal": true,
+        "pass_controls_sanit": true,
+        "psf_action_monotonicity_ok": true,
+        "psf_comm_shift_resilient": true,
+        "psf_commutativity_ok": true,
+        "psf_idempotence_ok": true,
+        "psf_mono_shift_resilient": true,
+        "psf_monotonicity_ok": true,
+        "psf_path_independence_ok": true,
+        "psf_pii_monotonicity_ok": true,
+        "q1_grounded_ok": true,
+        "q2_consistency_ok": true,
+        "q3_fairness_ok": true,
+        "q4_slo_ok": true,
+        "refusal_delta_evidence_present": true,
+        "refusal_delta_pass": true,
+        "sanit_shift_resilient": true,
+        "sanitization_effective": true
+      }
+    },
+    "run_identity": {
+      "event_name": "release_reference_fixture",
+      "ref": "refs/heads/main",
+      "run_mode": "prod",
+      "workflow_name": "PULSE CI"
+    },
+    "schema_version": "release_authority_v0"
+  },
+  "required_paths": [
+    "README.md",
+    "package_manifest.json",
+    "status/status.json",
+    "reconstruction/source_expected_outcome.json",
+    "policy/pulse_gate_policy_v0.yml",
+    "policy/pulse_gate_registry_v0.yml",
+    "gates/materialized_gate_sets.json",
+    "ci/ci_outcome.json",
+    "release_authority/release_authority_manifest.json",
+    "audit/release_authority_audit_bundle/README.md",
+    "audit/release_authority_audit_bundle/status.json",
+    "audit/release_authority_audit_bundle/release_authority_manifest.json",
+    "digests/package_digests.json",
+    "handoff/operator_handoff_report.json",
+    "external/summaries/README.md",
+    "reconstruction/reconstruction_instructions.md"
+  ],
+  "source_fixture_identity": {
+    "expected_outcome": {
+      "expected_result": "PASS",
+      "fixture_id": "release_reference_v1/pass"
+    },
+    "fixture_id": "release_reference_v1/pass",
+    "status_schema": null
+  }
+}
