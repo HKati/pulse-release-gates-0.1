@@ -92,6 +92,36 @@ The literature search should locate PULSEmech relative to software-engineering w
 
 The literature search should not search for evidence that PULSE is a generic AI governance framework.
 
+## Related-work area ID consistency rule
+
+The `Area ID` values in this literature search plan must match the area IDs declared in:
+
+`docs/papers/PULSEMECH_RELATED_WORK_SCAFFOLD_v0.md`
+
+The literature source table must use the same IDs.
+
+Do not rename related-work area IDs between the scaffold, search plan, source table, and related-work prose.
+
+If a later document needs alternative wording for an area, keep the canonical `Area ID` unchanged and adjust only the human-readable area label.
+
+## Canonical related-work area IDs
+
+| Area ID | Canonical area label |
+|---|---|
+| `RW01_RELEASE_ENGINEERING` | Software release engineering and release gates |
+| `RW02_CI_CD_GATES` | CI/CD gate enforcement and required checks |
+| `RW03_POLICY_AS_CODE` | Policy-as-code and declarative enforcement |
+| `RW04_SOFTWARE_ASSURANCE` | Software assurance and safety-critical release processes |
+| `RW05_SUPPLY_CHAIN_PROVENANCE` | Software supply-chain provenance and artifact integrity |
+| `RW06_REPRODUCIBLE_ARTIFACTS` | Reproducible artifacts, audit bundles, evidence packages |
+| `RW07_FORMAL_OR_TYPED_RELEASE_CONTRACTS` | Contract-based software engineering, schemas, typed artifacts |
+| `RW08_MLOPS_RELEASE_READINESS` | MLOps and AI system release readiness |
+| `RW09_AI_EVALUATION_INFRASTRUCTURE` | AI evaluation infrastructure and detector summaries |
+| `RW10_AI_SAFETY_GOVERNANCE_BOUNDARY` | AI safety governance and risk management |
+| `RW11_RUNTIME_GUARDRAILS` | Runtime guardrails and runtime safety filters |
+| `RW12_AUDITABILITY_AND_TRACEABILITY` | Auditability, traceability, and accountability in software systems |
+| `RW13_RELEASE_DECISION_STABILITY` | Regression testing, snapshot testing, drift detection, and release-decision stability |
+
 ## Source quality tiers
 
 | Tier | Source type | Use |
@@ -119,11 +149,12 @@ The literature search should not search for evidence that PULSE is a generic AI 
 A source may be included in the literature pass only if:
 
 1. it belongs to one or more related-work areas from the scaffold;
-2. it has a clear source role;
-3. its relevance to PULSEmech is stated in one sentence;
-4. its boundary is stated;
-5. it does not force PULSEmech into an incorrect identity;
-6. it is not merely decorative.
+2. it uses the canonical `Area ID` declared in this plan and in the scaffold;
+3. it has a clear source role;
+4. its relevance to PULSEmech is stated in one sentence;
+5. its boundary is stated;
+6. it does not force PULSEmech into an incorrect identity;
+7. it is not merely decorative.
 
 ## Exclusion rule
 
@@ -136,7 +167,8 @@ Exclude a source when:
 - it treats audit logs as decision engines;
 - it treats CI success as equivalent to declared-policy release authority;
 - it is mostly marketing or vendor positioning;
-- it is not technically relevant to the paper claim boundary.
+- it is not technically relevant to the paper claim boundary;
+- it cannot be mapped to a canonical related-work `Area ID`.
 
 ## Search area matrix
 
@@ -148,17 +180,17 @@ Exclude a source when:
 | `RW04_SOFTWARE_ASSURANCE` | Software assurance and safety-critical release processes | medium | context / boundary contrast |
 | `RW05_SUPPLY_CHAIN_PROVENANCE` | Software supply-chain provenance and artifact integrity | high | context / methodological support |
 | `RW06_REPRODUCIBLE_ARTIFACTS` | Reproducible artifacts, audit bundles, evidence packages | high | methodological support / direct comparison |
-| `RW07_TYPED_RELEASE_CONTRACTS` | Contract-based software engineering, schemas, typed artifacts | medium | terminology support / direct comparison |
+| `RW07_FORMAL_OR_TYPED_RELEASE_CONTRACTS` | Contract-based software engineering, schemas, typed artifacts | medium | terminology support / direct comparison |
 | `RW08_MLOPS_RELEASE_READINESS` | MLOps and AI system release readiness | medium | context / boundary contrast |
 | `RW09_AI_EVALUATION_INFRASTRUCTURE` | AI evaluation infrastructure and detector summaries | medium | context / boundary contrast |
 | `RW10_AI_SAFETY_GOVERNANCE_BOUNDARY` | AI safety governance and risk management | low / boundary only | boundary contrast |
 | `RW11_RUNTIME_GUARDRAILS` | Runtime guardrails and runtime safety filters | medium / contrast | boundary contrast |
-| `RW12_AUDITABILITY_TRACEABILITY` | Auditability, traceability, accountability in software systems | medium | context / methodological support |
-| `RW13_DECISION_STABILITY_REGRESSION` | Regression testing, snapshot testing, drift detection | high | methodological support / direct comparison |
+| `RW12_AUDITABILITY_AND_TRACEABILITY` | Auditability, traceability, and accountability in software systems | medium | context / methodological support |
+| `RW13_RELEASE_DECISION_STABILITY` | Regression testing, snapshot testing, drift detection, and release-decision stability | high | methodological support / direct comparison |
 
 ## Search query plan
 
-### RW01 — Software release engineering and release gates
+### RW01_RELEASE_ENGINEERING — Software release engineering and release gates
 
 Search queries:
 
@@ -184,7 +216,7 @@ Boundary:
 
 Do not use sources to imply that conventional release gates already provide artifact-bound AI release authority.
 
-### RW02 — CI/CD gate enforcement
+### RW02_CI_CD_GATES — CI/CD gate enforcement
 
 Search queries:
 
@@ -210,7 +242,7 @@ Boundary:
 
 Do not equate generic CI success with declared-policy release authority.
 
-### RW03 — Policy-as-code and declarative enforcement
+### RW03_POLICY_AS_CODE — Policy-as-code and declarative enforcement
 
 Search queries:
 
@@ -236,7 +268,7 @@ Boundary:
 
 Do not imply that policy text alone authorizes release.
 
-### RW04 — Software assurance and safety-critical release processes
+### RW04_SOFTWARE_ASSURANCE — Software assurance and safety-critical release processes
 
 Search queries:
 
@@ -262,7 +294,7 @@ Boundary:
 
 Do not present PULSEmech as a complete safety assurance case.
 
-### RW05 — Supply-chain provenance and artifact integrity
+### RW05_SUPPLY_CHAIN_PROVENANCE — Supply-chain provenance and artifact integrity
 
 Search queries:
 
@@ -289,7 +321,7 @@ Boundary:
 
 Provenance supports trust and reconstruction; it does not itself authorize release in PULSEmech.
 
-### RW06 — Reproducible artifacts and audit bundles
+### RW06_REPRODUCIBLE_ARTIFACTS — Reproducible artifacts and audit bundles
 
 Search queries:
 
@@ -316,7 +348,7 @@ Boundary:
 
 A reproducible artifact package is not a release decision engine.
 
-### RW07 — Contract-based and schema-based release artifacts
+### RW07_FORMAL_OR_TYPED_RELEASE_CONTRACTS — Contract-based and schema-based release artifacts
 
 Search queries:
 
@@ -342,7 +374,7 @@ Boundary:
 
 Schema validity is not release permission.
 
-### RW08 — MLOps and AI release readiness
+### RW08_MLOPS_RELEASE_READINESS — MLOps and AI release readiness
 
 Search queries:
 
@@ -368,7 +400,7 @@ Boundary:
 
 PULSEmech is not a training pipeline, model evaluation metric, or model monitoring system.
 
-### RW09 — AI evaluation infrastructure and detector summaries
+### RW09_AI_EVALUATION_INFRASTRUCTURE — AI evaluation infrastructure and detector summaries
 
 Search queries:
 
@@ -395,7 +427,7 @@ Boundary:
 
 Evaluation outputs are candidate evidence, not automatic release permission.
 
-### RW10 — AI safety governance and risk management
+### RW10_AI_SAFETY_GOVERNANCE_BOUNDARY — AI safety governance and risk management
 
 Search queries:
 
@@ -421,7 +453,7 @@ Boundary:
 
 Do not use these sources to frame PULSEmech as generic governance.
 
-### RW11 — Runtime guardrails and runtime safety filters
+### RW11_RUNTIME_GUARDRAILS — Runtime guardrails and runtime safety filters
 
 Search queries:
 
@@ -446,7 +478,7 @@ Boundary:
 
 Runtime guardrails operate during use; PULSEmech operates before deployment.
 
-### RW12 — Auditability, traceability, and accountability
+### RW12_AUDITABILITY_AND_TRACEABILITY — Auditability, traceability, and accountability
 
 Search queries:
 
@@ -471,7 +503,7 @@ Boundary:
 
 Traceability surfaces are not decision engines.
 
-### RW13 — Decision stability and regression testing
+### RW13_RELEASE_DECISION_STABILITY — Decision stability and regression testing
 
 Search queries:
 
@@ -506,10 +538,11 @@ For each area:
 3. prefer primary technical sources;
 4. classify each source by source quality tier;
 5. classify each source by source role;
-6. write a one-sentence relevance note;
-7. write a one-sentence boundary note;
-8. decide include / exclude / reserve;
-9. only then add the source to the related-work source table.
+6. map each source to one or more canonical related-work `Area ID` values;
+7. write a one-sentence relevance note;
+8. write a one-sentence boundary note;
+9. decide include / exclude / reserve;
+10. only then add the source to the related-work source table.
 
 ## Source record template
 
@@ -519,7 +552,7 @@ Use this template for each candidate source in the later literature pass:
 ### Source ID
 
 Source ID: `RW-SRC-___`  
-Area: `RW__`  
+Area ID: `RW__`  
 Citation: to fill  
 Source quality tier: `T1_PRIMARY` / `T2_TECHNICAL` / `T3_CONTEXT` / `T4_BACKGROUND` / `EXCLUDE`  
 Source role: `context` / `direct comparison` / `boundary contrast` / `terminology support` / `methodological support` / `standard / specification` / `exclude`  
@@ -543,7 +576,7 @@ Before writing related-work prose, aim for:
 | AI evaluation infrastructure | 1–3 strong sources |
 | Runtime guardrails as contrast | 1–2 strong sources |
 | Auditability / traceability | 1–3 strong sources |
-| Regression / drift detection | 1–3 strong sources |
+| Regression / drift detection / release-decision stability | 1–3 strong sources |
 
 The final paper should cite only the necessary subset.
 
@@ -558,10 +591,11 @@ Before including a source, ask:
 1. Does this source clarify the mechanism?
 2. Does this source clarify a boundary?
 3. Does this source help locate PULSEmech in cs.SE?
-4. Does this source accidentally pull PULSEmech into the wrong category?
-5. Does this source encourage governance/framework/runtime-guardrail language?
-6. Does this source help distinguish evidence from release permission?
-7. Does this source help distinguish artifact integrity from release authority?
+4. Does this source use or support a canonical related-work `Area ID`?
+5. Does this source accidentally pull PULSEmech into the wrong category?
+6. Does this source encourage governance/framework/runtime-guardrail language?
+7. Does this source help distinguish evidence from release permission?
+8. Does this source help distinguish artifact integrity from release authority?
 
 If the source does not help with mechanism, boundary, or positioning, exclude it.
 
@@ -570,7 +604,7 @@ If the source does not help with mechanism, boundary, or positioning, exclude it
 The next literature pass should produce:
 
 - source table with source IDs;
-- area classification;
+- canonical related-work `Area ID` classification;
 - source quality tier;
 - source role;
 - relevance note;
@@ -586,7 +620,7 @@ Until a source is selected and verified, related-work prose must use placeholder
 Example:
 
 ```text
-[RW source needed: software release engineering / CI release gates]
+[RW source needed: RW01_RELEASE_ENGINEERING / software release engineering and release gates]
 ```
 
 Do not write final related-work prose with uncited claims.
@@ -596,20 +630,28 @@ Do not write final related-work prose with uncited claims.
 Before merging changes to this document, run:
 
 ```bash
+grep -n '^## Related-work area ID consistency rule$' docs/papers/PULSEMECH_LITERATURE_SEARCH_PLAN_v0.md
+grep -n '^## Canonical related-work area IDs$' docs/papers/PULSEMECH_LITERATURE_SEARCH_PLAN_v0.md
 grep -n '^## Search area matrix$' docs/papers/PULSEMECH_LITERATURE_SEARCH_PLAN_v0.md
 grep -n '^## Search query plan$' docs/papers/PULSEMECH_LITERATURE_SEARCH_PLAN_v0.md
 grep -n '^## Source search workflow$' docs/papers/PULSEMECH_LITERATURE_SEARCH_PLAN_v0.md
 grep -n '^## Source record template$' docs/papers/PULSEMECH_LITERATURE_SEARCH_PLAN_v0.md
 grep -n '^## Literature pass output requirements$' docs/papers/PULSEMECH_LITERATURE_SEARCH_PLAN_v0.md
+grep -n 'RW07_FORMAL_OR_TYPED_RELEASE_CONTRACTS' docs/papers/PULSEMECH_LITERATURE_SEARCH_PLAN_v0.md
+grep -n 'RW12_AUDITABILITY_AND_TRACEABILITY' docs/papers/PULSEMECH_LITERATURE_SEARCH_PLAN_v0.md
+grep -n 'RW13_RELEASE_DECISION_STABILITY' docs/papers/PULSEMECH_LITERATURE_SEARCH_PLAN_v0.md
 ```
 
 Expected result:
 
+- related-work area ID consistency rule is present;
+- canonical area ID table is present;
 - search area matrix is present;
 - search query plan is present;
 - source search workflow is present;
 - source record template is present;
-- literature pass output requirements are present.
+- literature pass output requirements are present;
+- scaffold-aligned canonical IDs are present.
 
 ## Next paper step
 
