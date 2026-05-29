@@ -485,20 +485,22 @@ Before converting this skeleton into a full manuscript draft:
 Before merging changes to this document, run:
 
 ```bash
-grep -n "Controlled abstract skeleton" docs/papers/PULSEMECH_CONTROLLED_PROSE_SKELETON_v0.md
-grep -n "Release-authority model" docs/papers/PULSEMECH_CONTROLLED_PROSE_SKELETON_v0.md
-grep -n "PULSE-REF reference path" docs/papers/PULSEMECH_CONTROLLED_PROSE_SKELETON_v0.md
-grep -n "Validation and regression strategy" docs/papers/PULSEMECH_CONTROLLED_PROSE_SKELETON_v0.md
-grep -n "Prose expansion gate" docs/papers/PULSEMECH_CONTROLLED_PROSE_SKELETON_v0.md
+grep -n '^## Controlled abstract skeleton$' docs/papers/PULSEMECH_CONTROLLED_PROSE_SKELETON_v0.md
+grep -n '^## 2\. Release-authority model$' docs/papers/PULSEMECH_CONTROLLED_PROSE_SKELETON_v0.md
+grep -n '^## 5\. PULSE-REF reference path$' docs/papers/PULSEMECH_CONTROLLED_PROSE_SKELETON_v0.md
+grep -n '^## 6\. Validation and regression strategy$' docs/papers/PULSEMECH_CONTROLLED_PROSE_SKELETON_v0.md
+grep -n '^## Prose expansion gate$' docs/papers/PULSEMECH_CONTROLLED_PROSE_SKELETON_v0.md
+grep -n '^# PULSEmech Minimal First-Draft Outline v0$' docs/papers/PULSEMECH_MINIMAL_FIRST_DRAFT_OUTLINE_v0.md
 ```
 
 Expected result:
 
-- controlled abstract skeleton is present;
-- release-authority model section is present;
-- PULSE-REF reference path section is present;
-- validation and regression section is present;
-- prose expansion gate is present.
+- controlled abstract skeleton heading is present;
+- release-authority model heading is present;
+- PULSE-REF reference path heading is present;
+- validation and regression heading is present;
+- prose expansion gate heading is present;
+- the minimal first-draft outline dependency exists.
 
 ## Next paper step
 
