@@ -95,7 +95,7 @@ Before final submission, each source must be checked again for:
 | `reserve` | Keep in reserve; do not use unless needed. |
 | `boundary-only` | Use only for contrast / non-identity framing. |
 | `needs replacement` | Placeholder or insufficient source; replace before submission-stage use. |
-| `submission-lock-required` | Useful source, but final DOI/arXiv/stable URL or version lock remains required. |
+| `submission-lock-required` | Useful source, but final DOI/arXiv/stable URL, final venue, publication year, version, or proceedings metadata remains required before citation-key replacement or submission-stage use. |
 
 ## External source metadata lock table
 
@@ -111,8 +111,8 @@ Before final submission, each source must be checked again for:
 | `RW-SRC-012` | `RW08_MLOPS_RELEASE_READINESS` | `Sculley2015MLDebt` | D. Sculley, Gary Holt, Daniel Golovin, Eugene Davydov, Todd Phillips, Dietmar Ebner, Vinay Chaudhary, Michael Young, Jean-François Crespo, Dan Dennison. “Hidden Technical Debt in Machine Learning Systems.” Advances in Neural Information Processing Systems 28, 2015. | NeurIPS proceedings page; DOI if any to verify before submission. | context / boundary contrast | include | metadata-checked / locator-checked / citation-key-assigned / submission-lock-required | AI systems engineering context only; not a PULSEmech identity source. |
 | `RW-SRC-014` | `RW09_AI_EVALUATION_INFRASTRUCTURE` | `Mitchell2019ModelCards` | Margaret Mitchell, Simone Wu, Andrew Zaldivar, Parker Barnes, Lucy Vasserman, Ben Hutchinson, Elena Spitzer, Inioluwa Deborah Raji, Timnit Gebru. “Model Cards for Model Reporting.” 2018 arXiv preprint / 2019 ACM FAccT publication. | arXiv:1810.03993; ACM DOI / proceedings locator to verify before submission. | context / boundary contrast | include | metadata-checked / locator-checked / citation-key-assigned / submission-lock-required | Model cards are evidence/reporting surfaces, not release permission. |
 | `RW-SRC-015` | `RW10_AI_SAFETY_GOVERNANCE_BOUNDARY` | `NIST2023AIRMF` | NIST Artificial Intelligence Risk Management Framework (AI RMF 1.0). Official NIST AI RMF resource. | Official NIST AI RMF page; DOI / PDF locator to verify before submission. | boundary contrast / context | boundary-only | metadata-checked / locator-checked / citation-key-assigned / submission-lock-required | Governance/risk context only; do not frame PULSEmech as generic AI governance. |
-| `RW-SRC-016` | `RW11_RUNTIME_GUARDRAILS` | `Wang2025GuardrailsSoK` | Xunguang Wang, Zhenlan Ji, Wenxuan Wang, Zongjie Li, Daoyuan Wu, Shuai Wang. “SoK: Evaluating Jailbreak Guardrails for Large Language Models.” 2025. | arXiv:2506.10597. | boundary contrast | include | metadata-checked / locator-checked / citation-key-assigned / citation-ready-draft | Runtime guardrails differ from pre-release authority. |
-| `RW-SRC-019` | `RW05_SUPPLY_CHAIN_PROVENANCE` | `Okafor2024SupplyChainSoK` | Chinenye Okafor, Taylor R. Schorlemmer, Santiago Torres-Arias, James C. Davis. “SoK: Analysis of Software Supply Chain Security by Establishing Secure Design Properties.” 2024. | arXiv:2406.10109. | context / methodological support | include | metadata-checked / locator-checked / citation-key-assigned / citation-ready-draft | Supply-chain security context; not PULSEmech mechanism. |
+| `RW-SRC-016` | `RW11_RUNTIME_GUARDRAILS` | `Wang2026GuardrailsSoK` | Xunguang Wang, Zhenlan Ji, Wenxuan Wang, Zongjie Li, Daoyuan Wu, Shuai Wang. “SoK: Evaluating Jailbreak Guardrails for Large Language Models.” arXiv preprint submitted 2025; revised v2 on 2025-10-16; accepted by IEEE S&P 2026 Cycle 1 according to the arXiv record. | arXiv:2506.10597; arXiv DOI: `10.48550/arXiv.2506.10597`; final IEEE S&P 2026 proceedings metadata / DOI still to verify before submission. | boundary contrast | include | metadata-checked / locator-checked / citation-key-assigned / submission-lock-required | Runtime guardrails differ from pre-release authority; final venue/year must be locked before citation-key replacement or final bibliography use. |
+| `RW-SRC-019` | `RW05_SUPPLY_CHAIN_PROVENANCE` | `Okafor2022SupplyChainSoK` | Chinenye Okafor, Taylor R. Schorlemmer, Santiago Torres-Arias, James C. Davis. “SoK: Analysis of Software Supply Chain Security by Establishing Secure Design Properties.” Published in the proceedings of the 1st ACM Workshop on Software Supply Chain Offensive Research and Ecosystem Defenses (SCORED) 2022 according to the arXiv record; arXiv submission dated 2024-06-14. | arXiv:2406.10109; arXiv DOI: `10.48550/arXiv.2406.10109`; final ACM SCORED 2022 proceedings metadata / DOI still to verify before submission. | context / methodological support | include | metadata-checked / locator-checked / citation-key-assigned / submission-lock-required | Supply-chain security context; not PULSEmech mechanism; final venue/year must be locked before citation-key replacement or final bibliography use. |
 
 ## Reserve source metadata lock table
 
@@ -162,8 +162,8 @@ Possible replacement direction:
 | `RW-SRC-012` | `Sculley2015MLDebt` | AI systems engineering context |
 | `RW-SRC-014` | `Mitchell2019ModelCards` | model documentation / evaluation artifact boundary |
 | `RW-SRC-015` | `NIST2023AIRMF` | AI governance boundary context |
-| `RW-SRC-016` | `Wang2025GuardrailsSoK` | runtime guardrail boundary contrast |
-| `RW-SRC-019` | `Okafor2024SupplyChainSoK` | software supply-chain security context |
+| `RW-SRC-016` | `Wang2026GuardrailsSoK` | runtime guardrail boundary contrast; final IEEE S&P 2026 metadata still requires submission lock |
+| `RW-SRC-019` | `Okafor2022SupplyChainSoK` | software supply-chain security context; final ACM SCORED 2022 metadata still requires submission lock |
 
 ## Metadata lock findings
 
@@ -174,16 +174,16 @@ The following sources are ready for draft citation, subject to final formatting:
 - `RW-SRC-004`
 - `RW-SRC-009`
 - `RW-SRC-010`
-- `RW-SRC-016`
-- `RW-SRC-019`
 
 ### Ready for draft citation but needs final DOI / venue lock
 
-The following sources are usable but should have DOI / final venue metadata checked before submission:
+The following sources are useful for draft citation scaffolding, but must remain `submission-lock-required` before citation-key replacement or final bibliography use:
 
 - `RW-SRC-001`
 - `RW-SRC-012`
 - `RW-SRC-014`
+- `RW-SRC-016`
+- `RW-SRC-019`
 
 ### Official documentation sources needing version/date lock
 
@@ -211,12 +211,15 @@ The following placeholder must be replaced or removed before submission-stage re
 When updating related-work prose:
 
 1. replace `RW-SRC-*` markers with citation keys only after source metadata is checked;
-2. keep source IDs in comments or planning docs until final bibliography is generated;
-3. preserve source boundaries;
-4. do not use reserve sources unless needed;
-5. remove placeholder sources from final prose;
-6. do not let official documentation sources become broad claims beyond their technical scope;
-7. do not use governance sources as PULSEmech identity sources.
+2. do not run citation-key replacement on sources marked `submission-lock-required` unless the replacement explicitly preserves the lock note;
+3. keep source IDs in comments or planning docs until final bibliography is generated;
+4. preserve source boundaries;
+5. do not use reserve sources unless needed;
+6. remove placeholder sources from final prose;
+7. do not let official documentation sources become broad claims beyond their technical scope;
+8. do not use governance sources as PULSEmech identity sources;
+9. do not let arXiv submission year override known proceedings year when the arXiv record states a different publication venue/year;
+10. do not let accepted-but-not-final proceedings papers become `citation-ready-draft` before final venue metadata is locked.
 
 ## Final source metadata tasks before submission
 
@@ -228,6 +231,8 @@ Before submission-stage manuscript:
 - verify exact in-toto specification / documentation version for `RW-SRC-007`;
 - verify final DOI / ACM proceedings metadata for `RW-SRC-014`;
 - verify NIST AI RMF DOI/PDF locator for `RW-SRC-015`;
+- verify final IEEE S&P 2026 proceedings metadata / DOI for `RW-SRC-016`;
+- verify final ACM SCORED 2022 proceedings metadata / DOI for `RW-SRC-019`;
 - replace or remove `RW-SRC-017`;
 - decide whether any reserve sources enter the final paper;
 - create final BibTeX / bibliography entries.
@@ -245,6 +250,10 @@ grep -n '^## Metadata lock findings$' docs/papers/PULSEMECH_SOURCE_METADATA_LOCK
 grep -n 'RW-SRC-017' docs/papers/PULSEMECH_SOURCE_METADATA_LOCK_v0.md
 grep -n 'arXiv:1703.07019' docs/papers/PULSEMECH_SOURCE_METADATA_LOCK_v0.md
 grep -n '10.6028/NIST.SP.800-218' docs/papers/PULSEMECH_SOURCE_METADATA_LOCK_v0.md
+grep -n 'Wang2026GuardrailsSoK' docs/papers/PULSEMECH_SOURCE_METADATA_LOCK_v0.md
+grep -n 'IEEE S&P 2026' docs/papers/PULSEMECH_SOURCE_METADATA_LOCK_v0.md
+grep -n 'Okafor2022SupplyChainSoK' docs/papers/PULSEMECH_SOURCE_METADATA_LOCK_v0.md
+grep -n 'ACM Workshop on Software Supply Chain Offensive Research and Ecosystem Defenses (SCORED) 2022' docs/papers/PULSEMECH_SOURCE_METADATA_LOCK_v0.md
 grep -n 'arXiv:2506.10597' docs/papers/PULSEMECH_SOURCE_METADATA_LOCK_v0.md
 grep -n 'arXiv:2406.10109' docs/papers/PULSEMECH_SOURCE_METADATA_LOCK_v0.md
 ```
@@ -257,7 +266,11 @@ Expected result:
 - source key map is present;
 - metadata lock findings are present;
 - unresolved placeholder source `RW-SRC-017` is tracked;
-- key arXiv / DOI locators are present.
+- key arXiv / DOI locators are present;
+- `RW-SRC-016` uses `Wang2026GuardrailsSoK`;
+- `RW-SRC-016` records IEEE S&P 2026 acceptance boundary and remains `submission-lock-required`;
+- `RW-SRC-019` uses `Okafor2022SupplyChainSoK`;
+- `RW-SRC-019` records ACM SCORED 2022 publication boundary and remains `submission-lock-required`.
 
 ## Next paper step
 
@@ -265,4 +278,4 @@ After this source metadata lock is merged, the next paper step is:
 
 `docs(paper): add PULSEmech citation key replacement pass v0`
 
-That step should replace `RW-SRC-*` markers in the related-work prose with provisional citation keys while preserving the source table and source metadata lock as trace surfaces.
+That step should replace `RW-SRC-*` markers in the related-work prose with provisional citation keys only for sources whose lock state allows safe replacement, while preserving the source table and source metadata lock as trace surfaces.
