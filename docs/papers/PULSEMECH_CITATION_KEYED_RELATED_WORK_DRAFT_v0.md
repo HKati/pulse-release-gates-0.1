@@ -271,6 +271,8 @@ Before using this draft as a base for submission-stage related work, verify:
 - `RW-SRC-017` remains unresolved and is not converted into a citation key.
 - No reserve source appears in the prose without explicit promotion.
 - No source is used outside its declared boundary.
+- The corrected guardrail source key remains present and the deprecated guardrail source key is absent from the entire file.
+- The corrected supply-chain source key remains present and the deprecated supply-chain source key is absent from the entire file.
 
 ## Validation checks for this document
 
@@ -289,8 +291,8 @@ grep -n 'Wang2026GuardrailsSoK; submission lock required for final IEEE S&P 2026
 grep -n 'Boundary source: NIST2023AIRMF; governance / risk context only; submission lock required for final NIST AI RMF DOI / PDF locator' docs/papers/PULSEMECH_CITATION_KEYED_RELATED_WORK_DRAFT_v0.md
 grep -n 'Okafor2022SupplyChainSoK; submission lock required for final ACM SCORED 2022 proceedings metadata / DOI' docs/papers/PULSEMECH_CITATION_KEYED_RELATED_WORK_DRAFT_v0.md
 grep -n 'RW-SRC-017' docs/papers/PULSEMECH_CITATION_KEYED_RELATED_WORK_DRAFT_v0.md
-! awk '/^# PULSEmech Citation-Keyed Related-Work Draft v0$/{flag=1} /^## Validation checks for this document$/{flag=0} flag' docs/papers/PULSEMECH_CITATION_KEYED_RELATED_WORK_DRAFT_v0.md | grep -n 'Wang2025GuardrailsSoK'
-! awk '/^# PULSEmech Citation-Keyed Related-Work Draft v0$/{flag=1} /^## Validation checks for this document$/{flag=0} flag' docs/papers/PULSEMECH_CITATION_KEYED_RELATED_WORK_DRAFT_v0.md | grep -n 'Okafor2024SupplyChainSoK'
+! grep -n 'Wang202[5]GuardrailsSoK' docs/papers/PULSEMECH_CITATION_KEYED_RELATED_WORK_DRAFT_v0.md
+! grep -n 'Okafor202[4]SupplyChainSoK' docs/papers/PULSEMECH_CITATION_KEYED_RELATED_WORK_DRAFT_v0.md
 ```
 
 Expected result:
@@ -305,7 +307,8 @@ Expected result:
 - corrected `Okafor2022SupplyChainSoK` key is present;
 - NIST AI RMF boundary lock note is present;
 - unresolved `RW-SRC-017` remains tracked;
-- old incorrect source keys are absent outside the validation section.
+- deprecated guardrail key is absent from the entire file;
+- deprecated supply-chain key is absent from the entire file.
 
 ## Next paper step
 
