@@ -350,7 +350,7 @@ grep -n '^## Bibliography risk table$' docs/papers/PULSEMECH_BIBLIOGRAPHY_LOCK_P
 grep -n '^## Final citation readiness checklist$' docs/papers/PULSEMECH_BIBLIOGRAPHY_LOCK_PLAN_v0.md
 grep -n '^## Reserve promotion rule$' docs/papers/PULSEMECH_BIBLIOGRAPHY_LOCK_PLAN_v0.md
 grep -n 'explicitly promoted in a later source-selection update' docs/papers/PULSEMECH_BIBLIOGRAPHY_LOCK_PLAN_v0.md
-! grep -n 'unless needed' docs/papers/PULSEMECH_BIBLIOGRAPHY_LOCK_PLAN_v0.md
+! awk '/^# PULSEmech Bibliography Lock Plan v0$/{flag=1} /^## Validation checks for this document$/{flag=0} flag' docs/papers/PULSEMECH_BIBLIOGRAPHY_LOCK_PLAN_v0.md | grep -n 'unless need[e]d'
 grep -n 'RW-SRC-017' docs/papers/PULSEMECH_BIBLIOGRAPHY_LOCK_PLAN_v0.md
 grep -n 'PULSE_safe_pack_v0/artifacts/status.json' docs/papers/PULSEMECH_BIBLIOGRAPHY_LOCK_PLAN_v0.md
 grep -n 'PULSE_safe_pack_v0/artifacts/release_authority_audit_bundle/' docs/papers/PULSEMECH_BIBLIOGRAPHY_LOCK_PLAN_v0.md
@@ -366,7 +366,7 @@ Expected result:
 - final citation readiness checklist is present;
 - reserve promotion rule is present;
 - reserve-source usage requires explicit promotion;
-- loose `unless needed` wording is absent;
+- loose reserve wording is absent outside the validation section;
 - placeholder source `RW-SRC-017` is explicitly tracked;
 - generated status artifact path is present;
 - generated audit bundle path is present.
