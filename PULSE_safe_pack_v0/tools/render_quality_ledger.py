@@ -128,7 +128,9 @@ def gate_status_parts(ok: bool) -> Tuple[str, str]:
     return ("PASS", "status-pass") if ok else ("FAIL", "status-fail")
 
 
-def select_required_gates(status: Dict[str, Any], *, status_path: Path) -> tuple[List[str], str]:
+def select_required_gates(
+    status: Dict[str, Any], *, status_path: Path
+) -> tuple[List[str], str]:
     """
     Resolve the gate IDs that are actually decision-bearing for the ledger banner.
 
@@ -167,11 +169,15 @@ def select_required_gates(status: Dict[str, Any], *, status_path: Path) -> tuple
     return [], "unresolved"
 
 
-def decision_from_status(status: Dict[str, Any], *, status_path: Path) -> Tuple[str, str]:
+def decision_from_status(
+    status: Dict[str, Any], *, status_path: Path
+) -> Tuple[str, str]:
     metrics = as_dict(status.get("metrics"))
     gates = as_dict(status.get("gates"))
 
-    required_gate_ids, _decision_source = select_required_gates(status, status_path=status_path)
+    required_gate_ids, _decision_source = select_required_gates(
+        status, status_path=status_path
+    )
     if not required_gate_ids:
         return "UNKNOWN", "badge-unknown"
 
@@ -187,6 +193,99 @@ def decision_from_status(status: Dict[str, Any], *, status_path: Path) -> Tuple[
     if run_mode == "demo":
         return "DEMO-PASS", "badge-pass"
     return "PASS", "badge-pass"
+
+
+def surface_run_grade(status: Dict[str, Any]) -> str:
+    metrics = as_dict(status.get("metrics"))
+    run_mode = str(metrics.get("run_mode", "")).strip().lower()
+    return run_mode or "unknown"
+
+
+def is_release_grade_surface(status: Dict[str, Any]) -> bool:
+    """
+    Return whether the rendered public surface may be read as release-grade.
+
+    This is a public-surface interpretation guard, not the release decision
+    function. The release decision remains decision_from_status/check_gates.py.
+    """
+    gates = as_dict(status.get("gates"))
+    diagnostics = as_dict(status.get("diagnostics"))
+
+    return (
+        surface_run_grade(status) == "prod"
+        and diagnostics.get("gates_stubbed") is not True
+        and diagnostics.get("scaffold") is not True
+        and gates.get("detectors_materialized_ok") is True
+        and gates.get("external_summaries_present") is True
+        and gates.get("external_all_pass") is True
+    )
+
+
+def surface_evidence_state(status: Dict[str, Any]) -> str:
+    if is_release_grade_surface(status):
+        return "materialized"
+
+    gates = as_dict(status.get("gates"))
+    diagnostics = as_dict(status.get("diagnostics"))
+
+    states: List[str] = []
+    if diagnostics.get("gates_stubbed") is True:
+        states.append("stubbed")
+    if diagnostics.get("scaffold") is True:
+        states.append("scaffolded")
+    if gates.get("detectors_materialized_ok") is not True:
+        states.append("non-materialized detector evidence")
+    if gates.get("external_summaries_present") is not True:
+        states.append("external summaries incomplete")
+    if gates.get("external_all_pass") is not True:
+        states.append("external evidence incomplete")
+
+    return " / ".join(states) if states else "non-release"
+
+
+def public_decision_label(decision_label: str, status: Dict[str, Any]) -> str:
+    suffix = (
+        "RELEASE-GRADE VIEW" if is_release_grade_surface(status) else "NON-RELEASE VIEW"
+    )
+    return f"{decision_label} — {suffix}"
+
+
+def public_decision_class(decision_class: str, status: Dict[str, Any]) -> str:
+    if is_release_grade_surface(status):
+        return decision_class
+    if decision_class == "badge-fail":
+        return "badge-fail"
+    return "badge-reader"
+
+
+def render_public_surface_boundary(status: Dict[str, Any], decision_label: str) -> str:
+    release_grade_label = (
+        "RELEASE-GRADE" if is_release_grade_surface(status) else "NOT RELEASE-GRADE"
+    )
+    rows_html = render_meta_list(
+        [
+            ("Surface role", "Public reader surface"),
+            ("Authority scope", "Non-normative display surface"),
+            ("Run grade", surface_run_grade(status)),
+            ("Release-grade status", release_grade_label),
+            ("Evidence state", surface_evidence_state(status)),
+            ("Public verdict display", public_decision_label(decision_label, status)),
+        ]
+    )
+    return (
+        '<div class="surface-boundary">'
+        "<h2>PUBLIC READER SURFACE — NON-NORMATIVE</h2>"
+        "<p>This page displays a recorded <code>status.json</code> artifact. "
+        "It is not itself the release authority.</p>"
+        "<p>Release authority remains the PULSEmech path: "
+        "<code>status.json</code> → declared gate policy → materialized required gate set "
+        "→ strict fail-closed CI enforcement.</p>"
+        f'<div class="meta-grid">{rows_html}</div>'
+        '<p class="subtle">This public surface is release-grade only when it is bound '
+        "to a prod run with non-stubbed, non-scaffolded, materialized detector evidence "
+        "and passing external evidence gates.</p>"
+        "</div>"
+    )
 
 
 def render_meta_list(rows: Iterable[Tuple[str, Any]]) -> str:
@@ -362,21 +461,24 @@ def render_q1_reference_shadow_section(status: Dict[str, Any]) -> str:
     rows = [
         ("meta.q1_reference_shadow.pass", html_text(q1.get("pass"))),
         ("meta.q1_reference_shadow.grounded_rate", html_text(q1.get("grounded_rate"))),
-        ("meta.q1_reference_shadow.wilson_lower_bound", html_text(q1.get("wilson_lower_bound"))),
+        (
+         "meta.q1_reference_shadow.wilson_lower_bound",
+         html_text(q1.get("wilson_lower_bound")),
+        ),
         ("meta.q1_reference_shadow.n_eligible", html_text(q1.get("n_eligible"))),
         ("meta.q1_reference_shadow.threshold", html_text(q1.get("threshold"))),
-        ("meta.q1_reference_shadow.summary_artifact.path", html_text(summary_artifact.get("path"))),
         (
+        (
+         "meta.q1_reference_shadow.summary_artifact.path",
+         html_text(summary_artifact.get("path")),
+        ),
             "meta.q1_reference_shadow.summary_artifact.sha256",
             html_short_hash(summary_artifact.get("sha256")),
         ),
     ]
 
     body = "".join(
-        "<tr>"
-        f"<td><code>{escape(name)}</code></td>"
-        f"<td>{value_html}</td>"
-        "</tr>"
+        "<tr>" f"<td><code>{escape(name)}</code></td>" f"<td>{value_html}</td>" "</tr>"
         for name, value_html in rows
     )
 
@@ -423,7 +525,10 @@ def render_hazard_section(metrics: Dict[str, Any]) -> str:
         ("metrics.hazard_baseline_ok", metrics.get("hazard_baseline_ok")),
         ("metrics.hazard_gate_id", metrics.get("hazard_gate_id")),
         ("metrics.hazard_T_scaled", metrics.get("hazard_T_scaled")),
-        ("metrics.hazard_stability_map_schema", metrics.get("hazard_stability_map_schema")),
+        (
+         "metrics.hazard_stability_map_schema",
+          metrics.get("hazard_stability_map_schema"),
+        ),
         ("metrics.hazard_stability_map_path", metrics.get("hazard_stability_map_path")),
     ]
 
@@ -483,7 +588,11 @@ def render_quality_ledger(status: Dict[str, Any], *, status_path: Path) -> str:
     gates = as_dict(status.get("gates"))
     diagnostics = as_dict(status.get("diagnostics"))
 
-    decision_label, decision_class = decision_from_status(status, status_path=status_path)
+    decision_label, decision_class = decision_from_status(
+        status, status_path=status_path
+    )
+    public_label = public_decision_label(decision_label, status)
+    public_class = public_decision_class(decision_class, status)
     gate_buckets = build_gate_buckets(gates)
 
     header_meta = render_meta_list(
@@ -590,6 +699,10 @@ def render_quality_ledger(status: Dict[str, Any], *, status_path: Path) -> str:
       background: var(--note-bg);
       color: var(--muted);
     }}
+    .badge-reader {{
+      background: var(--note-bg);
+      color: var(--reader-fg);
+    }}
     .meta-grid {{
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -640,6 +753,21 @@ def render_quality_ledger(status: Dict[str, Any], *, status_path: Path) -> str:
       font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
       font-size: 0.92em;
     }}
+    .surface-boundary {{
+      margin-top: 16px;
+      padding: 14px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--note-bg);
+    }}
+    .surface-boundary h2 {{
+      font-size: 1.05rem;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+    }}
+    .surface-boundary p {{
+      margin: 0 0 12px 0;
+    }}
     .footer {{
       color: var(--muted);
       font-size: 0.92rem;
@@ -655,13 +783,14 @@ def render_quality_ledger(status: Dict[str, Any], *, status_path: Path) -> str:
           <h1>PULSE Quality Ledger</h1>
           <p class="subtle">Human-readable view over a single immutable status.json artefact.</p>
         </div>
-        <div class="badge {decision_class}">{escape(decision_label)}</div>
+        <div class="badge {public_class}">{escape(public_label)}</div>
       </div>
       <div class="meta-grid">
         {header_meta}
       </div>
+    
     </section>
-
+    {render_public_surface_boundary(status, decision_label)}
     {render_gate_table("Safety gates", gate_buckets["safety"])}
     {render_gate_table("Quality gates", gate_buckets["quality"])}
     {render_refusal_delta_section(metrics, gates)}
