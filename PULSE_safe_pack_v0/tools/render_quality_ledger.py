@@ -259,7 +259,9 @@ def public_surface_profile(status: Dict[str, Any], decision_label: str) -> str:
             return "DEMO READER SURFACE — STUBBED/SCAFFOLD EVIDENCE STATE"
         return "DEMO READER SURFACE"
     if run_grade == "prod":
-        return "PROD READER SURFACE — MATERIALIZATION PENDING"
+        if markers:
+            return "PROD READER SURFACE — STUBBED/SCAFFOLD EVIDENCE STATE"
+      return "PROD READER SURFACE — MATERIALIZATION PENDING"
     return "RECORDED READER SURFACE"
 
 
