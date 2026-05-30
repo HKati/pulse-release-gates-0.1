@@ -78,7 +78,7 @@ The source metadata lock remains the controlling document for:
 | `replace-now` | The `RW-SRC-*` marker may be replaced with the provisional citation key in a citation-keyed prose draft. |
 | `replace-with-lock-note` | The marker may be paired with a provisional key only if the draft preserves the submission-lock note. |
 | `do-not-replace` | The marker must remain as `RW-SRC-*` or be removed until source lock is complete. |
-| `boundary-only-replace` | The marker may be replaced only in boundary / contrast prose, not as central support. |
+| `boundary-only-replace` | The marker may be replaced only in boundary / contrast prose, and any required lock note must remain visible. |
 | `reserve-only` | Do not use in current prose unless the source is promoted from reserve. |
 | `needs-replacement` | Placeholder or insufficient source; replace with a real source before use. |
 
@@ -98,25 +98,27 @@ A source marked `submission-lock-required` must not be silently converted into a
 
 A source marked `boundary-only` may be used only for contrast / non-identity framing.
 
+A source marked both `boundary-only` and `submission-lock-required` must preserve both constraints during replacement.
+
 A source marked `needs replacement` must not enter citation-keyed prose.
 
 ## Replacement table
 
 | Source ID | Provisional citation key | Current lock condition | Replacement status | Allowed use | Boundary |
 |---|---|---|---|---|---|
-| `RW-SRC-001` | `Shahin2017CICDReview` | `submission-lock-required` | replace-with-lock-note | CI/CD context only, if lock note is preserved. | Not PULSEmech release authority. |
-| `RW-SRC-003` | `OPA_PolicyAsCode` | `submission-lock-required` | replace-with-lock-note | Policy-as-code context only, if documentation version/date lock note is preserved. | Policy text alone does not authorize release. |
+| `RW-SRC-001` | `Shahin2017CICDReview` | `submission-lock-required`; final IEEE Access DOI / publication metadata still to verify before submission. | replace-with-lock-note | CI/CD context only, if lock note is preserved. | Not PULSEmech release authority. |
+| `RW-SRC-003` | `OPA_PolicyAsCode` | `submission-lock-required`; official documentation version/date or access date still to lock. | replace-with-lock-note | Policy-as-code context only, if documentation version/date lock note is preserved. | Policy text alone does not authorize release. |
 | `RW-SRC-004` | `NIST2022SSDF` | `citation-ready-draft` | replace-now | Secure software development / assurance context. | Not a complete PULSEmech assurance case. |
-| `RW-SRC-005` | `SLSA2026Spec` | `submission-lock-required` | replace-with-lock-note | Supply-chain provenance context, if SLSA version lock note is preserved. | Provenance does not authorize release by itself. |
-| `RW-SRC-007` | `InTotoSpec` | `submission-lock-required` | replace-with-lock-note | Supply-chain metadata / traceability comparison, if version lock note is preserved. | Trace metadata is not release authority. |
+| `RW-SRC-005` | `SLSA2026Spec` | `submission-lock-required`; SLSA v1.2 version/date still to lock. | replace-with-lock-note | Supply-chain provenance context, if SLSA version lock note is preserved. | Provenance does not authorize release by itself. |
+| `RW-SRC-007` | `InTotoSpec` | `submission-lock-required`; exact specification / documentation version still to lock. | replace-with-lock-note | Supply-chain metadata / traceability comparison, if version lock note is preserved. | Trace metadata is not release authority. |
 | `RW-SRC-009` | `ACM2020ArtifactBadging` | `citation-ready-draft` | replace-now | Artifact review / reproducibility terminology. | Does not prove external replication of PULSE-REF. |
 | `RW-SRC-010` | `JSONSchema2020` | `citation-ready-draft` | replace-now | Schema and typed artifact context. | Schema validity is not release permission. |
-| `RW-SRC-012` | `Sculley2015MLDebt` | `submission-lock-required` | replace-with-lock-note | AI systems engineering context, if final DOI / venue lock note is preserved. | Not PULSEmech identity. |
-| `RW-SRC-014` | `Mitchell2019ModelCards` | `submission-lock-required` | replace-with-lock-note | Model documentation / evaluation artifact boundary, if ACM DOI / proceedings lock note is preserved. | Model cards are evidence surfaces, not release permission. |
-| `RW-SRC-015` | `NIST2023AIRMF` | `submission-lock-required`; `boundary-only` | boundary-only-replace | AI governance / risk boundary contrast only. | Do not frame PULSEmech as generic AI governance. |
-| `RW-SRC-016` | `Wang2026GuardrailsSoK` | `submission-lock-required`; IEEE S&P 2026 venue boundary pending final proceedings metadata. | replace-with-lock-note | Runtime guardrail contrast only, with explicit venue-lock note. | Runtime guardrails differ from pre-release authority. |
+| `RW-SRC-012` | `Sculley2015MLDebt` | `submission-lock-required`; final DOI / proceedings metadata still to verify before submission. | replace-with-lock-note | AI systems engineering context, if final DOI / venue lock note is preserved. | Not PULSEmech identity. |
+| `RW-SRC-014` | `Mitchell2019ModelCards` | `submission-lock-required`; final ACM DOI / proceedings metadata still to verify before submission. | replace-with-lock-note | Model documentation / evaluation artifact boundary, if ACM DOI / proceedings lock note is preserved. | Model cards are evidence surfaces, not release permission. |
+| `RW-SRC-015` | `NIST2023AIRMF` | `submission-lock-required`; `boundary-only`; final NIST AI RMF DOI / PDF locator still to verify before submission. | boundary-only-replace | AI governance / risk boundary contrast only, with explicit DOI / PDF locator lock note. | Do not frame PULSEmech as generic AI governance; do not drop the submission lock note. |
+| `RW-SRC-016` | `Wang2026GuardrailsSoK` | `submission-lock-required`; IEEE S&P 2026 venue boundary pending final proceedings metadata / DOI. | boundary-only-replace | Runtime guardrail contrast only, with explicit venue / DOI lock note. | Runtime guardrails differ from pre-release authority; do not drop the submission lock note. |
 | `RW-SRC-017` | none | unresolved placeholder | needs-replacement | Do not use. | Replace or remove before submission-stage related work. |
-| `RW-SRC-019` | `Okafor2022SupplyChainSoK` | `submission-lock-required`; ACM SCORED 2022 venue boundary pending final proceedings metadata. | replace-with-lock-note | Supply-chain security context only, with explicit venue-lock note. | Supply-chain security context, not PULSEmech mechanism. |
+| `RW-SRC-019` | `Okafor2022SupplyChainSoK` | `submission-lock-required`; ACM SCORED 2022 venue boundary pending final proceedings metadata / DOI. | replace-with-lock-note | Supply-chain security context only, with explicit venue / DOI lock note. | Supply-chain security context, not PULSEmech mechanism. |
 
 ## Direct replacement set
 
@@ -138,23 +140,26 @@ These sources may be paired with provisional citation keys only if the draft pre
 
 | Source ID | Citation key | Required lock note |
 |---|---|---|
-| `RW-SRC-001` | `Shahin2017CICDReview` | final IEEE Access DOI / publication metadata still to verify |
+| `RW-SRC-001` | `Shahin2017CICDReview` | final IEEE Access DOI / publication metadata still to verify before submission |
 | `RW-SRC-003` | `OPA_PolicyAsCode` | official documentation version/date or access date still to lock |
 | `RW-SRC-005` | `SLSA2026Spec` | SLSA v1.2 version/date still to lock |
 | `RW-SRC-007` | `InTotoSpec` | exact specification / documentation version still to lock |
-| `RW-SRC-012` | `Sculley2015MLDebt` | final DOI / proceedings metadata still to verify |
-| `RW-SRC-014` | `Mitchell2019ModelCards` | final ACM DOI / proceedings metadata still to verify |
-| `RW-SRC-016` | `Wang2026GuardrailsSoK` | final IEEE S&P 2026 proceedings metadata / DOI still to verify |
-| `RW-SRC-019` | `Okafor2022SupplyChainSoK` | final ACM SCORED 2022 proceedings metadata / DOI still to verify |
+| `RW-SRC-012` | `Sculley2015MLDebt` | final DOI / proceedings metadata still to verify before submission |
+| `RW-SRC-014` | `Mitchell2019ModelCards` | final ACM DOI / proceedings metadata still to verify before submission |
+| `RW-SRC-015` | `NIST2023AIRMF` | final NIST AI RMF DOI / PDF locator still to verify before submission |
+| `RW-SRC-016` | `Wang2026GuardrailsSoK` | final IEEE S&P 2026 proceedings metadata / DOI still to verify before submission |
+| `RW-SRC-019` | `Okafor2022SupplyChainSoK` | final ACM SCORED 2022 proceedings metadata / DOI still to verify before submission |
 
 ## Boundary-only replacement set
 
-These sources may be used only for boundary contrast:
+These sources may be used only for boundary contrast.
 
-| Source ID | Citation key | Boundary |
-|---|---|---|
-| `RW-SRC-015` | `NIST2023AIRMF` | Governance / risk context only; not PULSEmech identity. |
-| `RW-SRC-016` | `Wang2026GuardrailsSoK` | Runtime guardrail contrast only; not release-boundary authority. |
+If a boundary-only source is also `submission-lock-required`, the replacement must preserve the required lock note.
+
+| Source ID | Citation key | Boundary | Required lock note |
+|---|---|---|---|
+| `RW-SRC-015` | `NIST2023AIRMF` | Governance / risk context only; not PULSEmech identity. | final NIST AI RMF DOI / PDF locator still to verify before submission |
+| `RW-SRC-016` | `Wang2026GuardrailsSoK` | Runtime guardrail contrast only; not release-boundary authority. | final IEEE S&P 2026 proceedings metadata / DOI still to verify before submission |
 
 ## Do-not-replace set
 
@@ -173,14 +178,16 @@ When converting `docs/papers/PULSEMECH_RELATED_WORK_PROSE_v0.md` into a citation
 2. For `submission-lock-required` sources, either:
    - keep the `RW-SRC-*` marker; or
    - use the provisional citation key with a visible lock note in the planning document.
-3. Do not replace `RW-SRC-017`.
-4. Preserve every source boundary.
-5. Do not cite governance sources as PULSEmech identity sources.
-6. Do not cite runtime guardrail sources as PULSEmech mechanism sources.
-7. Do not cite provenance sources as release-authority sources.
-8. Do not cite schema sources as release-permission sources.
-9. Do not allow arXiv submission year to override proceedings year or accepted venue boundary.
-10. Do not remove the source metadata lock trace.
+3. For `boundary-only` sources, use boundary-marker wording and preserve any required lock note.
+4. Do not replace `RW-SRC-017`.
+5. Preserve every source boundary.
+6. Do not use reserve sources unless needed.
+7. Do not cite governance sources as PULSEmech identity sources.
+8. Do not cite runtime guardrail sources as PULSEmech mechanism sources.
+9. Do not cite provenance sources as release-authority sources.
+10. Do not cite schema sources as release-permission sources.
+11. Do not allow arXiv submission year to override proceedings year or accepted venue boundary.
+12. Do not remove the source metadata lock trace.
 
 ## Proposed citation-keyed marker format
 
@@ -196,10 +203,22 @@ For lock-note replacement:
 [Source: Wang2026GuardrailsSoK; submission lock required for final IEEE S&P 2026 proceedings metadata]
 ```
 
-For boundary-only replacement:
+For boundary-only replacement with no separate lock requirement:
 
 ```text
-[Boundary source: NIST2023AIRMF; governance context only]
+[Boundary source: <CitationKey>; boundary context only]
+```
+
+For boundary-only replacement with a submission-lock requirement:
+
+```text
+[Boundary source: NIST2023AIRMF; governance / risk context only; submission lock required for final NIST AI RMF DOI / PDF locator]
+```
+
+For runtime-guardrail boundary replacement with a submission-lock requirement:
+
+```text
+[Boundary source: Wang2026GuardrailsSoK; runtime guardrail contrast only; submission lock required for final IEEE S&P 2026 proceedings metadata]
 ```
 
 For unresolved placeholders:
@@ -214,6 +233,7 @@ A future citation-keyed prose draft must include:
 
 - citation-keyed related-work prose;
 - preserved lock notes for `submission-lock-required` sources;
+- preserved lock notes for boundary-only sources that are also `submission-lock-required`;
 - no replacement for `RW-SRC-017`;
 - no reserve source unless explicitly promoted;
 - no source used outside its boundary;
@@ -226,6 +246,9 @@ Before merging a citation-keyed prose draft, verify:
 
 - all direct replacements come from the `replace-now` set;
 - all lock-required replacements preserve lock notes;
+- all boundary-only replacements preserve boundary wording;
+- `RW-SRC-015` boundary-only replacement preserves the NIST AI RMF DOI / PDF locator submission-lock note;
+- `RW-SRC-016` boundary-only replacement preserves the IEEE S&P 2026 proceedings metadata / DOI submission-lock note;
 - `RW-SRC-016` uses `Wang2026GuardrailsSoK`, not `Wang2025GuardrailsSoK`;
 - `RW-SRC-019` uses `Okafor2022SupplyChainSoK`, not `Okafor2024SupplyChainSoK`;
 - `RW-SRC-017` is not converted to a citation key;
@@ -240,7 +263,11 @@ Before merging changes to this document, run:
 grep -n '^## Replacement table$' docs/papers/PULSEMECH_CITATION_KEY_REPLACEMENT_PASS_v0.md
 grep -n '^## Direct replacement set$' docs/papers/PULSEMECH_CITATION_KEY_REPLACEMENT_PASS_v0.md
 grep -n '^## Lock-note replacement set$' docs/papers/PULSEMECH_CITATION_KEY_REPLACEMENT_PASS_v0.md
+grep -n '^## Boundary-only replacement set$' docs/papers/PULSEMECH_CITATION_KEY_REPLACEMENT_PASS_v0.md
 grep -n '^## Do-not-replace set$' docs/papers/PULSEMECH_CITATION_KEY_REPLACEMENT_PASS_v0.md
+grep -n '^## Replacement audit checklist$' docs/papers/PULSEMECH_CITATION_KEY_REPLACEMENT_PASS_v0.md
+grep -n 'final NIST AI RMF DOI / PDF locator still to verify before submission' docs/papers/PULSEMECH_CITATION_KEY_REPLACEMENT_PASS_v0.md
+grep -n 'submission lock required for final NIST AI RMF DOI / PDF locator' docs/papers/PULSEMECH_CITATION_KEY_REPLACEMENT_PASS_v0.md
 grep -n 'Wang2026GuardrailsSoK' docs/papers/PULSEMECH_CITATION_KEY_REPLACEMENT_PASS_v0.md
 grep -n 'Okafor2022SupplyChainSoK' docs/papers/PULSEMECH_CITATION_KEY_REPLACEMENT_PASS_v0.md
 grep -n 'RW-SRC-017' docs/papers/PULSEMECH_CITATION_KEY_REPLACEMENT_PASS_v0.md
@@ -251,7 +278,10 @@ Expected result:
 - replacement table is present;
 - direct replacement set is present;
 - lock-note replacement set is present;
+- boundary-only replacement set is present;
 - do-not-replace set is present;
+- replacement audit checklist is present;
+- NIST AI RMF lock-note wording is present;
 - corrected guardrail source key is present;
 - corrected supply-chain source key is present;
 - unresolved placeholder is tracked.
