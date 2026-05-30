@@ -92,10 +92,28 @@ Before final submission, each source must be checked again for:
 | `locator-checked` | A stable DOI, arXiv ID, official page, or stable URL has been checked. |
 | `citation-key-assigned` | A provisional final citation key has been assigned. |
 | `citation-ready-draft` | Sufficient for draft citation use, but still needs final formatting before submission. |
-| `reserve` | Keep in reserve; do not use unless needed. |
+| `reserve` | Keep in reserve; do not use unless explicitly promoted in a later source-selection update. |
 | `boundary-only` | Use only for contrast / non-identity framing. |
 | `needs replacement` | Placeholder or insufficient source; replace before submission-stage use. |
 | `submission-lock-required` | Useful source, but final DOI/arXiv/stable URL, final venue, publication year, version, or proceedings metadata remains required before citation-key replacement or submission-stage use. |
+
+## Reserve promotion rule
+
+Reserve sources must remain unused until they are explicitly promoted in a later source-selection update.
+
+A reserve source is not promoted merely because it seems useful or needed.
+
+Promotion requires a follow-up source-selection change that records:
+
+- the source ID;
+- the reason for promotion;
+- the manuscript section where it will be used;
+- the source role;
+- the boundary note;
+- the updated include decision;
+- any required citation / metadata lock status.
+
+Until that promotion exists, reserve sources must not enter citation-keyed prose, related-work prose, final bibliography, or submission-stage manuscript text.
 
 ## External source metadata lock table
 
@@ -118,13 +136,13 @@ Before final submission, each source must be checked again for:
 
 | Source ID | Area ID | Citation key | Metadata status | Locator status | Reason held in reserve | Lock status |
 |---|---|---|---|---|---|---|
-| `RW-SRC-002` | `RW01_RELEASE_ENGINEERING`; `RW02_CI_CD_GATES` | `Shahin2018ArchitectingCD` | metadata available from arXiv result | arXiv:1808.08796 | May overlap with `RW-SRC-001`. | reserve |
-| `RW-SRC-006` | `RW05_SUPPLY_CHAIN_PROVENANCE` | `TamannaSLSADeploymentChallenges` | needs final metadata verification | needs locator verification | Useful for SLSA adoption friction if needed. | reserve |
-| `RW-SRC-008` | `RW05_SUPPLY_CHAIN_PROVENANCE`; `RW12_AUDITABILITY_AND_TRACEABILITY` | `TUFSpec` | official project metadata available | official TUF URL locator checked; exact spec/version to verify | Useful for update-system security if supply-chain section expands. | reserve |
-| `RW-SRC-011` | `RW07_FORMAL_OR_TYPED_RELEASE_CONTRACTS` | `Attouche2023JSONSchema` | metadata available from arXiv result | arXiv:2307.10034 | Useful only if schema-validation discussion deepens. | reserve |
-| `RW-SRC-013` | `RW08_MLOPS_RELEASE_READINESS` | `GoogleMLOpsCD` | needs final documentation version lock | needs stable URL/version verification | Useful if MLOps contrast needs more detail. | reserve |
-| `RW-SRC-018` | `RW05_SUPPLY_CHAIN_PROVENANCE`; `RW13_RELEASE_DECISION_STABILITY` | `KaluSigningUsability` | needs final metadata verification | needs locator verification | Useful if signing / verification workflow friction becomes relevant. | reserve |
-| `RW-SRC-020` | `RW04_SOFTWARE_ASSURANCE`; `RW10_AI_SAFETY_GOVERNANCE_BOUNDARY` | `Barrett2022HighConsequenceAIRisk` | metadata available from arXiv result | arXiv:2206.08966 | Useful only for careful AI risk / governance boundary. | reserve |
+| `RW-SRC-002` | `RW01_RELEASE_ENGINEERING`; `RW02_CI_CD_GATES` | `Shahin2018ArchitectingCD` | metadata available from arXiv result | arXiv:1808.08796 | May be promoted only if the paper needs additional CI/CD architecture context beyond `RW-SRC-001`. | reserve |
+| `RW-SRC-006` | `RW05_SUPPLY_CHAIN_PROVENANCE` | `TamannaSLSADeploymentChallenges` | needs final metadata verification | needs locator verification | Useful for SLSA adoption friction only if explicitly promoted. | reserve |
+| `RW-SRC-008` | `RW05_SUPPLY_CHAIN_PROVENANCE`; `RW12_AUDITABILITY_AND_TRACEABILITY` | `TUFSpec` | official project metadata available | official TUF URL locator checked; exact spec/version to verify | Useful for update-system security only if the supply-chain section is explicitly expanded and the source is promoted. | reserve |
+| `RW-SRC-011` | `RW07_FORMAL_OR_TYPED_RELEASE_CONTRACTS` | `Attouche2023JSONSchema` | metadata available from arXiv result | arXiv:2307.10034 | May be promoted only if the schema-validation discussion deepens. | reserve |
+| `RW-SRC-013` | `RW08_MLOPS_RELEASE_READINESS` | `GoogleMLOpsCD` | needs final documentation version lock | needs stable URL/version verification | Useful if the MLOps contrast is explicitly expanded and the source is promoted. | reserve |
+| `RW-SRC-018` | `RW05_SUPPLY_CHAIN_PROVENANCE`; `RW13_RELEASE_DECISION_STABILITY` | `KaluSigningUsability` | needs final metadata verification | needs locator verification | May be promoted only if signing / verification workflow friction becomes relevant. | reserve |
+| `RW-SRC-020` | `RW04_SOFTWARE_ASSURANCE`; `RW10_AI_SAFETY_GOVERNANCE_BOUNDARY` | `Barrett2022HighConsequenceAIRisk` | metadata available from arXiv result | arXiv:2206.08966 | May be promoted only for careful AI risk / governance boundary context. | reserve |
 
 ## Placeholder resolution
 
@@ -214,7 +232,7 @@ When updating related-work prose:
 2. do not run citation-key replacement on sources marked `submission-lock-required` unless the replacement explicitly preserves the lock note;
 3. keep source IDs in comments or planning docs until final bibliography is generated;
 4. preserve source boundaries;
-5. do not use reserve sources unless needed;
+5. do not use reserve sources unless they are explicitly promoted in a later source-selection update;
 6. remove placeholder sources from final prose;
 7. do not let official documentation sources become broad claims beyond their technical scope;
 8. do not use governance sources as PULSEmech identity sources;
@@ -234,7 +252,7 @@ Before submission-stage manuscript:
 - verify final IEEE S&P 2026 proceedings metadata / DOI for `RW-SRC-016`;
 - verify final ACM SCORED 2022 proceedings metadata / DOI for `RW-SRC-019`;
 - replace or remove `RW-SRC-017`;
-- decide whether any reserve sources enter the final paper;
+- decide whether any reserve sources should be explicitly promoted through a later source-selection update before entering the final paper;
 - create final BibTeX / bibliography entries.
 
 ## Validation checks for this document
@@ -247,6 +265,9 @@ grep -n '^## Reserve source metadata lock table$' docs/papers/PULSEMECH_SOURCE_M
 grep -n '^## Placeholder resolution$' docs/papers/PULSEMECH_SOURCE_METADATA_LOCK_v0.md
 grep -n '^## Source key map$' docs/papers/PULSEMECH_SOURCE_METADATA_LOCK_v0.md
 grep -n '^## Metadata lock findings$' docs/papers/PULSEMECH_SOURCE_METADATA_LOCK_v0.md
+grep -n '^## Reserve promotion rule$' docs/papers/PULSEMECH_SOURCE_METADATA_LOCK_v0.md
+grep -n 'explicitly promoted in a later source-selection update' docs/papers/PULSEMECH_SOURCE_METADATA_LOCK_v0.md
+! awk '/^# PULSEmech Source Metadata Lock v0$/{flag=1} /^## Validation checks for this document$/{flag=0} flag' docs/papers/PULSEMECH_SOURCE_METADATA_LOCK_v0.md | grep -n 'unless need[e]d'
 grep -n 'RW-SRC-017' docs/papers/PULSEMECH_SOURCE_METADATA_LOCK_v0.md
 grep -n 'arXiv:1703.07019' docs/papers/PULSEMECH_SOURCE_METADATA_LOCK_v0.md
 grep -n '10.6028/NIST.SP.800-218' docs/papers/PULSEMECH_SOURCE_METADATA_LOCK_v0.md
@@ -265,6 +286,9 @@ Expected result:
 - placeholder resolution is present;
 - source key map is present;
 - metadata lock findings are present;
+- reserve promotion rule is present;
+- reserve-source usage requires explicit promotion;
+- loose reserve wording is absent outside the validation section;
 - unresolved placeholder source `RW-SRC-017` is tracked;
 - key arXiv / DOI locators are present;
 - `RW-SRC-016` uses `Wang2026GuardrailsSoK`;
@@ -276,6 +300,6 @@ Expected result:
 
 After this source metadata lock is merged, the next paper step is:
 
-`docs(paper): add PULSEmech citation key replacement pass v0`
+`docs(paper): add PULSEmech citation-key replacement pass v0`
 
 That step should replace `RW-SRC-*` markers in the related-work prose with provisional citation keys only for sources whose lock state allows safe replacement, while preserving the source table and source metadata lock as trace surfaces.

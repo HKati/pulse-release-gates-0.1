@@ -143,9 +143,27 @@ Each repository artifact anchor must eventually have:
 | `locator-checked` | DOI, arXiv ID, stable URL, commit, or release locator has been checked. |
 | `boundary-checked` | Source boundary / artifact role has been checked. |
 | `citation-ready` | Source or artifact is ready to appear in a submission-stage manuscript. |
-| `reserve` | Keep source available but do not use unless needed. |
+| `reserve` | Keep source available but do not use unless explicitly promoted in a later source-selection update. |
 | `exclude` | Do not use source in final paper. |
 | `needs replacement` | Source is only a placeholder or insufficient and must be replaced. |
+
+## Reserve promotion rule
+
+Reserve sources must remain unavailable for prose, citation-key replacement, and final bibliography until explicitly promoted.
+
+A reserve source is not promoted merely because it seems useful or needed.
+
+Promotion requires a later source-selection update that records:
+
+- the source ID;
+- the promotion reason;
+- the manuscript section where it will be used;
+- the source role;
+- the boundary note;
+- the updated include decision;
+- citation metadata / locator lock requirements.
+
+Until such promotion is recorded, reserve sources remain reserve-only.
 
 ## Citation key convention
 
@@ -161,13 +179,14 @@ Examples:
 
 ```text
 Shahin2017CICDReview
-OPA2026PolicyAsCode
+OPA_PolicyAsCode
 NIST2022SSDF
 SLSA2026Spec
-InToto2026Spec
+InTotoSpec
 JSONSchema2020
 Mitchell2019ModelCards
-Wang2024GuardrailsSoK
+Wang2026GuardrailsSoK
+Okafor2022SupplyChainSoK
 ```
 
 Repository artifact anchors should use `PULSE_` keys.
@@ -199,27 +218,27 @@ Final keys may change during bibliography formatting.
 | `RW-SRC-001` | `RW01_RELEASE_ENGINEERING`; `RW02_CI_CD_GATES` | `Shahin2017CICDReview` | to verify | DOI / stable locator to verify | context / direct comparison | include | unlocked | CI/CD context, not PULSEmech authority. |
 | `RW-SRC-003` | `RW03_POLICY_AS_CODE` | `OPA_PolicyAsCode` | to verify | official docs URL/version to verify | direct comparison / terminology support | include | unlocked | Policy text alone does not authorize release. |
 | `RW-SRC-004` | `RW04_SOFTWARE_ASSURANCE`; `RW05_SUPPLY_CHAIN_PROVENANCE` | `NIST2022SSDF` | to verify | NIST stable URL/DOI to verify | standard / specification / context | include | unlocked | Secure development context, not complete assurance case. |
-| `RW-SRC-005` | `RW05_SUPPLY_CHAIN_PROVENANCE` | `SLSA_Spec` | to verify | official spec URL/version to verify | standard / specification / methodological support | include | unlocked | Provenance does not authorize release by itself. |
+| `RW-SRC-005` | `RW05_SUPPLY_CHAIN_PROVENANCE` | `SLSA2026Spec` | to verify | official spec URL/version to verify | standard / specification / methodological support | include | unlocked | Provenance does not authorize release by itself. |
 | `RW-SRC-007` | `RW05_SUPPLY_CHAIN_PROVENANCE`; `RW06_REPRODUCIBLE_ARTIFACTS`; `RW12_AUDITABILITY_AND_TRACEABILITY` | `InTotoSpec` | to verify | official docs/spec URL to verify | standard / specification / direct comparison | include | unlocked | Trace metadata is not release authority. |
-| `RW-SRC-009` | `RW06_REPRODUCIBLE_ARTIFACTS`; `RW12_AUDITABILITY_AND_TRACEABILITY` | `ACMArtifactBadging` | to verify | ACM stable URL to verify | methodological support / terminology support | include | unlocked | Artifact review terminology, not proof of external replication. |
+| `RW-SRC-009` | `RW06_REPRODUCIBLE_ARTIFACTS`; `RW12_AUDITABILITY_AND_TRACEABILITY` | `ACM2020ArtifactBadging` | to verify | ACM stable URL to verify | methodological support / terminology support | include | unlocked | Artifact review terminology, not proof of external replication. |
 | `RW-SRC-010` | `RW07_FORMAL_OR_TYPED_RELEASE_CONTRACTS` | `JSONSchema2020` | to verify | official specification URL to verify | standard / specification / terminology support | include | unlocked | Schema validity is not release permission. |
 | `RW-SRC-012` | `RW08_MLOPS_RELEASE_READINESS` | `Sculley2015MLDebt` | to verify | DOI / stable URL to verify | context / boundary contrast | include | unlocked | AI systems context, not PULSEmech identity. |
 | `RW-SRC-014` | `RW09_AI_EVALUATION_INFRASTRUCTURE` | `Mitchell2019ModelCards` | to verify | DOI / arXiv / stable URL to verify | context / boundary contrast | include | unlocked | Model reports are evidence, not release authority. |
-| `RW-SRC-015` | `RW10_AI_SAFETY_GOVERNANCE_BOUNDARY` | `NIST_AI_RMF` | to verify | NIST stable URL to verify | boundary contrast / context | boundary-only | unlocked | Governance context only. |
-| `RW-SRC-016` | `RW11_RUNTIME_GUARDRAILS` | `Wang2024GuardrailsSoK` | to verify | arXiv / DOI / stable URL to verify | boundary contrast | include | unlocked | Runtime guardrails differ from pre-release authority. |
-| `RW-SRC-019` | `RW05_SUPPLY_CHAIN_PROVENANCE` | `Okafor2024SupplyChainSoK` | to verify | DOI / arXiv / stable URL to verify | context / methodological support | include | unlocked | Supply-chain security context, not PULSEmech mechanism. |
+| `RW-SRC-015` | `RW10_AI_SAFETY_GOVERNANCE_BOUNDARY` | `NIST2023AIRMF` | to verify | NIST stable URL / DOI / PDF locator to verify | boundary contrast / context | boundary-only | unlocked | Governance context only; not PULSEmech identity. |
+| `RW-SRC-016` | `RW11_RUNTIME_GUARDRAILS` | `Wang2026GuardrailsSoK` | to verify | arXiv / IEEE S&P 2026 proceedings metadata to verify | boundary contrast | include | unlocked | Runtime guardrails differ from pre-release authority. |
+| `RW-SRC-019` | `RW05_SUPPLY_CHAIN_PROVENANCE` | `Okafor2022SupplyChainSoK` | to verify | ACM SCORED 2022 proceedings metadata / arXiv locator to verify | context / methodological support | include | unlocked | Supply-chain security context, not PULSEmech mechanism. |
 
 ## Reserve source lock table placeholder
 
 | Source ID | Area ID | Final citation key | Reason held in reserve | Lock status |
 |---|---|---|---|---|
-| `RW-SRC-002` | `RW01_RELEASE_ENGINEERING`; `RW02_CI_CD_GATES` | to fill | May overlap with CI/CD review source. | reserve |
-| `RW-SRC-006` | `RW05_SUPPLY_CHAIN_PROVENANCE` | to fill | Useful for SLSA adoption friction if needed. | reserve |
-| `RW-SRC-008` | `RW05_SUPPLY_CHAIN_PROVENANCE`; `RW12_AUDITABILITY_AND_TRACEABILITY` | to fill | Useful for update-system security if supply-chain section expands. | reserve |
-| `RW-SRC-011` | `RW07_FORMAL_OR_TYPED_RELEASE_CONTRACTS` | to fill | Useful only if schema-validation discussion deepens. | reserve |
-| `RW-SRC-013` | `RW08_MLOPS_RELEASE_READINESS` | to fill | Useful if MLOps contrast needs more detail. | reserve |
-| `RW-SRC-018` | `RW05_SUPPLY_CHAIN_PROVENANCE`; `RW13_RELEASE_DECISION_STABILITY` | to fill | Useful if signing / verification workflow friction becomes relevant. | reserve |
-| `RW-SRC-020` | `RW04_SOFTWARE_ASSURANCE`; `RW10_AI_SAFETY_GOVERNANCE_BOUNDARY` | to fill | Useful only for careful AI risk / governance boundary. | reserve |
+| `RW-SRC-002` | `RW01_RELEASE_ENGINEERING`; `RW02_CI_CD_GATES` | to fill | May be promoted only if the paper needs additional CI/CD architecture context beyond the primary CI/CD review source. | reserve |
+| `RW-SRC-006` | `RW05_SUPPLY_CHAIN_PROVENANCE` | to fill | May be promoted only for SLSA adoption-friction context. | reserve |
+| `RW-SRC-008` | `RW05_SUPPLY_CHAIN_PROVENANCE`; `RW12_AUDITABILITY_AND_TRACEABILITY` | to fill | May be promoted only if the supply-chain / update-system security section is explicitly expanded. | reserve |
+| `RW-SRC-011` | `RW07_FORMAL_OR_TYPED_RELEASE_CONTRACTS` | to fill | May be promoted only if the schema-validation discussion deepens. | reserve |
+| `RW-SRC-013` | `RW08_MLOPS_RELEASE_READINESS` | to fill | May be promoted only if the MLOps contrast needs additional source support. | reserve |
+| `RW-SRC-018` | `RW05_SUPPLY_CHAIN_PROVENANCE`; `RW13_RELEASE_DECISION_STABILITY` | to fill | May be promoted only if signing / verification workflow friction becomes relevant. | reserve |
+| `RW-SRC-020` | `RW04_SOFTWARE_ASSURANCE`; `RW10_AI_SAFETY_GOVERNANCE_BOUNDARY` | to fill | May be promoted only for careful AI risk / governance boundary context. | reserve |
 
 ## Placeholder replacement requirement
 
@@ -277,6 +296,7 @@ Before submission-stage draft:
 10. Remove any citation that does not support mechanism, boundary, or context.
 11. Confirm no source pulls PULSEmech into an incorrect identity.
 12. Confirm final related-work prose remains compact.
+13. Confirm reserve sources do not enter the paper unless explicitly promoted in a later source-selection update.
 
 ## Bibliography risk table
 
@@ -290,6 +310,7 @@ Before submission-stage draft:
 | Artifact overclaim | Artifact/reproducibility source makes packet existence look authoritative. | State packets preserve evidence relation only. |
 | Runtime confusion | Guardrail source makes PULSEmech look like runtime filter. | State PULSEmech acts before deployment. |
 | Placeholder leakage | Placeholder source enters final prose. | Replace or remove all placeholders before submission-stage use. |
+| Reserve leakage | Reserve source enters prose, citation-key replacement, or bibliography without explicit promotion. | Require a later source-selection update before use. |
 | Unstable locator | Source lacks stable DOI/arXiv/URL. | Lock locator before final citation. |
 
 ## Final citation readiness checklist
@@ -304,7 +325,8 @@ A source is final-citation-ready only when:
 - manuscript placement is known;
 - citation key is assigned;
 - source does not inflate PULSEmech claims;
-- source does not conflict with cs.SE positioning.
+- source does not conflict with cs.SE positioning;
+- reserve-source status has been explicitly promoted if the source was previously held in reserve.
 
 A repository artifact is final-citation-ready only when:
 
@@ -321,10 +343,14 @@ Before merging changes to this document, run:
 
 ```bash
 grep -n '^## External literature lock table placeholder$' docs/papers/PULSEMECH_BIBLIOGRAPHY_LOCK_PLAN_v0.md
+grep -n '^## Reserve source lock table placeholder$' docs/papers/PULSEMECH_BIBLIOGRAPHY_LOCK_PLAN_v0.md
 grep -n '^## Repository artifact citation lock table placeholder$' docs/papers/PULSEMECH_BIBLIOGRAPHY_LOCK_PLAN_v0.md
 grep -n '^## Lock workflow$' docs/papers/PULSEMECH_BIBLIOGRAPHY_LOCK_PLAN_v0.md
 grep -n '^## Bibliography risk table$' docs/papers/PULSEMECH_BIBLIOGRAPHY_LOCK_PLAN_v0.md
 grep -n '^## Final citation readiness checklist$' docs/papers/PULSEMECH_BIBLIOGRAPHY_LOCK_PLAN_v0.md
+grep -n '^## Reserve promotion rule$' docs/papers/PULSEMECH_BIBLIOGRAPHY_LOCK_PLAN_v0.md
+grep -n 'explicitly promoted in a later source-selection update' docs/papers/PULSEMECH_BIBLIOGRAPHY_LOCK_PLAN_v0.md
+! awk '/^# PULSEmech Bibliography Lock Plan v0$/{flag=1} /^## Validation checks for this document$/{flag=0} flag' docs/papers/PULSEMECH_BIBLIOGRAPHY_LOCK_PLAN_v0.md | grep -n 'unless need[e]d'
 grep -n 'RW-SRC-017' docs/papers/PULSEMECH_BIBLIOGRAPHY_LOCK_PLAN_v0.md
 grep -n 'PULSE_safe_pack_v0/artifacts/status.json' docs/papers/PULSEMECH_BIBLIOGRAPHY_LOCK_PLAN_v0.md
 grep -n 'PULSE_safe_pack_v0/artifacts/release_authority_audit_bundle/' docs/papers/PULSEMECH_BIBLIOGRAPHY_LOCK_PLAN_v0.md
@@ -333,10 +359,14 @@ grep -n 'PULSE_safe_pack_v0/artifacts/release_authority_audit_bundle/' docs/pape
 Expected result:
 
 - external literature lock table is present;
+- reserve source lock table is present;
 - repository artifact citation lock table is present;
 - lock workflow is present;
 - bibliography risk table is present;
 - final citation readiness checklist is present;
+- reserve promotion rule is present;
+- reserve-source usage requires explicit promotion;
+- loose reserve wording is absent outside the validation section;
 - placeholder source `RW-SRC-017` is explicitly tracked;
 - generated status artifact path is present;
 - generated audit bundle path is present.
