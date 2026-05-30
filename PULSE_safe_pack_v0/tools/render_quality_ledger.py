@@ -201,13 +201,24 @@ def surface_run_grade(status: Dict[str, Any]) -> str:
     return run_mode or "unknown"
 
 
-def marker_is_active(value: Any) -> bool:
+NEUTRAL_STUB_PROFILES = {
+    "",
+    "none",
+    "false",
+    "real",
+    "not_stubbed",
+}
+
+
+def marker_is_active(value: Any, *, marker_kind: str = "flag") -> bool:
     if value is True:
         return True
     if value is False or value is None:
         return False
     if isinstance(value, str):
         normalized = value.strip().lower()
+        if marker_kind == "stub_profile":
+            return normalized not in NEUTRAL_STUB_PROFILES
         return normalized not in {"", "false", "none", "null", "0", "no"}
     return bool(value)
 
@@ -218,17 +229,33 @@ def active_stub_scaffold_markers(status: Dict[str, Any]) -> List[str]:
     meta_diagnostics = as_dict(as_dict(status.get("meta")).get("diagnostics"))
 
     marker_paths = [
-        ("diagnostics.gates_stubbed", diagnostics.get("gates_stubbed")),
-        ("metrics.gates_stubbed", metrics.get("gates_stubbed")),
-        ("meta.diagnostics.gates_stubbed", meta_diagnostics.get("gates_stubbed")),
-        ("diagnostics.scaffold", diagnostics.get("scaffold")),
-        ("metrics.scaffold", metrics.get("scaffold")),
-        ("meta.diagnostics.scaffold", meta_diagnostics.get("scaffold")),
-        ("diagnostics.stub_profile", diagnostics.get("stub_profile")),
-        ("metrics.stub_profile", metrics.get("stub_profile")),
-        ("meta.diagnostics.stub_profile", meta_diagnostics.get("stub_profile")),
+        ("diagnostics.gates_stubbed", diagnostics.get("gates_stubbed"), "flag"),
+        ("metrics.gates_stubbed", metrics.get("gates_stubbed"), "flag"),
+        (
+            "meta.diagnostics.gates_stubbed",
+            meta_diagnostics.get("gates_stubbed"),
+            "flag",
+        ),
+        ("diagnostics.scaffold", diagnostics.get("scaffold"), "flag"),
+        ("metrics.scaffold", metrics.get("scaffold"), "flag"),
+        ("meta.diagnostics.scaffold", meta_diagnostics.get("scaffold"), "flag"),
+        (
+            "diagnostics.stub_profile",
+            diagnostics.get("stub_profile"),
+            "stub_profile",
+        ),
+        ("metrics.stub_profile", metrics.get("stub_profile"), "stub_profile"),
+        (
+            "meta.diagnostics.stub_profile",
+            meta_diagnostics.get("stub_profile"),
+            "stub_profile",
+        ),
     ]
-    return [name for name, value in marker_paths if marker_is_active(value)]
+    return [
+        name
+        for name, value, marker_kind in marker_paths
+        if marker_is_active(value, marker_kind=marker_kind)
+    ]
 
 
 def has_materialized_release_surface(status: Dict[str, Any], decision_label: str) -> bool:
@@ -259,6 +286,8 @@ def public_surface_profile(status: Dict[str, Any], decision_label: str) -> str:
             return "DEMO READER SURFACE — STUBBED/SCAFFOLD EVIDENCE STATE"
         return "DEMO READER SURFACE"
     if run_grade == "prod":
+        if markers:
+            return "PROD READER SURFACE — STUBBED/SCAFFOLD EVIDENCE STATE"
         return "PROD READER SURFACE — MATERIALIZATION PENDING"
     return "RECORDED READER SURFACE"
 
