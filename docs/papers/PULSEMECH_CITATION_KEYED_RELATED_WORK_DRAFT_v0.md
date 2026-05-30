@@ -289,8 +289,8 @@ grep -n 'Wang2026GuardrailsSoK; submission lock required for final IEEE S&P 2026
 grep -n 'Boundary source: NIST2023AIRMF; governance / risk context only; submission lock required for final NIST AI RMF DOI / PDF locator' docs/papers/PULSEMECH_CITATION_KEYED_RELATED_WORK_DRAFT_v0.md
 grep -n 'Okafor2022SupplyChainSoK; submission lock required for final ACM SCORED 2022 proceedings metadata / DOI' docs/papers/PULSEMECH_CITATION_KEYED_RELATED_WORK_DRAFT_v0.md
 grep -n 'RW-SRC-017' docs/papers/PULSEMECH_CITATION_KEYED_RELATED_WORK_DRAFT_v0.md
-! grep -n 'Wang2025GuardrailsSoK' docs/papers/PULSEMECH_CITATION_KEYED_RELATED_WORK_DRAFT_v0.md
-! grep -n 'Okafor2024SupplyChainSoK' docs/papers/PULSEMECH_CITATION_KEYED_RELATED_WORK_DRAFT_v0.md
+! awk '/^# PULSEmech Citation-Keyed Related-Work Draft v0$/{flag=1} /^## Validation checks for this document$/{flag=0} flag' docs/papers/PULSEMECH_CITATION_KEYED_RELATED_WORK_DRAFT_v0.md | grep -n 'Wang2025GuardrailsSoK'
+! awk '/^# PULSEmech Citation-Keyed Related-Work Draft v0$/{flag=1} /^## Validation checks for this document$/{flag=0} flag' docs/papers/PULSEMECH_CITATION_KEYED_RELATED_WORK_DRAFT_v0.md | grep -n 'Okafor2024SupplyChainSoK'
 ```
 
 Expected result:
@@ -305,7 +305,7 @@ Expected result:
 - corrected `Okafor2022SupplyChainSoK` key is present;
 - NIST AI RMF boundary lock note is present;
 - unresolved `RW-SRC-017` remains tracked;
-- old incorrect source keys are absent.
+- old incorrect source keys are absent outside the validation section.
 
 ## Next paper step
 
