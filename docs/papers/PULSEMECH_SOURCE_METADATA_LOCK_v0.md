@@ -267,7 +267,7 @@ grep -n '^## Source key map$' docs/papers/PULSEMECH_SOURCE_METADATA_LOCK_v0.md
 grep -n '^## Metadata lock findings$' docs/papers/PULSEMECH_SOURCE_METADATA_LOCK_v0.md
 grep -n '^## Reserve promotion rule$' docs/papers/PULSEMECH_SOURCE_METADATA_LOCK_v0.md
 grep -n 'explicitly promoted in a later source-selection update' docs/papers/PULSEMECH_SOURCE_METADATA_LOCK_v0.md
-! grep -n 'unless needed' docs/papers/PULSEMECH_SOURCE_METADATA_LOCK_v0.md
+! awk '/^# PULSEmech Source Metadata Lock v0$/{flag=1} /^## Validation checks for this document$/{flag=0} flag' docs/papers/PULSEMECH_SOURCE_METADATA_LOCK_v0.md | grep -n 'unless need[e]d'
 grep -n 'RW-SRC-017' docs/papers/PULSEMECH_SOURCE_METADATA_LOCK_v0.md
 grep -n 'arXiv:1703.07019' docs/papers/PULSEMECH_SOURCE_METADATA_LOCK_v0.md
 grep -n '10.6028/NIST.SP.800-218' docs/papers/PULSEMECH_SOURCE_METADATA_LOCK_v0.md
@@ -288,7 +288,7 @@ Expected result:
 - metadata lock findings are present;
 - reserve promotion rule is present;
 - reserve-source usage requires explicit promotion;
-- loose `unless needed` wording is absent;
+- loose reserve wording is absent outside the validation section;
 - unresolved placeholder source `RW-SRC-017` is tracked;
 - key arXiv / DOI locators are present;
 - `RW-SRC-016` uses `Wang2026GuardrailsSoK`;
