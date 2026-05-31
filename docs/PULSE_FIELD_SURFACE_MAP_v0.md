@@ -59,23 +59,27 @@ Release authority is exercised only through the declared PULSEmech path.
 
 Diagnostic, audit, preservation, publication, HPC, and shadow surfaces may inspect, preserve, stress-test, contextualize, render, or compare the decision path.
 
-They do not authorize release by themselves.
+Carrier roles remain explicit
 
-A non-normative surface may affect release authority only when a specific evidence field or gate is explicitly folded into recorded release evidence and enforced as a required gate under declared policy.
+Reader, diagnostic, publication, preservation, HPC, and shadow carriers are non-authorizing carriers unless a specific artifact field is folded into recorded release evidence and enforced as a required gate under declared policy.
 
-No whole surface is implicitly promoted into release authority.
+The PULSEmech path carries release authority.
 
-No reader, diagnostic, publication, preservation, HPC, or shadow surface creates an independent release decision engine.
+No whole surface is implicitly promoted into the release-authority path.
 
-## Recorded artifact versus live publication surface
+## Recorded artifact and public reader surface
 
-PULSE distinguishes recorded release artifacts from live publication surfaces.
+PULSE distinguishes recorded release artifacts from public reader surfaces.
 
-A recorded `status.json` artifact can be part of the normative release-authority path when it belongs to the declared release run and is tied to the relevant run identity.
+A recorded `status.json` artifact can carry release-authority input when it belongs to the declared release run and is tied to the relevant run identity.
 
-A live or public `status.json` URL is a publication or access surface unless it is explicitly evaluated as the recorded artifact for a specific run.
+A public `status.json` URL is a reader / access carrier for release-state data.
 
-Ledger, Pages, badges, public URLs, and rendered views must be compared against the same recorded run identity:
+The Quality Ledger, Pages, badges, public URLs, and rendered views present recorded state through public reader or publication carriers.
+
+Publication and reader carriers are derived carriers.
+
+Authority review is tied to the recorded artifact source for a declared run and is compared through the same run identity:
 
 - `run_id`
 - `git_sha`
@@ -83,9 +87,9 @@ Ledger, Pages, badges, public URLs, and rendered views must be compared against 
 - artifact source
 - artifact hash when available
 
-A live surface must not be treated as release authority merely because it displays or links to release-state data.
+The public reader surface presents recorded state.
 
-The authority question is always tied to the recorded artifact source for a declared run.
+The PULSEmech path carries release authority.
 
 ## Field-surface map
 
@@ -93,18 +97,19 @@ The authority question is always tied to the recorded artifact source for a decl
 |---|---|---|---|
 | recorded release evidence | Evidence material available before release | Normative input | Already part of the release-authority path |
 | recorded `status.json` artifact | Machine-readable release-state artifact for a declared run | Normative source | Normative only as the recorded artifact bound to the selected run |
-| live/public `status.json` URL | Public access surface for release-state data | Publication / access surface | Not authority by itself; must be bound to run identity before authority review |
+| public `status.json` URL | Public reader / access carrier for release-state data | Reader / access carrier | Authority review uses the recorded artifact bound to run identity | 
 | declared gate policy | Defines the required gates for the selected lane | Normative input | Already part of the release-authority path |
 | materialized required gate set | Concrete gate set enforced by CI | Normative input | Already part of the release-authority path |
 | `check_gates.py` | Strict true-only gate evaluator | Normative enforcement | Already part of the release-authority path |
 | CI allow/block result | Final release permission result | Normative decision output | Already part of the release-authority path |
-| Quality Ledger | Human-readable rendering of release state | Audit / reader surface | Must remain parity-bound to recorded source artifacts |
+| Quality Ledger | Public reader carrier for recorded release state, reader-visible evidence state, traceability fields, and gate outcomes | Reader carrier | Non-authorizing carrier; parity-bound to recorded source artifacts |
 | release authority manifest | Reconstructs the decision trace | Audit / preservation surface | May support reconstruction; does not authorize independently |
 | audit bundle | Preserves evidence and decision artifacts | Preservation / review surface | May support replay and review; does not authorize independently |
 | external detector summaries | External evidence inputs | Conditional evidence surface | Becomes blocking only when declared policy requires a specific field or gate |
 | refusal-delta evidence | Stability signal across refusal behavior | Conditional evidence / stability surface | Becomes blocking only when declared policy requires a specific field or gate |
 | JUnit / SARIF exports | CI and security-tooling representation | Integration surface | Mirrors decision evidence; does not replace the decision path |
-| badges | Compact public state indicators | Publication surface | Must reflect source artifacts; cannot override them |
+| badges | Compact public state indicators derived from recorded artifacts | Publication carrier | Derived carrier only |
+| GitHub Pages | Public reader / publication carrier for rendered artifacts | Reader / publication carrier | Derived carrier only |
 | GitHub Pages | Public rendering surface | Publication / reader surface | Must remain derived from recorded artifacts |
 | Zenodo / DOI records | Preservation and citation surface | Publication / preservation surface | Preserves releases; does not decide releases |
 | Kaggle artifacts / notebooks | Reproducibility and public analysis surface | Research / publication surface | Supports review and reproduction; not release authority by default |

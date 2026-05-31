@@ -80,18 +80,18 @@ See [`docs/PULSE_PRE_MATERIALIZATION_GATE_MECHANICS_v0.md`](docs/PULSE_PRE_MATER
 
 ## Authority boundary
 
-| Surface | Mechanical role | Authority status |
+| Surface / artifact | Mechanical role | Authority boundary |
 |---|---|---|
-| PULSEmech decision tuple | Defines the release-authority mechanism | Normative |
-| `status.json` | Carries machine-readable release state | Normative input |
-| Declared gate policy | Defines required gate sets by lane | Normative input |
-| Materialized required gate set | Concrete enforced gate set | Normative input |
-| `check_gates.py` / CI enforcement | Enforces true-only required gates fail-closed | Normative |
-| Quality Ledger | Displays the decision trail | Non-normative reader surface |
-| Release authority manifest | Records the decision trail | Non-normative trace surface |
-| Audit bundle | Preserves reconstructable evidence trail | Non-normative audit surface |
-| Dashboards, badges, Pages | Publish or display release state | Non-normative presentation surfaces |
-| Diagnostic and shadow outputs | Produce candidate evidence signals | Non-normative unless explicitly folded into recorded release evidence and enforced as required gates under declared policy |
+| PULSEmech decision tuple | Defines the release-authority mechanism | Authority mechanism |
+| `status.json` | Machine-readable release-state artifact for the recorded run | Normative input carrier |
+| Declared gate policy | Defines the selected lane gate requirements | Normative policy carrier |
+| Materialized required gate set | Concrete required gate set enforced by CI | Normative gate-set carrier |
+| `check_gates.py` / CI enforcement | Strict true-only fail-closed gate enforcement | Enforcement carrier |
+| Quality Ledger | Reader carrier for recorded release-state artifacts, traceability fields, gate outcomes, and reader-visible evidence state | Non-authorizing carrier |
+| Release authority manifest | Trace carrier for release-authority reconstruction and review | No independent decision function |
+| Audit bundle | Audit / preservation carrier for reconstructable release evidence and decision artifacts | Non-authorizing carrier |
+| Dashboards, badges, Pages | Publication / reader carriers derived from recorded release-state artifacts | Derived carriers only |
+| Diagnostic and shadow outputs | Diagnostic / shadow carriers for candidate evidence signals and review state | Authority participation requires recorded evidence inclusion and required-gate enforcement under declared policy |
 
 ## Release boundary
 
@@ -102,10 +102,24 @@ PULSE acts at the release boundary, before deployment.
 | PULSE / PULSEmech | Release boundary, before deployment | Recorded release evidence + `status.json` + declared gate policy + materialized required gate set + strict fail-closed CI enforcement | Declared-policy CI allow/block release decision |
 | Runtime guardrails | Live interaction boundary, during use | Individual prompt, output, or tool-call state | Interaction-level allow, block, rewrite, route, or refuse |
 
-## Public release surfaces
+## Public reader surfaces
+
+| Public surface | Mechanical role | Authority boundary |
+|---|---|---|
+| Quality Ledger | Reader carrier for recorded `status.json` state, reader-visible evidence state, traceability fields, and gate outcomes | Non-authorizing carrier |
+| Public Status JSON | Reader / access carrier for recorded release-state data | Authority review uses the recorded artifact bound to run identity |
+
+Authority carrier:
+
+```text
+status.json
+→ declared gate policy
+→ materialized required gate set
+→ strict fail-closed CI enforcement
+```
 
 - Quality Ledger: https://hkati.github.io/pulse-release-gates-0.1/
-- Live Status JSON: https://hkati.github.io/pulse-release-gates-0.1/status.json
+- Public Status JSON: https://hkati.github.io/pulse-release-gates-0.1/status.json
 
 ## Current verification checkpoint
 
@@ -129,7 +143,7 @@ Required gates are explicit, materialized, and checked before release effects ca
 ---
 
 <details>
-  <summary><strong>Project badges, Zenodo records, and live release surfaces</strong></summary>
+  <summary><strong>Project badges, Zenodo records, and public reader surfaces</strong></summary>
 
 <p align="center">
   <img src="pulse_grail.svg" width="90" alt="Pulse Holy Grail">
@@ -149,10 +163,24 @@ Required gates are explicit, materialized, and checked before release effects ca
 - **Previous release DOI / v1.0.1:** https://doi.org/10.5281/zenodo.17214909
 - **Preprint DOI:** https://doi.org/10.5281/zenodo.17833583
 
-### Live release surfaces
+### Public reader surfaces
+
+| Public surface | Mechanical role | Authority boundary |
+|---|---|---|
+| Quality Ledger | Reader carrier for recorded release-state artifacts and reader-visible evidence state | Non-authorizing carrier |
+| Public Status JSON | Reader / access carrier for release-state data | Recorded artifact binding required for authority review |
+
+Authority carrier:
+
+```text
+status.json
+→ declared gate policy
+→ materialized required gate set
+→ strict fail-closed CI enforcement
+```
 
 - **Quality Ledger:** https://hkati.github.io/pulse-release-gates-0.1/
-- **Status JSON:** https://hkati.github.io/pulse-release-gates-0.1/status.json
+- **Public Status JSON:** https://hkati.github.io/pulse-release-gates-0.1/status.json
 
 </details>
 
