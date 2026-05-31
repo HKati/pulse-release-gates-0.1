@@ -7,6 +7,7 @@ import argparse
 import datetime as dt
 import hashlib
 import json
+import re
 import sys
 from pathlib import Path
 from typing import Any, Dict, Iterable, List
@@ -18,6 +19,9 @@ SCHEMA_VERSION = "0.1.0"
 PRODUCER_NAME = "build_artifact_provenance_binding_v0.py"
 PRODUCER_VERSION = "0.1.0"
 
+GIT_SHA_RE = re.compile(r"^[0-9a-f]{40}$")
+VALID_RUN_MODES = {"demo", "core", "prod"}
+VALID_RELEASE_DECISION_LABELS = {"FAIL", "STAGE-PASS", "PROD-PASS"}
 
 class BindingBuildError(RuntimeError):
     """Raised when the binding cannot be built from the supplied artifacts."""
@@ -86,6 +90,42 @@ def as_str_list(value: Any) -> List[str]:
         if text:
             out.append(text)
     return out
+
+
+def parse_run_id_from_run_key(run_key: str) -> str:
+    for part in run_key.split("|"):
+        key, sep, value = part.partition("=")
+        if sep and key == "GITHUB_RUN_ID" and value.strip():
+            return value.strip()
+    return ""
+
+
+def extract_run_identity(status: Dict[str, Any]) -> Dict[str, str]:
+    metrics = as_dict(status.get("metrics"))
+
+    run_key = str(metrics.get("run_key") or status.get("run_key") or "").strip()
+    run_id = str(metrics.get("run_id") or status.get("run_id") or "").strip()
+    if not run_id and run_key:
+        run_id = parse_run_id_from_run_key(run_key)
+
+    git_sha = str(metrics.get("git_sha") or status.get("git_sha") or "").strip()
+    run_mode = str(metrics.get("run_mode") or status.get("run_mode") or "").strip().lower()
+
+    if not run_id:
+        raise BindingBuildError("run_id is required")
+    if not run_key:
+        raise BindingBuildError("run_key is required")
+    if not GIT_SHA_RE.fullmatch(git_sha):
+        raise BindingBuildError("git_sha must be a 40-character lowercase hex commit SHA")
+    if run_mode not in VALID_RUN_MODES:
+        raise BindingBuildError("run_mode must be one of: demo, core, prod")
+
+    return {
+        "run_id": run_id,
+        "run_key": run_key,
+        "git_sha": git_sha,
+        "run_mode": run_mode,
+    }
 
 
 def path_record(path: Path) -> str:
@@ -195,8 +235,11 @@ def extract_release_decision_label(release_decision: Dict[str, Any]) -> str:
                 current = None
                 break
             current = current[part]
-        if isinstance(current, str) and current.strip():
-            return current.strip()
+     if isinstance(current, str) and current.strip():
+            label = current.strip()
+            if label not in VALID_RELEASE_DECISION_LABELS:
+                raise BindingBuildError(f"unsupported release decision label: {label}")
+            return label
     raise BindingBuildError("release decision label cannot be read")
 
 
@@ -227,14 +270,8 @@ def build_binding(
     )
     release_label = extract_release_decision_label(release_decision_json)
 
-    metrics = as_dict(status.get("metrics"))
-    run = {
-        "run_id": str(metrics.get("run_id") or status.get("run_id") or ""),
-        "run_key": str(metrics.get("run_key") or status.get("run_key") or ""),
-        "git_sha": str(metrics.get("git_sha") or status.get("git_sha") or ""),
-        "run_mode": str(metrics.get("run_mode") or ""),
-    }
-
+    run = extract_run_identity(status)
+    
     binding = {
         "schema_id": SCHEMA_ID,
         "schema_version": SCHEMA_VERSION,
