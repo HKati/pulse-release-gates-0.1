@@ -228,6 +228,7 @@ def extract_release_decision_label(release_decision: Dict[str, Any]) -> str:
         ("decision", "label"),
         ("release", "label"),
     ]
+
     for path in candidate_paths:
         current: Any = release_decision
         for part in path:
@@ -235,11 +236,13 @@ def extract_release_decision_label(release_decision: Dict[str, Any]) -> str:
                 current = None
                 break
             current = current[part]
-     if isinstance(current, str) and current.strip():
+
+        if isinstance(current, str) and current.strip():
             label = current.strip()
             if label not in VALID_RELEASE_DECISION_LABELS:
                 raise BindingBuildError(f"unsupported release decision label: {label}")
             return label
+
     raise BindingBuildError("release decision label cannot be read")
 
 
