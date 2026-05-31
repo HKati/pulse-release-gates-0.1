@@ -1,6 +1,6 @@
 # PULSE Quality Ledger
 
-Human-readable view over one immutable `status.json` artefact.
+Public reader carrier for one recorded `status.json` artefact.
 
 This page documents the current renderer behavior, not an aspirational UI.
 If the renderer changes, this page should change in the same PR.
@@ -15,8 +15,18 @@ python PULSE_safe_pack_v0/tools/render_quality_ledger.py \
 
 It reads a single final `status.json` and writes a static HTML report.
 
-Optional publication surfaces such as GitHub Pages snapshots or PR comments remain opt-in presentation layers.
-They are not required parts of the normative gating path.
+Optional publication carriers such as GitHub Pages snapshots or PR comments publish reader artifacts derived from recorded run artifacts.
+
+Publication carriers are non-authorizing carriers unless a specific artifact field is folded into recorded release evidence and enforced as a required gate under declared policy.
+
+Authority carrier:
+
+```text
+status.json
+→ declared gate policy
+→ materialized required gate set
+→ strict fail-closed CI enforcement
+```
 
 ---
 
@@ -30,7 +40,7 @@ For release decisions, the authoritative inputs remain:
 - the active required gate set
 - `PULSE_safe_pack_v0/tools/check_gates.py`
 
-The ledger is a descriptive explanation layer over that same artefact.
+The ledger is the public reader carrier over that same recorded artefact.
 
 If the ledger and CI ever disagree, treat:
 
@@ -57,9 +67,13 @@ This section is inserted by:
 PULSE_safe_pack_v0/tools/insert_release_authority_manifest_ledger_section.py
 ```
 
-The section is a reader / renderer surface. It links or summarizes the release
-authority manifest for human review, but it does not compute, redefine, or
-override the release decision.
+The section is a reader / renderer carrier. It links or summarizes the release
+authority manifest for human review and traceability.
+
+Its carrier role is to present the recorded release-authority trace beside the
+Quality Ledger reader surface.
+
+Authority boundary: no independent decision function.
 
 The section may show:
 
@@ -79,13 +93,13 @@ The section may show:
 Authority rule:
 
 ```text
-status.json + declared gate policy + check_gates.py + primary CI workflow
-= release authority
+status.json → declared gate policy → materialized required gate set → strict fail-closed CI enforcement
+= authority carrier
 ```
 
 ```text
 Quality Ledger release-authority section
-= human-readable audit visibility
+= reader carrier for recorded release-authority trace
 ```
 
 If the manifest is missing, the Quality Ledger may show `MISSING/UNKNOWN`.
@@ -131,13 +145,13 @@ Purpose:
 Authority rule:
 
 ```text
-status.json + declared gate policy + check_gates.py + primary CI workflow
-= release authority
+status.json → declared gate policy → materialized required gate set → strict fail-closed CI enforcement
+= authority carrier
 ```
 
 ```text
 release-authority-audit-bundle
-= review / audit / traceability package
+= audit / preservation carrier for recorded release-authority artifacts
 ```
 
 The audit bundle is a publication and review surface. It does not compute,
