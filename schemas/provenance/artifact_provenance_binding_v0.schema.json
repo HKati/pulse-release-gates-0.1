@@ -1,0 +1,238 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "pulse.artifact_provenance_binding.v0",
+  "title": "PULSE Artifact Provenance Binding v0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "schema_version",
+    "producer",
+    "created_utc",
+    "run",
+    "authority_carrier",
+    "reader_carrier",
+    "trace_carrier",
+    "binding_subjects",
+    "binding_hash"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "pulse.artifact_provenance_binding.v0"
+    },
+    "schema_version": {
+      "const": "0.1.0"
+    },
+    "producer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version"],
+      "properties": {
+        "name": {
+          "const": "build_artifact_provenance_binding_v0.py"
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "created_utc": {
+      "type": "string",
+      "minLength": 1
+    },
+    "run": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["run_id", "run_key", "git_sha", "run_mode"],
+      "properties": {
+        "run_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "run_key": {
+          "type": "string",
+          "minLength": 1
+        },
+        "git_sha": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "run_mode": {
+          "type": "string",
+          "enum": ["demo", "core", "prod"]
+        }
+      }
+    },
+    "authority_carrier": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status_json",
+        "declared_gate_policy",
+        "workflow_effective_required_gate_set",
+        "strict_ci_gate_enforcement",
+        "release_decision"
+      ],
+      "properties": {
+        "status_json": {
+          "$ref": "#/$defs/file_subject"
+        },
+        "declared_gate_policy": {
+          "$ref": "#/$defs/file_subject"
+        },
+        "workflow_effective_required_gate_set": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["effective_source", "policy_sets", "gate_ids", "sha256"],
+          "properties": {
+            "effective_source": {
+              "type": "string",
+              "minLength": 1
+            },
+            "policy_sets": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "gate_ids": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "sha256": {
+              "$ref": "#/$defs/sha256"
+            }
+          }
+        },
+        "strict_ci_gate_enforcement": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["source", "result", "exit_code", "sha256"],
+          "properties": {
+            "source": {
+              "const": "check_gates.py"
+            },
+            "result": {
+              "enum": ["allow", "block"]
+            },
+            "exit_code": {
+              "type": "integer",
+              "enum": [0, 1, 2]
+            },
+            "sha256": {
+              "$ref": "#/$defs/sha256"
+            }
+          },
+          "oneOf": [
+            {
+              "properties": {
+                "result": { "const": "allow" },
+                "exit_code": { "const": 0 }
+              }
+            },
+            {
+              "properties": {
+                "result": { "const": "block" },
+                "exit_code": { "enum": [1, 2] }
+              }
+            }
+          ]
+        },
+        "release_decision": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["path", "producer", "label", "sha256"],
+          "properties": {
+            "path": {
+              "type": "string",
+              "minLength": 1
+            },
+            "producer": {
+              "const": "materialize_release_decision.py"
+            },
+            "label": {
+              "type": "string",
+              "enum": ["FAIL", "STAGE-PASS", "PROD-PASS"]
+            },
+            "sha256": {
+              "$ref": "#/$defs/sha256"
+            }
+          }
+        }
+      }
+    },
+    "reader_carrier": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["quality_ledger"],
+      "properties": {
+        "quality_ledger": {
+          "$ref": "#/$defs/file_subject"
+        }
+      }
+    },
+    "trace_carrier": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["release_authority_manifest"],
+      "properties": {
+        "release_authority_manifest": {
+          "$ref": "#/$defs/file_subject"
+        }
+      }
+    },
+    "binding_subjects": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["role", "path", "sha256"],
+        "properties": {
+          "role": {
+            "type": "string",
+            "minLength": 1
+          },
+          "path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "sha256": {
+            "$ref": "#/$defs/sha256"
+          }
+        }
+      }
+    },
+    "binding_hash": {
+      "$ref": "#/$defs/sha256"
+    }
+  },
+  "$defs": {
+    "file_subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  }
+}
