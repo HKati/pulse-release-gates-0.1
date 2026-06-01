@@ -1573,6 +1573,65 @@ jobs:
             printf -- '- output: `%s`\n' "${OUT_PATH}"
           } >> "${GITHUB_STEP_SUMMARY}"
       
+           - name: "Release authority artifact binding v0: materialize and verify"
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          PACK_DIR="${{ env.PACK_DIR }}"
+          STATUS_PATH="${PACK_DIR}/artifacts/status.json"
+          POLICY_PATH="pulse_gate_policy_v0.yml"
+          LEDGER_PATH="${PACK_DIR}/artifacts/report_card.html"
+          RELEASE_DECISION_PATH="${PACK_DIR}/artifacts/release_decision_v0.json"
+          RELEASE_AUTHORITY_MANIFEST_PATH="${PACK_DIR}/artifacts/release_authority_v0.json"
+          OUT_PATH="${PACK_DIR}/artifacts/artifact_provenance_binding_v0.json"
+
+          POLICY_ARGS=(--policy-set "${PULSE_POLICY_SET:-core_required}")
+          if [[ "${PULSE_IS_RELEASE:-0}" == "1" ]]; then
+            POLICY_ARGS+=(--policy-set release_required)
+          fi
+
+          echo "artifact_provenance_binding_v0 status=${STATUS_PATH}"
+          echo "artifact_provenance_binding_v0 policy=${POLICY_PATH}"
+          echo "artifact_provenance_binding_v0 ledger=${LEDGER_PATH}"
+          echo "artifact_provenance_binding_v0 release_decision=${RELEASE_DECISION_PATH}"
+          echo "artifact_provenance_binding_v0 release_authority_manifest=${RELEASE_AUTHORITY_MANIFEST_PATH}"
+          echo "artifact_provenance_binding_v0 out=${OUT_PATH}"
+          echo "artifact_provenance_binding_v0 policy_args=${POLICY_ARGS[*]}"
+
+          python "${PACK_DIR}/tools/build_artifact_provenance_binding_v0.py" \
+            --status "${STATUS_PATH}" \
+            --policy "${POLICY_PATH}" \
+            --ledger "${LEDGER_PATH}" \
+            --release-decision "${RELEASE_DECISION_PATH}" \
+            --release-authority-manifest "${RELEASE_AUTHORITY_MANIFEST_PATH}" \
+            --out "${OUT_PATH}" \
+            "${POLICY_ARGS[@]}"
+
+          python "${PACK_DIR}/tools/verify_artifact_provenance_binding_v0.py" \
+            --binding "${OUT_PATH}"
+
+          {
+            echo "### Release authority artifact binding v0"
+            echo
+            echo "| Field | Value |"
+            echo "|---|---|"
+            echo "| Binding carrier | \`artifact_provenance_binding_v0.json\` |"
+            echo "| Status | Materialized and verified |"
+            echo "| Artifact | \`${OUT_PATH}\` |"
+            echo "| Policy args | \`${POLICY_ARGS[*]}\` |"
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: "Upload release authority artifact binding v0"
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # pinned
+        with:
+          name: release-authority-artifact-binding-v0
+          if-no-files-found: warn
+          path: ${{ env.PACK_DIR }}/artifacts/artifact_provenance_binding_v0.json
+          retention-days: 30
+      
       - name: "Upload release decision v0 artifact bundle"
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # pinned
