@@ -88,6 +88,7 @@ def test_attestation_job_downloads_uploaded_binding_artifact() -> None:
     _pulse_block, attest_block, _blocks = workflow_blocks()
 
     assert 'gh run download "${GITHUB_RUN_ID}"' in attest_block
+    assert '--repo "${GITHUB_REPOSITORY}"' in attest_block
     assert '--name "release-authority-artifact-binding-v0"' in attest_block
     assert '--dir "attestation-subject"' in attest_block
     assert 'test -f "attestation-subject/artifact_provenance_binding_v0.json"' in attest_block
@@ -101,13 +102,21 @@ def test_download_step_runs_before_attestation_action() -> None:
         "- name: Download verified release authority artifact binding"
     )
     download_cmd_idx = attest_block.index('gh run download "${GITHUB_RUN_ID}"')
+    repo_arg_idx = attest_block.index('--repo "${GITHUB_REPOSITORY}"')
     file_check_idx = attest_block.index(
         'test -f "attestation-subject/artifact_provenance_binding_v0.json"'
     )
     attest_step_idx = attest_block.index("- name: Attest release authority artifact binding v0")
     attest_action_idx = attest_block.index(f"uses: actions/attest@{ATTEST_SHA}")
 
-    assert download_step_idx < download_cmd_idx < file_check_idx < attest_step_idx < attest_action_idx
+    assert (
+        download_step_idx
+        < download_cmd_idx
+        < repo_arg_idx
+        < file_check_idx
+        < attest_step_idx
+        < attest_action_idx
+    )
 
 
 def test_attestation_action_is_pinned_to_immutable_sha() -> None:

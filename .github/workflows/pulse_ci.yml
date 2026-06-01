@@ -1885,6 +1885,7 @@ jobs:
           mkdir -p attestation-subject
 
           gh run download "${GITHUB_RUN_ID}" \
+            --repo "${GITHUB_REPOSITORY}" \
             --name "release-authority-artifact-binding-v0" \
             --dir "attestation-subject"
 
