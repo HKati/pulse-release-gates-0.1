@@ -42,6 +42,11 @@ jobs:
   pulse:
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+      artifact-metadata: write
     env:
       PACK_DIR: ${{ github.workspace }}/PULSE_safe_pack_v0
 
@@ -1623,6 +1628,13 @@ jobs:
             echo "| Artifact | \`${OUT_PATH}\` |"
             echo "| Policy args | \`${POLICY_ARGS[*]}\` |"
           } >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: "Release authority artifact binding v0: attest"
+        if: ${{ github.event_name != 'pull_request' }}
+        uses: actions/attest@v4.1.0
+        with:
+          subject-path: ${{ env.PACK_DIR }}/artifacts/artifact_provenance_binding_v0.json
+          show-summary: true
 
       - name: "Upload release authority artifact binding v0"
         if: always()
