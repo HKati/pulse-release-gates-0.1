@@ -42,6 +42,9 @@ jobs:
   pulse:
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    permissions:
+      contents: read
+    
     env:
       PACK_DIR: ${{ github.workspace }}/PULSE_safe_pack_v0
 
@@ -1858,6 +1861,42 @@ jobs:
             badges/*.svg
             reports/junit.xml
             reports/sarif.json
+
+  attest_release_authority_artifact_binding:
+    name: "Release authority artifact binding v0: attest"
+    needs: pulse
+    if: ${{ github.event_name != 'pull_request' && needs.pulse.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: read
+      id-token: write
+      attestations: write
+      artifact-metadata: write
+    steps:
+      - name: Download verified release authority artifact binding
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          mkdir -p attestation-subject
+
+          gh run download "${GITHUB_RUN_ID}" \
+            --name "release-authority-artifact-binding-v0" \
+            --dir "attestation-subject"
+
+          test -f "attestation-subject/artifact_provenance_binding_v0.json"
+
+          sha256sum "attestation-subject/artifact_provenance_binding_v0.json"
+
+      - name: Attest release authority artifact binding v0
+        uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26
+        with:
+          subject-path: attestation-subject/artifact_provenance_binding_v0.json
+          show-summary: true
 
   tools-tests:
     name: Tools smoke tests
