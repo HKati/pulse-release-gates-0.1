@@ -2,38 +2,42 @@
 
 ## Purpose
 
-PULSE-Native Review Frame v0 defines how technical reviews, external analyses, audits, critique reports, and adoption assessments should be read against the PULSE release-authority model.
+PULSE-Native Review Frame v0 defines a category system for reviewing PULSE.
 
-The purpose is not to defend PULSE from critique.
+The document keeps review findings attached to:
 
-The purpose is to keep critique in the correct mechanical frame.
+```text
+affected carrier
+authority impact
+evidence source
+remaining work
+```
 
-A review of PULSE should not replace release-authority mechanics with classical governance, adoption, enterprise-platform, or community-popularity metrics.
+The document is a review-boundary carrier.
 
-Those metrics may describe external maturity.
+It does not redefine PULSEmech.
 
-They do not determine whether the PULSEmech authority path is mechanically correct.
+It does not convert adoption, governance, productization, or community visibility signals into release-authority findings.
+
+A PULSE review is mechanically useful when it identifies:
+
+```text
+what changed
+which carrier is affected
+whether the PULSEmech authority path is affected
+what evidence supports the finding
+what remains to be done
+```
 
 ## Core review boundary
 
-PULSE should be reviewed first as:
+Primary review object:
 
 ```text
-artifact-bound release authority
+artifact-bound release-authority mechanism
 ```
 
-not as:
-
-```text
-generic AI governance framework
-AI-eval dashboard
-enterprise plug-and-play platform
-community-adoption metric
-MLOps product
-runtime guardrail substitute
-```
-
-The PULSEmech authority carrier remains:
+Primary authority carrier:
 
 ```text
 status.json
@@ -42,39 +46,59 @@ status.json
 → strict fail-closed CI enforcement
 ```
 
-A review is PULSE-native when it evaluates whether this path is correct, bounded, reproducible, and preserved.
+A review is PULSE-native when it evaluates whether this path is:
+
+```text
+present
+declared
+materialized
+fail-closed
+carrier-bounded
+reproducible from recorded artifacts
+```
+
+Other review dimensions may be relevant, but they must be classified separately:
+
+```text
+external validation
+adoption / ecosystem signal
+productization maturity
+maintainer / governance maturity
+reader-surface risk
+optional polish
+```
 
 ## Review categories
 
-PULSE reviews should separate five categories.
-
-| Category | Review question | Mechanical status |
+| Category | Review object | Authority relation |
 |---|---|---|
-| Mechanical release-authority correctness | Does the recorded evidence become a declared-policy, materialized, fail-closed release decision? | Internal technical correctness |
-| Carrier-boundary correctness | Are reader, trace, audit, publication, diagnostic, binding, and attestation carriers separated from authority? | Internal boundary correctness |
-| External validation maturity | Has an independent reviewer reproduced or audited the artifact relationship? | External maturity |
-| Adoption / ecosystem signal | Are stars, forks, issues, PRs, users, or integrations visible? | External adoption signal |
-| Platform-product maturity | Is the system packaged as a plug-and-play enterprise product? | Productization / adoption layer |
+| Mechanical release-authority correctness | `status.json`, declared policy, materialized required gates, fail-closed CI | Direct PULSEmech correctness |
+| Carrier-boundary correctness | reader, trace, audit, publication, diagnostic, binding, attestation carriers | Direct boundary correctness |
+| External validation maturity | independent reproduction, external audit, third-party reference integration | External maturity |
+| Adoption / ecosystem signal | stars, forks, issues, PRs, users, integrations, mentions | Visibility / uptake signal |
+| Productization maturity | packaging, onboarding, enterprise deployment, plug-and-play integration | Product / operations maturity |
+| Maintainer / governance maturity | maintainer model, review distribution, bus factor, release custody | Repository governance maturity |
 
-Only the first two categories directly evaluate the PULSEmech mechanism.
+Only the first two categories directly evaluate PULSEmech authority mechanics.
 
-The other categories are useful, but they are not the same kind of claim.
+The other categories may identify real gaps, but they do not by themselves determine whether the release-authority path is mechanically correct.
 
 ## Mechanical release-authority correctness
 
-This is the primary review category.
+Mechanical release-authority correctness is the primary PULSE review category.
 
-A review should ask:
+A review should evaluate:
 
 ```text
-Is status.json present and valid?
-Is the declared gate policy present?
-Is the workflow-effective required gate set materialized?
-Are required gates enforced fail-closed?
-Does check_gates.py treat only literal true as PASS?
-Do missing required gates fail?
-Does release-decision materialization preserve FAIL / STAGE-PASS / PROD-PASS boundaries?
-Are prod/materialized release-grade states separated from core/demo/stubbed states?
+status.json presence and validity
+declared gate policy presence
+workflow-effective required gate-set materialization
+fail-closed required-gate enforcement
+literal true-only PASS semantics
+release-decision materialization
+release-grade admissibility
+artifact provenance binding
+attestation subject / carrier
 ```
 
 Relevant surfaces:
@@ -86,6 +110,8 @@ pulse_gate_registry_v0.yml
 schemas/status/*
 PULSE_safe_pack_v0/tools/check_gates.py
 PULSE_safe_pack_v0/tools/materialize_release_decision.py
+PULSE_safe_pack_v0/tools/build_artifact_provenance_binding_v0.py
+PULSE_safe_pack_v0/tools/verify_artifact_provenance_binding_v0.py
 .github/workflows/pulse_ci.yml
 ```
 
@@ -94,19 +120,47 @@ This category can produce internal technical blockers.
 Examples:
 
 ```text
-required gate not enforced
-status schema accepts invalid release state
-check_gates.py allows non-literal true
-release-decision labels come from the wrong source
-prod release-grade state can pass with stub/scaffold markers
+required gate is not enforced
+missing required gate can pass
+non-literal true is accepted as PASS
+release label is sourced from the wrong artifact
+stubbed or scaffolded state can enter release-grade path
 workflow-effective required gate set differs from enforced gate set
+binding hash omits decision-bearing artifacts
+attestation subject is not the binding carrier
 ```
 
-These are PULSE-native technical findings.
+## Mechanical blocker
+
+A finding is a mechanical blocker when it can change, bypass, or invalidate one of these:
+
+```text
+status.json validity
+declared gate policy
+workflow-effective required gate materialization
+strict fail-closed enforcement
+release-decision materialization
+artifact provenance binding
+attestation subject / carrier
+```
+
+Examples:
+
+```text
+required gate is not enforced
+missing required gate can pass
+non-literal true is accepted as PASS
+release label is sourced from the wrong artifact
+stubbed or scaffolded state can enter release-grade path
+binding hash omits decision-bearing artifacts
+attestation subject is not the binding carrier
+```
+
+Mechanical blockers affect PULSEmech correctness directly.
 
 ## Carrier-boundary correctness
 
-This is the second primary review category.
+Carrier-boundary correctness is the second primary PULSE review category.
 
 PULSE separates carriers by role.
 
@@ -122,38 +176,49 @@ PULSE separates carriers by role.
 | Attestation carrier | Attests the binding carrier |
 | External verification carrier | Reviews the recorded artifact relationship |
 
-A review should ask:
+A carrier-boundary review evaluates:
 
 ```text
-Is any reader surface being treated as authority?
-Is any trace artifact being treated as a decision engine?
-Is any publication surface being treated as recorded authority?
-Is any shadow/diagnostic output implicitly becoming a required gate?
-Is the binding carrier replacing, rather than binding, the authority path?
-Is attestation over the binding carrier, not over a scattered informal claim?
+whether each carrier keeps its declared role
+whether non-authorizing carriers remain non-authorizing
+whether authority participation is explicit and policy-declared
+whether reader or publication surfaces preserve recorded-state parity
+whether binding and attestation strengthen provenance without replacing PULSEmech
 ```
 
-Carrier-boundary findings can be internal technical blockers when they allow authority drift.
+## Authority-boundary blocker
 
-Examples:
+A finding is an authority-boundary blocker when a non-authorizing carrier is allowed to function as authority.
+
+Boundary failures include:
 
 ```text
-Quality Ledger wording implies independent release authority
-publication surface displays core/stubbed state as release-grade evidence
-shadow output is used as release authority without declared policy
-attestation subject is not the binding carrier
-binding hash omits decision-bearing artifacts
+reader carrier treated as release authority
+publication carrier treated as recorded authority artifact
+trace carrier treated as decision engine
+shadow carrier treated as implicit required evidence
+binding carrier treated as replacement for PULSEmech
+attestation carrier attached to the wrong subject
 ```
 
-These are PULSE-native boundary findings.
+A boundary finding should identify:
+
+```text
+affected carrier
+incorrect authority role
+expected role
+mechanical consequence
+```
+
+Authority-boundary blockers affect the integrity of the PULSE carrier model.
 
 ## Public reader surface review
 
-Public surfaces require special care because they are reader-facing.
+Public reader surfaces require special review because they are human-facing.
 
-A public surface may be mechanically non-authorizing and still be misleading to a human reader.
+A public surface may be mechanically non-authorizing and still create reader confusion.
 
-A review should distinguish:
+A public-surface review separates:
 
 ```text
 mechanical authority
@@ -161,7 +226,7 @@ reader presentation
 publication interpretation
 ```
 
-The correct boundary is:
+Correct boundary:
 
 ```text
 public reader surface
@@ -171,7 +236,7 @@ release authority
 = PULSEmech path
 ```
 
-A public-surface finding should specify whether it is:
+A public-surface finding should be classified as one of:
 
 ```text
 renderer correctness issue
@@ -181,13 +246,13 @@ authority-boundary issue
 release-mechanism issue
 ```
 
-Only the last category is a direct release-authority blocker.
+Only release-mechanism issues directly affect the release-authority path.
 
-The others may still be important, but they are reader / audit / presentation issues.
+Renderer, wording, visual, and parity issues may still be important, but they belong to the reader / audit / publication surface unless they alter authority.
 
 ## Cryptographic provenance and attestation review
 
-PULSE-native review should distinguish these layers:
+PULSE-native review separates these layers:
 
 ```text
 authority carrier
@@ -197,7 +262,7 @@ attestation carrier
 external verifier
 ```
 
-The authority carrier remains:
+Authority carrier:
 
 ```text
 status.json
@@ -206,36 +271,35 @@ status.json
 → strict fail-closed CI enforcement
 ```
 
-The binding carrier is:
+Binding carrier:
 
 ```text
 artifact_provenance_binding_v0.json
 ```
 
-The attestation subject is:
+Attestation subject:
 
 ```text
 artifact_provenance_binding_v0.json
 ```
 
-The attestation carrier is:
+Attestation carrier:
 
 ```text
 cryptographic attestation over the binding carrier
 ```
 
-A review should ask:
+A provenance / attestation review evaluates:
 
 ```text
-Does the binding carrier record the relevant artifact relationship?
-Does the verifier recompute the relation?
-Is the attestation over the binding carrier?
-Are attestation credentials isolated from the main CI job?
-Is the attestation action pinned?
-Is the artifact download repository-explicit?
+whether the binding carrier records the relevant artifact relationship
+whether the verifier recomputes the relation
+whether the attestation is over the binding carrier
+whether attestation credentials are isolated from the main CI job
+whether the attestation action is pinned
+whether artifact download is repository-explicit
+whether attestation happens after binding verification
 ```
-
-A review should not treat attestation as a replacement for PULSEmech.
 
 Attestation strengthens provenance.
 
@@ -243,191 +307,179 @@ It does not redefine release authority.
 
 ## External validation maturity
 
-External validation is important.
+External validation maturity describes independent review or reproduction.
 
-It is not the same as internal mechanical correctness.
-
-External validation includes:
+Examples:
 
 ```text
-third-party reproduction
+independent reproduction
 independent audit
-reference integration
+third-party reference integration
 external reviewer report
-case study
-external consumer verification
+consumer-side verification
+case study by an external party
 ```
 
-A lack of external validation should be recorded as:
+A lack of external validation should be classified as:
 
 ```text
-external maturity gap
+external validation maturity gap
 ```
 
-not automatically as:
+It should not automatically be classified as:
 
 ```text
-mechanical release-authority failure
+internal mechanical blocker
 ```
 
-A review may say:
+Category-correct statement:
 
 ```text
-PULSE has a mechanically defined authority path, but it still needs third-party reproduction.
+PULSE may have a mechanically defined authority path and still need third-party reproduction.
 ```
 
-A review should not collapse this into:
+Category-crossing statement:
 
 ```text
-PULSE is mechanically weak because it has low adoption.
+PULSE is mechanically weak because it has low visible adoption.
 ```
 
 Those are different claims.
 
-## Adoption and community metrics
+## Adoption / ecosystem signals
 
-Adoption signals may include:
+Adoption and ecosystem signals measure visibility, uptake, and reuse.
+
+Examples:
 
 ```text
 stars
 forks
-open issues
-open PRs
-contributors
+issues
+pull requests
 external users
 integrations
 mentions
 downloads
 ```
 
-These signals describe external visibility and community uptake.
+These signals are useful external maturity indicators.
 
-They do not determine whether the PULSEmech authority path is mechanically correct.
+They are distinct from external validation.
 
-Correct framing:
+They become external validation only when they include:
+
+```text
+independent reproduction
+independent audit
+third-party reference integration
+external reviewer report
+consumer-side verification
+```
+
+Correct classification:
 
 ```text
 0 stars / 0 forks
-= low visible GitHub adoption
+= low visible adoption / ecosystem uptake
 ```
 
-Incorrect framing:
+Incorrect classification:
 
 ```text
 0 stars / 0 forks
-= weak release-authority mechanism
+= failed external validation
 ```
 
-The stronger review form is:
+Mechanical implication:
 
 ```text
-PULSE may be mechanically disciplined while still being externally under-validated.
+adoption signal
+≠ PULSEmech correctness result
 ```
 
-Both can be true.
+Adoption can increase visibility, reuse, operational stress-testing, and external feedback.
 
-## Enterprise / plug-and-play platform framing
+Adoption does not define the release-authority mechanism.
 
-PULSE should not be reviewed as if it claimed to be a finished enterprise plug-and-play platform unless the reviewed artifact explicitly makes that claim.
+## Productization maturity
 
-Current PULSE review frame:
+Productization maturity describes packaging, onboarding, deployment, and operational convenience.
+
+Examples:
 
 ```text
-artifact-bound release-authority reference mechanism
+plug-and-play installation
+enterprise deployment guide
+multi-tenant deployment model
+managed service packaging
+installer or package release
+onboarding flow
+integration templates
+commercial support model
 ```
 
-Not automatically:
+Productization gaps may affect adoption.
+
+They do not automatically affect PULSEmech correctness.
+
+Category-correct statement:
 
 ```text
-managed SaaS
-multi-tenant enterprise product
-turnkey MLOps platform
-organizational governance suite
-industry standard
+PULSE may require more productization before broad enterprise adoption.
 ```
 
-A review may say:
+Separate mechanical question:
 
 ```text
-PULSE is not yet productized for broad enterprise adoption.
+Does the PULSEmech authority path produce a policy-declared, materialized, fail-closed release decision?
 ```
 
-That is an adoption / packaging / operational maturity statement.
+## Maintainer / governance maturity
 
-It is not the same as:
+Maintainer / governance maturity describes repository stewardship and change-control distribution.
+
+Examples:
 
 ```text
-PULSE release authority is mechanically incorrect.
+single-maintainer model
+bus factor
+codeowner distribution
+review diversity
+branch protection
+release custody
+maintainer rotation
+quorum rules
+external reviewer adoption
 ```
-
-## Governance framing boundary
-
-PULSE may have governance implications.
-
-But PULSE is not primarily classical governance.
-
-PULSE-native wording:
-
-```text
-release-authority mechanics
-artifact-bound decision path
-declared policy
-materialized gate set
-fail-closed CI enforcement
-carrier boundary
-```
-
-Classical governance wording can be useful when discussing:
-
-```text
-maintainer model
-external review
-adoption
-quorum
-approval process
-institutional maturity
-```
-
-But it should not replace the mechanical review.
-
-Correct split:
-
-```text
-mechanical release-authority correctness
-= internal PULSEmech question
-
-maintainer / community / adoption maturity
-= external governance and sustainability question
-```
-
-## Single-maintainer review boundary
 
 A single-maintainer model is a real external trust and sustainability risk.
 
 It is not automatically a failure of the release-authority mechanism.
 
-Correct framing:
+Correct classification:
 
 ```text
 single maintainer
-= bus factor / external trust / governance maturity risk
+= repository governance / bus-factor risk
 ```
 
-Incorrect framing:
+Incorrect classification:
 
 ```text
 single maintainer
 = check_gates.py or policy materialization is mechanically invalid
 ```
 
-A review should identify which boundary is affected:
+A maintainer-governance finding should identify the affected boundary:
 
 ```text
 repository change control
 release / DOI / Zenodo custody
-external trust
-review diversity
 authority-impact PR handling
+external trust
+review distribution
+emergency access
 ```
 
 The maintainer boundary does not redefine the PULSEmech authority path.
@@ -449,31 +501,15 @@ optional polish
 out-of-scope expectation
 ```
 
-## Mechanical blocker
-
-A finding is a mechanical blocker when it can alter or break:
+Each finding should identify:
 
 ```text
-status.json validity
-declared policy
-workflow-effective required gate materialization
-strict fail-closed enforcement
-release decision materialization
-artifact provenance binding
-attestation subject / carrier
-```
-
-## Authority-boundary blocker
-
-A finding is an authority-boundary blocker when it causes:
-
-```text
-reader carrier to act as authority
-publication carrier to act as recorded artifact
-trace carrier to act as decision engine
-shadow carrier to become implicit required evidence
-binding carrier to replace the PULSEmech path
-attestation carrier to attest the wrong subject
+affected carrier
+authority impact
+evidence source
+current mitigation
+remaining work
+status
 ```
 
 ## Reader-surface risk
@@ -487,7 +523,37 @@ but a public or human-facing display may be misunderstood
 
 Reader-surface risks are important.
 
-They should not be mislabeled as authority failures unless they change the authority path.
+They should not be classified as authority failures unless they change, bypass, or contradict the authority path.
+
+Examples:
+
+```text
+core/stubbed state is visually close to release-grade display
+public badge lacks run-mode context
+reader surface hides scaffold markers
+public page exposes raw CI paths instead of normalized artifact paths
+```
+
+## Provenance / attestation gap
+
+A finding is a provenance / attestation gap when:
+
+```text
+the authority path exists
+but artifact relationship verification or cryptographic attestation is incomplete
+```
+
+This category may become a mechanical blocker when:
+
+```text
+the binding carrier omits decision-bearing artifacts
+the verifier accepts mismatched artifacts
+the attestation subject is not the binding carrier
+attestation permissions are over-broad
+the attestation action is mutable / unpinned
+```
+
+Otherwise, it should be treated as a provenance maturity gap.
 
 ## External validation gap
 
@@ -495,12 +561,22 @@ A finding is an external validation gap when:
 
 ```text
 the mechanism exists
-but has not been reproduced or audited by an independent party
+but has not been reproduced, audited, or integrated by an independent party
 ```
 
 This is a maturity issue.
 
 It is not automatically an internal technical defect.
+
+Examples:
+
+```text
+no independent reproduction
+no external audit
+no third-party reference integration
+no external reviewer packet
+no consumer-side verification report
+```
 
 ## Adoption / ecosystem gap
 
@@ -514,6 +590,17 @@ This measures external uptake.
 
 It does not directly measure PULSEmech correctness.
 
+Examples:
+
+```text
+low stars
+low forks
+few open issues
+few external contributors
+few integrations
+low visible deployment footprint
+```
+
 ## Productization gap
 
 A finding is a productization gap when:
@@ -523,11 +610,12 @@ installation is not plug-and-play
 enterprise packaging is missing
 maintainer operations are not multi-party
 documentation is too dense for quick onboarding
+turnkey deployment templates are missing
 ```
 
 This may matter for adoption.
 
-It does not automatically invalidate the mechanism.
+It does not automatically invalidate the release-authority mechanism.
 
 ## PULSE-native response format
 
@@ -572,9 +660,11 @@ Status:
 Mostly closed internally.
 ```
 
-## Non-native review patterns
+## Cross-category review patterns
 
-The following review patterns should be treated carefully:
+The following patterns mix separate review categories.
+
+They may contain useful concerns, but they require category correction before they can become PULSE-native findings.
 
 ```text
 PULSE has low stars, therefore the mechanism is weak.
@@ -585,18 +675,28 @@ PULSE uses GitHub Actions, therefore all provenance is meaningless.
 PULSE is governance, therefore it should be judged only by governance maturity.
 ```
 
-These statements may contain useful concerns, but they are not PULSE-native unless they identify the affected carrier and authority impact.
+A category-correct review should identify:
 
-## Corrected review readings
+```text
+the affected carrier
+the review category
+the authority impact
+the evidence source
+the remaining work
+```
 
-| Non-native reading | PULSE-native reading |
+## Category-correct review readings
+
+| Cross-category reading | Category-correct reading |
 |---|---|
-| Low GitHub adoption means PULSE is weak | Low adoption is an adoption / ecosystem signal; it is distinct from external validation and does not determine mechanical correctness |
-| Not enterprise plug-and-play means not mature | Productization maturity is separate from release-authority mechanics |
-| Single maintainer invalidates authority | Single maintainer is a governance / bus-factor risk, not a direct gate-enforcement defect |
-| Public core/STAGE-PASS display disproves PULSE | Public reader surface needs clear boundary; authority path must be checked separately |
+| Low GitHub adoption means PULSE is weak | Low adoption is an adoption / ecosystem signal; it is distinct from external validation and does not determine PULSEmech mechanical correctness |
+| Not enterprise plug-and-play means release authority is incomplete | Productization maturity is separate from release-authority mechanics |
+| Single maintainer invalidates the authority path | Single maintainer is a repository governance / bus-factor risk, not a direct gate-enforcement defect |
+| Public core/STAGE-PASS display disproves PULSE | Public reader surface risk must be separated from the authority path |
 | Shadow workflows imply hidden authority | Shadow outputs remain non-authorizing unless promoted through declared policy and required-gate enforcement |
-| Attestation is missing, therefore authority path is invalid | Attestation strengthens provenance; PULSEmech authority path remains a separate mechanical carrier |
+| Missing external review means the mechanism is invalid | Missing external review is an external validation gap, not automatically an internal mechanical blocker |
+| GitHub Actions trust domain limits portability | Trust-domain scope is a provenance / deployment-boundary finding, not an automatic failure of the declared authority path |
+| No enterprise onboarding means no authority | Enterprise onboarding is a productization gap, not a release-authority correctness result |
 
 ## Review status language
 
@@ -605,13 +705,16 @@ Use precise status labels:
 ```text
 closed internally
 partially closed
-external maturity gap
+external validation gap
+adoption / ecosystem gap
+productization gap
+maintainer / governance maturity gap
 optional polish
 out of scope for current mechanism
 future productization layer
 ```
 
-Avoid vague labels:
+Avoid using broad labels without carrier and category:
 
 ```text
 not mature
@@ -619,9 +722,264 @@ not production-ready
 not standard
 not adopted
 governance issue
+platform issue
 ```
 
-unless they are tied to a specific category and carrier.
+A broad label becomes useful only when tied to:
+
+```text
+review category
+affected carrier
+authority impact
+evidence source
+remaining work
+```
+
+## Boundary with governance language
+
+PULSE may have governance implications.
+
+Governance language is useful when discussing:
+
+```text
+maintainer model
+approval process
+external review
+release custody
+adoption
+quorum
+institutional maturity
+```
+
+PULSE-native mechanical language is required when discussing:
+
+```text
+status.json
+declared policy
+workflow-effective required gate set
+fail-closed CI enforcement
+release-decision materialization
+carrier boundaries
+artifact provenance binding
+attestation subject / carrier
+```
+
+Correct split:
+
+```text
+mechanical release-authority correctness
+= internal PULSEmech question
+
+maintainer / community / adoption maturity
+= external governance and sustainability question
+```
+
+## Boundary with platform language
+
+Platform language is useful when discussing:
+
+```text
+installation
+packaging
+onboarding
+enterprise deployment
+integrations
+operational support
+turnkey adoption
+```
+
+PULSE-native review should not convert platform gaps into authority failures unless the gap affects:
+
+```text
+status.json
+declared policy
+materialized required gate set
+fail-closed enforcement
+release decision materialization
+binding / attestation carrier
+```
+
+## Boundary with adoption language
+
+Adoption language is useful when discussing:
+
+```text
+visibility
+reuse
+community uptake
+external users
+ecosystem footprint
+```
+
+Adoption language should not determine release-authority correctness.
+
+Adoption findings should be recorded as:
+
+```text
+adoption / ecosystem signal
+```
+
+unless they include independent reproduction, audit, or third-party reference integration.
+
+## Boundary with external validation language
+
+External validation language is useful when discussing:
+
+```text
+independent reproduction
+external audit
+third-party reference integration
+external reviewer report
+consumer-side verification
+```
+
+External validation findings should be recorded as:
+
+```text
+external validation maturity
+```
+
+They should not be replaced by adoption metrics.
+
+## Review example: low adoption
+
+```text
+Finding:
+Low visible GitHub adoption.
+
+Category:
+Adoption / ecosystem gap.
+
+Affected carrier:
+External ecosystem signal.
+
+Authority impact:
+No direct PULSEmech authority-path impact.
+
+Evidence:
+Low visible stars / forks / external PRs / integrations.
+
+Current mitigation:
+Documentation, DOI records, external verification path.
+
+Remaining work:
+Third-party reproduction, external reviewer report, reference integration, adoption outreach.
+
+Status:
+External maturity gap.
+```
+
+## Review example: missing independent audit
+
+```text
+Finding:
+No independent audit visible.
+
+Category:
+External validation gap.
+
+Affected carrier:
+External verification carrier.
+
+Authority impact:
+No direct PULSEmech authority-path impact unless the audit finds a mechanical or boundary defect.
+
+Evidence:
+No external reviewer report or independent reproduction cited.
+
+Current mitigation:
+External Verification Path v0.
+
+Remaining work:
+Independent reproduction, audit, or third-party reference integration.
+
+Status:
+External validation gap.
+```
+
+## Review example: public reader ambiguity
+
+```text
+Finding:
+Public reader surface may be misread as release-grade.
+
+Category:
+Reader-surface risk.
+
+Affected carrier:
+Quality Ledger / public reader carrier.
+
+Authority impact:
+No direct authority-path impact unless the public surface contradicts recorded artifacts or implies independent authority.
+
+Evidence:
+Core/stubbed or scaffolded state displayed near pass-like status.
+
+Current mitigation:
+Public reader surface state, reader carrier wording, materialized evidence-state wording.
+
+Remaining work:
+Optional visual strengthening.
+
+Status:
+Mostly closed internally.
+```
+
+## Review example: required gate bypass
+
+```text
+Finding:
+Required gate can be missing while release decision passes.
+
+Category:
+Mechanical blocker.
+
+Affected carrier:
+Declared policy / materialized required gate set / check_gates.py.
+
+Authority impact:
+Direct PULSEmech authority-path impact.
+
+Evidence:
+Missing required gate does not fail closed.
+
+Current mitigation:
+check_gates.py literal true-only and missing-gate fail-closed semantics.
+
+Remaining work:
+Fix enforcement and add regression coverage.
+
+Status:
+Mechanical blocker until fixed.
+```
+
+## Review example: shadow authority drift
+
+```text
+Finding:
+Shadow output is used as release evidence without declared policy.
+
+Category:
+Authority-boundary blocker.
+
+Affected carrier:
+Diagnostic / shadow carrier.
+
+Authority impact:
+Direct boundary impact if the shadow output participates in release authority without policy declaration and required-gate enforcement.
+
+Evidence:
+Shadow field affects release outcome without policy registration.
+
+Current mitigation:
+Normative vs Shadow Inventory Model v0 and report builder.
+
+Remaining work:
+Classify carrier, update policy if intended, or remove implicit authority path.
+
+Status:
+Authority-boundary blocker until resolved.
+```
 
 ## Boundary held by this document
 
@@ -654,8 +1012,6 @@ status.json
 
 ## Core statement
 
-PULSEmech authority maturity is not measured by how many people have forked the repository.
-
 PULSEmech authority maturity is measured by whether the release decision is:
 
 ```text
@@ -668,8 +1024,10 @@ carrier-bounded
 verifiable through recorded artifacts
 ```
 
-Adoption can validate, stress-test, and extend PULSE.
+Adoption can increase visibility, reuse, and stress-testing.
 
-Adoption can describe ecosystem visibility and uptake.
+Independent reproduction, audit, or third-party reference integration can validate PULSE externally.
 
-Adoption does not define the release-authority mechanism.
+Productization can make PULSE easier to adopt.
+
+None of these external maturity layers redefine the release-authority mechanism.
