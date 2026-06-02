@@ -83,8 +83,10 @@ def classify_workflow(path: Path, *, repo_root: Path) -> dict[str, Any]:
     name = workflow_name(path, text)
 
     rel_l = rel.lower()
+    file_l = path.name.lower()
+    stem_l = path.stem.lower()
     name_l = name.lower()
-    identity_l = f"{rel_l}\n{name_l}"
+    identity_l = f"{rel_l}\n{file_l}\n{stem_l}\n{name_l}"
 
     if rel == ".github/workflows/pulse_ci.yml":
         return entry(
@@ -119,38 +121,21 @@ def classify_workflow(path: Path, *, repo_root: Path) -> dict[str, Any]:
                 "materializes, enforces, binds, and may attest authority artifacts."
             ),
         )
-    if any(
+
+    if file_l in {
+        "core_baseline_capture.yml",
+        "core_baseline_check.yml",
+        "pulse_core_ci.yml",
+    } or any(
         token in identity_l
         for token in (
-            "theory_overlay",
-            "theory overlay",
-            "overlay",
-        )
-    ):
-        return entry(
-            name=name,
-            path=rel,
-            surface_type="workflow",
-            primary_role="diagnostic / overlay workflow",
-            carrier_class="diagnostic_shadow",
-            authority_impacting="conditional",
-            authority_boundary=(
-                "Authority participation requires recorded evidence inclusion and "
-                "required-gate enforcement under declared policy."
-            ),
-            notes="Diagnostic / overlay carrier.",
-        )
-    if any(
-        token in identity_l
-        for token in (
-            "pages",
-            "publish",
-            "publication",
-            "badges",
-            "seo",
-            "make_org",
-            "deployment",
-            "report_pages",
+            "core_baseline",
+            "core-baseline",
+            "core baseline",
+            "pulse_core",
+            "pulse-core",
+            "pulse core",
+            "core ci",
         )
     ):
         return entry(
@@ -168,7 +153,10 @@ def classify_workflow(path: Path, *, repo_root: Path) -> dict[str, Any]:
             notes="Core baseline verification carrier; not a second release path.",
         )
 
-    if "validate-status" in rel_l or "validate_status" in rel_l or "status validation" in name_l:
+    if file_l in {
+        "validate-status.yml",
+        "validate_status.yml",
+    } or "validate-status" in rel_l or "validate_status" in rel_l or "status validation" in name_l:
         return entry(
             name=name,
             path=rel,
@@ -184,7 +172,10 @@ def classify_workflow(path: Path, *, repo_root: Path) -> dict[str, Any]:
             notes="Status validation carrier; not an independent release decision engine.",
         )
 
-    if "release_check" in rel_l or "release-check" in rel_l or "release check" in name_l:
+    if file_l in {
+        "release_check.yml",
+        "release-check.yml",
+    } or "release_check" in rel_l or "release-check" in rel_l or "release check" in name_l:
         return entry(
             name=name,
             path=rel,
@@ -199,7 +190,10 @@ def classify_workflow(path: Path, *, repo_root: Path) -> dict[str, Any]:
             notes="Release-check carrier; not a second release-decision engine.",
         )
 
-    if "public_surface_audit" in rel_l or "public surface audit" in name_l:
+    if file_l in {
+        "public_surface_audit.yml",
+        "public-surface-audit.yml",
+    } or "public_surface_audit" in rel_l or "public surface audit" in name_l:
         return entry(
             name=name,
             path=rel,
@@ -215,14 +209,48 @@ def classify_workflow(path: Path, *, repo_root: Path) -> dict[str, Any]:
     if any(
         token in identity_l
         for token in (
+            "theory_overlay",
+            "theory-overlay",
+            "theory overlay",
+            "overlay_schema",
+            "overlay-schema",
+            "overlay schema",
+            "overlay",
+        )
+    ):
+        return entry(
+            name=name,
+            path=rel,
+            surface_type="workflow",
+            primary_role="diagnostic / overlay workflow",
+            carrier_class="diagnostic_shadow",
+            authority_impacting="conditional",
+            authority_boundary=(
+                "Authority participation requires recorded evidence inclusion and "
+                "required-gate enforcement under declared policy."
+            ),
+            notes="Diagnostic / overlay carrier.",
+        )
+
+    if file_l in {
+        "publish_report_pages.yml",
+        "cancel_pages_deployment.yml",
+        "pages_paradox_core_publish_shadow.yml",
+        "pages_paradox_core_publish_case_study_shadow.yml",
+        "paradox_core_pages_preview_shadow.yml",
+    } or any(
+        token in identity_l
+        for token in (
             "pages",
-            "publish",
+            "publish_report",
+            "publish-report",
             "publication",
             "badges",
             "seo",
             "make_org",
             "deployment",
             "report_pages",
+            "report-pages",
         )
     ):
         return entry(
@@ -267,7 +295,9 @@ def classify_workflow(path: Path, *, repo_root: Path) -> dict[str, Any]:
             "link-check",
             "link_check",
             "docs_link",
+            "docs-link",
             "semantic_pr",
+            "semantic-pr",
             "semantic pr",
             "changelog",
             "dco",
@@ -329,32 +359,38 @@ def classify_workflow(path: Path, *, repo_root: Path) -> dict[str, Any]:
     if any(
         token in identity_l
         for token in (
-            "theory_overlay",
-            "theory overlay",
-            "overlay",
             "stability",
             "separation_phase",
+            "separation-phase",
             "separation phase",
             "topology",
             "epf",
             "field",
             "snapshot",
             "history_drift",
+            "history-drift",
             "drift",
             "relational_gain",
+            "relational-gain",
             "openai_evals",
+            "openai-evals",
             "refusal",
             "parameter_golf",
+            "parameter-golf",
             "paradox",
             "gpt_external",
+            "gpt-external",
             "gravity_record",
+            "gravity-record",
             "shadow_layer_registry",
+            "shadow-layer-registry",
             "pulse-paradox-gate",
             "pulse paradox gate",
             "pulse_pd",
             "pulse-pd",
             "pulse pd",
             "pd_smoke",
+            "pd-smoke",
             "pd smoke",
             "shadow",
             "experiment",
