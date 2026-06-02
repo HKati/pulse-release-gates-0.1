@@ -81,8 +81,11 @@ def workflow_name(path: Path, text: str) -> str:
 def classify_workflow(path: Path, *, repo_root: Path) -> dict[str, Any]:
     rel = path.relative_to(repo_root).as_posix()
     text = read_text_if_exists(path)
-    lower = (rel + "\n" + text).lower()
     name = workflow_name(path, text)
+
+    rel_l = rel.lower()
+    name_l = name.lower()
+    identity_l = f"{rel_l}\n{name_l}"
 
     if rel == ".github/workflows/pulse_ci.yml":
         return entry(
@@ -118,7 +121,16 @@ def classify_workflow(path: Path, *, repo_root: Path) -> dict[str, Any]:
             ),
         )
 
-    if "pulse_core" in rel or "pulse-core" in lower or "core ci" in lower:
+    if any(
+        token in identity_l
+        for token in (
+            "core_baseline",
+            "core baseline",
+            "pulse_core",
+            "pulse-core",
+            "core ci",
+        )
+    ):
         return entry(
             name=name,
             path=rel,
@@ -134,7 +146,50 @@ def classify_workflow(path: Path, *, repo_root: Path) -> dict[str, Any]:
             notes="Core baseline verification carrier; not a second release path.",
         )
 
-    if "pages" in lower or "publish" in lower or "badges" in lower:
+    if "release_check" in rel_l or "release check" in name_l:
+        return entry(
+            name=name,
+            path=rel,
+            surface_type="workflow",
+            primary_role="release check workflow",
+            carrier_class="advisory",
+            authority_impacting="conditional",
+            authority_boundary=(
+                "Review / guard carrier. Authority participation requires explicit "
+                "required-gate wiring under declared policy."
+            ),
+            notes="Release-check carrier; not a second release-decision engine.",
+        )
+
+    if (
+        "theory_overlay" in rel_l
+        or "theory overlay" in name_l
+        or "overlay" in rel_l
+        or "overlay" in name_l
+    ):
+        return entry(
+            name=name,
+            path=rel,
+            surface_type="workflow",
+            primary_role="diagnostic / overlay workflow",
+            carrier_class="diagnostic_shadow",
+            authority_impacting="conditional",
+            authority_boundary=(
+                "Authority participation requires recorded evidence inclusion and "
+                "required-gate enforcement under declared policy."
+            ),
+            notes="Diagnostic / overlay carrier.",
+        )
+
+    if any(
+        token in identity_l
+        for token in (
+            "pages",
+            "publish",
+            "publication",
+            "badges",
+        )
+    ):
         return entry(
             name=name,
             path=rel,
@@ -147,7 +202,14 @@ def classify_workflow(path: Path, *, repo_root: Path) -> dict[str, Any]:
             notes="Publication / reader carrier. Does not create release authority.",
         )
 
-    if "shadow" in lower or "paradox" in lower or "experiment" in lower:
+    if any(
+        token in identity_l
+        for token in (
+            "shadow",
+            "paradox",
+            "experiment",
+        )
+    ):
         return entry(
             name=name,
             path=rel,
@@ -162,7 +224,15 @@ def classify_workflow(path: Path, *, repo_root: Path) -> dict[str, Any]:
             notes="Diagnostic / shadow carrier.",
         )
 
-    if "hygiene" in lower or "lint" in lower or "security" in lower:
+    if any(
+        token in identity_l
+        for token in (
+            "hygiene",
+            "lint",
+            "security",
+            "scan",
+        )
+    ):
         return entry(
             name=name,
             path=rel,
@@ -225,6 +295,20 @@ def static_authority_entries(repo_root: Path) -> list[dict[str, Any]]:
             carrier_class="enforcement",
             authority_impacting="yes",
             authority_boundary="Enforces literal true-only required gate semantics",
+            required_gate_participation=True,
+         entry(
+            name="Release decision materializer",
+            path="PULSE_safe_pack_v0/tools/materialize_release_decision.py",
+            surface_type="tool",
+            primary_role="release-decision materialization",
+            carrier_class="authority",
+            authority_impacting="yes",
+            authority_boundary=(
+                "Materializes release-decision labels from recorded status, "
+                "declared policy, and target context"
+            ),
+            reads_artifacts=["status.json", "pulse_gate_policy_v0.yml"],
+            writes_artifacts=["release_decision_v0.json"],
             required_gate_participation=True,
         ),
         entry(
