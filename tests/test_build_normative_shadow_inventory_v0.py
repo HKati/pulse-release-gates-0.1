@@ -217,3 +217,155 @@ def test_inventory_includes_release_decision_materializer_when_present(
     assert materializer["carrier_class"] == "authority"
     assert materializer["authority_impacting"] == "yes"
     assert "release-decision labels" in materializer["authority_boundary"]
+
+def test_inventory_has_no_unclassified_workflow_drift_for_current_repo(
+    tmp_path: Path,
+) -> None:
+    inventory, _markdown = run_builder(tmp_path)
+
+    unclassified = [
+        finding
+        for finding in inventory["drift_findings"]
+        if finding["finding"] == "workflow requires explicit carrier-role classification"
+    ]
+
+    assert unclassified == []
+
+
+def test_inventory_classifies_validate_status_as_status_contract_carrier(
+    tmp_path: Path,
+) -> None:
+    repo = tmp_path / "repo"
+    write_workflow(
+        repo / ".github" / "workflows" / "validate-status.yml",
+        name="Validate Status",
+    )
+
+    inventory = run_builder_for_repo(repo, tmp_path)
+
+    validate_status = entry_by_path(inventory, ".github/workflows/validate-status.yml")
+
+    assert validate_status["primary_role"] == "status validation workflow"
+    assert validate_status["carrier_class"] == "status_contract"
+    assert validate_status["authority_impacting"] == "conditional"
+    assert inventory["drift_findings"] == []
+
+
+def test_inventory_classifies_public_surface_audit_as_audit_carrier(
+    tmp_path: Path,
+) -> None:
+    repo = tmp_path / "repo"
+    write_workflow(
+        repo / ".github" / "workflows" / "public_surface_audit.yml",
+        name="Public Surface Audit",
+    )
+
+    inventory = run_builder_for_repo(repo, tmp_path)
+
+    audit = entry_by_path(inventory, ".github/workflows/public_surface_audit.yml")
+
+    assert audit["primary_role"] == "public surface audit workflow"
+    assert audit["carrier_class"] == "audit_preservation"
+    assert audit["authority_impacting"] == "no"
+    assert inventory["drift_findings"] == []
+
+
+def test_inventory_classifies_security_and_hygiene_workflows_without_drift(
+    tmp_path: Path,
+) -> None:
+    repo = tmp_path / "repo"
+    write_workflow(repo / ".github" / "workflows" / "dco.yml", name="DCO Check")
+    write_workflow(
+        repo / ".github" / "workflows" / "workflow_lint.yml",
+        name="workflow-lint",
+    )
+    write_workflow(repo / ".github" / "workflows" / "gitleaks.yml", name="Gitleaks")
+    write_workflow(
+        repo / ".github" / "workflows" / "upload_sarif.yml",
+        name="Upload SARIF",
+    )
+
+    inventory = run_builder_for_repo(repo, tmp_path)
+
+    assert entry_by_path(inventory, ".github/workflows/dco.yml")["carrier_class"] == "advisory"
+    assert entry_by_path(inventory, ".github/workflows/workflow_lint.yml")["carrier_class"] == "advisory"
+    assert entry_by_path(inventory, ".github/workflows/gitleaks.yml")["carrier_class"] == "advisory"
+    assert entry_by_path(inventory, ".github/workflows/upload_sarif.yml")["carrier_class"] == "advisory"
+    assert inventory["drift_findings"] == []
+
+
+def test_inventory_classifies_publication_workflows_without_body_publish_false_positive(
+    tmp_path: Path,
+) -> None:
+    repo = tmp_path / "repo"
+    write_workflow(
+        repo / ".github" / "workflows" / "publish_report_pages.yml",
+        name="Publish Report Pages",
+    )
+    write_workflow(
+        repo / ".github" / "workflows" / "cancel_pages_deployment.yml",
+        name="Cancel Pages Deployment",
+    )
+
+    inventory = run_builder_for_repo(repo, tmp_path)
+
+    publish = entry_by_path(inventory, ".github/workflows/publish_report_pages.yml")
+    cancel = entry_by_path(inventory, ".github/workflows/cancel_pages_deployment.yml")
+
+    assert publish["carrier_class"] == "publication"
+    assert publish["authority_impacting"] == "no"
+    assert cancel["carrier_class"] == "publication"
+    assert cancel["authority_impacting"] == "no"
+    assert inventory["drift_findings"] == []
+
+
+def test_inventory_classifies_shadow_and_overlay_workflows_without_drift(
+    tmp_path: Path,
+) -> None:
+    repo = tmp_path / "repo"
+    write_workflow(
+        repo / ".github" / "workflows" / "theory_overlay_v0.yml",
+        name="Theory Overlay v0",
+        body="          echo 'nothing to publish for this overlay'",
+    )
+    write_workflow(
+        repo / ".github" / "workflows" / "parameter_golf_shadow.yml",
+        name="Parameter Golf Shadow",
+    )
+    write_workflow(
+        repo / ".github" / "workflows" / "pulse_topology_demo.yml",
+        name="Pulse Topology Demo",
+    )
+
+    inventory = run_builder_for_repo(repo, tmp_path)
+
+    overlay = entry_by_path(inventory, ".github/workflows/theory_overlay_v0.yml")
+    parameter_golf = entry_by_path(
+        inventory,
+        ".github/workflows/parameter_golf_shadow.yml",
+    )
+    topology = entry_by_path(inventory, ".github/workflows/pulse_topology_demo.yml")
+
+    assert overlay["carrier_class"] == "diagnostic_shadow"
+    assert parameter_golf["carrier_class"] == "diagnostic_shadow"
+    assert topology["carrier_class"] == "diagnostic_shadow"
+    assert inventory["drift_findings"] == []
+
+
+def test_inventory_classifies_pulse_pd_smoke_without_drift(
+    tmp_path: Path,
+) -> None:
+    repo = tmp_path / "repo"
+    write_workflow(
+        repo / ".github" / "workflows" / "pulse_pd_smoke.yml",
+        name="PULSE PD Smoke",
+    )
+
+    inventory = run_builder_for_repo(repo, tmp_path)
+
+    pulse_pd = entry_by_path(inventory, ".github/workflows/pulse_pd_smoke.yml")
+
+    assert pulse_pd["carrier_class"] == "diagnostic_shadow"
+    assert pulse_pd["primary_role"] == "diagnostic / shadow workflow"
+    assert pulse_pd["authority_impacting"] == "conditional"
+    assert inventory["drift_findings"] == []
