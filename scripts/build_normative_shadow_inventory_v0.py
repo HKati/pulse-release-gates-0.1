@@ -119,15 +119,38 @@ def classify_workflow(path: Path, *, repo_root: Path) -> dict[str, Any]:
                 "materializes, enforces, binds, and may attest authority artifacts."
             ),
         )
-
     if any(
         token in identity_l
         for token in (
-            "core_baseline",
-            "core baseline",
-            "pulse_core",
-            "pulse-core",
-            "core ci",
+            "theory_overlay",
+            "theory overlay",
+            "overlay",
+        )
+    ):
+        return entry(
+            name=name,
+            path=rel,
+            surface_type="workflow",
+            primary_role="diagnostic / overlay workflow",
+            carrier_class="diagnostic_shadow",
+            authority_impacting="conditional",
+            authority_boundary=(
+                "Authority participation requires recorded evidence inclusion and "
+                "required-gate enforcement under declared policy."
+            ),
+            notes="Diagnostic / overlay carrier.",
+        )
+    if any(
+        token in identity_l
+        for token in (
+            "pages",
+            "publish",
+            "publication",
+            "badges",
+            "seo",
+            "make_org",
+            "deployment",
+            "report_pages",
         )
     ):
         return entry(
@@ -328,6 +351,11 @@ def classify_workflow(path: Path, *, repo_root: Path) -> dict[str, Any]:
             "shadow_layer_registry",
             "pulse-paradox-gate",
             "pulse paradox gate",
+            "pulse_pd",
+            "pulse-pd",
+            "pulse pd",
+            "pd_smoke",
+            "pd smoke",
             "shadow",
             "experiment",
             "demo",
