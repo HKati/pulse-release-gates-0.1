@@ -1,262 +1,434 @@
-# PULSE Demo v1 — The missing architecture (paradox stability showcase)
+# PULSE Demo v1 — Paradox Stability Demonstration
 
-This document describes a minimal, demonstrable "Pulse Demo v1":
+## Purpose
 
-- not just theory or prose,
-- but a **demonstration template** that can later be turned into:
-  - a GitHub notebook,
-  - a Kaggle demo,
-  - and a Pro forma artefact.
+This document defines a minimal PULSE Demo v1 demonstration template.
 
-The demo focuses on a single phenomenon:
+The demo can later be implemented as:
 
-> A paradox where classical scaling and classical AI models become unstable,
-> but PULSE remains stable and can *measure* this stability.
+```text
+GitHub notebook
+Kaggle demo
+review artifact
+dashboard / notebook environment
+```
 
----
+The demo focuses on one diagnostic scenario:
+
+```text
+a paradox-oriented prompt where binary model responses may vary,
+while PULSE-style artifacts represent the case as an explicit field state
+with stability diagnostics.
+```
+
+This document is a demonstration template.
+
+It is not:
+
+```text
+a benchmark
+a release criterion
+a new model claim
+a universal claim about all LLM behavior
+a replacement for PULSEmech release authority
+```
 
 ## 1. Goal
 
-The demo is designed to show a behaviour that:
+The demo shows how a paradox-oriented case can be represented without forcing a single binary label.
 
-- classical LLMs and scaling **cannot** handle cleanly:
-  - paradox,
-  - unstable decision surfaces,
-  - meta-level inconsistency,
-  - direction errors,
-  - field-stability issues,
+Baseline model responses may vary under paradox prompts:
 
-while:
+```text
+true
+false
+both
+neither
+explanatory deferral
+inconsistent final label
+```
 
-- PULSE:
-  - stays **stable** in the paradox regime,
-  - exposes a **decision field** instead of a single label,
-  - and provides **field metrics** (RDSI, EPF tension, Δ-direction error).
+The PULSE-style demonstration represents the case as:
 
-This is not another model, another eval, or another score.
-It is a demonstration of a **missing architecture layer**.
+```text
+paradox field state
+```
 
----
+with associated diagnostic signals:
 
-## 2. Part 1 — The paradox where classical AI breaks
+```text
+RDSI
+EPF tension
+directional drift / Δ-direction error
+meta-state label
+```
 
-### 2.1. The question
+The goal is to demonstrate a diagnostic representation:
 
-A simple, well-known paradoxical prompt to any large model:
+```text
+binary response
+→ field-state representation
+→ stability diagnostics
+```
 
-> “The sentence you are reading right now is false.  
-> Is this statement true or false?”
+This is a diagnostic demonstration template, not a new model, benchmark, or release criterion.
 
-### 2.2. Expected classical behaviour
+## 2. Part 1 — Paradox Scenario for Baseline Comparison
 
-Empirically and conceptually, large models tend to exhibit:
+### 2.1. Prompt
 
-- **unstable answers**
-  - sometimes “true”, sometimes “false”,
-  - sometimes “both” or switching under small rephrasing.
+Example paradox prompt:
 
-- **oscillation between truth values**
-  - true → false → true → … across runs or paraphrases.
+```text
+The sentence you are reading right now is false.
+Is this statement true or false?
+```
 
-- **long, evasive explanations**
-  - meta-talk about “self-reference”
-  - without a concrete, stable classification.
+### 2.2. Baseline response behavior
 
-- **occasional failures**
-  - confusion,
-  - internal inconsistency between explanation and final answer.
+This prompt is self-referential.
 
-This is where scaling runs into a wall:
+A binary true/false answer may be unstable because each answer refers back to the condition that invalidates it.
 
-- more parameters, more data, more RLHF do not remove the paradox,
-- they often just make the explanation *longer*.
+Baseline responses may show:
+
+```text
+variation across runs
+variation across paraphrases
+true / false switching
+both / neither classifications
+long explanatory responses without stable binary label
+internal mismatch between explanation and final label
+```
+
+This scenario is intended to show a limitation of forced binary classification under self-reference.
 
 The underlying issue:
 
-> The model is implicitly forced into a **binary decision** (true/false)  
-> in a region of the decision field that is **structurally paradoxical**.
+```text
+The prompt requests a binary decision in a structurally paradoxical region.
+```
 
----
+The demo does not claim that every model always fails on this prompt.
 
-## 3. Part 2 — A Pulse-style stable response
+The demo uses the prompt as a controlled paradox-oriented case for comparing response form and stability representation.
 
-The Pulse demo does **not** try to force a binary answer.  
-Instead, it recognises that we are in a **paradox field region**.
+## 3. Part 2 — PULSE-Style Field-State Representation
 
-A short, demonstrative Pulse-style response:
+The PULSE-style demo does not force a binary answer.
 
-> “This is a self-referential paradox.  
-> The decision is not a binary true/false classification, but a field state.  
->  
-> The path ‘true → false’ and the path ‘false → true’ form an unstable  
-> double cycle.  
->  
-> The stable region is a PARADOX STATE, where the two values mutually  
-> maintain each other.  
->  
-> → Pulse-field result: paradox-true (paradox acknowledged and stabilised).”
+It represents the prompt as a paradox field state.
 
-Key idea:
+Example PULSE-style response:
 
-- We move from:
-  - “Is the sentence *true*?”  
-  to:
-  - “**What is the stable region of the decision field around this sentence?**”
+```text
+This is a self-referential paradox.
 
-The Pulse answer is:
+The decision is not represented as a stable true/false classification.
 
-- **stable** (it does not oscillate between “true” and “false”),
-- **field-aware** (speaks about paths, cycles, region),
-- and explicitly marks a **paradox state**.
+The paths “true → false” and “false → true” form a reciprocal unstable cycle.
 
----
+The stable representation is a PARADOX STATE, where both binary assignments are structurally entangled.
 
-## 4. Part 3 — The Pulse measurement layer
+Pulse-field result:
+paradox_state / self_reference_stabilized
+```
 
-The real breakthrough is not only that Pulse answers stably,
-but that it can **measure** and expose the stability of this paradox region.
+The representation moves from:
 
-The demo assumes a small set of *field metrics*:
+```text
+Is the sentence true?
+```
 
-- **RDSI – Release Decision Stability Index**
-- **EPF shadow field tension**
-- **Δ-direction error**
-- **Meta-state signal**
+to:
 
-The specific numeric values in the demo are illustrative, not yet tied to a
-concrete implementation — they are part of the *template*.
+```text
+What is the stable field state around this sentence?
+```
 
-### 4.1. RDSI — Release Decision Stability Index
+The PULSE-style answer is:
 
-A scalar in `[0, 1]`:
+```text
+field-state based
+explicit about self-reference
+stable as a representation
+diagnostic rather than binary
+```
 
-- `0` → completely unstable decision region (chaotic, oscillatory),
-- `1` → fully stabilised decision region.
+## 4. Part 3 — Measurement Layer
 
-In the demo:
+The key diagnostic claim is that PULSE-style artifacts can record and expose stability diagnostics for this paradox-oriented case.
 
-- `RDSI = 0.91`
+The demo uses a small illustrative metric set:
 
-Interpretation:
+```text
+RDSI
+EPF tension
+Δ-direction error
+meta-state signal
+```
 
-- the paradox region is **stably encoded** as a paradox state,
-- no oscillation between “true” and “false”,
-- repeated queries in the same context converge to the same field state.
+The numeric values in this document are illustrative.
 
-### 4.2. EPF shadow field tension
+They are placeholders for a later concrete implementation.
 
-EPF (Evaluation / Paradox Frontier) is a conceptual “shadow field”:
+They should not be treated as measured benchmark results until the demo is implemented and the measurement path is recorded.
 
-- it describes:
-  - how much **latent tension** there is in the field around the decision,
-  - even when outputs look superficially calm.
+## 4.1. RDSI — Release Decision Stability Index
 
-In the demo:
-
-- EPF tension is **low**:
-
-  > “Low EPF tension — the local field does not ‘heat up’,  
-  > the model does not disintegrate under the paradox.”
+RDSI is represented as a scalar in `[0, 1]`.
 
 Interpretation:
 
-- the paradox is acknowledged and “parked” in a dedicated field region,
-- the surrounding decision field stays calm.
+```text
+0 = unstable decision region
+1 = stable represented field state
+```
 
-### 4.3. Δ-direction error
+Illustrative demo value:
 
-A directional error signal:
+```text
+RDSI = 0.91
+```
 
-- measures how much the model tries to “escape” the paradox by:
-  - drifting toward “true”,
-  - or drifting toward “false”,
-  - instead of staying in the paradox state.
+Interpretation in this template:
 
-In the demo:
+```text
+the paradox-oriented case is represented as a stable paradox field state
+the representation does not oscillate between true and false
+repeated evaluation in the same context would be expected to preserve the field-state label
+```
 
-- `Δ-direction error = 0.03`
+Implementation note:
+
+```text
+RDSI must be computed from recorded runs or declared diagnostic artifacts before it is treated as measured evidence.
+```
+
+## 4.2. EPF Tension
+
+EPF tension represents local field tension around the paradox-oriented decision state.
+
+Illustrative demo state:
+
+```text
+EPF tension = low
+```
 
 Interpretation:
 
-- almost no directional drift:
-  - the model is not trying to “run away” in one direction,
-  - the paradox state is accepted as a stable point.
+```text
+the prompt is represented as a paradox field case
+the local field remains stable under the paradox-oriented prompt
+the system does not need to flatten the case into a single binary label
+```
 
-### 4.4. Meta-state signal
+Implementation note:
 
-A concise meta-label for the field:
+```text
+EPF tension must be bound to a concrete diagnostic artifact before it is treated as measured evidence.
+```
 
-- e.g. `"paradox_field_stabilised"`.
+## 4.3. Δ-Direction Error
 
-In the demo:
+Δ-direction error represents directional drift away from the declared paradox state.
 
-> Meta-signal: `"paradox-field / stabilised"`
+It measures whether the response tends to escape toward:
+
+```text
+true
+false
+unresolved deferral
+contradictory explanation
+```
+
+Illustrative demo value:
+
+```text
+Δ-direction error = 0.03
+```
+
+Interpretation in this template:
+
+```text
+low directional drift
+the paradox state remains the stable representation
+the response does not collapse into one binary direction
+```
+
+Implementation note:
+
+```text
+Δ-direction error must be computed from a declared perturbation or repeated-run protocol before it is treated as measured evidence.
+```
+
+## 4.4. Meta-State Signal
+
+The meta-state signal is a compact label for the represented field state.
+
+Illustrative label:
+
+```text
+paradox_field / stabilized
+```
+
+or:
+
+```text
+self_reference_paradox_state
+```
 
 Interpretation:
 
-- the system recognises:
-  - “I am in a paradox decision field,”
-  - “this is not a normal true/false region,”
-  - “and the paradox has been stabilised as such.”
+```text
+the system marks the prompt as a paradox field case
+the prompt is not represented as a normal true/false classification region
+the paradox is represented as a stable diagnostic state
+```
 
-This is the layer many researchers have been intuitively searching for:
-a meta-state where the system *knows* it is in a paradox field and does
-not try to flatten it to a single bit.
+The meta-state label is descriptive.
 
----
+It is not a release decision.
 
-## 5. Part 4 — Three-line summary of the demo
+## 5. Three-Line Demo Summary
 
-This is the short version aimed at the wider technical audience:
+1. Baseline binary responses can vary under paradox prompts.
 
-1. **Classical models collapse under paradox**  
-   – oscillation, inconsistency, or evasive explanations.
+```text
+A self-referential true/false prompt can produce unstable or inconsistent binary response behavior.
+```
 
-2. **Pulse gives a stable, field-level decision**  
-   – it moves from “true/false” to a “paradox state” in the decision field.
+2. PULSE-style representation records a field state.
 
-3. **Pulse *measures* this stability**  
-   – via RDSI, EPF shadow tension, and Δ-direction error, plus a meta-state.
+```text
+The case is represented as a paradox field state rather than a forced binary label.
+```
 
-This is not just a different answer.
-It is a demonstration that:
+3. PULSE-style artifacts can expose stability diagnostics.
 
-> “There exists an architecture layer above classical scaling that handles
-> paradoxical and unstable regions as explicit field structures.”
+```text
+RDSI, EPF tension, Δ-direction error, and a meta-state label describe the stability of the represented field state.
+```
 
----
+Summary claim:
 
-## 6. Part 5 — Towards Demo v2
+```text
+Paradoxical and unstable prompt regions can be represented as explicit field structures with associated diagnostics.
+```
 
-Pulse Demo v1 is intentionally minimal:
+## 6. Demo v1 Artifact Shape
 
-- one paradox,
-- one field-level answer,
-- a small set of illustrative metrics.
+A concrete Demo v1 artifact should include:
 
-A Demo v2 can add:
+```text
+prompt
+baseline response samples
+PULSE-style field-state representation
+diagnostic metric placeholders or computed values
+metric provenance note
+summary table
+```
 
-- a **visual RDSI curve**  
-  – showing stability across multiple runs / perturbations.
-- an **EPF heatmap**  
-  – showing how tension varies across neighbouring prompts / conditions.
-- a **Δ-direction error mini-diagram**  
-  – e.g. a vector field showing possible “escape directions”.
-- a `Pulse_demo_v1.ipynb` notebook  
-  – with:
-    - code cells for classical LLM behaviour vs Pulse-style field output,
-    - plots for RDSI, EPF, Δ-direction error,
-    - and a small dashboard-like view.
+Suggested minimal JSON shape:
 
-The present document is the **demonstration template**:
-a compact, portable form that can later be instantiated:
+```json
+{
+  "demo_id": "pulse_demo_v1_paradox_stability",
+  "prompt": "The sentence you are reading right now is false. Is this statement true or false?",
+  "case_type": "self_reference_paradox",
+  "baseline_observation": {
+    "response_mode": "binary_or_explanatory",
+    "expected_variation": "true_false_both_neither_or_deferral"
+  },
+  "pulse_representation": {
+    "field_state": "self_reference_paradox_state",
+    "binary_label": null,
+    "meta_state": "paradox_field / stabilized"
+  },
+  "diagnostics": {
+    "RDSI": {
+      "value": 0.91,
+      "status": "illustrative"
+    },
+    "EPF_tension": {
+      "value": "low",
+      "status": "illustrative"
+    },
+    "delta_direction_error": {
+      "value": 0.03,
+      "status": "illustrative"
+    }
+  },
+  "evidence_status": "template_only"
+}
+```
 
-- as a GitHub notebook,
-- as a Kaggle demo,
--  or as an artefact in other notebook / dashboard environments,
+## 7. Demo v1 Boundary
 
-without changing the underlying idea:
+Demo v1 is a diagnostic demonstration template.
 
-> PULSE treats paradox as a stable field state,
-> and provides a measurable, feszültségmentes decision field
-> where classical scaling only oscillates.
+It does not change:
+
+```text
+PULSEmech decision semantics
+gate policy
+required gate wiring
+check_gates.py behavior
+status schema
+CI allow/block behavior
+Quality Ledger renderer behavior
+artifact provenance binding behavior
+attestation workflow behavior
+release tags
+DOI / Zenodo path
+```
+
+The demo is not part of the PULSE release-authority path unless a later PR explicitly records a specific demo artifact as evidence and promotes a specific field through declared policy and required-gate enforcement.
+
+## 8. Towards Demo v2
+
+Demo v2 may add:
+
+```text
+visual RDSI curve
+EPF heatmap
+Δ-direction error mini-diagram
+perturbation table
+baseline response samples
+Pulse_demo_v1.ipynb notebook
+```
+
+The notebook may include:
+
+```text
+prompt variants
+baseline response collection
+field-state representation
+diagnostic plots
+JSON artifact export
+Markdown summary
+```
+
+Demo v2 should preserve the same boundary:
+
+```text
+diagnostic demonstration
+not release criterion
+not independent release authority
+not benchmark result unless measured and recorded
+```
+
+## 9. Final Demonstration Claim
+
+PULSE Demo v1 demonstrates the following template-level claim:
+
+```text
+A paradox-oriented prompt can be represented as a stable field state,
+with diagnostic signals describing stability, tension, and directional drift.
+```
+
+This is the correct scope of the demo.
+
+The demo does not claim that PULSE replaces model evaluation, release authority, or external validation.
+
+It provides a compact demonstration path for paradox-state representation and stability diagnostics.
