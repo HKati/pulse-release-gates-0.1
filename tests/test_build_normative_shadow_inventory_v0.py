@@ -103,3 +103,117 @@ def test_inventory_markdown_contains_authority_carrier_and_drift_section(
 
     assert "status.json -> declared gate policy" in markdown
     assert "## Drift findings" in markdown
+
+
+def run_builder_for_repo(repo_root: Path, tmp_path: Path) -> dict:
+    out_json = tmp_path / "normative_shadow_inventory_v0.json"
+    out_md = tmp_path / "normative_shadow_inventory_v0.md"
+
+    subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPT),
+            "--repo-root",
+            str(repo_root),
+            "--out-json",
+            str(out_json),
+            "--out-md",
+            str(out_md),
+        ],
+        check=True,
+    )
+
+    return json.loads(out_json.read_text(encoding="utf-8"))
+
+
+def write_workflow(path: Path, *, name: str, body: str = "") -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        "\n".join(
+            [
+                f"name: {name}",
+                "",
+                "on:",
+                "  pull_request:",
+                "",
+                "jobs:",
+                "  check:",
+                "    runs-on: ubuntu-latest",
+                "    steps:",
+                "      - name: Example",
+                "        run: |",
+                "          echo ok",
+                *body.splitlines(),
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+
+def test_inventory_classifies_core_baseline_workflows_without_false_drift(
+    tmp_path: Path,
+) -> None:
+    repo = tmp_path / "repo"
+    write_workflow(
+        repo / ".github" / "workflows" / "core_baseline_capture.yml",
+        name="Core Baseline Capture",
+    )
+    write_workflow(
+        repo / ".github" / "workflows" / "core_baseline_check.yml",
+        name="Core Baseline Check",
+    )
+
+    inventory = run_builder_for_repo(repo, tmp_path)
+
+    capture = entry_by_path(inventory, ".github/workflows/core_baseline_capture.yml")
+    check = entry_by_path(inventory, ".github/workflows/core_baseline_check.yml")
+
+    assert capture["primary_role"] == "core baseline workflow"
+    assert capture["carrier_class"] == "advisory"
+    assert check["primary_role"] == "core baseline workflow"
+    assert check["carrier_class"] == "advisory"
+    assert inventory["drift_findings"] == []
+
+
+def test_inventory_does_not_classify_publish_mentions_as_publication(
+    tmp_path: Path,
+) -> None:
+    repo = tmp_path / "repo"
+    write_workflow(
+        repo / ".github" / "workflows" / "release_check.yml",
+        name="Release Check",
+        body="          echo 'nothing to publish in this release check'",
+    )
+    write_workflow(
+        repo / ".github" / "workflows" / "theory_overlay_v0.yml",
+        name="Theory Overlay v0",
+        body="          echo 'nothing to publish for this overlay'",
+    )
+
+    inventory = run_builder_for_repo(repo, tmp_path)
+
+    release_check = entry_by_path(inventory, ".github/workflows/release_check.yml")
+    theory_overlay = entry_by_path(inventory, ".github/workflows/theory_overlay_v0.yml")
+
+    assert release_check["carrier_class"] == "advisory"
+    assert release_check["primary_role"] == "release check workflow"
+
+    assert theory_overlay["carrier_class"] == "diagnostic_shadow"
+    assert theory_overlay["primary_role"] == "diagnostic / overlay workflow"
+
+
+def test_inventory_includes_release_decision_materializer_when_present(
+    tmp_path: Path,
+) -> None:
+    inventory, _markdown = run_builder(tmp_path)
+
+    materializer = entry_by_path(
+        inventory,
+        "PULSE_safe_pack_v0/tools/materialize_release_decision.py",
+    )
+
+    assert materializer["primary_role"] == "release-decision materialization"
+    assert materializer["carrier_class"] == "authority"
+    assert materializer["authority_impacting"] == "yes"
+    assert "release-decision labels" in materializer["authority_boundary"]
