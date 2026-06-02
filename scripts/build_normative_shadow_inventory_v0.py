@@ -145,7 +145,23 @@ def classify_workflow(path: Path, *, repo_root: Path) -> dict[str, Any]:
             notes="Core baseline verification carrier; not a second release path.",
         )
 
-    if "release_check" in rel_l or "release check" in name_l:
+    if "validate-status" in rel_l or "validate_status" in rel_l or "status validation" in name_l:
+        return entry(
+            name=name,
+            path=rel,
+            surface_type="workflow",
+            primary_role="status validation workflow",
+            carrier_class="status_contract",
+            authority_impacting="conditional",
+            authority_boundary=(
+                "Status-contract guard carrier. Authority participation requires "
+                "explicit release-authority path wiring."
+            ),
+            reads_artifacts=["status.json", "schemas/status/*"],
+            notes="Status validation carrier; not an independent release decision engine.",
+        )
+
+    if "release_check" in rel_l or "release-check" in rel_l or "release check" in name_l:
         return entry(
             name=name,
             path=rel,
@@ -160,24 +176,17 @@ def classify_workflow(path: Path, *, repo_root: Path) -> dict[str, Any]:
             notes="Release-check carrier; not a second release-decision engine.",
         )
 
-    if (
-        "theory_overlay" in rel_l
-        or "theory overlay" in name_l
-        or "overlay" in rel_l
-        or "overlay" in name_l
-    ):
+    if "public_surface_audit" in rel_l or "public surface audit" in name_l:
         return entry(
             name=name,
             path=rel,
             surface_type="workflow",
-            primary_role="diagnostic / overlay workflow",
-            carrier_class="diagnostic_shadow",
-            authority_impacting="conditional",
-            authority_boundary=(
-                "Authority participation requires recorded evidence inclusion and "
-                "required-gate enforcement under declared policy."
-            ),
-            notes="Diagnostic / overlay carrier.",
+            primary_role="public surface audit workflow",
+            carrier_class="audit_preservation",
+            authority_impacting="no",
+            authority_boundary="Audit / reader-boundary review carrier",
+            reads_artifacts=["Quality Ledger", "public reader surfaces"],
+            notes="Public-surface audit carrier; non-authorizing.",
         )
 
     if any(
@@ -187,6 +196,10 @@ def classify_workflow(path: Path, *, repo_root: Path) -> dict[str, Any]:
             "publish",
             "publication",
             "badges",
+            "seo",
+            "make_org",
+            "deployment",
+            "report_pages",
         )
     ):
         return entry(
@@ -204,23 +217,23 @@ def classify_workflow(path: Path, *, repo_root: Path) -> dict[str, Any]:
     if any(
         token in identity_l
         for token in (
-            "shadow",
-            "paradox",
-            "experiment",
+            "secret",
+            "gitleaks",
+            "sarif",
+            "security",
+            "scan",
         )
     ):
         return entry(
             name=name,
             path=rel,
             surface_type="workflow",
-            primary_role="shadow / diagnostic workflow",
-            carrier_class="diagnostic_shadow",
-            authority_impacting="conditional",
-            authority_boundary=(
-                "Authority participation requires recorded evidence inclusion and "
-                "required-gate enforcement under declared policy."
-            ),
-            notes="Diagnostic / shadow carrier.",
+            primary_role="security / code scanning workflow",
+            carrier_class="advisory",
+            authority_impacting="no",
+            authority_boundary="Non-authorizing security / repository hygiene carrier",
+            publishes_artifacts=["security signals", "SARIF"],
+            notes="Security / code scanning carrier.",
         )
 
     if any(
@@ -228,8 +241,13 @@ def classify_workflow(path: Path, *, repo_root: Path) -> dict[str, Any]:
         for token in (
             "hygiene",
             "lint",
-            "security",
-            "scan",
+            "link-check",
+            "link_check",
+            "docs_link",
+            "semantic_pr",
+            "semantic pr",
+            "changelog",
+            "dco",
         )
     ):
         return entry(
@@ -240,7 +258,93 @@ def classify_workflow(path: Path, *, repo_root: Path) -> dict[str, Any]:
             carrier_class="advisory",
             authority_impacting="no",
             authority_boundary="Non-authorizing guard carrier",
-            notes="Repository hygiene / security signal carrier.",
+            notes="Repository hygiene / review signal carrier.",
+        )
+
+    if any(
+        token in identity_l
+        for token in (
+            "reproduce",
+            "reproduction",
+        )
+    ):
+        return entry(
+            name=name,
+            path=rel,
+            surface_type="workflow",
+            primary_role="reproducibility workflow",
+            carrier_class="audit_preservation",
+            authority_impacting="conditional",
+            authority_boundary=(
+                "Reproduction / review carrier. Authority participation requires "
+                "explicit required-gate wiring under declared policy."
+            ),
+            notes="Reproducibility carrier; does not create release authority.",
+        )
+
+    if any(
+        token in identity_l
+        for token in (
+            "bundle",
+            "reviewer bundle",
+            "evidence packet",
+            "package verifier",
+        )
+    ):
+        return entry(
+            name=name,
+            path=rel,
+            surface_type="workflow",
+            primary_role="audit / preservation workflow",
+            carrier_class="audit_preservation",
+            authority_impacting="no",
+            authority_boundary="Audit / preservation carrier; non-authorizing",
+            publishes_artifacts=["review bundles", "evidence packets"],
+            notes="Review package / preservation carrier.",
+        )
+
+    if any(
+        token in identity_l
+        for token in (
+            "theory_overlay",
+            "theory overlay",
+            "overlay",
+            "stability",
+            "separation_phase",
+            "separation phase",
+            "topology",
+            "epf",
+            "field",
+            "snapshot",
+            "history_drift",
+            "drift",
+            "relational_gain",
+            "openai_evals",
+            "refusal",
+            "parameter_golf",
+            "paradox",
+            "gpt_external",
+            "gravity_record",
+            "shadow_layer_registry",
+            "pulse-paradox-gate",
+            "pulse paradox gate",
+            "shadow",
+            "experiment",
+            "demo",
+        )
+    ):
+        return entry(
+            name=name,
+            path=rel,
+            surface_type="workflow",
+            primary_role="diagnostic / shadow workflow",
+            carrier_class="diagnostic_shadow",
+            authority_impacting="conditional",
+            authority_boundary=(
+                "Authority participation requires recorded evidence inclusion and "
+                "required-gate enforcement under declared policy."
+            ),
+            notes="Diagnostic / shadow carrier.",
         )
 
     return entry(
