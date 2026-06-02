@@ -350,3 +350,22 @@ def test_inventory_classifies_shadow_and_overlay_workflows_without_drift(
     assert parameter_golf["carrier_class"] == "diagnostic_shadow"
     assert topology["carrier_class"] == "diagnostic_shadow"
     assert inventory["drift_findings"] == []
+
+
+def test_inventory_classifies_pulse_pd_smoke_without_drift(
+    tmp_path: Path,
+) -> None:
+    repo = tmp_path / "repo"
+    write_workflow(
+        repo / ".github" / "workflows" / "pulse_pd_smoke.yml",
+        name="PULSE PD Smoke",
+    )
+
+    inventory = run_builder_for_repo(repo, tmp_path)
+
+    pulse_pd = entry_by_path(inventory, ".github/workflows/pulse_pd_smoke.yml")
+
+    assert pulse_pd["carrier_class"] == "diagnostic_shadow"
+    assert pulse_pd["primary_role"] == "diagnostic / shadow workflow"
+    assert pulse_pd["authority_impacting"] == "conditional"
+    assert inventory["drift_findings"] == []
