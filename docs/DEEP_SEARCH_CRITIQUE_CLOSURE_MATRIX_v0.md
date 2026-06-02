@@ -35,10 +35,10 @@ status.json
 | Public Pages / Quality Ledger could be misread as release-grade evidence | Public reader surface state + reader carrier wording | Closed internally | Future visual polish may further strengthen presentation |
 | Need clear authority-impact audit checklist | `AUTHORITY_IMPACT_AUDIT_CHECKLIST_v0.md` | Closed | Human checklist; not a CI guard |
 | Need cryptographic provenance / attestation binding | Release Authority Cryptographic Binding boundary + Artifact Provenance Binding v0 + attestation subject / workflow | Closed internally | Attestation is over binding carrier; not a replacement for PULSEmech authority path |
-| Need normative vs shadow inventory report | Normative vs Shadow Inventory Model v0 + machine inventory report v0 | Partially closed | Machine report exists, but current generated inventory still reports unclassified workflow drift; classifier closure remains follow-up work |
+| Need normative vs shadow inventory report | Normative vs Shadow Inventory Model v0 + machine inventory report v0 + workflow-family classification pass | Closed internally | Current machine report runs cleanly without unclassified workflow drift findings |
 | Need external verification layer | `EXTERNAL_VERIFICATION_PATH_v0.md` | Partially closed | Actual third-party reproduction / audit remains external work |
 | Need clearer maintainer / governance boundary | `MAINTAINER_AUTHORITY_BOUNDARY_v0.md` | Closed for current single-maintainer model | Multi-maintainer quorum / rotation remains future layer |
-| Shadow layers may drift into implicit authority | Normative vs Shadow Inventory Model + Report | Partially closed | Model and report exist; remaining drift warnings must be classified or explicitly accepted |
+| Shadow layers may drift into implicit authority | Normative vs Shadow Inventory Model + Report + workflow-family classifier coverage | Closed internally | Machine inventory report classifies current first-party workflow families; future new workflows still require classification |
 | Public surface core/demo/prod separation should be stronger | Public reader surface wording and state model | Mostly closed | Optional later visual polish |
 | Crypto provenance should align with in-toto / SLSA / attestation world | Artifact provenance binding and GitHub artifact attestation wiring | Closed as first implementation layer | Future compatibility mapping may be added |
 | PULSE not yet institutionally mature | Maintainer boundary + external verification path | Partially closed | True institutional maturity requires external adoption / review |
@@ -68,15 +68,14 @@ These layers close or reduce the internal technical findings.
 
 Report-driven findings remain partial until the generated report has no unresolved drift warnings, or until the remaining warnings are explicitly classified and accepted.
 
+
 ## Remaining internal follow-up items
 
-The following internal follow-up remains open:
+No internal deep-search blocker remains open at this layer.
 
-```text
-classify remaining normative/shadow inventory drift warnings
-reduce or explicitly accept unclassified workflow drift findings
-confirm the generated inventory report can distinguish shadow, publication, reader, diagnostic, advisory, and authority workflows without false drift
-```
+The normative/shadow inventory report now classifies the current first-party workflow families without unclassified workflow drift findings.
+
+Future repository growth still requires classification review for new workflows, artifacts, reader surfaces, publication carriers, diagnostic/shadow carriers, binding carriers, and attestation carriers.
 
 This is review-carrier work.
 
@@ -148,7 +147,7 @@ The deep-search review is partially addressed for these items:
 ```text
 normative vs shadow inventory model exists
 normative vs shadow inventory report exists
-remaining workflow drift warnings still require classification or explicit acceptance
+current first-party workflow families are classified without unclassified workflow drift findings
 external validation path exists
 real third-party validation remains external work
 ```
