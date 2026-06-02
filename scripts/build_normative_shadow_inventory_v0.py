@@ -19,7 +19,6 @@ from typing import Any
 SCHEMA_ID = "pulse.normative_shadow_inventory.v0"
 SCHEMA_VERSION = "0.1.0"
 
-
 AUTHORITY_PATH = (
     "status.json -> declared gate policy -> workflow-effective materialized "
     "required gate set -> strict fail-closed CI enforcement"
@@ -296,7 +295,8 @@ def static_authority_entries(repo_root: Path) -> list[dict[str, Any]]:
             authority_impacting="yes",
             authority_boundary="Enforces literal true-only required gate semantics",
             required_gate_participation=True,
-         entry(
+        ),
+        entry(
             name="Release decision materializer",
             path="PULSE_safe_pack_v0/tools/materialize_release_decision.py",
             surface_type="tool",
@@ -502,7 +502,10 @@ def markdown_table(inventory: dict[str, Any]) -> str:
 
 def write_json(path: Path, payload: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    path.write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
 
 
 def write_text(path: Path, text: str) -> None:
