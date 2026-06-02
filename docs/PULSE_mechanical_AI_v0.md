@@ -1,257 +1,528 @@
-# PULSE Mechanical AI v0 — decision field, not biology
+# PULSE Mechanical AI v0 — Decision-Field Terminology Note
 
-This document gives a conceptual definition of **Mechanical AI (M‑AI)**
-as realised by the PULSE stack.
+## Purpose
 
-It is intentionally **non-biological** and **non-cognitive**:
+This document defines **Mechanical AI (M-AI)** as project terminology for PULSE decision-field artifacts.
 
-- no attempt to imitate humans,
-- no attempt to tell a story about “understanding” or “reasoning”,
-- instead: a **decision field** with explicit mechanics.
+The term is used to describe an artifact-level representation of decisions, constraints, paradox structures, and stability diagnostics.
 
-The purpose is to explain **what kind of system PULSE is**, and why it
-needs a different language than “learning”, “intelligence” or “AGI”.
+It does not describe:
 
----
+```text
+biological cognition
+human-like understanding
+consciousness
+AGI capability
+model-internal reasoning
+model-training behavior
+```
 
-## 1. Classical learning vs Mechanical AI
+Mechanical AI, in this document, refers to a PULSE-style decision-field representation built from explicit artifacts.
 
-### 1.1 Classical learning (closed loop)
+The purpose is to define terminology without implying that PULSE imitates humans, trains a model, or claims cognitive capability.
 
-In the classical view, learning is a **closed optimisation loop**:
+## Boundary
 
-- data → loss → gradient → parameter update,
-- repeated many times,
-- with task performance as the main metric.
+Mechanical AI is a terminology layer.
 
-Growth means:
+It is not a separate release-authority path.
 
-- more data,
-- more parameters,
-- more compute,
-- more layers.
+The PULSEmech authority carrier remains:
 
-This is **quantitative** growth inside a fixed space.
+```text
+status.json
+→ declared gate policy
+→ workflow-effective materialized required gate set
+→ strict fail-closed CI enforcement
+```
 
-### 1.2 Mechanical AI (open field)
+Mechanical AI terminology may describe how PULSE artifacts represent decision fields, paradox constraints, stability signals, and trace structure.
 
-Mechanical AI starts from a different object:
+It does not redefine release authority.
 
-- not “a learner”,
-- but a **field** of possible decisions.
+## 1. Training-loop View vs Decision-Field Artifact View
 
-Instead of asking “what did the model learn?”, we ask:
+### 1.1 Training-loop view
 
-- what does the **decision field** look like?
-- where is it:
-  - smooth vs curved,
-  - stable vs unstable,
-  - paradox‑free vs paradox‑rich?
+In a classical model-training view, the central process is an optimization loop:
 
-Growth here means:
+```text
+data
+→ loss
+→ gradient
+→ parameter update
+```
 
-- more **relations**,
-- more **paradox nuclei**,
-- more **field structure**,
-- more **directions** in which decisions can re‑organise.
+This process is repeated to improve task performance under a selected objective.
 
-This is **qualitative** growth: the field changes dimension and
-topology, not just the amount of data.
+Growth in this view may involve:
 
----
+```text
+more data
+more parameters
+more compute
+more training steps
+more layers
+```
 
-## 2. Paradox as the engine of extension
+This is quantitative growth inside a training system.
 
-### 2.1 Classical: error → correction
+### 1.2 Decision-field artifact view
 
-In a closed optimisation loop:
+Mechanical AI, as used in PULSE, does not refer to training a model.
 
-- error → correction,
-- missing pattern → better fit,
-- goal → optimisation.
+It refers to a decision-field artifact view.
 
-The system moves **inside** a predefined space.
+The central object is:
 
-### 2.2 Mechanical: paradox → extension
+```text
+a represented field of possible decisions
+```
 
-In a decision field, a paradox is not “a bug”, but a **source**:
+rather than:
 
-- two constraints that cannot be satisfied together,
-- a minimal unsatisfiable set (MUS),
-- a point where the field cannot remain flat.
+```text
+a learner model
+```
 
-In PULSE, paradox structure is made explicit as:
+The review question changes from:
 
-- `paradox_field_v0.json` — paradox atoms,
-- each atom is a small, machine‑readable **paradox nucleus**.
+```text
+What did the model learn?
+```
 
-Mechanically, a paradox:
+to:
 
-- opens a new **local dimension** in the decision field,
-- forces the system to **re‑organise** instead of just optimising,
-- is a driver of **extension**, not a failure of learning.
+```text
+What decision field is represented by the recorded artifacts?
+```
 
-The system does not “learn more data”; it **extends its field** around
-paradox constraints.
+A PULSE decision-field artifact may describe:
 
----
+```text
+gate states
+constraint relations
+paradox structures
+stability regions
+directional drift
+release-state boundaries
+```
 
-## 3. From reward to field stability
+This is a structural artifact view.
 
-### 3.1 Reward‑centric view
+It does not assert that the underlying model understands, reasons, or learns in a biological sense.
 
-In many ML systems, the central object is a **reward / loss function**:
+## 2. Paradox as a Field-Extension Trigger
 
-- good outcome → high reward,
-- bad outcome → low reward,
-- learning → maximise expected reward.
+### 2.1 Closed optimization view
 
-This is powerful but fragile:
+In a closed optimization view, an error is typically handled as:
 
-- small changes in reward definition can flip behaviour,
-- hidden trade‑offs are buried inside a single scalar.
+```text
+error
+→ correction
+→ better fit under the same objective
+```
 
-### 3.2 Field‑centric view (PULSE)
+The system moves inside a predefined task and objective space.
 
-PULSE replaces “how good is this run?” with a different question:
+### 2.2 PULSE decision-field view
 
-> **How stable is the decision field around this run?**
+In a decision-field representation, a paradox is represented as a field-extension trigger.
 
-Key artefacts:
+A paradox-oriented structure may include:
 
-- `status.json` — baseline gate results,
-- `paradox_field_v0.json` — paradox atoms (MUS structure),
-- `stability_map_v0.json` — curvature / Δ‑bend overlay,
-- `decision_engine_v0.json` — release_state + stability_type.
+```text
+two constraints that cannot be jointly satisfied
+a minimal unsatisfiable set or MUS-like structure
+a local region where a binary decision surface is not stable
+a point where the represented field cannot remain flat
+```
 
-Instead of one scalar, we get:
+In PULSE artifacts, paradox structure may be represented through:
 
-- **RDSI** — Release Decision Stability Index,
-- **stability_type** — e.g. `stable_good`, `unstably_good`,
-- **Δ‑direction error** — where the field wants to drift,
-- **EPF shadow** — how much tension is stored in the field.
+```text
+paradox_field_v0.json
+```
 
-Reward is replaced by a **mechanical notion of stability**.
+where each recorded atom describes a local paradox / constraint structure.
 
----
+Mechanically, a paradox artifact may:
 
-## 4. What Mechanical AI does (and does not)
+```text
+mark a local field-extension point
+identify a structurally tense decision region
+record a constraint re-organization requirement
+prevent the case from being flattened into a single binary label
+```
 
-A Mechanical AI system like PULSE:
+This is not model learning.
 
-**Does not:**
+It is artifact-level representation around paradox constraints.
 
-- imitate human cognition,
-- narrate “understanding” or “reasoning”,
-- treat data as semantic content.
+## 3. From Reward Reading to Stability Diagnostics
 
-**Instead it:**
+### 3.1 Reward-centric reading
 
-- treats data as **relations** and constraints,
-- treats paradoxes as **field generators**,
-- treats decisions as **configurations in a field**.
+In many ML systems, one central object is a reward or loss function:
 
-One possible short definition:
+```text
+better outcome
+→ lower loss or higher reward
+```
 
-> **Mechanical AI (M‑AI)**  
-> – does not “learn” more, it **extends** its field;  
-> – does not “know” more, it **re‑organises** constraints;  
-> – does not “generalise” by analogy, it **builds relations**.
+This is effective for training, but it can hide structural tensions inside a single scalar.
 
-This is why PULSE focuses on:
+Examples of hidden tension:
 
-- topological artefacts (stability maps, paradox fields),
-- field metrics (RDSI, Δ),
-- and explicit, inspectable decision traces.
+```text
+trade-offs inside one reward score
+unstable behavior under small perturbations
+green-looking outputs with fragile decision surfaces
+conflicting constraints that are not visible in the scalar
+```
 
----
+### 3.2 Stability-diagnostic reading
 
-## 5. PULSE as a Mechanical AI stack
+PULSE uses a different inspection object.
 
-Concretely, PULSE instantiates Mechanical AI via four layers of
-artefacts.
+Instead of asking only:
 
-### 5.1 Gates and status artefacts
+```text
+How good is this run?
+```
 
-- `status.json` represents a run as a set of boolean gates:
-  - each gate encodes a **structural constraint** (policy, metric,
-    safety check, etc.),
-  - PULSE does not interpret the gates semantically; it only cares about
-    their structure and results.
+PULSE can also ask:
 
-This is the **surface** that the field overlays attach to.
+```text
+How stable is the represented decision field around this run?
+```
+
+Relevant artifacts may include:
+
+```text
+status.json
+paradox_field_v0.json
+stability_map_v0.json
+decision_engine_v0.json
+decision_trace_v0.json
+```
+
+Relevant diagnostic signals may include:
+
+```text
+RDSI
+stability_type
+Δ-direction error
+EPF shadow / tension signal
+```
+
+This terminology does not claim to replace reward functions in model training.
+
+It describes a PULSE artifact view where stability diagnostics are explicit and inspectable.
+
+## 4. What Mechanical AI Means in PULSE
+
+Mechanical AI in PULSE means:
+
+```text
+decision artifacts are represented as field structures
+constraints are made explicit
+paradox structures are recorded as field-extension points
+stability diagnostics are exposed as artifacts
+decision traces are inspectable
+```
+
+Mechanical AI in PULSE does not mean:
+
+```text
+human-like cognition
+biological intelligence
+AGI capability
+semantic understanding claim
+model-internal consciousness
+model-training method
+```
+
+A concise project definition:
+
+```text
+Mechanical AI (M-AI) is a PULSE terminology layer for artifact-bound decision-field representation.
+
+It records constraints, paradox structures, stability diagnostics, and decision traces without making biological, cognitive, or AGI claims.
+```
+
+A compact contrast:
+
+```text
+training loop
+= updates model parameters under an objective
+
+PULSE decision-field representation
+= records and inspects decision artifacts, constraint relations, paradox structures, and stability diagnostics
+```
+
+## 5. PULSE as a Mechanical AI Artifact Stack
+
+PULSE instantiates Mechanical AI terminology through artifact layers.
+
+These layers are inspectable and deterministic at the artifact level.
+
+### 5.1 Gates and status artifacts
+
+Primary artifact:
+
+```text
+status.json
+```
+
+`status.json` represents a run through recorded fields such as:
+
+```text
+gates
+metrics
+diagnostics
+metadata / traceability fields
+```
+
+Gate values encode structural constraints and recorded check outcomes.
+
+The PULSE release-authority path does not rely on narrative confidence.
+
+It relies on recorded gate state, declared policy, materialized required gates, and fail-closed enforcement.
 
 ### 5.2 Paradox field
 
-- `paradox_field_v0.json` detects minimal paradox atoms across runs:
-  - each atom is a small set of gates that cannot be satisfied together
-    in a given region of configuration space,
-  - formally: a minimal unsatisfiable set (MUS).
+Optional / diagnostic artifact:
 
-Each atom is a **field singularity**: a structurally tense region where
-the decision field cannot be flat.
+```text
+paradox_field_v0.json
+```
+
+A paradox field records paradox atoms or constraint structures.
+
+A paradox atom may represent:
+
+```text
+a local incompatibility
+a minimal unsatisfiable set or MUS-like structure
+a field region where a simple binary state is insufficient
+```
+
+This artifact is diagnostic unless promoted through declared policy and required-gate enforcement.
 
 ### 5.3 Stability map
 
-- `stability_map_v0.json` measures curvature / Δ‑bend over the field:
-  - where small perturbations leave decisions unchanged,
-  - where they flip outcomes or open up new branches.
+Optional / diagnostic artifact:
 
-This reveals where the decision field is:
+```text
+stability_map_v0.json
+```
 
-- flat vs highly curved,
-- robust vs fragile,
-- monotone vs oscillating.
+A stability map may record:
 
-### 5.4 Decision engine and trace
+```text
+curvature
+Δ-bend
+local robustness
+decision-flip regions
+perturbation sensitivity
+```
 
-- `decision_engine_v0.json` summarises field properties as:
-  - `release_state` (e.g. `PROD_OK`, `BLOCK`, `STAGE_ONLY`),
-  - `stability_type` (e.g. `stable_good`, `unstably_good`,
-    `unstably_bad`),
-  - RDSI and other diagnostics.
-- `decision_trace_v0.json` records how a final decision emerged from:
-  - raw gates,
-  - paradox atoms,
-  - stability map overlays.
+It helps identify where the represented decision field is:
 
-Every step is deterministic and inspectable.  
-Governance reads these as **mechanical signals**, not as human‑like
-“confidence”.
+```text
+flat or curved
+stable or unstable
+robust or fragile
+monotone or oscillating
+```
 
-Together, these artefacts form a **mechanical decision field**:
+This is a diagnostic representation.
 
-- no hidden reward,
-- no implicit internal heuristics,
-- explicit field structure over explicit gates.
+It does not become release authority unless explicitly folded into recorded evidence and enforced as a required gate under declared policy.
 
----
+### 5.4 Decision engine and trace artifacts
 
-## 6. Why this matters for AI safety and governance
+Possible decision-field artifacts:
 
-Mechanical AI is relevant for safety and release governance because it:
+```text
+decision_engine_v0.json
+decision_trace_v0.json
+```
 
-- separates:
-  - **what the underlying model does internally** (black box),
-  - from **how releases are decided** (explicit field overlay);
-- gives governance a **field‑level view**:
-  - where paradoxes accumulate,
-  - where instability clusters,
-  - where decisions are “green but tense” (`unstably_good`),
-  - where the system systematically drifts in one direction (Δ‑bias).
+These may summarize:
 
-Instead of asking:
+```text
+release_state
+stability_type
+RDSI
+field diagnostics
+trace from gates to decision
+```
 
-- “Can we make the model more human‑like?”
+A decision trace records how a decision representation was derived from recorded artifacts.
 
-we can ask:
+A trace carrier does not become a second decision engine unless explicitly declared and enforced.
 
-- “Is this decision mechanically stable in the field we care about?”
+## 6. Mechanical Decision Field
 
-PULSE does not solve alignment, but it **changes the coordinate system**:
+Together, PULSE artifacts can form a mechanical decision field:
 
-- from reward → to field stability,
-- from behaviour cloning → to paradox and curvature,
-- from opaque confidence → to explicit decision traces.
+```text
+recorded gates
++ declared policy
++ materialized required gate set
++ paradox / stability overlays
++ decision trace
++ public reader artifacts
++ provenance / binding artifacts
+```
 
-This is what we call **Mechanical AI v0** in the PULSE project.
+The normative release-authority path remains:
+
+```text
+status.json
+→ declared gate policy
+→ workflow-effective materialized required gate set
+→ strict fail-closed CI enforcement
+```
+
+Other artifacts may review, explain, bind, attest, or diagnose the path.
+
+They do not replace it.
+
+## 7. Why This Matters for AI Safety and Release Authority
+
+Mechanical AI terminology is relevant because it separates:
+
+```text
+underlying model behavior
+```
+
+from:
+
+```text
+release-decision mechanics
+```
+
+PULSE does not need to claim that it understands the model internally.
+
+PULSE records the release decision path externally through artifacts.
+
+This allows review of:
+
+```text
+which gates passed
+which gates failed
+which required gates were materialized
+which evidence was present
+which paradox / stability regions were observed
+which artifact relationship was bound
+which attestation subject was used
+```
+
+This is useful for AI safety and release authority because it makes the release boundary inspectable.
+
+## 8. Diagnostic Coordinate Shift
+
+PULSE does not solve alignment by itself.
+
+Mechanical AI terminology describes a diagnostic coordinate shift:
+
+```text
+from reward-only reading
+to stability-diagnostic reading
+
+from opaque confidence
+to recorded decision traces
+
+from implicit shadow signals
+to explicit carrier roles
+
+from narrative assurance
+to artifact-bound evidence
+```
+
+This shift supports release-authority review.
+
+It does not replace runtime safety, model evaluation, external validation, or independent audit.
+
+## 9. Carrier Boundary
+
+Mechanical AI artifacts may occupy different carrier roles.
+
+| Carrier | Role |
+|---|---|
+| Authority carrier | `status.json` → declared gate policy → workflow-effective materialized required gate set → strict fail-closed CI enforcement |
+| Reader carrier | Presents recorded state |
+| Trace carrier | Preserves reconstruction trace |
+| Diagnostic / shadow carrier | Records candidate evidence or field diagnostics |
+| Binding carrier | Carries digest-backed artifact relation |
+| Attestation carrier | Attests the binding carrier |
+| External verification carrier | Reviews the recorded artifact relationship |
+
+A Mechanical AI artifact is not authority merely because it is structured, diagnostic, or machine-readable.
+
+Authority participation requires:
+
+```text
+recorded evidence inclusion
+declared policy reference
+required-gate enforcement
+strict fail-closed path
+```
+
+## 10. Boundary Held by This Document
+
+This document defines terminology.
+
+It does not change:
+
+```text
+PULSEmech decision semantics
+gate policy
+required gate wiring
+check_gates.py behavior
+status schema
+CI allow/block behavior
+Quality Ledger renderer behavior
+artifact provenance binding behavior
+attestation workflow behavior
+release tags
+DOI / Zenodo path
+```
+
+The term **Mechanical AI v0** in PULSE means:
+
+```text
+artifact-bound decision-field representation
+```
+
+not:
+
+```text
+biological cognition
+human-like intelligence
+AGI capability
+model-training behavior
+```
+
+## 11. Final Definition
+
+Mechanical AI v0 is PULSE project terminology for:
+
+```text
+an artifact-bound decision-field representation
+that records constraints, paradox structures, stability diagnostics,
+and decision traces without biological, cognitive, or AGI claims.
+```
+
+The release-authority mechanism remains PULSEmech:
+
+```text
+status.json
+→ declared gate policy
+→ workflow-effective materialized required gate set
+→ strict fail-closed CI enforcement
+```
