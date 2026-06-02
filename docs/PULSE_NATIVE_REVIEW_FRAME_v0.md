@@ -591,7 +591,7 @@ These statements may contain useful concerns, but they are not PULSE-native unle
 
 | Non-native reading | PULSE-native reading |
 |---|---|
-| Low GitHub adoption means PULSE is weak | Low adoption is an external validation gap; mechanical correctness must be reviewed separately |
+| Low GitHub adoption means PULSE is weak | Low adoption is an adoption / ecosystem signal; it is distinct from external validation and does not determine mechanical correctness |
 | Not enterprise plug-and-play means not mature | Productization maturity is separate from release-authority mechanics |
 | Single maintainer invalidates authority | Single maintainer is a governance / bus-factor risk, not a direct gate-enforcement defect |
 | Public core/STAGE-PASS display disproves PULSE | Public reader surface needs clear boundary; authority path must be checked separately |
@@ -669,5 +669,7 @@ verifiable through recorded artifacts
 ```
 
 Adoption can validate, stress-test, and extend PULSE.
+
+Adoption can describe ecosystem visibility and uptake.
 
 Adoption does not define the release-authority mechanism.
