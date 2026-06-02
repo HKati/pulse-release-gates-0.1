@@ -35,10 +35,10 @@ status.json
 | Public Pages / Quality Ledger could be misread as release-grade evidence | Public reader surface state + reader carrier wording | Closed internally | Future visual polish may further strengthen presentation |
 | Need clear authority-impact audit checklist | `AUTHORITY_IMPACT_AUDIT_CHECKLIST_v0.md` | Closed | Human checklist; not a CI guard |
 | Need cryptographic provenance / attestation binding | Release Authority Cryptographic Binding boundary + Artifact Provenance Binding v0 + attestation subject / workflow | Closed internally | Attestation is over binding carrier; not a replacement for PULSEmech authority path |
-| Need normative vs shadow inventory report | Normative vs Shadow Inventory Model v0 + machine inventory report v0 + workflow-family classification pass | Closed internally | Current machine report runs cleanly without unclassified workflow drift findings |
+| Need normative vs shadow inventory report | Normative vs Shadow Inventory Model v0 + machine inventory report builder/test + workflow-family classification pass | Partially closed | Builder and tests are in place; current run can produce a clean report, but no generated report artifact is checked in or linked as a stable audit artifact |
 | Need external verification layer | `EXTERNAL_VERIFICATION_PATH_v0.md` | Partially closed | Actual third-party reproduction / audit remains external work |
 | Need clearer maintainer / governance boundary | `MAINTAINER_AUTHORITY_BOUNDARY_v0.md` | Closed for current single-maintainer model | Multi-maintainer quorum / rotation remains future layer |
-| Shadow layers may drift into implicit authority | Normative vs Shadow Inventory Model + Report + workflow-family classifier coverage | Closed internally | Machine inventory report classifies current first-party workflow families; future new workflows still require classification |
+| Shadow layers may drift into implicit authority | Normative vs Shadow Inventory Model + Report builder + workflow-family classifier coverage | Partially closed | Current classifier covers first-party workflow families; full closure requires either a checked-in generated report artifact, a stable linked report artifact, or an explicit decision that run-on-demand report generation is the audit record |
 | Public surface core/demo/prod separation should be stronger | Public reader surface wording and state model | Mostly closed | Optional later visual polish |
 | Crypto provenance should align with in-toto / SLSA / attestation world | Artifact provenance binding and GitHub artifact attestation wiring | Closed as first implementation layer | Future compatibility mapping may be added |
 | PULSE not yet institutionally mature | Maintainer boundary + external verification path | Partially closed | True institutional maturity requires external adoption / review |
@@ -60,26 +60,33 @@ Isolated attestation job
 Authority Impact Audit Checklist v0
 External Verification Path v0
 Normative vs Shadow Inventory Model v0
-Normative vs Shadow Inventory Report v0
+Normative vs Shadow Inventory Report builder/test v0
 Maintainer Authority Boundary v0
 ```
 
 These layers close or reduce the internal technical findings.
 
-Report-driven findings remain partial until the generated report has no unresolved drift warnings, or until the remaining warnings are explicitly classified and accepted.
+Report-driven findings remain partial until one of the following is true:
 
+```text
+a generated inventory report artifact is checked in as an audit artifact
+a stable generated report artifact is linked from the repository
+the repository explicitly defines run-on-demand inventory generation as the audit record
+```
 
 ## Remaining internal follow-up items
 
-No internal deep-search blocker remains open at this layer.
+The following internal follow-up remains open:
 
-The normative/shadow inventory report now classifies the current first-party workflow families without unclassified workflow drift findings.
+```text
+decide whether the normative/shadow generated report should be checked in, linked, or kept as run-on-demand reviewer output
+record the chosen report-artifact policy
+refresh this closure matrix only after the report-artifact policy is explicit
+```
 
-Future repository growth still requires classification review for new workflows, artifacts, reader surfaces, publication carriers, diagnostic/shadow carriers, binding carriers, and attestation carriers.
+The workflow-family classifier itself has been improved.
 
-This is review-carrier work.
-
-It must not change release authority unless a later PR explicitly changes authority-bearing paths.
+The remaining item is not classifier coverage alone; it is the audit record boundary for the generated report.
 
 ## Remaining non-internal items
 
@@ -138,7 +145,6 @@ authority-impact review checklist exists
 crypto provenance binding exists
 binding verification exists
 attestation subject / carrier exists
-external verification path exists
 maintainer authority boundary exists
 ```
 
@@ -146,8 +152,9 @@ The deep-search review is partially addressed for these items:
 
 ```text
 normative vs shadow inventory model exists
-normative vs shadow inventory report exists
-current first-party workflow families are classified without unclassified workflow drift findings
+normative vs shadow inventory report builder/test exists
+current first-party workflow families are classified by the machine report builder
+generated inventory report artifact is not checked in or linked as a stable audit artifact
 external validation path exists
 real third-party validation remains external work
 ```
@@ -178,12 +185,12 @@ artifact-bound release authority
 + isolated attestation carrier
 + authority-impact review checklist
 + external verification path
-+ normative/shadow inventory model and report
++ normative/shadow inventory model and report builder
 + maintainer authority boundary
 ```
 
-This closes the major internal technical findings from the deep-search critique.
+This closes the major internal technical findings from the deep-search critique except for the report-artifact boundary of the normative/shadow inventory.
 
-The normative/shadow inventory item remains partially open until remaining generated drift findings are classified or explicitly accepted.
+The normative/shadow inventory implementation is in place, but the closure record remains partial until the generated report is checked in, stably linked, or explicitly defined as run-on-demand reviewer output.
 
-The repository is development-ready for scoped work, with the remaining inventory drift classification tracked as follow-up review-carrier work.
+The repository is development-ready for scoped work, with the remaining inventory report-artifact policy tracked as follow-up review-carrier work.
