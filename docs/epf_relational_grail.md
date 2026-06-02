@@ -1,286 +1,602 @@
-# EPF Relational Grail
+# EPF Relational Hazard Overlay
 
-The **EPF Relational Grail** is the early‑warning hazard layer in the
-PULSE EPF (Extended Paradox Field) stack.
+## Purpose
 
-Instead of waiting for a concrete error event, it monitors:
+This document describes the EPF relational hazard overlay used by the PULSE EPF diagnostic surface.
 
-- the *relationship* between a current state and a stable reference state
-  (x vs x\*), and
-- existing stability metrics (e.g. an RDSI‑like signal),
+The overlay monitors the relationship between a current field state and a stable reference field state.
 
-and from these signals it derives a scalar hazard index **E(t)**.
+It derives a scalar hazard index and maps that index into a diagnostic hazard zone.
 
-The index is mapped into three zones:
+The overlay is a diagnostic layer.
 
-- **GREEN** – stable field, no near‑term hazard
-- **AMBER** – field distortion (pre‑hazard regime)
-- **RED** – unstable field, hazard imminent or active
+It is not a release-authority carrier.
 
-In Hungarian: a Relációs Grál a viszony‑alapú hazard réteg – nem a konkrét
-hiba pillanatában szól, hanem akkor, amikor a mező kapcsolata a referencia
-állapottal már elcsúszott.
+Legacy / workshop alias:
 
----
+```text
+EPF Relational Grail
+```
 
-## End‑to‑end flow
+Canonical technical name in this document:
 
-The pack exposes a simple flow around the EPF Relational Grail:
+```text
+EPF relational hazard overlay
+```
 
-1. run the demo gates and generate a hazard log,
-2. calibrate warn/crit thresholds from that log,
-3. inspect which thresholds are actually used at runtime.
+## Boundary
+
+The EPF relational hazard overlay provides a diagnostic hazard-zone classification.
+
+It does not replace deterministic release gates.
+
+It does not redefine PULSEmech release authority.
+
+The PULSEmech authority carrier remains:
+
+```text
+status.json
+→ declared gate policy
+→ workflow-effective materialized required gate set
+→ strict fail-closed CI enforcement
+```
+
+The overlay may produce evidence signals.
+
+Those signals participate in release authority only when a specific field is:
+
+```text
+recorded as release evidence
+referenced by declared policy
+enforced as a required gate
+checked through the strict fail-closed path
+```
+
+Until that happens, the overlay remains diagnostic.
+
+## Core idea
+
+The overlay evaluates:
+
+```text
+current field state
+vs
+stable reference field state
+```
+
+The relationship can be represented as:
+
+```text
+x vs x*
+```
+
+where:
+
+```text
+x  = current field state
+x* = stable reference state
+```
+
+The overlay combines this relationship with stability signals such as:
+
+```text
+RDSI-like stability signal
+field distance
+short-history drift
+topology region
+```
+
+From these signals it derives a scalar hazard index:
+
+```text
+E(t)
+```
+
+The hazard index is then mapped into a diagnostic zone.
+
+## Hazard zones
+
+| Zone | Meaning | Boundary |
+|---|---|---|
+| GREEN | Stable field; no near-term hazard signal | Diagnostic state |
+| AMBER | Field distortion; pre-hazard regime | Diagnostic state |
+| RED | Unstable field; hazard imminent or active | Diagnostic state |
+
+The zone label is a diagnostic output.
+
+It is not a release decision.
+
+## Topology region
+
+The overlay may also derive a diagnostic topology-region label from:
+
+```text
+baseline_ok
+hazard_zone
+```
+
+where:
+
+```text
+baseline_ok = deterministic gate baseline excluding the hazard shadow gate
+hazard_zone = GREEN / AMBER / RED
+```
+
+The topology-region mapping is:
+
+| Topology region | Condition | Meaning |
+|---|---|---|
+| `stably_good` | `baseline_ok` and `zone = GREEN` | Baseline passes and no near-term hazard signal |
+| `unstably_good` | `baseline_ok` and `zone ∈ {AMBER, RED}` | Baseline passes, but field distortion is present |
+| `stably_bad` | not `baseline_ok` and `zone = GREEN` | Baseline fails without near-term hazard escalation |
+| `unstably_bad` | not `baseline_ok` and `zone ∈ {AMBER, RED}` | Baseline fails and field distortion is present |
+
+This topology-region label is diagnostic.
+
+It is a map of regimes.
+
+It is not a release gate.
+
+## Field-first interpretation
+
+The overlay is field-first.
+
+It reports:
+
+```text
+coordinate signal
+topological read
+hazard-zone classification
+supporting reason string
+```
+
+The purpose is to identify whether the relationship between the current state and the reference state is beginning to distort before a concrete failure event is observed.
+
+Hungarian summary:
+
+```text
+A relációs hazard overlay a jelenlegi állapot és a referenciaállapot viszonyát vizsgálja.
+Nem a konkrét hiba pillanatában szól, hanem akkor, amikor a mező kapcsolata a referenciaállapottal már elcsúszik.
+```
+
+## Inputs
+
+The hazard probe operates on a deterministic numeric field vector.
+
+Typical input sources:
+
+```text
+metrics.*
+gates.*
+reference snapshot
+short local history
+```
+
+Gate values may be represented as:
+
+```text
+true  → 1.0
+false → 0.0
+```
+
+Selected metrics remain numeric.
+
+The field vector is a coordinate representation.
+
+It is not an alert payload.
+
+## Reference snapshot
+
+A deterministic reference snapshot acts as an anchor.
+
+Example reference rules:
+
+```text
+metrics.RDSI → 1.0
+gates.*      → 1.0
+other numeric metrics → 0.0
+```
+
+The reference snapshot defines the local stable baseline against which the current field state is compared.
+
+## Hazard components
+
+The EPF relational hazard overlay may use these components:
+
+```text
+T = distance between current and reference snapshots
+S = stability signal, such as RDSI
+D = short-history drift estimate
+E = scalar hazard index
+```
+
+The exact implementation may normalize or scale components before deriving `E`.
+
+The documented role of `E` is:
+
+```text
+a scalar diagnostic index for hazard-zone classification
+```
+
+## End-to-end flow
+
+The pack exposes a simple diagnostic flow:
+
+```text
+run demo gates and generate a hazard log
+→ calibrate warn / crit thresholds from that log
+→ inspect baseline vs calibrated thresholds
+```
 
 All commands below are intended to be run from the repository root.
 
-### 1. Run demo gates and generate a hazard log
+## 1. Run demo gates and generate a hazard log
 
 ```bash
 python PULSE_safe_pack_v0/tools/run_all.py
+```
 
-This produces the standard artefacts:
+This produces standard artifacts such as:
 
+```text
 PULSE_safe_pack_v0/artifacts/status.json
-
 PULSE_safe_pack_v0/artifacts/report_card.html
+PULSE_safe_pack_v0/artifacts/epf_hazard_log.jsonl
+```
 
-PULSE_safe_pack_v0/artifacts/epf_hazard_log.jsonl ← hazard events
-for the EPF Relational Grail
+The hazard log contains EPF relational hazard overlay events.
 
-2. Calibrate thresholds from the hazard log
+## 2. Calibrate thresholds from the hazard log
 
+```bash
 python PULSE_safe_pack_v0/tools/epf_hazard_calibrate.py \
   --warn-p 0.80 \
   --crit-p 0.98 \
   --out-json PULSE_safe_pack_v0/artifacts/epf_hazard_thresholds_v0.json
+```
 
 The calibration helper:
 
-loads epf_hazard_log.jsonl,
+```text
+loads epf_hazard_log.jsonl
+computes E statistics
+computes min / max / mean / percentile summaries
+suggests global warn_threshold and crit_threshold
+optionally emits per-gate suggestions when enough samples are available
+writes epf_hazard_thresholds_v0.json
+```
 
-computes E statistics (min / max / mean and percentiles),
+The calibration JSON is a proposal artifact.
 
-suggests global warn_threshold / crit_threshold from configurable
-percentiles (warn_p, crit_p),
+It is not automatically trusted.
 
-optionally emits per‑gate suggestions when enough samples are available,
+Whether thresholds are used depends on the calibration policy.
 
-writes everything to epf_hazard_thresholds_v0.json.
+## 3. Inspect baseline vs calibrated thresholds
 
-This JSON is a proposal only; whether the thresholds are actually
-used depends on the calibration policy below.
-
-3. Inspect baseline vs calibrated thresholds
-
+```bash
 python PULSE_safe_pack_v0/tools/epf_hazard_debug.py
+```
 
-The debug helper prints:
+The debug tool can show:
 
-the built‑in baseline thresholds:
-
-DEFAULT_WARN_THRESHOLD = 0.3
-
-DEFAULT_CRIT_THRESHOLD = 0.7
-
-a summary of the calibration artefact:
-
+```text
+calibration artifact path
 global.stats.count
-
 global.warn_threshold
-
 global.crit_threshold
+effective HazardConfig.warn_threshold
+effective HazardConfig.crit_threshold
+threshold-source decision
+```
 
-the effective HazardConfig() values:
+Possible threshold-source decisions:
 
-warn_threshold
+```text
+Using BASELINE thresholds.
+Using CALIBRATED thresholds from artifact.
+```
 
-crit_threshold
+A specific calibration file can be inspected with:
 
-a one‑line decision:
-
-“Using BASELINE thresholds (calibration missing/insufficient).” or
-
-“Using CALIBRATED thresholds from artefact.”
-
-If you maintain multiple calibration files, you can point the debug tool
-to a specific one:
-
+```bash
 python PULSE_safe_pack_v0/tools/epf_hazard_debug.py \
   --calibration path/to/epf_hazard_thresholds_v0.json
+```
 
-Calibration policy
+## Calibration policy
 
-The EPF Relational Grail uses the calibration artefact only if there is
-enough data to trust it.
+The EPF relational hazard overlay uses the calibration artifact only when the sample-count and numeric-validity guards are satisfied.
 
-In epf_hazard_forecast.py:
+Expected calibration path:
 
-the calibration file is expected at
-
+```text
 PULSE_safe_pack_v0/artifacts/epf_hazard_thresholds_v0.json
+```
 
-the global sample count is read from
+Expected sample-count field:
 
+```text
 global.stats.count
+```
 
-the guard is
+Minimum sample guard:
 
-MIN_CALIBRATION_SAMPLES (currently 20)
+```text
+MIN_CALIBRATION_SAMPLES
+```
 
-The logic is:
+Current documented value:
 
-If the calibration file is missing or invalid →
-fall back to the baseline thresholds.
+```text
+20
+```
 
-If global.stats.count < MIN_CALIBRATION_SAMPLES →
-still fall back to the baseline thresholds.
+The calibration artifact is treated as trusted only when:
 
-Only when global.stats.count >= MIN_CALIBRATION_SAMPLES and both
-global.warn_threshold and global.crit_threshold are numeric and
-sane (0 <= warn <= crit) do we treat the artefact as trusted.
+```text
+global.stats.count >= MIN_CALIBRATION_SAMPLES
+global.warn_threshold is numeric
+global.crit_threshold is numeric
+0 <= warn_threshold <= crit_threshold
+```
 
-In that case:
+If the calibration file is missing, invalid, undersampled, or numerically unsafe, the overlay falls back to baseline thresholds.
 
-HazardConfig.warn_threshold defaults to the calibrated value,
+Baseline thresholds:
 
-HazardConfig.crit_threshold defaults to the calibrated value.
-
-Otherwise, the baseline remains:
-
+```text
 warn_threshold = 0.3
-
 crit_threshold = 0.7
+```
 
-This is intentionally conservative: small or toy hazard logs should not
-be able to silently push the EPF Relational Grail into a too aggressive
-or too lax regime.
+This is intentionally conservative.
 
-Where this fits in the PULSE stack
+Small or toy hazard logs should not silently push the EPF relational hazard overlay into an overly aggressive or overly lax regime.
 
-Conceptually:
+## Runtime threshold behavior
 
-the EPF Relational Grail sits inside the EPF layer,
+When calibration is trusted:
 
-it consumes features like:
+```text
+HazardConfig.warn_threshold defaults to the calibrated warn_threshold
+HazardConfig.crit_threshold defaults to the calibrated crit_threshold
+```
 
-distance between current and reference snapshots (T),
+When calibration is not trusted:
 
-stability signals (S, e.g. RDSI),
+```text
+HazardConfig.warn_threshold uses baseline 0.3
+HazardConfig.crit_threshold uses baseline 0.7
+```
 
-short history of T to estimate drift (D),
+This keeps threshold adoption explicit and guarded.
 
-it produces:
+## Artifact surfaces
 
-a scalar hazard index E(t),
+### status.json
 
-a zone label (GREEN / AMBER / RED),
+`status.json` may contain EPF relational hazard overlay fields under:
 
-a short human/machine‑readable reason string.
+```text
+gates
+metrics
+diagnostics
+```
 
-The actual enforcement is handled elsewhere (gate policy). This module’s
-job is to say:
+Typical fields include:
 
-“Given what I see in the field, this is how close we are to a hazard
-regime, and this is why.”
+```text
+gates.epf_hazard_ok
+metrics.hazard_zone
+metrics.hazard_E
+metrics.hazard_T
+metrics.hazard_S
+metrics.hazard_D
+metrics.hazard_reason
+metrics.hazard_topology_region
+metrics.hazard_baseline_ok
+metrics.hazard_gate_id
+metrics.hazard_T_scaled
+metrics.hazard_stability_map_schema
+metrics.hazard_stability_map_path
+```
 
+These fields are diagnostic unless a later PR explicitly promotes a specific field through:
 
-# EPF Relational Grail — Hazard Overlay
+```text
+recorded evidence inclusion
+declared policy reference
+required-gate enforcement
+strict fail-closed CI behavior
+```
 
-This document describes the EPF hazard overlay as used by PULSE_safe_pack_v0.
+### report_card.html
 
-## Intent
+The Quality Ledger / report card may display EPF relational hazard overlay fields as reader-facing diagnostics.
 
-The EPF hazard layer is a **field-first diagnostic overlay**.
-It is not meant to replace deterministic release gates, and it should not
-degrade into a classic “alerts & thresholds” system.
+Possible reader elements:
 
-Instead, it provides:
-- a **coordinate signal** (E) over a stable field snapshot,
-- a **topological read** of the current state (stably/unstably × good/bad),
-- and a path to calibrated, feature-aware measurement.
+```text
+hazard zone badge
+topology region badge
+E-history sparkline from hazard log
+feature-mode ON / OFF state
+feature source
+used feature keys
+calibration recommendation summary
+```
 
-## Core concepts
+These elements are reader-surface diagnostics.
 
-### Field snapshot
-The hazard probe operates on a deterministic, numeric-only **field vector**:
+They do not create release authority.
 
-- `metrics.*` (selected numeric metrics)
-- `gates.*` (gate outcomes as 0/1)
+### epf_hazard_log.jsonl
 
-This is explicitly a *coordinate system*, not an alert payload.
+Append-only JSONL hazard log entries may include:
 
-A deterministic `reference_snapshot` acts as an anchor:
-- `metrics.RDSI → 1.0`
-- `gates.* → 1.0`
-- other numeric metrics default to `0.0`
+```text
+gate_id
+timestamp
+hazard metrics
+T
+S
+D
+E
+zone
+reason
+explainability fields
+snapshot_current
+snapshot_reference
+meta / provenance fields
+```
 
-### Hazard components
-The hazard forecast yields:
-- `T`: distance between current and reference
-- `S`: stability proxy
-- `D`: drift proxy
-- `E`: aggregated hazard index
-- `zone`: `GREEN / AMBER / RED`
-- `reason`: human-readable explanation (safe to surface)
+The log is the substrate for:
 
-### Topology region (diagnostic)
-We interpret the joint state of:
-- `baseline_ok` (deterministic gates excluding the hazard shadow gate), and
-- `hazard_zone`
+```text
+threshold calibration
+higher-order map building
+field-drift inspection
+hazard-zone review
+```
 
-as a topological label:
+The log is diagnostic by default.
 
-- `stably_good`  = baseline_ok AND zone=GREEN
-- `unstably_good` = baseline_ok AND zone∈{AMBER,RED}
-- `stably_bad`   = NOT baseline_ok AND zone=GREEN
-- `unstably_bad`  = NOT baseline_ok AND zone∈{AMBER,RED}
+### epf_hazard_thresholds_v0.json
 
-This is a **map of regimes**, not a gate.
+The calibration artifact may include:
 
-## Artifacts
+```text
+global statistics
+warn_threshold
+crit_threshold
+per-gate threshold suggestions
+recommended features
+feature scaler metadata
+sample-count metadata
+```
 
-### artifacts/status.json
-`status.json` contains:
-- `gates`: deterministic results + `epf_hazard_ok` (shadow gate by default)
-- `metrics`: includes `hazard_*` fields such as `hazard_E`, `hazard_zone`,
-  `hazard_topology_region`, feature-mode provenance, and calibration summary.
+The artifact is trusted only if calibration guards pass.
 
-### artifacts/report_card.html
-A demo “Quality Ledger view”:
-- hazard zone badge
-- topology region badge
-- E-history sparkline (from hazard log)
-- feature-mode ON/OFF + source + used keys
-- calibration recommendation summary (if present)
+## Feature-aware mode
 
-### artifacts/epf_hazard_log.jsonl
-Append-only JSONL log entries from the hazard adapter.
-Each entry includes:
-- `gate_id`, `timestamp`
-- `hazard` metrics (T,S,D,E,zone,reason, explainability fields)
-- optional `snapshot_current` / `snapshot_reference` (sanitized numeric-only)
-- optional `meta` (e.g., provenance)
+Calibration may emit:
 
-This log is the substrate for calibration and higher-order map building.
+```text
+thresholds
+robust feature scalers
+recommended_features
+```
 
-## Calibration and feature-aware mode
+When a calibration artifact is present and sufficiently sampled, the adapter may auto-enable feature-aware mode using:
 
-Calibration can emit:
-- thresholds (global/per-gate), and optionally
-- robust feature scalers and `recommended_features`
+```text
+recommended features
+runtime allowlists
+artifact allowlists
+FieldSpec allowlists
+snapshot intersection
+```
 
-When a calibration artifact is present and sufficiently sampled, the adapter may
-auto-enable feature mode (autowire) using:
-- recommended features (preferred bound),
-- optional allowlists (runtime / artifact / FieldSpec), combined by intersection,
-- and snapshot intersection to avoid phantom features.
+The feature set should be bounded by intersection to avoid phantom features.
+
+## Where this fits in the PULSE stack
+
+The EPF relational hazard overlay is part of the EPF diagnostic surface.
+
+It consumes field features such as:
+
+```text
+distance between current and reference snapshots
+stability signals
+short-history drift
+topological region
+```
+
+It produces:
+
+```text
+scalar hazard index E(t)
+zone label
+reason string
+optional explainability fields
+```
+
+The actual release enforcement is handled elsewhere through declared gate policy.
+
+The overlay’s role is:
+
+```text
+given the current field vector,
+report hazard-zone classification and supporting reason.
+```
+
+It does not independently allow or block a release.
 
 ## Safety stance
 
-- Deterministic fail-closed gates remain the source of truth.
-- Hazard is diagnostic by default.
-- Enforcement is optional and explicit (e.g., via environment flag in CI).
-- FieldSpec can define the coordinate system without leaking sensitive keys.
+The safety stance is:
 
+```text
+deterministic fail-closed gates remain the release-decision authority
+EPF hazard is diagnostic by default
+enforcement is optional and explicit
+calibration is guarded by sample-count and numeric-validity checks
+FieldSpec may define the coordinate system without exposing sensitive keys
+```
 
+If a later PR promotes a hazard signal into release authority, that PR must declare:
 
+```text
+recorded evidence field
+policy reference
+required gate wiring
+fail-closed enforcement behavior
+tests / regression coverage
+```
+
+Until then, the EPF relational hazard overlay remains diagnostic.
+
+## Boundary held by this document
+
+This document describes a diagnostic EPF hazard overlay.
+
+It does not change:
+
+```text
+PULSEmech decision semantics
+gate policy
+required gate wiring
+check_gates.py behavior
+status schema
+CI allow/block behavior
+Quality Ledger renderer behavior
+artifact provenance binding behavior
+attestation workflow behavior
+release tags
+DOI / Zenodo path
+```
+
+The PULSEmech authority carrier remains:
+
+```text
+status.json
+→ declared gate policy
+→ workflow-effective materialized required gate set
+→ strict fail-closed CI enforcement
+```
+
+## Final definition
+
+The EPF relational hazard overlay is:
+
+```text
+a diagnostic EPF layer that compares a current field state with a stable reference state,
+derives a scalar hazard index E(t),
+maps that index into GREEN / AMBER / RED zones,
+and records the supporting reason string.
+```
+
+It is a diagnostic carrier.
+
+It becomes release-relevant only through explicit recorded evidence inclusion, declared policy reference, required-gate enforcement, and strict fail-closed CI behavior.
