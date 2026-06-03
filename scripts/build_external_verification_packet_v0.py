@@ -18,6 +18,7 @@ import datetime as dt
 import hashlib
 import json
 import subprocess
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -29,6 +30,8 @@ AUTHORITY_CARRIER = (
     "status.json -> declared gate policy -> workflow-effective materialized "
     "required gate set -> strict fail-closed CI enforcement"
 )
+
+PACKET_BOUNDARY = "external verification carrier; not release authority"
 
 
 def utc_now() -> str:
@@ -83,6 +86,10 @@ def read_json_if_exists(path: Path) -> dict[str, Any]:
     return payload
 
 
+def as_dict(value: Any) -> dict[str, Any]:
+    return value if isinstance(value, dict) else {}
+
+
 def parse_run_key_value(run_key: Any, key: str) -> str | None:
     if not isinstance(run_key, str):
         return None
@@ -96,10 +103,6 @@ def parse_run_key_value(run_key: Any, key: str) -> str | None:
             return value or None
 
     return None
-
-
-def as_dict(value: Any) -> dict[str, Any]:
-    return value if isinstance(value, dict) else {}
 
 
 def artifact_record(
@@ -287,14 +290,26 @@ def verification_commands() -> list[dict[str, str]]:
             ),
         },
         {
+            "name": "fail-closed gate enforcement tests",
+            "purpose": (
+                "Verify literal true-only and missing-required-gate "
+                "fail-closed semantics."
+            ),
+            "command": "python -m pytest -q tests/test_check_gates_fail_closed.py",
+        },
+        {
             "name": "artifact provenance binding tests",
             "purpose": "Verify binding builder / verifier behavior.",
             "command": "python -m pytest -q tests/test_artifact_provenance_binding_v0.py",
         },
         {
-            "name": "fail-closed gate enforcement tests",
-            "purpose": "Verify literal true-only and missing-required-gate fail-closed semantics.",
-            "command": "python -m pytest -q tests/test_check_gates_fail_closed.py",
+            "name": "binding CI wiring tests",
+            "purpose": "Verify binding materialization and attestation wiring.",
+            "command": (
+                "python -m pytest -q "
+                "tests/test_artifact_provenance_binding_ci_wiring_smoke.py "
+                "tests/test_artifact_provenance_binding_attestation_wiring_smoke.py"
+            ),
         },
         {
             "name": "Quality Ledger reader-surface tests",
@@ -307,15 +322,6 @@ def verification_commands() -> list[dict[str, str]]:
             ),
         },
         {
-            "name": "binding CI wiring tests",
-            "purpose": "Verify binding materialization and attestation wiring.",
-            "command": (
-                "python -m pytest -q "
-                "tests/test_artifact_provenance_binding_ci_wiring_smoke.py "
-                "tests/test_artifact_provenance_binding_attestation_wiring_smoke.py"
-            ),
-        },
-        {
             "name": "verify artifact provenance binding",
             "purpose": "Recompute and verify the binding carrier if present.",
             "command": (
@@ -325,7 +331,10 @@ def verification_commands() -> list[dict[str, str]]:
         },
         {
             "name": "generate normative/shadow inventory report",
-            "purpose": "Review workflow carrier classification without committing generated output.",
+            "purpose": (
+                "Review workflow carrier classification without committing "
+                "generated output."
+            ),
             "command": (
                 "TMPDIR=\"$(mktemp -d)\" && "
                 "python scripts/build_normative_shadow_inventory_v0.py "
@@ -384,7 +393,10 @@ def reviewer_checklist() -> list[str]:
     ]
 
 
-def verify_binding_carrier(repo_root: Path, records: list[dict[str, Any]]) -> dict[str, Any]:
+def verify_binding_carrier(
+    repo_root: Path,
+    records: list[dict[str, Any]],
+) -> dict[str, Any]:
     binding = next(
         (record for record in records if record["role"] == "artifact provenance binding"),
         None,
@@ -392,11 +404,6 @@ def verify_binding_carrier(repo_root: Path, records: list[dict[str, Any]]) -> di
 
     if binding is None:
         return {
-        ...Oops need final full exact, no ellipses. Continue copying from chunks. Ensure no omissions. I need include complete. Above contains up to reviewer. Continue from chunk. Must not use ellipses. Let's continue final carefully. But already in final code block I accidentally wrote until "if binding is None:" and not complete; I can continue exactly. Need include no ellipsis. The final already has `return {` and next should include fields. Good. Continue in final. 
-Need not include line after "return {"? continue.
-
-I need watch final length. continue. 
-```python
             "requested": False,
             "available": False,
             "verified": None,
@@ -413,7 +420,12 @@ I need watch final length. continue.
             "reason": "binding artifact missing",
         }
 
-    verifier = repo_root / "PULSE_safe_pack_v0" / "tools" / "verify_artifact_provenance_binding_v0.py"
+    verifier = (
+        repo_root
+        / "PULSE_safe_pack_v0"
+        / "tools"
+        / "verify_artifact_provenance_binding_v0.py"
+    )
     binding_path = repo_root / binding["path"]
 
     if not verifier.is_file():
@@ -427,7 +439,7 @@ I need watch final length. continue.
 
     proc = subprocess.run(
         [
-            "python",
+            sys.executable,
             verifier.as_posix(),
             "--binding",
             binding_path.as_posix(),
@@ -444,7 +456,11 @@ I need watch final length. continue.
         "available": True,
         "verified": proc.returncode == 0,
         "exit_code": proc.returncode,
-        "reason": "binding verifier passed" if proc.returncode == 0 else "binding verifier failed",
+        "reason": (
+            "binding verifier passed"
+            if proc.returncode == 0
+            else "binding verifier failed"
+        ),
         "stdout": proc.stdout.strip(),
         "stderr": proc.stderr.strip(),
     }
@@ -456,7 +472,9 @@ def packet_status(
     commit: dict[str, Any],
     binding_verification: dict[str, Any],
 ) -> str:
-    missing_required = [record for record in records if record["required"] and not record["exists"]]
+    missing_required = [
+        record for record in records if record["required"] and not record["exists"]
+    ]
     if missing_required:
         return "authority_artifact_missing"
 
@@ -518,15 +536,13 @@ def build_packet(repo_root: Path, repository_name: str | None = None) -> dict[st
             commit=commit,
             binding_verification=binding_verification,
         ),
-        "packet_boundary": "external verification carrier; not release authority",
+        "packet_boundary": PACKET_BOUNDARY,
     }
 
 
 def markdown_report(packet: dict[str, Any]) -> str:
     repository = as_dict(packet.get("repository"))
     commit = as_dict(packet.get("commit"))
-    run_identity = as_dict(packet.get("run_identity"))
-    binding_verification = as_dict(packet.get("binding_verification"))
 
     lines = [
         "# External Verification Packet v0",
@@ -536,15 +552,11 @@ def markdown_report(packet: dict[str, Any]) -> str:
         f"- schema_id: `{packet['schema_id']}`",
         f"- schema_version: `{packet['schema_version']}`",
         f"- generated_utc: `{packet['generated_utc']}`",
-        f"- verification_profile: `{packet.get('verification_profile')}`",
+        f"- verification_profile: `{packet['verification_profile']}`",
         f"- packet_status: `{packet['packet_status']}`",
         f"- repository: `{repository.get('name')}`",
         f"- git_sha: `{commit.get('git_sha')}`",
         f"- dirty_worktree: `{commit.get('dirty_worktree')}`",
-        f"- run_id: `{run_identity.get('run_id')}`",
-        f"- run_key: `{run_identity.get('run_key')}`",
-        f"- status_parse_ok: `{run_identity.get('status_parse_ok')}`",
-        f"- status_parse_error: `{run_identity.get('status_parse_error')}`",
         "",
         "Authority carrier:",
         "",
@@ -560,60 +572,24 @@ def markdown_report(packet: dict[str, Any]) -> str:
         "",
         "## Artifact records",
         "",
-        (
-            "| Role | Path | Required | Exists | Carrier class | JSON object "
-            "required | Parseable JSON | Parse error | SHA-256 |"
-        ),
-        "|---|---|---:|---:|---|---:|---:|---|---|",
+        "| Role | Path | Required | Exists | Carrier class | SHA-256 |",
+        "|---|---|---:|---:|---|---|",
     ]
 
     for record in packet["artifact_records"]:
         digest = record["sha256"] or "—"
-        parse_error = record.get("parse_error") or "—"
         lines.append(
-            (
-                "| {role} | `{path}` | `{required}` | `{exists}` | {carrier} | "
-                "`{json_required}` | `{parseable}` | `{parse_error}` | `{digest}` |"
-            ).format(
+            "| {role} | `{path}` | `{required}` | `{exists}` | `{carrier}` | `{digest}` |".format(
                 role=str(record["role"]).replace("|", "\\|"),
                 path=str(record["path"]).replace("|", "\\|"),
                 required=str(record["required"]).lower(),
                 exists=str(record["exists"]).lower(),
                 carrier=str(record["carrier_class"]).replace("|", "\\|"),
-                json_required=str(record.get("json_object_required")).lower(),
-                parseable=str(record.get("parseable_json")).lower(),
-                parse_error=str(parse_error).replace("|", "\\|"),
                 digest=digest,
             )
         )
 
-    lines.extend(
-        [
-            "",
-            "## Binding verification",
-            "",
-            f"- requested: `{binding_verification.get('requested')}`",
-            f"- available: `{binding_verification.get('available')}`",
-            f"- verified: `{binding_verification.get('verified')}`",
-            f"- exit_code: `{binding_verification.get('exit_code')}`",
-            f"- reason: `{binding_verification.get('reason')}`",
-            "",
-        ]
-    )
-
-    stdout = binding_verification.get("stdout")
-    stderr = binding_verification.get("stderr")
-    if stdout:
-        lines.extend(["stdout:", "", "```text", str(stdout), "```", ""])
-    if stderr:
-        lines.extend(["stderr:", "", "```text", str(stderr), "```", ""])
-
-    lines.extend(
-        [
-            "## Verification commands",
-            "",
-        ]
-    )
+    lines.extend(["", "## Verification commands", ""])
 
     for command in packet["verification_commands"]:
         lines.append(f"### {command['name']}")
@@ -625,23 +601,12 @@ def markdown_report(packet: dict[str, Any]) -> str:
         lines.append("```")
         lines.append("")
 
-    lines.extend(
-        [
-            "## Reviewer checklist",
-            "",
-        ]
-    )
+    lines.extend(["## Reviewer checklist", ""])
 
     for item in packet["reviewer_checklist"]:
         lines.append(f"- {item}")
 
-    lines.extend(
-        [
-            "",
-            "## Missing artifacts",
-            "",
-        ]
-    )
+    lines.extend(["", "## Missing artifacts", ""])
 
     missing = packet.get("known_missing_artifacts") or []
     if not missing:
@@ -661,6 +626,16 @@ def markdown_report(packet: dict[str, Any]) -> str:
 
     lines.extend(
         [
+            "",
+            "## Binding verification",
+            "",
+            "```json",
+            json.dumps(
+                packet.get("binding_verification") or {},
+                indent=2,
+                sort_keys=True,
+            ),
+            "```",
             "",
             "## Boundary",
             "",
