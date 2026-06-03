@@ -569,9 +569,9 @@ It will:
 
 Optional native publication — for example SARIF upload into GitHub Code Scanning — and other publish surfaces such as PR comments, badge commits, and Pages snapshots should be implemented in separate opt-in workflows with explicit write permissions.
 
-## Governance preflight (fail‑closed)
+## Authority-path preflight (fail‑closed)
 
-In addition to running the pack, CI enforces repo‑level governance guards:
+In addition to running the pack, CI enforces repo-level authority-path guards:
 
 - **Semantic changelog enforcement:** if `pulse_gate_policy_v0.yml`, `metrics/specs/**`, or dataset‑manifest contracts change, `docs/policy/CHANGELOG.md` must include an entry under **Unreleased** documenting the change.
 - **YAML duplicate‑key guard:** rejects duplicate mapping keys in `pulse_gate_registry_v0.yml` and `pulse_gate_policy_v0.yml` (prevents silent “last key wins” semantics).
@@ -1039,8 +1039,9 @@ Curated entrypoints (repo-level docs under `docs/`):
 - [docs/STATE_v0.md](docs/STATE_v0.md) — Current snapshot of PULSE v0 gates, signals, and tooling.
 - [docs/STATUS_CONTRACT.md](docs/STATUS_CONTRACT.md) — Contract for `status.json` shape and semantics.
 - [docs/GLOSSARY_v0.md](docs/GLOSSARY_v0.md) — Canonical term definitions used across docs.
+- [docs/PULSE_TERMINOLOGY_RISK_REGISTER_v0.md](docs/PULSE_TERMINOLOGY_RISK_REGISTER_v0.md) — High-risk false readings to avoid for the PULSE release-authority identity.
 
-### Shadow governance & contract surfaces
+### Shadow review & contract surfaces
 - [docs/WORKFLOW_MAP.md](docs/WORKFLOW_MAP.md) — Workflow authority map, including the shadow registry and EPF primary/secondary surfaces.
 - [docs/shadow_layer_registry_v0.md](docs/shadow_layer_registry_v0.md) — Machine-readable diagnostic surface registry, fixture buckets, transitional alias semantics, and canonical self-check fixtures.
 - [docs/SHADOW_CONTRACT_PROGRAM_v0.md](docs/SHADOW_CONTRACT_PROGRAM_v0.md) — Shadow contract program, staged hardening model, and fixture-matrix discipline.
@@ -1183,7 +1184,7 @@ The main pieces are:
     - `stability_type` (e.g. stable_good / unstably_good),
     - compact summaries of gates, stability_map_v0 and paradox_field_v0.
 
-These components are intended for **analysis, dashboards and governance**,
+These components are intended for **analysis, dashboards and instrument-level review**,
 not for core gating. The source of truth for release decisions remains
 `status.json` + `PULSE_safe_pack_v0/tools/check_gates.py` + the CI workflow.
 
@@ -1267,7 +1268,7 @@ This repository is accompanied by the cs.AI preprint:
 > K. Horvat. *PULSE: Deterministic Release Gates for Safe & Useful AI*. Preprint, Zenodo, 2025.  
 > DOI: [10.5281/zenodo.17833583](https://doi.org/10.5281/zenodo.17833583)
 
-The preprint provides the mathematical and governance background for PULSE as a deterministic,
+The preprint provides the mathematical and release-mechanics background for PULSE as a deterministic,
 fail-closed release-authority layer for LLM applications, with:
 
 - safety/consistency invariants (I2–I7),
@@ -1275,7 +1276,7 @@ fail-closed release-authority layer for LLM applications, with:
 - SLO budgets on latency and cost,
 - the Release-Decision Stability Index (RDSI),
 - the Vacuum–energy Penalty Functional (EPF),
-- and the paradox field notation `[(0 1)P]` for high-tension governance states.
+- and the paradox field notation `[(0 1)P]` for high-tension review  states.
 
 This repository contains the reference implementation of the safe-pack, profiles, schemas, tools and
 CI wiring corresponding to the preprint.
