@@ -133,12 +133,15 @@ generated_utc
 repository
 commit
 run_identity
+verification_profile
 authority_carrier
 artifact_records
 verification_commands
 carrier_boundary_summary
 reviewer_checklist
 known_missing_artifacts
+binding_verification
+packet_status
 packet_boundary
 ```
 
@@ -165,12 +168,15 @@ packet_boundary
     "run_mode": "...",
     "created_utc": "..."
   },
+ "verification_profile": "authority-path",
   "authority_carrier": "status.json -> declared gate policy -> workflow-effective materialized required gate set -> strict fail-closed CI enforcement",
   "artifact_records": [],
   "verification_commands": [],
   "carrier_boundary_summary": [],
   "reviewer_checklist": [],
   "known_missing_artifacts": [],
+  "binding_verification": {},
+  "packet_status": "partially_verified",
   "packet_boundary": "external verification carrier; not release authority"
 }
 ```
@@ -278,6 +284,14 @@ python -m pytest -q tests/test_artifact_provenance_binding_v0.py
 python -m pytest -q \
   tests/test_artifact_provenance_binding_ci_wiring_smoke.py \
   tests/test_artifact_provenance_binding_attestation_wiring_smoke.py
+```
+
+```bash
+python -m pytest -q tests/test_check_gates_fail_closed.py
+python -m pytest -q \
+  tests/test_render_quality_ledger.py \
+  tests/test_render_quality_ledger_decision_logic.py \
+  tests/test_render_quality_ledger_check_gates_parity.py
 ```
 
 If the artifact provenance binding exists:
@@ -458,12 +472,15 @@ PULSE_NATIVE_REVIEW_FRAME_v0.md
 
 This document defines the packet contract.
 
-It does not implement the packet builder.
-
-A later PR may add:
+The current v0 builder implementation is:
 
 ```text
 scripts/build_external_verification_packet_v0.py
+```
+
+The builder test for this contract is:
+
+```text
 tests/test_build_external_verification_packet_v0.py
 ```
 
