@@ -1,4 +1,4 @@
-cat > scripts/build_external_verification_packet_v0.py <<'PY'
+
 #!/usr/bin/env python3
 """Build External Verification Packet v0.
 
@@ -703,4 +703,4 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-PY
+
