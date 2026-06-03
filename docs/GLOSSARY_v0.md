@@ -1,7 +1,7 @@
 # PULSE GLOSSARY_v0
 
 > Working glossary for the main terms used in the PULSE safe-pack, Core
-> profile and Governance Pack.
+> profile, PULSEmech release-authority path, and Instrument Review Pack.
 
 This glossary is descriptive and versioned (`_v0`): it captures how we
 currently use these terms. As the pack evolves, we may update or extend
@@ -21,7 +21,7 @@ They are **decision-relative** and **evidence-first**: they describe a structure
 
 An explicit reference frame used to compute deltas, classify drift, and orient the Paradox field. Examples:
 
-- a baseline `status.json` used as the release-governance reference,
+- a baseline `status.json` used as the release-authority reference,
 - a policy cut / threshold set (e.g. θ),
 - a specific run context (commit + runner image + seed + profile_id).
 
@@ -111,6 +111,7 @@ The Core exists to make reviewer output readable while preserving auditability.
 Field-first overlays are audit-compatible only if they are stable under reruns.
 
 **Minimum determinism requirements (v0):**
+
 1. **Pinned context**: runner image + dependency versions + (CPU/GPU mode if relevant) are part of run context.
 2. **Explicit seed**: any sampling/permutation is seeded and recorded.
 3. **Canonical ordering**: lists (atoms/edges/events) are sorted using a documented rule.
@@ -160,7 +161,7 @@ In PULSE Core:
 **What it is not**
 
 - Not a “best-effort” run – there is no silent downgrade on gate failure.
-- Not a recommendation to fail prod deploys automatically on all governance signals.
+- Not a recommendation to fail prod deploys automatically on all diagnostic or review signals.
 
 ---
 
@@ -203,7 +204,7 @@ Defined in:
 
 **What it is not**
 
-- Not a full Governance Pack – it focuses on concrete PASS/FAIL gates.
+- Not the full Instrument Review Pack – it focuses on concrete PASS/FAIL gates.
 - Not tied to any single CI system; GitHub Actions is the first reference.
 
 ---
@@ -230,18 +231,22 @@ Typical use:
 **What it is not**
 
 - Not the same as promoting the whole shadow line.
-- Not a normative release surface.
+- Not a release-authority surface.
 - Not a claim that the broader workflow family is already `shadow-contracted`.
 
 ---
 
 ### critical radius (r_c)
+
 #### What it means
+
 The radius (or scale parameter) at which the protocol’s decodability criterion reaches the required threshold (e.g. C(r_c)=h_req). Serves as a compact, reviewable summary of where the boundary sits for a given run/context.
 
 #### What it is not
+
 - Not a universal constant; it is context- and protocol-dependent.
 - Not a guarantee of stability outside the recorded conditions.
+
 ---
 
 ## D
@@ -250,29 +255,62 @@ The radius (or scale parameter) at which the protocol’s decodability criterion
 
 **What it means**
 
-A Governance Pack component that:
+A shadow-mode instrument-review artifact in the PULSE Instrument Review Pack v0.
 
-- reads `status.json`, `stability_map_v0.json` and overlays (EPF, paradox, etc.),
-- emits a structured decision object, e.g. `decision_engine_v0.json`, with:
+It may:
 
-  - `release_state` ∈ {`fail`, `stage_only`, `prod_ok`},
-  - `stability_type` (e.g. `stable_good`, `high_tension`),
-  - `decision_trace[]` – small, auditable rule hits.
+- read `status.json`, `stability_map_v0.json`, and overlays such as EPF or paradox artifacts,
+- emit a structured review object, for example `decision_engine_v0.json`,
+- record small, auditable rule hits in `decision_trace[]`,
+- support human review or release triage.
 
-Runs in **shadow mode** by default (does not change PASS/FAIL).
+Canonical JSON `release_state` values use implementation / schema labels such as:
+
+```text
+BLOCK
+STAGE_ONLY
+PROD_OK
+```
+
+Reader-facing displays may render these as:
+
+```text
+BLOCK
+STAGE-ONLY
+PROD-OK
+```
+
+The hyphenated forms are display labels, not canonical JSON values.
+
+Runs in **shadow mode** by default.
 
 **What it is not**
 
-- Not a replacement for human governance.
-- Not a magic “AI judge” – it is a rule-based policy surface.
+- Not release authority by default.
+- Not a replacement for `status.json`.
+- Not a replacement for declared gate policy.
+- Not a replacement for the workflow-effective materialized required gate set.
+- Not a replacement for strict fail-closed CI enforcement.
+- Not a replacement for human review.
+- Not a magic “AI judge” — it is a traceable review artifact.
+
+Legacy note:
+
+```text
+Earlier documents may describe this as part of the Governance Pack.
+The canonical technical role is now PULSE Instrument Review Pack v0.
+```
 
 ---
 
 ### Decodability Wall (Gravity Record Protocol)
+
 #### What it means
+
 An operational measurement boundary defined from recorded signals: the point (often expressed via a critical radius r_c) where the decodability criterion crosses a required threshold (h_req). Used to make “decodable vs not-decodable (under this protocol)” auditable and repeatable.
 
 #### What it is not
+
 - Not a physical “wall” or a causal barrier in the system.
 - Not a security guarantee by itself.
 - Not a substitute for recording inputs/contexts; it only makes the boundary explicit given those records.
@@ -344,26 +382,34 @@ Usually recorded in artefacts like `g_field_v0.json`.
 
 ### Governance Pack
 
-**What it means**
+Legacy alias for:
 
-An optional layer on top of PULSE Core that focuses on:
+```text
+PULSE Instrument Review Pack v0
+```
 
-- long-term stability,
-- paradox and trade-off visibility,
-- governance-ready decision fields.
+Legacy filename / workshop alias:
 
-Typical components:
+```text
+docs/GOVERNANCE_PACK_v0.md
+```
 
-- Stability Map,
-- Decision Engine (shadow),
-- EPF & Paradox Playbook,
-- G-field & GPT overlays,
-- history & drift tools.
+Do not use `Governance Pack` as the active PULSE-facing identity descriptor.
+
+Use:
+
+```text
+PULSE Instrument Review Pack v0
+```
+
+for the optional diagnostic / instrument-review layer around PULSEmech.
 
 **What it is not**
 
-- Not required to run the Core gates.
-- Not a replacement for Core fail-closed behaviour.
+- Not the canonical component name.
+- Not PULSE identity.
+- Not release authority.
+- Not a second release-decision engine.
 
 ---
 
@@ -404,7 +450,7 @@ tooling and validation.
 **What it is not**
 
 - Not automatic promotion.
-- Not normative authority.
+- Not release authority.
 - Not equivalent to being release-required.
 - Not the same as merely being mentioned in a docs inventory table.
 
@@ -416,7 +462,7 @@ tooling and validation.
 
 **What it means**  
 A shadow-layer property stating that, under the same required gate set
-and the same normative enforcement path, adding, folding, or removing
+and the same release-authority enforcement path, adding, folding, or removing
 the shadow layer does not change the release outcome.
 
 Typical proof shape:
@@ -462,6 +508,69 @@ Overlays:
 
 ---
 
+## P
+
+### PULSE Instrument Review Pack v0
+
+**What it means**
+
+An optional diagnostic and instrument-review layer around PULSEmech.
+
+Legacy filename / workshop alias:
+
+```text
+docs/GOVERNANCE_PACK_v0.md
+Governance Pack
+```
+
+The pack may include review artifacts such as:
+
+- `stability_map_v0.json`
+- `decision_engine_v0.json`
+- EPF / paradox review notes
+- G-field / GPT overlay review summaries
+- history and drift review artifacts
+
+These artifacts may support:
+
+- human review,
+- release triage,
+- diagnostic interpretation,
+- stability review,
+- field / topology inspection.
+
+They are non-authorizing by default.
+
+A signal from this pack becomes release-relevant only if it is:
+
+```text
+recorded as release evidence
+referenced by declared policy
+materialized as a required gate
+enforced through the strict fail-closed CI path
+```
+
+The PULSEmech authority path remains:
+
+```text
+recorded release evidence
+→ status.json
+→ declared gate policy
+→ workflow-effective materialized required gate set
+→ strict fail-closed CI enforcement
+→ pre-deployment allow/block release decision
+```
+
+**What it is not**
+
+- Not PULSE identity.
+- Not release authority.
+- Not a second release-decision engine.
+- Not required to run Core gates.
+- Not a replacement for Core fail-closed behaviour.
+
+---
+
 ## Q
 
 ### Q-gate (quality gate)
@@ -490,16 +599,17 @@ they may allow more tuning than I-gates.
 
 A human-oriented, usually HTML or markdown report that:
 
-- summarises a PULSE run (or a set of runs),
+- summarises a PULSE run or a set of runs,
 - lists gate outcomes, RDSI, EPF bands, key overlays,
-- acts as an audit-friendly “release card”.
+- acts as an audit-friendly reader surface.
 
 Typically generated alongside `status.json`.
 
 **What it is not**
 
-- Not the formal source of truth for machine tools (that’s `status.json`).
+- Not the formal source of truth for machine tools. That is `status.json`.
 - Not a substitute for detailed logs when debugging.
+- Not the release-authority path.
 
 ---
 
@@ -544,6 +654,8 @@ Used to detect whether safety interventions are actually changing outcomes.
 - Not a raw refusal rate.
 - Not always a gate by itself – in v0 it can be a CI-neutral stability signal.
 
+---
+
 ### research diagnostic
 
 **What it means**  
@@ -557,7 +669,7 @@ surface, while still remaining non-promoted as a broader line.
 
 **What it is not**
 
-- Not a normative release surface.
+- Not a release-authority surface.
 - Not the same as `shadow-contracted`.
 - Not a synonym for “unimportant”.
 - Not evidence that the layer may change release authority.
@@ -601,7 +713,7 @@ surface, including at minimum:
 - a canonical fixture matrix (including valid and invalid fixtures where applicable),
 - and regression tests.
 
-A `shadow-contracted` layer is still non-normative by default, but it is
+A `shadow-contracted` layer is still non-authorizing by default, but it is
 no longer just an informal research note or ad hoc shadow experiment.
 
 **What it is not**
@@ -609,7 +721,7 @@ no longer just an informal research note or ad hoc shadow experiment.
 - Not advisory or policy-bound by default.
 - Not release-required.
 - Not permission to write under `gates.*`.
-- Not equivalent to promotion into the normative decision path.
+- Not equivalent to promotion into the release-authority decision path.
 
 ---
 
@@ -617,7 +729,7 @@ no longer just an informal research note or ad hoc shadow experiment.
 
 **What it means**
 
-An aggregate view (usually JSON) that:
+An aggregate view, usually JSON, that:
 
 - combines gate outcomes, RDSI, EPF and overlays,
 - produces an **instability score** and a **stability type** label,
@@ -625,7 +737,7 @@ An aggregate view (usually JSON) that:
 
 Example fields:
 
-- `stability_type` (e.g. `stable_good`, `unstably_good`, `high_tension`),
+- `stability_type` such as `stable_good`, `unstably_good`, `stable_bad`, `unstably_bad`, or another schema-defined label,
 - `instability_score`,
 - `components[]`.
 
@@ -633,6 +745,7 @@ Example fields:
 
 - Not a raw log of test cases.
 - Not meant to hide which gate actually failed.
+- Not release authority by default.
 
 ---
 
@@ -721,5 +834,4 @@ Example: `.github/workflows/pulse_core_ci.yml`.
 **What it is not**
 
 - Not the only way to run PULSE – local runs and other CI systems are also valid.
-- Not a full Governance Pack runner; it focuses on Core behaviour.
-
+- Not a full Instrument Review Pack runner; it focuses on Core behaviour.
