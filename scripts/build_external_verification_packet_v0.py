@@ -1,3 +1,4 @@
+cat > scripts/build_external_verification_packet_v0.py <<'PY'
 #!/usr/bin/env python3
 """Build External Verification Packet v0.
 
@@ -68,10 +69,11 @@ def sha256_file(path: Path) -> str | None:
 
 def read_json_object_status(path: Path) -> tuple[dict[str, Any], bool, str | None]:
     if not path.is_file():
-        return {}, False, "missing"   
+        return {}, False, "missing"
+
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
-        except Exception as exc:
+    except Exception as exc:
         return {}, False, f"invalid JSON: {exc}"
 
     if not isinstance(payload, dict):
@@ -87,7 +89,6 @@ def read_json_if_exists(path: Path) -> dict[str, Any]:
 
 def as_dict(value: Any) -> dict[str, Any]:
     return value if isinstance(value, dict) else {}
-
 
 
 def parse_run_key_value(run_key: Any, key: str) -> str | None:
@@ -243,8 +244,6 @@ def status_run_identity(repo_root: Path) -> dict[str, Any]:
         or parse_run_key_value(run_key, "GITHUB_RUN_ID")
     )
 
-    metrics = as_dict(status.get("metrics"))
-
     return {
         "run_id": run_id,
         "run_key": run_key,
@@ -263,7 +262,7 @@ def repository_identity(repo_root: Path, repository_name: str | None) -> dict[st
         "name": repository_name or "unknown",
         "root": repo_root.as_posix(),
         "remote": remote,
-   }
+    }
 
 
 def commit_identity(repo_root: Path) -> dict[str, Any]:
@@ -291,7 +290,7 @@ def verification_commands() -> list[dict[str, str]]:
                 "PULSE_safe_pack_v0/tools/verify_artifact_provenance_binding_v0.py"
             ),
         },
-         {
+        {
             "name": "fail-closed gate enforcement tests",
             "purpose": (
                 "Verify literal true-only and missing-required-gate "
@@ -313,7 +312,7 @@ def verification_commands() -> list[dict[str, str]]:
                 "tests/test_artifact_provenance_binding_attestation_wiring_smoke.py"
             ),
         },
-         {
+        {
             "name": "Quality Ledger reader-surface tests",
             "purpose": "Verify reader-surface boundary and check-gates parity semantics.",
             "command": (
@@ -493,15 +492,15 @@ def packet_status(
     if not commit.get("git_sha"):
         return "inconclusive"
 
-   binding = next(
-       (record for record in records if record["role"] == "artifact provenance binding"),
+    binding = next(
+        (record for record in records if record["role"] == "artifact provenance binding"),
         None,
     )
-  
-   if binding is not None and not binding["exists"]:
+
+    if binding is not None and not binding["exists"]:
         return "partially_verified"
 
-        if binding is not None and binding["exists"]:
+    if binding is not None and binding["exists"]:
         if binding_verification.get("verified") is True:
             return "verified"
         if binding_verification.get("verified") is False:
@@ -517,8 +516,8 @@ def build_packet(repo_root: Path, repository_name: str | None = None) -> dict[st
     missing = [record for record in records if not record["exists"]]
     commit = commit_identity(repo_root)
     binding_verification = verify_binding_carrier(repo_root, records)
- 
-  return {
+
+    return {
         "schema_id": SCHEMA_ID,
         "schema_version": SCHEMA_VERSION,
         "generated_utc": utc_now(),
@@ -645,7 +644,7 @@ def markdown_report(packet: dict[str, Any]) -> str:
 
     lines.extend(
         [
-                      "",
+            "",
             "## Binding verification",
             "",
             "```json",
@@ -654,7 +653,7 @@ def markdown_report(packet: dict[str, Any]) -> str:
                 indent=2,
                 sort_keys=True,
             ),
-            "```", 
+            "```",
             "",
             "## Boundary",
             "",
@@ -704,3 +703,4 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+PY
