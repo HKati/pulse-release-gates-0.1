@@ -841,6 +841,7 @@ external validation maturity
 
 They should not be replaced by adoption metrics.
 
+
 ## Review example: low adoption
 
 ```text
@@ -850,8 +851,8 @@ Low visible GitHub adoption.
 Category:
 Adoption / ecosystem gap.
 
-Affected carrier:
-External ecosystem signal.
+Affected signal:
+Adoption / ecosystem signal.
 
 Authority impact:
 No direct PULSEmech authority-path impact.
@@ -860,13 +861,13 @@ Evidence:
 Low visible stars / forks / external PRs / integrations.
 
 Current mitigation:
-Documentation, DOI records, external verification path.
+Documentation, citation records, public reference surfaces.
 
 Remaining work:
-Third-party reproduction, external reviewer report, reference integration, adoption outreach.
+Reference integrations, external usage examples, adoption outreach.
 
 Status:
-External maturity gap.
+Adoption / ecosystem gap.
 ```
 
 ## Review example: missing independent audit
