@@ -1,3 +1,4 @@
+cat > scripts/build_external_verification_packet_v0.py <<'PY'
 #!/usr/bin/env python3
 """Build External Verification Packet v0.
 
@@ -18,6 +19,7 @@ import datetime as dt
 import hashlib
 import json
 import subprocess
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -29,6 +31,8 @@ AUTHORITY_CARRIER = (
     "status.json -> declared gate policy -> workflow-effective materialized "
     "required gate set -> strict fail-closed CI enforcement"
 )
+
+PACKET_BOUNDARY = "external verification carrier; not release authority"
 
 
 def utc_now() -> str:
@@ -63,18 +67,43 @@ def sha256_file(path: Path) -> str | None:
     return h.hexdigest()
 
 
-def read_json_if_exists(path: Path) -> dict[str, Any]:
+def read_json_object_status(path: Path) -> tuple[dict[str, Any], bool, str | None]:
     if not path.is_file():
-        return {}
+        return {}, False, "missing"
+
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
-    except Exception:
-        return {}
-    return payload if isinstance(payload, dict) else {}
+    except Exception as exc:
+        return {}, False, f"invalid JSON: {exc}"
+
+    if not isinstance(payload, dict):
+        return {}, False, "top-level JSON value is not an object"
+
+    return payload, True, None
+
+
+def read_json_if_exists(path: Path) -> dict[str, Any]:
+    payload, _ok, _error = read_json_object_status(path)
+    return payload
 
 
 def as_dict(value: Any) -> dict[str, Any]:
     return value if isinstance(value, dict) else {}
+
+
+def parse_run_key_value(run_key: Any, key: str) -> str | None:
+    if not isinstance(run_key, str):
+        return None
+
+    for part in run_key.split("|"):
+        if "=" not in part:
+            continue
+        left, right = part.split("=", 1)
+        if left.strip() == key:
+            value = right.strip()
+            return value or None
+
+    return None
 
 
 def artifact_record(
@@ -86,9 +115,16 @@ def artifact_record(
     carrier_class: str,
     boundary: str,
     notes: str = "",
+    json_object_required: bool = False,
 ) -> dict[str, Any]:
     artifact_path = repo_root / path
     exists = artifact_path.is_file()
+
+    parseable_json: bool | None = None
+    parse_error: str | None = None
+
+    if json_object_required:
+        _payload, parseable_json, parse_error = read_json_object_status(artifact_path)
 
     return {
         "role": role,
@@ -99,6 +135,9 @@ def artifact_record(
         "carrier_class": carrier_class,
         "boundary": boundary,
         "notes": notes,
+        "json_object_required": json_object_required,
+        "parseable_json": parseable_json,
+        "parse_error": parse_error,
     }
 
 
@@ -111,6 +150,7 @@ def collect_artifact_records(repo_root: Path) -> list[dict[str, Any]]:
             required=True,
             carrier_class="authority",
             boundary="recorded release-state artifact",
+            json_object_required=True,
         ),
         artifact_record(
             repo_root=repo_root,
@@ -193,17 +233,26 @@ def collect_artifact_records(repo_root: Path) -> list[dict[str, Any]]:
 
 def status_run_identity(repo_root: Path) -> dict[str, Any]:
     status_path = repo_root / "PULSE_safe_pack_v0" / "artifacts" / "status.json"
-    status = read_json_if_exists(status_path)
+    status, parse_ok, parse_error = read_json_object_status(status_path)
 
     metrics = as_dict(status.get("metrics"))
+    run_key = metrics.get("run_key") or status.get("run_key")
+
+    run_id = (
+        metrics.get("run_id")
+        or status.get("run_id")
+        or parse_run_key_value(run_key, "GITHUB_RUN_ID")
+    )
 
     return {
-        "run_id": metrics.get("run_id") or status.get("run_id"),
-        "run_key": metrics.get("run_key") or status.get("run_key"),
+        "run_id": run_id,
+        "run_key": run_key,
         "run_mode": metrics.get("run_mode") or status.get("run_mode"),
         "created_utc": status.get("created_utc"),
         "status_version": status.get("version"),
         "status_git_sha": metrics.get("git_sha") or status.get("git_sha"),
+        "status_parse_ok": parse_ok,
+        "status_parse_error": parse_error,
     }
 
 
@@ -242,6 +291,14 @@ def verification_commands() -> list[dict[str, str]]:
             ),
         },
         {
+            "name": "fail-closed gate enforcement tests",
+            "purpose": (
+                "Verify literal true-only and missing-required-gate "
+                "fail-closed semantics."
+            ),
+            "command": "python -m pytest -q tests/test_check_gates_fail_closed.py",
+        },
+        {
             "name": "artifact provenance binding tests",
             "purpose": "Verify binding builder / verifier behavior.",
             "command": "python -m pytest -q tests/test_artifact_provenance_binding_v0.py",
@@ -256,6 +313,16 @@ def verification_commands() -> list[dict[str, str]]:
             ),
         },
         {
+            "name": "Quality Ledger reader-surface tests",
+            "purpose": "Verify reader-surface boundary and check-gates parity semantics.",
+            "command": (
+                "python -m pytest -q "
+                "tests/test_render_quality_ledger.py "
+                "tests/test_render_quality_ledger_decision_logic.py "
+                "tests/test_render_quality_ledger_check_gates_parity.py"
+            ),
+        },
+        {
             "name": "verify artifact provenance binding",
             "purpose": "Recompute and verify the binding carrier if present.",
             "command": (
@@ -265,7 +332,10 @@ def verification_commands() -> list[dict[str, str]]:
         },
         {
             "name": "generate normative/shadow inventory report",
-            "purpose": "Review workflow carrier classification without committing generated output.",
+            "purpose": (
+                "Review workflow carrier classification without committing "
+                "generated output."
+            ),
             "command": (
                 "TMPDIR=\"$(mktemp -d)\" && "
                 "python scripts/build_normative_shadow_inventory_v0.py "
@@ -324,41 +394,150 @@ def reviewer_checklist() -> list[str]:
     ]
 
 
-def packet_status(records: list[dict[str, Any]]) -> str:
-    missing_required = [r for r in records if r["required"] and not r["exists"]]
+def verify_binding_carrier(
+    repo_root: Path,
+    records: list[dict[str, Any]],
+) -> dict[str, Any]:
+    binding = next(
+        (record for record in records if record["role"] == "artifact provenance binding"),
+        None,
+    )
+
+    if binding is None:
+        return {
+            "requested": False,
+            "available": False,
+            "verified": None,
+            "exit_code": None,
+            "reason": "binding record missing",
+        }
+
+    if not binding["exists"]:
+        return {
+            "requested": True,
+            "available": False,
+            "verified": None,
+            "exit_code": None,
+            "reason": "binding artifact missing",
+        }
+
+    verifier = (
+        repo_root
+        / "PULSE_safe_pack_v0"
+        / "tools"
+        / "verify_artifact_provenance_binding_v0.py"
+    )
+    binding_path = repo_root / binding["path"]
+
+    if not verifier.is_file():
+        return {
+            "requested": True,
+            "available": True,
+            "verified": None,
+            "exit_code": None,
+            "reason": "binding verifier missing",
+        }
+
+    proc = subprocess.run(
+        [
+            sys.executable,
+            verifier.as_posix(),
+            "--binding",
+            binding_path.as_posix(),
+        ],
+        cwd=repo_root,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        check=False,
+    )
+
+    return {
+        "requested": True,
+        "available": True,
+        "verified": proc.returncode == 0,
+        "exit_code": proc.returncode,
+        "reason": (
+            "binding verifier passed"
+            if proc.returncode == 0
+            else "binding verifier failed"
+        ),
+        "stdout": proc.stdout.strip(),
+        "stderr": proc.stderr.strip(),
+    }
+
+
+def packet_status(
+    records: list[dict[str, Any]],
+    *,
+    commit: dict[str, Any],
+    binding_verification: dict[str, Any],
+) -> str:
+    missing_required = [
+        record for record in records if record["required"] and not record["exists"]
+    ]
     if missing_required:
         return "authority_artifact_missing"
 
+    malformed_required = [
+        record
+        for record in records
+        if record["required"]
+        and record.get("json_object_required") is True
+        and record.get("parseable_json") is not True
+    ]
+    if malformed_required:
+        return "verification_failed"
+
+    if not commit.get("git_sha"):
+        return "inconclusive"
+
     binding = next(
-        (r for r in records if r["role"] == "artifact provenance binding"),
+        (record for record in records if record["role"] == "artifact provenance binding"),
         None,
     )
+
     if binding is not None and not binding["exists"]:
         return "partially_verified"
 
-    return "verified"
+    if binding is not None and binding["exists"]:
+        if binding_verification.get("verified") is True:
+            return "verified"
+        if binding_verification.get("verified") is False:
+            return "verification_failed"
+        return "inconclusive"
+
+    return "partially_verified"
 
 
 def build_packet(repo_root: Path, repository_name: str | None = None) -> dict[str, Any]:
     repo_root = repo_root.resolve()
     records = collect_artifact_records(repo_root)
     missing = [record for record in records if not record["exists"]]
+    commit = commit_identity(repo_root)
+    binding_verification = verify_binding_carrier(repo_root, records)
 
     return {
         "schema_id": SCHEMA_ID,
         "schema_version": SCHEMA_VERSION,
         "generated_utc": utc_now(),
         "repository": repository_identity(repo_root, repository_name),
-        "commit": commit_identity(repo_root),
+        "commit": commit,
         "run_identity": status_run_identity(repo_root),
+        "verification_profile": "authority-path",
         "authority_carrier": AUTHORITY_CARRIER,
         "artifact_records": records,
         "verification_commands": verification_commands(),
         "carrier_boundary_summary": carrier_boundary_summary(),
         "reviewer_checklist": reviewer_checklist(),
         "known_missing_artifacts": missing,
-        "packet_status": packet_status(records),
-        "packet_boundary": "external verification carrier; not release authority",
+        "binding_verification": binding_verification,
+        "packet_status": packet_status(
+            records,
+            commit=commit,
+            binding_verification=binding_verification,
+        ),
+        "packet_boundary": PACKET_BOUNDARY,
     }
 
 
@@ -374,6 +553,7 @@ def markdown_report(packet: dict[str, Any]) -> str:
         f"- schema_id: `{packet['schema_id']}`",
         f"- schema_version: `{packet['schema_version']}`",
         f"- generated_utc: `{packet['generated_utc']}`",
+        f"- verification_profile: `{packet['verification_profile']}`",
         f"- packet_status: `{packet['packet_status']}`",
         f"- repository: `{repository.get('name')}`",
         f"- git_sha: `{commit.get('git_sha')}`",
@@ -465,6 +645,16 @@ def markdown_report(packet: dict[str, Any]) -> str:
     lines.extend(
         [
             "",
+            "## Binding verification",
+            "",
+            "```json",
+            json.dumps(
+                packet.get("binding_verification") or {},
+                indent=2,
+                sort_keys=True,
+            ),
+            "```",
+            "",
             "## Boundary",
             "",
             "This packet is an external verification carrier.",
@@ -513,3 +703,4 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+PY
