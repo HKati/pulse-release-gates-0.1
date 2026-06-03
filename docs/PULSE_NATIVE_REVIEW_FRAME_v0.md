@@ -851,7 +851,7 @@ Low visible GitHub adoption.
 Category:
 Adoption / ecosystem gap.
 
-Affected signal:
+Affected carrier:
 Adoption / ecosystem signal.
 
 Authority impact:
@@ -861,10 +861,10 @@ Evidence:
 Low visible stars / forks / external PRs / integrations.
 
 Current mitigation:
-Documentation, citation records, public reference surfaces.
+Documentation, citation metadata, public reader surfaces.
 
 Remaining work:
-Reference integrations, external usage examples, adoption outreach.
+Ecosystem integrations, external usage examples, adoption outreach.
 
 Status:
 Adoption / ecosystem gap.
