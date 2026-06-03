@@ -1196,7 +1196,7 @@ For a detailed overview and examples, see:
   * `docs/PULSE_topology_v0_mini_example_fairness_slo_epf.md`
   * `docs/PULSE_topology_v0_quickstart_decision_engine_v0.md`
   * `docs/PULSE_topology_v0_cli_demo.md`
-  * `docs/PULSE_topology_v0_instrument_review_patterns.md`
+  * `docs/PULSE_topology_v0_governance_patterns.md`
   * `docs/PULSE_demo_v1_paradox_stability_showcase.md`
   * `docs/PULSE_decision_engine_v0_unstably_good_example.md`
   * `docs/PULSE_decision_engine_v0_unstably_bad_example.md`
