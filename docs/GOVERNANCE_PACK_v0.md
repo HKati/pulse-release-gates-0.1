@@ -6,6 +6,12 @@ Legacy filename / workshop alias:
 docs/GOVERNANCE_PACK_v0.md
 ```
 
+Legacy document name:
+
+```text
+PULSE Governance Pack v0
+```
+
 Canonical technical name:
 
 ```text
@@ -22,6 +28,8 @@ It does not define release authority.
 
 It does not create a second release-decision engine.
 
+It does not change the PULSEmech authority path.
+
 The PULSEmech authority path remains:
 
 ```text
@@ -33,7 +41,16 @@ recorded release evidence
 → pre-deployment allow/block release decision
 ```
 
-The Instrument Review Pack may support human review, release triage, diagnostic interpretation, stability review, or optional field-level inspection.
+The Instrument Review Pack may support:
+
+```text
+human review
+release triage
+diagnostic interpretation
+stability review
+field / topology inspection
+post-release analysis
+```
 
 It is non-authorizing by default.
 
@@ -44,6 +61,16 @@ recorded as release evidence
 referenced by declared policy
 materialized as a required gate
 enforced through the strict fail-closed CI path
+```
+
+The legacy term `Governance Pack` is retained only as a filename / workshop alias.
+
+Do not use `Governance Pack` as the active PULSE-facing identity descriptor.
+
+Use:
+
+```text
+PULSE Instrument Review Pack v0
 ```
 
 ---
@@ -62,11 +89,11 @@ The Instrument Review Pack supports review questions such as:
 How stable is the release field over time?
 Where are the tensions between safety, utility, stability, and operational constraints?
 Which diagnostic patterns should reviewers inspect before a release decision?
-Which review recommendation should be recorded for human interpretation: BLOCK, STAGE-ONLY, or PROD-OK?
+Which review recommendation should be recorded for human interpretation?
 Why was that recommendation produced?
 ```
 
-All components in this pack are **CI-neutral by default**:
+All components in this pack are CI-neutral by default:
 
 ```text
 they read existing PULSE artifacts
@@ -105,12 +132,29 @@ Possible contents:
 
 ```text
 per-gate stability categories
-stable_good / unstably_good / stably_bad / unstably_bad classifications
+stable_good / unstably_good / stable_bad / unstably_bad classifications
 instability score
 contributing components
 drift notes
 timestamps
 artifact references
+```
+
+Canonical stability labels must use existing implementation / documentation values.
+
+Use:
+
+```text
+stable_good
+unstably_good
+stable_bad
+unstably_bad
+```
+
+Do not emit:
+
+```text
+stably_bad
 ```
 
 Primary users:
@@ -164,21 +208,27 @@ short explanations
 review recommendation
 ```
 
-Recommended release-state vocabulary for this review artifact:
+Canonical `release_state` values for JSON artifacts must use the existing implementation / schema labels.
+
+Use underscore labels in artifacts:
 
 ```text
-fail
-stage_only
-prod_ok
+BLOCK
+STAGE_ONLY
+PROD_OK
 ```
 
-or, when aligned to public reader labels:
+Reader-facing displays may render these values as:
 
 ```text
 BLOCK
 STAGE-ONLY
 PROD-OK
 ```
+
+The hyphenated forms are display labels only.
+
+They must not be emitted as canonical JSON `release_state` values.
 
 Behavior:
 
@@ -188,12 +238,13 @@ does not change PASS / FAIL
 does not replace check_gates.py
 does not replace status.json
 does not replace declared gate policy
-does not replace materialized required gate enforcement
+does not replace workflow-effective materialized required gate enforcement
+does not create a second release-decision engine
 ```
 
 A later PR may promote a specific output field into release authority only by declaring it in policy and enforcing it as a required gate.
 
-The Decision Engine is a **review surface**.
+The Decision Engine is a review surface.
 
 Its rules should be:
 
@@ -203,6 +254,7 @@ explicit
 auditable
 deterministic where possible
 traceable to recorded artifacts
+schema-compatible
 ```
 
 It is not an independent release-decision engine by default.
@@ -348,7 +400,7 @@ They are not release authority by default.
 
 ## 2. Integration patterns
 
-The Instrument Review Pack is designed to run **after** PULSE Core.
+The Instrument Review Pack is designed to run after PULSE Core.
 
 Typical pattern:
 
@@ -395,7 +447,7 @@ an on-demand job that produces g_snapshot_report_v0 for a branch or environment
 a diagnostic review job that compares current field state with historical baseline
 ```
 
-In all cases, shipping CI remains **fail-closed** on the PULSEmech required gate path.
+In all cases, shipping CI remains fail-closed on the PULSEmech required gate path.
 
 ---
 
@@ -408,7 +460,7 @@ the recorded evidence field
 the policy reference
 the required gate ID
 the registry entry
-the materialized required gate behavior
+the workflow-effective materialized required gate behavior
 the fail-closed enforcement path
 the tests that prove missing / false / malformed evidence fails closed
 ```
@@ -439,7 +491,56 @@ diagnostic signal
 
 ---
 
-## 4. Roadmap — suggested
+## 4. Artifact label compatibility
+
+The Instrument Review Pack must not introduce new labels that conflict with existing implementation or schema values.
+
+Canonical JSON labels must remain schema-compatible.
+
+### 4.1 Canonical release_state labels
+
+Use these values in JSON artifacts:
+
+```text
+BLOCK
+STAGE_ONLY
+PROD_OK
+```
+
+Display layers may show:
+
+```text
+BLOCK
+STAGE-ONLY
+PROD-OK
+```
+
+The display labels are reader-facing only.
+
+### 4.2 Canonical stability labels
+
+Use these values for stability classifications:
+
+```text
+stable_good
+unstably_good
+stable_bad
+unstably_bad
+```
+
+Do not introduce alternate spellings.
+
+In particular:
+
+```text
+stably_bad
+```
+
+is not a canonical label.
+
+---
+
+## 5. Roadmap — suggested
 
 This document describes v0.
 
@@ -475,7 +576,7 @@ review-facing summary sections
 ### v1.0 — release-review profile
 
 ```text
-documented review recommendation policies for BLOCK / STAGE-ONLY / PROD-OK
+documented review recommendation policies using canonical artifact labels
 at least one case study using the full Instrument Review Pack
 clear distinction between review recommendation and release authority
 explicit promotion procedure for any release-relevant signal
@@ -487,7 +588,7 @@ It does not change PULSEmech release authority.
 
 ---
 
-## 5. Ownership
+## 6. Ownership
 
 Suggested roles:
 
@@ -546,7 +647,7 @@ Teams can adopt it piece by piece without touching the Core fail-closed gates.
 
 ---
 
-## 6. Boundary held by this document
+## 7. Boundary held by this document
 
 This document does not change:
 
