@@ -1,4 +1,3 @@
-
 #!/usr/bin/env python3
 """Build External Verification Packet v0.
 
@@ -33,6 +32,19 @@ AUTHORITY_CARRIER = (
 )
 
 PACKET_BOUNDARY = "external verification carrier; not release authority"
+
+
+def builder_checkout_root() -> Path:
+    return Path(__file__).resolve().parents[1]
+
+
+def trusted_binding_verifier_path() -> Path:
+    return (
+        builder_checkout_root()
+        / "PULSE_safe_pack_v0"
+        / "tools"
+        / "verify_artifact_provenance_binding_v0.py"
+    )
 
 
 def utc_now() -> str:
@@ -324,10 +336,22 @@ def verification_commands() -> list[dict[str, str]]:
         },
         {
             "name": "verify artifact provenance binding",
-            "purpose": "Recompute and verify the binding carrier if present.",
+            "purpose": (
+                "Recompute and verify the binding carrier if present, using "
+                "verifier code from a trusted PULSE checkout."
+            ),
             "command": (
-                "python PULSE_safe_pack_v0/tools/verify_artifact_provenance_binding_v0.py "
-                "--binding PULSE_safe_pack_v0/artifacts/artifact_provenance_binding_v0.json"
+                "test -n \"$TRUSTED_PULSE_CHECKOUT\" && "
+                "test -n \"$REVIEWED_REPO_ROOT\" && "
+                "TRUSTED_PULSE_CHECKOUT=\"$(cd \"$TRUSTED_PULSE_CHECKOUT\" && pwd -P)\" && "
+                "REVIEWED_REPO_ROOT=\"$(cd \"$REVIEWED_REPO_ROOT\" && pwd -P)\" && "
+                "(cd \"$REVIEWED_REPO_ROOT\" && "
+                "python -I \"$TRUSTED_PULSE_CHECKOUT/"
+                "PULSE_safe_pack_v0/tools/"
+                "verify_artifact_provenance_binding_v0.py\" "
+                "--binding \"$REVIEWED_REPO_ROOT/"
+                "PULSE_safe_pack_v0/artifacts/"
+                "artifact_provenance_binding_v0.json\")"
             ),
         },
         {
@@ -388,7 +412,7 @@ def reviewer_checklist() -> list[str]:
         "missing required gates fail closed",
         "release-decision artifact is present when expected",
         "binding artifact is present when expected",
-        "binding verifier passes when binding is present",
+        "trusted binding verifier passes when binding is present",
         "reader surfaces do not claim independent authority",
         "attestation subject is the binding carrier when attestation is present",
     ]
@@ -421,12 +445,7 @@ def verify_binding_carrier(
             "reason": "binding artifact missing",
         }
 
-    verifier = (
-        repo_root
-        / "PULSE_safe_pack_v0"
-        / "tools"
-        / "verify_artifact_provenance_binding_v0.py"
-    )
+    verifier = trusted_binding_verifier_path()
     binding_path = repo_root / binding["path"]
 
     if not verifier.is_file():
@@ -435,12 +454,14 @@ def verify_binding_carrier(
             "available": True,
             "verified": None,
             "exit_code": None,
-            "reason": "binding verifier missing",
+            "reason": "trusted binding verifier missing",
+            "verifier_source": "trusted_builder_checkout",
         }
 
     proc = subprocess.run(
         [
             sys.executable,
+            "-I",
             verifier.as_posix(),
             "--binding",
             binding_path.as_posix(),
@@ -458,10 +479,11 @@ def verify_binding_carrier(
         "verified": proc.returncode == 0,
         "exit_code": proc.returncode,
         "reason": (
-            "binding verifier passed"
+            "trusted binding verifier passed"
             if proc.returncode == 0
-            else "binding verifier failed"
+            else "trusted binding verifier failed"
         ),
+        "verifier_source": "trusted_builder_checkout",
         "stdout": proc.stdout.strip(),
         "stderr": proc.stderr.strip(),
     }
@@ -703,4 +725,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
