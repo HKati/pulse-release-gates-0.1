@@ -10,20 +10,22 @@ authors:
   - name: "EPLabsAI"
 
 abstract: |
-  PULSE provides deterministic, fail-closed release gates across Safety, Utility,
-  and SLO dimensions with auditable artefacts. Each release produces a human-readable
-  quality ledger and automated badges. Use this software before shipping models or
-  services to ensure compliance with documented safety invariants and utility budgets.
+  PULSE provides deterministic, fail-closed release authority for AI release
+  decisions across safety, utility, and SLO dimensions with auditable artifacts.
+  Each release produces recorded machine-readable state and reader surfaces.
+  Use this software before shipping models or services to evaluate recorded
+  release evidence through declared policy, materialized required gates, and
+  strict fail-closed CI enforcement.
 
 repository-code: "https://github.com/HKati/pulse-release-gates-0.1"
 url: "https://github.com/HKati/pulse-release-gates-0.1"
 
 keywords:
-  - "release-governance"
-  - "safety"
-  - "evals"
-  - "guardrails"
-  - "CI"
+  "release-authority"
+  - "artifact-bound"
+  - "AI release decisions"
+  - "fail-closed CI"
+  - "auditability"
 
 # The specific release you want others to cite
 doi: "10.5281/zenodo.17373002"
