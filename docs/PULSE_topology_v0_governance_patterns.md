@@ -1,18 +1,67 @@
-# PULSE topology v0 governance patterns
+# PULSE topology v0 instrument-review patterns
 
-> Practical governance patterns for using topology / Decision Engine outputs
-> without blurring the repository’s normative release boundary.
+Legacy filename / workshop alias:
 
-This page is about **how to use topology artifacts well** in review and
-governance.
+```text
+docs/PULSE_topology_v0_governance_patterns.md
+```
+
+Canonical technical role:
+
+```text
+PULSE topology v0 instrument-review patterns
+```
+
+## Boundary
+
+This document describes topology-related instrument-review patterns around PULSEmech.
+
+It does not define PULSE.
+
+It does not define release authority.
+
+It does not create a second release-decision engine.
+
+The PULSEmech authority path remains:
+
+```text
+recorded release evidence
+→ status.json
+→ declared gate policy
+→ workflow-effective materialized required gate set
+→ strict fail-closed CI enforcement
+→ pre-deployment allow/block release decision
+```
+
+Topology artifacts may support review, triage, rollout posture, and diagnostic interpretation.
+
+They are non-authorizing by default.
+
+A topology signal becomes release-relevant only if it is:
+
+```text
+recorded as release evidence
+referenced by declared policy
+materialized as a required gate
+enforced through the strict fail-closed CI path
+```
+
+---
+
+## 0. Scope
+
+This page is about how to use topology artifacts well in review without blurring the repository’s release-authority boundary.
 
 It is not a release-policy contract by itself.
 
 Important boundary:
 
-- the deterministic baseline remains the source of truth for release gating
-- topology outputs are optional and diagnostic
-- governance patterns should enrich human judgment, not silently rewrite policy
+```text
+the deterministic baseline remains the authority carrier for release gating
+topology outputs are optional and diagnostic
+instrument-review patterns should enrich human judgment
+instrument-review patterns must not silently rewrite policy
+```
 
 For the conceptual layer, see:
 
@@ -29,25 +78,28 @@ For worked examples and quickstarts, see:
 
 ---
 
-## 1. Why governance patterns matter
+## 1. Why instrument-review patterns matter
 
 A deterministic baseline gives a hard answer:
 
-- PASS / FAIL at the required-gate layer
+```text
+PASS / FAIL at the required-gate layer
+```
 
-That is necessary, but often not sufficient for good release governance.
+That is necessary, but often not sufficient for good release review.
 
-Reviewers also need to know things like:
+Reviewers may also need to know:
 
-- does this PASS look robust or fragile?
-- does this run deserve routine confidence or cautious rollout?
-- are we seeing recurring tension that should become tracked governance work?
-- is the current result trustworthy, borderline, or under-evidenced?
+```text
+does this PASS look robust or fragile?
+does this run deserve routine confidence or cautious rollout?
+are we seeing recurring tension that should become tracked review work?
+is the current result trustworthy, borderline, or under-evidenced?
+```
 
 This is where topology helps.
 
-Topology should improve **judgment quality** without becoming an unreviewed second
-policy engine.
+Topology should improve review quality without becoming an unreviewed second policy engine.
 
 ---
 
@@ -56,22 +108,34 @@ policy engine.
 Always apply this order:
 
 1. **baseline deterministic artifacts first**
-   - `status.json`
-   - Quality Ledger / report card
+
+   ```text
+   status.json
+   Quality Ledger / report card
+   declared gate policy
+   workflow-effective materialized required gate set
+   strict fail-closed CI result
+   ```
 
 2. **optional diagnostic context second**
-   - paradox / field artifacts
-   - Stability Map context
-   - EPF shadow outputs
-   - external evidence posture
+
+   ```text
+   paradox / field artifacts
+   Stability Map context
+   EPF shadow outputs
+   external evidence posture
+   topology overlays
+   ```
 
 3. **topology / Decision Engine summary last**
-   - reviewer-facing compression of the picture
 
-This ordering is the single most important governance pattern.
+   ```text
+   reviewer-facing compression of the recorded artifact state
+   ```
 
-If people read only the compact topology summary and skip the baseline evidence,
-governance quality gets worse, not better.
+This ordering is the single most important instrument-review pattern.
+
+If people read only the compact topology summary and skip the baseline evidence, review quality gets worse, not better.
 
 ---
 
@@ -85,23 +149,31 @@ Use this pattern on every release review, even when topology outputs exist.
 
 Start with the baseline artifacts and answer:
 
-- what does the deterministic baseline say?
-- what gates actually failed?
-- what metrics and evidence are present?
-- what is the current normative release posture?
+```text
+what does the deterministic baseline say?
+what gates actually failed?
+what metrics and evidence are present?
+what is the current release-authority posture?
+which required gate set was materialized?
+```
 
 Only after that should you read:
 
-- Decision Engine summaries
-- topology narratives
-- dashboard views
+```text
+Decision Engine summaries
+topology narratives
+reader surfaces
+dashboard-style views
+```
 
 ### Why this pattern is healthy
 
 It preserves the repo’s core invariant:
 
-- the baseline deterministic path remains normative
-- topology remains interpretation
+```text
+the baseline deterministic path remains release-authority-bearing
+topology remains interpretation
+```
 
 This is the safest pattern for avoiding semantic drift.
 
@@ -111,10 +183,12 @@ This is the safest pattern for avoiding semantic drift.
 
 ### Typical evidence shape
 
-- baseline required gates pass
-- optional diagnostics are quiet
-- no meaningful paradox pressure is visible
-- evidence looks complete enough for ordinary confidence
+```text
+baseline required gates pass
+optional diagnostics are quiet
+no meaningful paradox pressure is visible
+evidence looks complete enough for ordinary confidence
+```
 
 ### Typical reviewer reading
 
@@ -125,18 +199,19 @@ release_state: PROD_OK
 stability_type: stable_good
 ```
 
-### Governance action
+### Review action
 
 Reasonable response:
 
-- ordinary release confidence
-- normal archival / signoff
-- no extra caution beyond standard process
+```text
+ordinary release confidence
+normal archival / signoff
+no extra caution beyond standard process
+```
 
 ### Why topology still helps here
 
-Even when the run is boring, topology helps by making the “boringness” explicit
-and reusable in dashboards, board views, or review notes.
+Even when the run is ordinary, topology helps by making the stability reading explicit and reusable in review notes.
 
 ---
 
@@ -144,12 +219,14 @@ and reusable in dashboards, board views, or review notes.
 
 ### Typical evidence shape
 
-- baseline required gates still pass
-- but optional diagnostics are noisy:
-  - EPF shadow pressure
-  - paradox tension
-  - repeated near-threshold behavior
-  - incomplete reviewer comfort
+```text
+baseline required gates still pass
+optional diagnostics are noisy
+EPF shadow pressure is visible
+paradox tension is visible
+near-threshold behavior repeats
+reviewer confidence is lower than ordinary
+```
 
 ### Typical reviewer reading
 
@@ -160,28 +237,32 @@ release_state: PROD_OK
 stability_type: unstably_good
 ```
 
-### Governance action
+### Review action
 
 Reasonable response:
 
-- keep the baseline PASS unchanged
-- prefer caution in rollout posture
-- consider extra review, staged rollout, or tighter observation
-- open follow-up work if the same pattern repeats
+```text
+keep the baseline PASS unchanged
+prefer caution in rollout posture
+consider extra review, staged rollout, or tighter observation
+open follow-up work if the same pattern repeats
+```
 
 ### Why this pattern matters
 
-This is probably the most important topology governance pattern.
+This prevents teams from collapsing:
 
-It prevents teams from collapsing:
+```text
+not blocked
+```
 
-“not blocked”
+into:
 
-into
+```text
+comfortably production-ready
+```
 
-“comfortably production-ready.”
-
-Topology is doing useful work here precisely because it preserves that nuance.
+Topology is useful here precisely because it preserves that distinction.
 
 ---
 
@@ -189,9 +270,11 @@ Topology is doing useful work here precisely because it preserves that nuance.
 
 ### Typical evidence shape
 
-- deterministic baseline fails
-- diagnostics do not suggest unusual ambiguity
-- the run looks negative in a fairly ordinary way
+```text
+deterministic baseline fails
+diagnostics do not suggest unusual ambiguity
+the run looks negative in a fairly ordinary way
+```
 
 ### Typical reviewer reading
 
@@ -202,20 +285,20 @@ release_state: BLOCK
 stability_type: stable_bad
 ```
 
-### Governance action
+### Review action
 
 Reasonable response:
 
-- keep the baseline FAIL authoritative
-- fix the underlying issue
-- rerun after remediation
-- avoid over-reading optional overlays
+```text
+keep the baseline FAIL authoritative
+fix the underlying issue
+rerun after remediation
+avoid over-reading optional overlays
+```
 
 ### Why this pattern is healthy
 
-It avoids the opposite mistake:
-using richer dashboards to make a straightforward failure look more debatable
-than it really is.
+It avoids the opposite mistake: using richer reader surfaces to make a straightforward failure look more debatable than it is.
 
 ---
 
@@ -223,12 +306,14 @@ than it really is.
 
 ### Typical evidence shape
 
-- deterministic baseline fails
-- diagnostics are also noisy:
-  - paradox pressure
-  - shadow disagreement
-  - unstable or degraded evidence posture
-  - unclear failure boundary
+```text
+deterministic baseline fails
+diagnostics are also noisy
+paradox pressure is present
+shadow disagreement is present
+evidence posture is unstable or degraded
+failure boundary is unclear
+```
 
 ### Typical reviewer reading
 
@@ -239,116 +324,131 @@ release_state: BLOCK
 stability_type: unstably_bad
 ```
 
-### Governance action
+### Review action
 
 Reasonable response:
 
-- treat the release as blocked
-- also treat the case as a higher-priority triage / governance problem
-- inspect whether the failure is:
-  - a simple miss
-  - a coverage problem
-  - a threshold problem
-  - a tooling / evidence-quality problem
+```text
+treat the release as blocked
+also treat the case as higher-priority triage
+inspect whether the failure is a simple miss
+inspect whether the failure is a coverage problem
+inspect whether the failure is a threshold problem
+inspect whether the failure is a tooling / evidence-quality problem
+```
 
 ### Why this pattern matters
 
 It helps reviewers distinguish:
 
-“failing, but ordinary”
+```text
+failing, but ordinary
+```
 
-from
+from:
 
-“failing, and operationally confusing.”
+```text
+failing, and operationally confusing
+```
 
-That difference changes how much process attention the run deserves.
+That difference changes how much review attention the run deserves.
 
 ---
 
 ## 8. Pattern: reviewer caution without policy rewrite
 
-This is the core governance use-case for topology.
+This is the core instrument-review use case for topology.
 
 ### Healthy form
 
-- baseline remains unchanged
-- topology expresses caution through:
-  - `stability_type`
-  - reviewer narrative
-  - board / dashboard wording
-  - rollout posture recommendations
+```text
+baseline remains unchanged
+topology expresses caution through stability_type
+topology expresses caution through reviewer narrative
+topology expresses caution through rollout posture recommendation
+```
 
 ### Unhealthy form
 
-- topology output is treated as if it silently changed required policy
-- reviewers start reading a compact summary as the new source of truth
-- a passing baseline is described as blocked without policy review
-- missing diagnostics are treated as if they imply calm / confidence
+```text
+topology output is treated as if it silently changed required policy
+reviewers start reading a compact summary as the new authority carrier
+a passing baseline is described as blocked without policy review
+missing diagnostics are treated as if they imply calm / confidence
+```
 
-If you find yourselves drifting toward the unhealthy form, stop and push the
-change back into:
+If the review starts drifting toward the unhealthy form, stop and push the change back into:
 
-- policy
-- CI
-- contracts
-- reviewed changelog-backed updates
+```text
+policy
+CI
+contracts
+reviewed changelog-backed updates
+```
 
 ---
 
 ## 9. Pattern: stage with caution
 
-This is a governance action pattern, not necessarily a literal classifier rule.
+This is a review-action pattern, not necessarily a literal classifier rule.
 
 ### When to use it
 
 Use it when:
 
-- the baseline still passes
-- the topology layer says the run is fragile
-- reviewers want to preserve momentum without pretending the run is boring
+```text
+the baseline still passes
+the topology layer says the run is fragile
+reviewers want to preserve momentum without pretending the run is ordinary
+```
 
 ### What it means in practice
 
 Possible actions:
 
-- narrower exposure
-- staged rollout
-- additional manual review
-- more telemetry / observation after release
-- explicit follow-up issue tied to the same run
+```text
+narrower exposure
+staged rollout
+additional manual review
+more telemetry / observation after release
+explicit follow-up issue tied to the same run
+```
 
 ### Why this is useful
 
-It lets teams express caution operationally
-without falsely claiming that the baseline deterministic decision already changed.
+It lets teams express caution operationally without falsely claiming that the deterministic baseline decision already changed.
 
 ---
 
 ## 10. Pattern: repeated fragility becomes tracked work
 
-A single fragile run may be noise.  
-A repeated fragile pattern is governance information.
+A single fragile run may be noise.
+
+A repeated fragile pattern is review information.
 
 ### Trigger signs
 
-- the same gate family keeps showing paradox pressure
-- multiple runs cluster around the same near-threshold region
-- `unstably_good` style readings recur
-- evidence posture is repeatedly weaker than desired
+```text
+the same gate family keeps showing paradox pressure
+multiple runs cluster around the same near-threshold region
+unstably_good style readings recur
+evidence posture is repeatedly weaker than desired
+```
 
-### Governance action
+### Review action
 
 Reasonable response:
 
-- open a tracked issue
-- add evaluation coverage
-- review thresholds and evidence shape
-- decide whether a future policy change is needed
+```text
+open a tracked issue
+add evaluation coverage
+review thresholds and evidence shape
+decide whether a future policy change is needed
+```
 
 ### Why this pattern matters
 
-Topology becomes most valuable when it helps you see trends in reviewer burden
-before the deterministic baseline starts failing broadly.
+Topology becomes most valuable when it helps reviewers see trends in review burden before the deterministic baseline starts failing broadly.
 
 ---
 
@@ -356,23 +456,31 @@ before the deterministic baseline starts failing broadly.
 
 Topology should not hide evidence gaps.
 
-### Good governance question
+Good review question:
 
-“Did we have enough evidence to feel confident?”
+```text
+Did we have enough evidence to feel confident?
+```
 
-### Different good governance question
+Different review question:
 
-“What did the current baseline classifier say?”
+```text
+What did the current baseline classifier say?
+```
 
 These are not the same question.
 
 A run can be:
 
-- baseline-positive
+```text
+baseline-positive
+```
 
-but
+but:
 
-- reviewer-uncomfortable because evidence completeness is poor
+```text
+reviewer-uncomfortable because evidence completeness is poor
+```
 
 That should remain visible.
 
@@ -386,18 +494,21 @@ A topology summary is only useful later if the evidence chain remains intact.
 
 ### Recommended archive bundle
 
-- `status.json`
-- `report_card.html`
-- `decision_engine_v0.json`, when produced
-- `paradox_field_v0.json`, when produced
-- Stability Map artifact, when produced
-- EPF shadow artifacts, when relevant
-- any reviewer note / rollout decision tied to the same run
+```text
+status.json
+report_card.html
+decision_engine_v0.json, when produced
+paradox_field_v0.json, when produced
+Stability Map artifact, when produced
+EPF shadow artifacts, when relevant
+reviewer note / rollout decision tied to the same run
+```
 
 ### Why this matters
 
-Good governance is not just about making a decision.  
-It is also about being able to reconstruct why that decision made sense later.
+Good instrument review is not just about making a decision.
+
+It is also about being able to reconstruct why that review posture made sense later.
 
 ---
 
@@ -405,35 +516,45 @@ It is also about being able to reconstruct why that decision made sense later.
 
 Avoid these.
 
-### Anti-pattern A — dashboard supremacy
+### Anti-pattern A — reader-surface supremacy
 
 Bad habit:
 
-- treating a dashboard or compact summary as more authoritative than `status.json`
+```text
+treating a reader surface or compact summary as more authoritative than status.json
+```
 
 ### Anti-pattern B — topology as secret policy
 
 Bad habit:
 
-- using topology wording to effectively change release semantics without a policy change
+```text
+using topology wording to effectively change release semantics without a policy change
+```
 
 ### Anti-pattern C — fabricated completeness
 
 Bad habit:
 
-- acting as if missing overlays imply quiet diagnostics
+```text
+acting as if missing overlays imply quiet diagnostics
+```
 
 ### Anti-pattern D — one-run overreaction
 
 Bad habit:
 
-- taking one noisy optional signal and immediately rewriting thresholds or policy
+```text
+taking one noisy optional signal and immediately rewriting thresholds or policy
+```
 
 ### Anti-pattern E — compact-summary-only review
 
 Bad habit:
 
-- reviewers approving or rejecting runs from the compact summary alone
+```text
+reviewers approving or rejecting runs from the compact summary alone
+```
 
 All of these reduce auditability and semantic clarity.
 
@@ -441,47 +562,60 @@ All of these reduce auditability and semantic clarity.
 
 ## 14. A practical review template
 
-A simple governance checklist for one run:
+A simple instrument-review checklist for one run:
 
 ### Baseline
 
-- What does the deterministic baseline say?
+```text
+What does the deterministic baseline say?
+```
 
 ### Evidence
 
-- Is evidence complete enough to trust the result?
+```text
+Is evidence complete enough to trust the result?
+```
 
 ### Diagnostics
 
-- Are optional overlays quiet, fragile, or noisy?
+```text
+Are optional overlays quiet, fragile, or noisy?
+```
 
 ### Topology summary
 
-- Does the run look `stable_good`, `unstably_good`, `stable_bad`, `unstably_bad`, or `unknown`?
+```text
+Does the run look stable_good, unstably_good, stable_bad, unstably_bad, or unknown?
+```
 
 ### Action
 
-- ordinary release
-- cautious rollout
-- deeper review
-- blocked and remediate
-- tracked follow-up for repeated fragility
+```text
+ordinary release
+cautious rollout
+deeper review
+blocked and remediate
+tracked follow-up for repeated fragility
+```
 
-This is a good lightweight governance pattern because it keeps the evidence chain
-visible all the way through.
+This is a good lightweight instrument-review pattern because it keeps the evidence chain visible all the way through.
 
 ---
 
 ## 15. Summary
 
-Topology governance works best when it does three things well:
+Topology instrument review works best when it does three things well:
 
-- preserves the deterministic baseline as the source of truth
-- adds honest reviewer posture on top of that baseline
-- turns recurring fragility into visible, tracked governance work
+```text
+preserves the deterministic baseline as the release-authority carrier
+adds honest reviewer posture on top of that baseline
+turns recurring fragility into visible, tracked review work
+```
 
-That is the real value of topology in this repository:
+That is the value of topology in this repository:
 
-- not hidden policy
-- not a second gate engine
-- but better structured judgment over archived run artifacts.
+```text
+not hidden policy
+not a second gate engine
+better structured judgment over archived run artifacts
+```

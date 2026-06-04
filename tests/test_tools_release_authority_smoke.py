@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-Governance tools smoke tests.
+Release-authority tools smoke tests.
 
 Goal:
-- Ensure repo-level governance checks run in CI without depending on the PULSE pack.
-- Lock down fail-closed semantics (negative cases) so regressions can't slip through.
+- Ensure repo-level release-authority checks run in CI without depending on the PULSE pack.
+- Lock down fail-closed semantics (negative cases) so regressions cannot slip through.
 
-We intentionally run tools as subprocesses (as CI does) and assert return codes.
+We intentionally run tools as subprocesses, as CI does, and assert return codes.
 """
 
 from __future__ import annotations
@@ -54,7 +54,10 @@ def _write_status(path: Path, gates: dict) -> None:
         "metrics": {"run_mode": "core"},
         "gates": gates,
     }
-    path.write_text(json.dumps(status, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    path.write_text(
+        json.dumps(status, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
 
 
 def test_gate_registry_sync_smoke() -> None:
@@ -89,7 +92,7 @@ def test_gate_registry_sync_smoke() -> None:
 
 
 def test_gate_registry_sync_fails_on_unknown_gate() -> None:
-    """Negative: an unknown gate in status must fail closed (exit 2)."""
+    """Negative: an unknown gate in status must fail closed with exit 2."""
     with tempfile.TemporaryDirectory() as td:
         td = Path(td)
         status_path = td / "status.json"
@@ -98,7 +101,7 @@ def test_gate_registry_sync_fails_on_unknown_gate() -> None:
             {
                 "q1_grounded_ok": True,
                 "q4_slo_ok": True,
-                "definitely_missing_gate_xyz": True,  # not in registry
+                "definitely_missing_gate_xyz": True,
             },
         )
 
@@ -138,7 +141,7 @@ def test_policy_registry_consistency_smoke() -> None:
 
 
 def test_policy_registry_rejects_missing_gate() -> None:
-    """Negative: policy referencing a missing gate must fail closed (exit 2)."""
+    """Negative: policy referencing a missing gate must fail closed with exit 2."""
     with tempfile.TemporaryDirectory() as td:
         td = Path(td)
         policy_path = td / "policy_missing_gate.yml"
@@ -175,14 +178,16 @@ def test_policy_registry_rejects_missing_gate() -> None:
         assert "missing_gate_foo" in out
 
 
-def test_policy_registry_rejects_non_normative_required_gate() -> None:
+def test_policy_registry_rejects_non_authority_required_gate() -> None:
     """
-    Negative: policy requiring a default_non_normative gate must fail closed (exit 2).
-    We use epf_hazard_ok which is marked default_normative: false in the registry.
+    Negative: policy requiring a default_non_normative gate must fail closed.
+
+    We use epf_hazard_ok because it is marked default_normative: false
+    in the registry.
     """
     with tempfile.TemporaryDirectory() as td:
         td = Path(td)
-        policy_path = td / "policy_non_normative.yml"
+        policy_path = td / "policy_non_authority.yml"
 
         policy_path.write_text(
             textwrap.dedent(
@@ -221,13 +226,13 @@ def main() -> int:
     test_gate_registry_sync_fails_on_unknown_gate()
     test_policy_registry_consistency_smoke()
     test_policy_registry_rejects_missing_gate()
-    test_policy_registry_rejects_non_normative_required_gate()
-    print("OK: governance tools smoke tests passed")
+    test_policy_registry_rejects_non_authority_required_gate()
+    print("OK: release-authority tools smoke tests passed")
     return 0
 
 
 def test_smoke() -> None:
-    # pytest entrypoint (optional)
+    # pytest entrypoint
     assert main() == 0
 
 
