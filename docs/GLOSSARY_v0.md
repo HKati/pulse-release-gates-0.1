@@ -251,6 +251,33 @@ The radius (or scale parameter) at which the protocol’s decodability criterion
 
 ## D
 
+### declared gate policy
+
+**What it means**
+
+The machine-readable gate policy used to determine which gate IDs are required for a given PULSE release path.
+
+It is part of the PULSEmech authority path only when it is used to materialize the workflow-effective required gate set.
+
+Typical authority path:
+
+```text
+declared gate policy
+→ workflow-effective materialized required gate set
+→ strict fail-closed CI enforcement
+```
+
+**What it is not**
+
+- Not organizational policy.
+- Not management policy.
+- Not compliance policy.
+- Not a human approval preference.
+- Not a general governance framework.
+
+A declared gate policy becomes release-relevant through materialized required gates and fail-closed enforcement, not through prose.
+
+ 
 ### Decision Engine
 
 **What it means**
@@ -597,20 +624,49 @@ they may allow more tuning than I-gates.
 
 **What it means**
 
-A human-oriented, usually HTML or markdown report that:
+A human-readable reader carrier over a recorded `status.json` artifact.
 
-- summarises a PULSE run or a set of runs,
-- lists gate outcomes, RDSI, EPF bands, key overlays,
-- acts as an audit-friendly reader surface.
+It may be rendered as HTML, Markdown, or another reader surface.
+
+It may display:
+
+- gate outcomes,
+- run metadata,
+- diagnostic overlays,
+- release-decision summaries,
+- public surface state,
+- traceability fields.
 
 Typically generated alongside `status.json`.
 
 **What it is not**
 
-- Not the formal source of truth for machine tools. That is `status.json`.
-- Not a substitute for detailed logs when debugging.
-- Not the release-authority path.
+- Not release authority.
+- Not a quality-assurance dashboard that decides release.
+- Not a substitute for `status.json`.
+- Not a substitute for declared gate policy.
+- Not a substitute for the workflow-effective materialized required gate set.
+- Not a substitute for strict fail-closed CI enforcement.
 
+The PULSEmech authority path remains:
+
+- Not release authority.
+- Not a quality-assurance dashboard that decides release.
+- Not a substitute for `status.json`.
+- Not a substitute for declared gate policy.
+- Not a substitute for the workflow-effective materialized required gate set.
+- Not a substitute for strict fail-closed CI enforcement.
+
+The PULSEmech authority path remains:
+
+```text
+recorded release evidence
+→ status.json
+→ declared gate policy
+→ workflow-effective materialized required gate set
+→ strict fail-closed CI enforcement
+→ pre-deployment allow/block release decision
+```
 ---
 
 ## R
@@ -677,6 +733,26 @@ surface, while still remaining non-promoted as a broader line.
 ---
 
 ## S
+
+### Safe & Useful AI
+
+**What it means**
+
+A release-domain phrase used to describe the kind of AI release decisions PULSE is intended to support.
+
+In PULSE-facing text, it means that recorded safety, utility, and SLO evidence may be evaluated through declared gates.
+
+**What it is not**
+
+- Not a general definition of safety.
+- Not a general definition of usefulness.
+- Not an AI-governance framework.
+- Not a compliance framework.
+- Not a claim that PULSE replaces model evaluation, human review, or domain-specific safety work.
+
+PULSE does not define safety or usefulness in the abstract.
+
+PULSEmech determines whether recorded release evidence satisfies declared gates under strict fail-closed enforcement.
 
 ### safe-pack
 
