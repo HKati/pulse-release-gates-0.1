@@ -62,6 +62,7 @@ The current PULSE hardening boundary set is:
 PULSEmech authority path
 → relational state transition layer
 → release-grade materialized lane
+→ external evidence materialization boundary
 → public / private artifact boundary
 → security threat model calibration
 → verifier and package trust-boundary hardening
@@ -185,7 +186,56 @@ release-grade lane eligibility is not release authority
 release permission requires strict fail-closed CI enforcement under PULSEmech
 ```
 
-### 4. Public / private artifact boundary
+### 4. External evidence materialization boundary
+
+Document:
+
+```text
+docs/PULSE_EXTERNAL_EVIDENCE_MATERIALIZATION_BOUNDARY_v0.md
+```
+
+Role:
+
+```text
+detector and external evidence materialization review
+```
+
+This layer defines when detector output, external summaries, external evidence
+packets, or third-party verification material may be reviewed as materialized
+release evidence.
+
+It separates:
+
+```text
+external evidence presence
+```
+
+from:
+
+```text
+external evidence materialization
+```
+
+Presence is not materialization.
+
+Materialization is not release permission.
+
+External evidence may support release-grade lane eligibility only when it is
+recorded, parseable, source-identified, subject-bound, freshness-bound when
+required, mapped by declared rules, folded into status or gate state
+deterministically, and enforced by strict CI when release-required.
+
+Core boundary:
+
+```text
+external evidence presence is not materialization
+materialization is not release permission
+release-required external evidence fails closed when missing, malformed, stale,
+subject-mismatched, unrecognized, unmapped, advisory-only, diagnostic-only,
+inconclusive, or non-enforced
+```
+
+### 5. Public / private artifact boundary
 
 Document:
 
@@ -225,7 +275,7 @@ Core boundary:
 publication exposure and release authority must not be collapsed
 ```
 
-### 5. Security threat model calibration
+### 6. Security threat model calibration
 
 Document:
 
@@ -264,7 +314,7 @@ release-state verification, packet verification status, and CI allow/block
 outcome
 ```
 
-### 6. Verifier and package trust-boundary hardening
+### 7. Verifier and package trust-boundary hardening
 
 Primary implementation areas:
 
@@ -307,6 +357,7 @@ It does not replace PULSEmech release authority.
 | PULSEmech authority path | `README.md`; `docs/STATUS_CONTRACT.md`; `docs/status_json.md` | Produces allow/block release decision | Authority |
 | Relational state transition | `docs/PULSE_RELATIONAL_STATE_TRANSITION_v0.md` | Reviews connected release-state transitions | Review layer |
 | Release-grade materialized lane | `docs/PULSE_RELEASE_GRADE_MATERIALIZED_LANE_v0.md` | Defines lane eligibility and materialization requirements | Eligibility layer |
+| External evidence materialization | `docs/PULSE_EXTERNAL_EVIDENCE_MATERIALIZATION_BOUNDARY_v0.md` | Defines detector/external evidence materialization requirements | Evidence materialization boundary |
 | Public / private artifact boundary | `docs/PULSE_PUBLIC_PRIVATE_ARTIFACT_BOUNDARY_v0.md` | Classifies publication exposure | Publication boundary |
 | Security threat model | `SECURITY.md` | Calibrates security risk and review focus | Security calibration |
 | Verifier/package hardening | implementation + tests | Enforces verifier and path trust boundaries | Tooling boundary |
@@ -437,6 +488,24 @@ Boundary:
 external verifier output supports reconstruction and review only
 ```
 
+### External evidence presence treated as materialization
+
+Risk:
+
+```text
+external summary, detector output, metric key, filename presence, or directory
+presence is treated as materialized release evidence
+```
+
+Boundary:
+
+```text
+external evidence must be recorded, parseable, source-identified,
+subject-bound, freshness-bound when required, mapped by declared rules, folded
+into status or gate state deterministically, and enforced by strict CI when
+release-required
+```
+
 ### Reviewed root treated as trusted code source
 
 Risk:
@@ -479,6 +548,7 @@ Determine which boundary layer the change belongs to:
 authority path
 relational state transition
 release-grade lane eligibility
+external evidence materialization
 public/private artifact exposure
 security threat model
 verifier/package trust boundary
@@ -565,6 +635,14 @@ release-state relation before it can support release review.
 
 Reviewed repositories, packages, artifact bundles, and external verification
 inputs must be treated as untrusted unless explicitly classified otherwise.
+
+### 9. Presence is not materialization
+
+External evidence presence does not create materialized release evidence.
+
+Detector output, summaries, metrics, reports, external packets, or third-party
+verification material may support release-grade review only when they satisfy
+the external evidence materialization boundary.
 
 ## Future map additions
 
