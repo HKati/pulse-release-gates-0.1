@@ -1,4 +1,5 @@
 import copy
+import hashlib
 import json
 import os
 import sys
@@ -51,6 +52,14 @@ def write_text(path: Path, text: str) -> None:
 
 def read_json(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
+
+def recompute_binding_hash(binding: dict) -> dict:
+    binding = copy.deepcopy(binding)
+    binding.pop("binding_hash", None)
+    binding["binding_hash"] = hashlib.sha256(
+        canonical_json_bytes(binding)
+    ).hexdigest()
+    return binding
 
 
 def write_policy(path: Path) -> None:
@@ -431,21 +440,57 @@ def test_verifier_fails_when_binding_hash_changes(tmp_path: Path) -> None:
     assert verify_binding(paths) != 0
 
 
-def test_verifier_rejects_absolute_authority_file_path(tmp_path: Path) -> None:
+def test_verifier_accepts_absolute_authority_file_path_inside_reviewed_root(
+    tmp_path: Path,
+) -> None:
     paths = write_fixtures(tmp_path)
     binding = build_binding(paths)
 
     binding["authority_carrier"]["status_json"]["path"] = str(paths["status"].resolve())
+    binding = recompute_binding_hash(binding)
+    write_json(paths["binding"], binding)
+
+    assert verify_binding(paths) == 0
+
+
+def test_verifier_accepts_absolute_binding_subject_path_inside_reviewed_root(
+    tmp_path: Path,
+) -> None:
+    paths = write_fixtures(tmp_path)
+    binding = build_binding(paths)
+
+    set_subject_path(binding, "status_json", str(paths["status"].resolve()))
+    binding = recompute_binding_hash(binding)
+    write_json(paths["binding"], binding)
+
+    assert verify_binding(paths) == 0
+
+
+def test_verifier_rejects_absolute_authority_file_path_outside_reviewed_root(
+    tmp_path: Path,
+) -> None:
+    paths = write_fixtures(tmp_path)
+    binding = build_binding(paths)
+
+    outside = paths["root"].parent / "outside_status.json"
+    write_json(outside, status_payload())
+
+    binding["authority_carrier"]["status_json"]["path"] = str(outside.resolve())
     write_json(paths["binding"], binding)
 
     assert verify_binding(paths) == 2
 
 
-def test_verifier_rejects_absolute_binding_subject_path(tmp_path: Path) -> None:
+def test_verifier_rejects_absolute_binding_subject_path_outside_reviewed_root(
+    tmp_path: Path,
+) -> None:
     paths = write_fixtures(tmp_path)
     binding = build_binding(paths)
 
-    set_subject_path(binding, "status_json", str(paths["status"].resolve()))
+    outside = paths["root"].parent / "outside_status.json"
+    write_json(outside, status_payload())
+
+    set_subject_path(binding, "status_json", str(outside.resolve()))
     write_json(paths["binding"], binding)
 
     assert verify_binding(paths) == 2
@@ -549,6 +594,40 @@ def test_verifier_keeps_inline_subject_behavior(tmp_path: Path) -> None:
     assert enforcement_subject["path"] == (
         "inline:authority_carrier.strict_ci_gate_enforcement"
     )
+    assert verify_binding(paths) == 0
+
+
+def test_verifier_accepts_absolute_paths_generated_by_builder_inside_reviewed_root(
+    tmp_path: Path,
+) -> None:
+    paths = write_fixtures(tmp_path)
+
+    with working_directory(paths["root"]):
+        assert build_main(
+            [
+                "--status",
+                str(paths["status"]),
+                "--policy",
+                str(paths["policy"]),
+                "--ledger",
+                str(paths["ledger"]),
+                "--release-decision",
+                str(paths["release_decision"]),
+                "--release-authority-manifest",
+                str(paths["manifest"]),
+                "--out",
+                str(paths["binding"]),
+                "--created-utc",
+                CREATED_UTC,
+            ]
+        ) == 0
+
+    binding = read_json(paths["binding"])
+
+    assert Path(binding["authority_carrier"]["status_json"]["path"]).is_absolute()
+    assert Path(binding["authority_carrier"]["declared_gate_policy"]["path"]).is_absolute()
+    assert Path(binding["reader_carrier"]["quality_ledger"]["path"]).is_absolute()
+
     assert verify_binding(paths) == 0
 
 
