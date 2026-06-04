@@ -45,6 +45,12 @@ The following terms may appear only when their scope is explicit and they are no
 | runtime guardrail | Can move PULSE away from pre-deployment release authority | Use only as contrast or external category |
 | compliance | Can make PULSE appear to be a legal compliance system | Use only as external adoption context |
 | adoption metrics | Can be misread as mechanical validity metrics | Use only as ecosystem visibility / uptake signals |
+| Quality Ledger | Can make PULSE appear to be a quality-assurance dashboard or evaluation report | Use only as a reader carrier over recorded `status.json`; never as release authority |
+| Safe & Useful AI | Can make PULSE appear to define safety or usefulness as a broad governance framework | Use only as release-domain wording; PULSE checks recorded release evidence, not general safety meaning |
+| policy | Can be misread as organizational or management policy | In PULSE-facing text, use only as declared gate policy tied to materialized required gates |
+| evaluation / eval | Can make evidence producers appear to be the PULSE mechanism itself | Use only as evidence-producing or diagnostic context unless recorded, declared, materialized, and enforced |
+| ecosystem around PULSE | Can make surrounding dashboards, reports, evals, docs, or workflows appear to be PULSE identity | Use only as supporting context around the PULSEmech authority path |
+
 
 ## Preferred PULSE-facing descriptors
 
@@ -198,6 +204,112 @@ rendered report
 ```
 
 Reader carriers must not be described as the source of release authority.
+
+## Quality Ledger boundary
+
+The Quality Ledger is a reader carrier.
+
+It displays or summarizes recorded release-state artifacts.
+
+It does not create release authority.
+
+It does not replace:
+
+```text
+status.json
+declared gate policy
+workflow-effective materialized required gate set
+strict fail-closed CI enforcement
+```
+
+Correct use:
+
+```text
+Quality Ledger reader surface over recorded status.json
+```
+
+Incorrect use:
+
+```text
+Quality Ledger as the release authority
+Quality Ledger as the source of release permission
+Quality Ledger as a quality-assurance dashboard that decides release
+```
+
+## Safe & Useful AI boundary
+
+The phrase `Safe & Useful AI` names the release domain in which PULSE is applied.
+
+It does not mean that PULSE defines safety, usefulness, or general AI-governance policy.
+
+PULSE checks whether recorded release evidence satisfies declared gates.
+
+Correct use:
+
+```text
+PULSE applies artifact-bound release authority to Safe & Useful AI release decisions.
+```
+
+Incorrect use:
+
+```text
+PULSE is a general Safe & Useful AI governance framework.
+```
+
+The PULSEmech authority path remains:
+
+```text
+recorded release evidence
+→ status.json
+→ declared gate policy
+→ workflow-effective materialized required gate set
+→ strict fail-closed CI enforcement
+→ pre-deployment allow/block release decision
+```
+
+## Declared gate policy boundary
+
+In PULSE-facing text, `policy` means declared gate policy.
+
+It does not mean organizational policy, management policy, compliance policy, or institutional governance.
+
+A declared gate policy is release-relevant only when it is used to materialize the required gate set enforced by strict fail-closed CI.
+
+Correct use:
+
+```text
+declared gate policy
+→ workflow-effective materialized required gate set
+```
+
+Incorrect use:
+
+```text
+policy as broad organizational governance
+policy as a management framework
+policy as human approval preference
+```
+
+## Ecosystem boundary
+
+Dashboards, reports, evals, external detectors, reader surfaces, docs, and review artifacts may exist around PULSE.
+
+They are not PULSE identity.
+
+They become release-relevant only through the PULSEmech authority path:
+
+```text
+recorded as release evidence
+referenced by declared gate policy
+materialized as a required gate
+enforced through strict fail-closed CI
+```
+
+Existence around PULSE is not authority.
+
+Repository presence is not release authority.
+
+Reader visibility is not release authority.
 
 ## Trace and audit carrier boundary
 
