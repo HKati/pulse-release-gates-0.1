@@ -343,12 +343,15 @@ def verification_commands() -> list[dict[str, str]]:
             "command": (
                 "test -n \"$TRUSTED_PULSE_CHECKOUT\" && "
                 "test -n \"$REVIEWED_REPO_ROOT\" && "
+                "TRUSTED_PULSE_CHECKOUT=\"$(cd \"$TRUSTED_PULSE_CHECKOUT\" && pwd -P)\" && "
+                "REVIEWED_REPO_ROOT=\"$(cd \"$REVIEWED_REPO_ROOT\" && pwd -P)\" && "
+                "(cd \"$REVIEWED_REPO_ROOT\" && "
                 "python -I \"$TRUSTED_PULSE_CHECKOUT/"
                 "PULSE_safe_pack_v0/tools/"
                 "verify_artifact_provenance_binding_v0.py\" "
                 "--binding \"$REVIEWED_REPO_ROOT/"
                 "PULSE_safe_pack_v0/artifacts/"
-                "artifact_provenance_binding_v0.json\""
+                "artifact_provenance_binding_v0.json\")"
             ),
         },
         {
