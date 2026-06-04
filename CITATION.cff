@@ -21,7 +21,7 @@ repository-code: "https://github.com/HKati/pulse-release-gates-0.1"
 url: "https://github.com/HKati/pulse-release-gates-0.1"
 
 keywords:
-  "release-authority"
+  - "release-authority"
   - "artifact-bound"
   - "AI release decisions"
   - "fail-closed CI"
