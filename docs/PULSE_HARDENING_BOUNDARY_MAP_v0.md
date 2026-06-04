@@ -75,10 +75,17 @@ They must not be collapsed into one authority category.
 
 ### 1. PULSEmech authority path
 
-Primary location:
+Primary orientation:
 
 ```text
 README.md
+```
+
+Release-authority source-of-truth documents:
+
+```text
+docs/STATUS_CONTRACT.md
+docs/status_json.md
 ```
 
 Supporting security calibration:
@@ -95,6 +102,12 @@ release-decision authority
 
 The PULSEmech authority path defines how recorded release evidence becomes an
 allow/block release decision.
+
+`README.md` provides the public orientation for the authority path.
+
+`docs/STATUS_CONTRACT.md` and `docs/status_json.md` define the source-of-truth
+status contract, authoritative release-decision inputs, status consumer rules,
+and gate semantics used by the authority path.
 
 It is the only release-decision authority path.
 
@@ -258,7 +271,7 @@ Primary implementation areas:
 ```text
 scripts/build_external_verification_packet_v0.py
 PULSE_safe_pack_v0/tools/verify_artifact_provenance_binding_v0.py
-PULSE_safe_pack_v0/tools/verify_pulse_ref_ra1_package.py
+tools/verify_pulse_ref_ra1_package.py
 tests/test_build_external_verification_packet_v0.py
 tests/test_artifact_provenance_binding_v0.py
 ```
@@ -291,7 +304,7 @@ It does not replace PULSEmech release authority.
 
 | Layer | Primary document | Function | Authority role |
 |---|---|---|---|
-| PULSEmech authority path | `README.md` | Produces allow/block release decision | Authority |
+| PULSEmech authority path | `README.md`; `docs/STATUS_CONTRACT.md`; `docs/status_json.md` | Produces allow/block release decision | Authority |
 | Relational state transition | `docs/PULSE_RELATIONAL_STATE_TRANSITION_v0.md` | Reviews connected release-state transitions | Review layer |
 | Release-grade materialized lane | `docs/PULSE_RELEASE_GRADE_MATERIALIZED_LANE_v0.md` | Defines lane eligibility and materialization requirements | Eligibility layer |
 | Public / private artifact boundary | `docs/PULSE_PUBLIC_PRIVATE_ARTIFACT_BOUNDARY_v0.md` | Classifies publication exposure | Publication boundary |
