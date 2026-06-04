@@ -116,15 +116,14 @@ def reject_non_portable_subject_path(path_text: str, *, label: str) -> None:
 
     if "\\" in path_text:
         raise BindingMalformed(
-            f"{label} must be a POSIX-style repository-relative path"
+            f"{label} must be a POSIX-style path"
         )
 
     windows_path = PureWindowsPath(path_text)
     if windows_path.drive or windows_path.is_absolute():
-        raise BindingMalformed(f"{label} must be repository-relative")
-
-    if Path(path_text).is_absolute():
-        raise BindingMalformed(f"{label} must be repository-relative")
+        raise BindingMalformed(
+            f"{label} must not use Windows absolute path syntax"
+        )
 
 
 def resolve_bound_path(
@@ -135,13 +134,14 @@ def resolve_bound_path(
 ) -> Path:
     reject_non_portable_subject_path(path_text, label=label)
 
-    path = Path(path_text)
-
     if path_text.startswith("inline:"):
         raise BindingMalformed(f"{label} is inline but a file path is required")
 
+    path = Path(path_text)
+    candidate = path if path.is_absolute() else reviewed_root / path
+
     return ensure_inside_reviewed_root(
-        reviewed_root / path,
+        candidate,
         reviewed_root=reviewed_root,
         label=label,
     )
