@@ -92,8 +92,8 @@ A release-grade lane is a pre-deployment execution context intended to evaluate
 whether a candidate release may be allowed or blocked under declared release
 policy.
 
-A release-grade lane must not rely on scaffold, placeholder, stubbed, or
-advisory-only evidence.
+A release-grade lane must not rely on scaffold, placeholder, stubbed,
+diagnostic-only, shadow-only, or advisory-only evidence.
 
 ### Materialized lane
 
@@ -152,7 +152,7 @@ The v0 model is:
 ```text
 declared release-grade run context
 → recorded release evidence
-→ non-scaffold status state
+→ explicit non-scaffold / non-stub status state
 → declared policy
 → materialized required/release_required gate set
 → materialized evidence-derived gate values
@@ -187,22 +187,45 @@ The artifact must satisfy the applicable status schema.
 
 A missing, malformed, non-object, or schema-invalid `status.json` fails closed.
 
-### 3. Non-scaffold status state
+### 3. Explicit non-scaffold and non-stub status state
 
-The recorded status state must not contain scaffold or stub indicators that are
-active for the release lane.
+The recorded status state must explicitly prove that the release lane is not
+scaffolded and not stubbed.
 
-The following indicators are incompatible with release-grade materialized lane
-eligibility when active:
+The `status.diagnostics` object must be present.
+
+The following release-grade diagnostics are required:
 
 ```text
-scaffold=true
-gates_stubbed=true
-stub_profile present for an all-true or smoke profile
-detectors_materialized_ok=false when detector evidence is release-required
+diagnostics.scaffold == false
+diagnostics.gates_stubbed == false
 ```
 
-Equivalent future scaffold or stub indicators must be treated the same way.
+The following release-grade materialization gate is required:
+
+```text
+gates.detectors_materialized_ok == true
+```
+
+Missing diagnostics, missing flags, non-boolean values, `null` values, omitted
+objects, or active scaffold/stub indicators are incompatible with release-grade
+materialized lane eligibility.
+
+The following conditions fail closed:
+
+```text
+status.diagnostics missing
+diagnostics.scaffold missing
+diagnostics.scaffold is not literal false
+diagnostics.gates_stubbed missing
+diagnostics.gates_stubbed is not literal false
+gates.detectors_materialized_ok missing
+gates.detectors_materialized_ok is not literal true
+stub_profile present for an all-true or smoke profile
+```
+
+Equivalent future scaffold, stub, or materialization indicators must be treated
+with the same explicit fail-closed requirement.
 
 ### 4. Declared gate policy
 
@@ -212,8 +235,8 @@ The declared policy must identify the required gate sets used for the lane.
 
 The required gate set must not be empty.
 
-A missing policy, malformed policy, empty required gate set, or unresolved
-policy source fails closed.
+A missing policy, malformed policy, empty required gate set, or unresolved policy
+source fails closed.
 
 ### 5. Workflow-effective materialized required gate set
 
@@ -253,9 +276,17 @@ Materialization requires at least:
 - deterministic fold-in rule or declared status/gate mapping;
 - fail-closed handling for missing, malformed, stale, or mismatched evidence.
 
-Filename presence alone is not detector materialization.
+Filename presence alone is not detector or external evidence materialization.
 
 Advisory detector output alone is not release-grade evidence.
+
+Advisory external evidence alone is not release-grade evidence.
+
+Required detector evidence fails closed when it is missing, malformed, stale,
+subject-mismatched, or advisory-only.
+
+Required external evidence fails closed when it is missing, malformed, stale,
+subject-mismatched, or advisory-only.
 
 ### 8. Artifact binding and provenance review
 
@@ -305,7 +336,8 @@ The CI path must invoke the required gate checker.
 The CI path must not ignore non-zero gate-check results.
 
 The CI path must not treat missing gates, malformed status, empty required sets,
-stubbed gates, or advisory-only evidence as release permission.
+stubbed gates, scaffolded states, diagnostic-only evidence, shadow-only evidence,
+or advisory-only evidence as release permission.
 
 The final release decision must remain allow/block.
 
@@ -318,9 +350,14 @@ of the following conditions hold:
 status.json is missing
 status.json is malformed
 status.json is schema-invalid
-run context is demo/core/smoke/scaffold/shadow/advisory-only
-scaffold=true
-gates_stubbed=true
+run context is demo/core/smoke/scaffold/diagnostic/shadow/advisory-only
+status.diagnostics object is missing or malformed
+diagnostics.scaffold is missing
+diagnostics.scaffold is not literal false
+diagnostics.gates_stubbed is missing
+diagnostics.gates_stubbed is not literal false
+gates.detectors_materialized_ok is missing
+gates.detectors_materialized_ok is not literal true
 stub or all-true smoke profile is active
 declared policy is missing or malformed
 workflow-effective required gate set is missing
@@ -330,6 +367,10 @@ required gate is not literal boolean true
 required detector evidence is missing
 required detector evidence is malformed
 required detector evidence is stale or subject-mismatched
+required detector evidence is advisory-only
+required external evidence is missing
+required external evidence is malformed
+required external evidence is stale or subject-mismatched
 required external evidence is advisory-only
 binding/provenance required by policy fails verification
 CI does not run strict gate enforcement
@@ -346,6 +387,8 @@ This document does not define a production release policy.
 It does not select required gates.
 
 It does not make detector evidence normative.
+
+It does not make external evidence normative.
 
 It does not change the status schema.
 
@@ -366,8 +409,8 @@ A release-grade materialized lane review follows this sequence.
 
 Confirm whether the run is declared as release-grade.
 
-If the run context is demo, core, smoke, scaffold, shadow, or advisory-only, the
-review stops.
+If the run context is demo, core, smoke, scaffold, diagnostic, shadow, or
+advisory-only, the review stops.
 
 Result:
 
@@ -382,12 +425,23 @@ applicable schema.
 
 If not, the review fails closed.
 
-### 3. Check scaffold and stub indicators
+### 3. Check explicit non-scaffold and non-stub diagnostics
 
-Confirm that scaffold and stub indicators are not active for the release-grade
-lane.
+Confirm that the recorded status state explicitly proves that the release lane is
+not scaffolded and not stubbed.
 
-If scaffold or stub indicators are active, the review fails closed.
+The review must confirm:
+
+```text
+status.diagnostics exists
+diagnostics.scaffold == false
+diagnostics.gates_stubbed == false
+gates.detectors_materialized_ok == true
+```
+
+If the diagnostics object is missing, either diagnostic flag is missing, either
+diagnostic flag is not literal `false`, or `gates.detectors_materialized_ok` is
+missing or not literal `true`, the review fails closed.
 
 ### 4. Resolve declared policy
 
@@ -413,11 +467,14 @@ closed.
 
 ### 7. Review detector and external evidence
 
-If detector or external evidence is required by policy, confirm that the
-evidence is materialized and bound to the release context.
+If detector or external evidence is required by policy, confirm that the evidence
+is materialized and bound to the release context.
 
-If it is missing, malformed, stale, mismatched, or advisory-only, the review
-fails closed.
+Required detector evidence fails closed if it is missing, malformed, stale,
+subject-mismatched, or advisory-only.
+
+Required external evidence fails closed if it is missing, malformed, stale,
+subject-mismatched, or advisory-only.
 
 ### 8. Review binding and provenance
 
@@ -474,8 +531,8 @@ strict fail-closed behavior.
 
 A release-grade materialized lane is a recorded release execution context whose
 required evidence, status state, declared policy, required gate set, gate values,
-and strict CI enforcement are concrete enough to support a PULSEmech
-allow/block release decision.
+and strict CI enforcement are concrete enough to support a PULSEmech allow/block
+release decision.
 
 It is not a new authority path.
 
