@@ -6,11 +6,24 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = REPO_ROOT / "scripts" / "build_external_verification_packet_v0.py"
+BINDING_BUILDER = (
+    REPO_ROOT
+    / "PULSE_safe_pack_v0"
+    / "tools"
+    / "build_artifact_provenance_binding_v0.py"
+)
+REPO_ROOT_VERIFIER = (
+    "PULSE_safe_pack_v0/tools/verify_artifact_provenance_binding_v0.py"
+)
 
 
 def write(path: Path, text: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(text, encoding="utf-8")
+
+
+def write_json(path: Path, payload: dict) -> None:
+    write(path, json.dumps(payload, indent=2, sort_keys=True) + "\n")
 
 
 def git_commit_all(repo: Path, message: str) -> None:
@@ -41,13 +54,64 @@ def valid_status() -> dict:
     }
 
 
+def write_valid_binding_inputs(repo: Path) -> None:
+    write(
+        repo / "PULSE_safe_pack_v0" / "artifacts" / "report_card.html",
+        "PULSE Quality Ledger\n",
+    )
+    write_json(
+        repo / "PULSE_safe_pack_v0" / "artifacts" / "release_decision_v0.json",
+        {
+            "schema_id": "pulse_release_decision_v0",
+            "producer": "materialize_release_decision.py",
+            "release_level": "PROD-PASS",
+        },
+    )
+    write_json(
+        repo / "PULSE_safe_pack_v0" / "artifacts" / "release_authority_v0.json",
+        {"schema_id": "release_authority_v0", "ok": True},
+    )
+
+
+def build_valid_binding(repo: Path) -> None:
+    write_valid_binding_inputs(repo)
+
+    subprocess.run(
+        [
+            sys.executable,
+            str(BINDING_BUILDER),
+            "--status",
+            "PULSE_safe_pack_v0/artifacts/status.json",
+            "--policy",
+            "pulse_gate_policy_v0.yml",
+            "--ledger",
+            "PULSE_safe_pack_v0/artifacts/report_card.html",
+            "--release-decision",
+            "PULSE_safe_pack_v0/artifacts/release_decision_v0.json",
+            "--release-authority-manifest",
+            "PULSE_safe_pack_v0/artifacts/release_authority_v0.json",
+            "--out",
+            "PULSE_safe_pack_v0/artifacts/artifact_provenance_binding_v0.json",
+            "--created-utc",
+            "2026-06-03T00:00:00Z",
+        ],
+        cwd=repo,
+        check=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+
+
 def make_repo(
     base: Path,
     *,
     git: bool = True,
     status_text: str | None = None,
     binding: bool = False,
-    verifier_exit: int | None = None,
+    valid_binding: bool = False,
+    repo_root_verifier_exit: int | None = None,
+    repo_root_verifier_text: str | None = None,
 ) -> Path:
     repo = base / "repo"
 
@@ -64,7 +128,9 @@ def make_repo(
         "gates:\n  core_gate:\n    intent: test\n",
     )
 
-    if binding:
+    if valid_binding:
+        build_valid_binding(repo)
+    elif binding:
         write(
             repo
             / "PULSE_safe_pack_v0"
@@ -73,17 +139,23 @@ def make_repo(
             "{}\n",
         )
 
-    if verifier_exit is not None:
+    if repo_root_verifier_text is not None:
+        write(repo / REPO_ROOT_VERIFIER, repo_root_verifier_text)
+    elif repo_root_verifier_exit is not None:
         write(
-            repo
-            / "PULSE_safe_pack_v0"
-            / "tools"
-            / "verify_artifact_provenance_binding_v0.py",
-            f"import sys\nsys.exit({verifier_exit})\n",
+            repo / REPO_ROOT_VERIFIER,
+            f"import sys\nsys.exit({repo_root_verifier_exit})\n",
         )
 
     if git:
-        subprocess.run(["git", "init"], cwd=repo, check=True, stdout=subprocess.PIPE)
+        subprocess.run(
+            ["git", "init"],
+            cwd=repo,
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
         subprocess.run(
             ["git", "config", "user.email", "test@example.com"],
             cwd=repo,
@@ -219,26 +291,32 @@ def test_missing_git_commit_identity_is_inconclusive(tmp_path: Path) -> None:
     assert packet["packet_status"] == "inconclusive"
 
 
-def test_existing_binding_must_verify_before_packet_can_be_verified(
+def test_existing_binding_must_pass_trusted_verifier_before_packet_can_be_verified(
     tmp_path: Path,
 ) -> None:
     fail_repo = make_repo(
         tmp_path / "fail",
         binding=True,
-        verifier_exit=1,
+        repo_root_verifier_exit=0,
     )
     fail_packet, _markdown = run_builder(fail_repo, tmp_path / "fail_out")
 
     assert fail_packet["binding_verification"]["requested"] is True
     assert fail_packet["binding_verification"]["available"] is True
     assert fail_packet["binding_verification"]["verified"] is False
-    assert fail_packet["binding_verification"]["exit_code"] == 1
+    assert fail_packet["binding_verification"]["exit_code"] != 0
+    assert fail_packet["binding_verification"]["reason"] == (
+        "trusted binding verifier failed"
+    )
+    assert fail_packet["binding_verification"]["verifier_source"] == (
+        "trusted_builder_checkout"
+    )
     assert fail_packet["packet_status"] == "verification_failed"
 
     pass_repo = make_repo(
         tmp_path / "pass",
-        binding=True,
-        verifier_exit=0,
+        valid_binding=True,
+        repo_root_verifier_exit=1,
     )
     pass_packet, _markdown = run_builder(pass_repo, tmp_path / "pass_out")
 
@@ -246,18 +324,58 @@ def test_existing_binding_must_verify_before_packet_can_be_verified(
     assert pass_packet["binding_verification"]["available"] is True
     assert pass_packet["binding_verification"]["verified"] is True
     assert pass_packet["binding_verification"]["exit_code"] == 0
+    assert pass_packet["binding_verification"]["reason"] == (
+        "trusted binding verifier passed"
+    )
+    assert pass_packet["binding_verification"]["verifier_source"] == (
+        "trusted_builder_checkout"
+    )
     assert pass_packet["packet_status"] == "verified"
 
 
-def test_existing_binding_without_verifier_is_inconclusive(tmp_path: Path) -> None:
-    repo = make_repo(tmp_path, binding=True, verifier_exit=None)
+def test_repo_root_verifier_is_not_executed_for_binding_verification(
+    tmp_path: Path,
+) -> None:
+    marker = tmp_path / "repo_root_verifier_executed.txt"
+    repo = make_repo(
+        tmp_path,
+        binding=True,
+        repo_root_verifier_text=(
+            "from pathlib import Path\n"
+            f"Path({str(marker)!r}).write_text('executed', encoding='utf-8')\n"
+            "raise SystemExit(0)\n"
+        ),
+    )
+
+    packet, _markdown = run_builder(repo, tmp_path)
+
+    assert not marker.exists()
+    assert packet["binding_verification"]["requested"] is True
+    assert packet["binding_verification"]["available"] is True
+    assert packet["binding_verification"]["verified"] is False
+    assert packet["binding_verification"]["exit_code"] != 0
+    assert packet["binding_verification"]["reason"] == "trusted binding verifier failed"
+    assert packet["binding_verification"]["verifier_source"] == (
+        "trusted_builder_checkout"
+    )
+    assert packet["packet_status"] == "verification_failed"
+
+
+def test_existing_malformed_binding_without_repo_verifier_fails_with_trusted_verifier(
+    tmp_path: Path,
+) -> None:
+    repo = make_repo(tmp_path, binding=True, repo_root_verifier_exit=None)
     packet, _markdown = run_builder(repo, tmp_path)
 
     assert packet["binding_verification"]["requested"] is True
     assert packet["binding_verification"]["available"] is True
-    assert packet["binding_verification"]["verified"] is None
-    assert packet["binding_verification"]["reason"] == "binding verifier missing"
-    assert packet["packet_status"] == "inconclusive"
+    assert packet["binding_verification"]["verified"] is False
+    assert packet["binding_verification"]["exit_code"] != 0
+    assert packet["binding_verification"]["reason"] == "trusted binding verifier failed"
+    assert packet["binding_verification"]["verifier_source"] == (
+        "trusted_builder_checkout"
+    )
+    assert packet["packet_status"] == "verification_failed"
 
 
 def test_semantic_review_commands_are_present(tmp_path: Path) -> None:
@@ -267,8 +385,10 @@ def test_semantic_review_commands_are_present(tmp_path: Path) -> None:
     names = command_names(packet)
     assert "fail-closed gate enforcement tests" in names
     assert "Quality Ledger reader-surface tests" in names
+    assert "verify artifact provenance binding" in names
 
     commands = {item["name"]: item["command"] for item in packet["verification_commands"]}
+
     assert "tests/test_check_gates_fail_closed.py" in commands[
         "fail-closed gate enforcement tests"
     ]
@@ -281,6 +401,25 @@ def test_semantic_review_commands_are_present(tmp_path: Path) -> None:
     assert "tests/test_render_quality_ledger_check_gates_parity.py" in commands[
         "Quality Ledger reader-surface tests"
     ]
+
+    binding_command = commands["verify artifact provenance binding"]
+    assert "TRUSTED_PULSE_CHECKOUT" in binding_command
+    assert "REVIEWED_REPO_ROOT" in binding_command
+    assert "python -I" in binding_command
+    assert "cd \"$REVIEWED_REPO_ROOT\"" in binding_command
+    assert "pwd -P" in binding_command
+    assert (
+        "$TRUSTED_PULSE_CHECKOUT/"
+        "PULSE_safe_pack_v0/tools/verify_artifact_provenance_binding_v0.py"
+    ) in binding_command
+    assert (
+        "$REVIEWED_REPO_ROOT/"
+        "PULSE_safe_pack_v0/artifacts/artifact_provenance_binding_v0.json"
+    ) in binding_command
+    assert (
+        "$REVIEWED_REPO_ROOT/"
+        "PULSE_safe_pack_v0/tools/verify_artifact_provenance_binding_v0.py"
+    ) not in binding_command
 
 
 def test_builder_does_not_write_inside_repo_by_default(tmp_path: Path) -> None:
