@@ -54,7 +54,11 @@ The following terms may appear only when their scope is explicit and they are no
 | productization maturity | Can make PULSEmech appear to be measured as a plug-and-play product category | Use only for packaging, operational support, or deployment readiness around PULSEmech |
 | enterprise platform | Can make PULSEmech appear to be an enterprise software product category | Use only when discussing deployment packaging or integration environment, not the release-authority mechanism |
 | industrial standard | Can make PULSEmech appear to require broad market adoption before its mechanism can be evaluated | Use only for ecosystem/adoption status; not for mechanical validity |
-
+| release-grade lane eligibility | Can be misread as release permission or final release authorization | Use only as eligibility for stricter release-grade checks; actual release permission still requires the enforced PULSEmech authority path |
+| external evidence presence | Can be misread as proof that evidence has materialized into a required gate | Use only as available candidate evidence until recorded, declared, materialized, and enforced |
+| publication exposure | Can make public visibility appear to grant release authority | Use only as a reader/publication surface; exposure does not authorize release |
+| third-party integration / adoption | Can make ecosystem uptake appear to define PULSEmech identity | Use only as external integration or adoption context; not as PULSEmech identity |
+| hardening layer | Can make repository or supply-chain hardening appear to define PULSEmech | Use only as an operating-environment strengthening layer around PULSEmech |
 
 ## Preferred PULSE-facing descriptors
 
@@ -132,6 +136,15 @@ Stars, forks, downloads, community uptake, and external usage may describe ecosy
 
 They do not determine whether the PULSEmech release-authority path is mechanically valid.
 
+They also do not define PULSEmech identity.
+
+Boundary lock:
+
+```text
+third-party integration / adoption
+≠ PULSEmech identity
+```
+
 Correct classification:
 
 ```text
@@ -169,6 +182,44 @@ Industrialization may add operational requirements around PULSEmech.
 It does not define the mechanism.
 
 
+## Release-grade lane eligibility boundary
+
+Release-grade lane eligibility means that an artifact, workflow, or repository path is eligible to be evaluated under release-grade gates.
+
+It does not by itself grant release permission.
+
+Boundary lock:
+
+```text
+release-grade lane eligibility
+≠ release permission
+```
+
+Release permission exists only when the enforced PULSEmech authority path reaches a pre-deployment allow decision.
+
+## External evidence materialization boundary
+
+External evidence may exist before it is release-relevant.
+
+Presence alone does not mean the evidence has materialized into a required gate.
+
+Boundary lock:
+
+```text
+external evidence presence
+≠ materialization
+```
+
+External evidence becomes release-relevant only when it is:
+
+```text
+recorded as release evidence
+referenced by declared gate policy
+materialized as a required gate
+enforced through strict fail-closed CI
+```
+
+
 ## Hardening boundary
 
 Repository hardening, branch protection, dependency locking, signing, SLSA, Sigstore, in-toto, and attestation may strengthen the operating environment around PULSEmech.
@@ -180,6 +231,8 @@ Hardening documents must keep this distinction explicit:
 ```text
 hardening layer
 ≠ PULSE identity
+hardening layer
+≠ PULSEmech definition
 ```
 
 The PULSEmech identity remains:
@@ -193,6 +246,16 @@ artifact-bound release-authority mechanism
 Public Pages, Quality Ledger, summaries, dashboards, and rendered reports are reader or publication surfaces unless explicitly bound to recorded release-decision artifacts.
 
 They are not the PULSEmech authority path.
+
+Public visibility, publication, or exposure does not create release authority.
+
+Boundary lock:
+
+```text
+publication exposure
+≠ release authority
+```
+
 
 The PULSEmech authority path remains:
 
