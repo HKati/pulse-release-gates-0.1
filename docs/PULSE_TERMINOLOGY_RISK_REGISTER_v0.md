@@ -54,7 +54,11 @@ The following terms may appear only when their scope is explicit and they are no
 | productization maturity | Can make PULSEmech appear to be measured as a plug-and-play product category | Use only for packaging, operational support, or deployment readiness around PULSEmech |
 | enterprise platform | Can make PULSEmech appear to be an enterprise software product category | Use only when discussing deployment packaging or integration environment, not the release-authority mechanism |
 | industrial standard | Can make PULSEmech appear to require broad market adoption before its mechanism can be evaluated | Use only for ecosystem/adoption status; not for mechanical validity |
-
+| release-grade lane eligibility | Can be misread as release permission or CI allow outcome | Use only as lane/materialization review status; never as release permission |
+| external evidence presence | Can be misread as materialized release evidence | Use only as artifact/file presence unless recorded, parseable, subject-bound, freshness-bound when required, mapped by declared rules, folded into status/gate state, and enforced when release-required |
+| publication exposure | Can be misread as release authority | Use only as public/private artifact classification; publication does not authorize release |
+| third-party integration / adoption | Can be misread as PULSEmech identity or mechanical maturity | Use only as deployment/adoption context around PULSEmech; not as PULSEmech identity |
+| hardening layer | Can be misread as PULSEmech definition | Use only as surrounding repository, security, artifact, verifier, or operational hardening; not as the PULSEmech mechanism definition |
 
 ## Preferred PULSE-facing descriptors
 
@@ -168,6 +172,176 @@ Industrialization may add operational requirements around PULSEmech.
 
 It does not define the mechanism.
 
+## Release-grade lane eligibility boundary
+
+Release-grade lane eligibility is not release permission.
+
+A release-grade materialized lane may define whether a recorded run is
+structurally eligible for release-grade review.
+
+It does not authorize release.
+
+Release permission remains produced only by the PULSEmech authority path:
+
+```text
+recorded release evidence
+→ status.json
+→ declared gate policy
+→ workflow-effective materialized required gate set
+→ strict fail-closed CI enforcement
+→ pre-deployment allow/block release decision
+```
+
+Boundary lock:
+
+```text
+release-grade lane eligibility ≠ release permission
+```
+
+Correct use:
+
+```text
+release-grade lane eligibility as materialization review status
+```
+
+Incorrect use:
+
+```text
+release-grade lane eligibility as release permission
+release-grade lane eligibility as CI allow outcome
+release-grade lane eligibility as a second release-decision engine
+```
+
+## External evidence materialization boundary
+
+External evidence presence is not materialization.
+
+A detector output, external summary, metric key, report, external packet, or
+third-party review artifact may exist without becoming materialized release
+evidence.
+
+External evidence becomes release-relevant only when it is recorded, parseable,
+source-identified, subject-bound, freshness-bound when required, mapped by
+declared rules, folded into status or gate state deterministically, and enforced
+by strict CI when release-required.
+
+Presence alone does not satisfy release-required evidence.
+
+Boundary lock:
+
+```text
+external evidence presence ≠ materialization
+```
+
+Correct use:
+
+```text
+external evidence materialized through declared mapping, status/gate fold-in,
+and strict CI enforcement when release-required
+```
+
+Incorrect use:
+
+```text
+external evidence presence as materialization
+summary file presence as external_all_pass
+generic metric key as release evidence
+unknown summary file as release-grade evidence
+absence of known failures as release permission
+```
+
+## Publication exposure boundary
+
+Publication exposure is not release authority.
+
+A public artifact, public status surface, Pages output, report, badge, dashboard,
+or reader surface does not authorize release by being public.
+
+A public artifact may support review only when it is bound into the recorded
+release-state relation and its mechanical effect is defined through declared
+policy, materialized gates, and strict CI enforcement.
+
+Boundary lock:
+
+```text
+publication exposure ≠ release authority
+```
+
+Correct use:
+
+```text
+public artifact as reader surface, recorded artifact, or review carrier
+```
+
+Incorrect use:
+
+```text
+public artifact as release permission
+public Pages output as release authority
+public status visibility as CI allow outcome
+```
+
+## Third-party integration / adoption boundary
+
+Third-party integration / adoption is not PULSEmech identity.
+
+External verifier tooling, onboarding, deployment packaging, example
+repositories, enterprise integration, third-party adoption, and productization
+support may exist around PULSEmech.
+
+They do not define PULSEmech.
+
+Boundary lock:
+
+```text
+third-party integration / adoption ≠ PULSEmech identity
+```
+
+Correct use:
+
+```text
+third-party integration as deployment/adoption layer around PULSEmech
+```
+
+Incorrect use:
+
+```text
+third-party adoption as PULSEmech identity
+enterprise integration as proof of mechanical validity
+onboarding maturity as release-authority definition
+```
+
+## Hardening layer definition boundary
+
+A hardening layer is not PULSEmech definition.
+
+Security hardening, verifier hardening, artifact-boundary docs, public/private
+classification, external evidence materialization rules, dependency hardening,
+attestation, packaging, or operational maturity may strengthen the repository
+around PULSEmech.
+
+They do not redefine PULSEmech.
+
+Boundary lock:
+
+```text
+hardening layer ≠ PULSEmech definition
+```
+
+Correct use:
+
+```text
+hardening layer as surrounding boundary, security, artifact, or operational
+strengthening
+```
+
+Incorrect use:
+
+```text
+hardening layer as PULSEmech identity
+maturity layer as PULSEmech definition
+deployment hardening as release-authority mechanism
+```
 
 ## Hardening boundary
 
