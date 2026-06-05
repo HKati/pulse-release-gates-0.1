@@ -140,7 +140,7 @@ The release-reference fixture matrix reads this metadata and passes the extra ga
 --require-gate refusal_delta_evidence_present
 ```
 
-This allows the PULSE-REF fixture matrix to model release-grade evidence-presence requirements without immediately changing the global gate policy.
+This allows the PULSE-REF fixture matrix to model release-grade evidence-presence requirements while preserving the current declared release-grade policy path.
 
 The matrix test is:
 
