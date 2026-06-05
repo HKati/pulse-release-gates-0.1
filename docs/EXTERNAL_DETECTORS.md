@@ -237,7 +237,7 @@ That means:
 - pin tool versions or digests where possible,
 - keep enough provenance for later audit.
 
-External detectors should strengthen release governance, not create a new
+External detectors should strengthen release evidence review, not create a new
 untracked trust boundary.
 
 ---
