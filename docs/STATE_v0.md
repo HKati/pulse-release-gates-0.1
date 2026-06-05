@@ -301,7 +301,7 @@ A good mental model for the repository today is:
 - **core deterministic release gating** at the center,
 - **artifact-first reporting** around it,
 - **contract-disciplined shadow layers** on top,
-- and **review / audit surfaces** growing around the same immutable
+- and **review / audit surfaces** growing around the same immutable run artefacts.
 
 The repository is no longer best described as:
 
