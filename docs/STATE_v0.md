@@ -128,7 +128,7 @@ Important boundary:
 
 This means the repository now has:
 
-- a deterministic release-governance core,
+- a deterministic release-authority core,
 - plus a contract-disciplined shadow program around it.
 
 That is a meaningful architectural step beyond “optional diagnostics”.
@@ -146,7 +146,7 @@ The repository now includes a machine-readable shadow registry stack:
 - `tests/test_check_shadow_layer_registry.py`
 - `.github/workflows/shadow_layer_registry.yml`
 
-This registry is governance-facing and descriptive.
+This registry is review-facing and descriptive.
 
 It records:
 
@@ -268,10 +268,10 @@ For operational guidance, see:
 
 ---
 
-## 9. Drift and governance
+## 9. Drift and release-state review
 
 PULSE already exposes several artefacts that are useful for drift-aware
-governance:
+release-state review:
 
 - deterministic gate outcomes
 - `status.json`
@@ -301,8 +301,7 @@ A good mental model for the repository today is:
 - **core deterministic release gating** at the center,
 - **artifact-first reporting** around it,
 - **contract-disciplined shadow layers** on top,
-- and **governance / audit surfaces** growing around the same immutable
-  run artefacts.
+- and **review / audit surfaces** growing around the same immutable
 
 The repository is no longer best described as:
 
@@ -310,7 +309,7 @@ The repository is no longer best described as:
 
 It is better understood as:
 
-- a deterministic release-governance core,
+- a deterministic release-authority core,
 - plus additive diagnostic and review layers,
 - plus a machine-readable shadow registration and validation surface,
 - with explicit separation between normative and diagnostic meaning.
