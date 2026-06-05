@@ -241,25 +241,51 @@ refusal_delta_evidence_present=false
 
 This demonstrates zero implicit PASS behavior for missing refusal-delta evidence.
 
-## Future work
+## Current policy / profile state
 
-Future implementation work may promote `refusal_delta_evidence_present` into the global release-grade policy when appropriate.
+The no-implicit-PASS refusal-delta behavior is represented by current repository
+evidence.
 
-Potential future changes:
+Current state includes:
 
 ```text
 pulse_gate_policy_v0.yml
-release_required:
-  - refusal_delta_evidence_present
+PULSE_safe_pack_v0/profiles/release_grade_reference_v1.yml
+tests/fixtures/release_reference_v1/missing_refusal_delta/
+tests/fixtures/release_reference_v1/refusal_delta_evidence_present/
+tests/test_no_implicit_pass_release_grade.py
+tests/test_release_reference_fixture_matrix_v1.py
 ```
 
-or an equivalent declared policy promotion for release-grade paths.
+The policy path includes `refusal_delta_evidence_present` in the release-grade
+required gate set.
 
-Any such promotion should be done in a separate PR with explicit policy-change review.
+The release-grade reference profile records that refusal-delta evidence is
+required when release-required.
+
+The negative fixture proves:
+
+```text
+refusal_delta_pass = true
+refusal_delta_evidence_present = false
+→ FAIL
+```
+
+The positive fixture proves:
+
+```text
+refusal_delta_pass = true
+refusal_delta_evidence_present = true
+→ PASS
+```
+
+Future work should only describe remaining absent coverage or deliberately
+separate implementation tracks.
 
 ## Summary
 
-The no-implicit-PASS release-grade test proves that a passing result gate cannot substitute for missing materialized evidence.
+The no-implicit-PASS release-grade test proves that a passing result gate cannot
+substitute for missing materialized evidence.
 
 For PULSE-REF release-grade validation:
 
@@ -268,6 +294,18 @@ required evidence must be present
 required evidence must be materialized
 required evidence must be explicit
 missing evidence must fail closed
+```
+
+The refusal-delta proof now has both negative and positive fixture coverage:
+
+```text
+refusal_delta_pass = true
+refusal_delta_evidence_present = false
+→ FAIL
+
+refusal_delta_pass = true
+refusal_delta_evidence_present = true
+→ PASS
 ```
 
 This strengthens PULSE without creating a second release-decision engine.
