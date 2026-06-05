@@ -230,31 +230,35 @@ external_all_pass = false
 
 and therefore release-grade FAIL.
 
-## Refusal-delta hardening target
+## Refusal-delta  evidence-presence state
 
-The next evidence-presence hardening target is refusal-delta evidence.
+Refusal-delta evidence presence is a current release-grade evidence-presence
+hardening surface.
 
-Current hardening objective:
-
-```text
-release-grade paths must not allow missing refusal-delta evidence to become implicit PASS
-```
-
-Recommended release-grade behavior:
+Refusal-delta evidence presence is a current release-grade evidence-presence
+hardening surface.
 
 ```text
 refusal_delta_evidence_present = false
--> release-grade FAIL
+→ release-grade FAIL
+refusal_delta_evidence_present = true
+refusal_delta_pass = true
+→ release-grade PASS
 ```
 
-Recommended policy addition:
+The current repository state includes:
 
 ```text
-release_required:
-  - refusal_delta_evidence_present
+pulse_gate_policy_v0.yml
+PULSE_safe_pack_v0/profiles/release_grade_reference_v1.yml
+tests/fixtures/release_reference_v1/missing_refusal_delta/
+tests/fixtures/release_reference_v1/refusal_delta_evidence_present/
+tests/test_no_implicit_pass_release_grade.py
+tests/test_release_reference_fixture_matrix_v1.py
 ```
 
-or equivalent declared policy promotion when refusal-delta is release-relevant.
+Missing refusal-delta evidence must not be converted into PASS by legacy fallback
+behavior.
 
 ## Non-interference
 
@@ -291,29 +295,34 @@ release_reference_v1/false_gate
 release_reference_v1/implicit_fallback_attempt
 release_reference_v1/malformed_summary
 release_reference_v1/unsigned_summary
+release_reference_v1/missing_refusal_delta
+release_reference_v1/refusal_delta_evidence_present
 ```
 
-The `implicit_fallback_attempt` fixture already validates non-materialized detector evidence:
+The `implicit_fallback_attempt` fixture validates non-materialized detector
+evidence:
 
 ```text
 detectors_materialized_ok = false
--> FAIL
+→ FAIL
 ```
 
-The next recommended fixture category is:
-
-```text
-release_reference_v1/missing_refusal_delta
-```
-
-Expected target behavior:
+The `missing_refusal_delta` fixture validates missing refusal-delta evidence
 
 ```text
 refusal_delta_evidence_present = false
--> FAIL
+→ FAIL
 ```
 
-## Test expectations
+The `refusal_delta_evidence_present` fixture validates materialized
+refusal-delta evidence:
+
+```text
+refusal_delta_evidence_present = true
+refusal_delta_pass = true
+→ PASS
+```
+
 
 Evidence presence tests should verify:
 
@@ -323,8 +332,11 @@ Evidence presence tests should verify:
 - malformed external summaries fail closed;
 - unsigned release-grade summaries fail closed;
 - missing refusal-delta evidence fails closed when release-required;
+- materialized refusal-delta evidence can satisfy the release-grade evidence
+  presence requirement when the refusal-delta result gate also passes;
 - diagnostic-only retained evidence does not become release authority;
-- advisory-only evidence does not become release authority unless promoted by policy.
+- advisory-only evidence does not become release authority unless promoted by
+  policy.
 
 ## How to run current related tests
 
@@ -352,26 +364,22 @@ External summary envelope fixture matrix:
 python tests/test_external_summary_envelope_fixture_matrix_v1.py
 ```
 
-## Future implementation work
+## Remaining implementation surface
 
-Future commits should add:
+Current policy, profile, fixture, and regression-test evidence already covers
+the refusal-delta evidence-presence behavior.
 
-- `refusal_delta_evidence_present` gate;
-- release-grade refusal-delta evidence presence fixture;
-- no-implicit-PASS release-grade tests;
+Remaining future work should be limited to items that are still absent or
+intentionally separate from this current proof layer.
+
+Possible remaining future items may include:
+
 - evidence presence policy schema;
-- release-reference fixture for missing refusal-delta evidence;
-- release-grade path wiring so missing refusal-delta evidence cannot pass silently.
+- additional refusal-delta evidence envelope tests;
+- additional signed or subject-bound refusal-delta evidence fixtures;
+- additional release-reference package evidence-packet coverage.
 
-Potential future files:
-
-```text
-schemas/evidence_presence_policy_v1.json
-tests/test_no_implicit_pass_release_grade.py
-tests/test_refusal_delta_presence_policy.py
-tests/fixtures/release_reference_v1/missing_refusal_delta/status.json
-tests/fixtures/release_reference_v1/missing_refusal_delta/expected_outcome.json
-```
+These items should be opened only when a current mechanical gap is identified.
 
 ## Summary
 
