@@ -205,7 +205,7 @@ expected behavior.
 
 Run:
 
-The policy promotion PR should run:
+The current evidence-presence validation should run the following checks:
 
 ```bash
 python tests/test_no_implicit_pass_release_grade.py
