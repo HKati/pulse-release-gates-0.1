@@ -293,6 +293,7 @@ def public_surface_profile(status: Dict[str, Any], decision_label: str) -> str:
                 "NOT RELEASE-GRADE AUTHORITY"
             )
         return "CORE READER SURFACE"
+
     if run_grade == "demo":
         if markers:
             return (
@@ -300,13 +301,15 @@ def public_surface_profile(status: Dict[str, Any], decision_label: str) -> str:
                 "NOT RELEASE-GRADE AUTHORITY"
             )
         return "DEMO READER SURFACE"
+
     if run_grade == "prod":
         if markers:
-             return (
+            return (
                 "PROD READER SURFACE — STUBBED/SCAFFOLD EVIDENCE STATE — "
                 "NOT RELEASE-GRADE AUTHORITY"
             )
         return "PROD READER SURFACE — MATERIALIZATION PENDING"
+
     return "RECORDED READER SURFACE"
 
 
@@ -320,18 +323,22 @@ def public_evidence_profile(status: Dict[str, Any], decision_label: str) -> str:
 
     if markers:
         parts.append("stub/scaffold markers recorded")
+
     if gates.get("detectors_materialized_ok") is True:
         parts.append("detector evidence materialized")
     else:
         parts.append("detector evidence pending")
+
     if gates.get("external_summaries_present") is True:
         parts.append("external summaries present")
     elif "external_summaries_present" in gates:
         parts.append("external summaries pending")
+
     if gates.get("external_all_pass") is True:
         parts.append("external evidence passing")
     elif "external_all_pass" in gates:
         parts.append("external evidence pending")
+
     if decision_label != "PROD-PASS":
         parts.append(f"declared-policy decision display: {decision_label}")
 
@@ -339,18 +346,22 @@ def public_evidence_profile(status: Dict[str, Any], decision_label: str) -> str:
 
 
 def render_public_surface_state(status: Dict[str, Any], decision_label: str) -> str:
-   surface_profile = public_surface_profile(status, decision_label)
-   marker_summary = ", ".join(active_stub_scaffold_markers(status)) or "clear"
+    surface_profile = public_surface_profile(status, decision_label)
+    marker_summary = ", ".join(active_stub_scaffold_markers(status)) or "clear"
     rows_html = render_meta_list(
         [
             ("Public surface", surface_profile),
             ("Recorded run mode", surface_run_grade(status)),
-            ("Evidence materialization", public_evidence_profile(status, decision_label)),
+            (
+                "Evidence materialization",
+                public_evidence_profile(status, decision_label),
+            ),
             ("Stub/scaffold marker state", marker_summary),
             ("Decision display", decision_label),
             (
                 "Authority carrier",
-                "status.json → declared gate policy → materialized required gate set → strict fail-closed CI enforcement",
+                "status.json → declared gate policy → workflow-effective "
+                "materialized required gate set → strict fail-closed CI enforcement",
             ),
         ]
     )
