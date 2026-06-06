@@ -196,6 +196,8 @@ status.json
 
 ## Start here
 
+> Start with PULSE as **PULSEmech**: an artifact-bound release-authority mechanism. Recorded release evidence is materialized into `status.json`; declared gate policy and the workflow-effective materialized required gate set define the required checks; strict fail-closed CI enforcement produces the pre-deployment allow/block release decision. Governance, review, optional, shadow, maintainer, and research documents are secondary reader/review context and do not define PULSE identity or release authority.
+
 Choose the path that matches the release-authority question you need to answer.
 
 - **Core integration path** → [`docs/QUICKSTART_CORE_v0.md`](docs/QUICKSTART_CORE_v0.md)  
