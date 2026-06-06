@@ -179,15 +179,24 @@ FORBIDDEN_STALE_OR_INACCURATE_ANCHORS = [
     "selected lane or policy scope",
     "duplicate-handling rule",
     "ordering rule",
+]
+
+FORBIDDEN_CI_OUTCOME_SECTION_ANCHORS = [
     "gate-check command",
-    "effective required gate set;",
+    "effective required gate set",
     "expected allow/block outcome",
-    "fail-closed indicator;",
+    "fail-closed indicator",
 ]
 
 
 def _read_plan() -> str:
     return PLAN.read_text(encoding="utf-8")
+
+
+def _section(text: str, start_heading: str, end_heading: str) -> str:
+    start = text.index(start_heading)
+    end = text.index(end_heading, start)
+    return text[start:end]
 
 
 def test_handoff_plan_file_exists() -> None:
@@ -222,6 +231,29 @@ def test_handoff_plan_has_no_stale_or_inaccurate_anchors() -> None:
         assert anchor not in text, anchor
 
 
+def test_ci_outcome_section_does_not_claim_fields_owned_by_other_artifacts() -> None:
+    text = _read_plan()
+    section = _section(
+        text,
+        "## CI outcome handoff",
+        "## Release authority manifest handoff",
+    )
+
+    for anchor in FORBIDDEN_CI_OUTCOME_SECTION_ANCHORS:
+        assert anchor not in section, anchor
+
+
+def test_release_authority_manifest_section_may_reference_fail_closed_indicator() -> None:
+    text = _read_plan()
+    section = _section(
+        text,
+        "## Release authority manifest handoff",
+        "## Audit bundle handoff",
+    )
+
+    assert "fail-closed indicator" in section
+
+
 def test_handoff_plan_status_block_has_no_trailing_whitespace() -> None:
     lines = _read_plan().splitlines()
 
@@ -246,6 +278,8 @@ def main() -> int:
         test_handoff_plan_mapping_anchors_present()
         test_handoff_plan_does_not_claim_release_authority()
         test_handoff_plan_has_no_stale_or_inaccurate_anchors()
+        test_ci_outcome_section_does_not_claim_fields_owned_by_other_artifacts()
+        test_release_authority_manifest_section_may_reference_fail_closed_indicator()
         test_handoff_plan_status_block_has_no_trailing_whitespace()
     except AssertionError as exc:
         print(f"ERROR: {exc}")
