@@ -1,5 +1,7 @@
 # Quickstart: PULSE safe-pack in 5 minutes
 
+PULSE should be read first as **PULSEmech**: an artifact-bound release-authority mechanism that turns recorded evidence into `status.json`, declared policy, materialized required gates, and strict fail-closed CI allow/block.
+
 This quickstart is for people who want to *see* what a PULSE safe-pack
 produces without wiring it into a full CI pipeline yet.
 
@@ -11,7 +13,7 @@ It uses two tiny, self-contained examples:
   `docs/quality_ledger_example.md`
 
 Together they show how PULSE turns raw metrics into a deterministic
-release decision plus a readable Quality Ledger.
+artifact-bound release-decision state plus a readable, non-authorizing Quality Ledger.
 
 ---
 
