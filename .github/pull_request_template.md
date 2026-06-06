@@ -101,7 +101,7 @@ Follow-ups:
 
 Risks / mitigations:
 
-PULSE checklist (governance)
+PULSE checklist (release authority)
  PULSE CI is green on this PR
  Quality Ledger link (if enabled)
  Badges updated (PASS / RDSI / Q-Ledger)
@@ -111,7 +111,7 @@ PULSE checklist (governance)
 - Follow-ups:
 - Risks / mitigations:
 
-## PULSE checklist (governance)
+## PULSE checklist (release authority)
 - [ ] PULSE CI is green on this PR
 - [ ] Quality Ledger link (if enabled)
 - [ ] Badges updated (PASS / RDSI / Q‑Ledger)
