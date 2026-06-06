@@ -181,9 +181,9 @@ schema-aligned packet validator.
 | `pulse_gate_policy_v0.yml` | `policy/pulse_gate_policy_v0.yml` | emitted | declared gate policy | normative input |
 | `pulse_gate_registry_v0.yml` | `policy/pulse_gate_registry_v0.yml` | emitted | gate semantic registry | normative support |
 | derived required/release_required sets | `gates/materialized_gate_sets.json` | emitted | materialized gate set | normative input |
-| gate check result | `ci/ci_outcome.json` | emitted | declared-policy gate-enforcement outcome | normative enforcement output |
-| evidence-policy-evaluator trace | `release_authority/release_authority_manifest.json` | emitted | audit / trace surface | non-normative reconstruction |
-| preserved status + manifest + report card | `audit/release_authority_audit_bundle/` | emitted as regular files | audit bundle | non-normative preservation |
+| gate-check conclusion | `ci/ci_outcome.json` | emitted | workflow/run identity and gate-check conclusion | normative enforcement output |
+| release-authority trace | `release_authority/release_authority_manifest.json` | emitted | audit / trace surface | non-normative reconstruction |
+| preserved audit README + status + manifest | `audit/release_authority_audit_bundle/` | emitted as regular files | audit bundle | non-normative preservation |
 | packet inventory | `package_manifest.json` | emitted | inventory / references | audit / reconstruction |
 | artifact digests | `digests/package_digests.json` | emitted | digest manifest | audit / reconstruction |
 | operator commands and reconstruction route | `handoff/operator_handoff_report.json` | emitted | operator reconstruction surface | non-normative |
@@ -295,21 +295,20 @@ Target:
 gates/materialized_gate_sets.json
 ```
 
-The materialized gate-set artifact includes:
+The materialized gate-set artifact records the current schema-aligned v0 fields:
 
-- required gate set;
-- release_required gate set;
-- effective required gate set;
-- selected lane or policy scope;
-- policy source path;
-- policy digest;
-- duplicate-handling rule;
-- ordering rule;
-- materialization command or reference when available.
+- `schema`;
+- `policy_path`;
+- `policy_sha256`;
+- `sets`;
+- `effective_required_gates`;
+- `authority_boundary`.
 
 The materialized gate set is consistent with the declared policy.
 
-The materialized gate set is not hand-edited to satisfy the fixture.
+Additional lane, ordering, duplicate-handling, or command metadata belongs in
+reconstruction / handoff surfaces unless a future schema revision declares those
+fields.
 
 ## CI outcome handoff
 
@@ -321,23 +320,22 @@ Target:
 ci/ci_outcome.json
 ```
 
-The artifact preserves:
+The artifact preserves the current schema-aligned v0 fields:
 
-- CI provider or execution environment;
-- workflow name;
-- workflow path or reference;
-- run ID or local execution identity;
-- run attempt when available;
-- commit SHA or source revision;
-- gate-check command;
-- effective required gate set;
-- gate-check conclusion;
-- expected allow/block outcome;
-- fail-closed indicator;
-- authority-boundary statement.
+- workflow / run metadata;
+- `gate_check_job`;
+- `gate_check_conclusion`;
+- `authority_boundary`.
 
-The CI outcome represents the declared-policy gate-enforcement result for the
+The CI outcome records workflow/run identity and gate-check conclusion for the
 packet candidate.
+
+Effective required gates are recorded in `gates/materialized_gate_sets.json`.
+
+Detailed command replay is recorded in `handoff/operator_handoff_report.json`.
+
+Declared decision reconstruction is recorded in
+`release_authority/release_authority_manifest.json`.
 
 A generic green workflow is not equivalent to a declared-policy release
 decision.
