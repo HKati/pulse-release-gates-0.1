@@ -31,6 +31,15 @@ This decision does not remove scaffold, demo, field, or shadow modes.
 
 Those modes remain important for development and field exploration. The rule only prevents them from being promoted silently into release-grade authority.
 
+
+## Namespace boundary
+
+`field/decisions` documents are diagnostic, research, and decision-history surfaces. They are not organizational decision fields, not control-plane authority, and not release authority.
+
+They do not override `status.json`, declared gate policy, materialized required gates, `PULSE_safe_pack_v0/tools/check_gates.py`, or CI enforcement.
+
+A field decision can inform future policy work only through an explicit repository change that records evidence, updates declared policy where required, materializes required gates, and preserves strict fail-closed CI enforcement.
+
 ## Testable invariant
 
 If a status artifact claims or is checked as release-grade, then stubbed/scaffold/all-true-smoke diagnostics must cause a fail-closed result.

@@ -3,6 +3,22 @@
 This document is a **reading guide** for PULSE artifacts.  
 It is **non-normative**: contracts, schemas and CI checks remain the source of truth.
 
+## Authority boundary
+
+Field-first interpretation and `field/decisions` documents are diagnostic, research, and decision-history surfaces. They are not organizational decision fields, not control-plane authority, and not release authority.
+
+They do not override:
+
+```text
+status.json
+declared gate policy
+workflow-effective materialized required gate set
+PULSE_safe_pack_v0/tools/check_gates.py
+strict fail-closed CI enforcement
+```
+
+A field or decision-history signal affects release permission only if it is first recorded as release evidence, represented in `status.json`, selected by declared gate policy, materialized into the workflow-effective required gate set, and enforced fail-closed by CI.
+
 ## Core idea
 PULSE should be read **field-first**:
 

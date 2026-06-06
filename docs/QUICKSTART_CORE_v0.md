@@ -1,8 +1,9 @@
 # PULSE Core Quickstart (v0)
 
-> Minimal path to the canonical Core lane.  
-> This page documents the real Core adoption path:  
-> `run -> status.json -> required gates -> Quality Ledger`
+> Minimal path to the canonical Core lane.
+> PULSE starts here as PULSEmech: an artifact-bound release-authority mechanism.
+> This page documents the real Core adoption path:
+> `recorded evidence -> status.json -> declared policy -> materialized required gates -> strict fail-closed CI allow/block`
 
 ---
 
@@ -64,8 +65,7 @@ The policy + workflow + final `status.json` drive the actual lane.
 
 If you want the real reference lane, do not copy only `PULSE_safe_pack_v0/`.
 
-The current Core lane also relies on repo-root governance files, helper tools, and baseline fixtures.  
-The narrow but truthful adoption set is:
+The current Core lane also relies on repo-root policy / repository-maintenance files, helper tools, and baseline fixtures.
 
 ```text
 .github/workflows/pulse_core_ci.yml

@@ -43,15 +43,14 @@ For BibTeX:
   - GitHub repository: <https://github.com/HKati/pulse-release-gates-0.1>
 
 The preprint and this repository are meant to be used together: the paper explains the
-mathematical and governance background; the code provides the reference implementation.
+mathematical and release-authority background; the code provides the reference implementation.
 
 ---
 
 ## What the preprint covers (very brief)
 
 The preprint provides a mathematical specification for PULSE as a deterministic, fail-closed
-release-governance layer for LLM applications. Policies are encoded as versioned, hashed gate
-maps that must be satisfied before shipping, across:
+release-authority mechanism for LLM applications. Policies are encoded as versioned, hashed gate
 
 - **Safety / consistency invariants (I2–I7):** harm monotonicity, context commutativity,
   sanitization effectiveness, idempotence, path-independence and PII-leak monotonicity,

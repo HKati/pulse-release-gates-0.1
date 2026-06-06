@@ -30,7 +30,7 @@ They do not create release authority.
 
 ## RA0 purpose
 
-The purpose of RA0 is to convert the existing PULSE release-governance system into a stronger PULSE-REF release-authority reference path.
+The purpose of RA0 is to convert the existing PULSE release-authority mechanism into a stronger PULSE-REF release-authority reference path.
 
 RA0 focuses on:
 
