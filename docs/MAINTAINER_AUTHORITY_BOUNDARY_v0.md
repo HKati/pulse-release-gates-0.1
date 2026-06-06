@@ -1,12 +1,30 @@
 # Maintainer Authority Boundary v0
 
+## Opening boundary
+
+Maintainer Authority Boundary v0 describes **repository / maintainer authority only**.
+
+It does **not** describe PULSEmech release authority, does **not** create organizational governance for PULSE, and must not be read as an organizational governance framework.
+
+PULSEmech release authority remains only:
+
+```text
+recorded evidence
+→ status.json
+→ declared gate policy
+→ materialized required gates
+→ strict fail-closed CI allow/block
+```
+
+Repository governance can decide who may merge changes to this repository. It cannot create, bypass, or replace the PULSEmech release-authority path.
+
 ## Purpose
 
 Maintainer Authority Boundary v0 defines the human maintainer authority boundary for PULSE repository changes.
 
-The document records how merge authority, authority-impact review, carrier boundaries, release / DOI / Zenodo protection, and future multi-maintainer governance fit around the PULSEmech authority path.
+The document records how merge authority, authority-impact review, carrier boundaries, release / DOI / Zenodo protection, and future multi-maintainer repository governance fit around the PULSEmech authority path.
 
-This is a governance-boundary document.
+This is a repository governance-boundary document.
 
 It does not create a second release-decision engine.
 
@@ -165,6 +183,22 @@ publication version labels
 Changes to this path require explicit release / publication review.
 
 Release / DOI / Zenodo changes must not be bundled with unrelated development changes.
+
+## Future release metadata terminology
+
+This cleanup does not mutate existing DOI, Zenodo, release, archive, or citation artifacts.
+
+For future release metadata, avoid `release-governance` as an identity keyword. Prefer terms that describe the PULSEmech mechanism directly, such as:
+
+```text
+release-authority
+artifact-bound release decision
+fail-closed CI
+materialized gates
+evidence-bound release control
+```
+
+Repository governance terms may be used only for repository access, maintainer process, or optional review context. They must not be used to describe PULSE identity or PULSEmech release authority.
 
 ## Codex / AI reviewer boundary
 
