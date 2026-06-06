@@ -1,6 +1,6 @@
 # Fellowship Submission Record — 2026-05-02
 
-PULSE was submitted to the OpenAI Safety Fellowship as an existing artifact-first release-governance / release-authority system for AI applications.
+PULSE was submitted to the OpenAI Safety Fellowship as an existing artifact-first release-authority system for AI applications.
 
 ## Submitted system
 
