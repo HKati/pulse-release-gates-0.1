@@ -54,19 +54,11 @@ The following terms may appear only when their scope is explicit and they are no
 | productization maturity | Can make PULSEmech appear to be measured as a plug-and-play product category | Use only for packaging, operational support, or deployment readiness around PULSEmech |
 | enterprise platform | Can make PULSEmech appear to be an enterprise software product category | Use only when discussing deployment packaging or integration environment, not the release-authority mechanism |
 | industrial standard | Can make PULSEmech appear to require broad market adoption before its mechanism can be evaluated | Use only for ecosystem/adoption status; not for mechanical validity |
- HKati-patch-919488
-| release-grade lane eligibility | Can be misread as release permission or final release authorization | Use only as eligibility for stricter release-grade checks; actual release permission still requires the enforced PULSEmech authority path |
-| external evidence presence | Can be misread as proof that evidence has materialized into a required gate | Use only as available candidate evidence until recorded, declared, materialized, and enforced |
-| publication exposure | Can make public visibility appear to grant release authority | Use only as a reader/publication surface; exposure does not authorize release |
-| third-party integration / adoption | Can make ecosystem uptake appear to define PULSEmech identity | Use only as external integration or adoption context; not as PULSEmech identity |
-| hardening layer | Can make repository or supply-chain hardening appear to define PULSEmech | Use only as an operating-environment strengthening layer around PULSEmech |
-=======
 | release-grade lane eligibility | Can be misread as release permission or CI allow outcome | Use only as lane/materialization review status; never as release permission |
 | external evidence presence | Can be misread as materialized release evidence | Use only as artifact/file presence unless recorded, parseable, subject-bound, freshness-bound when required, mapped by declared rules, folded into status/gate state, and enforced when release-required |
 | publication exposure | Can be misread as release authority | Use only as public/private artifact classification; publication does not authorize release |
 | third-party integration / adoption | Can be misread as PULSEmech identity or mechanical maturity | Use only as deployment/adoption context around PULSEmech; not as PULSEmech identity |
 | hardening layer | Can be misread as PULSEmech definition | Use only as surrounding repository, security, artifact, verifier, or operational hardening; not as the PULSEmech mechanism definition |
- main
 
 ## Preferred PULSE-facing descriptors
 

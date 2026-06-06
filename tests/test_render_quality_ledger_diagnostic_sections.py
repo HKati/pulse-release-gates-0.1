@@ -183,6 +183,28 @@ def test_epf_hazard_overlay_renders_with_diagnostic_copy(tmp_path: Path) -> None
     assert "artifacts/stability_map_v0.json" in html
 
 
+def test_epf_hazard_overlay_maps_legacy_stably_bad_to_public_canonical_label(
+    tmp_path: Path,
+) -> None:
+    status_path = tmp_path / "status.json"
+    out_path = tmp_path / "report_card.html"
+
+    status = base_status()
+    status["metrics"].update(
+        {
+            "hazard_zone": "green",
+            "hazard_topology_region": "stably_bad",
+            "hazard_baseline_ok": False,
+        }
+    )
+
+    html = render_html(status_path, out_path, status)
+
+    assert "metrics.hazard_topology_region" in html
+    assert "stable_bad" in html
+    assert "stably_bad" not in html
+
+
 def test_optional_diagnostic_sections_are_absent_when_inputs_are_missing(
     tmp_path: Path,
 ) -> None:

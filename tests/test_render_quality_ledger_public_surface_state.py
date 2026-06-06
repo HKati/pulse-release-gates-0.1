@@ -14,6 +14,10 @@ MATERIALIZED_PROD_SURFACE = (
     "PROD READER SURFACE — MATERIALIZED RELEASE-GRADE EVIDENCE STATE"
 )
 STUBBED_PROD_SURFACE = "PROD READER SURFACE — STUBBED/SCAFFOLD EVIDENCE STATE"
+CORE_STUBBED_PUBLIC_BOUNDARY = (
+    "CORE READER SURFACE — STUBBED/SCAFFOLD EVIDENCE STATE — "
+    "NOT RELEASE-GRADE AUTHORITY"
+)
 PENDING_PROD_SURFACE = "PROD READER SURFACE — MATERIALIZATION PENDING"
 
 
@@ -127,12 +131,16 @@ def test_core_stubbed_surface_uses_positive_reader_state_wording() -> None:
     html = render(status)
 
     assert "STAGE-PASS" in html
-    assert "CORE READER SURFACE" in html
-    assert "STUBBED/SCAFFOLD" in html
+    assert CORE_STUBBED_PUBLIC_BOUNDARY in html
+    assert "declared-policy decision display: STAGE-PASS" in html
+    assert html.index(CORE_STUBBED_PUBLIC_BOUNDARY) < html.index("STAGE-PASS")
+    assert html.index(CORE_STUBBED_PUBLIC_BOUNDARY) < html.index("PASS")
+    assert html.index(CORE_STUBBED_PUBLIC_BOUNDARY) < html.index(
+        "declared-policy decision display: STAGE-PASS"
+    )
     for bad in [
         "PUBLIC READER SURFACE — NON-NORMATIVE",
         "NON-RELEASE VIEW",
-        "NOT RELEASE-GRADE",
         "Non-normative display surface",
         "It is not itself the release authority",
     ]:
@@ -187,3 +195,18 @@ def test_prod_surface_keeps_pending_wording_for_neutral_stub_profiles() -> None:
         assert PENDING_PROD_SURFACE in html, path
         assert STUBBED_PROD_SURFACE not in html, path
         assert MATERIALIZED_PROD_SURFACE not in html, path
+
+
+def test_terminology_risk_register_has_no_conflict_remnants() -> None:
+    text = (REPO_ROOT / "docs" / "PULSE_TERMINOLOGY_RISK_REGISTER_v0.md").read_text(
+        encoding="utf-8"
+    )
+
+    assert "HKati-patch" not in text
+    assert "=======" not in text
+    assert "\nmain\n" not in text
+    assert text.count("| release-grade lane eligibility |") == 1
+    assert text.count("| external evidence presence |") == 1
+    assert text.count("| publication exposure |") == 1
+    assert text.count("| third-party integration / adoption |") == 1
+    assert text.count("| hardening layer |") == 1

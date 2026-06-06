@@ -10,6 +10,7 @@ from PULSE_safe_pack_v0.tools.check_gates import main as check_gates_main  # noq
 from PULSE_safe_pack_v0.tools.render_quality_ledger import (  # noqa: E402
     decision_from_status,
     select_required_gates,
+    write_quality_ledger,
 )
 
 
@@ -181,4 +182,36 @@ def test_unresolved_gate_selection_yields_unknown_without_check_gates(
     assert decision_from_status(status, status_path=status_path) == (
         "UNKNOWN",
         "badge-unknown",
+    )
+
+
+def test_rendered_gate_rows_use_status_gates_over_conflicting_mirrors(
+    tmp_path: Path,
+) -> None:
+    status_path = tmp_path / "status.json"
+    out_path = tmp_path / "report_card.html"
+    status = status_payload(
+        run_mode="core",
+        required_gates=["refusal_delta_evidence_present"],
+        gates={"refusal_delta_evidence_present": True},
+    )
+    status["refusal_delta_evidence_present"] = False
+    status["metrics"]["refusal_delta_evidence_present"] = False
+    status["meta"] = {"gates": {"refusal_delta_evidence_present": False}}
+    status["external"] = {"gates": {"refusal_delta_evidence_present": False}}
+    write_json(status_path, status)
+
+    write_quality_ledger(status_path, out_path)
+
+    html = out_path.read_text(encoding="utf-8")
+    gate_name_idx = html.index("refusal_delta_evidence_present")
+    row_end_idx = html.index("</tr>", gate_name_idx)
+    row_html = html[gate_name_idx:row_end_idx]
+    assert "status-pass" in row_html
+    assert ">PASS<" in row_html
+    assert "status-fail" not in row_html
+    assert ">FAIL<" not in row_html
+    assert decision_from_status(status, status_path=status_path) == (
+        "STAGE-PASS",
+        "badge-pass",
     )
