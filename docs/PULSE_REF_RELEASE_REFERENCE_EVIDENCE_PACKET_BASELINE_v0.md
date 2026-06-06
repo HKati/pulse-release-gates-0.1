@@ -1,16 +1,15 @@
 # PULSE-REF Release-Reference Evidence Packet Baseline v0
 
-Status: planning baseline / current baseline relation  
-Authority status: non-normative  
-Scope: PULSE-REF / release-reference fixture matrix / evidence packet baseline  
-Release-grade status: not release-grade evidence  
-Verifier status: not a verifier  
-Decision status: does not authorize, block, override, or create release authority  
+Status: planning baseline / current baseline relation
+Authority status: non-normative
+Scope: PULSE-REF / release-reference fixture matrix / evidence packet baseline
+Release-grade status: not release-grade evidence
+Verifier status: not a verifier
+Decision status: does not authorize, block, override, or create release authority
 
 ## Purpose
 
-This document defines the first PULSE-REF release-reference evidence packet
-baseline.
+This document defines the first PULSE-REF release-reference evidence packet baseline.
 
 It connects three already-established PULSE-REF surfaces:
 
@@ -41,8 +40,7 @@ It defines the baseline relation between those surfaces.
 
 A PULSE-REF release-grade reference is not merely a run.
 
-A release-grade reference is a recorded, artifact-bound, digest-backed,
-reconstructable evidence packet.
+A release-grade reference is a recorded, artifact-bound, digest-backed, reconstructable evidence packet.
 
 The fixture matrix tests fail-closed evidence-to-decision behavior.
 
@@ -72,12 +70,14 @@ The normative PULSE release decision remains:
 
 ```text
 recorded release evidence
-→ recorded status.json artifact
+→ recorded `status.json` artifact
 → declared gate policy
 → materialized required gate set
 → strict fail-closed CI gate enforcement
 → declared-policy CI allow/block release decision
 ```
+
+The baseline packet preserves the recorded `status.json` artifact.
 
 A release-reference evidence packet preserves and reconstructs this path.
 
@@ -290,7 +290,7 @@ subset.
 | `ci/ci_outcome.json` | required | emitted | declared-policy gate-enforcement outcome | normative enforcement output |
 | `release_authority/release_authority_manifest.json` | required | emitted | audit / trace manifest | non-normative trace |
 | `audit/release_authority_audit_bundle/` | required | emitted | evidence preservation bundle | non-normative audit |
-| `digests/package_digests.json` | required | emitted | digest coverage | audit / reconstruction |
+| `digests/package_digests.json` | required | emitted | digest manifest | audit / reconstruction |
 | `handoff/operator_handoff_report.json` | required | emitted | operator reconstruction surface | non-normative |
 | `external/summaries/README.md` | required for current v0 external note | emitted | external summary note | non-normative evidence note |
 | `reconstruction/reconstruction_instructions.md` | required | emitted | reconstruction guide | non-normative operator surface |
@@ -472,12 +472,12 @@ It does not authorize release.
 
 The baseline packet includes `digests/package_digests.json`.
 
-Digest coverage includes all required current packet payload artifacts.
+Digest coverage includes the regular payload files that the current builder
+records in the digest map.
 
-Minimum current v0 digest coverage:
+Minimum current v0 digest coverage includes regular payload files such as:
 
 - `README.md`;
-- `package_manifest.json`;
 - `status/status.json`;
 - `reconstruction/source_expected_outcome.json`;
 - `policy/pulse_gate_policy_v0.yml`;
@@ -486,10 +486,17 @@ Minimum current v0 digest coverage:
 - `ci/ci_outcome.json`;
 - `release_authority/release_authority_manifest.json`;
 - `handoff/operator_handoff_report.json`;
-- `digests/package_digests.json`;
-- `audit/release_authority_audit_bundle/`;
+- `audit/release_authority_audit_bundle/README.md`;
+- `audit/release_authority_audit_bundle/status.json`;
+- `audit/release_authority_audit_bundle/release_authority_manifest.json`;
 - `external/summaries/README.md`;
 - `reconstruction/reconstruction_instructions.md`.
+
+The current builder treats `package_manifest.json` and
+`digests/package_digests.json` as structural manifest / digest-manifest surfaces.
+
+They are generated and validated as packet artifacts, but they are not entries in
+the current `package_digests.json` artifact map.
 
 Next-layer digest coverage will include, when present:
 
@@ -718,13 +725,14 @@ when:
 8. CI outcome is present;
 9. release authority manifest is present;
 10. audit bundle or audit references are present;
-11. package digests are present;
+11. package digest manifest is present;
 12. operator handoff report is present;
 13. reconstruction instructions are present;
 14. authority-boundary statements are present;
-15. all required current packet artifacts are digest-backed;
-16. all required references bind to the same packet, fixture, or run identity;
-17. no non-normative surface claims independent release authority.
+15. all required current digest-map payload files are digest-backed;
+16. structural manifest / digest-manifest surfaces are present and valid;
+17. all required references bind to the same packet, fixture, or run identity;
+18. no non-normative surface claims independent release authority.
 
 The current v0 schema-aligned builder candidate satisfies the current
 reconstructable packet-candidate subset when it passes the schema-aligned packet
@@ -747,10 +755,11 @@ A baseline packet must fail packet-completeness review when:
 - gate registry is missing;
 - materialized gate set is missing;
 - CI outcome is missing;
-- package digests are missing;
+- package digest manifest is missing;
 - operator handoff report is missing;
 - reconstruction instructions are missing;
-- required artifacts are not digest-backed;
+- required digest-map payload files are not digest-backed;
+- structural manifest / digest-manifest surfaces are missing or invalid;
 - packet references do not bind to the same packet, fixture, or run identity;
 - reader, audit, publication, diagnostic, or HPC surfaces claim release authority;
 - advisory or diagnostic evidence is treated as required evidence without
