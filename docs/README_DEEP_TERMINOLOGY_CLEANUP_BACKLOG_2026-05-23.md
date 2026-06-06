@@ -139,7 +139,7 @@ Potential replacement:
 
 Avoid making governance the dominant category signal for PULSE.
 
-### 8. `release-governance layer`
+### 8. Deprecated identity term: `release-governance layer`
 
 Potential replacement:
 
@@ -230,7 +230,7 @@ Preferred replacements:
 - EPF layer -> EPF diagnostic surface
 - topology layer -> topology diagnostic surface
 - governance dashboards -> diagnostic dashboards / reader dashboards
-- release-governance layer -> release-authority field / release-authority materialization path
+- deprecated `release-governance layer` wording -> release-authority field / release-authority materialization path
 
 Do not perform blind global replacement.
 
