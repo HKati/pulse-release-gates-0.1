@@ -322,9 +322,19 @@ ci/ci_outcome.json
 
 The artifact preserves the current schema-aligned v0 fields:
 
-- workflow / run metadata;
+- `schema`;
+- `provider`;
+- `workflow`;
+- `run_id`;
+- `run_attempt`;
+- `run_url`;
+- `repository`;
+- `commit_sha`;
 - `gate_check_job`;
 - `gate_check_conclusion`;
+- `created_utc`;
+- `started_utc`;
+- `completed_utc`;
 - `authority_boundary`.
 
 The CI outcome records workflow/run identity and gate-check conclusion for the
