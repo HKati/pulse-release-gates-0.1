@@ -106,7 +106,7 @@ Examples include:
 - stability and hazard diagnostics,
 - evidence summarizers.
 
-These surfaces can be valuable for review, triage, governance, and future policy
+These surfaces can be valuable for review, artifact-state triage, operator triage, and future policy
 design. They do not change release outcomes by default.
 
 Their default role is diagnostic unless a future policy explicitly promotes a
@@ -114,7 +114,7 @@ specific signal into the required gate set.
 
 ---
 
-## Layer 3 — Normative governance / authority layer
+## Layer 3 — Normative release-authority layer
 
 This is the release-authority core.
 
@@ -149,7 +149,7 @@ the current lane.
 
 The exception layer represents break-glass or override handling.
 
-The intended governance rule is:
+The intended  release-control rule is:
 
 ```text
 an exception may be recorded, justified, and audited
@@ -190,7 +190,7 @@ It should not recompute release authority independently from the normative path.
 ## Layer 6 — Output and consumption layer
 
 The output layer represents the surfaces consumed by humans, CI systems, release
-owners, dashboards, and downstream governance workflows.
+owners, dashboards, and downstream optional review workflows.
 
 Examples include:
 
@@ -208,7 +208,7 @@ Rendered outputs explain or publish the result. They do not redefine the result.
 
 ## Continuous improvement loop
 
-The improvement loop represents controlled evolution of the release-governance
+The improvement loop represents controlled evolution of the release-authority
 system.
 
 Examples:
@@ -264,12 +264,12 @@ PULSE — Release Gates for Safe & Useful AI
 Current technical positioning:
 
 ```text
-PULSE is a deterministic, fail-closed release-governance layer for LLM
+PULSE is a deterministic, fail-closed release-authority mechanism for LLM
 applications and AI-enabled systems.
 ```
 
 PULSEmech is the architecture orientation map for the broader mechanical
-governance direction around the PULSE release-authority core.
+release-control direction around the PULSE release-authority 
 
 ---
 
