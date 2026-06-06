@@ -58,7 +58,7 @@ It is useful for:
 - first integration  
 - local artifact inspection  
 - baseline CI wiring  
-- validating the basic release-governance path  
+ - validating the basic release-authority path 
 - proving the narrow core_required gate set  
 
 A Core run may be enough to show that the basic PULSE machinery works.
@@ -84,7 +84,7 @@ It should demonstrate:
 In compact form:
 
 ```
-Core lane = smallest deterministic release-governance lane
+Core lane = smallest deterministic release-authority lane
 Release-grade reference = materialized evidence release lane
 ```
 
@@ -500,7 +500,7 @@ Recommended wording:
 
 ```
 Core smoke surface = integration / visibility surface
-Release-grade reference run = materialized evidence release-governance reference
+Release-grade reference run = materialized evidence release-authority reference
 ```
 
 ---
