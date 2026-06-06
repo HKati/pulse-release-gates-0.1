@@ -124,6 +124,15 @@ def html_short_hash(value: Any, prefix_len: int = 12) -> str:
     return f'<span title="{escape(s)}">{escape(s[:prefix_len])}…</span>'
 
 
+def public_topology_label(value: Any) -> Any:
+    """Return the canonical public topology label for diagnostic display."""
+    if not isinstance(value, str):
+        return value
+    if value.strip() == "stably_bad":
+        return "stable_bad"
+    return value
+
+
 def gate_status_parts(ok: bool) -> Tuple[str, str]:
     return ("PASS", "status-pass") if ok else ("FAIL", "status-fail")
 
@@ -279,15 +288,24 @@ def public_surface_profile(status: Dict[str, Any], decision_label: str) -> str:
 
     if run_grade == "core":
         if markers:
-            return "CORE READER SURFACE — STUBBED/SCAFFOLD EVIDENCE STATE"
+            return (
+                "CORE READER SURFACE — STUBBED/SCAFFOLD EVIDENCE STATE — "
+                "NOT RELEASE-GRADE AUTHORITY"
+            )
         return "CORE READER SURFACE"
     if run_grade == "demo":
         if markers:
-            return "DEMO READER SURFACE — STUBBED/SCAFFOLD EVIDENCE STATE"
+            return (
+                "DEMO READER SURFACE — STUBBED/SCAFFOLD EVIDENCE STATE — "
+                "NOT RELEASE-GRADE AUTHORITY"
+            )
         return "DEMO READER SURFACE"
     if run_grade == "prod":
         if markers:
-            return "PROD READER SURFACE — STUBBED/SCAFFOLD EVIDENCE STATE"
+             return (
+                "PROD READER SURFACE — STUBBED/SCAFFOLD EVIDENCE STATE — "
+                "NOT RELEASE-GRADE AUTHORITY"
+            )
         return "PROD READER SURFACE — MATERIALIZATION PENDING"
     return "RECORDED READER SURFACE"
 
@@ -321,10 +339,11 @@ def public_evidence_profile(status: Dict[str, Any], decision_label: str) -> str:
 
 
 def render_public_surface_state(status: Dict[str, Any], decision_label: str) -> str:
-    marker_summary = ", ".join(active_stub_scaffold_markers(status)) or "clear"
+   surface_profile = public_surface_profile(status, decision_label)
+   marker_summary = ", ".join(active_stub_scaffold_markers(status)) or "clear"
     rows_html = render_meta_list(
         [
-            ("Public surface", public_surface_profile(status, decision_label)),
+            ("Public surface", surface_profile),
             ("Recorded run mode", surface_run_grade(status)),
             ("Evidence materialization", public_evidence_profile(status, decision_label)),
             ("Stub/scaffold marker state", marker_summary),
@@ -337,7 +356,7 @@ def render_public_surface_state(status: Dict[str, Any], decision_label: str) -> 
     )
     return (
         '<div class="surface-boundary">'
-        "<h2>PULSE PUBLIC SURFACE STATE</h2>"
+        f"<h2>{escape(surface_profile)}</h2>"
         "<p>The Quality Ledger presents the recorded <code>status.json</code> "
         "state as a public reader surface.</p>"
         f'<div class="meta-grid">{rows_html}</div>'
@@ -577,13 +596,16 @@ def render_hazard_section(metrics: Dict[str, Any]) -> str:
         ("metrics.hazard_S", metrics.get("hazard_S")),
         ("metrics.hazard_D", metrics.get("hazard_D")),
         ("metrics.hazard_reason", metrics.get("hazard_reason")),
-        ("metrics.hazard_topology_region", metrics.get("hazard_topology_region")),
+        (
+            "metrics.hazard_topology_region",
+            public_topology_label(metrics.get("hazard_topology_region")),
+        ),
         ("metrics.hazard_baseline_ok", metrics.get("hazard_baseline_ok")),
         ("metrics.hazard_gate_id", metrics.get("hazard_gate_id")),
         ("metrics.hazard_T_scaled", metrics.get("hazard_T_scaled")),
         (
-         "metrics.hazard_stability_map_schema",
-          metrics.get("hazard_stability_map_schema"),
+           "metrics.hazard_stability_map_schema",
+            metrics.get("hazard_stability_map_schema"),
         ),
         ("metrics.hazard_stability_map_path", metrics.get("hazard_stability_map_path")),
     ]
@@ -827,6 +849,7 @@ def render_quality_ledger(status: Dict[str, Any], *, status_path: Path) -> str:
 </head>
 <body>
   <div class="wrap">
+    {render_public_surface_state(status, decision_label)}
     <section class="panel">
       <div class="decision">
         <div>
@@ -840,7 +863,6 @@ def render_quality_ledger(status: Dict[str, Any], *, status_path: Path) -> str:
       </div>
     
     </section>
-    {render_public_surface_state(status, decision_label)}
     {render_gate_table("Safety gates", gate_buckets["safety"])}
     {render_gate_table("Quality gates", gate_buckets["quality"])}
     {render_refusal_delta_section(metrics, gates)}
