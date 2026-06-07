@@ -140,91 +140,6 @@ def fail_closed(message: str) -> None:
     raise SystemExit(1)
 
 
-def read_json_artifact(path: pathlib.Path, *, label: str) -> dict[str, Any]:
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except FileNotFoundError:
-        fail_closed(f"missing {label}: {path}")
-    except Exception as exc:  # noqa: BLE001
-        fail_closed(f"{label} is not valid JSON: {exc}")
-
-    if not isinstance(data, dict):
-        fail_closed(f"{label} must be a JSON object: {path}")
-    return data
-
-
-def artifact_child(base: pathlib.Path, rel_path: str, *, label: str) -> pathlib.Path:
-    if not isinstance(rel_path, str) or not rel_path.strip():
-        fail_closed(f"{label} path must be a non-empty relative path")
-
-    rel = pathlib.Path(rel_path.strip())
-    if rel.is_absolute():
-        fail_closed(f"{label} path must be relative: {rel_path}")
-
-    resolved_base = base.resolve()
-    resolved = (resolved_base / rel).resolve()
-    if resolved != resolved_base and resolved_base not in resolved.parents:
-        fail_closed(f"{label} path escapes artifact directory: {rel_path}")
-
-    return resolved
-
-
-def validate_detector_materialization(art_dir: pathlib.Path) -> dict[str, bool]:
-    manifest_path = art_dir / "detector_materialization_v0.json"
-    if not manifest_path.exists():
-        fail_closed(
-            "missing detector materialization artifact: "
-            f"{manifest_path}"
-        )
-
-    manifest = read_json_artifact(
-        manifest_path,
-        label="detector materialization artifact",
-    )
-
-    if manifest.get("materialized") is not True:
-        fail_closed("detector materialization must have materialized=true")
-
-    if manifest.get("gates_stubbed") is not False:
-        fail_closed("detector materialization must have gates_stubbed=false")
-
-    if manifest.get("scaffold") is not False:
-        fail_closed("detector materialization must have scaffold=false")
-
-    gates_raw = manifest.get("gates")
-    if not isinstance(gates_raw, dict) or not gates_raw:
-        fail_closed("detector materialization gates must be a non-empty object")
-
-    gates: dict[str, bool] = {}
-    for gate_id, value in gates_raw.items():
-        gate_name = str(gate_id)
-        if not isinstance(value, bool):
-            fail_closed(
-                "detector materialization gate outcomes must be literal "
-                f"boolean values; got {gate_name}={value!r}"
-            )
-        gates[gate_name] = value
-
-    evidence_raw = manifest.get("evidence")
-    if not isinstance(evidence_raw, list) or not evidence_raw:
-        fail_closed("detector materialization evidence must be a non-empty list")
-
-    for idx, item in enumerate(evidence_raw):
-        if not isinstance(item, dict):
-            fail_closed(f"detector materialization evidence[{idx}] must be an object")
-        evidence_path = artifact_child(
-            art_dir,
-            str(item.get("path", "")),
-            label=f"detector materialization evidence[{idx}]",
-        )
-        if not evidence_path.exists():
-            fail_closed(
-                "detector materialization evidence file not found: "
-                f"{evidence_path}"
-            )
-
-    return gates
-
 
 def external_summary_files(art_dir: pathlib.Path) -> list[pathlib.Path]:
     external_dir = art_dir / "external"
@@ -242,155 +157,21 @@ def external_summary_files(art_dir: pathlib.Path) -> list[pathlib.Path]:
     return out
 
 
-def load_external_summary(path: pathlib.Path) -> Any:
-    try:
-        if path.suffix == ".jsonl":
-            rows = []
-            for line in path.read_text(encoding="utf-8").splitlines():
-                line = line.strip()
-                if not line:
-                    continue
-                rows.append(json.loads(line))
-            if not rows:
-                fail_closed(f"external summary is empty: {path}")
-            return rows
-
-        return json.loads(path.read_text(encoding="utf-8"))
-    except Exception as exc:  # noqa: BLE001
-        fail_closed(f"external summary is not parseable: {path}: {exc}")
-
-
-def external_summary_passes(payload: Any) -> bool:
-    if isinstance(payload, list):
-        return bool(payload) and all(external_summary_passes(row) for row in payload)
-
-    if not isinstance(payload, dict):
-        return False
-
-    for key in ("pass", "passed", "ok", "all_pass"):
-        if key in payload:
-            return payload.get(key) is True
-
-    rate = payload.get("rate")
-    if isinstance(rate, (int, float)):
-        return float(rate) <= 0.05
-
-    value = payload.get("value")
-    threshold = payload.get("threshold")
-    if isinstance(value, (int, float)) and isinstance(threshold, (int, float)):
-        return float(value) <= float(threshold)
-
-    return False
-
-
-def materialize_external_summaries(
-    art_dir: pathlib.Path,
-) -> tuple[dict[str, bool], dict[str, Any]]:
-    files = external_summary_files(art_dir)
-    if not files:
-        return (
-            {
-                "external_summaries_present": False,
-                "external_all_pass": False,
-            },
-            {
-                "summaries_present": False,
-                "summary_count": 0,
-                "all_pass": False,
-                "metrics": [],
-            },
-        )
-
-    rows: list[dict[str, Any]] = []
-    all_pass = True
-
-    for path in files:
-        payload = load_external_summary(path)
-        ok = external_summary_passes(payload)
-        rows.append(
-            {
-                "name": path.stem,
-                "path": str(path),
-                "pass": bool(ok),
-            }
-        )
-        if not ok:
-            all_pass = False
-
-    return (
-        {
-            "external_summaries_present": True,
-            "external_all_pass": bool(all_pass),
-        },
-        {
-            "summaries_present": True,
-            "summary_count": len(rows),
-            "all_pass": bool(all_pass),
-            "metrics": rows,
-        },
-    )
-
-
-def materialize_refusal_delta(
-    art_dir: pathlib.Path,
-) -> tuple[dict[str, bool], dict[str, Any]]:
-    path = art_dir / "refusal_delta_summary.json"
-    if not path.exists():
-        return (
-            {
-                "refusal_delta_evidence_present": False,
-                "refusal_delta_pass": False,
-            },
-            {},
-        )
-
-    summary = read_json_artifact(path, label="refusal delta summary")
-    n = summary.get("n")
-    passed = summary.get("pass")
-
-    if not isinstance(n, (int, float)) or int(n) <= 0:
-        return (
-            {
-                "refusal_delta_evidence_present": False,
-                "refusal_delta_pass": False,
-            },
-            {
-                "refusal_delta_n": n,
-            },
-        )
-
-    gate_pass = passed is True
-    metrics = {
-        "refusal_delta_n": int(n),
-        "refusal_delta": summary.get("delta"),
-        "refusal_delta_ci_low": summary.get("ci_low"),
-        "refusal_delta_ci_high": summary.get("ci_high"),
-        "refusal_pass_strict": gate_pass,
-    }
-
-    return (
-        {
-            "refusal_delta_evidence_present": True,
-            "refusal_delta_pass": gate_pass,
-        },
-        metrics,
-    )
-
 
 def materialize_release_grade_inputs(
     art_dir: pathlib.Path,
 ) -> tuple[dict[str, bool], dict[str, Any], dict[str, Any]]:
-        """Fail closed until a real release-evidence verifier is wired.
+    """Fail closed until a trusted release-evidence verifier is wired.
 
-    SECURITY HOTFIX: release-required gates must not be derived from local,
-    self-declared artifacts.  The historical implementation accepted
-    detector_materialization_v0.json gate booleans, generic canonical external
-    summary pass/rate/value fields, and refusal_delta_summary.json n/pass fields
-    as release-grade evidence.  Those files may still be useful diagnostics, but
-    without a verifier that binds identity, provenance, policy, and raw evidence,
-    they cannot materialize normative release-required gates.
+    SECURITY HOTFIX:
+    Release-required gates must not be derived from local, self-declared
+    artifact-directory inputs. Local detector manifests, generic external
+    summaries, and refusal-delta summaries may be diagnostic inputs, but they
+    cannot materialize normative release-required gates until a verifier binds
+    identity, provenance, policy, subject, and raw evidence.
     """
     self_declared_artifacts: list[str] = []
+
     for path in (
         art_dir / "detector_materialization_v0.json",
         art_dir / "refusal_delta_summary.json",
@@ -398,16 +179,20 @@ def materialize_release_grade_inputs(
         if path.exists():
             self_declared_artifacts.append(path.name)
 
-        for path in external_summary_files(art_dir):
-        self_declared_artifacts.append(str(path.relative_to(art_dir)))
+    for path in external_summary_files(art_dir):
+        try:
+            self_declared_artifacts.append(str(path.relative_to(art_dir)))
+        except ValueError:
+            self_declared_artifacts.append(str(path))
 
     suffix = (
         f" observed self-declared artifacts: {', '.join(self_declared_artifacts)}."
         if self_declared_artifacts
         else " no verified release evidence artifacts were found."
     )
+
     fail_closed(
-        "release-grade materialized prod is disabled until a real recorded "
+        "release-grade materialized prod is disabled until a trusted recorded "
         "release-evidence verifier is implemented; local detector, external "
         "summary, and refusal-delta artifacts cannot set release-required gates "
         f"true.{suffix}"
