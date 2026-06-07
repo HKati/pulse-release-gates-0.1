@@ -25,6 +25,7 @@ RELEASE_REQUIRED_GATES = [
     "detectors_materialized_ok",
     "external_summaries_present",
     "external_all_pass",
+    "refusal_delta_evidence_present",
 ]
 
 VALID_PASS_STATES = {"PASS", "PROD-PASS"}
@@ -69,12 +70,22 @@ def _check_status(status: dict[str, Any], errors: list[str]) -> None:
     if run_mode != "prod":
         errors.append(f"status.metrics.run_mode must be 'prod' for a release-grade reference run (got {run_mode!r})")
 
-    if "diagnostics" in status:
         diagnostics = status.get("diagnostics")
-        if not isinstance(diagnostics, dict):
-            errors.append("status.diagnostics must be an object when present")
-        elif diagnostics.get("gates_stubbed") is True:
-            errors.append("status.diagnostics.gates_stubbed must not be true for a release-grade reference run")
+    if not isinstance(diagnostics, dict):
+        errors.append(
+            "status.diagnostics must be an object for a release-grade reference run"
+        )
+    else:
+        if diagnostics.get("gates_stubbed") is not False:
+            errors.append(
+                "status.diagnostics.gates_stubbed must be explicit false "
+                "for a release-grade reference run"
+            )
+        if diagnostics.get("scaffold") is not False:
+            errors.append(
+                "status.diagnostics.scaffold must be explicit false "
+                "for a release-grade reference run"
+            )
 
     for gate in RELEASE_REQUIRED_GATES:
         _gate_true(gates, gate, errors)
