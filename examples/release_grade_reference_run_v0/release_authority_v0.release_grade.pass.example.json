@@ -34,6 +34,7 @@
     "effective_required_gates": [
       "pass_controls_refusal",
       "refusal_delta_pass",
+      "refusal_delta_evidence_present",
       "effect_present",
       "psf_monotonicity_ok",
       "psf_mono_shift_resilient",
