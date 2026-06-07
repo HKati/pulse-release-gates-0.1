@@ -85,3 +85,7 @@ If you add/rename a doc under `docs/`, please update this index.
 ## Terminology / language rules
 
 - [PULSE_MECHANICAL_TRANSITION_LANGUAGE_v0.md](PULSE_MECHANICAL_TRANSITION_LANGUAGE_v0.md) — Repository-facing wording and review rule for preserving PULSEmech transition-bearing language.
+
+## Release evidence verification
+
+- [PULSE_RELEASE_EVIDENCE_VERIFIER_v0.md](PULSE_RELEASE_EVIDENCE_VERIFIER_v0.md) — Informational reference note for the future trusted verifier boundary required before release-grade evidence can materialize release-required gates.
