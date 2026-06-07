@@ -81,3 +81,7 @@ If you add/rename a doc under `docs/`, please update this index.
 
 - [../parameter_golf_v0/README.md](../parameter_golf_v0/README.md) — Parameter Golf v0 shadow-only evidence companion.
 - [parameter_golf_submission_evidence_v0.md](parameter_golf_submission_evidence_v0.md) — Notes on the Parameter Golf submission-evidence contract and reviewer-facing receipt surface.
+
+## Terminology / language rules
+
+- [PULSE_MECHANICAL_TRANSITION_LANGUAGE_v0.md](PULSE_MECHANICAL_TRANSITION_LANGUAGE_v0.md) — Repository-facing wording and review rule for preserving PULSEmech transition-bearing language.
