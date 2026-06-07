@@ -818,7 +818,6 @@ BASE_GATES = {
     "pass_controls_refusal": True,
     "effect_present": True,
     "refusal_delta_evidence_present": False,
-    "refusal_delta_pass": True,
     "psf_monotonicity_ok": True,
     "psf_mono_shift_resilient": True,
     "pass_controls_comm": True,
@@ -848,7 +847,7 @@ else:
             "prod mode is fail-closed without explicit "
             "--release-grade-materialized / "
             "PULSE_RELEASE_GRADE_MATERIALIZED=1"
-        ) 
+        )
     gates = {k: False for k in BASE_GATES.keys()}
     (
         release_grade_gate_overrides,
@@ -1062,7 +1061,7 @@ else:
     gates["epf_hazard_ok"] = True
 
 if RUN_MODE in ("demo", "core"):
-    stub_profile = "all_true_smoke" if RUN_MODE == "demo" else "core_smoke"
+    stub_profile = "all_true_smoke"
     gates_stubbed = True
     gates["detectors_materialized_ok"] = False
     diagnostics = {
@@ -1071,7 +1070,7 @@ if RUN_MODE in ("demo", "core"):
         "stub_profile": stub_profile,
     }
 else:
-    stub_profile = "release_grade_materialized"
+    stub_profile = "not_stubbed"
     gates_stubbed = False
     gates["detectors_materialized_ok"] = True
     diagnostics = {
