@@ -199,13 +199,13 @@ def test_release_grade_materialized_opt_in_is_prod_only(
     assert not (tmp_path / "status.json").exists()
 
 
-def test_prod_release_grade_fails_closed_before_status_when_detector_materialization_missing(
+def test_prod_release_grade_materialized_opt_in_fails_closed_until_verifier_exists(
     tmp_path: pathlib.Path,
 ) -> None:
     result = _run_prod(tmp_path, release_grade_materialized=True)
 
     assert result.returncode != 0
-    assert "missing detector materialization artifact" in _combined_output(result)
+    def test_prod_release_grade_self_declared_artifacts_do_not_materialize_gates(
     assert not (tmp_path / "status.json").exists()
 
 
@@ -216,44 +216,16 @@ def test_prod_release_grade_non_stubbed_candidate_materializes_required_artifact
 
     result = _run_prod(tmp_path, release_grade_materialized=True)
 
-    assert result.returncode == 0, _combined_output(result)
-
-    status = _load_status(tmp_path)
-    assert status["metrics"]["run_mode"] == "prod"
-    assert status["diagnostics"]["gates_stubbed"] is False
-    assert status["diagnostics"]["scaffold"] is False
-    assert status["gates"]["detectors_materialized_ok"] is True
-    assert status["gates"]["external_summaries_present"] is True
-    assert status["gates"]["external_all_pass"] is True
-    assert status["gates"]["refusal_delta_evidence_present"] is True
-    assert status["gates"]["refusal_delta_pass"] is True
-
-    manifest_path = tmp_path / "release_authority_v0.json"
-    report_path = tmp_path / "report_card.html"
-    bundle = tmp_path / AUDIT_BUNDLE_DIRNAME
-
-    assert manifest_path.exists()
-    assert report_path.exists()
-    assert bundle.exists()
-    assert (bundle / "status.json").exists()
-    assert (bundle / "report_card.html").exists()
-    assert (bundle / "release_authority_v0.json").exists()
-
-    bundled_status = _read_json(bundle / "status.json")
-    assert bundled_status["metrics"]["run_mode"] == "prod"
-    assert bundled_status["diagnostics"]["gates_stubbed"] is False
-    assert bundled_status["diagnostics"]["scaffold"] is False
-
-    _read_json(manifest_path)
-    _read_json(bundle / "release_authority_v0.json")
-
-    errors = check_release_grade_reference_run(
-        status_path=tmp_path / "status.json",
-        manifest_path=manifest_path,
-        report_path=report_path,
-        audit_bundle_dir=bundle,
-    )
-    assert errors == []
+    assert result.returncode != 0
+    output = _combined_output(result).lower()
+    assert "release-evidence verifier" in output
+    assert "self-declared artifacts" in output
+    assert "detector_materialization_v0.json" in output
+    assert "external/llamaguard_summary.json" in output
+    assert "refusal_delta_summary.json" in output
+    assert not (tmp_path / "status.json").exists()
+    assert not (tmp_path / "release_authority_v0.json").exists()
+    assert not (tmp_path / AUDIT_BUNDLE_DIRNAME).exists()
 
 
 def test_detectors_materialized_ok_requires_existing_detector_evidence(
@@ -269,7 +241,7 @@ def test_detectors_materialized_ok_requires_existing_detector_evidence(
     result = _run_prod(tmp_path, release_grade_materialized=True)
 
     assert result.returncode != 0
-    assert "detector materialization evidence file not found" in _combined_output(result)
+    assert "release-evidence verifier" in _combined_output(result).lower()
     assert not (tmp_path / "status.json").exists()
 
 
@@ -286,7 +258,7 @@ def test_prod_rejects_stubbed_detector_materialization_manifest(
     result = _run_prod(tmp_path, release_grade_materialized=True)
 
     assert result.returncode != 0
-    assert "stub" in _combined_output(result).lower()
+    assert "release-evidence verifier" in _combined_output(result).lower()
     assert not (tmp_path / "status.json").exists()
 
 
@@ -303,7 +275,7 @@ def test_prod_rejects_scaffold_detector_materialization_manifest(
     result = _run_prod(tmp_path, release_grade_materialized=True)
 
     assert result.returncode != 0
-    assert "scaffold" in _combined_output(result).lower()
+    assert "release-evidence verifier" in _combined_output(result).lower()
     assert not (tmp_path / "status.json").exists()
 
 
@@ -321,7 +293,7 @@ def test_prod_rejects_non_boolean_materialized_gate_outcome(
 
     assert result.returncode != 0
     output = _combined_output(result).lower()
-    assert "boolean" in output or "literal" in output
+    assert "release-evidence verifier" in output
     assert not (tmp_path / "status.json").exists()
 
 
@@ -339,7 +311,7 @@ def test_prod_rejects_materialization_manifest_without_materialized_true(
 
     assert result.returncode != 0
     output = _combined_output(result).lower()
-    assert "materialized" in output
+    assert "release-evidence verifier" in output
     assert not (tmp_path / "status.json").exists()
 
 
@@ -352,7 +324,7 @@ def test_external_release_gates_require_real_canonical_parseable_summary(
     result = _run_prod(tmp_path, release_grade_materialized=True)
 
     assert result.returncode != 0
-    assert "external_summaries_present" in _combined_output(result)
+    assert "release-evidence verifier" in _combined_output(result).lower()
 
     assert not (tmp_path / "release_authority_v0.json").exists()
 
@@ -369,8 +341,7 @@ def test_external_release_gates_reject_malformed_canonical_summary(
 
     assert result.returncode != 0
     output = _combined_output(result).lower()
-    assert "external" in output
-    assert "summary" in output
+    assert "release-evidence verifier" in output   
     assert not (tmp_path / "release_authority_v0.json").exists()
 
 
@@ -382,7 +353,7 @@ def test_refusal_delta_evidence_requires_summary_with_positive_n(
     result = _run_prod(tmp_path, release_grade_materialized=True)
 
     assert result.returncode != 0
-    assert "refusal_delta_evidence_present" in _combined_output(result)
+    assert "release-evidence verifier" in _combined_output(result).lower()
     assert not (tmp_path / "release_authority_v0.json").exists()
 
 
@@ -399,29 +370,44 @@ def test_refusal_delta_evidence_requires_passing_summary(
     result = _run_prod(tmp_path, release_grade_materialized=True)
 
     assert result.returncode != 0
-    output = _combined_output(result)
-    assert "refusal_delta" in output
+    output = _combined_output(result).lower()
+    assert "release-evidence verifier" in output
     assert not (tmp_path / "release_authority_v0.json").exists()
 
 
 def test_release_grade_checker_reports_missing_manifest_and_audit_bundle_files(
     tmp_path: pathlib.Path,
 ) -> None:
-    _prepare_release_grade_inputs(tmp_path, external={"rate": 0.0})
-
-    result = _run_prod(tmp_path, release_grade_materialized=True)
-    assert result.returncode == 0, _combined_output(result)
+    status_path = tmp_path / "status.json"
+    report_path = tmp_path / "report_card.html"
 
     manifest_path = tmp_path / "release_authority_v0.json"
-    manifest_path.unlink()
 
     bundle = tmp_path / AUDIT_BUNDLE_DIRNAME
-    (bundle / "report_card.html").unlink()
+    (
 
-    errors = check_release_grade_reference_run(
-        status_path=tmp_path / "status.json",
+      _write_json(
+        status_path,
+        {
+            "metrics": {"run_mode": "prod"},
+            "diagnostics": {"gates_stubbed": False, "scaffold": False},
+            "gates": {
+                "detectors_materialized_ok": True,
+                "external_summaries_present": True,
+                "external_all_pass": True,
+                "refusal_delta_evidence_present": True,
+            },
+        },
+    )
+    report_path.write_text("<html></html>", encoding="utf-8")
+    bundle.mkdir(parents=True)
+    _write_json(bundle / "status.json", {"copied": "status"})
+    _write_json(bundle / "release_authority_v0.json", {"copied": "manifest"})      
+  
+     errors = check_release_grade_reference_run(
+        status_path=status_path,
         manifest_path=manifest_path,
-        report_path=tmp_path / "report_card.html",
+        report_path=report_path,
         audit_bundle_dir=bundle,
     )
 
