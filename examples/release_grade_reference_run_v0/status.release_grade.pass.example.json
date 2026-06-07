@@ -50,7 +50,6 @@
   },
   "diagnostics": {
     "gates_stubbed": false,
-    "stub_profile": null,
     "scaffold": false
   }
 }
