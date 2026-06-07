@@ -98,13 +98,20 @@ def test_run_all_core_mode() -> None:
 
 def test_run_all_prod_mode() -> None:
     r, status = _run_and_load(mode="prod")
-    _assert(r.returncode == 0, f"run_all --mode prod failed: rc={r.returncode}\nSTDOUT:\n{r.stdout}\nSTDERR:\n{r.stderr}")
-    _assert(isinstance(status, dict), "status.json missing or invalid JSON in prod mode")
-
-    metrics = status.get("metrics") or {}
-    _assert(metrics.get("run_mode") == "prod", f"expected metrics.run_mode=prod, got: {metrics.get('run_mode')}")
-    v = str(status.get("version", ""))
-    _assert("demo" not in v.lower(), f"prod mode must not emit demo status.version, got: {v}")
+    _assert(
+        r.returncode != 0,
+        "run_all --mode prod must fail closed without explicit "
+        "--release-grade-materialized evidence opt-in",
+    )
+    _assert(
+        status is None,
+        "plain prod without materialized release-grade evidence must not write status.json",
+    )
+    output = f"{r.stdout}\n{r.stderr}".lower()
+    _assert(
+        "release-grade" in output and "materialized" in output,
+        "plain prod failure should explain the missing release-grade materialization opt-in",
+    )
 
 
 def test_invalid_env_fails_fast() -> None:
