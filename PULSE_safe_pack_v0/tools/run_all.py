@@ -380,31 +380,38 @@ def materialize_refusal_delta(
 def materialize_release_grade_inputs(
     art_dir: pathlib.Path,
 ) -> tuple[dict[str, bool], dict[str, Any], dict[str, Any]]:
-    detector_gates = validate_detector_materialization(art_dir)
-    external_gates, external_section = materialize_external_summaries(art_dir)
-    refusal_gates, refusal_metrics = materialize_refusal_delta(art_dir)
+        """Fail closed until a real release-evidence verifier is wired.
 
-    gates_out: dict[str, bool] = {}
-    gates_out.update(detector_gates)
-    gates_out["detectors_materialized_ok"] = True
-    gates_out.update(external_gates)
-    gates_out.update(refusal_gates)
+    SECURITY HOTFIX: release-required gates must not be derived from local,
+    self-declared artifacts.  The historical implementation accepted
+    detector_materialization_v0.json gate booleans, generic canonical external
+    summary pass/rate/value fields, and refusal_delta_summary.json n/pass fields
+    as release-grade evidence.  Those files may still be useful diagnostics, but
+    without a verifier that binds identity, provenance, policy, and raw evidence,
+    they cannot materialize normative release-required gates.
+    """
+    self_declared_artifacts: list[str] = []
+    for path in (
+        art_dir / "detector_materialization_v0.json",
+        art_dir / "refusal_delta_summary.json",
+    ):
+        if path.exists():
+            self_declared_artifacts.append(path.name)
 
-    metrics_out: dict[str, Any] = {}
-    metrics_out.update(refusal_metrics)
+        for path in external_summary_files(art_dir):
+        self_declared_artifacts.append(str(path.relative_to(art_dir)))
 
-    required_true = [
-        "detectors_materialized_ok",
-        "external_summaries_present",
-        "external_all_pass",
-        "refusal_delta_evidence_present",
-        "refusal_delta_pass",
-    ]
-    for gate_id in required_true:
-        if gates_out.get(gate_id) is not True:
-            fail_closed(f"{gate_id}=False for release-grade materialized prod")
-
-    return gates_out, metrics_out, external_section
+    suffix = (
+        f" observed self-declared artifacts: {', '.join(self_declared_artifacts)}."
+        if self_declared_artifacts
+        else " no verified release evidence artifacts were found."
+    )
+    fail_closed(
+        "release-grade materialized prod is disabled until a real recorded "
+        "release-evidence verifier is implemented; local detector, external "
+        "summary, and refusal-delta artifacts cannot set release-required gates "
+        f"true.{suffix}"
+    )
 
 
 def build_release_authority_manifest(status_path: pathlib.Path) -> pathlib.Path:
@@ -1072,7 +1079,7 @@ if RUN_MODE in ("demo", "core"):
 else:
     stub_profile = "not_stubbed"
     gates_stubbed = False
-    gates["detectors_materialized_ok"] = True
+    gates["detectors_materialized_ok"] = gates.get("detectors_materialized_ok") is True
     diagnostics = {
         "scaffold": False,
         "gates_stubbed": False,
