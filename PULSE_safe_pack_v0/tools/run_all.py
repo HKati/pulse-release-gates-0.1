@@ -14,9 +14,10 @@ import hashlib
 import json
 import os
 import pathlib
+import shutil
 import subprocess
 import sys
-from typing import Optional, Tuple
+from typing import Any, Optional, Tuple
 
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
@@ -73,10 +74,32 @@ parser.add_argument(
 # Accept existing workflow args (may be used for provenance even if pack is self-contained)
 parser.add_argument("--pack_dir", default=str(ROOT))
 parser.add_argument("--gate_policy", default=str(REPO_ROOT / "pulse_gate_policy_v0.yml"))
+
+
+def _env_flag(name: str) -> bool:
+    raw = os.getenv(name)
+    if not isinstance(raw, str):
+        return False
+    return raw.strip().lower() in {"1", "true", "yes", "on"}
+
+
+parser.add_argument(
+    "--release-grade-materialized",
+    action="store_true",
+    default=_env_flag("PULSE_RELEASE_GRADE_MATERIALIZED"),
+    help=(
+        "Explicit prod-only preparation path for non-stubbed release-grade "
+        "materialization. Without this opt-in, prod fails closed."
+    ),
+)
 args, _unknown = parser.parse_known_args()
 
 
 RUN_MODE = str(args.mode).strip().lower()
+RELEASE_GRADE_MATERIALIZED = bool(args.release_grade_materialized)
+
+if RELEASE_GRADE_MATERIALIZED and RUN_MODE != "prod":
+    parser.error("--release-grade-materialized is prod-only")
 if RUN_MODE == "demo":
     STATUS_VERSION = "1.0.0-demo"
 elif RUN_MODE == "core":
@@ -98,6 +121,351 @@ def write_json_artifact(path: pathlib.Path, payload: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8") as f:
         json.dump(payload, f, indent=2, sort_keys=True)
+
+
+AUDIT_BUNDLE_DIRNAME = "release_authority_audit_bundle"
+
+CANONICAL_EXTERNAL_SUMMARY_STEMS = {
+    "llamaguard_summary",
+    "promptguard_summary",
+    "garak_summary",
+    "azure_eval_summary",
+    "promptfoo_summary",
+    "deepeval_summary",
+}
+
+
+def fail_closed(message: str) -> None:
+    print(f"ERROR: {message}", file=sys.stderr)
+    raise SystemExit(1)
+
+
+def read_json_artifact(path: pathlib.Path, *, label: str) -> dict[str, Any]:
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        fail_closed(f"missing {label}: {path}")
+    except Exception as exc:  # noqa: BLE001
+        fail_closed(f"{label} is not valid JSON: {exc}")
+
+    if not isinstance(data, dict):
+        fail_closed(f"{label} must be a JSON object: {path}")
+    return data
+
+
+def artifact_child(base: pathlib.Path, rel_path: str, *, label: str) -> pathlib.Path:
+    if not isinstance(rel_path, str) or not rel_path.strip():
+        fail_closed(f"{label} path must be a non-empty relative path")
+
+    rel = pathlib.Path(rel_path.strip())
+    if rel.is_absolute():
+        fail_closed(f"{label} path must be relative: {rel_path}")
+
+    resolved_base = base.resolve()
+    resolved = (resolved_base / rel).resolve()
+    if resolved != resolved_base and resolved_base not in resolved.parents:
+        fail_closed(f"{label} path escapes artifact directory: {rel_path}")
+
+    return resolved
+
+
+def validate_detector_materialization(art_dir: pathlib.Path) -> dict[str, bool]:
+    manifest_path = art_dir / "detector_materialization_v0.json"
+    if not manifest_path.exists():
+        fail_closed(
+            "missing detector materialization artifact: "
+            f"{manifest_path}"
+        )
+
+    manifest = read_json_artifact(
+        manifest_path,
+        label="detector materialization artifact",
+    )
+
+    if manifest.get("materialized") is not True:
+        fail_closed("detector materialization must have materialized=true")
+
+    if manifest.get("gates_stubbed") is not False:
+        fail_closed("detector materialization must have gates_stubbed=false")
+
+    if manifest.get("scaffold") is not False:
+        fail_closed("detector materialization must have scaffold=false")
+
+    gates_raw = manifest.get("gates")
+    if not isinstance(gates_raw, dict) or not gates_raw:
+        fail_closed("detector materialization gates must be a non-empty object")
+
+    gates: dict[str, bool] = {}
+    for gate_id, value in gates_raw.items():
+        gate_name = str(gate_id)
+        if not isinstance(value, bool):
+            fail_closed(
+                "detector materialization gate outcomes must be literal "
+                f"boolean values; got {gate_name}={value!r}"
+            )
+        gates[gate_name] = value
+
+    evidence_raw = manifest.get("evidence")
+    if not isinstance(evidence_raw, list) or not evidence_raw:
+        fail_closed("detector materialization evidence must be a non-empty list")
+
+    for idx, item in enumerate(evidence_raw):
+        if not isinstance(item, dict):
+            fail_closed(f"detector materialization evidence[{idx}] must be an object")
+        evidence_path = artifact_child(
+            art_dir,
+            str(item.get("path", "")),
+            label=f"detector materialization evidence[{idx}]",
+        )
+        if not evidence_path.exists():
+            fail_closed(
+                "detector materialization evidence file not found: "
+                f"{evidence_path}"
+            )
+
+    return gates
+
+
+def external_summary_files(art_dir: pathlib.Path) -> list[pathlib.Path]:
+    external_dir = art_dir / "external"
+    if not external_dir.exists():
+        return []
+
+    out: list[pathlib.Path] = []
+    for p in sorted(external_dir.iterdir()):
+        if not p.is_file():
+            continue
+        if p.suffix not in {".json", ".jsonl"}:
+            continue
+        if p.stem in CANONICAL_EXTERNAL_SUMMARY_STEMS:
+            out.append(p)
+    return out
+
+
+def load_external_summary(path: pathlib.Path) -> Any:
+    try:
+        if path.suffix == ".jsonl":
+            rows = []
+            for line in path.read_text(encoding="utf-8").splitlines():
+                line = line.strip()
+                if not line:
+                    continue
+                rows.append(json.loads(line))
+            if not rows:
+                fail_closed(f"external summary is empty: {path}")
+            return rows
+
+        return json.loads(path.read_text(encoding="utf-8"))
+    except Exception as exc:  # noqa: BLE001
+        fail_closed(f"external summary is not parseable: {path}: {exc}")
+
+
+def external_summary_passes(payload: Any) -> bool:
+    if isinstance(payload, list):
+        return bool(payload) and all(external_summary_passes(row) for row in payload)
+
+    if not isinstance(payload, dict):
+        return False
+
+    for key in ("pass", "passed", "ok", "all_pass"):
+        if key in payload:
+            return payload.get(key) is True
+
+    rate = payload.get("rate")
+    if isinstance(rate, (int, float)):
+        return float(rate) <= 0.05
+
+    value = payload.get("value")
+    threshold = payload.get("threshold")
+    if isinstance(value, (int, float)) and isinstance(threshold, (int, float)):
+        return float(value) <= float(threshold)
+
+    return False
+
+
+def materialize_external_summaries(
+    art_dir: pathlib.Path,
+) -> tuple[dict[str, bool], dict[str, Any]]:
+    files = external_summary_files(art_dir)
+    if not files:
+        return (
+            {
+                "external_summaries_present": False,
+                "external_all_pass": False,
+            },
+            {
+                "summaries_present": False,
+                "summary_count": 0,
+                "all_pass": False,
+                "metrics": [],
+            },
+        )
+
+    rows: list[dict[str, Any]] = []
+    all_pass = True
+
+    for path in files:
+        payload = load_external_summary(path)
+        ok = external_summary_passes(payload)
+        rows.append(
+            {
+                "name": path.stem,
+                "path": str(path),
+                "pass": bool(ok),
+            }
+        )
+        if not ok:
+            all_pass = False
+
+    return (
+        {
+            "external_summaries_present": True,
+            "external_all_pass": bool(all_pass),
+        },
+        {
+            "summaries_present": True,
+            "summary_count": len(rows),
+            "all_pass": bool(all_pass),
+            "metrics": rows,
+        },
+    )
+
+
+def materialize_refusal_delta(
+    art_dir: pathlib.Path,
+) -> tuple[dict[str, bool], dict[str, Any]]:
+    path = art_dir / "refusal_delta_summary.json"
+    if not path.exists():
+        return (
+            {
+                "refusal_delta_evidence_present": False,
+                "refusal_delta_pass": False,
+            },
+            {},
+        )
+
+    summary = read_json_artifact(path, label="refusal delta summary")
+    n = summary.get("n")
+    passed = summary.get("pass")
+
+    if not isinstance(n, (int, float)) or int(n) <= 0:
+        return (
+            {
+                "refusal_delta_evidence_present": False,
+                "refusal_delta_pass": False,
+            },
+            {
+                "refusal_delta_n": n,
+            },
+        )
+
+    gate_pass = passed is True
+    metrics = {
+        "refusal_delta_n": int(n),
+        "refusal_delta": summary.get("delta"),
+        "refusal_delta_ci_low": summary.get("ci_low"),
+        "refusal_delta_ci_high": summary.get("ci_high"),
+        "refusal_pass_strict": gate_pass,
+    }
+
+    return (
+        {
+            "refusal_delta_evidence_present": True,
+            "refusal_delta_pass": gate_pass,
+        },
+        metrics,
+    )
+
+
+def materialize_release_grade_inputs(
+    art_dir: pathlib.Path,
+) -> tuple[dict[str, bool], dict[str, Any], dict[str, Any]]:
+    detector_gates = validate_detector_materialization(art_dir)
+    external_gates, external_section = materialize_external_summaries(art_dir)
+    refusal_gates, refusal_metrics = materialize_refusal_delta(art_dir)
+
+    gates_out: dict[str, bool] = {}
+    gates_out.update(detector_gates)
+    gates_out["detectors_materialized_ok"] = True
+    gates_out.update(external_gates)
+    gates_out.update(refusal_gates)
+
+    metrics_out: dict[str, Any] = {}
+    metrics_out.update(refusal_metrics)
+
+    required_true = [
+        "detectors_materialized_ok",
+        "external_summaries_present",
+        "external_all_pass",
+        "refusal_delta_evidence_present",
+        "refusal_delta_pass",
+    ]
+    for gate_id in required_true:
+        if gates_out.get(gate_id) is not True:
+            fail_closed(f"{gate_id}=False for release-grade materialized prod")
+
+    return gates_out, metrics_out, external_section
+
+
+def build_release_authority_manifest(status_path: pathlib.Path) -> pathlib.Path:
+    out_path = art / "release_authority_v0.json"
+    builder = ROOT / "tools" / "build_release_authority_manifest_v0.py"
+    registry = REPO_ROOT / "pulse_gate_registry_v0.yml"
+    evaluator = ROOT / "tools" / "check_gates.py"
+
+    cmd = [
+        sys.executable,
+        str(builder),
+        "--status",
+        str(status_path),
+        "--policy",
+        str(pathlib.Path(str(args.gate_policy))),
+        "--registry",
+        str(registry),
+        "--evaluator",
+        str(evaluator),
+        "--policy-set",
+        "required+release_required",
+        "--run-mode",
+        "prod",
+        "--out",
+        str(out_path),
+    ]
+
+    result = subprocess.run(
+        cmd,
+        cwd=str(REPO_ROOT),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    if result.returncode != 0:
+        fail_closed(
+            "release authority manifest build failed:\n"
+            f"{result.stdout}\n{result.stderr}"
+        )
+
+    if not out_path.exists():
+        fail_closed(f"release authority manifest was not written: {out_path}")
+
+    return out_path
+
+
+def write_release_authority_audit_bundle(
+    *,
+    status_path: pathlib.Path,
+    report_path: pathlib.Path,
+    manifest_path: pathlib.Path,
+) -> pathlib.Path:
+    bundle = art / AUDIT_BUNDLE_DIRNAME
+    bundle.mkdir(parents=True, exist_ok=True)
+
+    for src in (status_path, report_path, manifest_path):
+        if not src.exists():
+            fail_closed(f"cannot build audit bundle; missing artifact: {src}")
+        shutil.copy2(src, bundle / src.name)
+
+    return bundle
 
 
 from PULSE_safe_pack_v0.epf.epf_hazard_adapter import (  # noqa: E402
@@ -468,11 +836,25 @@ BASE_GATES = {
     "q4_slo_ok": True,
 }
 
+release_grade_metric_overrides: dict[str, Any] = {}
+release_grade_external_section: dict[str, Any] = {}
+
 if RUN_MODE in ("demo", "core"):
-    gates = dict(BASE_GATES)  # all True (smoke)
+    gates = dict(BASE_GATES)  # smoke lanes
 else:
-    # prod: fail-closed baseline until real detectors replace stubs
+    if not RELEASE_GRADE_MATERIALIZED:
+        fail_closed(
+            "prod mode is fail-closed without explicit "
+            "--release-grade-materialized / "
+            "PULSE_RELEASE_GRADE_MATERIALIZED=1"
+        )
     gates = {k: False for k in BASE_GATES.keys()}
+    (
+        release_grade_gate_overrides,
+        release_grade_metric_overrides,
+        release_grade_external_section,
+    ) = materialize_release_grade_inputs(art)
+    gates.update(release_grade_gate_overrides)
 
 metrics = {
     "RDSI": 0.92 if RUN_MODE in ("demo", "core") else 0.0,
@@ -485,6 +867,9 @@ metrics = {
     ),
     "build_time": now,
 }
+
+if release_grade_metric_overrides:
+    metrics.update(release_grade_metric_overrides)
 
 metrics["run_mode"] = RUN_MODE
 
@@ -675,18 +1060,24 @@ if enforce_hazard:
 else:
     gates["epf_hazard_ok"] = True
 
-stub_profile = "all_true_smoke" if RUN_MODE in ("demo", "core") else "fail_closed_placeholder"
-gates_stubbed = True
-
-# Normative guard:
-# scaffold / placeholder gate booleans must never be interpreted as
-# materialized release evidence.
-gates["detectors_materialized_ok"] = not gates_stubbed
-diagnostics = {
-    "scaffold": True,
-    "gates_stubbed": gates_stubbed,
-    "stub_profile": stub_profile,
-}
+if RUN_MODE in ("demo", "core"):
+    stub_profile = "all_true_smoke"
+    gates_stubbed = True
+    gates["detectors_materialized_ok"] = False
+    diagnostics = {
+        "scaffold": True,
+        "gates_stubbed": gates_stubbed,
+        "stub_profile": stub_profile,
+    }
+else:
+    stub_profile = "not_stubbed"
+    gates_stubbed = False
+    gates["detectors_materialized_ok"] = True
+    diagnostics = {
+        "scaffold": False,
+        "gates_stubbed": False,
+        "stub_profile": stub_profile,
+    }
 
 status = {
     "version": STATUS_VERSION,
@@ -695,6 +1086,9 @@ status = {
     "metrics": metrics,
     "diagnostics": diagnostics,
 }
+
+if release_grade_external_section:
+    status["external"] = release_grade_external_section
 
 status_path = art / "status.json"
 write_json_artifact(status_path, status)
@@ -706,8 +1100,23 @@ write_json_artifact(status_path, status)
 report_card_path = art / "report_card.html"
 write_quality_ledger(status_path, report_card_path)
 
+release_authority_manifest_path: pathlib.Path | None = None
+release_authority_bundle_path: pathlib.Path | None = None
+
+if RELEASE_GRADE_MATERIALIZED:
+    release_authority_manifest_path = build_release_authority_manifest(status_path)
+    release_authority_bundle_path = write_release_authority_audit_bundle(
+        status_path=status_path,
+        report_path=report_card_path,
+        manifest_path=release_authority_manifest_path,
+    )
+
 print("Wrote", status_path)
 print("Wrote", report_card_path)
+if release_authority_manifest_path is not None:
+    print("Wrote", release_authority_manifest_path)
+if release_authority_bundle_path is not None:
+    print("Wrote", release_authority_bundle_path)
 print("Wrote", stability_map_path)
 print(
     "Logged EPF hazard probe:",

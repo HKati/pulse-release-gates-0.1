@@ -25,6 +25,7 @@ RELEASE_REQUIRED_GATES = [
     "detectors_materialized_ok",
     "external_summaries_present",
     "external_all_pass",
+    "refusal_delta_evidence_present",
 ]
 
 VALID_PASS_STATES = {"PASS", "PROD-PASS"}
@@ -48,7 +49,12 @@ def _load_json(path: Path, label: str, errors: list[str]) -> dict[str, Any] | No
     return data
 
 
-def _section(obj: dict[str, Any], key: str, errors: list[str], label: str) -> dict[str, Any]:
+def _section(
+    obj: dict[str, Any],
+    key: str,
+    errors: list[str],
+    label: str,
+) -> dict[str, Any]:
     value = obj.get(key)
     if not isinstance(value, dict):
         errors.append(f"{label}.{key} must be an object")
@@ -58,7 +64,10 @@ def _section(obj: dict[str, Any], key: str, errors: list[str], label: str) -> di
 
 def _gate_true(gates: dict[str, Any], gate: str, errors: list[str]) -> None:
     if gates.get(gate) is not True:
-        errors.append(f"status.gates.{gate} must be literal true for a release-grade reference run")
+        errors.append(
+            f"status.gates.{gate} must be literal true "
+            "for a release-grade reference run"
+        )
 
 
 def _check_status(status: dict[str, Any], errors: list[str]) -> None:
@@ -67,14 +76,27 @@ def _check_status(status: dict[str, Any], errors: list[str]) -> None:
 
     run_mode = metrics.get("run_mode")
     if run_mode != "prod":
-        errors.append(f"status.metrics.run_mode must be 'prod' for a release-grade reference run (got {run_mode!r})")
+        errors.append(
+            "status.metrics.run_mode must be 'prod' for a release-grade "
+            f"reference run (got {run_mode!r})"
+        )
 
-    if "diagnostics" in status:
-        diagnostics = status.get("diagnostics")
-        if not isinstance(diagnostics, dict):
-            errors.append("status.diagnostics must be an object when present")
-        elif diagnostics.get("gates_stubbed") is True:
-            errors.append("status.diagnostics.gates_stubbed must not be true for a release-grade reference run")
+    diagnostics = status.get("diagnostics")
+    if not isinstance(diagnostics, dict):
+        errors.append(
+            "status.diagnostics must be an object for a release-grade reference run"
+        )
+    else:
+        if diagnostics.get("gates_stubbed") is not False:
+            errors.append(
+                "status.diagnostics.gates_stubbed must be explicit false "
+                "for a release-grade reference run"
+            )
+        if diagnostics.get("scaffold") is not False:
+            errors.append(
+                "status.diagnostics.scaffold must be explicit false "
+                "for a release-grade reference run"
+            )
 
     for gate in RELEASE_REQUIRED_GATES:
         _gate_true(gates, gate, errors)
@@ -83,7 +105,10 @@ def _check_status(status: dict[str, Any], errors: list[str]) -> None:
 def _check_manifest(manifest: dict[str, Any], errors: list[str]) -> None:
     schema_version = manifest.get("schema_version")
     if schema_version != "release_authority_v0":
-        errors.append(f"manifest.schema_version must be 'release_authority_v0' (got {schema_version!r})")
+        errors.append(
+            "manifest.schema_version must be 'release_authority_v0' "
+            f"(got {schema_version!r})"
+        )
 
     run_identity = _section(manifest, "run_identity", errors, "manifest")
     authority = _section(manifest, "authority", errors, "manifest")
@@ -92,7 +117,10 @@ def _check_manifest(manifest: dict[str, Any], errors: list[str]) -> None:
 
     manifest_run_mode = run_identity.get("run_mode")
     if manifest_run_mode != "prod":
-        errors.append(f"manifest.run_identity.run_mode must be 'prod' (got {manifest_run_mode!r})")
+        errors.append(
+            f"manifest.run_identity.run_mode must be 'prod' "
+            f"(got {manifest_run_mode!r})"
+        )
 
     policy_set = authority.get("policy_set")
     if policy_set != "required+release_required":
@@ -116,27 +144,29 @@ def _check_manifest(manifest: dict[str, Any], errors: list[str]) -> None:
     ]
     if missing_release_required:
         errors.append(
-            "manifest.authority.effective_required_gates must include release-required gates: "
-            f"{missing_release_required}"
+            "manifest.authority.effective_required_gates must include "
+            f"release-required gates: {missing_release_required}"
         )
 
     failed_required = evaluation.get("failed_required_gates")
     if failed_required not in ([], None):
         errors.append(
-            "manifest.evaluation.failed_required_gates must be empty for a successful release-grade reference run"
+            "manifest.evaluation.failed_required_gates must be empty "
+            "for a successful release-grade reference run"
         )
 
     missing_required = evaluation.get("missing_required_gates")
     if missing_required not in ([], None):
         errors.append(
-            "manifest.evaluation.missing_required_gates must be empty for a successful release-grade reference run"
+            "manifest.evaluation.missing_required_gates must be empty "
+            "for a successful release-grade reference run"
         )
 
     state = decision.get("state")
     if state not in VALID_PASS_STATES:
         errors.append(
-            "manifest.decision.state must be PASS or PROD-PASS for a successful release-grade reference run "
-            f"(got {state!r})"
+            "manifest.decision.state must be PASS or PROD-PASS for a successful "
+            f"release-grade reference run (got {state!r})"
         )
 
     if decision.get("fail_closed") is not True:
@@ -147,8 +177,10 @@ def _check_manifest(manifest: dict[str, Any], errors: list[str]) -> None:
         if not isinstance(diagnostics, dict):
             errors.append("manifest.diagnostics must be an object when present")
         elif diagnostics.get("shadow_surfaces_non_normative") is not True:
-            errors.append("manifest.diagnostics.shadow_surfaces_non_normative must be true when diagnostics is present")
-            
+            errors.append(
+                "manifest.diagnostics.shadow_surfaces_non_normative must be true "
+                "when diagnostics is present"
+            )
 
 
 def _check_optional_file(path: Path | None, label: str, errors: list[str]) -> None:
@@ -178,7 +210,10 @@ def check_release_grade_reference_run(
 
     if audit_bundle_dir is not None:
         if not audit_bundle_dir.exists() or not audit_bundle_dir.is_dir():
-            errors.append(f"release authority audit bundle directory not found: {audit_bundle_dir}")
+            errors.append(
+                f"release authority audit bundle directory not found: "
+                f"{audit_bundle_dir}"
+            )
         else:
             for name in ("report_card.html", "release_authority_v0.json", "status.json"):
                 if not (audit_bundle_dir / name).exists():
@@ -189,7 +224,10 @@ def check_release_grade_reference_run(
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Check whether a PULSE run qualifies as a release-grade reference run v0."
+        description=(
+            "Check whether a PULSE run qualifies as a release-grade "
+            "reference run v0."
+        )
     )
     parser.add_argument(
         "--status",

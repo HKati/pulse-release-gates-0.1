@@ -26,7 +26,8 @@
     "q4_slo_ok": true,
     "detectors_materialized_ok": true,
     "external_summaries_present": true,
-    "external_all_pass": true
+    "external_all_pass": true,
+    "refusal_delta_evidence_present": true
   },
   "external": {
     "summaries_present": true,
@@ -49,6 +50,7 @@
   },
   "diagnostics": {
     "gates_stubbed": false,
-    "stub_profile": null
+    "stub_profile": null,
+    "scaffold": false
   }
 }
