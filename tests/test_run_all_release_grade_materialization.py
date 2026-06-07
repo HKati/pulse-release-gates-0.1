@@ -1,432 +1,538 @@
+#!/usr/bin/env python3
+from __future__ import annotations
+
 import json
-import os
 import pathlib
 import subprocess
 import sys
 from typing import Any
 
-REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
+import pytest
 
-from PULSE_safe_pack_v0.tools.check_release_grade_reference_run_v0 import (
-    check_release_grade_reference_run,
+
+REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
+CHECKER = (
+    REPO_ROOT
+    / "PULSE_safe_pack_v0"
+    / "tools"
+    / "check_release_grade_reference_run_v0.py"
 )
 
-
-RUN_ALL = REPO_ROOT / "PULSE_safe_pack_v0" / "tools" / "run_all.py"
-POLICY = REPO_ROOT / "pulse_gate_policy_v0.yml"
-AUDIT_BUNDLE_DIRNAME = "release_authority_audit_bundle"
-
-MATERIALIZED_GATES = {
-    "pass_controls_refusal": True,
-    "effect_present": True,
-    "psf_monotonicity_ok": True,
-    "psf_mono_shift_resilient": True,
-    "pass_controls_comm": True,
-    "psf_commutativity_ok": True,
-    "psf_comm_shift_resilient": True,
-    "pass_controls_sanit": True,
-    "sanitization_effective": True,
-    "sanit_shift_resilient": True,
-    "psf_action_monotonicity_ok": True,
-    "psf_idempotence_ok": True,
-    "psf_path_independence_ok": True,
-    "psf_pii_monotonicity_ok": True,
-    "q1_grounded_ok": True,
-    "q2_consistency_ok": True,
-    "q3_fairness_ok": True,
-    "q4_slo_ok": True,
-}
+RELEASE_REQUIRED_GATES = [
+    "detectors_materialized_ok",
+    "external_summaries_present",
+    "external_all_pass",
+    "refusal_delta_evidence_present",
+]
 
 
-def _write_json(path: pathlib.Path, payload: dict[str, Any]) -> None:
+def write_json(path: pathlib.Path, payload: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
 
 
-def _read_json(path: pathlib.Path) -> dict[str, Any]:
-    return json.loads(path.read_text(encoding="utf-8"))
-
-
-def _combined_output(result: subprocess.CompletedProcess[str]) -> str:
-    return f"{result.stdout}\n{result.stderr}"
-
-
-def _prepare_release_grade_inputs(
-    art: pathlib.Path,
-    *,
-    detector_evidence: bool = True,
-    detector_evidence_path: str = "detector_evidence.json",
-    detector_manifest_extra: dict[str, Any] | None = None,
-    external: dict[str, Any] | None = None,
-    refusal_n: int = 1,
-    refusal_pass: bool = True,
-) -> None:
-    if detector_evidence:
-        _write_json(
-            art / detector_evidence_path,
-            {"source": "unit-test detector evidence"},
-        )
-
-    detector_manifest: dict[str, Any] = {
-        "schema_version": "detector_materialization_v0",
-        "materialized": True,
-        "gates_stubbed": False,
-        "scaffold": False,
-        "gates": MATERIALIZED_GATES,
-        "evidence": [{"path": detector_evidence_path}],
-    }
-    if detector_manifest_extra:
-        detector_manifest.update(detector_manifest_extra)
-
-    _write_json(art / "detector_materialization_v0.json", detector_manifest)
-
-    if external is not None:
-        _write_json(art / "external" / "llamaguard_summary.json", external)
-
-    _write_json(
-        art / "refusal_delta_summary.json",
-        {
-            "n": refusal_n,
-            "pass": refusal_pass,
-            "delta": 0.2,
-            "ci_low": 0.1,
-            "ci_high": 0.3,
+def valid_status() -> dict[str, Any]:
+    return {
+        "version": "1.0.0",
+        "created_utc": "2026-01-01T00:00:00Z",
+        "metrics": {
+            "run_mode": "prod",
         },
-    )
+        "gates": {
+            "detectors_materialized_ok": True,
+            "external_summaries_present": True,
+            "external_all_pass": True,
+            "refusal_delta_evidence_present": True,
+        },
+        "diagnostics": {
+            "gates_stubbed": False,
+            "scaffold": False,
+        },
+    }
 
 
-def _run_prod(
-    art: pathlib.Path,
-    *,
-    release_grade_materialized: bool = False,
+def valid_manifest() -> dict[str, Any]:
+    return {
+        "schema_version": "release_authority_v0",
+        "run_identity": {
+            "run_mode": "prod",
+        },
+        "authority": {
+            "policy_set": "required+release_required",
+            "release_required_materialized": True,
+            "effective_required_gates": list(RELEASE_REQUIRED_GATES),
+        },
+        "evaluation": {
+            "failed_required_gates": [],
+            "missing_required_gates": [],
+        },
+        "decision": {
+            "state": "PROD-PASS",
+            "fail_closed": True,
+        },
+        "diagnostics": {
+            "shadow_surfaces_non_normative": True,
+        },
+    }
+
+
+def run_checker(
+    tmp_path: pathlib.Path,
+    status: dict[str, Any],
+    manifest: dict[str, Any],
+    *extra_args: str,
 ) -> subprocess.CompletedProcess[str]:
-    env = os.environ.copy()
-    env.pop("PULSE_RUN_MODE", None)
-    env.pop("PULSE_RELEASE_GRADE_MATERIALIZED", None)
-    env["PULSE_ARTIFACT_DIR"] = str(art)
+    status_path = tmp_path / "status.json"
+    manifest_path = tmp_path / "release_authority_v0.json"
 
-    cmd = [
-        sys.executable,
-        str(RUN_ALL),
-        "--mode",
-        "prod",
-        "--pack_dir",
-        str(REPO_ROOT / "PULSE_safe_pack_v0"),
-        "--gate_policy",
-        str(POLICY),
-    ]
-
-    if release_grade_materialized:
-        cmd.append("--release-grade-materialized")
-        env["PULSE_RELEASE_GRADE_MATERIALIZED"] = "1"
+    write_json(status_path, status)
+    write_json(manifest_path, manifest)
 
     return subprocess.run(
-        cmd,
+        [
+            sys.executable,
+            str(CHECKER),
+            "--status",
+            str(status_path),
+            "--manifest",
+            str(manifest_path),
+            *extra_args,
+        ],
         cwd=str(REPO_ROOT),
-        env=env,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
     )
 
 
-def _run_mode(
-    art: pathlib.Path,
-    *,
-    mode: str,
-    release_grade_materialized: bool = False,
-) -> subprocess.CompletedProcess[str]:
-    env = os.environ.copy()
-    env.pop("PULSE_RUN_MODE", None)
-    env.pop("PULSE_RELEASE_GRADE_MATERIALIZED", None)
-    env["PULSE_ARTIFACT_DIR"] = str(art)
+def test_valid_release_grade_reference_run_passes(tmp_path: pathlib.Path) -> None:
+    result = run_checker(tmp_path, valid_status(), valid_manifest())
 
-    cmd = [
-        sys.executable,
-        str(RUN_ALL),
-        "--mode",
-        mode,
-        "--pack_dir",
-        str(REPO_ROOT / "PULSE_safe_pack_v0"),
-        "--gate_policy",
-        str(POLICY),
+    assert result.returncode == 0, result.stderr
+    assert "OK: release-grade reference run criteria satisfied" in result.stdout
+
+
+def test_non_prod_status_fails_reference_run_check(tmp_path: pathlib.Path) -> None:
+    status = valid_status()
+    status["metrics"]["run_mode"] = "core"
+
+    result = run_checker(tmp_path, status, valid_manifest())
+
+    assert result.returncode != 0
+    assert "status.metrics.run_mode must be 'prod'" in result.stderr
+
+
+def test_stubbed_gate_surface_fails_reference_run_check(
+    tmp_path: pathlib.Path,
+) -> None:
+    status = valid_status()
+    status["diagnostics"]["gates_stubbed"] = True
+
+    result = run_checker(tmp_path, status, valid_manifest())
+
+    assert result.returncode != 0
+    assert "status.diagnostics.gates_stubbed must be explicit false" in result.stderr
+
+
+def test_scaffold_surface_fails_reference_run_check(
+    tmp_path: pathlib.Path,
+) -> None:
+    status = valid_status()
+    status["diagnostics"]["scaffold"] = True
+
+    result = run_checker(tmp_path, status, valid_manifest())
+
+    assert result.returncode != 0
+    assert "status.diagnostics.scaffold must be explicit false" in result.stderr
+
+
+@pytest.mark.parametrize("bad_diagnostics", [[], False, "", 0, None])
+def test_malformed_status_diagnostics_fails_reference_run_check(
+    tmp_path: pathlib.Path,
+    bad_diagnostics: object,
+) -> None:
+    status = valid_status()
+    status["diagnostics"] = bad_diagnostics
+
+    result = run_checker(tmp_path, status, valid_manifest())
+
+    assert result.returncode != 0
+    assert (
+        "status.diagnostics must be an object for a release-grade reference run"
+        in result.stderr
+    )
+
+
+@pytest.mark.parametrize("gate", RELEASE_REQUIRED_GATES)
+def test_missing_or_false_release_required_status_gate_fails(
+    tmp_path: pathlib.Path,
+    gate: str,
+) -> None:
+    status = valid_status()
+    status["gates"][gate] = False
+
+    result = run_checker(tmp_path, status, valid_manifest())
+
+    assert result.returncode != 0
+    assert f"status.gates.{gate} must be literal true" in result.stderr
+
+
+def test_missing_status_metrics_section_fails(tmp_path: pathlib.Path) -> None:
+    status = valid_status()
+    status.pop("metrics")
+
+    result = run_checker(tmp_path, status, valid_manifest())
+
+    assert result.returncode != 0
+    assert "status.metrics must be an object" in result.stderr
+
+
+def test_missing_status_gates_section_fails(tmp_path: pathlib.Path) -> None:
+    status = valid_status()
+    status.pop("gates")
+
+    result = run_checker(tmp_path, status, valid_manifest())
+
+    assert result.returncode != 0
+    assert "status.gates must be an object" in result.stderr
+
+
+def test_manifest_schema_version_must_match(tmp_path: pathlib.Path) -> None:
+    manifest = valid_manifest()
+    manifest["schema_version"] = "wrong_schema"
+
+    result = run_checker(tmp_path, valid_status(), manifest)
+
+    assert result.returncode != 0
+    assert "manifest.schema_version must be 'release_authority_v0'" in result.stderr
+
+
+def test_manifest_run_mode_must_be_prod(tmp_path: pathlib.Path) -> None:
+    manifest = valid_manifest()
+    manifest["run_identity"]["run_mode"] = "core"
+
+    result = run_checker(tmp_path, valid_status(), manifest)
+
+    assert result.returncode != 0
+    assert "manifest.run_identity.run_mode must be 'prod'" in result.stderr
+
+
+def test_manifest_policy_set_must_be_release_grade(tmp_path: pathlib.Path) -> None:
+    manifest = valid_manifest()
+    manifest["authority"]["policy_set"] = "core_required"
+
+    result = run_checker(tmp_path, valid_status(), manifest)
+
+    assert result.returncode != 0
+    assert (
+        "manifest.authority.policy_set must be 'required+release_required'"
+        in result.stderr
+    )
+
+
+def test_manifest_release_required_materialized_must_be_true(
+    tmp_path: pathlib.Path,
+) -> None:
+    manifest = valid_manifest()
+    manifest["authority"]["release_required_materialized"] = False
+
+    result = run_checker(tmp_path, valid_status(), manifest)
+
+    assert result.returncode != 0
+    assert (
+        "manifest.authority.release_required_materialized must be true"
+        in result.stderr
+    )
+
+
+def test_manifest_effective_required_gates_must_be_array(
+    tmp_path: pathlib.Path,
+) -> None:
+    manifest = valid_manifest()
+    manifest["authority"]["effective_required_gates"] = "not-an-array"
+
+    result = run_checker(tmp_path, valid_status(), manifest)
+
+    assert result.returncode != 0
+    assert "manifest.authority.effective_required_gates must be an array" in result.stderr
+
+
+def test_manifest_effective_required_gates_must_include_release_required(
+    tmp_path: pathlib.Path,
+) -> None:
+    manifest = valid_manifest()
+    manifest["authority"]["effective_required_gates"] = [
+        gate
+        for gate in RELEASE_REQUIRED_GATES
+        if gate != "refusal_delta_evidence_present"
     ]
 
-    if release_grade_materialized:
-        cmd.append("--release-grade-materialized")
-        env["PULSE_RELEASE_GRADE_MATERIALIZED"] = "1"
+    result = run_checker(tmp_path, valid_status(), manifest)
 
-    return subprocess.run(
-        cmd,
+    assert result.returncode != 0
+    assert (
+        "manifest.authority.effective_required_gates must include release-required gates"
+        in result.stderr
+    )
+    assert "refusal_delta_evidence_present" in result.stderr
+
+
+def test_manifest_failed_required_gates_must_be_empty(
+    tmp_path: pathlib.Path,
+) -> None:
+    manifest = valid_manifest()
+    manifest["evaluation"]["failed_required_gates"] = ["external_all_pass"]
+
+    result = run_checker(tmp_path, valid_status(), manifest)
+
+    assert result.returncode != 0
+    assert "manifest.evaluation.failed_required_gates must be empty" in result.stderr
+
+
+def test_manifest_missing_required_gates_must_be_empty(
+    tmp_path: pathlib.Path,
+) -> None:
+    manifest = valid_manifest()
+    manifest["evaluation"]["missing_required_gates"] = [
+        "refusal_delta_evidence_present"
+    ]
+
+    result = run_checker(tmp_path, valid_status(), manifest)
+
+    assert result.returncode != 0
+    assert "manifest.evaluation.missing_required_gates must be empty" in result.stderr
+
+
+def test_manifest_decision_state_must_be_pass_state(
+    tmp_path: pathlib.Path,
+) -> None:
+    manifest = valid_manifest()
+    manifest["decision"]["state"] = "FAIL"
+
+    result = run_checker(tmp_path, valid_status(), manifest)
+
+    assert result.returncode != 0
+    assert "manifest.decision.state must be PASS or PROD-PASS" in result.stderr
+
+
+def test_manifest_decision_fail_closed_must_be_true(
+    tmp_path: pathlib.Path,
+) -> None:
+    manifest = valid_manifest()
+    manifest["decision"]["fail_closed"] = False
+
+    result = run_checker(tmp_path, valid_status(), manifest)
+
+    assert result.returncode != 0
+    assert "manifest.decision.fail_closed must be true" in result.stderr
+
+
+def test_manifest_optional_diagnostics_must_be_object_when_present(
+    tmp_path: pathlib.Path,
+) -> None:
+    manifest = valid_manifest()
+    manifest["diagnostics"] = []
+
+    result = run_checker(tmp_path, valid_status(), manifest)
+
+    assert result.returncode != 0
+    assert "manifest.diagnostics must be an object when present" in result.stderr
+
+
+def test_manifest_optional_diagnostics_must_mark_shadow_surfaces_non_normative(
+    tmp_path: pathlib.Path,
+) -> None:
+    manifest = valid_manifest()
+    manifest["diagnostics"]["shadow_surfaces_non_normative"] = False
+
+    result = run_checker(tmp_path, valid_status(), manifest)
+
+    assert result.returncode != 0
+    assert (
+        "manifest.diagnostics.shadow_surfaces_non_normative must be true"
+        in result.stderr
+    )
+
+
+def test_optional_report_and_audit_bundle_checks(tmp_path: pathlib.Path) -> None:
+    report = tmp_path / "report_card.html"
+    report.write_text("<html><body>ledger</body></html>\n", encoding="utf-8")
+
+    bundle = tmp_path / "release_authority_audit_bundle"
+    bundle.mkdir()
+    (bundle / "report_card.html").write_text("ledger\n", encoding="utf-8")
+    (bundle / "release_authority_v0.json").write_text("{}\n", encoding="utf-8")
+    (bundle / "status.json").write_text("{}\n", encoding="utf-8")
+
+    result = run_checker(
+        tmp_path,
+        valid_status(),
+        valid_manifest(),
+        "--report",
+        str(report),
+        "--audit-bundle-dir",
+        str(bundle),
+    )
+
+    assert result.returncode == 0, result.stderr
+
+
+def test_missing_optional_report_fails_when_supplied(tmp_path: pathlib.Path) -> None:
+    missing_report = tmp_path / "missing_report_card.html"
+
+    result = run_checker(
+        tmp_path,
+        valid_status(),
+        valid_manifest(),
+        "--report",
+        str(missing_report),
+    )
+
+    assert result.returncode != 0
+    assert "Quality Ledger report not found" in result.stderr
+
+
+def test_missing_audit_bundle_dir_fails_when_supplied(
+    tmp_path: pathlib.Path,
+) -> None:
+    missing_bundle = tmp_path / "missing_bundle"
+
+    result = run_checker(
+        tmp_path,
+        valid_status(),
+        valid_manifest(),
+        "--audit-bundle-dir",
+        str(missing_bundle),
+    )
+
+    assert result.returncode != 0
+    assert "release authority audit bundle directory not found" in result.stderr
+
+
+def test_missing_audit_bundle_member_fails_when_supplied(
+    tmp_path: pathlib.Path,
+) -> None:
+    bundle = tmp_path / "release_authority_audit_bundle"
+    bundle.mkdir()
+    (bundle / "report_card.html").write_text("ledger\n", encoding="utf-8")
+    (bundle / "status.json").write_text("{}\n", encoding="utf-8")
+
+    result = run_checker(
+        tmp_path,
+        valid_status(),
+        valid_manifest(),
+        "--audit-bundle-dir",
+        str(bundle),
+    )
+
+    assert result.returncode != 0
+    assert (
+        "release authority audit bundle missing release_authority_v0.json"
+        in result.stderr
+    )
+
+
+def test_missing_manifest_file_fails(tmp_path: pathlib.Path) -> None:
+    status_path = tmp_path / "status.json"
+    manifest_path = tmp_path / "missing_release_authority_v0.json"
+
+    write_json(status_path, valid_status())
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(CHECKER),
+            "--status",
+            str(status_path),
+            "--manifest",
+            str(manifest_path),
+        ],
         cwd=str(REPO_ROOT),
-        env=env,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
     )
 
-
-def _load_status(art: pathlib.Path) -> dict[str, Any]:
-    return _read_json(art / "status.json")
-
-
-def test_plain_prod_fails_closed_without_explicit_materialized_opt_in(
-    tmp_path: pathlib.Path,
-) -> None:
-    result = _run_prod(tmp_path)
-
     assert result.returncode != 0
-    output = _combined_output(result).lower()
-    assert "release-grade" in output
-    assert "materialized" in output
-    assert not (tmp_path / "status.json").exists()
+    assert "release_authority_v0.json not found" in result.stderr
 
 
-def test_release_grade_materialized_opt_in_is_prod_only(
-    tmp_path: pathlib.Path,
-) -> None:
-    result = _run_mode(
-        tmp_path,
-        mode="core",
-        release_grade_materialized=True,
-    )
-
-    assert result.returncode != 0
-    output = _combined_output(result).lower()
-    assert "prod" in output
-    assert not (tmp_path / "status.json").exists()
-
-
-def test_prod_release_grade_fails_closed_before_status_when_detector_materialization_missing(
-    tmp_path: pathlib.Path,
-) -> None:
-    result = _run_prod(tmp_path, release_grade_materialized=True)
-
-    assert result.returncode != 0
-    assert "missing detector materialization artifact" in _combined_output(result)
-    assert not (tmp_path / "status.json").exists()
-
-
-def test_prod_release_grade_non_stubbed_candidate_materializes_required_artifacts(
-    tmp_path: pathlib.Path,
-) -> None:
-    _prepare_release_grade_inputs(tmp_path, external={"rate": 0.0})
-
-    result = _run_prod(tmp_path, release_grade_materialized=True)
-
-    assert result.returncode == 0, _combined_output(result)
-
-    status = _load_status(tmp_path)
-    assert status["metrics"]["run_mode"] == "prod"
-    assert status["diagnostics"]["gates_stubbed"] is False
-    assert status["diagnostics"]["scaffold"] is False
-    assert status["gates"]["detectors_materialized_ok"] is True
-    assert status["gates"]["external_summaries_present"] is True
-    assert status["gates"]["external_all_pass"] is True
-    assert status["gates"]["refusal_delta_evidence_present"] is True
-    assert status["gates"]["refusal_delta_pass"] is True
-
+def test_missing_status_file_fails(tmp_path: pathlib.Path) -> None:
+    status_path = tmp_path / "missing_status.json"
     manifest_path = tmp_path / "release_authority_v0.json"
-    report_path = tmp_path / "report_card.html"
-    bundle = tmp_path / AUDIT_BUNDLE_DIRNAME
 
-    assert manifest_path.exists()
-    assert report_path.exists()
-    assert bundle.exists()
-    assert (bundle / "status.json").exists()
-    assert (bundle / "report_card.html").exists()
-    assert (bundle / "release_authority_v0.json").exists()
+    write_json(manifest_path, valid_manifest())
 
-    bundled_status = _read_json(bundle / "status.json")
-    assert bundled_status["metrics"]["run_mode"] == "prod"
-    assert bundled_status["diagnostics"]["gates_stubbed"] is False
-    assert bundled_status["diagnostics"]["scaffold"] is False
-
-    _read_json(manifest_path)
-    _read_json(bundle / "release_authority_v0.json")
-
-    errors = check_release_grade_reference_run(
-        status_path=tmp_path / "status.json",
-        manifest_path=manifest_path,
-        report_path=report_path,
-        audit_bundle_dir=bundle,
-    )
-    assert errors == []
-
-
-def test_detectors_materialized_ok_requires_existing_detector_evidence(
-    tmp_path: pathlib.Path,
-) -> None:
-    _prepare_release_grade_inputs(
-        tmp_path,
-        detector_evidence=False,
-        detector_evidence_path="missing_detector_evidence.json",
-        external={"rate": 0.0},
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(CHECKER),
+            "--status",
+            str(status_path),
+            "--manifest",
+            str(manifest_path),
+        ],
+        cwd=str(REPO_ROOT),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
     )
 
-    result = _run_prod(tmp_path, release_grade_materialized=True)
-
     assert result.returncode != 0
-    assert "detector materialization evidence file not found" in _combined_output(result)
-    assert not (tmp_path / "status.json").exists()
+    assert "status.json not found" in result.stderr
 
 
-def test_prod_rejects_stubbed_detector_materialization_manifest(
-    tmp_path: pathlib.Path,
-) -> None:
-    _prepare_release_grade_inputs(tmp_path, external={"rate": 0.0})
-
-    manifest_path = tmp_path / "detector_materialization_v0.json"
-    manifest = _read_json(manifest_path)
-    manifest["gates_stubbed"] = True
-    _write_json(manifest_path, manifest)
-
-    result = _run_prod(tmp_path, release_grade_materialized=True)
-
-    assert result.returncode != 0
-    assert "stub" in _combined_output(result).lower()
-    assert not (tmp_path / "status.json").exists()
-
-
-def test_prod_rejects_scaffold_detector_materialization_manifest(
-    tmp_path: pathlib.Path,
-) -> None:
-    _prepare_release_grade_inputs(tmp_path, external={"rate": 0.0})
-
-    manifest_path = tmp_path / "detector_materialization_v0.json"
-    manifest = _read_json(manifest_path)
-    manifest["scaffold"] = True
-    _write_json(manifest_path, manifest)
-
-    result = _run_prod(tmp_path, release_grade_materialized=True)
-
-    assert result.returncode != 0
-    assert "scaffold" in _combined_output(result).lower()
-    assert not (tmp_path / "status.json").exists()
-
-
-def test_prod_rejects_non_boolean_materialized_gate_outcome(
-    tmp_path: pathlib.Path,
-) -> None:
-    _prepare_release_grade_inputs(tmp_path, external={"rate": 0.0})
-
-    manifest_path = tmp_path / "detector_materialization_v0.json"
-    manifest = _read_json(manifest_path)
-    manifest["gates"]["q1_grounded_ok"] = "true"
-    _write_json(manifest_path, manifest)
-
-    result = _run_prod(tmp_path, release_grade_materialized=True)
-
-    assert result.returncode != 0
-    output = _combined_output(result).lower()
-    assert "boolean" in output or "literal" in output
-    assert not (tmp_path / "status.json").exists()
-
-
-def test_prod_rejects_materialization_manifest_without_materialized_true(
-    tmp_path: pathlib.Path,
-) -> None:
-    _prepare_release_grade_inputs(tmp_path, external={"rate": 0.0})
-
-    manifest_path = tmp_path / "detector_materialization_v0.json"
-    manifest = _read_json(manifest_path)
-    manifest["materialized"] = False
-    _write_json(manifest_path, manifest)
-
-    result = _run_prod(tmp_path, release_grade_materialized=True)
-
-    assert result.returncode != 0
-    output = _combined_output(result).lower()
-    assert "materialized" in output
-    assert not (tmp_path / "status.json").exists()
-
-
-def test_external_release_gates_require_real_canonical_parseable_summary(
-    tmp_path: pathlib.Path,
-) -> None:
-    _prepare_release_grade_inputs(tmp_path, external=None)
-    _write_json(tmp_path / "external" / "decoy_summary.json", {"rate": 0.0})
-
-    result = _run_prod(tmp_path, release_grade_materialized=True)
-
-    assert result.returncode != 0
-    assert "external_summaries_present" in _combined_output(result)
-
-    assert not (tmp_path / "release_authority_v0.json").exists()
-
-
-def test_external_release_gates_reject_malformed_canonical_summary(
-    tmp_path: pathlib.Path,
-) -> None:
-    _prepare_release_grade_inputs(tmp_path, external=None)
-    external_path = tmp_path / "external" / "llamaguard_summary.json"
-    external_path.parent.mkdir(parents=True, exist_ok=True)
-    external_path.write_text("{not valid json", encoding="utf-8")
-
-    result = _run_prod(tmp_path, release_grade_materialized=True)
-
-    assert result.returncode != 0
-    output = _combined_output(result).lower()
-    assert "external" in output
-    assert "summary" in output
-    assert not (tmp_path / "release_authority_v0.json").exists()
-
-
-def test_refusal_delta_evidence_requires_summary_with_positive_n(
-    tmp_path: pathlib.Path,
-) -> None:
-    _prepare_release_grade_inputs(tmp_path, external={"rate": 0.0}, refusal_n=0)
-
-    result = _run_prod(tmp_path, release_grade_materialized=True)
-
-    assert result.returncode != 0
-    assert "refusal_delta_evidence_present" in _combined_output(result)
-    assert not (tmp_path / "release_authority_v0.json").exists()
-
-
-def test_refusal_delta_evidence_requires_passing_summary(
-    tmp_path: pathlib.Path,
-) -> None:
-    _prepare_release_grade_inputs(
-        tmp_path,
-        external={"rate": 0.0},
-        refusal_n=1,
-        refusal_pass=False,
-    )
-
-    result = _run_prod(tmp_path, release_grade_materialized=True)
-
-    assert result.returncode != 0
-    output = _combined_output(result)
-    assert "refusal_delta" in output
-    assert not (tmp_path / "release_authority_v0.json").exists()
-
-
-def test_release_grade_checker_reports_missing_manifest_and_audit_bundle_files(
-    tmp_path: pathlib.Path,
-) -> None:
-    _prepare_release_grade_inputs(tmp_path, external={"rate": 0.0})
-
-    result = _run_prod(tmp_path, release_grade_materialized=True)
-    assert result.returncode == 0, _combined_output(result)
-
+def test_malformed_status_json_fails(tmp_path: pathlib.Path) -> None:
+    status_path = tmp_path / "status.json"
     manifest_path = tmp_path / "release_authority_v0.json"
-    manifest_path.unlink()
 
-    bundle = tmp_path / AUDIT_BUNDLE_DIRNAME
-    (bundle / "report_card.html").unlink()
+    status_path.write_text("{not valid json", encoding="utf-8")
+    write_json(manifest_path, valid_manifest())
 
-    errors = check_release_grade_reference_run(
-        status_path=tmp_path / "status.json",
-        manifest_path=manifest_path,
-        report_path=tmp_path / "report_card.html",
-        audit_bundle_dir=bundle,
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(CHECKER),
+            "--status",
+            str(status_path),
+            "--manifest",
+            str(manifest_path),
+        ],
+        cwd=str(REPO_ROOT),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
     )
 
-    assert any("release_authority_v0.json not found" in error for error in errors)
-    assert any(
-        "release authority audit bundle missing report_card.html" in error
-        for error in errors
+    assert result.returncode != 0
+    assert "status.json is not valid JSON" in result.stderr
+
+
+def test_malformed_manifest_json_fails(tmp_path: pathlib.Path) -> None:
+    status_path = tmp_path / "status.json"
+    manifest_path = tmp_path / "release_authority_v0.json"
+
+    write_json(status_path, valid_status())
+    manifest_path.write_text("{not valid json", encoding="utf-8")
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(CHECKER),
+            "--status",
+            str(status_path),
+            "--manifest",
+            str(manifest_path),
+        ],
+        cwd=str(REPO_ROOT),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
     )
+
+    assert result.returncode != 0
+    assert "release_authority_v0.json is not valid JSON" in result.stderr
+
+
+if __name__ == "__main__":
+    raise SystemExit(pytest.main([__file__]))
