@@ -89,3 +89,14 @@ If you add/rename a doc under `docs/`, please update this index.
 ## Release evidence verification
 
 - [PULSE_RELEASE_EVIDENCE_VERIFIER_v0.md](PULSE_RELEASE_EVIDENCE_VERIFIER_v0.md) — Informational reference note for the future trusted verifier boundary required before release-grade evidence can materialize release-required gates.
+
+
+f there is already a suitable section such as `Release evidence verification`, `Reference`, `Orientation & contracts`, or `Terminology / language rules`, place the entry there.
+
+
+## Release-state transformation
+
+- [PULSE_RELEASE_STATE_TRANSFORMATION_v0.md](PULSE_RELEASE_STATE_TRANSFORMATION_v0.md) — Informational reference note for reading PULSEmech as a closed release-state transformation path.
+
+
+
