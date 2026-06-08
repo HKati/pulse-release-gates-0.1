@@ -288,9 +288,7 @@ def _evidence_inputs_from_manifest(
         actual_sha256 = _sha256_file(resolved_path)
         sha_matches = actual_sha256 == expected_sha256
         if not sha_matches:
-            failed_checks.append(
-                f"candidate evidence digest mismatch: {evidence_id}"
-            )
+            failed_checks.append(f"candidate evidence digest mismatch: {evidence_id}")
 
         try:
             out.append(
@@ -313,7 +311,9 @@ def _evidence_inputs_from_manifest(
                 )
             )
         except Exception as exc:  # noqa: BLE001
-            failed_checks.append(f"candidate evidence could not be recorded: {evidence_id}: {exc}")
+            failed_checks.append(
+                f"candidate evidence could not be recorded: {evidence_id}: {exc}"
+            )
 
     if out:
         warnings.append(
@@ -322,6 +322,107 @@ def _evidence_inputs_from_manifest(
         )
 
     return out
+
+
+def _record_manifest_expectation_comparison(
+    *,
+    manifest: dict[str, Any],
+    recorded_evidence_inputs: list[dict[str, Any]],
+    failed_checks: list[str],
+    warnings: list[str],
+) -> None:
+    """Record explicit pending expectation state from an input manifest.
+
+    This does not verify evidence.
+    This does not satisfy relations.
+    This does not materialize gates.
+
+    It only makes the pre-materialization gap visible in the FAILED report.
+    """
+    candidate_evidence = manifest.get("candidate_evidence")
+    expected_relations = manifest.get("expected_relation_bindings")
+    expected_gates = manifest.get("expected_gate_materialization")
+
+    candidate_map = candidate_evidence if isinstance(candidate_evidence, dict) else {}
+    relation_map = expected_relations if isinstance(expected_relations, dict) else {}
+    gate_map = expected_gates if isinstance(expected_gates, dict) else {}
+
+    recorded_candidate_ids = {
+        provenance.get("candidate_evidence_id")
+        for item in recorded_evidence_inputs
+        if isinstance(item, dict)
+        for provenance in [item.get("provenance")]
+        if isinstance(provenance, dict)
+    }
+
+    warnings.append(
+        "input manifest expectation comparison is fail-closed and descriptive only"
+    )
+    warnings.append(
+        "input manifest declares "
+        f"{len(candidate_map)} candidate evidence item(s), "
+        f"{len(relation_map)} expected relation binding(s), and "
+        f"{len(gate_map)} expected gate materialization item(s)"
+    )
+
+    for evidence_id in sorted(candidate_map.keys(), key=str):
+        if evidence_id not in recorded_candidate_ids:
+            failed_checks.append(
+                f"expected candidate evidence not recorded: {evidence_id}"
+            )
+        else:
+            failed_checks.append(
+                f"expected candidate evidence recorded but not verified: {evidence_id}"
+            )
+
+    for relation_id, relation in sorted(relation_map.items(), key=lambda item: str(item[0])):
+        failed_checks.append(
+            f"expected relation binding pending verification: {relation_id}"
+        )
+
+        if not isinstance(relation, dict):
+            continue
+
+        source_evidence_id = relation.get("source_evidence_id")
+        if source_evidence_id not in candidate_map:
+            failed_checks.append(
+                f"expected relation binding references missing candidate evidence: "
+                f"{relation_id} -> {source_evidence_id}"
+            )
+
+        expected_gate_id = relation.get("expected_gate_id")
+        if expected_gate_id is not None and expected_gate_id not in gate_map:
+            failed_checks.append(
+                f"expected relation binding references missing expected gate: "
+                f"{relation_id} -> {expected_gate_id}"
+            )
+
+    for gate_id, gate in sorted(gate_map.items(), key=lambda item: str(item[0])):
+        failed_checks.append(
+            f"expected gate materialization pending verification: {gate_id}"
+        )
+
+        if not isinstance(gate, dict):
+            continue
+
+        for evidence_id in gate.get("candidate_evidence_ids", []):
+            if evidence_id not in candidate_map:
+                failed_checks.append(
+                    f"expected gate materialization references missing candidate "
+                    f"evidence: {gate_id} -> {evidence_id}"
+                )
+            elif evidence_id not in recorded_candidate_ids:
+                failed_checks.append(
+                    f"expected gate materialization candidate evidence not recorded: "
+                    f"{gate_id} -> {evidence_id}"
+                )
+
+        for relation_id in gate.get("relation_binding_ids", []):
+            if relation_id not in relation_map:
+                failed_checks.append(
+                    f"expected gate materialization references missing expected "
+                    f"relation: {gate_id} -> {relation_id}"
+                )
 
 
 def build_report(
@@ -350,7 +451,9 @@ def build_report(
         manifest_subject = manifest.get("subject")
         if isinstance(manifest_subject, dict):
             repository = repository or manifest_subject.get("repository")
-            release_candidate = release_candidate or manifest_subject.get("release_candidate")
+            release_candidate = release_candidate or manifest_subject.get(
+                "release_candidate"
+            )
             commit_sha = commit_sha or manifest_subject.get("commit_sha")
 
     failed_checks = [
@@ -369,6 +472,12 @@ def build_report(
                 failed_checks=failed_checks,
                 warnings=warnings,
             )
+        )
+        _record_manifest_expectation_comparison(
+            manifest=manifest,
+            recorded_evidence_inputs=evidence_inputs,
+            failed_checks=failed_checks,
+            warnings=warnings,
         )
         failed_checks.append(
             "input manifest expectations are recorded only; verification is not implemented"
@@ -393,7 +502,10 @@ def build_report(
             )
 
     if not evidence_inputs:
-        failed_checks.append("no candidate evidence inputs were supplied")
+        if manifest is None and not evidence_args:
+            failed_checks.append("no candidate evidence inputs were supplied")
+        else:
+            failed_checks.append("no candidate evidence inputs were recorded")
     else:
         failed_checks.append(
             "candidate evidence inputs are recorded only; verification is not implemented"
@@ -447,7 +559,10 @@ def build_report(
 
 def write_json(path: pathlib.Path, payload: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    path.write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
 
 
 def main() -> int:
