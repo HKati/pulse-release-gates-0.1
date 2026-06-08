@@ -566,3 +566,44 @@ The input manifest checker fails closed when:
 - expected gates reference missing relation bindings
 - any expected gate permits materialization without verifier output
 
+
+# Input manifest wiring in the fail-closed builder skeleton
+
+The fail-closed verifier report builder can consume an input manifest:
+
+```text
+python PULSE_safe_pack_v0/tools/build_release_evidence_verifier_report_v0.py \
+  --input-manifest examples/release_evidence_input_manifest_v0.minimal.example.json \
+  --out PULSE_safe_pack_v0/artifacts/release_evidence_verifier_report_v0.json
+```
+
+The builder validates the input manifest with:
+
+```text
+PULSE_safe_pack_v0/tools/check_release_evidence_input_manifest_v0.py
+```
+
+When the input manifest is valid, the builder may record candidate evidence inputs with digests and untrusted provenance.
+
+The builder still emits:
+
+```text
+verifier_decision = FAILED
+verified_artifacts = []
+relation_bindings = []
+gate_materialization = {}
+```
+
+The builder does not verify evidence.
+
+It does not satisfy relation bindings.
+
+It does not emit VERIFIED.
+
+It does not materialize gates.
+
+It does not write status.json.
+
+It does not reopen `--release-grade-materialized`.
+
+If the input manifest is invalid, the builder fails closed and does not write a verifier report.
