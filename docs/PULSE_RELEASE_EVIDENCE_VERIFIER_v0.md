@@ -57,10 +57,18 @@ python PULSE_safe_pack_v0/tools/check_release_evidence_verifier_report_v0.py \
   --report examples/release_evidence_verifier_report_v0.failed.example.json
 ```
 
-The checker validates the verifier report schema when `jsonschema` is available, then applies relation integrity checks.
+The checker requires `jsonschema` for verifier report schema validation.
+
+If `jsonschema` is unavailable, the checker fails closed.
+
+Partial fallback validation is not allowed for `release_evidence_verifier_report_v0` reports.
+
+After full schema validation, the checker applies relation integrity checks.
 
 It fails closed when:
 
+- `jsonschema` is unavailable
+- schema validation cannot be completed
 - `relation_bindings[].relation_id` values are duplicated
 - `gate_materialization.*.relation_bindings[]` references a missing relation ID
 - a referenced relation binding is not `verified=true`
