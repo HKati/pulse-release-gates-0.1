@@ -1,0 +1,215 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pulse.local/schemas/release_evidence_expectation_summary_v0.schema.json",
+  "title": "PULSE Release Evidence Expectation Summary v0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "created_utc",
+    "summary_id",
+    "summary_version",
+    "source_report",
+    "summary",
+    "pre_materialization_gaps",
+    "warnings",
+    "authority_boundary"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "release_evidence_expectation_summary_v0"
+    },
+    "created_utc": {
+      "type": "string",
+      "minLength": 1
+    },
+    "summary_id": {
+      "const": "pulse_release_evidence_expectation_summary_v0"
+    },
+    "summary_version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source_report": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "sha256",
+        "verifier_decision"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-fA-F]{64}$"
+        },
+        "verifier_decision": {
+          "type": "string",
+          "enum": [
+            "VERIFIED",
+            "FAILED"
+          ]
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "verifier_readiness",
+        "evidence_inputs_total",
+        "verified_artifacts_total",
+        "relation_bindings_total",
+        "gate_materialization_total",
+        "failed_checks_total",
+        "warnings_total",
+        "candidate_evidence_not_verified_count",
+        "missing_candidate_evidence_count",
+        "digest_mismatch_count",
+        "pending_relation_binding_count",
+        "pending_gate_materialization_count",
+        "other_failed_check_count"
+      ],
+      "properties": {
+        "verifier_readiness": {
+          "type": "string",
+          "enum": [
+            "NOT_READY",
+            "REPORT_VERIFIED_NON_AUTHORITY"
+          ]
+        },
+        "evidence_inputs_total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "verified_artifacts_total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "relation_bindings_total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "gate_materialization_total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "failed_checks_total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "warnings_total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "candidate_evidence_not_verified_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "missing_candidate_evidence_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "digest_mismatch_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "pending_relation_binding_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "pending_gate_materialization_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "other_failed_check_count": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "pre_materialization_gaps": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/pre_materialization_gap"
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "authority_boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "is_release_authority",
+        "materializes_gates",
+        "writes_status_json",
+        "reopens_release_grade_materialization",
+        "replaces_check_gates"
+      ],
+      "properties": {
+        "is_release_authority": {
+          "const": false
+        },
+        "materializes_gates": {
+          "const": false
+        },
+        "writes_status_json": {
+          "const": false
+        },
+        "reopens_release_grade_materialization": {
+          "const": false
+        },
+        "replaces_check_gates": {
+          "const": false
+        }
+      }
+    }
+  },
+  "$defs": {
+    "pre_materialization_gap": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "id",
+        "message"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "candidate_evidence_not_verified",
+            "missing_candidate_evidence",
+            "digest_mismatch",
+            "pending_relation_binding",
+            "pending_gate_materialization",
+            "missing_gate_candidate_evidence",
+            "no_candidate_evidence",
+            "no_verified_relation_bindings",
+            "no_gate_materialization",
+            "other_failed_check"
+          ]
+        },
+        "id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  }
+}
