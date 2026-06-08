@@ -607,3 +607,32 @@ It does not write status.json.
 It does not reopen `--release-grade-materialized`.
 
 If the input manifest is invalid, the builder fails closed and does not write a verifier report.
+
+
+## Input manifest expectation comparison
+
+When the fail-closed builder consumes an input manifest, it records the manifest expectations as pending verifier work.
+
+The builder compares the input manifest’s declared expectations against the fail-closed report state and records descriptive failed checks for:
+
+- expected candidate evidence that was not recorded
+- expected candidate evidence that was recorded but not verified
+- expected relation bindings that remain pending verification
+- expected gate materialization entries that remain pending verification
+- expected gate materialization candidate evidence that was not recorded
+
+This comparison is pre-materialization diagnostics only.
+
+It does not verify evidence.
+
+It does not satisfy relation bindings.
+
+It does not emit `VERIFIED`.
+
+It does not materialize gates.
+
+It does not write `status.json`.
+
+It does not reopen `--release-grade-materialized`.
+
+Its purpose is to make the pre-materialization gap visible inside the fail-closed verifier report.
