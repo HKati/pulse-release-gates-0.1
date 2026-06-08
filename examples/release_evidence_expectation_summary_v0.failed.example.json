@@ -1,53 +1,35 @@
 {
-  "authority_boundary": {
-    "is_release_authority": false,
-    "materializes_gates": false,
-    "reopens_release_grade_materialization": false,
-    "replaces_check_gates": false,
-    "writes_status_json": false
-  },
   "created_utc": "2026-01-01T00:00:00Z",
-  "pre_materialization_gaps": [
-    {
-      "id": "detector_report",
-      "kind": "candidate_evidence_not_verified",
-      "message": "expected candidate evidence recorded but not verified: detector_report"
-    },
-    {
-      "id": "detector_report_to_subject_commit",
-      "kind": "pending_relation_binding",
-      "message": "expected relation binding pending verification: detector_report_to_subject_commit"
-    },
-    {
-      "id": "detectors_materialized_ok",
-      "kind": "pending_gate_materialization",
-      "message": "expected gate materialization pending verification: detectors_materialized_ok"
-    }
+  "evidence_inputs": [],
+  "failed_checks": [
+    "trusted verifier is not implemented",
+    "no verified relation bindings present"
   ],
-  "schema_version": "release_evidence_expectation_summary_v0",
-  "source_report": {
-    "path": "PULSE_safe_pack_v0/artifacts/release_evidence_verifier_report_v0.json",
-    "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-    "verifier_decision": "FAILED"
+  "gate_materialization": {},
+  "policy_binding": {
+    "policy_path": "pulse_gate_policy_v0.yml",
+    "policy_set": "required+release_required",
+    "policy_sha256": null
   },
-  "summary": {
-    "candidate_evidence_not_verified_count": 1,
-    "digest_mismatch_count": 0,
-    "evidence_inputs_total": 1,
-    "failed_checks_total": 3,
-    "gate_materialization_total": 0,
-    "missing_candidate_evidence_count": 0,
-    "other_failed_check_count": 0,
-    "pending_gate_materialization_count": 1,
-    "pending_relation_binding_count": 1,
-    "relation_bindings_total": 0,
-    "verified_artifacts_total": 0,
-    "verifier_readiness": "NOT_READY",
-    "warnings_total": 1
+  "registry_binding": {
+    "registry_path": "pulse_gate_registry_v0.yml",
+    "registry_sha256": null
   },
-  "summary_id": "pulse_release_evidence_expectation_summary_v0",
-  "summary_version": "0.1.0",
-  "warnings": [
-    "input manifest expectation comparison is fail-closed and descriptive only"
-  ]
+  "relation_bindings": [],
+  "run_identity": {
+    "git_sha": null,
+    "run_key": null,
+    "run_mode": "prod"
+  },
+  "schema_version": "release_evidence_verifier_report_v0",
+  "subject": {
+    "commit_sha": null,
+    "release_candidate": null,
+    "repository": null
+  },
+  "verified_artifacts": [],
+  "verifier_decision": "FAILED",
+  "verifier_id": "pulse_release_evidence_verifier_v0",
+  "verifier_version": "0.1.0",
+  "warnings": []
 }
