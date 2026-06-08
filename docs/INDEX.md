@@ -102,3 +102,7 @@ f there is already a suitable section such as `Release evidence verification`, `
 
 - [PULSE_PRE_MATERIALIZATION_GATE_MECHANICS_v0.md](PULSE_PRE_MATERIALIZATION_GATE_MECHANICS_v0.md) — Informational reference note for pre-materialization gate mechanics and relation-binding pre-state hooks.
 
+
+## Release evidence expectation summary
+
+- [PULSE_RELEASE_EVIDENCE_EXPECTATION_SUMMARY_v0.md](PULSE_RELEASE_EVIDENCE_EXPECTATION_SUMMARY_v0.md) — Reader-only diagnostic summary for pre-materialization evidence, relation, and gate-materialization gaps.
