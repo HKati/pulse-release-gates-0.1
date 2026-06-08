@@ -57,27 +57,20 @@ def _validate_schema(
     schema_path: Path,
     errors: list[str],
 ) -> None:
-    schema = _load_json(schema_path, "release_evidence_verifier_report_v0 schema", errors)
+    schema = _load_json(
+        schema_path,
+        "release_evidence_verifier_report_v0 schema",
+        errors,
+    )
     if schema is None:
         return
 
     if jsonschema is None:
-        required = schema.get("required")
-        if isinstance(required, list):
-            for key in required:
-                if key not in report:
-                    errors.append(f"schema validation error at <root>: {key!r} is required")
-
-        if report.get("schema_version") != "release_evidence_verifier_report_v0":
-            errors.append(
-                "schema validation error at schema_version: must be "
-                "'release_evidence_verifier_report_v0'"
-            )
-
-        if report.get("verifier_decision") not in {"VERIFIED", "FAILED"}:
-            errors.append(
-                "schema validation error at verifier_decision: must be VERIFIED or FAILED"
-            )
+        errors.append(
+            "jsonschema is required for "
+            "release_evidence_verifier_report_v0 schema validation; "
+            "partial fallback validation is not allowed"
+        )
         return
 
     try:
@@ -178,6 +171,7 @@ def _check_gate_relation_refs(
                     f"duplicate relation reference: {relation_id}"
                 )
                 continue
+
             seen_refs.add(relation_id)
 
             relation = relation_by_id.get(relation_id)
