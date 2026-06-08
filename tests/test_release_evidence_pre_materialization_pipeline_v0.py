@@ -34,6 +34,14 @@ HEX40 = "a" * 40
 HEX64 = "b" * 64
 RUN_KEY = "GITHUB_RUN_ID=1|GITHUB_RUN_NUMBER=1|GITHUB_WORKFLOW=PULSE CI"
 
+AUTHORITY_ARTIFACT_NAMES = (
+    "status.json",
+    "report_card.html",
+    "release_authority_v0.json",
+    "release_authority_audit_bundle",
+    "release-authority-audit-bundle",
+)
+
 
 def _load_json(path: pathlib.Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
@@ -91,17 +99,106 @@ def _input_manifest(
     return manifest
 
 
-def _assert_no_release_authority_artifacts(base: pathlib.Path) -> None:
-    assert not (base / "status.json").exists()
-    assert not (base / "report_card.html").exists()
-    assert not (base / "release_authority_v0.json").exists()
-    assert not (base / "release_authority_audit_bundle").exists()
-    assert not (base / "release-authority-audit-bundle").exists()
+def _sha256_file(path: pathlib.Path) -> str:
+    h = hashlib.sha256()
+    with path.open("rb") as f:
+        for chunk in iter(lambda: f.read(65536), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def _path_fingerprint(path: pathlib.Path) -> dict[str, Any]:
+    """Return a stable-enough fingerprint for authority-artifact side effects.
+
+    The contract needs to catch accidental writes in the execution root, not only
+    under tmp_path.  Include mtime_ns so an overwrite of the same bytes is still
+    visible to this test.
+    """
+    if not path.exists():
+        return {"kind": "missing"}
+
+    stat = path.stat()
+    if path.is_file():
+        return {
+            "kind": "file",
+            "sha256": _sha256_file(path),
+            "size": stat.st_size,
+            "mtime_ns": stat.st_mtime_ns,
+        }
+
+    if path.is_dir():
+        entries: list[tuple[Any, ...]] = [
+            ("dir-root", stat.st_mtime_ns),
+        ]
+        for child in sorted(path.rglob("*"), key=lambda p: str(p.relative_to(path))):
+            rel = str(child.relative_to(path))
+            child_stat = child.stat()
+            if child.is_file():
+                entries.append(
+                    (
+                        "file",
+                        rel,
+                        _sha256_file(child),
+                        child_stat.st_size,
+                        child_stat.st_mtime_ns,
+                    )
+                )
+            elif child.is_dir():
+                entries.append(("dir", rel, child_stat.st_mtime_ns))
+            else:
+                entries.append(("other", rel, child_stat.st_mtime_ns))
+        return {
+            "kind": "dir",
+            "entries": entries,
+        }
+
+    return {
+        "kind": "other",
+        "mtime_ns": stat.st_mtime_ns,
+    }
+
+
+def _authority_artifact_paths(tmp_root: pathlib.Path) -> list[pathlib.Path]:
+    """Return all locations where authority artifacts must not appear/change.
+
+    The subprocesses run with cwd=REPO_ROOT, so the invariant must watch:
+    - the temp pipeline workspace;
+    - the repository execution root;
+    - the default safe-pack artifacts directory.
+    """
+    roots = (
+        tmp_root,
+        REPO_ROOT,
+        REPO_ROOT / "PULSE_safe_pack_v0" / "artifacts",
+    )
+
+    return [
+        root / artifact_name
+        for root in roots
+        for artifact_name in AUTHORITY_ARTIFACT_NAMES
+    ]
+
+
+def _authority_artifact_snapshot(tmp_root: pathlib.Path) -> dict[str, dict[str, Any]]:
+    return {
+        str(path): _path_fingerprint(path)
+        for path in _authority_artifact_paths(tmp_root)
+    }
+
+
+def _assert_authority_artifacts_unchanged(
+    before: dict[str, dict[str, Any]],
+    tmp_root: pathlib.Path,
+) -> None:
+    after = _authority_artifact_snapshot(tmp_root)
+    assert after == before
 
 
 def test_pre_materialization_pipeline_exposes_gaps_without_authority(
     tmp_path: pathlib.Path,
 ) -> None:
+    authority_before = _authority_artifact_snapshot(tmp_path)
+
     evidence_path = tmp_path / "detector_report.json"
     _write_json(
         evidence_path,
@@ -174,7 +271,7 @@ def test_pre_materialization_pipeline_exposes_gaps_without_authority(
         "materialized by skeleton"
     ) in failed_checks
 
-    _assert_no_release_authority_artifacts(tmp_path)
+    _assert_authority_artifacts_unchanged(authority_before, tmp_path)
 
     build_summary = _run(
         str(BUILD_EXPECTATION_SUMMARY),
@@ -214,12 +311,14 @@ def test_pre_materialization_pipeline_exposes_gaps_without_authority(
     assert boundary["reopens_release_grade_materialization"] is False
     assert boundary["replaces_check_gates"] is False
 
-    _assert_no_release_authority_artifacts(tmp_path)
+    _assert_authority_artifacts_unchanged(authority_before, tmp_path)
 
 
 def test_pre_materialization_pipeline_digest_mismatch_is_visible_but_non_authorizing(
     tmp_path: pathlib.Path,
 ) -> None:
+    authority_before = _authority_artifact_snapshot(tmp_path)
+
     evidence_path = tmp_path / "detector_report.json"
     _write_json(
         evidence_path,
@@ -263,6 +362,8 @@ def test_pre_materialization_pipeline_digest_mismatch_is_visible_but_non_authori
         "actual_sha256_matches_expected"
     ] is False
 
+    _assert_authority_artifacts_unchanged(authority_before, tmp_path)
+
     build_summary = _run(
         str(BUILD_EXPECTATION_SUMMARY),
         "--report",
@@ -281,12 +382,14 @@ def test_pre_materialization_pipeline_digest_mismatch_is_visible_but_non_authori
         for gap in summary["pre_materialization_gaps"]
     )
 
-    _assert_no_release_authority_artifacts(tmp_path)
+    _assert_authority_artifacts_unchanged(authority_before, tmp_path)
 
 
 def test_pre_materialization_pipeline_missing_candidate_stays_failed(
     tmp_path: pathlib.Path,
 ) -> None:
+    authority_before = _authority_artifact_snapshot(tmp_path)
+
     missing_evidence_path = tmp_path / "missing_detector_report.json"
 
     manifest_path = tmp_path / "release_evidence_input_manifest_v0.json"
@@ -326,6 +429,8 @@ def test_pre_materialization_pipeline_missing_candidate_stays_failed(
         "detectors_materialized_ok -> detector_report"
     ) in failed_checks
 
+    _assert_authority_artifacts_unchanged(authority_before, tmp_path)
+
     build_summary = _run(
         str(BUILD_EXPECTATION_SUMMARY),
         "--report",
@@ -342,12 +447,14 @@ def test_pre_materialization_pipeline_missing_candidate_stays_failed(
     assert "missing_candidate_evidence" in gap_kinds
     assert "missing_gate_candidate_evidence" in gap_kinds
 
-    _assert_no_release_authority_artifacts(tmp_path)
+    _assert_authority_artifacts_unchanged(authority_before, tmp_path)
 
 
 def test_pre_materialization_pipeline_invalid_manifest_fails_before_report(
     tmp_path: pathlib.Path,
 ) -> None:
+    authority_before = _authority_artifact_snapshot(tmp_path)
+
     evidence_path = tmp_path / "detector_report.json"
     _write_json(evidence_path, {"schema_version": "detector_report_v0"})
     evidence_sha256 = hashlib.sha256(evidence_path.read_bytes()).hexdigest()
@@ -379,7 +486,7 @@ def test_pre_materialization_pipeline_invalid_manifest_fails_before_report(
     assert not verifier_report_path.exists()
     assert not summary_path.exists()
 
-    _assert_no_release_authority_artifacts(tmp_path)
+    _assert_authority_artifacts_unchanged(authority_before, tmp_path)
 
 
 if __name__ == "__main__":
