@@ -1,7 +1,7 @@
 {
   "candidate_evidence": {
     "detector_report": {
-      "expected_sha256": null,
+      "expected_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
       "kind": "detector_evidence",
       "path": "artifacts/detectors/detector_report.json",
       "provenance_expectations": {
