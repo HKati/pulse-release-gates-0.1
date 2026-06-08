@@ -148,3 +148,12 @@ It does not satisfy them.
 It makes the pre-materialization gap readable.
 
 It does not close the gap.
+
+## Pre-materialization pipeline contract
+
+The pre-materialization pipeline contract verifies the reader-only chain:
+
+```text
+release_evidence_input_manifest_v0
+→ release_evidence_verifier_report_v0
+→ release_evidence_expectation_summary_v0
