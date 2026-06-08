@@ -16,6 +16,7 @@
     "registry_binding",
     "evidence_inputs",
     "verified_artifacts",
+    "relation_bindings",
     "gate_materialization",
     "failed_checks",
     "warnings"
@@ -158,6 +159,12 @@
         "$ref": "#/$defs/verified_artifact"
       }
     },
+    "relation_bindings": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/relation_binding"
+      }
+    },
     "gate_materialization": {
       "type": "object",
       "propertyNames": {
@@ -281,6 +288,82 @@
         }
       }
     },
+    "relation_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "relation_id",
+        "binding_type",
+        "source",
+        "target",
+        "verified",
+        "evidence"
+      ],
+      "properties": {
+        "relation_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "binding_type": {
+          "type": "string",
+          "enum": [
+            "artifact_to_subject",
+            "artifact_to_run",
+            "artifact_to_policy",
+            "artifact_to_registry",
+            "artifact_to_digest",
+            "artifact_to_detector",
+            "artifact_to_gate",
+            "gate_to_policy",
+            "gate_to_verifier_decision"
+          ]
+        },
+        "source": {
+          "type": "string",
+          "minLength": 1
+        },
+        "target": {
+          "type": "string",
+          "minLength": 1
+        },
+        "verified": {
+          "type": "boolean"
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/verified_artifact"
+          }
+        },
+        "failure_reason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "verified_relation_binding": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/relation_binding"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "verified": {
+              "const": true
+            },
+            "evidence": {
+              "minItems": 1
+            },
+            "failure_reason": {
+              "type": "null"
+            }
+          }
+        }
+      ]
+    },
     "gate_materialization_entry": {
       "type": "object",
       "additionalProperties": false,
@@ -289,6 +372,7 @@
         "source",
         "verified",
         "evidence_artifacts",
+        "relation_bindings",
         "policy_relation"
       ],
       "properties": {
@@ -306,6 +390,14 @@
           "minItems": 1,
           "items": {
             "$ref": "#/$defs/verified_artifact"
+          }
+        },
+        "relation_bindings": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
           }
         },
         "policy_relation": {
@@ -359,6 +451,12 @@
           },
           "verified_artifacts": {
             "minItems": 1
+          },
+          "relation_bindings": {
+            "minItems": 1,
+            "items": {
+              "$ref": "#/$defs/verified_relation_binding"
+            }
           }
         }
       }

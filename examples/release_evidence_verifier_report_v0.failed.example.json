@@ -2,7 +2,8 @@
   "created_utc": "2026-01-01T00:00:00Z",
   "evidence_inputs": [],
   "failed_checks": [
-    "trusted verifier is not implemented"
+    "trusted verifier is not implemented",
+    "no verified relation bindings present"
   ],
   "gate_materialization": {},
   "policy_binding": {
@@ -14,6 +15,7 @@
     "registry_path": "pulse_gate_registry_v0.yml",
     "registry_sha256": null
   },
+  "relation_bindings": [],
   "run_identity": {
     "git_sha": null,
     "run_key": null,

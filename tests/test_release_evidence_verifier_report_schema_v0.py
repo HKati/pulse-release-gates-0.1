@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
-import copy
 import json
 import pathlib
 from typing import Any
@@ -22,10 +21,34 @@ FAILED_EXAMPLE_PATH = (
 
 HEX40 = "a" * 40
 HEX64 = "b" * 64
+RUN_KEY = "GITHUB_RUN_ID=1|GITHUB_RUN_NUMBER=1|GITHUB_WORKFLOW=PULSE CI"
 
 
 def _load_json(path: pathlib.Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _verified_artifact() -> dict[str, Any]:
+    return {
+        "path": "artifacts/detectors/detector_report.json",
+        "sha256": HEX64,
+        "schema_version": "detector_report_v0",
+        "verified": True,
+    }
+
+
+def _relation_binding() -> dict[str, Any]:
+    return {
+        "relation_id": "detector_report_to_subject_commit",
+        "binding_type": "artifact_to_subject",
+        "source": "artifacts/detectors/detector_report.json",
+        "target": "subject.commit_sha",
+        "verified": True,
+        "evidence": [
+            _verified_artifact()
+        ],
+        "failure_reason": None,
+    }
 
 
 def _minimal_verified_report() -> dict[str, Any]:
@@ -37,7 +60,7 @@ def _minimal_verified_report() -> dict[str, Any]:
         "verifier_decision": "VERIFIED",
         "run_identity": {
             "run_mode": "prod",
-            "run_key": "GITHUB_RUN_ID=1|GITHUB_RUN_NUMBER=1|GITHUB_WORKFLOW=PULSE CI",
+            "run_key": RUN_KEY,
             "git_sha": HEX40,
         },
         "subject": {
@@ -62,7 +85,7 @@ def _minimal_verified_report() -> dict[str, Any]:
                 "schema_version": "detector_report_v0",
                 "subject_binding": {
                     "git_sha": HEX40,
-                    "run_key": "GITHUB_RUN_ID=1|GITHUB_RUN_NUMBER=1|GITHUB_WORKFLOW=PULSE CI",
+                    "run_key": RUN_KEY,
                 },
                 "provenance": {
                     "producer": "unit-test"
@@ -70,12 +93,10 @@ def _minimal_verified_report() -> dict[str, Any]:
             }
         ],
         "verified_artifacts": [
-            {
-                "path": "artifacts/detectors/detector_report.json",
-                "sha256": HEX64,
-                "schema_version": "detector_report_v0",
-                "verified": True,
-            }
+            _verified_artifact()
+        ],
+        "relation_bindings": [
+            _relation_binding()
         ],
         "gate_materialization": {
             "detectors_materialized_ok": {
@@ -83,12 +104,10 @@ def _minimal_verified_report() -> dict[str, Any]:
                 "source": "release_evidence_verifier_report_v0",
                 "verified": True,
                 "evidence_artifacts": [
-                    {
-                        "path": "artifacts/detectors/detector_report.json",
-                        "sha256": HEX64,
-                        "schema_version": "detector_report_v0",
-                        "verified": True,
-                    }
+                    _verified_artifact()
+                ],
+                "relation_bindings": [
+                    "detector_report_to_subject_commit"
                 ],
                 "policy_relation": "release_required",
             }
@@ -119,10 +138,18 @@ def _validate(instance: dict[str, Any]) -> None:
         assert instance["failed_checks"] == []
         assert instance["gate_materialization"]
         assert instance["verified_artifacts"]
+        assert instance["relation_bindings"]
+
+        for relation in instance["relation_bindings"]:
+            assert relation["verified"] is True
+            assert relation["evidence"]
+            assert relation.get("failure_reason") is None
+
         for gate in instance["gate_materialization"].values():
             assert gate["source"] == "release_evidence_verifier_report_v0"
             assert gate["verified"] is True
             assert gate["evidence_artifacts"]
+            assert gate["relation_bindings"]
 
 
 def _validation_errors(instance: dict[str, Any]) -> list[str]:
@@ -161,6 +188,15 @@ def test_release_authority_words_are_not_verifier_decisions() -> None:
     assert errors
 
 
+def test_allow_is_not_a_verifier_decision() -> None:
+    report = _minimal_verified_report()
+    report["verifier_decision"] = "ALLOW"
+
+    errors = _validation_errors(report)
+
+    assert errors
+
+
 def test_failed_report_requires_failed_checks() -> None:
     report = _load_json(FAILED_EXAMPLE_PATH)
     report["failed_checks"] = []
@@ -173,6 +209,42 @@ def test_failed_report_requires_failed_checks() -> None:
 def test_verified_report_requires_gate_materialization() -> None:
     report = _minimal_verified_report()
     report["gate_materialization"] = {}
+
+    errors = _validation_errors(report)
+
+    assert errors
+
+
+def test_verified_report_requires_relation_bindings() -> None:
+    report = _minimal_verified_report()
+    report["relation_bindings"] = []
+
+    errors = _validation_errors(report)
+
+    assert errors
+
+
+def test_verified_relation_binding_must_be_verified() -> None:
+    report = _minimal_verified_report()
+    report["relation_bindings"][0]["verified"] = False
+
+    errors = _validation_errors(report)
+
+    assert errors
+
+
+def test_verified_relation_binding_requires_evidence() -> None:
+    report = _minimal_verified_report()
+    report["relation_bindings"][0]["evidence"] = []
+
+    errors = _validation_errors(report)
+
+    assert errors
+
+
+def test_verified_relation_binding_failure_reason_must_be_null() -> None:
+    report = _minimal_verified_report()
+    report["relation_bindings"][0]["failure_reason"] = "stale relation"
 
     errors = _validation_errors(report)
 
@@ -194,6 +266,17 @@ def test_gate_materialization_requires_verified_artifact_binding() -> None:
     report = _minimal_verified_report()
     report["gate_materialization"]["detectors_materialized_ok"][
         "evidence_artifacts"
+    ] = []
+
+    errors = _validation_errors(report)
+
+    assert errors
+
+
+def test_gate_materialization_requires_relation_binding_ids() -> None:
+    report = _minimal_verified_report()
+    report["gate_materialization"]["detectors_materialized_ok"][
+        "relation_bindings"
     ] = []
 
     errors = _validation_errors(report)

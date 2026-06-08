@@ -98,5 +98,7 @@ f there is already a suitable section such as `Release evidence verification`, `
 
 - [PULSE_RELEASE_STATE_TRANSFORMATION_v0.md](PULSE_RELEASE_STATE_TRANSFORMATION_v0.md) — Informational reference note for reading PULSEmech as a closed release-state transformation path.
 
+## Pre-materialization mechanics
 
+- [PULSE_PRE_MATERIALIZATION_GATE_MECHANICS_v0.md](PULSE_PRE_MATERIALIZATION_GATE_MECHANICS_v0.md) — Informational reference note for pre-materialization gate mechanics and relation-binding pre-state hooks.
 
