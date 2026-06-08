@@ -33,7 +33,10 @@ def _load_json(path: pathlib.Path) -> dict[str, Any]:
 
 def _write_json(path: pathlib.Path, payload: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+    path.write_text(
+        json.dumps(payload, indent=2, sort_keys=True),
+        encoding="utf-8",
+    )
 
 
 def _run_tool(*args: str) -> subprocess.CompletedProcess[str]:
@@ -102,10 +105,15 @@ def test_build_failed_report_without_inputs(tmp_path: pathlib.Path) -> None:
     assert report["relation_bindings"] == []
     assert report["gate_materialization"] == {}
     assert any("does not verify evidence yet" in item for item in report["failed_checks"])
-    assert any("no verified relation bindings present" in item for item in report["failed_checks"])
+    assert any(
+        "no verified relation bindings present" in item
+        for item in report["failed_checks"]
+    )
 
 
-def test_candidate_evidence_is_recorded_but_not_verified(tmp_path: pathlib.Path) -> None:
+def test_candidate_evidence_is_recorded_but_not_verified(
+    tmp_path: pathlib.Path,
+) -> None:
     evidence_path = tmp_path / "detector_report.json"
     evidence_payload = {
         "schema_version": "detector_report_v0",
@@ -195,9 +203,30 @@ def test_input_manifest_records_existing_candidate_without_verifying(
     assert evidence_input["provenance"]["candidate_evidence_id"] == "detector_report"
     assert evidence_input["provenance"]["expected_sha256"] == evidence_sha256
     assert evidence_input["provenance"]["actual_sha256_matches_expected"] is True
+
     assert any(
         "input manifest expectations are recorded only" in item
         for item in report["failed_checks"]
+    )
+    assert any(
+        "expected candidate evidence recorded but not verified: detector_report"
+        in item
+        for item in report["failed_checks"]
+    )
+    assert any(
+        "expected relation binding pending verification: detector_report_to_subject_commit"
+        in item
+        for item in report["failed_checks"]
+    )
+    assert any(
+        "expected gate materialization pending verification: detectors_materialized_ok"
+        in item
+        for item in report["failed_checks"]
+    )
+    assert any(
+        "input manifest expectation comparison is fail-closed and descriptive only"
+        in item
+        for item in report["warnings"]
     )
 
 
@@ -276,6 +305,15 @@ def test_input_manifest_missing_candidate_writes_failed_report(
     assert report["evidence_inputs"] == []
     assert any(
         "candidate evidence declared by manifest is missing" in item
+        for item in report["failed_checks"]
+    )
+    assert any(
+        "expected candidate evidence not recorded: detector_report" in item
+        for item in report["failed_checks"]
+    )
+    assert any(
+        "expected gate materialization candidate evidence not recorded: "
+        "detectors_materialized_ok -> detector_report" in item
         for item in report["failed_checks"]
     )
 
