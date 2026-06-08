@@ -471,3 +471,45 @@ recorded release evidence
 → strict fail-closed CI enforcement
 → pre-deployment allow/block release decision
 ```
+
+## Fail-closed verifier report builder skeleton
+
+The fail-closed verifier report builder skeleton is:
+
+```text
+PULSE_safe_pack_v0/tools/build_release_evidence_verifier_report_v0.py
+```
+
+Example command:
+
+```text
+python PULSE_safe_pack_v0/tools/build_release_evidence_verifier_report_v0.py \
+  --out PULSE_safe_pack_v0/artifacts/release_evidence_verifier_report_v0.json
+```
+
+The builder emits a `release_evidence_verifier_report_v0.json` report with:
+
+```text
+verifier_decision = FAILED
+verified_artifacts = []
+relation_bindings = []
+gate_materialization = {}
+```
+
+Candidate evidence inputs may be recorded, hashed, and marked as untrusted candidate inputs.
+
+The builder does not verify evidence.
+
+It does not emit `VERIFIED`.
+
+It does not materialize gates.
+
+It does not write `status.json`.
+
+It does not reopen `--release-grade-materialized`.
+
+It does not replace `check_gates.py`.
+
+The builder validates its output through the release evidence verifier report checker.
+
+If the report is invalid or relation-integrity checks fail, the builder fails closed.
