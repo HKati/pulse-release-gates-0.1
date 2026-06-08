@@ -211,5 +211,97 @@
         }
       }
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "source_report": {
+            "properties": {
+              "verifier_decision": {
+                "const": "FAILED"
+              }
+            },
+            "required": [
+              "verifier_decision"
+            ]
+          }
+        },
+        "required": [
+          "source_report"
+        ]
+      },
+      "then": {
+        "properties": {
+          "summary": {
+            "properties": {
+              "verifier_readiness": {
+                "const": "NOT_READY"
+              },
+              "failed_checks_total": {
+                "minimum": 1
+              }
+            }
+          },
+          "pre_materialization_gaps": {
+            "minItems": 1
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "source_report": {
+            "properties": {
+              "verifier_decision": {
+                "const": "VERIFIED"
+              }
+            },
+            "required": [
+              "verifier_decision"
+            ]
+          }
+        },
+        "required": [
+          "source_report"
+        ]
+      },
+      "then": {
+        "properties": {
+          "summary": {
+            "properties": {
+              "verifier_readiness": {
+                "const": "REPORT_VERIFIED_NON_AUTHORITY"
+              },
+              "failed_checks_total": {
+                "const": 0
+              },
+              "candidate_evidence_not_verified_count": {
+                "const": 0
+              },
+              "missing_candidate_evidence_count": {
+                "const": 0
+              },
+              "digest_mismatch_count": {
+                "const": 0
+              },
+              "pending_relation_binding_count": {
+                "const": 0
+              },
+              "pending_gate_materialization_count": {
+                "const": 0
+              },
+              "other_failed_check_count": {
+                "const": 0
+              }
+            }
+          },
+          "pre_materialization_gaps": {
+            "maxItems": 0
+          }
+        }
+      }
+    }
+  ]
 }
