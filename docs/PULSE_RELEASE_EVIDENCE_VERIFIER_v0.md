@@ -41,3 +41,38 @@ unverified relation
 A relation binding is not release authority.
 
 A relation binding qualifies evidence for possible materialization only after verifier checks pass.
+
+## Relation binding integrity checker
+
+The verifier report relation-binding integrity checker is:
+
+```text
+PULSE_safe_pack_v0/tools/check_release_evidence_verifier_report_v0.py
+```
+
+Example command:
+
+```text
+python PULSE_safe_pack_v0/tools/check_release_evidence_verifier_report_v0.py \
+  --report examples/release_evidence_verifier_report_v0.failed.example.json
+```
+
+The checker validates the verifier report schema when `jsonschema` is available, then applies relation integrity checks.
+
+It fails closed when:
+
+- `relation_bindings[].relation_id` values are duplicated
+- `gate_materialization.*.relation_bindings[]` references a missing relation ID
+- a referenced relation binding is not `verified=true`
+- a `VERIFIED` gate materialization entry has no relation binding IDs
+- verifier decision values use release-authority wording such as `PASS` or `ALLOW`
+
+A `FAILED` report may have empty `gate_materialization`.
+
+The checker does not implement the verifier.
+
+It does not reopen `--release-grade-materialized`.
+
+It does not replace `check_gates.py`.
+
+It only checks whether a verifier report has internally consistent relation bindings.
