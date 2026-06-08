@@ -1,0 +1,33 @@
+{
+  "created_utc": "2026-01-01T00:00:00Z",
+  "evidence_inputs": [],
+  "failed_checks": [
+    "trusted verifier is not implemented"
+  ],
+  "gate_materialization": {},
+  "policy_binding": {
+    "policy_path": "pulse_gate_policy_v0.yml",
+    "policy_set": "required+release_required",
+    "policy_sha256": null
+  },
+  "registry_binding": {
+    "registry_path": "pulse_gate_registry_v0.yml",
+    "registry_sha256": null
+  },
+  "run_identity": {
+    "git_sha": null,
+    "run_key": null,
+    "run_mode": "prod"
+  },
+  "schema_version": "release_evidence_verifier_report_v0",
+  "subject": {
+    "commit_sha": null,
+    "release_candidate": null,
+    "repository": null
+  },
+  "verified_artifacts": [],
+  "verifier_decision": "FAILED",
+  "verifier_id": "pulse_release_evidence_verifier_v0",
+  "verifier_version": "0.1.0",
+  "warnings": []
+}
