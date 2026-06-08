@@ -29,6 +29,9 @@ REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+from PULSE_safe_pack_v0.tools.check_release_evidence_input_manifest_v0 import (  # noqa: E402
+    check_release_evidence_input_manifest,
+)
 from PULSE_safe_pack_v0.tools.check_release_evidence_verifier_report_v0 import (  # noqa: E402
     check_release_evidence_verifier_report,
 )
@@ -72,7 +75,9 @@ def _git_sha() -> str | None:
     env_sha = os.getenv("GITHUB_SHA") or os.getenv("CI_COMMIT_SHA")
     if isinstance(env_sha, str) and env_sha.strip():
         candidate = env_sha.strip()
-        if len(candidate) == 40 and all(c in "0123456789abcdefABCDEF" for c in candidate):
+        if len(candidate) == 40 and all(
+            c in "0123456789abcdefABCDEF" for c in candidate
+        ):
             return candidate
 
     try:
@@ -128,6 +133,18 @@ def _load_json_schema_hint(path: pathlib.Path) -> str | None:
     return None
 
 
+def _load_json_object(path: pathlib.Path, *, label: str) -> dict[str, Any]:
+    try:
+        obj = json.loads(path.read_text(encoding="utf-8"))
+    except Exception as exc:  # noqa: BLE001
+        raise ValueError(f"{label} is not valid JSON: {exc}") from exc
+
+    if not isinstance(obj, dict):
+        raise ValueError(f"{label} must be a JSON object: {path}")
+
+    return obj
+
+
 def _parse_evidence_arg(raw: str) -> tuple[str, pathlib.Path, str]:
     if "=" not in raw:
         raise ValueError(
@@ -160,9 +177,19 @@ def _evidence_input(
     raw_path: str,
     git_sha: str | None,
     run_key: str | None,
+    provenance_extra: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     if not path.exists() or not path.is_file():
         raise FileNotFoundError(f"candidate evidence file not found: {path}")
+
+    provenance = {
+        "observed_by": VERIFIER_ID,
+        "trusted": False,
+        "verification_status": "not_verified",
+        "note": "candidate input recorded by fail-closed verifier skeleton",
+    }
+    if provenance_extra:
+        provenance.update(provenance_extra)
 
     return {
         "kind": kind,
@@ -173,13 +200,128 @@ def _evidence_input(
             "git_sha": git_sha,
             "run_key": run_key,
         },
-        "provenance": {
-            "observed_by": VERIFIER_ID,
-            "trusted": False,
-            "verification_status": "not_verified",
-            "note": "candidate input recorded by fail-closed verifier skeleton",
-        },
+        "provenance": provenance,
     }
+
+
+def _policy_binding_from_paths(policy_path: pathlib.Path) -> dict[str, Any]:
+    return {
+        "policy_path": _repo_relative_or_input(policy_path, str(policy_path)),
+        "policy_sha256": _sha256_file(policy_path) if policy_path.exists() else None,
+        "policy_set": "required+release_required",
+    }
+
+
+def _registry_binding_from_paths(registry_path: pathlib.Path) -> dict[str, Any]:
+    return {
+        "registry_path": _repo_relative_or_input(registry_path, str(registry_path)),
+        "registry_sha256": _sha256_file(registry_path) if registry_path.exists() else None,
+    }
+
+
+def _validate_and_load_input_manifest(path: pathlib.Path) -> dict[str, Any]:
+    errors = check_release_evidence_input_manifest(path)
+    if errors:
+        joined = "\n  - ".join(errors)
+        raise ValueError(
+            "release evidence input manifest failed validation:\n"
+            f"  - {joined}"
+        )
+
+    return _load_json_object(path, label="release evidence input manifest")
+
+
+def _candidate_path(raw_path: str, manifest_path: pathlib.Path) -> pathlib.Path:
+    candidate = pathlib.Path(raw_path)
+    if candidate.is_absolute():
+        return candidate.resolve()
+
+    repo_candidate = (REPO_ROOT / candidate).resolve()
+    if repo_candidate.exists():
+        return repo_candidate
+
+    return (manifest_path.parent / candidate).resolve()
+
+
+def _evidence_inputs_from_manifest(
+    *,
+    manifest: dict[str, Any],
+    manifest_path: pathlib.Path,
+    git_sha: str | None,
+    run_key: str | None,
+    failed_checks: list[str],
+    warnings: list[str],
+) -> list[dict[str, Any]]:
+    candidate_evidence = manifest.get("candidate_evidence")
+    if not isinstance(candidate_evidence, dict):
+        failed_checks.append("input manifest has no candidate_evidence object")
+        return []
+
+    out: list[dict[str, Any]] = []
+
+    for evidence_id, entry in sorted(candidate_evidence.items(), key=lambda item: str(item[0])):
+        if not isinstance(entry, dict):
+            failed_checks.append(f"candidate evidence entry is not an object: {evidence_id}")
+            continue
+
+        kind = entry.get("kind")
+        raw_path = entry.get("path")
+        expected_sha256 = entry.get("expected_sha256")
+
+        if not isinstance(kind, str) or kind not in VALID_EVIDENCE_KINDS:
+            failed_checks.append(f"candidate evidence has unsupported kind: {evidence_id}")
+            continue
+
+        if not isinstance(raw_path, str) or not raw_path.strip():
+            failed_checks.append(f"candidate evidence path is missing: {evidence_id}")
+            continue
+
+        resolved_path = _candidate_path(raw_path.strip(), manifest_path)
+
+        if not resolved_path.exists() or not resolved_path.is_file():
+            failed_checks.append(
+                f"candidate evidence declared by manifest is missing: "
+                f"{evidence_id} -> {raw_path}"
+            )
+            continue
+
+        actual_sha256 = _sha256_file(resolved_path)
+        sha_matches = actual_sha256 == expected_sha256
+        if not sha_matches:
+            failed_checks.append(
+                f"candidate evidence digest mismatch: {evidence_id}"
+            )
+
+        try:
+            out.append(
+                _evidence_input(
+                    kind=kind,
+                    path=resolved_path,
+                    raw_path=raw_path.strip(),
+                    git_sha=git_sha,
+                    run_key=run_key,
+                    provenance_extra={
+                        "source_manifest": _repo_relative_or_input(
+                            manifest_path,
+                            str(manifest_path),
+                        ),
+                        "source_manifest_id": manifest.get("manifest_id"),
+                        "candidate_evidence_id": evidence_id,
+                        "expected_sha256": expected_sha256,
+                        "actual_sha256_matches_expected": sha_matches,
+                    },
+                )
+            )
+        except Exception as exc:  # noqa: BLE001
+            failed_checks.append(f"candidate evidence could not be recorded: {evidence_id}: {exc}")
+
+    if out:
+        warnings.append(
+            "candidate evidence inputs were recorded from input manifest, "
+            "but verifier skeleton does not verify them"
+        )
+
+    return out
 
 
 def build_report(
@@ -191,32 +333,90 @@ def build_report(
     run_key: str | None,
     release_candidate: str | None,
     evidence_args: list[str],
+    input_manifest_path: pathlib.Path | None = None,
 ) -> dict[str, Any]:
     evidence_inputs: list[dict[str, Any]] = []
+    warnings: list[str] = []
 
-    for raw in evidence_args:
-        kind, evidence_path, raw_path = _parse_evidence_arg(raw)
-        evidence_inputs.append(
-            _evidence_input(
-                kind=kind,
-                path=evidence_path,
-                raw_path=raw_path,
-                git_sha=commit_sha,
-                run_key=run_key,
-            )
-        )
+    manifest: dict[str, Any] | None = None
+    if input_manifest_path is not None:
+        manifest = _validate_and_load_input_manifest(input_manifest_path)
+
+        manifest_run_identity = manifest.get("run_identity")
+        if isinstance(manifest_run_identity, dict):
+            commit_sha = commit_sha or manifest_run_identity.get("git_sha")
+            run_key = run_key or manifest_run_identity.get("run_key")
+
+        manifest_subject = manifest.get("subject")
+        if isinstance(manifest_subject, dict):
+            repository = repository or manifest_subject.get("repository")
+            release_candidate = release_candidate or manifest_subject.get("release_candidate")
+            commit_sha = commit_sha or manifest_subject.get("commit_sha")
 
     failed_checks = [
         "trusted release-evidence verifier skeleton does not verify evidence yet",
         "no verified relation bindings present",
         "no gate materialization performed",
     ]
+
+    if manifest is not None and input_manifest_path is not None:
+        evidence_inputs.extend(
+            _evidence_inputs_from_manifest(
+                manifest=manifest,
+                manifest_path=input_manifest_path,
+                git_sha=commit_sha,
+                run_key=run_key,
+                failed_checks=failed_checks,
+                warnings=warnings,
+            )
+        )
+        failed_checks.append(
+            "input manifest expectations are recorded only; verification is not implemented"
+        )
+        failed_checks.append(
+            "input manifest expected relation bindings are not verified by skeleton"
+        )
+        failed_checks.append(
+            "input manifest expected gate materialization bindings are not materialized by skeleton"
+        )
+    else:
+        for raw in evidence_args:
+            kind, evidence_path, raw_path = _parse_evidence_arg(raw)
+            evidence_inputs.append(
+                _evidence_input(
+                    kind=kind,
+                    path=evidence_path,
+                    raw_path=raw_path,
+                    git_sha=commit_sha,
+                    run_key=run_key,
+                )
+            )
+
     if not evidence_inputs:
         failed_checks.append("no candidate evidence inputs were supplied")
     else:
         failed_checks.append(
             "candidate evidence inputs are recorded only; verification is not implemented"
         )
+
+    policy_binding = _policy_binding_from_paths(policy_path)
+    registry_binding = _registry_binding_from_paths(registry_path)
+
+    if isinstance(manifest, dict):
+        manifest_policy = manifest.get("policy_binding")
+        if isinstance(manifest_policy, dict):
+            policy_binding = {
+                "policy_path": manifest_policy.get("policy_path"),
+                "policy_sha256": manifest_policy.get("policy_sha256"),
+                "policy_set": manifest_policy.get("policy_set"),
+            }
+
+        manifest_registry = manifest.get("registry_binding")
+        if isinstance(manifest_registry, dict):
+            registry_binding = {
+                "registry_path": manifest_registry.get("registry_path"),
+                "registry_sha256": manifest_registry.get("registry_sha256"),
+            }
 
     return {
         "schema_version": SCHEMA_VERSION,
@@ -234,21 +434,14 @@ def build_report(
             "commit_sha": commit_sha,
             "release_candidate": release_candidate,
         },
-        "policy_binding": {
-            "policy_path": _repo_relative_or_input(policy_path, str(policy_path)),
-            "policy_sha256": _sha256_file(policy_path) if policy_path.exists() else None,
-            "policy_set": "required+release_required",
-        },
-        "registry_binding": {
-            "registry_path": _repo_relative_or_input(registry_path, str(registry_path)),
-            "registry_sha256": _sha256_file(registry_path) if registry_path.exists() else None,
-        },
+        "policy_binding": policy_binding,
+        "registry_binding": registry_binding,
         "evidence_inputs": evidence_inputs,
         "verified_artifacts": [],
         "relation_bindings": [],
         "gate_materialization": {},
         "failed_checks": failed_checks,
-        "warnings": [],
+        "warnings": warnings,
     }
 
 
@@ -265,6 +458,14 @@ def main() -> int:
         "--out",
         default="PULSE_safe_pack_v0/artifacts/release_evidence_verifier_report_v0.json",
         help="Output path for release_evidence_verifier_report_v0.json.",
+    )
+    parser.add_argument(
+        "--input-manifest",
+        default=None,
+        help=(
+            "Optional release_evidence_input_manifest_v0 JSON file. "
+            "Manifest expectations are validated and recorded, but not verified."
+        ),
     )
     parser.add_argument(
         "--policy",
@@ -303,11 +504,27 @@ def main() -> int:
         metavar="KIND=PATH",
         help=(
             "Candidate evidence input to record without trusting it. "
-            "May be supplied multiple times."
+            "May be supplied multiple times. Cannot be combined with --input-manifest."
         ),
     )
 
     args = parser.parse_args()
+
+    if args.input_manifest and args.evidence:
+        print(
+            "ERROR: --input-manifest cannot be combined with --evidence; "
+            "use one candidate input source",
+            file=sys.stderr,
+        )
+        return 1
+
+    input_manifest_path: pathlib.Path | None = None
+    if args.input_manifest:
+        input_manifest_path = pathlib.Path(args.input_manifest)
+        if not input_manifest_path.is_absolute():
+            input_manifest_path = (REPO_ROOT / input_manifest_path).resolve()
+        else:
+            input_manifest_path = input_manifest_path.resolve()
 
     try:
         report = build_report(
@@ -322,6 +539,7 @@ def main() -> int:
             run_key=args.run_key,
             release_candidate=args.release_candidate,
             evidence_args=list(args.evidence or []),
+            input_manifest_path=input_manifest_path,
         )
     except Exception as exc:  # noqa: BLE001
         print(f"ERROR: {exc}", file=sys.stderr)
