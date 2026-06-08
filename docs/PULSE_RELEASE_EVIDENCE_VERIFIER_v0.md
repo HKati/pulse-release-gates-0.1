@@ -513,3 +513,56 @@ It does not replace `check_gates.py`.
 The builder validates its output through the release evidence verifier report checker.
 
 If the report is invalid or relation-integrity checks fail, the builder fails closed.
+
+## Release evidence input manifest
+
+The release evidence input manifest records what the future verifier is expected to check before evidence can become eligible for materialization.
+
+Schema:
+
+```text
+schemas/release_evidence_input_manifest_v0.schema.json
+```
+
+Example:
+
+```text
+examples/release_evidence_input_manifest_v0.minimal.example.json
+```
+
+Checker:
+
+```text
+PULSE_safe_pack_v0/tools/check_release_evidence_input_manifest_v0.py
+```
+
+Example command:
+
+```bash
+python PULSE_safe_pack_v0/tools/check_release_evidence_input_manifest_v0.py \
+  --manifest examples/release_evidence_input_manifest_v0.minimal.example.json
+```
+
+The input manifest does not verify evidence.
+
+It does not emit VERIFIED.
+
+It does not materialize gates.
+
+It does not write status.json.
+
+It does not reopen `--release-grade-materialized`.
+
+It records expected candidate evidence, expected relation bindings, and expected gate materialization bindings so the future verifier has an explicit relation map to inspect.
+
+The input manifest checker fails closed when:
+
+- `jsonschema` is unavailable
+- schema validation cannot be completed
+- duplicate JSON object keys are present
+- expected relations reference missing candidate evidence
+- expected relations reference missing expected gates
+- expected gates reference missing candidate evidence
+- expected gates reference missing relation bindings
+- any expected gate permits materialization without verifier output
+

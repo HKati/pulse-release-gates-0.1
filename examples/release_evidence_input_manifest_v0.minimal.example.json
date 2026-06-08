@@ -1,0 +1,83 @@
+{
+  "candidate_evidence": {
+    "detector_report": {
+      "expected_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "kind": "detector_evidence",
+      "path": "artifacts/detectors/detector_report.json",
+      "provenance_expectations": {
+        "trusted_producer_required": true
+      },
+      "required_for_gates": [
+        "detectors_materialized_ok"
+      ],
+      "schema_version": "detector_report_v0",
+      "subject_binding": {
+        "git_sha": null,
+        "run_key": null
+      },
+      "verification_required": true
+    }
+  },
+  "created_utc": "2026-01-01T00:00:00Z",
+  "expected_gate_materialization": {
+    "detectors_materialized_ok": {
+      "candidate_evidence_ids": [
+        "detector_report"
+      ],
+      "expected_value": true,
+      "materialization_allowed_without_verifier": false,
+      "policy_relation": "release_required",
+      "relation_binding_ids": [
+        "detector_report_to_subject_commit",
+        "detector_report_to_gate"
+      ]
+    }
+  },
+  "expected_relation_bindings": {
+    "detector_report_to_gate": {
+      "binding_type": "artifact_to_gate",
+      "expected_gate_id": "detectors_materialized_ok",
+      "failure_if_missing": "candidate detector evidence is not bound to detectors_materialized_ok",
+      "required": true,
+      "source_evidence_id": "detector_report",
+      "target": "gate.detectors_materialized_ok"
+    },
+    "detector_report_to_subject_commit": {
+      "binding_type": "artifact_to_subject",
+      "expected_gate_id": "detectors_materialized_ok",
+      "failure_if_missing": "candidate detector evidence is not bound to subject commit",
+      "required": true,
+      "source_evidence_id": "detector_report",
+      "target": "subject.commit_sha"
+    }
+  },
+  "fail_closed_requirements": [
+    "missing candidate evidence fails closed",
+    "missing expected relation binding fails closed",
+    "missing expected gate materialization binding fails closed",
+    "candidate evidence cannot materialize a gate without verifier output"
+  ],
+  "manifest_id": "release_evidence_input_manifest_v0",
+  "manifest_version": "0.1.0",
+  "policy_binding": {
+    "policy_path": "pulse_gate_policy_v0.yml",
+    "policy_set": "required+release_required",
+    "policy_sha256": null
+  },
+  "registry_binding": {
+    "registry_path": "pulse_gate_registry_v0.yml",
+    "registry_sha256": null
+  },
+  "run_identity": {
+    "git_sha": null,
+    "run_key": null,
+    "run_mode": "prod"
+  },
+  "schema_version": "release_evidence_input_manifest_v0",
+  "subject": {
+    "commit_sha": null,
+    "release_candidate": null,
+    "repository": null
+  },
+  "warnings": []
+}
