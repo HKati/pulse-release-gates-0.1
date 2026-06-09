@@ -247,6 +247,11 @@ def test_pre_materialization_pipeline_exposes_gaps_without_authority(
     assert evidence_input["provenance"]["verification_status"] == "not_verified"
     assert evidence_input["provenance"]["candidate_evidence_id"] == "detector_report"
     assert evidence_input["provenance"]["actual_sha256_matches_expected"] is True
+    assert evidence_input["subject_binding"]["git_sha"] == HEX40
+    assert evidence_input["subject_binding"]["run_key"] == RUN_KEY
+    assert evidence_input["provenance"]["subject_git_sha_matches_subject_commit"] is True
+    assert evidence_input["provenance"]["subject_git_sha_matches_run_identity"] is True
+    assert evidence_input["provenance"]["run_key_matches_run_identity"] is True
     assert evidence_input["sha256"] == evidence_sha256
     assert evidence_input["provenance"]["expected_sha256"] == evidence_sha256
    
@@ -498,6 +503,98 @@ def test_pre_materialization_pipeline_invalid_manifest_fails_before_report(
     assert "release evidence input manifest failed validation" in build_report.stderr
     assert not verifier_report_path.exists()
     assert not summary_path.exists()
+
+    _assert_authority_artifacts_unchanged(authority_before, tmp_path)
+
+
+def test_pre_materialization_pipeline_subject_run_mismatch_is_visible_but_non_authorizing(
+    tmp_path: pathlib.Path,
+) -> None:
+    authority_before = _authority_artifact_snapshot(tmp_path)
+
+    evidence_path = tmp_path / "detector_report.json"
+    _write_json(
+        evidence_path,
+        {
+            "schema_version": "detector_report_v0",
+            "result": "candidate-only",
+        },
+    )
+    evidence_sha256 = hashlib.sha256(evidence_path.read_bytes()).hexdigest()
+
+    manifest = _input_manifest(
+        evidence_path=evidence_path,
+        expected_sha256=evidence_sha256,
+    )
+    manifest["subject"]["commit_sha"] = "c" * 40
+    manifest["run_identity"]["git_sha"] = "d" * 40
+    manifest["run_identity"]["run_key"] = (
+        "GITHUB_RUN_ID=2|GITHUB_RUN_NUMBER=2|GITHUB_WORKFLOW=PULSE CI"
+    )
+
+    manifest_path = tmp_path / "release_evidence_input_manifest_v0.json"
+    _write_json(manifest_path, manifest)
+
+    verifier_report_path = tmp_path / "release_evidence_verifier_report_v0.json"
+    summary_path = tmp_path / "release_evidence_expectation_summary_v0.json"
+
+    build_report = _run(
+        str(BUILD_VERIFIER_REPORT),
+        "--out",
+        str(verifier_report_path),
+        "--input-manifest",
+        str(manifest_path),
+    )
+
+    assert build_report.returncode == 0, build_report.stderr
+
+    report = _load_json(verifier_report_path)
+    evidence_input = report["evidence_inputs"][0]
+    provenance = evidence_input["provenance"]
+    failed_checks = "\n".join(report["failed_checks"])
+
+    assert (
+        "candidate evidence subject git_sha mismatch against subject commit: "
+        "detector_report"
+    ) in failed_checks
+    assert (
+        "candidate evidence subject git_sha mismatch against run identity: "
+        "detector_report"
+    ) in failed_checks
+    assert (
+        "candidate evidence run_key mismatch against run identity: "
+        "detector_report"
+    ) in failed_checks
+
+    assert evidence_input["subject_binding"]["git_sha"] == HEX40
+    assert evidence_input["subject_binding"]["run_key"] == RUN_KEY
+
+    assert provenance["subject_git_sha_matches_subject_commit"] is False
+    assert provenance["subject_git_sha_matches_run_identity"] is False
+    assert provenance["run_key_matches_run_identity"] is False
+
+    assert report["verifier_decision"] == "FAILED"
+    assert provenance["trusted"] is False
+    assert provenance["verification_status"] == "not_verified"
+    assert report["verified_artifacts"] == []
+    assert report["relation_bindings"] == []
+    assert report["gate_materialization"] == {}
+
+    _assert_authority_artifacts_unchanged(authority_before, tmp_path)
+
+    build_summary = _run(
+        str(BUILD_EXPECTATION_SUMMARY),
+        "--report",
+        str(verifier_report_path),
+        "--out",
+        str(summary_path),
+    )
+
+    assert build_summary.returncode == 0, build_summary.stderr
+
+    summary = _load_json(summary_path)
+    assert summary["summary"]["verifier_readiness"] == "NOT_READY"
+    assert summary["summary"]["other_failed_check_count"] >= 3
 
     _assert_authority_artifacts_unchanged(authority_before, tmp_path)
 
