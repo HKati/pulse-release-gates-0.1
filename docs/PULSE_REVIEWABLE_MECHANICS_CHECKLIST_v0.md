@@ -168,6 +168,24 @@ Audit sidecar failure may be a visibility or traceability issue.
 
 It must not silently rewrite the primary release decision.
 
+### Trace-carrier dependency
+
+An audit sidecar may be required by a later provenance-binding layer as a trace carrier.
+
+That requirement must not be confused with release authority.
+
+A required trace carrier can make the provenance-binding layer fail if the carrier is missing, but it must not replace the primary artifact-bound release-authority path.
+
+Boundary:
+
+```text
+required trace carrier ≠ release authority
+required trace carrier ≠ primary allow/block decision
+required trace carrier ≠ gate materialization
+required trace carrier ≠ second decision engine
+```
+
+
 ## Public reader-surface boundary
 
 A public reader surface may expose current state.
