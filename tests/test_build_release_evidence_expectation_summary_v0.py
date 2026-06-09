@@ -303,5 +303,104 @@ def test_summary_never_claims_release_authority(tmp_path: pathlib.Path) -> None:
     }
 
 
+
+def test_subject_run_mismatch_failed_checks_fall_back_to_other_failed_check_v0(
+    tmp_path: pathlib.Path,
+) -> None:
+    subject_run_failed_checks = [
+        "candidate evidence subject git_sha mismatch against subject commit: detector_report",
+        "candidate evidence subject git_sha mismatch against run identity: detector_report",
+        "candidate evidence run_key mismatch against run identity: detector_report",
+    ]
+
+    baseline_report_path = (
+        tmp_path / "baseline_release_evidence_verifier_report_v0.json"
+    )
+    baseline_out_path = (
+        tmp_path / "baseline_release_evidence_expectation_summary_v0.json"
+    )
+
+    _write_json(baseline_report_path, _failed_verifier_report())
+
+    baseline_result = _run_tool(
+        "--report",
+        str(baseline_report_path),
+        "--out",
+        str(baseline_out_path),
+    )
+
+    assert baseline_result.returncode == 0, baseline_result.stderr
+
+    baseline_summary = _load_json(baseline_out_path)
+
+    report = _failed_verifier_report()
+    report["failed_checks"] = [
+        *report["failed_checks"],
+        *subject_run_failed_checks,
+    ]
+
+    report_path = tmp_path / "release_evidence_verifier_report_v0.json"
+    out_path = tmp_path / "release_evidence_expectation_summary_v0.json"
+
+    _write_json(report_path, report)
+
+    result = _run_tool(
+        "--report",
+        str(report_path),
+        "--out",
+        str(out_path),
+    )
+
+    assert result.returncode == 0, result.stderr
+
+    summary = _load_json(out_path)
+
+    subject_run_gaps = [
+        gap
+        for gap in summary["pre_materialization_gaps"]
+        if gap["message"] in subject_run_failed_checks
+    ]
+
+    assert len(subject_run_gaps) == len(subject_run_failed_checks)
+    assert {gap["message"] for gap in subject_run_gaps} == set(
+        subject_run_failed_checks
+    )
+
+    for gap in subject_run_gaps:
+        assert gap["kind"] == "other_failed_check"
+        assert gap["id"] is None
+
+    assert summary["summary"]["other_failed_check_count"] == (
+        baseline_summary["summary"]["other_failed_check_count"]
+        + len(subject_run_failed_checks)
+    )
+
+    assert summary["source_report"]["verifier_decision"] == "FAILED"
+    assert summary["summary"]["verifier_readiness"] == "NOT_READY"
+
+    assert summary["summary"]["verified_artifacts_total"] == 0
+    assert summary["summary"]["relation_bindings_total"] == 0
+    assert summary["summary"]["gate_materialization_total"] == 0
+
+    forbidden_gap_kinds = {
+        "subject_binding_mismatch",
+        "run_binding_mismatch",
+        "report_identity_override_mismatch",
+    }
+
+    assert not any(
+        gap["kind"] in forbidden_gap_kinds
+        for gap in summary["pre_materialization_gaps"]
+    )
+
+    assert summary["authority_boundary"] == {
+        "is_release_authority": False,
+        "materializes_gates": False,
+        "reopens_release_grade_materialization": False,
+        "replaces_check_gates": False,
+        "writes_status_json": False,
+    }
+
+
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__]))
