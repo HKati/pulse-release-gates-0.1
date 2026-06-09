@@ -145,6 +145,21 @@ def _load_json_object(path: pathlib.Path, *, label: str) -> dict[str, Any]:
     return obj
 
 
+def _normalize_git_sha(value: Any) -> str | None:
+    if not isinstance(value, str):
+        return None
+
+    stripped = value.strip()
+    if not stripped:
+        return None
+
+    return stripped.lower()
+
+
+def _git_sha_equal(left: Any, right: Any) -> bool:
+    return _normalize_git_sha(left) == _normalize_git_sha(right)
+
+
 def _parse_evidence_arg(raw: str) -> tuple[str, pathlib.Path, str]:
     if "=" not in raw:
         raise ValueError(
@@ -257,9 +272,30 @@ def _evidence_inputs_from_manifest(
         failed_checks.append("input manifest has no candidate_evidence object")
         return []
 
+    manifest_run_identity = manifest.get("run_identity")
+    run_identity = manifest_run_identity if isinstance(manifest_run_identity, dict) else {}
+
+    manifest_subject = manifest.get("subject")
+    subject = manifest_subject if isinstance(manifest_subject, dict) else {}
+
+    manifest_run_git_sha = run_identity.get("git_sha")
+    manifest_run_key = run_identity.get("run_key")
+    manifest_subject_commit_sha = subject.get("commit_sha")
+
+    # These are the effective identities emitted into the verifier report.
+    # Explicit --commit-sha / --run-key CLI overrides can differ from the input
+    # manifest identity, so subject/run binding must be checked against the
+    # report identity as well as the manifest-declared identity.
+    report_subject_commit_sha = git_sha
+    report_run_git_sha = git_sha
+    report_run_key = run_key
+
     out: list[dict[str, Any]] = []
 
-    for evidence_id, entry in sorted(candidate_evidence.items(), key=lambda item: str(item[0])):
+    for evidence_id, entry in sorted(
+        candidate_evidence.items(),
+        key=lambda item: str(item[0]),
+    ):
         if not isinstance(entry, dict):
             failed_checks.append(f"candidate evidence entry is not an object: {evidence_id}")
             continue
@@ -267,6 +303,59 @@ def _evidence_inputs_from_manifest(
         kind = entry.get("kind")
         raw_path = entry.get("path")
         expected_sha256 = entry.get("expected_sha256")
+
+        subject_binding_raw = entry.get("subject_binding")
+        subject_binding = subject_binding_raw if isinstance(subject_binding_raw, dict) else {}
+
+        candidate_subject_git_sha = subject_binding.get("git_sha")
+        candidate_subject_run_key = subject_binding.get("run_key")
+
+        subject_git_sha_matches_subject_commit = _git_sha_equal(
+            candidate_subject_git_sha,
+            manifest_subject_commit_sha,
+        )
+        subject_git_sha_matches_run_identity = _git_sha_equal(
+            candidate_subject_git_sha,
+            manifest_run_git_sha,
+        )
+        run_key_matches_run_identity = candidate_subject_run_key == manifest_run_key
+
+        subject_git_sha_matches_report_subject_commit = _git_sha_equal(
+            candidate_subject_git_sha,
+            report_subject_commit_sha,
+        )
+        subject_git_sha_matches_report_run_identity = _git_sha_equal(
+            candidate_subject_git_sha,
+            report_run_git_sha,
+        )
+        run_key_matches_report_run_identity = candidate_subject_run_key == report_run_key
+
+        if not (
+            subject_git_sha_matches_subject_commit
+            and subject_git_sha_matches_report_subject_commit
+        ):
+            failed_checks.append(
+                "candidate evidence subject git_sha mismatch against subject commit: "
+                f"{evidence_id}"
+            )
+
+        if not (
+            subject_git_sha_matches_run_identity
+            and subject_git_sha_matches_report_run_identity
+        ):
+            failed_checks.append(
+                "candidate evidence subject git_sha mismatch against run identity: "
+                f"{evidence_id}"
+            )
+
+        if not (
+            run_key_matches_run_identity
+            and run_key_matches_report_run_identity
+        ):
+            failed_checks.append(
+                "candidate evidence run_key mismatch against run identity: "
+                f"{evidence_id}"
+            )
 
         if not isinstance(kind, str) or kind not in VALID_EVIDENCE_KINDS:
             failed_checks.append(f"candidate evidence has unsupported kind: {evidence_id}")
@@ -296,8 +385,16 @@ def _evidence_inputs_from_manifest(
                     kind=kind,
                     path=resolved_path,
                     raw_path=raw_path.strip(),
-                    git_sha=git_sha,
-                    run_key=run_key,
+                    git_sha=(
+                        str(candidate_subject_git_sha)
+                        if isinstance(candidate_subject_git_sha, str)
+                        else None
+                    ),
+                    run_key=(
+                        str(candidate_subject_run_key)
+                        if isinstance(candidate_subject_run_key, str)
+                        else None
+                    ),
                     provenance_extra={
                         "source_manifest": _repo_relative_or_input(
                             manifest_path,
@@ -307,6 +404,30 @@ def _evidence_inputs_from_manifest(
                         "candidate_evidence_id": evidence_id,
                         "expected_sha256": expected_sha256,
                         "actual_sha256_matches_expected": sha_matches,
+                        "candidate_subject_git_sha": candidate_subject_git_sha,
+                        "candidate_subject_run_key": candidate_subject_run_key,
+                        "manifest_subject_commit_sha": manifest_subject_commit_sha,
+                        "manifest_run_identity_git_sha": manifest_run_git_sha,
+                        "manifest_run_identity_run_key": manifest_run_key,
+                        "report_subject_commit_sha": report_subject_commit_sha,
+                        "report_run_identity_git_sha": report_run_git_sha,
+                        "report_run_identity_run_key": report_run_key,
+                        "subject_git_sha_matches_subject_commit": (
+                            subject_git_sha_matches_subject_commit
+                        ),
+                        "subject_git_sha_matches_run_identity": (
+                            subject_git_sha_matches_run_identity
+                        ),
+                        "run_key_matches_run_identity": run_key_matches_run_identity,
+                        "subject_git_sha_matches_report_subject_commit": (
+                            subject_git_sha_matches_report_subject_commit
+                        ),
+                        "subject_git_sha_matches_report_run_identity": (
+                            subject_git_sha_matches_report_run_identity
+                        ),
+                        "run_key_matches_report_run_identity": (
+                            run_key_matches_report_run_identity
+                        ),
                     },
                 )
             )
@@ -599,13 +720,21 @@ def main() -> int:
     )
     parser.add_argument(
         "--commit-sha",
-        default=_git_sha(),
-        help="Subject commit SHA. Defaults to CI/git discovery when available.",
+        default=None,
+        help=(
+            "Subject commit SHA. When --input-manifest is omitted, defaults to "
+            "CI/git discovery when available. With --input-manifest, an explicit "
+            "value overrides the manifest identity."
+        ),
     )
     parser.add_argument(
         "--run-key",
-        default=_run_key(),
-        help="Run identity key. Defaults to CI environment discovery when available.",
+        default=None,
+        help=(
+            "Run identity key. When --input-manifest is omitted, defaults to CI "
+            "environment discovery when available. With --input-manifest, an "
+            "explicit value overrides the manifest identity."
+        ),
     )
     parser.add_argument(
         "--release-candidate",
@@ -641,6 +770,13 @@ def main() -> int:
         else:
             input_manifest_path = input_manifest_path.resolve()
 
+    commit_sha = args.commit_sha
+    run_key = args.run_key
+
+    if input_manifest_path is None:
+        commit_sha = commit_sha or _git_sha()
+        run_key = run_key or _run_key()
+
     try:
         report = build_report(
             policy_path=(REPO_ROOT / args.policy).resolve()
@@ -650,8 +786,8 @@ def main() -> int:
             if not pathlib.Path(args.registry).is_absolute()
             else pathlib.Path(args.registry).resolve(),
             repository=args.repository,
-            commit_sha=args.commit_sha,
-            run_key=args.run_key,
+            commit_sha=commit_sha,
+            run_key=run_key,
             release_candidate=args.release_candidate,
             evidence_args=list(args.evidence or []),
             input_manifest_path=input_manifest_path,

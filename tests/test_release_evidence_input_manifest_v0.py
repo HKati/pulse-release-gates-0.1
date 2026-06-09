@@ -242,5 +242,47 @@ def test_checker_cli_reports_errors(tmp_path: pathlib.Path) -> None:
     assert "missing_relation" in result.stderr
 
 
+def test_candidate_evidence_requires_subject_binding(
+    tmp_path: pathlib.Path,
+) -> None:
+    manifest = _minimal_manifest()
+    manifest["candidate_evidence"]["detector_report"].pop("subject_binding")
+
+    manifest_path = tmp_path / "release_evidence_input_manifest_v0.json"
+    _write_json(manifest_path, manifest)
+
+    errors = check_release_evidence_input_manifest(manifest_path)
+
+    assert errors
+
+
+def test_candidate_evidence_subject_binding_requires_git_sha(
+    tmp_path: pathlib.Path,
+) -> None:
+    manifest = _minimal_manifest()
+    manifest["candidate_evidence"]["detector_report"]["subject_binding"].pop("git_sha")
+
+    manifest_path = tmp_path / "release_evidence_input_manifest_v0.json"
+    _write_json(manifest_path, manifest)
+
+    errors = check_release_evidence_input_manifest(manifest_path)
+
+    assert errors
+
+
+def test_candidate_evidence_subject_binding_requires_run_key(
+    tmp_path: pathlib.Path,
+) -> None:
+    manifest = _minimal_manifest()
+    manifest["candidate_evidence"]["detector_report"]["subject_binding"].pop("run_key")
+
+    manifest_path = tmp_path / "release_evidence_input_manifest_v0.json"
+    _write_json(manifest_path, manifest)
+
+    errors = check_release_evidence_input_manifest(manifest_path)
+
+    assert errors
+
+
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__]))

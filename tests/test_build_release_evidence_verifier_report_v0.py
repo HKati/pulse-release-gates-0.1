@@ -33,10 +33,7 @@ def _load_json(path: pathlib.Path) -> dict[str, Any]:
 
 def _write_json(path: pathlib.Path, payload: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(
-        json.dumps(payload, indent=2, sort_keys=True),
-        encoding="utf-8",
-    )
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
 
 
 def _run_tool(*args: str) -> subprocess.CompletedProcess[str]:
@@ -57,25 +54,35 @@ def _input_manifest(
     *,
     evidence_path: pathlib.Path,
     expected_sha256: str,
+    candidate_git_sha: str = HEX40,
+    candidate_run_key: str = RUN_KEY,
+    run_identity_git_sha: str = HEX40,
+    run_identity_run_key: str = RUN_KEY,
+    subject_commit_sha: str = HEX40,
 ) -> dict[str, Any]:
     manifest = copy.deepcopy(_load_json(INPUT_MANIFEST_EXAMPLE))
-    manifest["run_identity"]["git_sha"] = HEX40
-    manifest["run_identity"]["run_key"] = RUN_KEY
+
+    manifest["run_identity"]["git_sha"] = run_identity_git_sha
+    manifest["run_identity"]["run_key"] = run_identity_run_key
+
     manifest["subject"]["repository"] = "HKati/pulse-release-gates-0.1"
-    manifest["subject"]["commit_sha"] = HEX40
+    manifest["subject"]["commit_sha"] = subject_commit_sha
     manifest["subject"]["release_candidate"] = "candidate-v0"
+
     manifest["policy_binding"]["policy_sha256"] = HEX64
     manifest["registry_binding"]["registry_sha256"] = HEX64
+
     manifest["candidate_evidence"]["detector_report"]["path"] = str(evidence_path)
     manifest["candidate_evidence"]["detector_report"]["expected_sha256"] = (
         expected_sha256
     )
     manifest["candidate_evidence"]["detector_report"]["subject_binding"]["git_sha"] = (
-        HEX40
+        candidate_git_sha
     )
     manifest["candidate_evidence"]["detector_report"]["subject_binding"]["run_key"] = (
-        RUN_KEY
+        candidate_run_key
     )
+
     return manifest
 
 
@@ -104,11 +111,11 @@ def test_build_failed_report_without_inputs(tmp_path: pathlib.Path) -> None:
     assert report["verified_artifacts"] == []
     assert report["relation_bindings"] == []
     assert report["gate_materialization"] == {}
+
     assert any("does not verify evidence yet" in item for item in report["failed_checks"])
-    assert any(
-        "no verified relation bindings present" in item
-        for item in report["failed_checks"]
-    )
+    assert any("no verified relation bindings present" in item for item in report["failed_checks"])
+    assert any("no gate materialization performed" in item for item in report["failed_checks"])
+    assert any("no candidate evidence inputs were supplied" in item for item in report["failed_checks"])
 
 
 def test_candidate_evidence_is_recorded_but_not_verified(
@@ -152,6 +159,8 @@ def test_candidate_evidence_is_recorded_but_not_verified(
         evidence_path.read_bytes()
     ).hexdigest()
     assert evidence_input["schema_version"] == "detector_report_v0"
+    assert evidence_input["subject_binding"]["git_sha"] == HEX40
+    assert evidence_input["subject_binding"]["run_key"] == RUN_KEY
     assert evidence_input["provenance"]["trusted"] is False
     assert evidence_input["provenance"]["verification_status"] == "not_verified"
 
@@ -183,6 +192,10 @@ def test_input_manifest_records_existing_candidate_without_verifying(
         str(out_path),
         "--input-manifest",
         str(manifest_path),
+        "--commit-sha",
+        HEX40,
+        "--run-key",
+        RUN_KEY,
     )
 
     assert result.returncode == 0, result.stderr
@@ -195,22 +208,58 @@ def test_input_manifest_records_existing_candidate_without_verifying(
 
     assert len(report["evidence_inputs"]) == 1
     evidence_input = report["evidence_inputs"][0]
+    provenance = evidence_input["provenance"]
+
     assert evidence_input["kind"] == "detector_evidence"
     assert evidence_input["sha256"] == evidence_sha256
     assert evidence_input["schema_version"] == "detector_report_v0"
-    assert evidence_input["provenance"]["trusted"] is False
-    assert evidence_input["provenance"]["verification_status"] == "not_verified"
-    assert evidence_input["provenance"]["candidate_evidence_id"] == "detector_report"
-    assert evidence_input["provenance"]["expected_sha256"] == evidence_sha256
-    assert evidence_input["provenance"]["actual_sha256_matches_expected"] is True
+
+    assert evidence_input["subject_binding"]["git_sha"] == HEX40
+    assert evidence_input["subject_binding"]["run_key"] == RUN_KEY
+
+    assert provenance["trusted"] is False
+    assert provenance["verification_status"] == "not_verified"
+    assert provenance["candidate_evidence_id"] == "detector_report"
+    assert provenance["expected_sha256"] == evidence_sha256
+    assert provenance["actual_sha256_matches_expected"] is True
+
+    assert provenance["candidate_subject_git_sha"] == HEX40
+    assert provenance["candidate_subject_run_key"] == RUN_KEY
+    assert provenance["manifest_subject_commit_sha"] == HEX40
+    assert provenance["manifest_run_identity_git_sha"] == HEX40
+    assert provenance["manifest_run_identity_run_key"] == RUN_KEY
+    assert provenance["report_subject_commit_sha"] == HEX40
+    assert provenance["report_run_identity_git_sha"] == HEX40
+    assert provenance["report_run_identity_run_key"] == RUN_KEY
+
+    assert provenance["subject_git_sha_matches_subject_commit"] is True
+    assert provenance["subject_git_sha_matches_run_identity"] is True
+    assert provenance["run_key_matches_run_identity"] is True
+    assert provenance["subject_git_sha_matches_report_subject_commit"] is True
+    assert provenance["subject_git_sha_matches_report_run_identity"] is True
+    assert provenance["run_key_matches_report_run_identity"] is True
+
+    failed_checks = "\n".join(report["failed_checks"])
+    assert "candidate evidence digest mismatch: detector_report" not in failed_checks
+    assert (
+        "candidate evidence subject git_sha mismatch against subject commit: detector_report"
+        not in failed_checks
+    )
+    assert (
+        "candidate evidence subject git_sha mismatch against run identity: detector_report"
+        not in failed_checks
+    )
+    assert (
+        "candidate evidence run_key mismatch against run identity: detector_report"
+        not in failed_checks
+    )
 
     assert any(
         "input manifest expectations are recorded only" in item
         for item in report["failed_checks"]
     )
     assert any(
-        "expected candidate evidence recorded but not verified: detector_report"
-        in item
+        "expected candidate evidence recorded but not verified: detector_report" in item
         for item in report["failed_checks"]
     )
     assert any(
@@ -222,11 +271,6 @@ def test_input_manifest_records_existing_candidate_without_verifying(
         "expected gate materialization pending verification: detectors_materialized_ok"
         in item
         for item in report["failed_checks"]
-    )
-    assert any(
-        "input manifest expectation comparison is fail-closed and descriptive only"
-        in item
-        for item in report["warnings"]
     )
 
 
@@ -260,30 +304,40 @@ def test_input_manifest_digest_mismatch_records_failed_report(
         str(out_path),
         "--input-manifest",
         str(manifest_path),
+        "--commit-sha",
+        HEX40,
+        "--run-key",
+        RUN_KEY,
     )
 
     assert result.returncode == 0, result.stderr
 
     report = _load_json(out_path)
     assert report["verifier_decision"] == "FAILED"
-    assert any(
-        "candidate evidence digest mismatch: detector_report" in item
-        for item in report["failed_checks"]
-    )
-    assert report["evidence_inputs"][0]["provenance"][
-        "actual_sha256_matches_expected"
-    ] is False
-    actual_sha256 = hashlib.sha256(evidence_path.read_bytes()).hexdigest()
-    evidence_input = report["evidence_inputs"][0]
-
-    assert evidence_input["sha256"] == actual_sha256
-    assert evidence_input["provenance"]["expected_sha256"] == HEX64
-    assert evidence_input["sha256"] != evidence_input["provenance"]["expected_sha256"]
-
-    assert report["verifier_decision"] == "FAILED"
     assert report["verified_artifacts"] == []
     assert report["relation_bindings"] == []
     assert report["gate_materialization"] == {}
+
+    failed_checks = "\n".join(report["failed_checks"])
+    assert "candidate evidence digest mismatch: detector_report" in failed_checks
+
+    actual_sha256 = hashlib.sha256(evidence_path.read_bytes()).hexdigest()
+    evidence_input = report["evidence_inputs"][0]
+    provenance = evidence_input["provenance"]
+
+    assert evidence_input["sha256"] == actual_sha256
+    assert provenance["expected_sha256"] == HEX64
+    assert evidence_input["sha256"] != provenance["expected_sha256"]
+    assert provenance["actual_sha256_matches_expected"] is False
+
+    assert provenance["trusted"] is False
+    assert provenance["verification_status"] == "not_verified"
+    assert provenance["subject_git_sha_matches_subject_commit"] is True
+    assert provenance["subject_git_sha_matches_run_identity"] is True
+    assert provenance["run_key_matches_run_identity"] is True
+    assert provenance["subject_git_sha_matches_report_subject_commit"] is True
+    assert provenance["subject_git_sha_matches_report_run_identity"] is True
+    assert provenance["run_key_matches_report_run_identity"] is True
 
 
 def test_input_manifest_missing_candidate_writes_failed_report(
@@ -307,6 +361,10 @@ def test_input_manifest_missing_candidate_writes_failed_report(
         str(out_path),
         "--input-manifest",
         str(manifest_path),
+        "--commit-sha",
+        HEX40,
+        "--run-key",
+        RUN_KEY,
     )
 
     assert result.returncode == 0, result.stderr
@@ -314,19 +372,17 @@ def test_input_manifest_missing_candidate_writes_failed_report(
     report = _load_json(out_path)
     assert report["verifier_decision"] == "FAILED"
     assert report["evidence_inputs"] == []
-    assert any(
-        "candidate evidence declared by manifest is missing" in item
-        for item in report["failed_checks"]
-    )
-    assert any(
-        "expected candidate evidence not recorded: detector_report" in item
-        for item in report["failed_checks"]
-    )
-    assert any(
+    assert report["verified_artifacts"] == []
+    assert report["relation_bindings"] == []
+    assert report["gate_materialization"] == {}
+
+    failed_checks = "\n".join(report["failed_checks"])
+    assert "candidate evidence declared by manifest is missing" in failed_checks
+    assert "expected candidate evidence not recorded: detector_report" in failed_checks
+    assert (
         "expected gate materialization candidate evidence not recorded: "
-        "detectors_materialized_ok -> detector_report" in item
-        for item in report["failed_checks"]
-    )
+        "detectors_materialized_ok -> detector_report"
+    ) in failed_checks
 
 
 def test_invalid_input_manifest_fails_closed_without_report(
@@ -353,6 +409,10 @@ def test_invalid_input_manifest_fails_closed_without_report(
         str(out_path),
         "--input-manifest",
         str(manifest_path),
+        "--commit-sha",
+        HEX40,
+        "--run-key",
+        RUN_KEY,
     )
 
     assert result.returncode != 0
@@ -385,6 +445,10 @@ def test_input_manifest_cannot_be_combined_with_direct_evidence(
         str(manifest_path),
         "--evidence",
         f"detector_evidence={evidence_path}",
+        "--commit-sha",
+        HEX40,
+        "--run-key",
+        RUN_KEY,
     )
 
     assert result.returncode != 0
@@ -444,3 +508,469 @@ def test_pass_or_allow_are_never_emitted(tmp_path: pathlib.Path) -> None:
     report = _load_json(out_path)
     assert report["verifier_decision"] == "FAILED"
     assert report["verifier_decision"] not in {"PASS", "ALLOW", "PROD-PASS"}
+
+
+def test_input_manifest_records_candidate_subject_run_binding_without_verifying(
+    tmp_path: pathlib.Path,
+) -> None:
+    evidence_path = tmp_path / "detector_report.json"
+    evidence_path.write_text(
+        json.dumps(
+            {
+                "schema_version": "detector_report_v0",
+                "result": "candidate-only",
+            }
+        ),
+        encoding="utf-8",
+    )
+    evidence_sha256 = hashlib.sha256(evidence_path.read_bytes()).hexdigest()
+
+    manifest_path = tmp_path / "release_evidence_input_manifest_v0.json"
+    _write_json(
+        manifest_path,
+        _input_manifest(
+            evidence_path=evidence_path,
+            expected_sha256=evidence_sha256,
+        ),
+    )
+
+    out_path = tmp_path / "release_evidence_verifier_report_v0.json"
+
+    result = _run_tool(
+        "--out",
+        str(out_path),
+        "--input-manifest",
+        str(manifest_path),
+        "--commit-sha",
+        HEX40,
+        "--run-key",
+        RUN_KEY,
+    )
+
+    assert result.returncode == 0, result.stderr
+
+    report = _load_json(out_path)
+    evidence_input = report["evidence_inputs"][0]
+    provenance = evidence_input["provenance"]
+
+    assert evidence_input["subject_binding"]["git_sha"] == HEX40
+    assert evidence_input["subject_binding"]["run_key"] == RUN_KEY
+
+    assert provenance["candidate_subject_git_sha"] == HEX40
+    assert provenance["candidate_subject_run_key"] == RUN_KEY
+    assert provenance["manifest_subject_commit_sha"] == HEX40
+    assert provenance["manifest_run_identity_git_sha"] == HEX40
+    assert provenance["manifest_run_identity_run_key"] == RUN_KEY
+    assert provenance["report_subject_commit_sha"] == HEX40
+    assert provenance["report_run_identity_git_sha"] == HEX40
+    assert provenance["report_run_identity_run_key"] == RUN_KEY
+
+    assert provenance["subject_git_sha_matches_subject_commit"] is True
+    assert provenance["subject_git_sha_matches_run_identity"] is True
+    assert provenance["run_key_matches_run_identity"] is True
+    assert provenance["subject_git_sha_matches_report_subject_commit"] is True
+    assert provenance["subject_git_sha_matches_report_run_identity"] is True
+    assert provenance["run_key_matches_report_run_identity"] is True
+
+    assert report["verifier_decision"] == "FAILED"
+    assert provenance["trusted"] is False
+    assert provenance["verification_status"] == "not_verified"
+    assert report["verified_artifacts"] == []
+    assert report["relation_bindings"] == []
+    assert report["gate_materialization"] == {}
+
+
+def test_input_manifest_subject_commit_mismatch_stays_failed(
+    tmp_path: pathlib.Path,
+) -> None:
+    evidence_path = tmp_path / "detector_report.json"
+    evidence_path.write_text(
+        json.dumps(
+            {
+                "schema_version": "detector_report_v0",
+                "result": "candidate-only",
+            }
+        ),
+        encoding="utf-8",
+    )
+    evidence_sha256 = hashlib.sha256(evidence_path.read_bytes()).hexdigest()
+
+    candidate_git_sha = "a" * 40
+    subject_commit_sha = "c" * 40
+
+    manifest_path = tmp_path / "release_evidence_input_manifest_v0.json"
+    _write_json(
+        manifest_path,
+        _input_manifest(
+            evidence_path=evidence_path,
+            expected_sha256=evidence_sha256,
+            candidate_git_sha=candidate_git_sha,
+            run_identity_git_sha=candidate_git_sha,
+            subject_commit_sha=subject_commit_sha,
+        ),
+    )
+
+    out_path = tmp_path / "release_evidence_verifier_report_v0.json"
+
+    result = _run_tool(
+        "--out",
+        str(out_path),
+        "--input-manifest",
+        str(manifest_path),
+        "--commit-sha",
+        candidate_git_sha,
+        "--run-key",
+        RUN_KEY,
+    )
+
+    assert result.returncode == 0, result.stderr
+
+    report = _load_json(out_path)
+    failed_checks = "\n".join(report["failed_checks"])
+    evidence_input = report["evidence_inputs"][0]
+    provenance = evidence_input["provenance"]
+
+    assert (
+        "candidate evidence subject git_sha mismatch against subject commit: "
+        "detector_report"
+    ) in failed_checks
+
+    assert provenance["subject_git_sha_matches_subject_commit"] is False
+    assert provenance["subject_git_sha_matches_run_identity"] is True
+    assert provenance["run_key_matches_run_identity"] is True
+    assert provenance["subject_git_sha_matches_report_subject_commit"] is True
+    assert provenance["subject_git_sha_matches_report_run_identity"] is True
+    assert provenance["run_key_matches_report_run_identity"] is True
+
+    assert evidence_input["subject_binding"]["git_sha"] == candidate_git_sha
+    assert evidence_input["subject_binding"]["run_key"] == RUN_KEY
+
+    assert report["verifier_decision"] == "FAILED"
+    assert provenance["trusted"] is False
+    assert provenance["verification_status"] == "not_verified"
+    assert report["verified_artifacts"] == []
+    assert report["relation_bindings"] == []
+    assert report["gate_materialization"] == {}
+
+
+def test_input_manifest_run_identity_git_sha_mismatch_stays_failed(
+    tmp_path: pathlib.Path,
+) -> None:
+    evidence_path = tmp_path / "detector_report.json"
+    evidence_path.write_text(
+        json.dumps(
+            {
+                "schema_version": "detector_report_v0",
+                "result": "candidate-only",
+            }
+        ),
+        encoding="utf-8",
+    )
+    evidence_sha256 = hashlib.sha256(evidence_path.read_bytes()).hexdigest()
+
+    candidate_git_sha = "a" * 40
+    run_identity_git_sha = "d" * 40
+
+    manifest_path = tmp_path / "release_evidence_input_manifest_v0.json"
+    _write_json(
+        manifest_path,
+        _input_manifest(
+            evidence_path=evidence_path,
+            expected_sha256=evidence_sha256,
+            candidate_git_sha=candidate_git_sha,
+            run_identity_git_sha=run_identity_git_sha,
+            subject_commit_sha=candidate_git_sha,
+        ),
+    )
+
+    out_path = tmp_path / "release_evidence_verifier_report_v0.json"
+
+    result = _run_tool(
+        "--out",
+        str(out_path),
+        "--input-manifest",
+        str(manifest_path),
+        "--commit-sha",
+        candidate_git_sha,
+        "--run-key",
+        RUN_KEY,
+    )
+
+    assert result.returncode == 0, result.stderr
+
+    report = _load_json(out_path)
+    failed_checks = "\n".join(report["failed_checks"])
+    evidence_input = report["evidence_inputs"][0]
+    provenance = evidence_input["provenance"]
+
+    assert (
+        "candidate evidence subject git_sha mismatch against run identity: "
+        "detector_report"
+    ) in failed_checks
+
+    assert provenance["subject_git_sha_matches_subject_commit"] is True
+    assert provenance["subject_git_sha_matches_run_identity"] is False
+    assert provenance["run_key_matches_run_identity"] is True
+    assert provenance["subject_git_sha_matches_report_subject_commit"] is True
+    assert provenance["subject_git_sha_matches_report_run_identity"] is True
+    assert provenance["run_key_matches_report_run_identity"] is True
+
+    assert evidence_input["subject_binding"]["git_sha"] == candidate_git_sha
+    assert evidence_input["subject_binding"]["run_key"] == RUN_KEY
+
+    assert report["verifier_decision"] == "FAILED"
+    assert provenance["trusted"] is False
+    assert provenance["verification_status"] == "not_verified"
+    assert report["verified_artifacts"] == []
+    assert report["relation_bindings"] == []
+    assert report["gate_materialization"] == {}
+
+
+def test_input_manifest_run_key_mismatch_stays_failed(
+    tmp_path: pathlib.Path,
+) -> None:
+    evidence_path = tmp_path / "detector_report.json"
+    evidence_path.write_text(
+        json.dumps(
+            {
+                "schema_version": "detector_report_v0",
+                "result": "candidate-only",
+            }
+        ),
+        encoding="utf-8",
+    )
+    evidence_sha256 = hashlib.sha256(evidence_path.read_bytes()).hexdigest()
+
+    candidate_run_key = "GITHUB_RUN_ID=1|GITHUB_RUN_NUMBER=1|GITHUB_WORKFLOW=PULSE CI"
+    manifest_run_key = "GITHUB_RUN_ID=2|GITHUB_RUN_NUMBER=2|GITHUB_WORKFLOW=PULSE CI"
+
+    manifest_path = tmp_path / "release_evidence_input_manifest_v0.json"
+    _write_json(
+        manifest_path,
+        _input_manifest(
+            evidence_path=evidence_path,
+            expected_sha256=evidence_sha256,
+            candidate_run_key=candidate_run_key,
+            run_identity_run_key=manifest_run_key,
+        ),
+    )
+
+    out_path = tmp_path / "release_evidence_verifier_report_v0.json"
+
+    result = _run_tool(
+        "--out",
+        str(out_path),
+        "--input-manifest",
+        str(manifest_path),
+        "--commit-sha",
+        HEX40,
+        "--run-key",
+        candidate_run_key,
+    )
+
+    assert result.returncode == 0, result.stderr
+
+    report = _load_json(out_path)
+    failed_checks = "\n".join(report["failed_checks"])
+    evidence_input = report["evidence_inputs"][0]
+    provenance = evidence_input["provenance"]
+
+    assert (
+        "candidate evidence run_key mismatch against run identity: "
+        "detector_report"
+    ) in failed_checks
+
+    assert provenance["subject_git_sha_matches_subject_commit"] is True
+    assert provenance["subject_git_sha_matches_run_identity"] is True
+    assert provenance["run_key_matches_run_identity"] is False
+    assert provenance["subject_git_sha_matches_report_subject_commit"] is True
+    assert provenance["subject_git_sha_matches_report_run_identity"] is True
+    assert provenance["run_key_matches_report_run_identity"] is True
+
+    assert evidence_input["subject_binding"]["git_sha"] == HEX40
+    assert evidence_input["subject_binding"]["run_key"] == candidate_run_key
+
+    assert report["verifier_decision"] == "FAILED"
+    assert provenance["trusted"] is False
+    assert provenance["verification_status"] == "not_verified"
+    assert report["verified_artifacts"] == []
+    assert report["relation_bindings"] == []
+    assert report["gate_materialization"] == {}
+
+
+def test_input_manifest_subject_run_binding_normalizes_git_sha_case(
+    tmp_path: pathlib.Path,
+) -> None:
+    evidence_path = tmp_path / "detector_report.json"
+    evidence_path.write_text(
+        json.dumps(
+            {
+                "schema_version": "detector_report_v0",
+                "result": "candidate-only",
+            }
+        ),
+        encoding="utf-8",
+    )
+    evidence_sha256 = hashlib.sha256(evidence_path.read_bytes()).hexdigest()
+
+    lowercase_sha = "a" * 40
+    uppercase_sha = "A" * 40
+
+    manifest_path = tmp_path / "release_evidence_input_manifest_v0.json"
+    _write_json(
+        manifest_path,
+        _input_manifest(
+            evidence_path=evidence_path,
+            expected_sha256=evidence_sha256,
+            candidate_git_sha=lowercase_sha,
+            run_identity_git_sha=uppercase_sha,
+            subject_commit_sha=uppercase_sha,
+        ),
+    )
+
+    out_path = tmp_path / "release_evidence_verifier_report_v0.json"
+
+    result = _run_tool(
+        "--out",
+        str(out_path),
+        "--input-manifest",
+        str(manifest_path),
+        "--commit-sha",
+        uppercase_sha,
+        "--run-key",
+        RUN_KEY,
+    )
+
+    assert result.returncode == 0, result.stderr
+
+    report = _load_json(out_path)
+    failed_checks = "\n".join(report["failed_checks"])
+    evidence_input = report["evidence_inputs"][0]
+    provenance = evidence_input["provenance"]
+
+    assert (
+        "candidate evidence subject git_sha mismatch against subject commit: "
+        "detector_report"
+    ) not in failed_checks
+    assert (
+        "candidate evidence subject git_sha mismatch against run identity: "
+        "detector_report"
+    ) not in failed_checks
+
+    assert evidence_input["subject_binding"]["git_sha"] == lowercase_sha
+    assert evidence_input["subject_binding"]["run_key"] == RUN_KEY
+
+    assert provenance["manifest_subject_commit_sha"] == uppercase_sha
+    assert provenance["manifest_run_identity_git_sha"] == uppercase_sha
+    assert provenance["report_subject_commit_sha"] == uppercase_sha
+    assert provenance["report_run_identity_git_sha"] == uppercase_sha
+
+    assert provenance["subject_git_sha_matches_subject_commit"] is True
+    assert provenance["subject_git_sha_matches_run_identity"] is True
+    assert provenance["subject_git_sha_matches_report_subject_commit"] is True
+    assert provenance["subject_git_sha_matches_report_run_identity"] is True
+
+    assert report["verifier_decision"] == "FAILED"
+    assert provenance["trusted"] is False
+    assert provenance["verification_status"] == "not_verified"
+    assert report["verified_artifacts"] == []
+    assert report["relation_bindings"] == []
+    assert report["gate_materialization"] == {}
+
+
+def test_input_manifest_explicit_report_identity_override_mismatch_stays_failed(
+    tmp_path: pathlib.Path,
+) -> None:
+    evidence_path = tmp_path / "detector_report.json"
+    evidence_path.write_text(
+        json.dumps(
+            {
+                "schema_version": "detector_report_v0",
+                "result": "candidate-only",
+            }
+        ),
+        encoding="utf-8",
+    )
+    evidence_sha256 = hashlib.sha256(evidence_path.read_bytes()).hexdigest()
+
+    manifest_sha = "a" * 40
+    override_sha = "d" * 40
+    manifest_run_key = "GITHUB_RUN_ID=1|GITHUB_RUN_NUMBER=1|GITHUB_WORKFLOW=PULSE CI"
+    override_run_key = "GITHUB_RUN_ID=2|GITHUB_RUN_NUMBER=2|GITHUB_WORKFLOW=PULSE CI"
+
+    manifest_path = tmp_path / "release_evidence_input_manifest_v0.json"
+    _write_json(
+        manifest_path,
+        _input_manifest(
+            evidence_path=evidence_path,
+            expected_sha256=evidence_sha256,
+            candidate_git_sha=manifest_sha,
+            candidate_run_key=manifest_run_key,
+            run_identity_git_sha=manifest_sha,
+            run_identity_run_key=manifest_run_key,
+            subject_commit_sha=manifest_sha,
+        ),
+    )
+
+    out_path = tmp_path / "release_evidence_verifier_report_v0.json"
+
+    result = _run_tool(
+        "--out",
+        str(out_path),
+        "--input-manifest",
+        str(manifest_path),
+        "--commit-sha",
+        override_sha,
+        "--run-key",
+        override_run_key,
+    )
+
+    assert result.returncode == 0, result.stderr
+
+    report = _load_json(out_path)
+    failed_checks = "\n".join(report["failed_checks"])
+    evidence_input = report["evidence_inputs"][0]
+    provenance = evidence_input["provenance"]
+
+    assert report["run_identity"]["git_sha"] == override_sha
+    assert report["run_identity"]["run_key"] == override_run_key
+    assert report["subject"]["commit_sha"] == override_sha
+
+    assert (
+        "candidate evidence subject git_sha mismatch against subject commit: "
+        "detector_report"
+    ) in failed_checks
+    assert (
+        "candidate evidence subject git_sha mismatch against run identity: "
+        "detector_report"
+    ) in failed_checks
+    assert (
+        "candidate evidence run_key mismatch against run identity: "
+        "detector_report"
+    ) in failed_checks
+
+    assert evidence_input["subject_binding"]["git_sha"] == manifest_sha
+    assert evidence_input["subject_binding"]["run_key"] == manifest_run_key
+
+    assert provenance["subject_git_sha_matches_subject_commit"] is True
+    assert provenance["subject_git_sha_matches_run_identity"] is True
+    assert provenance["run_key_matches_run_identity"] is True
+
+    assert provenance["subject_git_sha_matches_report_subject_commit"] is False
+    assert provenance["subject_git_sha_matches_report_run_identity"] is False
+    assert provenance["run_key_matches_report_run_identity"] is False
+
+    assert provenance["report_subject_commit_sha"] == override_sha
+    assert provenance["report_run_identity_git_sha"] == override_sha
+    assert provenance["report_run_identity_run_key"] == override_run_key
+
+    assert report["verifier_decision"] == "FAILED"
+    assert provenance["trusted"] is False
+    assert provenance["verification_status"] == "not_verified"
+    assert report["verified_artifacts"] == []
+    assert report["relation_bindings"] == []
+    assert report["gate_materialization"] == {}
+
+
+if __name__ == "__main__":
+    raise SystemExit(pytest.main([__file__]))
