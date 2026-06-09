@@ -146,7 +146,7 @@ def assert_builder_non_interference(
     tmp_path: Path,
     status: Path,
 ) -> tuple[subprocess.CompletedProcess[str], subprocess.CompletedProcess[str], dict]:
-     watched_before = release_authority_input_snapshot(status)
+    watched_before = release_authority_input_snapshot(status)
 
     before = run_check_gates(status)
     assert_release_authority_inputs_unchanged(
@@ -156,17 +156,14 @@ def assert_builder_non_interference(
     )
 
     manifest_path = run_builder(tmp_path, status)
-
-     assert_release_authority_inputs_unchanged(
+    assert_release_authority_inputs_unchanged(
         watched_before,
         status,
         "release authority manifest builder",
     )
 
-
     after = run_check_gates(status)
-
-     assert_release_authority_inputs_unchanged(
+    assert_release_authority_inputs_unchanged(
         watched_before,
         status,
         "post-builder check_gates run",
@@ -175,8 +172,8 @@ def assert_builder_non_interference(
     assert after.returncode == before.returncode
     assert after.stdout == before.stdout
     assert after.stderr == before.stderr
-  
-   manifest_check = run_manifest_checker(manifest_path)
+
+    manifest_check = run_manifest_checker(manifest_path)
     assert manifest_check.returncode == 0, manifest_check.stderr
     assert_release_authority_inputs_unchanged(
         watched_before,
