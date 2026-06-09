@@ -197,6 +197,15 @@ def test_allow_is_not_a_verifier_decision() -> None:
     assert errors
 
 
+def test_prod_pass_is_not_a_verifier_decision() -> None:
+    report = _minimal_verified_report()
+    report["verifier_decision"] = "PROD-PASS"
+
+    errors = _validation_errors(report)
+
+    assert errors
+
+
 def test_failed_report_requires_failed_checks() -> None:
     report = _load_json(FAILED_EXAMPLE_PATH)
     report["failed_checks"] = []
