@@ -93,6 +93,22 @@ See [`docs/PULSE_PRE_MATERIALIZATION_GATE_MECHANICS_v0.md`](docs/PULSE_PRE_MATER
 | Dashboards, badges, Pages | Publication / reader carriers derived from recorded release-state artifacts | Derived carriers only |
 | Diagnostic and shadow outputs | Diagnostic / shadow carriers for candidate evidence signals and review state | Authority participation requires recorded evidence inclusion and required-gate enforcement under declared policy |
 
+### Reviewable mechanics boundary
+
+PULSE does not use external review, reader surfaces, audit sidecars, coverage scores, green test results, or documentation claims as release authority.
+
+External review can inspect the mechanism, the claims, the implementation, and the reproducibility of the repository.
+
+External review cannot replace the artifact-bound release-authority path.
+
+`release_authority_v0` is an audit / traceability sidecar, not a second decision engine.
+
+Coverage scores and other metrics are descriptive unless they are explicitly promoted into declared policy, workflow-effective materialized required gates, and strict fail-closed CI enforcement.
+
+Green tests alone do not create release authority.
+
+The mechanical review boundary is documented in [`docs/PULSE_REVIEWABLE_MECHANICS_CHECKLIST_v0.md`](docs/PULSE_REVIEWABLE_MECHANICS_CHECKLIST_v0.md).
+
 ## Release boundary
 
 PULSE acts at the release boundary, before deployment.
@@ -494,7 +510,7 @@ PULSE evaluates release evidence under declared policy. In Core and release-grad
 - Q₄ **SLOs** (p95 latency & cost budgets)
 
 **Release-decision outputs**
-- **Quality Ledger** — human-readable release decision surface
+-- **Quality Ledger** — human-readable release decision surface. The Quality Ledger is a reader-facing surface. It may expose release-decision state for review, but it does not compute, replace, or override the artifact-bound release-authority path.
 - **RDSI** — Release Decision Stability Index with deltas / confidence intervals where available
 - **CI artifacts** — `status.json`, report card, JUnit, SARIF, badges, and registered diagnostic artifacts
 
