@@ -247,7 +247,9 @@ def test_pre_materialization_pipeline_exposes_gaps_without_authority(
     assert evidence_input["provenance"]["verification_status"] == "not_verified"
     assert evidence_input["provenance"]["candidate_evidence_id"] == "detector_report"
     assert evidence_input["provenance"]["actual_sha256_matches_expected"] is True
-
+    assert evidence_input["sha256"] == evidence_sha256
+    assert evidence_input["provenance"]["expected_sha256"] == evidence_sha256
+   
     failed_checks = "\n".join(report["failed_checks"])
     assert "expected candidate evidence recorded but not verified: detector_report" in failed_checks
     assert (
@@ -361,7 +363,18 @@ def test_pre_materialization_pipeline_digest_mismatch_is_visible_but_non_authori
     assert report["evidence_inputs"][0]["provenance"][
         "actual_sha256_matches_expected"
     ] is False
+    actual_sha256 = hashlib.sha256(evidence_path.read_bytes()).hexdigest()
+    evidence_input = report["evidence_inputs"][0]
 
+    assert evidence_input["sha256"] == actual_sha256
+    assert evidence_input["provenance"]["expected_sha256"] == HEX64
+    assert evidence_input["sha256"] != evidence_input["provenance"]["expected_sha256"]
+
+    assert report["verifier_decision"] == "FAILED"
+    assert report["verified_artifacts"] == []
+    assert report["relation_bindings"] == []
+    assert report["gate_materialization"] == {}
+ 
     _assert_authority_artifacts_unchanged(authority_before, tmp_path)
 
     build_summary = _run(
