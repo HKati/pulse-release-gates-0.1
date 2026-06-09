@@ -273,6 +273,17 @@ def test_input_manifest_digest_mismatch_records_failed_report(
     assert report["evidence_inputs"][0]["provenance"][
         "actual_sha256_matches_expected"
     ] is False
+    actual_sha256 = hashlib.sha256(evidence_path.read_bytes()).hexdigest()
+    evidence_input = report["evidence_inputs"][0]
+
+    assert evidence_input["sha256"] == actual_sha256
+    assert evidence_input["provenance"]["expected_sha256"] == HEX64
+    assert evidence_input["sha256"] != evidence_input["provenance"]["expected_sha256"]
+
+    assert report["verifier_decision"] == "FAILED"
+    assert report["verified_artifacts"] == []
+    assert report["relation_bindings"] == []
+    assert report["gate_materialization"] == {}
 
 
 def test_input_manifest_missing_candidate_writes_failed_report(
