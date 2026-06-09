@@ -510,7 +510,7 @@ PULSE evaluates release evidence under declared policy. In Core and release-grad
 - Q₄ **SLOs** (p95 latency & cost budgets)
 
 **Release-decision outputs**
--- **Quality Ledger** — human-readable release decision surface. The Quality Ledger is a reader-facing surface. It may expose release-decision state for review, but it does not compute, replace, or override the artifact-bound release-authority path.
+- **Quality Ledger** — human-readable release decision surface. The Quality Ledger is a reader-facing surface. It may expose release-decision state for review, but it does not compute, replace, or override the artifact-bound release-authority path.
 - **RDSI** — Release Decision Stability Index with deltas / confidence intervals where available
 - **CI artifacts** — `status.json`, report card, JUnit, SARIF, badges, and registered diagnostic artifacts
 
