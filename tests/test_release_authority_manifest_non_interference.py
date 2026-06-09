@@ -32,6 +32,29 @@ def sha256(path: Path) -> str:
     return h.hexdigest()
 
 
+def release_authority_input_snapshot(status: Path) -> dict[str, str]:
+    watched_paths = [
+        status,
+        POLICY,
+        REGISTRY,
+        CHECK_GATES,
+    ]
+    return {str(path): sha256(path) for path in watched_paths}
+
+
+def assert_release_authority_inputs_unchanged(
+    before: dict[str, str],
+    status: Path,
+    label: str,
+) -> None:
+    after = release_authority_input_snapshot(status)
+    assert after == before, (
+        f"{label} modified release-authority inputs.\n"
+        f"before={before}\n"
+        f"after={after}"
+    )
+
+
 def write_status(tmp_path: Path, gates: dict[str, object]) -> Path:
     status = {
         "version": "test",
@@ -123,19 +146,28 @@ def assert_builder_non_interference(
     tmp_path: Path,
     status: Path,
 ) -> tuple[subprocess.CompletedProcess[str], subprocess.CompletedProcess[str], dict]:
-    status_before = sha256(status)
+    watched_before = release_authority_input_snapshot(status)
 
     before = run_check_gates(status)
+    assert_release_authority_inputs_unchanged(
+        watched_before,
+        status,
+        "pre-builder check_gates run",
+    )
 
     manifest_path = run_builder(tmp_path, status)
-
-    status_after_builder = sha256(status)
-    assert status_after_builder == status_before, "builder modified status.json"
+    assert_release_authority_inputs_unchanged(
+        watched_before,
+        status,
+        "release authority manifest builder",
+    )
 
     after = run_check_gates(status)
-
-    status_after_check = sha256(status)
-    assert status_after_check == status_before, "post-builder check_gates modified status.json"
+    assert_release_authority_inputs_unchanged(
+        watched_before,
+        status,
+        "post-builder check_gates run",
+    )
 
     assert after.returncode == before.returncode
     assert after.stdout == before.stdout
@@ -143,6 +175,11 @@ def assert_builder_non_interference(
 
     manifest_check = run_manifest_checker(manifest_path)
     assert manifest_check.returncode == 0, manifest_check.stderr
+    assert_release_authority_inputs_unchanged(
+        watched_before,
+        status,
+        "release authority manifest checker",
+    )
 
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     return before, after, manifest
