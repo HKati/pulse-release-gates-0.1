@@ -213,7 +213,7 @@ def test_gate_materialization_without_relation_ids_fails(tmp_path: pathlib.Path)
     )
 
 
-@pytest.mark.parametrize("bad_decision", ["PASS", "ALLOW"])
+@pytest.mark.parametrize("bad_decision", ["PASS", "ALLOW", "PROD-PASS"])
 def test_release_authority_words_are_rejected_as_verifier_decisions(
     tmp_path: pathlib.Path,
     bad_decision: str,
