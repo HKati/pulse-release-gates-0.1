@@ -608,6 +608,53 @@ It does not reopen `--release-grade-materialized`.
 
 If the input manifest is invalid, the builder fails closed and does not write a verifier report.
 
+## Subject/run binding check v0
+
+The fail-closed verifier report builder records manifest-declared candidate evidence subject/run binding.
+
+For manifest-declared candidate evidence, the builder compares:
+
+```text
+candidate_evidence.<id>.subject_binding.git_sha
+→ subject.commit_sha
+candidate_evidence.<id>.subject_binding.git_sha
+→ run_identity.git_sha
+candidate_evidence.<id>.subject_binding.run_key
+→ run_identity.run_key
+```
+
+The check is descriptive and pre-materialization only.
+
+A matching subject/run binding does not verify evidence.
+
+It does not satisfy relation bindings.
+
+It does not emit VERIFIED.
+
+It does not materialize gates.
+
+It does not write status.json.
+
+It does not reopen --release-grade-materialized.
+
+It does not replace check_gates.py.
+
+Mismatch states are recorded as fail-closed verifier report checks, for example:
+
+```text
+candidate evidence subject git_sha mismatch against subject commit: <candidate_evidence_id>
+candidate evidence subject git_sha mismatch against run identity: <candidate_evidence_id>
+candidate evidence run_key mismatch against run identity: <candidate_evidence_id>
+```
+
+The verifier report remains non-authoritative:
+
+```text
+verifier_decision = FAILED
+verified_artifacts = []
+relation_bindings = []
+gate_materialization = {}
+```
 
 ## Input manifest expectation comparison
 
