@@ -257,6 +257,16 @@ def _evidence_inputs_from_manifest(
         failed_checks.append("input manifest has no candidate_evidence object")
         return []
 
+    manifest_run_identity = manifest.get("run_identity")
+    run_identity = manifest_run_identity if isinstance(manifest_run_identity, dict) else {}
+
+    manifest_subject = manifest.get("subject")
+    subject = manifest_subject if isinstance(manifest_subject, dict) else {}
+
+    manifest_run_git_sha = run_identity.get("git_sha")
+    manifest_run_key = run_identity.get("run_key")
+    manifest_subject_commit_sha = subject.get("commit_sha")
+    
     out: list[dict[str, Any]] = []
 
     for evidence_id, entry in sorted(candidate_evidence.items(), key=lambda item: str(item[0])):
@@ -268,6 +278,40 @@ def _evidence_inputs_from_manifest(
         raw_path = entry.get("path")
         expected_sha256 = entry.get("expected_sha256")
 
+        subject_binding_raw = entry.get("subject_binding")
+        subject_binding = subject_binding_raw if isinstance(subject_binding_raw, dict) else {}
+
+        candidate_subject_git_sha = subject_binding.get("git_sha")
+        candidate_subject_run_key = subject_binding.get("run_key")
+
+        subject_git_sha_matches_subject_commit = (
+            candidate_subject_git_sha == manifest_subject_commit_sha
+        )
+        subject_git_sha_matches_run_identity = (
+            candidate_subject_git_sha == manifest_run_git_sha
+        )
+        run_key_matches_run_identity = (
+            candidate_subject_run_key == manifest_run_key
+        )
+
+        if not subject_git_sha_matches_subject_commit:
+            failed_checks.append(
+                "candidate evidence subject git_sha mismatch against subject commit: "
+                f"{evidence_id}"
+            )
+
+        if not subject_git_sha_matches_run_identity:
+            failed_checks.append(
+                "candidate evidence subject git_sha mismatch against run identity: "
+                f"{evidence_id}"
+            )
+
+        if not run_key_matches_run_identity:
+            failed_checks.append(
+                "candidate evidence run_key mismatch against run identity: "
+                f"{evidence_id}"
+            )
+        
         if not isinstance(kind, str) or kind not in VALID_EVIDENCE_KINDS:
             failed_checks.append(f"candidate evidence has unsupported kind: {evidence_id}")
             continue
@@ -296,8 +340,16 @@ def _evidence_inputs_from_manifest(
                     kind=kind,
                     path=resolved_path,
                     raw_path=raw_path.strip(),
-                    git_sha=git_sha,
-                    run_key=run_key,
+                    git_sha=(
+                        str(candidate_subject_git_sha)
+                        if isinstance(candidate_subject_git_sha, str)
+                        else None
+                    ),
+                    run_key=(
+                        str(candidate_subject_run_key)
+                        if isinstance(candidate_subject_run_key, str)
+                        else None
+                    ),
                     provenance_extra={
                         "source_manifest": _repo_relative_or_input(
                             manifest_path,
@@ -307,6 +359,18 @@ def _evidence_inputs_from_manifest(
                         "candidate_evidence_id": evidence_id,
                         "expected_sha256": expected_sha256,
                         "actual_sha256_matches_expected": sha_matches,
+                        "candidate_subject_git_sha": candidate_subject_git_sha,
+                        "candidate_subject_run_key": candidate_subject_run_key,
+                        "manifest_subject_commit_sha": manifest_subject_commit_sha,
+                        "manifest_run_identity_git_sha": manifest_run_git_sha,
+                        "manifest_run_identity_run_key": manifest_run_key,
+                        "subject_git_sha_matches_subject_commit": (
+                            subject_git_sha_matches_subject_commit
+                        ),
+                        "subject_git_sha_matches_run_identity": (
+                            subject_git_sha_matches_run_identity
+                        ),
+                        "run_key_matches_run_identity": run_key_matches_run_identity,
                     },
                 )
             )
