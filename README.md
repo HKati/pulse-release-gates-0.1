@@ -95,9 +95,9 @@ See [`docs/PULSE_PRE_MATERIALIZATION_GATE_MECHANICS_v0.md`](docs/PULSE_PRE_MATER
 
 ### Reviewable mechanics boundary
 
-PULSE does not use external review, reader surfaces, audit sidecars, coverage scores, green test results, or documentation claims as release authority.
+PULSE does not derive release authority from external review, reader surfaces, audit sidecars, coverage scores, green test results, or documentation claims.
 
-External review can inspect the mechanism, the claims, the implementation, and the reproducibility of the repository.
+External review may inspect the mechanism, declared claims, implementation, and repository reproducibility.
 
 External review cannot replace the artifact-bound release-authority path.
 
@@ -105,9 +105,9 @@ External review cannot replace the artifact-bound release-authority path.
 
 Coverage scores and other metrics are descriptive unless they are explicitly promoted into declared policy, workflow-effective materialized required gates, and strict fail-closed CI enforcement.
 
-Green tests alone do not create release authority.
+A green test result is not release authority unless it is part of the declared, workflow-effective required gate set enforced by strict fail-closed CI.
 
-The mechanical review boundary is documented in [`docs/PULSE_REVIEWABLE_MECHANICS_CHECKLIST_v0.md`](docs/PULSE_REVIEWABLE_MECHANICS_CHECKLIST_v0.md).
+The mechanical review boundary is documented in `docs/PULSE_REVIEWABLE_MECHANICS_CHECKLIST_v0.md`.
 
 ## Release boundary
 
