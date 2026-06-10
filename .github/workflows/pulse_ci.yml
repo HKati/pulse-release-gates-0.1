@@ -962,7 +962,7 @@ jobs:
             echo
             echo "| Field | Value |"
             echo "|---|---|"
-            echo "| Role | Audit / traceability bundle |"
+            echo "| Role | Review / traceability bundle |"
             echo "| Authority | Non-normative / non-blocking |"
             echo "| Artifact | \`release-authority-audit-bundle\` |"
             echo "| Workspace path | \`$BUNDLE\` |"
