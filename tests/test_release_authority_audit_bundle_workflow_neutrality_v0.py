@@ -34,6 +34,11 @@ def _extract_step(workflow: str, step_name: str) -> str:
     return match.group(0)
 
 
+def _assert_contains_all(text: str, required: list[str], label: str) -> None:
+    missing = [item for item in required if item not in text]
+    assert not missing, f"{label} is missing expected tokens: {missing}"
+
+
 def _assert_exact_audit_bundle_upload_path(upload_step: str) -> None:
     expected_path = "${{ env.PACK_DIR }}/artifacts/release_authority_audit_bundle/"
 
