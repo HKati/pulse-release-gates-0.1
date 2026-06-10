@@ -16,6 +16,38 @@ It is not a new release-decision engine.
 
 ---
 
+## Trace-carrier dependency boundary
+
+`release_authority_v0.json` is an audit / traceability sidecar.
+
+The release-authority manifest build/check/upload path is audit-only and does not compute, replace, or override the primary release decision.
+
+When artifact-provenance binding is enabled, `release_authority_v0.json` may be required as a trace-carrier input for the provenance-binding layer.
+
+A required trace carrier can make the provenance-binding layer fail if the carrier is missing.
+
+That trace-carrier requirement does not make `release_authority_v0.json` a second decision engine.
+
+It does not replace:
+
+- `status.json`
+- declared gate policy
+- workflow-effective materialized required gates
+- `check_gates.py`
+- strict fail-closed CI enforcement
+
+Boundary:
+
+```text
+trace-carrier required for provenance binding
+≠ release authority
+≠ primary allow/block decision
+≠ gate materialization
+≠ second decision engine
+```
+
+---
+
 ## Status
 
 Current status:
