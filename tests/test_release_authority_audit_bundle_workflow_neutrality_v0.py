@@ -34,9 +34,16 @@ def _extract_step(workflow: str, step_name: str) -> str:
     return match.group(0)
 
 
-def _assert_contains_all(text: str, required: list[str], label: str) -> None:
-    missing = [item for item in required if item not in text]
-    assert not missing, f"{label} is missing expected tokens: {missing}"
+def _assert_exact_audit_bundle_upload_path(upload_step: str) -> None:
+    expected_path = "${{ env.PACK_DIR }}/artifacts/release_authority_audit_bundle/"
+
+    assert re.search(
+        rf"(?m)^\s*path:\s*{re.escape(expected_path)}\s*$",
+        upload_step,
+    ), (
+        "audit bundle upload path must remain the exact artifacts path: "
+        f"{expected_path}"
+    )
 
 
 def test_release_authority_audit_bundle_workflow_neutrality_v0() -> None:
@@ -78,16 +85,17 @@ def test_release_authority_audit_bundle_workflow_neutrality_v0() -> None:
 
     # Upload must remain artifact-only / warning-only. A missing bundle must
     # not become a release-authority signal.
+ 
     _assert_contains_all(
         upload_step,
         [
-            "release-authority-audit-bundle",
+            "name: release-authority-audit-bundle",
             "continue-on-error: true",
             "if-no-files-found: warn",
-            "release_authority_audit_bundle",
         ],
         "audit bundle upload step",
     )
+    _assert_exact_audit_bundle_upload_path(upload_step)
 
     # Primary release enforcement remains policy-derived and separate from
     # audit-bundle staging/upload.
