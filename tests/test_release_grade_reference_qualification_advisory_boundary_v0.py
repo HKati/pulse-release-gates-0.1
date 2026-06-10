@@ -98,12 +98,26 @@ def _non_summary_lines(step: str) -> list[str]:
 
 
 def _python_marker_present(line: str) -> bool:
+    """Return true when a line contains a real Python command token.
+
+    The workflow may invoke tools directly:
+
+        python path/to/tool.py
+
+    or inside command substitution:
+
+        REQ_STR="$(python tools/policy_to_require_args.py ...)"
+
+    The opening parenthesis before python in "$(python ...)" must count as a
+    valid command boundary.
+    """
+
     return bool(
         re.search(
-            r"(^|[\s\"'])("
+            r"(?<![A-Za-z0-9_])("
             r"python|python3|\$PYTHON|\$\{PYTHON\}|"
             r"\$PYTHON_BIN|\$\{PYTHON_BIN\}"
-            r")([\s\"']|$)",
+            r")(?=([\s\"']|$))",
             line,
         )
     )
