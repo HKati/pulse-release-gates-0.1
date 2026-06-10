@@ -62,6 +62,10 @@ def test_release_authority_audit_bundle_workflow_neutrality_v0() -> None:
         workflow,
         "Upload release authority audit bundle (audit-only)",
     )
+    enforcement_step = _extract_step(
+        workflow,
+        "\"ci: enforce gates via check_gates (policy-derived)\"",
+    )
 
     # The audit bundle is staged into the dedicated artifacts workspace and
     # contains review / traceability copies only.
@@ -80,7 +84,7 @@ def test_release_authority_audit_bundle_workflow_neutrality_v0() -> None:
     _assert_contains_all(
         stage_step_l,
         [
-            "audit",
+            "review",
             "traceability",
             "non-normative",
             "non-blocking",
@@ -90,7 +94,6 @@ def test_release_authority_audit_bundle_workflow_neutrality_v0() -> None:
 
     # Upload must remain artifact-only / warning-only. A missing bundle must
     # not become a release-authority signal.
- 
     _assert_contains_all(
         upload_step,
         [
@@ -135,7 +138,18 @@ def test_release_authority_audit_bundle_workflow_neutrality_v0() -> None:
             f"token: {token}"
         )
 
-    # The upload artifact name must remain the audit-bundle artifact, not a
+     forbidden_enforcement_tokens = [
+        "release_authority_audit_bundle",
+        "release-authority-audit-bundle",
+        "--audit-bundle-dir",
+    ]
+    for token in forbidden_enforcement_tokens:
+        assert token not in enforcement_step, (
+            "policy-derived gate enforcement must not consume the audit "
+            f"bundle as a release-authority carrier: {token}"
+        )
+
+# The upload artifact name must remain the audit-bundle artifact, not a
     # status, gate, policy, or release-decision artifact.
     assert "name: release-authority-audit-bundle" in upload_step
     assert "name: status.json" not in upload_step
