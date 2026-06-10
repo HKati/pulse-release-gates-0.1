@@ -107,7 +107,7 @@ Coverage scores and other metrics are descriptive unless they are explicitly pro
 
 A green test result is not release authority unless it is part of the declared, workflow-effective required gate set enforced by strict fail-closed CI.
 
-The mechanical review boundary is documented in `docs/PULSE_REVIEWABLE_MECHANICS_CHECKLIST_v0.md`.
+The mechanical review boundary is documented in [docs/PULSE_REVIEWABLE_MECHANICS_CHECKLIST_v0.md](docs/PULSE_REVIEWABLE_MECHANICS_CHECKLIST_v0.md).
 
 ## Release boundary
 
