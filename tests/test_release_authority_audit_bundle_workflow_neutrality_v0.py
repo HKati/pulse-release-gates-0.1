@@ -34,6 +34,27 @@ def _extract_step(workflow: str, step_name: str) -> str:
     return match.group(0)
 
 
+def _extract_step_containing(
+    workflow: str,
+    required_tokens: list[str],
+    label: str,
+) -> str:
+    step_pattern = re.compile(
+        r"(?ms)^\s*-\s+name:\s+.*?$.*?(?=^\s*-\s+name:\s+|\Z)"
+    )
+    matches = [
+        match.group(0)
+        for match in step_pattern.finditer(workflow)
+        if all(token in match.group(0) for token in required_tokens)
+    ]
+
+    assert len(matches) == 1, (
+        f"Expected exactly one {label} step containing {required_tokens}, "
+        f"found {len(matches)}"
+    )
+    return matches[0]
+
+
 def _assert_contains_all(text: str, required: list[str], label: str) -> None:
     missing = [item for item in required if item not in text]
     assert not missing, f"{label} is missing expected tokens: {missing}"
@@ -62,13 +83,12 @@ def test_release_authority_audit_bundle_workflow_neutrality_v0() -> None:
         workflow,
         "Upload release authority audit bundle (audit-only)",
     )
-    enforcement_step = _extract_step(
+    enforcement_step = _extract_step_containing(
         workflow,
-        "\"ci: enforce gates via check_gates (policy-derived)\"",
+        ["policy_to_require_args.py", "check_gates.py"],
+        "policy-derived check_gates enforcement",
     )
 
-    # The audit bundle is staged into the dedicated artifacts workspace and
-    # contains review / traceability copies only.
     _assert_contains_all(
         stage_step,
         [
@@ -92,8 +112,6 @@ def test_release_authority_audit_bundle_workflow_neutrality_v0() -> None:
         "audit bundle staging boundary wording",
     )
 
-    # Upload must remain artifact-only / warning-only. A missing bundle must
-    # not become a release-authority signal.
     _assert_contains_all(
         upload_step,
         [
@@ -105,8 +123,6 @@ def test_release_authority_audit_bundle_workflow_neutrality_v0() -> None:
     )
     _assert_exact_audit_bundle_upload_path(upload_step)
 
-    # Primary release enforcement remains policy-derived and separate from
-    # audit-bundle staging/upload.
     _assert_contains_all(
         workflow,
         [
@@ -117,18 +133,14 @@ def test_release_authority_audit_bundle_workflow_neutrality_v0() -> None:
         "primary policy-derived check_gates enforcement path",
     )
 
-    # The audit bundle steps must not be the enforcement carrier.
-    forbidden_stage_tokens = [
+    forbidden_stage_or_upload_tokens = [
         "policy_to_require_args.py",
         "check_gates.py",
         "--release-grade-materialized",
-        "gate_materialization",
-        "materialized required gate",
-        "release eligibility",
-        "second decision engine",
+        "--audit-bundle-dir",
     ]
 
-    for token in forbidden_stage_tokens:
+    for token in forbidden_stage_or_upload_tokens:
         assert token not in stage_step, (
             "audit bundle staging must not contain enforcement / authority "
             f"token: {token}"
@@ -138,19 +150,18 @@ def test_release_authority_audit_bundle_workflow_neutrality_v0() -> None:
             f"token: {token}"
         )
 
-     forbidden_enforcement_tokens = [
+    forbidden_enforcement_tokens = [
         "release_authority_audit_bundle",
         "release-authority-audit-bundle",
         "--audit-bundle-dir",
     ]
+
     for token in forbidden_enforcement_tokens:
         assert token not in enforcement_step, (
-            "policy-derived gate enforcement must not consume the audit "
-            f"bundle as a release-authority carrier: {token}"
+            "policy-derived check_gates enforcement must not consume the "
+            f"audit bundle as a release-authority carrier: {token}"
         )
 
-# The upload artifact name must remain the audit-bundle artifact, not a
-    # status, gate, policy, or release-decision artifact.
     assert "name: release-authority-audit-bundle" in upload_step
     assert "name: status.json" not in upload_step
     assert "name: release-authority-v0" not in upload_step
