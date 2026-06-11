@@ -291,6 +291,141 @@ Add validation errors and partial-validation rejection.
 
 Still keep report failed and diagnostic-only.
 
+#### Stage D prerequisite map
+
+Stage D is a candidate-schema-validation prerequisite stage only.
+
+It may later define how candidate artifact schema validation results are produced and recorded, but it must not promote candidate evidence, mark artifacts trusted, satisfy relation bindings, materialize gates, or change release authority.
+
+The current diagnostic candidate schema validation surface remains limited to non-promotional diagnostic states:
+
+```text
+candidate_schema_validation:
+  status failed | not_run | unavailable
+  schema_version optional
+  schema_path optional
+  errors[] optional unless status = failed
+  duplicate_key_validation optional
+```
+
+For `candidate_schema_validation.status = failed`, `errors[]` must be present and non-empty.
+
+If `duplicate_key_validation` is present and `duplicate_key_validation.status = failed`, its `errors[]` must also be present and non-empty.
+
+This docs-only prerequisite map does not introduce a successful candidate schema validation status.
+
+Do not introduce promotion-looking statuses in this Stage D prerequisite map.
+
+Forbidden status vocabulary includes:
+
+```text
+valid
+passed
+schema_valid
+success
+verified
+trusted
+satisfied
+```
+
+Future Stage D review may separately evaluate whether diagnostic metadata such as `schema_sha256`, schema digest binding, validator identity, validator version, or validation source should be represented.
+
+Those fields are not part of the current diagnostic surface.
+
+If a future Stage D implementation needs to represent successful candidate schema validation, that must be a separate schema PR with an explicitly diagnostic status name and tests proving that it still does not imply:
+
+- trusted provenance
+- verified provenance
+- verified evidence
+- `verified_artifacts`
+- `relation_bindings`
+- relation satisfaction
+- gate materialization
+- `VERIFIED`
+- release authority
+
+Candidate artifact parsing, candidate schema validation, and evidence verification remain separate layers.
+
+Those layers must remain separate:
+
+```text
+parseable artifact ≠ schema-valid artifact
+schema-valid artifact ≠ verified evidence
+verified evidence ≠ relation satisfaction
+relation satisfaction ≠ release authority
+```
+
+Parse success means only that a declared candidate artifact was parsed under deterministic parser prerequisites.
+
+Parse success does not mean the artifact is schema-valid.
+
+Parse success does not mean the artifact is verified evidence.
+
+If a later implementation represents candidate schema-validity, schema validity means only that a parsed candidate artifact conforms to a controlled candidate schema.
+
+Schema validity does not verify provenance, evidence content, relation binding, policy eligibility, gate materialization, or release authority.
+
+Any Stage D-shaped diagnostic output must preserve the current fail-closed boundary:
+
+```text
+verifier_decision = FAILED
+provenance.trusted = false
+verification_status = not_verified
+verified_artifacts = []
+relation_bindings = []
+gate_materialization = {}
+```
+
+This Stage D prerequisite map is docs-only reference material.
+
+It does not implement Stage D.
+
+It does not create checker behavior, builder behavior, schema behavior, trusted evidence, verified artifacts, relation bindings, gate materialization, workflow authority, CI authority, or release authority in current v0.
+
+#### Diagnostic error object prerequisite
+
+Validation diagnostics should be represented as a list of structured error objects rather than as a singular loose error.
+
+Illustrative non-authoritative shape:
+
+```text
+errors:
+  - code
+    message
+    instance_path optional
+    schema_path optional
+```
+
+Each diagnostic error object should carry a stable code and human-readable message.
+
+Path fields are optional because schema loading, duplicate-key rejection, parser failure, and validator-unavailable failures may occur before a JSON Schema instance path or schema path is available.
+
+Recommended future error code classes are:
+
+- `candidate_parse_failed`
+- `candidate_duplicate_key`
+- `candidate_schema_unavailable`
+- `candidate_schema_invalid`
+- `candidate_validator_unavailable`
+- `candidate_schema_validation_failed`
+- `candidate_partial_validation_rejected`
+
+For `candidate_schema_validation.status = failed`, `errors[]` must be present and non-empty.
+
+For `duplicate_key_validation.status = failed`, `errors[]` must be present and non-empty.
+
+Diagnostic errors describe why candidate parsing or candidate schema validation did not qualify as complete diagnostic validation.
+
+They do not verify evidence.
+
+They do not satisfy relations.
+
+They do not authorize gates.
+
+This error shape is a prerequisite for Stage D review only.
+
+It does not create checker behavior, builder behavior, trusted evidence, verified artifacts, relation bindings, gate materialization, or release authority in current v0.
+
 ### Stage E — trusted verifier identity / trust root
 
 Add trust-root-backed trusted verifier identity checks.
