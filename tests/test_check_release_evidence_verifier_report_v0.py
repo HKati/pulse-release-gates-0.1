@@ -291,5 +291,275 @@ def test_checker_fails_closed_when_jsonschema_unavailable(
     assert any("partial fallback validation is not allowed" in error for error in errors)
 
 
+def _failed_report_base() -> dict[str, Any]:
+    report = _verified_report()
+
+    report["verifier_decision"] = "FAILED"
+    report["verified_artifacts"] = []
+    report["relation_bindings"] = []
+    report["gate_materialization"] = {}
+    report["failed_checks"] = [
+        "Stage B draft diagnostics remain non-authoritative",
+    ]
+
+    return report
+
+
+def _failed_report_with_candidate_schema_validation_draft() -> dict[str, Any]:
+    report = _failed_report_base()
+
+    report["evidence_inputs"][0]["provenance"] = {
+        "producer": "unit-test",
+        "trusted": False,
+        "verification_status": "not_verified",
+        "candidate_schema_validation": {
+            "status": "failed",
+            "schema_path": "schemas/detector_report_v0.schema.json",
+            "schema_version": "detector_report_v0",
+            "errors": [
+                {
+                    "code": "schema_validation_failed",
+                    "message": "candidate schema validation is diagnostic-only",
+                    "instance_path": "/",
+                    "schema_path": "#",
+                }
+            ],
+        },
+    }
+
+    return report
+
+
+def _failed_report_with_partial_verification_diagnostics() -> dict[str, Any]:
+    report = _failed_report_base()
+
+    report["evidence_inputs"][0]["provenance"] = {
+        "producer": "unit-test",
+        "trusted": False,
+        "verification_status": "not_verified",
+        "partial_verification_diagnostics": {
+            "digest_binding": {
+                "status": "failed",
+                "errors": [
+                    {
+                        "code": "partial_verification_failed",
+                        "message": (
+                            "partial verification diagnostics are "
+                            "diagnostic-only"
+                        ),
+                        "expected": "declared digest binding",
+                        "actual": "not verified",
+                        "field_path": "digest_binding",
+                    }
+                ],
+            }
+        },
+    }
+
+    return report
+
+
+def _checker_errors_for_report(
+    tmp_path: pathlib.Path,
+    report: dict[str, Any],
+) -> list[str]:
+    report_path = tmp_path / "release_evidence_verifier_report_v0.json"
+    _write_json(report_path, report)
+
+    return check_release_evidence_verifier_report(report_path)
+
+
+def test_checker_accepts_failed_candidate_schema_validation_draft_report(
+    tmp_path: pathlib.Path,
+) -> None:
+    report = _failed_report_with_candidate_schema_validation_draft()
+
+    errors = _checker_errors_for_report(tmp_path, report)
+
+    assert errors == []
+
+
+def test_checker_accepts_failed_partial_diagnostics_draft_report(
+    tmp_path: pathlib.Path,
+) -> None:
+    report = _failed_report_with_partial_verification_diagnostics()
+
+    errors = _checker_errors_for_report(tmp_path, report)
+
+    assert errors == []
+
+
+def test_checker_rejects_candidate_schema_validation_draft_on_verified_report(
+    tmp_path: pathlib.Path,
+) -> None:
+    report = _failed_report_with_candidate_schema_validation_draft()
+    report["verifier_decision"] = "VERIFIED"
+    report["failed_checks"] = []
+
+    errors = _checker_errors_for_report(tmp_path, report)
+
+    assert errors
+
+
+def test_checker_rejects_partial_diagnostics_draft_on_verified_report(
+    tmp_path: pathlib.Path,
+) -> None:
+    report = _failed_report_with_partial_verification_diagnostics()
+    report["verifier_decision"] = "VERIFIED"
+    report["failed_checks"] = []
+
+    errors = _checker_errors_for_report(tmp_path, report)
+
+    assert errors
+
+
+@pytest.mark.parametrize(
+    "report_factory",
+    [
+        _failed_report_with_candidate_schema_validation_draft,
+        _failed_report_with_partial_verification_diagnostics,
+    ],
+)
+def test_checker_rejects_stage_b_draft_with_trusted_provenance(
+    tmp_path: pathlib.Path,
+    report_factory: Any,
+) -> None:
+    report = report_factory()
+    report["evidence_inputs"][0]["provenance"]["trusted"] = True
+
+    errors = _checker_errors_for_report(tmp_path, report)
+
+    assert errors
+
+
+@pytest.mark.parametrize(
+    "report_factory",
+    [
+        _failed_report_with_candidate_schema_validation_draft,
+        _failed_report_with_partial_verification_diagnostics,
+    ],
+)
+def test_checker_rejects_stage_b_draft_with_verified_provenance_status(
+    tmp_path: pathlib.Path,
+    report_factory: Any,
+) -> None:
+    report = report_factory()
+    report["evidence_inputs"][0]["provenance"][
+        "verification_status"
+    ] = "verified"
+
+    errors = _checker_errors_for_report(tmp_path, report)
+
+    assert errors
+
+
+@pytest.mark.parametrize(
+    "report_factory",
+    [
+        _failed_report_with_candidate_schema_validation_draft,
+        _failed_report_with_partial_verification_diagnostics,
+    ],
+)
+def test_checker_rejects_stage_b_draft_with_verified_artifacts(
+    tmp_path: pathlib.Path,
+    report_factory: Any,
+) -> None:
+    report = report_factory()
+    report["verified_artifacts"] = _verified_report()["verified_artifacts"]
+
+    errors = _checker_errors_for_report(tmp_path, report)
+
+    assert errors
+
+
+@pytest.mark.parametrize(
+    "report_factory",
+    [
+        _failed_report_with_candidate_schema_validation_draft,
+        _failed_report_with_partial_verification_diagnostics,
+    ],
+)
+def test_checker_rejects_stage_b_draft_with_relation_bindings(
+    tmp_path: pathlib.Path,
+    report_factory: Any,
+) -> None:
+    report = report_factory()
+    report["relation_bindings"] = _verified_report()["relation_bindings"]
+
+    errors = _checker_errors_for_report(tmp_path, report)
+
+    assert errors
+
+
+@pytest.mark.parametrize(
+    "report_factory",
+    [
+        _failed_report_with_candidate_schema_validation_draft,
+        _failed_report_with_partial_verification_diagnostics,
+    ],
+)
+def test_checker_rejects_stage_b_draft_with_gate_materialization(
+    tmp_path: pathlib.Path,
+    report_factory: Any,
+) -> None:
+    report = report_factory()
+    report["gate_materialization"] = _verified_report()["gate_materialization"]
+
+    errors = _checker_errors_for_report(tmp_path, report)
+
+    assert errors
+
+
+def test_checker_rejects_candidate_validation_failed_status_without_errors(
+    tmp_path: pathlib.Path,
+) -> None:
+    report = _failed_report_with_candidate_schema_validation_draft()
+    del report["evidence_inputs"][0]["provenance"][
+        "candidate_schema_validation"
+    ]["errors"]
+
+    errors = _checker_errors_for_report(tmp_path, report)
+
+    assert errors
+
+
+def test_checker_rejects_candidate_validation_failed_status_with_empty_errors(
+    tmp_path: pathlib.Path,
+) -> None:
+    report = _failed_report_with_candidate_schema_validation_draft()
+    report["evidence_inputs"][0]["provenance"][
+        "candidate_schema_validation"
+    ]["errors"] = []
+
+    errors = _checker_errors_for_report(tmp_path, report)
+
+    assert errors
+
+
+def test_checker_rejects_partial_diagnostics_failed_status_without_errors(
+    tmp_path: pathlib.Path,
+) -> None:
+    report = _failed_report_with_partial_verification_diagnostics()
+    del report["evidence_inputs"][0]["provenance"][
+        "partial_verification_diagnostics"
+    ]["digest_binding"]["errors"]
+
+    errors = _checker_errors_for_report(tmp_path, report)
+
+    assert errors
+
+
+def test_checker_rejects_partial_diagnostics_failed_status_with_empty_errors(
+    tmp_path: pathlib.Path,
+) -> None:
+    report = _failed_report_with_partial_verification_diagnostics()
+    report["evidence_inputs"][0]["provenance"][
+        "partial_verification_diagnostics"
+    ]["digest_binding"]["errors"] = []
+
+    errors = _checker_errors_for_report(tmp_path, report)
+
+    assert errors
+
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__]))
