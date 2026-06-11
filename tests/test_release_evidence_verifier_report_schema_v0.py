@@ -45,7 +45,7 @@ def _relation_binding() -> dict[str, Any]:
         "target": "subject.commit_sha",
         "verified": True,
         "evidence": [
-            _verified_artifact()
+            _verified_artifact(),
         ],
         "failure_reason": None,
     }
@@ -88,15 +88,15 @@ def _minimal_verified_report() -> dict[str, Any]:
                     "run_key": RUN_KEY,
                 },
                 "provenance": {
-                    "producer": "unit-test"
+                    "producer": "unit-test",
                 },
             }
         ],
         "verified_artifacts": [
-            _verified_artifact()
+            _verified_artifact(),
         ],
         "relation_bindings": [
-            _relation_binding()
+            _relation_binding(),
         ],
         "gate_materialization": {
             "detectors_materialized_ok": {
@@ -104,10 +104,10 @@ def _minimal_verified_report() -> dict[str, Any]:
                 "source": "release_evidence_verifier_report_v0",
                 "verified": True,
                 "evidence_artifacts": [
-                    _verified_artifact()
+                    _verified_artifact(),
                 ],
                 "relation_bindings": [
-                    "detector_report_to_subject_commit"
+                    "detector_report_to_subject_commit",
                 ],
                 "policy_relation": "release_required",
             }
@@ -115,6 +115,57 @@ def _minimal_verified_report() -> dict[str, Any]:
         "failed_checks": [],
         "warnings": [],
     }
+
+
+def _failed_report_with_candidate_schema_validation(
+    status: str = "failed",
+    duplicate_key_status: str | None = None,
+) -> dict[str, Any]:
+    report = _minimal_verified_report()
+
+    report["verifier_decision"] = "FAILED"
+    report["verified_artifacts"] = []
+    report["relation_bindings"] = []
+    report["gate_materialization"] = {}
+    report["failed_checks"] = [
+        "candidate schema validation draft is diagnostic-only",
+    ]
+
+    candidate_schema_validation: dict[str, Any] = {
+        "status": status,
+        "schema_path": "schemas/detector_report_v0.schema.json",
+        "schema_version": "detector_report_v0",
+        "errors": [
+            {
+                "code": "schema_validation_failed",
+                "message": "candidate evidence schema validation is diagnostic-only",
+                "instance_path": "/",
+                "schema_path": "#",
+            }
+        ],
+    }
+
+    if duplicate_key_status is not None:
+        candidate_schema_validation["duplicate_key_validation"] = {
+            "status": duplicate_key_status,
+            "errors": [
+                {
+                    "code": "duplicate_key_validation_failed",
+                    "message": "duplicate-key validation is diagnostic-only",
+                    "instance_path": "/",
+                    "schema_path": "#",
+                }
+            ],
+        }
+
+    report["evidence_inputs"][0]["provenance"] = {
+        "producer": "unit-test",
+        "trusted": False,
+        "verification_status": "not_verified",
+        "candidate_schema_validation": candidate_schema_validation,
+    }
+
+    return report
 
 
 def _validate(instance: dict[str, Any]) -> None:
@@ -127,6 +178,7 @@ def _validate(instance: dict[str, Any]) -> None:
 
     for key in schema["required"]:
         assert key in instance
+
     assert instance["schema_version"] == "release_evidence_verifier_report_v0"
     assert instance["verifier_decision"] in {"VERIFIED", "FAILED"}
 
@@ -163,6 +215,7 @@ def _validation_errors(instance: dict[str, Any]) -> list[str]:
         _validate(instance)
     except AssertionError as exc:
         return [str(exc)]
+
     return []
 
 
@@ -300,6 +353,227 @@ def test_verified_artifact_must_be_marked_verified() -> None:
     errors = _validation_errors(report)
 
     assert errors
+
+
+@pytest.mark.parametrize("status", ["not_run", "unavailable", "failed"])
+def test_candidate_schema_validation_draft_accepts_diagnostic_statuses(
+    status: str,
+) -> None:
+    report = _failed_report_with_candidate_schema_validation(status=status)
+
+    _validate(report)
+
+
+@pytest.mark.parametrize(
+    "bad_status",
+    [
+        "valid",
+        "passed",
+        "success",
+        "schema_valid",
+        "verified",
+        "trusted",
+    ],
+)
+def test_candidate_schema_validation_draft_rejects_promotion_statuses(
+    bad_status: str,
+) -> None:
+    report = _failed_report_with_candidate_schema_validation(
+        status=bad_status,
+    )
+
+    errors = _validation_errors(report)
+
+    assert errors
+
+
+@pytest.mark.parametrize("status", ["not_run", "unavailable", "failed"])
+def test_duplicate_key_validation_draft_accepts_diagnostic_statuses(
+    status: str,
+) -> None:
+    report = _failed_report_with_candidate_schema_validation(
+        status="failed",
+        duplicate_key_status=status,
+    )
+
+    _validate(report)
+
+
+@pytest.mark.parametrize(
+    "bad_status",
+    [
+        "valid",
+        "passed",
+        "success",
+        "schema_valid",
+        "verified",
+        "trusted",
+    ],
+)
+def test_duplicate_key_validation_draft_rejects_promotion_statuses(
+    bad_status: str,
+) -> None:
+    report = _failed_report_with_candidate_schema_validation(
+        status="failed",
+        duplicate_key_status=bad_status,
+    )
+
+    errors = _validation_errors(report)
+
+    assert errors
+
+
+def test_candidate_schema_validation_draft_is_rejected_on_verified_report() -> None:
+    report = _minimal_verified_report()
+
+    report["evidence_inputs"][0]["provenance"] = {
+        "trusted": False,
+        "verification_status": "not_verified",
+        "candidate_schema_validation": {
+            "status": "failed",
+            "errors": [
+                {
+                    "code": "schema_validation_failed",
+                    "message": "candidate validation draft is diagnostic-only",
+                    "instance_path": "/",
+                    "schema_path": "#",
+                }
+            ],
+        },
+    }
+
+    errors = _validation_errors(report)
+
+    assert errors
+
+
+def test_candidate_schema_validation_draft_does_not_make_verified_report_valid() -> None:
+    report = _failed_report_with_candidate_schema_validation(status="failed")
+    report["verifier_decision"] = "VERIFIED"
+    report["failed_checks"] = []
+
+    errors = _validation_errors(report)
+
+    assert errors
+
+
+def test_candidate_schema_validation_draft_rejects_non_empty_verified_artifacts() -> None:
+    report = _failed_report_with_candidate_schema_validation(status="failed")
+
+    verified_report = _minimal_verified_report()
+    report["verified_artifacts"] = verified_report["verified_artifacts"]
+
+    errors = _validation_errors(report)
+
+    assert errors
+
+
+def test_candidate_schema_validation_draft_rejects_non_empty_relation_bindings() -> None:
+    report = _failed_report_with_candidate_schema_validation(status="failed")
+
+    verified_report = _minimal_verified_report()
+    report["relation_bindings"] = verified_report["relation_bindings"]
+
+    errors = _validation_errors(report)
+
+    assert errors
+
+
+def test_candidate_schema_validation_draft_rejects_gate_materialization() -> None:
+    report = _failed_report_with_candidate_schema_validation(status="failed")
+
+    verified_report = _minimal_verified_report()
+    report["gate_materialization"] = verified_report["gate_materialization"]
+
+    errors = _validation_errors(report)
+
+    assert errors
+
+
+def test_candidate_schema_validation_draft_rejects_trusted_provenance() -> None:
+    report = _failed_report_with_candidate_schema_validation(status="failed")
+    report["evidence_inputs"][0]["provenance"]["trusted"] = True
+
+    errors = _validation_errors(report)
+
+    assert errors
+
+
+def test_candidate_schema_validation_draft_rejects_verified_provenance_status() -> None:
+    report = _failed_report_with_candidate_schema_validation(status="failed")
+    report["evidence_inputs"][0]["provenance"][
+        "verification_status"
+    ] = "verified"
+
+    errors = _validation_errors(report)
+
+    assert errors
+
+
+def test_candidate_schema_validation_failed_status_requires_errors() -> None:
+    report = _failed_report_with_candidate_schema_validation(status="failed")
+    del report["evidence_inputs"][0]["provenance"][
+        "candidate_schema_validation"
+    ]["errors"]
+
+    errors = _validation_errors(report)
+
+    assert errors
+
+
+def test_candidate_schema_validation_failed_status_rejects_empty_errors() -> None:
+    report = _failed_report_with_candidate_schema_validation(status="failed")
+    report["evidence_inputs"][0]["provenance"][
+        "candidate_schema_validation"
+    ]["errors"] = []
+
+    errors = _validation_errors(report)
+
+    assert errors
+
+
+def test_duplicate_key_validation_failed_status_requires_errors() -> None:
+    report = _failed_report_with_candidate_schema_validation(
+        status="failed",
+        duplicate_key_status="failed",
+    )
+    del report["evidence_inputs"][0]["provenance"][
+        "candidate_schema_validation"
+    ]["duplicate_key_validation"]["errors"]
+
+    errors = _validation_errors(report)
+
+    assert errors
+
+
+def test_duplicate_key_validation_failed_status_rejects_empty_errors() -> None:
+    report = _failed_report_with_candidate_schema_validation(
+        status="failed",
+        duplicate_key_status="failed",
+    )
+    report["evidence_inputs"][0]["provenance"][
+        "candidate_schema_validation"
+    ]["duplicate_key_validation"]["errors"] = []
+
+    errors = _validation_errors(report)
+
+    assert errors
+
+
+def test_candidate_schema_validation_draft_keeps_failed_report_non_materialized() -> None:
+    report = _failed_report_with_candidate_schema_validation(status="failed")
+
+    _validate(report)
+
+    assert report["verifier_decision"] == "FAILED"
+    assert report["verified_artifacts"] == []
+    assert report["relation_bindings"] == []
+    assert report["gate_materialization"] == {}
+    assert report["evidence_inputs"][0]["provenance"]["trusted"] is False
+    assert (
+        report["evidence_inputs"][0]["provenance"]["verification_status"]
+        == "not_verified"
+    )
 
 
 if __name__ == "__main__":
