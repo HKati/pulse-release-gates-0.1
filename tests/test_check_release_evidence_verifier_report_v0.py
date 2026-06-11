@@ -38,7 +38,9 @@ def _write_json(path: pathlib.Path, payload: dict[str, Any]) -> None:
     path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
 
 
-def _verified_artifact(path: str = "artifacts/detectors/detector_report.json") -> dict[str, Any]:
+def _verified_artifact(
+    path: str = "artifacts/detectors/detector_report.json",
+) -> dict[str, Any]:
     return {
         "path": path,
         "sha256": HEX64,
@@ -61,7 +63,7 @@ def _relation_binding(
         "target": target,
         "verified": verified,
         "evidence": [
-            _verified_artifact(source)
+            _verified_artifact(source),
         ],
         "failure_reason": None if verified else "relation was not verified",
     }
@@ -106,15 +108,15 @@ def _verified_report() -> dict[str, Any]:
                     "run_key": RUN_KEY,
                 },
                 "provenance": {
-                    "producer": "unit-test"
+                    "producer": "unit-test",
                 },
             }
         ],
         "verified_artifacts": [
-            _verified_artifact()
+            _verified_artifact(),
         ],
         "relation_bindings": [
-            _relation_binding(relation_id=relation_id)
+            _relation_binding(relation_id=relation_id),
         ],
         "gate_materialization": {
             "detectors_materialized_ok": {
@@ -122,10 +124,10 @@ def _verified_report() -> dict[str, Any]:
                 "source": "release_evidence_verifier_report_v0",
                 "verified": True,
                 "evidence_artifacts": [
-                    _verified_artifact()
+                    _verified_artifact(),
                 ],
                 "relation_bindings": [
-                    relation_id
+                    relation_id,
                 ],
                 "policy_relation": "release_required",
             }
@@ -197,9 +199,13 @@ def test_unverified_referenced_relation_fails(tmp_path: pathlib.Path) -> None:
     assert any("not verified=true" in error for error in errors)
 
 
-def test_gate_materialization_without_relation_ids_fails(tmp_path: pathlib.Path) -> None:
+def test_gate_materialization_without_relation_ids_fails(
+    tmp_path: pathlib.Path,
+) -> None:
     report = _verified_report()
-    report["gate_materialization"]["detectors_materialized_ok"]["relation_bindings"] = []
+    report["gate_materialization"]["detectors_materialized_ok"][
+        "relation_bindings"
+    ] = []
 
     report_path = tmp_path / "release_evidence_verifier_report_v0.json"
     _write_json(report_path, report)
@@ -244,7 +250,10 @@ def test_checker_cli_passes_failed_example() -> None:
     )
 
     assert result.returncode == 0, result.stderr
-    assert "OK: release evidence verifier report relation integrity satisfied" in result.stdout
+    assert (
+        "OK: release evidence verifier report relation integrity satisfied"
+        in result.stdout
+    )
 
 
 def test_checker_cli_reports_errors(tmp_path: pathlib.Path) -> None:
@@ -369,6 +378,21 @@ def _checker_errors_for_report(
     return check_release_evidence_verifier_report(report_path)
 
 
+def _assert_valid_verified_report_fixture(
+    tmp_path: pathlib.Path,
+    report: dict[str, Any],
+) -> None:
+    assert report["verifier_decision"] == "VERIFIED"
+    assert report["failed_checks"] == []
+    assert report["verified_artifacts"]
+    assert report["relation_bindings"]
+    assert report["gate_materialization"]
+
+    errors = _checker_errors_for_report(tmp_path, report)
+
+    assert errors == []
+
+
 def test_checker_accepts_failed_candidate_schema_validation_draft_report(
     tmp_path: pathlib.Path,
 ) -> None:
@@ -392,9 +416,27 @@ def test_checker_accepts_failed_partial_diagnostics_draft_report(
 def test_checker_rejects_candidate_schema_validation_draft_on_verified_report(
     tmp_path: pathlib.Path,
 ) -> None:
-    report = _failed_report_with_candidate_schema_validation_draft()
-    report["verifier_decision"] = "VERIFIED"
-    report["failed_checks"] = []
+    report = _verified_report()
+    _assert_valid_verified_report_fixture(tmp_path, report)
+
+    report["evidence_inputs"][0]["provenance"] = {
+        "producer": "unit-test",
+        "trusted": False,
+        "verification_status": "not_verified",
+        "candidate_schema_validation": {
+            "status": "failed",
+            "schema_path": "schemas/detector_report_v0.schema.json",
+            "schema_version": "detector_report_v0",
+            "errors": [
+                {
+                    "code": "schema_validation_failed",
+                    "message": "candidate schema validation is diagnostic-only",
+                    "instance_path": "/",
+                    "schema_path": "#",
+                }
+            ],
+        },
+    }
 
     errors = _checker_errors_for_report(tmp_path, report)
 
@@ -404,9 +446,31 @@ def test_checker_rejects_candidate_schema_validation_draft_on_verified_report(
 def test_checker_rejects_partial_diagnostics_draft_on_verified_report(
     tmp_path: pathlib.Path,
 ) -> None:
-    report = _failed_report_with_partial_verification_diagnostics()
-    report["verifier_decision"] = "VERIFIED"
-    report["failed_checks"] = []
+    report = _verified_report()
+    _assert_valid_verified_report_fixture(tmp_path, report)
+
+    report["evidence_inputs"][0]["provenance"] = {
+        "producer": "unit-test",
+        "trusted": False,
+        "verification_status": "not_verified",
+        "partial_verification_diagnostics": {
+            "digest_binding": {
+                "status": "failed",
+                "errors": [
+                    {
+                        "code": "partial_verification_failed",
+                        "message": (
+                            "partial verification diagnostics are "
+                            "diagnostic-only"
+                        ),
+                        "expected": "declared digest binding",
+                        "actual": "not verified",
+                        "field_path": "digest_binding",
+                    }
+                ],
+            }
+        },
+    }
 
     errors = _checker_errors_for_report(tmp_path, report)
 
@@ -560,6 +624,7 @@ def test_checker_rejects_partial_diagnostics_failed_status_with_empty_errors(
     errors = _checker_errors_for_report(tmp_path, report)
 
     assert errors
+
 
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__]))
