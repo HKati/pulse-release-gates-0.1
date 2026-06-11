@@ -195,6 +195,89 @@
       "type": "string",
       "pattern": "^[0-9a-fA-F]{64}$"
     },
+    "candidate_validation_diagnostic_status": {
+      "type": "string",
+      "enum": [
+        "not_run",
+        "unavailable",
+        "failed"
+      ]
+    },
+    "candidate_validation_diagnostic_error": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "code",
+        "message"
+      ],
+      "properties": {
+        "code": {
+          "type": "string",
+          "minLength": 1
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1
+        },
+        "instance_path": {
+          "type": "string"
+        },
+        "schema_path": {
+          "type": "string"
+        }
+      }
+    },
+    "duplicate_key_validation_draft": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status"
+      ],
+      "properties": {
+        "status": {
+          "$ref": "#/$defs/candidate_validation_diagnostic_status"
+        },
+        "errors": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/candidate_validation_diagnostic_error"
+          }
+        }
+      }
+    },
+    "candidate_schema_validation_draft": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status"
+      ],
+      "properties": {
+        "status": {
+          "$ref": "#/$defs/candidate_validation_diagnostic_status"
+        },
+        "schema_path": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "schema_version": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "errors": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/candidate_validation_diagnostic_error"
+          }
+        },
+        "duplicate_key_validation": {
+          "$ref": "#/$defs/duplicate_key_validation_draft"
+        }
+      }
+    },
     "evidence_input": {
       "type": "object",
       "additionalProperties": false,
@@ -256,7 +339,13 @@
           }
         },
         "provenance": {
-          "type": "object"
+          "type": "object",
+          "properties": {
+            "candidate_schema_validation": {
+              "$ref": "#/$defs/candidate_schema_validation_draft"
+            }
+          },
+          "additionalProperties": true
         }
       }
     },
