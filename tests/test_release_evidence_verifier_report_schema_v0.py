@@ -576,5 +576,282 @@ def test_candidate_schema_validation_draft_keeps_failed_report_non_materialized(
     )
 
 
+def _failed_report_with_partial_verification_diagnostics(
+    result_key: str = "digest_binding",
+    status: str = "failed",
+) -> dict[str, Any]:
+    report = _minimal_verified_report()
+
+    report["verifier_decision"] = "FAILED"
+    report["verified_artifacts"] = []
+    report["relation_bindings"] = []
+    report["gate_materialization"] = {}
+    report["failed_checks"] = [
+        "partial verification diagnostics draft is diagnostic-only",
+    ]
+
+    partial_result: dict[str, Any] = {
+        "status": status,
+        "errors": [
+            {
+                "code": "partial_verification_failed",
+                "message": "partial verification diagnostics are diagnostic-only",
+                "expected": "declared binding",
+                "actual": "not verified",
+                "field_path": result_key,
+            }
+        ],
+    }
+
+    report["evidence_inputs"][0]["provenance"] = {
+        "producer": "unit-test",
+        "trusted": False,
+        "verification_status": "not_verified",
+        "partial_verification_diagnostics": {
+            result_key: partial_result,
+        },
+    }
+
+    return report
+
+
+@pytest.mark.parametrize(
+    "result_key",
+    [
+        "digest_binding",
+        "subject_binding",
+        "run_binding",
+    ],
+)
+@pytest.mark.parametrize("status", ["not_run", "unavailable", "failed"])
+def test_partial_verification_diagnostics_accepts_diagnostic_statuses(
+    result_key: str,
+    status: str,
+) -> None:
+    report = _failed_report_with_partial_verification_diagnostics(
+        result_key=result_key,
+        status=status,
+    )
+
+    _validate(report)
+
+
+@pytest.mark.parametrize(
+    "result_key",
+    [
+        "digest_binding",
+        "subject_binding",
+        "run_binding",
+    ],
+)
+@pytest.mark.parametrize(
+    "bad_status",
+    [
+        "valid",
+        "passed",
+        "success",
+        "schema_valid",
+        "matched",
+        "match",
+        "verified",
+        "trusted",
+        "satisfied",
+    ],
+)
+def test_partial_verification_diagnostics_rejects_promotion_statuses(
+    result_key: str,
+    bad_status: str,
+) -> None:
+    report = _failed_report_with_partial_verification_diagnostics(
+        result_key=result_key,
+        status=bad_status,
+    )
+
+    errors = _validation_errors(report)
+
+    assert errors
+
+
+@pytest.mark.parametrize(
+    "bad_result_key",
+    [
+        "candidate_schema_validation",
+        "verifier_identity",
+        "trust_root",
+        "relation_provenance_readiness",
+        "deterministic_relation_id",
+        "verified_relation_prototype",
+        "gate_eligibility",
+    ],
+)
+def test_partial_verification_diagnostics_rejects_postponed_surfaces(
+    bad_result_key: str,
+) -> None:
+    report = _failed_report_with_partial_verification_diagnostics(
+        result_key="digest_binding",
+        status="failed",
+    )
+
+    result = report["evidence_inputs"][0]["provenance"][
+        "partial_verification_diagnostics"
+    ].pop("digest_binding")
+    report["evidence_inputs"][0]["provenance"][
+        "partial_verification_diagnostics"
+    ][bad_result_key] = result
+
+    errors = _validation_errors(report)
+
+    assert errors
+
+
+def test_partial_verification_diagnostics_is_rejected_on_verified_report() -> None:
+    report = _minimal_verified_report()
+
+    report["evidence_inputs"][0]["provenance"] = {
+        "trusted": False,
+        "verification_status": "not_verified",
+        "partial_verification_diagnostics": {
+            "digest_binding": {
+                "status": "failed",
+                "errors": [
+                    {
+                        "code": "partial_verification_failed",
+                        "message": "partial verification diagnostics are diagnostic-only",
+                        "expected": "declared binding",
+                        "actual": "not verified",
+                        "field_path": "digest_binding",
+                    }
+                ],
+            }
+        },
+    }
+
+    errors = _validation_errors(report)
+
+    assert errors
+
+
+def test_partial_verification_diagnostics_rejects_non_empty_verified_artifacts() -> None:
+    report = _failed_report_with_partial_verification_diagnostics()
+
+    verified_report = _minimal_verified_report()
+    report["verified_artifacts"] = verified_report["verified_artifacts"]
+
+    errors = _validation_errors(report)
+
+    assert errors
+
+
+def test_partial_verification_diagnostics_rejects_non_empty_relation_bindings() -> None:
+    report = _failed_report_with_partial_verification_diagnostics()
+
+    verified_report = _minimal_verified_report()
+    report["relation_bindings"] = verified_report["relation_bindings"]
+
+    errors = _validation_errors(report)
+
+    assert errors
+
+
+def test_partial_verification_diagnostics_rejects_gate_materialization() -> None:
+    report = _failed_report_with_partial_verification_diagnostics()
+
+    verified_report = _minimal_verified_report()
+    report["gate_materialization"] = verified_report["gate_materialization"]
+
+    errors = _validation_errors(report)
+
+    assert errors
+
+
+def test_partial_verification_diagnostics_rejects_trusted_provenance() -> None:
+    report = _failed_report_with_partial_verification_diagnostics()
+    report["evidence_inputs"][0]["provenance"]["trusted"] = True
+
+    errors = _validation_errors(report)
+
+    assert errors
+
+
+def test_partial_verification_diagnostics_rejects_verified_provenance_status() -> None:
+    report = _failed_report_with_partial_verification_diagnostics()
+    report["evidence_inputs"][0]["provenance"][
+        "verification_status"
+    ] = "verified"
+
+    errors = _validation_errors(report)
+
+    assert errors
+
+
+@pytest.mark.parametrize(
+    "result_key",
+    [
+        "digest_binding",
+        "subject_binding",
+        "run_binding",
+    ],
+)
+def test_partial_verification_diagnostics_failed_status_requires_errors(
+    result_key: str,
+) -> None:
+    report = _failed_report_with_partial_verification_diagnostics(
+        result_key=result_key,
+        status="failed",
+    )
+
+    del report["evidence_inputs"][0]["provenance"][
+        "partial_verification_diagnostics"
+    ][result_key]["errors"]
+
+    errors = _validation_errors(report)
+
+    assert errors
+
+
+@pytest.mark.parametrize(
+    "result_key",
+    [
+        "digest_binding",
+        "subject_binding",
+        "run_binding",
+    ],
+)
+def test_partial_verification_diagnostics_failed_status_rejects_empty_errors(
+    result_key: str,
+) -> None:
+    report = _failed_report_with_partial_verification_diagnostics(
+        result_key=result_key,
+        status="failed",
+    )
+
+    report["evidence_inputs"][0]["provenance"][
+        "partial_verification_diagnostics"
+    ][result_key]["errors"] = []
+
+    errors = _validation_errors(report)
+
+    assert errors
+
+
+def test_partial_verification_diagnostics_keeps_failed_report_non_materialized() -> None:
+    report = _failed_report_with_partial_verification_diagnostics(
+        result_key="digest_binding",
+        status="failed",
+    )
+
+    _validate(report)
+
+    assert report["verifier_decision"] == "FAILED"
+    assert report["verified_artifacts"] == []
+    assert report["relation_bindings"] == []
+    assert report["gate_materialization"] == {}
+    assert report["evidence_inputs"][0]["provenance"]["trusted"] is False
+    assert (
+        report["evidence_inputs"][0]["provenance"]["verification_status"]
+        == "not_verified"
+    )
+
+
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__]))
