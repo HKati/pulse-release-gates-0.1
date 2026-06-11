@@ -302,5 +302,150 @@ def test_verified_artifact_must_be_marked_verified() -> None:
     assert errors
 
 
+def _failed_report_with_candidate_schema_validation(
+    status: str = "failed",
+    duplicate_key_status: str | None = None,
+) -> dict[str, Any]:
+    report = _minimal_verified_report()
+
+    report["verifier_decision"] = "FAILED"
+    report["verified_artifacts"] = []
+    report["relation_bindings"] = []
+    report["gate_materialization"] = {}
+    report["failed_checks"] = [
+        "candidate schema validation draft is diagnostic-only"
+    ]
+
+    candidate_schema_validation: dict[str, Any] = {
+        "status": status,
+        "schema_path": "schemas/detector_report_v0.schema.json",
+        "schema_version": "detector_report_v0",
+        "errors": [
+            {
+                "code": "schema_validation_failed",
+                "message": "candidate evidence schema validation is diagnostic-only",
+                "instance_path": "/",
+                "schema_path": "#",
+            }
+        ],
+    }
+
+    if duplicate_key_status is not None:
+        candidate_schema_validation["duplicate_key_validation"] = {
+            "status": duplicate_key_status,
+            "errors": [
+                {
+                    "code": "duplicate_key_validation_failed",
+                    "message": "duplicate-key validation is diagnostic-only",
+                    "instance_path": "/",
+                    "schema_path": "#",
+                }
+            ],
+        }
+
+    report["evidence_inputs"][0]["provenance"] = {
+        "producer": "unit-test",
+        "trusted": False,
+        "verification_status": "not_verified",
+        "candidate_schema_validation": candidate_schema_validation,
+    }
+
+    return report
+
+
+@pytest.mark.parametrize("status", ["not_run", "unavailable", "failed"])
+def test_candidate_schema_validation_draft_accepts_diagnostic_statuses(
+    status: str,
+) -> None:
+    report = _failed_report_with_candidate_schema_validation(status=status)
+
+    _validate(report)
+
+
+@pytest.mark.parametrize(
+    "bad_status",
+    [
+        "valid",
+        "passed",
+        "success",
+        "schema_valid",
+        "verified",
+        "trusted",
+    ],
+)
+def test_candidate_schema_validation_draft_rejects_promotion_statuses(
+    bad_status: str,
+) -> None:
+    report = _failed_report_with_candidate_schema_validation(
+        status=bad_status,
+    )
+
+    errors = _validation_errors(report)
+
+    assert errors
+
+
+@pytest.mark.parametrize("status", ["not_run", "unavailable", "failed"])
+def test_duplicate_key_validation_draft_accepts_diagnostic_statuses(
+    status: str,
+) -> None:
+    report = _failed_report_with_candidate_schema_validation(
+        status="failed",
+        duplicate_key_status=status,
+    )
+
+    _validate(report)
+
+
+@pytest.mark.parametrize(
+    "bad_status",
+    [
+        "valid",
+        "passed",
+        "success",
+        "schema_valid",
+        "verified",
+        "trusted",
+    ],
+)
+def test_duplicate_key_validation_draft_rejects_promotion_statuses(
+    bad_status: str,
+) -> None:
+    report = _failed_report_with_candidate_schema_validation(
+        status="failed",
+        duplicate_key_status=bad_status,
+    )
+
+    errors = _validation_errors(report)
+
+    assert errors
+
+
+def test_candidate_schema_validation_draft_does_not_make_verified_report_valid() -> None:
+    report = _failed_report_with_candidate_schema_validation(status="failed")
+    report["verifier_decision"] = "VERIFIED"
+    report["failed_checks"] = []
+
+    errors = _validation_errors(report)
+
+    assert errors
+
+
+def test_candidate_schema_validation_draft_keeps_failed_report_non_materialized() -> None:
+    report = _failed_report_with_candidate_schema_validation(status="failed")
+
+    _validate(report)
+
+    assert report["verifier_decision"] == "FAILED"
+    assert report["verified_artifacts"] == []
+    assert report["relation_bindings"] == []
+    assert report["gate_materialization"] == {}
+    assert report["evidence_inputs"][0]["provenance"]["trusted"] is False
+    assert (
+        report["evidence_inputs"][0]["provenance"]["verification_status"]
+        == "not_verified"
+    )
+
+
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__]))
