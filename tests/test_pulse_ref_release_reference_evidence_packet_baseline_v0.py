@@ -119,8 +119,8 @@ REQUIRED_ANCHORS = [
     "Relation to fellowship / HPC validation",
     "Scope exclusions",
     "This document does not change:",
-    "HPC validates the decision field.",
-    "PULSEmech remains the release-authority mechanism.",
+    "HPC may diagnostically test candidate decision-field behavior.",
+    "PULSEmech remains the only release-authority mechanism.",
     "The schema-aligned packet builder now produces a reconstructable v0 packet",
     "candidate from the guarded positive pass fixture.",
 ]
@@ -142,6 +142,8 @@ FORBIDDEN_CLAIMS = [
 
 
 FORBIDDEN_STALE_OR_INACCURATE_ANCHORS = [
+    "HPC validates the decision field.",
+    "PULSEmech remains the release-authority mechanism.",
     "Status: planning baseline  ",
     "Authority status: non-normative  ",
     "Scope: PULSE-REF / release-reference fixture matrix / evidence packet baseline  ",
