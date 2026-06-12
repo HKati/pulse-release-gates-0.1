@@ -458,7 +458,7 @@ The builder must preserve:
 - reconstruction path;
 - authority-role classification.
 
-HPC may diagnostically test candidate decision-field behavior
+HPC may diagnostically test candidate decision-field behavior.
 
 PULSEmech remains the only release-authority mechanism.
 
