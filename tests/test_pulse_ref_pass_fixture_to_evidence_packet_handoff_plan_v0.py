@@ -115,8 +115,8 @@ REQUIRED_ANCHORS = [
     "Relation to fellowship / HPC validation",
     "Scope exclusions",
     "This document does not change:",
-    "HPC validates the decision field.",
-    "PULSEmech remains the release-authority mechanism.",
+    "HPC may diagnostically test candidate decision-field behavior.",
+    "PULSEmech remains the only release-authority mechanism.",
 ]
 
 REQUIRED_MAPPING_ANCHORS = [
@@ -164,6 +164,8 @@ FORBIDDEN_CLAIMS = [
 ]
 
 FORBIDDEN_STALE_OR_INACCURATE_ANCHORS = [
+    "HPC validates the decision field.",
+    "PULSEmech remains the release-authority mechanism.",
     "This document defines the handoff plan from the positive `release_reference_v1/pass` fixture to the first PULSE-REF evidence packet baseline candidate.",
     "This document defines how that source candidate should be mapped into the canonical evidence packet layout before any builder implementation changes are made.",
     "Implementation sequence",

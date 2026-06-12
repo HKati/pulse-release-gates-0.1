@@ -252,9 +252,9 @@ When is recorded AI safety, quality, detector, stability, CI, and review evidenc
 
 The HPC validation layer helps test this question across many controlled candidate states.
 
-HPC validates the decision field.
+HPC may diagnostically test candidate decision-field behavior.
 
-PULSEmech remains the release-authority mechanism.
+PULSEmech remains the only release-authority mechanism.
 
 ## Release-grade readiness relation
 

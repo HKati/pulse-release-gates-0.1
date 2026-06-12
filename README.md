@@ -1332,6 +1332,8 @@ CI wiring corresponding to the preprint.
 - **Kaggle Notebook (repro figures — EPF A/B, seeded):** https://www.kaggle.com/code/horvathkatalin/pulse-epf-shadow-a-b-reproduce-figures-seeded
 - **Kaggle Notebook (offline quick start — Ledger & Q3+Q4):** https://www.kaggle.com/code/horvathkatalin/pulse-demo-offline-quick-start-q3-q4-ledger
 
+- [Kaggle / HPC evidence admission boundary](docs/PULSE_KAGGLE_HPC_EVIDENCE_ADMISSION_BOUNDARY_v0.md) — Kaggle traces, HPC benchmarks, notebook outputs, and public competition artifacts are diagnostic / candidate evidence surfaces only; they do not create release authority.
+
 - **DOI (versioned, Zenodo):** https://doi.org/10.5281/zenodo.17373002
 - **DOI (concept, all versions, Zenodo):** https://doi.org/10.5281/zenodo.17214908
 
