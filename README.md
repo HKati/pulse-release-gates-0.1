@@ -78,6 +78,15 @@ recorded release evidence
 
 See [`docs/PULSE_PRE_MATERIALIZATION_GATE_MECHANICS_v0.md`](docs/PULSE_PRE_MATERIALIZATION_GATE_MECHANICS_v0.md).
 
+
+## PULSE - PULSEmech
+
+> [!NOTE]
+> **Execution is not authority.**
+>
+> - [PULSE - PULSEmech](docs/PULSE_RELEASE_AUTHORITY_MECHANICS_BRIDGE_v0.md) — release execution, green CI, approval, and post-failure audit are separated from artifact-bound release authority.
+
+
 ## Authority boundary
 
 | Surface / artifact | Mechanical role | Authority boundary |
