@@ -2,6 +2,11 @@
 
 Artifact Provenance Binding v0 is the machine-readable provenance carrier for the PULSEmech authority path.
 
+Artifact provenance binding is a traceability / provenance carrier.
+It does not create release authority by itself and does not replace `status.json`,
+declared policy, workflow-effective materialized required gates, `check_gates.py`,
+or strict fail-closed CI enforcement.
+
 ## Mechanical role
 
 The binding records the digest-backed artifact relationship around a recorded PULSE release-authority run.
