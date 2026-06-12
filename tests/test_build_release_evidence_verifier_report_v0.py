@@ -11,7 +11,14 @@ from typing import Any
 
 import pytest
 
+
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+import PULSE_safe_pack_v0.tools.build_release_evidence_verifier_report_v0 as builder
+
+
 TOOL = (
     REPO_ROOT
     / "PULSE_safe_pack_v0"
@@ -86,9 +93,48 @@ def _input_manifest(
     return manifest
 
 
+def _assert_failed_non_authoritative_report(report: dict[str, Any]) -> None:
+    assert report["verifier_decision"] == "FAILED"
+    assert report["verified_artifacts"] == []
+    assert report["relation_bindings"] == []
+    assert report["gate_materialization"] == {}
+
+
+def _candidate_schema_validation(report: dict[str, Any]) -> dict[str, Any]:
+    assert report["evidence_inputs"]
+
+    provenance = report["evidence_inputs"][0]["provenance"]
+
+    assert provenance["trusted"] is False
+    assert provenance["verification_status"] == "not_verified"
+
+    diagnostic = provenance["candidate_schema_validation"]
+
+    assert isinstance(diagnostic, dict)
+
+    return diagnostic
+
+
+def _build_report_from_manifest(
+    *,
+    manifest_path: pathlib.Path,
+    commit_sha: str = HEX40,
+    run_key: str = RUN_KEY,
+) -> dict[str, Any]:
+    return builder.build_report(
+        policy_path=(REPO_ROOT / "pulse_gate_policy_v0.yml").resolve(),
+        registry_path=(REPO_ROOT / "pulse_gate_registry_v0.yml").resolve(),
+        repository="HKati/pulse-release-gates-0.1",
+        commit_sha=commit_sha,
+        run_key=run_key,
+        release_candidate="candidate-v0",
+        evidence_args=[],
+        input_manifest_path=manifest_path,
+    )
+
+
 def test_build_failed_report_without_inputs(tmp_path: pathlib.Path) -> None:
     out_path = tmp_path / "release_evidence_verifier_report_v0.json"
-
     result = _run_tool(
         "--out",
         str(out_path),
@@ -106,16 +152,25 @@ def test_build_failed_report_without_inputs(tmp_path: pathlib.Path) -> None:
     assert "OK: wrote fail-closed release evidence verifier report" in result.stdout
 
     report = _load_json(out_path)
+
     assert report["schema_version"] == "release_evidence_verifier_report_v0"
     assert report["verifier_decision"] == "FAILED"
     assert report["verified_artifacts"] == []
     assert report["relation_bindings"] == []
     assert report["gate_materialization"] == {}
-
     assert any("does not verify evidence yet" in item for item in report["failed_checks"])
-    assert any("no verified relation bindings present" in item for item in report["failed_checks"])
-    assert any("no gate materialization performed" in item for item in report["failed_checks"])
-    assert any("no candidate evidence inputs were supplied" in item for item in report["failed_checks"])
+    assert any(
+        "no verified relation bindings present" in item
+        for item in report["failed_checks"]
+    )
+    assert any(
+        "no gate materialization performed" in item
+        for item in report["failed_checks"]
+    )
+    assert any(
+        "no candidate evidence inputs were supplied" in item
+        for item in report["failed_checks"]
+    )
 
 
 def test_candidate_evidence_is_recorded_but_not_verified(
@@ -127,8 +182,8 @@ def test_candidate_evidence_is_recorded_but_not_verified(
         "result": "candidate-only",
     }
     evidence_path.write_text(json.dumps(evidence_payload), encoding="utf-8")
-    out_path = tmp_path / "release_evidence_verifier_report_v0.json"
 
+    out_path = tmp_path / "release_evidence_verifier_report_v0.json"
     result = _run_tool(
         "--out",
         str(out_path),
@@ -147,13 +202,15 @@ def test_candidate_evidence_is_recorded_but_not_verified(
     assert result.returncode == 0, result.stderr
 
     report = _load_json(out_path)
+
     assert report["verifier_decision"] == "FAILED"
     assert report["verified_artifacts"] == []
     assert report["relation_bindings"] == []
     assert report["gate_materialization"] == {}
-
     assert len(report["evidence_inputs"]) == 1
+
     evidence_input = report["evidence_inputs"][0]
+
     assert evidence_input["kind"] == "detector_evidence"
     assert evidence_input["sha256"] == hashlib.sha256(
         evidence_path.read_bytes()
@@ -186,7 +243,6 @@ def test_input_manifest_records_existing_candidate_without_verifying(
     )
 
     out_path = tmp_path / "release_evidence_verifier_report_v0.json"
-
     result = _run_tool(
         "--out",
         str(out_path),
@@ -201,19 +257,19 @@ def test_input_manifest_records_existing_candidate_without_verifying(
     assert result.returncode == 0, result.stderr
 
     report = _load_json(out_path)
+
     assert report["verifier_decision"] == "FAILED"
     assert report["verified_artifacts"] == []
     assert report["relation_bindings"] == []
     assert report["gate_materialization"] == {}
-
     assert len(report["evidence_inputs"]) == 1
+
     evidence_input = report["evidence_inputs"][0]
     provenance = evidence_input["provenance"]
 
     assert evidence_input["kind"] == "detector_evidence"
     assert evidence_input["sha256"] == evidence_sha256
     assert evidence_input["schema_version"] == "detector_report_v0"
-
     assert evidence_input["subject_binding"]["git_sha"] == HEX40
     assert evidence_input["subject_binding"]["run_key"] == RUN_KEY
 
@@ -222,7 +278,6 @@ def test_input_manifest_records_existing_candidate_without_verifying(
     assert provenance["candidate_evidence_id"] == "detector_report"
     assert provenance["expected_sha256"] == evidence_sha256
     assert provenance["actual_sha256_matches_expected"] is True
-
     assert provenance["candidate_subject_git_sha"] == HEX40
     assert provenance["candidate_subject_run_key"] == RUN_KEY
     assert provenance["manifest_subject_commit_sha"] == HEX40
@@ -231,7 +286,6 @@ def test_input_manifest_records_existing_candidate_without_verifying(
     assert provenance["report_subject_commit_sha"] == HEX40
     assert provenance["report_run_identity_git_sha"] == HEX40
     assert provenance["report_run_identity_run_key"] == RUN_KEY
-
     assert provenance["subject_git_sha_matches_subject_commit"] is True
     assert provenance["subject_git_sha_matches_run_identity"] is True
     assert provenance["run_key_matches_run_identity"] is True
@@ -240,6 +294,7 @@ def test_input_manifest_records_existing_candidate_without_verifying(
     assert provenance["run_key_matches_report_run_identity"] is True
 
     failed_checks = "\n".join(report["failed_checks"])
+
     assert "candidate evidence digest mismatch: detector_report" not in failed_checks
     assert (
         "candidate evidence subject git_sha mismatch against subject commit: detector_report"
@@ -253,7 +308,6 @@ def test_input_manifest_records_existing_candidate_without_verifying(
         "candidate evidence run_key mismatch against run identity: detector_report"
         not in failed_checks
     )
-
     assert any(
         "input manifest expectations are recorded only" in item
         for item in report["failed_checks"]
@@ -298,7 +352,6 @@ def test_input_manifest_digest_mismatch_records_failed_report(
     )
 
     out_path = tmp_path / "release_evidence_verifier_report_v0.json"
-
     result = _run_tool(
         "--out",
         str(out_path),
@@ -313,12 +366,14 @@ def test_input_manifest_digest_mismatch_records_failed_report(
     assert result.returncode == 0, result.stderr
 
     report = _load_json(out_path)
+
     assert report["verifier_decision"] == "FAILED"
     assert report["verified_artifacts"] == []
     assert report["relation_bindings"] == []
     assert report["gate_materialization"] == {}
 
     failed_checks = "\n".join(report["failed_checks"])
+
     assert "candidate evidence digest mismatch: detector_report" in failed_checks
 
     actual_sha256 = hashlib.sha256(evidence_path.read_bytes()).hexdigest()
@@ -329,7 +384,6 @@ def test_input_manifest_digest_mismatch_records_failed_report(
     assert provenance["expected_sha256"] == HEX64
     assert evidence_input["sha256"] != provenance["expected_sha256"]
     assert provenance["actual_sha256_matches_expected"] is False
-
     assert provenance["trusted"] is False
     assert provenance["verification_status"] == "not_verified"
     assert provenance["subject_git_sha_matches_subject_commit"] is True
@@ -355,7 +409,6 @@ def test_input_manifest_missing_candidate_writes_failed_report(
     )
 
     out_path = tmp_path / "release_evidence_verifier_report_v0.json"
-
     result = _run_tool(
         "--out",
         str(out_path),
@@ -370,6 +423,7 @@ def test_input_manifest_missing_candidate_writes_failed_report(
     assert result.returncode == 0, result.stderr
 
     report = _load_json(out_path)
+
     assert report["verifier_decision"] == "FAILED"
     assert report["evidence_inputs"] == []
     assert report["verified_artifacts"] == []
@@ -377,6 +431,7 @@ def test_input_manifest_missing_candidate_writes_failed_report(
     assert report["gate_materialization"] == {}
 
     failed_checks = "\n".join(report["failed_checks"])
+
     assert "candidate evidence declared by manifest is missing" in failed_checks
     assert "expected candidate evidence not recorded: detector_report" in failed_checks
     assert (
@@ -395,15 +450,14 @@ def test_invalid_input_manifest_fails_closed_without_report(
         evidence_path=evidence_path,
         expected_sha256=HEX64,
     )
-    manifest["expected_gate_materialization"][
-        "detectors_materialized_ok"
-    ]["materialization_allowed_without_verifier"] = True
+    manifest["expected_gate_materialization"]["detectors_materialized_ok"][
+        "materialization_allowed_without_verifier"
+    ] = True
 
     manifest_path = tmp_path / "release_evidence_input_manifest_v0.json"
     _write_json(manifest_path, manifest)
 
     out_path = tmp_path / "release_evidence_verifier_report_v0.json"
-
     result = _run_tool(
         "--out",
         str(out_path),
@@ -437,7 +491,6 @@ def test_input_manifest_cannot_be_combined_with_direct_evidence(
     )
 
     out_path = tmp_path / "release_evidence_verifier_report_v0.json"
-
     result = _run_tool(
         "--out",
         str(out_path),
@@ -459,8 +512,8 @@ def test_input_manifest_cannot_be_combined_with_direct_evidence(
 def test_invalid_evidence_kind_fails_closed(tmp_path: pathlib.Path) -> None:
     evidence_path = tmp_path / "detector_report.json"
     evidence_path.write_text("{}", encoding="utf-8")
-    out_path = tmp_path / "release_evidence_verifier_report_v0.json"
 
+    out_path = tmp_path / "release_evidence_verifier_report_v0.json"
     result = _run_tool(
         "--out",
         str(out_path),
@@ -478,7 +531,6 @@ def test_invalid_evidence_kind_fails_closed(tmp_path: pathlib.Path) -> None:
 def test_missing_evidence_file_fails_closed(tmp_path: pathlib.Path) -> None:
     out_path = tmp_path / "release_evidence_verifier_report_v0.json"
     missing = tmp_path / "missing_detector_report.json"
-
     result = _run_tool(
         "--out",
         str(out_path),
@@ -495,7 +547,6 @@ def test_missing_evidence_file_fails_closed(tmp_path: pathlib.Path) -> None:
 
 def test_pass_or_allow_are_never_emitted(tmp_path: pathlib.Path) -> None:
     out_path = tmp_path / "release_evidence_verifier_report_v0.json"
-
     result = _run_tool(
         "--out",
         str(out_path),
@@ -506,6 +557,7 @@ def test_pass_or_allow_are_never_emitted(tmp_path: pathlib.Path) -> None:
     assert result.returncode == 0, result.stderr
 
     report = _load_json(out_path)
+
     assert report["verifier_decision"] == "FAILED"
     assert report["verifier_decision"] not in {"PASS", "ALLOW", "PROD-PASS"}
 
@@ -535,7 +587,6 @@ def test_input_manifest_records_candidate_subject_run_binding_without_verifying(
     )
 
     out_path = tmp_path / "release_evidence_verifier_report_v0.json"
-
     result = _run_tool(
         "--out",
         str(out_path),
@@ -555,7 +606,6 @@ def test_input_manifest_records_candidate_subject_run_binding_without_verifying(
 
     assert evidence_input["subject_binding"]["git_sha"] == HEX40
     assert evidence_input["subject_binding"]["run_key"] == RUN_KEY
-
     assert provenance["candidate_subject_git_sha"] == HEX40
     assert provenance["candidate_subject_run_key"] == RUN_KEY
     assert provenance["manifest_subject_commit_sha"] == HEX40
@@ -564,7 +614,6 @@ def test_input_manifest_records_candidate_subject_run_binding_without_verifying(
     assert provenance["report_subject_commit_sha"] == HEX40
     assert provenance["report_run_identity_git_sha"] == HEX40
     assert provenance["report_run_identity_run_key"] == RUN_KEY
-
     assert provenance["subject_git_sha_matches_subject_commit"] is True
     assert provenance["subject_git_sha_matches_run_identity"] is True
     assert provenance["run_key_matches_run_identity"] is True
@@ -611,7 +660,6 @@ def test_input_manifest_subject_commit_mismatch_stays_failed(
     )
 
     out_path = tmp_path / "release_evidence_verifier_report_v0.json"
-
     result = _run_tool(
         "--out",
         str(out_path),
@@ -634,14 +682,12 @@ def test_input_manifest_subject_commit_mismatch_stays_failed(
         "candidate evidence subject git_sha mismatch against subject commit: "
         "detector_report"
     ) in failed_checks
-
     assert provenance["subject_git_sha_matches_subject_commit"] is False
     assert provenance["subject_git_sha_matches_run_identity"] is True
     assert provenance["run_key_matches_run_identity"] is True
     assert provenance["subject_git_sha_matches_report_subject_commit"] is True
     assert provenance["subject_git_sha_matches_report_run_identity"] is True
     assert provenance["run_key_matches_report_run_identity"] is True
-
     assert evidence_input["subject_binding"]["git_sha"] == candidate_git_sha
     assert evidence_input["subject_binding"]["run_key"] == RUN_KEY
 
@@ -684,7 +730,6 @@ def test_input_manifest_run_identity_git_sha_mismatch_stays_failed(
     )
 
     out_path = tmp_path / "release_evidence_verifier_report_v0.json"
-
     result = _run_tool(
         "--out",
         str(out_path),
@@ -707,14 +752,12 @@ def test_input_manifest_run_identity_git_sha_mismatch_stays_failed(
         "candidate evidence subject git_sha mismatch against run identity: "
         "detector_report"
     ) in failed_checks
-
     assert provenance["subject_git_sha_matches_subject_commit"] is True
     assert provenance["subject_git_sha_matches_run_identity"] is False
     assert provenance["run_key_matches_run_identity"] is True
     assert provenance["subject_git_sha_matches_report_subject_commit"] is True
     assert provenance["subject_git_sha_matches_report_run_identity"] is True
     assert provenance["run_key_matches_report_run_identity"] is True
-
     assert evidence_input["subject_binding"]["git_sha"] == candidate_git_sha
     assert evidence_input["subject_binding"]["run_key"] == RUN_KEY
 
@@ -756,7 +799,6 @@ def test_input_manifest_run_key_mismatch_stays_failed(
     )
 
     out_path = tmp_path / "release_evidence_verifier_report_v0.json"
-
     result = _run_tool(
         "--out",
         str(out_path),
@@ -779,14 +821,12 @@ def test_input_manifest_run_key_mismatch_stays_failed(
         "candidate evidence run_key mismatch against run identity: "
         "detector_report"
     ) in failed_checks
-
     assert provenance["subject_git_sha_matches_subject_commit"] is True
     assert provenance["subject_git_sha_matches_run_identity"] is True
     assert provenance["run_key_matches_run_identity"] is False
     assert provenance["subject_git_sha_matches_report_subject_commit"] is True
     assert provenance["subject_git_sha_matches_report_run_identity"] is True
     assert provenance["run_key_matches_report_run_identity"] is True
-
     assert evidence_input["subject_binding"]["git_sha"] == HEX40
     assert evidence_input["subject_binding"]["run_key"] == candidate_run_key
 
@@ -829,7 +869,6 @@ def test_input_manifest_subject_run_binding_normalizes_git_sha_case(
     )
 
     out_path = tmp_path / "release_evidence_verifier_report_v0.json"
-
     result = _run_tool(
         "--out",
         str(out_path),
@@ -856,15 +895,12 @@ def test_input_manifest_subject_run_binding_normalizes_git_sha_case(
         "candidate evidence subject git_sha mismatch against run identity: "
         "detector_report"
     ) not in failed_checks
-
     assert evidence_input["subject_binding"]["git_sha"] == lowercase_sha
     assert evidence_input["subject_binding"]["run_key"] == RUN_KEY
-
     assert provenance["manifest_subject_commit_sha"] == uppercase_sha
     assert provenance["manifest_run_identity_git_sha"] == uppercase_sha
     assert provenance["report_subject_commit_sha"] == uppercase_sha
     assert provenance["report_run_identity_git_sha"] == uppercase_sha
-
     assert provenance["subject_git_sha_matches_subject_commit"] is True
     assert provenance["subject_git_sha_matches_run_identity"] is True
     assert provenance["subject_git_sha_matches_report_subject_commit"] is True
@@ -913,7 +949,6 @@ def test_input_manifest_explicit_report_identity_override_mismatch_stays_failed(
     )
 
     out_path = tmp_path / "release_evidence_verifier_report_v0.json"
-
     result = _run_tool(
         "--out",
         str(out_path),
@@ -951,15 +986,12 @@ def test_input_manifest_explicit_report_identity_override_mismatch_stays_failed(
 
     assert evidence_input["subject_binding"]["git_sha"] == manifest_sha
     assert evidence_input["subject_binding"]["run_key"] == manifest_run_key
-
     assert provenance["subject_git_sha_matches_subject_commit"] is True
     assert provenance["subject_git_sha_matches_run_identity"] is True
     assert provenance["run_key_matches_run_identity"] is True
-
     assert provenance["subject_git_sha_matches_report_subject_commit"] is False
     assert provenance["subject_git_sha_matches_report_run_identity"] is False
     assert provenance["run_key_matches_report_run_identity"] is False
-
     assert provenance["report_subject_commit_sha"] == override_sha
     assert provenance["report_run_identity_git_sha"] == override_sha
     assert provenance["report_run_identity_run_key"] == override_run_key
@@ -970,6 +1002,473 @@ def test_input_manifest_explicit_report_identity_override_mismatch_stays_failed(
     assert report["verified_artifacts"] == []
     assert report["relation_bindings"] == []
     assert report["gate_materialization"] == {}
+
+
+def test_input_manifest_candidate_parse_failed_records_diagnostic(
+    tmp_path: pathlib.Path,
+) -> None:
+    evidence_path = tmp_path / "detector_report.json"
+    evidence_path.write_text("{not-json", encoding="utf-8")
+
+    evidence_sha256 = hashlib.sha256(evidence_path.read_bytes()).hexdigest()
+    manifest_path = tmp_path / "release_evidence_input_manifest_v0.json"
+    _write_json(
+        manifest_path,
+        _input_manifest(
+            evidence_path=evidence_path,
+            expected_sha256=evidence_sha256,
+        ),
+    )
+
+    out_path = tmp_path / "release_evidence_verifier_report_v0.json"
+    result = _run_tool(
+        "--out",
+        str(out_path),
+        "--input-manifest",
+        str(manifest_path),
+        "--commit-sha",
+        HEX40,
+        "--run-key",
+        RUN_KEY,
+    )
+
+    assert result.returncode == 0, result.stderr
+
+    report = _load_json(out_path)
+    _assert_failed_non_authoritative_report(report)
+
+    diagnostic = _candidate_schema_validation(report)
+
+    assert diagnostic["status"] == "failed"
+    assert diagnostic["errors"]
+    assert diagnostic["errors"][0]["code"] == "candidate_parse_failed"
+
+
+def test_input_manifest_candidate_duplicate_key_records_diagnostic(
+    tmp_path: pathlib.Path,
+) -> None:
+    evidence_path = tmp_path / "detector_report.json"
+    evidence_path.write_text(
+        (
+            '{"schema_version": "detector_report_v0", '
+            '"result": "one", '
+            '"result": "two"}'
+        ),
+        encoding="utf-8",
+    )
+
+    evidence_sha256 = hashlib.sha256(evidence_path.read_bytes()).hexdigest()
+    manifest_path = tmp_path / "release_evidence_input_manifest_v0.json"
+    _write_json(
+        manifest_path,
+        _input_manifest(
+            evidence_path=evidence_path,
+            expected_sha256=evidence_sha256,
+        ),
+    )
+
+    out_path = tmp_path / "release_evidence_verifier_report_v0.json"
+    result = _run_tool(
+        "--out",
+        str(out_path),
+        "--input-manifest",
+        str(manifest_path),
+        "--commit-sha",
+        HEX40,
+        "--run-key",
+        RUN_KEY,
+    )
+
+    assert result.returncode == 0, result.stderr
+
+    report = _load_json(out_path)
+    _assert_failed_non_authoritative_report(report)
+
+    diagnostic = _candidate_schema_validation(report)
+
+    assert diagnostic["status"] == "failed"
+    assert diagnostic["errors"][0]["code"] == "candidate_duplicate_key"
+    assert diagnostic["duplicate_key_validation"]["status"] == "failed"
+    assert diagnostic["duplicate_key_validation"]["errors"]
+    assert (
+        diagnostic["duplicate_key_validation"]["errors"][0]["code"]
+        == "candidate_duplicate_key"
+    )
+
+
+def test_input_manifest_candidate_schema_unavailable_records_diagnostic(
+    tmp_path: pathlib.Path,
+) -> None:
+    evidence_path = tmp_path / "detector_report.json"
+    evidence_path.write_text(
+        json.dumps(
+            {
+                "schema_version": "unknown_candidate_schema_v0",
+                "result": "candidate-only",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    evidence_sha256 = hashlib.sha256(evidence_path.read_bytes()).hexdigest()
+    manifest = _input_manifest(
+        evidence_path=evidence_path,
+        expected_sha256=evidence_sha256,
+    )
+    manifest["candidate_evidence"]["detector_report"][
+        "schema_version"
+    ] = "unknown_candidate_schema_v0"
+
+    manifest_path = tmp_path / "release_evidence_input_manifest_v0.json"
+    _write_json(manifest_path, manifest)
+
+    out_path = tmp_path / "release_evidence_verifier_report_v0.json"
+    result = _run_tool(
+        "--out",
+        str(out_path),
+        "--input-manifest",
+        str(manifest_path),
+        "--commit-sha",
+        HEX40,
+        "--run-key",
+        RUN_KEY,
+    )
+
+    assert result.returncode == 0, result.stderr
+
+    report = _load_json(out_path)
+    _assert_failed_non_authoritative_report(report)
+
+    diagnostic = _candidate_schema_validation(report)
+
+    assert diagnostic["status"] == "unavailable"
+    assert diagnostic["errors"]
+    assert diagnostic["errors"][0]["code"] == "candidate_schema_unavailable"
+
+
+def test_candidate_schema_file_unavailable_records_diagnostic(
+    tmp_path: pathlib.Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    evidence_path = tmp_path / "detector_report.json"
+    evidence_path.write_text(
+        json.dumps(
+            {
+                "schema_version": "detector_report_v0",
+                "result": "candidate-only",
+            }
+        ),
+        encoding="utf-8",
+    )
+    evidence_sha256 = hashlib.sha256(evidence_path.read_bytes()).hexdigest()
+
+    missing_schema_path = tmp_path / "missing_schema.json"
+    monkeypatch.setitem(
+        builder.CANDIDATE_SCHEMA_VERSION_TO_PATH,
+        "detector_report_v0",
+        str(missing_schema_path),
+    )
+
+    manifest_path = tmp_path / "release_evidence_input_manifest_v0.json"
+    _write_json(
+        manifest_path,
+        _input_manifest(
+            evidence_path=evidence_path,
+            expected_sha256=evidence_sha256,
+        ),
+    )
+
+    report = _build_report_from_manifest(manifest_path=manifest_path)
+    _assert_failed_non_authoritative_report(report)
+
+    diagnostic = _candidate_schema_validation(report)
+
+    assert diagnostic["status"] == "unavailable"
+    assert diagnostic["errors"][0]["code"] == "candidate_schema_unavailable"
+
+
+def test_candidate_schema_invalid_records_diagnostic(
+    tmp_path: pathlib.Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    if builder.jsonschema is None:
+        pytest.skip("jsonschema is required for schema-invalid diagnostic path")
+
+    evidence_path = tmp_path / "detector_report.json"
+    evidence_path.write_text(
+        json.dumps(
+            {
+                "schema_version": "detector_report_v0",
+                "result": "candidate-only",
+            }
+        ),
+        encoding="utf-8",
+    )
+    evidence_sha256 = hashlib.sha256(evidence_path.read_bytes()).hexdigest()
+
+    schema_path = tmp_path / "invalid_schema.json"
+    schema_path.write_text('{"type": 123}', encoding="utf-8")
+
+    monkeypatch.setitem(
+        builder.CANDIDATE_SCHEMA_VERSION_TO_PATH,
+        "detector_report_v0",
+        str(schema_path),
+    )
+
+    manifest_path = tmp_path / "release_evidence_input_manifest_v0.json"
+    _write_json(
+        manifest_path,
+        _input_manifest(
+            evidence_path=evidence_path,
+            expected_sha256=evidence_sha256,
+        ),
+    )
+
+    report = _build_report_from_manifest(manifest_path=manifest_path)
+    _assert_failed_non_authoritative_report(report)
+
+    diagnostic = _candidate_schema_validation(report)
+
+    assert diagnostic["status"] == "failed"
+    assert diagnostic["errors"][0]["code"] == "candidate_schema_invalid"
+
+
+def test_candidate_validator_unavailable_records_diagnostic(
+    tmp_path: pathlib.Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    evidence_path = tmp_path / "detector_report.json"
+    evidence_path.write_text(
+        json.dumps(
+            {
+                "schema_version": "detector_report_v0",
+                "result": "candidate-only",
+            }
+        ),
+        encoding="utf-8",
+    )
+    evidence_sha256 = hashlib.sha256(evidence_path.read_bytes()).hexdigest()
+
+    schema_path = tmp_path / "detector_report_schema.json"
+    schema_path.write_text(
+        json.dumps(
+            {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setitem(
+        builder.CANDIDATE_SCHEMA_VERSION_TO_PATH,
+        "detector_report_v0",
+        str(schema_path),
+    )
+    monkeypatch.setattr(builder, "jsonschema", None)
+
+    manifest_path = tmp_path / "release_evidence_input_manifest_v0.json"
+    _write_json(
+        manifest_path,
+        _input_manifest(
+            evidence_path=evidence_path,
+            expected_sha256=evidence_sha256,
+        ),
+    )
+
+    report = _build_report_from_manifest(manifest_path=manifest_path)
+    _assert_failed_non_authoritative_report(report)
+
+    diagnostic = _candidate_schema_validation(report)
+
+    assert diagnostic["status"] == "unavailable"
+    assert diagnostic["errors"][0]["code"] == "candidate_validator_unavailable"
+
+
+def test_candidate_schema_validation_failed_records_diagnostic(
+    tmp_path: pathlib.Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    if builder.jsonschema is None:
+        pytest.skip("jsonschema is required for schema-validation failure path")
+
+    evidence_path = tmp_path / "detector_report.json"
+    evidence_path.write_text(
+        json.dumps(
+            {
+                "schema_version": "detector_report_v0",
+                "result": "candidate-only",
+            }
+        ),
+        encoding="utf-8",
+    )
+    evidence_sha256 = hashlib.sha256(evidence_path.read_bytes()).hexdigest()
+
+    schema_path = tmp_path / "detector_report_schema.json"
+    schema_path.write_text(
+        json.dumps(
+            {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "required": [
+                    "required_detector_field",
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setitem(
+        builder.CANDIDATE_SCHEMA_VERSION_TO_PATH,
+        "detector_report_v0",
+        str(schema_path),
+    )
+
+    manifest_path = tmp_path / "release_evidence_input_manifest_v0.json"
+    _write_json(
+        manifest_path,
+        _input_manifest(
+            evidence_path=evidence_path,
+            expected_sha256=evidence_sha256,
+        ),
+    )
+
+    report = _build_report_from_manifest(manifest_path=manifest_path)
+    _assert_failed_non_authoritative_report(report)
+
+    diagnostic = _candidate_schema_validation(report)
+
+    assert diagnostic["status"] == "failed"
+    assert diagnostic["errors"][0]["code"] == "candidate_schema_validation_failed"
+
+
+def test_candidate_partial_validation_rejected_records_diagnostic(
+    tmp_path: pathlib.Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    evidence_path = tmp_path / "detector_report.json"
+    evidence_path.write_text(
+        json.dumps(
+            {
+                "schema_version": "detector_report_v0",
+                "result": "candidate-only",
+            }
+        ),
+        encoding="utf-8",
+    )
+    evidence_sha256 = hashlib.sha256(evidence_path.read_bytes()).hexdigest()
+
+    schema_path = tmp_path / "detector_report_schema.json"
+    schema_path.write_text(
+        json.dumps(
+            {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    class PartialValidationError(Exception):
+        pass
+
+    class FakeValidator:
+        @staticmethod
+        def check_schema(_schema: dict[str, Any]) -> None:
+            return None
+
+        def __init__(self, _schema: dict[str, Any]) -> None:
+            return None
+
+        def validate(self, _candidate: dict[str, Any]) -> None:
+            raise RuntimeError("validator stopped before completion")
+
+    class FakeJsonschema:
+        ValidationError = PartialValidationError
+        Draft202012Validator = FakeValidator
+
+    monkeypatch.setitem(
+        builder.CANDIDATE_SCHEMA_VERSION_TO_PATH,
+        "detector_report_v0",
+        str(schema_path),
+    )
+    monkeypatch.setattr(builder, "jsonschema", FakeJsonschema)
+
+    manifest_path = tmp_path / "release_evidence_input_manifest_v0.json"
+    _write_json(
+        manifest_path,
+        _input_manifest(
+            evidence_path=evidence_path,
+            expected_sha256=evidence_sha256,
+        ),
+    )
+
+    report = _build_report_from_manifest(manifest_path=manifest_path)
+    _assert_failed_non_authoritative_report(report)
+
+    diagnostic = _candidate_schema_validation(report)
+
+    assert diagnostic["status"] == "failed"
+    assert diagnostic["errors"][0]["code"] == "candidate_partial_validation_rejected"
+
+
+def test_candidate_schema_validation_success_is_not_represented_under_current_schema(
+    tmp_path: pathlib.Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    if builder.jsonschema is None:
+        pytest.skip("jsonschema is required for success-not-represented path")
+
+    evidence_path = tmp_path / "detector_report.json"
+    evidence_path.write_text(
+        json.dumps(
+            {
+                "schema_version": "detector_report_v0",
+                "result": "candidate-only",
+            }
+        ),
+        encoding="utf-8",
+    )
+    evidence_sha256 = hashlib.sha256(evidence_path.read_bytes()).hexdigest()
+
+    schema_path = tmp_path / "detector_report_schema.json"
+    schema_path.write_text(
+        json.dumps(
+            {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "required": [
+                    "schema_version",
+                    "result",
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setitem(
+        builder.CANDIDATE_SCHEMA_VERSION_TO_PATH,
+        "detector_report_v0",
+        str(schema_path),
+    )
+
+    manifest_path = tmp_path / "release_evidence_input_manifest_v0.json"
+    _write_json(
+        manifest_path,
+        _input_manifest(
+            evidence_path=evidence_path,
+            expected_sha256=evidence_sha256,
+        ),
+    )
+
+    report = _build_report_from_manifest(manifest_path=manifest_path)
+    _assert_failed_non_authoritative_report(report)
+
+    provenance = report["evidence_inputs"][0]["provenance"]
+
+    assert "candidate_schema_validation" not in provenance
+    assert provenance["trusted"] is False
+    assert provenance["verification_status"] == "not_verified"
 
 
 if __name__ == "__main__":
