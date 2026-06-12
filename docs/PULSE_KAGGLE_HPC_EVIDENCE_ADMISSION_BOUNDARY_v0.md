@@ -1,7 +1,7 @@
 # PULSE Kaggle / HPC evidence admission boundary v0
 
-Status: boundary note  
-Normative status: non-normative clarification  
+Status: boundary note
+Normative status: non-normative clarification
 Scope: Kaggle traces, HPC benchmarks, notebook outputs, public competition artifacts, and related reproducibility surfaces
 
 ## Core statement

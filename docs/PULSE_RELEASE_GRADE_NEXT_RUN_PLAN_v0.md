@@ -670,6 +670,6 @@ The release-grade reference run is not the end state.
 
 It is the first strong anchor for large-scale evidence-to-decision validation.
 
-PULSEmech remains the release-authority mechanism.
+HPC may diagnostically test candidate decision-field behavior.
 
-HPC becomes the validation field.
+PULSEmech remains the only release-authority mechanism.
