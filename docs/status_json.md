@@ -123,6 +123,9 @@ Typical flow:
 
 Final authority = final `status.json`.
 
+The final `status.json` is a normative carrier only within the full PULSEmech path:
+`status.json` → declared gate policy → workflow-effective materialized required gates
+→ strict fail-closed CI enforcement.
 ---
 
 ## 4. High-level shape
