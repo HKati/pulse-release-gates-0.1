@@ -77,8 +77,8 @@ REQUIRED_ANCHORS = [
     "Relation to fellowship / HPC validation",
     "Scope exclusions",
     "Closing statement",
-    "HPC validates the decision field.",
-    "PULSEmech remains the release-authority mechanism.",
+    "HPC may diagnostically test candidate decision-field behavior.",
+    "PULSEmech remains the only release-authority mechanism.",
 ]
 
 
@@ -155,6 +155,8 @@ FORBIDDEN_CLAIMS = [
     "PULSE is a schema package.",
     "The builder creates release authority.",
     "HPC creates release authority.",
+    "HPC validates the decision field.",
+    "PULSEmech remains the release-authority mechanism.",
 ]
 
 
