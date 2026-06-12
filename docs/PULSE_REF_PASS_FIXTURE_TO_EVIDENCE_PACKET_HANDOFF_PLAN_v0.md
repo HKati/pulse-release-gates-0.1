@@ -719,7 +719,7 @@ HPC validation should later start from:
 - reconstruction instructions;
 - field-point authority classification.
 
-HPC may diagnostically test candidate decision-field behavior
+HPC may diagnostically test candidate decision-field behavior.
 
 PULSEmech remains the only release-authority mechanism.
 
