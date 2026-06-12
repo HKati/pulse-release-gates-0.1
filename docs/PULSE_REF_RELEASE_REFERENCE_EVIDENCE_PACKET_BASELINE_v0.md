@@ -870,9 +870,11 @@ HPC candidate-state validation should start from:
 - reconstruction instructions;
 - field-point authority classification.
 
-HPC validates the decision field.
+HPC may diagnostically test candidate decision-field behavior.
 
-PULSEmech remains the release-authority mechanism.
+
+PULSEmech remains the only release-authority mechanism.
+
 
 ## Scope exclusions
 
