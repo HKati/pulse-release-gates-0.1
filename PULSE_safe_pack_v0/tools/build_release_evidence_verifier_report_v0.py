@@ -25,6 +25,12 @@ import subprocess
 import sys
 from typing import Any
 
+try:
+    import jsonschema
+except Exception:  # pragma: no cover
+    jsonschema = None
+
+
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
@@ -50,6 +56,16 @@ VALID_EVIDENCE_KINDS = {
     "policy_reference",
     "registry_reference",
 }
+
+# Stage D failure-only candidate validation diagnostics.
+#
+# This mapping is intentionally empty in v0. Tests may monkeypatch it to
+# exercise controlled-schema failure paths.
+#
+# Successful candidate schema validation is not represented by this builder.
+# If success must be represented later, that requires a separate schema PR
+# with explicitly non-promotional diagnostic semantics.
+CANDIDATE_SCHEMA_VERSION_TO_PATH: dict[str, str] = {}
 
 
 def _utc_now() -> str:
@@ -92,11 +108,13 @@ def _git_sha() -> str | None:
 
     if len(out) == 40 and all(c in "0123456789abcdefABCDEF" for c in out):
         return out
+
     return None
 
 
 def _run_key() -> str | None:
     parts: list[str] = []
+
     for key in (
         "GITHUB_RUN_ID",
         "GITHUB_RUN_NUMBER",
@@ -107,6 +125,7 @@ def _run_key() -> str | None:
         value = os.getenv(key)
         if isinstance(value, str) and value.strip():
             parts.append(f"{key}={value.strip()}")
+
     return "|".join(parts) if parts else None
 
 
@@ -143,6 +162,86 @@ def _load_json_object(path: pathlib.Path, *, label: str) -> dict[str, Any]:
         raise ValueError(f"{label} must be a JSON object: {path}")
 
     return obj
+
+
+class DuplicateKeyError(ValueError):
+    """Raised when JSON parsing sees a duplicate object key."""
+
+
+def _reject_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    out: dict[str, Any] = {}
+
+    for key, value in pairs:
+        if key in out:
+            raise DuplicateKeyError(f"duplicate JSON key: {key}")
+        out[key] = value
+
+    return out
+
+
+def _load_json_object_rejecting_duplicate_keys(
+    path: pathlib.Path,
+    *,
+    label: str,
+) -> dict[str, Any]:
+    try:
+        obj = json.loads(
+            path.read_text(encoding="utf-8"),
+            object_pairs_hook=_reject_duplicate_keys,
+        )
+    except DuplicateKeyError:
+        raise
+    except Exception as exc:  # noqa: BLE001
+        raise ValueError(f"{label} is not valid JSON: {exc}") from exc
+
+    if not isinstance(obj, dict):
+        raise ValueError(f"{label} must be a JSON object: {path}")
+
+    return obj
+
+
+def _candidate_validation_error(
+    *,
+    code: str,
+    message: str,
+    instance_path: str | None = None,
+    schema_path: str | None = None,
+) -> dict[str, Any]:
+    error: dict[str, Any] = {
+        "code": code,
+        "message": message,
+    }
+
+    if instance_path is not None:
+        error["instance_path"] = instance_path
+
+    if schema_path is not None:
+        error["schema_path"] = schema_path
+
+    return error
+
+
+def _candidate_schema_validation_diagnostic(
+    *,
+    status: str,
+    schema_version: str | None,
+    schema_path: str | None,
+    errors: list[dict[str, Any]] | None = None,
+    duplicate_key_validation: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    diagnostic: dict[str, Any] = {
+        "status": status,
+        "schema_version": schema_version,
+        "schema_path": schema_path,
+    }
+
+    if errors:
+        diagnostic["errors"] = errors
+
+    if duplicate_key_validation is not None:
+        diagnostic["duplicate_key_validation"] = duplicate_key_validation
+
+    return diagnostic
 
 
 def _normalize_git_sha(value: Any) -> str | None:
@@ -203,6 +302,7 @@ def _evidence_input(
         "verification_status": "not_verified",
         "note": "candidate input recorded by fail-closed verifier skeleton",
     }
+
     if provenance_extra:
         provenance.update(provenance_extra)
 
@@ -237,10 +337,10 @@ def _registry_binding_from_paths(registry_path: pathlib.Path) -> dict[str, Any]:
 def _validate_and_load_input_manifest(path: pathlib.Path) -> dict[str, Any]:
     errors = check_release_evidence_input_manifest(path)
     if errors:
-        joined = "\n  - ".join(errors)
+        joined = "\n - ".join(errors)
         raise ValueError(
             "release evidence input manifest failed validation:\n"
-            f"  - {joined}"
+            f" - {joined}"
         )
 
     return _load_json_object(path, label="release evidence input manifest")
@@ -248,6 +348,7 @@ def _validate_and_load_input_manifest(path: pathlib.Path) -> dict[str, Any]:
 
 def _candidate_path(raw_path: str, manifest_path: pathlib.Path) -> pathlib.Path:
     candidate = pathlib.Path(raw_path)
+
     if candidate.is_absolute():
         return candidate.resolve()
 
@@ -256,6 +357,216 @@ def _candidate_path(raw_path: str, manifest_path: pathlib.Path) -> pathlib.Path:
         return repo_candidate
 
     return (manifest_path.parent / candidate).resolve()
+
+
+def _candidate_schema_validation_from_manifest_entry(
+    *,
+    evidence_id: str,
+    entry: dict[str, Any],
+    resolved_path: pathlib.Path,
+) -> dict[str, Any] | None:
+    """Return failure-only candidate schema validation diagnostics.
+
+    This is Stage D failure/unavailable diagnostic visibility only.
+
+    It does not represent successful candidate schema validation.
+    It does not verify evidence.
+    It does not create trust.
+    It does not satisfy relation bindings.
+    It does not materialize gates.
+    """
+
+    schema_version_raw = entry.get("schema_version")
+    schema_version = (
+        schema_version_raw.strip()
+        if isinstance(schema_version_raw, str) and schema_version_raw.strip()
+        else None
+    )
+
+    try:
+        candidate_obj = _load_json_object_rejecting_duplicate_keys(
+            resolved_path,
+            label=f"candidate evidence {evidence_id}",
+        )
+    except DuplicateKeyError as exc:
+        error = _candidate_validation_error(
+            code="candidate_duplicate_key",
+            message=str(exc),
+            instance_path="/",
+        )
+        return _candidate_schema_validation_diagnostic(
+            status="failed",
+            schema_version=schema_version,
+            schema_path=None,
+            errors=[
+                error,
+            ],
+            duplicate_key_validation={
+                "status": "failed",
+                "errors": [
+                    error,
+                ],
+            },
+        )
+    except ValueError as exc:
+        return _candidate_schema_validation_diagnostic(
+            status="failed",
+            schema_version=schema_version,
+            schema_path=None,
+            errors=[
+                _candidate_validation_error(
+                    code="candidate_parse_failed",
+                    message=str(exc),
+                    instance_path="/",
+                )
+            ],
+        )
+
+    if not schema_version:
+        return _candidate_schema_validation_diagnostic(
+            status="unavailable",
+            schema_version=None,
+            schema_path=None,
+            errors=[
+                _candidate_validation_error(
+                    code="candidate_schema_unavailable",
+                    message=(
+                        "candidate schema_version is missing; "
+                        "candidate validation remains unavailable"
+                    ),
+                )
+            ],
+        )
+
+    schema_rel = CANDIDATE_SCHEMA_VERSION_TO_PATH.get(schema_version)
+
+    if not schema_rel:
+        return _candidate_schema_validation_diagnostic(
+            status="unavailable",
+            schema_version=schema_version,
+            schema_path=None,
+            errors=[
+                _candidate_validation_error(
+                    code="candidate_schema_unavailable",
+                    message=(
+                        "candidate schema version has no controlled schema "
+                        f"path mapping: {schema_version}"
+                    ),
+                )
+            ],
+        )
+
+    schema_path = pathlib.Path(schema_rel)
+    if not schema_path.is_absolute():
+        schema_path = (REPO_ROOT / schema_path).resolve()
+    else:
+        schema_path = schema_path.resolve()
+
+    schema_path_display = _repo_relative_or_input(schema_path, str(schema_path))
+
+    if not schema_path.exists() or not schema_path.is_file():
+        return _candidate_schema_validation_diagnostic(
+            status="unavailable",
+            schema_version=schema_version,
+            schema_path=schema_path_display,
+            errors=[
+                _candidate_validation_error(
+                    code="candidate_schema_unavailable",
+                    message=f"candidate schema file is unavailable: {schema_path}",
+                    schema_path=schema_path_display,
+                )
+            ],
+        )
+
+    try:
+        schema_obj = _load_json_object_rejecting_duplicate_keys(
+            schema_path,
+            label=f"candidate schema {schema_version}",
+        )
+    except Exception as exc:  # noqa: BLE001
+        return _candidate_schema_validation_diagnostic(
+            status="failed",
+            schema_version=schema_version,
+            schema_path=schema_path_display,
+            errors=[
+                _candidate_validation_error(
+                    code="candidate_schema_invalid",
+                    message=str(exc),
+                    schema_path=schema_path_display,
+                )
+            ],
+        )
+
+    if jsonschema is None:
+        return _candidate_schema_validation_diagnostic(
+            status="unavailable",
+            schema_version=schema_version,
+            schema_path=schema_path_display,
+            errors=[
+                _candidate_validation_error(
+                    code="candidate_validator_unavailable",
+                    message=(
+                        "jsonschema is required for candidate schema validation; "
+                        "partial fallback validation is not allowed"
+                    ),
+                    schema_path=schema_path_display,
+                )
+            ],
+        )
+
+    try:
+        jsonschema.Draft202012Validator.check_schema(schema_obj)
+    except Exception as exc:  # noqa: BLE001
+        return _candidate_schema_validation_diagnostic(
+            status="failed",
+            schema_version=schema_version,
+            schema_path=schema_path_display,
+            errors=[
+                _candidate_validation_error(
+                    code="candidate_schema_invalid",
+                    message=str(exc),
+                    schema_path=schema_path_display,
+                )
+            ],
+        )
+
+    try:
+        jsonschema.Draft202012Validator(schema_obj).validate(candidate_obj)
+    except jsonschema.ValidationError as exc:
+        return _candidate_schema_validation_diagnostic(
+            status="failed",
+            schema_version=schema_version,
+            schema_path=schema_path_display,
+            errors=[
+                _candidate_validation_error(
+                    code="candidate_schema_validation_failed",
+                    message=exc.message,
+                    instance_path="/" + "/".join(str(part) for part in exc.path),
+                    schema_path=schema_path_display,
+                )
+            ],
+        )
+    except Exception as exc:  # noqa: BLE001
+        return _candidate_schema_validation_diagnostic(
+            status="failed",
+            schema_version=schema_version,
+            schema_path=schema_path_display,
+            errors=[
+                _candidate_validation_error(
+                    code="candidate_partial_validation_rejected",
+                    message=(
+                        "candidate schema validation could not complete; "
+                        f"partial validation is rejected: {exc}"
+                    ),
+                    schema_path=schema_path_display,
+                )
+            ],
+        )
+
+    # Current schema has no non-promotional success status.
+    # Successful candidate schema validation is intentionally not represented
+    # in this Stage D failure-only implementation split.
+    return None
 
 
 def _evidence_inputs_from_manifest(
@@ -348,10 +659,7 @@ def _evidence_inputs_from_manifest(
                 f"{evidence_id}"
             )
 
-        if not (
-            run_key_matches_run_identity
-            and run_key_matches_report_run_identity
-        ):
+        if not (run_key_matches_run_identity and run_key_matches_report_run_identity):
             failed_checks.append(
                 "candidate evidence run_key mismatch against run identity: "
                 f"{evidence_id}"
@@ -376,8 +684,55 @@ def _evidence_inputs_from_manifest(
 
         actual_sha256 = _sha256_file(resolved_path)
         sha_matches = actual_sha256 == expected_sha256
+
         if not sha_matches:
             failed_checks.append(f"candidate evidence digest mismatch: {evidence_id}")
+
+        candidate_schema_validation = _candidate_schema_validation_from_manifest_entry(
+            evidence_id=str(evidence_id),
+            entry=entry,
+            resolved_path=resolved_path,
+        )
+
+        provenance_extra: dict[str, Any] = {
+            "source_manifest": _repo_relative_or_input(
+                manifest_path,
+                str(manifest_path),
+            ),
+            "source_manifest_id": manifest.get("manifest_id"),
+            "candidate_evidence_id": evidence_id,
+            "expected_sha256": expected_sha256,
+            "actual_sha256_matches_expected": sha_matches,
+            "candidate_subject_git_sha": candidate_subject_git_sha,
+            "candidate_subject_run_key": candidate_subject_run_key,
+            "manifest_subject_commit_sha": manifest_subject_commit_sha,
+            "manifest_run_identity_git_sha": manifest_run_git_sha,
+            "manifest_run_identity_run_key": manifest_run_key,
+            "report_subject_commit_sha": report_subject_commit_sha,
+            "report_run_identity_git_sha": report_run_git_sha,
+            "report_run_identity_run_key": report_run_key,
+            "subject_git_sha_matches_subject_commit": (
+                subject_git_sha_matches_subject_commit
+            ),
+            "subject_git_sha_matches_run_identity": (
+                subject_git_sha_matches_run_identity
+            ),
+            "run_key_matches_run_identity": run_key_matches_run_identity,
+            "subject_git_sha_matches_report_subject_commit": (
+                subject_git_sha_matches_report_subject_commit
+            ),
+            "subject_git_sha_matches_report_run_identity": (
+                subject_git_sha_matches_report_run_identity
+            ),
+            "run_key_matches_report_run_identity": (
+                run_key_matches_report_run_identity
+            ),
+        }
+
+        if candidate_schema_validation is not None:
+            provenance_extra["candidate_schema_validation"] = (
+                candidate_schema_validation
+            )
 
         try:
             out.append(
@@ -395,40 +750,7 @@ def _evidence_inputs_from_manifest(
                         if isinstance(candidate_subject_run_key, str)
                         else None
                     ),
-                    provenance_extra={
-                        "source_manifest": _repo_relative_or_input(
-                            manifest_path,
-                            str(manifest_path),
-                        ),
-                        "source_manifest_id": manifest.get("manifest_id"),
-                        "candidate_evidence_id": evidence_id,
-                        "expected_sha256": expected_sha256,
-                        "actual_sha256_matches_expected": sha_matches,
-                        "candidate_subject_git_sha": candidate_subject_git_sha,
-                        "candidate_subject_run_key": candidate_subject_run_key,
-                        "manifest_subject_commit_sha": manifest_subject_commit_sha,
-                        "manifest_run_identity_git_sha": manifest_run_git_sha,
-                        "manifest_run_identity_run_key": manifest_run_key,
-                        "report_subject_commit_sha": report_subject_commit_sha,
-                        "report_run_identity_git_sha": report_run_git_sha,
-                        "report_run_identity_run_key": report_run_key,
-                        "subject_git_sha_matches_subject_commit": (
-                            subject_git_sha_matches_subject_commit
-                        ),
-                        "subject_git_sha_matches_run_identity": (
-                            subject_git_sha_matches_run_identity
-                        ),
-                        "run_key_matches_run_identity": run_key_matches_run_identity,
-                        "subject_git_sha_matches_report_subject_commit": (
-                            subject_git_sha_matches_report_subject_commit
-                        ),
-                        "subject_git_sha_matches_report_run_identity": (
-                            subject_git_sha_matches_report_run_identity
-                        ),
-                        "run_key_matches_report_run_identity": (
-                            run_key_matches_report_run_identity
-                        ),
-                    },
+                    provenance_extra=provenance_extra,
                 )
             )
         except Exception as exc:  # noqa: BLE001
@@ -460,6 +782,7 @@ def _record_manifest_expectation_comparison(
 
     It only makes the pre-materialization gap visible in the FAILED report.
     """
+
     candidate_evidence = manifest.get("candidate_evidence")
     expected_relations = manifest.get("expected_relation_bindings")
     expected_gates = manifest.get("expected_gate_materialization")
@@ -559,8 +882,8 @@ def build_report(
 ) -> dict[str, Any]:
     evidence_inputs: list[dict[str, Any]] = []
     warnings: list[str] = []
-
     manifest: dict[str, Any] | None = None
+
     if input_manifest_path is not None:
         manifest = _validate_and_load_input_manifest(input_manifest_path)
 
@@ -779,12 +1102,16 @@ def main() -> int:
 
     try:
         report = build_report(
-            policy_path=(REPO_ROOT / args.policy).resolve()
-            if not pathlib.Path(args.policy).is_absolute()
-            else pathlib.Path(args.policy).resolve(),
-            registry_path=(REPO_ROOT / args.registry).resolve()
-            if not pathlib.Path(args.registry).is_absolute()
-            else pathlib.Path(args.registry).resolve(),
+            policy_path=(
+                (REPO_ROOT / args.policy).resolve()
+                if not pathlib.Path(args.policy).is_absolute()
+                else pathlib.Path(args.policy).resolve()
+            ),
+            registry_path=(
+                (REPO_ROOT / args.registry).resolve()
+                if not pathlib.Path(args.registry).is_absolute()
+                else pathlib.Path(args.registry).resolve()
+            ),
             repository=args.repository,
             commit_sha=commit_sha,
             run_key=run_key,
@@ -806,7 +1133,7 @@ def main() -> int:
     if errors:
         print("ERRORS (fail-closed):", file=sys.stderr)
         for error in errors:
-            print(f"  - {error}", file=sys.stderr)
+            print(f" - {error}", file=sys.stderr)
         return 1
 
     print(f"OK: wrote fail-closed release evidence verifier report: {out_path}")
