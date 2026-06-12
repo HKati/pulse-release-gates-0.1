@@ -324,7 +324,7 @@ HPC candidate batches should preserve:
 - reconstruction artifacts;
 - terminal enforcement result.
 
-HPC validates decision fields, not isolated labels.
+HPC may diagnostically test candidate decision-field behavior; PULSEmech remains the only release-authority mechanism.
 
 ## Practical rule
 
