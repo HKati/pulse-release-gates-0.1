@@ -85,7 +85,8 @@ A minimal v0 packet should include:
 - packet identity;
 - external source metadata;
 - execution metadata;
-- input artifact references;
+- input manifest identity;
+- input payload artifact references;
 - output artifact references;
 - diagnostic metrics;
 - reproducibility instructions;
@@ -177,16 +178,46 @@ Notebook execution success is not verified evidence.
 
 A notebook pass is not release authority.
 
+## Input manifest digest boundary
+
+`input_manifest.path` identifies the local input manifest file.
+
+`input_manifest.sha256` is the SHA-256 digest of the file identified by `input_manifest.path`.
+
+`input_manifest.sha256` must not be reused for Kaggle dataset payloads, notebook outputs, benchmark logs, generated plots, generated tables, or other payload artifacts.
+
+Payload artifacts must be digest-bound separately as evidence items or nested diagnostic metadata.
+
+This boundary keeps manifest identity separate from artifact payload identity.
+
 ## Input artifact references
 
-Input artifact references should record:
+Input manifest identity should record:
 
-- local input artifact path;
+- local input manifest path;
+- SHA-256 of the input manifest file;
+- dataset identity metadata;
+- sample identity metadata;
 - source dataset reference;
-- downloaded input artifact SHA-256;
-- input manifest reference;
 - mutable external-state warning;
 - unavailable input behavior.
+
+The `input_manifest.path` field identifies the local input manifest file.
+
+The `input_manifest.sha256` field is the SHA-256 digest of that input manifest file.
+
+Dataset payload digests must not be stored in `input_manifest.sha256`.
+
+Downloaded Kaggle datasets, notebook inputs, generated outputs, logs, plots, tables, or other payload artifacts should be recorded as separate digest-bound evidence items or nested diagnostic metadata.
+
+For present artifact payloads, use a separate record such as:
+
+```text
+evidence_items[].path
+evidence_items[].sha256
+evidence_items[].role
+evidence_items[].evidence_status
+```
 
 An external URL is not recorded evidence.
 
@@ -248,9 +279,17 @@ A packet should include:
 - replay command or notebook replay instructions;
 - environment reconstruction notes;
 - input acquisition notes;
+- expected input manifest path;
+- expected input manifest SHA-256;
+- expected payload artifact files;
+- expected payload artifact hashes where deterministic;
 - expected output files;
-- expected hashes where deterministic;
+- expected output hashes where deterministic;
 - nondeterminism / external-state caveats.
+
+A SHA-256 digest is required for the local input manifest file.
+
+A separate SHA-256 digest is required for each present downloaded dataset, notebook output, generated plot, generated table, log, or other payload artifact.
 
 Replayable output is not a verified relation.
 
@@ -349,6 +388,25 @@ repository and git SHA
 
 input manifest path and digest
 → input_manifest.path / input_manifest.sha256
+→ digest of the input manifest file only
+
+dataset / sample identity
+→ input_manifest.dataset_identity / input_manifest.sample_identity
+→ metadata only
+
+downloaded dataset artifact path and digest
+→ evidence_items[].path / evidence_items[].sha256
+→ or nested diagnostic metadata if not represented as an evidence item
+
+notebook input artifact path and digest
+→ evidence_items[].path / evidence_items[].sha256
+→ or nested diagnostic metadata if not represented as an evidence item
+
+notebook output artifact path and digest
+→ evidence_items[].path / evidence_items[].sha256
+
+generated plot / table / log path and digest
+→ evidence_items[].path / evidence_items[].sha256
 
 runtime and accelerator context
 → environment
@@ -442,11 +500,15 @@ A Kaggle / HPC packet must not currently:
 | notebook execution path | required for notebook run | execution metadata | medium | provenance metadata | Metadata only. |
 | seed / determinism note | recommended | execution metadata | low | `provenance.seed` | Include nondeterminism caveat. |
 | external-state note | required for Kaggle | execution metadata | medium | notes/provenance metadata | Required for drift / availability review. |
-| local input artifact path | yes | input artifact reference | low | `input_manifest.path` | Required. |
-| downloaded input artifact SHA-256 | yes | input artifact reference | low | `input_manifest.sha256` | Required. |
-| input manifest reference | yes | input artifact reference | low | `input_manifest` | Required. |
+| input manifest path | yes | input manifest identity | low | `input_manifest.path` | Path to the local input manifest file, not a dataset payload. |
+| input manifest SHA-256 | yes | input manifest identity | low | `input_manifest.sha256` | SHA-256 of the file identified by `input_manifest.path` only. |
+| source dataset reference | optional diagnostic metadata | input artifact reference | medium | `input_manifest.dataset_identity` / `input_manifest.sample_identity` / nested metadata | Metadata only; not artifact-bound evidence by itself. |
+| downloaded dataset artifact path | required when a dataset artifact is downloaded | input artifact reference | medium | `evidence_items[].path` or nested diagnostic metadata | Record separately from `input_manifest.path`. |
+| downloaded dataset artifact SHA-256 | required when a dataset artifact is present | input artifact reference | low | `evidence_items[].sha256` or nested diagnostic metadata | Do not store dataset payload digest in `input_manifest.sha256`. |
+| notebook input artifact path | required when a notebook input artifact is downloaded | input artifact reference | medium | `evidence_items[].path` or nested diagnostic metadata | Record separately from `input_manifest.path`. |
+| notebook input artifact SHA-256 | required when present | input artifact reference | low | `evidence_items[].sha256` or nested diagnostic metadata | Do not store notebook input payload digest in `input_manifest.sha256`. |
 | mutable external-state warning | yes for external source | input artifact reference | medium | notes/provenance metadata | Required. |
-| unavailable input behavior | yes | input artifact reference | medium | incomplete result / missing item | Mark incomplete or unavailable, not verified. |
+| unavailable input behavior | yes | input artifact reference | medium | incomplete result / missing item | Mark incomplete, missing, failed, or unverified; do not treat unavailable external state as evidence. |
 | output artifact path | yes | output artifact reference | low | `evidence_items[].path` | Required. |
 | output artifact SHA-256 | yes when present | output artifact reference | low | `evidence_items[].sha256` | Required for present output artifacts. |
 | output kind | recommended | output artifact reference | low | evidence item role / metadata | Add as metadata if role is too coarse. |
@@ -458,8 +520,12 @@ A Kaggle / HPC packet must not currently:
 | replay command | yes | reproducibility instruction | low | `reconstruction.instructions` | Required. |
 | environment reconstruction notes | yes | reproducibility instruction | low | reconstruction notes | Required. |
 | input acquisition notes | yes | reproducibility instruction | medium | reconstruction notes | Required. |
+| expected input manifest file | yes | reproducibility instruction | low | `input_manifest.path` | Identifies the manifest file to verify. |
+| expected input manifest hash | yes | reproducibility instruction | low | `input_manifest.sha256` | Digest of the input manifest file only. |
+| expected payload artifact files | yes when payload artifacts are used | reproducibility instruction | low | `evidence_items[].path` | Separate from input manifest identity. |
+| expected payload artifact hashes | recommended where deterministic | reproducibility instruction | low | `evidence_items[].sha256` | Include when deterministic and present. |
 | expected output files | yes | reproducibility instruction | low | evidence item paths | Required. |
-| expected hashes | recommended where deterministic | reproducibility instruction | low | evidence item SHA-256 | Include when deterministic. |
+| expected output hashes | recommended where deterministic | reproducibility instruction | low | evidence item SHA-256 | Include when deterministic. |
 | nondeterminism caveats | yes | reproducibility instruction | medium | notes | Required for Kaggle / HPC runs. |
 | metric name | yes for each metric | diagnostic metric | low | `summary_metrics` key | Required. |
 | metric value | yes for each metric | diagnostic metric | medium | `summary_metrics` value | Required. |
