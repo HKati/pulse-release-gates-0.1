@@ -872,7 +872,6 @@ HPC candidate-state validation should start from:
 
 HPC may diagnostically test candidate decision-field behavior.
 
-
 PULSEmech remains the only release-authority mechanism.
 
 
