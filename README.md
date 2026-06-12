@@ -211,11 +211,19 @@ status.json
 
 ---
 
-> 💡 **Continuous expansion**
+> 💡 **Continuous expansion and scoped authority**
 >
-> PULSE is not a frozen snapshot. The release-authority materialization path is explicit and versioned,
-> while the safe pack, documentation, examples, profiles, detectors, diagnostic surfaces,
-> reader surfaces, and future evidence-packet work remain under active expansion.
+> PULSE is not a frozen snapshot.
+>
+> Continuous expansion does not invalidate the implemented release-authority path.
+>
+> The implemented release-authority path is explicit, versioned, and bounded to the artifacts, policies, gates, and CI checks that exist in the current release.
+>
+> Known hardening surfaces — including the safe pack, documentation, examples, profiles, detectors, diagnostic surfaces, reader surfaces, metadata consistency, provenance / attestation work, and future evidence-packet work — remain under active, staged expansion.
+>
+> Until a surface is implemented, tested, and explicitly promoted through declared policy, workflow-effective materialized required gates, and strict fail-closed CI enforcement, it remains non-authoritative.
+>
+> Open work is tracked as part of the hardening roadmap; it is not treated as release authority by assumption.
 
 ---
 
