@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Smoke tests for hpc_evidence_bundle_v0 contract checker."""
 
-from __future__ import annotations
+from __future__ import annotations 
 
 import hashlib
 import json
