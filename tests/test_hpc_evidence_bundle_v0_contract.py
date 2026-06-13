@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Smoke tests for hpc_evidence_bundle_v0 contract checker."""
 
-from __future__ import annotations 
+from __future__ import annotations
 
 import hashlib
 import json
@@ -14,8 +14,23 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 CHECKER = ROOT / "scripts" / "check_hpc_evidence_bundle_v0_contract.py"
-COMPLETE_FIXTURE = ROOT / "tests" / "fixtures" / "hpc_evidence_bundle_v0" / "complete.json"
-INCOMPLETE_FIXTURE = ROOT / "tests" / "fixtures" / "hpc_evidence_bundle_v0" / "incomplete.json"
+
+COMPLETE_FIXTURE = (
+    ROOT
+    / "tests"
+    / "fixtures"
+    / "hpc_evidence_bundle_v0"
+    / "complete.json"
+)
+
+INCOMPLETE_FIXTURE = (
+    ROOT
+    / "tests"
+    / "fixtures"
+    / "hpc_evidence_bundle_v0"
+    / "incomplete.json"
+)
+
 KAGGLE_HPC_MINIMAL_DIAGNOSTIC_FIXTURE = (
     ROOT
     / "tests"
@@ -72,11 +87,13 @@ def _walk_mapping_keys(value: Any) -> list[str]:
 
 def test_complete_fixture_is_valid() -> None:
     result = _run(COMPLETE_FIXTURE)
+
     assert result.returncode == 0, result.stderr + result.stdout
 
 
 def test_incomplete_fixture_is_valid_diagnostic_artifact() -> None:
     result = _run(INCOMPLETE_FIXTURE)
+
     assert result.returncode == 0, result.stderr + result.stdout
 
 
@@ -129,7 +146,7 @@ def test_folded_evidence_with_policy_route_is_valid() -> None:
     payload["evidence_items"][0]["folded_into_status"] = True
     payload["evidence_items"][0]["policy_route"] = {
         "policy_path": "pulse_gate_policy_v0.yml",
-        "gate_id": "external_all_pass"
+        "gate_id": "external_all_pass",
     }
 
     with tempfile.TemporaryDirectory() as td:
@@ -154,20 +171,9 @@ def test_creates_release_authority_true_is_rejected() -> None:
 
 
 def test_kaggle_hpc_minimal_diagnostic_fixture_contract_passes() -> None:
-    result = subprocess.run(
-        [
-            sys.executable,
-            str(CHECKER),
-            "--in",
-            str(KAGGLE_HPC_MINIMAL_DIAGNOSTIC_FIXTURE),
-        ],
-        cwd=str(ROOT),
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-    )
+    result = _run(KAGGLE_HPC_MINIMAL_DIAGNOSTIC_FIXTURE)
 
-    assert result.returncode == 0, result.stderr
+    assert result.returncode == 0, result.stderr + result.stdout
 
 
 def test_kaggle_hpc_minimal_diagnostic_fixture_is_non_authoritative() -> None:
