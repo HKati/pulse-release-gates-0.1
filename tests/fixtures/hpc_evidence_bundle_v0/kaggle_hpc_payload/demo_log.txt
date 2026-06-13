@@ -1,0 +1,4 @@
+local Kaggle/HPC diagnostic fixture
+no Kaggle run
+no HPC run
+no external state fetched

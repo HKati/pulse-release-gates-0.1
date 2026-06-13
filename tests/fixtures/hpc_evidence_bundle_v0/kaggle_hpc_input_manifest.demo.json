@@ -1,0 +1,16 @@
+{
+  "artifacts": [
+    {
+      "path": "tests/fixtures/hpc_evidence_bundle_v0/kaggle_hpc_payload/demo_output.json",
+      "role": "summary_metric"
+    },
+    {
+      "path": "tests/fixtures/hpc_evidence_bundle_v0/kaggle_hpc_payload/demo_log.txt",
+      "role": "raw_trace"
+    }
+  ],
+  "dataset_identity": "kaggle-demo-dataset-metadata-only",
+  "notes": "Local fixture only. No Kaggle run. No HPC run. Diagnostic metadata only.",
+  "sample_identity": "local-minimal-demo-sample",
+  "schema": "kaggle_hpc_input_manifest_demo_v0"
+}
