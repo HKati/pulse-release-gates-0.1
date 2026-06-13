@@ -287,7 +287,18 @@ evidence_items[].path
 evidence_items[].sha256
 evidence_items[].role
 evidence_items[].evidence_status
+evidence_items[].folded_into_status = false
 ```
+
+Every emitted `hpc_evidence_bundle_v0` evidence item must include `folded_into_status`.
+
+For current v0, notebook-produced evidence items must default to:
+
+```text
+folded_into_status = false
+```
+
+This keeps notebook-produced artifacts folded out of status authority unless a future separately reviewed policy path changes that.
 
 The digest cell does not verify evidence.
 
