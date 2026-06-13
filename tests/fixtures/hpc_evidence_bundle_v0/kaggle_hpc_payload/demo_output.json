@@ -1,0 +1,10 @@
+{
+  "diagnostic_metadata_only": true,
+  "metric": {
+    "name": "demo_artifact_count",
+    "unit": "count",
+    "value": 2
+  },
+  "notes": "Local diagnostic output. Not a verifier.",
+  "schema": "kaggle_hpc_demo_output_v0"
+}
