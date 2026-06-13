@@ -232,6 +232,10 @@ def main() -> int:
         test_folded_evidence_requires_policy_route()
         test_folded_evidence_with_policy_route_is_valid()
         test_creates_release_authority_true_is_rejected()
+        test_kaggle_hpc_minimal_diagnostic_fixture_contract_passes()
+        test_kaggle_hpc_minimal_diagnostic_fixture_is_non_authoritative()
+        test_kaggle_hpc_minimal_diagnostic_fixture_uses_real_digests()
+        test_kaggle_hpc_minimal_diagnostic_fixture_has_no_authority_surfaces()
     except AssertionError as exc:
         print(f"ERROR: {exc}")
         return 1
