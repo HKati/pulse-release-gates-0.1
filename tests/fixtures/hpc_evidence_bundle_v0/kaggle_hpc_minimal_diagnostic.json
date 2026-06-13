@@ -1,0 +1,87 @@
+{
+  "authority_status": "diagnostic_non_normative",
+  "code_identity": {
+    "git_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "ref": "local-fixture-review",
+    "repository": "HKati/pulse-release-gates-0.1"
+  },
+  "creates_release_authority": false,
+  "environment": {
+    "accelerator_class": "cpu",
+    "node_count": 1,
+    "package_versions_note": "not a Kaggle or HPC runtime attestation",
+    "python_version": "metadata-only-local",
+    "runtime_surface": "local_hpc_sim",
+    "scheduler": "local"
+  },
+  "evidence_items": [
+    {
+      "artifact_kind": "local_demo_output",
+      "diagnostic_metadata_only": true,
+      "evidence_status": "present",
+      "folded_into_status": false,
+      "path": "tests/fixtures/hpc_evidence_bundle_v0/kaggle_hpc_payload/demo_output.json",
+      "role": "summary_metric",
+      "sha256": "3d8578b263dd0c53106a126436b6f4e5d6eb6e396e1a663453ec5539f5b47f2e"
+    },
+    {
+      "artifact_kind": "local_demo_log",
+      "diagnostic_metadata_only": true,
+      "evidence_status": "present",
+      "folded_into_status": false,
+      "path": "tests/fixtures/hpc_evidence_bundle_v0/kaggle_hpc_payload/demo_log.txt",
+      "role": "raw_trace",
+      "sha256": "50bb6b3839151388fb9ed6d620bd5e538d7ef4df569033efc750667ef0760a01"
+    }
+  ],
+  "input_manifest": {
+    "dataset_identity": "kaggle-demo-dataset-metadata-only",
+    "kaggle": {
+      "competition_id": "metadata-only-demo",
+      "dataset_id": "metadata-only-demo",
+      "external_state_warning": "Kaggle state is not consulted by this local fixture",
+      "license_terms_note": "metadata only; no Kaggle download or run in this fixture",
+      "notebook_id": "none-local-fixture",
+      "notebook_version": "none-local-fixture",
+      "observed_utc": "2026-06-12T00:00:00Z",
+      "source_url": "metadata-only-not-recorded-evidence"
+    },
+    "path": "tests/fixtures/hpc_evidence_bundle_v0/kaggle_hpc_input_manifest.demo.json",
+    "sample_identity": "local-minimal-demo-sample",
+    "sha256": "462180a8aa3983075957828eff5df93af763bef38c1385f1beb4a6f1d99b97d0"
+  },
+  "notes": "This packet is diagnostic. This packet does not create release authority. This packet does not verify evidence. This packet does not satisfy relation bindings. This packet does not materialize gates. This packet does not write status.json. This packet does not affect check_gates.py.",
+  "provenance": {
+    "command": "local fixture only; no Kaggle run; no HPC run",
+    "external_state_note": "No external Kaggle state was fetched, trusted, verified, or folded into status authority.",
+    "notebook_execution_path": "none",
+    "seed": 0,
+    "source_url": "metadata only; not evidence"
+  },
+  "reconstruction": {
+    "instructions": [
+      "Verify the SHA-256 of the local input manifest file recorded in input_manifest.path.",
+      "Verify each present evidence_items[].path against its recorded evidence_items[].sha256.",
+      "Do not treat this packet as verified evidence, relation satisfaction, gate materialization, status.json writing, or release authority."
+    ]
+  },
+  "result": "complete",
+  "run_identity": {
+    "packet_created_utc": "2026-06-12T00:00:00Z",
+    "packet_id": "kaggle-hpc-local-minimal-diagnostic-001",
+    "packet_version": "kaggle_hpc_diagnostic_packet_v0",
+    "producer": "local fixture",
+    "purpose": "diagnostic reproducibility and review only",
+    "run_completed_utc": "2026-06-12T00:00:00Z",
+    "run_id": "kaggle-hpc-local-minimal-diagnostic-001",
+    "run_mode": "local_hpc_sim",
+    "run_started_utc": "2026-06-12T00:00:00Z"
+  },
+  "schema": "hpc_evidence_bundle_v0",
+  "summary_metrics": {
+    "demo_artifact_count": 2,
+    "diagnostic_fixture": true,
+    "hpc_run_performed": false,
+    "kaggle_run_performed": false
+  }
+}
