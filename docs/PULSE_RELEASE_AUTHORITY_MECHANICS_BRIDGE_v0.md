@@ -241,3 +241,19 @@ A PULSE a release-authorityt deployment előtt rögzített bizonyítékhoz, dekl
 Ezért a PULSE nem romeltakarítás.
 
 A PULSE pre-deployment release-authority mechanika.
+
+
+## A döntés problémája
+
+Az óra csak méri az időt.
+A kihatás megmutatja, mit csinál az idő a rendszerben.
+
+A döntési időpont nem döntési jogosultság.
+A döntés csak az igazolt átmeneti útban válik jogosulttá.
+
+Az idő nemcsak mérés, hanem kihatás.
+Az óra a pillanatot mutatja.
+A rendszer a következményt viszi tovább.
+
+A döntési időpont nem release-authority.
+A release-authority csak igazolt kapcsolati úton keletkezhet.
