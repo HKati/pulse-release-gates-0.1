@@ -180,5 +180,3 @@ Without comparison, nothing may enter decision.
 PULSE-COMPUTE does not prevent the system from learning a wrong pattern.
 
 PULSE-COMPUTE prevents the wrong pattern from becoming a verified decision path.
-
-
