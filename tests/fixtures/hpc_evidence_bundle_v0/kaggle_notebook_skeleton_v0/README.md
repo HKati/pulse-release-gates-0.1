@@ -1,8 +1,8 @@
 # Inert Kaggle Notebook Skeleton Fixture v0
 
-Status: fixture-only  
-Normative status: non-normative diagnostic fixture  
-Scope: local, inert Kaggle notebook skeleton shape for future diagnostic / reproducibility artifacts
+- Status: fixture-only
+- Normative status: non-normative diagnostic fixture
+- Scope: local, inert Kaggle notebook skeleton shape for future diagnostic / reproducibility artifacts
 
 ## Boundary
 
