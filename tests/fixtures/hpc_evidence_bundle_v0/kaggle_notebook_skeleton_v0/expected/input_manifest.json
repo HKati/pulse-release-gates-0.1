@@ -1,0 +1,16 @@
+{
+  "artifacts": [
+    {
+      "path": "tests/fixtures/hpc_evidence_bundle_v0/kaggle_notebook_skeleton_v0/expected/diagnostic_output.json",
+      "role": "summary_metric"
+    },
+    {
+      "path": "tests/fixtures/hpc_evidence_bundle_v0/kaggle_notebook_skeleton_v0/expected/diagnostic_log.txt",
+      "role": "raw_trace"
+    }
+  ],
+  "dataset_identity": "kaggle-demo-dataset-metadata-only",
+  "notes": "Local inert notebook skeleton. No Kaggle run. No external state fetched.",
+  "sample_identity": "local-notebook-skeleton-sample",
+  "schema": "kaggle_notebook_skeleton_input_manifest_v0"
+}
