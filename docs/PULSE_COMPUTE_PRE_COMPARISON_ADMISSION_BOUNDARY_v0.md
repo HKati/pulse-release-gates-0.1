@@ -162,3 +162,23 @@ Viszonyítás nélkül nem mehet döntésbe.
 A PULSE-COMPUTE nem azt akadályozza meg, hogy a rendszer rossz mintát tanuljon.
 
 A PULSE-COMPUTE azt akadályozza meg, hogy a rossz minta igazolt döntési úttá váljon.
+
+## English workshop anchor
+
+```text
+Learned truth is not truth.
+
+A learned label is not evidence.
+
+Textual similarity is not authority.
+
+A jailbreak label is not jailbreak proof.
+
+Without comparison, nothing may enter decision.
+```
+
+PULSE-COMPUTE does not prevent the system from learning a wrong pattern.
+
+PULSE-COMPUTE prevents the wrong pattern from becoming a verified decision path.
+
+
