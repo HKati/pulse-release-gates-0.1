@@ -1,0 +1,15 @@
+{
+  "capture_smoke": true,
+  "creates_release_authority": false,
+  "diagnostic_metadata_only": true,
+  "hpc_run_performed": false,
+  "kaggle_run_performed": true,
+  "metric": {
+    "name": "run_0_artifact_count",
+    "unit": "count",
+    "value": 4
+  },
+  "notes": "This is a diagnostic capture output. It is not verified evidence, not relation satisfaction, not gate materialization, and not release authority.",
+  "schema": "kaggle_run_0_diagnostic_output_v0",
+  "verifier": false
+}
