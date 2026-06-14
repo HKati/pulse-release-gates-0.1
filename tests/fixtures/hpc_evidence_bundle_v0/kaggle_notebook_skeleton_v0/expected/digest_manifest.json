@@ -18,12 +18,12 @@
     {
       "path": "tests/fixtures/hpc_evidence_bundle_v0/kaggle_notebook_skeleton_v0/expected/diagnostic_log.txt",
       "role": "diagnostic_log",
-      "sha256": "f5148bea1f251e3bbf0b1beae0b69d726921f531af4cb5ff285960fe1dae6640"
+      "sha256": "03b0a66ef1f43df824b3bb9fe957ae1cb04a052f8593366d1b26773637d315c6"
     },
     {
       "path": "tests/fixtures/hpc_evidence_bundle_v0/kaggle_notebook_skeleton_v0/expected/hpc_evidence_bundle_preview.json",
       "role": "diagnostic_packet_preview",
-      "sha256": "1d31d94393edbafdd01f8dc103c667084c37d5598d1051d0e802c79b9409a668"
+      "sha256": "f5148bea1f251e3bbf0b1beae0b69d726921f531af4cb5ff285960fe1dae6640"
     }
   ],
   "notes": "Digest records for the inert Kaggle notebook skeleton fixture. Diagnostic metadata only.",
