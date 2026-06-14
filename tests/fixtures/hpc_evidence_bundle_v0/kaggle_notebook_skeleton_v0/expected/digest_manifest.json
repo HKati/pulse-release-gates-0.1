@@ -1,0 +1,31 @@
+{
+  "digests": [
+    {
+      "path": "tests/fixtures/hpc_evidence_bundle_v0/kaggle_notebook_skeleton_v0/notebook_skeleton.ipynb",
+      "role": "notebook_skeleton",
+      "sha256": "9da51a8ee59f66f7d8046f4606c7be059c5dbeccace9f198d6180c276ee7d4ff"
+    },
+    {
+      "path": "tests/fixtures/hpc_evidence_bundle_v0/kaggle_notebook_skeleton_v0/expected/input_manifest.json",
+      "role": "input_manifest",
+      "sha256": "144f5309f0dd3fae9ef79c8e2d8a2526f11d07fc94334d39ade822f01ea3c28d"
+    },
+    {
+      "path": "tests/fixtures/hpc_evidence_bundle_v0/kaggle_notebook_skeleton_v0/expected/diagnostic_output.json",
+      "role": "diagnostic_output",
+      "sha256": "befefe36844081d7291c0560157fe14aaa278a03751428dc2835e96635104caa"
+    },
+    {
+      "path": "tests/fixtures/hpc_evidence_bundle_v0/kaggle_notebook_skeleton_v0/expected/diagnostic_log.txt",
+      "role": "diagnostic_log",
+      "sha256": "03b0a66ef1f43df824b3bb9fe957ae1cb04a052f8593366d1b26773637d315c6"
+    },
+    {
+      "path": "tests/fixtures/hpc_evidence_bundle_v0/kaggle_notebook_skeleton_v0/expected/hpc_evidence_bundle_preview.json",
+      "role": "diagnostic_packet_preview",
+      "sha256": "1d31d94393edbafdd01f8dc103c667084c37d5598d1051d0e802c79b9409a668"
+    }
+  ],
+  "notes": "Digest records for the inert Kaggle notebook skeleton fixture. Diagnostic metadata only.",
+  "schema": "kaggle_notebook_skeleton_digest_manifest_v0"
+}
