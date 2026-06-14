@@ -15,7 +15,7 @@
     "node_count": 1,
     "package_versions_note": "not a Kaggle or HPC runtime attestation",
     "python_version": "metadata-only-local",
-    "runtime_surface": "local_notebook_skeleton",
+    "runtime_surface": "local_hpc_sim",
     "scheduler": "none",
     "seed": 0
   },
@@ -90,7 +90,7 @@
     "purpose": "diagnostic reproducibility and review only",
     "run_completed_utc": "2026-06-12T00:00:00Z",
     "run_id": "kaggle-notebook-skeleton-local-001",
-    "run_mode": "local_notebook_skeleton",
+    "run_mode": "local_hpc_sim",
     "run_started_utc": "2026-06-12T00:00:00Z"
   },
   "schema": "hpc_evidence_bundle_v0",
