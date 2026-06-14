@@ -1,0 +1,5 @@
+local Kaggle notebook skeleton fixture
+no Kaggle run
+no HPC run
+no external state fetched
+no status.json written

@@ -1,0 +1,12 @@
+{
+  "diagnostic_metadata_only": true,
+  "hpc_run_performed": false,
+  "kaggle_run_performed": false,
+  "metric": {
+    "name": "demo_notebook_artifact_count",
+    "unit": "count",
+    "value": 2
+  },
+  "notes": "Local inert diagnostic output. Not a verifier.",
+  "schema": "kaggle_notebook_skeleton_diagnostic_output_v0"
+}
