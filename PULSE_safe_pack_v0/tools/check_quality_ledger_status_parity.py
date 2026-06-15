@@ -8,6 +8,9 @@ already-rendered Quality Ledger reflects the provided status.json artefact.
 Gate truth rule:
     expected ledger status = PASS iff status["gates"][gate_id] is True
     expected ledger status = FAIL otherwise
+
+The checker intentionally scopes gate extraction to explicitly marked
+renderer gate tables. Gate-like diagnostic tables are not authoritative.
 """
 
 from __future__ import annotations
@@ -23,6 +26,17 @@ from typing import Any, DefaultDict, Dict, List, Mapping, Sequence
 
 
 PASS_FAIL = {"PASS", "FAIL"}
+TABLE_MARKER_ATTR = "data-pulse-ledger-table"
+GATE_TABLE_MARKER = "gate-status"
+TRACEABILITY_TABLE_MARKER = "traceability"
+
+_AUTHORITATIVE_GATE_SECTIONS = {
+    "safety gates",
+    "quality gates",
+    "other gates",
+    "stability / auxiliary gates",
+    "stability/auxiliary gates",
+}
 
 
 def _collapse_ws(value: Any) -> str:
@@ -40,10 +54,11 @@ def _clean_key(value: str) -> str:
 class _HtmlTable:
     section: str
     rows: List[List[str]]
+    attrs: Dict[str, str]
 
 
 class _QualityLedgerHTMLParser(HTMLParser):
-    """Dependency-free table extractor with section context."""
+    """Dependency-free table extractor with section context and attrs."""
 
     def __init__(self) -> None:
         super().__init__()
@@ -55,6 +70,7 @@ class _QualityLedgerHTMLParser(HTMLParser):
 
         self._in_table = False
         self._table_section = ""
+        self._table_attrs: Dict[str, str] = {}
         self._table_rows: List[List[str]] = []
 
         self._in_row = False
@@ -68,7 +84,6 @@ class _QualityLedgerHTMLParser(HTMLParser):
         tag: str,
         attrs: Sequence[tuple[str, str | None]],
     ) -> None:
-        del attrs
         tag = tag.lower()
 
         if tag in {"h2", "h3"}:
@@ -79,6 +94,10 @@ class _QualityLedgerHTMLParser(HTMLParser):
         if tag == "table":
             self._in_table = True
             self._table_section = self._current_section
+            self._table_attrs = {
+                str(key).lower(): value or ""
+                for key, value in attrs
+            }
             self._table_rows = []
             return
 
@@ -123,10 +142,12 @@ class _QualityLedgerHTMLParser(HTMLParser):
                 _HtmlTable(
                     section=self._table_section,
                     rows=list(self._table_rows),
+                    attrs=dict(self._table_attrs),
                 )
             )
             self._in_table = False
             self._table_section = ""
+            self._table_attrs = {}
             self._table_rows = []
             self._in_row = False
             self._row = []
@@ -173,14 +194,28 @@ def _has_header(
     return False
 
 
+def _table_marker(table: _HtmlTable) -> str:
+    return _collapse_ws(
+        table.attrs.get(TABLE_MARKER_ATTR, "")
+    ).lower()
+
+
 def _is_gate_table(table: _HtmlTable) -> bool:
     section = _collapse_ws(table.section).lower()
-    return "gates" in section and _has_header(table, ["Gate", "Status"])
+    return (
+        _table_marker(table) == GATE_TABLE_MARKER
+        and section in _AUTHORITATIVE_GATE_SECTIONS
+        and _has_header(table, ["Gate", "Status"])
+    )
 
 
 def _is_traceability_table(table: _HtmlTable) -> bool:
     section = _collapse_ws(table.section).lower()
-    return section == "traceability" and _has_header(table, ["Field", "Value"])
+    return (
+        _table_marker(table) == TRACEABILITY_TABLE_MARKER
+        and section == "traceability"
+        and _has_header(table, ["Field", "Value"])
+    )
 
 
 def _gate_status_values(
@@ -202,7 +237,7 @@ def _gate_status_values(
             if key == "Gate" and value == "Status":
                 continue
 
-            if key and value in PASS_FAIL:
+            if key:
                 values[key].append(value)
 
     return values
@@ -263,14 +298,22 @@ def parity_errors(status: Mapping[str, Any], ledger_html: str) -> List[str]:
     metrics = metrics_raw if isinstance(metrics_raw, dict) else {}
 
     tables = _extract_tables(ledger_html)
+    gate_tables = [table for table in tables if _is_gate_table(table)]
+    trace_tables = [table for table in tables if _is_traceability_table(table)]
+
     gate_values = _gate_status_values(tables)
     trace_values = _traceability_values(tables)
 
-    if not any(_is_gate_table(table) for table in tables):
-        errors.append("no Gate/Status table found in Quality Ledger HTML")
+    if not gate_tables:
+        errors.append(
+            "no authoritative Gate/Status table found in Quality Ledger HTML"
+        )
 
-    if not any(_is_traceability_table(table) for table in tables):
-        errors.append("no Traceability Field/Value table found in Quality Ledger HTML")
+    if not trace_tables:
+        errors.append(
+            "no authoritative Traceability Field/Value table found in "
+            "Quality Ledger HTML"
+        )
 
     status_gate_ids = set(status_gates)
     ledger_gate_ids = set(gate_values)
@@ -287,7 +330,7 @@ def parity_errors(status: Mapping[str, Any], ledger_html: str) -> List[str]:
 
         if not actual_values:
             errors.append(
-                f"gate row missing or has no PASS/FAIL status: {gate_id} "
+                f"gate row missing or has no visible status: {gate_id} "
                 f"(expected {expected})"
             )
             continue
@@ -300,6 +343,14 @@ def parity_errors(status: Mapping[str, Any], ledger_html: str) -> List[str]:
             continue
 
         actual = actual_values[0]
+        if actual not in PASS_FAIL:
+            errors.append(
+                f"gate row has invalid visible status: {gate_id} "
+                f"(ledger={actual!r}, expected PASS or FAIL; "
+                f"status.gates expected {expected})"
+            )
+            continue
+
         if actual != expected:
             errors.append(
                 f"gate status mismatch: {gate_id} "

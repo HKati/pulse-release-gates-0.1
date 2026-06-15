@@ -49,14 +49,26 @@ def minimal_ledger_html(
     *,
     refusal_gate_status: str = "PASS",
     git_sha: str | None = None,
+    include_gate_table: bool = True,
     include_refusal_gate: bool = True,
+    gate_section_title: str = "Other gates",
+    gate_table_attrs: str | None = None,
     extra_gate_rows: str = "",
+    diagnostics_title: str = "Diagnostics",
+    diagnostics_header: str = "<tr><th>Field</th><th>Value</th></tr>",
     diagnostics_rows: str = "",
+    traceability_table_attrs: str | None = None,
     duplicate_identity_rows: str = "",
 ) -> str:
     status = status_payload()
     if git_sha is None:
         git_sha = status["metrics"]["git_sha"]
+
+    if gate_table_attrs is None:
+        gate_table_attrs = ' data-pulse-ledger-table="gate-status"'
+
+    if traceability_table_attrs is None:
+        traceability_table_attrs = ' data-pulse-ledger-table="traceability"'
 
     refusal_row = ""
     if include_refusal_gate:
@@ -67,14 +79,11 @@ def minimal_ledger_html(
         </tr>
         """
 
-    return f"""
-<!doctype html>
-<html>
-<body>
-<h1>PULSE Quality Ledger</h1>
-
-<h2>Other gates</h2>
-<table>
+    gate_table = ""
+    if include_gate_table:
+        gate_table = f"""
+<h2>{gate_section_title}</h2>
+<table{gate_table_attrs}>
   <thead>
     <tr><th>Gate</th><th>Status</th></tr>
   </thead>
@@ -91,11 +100,20 @@ def minimal_ledger_html(
     {extra_gate_rows}
   </tbody>
 </table>
+"""
 
-<h2>Diagnostics</h2>
+    return f"""
+<!doctype html>
+<html>
+<body>
+<h1>PULSE Quality Ledger</h1>
+
+{gate_table}
+
+<h2>{diagnostics_title}</h2>
 <table>
   <thead>
-    <tr><th>Field</th><th>Value</th></tr>
+    {diagnostics_header}
   </thead>
   <tbody>
     {diagnostics_rows}
@@ -103,7 +121,7 @@ def minimal_ledger_html(
 </table>
 
 <h2>Traceability</h2>
-<table>
+<table{traceability_table_attrs}>
   <thead>
     <tr><th>Field</th><th>Value</th></tr>
   </thead>
@@ -289,3 +307,181 @@ def test_quality_ledger_parity_cli_fails_closed_on_mismatch(
     assert result.returncode == 1
     assert "Quality Ledger status parity failed" in result.stdout
     assert "refusal_delta_evidence_present" in result.stdout
+
+
+def test_quality_ledger_parity_diagnostics_gates_section_cannot_satisfy_missing_gate() -> None:
+    status = status_payload()
+    html = minimal_ledger_html(
+        include_gate_table=False,
+        diagnostics_title="Diagnostics gates",
+        diagnostics_header="<tr><th>Gate</th><th>Status</th></tr>",
+        diagnostics_rows="""
+        <tr>
+          <td><code>detectors_materialized_ok</code></td>
+          <td>FAIL</td>
+        </tr>
+        <tr>
+          <td><code>q1_grounded_ok</code></td>
+          <td>PASS</td>
+        </tr>
+        <tr>
+          <td><code>refusal_delta_evidence_present</code></td>
+          <td>PASS</td>
+        </tr>
+        """,
+    )
+
+    errors = parity_errors(status, html)
+
+    assert any(
+        "no authoritative Gate/Status table found" in err
+        for err in errors
+    )
+    assert any(
+        "gate row missing" in err
+        and "refusal_delta_evidence_present" in err
+        for err in errors
+    )
+
+
+def test_quality_ledger_parity_diagnostics_gates_section_cannot_conflict_with_real_gate_table() -> None:
+    status = status_payload()
+    html = minimal_ledger_html(
+        refusal_gate_status="PASS",
+        diagnostics_title="Diagnostics gates",
+        diagnostics_header="<tr><th>Gate</th><th>Status</th></tr>",
+        diagnostics_rows="""
+        <tr>
+          <td><code>refusal_delta_evidence_present</code></td>
+          <td>FAIL</td>
+        </tr>
+        """,
+    )
+
+    assert parity_errors(status, html) == []
+
+
+def test_quality_ledger_parity_rejects_stale_gate_row_with_unknown() -> None:
+    status = status_payload()
+    html = minimal_ledger_html(
+        extra_gate_rows="""
+        <tr>
+          <td><code>old_removed_gate</code></td>
+          <td>UNKNOWN</td>
+        </tr>
+        """,
+    )
+
+    errors = parity_errors(status, html)
+
+    assert any(
+        "stale gate row present in ledger" in err
+        and "old_removed_gate" in err
+        for err in errors
+    )
+
+
+def test_quality_ledger_parity_rejects_stale_gate_row_with_pending() -> None:
+    status = status_payload()
+    html = minimal_ledger_html(
+        extra_gate_rows="""
+        <tr>
+          <td><code>old_removed_gate</code></td>
+          <td>PENDING</td>
+        </tr>
+        """,
+    )
+
+    errors = parity_errors(status, html)
+
+    assert any(
+        "stale gate row present in ledger" in err
+        and "old_removed_gate" in err
+        for err in errors
+    )
+
+
+def test_quality_ledger_parity_rejects_current_gate_row_with_unknown() -> None:
+    status = status_payload()
+    html = minimal_ledger_html(refusal_gate_status="UNKNOWN")
+
+    errors = parity_errors(status, html)
+
+    assert any(
+        "invalid visible status" in err
+        and "refusal_delta_evidence_present" in err
+        for err in errors
+    )
+
+
+def test_quality_ledger_parity_rejects_current_gate_row_with_blank_status() -> None:
+    status = status_payload()
+    html = minimal_ledger_html(refusal_gate_status="")
+
+    errors = parity_errors(status, html)
+
+    assert any(
+        "invalid visible status" in err
+        and "refusal_delta_evidence_present" in err
+        for err in errors
+    )
+
+
+def test_quality_ledger_parity_requires_authoritative_gate_table_marker() -> None:
+    status = status_payload()
+    html = minimal_ledger_html(gate_table_attrs="")
+
+    errors = parity_errors(status, html)
+
+    assert any(
+        "no authoritative Gate/Status table found" in err
+        for err in errors
+    )
+
+
+def test_quality_ledger_parity_requires_traceability_table_marker() -> None:
+    status = status_payload()
+    html = minimal_ledger_html(traceability_table_attrs="")
+
+    errors = parity_errors(status, html)
+
+    assert any(
+        "no authoritative Traceability Field/Value table found" in err
+        for err in errors
+    )
+
+
+def test_quality_ledger_parity_rejects_gate_like_table_in_unknown_gate_section() -> None:
+    status = status_payload()
+    html = minimal_ledger_html(
+        gate_section_title="Diagnostics gates",
+        refusal_gate_status="PASS",
+    )
+
+    errors = parity_errors(status, html)
+
+    assert any(
+        "no authoritative Gate/Status table found" in err
+        for err in errors
+    )
+
+
+def test_pulse_report_upload_is_gated_on_quality_ledger_parity_success() -> None:
+    workflow = (
+        REPO_ROOT
+        / ".github"
+        / "workflows"
+        / "pulse_ci.yml"
+    ).read_text(encoding="utf-8")
+
+    assert "id: quality_ledger_final_render" in workflow
+    assert "id: quality_ledger_status_parity" in workflow
+    assert "steps.quality_ledger_status_parity.outcome == 'success'" in workflow
+    assert "steps.quality_ledger_final_render.outcome == 'success'" in workflow
+
+    upload_pos = workflow.find("- name: Upload artifacts")
+    assert upload_pos != -1
+
+    upload_block = workflow[upload_pos: workflow.find("\n      - name:", upload_pos + 1)]
+    assert "if: always()" not in upload_block
+    assert "steps.quality_ledger_status_parity.outcome == 'success'" in upload_block

@@ -428,7 +428,7 @@ def render_gate_table(title: str, rows: List[Tuple[str, bool]]) -> str:
     return (
         f"<section class='panel'>"
         f"<h2>{escape(title)}</h2>"
-        "<table class='ledger-table'>"
+        "<table class='ledger-table' data-pulse-ledger-table='gate-status'>"
         "<thead><tr><th>Gate</th><th>Status</th></tr></thead>"
         f"<tbody>{''.join(body)}</tbody>"
         "</table>"
@@ -664,7 +664,7 @@ def render_traceability(status_path: Path, status: Dict[str, Any]) -> str:
     return (
         "<section class='panel'>"
         "<h2>Traceability</h2>"
-        "<table class='ledger-table'>"
+        "<table class='ledger-table' data-pulse-ledger-table='traceability'>"
         "<thead><tr><th>Field</th><th>Value</th></tr></thead>"
         f"<tbody>{body}</tbody>"
         "</table>"
