@@ -1007,6 +1007,21 @@ jobs:
             --status "$STATUS" \
             --ledger "$LEDGER"
       
+    
+      - name: Check published publication snapshot
+        shell: bash
+        run: |
+          set -euo pipefail
+          SNAPSHOT="_site/publication_snapshot_v0.json"
+
+          if [ ! -f "$SNAPSHOT" ]; then
+            echo "::error::Published publication_snapshot_v0.json missing at $SNAPSHOT"
+            exit 1
+          fi
+
+          python PULSE_safe_pack_v0/tools/check_publication_snapshot_v0.py \
+            --root _site
+      
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
