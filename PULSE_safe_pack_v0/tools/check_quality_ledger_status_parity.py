@@ -39,6 +39,7 @@ def _clean_key(value: str) -> str:
 @dataclass(frozen=True)
 class _HtmlTable:
     section: str
+    attrs: Dict[str, str]
     rows: List[List[str]]
 
 
@@ -56,7 +57,7 @@ class _QualityLedgerHTMLParser(HTMLParser):
         self._in_table = False
         self._table_section = ""
         self._table_rows: List[List[str]] = []
-
+        self._table_attrs: Dict[str, str] = 
         self._in_row = False
         self._row: List[str] = []
 
@@ -68,7 +69,6 @@ class _QualityLedgerHTMLParser(HTMLParser):
         tag: str,
         attrs: Sequence[tuple[str, str | None]],
     ) -> None:
-        del attrs
         tag = tag.lower()
 
         if tag in {"h2", "h3"}:
@@ -79,6 +79,10 @@ class _QualityLedgerHTMLParser(HTMLParser):
         if tag == "table":
             self._in_table = True
             self._table_section = self._current_section
+            self._table_attrs = {
+                _collapse_ws(name).lower(): _collapse_ws(value or "")
+                for name, value in attrs
+            }
             self._table_rows = []
             return
 
@@ -122,12 +126,14 @@ class _QualityLedgerHTMLParser(HTMLParser):
             self.tables.append(
                 _HtmlTable(
                     section=self._table_section,
+                    attrs=dict(self._table_attrs),
                     rows=list(self._table_rows),
                 )
             )
             self._in_table = False
             self._table_section = ""
             self._table_rows = []
+            self._table_attrs = {}
             self._in_row = False
             self._row = []
             self._in_cell = False
@@ -173,14 +179,34 @@ def _has_header(
     return False
 
 
+GATE_TABLE_SECTIONS = {
+    "Safety gates",
+    "Quality gates",
+    "Other gates",
+    "Stability / auxiliary gates",
+}
+
+
+def _table_marker(table: _HtmlTable) -> str:
+    return _collapse_ws(table.attrs.get("data-pulse-ledger-table", ""))
+
+
 def _is_gate_table(table: _HtmlTable) -> bool:
-    section = _collapse_ws(table.section).lower()
-    return "gates" in section and _has_header(table, ["Gate", "Status"])
+    section = _collapse_ws(table.section)
+    return (
+        _table_marker(table) == "gate-status"
+        and section in GATE_TABLE_SECTIONS
+        and _has_header(table, ["Gate", "Status"])
+    )
 
 
 def _is_traceability_table(table: _HtmlTable) -> bool:
-    section = _collapse_ws(table.section).lower()
-    return section == "traceability" and _has_header(table, ["Field", "Value"])
+    section = _collapse_ws(table.section)
+    return (
+        _table_marker(table) == "traceability"
+        and section == "Traceability"
+        and _has_header(table, ["Field", "Value"])
+    )
 
 
 def _gate_status_values(
@@ -202,7 +228,7 @@ def _gate_status_values(
             if key == "Gate" and value == "Status":
                 continue
 
-            if key and value in PASS_FAIL:
+           if key:
                 values[key].append(value)
 
     return values
@@ -287,8 +313,7 @@ def parity_errors(status: Mapping[str, Any], ledger_html: str) -> List[str]:
 
         if not actual_values:
             errors.append(
-                f"gate row missing or has no PASS/FAIL status: {gate_id} "
-                f"(expected {expected})"
+                f"gate row missing: {gate_id} (expected {expected})"
             )
             continue
 
@@ -300,6 +325,12 @@ def parity_errors(status: Mapping[str, Any], ledger_html: str) -> List[str]:
             continue
 
         actual = actual_values[0]
+        if actual not in PASS_FAIL:
+            errors.append(
+                f"gate row has invalid visible status: {gate_id} "
+                f"(ledger={actual!r}, expected PASS or FAIL)"
+            )
+            continue
         if actual != expected:
             errors.append(
                 f"gate status mismatch: {gate_id} "
