@@ -1,0 +1,14 @@
+{
+  "accelerator_class": "metadata-only",
+  "created_utc": "2026-06-14T22:01:30Z",
+  "determinism_note": "Run 0 capture smoke; output artifacts are locally generated and hash-bound.",
+  "external_state_note": "No Kaggle API, credential, dataset download, or external fetch is used by this notebook.",
+  "node_count": 1,
+  "package_versions_note": "Package metadata is diagnostic only and is not a verifier identity.",
+  "platform": "Linux-6.6.122+-x86_64-with-glibc2.35",
+  "python_executable": "/usr/bin/python3",
+  "python_version": "3.12.13 (main, Mar  4 2026, 09:23:07) [GCC 11.4.0]",
+  "runtime_surface": "compute_scale",
+  "scheduler": "kaggle",
+  "schema": "kaggle_run_0_environment_v0"
+}
