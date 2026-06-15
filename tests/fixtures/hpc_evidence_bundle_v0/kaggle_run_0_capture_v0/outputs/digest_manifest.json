@@ -1,0 +1,37 @@
+{
+  "created_utc": "2026-06-14T22:01:30Z",
+  "digests": [
+    {
+      "path": "tests/fixtures/hpc_evidence_bundle_v0/kaggle_run_0_capture_v0/outputs/input_manifest.json",
+      "role": "input_manifest",
+      "sha256": "4ef010dfd4a16650d2932f6c3f1043c627edc5d8e4359a44300c5effe846e4c9"
+    },
+    {
+      "path": "tests/fixtures/hpc_evidence_bundle_v0/kaggle_run_0_capture_v0/outputs/diagnostic_output.json",
+      "role": "diagnostic_output",
+      "sha256": "99f4362a20c119a020205f1ed066d9e3ce8bd571d2c705b72cabb344429aeb9b"
+    },
+    {
+      "path": "tests/fixtures/hpc_evidence_bundle_v0/kaggle_run_0_capture_v0/outputs/diagnostic_log.txt",
+      "role": "diagnostic_log",
+      "sha256": "1f5c86573ef97883f68ce246678cf9dee80a4c6e9fa7f61ef8f731ebeb3d5efe"
+    },
+    {
+      "path": "tests/fixtures/hpc_evidence_bundle_v0/kaggle_run_0_capture_v0/outputs/environment.json",
+      "role": "environment_metadata",
+      "sha256": "5124abb5ee3914638022474de5bc791a7165a0155307584b301547f36401a176"
+    },
+    {
+      "path": "tests/fixtures/hpc_evidence_bundle_v0/kaggle_run_0_capture_v0/outputs/reconstruction_instructions.md",
+      "role": "reconstruction_instructions",
+      "sha256": "c59aaf0de7180c8dcc218dbcca87bee031c9adefa1eeb8924ef1a974de9c1bfc"
+    },
+    {
+      "path": "tests/fixtures/hpc_evidence_bundle_v0/kaggle_run_0_capture_v0/outputs/hpc_evidence_bundle_preview.json",
+      "role": "diagnostic_packet_preview",
+      "sha256": "443444c48b609e419aeb9484c80835c6691a2ac5f4683cb731b76fc09df8a2b3"
+    }
+  ],
+  "notes": "Digest records for Kaggle Run 0 capture smoke. Diagnostic metadata only. This manifest does not self-hash.",
+  "schema": "kaggle_run_0_digest_manifest_v0"
+}
