@@ -986,6 +986,27 @@ jobs:
       - name: Setup Pages
         uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
 
+      - name: Check published Quality Ledger status parity
+        shell: bash
+        run: |
+          set -euo pipefail
+          STATUS="_site/status.json"
+          LEDGER="_site/report_card.html"
+
+          if [ ! -f "$STATUS" ]; then
+            echo "::error::Published status.json missing at $STATUS"
+            exit 1
+          fi
+
+          if [ ! -f "$LEDGER" ]; then
+            echo "::error::Published report_card.html missing at $LEDGER"
+            exit 1
+          fi
+
+          python PULSE_safe_pack_v0/tools/check_quality_ledger_status_parity.py \
+            --status "$STATUS" \
+            --ledger "$LEDGER"
+      
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
