@@ -727,6 +727,24 @@ jobs:
             --status "$STATUS" \
             --max-errors 20
       
+      - name: Re-render Quality Ledger from final status
+        shell: bash
+        run: |
+          set -euo pipefail
+          STATUS="${{ env.PACK_DIR }}/artifacts/status.json"
+          REPORT="${{ env.PACK_DIR }}/artifacts/report_card.html"
+
+          if [ ! -f "$STATUS" ]; then
+            echo "::error::status.json not found at $STATUS"
+            exit 1
+          fi
+
+          python "${{ env.PACK_DIR }}/tools/render_quality_ledger.py" \
+            --status "$STATUS" \
+            --out "$REPORT"
+
+          echo "OK: re-rendered Quality Ledger from final status.json"
+      
       - name: Export final summary (post-augment)
         shell: bash
         run: |
@@ -1850,6 +1868,17 @@ jobs:
           print(f"Wrote {out}")
           PY
 
+      - name: Check Quality Ledger status parity before artifact upload
+        shell: bash
+        run: |
+          set -euo pipefail
+          STATUS="${{ env.PACK_DIR }}/artifacts/status.json"
+          LEDGER="${{ env.PACK_DIR }}/artifacts/report_card.html"
+
+          python "${{ env.PACK_DIR }}/tools/check_quality_ledger_status_parity.py" \
+            --status "$STATUS" \
+            --ledger "$LEDGER"
+      
       - name: Upload artifacts
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # pinned
