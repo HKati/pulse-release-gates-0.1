@@ -53,6 +53,12 @@ def minimal_ledger_html(
     extra_gate_rows: str = "",
     diagnostics_rows: str = "",
     duplicate_identity_rows: str = "",
+    gate_table_attrs: str = " data-pulse-ledger-table=\"gate-status\"",
+    traceability_table_attrs: str = " data-pulse-ledger-table=\"traceability\"",
+    gate_section_title: str = "Other gates",
+    diagnostics_title: str = "Diagnostics",
+    diagnostics_table_attrs: str = "",
+    diagnostics_header: str = "<tr><th>Field</th><th>Value</th></tr>",
 ) -> str:
     status = status_payload()
     if git_sha is None:
@@ -73,7 +79,8 @@ def minimal_ledger_html(
 <body>
 <h1>PULSE Quality Ledger</h1>
 
-<h2>Other gates</h2>
+<h2>{gate_section_title}</h2>
+<table{gate_table_attrs}>
 <table>
   <thead>
     <tr><th>Gate</th><th>Status</th></tr>
@@ -92,10 +99,10 @@ def minimal_ledger_html(
   </tbody>
 </table>
 
-<h2>Diagnostics</h2>
-<table>
-  <thead>
-    <tr><th>Field</th><th>Value</th></tr>
+<h2>{diagnostics_title}</h2>
+<table{diagnostics_table_attrs}>
+  <thead> 
+  {diagnostics_header}  
   </thead>
   <tbody>
     {diagnostics_rows}
@@ -103,7 +110,7 @@ def minimal_ledger_html(
 </table>
 
 <h2>Traceability</h2>
-<table>
+<table{traceability_table_attrs}>
   <thead>
     <tr><th>Field</th><th>Value</th></tr>
   </thead>
@@ -127,6 +134,28 @@ def minimal_ledger_html(
 </html>
 """
 
+
+def test_quality_ledger_renderer_output_has_explicit_table_markers(
+    tmp_path: Path,
+) -> None:
+    status_path = tmp_path / "status.json"
+    ledger_path = tmp_path / "report_card.html"
+    status = status_payload()
+
+    write_json(status_path, status)
+    write_quality_ledger(status_path, ledger_path)
+
+    html = ledger_path.read_text(encoding="utf-8")
+
+    assert (
+        'data-pulse-ledger-table="gate-status"' in html
+        or "data-pulse-ledger-table='gate-status'" in html
+    )
+    assert (
+        'data-pulse-ledger-table="traceability"' in html
+        or "data-pulse-ledger-table='traceability'" in html
+    )
+    assert parity_errors(status, html) == []
 
 def test_quality_ledger_parity_passes_for_renderer_output(
     tmp_path: Path,
@@ -289,3 +318,135 @@ def test_quality_ledger_parity_cli_fails_closed_on_mismatch(
     assert result.returncode == 1
     assert "Quality Ledger status parity failed" in result.stdout
     assert "refusal_delta_evidence_present" in result.stdout
+
+
+def test_quality_ledger_parity_diagnostics_gates_section_cannot_satisfy_missing_gate() -> None:
+    status = status_payload()
+    html = minimal_ledger_html(
+        include_refusal_gate=False,
+        diagnostics_title="Diagnostics gates",
+        diagnostics_header="<tr><th>Gate</th><th>Status</th></tr>",
+        diagnostics_rows="""
+        <tr>
+          <td><code>refusal_delta_evidence_present</code></td>
+          <td>PASS</td>
+        </tr>
+        """,
+    )
+
+    errors = parity_errors(status, html)
+
+    assert any(
+        "gate row missing" in err and "refusal_delta_evidence_present" in err
+        for err in errors
+    )
+
+
+def test_quality_ledger_parity_diagnostics_gates_section_cannot_conflict_with_real_gate_table() -> None:
+    status = status_payload()
+    html = minimal_ledger_html(
+        refusal_gate_status="PASS",
+        diagnostics_title="Diagnostics gates",
+        diagnostics_header="<tr><th>Gate</th><th>Status</th></tr>",
+        diagnostics_rows="""
+        <tr>
+          <td><code>refusal_delta_evidence_present</code></td>
+          <td>FAIL</td>
+        </tr>
+        """,
+    )
+
+    assert parity_errors(status, html) == []
+
+
+def test_quality_ledger_parity_rejects_stale_gate_row_with_unknown() -> None:
+    status = status_payload()
+    html = minimal_ledger_html(extra_gate_rows="""
+        <tr><td><code>old_removed_gate</code></td><td>UNKNOWN</td></tr>
+    """)
+
+    errors = parity_errors(status, html)
+
+    assert any(
+        "stale gate row present in ledger" in err and "old_removed_gate" in err
+        for err in errors
+    )
+
+
+def test_quality_ledger_parity_rejects_stale_gate_row_with_pending() -> None:
+    status = status_payload()
+    html = minimal_ledger_html(extra_gate_rows="""
+        <tr><td><code>old_removed_gate</code></td><td>PENDING</td></tr>
+    """)
+
+    errors = parity_errors(status, html)
+
+    assert any(
+        "stale gate row present in ledger" in err and "old_removed_gate" in err
+        for err in errors
+    )
+
+
+def test_quality_ledger_parity_rejects_current_gate_row_with_unknown() -> None:
+    status = status_payload()
+    html = minimal_ledger_html(refusal_gate_status="UNKNOWN")
+
+    errors = parity_errors(status, html)
+
+    assert any(
+        "invalid visible status" in err and "refusal_delta_evidence_present" in err
+        for err in errors
+    )
+
+
+def test_quality_ledger_parity_rejects_current_gate_row_with_blank_status() -> None:
+    status = status_payload()
+    html = minimal_ledger_html(refusal_gate_status="")
+
+    errors = parity_errors(status, html)
+
+    assert any(
+        "invalid visible status" in err and "refusal_delta_evidence_present" in err
+        for err in errors
+    )
+
+
+def test_quality_ledger_parity_requires_authoritative_gate_table_marker() -> None:
+    status = status_payload()
+    html = minimal_ledger_html(gate_table_attrs="")
+
+    errors = parity_errors(status, html)
+
+    assert any("no Gate/Status table found" in err for err in errors)
+    assert any("gate row missing" in err for err in errors)
+
+
+def test_quality_ledger_parity_requires_traceability_table_marker() -> None:
+    status = status_payload()
+    html = minimal_ledger_html(traceability_table_attrs="")
+
+    errors = parity_errors(status, html)
+
+    assert any("no Traceability Field/Value table found" in err for err in errors)
+
+
+def _pulse_ci_workflow_text() -> str:
+    return (REPO_ROOT / ".github" / "workflows" / "pulse_ci.yml").read_text(
+        encoding="utf-8"
+    )
+
+
+def test_pulse_report_upload_is_gated_on_quality_ledger_parity_success() -> None:
+    workflow = _pulse_ci_workflow_text()
+    parity_idx = workflow.index("Check Quality Ledger status parity before artifact upload")
+    upload_idx = workflow.index("name: Upload artifacts", parity_idx)
+    upload_block_end = workflow.find("\n\n  ", upload_idx)
+    if upload_block_end == -1:
+        upload_block_end = len(workflow)
+    parity_block = workflow[parity_idx:upload_idx]
+    upload_block = workflow[upload_idx:upload_block_end]
+
+    assert "id: quality_ledger_status_parity" in parity_block
+    assert "name: pulse-report" in upload_block
+    assert "if: always()" not in upload_block
+    assert "steps.quality_ledger_status_parity.outcome == 'success'" in upload_block
