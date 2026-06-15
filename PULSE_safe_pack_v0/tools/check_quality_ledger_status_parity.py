@@ -57,7 +57,7 @@ class _QualityLedgerHTMLParser(HTMLParser):
         self._in_table = False
         self._table_section = ""
         self._table_rows: List[List[str]] = []
-        self._table_attrs: Dict[str, str] = 
+        self._table_attrs: Dict[str, str] = {}
         self._in_row = False
         self._row: List[str] = []
 
