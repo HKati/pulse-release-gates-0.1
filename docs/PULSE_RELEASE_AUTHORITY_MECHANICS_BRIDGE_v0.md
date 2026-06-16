@@ -270,4 +270,3 @@ Angolul:
 Magyarul:
 
 **A biztonságot nem a lezárás tartja, hanem az igazolt átmeneti mechanika.**
-
