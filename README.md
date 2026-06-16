@@ -1,8 +1,8 @@
 # PULSE — Artifact-Bound Release Authority for AI Release Decisions
 
-- [PULSE Kaggle Run 0 Capture Smoke v0](https://www.kaggle.com/code/horvathkatalin/pulse-kaggle-run-0-capture-smoke-v0) — diagnostic capture smoke for SHA-256-bound, non-authoritative PULSEmech review artifacts.
+- [PULSE Kaggle Run 0 Capture Smoke v0](https://www.kaggle.com/code/horvathkatalin/pulse-kaggle-run-0-capture-smoke-v0) — diagnostic capture smoke for SHA-256-bound, non-authoritative PULSEmech review artifacts.✨
 
-- [PULSEmech Explainable Evidence Transform Demo v0](https://www.kaggle.com/code/horvathkatalin/pulsemech-explainable-evidence-transform-demo-v0) — human-readable diagnostic demo of raw observations transformed into SHA-256-bound PULSEmech review artifacts.
+- [PULSEmech Explainable Evidence Transform Demo v0](https://www.kaggle.com/code/horvathkatalin/pulsemech-explainable-evidence-transform-demo-v0) — human-readable diagnostic demo of raw observations transformed into SHA-256-bound PULSEmech review artifacts.✨
 
   ```text
   Kaggle run ≠ verifier
