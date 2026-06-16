@@ -1,6 +1,6 @@
 # PULSE — Artifact-Bound Release Authority for AI Release Decisions
 
-[PULSE Kaggle Run 0 - Capture Smoke v0](https://www.kaggle.com/code/horvathkatalin/pulse-kaggle-run-0-capture-smoke-v0-------)✨
+[PULSE Kaggle Run 0 - Capture Smoke v0](https://www.kaggle.com/code/horvathkatalin/pulse-kaggle-run-0-capture-smoke-v0)✨
 
 
 Release authority in PULSE is a materialized evidence state: recorded release evidence is bound to `status.json`, declared gate policy, materialized required gates, and strict fail-closed CI gate enforcement before the declared-policy CI outcome becomes the release decision.
