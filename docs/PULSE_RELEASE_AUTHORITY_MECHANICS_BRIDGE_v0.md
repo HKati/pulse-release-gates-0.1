@@ -290,3 +290,6 @@ Magyarul:
 **Sűrű időben a lezárás már kevés.**
 
 **A zár akadály. A PULSEmech igazolt illesztés.**
+
+A Pulsemechanika nem szűrő.
+A Pulsemechanika pontos illesztés.💡
