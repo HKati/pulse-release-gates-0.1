@@ -257,3 +257,17 @@ A rendszer a következményt viszi tovább.
 
 A döntési időpont nem release-authority.
 A release-authority csak igazolt kapcsolati úton keletkezhet.
+
+A biztonságot nem a lezárás tartja,
+hanem az igazolt átmeneti mechanika. Pulsemechanika
+
+## 16. Záró PULSEmech horgony
+
+Angolul:
+
+**Security is not held by closure, but by verified transition mechanics.**
+
+Magyarul:
+
+**A biztonságot nem a lezárás tartja, hanem az igazolt átmeneti mechanika.**
+
