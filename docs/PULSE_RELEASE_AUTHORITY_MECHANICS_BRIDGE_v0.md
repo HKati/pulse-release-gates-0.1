@@ -271,3 +271,22 @@ Magyarul:
 
 **A biztonságot nem a lezárás tartja, hanem az igazolt átmeneti mechanika.**
 
+Angolul:
+
+**A lock does not solve jailbreaks, access, security, decisions, or trust.**
+
+**A lock only closes.**
+
+**In high-density time, closure is no longer enough.**
+
+**A lock is an obstacle. PULSEmech is verified alignment.**
+
+Magyarul:
+
+**A zár nem oldja meg a jailbreaket, a hozzáférést, a biztonságot, a döntést vagy a bizalmat.**
+
+**A zár csak lezár.**
+
+**Sűrű időben a lezárás már kevés.**
+
+**A zár akadály. A PULSEmech igazolt illesztés.**
