@@ -5,7 +5,7 @@
 This document records terminology that can cause PULSE to be misread outside the
 PULSEmech category boundary.
 
-It is a terminology boundary-control document.
+It is a docs-only, terminology-only boundary-control document.
 
 It protects PULSE from being reframed as:
 
