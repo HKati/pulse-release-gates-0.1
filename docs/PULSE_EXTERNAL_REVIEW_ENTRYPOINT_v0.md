@@ -10,7 +10,8 @@ model while preserving the model.
 PULSEmech is an artifact-bound release-authority mechanism for AI release
 decisions.
 
-External review is an inspection, reconstruction, and recommendation layer.
+External review is an inspection, reconstruction, classification, and
+recommendation layer.
 
 External-review output enters release authority through the same admission path
 as any other release evidence:
@@ -27,6 +28,32 @@ recorded release evidence
 This document is reviewer-facing documentation.
 
 Release authority remains defined by the PULSEmech authority path.
+
+## Scope and effect
+
+This document defines how external review is routed.
+
+It preserves:
+
+```text
+PULSEmech decision semantics
+gate policy
+required gate wiring
+check_gates.py behavior
+status schema
+CI allow/block behavior
+Quality Ledger renderer behavior
+artifact provenance binding behavior
+attestation workflow behavior
+release tags
+publication paths
+```
+
+It introduces no new authority carrier.
+
+It introduces no new CI behavior.
+
+It introduces no new release semantics.
 
 ## PULSEmech release-authority path
 
@@ -45,7 +72,7 @@ A release decision is mechanically reviewable when this path can be
 reconstructed from recorded artifacts, declared policy, materialized gates, and
 workflow-effective CI enforcement.
 
-## External-review role
+## External-review operating role
 
 External review inspects the relation between:
 
@@ -60,6 +87,8 @@ reader surfaces
 trace carriers
 audit carriers
 publication surfaces
+diagnostic outputs
+shadow outputs
 reproducibility evidence
 ```
 
@@ -75,8 +104,9 @@ hardening finding
 candidate evidence source
 candidate policy requirement
 reproducibility finding
-audit supplement
-traceability supplement
+traceability finding
+audit finding
+implementation-hardening recommendation
 ```
 
 Each classification has a separate route.
@@ -102,8 +132,8 @@ review_context
 → release decision effect
 ```
 
-This transition keeps review output inspectable without creating an independent
-release-decision engine.
+This transition keeps review output inspectable while preserving a single
+release-decision path.
 
 ## Primary review question
 
@@ -144,6 +174,7 @@ Those readings are routed through the classification model in this document.
 | Dashboard / badge / rendered report | Reader surface | Supports human inspection and status communication |
 | Audit bundle | Audit carrier | Supports reconstruction and external inspection |
 | Trace carrier | Traceability carrier | Supports relation reconstruction across artifacts |
+| Release authority manifest (`PULSE_safe_pack_v0/artifacts/release_authority_v0.json`; contract: [`release_authority_manifest_v0.md`](release_authority_manifest_v0.md)) | Audit / trace carrier for the evidence-policy-evaluator chain and workflow-effective required gate set | Supports release-authority reconstruction; non-authorizing by itself |
 | External verification packet | Review carrier | Supports external reconstruction and reproducibility review |
 | Publication snapshot | Publication binding carrier | Supports comparison between expected and published artifacts |
 | Diagnostic output | Diagnostic carrier | Supports investigation and debugging |
@@ -347,8 +378,7 @@ candidate-policy finding
 → strict fail-closed CI enforcement
 ```
 
-This allows PULSE to grow without turning external opinion into release
-permission.
+This allows PULSE to grow while preserving artifact-bound release authority.
 
 ## Reproducibility finding
 
@@ -379,6 +409,41 @@ expected artifact or command
 observed condition
 missing or ambiguous dependency
 effect on external review
+suggested correction
+```
+
+## Traceability / audit finding
+
+A traceability or audit finding concerns whether the relation between evidence,
+policy, evaluator, workflow run, gate materialization, and decision trail can be
+reconstructed.
+
+It should inspect:
+
+```text
+release authority manifest
+audit bundle
+trace carrier
+artifact provenance binding
+publication snapshot
+external verification packet
+workflow run identity
+commit identity
+artifact digest
+policy digest
+required gate set
+CI decision output
+```
+
+A traceability / audit finding should state:
+
+```text
+trace or audit carrier
+relation being reconstructed
+expected binding
+observed condition
+missing or ambiguous link
+effect on reconstruction
 suggested correction
 ```
 
@@ -420,6 +485,23 @@ Hardening findings:
 - relationship to PULSEmech:
 - suggested hardening:
 
+Reproducibility findings:
+- finding:
+- reconstruction step:
+- expected artifact or command:
+- observed condition:
+- missing or ambiguous dependency:
+- effect on external review:
+- suggested correction:
+
+Traceability / audit findings:
+- finding:
+- trace or audit carrier:
+- relation being reconstructed:
+- expected binding:
+- observed condition:
+- suggested correction:
+
 Candidate-policy findings:
 - finding:
 - proposed policy route:
@@ -428,8 +510,8 @@ Candidate-policy findings:
 ```
 
 This format separates release-authority findings from reader, hardening,
-adoption, maturity, governance, runtime, supply-chain, and productization
-observations.
+reproducibility, traceability, audit, adoption, maturity, governance, runtime,
+supply-chain, and productization observations.
 
 ## Completion criterion
 
