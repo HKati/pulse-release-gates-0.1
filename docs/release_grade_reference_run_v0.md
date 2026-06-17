@@ -29,25 +29,22 @@ authority.
 
 ## Status
 
-- stage: reference definition + qualification checker implemented  
-- normative: false  
-- target lane: release-grade  
-- authority role: documentation / operational guidance  
-- checker: PULSE_safe_pack_v0/tools/check_release_grade_reference_run_v0.py  
-- test coverage: tests/test_check_release_grade_reference_run_v0.py  
-- tools-test coverage: ci/tools-tests.list  
-- primary workflow advisory qualification: present  
-- primary workflow authority role: non-normative / non-blocking  
-- hotfix status: `--release-grade-materialized` is intentionally fail-closed until a real recorded release-evidence verifier is implemented
+  * stage: reference definition + qualification checker implemented + recorded release-evidence verifier prerequisite implemented
+  * normative: false
+  * target lane: release-grade
+  * authority role: documentation / operational guidance
+  * checker: `PULSE_safe_pack_v0/tools/check_release_grade_reference_run_v0.py`
+  * recorded evidence verifier: `PULSE_safe_pack_v0/tools/check_recorded_release_evidence_v0.py`
+  * test coverage: `tests/test_check_release_grade_reference_run_v0.py`
+  * recorded evidence verifier test coverage: `tests/test_check_recorded_release_evidence_v0.py`
+  * tools-test coverage: `ci/tools-tests.list`
+  * primary workflow advisory qualification: present
+  * primary workflow authority role: non-normative / non-blocking
+  * fold-in status: `--release-grade-materialized` remains intentionally fail-closed for release-required evidence fold-in until a follow-up PR admits only verifier-validated evidence
 
-Security hotfix note: local `detector_materialization_v0.json`, external summary
-files, and `refusal_delta_summary.json` are treated as self-declared artifacts.
-They may be useful diagnostics, but they must not set release-required gates to
-`true` unless a verifier binds identity, provenance, policy, and raw evidence.
+Security boundary note: detector materialization artifacts, canonical external summaries, and `refusal_delta_summary.json` are no longer treated as sufficient merely because they exist locally. They must now pass the recorded release-evidence verifier, which binds identity, provenance, policy, subject, and raw evidence before later release-grade materialization can admit them.
 
-The reference run definition describes how to produce and review a release-grade
-PULSE run. It does not create a new gate and does not promote any diagnostic
-surface into release authority.
+The reference run definition describes how to produce and review a release-grade PULSE run. It does not create a new gate and does not promote any diagnostic surface into release authority.
 
 ---
 
@@ -511,17 +508,13 @@ Release-grade reference run = materialized evidence release-authority reference
 
 ---
 
-## Next implementation steps
+## Next implementation  steps 
 
 Suggested next steps:
 
-- Implement the real recorded release-evidence verifier for detector
-  materialization, canonical external summaries, and refusal-delta evidence.
-- Only after that verifier exists, allow `--release-grade-materialized` to fold
-  verified evidence into release-required gate booleans.
-- The example package under `examples/release_grade_reference_run_v0/` now
-  shows the expected artifact shape. A real non-stubbed release-grade
-  reference run remains future work.  
+   * Use the recorded release-evidence verifier for detector materialization, canonical external summaries, and refusal-delta evidence.
+  * Only after verifier-admitted evidence is available, allow `--release-grade-materialized` to fold verified evidence into release-required gate booleans.
+  * The example package under `examples/release_grade_reference_run_v0/` still shows the expected artifact shape. A real non-stubbed release-grade reference run remains future work.
 - Produce one non-stubbed release-grade reference run.  
 - Archive its `status.json`, Quality Ledger, release authority manifest, and
   audit bundle.  
