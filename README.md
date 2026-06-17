@@ -1,5 +1,26 @@
 # PULSE — Artifact-Bound Release Authority for AI Release Decisions
 
+## 🚀 Runtime Evidence: Separating Execution from Release Authority
+
+### PULSEmech Runtime Evidence Matrix
+
+These public Kaggle runs demonstrate PULSEmech as an executable instrument, not
+only as a documentation pattern.
+
+They show the runtime evidence layer that makes release authority measurable as
+an artifact-bound, pre-deployment state: runtime observations are captured,
+processed, and bound into reviewable artifacts before any release-authority claim
+is allowed to stand.
+
+The system does not rely on assumptions or post-event logging; it validates the
+pre-deployment boundary directly in the runtime environment.
+
+Ordinary CI execution proves that commands ran.
+
+PULSEmech runtime evidence shows whether runtime observations can be captured,
+bound, and transformed into reviewable evidence without being mistaken for
+release authority.
+
 - [PULSE Kaggle Run 0 Capture Smoke v0](https://www.kaggle.com/code/horvathkatalin/pulse-kaggle-run-0-capture-smoke-v0) — diagnostic capture smoke for SHA-256-bound, non-authoritative PULSEmech review artifacts.✨
 
 - [PULSEmech Explainable Evidence Transform Demo v0](https://www.kaggle.com/code/horvathkatalin/pulsemech-explainable-evidence-transform-demo-v0) — human-readable diagnostic demo of raw observations transformed into SHA-256-bound PULSEmech review artifacts.✨
