@@ -468,6 +468,24 @@ def test_duplicate_json_keys_fail_closed(tmp_path: pathlib.Path) -> None:
     assert any("duplicate JSON key" in error for error in report["errors"])
 
 
+def test_duplicate_manifest_json_keys_fail_closed(tmp_path: pathlib.Path) -> None:
+    repo_root, manifest_path, manifest = _build_repo_fixture(tmp_path)
+    manifest_text = json.dumps(manifest, indent=2, sort_keys=True)
+    manifest_path.write_text(
+        manifest_text.replace(
+            '  "schema_version": "release_evidence_input_manifest_v0",',
+            '  "schema_version": "release_evidence_input_manifest_v0",\n'
+            '  "schema_version": "tampered",',
+            1,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    report = check_recorded_release_evidence(manifest_path, repo_root)
+    assert report["status"] == "failed"
+    assert any("duplicate JSON key" in error for error in report["errors"])
+
+
 def test_policy_and_registry_digest_mismatch_fail_closed(tmp_path: pathlib.Path) -> None:
     repo_root, manifest_path, manifest = _build_repo_fixture(tmp_path)
     manifest["policy_binding"]["policy_sha256"] = "d" * 64
