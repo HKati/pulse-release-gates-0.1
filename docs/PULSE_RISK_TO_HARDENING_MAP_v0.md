@@ -94,8 +94,7 @@ This map connects critique patterns to those operating routes.
 
 The following classifications are the declared finding classes for this map.
 
-Risk-map rows should use these classifications rather than inventing ad-hoc route
-names.
+Risk-map rows must use these declared classifications.
 
 | Classification | Meaning | Release-authority effect | Completion signal |
 |---|---|---|---|
@@ -115,14 +114,14 @@ names.
 
 ## Risk-to-hardening map
 
-Every classification in the table below is drawn from the declared
-classification model above.
+Every classification in this table is drawn from the declared classification
+model above.
 
 | External critique or risk pattern | Correct PULSE classification | Existing boundary / control | Remaining hardening route | Release-authority effect |
 |---|---|---|---|---|
 | PULSE is read primarily as governance | Category framing finding | Terminology register and external review entrypoint | Keep identity text centered on artifact-bound release authority | No release effect unless a release-authority path break is shown |
 | PULSE is read primarily as dashboard or Quality Ledger | Reader-surface finding | Reader-surface boundary; Quality Ledger is a reader carrier over recorded state | Keep reader parity and non-authority wording clear | Release effect begins only through recorded evidence and required gates |
-| PULSE is read primarily as MLOps platform | Category framing finding | External review reading-frame routing | Route MLOps comparisons as integration or candidate-policy observations | No direct release effect |
+| PULSE is read primarily as MLOps platform | Category framing finding | External review reading-frame routing | Route MLOps comparisons as integration notes or candidate-policy observations | No direct release effect |
 | PULSE is read primarily as runtime guardrail | Category framing finding | Release boundary vs runtime boundary split | Keep runtime comparison as contextual boundary finding | No direct release effect |
 | PULSE is read primarily as supply-chain framework | Category framing finding | Terminology register and hardening-plan support-layer framing | Separate supply-chain support layers from PULSEmech identity | No direct release effect |
 | External review approval is treated as release permission | Evidence-admission finding | External review entrypoint state model | Route review output through evidence admission before release effect | Release effect only after recorded evidence, declared policy, materialized gate, and CI enforcement |
@@ -152,18 +151,18 @@ classification model above.
 
 | Control / document | Operating role | Risk classes covered |
 |---|---|---|
-| `README.md` | Curated identity, release-authority map, start path, authority boundary | Category framing finding, reader-surface finding, evidence-admission finding |
-| `HARDENING_PLAN.md` | Repository and release-grade infrastructure hardening sequence | CI hardening finding, dependency / packaging finding, supply-chain hardening finding, evidence-admission finding |
-| `docs/PULSE_EXTERNAL_REVIEW_ENTRYPOINT_v0.md` | External review operating route and review-output state model | Documentation discoverability finding, evidence-admission finding, traceability / audit finding, reproducibility finding |
+| `README.md` | Curated identity, release-authority map, start path, authority boundary | Category framing finding; Reader-surface finding; Evidence-admission finding |
+| `HARDENING_PLAN.md` | Repository and release-grade infrastructure hardening sequence | CI hardening finding; Dependency / packaging finding; Supply-chain hardening finding; Evidence-admission finding |
+| `docs/PULSE_EXTERNAL_REVIEW_ENTRYPOINT_v0.md` | External review operating route and review-output state model | Documentation discoverability finding; Evidence-admission finding; Traceability / audit finding; Reproducibility finding |
 | `docs/PULSE_TERMINOLOGY_RISK_REGISTER_v0.md` | Category and terminology boundary control | Category framing finding |
 | `docs/release_authority_manifest_v0.md` | Contract for release authority manifest as audit / trace carrier | Traceability / audit finding |
 | `docs/STATUS_CONTRACT.md` | Status artifact contract | Authority-path finding |
-| `docs/status_json.md` | Reader guidance for `status.json` | Authority-path finding, reader-surface finding |
-| `docs/RUNBOOK.md` | Operational triage | Authority-path finding, CI hardening finding |
-| `docs/EXTERNAL_DETECTORS.md` | External detector policy and modes | Evidence-admission finding, Candidate-policy finding |
+| `docs/status_json.md` | Reader guidance for `status.json` | Authority-path finding; Reader-surface finding |
+| `docs/RUNBOOK.md` | Operational triage | Authority-path finding; CI hardening finding |
+| `docs/EXTERNAL_DETECTORS.md` | External detector policy and modes | Evidence-admission finding; Candidate-policy finding |
 | `docs/external_detector_summaries.md` | External detector summary fold-in path | Evidence-admission finding |
 | `docs/quality_ledger.md` | Quality Ledger reader-surface contract | Reader-surface finding |
-| `docs/WORKFLOW_MAP.md` | Workflow role map | CI hardening finding, Evidence-admission finding |
+| `docs/WORKFLOW_MAP.md` | Workflow role map | CI hardening finding; Evidence-admission finding |
 
 ## Hardening route by class
 
