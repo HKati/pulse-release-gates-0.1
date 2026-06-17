@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
-import copy
 import hashlib
 import json
 import pathlib
@@ -24,9 +23,31 @@ CHECKER = (
     REPO_ROOT / "PULSE_safe_pack_v0" / "tools" / "check_recorded_release_evidence_v0.py"
 )
 HEX40 = "a" * 40
-HEX64_POLICY = "b" * 64
 RUN_KEY = "run-prod-2026-01-01"
 COMMIT_SHA = HEX40
+
+POLICY_TEXT = """policy:
+  id: pulse-gate-policy-v0
+  version: "0.1.5"
+  gates:
+    release_required:
+      - detectors_materialized_ok
+      - external_summaries_present
+      - external_all_pass
+      - refusal_delta_evidence_present
+"""
+
+REGISTRY_TEXT = """version: gate_registry_v0
+gates:
+  detectors_materialized_ok:
+    category: controls
+  external_summaries_present:
+    category: external
+  external_all_pass:
+    category: external
+  refusal_delta_evidence_present:
+    category: controls
+"""
 
 
 def _sha256_bytes(data: bytes) -> str:
@@ -46,6 +67,10 @@ def _write_text(path: pathlib.Path, text: str) -> str:
     return _sha256_bytes(text.encode("utf-8"))
 
 
+def _read_json(path: pathlib.Path) -> dict[str, Any]:
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
 def _candidate_artifact(
     *,
     schema_version: str,
@@ -53,7 +78,7 @@ def _candidate_artifact(
     raw_path: str,
     raw_sha256: str,
     trusted_producer: bool = True,
-    policy_sha256: str = HEX64_POLICY,
+    policy_sha256: str,
     run_key: str = RUN_KEY,
     git_sha: str = COMMIT_SHA,
 ) -> dict[str, Any]:
@@ -106,7 +131,7 @@ EVIDENCE_DEFS = {
 }
 
 
-def _manifest_template() -> dict[str, Any]:
+def _manifest_template(policy_sha256: str, registry_sha256: str) -> dict[str, Any]:
     candidate_evidence: dict[str, Any] = {}
     expected_relation_bindings: dict[str, Any] = {}
     expected_gate_materialization: dict[str, Any] = {
@@ -177,10 +202,11 @@ def _manifest_template() -> dict[str, Any]:
             "target": "subject.commit_sha",
         }
         for gate_id in definition["required_for_gates"]:
-            if evidence_id == "external_summary":
-                relation_id = f"{evidence_id}_to_gate_{gate_id}"
-            else:
-                relation_id = f"{evidence_id}_to_gate"
+            relation_id = (
+                f"{evidence_id}_to_gate_{gate_id}"
+                if evidence_id == "external_summary"
+                else f"{evidence_id}_to_gate"
+            )
             expected_relation_bindings[relation_id] = {
                 "binding_type": "artifact_to_gate",
                 "expected_gate_id": gate_id,
@@ -208,11 +234,11 @@ def _manifest_template() -> dict[str, Any]:
         "policy_binding": {
             "policy_path": "pulse_gate_policy_v0.yml",
             "policy_set": "required+release_required",
-            "policy_sha256": HEX64_POLICY,
+            "policy_sha256": policy_sha256,
         },
         "registry_binding": {
             "registry_path": "pulse_gate_registry_v0.yml",
-            "registry_sha256": "c" * 64,
+            "registry_sha256": registry_sha256,
         },
         "candidate_evidence": candidate_evidence,
         "expected_relation_bindings": expected_relation_bindings,
@@ -227,7 +253,9 @@ def _manifest_template() -> dict[str, Any]:
 
 
 def _build_repo_fixture(tmp_path: pathlib.Path) -> tuple[pathlib.Path, pathlib.Path, dict[str, Any]]:
-    manifest = _manifest_template()
+    policy_sha = _write_text(tmp_path / "pulse_gate_policy_v0.yml", POLICY_TEXT)
+    registry_sha = _write_text(tmp_path / "pulse_gate_registry_v0.yml", REGISTRY_TEXT)
+    manifest = _manifest_template(policy_sha, registry_sha)
     for evidence_id, definition in EVIDENCE_DEFS.items():
         raw_path = tmp_path / definition["raw_path"]
         raw_sha = _write_text(raw_path, f"raw::{evidence_id}\n")
@@ -236,12 +264,15 @@ def _build_repo_fixture(tmp_path: pathlib.Path) -> tuple[pathlib.Path, pathlib.P
             required_for_gates=definition["required_for_gates"],
             raw_path=definition["raw_path"],
             raw_sha256=raw_sha,
+            policy_sha256=policy_sha,
         )
         artifact_path = tmp_path / definition["artifact_path"]
         artifact_sha = _write_json(artifact_path, artifact_payload)
         manifest["candidate_evidence"][evidence_id]["expected_sha256"] = artifact_sha
 
-    manifest_path = tmp_path / "PULSE_safe_pack_v0" / "artifacts" / "release_evidence_input_manifest_v0.json"
+    manifest_path = (
+        tmp_path / "PULSE_safe_pack_v0" / "artifacts" / "release_evidence_input_manifest_v0.json"
+    )
     _write_json(manifest_path, manifest)
     return tmp_path, manifest_path, manifest
 
@@ -282,18 +313,60 @@ def test_valid_recorded_release_evidence_passes(tmp_path: pathlib.Path) -> None:
 
 def test_cli_writes_report_and_passes(tmp_path: pathlib.Path) -> None:
     repo_root, manifest_path, _ = _build_repo_fixture(tmp_path)
-    out_json = tmp_path / "PULSE_safe_pack_v0" / "artifacts" / "recorded_release_evidence_verifier_v0.json"
+    out_json = (
+        tmp_path
+        / "PULSE_safe_pack_v0"
+        / "artifacts"
+        / "recorded_release_evidence_verifier_v0.json"
+    )
     result = _run_cli(repo_root, manifest_path, out_json)
     assert result.returncode == 0, result.stderr
     assert "OK: recorded release-evidence verification satisfied" in result.stdout
-    report = json.loads(out_json.read_text(encoding="utf-8"))
+    report = _read_json(out_json)
     assert report["status"] == "verified"
 
 
+def test_empty_manifest_sections_fail_closed(tmp_path: pathlib.Path) -> None:
+    policy_sha = _write_text(tmp_path / "pulse_gate_policy_v0.yml", POLICY_TEXT)
+    registry_sha = _write_text(tmp_path / "pulse_gate_registry_v0.yml", REGISTRY_TEXT)
+    manifest = {
+        "schema_version": "release_evidence_input_manifest_v0",
+        "run_identity": {"git_sha": COMMIT_SHA, "run_key": RUN_KEY, "run_mode": "prod"},
+        "subject": {"commit_sha": COMMIT_SHA},
+        "policy_binding": {
+            "policy_path": "pulse_gate_policy_v0.yml",
+            "policy_set": "required+release_required",
+            "policy_sha256": policy_sha,
+        },
+        "registry_binding": {
+            "registry_path": "pulse_gate_registry_v0.yml",
+            "registry_sha256": registry_sha,
+        },
+        "candidate_evidence": {},
+        "expected_relation_bindings": {},
+        "expected_gate_materialization": {},
+    }
+    manifest_path = (
+        tmp_path / "PULSE_safe_pack_v0" / "artifacts" / "release_evidence_input_manifest_v0.json"
+    )
+    _write_json(manifest_path, manifest)
+    report = check_recorded_release_evidence(manifest_path, tmp_path)
+    assert report["status"] == "failed"
+    assert any("manifest.candidate_evidence must not be empty" in error for error in report["errors"])
+    assert any(
+        "manifest.expected_relation_bindings must not be empty" in error
+        for error in report["errors"]
+    )
+    assert any(
+        "manifest.expected_gate_materialization must not be empty" in error
+        for error in report["errors"]
+    )
+
+
 def test_candidate_digest_mismatch_fails_closed(tmp_path: pathlib.Path) -> None:
-    repo_root, manifest_path, manifest = _build_repo_fixture(tmp_path)
+    repo_root, manifest_path, _ = _build_repo_fixture(tmp_path)
     detector_path = repo_root / EVIDENCE_DEFS["detector_report"]["artifact_path"]
-    payload = json.loads(detector_path.read_text(encoding="utf-8"))
+    payload = _read_json(detector_path)
     payload["provenance"]["producer"] = "tampered"
     _write_json(detector_path, payload)
     report = check_recorded_release_evidence(manifest_path, repo_root)
@@ -304,7 +377,7 @@ def test_candidate_digest_mismatch_fails_closed(tmp_path: pathlib.Path) -> None:
 def test_run_identity_mismatch_fails_closed(tmp_path: pathlib.Path) -> None:
     repo_root, manifest_path, _ = _build_repo_fixture(tmp_path)
     detector_path = repo_root / EVIDENCE_DEFS["detector_report"]["artifact_path"]
-    payload = json.loads(detector_path.read_text(encoding="utf-8"))
+    payload = _read_json(detector_path)
     payload["run_identity"]["run_key"] = "wrong-run-key"
     _write_json(detector_path, payload)
     report = check_recorded_release_evidence(manifest_path, repo_root)
@@ -315,7 +388,7 @@ def test_run_identity_mismatch_fails_closed(tmp_path: pathlib.Path) -> None:
 def test_policy_binding_mismatch_fails_closed(tmp_path: pathlib.Path) -> None:
     repo_root, manifest_path, _ = _build_repo_fixture(tmp_path)
     external_path = repo_root / EVIDENCE_DEFS["external_summary"]["artifact_path"]
-    payload = json.loads(external_path.read_text(encoding="utf-8"))
+    payload = _read_json(external_path)
     payload["policy_binding"]["policy_sha256"] = "d" * 64
     _write_json(external_path, payload)
     report = check_recorded_release_evidence(manifest_path, repo_root)
@@ -332,33 +405,152 @@ def test_missing_raw_evidence_fails_closed(tmp_path: pathlib.Path) -> None:
     assert any("raw evidence not found" in error for error in report["errors"])
 
 
+def test_candidate_subject_must_bind_back_to_run_identity(tmp_path: pathlib.Path) -> None:
+    repo_root, manifest_path, _ = _build_repo_fixture(tmp_path)
+    manifest = _read_json(manifest_path)
+    manifest["subject"]["commit_sha"] = "b" * 40
+    _write_json(manifest_path, manifest)
+    detector_path = repo_root / EVIDENCE_DEFS["detector_report"]["artifact_path"]
+    payload = _read_json(detector_path)
+    payload["subject_binding"]["git_sha"] = "b" * 40
+    _write_json(detector_path, payload)
+    report = check_recorded_release_evidence(manifest_path, repo_root)
+    assert report["status"] == "failed"
+    assert any(
+        "manifest.subject.commit_sha must match manifest.run_identity.git_sha" in error
+        for error in report["errors"]
+    )
+    assert any("subject_binding_to_run_identity.git_sha mismatch" in error for error in report["errors"])
+
+
+def test_gate_relation_must_match_current_gate(tmp_path: pathlib.Path) -> None:
+    repo_root, manifest_path, manifest = _build_repo_fixture(tmp_path)
+    manifest["expected_gate_materialization"]["external_all_pass"]["relation_binding_ids"] = [
+        "external_summary_to_subject_commit",
+        "external_summary_to_gate_external_summaries_present",
+    ]
+    _write_json(manifest_path, manifest)
+    report = check_recorded_release_evidence(manifest_path, repo_root)
+    assert report["status"] == "failed"
+    assert any(
+        "relation 'external_summary_to_gate_external_summaries_present' must target expected_gate_id 'external_all_pass'"
+        in error
+        or "gate external_all_pass relation 'external_summary_to_gate_external_summaries_present'" in error
+        for error in report["errors"]
+    )
+    assert report["gate_materialization_admissibility"]["external_all_pass"]["admissible"] is False
+
+
+def test_duplicate_json_keys_fail_closed(tmp_path: pathlib.Path) -> None:
+    repo_root, manifest_path, _ = _build_repo_fixture(tmp_path)
+    manifest = _read_json(manifest_path)
+    detector_path = repo_root / EVIDENCE_DEFS["detector_report"]["artifact_path"]
+    detector_path.write_text(
+        "\n".join(
+            [
+                "{",
+                '  "schema_version": "detector_report_v0",',
+                '  "schema_version": "tampered",',
+                '  "run_identity": {"git_sha": "' + COMMIT_SHA + '", "run_key": "' + RUN_KEY + '", "run_mode": "prod"},',
+                '  "subject_binding": {"git_sha": "' + COMMIT_SHA + '", "run_key": "' + RUN_KEY + '"},',
+                '  "policy_binding": {"policy_set": "required+release_required", "policy_sha256": "' + manifest["policy_binding"]["policy_sha256"] + '"},',
+                '  "provenance": {"trusted_producer": true},',
+                '  "raw_evidence_binding": {"path": "artifacts/raw/detector_report.raw.json", "sha256": "' + _sha256_bytes(b"raw::detector_report\n") + '"},',
+                '  "required_for_gates": ["detectors_materialized_ok"]',
+                "}",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    report = check_recorded_release_evidence(manifest_path, repo_root)
+    assert report["status"] == "failed"
+    assert any("duplicate JSON key" in error for error in report["errors"])
+
+
+def test_policy_and_registry_digest_mismatch_fail_closed(tmp_path: pathlib.Path) -> None:
+    repo_root, manifest_path, manifest = _build_repo_fixture(tmp_path)
+    manifest["policy_binding"]["policy_sha256"] = "d" * 64
+    manifest["registry_binding"]["registry_sha256"] = "e" * 64
+    _write_json(manifest_path, manifest)
+    report = check_recorded_release_evidence(manifest_path, repo_root)
+    assert report["status"] == "failed"
+    assert any("policy file sha256 mismatch" in error for error in report["errors"])
+    assert any("registry file sha256 mismatch" in error for error in report["errors"])
+
+
+def test_unknown_release_required_gate_fails_closed(tmp_path: pathlib.Path) -> None:
+    repo_root, manifest_path, manifest = _build_repo_fixture(tmp_path)
+    manifest["expected_gate_materialization"]["totally_unknown_gate"] = {
+        "candidate_evidence_ids": ["detector_report"],
+        "expected_value": True,
+        "materialization_allowed_without_verifier": False,
+        "policy_relation": "release_required",
+        "relation_binding_ids": ["detector_report_to_subject_commit", "detector_report_to_gate"],
+    }
+    _write_json(manifest_path, manifest)
+    report = check_recorded_release_evidence(manifest_path, repo_root)
+    assert report["status"] == "failed"
+    assert any("not declared in policy.gates.release_required" in error for error in report["errors"])
+
+
+def test_directory_candidate_path_fails_closed_with_report(tmp_path: pathlib.Path) -> None:
+    repo_root, manifest_path, manifest = _build_repo_fixture(tmp_path)
+    bad_dir = repo_root / "artifacts" / "detectors" / "directory_artifact"
+    bad_dir.mkdir(parents=True, exist_ok=True)
+    manifest["candidate_evidence"]["detector_report"]["path"] = "artifacts/detectors/directory_artifact"
+    _write_json(manifest_path, manifest)
+    out_json = (
+        tmp_path
+        / "PULSE_safe_pack_v0"
+        / "artifacts"
+        / "recorded_release_evidence_verifier_v0.json"
+    )
+    result = _run_cli(repo_root, manifest_path, out_json)
+    assert result.returncode == 1
+    report = _read_json(out_json)
+    assert report["status"] == "failed"
+    assert any("candidate artifact must be a file" in error for error in report["errors"])
+
+
+def test_missing_concrete_run_identity_fails_closed(tmp_path: pathlib.Path) -> None:
+    repo_root, manifest_path, manifest = _build_repo_fixture(tmp_path)
+    manifest["run_identity"]["git_sha"] = "not-a-sha"
+    manifest["run_identity"]["run_key"] = ""
+    _write_json(manifest_path, manifest)
+    report = check_recorded_release_evidence(manifest_path, repo_root)
+    assert report["status"] == "failed"
+    assert any(
+        "manifest.run_identity.git_sha must be a 40-hex git sha" in error
+        for error in report["errors"]
+    )
+    assert any(
+        "manifest.run_identity.run_key must be a non-empty string" in error
+        for error in report["errors"]
+    )
+
+
+def test_trusted_producer_expectation_must_be_explicit(tmp_path: pathlib.Path) -> None:
+    repo_root, manifest_path, manifest = _build_repo_fixture(tmp_path)
+    del manifest["candidate_evidence"]["detector_report"]["provenance_expectations"]["trusted_producer_required"]
+    _write_json(manifest_path, manifest)
+    report = check_recorded_release_evidence(manifest_path, repo_root)
+    assert report["status"] == "failed"
+    assert any("trusted_producer_required must be literal true" in error for error in report["errors"])
+
+
 def test_untrusted_producer_fails_when_required(tmp_path: pathlib.Path) -> None:
     repo_root, manifest_path, _ = _build_repo_fixture(tmp_path)
     detector_path = repo_root / EVIDENCE_DEFS["detector_report"]["artifact_path"]
-    payload = json.loads(detector_path.read_text(encoding="utf-8"))
+    payload = _read_json(detector_path)
     payload["provenance"]["trusted_producer"] = False
     _write_json(detector_path, payload)
     report = check_recorded_release_evidence(manifest_path, repo_root)
     assert report["status"] == "failed"
-    assert any("provenance.trusted_producer must be true" in error for error in report["errors"])
-
-
-def test_relation_and_gate_admissibility_fail_when_gate_target_missing(
-    tmp_path: pathlib.Path,
-) -> None:
-    repo_root, manifest_path, _ = _build_repo_fixture(tmp_path)
-    external_path = repo_root / EVIDENCE_DEFS["external_summary"]["artifact_path"]
-    payload = json.loads(external_path.read_text(encoding="utf-8"))
-    payload["required_for_gates"] = ["external_summaries_present"]
-    _write_json(external_path, payload)
-    report = check_recorded_release_evidence(manifest_path, repo_root)
-    assert report["status"] == "failed"
-    assert report["relation_binding_results"][
-        "external_summary_to_gate_external_all_pass"
-    ]["status"] == "failed"
-    assert report["gate_materialization_admissibility"]["external_all_pass"][
-        "admissible"
-    ] is False
+    assert any(
+        "candidate artifact detector_report.provenance.trusted_producer must be true" in error
+        for error in report["errors"]
+    )
 
 
 if __name__ == "__main__":
