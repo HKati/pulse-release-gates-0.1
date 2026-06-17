@@ -8,6 +8,7 @@ If you add/rename a doc under `docs/`, please update this index.
 
 - Running PULSE in CI: [QUICKSTART_CORE_v0.md](QUICKSTART_CORE_v0.md)
 - External PULSE review entrypoint: [PULSE_EXTERNAL_REVIEW_ENTRYPOINT_v0.md](PULSE_EXTERNAL_REVIEW_ENTRYPOINT_v0.md)
+- PULSE risk-to-hardening map: [PULSE_RISK_TO_HARDENING_MAP_v0.md](PULSE_RISK_TO_HARDENING_MAP_v0.md)
 - Understanding the source of truth (`status.json`): [status_json.md](status_json.md)
 - When things fail (triage): [RUNBOOK.md](RUNBOOK.md)
 

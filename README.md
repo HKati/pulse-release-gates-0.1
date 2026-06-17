@@ -262,6 +262,12 @@ Choose the path that matches the release-authority question you need to answer.
   maturity scoring, adoption context, or hardening findings into release
   authority.
 
+- **Risk-to-hardening map** → [`docs/PULSE_RISK_TO_HARDENING_MAP_v0.md`](docs/PULSE_RISK_TO_HARDENING_MAP_v0.md)  
+  Use this after the external review entrypoint to classify critique patterns,
+  review observations, and hardening concerns into authority-path,
+  evidence-admission, reader-surface, traceability, reproducibility,
+  supply-chain, adoption, candidate-policy, or roadmap routes.
+
 - **Release authority / source-of-truth path** → [`docs/STATUS_CONTRACT.md`](docs/STATUS_CONTRACT.md) and [`docs/status_json.md`](docs/status_json.md)  
   Read these first to understand how recorded evidence, status contracts, declared gate policy, materialized required gate sets, and strict CI enforcement define PULSE release authority.
 
