@@ -255,6 +255,13 @@ Choose the path that matches the release-authority question you need to answer.
 - **Core integration path** → [`docs/QUICKSTART_CORE_v0.md`](docs/QUICKSTART_CORE_v0.md)  
   Minimal path for attaching the PULSE Core lane to an existing repository and CI workflow. Use this for first integration and core smoke operation; it is not a full release-grade reference run.
 
+- **External review entrypoint** → [`docs/PULSE_EXTERNAL_REVIEW_ENTRYPOINT_v0.md`](docs/PULSE_EXTERNAL_REVIEW_ENTRYPOINT_v0.md)
+  Use this first when reviewing PULSE from outside the project. It defines how
+  external review reconstructs the PULSEmech authority path and routes review
+  output without turning review notes, reader surfaces, dashboard output,
+  maturity scoring, adoption context, or hardening findings into release
+  authority.
+
 - **Release authority / source-of-truth path** → [`docs/STATUS_CONTRACT.md`](docs/STATUS_CONTRACT.md) and [`docs/status_json.md`](docs/status_json.md)  
   Read these first to understand how recorded evidence, status contracts, declared gate policy, materialized required gate sets, and strict CI enforcement define PULSE release authority.
 
