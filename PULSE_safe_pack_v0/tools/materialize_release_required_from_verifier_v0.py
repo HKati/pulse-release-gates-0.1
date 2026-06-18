@@ -195,7 +195,7 @@ def _extract_release_required_gates(policy_obj: dict[str, Any], errors: list[str
         errors.append("policy file must contain top-level gates mapping")
         return []
 
-        return _normalize_gate_list(
+    return _normalize_gate_list(
         gates.get("release_required"),
         "gates.release_required",
         errors,
