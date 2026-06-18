@@ -332,3 +332,40 @@ def test_fails_when_policy_required_gate_is_missing_from_admissibility(
         in error
         for error in errors
     )
+
+
+def test_rejects_legacy_nested_policy_gates_shape(tmp_path: pathlib.Path) -> None:
+    status_path, verifier_path, policy_path, registry_path = _build_fixture(tmp_path)
+
+    legacy_nested_policy = """policy:
+  id: pulse-gate-policy-v0
+  version: "0.1.5"
+  gates:
+    release_required:
+      - detectors_materialized_ok
+      - external_summaries_present
+      - external_all_pass
+      - refusal_delta_evidence_present
+"""
+    policy_sha = _write_text(policy_path, legacy_nested_policy)
+
+    status = _read_json(status_path)
+    status["metrics"]["gate_policy_sha256"] = policy_sha
+    _write_json(status_path, status)
+
+    verifier = _read_json(verifier_path)
+    verifier["policy_binding"]["policy_sha256"] = policy_sha
+    _write_json(verifier_path, verifier)
+
+    materialized, _, errors = materialize_release_required_from_verifier(
+        status_path=status_path,
+        verifier_report_path=verifier_path,
+        policy_path=policy_path,
+        registry_path=registry_path,
+    )
+
+    assert materialized is None
+    assert any(
+        "policy file must contain top-level gates mapping" in error
+        for error in errors
+    )
