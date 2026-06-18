@@ -266,6 +266,15 @@ jobs:
             cp -a "_site/index.html" "_site/report_card.html"
           fi
 
+          # --- Stable public root: PULSEmech landing ---
+          if [ -f "docs/pulsemech_root_landing.html" ]; then
+            cp -f "docs/pulsemech_root_landing.html" "_site/index.html"
+            echo "OK: installed stable PULSEmech landing at _site/index.html"
+          else
+            echo "::error::Missing docs/pulsemech_root_landing.html"
+            exit 1
+          fi
+         
           # Ensure legacy /report_card.htm exists and points to /report_card.html.
           # Prefer the repo-maintained file if present; otherwise generate it.
           if [ -f "docs/report_card.htm" ]; then
@@ -577,9 +586,9 @@ jobs:
               print("OK: keeping artifact-provided _site/latest/index.html")
               raise SystemExit(0)
 
-          src = Path("_site/index.html")
+          src = Path("_site/report_card.html")
           if not src.is_file():
-              src = Path("_site/report_card.html")
+              src = Path("_site/index.html")
 
           if not src.is_file():
               raise SystemExit(
