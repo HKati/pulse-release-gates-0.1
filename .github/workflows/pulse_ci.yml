@@ -701,6 +701,28 @@ jobs:
 
           "${AUGMENT_CMD[@]}"
 
+      - name: release-grade verify recorded release evidence
+        if: ${{ startsWith(github.ref, 'refs/tags/v') || startsWith(github.ref, 'refs/tags/V') || (github.event_name == 'workflow_dispatch' && github.event.inputs.strict_external_evidence == 'true') }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python "${PACK_DIR}/tools/check_recorded_release_evidence_v0.py" \
+            --manifest "${PACK_DIR}/artifacts/release_evidence_input_manifest_v0.json" \
+            --repo-root "${GITHUB_WORKSPACE}" \
+            --out-json "${PACK_DIR}/artifacts/recorded_release_evidence_verifier_v0.json"
+
+      - name: release-grade materialize release-required from verifier
+        if: ${{ startsWith(github.ref, 'refs/tags/v') || startsWith(github.ref, 'refs/tags/V') || (github.event_name == 'workflow_dispatch' && github.event.inputs.strict_external_evidence == 'true') }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python "${PACK_DIR}/tools/materialize_release_required_from_verifier_v0.py" \
+            --status "${PACK_DIR}/artifacts/status.json" \
+            --verifier-report "${PACK_DIR}/artifacts/recorded_release_evidence_verifier_v0.json" \
+            --policy "${GITHUB_WORKSPACE}/pulse_gate_policy_v0.yml" \
+            --registry "${GITHUB_WORKSPACE}/pulse_gate_registry_v0.yml" \
+            --out "${PACK_DIR}/artifacts/status.json"
+      
       - name: "ci: schema validate status.json (status_v1)"
         shell: bash
         run: |

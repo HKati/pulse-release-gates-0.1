@@ -36,6 +36,7 @@ tests/test_operator_handoff_smoke.py
 tests/test_check_release_authority_manifest_v0.py
 tests/test_check_release_evidence_verifier_report_v0.py
 tests/test_check_recorded_release_evidence_v0.py
+tests/test_materialize_release_required_from_verifier_v0.py
 tests/test_build_release_authority_manifest_v0.py
 tests/test_release_authority_manifest_non_interference.py
 tests/test_release_decision_v0_smoke.py
