@@ -191,26 +191,15 @@ def _normalize_gate_list(value: Any, label: str, errors: list[str]) -> list[str]
 
 def _extract_release_required_gates(policy_obj: dict[str, Any], errors: list[str]) -> list[str]:
     gates = policy_obj.get("gates")
-    if isinstance(gates, dict):
+    if not isinstance(gates, dict):
+        errors.append("policy file must contain top-level gates mapping")
+        return []
+
         return _normalize_gate_list(
-            gates.get("release_required"),
-            "gates.release_required",
-            errors,
-        )
-
-    # Backward-compatible fallback if an older nested shape is ever seen.
-    policy = policy_obj.get("policy")
-    if isinstance(policy, dict):
-        nested_gates = policy.get("gates")
-        if isinstance(nested_gates, dict):
-            return _normalize_gate_list(
-                nested_gates.get("release_required"),
-                "policy.gates.release_required",
-                errors,
-            )
-
-    errors.append("policy file must contain top-level gates mapping")
-    return []
+        gates.get("release_required"),
+        "gates.release_required",
+        errors,
+    )
 
 
 def _extract_registry_gate_ids(registry_obj: dict[str, Any], errors: list[str]) -> set[str]:
