@@ -508,17 +508,15 @@ Release-grade reference run = materialized evidence release-authority reference
 
 ---
 
-## Next implementation  steps 
+## Next implementation steps
 
 Suggested next steps:
 
-   * Use the recorded release-evidence verifier for detector materialization, canonical external summaries, and refusal-delta evidence.
-  * Only after verifier-admitted evidence is available, allow `--release-grade-materialized` to fold verified evidence into release-required gate booleans.
-  * The example package under `examples/release_grade_reference_run_v0/` still shows the expected artifact shape. A real non-stubbed release-grade reference run remains future work.
-- Produce one non-stubbed release-grade reference run.  
-- Archive its `status.json`, Quality Ledger, release authority manifest, and
-  audit bundle.  
-- Document the run in a short reference-run note.  
-- Link the reference run from the README or documentation index.  
-- Use the reference run as the baseline for future enterprise-grade release
-  governance examples.
+* Use the recorded release-evidence verifier for detector materialization, canonical external summaries, and refusal-delta evidence.
+* Only after verifier-admitted evidence is available, allow `--release-grade-materialized` to fold verified evidence into release-required gate booleans.
+* Add public reference-run packaging in the primary workflow for release-grade runs.
+* Produce one non-stubbed release-grade reference run.
+* Archive its `status.json`, Quality Ledger, release authority manifest, and audit bundle.
+* Document the run in a short reference-run note.
+* Link the reference run from the README or documentation index.
+* Use the reference run as the baseline for future enterprise-grade release governance examples.
