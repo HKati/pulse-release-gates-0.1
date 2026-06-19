@@ -186,6 +186,23 @@ status.json
 - Quality Ledger: https://hkati.github.io/pulse-release-gates-0.1/
 - Public Status JSON: https://hkati.github.io/pulse-release-gates-0.1/status.json
 
+## Release-grade reference run
+
+PULSE distinguishes between:
+
+- Core smoke surface = integration / visibility surface
+- Release-grade reference run = materialized evidence release-authority reference
+
+The first public non-stubbed release-grade reference run is documented in:
+
+- `docs/RELEASE_GRADE_REFERENCE_RUN_NOTE_v0.md`
+- `docs/release_grade_reference_run_v0.md`
+
+The reference run remains review/documentation surface.
+Release authority still comes only from:
+
+`status.json + declared gate policy + workflow-effective required gate set + check_gates.py + primary CI workflow`
+
 ## Current verification checkpoint
 
 - PULSE-REF RA1 operating proof: `docs/PULSE_REF_RA1_OPERATING_PROOF_v0.md`

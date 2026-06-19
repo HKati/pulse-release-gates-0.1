@@ -47,7 +47,8 @@ jobs:
     
     env:
       PACK_DIR: ${{ github.workspace }}/PULSE_safe_pack_v0
-
+      REFERENCE_BUNDLE_DIR: ""
+ 
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # pinned
@@ -1010,74 +1011,6 @@ jobs:
             echo "| Workspace path | \`$BUNDLE\` |"
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Check release-grade reference run qualification (advisory)
-        if: always()
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          CHECKER="${{ env.PACK_DIR }}/tools/check_release_grade_reference_run_v0.py"
-          STATUS="${{ env.PACK_DIR }}/artifacts/status.json"
-          MANIFEST="${{ env.PACK_DIR }}/artifacts/release_authority_v0.json"
-          REPORT="${{ env.PACK_DIR }}/artifacts/report_card.html"
-          BUNDLE="${{ env.PACK_DIR }}/artifacts/release_authority_audit_bundle"
-
-          {
-            echo "### Release-grade reference qualification"
-            echo
-            echo "| Field | Value |"
-            echo "|---|---|"
-            echo "| Role | Advisory reference-run qualification |"
-            echo "| Authority | Non-normative / non-blocking |"
-          } >> "$GITHUB_STEP_SUMMARY"
-
-          if [[ "${PULSE_IS_RELEASE:-0}" != "1" ]]; then
-            {
-              echo "| Status | Skipped |"
-              echo "| Reason | Not a release-grade run |"
-              echo
-              echo "This check only qualifies release-grade runs as candidate reference runs."
-            } >> "$GITHUB_STEP_SUMMARY"
-            exit 0
-          fi
-
-          if [[ ! -f "$CHECKER" ]]; then
-            echo "::warning::release-grade reference checker not found at $CHECKER"
-            {
-              echo "| Status | Skipped |"
-              echo "| Reason | Checker missing |"
-            } >> "$GITHUB_STEP_SUMMARY"
-            exit 0
-          fi
-
-          set +e
-          python "$CHECKER" \
-            --status "$STATUS" \
-            --manifest "$MANIFEST" \
-            --report "$REPORT" \
-            --audit-bundle-dir "$BUNDLE"
-
-          CHECK_RC=$?
-          set -e
-
-          if [[ "$CHECK_RC" -ne 0 ]]; then
-            echo "::warning::release-grade reference qualification failed; release outcome unchanged"
-            {
-              echo "| Status | Not qualified |"
-              echo "| Result | Checker returned $CHECK_RC |"
-              echo
-              echo "The run may still be evaluated by the normal release authority path. This qualification check is advisory and does not change release outcome."
-            } >> "$GITHUB_STEP_SUMMARY"
-            exit 0
-          fi
-
-          {
-            echo "| Status | Qualified |"
-            echo "| Result | Candidate release-grade reference run |"
-            echo
-            echo "This advisory check confirms the run satisfies the documented release-grade reference criteria."
-          } >> "$GITHUB_STEP_SUMMARY"
-
       - name: Upload release authority audit bundle (audit-only)
         if: always()
         continue-on-error: true
@@ -1865,6 +1798,21 @@ jobs:
             echo "::warning::Failed to derive SARIF gate list for policy set '${POLICY_SET}'; exporting all gates."
           fi
 
+          if [[ "${PULSE_IS_RELEASE:-0}" == "1" ]]; then
+            if RELEASE_REQ_STR="$(python tools/policy_to_require_args.py --policy pulse_gate_policy_v0.yml --set release_required --format space 2>/dev/null)"; then
+              if [[ -n "${RELEASE_REQ_STR}" ]]; then
+                read -r -a RELEASE_REQ <<< "$RELEASE_REQ_STR"
+                REQ+=("${RELEASE_REQ[@]}")
+              else
+                echo "::error::Derived release_required SARIF gate list is empty on a release-grade run."
+                exit 1
+              fi
+            else
+              echo "::error::Failed to derive release_required SARIF gate list."
+              exit 1
+            fi
+          fi
+
           if (( ${#REQ[@]} > 0 )); then
             python "${PACK_DIR}/tools/status_to_sarif.py" --require "${REQ[@]}"
           else
@@ -1892,7 +1840,64 @@ jobs:
           print(f"Wrote {out}")
           PY
 
-      - name: Check Quality Ledger status parity before artifact upload
+      - name: Check release-grade reference run qualification (advisory)
+        id: release_grade_reference_qualify
+        if: ${{ startsWith(github.ref, 'refs/tags/v') || startsWith(github.ref, 'refs/tags/V') || (github.event_name == 'workflow_dispatch' && github.event.inputs.strict_external_evidence == 'true') }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          TOOL="${PACK_DIR}/tools/check_release_grade_reference_run_v0.py"
+          STATUS="${PACK_DIR}/artifacts/status.json"
+          MANIFEST="${PACK_DIR}/artifacts/release_authority_v0.json"
+          REPORT="${PACK_DIR}/artifacts/report_card.html"
+          AUDIT_BUNDLE="${PACK_DIR}/artifacts/release_authority_audit_bundle"
+
+          set +e
+          python "$TOOL" \
+            --status "$STATUS" \
+            --manifest "$MANIFEST" \
+            --report "$REPORT" \
+            --audit-bundle-dir "$AUDIT_BUNDLE"
+          CHECK_RC=$?
+          set -e
+
+          if [[ "$CHECK_RC" -ne 0 ]]; then
+            RESULT="Not qualified (advisory)"
+            echo "::warning::release-grade reference qualification failed; release outcome unchanged"
+            echo "REFERENCE_RUN_QUALIFIED=false" >> "$GITHUB_ENV"
+            echo "qualified=false" >> "$GITHUB_OUTPUT"
+            {
+              echo "### Release-grade reference run"
+              echo
+              echo "| Field | Value |"
+              echo "|---|---|"
+              echo "| Workflow path | \`${GITHUB_REF}\` / \`${GITHUB_EVENT_NAME}\` |"
+              echo "| Active enforce set | \`required+release_required\` |"
+              echo "| Qualification | \`${RESULT}\` |"
+              echo "| Authority | Advisory / non-normative / non-blocking; release outcome unchanged |"
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          RESULT="Qualified"
+          echo "REFERENCE_RUN_QUALIFIED=true" >> "$GITHUB_ENV"
+          echo "qualified=true" >> "$GITHUB_OUTPUT"
+
+          {
+            echo "### Release-grade reference run"
+            echo
+            echo "| Field | Value |"
+            echo "|---|---|"
+            echo "| Workflow path | \`${GITHUB_REF}\` / \`${GITHUB_EVENT_NAME}\` |"
+            echo "| Active enforce set | \`required+release_required\` |"
+            echo "| Qualification | \`${RESULT}\` |"
+            echo "| Authority | Advisory / non-normative / non-blocking; release outcome unchanged |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          exit 0
+
+      - name: Quality Ledger / status parity
         id: quality_ledger_status_parity
         if: ${{ always() && steps.quality_ledger_final_render.outcome == 'success' }}
         shell: bash
@@ -1904,6 +1909,70 @@ jobs:
           python "${{ env.PACK_DIR }}/tools/check_quality_ledger_status_parity.py" \
             --status "$STATUS" \
             --ledger "$LEDGER"
+
+      - name: mark release-grade reference parity state
+        if: ${{ always() }}
+        shell: bash
+        run: |
+         if [[ "${{ steps.quality_ledger_status_parity.outcome }}" == "success" ]]; then
+            echo "REFERENCE_LEDGER_PARITY_OK=true" >> "$GITHUB_ENV"
+          else
+            echo "REFERENCE_LEDGER_PARITY_OK=false" >> "$GITHUB_ENV"
+          fi
+      
+      - name: assemble release-grade reference bundle
+        if: ${{ (startsWith(github.ref, 'refs/tags/v') || startsWith(github.ref, 'refs/tags/V') || (github.event_name == 'workflow_dispatch' && github.event.inputs.strict_external_evidence == 'true')) && env.REFERENCE_RUN_QUALIFIED == 'true' && env.REFERENCE_LEDGER_PARITY_OK == 'true' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          BUNDLE_DIR="${RUNNER_TEMP}/release-grade-reference-run-v0"
+          rm -rf "$BUNDLE_DIR"
+          mkdir -p "$BUNDLE_DIR/artifacts" "$BUNDLE_DIR/reports"
+
+          cp "${PACK_DIR}/artifacts/status.json" "$BUNDLE_DIR/artifacts/status.json"
+          cp "${PACK_DIR}/artifacts/report_card.html" "$BUNDLE_DIR/artifacts/report_card.html"
+          cp "${PACK_DIR}/artifacts/release_authority_v0.json" "$BUNDLE_DIR/artifacts/release_authority_v0.json"
+
+          if [ -d "release-authority-audit-bundle" ]; then
+            cp -a "release-authority-audit-bundle" "$BUNDLE_DIR/release-authority-audit-bundle"
+          elif [ -d "${PACK_DIR}/artifacts/release_authority_audit_bundle" ]; then
+            cp -a "${PACK_DIR}/artifacts/release_authority_audit_bundle" "$BUNDLE_DIR/release-authority-audit-bundle"
+          fi
+
+          shopt -s nullglob
+          EXT_SUMMARIES=(
+            "${PACK_DIR}"/artifacts/external/*_summary.json
+            "${PACK_DIR}"/artifacts/external/*_summary.jsonl
+          )
+          if (( ${#EXT_SUMMARIES[@]} )); then
+            mkdir -p "$BUNDLE_DIR/artifacts/external"
+            cp "${EXT_SUMMARIES[@]}" "$BUNDLE_DIR/artifacts/external/"
+          fi
+          shopt -u nullglob
+
+          if [ -f "reports/junit.xml" ]; then
+            cp "reports/junit.xml" "$BUNDLE_DIR/reports/junit.xml"
+          elif [ -f "${PACK_DIR}/artifacts/reports/junit.xml" ]; then
+            cp "${PACK_DIR}/artifacts/reports/junit.xml" "$BUNDLE_DIR/reports/junit.xml"
+          fi
+
+          if [ -f "${PACK_DIR}/artifacts/reports/sarif.json" ]; then
+            cp "${PACK_DIR}/artifacts/reports/sarif.json" "$BUNDLE_DIR/reports/sarif.json"
+          elif [ -f "reports/sarif.json" ]; then
+            cp "reports/sarif.json" "$BUNDLE_DIR/reports/sarif.json"
+          fi 
+
+          echo "REFERENCE_BUNDLE_DIR=${BUNDLE_DIR}" >> "$GITHUB_ENV"
+
+      - name: upload release-grade reference bundle
+        if: ${{ env.REFERENCE_BUNDLE_DIR != '' && env.REFERENCE_RUN_QUALIFIED == 'true' && env.REFERENCE_LEDGER_PARITY_OK == 'true' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: release-grade-reference-run-v0
+          path: ${{ env.REFERENCE_BUNDLE_DIR }}
+          if-no-files-found: error
+          retention-days: 30
       
       - name: Upload artifacts
         if: ${{ always() && steps.quality_ledger_final_render.outcome == 'success' && steps.quality_ledger_status_parity.outcome == 'success' }}
