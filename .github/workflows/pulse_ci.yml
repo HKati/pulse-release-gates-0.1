@@ -1898,7 +1898,7 @@ jobs:
           exit 0
 
       - name: Quality Ledger / status parity
-        id: quality_ledger_parity
+        id: quality_ledger_status_parity
         if: ${{ always() && steps.quality_ledger_final_render.outcome == 'success' }}
         shell: bash
         run: |
@@ -1914,7 +1914,7 @@ jobs:
         if: ${{ always() }}
         shell: bash
         run: |
-          if [[ "${{ steps.quality_ledger_parity.outcome }}" == "success" ]]; then
+         if [[ "${{ steps.quality_ledger_status_parity.outcome }}" == "success" ]]; then
             echo "REFERENCE_LEDGER_PARITY_OK=true" >> "$GITHUB_ENV"
           else
             echo "REFERENCE_LEDGER_PARITY_OK=false" >> "$GITHUB_ENV"
@@ -1975,7 +1975,7 @@ jobs:
           retention-days: 30
       
       - name: Upload artifacts
-        if: ${{ always() && steps.quality_ledger_final_render.outcome == 'success' && steps.quality_ledger_parity.outcome == 'success' }}
+        if: ${{ always() && steps.quality_ledger_final_render.outcome == 'success' && steps.quality_ledger_status_parity.outcome == 'success' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # pinned
         with:
           name: pulse-report
