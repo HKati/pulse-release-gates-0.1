@@ -1835,16 +1835,39 @@ jobs:
           TOOL="${PACK_DIR}/tools/check_release_grade_reference_run_v0.py"
           STATUS="${PACK_DIR}/artifacts/status.json"
           MANIFEST="${PACK_DIR}/artifacts/release_authority_v0.json"
+          REPORT="${PACK_DIR}/artifacts/report_card.html"
+          AUDIT_BUNDLE="${PACK_DIR}/artifacts/release_authority_audit_bundle"
 
-          if python "$TOOL" --status "$STATUS" --manifest "$MANIFEST"; then
-            RESULT="Qualified"
-            echo "REFERENCE_RUN_QUALIFIED=true" >> "$GITHUB_ENV"
-            echo "qualified=true" >> "$GITHUB_OUTPUT"
-          else
+          set +e
+          python "$TOOL" \
+            --status "$STATUS" \
+            --manifest "$MANIFEST" \
+            --report "$REPORT" \
+            --audit-bundle-dir "$AUDIT_BUNDLE"
+          CHECK_RC=$?
+          set -e
+
+          if [[ "$CHECK_RC" -ne 0 ]]; then
             RESULT="Not qualified (advisory)"
+            echo "::warning::release-grade reference qualification failed; release outcome unchanged"
             echo "REFERENCE_RUN_QUALIFIED=false" >> "$GITHUB_ENV"
             echo "qualified=false" >> "$GITHUB_OUTPUT"
+            {
+              echo "### Release-grade reference run"
+              echo
+              echo "| Field | Value |"
+              echo "|---|---|"
+              echo "| Workflow path | \`${GITHUB_REF}\` / \`${GITHUB_EVENT_NAME}\` |"
+              echo "| Active enforce set | \`required+release_required\` |"
+              echo "| Qualification | \`${RESULT}\` |"
+              echo "| Authority | Advisory / non-normative / non-blocking; release outcome unchanged |"
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
           fi
+
+          RESULT="Qualified"
+          echo "REFERENCE_RUN_QUALIFIED=true" >> "$GITHUB_ENV"
+          echo "qualified=true" >> "$GITHUB_OUTPUT"
 
           {
             echo "### Release-grade reference run"
@@ -1854,7 +1877,7 @@ jobs:
             echo "| Workflow path | \`${GITHUB_REF}\` / \`${GITHUB_EVENT_NAME}\` |"
             echo "| Active enforce set | \`required+release_required\` |"
             echo "| Qualification | \`${RESULT}\` |"
-            echo "| Authority | Advisory only; does not replace \`check_gates.py\` |"
+            echo "| Authority | Advisory / non-normative / non-blocking; release outcome unchanged |"
           } >> "$GITHUB_STEP_SUMMARY"
 
           exit 0
