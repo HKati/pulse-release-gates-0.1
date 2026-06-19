@@ -1798,6 +1798,21 @@ jobs:
             echo "::warning::Failed to derive SARIF gate list for policy set '${POLICY_SET}'; exporting all gates."
           fi
 
+          if [[ "${PULSE_IS_RELEASE:-0}" == "1" ]]; then
+            if RELEASE_REQ_STR="$(python tools/policy_to_require_args.py --policy pulse_gate_policy_v0.yml --set release_required --format space 2>/dev/null)"; then
+              if [[ -n "${RELEASE_REQ_STR}" ]]; then
+                read -r -a RELEASE_REQ <<< "$RELEASE_REQ_STR"
+                REQ+=("${RELEASE_REQ[@]}")
+              else
+                echo "::error::Derived release_required SARIF gate list is empty on a release-grade run."
+                exit 1
+              fi
+            else
+              echo "::error::Failed to derive release_required SARIF gate list."
+              exit 1
+            fi
+          fi
+
           if (( ${#REQ[@]} > 0 )); then
             python "${PACK_DIR}/tools/status_to_sarif.py" --require "${REQ[@]}"
           else
@@ -1942,8 +1957,11 @@ jobs:
             cp "${PACK_DIR}/artifacts/reports/junit.xml" "$BUNDLE_DIR/reports/junit.xml"
           fi
 
-          # Do not copy pre-materialization SARIF into the reference bundle.
-          # Bundle SARIF only after a final-status release-grade SARIF export exists.
+          if [ -f "${PACK_DIR}/artifacts/reports/sarif.json" ]; then
+            cp "${PACK_DIR}/artifacts/reports/sarif.json" "$BUNDLE_DIR/reports/sarif.json"
+          elif [ -f "reports/sarif.json" ]; then
+            cp "reports/sarif.json" "$BUNDLE_DIR/reports/sarif.json"
+          fi 
 
           echo "REFERENCE_BUNDLE_DIR=${BUNDLE_DIR}" >> "$GITHUB_ENV"
 
@@ -1955,19 +1973,6 @@ jobs:
           path: ${{ env.REFERENCE_BUNDLE_DIR }}
           if-no-files-found: error
           retention-days: 30
-      
-      - name: Check Quality Ledger status parity before artifact upload
-        id: quality_ledger_status_parity
-        if: ${{ always() && steps.quality_ledger_final_render.outcome == 'success' }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          STATUS="${{ env.PACK_DIR }}/artifacts/status.json"
-          LEDGER="${{ env.PACK_DIR }}/artifacts/report_card.html"
-
-          python "${{ env.PACK_DIR }}/tools/check_quality_ledger_status_parity.py" \
-            --status "$STATUS" \
-            --ledger "$LEDGER"
       
       - name: Upload artifacts
         if: ${{ always() && steps.quality_ledger_final_render.outcome == 'success' && steps.quality_ledger_parity.outcome == 'success' }}
