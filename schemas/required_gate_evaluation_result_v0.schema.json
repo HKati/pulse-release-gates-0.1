@@ -1,0 +1,523 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/HKati/pulse-release-gates-0.1/schemas/required_gate_evaluation_result_v0.schema.json",
+  "title": "PULSE Required Gate Evaluation Result v0",
+  "description": "Current-run result produced for one policy-derived gates.required entry. This artifact records a deterministic gate evaluation and its evidence bindings. It is consumed by required_gate_evidence_v0 aggregation, is not a direct recorded-release candidate, does not materialize release_required gates, and does not create release authority.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "created_utc",
+    "gate_id",
+    "evaluation_id",
+    "pass",
+    "status",
+    "run_identity",
+    "subject",
+    "policy_binding",
+    "registry_binding",
+    "plan_binding",
+    "evaluator",
+    "input_artifacts",
+    "checks",
+    "diagnostics",
+    "warnings",
+    "authority_boundary"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "required_gate_evaluation_result_v0"
+    },
+    "created_utc": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "gate_id": {
+      "$ref": "#/$defs/gate_id"
+    },
+    "evaluation_id": {
+      "$ref": "#/$defs/evaluation_id"
+    },
+    "pass": {
+      "type": "boolean"
+    },
+    "status": {
+      "enum": [
+        "passed",
+        "failed"
+      ]
+    },
+    "run_identity": {
+      "$ref": "#/$defs/run_identity"
+    },
+    "subject": {
+      "$ref": "#/$defs/subject"
+    },
+    "policy_binding": {
+      "$ref": "#/$defs/policy_binding"
+    },
+    "registry_binding": {
+      "$ref": "#/$defs/registry_binding"
+    },
+    "plan_binding": {
+      "$ref": "#/$defs/plan_binding"
+    },
+    "evaluator": {
+      "$ref": "#/$defs/evaluator"
+    },
+    "input_artifacts": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/artifact_ref"
+      }
+    },
+    "checks": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/check_result"
+      }
+    },
+    "diagnostics": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/non_empty_string"
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/non_empty_string"
+      }
+    },
+    "authority_boundary": {
+      "$ref": "#/$defs/authority_boundary"
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "git_sha": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "non_empty_string": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^.*\\S.*$"
+    },
+    "gate_id": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[a-z][a-z0-9_]*$"
+    },
+    "evaluation_id": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+    },
+    "repo_relative_path": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?![A-Za-z]:[\\\\/])(?!\\.{1,2}(?:/|$))(?!.*(?:/\\.{1,2})(?:/|$))(?!.*\\\\)(?!.*//)[A-Za-z0-9._/-]+$"
+    },
+    "nullable_non_empty_string": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "run_identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "git_sha",
+        "run_key",
+        "run_mode"
+      ],
+      "properties": {
+        "git_sha": {
+          "$ref": "#/$defs/git_sha"
+        },
+        "run_key": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "run_mode": {
+          "const": "prod"
+        }
+      }
+    },
+    "subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "repository",
+        "commit_sha",
+        "release_candidate"
+      ],
+      "properties": {
+        "repository": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "commit_sha": {
+          "$ref": "#/$defs/git_sha"
+        },
+        "release_candidate": {
+          "$ref": "#/$defs/nullable_non_empty_string"
+        }
+      }
+    },
+    "policy_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "policy_path",
+        "policy_sha256",
+        "policy_set"
+      ],
+      "properties": {
+        "policy_path": {
+          "const": "pulse_gate_policy_v0.yml"
+        },
+        "policy_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "policy_set": {
+          "const": "required"
+        }
+      }
+    },
+    "registry_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "registry_path",
+        "registry_sha256"
+      ],
+      "properties": {
+        "registry_path": {
+          "const": "pulse_gate_registry_v0.yml"
+        },
+        "registry_sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "plan_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "plan_path",
+        "plan_sha256",
+        "plan_schema_version"
+      ],
+      "properties": {
+        "plan_path": {
+          "const": "PULSE_safe_pack_v0/profiles/required_gate_evaluations_v0.json"
+        },
+        "plan_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "plan_schema_version": {
+          "const": "required_gate_evaluation_plan_v0"
+        }
+      }
+    },
+    "evaluator": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "version",
+        "tool_path",
+        "tool_sha256"
+      ],
+      "properties": {
+        "id": {
+          "const": "pulse_required_gate_dispatcher_v0"
+        },
+        "version": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "tool_path": {
+          "const": "PULSE_safe_pack_v0/tools/evaluate_required_gate_v0.py"
+        },
+        "tool_sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "artifact_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "sha256",
+        "kind",
+        "schema_version"
+      ],
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/repo_relative_path"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "kind": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "schema_version": {
+          "$ref": "#/$defs/nullable_non_empty_string"
+        }
+      }
+    },
+    "check_result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "check_id",
+        "kind",
+        "passed",
+        "details",
+        "command",
+        "exit_code",
+        "evidence_paths",
+        "diagnostics"
+      ],
+      "properties": {
+        "check_id": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+        },
+        "kind": {
+          "enum": [
+            "pytest",
+            "python",
+            "artifact",
+            "contract",
+            "metric"
+          ]
+        },
+        "passed": {
+          "type": "boolean"
+        },
+        "details": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "command": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/non_empty_string"
+          }
+        },
+        "exit_code": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "evidence_paths": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/repo_relative_path"
+          }
+        },
+        "diagnostics": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/non_empty_string"
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "passed": {
+                "const": true
+              }
+            },
+            "required": [
+              "passed"
+            ]
+          },
+          "then": {
+            "properties": {
+              "exit_code": {
+                "const": 0
+              },
+              "diagnostics": {
+                "maxItems": 0
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "passed": {
+                "const": false
+              }
+            },
+            "required": [
+              "passed"
+            ]
+          },
+          "then": {
+            "properties": {
+              "diagnostics": {
+                "minItems": 1
+              }
+            }
+          }
+        }
+      ]
+    },
+    "authority_boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "normative",
+        "creates_release_authority",
+        "materializes_status",
+        "materializes_release_required",
+        "direct_recorded_evidence_candidate",
+        "replaces_check_gates"
+      ],
+      "properties": {
+        "normative": {
+          "const": false
+        },
+        "creates_release_authority": {
+          "const": false
+        },
+        "materializes_status": {
+          "const": false
+        },
+        "materializes_release_required": {
+          "const": false
+        },
+        "direct_recorded_evidence_candidate": {
+          "const": false
+        },
+        "replaces_check_gates": {
+          "const": false
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "pass": {
+            "const": true
+          }
+        },
+        "required": [
+          "pass"
+        ]
+      },
+      "then": {
+        "properties": {
+          "status": {
+            "const": "passed"
+          },
+          "diagnostics": {
+            "maxItems": 0
+          },
+          "checks": {
+            "items": {
+              "allOf": [
+                {
+                  "$ref": "#/$defs/check_result"
+                },
+                {
+                  "properties": {
+                    "passed": {
+                      "const": true
+                    },
+                    "exit_code": {
+                      "const": 0
+                    },
+                    "diagnostics": {
+                      "maxItems": 0
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "pass": {
+            "const": false
+          }
+        },
+        "required": [
+          "pass"
+        ]
+      },
+      "then": {
+        "properties": {
+          "status": {
+            "const": "failed"
+          },
+          "diagnostics": {
+            "minItems": 1
+          },
+          "checks": {
+            "contains": {
+              "type": "object",
+              "properties": {
+                "passed": {
+                  "const": false
+                }
+              },
+              "required": [
+                "passed"
+              ]
+            },
+            "minContains": 1
+          }
+        }
+      }
+    }
+  ],
+  "$comment": "Cross-document and runtime equality checks cannot be expressed safely by this JSON Schema alone. evaluate_required_gate_v0.py and run_recorded_required_gate_evaluations_v0.py must enforce gate/evaluation-plan identity, current-run identity, digest equality, and exact evidence-path bindings.",
+  "x-pulse-contract": {
+    "artifact_role": "single_required_gate_evaluation_result",
+    "direct_recorded_evidence_candidate": false,
+    "aggregate_target": "required_gate_evidence_v0",
+    "required_cross_document_checks": [
+      "gate_id must equal the plan entry key and PULSE_REQUIRED_GATE_ID.",
+      "evaluation_id must equal the plan entry evaluation_id and PULSE_REQUIRED_GATE_EVALUATION_ID.",
+      "subject.commit_sha must equal run_identity.git_sha.",
+      "policy_binding.policy_sha256 must match the canonical policy file.",
+      "registry_binding.registry_sha256 must match the canonical registry file.",
+      "plan_binding.plan_sha256 must match required_gate_evaluations_v0.json.",
+      "evaluator.tool_sha256 must match evaluate_required_gate_v0.py.",
+      "Every input_artifacts path must resolve to a regular repository file and its digest must match.",
+      "Every checks.evidence_paths entry must resolve to an input_artifacts path.",
+      "A passing result requires every check to pass with exit_code 0 and no diagnostics.",
+      "This artifact must not be supplied directly to check_recorded_release_evidence_v0.py."
+    ]
+  }
+}
