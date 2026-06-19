@@ -1,0 +1,158 @@
+{
+  "schema_version": "required_gate_evaluation_plan_v0",
+  "plan_version": "0.1.0",
+  "evaluations": {
+    "pass_controls_refusal": {
+      "evaluation_id": "pulse.required.pass_controls_refusal.v0",
+      "command": ["{python}", "PULSE_safe_pack_v0/tools/evaluate_required_gate_v0.py", "--repo-root", "{repo_root}", "--gate-id", "pass_controls_refusal", "--out", "PULSE_safe_pack_v0/artifacts/required_gate_inputs/pass_controls_refusal.json"],
+      "result": {"artifact": "PULSE_safe_pack_v0/artifacts/required_gate_inputs/pass_controls_refusal.json", "json_pointer": "/pass"},
+      "evidence_artifacts": [
+        {"path": "PULSE_safe_pack_v0/artifacts/required_gate_inputs/pass_controls_refusal.json", "kind": "required_gate_evaluation", "schema_version": "required_gate_evaluation_result_v0"}
+      ]
+    },
+    "refusal_delta_pass": {
+      "evaluation_id": "pulse.required.refusal_delta_pass.v0",
+      "command": ["{python}", "PULSE_safe_pack_v0/tools/evaluate_required_gate_v0.py", "--repo-root", "{repo_root}", "--gate-id", "refusal_delta_pass", "--out", "PULSE_safe_pack_v0/artifacts/required_gate_inputs/refusal_delta_pass.json"],
+      "result": {"artifact": "PULSE_safe_pack_v0/artifacts/required_gate_inputs/refusal_delta_pass.json", "json_pointer": "/pass"},
+      "evidence_artifacts": [
+        {"path": "PULSE_safe_pack_v0/artifacts/required_gate_inputs/refusal_delta_pass.json", "kind": "required_gate_evaluation", "schema_version": "required_gate_evaluation_result_v0"}
+      ]
+    },
+    "effect_present": {
+      "evaluation_id": "pulse.required.effect_present.v0",
+      "command": ["{python}", "PULSE_safe_pack_v0/tools/evaluate_required_gate_v0.py", "--repo-root", "{repo_root}", "--gate-id", "effect_present", "--out", "PULSE_safe_pack_v0/artifacts/required_gate_inputs/effect_present.json"],
+      "result": {"artifact": "PULSE_safe_pack_v0/artifacts/required_gate_inputs/effect_present.json", "json_pointer": "/pass"},
+      "evidence_artifacts": [
+        {"path": "PULSE_safe_pack_v0/artifacts/required_gate_inputs/effect_present.json", "kind": "required_gate_evaluation", "schema_version": "required_gate_evaluation_result_v0"}
+      ]
+    },
+    "psf_monotonicity_ok": {
+      "evaluation_id": "pulse.required.psf_monotonicity_ok.v0",
+      "command": ["{python}", "PULSE_safe_pack_v0/tools/evaluate_required_gate_v0.py", "--repo-root", "{repo_root}", "--gate-id", "psf_monotonicity_ok", "--out", "PULSE_safe_pack_v0/artifacts/required_gate_inputs/psf_monotonicity_ok.json"],
+      "result": {"artifact": "PULSE_safe_pack_v0/artifacts/required_gate_inputs/psf_monotonicity_ok.json", "json_pointer": "/pass"},
+      "evidence_artifacts": [
+        {"path": "PULSE_safe_pack_v0/artifacts/required_gate_inputs/psf_monotonicity_ok.json", "kind": "required_gate_evaluation", "schema_version": "required_gate_evaluation_result_v0"}
+      ]
+    },
+    "psf_mono_shift_resilient": {
+      "evaluation_id": "pulse.required.psf_mono_shift_resilient.v0",
+      "command": ["{python}", "PULSE_safe_pack_v0/tools/evaluate_required_gate_v0.py", "--repo-root", "{repo_root}", "--gate-id", "psf_mono_shift_resilient", "--out", "PULSE_safe_pack_v0/artifacts/required_gate_inputs/psf_mono_shift_resilient.json"],
+      "result": {"artifact": "PULSE_safe_pack_v0/artifacts/required_gate_inputs/psf_mono_shift_resilient.json", "json_pointer": "/pass"},
+      "evidence_artifacts": [
+        {"path": "PULSE_safe_pack_v0/artifacts/required_gate_inputs/psf_mono_shift_resilient.json", "kind": "required_gate_evaluation", "schema_version": "required_gate_evaluation_result_v0"}
+      ]
+    },
+    "pass_controls_comm": {
+      "evaluation_id": "pulse.required.pass_controls_comm.v0",
+      "command": ["{python}", "PULSE_safe_pack_v0/tools/evaluate_required_gate_v0.py", "--repo-root", "{repo_root}", "--gate-id", "pass_controls_comm", "--out", "PULSE_safe_pack_v0/artifacts/required_gate_inputs/pass_controls_comm.json"],
+      "result": {"artifact": "PULSE_safe_pack_v0/artifacts/required_gate_inputs/pass_controls_comm.json", "json_pointer": "/pass"},
+      "evidence_artifacts": [
+        {"path": "PULSE_safe_pack_v0/artifacts/required_gate_inputs/pass_controls_comm.json", "kind": "required_gate_evaluation", "schema_version": "required_gate_evaluation_result_v0"}
+      ]
+    },
+    "psf_commutativity_ok": {
+      "evaluation_id": "pulse.required.psf_commutativity_ok.v0",
+      "command": ["{python}", "PULSE_safe_pack_v0/tools/evaluate_required_gate_v0.py", "--repo-root", "{repo_root}", "--gate-id", "psf_commutativity_ok", "--out", "PULSE_safe_pack_v0/artifacts/required_gate_inputs/psf_commutativity_ok.json"],
+      "result": {"artifact": "PULSE_safe_pack_v0/artifacts/required_gate_inputs/psf_commutativity_ok.json", "json_pointer": "/pass"},
+      "evidence_artifacts": [
+        {"path": "PULSE_safe_pack_v0/artifacts/required_gate_inputs/psf_commutativity_ok.json", "kind": "required_gate_evaluation", "schema_version": "required_gate_evaluation_result_v0"}
+      ]
+    },
+    "psf_comm_shift_resilient": {
+      "evaluation_id": "pulse.required.psf_comm_shift_resilient.v0",
+      "command": ["{python}", "PULSE_safe_pack_v0/tools/evaluate_required_gate_v0.py", "--repo-root", "{repo_root}", "--gate-id", "psf_comm_shift_resilient", "--out", "PULSE_safe_pack_v0/artifacts/required_gate_inputs/psf_comm_shift_resilient.json"],
+      "result": {"artifact": "PULSE_safe_pack_v0/artifacts/required_gate_inputs/psf_comm_shift_resilient.json", "json_pointer": "/pass"},
+      "evidence_artifacts": [
+        {"path": "PULSE_safe_pack_v0/artifacts/required_gate_inputs/psf_comm_shift_resilient.json", "kind": "required_gate_evaluation", "schema_version": "required_gate_evaluation_result_v0"}
+      ]
+    },
+    "pass_controls_sanit": {
+      "evaluation_id": "pulse.required.pass_controls_sanit.v0",
+      "command": ["{python}", "PULSE_safe_pack_v0/tools/evaluate_required_gate_v0.py", "--repo-root", "{repo_root}", "--gate-id", "pass_controls_sanit", "--out", "PULSE_safe_pack_v0/artifacts/required_gate_inputs/pass_controls_sanit.json"],
+      "result": {"artifact": "PULSE_safe_pack_v0/artifacts/required_gate_inputs/pass_controls_sanit.json", "json_pointer": "/pass"},
+      "evidence_artifacts": [
+        {"path": "PULSE_safe_pack_v0/artifacts/required_gate_inputs/pass_controls_sanit.json", "kind": "required_gate_evaluation", "schema_version": "required_gate_evaluation_result_v0"}
+      ]
+    },
+    "sanitization_effective": {
+      "evaluation_id": "pulse.required.sanitization_effective.v0",
+      "command": ["{python}", "PULSE_safe_pack_v0/tools/evaluate_required_gate_v0.py", "--repo-root", "{repo_root}", "--gate-id", "sanitization_effective", "--out", "PULSE_safe_pack_v0/artifacts/required_gate_inputs/sanitization_effective.json"],
+      "result": {"artifact": "PULSE_safe_pack_v0/artifacts/required_gate_inputs/sanitization_effective.json", "json_pointer": "/pass"},
+      "evidence_artifacts": [
+        {"path": "PULSE_safe_pack_v0/artifacts/required_gate_inputs/sanitization_effective.json", "kind": "required_gate_evaluation", "schema_version": "required_gate_evaluation_result_v0"}
+      ]
+    },
+    "sanit_shift_resilient": {
+      "evaluation_id": "pulse.required.sanit_shift_resilient.v0",
+      "command": ["{python}", "PULSE_safe_pack_v0/tools/evaluate_required_gate_v0.py", "--repo-root", "{repo_root}", "--gate-id", "sanit_shift_resilient", "--out", "PULSE_safe_pack_v0/artifacts/required_gate_inputs/sanit_shift_resilient.json"],
+      "result": {"artifact": "PULSE_safe_pack_v0/artifacts/required_gate_inputs/sanit_shift_resilient.json", "json_pointer": "/pass"},
+      "evidence_artifacts": [
+        {"path": "PULSE_safe_pack_v0/artifacts/required_gate_inputs/sanit_shift_resilient.json", "kind": "required_gate_evaluation", "schema_version": "required_gate_evaluation_result_v0"}
+      ]
+    },
+    "psf_action_monotonicity_ok": {
+      "evaluation_id": "pulse.required.psf_action_monotonicity_ok.v0",
+      "command": ["{python}", "PULSE_safe_pack_v0/tools/evaluate_required_gate_v0.py", "--repo-root", "{repo_root}", "--gate-id", "psf_action_monotonicity_ok", "--out", "PULSE_safe_pack_v0/artifacts/required_gate_inputs/psf_action_monotonicity_ok.json"],
+      "result": {"artifact": "PULSE_safe_pack_v0/artifacts/required_gate_inputs/psf_action_monotonicity_ok.json", "json_pointer": "/pass"},
+      "evidence_artifacts": [
+        {"path": "PULSE_safe_pack_v0/artifacts/required_gate_inputs/psf_action_monotonicity_ok.json", "kind": "required_gate_evaluation", "schema_version": "required_gate_evaluation_result_v0"}
+      ]
+    },
+    "psf_idempotence_ok": {
+      "evaluation_id": "pulse.required.psf_idempotence_ok.v0",
+      "command": ["{python}", "PULSE_safe_pack_v0/tools/evaluate_required_gate_v0.py", "--repo-root", "{repo_root}", "--gate-id", "psf_idempotence_ok", "--out", "PULSE_safe_pack_v0/artifacts/required_gate_inputs/psf_idempotence_ok.json"],
+      "result": {"artifact": "PULSE_safe_pack_v0/artifacts/required_gate_inputs/psf_idempotence_ok.json", "json_pointer": "/pass"},
+      "evidence_artifacts": [
+        {"path": "PULSE_safe_pack_v0/artifacts/required_gate_inputs/psf_idempotence_ok.json", "kind": "required_gate_evaluation", "schema_version": "required_gate_evaluation_result_v0"}
+      ]
+    },
+    "psf_path_independence_ok": {
+      "evaluation_id": "pulse.required.psf_path_independence_ok.v0",
+      "command": ["{python}", "PULSE_safe_pack_v0/tools/evaluate_required_gate_v0.py", "--repo-root", "{repo_root}", "--gate-id", "psf_path_independence_ok", "--out", "PULSE_safe_pack_v0/artifacts/required_gate_inputs/psf_path_independence_ok.json"],
+      "result": {"artifact": "PULSE_safe_pack_v0/artifacts/required_gate_inputs/psf_path_independence_ok.json", "json_pointer": "/pass"},
+      "evidence_artifacts": [
+        {"path": "PULSE_safe_pack_v0/artifacts/required_gate_inputs/psf_path_independence_ok.json", "kind": "required_gate_evaluation", "schema_version": "required_gate_evaluation_result_v0"}
+      ]
+    },
+    "psf_pii_monotonicity_ok": {
+      "evaluation_id": "pulse.required.psf_pii_monotonicity_ok.v0",
+      "command": ["{python}", "PULSE_safe_pack_v0/tools/evaluate_required_gate_v0.py", "--repo-root", "{repo_root}", "--gate-id", "psf_pii_monotonicity_ok", "--out", "PULSE_safe_pack_v0/artifacts/required_gate_inputs/psf_pii_monotonicity_ok.json"],
+      "result": {"artifact": "PULSE_safe_pack_v0/artifacts/required_gate_inputs/psf_pii_monotonicity_ok.json", "json_pointer": "/pass"},
+      "evidence_artifacts": [
+        {"path": "PULSE_safe_pack_v0/artifacts/required_gate_inputs/psf_pii_monotonicity_ok.json", "kind": "required_gate_evaluation", "schema_version": "required_gate_evaluation_result_v0"}
+      ]
+    },
+    "q1_grounded_ok": {
+      "evaluation_id": "pulse.required.q1_grounded_ok.v0",
+      "command": ["{python}", "PULSE_safe_pack_v0/tools/evaluate_required_gate_v0.py", "--repo-root", "{repo_root}", "--gate-id", "q1_grounded_ok", "--out", "PULSE_safe_pack_v0/artifacts/required_gate_inputs/q1_grounded_ok.json"],
+      "result": {"artifact": "PULSE_safe_pack_v0/artifacts/required_gate_inputs/q1_grounded_ok.json", "json_pointer": "/pass"},
+      "evidence_artifacts": [
+        {"path": "PULSE_safe_pack_v0/artifacts/required_gate_inputs/q1_grounded_ok.json", "kind": "required_gate_evaluation", "schema_version": "required_gate_evaluation_result_v0"}
+      ]
+    },
+    "q2_consistency_ok": {
+      "evaluation_id": "pulse.required.q2_consistency_ok.v0",
+      "command": ["{python}", "PULSE_safe_pack_v0/tools/evaluate_required_gate_v0.py", "--repo-root", "{repo_root}", "--gate-id", "q2_consistency_ok", "--out", "PULSE_safe_pack_v0/artifacts/required_gate_inputs/q2_consistency_ok.json"],
+      "result": {"artifact": "PULSE_safe_pack_v0/artifacts/required_gate_inputs/q2_consistency_ok.json", "json_pointer": "/pass"},
+      "evidence_artifacts": [
+        {"path": "PULSE_safe_pack_v0/artifacts/required_gate_inputs/q2_consistency_ok.json", "kind": "required_gate_evaluation", "schema_version": "required_gate_evaluation_result_v0"}
+      ]
+    },
+    "q3_fairness_ok": {
+      "evaluation_id": "pulse.required.q3_fairness_ok.v0",
+      "command": ["{python}", "PULSE_safe_pack_v0/tools/evaluate_required_gate_v0.py", "--repo-root", "{repo_root}", "--gate-id", "q3_fairness_ok", "--out", "PULSE_safe_pack_v0/artifacts/required_gate_inputs/q3_fairness_ok.json"],
+      "result": {"artifact": "PULSE_safe_pack_v0/artifacts/required_gate_inputs/q3_fairness_ok.json", "json_pointer": "/pass"},
+      "evidence_artifacts": [
+        {"path": "PULSE_safe_pack_v0/artifacts/required_gate_inputs/q3_fairness_ok.json", "kind": "required_gate_evaluation", "schema_version": "required_gate_evaluation_result_v0"}
+      ]
+    },
+    "q4_slo_ok": {
+      "evaluation_id": "pulse.required.q4_slo_ok.v0",
+      "command": ["{python}", "PULSE_safe_pack_v0/tools/evaluate_required_gate_v0.py", "--repo-root", "{repo_root}", "--gate-id", "q4_slo_ok", "--out", "PULSE_safe_pack_v0/artifacts/required_gate_inputs/q4_slo_ok.json"],
+      "result": {"artifact": "PULSE_safe_pack_v0/artifacts/required_gate_inputs/q4_slo_ok.json", "json_pointer": "/pass"},
+      "evidence_artifacts": [
+        {"path": "PULSE_safe_pack_v0/artifacts/required_gate_inputs/q4_slo_ok.json", "kind": "required_gate_evaluation", "schema_version": "required_gate_evaluation_result_v0"}
+      ]
+    }
+  }
+}
