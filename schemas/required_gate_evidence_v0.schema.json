@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/HKati/pulse-release-gates-0.1/schemas/required_gate_evidence_v0.schema.json",
   "title": "PULSE Required Gate Evidence v0",
-  "description": "Current-run recorded evidence for the policy-derived required gate set. This artifact is candidate evidence only. It does not create release authority and does not materialize release_required gates.",
+  "description": "Current-run recorded candidate evidence for the canonical policy-derived gates.required set. This artifact is an input to the non-stubbed prod candidate-status builder. It is not a direct candidate_evidence input for check_recorded_release_evidence_v0.py, does not materialize release_required gates, and does not create release authority.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -44,9 +44,7 @@
       "type": "object",
       "minProperties": 1,
       "propertyNames": {
-        "type": "string",
-        "minLength": 1,
-        "pattern": "^[a-z][a-z0-9_]*$"
+        "$ref": "#/$defs/gate_id"
       },
       "additionalProperties": {
         "$ref": "#/$defs/gate_evidence"
@@ -58,8 +56,7 @@
     "warnings": {
       "type": "array",
       "items": {
-        "type": "string",
-        "minLength": 1
+        "$ref": "#/$defs/non_empty_string"
       }
     }
   },
@@ -74,7 +71,28 @@
     },
     "non_empty_string": {
       "type": "string",
-      "minLength": 1
+      "minLength": 1,
+      "pattern": "^.*\\S.*$"
+    },
+    "gate_id": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[a-z][a-z0-9_]*$"
+    },
+    "repo_relative_path": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?![A-Za-z]:[\\\\/])(?!\\.{1,2}(?:/|$))(?!.*\\/\\.{1,2}(?:\\/|$))(?!.*\\\\)(?!.*//)[A-Za-z0-9._/-]+$"
+    },
+    "nullable_non_empty_string": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        {
+          "type": "null"
+        }
+      ]
     },
     "run_identity": {
       "type": "object",
@@ -112,10 +130,7 @@
           "$ref": "#/$defs/git_sha"
         },
         "release_candidate": {
-          "type": [
-            "string",
-            "null"
-          ]
+          "$ref": "#/$defs/nullable_non_empty_string"
         }
       }
     },
@@ -188,11 +203,13 @@
       "additionalProperties": false,
       "required": [
         "path",
-        "sha256"
+        "sha256",
+        "kind",
+        "schema_version"
       ],
       "properties": {
         "path": {
-          "$ref": "#/$defs/non_empty_string"
+          "$ref": "#/$defs/repo_relative_path"
         },
         "sha256": {
           "$ref": "#/$defs/sha256"
@@ -201,10 +218,7 @@
           "$ref": "#/$defs/non_empty_string"
         },
         "schema_version": {
-          "type": [
-            "string",
-            "null"
-          ]
+          "$ref": "#/$defs/nullable_non_empty_string"
         }
       }
     },
@@ -215,7 +229,8 @@
         "value",
         "status",
         "evaluation_id",
-        "evidence_artifacts"
+        "evidence_artifacts",
+        "diagnostics"
       ],
       "properties": {
         "value": {
@@ -233,6 +248,7 @@
         "evidence_artifacts": {
           "type": "array",
           "minItems": 1,
+          "uniqueItems": true,
           "items": {
             "$ref": "#/$defs/artifact_ref"
           }
@@ -240,8 +256,7 @@
         "diagnostics": {
           "type": "array",
           "items": {
-            "type": "string",
-            "minLength": 1
+            "$ref": "#/$defs/non_empty_string"
           }
         }
       },
@@ -261,6 +276,9 @@
             "properties": {
               "status": {
                 "const": "passed"
+              },
+              "diagnostics": {
+                "maxItems": 0
               }
             }
           }
@@ -280,6 +298,9 @@
             "properties": {
               "status": {
                 "const": "failed"
+              },
+              "diagnostics": {
+                "minItems": 1
               }
             }
           }
@@ -310,5 +331,21 @@
         }
       }
     }
+  },
+  "x-pulse-contract": {
+    "artifact_role": "required_gate_candidate_evidence",
+    "direct_recorded_evidence_candidate": false,
+    "next_step": "build_release_grade_candidate_status_v0",
+    "required_cross_document_checks": [
+      "The gates object keys must exactly equal the canonical pulse_gate_policy_v0.yml gates.required set.",
+      "Every gates key must exist in pulse_gate_registry_v0.yml.",
+      "subject.commit_sha must equal run_identity.git_sha.",
+      "producer.tool_path must exist as a checked-in regular file and producer.tool_sha256 must match it.",
+      "policy_binding.policy_sha256 must match the canonical policy file.",
+      "registry_binding.registry_sha256 must match the canonical registry file.",
+      "Every evidence_artifacts path must resolve to a regular file inside the repository.",
+      "This artifact must not be supplied directly to check_recorded_release_evidence_v0.py.",
+      "A later recorded-release candidate envelope must provide subject_binding, provenance, raw_evidence_binding, required_for_gates, and the required+release_required policy context."
+    ]
   }
 }
