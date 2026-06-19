@@ -1826,35 +1826,25 @@ jobs:
           PY
 
       - name: qualify release-grade reference run
+        id: release_grade_reference_qualify
         if: ${{ startsWith(github.ref, 'refs/tags/v') || startsWith(github.ref, 'refs/tags/V') || (github.event_name == 'workflow_dispatch' && github.event.inputs.strict_external_evidence == 'true') }}
         shell: bash
         run: |
           set -euo pipefail
 
-          CHECKER="${PACK_DIR}/tools/check_release_grade_reference_run_v0.py"
+          TOOL="${PACK_DIR}/tools/check_release_grade_reference_run_v0.py"
           STATUS="${PACK_DIR}/artifacts/status.json"
           MANIFEST="${PACK_DIR}/artifacts/release_authority_v0.json"
-          REPORT="${PACK_DIR}/artifacts/report_card.html"
-          AUDIT_BUNDLE="${PACK_DIR}/artifacts/release_authority_audit_bundle"
-          RESULT="Not qualified (advisory)"
-          CHECK_RC=0
 
-          set +e
-          python "${CHECKER}" \
-            --status "${STATUS}" \
-            --manifest "${MANIFEST}" \
-            --report "${REPORT}" \
-            --audit-bundle-dir "${AUDIT_BUNDLE}"
-          CHECK_RC=$?
-          set -e
-
-          if [[ "${CHECK_RC}" -eq 0 ]]; then
+          if python "$TOOL" --status "$STATUS" --manifest "$MANIFEST"; then
             RESULT="Qualified"
+            echo "REFERENCE_RUN_QUALIFIED=true" >> "$GITHUB_ENV"
+            echo "qualified=true" >> "$GITHUB_OUTPUT"
           else
-            echo "::warning::release-grade reference qualification failed; release outcome unchanged"
+            RESULT="Not qualified (advisory)"
+            echo "REFERENCE_RUN_QUALIFIED=false" >> "$GITHUB_ENV"
+            echo "qualified=false" >> "$GITHUB_OUTPUT"
           fi
-
-          echo "RELEASE_GRADE_REFERENCE_QUALIFICATION=${RESULT}" >> "${GITHUB_ENV}"
 
           {
             echo "### Release-grade reference run"
@@ -1862,56 +1852,81 @@ jobs:
             echo "| Field | Value |"
             echo "|---|---|"
             echo "| Workflow path | \`${GITHUB_REF}\` / \`${GITHUB_EVENT_NAME}\` |"
-            echo "| Active enforce set | \`${PULSE_POLICY_SET:-core_required}+release_required\` |"
-            echo "| Artifacts | \`release-grade-reference-run-v0\`, \`release-authority-audit-bundle\` |"
+            echo "| Active enforce set | \`required+release_required\` |"
             echo "| Qualification | \`${RESULT}\` |"
             echo "| Authority | Advisory only; does not replace \`check_gates.py\` |"
-          } >> "${GITHUB_STEP_SUMMARY}"
+          } >> "$GITHUB_STEP_SUMMARY"
 
           exit 0
 
-      - name: assemble release-grade reference bundle
-        if: ${{ startsWith(github.ref, 'refs/tags/v') || startsWith(github.ref, 'refs/tags/V') || (github.event_name == 'workflow_dispatch' && github.event.inputs.strict_external_evidence == 'true') }}
+      - name: Quality Ledger / status parity
+        id: quality_ledger_parity
+        if: ${{ always() && steps.quality_ledger_final_render.outcome == 'success' }}
         shell: bash
         run: |
           set -euo pipefail
+          STATUS="${{ env.PACK_DIR }}/artifacts/status.json"
+          LEDGER="${{ env.PACK_DIR }}/artifacts/report_card.html"
+
+          python "${{ env.PACK_DIR }}/tools/check_quality_ledger_status_parity.py" \
+            --status "$STATUS" \
+            --ledger "$LEDGER"
+
+      - name: mark release-grade reference parity state
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          if [[ "${{ steps.quality_ledger_parity.outcome }}" == "success" ]]; then
+            echo "REFERENCE_LEDGER_PARITY_OK=true" >> "$GITHUB_ENV"
+          else
+            echo "REFERENCE_LEDGER_PARITY_OK=false" >> "$GITHUB_ENV"
+          fi
+      
+      - name: assemble release-grade reference bundle
+        if: ${{ (startsWith(github.ref, 'refs/tags/v') || startsWith(github.ref, 'refs/tags/V') || (github.event_name == 'workflow_dispatch' && github.event.inputs.strict_external_evidence == 'true')) && env.REFERENCE_RUN_QUALIFIED == 'true' && env.REFERENCE_LEDGER_PARITY_OK == 'true' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
           BUNDLE_DIR="${RUNNER_TEMP}/release-grade-reference-run-v0"
-          rm -rf "${BUNDLE_DIR}"
-          mkdir -p "${BUNDLE_DIR}/artifacts"
-          mkdir -p "${BUNDLE_DIR}/reports"
+          rm -rf "$BUNDLE_DIR"
+          mkdir -p "$BUNDLE_DIR/artifacts" "$BUNDLE_DIR/reports"
 
-          cp "${PACK_DIR}/artifacts/status.json" "${BUNDLE_DIR}/artifacts/status.json"
-          cp "${PACK_DIR}/artifacts/report_card.html" "${BUNDLE_DIR}/artifacts/report_card.html"
-          cp "${PACK_DIR}/artifacts/release_authority_v0.json" "${BUNDLE_DIR}/artifacts/release_authority_v0.json"
+          cp "${PACK_DIR}/artifacts/status.json" "$BUNDLE_DIR/artifacts/status.json"
+          cp "${PACK_DIR}/artifacts/report_card.html" "$BUNDLE_DIR/artifacts/report_card.html"
+          cp "${PACK_DIR}/artifacts/release_authority_v0.json" "$BUNDLE_DIR/artifacts/release_authority_v0.json"
 
-          if [ -d "${PACK_DIR}/artifacts/release_authority_audit_bundle" ]; then
-            cp -a "${PACK_DIR}/artifacts/release_authority_audit_bundle" "${BUNDLE_DIR}/release-authority-audit-bundle"
-          elif [ -d "release-authority-audit-bundle" ]; then
-            cp -a "release-authority-audit-bundle" "${BUNDLE_DIR}/release-authority-audit-bundle"
+          if [ -d "release-authority-audit-bundle" ]; then
+            cp -a "release-authority-audit-bundle" "$BUNDLE_DIR/release-authority-audit-bundle"
+          elif [ -d "${PACK_DIR}/artifacts/release_authority_audit_bundle" ]; then
+            cp -a "${PACK_DIR}/artifacts/release_authority_audit_bundle" "$BUNDLE_DIR/release-authority-audit-bundle"
           fi
 
-          if compgen -G "${PACK_DIR}/artifacts/external/*_summary.json" > /dev/null; then
-            mkdir -p "${BUNDLE_DIR}/artifacts/external"
-            cp "${PACK_DIR}"/artifacts/external/*_summary.json "${BUNDLE_DIR}/artifacts/external/"
+          shopt -s nullglob
+          EXT_SUMMARIES=(
+            "${PACK_DIR}"/artifacts/external/*_summary.json
+            "${PACK_DIR}"/artifacts/external/*_summary.jsonl
+          )
+          if (( ${#EXT_SUMMARIES[@]} )); then
+            mkdir -p "$BUNDLE_DIR/artifacts/external"
+            cp "${EXT_SUMMARIES[@]}" "$BUNDLE_DIR/artifacts/external/"
           fi
+          shopt -u nullglob
 
           if [ -f "reports/junit.xml" ]; then
-            cp "reports/junit.xml" "${BUNDLE_DIR}/reports/junit.xml"
+            cp "reports/junit.xml" "$BUNDLE_DIR/reports/junit.xml"
           elif [ -f "${PACK_DIR}/artifacts/reports/junit.xml" ]; then
-            cp "${PACK_DIR}/artifacts/reports/junit.xml" "${BUNDLE_DIR}/reports/junit.xml"
+            cp "${PACK_DIR}/artifacts/reports/junit.xml" "$BUNDLE_DIR/reports/junit.xml"
           fi
 
-          if [ -f "reports/sarif.json" ]; then
-            cp "reports/sarif.json" "${BUNDLE_DIR}/reports/sarif.json"
-          elif [ -f "${PACK_DIR}/artifacts/reports/sarif.json" ]; then
-            cp "${PACK_DIR}/artifacts/reports/sarif.json" "${BUNDLE_DIR}/reports/sarif.json"
-          fi
+          # Do not copy pre-materialization SARIF into the reference bundle.
+          # Bundle SARIF only after a final-status release-grade SARIF export exists.
 
-          echo "REFERENCE_BUNDLE_DIR=${BUNDLE_DIR}" >> "${GITHUB_ENV}"
+          echo "REFERENCE_BUNDLE_DIR=${BUNDLE_DIR}" >> "$GITHUB_ENV"
 
       - name: upload release-grade reference bundle
-        if: ${{ env.REFERENCE_BUNDLE_DIR != '' }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # pinned
+        if: ${{ env.REFERENCE_BUNDLE_DIR != '' && env.REFERENCE_RUN_QUALIFIED == 'true' && env.REFERENCE_LEDGER_PARITY_OK == 'true' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: release-grade-reference-run-v0
           path: ${{ env.REFERENCE_BUNDLE_DIR }}
@@ -1932,7 +1947,7 @@ jobs:
             --ledger "$LEDGER"
       
       - name: Upload artifacts
-        if: ${{ always() && steps.quality_ledger_final_render.outcome == 'success' && steps.quality_ledger_status_parity.outcome == 'success' }}
+        if: ${{ always() && steps.quality_ledger_final_render.outcome == 'success' && steps.quality_ledger_parity.outcome == 'success' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # pinned
         with:
           name: pulse-report
