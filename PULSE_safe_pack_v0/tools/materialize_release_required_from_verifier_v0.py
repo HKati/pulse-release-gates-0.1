@@ -286,9 +286,7 @@ def materialize_release_required_from_verifier(
     )
 
     if not repo_root.is_dir():
-        errors.append(
-            f"repo root must be a directory: {repo_root}"
-        )
+        errors.append(f"repo root must be a directory: {repo_root}")
         return None, [], errors
 
     try:
@@ -300,9 +298,7 @@ def materialize_release_required_from_verifier(
         )
 
     if not manifest_path.is_file():
-        errors.append(
-            f"release evidence input manifest not found: {manifest_path}"
-        )
+        errors.append(f"release evidence input manifest not found: {manifest_path}")
 
     if errors:
         return None, [], errors
@@ -317,7 +313,7 @@ def materialize_release_required_from_verifier(
         "recorded_release_evidence_verifier_v0.json",
         errors,
     )
-        policy_obj = _load_yaml(
+    policy_obj = _load_yaml(
         policy_path,
         "policy file",
         errors,
@@ -328,7 +324,7 @@ def materialize_release_required_from_verifier(
         errors,
     )
 
-        if (
+    if (
         status is None
         or supplied_verifier_report is None
         or policy_obj is None
@@ -337,11 +333,9 @@ def materialize_release_required_from_verifier(
         return None, [], errors
 
     try:
-        canonical_verifier_report = (
-            check_recorded_release_evidence(
-                manifest_path=manifest_path,
-                repo_root=repo_root,
-            )
+        canonical_verifier_report = check_recorded_release_evidence(
+            manifest_path=manifest_path,
+            repo_root=repo_root,
         )
     except Exception as exc:  # noqa: BLE001 - fail closed
         errors.append(
@@ -350,10 +344,7 @@ def materialize_release_required_from_verifier(
         )
         return None, [], errors
 
-    if (
-        canonical_verifier_report.get("status")
-        != EXPECTED_VERIFIER_STATUS
-    ):
+    if canonical_verifier_report.get("status") != EXPECTED_VERIFIER_STATUS:
         errors.append(
             "canonical verifier replay status must be "
             f"{EXPECTED_VERIFIER_STATUS!r} "
@@ -361,11 +352,8 @@ def materialize_release_required_from_verifier(
         )
 
     replay_errors = canonical_verifier_report.get("errors")
-
     if not isinstance(replay_errors, list):
-        errors.append(
-            "canonical verifier replay errors must be an array"
-        )
+        errors.append("canonical verifier replay errors must be an array")
     elif replay_errors:
         errors.append(
             "canonical verifier replay errors must be empty "
@@ -376,26 +364,16 @@ def materialize_release_required_from_verifier(
         "evidence_results",
         "relation_binding_results",
     ):
-        supplied_value = supplied_verifier_report.get(
-            field_name
-        )
-        replayed_value = canonical_verifier_report.get(
-            field_name
-        )
+        supplied_value = supplied_verifier_report.get(field_name)
+        replayed_value = canonical_verifier_report.get(field_name)
 
-        if (
-            not isinstance(supplied_value, dict)
-            or not supplied_value
-        ):
+        if not isinstance(supplied_value, dict) or not supplied_value:
             errors.append(
                 f"verifier report {field_name} "
                 "must be a non-empty object"
             )
 
-        if (
-            not isinstance(replayed_value, dict)
-            or not replayed_value
-        ):
+        if not isinstance(replayed_value, dict) or not replayed_value:
             errors.append(
                 f"canonical verifier replay {field_name} "
                 "must be a non-empty object"
@@ -410,8 +388,8 @@ def materialize_release_required_from_verifier(
     if errors:
         return None, [], errors
 
-    # All later admission checks consume the freshly replayed
-    # canonical report, never the standalone report file.
+    # All later admission checks consume the freshly replayed canonical report,
+    # never the standalone report file.
     verifier_report = canonical_verifier_report
 
     metrics = _require_object(status, "metrics", "status", errors)
@@ -424,14 +402,13 @@ def materialize_release_required_from_verifier(
         errors.append("status.diagnostics must be an object when present")
         diagnostics_obj = {}
 
-         status_gates = status.get("gates")
-
+    status_gates = status.get("gates")
     if not isinstance(status_gates, dict):
         errors.append("status.gates must be an object")
         gates: dict[str, Any] = {}
     else:
-        # Work on a detached copy. Failed admission must not
-        # partially mutate the loaded status object.
+        # Work on a detached copy. Failed admission must not partially mutate the
+        # loaded status object.
         gates = dict(status_gates)
 
     status_git_sha = metrics.get("git_sha")
@@ -582,7 +559,7 @@ def materialize_release_required_from_verifier(
                 f"policy.gates.release_required contains unknown registry gate id {gate_id!r}"
             )
 
-       preexisting_release_required = [
+    preexisting_release_required = [
         gate_id
         for gate_id in release_required_gates
         if gate_id in gates
@@ -601,7 +578,7 @@ def materialize_release_required_from_verifier(
         admissibility = {}
 
     if errors:
-        return None, materialized_gates, errors
+        return None, [], errors
 
     for gate_id in release_required_gates:
         entry = admissibility.get(gate_id)
@@ -643,13 +620,13 @@ def materialize_release_required_from_verifier(
         materialized_gates.append(gate_id)
 
     if errors:
-        return None, materialized_gates, errors
-
-    status["gates"] = gates
-    return None, [], errors
+        return None, [], errors
 
     for gate_id in materialized_gates:
         gates[gate_id] = True
+
+    status["gates"] = gates
+    return status, materialized_gates, errors
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -672,7 +649,7 @@ def main(argv: list[str] | None = None) -> int:
         ),
         help="Path to recorded_release_evidence_verifier_v0.json.",
     )
-   parser.add_argument(
+    parser.add_argument(
         "--manifest",
         required=True,
         help=(
@@ -708,9 +685,7 @@ def main(argv: list[str] | None = None) -> int:
     status, materialized_gates, errors = (
         materialize_release_required_from_verifier(
             status_path=Path(args.status),
-            verifier_report_path=Path(
-                args.verifier_report
-            ),
+            verifier_report_path=Path(args.verifier_report),
             manifest_path=Path(args.manifest),
             repo_root=Path(args.repo_root),
             policy_path=Path(args.policy),
