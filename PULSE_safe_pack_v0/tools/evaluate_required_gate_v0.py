@@ -877,12 +877,6 @@ def q4_args(
             ctx,
             summary,
         ),
-        "--latency_budget_ms",
-        "250",
-        "--cost_budget_usd",
-        "0.01",
-        "--min_requests",
-        "100",
         "--notes",
         (
             "Current-run deterministic reduction "
@@ -1051,41 +1045,45 @@ RECIPES: dict[str, Recipe] = {
         ),
         arguments=q1_args,
     ),
-def q4_args(
-    ctx: Context,
-    summary: Path,
-    sources: dict[str, Path],
-) -> list[str]:
-    return [
-        "--stats_json",
-        str(sources["stats"]),
-        "--input_manifest",
-        repo_relative(
-            ctx.repo,
-            sources["manifest"],
+    "q4_slo_ok": Recipe(
+        builder=(
+            "PULSE_safe_pack_v0/tools/"
+            "build_q4_slo_reference_summary.py"
         ),
-        "--spec",
-        repo_relative(
-            ctx.repo,
-            sources["spec"],
+        sources=(
+            (
+                "stats",
+                "examples/"
+                "q4_slo_stats.pass_v0.json",
+            ),
+            (
+                "manifest",
+                "examples/"
+                "q4_slo_input_manifest.json",
+            ),
+            (
+                "spec",
+                "metrics/specs/"
+                "q4_slo_v0.yml",
+            ),
         ),
-        *common_builder_args(
-            ctx,
-            summary,
+        extra_inputs=(
+            "schemas/metrics/"
+            "q4_slo_summary_v0.schema.json",
         ),
-        "--latency_budget_ms",
-        "250",
-        "--cost_budget_usd",
-        "0.01",
-        "--min_requests",
-        "100",
-        "--notes",
-        (
-            "Current-run deterministic reduction "
-            "over checked-in canonical Q4 SLO "
-            "reference evidence."
+        summary_name=(
+            "q4_slo_reference_summary.json"
         ),
-    ]
+        pointer="/pass",
+        details=(
+            "Canonical Q4 SLO reducer emitted "
+            "literal pass=true from mean-cost, "
+            "latency, evidence-count, and "
+            "measurement-quality checks."
+        ),
+        arguments=q4_args,
+    ),
+}
 
 
 UNSUPPORTED_REASONS = {
