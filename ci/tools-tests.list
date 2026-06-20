@@ -85,7 +85,7 @@ tests/test_evidence_fold_in_admissibility_v0_contract.py
 tests/test_field_point_authority_map_v0_contract.py
 tests/test_build_field_point_authority_map_v0.py
 tests/test_artifact_provenance_binding_ci_wiring_smoke.py
-tests/test_artifact_provenance_binding_attestation_wiring_smoke.py
+tests/test_artifact_provenance_binding_attestation_wiring_smoke.py 
 tests/test_reader_surface_non_interference.py
 
 tools/operator_handoff_smoke.py
