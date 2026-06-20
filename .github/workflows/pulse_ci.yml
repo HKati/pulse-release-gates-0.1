@@ -330,6 +330,7 @@ jobs:
           echo "PACK_DIR=$PACK_DIR"
 
       - name: CI pack layout preflight (fail-closed on release-grade)
+        id: release_mode
         shell: bash
         run: |
           set -euo pipefail
@@ -338,14 +339,12 @@ jobs:
           PULSE_MODE="core"
           PULSE_POLICY_SET="core_required"
 
-          # version tags => release-grade + prod; release_required is materialized later
           if [[ "${GITHUB_REF:-}" == refs/tags/v* || "${GITHUB_REF:-}" == refs/tags/V* ]]; then
             PULSE_IS_RELEASE=1
             PULSE_MODE="prod"
             PULSE_POLICY_SET="required"
           fi
 
-          # strict workflow_dispatch => release-grade + prod; release_required is materialized later
           if [[ "${GITHUB_EVENT_NAME:-}" == "workflow_dispatch" ]]; then
             STRICT="$(jq -r '.inputs.strict_external_evidence // "false"' "$GITHUB_EVENT_PATH")"
             if [[ "$STRICT" == "true" ]]; then
@@ -355,9 +354,14 @@ jobs:
             fi
           fi
 
+          PULSE_RUN_KEY="GITHUB_RUN_ID=${GITHUB_RUN_ID:?}|GITHUB_RUN_ATTEMPT=${GITHUB_RUN_ATTEMPT:?}|GITHUB_WORKFLOW=${GITHUB_WORKFLOW:?}"
+
           echo "PULSE_IS_RELEASE=${PULSE_IS_RELEASE}" >> "$GITHUB_ENV"
           echo "PULSE_MODE=${PULSE_MODE}" >> "$GITHUB_ENV"
           echo "PULSE_POLICY_SET=${PULSE_POLICY_SET}" >> "$GITHUB_ENV"
+                    echo "PULSE_RUN_KEY=${PULSE_RUN_KEY}" >> "$GITHUB_ENV"
+          echo "is_release=${PULSE_IS_RELEASE}" >> "$GITHUB_OUTPUT"
+
           echo "Computed flags: IS_RELEASE=$PULSE_IS_RELEASE MODE=$PULSE_MODE POLICY_SET=$PULSE_POLICY_SET"
 
           EXTRA=()
@@ -365,12 +369,16 @@ jobs:
             EXTRA+=(--release-grade)
           fi
 
-          python tools/check_pack_layout.py --pack_dir "${{ env.PACK_DIR }}" "${EXTRA[@]}"
+          python tools/check_pack_layout.py \
+            --pack_dir "${{ env.PACK_DIR }}" \
+            "${EXTRA[@]}"
 
       - name: Run pack gating pipeline
+        if: ${{ steps.release_mode.outputs.is_release != '1' }}
         shell: bash
         run: |
           set -euo pipefail
+       
           MODE="${PULSE_MODE:-core}"
           echo "Running pack in mode: $MODE"
 
@@ -379,6 +387,51 @@ jobs:
             --pack_dir "${{ env.PACK_DIR }}" \
             --gate_policy "${GITHUB_WORKSPACE}/pulse_gate_policy_v0.yml"
 
+      - name: release-grade reset candidate evidence outputs
+        if: ${{ steps.release_mode.outputs.is_release == '1' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          rm -rf \
+            "${PACK_DIR}/artifacts/status.json" \
+            "${PACK_DIR}/artifacts/status_baseline.json" \
+            "${PACK_DIR}/artifacts/status_summary_baseline.md" \
+            "${PACK_DIR}/artifacts/status_summary_baseline.json" \
+            "${PACK_DIR}/artifacts/status_summary.md" \
+            "${PACK_DIR}/artifacts/status_summary.json" \
+            "${PACK_DIR}/artifacts/required_gate_evidence_v0.json" \
+            "${PACK_DIR}/artifacts/required_gate_inputs" \
+            "${PACK_DIR}/artifacts/required_gate_evidence_logs" \
+            "${PACK_DIR}/artifacts/recorded_release_candidates" \
+            "${PACK_DIR}/artifacts/recorded_release_candidate_index_v0.json" \
+            "${PACK_DIR}/artifacts/release_evidence_input_manifest_v0.json" \
+            "${PACK_DIR}/artifacts/recorded_release_evidence_verifier_v0.json"
+
+      - name: release-grade record current-run required-gate evidence
+        if: ${{ steps.release_mode.outputs.is_release == '1' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python "${PACK_DIR}/tools/run_recorded_required_gate_evaluations_v0.py" \
+            --repo-root "${GITHUB_WORKSPACE}" \
+            --git-sha "${GITHUB_SHA}" \
+            --run-key "${PULSE_RUN_KEY}" \
+            --repository "${GITHUB_REPOSITORY}" \
+            --release-candidate "${GITHUB_REF_NAME}" \
+            --out "${PACK_DIR}/artifacts/required_gate_evidence_v0.json"
+
+      - name: release-grade build non-stubbed prod candidate status
+        if: ${{ steps.release_mode.outputs.is_release == '1' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python "${PACK_DIR}/tools/build_release_grade_candidate_status_v0.py" \
+            --repo-root "${GITHUB_WORKSPACE}" \
+            --out "${PACK_DIR}/artifacts/status.json"
+      
       - name: Preserve baseline status.json (pre-augment)
         shell: bash
         run: |
@@ -640,6 +693,7 @@ jobs:
           python scripts/check_external_summaries_present.py --external_dir "$EXT_DIR" --require_metric_key
 
       - name: Augment status (external + top-level flags)
+        if: ${{ steps.release_mode.outputs.is_release != '1' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -702,6 +756,24 @@ jobs:
 
           "${AUGMENT_CMD[@]}"
 
+      - name: release-grade build verifier-facing candidate envelopes
+        if: ${{ steps.release_mode.outputs.is_release == '1' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python "${PACK_DIR}/tools/build_recorded_release_candidates_v0.py" \
+            --repo-root "${GITHUB_WORKSPACE}"
+
+      - name: release-grade build release-evidence input manifest
+        if: ${{ steps.release_mode.outputs.is_release == '1' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python "${PACK_DIR}/tools/build_release_evidence_input_manifest_v0.py" \
+            --repo-root "${GITHUB_WORKSPACE}"
+      
       - name: release-grade verify recorded release evidence
         if: ${{ startsWith(github.ref, 'refs/tags/v') || startsWith(github.ref, 'refs/tags/V') || (github.event_name == 'workflow_dispatch' && github.event.inputs.strict_external_evidence == 'true') }}
         shell: bash
