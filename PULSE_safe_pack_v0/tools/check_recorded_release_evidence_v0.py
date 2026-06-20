@@ -316,15 +316,18 @@ def _normalize_gate_list(value: Any, label: str, errors: list[str]) -> set[str]:
     return result
 
 
-def _extract_release_required_gates(policy_obj: dict[str, Any], errors: list[str]) -> set[str]:
-    policy = policy_obj.get("policy")
-    if not isinstance(policy, dict):
-        errors.append("policy file must contain top-level policy mapping")
-        return set()
-    gates = policy.get("gates")
+def _extract_release_required_gates(
+    policy_obj: dict[str, Any],
+    errors: list[str],
+) -> set[str]:
+    gates = policy_obj.get("gates")
+
     if not isinstance(gates, dict):
-        errors.append("policy file must contain policy.gates mapping")
+        errors.append(
+            "policy file must contain top-level gates mapping"
+        )
         return set()
+  
     return _normalize_gate_list(
         gates.get("release_required"),
         "policy.gates.release_required",
@@ -359,7 +362,7 @@ def _validate_gate_membership(
     for gate_id in sorted(gate_ids):
         if gate_id not in release_required_gates:
             errors.append(
-                f"{label} contains gate {gate_id!r} which is not declared in policy.gates.release_required"
+               f"{label} contains gate {gate_id!r} which is not declared in gates.release_required"    
             )
             ok = False
         if gate_id not in registry_gate_ids:
@@ -519,7 +522,7 @@ def check_recorded_release_evidence(
         missing_registry_ids = release_required_gates - registry_gate_ids
         if missing_registry_ids:
             errors.append(
-                "policy.gates.release_required contains unknown registry gate ids: "
+                "gates.release_required contains unknown registry gate ids: "
                 f"{sorted(missing_registry_ids)!r}"
             )
 

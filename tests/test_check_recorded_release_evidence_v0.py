@@ -29,12 +29,12 @@ COMMIT_SHA = HEX40
 POLICY_TEXT = """policy:
   id: pulse-gate-policy-v0
   version: "0.1.5"
-  gates:
-    release_required:
-      - detectors_materialized_ok
-      - external_summaries_present
-      - external_all_pass
-      - refusal_delta_evidence_present
+gates:
+  release_required:
+    - detectors_materialized_ok
+    - external_summaries_present
+    - external_all_pass
+    - refusal_delta_evidence_present
 """
 
 REGISTRY_TEXT = """version: gate_registry_v0
@@ -509,7 +509,7 @@ def test_unknown_release_required_gate_fails_closed(tmp_path: pathlib.Path) -> N
     _write_json(manifest_path, manifest)
     report = check_recorded_release_evidence(manifest_path, repo_root)
     assert report["status"] == "failed"
-    assert any("not declared in policy.gates.release_required" in error for error in report["errors"])
+    assert any("not declared in gates.release_required" in error for error in report["errors"])
 
 
 def test_directory_candidate_path_fails_closed_with_report(tmp_path: pathlib.Path) -> None:
