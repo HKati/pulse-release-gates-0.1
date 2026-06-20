@@ -29,8 +29,7 @@ COMMIT_SHA = HEX40
 POLICY_TEXT = """policy:
   id: pulse-gate-policy-v0
   version: "0.1.5"
-  gates:
-    gates:
+gates:
   release_required:
     - detectors_materialized_ok
     - external_summaries_present
