@@ -855,6 +855,37 @@ def q1_args(
     ]
 
 
+def q4_args(
+    ctx: Context,
+    summary: Path,
+    sources: dict[str, Path],
+) -> list[str]:
+    return [
+        "--stats_json",
+        str(sources["stats"]),
+        "--input_manifest",
+        repo_relative(
+            ctx.repo,
+            sources["manifest"],
+        ),
+        "--spec",
+        repo_relative(
+            ctx.repo,
+            sources["spec"],
+        ),
+        *common_builder_args(
+            ctx,
+            summary,
+        ),
+        "--notes",
+        (
+            "Current-run deterministic reduction "
+            "over checked-in canonical Q4 SLO "
+            "reference evidence."
+        ),
+    ]
+
+
 def refusal_delta_args(
     ctx: Context,
     summary: Path,
@@ -1014,6 +1045,44 @@ RECIPES: dict[str, Recipe] = {
         ),
         arguments=q1_args,
     ),
+    "q4_slo_ok": Recipe(
+        builder=(
+            "PULSE_safe_pack_v0/tools/"
+            "build_q4_slo_reference_summary.py"
+        ),
+        sources=(
+            (
+                "stats",
+                "examples/"
+                "q4_slo_stats.pass_v0.json",
+            ),
+            (
+                "manifest",
+                "examples/"
+                "q4_slo_input_manifest.json",
+            ),
+            (
+                "spec",
+                "metrics/specs/"
+                "q4_slo_v0.yml",
+            ),
+        ),
+        extra_inputs=(
+            "schemas/metrics/"
+            "q4_slo_summary_v0.schema.json",
+        ),
+        summary_name=(
+            "q4_slo_reference_summary.json"
+        ),
+        pointer="/pass",
+        details=(
+            "Canonical Q4 SLO reducer emitted "
+            "literal pass=true from mean-cost, "
+            "latency, evidence-count, and "
+            "measurement-quality checks."
+        ),
+        arguments=q4_args,
+    ),
 }
 
 
@@ -1076,12 +1145,6 @@ UNSUPPORTED_REASONS = {
         "No deterministic Q3 slice-aware "
         "fairness producer and evidence set "
         "are registered."
-    ),
-    "q4_slo_ok": (
-        "The checked-in Q4 reducer gates "
-        "cost_usd_p95, while the canonical Q4 "
-        "spec gates cost_mean_usd_per_request; "
-        "semantic substitution is forbidden."
     ),
 }
 

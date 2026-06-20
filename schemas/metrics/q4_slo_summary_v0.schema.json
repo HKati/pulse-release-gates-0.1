@@ -1,73 +1,94 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://hkati.github.io/pulse-release-gates-0.1/schemas/metrics/q4_slo_summary_v0.schema.json",
-  "title": "Q4 SLO Reference Summary Contract (v0)",
-  "description": "Schema for deterministic, artifact-first Q4 SLO reference summaries used for Core/reference materialization in PULSE.",
+  "title": "PULSE Q4 SLO Reference Summary Contract v0",
+  "description": "Fail-closed contract for deterministic Q4 SLO reference summaries aligned with the canonical q4_slo_v0 specification. The gate uses p95 latency, mean cost per eligible request, minimum eligible-request evidence, and excluded-request measurement quality. Optional p95 cost remains diagnostic-only.",
   "type": "object",
+  "additionalProperties": false,
   "required": [
     "spec_id",
     "spec_version",
     "run_id",
     "created_utc",
     "n_requests",
-    "min_requests",
+    "n_eligible_requests",
+    "min_eligible_requests",
+    "n_excluded_requests",
+    "excluded_fraction",
+    "max_excluded_fraction",
     "insufficient_evidence",
+    "measurement_quality_ok",
     "latency_p95_ms",
     "latency_budget_ms",
     "latency_ok",
-    "cost_p95_usd",
-    "cost_budget_usd",
+    "cost_mean_usd_per_request",
+    "cost_mean_budget_usd_per_request",
     "cost_ok",
     "pass",
+    "pass_basis",
+    "primary_metric_id",
+    "budget_ratios",
     "method",
-    "provenance"
+    "provenance",
+    "decision_rule"
   ],
   "properties": {
     "spec_id": {
-      "type": "string",
       "const": "q4_slo_v0"
     },
     "spec_version": {
-      "type": "string",
       "const": "0.1.0"
     },
     "run_id": {
-      "type": "string",
-      "minLength": 1
+      "$ref": "#/$defs/non_empty_string"
     },
     "created_utc": {
       "type": "string",
-      "minLength": 1
+      "format": "date-time"
     },
     "n_requests": {
       "type": "integer",
-      "minimum": 0
+      "minimum": 1
     },
-    "min_requests": {
+    "n_eligible_requests": {
+      "$ref": "#/$defs/nonnegative_integer"
+    },
+    "min_eligible_requests": {
       "type": "integer",
-      "minimum": 0
+      "minimum": 1
+    },
+    "n_excluded_requests": {
+      "$ref": "#/$defs/nonnegative_integer"
+    },
+    "excluded_fraction": {
+      "$ref": "#/$defs/fraction"
+    },
+    "max_excluded_fraction": {
+      "$ref": "#/$defs/fraction"
     },
     "insufficient_evidence": {
       "type": "boolean"
     },
+    "measurement_quality_ok": {
+      "type": "boolean"
+    },
     "latency_p95_ms": {
-      "type": "number",
-      "minimum": 0
+      "$ref": "#/$defs/nonnegative_number"
     },
     "latency_budget_ms": {
-      "type": "number",
-      "exclusiveMinimum": 0
+      "$ref": "#/$defs/positive_number"
     },
     "latency_ok": {
       "type": "boolean"
     },
-    "cost_p95_usd": {
-      "type": "number",
-      "minimum": 0
+    "cost_mean_usd_per_request": {
+      "$ref": "#/$defs/nonnegative_number"
     },
-    "cost_budget_usd": {
-      "type": "number",
-      "exclusiveMinimum": 0
+    "cost_mean_budget_usd_per_request": {
+      "$ref": "#/$defs/positive_number"
+    },
+    "cost_p95_usd_per_request": {
+      "$ref": "#/$defs/nonnegative_number"
     },
     "cost_ok": {
       "type": "boolean"
@@ -76,79 +97,250 @@
       "type": "boolean"
     },
     "pass_basis": {
-      "type": "string"
+      "const": "latency_p95_and_cost_mean_with_evidence_quality"
     },
     "primary_metric_id": {
-      "type": "string"
+      "const": "q4_slo_budget_conjunction"
     },
     "budget_ratios": {
-      "type": "object",
-      "properties": {
-        "latency_p95_ratio": {
-          "type": ["number", "null"],
-          "minimum": 0
-        },
-        "cost_p95_ratio": {
-          "type": ["number", "null"],
-          "minimum": 0
-        }
-      },
-      "additionalProperties": false
+      "$ref": "#/$defs/budget_ratios"
     },
     "method": {
-      "type": "object",
-      "required": ["kind", "deterministic"],
-      "properties": {
-        "kind": {
-          "type": "string",
-          "const": "reference"
-        },
-        "deterministic": {
-          "type": "boolean",
-          "const": true
-        },
-        "notes": {
-          "type": "string"
-        }
-      },
-      "additionalProperties": true
+      "$ref": "#/$defs/method"
     },
     "provenance": {
-      "type": "object",
-      "required": ["input_manifest", "stats_json", "tool"],
-      "properties": {
-        "input_manifest": {
-          "type": "string",
-          "minLength": 1
-        },
-        "stats_json": {
-          "type": "string",
-          "minLength": 1
-        },
-        "tool": {
-          "type": "string",
-          "minLength": 1
-        },
-        "tool_version": {
-          "type": "string",
-          "minLength": 1
-        },
-        "git_sha": {
-          "type": "string",
-          "minLength": 1
-        }
-      },
-      "additionalProperties": true
-    },
-    "notes": {
-      "type": "string"
+      "$ref": "#/$defs/provenance"
     },
     "decision_rule": {
       "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
       "items": {
-        "type": "string"
+        "$ref": "#/$defs/non_empty_string"
+      }
+    },
+    "notes": {
+      "$ref": "#/$defs/non_empty_string"
+    }
+  },
+  "$defs": {
+    "non_empty_string": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^.*\\S.*$"
+    },
+    "repo_relative_path": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?![A-Za-z]:[\\\\/])(?!\\.{1,2}(?:/|$))(?!.*(?:/\\.{1,2})(?:/|$))(?!.*\\\\)(?!.*//)[A-Za-z0-9._/-]+$"
+    },
+    "nonnegative_integer": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "nonnegative_number": {
+      "type": "number",
+      "minimum": 0
+    },
+    "positive_number": {
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "fraction": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "budget_ratios": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "latency_p95_ratio",
+        "cost_mean_ratio",
+        "excluded_fraction_ratio"
+      ],
+      "properties": {
+        "latency_p95_ratio": {
+          "$ref": "#/$defs/nonnegative_number"
+        },
+        "cost_mean_ratio": {
+          "$ref": "#/$defs/nonnegative_number"
+        },
+        "excluded_fraction_ratio": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/nonnegative_number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "method": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "deterministic",
+        "notes"
+      ],
+      "properties": {
+        "kind": {
+          "const": "reference"
+        },
+        "deterministic": {
+          "const": true
+        },
+        "notes": {
+          "$ref": "#/$defs/non_empty_string"
+        }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "input_manifest",
+        "stats_json",
+        "spec_path",
+        "tool",
+        "tool_version"
+      ],
+      "properties": {
+        "input_manifest": {
+          "$ref": "#/$defs/repo_relative_path"
+        },
+        "stats_json": {
+          "$ref": "#/$defs/repo_relative_path"
+        },
+        "spec_path": {
+          "const": "metrics/specs/q4_slo_v0.yml"
+        },
+        "tool": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "tool_version": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "git_sha": {
+          "$ref": "#/$defs/non_empty_string"
+        }
       }
     }
   },
-  "additionalProperties": true
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "pass": {
+            "const": true
+          }
+        },
+        "required": [
+          "pass"
+        ]
+      },
+      "then": {
+        "properties": {
+          "insufficient_evidence": {
+            "const": false
+          },
+          "measurement_quality_ok": {
+            "const": true
+          },
+          "latency_ok": {
+            "const": true
+          },
+          "cost_ok": {
+            "const": true
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "pass": {
+            "const": false
+          }
+        },
+        "required": [
+          "pass"
+        ]
+      },
+      "then": {
+        "anyOf": [
+          {
+            "properties": {
+              "insufficient_evidence": {
+                "const": true
+              }
+            },
+            "required": [
+              "insufficient_evidence"
+            ]
+          },
+          {
+            "properties": {
+              "measurement_quality_ok": {
+                "const": false
+              }
+            },
+            "required": [
+              "measurement_quality_ok"
+            ]
+          },
+          {
+            "properties": {
+              "latency_ok": {
+                "const": false
+              }
+            },
+            "required": [
+              "latency_ok"
+            ]
+          },
+          {
+            "properties": {
+              "cost_ok": {
+                "const": false
+              }
+            },
+            "required": [
+              "cost_ok"
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "$comment": "Cross-field arithmetic and cross-document equality are enforced by build_q4_slo_reference_summary.py and its regression tests. JSON Schema cannot safely derive counts, fractions, ratios, or threshold comparisons by itself.",
+  "x-pulse-contract": {
+    "artifact_role": "q4_slo_reference_summary",
+    "gate_signal": "q4_slo_ok",
+    "normative_spec": "metrics/specs/q4_slo_v0.yml",
+    "authority_boundary": {
+      "reference_evidence_only": true,
+      "creates_release_authority": false,
+      "materializes_status": false,
+      "materializes_release_required": false,
+      "replaces_check_gates": false
+    },
+    "required_runtime_checks": [
+      "n_eligible_requests + n_excluded_requests must equal n_requests.",
+      "excluded_fraction must equal n_excluded_requests / n_requests.",
+      "latency_budget_ms must equal gating.threshold.latency_p95_ms in q4_slo_v0.yml.",
+      "cost_mean_budget_usd_per_request must equal gating.threshold.cost_mean_usd_per_request in q4_slo_v0.yml.",
+      "min_eligible_requests must equal the canonical minimum evidence requirement.",
+      "max_excluded_fraction must equal the canonical measurement-quality limit.",
+      "latency_ok must equal latency_p95_ms <= latency_budget_ms.",
+      "cost_ok must equal cost_mean_usd_per_request <= cost_mean_budget_usd_per_request.",
+      "measurement_quality_ok must equal excluded_fraction <= max_excluded_fraction.",
+      "insufficient_evidence must equal n_eligible_requests < min_eligible_requests.",
+      "pass must equal not insufficient_evidence and measurement_quality_ok and latency_ok and cost_ok.",
+      "cost_p95_usd_per_request is optional and diagnostic-only; it must never substitute for mean-cost gating."
+    ]
+  }
 }
