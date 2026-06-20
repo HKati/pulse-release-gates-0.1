@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Golden-path and fail-closed regression coverage for canonical Q4 SLO v0."""
 
-from __future__ import annotations
+from __future__ import annotations   
 
 import copy
 import hashlib
