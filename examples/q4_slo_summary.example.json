@@ -1,37 +1,47 @@
 {
   "budget_ratios": {
-    "cost_p95_ratio": 0.6,
-    "latency_p95_ratio": 0.72
+    "cost_mean_ratio": 0.8,
+    "excluded_fraction_ratio": 0.4,
+    "latency_p95_ratio": 0.12
   },
-  "cost_budget_usd": 0.01,
+  "cost_mean_budget_usd_per_request": 0.005,
+  "cost_mean_usd_per_request": 0.004,
   "cost_ok": true,
-  "cost_p95_usd": 0.006,
+  "cost_p95_usd_per_request": 0.006,
   "created_utc": "2026-04-03T20:00:00Z",
   "decision_rule": [
-    "Read archived aggregate SLO stats from a checked-in JSON artefact.",
-    "Require n_requests >= min_requests.",
+    "Read canonical thresholds and evidence requirements from metrics/specs/q4_slo_v0.yml.",
+    "Require n_eligible_requests >= min_eligible_requests.",
+    "Require excluded_fraction <= max_excluded_fraction.",
     "Require latency_ms_p95 <= latency_budget_ms.",
-    "Require cost_usd_p95 <= cost_budget_usd.",
-    "PASS iff all three conditions hold; FAIL otherwise."
+    "Require cost_mean_usd_per_request <= cost_mean_budget_usd_per_request.",
+    "Treat cost_p95_usd_per_request as diagnostic only when present.",
+    "PASS iff all required conditions hold; FAIL otherwise."
   ],
+  "excluded_fraction": 0.008,
   "insufficient_evidence": false,
-  "latency_budget_ms": 250.0,
+  "latency_budget_ms": 1500.0,
   "latency_ok": true,
   "latency_p95_ms": 180.0,
+  "max_excluded_fraction": 0.02,
+  "measurement_quality_ok": true,
   "method": {
     "deterministic": true,
     "kind": "reference",
-    "notes": "Reducer over archived aggregate SLO stats."
+    "notes": "Reducer over archived aggregate Q4 SLO stats using the canonical metric specification."
   },
-  "min_requests": 100,
-  "n_requests": 120,
+  "min_eligible_requests": 200,
+  "n_eligible_requests": 248,
+  "n_excluded_requests": 2,
+  "n_requests": 250,
   "notes": "Minimal example artefact for schema consumers and tests.",
   "pass": true,
-  "pass_basis": "latency_and_cost_p95_with_min_requests",
+  "pass_basis": "latency_p95_and_cost_mean_with_evidence_quality",
   "primary_metric_id": "q4_slo_budget_conjunction",
   "provenance": {
     "git_sha": "example-q4-ref",
     "input_manifest": "examples/q4_slo_input_manifest.json",
+    "spec_path": "metrics/specs/q4_slo_v0.yml",
     "stats_json": "examples/q4_slo_stats.pass_v0.json",
     "tool": "PULSE_q4_reference",
     "tool_version": "0.1.0-dev"
