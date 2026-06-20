@@ -1,9 +1,12 @@
 {
   "spec_id": "q4_slo_input_v0",
-  "spec_version": "0.1.0",
+  "spec_version": "0.2.0",
   "created_utc": "2026-04-03T20:00:00Z",
-  "n_requests": 120,
+  "n_requests": 250,
+  "n_eligible_requests": 248,
+  "n_excluded_requests": 2,
   "latency_ms_p95": 180.0,
-  "cost_usd_p95": 0.006,
-  "notes": "Checked-in aggregate SLO stats fixture for deterministic Core/reference builds."
+  "cost_mean_usd_per_request": 0.004,
+  "cost_p95_usd_per_request": 0.006,
+  "notes": "Checked-in aggregate Q4 SLO stats fixture for deterministic reference builds. Mean cost is normative; p95 cost is diagnostic-only."
 }
