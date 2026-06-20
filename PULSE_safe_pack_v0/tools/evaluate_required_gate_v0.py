@@ -855,6 +855,43 @@ def q1_args(
     ]
 
 
+def q4_args(
+    ctx: Context,
+    summary: Path,
+    sources: dict[str, Path],
+) -> list[str]:
+    return [
+        "--stats_json",
+        str(sources["stats"]),
+        "--input_manifest",
+        repo_relative(
+            ctx.repo,
+            sources["manifest"],
+        ),
+        "--spec",
+        repo_relative(
+            ctx.repo,
+            sources["spec"],
+        ),
+        *common_builder_args(
+            ctx,
+            summary,
+        ),
+        "--latency_budget_ms",
+        "250",
+        "--cost_budget_usd",
+        "0.01",
+        "--min_requests",
+        "100",
+        "--notes",
+        (
+            "Current-run deterministic reduction "
+            "over checked-in canonical Q4 SLO "
+            "reference evidence."
+        ),
+    ]
+
+
 def refusal_delta_args(
     ctx: Context,
     summary: Path,
@@ -1014,7 +1051,41 @@ RECIPES: dict[str, Recipe] = {
         ),
         arguments=q1_args,
     ),
-}
+def q4_args(
+    ctx: Context,
+    summary: Path,
+    sources: dict[str, Path],
+) -> list[str]:
+    return [
+        "--stats_json",
+        str(sources["stats"]),
+        "--input_manifest",
+        repo_relative(
+            ctx.repo,
+            sources["manifest"],
+        ),
+        "--spec",
+        repo_relative(
+            ctx.repo,
+            sources["spec"],
+        ),
+        *common_builder_args(
+            ctx,
+            summary,
+        ),
+        "--latency_budget_ms",
+        "250",
+        "--cost_budget_usd",
+        "0.01",
+        "--min_requests",
+        "100",
+        "--notes",
+        (
+            "Current-run deterministic reduction "
+            "over checked-in canonical Q4 SLO "
+            "reference evidence."
+        ),
+    ]
 
 
 UNSUPPORTED_REASONS = {
@@ -1076,12 +1147,6 @@ UNSUPPORTED_REASONS = {
         "No deterministic Q3 slice-aware "
         "fairness producer and evidence set "
         "are registered."
-    ),
-    "q4_slo_ok": (
-        "The checked-in Q4 reducer gates "
-        "cost_usd_p95, while the canonical Q4 "
-        "spec gates cost_mean_usd_per_request; "
-        "semantic substitution is forbidden."
     ),
 }
 
