@@ -31,7 +31,7 @@ tests/test_paradox_diagram_example_v0_smoke.py
 tests/test_paradox_diagram_renderer_v0_smoke.py
 tests/test_openai_evals_refusal_smoke_dry_run_smoke.py
 tests/test_render_quality_ledger_tests_list_smoke.py
-tests/test_authority_boundary_repro_smoke.py 
+tests/test_authority_boundary_repro_smoke.py
 tests/test_operator_handoff_smoke.py
 tests/test_check_release_authority_manifest_v0.py
 tests/test_check_release_evidence_verifier_report_v0.py
@@ -46,9 +46,9 @@ tests/test_release_evidence_verifier_report_schema_v0.py
 tests/test_release_evidence_input_manifest_v0.py
 tests/test_release_evidence_pre_materialization_pipeline_v0.py
 tests/test_release_grade_candidate_evidence_path_v0.py
-tests/test_q4_slo_reference_golden_path.pytests 
-test_release_authority_audit_bundle_workflow_neutrality_v0.py
-tests/test_insert_release_decision_ledger_section_smoke.py 
+tests/test_q4_slo_reference_golden_path.py
+tests/test_release_authority_audit_bundle_workflow_neutrality_v0.py
+tests/test_insert_release_decision_ledger_section_smoke.py
 tests/test_insert_release_authority_manifest_ledger_section.py
 tests/test_check_release_grade_reference_run_v0.py
 tests/test_release_grade_reference_example_package.py
@@ -85,7 +85,7 @@ tests/test_evidence_fold_in_admissibility_v0_contract.py
 tests/test_field_point_authority_map_v0_contract.py
 tests/test_build_field_point_authority_map_v0.py
 tests/test_artifact_provenance_binding_ci_wiring_smoke.py
-tests/test_artifact_provenance_binding_attestation_wiring_smoke.py 
+tests/test_artifact_provenance_binding_attestation_wiring_smoke.py
 tests/test_reader_surface_non_interference.py
 
 tools/operator_handoff_smoke.py
@@ -93,6 +93,5 @@ tools/operator_handoff_smoke.py
 ci/check_single_run_all.py
 
 ci/check_path_refs_exist.py
-
 
 tests/test_readme_release_authority_category_signal_v0.py
