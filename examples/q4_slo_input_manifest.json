@@ -1,33 +1,42 @@
 {
-  "manifest_version": "0.1.0",
+  "manifest_version": "0.2.0",
   "dataset_id": "q4-slo-reference-pass-v0",
   "generated_at": "2026-04-03T20:00:00Z",
+  "time_range": {
+    "from": "2026-04-03",
+    "to": "2026-04-03"
+  },
   "source": {
     "kind": "artifact",
     "uri": "examples/q4_slo_stats.pass_v0.json",
-    "description": "Checked-in aggregate Q4 SLO stats fixture for deterministic reference/core builds."
+    "description": "Checked-in aggregate Q4 SLO stats fixture for deterministic reference builds."
   },
   "sampling": {
-    "strategy": "aggregate_fixture",
-    "n": 1,
-    "notes": "Single checked-in aggregate stats artefact; no runtime sampling; deterministic by construction."
+    "strategy": "full",
+    "n": 250,
+    "notes": "The checked-in aggregate represents the full 250-request reference population; no runtime sampling is performed."
+  },
+  "hashes": {
+    "input_sha256": "bcf55efe20e369547291553f1458814eb7334f010cd05c38e6d543d053a67ba5"
   },
   "budgets": {
-    "latency_p95_ms_max": 250.0,
-    "cost_p95_usd_max": 0.01,
-    "min_requests": 100
+    "latency_p95_ms_max": 1500.0,
+    "cost_mean_usd_per_request_max": 0.005,
+    "min_eligible_requests": 200,
+    "max_excluded_fraction": 0.02
   },
   "pii_handling": {
     "scrubbed": true,
     "method": "fixture_only",
-    "notes": "Reference fixture only; no live user traffic data."
+    "notes": "Reference fixture only; no live user traffic or recoverable PII is included."
   },
   "extensions": {
     "owner_team": "pulse",
     "lane": "q4_reference",
-    "track": "core_seed",
+    "track": "required_gate_candidate_evidence",
     "pipeline": "artifact-first",
-    "promotion_state": "candidate_core_materialization",
-    "notes": "Checked-in Q4 aggregate SLO reference fixture for deterministic Core buildout."
+    "promotion_state": "candidate_only",
+    "cost_p95_role": "diagnostic_only",
+    "notes": "Canonical Q4 reference manifest. Mean cost is normative; p95 cost is diagnostic-only."
   }
 }
