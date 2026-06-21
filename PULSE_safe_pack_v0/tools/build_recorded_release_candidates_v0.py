@@ -1862,13 +1862,13 @@ def build_candidates(
         errors,
     )
    
-    external_summary_schema = load_json(
+     external_summary_schema = load_json(
         external_summary_schema_path,
         "external summary schema",
         errors,
     )
-  
-   policy = load_yaml(
+
+    policy = load_yaml(
         policy_path,
         "policy",
         errors,
