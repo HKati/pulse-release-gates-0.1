@@ -1861,6 +1861,7 @@ def build_candidates(
         "envelope schema",
         errors,
     )
+   
     external_summary_schema = load_json(
         external_summary_schema_path,
         "external summary schema",
