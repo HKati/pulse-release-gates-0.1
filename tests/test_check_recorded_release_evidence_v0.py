@@ -666,5 +666,194 @@ def test_untrusted_producer_fails_when_required(tmp_path: pathlib.Path) -> None:
     )
 
 
+def test_self_declared_trust_cannot_replace_canonical_replay(
+    tmp_path: pathlib.Path,
+) -> None:
+    repo_root, manifest_path, manifest = (
+        _build_repo_fixture(tmp_path)
+    )
+
+    detector_path = (
+        repo_root
+        / EVIDENCE_DEFS[
+            "detector_report"
+        ][
+            "artifact_path"
+        ]
+    )
+
+    payload = _read_json(
+        detector_path
+    )
+
+    assert (
+        payload["provenance"][
+            "trusted_producer"
+        ]
+        is True
+    )
+
+    payload["provenance"][
+        "producer"
+    ] = "forged-producer"
+
+    forged_sha = _write_json(
+        detector_path,
+        payload,
+    )
+
+    manifest[
+        "candidate_evidence"
+    ][
+        "detector_report"
+    ][
+        "expected_sha256"
+    ] = forged_sha
+
+    _write_json(
+        manifest_path,
+        manifest,
+    )
+
+    report = (
+        check_recorded_release_evidence(
+            manifest_path,
+            repo_root,
+        )
+    )
+
+    assert report["status"] == "failed"
+
+    detector_result = report[
+        "evidence_results"
+    ][
+        "detector_report"
+    ]
+
+    assert (
+        detector_result["digest_match"]
+        is True
+    )
+
+    assert (
+        detector_result[
+            "trusted_producer_verified"
+        ]
+        is False
+    )
+
+    assert any(
+        (
+            "candidate artifact detector_report "
+            "does not match canonical candidate "
+            "replay"
+        )
+        in error
+        for error in report["errors"]
+    )
+
+
+def test_created_utc_difference_is_non_authoritative_for_replay(
+    tmp_path: pathlib.Path,
+) -> None:
+    repo_root, manifest_path, manifest = (
+        _build_repo_fixture(tmp_path)
+    )
+
+    detector_path = (
+        repo_root
+        / EVIDENCE_DEFS[
+            "detector_report"
+        ][
+            "artifact_path"
+        ]
+    )
+
+    payload = _read_json(
+        detector_path
+    )
+
+    payload["created_utc"] = (
+        "2030-12-31T23:59:59Z"
+    )
+
+    updated_sha = _write_json(
+        detector_path,
+        payload,
+    )
+
+    manifest[
+        "candidate_evidence"
+    ][
+        "detector_report"
+    ][
+        "expected_sha256"
+    ] = updated_sha
+
+    _write_json(
+        manifest_path,
+        manifest,
+    )
+
+    report = (
+        check_recorded_release_evidence(
+            manifest_path,
+            repo_root,
+        )
+    )
+
+    assert report["status"] == "verified"
+    assert report["errors"] == []
+
+    assert (
+        report[
+            "evidence_results"
+        ][
+            "detector_report"
+        ][
+            "trusted_producer_verified"
+        ]
+        is True
+    )
+
+
+def test_manifest_candidate_set_must_match_canonical_replay(
+    tmp_path: pathlib.Path,
+) -> None:
+    repo_root, manifest_path, manifest = (
+        _build_repo_fixture(tmp_path)
+    )
+
+    manifest[
+        "candidate_evidence"
+    ].pop(
+        "refusal_delta_summary"
+    )
+
+    _write_json(
+        manifest_path,
+        manifest,
+    )
+
+    report = (
+        check_recorded_release_evidence(
+            manifest_path,
+            repo_root,
+        )
+    )
+
+    assert report["status"] == "failed"
+
+    assert any(
+        (
+            "manifest candidate set is missing "
+            "canonical candidates: "
+            "['refusal_delta_summary']"
+        )
+        in error
+        for error in report["errors"]
+    )
+
+
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__]))
