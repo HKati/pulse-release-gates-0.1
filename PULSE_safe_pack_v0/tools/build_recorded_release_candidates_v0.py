@@ -60,6 +60,12 @@ ENVELOPE_SCHEMA_PATH = (
 )
 POLICY = "pulse_gate_policy_v0.yml"
 REGISTRY = "pulse_gate_registry_v0.yml"
+EXTERNAL_SUMMARY_SCHEMA = (
+    "external_summary_v1"
+)
+EXTERNAL_SUMMARY_SCHEMA_PATH = (
+    "schemas/external_summary_v1.schema.json"
+)
 THRESHOLDS = "PULSE_safe_pack_v0/profiles/external_thresholds.yaml"
 REFUSAL = "PULSE_safe_pack_v0/artifacts/refusal_delta_summary.json"
 EXTERNAL_DIR = "PULSE_safe_pack_v0/artifacts/external"
@@ -688,85 +694,69 @@ def number(
 
 def external_metric(
     payload: dict[str, Any],
-    preferred: str | None,
+    _preferred: str | None,
     metric_name: str,
     label: str,
     errors: list[str],
 ) -> tuple[float | None, str | None]:
-    if preferred and preferred in payload:
-        return (
-            number(
-                payload[preferred],
-                f"{label}.{preferred}",
-                errors,
-            ),
-            preferred,
+    metrics = payload.get("metrics")
+
+    if (
+        not isinstance(metrics, list)
+        or not metrics
+    ):
+        errors.append(
+            f"{label}.metrics must be a "
+            "non-empty array"
         )
+        return None, None
 
-    for key in GENERIC_METRIC_KEYS:
-        if key in payload:
-            return (
-                number(
-                    payload[key],
-                    f"{label}.{key}",
-                    errors,
-                ),
-                key,
+    matches: list[
+        tuple[int, dict[str, Any]]
+    ] = []
+
+    for index, item in enumerate(metrics):
+        if not isinstance(item, dict):
+            errors.append(
+                f"{label}.metrics[{index}] "
+                "must be an object"
             )
+            continue
 
-    rates = payload.get("failure_rates")
-
-    if isinstance(rates, dict):
-        for key in (
-            preferred,
-            metric_name,
-        ):
-            if key and key in rates:
-                return (
-                    number(
-                        rates[key],
-                        f"{label}.failure_rates.{key}",
-                        errors,
-                    ),
-                    f"failure_rates.{key}",
+        if item.get("key") == metric_name:
+            matches.append(
+                (
+                    index,
+                    item,
                 )
-
-        numeric: list[tuple[str, float]] = []
-
-        for key, raw in rates.items():
-            local: list[str] = []
-
-            value = number(
-                raw,
-                f"{label}.failure_rates.{key}",
-                local,
             )
 
-            if value is not None:
-                numeric.append(
-                    (
-                        str(key),
-                        value,
-                    )
-                )
+    if len(matches) != 1:
+        errors.append(
+            f"{label}.metrics must contain "
+            "exactly one metric with key "
+            f"{metric_name!r}"
+        )
+        return None, None
 
-        if numeric:
-            key, value = max(
-                numeric,
-                key=lambda item: item[1],
-            )
+    index, metric = matches[0]
 
-            return (
-                value,
-                f"failure_rates.{key}",
-            )
-
-    errors.append(
-        f"{label} has no recognized "
-        "external metric key"
+    value = number(
+        metric.get("value"),
+        f"{label}.metrics[{index}].value",
+        errors,
     )
 
-    return None, None
+    if metric.get("passed") is not True:
+        errors.append(
+            f"{label}.metrics[{index}].passed "
+            "must be literal true"
+        )
+
+    return (
+        value,
+        f"metrics[{index}].value",
+    )
 
 
 def validation_check(
@@ -1519,6 +1509,7 @@ def refusal_candidate(
 def external_candidates(
     ctx: Context,
     thresholds: dict[str, Any],
+    summary_schema: dict[str, Any],
     errors: list[str],
 ) -> dict[str, dict[str, Any]]:
     overall = thresholds.get(
@@ -1571,6 +1562,19 @@ def external_candidates(
             local,
         )
 
+        if payload is not None:
+            local.extend(
+                "external summary "
+                f"{detector_id} "
+                f"{EXTERNAL_SUMMARY_SCHEMA} "
+                "schema validation failed: "
+                f"{message}"
+                for message in schema_errors(
+                    payload,
+                    summary_schema,
+                )
+            )
+
         threshold = number(
             thresholds.get(
                 config["threshold"]
@@ -1585,7 +1589,10 @@ def external_candidates(
         value: float | None = None
         source: str | None = None
 
-        if payload is not None:
+        if (
+            payload is not None
+            and not local
+        ):
             value, source = external_metric(
                 payload,
                 config["preferred"],
@@ -1749,6 +1756,13 @@ def build_candidates(
             "envelope schema",
         ),
         (
+            Path(
+                EXTERNAL_SUMMARY_SCHEMA_PATH
+            ),
+            EXTERNAL_SUMMARY_SCHEMA_PATH,
+            "external summary schema",
+        ),
+        (
             policy_path,
             POLICY,
             "policy",
@@ -1810,6 +1824,7 @@ def build_candidates(
         evidence_schema_path,
         status_schema_path,
         envelope_schema_path,
+        external_summary_schema_path,
         policy_path,
         registry_path,
         thresholds_path,
@@ -1846,8 +1861,13 @@ def build_candidates(
         "envelope schema",
         errors,
     )
-
-    policy = load_yaml(
+    external_summary_schema = load_json(
+        external_summary_schema_path,
+        "external summary schema",
+        errors,
+    )
+  
+   policy = load_yaml(
         policy_path,
         "policy",
         errors,
@@ -1873,6 +1893,7 @@ def build_candidates(
             evidence_schema,
             status_schema,
             envelope_schema,
+            external_summary_schema,
             policy,
             registry,
             thresholds,
@@ -1885,6 +1906,7 @@ def build_candidates(
     assert evidence_schema is not None
     assert status_schema is not None
     assert envelope_schema is not None
+    assert external_summary_schema is not None
     assert policy is not None
     assert registry is not None
     assert thresholds is not None
@@ -1926,6 +1948,7 @@ def build_candidates(
     externals = external_candidates(
         ctx,
         thresholds,
+        external_summary_schema,
         errors,
     )
 
