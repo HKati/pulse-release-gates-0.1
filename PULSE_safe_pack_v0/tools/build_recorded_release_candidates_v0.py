@@ -2043,6 +2043,60 @@ def build_candidates(
     return envelopes, index, []
 
 
+def build_canonical_candidates_for_replay(
+    repo: Path,
+) -> tuple[
+    dict[str, dict[str, Any]] | None,
+    dict[str, Any] | None,
+    list[str],
+]:
+    """Recompute canonical candidate envelopes in memory.
+
+    This replay uses the same canonical inputs and producer
+    implementation as the normal candidate build.
+
+    It does not clear, replace, or write candidate outputs.
+    It does not materialize gates or create release authority.
+    """
+
+    return build_candidates(
+        repo=repo,
+        status_path=Path(
+            STATUS
+        ),
+        evidence_path=Path(
+            REQUIRED_EVIDENCE
+        ),
+        evidence_schema_path=Path(
+            REQUIRED_EVIDENCE_SCHEMA_PATH
+        ),
+        status_schema_path=Path(
+            STATUS_SCHEMA
+        ),
+        envelope_schema_path=Path(
+            ENVELOPE_SCHEMA_PATH
+        ),
+        policy_path=Path(
+            POLICY
+        ),
+        registry_path=Path(
+            REGISTRY
+        ),
+        thresholds_path=Path(
+            THRESHOLDS
+        ),
+        refusal_path=Path(
+            REFUSAL
+        ),
+        external_dir=Path(
+            EXTERNAL_DIR
+        ),
+        tool_path=Path(
+            TOOL
+        ),
+    )
+
+
 def canonical_output(
     repo: Path,
     supplied: Path,
