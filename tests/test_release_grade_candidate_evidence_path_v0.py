@@ -1366,6 +1366,10 @@ def test_synthetic_chain_verifies_and_materializes_release_required(
         str(status_path),
         "--verifier-report",
         str(report_path),
+        "--manifest",
+        str(manifest_path),
+        "--repo-root",
+        str(repo),
         "--policy",
         str(
             repo
