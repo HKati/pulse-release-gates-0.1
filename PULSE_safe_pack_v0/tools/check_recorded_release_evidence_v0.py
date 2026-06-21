@@ -31,6 +31,15 @@ try:
 except Exception:  # pragma: no cover - fail-closed at runtime if unavailable
     yaml = None
 
+if __package__:
+    from .build_recorded_release_candidates_v0 import (
+        build_canonical_candidates_for_replay,
+    )
+else:  # pragma: no cover - direct CLI execution
+    from build_recorded_release_candidates_v0 import (
+        build_canonical_candidates_for_replay,
+    )
+
 REPORT_SCHEMA_VERSION = "recorded_release_evidence_verifier_v0"
 REPORT_VERSION = "0.2.0"
 INPUT_MANIFEST_SCHEMA_VERSION = "release_evidence_input_manifest_v0"
@@ -91,6 +100,28 @@ def _is_sha256(value: Any) -> bool:
 def _is_non_empty_text(value: Any) -> bool:
     return isinstance(value, str) and bool(value.strip())
 
+
+def _candidate_for_replay_comparison(
+    candidate: dict[str, Any],
+    label: str,
+    errors: list[str],
+) -> dict[str, Any] | None:
+    """Normalize only the non-authoritative creation timestamp."""
+
+    created_utc = candidate.get("created_utc")
+
+    if not _is_non_empty_text(created_utc):
+        errors.append(
+            f"{label}.created_utc must be a non-empty string"
+        )
+        return None
+
+    normalized = dict(candidate)
+    normalized["created_utc"] = (
+        "<normalized-created-utc>"
+    )
+
+    return normalized
 
 def _safe_report_digest(path: Path) -> str | None:
     try:
@@ -526,6 +557,99 @@ def check_recorded_release_evidence(
                 f"{sorted(missing_registry_ids)!r}"
             )
 
+    canonical_candidates: dict[
+        str,
+        dict[str, Any],
+    ] = {}
+
+    if not errors:
+        try:
+            (
+                replayed_candidates,
+                replayed_index,
+                replay_errors,
+            ) = build_canonical_candidates_for_replay(
+                repo_root
+            )
+
+        except Exception as exc:  # noqa: BLE001
+            errors.append(
+                "canonical candidate replay could not "
+                f"be completed: {exc}"
+            )
+
+        else:
+            if replay_errors:
+                errors.extend(
+                    "canonical candidate replay failed: "
+                    f"{error}"
+                    for error in replay_errors
+                )
+
+            if (
+                not replay_errors
+                and isinstance(
+                    replayed_candidates,
+                    dict,
+                )
+                and isinstance(
+                    replayed_index,
+                    dict,
+                )
+            ):
+                canonical_candidates = (
+                    replayed_candidates
+                )
+
+                canonical_candidate_ids = set(
+                    canonical_candidates
+                )
+                manifest_candidate_ids = set(
+                    candidate_evidence
+                )
+
+                missing_candidates = sorted(
+                    canonical_candidate_ids
+                    - manifest_candidate_ids
+                )
+                extra_candidates = sorted(
+                    manifest_candidate_ids
+                    - canonical_candidate_ids
+                )
+
+                if missing_candidates:
+                    errors.append(
+                        "manifest candidate set is missing "
+                        "canonical candidates: "
+                        f"{missing_candidates!r}"
+                    )
+
+                if extra_candidates:
+                    errors.append(
+                        "manifest candidate set contains "
+                        "non-canonical candidates: "
+                        f"{extra_candidates!r}"
+                    )
+
+                if (
+                    replayed_index.get(
+                        "candidate_ids"
+                    )
+                    != sorted(
+                        canonical_candidate_ids
+                    )
+                ):
+                    errors.append(
+                        "canonical candidate replay index "
+                        "candidate_ids mismatch"
+                    )
+
+            elif not replay_errors:
+                errors.append(
+                    "canonical candidate replay did not "
+                    "return candidate envelopes and index"
+                )
+    
     evidence_results: dict[str, Any] = {}
     verified_evidence_ids: set[str] = set()
     candidate_artifacts: dict[str, dict[str, Any]] = {}
@@ -715,14 +839,80 @@ def check_recorded_release_evidence(
             candidate_errors,
             f"candidate artifact {evidence_id}",
         )
-        if trusted_required:
-            if artifact_provenance.get("trusted_producer") is True:
-                result["trusted_producer_verified"] = True
-            else:
-                candidate_errors.append(
-                    f"candidate artifact {evidence_id}.provenance.trusted_producer must be true"
-                )
+        if (
+            trusted_required
+            and artifact_provenance.get(
+                "trusted_producer"
+            )
+            is not True
+        ):
+            candidate_errors.append(
+                f"candidate artifact {evidence_id}."
+                "provenance.trusted_producer "
+                "must be true"
+            )
 
+        canonical_artifact = (
+            canonical_candidates.get(
+                evidence_id
+            )
+        )
+
+        if not isinstance(
+            canonical_artifact,
+            dict,
+        ):
+            candidate_errors.append(
+                f"candidate artifact {evidence_id} "
+                "is missing from canonical "
+                "candidate replay"
+            )
+
+        else:
+            supplied_for_comparison = (
+                _candidate_for_replay_comparison(
+                    artifact,
+                    (
+                        "candidate artifact "
+                        f"{evidence_id}"
+                    ),
+                    candidate_errors,
+                )
+            )
+
+            replayed_for_comparison = (
+                _candidate_for_replay_comparison(
+                    canonical_artifact,
+                    (
+                        "canonical candidate replay "
+                        f"{evidence_id}"
+                    ),
+                    candidate_errors,
+                )
+            )
+
+            if (
+                supplied_for_comparison
+                is not None
+                and replayed_for_comparison
+                is not None
+            ):
+                if (
+                    supplied_for_comparison
+                    != replayed_for_comparison
+                ):
+                    candidate_errors.append(
+                        f"candidate artifact "
+                        f"{evidence_id} does not "
+                        "match canonical candidate "
+                        "replay"
+                    )
+
+                elif trusted_required:
+                    result[
+                        "trusted_producer_verified"
+                    ] = True
+      
         raw_binding = _section(
             artifact,
             "raw_evidence_binding",
