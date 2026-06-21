@@ -1362,7 +1362,9 @@ def test_synthetic_chain_verifies_and_materializes_release_required(
             "materialize_release_required_"
             "from_verifier_v0.py"
         ),
-       "--verifier-report",
+        "--status",
+        str(status_path),
+        "--verifier-report",
         str(report_path),
         "--manifest",
         str(manifest_path),
