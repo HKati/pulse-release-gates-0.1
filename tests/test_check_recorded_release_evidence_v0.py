@@ -367,7 +367,7 @@ def _run_cli(
     manifest_path: pathlib.Path,
     out_json: pathlib.Path,
 ) -> subprocess.CompletedProcess[str]:
-     args = [
+    args = [
         "--manifest",
         str(manifest_path),
         "--repo-root",
