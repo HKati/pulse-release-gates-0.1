@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import contextlib
+import copy
 import hashlib
+import io
 import json
 import pathlib
 import subprocess
@@ -14,9 +17,18 @@ REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from PULSE_safe_pack_v0.tools.check_recorded_release_evidence_v0 import (
-    REPORT_SCHEMA_VERSION,
-    check_recorded_release_evidence,
+from PULSE_safe_pack_v0.tools import (
+    check_recorded_release_evidence_v0
+    as checker_module,
+)
+
+REPORT_SCHEMA_VERSION = (
+    checker_module.REPORT_SCHEMA_VERSION
+)
+
+check_recorded_release_evidence = (
+    checker_module
+    .check_recorded_release_evidence
 )
 
 CHECKER = (
@@ -25,6 +37,64 @@ CHECKER = (
 HEX40 = "a" * 40
 RUN_KEY = "run-prod-2026-01-01"
 COMMIT_SHA = HEX40
+_CANONICAL_CANDIDATES_BY_REPO: dict[
+    pathlib.Path,
+    dict[str, dict[str, Any]],
+] = {}
+
+
+@pytest.fixture(autouse=True)
+def _patch_canonical_candidate_replay(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _CANONICAL_CANDIDATES_BY_REPO.clear()
+
+    def replay(
+        repo: pathlib.Path,
+    ) -> tuple[
+        dict[str, dict[str, Any]] | None,
+        dict[str, Any] | None,
+        list[str],
+    ]:
+        candidates = (
+            _CANONICAL_CANDIDATES_BY_REPO.get(
+                repo.resolve()
+            )
+        )
+
+        if candidates is None:
+            return (
+                None,
+                None,
+                [
+                    "unit-test canonical candidate "
+                    "fixture is not registered"
+                ],
+            )
+
+        replayed = copy.deepcopy(
+            candidates
+        )
+
+        return (
+            replayed,
+            {
+                "candidate_ids": sorted(
+                    replayed
+                ),
+            },
+            [],
+        )
+
+    monkeypatch.setattr(
+        checker_module,
+        (
+            "build_canonical_candidates_"
+            "for_replay"
+        ),
+        replay,
+    )
+
 
 POLICY_TEXT = """policy:
   id: pulse-gate-policy-v0
@@ -83,6 +153,9 @@ def _candidate_artifact(
     git_sha: str = COMMIT_SHA,
 ) -> dict[str, Any]:
     return {
+        "created_utc": (
+            "2026-01-01T00:00:00Z"
+        ),
         "schema_version": schema_version,
         "run_identity": {
             "git_sha": git_sha,
@@ -256,6 +329,10 @@ def _build_repo_fixture(tmp_path: pathlib.Path) -> tuple[pathlib.Path, pathlib.P
     policy_sha = _write_text(tmp_path / "pulse_gate_policy_v0.yml", POLICY_TEXT)
     registry_sha = _write_text(tmp_path / "pulse_gate_registry_v0.yml", REGISTRY_TEXT)
     manifest = _manifest_template(policy_sha, registry_sha)
+    canonical_candidates: dict[
+        str,
+        dict[str, Any],
+    ] = {}
     for evidence_id, definition in EVIDENCE_DEFS.items():
         raw_path = tmp_path / definition["raw_path"]
         raw_sha = _write_text(raw_path, f"raw::{evidence_id}\n")
@@ -266,6 +343,11 @@ def _build_repo_fixture(tmp_path: pathlib.Path) -> tuple[pathlib.Path, pathlib.P
             raw_sha256=raw_sha,
             policy_sha256=policy_sha,
         )
+        canonical_candidates[
+            evidence_id
+        ] = copy.deepcopy(
+            artifact_payload
+        )
         artifact_path = tmp_path / definition["artifact_path"]
         artifact_sha = _write_json(artifact_path, artifact_payload)
         manifest["candidate_evidence"][evidence_id]["expected_sha256"] = artifact_sha
@@ -274,6 +356,9 @@ def _build_repo_fixture(tmp_path: pathlib.Path) -> tuple[pathlib.Path, pathlib.P
         tmp_path / "PULSE_safe_pack_v0" / "artifacts" / "release_evidence_input_manifest_v0.json"
     )
     _write_json(manifest_path, manifest)
+    _CANONICAL_CANDIDATES_BY_REPO[
+        tmp_path.resolve()
+    ] = canonical_candidates
     return tmp_path, manifest_path, manifest
 
 
@@ -282,21 +367,31 @@ def _run_cli(
     manifest_path: pathlib.Path,
     out_json: pathlib.Path,
 ) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
-        [
-            sys.executable,
-            str(CHECKER),
-            "--manifest",
-            str(manifest_path),
-            "--repo-root",
-            str(repo_root),
-            "--out-json",
-            str(out_json),
-        ],
-        cwd=str(REPO_ROOT),
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
+     args = [
+        "--manifest",
+        str(manifest_path),
+        "--repo-root",
+        str(repo_root),
+        "--out-json",
+        str(out_json),
+    ]
+
+    stdout = io.StringIO()
+    stderr = io.StringIO()
+
+    with (
+        contextlib.redirect_stdout(stdout),
+        contextlib.redirect_stderr(stderr),
+    ):
+        returncode = checker_module.main(
+            args
+        )
+
+    return subprocess.CompletedProcess(
+        args=args,
+        returncode=returncode,
+        stdout=stdout.getvalue(),
+        stderr=stderr.getvalue(),
     )
 
 
