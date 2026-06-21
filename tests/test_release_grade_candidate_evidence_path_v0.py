@@ -1058,6 +1058,65 @@ def test_candidate_builder_writes_non_stubbed_required_only_status(
         assert gate not in status["gates"]
 
 
+def test_candidate_builder_rejects_minimal_generic_external_summary(
+    tmp_path: Path,
+) -> None:
+    repo = _bootstrap_repo(tmp_path)
+
+    candidate_status = _build_candidate_status(
+        repo
+    )
+
+    assert (
+        candidate_status.returncode
+        == 0
+    ), candidate_status.stderr
+
+    external_path = (
+        repo
+        / "PULSE_safe_pack_v0/artifacts/"
+        "external/llamaguard_summary.json"
+    )
+
+    _write_json(
+        external_path,
+        {
+            "value": 0,
+        },
+    )
+
+    candidate_dir = (
+        repo
+        / "PULSE_safe_pack_v0/artifacts/"
+        "recorded_release_candidates"
+    )
+
+    index_path = (
+        repo
+        / "PULSE_safe_pack_v0/artifacts/"
+        "recorded_release_candidate_"
+        "index_v0.json"
+    )
+
+    result = _build_candidates(
+        repo
+    )
+
+    assert result.returncode != 0
+    assert not candidate_dir.exists()
+    assert not index_path.exists()
+
+    assert (
+        "external summary llamaguard"
+        in result.stderr
+    )
+
+    assert (
+        "external_summary_v1"
+        in result.stderr
+    )
+
+
 def test_candidate_builder_clears_stale_outputs_when_external_missing(
     tmp_path: Path,
 ) -> None:
