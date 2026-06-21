@@ -1214,7 +1214,9 @@ def check_recorded_release_evidence(
     return report
 
 
-def main() -> int:
+def main(
+    argv: list[str] | None = None,
+) -> int:
     parser = argparse.ArgumentParser(
         description=(
             "Verify recorded release evidence bindings for release-grade "
@@ -1236,7 +1238,7 @@ def main() -> int:
         default="PULSE_safe_pack_v0/artifacts/recorded_release_evidence_verifier_v0.json",
         help="Path to write the machine-readable verifier report.",
     )
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     manifest_path = Path(args.manifest)
     repo_root = Path(args.repo_root)
