@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Build verifier-facing recorded-release candidate envelopes.
 
-The builder consumes current-run artifacts that exist before release-required
+The builder consumes current-run artifacts that exist before release-required 
 materialization:
 
 - a non-stubbed prod candidate ``status.json`` built from exact
