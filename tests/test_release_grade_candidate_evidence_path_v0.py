@@ -58,6 +58,8 @@ CHAIN_FILES = [
     "schemas/required_gate_evaluation_result_v0.schema.json",
     "schemas/recorded_release_candidate_envelope_v0.schema.json",
     "schemas/external_summary_v1.schema.json",
+    "schemas/external_summary_envelope_v1.schema.json",
+    "policy/external_signers_v1.yml",
     "schemas/release_evidence_input_manifest_v0.schema.json",
     "schemas/status/status_v1.schema.json",
 ]
@@ -385,13 +387,16 @@ llamaguard_violation_rate_max: 0.10
                 "llamaguard_raw_v0"
             ),
             "violation_rate": 0.0,
-        },
+          )
+ 
+    summary_path = (
+        repo
+        / "PULSE_safe_pack_v0/artifacts/"
+        "external/llamaguard_summary.json"
     )
 
     _write_json(
-        repo
-        / "PULSE_safe_pack_v0/artifacts/"
-        "external/llamaguard_summary.json",
+        summary_path,
         {
             "schema_version": (
                 "external_summary_v1"
@@ -466,10 +471,10 @@ llamaguard_violation_rate_max: 0.10
                     "github-attestation"
                 ),
                 "identity": (
-                    f"repo:{REPOSITORY}:"
+                    "repo:HKati/"
+                    "pulse-release-gates-0.1:"
                     "workflow:external-eval"
                 ),
-                "verified": True,
             },
             "result": {
                 "passed": True,
@@ -489,6 +494,99 @@ llamaguard_violation_rate_max: 0.10
                 "schema, identity, signer, and policy "
                 "validation."
             ),
+        },
+    )
+
+    envelope_path = (
+        repo
+        / "PULSE_safe_pack_v0/artifacts/"
+        "external/"
+        "llamaguard_summary.envelope.json"
+    )
+
+    _write_json(
+        envelope_path,
+        {
+            "schema_version": (
+                "external_summary_envelope_v1"
+            ),
+            "envelope_id": (
+                "llamaguard-summary-envelope-test"
+            ),
+            "summary_ref": {
+                "uri": (
+                    "PULSE_safe_pack_v0/"
+                    "artifacts/external/"
+                    "llamaguard_summary.json"
+                ),
+                "schema_version": (
+                    "external_summary_v1"
+                ),
+                "summary_id": (
+                    "llamaguard-summary-test"
+                ),
+            },
+            "summary_digest": {
+                "algorithm": "sha256",
+                "value": _sha256(
+                    summary_path
+                ),
+            },
+            "signing": {
+                "mode": (
+                    "github-attestation"
+                ),
+                "identity": (
+                    "repo:HKati/"
+                    "pulse-release-gates-0.1:"
+                    "workflow:external-eval"
+                ),
+                "issuer": (
+                    "https://token.actions."
+                    "githubusercontent.com"
+                ),
+            },
+            "verification": {
+                "verified": True,
+                "verified_at": CREATED_UTC,
+                "verifier": {
+                    "name": (
+                        "synthetic-canonical-"
+                        "attestation-verifier"
+                    ),
+                    "version": "test-v1",
+                },
+                "result_reason": (
+                    "Synthetic verified envelope "
+                    "for the complete-chain test."
+                ),
+            },
+            "policy_context": {
+                "signer_policy_ref": (
+                    "policy/"
+                    "external_signers_v1.yml"
+                ),
+                "threshold_policy_ref": (
+                    "PULSE_safe_pack_v0/"
+                    "profiles/"
+                    "external_thresholds.yaml"
+                ),
+                "release_contribution": (
+                    "required"
+                ),
+                "fold_in_allowed": True,
+            },
+            "authority_boundary": (
+                "This external summary envelope "
+                "does not define release authority. "
+                "It records digest, signer, "
+                "verification, and policy context "
+                "for external evidence before any "
+                "policy-controlled fold-in to "
+                "status.json."
+            ),
+        },
+    )
         },
     )
 
