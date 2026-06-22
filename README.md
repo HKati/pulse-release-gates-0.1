@@ -1,5 +1,66 @@
 # PULSE — Artifact-Bound Release Authority for AI Release Decisions
 
+## Canonical PULSEmech implementation path
+
+PULSEmech is the artifact-bound release-authority mechanism for AI release decisions.
+
+```text
+recorded current-run release evidence
+→ non-stubbed candidate release state
+→ canonical candidate production
+→ canonical candidate replay
+→ recorded release-evidence verification
+→ canonical verifier replay
+→ policy-derived release-required gate materialization
+→ final status.json
+→ strict check_gates.py enforcement
+→ primary CI allow/block release decision
+```
+
+This connected path is the PULSE release-authority mechanism.
+
+Runtime demonstrations, verifier reports, attestation reports, the Quality Ledger, Pages, dashboards, audit sidecars, reference-run notes, and publication surfaces preserve evidence, trace, review, diagnostic, or publication state.
+
+They do not independently produce release authority.
+
+### Current implementation state
+
+| Mechanical layer | State |
+|---|---|
+| Current-run required-gate evidence production | Implemented |
+| Non-stubbed release candidate state | Implemented |
+| Recorded release-evidence verifier | Implemented |
+| Canonical candidate replay | Implemented |
+| Canonical verifier replay before materialization | Implemented |
+| Policy-derived release-required gate materialization | Implemented |
+| External-summary schema and semantic validation | Implemented |
+| Signer-policy and cryptographic attestation verification | Implemented |
+| Exact operational release-grade signer identity | Pending |
+| Current-run attested external-evidence production lane | Pending |
+| Completed public non-stubbed release-grade run record | Pending |
+
+### Authority boundary
+
+```text
+evidence existence ≠ verified evidence
+verified evidence ≠ materialized gate state
+materialized gate state ≠ release authority by itself
+reader or audit surface ≠ release authority
+```
+
+Release authority exists only through the connected declared-policy path:
+
+```text
+recorded release evidence
+→ status.json
+→ declared gate policy
+→ workflow-effective materialized required gate set
+→ check_gates.py
+→ primary CI allow/block release decision
+```
+
+---
+
 ## 🚀 Runtime Evidence: Separating Execution from Release Authority
 
 ### PULSEmech Runtime Evidence Matrix
@@ -177,10 +238,12 @@ PULSE acts at the release boundary, before deployment.
 Authority carrier:
 
 ```text
-status.json
+recorded release evidence
+→ status.json
 → declared gate policy
-→ materialized required gate set
-→ strict fail-closed CI enforcement
+→ workflow-effective materialized required gate set
+→ check_gates.py
+→ primary CI allow/block release decision
 ```
 
 - Quality Ledger: https://hkati.github.io/pulse-release-gates-0.1/
@@ -190,18 +253,32 @@ status.json
 
 PULSE distinguishes between:
 
-- Core smoke surface = integration / visibility surface
-- Release-grade reference run = materialized evidence release-authority reference
+- **Core smoke surface** = minimal deterministic integration and visibility lane
+- **Release-grade reference run** = materialized-evidence release-authority reference lane
 
-The first public non-stubbed release-grade reference run is documented in:
+The current-run evidence path, recorded release-evidence verifier, canonical replay layers, release-required materializer, qualification checker, packaging path, and run-note template are implemented.
 
-- `docs/RELEASE_GRADE_REFERENCE_RUN_NOTE_v0.md`
+The first completed public non-stubbed release-grade run record is still pending.
+
+Reference documents:
+
 - `docs/release_grade_reference_run_v0.md`
+- `docs/RELEASE_GRADE_REFERENCE_RUN_NOTE_v0.md`
 
-The reference run remains review/documentation surface.
-Release authority still comes only from:
+The reference-run documents and artifact package preserve review, provenance, and reconstruction state.
 
-`status.json + declared gate policy + workflow-effective required gate set + check_gates.py + primary CI workflow`
+They do not create a second release-decision engine.
+
+Release authority remains:
+
+```text
+recorded release evidence
+→ status.json
+→ declared gate policy
+→ workflow-effective materialized required gate set
+→ check_gates.py
+→ primary CI allow/block release decision
+```
 
 ## Current verification checkpoint
 
@@ -255,10 +332,12 @@ Required gates are explicit, materialized, and checked before release effects ca
 Authority carrier:
 
 ```text
-status.json
+recorded release evidence
+→ status.json
 → declared gate policy
-→ materialized required gate set
-→ strict fail-closed CI enforcement
+→ workflow-effective materialized required gate set
+→ check_gates.py
+→ primary CI allow/block release decision
 ```
 
 - **Quality Ledger:** https://hkati.github.io/pulse-release-gates-0.1/
@@ -274,13 +353,13 @@ status.json
 >
 > Continuous expansion does not invalidate the implemented release-authority path.
 >
-> The implemented release-authority path is explicit, versioned, and bounded to the artifacts, policies, gates, and CI checks that exist in the current release.
+> The current implementation includes current-run required-gate evidence production, non-stubbed candidate state, canonical candidate replay, recorded release-evidence verification, canonical verifier replay, policy-derived release-required materialization, external-summary schema and semantic validation, signer-policy admission, and cryptographic GitHub attestation verification.
 >
-> Known hardening surfaces — including the safe pack, documentation, examples, profiles, detectors, diagnostic surfaces, reader surfaces, metadata consistency, provenance / attestation work, and future evidence-packet work — remain under active, staged expansion.
+> The remaining active hardening surfaces include exact operational signer identities, current-run attested external-evidence production, the first completed public non-stubbed release-grade run record, independent external reproduction, portability, and further evidence-packet hardening.
 >
-> Until a surface is implemented, tested, and explicitly promoted through declared policy, workflow-effective materialized required gates, and strict fail-closed CI enforcement, it remains non-authoritative.
+> Until a surface is implemented, tested, bound to the current run, and explicitly admitted through declared policy, workflow-effective materialized required gates, and strict fail-closed CI enforcement, it remains non-authoritative.
 >
-> Open work is tracked as part of the hardening roadmap; it is not treated as release authority by assumption.
+> Open work is tracked as hardening work. It is not treated as release authority by assumption.
 
 ---
 
@@ -374,19 +453,33 @@ PULSE is deterministic and fail‑closed — but only if we keep the meaning of 
 Before extending the Paradox diagram/field, EPF diagnostic surfaces, drift/history, or any UI/Pages surface, we lock down the semantics below.
 
 **Source of truth (normative):**
-Release decisions are defined only by:
-- `PULSE_safe_pack_v0/tools/check_gates.py`
-- `PULSE_safe_pack_v0/artifacts/status.json`
-- `.github/workflows/pulse_ci.yml` (the required `--require ...` gate set)
 
-**Diagnostic surfaces (CI‑neutral by default):**
-Paradox/EPF/topology/G‑field overlays, hazard probes, drift reports, dashboards, and Pages views are diagnostic surfaces unless explicitly promoted into the required gate set.
+Release decisions are defined only by the connected PULSEmech tuple:
 
-**Normative vs diagnostic (do not mix):**
-- **Normative** = can block shipping (PASS/FAIL, STAGE‑PASS/PROD‑PASS).
-- **Diagnostic** = explains/observes stability, tensions, and drift; it must not flip CI outcomes.
+```text
+recorded release evidence
++ final status.json
++ declared gate policy
++ workflow-effective materialized required gate set
++ check_gates.py
++ primary CI workflow
+= CI allow/block release decision
+```
 
-Rule: If a diagnostic artefact is missing, reports may show `MISSING/UNKNOWN`, but this must never be silently reinterpreted as `PASS`.
+No individual artifact, report, verifier result, dashboard, reader surface, or green execution state is release authority by itself.
+
+**Diagnostic surfaces (CI-neutral by default):**
+
+Paradox, EPF, topology, G-field, hazard, drift, dashboard, notebook, Pages, and related overlays are diagnostic or reader surfaces unless their evidence is explicitly admitted into recorded release state and enforced through the declared-policy required gate path.
+
+**Normative vs diagnostic — do not mix:**
+
+- **Normative** = participates in declared policy, workflow-effective materialized required gates, and strict fail-closed `check_gates.py` enforcement.
+- **Diagnostic** = observes, explains, preserves, or renders evidence without independently changing the release decision.
+
+Rule: missing, malformed, unknown, unverified, or non-boolean required evidence must never be silently reinterpreted as `PASS`.
+
+A missing diagnostic artifact may be represented as `MISSING`, `UNKNOWN`, or `NOT_RUN`, but it must not create release authority.
 
 **No semantic drift rule:**
 If you change the meaning of any signal/term (e.g. Atom/Edge/Orientation/Core/Anchor, EPF/RDSI/Δ, drift, hazard zones):
