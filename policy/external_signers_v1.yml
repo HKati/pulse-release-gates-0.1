@@ -125,6 +125,26 @@ allowed_identities:
     identities: []
 
 tool_policies:
+  llamaguard:
+    release_grade_contribution_allowed: true
+    allowed_identity_groups:
+      - github_actions
+      - eplabsai
+      - external_review
+    require_dataset_digest: true
+    require_subject_digest: true
+    require_threshold_ref: true
+
+  promptguard:
+    release_grade_contribution_allowed: true
+    allowed_identity_groups:
+      - github_actions
+      - eplabsai
+      - external_review
+    require_dataset_digest: true
+    require_subject_digest: true
+    require_threshold_ref: true
+
   promptfoo:
     release_grade_contribution_allowed: true
     allowed_identity_groups:

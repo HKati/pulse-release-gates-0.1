@@ -26,6 +26,11 @@ RUN_KEY = (
 REPOSITORY = "HKati/pulse-release-gates-test"
 CREATED_UTC = "2026-06-19T00:00:00Z"
 SOURCE_DATE_EPOCH = "1781827200"
+SIGNER_IDENTITY = (
+    f"repo:{REPOSITORY}:"
+    "workflow:.github/workflows/"
+    "external-eval.yml"
+)
 
 REQUIRED_GATE = "q1_grounded_ok"
 UNSUPPORTED_GATE = "q2_consistency_ok"
@@ -47,6 +52,8 @@ CHAIN_FILES = [
     "PULSE_safe_pack_v0/tools/"
     "build_recorded_release_candidates_v0.py",
     "PULSE_safe_pack_v0/tools/"
+    "check_external_summary_attestation_v1.py",
+    "PULSE_safe_pack_v0/tools/"
     "build_release_evidence_input_manifest_v0.py",
     "PULSE_safe_pack_v0/tools/"
     "check_release_evidence_input_manifest_v0.py",
@@ -57,6 +64,9 @@ CHAIN_FILES = [
     "schemas/required_gate_evidence_v0.schema.json",
     "schemas/required_gate_evaluation_result_v0.schema.json",
     "schemas/recorded_release_candidate_envelope_v0.schema.json",
+    "schemas/external_summary_v1.schema.json",
+    "schemas/external_summary_envelope_v1.schema.json",
+    "policy/external_signers_v1.yml",
     "schemas/release_evidence_input_manifest_v0.schema.json",
     "schemas/status/status_v1.schema.json",
 ]
@@ -287,6 +297,20 @@ def _run_tool(
     *args: str,
     env: dict[str, str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
+    run_env = dict(
+        env or _base_env()
+    )
+
+    test_bin = (
+        repo / ".test-bin"
+    )
+
+    run_env["PATH"] = (
+        str(test_bin)
+        + os.pathsep
+        + run_env.get("PATH", "")
+    )
+
     return subprocess.run(
         [
             sys.executable,
@@ -294,7 +318,7 @@ def _run_tool(
             *args,
         ],
         cwd=repo,
-        env=env or _base_env(),
+        env=run_env,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
@@ -331,6 +355,71 @@ def _bootstrap_repo(
             repo,
             relative,
         )
+
+    fake_gh = (
+        repo / ".test-bin/gh"
+    )
+
+    _write_text(
+        fake_gh,
+        (
+            "#!/usr/bin/env python3\n"
+            "import json\n"
+            "print(json.dumps(["
+            "{'attestation': {}, "
+            "'verificationResult': {}}"
+            "]))\n"
+        ),
+    )
+
+    fake_gh.chmod(0o755)
+
+    signer_policy_path = (
+        repo
+        / "policy/external_signers_v1.yml"
+    )
+
+    signer_policy = yaml.safe_load(
+        signer_policy_path.read_text(
+            encoding="utf-8",
+        )
+    )
+
+    signer_policy[
+        "allowed_identities"
+    ][
+        "github_actions"
+    ][
+        "identities"
+    ] = [
+        {
+            "pattern": SIGNER_IDENTITY,
+            "modes": [
+                "github-attestation",
+            ],
+            "release_contributions": [
+                "required",
+            ],
+        }
+    ]
+
+    signer_policy[
+        "tool_policies"
+    ][
+        "llamaguard"
+    ][
+        "allowed_identity_groups"
+    ] = [
+        "github_actions",
+    ]
+
+    _write_text(
+        signer_policy_path,
+        yaml.safe_dump(
+            signer_policy,
+            sort_keys=False,
+        ),
+    )
 
     _write_text(
         repo / "pulse_gate_policy_v0.yml",
@@ -371,15 +460,229 @@ llamaguard_violation_rate_max: 0.10
         },
     )
 
-    _write_json(
+    external_raw_path = (
         repo
         / "PULSE_safe_pack_v0/artifacts/"
-        "external/llamaguard_summary.json",
+        "external/llamaguard_raw.json"
+    )
+
+    _write_json(
+        external_raw_path,
+        {
+            "schema_version": (
+                "llamaguard_raw_v0"
+            ),
+            "violation_rate": 0.0,
+        },
+    )
+
+    summary_path = (
+        repo
+        / "PULSE_safe_pack_v0/artifacts/"
+        "external/llamaguard_summary.json"
+    )
+
+    _write_json(
+        summary_path,
         {
             "schema_version": (
                 "external_summary_v1"
             ),
-            "violation_rate": 0.0,
+            "summary_id": (
+                "llamaguard-summary-test"
+            ),
+            "tool": {
+                "name": "llamaguard",
+                "version": "test-v1",
+                "adapter": (
+                    "llamaguard_to_"
+                    "external_summary_v1"
+                ),
+                "adapter_version": "v1",
+            },
+            "run": {
+                "run_id": RUN_KEY,
+                "generated_at": CREATED_UTC,
+                "dataset_digest": "b" * 64,
+                "evaluator_digest": "c" * 64,
+                "model_id": "v-test",
+            },
+            "subject": {
+                "kind": "release_candidate",
+                "id": "v-test",
+                "digest_algorithm": "sha256",
+                "digest": hashlib.sha256(
+                    GIT_SHA.encode("utf-8")
+                ).hexdigest(),
+            },
+            "metrics": [
+                {
+                    "key": (
+                        "llamaguard_"
+                        "violation_rate"
+                    ),
+                    "value": 0.0,
+                    "unit": "rate",
+                    "threshold": 0.10,
+                    "comparator": "lte",
+                    "passed": True,
+                    "severity": "critical",
+                }
+            ],
+            "threshold_ref": {
+                "key": (
+                    "llamaguard_"
+                    "violation_rate_max"
+                ),
+                "version": "v0",
+                "uri": (
+                    "PULSE_safe_pack_v0/"
+                    "profiles/"
+                    "external_thresholds.yaml"
+                ),
+            },
+            "evidence": {
+                "raw_artifact_uri": (
+                    "PULSE_safe_pack_v0/"
+                    "artifacts/external/"
+                    "llamaguard_raw.json"
+                ),
+                "raw_artifact_digest": (
+                    _sha256(
+                        external_raw_path
+                    )
+                ),
+            },
+            "signing": {
+                "mode": (
+                    "github-attestation"
+                ),
+                "identity": SIGNER_IDENTITY,
+            },
+            "result": {
+                "passed": True,
+                "reason": (
+                    "Synthetic canonical passing "
+                    "external summary."
+                ),
+                "release_contribution": (
+                    "required"
+                ),
+            },
+            "authority_boundary": (
+                "This external summary does not "
+                "define release authority. It is "
+                "recorded evidence that may be "
+                "folded into status.json only after "
+                "schema, identity, signer, and policy "
+                "validation."
+            ),
+        },
+    )
+
+    bundle_path = (
+        repo
+        / "PULSE_safe_pack_v0/artifacts/"
+        "external/"
+        "llamaguard_summary.bundle.json"
+    )
+
+    _write_json(
+        bundle_path,
+        {
+            "synthetic": True,
+        },
+    )
+
+    envelope_path = (
+        repo
+        / "PULSE_safe_pack_v0/artifacts/"
+        "external/"
+        "llamaguard_summary.envelope.json"
+    )
+
+    _write_json(
+        envelope_path,
+        {
+            "schema_version": (
+                "external_summary_envelope_v1"
+            ),
+            "envelope_id": (
+                "llamaguard-summary-envelope-test"
+            ),
+            "summary_ref": {
+                "uri": (
+                    "PULSE_safe_pack_v0/"
+                    "artifacts/external/"
+                    "llamaguard_summary.json"
+                ),
+                "schema_version": (
+                    "external_summary_v1"
+                ),
+                "summary_id": (
+                    "llamaguard-summary-test"
+                ),
+            },
+            "summary_digest": {
+                "algorithm": "sha256",
+                "value": _sha256(
+                    summary_path
+                ),
+            },
+            "signing": {
+                "mode": (
+                    "github-attestation"
+                ),
+                "identity": SIGNER_IDENTITY,
+                "issuer": (
+                    "https://token.actions."
+                    "githubusercontent.com"
+                ),
+                "bundle_uri": (
+                    "PULSE_safe_pack_v0/"
+                    "artifacts/external/"
+                    "llamaguard_summary.bundle.json"
+                ),
+            },
+            "verification": {
+                "verified": True,
+                "verified_at": CREATED_UTC,
+                "verifier": {
+                    "name": (
+                        "synthetic-canonical-"
+                        "attestation-verifier"
+                    ),
+                    "version": "test-v1",
+                },
+                "result_reason": (
+                    "Synthetic verified envelope "
+                    "for the complete-chain test."
+                ),
+            },
+            "policy_context": {
+                "signer_policy_ref": (
+                    "policy/"
+                    "external_signers_v1.yml"
+                ),
+                "threshold_policy_ref": (
+                    "PULSE_safe_pack_v0/"
+                    "profiles/"
+                    "external_thresholds.yaml"
+                ),
+                "release_contribution": (
+                    "required"
+                ),
+                "fold_in_allowed": True,
+            },
+            "authority_boundary": (
+                "This external summary envelope "
+                "does not define release authority. "
+                "It records digest, signer, "
+                "verification, and policy context "
+                "for external evidence before any "
+                "policy-controlled fold-in to "
+                "status.json."
+            ),
         },
     )
 
@@ -1056,6 +1359,223 @@ def test_candidate_builder_writes_non_stubbed_required_only_status(
 
     for gate in RELEASE_REQUIRED_GATES:
         assert gate not in status["gates"]
+
+
+
+def test_candidate_builder_rejects_minimal_generic_external_summary(
+    tmp_path: Path,
+) -> None:
+    repo = _bootstrap_repo(tmp_path)
+
+    candidate_status = _build_candidate_status(
+        repo
+    )
+
+    assert (
+        candidate_status.returncode
+        == 0
+    ), candidate_status.stderr
+
+    external_path = (
+        repo
+        / "PULSE_safe_pack_v0/artifacts/"
+        "external/llamaguard_summary.json"
+    )
+
+    _write_json(
+        external_path,
+        {
+            "value": 0,
+        },
+    )
+
+    candidate_dir = (
+        repo
+        / "PULSE_safe_pack_v0/artifacts/"
+        "recorded_release_candidates"
+    )
+
+    index_path = (
+        repo
+        / "PULSE_safe_pack_v0/artifacts/"
+        "recorded_release_candidate_"
+        "index_v0.json"
+    )
+
+    result = _build_candidates(
+        repo
+    )
+
+    assert result.returncode != 0
+    assert not candidate_dir.exists()
+    assert not index_path.exists()
+
+    assert (
+        "external summary llamaguard"
+        in result.stderr
+    )
+
+    assert (
+        "external_summary_v1"
+        in result.stderr
+    )
+
+
+def _assert_external_candidate_build_fails_closed(
+    repo: Path,
+    expected_error: str,
+) -> None:
+    candidate_dir = (
+        repo
+        / "PULSE_safe_pack_v0/artifacts/"
+        "recorded_release_candidates"
+    )
+
+    index_path = (
+        repo
+        / "PULSE_safe_pack_v0/artifacts/"
+        "recorded_release_candidate_"
+        "index_v0.json"
+    )
+
+    result = _build_candidates(
+        repo
+    )
+
+    assert result.returncode != 0
+    assert expected_error in result.stderr
+    assert not candidate_dir.exists()
+    assert not index_path.exists()
+
+
+def test_candidate_builder_rejects_external_summary_run_mismatch(
+    tmp_path: Path,
+) -> None:
+    repo = _bootstrap_repo(tmp_path)
+
+    candidate_status = _build_candidate_status(
+        repo
+    )
+
+    assert (
+        candidate_status.returncode
+        == 0
+    ), candidate_status.stderr
+
+    summary_path = (
+        repo
+        / "PULSE_safe_pack_v0/artifacts/"
+        "external/llamaguard_summary.json"
+    )
+
+    payload = _read_json(
+        summary_path
+    )
+
+    payload["run"]["run_id"] = (
+        "forged-run"
+    )
+
+    _write_json(
+        summary_path,
+        payload,
+    )
+
+    _assert_external_candidate_build_fails_closed(
+        repo,
+        (
+            "external summary llamaguard."
+            "run.run_id must match the current "
+            "PULSE run_key"
+        ),
+    )
+
+
+def test_candidate_builder_rejects_external_summary_subject_mismatch(
+    tmp_path: Path,
+) -> None:
+    repo = _bootstrap_repo(tmp_path)
+
+    candidate_status = _build_candidate_status(
+        repo
+    )
+
+    assert (
+        candidate_status.returncode
+        == 0
+    ), candidate_status.stderr
+
+    summary_path = (
+        repo
+        / "PULSE_safe_pack_v0/artifacts/"
+        "external/llamaguard_summary.json"
+    )
+
+    payload = _read_json(
+        summary_path
+    )
+
+    payload["subject"]["digest"] = (
+        "d" * 64
+    )
+
+    _write_json(
+        summary_path,
+        payload,
+    )
+
+    _assert_external_candidate_build_fails_closed(
+        repo,
+        (
+            "external summary llamaguard."
+            "subject digest must bind to the "
+            "current commit SHA"
+        ),
+    )
+
+
+def test_candidate_builder_rejects_external_raw_digest_mismatch(
+    tmp_path: Path,
+) -> None:
+    repo = _bootstrap_repo(tmp_path)
+
+    candidate_status = _build_candidate_status(
+        repo
+    )
+
+    assert (
+        candidate_status.returncode
+        == 0
+    ), candidate_status.stderr
+
+    summary_path = (
+        repo
+        / "PULSE_safe_pack_v0/artifacts/"
+        "external/llamaguard_summary.json"
+    )
+
+    payload = _read_json(
+        summary_path
+    )
+
+    payload[
+        "evidence"
+    ][
+        "raw_artifact_digest"
+    ] = "e" * 64
+
+    _write_json(
+        summary_path,
+        payload,
+    )
+
+    _assert_external_candidate_build_fails_closed(
+        repo,
+        (
+            "external summary llamaguard "
+            "raw evidence digest mismatch"
+        ),
+    )
 
 
 def test_candidate_builder_clears_stale_outputs_when_external_missing(
