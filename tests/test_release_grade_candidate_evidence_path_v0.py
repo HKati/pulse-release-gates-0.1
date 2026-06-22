@@ -372,7 +372,7 @@ llamaguard_violation_rate_max: 0.10
         },
     )
 
-        external_raw_path = (
+    external_raw_path = (
         repo
         / "PULSE_safe_pack_v0/artifacts/"
         "external/llamaguard_raw.json"
