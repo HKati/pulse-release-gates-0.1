@@ -1227,6 +1227,163 @@ def test_candidate_builder_rejects_minimal_generic_external_summary(
     )
 
 
+def _assert_external_candidate_build_fails_closed(
+    repo: Path,
+    expected_error: str,
+) -> None:
+    candidate_dir = (
+        repo
+        / "PULSE_safe_pack_v0/artifacts/"
+        "recorded_release_candidates"
+    )
+
+    index_path = (
+        repo
+        / "PULSE_safe_pack_v0/artifacts/"
+        "recorded_release_candidate_"
+        "index_v0.json"
+    )
+
+    result = _build_candidates(
+        repo
+    )
+
+    assert result.returncode != 0
+    assert expected_error in result.stderr
+    assert not candidate_dir.exists()
+    assert not index_path.exists()
+
+
+def test_candidate_builder_rejects_external_summary_run_mismatch(
+    tmp_path: Path,
+) -> None:
+    repo = _bootstrap_repo(tmp_path)
+
+    candidate_status = _build_candidate_status(
+        repo
+    )
+
+    assert (
+        candidate_status.returncode
+        == 0
+    ), candidate_status.stderr
+
+    summary_path = (
+        repo
+        / "PULSE_safe_pack_v0/artifacts/"
+        "external/llamaguard_summary.json"
+    )
+
+    payload = _read_json(
+        summary_path
+    )
+
+    payload["run"]["run_id"] = (
+        "forged-run"
+    )
+
+    _write_json(
+        summary_path,
+        payload,
+    )
+
+    _assert_external_candidate_build_fails_closed(
+        repo,
+        (
+            "external summary llamaguard."
+            "run.run_id must match the current "
+            "PULSE run_key"
+        ),
+    )
+
+
+def test_candidate_builder_rejects_external_summary_subject_mismatch(
+    tmp_path: Path,
+) -> None:
+    repo = _bootstrap_repo(tmp_path)
+
+    candidate_status = _build_candidate_status(
+        repo
+    )
+
+    assert (
+        candidate_status.returncode
+        == 0
+    ), candidate_status.stderr
+
+    summary_path = (
+        repo
+        / "PULSE_safe_pack_v0/artifacts/"
+        "external/llamaguard_summary.json"
+    )
+
+    payload = _read_json(
+        summary_path
+    )
+
+    payload["subject"]["digest"] = (
+        "d" * 64
+    )
+
+    _write_json(
+        summary_path,
+        payload,
+    )
+
+    _assert_external_candidate_build_fails_closed(
+        repo,
+        (
+            "external summary llamaguard."
+            "subject digest must bind to the "
+            "current commit SHA"
+        ),
+    )
+
+
+def test_candidate_builder_rejects_external_raw_digest_mismatch(
+    tmp_path: Path,
+) -> None:
+    repo = _bootstrap_repo(tmp_path)
+
+    candidate_status = _build_candidate_status(
+        repo
+    )
+
+    assert (
+        candidate_status.returncode
+        == 0
+    ), candidate_status.stderr
+
+    summary_path = (
+        repo
+        / "PULSE_safe_pack_v0/artifacts/"
+        "external/llamaguard_summary.json"
+    )
+
+    payload = _read_json(
+        summary_path
+    )
+
+    payload[
+        "evidence"
+    ][
+        "raw_artifact_digest"
+    ] = "e" * 64
+
+    _write_json(
+        summary_path,
+        payload,
+    )
+
+    _assert_external_candidate_build_fails_closed(
+        repo,
+        (
+            "external summary llamaguard "
+            "raw evidence digest mismatch"
+        ),
+    )
+
+
 def test_candidate_builder_clears_stale_outputs_when_external_missing(
     tmp_path: Path,
 ) -> None:
