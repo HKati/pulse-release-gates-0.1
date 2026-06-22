@@ -26,6 +26,11 @@ RUN_KEY = (
 REPOSITORY = "HKati/pulse-release-gates-test"
 CREATED_UTC = "2026-06-19T00:00:00Z"
 SOURCE_DATE_EPOCH = "1781827200"
+SIGNER_IDENTITY = (
+    f"repo:{REPOSITORY}:"
+    "workflow:.github/workflows/"
+    "external-eval.yml"
+)
 
 REQUIRED_GATE = "q1_grounded_ok"
 UNSUPPORTED_GATE = "q2_consistency_ok"
@@ -46,6 +51,8 @@ CHAIN_FILES = [
     "build_release_grade_candidate_status_v0.py",
     "PULSE_safe_pack_v0/tools/"
     "build_recorded_release_candidates_v0.py",
+    "PULSE_safe_pack_v0/tools/"
+    "check_external_summary_attestation_v1.py",
     "PULSE_safe_pack_v0/tools/"
     "build_release_evidence_input_manifest_v0.py",
     "PULSE_safe_pack_v0/tools/"
@@ -290,6 +297,20 @@ def _run_tool(
     *args: str,
     env: dict[str, str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
+    run_env = dict(
+        env or _base_env()
+    )
+
+    test_bin = (
+        repo / ".test-bin"
+    )
+
+    run_env["PATH"] = (
+        str(test_bin)
+        + os.pathsep
+        + run_env.get("PATH", "")
+    )
+
     return subprocess.run(
         [
             sys.executable,
@@ -297,7 +318,7 @@ def _run_tool(
             *args,
         ],
         cwd=repo,
-        env=env or _base_env(),
+        env=run_env,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
@@ -334,6 +355,71 @@ def _bootstrap_repo(
             repo,
             relative,
         )
+
+    fake_gh = (
+        repo / ".test-bin/gh"
+    )
+
+    _write_text(
+        fake_gh,
+        (
+            "#!/usr/bin/env python3\n"
+            "import json\n"
+            "print(json.dumps(["
+            "{'attestation': {}, "
+            "'verificationResult': {}}"
+            "]))\n"
+        ),
+    )
+
+    fake_gh.chmod(0o755)
+
+    signer_policy_path = (
+        repo
+        / "policy/external_signers_v1.yml"
+    )
+
+    signer_policy = yaml.safe_load(
+        signer_policy_path.read_text(
+            encoding="utf-8",
+        )
+    )
+
+    signer_policy[
+        "allowed_identities"
+    ][
+        "github_actions"
+    ][
+        "identities"
+    ] = [
+        {
+            "pattern": SIGNER_IDENTITY,
+            "modes": [
+                "github-attestation",
+            ],
+            "release_contributions": [
+                "required",
+            ],
+        }
+    ]
+
+    signer_policy[
+        "tool_policies"
+    ][
+        "llamaguard"
+    ][
+        "allowed_identity_groups"
+    ] = [
+        "github_actions",
+    ]
+
+    _write_text(
+        signer_policy_path,
+        yaml.safe_dump(
+            signer_policy,
+            sort_keys=False,
+        ),
+    )
 
     _write_text(
         repo / "pulse_gate_policy_v0.yml",
@@ -471,11 +557,7 @@ llamaguard_violation_rate_max: 0.10
                 "mode": (
                     "github-attestation"
                 ),
-                "identity": (
-                    "repo:HKati/"
-                    "pulse-release-gates-0.1:"
-                    "workflow:external-eval"
-                ),
+                "identity": SIGNER_IDENTITY,
             },
             "result": {
                 "passed": True,
@@ -495,6 +577,20 @@ llamaguard_violation_rate_max: 0.10
                 "schema, identity, signer, and policy "
                 "validation."
             ),
+        },
+    )
+
+    bundle_path = (
+        repo
+        / "PULSE_safe_pack_v0/artifacts/"
+        "external/"
+        "llamaguard_summary.bundle.json"
+    )
+
+    _write_json(
+        bundle_path,
+        {
+            "synthetic": True,
         },
     )
 
@@ -537,14 +633,15 @@ llamaguard_violation_rate_max: 0.10
                 "mode": (
                     "github-attestation"
                 ),
-                "identity": (
-                    "repo:HKati/"
-                    "pulse-release-gates-0.1:"
-                    "workflow:external-eval"
-                ),
+                "identity": SIGNER_IDENTITY,
                 "issuer": (
                     "https://token.actions."
                     "githubusercontent.com"
+                ),
+                "bundle_uri": (
+                    "PULSE_safe_pack_v0/"
+                    "artifacts/external/"
+                    "llamaguard_summary.bundle.json"
                 ),
             },
             "verification": {
