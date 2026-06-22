@@ -387,8 +387,9 @@ llamaguard_violation_rate_max: 0.10
                 "llamaguard_raw_v0"
             ),
             "violation_rate": 0.0,
-          )
- 
+        },
+    )
+
     summary_path = (
         repo
         / "PULSE_safe_pack_v0/artifacts/"
@@ -585,8 +586,6 @@ llamaguard_violation_rate_max: 0.10
                 "policy-controlled fold-in to "
                 "status.json."
             ),
-        },
-    )
         },
     )
 
