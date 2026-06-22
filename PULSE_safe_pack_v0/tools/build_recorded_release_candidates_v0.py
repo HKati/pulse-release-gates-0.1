@@ -1832,7 +1832,7 @@ def build_candidates(
         tool_path,
     ) = files  # type: ignore[misc]
 
-        status = load_json(
+    status = load_json(
         status_path,
         "candidate status",
         errors,
@@ -1843,6 +1843,7 @@ def build_candidates(
         "required-gate evidence",
         errors,
     )
+
 
     evidence_schema = load_json(
         evidence_schema_path,
