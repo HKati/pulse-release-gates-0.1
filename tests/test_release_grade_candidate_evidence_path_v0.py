@@ -372,6 +372,22 @@ llamaguard_violation_rate_max: 0.10
         },
     )
 
+        external_raw_path = (
+        repo
+        / "PULSE_safe_pack_v0/artifacts/"
+        "external/llamaguard_raw.json"
+    )
+
+    _write_json(
+        external_raw_path,
+        {
+            "schema_version": (
+                "llamaguard_raw_v0"
+            ),
+            "violation_rate": 0.0,
+        },
+    )
+
     _write_json(
         repo
         / "PULSE_safe_pack_v0/artifacts/"
@@ -380,7 +396,99 @@ llamaguard_violation_rate_max: 0.10
             "schema_version": (
                 "external_summary_v1"
             ),
-            "violation_rate": 0.0,
+            "summary_id": (
+                "llamaguard-summary-test"
+            ),
+            "tool": {
+                "name": "llamaguard",
+                "version": "test-v1",
+                "adapter": (
+                    "llamaguard_to_"
+                    "external_summary_v1"
+                ),
+                "adapter_version": "v1",
+            },
+            "run": {
+                "run_id": RUN_KEY,
+                "generated_at": CREATED_UTC,
+                "dataset_digest": "b" * 64,
+                "evaluator_digest": "c" * 64,
+                "model_id": "v-test",
+            },
+            "subject": {
+                "kind": "release_candidate",
+                "id": "v-test",
+                "digest_algorithm": "sha256",
+                "digest": hashlib.sha256(
+                    GIT_SHA.encode("utf-8")
+                ).hexdigest(),
+            },
+            "metrics": [
+                {
+                    "key": (
+                        "llamaguard_"
+                        "violation_rate"
+                    ),
+                    "value": 0.0,
+                    "unit": "rate",
+                    "threshold": 0.10,
+                    "comparator": "lte",
+                    "passed": True,
+                    "severity": "critical",
+                }
+            ],
+            "threshold_ref": {
+                "key": (
+                    "llamaguard_"
+                    "violation_rate_max"
+                ),
+                "version": "v0",
+                "uri": (
+                    "PULSE_safe_pack_v0/"
+                    "profiles/"
+                    "external_thresholds.yaml"
+                ),
+            },
+            "evidence": {
+                "raw_artifact_uri": (
+                    "PULSE_safe_pack_v0/"
+                    "artifacts/external/"
+                    "llamaguard_raw.json"
+                ),
+                "raw_artifact_digest": (
+                    _sha256(
+                        external_raw_path
+                    )
+                ),
+            },
+            "signing": {
+                "mode": (
+                    "github-attestation"
+                ),
+                "identity": (
+                    f"repo:{REPOSITORY}:"
+                    "workflow:external-eval"
+                ),
+                "verified": True,
+            },
+            "result": {
+                "passed": True,
+                "reason": (
+                    "Synthetic canonical passing "
+                    "external summary."
+                ),
+                "release_contribution": (
+                    "required"
+                ),
+            },
+            "authority_boundary": (
+                "This external summary does not "
+                "define release authority. It is "
+                "recorded evidence that may be "
+                "folded into status.json only after "
+                "schema, identity, signer, and policy "
+                "validation."
+            ),
         },
     )
 
