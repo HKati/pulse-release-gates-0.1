@@ -118,6 +118,13 @@ allowed_identities:
           - advisory
           - diagnostic
 
+  external_review:
+    description: >
+      Placeholder namespace for later external verifier identities. Concrete
+      identities must be added before they can be used for release-grade fold-in.
+    identities: []
+
+tool_policies:
   llamaguard:
     release_grade_contribution_allowed: true
     allowed_identity_groups:
@@ -138,14 +145,6 @@ allowed_identities:
     require_subject_digest: true
     require_threshold_ref: true
 
-  
-  external_review:
-    description: >
-      Placeholder namespace for later external verifier identities. Concrete
-      identities must be added before they can be used for release-grade fold-in.
-    identities: []
-
-tool_policies:
   promptfoo:
     release_grade_contribution_allowed: true
     allowed_identity_groups:
