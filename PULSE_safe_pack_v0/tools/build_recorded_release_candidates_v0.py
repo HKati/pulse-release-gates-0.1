@@ -8,12 +8,13 @@ materialization:
   ``gates.required`` evidence,
 - ``required_gate_evidence_v0.json``,
 - ``refusal_delta_summary.json``, and
-- canonical external detector ``*_summary.json`` / ``*_summary.jsonl`` files.
+- canonical external detector ``*_summary.json`` files with verified
+  external-summary envelopes and cryptographic attestation bundles.
 
 It validates identity, policy/registry digests, schema contracts,
-required-gate coverage, refusal-delta evidence presence, and external detector
-threshold results and cryptographic external-summary attestations before
-writing candidate envelopes for
+required-gate coverage, refusal-delta evidence presence, external detector
+threshold results, signer policy, and cryptographic attestation verification
+before writing candidate envelopes for
 ``check_recorded_release_evidence_v0.py``.
 
 This tool does not materialize ``release_required`` gates, replace
@@ -85,6 +86,9 @@ EXTERNAL_SIGNER_POLICY_PATH = (
 EXTERNAL_ATTESTATION_TOOL = (
     "PULSE_safe_pack_v0/tools/"
     "check_external_summary_attestation_v1.py"
+)
+EXTERNAL_ATTESTATION_REPORT_SCHEMA = (
+    "external_summary_attestation_verifier_v1"
 )
 THRESHOLDS = "PULSE_safe_pack_v0/profiles/external_thresholds.yaml"
 REFUSAL = "PULSE_safe_pack_v0/artifacts/refusal_delta_summary.json"
@@ -893,6 +897,9 @@ class Context:
     registry_sha: str
     thresholds_sha: str
     tool_sha: str
+    external_summary_schema_sha: str
+    external_envelope_schema_sha: str
+    external_signer_policy_sha: str
     attestation_tool_sha: str
     required: list[str]
     release_required: list[str]
@@ -900,6 +907,369 @@ class Context:
     subject: dict[str, Any]
     status_sha: str
     evidence_sha: str
+
+
+@dataclass(frozen=True)
+class ExternalAttestationEvidence:
+    envelope_path: str
+    envelope_sha: str
+    bundle_path: str
+    bundle_sha: str
+    signer_identity: str
+    signer_workflow: str
+
+
+def _verified_external_report_path(
+    *,
+    ctx: Context,
+    raw_path: Any,
+    label: str,
+    expected_path: Path | None,
+    errors: list[str],
+) -> tuple[Path | None, str | None]:
+    if (
+        not isinstance(raw_path, str)
+        or not raw_path.strip()
+    ):
+        errors.append(
+            f"{label} must be a non-empty "
+            "repo-relative path"
+        )
+        return None, None
+
+    declared = Path(raw_path.strip())
+
+    if declared.is_absolute():
+        errors.append(
+            f"{label} must be repo-relative"
+        )
+        return None, None
+
+    resolved = (
+        ctx.repo / declared
+    ).resolve()
+
+    try:
+        resolved.relative_to(
+            ctx.external_dir.resolve()
+        )
+
+    except ValueError:
+        errors.append(
+            f"{label} must remain inside the "
+            "canonical external directory"
+        )
+        return None, None
+
+    if (
+        expected_path is not None
+        and resolved != expected_path.resolve()
+    ):
+        errors.append(
+            f"{label} does not match the "
+            "canonical expected path"
+        )
+        return None, None
+
+    if (
+        resolved.is_symlink()
+        or not resolved.is_file()
+    ):
+        errors.append(
+            f"{label} must identify a regular "
+            "non-symlink file"
+        )
+        return None, None
+
+    digest = sha256(
+        resolved,
+        label,
+        errors,
+    )
+
+    if digest is None:
+        return None, None
+
+    return resolved, digest
+
+
+def verify_external_attestation_for_candidate(
+    *,
+    ctx: Context,
+    summary_path: Path,
+    summary_digest: str,
+    detector_id: str,
+    errors: list[str],
+) -> ExternalAttestationEvidence | None:
+    label = f"external summary {detector_id}"
+
+    if summary_path.suffix.lower() != ".json":
+        errors.append(
+            f"{label} release-grade attestation "
+            "requires a canonical JSON summary"
+        )
+        return None
+
+    repository = ctx.subject.get(
+        "repository"
+    )
+    source_digest = ctx.subject.get(
+        "commit_sha"
+    )
+
+    if (
+        not isinstance(repository, str)
+        or not repository.strip()
+        or "/" not in repository
+    ):
+        errors.append(
+            f"{label} current repository identity "
+            "must use '<owner>/<repo>' form"
+        )
+        return None
+
+    if (
+        not isinstance(source_digest, str)
+        or not GIT_SHA_RE.fullmatch(
+            source_digest
+        )
+    ):
+        errors.append(
+            f"{label} current source digest must "
+            "be a concrete 40-hex git SHA"
+        )
+        return None
+
+    envelope_path = summary_path.with_name(
+        f"{summary_path.stem}.envelope.json"
+    )
+
+    try:
+        report = (
+            verify_external_summary_attestation(
+                repo_root=ctx.repo,
+                summary_path=summary_path,
+                envelope_path=envelope_path,
+                summary_schema_path=Path(
+                    EXTERNAL_SUMMARY_SCHEMA_PATH
+                ),
+                envelope_schema_path=Path(
+                    EXTERNAL_SUMMARY_ENVELOPE_SCHEMA_PATH
+                ),
+                signer_policy_path=Path(
+                    EXTERNAL_SIGNER_POLICY_PATH
+                ),
+                expected_repository=(
+                    repository.strip()
+                ),
+                expected_source_digest=(
+                    source_digest.lower()
+                ),
+            )
+        )
+
+    except Exception as exc:  # noqa: BLE001
+        errors.append(
+            f"{label} attestation verification "
+            f"could not be completed: {exc}"
+        )
+        return None
+
+    if not isinstance(report, dict):
+        errors.append(
+            f"{label} attestation verifier "
+            "must return a report object"
+        )
+        return None
+
+    if (
+        report.get("schema_version")
+        != EXTERNAL_ATTESTATION_REPORT_SCHEMA
+    ):
+        errors.append(
+            f"{label} attestation verifier report "
+            "schema_version mismatch"
+        )
+
+    report_errors = report.get("errors")
+
+    if not isinstance(report_errors, list):
+        errors.append(
+            f"{label} attestation verifier report "
+            "errors must be an array"
+        )
+    else:
+        errors.extend(
+            f"{label} attestation verification "
+            f"failed: {item}"
+            for item in report_errors
+        )
+
+    if report.get("status") != "verified":
+        errors.append(
+            f"{label} attestation verifier status "
+            "must be 'verified'"
+        )
+
+    summary_report = object_section(
+        report,
+        "summary",
+        f"{label} attestation report",
+        errors,
+    )
+    envelope_report = object_section(
+        report,
+        "envelope",
+        f"{label} attestation report",
+        errors,
+    )
+    signer_report = object_section(
+        report,
+        "signer",
+        f"{label} attestation report",
+        errors,
+    )
+    attestation_report = object_section(
+        report,
+        "attestation",
+        f"{label} attestation report",
+        errors,
+    )
+
+    summary_relative = relative(
+        ctx.repo,
+        summary_path,
+    )
+
+    if (
+        summary_report.get("path")
+        != summary_relative
+    ):
+        errors.append(
+            f"{label} attestation report summary "
+            "path mismatch"
+        )
+
+    if (
+        summary_report.get("sha256")
+        != summary_digest
+        or attestation_report.get(
+            "summary_sha256"
+        )
+        != summary_digest
+    ):
+        errors.append(
+            f"{label} attestation report summary "
+            "digest mismatch"
+        )
+
+    if (
+        attestation_report.get("backend")
+        != "gh-attestation"
+        or attestation_report.get("verified")
+        is not True
+    ):
+        errors.append(
+            f"{label} cryptographic attestation "
+            "must be verified by gh-attestation"
+        )
+
+    envelope_file, envelope_sha = (
+        _verified_external_report_path(
+            ctx=ctx,
+            raw_path=envelope_report.get("path"),
+            label=(
+                f"{label} verification envelope"
+            ),
+            expected_path=envelope_path,
+            errors=errors,
+        )
+    )
+
+    bundle_file, bundle_sha = (
+        _verified_external_report_path(
+            ctx=ctx,
+            raw_path=attestation_report.get(
+                "bundle_path"
+            ),
+            label=(
+                f"{label} attestation bundle"
+            ),
+            expected_path=None,
+            errors=errors,
+        )
+    )
+
+    if (
+        envelope_sha is not None
+        and envelope_report.get("sha256")
+        != envelope_sha
+    ):
+        errors.append(
+            f"{label} verification envelope "
+            "digest mismatch"
+        )
+
+    signer_identity = signer_report.get(
+        "identity"
+    )
+    signer_workflow = signer_report.get(
+        "signer_workflow"
+    )
+
+    if (
+        not isinstance(signer_identity, str)
+        or not signer_identity.strip()
+    ):
+        errors.append(
+            f"{label} verified signer identity "
+            "must be non-empty"
+        )
+
+    if (
+        not isinstance(signer_workflow, str)
+        or not signer_workflow.strip()
+    ):
+        errors.append(
+            f"{label} verified signer workflow "
+            "must be non-empty"
+        )
+
+    if (
+        signer_report.get("repository")
+        != repository.strip()
+        or signer_report.get("policy_path")
+        != EXTERNAL_SIGNER_POLICY_PATH
+    ):
+        errors.append(
+            f"{label} verified signer repository "
+            "or policy binding mismatch"
+        )
+
+    if errors:
+        return None
+
+    assert envelope_file is not None
+    assert envelope_sha is not None
+    assert bundle_file is not None
+    assert bundle_sha is not None
+    assert isinstance(signer_identity, str)
+    assert isinstance(signer_workflow, str)
+
+    return ExternalAttestationEvidence(
+        envelope_path=relative(
+            ctx.repo,
+            envelope_file,
+        ),
+        envelope_sha=envelope_sha,
+        bundle_path=relative(
+            ctx.repo,
+            bundle_file,
+        ),
+        bundle_sha=bundle_sha,
+        signer_identity=signer_identity.strip(),
+        signer_workflow=signer_workflow.strip(),
+    )
 
 
 def validate_external_summary_semantics(
@@ -1283,8 +1653,11 @@ def validate_base(
     policy_path: Path,
     registry_path: Path,
     thresholds_path: Path,
-    tool_path: Path,
+    external_summary_schema_path: Path,
+    external_envelope_schema_path: Path,
+    external_signer_policy_path: Path,
     attestation_tool_path: Path,
+    tool_path: Path,
     errors: list[str],
 ) -> Context | None:
     errors.extend(
@@ -1358,15 +1731,33 @@ def validate_base(
         errors,
     )
 
-    tool_sha = sha256(
-        tool_path,
-        "candidate builder",
+    external_summary_schema_sha = sha256(
+        external_summary_schema_path,
+        "external summary schema",
+        errors,
+    )
+
+    external_envelope_schema_sha = sha256(
+        external_envelope_schema_path,
+        "external summary envelope schema",
+        errors,
+    )
+
+    external_signer_policy_sha = sha256(
+        external_signer_policy_path,
+        "external signer policy",
         errors,
     )
 
     attestation_tool_sha = sha256(
         attestation_tool_path,
         "external attestation verifier",
+        errors,
+    )
+
+    tool_sha = sha256(
+        tool_path,
+        "candidate builder",
         errors,
     )
 
@@ -1737,8 +2128,11 @@ def validate_base(
             policy_sha,
             registry_sha,
             thresholds_sha,
-            tool_sha,
+            external_summary_schema_sha,
+            external_envelope_schema_sha,
+            external_signer_policy_sha,
             attestation_tool_sha,
+            tool_sha,
             status_sha,
             evidence_sha,
         )
@@ -1748,8 +2142,11 @@ def validate_base(
     assert policy_sha
     assert registry_sha
     assert thresholds_sha
-    assert tool_sha
+    assert external_summary_schema_sha
+    assert external_envelope_schema_sha
+    assert external_signer_policy_sha
     assert attestation_tool_sha
+    assert tool_sha
     assert status_sha
     assert evidence_sha
 
@@ -1763,7 +2160,18 @@ def validate_base(
         registry_sha=registry_sha,
         thresholds_sha=thresholds_sha,
         tool_sha=tool_sha,
-        attestation_tool_sha=attestation_tool_sha,
+        external_summary_schema_sha=(
+            external_summary_schema_sha
+        ),
+        external_envelope_schema_sha=(
+            external_envelope_schema_sha
+        ),
+        external_signer_policy_sha=(
+            external_signer_policy_sha
+        ),
+        attestation_tool_sha=(
+            attestation_tool_sha
+        ),
         required=required,
         release_required=release_required,
         run_identity=dict(run_identity),
@@ -1908,340 +2316,6 @@ def refusal_candidate(
     )
 
 
-def validate_external_summary_attestation(
-    *,
-    ctx: Context,
-    summary_path: Path,
-    summary_sha256: str,
-    errors: list[str],
-) -> dict[str, str] | None:
-    label = (
-        "external summary "
-        f"{summary_path.name}"
-    )
-
-    if summary_path.suffix.lower() != ".json":
-        errors.append(
-            f"{label} must use canonical JSON "
-            "for release-grade attestation"
-        )
-        return None
-
-    envelope_path = summary_path.with_name(
-        f"{summary_path.stem}.envelope.json"
-    )
-
-    repository = ctx.subject.get(
-        "repository"
-    )
-    commit_sha = ctx.subject.get(
-        "commit_sha"
-    )
-
-    if (
-        not isinstance(repository, str)
-        or not repository.strip()
-        or "/" not in repository
-    ):
-        errors.append(
-            f"{label} cannot be attested "
-            "without a canonical subject "
-            "repository"
-        )
-        return None
-
-    if (
-        not isinstance(commit_sha, str)
-        or not GIT_SHA_RE.fullmatch(
-            commit_sha
-        )
-    ):
-        errors.append(
-            f"{label} cannot be attested "
-            "without a concrete subject "
-            "commit SHA"
-        )
-        return None
-
-    try:
-        report = (
-            verify_external_summary_attestation(
-                repo_root=ctx.repo,
-                summary_path=summary_path,
-                envelope_path=envelope_path,
-                summary_schema_path=Path(
-                    EXTERNAL_SUMMARY_SCHEMA_PATH
-                ),
-                envelope_schema_path=Path(
-                    EXTERNAL_SUMMARY_ENVELOPE_SCHEMA_PATH
-                ),
-                signer_policy_path=Path(
-                    EXTERNAL_SIGNER_POLICY_PATH
-                ),
-                expected_repository=(
-                    repository.strip()
-                ),
-                expected_source_digest=(
-                    commit_sha.lower()
-                ),
-            )
-        )
-
-    except Exception as exc:  # noqa: BLE001
-        errors.append(
-            f"{label} attestation verification "
-            f"could not be completed: {exc}"
-        )
-        return None
-
-    if not isinstance(report, dict):
-        errors.append(
-            f"{label} attestation verifier "
-            "must return an object"
-        )
-        return None
-
-    report_errors = report.get(
-        "errors"
-    )
-
-    if not isinstance(report_errors, list):
-        errors.append(
-            f"{label} attestation verifier "
-            "errors must be an array"
-        )
-        report_errors = []
-
-    if (
-        report.get("status") != "verified"
-        or report_errors
-    ):
-        if report_errors:
-            errors.extend(
-                f"{label} attestation "
-                f"verification failed: {item}"
-                for item in report_errors
-            )
-        else:
-            errors.append(
-                f"{label} attestation "
-                "verification did not return "
-                "status='verified'"
-            )
-        return None
-
-    summary_report = report.get(
-        "summary"
-    )
-    envelope_report = report.get(
-        "envelope"
-    )
-    signer_report = report.get(
-        "signer"
-    )
-    attestation_report = report.get(
-        "attestation"
-    )
-
-    if not isinstance(summary_report, dict):
-        errors.append(
-            f"{label} attestation report."
-            "summary must be an object"
-        )
-        return None
-
-    if not isinstance(envelope_report, dict):
-        errors.append(
-            f"{label} attestation report."
-            "envelope must be an object"
-        )
-        return None
-
-    if not isinstance(signer_report, dict):
-        errors.append(
-            f"{label} attestation report."
-            "signer must be an object"
-        )
-        return None
-
-    if not isinstance(attestation_report, dict):
-        errors.append(
-            f"{label} attestation report."
-            "attestation must be an object"
-        )
-        return None
-
-    summary_relative = relative(
-        ctx.repo,
-        summary_path,
-    )
-    envelope_relative = relative(
-        ctx.repo,
-        envelope_path,
-    )
-
-    if (
-        summary_report.get("path")
-        != summary_relative
-    ):
-        errors.append(
-            f"{label} attestation report "
-            "summary path mismatch"
-        )
-
-    if (
-        summary_report.get("sha256")
-        != summary_sha256
-    ):
-        errors.append(
-            f"{label} attestation report "
-            "summary digest mismatch"
-        )
-
-    if (
-        envelope_report.get("path")
-        != envelope_relative
-    ):
-        errors.append(
-            f"{label} attestation report "
-            "envelope path mismatch"
-        )
-
-    envelope_sha256 = sha256(
-        envelope_path,
-        f"{label} verification envelope",
-        errors,
-    )
-
-    if (
-        envelope_sha256 is not None
-        and envelope_report.get("sha256")
-        != envelope_sha256
-    ):
-        errors.append(
-            f"{label} attestation report "
-            "envelope digest mismatch"
-        )
-
-    if (
-        attestation_report.get("verified")
-        is not True
-    ):
-        errors.append(
-            f"{label} cryptographic "
-            "attestation must be verified"
-        )
-
-    bundle_relative = attestation_report.get(
-        "bundle_path"
-    )
-
-    if (
-        not isinstance(bundle_relative, str)
-        or not bundle_relative.strip()
-    ):
-        errors.append(
-            f"{label} attestation report "
-            "bundle_path must be non-empty"
-        )
-        return None
-
-    bundle_path = (
-        ctx.repo
-        / bundle_relative.strip()
-    ).resolve()
-
-    try:
-        bundle_path.relative_to(
-            ctx.external_dir.resolve()
-        )
-
-    except ValueError:
-        errors.append(
-            f"{label} attestation bundle "
-            "must remain inside the canonical "
-            "external directory"
-        )
-        return None
-
-    bundle_sha256 = sha256(
-        bundle_path,
-        f"{label} attestation bundle",
-        errors,
-    )
-
-    signer_policy_path = (
-        ctx.repo
-        / EXTERNAL_SIGNER_POLICY_PATH
-    ).resolve()
-
-    signer_policy_sha256 = sha256(
-        signer_policy_path,
-        f"{label} signer policy",
-        errors,
-    )
-
-    envelope_schema_sha256 = sha256(
-        (
-            ctx.repo
-            / EXTERNAL_SUMMARY_ENVELOPE_SCHEMA_PATH
-        ).resolve(),
-        f"{label} envelope schema",
-        errors,
-    )
-
-    signer_identity = signer_report.get(
-        "identity"
-    )
-
-    if (
-        not isinstance(signer_identity, str)
-        or not signer_identity.strip()
-    ):
-        errors.append(
-            f"{label} verified signer "
-            "identity must be non-empty"
-        )
-
-    if errors or any(
-        value is None
-        for value in (
-            envelope_sha256,
-            bundle_sha256,
-            signer_policy_sha256,
-            envelope_schema_sha256,
-        )
-    ):
-        return None
-
-    assert envelope_sha256 is not None
-    assert bundle_sha256 is not None
-    assert signer_policy_sha256 is not None
-    assert envelope_schema_sha256 is not None
-    assert isinstance(signer_identity, str)
-
-    return {
-        "envelope_path": envelope_relative,
-        "envelope_sha256": (
-            envelope_sha256
-        ),
-        "bundle_path": relative(
-            ctx.repo,
-            bundle_path,
-        ),
-        "bundle_sha256": bundle_sha256,
-        "signer_policy_sha256": (
-            signer_policy_sha256
-        ),
-        "envelope_schema_sha256": (
-            envelope_schema_sha256
-        ),
-        "signer_identity": (
-            signer_identity.strip()
-        ),
-    }
-
-
 def external_candidates(
     ctx: Context,
     thresholds: dict[str, Any],
@@ -2354,8 +2428,8 @@ def external_candidates(
             local,
         )
 
-        attestation_binding: (
-            dict[str, str] | None
+        attestation: (
+            ExternalAttestationEvidence | None
         ) = None
 
         if (
@@ -2367,11 +2441,12 @@ def external_candidates(
             and digest is not None
             and not local
         ):
-            attestation_binding = (
-                validate_external_summary_attestation(
+            attestation = (
+                verify_external_attestation_for_candidate(
                     ctx=ctx,
                     summary_path=path,
-                    summary_sha256=digest,
+                    summary_digest=digest,
+                    detector_id=detector_id,
                     errors=local,
                 )
             )
@@ -2384,7 +2459,7 @@ def external_candidates(
             or source is None
             or raw_evidence_path is None
             or digest is None
-            or attestation_binding is None
+            or attestation is None
         ):
             errors.extend(local)
             continue
@@ -2396,23 +2471,6 @@ def external_candidates(
         summary_relative = relative(
             ctx.repo,
             path,
-        )
-
-        attestation_details = (
-            "Cryptographic GitHub attestation "
-            "verified for "
-            f"{summary_relative}; "
-            f"signer={attestation_binding['signer_identity']!r}; "
-            f"summary_sha256={digest}; "
-            "envelope_sha256="
-            f"{attestation_binding['envelope_sha256']}; "
-            "bundle_sha256="
-            f"{attestation_binding['bundle_sha256']}; "
-            "signer_policy_sha256="
-            f"{attestation_binding['signer_policy_sha256']}; "
-            "envelope_schema_sha256="
-            f"{attestation_binding['envelope_schema_sha256']}; "
-            f"source_digest={ctx.subject['commit_sha']}."
         )
 
         out[evidence_id] = envelope(
@@ -2442,19 +2500,19 @@ def external_candidates(
                     (
                         "pulse.recorded."
                         "external."
-                        f"{detector_id}.semantic.v0"
+                        f"{detector_id}.semantic.v1"
                     ),
                     "semantic",
                     (
-                        f"Canonical "
-                        f"{detector_id} metric "
-                        f"{source!r}={value} is "
-                        "current-run, subject, "
-                        "raw-evidence, result, "
-                        "and threshold bound "
-                        "under "
+                        f"Canonical {detector_id} "
+                        f"metric {source!r}={value} "
+                        "is current-run, subject, "
+                        "raw-evidence, result, and "
+                        "threshold bound under "
                         f"{config['threshold']}="
-                        f"{threshold}."
+                        f"{threshold}; "
+                        "summary_schema_sha256="
+                        f"{ctx.external_summary_schema_sha}."
                     ),
                     ctx.tool_sha,
                     [
@@ -2468,20 +2526,34 @@ def external_candidates(
                     (
                         "pulse.recorded."
                         "external."
-                        f"{detector_id}."
-                        "attestation.v1"
+                        f"{detector_id}.attestation.v1"
                     ),
                     "identity",
-                    attestation_details,
+                    (
+                        "Cryptographic GitHub "
+                        "attestation verified before "
+                        "release-grade fold-in; "
+                        "signer_identity="
+                        f"{attestation.signer_identity}; "
+                        "signer_workflow="
+                        f"{attestation.signer_workflow}; "
+                        "summary_sha256="
+                        f"{digest}; "
+                        "envelope_sha256="
+                        f"{attestation.envelope_sha}; "
+                        "bundle_sha256="
+                        f"{attestation.bundle_sha}; "
+                        "envelope_schema_sha256="
+                        f"{ctx.external_envelope_schema_sha}; "
+                        "signer_policy_sha256="
+                        f"{ctx.external_signer_policy_sha}."
+                    ),
                     ctx.attestation_tool_sha,
                     [
                         summary_relative,
-                        attestation_binding[
-                            "envelope_path"
-                        ],
-                        attestation_binding[
-                            "bundle_path"
-                        ],
+                        raw_evidence_path,
+                        attestation.envelope_path,
+                        attestation.bundle_path,
                         EXTERNAL_SUMMARY_SCHEMA_PATH,
                         (
                             EXTERNAL_SUMMARY_ENVELOPE_SCHEMA_PATH
@@ -2504,7 +2576,6 @@ def external_candidates(
         )
 
     return out
-
 
 def build_candidates(
     *,
@@ -2655,9 +2726,9 @@ def build_candidates(
         status_schema_path,
         envelope_schema_path,
         external_summary_schema_path,
-        external_summary_envelope_schema_path,
+        external_envelope_schema_path,
         external_signer_policy_path,
-        external_attestation_tool_path,
+        attestation_tool_path,
         policy_path,
         registry_path,
         thresholds_path,
@@ -2700,12 +2771,6 @@ def build_candidates(
         "external summary schema",
         errors,
     )
-
-    # These canonical paths are admitted above and consumed by the
-    # attestation verifier during external candidate construction.
-    assert external_summary_envelope_schema_path is not None
-    assert external_signer_policy_path is not None
-    assert external_attestation_tool_path is not None
 
     policy = load_yaml(
         policy_path,
@@ -2773,10 +2838,19 @@ def build_candidates(
         policy_path=policy_path,
         registry_path=registry_path,
         thresholds_path=thresholds_path,
-        tool_path=tool_path,
-        attestation_tool_path=(
-            external_attestation_tool_path
+        external_summary_schema_path=(
+            external_summary_schema_path
         ),
+        external_envelope_schema_path=(
+            external_envelope_schema_path
+        ),
+        external_signer_policy_path=(
+            external_signer_policy_path
+        ),
+        attestation_tool_path=(
+            attestation_tool_path
+        ),
+        tool_path=tool_path,
         errors=errors,
     )
 
