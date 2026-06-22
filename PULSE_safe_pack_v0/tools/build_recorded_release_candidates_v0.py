@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Build verifier-facing recorded-release candidate envelopes.
 
-The builder consumes current-run artifacts that exist before release-required 
+The builder consumes current-run artifacts that exist before release-required
 materialization:
 
 - a non-stubbed prod candidate ``status.json`` built from exact
@@ -78,6 +78,10 @@ INDEX = (
 )
 
 GIT_SHA_RE = re.compile(r"^[0-9a-f]{40}$")
+SHA256_RE = re.compile(
+    r"^[0-9a-f]{64}$",
+    re.IGNORECASE,
+)
 GATE_ID_RE = re.compile(r"^[a-z][a-z0-9_]*$")
 
 SUPPORTED_RELEASE_REQUIRED = {
@@ -875,6 +879,371 @@ class Context:
     evidence_sha: str
 
 
+def validate_external_summary_semantics(
+    *,
+    ctx: Context,
+    payload: dict[str, Any],
+    summary_path: Path,
+    detector_id: str,
+    config: dict[str, Any],
+    threshold: float,
+    errors: list[str],
+) -> tuple[
+    float | None,
+    str | None,
+    str | None,
+]:
+    label = f"external summary {detector_id}"
+    tool = object_section(
+        payload,
+        "tool",
+        label,
+        errors,
+    )
+    run = object_section(
+        payload,
+        "run",
+        label,
+        errors,
+    )
+    subject = object_section(
+        payload,
+        "subject",
+        label,
+        errors,
+    )
+    threshold_ref = object_section(
+        payload,
+        "threshold_ref",
+        label,
+        errors,
+    )
+    evidence = object_section(
+        payload,
+        "evidence",
+        label,
+        errors,
+    )
+    result = object_section(
+        payload,
+        "result",
+        label,
+        errors,
+    )
+
+    if tool.get("name") != detector_id:
+        errors.append(
+            f"{label}.tool.name must be "
+            f"{detector_id!r}"
+        )
+
+    if (
+        run.get("run_id")
+        != ctx.run_identity.get("run_key")
+    ):
+        errors.append(
+            f"{label}.run.run_id must match "
+            "the current PULSE run_key"
+        )
+
+    for digest_field in (
+        "dataset_digest",
+        "evaluator_digest",
+    ):
+        digest_value = run.get(digest_field)
+
+        if (
+            not isinstance(digest_value, str)
+            or not SHA256_RE.fullmatch(
+                digest_value
+            )
+        ):
+            errors.append(
+                f"{label}.run.{digest_field} "
+                "must be a 64-hex SHA-256"
+            )
+
+    release_candidate = ctx.subject.get(
+        "release_candidate"
+    )
+
+    if (
+        not isinstance(release_candidate, str)
+        or not release_candidate.strip()
+    ):
+        errors.append(
+            "required-gate evidence subject."
+            "release_candidate must be non-empty"
+        )
+    else:
+        if run.get("model_id") != release_candidate:
+            errors.append(
+                f"{label}.run.model_id must match "
+                "the current release candidate"
+            )
+
+        if subject.get("kind") != "release_candidate":
+            errors.append(
+                f"{label}.subject.kind must be "
+                "'release_candidate'"
+            )
+
+        if subject.get("id") != release_candidate:
+            errors.append(
+                f"{label}.subject.id must match "
+                "the current release candidate"
+            )
+
+    commit_sha = ctx.subject.get("commit_sha")
+
+    if (
+        not isinstance(commit_sha, str)
+        or not GIT_SHA_RE.fullmatch(commit_sha)
+    ):
+        errors.append(
+            "required-gate evidence subject."
+            "commit_sha must be a concrete "
+            "40-hex SHA"
+        )
+    else:
+        expected_subject_digest = (
+            hashlib.sha256(
+                commit_sha.encode("utf-8")
+            ).hexdigest()
+        )
+
+        supplied_subject_digest = subject.get(
+            "digest"
+        )
+
+        if (
+            subject.get("digest_algorithm")
+            != "sha256"
+            or not isinstance(
+                supplied_subject_digest,
+                str,
+            )
+            or supplied_subject_digest.lower()
+            != expected_subject_digest
+        ):
+            errors.append(
+                f"{label}.subject digest must bind "
+                "to the current commit SHA"
+            )
+
+    if (
+        threshold_ref.get("key")
+        != config["threshold"]
+    ):
+        errors.append(
+            f"{label}.threshold_ref.key must be "
+            f"{config['threshold']!r}"
+        )
+
+    if threshold_ref.get("uri") != THRESHOLDS:
+        errors.append(
+            f"{label}.threshold_ref.uri must be "
+            f"{THRESHOLDS!r}"
+        )
+
+    value, source = external_metric(
+        payload,
+        config["preferred"],
+        config["metric"],
+        label,
+        errors,
+    )
+
+    metrics = payload.get("metrics")
+
+    if isinstance(metrics, list):
+        for index, item in enumerate(metrics):
+            if (
+                isinstance(item, dict)
+                and item.get("passed") is not True
+            ):
+                errors.append(
+                    f"{label}.metrics[{index}].passed "
+                    "must be literal true for "
+                    "release-grade fold-in"
+                )
+
+        matching_metrics = [
+            item
+            for item in metrics
+            if (
+                isinstance(item, dict)
+                and item.get("key")
+                == config["metric"]
+            )
+        ]
+    else:
+        matching_metrics = []
+
+    if len(matching_metrics) == 1:
+        metric = matching_metrics[0]
+
+        declared_threshold = number(
+            metric.get("threshold"),
+            f"{label}.metric.threshold",
+            errors,
+        )
+
+        if (
+            declared_threshold is not None
+            and declared_threshold != threshold
+        ):
+            errors.append(
+                f"{label}.metric.threshold must "
+                "match the canonical threshold"
+            )
+
+        if metric.get("comparator") != "lte":
+            errors.append(
+                f"{label}.metric.comparator must "
+                "be 'lte'"
+            )
+
+    if (
+        value is not None
+        and value > threshold
+    ):
+        errors.append(
+            f"{label} value {value} exceeds "
+            f"threshold {threshold}"
+        )
+
+    if result.get("passed") is not True:
+        errors.append(
+            f"{label}.result.passed must be "
+            "literal true"
+        )
+
+    if (
+        result.get("release_contribution")
+        != "required"
+    ):
+        errors.append(
+            f"{label}.result.release_contribution "
+            "must be 'required'"
+        )
+
+    raw_uri = evidence.get(
+        "raw_artifact_uri"
+    )
+
+    raw_relative: str | None = None
+
+    if (
+        not isinstance(raw_uri, str)
+        or not raw_uri.strip()
+    ):
+        errors.append(
+            f"{label}.evidence.raw_artifact_uri "
+            "must be non-empty"
+        )
+
+        return value, source, None
+
+    raw_declared_path = Path(
+        raw_uri.strip()
+    )
+
+    if raw_declared_path.is_absolute():
+        errors.append(
+            f"{label}.evidence.raw_artifact_uri "
+            "must be repo-relative"
+        )
+
+        return value, source, None
+
+    raw_path = ctx.repo / raw_declared_path
+    resolved_raw_path = raw_path.resolve()
+
+    try:
+        resolved_raw_path.relative_to(
+            ctx.external_dir.resolve()
+        )
+
+    except ValueError:
+        errors.append(
+            f"{label}.evidence.raw_artifact_uri "
+            "must remain inside the canonical "
+            "external directory"
+        )
+
+        return value, source, None
+
+    if (
+        raw_path.is_symlink()
+        or not raw_path.is_file()
+    ):
+        errors.append(
+            f"{label} raw evidence must be a "
+            "regular non-symlink file"
+        )
+
+        return value, source, None
+
+    if (
+        resolved_raw_path
+        == summary_path.resolve()
+    ):
+        errors.append(
+            f"{label} raw evidence must not be "
+            "the summary itself"
+        )
+
+        return value, source, None
+
+    raw_digest = sha256(
+        raw_path,
+        f"{label} raw evidence",
+        errors,
+    )
+
+    declared_raw_digest = evidence.get(
+        "raw_artifact_digest"
+    )
+
+    if (
+        not isinstance(
+            declared_raw_digest,
+            str,
+        )
+        or not SHA256_RE.fullmatch(
+            declared_raw_digest
+        )
+    ):
+        errors.append(
+            f"{label}.evidence."
+            "raw_artifact_digest must be a "
+            "64-hex SHA-256"
+        )
+
+    elif (
+        raw_digest is not None
+        and declared_raw_digest.lower()
+        != raw_digest
+    ):
+        errors.append(
+            f"{label} raw evidence "
+            "digest mismatch"
+        )
+
+    if raw_digest is not None:
+        raw_relative = relative(
+            ctx.repo,
+            raw_path,
+        )
+
+    return (
+        value,
+        source,
+        raw_relative,
+    )
+
+
 def validate_base(
     *,
     repo: Path,
@@ -1526,6 +1895,7 @@ def external_candidates(
             "'all' for the v0 per-summary "
             "candidate path"
         )
+
         return {}
 
     out: dict[str, dict[str, Any]] = {}
@@ -1544,9 +1914,11 @@ def external_candidates(
 
         if len(existing) > 1:
             errors.append(
-                f"external detector {detector_id!r} "
-                "has both JSON and JSONL summaries"
+                f"external detector "
+                f"{detector_id!r} has both "
+                "JSON and JSONL summaries"
             )
+
             continue
 
         if not existing:
@@ -1588,31 +1960,25 @@ def external_candidates(
 
         value: float | None = None
         source: str | None = None
+        raw_evidence_path: str | None = None
 
         if (
             payload is not None
+            and threshold is not None
             and not local
         ):
-            value, source = external_metric(
-                payload,
-                config["preferred"],
-                config["metric"],
-                (
-                    "external summary "
-                    f"{detector_id}"
-                ),
-                local,
-            )
-
-        if (
-            value is not None
-            and threshold is not None
-            and value > threshold
-        ):
-            local.append(
-                "external summary "
-                f"{detector_id} value {value} "
-                f"exceeds threshold {threshold}"
+            (
+                value,
+                source,
+                raw_evidence_path,
+            ) = validate_external_summary_semantics(
+                ctx=ctx,
+                payload=payload,
+                summary_path=path,
+                detector_id=detector_id,
+                config=config,
+                threshold=threshold,
+                errors=local,
             )
 
         digest = sha256(
@@ -1626,6 +1992,8 @@ def external_candidates(
             or payload is None
             or threshold is None
             or value is None
+            or source is None
+            or raw_evidence_path is None
             or digest is None
         ):
             errors.extend(local)
@@ -1635,28 +2003,28 @@ def external_candidates(
             f"external_{detector_id}"
         )
 
+        summary_relative = relative(
+            ctx.repo,
+            path,
+        )
+
         out[evidence_id] = envelope(
             evidence_id=evidence_id,
-            evidence_kind="external_summary",
+            evidence_kind=(
+                "external_summary"
+            ),
             run_identity=ctx.run_identity,
             policy_sha=ctx.policy_sha,
             registry_sha=ctx.registry_sha,
             tool_sha=ctx.tool_sha,
-            raw_path=relative(
-                ctx.repo,
-                path,
-            ),
+            raw_path=summary_relative,
             raw_sha=digest,
             raw_kind=(
-                f"external_summary_{detector_id}"
+                "external_summary_"
+                f"{detector_id}"
             ),
             raw_schema=(
-                payload.get("schema_version")
-                if isinstance(
-                    payload.get("schema_version"),
-                    str,
-                )
-                else None
+                EXTERNAL_SUMMARY_SCHEMA
             ),
             gates=[
                 "external_summaries_present",
@@ -1665,23 +2033,26 @@ def external_candidates(
             checks=[
                 validation_check(
                     (
-                        "pulse.recorded.external."
+                        "pulse.recorded."
+                        "external."
                         f"{detector_id}.v0"
                     ),
                     "semantic",
                     (
-                        f"Canonical {detector_id} "
-                        f"metric {source!r}={value} "
-                        "is within "
+                        f"Canonical "
+                        f"{detector_id} metric "
+                        f"{source!r}={value} is "
+                        "current-run, subject, "
+                        "raw-evidence, result, "
+                        "and threshold bound "
+                        "under "
                         f"{config['threshold']}="
                         f"{threshold}."
                     ),
                     ctx.tool_sha,
                     [
-                        relative(
-                            ctx.repo,
-                            path,
-                        ),
+                        summary_relative,
+                        raw_evidence_path,
                         THRESHOLDS,
                     ],
                 )
@@ -1843,7 +2214,6 @@ def build_candidates(
         "required-gate evidence",
         errors,
     )
-
 
     evidence_schema = load_json(
         evidence_schema_path,
