@@ -13,7 +13,7 @@ recorded current-run release evidence
 → canonical verifier replay
 → policy-derived release-required gate materialization
 → final status.json
-→ strict check_gates.py enforcement
+→ strict enforcement by PULSE_safe_pack_v0/tools/check_gates.py
 → primary CI allow/block release decision
 ```
 
@@ -55,7 +55,7 @@ recorded release evidence
 → status.json
 → declared gate policy
 → workflow-effective materialized required gate set
-→ check_gates.py
+→ PULSE_safe_pack_v0/tools/check_gates.py
 → primary CI allow/block release decision
 ```
 
@@ -102,7 +102,7 @@ release authority.
   ```
 
 
-Release authority in PULSE is a materialized evidence state: recorded release evidence is bound to `status.json`, declared gate policy, materialized required gates, and strict fail-closed CI gate enforcement before the declared-policy CI outcome becomes the release decision.
+Release authority in PULSE is a connected, materialized evidence state. Recorded current-run release evidence is bound to `status.json`, declared gate policy, the workflow-effective materialized required gate set, `PULSE_safe_pack_v0/tools/check_gates.py`, and the primary CI workflow before an allow/block release decision can exist.
 
 PULSE is an artifact-bound release-authority system for AI applications and AI-enabled systems.
 
@@ -110,20 +110,33 @@ The evidence-producing surfaces for PULSE include AI applications, model behavio
 
 These surfaces produce, record, or render candidate release evidence: behavior records, scores, summaries, traces, reviews, CI records, and stability signals.
 
-PULSE materializes recorded candidate release evidence into artifact-bound release-authority state before deployment, under declared policy and materialized required gates.
+PULSE materializes recorded current-run release evidence into artifact-bound release state before deployment.
 
-Release permission is produced by the complete materialization path: recorded evidence, machine-readable release state, declared policy, materialized required gates, and strict fail-closed CI enforcement.
+The release-required materializer admits only verifier-bound, policy-derived gate state. It does not independently decide release.
 
-The declared-policy CI outcome is the recorded terminal enforcement result of that materialization path.
+Release permission is produced only by the complete connected path:
+
+```text
+recorded release evidence
+→ final status.json
+→ declared gate policy
+→ workflow-effective materialized required gate set
+→ PULSE_safe_pack_v0/tools/check_gates.py
+→ primary CI allow/block release decision
+```
+
+The declared-policy primary CI outcome is the recorded terminal enforcement result of that path.
 
 PULSE fills the structural gap between probabilistic AI behavior and deterministic software release permission.
 
 The transition handled by PULSE is:
 
-probabilistic AI behavior  
-→ recorded candidate release evidence  
-→ artifact-bound release-authority state  
+```text
+probabilistic AI behavior
+→ recorded candidate release evidence
+→ artifact-bound release-authority state
 → deterministic software release permission
+```
 
 PULSEmech is the mechanism: an artifact-bound, policy-declared, gate-materialized, CI-enforced evidence-to-decision path.
 
@@ -131,51 +144,60 @@ PULSEmech converts recorded release evidence into deterministic, fail-closed CI 
 
 ## PULSEmech release-authority materialization map
 
-[![PULSEmech release-authority materialization map: recorded evidence, declared policy, materialized required gates, strict fail-closed CI enforcement, traceability, and release output.](hero_pulsemech_architecture_map_v0_1.svg)](docs/PULSEMECH_ARCHITECTURE_MAP_v0_1.md)
+[![PULSEmech release-authority materialization map: recorded evidence, declared policy, workflow-effective materialized required gates, strict fail-closed enforcement, traceability, and release output.](hero_pulsemech_architecture_map_v0_1.svg)](docs/PULSEMECH_ARCHITECTURE_MAP_v0_1.md)
 
 ## Mechanical identity
 
-PULSE release-authority identity is defined by the PULSEmech deterministic decision tuple:
+PULSE release-authority identity is defined by the complete PULSEmech deterministic decision tuple:
 
-    (recorded release evidence,
-     status.json,
-     declared gate policy,
-     materialized required gate set,
-     strict fail-closed CI checking)
-    → CI allow/block release decision
+```text
+(recorded release evidence,
+ final status.json,
+ declared gate policy,
+ workflow-effective materialized required gate set,
+ PULSE_safe_pack_v0/tools/check_gates.py,
+ primary CI workflow)
+→ primary CI allow/block release decision
+```
 
 ## Normative decision path
 
 | Step | Release-authority role |
 |---|---|
-| recorded release evidence | Safety, quality, detector, stability, CI, and review evidence recorded before deployment |
-| `status.json` | Machine-readable release-state artifact for recorded release state |
-| declared gate policy | Policy artifact defining the required gates for the selected release lane |
-| materialized required gate set | Concrete required gate set derived from declared policy |
-| strict fail-closed CI checking | True-only CI enforcement over the materialized required gate set |
-| CI allow/block release decision | Deterministic release decision emitted by CI |
+| recorded current-run release evidence | Safety, quality, detector, stability, CI, and review evidence recorded before deployment |
+| final `status.json` | Machine-readable release-state artifact bound to the recorded run |
+| declared gate policy | Policy artifact defining gate requirements for the selected release lane |
+| workflow-effective materialized required gate set | Exact required gate set derived and activated by the current workflow lane |
+| `PULSE_safe_pack_v0/tools/check_gates.py` | Literal-true, strict fail-closed enforcement over the exact workflow-effective gate set |
+| primary CI workflow | Executes the canonical enforcement path and carries its result |
+| primary CI allow/block release decision | Deterministic release-boundary result |
 
 PULSEmech evaluates release evidence before deployment.
 
-Recorded release evidence becomes machine-readable release state through `status.json`.
+Recorded release evidence becomes machine-readable release state through the final `status.json`.
 Declared gate policy defines the required gates for the selected release lane.
-The required gate set is materialized from policy.
-CI enforces the materialized required gate set through strict, true-only, fail-closed checking.
 
-The declared-policy gate-enforcement CI outcome is the release decision.
+The primary workflow derives the exact workflow-effective required gate set.
+
+`PULSE_safe_pack_v0/tools/check_gates.py` requires every gate in that exact set to be present and literal `true`.
+
+The resulting primary CI allow/block outcome is the release decision.
 
 ## Pre-materialization mechanics
 
 PULSE is pre-materialization gate mechanics for release authority: required evidence must materialize before release-grade validation, while unsupported authority must not materialize as a release decision.
 
-This is a non-normative explanatory anchor for the release-authority boundary. The normative release decision remains the PULSEmech path above:
+This is a non-normative explanatory anchor for the release-authority boundary.
+The normative release decision remains:
 
+```text
 recorded release evidence
-→ `status.json`
+→ final status.json
 → declared gate policy
-→ materialized required gate set
-→ strict fail-closed CI checking
-→ CI allow/block release decision
+→ workflow-effective materialized required gate set
+→ PULSE_safe_pack_v0/tools/check_gates.py
+→ primary CI allow/block release decision
+```
 
 See [`docs/PULSE_PRE_MATERIALIZATION_GATE_MECHANICS_v0.md`](docs/PULSE_PRE_MATERIALIZATION_GATE_MECHANICS_v0.md).
 
@@ -192,16 +214,16 @@ See [`docs/PULSE_PRE_MATERIALIZATION_GATE_MECHANICS_v0.md`](docs/PULSE_PRE_MATER
 
 | Surface / artifact | Mechanical role | Authority boundary |
 |---|---|---|
-| PULSEmech decision tuple | Defines the release-authority mechanism | Authority mechanism |
-| `status.json` | Machine-readable release-state artifact for the recorded run | Normative input carrier |
-| Declared gate policy | Defines the selected lane gate requirements | Normative policy carrier |
-| Materialized required gate set | Concrete required gate set enforced by CI | Normative gate-set carrier |
-| `check_gates.py` / CI enforcement | Strict true-only fail-closed gate enforcement | Enforcement carrier |
+| PULSEmech decision tuple | Defines the connected release-authority mechanism | Authority mechanism |
+| final `status.json` | Machine-readable release-state artifact bound to the recorded run | Normative state carrier |
+| declared gate policy | Defines the selected lane gate requirements | Normative policy carrier |
+| workflow-effective materialized required gate set | Exact required gate set activated and enforced by the primary workflow | Normative gate-set carrier |
+| `PULSE_safe_pack_v0/tools/check_gates.py` and primary CI enforcement | Strict literal-true, fail-closed enforcement | Enforcement carrier |
 | Quality Ledger | Reader carrier for recorded release-state artifacts, traceability fields, gate outcomes, and reader-visible evidence state | Non-authorizing carrier |
-| Release authority manifest | Trace carrier for release-authority reconstruction and review | No independent decision function |
-| Audit bundle | Audit / preservation carrier for reconstructable release evidence and decision artifacts | Non-authorizing carrier |
-| Dashboards, badges, Pages | Publication / reader carriers derived from recorded release-state artifacts | Derived carriers only |
-| Diagnostic and shadow outputs | Diagnostic / shadow carriers for candidate evidence signals and review state | Authority participation requires recorded evidence inclusion and required-gate enforcement under declared policy |
+| release authority manifest | Trace carrier for release-authority reconstruction and review | No independent decision function |
+| audit bundle | Audit and preservation carrier for reconstructable release evidence and decision artifacts | Non-authorizing carrier |
+| dashboards, badges, and Pages | Publication and reader carriers derived from recorded release-state artifacts | Derived carriers only |
+| diagnostic and shadow outputs | Candidate evidence, observation, or review surfaces | May participate only after recorded-evidence admission and workflow-effective required-gate enforcement under declared policy |
 
 ### Reviewable mechanics boundary
 
@@ -225,7 +247,7 @@ PULSE acts at the release boundary, before deployment.
 
 | Authority boundary | Operational boundary | Normative decision basis | Decision |
 |---|---|---|---|
-| PULSE / PULSEmech | Release boundary, before deployment | Recorded release evidence + `status.json` + declared gate policy + materialized required gate set + strict fail-closed CI enforcement | Declared-policy CI allow/block release decision |
+| PULSE / PULSEmech | Release boundary, before deployment | Recorded release evidence + final `status.json` + declared gate policy + workflow-effective materialized required gate set + `PULSE_safe_pack_v0/tools/check_gates.py` + primary CI workflow | Primary CI allow/block release decision |
 | Runtime guardrails | Live interaction boundary, during use | Individual prompt, output, or tool-call state | Interaction-level allow, block, rewrite, route, or refuse |
 
 ## Public reader surfaces
@@ -242,7 +264,7 @@ recorded release evidence
 → status.json
 → declared gate policy
 → workflow-effective materialized required gate set
-→ check_gates.py
+→ PULSE_safe_pack_v0/tools/check_gates.py
 → primary CI allow/block release decision
 ```
 
@@ -262,8 +284,8 @@ The first completed public non-stubbed release-grade run record is still pending
 
 Reference documents:
 
-- `docs/release_grade_reference_run_v0.md`
-- `docs/RELEASE_GRADE_REFERENCE_RUN_NOTE_v0.md`
+- `docs/release_grade_reference_run_v0.md` — current definition and implementation-state reference
+- `docs/RELEASE_GRADE_REFERENCE_RUN_NOTE_v0.md` — pending template; not a completed run record
 
 The reference-run documents and artifact package preserve review, provenance, and reconstruction state.
 
@@ -276,7 +298,7 @@ recorded release evidence
 → status.json
 → declared gate policy
 → workflow-effective materialized required gate set
-→ check_gates.py
+→ PULSE_safe_pack_v0/tools/check_gates.py
 → primary CI allow/block release decision
 ```
 
@@ -336,7 +358,7 @@ recorded release evidence
 → status.json
 → declared gate policy
 → workflow-effective materialized required gate set
-→ check_gates.py
+→ PULSE_safe_pack_v0/tools/check_gates.py
 → primary CI allow/block release decision
 ```
 
@@ -385,8 +407,8 @@ Choose the path that matches the release-authority question you need to answer.
   evidence-admission, reader-surface, traceability, reproducibility,
   supply-chain, adoption, candidate-policy, or roadmap routes.
 
-- **Release authority / source-of-truth path** → [`docs/STATUS_CONTRACT.md`](docs/STATUS_CONTRACT.md) and [`docs/status_json.md`](docs/status_json.md)  
-  Read these first to understand how recorded evidence, status contracts, declared gate policy, materialized required gate sets, and strict CI enforcement define PULSE release authority.
+- **Release authority / source-of-truth path** → [`docs/STATUS_CONTRACT.md`](docs/STATUS_CONTRACT.md) and [`docs/status_json.md`](docs/status_json.md)
+- Read these first to understand how recorded evidence, status contracts, declared gate policy, the workflow-effective materialized required gate set, strict enforcement by `PULSE_safe_pack_v0/tools/check_gates.py`, and the primary CI workflow define PULSE release authority.
 
 - **External evidence integration path** → [`docs/EXTERNAL_DETECTORS.md`](docs/EXTERNAL_DETECTORS.md) and [`docs/external_detector_summaries.md`](docs/external_detector_summaries.md)  
   Use these when external detector summaries must be recorded, validated, and folded into the release evidence surface before they can be enforced as required gates under declared policy.
@@ -426,7 +448,7 @@ Before opening `.github/workflows/`, keep this authority split in mind.
   - These publish or render release evidence and should remain separate opt-in workflows with explicit write permissions.
 
 Rule:
-release authority is carried by the declared-policy gate-enforcement path and its materialized required gate set. Shadow, diagnostic, and publication workflows preserve their declared authority status unless explicitly promoted into the required gate set.
+release authority is carried only by recorded release evidence, the final `status.json`, declared gate policy, the workflow-effective materialized required gate set, `PULSE_safe_pack_v0/tools/check_gates.py`, and the primary CI workflow. Shadow, diagnostic, and publication workflows remain non-authoritative unless their evidence is explicitly admitted and enforced through that complete path.
 
 See also:  [`docs/WORKFLOW_MAP.md`](docs/WORKFLOW_MAP.md)
 
@@ -461,20 +483,20 @@ recorded release evidence
 + final status.json
 + declared gate policy
 + workflow-effective materialized required gate set
-+ check_gates.py
++ PULSE_safe_pack_v0/tools/check_gates.py
 + primary CI workflow
-= CI allow/block release decision
+= primary CI allow/block release decision
 ```
 
-No individual artifact, report, verifier result, dashboard, reader surface, or green execution state is release authority by itself.
+No individual artifact, report, verifier result, dashboard, reader surface, approval, or green execution state is release authority by itself.
 
 **Diagnostic surfaces (CI-neutral by default):**
 
-Paradox, EPF, topology, G-field, hazard, drift, dashboard, notebook, Pages, and related overlays are diagnostic or reader surfaces unless their evidence is explicitly admitted into recorded release state and enforced through the declared-policy required gate path.
+Paradox, EPF, topology, G-field, hazard, drift, dashboard, notebook, Pages, and related overlays are diagnostic or reader surfaces unless their evidence is explicitly admitted into recorded release state and enforced through the workflow-effective materialized required gate set.
 
 **Normative vs diagnostic — do not mix:**
 
-- **Normative** = participates in declared policy, workflow-effective materialized required gates, and strict fail-closed `check_gates.py` enforcement.
+- **Normative** = participates in recorded release state, declared policy, the workflow-effective materialized required gate set, strict fail-closed enforcement by `PULSE_safe_pack_v0/tools/check_gates.py`, and the primary CI workflow.
 - **Diagnostic** = observes, explains, preserves, or renders evidence without independently changing the release decision.
 
 Rule: missing, malformed, unknown, unverified, or non-boolean required evidence must never be silently reinterpreted as `PASS`.
@@ -674,30 +696,41 @@ Release gates are the deterministic enforcement mechanism inside the broader PUL
 
 ## Release evidence evaluated by PULSE
 
-PULSE evaluates release evidence under declared policy. In Core and release-grade paths, evidence is normalized into `status.json`, checked against registered gate semantics, and enforced through the required gate set.
+PULSE evaluates release evidence under declared policy.
+
+In Core and release-grade paths, evidence is recorded into `status.json`, interpreted under registered gate semantics, and enforced through the workflow-effective materialized required gate set by `PULSE_safe_pack_v0/tools/check_gates.py` in the primary CI workflow.
 
 **Safety and consistency invariants (I₂–I₇)** — deterministic PASS/FAIL evidence:
-- Monotonicity (incl. shift-resilience)
-- Commutativity (incl. shift-resilience)
-- Sanitization effectiveness (incl. shift-resilience)
-- Action-monotonicity, Idempotence, Path-independence
+- Monotonicity, including shift resilience
+- Commutativity, including shift resilience
+- Sanitization effectiveness, including shift resilience
+- Action monotonicity, idempotence, and path independence
 - PII-leak monotonicity
 
 **Quality gates (Q₁–Q₄)** — product-facing release evidence:
-- Q₁ **Groundedness** (RAG factuality)
-- Q₂ **Consistency** (answer agreement)
-- Q₃ **Fairness** (parity / equalized odds)
-- Q₄ **SLOs** (p95 latency & cost budgets)
+- Q₁ **Groundedness** — RAG factuality
+- Q₂ **Consistency** — answer agreement
+- Q₃ **Fairness** — parity and equalized odds
+- Q₄ **SLOs** — p95 latency and mean-cost evidence
 
-**Release-decision outputs**
-- **Quality Ledger** — human-readable release decision surface. The Quality Ledger is a reader-facing surface. It may expose release-decision state for review, but it does not compute, replace, or override the artifact-bound release-authority path.
-- **RDSI** — Release Decision Stability Index with deltas / confidence intervals where available
-- **CI artifacts** — `status.json`, report card, JUnit, SARIF, badges, and registered diagnostic artifacts
+**Release-state outputs**
 
-## Decision levels
+- **Quality Ledger** — human-readable reader surface for recorded release state. It may expose gate outcomes and decision context for review, but it does not compute, replace, authorize, or override the artifact-bound release-authority path.
+- **RDSI** — Release Decision Stability Index with deltas or confidence intervals where available. It remains diagnostic unless explicitly admitted through declared policy.
+- **CI artifacts** — `status.json`, report card, JUnit, SARIF, badges, and registered diagnostic artifacts. Artifact publication does not independently create release authority.
 
-**FAIL** (pipeline blocked) • **STAGE-PASS** (staging release) • **PROD-PASS** (production deploy allowed).  
-Break‑glass overrides require justification; the justification is recorded in the Quality Ledger.
+## Release decision outcome
+
+The normative release-boundary result is binary:
+
+- **Block** — one or more gates in the workflow-effective materialized required gate set are missing, malformed, non-boolean, or not literal `true`.
+- **Allow** — every gate in the workflow-effective materialized required gate set is present and literal `true` under strict `PULSE_safe_pack_v0/tools/check_gates.py` enforcement in the primary CI workflow.
+
+`STAGE-PASS` and `PROD-PASS` are not normative PULSE release outcomes.
+
+There is no independent break-glass release-authority path in this model.
+
+A Quality Ledger entry may preserve review context or justification, but it cannot authorize or override the primary CI allow/block release decision.
 
 
 ## Determinism (caveats)
@@ -967,7 +1000,7 @@ It:
 - runs `PULSE_safe_pack_v0/tools/run_all.py` (when available) to generate
   the baseline `PULSE_safe_pack_v0/artifacts/status.json`,
 - copies this into a local `status.json` for the experiment,
-- runs `check_gates.py` twice from the same baseline:
+  - runs `PULSE_safe_pack_v0/tools/check_gates.py` twice from the same baseline:
   - deterministic baseline → `status_baseline.json`,
   - EPF shadow → `status_epf.json`,
 - compares the two and emits:
@@ -1163,7 +1196,7 @@ gates:
 ```
 
 **CI:** EPF runs as a **separate, CI‑neutral** workflow (`.github/workflows/epf_experiment.yml`).  
-Deterministic, fail‑closed gates in `check_gates.py` remain the **only** release gates.
+Deterministic, fail‑closed gates in `PULSE_safe_pack_v0/tools/check_gates.py` remain the **only** release gates.
 
 ---
 
@@ -1384,7 +1417,7 @@ The main pieces are:
 
 These components are intended for **analysis, dashboards and instrument-level review**,
 not for core gating. The source of truth for release decisions remains
-`status.json` + `PULSE_safe_pack_v0/tools/check_gates.py` + the CI workflow.
+`status.json` + `PULSE_safe_pack_v0/tools/check_gates.py` + the primary CI workflow.
 
 
 For a detailed overview and examples, see:
