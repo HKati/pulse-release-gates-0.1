@@ -1,685 +1,915 @@
-# PULSE Release Evidence Verifier v0
+# PULSE release-evidence verifier v0 — design record and implementation transition
 
-## Status
-
-Informational reference note / future implementation boundary.
-
-This document records the intended verifier boundary for future release-grade evidence materialization work.
-
-It also records the implemented verifier report schema anchor and relation-binding integrity checker anchor.
-
-It is not a release-authority rule.
-
-It does not define release authority.
-
-It does not replace `check_gates.py`.
-
-It does not reopen `--release-grade-materialized`.
-
-It does not change gate policy, gate registry, status schema, CI allow/block behavior, DOI/Zenodo artifacts, release tags, or release artifacts.
-
-## Purpose
-
-This note records why a trusted release-evidence verifier is needed before local or self-declared artifacts can contribute to release-grade gate materialization.
-
-The current release-grade materialized path remains fail-closed until such a verifier is implemented and wired.
-
-Future verifier work should prevent release-required gates from being derived directly from:
-
-- local detector materialization manifests
-- generic external detector summaries
-- refusal-delta summaries
-- copied artifact-directory files
-- self-declared boolean gate maps
-
-The verifier boundary exists to qualify recorded evidence before it can be represented in `status.json`.
-
-PULSEmech release authority remains the later path:
+## Document status
 
 ```text
-recorded release evidence
-→ status.json
-→ declared gate policy
+document_status: superseded_as_current_implementation_entrypoint
+historical_design_record: retained
+legacy_diagnostic_surface: retained_and_tested
+current_implementation_document: docs/recorded_release_evidence_verifier_v0.md
+normative_release_authority: false
+```
+
+This document preserves the original pre-implementation verifier design and the retained legacy diagnostic verifier-report surface.
+
+It is no longer the current implementation entrypoint for release-grade evidence verification.
+
+The current implemented verifier, replay, admissibility, and materialization path is documented in:
+
+```text
+docs/recorded_release_evidence_verifier_v0.md
+```
+
+The current release-grade operational and reference-package boundary is documented in:
+
+```text
+docs/release_grade_reference_run_v0.md
+```
+
+This file must be read as:
+
+```text
+historical verifier design
++ retained failure-only diagnostic report surface
++ implementation-transition record
++ redirect to the current recorded verifier path
+```
+
+It must not be read as evidence that the current release-grade verifier is still future work.
+
+## Current reading rule
+
+The repository contains two different verifier-related surfaces.
+
+They have different schemas, different roles, and different authority boundaries.
+
+They must not be collapsed into one verifier concept.
+
+| Surface | Primary artifact | Current role |
+|---|---|---|
+| Legacy release-evidence verifier-report surface | `release_evidence_verifier_report_v0.json` | Failure-only diagnostic and pre-materialization visibility |
+| Recorded release-evidence verifier | `recorded_release_evidence_verifier_v0.json` | Current release-grade candidate, replay, relation, and admissibility verification |
+
+The legacy diagnostic report surface does not perform the current release-grade evidence-admission role.
+
+The recorded release-evidence verifier does not replace the legacy diagnostic surface's historical and failure-visibility purpose.
+
+## Why the original design became superseded
+
+The original version of this document described a future trusted verifier because the release-grade evidence path had not yet implemented:
+
+- current-run required-gate evidence production;
+- non-stubbed candidate release-state production;
+- canonical recorded-release candidate production;
+- canonical candidate replay;
+- replay-derived producer-trust verification;
+- recorded release-evidence verification;
+- relation-binding verification;
+- manifest-declared gate-materialization admissibility;
+- canonical verifier replay before materialization;
+- complete policy-gate coverage in the materializer;
+- verifier-bound release-required materialization;
+- external-summary schema and semantic verification;
+- cryptographic external-summary attestation verification.
+
+Those mechanical layers now exist.
+
+Therefore, historical statements such as:
+
+```text
+the trusted verifier is not implemented
+release-required fold-in is future work
+the materialized path remains closed until a later verifier PR
+```
+
+do not describe the current implemented release-grade path.
+
+They remain useful only as a record of the earlier fail-closed design boundary.
+
+## Current implemented release-grade path
+
+The current implemented path is:
+
+```text
+current-run required-gate evidence
+→ non-stubbed candidate release state
+→ canonical candidate production
+→ release-evidence input manifest
+→ canonical candidate replay
+→ recorded release-evidence verification
+→ recorded release-evidence verifier report
+→ canonical verifier replay by the materializer
+→ policy-derived release-required gate materialization
+→ final status.json
 → workflow-effective materialized required gate set
-→ strict fail-closed CI enforcement
-→ pre-deployment allow/block release decision
+→ PULSE_safe_pack_v0/tools/check_gates.py
+→ primary CI workflow
+→ primary CI allow/block release decision
 ```
 
-## Verifier Role
-
-The release-evidence verifier is intended as an evidence-qualification layer.
-
-A future verifier would receive candidate evidence inputs, validate their identity, provenance, subject binding, schema, digest, freshness, policy relation, registry relation, and relation bindings, then emit a verifier report.
-
-A verifier report may support later gate materialization only when the evidence is verified by implemented checks.
-
-The verifier report itself does not produce an allow/block release decision.
-
-Verifier report states avoid release-authority wording and use evidence-qualification states:
+The current implementation source of truth is:
 
 ```text
-VERIFIED
-FAILED
+docs/recorded_release_evidence_verifier_v0.md
+
+PULSE_safe_pack_v0/tools/build_recorded_release_candidates_v0.py
+PULSE_safe_pack_v0/tools/check_recorded_release_evidence_v0.py
+PULSE_safe_pack_v0/tools/check_external_summary_attestation_v1.py
+PULSE_safe_pack_v0/tools/materialize_release_required_from_verifier_v0.py
+PULSE_safe_pack_v0/tools/check_gates.py
+
+.github/workflows/pulse_ci.yml
 ```
 
-`VERIFIED` means that evidence is eligible for materialization by a future implemented materialization path.
+## Legacy diagnostic verifier-report surface
 
-`FAILED` means that evidence is not eligible to materialize release-required gates.
-
-## Candidate Input Classes
-
-A future release-evidence verifier may consume these input classes:
-
-- detector evidence artifacts
-- detector materialization reports
-- external detector summaries
-- refusal-delta evidence
-- run identity metadata
-- git / subject binding metadata
-- policy and registry references
-- artifact digests
-- provenance records
-- relation bindings
-
-These inputs are not trusted merely because they exist.
-
-They become usable only after implemented verifier checks pass.
-
-## Intended Trust Properties
-
-A future verifier should check properties such as:
-
-- schema validity
-- parseability
-- canonical artifact path
-- SHA-256 digest binding
-- run identity binding
-- subject / git SHA binding
-- detector identity binding
-- policy relation
-- gate registry relation
-- freshness / current-run relation
-- non-stub / non-scaffold evidence state
-- relation binding integrity
-- absence of self-declared release-required gate promotion
-
-This list is an implementation guide, not an active release-authority policy.
-
-## Unsafe Promotion Patterns
-
-This note treats the following direct mappings as unsafe unless a trusted verifier is implemented and explicitly validates them:
-
-```text
-detector_materialization_v0.json gates.* → status.gates.*
-external summary pass/rate/value → status.gates.external_all_pass
-refusal_delta_summary.json n/pass → status.gates.refusal_delta_evidence_present
-local artifact existence → release-required gate true
-self-declared boolean map → materialized release evidence
-```
-
-These files may be diagnostic inputs.
-
-They may be recorded.
-
-They may be inspected.
-
-They may be included in an audit bundle.
-
-They must not directly set release-required gates.
-
-## Implemented Schema Anchor
-
-The verifier report artifact shape is introduced as:
+The retained legacy diagnostic surface consists of:
 
 ```text
 schemas/release_evidence_verifier_report_v0.schema.json
-```
-
-Example failed report:
-
-```text
 examples/release_evidence_verifier_report_v0.failed.example.json
-```
-
-This schema defines the report structure for future verifier work.
-
-It does not implement the verifier.
-
-It does not make `--release-grade-materialized` permissive.
-
-The current materialized prod path remains fail-closed until a trusted verifier is implemented and wired.
-
-## Verifier Report Shape
-
-The verifier report artifact is:
-
-```text
-release_evidence_verifier_report_v0.json
-```
-
-The report shape includes:
-
-- `schema_version`
-- `created_utc`
-- `verifier_id`
-- `verifier_version`
-- `verifier_decision`
-- `run_identity`
-- `subject`
-- `policy_binding`
-- `registry_binding`
-- `evidence_inputs`
-- `verified_artifacts`
-- `relation_bindings`
-- `gate_materialization`
-- `failed_checks`
-- `warnings`
-
-## Illustrative Failed Report Shape
-
-```json
-{
-  "schema_version": "release_evidence_verifier_report_v0",
-  "created_utc": "2026-01-01T00:00:00Z",
-  "verifier_id": "pulse_release_evidence_verifier_v0",
-  "verifier_version": "0.1.0",
-  "verifier_decision": "FAILED",
-  "run_identity": {
-    "run_mode": "prod",
-    "run_key": null,
-    "git_sha": null
-  },
-  "subject": {
-    "repository": null,
-    "commit_sha": null,
-    "release_candidate": null
-  },
-  "policy_binding": {
-    "policy_path": "pulse_gate_policy_v0.yml",
-    "policy_sha256": null,
-    "policy_set": "required+release_required"
-  },
-  "registry_binding": {
-    "registry_path": "pulse_gate_registry_v0.yml",
-    "registry_sha256": null
-  },
-  "evidence_inputs": [],
-  "verified_artifacts": [],
-  "relation_bindings": [],
-  "gate_materialization": {},
-  "failed_checks": [
-    "trusted verifier is not implemented",
-    "no verified relation bindings present"
-  ],
-  "warnings": []
-}
-```
-
-## Relation Binding Anchor
-
-The verifier report artifact includes first-class relation bindings:
-
-```text
-relation_bindings
-```
-
-Relation bindings model the verified connections that make evidence eligible for future materialization.
-
-They express relations such as:
-
-```text
-artifact → subject
-artifact → run
-artifact → policy
-artifact → registry
-artifact → digest
-artifact → detector
-artifact → gate
-gate → policy
-gate → verifier decision
-```
-
-This does not implement the verifier.
-
-It does not make `--release-grade-materialized` permissive.
-
-The current materialized prod path remains fail-closed until a trusted verifier is implemented and wired.
-
-A future verifier may use relation bindings to expose transition-risk before release:
-
-```text
-missing relation
-broken relation
-stale relation
-self-declared relation
-unverified relation
-```
-
-A relation binding is not release authority.
-
-A relation binding qualifies evidence for possible materialization only after verifier checks pass.
-
-## Future Gate Materialization Direction
-
-A future materialization path should only materialize release-required gates from an implemented verifier report when:
-
-```text
-verifier_decision == VERIFIED
-```
-
-and when each materialized gate is explicitly bound to verified evidence and verified relation bindings.
-
-A future gate materialization entry should identify:
-
-- gate id
-- gate value
-- source evidence artifact
-- evidence digest
-- evidence schema
-- detector or check identity
-- subject / git SHA binding
-- policy relation
-- relation binding ids
-- verification result
-
-Illustrative shape:
-
-```json
-{
-  "gate_materialization": {
-    "detectors_materialized_ok": {
-      "value": true,
-      "source": "release_evidence_verifier_report_v0",
-      "verified": true,
-      "evidence_artifacts": [
-        {
-          "path": "artifacts/detectors/detector_report.json",
-          "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-          "schema_version": "detector_report_v0",
-          "verified": true
-        }
-      ],
-      "relation_bindings": [
-        "detector_report_to_subject_commit"
-      ],
-      "policy_relation": "release_required"
-    }
-  }
-}
-```
-
-## Relation Binding Integrity Checker
-
-The verifier report relation-binding integrity checker is:
-
-```text
+PULSE_safe_pack_v0/tools/build_release_evidence_verifier_report_v0.py
 PULSE_safe_pack_v0/tools/check_release_evidence_verifier_report_v0.py
+PULSE_safe_pack_v0/tools/build_release_evidence_expectation_summary_v0.py
+docs/PULSE_RELEASE_EVIDENCE_EXPECTATION_SUMMARY_v0.md
 ```
 
-Example command:
+Its primary report artifact is:
 
 ```text
-python PULSE_safe_pack_v0/tools/check_release_evidence_verifier_report_v0.py \
-  --report examples/release_evidence_verifier_report_v0.failed.example.json
+PULSE_safe_pack_v0/artifacts/release_evidence_verifier_report_v0.json
 ```
 
-The checker requires `jsonschema` for verifier report schema validation.
-
-If `jsonschema` is unavailable, the checker fails closed.
-
-Partial fallback validation is not allowed for `release_evidence_verifier_report_v0` reports.
-
-After full schema validation, the checker applies relation integrity checks.
-
-It fails closed when:
-
-- `jsonschema` is unavailable
-- schema validation cannot be completed
-- `relation_bindings[].relation_id` values are duplicated
-- `gate_materialization.*.relation_bindings[]` references a missing relation ID
-- a referenced relation binding is not `verified=true`
-- a `VERIFIED` gate materialization entry has no relation binding IDs
-- verifier decision values use release-authority wording such as `PASS` or `ALLOW`
-
-A `FAILED` report may have empty `gate_materialization`.
-
-The checker does not implement the verifier.
-
-It does not reopen `--release-grade-materialized`.
-
-It does not replace `check_gates.py`.
-
-It only checks whether a verifier report has internally consistent relation bindings.
-
-## Current Fail-Closed State
-
-The current `--release-grade-materialized` path is intentionally fail-closed until a trusted release-evidence verifier exists.
-
-In the current hotfix state, local detector, external summary, and refusal-delta artifacts cannot set release-required gates true.
-
-The materialized prod path may report which untrusted inputs were observed, but it must not promote those inputs into gate state.
-
-This current behavior is implemented in code.
-
-This document records the boundary and intended future direction.
-
-## Relation to `run_all.py`
-
-`run_all.py --mode prod --release-grade-materialized` is a preparation path.
-
-At present, it remains fail-closed.
-
-A future implementation may follow this sequence:
+This diagnostic artifact is mechanically distinct from:
 
 ```text
-candidate evidence inputs
-→ release evidence verifier
-→ release_evidence_verifier_report_v0.json
-→ relation binding integrity check
-→ verified gate materialization
-→ status.json
-→ release authority manifest
-→ audit bundle
+PULSE_safe_pack_v0/artifacts/recorded_release_evidence_verifier_v0.json
 ```
 
-The verifier report should pass schema validation and relation integrity checks before any release-required gate is set to true.
+## Legacy builder boundary
 
-## Relation to `check_gates.py`
-
-`check_gates.py` remains the release-authority evaluator.
-
-The verifier does not replace it.
-
-The relation binding integrity checker does not replace it.
-
-The verifier only qualifies evidence for possible materialization into `status.json`.
-
-`check_gates.py` still evaluates the workflow-effective required gate set under declared policy and strict fail-closed CI enforcement.
-
-## Relation to Quality Ledger
-
-The Quality Ledger remains a reader surface.
-
-It may display verifier report information after such a report exists.
-
-It must not recompute verifier decisions.
-
-It must not convert displayed evidence into release-required gate state.
-
-It must not replace `status.json`, declared gate policy, materialized required gates, or fail-closed CI enforcement.
-
-## Review Questions for Future Implementation PRs
-
-A future PR that implements verifier wiring should answer:
-
-- What verifier report is consumed?
-- Which schema validates the report?
-- Which subject / git SHA does the report bind?
-- Which policy and registry digests does it bind?
-- Which evidence artifacts are verified?
-- Which relation bindings are verified?
-- Which gate ids are materialized?
-- Which evidence artifact supports each gate?
-- Which relation binding supports each gate?
-- What happens if the report is missing?
-- What happens if one gate lacks verified evidence?
-- What happens if one gate references a missing relation ID?
-- What happens if relation IDs are duplicated?
-- What prevents a self-declared artifact from becoming release evidence?
-
-These are review questions, not an active release-authority rule in this document.
-
-## Security Boundary Note
-
-The verifier boundary exists because release-grade gate state is security-critical.
-
-The following patterns should be treated as security risks in future implementation work:
-
-- self-declared detector booleans becoming release-required gates
-- generic external summaries becoming `external_all_pass`
-- refusal summaries becoming release evidence without subject binding
-- artifact existence being treated as evidence validity
-- copied files producing non-stubbed diagnostics
-- local artifact directory control producing release-grade PASS
-- gate materialization referencing missing relation IDs
-- duplicate relation IDs making gate relation references ambiguous
-- unverified relation bindings supporting gate materialization
-
-The correct current behavior is fail-closed until evidence is verified by an implemented verifier.
-
-## Minimal Anchor
-
-Evidence is not trusted because it exists.
-
-Evidence becomes eligible for materialization only after verification.
-
-Verification qualifies evidence for materialization.
-
-Relation bindings connect evidence to the release-state transformation path.
-
-Relation binding integrity prevents missing, duplicate, or unverified relations from supporting gate materialization.
-
-Materialization writes verified gate state into `status.json`.
-
-Release authority remains the PULSEmech path:
-
-```text
-recorded release evidence
-→ status.json
-→ declared gate policy
-→ workflow-effective materialized required gate set
-→ strict fail-closed CI enforcement
-→ pre-deployment allow/block release decision
-```
-
-## Fail-closed verifier report builder skeleton
-
-The fail-closed verifier report builder skeleton is:
+The legacy report builder is:
 
 ```text
 PULSE_safe_pack_v0/tools/build_release_evidence_verifier_report_v0.py
 ```
 
-Example command:
+It is intentionally failure-only.
+
+It may:
+
+- record candidate evidence inputs;
+- record candidate paths;
+- record candidate digests;
+- record run and subject context;
+- record policy and registry references;
+- expose failure diagnostics;
+- expose unavailable validation state;
+- expose relation expectations;
+- emit a schema-valid fail-closed report.
+
+It intentionally does not:
+
+- emit `VERIFIED`;
+- establish trusted producer state;
+- perform canonical recorded-candidate replay;
+- satisfy relation bindings from current-run evidence;
+- establish gate-materialization admissibility;
+- materialize gates;
+- write `status.json`;
+- create release authority;
+- replace the recorded release-evidence verifier.
+
+Therefore:
 
 ```text
-python PULSE_safe_pack_v0/tools/build_release_evidence_verifier_report_v0.py \
-  --out PULSE_safe_pack_v0/artifacts/release_evidence_verifier_report_v0.json
+legacy verifier-report builder completed
+≠ release evidence verified
 ```
 
-The builder emits a `release_evidence_verifier_report_v0.json` report with:
+## Legacy verifier-report checker boundary
+
+The legacy report checker is:
 
 ```text
-verifier_decision = FAILED
-verified_artifacts = []
-relation_bindings = []
-gate_materialization = {}
+PULSE_safe_pack_v0/tools/check_release_evidence_verifier_report_v0.py
 ```
 
-Candidate evidence inputs may be recorded, hashed, and marked as untrusted candidate inputs.
+It validates the report's internal contract, including applicable:
 
-The builder does not verify evidence.
+- JSON schema conformance;
+- verifier-decision vocabulary;
+- relation-ID uniqueness;
+- relation-reference integrity;
+- gate-materialization reference integrity;
+- internal fail-closed consistency.
 
-It does not emit `VERIFIED`.
+It does not independently verify the underlying candidate evidence.
 
-It does not materialize gates.
+It does not:
 
-It does not write `status.json`.
+- rerun the recorded-release candidate producer;
+- establish current-run producer trust;
+- verify raw evidence through the recorded verifier path;
+- perform canonical candidate replay;
+- perform canonical verifier replay;
+- authorize materialization;
+- enforce complete policy-gate coverage.
 
-It does not reopen `--release-grade-materialized`.
+Therefore:
 
-It does not replace `check_gates.py`.
+```text
+schema-valid legacy verifier report
+≠ recorded release evidence verified
+```
 
-The builder validates its output through the release evidence verifier report checker.
+and:
 
-If the report is invalid or relation-integrity checks fail, the builder fails closed.
+```text
+internally consistent declared relation
+≠ relation satisfied by current-run evidence
+```
 
-## Release evidence input manifest
+## Legacy expectation-summary boundary
 
-The release evidence input manifest records what the future verifier is expected to check before evidence can become eligible for materialization.
+The expectation-summary path is:
 
-Schema:
+```text
+release_evidence_verifier_report_v0
+→ release_evidence_expectation_summary_v0
+```
+
+Its builder is:
+
+```text
+PULSE_safe_pack_v0/tools/build_release_evidence_expectation_summary_v0.py
+```
+
+Its document is:
+
+```text
+docs/PULSE_RELEASE_EVIDENCE_EXPECTATION_SUMMARY_v0.md
+```
+
+The expectation summary may describe:
+
+- missing candidate evidence;
+- candidate evidence not verified;
+- digest mismatch;
+- pending relation binding;
+- pending gate materialization;
+- missing gate candidate evidence;
+- unavailable candidate validation;
+- other pre-materialization gaps.
+
+It does not:
+
+- close those gaps;
+- verify candidate evidence;
+- satisfy relation bindings;
+- establish canonical producer trust;
+- materialize gates;
+- write `status.json`;
+- authorize or block release.
+
+Therefore:
+
+```text
+pre-materialization gap visible
+≠ pre-materialization gap closed
+```
+
+## Current recorded release-evidence verifier
+
+The current release-grade recorded verifier is:
+
+```text
+PULSE_safe_pack_v0/tools/check_recorded_release_evidence_v0.py
+```
+
+Its report artifact is:
+
+```text
+PULSE_safe_pack_v0/artifacts/recorded_release_evidence_verifier_v0.json
+```
+
+Its current implementation document is:
+
+```text
+docs/recorded_release_evidence_verifier_v0.md
+```
+
+It consumes:
+
+```text
+PULSE_safe_pack_v0/artifacts/release_evidence_input_manifest_v0.json
+```
+
+and the supplied repository root.
+
+It verifies the mechanically consumed manifest declarations against current repository state and current-run candidate evidence.
+
+## Manifest validation distinction
+
+The recorded verifier checks:
+
+```text
+schema_version = release_evidence_input_manifest_v0
+```
+
+and mechanically consumes:
+
+```text
+run_identity
+subject
+policy_binding
+registry_binding
+candidate_evidence
+expected_relation_bindings
+expected_gate_materialization
+```
+
+It rejects duplicate JSON object keys and validates the fields needed by its implemented admission logic.
+
+It does not independently establish complete conformance to:
 
 ```text
 schemas/release_evidence_input_manifest_v0.schema.json
 ```
 
-Example:
-
-```text
-examples/release_evidence_input_manifest_v0.minimal.example.json
-```
-
-Checker:
+and does not replace:
 
 ```text
 PULSE_safe_pack_v0/tools/check_release_evidence_input_manifest_v0.py
 ```
 
-Example command:
-
-```bash
-python PULSE_safe_pack_v0/tools/check_release_evidence_input_manifest_v0.py \
-  --manifest examples/release_evidence_input_manifest_v0.minimal.example.json
-```
-
-The input manifest does not verify evidence.
-
-It does not emit VERIFIED.
-
-It does not materialize gates.
-
-It does not write status.json.
-
-It does not reopen `--release-grade-materialized`.
-
-It records expected candidate evidence, expected relation bindings, and expected gate materialization bindings so the future verifier has an explicit relation map to inspect.
-
-The input manifest checker fails closed when:
-
-- `jsonschema` is unavailable
-- schema validation cannot be completed
-- duplicate JSON object keys are present
-- expected relations reference missing candidate evidence
-- expected relations reference missing expected gates
-- expected gates reference missing candidate evidence
-- expected gates reference missing relation bindings
-- any expected gate permits materialization without verifier output
-
-
-# Input manifest wiring in the fail-closed builder skeleton
-
-The fail-closed verifier report builder can consume an input manifest:
+Therefore:
 
 ```text
-python PULSE_safe_pack_v0/tools/build_release_evidence_verifier_report_v0.py \
-  --input-manifest examples/release_evidence_input_manifest_v0.minimal.example.json \
-  --out PULSE_safe_pack_v0/artifacts/release_evidence_verifier_report_v0.json
+recorded verifier accepts mechanically consumed manifest fields
+≠ full input-manifest schema validity
 ```
 
-The builder validates the input manifest with:
+Full manifest schema validity requires the separate schema checker or an explicitly equivalent full-schema validation path.
+
+## Canonical candidate replay
+
+The recorded verifier reruns the checked-in candidate producer from current repository state and current-run producer inputs.
+
+The supplied candidate set must match canonical replay.
+
+The verifier rejects:
+
+- canonical candidates missing from the manifest;
+- manifest candidates absent from canonical replay;
+- canonical replay failure;
+- internally inconsistent replayed candidate IDs;
+- modified candidate envelopes;
+- substituted candidate envelopes;
+- mechanically relevant producer output that differs from canonical replay.
+
+Only the non-authoritative:
 
 ```text
-PULSE_safe_pack_v0/tools/check_release_evidence_input_manifest_v0.py
+created_utc
 ```
 
-When the input manifest is valid, the builder may record candidate evidence inputs with digests and untrusted provenance.
+representation may be normalized for deterministic envelope comparison.
 
-The builder still emits:
+The separately stored on-disk candidate index is not itself accepted as proof of candidate completeness.
+
+The direct replay comparison is between:
 
 ```text
-verifier_decision = FAILED
-verified_artifacts = []
-relation_bindings = []
-gate_materialization = {}
+canonical replay candidate IDs
 ```
 
-The builder does not verify evidence.
-
-It does not satisfy relation bindings.
-
-It does not emit VERIFIED.
-
-It does not materialize gates.
-
-It does not write status.json.
-
-It does not reopen `--release-grade-materialized`.
-
-If the input manifest is invalid, the builder fails closed and does not write a verifier report.
-
-## Subject/run binding check v0
-
-The fail-closed verifier report builder records manifest-declared candidate evidence subject/run binding.
-
-For manifest-declared candidate evidence, the builder compares:
+and:
 
 ```text
-candidate_evidence.<id>.subject_binding.git_sha
-→ subject.commit_sha
-candidate_evidence.<id>.subject_binding.git_sha
-→ run_identity.git_sha
-candidate_evidence.<id>.subject_binding.run_key
-→ run_identity.run_key
+manifest.candidate_evidence IDs
 ```
 
-The check is descriptive and pre-materialization only.
+## Replay-derived producer trust
 
-A matching subject/run binding does not verify evidence.
-
-It does not satisfy relation bindings.
-
-It does not emit VERIFIED.
-
-It does not materialize gates.
-
-It does not write status.json.
-
-It does not reopen --release-grade-materialized.
-
-It does not replace check_gates.py.
-
-Mismatch states are recorded as fail-closed verifier report checks, for example:
+A candidate may contain:
 
 ```text
-candidate evidence subject git_sha mismatch against subject commit: <candidate_evidence_id>
-candidate evidence subject git_sha mismatch against run identity: <candidate_evidence_id>
-candidate evidence run_key mismatch against run identity: <candidate_evidence_id>
+provenance.trusted_producer = true
 ```
 
-The verifier report remains non-authoritative:
+but that field does not prove producer trust.
+
+The recorded verifier derives:
 
 ```text
-verifier_decision = FAILED
-verified_artifacts = []
-relation_bindings = []
-gate_materialization = {}
+trusted_producer_verified = true
 ```
 
-## Input manifest expectation comparison
+only when the supplied candidate envelope matches canonical replay.
 
-When the fail-closed builder consumes an input manifest, it records the manifest expectations as pending verifier work.
+Therefore:
 
-The builder compares the input manifest’s declared expectations against the fail-closed report state and records descriptive failed checks for:
+```text
+self-declared trusted producer
+≠ verified producer trust
+```
 
-- expected candidate evidence that was not recorded
-- expected candidate evidence that was recorded but not verified
-- expected relation bindings that remain pending verification
-- expected gate materialization entries that remain pending verification
-- expected gate materialization candidate evidence that was not recorded
+Verified producer trust requires:
 
-This comparison is pre-materialization diagnostics only.
+```text
+current repository state
++ current-run producer inputs
++ checked-in candidate producer
++ canonical replay
+= supplied candidate envelope
+```
 
-It does not verify evidence.
+## Recorded candidate verification
 
-It does not satisfy relation bindings.
+The recorded verifier checks the applicable:
 
-It does not emit `VERIFIED`.
+- candidate-manifest entry shape;
+- verification-required declaration;
+- expected digest shape;
+- expected schema-version identity;
+- candidate artifact presence;
+- candidate regular-file status;
+- candidate artifact digest;
+- candidate JSON parsing;
+- candidate schema-version equality;
+- run-identity equality;
+- subject-binding equality;
+- commit binding;
+- policy-set equality;
+- policy-digest equality;
+- canonical replay equality;
+- replay-derived producer trust;
+- raw-evidence path;
+- raw-evidence presence;
+- raw-evidence digest;
+- required-gate equality;
+- policy gate membership;
+- registry gate membership.
 
-It does not materialize gates.
+A candidate becomes:
 
-It does not write `status.json`.
+```text
+status = verified
+```
 
-It does not reopen `--release-grade-materialized`.
+only when its complete candidate-level error list is empty.
 
-Its purpose is to make the pre-materialization gap visible inside the fail-closed verifier report.
+## Relation-binding verification
+
+The recorded verifier supports:
+
+```text
+artifact_to_subject
+artifact_to_gate
+```
+
+relations.
+
+A declared relation is verified only when:
+
+- its source candidate exists;
+- its source candidate is verified;
+- its binding type is supported;
+- its expected gate exists in the manifest-declared materialization mapping;
+- its expected gate belongs to release-required policy;
+- its expected gate exists in the registry;
+- its target is mechanically exact.
+
+An `artifact_to_subject` relation must target:
+
+```text
+subject.commit_sha
+```
+
+An `artifact_to_gate` relation must target:
+
+```text
+gate.<gate_id>
+```
+
+Therefore:
+
+```text
+relation declared
+≠ relation satisfied
+```
+
+## Manifest-declared gate admissibility
+
+The recorded verifier iterates over entries declared in:
+
+```text
+manifest.expected_gate_materialization
+```
+
+For each declared gate entry, it checks:
+
+```text
+expected_value = true
+policy_relation = release_required
+materialization_allowed_without_verifier = false
+```
+
+It also requires:
+
+- non-empty candidate evidence IDs;
+- non-empty relation-binding IDs;
+- every listed candidate to be verified;
+- every listed relation to be satisfied;
+- every supporting candidate to have an exact gate-target relation;
+- the declared gate to belong to release-required policy;
+- the declared gate to exist in the registry.
+
+The verifier may produce:
+
+```text
+status = verified
+admissible = true
+```
+
+for a declared entry only after its entry-specific prerequisites succeed.
+
+The recorded verifier establishes:
+
+- per-entry candidate verification;
+- per-entry relation verification;
+- per-entry policy and registry membership;
+- per-entry admissibility.
+
+It does not independently prove that:
+
+```text
+manifest.expected_gate_materialization
+```
+
+contains every gate declared by:
+
+```text
+policy.gates.release_required
+```
+
+Therefore:
+
+```text
+recorded verifier status = verified
+≠ complete policy-gate coverage by itself
+```
+
+## Complete policy coverage in the materializer
+
+The materializer is:
+
+```text
+PULSE_safe_pack_v0/tools/materialize_release_required_from_verifier_v0.py
+```
+
+It derives the complete release-required gate set from:
+
+```text
+policy.gates.release_required
+```
+
+It then requires a corresponding verified and admissible verifier-report entry for every policy-derived gate.
+
+If the manifest omitted a policy release-required gate, the materializer detects the missing admissibility entry and fails closed.
+
+The complete coverage boundary is:
+
+```text
+recorded verifier per-entry admissibility
++ materializer iteration over every policy release-required gate
+= complete policy-derived materialization coverage
+```
+
+## Canonical verifier replay
+
+The materializer does not trust the supplied:
+
+```text
+recorded_release_evidence_verifier_v0.json
+```
+
+as an independent authority object.
+
+Before materialization, it reruns:
+
+```text
+check_recorded_release_evidence(...)
+```
+
+from:
+
+```text
+--manifest
+--repo-root
+```
+
+The supplied verifier report must match canonical verifier replay.
+
+Therefore:
+
+```text
+supplied verifier report
+≠ trusted verifier result
+```
+
+A trusted verifier result requires:
+
+```text
+supplied manifest
++ current repository root
++ canonical verifier replay
+= supplied verifier report
+```
+
+## Materializer admission boundary
+
+Before materialization, the materializer checks the applicable:
+
+- canonical verifier status;
+- canonical verifier error list;
+- non-empty evidence results;
+- non-empty relation-binding results;
+- supplied-report equality with canonical replay;
+- manifest-path resolution;
+- candidate-state commit identity;
+- candidate-state run-key identity;
+- candidate-state production run mode;
+- verified-subject commit identity;
+- verified-subject run identity;
+- policy-set identity;
+- policy-path identity;
+- policy digest;
+- registry digest;
+- stubbed-state absence;
+- scaffold-state absence;
+- absence of pre-existing release-required gate values;
+- complete policy-derived gate admissibility.
+
+Failed admission must not partially mutate the candidate release state.
+
+## Materialization
+
+Only after the complete replay, identity, policy, registry, state, admissibility, and coverage checks succeed may the materializer write literal `true` values into:
+
+```text
+status["gates"]
+```
+
+for the complete policy-derived release-required gate set.
+
+Therefore:
+
+```text
+failed canonical verifier replay
+→ no release-required materialization
+
+modified supplied verifier report
+→ no release-required materialization
+
+missing policy-gate admissibility
+→ no release-required materialization
+
+identity mismatch
+→ no release-required materialization
+
+policy or registry mismatch
+→ no release-required materialization
+
+stubbed or scaffolded candidate state
+→ no release-required materialization
+
+pre-existing release-required gate state
+→ no release-required materialization
+```
+
+## External-summary verification boundary
+
+Release-grade external-summary admission occurs during canonical candidate production.
+
+The applicable path verifies:
+
+- external-summary schema;
+- detector-specific tool identity;
+- detector-specific metric identity;
+- threshold reference;
+- threshold URI;
+- threshold comparator;
+- metric pass state;
+- aggregate result;
+- release-contribution mode;
+- run-key binding;
+- release-candidate binding;
+- subject-kind binding;
+- subject-ID binding;
+- current-commit digest binding;
+- raw-evidence path containment;
+- raw-evidence digest;
+- summary digest;
+- envelope binding;
+- signer-policy admission;
+- cryptographic attestation verification.
+
+The recorded verifier binds those checks through canonical candidate replay.
+
+A separately supplied success declaration is not sufficient.
+
+The cryptographic attestation-verification capability is implemented.
+
+The following remain operationally pending:
+
+```text
+exact operational release-grade signer identity
+current-run attested external-evidence production lane
+```
+
+## Mechanical layer separation
+
+The current layers are:
+
+```text
+legacy release-evidence verifier report
+= failure-only diagnostic and pre-materialization visibility
+
+recorded release-evidence verifier
+= mechanically consumed manifest checks
++ current-run candidate verification
++ canonical candidate replay
++ relation verification
++ manifest-declared per-gate admissibility
+
+release-required materializer
+= canonical verifier replay
++ complete policy-gate coverage
++ policy-derived gate-state materialization
+
+PULSE_safe_pack_v0/tools/check_gates.py
+= strict final gate enforcement
+```
+
+No earlier layer replaces a later layer.
+
+## Authority boundary
+
+The normative release-authority path remains:
+
+```text
+recorded release evidence
+→ final status.json
+→ declared gate policy
+→ workflow-effective materialized required gate set
+→ PULSE_safe_pack_v0/tools/check_gates.py
+→ primary CI workflow
+→ primary CI allow/block release decision
+```
+
+The following do not independently create release authority:
+
+- input manifests;
+- legacy verifier reports;
+- expectation summaries;
+- candidate envelopes;
+- candidate indexes;
+- recorded verifier reports;
+- canonical candidate replay;
+- canonical verifier replay;
+- relation maps;
+- admissibility maps;
+- attestation reports;
+- materializer diagnostics;
+- `release_decision_v0.json`;
+- `artifact_provenance_binding_v0.json`;
+- `release_authority_v0.json`;
+- Quality Ledger;
+- audit bundles;
+- reference-run notes;
+- dashboards;
+- Pages.
+
+They may preserve, verify, bind, explain, or publish evidence.
+
+They may not independently authorize, block, override, or reinterpret release.
+
+## Historical design principles retained
+
+The original design established principles that remain valid:
+
+```text
+evidence existence
+≠ evidence validity
+
+digest presence
+≠ verified binding
+
+self-declared trust
+≠ verified producer trust
+
+relation declaration
+≠ satisfied relation
+
+verifier report presence
+≠ canonical verifier replay
+
+per-entry admissibility
+≠ complete policy coverage
+
+admissibility
+≠ materialized gate state
+
+materialized gate state
+≠ release authority by itself
+```
+
+The current implementation now materializes these principles through code and tests.
+
+## Historical and legacy files retained
+
+The following remain valid diagnostic, schema, fixture, or historical surfaces:
+
+```text
+schemas/release_evidence_verifier_report_v0.schema.json
+examples/release_evidence_verifier_report_v0.failed.example.json
+
+PULSE_safe_pack_v0/tools/build_release_evidence_verifier_report_v0.py
+PULSE_safe_pack_v0/tools/check_release_evidence_verifier_report_v0.py
+PULSE_safe_pack_v0/tools/build_release_evidence_expectation_summary_v0.py
+
+docs/PULSE_RELEASE_EVIDENCE_EXPECTATION_SUMMARY_v0.md
+docs/PULSE_RELEASE_EVIDENCE_RELATION_BINDING_PROMOTION_PREREQUISITES_v0.md
+docs/PULSE_RELEASE_EVIDENCE_TRUSTED_VERIFIER_SCHEMA_DELTA_MAP_v0.md
+```
+
+Their continued presence does not mean that they are the current release-grade evidence-admission verifier.
+
+## Current implementation references
+
+Use these as the current implementation source of truth:
+
+```text
+docs/recorded_release_evidence_verifier_v0.md
+docs/release_grade_reference_run_v0.md
+
+PULSE_safe_pack_v0/tools/build_recorded_release_candidates_v0.py
+PULSE_safe_pack_v0/tools/check_recorded_release_evidence_v0.py
+PULSE_safe_pack_v0/tools/check_external_summary_attestation_v1.py
+PULSE_safe_pack_v0/tools/materialize_release_required_from_verifier_v0.py
+PULSE_safe_pack_v0/tools/check_gates.py
+
+.github/workflows/pulse_ci.yml
+```
+
+## Current operational target
+
+The following are implemented:
+
+```text
+current-run required-gate evidence production
+canonical candidate production
+canonical candidate replay
+replay-derived producer trust
+recorded release-evidence verification
+relation-binding verification
+manifest-declared per-gate admissibility
+canonical verifier replay
+complete policy-gate coverage in the materializer
+verifier-bound release-required materialization
+cryptographic external-summary attestation verification capability
+```
+
+The next operational path is:
+
+```text
+exact operational release-grade signer identity
+→ current-run attested external evidence
+→ complete evidence-chain packaging
+→ complete-package verification
+→ controlled strict release-grade execution
+→ completed public reference-run record
+```
+
+The completed run must be recorded in:
+
+```text
+docs/RELEASE_GRADE_REFERENCE_RUN_NOTE_v0.md
+```
+
+## Reader rule
+
+Do not read this document as a future implementation plan for the current recorded verifier.
+
+Read it as:
+
+```text
+historical verifier design
++ retained legacy diagnostic boundary
++ implementation-transition record
++ redirect to the current verifier path
+```
+
+The Git history preserves the full original pre-implementation text.
