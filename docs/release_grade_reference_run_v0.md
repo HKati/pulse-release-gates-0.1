@@ -7,7 +7,7 @@ This document defines what counts as a PULSE release-grade reference run.
 A release-grade reference run is a documented, reproducible run that exercises
 the release-grade evidence path rather than the minimal Core smoke path.
 
-Its purpose is to demonstrate the complete release-grade evidence-to-decision path:
+Its purpose is to demonstrate the complete release-grade evidence-to-decision path: 
 
 ```text
 recorded current-run release evidence
