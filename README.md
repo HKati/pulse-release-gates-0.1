@@ -407,8 +407,8 @@ Choose the path that matches the release-authority question you need to answer.
   evidence-admission, reader-surface, traceability, reproducibility,
   supply-chain, adoption, candidate-policy, or roadmap routes.
 
-- **Release authority / source-of-truth path** → [`docs/STATUS_CONTRACT.md`](docs/STATUS_CONTRACT.md) and [`docs/status_json.md`](docs/status_json.md)
-- Read these first to understand how recorded evidence, status contracts, declared gate policy, the workflow-effective materialized required gate set, strict enforcement by `PULSE_safe_pack_v0/tools/check_gates.py`, and the primary CI workflow define PULSE release authority.
+  - **Release authority / source-of-truth path** → [`docs/STATUS_CONTRACT.md`](docs/STATUS_CONTRACT.md) and [`docs/status_json.md`](docs/status_json.md)  
+  Read these first to understand how recorded evidence, status contracts, declared gate policy, the workflow-effective materialized required gate set, strict enforcement by `PULSE_safe_pack_v0/tools/check_gates.py`, and the primary CI workflow define PULSE release authority.
 
 - **External evidence integration path** → [`docs/EXTERNAL_DETECTORS.md`](docs/EXTERNAL_DETECTORS.md) and [`docs/external_detector_summaries.md`](docs/external_detector_summaries.md)  
   Use these when external detector summaries must be recorded, validated, and folded into the release evidence surface before they can be enforced as required gates under declared policy.
