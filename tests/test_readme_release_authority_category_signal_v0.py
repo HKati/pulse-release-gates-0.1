@@ -35,32 +35,95 @@ FRONT_DOOR_END_MARKERS = [
 
 
 REQUIRED_FRONT_DOOR_ANCHORS = [
-    "PULSE — Artifact-Bound Release Authority for AI Release Decisions",
-    "PULSE is an artifact-bound release-authority system for AI applications and AI-enabled systems",
-    "PULSE fills the structural gap between probabilistic AI behavior and deterministic software release permission",
-    "The evidence-producing surfaces for PULSE include AI applications, model behavior, evaluation suites, detector systems, review processes, logs, dashboards, and deployment pipelines",
-    "These surfaces produce, record, or render candidate release evidence",
-    "PULSE materializes recorded candidate release evidence into artifact-bound release-authority state before deployment",
-    "Release permission is produced by the complete materialization path",
-    "The declared-policy CI outcome is the recorded terminal enforcement result of that materialization path",
+    (
+        "PULSE — Artifact-Bound Release Authority "
+        "for AI Release Decisions"
+    ),
+    "Canonical PULSEmech implementation path",
+    (
+        "PULSEmech is the artifact-bound "
+        "release-authority mechanism for AI "
+        "release decisions"
+    ),
+    "recorded current-run release evidence",
+    "canonical candidate production",
+    "canonical candidate replay",
+    "recorded release-evidence verification",
+    "canonical verifier replay",
+    (
+        "policy-derived release-required gate "
+        "materialization"
+    ),
+    (
+        "workflow-effective materialized required "
+        "gate set"
+    ),
+    "PULSE_safe_pack_v0/tools/check_gates.py",
+    "primary CI allow/block release decision",
+    (
+        "PULSE is an artifact-bound release-authority "
+        "system for AI applications and AI-enabled "
+        "systems"
+    ),
+    (
+        "PULSE fills the structural gap between "
+        "probabilistic AI behavior and deterministic "
+        "software release permission"
+    ),
+    (
+        "The evidence-producing surfaces for PULSE "
+        "include AI applications, model behavior, "
+        "evaluation suites, detector systems, review "
+        "processes, logs, dashboards, and deployment "
+        "pipelines"
+    ),
+    (
+        "These surfaces produce, record, or render "
+        "candidate release evidence"
+    ),
+    (
+        "PULSE materializes recorded current-run "
+        "release evidence into artifact-bound release "
+        "state before deployment"
+    ),
+    (
+        "The release-required materializer admits "
+        "only verifier-bound, policy-derived gate state"
+    ),
+    "It does not independently decide release",
+    (
+        "Release permission is produced only by the "
+        "complete connected path"
+    ),
+    (
+        "The declared-policy primary CI outcome is "
+        "the recorded terminal enforcement result "
+        "of that path"
+    ),
+    (
+        "Release authority in PULSE is a connected, "
+        "materialized evidence state"
+    ),
     "probabilistic AI behavior",
     "recorded candidate release evidence",
     "artifact-bound release-authority state",
     "deterministic software release permission",
-    "Release authority in PULSE is a materialized evidence state",
-    "recorded release evidence is bound to `status.json`, declared gate policy, materialized required gates, and strict fail-closed CI gate enforcement",
-    "the declared-policy CI outcome becomes the release decision",
     "PULSEmech is the mechanism",
-    "artifact-bound, policy-declared, gate-materialized, CI-enforced evidence-to-decision path",
-    "The declared-policy gate-enforcement CI outcome is the release decision.",
+    (
+        "artifact-bound, policy-declared, "
+        "gate-materialized, CI-enforced "
+        "evidence-to-decision path"
+    ),
     "PULSEmech release-authority materialization map",
-    "recorded release evidence",
-    "status.json",
-    "declared gate policy",
-    "materialized required gate set",
-    "strict fail-closed CI gate enforcement",
-    "release-grade PULSE reference is not merely a run",
-    "closed, digest-backed, reconstructable evidence packet",
+    (
+        "release-grade PULSE reference is not merely "
+        "a run"
+    ),
+    (
+        "closed, digest-backed, reconstructable "
+        "evidence packet"
+    ),
+    "pending template; not a completed run record",
 ]
 
 
@@ -79,6 +142,29 @@ FORBIDDEN_FRONT_DOOR_PHRASES = [
     "AI-specific constitutional framework",
     "governance-first release framework",
     "evidence-first release framework",
+    (
+        "Release authority in PULSE is a "
+        "materialized evidence state"
+    ),
+    (
+        "PULSE materializes recorded candidate "
+        "release evidence into artifact-bound "
+        "release-authority state before deployment"
+    ),
+    (
+        "Release permission is produced by the "
+        "complete materialization path"
+    ),
+    (
+        "The declared-policy gate-enforcement CI "
+        "outcome is the release decision."
+    ),
+    "\n→ check_gates.py\n",
+    "\n+ check_gates.py\n",
+    (
+        "The first public non-stubbed release-grade "
+        "reference run is documented in"
+    ),
 ]
 
 
