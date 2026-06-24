@@ -37,7 +37,32 @@ They do not independently produce release authority.
 | Signer-policy and cryptographic attestation verification | Implemented |
 | Exact operational release-grade signer identity | Pending |
 | Current-run attested external-evidence production lane | Pending |
+| Public PULSEmech Core execution record | Completed — PULSE CI #5728 |
 | Completed public non-stubbed release-grade run record | Pending |
+
+### Public PULSEmech Core execution record
+
+A public, manually dispatched PULSEmech Core execution has completed successfully on the current `main` implementation.
+
+- record: [PULSEmech Core Execution Record v0](docs/PULSEMECH_CORE_EXECUTION_RECORD_v0.md)
+- workflow: `PULSE CI #5728`
+- source commit: `92eec8c5fd58467671924f86e4aa3253a5535d72`
+- workflow result: `Success`
+- Core required-gate enforcement: `PASS`
+- artifact-provenance binding: `materialized and verified`
+- artifact-binding attestation: `created`
+- completed non-stubbed release-grade reference run: `pending`
+
+The run demonstrates the executable Core mechanism and its fail-closed boundary.
+
+```text
+public Core execution completed
+≠ completed release-grade reference run
+```
+
+The broader release-decision sidecar correctly remained `FAIL` because stage and release-grade conditions were not satisfied.
+
+This record provides a public operational entrypoint while the exact-signer, attested external-evidence, verifier-bound materialization, and complete-package layers continue to be built on the demonstrated Core path.
 
 ### Authority boundary
 
