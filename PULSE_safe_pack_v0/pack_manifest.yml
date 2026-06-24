@@ -6,6 +6,8 @@ required:
   - path: tools/check_gates.py
   - path: tools/augment_status.py
   - path: tools/refusal_delta_calc.py
+  - path: tools/adapters/llamaguard_ingest.py
+  - path: schemas/external_summary_v1.schema.json
   - path: docs/METHODS_RDSI_QLEDGER.md
   - path: docs/EXTERNAL_DETECTORS.md
   - path: profiles/external_thresholds.yaml
