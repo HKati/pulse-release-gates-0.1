@@ -215,6 +215,20 @@ def _require_text(
     return value.strip()
 
 
+def _require_preserved_text(
+    value: Any,
+    label: str,
+) -> str:
+    """Validate non-empty text without changing its exact content."""
+
+    if not isinstance(value, str) or not value.strip():
+        raise RunnerError(
+            f"{label} must be a non-empty string"
+        )
+
+    return value
+
+
 def _resolve_lexically(
     repo_root: Path,
     supplied: Path,
@@ -618,11 +632,11 @@ def _load_cases(
                 item.get("case_id"),
                 f"line {line_number}.case_id",
             )
-            prompt = _require_text(
+            prompt = _require_preserved_text(
                 item.get("input"),
                 f"line {line_number}.input",
             )
-            response = _require_text(
+            response = _require_preserved_text(
                 item.get("output"),
                 f"line {line_number}.output",
             )
