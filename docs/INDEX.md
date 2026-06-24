@@ -31,6 +31,7 @@ If a document is added, renamed, superseded, or changes implementation status, u
 ## Start here
 
 - Running the Core PULSE lane: [QUICKSTART_CORE_v0.md](QUICKSTART_CORE_v0.md)
+- Completed public Core execution record: [PULSEMECH_CORE_EXECUTION_RECORD_v0.md](PULSEMECH_CORE_EXECUTION_RECORD_v0.md)
 - Current release-grade operational reference: [release_grade_reference_run_v0.md](release_grade_reference_run_v0.md)
 - Current recorded evidence verifier: [recorded_release_evidence_verifier_v0.md](recorded_release_evidence_verifier_v0.md)
 - Understanding the source of truth: [status_json.md](status_json.md)
