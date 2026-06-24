@@ -1,0 +1,340 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://hkati.github.io/pulse-release-gates-0.1/schemas/external_summary_v1.schema.json",
+  "title": "PULSE External Summary v1",
+  "description": "Canonical external detector / evaluation / review summary schema for PULSE-REF release-grade evidence handling. This schema defines evidence shape only; it does not create release authority.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "summary_id",
+    "tool",
+    "run",
+    "subject",
+    "metrics",
+    "threshold_ref",
+    "evidence",
+    "signing",
+    "result",
+    "authority_boundary"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "external_summary_v1",
+      "description": "Canonical schema version identifier."
+    },
+    "summary_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Stable identifier for this external summary artifact."
+    },
+    "tool": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "version"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "External detector, evaluator, or review tool name."
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Tool version, commit, release, or stable version label."
+        },
+        "adapter": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Optional PULSE adapter name that normalized the tool output."
+        },
+        "adapter_version": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Optional adapter version."
+        }
+      }
+    },
+    "run": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "generated_at"
+      ],
+      "properties": {
+        "run_id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "External tool run identifier, if available."
+        },
+        "generated_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "UTC timestamp when the external summary was generated."
+        },
+        "dataset_digest": {
+          "$ref": "#/$defs/sha256_digest",
+          "description": "SHA-256 digest of the dataset, prompt set, or evaluation corpus."
+        },
+        "evaluator_digest": {
+          "$ref": "#/$defs/sha256_digest",
+          "description": "SHA-256 digest of evaluator configuration, prompt, rubric, or harness."
+        },
+        "model_id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Model, application, or release-candidate identifier evaluated by the tool."
+        }
+      }
+    },
+    "subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "id",
+        "digest_algorithm",
+        "digest"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "model",
+            "application",
+            "release_candidate",
+            "dataset",
+            "prompt_set",
+            "artifact_bundle",
+            "other"
+          ],
+          "description": "Kind of subject evaluated by the external tool."
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Human-readable subject identifier."
+        },
+        "digest_algorithm": {
+          "type": "string",
+          "const": "sha256",
+          "description": "Digest algorithm used for subject binding."
+        },
+        "digest": {
+          "$ref": "#/$defs/sha256_digest",
+          "description": "SHA-256 digest binding this summary to the evaluated subject."
+        }
+      }
+    },
+    "metrics": {
+      "type": "array",
+      "minItems": 1,
+      "description": "Canonical scalar metrics emitted by the external tool.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "key",
+          "value",
+          "passed"
+        ],
+        "properties": {
+          "key": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Stable canonical metric key."
+          },
+          "value": {
+            "type": [
+              "number",
+              "integer",
+              "boolean",
+              "string"
+            ],
+            "description": "Metric value."
+          },
+          "unit": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Optional metric unit."
+          },
+          "threshold": {
+            "type": [
+              "number",
+              "integer",
+              "boolean",
+              "string",
+              "null"
+            ],
+            "description": "Threshold used for this metric, if applicable."
+          },
+          "comparator": {
+            "type": "string",
+            "enum": [
+              "lt",
+              "lte",
+              "gt",
+              "gte",
+              "eq",
+              "neq",
+              "contains",
+              "not_contains",
+              "custom",
+              "none"
+            ],
+            "default": "none",
+            "description": "Comparator used to determine metric pass/fail."
+          },
+          "passed": {
+            "type": "boolean",
+            "description": "Whether this metric passed under the declared threshold semantics."
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "info",
+              "low",
+              "medium",
+              "high",
+              "critical"
+            ],
+            "description": "Optional severity associated with this metric."
+          },
+          "notes": {
+            "type": "string",
+            "description": "Optional human-readable notes."
+          }
+        }
+      }
+    },
+    "threshold_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "key"
+      ],
+      "properties": {
+        "key": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Stable threshold policy key used to interpret metrics."
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Optional threshold policy version."
+        },
+        "uri": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Optional URI or path to threshold policy."
+        }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "raw_artifact_uri"
+      ],
+      "properties": {
+        "raw_artifact_uri": {
+          "type": "string",
+          "minLength": 1,
+          "description": "URI or path to the archived raw external evidence artifact."
+        },
+        "raw_artifact_digest": {
+          "$ref": "#/$defs/sha256_digest",
+          "description": "SHA-256 digest of the raw external evidence artifact."
+        },
+        "summary_digest": {
+          "$ref": "#/$defs/sha256_digest",
+          "description": "SHA-256 digest of this summary artifact, if computed externally."
+        }
+      }
+    },
+    "signing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mode",
+        "identity"
+      ],
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": [
+            "sigstore-keyless",
+            "sigstore-kms",
+            "github-attestation",
+            "kms",
+            "unsigned",
+            "other"
+          ],
+          "description": "Signing or attestation mode for this external summary."
+        },
+        "identity": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Signer identity, workflow identity, KMS identity, or explicit unsigned identity marker."
+        },
+        "bundle_path": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Path or URI to signature / attestation bundle, if applicable."
+        },
+        "verified": {
+          "type": "boolean",
+          "description": "Whether signature / attestation verification has succeeded before release-decision fold-in."
+        }
+      }
+    },
+    "result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "passed"
+      ],
+      "properties": {
+        "passed": {
+          "type": "boolean",
+          "description": "Aggregate pass/fail result for this external summary."
+        },
+        "reason": {
+          "type": "string",
+          "description": "Optional human-readable reason for aggregate result."
+        },
+        "release_contribution": {
+          "type": "string",
+          "enum": [
+            "required",
+            "advisory",
+            "diagnostic"
+          ],
+          "description": "Declared contribution mode. Required contribution only becomes release authority if promoted by declared PULSE policy."
+        }
+      }
+    },
+    "authority_boundary": {
+      "type": "string",
+      "const": "This external summary does not define release authority. It is recorded evidence that may be folded into status.json only after schema, identity, signer, and policy validation.",
+      "description": "Authority-boundary statement."
+    },
+    "extensions": {
+      "type": "object",
+      "description": "Optional non-normative extension fields for tool-specific metadata.",
+      "additionalProperties": true
+    }
+  },
+  "$defs": {
+    "sha256_digest": {
+      "type": "string",
+      "pattern": "^[a-fA-F0-9]{64}$",
+      "description": "Hex-encoded SHA-256 digest."
+    }
+  }
+}
