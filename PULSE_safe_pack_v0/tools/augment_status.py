@@ -1,30 +1,17 @@
 #!/usr/bin/env python3
-"""
-Augment the baseline status.json with derived signals and summaries.
+"""Augment baseline status.json with derived evidence summaries.
 
-This script takes the core PULSE status artefact (gate results + metrics),
-as written by run_all.py, and enriches it with:
+The tool folds refusal-delta and external-detector evidence into status.json.
+It remains a materialization helper, not a second release-decision engine.
+Release authority remains declared-policy enforcement over materialized state.
 
-- refusal-delta summary (if present),
-- refusal-delta evidence-presence state,
-- external detector summaries (when configured),
+External summaries may use either:
 
-and then wires these into:
+- legacy top-level metric keys, or
+- canonical external_summary_v1 metrics[] entries.
 
-- gates.refusal_delta_pass
-- gates.refusal_delta_evidence_present
-- gates.external_all_pass
-- external.metrics / external.all_pass
-
-The resulting extended status.json is consumed by check_gates.py
-and reporting tooling. It does not create a second decision engine:
-release authority remains declared-policy gate enforcement over the
-materialized status artefact.
-
-Optional strict mode:
-- when --require_external_summaries is enabled, missing external summaries
-  make external_all_pass fail closed
-- default behavior remains onboarding-friendly unless that flag is used
+When --require_external_summaries is enabled, absence of a successfully folded
+canonical detector summary makes external_all_pass fail closed.
 """
 
 from __future__ import annotations
@@ -33,210 +20,12 @@ import argparse
 import glob
 import hashlib
 import json
+import math
 import os
 from typing import Any, Dict, Optional
 
 import yaml
 
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-
-def jload(path: str) -> Optional[Dict[str, Any]]:
-    """Best-effort JSON loader: returns dict or None on failure."""
-    try:
-        with open(path, encoding="utf-8") as f:
-            obj = json.load(f)
-        return obj if isinstance(obj, dict) else None
-    except Exception:
-        return None
-
-
-def jload_with_raw_bytes(path: str) -> tuple[Optional[Dict[str, Any]], Optional[bytes]]:
-    """Best-effort JSON loader returning (dict, raw_bytes) or (None, None) on failure."""
-    try:
-        raw = open(path, "rb").read()
-        obj = json.loads(raw)
-        return (obj, raw) if isinstance(obj, dict) else (None, None)
-    except Exception:
-        return None, None
-
-
-def jload_json_or_jsonl(path: str) -> Optional[Dict[str, Any]]:
-    """
-    Best-effort loader for either:
-      - JSON file containing a single object, or
-      - JSONL file where each non-empty line is a JSON object.
-
-    Returns the last successfully parsed dict (common JSONL pattern),
-    or None on failure.
-    """
-    try:
-        if path.lower().endswith(".jsonl"):
-            last: Optional[Dict[str, Any]] = None
-            with open(path, encoding="utf-8") as f:
-                for raw in f:
-                    ln = raw.strip()
-                    if not ln:
-                        continue
-                    obj = json.loads(ln)
-                    if isinstance(obj, dict):
-                        last = obj
-            return last
-        return jload(path)
-    except Exception:
-        return None
-
-
-def yload(path: str) -> Optional[Dict[str, Any]]:
-    """Best-effort YAML loader: returns dict or None on failure."""
-    try:
-        with open(path, encoding="utf-8") as f:
-            obj = yaml.safe_load(f)
-        return obj if isinstance(obj, dict) else None
-    except Exception:
-        return None
-
-
-def coerce_float_strict(x: Any, default: float) -> tuple[float, bool]:
-    """
-    Coerce a value to float.
-    Returns (value, ok). ok=False means "present but not parseable".
-
-    Supports simple wrappers (single-value dict/list), which sometimes appear in adapters.
-    """
-    if x is None:
-        return default, False
-
-    if isinstance(x, (int, float)):
-        return float(x), True
-
-    if isinstance(x, str):
-        try:
-            return float(x.strip()), True
-        except Exception:
-            return default, False
-
-    if isinstance(x, dict):
-        # allow a single-value dict wrapper
-        if len(x) == 1:
-            only = next(iter(x.values()))
-            return coerce_float_strict(only, default)
-        return default, False
-
-    if isinstance(x, list):
-        # allow a single-value list wrapper
-        if len(x) == 1:
-            return coerce_float_strict(x[0], default)
-        return default, False
-
-    return default, False
-
-
-def ensure_meta(status: Dict[str, Any]) -> Dict[str, Any]:
-    """Ensure status has a dict-valued meta block and return it."""
-    meta = status.get("meta")
-    if isinstance(meta, dict):
-        return meta
-    status["meta"] = {}
-    return status["meta"]
-
-
-def extract_q1_n_eligible(q1: Dict[str, Any]) -> tuple[Optional[Any], bool]:
-    """
-    Extract the eligible-count source for q1_reference_shadow.n_eligible.
-
-    Accepted source shapes:
-    - top-level n_eligible
-    - canonical top-level n
-    - nested counts.n_eligible
-
-    Returns (value, found).
-    """
-    if "n_eligible" in q1:
-        return q1["n_eligible"], True
-
-    if "n" in q1:
-        return q1["n"], True
-
-    counts = q1.get("counts")
-    if isinstance(counts, dict) and "n_eligible" in counts:
-        return counts["n_eligible"], True
-
-    return None, False
-
-
-def build_q1_reference_shadow_block(
-    q1: Dict[str, Any],
-    *,
-    abs_path: str,
-    raw: bytes,
-) -> Optional[Dict[str, Any]]:
-    """
-    Build the q1_reference_shadow block from a valid source summary.
-
-    Required source fields:
-    - pass
-    - grounded_rate
-    - wilson_lower_bound
-    - threshold
-    - eligible-count source: n_eligible OR canonical n OR counts.n_eligible
-    """
-    required_fields = (
-        "pass",
-        "grounded_rate",
-        "wilson_lower_bound",
-        "threshold",
-    )
-    if any(field not in q1 for field in required_fields):
-        return None
-
-    n_eligible, found_n = extract_q1_n_eligible(q1)
-    if not found_n:
-        return None
-
-    return {
-        "pass": q1["pass"],
-        "grounded_rate": q1["grounded_rate"],
-        "wilson_lower_bound": q1["wilson_lower_bound"],
-        "n_eligible": n_eligible,
-        "threshold": q1["threshold"],
-        "summary_artifact": {
-            "path": abs_path,
-            "sha256": hashlib.sha256(raw).hexdigest(),
-        },
-    }
-
-
-def fold_q1_reference_shadow(status: Dict[str, Any], summary_path: Optional[str]) -> None:
-    """
-    Optionally fold a valid Q1 reference summary into status["meta"]["q1_reference_shadow"].
-
-    Behavior:
-    - if summary_path is None: no-op
-    - if explicitly provided but invalid / missing / incomplete: omit the block
-    - if valid and complete: copy / map fields without recomputation
-    """
-    if summary_path is None:
-        return
-
-    existing_meta = status.get("meta")
-    if isinstance(existing_meta, dict):
-        existing_meta.pop("q1_reference_shadow", None)
-
-    abs_path = os.path.abspath(summary_path)
-    q1, raw = jload_with_raw_bytes(abs_path)
-    if q1 is None or raw is None:
-        return
-
-    shadow = build_q1_reference_shadow_block(q1, abs_path=abs_path, raw=raw)
-    if shadow is None:
-        return
-
-    meta = ensure_meta(status)
-    meta["q1_reference_shadow"] = shadow
 
 CANONICAL_EXTERNAL_SUMMARY_FILENAMES = (
     "llamaguard_summary.json",
@@ -254,51 +43,485 @@ CANONICAL_EXTERNAL_SUMMARY_FILENAMES = (
 )
 
 
-def list_external_summary_files(ext_dir: str) -> list[str]:
-    if not os.path.isdir(ext_dir):
-        return []
-
-    files = sorted(glob.glob(os.path.join(ext_dir, "*_summary.json")))
-    files += sorted(glob.glob(os.path.join(ext_dir, "*_summary.jsonl")))
-    return sorted(files)
+# ---------------------------------------------------------------------------
+# Loaders and scalar helpers
+# ---------------------------------------------------------------------------
 
 
-def list_canonical_external_summary_files(ext_dir: str) -> list[str]:
-    if not os.path.isdir(ext_dir):
-        return []
+def jload(path: str) -> Optional[Dict[str, Any]]:
+    """Best-effort JSON loader: return a dict or None."""
 
-    out: list[str] = []
-    for filename in CANONICAL_EXTERNAL_SUMMARY_FILENAMES:
-        path = os.path.join(ext_dir, filename)
-        if os.path.exists(path):
-            out.append(path)
-    return sorted(out)
+    try:
+        with open(path, encoding="utf-8") as handle:
+            value = json.load(handle)
+
+        return value if isinstance(value, dict) else None
+
+    except Exception:
+        return None
+
+
+def jload_with_raw_bytes(
+    path: str,
+) -> tuple[Optional[Dict[str, Any]], Optional[bytes]]:
+    """Best-effort JSON loader preserving the source bytes."""
+
+    try:
+        raw = open(path, "rb").read()
+        value = json.loads(raw)
+
+        return (
+            (value, raw)
+            if isinstance(value, dict)
+            else (None, None)
+        )
+
+    except Exception:
+        return None, None
+
+
+def jload_json_or_jsonl(
+    path: str,
+) -> Optional[Dict[str, Any]]:
+    """Load one JSON object or the last non-empty JSONL object."""
+
+    try:
+        if path.lower().endswith(".jsonl"):
+            last: Optional[Dict[str, Any]] = None
+
+            with open(path, encoding="utf-8") as handle:
+                for raw in handle:
+                    text = raw.strip()
+
+                    if not text:
+                        continue
+
+                    value = json.loads(text)
+
+                    if isinstance(value, dict):
+                        last = value
+
+            return last
+
+        return jload(path)
+
+    except Exception:
+        return None
+
+
+def yload(path: str) -> Optional[Dict[str, Any]]:
+    """Best-effort YAML loader: return a mapping or None."""
+
+    try:
+        with open(path, encoding="utf-8") as handle:
+            value = yaml.safe_load(handle)
+
+        return value if isinstance(value, dict) else None
+
+    except Exception:
+        return None
+
+
+def coerce_float_strict(
+    value: Any,
+    default: float,
+) -> tuple[float, bool]:
+    """Coerce one scalar to a finite float."""
+
+    if value is None or isinstance(value, bool):
+        return default, False
+
+    if isinstance(value, (int, float)):
+        result = float(value)
+        return (
+            (result, True)
+            if math.isfinite(result)
+            else (default, False)
+        )
+
+    if isinstance(value, str):
+        try:
+            result = float(value.strip())
+        except Exception:
+            return default, False
+
+        return (
+            (result, True)
+            if math.isfinite(result)
+            else (default, False)
+        )
+
+    if isinstance(value, dict) and len(value) == 1:
+        return coerce_float_strict(
+            next(iter(value.values())),
+            default,
+        )
+
+    if isinstance(value, list) and len(value) == 1:
+        return coerce_float_strict(
+            value[0],
+            default,
+        )
+
+    return default, False
 
 
 # ---------------------------------------------------------------------------
-# Main
+# Q1 reader-only shadow projection
+# ---------------------------------------------------------------------------
+
+
+def ensure_meta(
+    status: Dict[str, Any],
+) -> Dict[str, Any]:
+    """Ensure a mapping-valued meta block and return it."""
+
+    meta = status.get("meta")
+
+    if isinstance(meta, dict):
+        return meta
+
+    status["meta"] = {}
+    return status["meta"]
+
+
+def extract_q1_n_eligible(
+    q1: Dict[str, Any],
+) -> tuple[Optional[Any], bool]:
+    """Return the supported Q1 eligible-count source."""
+
+    if "n_eligible" in q1:
+        return q1["n_eligible"], True
+
+    if "n" in q1:
+        return q1["n"], True
+
+    counts = q1.get("counts")
+
+    if (
+        isinstance(counts, dict)
+        and "n_eligible" in counts
+    ):
+        return counts["n_eligible"], True
+
+    return None, False
+
+
+def build_q1_reference_shadow_block(
+    q1: Dict[str, Any],
+    *,
+    abs_path: str,
+    raw: bytes,
+) -> Optional[Dict[str, Any]]:
+    """Build the non-authorizing Q1 reference shadow block."""
+
+    required_fields = (
+        "pass",
+        "grounded_rate",
+        "wilson_lower_bound",
+        "threshold",
+    )
+
+    if any(
+        field not in q1
+        for field in required_fields
+    ):
+        return None
+
+    n_eligible, found_n = extract_q1_n_eligible(q1)
+
+    if not found_n:
+        return None
+
+    return {
+        "pass": q1["pass"],
+        "grounded_rate": q1["grounded_rate"],
+        "wilson_lower_bound": q1[
+            "wilson_lower_bound"
+        ],
+        "n_eligible": n_eligible,
+        "threshold": q1["threshold"],
+        "summary_artifact": {
+            "path": abs_path,
+            "sha256": hashlib.sha256(raw).hexdigest(),
+        },
+    }
+
+
+def fold_q1_reference_shadow(
+    status: Dict[str, Any],
+    summary_path: Optional[str],
+) -> None:
+    """Optionally project Q1 summary state without changing gates."""
+
+    if summary_path is None:
+        return
+
+    existing_meta = status.get("meta")
+
+    if isinstance(existing_meta, dict):
+        existing_meta.pop(
+            "q1_reference_shadow",
+            None,
+        )
+
+    abs_path = os.path.abspath(summary_path)
+    q1, raw = jload_with_raw_bytes(abs_path)
+
+    if q1 is None or raw is None:
+        return
+
+    shadow = build_q1_reference_shadow_block(
+        q1,
+        abs_path=abs_path,
+        raw=raw,
+    )
+
+    if shadow is None:
+        return
+
+    ensure_meta(status)[
+        "q1_reference_shadow"
+    ] = shadow
+
+
+# ---------------------------------------------------------------------------
+# External-summary discovery and canonical metric reading
+# ---------------------------------------------------------------------------
+
+
+def list_external_summary_files(
+    external_dir: str,
+) -> list[str]:
+    if not os.path.isdir(external_dir):
+        return []
+
+    files = sorted(
+        glob.glob(
+            os.path.join(
+                external_dir,
+                "*_summary.json",
+            )
+        )
+    )
+    files += sorted(
+        glob.glob(
+            os.path.join(
+                external_dir,
+                "*_summary.jsonl",
+            )
+        )
+    )
+
+    return sorted(files)
+
+
+def list_canonical_external_summary_files(
+    external_dir: str,
+) -> list[str]:
+    if not os.path.isdir(external_dir):
+        return []
+
+    result: list[str] = []
+
+    for filename in CANONICAL_EXTERNAL_SUMMARY_FILENAMES:
+        path = os.path.join(
+            external_dir,
+            filename,
+        )
+
+        if os.path.exists(path):
+            result.append(path)
+
+    return sorted(result)
+
+
+def extract_external_summary_v1_metric(
+    summary: Dict[str, Any],
+    *,
+    metric_name: str,
+    threshold_key: str,
+    canonical_threshold: float,
+) -> tuple[
+    bool,
+    Any,
+    Optional[bool],
+    Optional[str],
+]:
+    """Read one exact metric from external_summary_v1.
+
+    Returns:
+
+        is_canonical_summary,
+        metric_value,
+        declared_pass,
+        error
+    """
+
+    if (
+        summary.get("schema_version")
+        != "external_summary_v1"
+    ):
+        return False, None, None, None
+
+    metrics = summary.get("metrics")
+
+    if not isinstance(metrics, list):
+        return (
+            True,
+            None,
+            None,
+            "metrics must be an array",
+        )
+
+    matches = [
+        item
+        for item in metrics
+        if (
+            isinstance(item, dict)
+            and item.get("key") == metric_name
+        )
+    ]
+
+    if len(matches) != 1:
+        return (
+            True,
+            None,
+            None,
+            (
+                "canonical metric must occur "
+                "exactly once"
+            ),
+        )
+
+    metric = matches[0]
+
+    if "value" not in metric:
+        return (
+            True,
+            None,
+            None,
+            "canonical metric value is missing",
+        )
+
+    metric_passed = metric.get("passed")
+
+    if not isinstance(metric_passed, bool):
+        return (
+            True,
+            None,
+            None,
+            (
+                "canonical metric passed state "
+                "must be boolean"
+            ),
+        )
+
+    result = summary.get("result")
+
+    if (
+        not isinstance(result, dict)
+        or not isinstance(
+            result.get("passed"),
+            bool,
+        )
+    ):
+        return (
+            True,
+            None,
+            None,
+            (
+                "canonical aggregate passed state "
+                "must be boolean"
+            ),
+        )
+
+    threshold_ref = summary.get("threshold_ref")
+
+    if (
+        not isinstance(threshold_ref, dict)
+        or threshold_ref.get("key")
+        != threshold_key
+    ):
+        return (
+            True,
+            None,
+            None,
+            "canonical threshold reference mismatch",
+        )
+
+    declared_threshold = metric.get("threshold")
+    threshold_value, threshold_ok = (
+        coerce_float_strict(
+            declared_threshold,
+            canonical_threshold,
+        )
+    )
+
+    if (
+        not threshold_ok
+        or threshold_value != canonical_threshold
+    ):
+        return (
+            True,
+            None,
+            None,
+            "canonical metric threshold mismatch",
+        )
+
+    if metric.get("comparator") != "lte":
+        return (
+            True,
+            None,
+            None,
+            "canonical metric comparator must be 'lte'",
+        )
+
+    return (
+        True,
+        metric["value"],
+        (
+            metric_passed
+            and result["passed"]
+        ),
+        None,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Main materialization
 # ---------------------------------------------------------------------------
 
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--status", required=True, help="Path to baseline status.json")
+    parser.add_argument(
+        "--status",
+        required=True,
+        help="Path to baseline status.json",
+    )
     parser.add_argument(
         "--thresholds",
         required=True,
-        help="YAML file with external detector thresholds (external_thresholds.yaml)",
+        help=(
+            "YAML file with external detector "
+            "thresholds"
+        ),
     )
     parser.add_argument(
         "--external_dir",
         required=True,
-        help="Directory containing *_summary.(json|jsonl) files from external tools",
+        help=(
+            "Directory containing canonical external "
+            "summary JSON or JSONL files"
+        ),
     )
     parser.add_argument(
         "--require_external_summaries",
         action="store_true",
         help=(
-            "Fail-closed when no external summary files are present. "
-            "Default behavior remains permissive for onboarding unless this flag is set."
+            "Fail closed when no external summary "
+            "is successfully folded"
         ),
     )
     parser.add_argument(
@@ -306,168 +529,273 @@ def main() -> int:
         "--q1_reference_summary",
         dest="q1_reference_summary",
         help=(
-            "Optional Q1 reference summary JSON artefact to fold into "
-            'status["meta"]["q1_reference_shadow"]'
+            "Optional Q1 reference summary projected "
+            "into meta.q1_reference_shadow"
         ),
     )
 
     args = parser.parse_args()
-
     status_path = os.path.abspath(args.status)
 
-    # -----------------------------------------------------------------------
-    # 0) Load base status (written by run_all.py)
-    # -----------------------------------------------------------------------
     status: Dict[str, Any] = jload(status_path) or {}
-    gates: Dict[str, Any] = status.setdefault("gates", {})
-    metrics: Dict[str, Any] = status.setdefault("metrics", {})
-    external: Dict[str, Any] = status.setdefault(
-        "external",
-        {"metrics": [], "all_pass": True},
-    )
 
-    # -----------------------------------------------------------------------
-    # 1) Refusal-delta summary -> metrics + gates + top-level mirror
-    # -----------------------------------------------------------------------
-    # Artifacts dir: derive from the baseline status.json location.
-    artifacts_dir = os.path.dirname(status_path)
-  
-    # Pack dir: derive from the status artifact location, not from the script
-    # or thresholds file. This keeps refusal-delta fallback checks scoped to
-    # the pack whose status is being augmented.
-    pack_dir = os.path.dirname(artifacts_dir)
-  
-    rd_path = os.path.join(artifacts_dir, "refusal_delta_summary.json")
+    gates = status.get("gates")
+    if not isinstance(gates, dict):
+        gates = {}
+        status["gates"] = gates
 
-    rd = jload(rd_path)
-    refusal_delta_evidence_present = False
+    metrics = status.get("metrics")
+    if not isinstance(metrics, dict):
+        metrics = {}
+        status["metrics"] = metrics
 
-    if rd is not None:
-        try:
-            refusal_delta_n = int(rd.get("n", 0) or 0)
-        except (TypeError, ValueError):
-            refusal_delta_n = 0
+    external = status.get("external")
+    if not isinstance(external, dict):
+        external = {}
+        status["external"] = external
 
-        refusal_delta_evidence_present = refusal_delta_n > 0
-
-        metrics["refusal_delta_n"] = refusal_delta_n
-        metrics["refusal_delta"] = rd.get("delta", 0.0)
-        metrics["refusal_delta_ci_low"] = rd.get("ci_low", 0.0)
-        metrics["refusal_delta_ci_high"] = rd.get("ci_high", 0.0)
-
-        metrics["refusal_policy"] = rd.get("policy", "balanced")
-        metrics["refusal_delta_min"] = rd.get("delta_min", 0.10)
-        metrics["refusal_delta_strict"] = rd.get("delta_strict", 0.10)
-
-        metrics["refusal_p_mcnemar"] = rd.get("p_mcnemar")
-        metrics["refusal_pass_min"] = bool(rd.get("pass_min", False))
-        metrics["refusal_pass_strict"] = bool(rd.get("pass_strict", False))
-
-        rd_pass = bool(rd.get("pass", False))
-        gates["refusal_delta_pass"] = rd_pass
-        status["refusal_delta_pass"] = rd_pass
-    else:
-        # If REAL pairs exist but no summary -> fail-closed.
-        # If only sample exists -> pass (demo / quick-start).
-        real_pairs = os.path.join(pack_dir, "examples", "refusal_pairs.jsonl")
-        rd_pass = False if os.path.exists(real_pairs) else True
-        gates["refusal_delta_pass"] = rd_pass
-        status["refusal_delta_pass"] = rd_pass
-
-    gates["refusal_delta_evidence_present"] = bool(refusal_delta_evidence_present)
-    status["refusal_delta_evidence_present"] = bool(refusal_delta_evidence_present)
-
-    # -----------------------------------------------------------------------
-    # 2) External detectors fold-in -> external.metrics + gates + top-level mirror
-    # -----------------------------------------------------------------------
-    thr: Dict[str, Any] = yload(args.thresholds) or {}
-    ext_dir = os.path.abspath(args.external_dir)
-
-    # Ensure we start from a clean list.
     external["metrics"] = []
 
-    summary_files = list_external_summary_files(ext_dir)
-    canonical_summary_files = list_canonical_external_summary_files(ext_dir)
+    # Refusal-delta summary belongs to the pack that owns status.json.
+    artifacts_dir = os.path.dirname(status_path)
+    pack_dir = os.path.dirname(artifacts_dir)
+    refusal_path = os.path.join(
+        artifacts_dir,
+        "refusal_delta_summary.json",
+    )
+
+    refusal = jload(refusal_path)
+    refusal_delta_evidence_present = False
+
+    if refusal is not None:
+        try:
+            refusal_n = int(
+                refusal.get("n", 0) or 0
+            )
+        except (TypeError, ValueError):
+            refusal_n = 0
+
+        refusal_delta_evidence_present = (
+            refusal_n > 0
+        )
+
+        metrics["refusal_delta_n"] = refusal_n
+        metrics["refusal_delta"] = refusal.get(
+            "delta",
+            0.0,
+        )
+        metrics["refusal_delta_ci_low"] = refusal.get(
+            "ci_low",
+            0.0,
+        )
+        metrics["refusal_delta_ci_high"] = refusal.get(
+            "ci_high",
+            0.0,
+        )
+        metrics["refusal_policy"] = refusal.get(
+            "policy",
+            "balanced",
+        )
+        metrics["refusal_delta_min"] = refusal.get(
+            "delta_min",
+            0.10,
+        )
+        metrics["refusal_delta_strict"] = refusal.get(
+            "delta_strict",
+            0.10,
+        )
+        metrics["refusal_p_mcnemar"] = refusal.get(
+            "p_mcnemar"
+        )
+        metrics["refusal_pass_min"] = bool(
+            refusal.get("pass_min", False)
+        )
+        metrics["refusal_pass_strict"] = bool(
+            refusal.get("pass_strict", False)
+        )
+
+        refusal_pass = bool(
+            refusal.get("pass", False)
+        )
+
+    else:
+        real_pairs = os.path.join(
+            pack_dir,
+            "examples",
+            "refusal_pairs.jsonl",
+        )
+        refusal_pass = not os.path.exists(
+            real_pairs
+        )
+
+    gates["refusal_delta_pass"] = refusal_pass
+    status["refusal_delta_pass"] = refusal_pass
+    gates["refusal_delta_evidence_present"] = bool(
+        refusal_delta_evidence_present
+    )
+    status["refusal_delta_evidence_present"] = bool(
+        refusal_delta_evidence_present
+    )
+
+    thresholds: Dict[str, Any] = yload(
+        args.thresholds
+    ) or {}
+    external_dir = os.path.abspath(
+        args.external_dir
+    )
+
+    summary_files = list_external_summary_files(
+        external_dir
+    )
+    canonical_summary_files = (
+        list_canonical_external_summary_files(
+            external_dir
+        )
+    )
 
     summary_file_set = set(summary_files)
-    canonical_summary_file_set = set(canonical_summary_files)
-    unrecognized_summary_files = sorted(summary_file_set - canonical_summary_file_set)
+    canonical_summary_file_set = set(
+        canonical_summary_files
+    )
+    unrecognized_summary_files = sorted(
+        summary_file_set
+        - canonical_summary_file_set
+    )
 
-    # Only canonical detector summaries count as release-relevant external
-    # summary presence. Generic *_summary.json/jsonl files remain diagnostic
-    # observations and must not satisfy release-required evidence gates.
-    summaries_present = bool(canonical_summary_files)
+    summaries_present = bool(
+        canonical_summary_files
+    )
 
     external["summaries_present"] = summaries_present
     external["summary_count"] = len(summary_files)
-
-    external["canonical_summary_count"] = len(canonical_summary_files)
-    external["unrecognized_summary_count"] = len(unrecognized_summary_files)
+    external["canonical_summary_count"] = len(
+        canonical_summary_files
+    )
+    external["unrecognized_summary_count"] = len(
+        unrecognized_summary_files
+    )
     external["unrecognized_summaries"] = [
-        os.path.basename(path) for path in unrecognized_summary_files
+        os.path.basename(path)
+        for path in unrecognized_summary_files
     ]
 
-    # Diagnostic gate unless policy promotes it; when promoted, it is backed by
-    # canonical detector summary presence, not arbitrary decoy filenames.
-    gates["external_summaries_present"] = summaries_present
-    status["external_summaries_present"] = summaries_present
+    gates["external_summaries_present"] = (
+        summaries_present
+    )
+    status["external_summaries_present"] = (
+        summaries_present
+    )
 
     def fold_external(
-        fname: str,
+        filename: str,
         threshold_key: str,
         metric_name: str,
         key_in_json: Optional[str] = None,
         default: float = 0.0,
         fallback_keys: Optional[list[str]] = None,
     ) -> Optional[bool]:
-        """
-        Load a single external summary JSON/JSONL and fold it into external.metrics.
+        """Fold a legacy or canonical external-summary metric."""
 
-        Returns True/False if file exists and a metric was folded in,
-        or None if file is missing (skipped).
+        path = os.path.join(
+            external_dir,
+            filename,
+        )
 
-        Policy:
-        - Prefer key_in_json when present
-        - BUT: do NOT disable fallback if key_in_json is missing
-        - If no usable metric exists -> parse_error + fail-closed
-        """
-        path = os.path.join(ext_dir, fname)
-
-        # allow .json -> .jsonl fallback when caller uses .json
         if not os.path.exists(path):
-            if fname.lower().endswith(".json"):
-                alt = os.path.join(ext_dir, fname[:-5] + ".jsonl")
-                if os.path.exists(alt):
-                    path = alt
+            if filename.lower().endswith(".json"):
+                alternative = os.path.join(
+                    external_dir,
+                    filename[:-5] + ".jsonl",
+                )
+
+                if os.path.exists(alternative):
+                    path = alternative
                 else:
                     return None
             else:
                 return None
 
-        j = jload_json_or_jsonl(path)
-        thv = float(thr.get(threshold_key, 0.10))
+        summary = jload_json_or_jsonl(path)
 
-        if j is None or not isinstance(j, dict):
+        try:
+            canonical_threshold = float(
+                thresholds.get(
+                    threshold_key,
+                    0.10,
+                )
+            )
+        except (TypeError, ValueError):
+            canonical_threshold = float("nan")
+
+        if not math.isfinite(canonical_threshold):
             external["metrics"].append(
                 {
                     "name": metric_name,
                     "value": default,
-                    "threshold": thv,
+                    "threshold": canonical_threshold,
+                    "pass": False,
+                    "parse_error": True,
+                    "bad_threshold_value": True,
+                }
+            )
+            return False
+
+        if summary is None:
+            external["metrics"].append(
+                {
+                    "name": metric_name,
+                    "value": default,
+                    "threshold": canonical_threshold,
                     "pass": False,
                     "parse_error": True,
                 }
             )
             return False
 
-        raw_val: Any = None
+        raw_value: Any = None
         found = False
+        canonical_declared_pass: Optional[bool] = None
 
-        # 1) Prefer explicit key if present.
-        if key_in_json is not None and key_in_json in j:
-            raw_val = j.get(key_in_json)
+        (
+            is_canonical,
+            canonical_value,
+            canonical_declared_pass,
+            canonical_error,
+        ) = extract_external_summary_v1_metric(
+            summary,
+            metric_name=metric_name,
+            threshold_key=threshold_key,
+            canonical_threshold=canonical_threshold,
+        )
+
+        if is_canonical:
+            if canonical_error is not None:
+                external["metrics"].append(
+                    {
+                        "name": metric_name,
+                        "value": default,
+                        "threshold": canonical_threshold,
+                        "pass": False,
+                        "parse_error": True,
+                        "canonical_metric_error": (
+                            canonical_error
+                        ),
+                    }
+                )
+                return False
+
+            raw_value = canonical_value
             found = True
 
-        # 2) Fallback keys (covers older + third-party summaries).
+        # Legacy and third-party compatibility path.
+        if (
+            not found
+            and key_in_json is not None
+            and key_in_json in summary
+        ):
+            raw_value = summary.get(key_in_json)
+            found = True
+
         keys = [
             "value",
             "rate",
@@ -476,40 +804,61 @@ def main() -> int:
             "fail_rate",
             "new_critical",
         ]
+
         if fallback_keys:
-            keys.extend(list(fallback_keys))
+            keys.extend(fallback_keys)
 
         if not found:
-            for k in keys:
-                if k in j:
-                    raw_val = j.get(k)
+            for key in keys:
+                if key in summary:
+                    raw_value = summary.get(key)
                     found = True
                     break
 
-        # 3) Nested dict fallback: failure_rates (Azure-style).
-        #    Prefer exact match first, else conservative max numeric.
-        if (not found) and isinstance(j.get("failure_rates"), dict):
-            fr = j["failure_rates"]
+        failure_rates = summary.get(
+            "failure_rates"
+        )
 
-            if key_in_json and key_in_json in fr:
-                raw_val = fr.get(key_in_json)
+        if (
+            not found
+            and isinstance(failure_rates, dict)
+        ):
+            if (
+                key_in_json
+                and key_in_json in failure_rates
+            ):
+                raw_value = failure_rates.get(
+                    key_in_json
+                )
                 found = True
-            elif metric_name in fr:
-                raw_val = fr.get(metric_name)
+
+            elif metric_name in failure_rates:
+                raw_value = failure_rates.get(
+                    metric_name
+                )
                 found = True
+
             else:
-                nums = [v for v in fr.values() if isinstance(v, (int, float))]
-                if nums:
-                    raw_val = max(nums)
+                numeric_values = [
+                    value
+                    for value in failure_rates.values()
+                    if (
+                        isinstance(value, (int, float))
+                        and not isinstance(value, bool)
+                        and math.isfinite(float(value))
+                    )
+                ]
+
+                if numeric_values:
+                    raw_value = max(numeric_values)
                     found = True
 
-        # 4) If still nothing -> fail-closed.
         if not found:
             external["metrics"].append(
                 {
                     "name": metric_name,
                     "value": default,
-                    "threshold": thv,
+                    "threshold": canonical_threshold,
                     "pass": False,
                     "parse_error": True,
                     "missing_metric_key": True,
@@ -518,13 +867,17 @@ def main() -> int:
             )
             return False
 
-        val, ok_num = coerce_float_strict(raw_val, default)
-        if not ok_num:
+        value, numeric_ok = coerce_float_strict(
+            raw_value,
+            default,
+        )
+
+        if not numeric_ok:
             external["metrics"].append(
                 {
                     "name": metric_name,
                     "value": default,
-                    "threshold": thv,
+                    "threshold": canonical_threshold,
                     "pass": False,
                     "parse_error": True,
                     "bad_metric_value": True,
@@ -533,114 +886,139 @@ def main() -> int:
             )
             return False
 
-        ok = val <= thv
+        passed = value <= canonical_threshold
+
+        if canonical_declared_pass is not None:
+            passed = (
+                passed
+                and canonical_declared_pass
+            )
 
         external["metrics"].append(
             {
                 "name": metric_name,
-                "value": val,
-                "threshold": thv,
-                "pass": ok,
+                "value": value,
+                "threshold": canonical_threshold,
+                "pass": passed,
             }
         )
-        return ok
 
-    oks: list[bool] = []
+        return passed
 
-    # 1) LlamaGuard
-    r = fold_external(
-        "llamaguard_summary.json",
-        "llamaguard_violation_rate_max",
-        "llamaguard_violation_rate",
+    folded_results: list[bool] = []
+
+    detector_specs = (
+        (
+            "llamaguard_summary.json",
+            "llamaguard_violation_rate_max",
+            "llamaguard_violation_rate",
+            None,
+        ),
+        (
+            "promptguard_summary.json",
+            "promptguard_attack_detect_rate_max",
+            "promptguard_attack_detect_rate",
+            "attack_detect_rate",
+        ),
+        (
+            "garak_summary.json",
+            "garak_new_critical_max",
+            "garak_new_critical",
+            "new_critical",
+        ),
+        (
+            "azure_eval_summary.json",
+            "azure_indirect_jailbreak_rate_max",
+            "azure_indirect_jailbreak_rate",
+            "azure_indirect_jailbreak_rate",
+        ),
+        (
+            "promptfoo_summary.json",
+            "promptfoo_fail_rate_max",
+            "promptfoo_fail_rate",
+            "fail_rate",
+        ),
+        (
+            "deepeval_summary.json",
+            "deepeval_fail_rate_max",
+            "deepeval_fail_rate",
+            "fail_rate",
+        ),
     )
-    if r is not None:
-        oks.append(r)
 
-    # 2) Prompt Guard
-    r = fold_external(
-        "promptguard_summary.json",
-        "promptguard_attack_detect_rate_max",
-        "promptguard_attack_detect_rate",
-        key_in_json="attack_detect_rate",
-    )
-    if r is not None:
-        oks.append(r)
+    for (
+        filename,
+        threshold_key,
+        metric_name,
+        preferred_key,
+    ) in detector_specs:
+        result = fold_external(
+            filename,
+            threshold_key,
+            metric_name,
+            key_in_json=preferred_key,
+        )
 
-    # 3) Garak
-    r = fold_external(
-        "garak_summary.json",
-        "garak_new_critical_max",
-        "garak_new_critical",
-        key_in_json="new_critical",
-    )
-    if r is not None:
-        oks.append(r)
+        if result is not None:
+            folded_results.append(result)
 
-    # 4) Azure eval (prefer canonical key, but keep fallbacks when missing)
-    r = fold_external(
-        "azure_eval_summary.json",
-        "azure_indirect_jailbreak_rate_max",
-        "azure_indirect_jailbreak_rate",
-        key_in_json="azure_indirect_jailbreak_rate",
-    )
-    if r is not None:
-        oks.append(r)
+    policy = str(
+        thresholds.get(
+            "external_overall_policy",
+            "all",
+        )
+        or "all"
+    ).lower()
 
-    # 5) Promptfoo
-    r = fold_external(
-        "promptfoo_summary.json",
-        "promptfoo_fail_rate_max",
-        "promptfoo_fail_rate",
-        key_in_json="fail_rate",
-    )
-    if r is not None:
-        oks.append(r)
+    if not folded_results:
+        external_all_pass = (
+            False
+            if args.require_external_summaries
+            else True
+        )
 
-    # 6) DeepEval
-    r = fold_external(
-        "deepeval_summary.json",
-        "deepeval_fail_rate_max",
-        "deepeval_fail_rate",
-        key_in_json="fail_rate",
-    )
-    if r is not None:
-        oks.append(r)
+    elif policy == "all":
+        external_all_pass = all(
+            folded_results
+        )
 
-    policy = (thr.get("external_overall_policy") or "all").lower()
-
-    if not oks:
-        # Default/onboarding: no folded external evidence does not fail the run.
-        # Strict/release-grade: at least one recognized detector summary must be
-        # successfully folded before external_all_pass can become true.
-        #
-        # Decoy-only, unrecognized-only, malformed-only, or no-folded-result
-        # evidence states must not materialize into release authority.
-        if args.require_external_summaries:
-            ext_all = False
-        else:
-            ext_all = True
     else:
-        if policy == "all":
-            ext_all = all(oks)
-        else:
-            ext_all = any(oks)
+        external_all_pass = any(
+            folded_results
+        )
 
-    external["all_pass"] = ext_all
-    gates["external_all_pass"] = ext_all
-    status["external_all_pass"] = ext_all
+    external["all_pass"] = external_all_pass
+    gates["external_all_pass"] = external_all_pass
+    status["external_all_pass"] = external_all_pass
 
-    # -----------------------------------------------------------------------
-    # 3) Optional Q1 reference summary shadow fold-in
-    # -----------------------------------------------------------------------
-    fold_q1_reference_shadow(status, args.q1_reference_summary)
+    fold_q1_reference_shadow(
+        status,
+        args.q1_reference_summary,
+    )
 
-    # -----------------------------------------------------------------------
-    # 4) Write back
-    # -----------------------------------------------------------------------
-    with open(status_path, "w", encoding="utf-8") as f:
-        json.dump(status, f, indent=2, sort_keys=True)
+    with open(
+        status_path,
+        "w",
+        encoding="utf-8",
+    ) as handle:
+        json.dump(
+            status,
+            handle,
+            indent=2,
+            sort_keys=True,
+            allow_nan=False,
+        )
+        handle.write("\n")
 
-    print("Augmented gates:", json.dumps(gates, indent=2))
+    print(
+        "Augmented gates:",
+        json.dumps(
+            gates,
+            indent=2,
+            sort_keys=True,
+        ),
+    )
+
     return 0
 
 
