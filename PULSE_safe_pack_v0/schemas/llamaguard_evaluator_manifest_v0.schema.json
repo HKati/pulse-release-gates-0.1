@@ -1,0 +1,342 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://hkati.github.io/pulse-release-gates-0.1/schemas/llamaguard_evaluator_manifest_v0.schema.json",
+  "title": "PULSE LlamaGuard Current-Run Evaluator Manifest v0",
+  "description": "Schema for the current-run LlamaGuard evaluator manifest. It validates producer, run, model, runtime, dataset, raw-evidence, schema, and authority-boundary bindings; it does not create release authority.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "producer",
+    "run",
+    "model",
+    "runtime",
+    "dataset",
+    "output",
+    "schema_binding",
+    "authority_boundary"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "llamaguard_current_run_evaluator_v0"
+    },
+    "producer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "tool",
+        "version",
+        "sha256"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "const": "PULSE_safe_pack_v0/tools/run_llamaguard_current_evidence_v0.py"
+        },
+        "tool": {
+          "type": "string",
+          "const": "run_llamaguard_current_evidence_v0.py"
+        },
+        "version": {
+          "type": "string",
+          "const": "0.1.0"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "run": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "repository",
+        "git_sha",
+        "run_key",
+        "run_id",
+        "run_attempt",
+        "workflow_name",
+        "workflow_ref",
+        "workflow_path",
+        "release_candidate",
+        "created_utc"
+      ],
+      "properties": {
+        "repository": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"
+        },
+        "git_sha": {
+          "$ref": "#/$defs/hex40"
+        },
+        "run_key": {
+          "type": "string",
+          "pattern": "^GITHUB_RUN_ID=[1-9][0-9]*\\|GITHUB_RUN_ATTEMPT=[1-9][0-9]*\\|GITHUB_WORKFLOW=PULSE CI$"
+        },
+        "run_id": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "run_attempt": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "workflow_name": {
+          "type": "string",
+          "const": "PULSE CI"
+        },
+        "workflow_ref": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/\\.github/workflows/pulse_ci\\.yml@[^\\r\\n]+$"
+        },
+        "workflow_path": {
+          "type": "string",
+          "const": ".github/workflows/pulse_ci.yml"
+        },
+        "release_candidate": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "created_utc": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "model": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "revision",
+        "dtype"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "const": "meta-llama/Llama-Guard-3-1B"
+        },
+        "revision": {
+          "type": "string",
+          "const": "acf7aafa60f0410f8f42b1fa35e077d705892029"
+        },
+        "dtype": {
+          "type": "string",
+          "const": "float32"
+        }
+      }
+    },
+    "runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "versions",
+        "device",
+        "torch_threads",
+        "generation"
+      ],
+      "properties": {
+        "versions": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "python",
+            "torch",
+            "transformers",
+            "huggingface_hub",
+            "tokenizers",
+            "safetensors"
+          ],
+          "properties": {
+            "python": {
+              "$ref": "#/$defs/nonempty"
+            },
+            "torch": {
+              "$ref": "#/$defs/nonempty"
+            },
+            "transformers": {
+              "$ref": "#/$defs/nonempty"
+            },
+            "huggingface_hub": {
+              "$ref": "#/$defs/nonempty"
+            },
+            "tokenizers": {
+              "$ref": "#/$defs/nonempty"
+            },
+            "safetensors": {
+              "$ref": "#/$defs/nonempty"
+            }
+          }
+        },
+        "device": {
+          "type": "string",
+          "const": "cpu"
+        },
+        "torch_threads": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 16
+        },
+        "generation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "manual_seed",
+            "do_sample",
+            "num_beams",
+            "pad_token_id",
+            "max_new_tokens"
+          ],
+          "properties": {
+            "manual_seed": {
+              "type": "integer",
+              "const": 0
+            },
+            "do_sample": {
+              "type": "boolean",
+              "const": false
+            },
+            "num_beams": {
+              "type": "integer",
+              "const": 1
+            },
+            "pad_token_id": {
+              "type": "integer",
+              "const": 0
+            },
+            "max_new_tokens": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 64
+            }
+          }
+        }
+      }
+    },
+    "dataset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "sha256",
+        "case_count"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "const": "PULSE_safe_pack_v0/examples/llamaguard_current_run_cases_v0.jsonl"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "case_count": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 32
+        }
+      }
+    },
+    "output": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "raw_evidence_path",
+        "raw_evidence_sha256",
+        "record_count",
+        "safe_count",
+        "unsafe_count"
+      ],
+      "properties": {
+        "raw_evidence_path": {
+          "type": "string",
+          "const": "PULSE_safe_pack_v0/artifacts/external/llamaguard_raw.jsonl"
+        },
+        "raw_evidence_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "record_count": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 32
+        },
+        "safe_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 32
+        },
+        "unsafe_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 32
+        }
+      }
+    },
+    "schema_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "sha256"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "const": "PULSE_safe_pack_v0/schemas/llamaguard_evaluator_manifest_v0.schema.json"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "authority_boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "creates_release_authority",
+        "materializes_status",
+        "materializes_release_required",
+        "creates_attestation",
+        "replaces_check_gates"
+      ],
+      "properties": {
+        "creates_release_authority": {
+          "type": "boolean",
+          "const": false
+        },
+        "materializes_status": {
+          "type": "boolean",
+          "const": false
+        },
+        "materializes_release_required": {
+          "type": "boolean",
+          "const": false
+        },
+        "creates_attestation": {
+          "type": "boolean",
+          "const": false
+        },
+        "replaces_check_gates": {
+          "type": "boolean",
+          "const": false
+        }
+      }
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "hex40": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "nonempty": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}
