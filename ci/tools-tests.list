@@ -16,6 +16,7 @@ tests/test_tools_release_authority_smoke.py
 tests/test_check_external_summaries_present.py
 tests/test_augment_status_smoke.py
 tests/test_augment_status_strict_external_evidence.py
+tests/test_llamaguard_ingest_v1.py
 tests/test_run_all_mode_contract.py
 tests/test_validate_status_schema_tool.py
 tests/test_validate_space_relation_map_tool.py
