@@ -48,7 +48,10 @@ ADAPTER_NAME = "llamaguard_ingest"
 ADAPTER_VERSION = "1.0.0"
 
 SUMMARY_SCHEMA_VERSION = "external_summary_v1"
-SUMMARY_SCHEMA_REL = "schemas/external_summary_v1.schema.json"
+SUMMARY_SCHEMA_REL = (
+    "PULSE_safe_pack_v0/schemas/"
+    "external_summary_v1.schema.json"
+)
 THRESHOLDS_REL = (
     "PULSE_safe_pack_v0/profiles/external_thresholds.yaml"
 )
@@ -65,14 +68,12 @@ AUTHORITY_BOUNDARY = (
 )
 
 GIT_SHA_RE = re.compile(r"^[0-9a-f]{40}$", re.IGNORECASE)
-SHA256_RE = re.compile(r"^[0-9a-f]{64}$", re.IGNORECASE)
 SIGNER_IDENTITY_RE = re.compile(
     r"^repo:"
     r"(?P<repository>[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)"
     r":workflow:"
     r"(?P<workflow>[A-Za-z0-9_.\-/]+\.ya?ml)$"
 )
-
 WILDCARD_TOKENS = ("*", "?", "[", "]")
 
 STALE_OUTPUTS = (
@@ -147,6 +148,56 @@ def _reject_nonfinite(value: str) -> None:
     )
 
 
+def _require_finite_json_tree(
+    value: Any,
+    label: str,
+) -> None:
+    """Reject every non-finite number in a parsed JSON tree."""
+
+    if (
+        value is None
+        or isinstance(
+            value,
+            (
+                str,
+                bool,
+                int,
+            ),
+        )
+    ):
+        return
+
+    if isinstance(value, float):
+        if not math.isfinite(value):
+            raise ProducerError(
+                f"{label} contains a non-finite number"
+            )
+
+        return
+
+    if isinstance(value, list):
+        for index, item in enumerate(value):
+            _require_finite_json_tree(
+                item,
+                f"{label}[{index}]",
+            )
+
+        return
+
+    if isinstance(value, dict):
+        for key, item in value.items():
+            _require_finite_json_tree(
+                item,
+                f"{label}.{key}",
+            )
+
+        return
+
+    raise ProducerError(
+        f"{label} contains an unsupported JSON value"
+    )
+
+
 def _require_text(
     value: Any,
     label: str,
@@ -163,10 +214,15 @@ def _resolve(
     repo_root: Path,
     supplied: Path,
 ) -> Path:
-    if supplied.is_absolute():
-        return supplied.resolve()
+    """Return a lexical absolute path without following symlinks."""
 
-    return (repo_root / supplied).resolve()
+    candidate = (
+        supplied
+        if supplied.is_absolute()
+        else repo_root / supplied
+    )
+
+    return Path(os.path.abspath(candidate))
 
 
 def _require_inside(
@@ -201,7 +257,10 @@ def _require_canonical_path(
     expected: Path,
     label: str,
 ) -> None:
-    if actual.resolve() != expected.resolve():
+    if (
+        Path(os.path.abspath(actual))
+        != Path(os.path.abspath(expected))
+    ):
         raise ProducerError(
             f"{label} must use canonical path "
             f"{expected}"
@@ -284,6 +343,11 @@ def _load_json_object(
         raise ProducerError(
             f"{label} must be a JSON object"
         )
+
+    _require_finite_json_tree(
+        payload,
+        label,
+    )
 
     return payload
 
@@ -550,6 +614,14 @@ def _read_llamaguard_jsonl(
                     f"LlamaGuard raw evidence line "
                     f"{line_number} must be an object"
                 )
+
+            _require_finite_json_tree(
+                record,
+                (
+                    "LlamaGuard raw evidence line "
+                    f"{line_number}"
+                ),
+            )
 
             if not isinstance(
                 record.get("input"),
@@ -1047,7 +1119,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--schema",
         default=SUMMARY_SCHEMA_REL,
-        help="Canonical external summary schema.",
+        help="Bundled canonical external summary schema.",
     )
     parser.add_argument(
         "--thresholds",
