@@ -19,6 +19,7 @@ tests/test_augment_status_strict_external_evidence.py
 tests/test_llamaguard_ingest_v1.py
 tests/test_run_llamaguard_current_evidence_v0.py
 tests/test_llamaguard_current_run_workflow_wiring_v0.py
+tests/test_llamaguard_current_run_workflow_wiring_v0.py
 tests/test_run_all_mode_contract.py
 tests/test_validate_status_schema_tool.py
 tests/test_validate_space_relation_map_tool.py
