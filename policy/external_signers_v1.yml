@@ -103,7 +103,7 @@ allowed_identities:
           - advisory
           - diagnostic
 
-   llamaguard_github_actions_exact:
+  llamaguard_github_actions_exact:
     description: >
       Exact GitHub Actions workflow identity admitted for current-run
       LlamaGuard release-grade summary attestations.
@@ -139,7 +139,7 @@ tool_policies:
   llamaguard:
     release_grade_contribution_allowed: true
     allowed_identity_groups:
-       - llamaguard_github_actions_exact  
+      - llamaguard_github_actions_exact
     require_dataset_digest: true
     require_subject_digest: true
     require_threshold_ref: true
