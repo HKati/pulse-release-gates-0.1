@@ -103,6 +103,17 @@ allowed_identities:
           - advisory
           - diagnostic
 
+  llamaguard_github_actions_exact:
+    description: >
+      Exact GitHub Actions workflow identity admitted for current-run
+      LlamaGuard release-grade summary attestations.
+    identities:
+      - pattern: "repo:HKati/pulse-release-gates-0.1:workflow:.github/workflows/pulse_ci.yml"
+        modes:
+          - github-attestation
+        release_contributions:
+          - required
+  
   eplabsai:
     description: >
       EPLabsAI / PULSE maintainer-controlled signing identity namespace for
@@ -128,9 +139,7 @@ tool_policies:
   llamaguard:
     release_grade_contribution_allowed: true
     allowed_identity_groups:
-      - github_actions
-      - eplabsai
-      - external_review
+      - llamaguard_github_actions_exact
     require_dataset_digest: true
     require_subject_digest: true
     require_threshold_ref: true

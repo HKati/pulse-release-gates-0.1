@@ -2215,6 +2215,149 @@ jobs:
           subject-path: attestation-subject/artifact_provenance_binding_v0.json
           show-summary: true
 
+  attest_llamaguard_current_run_summary:
+    name: "LlamaGuard current-run summary: attest and verify"
+    needs: pulse
+    if: ${{ github.event_name != 'pull_request' && needs.pulse.result == 'success' && (startsWith(github.ref, 'refs/tags/v') || startsWith(github.ref, 'refs/tags/V') || (github.event_name == 'workflow_dispatch' && github.event.inputs.strict_external_evidence == 'true')) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      actions: read
+      id-token: write
+      attestations: write
+      artifact-metadata: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # pinned
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # pinned
+        with:
+          python-version: "3.11"
+
+      - name: Install Python deps for LlamaGuard attestation envelope
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+          python -m pip install jsonschema
+
+      - name: Download current-run LlamaGuard evidence
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          DOWNLOAD_DIR="${RUNNER_TEMP}/llamaguard-current-run"
+          CANONICAL_DIR="${GITHUB_WORKSPACE}/PULSE_safe_pack_v0/artifacts/external"
+
+          rm -rf "${DOWNLOAD_DIR}"
+          mkdir -p "${DOWNLOAD_DIR}" "${CANONICAL_DIR}"
+
+          gh run download "${GITHUB_RUN_ID}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --name "llamaguard-current-run-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" \
+            --dir "${DOWNLOAD_DIR}"
+
+          for name in \
+            llamaguard_raw.jsonl \
+            llamaguard_evaluator_manifest_v0.json \
+            llamaguard_summary.json
+          do
+            src="$(find "${DOWNLOAD_DIR}" -type f -name "${name}" | head -n 1 || true)"
+
+            if [[ -z "${src}" ]]; then
+              echo "::error::Downloaded LlamaGuard evidence is missing ${name}"
+              exit 1
+            fi
+
+            if [[ -L "${src}" ]]; then
+              echo "::error::Downloaded LlamaGuard evidence must not be a symlink: ${src}"
+              exit 1
+            fi
+
+            cp "${src}" "${CANONICAL_DIR}/${name}"
+          done
+
+          for artifact in \
+            "${CANONICAL_DIR}/llamaguard_raw.jsonl" \
+            "${CANONICAL_DIR}/llamaguard_evaluator_manifest_v0.json" \
+            "${CANONICAL_DIR}/llamaguard_summary.json"
+          do
+            if [[ ! -f "${artifact}" || -L "${artifact}" ]]; then
+              echo "::error::Canonical LlamaGuard evidence is not a regular non-symlink file: ${artifact}"
+              exit 1
+            fi
+
+            sha256sum "${artifact}"
+          done
+
+      - name: Attest canonical LlamaGuard summary
+        id: attest_llamaguard_summary
+        uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26
+        with:
+          subject-path: PULSE_safe_pack_v0/artifacts/external/llamaguard_summary.json
+          show-summary: true
+
+      - name: Build canonical LlamaGuard external-summary envelope
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          PULSE_ATTESTATION_VERIFIED_AT="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+          PULSE_EXTERNAL_SIGNER_IDENTITY="repo:${GITHUB_REPOSITORY:?}:workflow:.github/workflows/pulse_ci.yml"
+
+          python "${GITHUB_WORKSPACE}/PULSE_safe_pack_v0/tools/build_llamaguard_attestation_envelope_v1.py" \
+            --repo-root "${GITHUB_WORKSPACE}" \
+            --bundle-source "${{ steps.attest_llamaguard_summary.outputs.bundle-path }}" \
+            --repository "${GITHUB_REPOSITORY}" \
+            --source-digest "${GITHUB_SHA}" \
+            --workflow-ref "${GITHUB_WORKFLOW_REF}" \
+            --signer-identity "${PULSE_EXTERNAL_SIGNER_IDENTITY}" \
+            --verified-at "${PULSE_ATTESTATION_VERIFIED_AT}" \
+            --attestation-id "${{ steps.attest_llamaguard_summary.outputs.attestation-id }}" \
+            --attestation-url "${{ steps.attest_llamaguard_summary.outputs.attestation-url }}" \
+            --attestation-action-ref "actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26"
+
+      - name: Verify canonical LlamaGuard external-summary attestation
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          python "${GITHUB_WORKSPACE}/PULSE_safe_pack_v0/tools/check_external_summary_attestation_v1.py" \
+            --repo-root "${GITHUB_WORKSPACE}" \
+            --summary "PULSE_safe_pack_v0/artifacts/external/llamaguard_summary.json" \
+            --envelope "PULSE_safe_pack_v0/artifacts/external/llamaguard_summary.envelope.json" \
+            --summary-schema "schemas/external_summary_v1.schema.json" \
+            --envelope-schema "schemas/external_summary_envelope_v1.schema.json" \
+            --signer-policy "policy/external_signers_v1.yml" \
+            --repository "${GITHUB_REPOSITORY}" \
+            --source-digest "${GITHUB_SHA}" \
+            --out "PULSE_safe_pack_v0/artifacts/external/llamaguard_attestation_verifier_v1.json"
+
+      - name: Upload attested LlamaGuard external evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # pinned
+        with:
+          name: llamaguard-attested-current-run-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            PULSE_safe_pack_v0/artifacts/external/llamaguard_raw.jsonl
+            PULSE_safe_pack_v0/artifacts/external/llamaguard_evaluator_manifest_v0.json
+            PULSE_safe_pack_v0/artifacts/external/llamaguard_summary.json
+            PULSE_safe_pack_v0/artifacts/external/llamaguard_summary.bundle.json
+            PULSE_safe_pack_v0/artifacts/external/llamaguard_summary.envelope.json
+            PULSE_safe_pack_v0/artifacts/external/llamaguard_attestation_verifier_v1.json
+          if-no-files-found: error
+          retention-days: 30
+  
   tools-tests:
     name: Tools smoke tests
     runs-on: ubuntu-latest

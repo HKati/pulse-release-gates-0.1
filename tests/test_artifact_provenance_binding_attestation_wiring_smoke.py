@@ -121,7 +121,7 @@ def test_download_step_runs_before_attestation_action() -> None:
 
 def test_attestation_action_is_pinned_to_immutable_sha() -> None:
     text = read_workflow()
-    _pulse_block, attest_block, _blocks = workflow_blocks()
+    _pulse_block, attest_block, blocks = workflow_blocks()
 
     uses_lines = [
         line.strip()
@@ -129,8 +129,17 @@ def test_attestation_action_is_pinned_to_immutable_sha() -> None:
         if line.strip().startswith("uses: actions/attest@")
     ]
 
-    assert uses_lines == [f"uses: actions/attest@{ATTEST_SHA}"]
+    assert uses_lines, "workflow must contain at least one actions/attest use"
+    assert all(
+        line == f"uses: actions/attest@{ATTEST_SHA}"
+        for line in uses_lines
+    ), uses_lines
+
     assert f"uses: actions/attest@{ATTEST_SHA}" in attest_block
+
+    for job_name, block in blocks.items():
+        if "uses: actions/attest@" in block:
+            assert f"uses: actions/attest@{ATTEST_SHA}" in block, job_name
 
     assert "uses: actions/attest@v4.1.0" not in text
     assert "uses: actions/attest@v4" not in text
