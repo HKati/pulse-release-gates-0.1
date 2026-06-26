@@ -7,6 +7,16 @@ traceability surface.
 It does not change workflow behavior. It statically verifies that the
 primary workflow keeps audit-bundle staging/upload separate from the
 artifact-bound release-authority path.
+
+The workflow may contain more than one policy-derived check_gates.py
+enforcement step. For example:
+
+- core gate enforcement in the pulse job;
+- release_required enforcement in the attested release-grade path.
+
+That is valid. The invariant here is not "exactly one enforcement step".
+The invariant is that no policy-derived check_gates enforcement step may
+consume the audit bundle as a release-authority carrier.
 """
 
 from __future__ import annotations
@@ -30,6 +40,7 @@ def _extract_step(workflow: str, step_name: str) -> str:
         rf"(?=^\s*-\s+name:\s+|\Z)"
     )
     match = pattern.search(workflow)
+
     assert match is not None, f"Missing workflow step: {step_name}"
     return match.group(0)
 
@@ -55,7 +66,11 @@ def _extract_steps_containing(
     return matches
 
 
-def _assert_contains_all(text: str, required: list[str], label: str) -> None:
+def _assert_contains_all(
+    text: str,
+    required: list[str],
+    label: str,
+) -> None:
     missing = [item for item in required if item not in text]
     assert not missing, f"{label} is missing expected tokens: {missing}"
 
@@ -83,11 +98,10 @@ def test_release_authority_audit_bundle_workflow_neutrality_v0() -> None:
         workflow,
         "Upload release authority audit bundle (audit-only)",
     )
-        enforcement_steps = _extract_steps_containing(
+    enforcement_steps = _extract_steps_containing(
         workflow,
         ["policy_to_require_args.py", "check_gates.py"],
         "policy-derived check_gates enforcement",
-    )
     )
 
     _assert_contains_all(
@@ -151,7 +165,7 @@ def test_release_authority_audit_bundle_workflow_neutrality_v0() -> None:
             f"token: {token}"
         )
 
-        forbidden_enforcement_tokens = [
+    forbidden_enforcement_tokens = [
         "release_authority_audit_bundle",
         "release-authority-audit-bundle",
         "--audit-bundle-dir",
