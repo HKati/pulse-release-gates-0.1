@@ -11,8 +11,10 @@ required:
   - path: tools/build_llamaguard_attestation_envelope_v1.py 
   - path: tools/assemble_release_grade_reference_package_v0.py
   - path: tools/verify_release_grade_reference_package_v0.py
+  - path: tools/build_required_gate_reference_summary_v0.py
   - path: schemas/llamaguard_evaluator_manifest_v0.schema.json
   - path: examples/llamaguard_current_run_cases_v0.jsonl
+  - path: examples/required_gate_current_run_reference_v0.json
   - path: requirements-llamaguard-v0.txt
   - path: schemas/external_summary_v1.schema.json
   - path: docs/METHODS_RDSI_QLEDGER.md
