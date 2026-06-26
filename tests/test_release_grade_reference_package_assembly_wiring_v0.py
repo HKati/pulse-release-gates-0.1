@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
-import re
 from pathlib import Path
 
 
@@ -11,6 +10,7 @@ TOOLS_TESTS_LIST = REPO_ROOT / "ci" / "tools-tests.list"
 
 RECORDED_PATH_JOB = "release_grade_recorded_path"
 PACKAGE_JOB = "assemble_release_grade_reference_package"
+VERIFY_JOB = "verify_release_grade_reference_package"
 TOOLS_JOB = "tools-tests"
 
 PACKAGE_ARTIFACT = (
@@ -126,6 +126,7 @@ def _workflow_and_jobs() -> tuple[str, dict[str, str]]:
         "attest_llamaguard_current_run_summary",
         RECORDED_PATH_JOB,
         PACKAGE_JOB,
+        VERIFY_JOB,
         TOOLS_JOB,
     ):
         assert name in blocks, f"missing workflow job: {name}"
@@ -157,6 +158,7 @@ def test_complete_package_job_order_and_dependencies() -> None:
     attest_index = text.index("  attest_llamaguard_current_run_summary:")
     recorded_index = text.index(f"  {RECORDED_PATH_JOB}:")
     package_index = text.index(f"  {PACKAGE_JOB}:")
+    verify_index = text.index(f"  {VERIFY_JOB}:")
     tools_index = text.index(f"  {TOOLS_JOB}:")
 
     assert (
@@ -164,11 +166,13 @@ def test_complete_package_job_order_and_dependencies() -> None:
         < attest_index
         < recorded_index
         < package_index
+        < verify_index
         < tools_index
     )
 
     _assert_job_needs(blocks[PACKAGE_JOB], RECORDED_PATH_JOB)
-    _assert_job_needs(blocks[TOOLS_JOB], PACKAGE_JOB)
+    _assert_job_needs(blocks[VERIFY_JOB], PACKAGE_JOB)
+    _assert_job_needs(blocks[TOOLS_JOB], VERIFY_JOB)
 
 
 def test_complete_package_job_is_release_grade_only() -> None:
