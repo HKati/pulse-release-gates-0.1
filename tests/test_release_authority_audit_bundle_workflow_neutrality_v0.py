@@ -7,6 +7,16 @@ traceability surface.
 It does not change workflow behavior. It statically verifies that the
 primary workflow keeps audit-bundle staging/upload separate from the
 artifact-bound release-authority path.
+
+The workflow may contain more than one policy-derived check_gates.py
+enforcement step. For example:
+
+- core gate enforcement in the pulse job;
+- release_required enforcement in the attested release-grade path.
+
+That is valid. The invariant here is not "exactly one enforcement step".
+The invariant is that no policy-derived check_gates enforcement step may
+consume the audit bundle as a release-authority carrier.
 """
 
 from __future__ import annotations
@@ -30,15 +40,16 @@ def _extract_step(workflow: str, step_name: str) -> str:
         rf"(?=^\s*-\s+name:\s+|\Z)"
     )
     match = pattern.search(workflow)
+
     assert match is not None, f"Missing workflow step: {step_name}"
     return match.group(0)
 
 
-def _extract_step_containing(
+def _extract_steps_containing(
     workflow: str,
     required_tokens: list[str],
     label: str,
-) -> str:
+) -> list[str]:
     step_pattern = re.compile(
         r"(?ms)^\s*-\s+name:\s+.*?$.*?(?=^\s*-\s+name:\s+|\Z)"
     )
@@ -48,14 +59,18 @@ def _extract_step_containing(
         if all(token in match.group(0) for token in required_tokens)
     ]
 
-    assert len(matches) == 1, (
-        f"Expected exactly one {label} step containing {required_tokens}, "
-        f"found {len(matches)}"
+    assert matches, (
+        f"Expected at least one {label} step containing {required_tokens}, "
+        "found 0"
     )
-    return matches[0]
+    return matches
 
 
-def _assert_contains_all(text: str, required: list[str], label: str) -> None:
+def _assert_contains_all(
+    text: str,
+    required: list[str],
+    label: str,
+) -> None:
     missing = [item for item in required if item not in text]
     assert not missing, f"{label} is missing expected tokens: {missing}"
 
@@ -83,7 +98,7 @@ def test_release_authority_audit_bundle_workflow_neutrality_v0() -> None:
         workflow,
         "Upload release authority audit bundle (audit-only)",
     )
-    enforcement_step = _extract_step_containing(
+    enforcement_steps = _extract_steps_containing(
         workflow,
         ["policy_to_require_args.py", "check_gates.py"],
         "policy-derived check_gates enforcement",
@@ -156,11 +171,12 @@ def test_release_authority_audit_bundle_workflow_neutrality_v0() -> None:
         "--audit-bundle-dir",
     ]
 
-    for token in forbidden_enforcement_tokens:
-        assert token not in enforcement_step, (
-            "policy-derived check_gates enforcement must not consume the "
-            f"audit bundle as a release-authority carrier: {token}"
-        )
+    for enforcement_step in enforcement_steps:
+        for token in forbidden_enforcement_tokens:
+            assert token not in enforcement_step, (
+                "policy-derived check_gates enforcement must not consume the "
+                f"audit bundle as a release-authority carrier: {token}"
+            )
 
     assert "name: release-authority-audit-bundle" in upload_step
     assert "name: status.json" not in upload_step
