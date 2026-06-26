@@ -2705,10 +2705,128 @@ jobs:
           if-no-files-found: error
           retention-days: 30
   
+  verify_release_grade_reference_package:
+    name: "Release-grade reference package: verify complete package"
+    needs: assemble_release_grade_reference_package
+    if: ${{ github.event_name != 'pull_request' && needs.assemble_release_grade_reference_package.result == 'success' && (startsWith(github.ref, 'refs/tags/v') || startsWith(github.ref, 'refs/tags/V') || (github.event_name == 'workflow_dispatch' && github.event.inputs.strict_external_evidence == 'true')) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      actions: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # pinned
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # pinned
+        with:
+          python-version: "3.11"
+
+      - name: Install Python deps for package verification
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+          python -m pip install jsonschema
+
+      - name: Download complete release-grade reference package
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          PACKAGE_DIR="${RUNNER_TEMP}/complete-release-grade-reference-package"
+          VERIFY_OUT="${RUNNER_TEMP}/release_grade_reference_package_verification_v0.json"
+
+          rm -rf "${PACKAGE_DIR}" "${VERIFY_OUT}"
+          mkdir -p "${PACKAGE_DIR}"
+
+          gh run download "${GITHUB_RUN_ID}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --name "complete-release-grade-reference-package-${{ github.run_id }}-${{ github.run_attempt }}" \
+            --dir "${PACKAGE_DIR}"
+
+          REQUIRED_VERIFY_INPUTS=(
+            "package_digest_inventory_v0.json"
+            "run_metadata_v0.json"
+            "artifacts/required_gate_evidence_v0.json"
+            "artifacts/status_baseline.json"
+            "artifacts/recorded_release_candidates"
+            "artifacts/recorded_release_candidate_index_v0.json"
+            "artifacts/release_evidence_input_manifest_v0.json"
+            "artifacts/recorded_release_evidence_verifier_v0.json"
+            "artifacts/external/llamaguard_raw.jsonl"
+            "artifacts/external/llamaguard_evaluator_manifest_v0.json"
+            "artifacts/external/llamaguard_summary.json"
+            "artifacts/external/llamaguard_summary.bundle.json"
+            "artifacts/external/llamaguard_summary.envelope.json"
+            "artifacts/external/llamaguard_attestation_verifier_v1.json"
+            "artifacts/status.json"
+            "artifacts/release_decision_v0.json"
+            "artifacts/artifact_provenance_binding_v0.json"
+            "artifacts/release_authority_v0.json"
+            "artifacts/report_card.html"
+            "release-authority-audit-bundle"
+          )
+
+          for item in "${REQUIRED_VERIFY_INPUTS[@]}"
+          do
+            path="${PACKAGE_DIR}/${item}"
+
+            if [[ ! -e "${path}" || -L "${path}" ]]; then
+              echo "::error::complete package verification input is missing or symlinked: ${item}"
+              exit 1
+            fi
+          done
+
+          {
+            echo "PACKAGE_DIR=${PACKAGE_DIR}"
+            echo "VERIFY_OUT=${VERIFY_OUT}"
+          } >> "$GITHUB_ENV"
+
+      - name: Verify complete release-grade reference package
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          PULSE_RUN_KEY="GITHUB_RUN_ID=${GITHUB_RUN_ID:?}|GITHUB_RUN_ATTEMPT=${GITHUB_RUN_ATTEMPT:?}|GITHUB_WORKFLOW=${GITHUB_WORKFLOW:?}"
+
+          python "PULSE_safe_pack_v0/tools/verify_release_grade_reference_package_v0.py" \
+            --repo-root "${GITHUB_WORKSPACE}" \
+            --package-dir "${PACKAGE_DIR}" \
+            --out "${VERIFY_OUT}" \
+            --repository "${GITHUB_REPOSITORY}" \
+            --git-sha "${GITHUB_SHA}" \
+            --workflow-ref "${GITHUB_WORKFLOW_REF}" \
+            --run-id "${GITHUB_RUN_ID}" \
+            --run-attempt "${GITHUB_RUN_ATTEMPT}" \
+            --run-key "${PULSE_RUN_KEY}"
+
+          if [[ ! -f "${VERIFY_OUT}" || -L "${VERIFY_OUT}" ]]; then
+            echo "::error::package verification report is missing or symlinked: ${VERIFY_OUT}"
+            exit 1
+          fi
+
+          sha256sum "${VERIFY_OUT}"
+
+      - name: Upload release-grade reference package verification report
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # pinned
+        with:
+          name: release-grade-reference-package-verification-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/release_grade_reference_package_verification_v0.json
+          if-no-files-found: error
+          retention-days: 30
   tools-tests:
     name: Tools smoke tests
-    needs: assemble_release_grade_reference_package
-    if: ${{ always() && (needs.assemble_release_grade_reference_package.result == 'success' || needs.assemble_release_grade_reference_package.result == 'skipped') }}
+    needs: verify_release_grade_reference_package
+    if: ${{ always() && (needs.verify_release_grade_reference_package.result == 'success' || needs.verify_release_grade_reference_package.result == 'skipped') }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
