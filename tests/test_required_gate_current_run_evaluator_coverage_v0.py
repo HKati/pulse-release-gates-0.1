@@ -19,6 +19,8 @@ unsupported fallback.
 from __future__ import annotations
 
 import importlib.util
+import json
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any
@@ -107,20 +109,47 @@ def _load_evaluator_module() -> Any:
     return module
 
 
-def _repo_relative_path(raw: str) -> Path:
+def _repo_relative_declared_path(raw: str) -> Path:
     assert isinstance(raw, str) and raw, (
         f"path must be a non-empty string: {raw!r}"
     )
-    path = Path(raw)
-    assert not path.is_absolute(), f"path must be repository-relative: {raw!r}"
 
-    resolved = (REPO_ROOT / path).resolve()
+    relative = Path(raw)
+    assert not relative.is_absolute(), (
+        f"path must be repository-relative: {raw!r}"
+    )
+
+    candidate = REPO_ROOT / relative
+    resolved = candidate.resolve()
+
     try:
         resolved.relative_to(REPO_ROOT.resolve())
     except ValueError as exc:
         raise AssertionError(f"path escapes repository root: {raw!r}") from exc
 
-    return resolved
+    return candidate
+
+
+def _assert_git_tracked(raw: str) -> None:
+    result = subprocess.run(
+        [
+            "git",
+            "ls-files",
+            "--error-unmatch",
+            "--",
+            Path(raw).as_posix(),
+        ],
+        cwd=REPO_ROOT,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+
+    assert result.returncode == 0, (
+        "recipe builder/source/extra input must be tracked by git: "
+        f"{raw!r}\nstdout={result.stdout}\nstderr={result.stderr}"
+    )
 
 
 def _recipe_paths(recipe: Any) -> list[tuple[str, str]]:
@@ -135,6 +164,19 @@ def _recipe_paths(recipe: Any) -> list[tuple[str, str]]:
         paths.append((f"extra_input:{index}", extra_path))
 
     return paths
+
+
+def _flag_value(command: list[Any], flag: str) -> str | None:
+    try:
+        index = command.index(flag)
+    except ValueError:
+        return None
+
+    if index + 1 >= len(command):
+        return None
+
+    value = command[index + 1]
+    return value if isinstance(value, str) else None
 
 
 def test_every_required_gate_has_dedicated_current_run_recipe() -> None:
@@ -193,23 +235,26 @@ def test_required_gate_recipes_are_checked_in_and_non_symlinked() -> None:
         assert recipe is not None, f"missing recipe for {gate_id}"
 
         for label, raw_path in _recipe_paths(recipe):
-            path = _repo_relative_path(raw_path)
+            path = _repo_relative_declared_path(raw_path)
 
-            assert path.is_file(), (
-                f"{gate_id} recipe {label} must be a checked-in file: "
-                f"{raw_path}"
+            assert path.exists(), (
+                f"{gate_id} recipe {label} must exist at its declared "
+                f"repository path: {raw_path}"
             )
             assert not path.is_symlink(), (
                 f"{gate_id} recipe {label} must not be a symlink: "
                 f"{raw_path}"
             )
+            assert path.is_file(), (
+                f"{gate_id} recipe {label} must be a checked-in file: "
+                f"{raw_path}"
+            )
+            _assert_git_tracked(raw_path)
 
 
 def test_required_gate_plan_remains_exactly_policy_required() -> None:
     required = set(_load_policy_required_gates())
     assert PLAN_PATH.is_file(), f"missing required-gate plan: {PLAN_PATH}"
-
-    import json
 
     payload = json.loads(PLAN_PATH.read_text(encoding="utf-8"))
     assert payload.get("schema_version") == "required_gate_evaluation_plan_v0"
@@ -238,11 +283,40 @@ def test_required_gate_plan_remains_exactly_policy_required() -> None:
         assert "require-dedicated-current-run-evaluator" not in command, (
             f"{gate_id} plan must not invoke unsupported fallback directly"
         )
+        assert _flag_value(command, "--gate-id") == gate_id, (
+            f"{gate_id} plan command --gate-id must match the entry key"
+        )
 
         result = entry.get("result")
         assert isinstance(result, dict), f"{gate_id} result must be object"
+
+        result_artifact = result.get("artifact")
+        assert isinstance(result_artifact, str) and result_artifact, (
+            f"{gate_id} result.artifact must be a non-empty path"
+        )
         assert result.get("json_pointer") == "/pass", (
             f"{gate_id} result must bind to /pass"
+        )
+        assert _flag_value(command, "--out") == result_artifact, (
+            f"{gate_id} plan command --out must match result.artifact"
+        )
+
+        evidence_artifacts = entry.get("evidence_artifacts")
+        assert isinstance(evidence_artifacts, list) and len(evidence_artifacts) == 1, (
+            f"{gate_id} must declare exactly one evidence artifact"
+        )
+        descriptor = evidence_artifacts[0]
+        assert isinstance(descriptor, dict), (
+            f"{gate_id} evidence artifact descriptor must be an object"
+        )
+        assert descriptor.get("path") == result_artifact, (
+            f"{gate_id} evidence artifact path must match result.artifact"
+        )
+        assert descriptor.get("schema_version") == (
+            "required_gate_evaluation_result_v0"
+        ), (
+            f"{gate_id} evidence artifact schema_version must match the "
+            "required-gate result schema"
         )
 
 
