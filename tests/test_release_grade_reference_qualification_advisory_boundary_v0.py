@@ -7,6 +7,17 @@ non-normative / non-blocking review support.
 It does not change workflow behavior. It statically verifies that the
 qualification step does not become the primary artifact-bound
 release-authority path.
+
+The workflow may contain more than one real policy-derived check_gates.py
+enforcement step. For example:
+
+- core gate enforcement in the pulse job;
+- release_required enforcement in the attested release-grade recorded path.
+
+That is valid. The invariant here is not "exactly one enforcement step".
+The invariant is that the advisory qualification step must not become an
+enforcement path, and no real policy-derived check_gates.py enforcement step
+may consume the qualification/audit bundle as a release-authority carrier.
 """
 
 from __future__ import annotations
@@ -52,7 +63,11 @@ def _assert_contains_all(text: str, required: list[str], label: str) -> None:
     assert not missing, f"{label} is missing expected tokens: {missing}"
 
 
-def _assert_not_contains_any(text: str, forbidden: list[str], label: str) -> None:
+def _assert_not_contains_any(
+    text: str,
+    forbidden: list[str],
+    label: str,
+) -> None:
     present = [item for item in forbidden if item in text]
     assert not present, f"{label} contains forbidden tokens: {present}"
 
@@ -185,20 +200,25 @@ def _step_has_non_summary_token(step: str, token: str) -> bool:
     return any(token in line for line in _non_summary_lines(step))
 
 
-def _extract_policy_derived_check_gates_enforcement_step(workflow: str) -> str:
-    """Find the real policy-derived check_gates.py enforcement step.
+def _extract_policy_derived_check_gates_enforcement_steps(
+    workflow: str,
+) -> list[str]:
+    """Find real policy-derived check_gates.py enforcement steps.
 
-    The test must not depend on an exact workflow step name because the
-    workflow name may change. It must also avoid matching summary/export steps
-    that merely mention check_gates.py in text.
+    The test must not depend on an exact workflow step name because workflow
+    names may change. It must also avoid matching summary/export steps that
+    merely mention check_gates.py in text.
 
     The mechanical shape required here is:
 
-    - policy_to_require_args.py is present in non-summary content
-    - check_gates.py is present in non-summary content
-    - --status and --require are present in non-summary content
+    - policy_to_require_args.py is present in non-summary content;
+    - check_gates.py is present in non-summary content;
+    - --status and --require are present in non-summary content;
     - both tools are invoked through Python, either directly or through
-      variables assigned to those tool paths
+      variables assigned to those tool paths.
+
+    More than one matching enforcement step is allowed, because PR3 separates
+    core enforcement from release_required enforcement.
     """
 
     candidates: list[str] = []
@@ -228,12 +248,12 @@ def _extract_policy_derived_check_gates_enforcement_step(workflow: str) -> str:
         if has_policy_invocation and has_check_gates_invocation:
             candidates.append(step)
 
-    assert len(candidates) == 1, (
-        "Expected exactly one real policy-derived check_gates.py enforcement "
-        f"step, found {len(candidates)}"
+    assert candidates, (
+        "Expected at least one real policy-derived check_gates.py enforcement "
+        "step, found 0"
     )
 
-    return candidates[0]
+    return candidates
 
 
 def _assert_failure_branch_exits_zero(qualification_step: str) -> None:
@@ -301,7 +321,7 @@ def _assert_failure_branch_exits_zero(qualification_step: str) -> None:
 
 
 def _assert_actual_check_gates_enforcement_step(enforcement_step: str) -> None:
-    """Lock the real policy-derived check_gates enforcement step.
+    """Lock a real policy-derived check_gates enforcement step.
 
     This must not accidentally match a later reporting/export step that only
     mentions check_gates.py in summary text.
@@ -340,7 +360,7 @@ def test_release_grade_reference_qualification_is_advisory_boundary_v0() -> None
         workflow,
         "Check release-grade reference run qualification (advisory)",
     )
-    enforcement_step = _extract_policy_derived_check_gates_enforcement_step(
+    enforcement_steps = _extract_policy_derived_check_gates_enforcement_steps(
         workflow,
     )
 
@@ -392,18 +412,21 @@ def test_release_grade_reference_qualification_is_advisory_boundary_v0() -> None
         "release-grade reference qualification step",
     )
 
-    _assert_actual_check_gates_enforcement_step(enforcement_step)
+    forbidden_enforcement_tokens = [
+        "release_authority_audit_bundle",
+        "release-authority-audit-bundle",
+        "--audit-bundle-dir",
+        "check_release_grade_reference_run_v0.py",
+    ]
 
-    _assert_not_contains_any(
-        enforcement_step,
-        [
-            "release_authority_audit_bundle",
-            "release-authority-audit-bundle",
-            "--audit-bundle-dir",
-            "check_release_grade_reference_run_v0.py",
-        ],
-        "policy-derived check_gates.py enforcement step",
-    )
+    for enforcement_step in enforcement_steps:
+        _assert_actual_check_gates_enforcement_step(enforcement_step)
+
+        _assert_not_contains_any(
+            enforcement_step,
+            forbidden_enforcement_tokens,
+            "policy-derived check_gates.py enforcement step",
+        )
 
     _assert_contains_all(
         workflow,
