@@ -34,11 +34,11 @@ def _extract_step(workflow: str, step_name: str) -> str:
     return match.group(0)
 
 
-def _extract_step_containing(
+def _extract_steps_containing(
     workflow: str,
     required_tokens: list[str],
     label: str,
-) -> str:
+) -> list[str]:
     step_pattern = re.compile(
         r"(?ms)^\s*-\s+name:\s+.*?$.*?(?=^\s*-\s+name:\s+|\Z)"
     )
@@ -48,11 +48,11 @@ def _extract_step_containing(
         if all(token in match.group(0) for token in required_tokens)
     ]
 
-    assert len(matches) == 1, (
-        f"Expected exactly one {label} step containing {required_tokens}, "
-        f"found {len(matches)}"
+    assert matches, (
+        f"Expected at least one {label} step containing {required_tokens}, "
+        "found 0"
     )
-    return matches[0]
+    return matches
 
 
 def _assert_contains_all(text: str, required: list[str], label: str) -> None:
@@ -83,10 +83,11 @@ def test_release_authority_audit_bundle_workflow_neutrality_v0() -> None:
         workflow,
         "Upload release authority audit bundle (audit-only)",
     )
-    enforcement_step = _extract_step_containing(
+        enforcement_steps = _extract_steps_containing(
         workflow,
         ["policy_to_require_args.py", "check_gates.py"],
         "policy-derived check_gates enforcement",
+    )
     )
 
     _assert_contains_all(
@@ -150,17 +151,18 @@ def test_release_authority_audit_bundle_workflow_neutrality_v0() -> None:
             f"token: {token}"
         )
 
-    forbidden_enforcement_tokens = [
+        forbidden_enforcement_tokens = [
         "release_authority_audit_bundle",
         "release-authority-audit-bundle",
         "--audit-bundle-dir",
     ]
 
-    for token in forbidden_enforcement_tokens:
-        assert token not in enforcement_step, (
-            "policy-derived check_gates enforcement must not consume the "
-            f"audit bundle as a release-authority carrier: {token}"
-        )
+    for enforcement_step in enforcement_steps:
+        for token in forbidden_enforcement_tokens:
+            assert token not in enforcement_step, (
+                "policy-derived check_gates enforcement must not consume the "
+                f"audit bundle as a release-authority carrier: {token}"
+            )
 
     assert "name: release-authority-audit-bundle" in upload_step
     assert "name: status.json" not in upload_step
