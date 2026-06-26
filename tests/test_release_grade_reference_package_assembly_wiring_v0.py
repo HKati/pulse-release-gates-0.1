@@ -22,6 +22,7 @@ ASSEMBLER_TOOL = (
     "PULSE_safe_pack_v0/tools/"
     "assemble_release_grade_reference_package_v0.py"
 )
+ASSEMBLER_TOOL_PATH = REPO_ROOT / ASSEMBLER_TOOL
 
 STRICT_RELEASE_GUARD_TOKENS = (
     "github.event_name != 'pull_request'",
@@ -190,10 +191,13 @@ def test_complete_package_job_downloads_required_inputs() -> None:
         assert path in package_job, path
 
 
-def test_complete_package_job_uses_canonical_assembler_tool() -> None:
+def test_complete_package_job_uses_existing_canonical_assembler_tool() -> None:
     _text, blocks = _workflow_and_jobs()
     package_job = blocks[PACKAGE_JOB]
 
+    assert ASSEMBLER_TOOL_PATH.is_file(), (
+        f"missing canonical assembler tool: {ASSEMBLER_TOOL_PATH}"
+    )
     assert ASSEMBLER_TOOL in package_job
     assert "--repo-root" in package_job
     assert "--out-dir" in package_job
@@ -255,7 +259,7 @@ def main() -> int:
     test_complete_package_job_order_and_dependencies()
     test_complete_package_job_is_release_grade_only()
     test_complete_package_job_downloads_required_inputs()
-    test_complete_package_job_uses_canonical_assembler_tool()
+    test_complete_package_job_uses_existing_canonical_assembler_tool()
     test_complete_package_job_builds_fresh_directory()
     test_complete_package_job_uploads_complete_package_artifact()
     test_complete_package_job_is_non_authorizing()
