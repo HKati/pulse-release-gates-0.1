@@ -50,6 +50,7 @@ REQUIRED_VERIFY_INPUTS = (
     "artifacts/release_evidence_input_manifest_v0.json",
     "artifacts/recorded_release_evidence_verifier_v0.json",
     "artifacts/external/llamaguard_raw.jsonl",
+    "artifacts/external/llamaguard_evaluator_manifest_v0.json",
     "artifacts/external/llamaguard_summary.json",
     "artifacts/external/llamaguard_summary.bundle.json",
     "artifacts/external/llamaguard_summary.envelope.json",
@@ -200,6 +201,7 @@ def test_complete_package_verification_uses_canonical_read_only_tool() -> None:
     assert "--out" in verify_job
     assert "--repository" in verify_job
     assert "--git-sha" in verify_job
+    assert "--workflow-ref" in verify_job
     assert "--run-id" in verify_job
     assert "--run-attempt" in verify_job
     assert "--run-key" in verify_job
