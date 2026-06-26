@@ -11,6 +11,7 @@ TOOLS_TESTS_LIST = REPO_ROOT / "ci" / "tools-tests.list"
 ATTEST_JOB = "attest_llamaguard_current_run_summary"
 RELEASE_PATH_JOB = "release_grade_recorded_path"
 PACKAGE_JOB = "assemble_release_grade_reference_package"
+VERIFY_JOB = "verify_release_grade_reference_package"
 ATTESTED_ARTIFACT = (
     "llamaguard-attested-current-run-"
     "${{ github.run_id }}-${{ github.run_attempt }}"
@@ -120,6 +121,7 @@ def _workflow_and_jobs() -> tuple[str, dict[str, str]]:
         ATTEST_JOB,
         RELEASE_PATH_JOB,
         PACKAGE_JOB,
+        VERIFY_JOB,
         "tools-tests",
     ):
         if name not in blocks:
@@ -137,6 +139,7 @@ def test_attested_release_path_job_order() -> None:
         f"  {RELEASE_PATH_JOB}:"
     )
     package_index = text.index(f"  {PACKAGE_JOB}:")
+    verify_index = text.index(f"  {VERIFY_JOB}:")
     tools_index = text.index("  tools-tests:")
 
     assert (
@@ -144,6 +147,7 @@ def test_attested_release_path_job_order() -> None:
         < attest_index
         < release_path_index
         < package_index
+        < verify_index
         < tools_index
     )
 
@@ -160,14 +164,17 @@ def test_release_path_depends_on_attested_llamaguard_job() -> None:
         assert token in guard, token
 
 
-def test_tools_tests_is_downstream_of_release_path_via_package_job() -> None:
+def test_tools_tests_is_downstream_of_release_path_via_package_verifier() -> None:
     _text, blocks = _workflow_and_jobs()
 
     assert _job_field(blocks[PACKAGE_JOB], "needs") == (
         RELEASE_PATH_JOB
     )
-    assert _job_field(blocks["tools-tests"], "needs") == (
+    assert _job_field(blocks[VERIFY_JOB], "needs") == (
         PACKAGE_JOB
+    )
+    assert _job_field(blocks["tools-tests"], "needs") == (
+        VERIFY_JOB
     )
 
 
@@ -274,7 +281,7 @@ def test_pr3_workflow_wiring_smoke_registered() -> None:
 def main() -> int:
     test_attested_release_path_job_order()
     test_release_path_depends_on_attested_llamaguard_job()
-    test_tools_tests_is_downstream_of_release_path_via_package_job()
+    test_tools_tests_is_downstream_of_release_path_via_package_verifier()
     test_release_grade_candidate_path_runs_only_after_attestation()
     test_core_check_gates_remains_allowed_in_pulse_job()
     test_release_path_downloads_attested_external_evidence_first()
