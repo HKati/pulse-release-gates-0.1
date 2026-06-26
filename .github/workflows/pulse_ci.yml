@@ -422,6 +422,7 @@ jobs:
         run: |
           set -euo pipefail
 
+          set +e
           python "${PACK_DIR}/tools/run_recorded_required_gate_evaluations_v0.py" \
             --repo-root "${GITHUB_WORKSPACE}" \
             --git-sha "${GITHUB_SHA}" \
@@ -429,6 +430,60 @@ jobs:
             --repository "${GITHUB_REPOSITORY}" \
             --release-candidate "${GITHUB_REF_NAME}" \
             --out "${PACK_DIR}/artifacts/required_gate_evidence_v0.json"
+          REQUIRED_GATE_RC=$?
+          set -e
+
+          EVIDENCE="${PACK_DIR}/artifacts/required_gate_evidence_v0.json"
+
+          if [[ -f "${EVIDENCE}" && ! -L "${EVIDENCE}" ]]; then
+            echo "----- release-grade required-gate evidence summary -----"
+            python - <<'PY'
+          import json
+          from pathlib import Path
+
+          path = Path("PULSE_safe_pack_v0/artifacts/required_gate_evidence_v0.json")
+          payload = json.loads(path.read_text(encoding="utf-8"))
+
+          gates = payload.get("gates") or {}
+          failed = []
+          passed = []
+
+          for gate_id, gate in sorted(gates.items()):
+              if isinstance(gate, dict) and gate.get("status") == "passed":
+                  passed.append(gate_id)
+              else:
+                  failed.append(gate_id)
+
+          print(f"required_gate_evidence: {path}")
+          print(f"passed gates: {len(passed)}")
+          print(f"failed gates: {len(failed)}")
+
+          if failed:
+              print("failed gate IDs:")
+              for gate_id in failed:
+                  print(f" - {gate_id}")
+                  diagnostics = gates.get(gate_id, {}).get("diagnostics") or []
+                  for item in diagnostics:
+                      print(f"   diagnostic: {item}")
+          PY
+            echo "--------------------------------------------------------"
+          else
+            echo "::warning::required_gate_evidence_v0.json was not produced"
+          fi
+
+          exit "${REQUIRED_GATE_RC}"
+
+      - name: Upload release-grade required-gate diagnostics
+        if: ${{ always() && steps.release_mode.outputs.is_release == '1' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # pinned
+        with:
+          name: release-grade-required-gate-diagnostics-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            PULSE_safe_pack_v0/artifacts/required_gate_evidence_v0.json
+            PULSE_safe_pack_v0/artifacts/required_gate_inputs/**
+            PULSE_safe_pack_v0/artifacts/required_gate_evidence_logs/**
+          if-no-files-found: warn
+          retention-days: 30
 
       - name: release-grade build non-stubbed prod candidate status
         if: ${{ steps.release_mode.outputs.is_release == '1' }}
