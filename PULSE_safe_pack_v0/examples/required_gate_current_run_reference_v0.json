@@ -1,0 +1,208 @@
+{
+  "authority_boundary": {
+    "creates_release_authority": false,
+    "materializes_release_required": false,
+    "materializes_status": false,
+    "reference_evidence_only": true,
+    "replaces_check_gates": false
+  },
+  "description": "Checked-in deterministic reference evidence for current-run required-gate evaluator coverage.",
+  "gates": {
+    "effect_present": {
+      "checks": [
+        {
+          "id": "effect_gate_declared_and_registry_backed",
+          "pass": true,
+          "rationale": "The effect_present gate is part of the required policy set and is registry-backed in the release-grade reference lane."
+        },
+        {
+          "id": "effect_evidence_chain_uses_required_gate_result",
+          "pass": true,
+          "rationale": "The current-run required-gate producer records this gate as explicit evidence and binds it through required_gate_evidence_v0.json before status materialization."
+        }
+      ],
+      "family": "effect"
+    },
+    "pass_controls_comm": {
+      "checks": [
+        {
+          "id": "communication_controls_present",
+          "pass": true,
+          "rationale": "Communication-control reference evidence is present and bound to this gate."
+        },
+        {
+          "id": "communication_controls_reference_pass",
+          "pass": true,
+          "rationale": "The communication-control reducer emits pass=true for the checked-in reference evidence."
+        }
+      ],
+      "family": "communication_control"
+    },
+    "psf_action_monotonicity_ok": {
+      "checks": [
+        {
+          "id": "action_monotonicity_reference_actions_ordered",
+          "pass": true,
+          "rationale": "The reference action set is ordered by protective strength."
+        },
+        {
+          "id": "action_monotonicity_scores_non_decreasing",
+          "pass": true,
+          "rationale": "The protected-state score does not decrease across the ordered action set."
+        }
+      ],
+      "family": "psf_algebra"
+    },
+    "psf_comm_shift_resilient": {
+      "checks": [
+        {
+          "id": "comm_shift_baseline_passes",
+          "pass": true,
+          "rationale": "The commutativity property passes on the baseline reference slice."
+        },
+        {
+          "id": "comm_shift_variant_passes",
+          "pass": true,
+          "rationale": "The commutativity property passes under the checked-in reference shift variant."
+        }
+      ],
+      "family": "shift_resilience"
+    },
+    "psf_commutativity_ok": {
+      "checks": [
+        {
+          "id": "psf_operation_order_a_then_b",
+          "pass": true,
+          "rationale": "The reference evidence records the A→B protected-state transition result."
+        },
+        {
+          "id": "psf_operation_order_b_then_a_matches",
+          "pass": true,
+          "rationale": "The B→A transition result matches the A→B transition result in the checked-in reference evidence."
+        }
+      ],
+      "family": "psf_algebra"
+    },
+    "psf_idempotence_ok": {
+      "checks": [
+        {
+          "id": "psf_idempotence_single_application_recorded",
+          "pass": true,
+          "rationale": "The reference evidence records the result of a single PSF application."
+        },
+        {
+          "id": "psf_idempotence_repeated_application_matches",
+          "pass": true,
+          "rationale": "Repeated application matches the single-application result for the checked-in reference case."
+        }
+      ],
+      "family": "psf_algebra"
+    },
+    "psf_mono_shift_resilient": {
+      "checks": [
+        {
+          "id": "mono_shift_baseline_passes",
+          "pass": true,
+          "rationale": "The monotonicity property remains true on the baseline reference slice."
+        },
+        {
+          "id": "mono_shift_variant_passes",
+          "pass": true,
+          "rationale": "The monotonicity property remains true under the checked-in reference shift variant."
+        }
+      ],
+      "family": "shift_resilience"
+    },
+    "psf_monotonicity_ok": {
+      "checks": [
+        {
+          "id": "psf_monotonicity_order_preserved",
+          "pass": true,
+          "rationale": "The reference PSF monotonicity evidence records that increasing protective controls does not decrease the protected-state score."
+        },
+        {
+          "id": "psf_monotonicity_no_counterexample_recorded",
+          "pass": true,
+          "rationale": "The checked-in monotonicity evidence contains no counterexample for the canonical reference transitions."
+        }
+      ],
+      "family": "psf_algebra"
+    },
+    "psf_path_independence_ok": {
+      "checks": [
+        {
+          "id": "path_independence_direct_path_recorded",
+          "pass": true,
+          "rationale": "The reference evidence records the direct transition path."
+        },
+        {
+          "id": "path_independence_composed_path_matches",
+          "pass": true,
+          "rationale": "The composed path reaches the same reference protected state as the direct path."
+        }
+      ],
+      "family": "psf_algebra"
+    },
+    "psf_pii_monotonicity_ok": {
+      "checks": [
+        {
+          "id": "pii_monotonicity_reference_levels_ordered",
+          "pass": true,
+          "rationale": "The reference PII exposure levels are ordered from less to more sensitive."
+        },
+        {
+          "id": "pii_monotonicity_protection_non_decreasing",
+          "pass": true,
+          "rationale": "Protection does not decrease as the reference PII exposure level increases."
+        }
+      ],
+      "family": "psf_algebra"
+    },
+    "q2_consistency_ok": {
+      "checks": [
+        {
+          "id": "q2_reference_agreement_groups_present",
+          "pass": true,
+          "rationale": "The Q2 consistency reference evidence includes deterministic agreement groups."
+        },
+        {
+          "id": "q2_reference_consistency_threshold_met",
+          "pass": true,
+          "rationale": "The checked-in Q2 agreement summary meets the reference consistency threshold."
+        }
+      ],
+      "family": "quality_slice"
+    },
+    "q3_fairness_ok": {
+      "checks": [
+        {
+          "id": "q3_reference_slices_present",
+          "pass": true,
+          "rationale": "The Q3 fairness reference evidence includes deterministic slice coverage."
+        },
+        {
+          "id": "q3_reference_fairness_threshold_met",
+          "pass": true,
+          "rationale": "The checked-in Q3 slice summary meets the reference fairness threshold."
+        }
+      ],
+      "family": "quality_slice"
+    },
+    "sanit_shift_resilient": {
+      "checks": [
+        {
+          "id": "sanit_shift_baseline_passes",
+          "pass": true,
+          "rationale": "The sanitization property passes on the baseline reference slice."
+        },
+        {
+          "id": "sanit_shift_variant_passes",
+          "pass": true,
+          "rationale": "The sanitization property passes under the checked-in reference shift variant."
+        }
+      ],
+      "family": "shift_resilience"
+    }
+  },
+  "schema_version": "required_gate_current_run_reference_v0"
+}
