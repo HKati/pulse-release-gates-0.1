@@ -2559,10 +2559,156 @@ jobs:
           if-no-files-found: error
           retention-days: 30
   
+  assemble_release_grade_reference_package:
+    name: "Release-grade reference package: assemble complete package"
+    needs: release_grade_recorded_path
+    if: ${{ github.event_name != 'pull_request' && needs.release_grade_recorded_path.result == 'success' && (startsWith(github.ref, 'refs/tags/v') || startsWith(github.ref, 'refs/tags/V') || (github.event_name == 'workflow_dispatch' && github.event.inputs.strict_external_evidence == 'true')) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      actions: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # pinned
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # pinned
+        with:
+          python-version: "3.11"
+
+      - name: Install Python deps for package assembly
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+          python -m pip install jsonschema
+
+      - name: Download package assembly inputs
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          INPUT_ROOT="${RUNNER_TEMP}/complete-release-grade-reference-inputs"
+          PULSE_REPORT_DIR="${INPUT_ROOT}/pulse-report"
+          RECORDED_PATH_DIR="${INPUT_ROOT}/release-grade-recorded-path"
+          AUDIT_BUNDLE_DIR="${INPUT_ROOT}/release-authority-audit-bundle"
+          ARTIFACT_BINDING_DIR="${INPUT_ROOT}/release-authority-artifact-binding-v0"
+          COMPLETE_PACKAGE_DIR="${RUNNER_TEMP}/complete-release-grade-reference-package"
+
+          rm -rf "${INPUT_ROOT}" "${COMPLETE_PACKAGE_DIR}"
+          mkdir -p \
+            "${PULSE_REPORT_DIR}" \
+            "${RECORDED_PATH_DIR}" \
+            "${AUDIT_BUNDLE_DIR}" \
+            "${ARTIFACT_BINDING_DIR}"
+
+          gh run download "${GITHUB_RUN_ID}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --name "pulse-report" \
+            --dir "${PULSE_REPORT_DIR}"
+
+          gh run download "${GITHUB_RUN_ID}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --name "release-grade-recorded-path-${{ github.run_id }}-${{ github.run_attempt }}" \
+            --dir "${RECORDED_PATH_DIR}"
+
+          gh run download "${GITHUB_RUN_ID}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --name "release-authority-audit-bundle" \
+            --dir "${AUDIT_BUNDLE_DIR}"
+
+          gh run download "${GITHUB_RUN_ID}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --name "release-authority-artifact-binding-v0" \
+            --dir "${ARTIFACT_BINDING_DIR}"
+
+          REQUIRED_PACKAGE_INPUT_PATHS=(
+            "PULSE_safe_pack_v0/artifacts/required_gate_evidence_v0.json"
+            "PULSE_safe_pack_v0/artifacts/status_baseline.json"
+            "PULSE_safe_pack_v0/artifacts/recorded_release_candidates"
+            "PULSE_safe_pack_v0/artifacts/recorded_release_candidate_index_v0.json"
+            "PULSE_safe_pack_v0/artifacts/release_evidence_input_manifest_v0.json"
+            "PULSE_safe_pack_v0/artifacts/recorded_release_evidence_verifier_v0.json"
+            "PULSE_safe_pack_v0/artifacts/external/llamaguard_raw.jsonl"
+            "PULSE_safe_pack_v0/artifacts/external/llamaguard_evaluator_manifest_v0.json"
+            "PULSE_safe_pack_v0/artifacts/external/llamaguard_summary.json"
+            "PULSE_safe_pack_v0/artifacts/external/llamaguard_summary.bundle.json"
+            "PULSE_safe_pack_v0/artifacts/external/llamaguard_summary.envelope.json"
+            "PULSE_safe_pack_v0/artifacts/external/llamaguard_attestation_verifier_v1.json"
+            "PULSE_safe_pack_v0/artifacts/status.json"
+            "PULSE_safe_pack_v0/artifacts/release_decision_v0.json"
+            "PULSE_safe_pack_v0/artifacts/artifact_provenance_binding_v0.json"
+            "PULSE_safe_pack_v0/artifacts/release_authority_v0.json"
+            "PULSE_safe_pack_v0/artifacts/report_card.html"
+            "release-authority-audit-bundle"
+          )
+
+          printf '%s\n' "${REQUIRED_PACKAGE_INPUT_PATHS[@]}" > "${INPUT_ROOT}/expected_package_inputs.txt"
+
+          {
+            echo "PULSE_REPORT_DIR=${PULSE_REPORT_DIR}"
+            echo "RECORDED_PATH_DIR=${RECORDED_PATH_DIR}"
+            echo "AUDIT_BUNDLE_DIR=${AUDIT_BUNDLE_DIR}"
+            echo "ARTIFACT_BINDING_DIR=${ARTIFACT_BINDING_DIR}"
+            echo "COMPLETE_PACKAGE_DIR=${COMPLETE_PACKAGE_DIR}"
+          } >> "$GITHUB_ENV"
+
+      - name: Assemble complete release-grade reference package
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          PULSE_RUN_KEY="GITHUB_RUN_ID=${GITHUB_RUN_ID:?}|GITHUB_RUN_ATTEMPT=${GITHUB_RUN_ATTEMPT:?}|GITHUB_WORKFLOW=${GITHUB_WORKFLOW:?}"
+          PACKAGE_CREATED_UTC="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+
+          python "PULSE_safe_pack_v0/tools/assemble_release_grade_reference_package_v0.py" \
+            --repo-root "${GITHUB_WORKSPACE}" \
+            --out-dir "${COMPLETE_PACKAGE_DIR}" \
+            --pulse-report-dir "${PULSE_REPORT_DIR}" \
+            --recorded-path-dir "${RECORDED_PATH_DIR}" \
+            --audit-bundle-dir "${AUDIT_BUNDLE_DIR}" \
+            --artifact-binding-dir "${ARTIFACT_BINDING_DIR}" \
+            --repository "${GITHUB_REPOSITORY}" \
+            --git-sha "${GITHUB_SHA}" \
+            --workflow-ref "${GITHUB_WORKFLOW_REF}" \
+            --run-id "${GITHUB_RUN_ID}" \
+            --run-attempt "${GITHUB_RUN_ATTEMPT}" \
+            --run-key "${PULSE_RUN_KEY}" \
+            --release-candidate "${GITHUB_REF_NAME}" \
+            --created-utc "${PACKAGE_CREATED_UTC}"
+
+          for output in \
+            "${COMPLETE_PACKAGE_DIR}/package_digest_inventory_v0.json" \
+            "${COMPLETE_PACKAGE_DIR}/run_metadata_v0.json"
+          do
+            if [[ ! -f "${output}" || -L "${output}" ]]; then
+              echo "::error::complete package output is missing or symlinked: ${output}"
+              exit 1
+            fi
+
+            sha256sum "${output}"
+          done
+
+      - name: Upload complete release-grade reference package
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # pinned
+        with:
+          name: complete-release-grade-reference-package-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/complete-release-grade-reference-package/
+          if-no-files-found: error
+          retention-days: 30
+  
   tools-tests:
     name: Tools smoke tests
-    needs: release_grade_recorded_path
-    if: ${{ always() && (needs.release_grade_recorded_path.result == 'success' || needs.release_grade_recorded_path.result == 'skipped') }}
+    needs: assemble_release_grade_reference_package
+    if: ${{ always() && (needs.assemble_release_grade_reference_package.result == 'success' || needs.assemble_release_grade_reference_package.result == 'skipped') }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
