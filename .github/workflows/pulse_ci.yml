@@ -874,47 +874,6 @@ jobs:
 
           "${AUGMENT_CMD[@]}"
 
-      - name: release-grade build verifier-facing candidate envelopes
-        if: ${{ steps.release_mode.outputs.is_release == '1' }}
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          python "${PACK_DIR}/tools/build_recorded_release_candidates_v0.py" \
-            --repo-root "${GITHUB_WORKSPACE}"
-
-      - name: release-grade build release-evidence input manifest
-        if: ${{ steps.release_mode.outputs.is_release == '1' }}
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          python "${PACK_DIR}/tools/build_release_evidence_input_manifest_v0.py" \
-            --repo-root "${GITHUB_WORKSPACE}"
-      
-      - name: release-grade verify recorded release evidence
-        if: ${{ startsWith(github.ref, 'refs/tags/v') || startsWith(github.ref, 'refs/tags/V') || (github.event_name == 'workflow_dispatch' && github.event.inputs.strict_external_evidence == 'true') }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          python "${PACK_DIR}/tools/check_recorded_release_evidence_v0.py" \
-            --manifest "${PACK_DIR}/artifacts/release_evidence_input_manifest_v0.json" \
-            --repo-root "${GITHUB_WORKSPACE}" \
-            --out-json "${PACK_DIR}/artifacts/recorded_release_evidence_verifier_v0.json"
-
-      - name: release-grade materialize release-required from verifier
-        if: ${{ startsWith(github.ref, 'refs/tags/v') || startsWith(github.ref, 'refs/tags/V') || (github.event_name == 'workflow_dispatch' && github.event.inputs.strict_external_evidence == 'true') }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          python "${PACK_DIR}/tools/materialize_release_required_from_verifier_v0.py" \
-            --status "${PACK_DIR}/artifacts/status.json" \
-            --verifier-report "${PACK_DIR}/artifacts/recorded_release_evidence_verifier_v0.json" \
-            --manifest "${PACK_DIR}/artifacts/release_evidence_input_manifest_v0.json" \
-            --repo-root "${GITHUB_WORKSPACE}" \
-            --policy "${GITHUB_WORKSPACE}/pulse_gate_policy_v0.yml" \
-            --registry "${GITHUB_WORKSPACE}/pulse_gate_registry_v0.yml" \
-            --out "${PACK_DIR}/artifacts/status.json"
       
       - name: "ci: schema validate status.json (status_v1)"
         shell: bash
@@ -1226,7 +1185,6 @@ jobs:
 
           POLICY_SET="${PULSE_POLICY_SET:-core_required}"
 
-          # Canonical helper (fail-closed, no PyYAML dependency)
           REQ_STR="$(python tools/policy_to_require_args.py \
             --policy pulse_gate_policy_v0.yml \
             --set "$POLICY_SET" \
@@ -1239,26 +1197,7 @@ jobs:
             exit 1
           fi
 
-          EFFECTIVE_SET="${POLICY_SET}"
-
-          if [[ "${PULSE_IS_RELEASE:-0}" == "1" ]]; then
-            RELEASE_REQ_STR="$(python tools/policy_to_require_args.py \
-              --policy pulse_gate_policy_v0.yml \
-              --set release_required \
-              --format space)"
-
-            read -r -a RELEASE_REQ <<< "$RELEASE_REQ_STR"
-
-            if (( ${#RELEASE_REQ[@]} == 0 )); then
-              echo "::error::derived gate set is empty: release_required"
-              exit 1
-            fi
-
-            REQ+=("${RELEASE_REQ[@]}")
-            EFFECTIVE_SET="${POLICY_SET}+release_required"
-          fi
-
-          echo "Enforcing materialized gate set: ${EFFECTIVE_SET} (${#REQ[@]} gates)"
+          echo "Enforcing materialized core gate set: ${POLICY_SET} (${#REQ[@]} gates)"
           printf '%s\n' "${REQ[@]}" | sed 's/^/ - /'
 
           python "${{ env.PACK_DIR }}/tools/check_gates.py" \
@@ -2358,8 +2297,272 @@ jobs:
           if-no-files-found: error
           retention-days: 30
   
+  release_grade_recorded_path:
+    name: "Release-grade recorded path: attested evidence to gates"
+    needs: attest_llamaguard_current_run_summary
+    if: ${{ github.event_name != 'pull_request' && needs.attest_llamaguard_current_run_summary.result == 'success' && (startsWith(github.ref, 'refs/tags/v') || startsWith(github.ref, 'refs/tags/V') || (github.event_name == 'workflow_dispatch' && github.event.inputs.strict_external_evidence == 'true')) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      actions: read
+
+    env:
+      PACK_DIR: ${{ github.workspace }}/PULSE_safe_pack_v0
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # pinned
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # pinned
+        with:
+          python-version: "3.11"
+
+      - name: Install Python deps for release-grade recorded path
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+          python -m pip install jsonschema
+
+      - name: Download baseline pulse artifacts
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          DOWNLOAD_DIR="${RUNNER_TEMP}/pulse-report"
+          CANONICAL_ARTIFACTS="${GITHUB_WORKSPACE}/PULSE_safe_pack_v0/artifacts"
+
+          rm -rf "${DOWNLOAD_DIR}"
+          mkdir -p "${DOWNLOAD_DIR}" "${CANONICAL_ARTIFACTS}"
+
+          gh run download "${GITHUB_RUN_ID}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --name "pulse-report" \
+            --dir "${DOWNLOAD_DIR}"
+
+          copy_required_artifact () {
+            local name="$1"
+            local src
+
+            src="$(find "${DOWNLOAD_DIR}" -type f -name "${name}" | head -n 1 || true)"
+
+            if [[ -z "${src}" ]]; then
+              echo "::error::pulse-report artifact is missing ${name}"
+              exit 1
+            fi
+
+            if [[ -L "${src}" ]]; then
+              echo "::error::pulse-report artifact must not be a symlink: ${src}"
+              exit 1
+            fi
+
+            cp "${src}" "${CANONICAL_ARTIFACTS}/${name}"
+          }
+
+          copy_required_artifact "status.json"
+          copy_required_artifact "status_baseline.json"
+          copy_required_artifact "required_gate_evidence_v0.json"
+          copy_required_artifact "refusal_delta_summary.json"
+
+          for artifact in \
+            "${CANONICAL_ARTIFACTS}/status.json" \
+            "${CANONICAL_ARTIFACTS}/status_baseline.json" \
+            "${CANONICAL_ARTIFACTS}/required_gate_evidence_v0.json" \
+            "${CANONICAL_ARTIFACTS}/refusal_delta_summary.json"
+          do
+            if [[ ! -f "${artifact}" || -L "${artifact}" ]]; then
+              echo "::error::Restored baseline artifact is not a regular non-symlink file: ${artifact}"
+              exit 1
+            fi
+
+            sha256sum "${artifact}"
+          done
+
+      - name: Download attested LlamaGuard external evidence
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          DOWNLOAD_DIR="${RUNNER_TEMP}/llamaguard-attested-current-run"
+          CANONICAL_EXTERNAL="${GITHUB_WORKSPACE}/PULSE_safe_pack_v0/artifacts/external"
+
+          rm -rf "${DOWNLOAD_DIR}"
+          mkdir -p "${DOWNLOAD_DIR}" "${CANONICAL_EXTERNAL}"
+
+          gh run download "${GITHUB_RUN_ID}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --name "llamaguard-attested-current-run-${{ github.run_id }}-${{ github.run_attempt }}" \
+            --dir "${DOWNLOAD_DIR}"
+
+          restore_external_artifact () {
+            local name="$1"
+            local dst="$2"
+            local src
+
+            src="$(find "${DOWNLOAD_DIR}" -type f -name "${name}" | head -n 1 || true)"
+
+            if [[ -z "${src}" ]]; then
+              echo "::error::attested LlamaGuard artifact is missing ${name}"
+              exit 1
+            fi
+
+            if [[ -L "${src}" ]]; then
+              echo "::error::attested LlamaGuard artifact must not be a symlink: ${src}"
+              exit 1
+            fi
+
+            cp "${src}" "${dst}"
+          }
+
+          restore_external_artifact \
+            "llamaguard_raw.jsonl" \
+            "PULSE_safe_pack_v0/artifacts/external/llamaguard_raw.jsonl"
+
+          restore_external_artifact \
+            "llamaguard_evaluator_manifest_v0.json" \
+            "PULSE_safe_pack_v0/artifacts/external/llamaguard_evaluator_manifest_v0.json"
+
+          restore_external_artifact \
+            "llamaguard_summary.json" \
+            "PULSE_safe_pack_v0/artifacts/external/llamaguard_summary.json"
+
+          restore_external_artifact \
+            "llamaguard_summary.bundle.json" \
+            "PULSE_safe_pack_v0/artifacts/external/llamaguard_summary.bundle.json"
+
+          restore_external_artifact \
+            "llamaguard_summary.envelope.json" \
+            "PULSE_safe_pack_v0/artifacts/external/llamaguard_summary.envelope.json"
+
+          restore_external_artifact \
+            "llamaguard_attestation_verifier_v1.json" \
+            "PULSE_safe_pack_v0/artifacts/external/llamaguard_attestation_verifier_v1.json"
+
+          for artifact in \
+            "PULSE_safe_pack_v0/artifacts/external/llamaguard_raw.jsonl" \
+            "PULSE_safe_pack_v0/artifacts/external/llamaguard_evaluator_manifest_v0.json" \
+            "PULSE_safe_pack_v0/artifacts/external/llamaguard_summary.json" \
+            "PULSE_safe_pack_v0/artifacts/external/llamaguard_summary.bundle.json" \
+            "PULSE_safe_pack_v0/artifacts/external/llamaguard_summary.envelope.json" \
+            "PULSE_safe_pack_v0/artifacts/external/llamaguard_attestation_verifier_v1.json"
+          do
+            if [[ ! -f "${artifact}" || -L "${artifact}" ]]; then
+              echo "::error::Restored attested LlamaGuard artifact is not a regular non-symlink file: ${artifact}"
+              exit 1
+            fi
+
+            sha256sum "${artifact}"
+          done
+
+      - name: release-grade build verifier-facing candidate envelopes
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          python "${PACK_DIR}/tools/build_recorded_release_candidates_v0.py" \
+            --repo-root "${GITHUB_WORKSPACE}"
+
+      - name: release-grade build release-evidence input manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python "${PACK_DIR}/tools/build_release_evidence_input_manifest_v0.py" \
+            --repo-root "${GITHUB_WORKSPACE}"
+
+      - name: release-grade verify recorded release evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python "${PACK_DIR}/tools/check_recorded_release_evidence_v0.py" \
+            --manifest "${PACK_DIR}/artifacts/release_evidence_input_manifest_v0.json" \
+            --repo-root "${GITHUB_WORKSPACE}" \
+            --out-json "${PACK_DIR}/artifacts/recorded_release_evidence_verifier_v0.json"
+
+      - name: release-grade materialize release-required from verifier
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python "${PACK_DIR}/tools/materialize_release_required_from_verifier_v0.py" \
+            --status "${PACK_DIR}/artifacts/status.json" \
+            --verifier-report "${PACK_DIR}/artifacts/recorded_release_evidence_verifier_v0.json" \
+            --manifest "${PACK_DIR}/artifacts/release_evidence_input_manifest_v0.json" \
+            --repo-root "${GITHUB_WORKSPACE}" \
+            --policy "${GITHUB_WORKSPACE}/pulse_gate_policy_v0.yml" \
+            --registry "${GITHUB_WORKSPACE}/pulse_gate_registry_v0.yml" \
+            --out "${PACK_DIR}/artifacts/status.json"
+
+      - name: release-grade enforce release-required gates via check_gates
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          STATUS="PULSE_safe_pack_v0/artifacts/status.json"
+
+          if [[ ! -f "${STATUS}" || -L "${STATUS}" ]]; then
+            echo "::error::release-grade status is missing or symlinked: ${STATUS}"
+            exit 1
+          fi
+
+          RELEASE_REQ_STR="$(python tools/policy_to_require_args.py \
+            --policy pulse_gate_policy_v0.yml \
+            --set release_required \
+            --format space)"
+
+          read -r -a RELEASE_REQ <<< "$RELEASE_REQ_STR"
+
+          if (( ${#RELEASE_REQ[@]} == 0 )); then
+            echo "::error::derived gate set is empty: release_required"
+            exit 1
+          fi
+
+          echo "Enforcing release_required gate set (${#RELEASE_REQ[@]} gates)"
+          printf '%s\n' "${RELEASE_REQ[@]}" | sed 's/^/ - /'
+
+          python "${PACK_DIR}/tools/check_gates.py" \
+            --status "${STATUS}" \
+            --require "${RELEASE_REQ[@]}"
+
+      - name: Upload release-grade recorded path artifacts
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # pinned
+        with:
+          name: release-grade-recorded-path-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            PULSE_safe_pack_v0/artifacts/status.json
+            PULSE_safe_pack_v0/artifacts/status_baseline.json
+            PULSE_safe_pack_v0/artifacts/required_gate_evidence_v0.json
+            PULSE_safe_pack_v0/artifacts/refusal_delta_summary.json
+            PULSE_safe_pack_v0/artifacts/recorded_release_candidates/**
+            PULSE_safe_pack_v0/artifacts/recorded_release_candidate_index_v0.json
+            PULSE_safe_pack_v0/artifacts/release_evidence_input_manifest_v0.json
+            PULSE_safe_pack_v0/artifacts/recorded_release_evidence_verifier_v0.json
+            PULSE_safe_pack_v0/artifacts/external/llamaguard_raw.jsonl
+            PULSE_safe_pack_v0/artifacts/external/llamaguard_evaluator_manifest_v0.json
+            PULSE_safe_pack_v0/artifacts/external/llamaguard_summary.json
+            PULSE_safe_pack_v0/artifacts/external/llamaguard_summary.bundle.json
+            PULSE_safe_pack_v0/artifacts/external/llamaguard_summary.envelope.json
+            PULSE_safe_pack_v0/artifacts/external/llamaguard_attestation_verifier_v1.json
+          if-no-files-found: error
+          retention-days: 30
+  
   tools-tests:
     name: Tools smoke tests
+    needs: release_grade_recorded_path
+    if: ${{ always() && (needs.release_grade_recorded_path.result == 'success' || needs.release_grade_recorded_path.result == 'skipped') }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
