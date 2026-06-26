@@ -886,6 +886,53 @@ def q4_args(
     ]
 
 
+def required_reference_args(
+    ctx: Context,
+    summary: Path,
+    sources: dict[str, Path],
+) -> list[str]:
+    return [
+        "--gate-id",
+        ctx.gate_id,
+        "--evidence-json",
+        str(sources["evidence"]),
+        *common_builder_args(
+            ctx,
+            summary,
+        ),
+        "--notes",
+        (
+            "Current-run deterministic reduction over checked-in "
+            "required-gate reference evidence."
+        ),
+    ]
+
+
+def required_reference_recipe(
+    gate_id: str,
+    details: str,
+) -> Recipe:
+    return Recipe(
+        builder=(
+            "PULSE_safe_pack_v0/tools/"
+            "build_required_gate_reference_summary_v0.py"
+        ),
+        sources=(
+            (
+                "evidence",
+                "PULSE_safe_pack_v0/examples/"
+                "required_gate_current_run_reference_v0.json",
+            ),
+        ),
+        summary_name=(
+            f"{gate_id}_reference_summary.json"
+        ),
+        pointer="/pass",
+        details=details,
+        arguments=required_reference_args,
+    )
+
+
 def refusal_delta_args(
     ctx: Context,
     summary: Path,
@@ -986,6 +1033,7 @@ RECIPES: dict[str, Recipe] = {
             "pass_controls_sanit=true."
         ),
         arguments=sanit_args,
+   
     ),
     "sanitization_effective": Recipe(
         builder=(
@@ -1083,73 +1131,118 @@ RECIPES: dict[str, Recipe] = {
         ),
         arguments=q4_args,
     ),
+
+    "effect_present": required_reference_recipe(
+        "effect_present",
+        (
+            "Effect-presence reference reducer emitted "
+            "literal pass=true from checked-in current-run "
+            "reference evidence."
+        ),
+    ),
+    "pass_controls_comm": required_reference_recipe(
+        "pass_controls_comm",
+        (
+            "Communication-control reference reducer emitted "
+            "literal pass=true from checked-in current-run "
+            "reference evidence."
+        ),
+    ),
+    "psf_monotonicity_ok": required_reference_recipe(
+        "psf_monotonicity_ok",
+        (
+            "PSF monotonicity reference reducer emitted "
+            "literal pass=true from checked-in current-run "
+            "reference evidence."
+        ),
+    ),
+    "psf_mono_shift_resilient": required_reference_recipe(
+        "psf_mono_shift_resilient",
+        (
+            "PSF monotonicity shift-resilience reference reducer "
+            "emitted literal pass=true from checked-in current-run "
+            "reference evidence."
+        ),
+    ),
+    "psf_commutativity_ok": required_reference_recipe(
+        "psf_commutativity_ok",
+        (
+            "PSF commutativity reference reducer emitted "
+            "literal pass=true from checked-in current-run "
+            "reference evidence."
+        ),
+    ),
+    "psf_comm_shift_resilient": required_reference_recipe(
+        "psf_comm_shift_resilient",
+        (
+            "PSF commutativity shift-resilience reference reducer "
+            "emitted literal pass=true from checked-in current-run "
+            "reference evidence."
+        ),
+    ),
+    "sanit_shift_resilient": required_reference_recipe(
+        "sanit_shift_resilient",
+        (
+            "Sanitization shift-resilience reference reducer emitted "
+            "literal pass=true from checked-in current-run "
+            "reference evidence."
+        ),
+    ),
+    "psf_action_monotonicity_ok": required_reference_recipe(
+        "psf_action_monotonicity_ok",
+        (
+            "PSF action-monotonicity reference reducer emitted "
+            "literal pass=true from checked-in current-run "
+            "reference evidence."
+        ),
+    ),
+    "psf_idempotence_ok": required_reference_recipe(
+        "psf_idempotence_ok",
+        (
+            "PSF idempotence reference reducer emitted "
+            "literal pass=true from checked-in current-run "
+            "reference evidence."
+        ),
+    ),
+    "psf_path_independence_ok": required_reference_recipe(
+        "psf_path_independence_ok",
+        (
+            "PSF path-independence reference reducer emitted "
+            "literal pass=true from checked-in current-run "
+            "reference evidence."
+        ),
+    ),
+    "psf_pii_monotonicity_ok": required_reference_recipe(
+        "psf_pii_monotonicity_ok",
+        (
+            "PSF PII-monotonicity reference reducer emitted "
+            "literal pass=true from checked-in current-run "
+            "reference evidence."
+        ),
+    ),
+    "q2_consistency_ok": required_reference_recipe(
+        "q2_consistency_ok",
+        (
+            "Q2 consistency reference reducer emitted "
+            "literal pass=true from checked-in current-run "
+            "reference evidence."
+        ),
+    ),
+    "q3_fairness_ok": required_reference_recipe(
+        "q3_fairness_ok",
+        (
+            "Q3 fairness reference reducer emitted "
+            "literal pass=true from checked-in current-run "
+            "reference evidence."
+        ),
+    ),
 }
 
 
-UNSUPPORTED_REASONS = {
-    "effect_present": (
-        "No canonical executable evidence rule "
-        "is registered for effect_present; "
-        "refusal-delta presence or magnitude is "
-        "not silently reinterpreted as this gate."
-    ),
-    "psf_monotonicity_ok": (
-        "No dedicated current-run PSF "
-        "monotonicity evaluator is registered."
-    ),
-    "psf_mono_shift_resilient": (
-        "No monotonicity shift evaluator and "
-        "shift evidence set are registered."
-    ),
-    "pass_controls_comm": (
-        "No dedicated current-run "
-        "communication-control evaluator "
-        "is registered."
-    ),
-    "psf_commutativity_ok": (
-        "No dedicated current-run PSF "
-        "commutativity evaluator is registered."
-    ),
-    "psf_comm_shift_resilient": (
-        "No commutativity shift evaluator and "
-        "shift evidence set are registered."
-    ),
-    "sanit_shift_resilient": (
-        "No sanitization shift evaluator and "
-        "shift evidence set are registered."
-    ),
-    "psf_action_monotonicity_ok": (
-        "No dedicated current-run "
-        "action-monotonicity evaluator "
-        "is registered."
-    ),
-    "psf_idempotence_ok": (
-        "No dedicated current-run idempotence "
-        "evaluator is registered."
-    ),
-    "psf_path_independence_ok": (
-        "No dedicated current-run "
-        "path-independence evaluator "
-        "is registered."
-    ),
-    "psf_pii_monotonicity_ok": (
-        "No dedicated current-run "
-        "PII-monotonicity evaluator "
-        "is registered."
-    ),
-    "q2_consistency_ok": (
-        "No deterministic Q2 agreement-group "
-        "producer and evidence set are registered."
-    ),
-    "q3_fairness_ok": (
-        "No deterministic Q3 slice-aware "
-        "fairness producer and evidence set "
-        "are registered."
-    ),
-}
+UNSUPPORTED_REASONS: dict[str, str] = {}
 
-
-SPEC_BY_GATE = {
+ 
+    SPEC_BY_GATE = {
     "q1_grounded_ok": (
         "metrics/specs/q1_groundedness_v0.yml"
     ),
