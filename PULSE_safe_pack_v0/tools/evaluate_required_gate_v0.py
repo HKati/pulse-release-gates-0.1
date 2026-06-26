@@ -1032,9 +1032,9 @@ RECIPES: dict[str, Recipe] = {
             "Sanitization control reducer emitted "
             "pass_controls_sanit=true."
         ),
-        arguments=sanit_args,
-   
+        arguments=sanit_args,   
     ),
+  
     "sanitization_effective": Recipe(
         builder=(
             "PULSE_safe_pack_v0/tools/"
@@ -1238,11 +1238,9 @@ RECIPES: dict[str, Recipe] = {
     ),
 }
 
-
 UNSUPPORTED_REASONS: dict[str, str] = {}
 
- 
-    SPEC_BY_GATE = {
+SPEC_BY_GATE = {
     "q1_grounded_ok": (
         "metrics/specs/q1_groundedness_v0.yml"
     ),
