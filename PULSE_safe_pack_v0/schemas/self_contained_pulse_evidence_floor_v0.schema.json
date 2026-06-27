@@ -1,0 +1,221 @@
+{
+  "$id": "https://hkati.github.io/pulse-release-gates-0.1/schemas/self_contained_pulse_evidence_floor_v0.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "artifacts": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "available": {
+            "const": true
+          },
+          "path": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "role": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "role",
+          "path",
+          "sha256",
+          "required",
+          "available"
+        ],
+        "type": "object"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "authority_boundary": {
+      "additionalProperties": false,
+      "properties": {
+        "authorizes_release": {
+          "const": false
+        },
+        "creates_release_authority": {
+          "const": false
+        },
+        "materializes_release_required": {
+          "const": false
+        },
+        "materializes_status": {
+          "const": false
+        },
+        "replaces_check_gates": {
+          "const": false
+        },
+        "requires_external_model_runtime": {
+          "const": false
+        }
+      },
+      "required": [
+        "creates_release_authority",
+        "authorizes_release",
+        "materializes_status",
+        "materializes_release_required",
+        "replaces_check_gates",
+        "requires_external_model_runtime"
+      ],
+      "type": "object"
+    },
+    "compute_admission": {
+      "additionalProperties": false,
+      "properties": {
+        "diagnostic_state": {
+          "const": "OK"
+        },
+        "reason": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "route": {
+          "const": "self_contained_floor"
+        },
+        "verdict": {
+          "const": "ROUTE"
+        }
+      },
+      "required": [
+        "verdict",
+        "route",
+        "diagnostic_state",
+        "reason"
+      ],
+      "type": "object"
+    },
+    "created_utc": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "external_model_evidence": {
+      "additionalProperties": false,
+      "properties": {
+        "reason": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "release_contribution": {
+          "const": "none"
+        },
+        "status": {
+          "enum": [
+            "not_required_for_tier0",
+            "optional_not_run",
+            "unavailable_provider_blocked",
+            "supplied_evidence_available",
+            "hosted_full_runtime_available"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "status",
+        "release_contribution",
+        "reason"
+      ],
+      "type": "object"
+    },
+    "floor": {
+      "additionalProperties": false,
+      "properties": {
+        "description": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "mode": {
+          "const": "self_contained_pulse_evidence_floor"
+        },
+        "tier": {
+          "const": 0
+        }
+      },
+      "required": [
+        "tier",
+        "mode",
+        "description"
+      ],
+      "type": "object"
+    },
+    "git_sha": {
+      "pattern": "^[0-9a-f]{40}$",
+      "type": "string"
+    },
+    "repository": {
+      "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$",
+      "type": "string"
+    },
+    "run_key": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "self_contained_pulse_evidence_floor_v0"
+    },
+    "self_contained_checks": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "check_id": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "details": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "evidence_paths": {
+            "items": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "passed": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "check_id",
+          "passed",
+          "details",
+          "evidence_paths"
+        ],
+        "type": "object"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "workflow_ref": {
+      "minLength": 1,
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema_version",
+    "created_utc",
+    "repository",
+    "git_sha",
+    "run_key",
+    "workflow_ref",
+    "floor",
+    "artifacts",
+    "self_contained_checks",
+    "external_model_evidence",
+    "compute_admission",
+    "authority_boundary"
+  ],
+  "title": "PULSE self-contained evidence floor v0",
+  "type": "object"
+}
