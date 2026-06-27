@@ -16,6 +16,8 @@ required:
   - path: examples/llamaguard_current_run_cases_v0.jsonl
   - path: examples/required_gate_current_run_reference_v0.json
   - path: requirements-llamaguard-v0.txt
+  - path: tools/build_self_contained_pulse_evidence_floor_v0.py
+  - path: tools/build_self_contained_pulse_evidence_floor_v0.py
   - path: schemas/external_summary_v1.schema.json
   - path: docs/METHODS_RDSI_QLEDGER.md
   - path: docs/EXTERNAL_DETECTORS.md
