@@ -13,21 +13,28 @@ RUNTIME_REQUIREMENTS = (
     / "requirements-llamaguard-v0.txt"
 )
 
-RELEASE_ONLY = (
-    "if: ${{ steps.release_mode.outputs.is_release == '1' }}"
+RELEASE_TOKEN = "steps.release_mode.outputs.is_release == '1'"
+HOSTED_MODE_TOKEN = (
+    "steps.release_mode.outputs.llamaguard_evidence_mode == 'hosted_full_runtime'"
 )
 
 MODEL_REVISION = (
     "acf7aafa60f0410f8f42b1fa35e077d705892029"
 )
 
-STEP_NAMES = (
-    "release-grade reset candidate evidence outputs",
-    "release-grade initialize current-run LlamaGuard identity",
+LLAMAGUARD_STEPS = (
+    "release-grade initialize LlamaGuard runtime identity",
     "release-grade install pinned LlamaGuard runtime",
     "release-grade produce current-run LlamaGuard raw evidence",
     "release-grade build canonical LlamaGuard summary",
     "release-grade upload current-run LlamaGuard evidence",
+)
+
+ORDERED_STEPS = (
+    "release-grade initialize current-run evidence identity",
+    "release-grade build self-contained PULSE evidence floor",
+    "upload self-contained PULSE evidence floor",
+    *LLAMAGUARD_STEPS,
     (
         '"Strict external evidence: require external summaries '
         'present (pre-augment, fail-closed)"'
@@ -75,11 +82,49 @@ def _step_block(text: str, name: str) -> str:
     raise AssertionError(f"workflow step not found: {name}")
 
 
+def test_llamaguard_mode_input_defaults_to_tier0_not_required() -> None:
+    text = _workflow_text()
+
+    assert "llamaguard_evidence_mode:" in text
+    assert (
+        'description: "LlamaGuard evidence lane for release-grade runs"'
+        in text
+    )
+    assert 'default: "tier0_not_required"' in text
+    assert "type: choice" in text
+    assert '- "tier0_not_required"' in text
+    assert '- "hosted_full_runtime"' in text
+
+
+def test_preflight_exports_llamaguard_evidence_mode_and_run_key() -> None:
+    text = _workflow_text()
+    block = _step_block(
+        text,
+        "CI pack layout preflight (fail-closed on release-grade)",
+    )
+
+    assert "PULSE_LLAMAGUARD_EVIDENCE_MODE" in block
+    assert "tier0_not_required" in block
+    assert "hosted_full_runtime" in block
+    assert ".inputs.llamaguard_evidence_mode" in block
+    assert "invalid llamaguard_evidence_mode" in block
+    assert "PULSE_RUN_KEY=" in block
+    assert 'echo "PULSE_RUN_KEY=${PULSE_RUN_KEY}" >> "$GITHUB_ENV"' in block
+    assert (
+        "PULSE_LLAMAGUARD_EVIDENCE_MODE=${PULSE_LLAMAGUARD_EVIDENCE_MODE}"
+        in block
+    )
+    assert (
+        "llamaguard_evidence_mode=${PULSE_LLAMAGUARD_EVIDENCE_MODE}"
+        in block
+    )
+
+
 def test_llamaguard_release_steps_exist_in_mechanical_order() -> None:
     text = _workflow_text()
     positions = []
 
-    for name in STEP_NAMES:
+    for name in ORDERED_STEPS:
         marker = f"- name: {name}"
         position = text.find(marker)
 
@@ -87,19 +132,38 @@ def test_llamaguard_release_steps_exist_in_mechanical_order() -> None:
         positions.append(position)
 
     assert positions == sorted(positions), (
-        "LlamaGuard workflow steps are out of mechanical order"
+        "Tier 0 floor and LlamaGuard workflow steps are out of mechanical order"
     )
 
 
-def test_llamaguard_runtime_steps_are_release_grade_only() -> None:
+def test_llamaguard_runtime_steps_are_hosted_mode_opt_in() -> None:
     text = _workflow_text()
 
-    for name in STEP_NAMES[1:6]:
+    for name in LLAMAGUARD_STEPS:
         block = _step_block(text, name)
 
-        assert RELEASE_ONLY in block, (
-            f"{name!r} must be conditional on release mode"
+        assert RELEASE_TOKEN in block, (
+            f"{name!r} must remain conditional on release mode"
         )
+        assert HOSTED_MODE_TOKEN in block, (
+            f"{name!r} must require hosted_full_runtime opt-in"
+        )
+
+
+def test_strict_external_summary_precheck_is_hosted_mode_only() -> None:
+    text = _workflow_text()
+    block = _step_block(
+        text,
+        (
+            '"Strict external evidence: require external summaries '
+            'present (pre-augment, fail-closed)"'
+        ),
+    )
+
+    assert "strict_external_evidence == 'true'" in block
+    assert "startsWith(github.ref, 'refs/tags/v')" in block
+    assert "startsWith(github.ref, 'refs/tags/V')" in block
+    assert HOSTED_MODE_TOKEN in block
 
 
 def test_hugging_face_secret_is_scoped_to_inference_step() -> None:
@@ -114,7 +178,9 @@ def test_hugging_face_secret_is_scoped_to_inference_step() -> None:
     assert '--token-env "HF_TOKEN"' in producer
 
     for name in (
-        "release-grade initialize current-run LlamaGuard identity",
+        "release-grade initialize current-run evidence identity",
+        "release-grade build self-contained PULSE evidence floor",
+        "release-grade initialize LlamaGuard runtime identity",
         "release-grade install pinned LlamaGuard runtime",
         "release-grade build canonical LlamaGuard summary",
         "release-grade upload current-run LlamaGuard evidence",
@@ -127,9 +193,13 @@ def test_hugging_face_secret_is_scoped_to_inference_step() -> None:
 
 def test_producer_uses_current_run_identity_and_canonical_paths() -> None:
     text = _workflow_text()
-    identity = _step_block(
+    shared_identity = _step_block(
         text,
-        "release-grade initialize current-run LlamaGuard identity",
+        "release-grade initialize current-run evidence identity",
+    )
+    runtime_identity = _step_block(
+        text,
+        "release-grade initialize LlamaGuard runtime identity",
     )
     producer = _step_block(
         text,
@@ -140,8 +210,12 @@ def test_producer_uses_current_run_identity_and_canonical_paths() -> None:
         "PULSE_EXTERNAL_SIGNER_IDENTITY="
         '"repo:${GITHUB_REPOSITORY:?}:workflow:'
         '.github/workflows/pulse_ci.yml"'
-    ) in identity
-    assert f'LLAMAGUARD_VERSION="{MODEL_REVISION}"' in identity
+    ) in shared_identity
+    assert "PULSE_CREATED_UTC" in shared_identity
+    assert "PULSE_RELEASE_CANDIDATE" in shared_identity
+    assert "LLAMAGUARD_VERSION" not in shared_identity
+
+    assert f'LLAMAGUARD_VERSION="{MODEL_REVISION}"' in runtime_identity
 
     required_tokens = (
         'tools/run_llamaguard_current_evidence_v0.py',
@@ -301,3 +375,24 @@ def test_current_run_artifacts_are_archived_fail_closed() -> None:
         "llamaguard_summary.json"
     ) in upload
     assert "if-no-files-found: error" in upload
+
+
+def main() -> int:
+    test_llamaguard_mode_input_defaults_to_tier0_not_required()
+    test_preflight_exports_llamaguard_evidence_mode_and_run_key()
+    test_llamaguard_release_steps_exist_in_mechanical_order()
+    test_llamaguard_runtime_steps_are_hosted_mode_opt_in()
+    test_strict_external_summary_precheck_is_hosted_mode_only()
+    test_hugging_face_secret_is_scoped_to_inference_step()
+    test_producer_uses_current_run_identity_and_canonical_paths()
+    test_existing_adapter_consumes_current_run_outputs()
+    test_lane_does_not_directly_mutate_release_authority()
+    test_standing_candidate_verifier_materializer_path_remains()
+    test_runtime_requirements_are_exactly_pinned()
+    test_current_run_artifacts_are_archived_fail_closed()
+    print("OK: LlamaGuard hosted runtime workflow opt-in wiring locked")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
