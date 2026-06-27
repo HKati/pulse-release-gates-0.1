@@ -410,6 +410,9 @@ def _check(
     details: str,
     *paths: str,
 ) -> dict[str, Any]:
+    if not paths:
+        raise FloorError(f"{check_id} must cite at least one evidence path")
+
     return {
         "check_id": check_id,
         "passed": True,
@@ -534,6 +537,10 @@ def build_floor(
         _check(
             "external_model_not_required_for_tier0",
             "Tier 0 proves the self-contained PULSE mechanism without claiming hosted external model evidence.",
+            status_rel,
+            policy_rel,
+            registry_rel,
+            required_evidence_rel,
         ),
     ]
 
