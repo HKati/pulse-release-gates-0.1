@@ -377,17 +377,35 @@ def _check_required_evidence(
     if missing:
         raise FloorError(f"required-gate evidence is missing gates: {missing}")
 
-    failed = [
-        gate
-        for gate in required
-        if not (
-            isinstance(gates.get(gate), dict)
-            and gates[gate].get("status") == "passed"
-            and gates[gate].get("pass") is True
+    malformed: list[str] = []
+    failed: list[str] = []
+
+    for gate in required:
+        entry = gates.get(gate)
+
+        if not isinstance(entry, dict):
+            malformed.append(gate)
+            continue
+
+        if (
+            entry.get("value") is not True
+            or entry.get("status") != "passed"
+            or entry.get("diagnostics") != []
+        ):
+            failed.append(gate)
+
+    if malformed:
+        raise FloorError(
+            "required-gate evidence has malformed gate entries: "
+            f"{malformed}"
         )
-    ]
+   
     if failed:
-        raise FloorError(f"required-gate evidence has non-passing gates: {failed}")
+        raise FloorError(
+            "required-gate evidence has non-passing gates: "
+            f"{failed}"
+        )
+
 
 
 def _artifact(
