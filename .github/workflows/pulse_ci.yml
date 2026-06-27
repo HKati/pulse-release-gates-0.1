@@ -387,9 +387,11 @@ jobs:
           echo "PULSE_MODE=${PULSE_MODE}" >> "$GITHUB_ENV"
           echo "PULSE_POLICY_SET=${PULSE_POLICY_SET}" >> "$GITHUB_ENV"
           echo "PULSE_LLAMAGUARD_EVIDENCE_MODE=${PULSE_LLAMAGUARD_EVIDENCE_MODE}" >> "$GITHUB_ENV"
-      
+          echo "PULSE_RUN_KEY=${PULSE_RUN_KEY}" >> "$GITHUB_ENV"
+        
           echo "is_release=${PULSE_IS_RELEASE}" >> "$GITHUB_OUTPUT"
           echo "llamaguard_evidence_mode=${PULSE_LLAMAGUARD_EVIDENCE_MODE}" >> "$GITHUB_OUTPUT"
+         
           echo "Computed flags: IS_RELEASE=$PULSE_IS_RELEASE MODE=$PULSE_MODE POLICY_SET=$PULSE_POLICY_SET LLAMAGUARD_EVIDENCE_MODE=$PULSE_LLAMAGUARD_EVIDENCE_MODE"
 
           EXTRA=()
@@ -624,7 +626,7 @@ jobs:
           retention-days: 30
 
       - name: release-grade initialize LlamaGuard runtime identity
-        if: ${{ steps.release_mode.outputs.is_release == '1' }}
+        if: ${{ steps.release_mode.outputs.is_release == '1' && steps.release_mode.outputs.llamaguard_evidence_mode == 'hosted_full_runtime' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -936,7 +938,7 @@ jobs:
           echo "-------------------------------------"
 
       - name: "Strict external evidence: require external summaries present (pre-augment, fail-closed)"
-        if: ${{ (github.event_name == 'workflow_dispatch' && github.event.inputs.strict_external_evidence == 'true') || startsWith(github.ref, 'refs/tags/v') || startsWith(github.ref, 'refs/tags/V') }}
+        if: ${{ ((github.event_name == 'workflow_dispatch' && github.event.inputs.strict_external_evidence == 'true') || startsWith(github.ref, 'refs/tags/v') || startsWith(github.ref, 'refs/tags/V')) && steps.release_mode.outputs.llamaguard_evidence_mode == 'hosted_full_runtime' }}
         shell: bash
         run: |
           set -euo pipefail
