@@ -1021,20 +1021,6 @@ jobs:
           python tools/validate_status_schema.py \
             --schema "$SCHEMA" \
             --status "$STATUS"
-
-      - name: "ci: validate release-grade status contract"
-        if: ${{ startsWith(github.ref, 'refs/tags/v') || startsWith(github.ref, 'refs/tags/V') || (github.event_name == 'workflow_dispatch' && github.event.inputs.strict_external_evidence == 'true') }}
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          STATUS="${{ env.PACK_DIR }}/artifacts/status.json"
-          SCHEMA="$GITHUB_WORKSPACE/schemas/status/release_grade_status_v1.schema.json"
-
-          python tools/validate_status_schema.py \
-            --schema "$SCHEMA" \
-            --status "$STATUS" \
-            --max-errors 20
       
       - name: Re-render Quality Ledger from final status
         id: quality_ledger_final_render
@@ -2669,6 +2655,19 @@ jobs:
             --registry "${GITHUB_WORKSPACE}/pulse_gate_registry_v0.yml" \
             --out "${PACK_DIR}/artifacts/status.json"
 
+      - name: "ci: validate release-grade status contract (post-materialization)"
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          STATUS="${PACK_DIR}/artifacts/status.json"
+          SCHEMA="$GITHUB_WORKSPACE/schemas/status/release_grade_status_v1.schema.json"
+
+          python tools/validate_status_schema.py \
+            --schema "$SCHEMA" \
+            --status "$STATUS" \
+            --max-errors 20
+      
       - name: release-grade enforce release-required gates via check_gates
         shell: bash
         run: |
