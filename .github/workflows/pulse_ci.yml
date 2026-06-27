@@ -1057,23 +1057,51 @@ jobs:
           echo "OK: re-rendered Quality Ledger from final status.json"
       
       - name: Export final summary (post-augment)
+        if: always()
         shell: bash
         run: |
           set -euo pipefail
           SCRIPT="${{ env.PACK_DIR }}/tools/status_to_summary.py"
           STATUS="${{ env.PACK_DIR }}/artifacts/status.json"
+          OUT_MD="${{ env.PACK_DIR }}/artifacts/status_summary.md"
+          OUT_JSON="${{ env.PACK_DIR }}/artifacts/status_summary.json"
 
           if [ ! -f "$SCRIPT" ]; then
+            if [[ "${PULSE_IS_RELEASE:-0}" == "1" ]]; then
+          
+              echo "::error::status_to_summary.py not found at $SCRIPT on release-grade run"
+              exit 1
+            fi
+       
             echo "::notice::SKIP: status_to_summary.py not found at $SCRIPT (optional)"
             exit 0
           fi
+      
           if [ ! -f "$STATUS" ]; then
+            if [[ "${PULSE_IS_RELEASE:-0}" == "1" ]]; then
+              echo "::error::status.json not found at $STATUS; cannot export release-grade final summary"
+              exit 1
+            fi    
+          
             echo "::notice::SKIP: status.json not found at $STATUS; skipping final summary (optional)"
             exit 0
           fi
 
-          # Default outputs: artifacts/status_summary.md + artifacts/status_summary.json
-          python "$SCRIPT" --status "$STATUS"
+              python "$SCRIPT" \
+            --status "$STATUS" \
+            --out_md "$OUT_MD" \
+            --out_json "$OUT_JSON"
+
+          if [[ "${PULSE_IS_RELEASE:-0}" == "1" ]]; then
+            for artifact in "$OUT_MD" "$OUT_JSON"; do
+              if [[ ! -f "$artifact" || -L "$artifact" ]]; then
+                echo "::error::release-grade final summary missing or symlinked: $artifact"
+                exit 1
+              fi
+
+              sha256sum "$artifact"
+            done
+          fi
 
       - name: "ci: forbid demo status on version tags"
         if: startsWith(github.ref, 'refs/tags/v') || startsWith(github.ref, 'refs/tags/V')
