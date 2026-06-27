@@ -159,9 +159,22 @@ def _bootstrap(tmp_path: Path) -> dict[str, Path]:
         },
         "gates": {
             gate: {
-                "gate_id": gate,
-                "pass": True,
+                "value": True,
                 "status": "passed",
+                "evaluation_id": f"{gate}_unit_evaluation",
+                "evidence_artifacts": [
+                    {
+                        "path": (
+                            "PULSE_safe_pack_v0/artifacts/"
+                            f"required_gate_inputs/{gate}.json"
+                        ),
+                        "sha256": "a" * 64,
+                        "kind": "unit_fixture",
+                        "schema_version": (
+                            "required_gate_evaluation_result_v0"
+                        ),
+                    }
+                ],
                 "diagnostics": [],
             }
             for gate in required_gates
@@ -367,6 +380,24 @@ def test_build_self_contained_floor_rejects_run_key_mismatch(
     paths = _bootstrap(tmp_path)
     evidence = json.loads(paths["evidence"].read_text(encoding="utf-8"))
     evidence["run_identity"]["run_key"] = "other"
+    _write_json(paths["evidence"], evidence)
+
+    result = floor.main(_args(paths["repo"]))
+
+    assert result == 1
+    assert not paths["out"].exists()
+
+
+def test_build_self_contained_floor_rejects_legacy_pass_only_gate_evidence(
+    tmp_path: Path,
+) -> None:
+    paths = _bootstrap(tmp_path)
+    evidence = json.loads(paths["evidence"].read_text(encoding="utf-8"))
+
+    for entry in evidence["gates"].values():
+        entry.pop("value")
+        entry["pass"] = True
+
     _write_json(paths["evidence"], evidence)
 
     result = floor.main(_args(paths["repo"]))
