@@ -401,6 +401,7 @@ jobs:
             "${PACK_DIR}/artifacts/status_summary.md" \
             "${PACK_DIR}/artifacts/status_summary.json" \
             "${PACK_DIR}/artifacts/required_gate_evidence_v0.json" \
+            "${PACK_DIR}/artifacts/self_contained_pulse_evidence_floor_v0.json" \
             "${PACK_DIR}/artifacts/required_gate_inputs" \
             "${PACK_DIR}/artifacts/required_gate_evidence_logs" \
             "${PACK_DIR}/artifacts/recorded_release_candidates" \
@@ -539,7 +540,7 @@ jobs:
           print("OK: run_mode=prod")
           PY
 
-      - name: release-grade initialize current-run LlamaGuard identity
+      - name: release-grade initialize current-run evidence identity 
         if: ${{ steps.release_mode.outputs.is_release == '1' }}
         shell: bash
         run: |
@@ -548,12 +549,61 @@ jobs:
           PULSE_CREATED_UTC="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
           PULSE_RELEASE_CANDIDATE="${GITHUB_REF_NAME:?}"
           PULSE_EXTERNAL_SIGNER_IDENTITY="repo:${GITHUB_REPOSITORY:?}:workflow:.github/workflows/pulse_ci.yml"
-          LLAMAGUARD_VERSION="acf7aafa60f0410f8f42b1fa35e077d705892029"
 
           {
             echo "PULSE_CREATED_UTC=${PULSE_CREATED_UTC}"
             echo "PULSE_RELEASE_CANDIDATE=${PULSE_RELEASE_CANDIDATE}"
             echo "PULSE_EXTERNAL_SIGNER_IDENTITY=${PULSE_EXTERNAL_SIGNER_IDENTITY}"
+          } >> "$GITHUB_ENV"
+
+      - name: release-grade build self-contained PULSE evidence floor
+        if: ${{ steps.release_mode.outputs.is_release == '1' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python "${PACK_DIR}/tools/build_self_contained_pulse_evidence_floor_v0.py" \
+            --repo-root "${GITHUB_WORKSPACE}" \
+            --status "${PACK_DIR}/artifacts/status.json" \
+            --policy "pulse_gate_policy_v0.yml" \
+            --registry "pulse_gate_registry_v0.yml" \
+            --required-gate-evidence "${PACK_DIR}/artifacts/required_gate_evidence_v0.json" \
+            --out "${PACK_DIR}/artifacts/self_contained_pulse_evidence_floor_v0.json" \
+            --repository "${GITHUB_REPOSITORY}" \
+            --git-sha "${GITHUB_SHA}" \
+            --run-key "${PULSE_RUN_KEY}" \
+            --workflow-ref "${GITHUB_WORKFLOW_REF}" \
+            --created-utc "${PULSE_CREATED_UTC}" \
+            --external-model-status "not_required_for_tier0"
+
+          FLOOR="${PACK_DIR}/artifacts/self_contained_pulse_evidence_floor_v0.json"
+
+          if [[ ! -f "${FLOOR}" || -L "${FLOOR}" ]]; then
+            echo "::error::self-contained PULSE evidence floor was not created as a regular non-symlink file: ${FLOOR}"
+            exit 1
+          fi
+
+          sha256sum "${FLOOR}"
+
+      - name: upload self-contained PULSE evidence floor
+        if: ${{ steps.release_mode.outputs.is_release == '1' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # pinned
+        with:
+          name: self-contained-pulse-evidence-floor-v0-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            PULSE_safe_pack_v0/artifacts/self_contained_pulse_evidence_floor_v0.json
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: release-grade initialize LlamaGuard runtime identity
+        if: ${{ steps.release_mode.outputs.is_release == '1' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          LLAMAGUARD_VERSION="acf7aafa60f0410f8f42b1fa35e077d705892029"
+
+          {
             echo "LLAMAGUARD_VERSION=${LLAMAGUARD_VERSION}"
           } >> "$GITHUB_ENV"
 
