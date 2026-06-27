@@ -16,6 +16,9 @@ ATTESTED_ARTIFACT = (
     "llamaguard-attested-current-run-"
     "${{ github.run_id }}-${{ github.run_attempt }}"
 )
+HOSTED_MODE_GUARD_TOKEN = (
+    "github.event.inputs.llamaguard_evidence_mode == 'hosted_full_runtime'"
+)
 
 STRICT_RELEASE_GUARD_TOKENS = (
     "github.event_name != 'pull_request'",
@@ -23,6 +26,7 @@ STRICT_RELEASE_GUARD_TOKENS = (
     "strict_external_evidence == 'true'",
     "startsWith(github.ref, 'refs/tags/v')",
     "startsWith(github.ref, 'refs/tags/V')",
+    HOSTED_MODE_GUARD_TOKEN,
 )
 
 PRE_ATTESTATION_RELEASE_TOOLS = (
@@ -150,6 +154,22 @@ def test_attested_release_path_job_order() -> None:
         < verify_index
         < tools_index
     )
+
+
+def test_attestation_job_is_hosted_external_model_only() -> None:
+    _text, blocks = _workflow_and_jobs()
+    job = blocks[ATTEST_JOB]
+    guard = _job_field(job, "if")
+
+    for token in (
+        "github.event_name != 'pull_request'",
+        "needs.pulse.result == 'success'",
+        "strict_external_evidence == 'true'",
+        "startsWith(github.ref, 'refs/tags/v')",
+        "startsWith(github.ref, 'refs/tags/V')",
+        HOSTED_MODE_GUARD_TOKEN,
+    ):
+        assert token in guard, token
 
 
 def test_release_path_depends_on_attested_llamaguard_job() -> None:
@@ -281,6 +301,7 @@ def test_pr3_workflow_wiring_smoke_registered() -> None:
 def main() -> int:
     test_attested_release_path_job_order()
     test_release_path_depends_on_attested_llamaguard_job()
+    test_attestation_job_is_hosted_external_model_only() 
     test_tools_tests_is_downstream_of_release_path_via_package_verifier()
     test_release_grade_candidate_path_runs_only_after_attestation()
     test_core_check_gates_remains_allowed_in_pulse_job()
