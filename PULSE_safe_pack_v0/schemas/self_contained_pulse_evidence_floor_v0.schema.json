@@ -1,207 +1,9 @@
 {
-  "$id": "https://hkati.github.io/pulse-release-gates-0.1/schemas/self_contained_pulse_evidence_floor_v0.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://hkati.github.io/pulse-release-gates-0.1/schemas/self_contained_pulse_evidence_floor_v0.schema.json",
+  "title": "PULSE self-contained evidence floor v0",
+  "type": "object",
   "additionalProperties": false,
-  "properties": {
-    "artifacts": {
-      "items": {
-        "additionalProperties": false,
-        "properties": {
-          "available": {
-            "const": true
-          },
-          "path": {
-            "minLength": 1,
-            "type": "string"
-          },
-          "required": {
-            "type": "boolean"
-          },
-          "role": {
-            "minLength": 1,
-            "type": "string"
-          },
-          "sha256": {
-            "pattern": "^[0-9a-f]{64}$",
-            "type": "string"
-          }
-        },
-        "required": [
-          "role",
-          "path",
-          "sha256",
-          "required",
-          "available"
-        ],
-        "type": "object"
-      },
-      "minItems": 1,
-      "type": "array"
-    },
-    "authority_boundary": {
-      "additionalProperties": false,
-      "properties": {
-        "authorizes_release": {
-          "const": false
-        },
-        "creates_release_authority": {
-          "const": false
-        },
-        "materializes_release_required": {
-          "const": false
-        },
-        "materializes_status": {
-          "const": false
-        },
-        "replaces_check_gates": {
-          "const": false
-        },
-        "requires_external_model_runtime": {
-          "const": false
-        }
-      },
-      "required": [
-        "creates_release_authority",
-        "authorizes_release",
-        "materializes_status",
-        "materializes_release_required",
-        "replaces_check_gates",
-        "requires_external_model_runtime"
-      ],
-      "type": "object"
-    },
-    "compute_admission": {
-      "additionalProperties": false,
-      "properties": {
-        "diagnostic_state": {
-          "const": "OK"
-        },
-        "reason": {
-          "minLength": 1,
-          "type": "string"
-        },
-        "route": {
-          "const": "self_contained_floor"
-        },
-        "verdict": {
-          "const": "ROUTE"
-        }
-      },
-      "required": [
-        "verdict",
-        "route",
-        "diagnostic_state",
-        "reason"
-      ],
-      "type": "object"
-    },
-    "created_utc": {
-      "format": "date-time",
-      "type": "string"
-    },
-    "external_model_evidence": {
-      "additionalProperties": false,
-      "properties": {
-        "reason": {
-          "minLength": 1,
-          "type": "string"
-        },
-        "release_contribution": {
-          "const": "none"
-        },
-        "status": {
-          "enum": [
-            "not_required_for_tier0",
-            "optional_not_run",
-            "unavailable_provider_blocked",
-            "supplied_evidence_available",
-            "hosted_full_runtime_available"
-          ],
-          "type": "string"
-        }
-      },
-      "required": [
-        "status",
-        "release_contribution",
-        "reason"
-      ],
-      "type": "object"
-    },
-    "floor": {
-      "additionalProperties": false,
-      "properties": {
-        "description": {
-          "minLength": 1,
-          "type": "string"
-        },
-        "mode": {
-          "const": "self_contained_pulse_evidence_floor"
-        },
-        "tier": {
-          "const": 0
-        }
-      },
-      "required": [
-        "tier",
-        "mode",
-        "description"
-      ],
-      "type": "object"
-    },
-    "git_sha": {
-      "pattern": "^[0-9a-f]{40}$",
-      "type": "string"
-    },
-    "repository": {
-      "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$",
-      "type": "string"
-    },
-    "run_key": {
-      "minLength": 1,
-      "type": "string"
-    },
-    "schema_version": {
-      "const": "self_contained_pulse_evidence_floor_v0"
-    },
-    "self_contained_checks": {
-      "items": {
-        "additionalProperties": false,
-        "properties": {
-          "check_id": {
-            "minLength": 1,
-            "type": "string"
-          },
-          "details": {
-            "minLength": 1,
-            "type": "string"
-          },
-          "evidence_paths": {
-            "items": {
-              "minLength": 1,
-              "type": "string"
-            },
-            "type": "array"
-          },
-          "passed": {
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "check_id",
-          "passed",
-          "details",
-          "evidence_paths"
-        ],
-        "type": "object"
-      },
-      "minItems": 1,
-      "type": "array"
-    },
-    "workflow_ref": {
-      "minLength": 1,
-      "type": "string"
-    }
-  },
   "required": [
     "schema_version",
     "created_utc",
@@ -216,6 +18,357 @@
     "compute_admission",
     "authority_boundary"
   ],
-  "title": "PULSE self-contained evidence floor v0",
-  "type": "object"
+  "properties": {
+    "schema_version": {
+      "const": "self_contained_pulse_evidence_floor_v0"
+    },
+    "created_utc": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "repository": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"
+    },
+    "git_sha": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "run_key": {
+      "type": "string",
+      "minLength": 1
+    },
+    "workflow_ref": {
+      "type": "string",
+      "minLength": 1
+    },
+    "floor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "tier",
+        "mode",
+        "description"
+      ],
+      "properties": {
+        "tier": {
+          "const": 0
+        },
+        "mode": {
+          "const": "self_contained_pulse_evidence_floor"
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "artifacts": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "role",
+          "path",
+          "sha256",
+          "required",
+          "available"
+        ],
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": [
+              "status",
+              "gate_policy",
+              "gate_registry",
+              "required_gate_evidence"
+            ]
+          },
+          "path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "required": {
+            "const": true
+          },
+          "available": {
+            "const": true
+          }
+        }
+      },
+      "allOf": [
+        {
+          "contains": {
+            "type": "object",
+            "required": [
+              "role"
+            ],
+            "properties": {
+              "role": {
+                "const": "status"
+              }
+            }
+          },
+          "minContains": 1,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "type": "object",
+            "required": [
+              "role"
+            ],
+            "properties": {
+              "role": {
+                "const": "gate_policy"
+              }
+            }
+          },
+          "minContains": 1,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "type": "object",
+            "required": [
+              "role"
+            ],
+            "properties": {
+              "role": {
+                "const": "gate_registry"
+              }
+            }
+          },
+          "minContains": 1,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "type": "object",
+            "required": [
+              "role"
+            ],
+            "properties": {
+              "role": {
+                "const": "required_gate_evidence"
+              }
+            }
+          },
+          "minContains": 1,
+          "maxContains": 1
+        }
+      ]
+    },
+    "self_contained_checks": {
+      "type": "array",
+      "minItems": 5,
+      "maxItems": 5,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "check_id",
+          "passed",
+          "details",
+          "evidence_paths"
+        ],
+        "properties": {
+          "check_id": {
+            "type": "string",
+            "enum": [
+              "status_artifact_present_and_bound",
+              "policy_and_registry_digest_bound",
+              "required_gate_status_literal_true",
+              "required_gate_evidence_literal_pass",
+              "external_model_not_required_for_tier0"
+            ]
+          },
+          "passed": {
+            "const": true
+          },
+          "details": {
+            "type": "string",
+            "minLength": 1
+          },
+          "evidence_paths": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "contains": {
+            "type": "object",
+            "required": [
+              "check_id"
+            ],
+            "properties": {
+              "check_id": {
+                "const": "status_artifact_present_and_bound"
+              }
+            }
+          },
+          "minContains": 1,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "type": "object",
+            "required": [
+              "check_id"
+            ],
+            "properties": {
+              "check_id": {
+                "const": "policy_and_registry_digest_bound"
+              }
+            }
+          },
+          "minContains": 1,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "type": "object",
+            "required": [
+              "check_id"
+            ],
+            "properties": {
+              "check_id": {
+                "const": "required_gate_status_literal_true"
+              }
+            }
+          },
+          "minContains": 1,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "type": "object",
+            "required": [
+              "check_id"
+            ],
+            "properties": {
+              "check_id": {
+                "const": "required_gate_evidence_literal_pass"
+              }
+            }
+          },
+          "minContains": 1,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "type": "object",
+            "required": [
+              "check_id"
+            ],
+            "properties": {
+              "check_id": {
+                "const": "external_model_not_required_for_tier0"
+              }
+            }
+          },
+          "minContains": 1,
+          "maxContains": 1
+        }
+      ]
+    },
+    "external_model_evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "release_contribution",
+        "reason"
+      ],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": [
+            "not_required_for_tier0",
+            "optional_not_run",
+            "unavailable_provider_blocked",
+            "supplied_evidence_available",
+            "hosted_full_runtime_available"
+          ]
+        },
+        "release_contribution": {
+          "const": "none"
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "compute_admission": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "verdict",
+        "route",
+        "diagnostic_state",
+        "reason"
+      ],
+      "properties": {
+        "verdict": {
+          "const": "ROUTE"
+        },
+        "route": {
+          "const": "self_contained_floor"
+        },
+        "diagnostic_state": {
+          "const": "OK"
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "authority_boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "creates_release_authority",
+        "authorizes_release",
+        "materializes_status",
+        "materializes_release_required",
+        "replaces_check_gates",
+        "requires_external_model_runtime"
+      ],
+      "properties": {
+        "creates_release_authority": {
+          "const": false
+        },
+        "authorizes_release": {
+          "const": false
+        },
+        "materializes_status": {
+          "const": false
+        },
+        "materializes_release_required": {
+          "const": false
+        },
+        "replaces_check_gates": {
+          "const": false
+        },
+        "requires_external_model_runtime": {
+          "const": false
+        }
+      }
+    }
+  }
 }
