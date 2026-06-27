@@ -29,6 +29,14 @@ on:
         options:
           - "false"
           - "true"
+      llamaguard_evidence_mode:
+        description: "LlamaGuard evidence lane for release-grade runs"
+        required: false
+        default: "tier0_not_required"
+        type: choice
+        options:
+          - "tier0_not_required"
+          - "hosted_full_runtime"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -345,6 +353,25 @@ jobs:
             PULSE_POLICY_SET="required"
           fi
 
+          RAW_LLAMAGUARD_MODE="tier0_not_required"
+          if [[ "${GITHUB_EVENT_NAME:-}" == "workflow_dispatch" ]]; then
+            RAW_LLAMAGUARD_MODE="$(jq -r '.inputs.llamaguard_evidence_mode // "tier0_not_required"' "$GITHUB_EVENT_PATH")"
+            case "$RAW_LLAMAGUARD_MODE" in
+              tier0_not_required|hosted_full_runtime)
+                ;;
+              *)
+                echo "::error::invalid llamaguard_evidence_mode: ${RAW_LLAMAGUARD_MODE}"
+                exit 1
+                ;;
+            esac
+          fi
+
+          if [[ "${GITHUB_REF:-}" == refs/tags/v* || "${GITHUB_REF:-}" == refs/tags/V* ]]; then
+            PULSE_LLAMAGUARD_EVIDENCE_MODE="hosted_full_runtime"
+          else
+            PULSE_LLAMAGUARD_EVIDENCE_MODE="$RAW_LLAMAGUARD_MODE"
+          fi
+
           if [[ "${GITHUB_EVENT_NAME:-}" == "workflow_dispatch" ]]; then
             STRICT="$(jq -r '.inputs.strict_external_evidence // "false"' "$GITHUB_EVENT_PATH")"
             if [[ "$STRICT" == "true" ]]; then
@@ -359,10 +386,11 @@ jobs:
           echo "PULSE_IS_RELEASE=${PULSE_IS_RELEASE}" >> "$GITHUB_ENV"
           echo "PULSE_MODE=${PULSE_MODE}" >> "$GITHUB_ENV"
           echo "PULSE_POLICY_SET=${PULSE_POLICY_SET}" >> "$GITHUB_ENV"
-                    echo "PULSE_RUN_KEY=${PULSE_RUN_KEY}" >> "$GITHUB_ENV"
+          echo "PULSE_LLAMAGUARD_EVIDENCE_MODE=${PULSE_LLAMAGUARD_EVIDENCE_MODE}" >> "$GITHUB_ENV"
+      
           echo "is_release=${PULSE_IS_RELEASE}" >> "$GITHUB_OUTPUT"
-
-          echo "Computed flags: IS_RELEASE=$PULSE_IS_RELEASE MODE=$PULSE_MODE POLICY_SET=$PULSE_POLICY_SET"
+          echo "llamaguard_evidence_mode=${PULSE_LLAMAGUARD_EVIDENCE_MODE}" >> "$GITHUB_OUTPUT"
+          echo "Computed flags: IS_RELEASE=$PULSE_IS_RELEASE MODE=$PULSE_MODE POLICY_SET=$PULSE_POLICY_SET LLAMAGUARD_EVIDENCE_MODE=$PULSE_LLAMAGUARD_EVIDENCE_MODE"
 
           EXTRA=()
           if (( PULSE_IS_RELEASE )); then
@@ -608,7 +636,7 @@ jobs:
           } >> "$GITHUB_ENV"
 
       - name: release-grade install pinned LlamaGuard runtime
-        if: ${{ steps.release_mode.outputs.is_release == '1' }}
+        if: ${{ steps.release_mode.outputs.is_release == '1' && steps.release_mode.outputs.llamaguard_evidence_mode == 'hosted_full_runtime' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -621,7 +649,7 @@ jobs:
           python -m pip check
 
       - name: release-grade produce current-run LlamaGuard raw evidence
-        if: ${{ steps.release_mode.outputs.is_release == '1' }}
+        if: ${{ steps.release_mode.outputs.is_release == '1' && steps.release_mode.outputs.llamaguard_evidence_mode == 'hosted_full_runtime' }}
         shell: bash
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
@@ -659,7 +687,7 @@ jobs:
           done
 
       - name: release-grade build canonical LlamaGuard summary
-        if: ${{ steps.release_mode.outputs.is_release == '1' }}
+        if: ${{ steps.release_mode.outputs.is_release == '1' && steps.release_mode.outputs.llamaguard_evidence_mode == 'hosted_full_runtime' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -688,7 +716,7 @@ jobs:
           fi
 
       - name: release-grade upload current-run LlamaGuard evidence
-        if: ${{ steps.release_mode.outputs.is_release == '1' }}
+        if: ${{ steps.release_mode.outputs.is_release == '1' && steps.release_mode.outputs.llamaguard_evidence_mode == 'hosted_full_runtime' }}       
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: llamaguard-current-run-${{ github.run_id }}-${{ github.run_attempt }}
@@ -2262,7 +2290,7 @@ jobs:
   attest_llamaguard_current_run_summary:
     name: "LlamaGuard current-run summary: attest and verify"
     needs: pulse
-    if: ${{ github.event_name != 'pull_request' && needs.pulse.result == 'success' && (startsWith(github.ref, 'refs/tags/v') || startsWith(github.ref, 'refs/tags/V') || (github.event_name == 'workflow_dispatch' && github.event.inputs.strict_external_evidence == 'true')) }}
+    if: ${{ github.event_name != 'pull_request' && needs.pulse.result == 'success' && (startsWith(github.ref, 'refs/tags/v') || startsWith(github.ref, 'refs/tags/V') || (github.event_name == 'workflow_dispatch' && github.event.inputs.strict_external_evidence == 'true' && github.event.inputs.llamaguard_evidence_mode == 'hosted_full_runtime')) }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -2405,7 +2433,7 @@ jobs:
   release_grade_recorded_path:
     name: "Release-grade recorded path: attested evidence to gates"
     needs: attest_llamaguard_current_run_summary
-    if: ${{ github.event_name != 'pull_request' && needs.attest_llamaguard_current_run_summary.result == 'success' && (startsWith(github.ref, 'refs/tags/v') || startsWith(github.ref, 'refs/tags/V') || (github.event_name == 'workflow_dispatch' && github.event.inputs.strict_external_evidence == 'true')) }}
+    if: ${{ github.event_name != 'pull_request' && needs.attest_llamaguard_current_run_summary.result == 'success' && (startsWith(github.ref, 'refs/tags/v') || startsWith(github.ref, 'refs/tags/V') || (github.event_name == 'workflow_dispatch' && github.event.inputs.strict_external_evidence == 'true' && github.event.inputs.llamaguard_evidence_mode == 'hosted_full_runtime')) }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -2667,7 +2695,7 @@ jobs:
   assemble_release_grade_reference_package:
     name: "Release-grade reference package: assemble complete package"
     needs: release_grade_recorded_path
-    if: ${{ github.event_name != 'pull_request' && needs.release_grade_recorded_path.result == 'success' && (startsWith(github.ref, 'refs/tags/v') || startsWith(github.ref, 'refs/tags/V') || (github.event_name == 'workflow_dispatch' && github.event.inputs.strict_external_evidence == 'true')) }}
+    if: ${{ github.event_name != 'pull_request' && needs.release_grade_recorded_path.result == 'success' && (startsWith(github.ref, 'refs/tags/v') || startsWith(github.ref, 'refs/tags/V') || (github.event_name == 'workflow_dispatch' && github.event.inputs.strict_external_evidence == 'true' && github.event.inputs.llamaguard_evidence_mode == 'hosted_full_runtime')) }}   
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -2813,7 +2841,7 @@ jobs:
   verify_release_grade_reference_package:
     name: "Release-grade reference package: verify complete package"
     needs: assemble_release_grade_reference_package
-    if: ${{ github.event_name != 'pull_request' && needs.assemble_release_grade_reference_package.result == 'success' && (startsWith(github.ref, 'refs/tags/v') || startsWith(github.ref, 'refs/tags/V') || (github.event_name == 'workflow_dispatch' && github.event.inputs.strict_external_evidence == 'true')) }}
+    if: ${{ github.event_name != 'pull_request' && needs.assemble_release_grade_reference_package.result == 'success' && (startsWith(github.ref, 'refs/tags/v') || startsWith(github.ref, 'refs/tags/V') || (github.event_name == 'workflow_dispatch' && github.event.inputs.strict_external_evidence == 'true' && github.event.inputs.llamaguard_evidence_mode == 'hosted_full_runtime')) }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
