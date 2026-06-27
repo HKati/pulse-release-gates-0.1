@@ -29,6 +29,14 @@ on:
         options:
           - "false"
           - "true"
+      llamaguard_evidence_mode:
+        description: "LlamaGuard evidence lane"
+        required: false
+        default: "tier0_not_required"
+        type: choice
+        options:
+          - "tier0_not_required"
+          - "hosted_full_runtime"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -338,11 +346,12 @@ jobs:
           PULSE_IS_RELEASE=0
           PULSE_MODE="core"
           PULSE_POLICY_SET="core_required"
-
+          PULSE_LLAMAGUARD_EVIDENCE_MODE="tier0_not_required"
           if [[ "${GITHUB_REF:-}" == refs/tags/v* || "${GITHUB_REF:-}" == refs/tags/V* ]]; then
             PULSE_IS_RELEASE=1
             PULSE_MODE="prod"
             PULSE_POLICY_SET="required"
+            PULSE_LLAMAGUARD_EVIDENCE_MODE="hosted_full_runtime"
           fi
 
           if [[ "${GITHUB_EVENT_NAME:-}" == "workflow_dispatch" ]]; then
@@ -352,6 +361,17 @@ jobs:
               PULSE_MODE="prod"
               PULSE_POLICY_SET="required"
             fi
+         
+            RAW_LLAMAGUARD_MODE="$(jq -r '.inputs.llamaguard_evidence_mode // "tier0_not_required"' "$GITHUB_EVENT_PATH")"
+            case "$RAW_LLAMAGUARD_MODE" in
+              tier0_not_required|hosted_full_runtime)
+                PULSE_LLAMAGUARD_EVIDENCE_MODE="$RAW_LLAMAGUARD_MODE"
+                ;;
+              *)
+                echo "::error::invalid llamaguard_evidence_mode: ${RAW_LLAMAGUARD_MODE}"
+                exit 1
+                ;;
+            esac 
           fi
 
           PULSE_RUN_KEY="GITHUB_RUN_ID=${GITHUB_RUN_ID:?}|GITHUB_RUN_ATTEMPT=${GITHUB_RUN_ATTEMPT:?}|GITHUB_WORKFLOW=${GITHUB_WORKFLOW:?}"
@@ -359,10 +379,13 @@ jobs:
           echo "PULSE_IS_RELEASE=${PULSE_IS_RELEASE}" >> "$GITHUB_ENV"
           echo "PULSE_MODE=${PULSE_MODE}" >> "$GITHUB_ENV"
           echo "PULSE_POLICY_SET=${PULSE_POLICY_SET}" >> "$GITHUB_ENV"
-                    echo "PULSE_RUN_KEY=${PULSE_RUN_KEY}" >> "$GITHUB_ENV"
+          echo "PULSE_LLAMAGUARD_EVIDENCE_MODE=${PULSE_LLAMAGUARD_EVIDENCE_MODE}" >> "$GITHUB_ENV"
+          echo "PULSE_RUN_KEY=${PULSE_RUN_KEY}" >> "$GITHUB_ENV"
+         
           echo "is_release=${PULSE_IS_RELEASE}" >> "$GITHUB_OUTPUT"
-
-          echo "Computed flags: IS_RELEASE=$PULSE_IS_RELEASE MODE=$PULSE_MODE POLICY_SET=$PULSE_POLICY_SET"
+          echo "llamaguard_evidence_mode=${PULSE_LLAMAGUARD_EVIDENCE_MODE}" >> "$GITHUB_OUTPUT"
+         
+          echo "Computed flags: IS_RELEASE=$PULSE_IS_RELEASE MODE=$PULSE_MODE POLICY_SET=$PULSE_POLICY_SET LLAMAGUARD_EVIDENCE_MODE=$PULSE_LLAMAGUARD_EVIDENCE_MODE"
 
           EXTRA=()
           if (( PULSE_IS_RELEASE )); then
@@ -596,7 +619,7 @@ jobs:
           retention-days: 30
 
       - name: release-grade initialize LlamaGuard runtime identity
-        if: ${{ steps.release_mode.outputs.is_release == '1' }}
+        if: ${{ steps.release_mode.outputs.is_release == '1' && steps.release_mode.outputs.llamaguard_evidence_mode == 'hosted_full_runtime' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -621,7 +644,7 @@ jobs:
           python -m pip check
 
       - name: release-grade produce current-run LlamaGuard raw evidence
-        if: ${{ steps.release_mode.outputs.is_release == '1' }}
+        if: ${{ steps.release_mode.outputs.is_release == '1' && steps.release_mode.outputs.llamaguard_evidence_mode == 'hosted_full_runtime' }}
         shell: bash
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
@@ -659,7 +682,7 @@ jobs:
           done
 
       - name: release-grade build canonical LlamaGuard summary
-        if: ${{ steps.release_mode.outputs.is_release == '1' }}
+        if: ${{ steps.release_mode.outputs.is_release == '1' && steps.release_mode.outputs.llamaguard_evidence_mode == 'hosted_full_runtime' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -688,7 +711,7 @@ jobs:
           fi
 
       - name: release-grade upload current-run LlamaGuard evidence
-        if: ${{ steps.release_mode.outputs.is_release == '1' }}
+        if: ${{ steps.release_mode.outputs.is_release == '1' && steps.release_mode.outputs.llamaguard_evidence_mode == 'hosted_full_runtime' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: llamaguard-current-run-${{ github.run_id }}-${{ github.run_attempt }}
@@ -908,7 +931,7 @@ jobs:
           echo "-------------------------------------"
 
       - name: "Strict external evidence: require external summaries present (pre-augment, fail-closed)"
-        if: ${{ (github.event_name == 'workflow_dispatch' && github.event.inputs.strict_external_evidence == 'true') || startsWith(github.ref, 'refs/tags/v') || startsWith(github.ref, 'refs/tags/V') }}
+        if: ${{ ((github.event_name == 'workflow_dispatch' && github.event.inputs.strict_external_evidence == 'true') || startsWith(github.ref, 'refs/tags/v') || startsWith(github.ref, 'refs/tags/V')) && steps.release_mode.outputs.llamaguard_evidence_mode == 'hosted_full_runtime' }}
         shell: bash
         run: |
           set -euo pipefail
