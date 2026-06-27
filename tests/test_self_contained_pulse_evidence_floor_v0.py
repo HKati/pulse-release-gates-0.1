@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import copy
 import json
 import sys
 from pathlib import Path
@@ -29,6 +30,33 @@ WORKFLOW_REF = (
 )
 CREATED_UTC = "2026-06-27T00:00:00Z"
 
+SAFE_PACK_SCHEMA = (
+    REPO_ROOT
+    / "PULSE_safe_pack_v0"
+    / "schemas"
+    / "self_contained_pulse_evidence_floor_v0.schema.json"
+)
+ROOT_SCHEMA = (
+    REPO_ROOT
+    / "schemas"
+    / "self_contained_pulse_evidence_floor_v0.schema.json"
+)
+
+MANDATORY_ARTIFACT_ROLES = {
+    "status",
+    "gate_policy",
+    "gate_registry",
+    "required_gate_evidence",
+}
+
+MANDATORY_CHECK_IDS = {
+    "status_artifact_present_and_bound",
+    "policy_and_registry_digest_bound",
+    "required_gate_status_literal_true",
+    "required_gate_evidence_literal_pass",
+    "external_model_not_required_for_tier0",
+}
+
 
 def _write_json(path: Path, payload: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -54,6 +82,21 @@ def _write_yaml(path: Path, payload: dict) -> None:
         ),
         encoding="utf-8",
     )
+
+
+def _schema() -> dict:
+    assert SAFE_PACK_SCHEMA.is_file(), (
+        f"missing bundled schema: {SAFE_PACK_SCHEMA}"
+    )
+    return json.loads(SAFE_PACK_SCHEMA.read_text(encoding="utf-8"))
+
+
+def _schema_errors(payload: dict) -> list[str]:
+    validator = Draft202012Validator(
+        _schema(),
+        format_checker=FormatChecker(),
+    )
+    return sorted(error.message for error in validator.iter_errors(payload))
 
 
 def _bootstrap(tmp_path: Path) -> dict[str, Path]:
@@ -131,7 +174,6 @@ def _bootstrap(tmp_path: Path) -> dict[str, Path]:
         "registry": repo / floor.DEFAULT_REGISTRY,
         "status": repo / floor.DEFAULT_STATUS,
         "evidence": repo / floor.DEFAULT_REQUIRED_EVIDENCE,
-        "schema": repo / "PULSE_safe_pack_v0/schemas/self_contained_pulse_evidence_floor_v0.schema.json",
         "out": repo / floor.DEFAULT_OUT,
     }
 
@@ -139,14 +181,6 @@ def _bootstrap(tmp_path: Path) -> dict[str, Path]:
     _write_yaml(paths["registry"], registry)
     _write_json(paths["status"], status)
     _write_json(paths["evidence"], evidence)
-
-    schema_source = (
-        REPO_ROOT
-        / "PULSE_safe_pack_v0/schemas/self_contained_pulse_evidence_floor_v0.schema.json"
-    )
-    if schema_source.is_file():
-        paths["schema"].parent.mkdir(parents=True, exist_ok=True)
-        paths["schema"].write_text(schema_source.read_text(encoding="utf-8"), encoding="utf-8")
 
     return paths
 
@@ -175,6 +209,16 @@ def _args(repo: Path, **overrides: str) -> list[str]:
         "--created-utc",
         values["created_utc"],
     ]
+
+
+def _valid_floor_payload(tmp_path: Path) -> dict:
+    paths = _bootstrap(tmp_path)
+
+    result = floor.main(_args(paths["repo"]))
+
+    assert result == 0
+    assert paths["out"].is_file()
+    return json.loads(paths["out"].read_text(encoding="utf-8"))
 
 
 def test_build_self_contained_floor_writes_schema_valid_artifact(
@@ -208,17 +252,99 @@ def test_build_self_contained_floor_writes_schema_valid_artifact(
         for item in payload["self_contained_checks"]
     )
     assert payload["authority_boundary"] == floor.AUTHORITY_BOUNDARY
+    assert {item["role"] for item in payload["artifacts"]} == (
+        MANDATORY_ARTIFACT_ROLES
+    )
+    assert {item["check_id"] for item in payload["self_contained_checks"]} == (
+        MANDATORY_CHECK_IDS
+    )
+    assert _schema_errors(payload) == []
 
-    schema_path = REPO_ROOT / "PULSE_safe_pack_v0/schemas/self_contained_pulse_evidence_floor_v0.schema.json"
-    if schema_path.is_file():
-        schema = json.loads(schema_path.read_text(encoding="utf-8"))
-        errors = list(
-            Draft202012Validator(
-                schema,
-                format_checker=FormatChecker(),
-            ).iter_errors(payload)
-        )
-        assert errors == []
+
+def test_schema_copy_is_published_at_advertised_id() -> None:
+    assert SAFE_PACK_SCHEMA.is_file(), (
+        f"missing bundled schema: {SAFE_PACK_SCHEMA}"
+    )
+    assert ROOT_SCHEMA.is_file(), (
+        f"missing root-published schema copy: {ROOT_SCHEMA}"
+    )
+    assert SAFE_PACK_SCHEMA.read_text(encoding="utf-8") == (
+        ROOT_SCHEMA.read_text(encoding="utf-8")
+    )
+
+
+def test_schema_rejects_failed_self_contained_check(
+    tmp_path: Path,
+) -> None:
+    payload = _valid_floor_payload(tmp_path)
+    payload["self_contained_checks"][0]["passed"] = False
+
+    errors = _schema_errors(payload)
+
+    assert errors, "schema must reject a failed Tier 0 check"
+
+
+def test_schema_rejects_missing_mandatory_artifact_role(
+    tmp_path: Path,
+) -> None:
+    payload = _valid_floor_payload(tmp_path)
+    payload["artifacts"] = [
+        item
+        for item in payload["artifacts"]
+        if item["role"] != "required_gate_evidence"
+    ]
+
+    errors = _schema_errors(payload)
+
+    assert errors, "schema must require the required_gate_evidence artifact"
+
+
+def test_schema_rejects_unrelated_artifact_role(
+    tmp_path: Path,
+) -> None:
+    payload = _valid_floor_payload(tmp_path)
+    payload["artifacts"][0]["role"] = "placeholder"
+
+    errors = _schema_errors(payload)
+
+    assert errors, "schema must reject arbitrary artifact roles"
+
+
+def test_schema_rejects_empty_check_evidence_paths(
+    tmp_path: Path,
+) -> None:
+    payload = _valid_floor_payload(tmp_path)
+    payload["self_contained_checks"][0]["evidence_paths"] = []
+
+    errors = _schema_errors(payload)
+
+    assert errors, "schema must require each check to cite evidence paths"
+
+
+def test_schema_rejects_missing_mandatory_check_id(
+    tmp_path: Path,
+) -> None:
+    payload = _valid_floor_payload(tmp_path)
+    payload["self_contained_checks"] = [
+        item
+        for item in payload["self_contained_checks"]
+        if item["check_id"] != "required_gate_status_literal_true"
+    ]
+
+    errors = _schema_errors(payload)
+
+    assert errors, "schema must require required_gate_status_literal_true"
+
+
+def test_schema_rejects_unrelated_check_id(
+    tmp_path: Path,
+) -> None:
+    payload = _valid_floor_payload(tmp_path)
+    payload["self_contained_checks"][0]["check_id"] = "placeholder_check"
+
+    errors = _schema_errors(payload)
+
+    assert errors, "schema must reject arbitrary check IDs"
 
 
 def test_build_self_contained_floor_rejects_missing_required_gate(
