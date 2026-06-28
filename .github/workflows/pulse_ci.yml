@@ -1118,14 +1118,6 @@ jobs:
 
           print(f"OK: non-demo status.version on tag: {v}")
           PY
-
-      - name: "ci: forbid stubbed status on release-grade runs"
-        if: ${{ startsWith(github.ref, 'refs/tags/v') || startsWith(github.ref, 'refs/tags/V') || (github.event_name == 'workflow_dispatch' && github.event.inputs.strict_external_evidence == 'true') }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          STATUS="${{ env.PACK_DIR }}/artifacts/status.json"
-          python ci/check_release_no_stub_status.py --status "$STATUS"
       
 
       - name: Build release authority manifest (audit-only)
@@ -2667,6 +2659,14 @@ jobs:
             --schema "$SCHEMA" \
             --status "$STATUS" \
             --max-errors 20
+      
+      - name: "ci: forbid stubbed status on release-grade runs (post-materialization)"
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          STATUS="${PACK_DIR}/artifacts/status.json"
+          python ci/check_release_no_stub_status.py --status "$STATUS"
       
       - name: release-grade enforce release-required gates via check_gates
         shell: bash
