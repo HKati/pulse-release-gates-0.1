@@ -83,6 +83,23 @@ Tier 0 self-contained floor
 
 The Tier 0 floor records what PULSE can prove from its own artifact-bound mechanics. Hosted LlamaGuard / external model evidence remains a separate explicit opt-in lane.
 
+### Tier 0 external review recalibration
+
+The controlled Tier 0 run updates the external-review picture without changing release authority.
+
+- [Tier 0 external review recalibration v0](docs/TIER0_EXTERNAL_REVIEW_RECALIBRATION_v0.md) — distinguishes the public reader-surface caveat from the controlled Tier 0 self-contained evidence-floor milestone.
+
+```text
+Public reader surface
+→ not release authority by itself.
+
+Tier 0 controlled run
+→ self-contained PULSE evidence floor passed.
+
+Hosted external-model evidence
+→ separate opt-in lane, not claimed by Tier 0.
+```
+
 ### Public PULSEmech Core execution record
 
 A public, manually dispatched PULSEmech Core execution has completed successfully on the current `main` implementation.
