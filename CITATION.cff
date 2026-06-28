@@ -1,6 +1,6 @@
 cff-version: 1.2.0
 message: "If you use this software, please cite it."
-title: "PULSE: Deterministic Release Gates for Safe & Useful AI"
+title: "PULSE: Artifact-Bound Release Authority for AI Release Decisions"
 
 authors:
   - family-names: "Horvat"
@@ -10,55 +10,70 @@ authors:
   - name: "EPLabsAI"
 
 abstract: |
-  PULSE provides deterministic, fail-closed release authority for AI release
-  decisions across safety, utility, and SLO dimensions with auditable artifacts.
-  Each release produces recorded machine-readable state and reader surfaces.
-  Use this software before shipping models or services to evaluate recorded
-  release evidence through declared policy, materialized required gates, and
-  strict fail-closed CI enforcement.
+  PULSE is an artifact-bound release-authority system for AI release
+  decisions. It structures recorded safety, quality, detector, stability,
+  CI, and review evidence into deterministic, fail-closed CI allow/block
+  release decisions under declared policy. Release authority is bound to
+  recorded evidence, status.json, declared gate policy, a materialized
+  required gate set, and strict fail-closed CI enforcement.
 
 repository-code: "https://github.com/HKati/pulse-release-gates-0.1"
 url: "https://github.com/HKati/pulse-release-gates-0.1"
 
 keywords:
+  - "pulsemech"
   - "release-authority"
   - "artifact-bound"
   - "AI release decisions"
   - "fail-closed CI"
+  - "materialized gates"
   - "auditability"
 
-# The specific release you want others to cite
-doi: "10.5281/zenodo.17373002"
-version: "v1.0.2"
-date-released: "2025-10-18"
+# Stable all-versions DOI for the PULSE software record.
+doi: "10.5281/zenodo.17214908"
+version: "pulsemech-tier0-floor-20260628-b"
+date-released: "2026-06-28"
 
-# The all-versions (concept) DOI so the badge can stay stable across releases
 identifiers:
   - type: doi
     value: "10.5281/zenodo.17214908"
     description: "Concept DOI (all versions)"
+  - type: url
+    value: "https://github.com/HKati/pulse-release-gates-0.1/releases/tag/pulsemech-tier0-floor-20260628-b"
+    description: "GitHub Tier 0 publication snapshot"
 
 preferred-citation:
   type: software
-  title: "PULSE: Deterministic Release Gates for Safe & Useful AI"
+  title: "PULSE: Artifact-Bound Release Authority for AI Release Decisions"
   authors:
     - family-names: "Horvat"
       given-names: "Katalin"
       orcid: "https://orcid.org/0009-0001-9745-3764"
       affiliation: "EPLabsAI"
     - name: "EPLabsAI"
-  version: "v1.0.2"
-  doi: "10.5281/zenodo.17373002"
-  url: "https://doi.org/10.5281/zenodo.17373002"
+  version: "pulsemech-tier0-floor-20260628-b"
+  doi: "10.5281/zenodo.17214908"
+  url: "https://doi.org/10.5281/zenodo.17214908"
 
 references:
+  - type: article
+    title: "PULSE: Deterministic Release Gates for Safe & Useful AI"
+    authors:
+      - family-names: "Horvat"
+        given-names: "Katalin"
+        affiliation: "EPLabsAI"
+        orcid: "https://orcid.org/0009-0001-9745-3764"
+    year: 2025
+    doi: "10.5281/zenodo.17833583"
+    url: "https://doi.org/10.5281/zenodo.17833583"
+
   - type: dataset
     title: "PULSE EPF Shadow A/B artifacts (seeded)"
     authors:
       - family-names: "Horvat"
         given-names: "Katalin"
         affiliation: "EPLabsAI"
-        orcid: "https://orcid.org/0000-0001-9745-3764"
+        orcid: "https://orcid.org/0009-0001-9745-3764"
     year: 2025
     doi: "10.34740/KAGGLE/DSV/13571702"
     url: "https://www.kaggle.com/dsv/13571702"
@@ -73,4 +88,3 @@ references:
     year: 2025
     doi: "10.34740/KAGGLE/DSV/13571927"
     url: "https://www.kaggle.com/dsv/13571927"
-
