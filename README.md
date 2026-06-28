@@ -40,6 +40,49 @@ They do not independently produce release authority.
 | Public PULSEmech Core execution record | Completed — PULSE CI #5728 |
 | Completed public non-stubbed release-grade run record | Pending |
 
+
+## Tier 0 self-contained PULSE evidence floor✅
+
+PULSE supports a self-contained Tier 0 evidence path that does not require hosted external model access.
+
+A controlled `workflow_dispatch` run on `main` passed with:
+
+```text
+strict_external_evidence=true
+llamaguard_evidence_mode=tier0_not_required
+```
+
+Observed result:
+
+PULSE CI
+→ success
+
+self-contained PULSE evidence floor
+→ produced
+
+hosted LlamaGuard runtime lane
+→ skipped
+
+external model pass
+→ not claimed
+
+Mechanical path:
+
+required-gate evidence
+→ non-stubbed candidate status
+→ self-contained PULSE evidence floor
+→ final status summary
+→ release-grade artifact postconditions
+→ audit sidecars
+
+Authority boundary:
+
+Tier 0 self-contained floor
+≠ hosted external model evidence
+≠ release authorization
+
+The Tier 0 floor records what PULSE can prove from its own artifact-bound mechanics. Hosted LlamaGuard / external model evidence remains a separate explicit opt-in lane.
+
 ### Public PULSEmech Core execution record
 
 A public, manually dispatched PULSEmech Core execution has completed successfully on the current `main` implementation.
