@@ -305,6 +305,23 @@ def test_release_grade_status_contract_validates_after_materialization() -> None
     assert materializer_index < schema_index < check_gates_index
 
 
+def test_no_stub_guard_runs_after_materialization() -> None:
+    _text, blocks = _workflow_and_jobs()
+    pulse = blocks["pulse"]
+    job = blocks[RELEASE_PATH_JOB]
+
+    assert "check_release_no_stub_status.py" not in pulse
+
+    materializer_index = job.index(
+        "tools/materialize_release_required_from_verifier_v0.py"
+    )
+    schema_index = job.index("release_grade_status_v1.schema.json")
+    no_stub_index = job.index("ci/check_release_no_stub_status.py")
+    check_gates_index = job.index("tools/check_gates.py")
+
+    assert materializer_index < schema_index < no_stub_index < check_gates_index
+
+
 def test_pr3_workflow_wiring_smoke_registered() -> None:
     manifest = _read_tools_manifest()
 
@@ -326,6 +343,7 @@ def main() -> int:
     test_release_path_does_not_introduce_parallel_engines()
     test_release_path_keeps_policy_derived_check_gates_enforcement()
     test_release_grade_status_contract_validates_after_materialization()
+    test_no_stub_guard_runs_after_materialization()
     test_pr3_workflow_wiring_smoke_registered()
     print(
         "LlamaGuard attested release-path workflow wiring "
