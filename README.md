@@ -1,5 +1,30 @@
 # PULSE — Artifact-Bound Release Authority for AI Release Decisions
 
+> [!CAUTION]
+> **Temporary DOI identity containment notice**
+>
+> This release/archive surface is non-canonical for PULSE/PULSEmech software identity.
+>
+> Do not cite `10.5281/zenodo.21031131` as the canonical PULSE/PULSEmech software identity.
+>
+> That Zenodo record was produced by an unintended GitHub release/archive path.
+>
+> Canonical software concept DOI / all versions:
+>
+> `10.5281/zenodo.17214908`
+>
+> Retained version-specific software citation DOI:
+>
+> `10.5281/zenodo.17373002`
+>
+> Canonical repository:
+>
+> `https://github.com/HKati/pulse-release-gates-0.1`
+>
+> This notice is temporary containment only. It is not a repository component, does not replace the existing concept DOI, does not establish a new software identity, and does not create release authority or release authorization.
+>
+> Remove this notice after Zenodo support has deleted, tombstoned, withdrawn, or clearly marked the unintended record as non-canonical.
+
 ## Canonical PULSEmech implementation path
 
 PULSEmech is the artifact-bound release-authority mechanism for AI release decisions.
