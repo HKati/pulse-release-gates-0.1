@@ -25,12 +25,12 @@
   "related_identifiers": [
     {
       "identifier": "10.5281/zenodo.17214908",
-      "relation": "isVersionOf",
+      "relation": "documents",
       "scheme": "doi"
     },
     {
       "identifier": "https://github.com/HKati/pulse-release-gates-0.1",
-      "relation": "isDocumentedBy",
+      "relation": "documents",
       "scheme": "url"
     }
   ],
