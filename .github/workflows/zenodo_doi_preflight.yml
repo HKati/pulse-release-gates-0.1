@@ -1,0 +1,150 @@
+name: Zenodo DOI preflight
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  doi-preflight:
+    name: Check Zenodo DOI identity without publishing
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+
+      - name: Validate repository DOI contract
+        run: |
+          python -m json.tool .zenodo.json > /dev/null
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          z = json.loads(Path('.zenodo.json').read_text(encoding='utf-8'))
+          related = z.get('related_identifiers', [])
+          assert z.get('upload_type') == 'software', z.get('upload_type')
+          assert any(
+              item.get('identifier') == '10.5281/zenodo.17214908'
+              and item.get('relation') == 'isVersionOf'
+              and item.get('scheme') == 'doi'
+              for item in related
+          ), related
+
+          readme = Path('README.md').read_text(encoding='utf-8')
+          assert 'https://zenodo.org/badge/latestdoi/1061766508' not in readme
+          assert 'https://zenodo.org/badge/1061766508.svg' not in readme
+          assert 'https://doi.org/10.5281/zenodo.17214908' in readme
+          print('OK: repository DOI contract is pinned to the PULSE concept DOI and does not publish latestdoi routes.')
+          PY
+
+      - name: Query Zenodo depositions and verify concept identity
+        env:
+          ZENODO_TOKEN: ${{ secrets.ZENODO_TOKEN }}
+          EXPECTED_CONCEPT_DOI: '10.5281/zenodo.17214908'
+          EXPECTED_CONCEPT_RECID: '17214908'
+          BAD_DOIS: '10.5281/zenodo.21031131,10.5281/zenodo.18203404'
+          REPOSITORY_URL: 'https://github.com/HKati/pulse-release-gates-0.1'
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import sys
+          import urllib.request
+          import urllib.error
+
+          token = os.environ.get('ZENODO_TOKEN', '').strip()
+          if not token:
+              print('::error::Missing repository secret ZENODO_TOKEN. Add it under Settings > Secrets and variables > Actions.')
+              sys.exit(2)
+          print('::add-mask::' + token)
+
+          req = urllib.request.Request(
+              'https://zenodo.org/api/deposit/depositions?size=100',
+              headers={
+                  'Authorization': f'Bearer {token}',
+                  'Accept': 'application/json',
+                  'User-Agent': 'pulse-zenodo-doi-preflight/1.0',
+              },
+          )
+          try:
+              with urllib.request.urlopen(req, timeout=30) as response:
+                  payload = response.read().decode('utf-8')
+          except urllib.error.HTTPError as exc:
+              body = exc.read().decode('utf-8', errors='replace')[:1000]
+              print(f'::error::Zenodo API request failed: HTTP {exc.code}: {body}')
+              sys.exit(2)
+
+          deposits = json.loads(payload)
+          expected_concept_doi = os.environ['EXPECTED_CONCEPT_DOI']
+          expected_concept_recid = os.environ['EXPECTED_CONCEPT_RECID']
+          bad_dois = {item.strip() for item in os.environ['BAD_DOIS'].split(',') if item.strip()}
+          repo_url = os.environ['REPOSITORY_URL']
+
+          relevant = []
+          failures = []
+          for item in deposits:
+              metadata = item.get('metadata') or {}
+              related = metadata.get('related_identifiers') or []
+              text = json.dumps(item, sort_keys=True)
+              doi = item.get('doi') or metadata.get('doi') or ''
+              doi_url = item.get('doi_url') or ''
+              conceptrecid = str(item.get('conceptrecid') or '')
+              title = metadata.get('title') or ''
+              is_pulse = (
+                  repo_url in text
+                  or 'PULSE' in title
+                  or expected_concept_doi in text
+                  or doi in bad_dois
+                  or any(bad in text for bad in bad_dois)
+              )
+              if not is_pulse:
+                  continue
+              relevant.append(item)
+
+              if doi in bad_dois or any(bad in doi_url for bad in bad_dois):
+                  failures.append(f'bad DOI is still present in depositions: doi={doi!r} doi_url={doi_url!r} title={title!r}')
+
+              if conceptrecid and conceptrecid != expected_concept_recid:
+                  failures.append(
+                      f'PULSE-related deposition is under unexpected conceptrecid={conceptrecid}; '
+                      f'expected {expected_concept_recid}; doi={doi!r}; title={title!r}'
+                  )
+
+              has_expected_relation = any(
+                  rel.get('identifier') == expected_concept_doi
+                  and rel.get('scheme') == 'doi'
+                  for rel in related
+              )
+              if related and not has_expected_relation and conceptrecid != expected_concept_recid:
+                  failures.append(f'PULSE-related metadata lacks expected concept DOI relation; doi={doi!r}; title={title!r}')
+
+          print('Zenodo PULSE-related depositions found:', len(relevant))
+          for item in relevant:
+              metadata = item.get('metadata') or {}
+              links = item.get('links') or {}
+              print('---')
+              print('id:', item.get('id'))
+              print('conceptrecid:', item.get('conceptrecid'))
+              print('record_id:', item.get('record_id'))
+              print('doi:', item.get('doi') or metadata.get('doi'))
+              print('doi_url:', item.get('doi_url'))
+              print('title:', metadata.get('title'))
+              print('version:', metadata.get('version'))
+              print('state:', item.get('state'))
+              print('submitted:', item.get('submitted'))
+              print('html:', links.get('html'))
+              print('latest:', links.get('latest'))
+              print('latest_html:', links.get('latest_html'))
+
+          if not relevant:
+              print('::error::No PULSE-related depositions were visible to this token. Verify the token belongs to the Zenodo account connected to GitHub before creating another release.')
+              sys.exit(1)
+
+          if failures:
+              for failure in failures:
+                  print('::error::' + failure)
+              sys.exit(1)
+
+          print('OK: visible PULSE-related Zenodo depositions match the expected concept identity preflight.')
+          PY
