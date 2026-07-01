@@ -5,7 +5,7 @@ The software citation ensures reproducibility and credits the exact version you 
 
 ## Software citation (version‑specific)
 
-Horvat, Katalin; EPLabsAI (2025). *PULSE: Deterministic Release Gates for Safe & Useful AI* (Software, v1.0.2). Zenodo. DOI: [10.5281/zenodo.17373002](https://doi.org/10.5281/zenodo.17373002)
+Horvat, Katalin; EPLabsAI (2025). *PULSE: Artifact-Bound Release Authority for AI Release Decisions* (Software, v1.0.2). Zenodo. DOI: [10.5281/zenodo.17373002](https://doi.org/10.5281/zenodo.17373002)
 
 This DOI points to the exact version of the PULSE software. Use it when reproducing results or referring to the implementation. A concept DOI that collects all versions is available at [10.5281/zenodo.17214908](https://doi.org/10.5281/zenodo.17214908).
 
