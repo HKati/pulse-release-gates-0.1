@@ -630,7 +630,6 @@ Examples:
 ```text
 README
 dashboard
-badge
 release note
 publication page
 status page
