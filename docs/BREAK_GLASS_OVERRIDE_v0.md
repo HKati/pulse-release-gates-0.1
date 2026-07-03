@@ -3,8 +3,8 @@
 ## Purpose
 
 `break_glass_override_v0` defines the audited exception mechanism for rare
-situations where a human operator authorizes an operational release despite a
-non-passing release decision.
+situations where a human operator records acceptance of a temporary operational
+exception attached to a non-passing release decision.
 
 Break-glass is not a hidden pass.
 
@@ -74,8 +74,9 @@ release_decision_v0.json
 + exception ledger rendering
 ```
 
-Break-glass may authorize an operational exception, but it must not mutate the
-underlying release-decision artifact.
+Break-glass may record acceptance of a temporary operational exception attached
+to a non-passing release decision, but it must not mutate the underlying
+release-decision artifact.
 
 ## Non-goals
 
