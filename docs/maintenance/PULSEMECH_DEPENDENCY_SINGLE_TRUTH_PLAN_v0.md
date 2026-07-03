@@ -12,7 +12,7 @@ It does not introduce a lockfile.
 
 It does not introduce `pyproject.toml`.
 
-It does not remove `requirements.txt`, `requirements-analysis.txt`, or `environment.yml`.
+It does not remove `requirements.txt`, `requirements-analysis.txt`, `environment.yml`, or `PULSE_safe_pack_v0/requirements-llamaguard-v0.txt`.
 
 It does not change workflow behavior, runtime code, gate policy, verifier behavior, materializer behavior, schema behavior, fail-closed CI enforcement, or release-authority semantics.
 
@@ -32,6 +32,7 @@ The repository currently uses or references several dependency-related files.
 requirements.txt
 requirements-analysis.txt
 environment.yml
+PULSE_safe_pack_v0/requirements-llamaguard-v0.txt
 ```
 
 These files may serve different audiences:
@@ -40,7 +41,16 @@ These files may serve different audiences:
 runtime / CI minimum requirements
 analysis or extended tooling requirements
 conda / environment reproduction
+hosted external-runtime requirements
 ```
+
+`PULSE_safe_pack_v0/requirements-llamaguard-v0.txt` is part of the hosted external-runtime dependency surface for the `hosted_full_runtime` lane.
+
+It is not part of the Tier 0 self-contained evidence-floor dependency surface.
+
+It is not part of the minimal PULSEmech core runtime dependency surface.
+
+It must not be promoted to core runtime without a later reviewed implementation decision.
 
 The risk is not that multiple files exist.
 
@@ -57,6 +67,7 @@ package present in one file but missing from another
 different version bounds for the same package
 CI using one dependency surface while local reproduction uses another
 analysis tools requiring dependencies not represented in the maintenance model
+hosted external-runtime dependencies omitted from dependency review
 security scanners observing only part of the dependency set
 documentation pointing to an outdated install path
 ```
@@ -93,6 +104,8 @@ force pip users into conda workflows
 introduce a lockfile without review
 change CI behavior without a dedicated implementation PR
 change release authority
+promote hosted external-runtime dependencies into Tier 0 runtime
+promote hosted external-runtime dependencies into core runtime
 ```
 
 ## Desired future model
@@ -111,6 +124,7 @@ Derived or supporting files may then be generated or maintained from that primar
 requirements.txt
 requirements-analysis.txt
 environment.yml
+PULSE_safe_pack_v0/requirements-llamaguard-v0.txt
 lockfile or pinned export
 ```
 
@@ -135,6 +149,8 @@ jsonschema
 
 The core runtime dependency set should remain small and stable.
 
+Hosted external-runtime dependencies must not be silently added to the core runtime dependency set.
+
 ### Test dependencies
 
 Dependencies required to run the repository test surface.
@@ -155,6 +171,26 @@ Dependencies used only to build or render documentation should not be required b
 
 Dependencies used to invoke external detector, scanner, evaluator, or attestation tooling should be clearly separated from core runtime dependencies.
 
+### Hosted external-runtime dependencies
+
+Dependencies required only for hosted external-evidence lanes.
+
+Current known surface:
+
+```text
+PULSE_safe_pack_v0/requirements-llamaguard-v0.txt
+```
+
+This file belongs to the hosted LlamaGuard / hosted external-runtime lane.
+
+It is associated with `hosted_full_runtime`.
+
+It is not part of the Tier 0 self-contained evidence-floor dependency surface.
+
+It is not part of the minimal PULSEmech core runtime dependency surface.
+
+It should be reviewed separately from core runtime dependencies because hosted external-runtime dependencies may involve provider access, model authorization, credentials, runtime cost, and different supply-chain review conditions.
+
 ## Required boundaries
 
 A dependency maintenance model should preserve these boundaries.
@@ -169,9 +205,26 @@ core CI gate dependencies
 release-authority mechanism dependencies
 ≠ reader-surface rendering dependencies
 
-hosted external runtime dependencies
+hosted external-runtime dependencies
 ≠ Tier 0 self-contained evidence-floor dependencies
+
+hosted external-runtime dependencies
+≠ minimal core runtime dependencies
 ```
+
+The known hosted LlamaGuard dependency surface is:
+
+```text
+PULSE_safe_pack_v0/requirements-llamaguard-v0.txt
+```
+
+This surface must remain separate from:
+
+```text
+requirements.txt
+```
+
+when `requirements.txt` is treated as the minimal core runtime dependency surface.
 
 ## Migration stages
 
@@ -183,11 +236,14 @@ Record the current dependency surfaces.
 requirements.txt
 requirements-analysis.txt
 environment.yml
+PULSE_safe_pack_v0/requirements-llamaguard-v0.txt
 ```
 
 Document their current intended use.
 
-No file changes are required for Stage 0.
+The hosted LlamaGuard requirements file should be recorded as a hosted external-runtime dependency surface, not as Tier 0 or core runtime dependency material.
+
+No file changes are required for Stage 0 beyond documentation of the current state.
 
 ### Stage 1 — Dependency surface inventory
 
@@ -197,12 +253,14 @@ Search areas:
 
 ```text
 requirements*.txt
+PULSE_safe_pack_v0/requirements-*.txt
 environment.yml
 GitHub Actions workflows
 documentation install instructions
 scripts that invoke pip or conda
 tests that assume optional packages
 analysis tools
+hosted external-runtime dependency surfaces
 ```
 
 Expected output:
@@ -210,6 +268,10 @@ Expected output:
 ```text
 docs/maintenance/PULSEMECH_DEPENDENCY_SURFACE_INVENTORY_v0.md
 ```
+
+The inventory should explicitly identify which workflows install which dependency surfaces.
+
+It should also identify which tests lock the expected contents or use of those dependency surfaces.
 
 ### Stage 2 — Role classification
 
@@ -221,10 +283,13 @@ test
 analysis
 documentation
 external-tooling
+hosted-external-runtime
 optional
 ```
 
 A dependency should not be promoted into core runtime unless required for the minimal PULSEmech mechanism.
+
+Hosted external-runtime dependencies should remain classified separately unless a later reviewed implementation decision intentionally changes that boundary.
 
 ### Stage 3 — Primary dependency definition proposal
 
@@ -246,6 +311,7 @@ test dependency group
 analysis dependency group
 documentation dependency group
 external-tooling dependency group
+hosted external-runtime dependency group
 ```
 
 No migration should occur until the proposal is reviewed.
@@ -254,12 +320,13 @@ No migration should occur until the proposal is reviewed.
 
 Define which files remain as derived or compatibility surfaces.
 
-Possible derived files:
+Possible derived or compatibility files:
 
 ```text
 requirements.txt
 requirements-analysis.txt
 environment.yml
+PULSE_safe_pack_v0/requirements-llamaguard-v0.txt
 ```
 
 The plan should state whether each file is:
@@ -272,6 +339,10 @@ deprecated
 manual-only
 generated
 ```
+
+The hosted LlamaGuard requirements surface may remain a separate compatibility surface if the hosted external-runtime lane requires a tightly controlled dependency set.
+
+It should not be folded into the Tier 0 self-contained dependency surface unless the hosted runtime requirement is intentionally promoted by a later reviewed implementation decision.
 
 ### Stage 5 — Lock / pin strategy
 
@@ -286,6 +357,8 @@ Should lockfiles be platform-specific?
 How are lockfiles updated?
 How are security updates handled?
 How are optional analysis dependencies pinned?
+How are hosted external-runtime dependencies pinned?
+Should hosted external-runtime dependencies use a separate lock or export?
 ```
 
 A lock strategy should not be introduced without a documented update procedure.
@@ -301,6 +374,8 @@ derived files match the primary definition
 dependency groups are not mixed accidentally
 core runtime remains minimal
 analysis dependencies do not enter minimal runtime unintentionally
+hosted external-runtime dependencies do not enter Tier 0 runtime unintentionally
+hosted external-runtime dependency surfaces remain covered by drift review
 ```
 
 ### Stage 7 — Documentation update
@@ -315,6 +390,7 @@ test install
 analysis install
 developer install
 optional external-tool install
+hosted external-runtime install
 ```
 
 ## Acceptance criteria
@@ -325,12 +401,15 @@ A completed dependency single-truth migration should satisfy:
 1. One primary dependency definition is identified.
 2. Derived dependency surfaces are documented.
 3. Core runtime dependencies are separated from analysis and optional dependencies.
-4. CI uses the intended dependency surface.
-5. Local reproduction instructions match CI.
-6. Optional analysis dependencies do not become implicit runtime requirements.
-7. Dependency updates have a documented review path.
-8. Drift between primary and derived dependency files is detected.
-9. The migration does not change release-authority semantics.
+4. Hosted external-runtime dependencies are separated from Tier 0 and core runtime dependencies.
+5. CI uses the intended dependency surface for each run mode.
+6. Local reproduction instructions match CI.
+7. Optional analysis dependencies do not become implicit runtime requirements.
+8. Hosted external-runtime dependencies do not become implicit Tier 0 requirements.
+9. Dependency updates have a documented review path.
+10. Drift between primary and derived dependency files is detected.
+11. Drift involving hosted external-runtime dependency surfaces is detected.
+12. The migration does not change release-authority semantics.
 ```
 
 ## Risk controls
@@ -347,11 +426,16 @@ Recommended order:
 3. proposal only
 4. pyproject introduction without behavior change
 5. derived export generation
-6. CI guard
-7. documentation update
+6. hosted external-runtime dependency export decision
+7. CI guard
+8. documentation update
 ```
 
 Avoid combining all stages into one large PR.
+
+Do not combine dependency migration with workflow semantic changes.
+
+Do not combine dependency migration with release-authority semantic changes.
 
 ## Current decision
 
@@ -362,6 +446,8 @@ do not migrate immediately
 do not remove existing dependency files
 do not add a lockfile yet
 do not change CI dependency installation yet
+do not promote hosted external-runtime dependencies to Tier 0 runtime
+do not promote hosted external-runtime dependencies to core runtime
 document the staged path first
 ```
 
@@ -376,7 +462,7 @@ Release authority remains bound to:
 ```text
 recorded evidence
 declared policy
-materialized required gate set
+workflow-effective materialized gate set
 verifier replay
 check_gates.py
 primary CI allow/block decision
@@ -397,8 +483,10 @@ which dependencies are required for the minimal PULSEmech mechanism
 which dependencies are only for tests
 which dependencies are for analysis
 which dependencies are optional
+which dependencies are for hosted external-runtime lanes
 which dependency definition CI uses
 how to reproduce the CI environment locally
+how to avoid installing hosted external-runtime dependencies for Tier 0 operation
 ```
 
 If this cannot be answered, the dependency model is not yet clear enough.
@@ -407,9 +495,21 @@ If this cannot be answered, the dependency model is not yet clear enough.
 
 Hosted external model or evaluator dependencies should remain clearly separated from Tier 0 self-contained operation.
 
-A user should be able to run the self-contained evidence floor without installing or authorizing hosted external runtime dependencies.
+A user should be able to run the self-contained evidence floor without installing or authorizing hosted external-runtime dependencies.
 
-External runtime dependencies should be opt-in and documented separately.
+Known hosted external-runtime dependency surface:
+
+```text
+PULSE_safe_pack_v0/requirements-llamaguard-v0.txt
+```
+
+This surface should be documented, inventoried, and reviewed.
+
+It should remain separate from core runtime unless a later implementation deliberately changes that boundary.
+
+External runtime dependencies should be opt-in or policy-required only for the lanes that actually need them.
+
+They should not become implicit requirements for self-contained operation.
 
 ## Review questions
 
@@ -421,11 +521,15 @@ Before implementation, reviewers should answer:
 3. Which dependencies are required only for tests?
 4. Which dependencies are required only for analysis or research surfaces?
 5. Which dependencies are required for hosted external evidence lanes?
-6. Should pyproject.toml become the primary dependency definition?
-7. Which tool should generate derived requirements files?
-8. Is a lockfile needed for CI, local reproduction, or both?
-9. How should dependency updates be reviewed?
-10. How should drift between dependency surfaces be detected?
+6. Which dependency files belong only to hosted external-runtime lanes?
+7. Should PULSE_safe_pack_v0/requirements-llamaguard-v0.txt remain separate from core runtime dependencies?
+8. Should pyproject.toml become the primary dependency definition?
+9. Which tool should generate derived requirements files?
+10. Is a lockfile needed for CI, local reproduction, or both?
+11. Should hosted external-runtime dependencies use a separate lock or export?
+12. How should dependency updates be reviewed?
+13. How should drift between dependency surfaces be detected?
+14. How should hosted external-runtime dependency drift be detected?
 ```
 
 ## Proposed next artifact
@@ -444,7 +548,9 @@ all workflow dependency installation steps
 all documentation install instructions
 all dependency-related tests
 all optional external-tool dependency surfaces
+all hosted external-runtime dependency surfaces
 current role of each dependency surface
+current Tier 0 versus hosted-runtime boundary
 ```
 
 ## Summary
@@ -461,6 +567,8 @@ The target state is:
 one primary dependency definition
 clearly derived compatibility surfaces
 separated runtime / test / analysis / optional dependency groups
+separated hosted external-runtime dependency surface
 drift detection
 reproducible CI and local setup
+Tier 0 operation protected from hosted-runtime dependency creep
 ```
