@@ -197,18 +197,22 @@ different supply-chain review conditions
 
 ## Known workflow install surfaces
 
-The inventory should track which workflows install which dependency surfaces.
+This inventory records known workflow-specific dependency installation surfaces.
 
-Known workflow dependency-install categories include:
+These entries are dependency surfaces even when they are not represented by a standalone requirements file.
 
-```text
-minimal repository requirements install
-analysis / optional tooling install
-hosted LlamaGuard / hosted external-runtime install
-workflow-specific Python dependency install
-```
+| Workflow | Install surface | Dependency source | Category | Notes |
+|---|---|---|---|---|
+| `.github/workflows/pulse_ci.yml` | Hosted LlamaGuard runtime install | `PULSE_safe_pack_v0/requirements-llamaguard-v0.txt` | hosted-external-runtime | Installed for the `hosted_full_runtime` release path. |
+| `.github/workflows/docs_hygiene.yml` | Documentation / citation validation install | `cffconvert` inline pip install | documentation / workflow-specific | Used for `CITATION.cff` validation. |
+| `.github/workflows/make_org.yml` | OpenGraph image generation install | `Pillow>=10,<12` inline pip install | documentation / workflow-specific | Used for generated image surfaces. |
+| `.github/workflows/gravity_record_protocol_v0_1_shadow.yml` | Shadow contract fixture install | `jsonschema==4.23.0` inline pip install | shadow / workflow-specific | Used for gravity record protocol shadow fixtures. |
 
-The exact install locations should be verified from workflow files before migration.
+Workflow-specific inline installs must be inventoried because they can drift outside the main dependency files.
+
+They are not automatically part of the minimal core runtime dependency surface.
+
+They should be classified by lane and reviewed before any dependency single-truth migration.
 
 ## Known test / guard surfaces
 
@@ -315,6 +319,7 @@ hosted external-runtime dependencies leak into Tier 0 runtime
 security scanners miss hosted runtime dependency surfaces
 documentation points to an outdated install command
 workflow tests assert a dependency surface not recorded in the plan
+workflow-specific inline installs drift outside dependency review
 ```
 
 ## Current inventory table
@@ -325,6 +330,9 @@ workflow tests assert a dependency surface not recorded in the plan
 | `requirements-analysis.txt` | Analysis / extended tooling | analysis | no | no | existing |
 | `environment.yml` | Conda / environment reproduction | environment-compatibility | no, unless selected by user | no | existing |
 | `PULSE_safe_pack_v0/requirements-llamaguard-v0.txt` | Hosted LlamaGuard dependencies | hosted-external-runtime | no | yes | existing |
+| `.github/workflows/docs_hygiene.yml` inline install | `cffconvert` for citation validation | documentation / workflow-specific | no | no | existing |
+| `.github/workflows/make_org.yml` inline install | `Pillow>=10,<12` for OpenGraph image generation | documentation / workflow-specific | no | no | existing |
+| `.github/workflows/gravity_record_protocol_v0_1_shadow.yml` inline install | `jsonschema==4.23.0` for shadow contract fixtures | shadow / workflow-specific | no | no | existing |
 
 ## Current decision
 
@@ -347,16 +355,18 @@ Before any dependency migration, reviewers should verify:
 ```text
 1. Which dependency files exist?
 2. Which workflows install each file?
-3. Which tests assert each dependency surface?
-4. Which file represents minimal core runtime?
-5. Which file represents analysis dependencies?
-6. Which file represents hosted external-runtime dependencies?
-7. Which dependency surfaces are used by Tier 0?
-8. Which dependency surfaces are used only by hosted runtime lanes?
-9. Which surfaces are compatibility surfaces?
-10. Which surfaces are intended to become derived files later?
-11. Which drift guards already exist?
-12. Which drift guards are missing?
+3. Which workflows use inline dependency installs?
+4. Which tests assert each dependency surface?
+5. Which file represents minimal core runtime?
+6. Which file represents analysis dependencies?
+7. Which file represents hosted external-runtime dependencies?
+8. Which dependency surfaces are used by Tier 0?
+9. Which dependency surfaces are used only by hosted runtime lanes?
+10. Which surfaces are compatibility surfaces?
+11. Which surfaces are workflow-specific inline installs?
+12. Which surfaces are intended to become derived files later?
+13. Which drift guards already exist?
+14. Which drift guards are missing?
 ```
 
 ## Migration readiness checklist
@@ -369,6 +379,7 @@ test install path
 analysis install path
 hosted runtime install path
 workflow install path
+workflow-specific inline install path
 local reproduction path
 security scanner coverage path
 ```
@@ -408,6 +419,7 @@ what to install for tests
 what to install for analysis
 what to install for hosted external runtime
 what not to install for Tier 0
+which workflow-specific inline installs exist
 ```
 
 This inventory is the first step toward that clarity.
@@ -423,7 +435,8 @@ Recommended follow-up work:
 4. Build a dependency role classification table.
 5. Decide whether a primary dependency definition is needed.
 6. Decide which files remain compatibility surfaces.
-7. Design drift detection only after the inventory is stable.
+7. Decide how workflow-specific inline installs should be represented in a future single-truth model.
+8. Design drift detection only after the inventory is stable.
 ```
 
 ## Summary
@@ -444,8 +457,13 @@ environment.yml
 
 PULSE_safe_pack_v0/requirements-llamaguard-v0.txt
 → hosted external-runtime surface
+
+workflow-specific inline installs
+→ documented workflow-specific surfaces
 ```
 
 The hosted LlamaGuard dependency surface is intentionally recorded.
 
-It must remain separate from Tier 0 and minimal core runtime unless a later reviewed implementation decision changes that boundary.
+Workflow-specific inline installs are intentionally recorded.
+
+They must remain separate from Tier 0 and minimal core runtime unless a later reviewed implementation decision changes that boundary.
