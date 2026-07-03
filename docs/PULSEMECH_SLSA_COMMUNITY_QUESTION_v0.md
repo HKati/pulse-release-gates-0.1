@@ -18,11 +18,11 @@ This document does not change workflow behavior, runtime code, gate policy, veri
 
 ## Purpose
 
-PULSEmech now has a technical alignment note describing how SLSA / in-toto-style provenance can be read alongside PULSEmech release-transition evaluation.
+PULSEmech has a technical alignment note describing how SLSA / in-toto-style provenance can be read alongside PULSEmech release-transition evaluation.
 
 The next step is to prepare a concise technical question for SLSA / OpenSSF practitioners.
 
-The goal is to ask for terminology and boundary guidance, not approval, certification, or compliance status.
+The goal is to ask for terminology and boundary guidance, not approval, certification, conformance judgment, or compliance status.
 
 ## Context
 
@@ -70,7 +70,7 @@ SLSA / in-toto provenance
 → artifact construction, source identity, build context, builder identity, execution metadata
 
 PULSEmech release-transition evaluation
-→ evidence admission, declared policy, workflow-effective materialized gates, verifier replay, check_gates enforcement, allow/block transition result
+→ evidence admission, declared policy, workflow-effective materialized gates, verifier replay, check_gates.py enforcement, allow/block transition result
 ```
 
 In this model, provenance is evidence input.
@@ -163,7 +163,7 @@ Where should an artifact-bound release-transition decision layer sit relative to
 
 ## Candidate GitHub issue body
 
-```markdown
+````markdown
 We are preparing a technical alignment for PULSEmech, a developer-side release-transition mechanism for AI-assisted and automation-heavy software workflows.
 
 PULSEmech does not claim a SLSA level.
@@ -179,7 +179,7 @@ SLSA / in-toto provenance
 → artifact construction, source identity, build context, builder identity, execution metadata
 
 PULSEmech release-transition evaluation
-→ evidence admission, declared policy, workflow-effective materialized gates, verifier replay, check_gates enforcement, allow/block transition result
+→ evidence admission, declared policy, workflow-effective materialized gates, verifier replay, check_gates.py enforcement, allow/block transition result
 ```
 
 We would appreciate terminology and boundary guidance.
@@ -197,7 +197,7 @@ Questions:
 The goal is not certification or compliance status.
 
 The goal is terminology, predicate boundary, and consumer verification guidance.
-```
+````
 
 ## Candidate short Slack / mailing-list version
 
@@ -222,9 +222,9 @@ docs/PULSEMECH_RELEASE_GRADE_REFERENCE_PROOF_PLAN_v0.md
 docs/PULSEMECH_DEVELOPER_FIRST_POSITIONING_v0.md
 ```
 
-The question should not require readers to inspect Zenodo records, publication pages, or reader surfaces.
+The question should point to technical repository documents and artifact-bound mechanics.
 
-It should point to technical repository documents and artifact-bound mechanics.
+It should not require readers to inspect publication pages, metadata pages, or other reader surfaces.
 
 ## Submission channel options
 
@@ -255,7 +255,7 @@ Before submitting the question publicly, verify:
 2. The required checks / workflow authority map is merged.
 3. The release-grade proof plan is merged.
 4. The dependency maintenance documents are clean and canonical.
-5. No current Zenodo / DOI correction issue is embedded in the question.
+5. No current publication-surface correction issue is embedded in the question.
 6. The question does not claim SLSA conformance.
 7. The question does not request certification.
 8. The question does not frame PULSEmech as a compliance product.
@@ -269,7 +269,6 @@ The first community question should not ask for:
 
 ```text
 certification
-badge
 conformance judgment
 formal acceptance
 standardization
