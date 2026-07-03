@@ -11,7 +11,12 @@
 >
 > We are working to correct the affected records.
 
-## Canonical PULSEmech implementation path
+<a id="canonical-pulsemech-implementation-path"></a>
+<h2>
+  Canonical
+  <img src="badges/pulsemech-wordmark.svg" alt="PULSEmech" height="32" align="center">
+  implementation path
+</h2>
 
 PULSEmech is the artifact-bound release-authority mechanism for AI release decisions.
 
