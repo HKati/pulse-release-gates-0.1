@@ -383,7 +383,7 @@ The release decision should not be reconstructed from `release_required` alone i
 
 The repository contains a broad test surface.
 
-The tools-test manifest includes many release-authority, verifier, materializer, schema, evidence, attestation, reference-package, reader-surface, and fail-closed checks. This breadth is a strength, but it also requires clear authority mapping so that test outputs are not mistaken for release decisions by themselves. :contentReference[oaicite:1]{index=1}
+The tools-test manifest includes many release-authority, verifier, materializer, schema, evidence, attestation, reference-package, reader-surface, and fail-closed checks. This breadth is a strength, but it also requires clear authority mapping so that test outputs are not mistaken for release decisions by themselves.
 
 A test may prove a contract, workflow invariant, schema boundary, documentation constraint, or wiring condition.
 
