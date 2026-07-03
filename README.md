@@ -11,7 +11,7 @@
 >
 > We are working to correct the affected records.
 
-## Canonical PULSEmech implementation path
+## Canonical <img src="assets/brand/pulsemech-dark-badge.svg" alt="PULSEmech" height="30"> implementation path
 
 PULSEmech is the artifact-bound release-authority mechanism for AI release decisions.
 
