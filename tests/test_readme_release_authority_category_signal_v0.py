@@ -21,6 +21,7 @@ README terminology rewrite check.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 
@@ -172,8 +173,16 @@ def _read_readme() -> str:
     return README.read_text(encoding="utf-8")
 
 
+def _normalize_readme_category_signal(text: str) -> str:
+    return re.sub(
+        r'<img\b[^>]*\balt="([^"]+)"[^>]*>',
+        r"\1",
+        text,
+    )
+
+
 def _front_door_text() -> str:
-    text = _read_readme()
+    text = _normalize_readme_category_signal(_read_readme())
     cut_points = [
         text.find(marker)
         for marker in FRONT_DOOR_END_MARKERS
