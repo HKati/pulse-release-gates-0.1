@@ -1,0 +1,59 @@
+{
+  "schema_version": "slsa_vsa_evidence_v0",
+  "evidence_type": "slsa_vsa",
+  "vsa": {
+    "_type": "https://in-toto.io/Statement/v1",
+    "subject": [
+      {
+        "name": "git+https://github.com/HKati/pulse-release-gates-0.1@refs/tags/v0.1.0",
+        "digest": {
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      }
+    ],
+    "predicateType": "https://slsa.dev/verification_summary/v1",
+    "predicate": {
+      "verifier": {
+        "id": "https://github.com/slsa-framework/slsa-verifier",
+        "version": {
+          "slsa-verifier": "v2.7.0"
+        }
+      },
+      "timeVerified": "2026-07-04T00:00:00Z",
+      "resourceUri": "git+https://github.com/HKati/pulse-release-gates-0.1@refs/tags/v0.1.0",
+      "policy": {
+        "uri": "https://example.invalid/policies/pulse-slsa-vsa-policy-v0.json",
+        "digest": {
+          "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        }
+      },
+      "inputAttestations": [
+        {
+          "uri": "https://example.invalid/attestations/pulse-release-gates-v0.1.0.intoto.jsonl",
+          "digest": {
+            "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+          }
+        }
+      ],
+      "verificationResult": "PASSED",
+      "verifiedLevels": [
+        "SLSA_BUILD_LEVEL_3"
+      ],
+      "dependencyLevels": {
+        "SLSA_BUILD_LEVEL_3": 0
+      },
+      "slsaVersion": "1.2"
+    }
+  },
+  "pulse_signals": {
+    "slsa_vsa_present": true,
+    "slsa_vsa_signature_ok": true,
+    "slsa_vsa_subject_matches_artifact": true,
+    "slsa_vsa_predicate_type_ok": true,
+    "slsa_vsa_verifier_trusted": true,
+    "slsa_vsa_resource_uri_matches": true,
+    "slsa_vsa_policy_digest_matches": true,
+    "slsa_vsa_result_passed": true,
+    "slsa_vsa_verified_level_ok": true
+  }
+}
