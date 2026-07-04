@@ -14,7 +14,7 @@
     "predicateType": "https://slsa.dev/verification_summary/v1",
     "predicate": {
       "verifier": {
-        "id": "https://github.com/slsa-framework/slsa-verifier",
+        "id": "https://example.invalid/verifiers/pulsemech-vsa-verifier-v0",
         "version": {
           "slsa-verifier": "v2.7.0"
         }
