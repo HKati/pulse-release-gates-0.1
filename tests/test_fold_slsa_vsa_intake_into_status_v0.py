@@ -1,5 +1,6 @@
 import hashlib
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -44,7 +45,10 @@ EXPECTED_INGEST_ARGS = [
 
 def write_json(path: Path, data: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(data, indent=2, ensure_ascii=False, sort_keys=True) + "\n", encoding="utf-8")
+    path.write_text(
+        json.dumps(data, indent=2, ensure_ascii=False, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
 
 
 def read_json(path: Path) -> dict:
@@ -195,6 +199,32 @@ def check_missing_signal_fails(tmp_dir: Path) -> None:
     assert not output_path.exists()
 
 
+def check_missing_signal_with_existing_slsa_gate_reports_json(tmp_dir: Path) -> None:
+    status_path = tmp_dir / "status_input_existing_slsa_gate.json"
+    intake_path = tmp_dir / "intake_report_missing_signal_existing_gate.json"
+    output_path = tmp_dir / "status_output_missing_signal_existing_gate.json"
+
+    write_json(
+        status_path,
+        {
+            "schema_version": "test_status_v0",
+            "run_id": "fold-slsa-vsa-intake-test",
+            "gates": {
+                "slsa_vsa_present": True
+            },
+        },
+    )
+
+    report = run_ingest_report(tmp_dir / "valid_intake_report_for_missing_signal.json")
+    del report["pulse_signals"]["slsa_vsa_present"]
+    write_json(intake_path, report)
+
+    result = run_fold(status_path, intake_path, output_path)
+
+    assert_failure(result, "pulse_signal_missing: slsa_vsa_present")
+    assert not output_path.exists()
+
+
 def check_non_boolean_signal_fails(tmp_dir: Path) -> None:
     status_path = tmp_dir / "status_input.json"
     intake_path = tmp_dir / "intake_report_non_boolean_signal.json"
@@ -306,6 +336,49 @@ def check_in_place_output_refused(tmp_dir: Path) -> None:
     assert base_hash_before == base_hash_after
 
 
+def check_hardlinked_output_refused(tmp_dir: Path) -> None:
+    status_path = tmp_dir / "status_input.json"
+    intake_path = tmp_dir / "intake_report.json"
+    hardlink_output_path = tmp_dir / "status_hardlink.json"
+
+    make_base_status(status_path)
+    base_hash_before = sha256_file(status_path)
+
+    try:
+        os.link(status_path, hardlink_output_path)
+    except (OSError, NotImplementedError):
+        return
+
+    run_ingest_report(intake_path)
+
+    result = run_fold(status_path, intake_path, hardlink_output_path)
+    assert_failure(result, "refusing_in_place_status_write")
+
+    base_hash_after = sha256_file(status_path)
+    assert base_hash_before == base_hash_after
+
+
+def check_output_write_failure_reports_json(tmp_dir: Path) -> None:
+    status_path = tmp_dir / "status_input.json"
+    intake_path = tmp_dir / "intake_report.json"
+    output_path = tmp_dir / "status_output_directory"
+
+    make_base_status(status_path)
+    run_ingest_report(intake_path)
+
+    output_path.mkdir()
+
+    result = run_fold(status_path, intake_path, output_path)
+
+    assert result.returncode == 2, result.stdout + result.stderr
+    assert "Traceback" not in result.stderr
+
+    report = parse_report(result)
+    assert report["ok"] is False
+    assert report["output_status_written"] is False
+    assert any("output_write_error:" in error for error in report["errors"]), report["errors"]
+
+
 def check_tool_does_not_call_gate_checker() -> None:
     source = FOLD_TOOL.read_text(encoding="utf-8")
     forbidden = "check_" + "gates"
@@ -324,12 +397,15 @@ def check_fold_slsa_vsa_intake_into_status_v0() -> None:
         check_valid_fold_in(tmp_dir)
         check_report_not_ok_fails(tmp_dir)
         check_missing_signal_fails(tmp_dir)
+        check_missing_signal_with_existing_slsa_gate_reports_json(tmp_dir)
         check_non_boolean_signal_fails(tmp_dir)
         check_false_signal_fails(tmp_dir)
         check_false_check_fails(tmp_dir)
         check_existing_gate_conflict_fails(tmp_dir)
         check_base_status_shape_failures(tmp_dir)
         check_in_place_output_refused(tmp_dir)
+        check_hardlinked_output_refused(tmp_dir)
+        check_output_write_failure_reports_json(tmp_dir)
         check_tool_does_not_call_gate_checker()
 
 
