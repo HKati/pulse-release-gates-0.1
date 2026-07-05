@@ -62,11 +62,23 @@ def load_json(path: Path) -> Any:
 
 def write_json(path: Path, data: Any) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(data, indent=2, ensure_ascii=False, sort_keys=True) + "\n", encoding="utf-8")
+    path.write_text(
+        json.dumps(data, indent=2, ensure_ascii=False, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
 
 
-def same_resolved_path(left: Path, right: Path) -> bool:
-    return left.resolve() == right.resolve()
+def same_status_target(left: Path, right: Path) -> bool:
+    if left.resolve() == right.resolve():
+        return True
+
+    try:
+        if left.exists() and right.exists() and left.samefile(right):
+            return True
+    except OSError:
+        pass
+
+    return False
 
 
 def make_report(
@@ -149,11 +161,22 @@ def validate_intake_report(report: Any, errors: list[str]) -> Optional[dict[str,
     return report
 
 
-def validate_existing_gate_conflicts(status: dict[str, Any], pulse_signals: dict[str, Any], errors: list[str]) -> None:
+def validate_existing_gate_conflicts(
+    status: dict[str, Any],
+    pulse_signals: dict[str, Any],
+    errors: list[str],
+) -> None:
     gates = status["gates"]
 
     for signal in REQUIRED_PULSE_SIGNALS:
-        if signal in gates and gates[signal] is not pulse_signals[signal]:
+        if signal not in gates:
+            continue
+
+        incoming = pulse_signals.get(signal)
+        if incoming is None:
+            continue
+
+        if gates[signal] is not incoming:
             errors.append(f"existing_gate_conflict: {signal}")
 
 
@@ -167,24 +190,43 @@ def fold_signals_into_status(status: dict[str, Any], pulse_signals: dict[str, An
     return folded
 
 
-def build_folded_status(status_path: Path, intake_report_path: Path, output_path: Path) -> tuple[dict[str, Any], Optional[dict[str, Any]], int]:
+def build_folded_status(
+    status_path: Path,
+    intake_report_path: Path,
+    output_path: Path,
+) -> tuple[dict[str, Any], Optional[dict[str, Any]], int]:
     errors: list[str] = []
 
-    if same_resolved_path(status_path, output_path):
+    if same_status_target(status_path, output_path):
         errors.append("refusing_in_place_status_write")
-        return make_report(ok=False, output_status_written=False, folded_gates=[], errors=errors), None, 2
+        return make_report(
+            ok=False,
+            output_status_written=False,
+            folded_gates=[],
+            errors=errors,
+        ), None, 2
 
     try:
         status_raw = load_json(status_path)
     except Exception as exc:
         errors.append(f"status_read_error: {exc}")
-        return make_report(ok=False, output_status_written=False, folded_gates=[], errors=errors), None, 2
+        return make_report(
+            ok=False,
+            output_status_written=False,
+            folded_gates=[],
+            errors=errors,
+        ), None, 2
 
     try:
         intake_raw = load_json(intake_report_path)
     except Exception as exc:
         errors.append(f"intake_report_read_error: {exc}")
-        return make_report(ok=False, output_status_written=False, folded_gates=[], errors=errors), None, 2
+        return make_report(
+            ok=False,
+            output_status_written=False,
+            folded_gates=[],
+            errors=errors,
+        ), None, 2
 
     status = validate_base_status(status_raw, errors)
     intake_report = validate_intake_report(intake_raw, errors)
@@ -193,11 +235,16 @@ def build_folded_status(status_path: Path, intake_report_path: Path, output_path
     if isinstance(intake_report, dict) and isinstance(intake_report.get("pulse_signals"), dict):
         pulse_signals = intake_report["pulse_signals"]
 
-    if status is not None and pulse_signals:
+    if not errors and status is not None and pulse_signals:
         validate_existing_gate_conflicts(status, pulse_signals, errors)
 
     if errors:
-        return make_report(ok=False, output_status_written=False, folded_gates=[], errors=errors), None, 1
+        return make_report(
+            ok=False,
+            output_status_written=False,
+            folded_gates=[],
+            errors=errors,
+        ), None, 1
 
     assert status is not None
     folded_status = fold_signals_into_status(status, pulse_signals)
@@ -218,11 +265,26 @@ def main() -> int:
     intake_report_path = Path(args.intake_report)
     output_path = Path(args.output)
 
-    report, folded_status, exit_code = build_folded_status(status_path, intake_report_path, output_path)
+    report, folded_status, exit_code = build_folded_status(
+        status_path,
+        intake_report_path,
+        output_path,
+    )
 
     if exit_code == 0:
         assert folded_status is not None
-        write_json(output_path, folded_status)
+
+        try:
+            write_json(output_path, folded_status)
+        except Exception as exc:
+            report = make_report(
+                ok=False,
+                output_status_written=False,
+                folded_gates=[],
+                errors=[f"output_write_error: {exc}"],
+            )
+            emit_report(report)
+            return 2
 
     emit_report(report)
     return exit_code
