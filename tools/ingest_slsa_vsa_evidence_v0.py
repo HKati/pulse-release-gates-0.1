@@ -59,10 +59,7 @@ def sha256_from_digest(digest: Any) -> Optional[str]:
     return None
 
 
-def subject_matches(subjects: Any, expected_name: Optional[str], expected_sha256: Optional[str]) -> bool:
-    if expected_name is None and expected_sha256 is None:
-        return True
-
+def subject_matches(subjects: Any, expected_name: str, expected_sha256: str) -> bool:
     if not isinstance(subjects, list):
         return False
 
@@ -70,8 +67,8 @@ def subject_matches(subjects: Any, expected_name: Optional[str], expected_sha256
         if not isinstance(subject, dict):
             continue
 
-        name_ok = expected_name is None or subject.get("name") == expected_name
-        digest_ok = expected_sha256 is None or sha256_from_digest(subject.get("digest")) == expected_sha256
+        name_ok = subject.get("name") == expected_name
+        digest_ok = sha256_from_digest(subject.get("digest")) == expected_sha256
 
         if name_ok and digest_ok:
             return True
@@ -79,20 +76,14 @@ def subject_matches(subjects: Any, expected_name: Optional[str], expected_sha256
     return False
 
 
-def policy_digest_matches(policy: Any, expected_sha256: Optional[str]) -> bool:
-    if expected_sha256 is None:
-        return True
-
+def policy_digest_matches(policy: Any, expected_sha256: str) -> bool:
     if not isinstance(policy, dict):
         return False
 
     return sha256_from_digest(policy.get("digest")) == expected_sha256
 
 
-def verified_level_ok(verified_levels: Any, expected_level: Optional[str]) -> bool:
-    if expected_level is None:
-        return True
-
+def verified_level_ok(verified_levels: Any, expected_level: str) -> bool:
     return isinstance(verified_levels, list) and expected_level in verified_levels
 
 
@@ -150,7 +141,7 @@ def empty_checks() -> dict[str, bool]:
 
 
 def emit_report(report: dict[str, Any], output: Optional[Path]) -> None:
-    rendered = json.dumps(report, indent=2, ensure_ascii=False) + "\n"
+    rendered = json.dumps(report, indent=2, ensure_ascii=False, sort_keys=False) + "\n"
     sys.stdout.write(rendered)
 
     if output is not None:
@@ -161,6 +152,27 @@ def emit_report(report: dict[str, Any], output: Optional[Path]) -> None:
 def validation_path(error: Any) -> str:
     path = ".".join(str(part) for part in error.path)
     return path or "<root>"
+
+
+def schema_validation_errors(schema: dict[str, Any], evidence: Any) -> list[str]:
+    validator = Draft202012Validator(schema)
+    validation_errors = sorted(
+        validator.iter_errors(evidence),
+        key=lambda err: tuple(str(part) for part in err.path),
+    )
+
+    return [
+        f"evidence_invalid[{validation_path(error)}]: {error.message}"
+        for error in validation_errors
+    ]
+
+
+def require_expectation(value: Optional[str], flag_name: str, errors: list[str]) -> Optional[str]:
+    if value is None:
+        errors.append(f"expectation_missing: {flag_name}")
+        return None
+
+    return value
 
 
 def build_intake_report(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
@@ -193,16 +205,25 @@ def build_intake_report(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
         errors.append(f"schema_invalid: {exc}")
 
     if checks["schema_valid"]:
-        validator = Draft202012Validator(schema)
-        validation_errors = sorted(validator.iter_errors(evidence), key=lambda err: list(err.path))
-        if validation_errors:
-            for error in validation_errors:
-                errors.append(f"evidence_invalid[{validation_path(error)}]: {error.message}")
+        evidence_errors = schema_validation_errors(schema, evidence)
+        if evidence_errors:
+            errors.extend(evidence_errors)
         else:
             checks["evidence_valid"] = True
 
-    vsa = evidence.get("vsa", {}) if isinstance(evidence, dict) else {}
-    predicate = vsa.get("predicate", {}) if isinstance(vsa, dict) else {}
+    raw_vsa = evidence.get("vsa") if isinstance(evidence, dict) else None
+    if not isinstance(raw_vsa, dict):
+        errors.append("vsa_not_object")
+        vsa: dict[str, Any] = {}
+    else:
+        vsa = raw_vsa
+
+    raw_predicate = vsa.get("predicate")
+    if not isinstance(raw_predicate, dict):
+        errors.append("predicate_not_object")
+        predicate: dict[str, Any] = {}
+    else:
+        predicate = raw_predicate
 
     checks["contract_fields_ok"] = (
         schema_version == SCHEMA_VERSION
@@ -214,32 +235,85 @@ def build_intake_report(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
     checks["predicate_type_ok"] = vsa.get("predicateType") == SLSA_VSA_PREDICATE_TYPE_V1
     checks["verification_result_passed"] = predicate.get("verificationResult") == "PASSED"
 
-    checks["subject_matches_artifact"] = subject_matches(
-        vsa.get("subject"),
+    expected_subject_name = require_expectation(
         args.expect_subject_name,
+        "--expect-subject-name",
+        errors,
+    )
+    expected_subject_sha256 = require_expectation(
         args.expect_subject_sha256,
+        "--expect-subject-sha256",
+        errors,
     )
 
-    expected_resource_uri = args.expect_resource_uri
-    checks["resource_uri_matches"] = (
-        expected_resource_uri is None or predicate.get("resourceUri") == expected_resource_uri
-    )
+    if expected_subject_name is not None and expected_subject_sha256 is not None:
+        checks["subject_matches_artifact"] = subject_matches(
+            vsa.get("subject"),
+            expected_subject_name,
+            expected_subject_sha256,
+        )
+    else:
+        checks["subject_matches_artifact"] = False
 
-    expected_verifier_id = args.expect_verifier_id
-    verifier = predicate.get("verifier", {}) if isinstance(predicate, dict) else {}
-    checks["verifier_trusted"] = (
-        expected_verifier_id is None or verifier.get("id") == expected_verifier_id
+    expected_resource_uri = require_expectation(
+        args.expect_resource_uri,
+        "--expect-resource-uri",
+        errors,
     )
+    if expected_resource_uri is not None:
+        checks["resource_uri_matches"] = predicate.get("resourceUri") == expected_resource_uri
+    else:
+        checks["resource_uri_matches"] = False
 
-    checks["policy_digest_matches"] = policy_digest_matches(
-        predicate.get("policy"),
+    raw_verifier = predicate.get("verifier")
+    if not isinstance(raw_verifier, dict):
+        errors.append("verifier_not_object")
+        verifier: dict[str, Any] = {}
+    else:
+        verifier = raw_verifier
+
+    expected_verifier_id = require_expectation(
+        args.expect_verifier_id,
+        "--expect-verifier-id",
+        errors,
+    )
+    if expected_verifier_id is not None:
+        checks["verifier_trusted"] = verifier.get("id") == expected_verifier_id
+    else:
+        checks["verifier_trusted"] = False
+
+    raw_policy = predicate.get("policy")
+    if not isinstance(raw_policy, dict):
+        errors.append("policy_not_object")
+        policy: dict[str, Any] = {}
+    else:
+        policy = raw_policy
+
+    expected_policy_sha256 = require_expectation(
         args.expect_policy_sha256,
+        "--expect-policy-sha256",
+        errors,
     )
+    if expected_policy_sha256 is not None:
+        checks["policy_digest_matches"] = policy_digest_matches(
+            policy,
+            expected_policy_sha256,
+        )
+    else:
+        checks["policy_digest_matches"] = False
 
-    checks["verified_level_ok"] = verified_level_ok(
-        predicate.get("verifiedLevels"),
+    expected_verified_level = require_expectation(
         args.expect_verified_level,
+        "--expect-verified-level",
+        errors,
     )
+    if expected_verified_level is not None:
+        checks["verified_level_ok"] = verified_level_ok(
+            predicate.get("verifiedLevels"),
+            expected_verified_level,
+        )
+    else:
+        checks["verified_level_ok"] = False
 
     checks["pulse_signals_literal_booleans"] = literal_boolean_signals(pulse_signals)
     checks["pulse_signals_required_true"] = required_signals_true(pulse_signals)
@@ -260,12 +334,14 @@ def build_intake_report(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
         for signal, expected_value in expected_signal_values.items():
             if pulse_signals.get(signal) is not expected_value:
                 signal_consistency_errors.append(
-                    f"pulse_signal_inconsistent: {signal} recorded={pulse_signals.get(signal)!r} expected={expected_value!r}"
+                    "pulse_signal_inconsistent: "
+                    f"{signal} recorded={pulse_signals.get(signal)!r} expected={expected_value!r}"
                 )
 
         if pulse_signals.get("slsa_vsa_signature_ok") is not True:
             signal_consistency_errors.append(
-                "pulse_signal_inconsistent: slsa_vsa_signature_ok must be recorded as literal true for this intake"
+                "pulse_signal_inconsistent: "
+                "slsa_vsa_signature_ok must be recorded as literal true for this intake"
             )
     else:
         signal_consistency_errors.append("pulse_signals_not_object")
@@ -298,15 +374,13 @@ def main() -> int:
     output = Path(args.output) if args.output else None
 
     if output is not None and output.name == "status.json":
-        checks = empty_checks()
-        errors = ["refusing_to_write_status_json"]
         report = make_report(
             ok=False,
             schema_version=None,
             evidence_type=None,
-            checks=checks,
+            checks=empty_checks(),
             pulse_signals={},
-            errors=errors,
+            errors=["refusing_to_write_status_json"],
         )
         emit_report(report, None)
         return 2
