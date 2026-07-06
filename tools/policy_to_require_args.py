@@ -162,6 +162,67 @@ def _extract_gate_set(text: str, gate_set: str) -> Tuple[bool, List[str]]:
     return found_set, out
 
 
+def _extract_gate_sets(text: str) -> dict[str, List[str]]:
+    """Return every gate set declared under the top-level gates mapping."""
+    gate_sets: dict[str, List[str]] = {}
+    lines = text.splitlines()
+
+    in_gates = False
+    current_set: str | None = None
+    gates_indent = None
+    set_indent = None
+
+    for raw in lines:
+        line = raw.rstrip("\n")
+        stripped = line.strip()
+
+        if not stripped or stripped.startswith("#"):
+            continue
+
+        clean = _strip_inline_comment(stripped)
+        if not clean:
+            continue
+
+        indent = len(line) - len(line.lstrip(" "))
+
+        if clean == "gates:":
+            in_gates = True
+            current_set = None
+            gates_indent = indent
+            set_indent = None
+            continue
+
+        if in_gates and gates_indent is not None and indent <= gates_indent and ":" in clean and clean != "gates:":
+            break
+
+        if not in_gates:
+            continue
+
+        if current_set is not None and set_indent is not None and indent == set_indent and ":" in clean and not clean.startswith("-"):
+            current_set = None
+            set_indent = None
+
+        if ":" in clean and not clean.startswith("-"):
+            key, rest = clean.split(":", 1)
+            key = key.strip()
+            rest = rest.strip()
+            if key:
+                gate_sets.setdefault(key, [])
+                current_set = key
+                set_indent = indent
+                if rest.startswith("[") and rest.endswith("]"):
+                    gate_sets[key].extend(_parse_inline_list(rest))
+                    current_set = None
+                continue
+
+        if current_set is not None and clean.startswith("- "):
+            gate_id = _strip_inline_comment(clean[2:])
+            if gate_id:
+                gate_sets[current_set].append(gate_id)
+
+    return gate_sets
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument(
@@ -171,8 +232,8 @@ def main() -> int:
     )
     ap.add_argument(
         "--set",
-        default="required",
-        choices=["required", "core_required", "release_required", "advisory"],
+        required=True,
+        help="Gate set name from pulse_gate_policy_v0.yml",
         help="Which gate set to print (default: required)",
     )
     ap.add_argument(
@@ -189,19 +250,21 @@ def main() -> int:
         return 2
 
     text = p.read_text(encoding="utf-8")
-    found_set, gates = _extract_gate_set(text, args.set)
+    gate_sets = _extract_gate_sets(text)
+
+    # Advisory is optional and may be omitted by older/minimal policies.
+    if args.set == "advisory" and args.set not in gate_sets:
+        return 0
+
+    if args.set not in gate_sets:
+        print(f"ERROR: unknown gate set: {args.set}", file=sys.stderr)    
+        return 3
+    gates = gate_sets[args.set]
 
     # Advisory is optional and may be empty.
-    if args.set == "advisory":
-        if not found_set or not gates:
-            return 0
-
-    # Required-like sets (required, core_required, release_required)
-    # must exist and must be non-empty.
-    if not found_set:
-        print(f"[policy_to_require_args] Gate set not found: {args.set}", file=sys.stderr)
-        return 3
-
+    if args.set == "advisory" and not gates:
+        return 0
+   
     if not gates:
         print(f"[policy_to_require_args] Gate set is empty: {args.set}", file=sys.stderr)
         return 3
