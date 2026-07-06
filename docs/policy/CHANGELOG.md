@@ -62,6 +62,13 @@ This changelog records **semantic** changes that can affect release gating outco
   - Impact: clarifies the current shadow-contract program, machine-readable registry, Relational Gain pilot state, and the EPF split between the broader research line and the hardened summary surface; no change to release authority, required gates, or `check_gates.py` behavior.
   - Migration: none. This is a terminology and interpretation update only.
 
+## 0.1.6 - 2026-07-06
+
+- Added the non-active `slsa_vsa_recorded_intake_candidate` gate set.
+- The candidate set proves SLSA VSA recorded-intake gate materialization through the existing policy materializer and `check_gates.py`.
+- The set is not included in `required`, `core_required`, `release_required`, `prod_required`, `stage_required`, or any release-blocking set.
+- Signature semantics remain `recorded_signal_only`; no cryptographic signature verification lane is introduced in this version.
+
 ## 0.1.0 — Initial baseline
 
 ### Policy
