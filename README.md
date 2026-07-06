@@ -1,5 +1,7 @@
 # PULSE — Artifact-Bound Release Authority for AI Release Decisions
 
+> **Public origin / prior-art notice:** PULSE has a minimum public origin record. For the visible provenance anchors and attribution boundary, see the [Public Origin / Prior Art Notice](docs/quality_ledger.md#10-public-origin--prior-art-notice).
+
 > [!NOTE]
 > The following three Zenodo version records currently have incorrect DOI/citation routing metadata:
 >
