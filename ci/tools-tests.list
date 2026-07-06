@@ -102,6 +102,7 @@ tests/test_reader_surface_non_interference.py
 tests/test_slsa_vsa_evidence_schema_v0.py
 tests/test_ingest_slsa_vsa_evidence_v0.py
 tests/test_fold_slsa_vsa_intake_into_status_v0.py
+tests/test_slsa_vsa_advisory_policy_gates_v0.py
 
 tools/operator_handoff_smoke.py
 
