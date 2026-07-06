@@ -8,6 +8,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 
 POLICY = ROOT / "pulse_gate_policy_v0.yml"
+TOOLS_TESTS_LIST = ROOT / "ci" / "tools-tests.list"
 POLICY_TO_REQUIRE_ARGS = ROOT / "tools" / "policy_to_require_args.py"
 CHECK_GATES = ROOT / "PULSE_safe_pack_v0" / "tools" / "check_gates.py"
 
@@ -17,7 +18,11 @@ FOLD_TOOL = ROOT / "tools" / "fold_slsa_vsa_intake_into_status_v0.py"
 SCHEMA = ROOT / "schemas" / "slsa_vsa_evidence_v0.schema.json"
 EXAMPLE = ROOT / "examples" / "slsa" / "slsa_vsa_evidence_example_v0.json"
 
-CANDIDATE_SET = "slsa_vsa_release_required_candidate"
+CANDIDATE_SET = "slsa_vsa_recorded_intake_candidate"
+STALE_CANDIDATE_SET = "slsa_vsa_release_required_candidate"
+
+CURRENT_TEST_PATH = "tests/test_slsa_vsa_recorded_intake_candidate_v0.py"
+STALE_TEST_PATH = "tests/test_slsa_vsa_release_required_candidate_v0.py"
 
 SLSA_VSA_GATES = [
     "slsa_vsa_present",
@@ -65,8 +70,8 @@ def read_json(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def materialize_gate_set(gate_set: str) -> list[str]:
-    result = subprocess.run(
+def run_policy_to_require_args(gate_set: str) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
         [
             sys.executable,
             str(POLICY_TO_REQUIRE_ARGS),
@@ -84,6 +89,10 @@ def materialize_gate_set(gate_set: str) -> list[str]:
         check=False,
     )
 
+
+def materialize_gate_set(gate_set: str) -> list[str]:
+    result = run_policy_to_require_args(gate_set)
+
     assert result.returncode == 0, result.stdout + result.stderr
 
     return [line.strip() for line in result.stdout.splitlines() if line.strip()]
@@ -94,7 +103,7 @@ def make_base_status(path: Path) -> None:
         path,
         {
             "schema_version": "test_status_v0",
-            "run_id": "slsa-vsa-release-required-candidate-test",
+            "run_id": "slsa-vsa-recorded-intake-candidate-test",
             "gates": {
                 "existing_gate": True
             },
@@ -125,6 +134,7 @@ def run_ingest_report(output: Path) -> dict:
     assert result.returncode == 0, result.stdout + result.stderr
 
     report = json.loads(result.stdout)
+
     assert report["ok"] is True
     assert output.exists()
     assert read_json(output) == report
@@ -154,6 +164,7 @@ def run_fold(status: Path, intake_report: Path, output: Path) -> dict:
     assert result.returncode == 0, result.stdout + result.stderr
 
     report = json.loads(result.stdout)
+
     assert report["ok"] is True
     assert output.exists()
 
@@ -178,12 +189,28 @@ def run_check_gates(status: Path, required_gates: list[str]) -> subprocess.Compl
     )
 
 
+def check_recorded_intake_naming_is_consistent() -> None:
+    policy_text = POLICY.read_text(encoding="utf-8")
+    tools_tests_text = TOOLS_TESTS_LIST.read_text(encoding="utf-8")
+
+    assert CANDIDATE_SET in policy_text
+    assert STALE_CANDIDATE_SET not in policy_text
+
+    assert CURRENT_TEST_PATH in tools_tests_text
+    assert STALE_TEST_PATH not in tools_tests_text
+
+    stale_result = run_policy_to_require_args(STALE_CANDIDATE_SET)
+    assert stale_result.returncode != 0, (
+        "stale release-required candidate set must not remain materializable"
+    )
+
+
 def check_candidate_gate_set_materializes_exactly() -> None:
     materialized = materialize_gate_set(CANDIDATE_SET)
 
     assert materialized == SLSA_VSA_GATES, (
-        "candidate gate set must materialize exactly the nine SLSA VSA gates "
-        f"in stable order; got {materialized}"
+        "recorded-intake candidate gate set must materialize exactly the nine "
+        f"SLSA VSA gates in stable order; got {materialized}"
     )
 
 
@@ -222,7 +249,10 @@ def check_candidate_passes_after_intake_and_fold(tmp_dir: Path) -> Path:
     return folded_status_path
 
 
-def check_candidate_fails_when_one_gate_is_false(tmp_dir: Path, folded_status_path: Path) -> None:
+def check_candidate_fails_when_one_gate_is_false(
+    tmp_dir: Path,
+    folded_status_path: Path,
+) -> None:
     mutated_status_path = tmp_dir / "status_folded_mutated_false.json"
 
     mutated = read_json(folded_status_path)
@@ -234,10 +264,16 @@ def check_candidate_fails_when_one_gate_is_false(tmp_dir: Path, folded_status_pa
     result = run_check_gates(mutated_status_path, required_gates)
 
     assert result.returncode != 0, result.stdout + result.stderr
-    assert "slsa_vsa_verifier_trusted" in result.stdout or "slsa_vsa_verifier_trusted" in result.stderr
+    assert (
+        "slsa_vsa_verifier_trusted" in result.stdout
+        or "slsa_vsa_verifier_trusted" in result.stderr
+    )
 
 
-def check_candidate_fails_when_one_gate_is_missing(tmp_dir: Path, folded_status_path: Path) -> None:
+def check_candidate_fails_when_one_gate_is_missing(
+    tmp_dir: Path,
+    folded_status_path: Path,
+) -> None:
     mutated_status_path = tmp_dir / "status_folded_mutated_missing.json"
 
     mutated = read_json(folded_status_path)
@@ -259,12 +295,15 @@ def check_no_release_authority_tool_mutation() -> None:
     assert CHECK_GATES.exists()
 
     source = CHECK_GATES.read_text(encoding="utf-8")
-    assert "slsa_vsa_release_required_candidate" not in source
+
+    assert CANDIDATE_SET not in source
+    assert STALE_CANDIDATE_SET not in source
     assert "slsa_vsa_present" not in source
 
 
-def check_slsa_vsa_release_required_candidate_v0() -> None:
+def check_slsa_vsa_recorded_intake_candidate_v0() -> None:
     assert POLICY.exists()
+    assert TOOLS_TESTS_LIST.exists()
     assert POLICY_TO_REQUIRE_ARGS.exists()
     assert CHECK_GATES.exists()
     assert INGEST_TOOL.exists()
@@ -272,6 +311,7 @@ def check_slsa_vsa_release_required_candidate_v0() -> None:
     assert SCHEMA.exists()
     assert EXAMPLE.exists()
 
+    check_recorded_intake_naming_is_consistent()
     check_candidate_gate_set_materializes_exactly()
     check_candidate_gates_not_in_active_required_sets()
     check_no_release_authority_tool_mutation()
@@ -284,10 +324,10 @@ def check_slsa_vsa_release_required_candidate_v0() -> None:
         check_candidate_fails_when_one_gate_is_missing(tmp_dir, folded_status_path)
 
 
-def test_slsa_vsa_release_required_candidate_v0() -> None:
-    check_slsa_vsa_release_required_candidate_v0()
+def test_slsa_vsa_recorded_intake_candidate_v0() -> None:
+    check_slsa_vsa_recorded_intake_candidate_v0()
 
 
 if __name__ == "__main__":
-    check_slsa_vsa_release_required_candidate_v0()
-    print("OK: SLSA VSA release-required candidate proof passed")
+    check_slsa_vsa_recorded_intake_candidate_v0()
+    print("OK: SLSA VSA recorded-intake candidate proof passed")
