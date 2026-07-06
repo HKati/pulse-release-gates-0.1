@@ -2,16 +2,17 @@
 # Canonical gate-set policy for CI enforcement.
 #
 # Normative (required-like) gates are FAIL-closed:
-#   - missing required gate => FAIL
-#   - required gate == false => FAIL
+# - missing required gate => FAIL
+# - required gate == false => FAIL
 #
 # Diagnostic (advisory) gates never block shipping:
-#   - missing advisory gate => WARN
-#   - advisory gate == false => WARN
+# - missing advisory gate => WARN
+# - advisory gate == false => WARN
 #
-# This file intentionally defines ONLY:
-#   - the gate sets (required / core_required / release_required / advisory)
-#   - enforcement semantics around missing/unknown signals
+# This file defines:
+# - active gate sets: required / core_required / release_required / advisory
+# - non-active proof gate sets, where explicitly named
+# - enforcement semantics around missing/unknown signals
 #
 # Thresholds / measurement details remain elsewhere (safe-pack / profiles).
 
@@ -83,6 +84,7 @@ gates:
   advisory:
     - external_summaries_present
     - external_all_pass
+
     # SLSA / in-toto VSA evidence gates.
     # Advisory-only in v0; not release-blocking.
     - slsa_vsa_present
