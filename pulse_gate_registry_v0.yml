@@ -130,6 +130,60 @@ gates:
     stability: experimental
     default_normative: false
 
+  # --- SLSA / in-toto VSA evidence gates (advisory by default) ---
+  slsa_vsa_present:
+    category: external
+    intent: "SLSA / in-toto VSA evidence record is present in the folded status surface."
+    stability: experimental
+    default_normative: false
+
+  slsa_vsa_signature_ok:
+    category: external
+    intent: "SLSA / in-toto VSA signature verification is recorded as an evidence signal."
+    stability: experimental
+    default_normative: false
+
+  slsa_vsa_subject_matches_artifact:
+    category: external
+    intent: "SLSA / in-toto VSA subject digest matches the expected release artifact identity."
+    stability: experimental
+    default_normative: false
+
+  slsa_vsa_predicate_type_ok:
+    category: external
+    intent: "SLSA / in-toto VSA predicate type matches the expected verification summary contract."
+    stability: experimental
+    default_normative: false
+
+  slsa_vsa_verifier_trusted:
+    category: external
+    intent: "SLSA / in-toto VSA verifier identity matches the declared trust expectation."
+    stability: experimental
+    default_normative: false
+
+  slsa_vsa_resource_uri_matches:
+    category: external
+    intent: "SLSA / in-toto VSA resource URI matches the expected release resource binding."
+    stability: experimental
+    default_normative: false
+
+  slsa_vsa_policy_digest_matches:
+    category: external
+    intent: "SLSA / in-toto VSA policy digest matches the expected verification policy digest."
+    stability: experimental
+    default_normative: false
+
+  slsa_vsa_result_passed:
+    category: external
+    intent: "SLSA / in-toto VSA verification result is recorded as PASSED."
+    stability: experimental
+    default_normative: false
+
+  slsa_vsa_verified_level_ok:
+    category: external
+    intent: "SLSA / in-toto VSA verified level satisfies the declared intake expectation."
+    stability: experimental
+    default_normative: false
 
   # --- Diagnostics (must remain non-normative unless explicitly promoted) ---
   epf_hazard_ok:
