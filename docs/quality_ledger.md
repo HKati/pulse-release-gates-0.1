@@ -397,3 +397,19 @@ The invariants remain:
 - [external_detector_summaries.md](external_detector_summaries.md)
 - [RUNBOOK.md](RUNBOOK.md)
 - [quickstart safe-pack README](../examples/quickstart_safe_pack/README.md)
+
+---
+
+## 10. Public Origin / Prior Art Notice
+
+PULSE has a minimum public origin record.
+
+This repository preserves the visible public record through its public history, commits, releases, archive records where applicable, cryptographic hashes, and related public files.
+
+This notice does not exhaust the full provenance chain. It marks the minimum public origin record currently visible in this repository.
+
+Minimum public origin record:
+
+```text
+https://github.com/HKati/pulse-release-gates-0.1
+```
