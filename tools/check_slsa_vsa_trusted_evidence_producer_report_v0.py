@@ -23,16 +23,27 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--schema", required=True, help="Path to producer report schema")
     parser.add_argument("--report", required=True, help="Path to producer report JSON")
+
     parser.add_argument("--expect-producer-id", required=True)
+    parser.add_argument("--expect-producer-name", required=True)
+    parser.add_argument("--expect-producer-version", required=True)
+    parser.add_argument("--expect-producer-source", required=True)
+    parser.add_argument("--expect-ci-workflow-or-job-identity", required=True)
+
     parser.add_argument("--expect-current-run-id", required=True)
     parser.add_argument("--expect-current-run-key", required=True)
     parser.add_argument("--expect-commit-sha", required=True)
     parser.add_argument("--expect-release-candidate-id", required=True)
+
     parser.add_argument("--expect-artifact-subject-name", required=True)
     parser.add_argument("--expect-artifact-sha256", required=True)
+
     parser.add_argument("--expect-policy-id", required=True)
     parser.add_argument("--expect-policy-sha256", required=True)
+
     parser.add_argument("--expect-verifier-id", required=True)
+    parser.add_argument("--expect-verified-level", required=True)
+
     parser.add_argument("--expect-candidate-set", default=CANDIDATE_SET)
     parser.add_argument("--output", help="Optional path for deterministic diagnostic report")
     return parser.parse_args()
@@ -51,7 +62,13 @@ def nested_get(data: Any, path: list[str]) -> Any:
     return cursor
 
 
-def make_diagnostic(*, ok: bool, schema_valid: bool, checks: dict[str, bool], errors: list[str]) -> dict[str, Any]:
+def make_diagnostic(
+    *,
+    ok: bool,
+    schema_valid: bool,
+    checks: dict[str, bool],
+    errors: list[str],
+) -> dict[str, Any]:
     return {
         "tool": TOOL_NAME,
         "ok": ok,
@@ -83,37 +100,126 @@ def validation_errors(schema: dict[str, Any], report: Any) -> list[str]:
     ]
 
 
+def _verified_level_list_contains(report: dict[str, Any], expected_level: str) -> bool:
+    levels = nested_get(report, ["evidence", "evidence_verified_levels"])
+    return isinstance(levels, list) and expected_level in levels
+
+
 def build_checks(args: argparse.Namespace, report: dict[str, Any]) -> dict[str, bool]:
+    expected_policy_uri = nested_get(report, ["policy_binding", "expected_policy_uri"])
+    evidence_policy_uri = nested_get(report, ["policy_binding", "evidence_policy_uri"])
+
     return {
         "schema_version_ok": report.get("schema_version") == SCHEMA_VERSION,
         "report_type_ok": report.get("report_type") == REPORT_TYPE,
         "producer_report_ok": report.get("ok") is True,
         "producer_decision_accepted": report.get("producer_decision") == ACCEPTED_DECISION,
+
         "producer_id_matches": nested_get(report, ["producer", "producer_id"]) == args.expect_producer_id,
+        "producer_name_matches": nested_get(report, ["producer", "producer_name"]) == args.expect_producer_name,
+        "producer_version_matches": nested_get(report, ["producer", "producer_version"]) == args.expect_producer_version,
+        "producer_source_matches": nested_get(report, ["producer", "producer_source"]) == args.expect_producer_source,
+        "producer_ci_identity_matches": (
+            nested_get(report, ["producer", "ci_workflow_or_job_identity"])
+            == args.expect_ci_workflow_or_job_identity
+        ),
+
         "current_run_id_matches": nested_get(report, ["run_binding", "current_run_id"]) == args.expect_current_run_id,
         "current_run_key_matches": nested_get(report, ["run_binding", "current_run_key"]) == args.expect_current_run_key,
         "commit_sha_matches": nested_get(report, ["run_binding", "commit_sha"]) == args.expect_commit_sha,
-        "release_candidate_matches": nested_get(report, ["run_binding", "release_candidate_id"]) == args.expect_release_candidate_id,
-        "artifact_subject_name_matches": nested_get(report, ["artifact_binding", "subject_name"]) == args.expect_artifact_subject_name,
-        "artifact_subject_sha256_matches": nested_get(report, ["artifact_binding", "subject_sha256"]) == args.expect_artifact_sha256,
-        "artifact_digest_matches": nested_get(report, ["artifact_binding", "artifact_digest_matches"]) is True,
-        "policy_id_matches": nested_get(report, ["policy_binding", "evidence_policy_id"]) == args.expect_policy_id,
-        "policy_sha256_matches": nested_get(report, ["policy_binding", "evidence_policy_sha256"]) == args.expect_policy_sha256,
-        "policy_identity_matches": nested_get(report, ["policy_binding", "policy_identity_matches"]) is True,
-        "policy_digest_matches": nested_get(report, ["policy_binding", "policy_digest_matches"]) is True,
-        "verifier_id_matches": nested_get(report, ["verifier_binding", "evidence_verifier_id"]) == args.expect_verifier_id,
+        "run_release_candidate_matches": (
+            nested_get(report, ["run_binding", "release_candidate_id"])
+            == args.expect_release_candidate_id
+        ),
+
+        "artifact_subject_name_matches": (
+            nested_get(report, ["artifact_binding", "subject_name"])
+            == args.expect_artifact_subject_name
+        ),
+        "artifact_subject_sha256_matches": (
+            nested_get(report, ["artifact_binding", "subject_sha256"])
+            == args.expect_artifact_sha256
+        ),
+        "artifact_release_candidate_id_matches": (
+            nested_get(report, ["artifact_binding", "release_candidate_id"])
+            == args.expect_release_candidate_id
+        ),
+        "artifact_digest_sha256_matches": (
+            nested_get(report, ["artifact_binding", "artifact_digest_sha256"])
+            == args.expect_artifact_sha256
+        ),
+        "artifact_subject_digest_flag_matches": (
+            nested_get(report, ["artifact_binding", "subject_digest_matches"]) is True
+        ),
+        "artifact_resource_uri_flag_matches": (
+            nested_get(report, ["artifact_binding", "resource_uri_matches"]) is True
+        ),
+        "artifact_release_candidate_flag_matches": (
+            nested_get(report, ["artifact_binding", "release_candidate_matches"]) is True
+        ),
+        "artifact_digest_flag_matches": (
+            nested_get(report, ["artifact_binding", "artifact_digest_matches"]) is True
+        ),
+
+        "expected_policy_id_matches": (
+            nested_get(report, ["policy_binding", "expected_policy_id"])
+            == args.expect_policy_id
+        ),
+        "expected_policy_sha256_matches": (
+            nested_get(report, ["policy_binding", "expected_policy_sha256"])
+            == args.expect_policy_sha256
+        ),
+        "evidence_policy_id_matches": (
+            nested_get(report, ["policy_binding", "evidence_policy_id"])
+            == args.expect_policy_id
+        ),
+        "evidence_policy_sha256_matches": (
+            nested_get(report, ["policy_binding", "evidence_policy_sha256"])
+            == args.expect_policy_sha256
+        ),
+        "policy_uri_self_consistent": (
+            isinstance(expected_policy_uri, str)
+            and isinstance(evidence_policy_uri, str)
+            and expected_policy_uri == evidence_policy_uri
+        ),
+        "policy_identity_matches": (
+            nested_get(report, ["policy_binding", "policy_identity_matches"]) is True
+        ),
+        "policy_digest_matches": (
+            nested_get(report, ["policy_binding", "policy_digest_matches"]) is True
+        ),
+
+        "expected_verifier_id_matches": (
+            nested_get(report, ["verifier_binding", "expected_verifier_id"])
+            == args.expect_verifier_id
+        ),
+        "evidence_verifier_id_matches": (
+            nested_get(report, ["verifier_binding", "evidence_verifier_id"])
+            == args.expect_verifier_id
+        ),
         "verifier_trusted": nested_get(report, ["verifier_binding", "verifier_trusted"]) is True,
+
         "candidate_set_matches": report.get("candidate_set") == args.expect_candidate_set,
         "recorded_signal_mode_ok": report.get("recorded_signal_mode") == "recorded_signal_only",
+
         "freshness_current_run": nested_get(report, ["freshness", "freshness_result"]) == "fresh_current_run",
         "not_stale_vsa_evidence": nested_get(report, ["freshness", "stale_vsa_evidence"]) is False,
         "no_previous_run_artifact_reuse": nested_get(report, ["freshness", "previous_run_artifact_reuse"]) is False,
-        "time_verified_current_run_matches": nested_get(report, ["freshness", "time_verified_current_run_match"]) is True,
+        "time_verified_current_run_matches": (
+            nested_get(report, ["freshness", "time_verified_current_run_match"]) is True
+        ),
         "current_run_binding_ok": nested_get(report, ["freshness", "current_run_binding_ok"]) is True,
+
         "evidence_sha256_present": isinstance(nested_get(report, ["evidence", "evidence_sha256"]), str),
         "evidence_time_verified_present": isinstance(nested_get(report, ["evidence", "time_verified"]), str),
         "vsa_verification_passed": nested_get(report, ["evidence", "verification_result"]) == "PASSED",
+        "expected_verified_level_matches": (
+            nested_get(report, ["evidence", "expected_verified_level"])
+            == args.expect_verified_level
+        ),
+        "expected_verified_level_listed": _verified_level_list_contains(report, args.expect_verified_level),
         "verified_level_ok": nested_get(report, ["evidence", "verified_level_ok"]) is True,
+
         "no_failed_checks": report.get("failed_checks") == [],
     }
 
