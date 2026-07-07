@@ -58,11 +58,15 @@ The subject name and digest must match the artifact under evaluation.
 
 A mismatch must fail closed.
 
-### 3. Policy binding
+### 3. Policy digest binding
 
-The accepted VSA evidence must bind to the expected policy identity or policy digest.
+The accepted VSA evidence must bind to the expected policy identity and the expected policy digest.
+
+Policy URI or identity alone is not sufficient for release-required promotion.
 
 A missing, stale, unexpected, or mismatched policy digest must fail closed.
+
+A VSA that references the expected policy identity but omits the expected digest, carries a stale digest, or carries a digest for replaced policy content at the same identity must fail closed.
 
 ### 4. Verifier trust boundary
 
@@ -117,6 +121,9 @@ A promotion PR must prove fail-closed behavior for at least:
 
 ```text
 missing VSA evidence
+stale VSA evidence
+previous-run VSA artifact reuse
+VSA timeVerified/current-run mismatch
 invalid VSA schema
 subject digest mismatch
 resource URI mismatch
@@ -129,6 +136,10 @@ missing SLSA VSA gate
 stale or mismatched intake report
 ```
 
+A fresh intake report generated from stale VSA evidence is not sufficient.
+
+The negative tests must cover the VSA artifact freshness and current-run binding itself, not only the derived intake report.
+
 ### 9. CI provenance boundary
 
 The promotion PR must identify where in CI the evidence is produced, read, verified, folded, and enforced.
@@ -136,6 +147,10 @@ The promotion PR must identify where in CI the evidence is produced, read, verif
 The CI path must avoid ambiguous artifact reuse.
 
 The CI path must avoid using stale evidence from a previous run.
+
+The CI path must reject previous-run VSA artifacts even if they are re-ingested into a fresh intake report.
+
+The CI path must bind evidence freshness to the current run, release candidate, or explicitly declared evidence epoch.
 
 The CI path must make the evidence source auditable.
 
@@ -171,8 +186,13 @@ A promotion PR must include tests proving:
 active policy materialization includes the promoted SLSA VSA gates
 valid recorded evidence passes the active lane
 missing evidence fails closed
+stale VSA evidence fails closed
+previous-run VSA artifact reuse fails closed
+VSA timeVerified/current-run mismatch fails closed
 false evidence fails closed
 mismatched evidence fails closed
+policy URI-only binding fails closed
+policy digest mismatch fails closed
 check_gates.py remains generic
 candidate proof still passes
 advisory behavior remains non-blocking unless explicitly promoted
