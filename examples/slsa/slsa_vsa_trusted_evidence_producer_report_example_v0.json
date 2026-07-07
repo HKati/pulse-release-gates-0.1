@@ -34,6 +34,7 @@
     "expected_policy_id": "pulse-gate-policy-v0",
     "expected_policy_uri": "pulse_gate_policy_v0.yml",
     "expected_policy_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "evidence_policy_id": "pulse-gate-policy-v0",
     "evidence_policy_uri": "pulse_gate_policy_v0.yml",
     "evidence_policy_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
     "policy_identity_matches": true,
