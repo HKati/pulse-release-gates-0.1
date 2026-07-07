@@ -1,0 +1,74 @@
+{
+  "schema_version": "slsa_vsa_trusted_evidence_producer_report_v0",
+  "report_type": "slsa_vsa_trusted_evidence_producer_report",
+  "created_utc": "2026-07-07T00:00:00Z",
+  "producer": {
+    "producer_id": "pulse_slsa_vsa_trusted_evidence_producer_v0",
+    "producer_name": "PULSE SLSA VSA trusted evidence producer",
+    "producer_version": "0.1.0",
+    "producer_source": "github-actions",
+    "ci_workflow_or_job_identity": "PULSE CI / SLSA VSA trusted evidence producer"
+  },
+  "run_binding": {
+    "current_run_id": "1234567890",
+    "current_run_number": "2692",
+    "current_run_attempt": "1",
+    "current_run_key": "GITHUB_RUN_ID=1234567890|GITHUB_RUN_NUMBER=2692|GITHUB_RUN_ATTEMPT=1|GITHUB_WORKFLOW=PULSE CI",
+    "workflow_name": "PULSE CI",
+    "job_name": "slsa-vsa-trusted-evidence-producer",
+    "commit_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "release_candidate_id": "pulse-release-gates-0.1-candidate-v0"
+  },
+  "artifact_binding": {
+    "subject_name": "git+https://github.com/HKati/pulse-release-gates-0.1@refs/heads/main",
+    "subject_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "resource_uri": "git+https://github.com/HKati/pulse-release-gates-0.1@refs/heads/main",
+    "release_candidate_id": "pulse-release-gates-0.1-candidate-v0",
+    "artifact_digest_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "subject_digest_matches": true,
+    "resource_uri_matches": true,
+    "release_candidate_matches": true,
+    "artifact_digest_matches": true
+  },
+  "policy_binding": {
+    "expected_policy_id": "pulse-gate-policy-v0",
+    "expected_policy_uri": "pulse_gate_policy_v0.yml",
+    "expected_policy_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "evidence_policy_id": "pulse-gate-policy-v0",
+    "evidence_policy_uri": "pulse_gate_policy_v0.yml",
+    "evidence_policy_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "policy_identity_matches": true,
+    "policy_digest_matches": true
+  },
+  "verifier_binding": {
+    "expected_verifier_id": "https://example.invalid/verifiers/pulsemech-vsa-verifier-v0",
+    "evidence_verifier_id": "https://example.invalid/verifiers/pulsemech-vsa-verifier-v0",
+    "verifier_trusted": true
+  },
+  "evidence": {
+    "evidence_path": "examples/slsa/slsa_vsa_evidence_example_v0.json",
+    "evidence_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "evidence_schema_version": "slsa_vsa_evidence_v0",
+    "evidence_type": "slsa_vsa",
+    "time_verified": "2026-07-07T00:00:00Z",
+    "verification_result": "PASSED",
+    "expected_verified_level": "SLSA_BUILD_LEVEL_3",
+    "evidence_verified_levels": [
+      "SLSA_BUILD_LEVEL_3"
+    ],
+    "verified_level_ok": true
+  },
+  "freshness": {
+    "freshness_result": "fresh_current_run",
+    "stale_vsa_evidence": false,
+    "previous_run_artifact_reuse": false,
+    "time_verified_current_run_match": true,
+    "current_run_binding_ok": true
+  },
+  "recorded_signal_mode": "recorded_signal_only",
+  "candidate_set": "slsa_vsa_recorded_intake_candidate",
+  "producer_decision": "TRUSTED_EVIDENCE_ACCEPTED",
+  "ok": true,
+  "failed_checks": [],
+  "warnings": []
+}
