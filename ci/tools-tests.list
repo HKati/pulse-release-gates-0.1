@@ -105,6 +105,7 @@ tests/test_fold_slsa_vsa_intake_into_status_v0.py
 tests/test_slsa_vsa_advisory_policy_gates_v0.py
 tests/test_slsa_vsa_recorded_intake_candidate_v0.py
 tests/test_slsa_vsa_trusted_evidence_producer_report_schema_v0.py
+tests/test_check_slsa_vsa_trusted_evidence_producer_report_v0.py
 
 tools/operator_handoff_smoke.py
 
