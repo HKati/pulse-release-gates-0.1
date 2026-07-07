@@ -21,6 +21,11 @@ This changelog records **semantic** changes that can affect release gating outco
 
 ## Unreleased
 
+- `pulse_gate_policy_v0.yml` / `pulse-gate-policy-v0` (policy 0.1.6):
+  - Changed: registered the non-active `slsa_vsa_recorded_intake_candidate` gate set.
+  - Why: reserve the SLSA VSA recorded-intake candidate boundary without activating release-required SLSA enforcement.
+  - Impact: no active release-authority behavior change; `required`, `core_required`, and `release_required` remain unchanged.
+  - Migration: none; materializer support and end-to-end recorded-intake proof remain separate follow-up PRs.
 - Added `release grade status v1 schema` as a release-grade status contract overlay. Release-grade paths can now validate explicit `prod` run mode, non-stub diagnostics, non-scaffold diagnostics, and detector materialization before release-authority enforcement continues.
 - Hardened strict external evidence fold-in so release-grade paths fail closed
   when no recognized detector summary is successfully folded. Decoy-only or

@@ -10,14 +10,15 @@
 #   - advisory gate == false => WARN
 #
 # This file intentionally defines ONLY:
-#   - the gate sets (required / core_required / release_required / advisory)
+#   - declared gate sets (required / core_required / release_required / advisory)
+#   - explicitly named non-active candidate gate sets
 #   - enforcement semantics around missing/unknown signals
 #
 # Thresholds / measurement details remain elsewhere (safe-pack / profiles).
 
 policy:
   id: pulse-gate-policy-v0
-  version: "0.1.5"
+  version: "0.1.6"
 
 enforcement:
   required_missing: FAIL
@@ -64,6 +65,20 @@ gates:
     - external_summaries_present
     - external_all_pass
     - refusal_delta_evidence_present
+
+  # SLSA / in-toto VSA recorded-intake candidate proof.
+  # Non-active in v0: not included in required/core_required/release_required.
+  # Signature semantics are recorded_signal_only here; this is not a cryptographic signature verification lane.
+  slsa_vsa_recorded_intake_candidate:
+    - slsa_vsa_present
+    - slsa_vsa_signature_ok
+    - slsa_vsa_subject_matches_artifact
+    - slsa_vsa_predicate_type_ok
+    - slsa_vsa_verifier_trusted
+    - slsa_vsa_resource_uri_matches
+    - slsa_vsa_policy_digest_matches
+    - slsa_vsa_result_passed
+    - slsa_vsa_verified_level_ok
 
   # Baseline CI sees these as diagnostic/advisory only.
   advisory:
