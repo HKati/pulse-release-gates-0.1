@@ -1,0 +1,44 @@
+{
+  "schema_version": "slsa_vsa_trusted_producer_input_packet_v0",
+  "packet_type": "slsa_vsa_trusted_producer_input_packet",
+  "created_utc": "2026-07-07T00:00:00Z",
+  "producer_identity": {
+    "producer_id": "pulse_slsa_vsa_trusted_evidence_producer_v0",
+    "producer_name": "PULSE SLSA VSA trusted evidence producer",
+    "producer_version": "0.1.0",
+    "producer_source": "github-actions",
+    "ci_workflow_or_job_identity": "PULSE CI / SLSA VSA trusted evidence producer"
+  },
+  "run_binding": {
+    "current_run_id": "1234567890",
+    "current_run_number": "2692",
+    "current_run_attempt": "1",
+    "current_run_key": "GITHUB_RUN_ID=1234567890|GITHUB_RUN_NUMBER=2692|GITHUB_RUN_ATTEMPT=1|GITHUB_WORKFLOW=PULSE CI",
+    "workflow_name": "PULSE CI",
+    "job_name": "slsa-vsa-trusted-evidence-producer",
+    "commit_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "release_candidate_id": "pulse-release-gates-0.1-candidate-v0"
+  },
+  "artifact_binding": {
+    "subject_name": "git+https://github.com/HKati/pulse-release-gates-0.1@refs/tags/v0.1.0",
+    "subject_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "resource_uri": "git+https://github.com/HKati/pulse-release-gates-0.1@refs/tags/v0.1.0",
+    "release_candidate_id": "pulse-release-gates-0.1-candidate-v0",
+    "artifact_digest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "policy_binding": {
+    "expected_policy_id": "pulse-gate-policy-v0",
+    "expected_policy_uri": "https://example.invalid/policies/pulse-slsa-vsa-policy-v0.json",
+    "expected_policy_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  },
+  "verifier_binding": {
+    "expected_verifier_id": "https://example.invalid/verifiers/pulsemech-vsa-verifier-v0"
+  },
+  "expected_verified_level": "SLSA_BUILD_LEVEL_3",
+  "freshness": {
+    "expected_time_verified": "2026-07-04T00:00:00Z",
+    "freshness_epoch": "current_run"
+  },
+  "recorded_signal_mode": "recorded_signal_only",
+  "candidate_set": "slsa_vsa_recorded_intake_candidate"
+}
