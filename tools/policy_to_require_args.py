@@ -9,30 +9,22 @@ hardcode `--require ...` lists.
 
 Behavior
 --------
-- `--set required`:
-    - missing set OR empty set => error (non-zero)
-- `--set core_required`:
-    - missing set OR empty set => error (non-zero)
-- `--set release_required`:
-    - missing set OR empty set => error (non-zero)
 - `--set advisory`:
     - missing set OR empty set => valid (exit 0, print nothing)
+- `--set <any other declared gate set>`:
+    - missing set OR empty set => error (non-zero)
 
-Supports inline list forms:
+Supports inline list forms for any gate set declared under `gates:`:
   advisory: []
   required: [a, b, c]
-  core_required: [a, b, c]
-  release_required: [a, b, c]
+  custom_candidate: [a, b, c]
 
 Design constraints
 ------------------
 - No external dependencies (no PyYAML).
 - Minimal parsing tailored to the policy layout under:
     gates:
-      required: ...
-      core_required: ...
-      release_required: ...
-      advisory: ...
+      <gate_set>: ...
 """
 
 from __future__ import annotations
@@ -104,7 +96,7 @@ def _extract_gate_set(text: str, gate_set: str) -> Tuple[bool, List[str]]:
 
         indent = len(line) - len(line.lstrip(" "))
 
-        # Enter "gates:" block
+        # Enter "gates:" block.
         if clean == "gates:":
             in_gates = True
             in_set = False
@@ -112,7 +104,7 @@ def _extract_gate_set(text: str, gate_set: str) -> Tuple[bool, List[str]]:
             set_indent = None
             continue
 
-        # Leave "gates:" block when we hit a top-level (or same-level) mapping key
+        # Leave "gates:" block when we hit a top-level (or same-level) mapping key.
         if in_gates and gates_indent is not None and indent <= gates_indent and ":" in clean and clean != "gates:":
             in_gates = False
             in_set = False
@@ -122,15 +114,15 @@ def _extract_gate_set(text: str, gate_set: str) -> Tuple[bool, List[str]]:
         if not in_gates:
             continue
 
-        # If we are inside a set and hit a sibling key (including inline values), leave the set
+        # If we are inside a set and hit a sibling key, leave the set.
         if in_set and set_indent is not None and indent == set_indent and ":" in clean and not clean.startswith("-"):
             key = clean.split(":", 1)[0].strip()
             if key and key != gate_set:
                 in_set = False
                 set_indent = None
-                # do not continue; allow processing of the current line below
+                # Do not continue; allow processing of the current line below.
 
-        # Enter target set: "<gate_set>:" or "<gate_set>: []" or "<gate_set>: [a,b]"
+        # Enter target set: "<gate_set>:" or "<gate_set>: []" or "<gate_set>: [a,b]".
         if ":" in clean and not clean.startswith("-"):
             key, rest = clean.split(":", 1)
             key = key.strip()
@@ -140,20 +132,20 @@ def _extract_gate_set(text: str, gate_set: str) -> Tuple[bool, List[str]]:
                 found_set = True
                 set_indent = indent
 
-                # Inline list form
+                # Inline list form.
                 if rest.startswith("[") and rest.endswith("]"):
                     out.extend(_parse_inline_list(rest))
                     in_set = False
                     continue
 
-                # Multi-line list form
+                # Multi-line list form.
                 in_set = True
                 continue
 
         if not in_set:
             continue
 
-        # Capture list items "- gate_id"
+        # Capture list items "- gate_id".
         if clean.startswith("- "):
             gate_id = _strip_inline_comment(clean[2:])
             if gate_id:
@@ -172,8 +164,7 @@ def main() -> int:
     ap.add_argument(
         "--set",
         default="required",
-        choices=["required", "core_required", "release_required", "advisory"],
-        help="Which gate set to print (default: required)",
+        help="Which declared gate set under gates: to print (default: required)",
     )
     ap.add_argument(
         "--format",
@@ -196,8 +187,7 @@ def main() -> int:
         if not found_set or not gates:
             return 0
 
-    # Required-like sets (required, core_required, release_required)
-    # must exist and must be non-empty.
+    # Any non-advisory gate set must exist and must be non-empty.
     if not found_set:
         print(f"[policy_to_require_args] Gate set not found: {args.set}", file=sys.stderr)
         return 3
