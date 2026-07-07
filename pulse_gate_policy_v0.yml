@@ -10,14 +10,15 @@
 #   - advisory gate == false => WARN
 #
 # This file intentionally defines ONLY:
-#   - the gate sets (required / core_required / release_required / advisory)
+#   - declared gate sets (required / core_required / release_required / advisory)
+#   - explicitly named non-active candidate gate sets
 #   - enforcement semantics around missing/unknown signals
 #
 # Thresholds / measurement details remain elsewhere (safe-pack / profiles).
 
 policy:
   id: pulse-gate-policy-v0
-  version: "0.1.6" 
+  version: "0.1.6"
 
 enforcement:
   required_missing: FAIL
@@ -78,7 +79,7 @@ gates:
     - slsa_vsa_policy_digest_matches
     - slsa_vsa_result_passed
     - slsa_vsa_verified_level_ok
-  
+
   # Baseline CI sees these as diagnostic/advisory only.
   advisory:
     - external_summaries_present
