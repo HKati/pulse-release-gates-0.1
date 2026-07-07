@@ -18,6 +18,14 @@ EXAMPLE = ROOT / "examples" / "slsa" / "slsa_vsa_trusted_evidence_producer_repor
 EXPECTED_ARGS = [
     "--expect-producer-id",
     "pulse_slsa_vsa_trusted_evidence_producer_v0",
+    "--expect-producer-name",
+    "PULSE SLSA VSA trusted evidence producer",
+    "--expect-producer-version",
+    "0.1.0",
+    "--expect-producer-source",
+    "github-actions",
+    "--expect-ci-workflow-or-job-identity",
+    "PULSE CI / SLSA VSA trusted evidence producer",
     "--expect-current-run-id",
     "1234567890",
     "--expect-current-run-key",
@@ -36,6 +44,8 @@ EXPECTED_ARGS = [
     "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
     "--expect-verifier-id",
     "https://example.invalid/verifiers/pulsemech-vsa-verifier-v0",
+    "--expect-verified-level",
+    "SLSA_BUILD_LEVEL_3",
     "--expect-candidate-set",
     "slsa_vsa_recorded_intake_candidate",
 ]
@@ -46,7 +56,10 @@ def read_json(path: Path) -> dict[str, Any]:
 
 
 def write_json(path: Path, data: dict[str, Any]) -> None:
-    path.write_text(json.dumps(data, indent=2, ensure_ascii=False, sort_keys=True) + "\n", encoding="utf-8")
+    path.write_text(
+        json.dumps(data, indent=2, ensure_ascii=False, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
 
 
 def run_tool(
@@ -140,7 +153,7 @@ def test_wrong_policy_digest_fails_closed(tmp_path: Path) -> None:
     report_path = tmp_path / "wrong_policy_digest.json"
     write_json(report_path, report)
 
-    assert_failure(run_tool(report_path), "check_failed: policy_sha256_matches")
+    assert_failure(run_tool(report_path), "check_failed: evidence_policy_sha256_matches")
 
 
 def test_policy_digest_mismatch_flag_fails_closed(tmp_path: Path) -> None:
@@ -160,7 +173,111 @@ def test_wrong_evidence_policy_id_fails_closed(tmp_path: Path) -> None:
     report_path = tmp_path / "wrong_policy_id.json"
     write_json(report_path, report)
 
-    assert_failure(run_tool(report_path), "check_failed: policy_id_matches")
+    assert_failure(run_tool(report_path), "check_failed: evidence_policy_id_matches")
+
+
+def test_wrong_embedded_expected_policy_id_fails_closed(tmp_path: Path) -> None:
+    report = read_json(EXAMPLE)
+    report["policy_binding"]["expected_policy_id"] = "wrong-policy-id"
+
+    report_path = tmp_path / "wrong_expected_policy_id.json"
+    write_json(report_path, report)
+
+    assert_failure(run_tool(report_path), "check_failed: expected_policy_id_matches")
+
+
+def test_wrong_embedded_expected_policy_sha256_fails_closed(tmp_path: Path) -> None:
+    report = read_json(EXAMPLE)
+    report["policy_binding"]["expected_policy_sha256"] = "e" * 64
+
+    report_path = tmp_path / "wrong_expected_policy_sha256.json"
+    write_json(report_path, report)
+
+    assert_failure(run_tool(report_path), "check_failed: expected_policy_sha256_matches")
+
+
+def test_wrong_embedded_expected_verifier_id_fails_closed(tmp_path: Path) -> None:
+    report = read_json(EXAMPLE)
+    report["verifier_binding"]["expected_verifier_id"] = "https://example.invalid/verifiers/wrong"
+
+    report_path = tmp_path / "wrong_expected_verifier_id.json"
+    write_json(report_path, report)
+
+    assert_failure(run_tool(report_path), "check_failed: expected_verifier_id_matches")
+
+
+def test_wrong_artifact_release_candidate_id_fails_closed(tmp_path: Path) -> None:
+    report = read_json(EXAMPLE)
+    report["artifact_binding"]["release_candidate_id"] = "wrong-candidate"
+    report["artifact_binding"]["release_candidate_matches"] = True
+
+    report_path = tmp_path / "wrong_artifact_release_candidate.json"
+    write_json(report_path, report)
+
+    assert_failure(run_tool(report_path), "check_failed: artifact_release_candidate_id_matches")
+
+
+def test_wrong_artifact_digest_sha256_fails_closed(tmp_path: Path) -> None:
+    report = read_json(EXAMPLE)
+    report["artifact_binding"]["artifact_digest_sha256"] = "e" * 64
+    report["artifact_binding"]["artifact_digest_matches"] = True
+
+    report_path = tmp_path / "wrong_artifact_digest.json"
+    write_json(report_path, report)
+
+    assert_failure(run_tool(report_path), "check_failed: artifact_digest_sha256_matches")
+
+
+def test_wrong_producer_name_fails_closed(tmp_path: Path) -> None:
+    report = read_json(EXAMPLE)
+    report["producer"]["producer_name"] = "Wrong producer"
+
+    report_path = tmp_path / "wrong_producer_name.json"
+    write_json(report_path, report)
+
+    assert_failure(run_tool(report_path), "check_failed: producer_name_matches")
+
+
+def test_wrong_producer_version_fails_closed(tmp_path: Path) -> None:
+    report = read_json(EXAMPLE)
+    report["producer"]["producer_version"] = "9.9.9"
+
+    report_path = tmp_path / "wrong_producer_version.json"
+    write_json(report_path, report)
+
+    assert_failure(run_tool(report_path), "check_failed: producer_version_matches")
+
+
+def test_wrong_producer_source_fails_closed(tmp_path: Path) -> None:
+    report = read_json(EXAMPLE)
+    report["producer"]["producer_source"] = "manual-local"
+
+    report_path = tmp_path / "wrong_producer_source.json"
+    write_json(report_path, report)
+
+    assert_failure(run_tool(report_path), "check_failed: producer_source_matches")
+
+
+def test_wrong_producer_ci_identity_fails_closed(tmp_path: Path) -> None:
+    report = read_json(EXAMPLE)
+    report["producer"]["ci_workflow_or_job_identity"] = "Wrong CI / job"
+
+    report_path = tmp_path / "wrong_producer_ci_identity.json"
+    write_json(report_path, report)
+
+    assert_failure(run_tool(report_path), "check_failed: producer_ci_identity_matches")
+
+
+def test_weaker_verified_level_fails_closed(tmp_path: Path) -> None:
+    report = read_json(EXAMPLE)
+    report["evidence"]["expected_verified_level"] = "SLSA_BUILD_LEVEL_1"
+    report["evidence"]["evidence_verified_levels"] = ["SLSA_BUILD_LEVEL_1"]
+    report["evidence"]["verified_level_ok"] = True
+
+    report_path = tmp_path / "weaker_verified_level.json"
+    write_json(report_path, report)
+
+    assert_failure(run_tool(report_path), "check_failed: expected_verified_level_matches")
 
 
 def test_stale_vsa_evidence_fails_closed(tmp_path: Path) -> None:
@@ -237,7 +354,8 @@ def test_expectation_mismatch_fails_closed() -> None:
 
     diagnostic = parse_diagnostic(result)
     assert diagnostic["ok"] is False
-    assert "check_failed: policy_sha256_matches" in diagnostic["errors"]
+    assert "check_failed: expected_policy_sha256_matches" in diagnostic["errors"]
+    assert "check_failed: evidence_policy_sha256_matches" in diagnostic["errors"]
 
 
 def test_missing_report_file_returns_read_error(tmp_path: Path) -> None:
@@ -292,6 +410,16 @@ def check_check_slsa_vsa_trusted_evidence_producer_report_v0() -> None:
         test_wrong_policy_digest_fails_closed(tmp_path)
         test_policy_digest_mismatch_flag_fails_closed(tmp_path)
         test_wrong_evidence_policy_id_fails_closed(tmp_path)
+        test_wrong_embedded_expected_policy_id_fails_closed(tmp_path)
+        test_wrong_embedded_expected_policy_sha256_fails_closed(tmp_path)
+        test_wrong_embedded_expected_verifier_id_fails_closed(tmp_path)
+        test_wrong_artifact_release_candidate_id_fails_closed(tmp_path)
+        test_wrong_artifact_digest_sha256_fails_closed(tmp_path)
+        test_wrong_producer_name_fails_closed(tmp_path)
+        test_wrong_producer_version_fails_closed(tmp_path)
+        test_wrong_producer_source_fails_closed(tmp_path)
+        test_wrong_producer_ci_identity_fails_closed(tmp_path)
+        test_weaker_verified_level_fails_closed(tmp_path)
         test_stale_vsa_evidence_fails_closed(tmp_path)
         test_previous_run_artifact_reuse_fails_closed(tmp_path)
         test_time_verified_current_run_mismatch_fails_closed(tmp_path)
