@@ -408,6 +408,8 @@ def build_checks(
 
     time_verified = predicate.get("timeVerified")
     expected_time_verified = nested_get(packet, ["freshness", "expected_time_verified"])
+    freshness_epoch = nested_get(packet, ["freshness", "freshness_epoch"])
+    freshness_epoch_current = freshness_epoch == "current_run"
 
     subject_name_matches = isinstance(subject_name, str) and bool(subject)
     subject_sha256_matches = (
@@ -482,6 +484,7 @@ def build_checks(
         "verification_result_passed": verification_result_passed,
         "verified_level_ok": verified_level_ok,
         "time_verified_current_run_match": time_verified_matches,
+        "freshness_epoch_current": freshness_epoch_current,
         "pulse_signals_literal_booleans": signals_are_booleans(signals),
         "pulse_signals_consistent": signals_match(signals, expected_signals),
         "recorded_signal_mode_ok": packet.get("recorded_signal_mode") == RECORDED_SIGNAL_MODE,
@@ -492,6 +495,9 @@ def build_checks(
 def freshness_result(checks: dict[str, bool]) -> tuple[str, bool]:
     if not checks.get("evidence_schema_valid", False):
         return "rejected_ambiguous_freshness", False
+
+    if not checks.get("freshness_epoch_current", False):
+        return "rejected_stale_vsa", False
 
     if not checks.get("time_verified_current_run_match", False):
         return "rejected_time_verified_current_run_mismatch", False
@@ -598,6 +604,7 @@ def build_report(
             "time_verified_current_run_match": checks.get("time_verified_current_run_match", False),
             "current_run_binding_ok": (
                 checks.get("input_packet_validator_ok", False)
+                and checks.get("freshness_epoch_current", False)
                 and checks.get("time_verified_current_run_match", False)
                 and freshness == "fresh_current_run"
             ),
