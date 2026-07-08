@@ -22,6 +22,7 @@
       "timeVerified": "2026-07-04T00:00:00Z",
       "resourceUri": "git+https://github.com/HKati/pulse-release-gates-0.1@refs/tags/v0.1.0",
       "policy": {
+        "id": "pulse-gate-policy-v0",
         "uri": "https://example.invalid/policies/pulse-slsa-vsa-policy-v0.json",
         "digest": {
           "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
