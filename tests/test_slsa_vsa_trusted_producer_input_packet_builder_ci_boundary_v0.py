@@ -13,7 +13,9 @@ TOOLS_TESTS_LIST = ROOT / "ci" / "tools-tests.list"
 THIS_TEST = "tests/test_slsa_vsa_trusted_producer_input_packet_builder_ci_boundary_v0.py"
 
 BUILDER_BASENAME = "build_slsa_vsa_trusted_producer_input_packet_v0.py"
+BUILDER_MODULE = "tools.build_slsa_vsa_trusted_producer_input_packet_v0"
 BUILDER_RELATIVE_PATH = f"tools/{BUILDER_BASENAME}"
+BUILDER_MARKERS = [BUILDER_BASENAME, BUILDER_MODULE]
 
 REQUIRED_BUILDER_FLAGS = [
     "--schema",
@@ -57,6 +59,10 @@ FORBIDDEN_NEAR_BUILDER = [
     "prod_required",
     "stage_required",
     "gate_materialization",
+    "release_authority",
+    "release_authority_v0.json",
+    "build_release_authority_manifest_v0.py",
+    "PULSE_safe_pack_v0/tools/build_release_authority_manifest_v0.py",
 ]
 
 RELEASE_AUTHORITY_MARKERS = [
@@ -70,6 +76,10 @@ RELEASE_AUTHORITY_MARKERS = [
     "status.gates",
     "status_gates",
     "status.json",
+    "release_authority",
+    "release_authority_v0.json",
+    "build_release_authority_manifest_v0.py",
+    "PULSE_safe_pack_v0/tools/build_release_authority_manifest_v0.py",
 ]
 
 MATERIALIZER_OR_FOLD_MARKERS = [
@@ -78,6 +88,8 @@ MATERIALIZER_OR_FOLD_MARKERS = [
     "check_gates.py",
     "fold_slsa_vsa_intake_into_status_v0.py",
     "materialize_release_required_from_verifier_v0.py",
+    "build_release_authority_manifest_v0.py",
+    "PULSE_safe_pack_v0/tools/build_release_authority_manifest_v0.py",
 ]
 
 OUTPUT_ARG_PATTERN = re.compile(
@@ -91,6 +103,8 @@ class InvocationWindow:
     workflow_path: Path
     line_number: int
     text: str
+    command_text: str
+    after_text: str
 
 
 def workflow_paths() -> list[Path]:
@@ -119,8 +133,12 @@ def manifest_entries() -> list[str]:
     return entries
 
 
+def line_uses_builder(line: str) -> bool:
+    return any(marker in line for marker in BUILDER_MARKERS)
+
+
 def text_uses_builder(text: str) -> bool:
-    return BUILDER_BASENAME in text
+    return any(marker in text for marker in BUILDER_MARKERS)
 
 
 def workflows_using_builder() -> list[tuple[Path, str]]:
@@ -134,6 +152,17 @@ def workflows_using_builder() -> list[tuple[Path, str]]:
     return matches
 
 
+def invocation_command(lines: list[str], start_index: int) -> tuple[str, int]:
+    command_lines = [lines[start_index]]
+    end_index = start_index
+
+    while command_lines[-1].rstrip().endswith("\\") and end_index + 1 < len(lines):
+        end_index += 1
+        command_lines.append(lines[end_index])
+
+    return "\n".join(command_lines), end_index
+
+
 def invocation_windows(
     text: str,
     workflow_path: Path,
@@ -145,22 +174,28 @@ def invocation_windows(
     windows: list[InvocationWindow] = []
 
     for index, line in enumerate(lines):
-        if BUILDER_BASENAME in line:
+        if line_uses_builder(line):
+            command_text, command_end_index = invocation_command(lines, index)
+
             start = max(0, index - before)
-            end = min(len(lines), index + after)
+            end = min(len(lines), command_end_index + after)
+            after_start = min(len(lines), command_end_index + 1)
+
             windows.append(
                 InvocationWindow(
                     workflow_path=workflow_path,
                     line_number=index + 1,
                     text="\n".join(lines[start:end]),
+                    command_text=command_text,
+                    after_text="\n".join(lines[after_start:end]),
                 )
             )
 
     return windows
 
 
-def upload_artifact_windows(window: str, *, after: int = 30) -> list[str]:
-    lines = window.splitlines()
+def upload_artifact_windows(text: str, *, after: int = 30) -> list[str]:
+    lines = text.splitlines()
     windows: list[str] = []
 
     for index, line in enumerate(lines):
@@ -171,10 +206,10 @@ def upload_artifact_windows(window: str, *, after: int = 30) -> list[str]:
     return windows
 
 
-def output_paths(window: str) -> list[str]:
+def output_paths(command_text: str) -> list[str]:
     return [
         match.group("path").strip("'\"")
-        for match in OUTPUT_ARG_PATTERN.finditer(window)
+        for match in OUTPUT_ARG_PATTERN.finditer(command_text)
     ]
 
 
@@ -193,17 +228,117 @@ def test_guard_is_registered_in_tools_tests_manifest_exactly_once() -> None:
     )
 
 
-def test_builder_marker_detects_common_prefixed_paths() -> None:
+def test_builder_marker_detects_common_prefixed_paths_and_module_invocations() -> None:
     samples = [
         f"python {BUILDER_RELATIVE_PATH}",
         f"python ./{BUILDER_RELATIVE_PATH}",
         f"python $GITHUB_WORKSPACE/{BUILDER_RELATIVE_PATH}",
         f"python ${{GITHUB_WORKSPACE}}/{BUILDER_RELATIVE_PATH}",
         f"python /home/runner/work/repo/repo/{BUILDER_RELATIVE_PATH}",
+        f"python -m {BUILDER_MODULE}",
+        f"python -m {BUILDER_MODULE} --help",
     ]
 
     for sample in samples:
         assert text_uses_builder(sample), sample
+
+
+def test_invocation_command_text_is_scoped_to_the_builder_command() -> None:
+    text = "\n".join(
+        [
+            "name: synthetic",
+            "jobs:",
+            "  build:",
+            "    steps:",
+            "      - run: |",
+            "          echo --schema --freshness-epoch --output generated_packet.json",
+            f"          python {BUILDER_RELATIVE_PATH}",
+            "          echo --producer-id --producer-name --policy-id",
+        ]
+    )
+
+    windows = invocation_windows(text, Path("synthetic.yml"))
+
+    assert len(windows) == 1
+    assert BUILDER_BASENAME in windows[0].command_text
+    assert "--schema" not in windows[0].command_text
+    assert "--freshness-epoch" not in windows[0].command_text
+    assert "--output" not in windows[0].command_text
+
+
+def test_invocation_command_text_includes_continued_builder_flags() -> None:
+    text = "\n".join(
+        [
+            "name: synthetic",
+            "jobs:",
+            "  build:",
+            "    steps:",
+            "      - run: |",
+            f"          python {BUILDER_RELATIVE_PATH} \\",
+            "            --schema schemas/slsa_vsa_trusted_producer_input_packet_v0.schema.json \\",
+            "            --created-utc 2026-07-07T00:00:00Z \\",
+            "            --producer-id producer \\",
+            "            --freshness-epoch current_run \\",
+            "            --output generated_packet.json",
+            "          echo after-builder",
+        ]
+    )
+
+    windows = invocation_windows(text, Path("synthetic.yml"))
+
+    assert len(windows) == 1
+    assert "--schema" in windows[0].command_text
+    assert "--created-utc" in windows[0].command_text
+    assert "--producer-id" in windows[0].command_text
+    assert "--freshness-epoch" in windows[0].command_text
+    assert "--output" in windows[0].command_text
+    assert "echo after-builder" not in windows[0].command_text
+
+
+def test_upload_detection_uses_only_lines_after_the_builder_command() -> None:
+    text = "\n".join(
+        [
+            "name: synthetic",
+            "jobs:",
+            "  build:",
+            "    steps:",
+            "      - uses: actions/upload-artifact@v4",
+            "        with:",
+            "          path: generated_packet.json",
+            "      - run: |",
+            f"          python {BUILDER_RELATIVE_PATH} --output generated_packet.json",
+        ]
+    )
+
+    windows = invocation_windows(text, Path("synthetic.yml"))
+
+    assert len(windows) == 1
+    assert output_paths(windows[0].command_text) == ["generated_packet.json"]
+    assert upload_artifact_windows(windows[0].after_text) == []
+
+
+def test_upload_detection_accepts_upload_after_the_builder_command() -> None:
+    text = "\n".join(
+        [
+            "name: synthetic",
+            "jobs:",
+            "  build:",
+            "    steps:",
+            "      - run: |",
+            f"          python {BUILDER_RELATIVE_PATH} --output generated_packet.json",
+            "      - uses: actions/upload-artifact@v4",
+            "        with:",
+            "          path: generated_packet.json",
+        ]
+    )
+
+    windows = invocation_windows(text, Path("synthetic.yml"))
+
+    assert len(windows) == 1
+    assert output_paths(windows[0].command_text) == ["generated_packet.json"]
+    upload_windows = upload_artifact_windows(windows[0].after_text)
+    assert len(upload_windows) == 1
+    assert "generated_packet.json" in upload_windows[0]
 
 
 def test_builder_ci_wiring_is_optional_and_not_required_today() -> None:
@@ -221,9 +356,9 @@ def test_builder_workflow_wiring_if_present_uses_required_validated_inputs() -> 
 
         for window in windows:
             for required_flag in REQUIRED_BUILDER_FLAGS:
-                assert required_flag in window.text, (
+                assert required_flag in window.command_text, (
                     f"Missing required builder flag {required_flag!r} "
-                    f"near {BUILDER_BASENAME} in {workflow_path} "
+                    f"in the {BUILDER_BASENAME} command in {workflow_path} "
                     f"around line {window.line_number}"
                 )
 
@@ -234,20 +369,20 @@ def test_builder_workflow_wiring_if_present_does_not_accept_hand_passed_run_key(
         assert windows, f"{workflow_path} contains builder marker but no invocation window"
 
         for window in windows:
-            assert "--current-run-key" not in window.text, (
+            assert "--current-run-key" not in window.command_text, (
                 f"{workflow_path} appears to pass --current-run-key to "
                 f"{BUILDER_BASENAME} around line {window.line_number}; "
                 "the builder must compute current_run_key internally"
             )
 
 
-def test_builder_workflow_wiring_if_present_uploads_the_builder_output_nearby() -> None:
+def test_builder_workflow_wiring_if_present_uploads_the_builder_output_afterward() -> None:
     for workflow_path, text in workflows_using_builder():
         windows = invocation_windows(text, workflow_path)
         assert windows, f"{workflow_path} contains builder marker but no invocation window"
 
         for window in windows:
-            paths = output_paths(window.text)
+            paths = output_paths(window.command_text)
             assert paths, (
                 f"{workflow_path} invokes {BUILDER_BASENAME} without a parseable --output path "
                 f"around line {window.line_number}"
@@ -259,9 +394,9 @@ def test_builder_workflow_wiring_if_present_uploads_the_builder_output_nearby() 
                     f"status.json output path around line {window.line_number}"
                 )
 
-            upload_windows = upload_artifact_windows(window.text)
+            upload_windows = upload_artifact_windows(window.after_text)
             assert upload_windows, (
-                f"{workflow_path} invokes {BUILDER_BASENAME} but no nearby "
+                f"{workflow_path} invokes {BUILDER_BASENAME} but no later "
                 f"actions/upload-artifact step is present around line {window.line_number}"
             )
 
@@ -270,7 +405,7 @@ def test_builder_workflow_wiring_if_present_uploads_the_builder_output_nearby() 
                 for output_path in paths
                 for upload_window in upload_windows
             ), (
-                f"{workflow_path} invokes {BUILDER_BASENAME}, but no nearby artifact upload "
+                f"{workflow_path} invokes {BUILDER_BASENAME}, but no later artifact upload "
                 f"references its --output path(s): {paths}"
             )
 
@@ -313,11 +448,15 @@ def test_builder_workflow_wiring_if_present_does_not_consume_materializers_or_fo
 
 def check_slsa_vsa_trusted_producer_input_packet_builder_ci_boundary_v0() -> None:
     test_guard_is_registered_in_tools_tests_manifest_exactly_once()
-    test_builder_marker_detects_common_prefixed_paths()
+    test_builder_marker_detects_common_prefixed_paths_and_module_invocations()
+    test_invocation_command_text_is_scoped_to_the_builder_command()
+    test_invocation_command_text_includes_continued_builder_flags()
+    test_upload_detection_uses_only_lines_after_the_builder_command()
+    test_upload_detection_accepts_upload_after_the_builder_command()
     test_builder_ci_wiring_is_optional_and_not_required_today()
     test_builder_workflow_wiring_if_present_uses_required_validated_inputs()
     test_builder_workflow_wiring_if_present_does_not_accept_hand_passed_run_key()
-    test_builder_workflow_wiring_if_present_uploads_the_builder_output_nearby()
+    test_builder_workflow_wiring_if_present_uploads_the_builder_output_afterward()
     test_builder_workflow_wiring_if_present_is_artifact_or_diagnostic_only()
     test_builder_workflow_wiring_if_present_does_not_create_release_authority()
     test_builder_workflow_wiring_if_present_does_not_consume_materializers_or_folders()
