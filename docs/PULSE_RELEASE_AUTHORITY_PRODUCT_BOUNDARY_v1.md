@@ -152,7 +152,7 @@ A shadow layer must not block or allow release unless all of the following are t
 
 Without those conditions, a shadow layer remains non-normative.
 
-## 8. Human-approval rule
+## 8. Human-approval and exception-boundary rule
 
 Human review can support design, interpretation, investigation, and accountability.
 
@@ -163,7 +163,22 @@ A human approval label, comment, review, discussion, or external endorsement mus
 There is no dashboard-derived authority.  
 There is no label-derived authority.  
 There is no comment-derived authority.  
-There is no break-glass authority in this product boundary.
+
+There is no independent break-glass release-authority path in the normal PULSE product boundary.
+
+The documented `break_glass_override_v0` mechanism remains an audited exception mechanism for emergency or non-passing release contexts. It is separate from the normal passing release-authority path.
+
+A break-glass override must not:
+
+- mutate required gate values;
+- convert a non-passing gate state into a passing gate state;
+- hide or erase the primary CI allow/block result;
+- replace recorded evidence, declared policy, materialized required gates, or `check_gates.py` enforcement;
+- create a dashboard-derived, label-derived, comment-derived, or hidden-pass release authority.
+
+When used, the break-glass artifact records an explicit audited exception decision outside the normal passing release-authority chain. The underlying PULSE gate result remains reviewable as non-passing unless the authoritative chain itself later passes.
+
+For the existing exception contract, see [`docs/BREAK_GLASS_OVERRIDE_v0.md`](BREAK_GLASS_OVERRIDE_v0.md).
 
 ## 9. Evidence-binding rule
 
