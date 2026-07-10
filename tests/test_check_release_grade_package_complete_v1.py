@@ -437,10 +437,27 @@ def make_complete_package(tmp_path: Path) -> Path:
     return package_dir
 
 
+def remove_slsa_trusted_producer_artifacts(package_dir: Path) -> None:
+    for relative in (
+        "artifacts/slsa/slsa_vsa_trusted_producer_input_packet_v0.json",
+        "artifacts/slsa/slsa_vsa_trusted_evidence_producer_report_v0.json",
+    ):
+        path = package_dir / relative
+        if path.exists():
+            path.unlink()
+
+    slsa_dir = package_dir / "artifacts" / "slsa"
+    if slsa_dir.exists() and not any(slsa_dir.iterdir()):
+        slsa_dir.rmdir()
+
+    rebuild_digest_inventory(package_dir)
+
+
 def run_tool(
     package_dir: Path,
     *,
     output: Path | None = None,
+    extra: list[str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
     command = [
         sys.executable,
@@ -451,6 +468,9 @@ def run_tool(
 
     if output is not None:
         command.extend(["--output", str(output)])
+
+    if extra:
+        command.extend(extra)
 
     return subprocess.run(
         command,
@@ -525,6 +545,56 @@ def test_complete_package_passes_and_output_matches_stdout(tmp_path: Path) -> No
     assert report["authority_boundary"]["authorizes_release"] is False
     assert report["authority_boundary"]["package_completeness_only"] is True
     assert report["summary"]["checks_failed"] == 0
+
+
+def test_current_package_contract_without_slsa_artifacts_passes(tmp_path: Path) -> None:
+    package_dir = make_complete_package(tmp_path)
+    remove_slsa_trusted_producer_artifacts(package_dir)
+
+    result = run_tool(package_dir)
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    report = parse_report(result)
+    assert report["ok"] is True
+    assert report["status"] == "complete"
+    assert any(
+        check["check_id"] == "slsa_vsa.trusted_producer.current_contract_optional"
+        and check["passed"] is True
+        for check in report["checks"]
+    )
+
+
+def test_slsa_artifacts_required_when_strict_flag_is_set(tmp_path: Path) -> None:
+    package_dir = make_complete_package(tmp_path)
+    remove_slsa_trusted_producer_artifacts(package_dir)
+
+    assert_failure(
+        run_tool(
+            package_dir,
+            extra=["--require-slsa-vsa-trusted-producer"],
+        ),
+        "slsa_vsa.required_file:artifacts/slsa/slsa_vsa_trusted_producer_input_packet_v0.json",
+    )
+
+
+def test_release_decision_stubbed_scaffold_diagnostic_vocabulary_is_allowed(
+    tmp_path: Path,
+) -> None:
+    package_dir = make_complete_package(tmp_path)
+    decision_path = package_dir / "artifacts" / "release_decision_v0.json"
+
+    decision = read_json(decision_path)
+    decision["decision_basis"] = [
+        "no stubbed/scaffold diagnostics detected",
+    ]
+    write_json(decision_path, decision)
+    rebuild_digest_inventory(package_dir)
+
+    result = run_tool(package_dir)
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    report = parse_report(result)
+    assert report["ok"] is True
 
 
 def test_missing_required_file_fails_closed(tmp_path: Path) -> None:
@@ -822,6 +892,9 @@ def check_check_release_grade_package_complete_v1() -> None:
         test_manifest_registers_completeness_checker_exactly_once()
         test_manifest_places_checker_in_release_grade_block()
         test_complete_package_passes_and_output_matches_stdout(tmp_path)
+        test_current_package_contract_without_slsa_artifacts_passes(tmp_path)
+        test_slsa_artifacts_required_when_strict_flag_is_set(tmp_path)
+        test_release_decision_stubbed_scaffold_diagnostic_vocabulary_is_allowed(tmp_path)
         test_missing_required_file_fails_closed(tmp_path)
         test_missing_external_evidence_file_fails_closed(tmp_path)
         test_empty_required_file_fails_closed(tmp_path)
