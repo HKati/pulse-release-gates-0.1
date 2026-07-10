@@ -34,8 +34,6 @@ REQUIRED_FILES: tuple[str, ...] = (
     "artifacts/artifact_provenance_binding_v0.json",
     "artifacts/release_authority_v0.json",
     "artifacts/report_card.html",
-    "artifacts/slsa/slsa_vsa_trusted_producer_input_packet_v0.json",
-    "artifacts/slsa/slsa_vsa_trusted_evidence_producer_report_v0.json",
 )
 
 REQUIRED_DIRS: tuple[str, ...] = (
@@ -60,8 +58,6 @@ JSON_OBJECT_FILES: tuple[str, ...] = (
     "artifacts/release_decision_v0.json",
     "artifacts/artifact_provenance_binding_v0.json",
     "artifacts/release_authority_v0.json",
-    "artifacts/slsa/slsa_vsa_trusted_producer_input_packet_v0.json",
-    "artifacts/slsa/slsa_vsa_trusted_evidence_producer_report_v0.json",
 )
 
 JSONL_FILES: tuple[str, ...] = (
@@ -70,6 +66,11 @@ JSONL_FILES: tuple[str, ...] = (
 
 SLSA_PACKET_PATH = "artifacts/slsa/slsa_vsa_trusted_producer_input_packet_v0.json"
 SLSA_REPORT_PATH = "artifacts/slsa/slsa_vsa_trusted_evidence_producer_report_v0.json"
+
+SLSA_TRUSTED_PRODUCER_FILES: tuple[str, ...] = (
+    SLSA_PACKET_PATH,
+    SLSA_REPORT_PATH,
+)
 
 STUB_MARKERS = (
     "todo",
@@ -80,6 +81,10 @@ STUB_MARKERS = (
     "replace-me",
     "fill me",
     "example.invalid",
+)
+
+STUB_SCAN_EXEMPT_PATH_PREFIXES: tuple[tuple[str, str], ...] = (
+    ("artifacts/release_decision_v0.json", "$.decision_basis"),
 )
 
 PRODUCER_FIELDS = (
@@ -339,6 +344,13 @@ def _stub_marker_hits(value: str) -> list[str]:
     return [marker for marker in STUB_MARKERS if marker in lowered]
 
 
+def _stub_scan_exempt(relative: str, json_path: str) -> bool:
+    return any(
+        relative == exempt_relative and json_path.startswith(exempt_prefix)
+        for exempt_relative, exempt_prefix in STUB_SCAN_EXEMPT_PATH_PREFIXES
+    )
+
+
 def _canonical_current_run_key(binding: Any) -> str | None:
     if not isinstance(binding, dict):
         return None
@@ -410,10 +422,11 @@ def _verify_json_objects(
     package_dir: Path,
     checks: list[dict[str, Any]],
     errors: list[str],
+    json_files: tuple[str, ...] = JSON_OBJECT_FILES,
 ) -> dict[str, dict[str, Any]]:
     loaded: dict[str, dict[str, Any]] = {}
 
-    for relative in JSON_OBJECT_FILES:
+    for relative in json_files:
         path = _package_path(package_dir, relative)
 
         try:
@@ -429,6 +442,9 @@ def _verify_json_objects(
 
             stub_hits: list[str] = []
             for json_path, text in _iter_string_values(payload):
+                if _stub_scan_exempt(relative, json_path):
+                    continue
+
                 for marker in _stub_marker_hits(text):
                     stub_hits.append(f"{json_path} contains {marker!r}")
 
@@ -740,6 +756,60 @@ def _verify_recorded_candidates(
             and validation.get("status") in {"passed", "verified", "accepted"},
             f"{relative} has passed/verified validation status",
         )
+
+
+def _verify_slsa_trusted_producer_surface(
+    *,
+    package_dir: Path,
+    loaded: dict[str, dict[str, Any]],
+    checks: list[dict[str, Any]],
+    errors: list[str],
+    require_slsa_vsa_trusted_producer: bool,
+) -> None:
+    presence: dict[str, bool] = {}
+
+    for relative in SLSA_TRUSTED_PRODUCER_FILES:
+        path = _package_path(package_dir, relative)
+        presence[relative] = path.is_file() and not path.is_symlink()
+
+    any_present = any(presence.values())
+    all_present = all(presence.values())
+
+    if not require_slsa_vsa_trusted_producer and not any_present:
+        _check(
+            checks,
+            errors,
+            "slsa_vsa.trusted_producer.current_contract_optional",
+            True,
+            "SLSA/VSA trusted producer packet/report are optional for the current package contract",
+        )
+        return
+
+    for relative, present in presence.items():
+        _check(
+            checks,
+            errors,
+            f"slsa_vsa.required_file:{relative}",
+            present,
+            f"{relative} is present as a regular file",
+        )
+
+    if not all_present:
+        return
+
+    slsa_loaded = _verify_json_objects(
+        package_dir=package_dir,
+        checks=checks,
+        errors=errors,
+        json_files=SLSA_TRUSTED_PRODUCER_FILES,
+    )
+    loaded.update(slsa_loaded)
+
+    _verify_slsa_trusted_producer_chain(
+        loaded=loaded,
+        checks=checks,
+        errors=errors,
+    )
 
 
 def _verify_slsa_trusted_producer_chain(
@@ -1084,7 +1154,11 @@ def _make_report(
     }
 
 
-def check_package(package_dir: Path) -> dict[str, Any]:
+def check_package(
+    package_dir: Path,
+    *,
+    require_slsa_vsa_trusted_producer: bool = False,
+) -> dict[str, Any]:
     checks: list[dict[str, Any]] = []
     errors: list[str] = []
     resolved_package_dir = _resolve(package_dir)
@@ -1122,10 +1196,12 @@ def check_package(package_dir: Path) -> dict[str, Any]:
             checks=checks,
             errors=errors,
         )
-        _verify_slsa_trusted_producer_chain(
+        _verify_slsa_trusted_producer_surface(
+            package_dir=resolved_package_dir,
             loaded=loaded,
             checks=checks,
             errors=errors,
+            require_slsa_vsa_trusted_producer=require_slsa_vsa_trusted_producer,
         )
 
     except CompletenessError as exc:
@@ -1153,8 +1229,10 @@ def _render(data: dict[str, Any]) -> str:
 
 def _write_report(path: Path, report: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
+
     if path.is_symlink():
         raise CompletenessError("refusing_to_write_symlink_output")
+
     path.write_text(_render(report), encoding="utf-8")
 
 
@@ -1164,6 +1242,15 @@ def _parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--package-dir", required=True)
     parser.add_argument("--output")
+    parser.add_argument(
+        "--require-slsa-vsa-trusted-producer",
+        action="store_true",
+        help=(
+            "Require SLSA/VSA trusted producer input packet and report artifacts. "
+            "Leave unset for the current release-grade package contract until the "
+            "assembler stages artifacts/slsa/."
+        ),
+    )
     return parser
 
 
@@ -1229,7 +1316,10 @@ def main(argv: list[str] | None = None) -> int:
             sys.stdout.write(_render(report))
             return 2
 
-    report = check_package(package_dir)
+    report = check_package(
+        package_dir,
+        require_slsa_vsa_trusted_producer=args.require_slsa_vsa_trusted_producer,
+    )
     sys.stdout.write(_render(report))
 
     if output is not None:
