@@ -47,11 +47,29 @@ They do not independently produce release authority.
 | Canonical verifier replay before materialization | Implemented |
 | Policy-derived release-required gate materialization | Implemented |
 | External-summary schema and semantic validation | Implemented |
-| Signer-policy and cryptographic attestation verification | Implemented |
-| Exact operational release-grade signer identity | Pending |
-| Current-run attested external-evidence production lane | Pending |
+| Exact operational LlamaGuard workflow identity | Implemented — `.github/workflows/pulse_ci.yml` |
+| Current-run hosted LlamaGuard raw-evidence and canonical-summary production | Implemented — explicit `hosted_full_runtime` opt-in |
+| GitHub attestation bundle, canonical envelope, and cryptographic verification wiring | Implemented |
+| Complete release-grade reference package assembly | Implemented |
+| Structural release-grade package completeness preflight | Implemented |
+| Independent complete-package verification | Implemented |
+| SLSA/VSA trusted-producer packet/report contract and construction-validation chain | Implemented — non-active candidate path |
+| SLSA/VSA release-required enforcement | Not active |
 | Public PULSEmech Core execution record | Completed — PULSE CI #5728 |
-| Completed public non-stubbed release-grade run record | Pending |
+| Completed public non-stubbed release-grade run record | Pending controlled hosted execution |
+
+The remaining release-grade proof gap is operational rather than architectural:
+
+```text
+fixed source commit
+→ controlled hosted_full_runtime execution
+→ current-run attested external evidence
+→ primary CI allow/block decision
+→ complete package verification
+→ public run record
+```
+
+Implemented workflow capability does not by itself constitute a completed public release-grade reference run.
 
 
 ## Tier 0 self-contained PULSE evidence floor✅
@@ -135,7 +153,9 @@ public Core execution completed
 
 The broader release-decision sidecar correctly remained `FAIL` because stage and release-grade conditions were not satisfied.
 
-This record provides a public operational entrypoint while the exact-signer, attested external-evidence, verifier-bound materialization, and complete-package layers continue to be built on the demonstrated Core path.
+This record remains the public operational proof of the Core mechanism. The checked-in implementation now also contains the exact LlamaGuard workflow identity, the hosted current-run LlamaGuard evidence-production and attestation path, the verifier-bound release-grade path, complete-package assembly, the structural package-completeness preflight, and independent package verification.
+
+Those implemented capabilities do not retroactively convert `PULSE CI #5728` into a completed release-grade reference run. The first qualifying fixed-source `hosted_full_runtime` execution and its completed public non-stubbed release-grade run record remain pending.
 
 ### Authority boundary
 
@@ -472,11 +492,11 @@ recorded release evidence
 >
 > Continuous expansion does not invalidate the implemented release-authority path.
 >
-> The current implementation includes current-run required-gate evidence production, non-stubbed candidate state, canonical candidate replay, recorded release-evidence verification, canonical verifier replay, policy-derived release-required materialization, external-summary schema and semantic validation, signer-policy admission, and cryptographic GitHub attestation verification.
+> The current implementation includes current-run required-gate evidence production, non-stubbed candidate state, canonical candidate replay, recorded release-evidence verification, canonical verifier replay, policy-derived release-required materialization, external-summary schema and semantic validation, the exact LlamaGuard workflow identity, hosted current-run LlamaGuard raw-evidence and canonical-summary production capability, GitHub attestation bundle and canonical-envelope wiring, cryptographic attestation verification, complete release-grade package assembly, structural package-completeness checking, and independent package verification.
 >
-> The remaining active hardening surfaces include exact operational signer identities, current-run attested external-evidence production, the first completed public non-stubbed release-grade run record, independent external reproduction, portability, and further evidence-packet hardening.
+> The remaining active hardening surfaces include successful qualifying execution of the implemented hosted lane from one fixed source commit, exact operational signer identities for any additional detector lanes, the first completed public non-stubbed release-grade run record, independent external reproduction, portability, and further evidence-packet hardening.
 >
-> Until a surface is implemented, tested, bound to the current run, and explicitly admitted through declared policy, workflow-effective materialized required gates, and strict fail-closed CI enforcement, it remains non-authoritative.
+> Implemented workflow capability does not itself establish a completed current-run proof. Evidence contributes to release authority only when it is produced for the qualifying run, admitted through recorded evidence, declared policy, workflow-effective materialized required gates, and strict fail-closed CI enforcement.
 >
 > Open work is tracked as hardening work. It is not treated as release authority by assumption.
 
