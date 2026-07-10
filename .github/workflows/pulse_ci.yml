@@ -2953,6 +2953,24 @@ jobs:
             echo "VERIFY_OUT=${VERIFY_OUT}"
           } >> "$GITHUB_ENV"
 
+      - name: Check release-grade package completeness
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python "tools/check_release_grade_package_complete_v1.py" \
+            --package-dir "${{runner.temp}}/complete-release-grade-reference-package" \
+            --output "${{runner.temp}}/release_grade_package_completeness_v1.json"
+
+      - name: Upload release-grade package completeness report
+        if: ${{ always() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # pinned
+        with:
+          name: release-grade-package-completeness-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{runner.temp}}/release_grade_package_completeness_v1.json
+          if-no-files-found: error
+          retention-days: 30
+      
       - name: Verify complete release-grade reference package
         shell: bash
         run: |
