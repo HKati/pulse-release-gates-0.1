@@ -47,11 +47,29 @@ They do not independently produce release authority.
 | Canonical verifier replay before materialization | Implemented |
 | Policy-derived release-required gate materialization | Implemented |
 | External-summary schema and semantic validation | Implemented |
-| Signer-policy and cryptographic attestation verification | Implemented |
-| Exact operational release-grade signer identity | Pending |
-| Current-run attested external-evidence production lane | Pending |
+| Exact operational LlamaGuard workflow identity | Implemented — `.github/workflows/pulse_ci.yml` |
+| Current-run hosted LlamaGuard raw-evidence and canonical-summary production | Implemented — explicit `hosted_full_runtime` opt-in |
+| GitHub attestation bundle, canonical envelope, and cryptographic verification wiring | Implemented |
+| Complete release-grade reference package assembly | Implemented |
+| Structural release-grade package completeness preflight | Implemented |
+| Independent complete-package verification | Implemented |
+| SLSA/VSA trusted-producer packet/report contract and construction-validation chain | Implemented — non-active candidate path |
+| SLSA/VSA release-required enforcement | Not active |
 | Public PULSEmech Core execution record | Completed — PULSE CI #5728 |
-| Completed public non-stubbed release-grade run record | Pending |
+| Completed public non-stubbed release-grade run record | Pending controlled hosted execution |
+
+The remaining release-grade proof gap is operational rather than architectural:
+
+```text
+fixed source commit
+→ controlled hosted_full_runtime execution
+→ current-run attested external evidence
+→ primary CI allow/block decision
+→ complete package verification
+→ public run record
+```
+
+Implemented workflow capability does not by itself constitute a completed public release-grade reference run.
 
 
 ## Tier 0 self-contained PULSE evidence floor✅
