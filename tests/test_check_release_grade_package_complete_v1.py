@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -212,8 +213,12 @@ def report_payload() -> dict[str, Any]:
 
 
 def make_complete_package(tmp_path: Path) -> Path:
-    package_dir = tmp_path / "release_grade_package"
-    package_dir.mkdir()
+    package_dir = Path(
+        tempfile.mkdtemp(
+            prefix="release_grade_package_",
+            dir=tmp_path,
+        )
+    )
 
     write_json(
         package_dir / "run_metadata_v0.json",
@@ -267,7 +272,11 @@ def make_complete_package(tmp_path: Path) -> Path:
         package_dir / "artifacts" / "release_evidence_input_manifest_v0.json",
         {
             "schema_version": "release_evidence_input_manifest_v0",
-            "inputs": ["status_baseline.json", "slsa_vsa_trusted_producer_report_v0.json"],
+            "inputs": [
+                "status_baseline.json",
+                "slsa_vsa_trusted_producer_report_v0.json",
+                "external/llamaguard_raw.jsonl",
+            ],
         },
     )
     write_json(
@@ -278,6 +287,75 @@ def make_complete_package(tmp_path: Path) -> Path:
             "errors": [],
         },
     )
+
+    write_text(
+        package_dir / "artifacts" / "external" / "llamaguard_raw.jsonl",
+        json.dumps(
+            {
+                "schema_version": "llamaguard_raw_evidence_record_v0",
+                "run": {
+                    "repository": "HKati/pulse-release-gates-0.1",
+                    "git_sha": COMMIT_SHA,
+                    "run_key": CURRENT_RUN_KEY,
+                    "workflow_ref": (
+                        "HKati/pulse-release-gates-0.1/.github/workflows/pulse_ci.yml@"
+                        + COMMIT_SHA
+                    ),
+                },
+                "result": "pass",
+            },
+            sort_keys=True,
+        )
+        + "\n",
+    )
+    write_json(
+        package_dir / "artifacts" / "external" / "llamaguard_evaluator_manifest_v0.json",
+        {
+            "schema_version": "llamaguard_evaluator_manifest_v0",
+            "run": {
+                "repository": "HKati/pulse-release-gates-0.1",
+                "git_sha": COMMIT_SHA,
+                "run_key": CURRENT_RUN_KEY,
+            },
+            "evaluator": "llamaguard",
+        },
+    )
+    write_json(
+        package_dir / "artifacts" / "external" / "llamaguard_summary.json",
+        {
+            "schema_version": "llamaguard_summary_v0",
+            "summary": {
+                "status": "pass",
+            },
+        },
+    )
+    write_json(
+        package_dir / "artifacts" / "external" / "llamaguard_summary.bundle.json",
+        {
+            "schema_version": "llamaguard_summary_bundle_v0",
+            "bundle": {
+                "status": "present",
+            },
+        },
+    )
+    write_json(
+        package_dir / "artifacts" / "external" / "llamaguard_summary.envelope.json",
+        {
+            "schema_version": "llamaguard_summary_envelope_v0",
+            "envelope": {
+                "status": "present",
+            },
+        },
+    )
+    write_json(
+        package_dir / "artifacts" / "external" / "llamaguard_attestation_verifier_v1.json",
+        {
+            "schema_version": "llamaguard_attestation_verifier_v1",
+            "status": "verified",
+            "errors": [],
+        },
+    )
+
     write_json(
         package_dir / "artifacts" / "status.json",
         {
@@ -459,6 +537,14 @@ def test_missing_required_file_fails_closed(tmp_path: Path) -> None:
     assert report["status"] == "incomplete"
 
 
+def test_missing_external_evidence_file_fails_closed(tmp_path: Path) -> None:
+    package_dir = make_complete_package(tmp_path)
+    (package_dir / "artifacts" / "external" / "llamaguard_summary.json").unlink()
+    rebuild_digest_inventory(package_dir)
+
+    assert_failure(run_tool(package_dir), "required_file:artifacts/external/llamaguard_summary.json")
+
+
 def test_empty_required_file_fails_closed(tmp_path: Path) -> None:
     package_dir = make_complete_package(tmp_path)
     write_text(package_dir / "artifacts" / "report_card.html", "")
@@ -525,6 +611,125 @@ def test_slsa_packet_report_mismatch_fails_closed(tmp_path: Path) -> None:
     assert_failure(run_tool(package_dir), "slsa_vsa.current_run_key")
 
 
+def test_slsa_report_producer_mismatch_fails_closed(tmp_path: Path) -> None:
+    package_dir = make_complete_package(tmp_path)
+    report_path = (
+        package_dir
+        / "artifacts"
+        / "slsa"
+        / "slsa_vsa_trusted_evidence_producer_report_v0.json"
+    )
+    report = read_json(report_path)
+    report["producer"]["producer_id"] = "wrong-producer"
+    write_json(report_path, report)
+    rebuild_digest_inventory(package_dir)
+
+    assert_failure(run_tool(package_dir), "slsa_vsa.producer_identity")
+
+
+def test_slsa_run_key_self_inconsistency_fails_closed(tmp_path: Path) -> None:
+    package_dir = make_complete_package(tmp_path)
+    packet_path = (
+        package_dir / "artifacts" / "slsa" / "slsa_vsa_trusted_producer_input_packet_v0.json"
+    )
+    report_path = (
+        package_dir
+        / "artifacts"
+        / "slsa"
+        / "slsa_vsa_trusted_evidence_producer_report_v0.json"
+    )
+
+    packet = read_json(packet_path)
+    report = read_json(report_path)
+    packet["run_binding"]["current_run_number"] = "9999"
+    report["run_binding"]["current_run_number"] = "9999"
+    write_json(packet_path, packet)
+    write_json(report_path, report)
+    rebuild_digest_inventory(package_dir)
+
+    assert_failure(run_tool(package_dir), "slsa_vsa.packet_run_key_self_consistent")
+
+
+def test_slsa_artifact_flag_failure_fails_closed(tmp_path: Path) -> None:
+    package_dir = make_complete_package(tmp_path)
+    report_path = (
+        package_dir
+        / "artifacts"
+        / "slsa"
+        / "slsa_vsa_trusted_evidence_producer_report_v0.json"
+    )
+    report = read_json(report_path)
+    report["artifact_binding"]["subject_digest_matches"] = False
+    write_json(report_path, report)
+    rebuild_digest_inventory(package_dir)
+
+    assert_failure(run_tool(package_dir), "slsa_vsa.artifact_flags")
+
+
+def test_slsa_report_evidence_time_mismatch_fails_closed(tmp_path: Path) -> None:
+    package_dir = make_complete_package(tmp_path)
+    report_path = (
+        package_dir
+        / "artifacts"
+        / "slsa"
+        / "slsa_vsa_trusted_evidence_producer_report_v0.json"
+    )
+    report = read_json(report_path)
+    report["evidence"]["time_verified"] = "2026-07-05T00:00:00Z"
+    write_json(report_path, report)
+    rebuild_digest_inventory(package_dir)
+
+    assert_failure(run_tool(package_dir), "slsa_vsa.freshness")
+
+
+def test_slsa_report_evidence_policy_mismatch_fails_closed(tmp_path: Path) -> None:
+    package_dir = make_complete_package(tmp_path)
+    report_path = (
+        package_dir
+        / "artifacts"
+        / "slsa"
+        / "slsa_vsa_trusted_evidence_producer_report_v0.json"
+    )
+    report = read_json(report_path)
+    report["policy_binding"]["evidence_policy_sha256"] = "d" * 64
+    write_json(report_path, report)
+    rebuild_digest_inventory(package_dir)
+
+    assert_failure(run_tool(package_dir), "slsa_vsa.policy_binding")
+
+
+def test_slsa_report_evidence_verifier_mismatch_fails_closed(tmp_path: Path) -> None:
+    package_dir = make_complete_package(tmp_path)
+    report_path = (
+        package_dir
+        / "artifacts"
+        / "slsa"
+        / "slsa_vsa_trusted_evidence_producer_report_v0.json"
+    )
+    report = read_json(report_path)
+    report["verifier_binding"]["evidence_verifier_id"] = "https://pulse.invalid/verifiers/wrong"
+    write_json(report_path, report)
+    rebuild_digest_inventory(package_dir)
+
+    assert_failure(run_tool(package_dir), "slsa_vsa.verifier_binding")
+
+
+def test_slsa_failed_verification_result_fails_closed(tmp_path: Path) -> None:
+    package_dir = make_complete_package(tmp_path)
+    report_path = (
+        package_dir
+        / "artifacts"
+        / "slsa"
+        / "slsa_vsa_trusted_evidence_producer_report_v0.json"
+    )
+    report = read_json(report_path)
+    report["evidence"]["verification_result"] = "FAILED"
+    write_json(report_path, report)
+    rebuild_digest_inventory(package_dir)
+
+    assert_failure(run_tool(package_dir), "slsa_vsa.verification_result")
+
+
 def test_stale_or_rejected_slsa_report_fails_closed(tmp_path: Path) -> None:
     package_dir = make_complete_package(tmp_path)
     report_path = (
@@ -573,6 +778,27 @@ def test_refuses_output_inside_package_dir(tmp_path: Path) -> None:
     assert "refusing_to_write_inside_package_dir" in report["errors"]
 
 
+def test_refuses_symlink_output_targeting_package_file(tmp_path: Path) -> None:
+    package_dir = make_complete_package(tmp_path)
+    status_path = package_dir / "artifacts" / "status.json"
+    status_before = status_path.read_text(encoding="utf-8")
+    output = tmp_path / "outside_report_link.json"
+
+    try:
+        os.symlink(status_path, output)
+    except (OSError, NotImplementedError):
+        return
+
+    result = run_tool(package_dir, output=output)
+
+    assert result.returncode == 2
+    assert status_path.read_text(encoding="utf-8") == status_before
+
+    report = parse_report(result)
+    assert report["ok"] is False
+    assert "refusing_to_write_symlink_output" in report["errors"]
+
+
 def test_tool_does_not_call_release_gate_or_materializer_engines() -> None:
     source = TOOL.read_text(encoding="utf-8")
     forbidden = [
@@ -597,14 +823,23 @@ def check_check_release_grade_package_complete_v1() -> None:
         test_manifest_places_checker_in_release_grade_block()
         test_complete_package_passes_and_output_matches_stdout(tmp_path)
         test_missing_required_file_fails_closed(tmp_path)
+        test_missing_external_evidence_file_fails_closed(tmp_path)
         test_empty_required_file_fails_closed(tmp_path)
         test_duplicate_json_key_fails_closed(tmp_path)
         test_stub_marker_fails_closed(tmp_path)
         test_digest_inventory_mismatch_fails_closed(tmp_path)
         test_slsa_packet_report_mismatch_fails_closed(tmp_path)
+        test_slsa_report_producer_mismatch_fails_closed(tmp_path)
+        test_slsa_run_key_self_inconsistency_fails_closed(tmp_path)
+        test_slsa_artifact_flag_failure_fails_closed(tmp_path)
+        test_slsa_report_evidence_time_mismatch_fails_closed(tmp_path)
+        test_slsa_report_evidence_policy_mismatch_fails_closed(tmp_path)
+        test_slsa_report_evidence_verifier_mismatch_fails_closed(tmp_path)
+        test_slsa_failed_verification_result_fails_closed(tmp_path)
         test_stale_or_rejected_slsa_report_fails_closed(tmp_path)
         test_refuses_status_json_output(tmp_path)
         test_refuses_output_inside_package_dir(tmp_path)
+        test_refuses_symlink_output_targeting_package_file(tmp_path)
         test_tool_does_not_call_release_gate_or_materializer_engines()
 
 
