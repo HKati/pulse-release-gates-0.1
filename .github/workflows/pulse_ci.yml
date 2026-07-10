@@ -2969,8 +2969,7 @@ jobs:
           name: release-grade-package-completeness-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{runner.temp}}/release_grade_package_completeness_v1.json
           if-no-files-found: error
-          retention-days: 30
-          
+          retention-days: 30     
       - name: Verify complete release-grade reference package
         shell: bash
         run: |
