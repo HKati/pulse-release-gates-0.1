@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import posixpath
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -23,6 +24,7 @@ REQUIRED_CHECKER_FLAGS = [
 ]
 
 FORBIDDEN_NEAR_CHECKER = [
+    "status.json",
     "check_gates.py",
     "PULSE_safe_pack_v0/tools/check_gates.py",
     "policy_to_require_args.py",
@@ -41,6 +43,7 @@ FORBIDDEN_NEAR_CHECKER = [
 ]
 
 RELEASE_AUTHORITY_MARKERS = [
+    "status.json",
     "check_gates.py",
     "PULSE_safe_pack_v0/tools/check_gates.py",
     "policy_to_require_args.py",
@@ -68,6 +71,18 @@ PACKAGE_DIR_ARG_PATTERN = re.compile(
     r"--package-dir(?:=|\s+)(['\"]?)(?P<path>[^\s'\"\\]+)\1",
     re.MULTILINE,
 )
+
+UPLOAD_PATH_PATTERN = re.compile(
+    r"^\s*path:\s*(?P<path>[^\n#]+?)\s*(?:#.*)?$",
+    re.MULTILINE,
+)
+
+UPLOAD_ALWAYS_PATTERN = re.compile(
+    r"^\s*if:\s*(?:\$\{\{\s*)?always\(\)\s*(?:\}\}\s*)?$",
+    re.MULTILINE,
+)
+
+JOB_KEY_PATTERN = re.compile(r"^  [A-Za-z_][A-Za-z0-9_-]*:\s*(?:#.*)?$")
 
 
 @dataclass(frozen=True)
@@ -135,6 +150,23 @@ def invocation_command(lines: list[str], start_index: int) -> tuple[str, int]:
     return "\n".join(command_lines), end_index
 
 
+def job_span(lines: list[str], start_index: int) -> tuple[int, int]:
+    job_start = 0
+    job_end = len(lines)
+
+    for index in range(start_index, -1, -1):
+        if JOB_KEY_PATTERN.match(lines[index]):
+            job_start = index
+            break
+
+    for index in range(start_index + 1, len(lines)):
+        if JOB_KEY_PATTERN.match(lines[index]):
+            job_end = index
+            break
+
+    return job_start, job_end
+
+
 def invocation_windows(
     text: str,
     workflow_path: Path,
@@ -148,10 +180,11 @@ def invocation_windows(
     for index, line in enumerate(lines):
         if line_uses_checker(line):
             command_text, command_end_index = invocation_command(lines, index)
+            job_start, job_end = job_span(lines, index)
 
-            start = max(0, index - before)
-            end = min(len(lines), command_end_index + after)
-            after_start = min(len(lines), command_end_index + 1)
+            start = max(job_start, index - before)
+            end = min(job_end, command_end_index + after)
+            after_start = min(job_end, command_end_index + 1)
 
             windows.append(
                 InvocationWindow(
@@ -166,21 +199,28 @@ def invocation_windows(
     return windows
 
 
-def upload_artifact_windows(text: str, *, after: int = 30) -> list[str]:
+def upload_artifact_windows(text: str, *, before: int = 8, after: int = 30) -> list[str]:
     lines = text.splitlines()
     windows: list[str] = []
 
     for index, line in enumerate(lines):
         if "actions/upload-artifact" in line:
+            start = max(0, index - before)
             end = min(len(lines), index + after)
-            windows.append("\n".join(lines[index:end]))
+            windows.append("\n".join(lines[start:end]))
 
     return windows
 
 
 def _normalize_shell_path(value: str) -> str:
-    normalized = value.strip("'\"")
+    normalized = value.strip().strip("'\"")
     normalized = re.sub(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}", r"$\1", normalized)
+    normalized = normalized.replace("\\", "/")
+    normalized = posixpath.normpath(normalized)
+
+    if normalized == ".":
+        return ""
+
     return normalized.rstrip("/")
 
 
@@ -196,6 +236,26 @@ def package_dirs(command_text: str) -> list[str]:
         _normalize_shell_path(match.group("path"))
         for match in PACKAGE_DIR_ARG_PATTERN.finditer(command_text)
     ]
+
+
+def uploaded_paths(upload_window: str) -> list[str]:
+    paths: list[str] = []
+
+    for match in UPLOAD_PATH_PATTERN.finditer(upload_window):
+        value = match.group("path").strip()
+        if value in {"|", ">"}:
+            continue
+        paths.append(_normalize_shell_path(value))
+
+    return paths
+
+
+def upload_runs_on_failure(upload_window: str) -> bool:
+    return UPLOAD_ALWAYS_PATTERN.search(upload_window) is not None
+
+
+def upload_path_matches_output(output_path: str, upload_path: str) -> bool:
+    return _normalize_shell_path(output_path) == _normalize_shell_path(upload_path)
 
 
 def output_path_refused(output_path: str, package_dir: str | None) -> str | None:
@@ -303,7 +363,7 @@ def test_invocation_command_text_includes_continued_checker_flags() -> None:
     assert "echo after-checker" not in windows[0].command_text
 
 
-def test_upload_detection_uses_only_lines_after_the_checker_command() -> None:
+def test_upload_detection_uses_only_lines_after_the_checker_command_in_same_job() -> None:
     text = "\n".join(
         [
             "name: synthetic",
@@ -311,6 +371,7 @@ def test_upload_detection_uses_only_lines_after_the_checker_command() -> None:
             "  build:",
             "    steps:",
             "      - uses: actions/upload-artifact@v4",
+            "        if: always()",
             "        with:",
             "          path: $RUNNER_TEMP/release_grade_completeness_report.json",
             "      - run: |",
@@ -329,7 +390,75 @@ def test_upload_detection_uses_only_lines_after_the_checker_command() -> None:
     assert upload_artifact_windows(windows[0].after_text) == []
 
 
-def test_upload_detection_accepts_upload_after_the_checker_command() -> None:
+def test_upload_detection_does_not_cross_job_boundary() -> None:
+    text = "\n".join(
+        [
+            "name: synthetic",
+            "jobs:",
+            "  build:",
+            "    steps:",
+            "      - run: |",
+            f"          python {CHECKER_RELATIVE_PATH} "
+            "--package-dir $RUNNER_TEMP/release_grade_package "
+            "--output $RUNNER_TEMP/release_grade_completeness_report.json",
+            "  upload:",
+            "    steps:",
+            "      - uses: actions/upload-artifact@v4",
+            "        if: always()",
+            "        with:",
+            "          path: $RUNNER_TEMP/release_grade_completeness_report.json",
+        ]
+    )
+
+    windows = invocation_windows(text, Path("synthetic.yml"))
+
+    assert len(windows) == 1
+    assert "actions/upload-artifact" not in windows[0].after_text
+    assert upload_artifact_windows(windows[0].after_text) == []
+
+
+def test_upload_detection_accepts_upload_after_the_checker_command_in_same_job() -> None:
+    text = "\n".join(
+        [
+            "name: synthetic",
+            "jobs:",
+            "  build:",
+            "    steps:",
+            "      - run: |",
+            f"          python {CHECKER_RELATIVE_PATH} "
+            "--package-dir $RUNNER_TEMP/release_grade_package "
+            "--output $RUNNER_TEMP/release_grade_completeness_report.json",
+            "      - uses: actions/upload-artifact@v4",
+            "        if: ${{ always() }}",
+            "        with:",
+            "          path: $RUNNER_TEMP/release_grade_completeness_report.json",
+        ]
+    )
+
+    windows = invocation_windows(text, Path("synthetic.yml"))
+
+    assert len(windows) == 1
+    assert output_paths(windows[0].command_text) == [
+        "$RUNNER_TEMP/release_grade_completeness_report.json"
+    ]
+
+    upload_windows = upload_artifact_windows(windows[0].after_text)
+    assert len(upload_windows) == 1
+    assert upload_runs_on_failure(upload_windows[0])
+    assert uploaded_paths(upload_windows[0]) == [
+        "$RUNNER_TEMP/release_grade_completeness_report.json"
+    ]
+
+
+def test_upload_path_matching_requires_exact_normalized_path() -> None:
+    assert upload_path_matches_output("$RUNNER_TEMP/report.json", "$RUNNER_TEMP/report.json")
+    assert not upload_path_matches_output(
+        "$RUNNER_TEMP/report.json",
+        "$RUNNER_TEMP/report.json.bak",
+    )
+
+
+def test_upload_detection_requires_always_condition_for_failure_reports() -> None:
     text = "\n".join(
         [
             "name: synthetic",
@@ -347,15 +476,10 @@ def test_upload_detection_accepts_upload_after_the_checker_command() -> None:
     )
 
     windows = invocation_windows(text, Path("synthetic.yml"))
-
-    assert len(windows) == 1
-    assert output_paths(windows[0].command_text) == [
-        "$RUNNER_TEMP/release_grade_completeness_report.json"
-    ]
-
     upload_windows = upload_artifact_windows(windows[0].after_text)
+
     assert len(upload_windows) == 1
-    assert "$RUNNER_TEMP/release_grade_completeness_report.json" in upload_windows[0]
+    assert not upload_runs_on_failure(upload_windows[0])
 
 
 def test_output_path_guard_rejects_status_json_and_package_internal_outputs() -> None:
@@ -367,6 +491,10 @@ def test_output_path_guard_rejects_status_json_and_package_internal_outputs() ->
     )
     assert (
         output_path_refused("${PKG}/completeness_report.json", "$PKG")
+        == "output is inside package directory"
+    )
+    assert (
+        output_path_refused("./release_package/report.json", "release_package")
         == "output is inside package directory"
     )
     assert output_path_refused("$RUNNER_TEMP/report.json", "$PKG") is None
@@ -417,7 +545,7 @@ def test_checker_workflow_wiring_if_present_uses_safe_output_path() -> None:
                 )
 
 
-def test_checker_workflow_wiring_if_present_uploads_output_afterward() -> None:
+def test_checker_workflow_wiring_if_present_uploads_output_afterward_in_same_job() -> None:
     for workflow_path, text in workflows_using_checker():
         windows = invocation_windows(text, workflow_path)
         assert windows, f"{workflow_path} contains checker marker but no invocation window"
@@ -431,17 +559,29 @@ def test_checker_workflow_wiring_if_present_uploads_output_afterward() -> None:
 
             upload_windows = upload_artifact_windows(window.after_text)
             assert upload_windows, (
-                f"{workflow_path} invokes {CHECKER_BASENAME} but no later "
+                f"{workflow_path} invokes {CHECKER_BASENAME} but no later same-job "
                 f"actions/upload-artifact step is present around line {window.line_number}"
             )
 
-            assert any(
-                output_path in upload_window
-                for output_path in paths
+            always_upload_windows = [
+                upload_window
                 for upload_window in upload_windows
+                if upload_runs_on_failure(upload_window)
+            ]
+            assert always_upload_windows, (
+                f"{workflow_path} uploads {CHECKER_BASENAME} output only under the default "
+                f"success() condition; upload-artifact must use if: always() around "
+                f"line {window.line_number}"
+            )
+
+            assert any(
+                upload_path_matches_output(output_path, upload_path)
+                for output_path in paths
+                for upload_window in always_upload_windows
+                for upload_path in uploaded_paths(upload_window)
             ), (
-                f"{workflow_path} invokes {CHECKER_BASENAME}, but no later artifact upload "
-                f"references its --output path(s): {paths}"
+                f"{workflow_path} invokes {CHECKER_BASENAME}, but no later same-job "
+                f"always() artifact upload exactly references its --output path(s): {paths}"
             )
 
 
@@ -474,13 +614,16 @@ def check_release_grade_package_completeness_checker_ci_boundary_v1() -> None:
     test_checker_marker_detects_common_prefixed_paths_and_module_invocations()
     test_invocation_command_text_is_scoped_to_the_checker_command()
     test_invocation_command_text_includes_continued_checker_flags()
-    test_upload_detection_uses_only_lines_after_the_checker_command()
-    test_upload_detection_accepts_upload_after_the_checker_command()
+    test_upload_detection_uses_only_lines_after_the_checker_command_in_same_job()
+    test_upload_detection_does_not_cross_job_boundary()
+    test_upload_detection_accepts_upload_after_the_checker_command_in_same_job()
+    test_upload_path_matching_requires_exact_normalized_path()
+    test_upload_detection_requires_always_condition_for_failure_reports()
     test_output_path_guard_rejects_status_json_and_package_internal_outputs()
     test_checker_ci_wiring_is_optional_and_not_required_today()
     test_checker_workflow_wiring_if_present_uses_required_inputs()
     test_checker_workflow_wiring_if_present_uses_safe_output_path()
-    test_checker_workflow_wiring_if_present_uploads_output_afterward()
+    test_checker_workflow_wiring_if_present_uploads_output_afterward_in_same_job()
     test_checker_workflow_wiring_if_present_is_artifact_or_diagnostic_only()
     test_checker_workflow_wiring_if_present_does_not_create_release_authority()
 
