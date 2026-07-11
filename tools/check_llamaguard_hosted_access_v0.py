@@ -9,6 +9,7 @@ import importlib.metadata
 import json
 import os
 import re
+import subprocess
 import sys
 import tempfile
 from dataclasses import dataclass
@@ -146,6 +147,26 @@ def _normalize_repo_root(path: Path) -> Path:
     return resolved
 
 
+def _reject_symlink_components(
+    repo_root: Path,
+    path: Path,
+    relative: str,
+) -> None:
+    try:
+        relative_path = path.relative_to(repo_root)
+    except ValueError as exc:
+        raise PreflightError("repository_path_escape", field=relative) from exc
+
+    current = repo_root
+    for part in relative_path.parts:
+        current = current / part
+        if current.is_symlink():
+            raise PreflightError(
+                "repository_path_symlink_component",
+                field=relative,
+            )
+
+
 def _safe_repo_path(repo_root: Path, relative: str) -> Path:
     path = Path(os.path.abspath(os.path.normpath(str(repo_root / relative))))
     try:
@@ -153,9 +174,35 @@ def _safe_repo_path(repo_root: Path, relative: str) -> Path:
     except ValueError as exc:
         raise PreflightError("repository_path_escape", field=relative) from exc
 
-    if path.is_symlink() or not path.is_file():
+    _reject_symlink_components(repo_root, path, relative)
+
+    if not path.is_file():
         raise PreflightError("repository_file_missing_or_symlinked", field=relative)
     return path
+
+
+def _git_head(repo_root: Path) -> str:
+    try:
+        result = subprocess.run(
+            [
+                "git",
+                "-C",
+                str(repo_root),
+                "rev-parse",
+                "HEAD",
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+    except Exception as exc:
+        raise PreflightError("git_head_unavailable") from exc
+
+    head = result.stdout.strip().lower()
+    if not HEX40_RE.fullmatch(head):
+        raise PreflightError("git_head_not_concrete_sha")
+    return head
 
 
 def _extract_string_constants(path: Path, names: set[str]) -> dict[str, str]:
@@ -356,6 +403,7 @@ def check_access(
     run_id: str,
     run_attempt: str,
 ) -> tuple[dict[str, Any], int]:
+    repo_root = _normalize_repo_root(repo_root)
     repository = _validate_repository(repository)
     git_sha = _validate_sha(git_sha)
     workflow_ref = _validate_non_empty(workflow_ref, "workflow_ref")
@@ -372,6 +420,31 @@ def check_access(
         run_attempt=run_attempt,
         runtime=runtime,
     )
+
+    try:
+        checked_out_git_sha = _git_head(repo_root)
+        report["source"]["checked_out_git_sha"] = checked_out_git_sha
+        git_sha_matches = checked_out_git_sha == git_sha
+        _add_check(
+            report,
+            "source.git_sha_matches_checkout",
+            git_sha_matches,
+            "reported git SHA matches the checked-out repository HEAD",
+        )
+        if not git_sha_matches:
+            return _fail(
+                report,
+                "git_sha_checkout_mismatch",
+                field="git_sha",
+            )
+    except PreflightError as exc:
+        _add_check(
+            report,
+            "source.git_sha_matches_checkout",
+            False,
+            "checked-out repository HEAD could not be verified",
+        )
+        return _fail(report, exc.code, field=exc.field)
 
     try:
         runtime = _canonical_runtime_identity(repo_root)
