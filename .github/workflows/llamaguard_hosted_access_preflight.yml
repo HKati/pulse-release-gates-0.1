@@ -1,4 +1,4 @@
-name: LlamaGuard hosted access preflight
+name: LlamaGuard hosted access preflight release check
 
 on:
   workflow_dispatch:
