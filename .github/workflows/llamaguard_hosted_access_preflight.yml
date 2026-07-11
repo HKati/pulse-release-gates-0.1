@@ -146,6 +146,13 @@ jobs:
           report = json.loads(report_path.read_text(encoding="utf-8"))
           runtime = report.get("runtime") or {}
           failure = report.get("failure") or {}
+          probe_contract = report.get("probe_contract") or {}
+
+          required = probe_contract.get("required_probe_files") or []
+          missing = probe_contract.get("missing_probe_files") or []
+
+          required_text = ", ".join(str(item) for item in required) or "none"
+          missing_text = ", ".join(str(item) for item in missing) or "none"
 
           lines = [
               "## LlamaGuard hosted access preflight",
@@ -154,8 +161,14 @@ jobs:
               f"- model: `{runtime.get('model_id', 'unknown')}`",
               f"- requested revision: `{runtime.get('model_revision', 'unknown')}`",
               f"- resolved revision: `{runtime.get('resolved_model_revision', 'unknown')}`",
-              f"- probe files: `{len(report.get('probe_files') or [])}`",
+              f"- revision files checked: `{probe_contract.get('revision_files_checked', False)}`",
+              f"- revision file count: `{probe_contract.get('revision_file_count', 'unknown')}`",
+              f"- required probe files: `{required_text}`",
+              f"- missing probe files: `{missing_text}`",
+              f"- failed probe file: `{probe_contract.get('failed_probe_file') or 'none'}`",
+              f"- successful probe files: `{len(report.get('probe_files') or [])}`",
               f"- failure kind: `{failure.get('kind', 'none')}`",
+              f"- failure field: `{failure.get('field', 'none')}`",
               "- model inference: `not run`",
               "- model weights: `not downloaded`",
               "- release authority: `none`",
