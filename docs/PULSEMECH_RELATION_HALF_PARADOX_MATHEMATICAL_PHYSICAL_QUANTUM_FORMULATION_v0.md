@@ -1,4 +1,3 @@
-[PULSEMECH_RELATION_HALF_PARADOX_MATHEMATICAL_PHYSICAL_QUANTUM_FORMULATION_v0(2).md](https://github.com/user-attachments/files/29932036/PULSEMECH_RELATION_HALF_PARADOX_MATHEMATICAL_PHYSICAL_QUANTUM_FORMULATION_v0.2.md)
 # PULSEmech Relation and Half-Paradox — Mathematical, Physical, and Quantum-Mechanical Formulation v0
 
 **Status:** Technical note  
