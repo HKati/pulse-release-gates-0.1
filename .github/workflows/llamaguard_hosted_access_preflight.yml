@@ -1,0 +1,165 @@
+name: LlamaGuard hosted access preflight
+
+on:
+  workflow_dispatch:
+    inputs:
+      expected_source_sha:
+        description: "Exact 40-hex main commit to preflight; must match the selected workflow ref"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: llamaguard-hosted-access-preflight-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  preflight:
+    name: Verify access to pinned LlamaGuard revision
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout fixed source
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # pinned
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # pinned
+        with:
+          python-version: "3.11"
+
+      - name: Verify fixed source identity
+        shell: bash
+        env:
+          EXPECTED_SOURCE_SHA: ${{ inputs.expected_source_sha }}
+        run: |
+          set -euo pipefail
+
+          EXPECTED="${EXPECTED_SOURCE_SHA,,}"
+          ACTUAL="${GITHUB_SHA,,}"
+          CHECKED_OUT="$(git rev-parse HEAD | tr '[:upper:]' '[:lower:]')"
+
+          if [[ ! "${EXPECTED}" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::expected_source_sha must be an exact 40-hex commit SHA"
+            exit 1
+          fi
+
+          if [[ "${GITHUB_REF}" != "refs/heads/main" ]]; then
+            echo "::error::hosted access preflight must run from refs/heads/main; got ${GITHUB_REF}"
+            exit 1
+          fi
+
+          if [[ "${EXPECTED}" != "${ACTUAL}" || "${EXPECTED}" != "${CHECKED_OUT}" ]]; then
+            echo "::error::fixed source mismatch"
+            echo "expected=${EXPECTED}"
+            echo "github_sha=${ACTUAL}"
+            echo "checked_out=${CHECKED_OUT}"
+            exit 1
+          fi
+
+          echo "OK: fixed source identity matches ${EXPECTED}"
+
+      - name: Install pinned Hugging Face Hub client only
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          REQUIREMENTS="PULSE_safe_pack_v0/requirements-llamaguard-v0.txt"
+          mapfile -t HUB_REQUIREMENTS < <(
+            grep -E '^huggingface-hub==[A-Za-z0-9_.+!-]+$' "${REQUIREMENTS}"
+          )
+
+          if [[ "${#HUB_REQUIREMENTS[@]}" -ne 1 ]]; then
+            echo "::error::expected exactly one huggingface-hub pin in ${REQUIREMENTS}"
+            exit 1
+          fi
+
+          python -m pip install \
+            --disable-pip-version-check \
+            --no-cache-dir \
+            "${HUB_REQUIREMENTS[0]}"
+
+      - name: Check token and pinned model metadata access
+        shell: bash
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_HOME: ${{ runner.temp }}/huggingface
+          HF_HUB_DISABLE_TELEMETRY: "1"
+          TOKENIZERS_PARALLELISM: "false"
+          REPORT_PATH: ${{ runner.temp }}/llamaguard_hosted_access_preflight_v0.json
+        run: |
+          set -euo pipefail
+
+          python tools/check_llamaguard_hosted_access_v0.py \
+            --repo-root "${GITHUB_WORKSPACE}" \
+            --token-env "HF_TOKEN" \
+            --repository "${GITHUB_REPOSITORY}" \
+            --git-sha "${GITHUB_SHA}" \
+            --workflow-ref "${GITHUB_WORKFLOW_REF}" \
+            --run-id "${GITHUB_RUN_ID}" \
+            --run-attempt "${GITHUB_RUN_ATTEMPT}" \
+            --output "${REPORT_PATH}"
+
+      - name: Upload sanitized hosted-access preflight report
+        if: ${{ always() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # pinned
+        with:
+          name: llamaguard-hosted-access-preflight-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/llamaguard_hosted_access_preflight_v0.json
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Summarize hosted-access preflight
+        if: ${{ always() }}
+        shell: bash
+        env:
+          REPORT_PATH: ${{ runner.temp }}/llamaguard_hosted_access_preflight_v0.json
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          from __future__ import annotations
+
+          import json
+          import os
+          from pathlib import Path
+
+          report_path = Path(os.environ["REPORT_PATH"])
+          summary_path = Path(os.environ["GITHUB_STEP_SUMMARY"])
+
+          if not report_path.is_file() or report_path.is_symlink():
+              text = (
+                  "## LlamaGuard hosted access preflight\n\n"
+                  "- status: `report missing`\n"
+                  "- authority: `non-authorizing access preflight`\n"
+              )
+              summary_path.write_text(text, encoding="utf-8")
+              raise SystemExit(0)
+
+          report = json.loads(report_path.read_text(encoding="utf-8"))
+          runtime = report.get("runtime") or {}
+          failure = report.get("failure") or {}
+
+          lines = [
+              "## LlamaGuard hosted access preflight",
+              "",
+              f"- status: `{report.get('status', 'unknown')}`",
+              f"- model: `{runtime.get('model_id', 'unknown')}`",
+              f"- requested revision: `{runtime.get('model_revision', 'unknown')}`",
+              f"- resolved revision: `{runtime.get('resolved_model_revision', 'unknown')}`",
+              f"- probe files: `{len(report.get('probe_files') or [])}`",
+              f"- failure kind: `{failure.get('kind', 'none')}`",
+              "- model inference: `not run`",
+              "- model weights: `not downloaded`",
+              "- release authority: `none`",
+              "",
+          ]
+          summary_path.write_text("\n".join(lines), encoding="utf-8")
+          PY
