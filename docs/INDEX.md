@@ -207,6 +207,7 @@ It does not create authority beyond the artifact-bound path defined by the linke
 
 ## Theory and measurement protocols
 
+- [PULSEMECH_RELATION_HALF_PARADOX_MATHEMATICAL_PHYSICAL_QUANTUM_FORMULATION_v0.md](PULSEMECH_RELATION_HALF_PARADOX_MATHEMATICAL_PHYSICAL_QUANTUM_FORMULATION_v0.md) — **Reader / audit surface.** Target-relative technical formulation across mathematical systems, classical mechanics, control theory, information theory, finite-dimensional quantum mechanics, and PULSEmech decision mechanics; non-normative and non-authorizing.
 - [theory_overlay_v0.md](theory_overlay_v0.md) — Theory Overlay v0 diagnostic contract.
 - [time_as_consequence_v0_1.md](time_as_consequence_v0_1.md) — Workshop paper on time as consequence.
 - [time_as_consequence_one_pager_v0_1.md](time_as_consequence_one_pager_v0_1.md) — One-page summary.
