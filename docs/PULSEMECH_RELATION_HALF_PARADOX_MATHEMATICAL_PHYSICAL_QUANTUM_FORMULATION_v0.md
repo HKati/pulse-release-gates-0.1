@@ -1,3 +1,4 @@
+[PULSEMECH_RELATION_HALF_PARADOX_MATHEMATICAL_PHYSICAL_QUANTUM_FORMULATION_v0(2).md](https://github.com/user-attachments/files/29932036/PULSEMECH_RELATION_HALF_PARADOX_MATHEMATICAL_PHYSICAL_QUANTUM_FORMULATION_v0.2.md)
 # PULSEmech Relation and Half-Paradox — Mathematical, Physical, and Quantum-Mechanical Formulation v0
 
 **Status:** Technical note  
@@ -108,7 +109,7 @@ basis, together with the corresponding PULSEmech decision-mechanism mapping.
 
 Let a system be represented by:
 
-$$
+```math
 \Sigma =
 \left(
 \mathcal X,
@@ -120,7 +121,7 @@ H,
 \mathcal C,
 \mathcal R
 \right).
-$$
+```
 
 Where:
 
@@ -135,37 +136,37 @@ Where:
 
 For a discrete transition:
 
-$$
+```math
 x_{k+1} = \Phi(x_k,u_k,\theta_k),
-$$
+```
 
-$$
+```math
 y_k = H(x_k,\theta_k),
-$$
+```
 
-$$
+```math
 c_k = \mathcal C(x_k,u_k,x_{k+1},\theta_k).
-$$
+```
 
 A relation may be represented as a family of constraints:
 
-$$
+```math
 \mathcal R_j(x,u,\theta)=0,
-$$
+```
 
 or inequalities:
 
-$$
+```math
 g_j(x,u,\theta)\le 0.
-$$
+```
 
 The system is not determined by one isolated value.
 
 Its operating description is carried by the connected tuple:
 
-$$
+```math
 (x,\theta,u,\Phi,H,\mathcal C,\mathcal R).
-$$
+```
 
 Removing any component may be harmless for a narrow target.
 
@@ -178,24 +179,24 @@ result.
 
 Let:
 
-$$
+```math
 \pi_A:\mathcal X\rightarrow\mathcal X_A
-$$
+```
 
 be a projection onto a partial state.
 
 The projection is non-injective when there exist physically distinct states
 $x_1$ and $x_2$ such that:
 
-$$
+```math
 x_1\not\sim x_2,
-$$
+```
 
 but:
 
-$$
+```math
 \pi_A(x_1)=\pi_A(x_2).
-$$
+```
 
 The symbol $\sim$ permits physically irrelevant equivalences, such as a gauge
 equivalence or global phase.
@@ -205,9 +206,9 @@ full physical state.
 
 A half-paradox occurs when the inference:
 
-$$
+```math
 \pi_A(x)\mapsto x
-$$
+```
 
 is treated as unique even though it is not.
 
@@ -223,26 +224,26 @@ noise-free observation model.
 
 For an observation $y$, define:
 
-$$
+```math
 \mathcal K(y)
 =
 \left\{
 x\in\mathcal X:
 H(x)=y
 \right\}.
-$$
+```
 
 A valid exact reconstruction requires both:
 
-$$
+```math
 \mathcal K(y)\ne\varnothing
-$$
+```
 
 and:
 
-$$
+```math
 \left|\mathcal K(y)/{\sim}\right|=1.
-$$
+```
 
 The non-emptiness condition states that at least one admissible state is
 compatible with the observation.
@@ -252,9 +253,9 @@ one physically equivalent class.
 
 If:
 
-$$
+```math
 \mathcal K(y)=\varnothing,
-$$
+```
 
 the observation is incompatible with the declared exact model.
 
@@ -276,14 +277,14 @@ Examples include:
 
 A tolerance set may be written as:
 
-$$
+```math
 \mathcal K_\varepsilon(y)
 =
 \left\{
 x\in\mathcal X:
 \left\|H(x)-y\right\|\le\varepsilon
 \right\},
-$$
+```
 
 where the norm, tolerance, and measurement units must be declared.
 
@@ -296,9 +297,9 @@ state.
 
 It is the remaining admissible set:
 
-$$
+```math
 x\in\mathcal K(y).
-$$
+```
 
 For a noisy model, the correct carrier is the declared tolerance set,
 likelihood, confidence region, or posterior distribution.
@@ -314,29 +315,29 @@ Full state reconstruction is not required for every valid decision.
 
 Let:
 
-$$
+```math
 D:\mathcal X\rightarrow\mathcal D
-$$
+```
 
 be a declared decision function.
 
 A partial observation $\pi_A(x)$ is sufficient for that decision if there
 exists a function $\widetilde D$ such that:
 
-$$
+```math
 D(x)=\widetilde D(\pi_A(x))
-$$
+```
 
 for every admissible $x$.
 
 Equivalent failure criterion:
 
-$$
+```math
 \exists x_1,x_2\in\mathcal X:
 \pi_A(x_1)=\pi_A(x_2)
 \quad\text{and}\quad
 D(x_1)\ne D(x_2).
-$$
+```
 
 If such $x_1,x_2$ exist, the projection is not sufficient for the declared
 decision.
@@ -376,15 +377,15 @@ recorded output.
 
 Define the residual:
 
-$$
+```math
 r_y(t)=y(t)-\widehat y(t).
-$$
+```
 
 A signal is detected when, for a declared norm and threshold:
 
-$$
+```math
 \|r_y(t)\|>\varepsilon.
-$$
+```
 
 The norm, threshold, sampling interval, and measurement units must be declared.
 
@@ -392,21 +393,21 @@ The norm, threshold, sampling interval, and measurement units must be declared.
 
 Observation refinement expands the observation map:
 
-$$
+```math
 H
 \longrightarrow
 H^+
 =
 (H,h_{m+1},\ldots,h_{m+q}).
-$$
+```
 
 The intended result is a smaller consistency set:
 
-$$
+```math
 \mathcal K_{H^+}(y^+)
 \subseteq
 \mathcal K_H(y).
-$$
+```
 
 The refinement is sufficient for the declared target when the remaining
 compatible equivalence classes no longer produce different target results.
@@ -416,26 +417,26 @@ compatible equivalence classes no longer produce different target results.
 For an exact deterministic observation model, unique full-state
 identification requires:
 
-$$
+```math
 \mathcal K(y)\ne\varnothing
 \quad\land\quad
 \left|\mathcal K(y)/{\sim}\right|=1.
-$$
+```
 
 For exact decision sufficiency, the decision must be constant over a non-empty
 consistency set:
 
-$$
+```math
 \mathcal K(y)\ne\varnothing
-$$
+```
 
 and:
 
-$$
+```math
 D(x)=d_*
 \qquad
 \forall x\in\mathcal K(y)
-$$
+```
 
 for one declared decision value $d_*$.
 
@@ -454,7 +455,7 @@ This section defines only a mechanical constraint-binding analogue.
 
 Let:
 
-$$
+```math
 \mathcal U_{\mathrm{adm}}(x,\theta)
 =
 \left\{
@@ -462,7 +463,7 @@ u\in\mathcal U:
 g_j(x,u,\theta)\le 0
 \ \forall j
 \right\}.
-$$
+```
 
 Before the relevant state and parameter relation is identified,
 $\mathcal U_{\mathrm{adm}}$ may be unevaluable.
@@ -492,33 +493,33 @@ realize from state $x$.
 
 Define the executable control set:
 
-$$
+```math
 \mathcal U_{\mathrm{exec}}(x,\theta)
 =
 \mathcal U_{\mathrm{adm}}(x,\theta)
 \cap
 \mathcal U_{\mathrm{reach}}(x).
-$$
+```
 
 The set may be empty, a singleton, or contain multiple admissible controls.
 
 After selecting:
 
-$$
+```math
 u\in\mathcal U_{\mathrm{exec}}(x,\theta),
-$$
+```
 
 the transition is:
 
-$$
+```math
 x^+=\Phi(x,u,\theta),
-$$
+```
 
 and the consequence is:
 
-$$
+```math
 c=\mathcal C(x,u,x^+,\theta).
-$$
+```
 
 The selected control input determines the realized transition and consequence
 within the already evaluated constraint structure.
@@ -529,17 +530,17 @@ within the already evaluated constraint structure.
 
 Consider a continuous-time linear time-invariant system:
 
-$$
+```math
 \dot x(t)=Ax(t)+Bu(t),
-$$
+```
 
-$$
+```math
 y(t)=Cx(t).
-$$
+```
 
 For an $n$-dimensional state, define the observability matrix:
 
-$$
+```math
 \mathcal O
 =
 \begin{bmatrix}
@@ -549,38 +550,38 @@ CA^2\\
 \vdots\\
 CA^{n-1}
 \end{bmatrix}.
-$$
+```
 
 The system is observable when:
 
-$$
-\operatorname{rank}(\mathcal O)=n.
-$$
+```math
+\mathrm{rank}(\mathcal O)=n.
+```
 
 If:
 
-$$
-\operatorname{rank}(\mathcal O)<n,
-$$
+```math
+\mathrm{rank}(\mathcal O)<n,
+```
 
 there exists a nonzero unobservable direction:
 
-$$
+```math
 v\in\ker(\mathcal O).
-$$
+```
 
 Then, under the same input history and the same known system matrices, the
 distinct initial states:
 
-$$
+```math
 x_0
-$$
+```
 
 and:
 
-$$
+```math
 x_0+v
-$$
+```
 
 produce the same output history.
 
@@ -623,45 +624,45 @@ Let $A$ and $B$ be two binary variables.
 
 ### 8.1 Independent distribution
 
-$$
+```math
 p_{\mathrm{ind}}(a,b)=\frac14
-$$
+```
 
 for all four pairs.
 
 Then:
 
-$$
+```math
 p_A(0)=p_A(1)=\frac12,
-$$
+```
 
-$$
+```math
 p_B(0)=p_B(1)=\frac12.
-$$
+```
 
 ### 8.2 Perfectly correlated distribution
 
 Let:
 
-$$
+```math
 p_{\mathrm{corr}}(0,0)=\frac12,
-$$
+```
 
-$$
+```math
 p_{\mathrm{corr}}(1,1)=\frac12,
-$$
+```
 
 and the other two probabilities be zero.
 
 The marginals are still:
 
-$$
+```math
 p_A(0)=p_A(1)=\frac12,
-$$
+```
 
-$$
+```math
 p_B(0)=p_B(1)=\frac12.
-$$
+```
 
 The local distributions are identical in both cases.
 
@@ -669,15 +670,15 @@ The relations are not.
 
 For the independent distribution:
 
-$$
+```math
 I(A;B)=0.
-$$
+```
 
 For the perfectly correlated distribution:
 
-$$
+```math
 I(A;B)=1\ \text{bit}.
-$$
+```
 
 Therefore:
 
@@ -696,15 +697,15 @@ half-paradox.
 Let $X$ be the underlying state, $Y$ an observation, and $M$ a downstream
 metadata record, score, certificate, or summary generated only from $Y$:
 
-$$
+```math
 X\rightarrow Y\rightarrow M.
-$$
+```
 
 The data-processing inequality gives:
 
-$$
+```math
 I(X;M)\le I(X;Y).
-$$
+```
 
 A downstream representation cannot contain more information about $X$ than the
 observation from which it was generated.
@@ -744,45 +745,45 @@ projection unless new independent evidence is introduced.
 
 For an ideal lever in static equilibrium:
 
-$$
+```math
 \sum \tau = 0.
-$$
+```
 
 With effort force $F_e$, effort arm $d_e$, load force $F_l$, and load arm
 $d_l$:
 
-$$
+```math
 F_e d_e = F_l d_l.
-$$
+```
 
 The ideal mechanical advantage is:
 
-$$
+```math
 \mathrm{MA}
 =
 \frac{F_l}{F_e}
 =
 \frac{d_e}{d_l}.
-$$
+```
 
 For an ideal quasistatic and lossless displacement, the input and output work
 magnitudes satisfy:
 
-$$
+```math
 \left|F_e\,\delta s_e\right|
 =
 \left|F_l\,\delta s_l\right|.
-$$
+```
 
 Equivalently, with a signed virtual-displacement convention:
 
-$$
+```math
 F_e\,\delta s_e
 +
 F_l\,\delta s_l
 =
 0.
-$$
+```
 
 The smaller effort force is related to a larger displacement or arm.
 
@@ -807,51 +808,51 @@ value.
 
 For a one-dimensional harmonic oscillator:
 
-$$
+```math
 H(q,p)
 =
 \frac{p^2}{2m}
 +
 \frac{kq^2}{2}.
-$$
+```
 
 The state is:
 
-$$
+```math
 x=
 \begin{bmatrix}
 q\\
 p
 \end{bmatrix}.
-$$
+```
 
 The dynamics are:
 
-$$
+```math
 \dot q=\frac{p}{m},
-$$
+```
 
-$$
+```math
 \dot p=-kq.
-$$
+```
 
 Two states may have the same position:
 
-$$
+```math
 q_1=q_2,
-$$
+```
 
 but different momenta:
 
-$$
+```math
 p_1\ne p_2.
-$$
+```
 
 Their future trajectories differ immediately because:
 
-$$
+```math
 \dot q_1\ne\dot q_2.
-$$
+```
 
 Therefore:
 
@@ -874,19 +875,19 @@ Again, sufficiency is target-relative.
 
 Let a mirror plane be defined by a unit normal vector $n$ and scalar $d$:
 
-$$
+```math
 n\cdot x=d.
-$$
+```
 
 The reflected point corresponding to a physical point $x$ is:
 
-$$
+```math
 x'
 =
 x
 -
 2(n\cdot x-d)n.
-$$
+```
 
 The virtual image position is not an independent object position.
 
@@ -927,13 +928,13 @@ state transitions.
 
 Consider a networked dynamical system:
 
-$$
+```math
 \dot x_i
 =
 f_i(x_i)
 +
 \sum_j a_{ij}g_{ij}(x_i,x_j).
-$$
+```
 
 A regime should not be reduced to one unlabelled scalar.
 
@@ -951,22 +952,22 @@ Useful measurement axes include:
 
 Where $J$ is the Jacobian of the dynamics around the operating point:
 
-$$
+```math
 J
 =
 \left.
 \frac{\partial F}{\partial x}
 \right|_{x=x_*}.
-$$
+```
 
 The spectral abscissa is:
 
-$$
+```math
 \alpha(J)
 =
 \max_{\lambda\in\sigma(J)}
-\operatorname{Re}\lambda.
-$$
+\mathrm{Re}\lambda.
+```
 
 For the local LTI model, the spectral abscissa characterizes asymptotic
 exponential behavior.
@@ -976,9 +977,9 @@ non-normal.
 
 A finite-time response measure may instead use:
 
-$$
+```math
 \left\|e^{Jt}\right\|.
-$$
+```
 
 The norm and the time interval must be declared.
 
@@ -1015,12 +1016,12 @@ High coupling density does not by itself imply instability.
 
 Linearized perturbations evolve approximately as:
 
-$$
+```math
 \delta x(t)
 \approx
 e^{J(t-t_0)}
 \delta x(t_0).
-$$
+```
 
 Asymptotic growth or decay depends on the eigenstructure, damping, feedback
 sign, delay, and nonlinear operating region.
@@ -1029,15 +1030,15 @@ Finite-time growth also depends on modal geometry and non-normality.
 
 A system with:
 
-$$
+```math
 \alpha(J)<0
-$$
+```
 
 may still exhibit transient amplification when:
 
-$$
+```math
 \left\|e^{Jt}\right\|>1
-$$
+```
 
 over a finite interval.
 
@@ -1065,41 +1066,41 @@ can be represented mechanically.
 
 ### 14.1 Tick: recorded state
 
-$$
+```math
 \mathrm{tick}
 =
 x(t_0).
-$$
+```
 
 ### 14.2 Tock: transition
 
-$$
+```math
 \mathrm{tock}
 =
 x(t_1)
 =
 \Phi_{t_1,t_0}(x(t_0),u,\theta).
-$$
+```
 
 ### 14.3 Tek: propagated consequence
 
 For a perturbation introduced in component $i$, define a response kernel:
 
-$$
+```math
 G_{ji}(t,t_0)
 =
 \frac{\partial x_j(t)}
 {\partial x_i(t_0)}.
-$$
+```
 
 Then:
 
-$$
+```math
 \delta x_j(t)
 \approx
 G_{ji}(t,t_0)\,
 \delta x_i(t_0).
-$$
+```
 
 The **tek** is the response field:
 
@@ -1113,15 +1114,15 @@ with what return effect
 
 To compare components with different physical units, define normalized states:
 
-$$
+```math
 \widetilde x_j=\frac{x_j}{s_j},
-$$
+```
 
 where $s_j$ carries the unit of $x_j$.
 
 A dimensionless average impact measure over $[t_0,T]$ may then be written:
 
-$$
+```math
 \mathcal I_i(T)
 =
 \frac{1}{T-t_0}
@@ -1133,7 +1134,7 @@ w_j
 {\partial \widetilde x_i(t_0)}
 \right|
 dt,
-$$
+```
 
 with dimensionless weights $w_j$.
 
@@ -1177,57 +1178,57 @@ finite-dimensional.
 
 A quantum state is represented by a density operator:
 
-$$
+```math
 \rho\ge 0,
-$$
+```
 
-$$
-\operatorname{Tr}\rho=1.
-$$
+```math
+\mathrm{Tr}\rho=1.
+```
 
 A measurement is represented by a positive-operator-valued measure:
 
-$$
+```math
 \{E_k\},
-$$
+```
 
 with:
 
-$$
+```math
 E_k\ge 0,
-$$
+```
 
-$$
+```math
 \sum_k E_k=I.
-$$
+```
 
 The outcome probabilities are:
 
-$$
+```math
 p(k|\rho)
 =
-\operatorname{Tr}(\rho E_k).
-$$
+\mathrm{Tr}(\rho E_k).
+```
 
 Define the measurement map:
 
-$$
+```math
 \mathcal M_E(\rho)
 =
 \left(
-\operatorname{Tr}(\rho E_1),
+\mathrm{Tr}(\rho E_1),
 \ldots,
-\operatorname{Tr}(\rho E_m)
+\mathrm{Tr}(\rho E_m)
 \right).
-$$
+```
 
 If there exist distinct states $\rho_1\ne\rho_2$ such that:
 
-$$
+```math
 \mathcal M_E(\rho_1)
 =
 \mathcal M_E(\rho_2),
-$$
+```
 
 the measurement is not informationally complete for the declared state class.
 
@@ -1248,13 +1249,13 @@ which has dimension $d^2$.
 
 Operationally, informational completeness means:
 
-$$
+```math
 \mathcal M_E(\rho_1)
 =
 \mathcal M_E(\rho_2)
 \Longrightarrow
 \rho_1=\rho_2.
-$$
+```
 
 Quantum state tomography uses repeated measurements on identically prepared
 systems and an informationally sufficient measurement design to estimate
@@ -1262,11 +1263,11 @@ $\rho$.
 
 For pure states, reconstruction is only required up to global phase:
 
-$$
+```math
 |\psi\rangle
 \sim
 e^{i\phi}|\psi\rangle.
-$$
+```
 
 The formal lesson is:
 
@@ -1297,9 +1298,9 @@ Let $A$ and $B$ be self-adjoint observables.
 
 If:
 
-$$
+```math
 [A,B]=AB-BA\ne 0,
-$$
+```
 
 their measurement statistics cannot generally be reduced to one shared set of
 simultaneously sharp values.
@@ -1307,17 +1308,17 @@ simultaneously sharp values.
 For states and operators for which the variances and commutator expectation are
 defined, the Robertson relation is:
 
-$$
+```math
 \Delta A\,\Delta B
 \ge
 \frac12
 \left|
-\operatorname{Tr}
+\mathrm{Tr}
 \left(
 \rho[A,B]
 \right)
 \right|.
-$$
+```
 
 This does not mean:
 
@@ -1345,55 +1346,55 @@ relevant to every other context.
 
 Consider the Bell state:
 
-$$
+```math
 |\Phi^+\rangle
 =
 \frac{|00\rangle+|11\rangle}{\sqrt2}.
-$$
+```
 
 Its density operator is:
 
-$$
+```math
 \rho_{\Phi}
 =
 |\Phi^+\rangle\langle\Phi^+|.
-$$
+```
 
 The reduced state of subsystem $A$ is:
 
-$$
+```math
 \rho_A
 =
-\operatorname{Tr}_B(\rho_{\Phi})
+\mathrm{Tr}_B(\rho_{\Phi})
 =
 \frac{I_2}{2}.
-$$
+```
 
 The same is true for subsystem $B$.
 
 Now consider the separable mixed state:
 
-$$
+```math
 \rho_{\mathrm{mix}}
 =
 \frac12|00\rangle\langle00|
 +
 \frac12|11\rangle\langle11|.
-$$
+```
 
 Its reduced states are also:
 
-$$
-\operatorname{Tr}_B(\rho_{\mathrm{mix}})
+```math
+\mathrm{Tr}_B(\rho_{\mathrm{mix}})
 =
 \frac{I_2}{2},
-$$
+```
 
-$$
-\operatorname{Tr}_A(\rho_{\mathrm{mix}})
+```math
+\mathrm{Tr}_A(\rho_{\mathrm{mix}})
 =
 \frac{I_2}{2}.
-$$
+```
 
 The local states are identical.
 
@@ -1401,13 +1402,13 @@ The global states are not.
 
 Their purities differ:
 
-$$
-\operatorname{Tr}(\rho_{\Phi}^2)=1,
-$$
+```math
+\mathrm{Tr}(\rho_{\Phi}^2)=1,
+```
 
-$$
-\operatorname{Tr}(\rho_{\mathrm{mix}}^2)=\frac12.
-$$
+```math
+\mathrm{Tr}(\rho_{\mathrm{mix}}^2)=\frac12.
+```
 
 The Bell state contains coherent quantum correlation terms that the separable
 mixture does not.
@@ -1430,28 +1431,28 @@ The missing object is the relation carried by the correlations.
 
 For a joint system–environment state:
 
-$$
+```math
 \rho_{SE}(0),
-$$
+```
 
 with global unitary evolution:
 
-$$
+```math
 \rho_{SE}(t)
 =
 U(t)\rho_{SE}(0)U^\dagger(t),
-$$
+```
 
 the reduced system state is:
 
-$$
+```math
 \rho_S(t)
 =
-\operatorname{Tr}_E
+\mathrm{Tr}_E
 \left[
 \rho_{SE}(t)
 \right].
-$$
+```
 
 The partial trace removes explicit environment degrees of freedom and
 system–environment correlation detail.
@@ -1462,7 +1463,7 @@ unitary.
 Under Markovian quantum-dynamical-semigroup assumptions, a reduced evolution
 may be represented in GKLS form:
 
-$$
+```math
 \frac{d\rho}{dt}
 =
 -\frac{i}{\hbar}[H,\rho]
@@ -1477,7 +1478,7 @@ L_\mu^\dagger L_\mu,
 \rho
 \right\}
 \right).
-$$
+```
 
 The reduced equation is not the full closed-system state.
 
@@ -1581,7 +1582,7 @@ Let:
 
 Define materialization and lane-contract validity as:
 
-$$
+```math
 V(P,\ell,G_{\mathrm{eff}})
 =
 \begin{cases}
@@ -1599,29 +1600,29 @@ G_{\mathrm{eff}}=\Gamma(P,\ell)
 &
 \text{otherwise}.
 \end{cases}
-$$
+```
 
 For a release-authorizing lane, the lane contract includes:
 
-$$
+```math
 G_{\mathrm{eff}}\ne\varnothing.
-$$
+```
 
 It may also include additional declared requirements, such as the exact policy
 identity, policy digest, gate-set identity, and atomic materialization result.
 
 Let:
 
-$$
-\operatorname{dom}(S)
-$$
+```math
+\mathrm{dom}(S)
+```
 
 denote the set of gate keys explicitly present in the final machine-readable
 state.
 
 Define strict gate evaluation as:
 
-$$
+```math
 Q(S,G_{\mathrm{eff}})
 =
 \begin{cases}
@@ -1629,7 +1630,7 @@ Q(S,G_{\mathrm{eff}})
 &
 G_{\mathrm{eff}}
 \subseteq
-\operatorname{dom}(S)
+\mathrm{dom}(S)
 \ \land\
 \forall g\in G_{\mathrm{eff}},
 \ S[g]=\mathrm{true},
@@ -1638,7 +1639,7 @@ G_{\mathrm{eff}}
 &
 \text{otherwise}.
 \end{cases}
-$$
+```
 
 Here, $\mathrm{true}$ means the literal boolean value required by the strict
 gate contract.
@@ -1647,13 +1648,13 @@ A missing gate key is not interpreted as false, true, null, or unknown.
 
 It causes:
 
-$$
+```math
 Q(S,G_{\mathrm{eff}})=0.
-$$
+```
 
 A simplified decision relation is then:
 
-$$
+```math
 D(E,S,P,\ell,r)
 =
 \begin{cases}
@@ -1669,7 +1670,7 @@ Q(S,G_{\mathrm{eff}})=1,
 &
 \text{otherwise}.
 \end{cases}
-$$
+```
 
 This decomposition is explicitly fail-closed:
 
