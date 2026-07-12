@@ -117,6 +117,17 @@ def _top_level_job_blocks(text: str) -> dict[str, str]:
     return blocks
 
 
+def _step_block(text: str, step_name: str) -> str:
+    marker = f"      - name: {step_name}"
+    start = text.index(marker)
+    next_step = text.find("\n      - name:", start + len(marker))
+
+    if next_step == -1:
+        return text[start:]
+
+    return text[start:next_step]
+
+
 def _workflow_and_jobs() -> tuple[str, dict[str, str]]:
     text = _read_workflow()
     blocks = _top_level_job_blocks(text)
@@ -195,6 +206,28 @@ def test_complete_package_job_downloads_required_inputs() -> None:
         assert path in package_job, path
 
 
+def test_recorded_path_upload_excludes_audit_bundle_artifacts() -> None:
+    text = _read_workflow()
+    recorded_step = _step_block(
+        text,
+        "Upload release-grade recorded path artifacts",
+    )
+    audit_bundle_step = _step_block(
+        text,
+        "Upload final release authority audit bundle",
+    )
+
+    assert (
+        "PULSE_safe_pack_v0/artifacts/release_authority_audit_bundle/**"
+        not in recorded_step
+    )
+    assert "name: release-authority-audit-bundle" in audit_bundle_step
+    assert (
+        "path: PULSE_safe_pack_v0/artifacts/release_authority_audit_bundle/"
+        in audit_bundle_step
+    )
+
+
 def test_complete_package_job_uses_existing_canonical_assembler_tool() -> None:
     _text, blocks = _workflow_and_jobs()
     package_job = blocks[PACKAGE_JOB]
@@ -263,6 +296,7 @@ def main() -> int:
     test_complete_package_job_order_and_dependencies()
     test_complete_package_job_is_release_grade_only()
     test_complete_package_job_downloads_required_inputs()
+    test_recorded_path_upload_excludes_audit_bundle_artifacts()
     test_complete_package_job_uses_existing_canonical_assembler_tool()
     test_complete_package_job_builds_fresh_directory()
     test_complete_package_job_uploads_complete_package_artifact()

@@ -3226,7 +3226,6 @@ jobs:
             PULSE_safe_pack_v0/artifacts/report_card.with_release_decision.html
             PULSE_safe_pack_v0/artifacts/release_authority_v0.json
             PULSE_safe_pack_v0/artifacts/artifact_provenance_binding_v0.json
-            PULSE_safe_pack_v0/artifacts/release_authority_audit_bundle/**
             PULSE_safe_pack_v0/artifacts/reports/junit.xml
             PULSE_safe_pack_v0/artifacts/reports/sarif.json
             PULSE_safe_pack_v0/artifacts/external/llamaguard_raw.jsonl
