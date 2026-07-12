@@ -44,19 +44,13 @@ PRE_ATTESTATION_RELEASE_TOOLS = (
     "tools/materialize_release_required_from_verifier_v0.py",
 )
 
-ATTESTED_EXTERNAL_ARTIFACT_PATHS = (
-    "PULSE_safe_pack_v0/artifacts/external/llamaguard_raw.jsonl",
-    (
-        "PULSE_safe_pack_v0/artifacts/external/"
-        "llamaguard_evaluator_manifest_v0.json"
-    ),
-    "PULSE_safe_pack_v0/artifacts/external/llamaguard_summary.json",
-    "PULSE_safe_pack_v0/artifacts/external/llamaguard_summary.bundle.json",
-    "PULSE_safe_pack_v0/artifacts/external/llamaguard_summary.envelope.json",
-    (
-        "PULSE_safe_pack_v0/artifacts/external/"
-        "llamaguard_attestation_verifier_v1.json"
-    ),
+ATTESTED_EXTERNAL_FILENAMES = (
+    "llamaguard_raw.jsonl",
+    "llamaguard_evaluator_manifest_v0.json",
+    "llamaguard_summary.json",
+    "llamaguard_summary.bundle.json",
+    "llamaguard_summary.envelope.json",
+    "llamaguard_attestation_verifier_v1.json",
 )
 
 
@@ -293,18 +287,36 @@ def test_recorded_path_restores_attested_evidence_before_verification() -> None:
     _text, blocks = _workflow_and_jobs()
     job = blocks[RELEASE_PATH_JOB]
 
-    artifact_index = job.index(ATTESTED_DOWNLOAD_ARTIFACT)
-
-    for artifact_path in ATTESTED_EXTERNAL_ARTIFACT_PATHS:
-        assert artifact_index < job.index(artifact_path)
+    step_name = "Download attested LlamaGuard external evidence"
+    download = _step_block(job, step_name)
+    download_step_index = job.index(f"      - name: {step_name}")
 
     first_tool_index = min(
         job.index(tool)
         for tool in PRE_ATTESTATION_RELEASE_TOOLS
     )
 
-    for artifact_path in ATTESTED_EXTERNAL_ARTIFACT_PATHS:
-        assert job.index(artifact_path) < first_tool_index
+    assert download_step_index < first_tool_index
+    assert ATTESTED_DOWNLOAD_ARTIFACT in download
+    assert (
+        'CANONICAL_EXTERNAL="${GITHUB_WORKSPACE}/'
+        'PULSE_safe_pack_v0/artifacts/external"'
+        in download
+    )
+    assert "restore_external_artifact" in download
+
+    for filename in ATTESTED_EXTERNAL_FILENAMES:
+        assert f'"{filename}"' in download, filename
+        destination = f'"${{CANONICAL_EXTERNAL}}/{filename}"'
+        assert destination in download, destination
+
+    for token in (
+        'if [[ -z "${src}" ]]',
+        'if [[ -L "${src}" ]]',
+        'if [[ ! -f "${artifact}" || -L "${artifact}" || ! -s "${artifact}" ]]',
+        'sha256sum "${artifact}"',
+    ):
+        assert token in download, token
 
 
 def test_recorded_path_materializes_before_combined_enforcement() -> None:
