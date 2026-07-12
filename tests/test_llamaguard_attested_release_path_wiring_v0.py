@@ -10,17 +10,23 @@ TOOLS_TESTS_LIST = REPO_ROOT / "ci" / "tools-tests.list"
 
 ATTEST_JOB = "attest_llamaguard_current_run_summary"
 RELEASE_PATH_JOB = "release_grade_recorded_path"
+RELEASE_BINDING_ATTEST_JOB = "attest_release_grade_artifact_binding"
 PACKAGE_JOB = "assemble_release_grade_reference_package"
 VERIFY_JOB = "verify_release_grade_reference_package"
 
-PRE_ATTESTATION_ARTIFACT = (
+PRE_ATTESTATION_UPLOAD_ARTIFACT = (
     "pulse-pre-attestation-"
     "${{ github.run_id }}-${{ github.run_attempt }}"
 )
 
-ATTESTED_ARTIFACT = (
+PRE_ATTESTATION_DOWNLOAD_ARTIFACT = (
+    "pulse-pre-attestation-"
+    "${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+)
+
+ATTESTED_DOWNLOAD_ARTIFACT = (
     "llamaguard-attested-current-run-"
-    "${{ github.run_id }}-${{ github.run_attempt }}"
+    "${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
 )
 
 HOSTED_MODE_GUARD_TOKEN = (
@@ -36,13 +42,6 @@ PRE_ATTESTATION_RELEASE_TOOLS = (
     "tools/build_release_evidence_input_manifest_v0.py",
     "tools/check_recorded_release_evidence_v0.py",
     "tools/materialize_release_required_from_verifier_v0.py",
-)
-
-FINAL_AUTHORITY_TOOLS = (
-    "tools/check_gates.py",
-    "tools/materialize_release_decision.py",
-    "tools/build_release_authority_manifest_v0.py",
-    "tools/build_artifact_provenance_binding_v0.py",
 )
 
 ATTESTED_EXTERNAL_ARTIFACT_PATHS = (
@@ -146,7 +145,7 @@ def _workflow_and_jobs() -> tuple[str, dict[str, str]]:
         "pulse",
         ATTEST_JOB,
         RELEASE_PATH_JOB,
-        "attest_release_grade_artifact_binding",
+        RELEASE_BINDING_ATTEST_JOB,
         PACKAGE_JOB,
         VERIFY_JOB,
         "tools-tests",
@@ -166,7 +165,7 @@ def test_release_grade_job_order() -> None:
     attest_index = text.index(f"  {ATTEST_JOB}:")
     release_path_index = text.index(f"  {RELEASE_PATH_JOB}:")
     binding_attest_index = text.index(
-        "  attest_release_grade_artifact_binding:"
+        f"  {RELEASE_BINDING_ATTEST_JOB}:"
     )
     package_index = text.index(f"  {PACKAGE_JOB}:")
     verify_index = text.index(f"  {VERIFY_JOB}:")
@@ -215,7 +214,7 @@ def test_pre_attestation_artifact_is_uploaded_fail_closed() -> None:
         "Upload release-grade pre-attestation pulse artifacts",
     )
 
-    assert PRE_ATTESTATION_ARTIFACT in upload
+    assert PRE_ATTESTATION_UPLOAD_ARTIFACT in upload
     assert "if-no-files-found: error" in upload
     assert "retention-days: 30" in upload
 
@@ -244,7 +243,7 @@ def test_recorded_path_downloads_pre_attestation_artifact() -> None:
         "Download pre-attestation pulse artifacts",
     )
 
-    assert PRE_ATTESTATION_ARTIFACT in download
+    assert PRE_ATTESTATION_DOWNLOAD_ARTIFACT in download
     assert '--repo "${GITHUB_REPOSITORY}"' in download
 
     for required in (
@@ -294,7 +293,7 @@ def test_recorded_path_restores_attested_evidence_before_verification() -> None:
     _text, blocks = _workflow_and_jobs()
     job = blocks[RELEASE_PATH_JOB]
 
-    artifact_index = job.index(ATTESTED_ARTIFACT)
+    artifact_index = job.index(ATTESTED_DOWNLOAD_ARTIFACT)
 
     for artifact_path in ATTESTED_EXTERNAL_ARTIFACT_PATHS:
         assert artifact_index < job.index(artifact_path)
@@ -414,10 +413,29 @@ def test_release_path_does_not_introduce_parallel_decision_engines() -> None:
 def test_downstream_package_dependency_chain_is_preserved() -> None:
     _text, blocks = _workflow_and_jobs()
 
+    package = blocks[PACKAGE_JOB]
+
     assert _job_field(
-        blocks[PACKAGE_JOB],
+        package,
         "needs",
-    ) == RELEASE_PATH_JOB
+    ) == (
+        "[release_grade_recorded_path, "
+        "attest_release_grade_artifact_binding]"
+    )
+
+    package_guard = _job_field(
+        package,
+        "if",
+    )
+
+    for token in (
+        "needs.release_grade_recorded_path.result == 'success'",
+        (
+            "needs.attest_release_grade_artifact_binding.result "
+            "== 'success'"
+        ),
+    ):
+        assert token in package_guard, token
 
     assert _job_field(
         blocks[VERIFY_JOB],
