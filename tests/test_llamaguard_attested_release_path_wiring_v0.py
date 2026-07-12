@@ -12,21 +12,23 @@ ATTEST_JOB = "attest_llamaguard_current_run_summary"
 RELEASE_PATH_JOB = "release_grade_recorded_path"
 PACKAGE_JOB = "assemble_release_grade_reference_package"
 VERIFY_JOB = "verify_release_grade_reference_package"
+
+PRE_ATTESTATION_ARTIFACT = (
+    "pulse-pre-attestation-"
+    "${{ github.run_id }}-${{ github.run_attempt }}"
+)
+
 ATTESTED_ARTIFACT = (
     "llamaguard-attested-current-run-"
     "${{ github.run_id }}-${{ github.run_attempt }}"
 )
+
 HOSTED_MODE_GUARD_TOKEN = (
     "github.event.inputs.llamaguard_evidence_mode == 'hosted_full_runtime'"
 )
 
-STRICT_RELEASE_GUARD_TOKENS = (
-    "github.event_name != 'pull_request'",
-    "needs.attest_llamaguard_current_run_summary.result == 'success'",
-    "strict_external_evidence == 'true'",
-    "startsWith(github.ref, 'refs/tags/v')",
-    "startsWith(github.ref, 'refs/tags/V')",
-    HOSTED_MODE_GUARD_TOKEN,
+NON_RELEASE_STEP_GUARD = (
+    "steps.release_mode.outputs.is_release != '1'"
 )
 
 PRE_ATTESTATION_RELEASE_TOOLS = (
@@ -36,9 +38,11 @@ PRE_ATTESTATION_RELEASE_TOOLS = (
     "tools/materialize_release_required_from_verifier_v0.py",
 )
 
-RELEASE_PATH_TOOLS = (
-    *PRE_ATTESTATION_RELEASE_TOOLS,
+FINAL_AUTHORITY_TOOLS = (
     "tools/check_gates.py",
+    "tools/materialize_release_decision.py",
+    "tools/build_release_authority_manifest_v0.py",
+    "tools/build_artifact_provenance_binding_v0.py",
 )
 
 ATTESTED_EXTERNAL_ARTIFACT_PATHS = (
@@ -116,31 +120,53 @@ def _job_field(job_block: str, field_name: str) -> str:
     raise AssertionError(f"missing job field: {field_name}")
 
 
+def _step_block(job_block: str, step_name: str) -> str:
+    marker = f"      - name: {step_name}"
+    start = job_block.find(marker)
+
+    if start < 0:
+        raise AssertionError(f"missing workflow step: {step_name}")
+
+    next_start = job_block.find(
+        "\n      - name:",
+        start + len(marker),
+    )
+
+    if next_start < 0:
+        return job_block[start:]
+
+    return job_block[start:next_start]
+
+
 def _workflow_and_jobs() -> tuple[str, dict[str, str]]:
     text = _read_workflow()
     blocks = _top_level_job_blocks(text)
 
-    for name in (
+    required_jobs = (
         "pulse",
         ATTEST_JOB,
         RELEASE_PATH_JOB,
+        "attest_release_grade_artifact_binding",
         PACKAGE_JOB,
         VERIFY_JOB,
         "tools-tests",
-    ):
+    )
+
+    for name in required_jobs:
         if name not in blocks:
             raise AssertionError(f"missing workflow job: {name}")
 
     return text, blocks
 
 
-def test_attested_release_path_job_order() -> None:
+def test_release_grade_job_order() -> None:
     text, _blocks = _workflow_and_jobs()
 
     pulse_index = text.index("  pulse:")
     attest_index = text.index(f"  {ATTEST_JOB}:")
-    release_path_index = text.index(
-        f"  {RELEASE_PATH_JOB}:"
+    release_path_index = text.index(f"  {RELEASE_PATH_JOB}:")
+    binding_attest_index = text.index(
+        "  attest_release_grade_artifact_binding:"
     )
     package_index = text.index(f"  {PACKAGE_JOB}:")
     verify_index = text.index(f"  {VERIFY_JOB}:")
@@ -150,6 +176,7 @@ def test_attested_release_path_job_order() -> None:
         pulse_index
         < attest_index
         < release_path_index
+        < binding_attest_index
         < package_index
         < verify_index
         < tools_index
@@ -159,6 +186,9 @@ def test_attested_release_path_job_order() -> None:
 def test_attestation_job_is_hosted_external_model_only() -> None:
     _text, blocks = _workflow_and_jobs()
     job = blocks[ATTEST_JOB]
+
+    assert _job_field(job, "needs") == "pulse"
+
     guard = _job_field(job, "if")
 
     for token in (
@@ -172,157 +202,235 @@ def test_attestation_job_is_hosted_external_model_only() -> None:
         assert token in guard, token
 
 
-def test_release_path_depends_on_attested_llamaguard_job() -> None:
+def test_pre_attestation_artifact_is_uploaded_fail_closed() -> None:
+    _text, blocks = _workflow_and_jobs()
+    pulse = blocks["pulse"]
+
+    postconditions = _step_block(
+        pulse,
+        "release-grade pre-attestation artifact postconditions",
+    )
+    upload = _step_block(
+        pulse,
+        "Upload release-grade pre-attestation pulse artifacts",
+    )
+
+    assert PRE_ATTESTATION_ARTIFACT in upload
+    assert "if-no-files-found: error" in upload
+    assert "retention-days: 30" in upload
+
+    for required in (
+        "status.json",
+        "status_baseline.json",
+        "status_summary_baseline.md",
+        "status_summary_baseline.json",
+        "required_gate_evidence_v0.json",
+        "self_contained_pulse_evidence_floor_v0.json",
+        "refusal_delta_summary.json",
+        "llamaguard_raw.jsonl",
+        "llamaguard_evaluator_manifest_v0.json",
+        "llamaguard_summary.json",
+    ):
+        assert required in postconditions, required
+        assert required in upload, required
+
+
+def test_recorded_path_downloads_pre_attestation_artifact() -> None:
     _text, blocks = _workflow_and_jobs()
     job = blocks[RELEASE_PATH_JOB]
 
-    assert _job_field(job, "needs") == ATTEST_JOB
-
-    guard = _job_field(job, "if")
-
-    for token in STRICT_RELEASE_GUARD_TOKENS:
-        assert token in guard, token
-
-
-def test_tools_tests_is_downstream_of_release_path_via_package_verifier() -> None:
-    _text, blocks = _workflow_and_jobs()
-
-    assert _job_field(blocks[PACKAGE_JOB], "needs") == (
-        RELEASE_PATH_JOB
-    )
-    assert _job_field(blocks[VERIFY_JOB], "needs") == (
-        PACKAGE_JOB
-    )
-    assert _job_field(blocks["tools-tests"], "needs") == (
-        VERIFY_JOB
+    download = _step_block(
+        job,
+        "Download pre-attestation pulse artifacts",
     )
 
+    assert PRE_ATTESTATION_ARTIFACT in download
+    assert '--repo "${GITHUB_REPOSITORY}"' in download
 
-def test_release_grade_candidate_path_runs_only_after_attestation() -> None:
+    for required in (
+        "status.json",
+        "status_baseline.json",
+        "status_summary_baseline.md",
+        "status_summary_baseline.json",
+        "required_gate_evidence_v0.json",
+        "self_contained_pulse_evidence_floor_v0.json",
+        "refusal_delta_summary.json",
+    ):
+        assert required in download, required
+
+
+def test_release_grade_candidate_tools_remain_after_attestation() -> None:
     _text, blocks = _workflow_and_jobs()
     pulse = blocks["pulse"]
+    recorded = blocks[RELEASE_PATH_JOB]
 
     for tool in PRE_ATTESTATION_RELEASE_TOOLS:
-        if tool in pulse:
-            raise AssertionError(
-                "release-grade candidate/verifier/materializer "
-                "path must not run in the pre-attestation pulse "
-                f"job: {tool}"
-            )
+        assert tool not in pulse, tool
+        assert tool in recorded, tool
 
 
-def test_core_check_gates_remains_allowed_in_pulse_job() -> None:
+def test_pre_attestation_final_authority_steps_are_core_only() -> None:
     _text, blocks = _workflow_and_jobs()
     pulse = blocks["pulse"]
 
-    assert "tools/check_gates.py" in pulse
-    assert "ci: enforce gates via check_gates (policy-derived)" in pulse
+    step_names = (
+        "Build release authority manifest (audit-only)",
+        '"ci: enforce gates via check_gates (policy-derived)"',
+        '"Release decision v0: materialize artifact"',
+        (
+            '"Release authority artifact binding v0: '
+            'materialize and verify"'
+        ),
+        "Export JUnit and SARIF from final status",
+        "Upload artifacts",
+    )
+
+    for step_name in step_names:
+        block = _step_block(pulse, step_name)
+        assert NON_RELEASE_STEP_GUARD in block, step_name
 
 
-def test_release_path_downloads_attested_external_evidence_first() -> None:
+def test_recorded_path_restores_attested_evidence_before_verification() -> None:
     _text, blocks = _workflow_and_jobs()
     job = blocks[RELEASE_PATH_JOB]
 
-    download_index = job.index(
-        "Download attested LlamaGuard external evidence"
-    )
     artifact_index = job.index(ATTESTED_ARTIFACT)
 
-    assert download_index < artifact_index
-
     for artifact_path in ATTESTED_EXTERNAL_ARTIFACT_PATHS:
-        restored_index = job.index(artifact_path)
-        assert artifact_index < restored_index
+        assert artifact_index < job.index(artifact_path)
 
-    first_release_tool_index = min(
+    first_tool_index = min(
         job.index(tool)
-        for tool in RELEASE_PATH_TOOLS
+        for tool in PRE_ATTESTATION_RELEASE_TOOLS
     )
 
     for artifact_path in ATTESTED_EXTERNAL_ARTIFACT_PATHS:
-        assert job.index(artifact_path) < first_release_tool_index
+        assert job.index(artifact_path) < first_tool_index
 
 
-def test_release_path_uses_existing_standing_tools_in_order() -> None:
+def test_recorded_path_materializes_before_combined_enforcement() -> None:
     _text, blocks = _workflow_and_jobs()
     job = blocks[RELEASE_PATH_JOB]
+
+    materializer = job.index(
+        "tools/materialize_release_required_from_verifier_v0.py"
+    )
+    schema = job.index("release_grade_status_v1.schema.json")
+    no_stub = job.index("ci/check_release_no_stub_status.py")
+    enforcement = job.index(
+        "release-grade enforce required and release-required gates"
+    )
+
+    assert materializer < schema < no_stub < enforcement
+
+    enforcement_block = _step_block(
+        job,
+        "release-grade enforce required and release-required gates via check_gates",
+    )
+
+    for token in (
+        "--set required",
+        "--set release_required",
+        "EFFECTIVE_GATES",
+        "tools/check_gates.py",
+        '--status "${STATUS}"',
+        '--require "${EFFECTIVE_GATES[@]}"',
+    ):
+        assert token in enforcement_block, token
+
+
+def test_final_authority_artifacts_follow_gate_enforcement() -> None:
+    _text, blocks = _workflow_and_jobs()
+    job = blocks[RELEASE_PATH_JOB]
+
+    enforcement = job.index(
+        "release-grade enforce required and release-required gates"
+    )
+
+    ordered_steps = (
+        "Render final release-grade Quality Ledger",
+        "Export final release-grade status summary",
+        "Materialize final release decision v0",
+        "Build and verify final release authority manifest",
+        "Verify final Quality Ledger and status parity",
+        (
+            "Materialize and verify final release authority "
+            "artifact binding"
+        ),
+        "Stage final release authority audit bundle",
+        "Release-grade final artifact postconditions",
+    )
 
     positions = [
-        job.index(tool)
-        for tool in RELEASE_PATH_TOOLS
+        job.index(f"      - name: {name}")
+        for name in ordered_steps
     ]
 
-    assert positions == sorted(positions), positions
+    assert enforcement < positions[0]
+    assert positions == sorted(positions)
 
 
-def test_release_path_does_not_introduce_parallel_engines() -> None:
+def test_recorded_path_uploads_final_package_inputs() -> None:
     _text, blocks = _workflow_and_jobs()
     job = blocks[RELEASE_PATH_JOB]
 
-    forbidden = (
+    for artifact_name in (
+        "release-authority-v0",
+        "release-authority-audit-bundle",
+        "release-authority-artifact-binding-v0",
+        "release-decision-v0",
+        "pulse-report",
+        (
+            "release-grade-recorded-path-"
+            "${{ github.run_id }}-${{ github.run_attempt }}"
+        ),
+    ):
+        assert artifact_name in job, artifact_name
+
+    for required_path in (
+        "release_decision_v0.json",
+        "artifact_provenance_binding_v0.json",
+        "release_authority_v0.json",
+        "report_card.html",
+        "recorded_release_evidence_verifier_v0.json",
+    ):
+        assert required_path in job, required_path
+
+
+def test_release_path_does_not_introduce_parallel_decision_engines() -> None:
+    _text, blocks = _workflow_and_jobs()
+    job = blocks[RELEASE_PATH_JOB]
+
+    for forbidden in (
         "new_release_decision",
         "parallel_decision",
         "alternate_check_gates",
         "llamaguard_materializer",
         "llamaguard_verifier",
-    )
-
-    for token in forbidden:
-        assert token not in job, token
+    ):
+        assert forbidden not in job, forbidden
 
 
-def test_release_path_keeps_policy_derived_check_gates_enforcement() -> None:
+def test_downstream_package_dependency_chain_is_preserved() -> None:
     _text, blocks = _workflow_and_jobs()
-    job = blocks[RELEASE_PATH_JOB]
 
-    materializer_index = job.index(
-        "tools/materialize_release_required_from_verifier_v0.py"
-    )
-    helper_index = job.index("tools/policy_to_require_args.py")
-    set_index = job.index("--set release_required")
-    check_gates_index = job.index("tools/check_gates.py")
+    assert _job_field(
+        blocks[PACKAGE_JOB],
+        "needs",
+    ) == RELEASE_PATH_JOB
 
-    assert materializer_index < helper_index < set_index < check_gates_index
-    assert "RELEASE_REQ_STR" in job
-    assert '"${RELEASE_REQ[@]}"' in job
-    assert "--status" in job
-    assert "PULSE_safe_pack_v0/artifacts/status.json" in job
+    assert _job_field(
+        blocks[VERIFY_JOB],
+        "needs",
+    ) == PACKAGE_JOB
 
-
-def test_release_grade_status_contract_validates_after_materialization() -> None:
-    _text, blocks = _workflow_and_jobs()
-    pulse = blocks["pulse"]
-    job = blocks[RELEASE_PATH_JOB]
-
-    assert "release_grade_status_v1.schema.json" not in pulse
-
-    materializer_index = job.index(
-        "tools/materialize_release_required_from_verifier_v0.py"
-    )
-    schema_index = job.index("release_grade_status_v1.schema.json")
-    check_gates_index = job.index("tools/check_gates.py")
-
-    assert materializer_index < schema_index < check_gates_index
+    assert _job_field(
+        blocks["tools-tests"],
+        "needs",
+    ) == VERIFY_JOB
 
 
-def test_no_stub_guard_runs_after_materialization() -> None:
-    _text, blocks = _workflow_and_jobs()
-    pulse = blocks["pulse"]
-    job = blocks[RELEASE_PATH_JOB]
-
-    assert "check_release_no_stub_status.py" not in pulse
-
-    materializer_index = job.index(
-        "tools/materialize_release_required_from_verifier_v0.py"
-    )
-    schema_index = job.index("release_grade_status_v1.schema.json")
-    no_stub_index = job.index("ci/check_release_no_stub_status.py")
-    check_gates_index = job.index("tools/check_gates.py")
-
-    assert materializer_index < schema_index < no_stub_index < check_gates_index
-
-
-def test_pr3_workflow_wiring_smoke_registered() -> None:
+def test_workflow_wiring_smoke_registered() -> None:
     manifest = _read_tools_manifest()
 
     assert (
@@ -332,22 +440,23 @@ def test_pr3_workflow_wiring_smoke_registered() -> None:
 
 
 def main() -> int:
-    test_attested_release_path_job_order()
-    test_release_path_depends_on_attested_llamaguard_job()
-    test_attestation_job_is_hosted_external_model_only() 
-    test_tools_tests_is_downstream_of_release_path_via_package_verifier()
-    test_release_grade_candidate_path_runs_only_after_attestation()
-    test_core_check_gates_remains_allowed_in_pulse_job()
-    test_release_path_downloads_attested_external_evidence_first()
-    test_release_path_uses_existing_standing_tools_in_order()
-    test_release_path_does_not_introduce_parallel_engines()
-    test_release_path_keeps_policy_derived_check_gates_enforcement()
-    test_release_grade_status_contract_validates_after_materialization()
-    test_no_stub_guard_runs_after_materialization()
-    test_pr3_workflow_wiring_smoke_registered()
+    test_release_grade_job_order()
+    test_attestation_job_is_hosted_external_model_only()
+    test_pre_attestation_artifact_is_uploaded_fail_closed()
+    test_recorded_path_downloads_pre_attestation_artifact()
+    test_release_grade_candidate_tools_remain_after_attestation()
+    test_pre_attestation_final_authority_steps_are_core_only()
+    test_recorded_path_restores_attested_evidence_before_verification()
+    test_recorded_path_materializes_before_combined_enforcement()
+    test_final_authority_artifacts_follow_gate_enforcement()
+    test_recorded_path_uploads_final_package_inputs()
+    test_release_path_does_not_introduce_parallel_decision_engines()
+    test_downstream_package_dependency_chain_is_preserved()
+    test_workflow_wiring_smoke_registered()
+
     print(
-        "LlamaGuard attested release-path workflow wiring "
-        "smoke passed"
+        "OK: attested release-grade phase boundary and "
+        "final authority wiring locked"
     )
     return 0
 
