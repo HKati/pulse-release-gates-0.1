@@ -52,11 +52,11 @@ jobs:
     timeout-minutes: 45
     permissions:
       contents: read
-    
+
     env:
       PACK_DIR: ${{ github.workspace }}/PULSE_safe_pack_v0
       REFERENCE_BUNDLE_DIR: ""
- 
+
     steps:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # pinned
@@ -388,10 +388,10 @@ jobs:
           echo "PULSE_POLICY_SET=${PULSE_POLICY_SET}" >> "$GITHUB_ENV"
           echo "PULSE_LLAMAGUARD_EVIDENCE_MODE=${PULSE_LLAMAGUARD_EVIDENCE_MODE}" >> "$GITHUB_ENV"
           echo "PULSE_RUN_KEY=${PULSE_RUN_KEY}" >> "$GITHUB_ENV"
-        
+
           echo "is_release=${PULSE_IS_RELEASE}" >> "$GITHUB_OUTPUT"
           echo "llamaguard_evidence_mode=${PULSE_LLAMAGUARD_EVIDENCE_MODE}" >> "$GITHUB_OUTPUT"
-         
+
           echo "Computed flags: IS_RELEASE=$PULSE_IS_RELEASE MODE=$PULSE_MODE POLICY_SET=$PULSE_POLICY_SET LLAMAGUARD_EVIDENCE_MODE=$PULSE_LLAMAGUARD_EVIDENCE_MODE"
 
           EXTRA=()
@@ -408,7 +408,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-       
+
           MODE="${PULSE_MODE:-core}"
           echo "Running pack in mode: $MODE"
 
@@ -570,7 +570,7 @@ jobs:
           print("OK: run_mode=prod")
           PY
 
-      - name: release-grade initialize current-run evidence identity 
+      - name: release-grade initialize current-run evidence identity
         if: ${{ steps.release_mode.outputs.is_release == '1' }}
         shell: bash
         run: |
@@ -718,7 +718,7 @@ jobs:
           fi
 
       - name: release-grade upload current-run LlamaGuard evidence
-        if: ${{ steps.release_mode.outputs.is_release == '1' && steps.release_mode.outputs.llamaguard_evidence_mode == 'hosted_full_runtime' }}       
+        if: ${{ steps.release_mode.outputs.is_release == '1' && steps.release_mode.outputs.llamaguard_evidence_mode == 'hosted_full_runtime' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: llamaguard-current-run-${{ github.run_id }}-${{ github.run_attempt }}
@@ -737,7 +737,7 @@ jobs:
           echo "----- status.json (head) -----"
           head -n 200 "${{ env.PACK_DIR }}/artifacts/status.json" || true
           echo "-------------------------------"
-      
+
       - name: Compute external evidence list (for snapshot)
         shell: bash
         run: |
@@ -945,6 +945,55 @@ jobs:
           EXT_DIR="${{ env.PACK_DIR }}/artifacts/external"
           python scripts/check_external_summaries_present.py --external_dir "$EXT_DIR" --require_metric_key
 
+      - name: release-grade pre-attestation artifact postconditions
+        if: ${{ steps.release_mode.outputs.is_release == '1' && steps.release_mode.outputs.llamaguard_evidence_mode == 'hosted_full_runtime' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          REQUIRED_FILES=(
+            "${PACK_DIR}/artifacts/status.json"
+            "${PACK_DIR}/artifacts/status_baseline.json"
+            "${PACK_DIR}/artifacts/status_summary_baseline.md"
+            "${PACK_DIR}/artifacts/status_summary_baseline.json"
+            "${PACK_DIR}/artifacts/required_gate_evidence_v0.json"
+            "${PACK_DIR}/artifacts/self_contained_pulse_evidence_floor_v0.json"
+            "${PACK_DIR}/artifacts/refusal_delta_summary.json"
+            "${PACK_DIR}/artifacts/external/llamaguard_raw.jsonl"
+            "${PACK_DIR}/artifacts/external/llamaguard_evaluator_manifest_v0.json"
+            "${PACK_DIR}/artifacts/external/llamaguard_summary.json"
+          )
+
+          for artifact in "${REQUIRED_FILES[@]}"; do
+            if [[ ! -f "${artifact}" || -L "${artifact}" || ! -s "${artifact}" ]]; then
+              echo "::error::release-grade pre-attestation artifact is missing, empty, or symlinked: ${artifact}"
+              exit 1
+            fi
+
+            sha256sum "${artifact}"
+          done
+
+          echo "OK: release-grade pre-attestation artifact postconditions satisfied"
+
+      - name: Upload release-grade pre-attestation pulse artifacts
+        if: ${{ steps.release_mode.outputs.is_release == '1' && steps.release_mode.outputs.llamaguard_evidence_mode == 'hosted_full_runtime' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # pinned
+        with:
+          name: pulse-pre-attestation-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            PULSE_safe_pack_v0/artifacts/status.json
+            PULSE_safe_pack_v0/artifacts/status_baseline.json
+            PULSE_safe_pack_v0/artifacts/status_summary_baseline.md
+            PULSE_safe_pack_v0/artifacts/status_summary_baseline.json
+            PULSE_safe_pack_v0/artifacts/required_gate_evidence_v0.json
+            PULSE_safe_pack_v0/artifacts/self_contained_pulse_evidence_floor_v0.json
+            PULSE_safe_pack_v0/artifacts/refusal_delta_summary.json
+            PULSE_safe_pack_v0/artifacts/external/llamaguard_raw.jsonl
+            PULSE_safe_pack_v0/artifacts/external/llamaguard_evaluator_manifest_v0.json
+            PULSE_safe_pack_v0/artifacts/external/llamaguard_summary.json
+          if-no-files-found: error
+          retention-days: 30
+
       - name: Augment status (external + top-level flags)
         if: ${{ steps.release_mode.outputs.is_release != '1' }}
         shell: bash
@@ -1009,7 +1058,7 @@ jobs:
 
           "${AUGMENT_CMD[@]}"
 
-      
+
       - name: "ci: schema validate status.json (status_v1)"
         shell: bash
         run: |
@@ -1021,10 +1070,10 @@ jobs:
           python tools/validate_status_schema.py \
             --schema "$SCHEMA" \
             --status "$STATUS"
-      
+
       - name: Re-render Quality Ledger from final status
         id: quality_ledger_final_render
-        if: ${{ always() }}
+        if: ${{ always() && (steps.release_mode.outputs.is_release != '1' || steps.release_mode.outputs.llamaguard_evidence_mode != 'hosted_full_runtime') }}
         shell: bash
         run: |
           set -euo pipefail
@@ -1041,9 +1090,9 @@ jobs:
             --out "$REPORT"
 
           echo "OK: re-rendered Quality Ledger from final status.json"
-      
+
       - name: Export final summary (post-augment)
-        if: always()
+        if: ${{ always() && (steps.release_mode.outputs.is_release != '1' || steps.release_mode.outputs.llamaguard_evidence_mode != 'hosted_full_runtime') }}
         shell: bash
         run: |
           set -euo pipefail
@@ -1054,21 +1103,21 @@ jobs:
 
           if [ ! -f "$SCRIPT" ]; then
             if [[ "${PULSE_IS_RELEASE:-0}" == "1" ]]; then
-          
+
               echo "::error::status_to_summary.py not found at $SCRIPT on release-grade run"
               exit 1
             fi
-       
+
             echo "::notice::SKIP: status_to_summary.py not found at $SCRIPT (optional)"
             exit 0
           fi
-      
+
           if [ ! -f "$STATUS" ]; then
             if [[ "${PULSE_IS_RELEASE:-0}" == "1" ]]; then
               echo "::error::status.json not found at $STATUS; cannot export release-grade final summary"
               exit 1
-            fi    
-          
+            fi
+
             echo "::notice::SKIP: status.json not found at $STATUS; skipping final summary (optional)"
             exit 0
           fi
@@ -1118,9 +1167,10 @@ jobs:
 
           print(f"OK: non-demo status.version on tag: {v}")
           PY
-      
+
 
       - name: Build release authority manifest (audit-only)
+        if: ${{ steps.release_mode.outputs.is_release != '1' || steps.release_mode.outputs.llamaguard_evidence_mode != 'hosted_full_runtime' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -1184,9 +1234,9 @@ jobs:
           fi
 
           echo "OK: release authority manifest audit sidecar ready at $OUT"
-    
+
       - name: Upload release authority manifest (audit-only)
-        if: always()
+        if: ${{ always() && (steps.release_mode.outputs.is_release != '1' || steps.release_mode.outputs.llamaguard_evidence_mode != 'hosted_full_runtime') }}
         continue-on-error: true
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
@@ -1196,7 +1246,7 @@ jobs:
           retention-days: 30
 
       - name: Summarize release authority manifest (audit-only)
-        if: always()
+        if: ${{ always() && (steps.release_mode.outputs.is_release != '1' || steps.release_mode.outputs.llamaguard_evidence_mode != 'hosted_full_runtime') }}
         shell: bash
         run: |
           set -euo pipefail
@@ -1225,7 +1275,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Insert release authority manifest section into Quality Ledger (audit-only)
-        if: always()
+        if: ${{ always() && (steps.release_mode.outputs.is_release != '1' || steps.release_mode.outputs.llamaguard_evidence_mode != 'hosted_full_runtime') }}
         shell: bash
         run: |
           set -euo pipefail
@@ -1261,7 +1311,7 @@ jobs:
           echo "OK: release authority manifest section inserted into Quality Ledger"
 
       - name: Stage release authority audit bundle (audit-only)
-        if: always()
+        if: ${{ always() && (steps.release_mode.outputs.is_release != '1' || steps.release_mode.outputs.llamaguard_evidence_mode != 'hosted_full_runtime') }}
         shell: bash
         run: |
           set -euo pipefail
@@ -1304,7 +1354,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload release authority audit bundle (audit-only)
-        if: always()
+        if: ${{ always() && (steps.release_mode.outputs.is_release != '1' || steps.release_mode.outputs.llamaguard_evidence_mode != 'hosted_full_runtime') }}
         continue-on-error: true
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
@@ -1314,6 +1364,7 @@ jobs:
           retention-days: 30
 
       - name: "ci: enforce gates via check_gates (policy-derived)"
+        if: ${{ steps.release_mode.outputs.is_release != '1' || steps.release_mode.outputs.llamaguard_evidence_mode != 'hosted_full_runtime' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -1399,6 +1450,7 @@ jobs:
           PY
 
       - name: Compute stability map
+        if: ${{ steps.release_mode.outputs.is_release != '1' || steps.release_mode.outputs.llamaguard_evidence_mode != 'hosted_full_runtime' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -1411,6 +1463,7 @@ jobs:
           python "$SCRIPT" --status "$STATUS"
 
       - name: Render stability map
+        if: ${{ steps.release_mode.outputs.is_release != '1' || steps.release_mode.outputs.llamaguard_evidence_mode != 'hosted_full_runtime' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -1423,6 +1476,7 @@ jobs:
           python "$SCRIPT" --status "$STATUS"
 
       - name: Compute field-level stability
+        if: ${{ steps.release_mode.outputs.is_release != '1' || steps.release_mode.outputs.llamaguard_evidence_mode != 'hosted_full_runtime' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -1435,6 +1489,7 @@ jobs:
           python "$SCRIPT" --status "$STATUS"
 
       - name: Compute field-level gating scores
+        if: ${{ steps.release_mode.outputs.is_release != '1' || steps.release_mode.outputs.llamaguard_evidence_mode != 'hosted_full_runtime' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -1447,6 +1502,7 @@ jobs:
           python "$SCRIPT" --status "$STATUS"
 
       - name: Compute EPF overlay
+        if: ${{ steps.release_mode.outputs.is_release != '1' || steps.release_mode.outputs.llamaguard_evidence_mode != 'hosted_full_runtime' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -1459,6 +1515,7 @@ jobs:
           python "$SCRIPT" --status "$STATUS"
 
       - name: Generate PULSE snapshot report (HTML)
+        if: ${{ steps.release_mode.outputs.is_release != '1' || steps.release_mode.outputs.llamaguard_evidence_mode != 'hosted_full_runtime' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -1471,6 +1528,7 @@ jobs:
           python "$SCRIPT" --status "$STATUS"
 
       - name: Generate PULSE snapshot report (Markdown)
+        if: ${{ steps.release_mode.outputs.is_release != '1' || steps.release_mode.outputs.llamaguard_evidence_mode != 'hosted_full_runtime' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -1483,6 +1541,7 @@ jobs:
           python "$SCRIPT" --status "$STATUS"
 
       - name: Write PULSE summary
+        if: ${{ steps.release_mode.outputs.is_release != '1' || steps.release_mode.outputs.llamaguard_evidence_mode != 'hosted_full_runtime' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -1495,6 +1554,7 @@ jobs:
           python "$SCRIPT" --status "$STATUS"
 
       - name: Prepare overlay outputs
+        if: ${{ steps.release_mode.outputs.is_release != '1' || steps.release_mode.outputs.llamaguard_evidence_mode != 'hosted_full_runtime' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -1526,6 +1586,7 @@ jobs:
           copy_if_exists "${{ env.PACK_DIR }}/artifacts/g_epf_overlay_v0.md" "$OVERLAY_DIR/g_epf_overlay_v0.md"
 
       - name: Export overlay HTML summary
+        if: ${{ steps.release_mode.outputs.is_release != '1' || steps.release_mode.outputs.llamaguard_evidence_mode != 'hosted_full_runtime' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -1538,7 +1599,7 @@ jobs:
           python "$SCRIPT" --overlay_dir "$OVERLAY_DIR"
 
       - name: Copy overlay HTML to report root
-        if: always()
+        if: ${{ always() && (steps.release_mode.outputs.is_release != '1' || steps.release_mode.outputs.llamaguard_evidence_mode != 'hosted_full_runtime') }}
         shell: bash
         run: |
           set -euo pipefail
@@ -1553,7 +1614,7 @@ jobs:
           cp "$SRC" "$DST"
 
       - name: Write status.json key-order diagnosis (for debugging)
-        if: always()
+        if: ${{ always() && (steps.release_mode.outputs.is_release != '1' || steps.release_mode.outputs.llamaguard_evidence_mode != 'hosted_full_runtime') }}
         shell: bash
         run: |
           set -euo pipefail
@@ -1568,6 +1629,7 @@ jobs:
           python "$SCRIPT" --status "$STATUS"
 
       - name: Write separation-phase report (HTML)
+        if: ${{ steps.release_mode.outputs.is_release != '1' || steps.release_mode.outputs.llamaguard_evidence_mode != 'hosted_full_runtime' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -1580,6 +1642,7 @@ jobs:
           python "$SCRIPT" --status "$STATUS"
 
       - name: Write separation-phase report (Markdown)
+        if: ${{ steps.release_mode.outputs.is_release != '1' || steps.release_mode.outputs.llamaguard_evidence_mode != 'hosted_full_runtime' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -1592,6 +1655,7 @@ jobs:
           python "$SCRIPT" --status "$STATUS"
 
       - name: Write separation-phase per-gate matrix
+        if: ${{ steps.release_mode.outputs.is_release != '1' || steps.release_mode.outputs.llamaguard_evidence_mode != 'hosted_full_runtime' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -1604,6 +1668,7 @@ jobs:
           python "$SCRIPT" --status "$STATUS"
 
       - name: Write separation-phase per-gate matrix (MD)
+        if: ${{ steps.release_mode.outputs.is_release != '1' || steps.release_mode.outputs.llamaguard_evidence_mode != 'hosted_full_runtime' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -1616,6 +1681,7 @@ jobs:
           python "$SCRIPT" --status "$STATUS"
 
       - name: Generate separation-phase overlay for snapshot
+        if: ${{ steps.release_mode.outputs.is_release != '1' || steps.release_mode.outputs.llamaguard_evidence_mode != 'hosted_full_runtime' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -1634,7 +1700,7 @@ jobs:
           python "$SCRIPT" --status "$STATUS"
 
       - name: Release-grade artifact postconditions
-        if: always()
+        if: ${{ always() && (steps.release_mode.outputs.is_release != '1' || steps.release_mode.outputs.llamaguard_evidence_mode != 'hosted_full_runtime') }}
         shell: bash
         run: |
           set -euo pipefail
@@ -1682,7 +1748,7 @@ jobs:
           echo "OK: artifact postconditions satisfied (IS_RELEASE=$IS_RELEASE)"
 
       - name: "Release decision v0: materialize artifact"
-        if: always()
+        if: ${{ always() && (steps.release_mode.outputs.is_release != '1' || steps.release_mode.outputs.llamaguard_evidence_mode != 'hosted_full_runtime') }}
         shell: bash
         run: |
           set -euo pipefail
@@ -1727,7 +1793,7 @@ jobs:
           } >> "${GITHUB_STEP_SUMMARY}"
 
       - name: "Release decision v0: render ledger section"
-        if: always()
+        if: ${{ always() && (steps.release_mode.outputs.is_release != '1' || steps.release_mode.outputs.llamaguard_evidence_mode != 'hosted_full_runtime') }}
         shell: bash
         run: |
           set -euo pipefail
@@ -1768,9 +1834,9 @@ jobs:
             printf -- '- output: `%s`\n' "${OUT_PATH}"
           } >> "${GITHUB_STEP_SUMMARY}"
 
-  
+
       - name: "Release decision v0: compose report card"
-        if: always()
+        if: ${{ always() && (steps.release_mode.outputs.is_release != '1' || steps.release_mode.outputs.llamaguard_evidence_mode != 'hosted_full_runtime') }}
         shell: bash
         run: |
           set -euo pipefail
@@ -1823,9 +1889,9 @@ jobs:
             printf -- '- section: `%s`\n' "${SECTION_PATH}"
             printf -- '- output: `%s`\n' "${OUT_PATH}"
           } >> "${GITHUB_STEP_SUMMARY}"
-      
+
       - name: "Release authority artifact binding v0: materialize and verify"
-        if: always()
+        if: ${{ always() && (steps.release_mode.outputs.is_release != '1' || steps.release_mode.outputs.llamaguard_evidence_mode != 'hosted_full_runtime') }}
         shell: bash
         run: |
           set -euo pipefail
@@ -1875,16 +1941,16 @@ jobs:
           } >> "${GITHUB_STEP_SUMMARY}"
 
       - name: "Upload release authority artifact binding v0"
-        if: always()
+        if: ${{ always() && (steps.release_mode.outputs.is_release != '1' || steps.release_mode.outputs.llamaguard_evidence_mode != 'hosted_full_runtime') }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # pinned
         with:
           name: release-authority-artifact-binding-v0
           if-no-files-found: warn
           path: ${{ env.PACK_DIR }}/artifacts/artifact_provenance_binding_v0.json
           retention-days: 30
-      
+
       - name: "Upload release decision v0 artifact bundle"
-        if: always()
+        if: ${{ always() && (steps.release_mode.outputs.is_release != '1' || steps.release_mode.outputs.llamaguard_evidence_mode != 'hosted_full_runtime') }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # pinned
         with:
           name: release-decision-v0
@@ -1894,9 +1960,9 @@ jobs:
             ${{ env.PACK_DIR }}/artifacts/release_decision_v0.json
             ${{ env.PACK_DIR }}/artifacts/release_decision_v0_ledger_section.html
             ${{ env.PACK_DIR }}/artifacts/report_card.with_release_decision.html
-      
+
       - name: "Release decision v0: summarize artifact"
-        if: always()
+        if: ${{ always() && (steps.release_mode.outputs.is_release != '1' || steps.release_mode.outputs.llamaguard_evidence_mode != 'hosted_full_runtime') }}
         shell: bash
         env:
           RELEASE_DECISION_PATH: ${{ env.PACK_DIR }}/artifacts/release_decision_v0.json
@@ -2031,9 +2097,9 @@ jobs:
 
           _write_summary("\n".join(lines))
           PY
-      
+
       - name: Export JUnit and SARIF from final status
-        if: always()
+        if: ${{ always() && (steps.release_mode.outputs.is_release != '1' || steps.release_mode.outputs.llamaguard_evidence_mode != 'hosted_full_runtime') }}
         shell: bash
         env:
           PULSE_EVENT_NAME: ${{ github.event_name }}
@@ -2114,7 +2180,7 @@ jobs:
 
       - name: Check release-grade reference run qualification (advisory)
         id: release_grade_reference_qualify
-        if: ${{ startsWith(github.ref, 'refs/tags/v') || startsWith(github.ref, 'refs/tags/V') || (github.event_name == 'workflow_dispatch' && github.event.inputs.strict_external_evidence == 'true') }}
+        if: ${{ (steps.release_mode.outputs.is_release != '1' || steps.release_mode.outputs.llamaguard_evidence_mode != 'hosted_full_runtime') && (startsWith(github.ref, 'refs/tags/v') || startsWith(github.ref, 'refs/tags/V') || (github.event_name == 'workflow_dispatch' && github.event.inputs.strict_external_evidence == 'true')) }}
         shell: bash
         run: |
           set -euo pipefail
@@ -2171,7 +2237,7 @@ jobs:
 
       - name: Quality Ledger / status parity
         id: quality_ledger_status_parity
-        if: ${{ always() && steps.quality_ledger_final_render.outcome == 'success' }}
+        if: ${{ always() && (steps.release_mode.outputs.is_release != '1' || steps.release_mode.outputs.llamaguard_evidence_mode != 'hosted_full_runtime') && steps.quality_ledger_final_render.outcome == 'success' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -2183,7 +2249,7 @@ jobs:
             --ledger "$LEDGER"
 
       - name: mark release-grade reference parity state
-        if: ${{ always() }}
+        if: ${{ always() && (steps.release_mode.outputs.is_release != '1' || steps.release_mode.outputs.llamaguard_evidence_mode != 'hosted_full_runtime') }}
         shell: bash
         run: |
          if [[ "${{ steps.quality_ledger_status_parity.outcome }}" == "success" ]]; then
@@ -2191,9 +2257,9 @@ jobs:
           else
             echo "REFERENCE_LEDGER_PARITY_OK=false" >> "$GITHUB_ENV"
           fi
-      
+
       - name: assemble release-grade reference bundle
-        if: ${{ (startsWith(github.ref, 'refs/tags/v') || startsWith(github.ref, 'refs/tags/V') || (github.event_name == 'workflow_dispatch' && github.event.inputs.strict_external_evidence == 'true')) && env.REFERENCE_RUN_QUALIFIED == 'true' && env.REFERENCE_LEDGER_PARITY_OK == 'true' }}
+        if: ${{ (steps.release_mode.outputs.is_release != '1' || steps.release_mode.outputs.llamaguard_evidence_mode != 'hosted_full_runtime') && (startsWith(github.ref, 'refs/tags/v') || startsWith(github.ref, 'refs/tags/V') || (github.event_name == 'workflow_dispatch' && github.event.inputs.strict_external_evidence == 'true')) && env.REFERENCE_RUN_QUALIFIED == 'true' && env.REFERENCE_LEDGER_PARITY_OK == 'true' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -2233,21 +2299,22 @@ jobs:
             cp "${PACK_DIR}/artifacts/reports/sarif.json" "$BUNDLE_DIR/reports/sarif.json"
           elif [ -f "reports/sarif.json" ]; then
             cp "reports/sarif.json" "$BUNDLE_DIR/reports/sarif.json"
-          fi 
+          fi
 
           echo "REFERENCE_BUNDLE_DIR=${BUNDLE_DIR}" >> "$GITHUB_ENV"
 
       - name: upload release-grade reference bundle
-        if: ${{ env.REFERENCE_BUNDLE_DIR != '' && env.REFERENCE_RUN_QUALIFIED == 'true' && env.REFERENCE_LEDGER_PARITY_OK == 'true' }}
+        if: ${{ (steps.release_mode.outputs.is_release != '1' || steps.release_mode.outputs.llamaguard_evidence_mode != 'hosted_full_runtime') && env.REFERENCE_BUNDLE_DIR != '' && env.REFERENCE_RUN_QUALIFIED == 'true' && env.REFERENCE_LEDGER_PARITY_OK == 'true' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: release-grade-reference-run-v0
           path: ${{ env.REFERENCE_BUNDLE_DIR }}
           if-no-files-found: error
           retention-days: 30
-      
+
       - name: Upload artifacts
-        if: ${{ always() && steps.quality_ledger_final_render.outcome == 'success' && steps.quality_ledger_status_parity.outcome == 'success' }}
+        if: ${{ always() && (steps.release_mode.outputs.is_release != '1' || steps.release_mode.outputs.llamaguard_evidence_mode != 'hosted_full_runtime') && steps.quality_ledger_final_render.outcome == 'success' && steps.quality_ledger_status_parity.outcome == 'success' }}
+
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # pinned
         with:
           name: pulse-report
@@ -2261,7 +2328,7 @@ jobs:
   attest_release_authority_artifact_binding:
     name: "Release authority artifact binding v0: attest"
     needs: pulse
-    if: ${{ github.event_name != 'pull_request' && needs.pulse.result == 'success' }}
+    if: ${{ github.event_name != 'pull_request' && needs.pulse.result == 'success' && !startsWith(github.ref, 'refs/tags/v') && !startsWith(github.ref, 'refs/tags/V') && (github.event_name != 'workflow_dispatch' || github.event.inputs.strict_external_evidence != 'true' || github.event.inputs.llamaguard_evidence_mode != 'hosted_full_runtime') }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -2270,6 +2337,7 @@ jobs:
       id-token: write
       attestations: write
       artifact-metadata: write
+
     steps:
       - name: Download verified release authority artifact binding
         shell: bash
@@ -2437,19 +2505,20 @@ jobs:
             PULSE_safe_pack_v0/artifacts/external/llamaguard_attestation_verifier_v1.json
           if-no-files-found: error
           retention-days: 30
-  
+
   release_grade_recorded_path:
-    name: "Release-grade recorded path: attested evidence to gates"
+    name: "Release-grade recorded path: attested evidence to final authority artifacts"
     needs: attest_llamaguard_current_run_summary
     if: ${{ github.event_name != 'pull_request' && needs.attest_llamaguard_current_run_summary.result == 'success' && (startsWith(github.ref, 'refs/tags/v') || startsWith(github.ref, 'refs/tags/V') || (github.event_name == 'workflow_dispatch' && github.event.inputs.strict_external_evidence == 'true' && github.event.inputs.llamaguard_evidence_mode == 'hosted_full_runtime')) }}
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     permissions:
       contents: read
       actions: read
 
     env:
       PACK_DIR: ${{ github.workspace }}/PULSE_safe_pack_v0
+      REFERENCE_BUNDLE_DIR: ""
 
     steps:
       - name: Checkout
@@ -2471,14 +2540,14 @@ jobs:
           python -m pip install -r requirements.txt
           python -m pip install jsonschema
 
-      - name: Download baseline pulse artifacts
+      - name: Download pre-attestation pulse artifacts
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
 
-          DOWNLOAD_DIR="${RUNNER_TEMP}/pulse-report"
+          DOWNLOAD_DIR="${RUNNER_TEMP}/pulse-pre-attestation"
           CANONICAL_ARTIFACTS="${GITHUB_WORKSPACE}/PULSE_safe_pack_v0/artifacts"
 
           rm -rf "${DOWNLOAD_DIR}"
@@ -2486,7 +2555,7 @@ jobs:
 
           gh run download "${GITHUB_RUN_ID}" \
             --repo "${GITHUB_REPOSITORY}" \
-            --name "pulse-report" \
+            --name "pulse-pre-attestation-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" \
             --dir "${DOWNLOAD_DIR}"
 
           copy_required_artifact () {
@@ -2496,12 +2565,12 @@ jobs:
             src="$(find "${DOWNLOAD_DIR}" -type f -name "${name}" | head -n 1 || true)"
 
             if [[ -z "${src}" ]]; then
-              echo "::error::pulse-report artifact is missing ${name}"
+              echo "::error::pre-attestation artifact is missing ${name}"
               exit 1
             fi
 
             if [[ -L "${src}" ]]; then
-              echo "::error::pulse-report artifact must not be a symlink: ${src}"
+              echo "::error::pre-attestation artifact must not be a symlink: ${src}"
               exit 1
             fi
 
@@ -2510,17 +2579,23 @@ jobs:
 
           copy_required_artifact "status.json"
           copy_required_artifact "status_baseline.json"
+          copy_required_artifact "status_summary_baseline.md"
+          copy_required_artifact "status_summary_baseline.json"
           copy_required_artifact "required_gate_evidence_v0.json"
+          copy_required_artifact "self_contained_pulse_evidence_floor_v0.json"
           copy_required_artifact "refusal_delta_summary.json"
 
           for artifact in \
             "${CANONICAL_ARTIFACTS}/status.json" \
             "${CANONICAL_ARTIFACTS}/status_baseline.json" \
+            "${CANONICAL_ARTIFACTS}/status_summary_baseline.md" \
+            "${CANONICAL_ARTIFACTS}/status_summary_baseline.json" \
             "${CANONICAL_ARTIFACTS}/required_gate_evidence_v0.json" \
+            "${CANONICAL_ARTIFACTS}/self_contained_pulse_evidence_floor_v0.json" \
             "${CANONICAL_ARTIFACTS}/refusal_delta_summary.json"
           do
-            if [[ ! -f "${artifact}" || -L "${artifact}" ]]; then
-              echo "::error::Restored baseline artifact is not a regular non-symlink file: ${artifact}"
+            if [[ ! -f "${artifact}" || -L "${artifact}" || ! -s "${artifact}" ]]; then
+              echo "::error::restored pre-attestation artifact is missing, empty, or symlinked: ${artifact}"
               exit 1
             fi
 
@@ -2542,7 +2617,7 @@ jobs:
 
           gh run download "${GITHUB_RUN_ID}" \
             --repo "${GITHUB_REPOSITORY}" \
-            --name "llamaguard-attested-current-run-${{ github.run_id }}-${{ github.run_attempt }}" \
+            --name "llamaguard-attested-current-run-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" \
             --dir "${DOWNLOAD_DIR}"
 
           restore_external_artifact () {
@@ -2567,38 +2642,38 @@ jobs:
 
           restore_external_artifact \
             "llamaguard_raw.jsonl" \
-            "PULSE_safe_pack_v0/artifacts/external/llamaguard_raw.jsonl"
+            "${CANONICAL_EXTERNAL}/llamaguard_raw.jsonl"
 
           restore_external_artifact \
             "llamaguard_evaluator_manifest_v0.json" \
-            "PULSE_safe_pack_v0/artifacts/external/llamaguard_evaluator_manifest_v0.json"
+            "${CANONICAL_EXTERNAL}/llamaguard_evaluator_manifest_v0.json"
 
           restore_external_artifact \
             "llamaguard_summary.json" \
-            "PULSE_safe_pack_v0/artifacts/external/llamaguard_summary.json"
+            "${CANONICAL_EXTERNAL}/llamaguard_summary.json"
 
           restore_external_artifact \
             "llamaguard_summary.bundle.json" \
-            "PULSE_safe_pack_v0/artifacts/external/llamaguard_summary.bundle.json"
+            "${CANONICAL_EXTERNAL}/llamaguard_summary.bundle.json"
 
           restore_external_artifact \
             "llamaguard_summary.envelope.json" \
-            "PULSE_safe_pack_v0/artifacts/external/llamaguard_summary.envelope.json"
+            "${CANONICAL_EXTERNAL}/llamaguard_summary.envelope.json"
 
           restore_external_artifact \
             "llamaguard_attestation_verifier_v1.json" \
-            "PULSE_safe_pack_v0/artifacts/external/llamaguard_attestation_verifier_v1.json"
+            "${CANONICAL_EXTERNAL}/llamaguard_attestation_verifier_v1.json"
 
           for artifact in \
-            "PULSE_safe_pack_v0/artifacts/external/llamaguard_raw.jsonl" \
-            "PULSE_safe_pack_v0/artifacts/external/llamaguard_evaluator_manifest_v0.json" \
-            "PULSE_safe_pack_v0/artifacts/external/llamaguard_summary.json" \
-            "PULSE_safe_pack_v0/artifacts/external/llamaguard_summary.bundle.json" \
-            "PULSE_safe_pack_v0/artifacts/external/llamaguard_summary.envelope.json" \
-            "PULSE_safe_pack_v0/artifacts/external/llamaguard_attestation_verifier_v1.json"
+            "${CANONICAL_EXTERNAL}/llamaguard_raw.jsonl" \
+            "${CANONICAL_EXTERNAL}/llamaguard_evaluator_manifest_v0.json" \
+            "${CANONICAL_EXTERNAL}/llamaguard_summary.json" \
+            "${CANONICAL_EXTERNAL}/llamaguard_summary.bundle.json" \
+            "${CANONICAL_EXTERNAL}/llamaguard_summary.envelope.json" \
+            "${CANONICAL_EXTERNAL}/llamaguard_attestation_verifier_v1.json"
           do
-            if [[ ! -f "${artifact}" || -L "${artifact}" ]]; then
-              echo "::error::Restored attested LlamaGuard artifact is not a regular non-symlink file: ${artifact}"
+            if [[ ! -f "${artifact}" || -L "${artifact}" || ! -s "${artifact}" ]]; then
+              echo "::error::restored attested LlamaGuard artifact is missing, empty, or symlinked: ${artifact}"
               exit 1
             fi
 
@@ -2652,52 +2727,480 @@ jobs:
         run: |
           set -euo pipefail
 
-          STATUS="${PACK_DIR}/artifacts/status.json"
-          SCHEMA="$GITHUB_WORKSPACE/schemas/status/release_grade_status_v1.schema.json"
-
           python tools/validate_status_schema.py \
-            --schema "$SCHEMA" \
-            --status "$STATUS" \
+            --schema "${GITHUB_WORKSPACE}/schemas/status/release_grade_status_v1.schema.json" \
+            --status "${PACK_DIR}/artifacts/status.json" \
             --max-errors 20
-      
+
       - name: "ci: forbid stubbed status on release-grade runs (post-materialization)"
         shell: bash
         run: |
           set -euo pipefail
 
-          STATUS="${PACK_DIR}/artifacts/status.json"
-          python ci/check_release_no_stub_status.py --status "$STATUS"
-      
-      - name: release-grade enforce release-required gates via check_gates
+          python ci/check_release_no_stub_status.py \
+            --status "${PACK_DIR}/artifacts/status.json"
+
+      - name: release-grade enforce required and release-required gates via check_gates
         shell: bash
         run: |
           set -euo pipefail
 
-          STATUS="PULSE_safe_pack_v0/artifacts/status.json"
+          STATUS="${PACK_DIR}/artifacts/status.json"
 
           if [[ ! -f "${STATUS}" || -L "${STATUS}" ]]; then
             echo "::error::release-grade status is missing or symlinked: ${STATUS}"
             exit 1
           fi
 
-          RELEASE_REQ_STR="$(python tools/policy_to_require_args.py \
-            --policy pulse_gate_policy_v0.yml \
-            --set release_required \
-            --format space)"
+          mapfile -t REQUIRED_GATES < <(
+            python tools/policy_to_require_args.py \
+              --policy pulse_gate_policy_v0.yml \
+              --set required \
+              --format newline
+          )
 
-          read -r -a RELEASE_REQ <<< "$RELEASE_REQ_STR"
+          mapfile -t RELEASE_REQUIRED_GATES < <(
+            python tools/policy_to_require_args.py \
+              --policy pulse_gate_policy_v0.yml \
+              --set release_required \
+              --format newline
+          )
 
-          if (( ${#RELEASE_REQ[@]} == 0 )); then
+          if (( ${#REQUIRED_GATES[@]} == 0 )); then
+            echo "::error::derived gate set is empty: required"
+            exit 1
+          fi
+
+          if (( ${#RELEASE_REQUIRED_GATES[@]} == 0 )); then
             echo "::error::derived gate set is empty: release_required"
             exit 1
           fi
 
-          echo "Enforcing release_required gate set (${#RELEASE_REQ[@]} gates)"
-          printf '%s\n' "${RELEASE_REQ[@]}" | sed 's/^/ - /'
+          declare -A SEEN=()
+          EFFECTIVE_GATES=()
+
+          for gate in "${REQUIRED_GATES[@]}" "${RELEASE_REQUIRED_GATES[@]}"; do
+            if [[ -z "${gate}" ]]; then
+              continue
+            fi
+
+            if [[ -z "${SEEN[${gate}]+x}" ]]; then
+              SEEN["${gate}"]=1
+              EFFECTIVE_GATES+=("${gate}")
+            fi
+          done
+
+          if (( ${#EFFECTIVE_GATES[@]} == 0 )); then
+            echo "::error::workflow-effective release-grade gate set is empty"
+            exit 1
+          fi
+
+          echo "Enforcing workflow-effective required + release_required gate set (${#EFFECTIVE_GATES[@]} gates)"
+          printf '%s\n' "${EFFECTIVE_GATES[@]}" | sed 's/^/ - /'
 
           python "${PACK_DIR}/tools/check_gates.py" \
             --status "${STATUS}" \
-            --require "${RELEASE_REQ[@]}"
+            --require "${EFFECTIVE_GATES[@]}"
+
+      - name: Render final release-grade Quality Ledger
+        id: release_grade_quality_ledger_render
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python "${PACK_DIR}/tools/render_quality_ledger.py" \
+            --status "${PACK_DIR}/artifacts/status.json" \
+            --out "${PACK_DIR}/artifacts/report_card.html"
+
+      - name: Export final release-grade status summary
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python "${PACK_DIR}/tools/status_to_summary.py" \
+            --status "${PACK_DIR}/artifacts/status.json" \
+            --out_md "${PACK_DIR}/artifacts/status_summary.md" \
+            --out_json "${PACK_DIR}/artifacts/status_summary.json"
+
+      - name: Materialize final release decision v0
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python "${PACK_DIR}/tools/materialize_release_decision.py" \
+            --status "${PACK_DIR}/artifacts/status.json" \
+            --policy pulse_gate_policy_v0.yml \
+            --target prod \
+            --out "${PACK_DIR}/artifacts/release_decision_v0.json" \
+            --status-schema schemas/status/status_v1.schema.json
+
+      - name: Render final release decision ledger section
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python "${PACK_DIR}/tools/render_release_decision_ledger_section.py" \
+            --input "${PACK_DIR}/artifacts/release_decision_v0.json" \
+            --schema schemas/release_decision_v0.schema.json \
+            --out "${PACK_DIR}/artifacts/release_decision_v0_ledger_section.html"
+
+      - name: Build and verify final release authority manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python "${PACK_DIR}/tools/build_release_authority_manifest_v0.py" \
+            --status "${PACK_DIR}/artifacts/status.json" \
+            --policy "${GITHUB_WORKSPACE}/pulse_gate_policy_v0.yml" \
+            --registry "${GITHUB_WORKSPACE}/pulse_gate_registry_v0.yml" \
+            --evaluator "${PACK_DIR}/tools/check_gates.py" \
+            --policy-set "required+release_required" \
+            --out "${PACK_DIR}/artifacts/release_authority_v0.json" \
+            --workflow-name "${GITHUB_WORKFLOW:-PULSE CI}" \
+            --event-name "${GITHUB_EVENT_NAME:-unknown}" \
+            --ref "${GITHUB_REF:-unknown}" \
+            --git-sha "${GITHUB_SHA}"
+
+          python "${PACK_DIR}/tools/check_release_authority_manifest_v0.py" \
+            --manifest "${PACK_DIR}/artifacts/release_authority_v0.json" \
+            --schema "${GITHUB_WORKSPACE}/schemas/release_authority_v0.schema.json"
+
+      - name: Insert final release authority manifest into Quality Ledger
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python "${PACK_DIR}/tools/insert_release_authority_manifest_ledger_section.py" \
+            --report "${PACK_DIR}/artifacts/report_card.html" \
+            --manifest "${PACK_DIR}/artifacts/release_authority_v0.json" \
+            --href "release_authority_v0.json"
+
+      - name: Compose final release decision report
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python "${PACK_DIR}/tools/insert_release_decision_ledger_section.py" \
+            --report "${PACK_DIR}/artifacts/report_card.html" \
+            --section "${PACK_DIR}/artifacts/release_decision_v0_ledger_section.html" \
+            --out "${PACK_DIR}/artifacts/report_card.with_release_decision.html"
+
+      - name: Verify final Quality Ledger and status parity
+        id: release_grade_quality_ledger_status_parity
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python "${PACK_DIR}/tools/check_quality_ledger_status_parity.py" \
+            --status "${PACK_DIR}/artifacts/status.json" \
+            --ledger "${PACK_DIR}/artifacts/report_card.html"
+
+          echo "REFERENCE_LEDGER_PARITY_OK=true" >> "$GITHUB_ENV"
+
+      - name: Materialize and verify final release authority artifact binding
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          POLICY_ARGS=(
+            --policy-set required
+            --policy-set release_required
+          )
+
+          python "${PACK_DIR}/tools/build_artifact_provenance_binding_v0.py" \
+            --status "${PACK_DIR}/artifacts/status.json" \
+            --policy "${GITHUB_WORKSPACE}/pulse_gate_policy_v0.yml" \
+            --ledger "${PACK_DIR}/artifacts/report_card.html" \
+            --release-decision "${PACK_DIR}/artifacts/release_decision_v0.json" \
+            --release-authority-manifest "${PACK_DIR}/artifacts/release_authority_v0.json" \
+            --out "${PACK_DIR}/artifacts/artifact_provenance_binding_v0.json" \
+            "${POLICY_ARGS[@]}"
+
+          python "${PACK_DIR}/tools/verify_artifact_provenance_binding_v0.py" \
+            --binding "${PACK_DIR}/artifacts/artifact_provenance_binding_v0.json"
+
+      - name: Stage final release authority audit bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          BUNDLE="${PACK_DIR}/artifacts/release_authority_audit_bundle"
+
+          rm -rf "${BUNDLE}"
+          mkdir -p "${BUNDLE}"
+
+          cp "${PACK_DIR}/artifacts/report_card.html" \
+            "${BUNDLE}/report_card.html"
+
+          cp "${PACK_DIR}/artifacts/release_authority_v0.json" \
+            "${BUNDLE}/release_authority_v0.json"
+
+          cp "${PACK_DIR}/artifacts/status.json" \
+            "${BUNDLE}/status.json"
+
+      - name: Export final release-grade JUnit and SARIF
+        shell: bash
+        env:
+          PULSE_EVENT_NAME: ${{ github.event_name }}
+          PULSE_REF: ${{ github.ref }}
+          PULSE_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+
+          export PULSE_STATUS="${PACK_DIR}/artifacts/status.json"
+          export PULSE_JUNIT="${PACK_DIR}/artifacts/reports/junit.xml"
+          export PULSE_SARIF="${PACK_DIR}/artifacts/reports/sarif.json"
+
+          mkdir -p "${PACK_DIR}/artifacts/reports" "${PACK_DIR}/artifacts/meta"
+
+          python "${PACK_DIR}/tools/status_to_junit.py"
+
+          mapfile -t REQUIRED_GATES < <(
+            python tools/policy_to_require_args.py \
+              --policy pulse_gate_policy_v0.yml \
+              --set required \
+              --format newline
+          )
+
+          mapfile -t RELEASE_REQUIRED_GATES < <(
+            python tools/policy_to_require_args.py \
+              --policy pulse_gate_policy_v0.yml \
+              --set release_required \
+              --format newline
+          )
+
+          declare -A SEEN=()
+          EFFECTIVE_GATES=()
+
+          for gate in "${REQUIRED_GATES[@]}" "${RELEASE_REQUIRED_GATES[@]}"; do
+            if [[ -n "${gate}" && -z "${SEEN[${gate}]+x}" ]]; then
+              SEEN["${gate}"]=1
+              EFFECTIVE_GATES+=("${gate}")
+            fi
+          done
+
+          if (( ${#EFFECTIVE_GATES[@]} == 0 )); then
+            echo "::error::release-grade SARIF gate set is empty"
+            exit 1
+          fi
+
+          python "${PACK_DIR}/tools/status_to_sarif.py" \
+            --require "${EFFECTIVE_GATES[@]}"
+
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          meta = {
+              "event_name": os.environ["PULSE_EVENT_NAME"],
+              "ref": os.environ["PULSE_REF"],
+              "sha": os.environ["PULSE_SHA"],
+              "pr_number": None,
+              "is_fork": False,
+          }
+
+          out = Path(os.environ["PACK_DIR"]) / "artifacts" / "meta" / "sarif_upload.json"
+          out.write_text(json.dumps(meta, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+          print(f"Wrote {out}")
+          PY
+
+      - name: Check release-grade reference run qualification (advisory)
+        id: release_grade_reference_qualify
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          TOOL="${PACK_DIR}/tools/check_release_grade_reference_run_v0.py"
+          STATUS="${PACK_DIR}/artifacts/status.json"
+          MANIFEST="${PACK_DIR}/artifacts/release_authority_v0.json"
+          REPORT="${PACK_DIR}/artifacts/report_card.html"
+          AUDIT_BUNDLE="${PACK_DIR}/artifacts/release_authority_audit_bundle"
+
+          set +e
+          python "$TOOL" \
+            --status "$STATUS" \
+            --manifest "$MANIFEST" \
+            --report "$REPORT" \
+            --audit-bundle-dir "$AUDIT_BUNDLE"
+          CHECK_RC=$?
+          set -e
+
+          if [[ "$CHECK_RC" -ne 0 ]]; then
+            RESULT="Not qualified (advisory)"
+            echo "::warning::release-grade reference qualification failed; release outcome unchanged"
+            echo "REFERENCE_RUN_QUALIFIED=false" >> "$GITHUB_ENV"
+            echo "qualified=false" >> "$GITHUB_OUTPUT"
+            {
+              echo "### Release-grade reference run"
+              echo
+              echo "| Field | Value |"
+              echo "|---|---|"
+              echo "| Workflow path | \`${GITHUB_REF}\` / \`${GITHUB_EVENT_NAME}\` |"
+              echo "| Active enforce set | \`required+release_required\` |"
+              echo "| Qualification | \`${RESULT}\` |"
+              echo "| Authority | Advisory / non-normative / non-blocking; release outcome unchanged |"
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          RESULT="Qualified"
+          echo "REFERENCE_RUN_QUALIFIED=true" >> "$GITHUB_ENV"
+          echo "qualified=true" >> "$GITHUB_OUTPUT"
+
+          {
+            echo "### Release-grade reference run"
+            echo
+            echo "| Field | Value |"
+            echo "|---|---|"
+            echo "| Workflow path | \`${GITHUB_REF}\` / \`${GITHUB_EVENT_NAME}\` |"
+            echo "| Active enforce set | \`required+release_required\` |"
+            echo "| Qualification | \`${RESULT}\` |"
+            echo "| Authority | Advisory / non-normative / non-blocking; release outcome unchanged |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          exit 0
+
+      - name: Assemble advisory release-grade reference bundle
+        if: ${{ env.REFERENCE_RUN_QUALIFIED == 'true' && env.REFERENCE_LEDGER_PARITY_OK == 'true' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          BUNDLE_DIR="${RUNNER_TEMP}/release-grade-reference-run-v0"
+          rm -rf "${BUNDLE_DIR}"
+          mkdir -p "${BUNDLE_DIR}/artifacts" "${BUNDLE_DIR}/reports"
+
+          cp "${PACK_DIR}/artifacts/status.json" \
+            "${BUNDLE_DIR}/artifacts/status.json"
+          cp "${PACK_DIR}/artifacts/report_card.html" \
+            "${BUNDLE_DIR}/artifacts/report_card.html"
+          cp "${PACK_DIR}/artifacts/release_authority_v0.json" \
+            "${BUNDLE_DIR}/artifacts/release_authority_v0.json"
+          cp -a "${PACK_DIR}/artifacts/release_authority_audit_bundle" \
+            "${BUNDLE_DIR}/release-authority-audit-bundle"
+
+          mkdir -p "${BUNDLE_DIR}/artifacts/external"
+          cp "${PACK_DIR}"/artifacts/external/*_summary.json \
+            "${BUNDLE_DIR}/artifacts/external/"
+
+          cp "${PACK_DIR}/artifacts/reports/junit.xml" \
+            "${BUNDLE_DIR}/reports/junit.xml"
+          cp "${PACK_DIR}/artifacts/reports/sarif.json" \
+            "${BUNDLE_DIR}/reports/sarif.json"
+
+          echo "REFERENCE_BUNDLE_DIR=${BUNDLE_DIR}" >> "$GITHUB_ENV"
+
+      - name: Release-grade final artifact postconditions
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          REQUIRED_FILES=(
+            "${PACK_DIR}/artifacts/status.json"
+            "${PACK_DIR}/artifacts/status_baseline.json"
+            "${PACK_DIR}/artifacts/status_summary.md"
+            "${PACK_DIR}/artifacts/status_summary.json"
+            "${PACK_DIR}/artifacts/status_summary_baseline.md"
+            "${PACK_DIR}/artifacts/status_summary_baseline.json"
+            "${PACK_DIR}/artifacts/required_gate_evidence_v0.json"
+            "${PACK_DIR}/artifacts/refusal_delta_summary.json"
+            "${PACK_DIR}/artifacts/recorded_release_candidate_index_v0.json"
+            "${PACK_DIR}/artifacts/release_evidence_input_manifest_v0.json"
+            "${PACK_DIR}/artifacts/recorded_release_evidence_verifier_v0.json"
+            "${PACK_DIR}/artifacts/release_decision_v0.json"
+            "${PACK_DIR}/artifacts/release_decision_v0_ledger_section.html"
+            "${PACK_DIR}/artifacts/report_card.html"
+            "${PACK_DIR}/artifacts/report_card.with_release_decision.html"
+            "${PACK_DIR}/artifacts/release_authority_v0.json"
+            "${PACK_DIR}/artifacts/artifact_provenance_binding_v0.json"
+            "${PACK_DIR}/artifacts/reports/junit.xml"
+            "${PACK_DIR}/artifacts/reports/sarif.json"
+            "${PACK_DIR}/artifacts/external/llamaguard_raw.jsonl"
+            "${PACK_DIR}/artifacts/external/llamaguard_evaluator_manifest_v0.json"
+            "${PACK_DIR}/artifacts/external/llamaguard_summary.json"
+            "${PACK_DIR}/artifacts/external/llamaguard_summary.bundle.json"
+            "${PACK_DIR}/artifacts/external/llamaguard_summary.envelope.json"
+            "${PACK_DIR}/artifacts/external/llamaguard_attestation_verifier_v1.json"
+          )
+
+          for artifact in "${REQUIRED_FILES[@]}"; do
+            if [[ ! -f "${artifact}" || -L "${artifact}" || ! -s "${artifact}" ]]; then
+              echo "::error::final release-grade artifact is missing, empty, or symlinked: ${artifact}"
+              exit 1
+            fi
+
+            sha256sum "${artifact}"
+          done
+
+          if [[ ! -d "${PACK_DIR}/artifacts/recorded_release_candidates" || -L "${PACK_DIR}/artifacts/recorded_release_candidates" ]]; then
+            echo "::error::recorded release candidate directory is missing or symlinked"
+            exit 1
+          fi
+
+          if [[ ! -d "${PACK_DIR}/artifacts/release_authority_audit_bundle" || -L "${PACK_DIR}/artifacts/release_authority_audit_bundle" ]]; then
+            echo "::error::release authority audit bundle is missing or symlinked"
+            exit 1
+          fi
+
+          echo "OK: final release-grade artifact postconditions satisfied"
+
+      - name: Upload final release authority manifest
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # pinned
+        with:
+          name: release-authority-v0
+          path: PULSE_safe_pack_v0/artifacts/release_authority_v0.json
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload final release authority audit bundle
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # pinned
+        with:
+          name: release-authority-audit-bundle
+          path: PULSE_safe_pack_v0/artifacts/release_authority_audit_bundle/
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload final release authority artifact binding
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # pinned
+        with:
+          name: release-authority-artifact-binding-v0
+          path: PULSE_safe_pack_v0/artifacts/artifact_provenance_binding_v0.json
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload final release decision v0 artifact bundle
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # pinned
+        with:
+          name: release-decision-v0
+          path: |
+            PULSE_safe_pack_v0/artifacts/status.json
+            PULSE_safe_pack_v0/artifacts/release_decision_v0.json
+            PULSE_safe_pack_v0/artifacts/release_decision_v0_ledger_section.html
+            PULSE_safe_pack_v0/artifacts/report_card.with_release_decision.html
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload final pulse report
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # pinned
+        with:
+          name: pulse-report
+          path: |
+            PULSE_safe_pack_v0/artifacts/**
+            badges/*.svg
+            reports/junit.xml
+            reports/sarif.json
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload advisory release-grade reference bundle
+        if: ${{ env.REFERENCE_BUNDLE_DIR != '' && env.REFERENCE_RUN_QUALIFIED == 'true' && env.REFERENCE_LEDGER_PARITY_OK == 'true' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # pinned
+        with:
+          name: release-grade-reference-run-v0
+          path: ${{ env.REFERENCE_BUNDLE_DIR }}
+          if-no-files-found: error
+          retention-days: 30
 
       - name: Upload release-grade recorded path artifacts
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # pinned
@@ -2706,12 +3209,26 @@ jobs:
           path: |
             PULSE_safe_pack_v0/artifacts/status.json
             PULSE_safe_pack_v0/artifacts/status_baseline.json
+            PULSE_safe_pack_v0/artifacts/status_summary.md
+            PULSE_safe_pack_v0/artifacts/status_summary.json
+            PULSE_safe_pack_v0/artifacts/status_summary_baseline.md
+            PULSE_safe_pack_v0/artifacts/status_summary_baseline.json
             PULSE_safe_pack_v0/artifacts/required_gate_evidence_v0.json
+            PULSE_safe_pack_v0/artifacts/self_contained_pulse_evidence_floor_v0.json
             PULSE_safe_pack_v0/artifacts/refusal_delta_summary.json
             PULSE_safe_pack_v0/artifacts/recorded_release_candidates/**
             PULSE_safe_pack_v0/artifacts/recorded_release_candidate_index_v0.json
             PULSE_safe_pack_v0/artifacts/release_evidence_input_manifest_v0.json
             PULSE_safe_pack_v0/artifacts/recorded_release_evidence_verifier_v0.json
+            PULSE_safe_pack_v0/artifacts/release_decision_v0.json
+            PULSE_safe_pack_v0/artifacts/release_decision_v0_ledger_section.html
+            PULSE_safe_pack_v0/artifacts/report_card.html
+            PULSE_safe_pack_v0/artifacts/report_card.with_release_decision.html
+            PULSE_safe_pack_v0/artifacts/release_authority_v0.json
+            PULSE_safe_pack_v0/artifacts/artifact_provenance_binding_v0.json
+            PULSE_safe_pack_v0/artifacts/release_authority_audit_bundle/**
+            PULSE_safe_pack_v0/artifacts/reports/junit.xml
+            PULSE_safe_pack_v0/artifacts/reports/sarif.json
             PULSE_safe_pack_v0/artifacts/external/llamaguard_raw.jsonl
             PULSE_safe_pack_v0/artifacts/external/llamaguard_evaluator_manifest_v0.json
             PULSE_safe_pack_v0/artifacts/external/llamaguard_summary.json
@@ -2720,11 +3237,49 @@ jobs:
             PULSE_safe_pack_v0/artifacts/external/llamaguard_attestation_verifier_v1.json
           if-no-files-found: error
           retention-days: 30
-  
+
+  attest_release_grade_artifact_binding:
+    name: "Release-grade artifact binding v0: attest"
+    needs: release_grade_recorded_path
+    if: ${{ github.event_name != 'pull_request' && needs.release_grade_recorded_path.result == 'success' && (startsWith(github.ref, 'refs/tags/v') || startsWith(github.ref, 'refs/tags/V') || (github.event_name == 'workflow_dispatch' && github.event.inputs.strict_external_evidence == 'true' && github.event.inputs.llamaguard_evidence_mode == 'hosted_full_runtime')) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: read
+      id-token: write
+      attestations: write
+      artifact-metadata: write
+
+    steps:
+      - name: Download final release-grade artifact binding
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          mkdir -p attestation-subject
+
+          gh run download "${GITHUB_RUN_ID}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --name "release-authority-artifact-binding-v0" \
+            --dir "attestation-subject"
+
+          test -f "attestation-subject/artifact_provenance_binding_v0.json"
+
+          sha256sum "attestation-subject/artifact_provenance_binding_v0.json"
+
+      - name: Attest final release-grade artifact binding v0
+        uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26
+        with:
+          subject-path: attestation-subject/artifact_provenance_binding_v0.json
+          show-summary: true
+
   assemble_release_grade_reference_package:
     name: "Release-grade reference package: assemble complete package"
-    needs: release_grade_recorded_path
-    if: ${{ github.event_name != 'pull_request' && needs.release_grade_recorded_path.result == 'success' && (startsWith(github.ref, 'refs/tags/v') || startsWith(github.ref, 'refs/tags/V') || (github.event_name == 'workflow_dispatch' && github.event.inputs.strict_external_evidence == 'true' && github.event.inputs.llamaguard_evidence_mode == 'hosted_full_runtime')) }}   
+    needs: [release_grade_recorded_path, attest_release_grade_artifact_binding]
+    if: ${{ github.event_name != 'pull_request' && needs.release_grade_recorded_path.result == 'success' && needs.attest_release_grade_artifact_binding.result == 'success' && (startsWith(github.ref, 'refs/tags/v') || startsWith(github.ref, 'refs/tags/V') || (github.event_name == 'workflow_dispatch' && github.event.inputs.strict_external_evidence == 'true' && github.event.inputs.llamaguard_evidence_mode == 'hosted_full_runtime')) }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -2866,7 +3421,7 @@ jobs:
           path: ${{ runner.temp }}/complete-release-grade-reference-package/
           if-no-files-found: error
           retention-days: 30
-  
+
   verify_release_grade_reference_package:
     name: "Release-grade reference package: verify complete package"
     needs: assemble_release_grade_reference_package
