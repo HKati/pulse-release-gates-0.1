@@ -40,36 +40,55 @@ They do not independently produce release authority.
 
 | Mechanical layer | State |
 |---|---|
-| Current-run required-gate evidence production | Implemented |
-| Non-stubbed release candidate state | Implemented |
-| Recorded release-evidence verifier | Implemented |
-| Canonical candidate replay | Implemented |
-| Canonical verifier replay before materialization | Implemented |
-| Policy-derived release-required gate materialization | Implemented |
-| External-summary schema and semantic validation | Implemented |
-| Exact operational LlamaGuard workflow identity | Implemented — `.github/workflows/pulse_ci.yml` |
-| Current-run hosted LlamaGuard raw-evidence and canonical-summary production | Implemented — explicit `hosted_full_runtime` opt-in |
-| GitHub attestation bundle, canonical envelope, and cryptographic verification wiring | Implemented |
-| Complete release-grade reference package assembly | Implemented |
-| Structural release-grade package completeness preflight | Implemented |
-| Independent complete-package verification | Implemented |
+| Current-run required-gate evidence production | Implemented and exercised |
+| Non-stubbed release candidate state | Implemented and exercised |
+| Recorded release-evidence verifier | Implemented and exercised |
+| Canonical candidate replay | Implemented and exercised |
+| Canonical verifier replay before materialization | Implemented and exercised |
+| Policy-derived release-required gate materialization | Implemented and exercised |
+| External-summary schema and semantic validation | Implemented and exercised |
+| Exact operational LlamaGuard workflow identity | Implemented and exercised — `.github/workflows/pulse_ci.yml` |
+| Current-run hosted LlamaGuard raw-evidence and canonical-summary production | Implemented and exercised — `hosted_full_runtime` |
+| GitHub attestation bundle, canonical envelope, and cryptographic verification | Implemented and exercised |
+| Complete release-grade reference package assembly | Implemented and exercised |
+| Structural release-grade package completeness preflight | Completed — `135 / 135` checks |
+| Independent complete-package verification | Completed — `157 / 157` checks | 
 | SLSA/VSA trusted-producer packet/report contract and construction-validation chain | Implemented — non-active candidate path |
 | SLSA/VSA release-required enforcement | Not active |
 | Public PULSEmech Core execution record | Completed — PULSE CI #5728 |
-| Completed public non-stubbed release-grade run record | Pending controlled hosted execution |
+| Completed public non-stubbed release-grade run record | Completed — PULSE CI #6066 |
 
-The remaining release-grade proof gap is operational rather than architectural:
+### Completed hosted release-grade reference run
 
-```text
-fixed source commit
-→ controlled hosted_full_runtime execution
-→ current-run attested external evidence
-→ primary CI allow/block decision
-→ complete package verification
-→ public run record
-```
+The first completed public non-stubbed release-grade reference run is
+documented in:
 
-Implemented workflow capability does not by itself constitute a completed public release-grade reference run.
+- [Release-grade Reference Run Note v0](docs/RELEASE_GRADE_REFERENCE_RUN_NOTE_v0.md)
+- workflow: [PULSE CI #6066](https://github.com/HKati/pulse-release-gates-0.1/actions/runs/29249887581)
+- source commit: `46b639706e23f80fe296a8893be18e2b5ab21f7e`
+- run mode: `prod`
+- `strict_external_evidence=true`
+- `llamaguard_evidence_mode=hosted_full_runtime`
+- active policy sets: `required + release_required`
+- current-run LlamaGuard attestation: `35064328`
+- artifact-binding attestation: `35064483`
+- primary gate result: `allow`
+- release decision: `PROD-PASS`
+- structural package completeness: `135 / 135`
+- independent package verification: `157 / 157`
+- Tools smoke manifest: `118` entries — `PASS`
+- overall workflow result: `Success`
+
+The release-grade PULSE reference is not merely a run.
+
+It is a closed, digest-backed, reconstructable evidence packet bound to one
+repository, commit, workflow run, run attempt, current-run key, policy,
+materialized gate set, strict decision, artifact inventory, and verification
+path.
+
+The completed run record remains a review and provenance surface.
+
+It does not independently create release authority.
 
 
 ## Tier 0 self-contained PULSE evidence floor✅
@@ -142,20 +161,23 @@ A public, manually dispatched PULSEmech Core execution has completed successfull
 - Core required-gate enforcement: `PASS`
 - artifact-provenance binding: `materialized and verified`
 - artifact-binding attestation: `created`
-- completed non-stubbed release-grade reference run: `pending`
+- completed non-stubbed release-grade reference run: separate completed record — `PULSE CI #6066`
 
 The run demonstrates the executable Core mechanism and its fail-closed boundary.
 
 ```text
-public Core execution completed
-≠ completed release-grade reference run
+public Core execution #5728
+≠ hosted release-grade execution #6066
 ```
 
 The broader release-decision sidecar correctly remained `FAIL` because stage and release-grade conditions were not satisfied.
 
 This record remains the public operational proof of the Core mechanism. The checked-in implementation now also contains the exact LlamaGuard workflow identity, the hosted current-run LlamaGuard evidence-production and attestation path, the verifier-bound release-grade path, complete-package assembly, the structural package-completeness preflight, and independent package verification.
 
-Those implemented capabilities do not retroactively convert `PULSE CI #5728` into a completed release-grade reference run. The first qualifying fixed-source `hosted_full_runtime` execution and its completed public non-stubbed release-grade run record remain pending.
+Those implemented capabilities do not retroactively convert `PULSE CI #5728`
+into a release-grade run. The separate fixed-source `hosted_full_runtime`
+execution completed as `PULSE CI #6066` and is recorded in
+[RELEASE_GRADE_REFERENCE_RUN_NOTE_v0.md](docs/RELEASE_GRADE_REFERENCE_RUN_NOTE_v0.md).
 
 ### Authority boundary
 
@@ -394,18 +416,38 @@ recorded release evidence
 PULSE distinguishes between:
 
 - **Core smoke surface** = minimal deterministic integration and visibility lane
-- **Release-grade reference run** = materialized-evidence release-authority reference lane
+- **Release-grade reference run** = complete, current-run, materialized-evidence release-authority reference lane
 
-The current-run evidence path, recorded release-evidence verifier, canonical replay layers, release-required materializer, qualification checker, packaging path, and run-note template are implemented.
+The first completed public non-stubbed hosted release-grade run is:
 
-The first completed public non-stubbed release-grade run record is still pending.
+```text
+PULSE CI #6066
+```
 
 Reference documents:
 
-- `docs/release_grade_reference_run_v0.md` — current definition and implementation-state reference
-- `docs/RELEASE_GRADE_REFERENCE_RUN_NOTE_v0.md` — pending template; not a completed run record
+- [release_grade_reference_run_v0.md](docs/release_grade_reference_run_v0.md) — current definition, acceptance criteria, authority boundary, and post-reference operational path
+- [RELEASE_GRADE_REFERENCE_RUN_NOTE_v0.md](docs/RELEASE_GRADE_REFERENCE_RUN_NOTE_v0.md) — completed run record with exact run identity, artifact references, archive digests, package inventory, qualification, and verification results
+- [PULSE_RELEASE_GRADE_NEXT_RUN_PLAN_v0.md](docs/PULSE_RELEASE_GRADE_NEXT_RUN_PLAN_v0.md) — completed operational plan and preserved historical work path
 
-The reference-run documents and artifact package preserve review, provenance, and reconstruction state.
+The completed record shows:
+
+```text
+current-run evidence
+→ exact-workflow hosted LlamaGuard evidence
+→ cryptographic attestation verification
+→ canonical recorded evidence replay
+→ policy-derived release-required materialization
+→ strict required + release_required enforcement
+→ primary allow result
+→ PROD-PASS decision artifact
+→ complete package
+→ structural completeness PASS
+→ independent package verification PASS
+```
+
+The reference-run documents and artifact packages preserve review,
+reconstruction, evidence, and provenance state.
 
 They do not create a second release-decision engine.
 

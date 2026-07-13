@@ -44,35 +44,39 @@ It does not change:
 
 ## Status
 
-- stage: implemented release-grade evidence path; first completed public reference run pending
+- stage: implemented and operationally demonstrated release-grade evidence path
 - normative: false
 - target lane: release-grade
 - authority role: documentation and operational guidance
-- current-run required-gate evidence production: implemented
-- non-stubbed release candidate status production: implemented
-- canonical recorded-release candidate production: implemented
-- canonical candidate replay: implemented
-- recorded release-evidence verifier: implemented
-- canonical verifier replay before materialization: implemented
-- policy-derived release-required materialization: implemented
-- external-summary schema validation: implemented
-- external-summary semantic validation: implemented
-- signer-policy admission: implemented
-- cryptographic GitHub attestation verification: implemented
-- advisory qualification subset checker: implemented
-- baseline reference-bundle assembly: implemented
-- exact operational release-grade signer identity: pending
-- current-run attested external-evidence production lane: pending
-- complete evidence-chain reference packaging: pending
-- complete reference-package verification: pending
-- first completed public non-stubbed release-grade run record: pending
+- current-run required-gate evidence production: implemented and exercised
+- non-stubbed release candidate status production: implemented and exercised
+- canonical recorded-release candidate production: implemented and exercised
+- canonical candidate replay: implemented and exercised
+- recorded release-evidence verifier: implemented and exercised
+- canonical verifier replay before materialization: implemented and exercised
+- policy-derived release-required materialization: implemented and exercised
+- external-summary schema validation: implemented and exercised
+- external-summary semantic validation: implemented and exercised
+- signer-policy admission: implemented and exercised
+- cryptographic GitHub attestation verification: implemented and exercised
+- advisory qualification subset checker: implemented and passed
+- exact operational release-grade signer identity: completed
+- current-run attested external-evidence production lane: completed
+- complete evidence-chain reference packaging: completed
+- structural package-completeness verification: completed
+- independent reference-package verification: completed
+- first completed public non-stubbed release-grade run record: completed — PULSE CI #6066
+- completed source commit: `46b639706e23f80fe296a8893be18e2b5ab21f7e`
+- completed workflow run ID: `29249887581`
+- completed run record: `docs/RELEASE_GRADE_REFERENCE_RUN_NOTE_v0.md`
 - qualification checker: `PULSE_safe_pack_v0/tools/check_release_grade_reference_run_v0.py`
 - recorded evidence verifier: `PULSE_safe_pack_v0/tools/check_recorded_release_evidence_v0.py`
 - release-required materializer: `PULSE_safe_pack_v0/tools/materialize_release_required_from_verifier_v0.py`
 - final release evaluator: `PULSE_safe_pack_v0/tools/check_gates.py`
 - primary workflow qualification role: advisory, non-normative, and non-blocking
 
-The verifier-backed fold-in path is implemented.
+The verifier-backed fold-in path is implemented and was exercised successfully
+by PULSE CI #6066.
 
 Candidate evidence cannot authorize itself through:
 
@@ -83,7 +87,7 @@ Candidate evidence cannot authorize itself through:
 - a supplied verifier report;
 - a recorded digest without canonical replay.
 
-The implemented admission path requires:
+The implemented and demonstrated admission path requires:
 
 ```text
 canonical candidate replay
@@ -103,9 +107,36 @@ External release-grade evidence must pass the applicable:
 - envelope binding;
 - cryptographic attestation verification.
 
-The remaining operational objective is to produce current-run attested external evidence under an exact signer identity, complete the full reference-package path, and execute the first completed public non-stubbed release-grade reference run.
+TThe first completed public reference execution is:
 
-The reference-run definition does not create a new gate and does not promote any verifier, materializer, qualification checker, reader, audit, diagnostic, or publication surface into independent release authority.
+```text
+PULSE CI #6066
+
+run ID:
+29249887581
+
+source commit:
+46b639706e23f80fe296a8893be18e2b5ab21f7e
+
+run mode:
+prod
+
+result:
+Success
+```
+
+The concrete evidence, artifact references, archive digests, package inventory,
+qualification result, primary decision, and verification results are recorded
+in:
+
+```text
+docs/RELEASE_GRADE_REFERENCE_RUN_NOTE_v0.md
+```
+
+The reference-run definition and completed-run record do not create a new gate
+and do not promote any verifier, materializer, qualification checker, package
+checker, reader, audit, diagnostic, or publication surface into independent
+release authority.
 
 ---
 
@@ -226,7 +257,10 @@ canonical external summary
 → canonical candidate admission
 ```
 
-The exact operational signer and current-run external-summary production lane remain pending.
+The exact operational signer and current-run external-summary production lane
+were exercised successfully by PULSE CI #6066. The admitted signer identity,
+model revision, attestation, artifact references, and digests are recorded in
+docs/RELEASE_GRADE_REFERENCE_RUN_NOTE_v0.md.
 
 ---
 
@@ -595,15 +629,26 @@ That note remains non-authoritative.
 
 A completed release-grade reference run must archive the complete reviewable evidence-to-decision chain.
 
-The list below defines the **target complete reference package**.
+The list below defines the **complete reference-package contract**.
 
-The current workflow implements baseline reference-bundle assembly, but it does not yet place every required item below into the single:
+PULSE CI #6066 produced the complete package as:
+
+```text
+complete-release-grade-reference-package-29249887581-1
+```
+
+The package was assembled from one fixed current-run identity, structurally
+checked, digest-inventoried, and independently verified.
+
+The older:
 
 ```text
 release-grade-reference-run-v0
 ```
 
-artifact.
+artifact remains a smaller baseline reader/review bundle.
+
+It must not be confused with the complete evidence-chain package.
 
 ### Current-run evidence and pre-materialization candidate state
 
@@ -654,11 +699,18 @@ PULSE_safe_pack_v0/artifacts/report_card.html
 ```text
 release-authority-audit-bundle
 release-grade-reference-run-v0
+complete-release-grade-reference-package-29249887581-1
 ```
 
-For a completed public reference run, `release-grade-reference-run-v0` must contain the complete evidence-chain package defined in this section.
+For the completed public reference run, the complete package contains the full
+evidence-chain set defined in this section.
 
-The current baseline reference-bundle assembly is not yet sufficient for a completed-package claim.
+Its GitHub artifact ID, archive digest, package inventory, and internal file
+digests are recorded in:
+
+```text
+docs/RELEASE_GRADE_REFERENCE_RUN_NOTE_v0.md
+```
 
 ### Optional CI exports
 
@@ -692,31 +744,41 @@ reports/sarif.json
 
 ---
 
-## Current reference-bundle assembly boundary
+## Completed reference-package execution state
 
-The current primary workflow includes a baseline:
+The repository retains two distinct package roles.
+
+### Baseline reader/review bundle
 
 ```text
-assemble release-grade reference bundle
+release-grade-reference-run-v0
 ```
 
-step.
-
-The current baseline assembly copies:
+This bundle preserves a smaller reader-facing set such as:
 
 ```text
 status.json
 report_card.html
 release_authority_v0.json
 release-authority-audit-bundle
-external *_summary.json / *_summary.jsonl files
+external summaries
 optional JUnit
 optional SARIF
 ```
 
-This baseline assembly is implemented.
+It remains useful for review.
 
-It does not currently guarantee inclusion of:
+It is not the complete evidence-chain package.
+
+### Complete release-grade reference package
+
+PULSE CI #6066 assembled:
+
+```text
+complete-release-grade-reference-package-29249887581-1
+```
+
+The complete package includes:
 
 ```text
 required_gate_evidence_v0.json
@@ -725,22 +787,54 @@ recorded_release_candidates/
 recorded_release_candidate_index_v0.json
 release_evidence_input_manifest_v0.json
 recorded_release_evidence_verifier_v0.json
-external-summary envelopes
-external-summary attestation bundles
+LlamaGuard raw evidence
+LlamaGuard evaluator manifest
+canonical external summary
+attestation bundle
+canonical envelope
+attestation-verifier report
+final status.json
 release_decision_v0.json
 artifact_provenance_binding_v0.json
+release_authority_v0.json
+report_card.html
+release-authority-audit-bundle
+run_metadata_v0.json
+package_digest_inventory_v0.json
+```
+
+Recorded verification state:
+
+```text
+package inventory file count:
+23
+
+inventory coverage:
+exact
+
+structural completeness:
+135 / 135 checks passed
+
+independent package verification:
+157 / 157 checks passed
 ```
 
 Therefore:
 
 ```text
-baseline reference bundle uploaded
-≠ complete evidence-chain reference package
+baseline review bundle
+≠ complete release-grade reference package
+
+complete package assembled
++ structural completeness PASS
++ independent verification PASS
+= completed package milestone
 ```
 
-Complete evidence-chain packaging and package verification remain pending.
+Package assembly, package completeness, and package verification remain
+non-authorizing evidence and verification surfaces.
 
----
+They do not replace the primary CI allow/block result.
 
 ## Release authority boundary
 
@@ -1357,11 +1451,63 @@ The next operational sequence is:
 The progression is:
 
 ```text
-exact operational signer identity
-→ current-run attested external evidence
-→ complete evidence-chain packaging
-→ complete-package verification
-→ controlled strict release-grade run
-→ completed public reference-run record
+The first completed public non-stubbed hosted release-grade reference run now
+exists.
+
+Canonical baseline:
+
+```text
+workflow:
+PULSE CI #6066
+
+workflow run ID:
+29249887581
+
+source commit:
+46b639706e23f80fe296a8893be18e2b5ab21f7e
+
+record:
+docs/RELEASE_GRADE_REFERENCE_RUN_NOTE_v0.md
+```
+
+The next operational work begins after—not before—this reference state.
+
+Recommended sequence:
+
+1. preserve the completed record in the README and documentation index;
+2. retain the exact workflow, artifact, attestation, and digest references;
+3. produce an independent reproduction procedure from the complete package;
+4. test artifact export and verification outside the original workflow;
+5. define controlled failure variants against the fixed #6066 baseline;
+6. exercise portability across a second operator or execution environment;
+7. begin larger candidate-state batches only after reconstruction remains stable;
+8. use HPC diagnostically against the fixed completed reference state;
+9. keep SLSA/VSA release-required activation in a separate bounded promotion PR;
+10. preserve the existing release-authority boundary throughout later scaling.
+
+The progression is now:
+
+```text
+completed public reference state
 → independent reproduction
+→ portability validation
+→ controlled failure variants
+→ larger candidate-state batches
+→ HPC-supported analysis
+```
+
+The completed run does not activate SLSA/VSA as release-required.
+
+It does not create a GitHub Release, version tag, Zenodo record, DOI, or
+production deployment claim.
+
+PULSEmech remains the release-authority mechanism:
+
+```text
+recorded release evidence
+→ final status.json
+→ declared gate policy
+→ workflow-effective materialized required gate set
+→ PULSE_safe_pack_v0/tools/check_gates.py
+→ primary CI allow/block result
 ```
