@@ -536,12 +536,14 @@ recorded release evidence
 >
 > The current implementation includes current-run required-gate evidence production, non-stubbed candidate state, canonical candidate replay, recorded release-evidence verification, canonical verifier replay, policy-derived release-required materialization, external-summary schema and semantic validation, the exact LlamaGuard workflow identity, hosted current-run LlamaGuard raw-evidence and canonical-summary production capability, GitHub attestation bundle and canonical-envelope wiring, cryptographic attestation verification, complete release-grade package assembly, structural package-completeness checking, and independent package verification.
 >
-> The remaining active hardening surfaces include successful qualifying execution of the implemented hosted lane from one fixed source commit, exact operational signer identities for any additional detector lanes, the first completed public non-stubbed release-grade run record, independent external reproduction, portability, and further evidence-packet hardening.
+> PULSE CI #6066 is the completed fixed-source hosted release-grade baseline.
 >
-> Implemented workflow capability does not itself establish a completed current-run proof. Evidence contributes to release authority only when it is produced for the qualifying run, admitted through recorded evidence, declared policy, workflow-effective materialized required gates, and strict fail-closed CI enforcement.
->
-> Open work is tracked as hardening work. It is not treated as release authority by assumption.
 
+> The remaining active hardening surfaces include exact operational signer identities and current-run evidence paths for additional detector lanes, independent external reproduction, artifact-retention and portability verification, controlled failure variants, and further evidence-packet hardening.
+> 
+> Implemented workflow capability does not itself establish a completed current-run proof. The #6066 record establishes that proof for the hosted LlamaGuard lane; every future detector lane and reproduction must independently preserve current-run evidence, recorded admission, declared policy, workflow-effective materialized required gates, and strict fail-closed CI enforcement.
+>
+> Open work is tracked as post-reference hardening work. It is not treated as release authority by assumption.
 ---
 
 ## Start here
