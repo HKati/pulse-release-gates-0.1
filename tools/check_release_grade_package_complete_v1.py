@@ -6,7 +6,9 @@ import hashlib
 import json
 import math
 import os
+import re
 import sys
+from html.parser import HTMLParser
 from pathlib import Path
 from typing import Any
 
@@ -408,9 +410,11 @@ def _normalize_json_path(json_path: str) -> str:
 
 def _stub_scan_exempt(relative: str, json_path: str) -> bool:
     if any(
-        relative == exempt_relative and json_path.startswith(exempt_prefix)
-        for exempt_relative, exempt_prefix in STUB_SCAN_EXEMPT_PATH_PREFIXES
-       ):
+        relative == exempt_relative
+        and json_path.startswith(exempt_prefix)
+        for exempt_relative, exempt_prefix
+        in STUB_SCAN_EXEMPT_PATH_PREFIXES
+    ):
         return True
 
     normalized_path = _normalize_json_path(json_path)
@@ -642,8 +646,9 @@ def _verify_final_status_non_stub(
         scaffold_false,
         "final status diagnostics.scaffold is literal false",
     )
-    
-    def _verify_report_card(
+
+
+def _verify_report_card(
     *,
     package_dir: Path,
     checks: list[dict[str, Any]],
@@ -655,8 +660,11 @@ def _verify_final_status_non_stub(
     if not path.is_file() or path.is_symlink():
         return
 
-    text = path.read_text(encoding="utf-8")
-        visible_text = _visible_html_text(text)
+    text = path.read_text(
+        encoding="utf-8",
+        errors="strict",
+    )
+    visible_text = _visible_html_text(text)
 
     marker_hits = [
         marker
@@ -690,7 +698,7 @@ def _verify_final_status_non_stub(
         checks,
         errors,
         "report_card.non_stub",
-         not marker_hits and not active_stub_hits,
+        not marker_hits and not active_stub_hits,
         (
             "report_card.html contains no active semantic "
             "stub/scaffold or placeholder state"
@@ -1376,9 +1384,11 @@ def check_package(
             checks=checks,
             errors=errors,
         )
-       _verify_digest_inventory(
+        _verify_digest_inventory(
             package_dir=resolved_package_dir,
-            inventory=loaded.get("package_digest_inventory_v0.json"),
+            inventory=loaded.get(
+                "package_digest_inventory_v0.json"
+            ),
             checks=checks,
             errors=errors,
         )
