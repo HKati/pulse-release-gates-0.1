@@ -7,13 +7,13 @@ It does not test release authority.
 
 It checks that the README first-screen / front-door section exposes the
 mechanics already present in PULSE:
-
 - structural gap between probabilistic AI behavior and deterministic software
   release permission;
 - release-authority category;
 - process-based trust -> evidence-state release authority;
 - PULSEmech as artifact-bound, policy-declared, gate-materialized,
-  CI-enforced evidence-to-decision path.
+  CI-enforced evidence-to-decision path;
+- the completed public hosted release-grade reference-run identity.
 
 The guard is intentionally scoped to the front-door section. It is not a full
 README terminology rewrite check.
@@ -124,7 +124,11 @@ REQUIRED_FRONT_DOOR_ANCHORS = [
         "closed, digest-backed, reconstructable "
         "evidence packet"
     ),
-    "pending template; not a completed run record",
+    "Completed public non-stubbed release-grade run record",
+    "PULSE CI #6066",
+    "46b639706e23f80fe296a8893be18e2b5ab21f7e",
+    "RELEASE_GRADE_REFERENCE_RUN_NOTE_v0.md",
+    "hosted_full_runtime",
 ]
 
 
@@ -162,10 +166,8 @@ FORBIDDEN_FRONT_DOOR_PHRASES = [
     ),
     "\n→ check_gates.py\n",
     "\n+ check_gates.py\n",
-    (
-        "The first public non-stubbed release-grade "
-        "reference run is documented in"
-    ),
+    "pending template; not a completed run record",
+    "Pending controlled hosted execution",
 ]
 
 
@@ -217,7 +219,10 @@ def main() -> int:
         print(f"ERROR: {exc}")
         return 1
 
-    print("OK: README front-door release-authority category signal guard passed")
+    print(
+        "OK: README front-door release-authority category signal "
+        "guard passed"
+    )
     return 0
 
 
