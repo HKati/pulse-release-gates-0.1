@@ -107,7 +107,7 @@ External release-grade evidence must pass the applicable:
 - envelope binding;
 - cryptographic attestation verification.
 
-TThe first completed public reference execution is:
+The first completed public reference execution is:
 
 ```text
 PULSE CI #6066
@@ -1417,40 +1417,6 @@ Completed public release-grade reference run
 
 ## Next operational steps
 
-The current-run evidence producer, canonical candidate replay, recorded release-evidence verifier, canonical verifier replay, release-required materializer, cryptographic attestation verifier, and advisory subset qualification checker are implemented.
-
-Baseline reference-bundle assembly is implemented.
-
-Complete evidence-chain reference packaging and complete-package verification remain pending.
-
-The next operational sequence is:
-
-1. replace deferred or wildcard release-grade signer identities with one exact operational workflow identity;
-2. implement the current-run canonical external-evidence producer lane;
-3. generate a cryptographic attestation bundle for the current-run external summary;
-4. build the canonical external-summary envelope from the verified run identity and summary digest;
-5. extend `release-grade-reference-run-v0` assembly to include:
-   - `required_gate_evidence_v0.json`;
-   - `status_baseline.json`;
-   - recorded-release candidate envelopes;
-   - the candidate index;
-   - the release-evidence input manifest;
-   - the recorded-evidence verifier report;
-   - external-summary envelopes;
-   - external-summary attestation bundles;
-   - `release_decision_v0.json`;
-   - `artifact_provenance_binding_v0.json`;
-6. add or extend package verification so the complete reference bundle is checked independently of the advisory subset qualification checker;
-7. execute the controlled strict release-grade workflow;
-8. preserve the complete current-run evidence, candidate, verifier, materialization, final-status, decision, and provenance-binding chain;
-9. publish the complete release-grade reference artifact bundle;
-10. complete `docs/RELEASE_GRADE_REFERENCE_RUN_NOTE_v0.md` with concrete run identity, artifact URLs, and SHA-256 digests;
-11. link the completed public reference run from the README and documentation index;
-12. use the completed run as the baseline for independent reproduction and later portability work.
-
-The progression is:
-
-```text
 The first completed public non-stubbed hosted release-grade reference run now
 exists.
 
