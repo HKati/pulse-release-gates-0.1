@@ -6,14 +6,16 @@ import hashlib
 import json
 import math
 import os
+import re
 import sys
+from html.parser import HTMLParser
 from pathlib import Path
 from typing import Any
 
 
 TOOL_NAME = "check_release_grade_package_complete_v1"
 SCHEMA_VERSION = "release_grade_package_completeness_v1"
-TOOL_VERSION = "0.1.1"
+TOOL_VERSION = "0.1.2"
 
 REQUIRED_FILES: tuple[str, ...] = (
     "package_digest_inventory_v0.json",
@@ -87,6 +89,32 @@ STUB_SCAN_EXEMPT_PATH_PREFIXES: tuple[tuple[str, str], ...] = (
     ("artifacts/release_decision_v0.json", "$.decision_basis"),
 )
 
+
+STUB_SCAN_EXEMPT_NORMALIZED_PATHS: tuple[tuple[str, str], ...] = (
+    (
+        "artifacts/external/llamaguard_summary.bundle.json",
+        "$.verificationMaterial.tlogEntries[*].canonicalizedBody",
+    ),
+)
+
+JSON_ARRAY_INDEX_RE = re.compile(r"\[\d+\]")
+
+REPORT_CARD_NON_STUB_MARKERS = tuple(
+    marker
+    for marker in STUB_MARKERS
+    if marker != "stub"
+)
+
+REPORT_CARD_ACTIVE_STUB_PHRASES = (
+    "stubbed/scaffold evidence state",
+    "stub/scaffold markers recorded",
+)
+
+REPORT_CARD_CLEAR_MARKER_SEQUENCE = (
+    "stub/scaffold marker state clear"
+)
+
+
 PRODUCER_FIELDS = (
     "producer_id",
     "producer_name",
@@ -123,6 +151,36 @@ class CompletenessError(ValueError):
 
 class StrictJsonError(CompletenessError):
     """Strict JSON parse error."""
+
+
+class _VisibleTextExtractor(HTMLParser):
+    """Extract visible HTML text while ignoring script and style content."""
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.parts: list[str] = []
+        self._suppressed_depth = 0
+
+    def handle_starttag(
+        self,
+        tag: str,
+        attrs: list[tuple[str, str | None]],
+    ) -> None:
+        del attrs
+
+        if tag.lower() in {"script", "style"}:
+            self._suppressed_depth += 1
+
+    def handle_endtag(self, tag: str) -> None:
+        if (
+            tag.lower() in {"script", "style"}
+            and self._suppressed_depth > 0
+        ):
+            self._suppressed_depth -= 1
+
+    def handle_data(self, data: str) -> None:
+        if self._suppressed_depth == 0 and data.strip():
+            self.parts.append(data)
 
 
 def _json_pairs(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
@@ -344,11 +402,41 @@ def _stub_marker_hits(value: str) -> list[str]:
     return [marker for marker in STUB_MARKERS if marker in lowered]
 
 
+def _normalize_json_path(json_path: str) -> str:
+    """Replace concrete JSON-array indexes with a stable wildcard."""
+
+    return JSON_ARRAY_INDEX_RE.sub("[*]", json_path)
+
+
 def _stub_scan_exempt(relative: str, json_path: str) -> bool:
+    if any(
+        relative == exempt_relative
+        and json_path.startswith(exempt_prefix)
+        for exempt_relative, exempt_prefix
+        in STUB_SCAN_EXEMPT_PATH_PREFIXES
+    ):
+        return True
+
+    normalized_path = _normalize_json_path(json_path)
+
     return any(
-        relative == exempt_relative and json_path.startswith(exempt_prefix)
-        for exempt_relative, exempt_prefix in STUB_SCAN_EXEMPT_PATH_PREFIXES
+        relative == exempt_relative
+        and normalized_path == exempt_path
+        for exempt_relative, exempt_path
+        in STUB_SCAN_EXEMPT_NORMALIZED_PATHS
     )
+
+
+def _visible_html_text(value: str) -> str:
+    """Return normalized visible text from a report-card HTML document."""
+
+    parser = _VisibleTextExtractor()
+    parser.feed(value)
+    parser.close()
+
+    return " ".join(
+        " ".join(parser.parts).split()
+    ).lower()
 
 
 def _canonical_current_run_key(binding: Any) -> str | None:
@@ -500,6 +588,66 @@ def _verify_jsonl_files(
             )
 
 
+def _verify_final_status_non_stub(
+    *,
+    loaded: dict[str, dict[str, Any]],
+    checks: list[dict[str, Any]],
+    errors: list[str],
+) -> None:
+    """Verify literal release-grade non-stub state in final status.json."""
+
+    relative = "artifacts/status.json"
+    status = loaded.get(relative)
+
+    if status is None:
+        return
+
+    gates = status.get("gates")
+    diagnostics = status.get("diagnostics")
+
+    detectors_materialized = (
+        isinstance(gates, dict)
+        and gates.get("detectors_materialized_ok") is True
+    )
+
+    gates_stubbed_false = (
+        isinstance(diagnostics, dict)
+        and diagnostics.get("gates_stubbed") is False
+    )
+
+    scaffold_false = (
+        isinstance(diagnostics, dict)
+        and diagnostics.get("scaffold") is False
+    )
+
+    _check(
+        checks,
+        errors,
+        "status.release_grade.detectors_materialized_ok",
+        detectors_materialized,
+        (
+            "final status gates.detectors_materialized_ok "
+            "is literal true"
+        ),
+    )
+
+    _check(
+        checks,
+        errors,
+        "status.release_grade.gates_stubbed_false",
+        gates_stubbed_false,
+        "final status diagnostics.gates_stubbed is literal false",
+    )
+
+    _check(
+        checks,
+        errors,
+        "status.release_grade.scaffold_false",
+        scaffold_false,
+        "final status diagnostics.scaffold is literal false",
+    )
+
+
 def _verify_report_card(
     *,
     package_dir: Path,
@@ -512,16 +660,62 @@ def _verify_report_card(
     if not path.is_file() or path.is_symlink():
         return
 
-    text = path.read_text(encoding="utf-8")
-    hits = _stub_marker_hits(text)
+    text = path.read_text(
+        encoding="utf-8",
+        errors="strict",
+    )
+    visible_text = _visible_html_text(text)
+
+    marker_hits = [
+        marker
+        for marker in REPORT_CARD_NON_STUB_MARKERS
+        if marker in visible_text
+    ]
+
+    active_stub_hits = [
+        phrase
+        for phrase in REPORT_CARD_ACTIVE_STUB_PHRASES
+        if phrase in visible_text
+    ]
+
+    marker_state_clear = (
+        REPORT_CARD_CLEAR_MARKER_SEQUENCE
+        in visible_text
+    )
+
+    _check(
+        checks,
+        errors,
+        "report_card.marker_state_clear",
+        marker_state_clear,
+        (
+            "report_card.html records "
+            "Stub/scaffold marker state as clear"
+        ),
+    )
 
     _check(
         checks,
         errors,
         "report_card.non_stub",
-        not hits,
-        "report_card.html contains no stub/placeholder markers",
+        not marker_hits and not active_stub_hits,
+        (
+            "report_card.html contains no active semantic "
+            "stub/scaffold or placeholder state"
+        ),
     )
+
+    for marker in marker_hits:
+        errors.append(
+            "report_card.non_stub: "
+            f"visible text contains {marker!r}"
+        )
+
+    for phrase in active_stub_hits:
+        errors.append(
+            "report_card.non_stub: "
+            f"visible text contains active state {phrase!r}"
+        )
 
 
 def _verify_digest_inventory(
@@ -1180,6 +1374,11 @@ def check_package(
             checks=checks,
             errors=errors,
         )
+        _verify_final_status_non_stub(
+            loaded=loaded,
+            checks=checks,
+            errors=errors,
+        )
         _verify_report_card(
             package_dir=resolved_package_dir,
             checks=checks,
@@ -1187,7 +1386,9 @@ def check_package(
         )
         _verify_digest_inventory(
             package_dir=resolved_package_dir,
-            inventory=loaded.get("package_digest_inventory_v0.json"),
+            inventory=loaded.get(
+                "package_digest_inventory_v0.json"
+            ),
             checks=checks,
             errors=errors,
         )
