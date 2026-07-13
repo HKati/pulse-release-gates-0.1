@@ -1,0 +1,93 @@
+{
+  "active_policy_sets": [
+    "required",
+    "release_required"
+  ],
+  "authority_boundary": {
+    "alters_preserved_artifacts": false,
+    "creates_release_authority": false,
+    "preservation_copy_only": true,
+    "replaces_original_github_attestations": false,
+    "replaces_primary_ci_decision": false
+  },
+  "created_utc": "2026-07-13T20:13:45Z",
+  "github_artifacts": [
+    {
+      "artifact_id": 8278987946,
+      "artifact_name": "complete-release-grade-reference-package-29249887581-1",
+      "created_at": "2026-07-13T12:30:11Z",
+      "downloaded_sha256": "0549ea28c30dfdf6bc44a36a50fef3c21500a7ed1d9d58f448eaa1593ce3d264",
+      "downloaded_size_bytes": 44880,
+      "expires_at": "2026-08-12T12:30:10Z",
+      "file_name": "complete-release-grade-reference-package-29249887581-1.zip",
+      "github_digest_match": true,
+      "github_sha256": "0549ea28c30dfdf6bc44a36a50fef3c21500a7ed1d9d58f448eaa1593ce3d264",
+      "github_size_match": true,
+      "role": "complete_release_grade_reference_package",
+      "size_bytes": 44880
+    },
+    {
+      "artifact_id": 8278994595,
+      "artifact_name": "release-grade-package-completeness-29249887581-1",
+      "created_at": "2026-07-13T12:30:27Z",
+      "downloaded_sha256": "827ee63e902ba1770639302ef52b46d2064e7f097903b1f8520afb26a306749d",
+      "downloaded_size_bytes": 2044,
+      "expires_at": "2026-08-12T12:30:26Z",
+      "file_name": "release-grade-package-completeness-29249887581-1.zip",
+      "github_digest_match": true,
+      "github_sha256": "827ee63e902ba1770639302ef52b46d2064e7f097903b1f8520afb26a306749d",
+      "github_size_match": true,
+      "role": "structural_package_completeness_report",
+      "size_bytes": 2044
+    },
+    {
+      "artifact_id": 8278995165,
+      "artifact_name": "release-grade-reference-package-verification-29249887581-1",
+      "created_at": "2026-07-13T12:30:29Z",
+      "downloaded_sha256": "c5dcc93eb17fe166a575e7a83ab1f364f44504e3c53105213202752592094c85",
+      "downloaded_size_bytes": 2418,
+      "expires_at": "2026-08-12T12:30:27Z",
+      "file_name": "release-grade-reference-package-verification-29249887581-1.zip",
+      "github_digest_match": true,
+      "github_sha256": "c5dcc93eb17fe166a575e7a83ab1f364f44504e3c53105213202752592094c85",
+      "github_size_match": true,
+      "role": "independent_package_verification_report",
+      "size_bytes": 2418
+    }
+  ],
+  "llamaguard_evidence_mode": "hosted_full_runtime",
+  "local_verification": {
+    "all_outer_artifact_digests_match_github": true,
+    "all_outer_artifact_sizes_match_github": true,
+    "complete_package_inventory_entries": 23,
+    "complete_package_inventory_errors": [],
+    "complete_package_unlisted_members_excluding_inventory": [],
+    "complete_package_zip_members": 24,
+    "independent_verification_checks_total": 157,
+    "independent_verification_errors": [],
+    "independent_verification_status": "verified",
+    "independent_verification_verified": true,
+    "structural_completeness_checks_failed": 0,
+    "structural_completeness_checks_total": 135,
+    "structural_completeness_ok": true,
+    "structural_completeness_status": "complete"
+  },
+  "primary_gate_result": "allow",
+  "release_decision": "PROD-PASS",
+  "repository": "HKati/pulse-release-gates-0.1",
+  "retention_risk": {
+    "earliest_expiry_utc": "2026-08-12T12:30:10Z",
+    "original_github_artifacts_expire": true,
+    "reason_for_preservation": "Preserve the completed fixed-source hosted release-grade baseline before GitHub Actions artifact expiry."
+  },
+  "run_mode": "prod",
+  "schema_id": "pulse_ci_release_grade_artifact_preservation_manifest_v0",
+  "schema_version": "0.1.0",
+  "source_commit": "46b639706e23f80fe296a8893be18e2b5ab21f7e",
+  "source_ref": "refs/heads/main",
+  "strict_external_evidence": true,
+  "workflow": "PULSE CI",
+  "workflow_run_attempt": 1,
+  "workflow_run_id": 29249887581,
+  "workflow_run_number": 6066
+}
