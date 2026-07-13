@@ -126,6 +126,10 @@ REQUIRED_FRONT_DOOR_ANCHORS = [
     ),
     "Completed public non-stubbed release-grade run record",
     "PULSE CI #6066",
+    (
+        "PULSE CI #6066 is the completed fixed-source "
+        "hosted release-grade baseline"
+    ),
     "46b639706e23f80fe296a8893be18e2b5ab21f7e",
     "RELEASE_GRADE_REFERENCE_RUN_NOTE_v0.md",
     "hosted_full_runtime",
@@ -168,6 +172,16 @@ FORBIDDEN_FRONT_DOOR_PHRASES = [
     "\n+ check_gates.py\n",
     "pending template; not a completed run record",
     "Pending controlled hosted execution",
+    (
+        "The remaining active hardening surfaces include "
+        "successful qualifying execution of the implemented "
+        "hosted lane from one fixed source commit"
+    ),
+    (
+        "the first completed public non-stubbed "
+        "release-grade run record, independent external "
+        "reproduction"
+    ),
 ]
 
 
