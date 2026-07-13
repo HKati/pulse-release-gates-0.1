@@ -366,6 +366,11 @@ def make_complete_package(tmp_path: Path) -> Path:
             },
             "gates": {
                 "core_required_reference_ok": True,
+                "detectors_materialized_ok": True,
+            },
+            "diagnostics": {
+                "gates_stubbed": False,
+                "scaffold": False,
             },
         },
     )
@@ -400,7 +405,17 @@ def make_complete_package(tmp_path: Path) -> Path:
     )
     write_text(
         package_dir / "artifacts" / "report_card.html",
-        "<html><body>release grade package complete</body></html>\n",
+        (
+            "<html><body>"
+            "<div class='meta-item'>"
+            "<span class='meta-key'>"
+            "Stub/scaffold marker state"
+            "</span>"
+            "<span class='meta-val'>clear</span>"
+            "</div>"
+            "<div>release grade package complete</div>"
+            "</body></html>\n"
+        ),
     )
     write_json(
         package_dir
@@ -541,6 +556,7 @@ def test_complete_package_passes_and_output_matches_stdout(tmp_path: Path) -> No
     assert report["schema_version"] == "release_grade_package_completeness_v1"
     assert report["ok"] is True
     assert report["status"] == "complete"
+    assert report["tool"]["version"] == "0.1.2"
     assert report["errors"] == []
     assert report["authority_boundary"]["authorizes_release"] is False
     assert report["authority_boundary"]["package_completeness_only"] is True
@@ -595,6 +611,188 @@ def test_release_decision_stubbed_scaffold_diagnostic_vocabulary_is_allowed(
     assert result.returncode == 0, result.stdout + result.stderr
     report = parse_report(result)
     assert report["ok"] is True
+
+
+def test_sigstore_canonicalized_body_is_opaque_to_stub_scan(
+    tmp_path: Path,
+) -> None:
+    package_dir = make_complete_package(tmp_path)
+    bundle_path = (
+        package_dir
+        / "artifacts"
+        / "external"
+        / "llamaguard_summary.bundle.json"
+    )
+
+    bundle = read_json(bundle_path)
+    bundle["verificationMaterial"] = {
+        "tlogEntries": [
+            {
+                "canonicalizedBody": (
+                    "opaque-tbd-transparency-log-body"
+                ),
+                "logIndex": "17",
+            }
+        ],
+    }
+
+    write_json(bundle_path, bundle)
+    rebuild_digest_inventory(package_dir)
+
+    result = run_tool(package_dir)
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    report = parse_report(result)
+    assert report["ok"] is True
+
+    checks = {
+        check["check_id"]: check["passed"]
+        for check in report["checks"]
+    }
+
+    assert (
+        checks[
+            "non_stub_json:"
+            "artifacts/external/"
+            "llamaguard_summary.bundle.json"
+        ]
+        is True
+    )
+
+
+def test_bundle_semantic_stub_marker_still_fails_closed(
+    tmp_path: Path,
+) -> None:
+    package_dir = make_complete_package(tmp_path)
+    bundle_path = (
+        package_dir
+        / "artifacts"
+        / "external"
+        / "llamaguard_summary.bundle.json"
+    )
+
+    bundle = read_json(bundle_path)
+    bundle["bundle"]["status"] = "replace-me"
+
+    write_json(bundle_path, bundle)
+    rebuild_digest_inventory(package_dir)
+
+    assert_failure(
+        run_tool(package_dir),
+        (
+            "non_stub_json:"
+            "artifacts/external/"
+            "llamaguard_summary.bundle.json"
+        ),
+    )
+
+
+def test_report_card_clear_marker_state_is_semantic_pass(
+    tmp_path: Path,
+) -> None:
+    package_dir = make_complete_package(tmp_path)
+
+    result = run_tool(package_dir)
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    report = parse_report(result)
+
+    checks = {
+        check["check_id"]: check["passed"]
+        for check in report["checks"]
+    }
+
+    assert checks["report_card.marker_state_clear"] is True
+    assert checks["report_card.non_stub"] is True
+
+
+def test_report_card_active_stub_state_fails_closed(
+    tmp_path: Path,
+) -> None:
+    package_dir = make_complete_package(tmp_path)
+    report_path = package_dir / "artifacts" / "report_card.html"
+
+    write_text(
+        report_path,
+        (
+            "<html><body>"
+            "<h2>"
+            "PROD READER SURFACE — "
+            "STUBBED/SCAFFOLD EVIDENCE STATE — "
+            "NOT RELEASE-GRADE AUTHORITY"
+            "</h2>"
+            "<div class='meta-item'>"
+            "<span class='meta-key'>"
+            "Stub/scaffold marker state"
+            "</span>"
+            "<span class='meta-val'>"
+            "diagnostics.gates_stubbed"
+            "</span>"
+            "</div>"
+            "</body></html>\n"
+        ),
+    )
+
+    rebuild_digest_inventory(package_dir)
+
+    assert_failure(
+        run_tool(package_dir),
+        "report_card.non_stub",
+    )
+
+
+def test_final_status_requires_materialized_detector_gate(
+    tmp_path: Path,
+) -> None:
+    package_dir = make_complete_package(tmp_path)
+    status_path = package_dir / "artifacts" / "status.json"
+
+    status = read_json(status_path)
+    status["gates"]["detectors_materialized_ok"] = False
+
+    write_json(status_path, status)
+    rebuild_digest_inventory(package_dir)
+
+    assert_failure(
+        run_tool(package_dir),
+        "status.release_grade.detectors_materialized_ok",
+    )
+
+
+def test_final_status_rejects_gates_stubbed_true(
+    tmp_path: Path,
+) -> None:
+    package_dir = make_complete_package(tmp_path)
+    status_path = package_dir / "artifacts" / "status.json"
+
+    status = read_json(status_path)
+    status["diagnostics"]["gates_stubbed"] = True
+
+    write_json(status_path, status)
+    rebuild_digest_inventory(package_dir)
+
+    assert_failure(
+        run_tool(package_dir),
+        "status.release_grade.gates_stubbed_false",
+    )
+
+
+def test_final_status_rejects_scaffold_true(
+    tmp_path: Path,
+) -> None:
+    package_dir = make_complete_package(tmp_path)
+    status_path = package_dir / "artifacts" / "status.json"
+
+    status = read_json(status_path)
+    status["diagnostics"]["scaffold"] = True
+
+    write_json(status_path, status)
+    rebuild_digest_inventory(package_dir)
+
+    assert_failure(
+        run_tool(package_dir),
+        "status.release_grade.scaffold_false",
+    )
 
 
 def test_missing_required_file_fails_closed(tmp_path: Path) -> None:
@@ -895,6 +1093,13 @@ def check_check_release_grade_package_complete_v1() -> None:
         test_current_package_contract_without_slsa_artifacts_passes(tmp_path)
         test_slsa_artifacts_required_when_strict_flag_is_set(tmp_path)
         test_release_decision_stubbed_scaffold_diagnostic_vocabulary_is_allowed(tmp_path)
+        test_sigstore_canonicalized_body_is_opaque_to_stub_scan(tmp_path)
+        test_bundle_semantic_stub_marker_still_fails_closed(tmp_path)
+        test_report_card_clear_marker_state_is_semantic_pass(tmp_path)
+        test_report_card_active_stub_state_fails_closed(tmp_path)
+        test_final_status_requires_materialized_detector_gate(tmp_path)
+        test_final_status_rejects_gates_stubbed_true(tmp_path)
+        test_final_status_rejects_scaffold_true(tmp_path)
         test_missing_required_file_fails_closed(tmp_path)
         test_missing_external_evidence_file_fails_closed(tmp_path)
         test_empty_required_file_fails_closed(tmp_path)
