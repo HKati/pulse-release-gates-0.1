@@ -13,7 +13,7 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 PRESERVATION_DIR = ROOT / "preservation" / "pulse_ci_6066"
 ARCHIVE = (
-    PRESERVATION_DIR
+    ROOT
     / "PULSE_CI_6066_release_grade_artifact_preservation_v0.zip"
 )
 MANIFEST = PRESERVATION_DIR / "PRESERVATION_MANIFEST_v0.json"
