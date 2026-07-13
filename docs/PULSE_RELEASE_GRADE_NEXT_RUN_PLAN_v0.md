@@ -3,35 +3,141 @@
 ## Document status
 
 ```text
-document_role: current_operational_execution_plan
+document_role: completed_operational_execution_plan_and_historical_run_path
 target: first_completed_public_non_stubbed_release_grade_run
 normative_release_authority: false
 implementation_layers_present: true
-controlled_hosted_run_completed: false
-public_run_record_completed: false
+controlled_hosted_run_completed: true
+public_run_record_completed: true
+completed_workflow_run: PULSE CI #6066
+completed_workflow_run_id: 29249887581
+completed_source_commit: 46b639706e23f80fe296a8893be18e2b5ab21f7e
+completed_run_note: docs/RELEASE_GRADE_REFERENCE_RUN_NOTE_v0.md
 ```
 
-This document defines the remaining operational work required to produce the first completed public, non-stubbed, non-scaffolded PULSE release-grade reference run.
+This document preserves the operational plan that led to the first completed
+public, non-stubbed, non-scaffolded hosted PULSE release-grade reference run.
 
-The standing release-authority implementation must not be redesigned merely because the qualifying public run has not yet been completed.
-
-The remaining work is:
+The target was completed by:
 
 ```text
-controlled-run preflight
-→ one fixed-source hosted execution
-→ defect-driven repair only if required
-→ complete-package acceptance
+PULSE CI #6066
+```
+
+The completed sequence was:
+
+```text
+exact-source hosted-access preflight
+→ fixed-source hosted_full_runtime execution
+→ defect-driven repair
+→ current-run attested external evidence
+→ recorded evidence verification
+→ policy-derived release-required materialization
+→ strict required + release_required enforcement
+→ complete-package assembly
+→ structural package-completeness PASS
+→ independent package-verification PASS
 → public run record
 ```
 
-This document is an execution plan.
+Canonical completed-run record:
+
+```text
+docs/RELEASE_GRADE_REFERENCE_RUN_NOTE_v0.md
+```
+
+Public workflow run:
+
+```text
+https://github.com/HKati/pulse-release-gates-0.1/actions/runs/29249887581
+```
+
+The plan is retained because the work path is part of the artifact.
 
 It does not create release authority.
 
 It does not activate SLSA/VSA as release-required.
 
 It does not create a GitHub Release, version tag, Zenodo record, or DOI.
+
+
+## Completion record
+
+```text
+date:
+2026-07-13
+
+workflow:
+PULSE CI
+
+workflow run number:
+6066
+
+workflow run ID:
+29249887581
+
+workflow run attempt:
+1
+
+event:
+workflow_dispatch
+
+source ref:
+refs/heads/main
+
+source commit:
+46b639706e23f80fe296a8893be18e2b5ab21f7e
+
+run mode:
+prod
+
+strict_external_evidence:
+true
+
+llamaguard_evidence_mode:
+hosted_full_runtime
+
+active enforce set:
+required + release_required
+
+primary CI result:
+allow
+
+release decision:
+PROD-PASS
+
+structural package completeness:
+135 / 135 checks passed
+
+independent package verification:
+157 / 157 checks passed
+
+Tools smoke manifest:
+118 entries — PASS
+
+overall workflow result:
+Success
+```
+
+## Historical-plan interpretation boundary
+
+Everything below this boundary is preserved as the pre-execution operational
+plan that governed the work leading to PULSE CI #6066.
+
+Future-tense, `pending`, `remaining`, and `next run` language below records the
+state and intended sequence before the successful execution on 2026-07-13.
+
+It must not be read as the current repository status.
+
+Current execution status is carried by:
+
+```text
+this document status and completion record
++ docs/RELEASE_GRADE_REFERENCE_RUN_NOTE_v0.md
++ docs/release_grade_reference_run_v0.md
++ README.md
++ docs/INDEX.md
+```
 
 ## Purpose
 
@@ -238,27 +344,49 @@ These mechanics are not active release-required enforcement.
 
 They are not required for the first controlled hosted release-grade reference run under the current package contract.
 
-### Pending operational proof
+### Completed operational proof
 
-The remaining operational gaps are:
+The operational proof gaps identified by the original plan were closed by the
+fixed-source controlled execution:
 
 ```text
-confirmed hosted-model access for the controlled run
-one fixed source commit
-one successful hosted_full_runtime execution
-one qualifying current-run attestation bundle
-one qualifying complete current-run package
-one successful structural completeness report
-one successful independent package-verification report
-one completed public release-grade run note
+hosted-model access
+→ confirmed by preflight #8
+
+fixed source commit
+→ 46b639706e23f80fe296a8893be18e2b5ab21f7e
+
+hosted_full_runtime execution
+→ PULSE CI #6066 — Success
+
+current-run LlamaGuard attestation
+→ attestation 35064328 — verified
+
+complete current-run package
+→ complete-release-grade-reference-package-29249887581-1
+
+structural completeness
+→ 135 / 135 checks passed
+
+independent package verification
+→ 157 / 157 checks passed
+
+public release-grade run note
+→ docs/RELEASE_GRADE_REFERENCE_RUN_NOTE_v0.md
 ```
 
-The distinction is:
+The completed distinction is:
 
 ```text
 implemented capability
-≠ completed qualifying execution
++ qualifying current-run execution
++ reconstructible public evidence record
+= completed reference milestone
 ```
+
+The completed milestone does not convert the run note, qualification checker,
+package checker, verifier report, attestation, or reader surface into
+independent release authority.
 
 ## Mechanical rule
 
@@ -2128,33 +2256,41 @@ HPC outputs remain diagnostic unless separately admitted through recorded eviden
 
 ## Completion state
 
-This plan is complete only when:
+The original execution plan is complete.
 
 ```text
-exact LlamaGuard signer identity = implemented
-current-run LlamaGuard producer = implemented
-attestation bundle and envelope lane = implemented
-strict candidate/verifier/materializer wiring = implemented
-complete package assembly = implemented
-structural package completeness preflight = implemented
-independent complete-package verification = implemented
+exact LlamaGuard signer identity = implemented and exercised
+current-run LlamaGuard producer = implemented and exercised
+attestation bundle and envelope lane = implemented and verified
+strict candidate/verifier/materializer wiring = implemented and exercised
+complete package assembly = implemented and exercised
+structural package completeness preflight = 135 / 135 PASS
+independent complete-package verification = 157 / 157 PASS
 controlled hosted_full_runtime run = successful
 primary CI decision = allow
-qualifying package checks = passed
+release decision = PROD-PASS
 public run record = completed
 ```
 
-The current checked-in state is:
+The recorded completed state is:
 
 ```text
 implementation layers present
-controlled qualifying public run pending
+controlled qualifying public run completed
+reconstructible run record completed
 ```
 
-The public reference state remains:
+The public reference state is:
 
 ```text
-first_completed_public_non_stubbed_release_grade_run = pending
+first_completed_public_non_stubbed_release_grade_run
+= PULSE CI #6066
+```
+
+Canonical record:
+
+```text
+docs/RELEASE_GRADE_REFERENCE_RUN_NOTE_v0.md
 ```
 
 ---
@@ -2170,9 +2306,6 @@ producer implemented
 
 summary produced
 ≠ summary verified
-
-attestation wiring implemented
-≠ qualifying current-run attestation verified
 
 attestation verified
 ≠ candidate admitted
@@ -2192,26 +2325,41 @@ structural package completeness
 package verification
 ≠ primary CI authority
 
-planned run
-≠ completed public run
+completed public run record
+≠ independent release-decision engine
 ```
 
-The remaining forward path is:
+The completed path was:
 
 ```text
 fixed source commit
 → hosted-access preflight
 → controlled hosted_full_runtime execution
 → current-run attested LlamaGuard evidence
-→ existing replay-bound admission
-→ existing policy-derived materialization
-→ existing strict final enforcement
+→ replay-bound evidence admission
+→ policy-derived release-required materialization
+→ strict required + release_required enforcement
+→ primary allow result
+→ PROD-PASS decision artifact
 → complete package assembly
-→ structural completeness preflight
-→ independent package verification
+→ structural completeness PASS
+→ independent package verification PASS
 → public run record
-→ recorded baseline for later scaling
 ```
+
+The next forward path begins from the completed reference state:
+
+```text
+completed PULSE CI #6066 baseline
+→ independent reproduction
+→ artifact-retention and portability work
+→ controlled failure variants
+→ larger candidate-state batches
+→ HPC-supported analysis
+```
+
+HPC, portability, and future SLSA/VSA work remain separate from the completed
+#6066 record and require their own bounded authority-impact review.
 
 ## Change-control note
 
