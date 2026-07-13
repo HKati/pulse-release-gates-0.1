@@ -92,7 +92,7 @@ workflow run attempt:
 workflow run URL:
 https://github.com/HKati/pulse-release-gates-0.1/actions/runs/29249887581
 
-run key:
+PULSE_RUN_KEY:
 GITHUB_RUN_ID=29249887581|GITHUB_RUN_ATTEMPT=1|GITHUB_WORKFLOW=PULSE CI
 
 run mode:
@@ -131,6 +131,7 @@ The current-run binding key is the exact machine value embedded in the
 evidence, candidate, verifier, status, and package artifacts:
 
 ```text
+PULSE_RUN_KEY:
 GITHUB_RUN_ID=29249887581|GITHUB_RUN_ATTEMPT=1|GITHUB_WORKFLOW=PULSE CI
 ```
 
