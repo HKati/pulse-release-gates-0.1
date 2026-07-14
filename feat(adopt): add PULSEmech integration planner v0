@@ -1,0 +1,233 @@
+## Summary
+
+Add the first deterministic automation layer for PULSEmech adoption: a
+read-only integration planner that converts a small declared request into a
+complete, digest-bound, machine-readable target-repository plan.
+
+The objective is not to reduce PULSEmech complexity.
+
+The objective is to transfer mechanical adoption work from the human operator
+to the machine.
+
+```text
+target repository
++ declared integration request
++ canonical component manifest
+→ dependency-closure resolution
+→ policy-derived gate-set materialization
+→ target-state inspection
+→ deterministic integration plan
+```
+
+## Added files
+
+```text
+schemas/pulsemech_integration_request_v0.schema.json
+schemas/pulsemech_integration_component_manifest_v0.schema.json
+schemas/pulsemech_integration_plan_v0.schema.json
+integration/pulsemech_integration_component_manifest_v0.json
+examples/integration/pulsemech_integration_request_core_v0.json
+tools/plan_pulsemech_integration_v0.py
+tests/test_plan_pulsemech_integration_v0.py
+```
+
+Updated:
+
+```text
+ci/tools-tests.list
+```
+
+## Mechanical behavior
+
+The planner accepts:
+
+```text
+integration request
+source PULSEmech checkout
+target repository root
+canonical component manifest
+```
+
+It produces:
+
+```text
+pulsemech_integration_plan_v0.json
+```
+
+The plan records:
+
+- source repository and exact Git revision;
+- component-manifest and policy SHA-256 values;
+- requested component sets;
+- recursively resolved component dependency closure;
+- gate sets materialized directly from `pulse_gate_policy_v0.yml`;
+- detected and declared CI providers;
+- every planned source and target path;
+- source file size and SHA-256;
+- `create`, `preserve`, or `conflict` action;
+- conflicts and unresolved conditions;
+- final `apply_eligible` state.
+
+## Initial component set
+
+The component manifest registers:
+
+```text
+canonical_core_lane_v0
+```
+
+This is the first verified integration profile.
+
+It does not define or reduce PULSEmech identity.
+
+The planner is component-set driven and can carry additional, more complex
+PULSEmech integration profiles without changing the planner mechanism.
+
+The initial component set resolves the declared dependency closure of the
+current Core integration path, including:
+
+```text
+PULSE safe pack
+Core workflow
+gate policy
+gate registry
+status schema
+repository helper tools
+baseline fixtures
+runtime dependency files
+```
+
+Active gate IDs are not copied into the request or component manifest.
+
+They are materialized from the declared policy during planning.
+
+## Fail-closed conditions
+
+The planner rejects or marks the plan ineligible for:
+
+```text
+unknown component set
+missing component dependency
+component dependency cycle
+missing source component
+source symlink
+source non-regular file
+target symlink
+target parent symlink
+target non-directory parent
+target directory/file collision
+target non-regular file
+existing target file with a different digest
+unsupported CI provider
+missing declared gate set
+empty declared gate set
+duplicate gate ID
+unsafe relative path
+output path inside the target repository
+```
+
+## Read-only boundary
+
+The planner operates in:
+
+```text
+plan_only
+```
+
+It writes no file into the target repository.
+
+The optional output plan must be outside the target repository root.
+
+```text
+writes_target_repository:
+false
+
+changes_release_authority:
+false
+
+changes_gate_policy:
+false
+
+changes_gate_semantics:
+false
+
+creates_release_decision:
+false
+```
+
+The planner produces an integration plan.
+
+It does not install PULSEmech and does not create an independent release
+decision.
+
+## Validation
+
+The regression suite proves:
+
+- empty-target planning produces an apply-eligible create plan;
+- component dependencies are resolved recursively from one requested set;
+- gate IDs are materialized from policy;
+- target repository bytes remain unchanged during planning;
+- identical existing files are classified as `preserve`;
+- repeated planning over identical inputs is byte-deterministic;
+- different existing files produce conflicts and exit code `1`;
+- target symlinks fail closed without being followed;
+- non-directory target parents fail closed;
+- output inside the target repository is refused before writing;
+- unsupported CI providers are recorded as unresolved;
+- request, component-manifest, and generated-plan schemas validate;
+- the regression is registered exactly once in `ci/tools-tests.list`.
+
+Targeted result:
+
+```text
+8 passed
+```
+
+## Adoption-critique closure state
+
+This PR closes the manual discovery and planning portion of the adoption
+critique:
+
+```text
+manual PULSEmech file selection
+→ machine-resolved component dependency closure
+
+manual gate-list copying
+→ policy-derived gate-set materialization
+
+manual target-file comparison
+→ digest-based create/preserve/conflict classification
+
+manual setup interpretation
+→ machine-readable integration plan
+```
+
+Full mechanical closure of installation continues through separate layers:
+
+```text
+approved integration plan
+→ deterministic apply
+→ post-apply verification
+→ second-run zero diff
+```
+
+Those layers are intentionally not bundled into this planner PR.
+
+## Explicit non-effects
+
+No changes to:
+
+- `.github/workflows/**`;
+- `pulse_gate_policy_v0.yml`;
+- `pulse_gate_registry_v0.yml`;
+- required, core-required, release-required, advisory, or blocking gate sets;
+- `check_gates.py`;
+- recorded-evidence verification;
+- release-required materialization;
+- `status.json` semantics;
+- release-authority semantics;
+- SLSA VSA activation state;
+- DOI or citation metadata;
+- Zenodo records or integration;
+- tags, releases, or release metadata.
