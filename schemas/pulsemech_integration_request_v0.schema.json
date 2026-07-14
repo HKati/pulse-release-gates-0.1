@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/HKati/pulse-release-gates-0.1/schemas/pulsemech_integration_request_v0.schema.json",
+  "title": "PULSEmech integration request v0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "request_type",
+    "request_id",
+    "target_repository",
+    "component_sets",
+    "write_mode",
+    "existing_file_policy"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "pulsemech_integration_request_v0"
+    },
+    "request_type": {
+      "const": "pulsemech_integration_request"
+    },
+    "request_id": {
+      "$ref": "#/$defs/id"
+    },
+    "target_repository": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "repository_id",
+        "default_branch",
+        "ci_provider"
+      ],
+      "properties": {
+        "repository_id": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "default_branch": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "ci_provider": {
+          "enum": [
+            "github_actions",
+            "gitlab_ci",
+            "circleci",
+            "jenkins",
+            "azure_pipelines",
+            "buildkite"
+          ]
+        }
+      }
+    },
+    "component_sets": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/id"
+      }
+    },
+    "write_mode": {
+      "const": "plan_only"
+    },
+    "existing_file_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "identical",
+        "different",
+        "symlink",
+        "non_regular"
+      ],
+      "properties": {
+        "identical": {
+          "const": "preserve"
+        },
+        "different": {
+          "const": "conflict"
+        },
+        "symlink": {
+          "const": "conflict"
+        },
+        "non_regular": {
+          "const": "conflict"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "non_empty_string": {
+      "type": "string",
+      "minLength": 1
+    },
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[a-z0-9][a-z0-9._-]*$"
+    }
+  }
+}
