@@ -1,0 +1,20 @@
+{
+  "schema_version": "pulsemech_integration_request_v0",
+  "request_type": "pulsemech_integration_request",
+  "request_id": "canonical-core-integration-example-v0",
+  "target_repository": {
+    "repository_id": "example/target-repository",
+    "default_branch": "main",
+    "ci_provider": "github_actions"
+  },
+  "component_sets": [
+    "canonical_core_lane_v0"
+  ],
+  "write_mode": "plan_only",
+  "existing_file_policy": {
+    "identical": "preserve",
+    "different": "conflict",
+    "symlink": "conflict",
+    "non_regular": "conflict"
+  }
+}

@@ -1,0 +1,139 @@
+{
+  "schema_version": "pulsemech_integration_component_manifest_v0",
+  "manifest_type": "pulsemech_integration_component_manifest",
+  "source_repository": "HKati/pulse-release-gates-0.1",
+  "policy_path": "pulse_gate_policy_v0.yml",
+  "components": [
+    {
+      "id": "pulse_safe_pack_v0",
+      "kind": "tree",
+      "source_path": "PULSE_safe_pack_v0",
+      "target_path": "PULSE_safe_pack_v0",
+      "requires": [],
+      "exclude_patterns": []
+    },
+    {
+      "id": "pulse_gate_policy_v0",
+      "kind": "file",
+      "source_path": "pulse_gate_policy_v0.yml",
+      "target_path": "pulse_gate_policy_v0.yml",
+      "requires": []
+    },
+    {
+      "id": "pulse_gate_registry_v0",
+      "kind": "file",
+      "source_path": "pulse_gate_registry_v0.yml",
+      "target_path": "pulse_gate_registry_v0.yml",
+      "requires": []
+    },
+    {
+      "id": "pulse_core_requirements_v0",
+      "kind": "file",
+      "source_path": "requirements.txt",
+      "target_path": "requirements.txt",
+      "requires": []
+    },
+    {
+      "id": "pulse_pytest_configuration_v0",
+      "kind": "file",
+      "source_path": "pytest.ini",
+      "target_path": "pytest.ini",
+      "requires": []
+    },
+    {
+      "id": "pulse_status_schema_v1",
+      "kind": "file",
+      "source_path": "schemas/status/status_v1.schema.json",
+      "target_path": "schemas/status/status_v1.schema.json",
+      "requires": []
+    },
+    {
+      "id": "pulse_yaml_unique_key_guard_v0",
+      "kind": "file",
+      "source_path": "tools/check_yaml_unique_keys.py",
+      "target_path": "tools/check_yaml_unique_keys.py",
+      "requires": []
+    },
+    {
+      "id": "pulse_gate_registry_sync_v0",
+      "kind": "file",
+      "source_path": "tools/check_gate_registry_sync.py",
+      "target_path": "tools/check_gate_registry_sync.py",
+      "requires": []
+    },
+    {
+      "id": "pulse_policy_gate_materializer_v0",
+      "kind": "file",
+      "source_path": "tools/policy_to_require_args.py",
+      "target_path": "tools/policy_to_require_args.py",
+      "requires": []
+    },
+    {
+      "id": "pulse_status_schema_validator_v0",
+      "kind": "file",
+      "source_path": "tools/validate_status_schema.py",
+      "target_path": "tools/validate_status_schema.py",
+      "requires": []
+    },
+    {
+      "id": "pulse_core_baseline_test_v0",
+      "kind": "file",
+      "source_path": "tests/test_core_baseline_v0.py",
+      "target_path": "tests/test_core_baseline_v0.py",
+      "requires": [
+        "pulse_core_baseline_generator_v0",
+        "pulse_core_baseline_fixtures_v0"
+      ]
+    },
+    {
+      "id": "pulse_core_baseline_generator_v0",
+      "kind": "file",
+      "source_path": "tests/tools/generate_core_baseline_v0.py",
+      "target_path": "tests/tools/generate_core_baseline_v0.py",
+      "requires": []
+    },
+    {
+      "id": "pulse_core_baseline_fixtures_v0",
+      "kind": "tree",
+      "source_path": "tests/fixtures/core_baseline_v0",
+      "target_path": "tests/fixtures/core_baseline_v0",
+      "requires": [],
+      "exclude_patterns": []
+    },
+    {
+      "id": "pulse_core_ci_workflow_v0",
+      "kind": "file",
+      "source_path": ".github/workflows/pulse_core_ci.yml",
+      "target_path": ".github/workflows/pulse_core_ci.yml",
+      "requires": [
+        "pulse_safe_pack_v0",
+        "pulse_gate_policy_v0",
+        "pulse_gate_registry_v0",
+        "pulse_core_requirements_v0",
+        "pulse_pytest_configuration_v0",
+        "pulse_status_schema_v1",
+        "pulse_yaml_unique_key_guard_v0",
+        "pulse_gate_registry_sync_v0",
+        "pulse_policy_gate_materializer_v0",
+        "pulse_status_schema_validator_v0",
+        "pulse_core_baseline_test_v0"
+      ]
+    }
+  ],
+  "component_sets": [
+    {
+      "id": "canonical_core_lane_v0",
+      "description": "Canonical first integration lane. This profile selects a verified entry lane and does not redefine or reduce PULSEmech identity.",
+      "root_components": [
+        "pulse_core_ci_workflow_v0"
+      ],
+      "declared_gate_sets": [
+        "core_required"
+      ],
+      "supported_ci_providers": [
+        "github_actions"
+      ],
+      "authority_boundary": "The component set plans integration only. It does not create release authority, change gate semantics, or activate optional PULSEmech layers."
+    }
+  ]
+}
