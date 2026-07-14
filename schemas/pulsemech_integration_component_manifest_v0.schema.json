@@ -1,0 +1,156 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/HKati/pulse-release-gates-0.1/schemas/pulsemech_integration_component_manifest_v0.schema.json",
+  "title": "PULSEmech integration component manifest v0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "manifest_type",
+    "source_repository",
+    "policy_path",
+    "components",
+    "component_sets"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "pulsemech_integration_component_manifest_v0"
+    },
+    "manifest_type": {
+      "const": "pulsemech_integration_component_manifest"
+    },
+    "source_repository": {
+      "$ref": "#/$defs/non_empty_string"
+    },
+    "policy_path": {
+      "$ref": "#/$defs/relative_path"
+    },
+    "components": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/component"
+      }
+    },
+    "component_sets": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/component_set"
+      }
+    }
+  },
+  "$defs": {
+    "non_empty_string": {
+      "type": "string",
+      "minLength": 1
+    },
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[a-z0-9][a-z0-9._-]*$"
+    },
+    "relative_path": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?!.*\\\\)(?!.*(^|/)\\.\\.(/|$)).+$"
+    },
+    "component": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind",
+        "source_path",
+        "target_path",
+        "requires"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "kind": {
+          "enum": [
+            "file",
+            "tree"
+          ]
+        },
+        "source_path": {
+          "$ref": "#/$defs/relative_path"
+        },
+        "target_path": {
+          "$ref": "#/$defs/relative_path"
+        },
+        "requires": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/id"
+          }
+        },
+        "exclude_patterns": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/non_empty_string"
+          },
+          "default": []
+        }
+      }
+    },
+    "component_set": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "description",
+        "root_components",
+        "declared_gate_sets",
+        "supported_ci_providers",
+        "authority_boundary"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "description": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "root_components": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/id"
+          }
+        },
+        "declared_gate_sets": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/id"
+          }
+        },
+        "supported_ci_providers": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "github_actions",
+              "gitlab_ci",
+              "circleci",
+              "jenkins",
+              "azure_pipelines",
+              "buildkite"
+            ]
+          }
+        },
+        "authority_boundary": {
+          "$ref": "#/$defs/non_empty_string"
+        }
+      }
+    }
+  }
+}
