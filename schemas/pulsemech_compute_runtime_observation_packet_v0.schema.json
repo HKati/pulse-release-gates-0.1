@@ -1,0 +1,2608 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/HKati/pulse-release-gates-0.1/schemas/pulsemech_compute_runtime_observation_packet_v0.schema.json",
+  "title": "PULSEmech compute runtime observation packet v0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "packet_type",
+    "record_status",
+    "producer",
+    "packet_identity",
+    "subject",
+    "observation_boundary",
+    "authority_inputs",
+    "timing_basis",
+    "privacy_boundary",
+    "executions",
+    "state_observations",
+    "external_calls",
+    "model_inferences",
+    "resource_measurements",
+    "coverage",
+    "errors",
+    "ok"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "pulsemech_compute_runtime_observation_packet_v0"
+    },
+    "packet_type": {
+      "const": "pulsemech_compute_runtime_observation_packet"
+    },
+    "record_status": {
+      "type": "string",
+      "enum": [
+        "example",
+        "observed"
+      ]
+    },
+    "producer": {
+      "$ref": "#/$defs/producer"
+    },
+    "packet_identity": {
+      "$ref": "#/$defs/packet_identity"
+    },
+    "subject": {
+      "$ref": "#/$defs/subject"
+    },
+    "observation_boundary": {
+      "$ref": "#/$defs/observation_boundary"
+    },
+    "authority_inputs": {
+      "$ref": "#/$defs/authority_inputs"
+    },
+    "timing_basis": {
+      "$ref": "#/$defs/timing_basis"
+    },
+    "privacy_boundary": {
+      "$ref": "#/$defs/privacy_boundary"
+    },
+    "executions": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/execution_record"
+      }
+    },
+    "state_observations": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/state_observation"
+      }
+    },
+    "external_calls": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/external_call_record"
+      }
+    },
+    "model_inferences": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/model_inference_record"
+      }
+    },
+    "resource_measurements": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/resource_measurement"
+      }
+    },
+    "coverage": {
+      "$ref": "#/$defs/coverage"
+    },
+    "errors": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/non_empty_string"
+      }
+    },
+    "ok": {
+      "type": "boolean"
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "nullable_sha256": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "sha40": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "nullable_sha40": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "non_empty_string": {
+      "type": "string",
+      "minLength": 1
+    },
+    "nullable_non_empty_string": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1
+    },
+    "date_time": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?(Z|[+-][0-9]{2}:[0-9]{2})$"
+    },
+    "nullable_date_time": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?(Z|[+-][0-9]{2}:[0-9]{2})$"
+    },
+    "semver": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "execution_id": {
+      "type": "string",
+      "pattern": "^execution:[A-Za-z0-9._:/@+-]+$"
+    },
+    "nullable_execution_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^execution:[A-Za-z0-9._:/@+-]+$"
+    },
+    "state_id": {
+      "type": "string",
+      "pattern": "^state:[A-Za-z0-9._:/@+-]+$"
+    },
+    "call_id": {
+      "type": "string",
+      "pattern": "^call:[A-Za-z0-9._:/@+-]+$"
+    },
+    "inference_id": {
+      "type": "string",
+      "pattern": "^inference:[A-Za-z0-9._:/@+-]+$"
+    },
+    "measurement_id": {
+      "type": "string",
+      "pattern": "^measurement:[A-Za-z0-9._:/@+-]+$"
+    },
+    "target_id": {
+      "type": "string",
+      "pattern": "^(execution|call|inference):[A-Za-z0-9._:/@+-]+$"
+    },
+    "packet_id": {
+      "type": "string",
+      "pattern": "^runtime-observation:[A-Za-z0-9._:/@+-]+$"
+    },
+    "producer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "producer_id",
+        "producer_name",
+        "producer_version",
+        "producer_source",
+        "producer_source_sha256",
+        "ci_workflow_or_job_identity",
+        "collection_mode",
+        "producer_execution_id"
+      ],
+      "properties": {
+        "producer_id": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "producer_name": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "producer_version": {
+          "$ref": "#/$defs/semver"
+        },
+        "producer_source": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "producer_source_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "ci_workflow_or_job_identity": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "collection_mode": {
+          "type": "string",
+          "enum": [
+            "in_run_observer",
+            "tool_wrapper",
+            "post_run_platform_export",
+            "provider_usage_export",
+            "example"
+          ]
+        },
+        "producer_execution_id": {
+          "$ref": "#/$defs/execution_id"
+        }
+      }
+    },
+    "packet_identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "packet_id",
+        "packet_sequence",
+        "packet_scope",
+        "subject_run_key",
+        "packet_created_utc",
+        "previous_packet_sha256",
+        "canonicalization"
+      ],
+      "properties": {
+        "packet_id": {
+          "$ref": "#/$defs/packet_id"
+        },
+        "packet_sequence": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "packet_scope": {
+          "type": "string",
+          "enum": [
+            "subject_run",
+            "workflow_job",
+            "workflow_step",
+            "external_export",
+            "example"
+          ]
+        },
+        "subject_run_key": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "packet_created_utc": {
+          "$ref": "#/$defs/date_time"
+        },
+        "previous_packet_sha256": {
+          "$ref": "#/$defs/nullable_sha256"
+        },
+        "canonicalization": {
+          "const": "json-sort-keys-utf8-newline"
+        }
+      }
+    },
+    "subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "repository",
+        "workflow_name",
+        "workflow_run_id",
+        "workflow_run_number",
+        "workflow_run_attempt",
+        "subject_run_key",
+        "source_commit",
+        "source_ref",
+        "event_name",
+        "release_candidate_id",
+        "run_mode",
+        "active_policy_sets"
+      ],
+      "properties": {
+        "repository": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "workflow_name": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "workflow_run_id": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "workflow_run_number": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "workflow_run_attempt": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "subject_run_key": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "source_commit": {
+          "$ref": "#/$defs/sha40"
+        },
+        "source_ref": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "event_name": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "release_candidate_id": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "run_mode": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "active_policy_sets": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/non_empty_string"
+          }
+        }
+      }
+    },
+    "authority_workflow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "role",
+        "path",
+        "source_commit",
+        "sha256"
+      ],
+      "properties": {
+        "role": {
+          "const": "workflow"
+        },
+        "path": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "source_commit": {
+          "$ref": "#/$defs/sha40"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "authority_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "role",
+        "path",
+        "source_commit",
+        "sha256"
+      ],
+      "properties": {
+        "role": {
+          "const": "policy"
+        },
+        "path": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "source_commit": {
+          "$ref": "#/$defs/sha40"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "authority_gate_registry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "role",
+        "path",
+        "source_commit",
+        "sha256"
+      ],
+      "properties": {
+        "role": {
+          "const": "gate_registry"
+        },
+        "path": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "source_commit": {
+          "$ref": "#/$defs/sha40"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "authority_inputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "workflow",
+        "policy",
+        "gate_registry"
+      ],
+      "properties": {
+        "workflow": {
+          "$ref": "#/$defs/authority_workflow"
+        },
+        "policy": {
+          "$ref": "#/$defs/authority_policy"
+        },
+        "gate_registry": {
+          "$ref": "#/$defs/authority_gate_registry"
+        }
+      }
+    },
+    "observation_boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "target_analysis_level",
+        "subject_run_key",
+        "collector_run_key",
+        "collector_execution_id",
+        "collector_mode",
+        "observer_in_subject_totals",
+        "capture_started_utc",
+        "capture_completed_utc",
+        "subject_artifacts_mutated"
+      ],
+      "properties": {
+        "target_analysis_level": {
+          "const": "runtime_observed"
+        },
+        "subject_run_key": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "collector_run_key": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "collector_execution_id": {
+          "$ref": "#/$defs/execution_id"
+        },
+        "collector_mode": {
+          "type": "string",
+          "enum": [
+            "in_run_observer",
+            "tool_wrapper",
+            "post_run_platform_export",
+            "provider_usage_export",
+            "example"
+          ]
+        },
+        "observer_in_subject_totals": {
+          "const": false
+        },
+        "capture_started_utc": {
+          "$ref": "#/$defs/date_time"
+        },
+        "capture_completed_utc": {
+          "$ref": "#/$defs/date_time"
+        },
+        "subject_artifacts_mutated": {
+          "const": false
+        }
+      }
+    },
+    "timing_basis": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "timestamps_utc",
+        "primary_clock_source",
+        "timestamp_resolution_ms",
+        "cross_source_clock_status",
+        "duration_derivation",
+        "duration_values_estimated"
+      ],
+      "properties": {
+        "timestamps_utc": {
+          "const": true
+        },
+        "primary_clock_source": {
+          "type": "string",
+          "enum": [
+            "github_actions",
+            "monotonic_tool_clock",
+            "provider_timestamp",
+            "mixed",
+            "example"
+          ]
+        },
+        "timestamp_resolution_ms": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "cross_source_clock_status": {
+          "type": "string",
+          "enum": [
+            "single_source",
+            "synchronized",
+            "not_verified",
+            "example"
+          ]
+        },
+        "duration_derivation": {
+          "type": "string",
+          "enum": [
+            "platform_reported",
+            "tool_reported",
+            "provider_reported",
+            "derived_from_recorded_timestamps",
+            "mixed",
+            "example"
+          ]
+        },
+        "duration_values_estimated": {
+          "const": false
+        }
+      }
+    },
+    "privacy_boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "raw_environment_included",
+        "secret_values_included",
+        "authorization_headers_included",
+        "cookies_included",
+        "request_bodies_included",
+        "response_bodies_included",
+        "raw_prompt_text_included",
+        "raw_model_output_included",
+        "redaction_applied",
+        "redaction_rules_sha256"
+      ],
+      "properties": {
+        "raw_environment_included": {
+          "const": false
+        },
+        "secret_values_included": {
+          "const": false
+        },
+        "authorization_headers_included": {
+          "const": false
+        },
+        "cookies_included": {
+          "const": false
+        },
+        "request_bodies_included": {
+          "const": false
+        },
+        "response_bodies_included": {
+          "const": false
+        },
+        "raw_prompt_text_included": {
+          "const": false
+        },
+        "raw_model_output_included": {
+          "const": false
+        },
+        "redaction_applied": {
+          "type": "boolean"
+        },
+        "redaction_rules_sha256": {
+          "$ref": "#/$defs/nullable_sha256"
+        }
+      }
+    },
+    "source_identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_kind",
+        "identity_status",
+        "source_path_or_uri",
+        "source_revision",
+        "source_sha256",
+        "action_repository",
+        "action_ref",
+        "action_commit_sha",
+        "container_image_digest"
+      ],
+      "properties": {
+        "source_kind": {
+          "type": "string",
+          "enum": [
+            "repository_file",
+            "github_action",
+            "container_image",
+            "external_service",
+            "builtin",
+            "unknown"
+          ]
+        },
+        "identity_status": {
+          "type": "string",
+          "enum": [
+            "exact",
+            "partial",
+            "unknown"
+          ]
+        },
+        "source_path_or_uri": {
+          "$ref": "#/$defs/nullable_non_empty_string"
+        },
+        "source_revision": {
+          "$ref": "#/$defs/nullable_non_empty_string"
+        },
+        "source_sha256": {
+          "$ref": "#/$defs/nullable_sha256"
+        },
+        "action_repository": {
+          "$ref": "#/$defs/nullable_non_empty_string"
+        },
+        "action_ref": {
+          "$ref": "#/$defs/nullable_non_empty_string"
+        },
+        "action_commit_sha": {
+          "$ref": "#/$defs/nullable_sha40"
+        },
+        "container_image_digest": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "identity_status": {
+                "const": "unknown"
+              }
+            },
+            "required": [
+              "identity_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "source_path_or_uri": {
+                "type": "null"
+              },
+              "source_revision": {
+                "type": "null"
+              },
+              "source_sha256": {
+                "type": "null"
+              },
+              "action_repository": {
+                "type": "null"
+              },
+              "action_ref": {
+                "type": "null"
+              },
+              "action_commit_sha": {
+                "type": "null"
+              },
+              "container_image_digest": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "source_kind": {
+                "const": "repository_file"
+              }
+            },
+            "required": [
+              "source_kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "source_path_or_uri": {
+                "$ref": "#/$defs/non_empty_string"
+              },
+              "source_revision": {
+                "$ref": "#/$defs/non_empty_string"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "source_kind": {
+                "const": "github_action"
+              }
+            },
+            "required": [
+              "source_kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "action_repository": {
+                "$ref": "#/$defs/non_empty_string"
+              },
+              "action_ref": {
+                "$ref": "#/$defs/non_empty_string"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "source_kind": {
+                "const": "container_image"
+              }
+            },
+            "required": [
+              "source_kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "source_path_or_uri": {
+                "$ref": "#/$defs/non_empty_string"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "command_identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "command_kind",
+        "display_name",
+        "command_sha256",
+        "arguments_sha256",
+        "raw_command_included"
+      ],
+      "properties": {
+        "command_kind": {
+          "type": "string",
+          "enum": [
+            "shell",
+            "python_module",
+            "python_script",
+            "github_action",
+            "container_entrypoint",
+            "external_service",
+            "model_inference",
+            "builtin",
+            "unknown"
+          ]
+        },
+        "display_name": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "command_sha256": {
+          "$ref": "#/$defs/nullable_sha256"
+        },
+        "arguments_sha256": {
+          "$ref": "#/$defs/nullable_sha256"
+        },
+        "raw_command_included": {
+          "const": false
+        }
+      }
+    },
+    "execution_environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "environment_kind",
+        "identity_status",
+        "os_name",
+        "os_version",
+        "architecture",
+        "runtime_name",
+        "runtime_version",
+        "image_identity",
+        "image_digest",
+        "environment_sha256",
+        "raw_environment_included"
+      ],
+      "properties": {
+        "environment_kind": {
+          "type": "string",
+          "enum": [
+            "github_hosted_runner",
+            "self_hosted_runner",
+            "container",
+            "external_service",
+            "unknown"
+          ]
+        },
+        "identity_status": {
+          "type": "string",
+          "enum": [
+            "exact",
+            "partial",
+            "unknown"
+          ]
+        },
+        "os_name": {
+          "$ref": "#/$defs/nullable_non_empty_string"
+        },
+        "os_version": {
+          "$ref": "#/$defs/nullable_non_empty_string"
+        },
+        "architecture": {
+          "$ref": "#/$defs/nullable_non_empty_string"
+        },
+        "runtime_name": {
+          "$ref": "#/$defs/nullable_non_empty_string"
+        },
+        "runtime_version": {
+          "$ref": "#/$defs/nullable_non_empty_string"
+        },
+        "image_identity": {
+          "$ref": "#/$defs/nullable_non_empty_string"
+        },
+        "image_digest": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "environment_sha256": {
+          "$ref": "#/$defs/nullable_sha256"
+        },
+        "raw_environment_included": {
+          "const": false
+        }
+      }
+    },
+    "run_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "execution_run_key",
+        "subject_run_key",
+        "binding_mode",
+        "binding_complete"
+      ],
+      "properties": {
+        "execution_run_key": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "subject_run_key": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "binding_mode": {
+          "type": "string",
+          "enum": [
+            "current_subject_run",
+            "post_run_observer",
+            "external_export"
+          ]
+        },
+        "binding_complete": {
+          "type": "boolean"
+        }
+      }
+    },
+    "timing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "timing_status",
+        "started_utc",
+        "completed_utc",
+        "duration_ms",
+        "timestamp_source",
+        "duration_source"
+      ],
+      "properties": {
+        "timing_status": {
+          "type": "string",
+          "enum": [
+            "complete",
+            "partial",
+            "unknown"
+          ]
+        },
+        "started_utc": {
+          "$ref": "#/$defs/nullable_date_time"
+        },
+        "completed_utc": {
+          "$ref": "#/$defs/nullable_date_time"
+        },
+        "duration_ms": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "timestamp_source": {
+          "type": "string",
+          "enum": [
+            "platform_reported",
+            "tool_reported",
+            "provider_reported",
+            "derived",
+            "mixed",
+            "unknown"
+          ]
+        },
+        "duration_source": {
+          "type": "string",
+          "enum": [
+            "platform_reported",
+            "tool_reported",
+            "provider_reported",
+            "derived_from_timestamps",
+            "unknown"
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "timing_status": {
+                "const": "complete"
+              }
+            },
+            "required": [
+              "timing_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "started_utc": {
+                "$ref": "#/$defs/date_time"
+              },
+              "completed_utc": {
+                "$ref": "#/$defs/date_time"
+              },
+              "duration_ms": {
+                "type": "number",
+                "minimum": 0
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "timing_status": {
+                "const": "unknown"
+              }
+            },
+            "required": [
+              "timing_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "started_utc": {
+                "type": "null"
+              },
+              "completed_utc": {
+                "type": "null"
+              },
+              "duration_ms": {
+                "type": "null"
+              },
+              "timestamp_source": {
+                "const": "unknown"
+              },
+              "duration_source": {
+                "const": "unknown"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "execution_result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "result_status",
+        "lifecycle_status",
+        "outcome",
+        "exit_code"
+      ],
+      "properties": {
+        "result_status": {
+          "type": "string",
+          "enum": [
+            "complete",
+            "partial",
+            "unknown"
+          ]
+        },
+        "lifecycle_status": {
+          "type": "string",
+          "enum": [
+            "queued",
+            "in_progress",
+            "completed",
+            "skipped",
+            "cancelled",
+            "unknown"
+          ]
+        },
+        "outcome": {
+          "type": "string",
+          "enum": [
+            "success",
+            "failure",
+            "cancelled",
+            "skipped",
+            "neutral",
+            "timed_out",
+            "unknown"
+          ]
+        },
+        "exit_code": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "result_status": {
+                "const": "unknown"
+              }
+            },
+            "required": [
+              "result_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "lifecycle_status": {
+                "const": "unknown"
+              },
+              "outcome": {
+                "const": "unknown"
+              },
+              "exit_code": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "execution_record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "execution_id",
+        "execution_scope",
+        "execution_kind",
+        "parent_execution_id",
+        "workflow_name",
+        "job_name",
+        "job_id",
+        "job_attempt",
+        "step_name",
+        "step_number",
+        "source_identity",
+        "command_identity",
+        "execution_environment",
+        "run_binding",
+        "timing",
+        "result",
+        "declared_role",
+        "permitted_mutation_authority",
+        "input_state_ids",
+        "output_state_ids",
+        "external_call_ids",
+        "model_inference_ids",
+        "resource_measurement_ids",
+        "capture_status"
+      ],
+      "properties": {
+        "execution_id": {
+          "$ref": "#/$defs/execution_id"
+        },
+        "execution_scope": {
+          "type": "string",
+          "enum": [
+            "subject",
+            "observation_collector"
+          ]
+        },
+        "execution_kind": {
+          "type": "string",
+          "enum": [
+            "workflow_job",
+            "workflow_step",
+            "local_tool_execution",
+            "github_action",
+            "verifier_execution",
+            "materializer_execution",
+            "artifact_builder",
+            "report_builder",
+            "package_verifier",
+            "observer_execution"
+          ]
+        },
+        "parent_execution_id": {
+          "$ref": "#/$defs/nullable_execution_id"
+        },
+        "workflow_name": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "job_name": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "job_id": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "job_attempt": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "step_name": {
+          "$ref": "#/$defs/nullable_non_empty_string"
+        },
+        "step_number": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "source_identity": {
+          "$ref": "#/$defs/source_identity"
+        },
+        "command_identity": {
+          "$ref": "#/$defs/command_identity"
+        },
+        "execution_environment": {
+          "$ref": "#/$defs/execution_environment"
+        },
+        "run_binding": {
+          "$ref": "#/$defs/run_binding"
+        },
+        "timing": {
+          "$ref": "#/$defs/timing"
+        },
+        "result": {
+          "$ref": "#/$defs/execution_result"
+        },
+        "declared_role": {
+          "type": "string",
+          "enum": [
+            "transition",
+            "evidence",
+            "preservation",
+            "advisory",
+            "observer",
+            "unknown"
+          ]
+        },
+        "permitted_mutation_authority": {
+          "type": "string",
+          "enum": [
+            "none",
+            "advisory_output",
+            "preservation_output",
+            "release_evidence",
+            "candidate_state",
+            "verifier_state",
+            "materialized_gate_set",
+            "final_status",
+            "release_decision"
+          ]
+        },
+        "input_state_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/state_id"
+          }
+        },
+        "output_state_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/state_id"
+          }
+        },
+        "external_call_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/call_id"
+          }
+        },
+        "model_inference_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/inference_id"
+          }
+        },
+        "resource_measurement_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/measurement_id"
+          }
+        },
+        "capture_status": {
+          "type": "string",
+          "enum": [
+            "complete",
+            "partial",
+            "unknown"
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "execution_scope": {
+                "const": "observation_collector"
+              }
+            },
+            "required": [
+              "execution_scope"
+            ]
+          },
+          "then": {
+            "properties": {
+              "execution_kind": {
+                "const": "observer_execution"
+              },
+              "declared_role": {
+                "const": "observer"
+              },
+              "permitted_mutation_authority": {
+                "const": "advisory_output"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "declared_role": {
+                "const": "observer"
+              }
+            },
+            "required": [
+              "declared_role"
+            ]
+          },
+          "then": {
+            "properties": {
+              "execution_scope": {
+                "const": "observation_collector"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "state_observation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state_id",
+        "state_type",
+        "path_or_uri",
+        "content_status",
+        "sha256",
+        "size_bytes",
+        "media_type",
+        "schema_identity",
+        "producer_execution_id",
+        "observer_execution_id",
+        "subject_run_key",
+        "release_candidate_id",
+        "authority_bearing",
+        "mutation_class",
+        "observed_at_utc",
+        "secret_material_included"
+      ],
+      "properties": {
+        "state_id": {
+          "$ref": "#/$defs/state_id"
+        },
+        "state_type": {
+          "type": "string",
+          "enum": [
+            "workflow_source",
+            "policy",
+            "gate_registry",
+            "materialized_gate_set",
+            "release_evidence",
+            "candidate_state",
+            "verifier_report",
+            "status_artifact",
+            "decision_artifact",
+            "attestation",
+            "manifest",
+            "package",
+            "preservation_record",
+            "reader_surface",
+            "publication_surface",
+            "runtime_log",
+            "external_request_metadata",
+            "external_response_metadata",
+            "model_request_metadata",
+            "model_response_metadata",
+            "resource_record",
+            "other"
+          ]
+        },
+        "path_or_uri": {
+          "$ref": "#/$defs/nullable_non_empty_string"
+        },
+        "content_status": {
+          "type": "string",
+          "enum": [
+            "exact_digest",
+            "metadata_only",
+            "unavailable"
+          ]
+        },
+        "sha256": {
+          "$ref": "#/$defs/nullable_sha256"
+        },
+        "size_bytes": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "media_type": {
+          "$ref": "#/$defs/nullable_non_empty_string"
+        },
+        "schema_identity": {
+          "$ref": "#/$defs/nullable_non_empty_string"
+        },
+        "producer_execution_id": {
+          "$ref": "#/$defs/nullable_execution_id"
+        },
+        "observer_execution_id": {
+          "$ref": "#/$defs/execution_id"
+        },
+        "subject_run_key": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "release_candidate_id": {
+          "$ref": "#/$defs/nullable_non_empty_string"
+        },
+        "authority_bearing": {
+          "type": "boolean"
+        },
+        "mutation_class": {
+          "type": "string",
+          "enum": [
+            "none",
+            "advisory_output",
+            "preservation_output",
+            "release_evidence",
+            "candidate_state",
+            "verifier_state",
+            "materialized_gate_set",
+            "final_status",
+            "release_decision"
+          ]
+        },
+        "observed_at_utc": {
+          "$ref": "#/$defs/date_time"
+        },
+        "secret_material_included": {
+          "const": false
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "content_status": {
+                "const": "exact_digest"
+              }
+            },
+            "required": [
+              "content_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "sha256": {
+                "$ref": "#/$defs/sha256"
+              },
+              "size_bytes": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "content_status": {
+                "const": "unavailable"
+              }
+            },
+            "required": [
+              "content_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "sha256": {
+                "type": "null"
+              },
+              "size_bytes": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "authority_bearing": {
+                "const": false
+              }
+            },
+            "required": [
+              "authority_bearing"
+            ]
+          },
+          "then": {
+            "properties": {
+              "mutation_class": {
+                "enum": [
+                  "none",
+                  "advisory_output",
+                  "preservation_output"
+                ]
+              }
+            }
+          }
+        }
+      ]
+    },
+    "service_identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "provider",
+        "service_name",
+        "transport",
+        "endpoint_origin",
+        "operation",
+        "api_version",
+        "identity_status"
+      ],
+      "properties": {
+        "provider": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "service_name": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "transport": {
+          "type": "string",
+          "enum": [
+            "https",
+            "grpc",
+            "github_actions",
+            "internal",
+            "other"
+          ]
+        },
+        "endpoint_origin": {
+          "$ref": "#/$defs/nullable_non_empty_string"
+        },
+        "operation": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "api_version": {
+          "$ref": "#/$defs/nullable_non_empty_string"
+        },
+        "identity_status": {
+          "type": "string",
+          "enum": [
+            "exact",
+            "partial",
+            "unknown"
+          ]
+        }
+      }
+    },
+    "payload_observation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "capture_status",
+        "metadata_sha256",
+        "body_sha256",
+        "body_size_bytes",
+        "state_ids",
+        "raw_body_included"
+      ],
+      "properties": {
+        "capture_status": {
+          "type": "string",
+          "enum": [
+            "exact_digest",
+            "metadata_only",
+            "not_recorded"
+          ]
+        },
+        "metadata_sha256": {
+          "$ref": "#/$defs/nullable_sha256"
+        },
+        "body_sha256": {
+          "$ref": "#/$defs/nullable_sha256"
+        },
+        "body_size_bytes": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "state_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/state_id"
+          }
+        },
+        "raw_body_included": {
+          "const": false
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "capture_status": {
+                "const": "exact_digest"
+              }
+            },
+            "required": [
+              "capture_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "body_sha256": {
+                "$ref": "#/$defs/sha256"
+              },
+              "body_size_bytes": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "capture_status": {
+                "const": "not_recorded"
+              }
+            },
+            "required": [
+              "capture_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "body_sha256": {
+                "type": "null"
+              },
+              "body_size_bytes": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "external_request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "method",
+        "payload",
+        "authorization_material_included",
+        "cookies_included"
+      ],
+      "properties": {
+        "method": {
+          "type": "string",
+          "enum": [
+            "GET",
+            "POST",
+            "PUT",
+            "PATCH",
+            "DELETE",
+            "HEAD",
+            "OPTIONS",
+            "RPC",
+            "OTHER"
+          ]
+        },
+        "payload": {
+          "$ref": "#/$defs/payload_observation"
+        },
+        "authorization_material_included": {
+          "const": false
+        },
+        "cookies_included": {
+          "const": false
+        }
+      }
+    },
+    "external_response": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status_code",
+        "payload",
+        "set_cookie_included"
+      ],
+      "properties": {
+        "status_code": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 100,
+          "maximum": 599
+        },
+        "payload": {
+          "$ref": "#/$defs/payload_observation"
+        },
+        "set_cookie_included": {
+          "const": false
+        }
+      }
+    },
+    "external_call_record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "call_id",
+        "parent_execution_id",
+        "subject_run_key",
+        "service_identity",
+        "request",
+        "response",
+        "provider_request_id_sha256",
+        "timing",
+        "result",
+        "retry_index",
+        "resource_measurement_ids",
+        "capture_status"
+      ],
+      "properties": {
+        "call_id": {
+          "$ref": "#/$defs/call_id"
+        },
+        "parent_execution_id": {
+          "$ref": "#/$defs/execution_id"
+        },
+        "subject_run_key": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "service_identity": {
+          "$ref": "#/$defs/service_identity"
+        },
+        "request": {
+          "$ref": "#/$defs/external_request"
+        },
+        "response": {
+          "$ref": "#/$defs/external_response"
+        },
+        "provider_request_id_sha256": {
+          "$ref": "#/$defs/nullable_sha256"
+        },
+        "timing": {
+          "$ref": "#/$defs/timing"
+        },
+        "result": {
+          "$ref": "#/$defs/execution_result"
+        },
+        "retry_index": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "resource_measurement_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/measurement_id"
+          }
+        },
+        "capture_status": {
+          "type": "string",
+          "enum": [
+            "complete",
+            "partial",
+            "unknown"
+          ]
+        }
+      }
+    },
+    "model_identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "provider",
+        "model_id",
+        "model_revision",
+        "model_content_digest_status",
+        "model_sha256",
+        "deployment_id_sha256"
+      ],
+      "properties": {
+        "provider": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "model_id": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "model_revision": {
+          "$ref": "#/$defs/nullable_non_empty_string"
+        },
+        "model_content_digest_status": {
+          "type": "string",
+          "enum": [
+            "exact_digest",
+            "provider_revision_only",
+            "unavailable"
+          ]
+        },
+        "model_sha256": {
+          "$ref": "#/$defs/nullable_sha256"
+        },
+        "deployment_id_sha256": {
+          "$ref": "#/$defs/nullable_sha256"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "model_content_digest_status": {
+                "const": "exact_digest"
+              }
+            },
+            "required": [
+              "model_content_digest_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "model_sha256": {
+                "$ref": "#/$defs/sha256"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "model_content_digest_status": {
+                "const": "provider_revision_only"
+              }
+            },
+            "required": [
+              "model_content_digest_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "model_revision": {
+                "$ref": "#/$defs/non_empty_string"
+              },
+              "model_sha256": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "model_content_digest_status": {
+                "const": "unavailable"
+              }
+            },
+            "required": [
+              "model_content_digest_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "model_sha256": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "model_parameters": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "parameters_sha256",
+        "temperature",
+        "top_p",
+        "max_output_tokens",
+        "seed",
+        "deterministic_mode"
+      ],
+      "properties": {
+        "parameters_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "temperature": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "top_p": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "max_output_tokens": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "seed": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "deterministic_mode": {
+          "type": "boolean"
+        }
+      }
+    },
+    "model_usage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "usage_status",
+        "input_tokens",
+        "output_tokens",
+        "total_tokens"
+      ],
+      "properties": {
+        "usage_status": {
+          "type": "string",
+          "enum": [
+            "complete",
+            "partial",
+            "unavailable"
+          ]
+        },
+        "input_tokens": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "output_tokens": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "total_tokens": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "usage_status": {
+                "const": "complete"
+              }
+            },
+            "required": [
+              "usage_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "input_tokens": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "output_tokens": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "total_tokens": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "usage_status": {
+                "const": "unavailable"
+              }
+            },
+            "required": [
+              "usage_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "input_tokens": {
+                "type": "null"
+              },
+              "output_tokens": {
+                "type": "null"
+              },
+              "total_tokens": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "model_request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "input_state_ids",
+        "request_metadata_sha256",
+        "raw_prompt_included"
+      ],
+      "properties": {
+        "input_state_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/state_id"
+          }
+        },
+        "request_metadata_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "raw_prompt_included": {
+          "const": false
+        }
+      }
+    },
+    "model_response": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "output_state_ids",
+        "response_metadata_sha256",
+        "raw_output_included"
+      ],
+      "properties": {
+        "output_state_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/state_id"
+          }
+        },
+        "response_metadata_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "raw_output_included": {
+          "const": false
+        }
+      }
+    },
+    "model_inference_record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "inference_id",
+        "parent_execution_id",
+        "subject_run_key",
+        "model_identity",
+        "request",
+        "response",
+        "parameters",
+        "usage",
+        "provider_request_id_sha256",
+        "timing",
+        "result",
+        "resource_measurement_ids",
+        "capture_status"
+      ],
+      "properties": {
+        "inference_id": {
+          "$ref": "#/$defs/inference_id"
+        },
+        "parent_execution_id": {
+          "$ref": "#/$defs/execution_id"
+        },
+        "subject_run_key": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "model_identity": {
+          "$ref": "#/$defs/model_identity"
+        },
+        "request": {
+          "$ref": "#/$defs/model_request"
+        },
+        "response": {
+          "$ref": "#/$defs/model_response"
+        },
+        "parameters": {
+          "$ref": "#/$defs/model_parameters"
+        },
+        "usage": {
+          "$ref": "#/$defs/model_usage"
+        },
+        "provider_request_id_sha256": {
+          "$ref": "#/$defs/nullable_sha256"
+        },
+        "timing": {
+          "$ref": "#/$defs/timing"
+        },
+        "result": {
+          "$ref": "#/$defs/execution_result"
+        },
+        "resource_measurement_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/measurement_id"
+          }
+        },
+        "capture_status": {
+          "type": "string",
+          "enum": [
+            "complete",
+            "partial",
+            "unknown"
+          ]
+        }
+      }
+    },
+    "resource_measurement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "measurement_id",
+        "target_kind",
+        "target_id",
+        "subject_run_key",
+        "axis",
+        "unit",
+        "value",
+        "measurement_status",
+        "measurement_source",
+        "evidence_state_ids",
+        "window_started_utc",
+        "window_completed_utc",
+        "estimated"
+      ],
+      "properties": {
+        "measurement_id": {
+          "$ref": "#/$defs/measurement_id"
+        },
+        "target_kind": {
+          "type": "string",
+          "enum": [
+            "execution",
+            "external_call",
+            "model_inference"
+          ]
+        },
+        "target_id": {
+          "$ref": "#/$defs/target_id"
+        },
+        "subject_run_key": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "axis": {
+          "type": "string",
+          "enum": [
+            "runner_wall_seconds",
+            "job_wall_seconds",
+            "step_wall_seconds",
+            "cpu_seconds",
+            "gpu_seconds",
+            "memory_gb_seconds",
+            "network_bytes_sent",
+            "network_bytes_received",
+            "storage_bytes_written",
+            "artifact_bytes_uploaded",
+            "external_api_calls",
+            "model_input_tokens",
+            "model_output_tokens",
+            "retry_count",
+            "rerun_count"
+          ]
+        },
+        "unit": {
+          "type": "string",
+          "enum": [
+            "seconds",
+            "gb_seconds",
+            "bytes",
+            "count",
+            "tokens"
+          ]
+        },
+        "value": {
+          "type": "number",
+          "minimum": 0
+        },
+        "measurement_status": {
+          "type": "string",
+          "enum": [
+            "complete",
+            "partial"
+          ]
+        },
+        "measurement_source": {
+          "type": "string",
+          "enum": [
+            "platform_reported",
+            "tool_reported",
+            "provider_reported",
+            "derived_from_recorded_timestamps"
+          ]
+        },
+        "evidence_state_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/state_id"
+          }
+        },
+        "window_started_utc": {
+          "$ref": "#/$defs/nullable_date_time"
+        },
+        "window_completed_utc": {
+          "$ref": "#/$defs/nullable_date_time"
+        },
+        "estimated": {
+          "const": false
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "axis": {
+                "enum": [
+                  "runner_wall_seconds",
+                  "job_wall_seconds",
+                  "step_wall_seconds",
+                  "cpu_seconds",
+                  "gpu_seconds"
+                ]
+              }
+            },
+            "required": [
+              "axis"
+            ]
+          },
+          "then": {
+            "properties": {
+              "unit": {
+                "const": "seconds"
+              },
+              "value": {
+                "type": "number",
+                "minimum": 0
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "axis": {
+                "const": "memory_gb_seconds"
+              }
+            },
+            "required": [
+              "axis"
+            ]
+          },
+          "then": {
+            "properties": {
+              "unit": {
+                "const": "gb_seconds"
+              },
+              "value": {
+                "type": "number",
+                "minimum": 0
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "axis": {
+                "enum": [
+                  "network_bytes_sent",
+                  "network_bytes_received",
+                  "storage_bytes_written",
+                  "artifact_bytes_uploaded"
+                ]
+              }
+            },
+            "required": [
+              "axis"
+            ]
+          },
+          "then": {
+            "properties": {
+              "unit": {
+                "const": "bytes"
+              },
+              "value": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "axis": {
+                "enum": [
+                  "external_api_calls",
+                  "retry_count",
+                  "rerun_count"
+                ]
+              }
+            },
+            "required": [
+              "axis"
+            ]
+          },
+          "then": {
+            "properties": {
+              "unit": {
+                "const": "count"
+              },
+              "value": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "axis": {
+                "enum": [
+                  "model_input_tokens",
+                  "model_output_tokens"
+                ]
+              }
+            },
+            "required": [
+              "axis"
+            ]
+          },
+          "then": {
+            "properties": {
+              "unit": {
+                "const": "tokens"
+              },
+              "value": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          }
+        }
+      ]
+    },
+    "coverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "coverage_status",
+        "expected_job_count",
+        "observed_job_count",
+        "expected_step_count",
+        "observed_step_count",
+        "execution_records",
+        "state_records",
+        "external_call_records",
+        "model_inference_records",
+        "resource_measurement_records",
+        "missing_execution_ids",
+        "unobserved_reasons",
+        "resource_axes_observed",
+        "resource_axes_unavailable",
+        "external_call_capture_status",
+        "model_inference_capture_status",
+        "state_digest_capture_status"
+      ],
+      "properties": {
+        "coverage_status": {
+          "type": "string",
+          "enum": [
+            "complete",
+            "partial",
+            "unknown"
+          ]
+        },
+        "expected_job_count": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "observed_job_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "expected_step_count": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "observed_step_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "execution_records": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "state_records": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "external_call_records": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "model_inference_records": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "resource_measurement_records": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "missing_execution_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/execution_id"
+          }
+        },
+        "unobserved_reasons": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "enum": [
+              "platform_metadata_unavailable",
+              "step_not_instrumented",
+              "external_provider_usage_unavailable",
+              "model_content_digest_unavailable",
+              "resource_axis_unavailable",
+              "post_decision_state_unavailable",
+              "other"
+            ]
+          }
+        },
+        "resource_axes_observed": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "enum": [
+              "runner_wall_seconds",
+              "job_wall_seconds",
+              "step_wall_seconds",
+              "cpu_seconds",
+              "gpu_seconds",
+              "memory_gb_seconds",
+              "network_bytes_sent",
+              "network_bytes_received",
+              "storage_bytes_written",
+              "artifact_bytes_uploaded",
+              "external_api_calls",
+              "model_input_tokens",
+              "model_output_tokens",
+              "retry_count",
+              "rerun_count"
+            ]
+          }
+        },
+        "resource_axes_unavailable": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "enum": [
+              "runner_wall_seconds",
+              "job_wall_seconds",
+              "step_wall_seconds",
+              "cpu_seconds",
+              "gpu_seconds",
+              "memory_gb_seconds",
+              "network_bytes_sent",
+              "network_bytes_received",
+              "storage_bytes_written",
+              "artifact_bytes_uploaded",
+              "external_api_calls",
+              "model_input_tokens",
+              "model_output_tokens",
+              "retry_count",
+              "rerun_count"
+            ]
+          }
+        },
+        "external_call_capture_status": {
+          "type": "string",
+          "enum": [
+            "complete",
+            "partial",
+            "none",
+            "unknown"
+          ]
+        },
+        "model_inference_capture_status": {
+          "type": "string",
+          "enum": [
+            "complete",
+            "partial",
+            "none",
+            "unknown"
+          ]
+        },
+        "state_digest_capture_status": {
+          "type": "string",
+          "enum": [
+            "complete",
+            "partial",
+            "none",
+            "unknown"
+          ]
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "ok": {
+            "const": true
+          }
+        },
+        "required": [
+          "ok"
+        ]
+      },
+      "then": {
+        "properties": {
+          "errors": {
+            "maxItems": 0
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "errors": {
+            "minItems": 1
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "record_status": {
+            "const": "example"
+          }
+        },
+        "required": [
+          "record_status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "producer": {
+            "properties": {
+              "collection_mode": {
+                "const": "example"
+              }
+            }
+          },
+          "packet_identity": {
+            "properties": {
+              "packet_scope": {
+                "const": "example"
+              }
+            }
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "producer": {
+            "properties": {
+              "collection_mode": {
+                "not": {
+                  "const": "example"
+                }
+              }
+            }
+          },
+          "packet_identity": {
+            "properties": {
+              "packet_scope": {
+                "not": {
+                  "const": "example"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}
