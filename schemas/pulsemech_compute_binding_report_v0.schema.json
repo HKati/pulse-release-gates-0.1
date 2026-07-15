@@ -1,0 +1,1405 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/HKati/pulse-release-gates-0.1/schemas/pulsemech_compute_binding_report_v0.schema.json",
+  "title": "PULSEmech compute binding report v0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "report_type",
+    "record_status",
+    "tool",
+    "analysis_boundary",
+    "subject",
+    "inputs",
+    "compute_nodes",
+    "state_nodes",
+    "edges",
+    "resource_summary",
+    "summary",
+    "findings",
+    "errors",
+    "ok"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "pulsemech_compute_binding_report_v0"
+    },
+    "report_type": {
+      "const": "pulsemech_compute_binding_report"
+    },
+    "record_status": {
+      "type": "string",
+      "enum": [
+        "example",
+        "observed"
+      ]
+    },
+    "tool": {
+      "$ref": "#/$defs/tool"
+    },
+    "analysis_boundary": {
+      "$ref": "#/$defs/analysis_boundary"
+    },
+    "subject": {
+      "$ref": "#/$defs/subject"
+    },
+    "inputs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/input_record"
+      }
+    },
+    "compute_nodes": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/compute_node"
+      }
+    },
+    "state_nodes": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/state_node"
+      }
+    },
+    "edges": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/edge"
+      }
+    },
+    "resource_summary": {
+      "$ref": "#/$defs/resource_summary"
+    },
+    "summary": {
+      "$ref": "#/$defs/summary"
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/finding"
+      }
+    },
+    "errors": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/non_empty_string"
+      }
+    },
+    "ok": {
+      "type": "boolean"
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "nullable_sha256": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "sha40": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "non_empty_string": {
+      "type": "string",
+      "minLength": 1
+    },
+    "nullable_non_empty_string": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1
+    },
+    "tool": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "version",
+        "source_sha256"
+      ],
+      "properties": {
+        "id": {
+          "const": "build_pulsemech_compute_binding_report_v0"
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+        },
+        "source_sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "analysis_boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "analysis_level",
+        "subject_run_key",
+        "analysis_run_key",
+        "observer_in_subject_totals"
+      ],
+      "properties": {
+        "analysis_level": {
+          "type": "string",
+          "enum": [
+            "structural_declared",
+            "artifact_observed",
+            "runtime_observed"
+          ]
+        },
+        "subject_run_key": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "analysis_run_key": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "observer_in_subject_totals": {
+          "const": false
+        }
+      }
+    },
+    "subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "repository",
+        "workflow",
+        "workflow_run_id",
+        "workflow_run_number",
+        "workflow_run_attempt",
+        "source_commit",
+        "release_candidate_id",
+        "run_mode",
+        "active_policy_sets",
+        "policy_id",
+        "policy_sha256",
+        "materialized_gate_set_sha256",
+        "final_status_sha256",
+        "release_decision_sha256",
+        "decision"
+      ],
+      "properties": {
+        "repository": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "workflow": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "workflow_run_id": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "workflow_run_number": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "workflow_run_attempt": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "source_commit": {
+          "$ref": "#/$defs/sha40"
+        },
+        "release_candidate_id": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "run_mode": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "active_policy_sets": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/non_empty_string"
+          }
+        },
+        "policy_id": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "policy_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "materialized_gate_set_sha256": {
+          "$ref": "#/$defs/nullable_sha256"
+        },
+        "final_status_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "release_decision_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "decision": {
+          "type": "string",
+          "enum": [
+            "ALLOW",
+            "BLOCK"
+          ]
+        }
+      }
+    },
+    "input_record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "role",
+        "path_or_uri",
+        "sha256",
+        "size_bytes"
+      ],
+      "properties": {
+        "role": {
+          "type": "string",
+          "enum": [
+            "workflow_source",
+            "run_metadata",
+            "policy",
+            "materialized_gate_set",
+            "final_status",
+            "release_decision",
+            "evidence_manifest",
+            "verifier_report",
+            "candidate_record",
+            "artifact_binding",
+            "package_inventory",
+            "package_completeness_report",
+            "independent_verification_report",
+            "preservation_manifest",
+            "other"
+          ]
+        },
+        "path_or_uri": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "source_identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_kind",
+        "source_path_or_uri",
+        "source_revision",
+        "source_sha256"
+      ],
+      "properties": {
+        "source_kind": {
+          "type": "string",
+          "enum": [
+            "repository_file",
+            "action",
+            "container_image",
+            "external_service",
+            "builtin",
+            "unknown"
+          ]
+        },
+        "source_path_or_uri": {
+          "$ref": "#/$defs/nullable_non_empty_string"
+        },
+        "source_revision": {
+          "$ref": "#/$defs/nullable_non_empty_string"
+        },
+        "source_sha256": {
+          "$ref": "#/$defs/nullable_sha256"
+        }
+      }
+    },
+    "run_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "execution_run_key",
+        "subject_run_key",
+        "binding_mode",
+        "binding_complete"
+      ],
+      "properties": {
+        "execution_run_key": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "subject_run_key": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "binding_mode": {
+          "type": "string",
+          "enum": [
+            "current_subject_run",
+            "offline_observer",
+            "post_decision_observer"
+          ]
+        },
+        "binding_complete": {
+          "type": "boolean"
+        }
+      }
+    },
+    "flags": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "duplicate_candidate",
+        "mutation_authority_present",
+        "cross_run_input_present",
+        "mutable_source_reference",
+        "resource_measurement_partial"
+      ],
+      "properties": {
+        "duplicate_candidate": {
+          "type": "boolean"
+        },
+        "mutation_authority_present": {
+          "type": "boolean"
+        },
+        "cross_run_input_present": {
+          "type": "boolean"
+        },
+        "mutable_source_reference": {
+          "type": "boolean"
+        },
+        "resource_measurement_partial": {
+          "type": "boolean"
+        }
+      }
+    },
+    "resource_usage": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "runner_wall_seconds": {
+          "type": "number",
+          "minimum": 0
+        },
+        "job_wall_seconds": {
+          "type": "number",
+          "minimum": 0
+        },
+        "step_wall_seconds": {
+          "type": "number",
+          "minimum": 0
+        },
+        "cpu_seconds": {
+          "type": "number",
+          "minimum": 0
+        },
+        "gpu_seconds": {
+          "type": "number",
+          "minimum": 0
+        },
+        "memory_gb_seconds": {
+          "type": "number",
+          "minimum": 0
+        },
+        "network_bytes_sent": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "network_bytes_received": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "storage_bytes_written": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "artifact_bytes_uploaded": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "external_api_calls": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "model_input_tokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "model_output_tokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "retry_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "rerun_count": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "compute_node": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "node_id",
+        "node_type",
+        "execution_scope",
+        "declared_role",
+        "binding_status",
+        "binding_class",
+        "source_identity",
+        "run_binding",
+        "input_state_ids",
+        "output_state_ids",
+        "mutation_authority",
+        "observed_mutation_classes",
+        "unbound_authoritative_mutation",
+        "resource_usage",
+        "flags"
+      ],
+      "properties": {
+        "node_id": {
+          "type": "string",
+          "pattern": "^compute:[A-Za-z0-9._:/@+-]+$"
+        },
+        "node_type": {
+          "type": "string",
+          "enum": [
+            "workflow_job",
+            "workflow_step",
+            "local_tool_execution",
+            "verifier_execution",
+            "materializer_execution",
+            "external_service_call",
+            "model_inference",
+            "artifact_builder",
+            "report_builder",
+            "package_verifier"
+          ]
+        },
+        "execution_scope": {
+          "type": "string",
+          "enum": [
+            "subject",
+            "analysis_observer"
+          ]
+        },
+        "declared_role": {
+          "type": "string",
+          "enum": [
+            "transition",
+            "evidence",
+            "preservation",
+            "advisory",
+            "observer",
+            "unknown"
+          ]
+        },
+        "binding_status": {
+          "type": "string",
+          "enum": [
+            "complete",
+            "partial",
+            "none",
+            "unknown"
+          ]
+        },
+        "binding_class": {
+          "type": "string",
+          "enum": [
+            "transition_bound",
+            "evidence_bound",
+            "preservation_bound",
+            "advisory_bound",
+            "observer",
+            "unbound",
+            "unknown"
+          ]
+        },
+        "source_identity": {
+          "$ref": "#/$defs/source_identity"
+        },
+        "run_binding": {
+          "$ref": "#/$defs/run_binding"
+        },
+        "input_state_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^state:[A-Za-z0-9._:/@+-]+$"
+          }
+        },
+        "output_state_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^state:[A-Za-z0-9._:/@+-]+$"
+          }
+        },
+        "mutation_authority": {
+          "type": "string",
+          "enum": [
+            "none",
+            "advisory_output",
+            "preservation_output",
+            "release_evidence",
+            "candidate_state",
+            "verifier_state",
+            "materialized_gate_set",
+            "final_status",
+            "release_decision"
+          ]
+        },
+        "observed_mutation_classes": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "enum": [
+              "advisory_output",
+              "preservation_output",
+              "release_evidence",
+              "candidate_state",
+              "verifier_state",
+              "materialized_gate_set",
+              "final_status",
+              "release_decision"
+            ]
+          }
+        },
+        "unbound_authoritative_mutation": {
+          "type": "boolean"
+        },
+        "resource_usage": {
+          "$ref": "#/$defs/resource_usage"
+        },
+        "flags": {
+          "$ref": "#/$defs/flags"
+        }
+      }
+    },
+    "state_node": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state_id",
+        "state_type",
+        "path_or_uri",
+        "sha256",
+        "size_bytes",
+        "schema_identity",
+        "producer_node_id",
+        "subject_run_key",
+        "release_candidate_id",
+        "policy_relation",
+        "gate_relation",
+        "authority_bearing"
+      ],
+      "properties": {
+        "state_id": {
+          "type": "string",
+          "pattern": "^state:[A-Za-z0-9._:/@+-]+$"
+        },
+        "state_type": {
+          "type": "string",
+          "enum": [
+            "policy",
+            "materialized_gate_set",
+            "release_evidence",
+            "candidate_state",
+            "verifier_report",
+            "status_artifact",
+            "decision_artifact",
+            "attestation",
+            "manifest",
+            "package",
+            "preservation_record",
+            "reader_surface",
+            "publication_surface"
+          ]
+        },
+        "path_or_uri": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "sha256": {
+          "$ref": "#/$defs/nullable_sha256"
+        },
+        "size_bytes": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "schema_identity": {
+          "$ref": "#/$defs/nullable_non_empty_string"
+        },
+        "producer_node_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^compute:[A-Za-z0-9._:/@+-]+$"
+        },
+        "subject_run_key": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "release_candidate_id": {
+          "$ref": "#/$defs/nullable_non_empty_string"
+        },
+        "policy_relation": {
+          "$ref": "#/$defs/nullable_non_empty_string"
+        },
+        "gate_relation": {
+          "$ref": "#/$defs/nullable_non_empty_string"
+        },
+        "authority_bearing": {
+          "type": "boolean"
+        }
+      }
+    },
+    "edge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "edge_id",
+        "from_id",
+        "to_id",
+        "edge_type",
+        "declared",
+        "observed",
+        "binding_status",
+        "evidence_digests",
+        "notes"
+      ],
+      "properties": {
+        "edge_id": {
+          "type": "string",
+          "pattern": "^edge:[A-Za-z0-9._:/@+-]+$"
+        },
+        "from_id": {
+          "type": "string",
+          "pattern": "^(compute|state):[A-Za-z0-9._:/@+-]+$"
+        },
+        "to_id": {
+          "type": "string",
+          "pattern": "^(compute|state):[A-Za-z0-9._:/@+-]+$"
+        },
+        "edge_type": {
+          "type": "string",
+          "enum": [
+            "reads",
+            "produces",
+            "verifies",
+            "derives",
+            "materializes",
+            "folds",
+            "enforces",
+            "references",
+            "preserves",
+            "publishes"
+          ]
+        },
+        "declared": {
+          "type": "boolean"
+        },
+        "observed": {
+          "type": "boolean"
+        },
+        "binding_status": {
+          "type": "string",
+          "enum": [
+            "complete",
+            "partial",
+            "none",
+            "unknown"
+          ]
+        },
+        "evidence_digests": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/sha256"
+          }
+        },
+        "notes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/non_empty_string"
+          }
+        }
+      },
+      "anyOf": [
+        {
+          "properties": {
+            "declared": {
+              "const": true
+            }
+          }
+        },
+        {
+          "properties": {
+            "observed": {
+              "const": true
+            }
+          }
+        }
+      ]
+    },
+    "resource_axis_number": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "unit",
+        "measured_total",
+        "transition_bound",
+        "evidence_bound",
+        "preservation_bound",
+        "advisory_bound",
+        "unbound",
+        "unknown",
+        "observer_overhead",
+        "nodes_with_measurement",
+        "total_subject_nodes",
+        "measurement_coverage_ratio",
+        "ratios"
+      ],
+      "properties": {
+        "unit": {
+          "type": "string",
+          "minLength": 1
+        },
+        "measured_total": {
+          "type": "number",
+          "minimum": 0
+        },
+        "transition_bound": {
+          "type": "number",
+          "minimum": 0
+        },
+        "evidence_bound": {
+          "type": "number",
+          "minimum": 0
+        },
+        "preservation_bound": {
+          "type": "number",
+          "minimum": 0
+        },
+        "advisory_bound": {
+          "type": "number",
+          "minimum": 0
+        },
+        "unbound": {
+          "type": "number",
+          "minimum": 0
+        },
+        "unknown": {
+          "type": "number",
+          "minimum": 0
+        },
+        "observer_overhead": {
+          "type": "number",
+          "minimum": 0
+        },
+        "nodes_with_measurement": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "total_subject_nodes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "measurement_coverage_ratio": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "ratios": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "transition_bound",
+            "evidence_bound",
+            "preservation_bound",
+            "advisory_bound",
+            "unbound",
+            "unknown"
+          ],
+          "properties": {
+            "transition_bound": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "evidence_bound": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "preservation_bound": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "advisory_bound": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "unbound": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "unknown": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            }
+          }
+        }
+      }
+    },
+    "resource_axis_integer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "unit",
+        "measured_total",
+        "transition_bound",
+        "evidence_bound",
+        "preservation_bound",
+        "advisory_bound",
+        "unbound",
+        "unknown",
+        "observer_overhead",
+        "nodes_with_measurement",
+        "total_subject_nodes",
+        "measurement_coverage_ratio",
+        "ratios"
+      ],
+      "properties": {
+        "unit": {
+          "type": "string",
+          "minLength": 1
+        },
+        "measured_total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "transition_bound": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "evidence_bound": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "preservation_bound": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "advisory_bound": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unbound": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unknown": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "observer_overhead": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "nodes_with_measurement": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "total_subject_nodes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "measurement_coverage_ratio": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "ratios": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "transition_bound",
+            "evidence_bound",
+            "preservation_bound",
+            "advisory_bound",
+            "unbound",
+            "unknown"
+          ],
+          "properties": {
+            "transition_bound": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "evidence_bound": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "preservation_bound": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "advisory_bound": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "unbound": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "unknown": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            }
+          }
+        }
+      }
+    },
+    "resource_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "axes"
+      ],
+      "properties": {
+        "axes": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "runner_wall_seconds": {
+              "allOf": [
+                {
+                  "$ref": "#/$defs/resource_axis_number"
+                },
+                {
+                  "properties": {
+                    "unit": {
+                      "const": "seconds"
+                    }
+                  }
+                }
+              ]
+            },
+            "job_wall_seconds": {
+              "allOf": [
+                {
+                  "$ref": "#/$defs/resource_axis_number"
+                },
+                {
+                  "properties": {
+                    "unit": {
+                      "const": "seconds"
+                    }
+                  }
+                }
+              ]
+            },
+            "step_wall_seconds": {
+              "allOf": [
+                {
+                  "$ref": "#/$defs/resource_axis_number"
+                },
+                {
+                  "properties": {
+                    "unit": {
+                      "const": "seconds"
+                    }
+                  }
+                }
+              ]
+            },
+            "cpu_seconds": {
+              "allOf": [
+                {
+                  "$ref": "#/$defs/resource_axis_number"
+                },
+                {
+                  "properties": {
+                    "unit": {
+                      "const": "seconds"
+                    }
+                  }
+                }
+              ]
+            },
+            "gpu_seconds": {
+              "allOf": [
+                {
+                  "$ref": "#/$defs/resource_axis_number"
+                },
+                {
+                  "properties": {
+                    "unit": {
+                      "const": "seconds"
+                    }
+                  }
+                }
+              ]
+            },
+            "memory_gb_seconds": {
+              "allOf": [
+                {
+                  "$ref": "#/$defs/resource_axis_number"
+                },
+                {
+                  "properties": {
+                    "unit": {
+                      "const": "GB-seconds"
+                    }
+                  }
+                }
+              ]
+            },
+            "network_bytes_sent": {
+              "allOf": [
+                {
+                  "$ref": "#/$defs/resource_axis_integer"
+                },
+                {
+                  "properties": {
+                    "unit": {
+                      "const": "bytes"
+                    }
+                  }
+                }
+              ]
+            },
+            "network_bytes_received": {
+              "allOf": [
+                {
+                  "$ref": "#/$defs/resource_axis_integer"
+                },
+                {
+                  "properties": {
+                    "unit": {
+                      "const": "bytes"
+                    }
+                  }
+                }
+              ]
+            },
+            "storage_bytes_written": {
+              "allOf": [
+                {
+                  "$ref": "#/$defs/resource_axis_integer"
+                },
+                {
+                  "properties": {
+                    "unit": {
+                      "const": "bytes"
+                    }
+                  }
+                }
+              ]
+            },
+            "artifact_bytes_uploaded": {
+              "allOf": [
+                {
+                  "$ref": "#/$defs/resource_axis_integer"
+                },
+                {
+                  "properties": {
+                    "unit": {
+                      "const": "bytes"
+                    }
+                  }
+                }
+              ]
+            },
+            "external_api_calls": {
+              "allOf": [
+                {
+                  "$ref": "#/$defs/resource_axis_integer"
+                },
+                {
+                  "properties": {
+                    "unit": {
+                      "const": "calls"
+                    }
+                  }
+                }
+              ]
+            },
+            "model_input_tokens": {
+              "allOf": [
+                {
+                  "$ref": "#/$defs/resource_axis_integer"
+                },
+                {
+                  "properties": {
+                    "unit": {
+                      "const": "tokens"
+                    }
+                  }
+                }
+              ]
+            },
+            "model_output_tokens": {
+              "allOf": [
+                {
+                  "$ref": "#/$defs/resource_axis_integer"
+                },
+                {
+                  "properties": {
+                    "unit": {
+                      "const": "tokens"
+                    }
+                  }
+                }
+              ]
+            },
+            "retry_count": {
+              "allOf": [
+                {
+                  "$ref": "#/$defs/resource_axis_integer"
+                },
+                {
+                  "properties": {
+                    "unit": {
+                      "const": "count"
+                    }
+                  }
+                }
+              ]
+            },
+            "rerun_count": {
+              "allOf": [
+                {
+                  "$ref": "#/$defs/resource_axis_integer"
+                },
+                {
+                  "properties": {
+                    "unit": {
+                      "const": "count"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "subject_compute_nodes",
+        "observer_nodes",
+        "transition_bound_nodes",
+        "evidence_bound_nodes",
+        "preservation_bound_nodes",
+        "advisory_bound_nodes",
+        "unbound_nodes",
+        "unknown_nodes",
+        "unbound_authoritative_mutation_count",
+        "decision_closure_complete",
+        "authority_binding_complete",
+        "resource_measurement_status"
+      ],
+      "properties": {
+        "subject_compute_nodes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "observer_nodes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "transition_bound_nodes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "evidence_bound_nodes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "preservation_bound_nodes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "advisory_bound_nodes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unbound_nodes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unknown_nodes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unbound_authoritative_mutation_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "decision_closure_complete": {
+          "type": "boolean"
+        },
+        "authority_binding_complete": {
+          "type": "boolean"
+        },
+        "resource_measurement_status": {
+          "type": "string",
+          "enum": [
+            "none",
+            "partial",
+            "complete"
+          ]
+        }
+      }
+    },
+    "finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "finding_id",
+        "severity",
+        "node_id",
+        "state_id",
+        "edge_id",
+        "message",
+        "evidence_refs"
+      ],
+      "properties": {
+        "finding_id": {
+          "type": "string",
+          "enum": [
+            "subject_run_identity_missing",
+            "subject_source_commit_mismatch",
+            "policy_binding_missing",
+            "policy_digest_mismatch",
+            "materialized_gate_set_binding_missing",
+            "decision_root_missing",
+            "decision_status_binding_missing",
+            "required_gate_source_unresolved",
+            "compute_source_identity_missing",
+            "compute_source_digest_missing",
+            "compute_run_binding_missing",
+            "declared_binding_not_observed",
+            "observed_binding_not_declared",
+            "downstream_consumer_missing",
+            "unbound_compute",
+            "unknown_compute_binding",
+            "duplicate_compute_candidate",
+            "undeclared_authoritative_writer",
+            "authority_class_mismatch",
+            "cross_run_input_reuse",
+            "resource_measurement_missing",
+            "resource_measurement_partial",
+            "observer_boundary_violation",
+            "subject_artifact_mutation_attempt"
+          ]
+        },
+        "severity": {
+          "type": "string",
+          "enum": [
+            "information",
+            "advisory",
+            "authority_integrity_candidate"
+          ]
+        },
+        "node_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^compute:[A-Za-z0-9._:/@+-]+$"
+        },
+        "state_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^state:[A-Za-z0-9._:/@+-]+$"
+        },
+        "edge_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^edge:[A-Za-z0-9._:/@+-]+$"
+        },
+        "message": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "evidence_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/non_empty_string"
+          }
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "ok": {
+            "const": true
+          }
+        },
+        "required": [
+          "ok"
+        ]
+      },
+      "then": {
+        "properties": {
+          "errors": {
+            "maxItems": 0
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "ok": {
+            "const": false
+          }
+        },
+        "required": [
+          "ok"
+        ]
+      },
+      "then": {
+        "properties": {
+          "errors": {
+            "minItems": 1
+          }
+        }
+      }
+    }
+  ]
+}
