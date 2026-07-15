@@ -191,8 +191,11 @@ def recompute_summary_and_resources(
 
         measured_total = sum(category_values.values())
         observer_overhead = sum(
-            float(node["resource_usage"][axis_name])
-            for node in measured_observer_nodes
+            (
+                float(node["resource_usage"][axis_name])
+                for node in measured_observer_nodes
+            ),
+            0.0,
         )
 
         axis["measured_total"] = (
