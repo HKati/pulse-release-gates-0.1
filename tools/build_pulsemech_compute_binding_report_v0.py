@@ -30,6 +30,9 @@ DEFAULT_README = DEFAULT_PRESERVATION_DIR / "README.md"
 DEFAULT_SHA256SUMS = DEFAULT_PRESERVATION_DIR / "SHA256SUMS"
 DEFAULT_SCHEMA = ROOT / "schemas" / "pulsemech_compute_binding_report_v0.schema.json"
 DEFAULT_VALIDATOR = ROOT / "tools" / "check_pulsemech_compute_binding_report_v0.py"
+DEFAULT_GATE_POLICY = ROOT / "pulse_gate_policy_v0.yml"
+DEFAULT_GATE_REGISTRY = ROOT / "pulse_gate_registry_v0.yml"
+DEFAULT_PULSE_WORKFLOW = ROOT / ".github" / "workflows" / "pulse_ci.yml"
 
 ARCHIVE_DISPLAY_PATH = "PULSE_CI_6066_release_grade_artifact_preservation_v0.zip"
 PRESERVATION_MANIFEST_DISPLAY_PATH = (
@@ -263,7 +266,17 @@ def reject_unsafe_output(
     if output is None:
         return
 
-    protected = (archive, manifest, readme, sha256sums, schema, validator)
+    protected = (
+        archive,
+        manifest,
+        readme,
+        sha256sums,
+        schema,
+        validator,
+        DEFAULT_GATE_POLICY,
+        DEFAULT_GATE_REGISTRY,
+        DEFAULT_PULSE_WORKFLOW,
+    )
     for path in protected:
         if same_target(output, path):
             raise BuilderError(f"refusing_to_overwrite_input: {path}")
@@ -280,7 +293,7 @@ def reject_unsafe_output(
 
     cursor = output
     while True:
-        if cursor.exists() and cursor.is_symlink():
+        if cursor.is_symlink():
             raise BuilderError(f"refusing_symlink_output_path: {cursor}")
         if cursor == cursor.parent:
             break
