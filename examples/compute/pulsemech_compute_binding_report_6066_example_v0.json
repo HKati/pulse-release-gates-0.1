@@ -1,0 +1,908 @@
+{
+  "analysis_boundary": {
+    "analysis_level": "artifact_observed",
+    "analysis_run_key": "OFFLINE_ANALYSIS=pulsemech-compute-binding-contract-example-v0",
+    "observer_in_subject_totals": false,
+    "subject_run_key": "GITHUB_RUN_ID=29249887581|GITHUB_RUN_ATTEMPT=1|GITHUB_WORKFLOW=PULSE CI"
+  },
+  "compute_nodes": [
+    {
+      "binding_class": "advisory_bound",
+      "binding_status": "complete",
+      "declared_role": "advisory",
+      "execution_scope": "subject",
+      "flags": {
+        "cross_run_input_present": false,
+        "duplicate_candidate": false,
+        "mutable_source_reference": false,
+        "mutation_authority_present": true,
+        "resource_measurement_partial": true
+      },
+      "input_state_ids": [
+        "state:final-status"
+      ],
+      "mutation_authority": "advisory_output",
+      "node_id": "compute:advisory-reader",
+      "node_type": "report_builder",
+      "observed_mutation_classes": [
+        "advisory_output"
+      ],
+      "output_state_ids": [
+        "state:advisory-report"
+      ],
+      "resource_usage": {
+        "runner_wall_seconds": 1.0
+      },
+      "run_binding": {
+        "binding_complete": true,
+        "binding_mode": "current_subject_run",
+        "execution_run_key": "GITHUB_RUN_ID=29249887581|GITHUB_RUN_ATTEMPT=1|GITHUB_WORKFLOW=PULSE CI",
+        "subject_run_key": "GITHUB_RUN_ID=29249887581|GITHUB_RUN_ATTEMPT=1|GITHUB_WORKFLOW=PULSE CI"
+      },
+      "source_identity": {
+        "source_kind": "repository_file",
+        "source_path_or_uri": "tools/render_status_summary_v0.py",
+        "source_revision": "46b639706e23f80fe296a8893be18e2b5ab21f7e",
+        "source_sha256": "1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "unbound_authoritative_mutation": false
+    },
+    {
+      "binding_class": "transition_bound",
+      "binding_status": "complete",
+      "declared_role": "transition",
+      "execution_scope": "subject",
+      "flags": {
+        "cross_run_input_present": false,
+        "duplicate_candidate": false,
+        "mutable_source_reference": false,
+        "mutation_authority_present": true,
+        "resource_measurement_partial": true
+      },
+      "input_state_ids": [
+        "state:final-status",
+        "state:materialized-gates"
+      ],
+      "mutation_authority": "release_decision",
+      "node_id": "compute:check-gates",
+      "node_type": "local_tool_execution",
+      "observed_mutation_classes": [
+        "release_decision"
+      ],
+      "output_state_ids": [
+        "state:decision"
+      ],
+      "resource_usage": {
+        "runner_wall_seconds": 2.0
+      },
+      "run_binding": {
+        "binding_complete": true,
+        "binding_mode": "current_subject_run",
+        "execution_run_key": "GITHUB_RUN_ID=29249887581|GITHUB_RUN_ATTEMPT=1|GITHUB_WORKFLOW=PULSE CI",
+        "subject_run_key": "GITHUB_RUN_ID=29249887581|GITHUB_RUN_ATTEMPT=1|GITHUB_WORKFLOW=PULSE CI"
+      },
+      "source_identity": {
+        "source_kind": "repository_file",
+        "source_path_or_uri": "PULSE_safe_pack_v0/tools/check_gates.py",
+        "source_revision": "46b639706e23f80fe296a8893be18e2b5ab21f7e",
+        "source_sha256": "2222222222222222222222222222222222222222222222222222222222222222"
+      },
+      "unbound_authoritative_mutation": false
+    },
+    {
+      "binding_class": "evidence_bound",
+      "binding_status": "complete",
+      "declared_role": "evidence",
+      "execution_scope": "subject",
+      "flags": {
+        "cross_run_input_present": false,
+        "duplicate_candidate": false,
+        "mutable_source_reference": false,
+        "mutation_authority_present": true,
+        "resource_measurement_partial": false
+      },
+      "input_state_ids": [],
+      "mutation_authority": "release_evidence",
+      "node_id": "compute:evidence-producer",
+      "node_type": "model_inference",
+      "observed_mutation_classes": [
+        "release_evidence"
+      ],
+      "output_state_ids": [
+        "state:evidence"
+      ],
+      "resource_usage": {
+        "model_output_tokens": 1000,
+        "runner_wall_seconds": 4.0
+      },
+      "run_binding": {
+        "binding_complete": true,
+        "binding_mode": "current_subject_run",
+        "execution_run_key": "GITHUB_RUN_ID=29249887581|GITHUB_RUN_ATTEMPT=1|GITHUB_WORKFLOW=PULSE CI",
+        "subject_run_key": "GITHUB_RUN_ID=29249887581|GITHUB_RUN_ATTEMPT=1|GITHUB_WORKFLOW=PULSE CI"
+      },
+      "source_identity": {
+        "source_kind": "repository_file",
+        "source_path_or_uri": "PULSE_safe_pack_v0/tools/run_llamaguard_current_evidence_v0.py",
+        "source_revision": "46b639706e23f80fe296a8893be18e2b5ab21f7e",
+        "source_sha256": "3333333333333333333333333333333333333333333333333333333333333333"
+      },
+      "unbound_authoritative_mutation": false
+    },
+    {
+      "binding_class": "evidence_bound",
+      "binding_status": "complete",
+      "declared_role": "evidence",
+      "execution_scope": "subject",
+      "flags": {
+        "cross_run_input_present": false,
+        "duplicate_candidate": false,
+        "mutable_source_reference": false,
+        "mutation_authority_present": true,
+        "resource_measurement_partial": false
+      },
+      "input_state_ids": [
+        "state:evidence"
+      ],
+      "mutation_authority": "verifier_state",
+      "node_id": "compute:evidence-verifier",
+      "node_type": "verifier_execution",
+      "observed_mutation_classes": [
+        "verifier_state"
+      ],
+      "output_state_ids": [
+        "state:verifier-report"
+      ],
+      "resource_usage": {
+        "model_output_tokens": 500,
+        "runner_wall_seconds": 3.0
+      },
+      "run_binding": {
+        "binding_complete": true,
+        "binding_mode": "current_subject_run",
+        "execution_run_key": "GITHUB_RUN_ID=29249887581|GITHUB_RUN_ATTEMPT=1|GITHUB_WORKFLOW=PULSE CI",
+        "subject_run_key": "GITHUB_RUN_ID=29249887581|GITHUB_RUN_ATTEMPT=1|GITHUB_WORKFLOW=PULSE CI"
+      },
+      "source_identity": {
+        "source_kind": "repository_file",
+        "source_path_or_uri": "tools/check_recorded_release_evidence_v0.py",
+        "source_revision": "46b639706e23f80fe296a8893be18e2b5ab21f7e",
+        "source_sha256": "4444444444444444444444444444444444444444444444444444444444444444"
+      },
+      "unbound_authoritative_mutation": false
+    },
+    {
+      "binding_class": "observer",
+      "binding_status": "complete",
+      "declared_role": "observer",
+      "execution_scope": "analysis_observer",
+      "flags": {
+        "cross_run_input_present": false,
+        "duplicate_candidate": false,
+        "mutable_source_reference": false,
+        "mutation_authority_present": false,
+        "resource_measurement_partial": true
+      },
+      "input_state_ids": [
+        "state:decision",
+        "state:preservation-report"
+      ],
+      "mutation_authority": "none",
+      "node_id": "compute:offline-observer",
+      "node_type": "report_builder",
+      "observed_mutation_classes": [],
+      "output_state_ids": [],
+      "resource_usage": {
+        "runner_wall_seconds": 0.5
+      },
+      "run_binding": {
+        "binding_complete": true,
+        "binding_mode": "offline_observer",
+        "execution_run_key": "OFFLINE_ANALYSIS=pulsemech-compute-binding-contract-example-v0",
+        "subject_run_key": "GITHUB_RUN_ID=29249887581|GITHUB_RUN_ATTEMPT=1|GITHUB_WORKFLOW=PULSE CI"
+      },
+      "source_identity": {
+        "source_kind": "repository_file",
+        "source_path_or_uri": "tools/build_pulsemech_compute_binding_report_v0.py",
+        "source_revision": "contract-example-v0",
+        "source_sha256": "5555555555555555555555555555555555555555555555555555555555555555"
+      },
+      "unbound_authoritative_mutation": false
+    },
+    {
+      "binding_class": "transition_bound",
+      "binding_status": "complete",
+      "declared_role": "transition",
+      "execution_scope": "subject",
+      "flags": {
+        "cross_run_input_present": false,
+        "duplicate_candidate": false,
+        "mutable_source_reference": false,
+        "mutation_authority_present": true,
+        "resource_measurement_partial": true
+      },
+      "input_state_ids": [
+        "state:policy"
+      ],
+      "mutation_authority": "materialized_gate_set",
+      "node_id": "compute:policy-materializer",
+      "node_type": "materializer_execution",
+      "observed_mutation_classes": [
+        "materialized_gate_set"
+      ],
+      "output_state_ids": [
+        "state:materialized-gates"
+      ],
+      "resource_usage": {
+        "runner_wall_seconds": 1.0
+      },
+      "run_binding": {
+        "binding_complete": true,
+        "binding_mode": "current_subject_run",
+        "execution_run_key": "GITHUB_RUN_ID=29249887581|GITHUB_RUN_ATTEMPT=1|GITHUB_WORKFLOW=PULSE CI",
+        "subject_run_key": "GITHUB_RUN_ID=29249887581|GITHUB_RUN_ATTEMPT=1|GITHUB_WORKFLOW=PULSE CI"
+      },
+      "source_identity": {
+        "source_kind": "repository_file",
+        "source_path_or_uri": "tools/policy_to_require_args.py",
+        "source_revision": "46b639706e23f80fe296a8893be18e2b5ab21f7e",
+        "source_sha256": "6666666666666666666666666666666666666666666666666666666666666666"
+      },
+      "unbound_authoritative_mutation": false
+    },
+    {
+      "binding_class": "preservation_bound",
+      "binding_status": "complete",
+      "declared_role": "preservation",
+      "execution_scope": "subject",
+      "flags": {
+        "cross_run_input_present": false,
+        "duplicate_candidate": false,
+        "mutable_source_reference": false,
+        "mutation_authority_present": true,
+        "resource_measurement_partial": true
+      },
+      "input_state_ids": [
+        "state:decision",
+        "state:final-status"
+      ],
+      "mutation_authority": "preservation_output",
+      "node_id": "compute:preservation-verifier",
+      "node_type": "package_verifier",
+      "observed_mutation_classes": [
+        "preservation_output"
+      ],
+      "output_state_ids": [
+        "state:preservation-report"
+      ],
+      "resource_usage": {
+        "runner_wall_seconds": 2.0
+      },
+      "run_binding": {
+        "binding_complete": true,
+        "binding_mode": "current_subject_run",
+        "execution_run_key": "GITHUB_RUN_ID=29249887581|GITHUB_RUN_ATTEMPT=1|GITHUB_WORKFLOW=PULSE CI",
+        "subject_run_key": "GITHUB_RUN_ID=29249887581|GITHUB_RUN_ATTEMPT=1|GITHUB_WORKFLOW=PULSE CI"
+      },
+      "source_identity": {
+        "source_kind": "repository_file",
+        "source_path_or_uri": "PULSE_safe_pack_v0/tools/verify_release_grade_reference_package_v0.py",
+        "source_revision": "46b639706e23f80fe296a8893be18e2b5ab21f7e",
+        "source_sha256": "7777777777777777777777777777777777777777777777777777777777777777"
+      },
+      "unbound_authoritative_mutation": false
+    },
+    {
+      "binding_class": "transition_bound",
+      "binding_status": "complete",
+      "declared_role": "transition",
+      "execution_scope": "subject",
+      "flags": {
+        "cross_run_input_present": false,
+        "duplicate_candidate": false,
+        "mutable_source_reference": false,
+        "mutation_authority_present": true,
+        "resource_measurement_partial": true
+      },
+      "input_state_ids": [
+        "state:materialized-gates",
+        "state:verifier-report"
+      ],
+      "mutation_authority": "final_status",
+      "node_id": "compute:status-builder",
+      "node_type": "artifact_builder",
+      "observed_mutation_classes": [
+        "final_status"
+      ],
+      "output_state_ids": [
+        "state:final-status"
+      ],
+      "resource_usage": {
+        "runner_wall_seconds": 2.0
+      },
+      "run_binding": {
+        "binding_complete": true,
+        "binding_mode": "current_subject_run",
+        "execution_run_key": "GITHUB_RUN_ID=29249887581|GITHUB_RUN_ATTEMPT=1|GITHUB_WORKFLOW=PULSE CI",
+        "subject_run_key": "GITHUB_RUN_ID=29249887581|GITHUB_RUN_ATTEMPT=1|GITHUB_WORKFLOW=PULSE CI"
+      },
+      "source_identity": {
+        "source_kind": "repository_file",
+        "source_path_or_uri": "PULSE_safe_pack_v0/tools/build_release_grade_candidate_status_v0.py",
+        "source_revision": "46b639706e23f80fe296a8893be18e2b5ab21f7e",
+        "source_sha256": "8888888888888888888888888888888888888888888888888888888888888888"
+      },
+      "unbound_authoritative_mutation": false
+    },
+    {
+      "binding_class": "unbound",
+      "binding_status": "none",
+      "declared_role": "advisory",
+      "execution_scope": "subject",
+      "flags": {
+        "cross_run_input_present": false,
+        "duplicate_candidate": false,
+        "mutable_source_reference": false,
+        "mutation_authority_present": true,
+        "resource_measurement_partial": true
+      },
+      "input_state_ids": [],
+      "mutation_authority": "advisory_output",
+      "node_id": "compute:unbound-diagnostic",
+      "node_type": "report_builder",
+      "observed_mutation_classes": [
+        "advisory_output"
+      ],
+      "output_state_ids": [
+        "state:unbound-report"
+      ],
+      "resource_usage": {
+        "runner_wall_seconds": 1.0
+      },
+      "run_binding": {
+        "binding_complete": true,
+        "binding_mode": "current_subject_run",
+        "execution_run_key": "GITHUB_RUN_ID=29249887581|GITHUB_RUN_ATTEMPT=1|GITHUB_WORKFLOW=PULSE CI",
+        "subject_run_key": "GITHUB_RUN_ID=29249887581|GITHUB_RUN_ATTEMPT=1|GITHUB_WORKFLOW=PULSE CI"
+      },
+      "source_identity": {
+        "source_kind": "repository_file",
+        "source_path_or_uri": "tools/example_unconsumed_diagnostic_v0.py",
+        "source_revision": "46b639706e23f80fe296a8893be18e2b5ab21f7e",
+        "source_sha256": "9999999999999999999999999999999999999999999999999999999999999999"
+      },
+      "unbound_authoritative_mutation": false
+    }
+  ],
+  "edges": [
+    {
+      "binding_status": "complete",
+      "declared": true,
+      "edge_id": "edge:001-policy-read",
+      "edge_type": "reads",
+      "evidence_digests": [
+        "7160c37e5e04099c1b6960229d944076503380ae7d2a712c00da459a275d3c31"
+      ],
+      "from_id": "state:policy",
+      "notes": [],
+      "observed": true,
+      "to_id": "compute:policy-materializer"
+    },
+    {
+      "binding_status": "complete",
+      "declared": true,
+      "edge_id": "edge:002-gates-produced",
+      "edge_type": "materializes",
+      "evidence_digests": [
+        "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+      ],
+      "from_id": "compute:policy-materializer",
+      "notes": [],
+      "observed": true,
+      "to_id": "state:materialized-gates"
+    },
+    {
+      "binding_status": "complete",
+      "declared": true,
+      "edge_id": "edge:003-evidence-produced",
+      "edge_type": "produces",
+      "evidence_digests": [
+        "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      ],
+      "from_id": "compute:evidence-producer",
+      "notes": [],
+      "observed": true,
+      "to_id": "state:evidence"
+    },
+    {
+      "binding_status": "complete",
+      "declared": true,
+      "edge_id": "edge:004-evidence-read",
+      "edge_type": "verifies",
+      "evidence_digests": [
+        "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      ],
+      "from_id": "state:evidence",
+      "notes": [],
+      "observed": true,
+      "to_id": "compute:evidence-verifier"
+    },
+    {
+      "binding_status": "complete",
+      "declared": true,
+      "edge_id": "edge:005-verifier-produced",
+      "edge_type": "produces",
+      "evidence_digests": [
+        "1111111111111111111111111111111111111111111111111111111111111111"
+      ],
+      "from_id": "compute:evidence-verifier",
+      "notes": [],
+      "observed": true,
+      "to_id": "state:verifier-report"
+    },
+    {
+      "binding_status": "complete",
+      "declared": true,
+      "edge_id": "edge:006-gates-status-read",
+      "edge_type": "reads",
+      "evidence_digests": [
+        "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+      ],
+      "from_id": "state:materialized-gates",
+      "notes": [],
+      "observed": true,
+      "to_id": "compute:status-builder"
+    },
+    {
+      "binding_status": "complete",
+      "declared": true,
+      "edge_id": "edge:007-verifier-status-read",
+      "edge_type": "reads",
+      "evidence_digests": [
+        "1111111111111111111111111111111111111111111111111111111111111111"
+      ],
+      "from_id": "state:verifier-report",
+      "notes": [],
+      "observed": true,
+      "to_id": "compute:status-builder"
+    },
+    {
+      "binding_status": "complete",
+      "declared": true,
+      "edge_id": "edge:008-status-produced",
+      "edge_type": "produces",
+      "evidence_digests": [
+        "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+      ],
+      "from_id": "compute:status-builder",
+      "notes": [],
+      "observed": true,
+      "to_id": "state:final-status"
+    },
+    {
+      "binding_status": "complete",
+      "declared": true,
+      "edge_id": "edge:009-status-enforced",
+      "edge_type": "enforces",
+      "evidence_digests": [
+        "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+      ],
+      "from_id": "state:final-status",
+      "notes": [],
+      "observed": true,
+      "to_id": "compute:check-gates"
+    },
+    {
+      "binding_status": "complete",
+      "declared": true,
+      "edge_id": "edge:010-gates-enforced",
+      "edge_type": "enforces",
+      "evidence_digests": [
+        "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+      ],
+      "from_id": "state:materialized-gates",
+      "notes": [],
+      "observed": true,
+      "to_id": "compute:check-gates"
+    },
+    {
+      "binding_status": "complete",
+      "declared": true,
+      "edge_id": "edge:011-decision-produced",
+      "edge_type": "produces",
+      "evidence_digests": [
+        "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      ],
+      "from_id": "compute:check-gates",
+      "notes": [],
+      "observed": true,
+      "to_id": "state:decision"
+    },
+    {
+      "binding_status": "complete",
+      "declared": true,
+      "edge_id": "edge:012-decision-preserved",
+      "edge_type": "preserves",
+      "evidence_digests": [
+        "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      ],
+      "from_id": "state:decision",
+      "notes": [],
+      "observed": true,
+      "to_id": "compute:preservation-verifier"
+    },
+    {
+      "binding_status": "complete",
+      "declared": true,
+      "edge_id": "edge:013-status-preserved",
+      "edge_type": "preserves",
+      "evidence_digests": [
+        "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+      ],
+      "from_id": "state:final-status",
+      "notes": [],
+      "observed": true,
+      "to_id": "compute:preservation-verifier"
+    },
+    {
+      "binding_status": "complete",
+      "declared": true,
+      "edge_id": "edge:014-preservation-produced",
+      "edge_type": "produces",
+      "evidence_digests": [
+        "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+      ],
+      "from_id": "compute:preservation-verifier",
+      "notes": [],
+      "observed": true,
+      "to_id": "state:preservation-report"
+    },
+    {
+      "binding_status": "complete",
+      "declared": true,
+      "edge_id": "edge:015-status-read-advisory",
+      "edge_type": "reads",
+      "evidence_digests": [
+        "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+      ],
+      "from_id": "state:final-status",
+      "notes": [],
+      "observed": true,
+      "to_id": "compute:advisory-reader"
+    },
+    {
+      "binding_status": "complete",
+      "declared": true,
+      "edge_id": "edge:016-advisory-produced",
+      "edge_type": "publishes",
+      "evidence_digests": [
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      ],
+      "from_id": "compute:advisory-reader",
+      "notes": [],
+      "observed": true,
+      "to_id": "state:advisory-report"
+    },
+    {
+      "binding_status": "complete",
+      "declared": true,
+      "edge_id": "edge:017-unbound-produced",
+      "edge_type": "produces",
+      "evidence_digests": [
+        "0000000000000000000000000000000000000000000000000000000000000000"
+      ],
+      "from_id": "compute:unbound-diagnostic",
+      "notes": [],
+      "observed": true,
+      "to_id": "state:unbound-report"
+    },
+    {
+      "binding_status": "complete",
+      "declared": true,
+      "edge_id": "edge:018-observer-decision-read",
+      "edge_type": "reads",
+      "evidence_digests": [
+        "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      ],
+      "from_id": "state:decision",
+      "notes": [],
+      "observed": true,
+      "to_id": "compute:offline-observer"
+    },
+    {
+      "binding_status": "complete",
+      "declared": true,
+      "edge_id": "edge:019-observer-preservation-read",
+      "edge_type": "reads",
+      "evidence_digests": [
+        "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+      ],
+      "from_id": "state:preservation-report",
+      "notes": [],
+      "observed": true,
+      "to_id": "compute:offline-observer"
+    }
+  ],
+  "errors": [],
+  "findings": [
+    {
+      "edge_id": null,
+      "evidence_refs": [
+        "resource_summary.axes.model_output_tokens"
+      ],
+      "finding_id": "resource_measurement_partial",
+      "message": "Model-output token measurement covers 2 of 8 subject compute nodes.",
+      "node_id": null,
+      "severity": "advisory",
+      "state_id": null
+    },
+    {
+      "edge_id": null,
+      "evidence_refs": [
+        "state:unbound-report"
+      ],
+      "finding_id": "unbound_compute",
+      "message": "The illustrative diagnostic output has no observed downstream consumer.",
+      "node_id": "compute:unbound-diagnostic",
+      "severity": "advisory",
+      "state_id": null
+    }
+  ],
+  "inputs": [
+    {
+      "path_or_uri": "PULSE_safe_pack_v0/artifacts/status.json",
+      "role": "final_status",
+      "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "size_bytes": 1500
+    },
+    {
+      "path_or_uri": "PULSE_safe_pack_v0/artifacts/materialized_required_gates_v0.json",
+      "role": "materialized_gate_set",
+      "sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "size_bytes": 1000
+    },
+    {
+      "path_or_uri": "pulse_gate_policy_v0.yml",
+      "role": "policy",
+      "sha256": "7160c37e5e04099c1b6960229d944076503380ae7d2a712c00da459a275d3c31",
+      "size_bytes": 4000
+    },
+    {
+      "path_or_uri": "preservation/pulse_ci_6066/PRESERVATION_MANIFEST_v0.json",
+      "role": "preservation_manifest",
+      "sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "size_bytes": 3000
+    },
+    {
+      "path_or_uri": "PULSE_safe_pack_v0/artifacts/release_decision_v0.json",
+      "role": "release_decision",
+      "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "size_bytes": 500
+    },
+    {
+      "path_or_uri": ".github/workflows/pulse_ci.yml",
+      "role": "workflow_source",
+      "sha256": "3333333333333333333333333333333333333333333333333333333333333333",
+      "size_bytes": 12000
+    }
+  ],
+  "ok": true,
+  "record_status": "example",
+  "report_type": "pulsemech_compute_binding_report",
+  "resource_summary": {
+    "axes": {
+      "model_output_tokens": {
+        "advisory_bound": 0,
+        "evidence_bound": 1500,
+        "measured_total": 1500,
+        "measurement_coverage_ratio": 0.25,
+        "nodes_with_measurement": 2,
+        "observer_overhead": 0,
+        "preservation_bound": 0,
+        "ratios": {
+          "advisory_bound": 0.0,
+          "evidence_bound": 1.0,
+          "preservation_bound": 0.0,
+          "transition_bound": 0.0,
+          "unbound": 0.0,
+          "unknown": 0.0
+        },
+        "total_subject_nodes": 8,
+        "transition_bound": 0,
+        "unbound": 0,
+        "unit": "tokens",
+        "unknown": 0
+      },
+      "runner_wall_seconds": {
+        "advisory_bound": 1.0,
+        "evidence_bound": 7.0,
+        "measured_total": 16.0,
+        "measurement_coverage_ratio": 1.0,
+        "nodes_with_measurement": 8,
+        "observer_overhead": 0.5,
+        "preservation_bound": 2.0,
+        "ratios": {
+          "advisory_bound": 0.0625,
+          "evidence_bound": 0.4375,
+          "preservation_bound": 0.125,
+          "transition_bound": 0.3125,
+          "unbound": 0.0625,
+          "unknown": 0.0
+        },
+        "total_subject_nodes": 8,
+        "transition_bound": 5.0,
+        "unbound": 1.0,
+        "unit": "seconds",
+        "unknown": 0.0
+      }
+    }
+  },
+  "schema_version": "pulsemech_compute_binding_report_v0",
+  "state_nodes": [
+    {
+      "authority_bearing": false,
+      "gate_relation": null,
+      "path_or_uri": "reports/status_summary_v0.json",
+      "policy_relation": null,
+      "producer_node_id": "compute:advisory-reader",
+      "release_candidate_id": "main",
+      "schema_identity": "status_summary_v0",
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "size_bytes": 1000,
+      "state_id": "state:advisory-report",
+      "state_type": "reader_surface",
+      "subject_run_key": "GITHUB_RUN_ID=29249887581|GITHUB_RUN_ATTEMPT=1|GITHUB_WORKFLOW=PULSE CI"
+    },
+    {
+      "authority_bearing": true,
+      "gate_relation": "required+release_required",
+      "path_or_uri": "PULSE_safe_pack_v0/artifacts/release_decision_v0.json",
+      "policy_relation": "pulse-gate-policy-v0",
+      "producer_node_id": "compute:check-gates",
+      "release_candidate_id": "main",
+      "schema_identity": "release_decision_v0",
+      "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "size_bytes": 500,
+      "state_id": "state:decision",
+      "state_type": "decision_artifact",
+      "subject_run_key": "GITHUB_RUN_ID=29249887581|GITHUB_RUN_ATTEMPT=1|GITHUB_WORKFLOW=PULSE CI"
+    },
+    {
+      "authority_bearing": true,
+      "gate_relation": "hosted_external_evidence",
+      "path_or_uri": "PULSE_safe_pack_v0/artifacts/external/llamaguard_summary.json",
+      "policy_relation": "policy/external_signers_v1.yml",
+      "producer_node_id": "compute:evidence-producer",
+      "release_candidate_id": "main",
+      "schema_identity": "llamaguard_summary_v0",
+      "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "size_bytes": 2000,
+      "state_id": "state:evidence",
+      "state_type": "release_evidence",
+      "subject_run_key": "GITHUB_RUN_ID=29249887581|GITHUB_RUN_ATTEMPT=1|GITHUB_WORKFLOW=PULSE CI"
+    },
+    {
+      "authority_bearing": true,
+      "gate_relation": "required+release_required",
+      "path_or_uri": "PULSE_safe_pack_v0/artifacts/status.json",
+      "policy_relation": "pulse-gate-policy-v0",
+      "producer_node_id": "compute:status-builder",
+      "release_candidate_id": "main",
+      "schema_identity": "release_grade_status_v0",
+      "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "size_bytes": 1500,
+      "state_id": "state:final-status",
+      "state_type": "status_artifact",
+      "subject_run_key": "GITHUB_RUN_ID=29249887581|GITHUB_RUN_ATTEMPT=1|GITHUB_WORKFLOW=PULSE CI"
+    },
+    {
+      "authority_bearing": true,
+      "gate_relation": "required+release_required",
+      "path_or_uri": "PULSE_safe_pack_v0/artifacts/materialized_required_gates_v0.json",
+      "policy_relation": "pulse-gate-policy-v0",
+      "producer_node_id": "compute:policy-materializer",
+      "release_candidate_id": "main",
+      "schema_identity": "materialized_required_gates_v0",
+      "sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "size_bytes": 1000,
+      "state_id": "state:materialized-gates",
+      "state_type": "materialized_gate_set",
+      "subject_run_key": "GITHUB_RUN_ID=29249887581|GITHUB_RUN_ATTEMPT=1|GITHUB_WORKFLOW=PULSE CI"
+    },
+    {
+      "authority_bearing": true,
+      "gate_relation": null,
+      "path_or_uri": "pulse_gate_policy_v0.yml",
+      "policy_relation": "pulse-gate-policy-v0",
+      "producer_node_id": null,
+      "release_candidate_id": "main",
+      "schema_identity": "pulse-gate-policy-v0",
+      "sha256": "7160c37e5e04099c1b6960229d944076503380ae7d2a712c00da459a275d3c31",
+      "size_bytes": 4000,
+      "state_id": "state:policy",
+      "state_type": "policy",
+      "subject_run_key": "GITHUB_RUN_ID=29249887581|GITHUB_RUN_ATTEMPT=1|GITHUB_WORKFLOW=PULSE CI"
+    },
+    {
+      "authority_bearing": false,
+      "gate_relation": null,
+      "path_or_uri": "preservation/pulse_ci_6066/PRESERVATION_MANIFEST_v0.json",
+      "policy_relation": null,
+      "producer_node_id": "compute:preservation-verifier",
+      "release_candidate_id": "main",
+      "schema_identity": "pulse_ci_release_grade_artifact_preservation_manifest_v0",
+      "sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "size_bytes": 3000,
+      "state_id": "state:preservation-report",
+      "state_type": "preservation_record",
+      "subject_run_key": "GITHUB_RUN_ID=29249887581|GITHUB_RUN_ATTEMPT=1|GITHUB_WORKFLOW=PULSE CI"
+    },
+    {
+      "authority_bearing": false,
+      "gate_relation": null,
+      "path_or_uri": "reports/unconsumed_diagnostic_v0.json",
+      "policy_relation": null,
+      "producer_node_id": "compute:unbound-diagnostic",
+      "release_candidate_id": "main",
+      "schema_identity": "unconsumed_diagnostic_v0",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "size_bytes": 1000,
+      "state_id": "state:unbound-report",
+      "state_type": "reader_surface",
+      "subject_run_key": "GITHUB_RUN_ID=29249887581|GITHUB_RUN_ATTEMPT=1|GITHUB_WORKFLOW=PULSE CI"
+    },
+    {
+      "authority_bearing": true,
+      "gate_relation": "release_required",
+      "path_or_uri": "PULSE_safe_pack_v0/artifacts/recorded_release_evidence_verifier_v0.json",
+      "policy_relation": "pulse-gate-policy-v0",
+      "producer_node_id": "compute:evidence-verifier",
+      "release_candidate_id": "main",
+      "schema_identity": "recorded_release_evidence_verifier_v0",
+      "sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+      "size_bytes": 2000,
+      "state_id": "state:verifier-report",
+      "state_type": "verifier_report",
+      "subject_run_key": "GITHUB_RUN_ID=29249887581|GITHUB_RUN_ATTEMPT=1|GITHUB_WORKFLOW=PULSE CI"
+    }
+  ],
+  "subject": {
+    "active_policy_sets": [
+      "release_required",
+      "required"
+    ],
+    "decision": "ALLOW",
+    "final_status_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "materialized_gate_set_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "policy_id": "pulse-gate-policy-v0",
+    "policy_sha256": "7160c37e5e04099c1b6960229d944076503380ae7d2a712c00da459a275d3c31",
+    "release_candidate_id": "main",
+    "release_decision_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "repository": "HKati/pulse-release-gates-0.1",
+    "run_mode": "prod",
+    "source_commit": "46b639706e23f80fe296a8893be18e2b5ab21f7e",
+    "workflow": "PULSE CI",
+    "workflow_run_attempt": 1,
+    "workflow_run_id": 29249887581,
+    "workflow_run_number": 6066
+  },
+  "summary": {
+    "advisory_bound_nodes": 1,
+    "authority_binding_complete": true,
+    "decision_closure_complete": true,
+    "evidence_bound_nodes": 2,
+    "observer_nodes": 1,
+    "preservation_bound_nodes": 1,
+    "resource_measurement_status": "partial",
+    "subject_compute_nodes": 8,
+    "transition_bound_nodes": 3,
+    "unbound_authoritative_mutation_count": 0,
+    "unbound_nodes": 1,
+    "unknown_nodes": 0
+  },
+  "tool": {
+    "id": "build_pulsemech_compute_binding_report_v0",
+    "source_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+    "version": "0.1.0"
+  }
+}
