@@ -26,6 +26,9 @@ PRESERVATION_DIR = ROOT / "preservation" / "pulse_ci_6066"
 MANIFEST = PRESERVATION_DIR / "PRESERVATION_MANIFEST_v0.json"
 README = PRESERVATION_DIR / "README.md"
 SHA256SUMS = PRESERVATION_DIR / "SHA256SUMS"
+GATE_POLICY = ROOT / "pulse_gate_policy_v0.yml"
+GATE_REGISTRY = ROOT / "pulse_gate_registry_v0.yml"
+PULSE_WORKFLOW = ROOT / ".github" / "workflows" / "pulse_ci.yml"
 EXPECTED_ARCHIVE_SHA256 = (
     "7949bfd00468e6f9347fddaae732bdcebff5527e87ecb379a6c84a47176db966"
 )
@@ -329,6 +332,9 @@ def cli_build(tmp_path_factory: pytest.TempPathFactory) -> CliBuild:
         SHA256SUMS,
         SCHEMA,
         VALIDATOR,
+        GATE_POLICY,
+        GATE_REGISTRY,
+        PULSE_WORKFLOW,
         BUILDER,
     )
     before = snapshot(protected_inputs)
@@ -373,6 +379,9 @@ def test_required_fixed_source_and_contract_files_exist() -> None:
         MANIFEST,
         README,
         SHA256SUMS,
+        GATE_POLICY,
+        GATE_REGISTRY,
+        PULSE_WORKFLOW,
     ):
         assert path.is_file(), path
         assert not path.is_symlink(), path
@@ -799,7 +808,17 @@ def test_output_inside_preservation_directory_is_rejected() -> None:
 
 @pytest.mark.parametrize(
     "protected_path",
-    [ARCHIVE, MANIFEST, README, SHA256SUMS, SCHEMA, VALIDATOR],
+    [
+        ARCHIVE,
+        MANIFEST,
+        README,
+        SHA256SUMS,
+        SCHEMA,
+        VALIDATOR,
+        GATE_POLICY,
+        GATE_REGISTRY,
+        PULSE_WORKFLOW,
+    ],
     ids=lambda path: path.name,
 )
 def test_protected_input_overwrite_is_rejected(protected_path: Path) -> None:
@@ -819,6 +838,40 @@ def test_protected_input_overwrite_is_rejected(protected_path: Path) -> None:
             validator=VALIDATOR,
         )
     assert snapshot((protected_path,)) == before
+
+
+def test_dangling_output_symlink_is_rejected_without_creating_target(
+    tmp_path: Path,
+) -> None:
+    target = tmp_path / "missing-target.json"
+    link = tmp_path / "output.json"
+
+    try:
+        link.symlink_to(target)
+    except (OSError, NotImplementedError) as exc:
+        pytest.skip(f"symlink unsupported: {exc}")
+
+    assert link.is_symlink()
+    assert not link.exists()
+    assert not target.exists()
+
+    with pytest.raises(
+        BUILDER_MODULE.BuilderError,
+        match="refusing_symlink_output_path",
+    ):
+        BUILDER_MODULE.reject_unsafe_output(
+            link,
+            archive=ARCHIVE,
+            manifest=MANIFEST,
+            readme=README,
+            sha256sums=SHA256SUMS,
+            schema=SCHEMA,
+            validator=VALIDATOR,
+        )
+
+    assert link.is_symlink()
+    assert not link.exists()
+    assert not target.exists()
 
 
 def test_symlink_output_file_and_parent_are_rejected(tmp_path: Path) -> None:
