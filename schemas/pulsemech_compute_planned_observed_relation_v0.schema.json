@@ -1,4 +1,3 @@
-```json
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/HKati/pulse-release-gates-0.1/schemas/pulsemech_compute_planned_observed_relation_v0.schema.json",
@@ -3974,4 +3973,3 @@
   ],
   "$comment": "Cross-record equality for subject repository, run key, source commit, release candidate, and exact input digests is enforced by the strict validator in this contract PR. Draft 2020-12 cannot express arbitrary sibling-instance equality."
 }
-```
