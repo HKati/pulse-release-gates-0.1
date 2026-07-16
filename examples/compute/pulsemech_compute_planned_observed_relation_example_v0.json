@@ -1,4 +1,3 @@
-```json
 {
   "authority_boundary": {
     "activates_compute_gate": false,
@@ -593,4 +592,3 @@
     "version": "0.1.0"
   }
 }
-```
