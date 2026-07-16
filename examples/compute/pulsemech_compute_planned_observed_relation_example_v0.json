@@ -58,8 +58,8 @@
           "basis_id": "basis:execution-policy-materializer",
           "basis_kind": "workflow_execution_declaration",
           "evidence_refs": [
-            "workflow-step:Materialize-required-gate-set",
-            "workflow:PULSE-CI"
+            "workflow:PULSE-CI",
+            "workflow-step:Materialize-required-gate-set"
           ],
           "source_path_or_uri": ".github/workflows/pulse_ci.yml",
           "source_revision": "46b639706e23f80fe296a8893be18e2b5ab21f7e",
@@ -148,8 +148,8 @@
           "basis_id": "basis:execution-status-validator",
           "basis_kind": "workflow_execution_declaration",
           "evidence_refs": [
-            "workflow-step:Validate-final-status-schema",
-            "workflow:PULSE-CI"
+            "workflow:PULSE-CI",
+            "workflow-step:Validate-final-status-schema"
           ],
           "source_path_or_uri": ".github/workflows/pulse_ci.yml",
           "source_revision": "46b639706e23f80fe296a8893be18e2b5ab21f7e",
