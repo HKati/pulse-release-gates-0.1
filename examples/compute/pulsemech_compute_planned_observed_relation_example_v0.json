@@ -1,3 +1,4 @@
+```json
 {
   "authority_boundary": {
     "activates_compute_gate": false,
@@ -51,15 +52,15 @@
     "unresolved_reasons": []
   },
   "errors": [],
-  "expectations": [
-    {
+  "expectations": {
+    "expectation:execute-policy-materializer": {
       "basis_records": [
         {
           "basis_id": "basis:execution-policy-materializer",
           "basis_kind": "workflow_execution_declaration",
           "evidence_refs": [
-            "workflow:PULSE-CI",
-            "workflow-step:Materialize-required-gate-set"
+            "workflow-step:Materialize-required-gate-set",
+            "workflow:PULSE-CI"
           ],
           "source_path_or_uri": ".github/workflows/pulse_ci.yml",
           "source_revision": "46b639706e23f80fe296a8893be18e2b5ab21f7e",
@@ -93,7 +94,6 @@
         "component:pulse_policy_gate_materializer_v0",
         "workflow-step:Materialize-required-gate-set"
       ],
-      "expectation_id": "expectation:execute-policy-materializer",
       "expectation_kind": "planned_execution_expected",
       "expectation_scope": {
         "release_candidate_id": "main",
@@ -142,14 +142,14 @@
         }
       ]
     },
-    {
+    "expectation:execute-status-validator-consumed": {
       "basis_records": [
         {
           "basis_id": "basis:execution-status-validator",
           "basis_kind": "workflow_execution_declaration",
           "evidence_refs": [
-            "workflow:PULSE-CI",
-            "workflow-step:Validate-final-status-schema"
+            "workflow-step:Validate-final-status-schema",
+            "workflow:PULSE-CI"
           ],
           "source_path_or_uri": ".github/workflows/pulse_ci.yml",
           "source_revision": "46b639706e23f80fe296a8893be18e2b5ab21f7e",
@@ -202,7 +202,6 @@
         "edge:status-validator-to-materializer",
         "workflow-step:Validate-final-status-schema"
       ],
-      "expectation_id": "expectation:execute-status-validator-consumed",
       "expectation_kind": "planned_execution_and_consumption_expected",
       "expectation_scope": {
         "release_candidate_id": "main",
@@ -251,7 +250,7 @@
         }
       ]
     },
-    {
+    "expectation:presence-status-schema": {
       "basis_records": [
         {
           "basis_id": "basis:plan-pulse_status_schema_v1",
@@ -275,7 +274,6 @@
         "component:pulse_status_schema_v1",
         "repository-path:schemas/status/status_v1.schema.json"
       ],
-      "expectation_id": "expectation:presence-status-schema",
       "expectation_kind": "planned_presence_only",
       "expectation_scope": {
         "release_candidate_id": null,
@@ -324,8 +322,8 @@
         }
       ]
     }
-  ],
-  "findings": [],
+  },
+  "findings": {},
   "observation_bindings": {
     "compute_binding_report": {
       "analysis_level": "artifact_observed",
@@ -343,8 +341,8 @@
     "runtime_observation_packets": [],
     "runtime_observation_status": "none"
   },
-  "observations": [
-    {
+  "observations": {
+    "observation:policy-materializer": {
       "binding_class": "transition_bound",
       "binding_status": "complete",
       "coverage_status": "complete",
@@ -380,7 +378,6 @@
         "state:declared-policy"
       ],
       "mutation_authority": "materialized_gate_set",
-      "observation_id": "observation:policy-materializer",
       "observation_kind": "compute_node",
       "observed_mutation_classes": [
         "materialized_gate_set"
@@ -406,7 +403,7 @@
       "subject_source_commit": "46b639706e23f80fe296a8893be18e2b5ab21f7e",
       "unbound_authoritative_mutation": false
     },
-    {
+    "observation:status-validator": {
       "binding_class": "evidence_bound",
       "binding_status": "complete",
       "coverage_status": "complete",
@@ -442,7 +439,6 @@
         "state:final-status-candidate"
       ],
       "mutation_authority": "verifier_state",
-      "observation_id": "observation:status-validator",
       "observation_kind": "compute_node",
       "observed_mutation_classes": [
         "verifier_state"
@@ -468,7 +464,7 @@
       "subject_source_commit": "46b639706e23f80fe296a8893be18e2b5ab21f7e",
       "unbound_authoritative_mutation": false
     }
-  ],
+  },
   "ok": true,
   "plan_binding": {
     "apply_eligible": true,
@@ -488,8 +484,8 @@
   },
   "record_status": "example",
   "relation_type": "pulsemech_compute_planned_observed_relation",
-  "relations": [
-    {
+  "relations": {
+    "relation:execute-policy-materializer": {
       "evaluation": {
         "authority_class": "match",
         "coverage": "complete",
@@ -513,10 +509,9 @@
       "observation_ids": [
         "observation:policy-materializer"
       ],
-      "relation_id": "relation:execute-policy-materializer",
       "relation_status": "planned_and_observed"
     },
-    {
+    "relation:execute-status-validator-consumed": {
       "evaluation": {
         "authority_class": "match",
         "coverage": "complete",
@@ -540,10 +535,9 @@
       "observation_ids": [
         "observation:status-validator"
       ],
-      "relation_id": "relation:execute-status-validator-consumed",
       "relation_status": "planned_and_observed"
     },
-    {
+    "relation:presence-status-schema": {
       "evaluation": {
         "authority_class": "not_required",
         "coverage": "complete",
@@ -564,10 +558,9 @@
         "Repository presence does not create a subject-run execution expectation."
       ],
       "observation_ids": [],
-      "relation_id": "relation:presence-status-schema",
       "relation_status": "planned_presence_only"
     }
-  ],
+  },
   "schema_version": "pulsemech_compute_planned_observed_relation_v0",
   "summary": {
     "ambiguous_observation_match": 0,
@@ -600,3 +593,4 @@
     "version": "0.1.0"
   }
 }
+```
