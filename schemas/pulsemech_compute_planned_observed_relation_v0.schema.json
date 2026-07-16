@@ -1,3 +1,4 @@
+```json
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/HKati/pulse-release-gates-0.1/schemas/pulsemech_compute_planned_observed_relation_v0.schema.json",
@@ -53,25 +54,34 @@
       "$ref": "#/$defs/comparison_boundary"
     },
     "expectations": {
-      "type": "array",
-      "items": {
-        "$ref": "#/$defs/expectation_record"
+      "type": "object",
+      "$comment": "Expectation IDs are object keys so duplicate identifiers cannot be represented after strict duplicate-key parsing.",
+      "propertyNames": {
+        "$ref": "#/$defs/expectation_id"
       },
-      "uniqueItems": true
+      "additionalProperties": {
+        "$ref": "#/$defs/expectation_record"
+      }
     },
     "observations": {
-      "type": "array",
-      "items": {
-        "$ref": "#/$defs/observation_record"
+      "type": "object",
+      "$comment": "Observation IDs are object keys so duplicate identifiers cannot be represented after strict duplicate-key parsing.",
+      "propertyNames": {
+        "$ref": "#/$defs/observation_id"
       },
-      "uniqueItems": true
+      "additionalProperties": {
+        "$ref": "#/$defs/observation_record"
+      }
     },
     "relations": {
-      "type": "array",
-      "items": {
-        "$ref": "#/$defs/relation_record"
+      "type": "object",
+      "$comment": "Relation IDs are object keys so duplicate identifiers cannot be represented after strict duplicate-key parsing.",
+      "propertyNames": {
+        "$ref": "#/$defs/relation_id"
       },
-      "uniqueItems": true
+      "additionalProperties": {
+        "$ref": "#/$defs/relation_record"
+      }
     },
     "coverage": {
       "$ref": "#/$defs/coverage"
@@ -80,11 +90,14 @@
       "$ref": "#/$defs/summary"
     },
     "findings": {
-      "type": "array",
-      "items": {
-        "$ref": "#/$defs/finding"
+      "type": "object",
+      "$comment": "Finding IDs are object keys so duplicate identifiers cannot be represented after strict duplicate-key parsing.",
+      "propertyNames": {
+        "$ref": "#/$defs/finding_record_id"
       },
-      "uniqueItems": true
+      "additionalProperties": {
+        "$ref": "#/$defs/finding"
+      }
     },
     "errors": {
       "type": "array",
@@ -405,6 +418,7 @@
         "subject_repository",
         "subject_run_key",
         "subject_source_commit",
+        "release_candidate_id",
         "ok"
       ],
       "properties": {
@@ -456,8 +470,12 @@
         },
         "ok": {
           "const": true
+        },
+        "release_candidate_id": {
+          "$ref": "#/$defs/non_empty_string"
         }
-      }
+      },
+      "$comment": "release_candidate_id must equal comparison_identity.release_candidate_id and the compute-binding report candidate; the strict validator enforces this cross-record equality because portable Draft 2020-12 cannot compare arbitrary sibling instance values."
     },
     "observation_bindings": {
       "type": "object",
@@ -557,6 +575,36 @@
               },
               "runtime_observation_packets": {
                 "minItems": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "compute_binding_report": {
+                "type": "object",
+                "properties": {
+                  "analysis_level": {
+                    "const": "artifact_observed"
+                  }
+                },
+                "required": [
+                  "analysis_level"
+                ]
+              }
+            },
+            "required": [
+              "compute_binding_report"
+            ]
+          },
+          "then": {
+            "properties": {
+              "runtime_observation_status": {
+                "const": "none"
+              },
+              "runtime_observation_packets": {
+                "maxItems": 0
               }
             }
           }
@@ -729,6 +777,7 @@
           "type": "string",
           "enum": [
             "repository_file",
+            "action",
             "github_action",
             "container_image",
             "external_service",
@@ -824,6 +873,51 @@
             "properties": {
               "source_path_or_uri": {
                 "$ref": "#/$defs/non_empty_string"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "source_kind": {
+                "const": "action"
+              }
+            },
+            "required": [
+              "source_kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "source_path_or_uri": {
+                "$ref": "#/$defs/non_empty_string"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "source_kind": {
+                "const": "action"
+              },
+              "identity_status": {
+                "const": "exact"
+              }
+            },
+            "required": [
+              "source_kind",
+              "identity_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "source_revision": {
+                "$ref": "#/$defs/non_empty_string"
+              },
+              "source_sha256": {
+                "$ref": "#/$defs/sha256"
               }
             }
           }
@@ -1330,7 +1424,6 @@
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "expectation_id",
         "component_id",
         "plan_operation_refs",
         "expectation_kind",
@@ -1343,9 +1436,6 @@
         "evidence_refs"
       ],
       "properties": {
-        "expectation_id": {
-          "$ref": "#/$defs/expectation_id"
-        },
         "component_id": {
           "$ref": "#/$defs/non_empty_string"
         },
@@ -2003,7 +2093,6 @@
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "observation_id",
         "observation_kind",
         "source_record_kind",
         "source_record_id",
@@ -2026,9 +2115,6 @@
         "evidence_refs"
       ],
       "properties": {
-        "observation_id": {
-          "$ref": "#/$defs/observation_id"
-        },
         "observation_kind": {
           "type": "string",
           "enum": [
@@ -2304,6 +2390,56 @@
               }
             }
           }
+        },
+        {
+          "if": {
+            "allOf": [
+              {
+                "properties": {
+                  "binding_class": {
+                    "const": "unbound"
+                  }
+                },
+                "required": [
+                  "binding_class"
+                ]
+              },
+              {
+                "properties": {
+                  "observed_mutation_classes": {
+                    "contains": {
+                      "enum": [
+                        "release_evidence",
+                        "candidate_state",
+                        "verifier_state",
+                        "materialized_gate_set",
+                        "final_status",
+                        "release_decision"
+                      ]
+                    },
+                    "minContains": 1
+                  }
+                },
+                "required": [
+                  "observed_mutation_classes"
+                ]
+              }
+            ]
+          },
+          "then": {
+            "properties": {
+              "unbound_authoritative_mutation": {
+                "const": true
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "unbound_authoritative_mutation": {
+                "const": false
+              }
+            }
+          }
         }
       ]
     },
@@ -2402,7 +2538,6 @@
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "relation_id",
         "expectation_id",
         "observation_ids",
         "relation_status",
@@ -2411,9 +2546,6 @@
         "notes"
       ],
       "properties": {
-        "relation_id": {
-          "$ref": "#/$defs/relation_id"
-        },
         "expectation_id": {
           "$ref": "#/$defs/nullable_expectation_id"
         },
@@ -3317,7 +3449,6 @@
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "finding_record_id",
         "finding_type",
         "severity",
         "expectation_id",
@@ -3327,9 +3458,6 @@
         "evidence_refs"
       ],
       "properties": {
-        "finding_record_id": {
-          "$ref": "#/$defs/finding_record_id"
-        },
         "finding_type": {
           "type": "string",
           "enum": [
@@ -3553,26 +3681,19 @@
               },
               "runtime_observation_packets": {
                 "items": {
-                  "allOf": [
-                    {
-                      "$ref": "#/$defs/runtime_packet_binding"
+                  "properties": {
+                    "record_status": {
+                      "const": "observed"
                     },
-                    {
-                      "properties": {
-                        "record_status": {
-                          "const": "observed"
-                        },
-                        "packet_scope": {
-                          "enum": [
-                            "subject_run",
-                            "workflow_job",
-                            "workflow_step",
-                            "external_export"
-                          ]
-                        }
-                      }
+                    "packet_scope": {
+                      "enum": [
+                        "subject_run",
+                        "workflow_job",
+                        "workflow_step",
+                        "external_export"
+                      ]
                     }
-                  ]
+                  }
                 }
               }
             }
@@ -3611,18 +3732,11 @@
               },
               "runtime_observation_packets": {
                 "items": {
-                  "allOf": [
-                    {
-                      "$ref": "#/$defs/runtime_packet_binding"
-                    },
-                    {
-                      "properties": {
-                        "record_status": {
-                          "const": "example"
-                        }
-                      }
+                  "properties": {
+                    "record_status": {
+                      "const": "example"
                     }
-                  ]
+                  }
                 }
               }
             }
@@ -3673,6 +3787,191 @@
           }
         }
       }
+    },
+    {
+      "if": {
+        "properties": {
+          "observation_bindings": {
+            "type": "object",
+            "properties": {
+              "compute_binding_report": {
+                "type": "object",
+                "properties": {
+                  "analysis_level": {
+                    "const": "artifact_observed"
+                  }
+                },
+                "required": [
+                  "analysis_level"
+                ]
+              }
+            },
+            "required": [
+              "compute_binding_report"
+            ]
+          }
+        },
+        "required": [
+          "observation_bindings"
+        ]
+      },
+      "then": {
+        "properties": {
+          "comparison_boundary": {
+            "properties": {
+              "observed_analysis_level": {
+                "const": "artifact_observed"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "observation_bindings": {
+            "type": "object",
+            "properties": {
+              "compute_binding_report": {
+                "type": "object",
+                "properties": {
+                  "analysis_level": {
+                    "const": "runtime_observed"
+                  }
+                },
+                "required": [
+                  "analysis_level"
+                ]
+              }
+            },
+            "required": [
+              "compute_binding_report"
+            ]
+          }
+        },
+        "required": [
+          "observation_bindings"
+        ]
+      },
+      "then": {
+        "properties": {
+          "comparison_boundary": {
+            "properties": {
+              "observed_analysis_level": {
+                "const": "runtime_observed"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "observation_bindings": {
+            "type": "object",
+            "properties": {
+              "runtime_observation_status": {
+                "const": "none"
+              }
+            },
+            "required": [
+              "runtime_observation_status"
+            ]
+          }
+        },
+        "required": [
+          "observation_bindings"
+        ]
+      },
+      "then": {
+        "properties": {
+          "observations": {
+            "additionalProperties": {
+              "properties": {
+                "observation_kind": {
+                  "const": "compute_node"
+                },
+                "source_record_kind": {
+                  "const": "compute_binding_report"
+                }
+              }
+            }
+          },
+          "coverage": {
+            "properties": {
+              "runtime_observation_status": {
+                "const": "none"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "observation_bindings": {
+            "type": "object",
+            "properties": {
+              "runtime_observation_status": {
+                "const": "partial"
+              }
+            },
+            "required": [
+              "runtime_observation_status"
+            ]
+          }
+        },
+        "required": [
+          "observation_bindings"
+        ]
+      },
+      "then": {
+        "properties": {
+          "coverage": {
+            "properties": {
+              "runtime_observation_status": {
+                "const": "partial"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "observation_bindings": {
+            "type": "object",
+            "properties": {
+              "runtime_observation_status": {
+                "const": "complete"
+              }
+            },
+            "required": [
+              "runtime_observation_status"
+            ]
+          }
+        },
+        "required": [
+          "observation_bindings"
+        ]
+      },
+      "then": {
+        "properties": {
+          "coverage": {
+            "properties": {
+              "runtime_observation_status": {
+                "const": "complete"
+              }
+            }
+          }
+        }
+      }
     }
-  ]
+  ],
+  "$comment": "Cross-record equality for subject repository, run key, source commit, release candidate, and exact input digests is enforced by the strict validator in this contract PR. Draft 2020-12 cannot express arbitrary sibling-instance equality."
 }
+```
