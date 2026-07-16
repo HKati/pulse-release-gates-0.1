@@ -293,3 +293,61 @@ Magyarul:
 
 A Pulsemechanika nem szűrő.
 A Pulsemechanika pontos illesztés.💡
+
+
+
+## 17. Az adat problémája
+
+A probléma nem az, hogy kevés adat áll rendelkezésre.
+
+A probléma az, hogy ha adatot égetnek rendszerfelismerés helyett.
+
+```text
+több adat
+→ több compute
+→ több zajfeldolgozás
+→ több költség
+→ ugyanaz a vakfolt
+```
+
+## A megoldás: a rendszermutató (egyszerű gép)
+
+```text
+bemenet
+→ kötés
+→ állapot
+→ átmenet
+→ kimenet
+→ következmény
+```
+
+A teljes rendszer és mindaz, ami abból nyílik, tartalmazza azt, ami szükséges.
+
+---
+
+## The Problem with Data
+
+The problem is not that too little data is available.
+
+The problem is that data is being burned in place of system recognition.
+
+```text
+more data
+→ more compute
+→ more noise processing
+→ more cost
+→ the same blind spot
+```
+
+## The Solution: the System Indicator (Simple Machine)
+
+```text
+input
+→ binding
+→ state
+→ transition
+→ output
+→ consequence
+```
+
+The complete system, together with everything that unfolds from it, contains what is necessary.
