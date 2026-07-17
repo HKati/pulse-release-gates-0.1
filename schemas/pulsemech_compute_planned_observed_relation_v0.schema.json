@@ -1,0 +1,3975 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/HKati/pulse-release-gates-0.1/schemas/pulsemech_compute_planned_observed_relation_v0.schema.json",
+  "title": "PULSEmech compute planned-observed relation v0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "relation_type",
+    "record_status",
+    "tool",
+    "comparison_identity",
+    "plan_binding",
+    "observation_bindings",
+    "comparison_boundary",
+    "expectations",
+    "observations",
+    "relations",
+    "coverage",
+    "summary",
+    "findings",
+    "errors",
+    "ok",
+    "authority_boundary"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "pulsemech_compute_planned_observed_relation_v0"
+    },
+    "relation_type": {
+      "const": "pulsemech_compute_planned_observed_relation"
+    },
+    "record_status": {
+      "type": "string",
+      "enum": [
+        "example",
+        "observed"
+      ]
+    },
+    "tool": {
+      "$ref": "#/$defs/tool"
+    },
+    "comparison_identity": {
+      "$ref": "#/$defs/comparison_identity"
+    },
+    "plan_binding": {
+      "$ref": "#/$defs/plan_binding"
+    },
+    "observation_bindings": {
+      "$ref": "#/$defs/observation_bindings"
+    },
+    "comparison_boundary": {
+      "$ref": "#/$defs/comparison_boundary"
+    },
+    "expectations": {
+      "type": "object",
+      "$comment": "Expectation IDs are object keys so duplicate identifiers cannot be represented after strict duplicate-key parsing.",
+      "propertyNames": {
+        "$ref": "#/$defs/expectation_id"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/expectation_record"
+      }
+    },
+    "observations": {
+      "type": "object",
+      "$comment": "Observation IDs are object keys so duplicate identifiers cannot be represented after strict duplicate-key parsing.",
+      "propertyNames": {
+        "$ref": "#/$defs/observation_id"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/observation_record"
+      }
+    },
+    "relations": {
+      "type": "object",
+      "$comment": "Relation IDs are object keys so duplicate identifiers cannot be represented after strict duplicate-key parsing.",
+      "propertyNames": {
+        "$ref": "#/$defs/relation_id"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/relation_record"
+      }
+    },
+    "coverage": {
+      "$ref": "#/$defs/coverage"
+    },
+    "summary": {
+      "$ref": "#/$defs/summary"
+    },
+    "findings": {
+      "type": "object",
+      "$comment": "Finding IDs are object keys so duplicate identifiers cannot be represented after strict duplicate-key parsing.",
+      "propertyNames": {
+        "$ref": "#/$defs/finding_record_id"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/finding"
+      }
+    },
+    "errors": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/non_empty_string"
+      }
+    },
+    "ok": {
+      "type": "boolean"
+    },
+    "authority_boundary": {
+      "$ref": "#/$defs/authority_boundary"
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "nullable_sha256": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "sha40": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "nullable_sha40": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "non_empty_string": {
+      "type": "string",
+      "minLength": 1
+    },
+    "nullable_non_empty_string": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1
+    },
+    "semver": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "expectation_id": {
+      "type": "string",
+      "pattern": "^expectation:[A-Za-z0-9._:/@+-]+$"
+    },
+    "nullable_expectation_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^expectation:[A-Za-z0-9._:/@+-]+$"
+    },
+    "observation_id": {
+      "type": "string",
+      "pattern": "^observation:[A-Za-z0-9._:/@+-]+$"
+    },
+    "relation_id": {
+      "type": "string",
+      "pattern": "^relation:[A-Za-z0-9._:/@+-]+$"
+    },
+    "nullable_relation_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^relation:[A-Za-z0-9._:/@+-]+$"
+    },
+    "basis_id": {
+      "type": "string",
+      "pattern": "^basis:[A-Za-z0-9._:/@+-]+$"
+    },
+    "finding_record_id": {
+      "type": "string",
+      "pattern": "^finding:[A-Za-z0-9._:/@+-]+$"
+    },
+    "source_record_id": {
+      "type": "string",
+      "pattern": "^(compute|execution|call|inference):[A-Za-z0-9._:/@+-]+$"
+    },
+    "nullable_declared_role": {
+      "enum": [
+        null,
+        "transition",
+        "evidence",
+        "preservation",
+        "advisory",
+        "observer",
+        "unknown"
+      ]
+    },
+    "nullable_mutation_authority": {
+      "enum": [
+        null,
+        "none",
+        "advisory_output",
+        "preservation_output",
+        "release_evidence",
+        "candidate_state",
+        "verifier_state",
+        "materialized_gate_set",
+        "final_status",
+        "release_decision"
+      ]
+    },
+    "tool": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "version",
+        "source_sha256",
+        "source_revision"
+      ],
+      "properties": {
+        "id": {
+          "const": "build_pulsemech_compute_planned_observed_relation_v0"
+        },
+        "version": {
+          "$ref": "#/$defs/semver"
+        },
+        "source_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "source_revision": {
+          "$ref": "#/$defs/nullable_sha40"
+        }
+      }
+    },
+    "comparison_identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "relation_record_id",
+        "comparison_scope",
+        "subject_repository",
+        "subject_run_key",
+        "subject_source_commit",
+        "release_candidate_id",
+        "canonicalization"
+      ],
+      "properties": {
+        "relation_record_id": {
+          "type": "string",
+          "pattern": "^planned-observed:[A-Za-z0-9._:/@+-]+$"
+        },
+        "comparison_scope": {
+          "type": "string",
+          "enum": [
+            "subject_run",
+            "example"
+          ]
+        },
+        "subject_repository": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "subject_run_key": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "subject_source_commit": {
+          "$ref": "#/$defs/sha40"
+        },
+        "release_candidate_id": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "canonicalization": {
+          "const": "json-sort-keys-utf8-newline"
+        }
+      }
+    },
+    "plan_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "plan_type",
+        "path_or_uri",
+        "sha256",
+        "request_id",
+        "source_repository",
+        "source_revision",
+        "component_manifest_sha256",
+        "policy_sha256",
+        "target_repository_id",
+        "target_default_branch",
+        "declared_ci_provider",
+        "apply_eligible",
+        "operation_count"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "pulsemech_integration_plan_v0"
+        },
+        "plan_type": {
+          "const": "pulsemech_integration_plan"
+        },
+        "path_or_uri": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "request_id": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "source_repository": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "source_revision": {
+          "$ref": "#/$defs/sha40"
+        },
+        "component_manifest_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "policy_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "target_repository_id": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "target_default_branch": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "declared_ci_provider": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "apply_eligible": {
+          "type": "boolean"
+        },
+        "operation_count": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "compute_binding_report_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "report_type",
+        "record_status",
+        "path_or_uri",
+        "sha256",
+        "analysis_level",
+        "subject_repository",
+        "subject_run_key",
+        "subject_source_commit",
+        "release_candidate_id",
+        "ok"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "pulsemech_compute_binding_report_v0"
+        },
+        "report_type": {
+          "const": "pulsemech_compute_binding_report"
+        },
+        "record_status": {
+          "type": "string",
+          "enum": [
+            "example",
+            "observed"
+          ]
+        },
+        "path_or_uri": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "analysis_level": {
+          "type": "string",
+          "enum": [
+            "artifact_observed",
+            "runtime_observed"
+          ]
+        },
+        "subject_repository": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "subject_run_key": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "subject_source_commit": {
+          "$ref": "#/$defs/sha40"
+        },
+        "release_candidate_id": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "ok": {
+          "const": true
+        }
+      }
+    },
+    "runtime_packet_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "packet_type",
+        "record_status",
+        "path_or_uri",
+        "sha256",
+        "packet_id",
+        "packet_sequence",
+        "packet_scope",
+        "subject_repository",
+        "subject_run_key",
+        "subject_source_commit",
+        "release_candidate_id",
+        "ok"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "pulsemech_compute_runtime_observation_packet_v0"
+        },
+        "packet_type": {
+          "const": "pulsemech_compute_runtime_observation_packet"
+        },
+        "record_status": {
+          "type": "string",
+          "enum": [
+            "example",
+            "observed"
+          ]
+        },
+        "path_or_uri": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "packet_id": {
+          "type": "string",
+          "pattern": "^runtime-observation:[A-Za-z0-9._:/@+-]+$"
+        },
+        "packet_sequence": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "packet_scope": {
+          "type": "string",
+          "enum": [
+            "subject_run",
+            "workflow_job",
+            "workflow_step",
+            "external_export",
+            "example"
+          ]
+        },
+        "subject_repository": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "subject_run_key": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "subject_source_commit": {
+          "$ref": "#/$defs/sha40"
+        },
+        "ok": {
+          "const": true
+        },
+        "release_candidate_id": {
+          "$ref": "#/$defs/non_empty_string"
+        }
+      },
+      "$comment": "release_candidate_id must equal comparison_identity.release_candidate_id and the compute-binding report candidate; the strict validator enforces this cross-record equality because portable Draft 2020-12 cannot compare arbitrary sibling instance values."
+    },
+    "observation_bindings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "compute_binding_report",
+        "runtime_observation_status",
+        "runtime_observation_packets"
+      ],
+      "properties": {
+        "compute_binding_report": {
+          "$ref": "#/$defs/compute_binding_report_binding"
+        },
+        "runtime_observation_status": {
+          "type": "string",
+          "enum": [
+            "none",
+            "partial",
+            "complete"
+          ]
+        },
+        "runtime_observation_packets": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/runtime_packet_binding"
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "runtime_observation_status": {
+                "const": "none"
+              }
+            },
+            "required": [
+              "runtime_observation_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "runtime_observation_packets": {
+                "maxItems": 0
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "runtime_observation_status": {
+                "enum": [
+                  "partial",
+                  "complete"
+                ]
+              }
+            },
+            "required": [
+              "runtime_observation_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "runtime_observation_packets": {
+                "minItems": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "compute_binding_report": {
+                "type": "object",
+                "properties": {
+                  "analysis_level": {
+                    "const": "runtime_observed"
+                  }
+                },
+                "required": [
+                  "analysis_level"
+                ]
+              }
+            },
+            "required": [
+              "compute_binding_report"
+            ]
+          },
+          "then": {
+            "properties": {
+              "runtime_observation_status": {
+                "enum": [
+                  "partial",
+                  "complete"
+                ]
+              },
+              "runtime_observation_packets": {
+                "minItems": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "compute_binding_report": {
+                "type": "object",
+                "properties": {
+                  "analysis_level": {
+                    "const": "artifact_observed"
+                  }
+                },
+                "required": [
+                  "analysis_level"
+                ]
+              }
+            },
+            "required": [
+              "compute_binding_report"
+            ]
+          },
+          "then": {
+            "properties": {
+              "runtime_observation_status": {
+                "const": "none"
+              },
+              "runtime_observation_packets": {
+                "maxItems": 0
+              }
+            }
+          }
+        }
+      ]
+    },
+    "comparison_boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "plan_target_matches_subject_repository",
+        "observed_analysis_level",
+        "presence_implies_execution",
+        "execution_implies_downstream_consumption",
+        "expectation_basis_required_for_execution",
+        "observer_in_subject_totals",
+        "comparison_writes_subject"
+      ],
+      "properties": {
+        "plan_target_matches_subject_repository": {
+          "type": "boolean"
+        },
+        "observed_analysis_level": {
+          "type": "string",
+          "enum": [
+            "artifact_observed",
+            "runtime_observed"
+          ]
+        },
+        "presence_implies_execution": {
+          "const": false
+        },
+        "execution_implies_downstream_consumption": {
+          "const": false
+        },
+        "expectation_basis_required_for_execution": {
+          "const": true
+        },
+        "observer_in_subject_totals": {
+          "const": false
+        },
+        "comparison_writes_subject": {
+          "const": false
+        }
+      }
+    },
+    "plan_operation_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "component_id",
+        "source_path",
+        "target_path",
+        "source_sha256",
+        "source_size_bytes",
+        "target_state",
+        "action",
+        "reason",
+        "operation_digest_scope",
+        "operation_canonicalization",
+        "operation_sha256"
+      ],
+      "properties": {
+        "component_id": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "source_path": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "target_path": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "source_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "source_size_bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "target_state": {
+          "type": "string",
+          "enum": [
+            "missing",
+            "identical",
+            "different",
+            "symlink",
+            "directory",
+            "non_regular",
+            "path_component_symlink",
+            "path_component_non_directory"
+          ]
+        },
+        "action": {
+          "type": "string",
+          "enum": [
+            "create",
+            "preserve"
+          ]
+        },
+        "operation_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "reason": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "operation_canonicalization": {
+          "const": "json-sort-keys-utf8-no-whitespace"
+        },
+        "operation_digest_scope": {
+          "const": "pulsemech_integration_plan_operation_v0"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "action": {
+                "const": "create"
+              }
+            },
+            "required": [
+              "action"
+            ]
+          },
+          "then": {
+            "properties": {
+              "target_state": {
+                "const": "missing"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "action": {
+                "const": "preserve"
+              }
+            },
+            "required": [
+              "action"
+            ]
+          },
+          "then": {
+            "properties": {
+              "target_state": {
+                "const": "identical"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "source_identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_kind",
+        "identity_status",
+        "source_path_or_uri",
+        "source_revision",
+        "source_sha256",
+        "action_repository",
+        "action_ref",
+        "action_commit_sha",
+        "container_image_digest"
+      ],
+      "properties": {
+        "source_kind": {
+          "type": "string",
+          "enum": [
+            "repository_file",
+            "action",
+            "github_action",
+            "container_image",
+            "external_service",
+            "model",
+            "builtin",
+            "unknown"
+          ]
+        },
+        "identity_status": {
+          "type": "string",
+          "enum": [
+            "exact",
+            "partial",
+            "unknown"
+          ]
+        },
+        "source_path_or_uri": {
+          "$ref": "#/$defs/nullable_non_empty_string"
+        },
+        "source_revision": {
+          "$ref": "#/$defs/nullable_non_empty_string"
+        },
+        "source_sha256": {
+          "$ref": "#/$defs/nullable_sha256"
+        },
+        "action_repository": {
+          "$ref": "#/$defs/nullable_non_empty_string"
+        },
+        "action_ref": {
+          "$ref": "#/$defs/nullable_non_empty_string"
+        },
+        "action_commit_sha": {
+          "$ref": "#/$defs/nullable_sha40"
+        },
+        "container_image_digest": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "identity_status": {
+                "const": "unknown"
+              }
+            },
+            "required": [
+              "identity_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "source_path_or_uri": {
+                "type": "null"
+              },
+              "source_revision": {
+                "type": "null"
+              },
+              "source_sha256": {
+                "type": "null"
+              },
+              "action_repository": {
+                "type": "null"
+              },
+              "action_ref": {
+                "type": "null"
+              },
+              "action_commit_sha": {
+                "type": "null"
+              },
+              "container_image_digest": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "source_kind": {
+                "const": "repository_file"
+              }
+            },
+            "required": [
+              "source_kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "source_path_or_uri": {
+                "$ref": "#/$defs/non_empty_string"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "source_kind": {
+                "const": "action"
+              }
+            },
+            "required": [
+              "source_kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "source_path_or_uri": {
+                "$ref": "#/$defs/non_empty_string"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "source_kind": {
+                "const": "action"
+              },
+              "identity_status": {
+                "const": "exact"
+              }
+            },
+            "required": [
+              "source_kind",
+              "identity_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "source_revision": {
+                "$ref": "#/$defs/non_empty_string"
+              },
+              "source_sha256": {
+                "$ref": "#/$defs/sha256"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "source_kind": {
+                "const": "github_action"
+              }
+            },
+            "required": [
+              "source_kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "action_repository": {
+                "$ref": "#/$defs/non_empty_string"
+              },
+              "action_ref": {
+                "$ref": "#/$defs/non_empty_string"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "source_kind": {
+                "const": "github_action"
+              },
+              "identity_status": {
+                "const": "exact"
+              }
+            },
+            "required": [
+              "source_kind",
+              "identity_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "action_commit_sha": {
+                "$ref": "#/$defs/sha40"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "source_kind": {
+                "const": "container_image"
+              }
+            },
+            "required": [
+              "source_kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "source_path_or_uri": {
+                "$ref": "#/$defs/non_empty_string"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "source_kind": {
+                "enum": [
+                  "repository_file",
+                  "external_service",
+                  "model",
+                  "builtin"
+                ]
+              },
+              "identity_status": {
+                "const": "exact"
+              }
+            },
+            "required": [
+              "source_kind",
+              "identity_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "source_path_or_uri": {
+                "$ref": "#/$defs/non_empty_string"
+              },
+              "source_sha256": {
+                "$ref": "#/$defs/sha256"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "source_kind": {
+                "const": "unknown"
+              }
+            },
+            "required": [
+              "source_kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "identity_status": {
+                "const": "unknown"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "source_kind": {
+                "const": "repository_file"
+              },
+              "identity_status": {
+                "const": "exact"
+              }
+            },
+            "required": [
+              "source_kind",
+              "identity_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "source_revision": {
+                "$ref": "#/$defs/non_empty_string"
+              },
+              "source_sha256": {
+                "$ref": "#/$defs/sha256"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "source_kind": {
+                "const": "container_image"
+              },
+              "identity_status": {
+                "const": "exact"
+              }
+            },
+            "required": [
+              "source_kind",
+              "identity_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "container_image_digest": {
+                "type": "string",
+                "pattern": "^sha256:[0-9a-f]{64}$"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "identity_status": {
+                "const": "partial"
+              }
+            },
+            "required": [
+              "identity_status"
+            ]
+          },
+          "then": {
+            "anyOf": [
+              {
+                "properties": {
+                  "source_path_or_uri": {
+                    "$ref": "#/$defs/non_empty_string"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "source_revision": {
+                    "$ref": "#/$defs/non_empty_string"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "source_sha256": {
+                    "$ref": "#/$defs/sha256"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "action_repository": {
+                    "$ref": "#/$defs/non_empty_string"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "action_ref": {
+                    "$ref": "#/$defs/non_empty_string"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "action_commit_sha": {
+                    "$ref": "#/$defs/sha40"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "container_image_digest": {
+                    "type": "string",
+                    "pattern": "^sha256:[0-9a-f]{64}$"
+                  }
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "execution_selector": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "node_type",
+        "workflow_name",
+        "job_name",
+        "step_name",
+        "tool_id",
+        "command_sha256"
+      ],
+      "properties": {
+        "node_type": {
+          "enum": [
+            null,
+            "workflow_job",
+            "workflow_step",
+            "local_tool_execution",
+            "github_action",
+            "verifier_execution",
+            "materializer_execution",
+            "external_service_call",
+            "model_inference",
+            "artifact_builder",
+            "report_builder",
+            "package_verifier",
+            "observer_execution",
+            "unknown"
+          ]
+        },
+        "workflow_name": {
+          "$ref": "#/$defs/nullable_non_empty_string"
+        },
+        "job_name": {
+          "$ref": "#/$defs/nullable_non_empty_string"
+        },
+        "step_name": {
+          "$ref": "#/$defs/nullable_non_empty_string"
+        },
+        "tool_id": {
+          "$ref": "#/$defs/nullable_non_empty_string"
+        },
+        "command_sha256": {
+          "$ref": "#/$defs/nullable_sha256"
+        }
+      }
+    },
+    "expectation_scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scope_kind",
+        "subject_run_key",
+        "subject_source_commit",
+        "release_candidate_id"
+      ],
+      "properties": {
+        "scope_kind": {
+          "type": "string",
+          "enum": [
+            "repository_presence",
+            "subject_run"
+          ]
+        },
+        "subject_run_key": {
+          "$ref": "#/$defs/nullable_non_empty_string"
+        },
+        "subject_source_commit": {
+          "$ref": "#/$defs/nullable_sha40"
+        },
+        "release_candidate_id": {
+          "$ref": "#/$defs/nullable_non_empty_string"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "scope_kind": {
+                "const": "repository_presence"
+              }
+            },
+            "required": [
+              "scope_kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "subject_run_key": {
+                "type": "null"
+              },
+              "subject_source_commit": {
+                "type": "null"
+              },
+              "release_candidate_id": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "scope_kind": {
+                "const": "subject_run"
+              }
+            },
+            "required": [
+              "scope_kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "subject_run_key": {
+                "$ref": "#/$defs/non_empty_string"
+              },
+              "subject_source_commit": {
+                "$ref": "#/$defs/sha40"
+              },
+              "release_candidate_id": {
+                "$ref": "#/$defs/non_empty_string"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "expectation_basis": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "basis_id",
+        "basis_kind",
+        "source_path_or_uri",
+        "source_sha256",
+        "source_revision",
+        "subject_run_key",
+        "supports",
+        "evidence_refs"
+      ],
+      "properties": {
+        "basis_id": {
+          "$ref": "#/$defs/basis_id"
+        },
+        "basis_kind": {
+          "type": "string",
+          "enum": [
+            "integration_plan_operation",
+            "workflow_execution_declaration",
+            "policy_required_path",
+            "materialized_gate_set",
+            "explicit_subject_run_expectation",
+            "recorded_manifest"
+          ]
+        },
+        "source_path_or_uri": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "source_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "source_revision": {
+          "$ref": "#/$defs/nullable_sha40"
+        },
+        "subject_run_key": {
+          "$ref": "#/$defs/nullable_non_empty_string"
+        },
+        "supports": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "enum": [
+              "component_presence",
+              "execution_expectation",
+              "downstream_consumption_expectation",
+              "source_identity",
+              "declared_role",
+              "mutation_authority"
+            ]
+          }
+        },
+        "evidence_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/non_empty_string"
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "basis_kind": {
+                "const": "integration_plan_operation"
+              }
+            },
+            "required": [
+              "basis_kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "subject_run_key": {
+                "type": "null"
+              },
+              "supports": {
+                "items": {
+                  "enum": [
+                    "component_presence",
+                    "source_identity"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "basis_kind": {
+                "enum": [
+                  "workflow_execution_declaration",
+                  "policy_required_path",
+                  "materialized_gate_set",
+                  "explicit_subject_run_expectation",
+                  "recorded_manifest"
+                ]
+              }
+            },
+            "required": [
+              "basis_kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "subject_run_key": {
+                "$ref": "#/$defs/non_empty_string"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "expected_compute": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "execution_required",
+        "downstream_consumption_required",
+        "selector"
+      ],
+      "properties": {
+        "execution_required": {
+          "type": "boolean"
+        },
+        "downstream_consumption_required": {
+          "type": "boolean"
+        },
+        "selector": {
+          "$ref": "#/$defs/execution_selector"
+        }
+      }
+    },
+    "expectation_record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "component_id",
+        "plan_operation_refs",
+        "expectation_kind",
+        "expectation_scope",
+        "expected_compute",
+        "expected_source_identity",
+        "expected_declared_role",
+        "expected_mutation_authority",
+        "basis_records",
+        "evidence_refs"
+      ],
+      "properties": {
+        "component_id": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "plan_operation_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/plan_operation_ref"
+          },
+          "uniqueItems": true
+        },
+        "expectation_kind": {
+          "type": "string",
+          "enum": [
+            "planned_presence_only",
+            "planned_execution_expected",
+            "planned_execution_and_consumption_expected"
+          ]
+        },
+        "expectation_scope": {
+          "$ref": "#/$defs/expectation_scope"
+        },
+        "expected_compute": {
+          "$ref": "#/$defs/expected_compute"
+        },
+        "expected_source_identity": {
+          "$ref": "#/$defs/source_identity"
+        },
+        "expected_declared_role": {
+          "$ref": "#/$defs/nullable_declared_role"
+        },
+        "expected_mutation_authority": {
+          "$ref": "#/$defs/nullable_mutation_authority"
+        },
+        "basis_records": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/expectation_basis"
+          },
+          "uniqueItems": true
+        },
+        "evidence_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/non_empty_string"
+          }
+        }
+      },
+      "allOf": [
+        {
+          "properties": {
+            "basis_records": {
+              "contains": {
+                "type": "object",
+                "properties": {
+                  "basis_kind": {
+                    "const": "integration_plan_operation"
+                  },
+                  "supports": {
+                    "allOf": [
+                      {
+                        "contains": {
+                          "const": "component_presence"
+                        }
+                      },
+                      {
+                        "contains": {
+                          "const": "source_identity"
+                        }
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "basis_kind",
+                  "supports"
+                ]
+              },
+              "minContains": 1
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "expectation_kind": {
+                "const": "planned_presence_only"
+              }
+            },
+            "required": [
+              "expectation_kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "expectation_scope": {
+                "properties": {
+                  "scope_kind": {
+                    "const": "repository_presence"
+                  }
+                }
+              },
+              "expected_compute": {
+                "properties": {
+                  "execution_required": {
+                    "const": false
+                  },
+                  "downstream_consumption_required": {
+                    "const": false
+                  },
+                  "selector": {
+                    "properties": {
+                      "node_type": {
+                        "type": "null"
+                      },
+                      "workflow_name": {
+                        "type": "null"
+                      },
+                      "job_name": {
+                        "type": "null"
+                      },
+                      "step_name": {
+                        "type": "null"
+                      },
+                      "tool_id": {
+                        "type": "null"
+                      },
+                      "command_sha256": {
+                        "type": "null"
+                      }
+                    }
+                  }
+                }
+              },
+              "expected_declared_role": {
+                "type": "null"
+              },
+              "expected_mutation_authority": {
+                "type": "null"
+              },
+              "basis_records": {
+                "contains": {
+                  "type": "object",
+                  "properties": {
+                    "basis_kind": {
+                      "const": "integration_plan_operation"
+                    },
+                    "supports": {
+                      "contains": {
+                        "const": "component_presence"
+                      }
+                    }
+                  },
+                  "required": [
+                    "basis_kind",
+                    "supports"
+                  ]
+                },
+                "minContains": 1
+              },
+              "expected_source_identity": {
+                "properties": {
+                  "source_kind": {
+                    "const": "repository_file"
+                  },
+                  "identity_status": {
+                    "const": "exact"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "expectation_kind": {
+                "const": "planned_execution_expected"
+              }
+            },
+            "required": [
+              "expectation_kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "expectation_scope": {
+                "properties": {
+                  "scope_kind": {
+                    "const": "subject_run"
+                  }
+                }
+              },
+              "expected_compute": {
+                "properties": {
+                  "execution_required": {
+                    "const": true
+                  },
+                  "downstream_consumption_required": {
+                    "const": false
+                  },
+                  "selector": {
+                    "properties": {
+                      "node_type": {
+                        "type": "string",
+                        "enum": [
+                          "workflow_job",
+                          "workflow_step",
+                          "local_tool_execution",
+                          "github_action",
+                          "verifier_execution",
+                          "materializer_execution",
+                          "external_service_call",
+                          "model_inference",
+                          "artifact_builder",
+                          "report_builder",
+                          "package_verifier",
+                          "observer_execution",
+                          "unknown"
+                        ]
+                      }
+                    }
+                  }
+                }
+              },
+              "basis_records": {
+                "contains": {
+                  "type": "object",
+                  "properties": {
+                    "basis_kind": {
+                      "enum": [
+                        "workflow_execution_declaration",
+                        "policy_required_path",
+                        "materialized_gate_set",
+                        "explicit_subject_run_expectation",
+                        "recorded_manifest"
+                      ]
+                    },
+                    "supports": {
+                      "contains": {
+                        "const": "execution_expectation"
+                      }
+                    }
+                  },
+                  "required": [
+                    "basis_kind",
+                    "supports"
+                  ]
+                },
+                "minContains": 1
+              }
+            },
+            "anyOf": [
+              {
+                "properties": {
+                  "expected_compute": {
+                    "properties": {
+                      "selector": {
+                        "anyOf": [
+                          {
+                            "properties": {
+                              "workflow_name": {
+                                "$ref": "#/$defs/non_empty_string"
+                              }
+                            }
+                          },
+                          {
+                            "properties": {
+                              "job_name": {
+                                "$ref": "#/$defs/non_empty_string"
+                              }
+                            }
+                          },
+                          {
+                            "properties": {
+                              "step_name": {
+                                "$ref": "#/$defs/non_empty_string"
+                              }
+                            }
+                          },
+                          {
+                            "properties": {
+                              "tool_id": {
+                                "$ref": "#/$defs/non_empty_string"
+                              }
+                            }
+                          },
+                          {
+                            "properties": {
+                              "command_sha256": {
+                                "$ref": "#/$defs/sha256"
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "expected_source_identity": {
+                    "properties": {
+                      "identity_status": {
+                        "const": "exact"
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "expectation_kind": {
+                "const": "planned_execution_and_consumption_expected"
+              }
+            },
+            "required": [
+              "expectation_kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "expectation_scope": {
+                "properties": {
+                  "scope_kind": {
+                    "const": "subject_run"
+                  }
+                }
+              },
+              "expected_compute": {
+                "properties": {
+                  "execution_required": {
+                    "const": true
+                  },
+                  "downstream_consumption_required": {
+                    "const": true
+                  },
+                  "selector": {
+                    "properties": {
+                      "node_type": {
+                        "type": "string",
+                        "enum": [
+                          "workflow_job",
+                          "workflow_step",
+                          "local_tool_execution",
+                          "github_action",
+                          "verifier_execution",
+                          "materializer_execution",
+                          "external_service_call",
+                          "model_inference",
+                          "artifact_builder",
+                          "report_builder",
+                          "package_verifier",
+                          "observer_execution",
+                          "unknown"
+                        ]
+                      }
+                    }
+                  }
+                }
+              },
+              "basis_records": {
+                "allOf": [
+                  {
+                    "contains": {
+                      "type": "object",
+                      "properties": {
+                        "basis_kind": {
+                          "enum": [
+                            "workflow_execution_declaration",
+                            "policy_required_path",
+                            "materialized_gate_set",
+                            "explicit_subject_run_expectation",
+                            "recorded_manifest"
+                          ]
+                        },
+                        "supports": {
+                          "contains": {
+                            "const": "execution_expectation"
+                          }
+                        }
+                      },
+                      "required": [
+                        "basis_kind",
+                        "supports"
+                      ]
+                    },
+                    "minContains": 1
+                  },
+                  {
+                    "contains": {
+                      "type": "object",
+                      "properties": {
+                        "basis_kind": {
+                          "enum": [
+                            "policy_required_path",
+                            "materialized_gate_set",
+                            "explicit_subject_run_expectation",
+                            "recorded_manifest"
+                          ]
+                        },
+                        "supports": {
+                          "contains": {
+                            "const": "downstream_consumption_expectation"
+                          }
+                        }
+                      },
+                      "required": [
+                        "basis_kind",
+                        "supports"
+                      ]
+                    },
+                    "minContains": 1
+                  }
+                ]
+              }
+            },
+            "anyOf": [
+              {
+                "properties": {
+                  "expected_compute": {
+                    "properties": {
+                      "selector": {
+                        "anyOf": [
+                          {
+                            "properties": {
+                              "workflow_name": {
+                                "$ref": "#/$defs/non_empty_string"
+                              }
+                            }
+                          },
+                          {
+                            "properties": {
+                              "job_name": {
+                                "$ref": "#/$defs/non_empty_string"
+                              }
+                            }
+                          },
+                          {
+                            "properties": {
+                              "step_name": {
+                                "$ref": "#/$defs/non_empty_string"
+                              }
+                            }
+                          },
+                          {
+                            "properties": {
+                              "tool_id": {
+                                "$ref": "#/$defs/non_empty_string"
+                              }
+                            }
+                          },
+                          {
+                            "properties": {
+                              "command_sha256": {
+                                "$ref": "#/$defs/sha256"
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "expected_source_identity": {
+                    "properties": {
+                      "identity_status": {
+                        "const": "exact"
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "expected_declared_role": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "expected_declared_role"
+            ]
+          },
+          "then": {
+            "properties": {
+              "basis_records": {
+                "contains": {
+                  "type": "object",
+                  "properties": {
+                    "supports": {
+                      "contains": {
+                        "const": "declared_role"
+                      }
+                    }
+                  },
+                  "required": [
+                    "supports"
+                  ]
+                },
+                "minContains": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "expected_mutation_authority": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "expected_mutation_authority"
+            ]
+          },
+          "then": {
+            "properties": {
+              "basis_records": {
+                "contains": {
+                  "type": "object",
+                  "properties": {
+                    "supports": {
+                      "contains": {
+                        "const": "mutation_authority"
+                      }
+                    }
+                  },
+                  "required": [
+                    "supports"
+                  ]
+                },
+                "minContains": 1
+              }
+            }
+          }
+        }
+      ]
+    },
+    "downstream_consumption": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "consumer_ids",
+        "edge_ids",
+        "evidence_refs"
+      ],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": [
+            "observed",
+            "not_observed",
+            "unresolved",
+            "not_applicable"
+          ]
+        },
+        "consumer_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^(compute|execution|state):[A-Za-z0-9._:/@+-]+$"
+          }
+        },
+        "edge_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^edge:[A-Za-z0-9._:/@+-]+$"
+          }
+        },
+        "evidence_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/non_empty_string"
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "observed"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "anyOf": [
+              {
+                "properties": {
+                  "consumer_ids": {
+                    "minItems": 1
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "edge_ids": {
+                    "minItems": 1
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "enum": [
+                  "not_observed",
+                  "not_applicable"
+                ]
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "consumer_ids": {
+                "maxItems": 0
+              },
+              "edge_ids": {
+                "maxItems": 0
+              }
+            }
+          }
+        }
+      ]
+    },
+    "observation_record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "observation_kind",
+        "source_record_kind",
+        "source_record_id",
+        "subject_run_key",
+        "subject_source_commit",
+        "release_candidate_id",
+        "execution_scope",
+        "execution_identity",
+        "source_identity",
+        "declared_role",
+        "mutation_authority",
+        "observed_mutation_classes",
+        "unbound_authoritative_mutation",
+        "binding_status",
+        "binding_class",
+        "input_state_ids",
+        "output_state_ids",
+        "downstream_consumption",
+        "coverage_status",
+        "evidence_refs"
+      ],
+      "properties": {
+        "observation_kind": {
+          "type": "string",
+          "enum": [
+            "compute_node",
+            "runtime_execution",
+            "external_call",
+            "model_inference"
+          ]
+        },
+        "source_record_kind": {
+          "type": "string",
+          "enum": [
+            "compute_binding_report",
+            "runtime_observation_packet"
+          ]
+        },
+        "source_record_id": {
+          "$ref": "#/$defs/source_record_id"
+        },
+        "subject_run_key": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "subject_source_commit": {
+          "$ref": "#/$defs/sha40"
+        },
+        "release_candidate_id": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "execution_scope": {
+          "type": "string",
+          "enum": [
+            "subject",
+            "analysis_observer",
+            "observation_collector"
+          ]
+        },
+        "execution_identity": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/execution_selector"
+            },
+            {
+              "properties": {
+                "node_type": {
+                  "type": "string",
+                  "enum": [
+                    "workflow_job",
+                    "workflow_step",
+                    "local_tool_execution",
+                    "github_action",
+                    "verifier_execution",
+                    "materializer_execution",
+                    "external_service_call",
+                    "model_inference",
+                    "artifact_builder",
+                    "report_builder",
+                    "package_verifier",
+                    "observer_execution",
+                    "unknown"
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        "source_identity": {
+          "$ref": "#/$defs/source_identity"
+        },
+        "declared_role": {
+          "type": "string",
+          "enum": [
+            "transition",
+            "evidence",
+            "preservation",
+            "advisory",
+            "observer",
+            "unknown"
+          ]
+        },
+        "mutation_authority": {
+          "type": "string",
+          "enum": [
+            "none",
+            "advisory_output",
+            "preservation_output",
+            "release_evidence",
+            "candidate_state",
+            "verifier_state",
+            "materialized_gate_set",
+            "final_status",
+            "release_decision"
+          ]
+        },
+        "binding_status": {
+          "type": "string",
+          "enum": [
+            "complete",
+            "partial",
+            "none",
+            "unknown"
+          ]
+        },
+        "binding_class": {
+          "type": "string",
+          "enum": [
+            "transition_bound",
+            "evidence_bound",
+            "preservation_bound",
+            "advisory_bound",
+            "observer",
+            "unbound",
+            "unknown"
+          ]
+        },
+        "input_state_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^state:[A-Za-z0-9._:/@+-]+$"
+          }
+        },
+        "output_state_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^state:[A-Za-z0-9._:/@+-]+$"
+          }
+        },
+        "downstream_consumption": {
+          "$ref": "#/$defs/downstream_consumption"
+        },
+        "coverage_status": {
+          "type": "string",
+          "enum": [
+            "complete",
+            "partial",
+            "unknown"
+          ]
+        },
+        "evidence_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/non_empty_string"
+          }
+        },
+        "observed_mutation_classes": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "enum": [
+              "advisory_output",
+              "preservation_output",
+              "release_evidence",
+              "candidate_state",
+              "verifier_state",
+              "materialized_gate_set",
+              "final_status",
+              "release_decision"
+            ]
+          }
+        },
+        "unbound_authoritative_mutation": {
+          "type": "boolean"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "observation_kind": {
+                "const": "compute_node"
+              }
+            },
+            "required": [
+              "observation_kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "source_record_kind": {
+                "const": "compute_binding_report"
+              },
+              "source_record_id": {
+                "type": "string",
+                "pattern": "^compute:[A-Za-z0-9._:/@+-]+$"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "observation_kind": {
+                "const": "runtime_execution"
+              }
+            },
+            "required": [
+              "observation_kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "source_record_kind": {
+                "const": "runtime_observation_packet"
+              },
+              "source_record_id": {
+                "type": "string",
+                "pattern": "^execution:[A-Za-z0-9._:/@+-]+$"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "observation_kind": {
+                "const": "external_call"
+              }
+            },
+            "required": [
+              "observation_kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "source_record_kind": {
+                "const": "runtime_observation_packet"
+              },
+              "source_record_id": {
+                "type": "string",
+                "pattern": "^call:[A-Za-z0-9._:/@+-]+$"
+              },
+              "execution_identity": {
+                "properties": {
+                  "node_type": {
+                    "const": "external_service_call"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "observation_kind": {
+                "const": "model_inference"
+              }
+            },
+            "required": [
+              "observation_kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "source_record_kind": {
+                "const": "runtime_observation_packet"
+              },
+              "source_record_id": {
+                "type": "string",
+                "pattern": "^inference:[A-Za-z0-9._:/@+-]+$"
+              },
+              "execution_identity": {
+                "properties": {
+                  "node_type": {
+                    "const": "model_inference"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "allOf": [
+              {
+                "properties": {
+                  "binding_class": {
+                    "const": "unbound"
+                  }
+                },
+                "required": [
+                  "binding_class"
+                ]
+              },
+              {
+                "properties": {
+                  "observed_mutation_classes": {
+                    "contains": {
+                      "enum": [
+                        "release_evidence",
+                        "candidate_state",
+                        "verifier_state",
+                        "materialized_gate_set",
+                        "final_status",
+                        "release_decision"
+                      ]
+                    },
+                    "minContains": 1
+                  }
+                },
+                "required": [
+                  "observed_mutation_classes"
+                ]
+              }
+            ]
+          },
+          "then": {
+            "properties": {
+              "unbound_authoritative_mutation": {
+                "const": true
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "unbound_authoritative_mutation": {
+                "const": false
+              }
+            }
+          }
+        }
+      ]
+    },
+    "relation_evaluation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "execution_observation",
+        "execution_identity",
+        "source_identity",
+        "run_binding",
+        "declared_role",
+        "authority_class",
+        "downstream_consumption",
+        "coverage",
+        "decisive"
+      ],
+      "properties": {
+        "execution_observation": {
+          "type": "string",
+          "enum": [
+            "observed",
+            "not_observed",
+            "unresolved",
+            "not_required"
+          ]
+        },
+        "execution_identity": {
+          "type": "string",
+          "enum": [
+            "match",
+            "mismatch",
+            "unavailable",
+            "not_required"
+          ]
+        },
+        "source_identity": {
+          "type": "string",
+          "enum": [
+            "match",
+            "mismatch",
+            "unavailable",
+            "not_required"
+          ]
+        },
+        "run_binding": {
+          "type": "string",
+          "enum": [
+            "match",
+            "mismatch",
+            "unavailable",
+            "not_required"
+          ]
+        },
+        "authority_class": {
+          "type": "string",
+          "enum": [
+            "match",
+            "mismatch",
+            "unavailable",
+            "not_required"
+          ]
+        },
+        "downstream_consumption": {
+          "type": "string",
+          "enum": [
+            "observed",
+            "not_observed",
+            "unresolved",
+            "not_required"
+          ]
+        },
+        "coverage": {
+          "type": "string",
+          "enum": [
+            "complete",
+            "partial",
+            "unknown"
+          ]
+        },
+        "decisive": {
+          "type": "boolean"
+        },
+        "declared_role": {
+          "type": "string",
+          "enum": [
+            "match",
+            "mismatch",
+            "unavailable",
+            "not_required"
+          ]
+        }
+      }
+    },
+    "relation_record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "expectation_id",
+        "observation_ids",
+        "relation_status",
+        "evaluation",
+        "evidence_refs",
+        "notes"
+      ],
+      "properties": {
+        "expectation_id": {
+          "$ref": "#/$defs/nullable_expectation_id"
+        },
+        "observation_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/observation_id"
+          }
+        },
+        "relation_status": {
+          "type": "string",
+          "enum": [
+            "planned_presence_only",
+            "planned_and_observed",
+            "planned_but_not_observed",
+            "observed_but_not_planned",
+            "execution_identity_mismatch",
+            "source_digest_mismatch",
+            "run_binding_mismatch",
+            "declared_role_mismatch",
+            "authority_class_mismatch",
+            "downstream_consumption_missing",
+            "ambiguous_observation_match",
+            "unresolved_due_to_coverage"
+          ]
+        },
+        "evaluation": {
+          "$ref": "#/$defs/relation_evaluation"
+        },
+        "evidence_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/non_empty_string"
+          }
+        },
+        "notes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/non_empty_string"
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "relation_status": {
+                "const": "planned_presence_only"
+              }
+            },
+            "required": [
+              "relation_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "expectation_id": {
+                "$ref": "#/$defs/expectation_id"
+              },
+              "observation_ids": {
+                "maxItems": 0
+              },
+              "evaluation": {
+                "properties": {
+                  "execution_observation": {
+                    "const": "not_required"
+                  },
+                  "execution_identity": {
+                    "const": "not_required"
+                  },
+                  "source_identity": {
+                    "const": "not_required"
+                  },
+                  "run_binding": {
+                    "const": "not_required"
+                  },
+                  "authority_class": {
+                    "const": "not_required"
+                  },
+                  "downstream_consumption": {
+                    "const": "not_required"
+                  },
+                  "coverage": {
+                    "const": "complete"
+                  },
+                  "decisive": {
+                    "const": true
+                  },
+                  "declared_role": {
+                    "const": "not_required"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "relation_status": {
+                "const": "planned_and_observed"
+              }
+            },
+            "required": [
+              "relation_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "expectation_id": {
+                "$ref": "#/$defs/expectation_id"
+              },
+              "observation_ids": {
+                "minItems": 1
+              },
+              "evaluation": {
+                "properties": {
+                  "execution_observation": {
+                    "const": "observed"
+                  },
+                  "execution_identity": {
+                    "const": "match"
+                  },
+                  "source_identity": {
+                    "enum": [
+                      "match",
+                      "not_required"
+                    ]
+                  },
+                  "run_binding": {
+                    "const": "match"
+                  },
+                  "authority_class": {
+                    "enum": [
+                      "match",
+                      "not_required"
+                    ]
+                  },
+                  "downstream_consumption": {
+                    "enum": [
+                      "observed",
+                      "not_required"
+                    ]
+                  },
+                  "coverage": {
+                    "const": "complete"
+                  },
+                  "decisive": {
+                    "const": true
+                  },
+                  "declared_role": {
+                    "enum": [
+                      "match",
+                      "not_required"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "relation_status": {
+                "const": "planned_but_not_observed"
+              }
+            },
+            "required": [
+              "relation_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "expectation_id": {
+                "$ref": "#/$defs/expectation_id"
+              },
+              "observation_ids": {
+                "maxItems": 0
+              },
+              "evaluation": {
+                "properties": {
+                  "execution_observation": {
+                    "const": "not_observed"
+                  },
+                  "coverage": {
+                    "const": "complete"
+                  },
+                  "decisive": {
+                    "const": true
+                  },
+                  "execution_identity": {
+                    "const": "not_required"
+                  },
+                  "source_identity": {
+                    "const": "not_required"
+                  },
+                  "run_binding": {
+                    "const": "not_required"
+                  },
+                  "authority_class": {
+                    "const": "not_required"
+                  },
+                  "downstream_consumption": {
+                    "const": "not_required"
+                  },
+                  "declared_role": {
+                    "const": "not_required"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "relation_status": {
+                "const": "observed_but_not_planned"
+              }
+            },
+            "required": [
+              "relation_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "expectation_id": {
+                "type": "null"
+              },
+              "observation_ids": {
+                "minItems": 1
+              },
+              "evaluation": {
+                "properties": {
+                  "execution_observation": {
+                    "const": "observed"
+                  },
+                  "execution_identity": {
+                    "const": "not_required"
+                  },
+                  "source_identity": {
+                    "const": "not_required"
+                  },
+                  "run_binding": {
+                    "const": "match"
+                  },
+                  "authority_class": {
+                    "const": "not_required"
+                  },
+                  "coverage": {
+                    "const": "complete"
+                  },
+                  "decisive": {
+                    "const": true
+                  },
+                  "declared_role": {
+                    "const": "not_required"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "relation_status": {
+                "const": "execution_identity_mismatch"
+              }
+            },
+            "required": [
+              "relation_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "expectation_id": {
+                "$ref": "#/$defs/expectation_id"
+              },
+              "observation_ids": {
+                "minItems": 1
+              },
+              "evaluation": {
+                "properties": {
+                  "execution_observation": {
+                    "const": "observed"
+                  },
+                  "execution_identity": {
+                    "const": "mismatch"
+                  },
+                  "coverage": {
+                    "const": "complete"
+                  },
+                  "decisive": {
+                    "const": true
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "relation_status": {
+                "const": "source_digest_mismatch"
+              }
+            },
+            "required": [
+              "relation_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "expectation_id": {
+                "$ref": "#/$defs/expectation_id"
+              },
+              "observation_ids": {
+                "minItems": 1
+              },
+              "evaluation": {
+                "properties": {
+                  "execution_observation": {
+                    "const": "observed"
+                  },
+                  "source_identity": {
+                    "const": "mismatch"
+                  },
+                  "run_binding": {
+                    "const": "match"
+                  },
+                  "coverage": {
+                    "const": "complete"
+                  },
+                  "decisive": {
+                    "const": true
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "relation_status": {
+                "const": "run_binding_mismatch"
+              }
+            },
+            "required": [
+              "relation_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "expectation_id": {
+                "$ref": "#/$defs/expectation_id"
+              },
+              "observation_ids": {
+                "minItems": 1
+              },
+              "evaluation": {
+                "properties": {
+                  "execution_observation": {
+                    "const": "observed"
+                  },
+                  "run_binding": {
+                    "const": "mismatch"
+                  },
+                  "coverage": {
+                    "const": "complete"
+                  },
+                  "decisive": {
+                    "const": true
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "relation_status": {
+                "const": "declared_role_mismatch"
+              }
+            },
+            "required": [
+              "relation_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "expectation_id": {
+                "$ref": "#/$defs/expectation_id"
+              },
+              "observation_ids": {
+                "minItems": 1
+              },
+              "evaluation": {
+                "properties": {
+                  "execution_observation": {
+                    "const": "observed"
+                  },
+                  "declared_role": {
+                    "const": "mismatch"
+                  },
+                  "coverage": {
+                    "const": "complete"
+                  },
+                  "decisive": {
+                    "const": true
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "relation_status": {
+                "const": "authority_class_mismatch"
+              }
+            },
+            "required": [
+              "relation_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "expectation_id": {
+                "$ref": "#/$defs/expectation_id"
+              },
+              "observation_ids": {
+                "minItems": 1
+              },
+              "evaluation": {
+                "properties": {
+                  "execution_observation": {
+                    "const": "observed"
+                  },
+                  "authority_class": {
+                    "const": "mismatch"
+                  },
+                  "coverage": {
+                    "const": "complete"
+                  },
+                  "decisive": {
+                    "const": true
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "relation_status": {
+                "const": "downstream_consumption_missing"
+              }
+            },
+            "required": [
+              "relation_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "expectation_id": {
+                "$ref": "#/$defs/expectation_id"
+              },
+              "observation_ids": {
+                "minItems": 1
+              },
+              "evaluation": {
+                "properties": {
+                  "execution_observation": {
+                    "const": "observed"
+                  },
+                  "downstream_consumption": {
+                    "const": "not_observed"
+                  },
+                  "coverage": {
+                    "const": "complete"
+                  },
+                  "decisive": {
+                    "const": true
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "relation_status": {
+                "const": "ambiguous_observation_match"
+              }
+            },
+            "required": [
+              "relation_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "expectation_id": {
+                "$ref": "#/$defs/expectation_id"
+              },
+              "observation_ids": {
+                "minItems": 2
+              },
+              "evaluation": {
+                "properties": {
+                  "execution_observation": {
+                    "const": "unresolved"
+                  },
+                  "decisive": {
+                    "const": false
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "relation_status": {
+                "const": "unresolved_due_to_coverage"
+              }
+            },
+            "required": [
+              "relation_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "evaluation": {
+                "properties": {
+                  "execution_observation": {
+                    "const": "unresolved"
+                  },
+                  "coverage": {
+                    "enum": [
+                      "partial",
+                      "unknown"
+                    ]
+                  },
+                  "decisive": {
+                    "const": false
+                  }
+                }
+              }
+            }
+          }
+        }
+      ],
+      "anyOf": [
+        {
+          "properties": {
+            "expectation_id": {
+              "$ref": "#/$defs/expectation_id"
+            }
+          }
+        },
+        {
+          "properties": {
+            "observation_ids": {
+              "minItems": 1
+            }
+          }
+        }
+      ]
+    },
+    "coverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "comparison_status",
+        "plan_operations_total",
+        "plan_operations_referenced",
+        "expectations_total",
+        "expectations_classified",
+        "observations_total",
+        "observations_classified",
+        "relations_total",
+        "identity_coverage_status",
+        "execution_coverage_status",
+        "declared_role_coverage_status",
+        "authority_coverage_status",
+        "downstream_consumption_coverage_status",
+        "runtime_observation_status",
+        "missing_plan_operation_refs",
+        "unclassified_expectation_ids",
+        "unclassified_observation_ids",
+        "unresolved_reasons"
+      ],
+      "properties": {
+        "comparison_status": {
+          "type": "string",
+          "enum": [
+            "complete",
+            "partial",
+            "unknown"
+          ]
+        },
+        "plan_operations_total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "plan_operations_referenced": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "expectations_total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "expectations_classified": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "observations_total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "observations_classified": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "relations_total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "identity_coverage_status": {
+          "type": "string",
+          "enum": [
+            "complete",
+            "partial",
+            "unknown",
+            "not_required"
+          ]
+        },
+        "execution_coverage_status": {
+          "type": "string",
+          "enum": [
+            "complete",
+            "partial",
+            "unknown",
+            "not_required"
+          ]
+        },
+        "downstream_consumption_coverage_status": {
+          "type": "string",
+          "enum": [
+            "complete",
+            "partial",
+            "unknown",
+            "not_required"
+          ]
+        },
+        "runtime_observation_status": {
+          "type": "string",
+          "enum": [
+            "none",
+            "partial",
+            "complete"
+          ]
+        },
+        "missing_plan_operation_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/non_empty_string"
+          }
+        },
+        "unclassified_expectation_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/expectation_id"
+          }
+        },
+        "unclassified_observation_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/observation_id"
+          }
+        },
+        "unresolved_reasons": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/unresolved_reason"
+          }
+        },
+        "declared_role_coverage_status": {
+          "type": "string",
+          "enum": [
+            "complete",
+            "partial",
+            "unknown",
+            "not_required"
+          ]
+        },
+        "authority_coverage_status": {
+          "type": "string",
+          "enum": [
+            "complete",
+            "partial",
+            "unknown",
+            "not_required"
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "comparison_status": {
+                "const": "complete"
+              }
+            },
+            "required": [
+              "comparison_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "missing_plan_operation_refs": {
+                "maxItems": 0
+              },
+              "unclassified_expectation_ids": {
+                "maxItems": 0
+              },
+              "unclassified_observation_ids": {
+                "maxItems": 0
+              },
+              "unresolved_reasons": {
+                "maxItems": 0
+              },
+              "identity_coverage_status": {
+                "enum": [
+                  "complete",
+                  "not_required"
+                ]
+              },
+              "execution_coverage_status": {
+                "enum": [
+                  "complete",
+                  "not_required"
+                ]
+              },
+              "downstream_consumption_coverage_status": {
+                "enum": [
+                  "complete",
+                  "not_required"
+                ]
+              },
+              "declared_role_coverage_status": {
+                "enum": [
+                  "complete",
+                  "not_required"
+                ]
+              },
+              "authority_coverage_status": {
+                "enum": [
+                  "complete",
+                  "not_required"
+                ]
+              }
+            }
+          }
+        }
+      ]
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "plan_operations",
+        "expectations",
+        "observations",
+        "relations",
+        "planned_presence_only",
+        "planned_execution_expected",
+        "planned_execution_and_consumption_expected",
+        "planned_and_observed",
+        "planned_but_not_observed",
+        "observed_but_not_planned",
+        "execution_identity_mismatch",
+        "source_digest_mismatch",
+        "run_binding_mismatch",
+        "declared_role_mismatch",
+        "authority_class_mismatch",
+        "downstream_consumption_missing",
+        "ambiguous_observation_match",
+        "unresolved_due_to_coverage",
+        "decisive_relations",
+        "unresolved_relations",
+        "authority_integrity_candidate_count",
+        "comparison_complete"
+      ],
+      "properties": {
+        "plan_operations": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "expectations": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "observations": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "relations": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "planned_presence_only": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "planned_execution_expected": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "planned_execution_and_consumption_expected": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "planned_and_observed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "planned_but_not_observed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "observed_but_not_planned": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "execution_identity_mismatch": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "source_digest_mismatch": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "run_binding_mismatch": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "authority_class_mismatch": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "downstream_consumption_missing": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "ambiguous_observation_match": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unresolved_due_to_coverage": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "decisive_relations": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unresolved_relations": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "authority_integrity_candidate_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "comparison_complete": {
+          "type": "boolean"
+        },
+        "declared_role_mismatch": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "finding_type",
+        "severity",
+        "expectation_id",
+        "observation_ids",
+        "relation_id",
+        "message",
+        "evidence_refs"
+      ],
+      "properties": {
+        "finding_type": {
+          "type": "string",
+          "enum": [
+            "plan_target_subject_mismatch",
+            "plan_operation_unreferenced",
+            "execution_expectation_basis_missing",
+            "downstream_expectation_basis_missing",
+            "planned_execution_not_observed",
+            "observed_execution_not_planned",
+            "execution_identity_mismatch",
+            "source_digest_mismatch",
+            "run_binding_mismatch",
+            "declared_role_mismatch",
+            "authority_class_mismatch",
+            "downstream_consumption_missing",
+            "ambiguous_observation_match",
+            "observation_identity_unresolved",
+            "comparison_coverage_partial",
+            "observer_boundary_violation",
+            "duplicate_relation_candidate",
+            "invalid_relation_classification"
+          ]
+        },
+        "severity": {
+          "type": "string",
+          "enum": [
+            "information",
+            "advisory",
+            "authority_integrity_candidate"
+          ]
+        },
+        "expectation_id": {
+          "$ref": "#/$defs/nullable_expectation_id"
+        },
+        "relation_id": {
+          "$ref": "#/$defs/nullable_relation_id"
+        },
+        "message": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "evidence_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/non_empty_string"
+          }
+        },
+        "observation_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/observation_id"
+          }
+        }
+      }
+    },
+    "authority_boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "write_mode",
+        "writes_target_repository",
+        "mutates_subject_run",
+        "changes_release_authority",
+        "changes_gate_policy",
+        "changes_gate_semantics",
+        "creates_release_decision",
+        "creates_gate_result",
+        "activates_compute_gate",
+        "creates_compute_budget",
+        "relation_record_is_release_authority"
+      ],
+      "properties": {
+        "write_mode": {
+          "const": "relation_only"
+        },
+        "writes_target_repository": {
+          "const": false
+        },
+        "mutates_subject_run": {
+          "const": false
+        },
+        "changes_release_authority": {
+          "const": false
+        },
+        "changes_gate_policy": {
+          "const": false
+        },
+        "changes_gate_semantics": {
+          "const": false
+        },
+        "creates_release_decision": {
+          "const": false
+        },
+        "creates_gate_result": {
+          "const": false
+        },
+        "activates_compute_gate": {
+          "const": false
+        },
+        "creates_compute_budget": {
+          "const": false
+        },
+        "relation_record_is_release_authority": {
+          "const": false
+        }
+      }
+    },
+    "unresolved_reason": {
+      "type": "string",
+      "enum": [
+        "plan_operation_unmapped",
+        "execution_identity_unavailable",
+        "source_identity_unavailable",
+        "run_binding_unavailable",
+        "declared_role_unavailable",
+        "authority_class_unavailable",
+        "downstream_consumption_unavailable",
+        "runtime_coverage_partial",
+        "artifact_coverage_partial",
+        "ambiguous_match",
+        "observer_only_record"
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "ok": {
+            "const": true
+          }
+        },
+        "required": [
+          "ok"
+        ]
+      },
+      "then": {
+        "properties": {
+          "errors": {
+            "maxItems": 0
+          },
+          "comparison_boundary": {
+            "properties": {
+              "plan_target_matches_subject_repository": {
+                "const": true
+              }
+            }
+          },
+          "plan_binding": {
+            "properties": {
+              "apply_eligible": {
+                "const": true
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "ok": {
+            "const": false
+          }
+        },
+        "required": [
+          "ok"
+        ]
+      },
+      "then": {
+        "properties": {
+          "errors": {
+            "minItems": 1
+          },
+          "summary": {
+            "properties": {
+              "comparison_complete": {
+                "const": false
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "record_status": {
+            "const": "observed"
+          }
+        },
+        "required": [
+          "record_status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "tool": {
+            "properties": {
+              "source_revision": {
+                "$ref": "#/$defs/sha40"
+              }
+            }
+          },
+          "comparison_identity": {
+            "properties": {
+              "comparison_scope": {
+                "const": "subject_run"
+              }
+            }
+          },
+          "observation_bindings": {
+            "properties": {
+              "compute_binding_report": {
+                "properties": {
+                  "record_status": {
+                    "const": "observed"
+                  }
+                }
+              },
+              "runtime_observation_packets": {
+                "items": {
+                  "properties": {
+                    "record_status": {
+                      "const": "observed"
+                    },
+                    "packet_scope": {
+                      "enum": [
+                        "subject_run",
+                        "workflow_job",
+                        "workflow_step",
+                        "external_export"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "record_status": {
+            "const": "example"
+          }
+        },
+        "required": [
+          "record_status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "comparison_identity": {
+            "properties": {
+              "comparison_scope": {
+                "const": "example"
+              }
+            }
+          },
+          "observation_bindings": {
+            "properties": {
+              "compute_binding_report": {
+                "properties": {
+                  "record_status": {
+                    "const": "example"
+                  }
+                }
+              },
+              "runtime_observation_packets": {
+                "items": {
+                  "properties": {
+                    "record_status": {
+                      "const": "example"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "summary": {
+            "type": "object",
+            "properties": {
+              "comparison_complete": {
+                "const": true
+              }
+            },
+            "required": [
+              "comparison_complete"
+            ]
+          }
+        },
+        "required": [
+          "summary"
+        ]
+      },
+      "then": {
+        "properties": {
+          "coverage": {
+            "properties": {
+              "comparison_status": {
+                "const": "complete"
+              }
+            }
+          },
+          "summary": {
+            "properties": {
+              "ambiguous_observation_match": {
+                "const": 0
+              },
+              "unresolved_due_to_coverage": {
+                "const": 0
+              },
+              "unresolved_relations": {
+                "const": 0
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "observation_bindings": {
+            "type": "object",
+            "properties": {
+              "compute_binding_report": {
+                "type": "object",
+                "properties": {
+                  "analysis_level": {
+                    "const": "artifact_observed"
+                  }
+                },
+                "required": [
+                  "analysis_level"
+                ]
+              }
+            },
+            "required": [
+              "compute_binding_report"
+            ]
+          }
+        },
+        "required": [
+          "observation_bindings"
+        ]
+      },
+      "then": {
+        "properties": {
+          "comparison_boundary": {
+            "properties": {
+              "observed_analysis_level": {
+                "const": "artifact_observed"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "observation_bindings": {
+            "type": "object",
+            "properties": {
+              "compute_binding_report": {
+                "type": "object",
+                "properties": {
+                  "analysis_level": {
+                    "const": "runtime_observed"
+                  }
+                },
+                "required": [
+                  "analysis_level"
+                ]
+              }
+            },
+            "required": [
+              "compute_binding_report"
+            ]
+          }
+        },
+        "required": [
+          "observation_bindings"
+        ]
+      },
+      "then": {
+        "properties": {
+          "comparison_boundary": {
+            "properties": {
+              "observed_analysis_level": {
+                "const": "runtime_observed"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "observation_bindings": {
+            "type": "object",
+            "properties": {
+              "runtime_observation_status": {
+                "const": "none"
+              }
+            },
+            "required": [
+              "runtime_observation_status"
+            ]
+          }
+        },
+        "required": [
+          "observation_bindings"
+        ]
+      },
+      "then": {
+        "properties": {
+          "observations": {
+            "additionalProperties": {
+              "properties": {
+                "observation_kind": {
+                  "const": "compute_node"
+                },
+                "source_record_kind": {
+                  "const": "compute_binding_report"
+                }
+              }
+            }
+          },
+          "coverage": {
+            "properties": {
+              "runtime_observation_status": {
+                "const": "none"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "observation_bindings": {
+            "type": "object",
+            "properties": {
+              "runtime_observation_status": {
+                "const": "partial"
+              }
+            },
+            "required": [
+              "runtime_observation_status"
+            ]
+          }
+        },
+        "required": [
+          "observation_bindings"
+        ]
+      },
+      "then": {
+        "properties": {
+          "coverage": {
+            "properties": {
+              "runtime_observation_status": {
+                "const": "partial"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "observation_bindings": {
+            "type": "object",
+            "properties": {
+              "runtime_observation_status": {
+                "const": "complete"
+              }
+            },
+            "required": [
+              "runtime_observation_status"
+            ]
+          }
+        },
+        "required": [
+          "observation_bindings"
+        ]
+      },
+      "then": {
+        "properties": {
+          "coverage": {
+            "properties": {
+              "runtime_observation_status": {
+                "const": "complete"
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "$comment": "Cross-record equality for subject repository, run key, source commit, release candidate, and exact input digests is enforced by the strict validator in this contract PR. Draft 2020-12 cannot express arbitrary sibling-instance equality."
+}

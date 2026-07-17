@@ -1,0 +1,594 @@
+{
+  "authority_boundary": {
+    "activates_compute_gate": false,
+    "changes_gate_policy": false,
+    "changes_gate_semantics": false,
+    "changes_release_authority": false,
+    "creates_compute_budget": false,
+    "creates_gate_result": false,
+    "creates_release_decision": false,
+    "mutates_subject_run": false,
+    "relation_record_is_release_authority": false,
+    "write_mode": "relation_only",
+    "writes_target_repository": false
+  },
+  "comparison_boundary": {
+    "comparison_writes_subject": false,
+    "execution_implies_downstream_consumption": false,
+    "expectation_basis_required_for_execution": true,
+    "observed_analysis_level": "artifact_observed",
+    "observer_in_subject_totals": false,
+    "plan_target_matches_subject_repository": true,
+    "presence_implies_execution": false
+  },
+  "comparison_identity": {
+    "canonicalization": "json-sort-keys-utf8-newline",
+    "comparison_scope": "example",
+    "relation_record_id": "planned-observed:example-6066-v0",
+    "release_candidate_id": "main",
+    "subject_repository": "HKati/pulse-release-gates-0.1",
+    "subject_run_key": "GITHUB_RUN_ID=29249887581|GITHUB_RUN_ATTEMPT=1|GITHUB_WORKFLOW=PULSE CI",
+    "subject_source_commit": "46b639706e23f80fe296a8893be18e2b5ab21f7e"
+  },
+  "coverage": {
+    "authority_coverage_status": "complete",
+    "comparison_status": "complete",
+    "declared_role_coverage_status": "complete",
+    "downstream_consumption_coverage_status": "complete",
+    "execution_coverage_status": "complete",
+    "expectations_classified": 3,
+    "expectations_total": 3,
+    "identity_coverage_status": "complete",
+    "missing_plan_operation_refs": [],
+    "observations_classified": 2,
+    "observations_total": 2,
+    "plan_operations_referenced": 3,
+    "plan_operations_total": 3,
+    "relations_total": 3,
+    "runtime_observation_status": "none",
+    "unclassified_expectation_ids": [],
+    "unclassified_observation_ids": [],
+    "unresolved_reasons": []
+  },
+  "errors": [],
+  "expectations": {
+    "expectation:execute-policy-materializer": {
+      "basis_records": [
+        {
+          "basis_id": "basis:execution-policy-materializer",
+          "basis_kind": "workflow_execution_declaration",
+          "evidence_refs": [
+            "workflow-step:Materialize-required-gate-set",
+            "workflow:PULSE-CI"
+          ],
+          "source_path_or_uri": ".github/workflows/pulse_ci.yml",
+          "source_revision": "46b639706e23f80fe296a8893be18e2b5ab21f7e",
+          "source_sha256": "5fcf282d2ba4aeb9059593ebe131a622a8c233572b5bbb92f5f450809795b275",
+          "subject_run_key": "GITHUB_RUN_ID=29249887581|GITHUB_RUN_ATTEMPT=1|GITHUB_WORKFLOW=PULSE CI",
+          "supports": [
+            "declared_role",
+            "execution_expectation",
+            "mutation_authority"
+          ]
+        },
+        {
+          "basis_id": "basis:plan-pulse_policy_gate_materializer_v0",
+          "basis_kind": "integration_plan_operation",
+          "evidence_refs": [
+            "plan-operation:pulse_policy_gate_materializer_v0",
+            "sha256:0a84064480e35c59aab244a013cf3633e71a7f05ce78b0eebae99fb128c555d7"
+          ],
+          "source_path_or_uri": "example://pulsemech-integration-plan-v0.json#operation/pulse_policy_gate_materializer_v0",
+          "source_revision": "46b639706e23f80fe296a8893be18e2b5ab21f7e",
+          "source_sha256": "0a84064480e35c59aab244a013cf3633e71a7f05ce78b0eebae99fb128c555d7",
+          "subject_run_key": null,
+          "supports": [
+            "component_presence",
+            "source_identity"
+          ]
+        }
+      ],
+      "component_id": "pulse_policy_gate_materializer_v0",
+      "evidence_refs": [
+        "component:pulse_policy_gate_materializer_v0",
+        "workflow-step:Materialize-required-gate-set"
+      ],
+      "expectation_kind": "planned_execution_expected",
+      "expectation_scope": {
+        "release_candidate_id": "main",
+        "scope_kind": "subject_run",
+        "subject_run_key": "GITHUB_RUN_ID=29249887581|GITHUB_RUN_ATTEMPT=1|GITHUB_WORKFLOW=PULSE CI",
+        "subject_source_commit": "46b639706e23f80fe296a8893be18e2b5ab21f7e"
+      },
+      "expected_compute": {
+        "downstream_consumption_required": false,
+        "execution_required": true,
+        "selector": {
+          "command_sha256": "0bf4328f1d870f0373e23effa27f60970dcfa4f80d0a77164bdfbf4e62ee6605",
+          "job_name": "pulse",
+          "node_type": "materializer_execution",
+          "step_name": "Materialize required gate set",
+          "tool_id": "tools/policy_to_require_args.py",
+          "workflow_name": "PULSE CI"
+        }
+      },
+      "expected_declared_role": "transition",
+      "expected_mutation_authority": "materialized_gate_set",
+      "expected_source_identity": {
+        "action_commit_sha": null,
+        "action_ref": null,
+        "action_repository": null,
+        "container_image_digest": null,
+        "identity_status": "exact",
+        "source_kind": "repository_file",
+        "source_path_or_uri": "tools/policy_to_require_args.py",
+        "source_revision": "46b639706e23f80fe296a8893be18e2b5ab21f7e",
+        "source_sha256": "d0c5f8a96198eb50a543ff431cf4dd20dca359db3632aaf4ad737f5233903e44"
+      },
+      "plan_operation_refs": [
+        {
+          "action": "preserve",
+          "component_id": "pulse_policy_gate_materializer_v0",
+          "operation_canonicalization": "json-sort-keys-utf8-no-whitespace",
+          "operation_digest_scope": "pulsemech_integration_plan_operation_v0",
+          "operation_sha256": "0a84064480e35c59aab244a013cf3633e71a7f05ce78b0eebae99fb128c555d7",
+          "reason": "target file is byte-identical to the planned source",
+          "source_path": "tools/policy_to_require_args.py",
+          "source_sha256": "d0c5f8a96198eb50a543ff431cf4dd20dca359db3632aaf4ad737f5233903e44",
+          "source_size_bytes": 8437,
+          "target_path": "tools/policy_to_require_args.py",
+          "target_state": "identical"
+        }
+      ]
+    },
+    "expectation:execute-status-validator-consumed": {
+      "basis_records": [
+        {
+          "basis_id": "basis:execution-status-validator",
+          "basis_kind": "workflow_execution_declaration",
+          "evidence_refs": [
+            "workflow-step:Validate-final-status-schema",
+            "workflow:PULSE-CI"
+          ],
+          "source_path_or_uri": ".github/workflows/pulse_ci.yml",
+          "source_revision": "46b639706e23f80fe296a8893be18e2b5ab21f7e",
+          "source_sha256": "5fcf282d2ba4aeb9059593ebe131a622a8c233572b5bbb92f5f450809795b275",
+          "subject_run_key": "GITHUB_RUN_ID=29249887581|GITHUB_RUN_ATTEMPT=1|GITHUB_WORKFLOW=PULSE CI",
+          "supports": [
+            "declared_role",
+            "execution_expectation",
+            "mutation_authority"
+          ]
+        },
+        {
+          "basis_id": "basis:plan-pulse_status_schema_validator_v0",
+          "basis_kind": "integration_plan_operation",
+          "evidence_refs": [
+            "plan-operation:pulse_status_schema_validator_v0",
+            "sha256:bf0c933e849a39e8ef31336f4d8417e5eb8ef4507b9dd6b34ae554ced10e324c"
+          ],
+          "source_path_or_uri": "example://pulsemech-integration-plan-v0.json#operation/pulse_status_schema_validator_v0",
+          "source_revision": "46b639706e23f80fe296a8893be18e2b5ab21f7e",
+          "source_sha256": "bf0c933e849a39e8ef31336f4d8417e5eb8ef4507b9dd6b34ae554ced10e324c",
+          "subject_run_key": null,
+          "supports": [
+            "component_presence",
+            "source_identity"
+          ]
+        },
+        {
+          "basis_id": "basis:status-validator-consumption",
+          "basis_kind": "explicit_subject_run_expectation",
+          "evidence_refs": [
+            "consumer:compute:materialize-required-gates",
+            "edge:status-validator-to-materializer"
+          ],
+          "source_path_or_uri": "example://subject-run-expectations/status-validator-consumption-v0.json",
+          "source_revision": "46b639706e23f80fe296a8893be18e2b5ab21f7e",
+          "source_sha256": "51699261798a3f4f459d15f00aff7541044b469b74566de99f83e45ae371b720",
+          "subject_run_key": "GITHUB_RUN_ID=29249887581|GITHUB_RUN_ATTEMPT=1|GITHUB_WORKFLOW=PULSE CI",
+          "supports": [
+            "declared_role",
+            "downstream_consumption_expectation",
+            "execution_expectation",
+            "mutation_authority"
+          ]
+        }
+      ],
+      "component_id": "pulse_status_schema_validator_v0",
+      "evidence_refs": [
+        "component:pulse_status_schema_validator_v0",
+        "edge:status-validator-to-materializer",
+        "workflow-step:Validate-final-status-schema"
+      ],
+      "expectation_kind": "planned_execution_and_consumption_expected",
+      "expectation_scope": {
+        "release_candidate_id": "main",
+        "scope_kind": "subject_run",
+        "subject_run_key": "GITHUB_RUN_ID=29249887581|GITHUB_RUN_ATTEMPT=1|GITHUB_WORKFLOW=PULSE CI",
+        "subject_source_commit": "46b639706e23f80fe296a8893be18e2b5ab21f7e"
+      },
+      "expected_compute": {
+        "downstream_consumption_required": true,
+        "execution_required": true,
+        "selector": {
+          "command_sha256": "13d38bc366aea747b50e840522add5e7c898dfac93ae5da5d2241b6540a670b1",
+          "job_name": "pulse",
+          "node_type": "verifier_execution",
+          "step_name": "Validate final status schema",
+          "tool_id": "tools/validate_status_schema.py",
+          "workflow_name": "PULSE CI"
+        }
+      },
+      "expected_declared_role": "evidence",
+      "expected_mutation_authority": "verifier_state",
+      "expected_source_identity": {
+        "action_commit_sha": null,
+        "action_ref": null,
+        "action_repository": null,
+        "container_image_digest": null,
+        "identity_status": "exact",
+        "source_kind": "repository_file",
+        "source_path_or_uri": "tools/validate_status_schema.py",
+        "source_revision": "46b639706e23f80fe296a8893be18e2b5ab21f7e",
+        "source_sha256": "960df85d0eeda45ea9cdb6acd90cec3d80df4f801102e92e8d22e6038a1304e8"
+      },
+      "plan_operation_refs": [
+        {
+          "action": "preserve",
+          "component_id": "pulse_status_schema_validator_v0",
+          "operation_canonicalization": "json-sort-keys-utf8-no-whitespace",
+          "operation_digest_scope": "pulsemech_integration_plan_operation_v0",
+          "operation_sha256": "bf0c933e849a39e8ef31336f4d8417e5eb8ef4507b9dd6b34ae554ced10e324c",
+          "reason": "target file is byte-identical to the planned source",
+          "source_path": "tools/validate_status_schema.py",
+          "source_sha256": "960df85d0eeda45ea9cdb6acd90cec3d80df4f801102e92e8d22e6038a1304e8",
+          "source_size_bytes": 6142,
+          "target_path": "tools/validate_status_schema.py",
+          "target_state": "identical"
+        }
+      ]
+    },
+    "expectation:presence-status-schema": {
+      "basis_records": [
+        {
+          "basis_id": "basis:plan-pulse_status_schema_v1",
+          "basis_kind": "integration_plan_operation",
+          "evidence_refs": [
+            "plan-operation:pulse_status_schema_v1",
+            "sha256:036ace11142ca924042d31a9ac8d225a4a012ba4994165316861b749dfd5a46d"
+          ],
+          "source_path_or_uri": "example://pulsemech-integration-plan-v0.json#operation/pulse_status_schema_v1",
+          "source_revision": "46b639706e23f80fe296a8893be18e2b5ab21f7e",
+          "source_sha256": "036ace11142ca924042d31a9ac8d225a4a012ba4994165316861b749dfd5a46d",
+          "subject_run_key": null,
+          "supports": [
+            "component_presence",
+            "source_identity"
+          ]
+        }
+      ],
+      "component_id": "pulse_status_schema_v1",
+      "evidence_refs": [
+        "component:pulse_status_schema_v1",
+        "repository-path:schemas/status/status_v1.schema.json"
+      ],
+      "expectation_kind": "planned_presence_only",
+      "expectation_scope": {
+        "release_candidate_id": null,
+        "scope_kind": "repository_presence",
+        "subject_run_key": null,
+        "subject_source_commit": null
+      },
+      "expected_compute": {
+        "downstream_consumption_required": false,
+        "execution_required": false,
+        "selector": {
+          "command_sha256": null,
+          "job_name": null,
+          "node_type": null,
+          "step_name": null,
+          "tool_id": null,
+          "workflow_name": null
+        }
+      },
+      "expected_declared_role": null,
+      "expected_mutation_authority": null,
+      "expected_source_identity": {
+        "action_commit_sha": null,
+        "action_ref": null,
+        "action_repository": null,
+        "container_image_digest": null,
+        "identity_status": "exact",
+        "source_kind": "repository_file",
+        "source_path_or_uri": "schemas/status/status_v1.schema.json",
+        "source_revision": "46b639706e23f80fe296a8893be18e2b5ab21f7e",
+        "source_sha256": "03aa2226ff741c2b3bc0aca4596a677c021bbe88dfc88430adda7efd4b12d9fd"
+      },
+      "plan_operation_refs": [
+        {
+          "action": "preserve",
+          "component_id": "pulse_status_schema_v1",
+          "operation_canonicalization": "json-sort-keys-utf8-no-whitespace",
+          "operation_digest_scope": "pulsemech_integration_plan_operation_v0",
+          "operation_sha256": "036ace11142ca924042d31a9ac8d225a4a012ba4994165316861b749dfd5a46d",
+          "reason": "target file is byte-identical to the planned source",
+          "source_path": "schemas/status/status_v1.schema.json",
+          "source_sha256": "03aa2226ff741c2b3bc0aca4596a677c021bbe88dfc88430adda7efd4b12d9fd",
+          "source_size_bytes": 11906,
+          "target_path": "schemas/status/status_v1.schema.json",
+          "target_state": "identical"
+        }
+      ]
+    }
+  },
+  "findings": {},
+  "observation_bindings": {
+    "compute_binding_report": {
+      "analysis_level": "artifact_observed",
+      "ok": true,
+      "path_or_uri": "example://pulsemech_compute_binding_report_6066_example_v0.json",
+      "record_status": "example",
+      "release_candidate_id": "main",
+      "report_type": "pulsemech_compute_binding_report",
+      "schema_version": "pulsemech_compute_binding_report_v0",
+      "sha256": "746b13bb7c82885aaa0bfd5a0496e9ded1ebef661f8b388b4a35c8b91c9a8c0b",
+      "subject_repository": "HKati/pulse-release-gates-0.1",
+      "subject_run_key": "GITHUB_RUN_ID=29249887581|GITHUB_RUN_ATTEMPT=1|GITHUB_WORKFLOW=PULSE CI",
+      "subject_source_commit": "46b639706e23f80fe296a8893be18e2b5ab21f7e"
+    },
+    "runtime_observation_packets": [],
+    "runtime_observation_status": "none"
+  },
+  "observations": {
+    "observation:policy-materializer": {
+      "binding_class": "transition_bound",
+      "binding_status": "complete",
+      "coverage_status": "complete",
+      "declared_role": "transition",
+      "downstream_consumption": {
+        "consumer_ids": [
+          "compute:check-gates"
+        ],
+        "edge_ids": [
+          "edge:materializer-to-check-gates"
+        ],
+        "evidence_refs": [
+          "state:materialized-required-gate-set",
+          "status:final"
+        ],
+        "status": "observed"
+      },
+      "evidence_refs": [
+        "compute-binding-report:example",
+        "edge:materializer-to-check-gates",
+        "state:materialized-required-gate-set"
+      ],
+      "execution_identity": {
+        "command_sha256": "0bf4328f1d870f0373e23effa27f60970dcfa4f80d0a77164bdfbf4e62ee6605",
+        "job_name": "pulse",
+        "node_type": "materializer_execution",
+        "step_name": "Materialize required gate set",
+        "tool_id": "tools/policy_to_require_args.py",
+        "workflow_name": "PULSE CI"
+      },
+      "execution_scope": "subject",
+      "input_state_ids": [
+        "state:declared-policy"
+      ],
+      "mutation_authority": "materialized_gate_set",
+      "observation_kind": "compute_node",
+      "observed_mutation_classes": [
+        "materialized_gate_set"
+      ],
+      "output_state_ids": [
+        "state:materialized-required-gate-set"
+      ],
+      "release_candidate_id": "main",
+      "source_identity": {
+        "action_commit_sha": null,
+        "action_ref": null,
+        "action_repository": null,
+        "container_image_digest": null,
+        "identity_status": "exact",
+        "source_kind": "repository_file",
+        "source_path_or_uri": "tools/policy_to_require_args.py",
+        "source_revision": "46b639706e23f80fe296a8893be18e2b5ab21f7e",
+        "source_sha256": "d0c5f8a96198eb50a543ff431cf4dd20dca359db3632aaf4ad737f5233903e44"
+      },
+      "source_record_id": "compute:materialize-required-gates",
+      "source_record_kind": "compute_binding_report",
+      "subject_run_key": "GITHUB_RUN_ID=29249887581|GITHUB_RUN_ATTEMPT=1|GITHUB_WORKFLOW=PULSE CI",
+      "subject_source_commit": "46b639706e23f80fe296a8893be18e2b5ab21f7e",
+      "unbound_authoritative_mutation": false
+    },
+    "observation:status-validator": {
+      "binding_class": "evidence_bound",
+      "binding_status": "complete",
+      "coverage_status": "complete",
+      "declared_role": "evidence",
+      "downstream_consumption": {
+        "consumer_ids": [
+          "compute:materialize-required-gates"
+        ],
+        "edge_ids": [
+          "edge:status-validator-to-materializer"
+        ],
+        "evidence_refs": [
+          "state:status-schema-validation-report",
+          "verifier:status-schema"
+        ],
+        "status": "observed"
+      },
+      "evidence_refs": [
+        "compute-binding-report:example",
+        "edge:status-validator-to-materializer",
+        "state:status-schema-validation-report"
+      ],
+      "execution_identity": {
+        "command_sha256": "13d38bc366aea747b50e840522add5e7c898dfac93ae5da5d2241b6540a670b1",
+        "job_name": "pulse",
+        "node_type": "verifier_execution",
+        "step_name": "Validate final status schema",
+        "tool_id": "tools/validate_status_schema.py",
+        "workflow_name": "PULSE CI"
+      },
+      "execution_scope": "subject",
+      "input_state_ids": [
+        "state:final-status-candidate"
+      ],
+      "mutation_authority": "verifier_state",
+      "observation_kind": "compute_node",
+      "observed_mutation_classes": [
+        "verifier_state"
+      ],
+      "output_state_ids": [
+        "state:status-schema-validation-report"
+      ],
+      "release_candidate_id": "main",
+      "source_identity": {
+        "action_commit_sha": null,
+        "action_ref": null,
+        "action_repository": null,
+        "container_image_digest": null,
+        "identity_status": "exact",
+        "source_kind": "repository_file",
+        "source_path_or_uri": "tools/validate_status_schema.py",
+        "source_revision": "46b639706e23f80fe296a8893be18e2b5ab21f7e",
+        "source_sha256": "960df85d0eeda45ea9cdb6acd90cec3d80df4f801102e92e8d22e6038a1304e8"
+      },
+      "source_record_id": "compute:validate-final-status-schema",
+      "source_record_kind": "compute_binding_report",
+      "subject_run_key": "GITHUB_RUN_ID=29249887581|GITHUB_RUN_ATTEMPT=1|GITHUB_WORKFLOW=PULSE CI",
+      "subject_source_commit": "46b639706e23f80fe296a8893be18e2b5ab21f7e",
+      "unbound_authoritative_mutation": false
+    }
+  },
+  "ok": true,
+  "plan_binding": {
+    "apply_eligible": true,
+    "component_manifest_sha256": "f91949e72cf08001b20304a75551ca93bf2e651c3dee69a388fda78b295563d0",
+    "declared_ci_provider": "github_actions",
+    "operation_count": 3,
+    "path_or_uri": "example://pulsemech-integration-plan-v0.json",
+    "plan_type": "pulsemech_integration_plan",
+    "policy_sha256": "8eadd7a1f7f0626c0b2c324bbcb643bff6390c0c80095425465695c2973457d8",
+    "request_id": "planned-observed-example-v0",
+    "schema_version": "pulsemech_integration_plan_v0",
+    "sha256": "bf94dc1d480bbf964722a0b320e8fc8b3abdcf40d8ee14b0125ade52c525d622",
+    "source_repository": "HKati/pulse-release-gates-0.1",
+    "source_revision": "46b639706e23f80fe296a8893be18e2b5ab21f7e",
+    "target_default_branch": "main",
+    "target_repository_id": "HKati/pulse-release-gates-0.1"
+  },
+  "record_status": "example",
+  "relation_type": "pulsemech_compute_planned_observed_relation",
+  "relations": {
+    "relation:execute-policy-materializer": {
+      "evaluation": {
+        "authority_class": "match",
+        "coverage": "complete",
+        "decisive": true,
+        "declared_role": "match",
+        "downstream_consumption": "observed",
+        "execution_identity": "match",
+        "execution_observation": "observed",
+        "run_binding": "match",
+        "source_identity": "match"
+      },
+      "evidence_refs": [
+        "edge:materializer-to-check-gates",
+        "expectation:execute-policy-materializer",
+        "observation:policy-materializer"
+      ],
+      "expectation_id": "expectation:execute-policy-materializer",
+      "notes": [
+        "The expected materializer execution is present with matching source, run, role, and authority identity."
+      ],
+      "observation_ids": [
+        "observation:policy-materializer"
+      ],
+      "relation_status": "planned_and_observed"
+    },
+    "relation:execute-status-validator-consumed": {
+      "evaluation": {
+        "authority_class": "match",
+        "coverage": "complete",
+        "decisive": true,
+        "declared_role": "match",
+        "downstream_consumption": "observed",
+        "execution_identity": "match",
+        "execution_observation": "observed",
+        "run_binding": "match",
+        "source_identity": "match"
+      },
+      "evidence_refs": [
+        "edge:status-validator-to-materializer",
+        "expectation:execute-status-validator-consumed",
+        "observation:status-validator"
+      ],
+      "expectation_id": "expectation:execute-status-validator-consumed",
+      "notes": [
+        "The expected validator execution and its downstream consumption are both observed."
+      ],
+      "observation_ids": [
+        "observation:status-validator"
+      ],
+      "relation_status": "planned_and_observed"
+    },
+    "relation:presence-status-schema": {
+      "evaluation": {
+        "authority_class": "not_required",
+        "coverage": "complete",
+        "decisive": true,
+        "declared_role": "not_required",
+        "downstream_consumption": "not_required",
+        "execution_identity": "not_required",
+        "execution_observation": "not_required",
+        "run_binding": "not_required",
+        "source_identity": "not_required"
+      },
+      "evidence_refs": [
+        "expectation:presence-status-schema",
+        "repository-path:schemas/status/status_v1.schema.json"
+      ],
+      "expectation_id": "expectation:presence-status-schema",
+      "notes": [
+        "Repository presence does not create a subject-run execution expectation."
+      ],
+      "observation_ids": [],
+      "relation_status": "planned_presence_only"
+    }
+  },
+  "schema_version": "pulsemech_compute_planned_observed_relation_v0",
+  "summary": {
+    "ambiguous_observation_match": 0,
+    "authority_class_mismatch": 0,
+    "authority_integrity_candidate_count": 0,
+    "comparison_complete": true,
+    "decisive_relations": 3,
+    "declared_role_mismatch": 0,
+    "downstream_consumption_missing": 0,
+    "execution_identity_mismatch": 0,
+    "expectations": 3,
+    "observations": 2,
+    "observed_but_not_planned": 0,
+    "plan_operations": 3,
+    "planned_and_observed": 2,
+    "planned_but_not_observed": 0,
+    "planned_execution_and_consumption_expected": 1,
+    "planned_execution_expected": 1,
+    "planned_presence_only": 1,
+    "relations": 3,
+    "run_binding_mismatch": 0,
+    "source_digest_mismatch": 0,
+    "unresolved_due_to_coverage": 0,
+    "unresolved_relations": 0
+  },
+  "tool": {
+    "id": "build_pulsemech_compute_planned_observed_relation_v0",
+    "source_revision": null,
+    "source_sha256": "7cb33a61d11f0fe4cfed0e3e2d79719b7a8ff9ae7c02e51588c06b464aaefe20",
+    "version": "0.1.0"
+  }
+}
