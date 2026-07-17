@@ -2,17 +2,6 @@
 
 > **Public origin / prior-art notice:** PULSE has a minimum public origin record. For the visible provenance anchors and attribution boundary, see the [Public Origin / Prior Art Notice](docs/quality_ledger.md#10-public-origin--prior-art-notice).
 
-> [!NOTE]
-> The following three Zenodo version records currently have incorrect DOI/citation routing metadata:
->
-> - `pulsemech-tier0-floor-preservation-20260629` — `10.5281/zenodo.21031131`
-> - `pulsemech-tier0-floor-20260628-b` — `10.5281/zenodo.21006429`
-> - `tier0-self-contained-evidence-floor-2026-06-27` — `10.5281/zenodo.21003082`
->
-> This notice applies only to the three records listed above.
->
-> We are working to correct the affected records.
-
 ## Canonical <img src="assets/brand/pulsemech-dark-badge.svg" alt="PULSEmech" height="30"> implementation path
 
 PULSEmech is the artifact-bound release-authority mechanism for AI release decisions.
