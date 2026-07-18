@@ -18,7 +18,7 @@
 
 policy:
   id: pulse-gate-policy-v0
-  version: "0.1.6"
+  version: "0.1.7"
 
 enforcement:
   required_missing: FAIL
@@ -79,6 +79,15 @@ gates:
     - slsa_vsa_policy_digest_matches
     - slsa_vsa_result_passed
     - slsa_vsa_verified_level_ok
+
+  # Compute planned-observed relation candidate proof.
+  # Non-active in v0: not included in required/core_required/release_required/advisory.
+  # This first candidate set is limited to transition and authority integrity.
+  # Resource-measurement and budget semantics remain separate and are not activated here.
+  compute_planned_observed_relation_candidate:
+    - compute_transition_path_complete
+    - compute_transition_authority_binding_ok
+    - compute_transition_unbound_mutation_absent
 
   # Baseline CI sees these as diagnostic/advisory only.
   advisory:
