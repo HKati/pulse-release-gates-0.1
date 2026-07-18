@@ -338,10 +338,10 @@ def _source_identity_result(
         else:
             results.append("match")
 
-    if "match" in results:
-        return "match"
     if "mismatch" in results:
         return "mismatch"
+    if "match" in results:
+        return "match"
     return "unavailable"
 
 
@@ -368,11 +368,29 @@ def _selector_result(
     if not expected:
         return "not_required"
 
+    results: list[str] = []
     for observation in observations:
         actual = observation.get("execution_identity", {})
-        if all(actual.get(field) == value for field, value in expected.items()):
-            return "match"
-    return "mismatch"
+        mismatch = False
+        unavailable = False
+        for field, expected_value in expected.items():
+            actual_value = actual.get(field)
+            if actual_value is None:
+                unavailable = True
+            elif actual_value != expected_value:
+                mismatch = True
+        if mismatch:
+            results.append("mismatch")
+        elif unavailable:
+            results.append("unavailable")
+        else:
+            results.append("match")
+
+    if "mismatch" in results:
+        return "mismatch"
+    if "match" in results:
+        return "match"
+    return "unavailable"
 
 
 def _run_binding_result(
@@ -406,11 +424,21 @@ def _field_match_result(
         return "not_required"
     if not observations:
         return "not_required"
-    return (
-        "match"
-        if all(observation.get(field) == expected for observation in observations)
-        else "mismatch"
-    )
+    results: list[str] = []
+    for observation in observations:
+        actual = observation.get(field)
+        if actual in {None, "unknown"}:
+            results.append("unavailable")
+        elif actual == expected:
+            results.append("match")
+        else:
+            results.append("mismatch")
+
+    if "mismatch" in results:
+        return "mismatch"
+    if "match" in results:
+        return "match"
+    return "unavailable"
 
 
 def _downstream_result(

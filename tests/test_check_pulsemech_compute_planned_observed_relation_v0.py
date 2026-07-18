@@ -924,6 +924,88 @@ def test_record_ok_and_errors_semantics_are_recomputed(tmp_path: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Mixed-evidence conflict precedence
+# ---------------------------------------------------------------------------
+
+
+def test_source_mismatch_dominates_a_parallel_matching_observation() -> None:
+    expected = {
+        "identity_status": "exact",
+        "source_kind": "repository_file",
+        "source_path_or_uri": "tools/example.py",
+        "source_revision": "a" * 40,
+        "source_sha256": "b" * 64,
+        "action_repository": None,
+        "action_ref": None,
+        "action_commit_sha": None,
+        "container_image_digest": None,
+    }
+    matching = {"source_identity": dict(expected)}
+    conflicting = {
+        "source_identity": {
+            **expected,
+            "source_sha256": "c" * 64,
+        }
+    }
+
+    assert TOOL_MODULE._source_identity_result(
+        expected,
+        [matching, conflicting],
+    ) == "mismatch"
+
+
+def test_execution_mismatch_dominates_a_parallel_matching_observation() -> None:
+    selector = {
+        "node_type": "materializer_execution",
+        "workflow_name": "PULSE CI",
+        "job_name": None,
+        "step_name": None,
+        "tool_id": "tools/example.py",
+        "command_sha256": None,
+    }
+    matching = {
+        "execution_identity": {
+            **selector,
+        }
+    }
+    conflicting = {
+        "execution_identity": {
+            **selector,
+            "node_type": "verifier_execution",
+        }
+    }
+
+    assert TOOL_MODULE._selector_result(
+        selector,
+        [matching, conflicting],
+    ) == "mismatch"
+
+
+def test_role_and_authority_mismatch_dominate_parallel_matches() -> None:
+    observations = [
+        {
+            "declared_role": "transition",
+            "mutation_authority": "materialized_gate_set",
+        },
+        {
+            "declared_role": "evidence",
+            "mutation_authority": "final_status",
+        },
+    ]
+
+    assert TOOL_MODULE._field_match_result(
+        "transition",
+        observations,
+        "declared_role",
+    ) == "mismatch"
+    assert TOOL_MODULE._field_match_result(
+        "materialized_gate_set",
+        observations,
+        "mutation_authority",
+    ) == "mismatch"
+
+
+# ---------------------------------------------------------------------------
 # Read-only diagnostic output boundary
 # ---------------------------------------------------------------------------
 
