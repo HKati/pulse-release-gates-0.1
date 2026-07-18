@@ -463,6 +463,10 @@ def resolve_tool_source_revision(
         if re.fullmatch(r"[0-9a-f]{40}", normalized) is None:
             raise BuilderError(f"tool_source_revision_invalid: {explicit!r}")
         match = git_revision_contains_current_tool(normalized)
+        if match is None:
+            raise BuilderError(
+                "tool_source_revision_unverifiable"
+            )
         if match is False:
             raise BuilderError(
                 "tool_source_revision_does_not_match_builder_bytes"
@@ -1050,10 +1054,56 @@ def normalize_runtime_source_identity(value: dict[str, Any]) -> dict[str, Any]:
         if field in value:
             result[field] = value[field]
     result["source_kind"] = kind
-    result["identity_status"] = status if status in {"exact", "partial", "unknown"} else "unknown"
 
-    if result["identity_status"] == "unknown" or kind == "unknown":
+    if status not in {"exact", "partial", "unknown"} or kind == "unknown":
         return empty_source_identity()
+
+    meaningful_fields = (
+        "source_path_or_uri",
+        "source_revision",
+        "source_sha256",
+        "action_repository",
+        "action_ref",
+        "action_commit_sha",
+        "container_image_digest",
+    )
+    any_identity = any(result.get(field) is not None for field in meaningful_fields)
+    if not any_identity:
+        return empty_source_identity()
+
+    exact = False
+    if kind == "repository_file":
+        exact = (
+            isinstance(result.get("source_path_or_uri"), str)
+            and bool(result["source_path_or_uri"])
+            and isinstance(result.get("source_revision"), str)
+            and bool(result["source_revision"])
+            and _valid_sha256(result.get("source_sha256"))
+        )
+    elif kind == "github_action":
+        exact = (
+            isinstance(result.get("action_repository"), str)
+            and bool(result["action_repository"])
+            and isinstance(result.get("action_ref"), str)
+            and bool(result["action_ref"])
+            and _valid_sha40(result.get("action_commit_sha"))
+        )
+    elif kind == "container_image":
+        digest = result.get("container_image_digest")
+        exact = (
+            isinstance(result.get("source_path_or_uri"), str)
+            and bool(result["source_path_or_uri"])
+            and isinstance(digest, str)
+            and re.fullmatch(r"sha256:[0-9a-f]{64}", digest) is not None
+        )
+    elif kind in {"external_service", "model", "builtin"}:
+        exact = (
+            isinstance(result.get("source_path_or_uri"), str)
+            and bool(result["source_path_or_uri"])
+            and _valid_sha256(result.get("source_sha256"))
+        )
+
+    result["identity_status"] = "exact" if status == "exact" and exact else "partial"
     return result
 
 
@@ -1555,10 +1605,28 @@ def parent_execution_context(
     executions: dict[str, dict[str, Any]],
     *,
     subject: tuple[str, str, str, str],
-) -> tuple[str, str, str, str, str | None, str | None, str | None]:
+) -> tuple[
+    str,
+    str,
+    str,
+    str,
+    bool,
+    str | None,
+    str | None,
+    str | None,
+]:
     parent = executions.get(parent_id) if isinstance(parent_id, str) else None
     if parent is None:
-        return "subject", "unknown", "none", subject[1], None, None, None
+        return (
+            "subject",
+            "unknown",
+            "none",
+            subject[1],
+            False,
+            None,
+            None,
+            None,
+        )
 
     scope = parent.get("execution_scope")
     if scope not in {"subject", "analysis_observer", "observation_collector"}:
@@ -1576,14 +1644,17 @@ def parent_execution_context(
     authority = parent.get("permitted_mutation_authority")
     if authority not in MUTATION_AUTHORITY_RANK:
         authority = "none"
-    run_key = parent.get("run_binding", {}).get("execution_run_key")
+    run_binding = parent.get("run_binding", {})
+    run_key = run_binding.get("execution_run_key")
     if not isinstance(run_key, str) or not run_key:
         run_key = subject[1]
+    run_binding_complete = run_binding.get("binding_complete") is True
     return (
         scope,
         role,
         authority,
         run_key,
+        run_binding_complete,
         parent.get("workflow_name"),
         parent.get("job_name"),
         parent.get("step_name"),
@@ -1601,14 +1672,23 @@ def external_call_observation(
     call_id = call.get("call_id")
     if not isinstance(call_id, str) or not call_id.startswith("call:"):
         raise BuilderError(f"runtime_call_id_invalid: {call_id!r}")
-    scope, role, authority, run_key, workflow, job, step = parent_execution_context(
+    (
+        scope,
+        role,
+        authority,
+        run_key,
+        run_binding_complete,
+        workflow,
+        job,
+        step,
+    ) = parent_execution_context(
         call.get("parent_execution_id"), executions, subject=subject
     )
     source = external_service_source_identity(call.get("service_identity", {}))
     capture = call.get("capture_status")
     binding_status = runtime_binding_status(
         capture_status=capture,
-        run_binding_complete=True,
+        run_binding_complete=run_binding_complete,
         source_identity=source,
     )
     request_states = sorted_unique_strings(
@@ -1702,14 +1782,23 @@ def model_inference_observation(
     inference_id = inference.get("inference_id")
     if not isinstance(inference_id, str) or not inference_id.startswith("inference:"):
         raise BuilderError(f"runtime_inference_id_invalid: {inference_id!r}")
-    scope, role, authority, run_key, workflow, job, step = parent_execution_context(
+    (
+        scope,
+        role,
+        authority,
+        run_key,
+        run_binding_complete,
+        workflow,
+        job,
+        step,
+    ) = parent_execution_context(
         inference.get("parent_execution_id"), executions, subject=subject
     )
     source = model_source_identity(inference.get("model_identity", {}))
     capture = inference.get("capture_status")
     binding_status = runtime_binding_status(
         capture_status=capture,
-        run_binding_complete=True,
+        run_binding_complete=run_binding_complete,
         source_identity=source,
     )
     input_states = sorted_unique_strings(
@@ -2010,6 +2099,9 @@ def derive_axis_coverage(
     *,
     report: dict[str, Any],
     packets: list[tuple[dict[str, Any], bytes, str]],
+    execution_required: bool,
+    runtime_status: str,
+    analysis_level: str,
 ) -> dict[str, str]:
     values = list(observations.values())
     if not values:
@@ -2017,7 +2109,7 @@ def derive_axis_coverage(
         role_status = "not_required"
         authority_status = "not_required"
         downstream_status = "not_required"
-        execution_status = "unknown"
+        execution_status = "unknown" if execution_required else "not_required"
     else:
         identity_values = [
             source_identity_coverage(observation.get("source_identity", {}))
@@ -2064,6 +2156,10 @@ def derive_axis_coverage(
         if packet_status == "unknown":
             execution_status = "unknown"
         elif packet_status == "partial" and execution_status != "unknown":
+            execution_status = "partial"
+
+    if analysis_level == "runtime_observed" and runtime_status != "complete":
+        if execution_status != "unknown":
             execution_status = "partial"
 
     return {
@@ -2202,7 +2298,7 @@ def candidate_score(
         actual_value = actual_identity.get(field)
         if actual_value == expected_value:
             score += weights[field]
-            if field not in {"node_type", "workflow_name"}:
+            if field != "node_type":
                 strong_anchor = True
         elif actual_value is not None:
             score -= max(5, weights[field] // 3)
@@ -3103,6 +3199,8 @@ def build_coverage(
     }
     if "ambiguous_observation_match" in relation_statuses:
         unresolved_reasons.add("ambiguous_match")
+    if analysis_level == "runtime_observed" and runtime_status != "complete":
+        unresolved_reasons.add("runtime_coverage_partial")
     if "unresolved_due_to_coverage" in relation_statuses and not unresolved_reasons:
         unresolved_reasons.add(
             "runtime_coverage_partial"
@@ -3131,6 +3229,10 @@ def build_coverage(
         and not unresolved_reasons
         and all_axes_complete
         and all_relations_decisive
+        and (
+            analysis_level != "runtime_observed"
+            or runtime_status == "complete"
+        )
         and "ambiguous_observation_match" not in relation_statuses
         and "unresolved_due_to_coverage" not in relation_statuses
     )
@@ -3295,10 +3397,21 @@ def build_relation_record(
         )
     observations = dict(sorted(observations.items()))
 
+    runtime_status = runtime_observation_status(
+        ordered_packets,
+        chain_complete=packet_chain_complete,
+    )
+    execution_required = any(
+        expectation.get("expected_compute", {}).get("execution_required") is True
+        for expectation in expectations.values()
+    )
     axes = derive_axis_coverage(
         observations,
         report=report,
         packets=ordered_packets,
+        execution_required=execution_required,
+        runtime_status=runtime_status,
+        analysis_level=analysis_level,
     )
     if any(
         (
@@ -3315,10 +3428,6 @@ def build_relation_record(
             else "partial"
         )
 
-    runtime_status = runtime_observation_status(
-        ordered_packets,
-        chain_complete=packet_chain_complete,
-    )
     preliminary_coverage = {
         **axes,
         "runtime_observation_status": runtime_status,
