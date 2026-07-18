@@ -2376,10 +2376,6 @@ def observation_anchor_labels(
     if (
         selector.get("workflow_name") is not None
         and actual.get("workflow_name") == selector.get("workflow_name")
-        and (
-            selector.get("job_name") is not None
-            or selector.get("node_type") == "workflow_job"
-        )
     ):
         labels.add("workflow_name")
 
