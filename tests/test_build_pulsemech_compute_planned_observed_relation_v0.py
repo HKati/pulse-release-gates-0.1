@@ -497,6 +497,56 @@ def test_workflow_only_selector_is_a_valid_anchor() -> None:
     assert BUILDER_MODULE.candidate_score(expectation, observation) == 25
 
 
+def test_workflow_only_selector_shares_artifact_and_runtime_relation() -> None:
+    selector = execution_identity(
+        node_type=None,  # type: ignore[arg-type]
+        workflow_name="PULSE CI",
+        job_name=None,
+        step_name=None,
+        tool_id=None,
+    )
+    expectation = {
+        "expected_compute": {"selector": selector},
+        "expected_declared_role": None,
+        "expected_mutation_authority": None,
+        "expected_source_identity": unknown_identity(),
+    }
+    shared_observation = {
+        "declared_role": "unknown",
+        "execution_identity": execution_identity(
+            workflow_name="PULSE CI",
+            job_name=None,
+            step_name=None,
+            tool_id=None,
+        ),
+        "execution_scope": "subject",
+        "mutation_authority": "none",
+        "source_identity": unknown_identity(),
+    }
+    observations = {
+        "observation:artifact": {
+            **shared_observation,
+            "source_record_kind": "compute_binding_report",
+        },
+        "observation:runtime": {
+            **shared_observation,
+            "source_record_kind": "runtime_observation_packet",
+        },
+    }
+
+    selected, ambiguous = BUILDER_MODULE.select_candidate_observations(
+        expectation,
+        observations,
+        set(observations),
+    )
+
+    assert selected == [
+        "observation:artifact",
+        "observation:runtime",
+    ]
+    assert ambiguous is False
+
+
 def test_node_type_alone_is_not_treated_as_a_strong_anchor() -> None:
     selector = execution_identity(
         node_type="workflow_step",
