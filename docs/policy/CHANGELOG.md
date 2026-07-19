@@ -1,3 +1,4 @@
+[CHANGELOG.md](https://github.com/user-attachments/files/30158655/CHANGELOG.md)
 # Policy and Metric Specs Changelog
 
 This changelog records **semantic** changes that can affect release gating outcomes
@@ -21,6 +22,11 @@ This changelog records **semantic** changes that can affect release gating outco
 
 ## Unreleased
 
+- `pulse_gate_policy_v0.yml` / `pulse-gate-policy-v0` (policy 0.1.7):
+  - Changed: declared the non-active `compute_planned_observed_relation_candidate` gate set containing exactly `compute_transition_path_complete`, `compute_transition_authority_binding_ok`, and `compute_transition_unbound_mutation_absent`.
+  - Why: expose a policy-derived, candidate-only proof boundary for the completed planned-observed relation mechanism without activating compute enforcement.
+  - Impact: no active release-authority behavior change; `required`, `core_required`, `release_required`, and `advisory` remain unchanged. No resource-measurement or compute-budget gate is included.
+  - Migration: none; relation-to-status candidate materialization and the candidate-only generic `check_gates.py` proof remain separate follow-up commits in this pull request.
 - `pulse_gate_policy_v0.yml` / `pulse-gate-policy-v0` (policy 0.1.6):
   - Changed: registered the non-active `slsa_vsa_recorded_intake_candidate` gate set.
   - Why: reserve the SLSA VSA recorded-intake candidate boundary without activating release-required SLSA enforcement.
@@ -48,7 +54,6 @@ This changelog records **semantic** changes that can affect release gating outco
   - Why: scaffold / placeholder booleans must not be misread as materialized release evidence in release-grade paths.
   - Impact: policy consumers deriving `release_required` now fail closed until detectors are materialized.
   - Migration: wire deterministic producers for the release-grade detector-backed gates before treating scaffold output as passing release evidence.
-
 - `docs/STATUS_CONTRACT.md` / `status contract`:
   - Changed: documented the `meta.relational_gain_shadow` fold-in surface as additive, descriptive, and non-normative shadow metadata.
   - Why: make the public status contract reflect the implemented Relational Gain shadow fold-in behavior.
