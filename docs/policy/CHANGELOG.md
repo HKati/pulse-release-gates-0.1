@@ -1,4 +1,3 @@
-[CHANGELOG.md](https://github.com/user-attachments/files/30158655/CHANGELOG.md)
 # Policy and Metric Specs Changelog
 
 This changelog records **semantic** changes that can affect release gating outcomes
