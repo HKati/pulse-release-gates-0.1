@@ -46,7 +46,7 @@ ATTESTATION_URL = (
 )
 ATTEST_ACTION_REF = (
     "actions/attest@"
-    "59d89421af93a897026c735860bf21b6eb4f7b26"
+    "7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6"
 )
 MODEL_REVISION = (
     "acf7aafa60f0410f8f42b1fa35e077d705892029"
