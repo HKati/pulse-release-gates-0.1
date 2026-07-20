@@ -2358,7 +2358,7 @@ jobs:
           sha256sum "attestation-subject/artifact_provenance_binding_v0.json"
 
       - name: Attest release authority artifact binding v0
-        uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26
+        uses: actions/attest@f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6
         with:
           subject-path: attestation-subject/artifact_provenance_binding_v0.json
           show-summary: true
@@ -2449,7 +2449,7 @@ jobs:
 
       - name: Attest canonical LlamaGuard summary
         id: attest_llamaguard_summary
-        uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26
+        uses: actions/attest@f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6
         with:
           subject-path: PULSE_safe_pack_v0/artifacts/external/llamaguard_summary.json
           show-summary: true
@@ -2472,7 +2472,7 @@ jobs:
             --verified-at "${PULSE_ATTESTATION_VERIFIED_AT}" \
             --attestation-id "${{ steps.attest_llamaguard_summary.outputs.attestation-id }}" \
             --attestation-url "${{ steps.attest_llamaguard_summary.outputs.attestation-url }}" \
-            --attestation-action-ref "actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26"
+            --attestation-action-ref "actions/attest@f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6"
 
       - name: Verify canonical LlamaGuard external-summary attestation
         shell: bash
@@ -3270,7 +3270,7 @@ jobs:
           sha256sum "attestation-subject/artifact_provenance_binding_v0.json"
 
       - name: Attest final release-grade artifact binding v0
-        uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26
+        uses: actions/attest@f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6
         with:
           subject-path: attestation-subject/artifact_provenance_binding_v0.json
           show-summary: true
