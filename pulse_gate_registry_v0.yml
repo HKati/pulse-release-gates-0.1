@@ -185,6 +185,25 @@ gates:
     stability: experimental
     default_normative: false
 
+  # --- Compute planned-observed relation candidate gates ---
+  compute_transition_path_complete:
+    category: compute
+    intent: "The planned-observed transition comparison is complete, decisive, and contains no missing, undeclared, ambiguous, or execution-incomplete transition relation."
+    stability: experimental
+    default_normative: false
+
+  compute_transition_authority_binding_ok:
+    category: compute
+    intent: "The planned-observed transition comparison contains no source, run-binding, declared-role, or mutation-authority mismatch on the evaluated transition surface."
+    stability: experimental
+    default_normative: false
+
+  compute_transition_unbound_mutation_absent:
+    category: compute
+    intent: "No observed compute record performs an authority-bearing mutation without a complete authority binding."
+    stability: experimental
+    default_normative: false
+
   # --- Diagnostics (must remain non-normative unless explicitly promoted) ---
   epf_hazard_ok:
     category: diagnostics
