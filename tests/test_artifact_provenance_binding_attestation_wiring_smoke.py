@@ -8,7 +8,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 WORKFLOW = REPO_ROOT / ".github" / "workflows" / "pulse_ci.yml"
 TOOLS_TESTS_LIST = REPO_ROOT / "ci" / "tools-tests.list"
 
-ATTEST_SHA = "59d89421af93a897026c735860bf21b6eb4f7b26"
+ATTEST_SHA = "f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6"
 
 CORE_ATTEST_JOB = "attest_release_authority_artifact_binding"
 RELEASE_ATTEST_JOB = "attest_release_grade_artifact_binding"
