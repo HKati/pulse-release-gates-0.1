@@ -1,3 +1,4 @@
+```python
 #!/usr/bin/env python3
 from __future__ import annotations
 
@@ -82,10 +83,10 @@ EXPECTED_COMPONENT_MANIFEST_SHA256 = (
     "6c2fdf3b01388b82f19f20e3da4a2985b8802fa3a4c9957441969ca025af7b50"
 )
 EXPECTED_PLAN_SHA256 = (
-    "f193fbac2f246122d313fd120c6e7ffc8e40fd3514f19b8b644fa4bfb7150df6"
+    "28f254edd341f2d98aea1b8c297019fd664d4a97bb17347be902f93b8bb99127"
 )
 EXPECTED_EXPECTATIONS_SHA256 = (
-    "4449559ba29dce35a70f24e442cf503de38a13e8f83c0cd08bcfdc92893db9b4"
+    "a48cb7831c623afc53fbb082adb08edd56cdfee26a5ec399bc2c27dfb2b68736"
 )
 EXPECTED_CHECK_GATES_SHA256 = (
     "3a85ed757d5569e87364bd5de511dc1985c60d97e29ee3f782e08197fa4f5c8f"
@@ -95,6 +96,18 @@ EXPECTED_OPERATION_SHA256 = (
     "8226cc8235ed3f7a4262326232cf5a374b2d57b90f4e48538b164d6a116a762e"
 )
 EXPECTED_SOURCE_COMMIT = "46b639706e23f80fe296a8893be18e2b5ab21f7e"
+EXPECTED_HISTORICAL_POLICY_SHA256 = (
+    "7160c37e5e04099c1b6960229d944076503380ae7d2a712c00da459a275d3c31"
+)
+EXPECTED_HISTORICAL_WORKFLOW_SHA256 = (
+    "0d74133efdbe7c06672cc691d17ed5cdeec3c04df3e0ba465accfd187fd3c649"
+)
+EXPECTED_ARTIFACT_BINDING_PATH = (
+    "PULSE_safe_pack_v0/artifacts/artifact_provenance_binding_v0.json"
+)
+EXPECTED_ARTIFACT_BINDING_SHA256 = (
+    "eeedae701541f34841d74d0ad12a37e4c6ebdf2f24260616c9cc356e241d87ff"
+)
 EXPECTED_SUBJECT_RUN_KEY = (
     "GITHUB_RUN_ID=29249887581|GITHUB_RUN_ATTEMPT=1|"
     "GITHUB_WORKFLOW=PULSE CI"
@@ -557,9 +570,7 @@ def test_fixed_source_chain_inputs_are_exactly_bound() -> None:
         ),
         "component_manifest_sha256": EXPECTED_COMPONENT_MANIFEST_SHA256,
         "policy_path": "pulse_gate_policy_v0.yml",
-        "policy_sha256": (
-            "8eadd7a1f7f0626c0b2c324bbcb643bff6390c0c80095425465695c2973457d8"
-        ),
+        "policy_sha256": EXPECTED_HISTORICAL_POLICY_SHA256,
         "repository": "HKati/pulse-release-gates-0.1",
         "revision": EXPECTED_SOURCE_COMMIT,
     }
@@ -616,6 +627,80 @@ def test_fixed_source_chain_inputs_are_exactly_bound() -> None:
         "source_revision": EXPECTED_SOURCE_COMMIT,
         "source_sha256": EXPECTED_CHECK_GATES_SHA256,
     }
+
+
+    basis_by_id = {
+        basis["basis_id"]: basis
+        for basis in expectation["basis_records"]
+    }
+    assert set(basis_by_id) == {
+        "basis:plan-check-gates-v0",
+        "basis:recorded-artifact-binding-consumption",
+        "basis:workflow-check-gates-transition",
+    }
+    assert basis_by_id["basis:plan-check-gates-v0"] == {
+        "basis_id": "basis:plan-check-gates-v0",
+        "basis_kind": "integration_plan_operation",
+        "evidence_refs": [
+            "plan-operation:pulse_check_gates_v0",
+            f"sha256:{EXPECTED_OPERATION_SHA256}",
+        ],
+        "source_path_or_uri": (
+            "examples/compute/"
+            "pulsemech_compute_fixed_source_6066_integration_plan_v0.json"
+            f"#operation/{EXPECTED_OPERATION_SHA256}"
+        ),
+        "source_revision": None,
+        "source_sha256": EXPECTED_OPERATION_SHA256,
+        "subject_run_key": None,
+        "supports": [
+            "component_presence",
+            "source_identity",
+        ],
+    }
+    assert basis_by_id[
+        "basis:workflow-check-gates-transition"
+    ] == {
+        "basis_id": "basis:workflow-check-gates-transition",
+        "basis_kind": "workflow_execution_declaration",
+        "evidence_refs": [
+            "workflow-tool:PULSE_safe_pack_v0/tools/check_gates.py",
+            "workflow:PULSE-CI",
+        ],
+        "source_path_or_uri": ".github/workflows/pulse_ci.yml",
+        "source_revision": EXPECTED_SOURCE_COMMIT,
+        "source_sha256": EXPECTED_HISTORICAL_WORKFLOW_SHA256,
+        "subject_run_key": EXPECTED_SUBJECT_RUN_KEY,
+        "supports": [
+            "declared_role",
+            "execution_expectation",
+            "mutation_authority",
+        ],
+    }
+    assert basis_by_id[
+        "basis:recorded-artifact-binding-consumption"
+    ] == {
+        "basis_id": "basis:recorded-artifact-binding-consumption",
+        "basis_kind": "recorded_manifest",
+        "evidence_refs": [
+            f"artifact:{EXPECTED_ARTIFACT_BINDING_PATH}",
+            "binding:strict-check-gates-to-release-decision",
+            f"sha256:{EXPECTED_ARTIFACT_BINDING_SHA256}",
+        ],
+        "source_path_or_uri": EXPECTED_ARTIFACT_BINDING_PATH,
+        "source_revision": None,
+        "source_sha256": EXPECTED_ARTIFACT_BINDING_SHA256,
+        "subject_run_key": EXPECTED_SUBJECT_RUN_KEY,
+        "supports": [
+            "downstream_consumption_expectation",
+        ],
+    }
+    assert expectation["evidence_refs"] == [
+        f"artifact:{EXPECTED_ARTIFACT_BINDING_PATH}",
+        "binding:strict-check-gates-to-release-decision",
+        "component:pulse_check_gates_v0",
+        "workflow-tool:PULSE_safe_pack_v0/tools/check_gates.py",
+    ]
 
 
 def test_generated_chain_preserves_the_artifact_observed_boundary(
@@ -1080,3 +1165,4 @@ def check_pulsemech_compute_fixed_source_candidate_chain_v0() -> None:
 
 if __name__ == "__main__":
     check_pulsemech_compute_fixed_source_candidate_chain_v0()
+```
