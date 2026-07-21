@@ -1,0 +1,48 @@
+{
+  "schema_version": "pulsemech_integration_component_manifest_v0",
+  "manifest_type": "pulsemech_integration_component_manifest",
+  "source_repository": "HKati/pulse-release-gates-0.1",
+  "policy_path": "pulse_gate_policy_v0.yml",
+  "components": [
+    {
+      "id": "pulse_policy_gate_materializer_v0",
+      "kind": "file",
+      "source_path": "tools/policy_to_require_args.py",
+      "target_path": "tools/policy_to_require_args.py",
+      "requires": []
+    },
+    {
+      "id": "pulse_status_schema_v1",
+      "kind": "file",
+      "source_path": "schemas/status/status_v1.schema.json",
+      "target_path": "schemas/status/status_v1.schema.json",
+      "requires": []
+    },
+    {
+      "id": "pulse_status_schema_validator_v0",
+      "kind": "file",
+      "source_path": "tools/validate_status_schema.py",
+      "target_path": "tools/validate_status_schema.py",
+      "requires": []
+    }
+  ],
+  "component_sets": [
+    {
+      "id": "compute_fixed_source_candidate_chain_6066_v0",
+      "description": "Exact three-component planning surface used to connect the preserved PULSE CI #6066 artifact-observed report to the planned-observed candidate proof.",
+      "root_components": [
+        "pulse_policy_gate_materializer_v0",
+        "pulse_status_schema_v1",
+        "pulse_status_schema_validator_v0"
+      ],
+      "declared_gate_sets": [
+        "required",
+        "release_required"
+      ],
+      "supported_ci_providers": [
+        "github_actions"
+      ],
+      "authority_boundary": "This fixed-source manifest declares a historical proof input only. It does not modify the preserved subject, activate compute gates, change release authority, or create a release decision."
+    }
+  ]
+}
