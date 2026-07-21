@@ -75,7 +75,7 @@
     "component_manifest_path": "pulsemech_compute_fixed_source_6066_component_manifest_v0.json",
     "component_manifest_sha256": "6c2fdf3b01388b82f19f20e3da4a2985b8802fa3a4c9957441969ca025af7b50",
     "policy_path": "pulse_gate_policy_v0.yml",
-    "policy_sha256": "8eadd7a1f7f0626c0b2c324bbcb643bff6390c0c80095425465695c2973457d8",
+    "policy_sha256": "7160c37e5e04099c1b6960229d944076503380ae7d2a712c00da459a275d3c31",
     "repository": "HKati/pulse-release-gates-0.1",
     "revision": "46b639706e23f80fe296a8893be18e2b5ab21f7e"
   },
