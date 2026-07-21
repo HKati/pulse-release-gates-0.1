@@ -1,0 +1,94 @@
+{
+  "expectation:execute-check-gates-consumed": {
+    "basis_records": [
+      {
+        "basis_id": "basis:plan-check-gates-v0",
+        "basis_kind": "integration_plan_operation",
+        "evidence_refs": [
+          "plan-operation:pulse_check_gates_v0",
+          "sha256:8226cc8235ed3f7a4262326232cf5a374b2d57b90f4e48538b164d6a116a762e"
+        ],
+        "source_path_or_uri": "examples/compute/pulsemech_compute_fixed_source_6066_integration_plan_v0.json#operation/8226cc8235ed3f7a4262326232cf5a374b2d57b90f4e48538b164d6a116a762e",
+        "source_revision": null,
+        "source_sha256": "8226cc8235ed3f7a4262326232cf5a374b2d57b90f4e48538b164d6a116a762e",
+        "subject_run_key": null,
+        "supports": [
+          "component_presence",
+          "source_identity"
+        ]
+      },
+      {
+        "basis_id": "basis:workflow-check-gates-transition",
+        "basis_kind": "workflow_execution_declaration",
+        "evidence_refs": [
+          "consumer:primary-ci-allow-block",
+          "workflow-tool:PULSE_safe_pack_v0/tools/check_gates.py",
+          "workflow:PULSE-CI"
+        ],
+        "source_path_or_uri": ".github/workflows/pulse_ci.yml",
+        "source_revision": "46b639706e23f80fe296a8893be18e2b5ab21f7e",
+        "source_sha256": "5fcf282d2ba4aeb9059593ebe131a622a8c233572b5bbb92f5f450809795b275",
+        "subject_run_key": "GITHUB_RUN_ID=29249887581|GITHUB_RUN_ATTEMPT=1|GITHUB_WORKFLOW=PULSE CI",
+        "supports": [
+          "declared_role",
+          "downstream_consumption_expectation",
+          "execution_expectation",
+          "mutation_authority"
+        ]
+      }
+    ],
+    "component_id": "pulse_check_gates_v0",
+    "evidence_refs": [
+      "component:pulse_check_gates_v0",
+      "consumer:primary-ci-allow-block",
+      "workflow-tool:PULSE_safe_pack_v0/tools/check_gates.py"
+    ],
+    "expectation_kind": "planned_execution_and_consumption_expected",
+    "expectation_scope": {
+      "release_candidate_id": "main",
+      "scope_kind": "subject_run",
+      "subject_run_key": "GITHUB_RUN_ID=29249887581|GITHUB_RUN_ATTEMPT=1|GITHUB_WORKFLOW=PULSE CI",
+      "subject_source_commit": "46b639706e23f80fe296a8893be18e2b5ab21f7e"
+    },
+    "expected_compute": {
+      "downstream_consumption_required": true,
+      "execution_required": true,
+      "selector": {
+        "command_sha256": null,
+        "job_name": null,
+        "node_type": "local_tool_execution",
+        "step_name": null,
+        "tool_id": "PULSE_safe_pack_v0/tools/check_gates.py",
+        "workflow_name": "PULSE CI"
+      }
+    },
+    "expected_declared_role": "transition",
+    "expected_mutation_authority": "release_decision",
+    "expected_source_identity": {
+      "action_commit_sha": null,
+      "action_ref": null,
+      "action_repository": null,
+      "container_image_digest": null,
+      "identity_status": "exact",
+      "source_kind": "repository_file",
+      "source_path_or_uri": "PULSE_safe_pack_v0/tools/check_gates.py",
+      "source_revision": "46b639706e23f80fe296a8893be18e2b5ab21f7e",
+      "source_sha256": "3a85ed757d5569e87364bd5de511dc1985c60d97e29ee3f782e08197fa4f5c8f"
+    },
+    "plan_operation_refs": [
+      {
+        "action": "preserve",
+        "component_id": "pulse_check_gates_v0",
+        "operation_canonicalization": "json-sort-keys-utf8-no-whitespace",
+        "operation_digest_scope": "pulsemech_integration_plan_operation_v0",
+        "operation_sha256": "8226cc8235ed3f7a4262326232cf5a374b2d57b90f4e48538b164d6a116a762e",
+        "reason": "target file already matches source digest",
+        "source_path": "PULSE_safe_pack_v0/tools/check_gates.py",
+        "source_sha256": "3a85ed757d5569e87364bd5de511dc1985c60d97e29ee3f782e08197fa4f5c8f",
+        "source_size_bytes": 2535,
+        "target_path": "PULSE_safe_pack_v0/tools/check_gates.py",
+        "target_state": "identical"
+      }
+    ]
+  }
+}
