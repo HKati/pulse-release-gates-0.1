@@ -1,4 +1,3 @@
-```python
 #!/usr/bin/env python3
 from __future__ import annotations
 
@@ -1165,4 +1164,3 @@ def check_pulsemech_compute_fixed_source_candidate_chain_v0() -> None:
 
 if __name__ == "__main__":
     check_pulsemech_compute_fixed_source_candidate_chain_v0()
-```
