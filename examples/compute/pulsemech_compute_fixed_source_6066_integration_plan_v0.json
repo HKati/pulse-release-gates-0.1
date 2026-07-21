@@ -1,0 +1,122 @@
+{
+  "apply_eligible": true,
+  "authority_boundary": {
+    "changes_gate_policy": false,
+    "changes_gate_semantics": false,
+    "changes_release_authority": false,
+    "creates_release_decision": false,
+    "write_mode": "plan_only",
+    "writes_target_repository": false
+  },
+  "conflicts": [],
+  "operations": [
+    {
+      "action": "preserve",
+      "component_id": "pulse_status_schema_v1",
+      "reason": "target file already matches source digest",
+      "source_path": "schemas/status/status_v1.schema.json",
+      "source_sha256": "03aa2226ff741c2b3bc0aca4596a677c021bbe88dfc88430adda7efd4b12d9fd",
+      "source_size_bytes": 11906,
+      "target_path": "schemas/status/status_v1.schema.json",
+      "target_state": "identical"
+    },
+    {
+      "action": "preserve",
+      "component_id": "pulse_policy_gate_materializer_v0",
+      "reason": "target file already matches source digest",
+      "source_path": "tools/policy_to_require_args.py",
+      "source_sha256": "d0c5f8a96198eb50a543ff431cf4dd20dca359db3632aaf4ad737f5233903e44",
+      "source_size_bytes": 8437,
+      "target_path": "tools/policy_to_require_args.py",
+      "target_state": "identical"
+    },
+    {
+      "action": "preserve",
+      "component_id": "pulse_status_schema_validator_v0",
+      "reason": "target file already matches source digest",
+      "source_path": "tools/validate_status_schema.py",
+      "source_sha256": "960df85d0eeda45ea9cdb6acd90cec3d80df4f801102e92e8d22e6038a1304e8",
+      "source_size_bytes": 6142,
+      "target_path": "tools/validate_status_schema.py",
+      "target_state": "identical"
+    }
+  ],
+  "plan_type": "pulsemech_integration_plan",
+  "request_id": "compute-fixed-source-6066-candidate-chain-v0",
+  "schema_version": "pulsemech_integration_plan_v0",
+  "selection": {
+    "component_sets": [
+      "compute_fixed_source_candidate_chain_6066_v0"
+    ],
+    "declared_gate_sets": [
+      {
+        "gate_count": 4,
+        "gates": [
+          "detectors_materialized_ok",
+          "external_summaries_present",
+          "external_all_pass",
+          "refusal_delta_evidence_present"
+        ],
+        "id": "release_required",
+        "sha256": "f5e38f0564861b0e33d1c249245eebe544a340a19de6e0c4da12a9b4268817ec"
+      },
+      {
+        "gate_count": 19,
+        "gates": [
+          "pass_controls_refusal",
+          "refusal_delta_pass",
+          "effect_present",
+          "psf_monotonicity_ok",
+          "psf_mono_shift_resilient",
+          "pass_controls_comm",
+          "psf_commutativity_ok",
+          "psf_comm_shift_resilient",
+          "pass_controls_sanit",
+          "sanitization_effective",
+          "sanit_shift_resilient",
+          "psf_action_monotonicity_ok",
+          "psf_idempotence_ok",
+          "psf_path_independence_ok",
+          "psf_pii_monotonicity_ok",
+          "q1_grounded_ok",
+          "q2_consistency_ok",
+          "q3_fairness_ok",
+          "q4_slo_ok"
+        ],
+        "id": "required",
+        "sha256": "b5fee00e0676cfe24a60bf568d9ebfc4f0d1ca0e28febd6221ec645a28f9cbf9"
+      }
+    ],
+    "resolved_components": [
+      "pulse_policy_gate_materializer_v0",
+      "pulse_status_schema_v1",
+      "pulse_status_schema_validator_v0"
+    ]
+  },
+  "source": {
+    "component_manifest_path": "pulsemech_compute_fixed_source_6066_component_manifest_v0.json",
+    "component_manifest_sha256": "6fc67f47b483db49a447518c253f9a977d219565b0a26678940cf239dd398957",
+    "policy_path": "pulse_gate_policy_v0.yml",
+    "policy_sha256": "8eadd7a1f7f0626c0b2c324bbcb643bff6390c0c80095425465695c2973457d8",
+    "repository": "HKati/pulse-release-gates-0.1",
+    "revision": "46b639706e23f80fe296a8893be18e2b5ab21f7e"
+  },
+  "summary": {
+    "conflict": 0,
+    "create": 0,
+    "files_total": 3,
+    "preserve": 3,
+    "source_missing": 0,
+    "unresolved": 0
+  },
+  "target": {
+    "declared_ci_provider": "github_actions",
+    "default_branch": "main",
+    "detected_ci_providers": [
+      "github_actions"
+    ],
+    "repository_id": "HKati/pulse-release-gates-0.1"
+  },
+  "tool": "plan_pulsemech_integration_v0",
+  "unresolved": []
+}
