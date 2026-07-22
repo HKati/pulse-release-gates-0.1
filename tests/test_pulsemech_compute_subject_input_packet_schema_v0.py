@@ -31,14 +31,18 @@ EXPECTED_SCHEMA_SIZE_BYTES = 33513
 EXPECTED_SCHEMA_LINE_COUNT = 1361
 
 EXPECTED_EXAMPLE_SHA256 = (
-    "bb0c50fe1bc68a9637a3dc246fcf43b216392958de28ca3c81c6f0aa5b1a2105"
+    "37d2cec0aacd0a423da3df37dfe96c8ae5af89fbdce1f0b745cdb82ce667f251"
 )
-EXPECTED_EXAMPLE_SIZE_BYTES = 46537
+EXPECTED_EXAMPLE_SIZE_BYTES = 45646
 EXPECTED_EXAMPLE_LINE_COUNT = 736
 
 EXAMPLE_REPOSITORY_PATH = (
     "examples/compute/"
     "pulsemech_compute_subject_input_packet_6066_example_v0.json"
+)
+
+EXPECTED_CARRIER_REPOSITORY_PATH = (
+    "PULSE_CI_6066_release_grade_artifact_preservation_v0.zip"
 )
 
 CORE_SINGLETON_ROLE_BINDINGS = (
@@ -256,10 +260,18 @@ def test_exact_6066_historical_subject_and_carrier_identity_is_preserved() -> No
         "historical_observed"
     )
     assert carrier["carrier_kind"] == "preservation_archive"
+    assert carrier["path_or_uri"] == EXPECTED_CARRIER_REPOSITORY_PATH
     assert carrier["sha256"] == (
         "7949bfd00468e6f9347fddaae732bdcebff5527e87ecb379a6c84a47176db966"
     )
     assert carrier["size_bytes"] == 44660
+    assert len(packet["artifacts"]) == 32
+    assert all(
+        artifact["display_path_or_uri"].startswith(
+            f"{EXPECTED_CARRIER_REPOSITORY_PATH}!/"
+        )
+        for artifact in packet["artifacts"]
+    )
 
 
 def test_top_level_identity_fields_and_additional_properties_are_locked() -> None:
