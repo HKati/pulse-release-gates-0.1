@@ -86,6 +86,17 @@ AUTHORITY_SURFACE_OUTPUT_NAMES = {
     "pulsemech_compute_subject_input_packet_v0.json",
 }
 
+GIT_PROCESS_ENV_ALLOWLIST = (
+    "PATH",
+    "PATHEXT",
+    "SYSTEMROOT",
+    "WINDIR",
+    "COMSPEC",
+    "TEMP",
+    "TMP",
+    "TMPDIR",
+)
+
 
 class StrictJsonError(ValueError):
     pass
@@ -349,6 +360,109 @@ def _relative_packet_path(packet_path: Path, repository_root: Path) -> str | Non
         return None
 
 
+def _sanitized_git_environment() -> dict[str, str]:
+    if not os.environ.get("PATH"):
+        raise SemanticError("git_process_path_unavailable")
+
+    env: dict[str, str] = {}
+    for key in GIT_PROCESS_ENV_ALLOWLIST:
+        value = os.environ.get(key)
+        if value is not None:
+            env[key] = value
+
+    env.update(
+        {
+            "GIT_CONFIG_GLOBAL": os.devnull,
+            "GIT_CONFIG_SYSTEM": os.devnull,
+            "GIT_CONFIG_NOSYSTEM": "1",
+            "GIT_CONFIG_COUNT": "0",
+            "GIT_OPTIONAL_LOCKS": "0",
+            "GIT_NO_REPLACE_OBJECTS": "1",
+            "GIT_TERMINAL_PROMPT": "0",
+            "LC_ALL": "C",
+            "LANG": "C",
+        }
+    )
+    return env
+
+
+def _run_isolated_git(
+    repository_root: Path,
+    *,
+    arguments: list[str],
+    failure_prefix: str,
+) -> bytes:
+    resolved_root = repository_root.resolve(strict=True)
+    if not resolved_root.is_dir():
+        raise SemanticError(
+            f"git_repository_root_not_directory: {resolved_root}"
+        )
+
+    command = [
+        "git",
+        "--no-pager",
+        "--no-replace-objects",
+        "-c",
+        f"safe.directory={resolved_root}",
+        "-C",
+        str(resolved_root),
+        *arguments,
+    ]
+    completed = subprocess.run(
+        command,
+        check=False,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        env=_sanitized_git_environment(),
+    )
+    if completed.returncode != 0:
+        detail = completed.stderr.decode("utf-8", errors="replace").strip()
+        raise SemanticError(f"{failure_prefix}: {detail or 'unknown error'}")
+    return completed.stdout
+
+
+def _verified_git_repository_root(repository_root: Path) -> Path:
+    resolved_root = repository_root.resolve(strict=True)
+    top_level_bytes = _run_isolated_git(
+        resolved_root,
+        arguments=["rev-parse", "--show-toplevel"],
+        failure_prefix="git_repository_root_unavailable",
+    )
+    try:
+        top_level_text = top_level_bytes.decode("utf-8", errors="strict").strip()
+    except UnicodeDecodeError as exc:
+        raise SemanticError(
+            f"git_repository_root_invalid_utf8: {exc}"
+        ) from exc
+
+    if (
+        not top_level_text
+        or "\x00" in top_level_text
+        or "\n" in top_level_text
+        or "\r" in top_level_text
+    ):
+        raise SemanticError(
+            f"git_repository_root_output_invalid: {top_level_text!r}"
+        )
+
+    try:
+        discovered_root = Path(top_level_text).resolve(strict=True)
+    except OSError as exc:
+        raise SemanticError(
+            f"git_repository_root_unresolvable: {top_level_text!r}: {exc}"
+        ) from exc
+
+    if not discovered_root.is_dir() or not same_target(
+        discovered_root,
+        resolved_root,
+    ):
+        raise SemanticError(
+            "git_repository_root_mismatch: "
+            f"requested={resolved_root} discovered={discovered_root}"
+        )
+    return resolved_root
+
+
 def _git_blob_bytes(
     repository_root: Path,
     *,
@@ -358,33 +472,12 @@ def _git_blob_bytes(
     if not _safe_relative_path(path):
         raise SemanticError(f"unsafe_source_path: {path!r}")
 
-    resolved_root = repository_root.resolve(strict=True)
-    env = dict(os.environ)
-    env["GIT_OPTIONAL_LOCKS"] = "0"
-    env["GIT_NO_REPLACE_OBJECTS"] = "1"
-    command = [
-        "git",
-        "-c",
-        f"safe.directory={resolved_root}",
-        "-C",
-        str(resolved_root),
-        "cat-file",
-        "blob",
-        f"{revision}:{path}",
-    ]
-    completed = subprocess.run(
-        command,
-        check=False,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        env=env,
+    resolved_root = _verified_git_repository_root(repository_root)
+    return _run_isolated_git(
+        resolved_root,
+        arguments=["cat-file", "blob", f"{revision}:{path}"],
+        failure_prefix=f"git_blob_unavailable: {revision}:{path}",
     )
-    if completed.returncode != 0:
-        detail = completed.stderr.decode("utf-8", errors="replace").strip()
-        raise SemanticError(
-            f"git_blob_unavailable: {revision}:{path}: {detail or 'unknown error'}"
-        )
-    return completed.stdout
 
 
 def _reject_symlink_path(path: Path, *, label: str) -> None:
