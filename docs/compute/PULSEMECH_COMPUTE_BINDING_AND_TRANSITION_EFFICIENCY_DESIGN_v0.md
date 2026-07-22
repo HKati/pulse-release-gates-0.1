@@ -2,30 +2,73 @@
 
 ## WORKMARK
 
-Status: design document only.
+```text
+document_role:
+design_and_implementation_state_record
 
-This document defines a separate PULSEmech workstream for binding executed
-compute to the artifact-bound release-transition mechanism.
+implementation_status:
+fixed_source_artifact_observed_v0_complete
 
-This document does not implement a compute-binding analyzer.
+completed_connected_proof:
+PULSE CI #6066
 
-This document does not add or activate compute-related gates.
+completed_connected_proof_merge:
+b6149dbd464f7f01760ab5fa80487f7e94e475e7
 
-This document does not modify workflow, policy, gate registry, verifier,
-materializer, status semantics, release authority, SLSA/VSA behavior, DOI,
-citation, Zenodo, tag, release, or release-metadata behavior.
+runtime_observation_contract:
+implemented
 
-Any implementation, CI integration, candidate gate registration, resource
-budget, or release-required activation remains separate work.
+runtime_observation_producer:
+not_implemented
+
+runtime_observed_chain:
+not_implemented
+
+resource_measurement:
+not_implemented
+
+compute_budget:
+not_defined
+
+candidate_gate_activation:
+none
+
+release_required_compute_enforcement:
+none
+
+release_authority_effect:
+none
+```
+
+This document defines the PULSEmech compute-binding workstream and records the
+implementation state reached through the fixed-source PULSE CI #6066
+artifact-observed proof.
+
+The original design sequence is complete through:
+
+```text
+compute-binding report contract
+→ fixed-source offline builder
+→ runtime-observation contract
+→ planned-observed relation contract and builder
+→ non-active candidate policy surface
+→ connected fixed-source candidate-boundary proof
+```
+
+This document does not itself modify workflow behavior, policy behavior, gate
+registry behavior, verifier or materializer semantics, status authority,
+release authority, SLSA/VSA behavior, DOI, citation, Zenodo, tags, releases, or
+release metadata.
+
+Any current-run integration, runtime-observation production, resource
+measurement, compute budget, or active promotion remains separate work.
 
 ---
 
-## 1. Current state
+## 1. Current system boundary
 
-PULSEmech already contains an implemented and exercised artifact-bound
-release-authority path.
-
-Its authority relation is:
+PULSEmech contains an implemented and exercised artifact-bound
+release-transition mechanism:
 
 ```text
 recorded current-run release evidence
@@ -41,29 +84,45 @@ recorded current-run release evidence
 ```
 
 PULSEmech also contains a deterministic, read-only integration planner that can
-resolve a declared component dependency closure and produce a machine-readable
+resolve declared component dependency closure and emit a machine-readable
 target-repository plan.
 
-The repository does not currently contain:
+The compute-binding workstream now contains:
 
 ```text
-a compute-binding report schema
-a compute-binding analyzer
-an observed compute-to-transition graph
-a compute resource vector
-a compute-binding candidate gate set
+strict compute-binding report contract
+fixed-source artifact-observed report builder
+runtime-observation packet contract
+strict planned-observed relation contract
+deterministic planned-observed relation builder
+non-active candidate gate identities and policy set
+relation-to-candidate-status materializer
+policy-derived generic candidate check
+connected fixed-source #6066 proof
+```
+
+The repository does not yet contain:
+
+```text
+a portable current-run subject-input producer
+a reusable current-run compute-binding lane
+a runtime-observation packet producer
+a complete runtime-observed reference chain
+complete per-node compute-resource measurement
 a compute budget
 active compute-related release enforcement
 ```
 
-This workstream begins from that boundary.
+The fixed-source implementation proves the mechanism and exposes the exact
+recording boundary of the preserved subject. It does not convert incomplete
+artifact-level evidence into runtime-level evidence.
 
 ---
 
 ## 2. Purpose
 
 The purpose of this workstream is to determine whether executed compute has an
-explicit, verifiable relation to the completed PULSEmech state transition.
+explicit, verifiable relation to a completed PULSEmech state transition.
 
 The core question is not:
 
@@ -76,16 +135,18 @@ The core relation is:
 ```text
 executed compute
 → identified source
-→ recorded current-run inputs
+→ recorded subject-run inputs
 → recorded outputs
 → observed downstream consumption
-→ declared transition, evidence, preservation, or advisory role
+→ declared transition, evidence, preservation, advisory, or observer role
+→ permitted mutation authority
 → mechanical consequence
 ```
 
-The intended result is a deterministic report that distinguishes compute that
-is bound to the transition mechanism from compute whose relation is absent,
-partial, duplicated, unknown, or advisory only.
+The intended result is a deterministic record that distinguishes compute that
+is mechanically bound to the transition from compute whose relation is
+partial, absent, unknown, duplicated, advisory only, or outside the subject
+transition.
 
 ---
 
@@ -93,8 +154,6 @@ partial, duplicated, unknown, or advisory only.
 
 A compute execution is not part of the release-authority mechanism merely
 because it ran inside the same workflow.
-
-A complete compute binding requires an observed relation.
 
 ```text
 workflow presence
@@ -110,15 +169,15 @@ report publication
 ≠ transition binding
 ```
 
-The complete relation is:
+A complete compute binding requires:
 
 ```text
 compute identity
 + exact source identity
 + source digest
-+ current-run binding
-+ exact input digests
-+ exact output digests
++ exact subject-run binding
++ exact input identities and digests
++ exact output identities and digests
 + observed downstream consumption
 + declared role
 + permitted mutation authority
@@ -127,22 +186,22 @@ compute identity
 
 A declaration alone is not sufficient.
 
-A report that merely states that a node is required is not proof that the node
+A report that states that a node is required is not proof that the node
 contributed to the transition.
+
+A filename or display label is not an exact source identity.
+
+An artifact existing in the same package is not proof that its value was
+consumed downstream.
 
 ---
 
-## 4. Non-activation rule
+## 4. Authority and non-activation rule
 
-The existence of this design does not create release authority.
+The compute-binding report, analyzer, relation record, and candidate
+materializer observe or reconstruct the existing authority path.
 
-A future compute-binding report does not create release authority.
-
-A future compute-binding analyzer does not create release authority.
-
-A future report may observe or reconstruct the existing authority path.
-
-It must not replace:
+They do not replace:
 
 ```text
 declared release policy
@@ -152,134 +211,49 @@ PULSE_safe_pack_v0/tools/check_gates.py
 the primary ALLOW or BLOCK result
 ```
 
+The following do not independently create release authority:
+
+```text
+compute-binding report
+runtime-observation packet
+planned-observed relation
+candidate materializer report
+candidate-only gate check
+preservation record
+reader or audit surface
+```
+
 No compute-related gate may become active implicitly.
 
-Any future gate registration and any future activation remain separate,
-explicit policy decisions.
+Gate registration and gate activation are separate operations.
+
+The currently registered compute candidate set remains absent from:
+
+```text
+required
+core_required
+release_required
+advisory
+```
+
+The fixed-source candidate-only exit result does not alter the historical
+PULSE CI #6066 ALLOW decision and does not create a current release BLOCK.
 
 ---
 
-## 5. Scope of the first implementation
+## 5. Analysis identity and observer boundary
 
-The first implementation must be:
-
-```text
-read-only
-offline-capable
-deterministic
-schema-bound
-artifact-first
-run-bound
-digest-bound
-non-active
-non-blocking
-```
-
-The first proof target should be a completed, fixed-source, preserved PULSE run.
-
-The initial analyzer should operate over:
-
-```text
-a completed subject run
-+ exact source revision
-+ preserved evidence package
-+ exact package inventory
-+ exact policy
-+ final status and decision artifacts
-→ compute-binding report
-```
-
-The first implementation must not require modification of the subject run.
-
----
-
-## 6. Non-goals
-
-This workstream does not initially provide:
-
-```text
-carbon accounting
-electricity-consumption certification
-hardware power measurement
-cost accounting
-global infrastructure utilization
-universal workflow optimization
-human productivity scoring
-employee monitoring
-compliance status
-certification
-a single cross-unit efficiency score
-```
-
-It does not claim that every unbound node is useless.
-
-It does not claim that every unknown node is unbound.
-
-It does not convert an estimated percentage into a policy fact.
-
-It provides the evidence required to measure the relation rather than assuming
-the relation.
-
----
-
-## 7. Anti-bureaucracy rule
-
-This workstream must not create a new hand-maintained form as its primary
-evidence source.
-
-The analyzer must derive as much state as possible from existing recorded
-surfaces:
-
-```text
-workflow source
-run metadata
-policy
-materialized gate-set records
-status artifacts
-decision artifacts
-evidence manifests
-verifier reports
-artifact inventories
-preservation manifests
-exact file digests
-```
-
-A manually asserted label such as:
-
-```text
-required: true
-```
-
-is not sufficient evidence of binding.
-
-Any required declaration introduced later must be:
-
-```text
-small
-versioned
-digest-bound
-machine-readable
-reviewable
-consumed by the analyzer
-```
-
-A declaration that has no observed downstream relation must remain partial.
-
----
-
-## 8. Analysis boundary
-
-Every report must define two separate identities:
+Every analysis preserves two separate identities:
 
 ```text
 subject run
 → the completed run being analyzed
 
 analysis run
-→ the execution that creates the compute-binding report
+→ the separate execution that constructs the compute-binding record
 ```
 
-The subject run must be identified by at least:
+The subject identity includes:
 
 ```text
 repository
@@ -291,25 +265,17 @@ source commit
 release candidate
 run mode
 active policy sets
-policy digest
-materialized required gate-set digest, when available
+policy identity and digest
+materialized gate-set digest, when available
 final status digest
+release-decision digest
 terminal decision
 ```
 
 The analyzer must not silently substitute current repository state for the
 exact source state of the subject run.
 
----
-
-## 9. Observer boundary
-
-The analyzer cannot include its own report digest inside the report being
-constructed.
-
-The first implementation must therefore preserve an explicit observer boundary.
-
-Preferred form:
+The fixed-source implementation uses an explicit offline observer identity:
 
 ```text
 completed subject run
@@ -317,28 +283,19 @@ completed subject run
 → compute-binding report
 ```
 
-If a future analyzer executes after the terminal decision inside the same
-workflow, its compute must be classified separately as:
+Observer compute is outside subject transition totals.
 
-```text
-post_decision_observer
-```
-
-Observer compute must not be counted as part of the subject transition closure.
-
-Its resource use may be recorded separately as:
-
-```text
-observer_overhead
-```
+If a later analyzer executes after the terminal decision inside the same
+workflow, it must remain separately classified as observer compute.
 
 This prevents recursive self-accounting.
 
 ---
 
-## 10. Graph model
+## 6. Graph model
 
-The analyzer constructs a directed graph containing state and compute nodes.
+The compute-binding report represents a directed graph of compute nodes, state
+nodes, and exact observed relations.
 
 ### Compute-node types
 
@@ -346,6 +303,7 @@ The analyzer constructs a directed graph containing state and compute nodes.
 workflow_job
 workflow_step
 local_tool_execution
+github_action
 verifier_execution
 materializer_execution
 external_service_call
@@ -353,6 +311,8 @@ model_inference
 artifact_builder
 report_builder
 package_verifier
+observer_execution
+unknown
 ```
 
 ### State-node types
@@ -388,14 +348,21 @@ preserves
 publishes
 ```
 
-Every observed edge should bind exact identities and digests where the source
-format permits them.
+Every observed edge binds exact identities and digests where the source format
+permits them.
+
+Missing identities remain missing.
+
+The analyzer must not manufacture source, run, timing, input, output, or
+consumption evidence.
 
 ---
 
-## 11. Compute-node identity
+## 7. Binding mechanics
 
-Each compute node should record:
+### Compute-node identity
+
+A compute node may record:
 
 ```text
 node_id
@@ -404,38 +371,35 @@ node_type
 workflow_name
 job_name
 step_name
-step_index, when available
+step_index
 
-tool_identity
-tool_version
-source_path
-source_revision
-source_sha256
+tool identity
+tool version
+source path or URI
+source revision
+source SHA-256
 
-action_repository, when applicable
-action_ref, when applicable
-action_commit_sha, when available
+action repository
+action ref
+action commit SHA
 
-command_identity
-execution_environment
+command identity
+execution environment
 
-subject_run_key
-started_utc, when available
-completed_utc, when available
-exit_code, when available
+subject run key
+analysis run key
+started UTC
+completed UTC
+exit code
 ```
 
-Missing source identity must not be silently replaced by a display name.
+A mutable action tag is not equivalent to an immutable action commit.
 
-A mutable action tag is not equivalent to an exact action commit identity.
+An absent source digest must remain absent or unknown.
 
-The report must preserve what is known and classify missing fields as unknown.
+### State-node identity
 
----
-
-## 12. State-node identity
-
-Each state node should record:
+A state node may record:
 
 ```text
 state_id
@@ -443,106 +407,53 @@ state_type
 path_or_uri
 sha256
 size_bytes
-schema_identity, when applicable
-producer_node_id
-subject_run_key
-release_candidate_id, when applicable
-policy_relation, when applicable
-gate_relation, when applicable
+schema identity
+producer node identity
+subject run key
+release candidate identity
+policy relation
+gate relation
+authority-bearing state
 ```
 
 A path alone is not sufficient when a digest is available.
 
 A filename reused across runs is not a current-run binding.
 
----
-
-## 13. Declared and observed relations
-
-The analyzer distinguishes:
+### Declared and observed relations
 
 ```text
 declared relation
-→ what the workflow, policy, manifest, or contract says should occur
+→ what workflow, policy, plan, manifest, or contract says should occur
 
 observed relation
-→ what exact recorded outputs and downstream inputs show occurred
+→ what exact recorded state and downstream references show occurred
 ```
 
 A complete relation requires both when both are expected.
 
-Examples:
-
 ```text
-declared required gate
-+ exact evidence digest consumed by the verifier
-+ exact verifier output consumed by status construction
-→ observed evidence binding
+declared execution
++ exact source
++ exact run binding
++ exact output
++ observed downstream consumption
+→ observed execution binding
 ```
 
 ```text
-workflow comment says "required"
-+ no output digest
-+ no downstream consumer
-→ declared-only partial binding
+declared required execution
++ no exact output or consumer evidence
+→ partial or unresolved relation
 ```
 
 ```text
-output artifact exists
-+ no policy, gate, preservation, or advisory relation
-→ unbound or unknown, depending on evidence completeness
+observed execution
++ no matching plan expectation
+→ observed_but_not_planned
 ```
 
----
-
-## 14. Analysis levels
-
-Every report must declare its analysis level.
-
-### structural_declared
-
-```text
-workflow structure
-+ policy structure
-+ manifests
-→ declared graph only
-```
-
-This level may identify expected relations.
-
-It must not claim observed digest consumption.
-
-### artifact_observed
-
-```text
-declared graph
-+ exact state-artifact digests
-+ observed cross-artifact references
-→ artifact-level observed graph
-```
-
-This is the minimum target for the first implementation proof.
-
-### runtime_observed
-
-```text
-artifact-observed graph
-+ recorded execution identity
-+ step timing
-+ runtime input/output relations
-+ external-call or model-use records
-→ runtime-observed graph
-```
-
-This remains later work.
-
-A lower analysis level must not claim a higher confidence classification.
-
----
-
-## 15. Binding roles
-
-A compute node may have one declared primary role.
+### Binding roles
 
 ```text
 transition
@@ -553,9 +464,7 @@ observer
 unknown
 ```
 
-### transition role
-
-The node directly contributes to:
+A transition node directly contributes to:
 
 ```text
 gate-set materialization
@@ -564,37 +473,18 @@ strict enforcement
 terminal ALLOW or BLOCK production
 ```
 
-### evidence role
+An evidence node produces or verifies evidence required by an active
+materialized gate.
 
-The node produces or verifies evidence required by an active materialized gate.
+A preservation node preserves state required for reconstruction or independent
+verification.
 
-### preservation role
-
-The node preserves state required to reconstruct or independently verify the
-completed transition.
-
-Preservation does not create release authority.
-
-### advisory role
-
-The node produces a reader, diagnostic, dashboard, publication, or
+An advisory node produces a reader, diagnostic, publication, or
 non-authoritative analysis surface.
 
-Advisory output does not create release authority.
+An observer analyzes an already completed subject run.
 
-### observer role
-
-The node analyzes an already completed subject run.
-
-### unknown role
-
-The available evidence does not establish a role.
-
----
-
-## 16. Binding status
-
-Each compute node receives one binding status:
+### Binding status
 
 ```text
 complete
@@ -603,42 +493,19 @@ none
 unknown
 ```
 
-### complete
+`complete` requires all role-applicable links.
 
-A complete binding requires all fields applicable to the role:
+`partial` means that a relevant relation is declared or partly observed but one
+or more required links are absent.
 
-```text
-exact compute identity
-exact subject-run binding
-exact source identity or digest
-exact input identity and digest
-exact output identity and digest
-observed downstream consumption
-declared role
-permitted mutation authority
-```
+`none` means that no qualifying relation was found and the available evidence
+is sufficient to make that determination.
 
-### partial
+`unknown` means that the evidence is insufficient to classify safely.
 
-A partial binding exists when a relevant relation is declared or partly
-observed, but one or more required links are absent.
+Unknown remains distinct from none.
 
-### none
-
-No transition, evidence, preservation, advisory, or observer relation is found,
-and the analyzed evidence is sufficient to make that determination.
-
-### unknown
-
-The available evidence is insufficient to classify the node safely.
-
-Unknown must remain distinct from none.
-
----
-
-## 17. Derived primary classes
-
-From role and binding status, the analyzer derives one primary class:
+### Derived primary classes
 
 ```text
 transition_bound
@@ -650,44 +517,7 @@ unbound
 unknown
 ```
 
-A node may also carry non-exclusive flags:
-
-```text
-duplicate_candidate
-mutation_authority_present
-cross_run_input_present
-mutable_source_reference
-resource_measurement_partial
-```
-
-Flags must not cause resource use to be counted twice.
-
----
-
-## 18. Authority-bearing state
-
-Authority-bearing state includes at least:
-
-```text
-admitted required evidence
-canonical candidate state
-canonical verifier result
-workflow-effective materialized required gate set
-final status.json
-release-decision artifact
-primary ALLOW or BLOCK result
-```
-
-Policy source is an immutable authority input for the subject run.
-
-A runtime mutation of the policy source or of its effective digest must be
-treated as an authority-bound event.
-
----
-
-## 19. Mutation-authority classes
-
-Each compute node should declare or derive its maximum permitted write class:
+### Mutation-authority classes
 
 ```text
 none
@@ -701,176 +531,865 @@ final_status
 release_decision
 ```
 
-A node must not write above its permitted class.
-
-Examples:
-
-```text
-reader-surface builder
-→ may write advisory_output
-→ must not write final_status
-```
-
-```text
-evidence producer
-→ may write release_evidence
-→ must not directly write release_decision
-```
-
-```text
-generic gate checker
-→ may produce the terminal decision
-→ must not rewrite the declared policy
-```
+A node must not mutate above its permitted authority class.
 
 ---
 
-## 20. Unbound authoritative mutation
+## 8. Unbound authoritative mutation
 
-The strongest future control in this workstream is not an efficiency ratio.
-
-It is the absence of unbound decision-state mutation.
+The strongest authority-integrity condition in this workstream is the absence
+of unbound decision-state mutation.
 
 ```text
 compute node
 + writes authority-bearing state
-+ missing complete authority binding
++ lacks complete authority binding
 → unbound authoritative mutation
 ```
 
-This condition is mechanically distinct from ordinary unbound read-only
+This differs mechanically from ordinary unbound or unresolved read-only
 compute.
 
 ```text
 unbound read-only compute
-→ efficiency or architecture finding
+→ architecture or efficiency finding
 
 unbound authoritative mutation
-→ release-authority integrity finding
+→ authority-integrity finding
 ```
 
-A future policy may treat the second condition as blocking.
+The registered non-active candidate gate:
 
-The v0 design document and first report remain non-blocking.
+```text
+compute_transition_unbound_mutation_absent
+```
+
+materializes this distinction.
+
+In the fixed-source #6066 proof it evaluates to literal `true`.
+
+That result does not activate release enforcement.
 
 ---
 
-## 21. Decision closure
+## 9. Analysis levels
 
-The analyzer builds the decision closure backward from the terminal result.
+Every report declares an analysis level.
 
-```text
-ALLOW or BLOCK
-← enforcement invocation
-← final status
-← workflow-effective materialized required gate set
-← required gate states
-← verifier outputs
-← admitted evidence
-← evidence producers
-← exact inputs and source identities
-```
-
-For each active required gate, the analyzer must attempt to identify:
+### `structural_declared`
 
 ```text
-gate identity
-gate value
-materialized-set membership
-status location
-deriving verifier output
-verifier output digest
-accepted evidence input
-evidence digest
-producer identity
-producer source digest
-subject-run binding
+workflow structure
++ policy structure
++ manifests
+→ declared graph only
 ```
 
-An unresolved required-gate source must remain an explicit finding.
+This level may identify expected relations.
+
+It must not claim observed digest consumption.
+
+### `artifact_observed`
+
+```text
+declared graph
++ exact state-artifact digests
++ observed cross-artifact references
+→ artifact-level observed graph
+```
+
+This level is implemented and proven against the preserved PULSE CI #6066
+subject.
+
+### `runtime_observed`
+
+```text
+artifact-observed graph
++ recorded execution identity
++ job and step timing
++ runtime input/output relations
++ external-call records
++ model-use records
+→ runtime-observed graph
+```
+
+The runtime-observation contract is implemented.
+
+A runtime-observation producer and a complete runtime-observed subject chain
+are not yet implemented.
+
+A lower analysis level must not claim a higher-confidence classification.
 
 ---
 
-## 22. Preservation closure
+## 10. Implemented compute-binding report contract
 
-Preservation is analyzed separately from release authority.
+The implemented report identity is:
 
 ```text
-completed decision
-→ exact artifacts required for reconstruction
-→ digest inventory
-→ structural completeness
-→ independent verification
-→ preservation record
+schema_version:
+pulsemech_compute_binding_report_v0
+
+report_type:
+pulsemech_compute_binding_report
 ```
 
-A preservation node may be completely bound without being part of the primary
-decision path.
+Implemented files include:
 
-The report must not represent preservation as release authority.
+```text
+schemas/pulsemech_compute_binding_report_v0.schema.json
+examples/compute/pulsemech_compute_binding_report_6066_example_v0.json
+tools/check_pulsemech_compute_binding_report_v0.py
+tools/build_pulsemech_compute_binding_report_v0.py
+tests/test_pulsemech_compute_binding_report_schema_v0.py
+tests/test_check_pulsemech_compute_binding_report_v0.py
+tests/test_build_pulsemech_compute_binding_report_v0.py
+```
+
+The contract preserves:
+
+```text
+tool identity
+analysis boundary
+exact subject identity
+input artifact identities
+compute nodes
+state nodes
+edges
+resource axes
+summary counts
+findings
+errors
+record construction status
+```
+
+The report is deterministic for identical canonical inputs.
+
+```text
+report ok = true
+```
+
+means:
+
+```text
+the report was constructed and validated successfully
+```
+
+It does not mean:
+
+```text
+release allowed
+all compute bound
+comparison complete
+workflow efficient
+resource measurement complete
+no findings
+```
+
+The terminal release decision remains a separate recorded subject value.
 
 ---
 
-## 23. Advisory closure
+## 11. Fixed-source artifact-observed builder
 
-Advisory surfaces may include:
+The first builder is intentionally fixed to the preserved PULSE CI #6066
+subject.
 
-```text
-dashboards
-reader reports
-publication records
-visualizations
-diagnostic summaries
-non-authoritative audits
-```
-
-An advisory node is not automatically unbound.
-
-To qualify as advisory-bound, it must have:
+It verifies exact immutable carrier identities, including:
 
 ```text
-an explicit advisory purpose
-an identified output
-an exact output digest
-no undeclared authority-bearing mutation
-a named publication, reader, audit, or diagnostic relation
+preservation archive SHA-256
+preservation archive size
+visible preservation manifest
+visible README
+visible SHA256SUMS
+outer GitHub artifact identities
+complete-package member inventory
+package-completeness report
+independent package-verification report
+subject run identity
+source commit
+policy identity
+final status
+release decision
 ```
 
-A label alone remains partial.
+Canonical fixed-source carrier:
+
+```text
+file:
+PULSE_CI_6066_release_grade_artifact_preservation_v0.zip
+
+SHA-256:
+7949bfd00468e6f9347fddaae732bdcebff5527e87ecb379a6c84a47176db966
+
+size:
+44660 bytes
+```
+
+Subject identity:
+
+```text
+repository:
+HKati/pulse-release-gates-0.1
+
+workflow:
+PULSE CI
+
+workflow run ID:
+29249887581
+
+workflow run number:
+6066
+
+workflow run attempt:
+1
+
+subject run key:
+GITHUB_RUN_ID=29249887581|GITHUB_RUN_ATTEMPT=1|GITHUB_WORKFLOW=PULSE CI
+
+source commit:
+46b639706e23f80fe296a8893be18e2b5ab21f7e
+
+release candidate:
+main
+
+run mode:
+prod
+
+historical decision:
+ALLOW
+```
+
+The builder is:
+
+```text
+offline-capable
+read-only
+deterministic
+strictly validated
+fixed-source
+artifact-observed
+non-active
+non-authorizing
+```
+
+It refuses subject mutation and unsafe output paths.
 
 ---
 
-## 24. Duplicate compute
+## 12. Runtime-observation contract
 
-Compute may be bound and still duplicated.
-
-A future analyzer may flag a duplicate candidate when two or more nodes share:
+Implemented files include:
 
 ```text
-equivalent input digests
-equivalent policy binding
-equivalent declared function
-equivalent output role
-no distinct trust-domain requirement
+schemas/pulsemech_compute_runtime_observation_packet_v0.schema.json
+examples/compute/pulsemech_compute_runtime_observation_packet_example_v0.json
+tools/check_pulsemech_compute_runtime_observation_packet_v0.py
+tests/test_pulsemech_compute_runtime_observation_packet_schema_v0.py
+tests/test_check_pulsemech_compute_runtime_observation_packet_v0.py
 ```
 
-Duplicate detection must remain advisory until semantic equivalence is proven.
+The contract can represent:
 
-Two independent verifiers are not duplicates merely because they inspect the
-same artifact.
+```text
+packet identity and predecessor chain
+subject and run binding
+execution observations
+runtime state observations
+external-service calls
+model inferences
+capture status
+source identity
+timing
+resource axes
+downstream consumers
+coverage
+```
 
-Trust separation may require repeated computation.
+The packet contract is strict and fail closed.
+
+Metadata-only or absent capture must not become complete body capture.
+
+Raw prompt or raw output absence must remain explicit.
+
+The contract alone does not produce runtime evidence.
+
+Current state:
+
+```text
+runtime packet schema:
+implemented
+
+runtime packet validator:
+implemented
+
+runtime packet producer:
+not implemented
+
+live runtime capture:
+not active
+```
 
 ---
 
-## 25. Resource vector
+## 13. Implemented planned-observed relation
+
+Implemented files include:
+
+```text
+schemas/pulsemech_compute_planned_observed_relation_v0.schema.json
+examples/compute/pulsemech_compute_planned_observed_relation_example_v0.json
+tools/check_pulsemech_compute_planned_observed_relation_v0.py
+tools/build_pulsemech_compute_planned_observed_relation_v0.py
+tests/test_pulsemech_compute_planned_observed_relation_schema_v0.py
+tests/test_check_pulsemech_compute_planned_observed_relation_v0.py
+tests/test_build_pulsemech_compute_planned_observed_relation_v0.py
+```
+
+The builder consumes:
+
+```text
+one exact integration plan
+one exact compute-binding report
+zero or more runtime-observation packets
+an optional ID-keyed explicit expectation map
+```
+
+It emits:
+
+```text
+exact plan binding
+exact compute-report binding
+runtime-packet bindings
+expectations
+observations
+relations
+coverage
+findings
+summary
+non-authoritative boundary
+```
+
+Possible relation statuses include:
+
+```text
+planned_presence_only
+planned_and_observed
+planned_but_not_observed
+observed_but_not_planned
+execution_identity_mismatch
+source_digest_mismatch
+run_binding_mismatch
+declared_role_mismatch
+authority_class_mismatch
+downstream_consumption_missing
+ambiguous_observation_match
+unresolved_due_to_coverage
+```
+
+Every observation remains visible and classified.
+
+An observation that does not belong to an expectation is not discarded.
+
+An incomplete coverage axis prevents a complete comparison.
+
+A relation record does not create a gate result or release decision.
+
+---
+
+## 14. Fixed-source #6066 plan and expectation binding
+
+The connected fixed-source proof uses:
+
+```text
+examples/compute/
+pulsemech_compute_fixed_source_6066_component_manifest_v0.json
+
+examples/compute/
+pulsemech_compute_fixed_source_6066_integration_plan_v0.json
+
+examples/compute/
+pulsemech_compute_subject_run_expectations_6066_v0.json
+```
+
+The component manifest declares exactly one execution-planning anchor:
+
+```text
+pulse_check_gates_v0
+→ PULSE_safe_pack_v0/tools/check_gates.py
+```
+
+Exact component-manifest SHA-256:
+
+```text
+6c2fdf3b01388b82f19f20e3da4a2985b8802fa3a4c9957441969ca025af7b50
+```
+
+The plan binds:
+
+```text
+historical source commit:
+46b639706e23f80fe296a8893be18e2b5ab21f7e
+
+historical policy SHA-256:
+7160c37e5e04099c1b6960229d944076503380ae7d2a712c00da459a275d3c31
+
+check_gates.py SHA-256:
+3a85ed757d5569e87364bd5de511dc1985c60d97e29ee3f782e08197fa4f5c8f
+
+check_gates.py size:
+2535 bytes
+
+plan operation SHA-256:
+8226cc8235ed3f7a4262326232cf5a374b2d57b90f4e48538b164d6a116a762e
+```
+
+Exact integration-plan SHA-256:
+
+```text
+28f254edd341f2d98aea1b8c297019fd664d4a97bb17347be902f93b8bb99127
+```
+
+The explicit expectation binds:
+
+```text
+expectation:
+expectation:execute-check-gates-consumed
+
+expected role:
+transition
+
+expected mutation authority:
+release_decision
+
+execution required:
+true
+
+downstream consumption required:
+true
+```
+
+The evidence responsibilities remain separate:
+
+```text
+integration_plan_operation
+→ component presence
+→ source identity
+
+workflow_execution_declaration
+→ execution expectation
+→ declared role
+→ mutation authority
+
+recorded_manifest
+→ downstream consumption expectation
+```
+
+Exact historical workflow SHA-256:
+
+```text
+0d74133efdbe7c06672cc691d17ed5cdeec3c04df3e0ba465accfd187fd3c649
+```
+
+Exact recorded artifact-provenance binding SHA-256:
+
+```text
+eeedae701541f34841d74d0ad12a37e4c6ebdf2f24260616c9cc356e241d87ff
+```
+
+Exact expectations-file SHA-256:
+
+```text
+a48cb7831c623afc53fbb082adb08edd56cdfee26a5ec399bc2c27dfb2b68736
+```
+
+---
+
+## 15. Non-active candidate policy surface
+
+The canonical policy is:
+
+```text
+policy ID:
+pulse-gate-policy-v0
+
+policy version:
+0.1.7
+```
+
+The registered candidate set is:
+
+```text
+compute_planned_observed_relation_candidate
+```
+
+It contains exactly:
+
+```text
+compute_transition_path_complete
+compute_transition_authority_binding_ok
+compute_transition_unbound_mutation_absent
+```
+
+The candidate identities are:
+
+```text
+category:
+compute
+
+stability:
+experimental
+
+default normative:
+false
+```
+
+They remain absent from active and advisory sets.
+
+Candidate materializer:
+
+```text
+tools/
+fold_pulsemech_compute_planned_observed_relation_into_status_v0.py
+```
+
+The materializer:
+
+```text
+strictly validates the relation
+requires the non-authoritative relation boundary
+derives three literal booleans independently
+rejects conflicting existing candidate values
+writes only a separate folded candidate status
+preserves the base status
+distinguishes successful materialization from candidate all-true
+```
+
+The enforcement proof uses:
+
+```text
+tools/policy_to_require_args.py
+→ policy-derived candidate require-list
+
+PULSE_safe_pack_v0/tools/check_gates.py
+→ unchanged generic strict checker
+```
+
+No compute gate identity is hardcoded into the generic checker.
+
+---
+
+## 16. Connected fixed-source #6066 proof
+
+The connected proof is implemented in:
+
+```text
+tests/test_pulsemech_compute_fixed_source_candidate_chain_v0.py
+```
+
+The complete generated chain is:
+
+```text
+preserved PULSE CI #6066 subject
+→ fixed-source compute-binding report builder
+→ strict compute-report validation
+→ exact historical integration plan
+→ explicit check-gates subject-run expectation
+→ planned-observed relation builder
+→ strict relation validation
+→ candidate materializer
+→ separate folded candidate status
+→ policy-derived candidate require-list
+→ unchanged generic check_gates.py
+```
+
+The proof does not use the illustrative checked-in relation as the materializer
+input.
+
+### Generated compute-binding report result
+
+```text
+record status:
+observed
+
+analysis level:
+artifact_observed
+
+subject compute nodes:
+18
+
+observer nodes:
+1
+
+transition-bound nodes:
+2
+
+evidence-bound nodes:
+4
+
+preservation-bound nodes:
+0
+
+advisory-bound nodes:
+0
+
+unbound nodes:
+0
+
+unknown nodes:
+12
+
+unbound authoritative mutation count:
+0
+
+decision closure complete:
+false
+
+authority binding complete:
+false
+
+resource measurement status:
+none
+```
+
+### Generated planned-observed relation result
+
+```text
+expectations:
+1
+
+observations:
+19
+
+relations:
+19
+
+planned_and_observed:
+1
+
+observed_but_not_planned:
+5
+
+unresolved_due_to_coverage:
+13
+
+decisive relations:
+6
+
+unresolved relations:
+13
+
+identity coverage:
+unknown
+
+execution coverage:
+partial
+
+comparison status:
+unknown
+
+comparison complete:
+false
+```
+
+The exact planned relation is:
+
+```text
+expectation:execute-check-gates-consumed
+→ compute:check-gates
+```
+
+Its evaluation is:
+
+```text
+source identity:
+match
+
+execution identity:
+match
+
+subject-run binding:
+match
+
+declared role:
+match
+
+authority class:
+match
+
+downstream consumption:
+observed
+
+coverage:
+complete
+
+decisive:
+true
+
+relation status:
+planned_and_observed
+```
+
+Every other observation remains visible.
+
+No positive-path relation is classified as:
+
+```text
+planned_but_not_observed
+execution_identity_mismatch
+source_digest_mismatch
+run_binding_mismatch
+declared_role_mismatch
+authority_class_mismatch
+downstream_consumption_missing
+ambiguous_observation_match
+```
+
+### Derived candidate result
+
+```text
+compute_transition_path_complete:
+false
+
+compute_transition_authority_binding_ok:
+false
+
+compute_transition_unbound_mutation_absent:
+true
+```
+
+Materializer result:
+
+```text
+relation validated:
+true
+
+materializer ok:
+true
+
+folded status written:
+true
+
+candidate all-true:
+false
+```
+
+Policy-derived candidate check:
+
+```text
+two literal false candidate gates
+→ exit 1
+```
+
+Missing candidate gate:
+
+```text
+one required candidate gate absent
+→ exit 2
+```
+
+This is a candidate-only fail-closed result.
+
+It is not a release-authority result.
+
+### Negative and safety proof
+
+The regression verifies fail-closed behavior for:
+
+```text
+subject-run-key mismatch
+subject-source-commit mismatch
+release-candidate mismatch
+plan-operation identity mismatch
+same-size preservation-archive corruption
+attempted preserved-subject overwrite
+invalid generated relation
+missing candidate gate
+```
+
+It also verifies:
+
+```text
+byte-deterministic generated relation
+byte-deterministic folded candidate status
+byte-identical base status
+byte-identical protected inputs
+no subject-package mutation
+```
+
+Post-merge audit result:
+
+```text
+Review result:
+PASS
+
+actionable findings:
+none
+
+targeted regressions:
+207 passed
+```
+
+---
+
+## 17. Meaning of the fixed-source result
+
+The fixed-source result proves that the mechanism can:
+
+```text
+identify one exact transition execution
+bind its source and subject run
+bind its declared role
+bind its mutation authority
+bind its downstream consumption
+retain every other observation
+preserve incomplete coverage
+derive candidate state without inventing completion
+fail closed without altering release authority
+```
+
+The result:
+
+```text
+false
+false
+true
+```
+
+is not an implementation failure.
+
+It is the exact artifact-observed boundary of the preserved #6066 subject.
+
+The first two candidate gates remain false because the preserved package does
+not provide complete source and execution coverage for the entire transition
+and authority path.
+
+The third remains true because the evidence contains no unbound
+authority-bearing mutation.
+
+The proof does not claim:
+
+```text
+that the PULSE CI #6066 runtime was inefficient
+that unresolved nodes were unbound
+that all observed-but-unplanned compute was unnecessary
+that runtime execution was not valid
+that resource consumption was excessive
+```
+
+Artifact-observed incompleteness identifies the missing recording boundary.
+
+It does not substitute a judgment for missing evidence.
+
+---
+
+## 18. Resource vector and transition efficiency
 
 The workstream must not force different resource units into one synthetic
 number.
 
-Resource use is represented as a vector.
-
-Possible axes include:
+Possible resource axes include:
 
 ```text
 runner_wall_seconds
@@ -894,22 +1413,18 @@ retry_count
 rerun_count
 ```
 
-Not every platform exposes every axis.
+Unavailable values must remain unavailable.
 
-Unavailable values must be represented as unavailable, not estimated silently.
+Different units must not be added together.
 
----
-
-## 26. Per-axis ratios
-
-For each measured axis `a`:
+For an axis `a`:
 
 ```text
 measured_total_a
 = sum of recorded values for nodes with a known value on axis a
 ```
 
-The report may calculate:
+Per-axis distributions may later include:
 
 ```text
 transition_bound_ratio_a
@@ -920,625 +1435,369 @@ unbound_ratio_a
 unknown_ratio_a
 ```
 
-Each ratio is relative only to `measured_total_a`.
+Each ratio is relative only to measured coverage on that axis.
 
-The report must also record measurement coverage:
-
-```text
-nodes_with_measurement_a
-total_subject_nodes
-measurement_coverage_ratio_a
-```
-
-A ratio with incomplete coverage must not be presented as total-system
+A ratio with incomplete coverage must not be represented as total-system
 consumption.
 
-No values from different units may be added together.
-
----
-
-## 27. Transition efficiency
-
-Transition efficiency is not defined as a single universal scalar.
-
-It is the relation between:
+Transition efficiency is therefore:
 
 ```text
 compute resource vector
-and
-verified transition-role distribution
+↔ verified binding-role distribution
 ```
 
-A report may state:
+It is not currently a single scalar.
+
+No compute budget is defined.
+
+No resource-measurement gate is registered or active.
+
+A budget must not be introduced before:
 
 ```text
-on runner_wall_seconds:
-X% transition-bound
-Y% evidence-bound
-Z% preservation-bound
-...
-
-on model_output_tokens:
-...
-```
-
-It must not claim:
-
-```text
-overall efficiency = one number
-```
-
-unless a future declared policy defines and justifies an explicit weighting
-model.
-
----
-
-## 28. Human compute boundary
-
-Human compute is real but remains a separate measurement domain.
-
-It must not be added numerically to machine resource units.
-
-The first compute-binding implementation does not require a human-filled form.
-
-A later, separate workstream may observe machine-recorded interaction events
-such as:
-
-```text
-manual workflow dispatches
-manual approvals
-manual reruns
-manual retries
-manual exception records
-```
-
-Any future human-time record must preserve its own unit and evidence source.
-
-This document does not define that contract.
-
----
-
-## 29. Initial input surfaces
-
-A first analyzer may consume exact, read-only copies of:
-
-```text
-workflow source at the subject commit
-pulse_gate_policy_v0.yml at the subject commit
-policy-derived materialized gate-set record
-final status.json
-release-decision record
-recorded evidence manifests
-recorded verifier reports
-candidate records
-artifact-provenance bindings
-release package inventory
-package-completeness report
-independent package-verification report
-preservation manifest
-workflow run and job metadata
-```
-
-Optional later input:
-
-```text
-pulsemech_integration_plan_v0.json
-```
-
-The integration plan may describe an expected component closure.
-
-It does not prove that the planned compute was executed or consumed.
-
----
-
-## 30. Planned graph and observed graph
-
-A later phase may compare:
-
-```text
-planned compute graph
-↔ observed compute graph
-```
-
-Possible results:
-
-```text
-planned and observed
-→ expected execution
-
-planned but not observed
-→ missing execution
-
-observed but not planned
-→ undeclared execution
-
-observed with different source digest
-→ source substitution
-
-observed with different authority class
-→ authority mismatch
-```
-
-This comparison remains separate from the first offline report proof.
-
----
-
-## 31. Report identity
-
-The proposed report identity is:
-
-```text
-schema_version:
-pulsemech_compute_binding_report_v0
-
-report_type:
-pulsemech_compute_binding_report
-```
-
-The report filename is:
-
-```text
-pulsemech_compute_binding_report_v0.json
-```
-
-The report must be deterministic for identical canonical inputs.
-
----
-
-## 32. Proposed report shape
-
-The design does not yet introduce a normative schema.
-
-A future schema should preserve at least:
-
-```json
-{
-  "schema_version": "pulsemech_compute_binding_report_v0",
-  "report_type": "pulsemech_compute_binding_report",
-  "tool": {
-    "id": "build_pulsemech_compute_binding_report_v0",
-    "version": "0.1.0",
-    "source_sha256": "<sha256>"
-  },
-  "analysis_boundary": {
-    "analysis_level": "artifact_observed",
-    "subject_run_key": "<exact subject run key>",
-    "analysis_run_key": "<separate analysis run key or offline identity>",
-    "observer_in_subject_totals": false
-  },
-  "subject": {
-    "repository": "HKati/pulse-release-gates-0.1",
-    "workflow": "PULSE CI",
-    "workflow_run_id": 29249887581,
-    "workflow_run_number": 6066,
-    "workflow_run_attempt": 1,
-    "source_commit": "46b639706e23f80fe296a8893be18e2b5ab21f7e",
-    "release_candidate_id": "main",
-    "run_mode": "prod",
-    "active_policy_sets": [
-      "required",
-      "release_required"
-    ],
-    "policy_sha256": "<sha256>",
-    "materialized_gate_set_sha256": "<sha256-or-null>",
-    "final_status_sha256": "<sha256>",
-    "decision": "ALLOW"
-  },
-  "inputs": [
-    {
-      "role": "<input role>",
-      "path_or_uri": "<path or URI>",
-      "sha256": "<sha256>",
-      "size_bytes": 0
-    }
-  ],
-  "compute_nodes": [],
-  "state_nodes": [],
-  "edges": [],
-  "resource_summary": {
-    "axes": {}
-  },
-  "summary": {
-    "subject_compute_nodes": 0,
-    "transition_bound_nodes": 0,
-    "evidence_bound_nodes": 0,
-    "preservation_bound_nodes": 0,
-    "advisory_bound_nodes": 0,
-    "unbound_nodes": 0,
-    "unknown_nodes": 0,
-    "unbound_authoritative_mutation_count": 0,
-    "decision_closure_complete": false,
-    "authority_binding_complete": false,
-    "resource_measurement_status": "partial"
-  },
-  "findings": [],
-  "errors": [],
-  "ok": true
-}
-```
-
-`ok: true` means that the report was constructed and validated successfully.
-
-It does not mean:
-
-```text
-release allowed
-workflow efficient
-all compute bound
-no findings
-```
-
-The terminal release decision remains a separate recorded value.
-
----
-
-## 33. Finding identities
-
-The first contract should support explicit findings such as:
-
-```text
-subject_run_identity_missing
-subject_source_commit_mismatch
-
-policy_binding_missing
-policy_digest_mismatch
-materialized_gate_set_binding_missing
-
-decision_root_missing
-decision_status_binding_missing
-required_gate_source_unresolved
-
-compute_source_identity_missing
-compute_source_digest_missing
-compute_run_binding_missing
-
-declared_binding_not_observed
-observed_binding_not_declared
-downstream_consumer_missing
-
-unbound_compute
-unknown_compute_binding
-duplicate_compute_candidate
-
-undeclared_authoritative_writer
-authority_class_mismatch
-cross_run_input_reuse
-
-resource_measurement_missing
-resource_measurement_partial
-
-observer_boundary_violation
-subject_artifact_mutation_attempt
-```
-
-Findings must be deterministic and machine-readable.
-
----
-
-## 34. Severity boundary
-
-The v0 report remains read-only and non-blocking.
-
-Findings may be categorized as:
-
-```text
-information
-advisory
-authority_integrity_candidate
-```
-
-A future blocking policy must not treat ordinary resource inefficiency as
-equivalent to authority corruption.
-
-Potential future distinction:
-
-```text
-unbound read-only node
-→ advisory
-
-unknown resource measurement
-→ advisory
-
-unbound authority-bearing writer
-→ blocking candidate
-
-source digest substitution on authority path
-→ blocking candidate
-
-cross-run evidence reuse on required path
-→ blocking candidate
-```
-
-Activation remains separate.
-
----
-
-## 35. Possible future candidate gates
-
-The following names are placeholders only.
-
-They are not registered by this document.
-
-```text
-compute_transition_path_complete
-compute_transition_authority_binding_ok
-compute_transition_unbound_mutation_absent
-compute_transition_resource_usage_recorded
-```
-
-A later efficiency gate might be considered only after stable measurement:
-
-```text
-compute_transition_unbound_ratio_within_budget
-```
-
-No budget gate should be introduced before:
-
-```text
-measurement units are stable
-coverage is reported
+units are stable
+coverage is explicit
 classification is reproducible
-fixed-run replay is proven
+current-run production is available
+runtime-observed proof is complete
+fixed-run replay is preserved
 false and missing states are tested
 ```
 
 ---
 
-## 36. First fixed-source proof target
+## 19. Anti-bureaucracy and evidence-source rule
 
-The first implementation proof should analyze the preserved PULSE CI #6066
-release-grade reference artifacts.
+The primary evidence source must not be a hand-maintained form.
 
-The proof must remain offline and read-only.
-
-The analyzer should:
+The analyzer derives state from recorded machine surfaces:
 
 ```text
-verify the preserved outer artifact digests
-verify the complete package inventory
-identify the exact subject run
-bind the source commit
-bind the active policy identity and digest
-locate the final status and decision state
-reconstruct as much of the evidence-to-decision graph as the preserved package permits
-classify unresolved relations as unknown
-classify preservation nodes separately
-emit a deterministic report
-perform zero mutation of the preserved package
+workflow source
+run metadata
+policy
+materialized gate-set records
+status artifacts
+decision artifacts
+evidence manifests
+verifier reports
+artifact inventories
+artifact-provenance bindings
+preservation manifests
+runtime packets
+exact file digests
 ```
 
-The proof must not invent missing workflow-step evidence.
+A manually asserted label such as:
 
-The proof should expose exactly where the current package already supports
-artifact-observed binding and where additional runtime recording would be
-required.
+```text
+required: true
+```
+
+is not proof of binding.
+
+Any additional declaration must be:
+
+```text
+small
+versioned
+digest-bound
+machine-readable
+reviewable
+consumed by the analyzer
+```
+
+A declaration with no observed downstream relation remains partial or
+unresolved.
+
+The next portable subject input must be machine-produced and digest-bound.
+
+It must not become a new manually curated authority surface.
 
 ---
 
-## 37. Determinism requirements
+## 20. Remaining implementation plan
 
-For identical canonical inputs, the analyzer must emit byte-identical output.
+### Step 1 — portable subject-input contract
 
-Required properties:
+Create a strict machine-readable subject packet carrying:
 
 ```text
-strict JSON parsing
-duplicate-key rejection
-non-finite number rejection
-stable node ordering
-stable edge ordering
-stable finding ordering
-stable path normalization
-stable JSON key ordering
-newline-terminated UTF-8 output
-no hidden wall-clock fields in deterministic mode
+subject repository
+workflow identity
+workflow run identity
+subject run key
+source commit
+release candidate
+run mode
+
+outer carrier identity
+outer carrier SHA-256 and size
+preservation-manifest identity
+artifact-role map
+artifact file names
+artifact digests and sizes
+complete-package identity
+policy identity and digest
+workflow identity and digest
 ```
 
-Any generated timestamp must be supplied explicitly or excluded from the
-deterministic comparison surface.
+The packet must be produced mechanically.
+
+### Step 2 — reusable analyzer core
+
+Extract the reusable analysis mechanics from the fixed-source builder:
+
+```text
+portable subject packet
+→ common read-only analyzer core
+```
+
+Preserve the existing #6066 builder as a compatibility wrapper.
+
+The #6066 output and semantics must remain regression-locked.
+
+Do not create a second parallel analyzer.
+
+### Step 3 — current-run artifact-observed reference lane
+
+```text
+current run
+→ machine-produced portable subject packet
+→ common analyzer
+→ generated artifact-observed report
+→ generated planned-observed relation
+→ candidate materialization
+```
+
+This lane remains non-active.
+
+### Step 4 — runtime-observation producer
+
+Produce strict runtime packets from recorded execution:
+
+```text
+job and step identity
+exact source identity
+timing
+runtime inputs
+runtime outputs
+downstream consumers
+external-service calls
+model inferences
+resource axes
+```
+
+### Step 5 — runtime-observed connected proof
+
+```text
+current artifact-observed report
++ complete runtime packet chain
+→ runtime-observed relation
+→ candidate materialization
+→ fixed-source versus runtime-observed comparison
+```
+
+Only this stage can determine whether the current artifact-level false gates
+become true under complete runtime evidence.
+
+### Step 6 — resource measurement
+
+Add measured per-axis resource coverage without synthetic cross-unit
+aggregation.
+
+### Step 7 — promotion decision
+
+Any movement from candidate to advisory, required, or release-required remains
+a separate policy decision.
+
+```text
+successful example
+≠ promotion
+
+successful fixed-source replay
+≠ promotion
+
+successful current-run artifact proof
+≠ promotion
+
+successful runtime proof
+≠ automatic promotion
+```
+
+Promotion requires explicit evidence, policy review, negative-path coverage,
+and a separate PR.
 
 ---
 
-## 38. Read-only requirements
+## 21. Completed implementation sequence
 
-The analyzer must refuse to:
-
-```text
-rewrite subject artifacts
-rewrite the preservation manifest
-write into the preserved ZIP archives
-modify status.json
-modify the release decision
-modify policy
-modify workflow files
-modify the gate registry
-```
-
-Output must be written outside the subject package or to an explicitly separate
-analysis directory.
-
-A path inside the immutable subject package must be rejected.
-
----
-
-## 39. Expected implementation files
-
-A future contract PR may introduce:
+### PR 1 — design
 
 ```text
-schemas/pulsemech_compute_binding_report_v0.schema.json
-examples/compute/pulsemech_compute_binding_report_6066_example_v0.json
-tools/check_pulsemech_compute_binding_report_v0.py
-tests/test_pulsemech_compute_binding_report_schema_v0.py
+PR #2734
+docs(compute):
+define compute-to-transition binding v0
 ```
 
-A later implementation PR may introduce:
+Status:
 
 ```text
-tools/build_pulsemech_compute_binding_report_v0.py
-tests/test_build_pulsemech_compute_binding_report_v0.py
+complete
 ```
-
-A separate runtime-observation PR may introduce additional input surfaces.
-
-The exact filenames may change, but the work must remain narrowly scoped.
-
----
-
-## 40. Required first-contract tests
-
-The report contract must test:
-
-```text
-valid report passes schema validation
-duplicate JSON key fails
-non-finite number fails
-unknown binding remains distinct from unbound
-decision value remains distinct from report ok state
-resource units remain separate
-observer overhead remains outside subject totals
-finding identities are stable
-```
-
----
-
-## 41. Required first-builder tests
-
-The first builder must test:
-
-```text
-identical inputs produce byte-identical output
-exact subject run identity is preserved
-exact source commit is preserved
-exact input digests are preserved
-preserved package is not modified
-output inside subject package is rejected
-
-declared-only relation does not become complete
-observed digest relation is recorded
-missing downstream consumer remains explicit
-missing relation becomes unknown when evidence is incomplete
-
-preservation-bound state remains distinct from release authority
-advisory state remains distinct from required state
-
-unbound read-only compute is reported
-unbound authoritative mutation is distinguished
-cross-run input is reported
-
-per-axis resource values are not added across units
-partial measurement coverage is reported
-```
-
----
-
-## 42. Implementation sequence
-
-### PR 1 — design only
-
-```text
-docs/compute/PULSEMECH_COMPUTE_BINDING_AND_TRANSITION_EFFICIENCY_DESIGN_v0.md
-```
-
-No behavior change.
 
 ### PR 2 — report contract
 
 ```text
-schema
+PR #2735
+compute-binding report schema
 example
-schema validator
-schema tests
+validator
+schema and validator tests
+CI registration
 ```
 
-No live analyzer.
+Status:
 
-No workflow integration.
+```text
+complete
+```
 
 ### PR 3 — fixed-source offline builder
 
 ```text
-PULSE CI #6066 preserved package
-→ deterministic artifact-observed report
+PR #2736
+fixed-source #6066 report builder
+
+PR #2737
+fixed-source builder hardening and regression closure
 ```
 
-No live workflow mutation.
-
-No active gate.
-
-### PR 4 — runtime observation contract
+Status:
 
 ```text
-job and step identity
-runtime timing
-runtime input/output bindings
-external-call records
+complete
 ```
 
-Still non-active.
-
-### PR 5 — planned-versus-observed relation
+### PR 4 — runtime-observation contract
 
 ```text
-integration plan
-↔ observed compute graph
+PR #2738
+runtime-observation packet schema
+example
+validator
+tests
+CI registration
 ```
 
-Separate from the planner mechanism itself.
+Status:
+
+```text
+contract complete
+producer pending
+```
+
+### PR 5 — planned-observed relation
+
+```text
+PR #2741
+relation schema
+example
+validator
+tests
+
+PR #2743
+relation builder
+
+PR #2744
+workflow-only cross-source anchor correction
+```
+
+Status:
+
+```text
+complete
+```
 
 ### PR 6 — candidate policy surface
 
-Only after the previous proofs are complete:
-
 ```text
-non-active candidate gate set
-candidate-only materialization
-candidate-only generic check_gates.py proof
+PR #2745
+candidate gate identities
+policy set
+relation-to-status materializer
+candidate proof
+CI registration
 ```
 
-Any active promotion remains later and separate.
+Status:
+
+```text
+complete
+non-active
+```
+
+### Connected fixed-source proof
+
+```text
+PR #2749
+merged commit:
+b6149dbd464f7f01760ab5fa80487f7e94e475e7
+```
+
+Status:
+
+```text
+complete
+post-merge Codex review:
+PASS
+```
+
+The original implementation sequence is therefore complete.
+
+The next work begins at the portable/current-run boundary.
 
 ---
 
-## 43. Interaction with existing PULSE boundaries
+## 22. Interaction with existing PULSE boundaries
 
-The compute-binding workstream must preserve:
+The compute-binding workstream preserves:
 
 ```text
 check_gates.py remains generic
-policy remains the source of required gate identities
-materialization remains policy-derived
+policy remains the source of gate-set identity
+gate-list materialization remains policy-derived
 status remains the complete gate-state carrier
-ALLOW and BLOCK remain the terminal transition results
+ALLOW and BLOCK remain terminal release-transition results
 preservation remains non-authoritative
 reader surfaces remain non-authoritative
+candidate materialization remains separate from release authority
 ```
 
-The analyzer observes those relations.
+The analyzer observes these relations.
 
 It does not redefine them.
 
+The candidate gates are not a parallel release-authority mechanism.
+
 ---
 
-## 44. Interaction with SLSA and VSA
+## 23. Interaction with SLSA and VSA
 
-This workstream is separate from the SLSA/VSA workstream.
-
-SLSA/VSA concerns:
+The compute-binding workstream remains separate from the SLSA/VSA workstream.
 
 ```text
+SLSA/VSA:
 authenticated upstream evidence statements
 → downstream PULSEmech admission and transition
-```
 
-Compute binding concerns:
-
-```text
+compute binding:
 executed compute
 → exact relation to evidence, state, preservation, and transition
 ```
 
-The workstreams may later share:
+The workstreams may share:
 
 ```text
 source identity
@@ -1549,101 +1808,157 @@ verifier identity
 attestation digest
 ```
 
-They must not be bundled merely because they share binding fields.
+They must not be merged merely because they share binding fields.
+
+A provenance statement may be an input to PULSEmech.
+
+It does not replace the downstream transition decision.
+
+A compute-binding report may observe that input and its consumer path.
+
+It does not become the release decision.
 
 ---
 
-## 45. Claim boundary
+## 24. Non-goals and claim boundary
 
-This document does not claim:
+This workstream does not provide or claim:
 
 ```text
-that 80% or 90% of compute is currently unbound
-that all bureaucracy is machine waste
-that all repeated verification is duplicate work
-that all advisory output is unnecessary
-that a global efficiency scalar exists
-that energy consumption has been measured
-that carbon impact has been measured
-that the PULSE CI #6066 runtime was inefficient
+carbon accounting
+electricity-consumption certification
+hardware power certification
+cost accounting
+global infrastructure utilization
+human productivity scoring
+employee monitoring
+compliance status
+certification
+a universal workflow-efficiency scalar
+a single cross-unit efficiency number
 ```
 
-It defines the mechanism required to measure the relation.
-
-The hypothesis does not become a result until the report is produced from
-recorded evidence.
-
----
-
-## 46. Forbidden bundling
-
-Do not combine this design or its first implementation with:
+It does not claim:
 
 ```text
-SLSA VSA activation
-release-required promotion
-workflow cleanup
-policy reorganization
-gate registry cleanup
-unrelated adoption-planner expansion
-DOI changes
-Zenodo changes
-citation changes
-README title changes
-tag creation
-release creation
-release-metadata changes
+that every unknown node is unbound
+that every unbound node is useless
+that repeated verification is automatically duplicate work
+that advisory output is unnecessary
+that trust-separated verifiers are duplicates
+that a fixed percentage of compute is unbound
+that PULSE CI #6066 was inefficient
+that energy or carbon impact has been measured
 ```
 
-Do not combine the initial read-only report with a blocking budget gate.
+The fixed-source proof establishes:
+
+```text
+one exact planned-and-observed transition execution
+five observed but unplanned executions
+thirteen artifact-level unresolved relations
+no observed unbound authoritative mutation
+```
+
+These are relation and coverage results.
+
+They are not resource-efficiency conclusions.
 
 ---
 
-## 47. Current non-activation statement
-
-At the time of this design:
+## 25. Current non-activation statement
 
 ```text
 compute-binding report schema:
+implemented
+
+compute-binding report validator:
+implemented
+
+fixed-source compute-binding builder:
+implemented
+
+fixed-source #6066 artifact-observed report:
+implemented and proven
+
+runtime-observation packet contract:
+implemented
+
+runtime-observation packet producer:
 not implemented
 
-compute-binding analyzer:
+planned-observed relation schema and validator:
+implemented
+
+planned-observed relation builder:
+implemented
+
+compute candidate gate identities:
+registered
+
+compute candidate policy set:
+declared and non-active
+
+relation-to-candidate-status materializer:
+implemented
+
+fixed-source connected candidate proof:
+implemented and proven
+
+portable current-run subject input:
 not implemented
 
-fixed-source compute-binding proof:
+reusable current-run analyzer lane:
 not implemented
 
-runtime-observed compute graph:
+runtime-observed connected proof:
 not implemented
 
-compute candidate gate set:
-not registered
+compute resource measurement:
+not implemented
+
+compute budget:
+not defined
 
 compute release-required enforcement:
 not active
 
-compute budget:
-not defined
+release-authority effect:
+none
 ```
 
 The existing PULSEmech release-authority mechanism remains unchanged.
 
 ---
 
-## 48. Mechanical result
+## 26. Mechanical result
 
-The intended relation is:
+The implemented fixed-source relation is:
 
 ```text
-completed subject run
+completed PULSE CI #6066 subject
 + exact source state
-+ exact recorded artifacts
-+ exact policy and materialized gates
++ exact preserved artifacts
++ exact policy
++ exact workflow identity
 + exact terminal decision
-→ compute-to-transition graph
-→ binding classification
-→ per-unit resource relation
-→ deterministic report
++ one explicit check-gates expectation
+→ generated compute-to-transition graph
+→ generated planned-observed relation
+→ candidate materialization
+```
+
+The exact candidate result is:
+
+```text
+transition path complete:
+false
+
+transition authority binding complete:
+false
+
+unbound authoritative mutation absent:
+true
 ```
 
 When compute has a complete observed relation:
@@ -1653,18 +1968,18 @@ complete binding
 → transition, evidence, preservation, advisory, or observer role is explicit
 ```
 
-When the relation is absent:
+When evidence is sufficient to establish absence:
 
 ```text
-no binding
+no qualifying binding
 → unbound
 ```
 
-When the available evidence is incomplete:
+When evidence is incomplete:
 
 ```text
 insufficient evidence
-→ unknown
+→ partial or unknown
 ```
 
 When a node mutates authority-bearing state without complete authority binding:
@@ -1680,8 +1995,15 @@ The central rule is:
 No authoritative compute without an observed transition binding.
 ```
 
+The evidence rule is:
+
+```text
+Do not convert missing recording into a positive or negative claim.
+```
+
 The efficiency rule is:
 
 ```text
-Do not scale compute before measuring where the existing compute is bound.
+Do not scale or budget compute before measuring where the existing compute is
+bound, in explicit units, under explicit coverage.
 ```
