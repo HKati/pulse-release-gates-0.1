@@ -8,7 +8,6 @@
     "schema_version",
     "packet_type",
     "record_status",
-    "producer",
     "packet_identity",
     "subject",
     "analysis_boundary",
@@ -38,6 +37,9 @@
     },
     "producer": {
       "$ref": "#/$defs/producer"
+    },
+    "fixture_provenance": {
+      "$ref": "#/$defs/fixture_provenance"
     },
     "packet_identity": {
       "$ref": "#/$defs/packet_identity"
@@ -83,6 +85,66 @@
       "type": "boolean"
     }
   },
+  "oneOf": [
+    {
+      "title": "Checked-in contract example fixture",
+      "required": [
+        "fixture_provenance"
+      ],
+      "properties": {
+        "record_status": {
+          "const": "example"
+        },
+        "producer": false,
+        "packet_identity": {
+          "properties": {
+            "packet_scope": {
+              "const": "example"
+            }
+          }
+        }
+      }
+    },
+    {
+      "title": "Observed producer-created packet",
+      "required": [
+        "producer"
+      ],
+      "properties": {
+        "record_status": {
+          "const": "observed"
+        },
+        "fixture_provenance": false,
+        "producer": {
+          "properties": {
+            "production_mode": {
+              "not": {
+                "const": "example"
+              }
+            }
+          }
+        },
+        "packet_identity": {
+          "properties": {
+            "packet_scope": {
+              "not": {
+                "const": "example"
+              }
+            }
+          }
+        },
+        "carrier": {
+          "properties": {
+            "carrier_kind": {
+              "not": {
+                "const": "example_archive"
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
   "allOf": [
     {
       "if": {
@@ -106,86 +168,6 @@
         "properties": {
           "errors": {
             "minItems": 1
-          }
-        }
-      }
-    },
-    {
-      "if": {
-        "properties": {
-          "record_status": {
-            "const": "observed"
-          }
-        },
-        "required": [
-          "record_status"
-        ]
-      },
-      "then": {
-        "properties": {
-          "producer": {
-            "properties": {
-              "production_mode": {
-                "not": {
-                  "const": "example"
-                }
-              }
-            }
-          },
-          "packet_identity": {
-            "properties": {
-              "packet_scope": {
-                "not": {
-                  "const": "example"
-                }
-              }
-            }
-          },
-          "carrier": {
-            "properties": {
-              "carrier_kind": {
-                "not": {
-                  "const": "example_archive"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    {
-      "if": {
-        "properties": {
-          "record_status": {
-            "const": "example"
-          }
-        },
-        "required": [
-          "record_status"
-        ]
-      },
-      "then": {
-        "properties": {
-          "producer": {
-            "properties": {
-              "production_mode": {
-                "const": "example"
-              }
-            }
-          },
-          "packet_identity": {
-            "properties": {
-              "packet_scope": {
-                "const": "example"
-              }
-            }
-          },
-          "carrier": {
-            "properties": {
-              "carrier_kind": {
-                "const": "example_archive"
-              }
-            }
           }
         }
       }
@@ -381,6 +363,10 @@
       "type": "string",
       "pattern": "^source:[A-Za-z0-9._:/@+-]+$"
     },
+    "fixture_id": {
+      "type": "string",
+      "pattern": "^fixture:[A-Za-z0-9._:/@+-]+$"
+    },
     "producer": {
       "type": "object",
       "additionalProperties": false,
@@ -425,9 +411,53 @@
           "enum": [
             "current_run_export",
             "post_run_export",
-            "fixed_source_adapter",
-            "example"
+            "fixed_source_adapter"
           ]
+        }
+      }
+    },
+    "fixture_provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "fixture_id",
+        "fixture_kind",
+        "fixture_source_path",
+        "schema_identity",
+        "source_data_status",
+        "intended_production_mode",
+        "packet_producer_execution_claimed"
+      ],
+      "properties": {
+        "fixture_id": {
+          "$ref": "#/$defs/fixture_id"
+        },
+        "fixture_kind": {
+          "const": "checked_in_contract_example"
+        },
+        "fixture_source_path": {
+          "$ref": "#/$defs/safe_member_path"
+        },
+        "schema_identity": {
+          "const": "pulsemech_compute_subject_input_packet_v0"
+        },
+        "source_data_status": {
+          "type": "string",
+          "enum": [
+            "historical_observed",
+            "synthetic"
+          ]
+        },
+        "intended_production_mode": {
+          "type": "string",
+          "enum": [
+            "current_run_export",
+            "post_run_export",
+            "fixed_source_adapter"
+          ]
+        },
+        "packet_producer_execution_claimed": {
+          "const": false
         }
       }
     },
