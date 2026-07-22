@@ -1,0 +1,32 @@
+{
+  "schema_version": "pulsemech_integration_component_manifest_v0",
+  "manifest_type": "pulsemech_integration_component_manifest",
+  "source_repository": "HKati/pulse-release-gates-0.1",
+  "policy_path": "pulse_gate_policy_v0.yml",
+  "components": [
+    {
+      "id": "pulse_check_gates_v0",
+      "kind": "file",
+      "source_path": "PULSE_safe_pack_v0/tools/check_gates.py",
+      "target_path": "PULSE_safe_pack_v0/tools/check_gates.py",
+      "requires": []
+    }
+  ],
+  "component_sets": [
+    {
+      "id": "compute_fixed_source_candidate_chain_6066_v0",
+      "description": "Minimal exact execution-planning anchor for connecting the preserved PULSE CI #6066 artifact-observed compute report to the non-active planned-observed candidate boundary.",
+      "root_components": [
+        "pulse_check_gates_v0"
+      ],
+      "declared_gate_sets": [
+        "required",
+        "release_required"
+      ],
+      "supported_ci_providers": [
+        "github_actions"
+      ],
+      "authority_boundary": "This fixed-source manifest declares one exact historical execution anchor only. It does not claim complete planning coverage, modify the preserved subject, activate compute gates, change release authority, or create a release decision."
+    }
+  ]
+}
