@@ -294,6 +294,15 @@ def _sorted_unique_strings(values: Any) -> bool:
     )
 
 
+def _ordered_unique_non_empty_strings(values: Any) -> bool:
+    return (
+        isinstance(values, list)
+        and bool(values)
+        and all(isinstance(item, str) and bool(item) for item in values)
+        and len(values) == len(set(values))
+    )
+
+
 def _all_object_keys_sorted(value: Any) -> bool:
     if isinstance(value, dict):
         return (
@@ -950,8 +959,11 @@ def _verify_subject_identity(packet: dict[str, Any]) -> tuple[bool, list[str]]:
         errors.append("packet_carrier_id_mismatch")
     if subject.get("workflow_ref") != expected_workflow_ref:
         errors.append("subject_workflow_ref_mismatch")
-    if not _sorted_unique_strings(subject.get("active_policy_sets")):
-        errors.append("active_policy_sets_not_sorted_unique")
+    # Active policy sets are an ordered part of the historical subject identity.
+    # Preserve their recorded order; require only non-empty unique string values
+    # here, then verify the exact order against the bound subject artifacts.
+    if not _ordered_unique_non_empty_strings(subject.get("active_policy_sets")):
+        errors.append("active_policy_sets_not_unique_non_empty")
     try:
         parse_utc(identity.get("packet_created_utc"))
     except Exception as exc:
@@ -1926,19 +1938,24 @@ def semantic_checks(
     )
     record("canonical_packet_serialization_ok", canonical_ok)
 
-    reference_lists = [
-        packet.get("subject", {}).get("active_policy_sets"),
+    # These arrays are set-like diagnostic/reference surfaces and therefore use
+    # lexical ordering. subject.active_policy_sets is deliberately excluded: it
+    # is an ordered historical identity sequence, not a lexically sorted set.
+    set_like_reference_lists = [
         packet.get("coverage", {}).get("missing_roles"),
         packet.get("coverage", {}).get("unresolved_artifact_ids"),
         packet.get("errors"),
     ]
-    reference_lists.extend(
+    set_like_reference_lists.extend(
         packet.get("role_bindings", {}).get(name)
         for name in LIST_ROLE_BINDINGS
     )
     record(
         "deterministic_reference_ordering_ok",
-        all(_sorted_unique_strings(values) for values in reference_lists),
+        all(
+            _sorted_unique_strings(values)
+            for values in set_like_reference_lists
+        ),
     )
 
     provenance_ok, provenance_errors = _verify_provenance(
