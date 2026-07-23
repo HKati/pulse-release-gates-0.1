@@ -1122,7 +1122,7 @@ def test_artifact_container_cycle_is_rejected() -> None:
     assert_semantic_failure(
         value,
         "artifact_graph_ok",
-        expected_fragment="container_cycle",
+        expected_fragment="artifact_container_graph_cycle_or_unresolved_parent",
     )
 
 
