@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+from functools import lru_cache
 import io
 import json
 import math
@@ -87,14 +88,18 @@ AUTHORITY_SURFACE_OUTPUT_NAMES = {
 }
 
 GIT_PROCESS_ENV_ALLOWLIST = (
-    "PATH",
-    "PATHEXT",
     "SYSTEMROOT",
     "WINDIR",
     "COMSPEC",
     "TEMP",
     "TMP",
     "TMPDIR",
+)
+
+POSIX_TRUSTED_GIT_EXECUTABLE_CANDIDATES = (
+    Path("/usr/bin/git"),
+    Path("/usr/local/bin/git"),
+    Path("/opt/local/bin/git"),
 )
 
 
@@ -369,9 +374,131 @@ def _relative_packet_path(packet_path: Path, repository_root: Path) -> str | Non
         return None
 
 
-def _sanitized_git_environment() -> dict[str, str]:
-    if not os.environ.get("PATH"):
-        raise SemanticError("git_process_path_unavailable")
+def _trusted_git_executable_candidates() -> tuple[Path, ...]:
+    if os.name != "nt":
+        return POSIX_TRUSTED_GIT_EXECUTABLE_CANDIDATES
+
+    system_anchor = Path(sys.executable).anchor
+    if not system_anchor:
+        return ()
+
+    system_drive = Path(system_anchor)
+    return (
+        system_drive / "Program Files" / "Git" / "cmd" / "git.exe",
+        system_drive / "Program Files" / "Git" / "bin" / "git.exe",
+        system_drive / "Program Files (x86)" / "Git" / "cmd" / "git.exe",
+        system_drive / "Program Files (x86)" / "Git" / "bin" / "git.exe",
+    )
+
+
+def _normalized_absolute_path(path: Path) -> Path:
+    return Path(os.path.abspath(os.path.normpath(str(path))))
+
+
+def _validate_trusted_git_executable(candidate: Path) -> Path:
+    if not candidate.is_absolute():
+        raise SemanticError(
+            f"git_executable_untrusted: path_not_absolute: {candidate}"
+        )
+
+    normalized = _normalized_absolute_path(candidate)
+    try:
+        resolved = candidate.resolve(strict=True)
+    except OSError as exc:
+        raise SemanticError(
+            f"git_executable_untrusted: path_unresolvable: {candidate}: {exc}"
+        ) from exc
+
+    if os.path.normcase(str(normalized)) != os.path.normcase(str(resolved)):
+        raise SemanticError(
+            "git_executable_untrusted: symlink_or_alias_path: "
+            f"declared={normalized} resolved={resolved}"
+        )
+    if candidate.is_symlink() or not resolved.is_file():
+        raise SemanticError(
+            f"git_executable_untrusted: not_regular_non_symlink_file: {resolved}"
+        )
+    if not os.access(resolved, os.X_OK):
+        raise SemanticError(
+            f"git_executable_untrusted: not_executable: {resolved}"
+        )
+
+    components: list[Path] = [resolved]
+    cursor = resolved.parent
+    while True:
+        components.append(cursor)
+        if cursor == cursor.parent:
+            break
+        cursor = cursor.parent
+
+    for component in components:
+        try:
+            metadata = component.lstat()
+        except OSError as exc:
+            raise SemanticError(
+                f"git_executable_untrusted: component_unavailable: {component}: {exc}"
+            ) from exc
+        if stat.S_ISLNK(metadata.st_mode):
+            raise SemanticError(
+                f"git_executable_untrusted: symlink_component: {component}"
+            )
+        if component == resolved:
+            if not stat.S_ISREG(metadata.st_mode):
+                raise SemanticError(
+                    f"git_executable_untrusted: executable_not_regular: {component}"
+                )
+        elif not stat.S_ISDIR(metadata.st_mode):
+            raise SemanticError(
+                f"git_executable_untrusted: parent_not_directory: {component}"
+            )
+
+        if os.name != "nt":
+            if metadata.st_uid != 0:
+                raise SemanticError(
+                    "git_executable_untrusted: non_root_owned_component: "
+                    f"{component}"
+                )
+            if metadata.st_mode & (stat.S_IWGRP | stat.S_IWOTH):
+                raise SemanticError(
+                    "git_executable_untrusted: writable_component: "
+                    f"{component}"
+                )
+
+    return resolved
+
+
+@lru_cache(maxsize=1)
+def _trusted_git_executable() -> Path:
+    unavailable: list[str] = []
+    untrusted: list[str] = []
+
+    for candidate in _trusted_git_executable_candidates():
+        if not candidate.exists():
+            unavailable.append(str(candidate))
+            continue
+        try:
+            return _validate_trusted_git_executable(candidate)
+        except SemanticError as exc:
+            untrusted.append(str(exc))
+
+    if untrusted:
+        raise SemanticError(
+            "git_process_executable_untrusted: " + " | ".join(untrusted)
+        )
+    raise SemanticError(
+        "git_process_executable_unavailable: "
+        + (", ".join(unavailable) if unavailable else "no trusted candidates")
+    )
+
+
+def _sanitized_git_environment(
+    git_executable: Path | None = None,
+) -> dict[str, str]:
+    trusted_git = (
+        _trusted_git_executable()
+        if git_executable is None
+        else _validate_trusted_git_executable(git_executable)
+    )
 
     env: dict[str, str] = {}
     for key in GIT_PROCESS_ENV_ALLOWLIST:
@@ -381,6 +508,7 @@ def _sanitized_git_environment() -> dict[str, str]:
 
     env.update(
         {
+            "PATH": str(trusted_git.parent),
             "GIT_CONFIG_GLOBAL": os.devnull,
             "GIT_CONFIG_SYSTEM": os.devnull,
             "GIT_CONFIG_NOSYSTEM": "1",
@@ -407,8 +535,9 @@ def _run_isolated_git(
             f"git_repository_root_not_directory: {resolved_root}"
         )
 
+    git_executable = _trusted_git_executable()
     command = [
-        "git",
+        str(git_executable),
         "--no-pager",
         "--no-replace-objects",
         "-c",
@@ -422,7 +551,7 @@ def _run_isolated_git(
         check=False,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
-        env=_sanitized_git_environment(),
+        env=_sanitized_git_environment(git_executable),
     )
     if completed.returncode != 0:
         detail = completed.stderr.decode("utf-8", errors="replace").strip()
@@ -515,6 +644,7 @@ def reject_unsafe_output(
         schema_path,
         packet_path,
         carrier_path,
+        _trusted_git_executable(),
         Path(__file__),
         DEFAULT_GATE_POLICY,
         DEFAULT_GATE_REGISTRY,
