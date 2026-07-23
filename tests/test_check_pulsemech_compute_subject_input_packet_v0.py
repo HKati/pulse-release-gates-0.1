@@ -6,13 +6,15 @@ import hashlib
 import importlib.util
 import json
 import os
+import shlex
+import shutil
 import stat
 import subprocess
 import sys
 import warnings
 import zipfile
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterable
 
 import jsonschema
 import pytest
@@ -138,6 +140,7 @@ def run_tool(
     repository_root: Path = ROOT,
     output: Path | None = None,
     extra_env: dict[str, str] | None = None,
+    remove_env: Iterable[str] = (),
 ) -> subprocess.CompletedProcess[str]:
     command = [
         sys.executable,
@@ -155,6 +158,8 @@ def run_tool(
         command.extend(["--output", str(output)])
 
     environment = dict(os.environ)
+    for key in remove_env:
+        environment.pop(key, None)
     if extra_env is not None:
         environment.update(extra_env)
 
@@ -400,63 +405,35 @@ def observed_packet(
 
 
 def isolated_test_git_environment() -> dict[str, str]:
-    required = ("PATH",)
-    missing = [key for key in required if not os.environ.get(key)]
-    if missing:
-        pytest.skip(
-            "Git regression requires process environment values: "
-            + ", ".join(missing)
-        )
-
-    preserved = (
-        "PATH",
-        "PATHEXT",
-        "SYSTEMROOT",
-        "WINDIR",
-        "COMSPEC",
-        "TEMP",
-        "TMP",
-        "TMPDIR",
-    )
-    environment = {
-        key: os.environ[key]
-        for key in preserved
-        if key in os.environ
-    }
-    environment.update(
-        {
-            "GIT_CONFIG_GLOBAL": os.devnull,
-            "GIT_CONFIG_SYSTEM": os.devnull,
-            "GIT_CONFIG_NOSYSTEM": "1",
-            "GIT_CONFIG_COUNT": "0",
-            "GIT_TERMINAL_PROMPT": "0",
-            "LC_ALL": "C",
-            "LANG": "C",
-        }
-    )
-    return environment
+    trusted_git = TOOL_MODULE._trusted_git_executable()
+    return TOOL_MODULE._sanitized_git_environment(trusted_git)
 
 
-def create_git_repository(
+def create_git_repository_with_files(
     tmp_path: Path,
     *,
     name: str,
-    tracked_bytes: bytes,
+    files: dict[str, bytes],
 ) -> tuple[Path, str]:
     repository = tmp_path / name
     repository.mkdir()
     environment = isolated_test_git_environment()
+    trusted_git = str(TOOL_MODULE._trusted_git_executable())
 
     subprocess.run(
-        ["git", "init", "-q", str(repository)],
+        [trusted_git, "init", "-q", str(repository)],
         check=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         env=environment,
     )
-    (repository / "tracked.txt").write_bytes(tracked_bytes)
+    for relative, payload in files.items():
+        path = repository / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(payload)
+
     subprocess.run(
-        ["git", "-C", str(repository), "add", "--", "tracked.txt"],
+        [trusted_git, "-C", str(repository), "add", "--", "."],
         check=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -464,7 +441,7 @@ def create_git_repository(
     )
     subprocess.run(
         [
-            "git",
+            trusted_git,
             "-C",
             str(repository),
             "-c",
@@ -482,7 +459,7 @@ def create_git_repository(
         env=environment,
     )
     revision = subprocess.run(
-        ["git", "-C", str(repository), "rev-parse", "HEAD"],
+        [trusted_git, "-C", str(repository), "rev-parse", "HEAD"],
         check=True,
         text=True,
         stdout=subprocess.PIPE,
@@ -491,6 +468,19 @@ def create_git_repository(
     ).stdout.strip()
     assert len(revision) == 40
     return repository, revision
+
+
+def create_git_repository(
+    tmp_path: Path,
+    *,
+    name: str,
+    tracked_bytes: bytes,
+) -> tuple[Path, str]:
+    return create_git_repository_with_files(
+        tmp_path,
+        name=name,
+        files={"tracked.txt": tracked_bytes},
+    )
 
 
 def inherited_git_blob_read(
@@ -502,9 +492,10 @@ def inherited_git_blob_read(
 ) -> subprocess.CompletedProcess[bytes]:
     environment = isolated_test_git_environment()
     environment.update(attacker_environment)
+    trusted_git = str(TOOL_MODULE._trusted_git_executable())
     return subprocess.run(
         [
-            "git",
+            trusted_git,
             "-C",
             str(repository_root),
             "cat-file",
@@ -516,6 +507,116 @@ def inherited_git_blob_read(
         stderr=subprocess.PIPE,
         env=environment,
     )
+
+
+def create_fake_git_executable(
+    tmp_path: Path,
+    *,
+    repository_root: Path,
+    forged_revision: str,
+    forged_path: str,
+    forged_bytes: bytes,
+) -> tuple[Path, Path, Path]:
+    if os.name == "nt":
+        pytest.skip("POSIX fake-executable regression uses /bin/sh")
+
+    attacker_bin = tmp_path / "attacker-bin"
+    attacker_bin.mkdir()
+    marker = tmp_path / "fake-git-invoked.marker"
+    payload = tmp_path / "forged-git-blob.bin"
+    payload.write_bytes(forged_bytes)
+    fake_git = attacker_bin / "git"
+    trusted_git = TOOL_MODULE._trusted_git_executable()
+    pattern = f"{forged_revision}:{forged_path}"
+
+    script_lines = [
+        "#!/bin/sh",
+        f"printf 'invoked\\n' >> {shlex.quote(str(marker))}",
+        'case "$*" in',
+        '  *"rev-parse --show-toplevel"*)',
+        f"    printf '%s\\n' {shlex.quote(str(repository_root))}",
+        "    exit 0",
+        "    ;;",
+        f'  *"cat-file blob {pattern}"*)',
+        f"    cat {shlex.quote(str(payload))}",
+        "    exit 0",
+        "    ;;",
+        "esac",
+        f'exec {shlex.quote(str(trusted_git))} "$@"',
+        "",
+    ]
+    fake_git.write_text("\n".join(script_lines), encoding="utf-8")
+    fake_git.chmod(0o755)
+    return fake_git, marker, payload
+
+
+def source_binding_packet(
+    *,
+    revision: str,
+    real_files: dict[str, bytes],
+    forged_revision: str,
+    forged_path: str,
+    forged_bytes: bytes,
+) -> dict[str, Any]:
+    repository = "example/community-validator"
+    workflow_path = "workflow.yml"
+    workflow_name = "PULSE CI"
+    source_ref = "refs/heads/main"
+    workflow_ref = f"{repository}/{workflow_path}@{source_ref}"
+    policy_id = "policy-v0"
+
+    return {
+        "subject": {
+            "repository": repository,
+            "workflow_path": workflow_path,
+            "workflow_name": workflow_name,
+            "workflow_ref": workflow_ref,
+            "source_ref": source_ref,
+            "source_commit": revision,
+            "policy_id": policy_id,
+            "policy_sha256": sha256_bytes(real_files["policy.yml"]),
+        },
+        "authority_sources": {
+            "workflow": {
+                "source_id": "source:workflow",
+                "role": "workflow",
+                "path_or_uri": workflow_path,
+                "source_revision": revision,
+                "sha256": sha256_bytes(real_files[workflow_path]),
+                "size_bytes": len(real_files[workflow_path]),
+                "workflow_name": workflow_name,
+                "workflow_ref": workflow_ref,
+            },
+            "policy": {
+                "source_id": "source:policy",
+                "role": "policy",
+                "path_or_uri": "policy.yml",
+                "source_revision": revision,
+                "sha256": sha256_bytes(real_files["policy.yml"]),
+                "size_bytes": len(real_files["policy.yml"]),
+                "policy_id": policy_id,
+            },
+            "gate_registry": {
+                "source_id": "source:registry",
+                "role": "gate_registry",
+                "path_or_uri": "registry.yml",
+                "source_revision": revision,
+                "sha256": sha256_bytes(real_files["registry.yml"]),
+                "size_bytes": len(real_files["registry.yml"]),
+                "registry_id": "registry-v0",
+            },
+            "additional_sources": [
+                {
+                    "source_id": "source:additional:forged",
+                    "role": "other",
+                    "path_or_uri": forged_path,
+                    "source_revision": forged_revision,
+                    "sha256": sha256_bytes(forged_bytes),
+                    "size_bytes": len(forged_bytes),
+                }
+            ],
+        },
+    }
 
 
 def attacker_git_environments(
@@ -651,8 +752,12 @@ def test_historical_sources_are_read_from_git_not_current_worktree() -> None:
 
 def test_sanitized_git_environment_drops_caller_controlled_git_variables(
     monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
 ) -> None:
+    attacker_path = str(tmp_path / "attacker-bin")
     poisoned = {
+        "PATH": attacker_path,
+        "PATHEXT": ".ATTACKER",
         "GIT_DIR": "/attacker/repository/.git",
         "GIT_WORK_TREE": "/attacker/repository",
         "GIT_COMMON_DIR": "/attacker/common",
@@ -672,9 +777,11 @@ def test_sanitized_git_environment_drops_caller_controlled_git_variables(
     for key, value in poisoned.items():
         monkeypatch.setenv(key, value)
 
+    trusted_git = TOOL_MODULE._trusted_git_executable()
     child_environment = TOOL_MODULE._sanitized_git_environment()
 
     fixed_keys = {
+        "PATH",
         "GIT_CONFIG_GLOBAL",
         "GIT_CONFIG_SYSTEM",
         "GIT_CONFIG_NOSYSTEM",
@@ -687,7 +794,11 @@ def test_sanitized_git_environment_drops_caller_controlled_git_variables(
     }
     allowed_keys = set(TOOL_MODULE.GIT_PROCESS_ENV_ALLOWLIST) | fixed_keys
     assert set(child_environment) <= allowed_keys
-    assert child_environment["PATH"] == os.environ["PATH"]
+    assert "PATH" not in TOOL_MODULE.GIT_PROCESS_ENV_ALLOWLIST
+    assert "PATHEXT" not in TOOL_MODULE.GIT_PROCESS_ENV_ALLOWLIST
+    assert child_environment["PATH"] == str(trusted_git.parent)
+    assert child_environment["PATH"] != attacker_path
+    assert "PATHEXT" not in child_environment
     assert child_environment["GIT_CONFIG_GLOBAL"] == os.devnull
     assert child_environment["GIT_CONFIG_SYSTEM"] == os.devnull
     assert child_environment["GIT_CONFIG_NOSYSTEM"] == "1"
@@ -699,20 +810,277 @@ def test_sanitized_git_environment_drops_caller_controlled_git_variables(
     assert child_environment["LANG"] == "C"
 
     for key in poisoned:
-        if key == "GIT_CONFIG_COUNT":
+        if key in {"PATH", "GIT_CONFIG_COUNT"}:
             continue
         assert key not in child_environment
 
 
-def test_missing_process_path_fails_closed(
+def test_missing_caller_path_does_not_affect_trusted_git_selection(
     monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
 ) -> None:
     monkeypatch.delenv("PATH", raising=False)
+    monkeypatch.delenv("PATHEXT", raising=False)
+
+    trusted_git = TOOL_MODULE._trusted_git_executable()
+    child_environment = TOOL_MODULE._sanitized_git_environment()
+    assert child_environment["PATH"] == str(trusted_git.parent)
+
+    repository, revision = create_git_repository(
+        tmp_path,
+        name="missing-caller-path-repository",
+        tracked_bytes=b"trusted path-independent bytes\n",
+    )
+    assert TOOL_MODULE._git_blob_bytes(
+        repository,
+        revision=revision,
+        path="tracked.txt",
+    ) == b"trusted path-independent bytes\n"
+
+
+def test_trusted_git_executable_is_absolute_and_child_path_is_fixed() -> None:
+    trusted_git = TOOL_MODULE._trusted_git_executable()
+    assert trusted_git.is_absolute()
+    assert trusted_git == trusted_git.resolve(strict=True)
+    assert trusted_git.is_file()
+    assert not trusted_git.is_symlink()
+    assert os.access(trusted_git, os.X_OK)
+    assert TOOL_MODULE._sanitized_git_environment()["PATH"] == str(
+        trusted_git.parent
+    )
+
+
+def test_relative_git_executable_candidate_is_rejected() -> None:
     with pytest.raises(
         TOOL_MODULE.SemanticError,
-        match="git_process_path_unavailable",
+        match="git_executable_untrusted: path_not_absolute",
     ):
-        TOOL_MODULE._sanitized_git_environment()
+        TOOL_MODULE._validate_trusted_git_executable(Path("git"))
+
+
+def test_symlink_git_executable_candidate_is_rejected(tmp_path: Path) -> None:
+    link = tmp_path / "git"
+    try:
+        link.symlink_to(TOOL_MODULE._trusted_git_executable())
+    except OSError as exc:
+        pytest.skip(f"symlink unavailable: {exc}")
+
+    with pytest.raises(
+        TOOL_MODULE.SemanticError,
+        match="git_executable_untrusted: symlink_or_alias_path",
+    ):
+        TOOL_MODULE._validate_trusted_git_executable(link)
+
+
+def test_untrusted_writable_or_non_system_git_candidate_is_rejected(
+    tmp_path: Path,
+) -> None:
+    if os.name == "nt":
+        pytest.skip("POSIX ownership and writable-component policy")
+
+    candidate = tmp_path / "git"
+    candidate.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+    candidate.chmod(0o755)
+
+    with pytest.raises(
+        TOOL_MODULE.SemanticError,
+        match=(
+            "git_executable_untrusted: "
+            "(non_root_owned_component|writable_component)"
+        ),
+    ):
+        TOOL_MODULE._validate_trusted_git_executable(candidate)
+
+
+def test_no_trusted_git_candidate_fails_closed(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    missing = tmp_path / "missing-git"
+    monkeypatch.setattr(
+        TOOL_MODULE,
+        "_trusted_git_executable_candidates",
+        lambda: (missing,),
+    )
+    TOOL_MODULE._trusted_git_executable.cache_clear()
+    try:
+        with pytest.raises(
+            TOOL_MODULE.SemanticError,
+            match="git_process_executable_unavailable",
+        ):
+            TOOL_MODULE._trusted_git_executable()
+    finally:
+        TOOL_MODULE._trusted_git_executable.cache_clear()
+
+
+def test_windows_git_candidates_use_os_system_drive_not_python_drive(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        TOOL_MODULE.sys,
+        "executable",
+        r"D:\hostedtoolcache\Python\3.11\python.exe",
+    )
+
+    candidates = TOOL_MODULE._windows_trusted_git_executable_candidate_strings(
+        system_windows_directory=r"C:\Windows",
+    )
+    assert candidates == (
+        r"C:\Program Files\Git\cmd\git.exe",
+        r"C:\Program Files\Git\bin\git.exe",
+        r"C:\Program Files (x86)\Git\cmd\git.exe",
+        r"C:\Program Files (x86)\Git\bin\git.exe",
+    )
+    assert all(not candidate.casefold().startswith("d:") for candidate in candidates)
+
+
+def test_windows_git_candidates_prefer_machine_roots_and_dedupe() -> None:
+    candidates = TOOL_MODULE._windows_trusted_git_executable_candidate_strings(
+        system_windows_directory=r"C:\Windows",
+        registry_program_files_roots=(
+            r"E:\Trusted Programs",
+            r"C:\Program Files",
+            r"e:\trusted programs",
+            r"relative\programs",
+            r"%ProgramFiles%",
+        ),
+    )
+
+    assert candidates[:2] == (
+        r"E:\Trusted Programs\Git\cmd\git.exe",
+        r"E:\Trusted Programs\Git\bin\git.exe",
+    )
+    assert candidates[2:] == (
+        r"C:\Program Files\Git\cmd\git.exe",
+        r"C:\Program Files\Git\bin\git.exe",
+        r"C:\Program Files (x86)\Git\cmd\git.exe",
+        r"C:\Program Files (x86)\Git\bin\git.exe",
+    )
+    assert len(candidates) == len({candidate.casefold() for candidate in candidates})
+
+
+def test_windows_git_candidate_builder_rejects_invalid_system_directory() -> None:
+    with pytest.raises(
+        TOOL_MODULE.SemanticError,
+        match="windows_system_directory_invalid",
+    ):
+        TOOL_MODULE._windows_trusted_git_executable_candidate_strings(
+            system_windows_directory=r"Windows",
+        )
+
+
+def test_fake_git_on_caller_path_cannot_forge_authority_source(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    real_files = {
+        "workflow.yml": b"name: PULSE CI\n",
+        "policy.yml": b"policy:\n  id: policy-v0\n",
+        "registry.yml": b"version: registry-v0\n",
+    }
+    repository, revision = create_git_repository_with_files(
+        tmp_path,
+        name="trusted-source-repository",
+        files=real_files,
+    )
+    forged_revision = "f" * 40
+    forged_path = "forged-source.yml"
+    forged_bytes = b"attacker_controlled: true\n"
+    fake_git, marker, _payload = create_fake_git_executable(
+        tmp_path,
+        repository_root=repository,
+        forged_revision=forged_revision,
+        forged_path=forged_path,
+        forged_bytes=forged_bytes,
+    )
+    original_path = os.environ.get("PATH", "")
+    poisoned_path = str(fake_git.parent) + (
+        os.pathsep + original_path if original_path else ""
+    )
+    assert shutil.which("git", path=poisoned_path) == str(fake_git)
+
+    vulnerable = subprocess.run(
+        [
+            "git",
+            "--no-pager",
+            "--no-replace-objects",
+            "-C",
+            str(repository),
+            "cat-file",
+            "blob",
+            f"{forged_revision}:{forged_path}",
+        ],
+        check=False,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        env={**os.environ, "PATH": poisoned_path},
+    )
+    assert vulnerable.returncode == 0
+    assert vulnerable.stdout == forged_bytes
+    assert marker.is_file()
+    marker.unlink()
+
+    monkeypatch.setenv("PATH", poisoned_path)
+    value = source_binding_packet(
+        revision=revision,
+        real_files=real_files,
+        forged_revision=forged_revision,
+        forged_path=forged_path,
+        forged_bytes=forged_bytes,
+    )
+    semantic_ok, complete, source_bytes, errors = (
+        TOOL_MODULE._verify_source_records(
+            value,
+            repository_root=repository,
+        )
+    )
+
+    assert semantic_ok is False
+    assert complete is False
+    assert "source:additional:forged" not in source_bytes
+    assert any(
+        f"git_blob_unavailable: {forged_revision}:{forged_path}" in error
+        for error in errors
+    )
+    assert not marker.exists()
+
+
+def test_full_validator_ignores_fake_git_on_caller_path(
+    tmp_path: Path,
+) -> None:
+    forged_revision = "f" * 40
+    fake_git, marker, _payload = create_fake_git_executable(
+        tmp_path,
+        repository_root=ROOT,
+        forged_revision=forged_revision,
+        forged_path="unused.yml",
+        forged_bytes=b"unused: true\n",
+    )
+    original_path = os.environ.get("PATH", "")
+    poisoned_path = str(fake_git.parent) + (
+        os.pathsep + original_path if original_path else ""
+    )
+
+    result = run_tool(extra_env={"PATH": poisoned_path, "PATHEXT": ".ATTACKER"})
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert result.stderr == ""
+    diagnostic = parse_json_text(result.stdout)
+    assert diagnostic["schema_valid"] is True
+    assert diagnostic["ok"] is True
+    assert diagnostic["errors"] == []
+    assert all(diagnostic["checks"].values())
+    assert not marker.exists()
+
+
+def test_full_validator_succeeds_without_caller_path() -> None:
+    result = run_tool(remove_env=("PATH", "PATHEXT"))
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert result.stderr == ""
+    diagnostic = parse_json_text(result.stdout)
+    assert diagnostic["schema_valid"] is True
+    assert diagnostic["ok"] is True
+    assert diagnostic["errors"] == []
+    assert all(diagnostic["checks"].values())
 
 
 def test_git_blob_read_ignores_attacker_repository_and_object_stores(
@@ -1344,8 +1712,13 @@ def test_artifact_display_path_is_derived_from_carrier_and_container() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_output_cannot_overwrite_schema_packet_or_carrier() -> None:
-    protected = (SCHEMA, EXAMPLE, ARCHIVE)
+def test_output_cannot_overwrite_schema_packet_carrier_or_git() -> None:
+    protected = (
+        SCHEMA,
+        EXAMPLE,
+        ARCHIVE,
+        TOOL_MODULE._trusted_git_executable(),
+    )
     before = snapshot(protected)
 
     for output in protected:
