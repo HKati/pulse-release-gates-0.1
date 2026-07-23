@@ -5,6 +5,7 @@ import copy
 import hashlib
 import importlib.util
 import json
+import os
 import stat
 import subprocess
 import sys
@@ -136,6 +137,7 @@ def run_tool(
     carrier_path: Path | None = None,
     repository_root: Path = ROOT,
     output: Path | None = None,
+    extra_env: dict[str, str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
     command = [
         sys.executable,
@@ -152,6 +154,10 @@ def run_tool(
     if output is not None:
         command.extend(["--output", str(output)])
 
+    environment = dict(os.environ)
+    if extra_env is not None:
+        environment.update(extra_env)
+
     return subprocess.run(
         command,
         cwd=ROOT,
@@ -159,6 +165,7 @@ def run_tool(
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         check=False,
+        env=environment,
     )
 
 
@@ -392,6 +399,147 @@ def observed_packet(
     return value
 
 
+def isolated_test_git_environment() -> dict[str, str]:
+    required = ("PATH",)
+    missing = [key for key in required if not os.environ.get(key)]
+    if missing:
+        pytest.skip(
+            "Git regression requires process environment values: "
+            + ", ".join(missing)
+        )
+
+    preserved = (
+        "PATH",
+        "PATHEXT",
+        "SYSTEMROOT",
+        "WINDIR",
+        "COMSPEC",
+        "TEMP",
+        "TMP",
+        "TMPDIR",
+    )
+    environment = {
+        key: os.environ[key]
+        for key in preserved
+        if key in os.environ
+    }
+    environment.update(
+        {
+            "GIT_CONFIG_GLOBAL": os.devnull,
+            "GIT_CONFIG_SYSTEM": os.devnull,
+            "GIT_CONFIG_NOSYSTEM": "1",
+            "GIT_CONFIG_COUNT": "0",
+            "GIT_TERMINAL_PROMPT": "0",
+            "LC_ALL": "C",
+            "LANG": "C",
+        }
+    )
+    return environment
+
+
+def create_git_repository(
+    tmp_path: Path,
+    *,
+    name: str,
+    tracked_bytes: bytes,
+) -> tuple[Path, str]:
+    repository = tmp_path / name
+    repository.mkdir()
+    environment = isolated_test_git_environment()
+
+    subprocess.run(
+        ["git", "init", "-q", str(repository)],
+        check=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        env=environment,
+    )
+    (repository / "tracked.txt").write_bytes(tracked_bytes)
+    subprocess.run(
+        ["git", "-C", str(repository), "add", "--", "tracked.txt"],
+        check=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        env=environment,
+    )
+    subprocess.run(
+        [
+            "git",
+            "-C",
+            str(repository),
+            "-c",
+            "user.name=PULSEmech validator regression",
+            "-c",
+            "user.email=pulsemech-validator@example.invalid",
+            "commit",
+            "-q",
+            "-m",
+            "fixture",
+        ],
+        check=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        env=environment,
+    )
+    revision = subprocess.run(
+        ["git", "-C", str(repository), "rev-parse", "HEAD"],
+        check=True,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        env=environment,
+    ).stdout.strip()
+    assert len(revision) == 40
+    return repository, revision
+
+
+def inherited_git_blob_read(
+    repository_root: Path,
+    *,
+    revision: str,
+    path: str,
+    attacker_environment: dict[str, str],
+) -> subprocess.CompletedProcess[bytes]:
+    environment = isolated_test_git_environment()
+    environment.update(attacker_environment)
+    return subprocess.run(
+        [
+            "git",
+            "-C",
+            str(repository_root),
+            "cat-file",
+            "blob",
+            f"{revision}:{path}",
+        ],
+        check=False,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        env=environment,
+    )
+
+
+def attacker_git_environments(
+    attacker_repository: Path,
+) -> dict[str, dict[str, str]]:
+    git_directory = attacker_repository / ".git"
+    object_directory = git_directory / "objects"
+    return {
+        "git_dir_and_work_tree": {
+            "GIT_DIR": str(git_directory),
+            "GIT_WORK_TREE": str(attacker_repository),
+        },
+        "git_object_directory": {
+            "GIT_OBJECT_DIRECTORY": str(object_directory),
+        },
+        "git_alternate_object_directories": {
+            "GIT_ALTERNATE_OBJECT_DIRECTORIES": str(object_directory),
+        },
+        "git_common_directory": {
+            "GIT_COMMON_DIR": str(git_directory),
+        },
+    }
+
+
 # ---------------------------------------------------------------------------
 # Exact positive path and deterministic diagnostics
 # ---------------------------------------------------------------------------
@@ -494,6 +642,191 @@ def test_historical_sources_are_read_from_git_not_current_worktree() -> None:
         or current_workflow_sha
         != value["authority_sources"]["workflow"]["sha256"]
     )
+
+
+# ---------------------------------------------------------------------------
+# Git process isolation and repository-root binding
+# ---------------------------------------------------------------------------
+
+
+def test_sanitized_git_environment_drops_caller_controlled_git_variables(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    poisoned = {
+        "GIT_DIR": "/attacker/repository/.git",
+        "GIT_WORK_TREE": "/attacker/repository",
+        "GIT_COMMON_DIR": "/attacker/common",
+        "GIT_OBJECT_DIRECTORY": "/attacker/objects",
+        "GIT_ALTERNATE_OBJECT_DIRECTORIES": "/attacker/alternates",
+        "GIT_INDEX_FILE": "/attacker/index",
+        "GIT_NAMESPACE": "attacker",
+        "GIT_CONFIG_PARAMETERS": "'core.worktree=/attacker/repository'",
+        "GIT_CONFIG_COUNT": "1",
+        "GIT_CONFIG_KEY_0": "core.worktree",
+        "GIT_CONFIG_VALUE_0": "/attacker/repository",
+        "GIT_EXEC_PATH": "/attacker/git-core",
+        "GIT_CEILING_DIRECTORIES": "/attacker",
+        "GIT_DISCOVERY_ACROSS_FILESYSTEM": "1",
+        "GIT_SHALLOW_FILE": "/attacker/shallow",
+    }
+    for key, value in poisoned.items():
+        monkeypatch.setenv(key, value)
+
+    child_environment = TOOL_MODULE._sanitized_git_environment()
+
+    fixed_keys = {
+        "GIT_CONFIG_GLOBAL",
+        "GIT_CONFIG_SYSTEM",
+        "GIT_CONFIG_NOSYSTEM",
+        "GIT_CONFIG_COUNT",
+        "GIT_OPTIONAL_LOCKS",
+        "GIT_NO_REPLACE_OBJECTS",
+        "GIT_TERMINAL_PROMPT",
+        "LC_ALL",
+        "LANG",
+    }
+    allowed_keys = set(TOOL_MODULE.GIT_PROCESS_ENV_ALLOWLIST) | fixed_keys
+    assert set(child_environment) <= allowed_keys
+    assert child_environment["PATH"] == os.environ["PATH"]
+    assert child_environment["GIT_CONFIG_GLOBAL"] == os.devnull
+    assert child_environment["GIT_CONFIG_SYSTEM"] == os.devnull
+    assert child_environment["GIT_CONFIG_NOSYSTEM"] == "1"
+    assert child_environment["GIT_CONFIG_COUNT"] == "0"
+    assert child_environment["GIT_OPTIONAL_LOCKS"] == "0"
+    assert child_environment["GIT_NO_REPLACE_OBJECTS"] == "1"
+    assert child_environment["GIT_TERMINAL_PROMPT"] == "0"
+    assert child_environment["LC_ALL"] == "C"
+    assert child_environment["LANG"] == "C"
+
+    for key in poisoned:
+        if key == "GIT_CONFIG_COUNT":
+            continue
+        assert key not in child_environment
+
+
+def test_missing_process_path_fails_closed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("PATH", raising=False)
+    with pytest.raises(
+        TOOL_MODULE.SemanticError,
+        match="git_process_path_unavailable",
+    ):
+        TOOL_MODULE._sanitized_git_environment()
+
+
+def test_git_blob_read_ignores_attacker_repository_and_object_stores(
+    tmp_path: Path,
+) -> None:
+    real_bytes = b"real repository bytes\n"
+    attacker_bytes = b"attacker repository bytes\n"
+    real_repository, real_revision = create_git_repository(
+        tmp_path,
+        name="real-repository",
+        tracked_bytes=real_bytes,
+    )
+    attacker_repository, attacker_revision = create_git_repository(
+        tmp_path,
+        name="attacker-repository",
+        tracked_bytes=attacker_bytes,
+    )
+    assert real_revision != attacker_revision
+
+    for label, attacker_environment in attacker_git_environments(
+        attacker_repository
+    ).items():
+        vulnerable_read = inherited_git_blob_read(
+            real_repository,
+            revision=attacker_revision,
+            path="tracked.txt",
+            attacker_environment=attacker_environment,
+        )
+        assert vulnerable_read.returncode == 0, (
+            label,
+            vulnerable_read.stderr.decode("utf-8", errors="replace"),
+        )
+        assert vulnerable_read.stdout == attacker_bytes, label
+
+        with pytest.MonkeyPatch.context() as poisoned:
+            for key, value in attacker_environment.items():
+                poisoned.setenv(key, value)
+
+            with pytest.raises(
+                TOOL_MODULE.SemanticError,
+                match="git_blob_unavailable",
+            ):
+                TOOL_MODULE._git_blob_bytes(
+                    real_repository,
+                    revision=attacker_revision,
+                    path="tracked.txt",
+                )
+
+            assert TOOL_MODULE._git_blob_bytes(
+                real_repository,
+                revision=real_revision,
+                path="tracked.txt",
+            ) == real_bytes
+
+
+def test_full_validator_ignores_poisoned_git_environment(
+    tmp_path: Path,
+) -> None:
+    attacker_repository, _attacker_revision = create_git_repository(
+        tmp_path,
+        name="full-validator-attacker",
+        tracked_bytes=b"unrelated attacker bytes\n",
+    )
+    attacker_git_directory = attacker_repository / ".git"
+    attacker_objects = attacker_git_directory / "objects"
+
+    result = run_tool(
+        extra_env={
+            "GIT_DIR": str(attacker_git_directory),
+            "GIT_WORK_TREE": str(attacker_repository),
+            "GIT_COMMON_DIR": str(attacker_git_directory),
+            "GIT_OBJECT_DIRECTORY": str(attacker_objects),
+            "GIT_ALTERNATE_OBJECT_DIRECTORIES": str(attacker_objects),
+            "GIT_INDEX_FILE": str(attacker_git_directory / "index"),
+            "GIT_NAMESPACE": "attacker",
+            "GIT_CONFIG_PARAMETERS": (
+                "'core.worktree="
+                + str(attacker_repository)
+                + "'"
+            ),
+            "GIT_CONFIG_COUNT": "1",
+            "GIT_CONFIG_KEY_0": "core.worktree",
+            "GIT_CONFIG_VALUE_0": str(attacker_repository),
+            "GIT_CEILING_DIRECTORIES": str(tmp_path),
+            "GIT_DISCOVERY_ACROSS_FILESYSTEM": "1",
+        }
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert result.stderr == ""
+    diagnostic = parse_json_text(result.stdout)
+    assert diagnostic["schema_valid"] is True
+    assert diagnostic["ok"] is True
+    assert diagnostic["errors"] == []
+    assert all(diagnostic["checks"].values())
+
+
+def test_repository_root_must_equal_git_top_level(tmp_path: Path) -> None:
+    repository, _revision = create_git_repository(
+        tmp_path,
+        name="root-verification-repository",
+        tracked_bytes=b"root verification bytes\n",
+    )
+    nested = repository / "nested"
+    nested.mkdir()
+
+    assert TOOL_MODULE._verified_git_repository_root(repository) == (
+        repository.resolve(strict=True)
+    )
+    with pytest.raises(
+        TOOL_MODULE.SemanticError,
+        match="git_repository_root_mismatch",
+    ):
+        TOOL_MODULE._verified_git_repository_root(nested)
 
 
 # ---------------------------------------------------------------------------
