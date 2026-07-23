@@ -1249,7 +1249,42 @@ def test_coverage_counter_drift_is_rejected() -> None:
     )
 
 
-def test_reference_list_order_is_reconstructed_not_trusted() -> None:
+def test_historical_active_policy_set_order_is_preserved() -> None:
+    value = packet()
+
+    assert value["subject"]["active_policy_sets"] == [
+        "required",
+        "release_required",
+    ]
+    assert TOOL_MODULE._sorted_unique_strings(
+        value["subject"]["active_policy_sets"]
+    ) is False
+
+    subject_ok, subject_errors = TOOL_MODULE._verify_subject_identity(value)
+    assert subject_ok is True
+    assert subject_errors == []
+
+
+def test_active_policy_sets_require_non_empty_unique_strings() -> None:
+    invalid_values: tuple[list[Any], ...] = (
+        [],
+        ["required", "required"],
+        ["required", ""],
+        ["required", 1],
+    )
+
+    for active_policy_sets in invalid_values:
+        value = packet()
+        value["subject"]["active_policy_sets"] = active_policy_sets
+
+        subject_ok, subject_errors = TOOL_MODULE._verify_subject_identity(value)
+        assert subject_ok is False
+        assert subject_errors == [
+            "active_policy_sets_not_unique_non_empty"
+        ]
+
+
+def test_reordered_active_policy_sets_fail_exact_subject_artifact_binding() -> None:
     value = packet()
     value["subject"]["active_policy_sets"] = list(
         reversed(value["subject"]["active_policy_sets"])
@@ -1257,13 +1292,36 @@ def test_reference_list_order_is_reconstructed_not_trusted() -> None:
 
     diagnostic = assert_semantic_failure(
         value,
+        "subject_artifact_bindings_ok",
+        expected_fragment="release_decision_subject_binding_mismatch",
+    )
+    assert diagnostic["checks"]["deterministic_reference_ordering_ok"] is True
+    assert diagnostic["checks"]["subject_identity_ok"] is True
+
+    expected_errors = {
+        "release_decision_subject_binding_mismatch",
+        "release_authority_subject_binding_mismatch",
+        "artifact_binding_subject_mismatch",
+        "preservation_manifest_subject_binding_mismatch",
+    }
+    assert expected_errors.issubset(set(diagnostic["errors"]))
+
+
+def test_set_like_reference_list_order_remains_fail_closed() -> None:
+    value = packet()
+    references = value["role_bindings"]["candidate_records"]
+    assert references == sorted(references)
+    value["role_bindings"]["candidate_records"] = list(reversed(references))
+
+    diagnostic = assert_semantic_failure(
+        value,
         "deterministic_reference_ordering_ok",
+        expected_fragment=(
+            "role_binding_list_not_sorted_unique: candidate_records"
+        ),
     )
-    assert diagnostic["checks"]["subject_identity_ok"] is False
-    assert any(
-        "active_policy_sets_not_sorted_unique" in str(error)
-        for error in diagnostic["errors"]
-    )
+    assert diagnostic["checks"]["subject_identity_ok"] is True
+    assert diagnostic["checks"]["role_bindings_ok"] is False
 
 
 def test_artifact_display_path_is_derived_from_carrier_and_container() -> None:
