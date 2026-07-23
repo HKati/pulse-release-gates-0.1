@@ -13,7 +13,7 @@ import subprocess
 import sys
 import zipfile
 from datetime import datetime, timezone
-from pathlib import Path, PurePosixPath
+from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import Any, Iterable
 from urllib.parse import unquote, urlparse
 
@@ -100,6 +100,18 @@ POSIX_TRUSTED_GIT_EXECUTABLE_CANDIDATES = (
     Path("/usr/bin/git"),
     Path("/usr/local/bin/git"),
     Path("/opt/local/bin/git"),
+)
+
+WINDOWS_CURRENT_VERSION_REGISTRY_KEY = (
+    r"SOFTWARE\Microsoft\Windows\CurrentVersion"
+)
+WINDOWS_PROGRAM_FILES_REGISTRY_VALUES = (
+    "ProgramFilesDir",
+    "ProgramFilesDir (x86)",
+)
+WINDOWS_GIT_RELATIVE_EXECUTABLES = (
+    PureWindowsPath("Git") / "cmd" / "git.exe",
+    PureWindowsPath("Git") / "bin" / "git.exe",
 )
 
 
@@ -374,21 +386,152 @@ def _relative_packet_path(packet_path: Path, repository_root: Path) -> str | Non
         return None
 
 
+def _dedupe_windows_paths(
+    values: Iterable[PureWindowsPath],
+) -> tuple[PureWindowsPath, ...]:
+    result: list[PureWindowsPath] = []
+    seen: set[str] = set()
+    for value in values:
+        key = str(value).rstrip("\\/").casefold()
+        if key in seen:
+            continue
+        seen.add(key)
+        result.append(value)
+    return tuple(result)
+
+
+def _windows_system_directory() -> PureWindowsPath:
+    if os.name != "nt":
+        raise SemanticError("windows_system_directory_unavailable: not_windows")
+
+    try:
+        import ctypes
+
+        buffer_size = 32768
+        buffer = ctypes.create_unicode_buffer(buffer_size)
+        length = ctypes.windll.kernel32.GetSystemWindowsDirectoryW(
+            buffer,
+            buffer_size,
+        )
+    except Exception as exc:
+        raise SemanticError(
+            f"windows_system_directory_unavailable: {exc}"
+        ) from exc
+
+    if length <= 0 or length >= buffer_size:
+        raise SemanticError(
+            "windows_system_directory_unavailable: "
+            f"invalid_length={length}"
+        )
+
+    directory = PureWindowsPath(buffer.value)
+    if not directory.is_absolute() or not directory.drive or not directory.root:
+        raise SemanticError(
+            "windows_system_directory_invalid: "
+            f"{str(directory)!r}"
+        )
+    return directory
+
+
+def _windows_registry_program_files_roots() -> tuple[PureWindowsPath, ...]:
+    if os.name != "nt":
+        return ()
+
+    try:
+        import winreg
+    except ImportError:
+        return ()
+
+    views: list[int] = [winreg.KEY_READ]
+    for flag_name in ("KEY_WOW64_64KEY", "KEY_WOW64_32KEY"):
+        flag = getattr(winreg, flag_name, 0)
+        access = winreg.KEY_READ | flag
+        if access not in views:
+            views.append(access)
+
+    roots: list[PureWindowsPath] = []
+    accepted_types = {winreg.REG_SZ, winreg.REG_EXPAND_SZ}
+    for access in views:
+        try:
+            key = winreg.OpenKey(
+                winreg.HKEY_LOCAL_MACHINE,
+                WINDOWS_CURRENT_VERSION_REGISTRY_KEY,
+                0,
+                access,
+            )
+        except OSError:
+            continue
+
+        with key:
+            for value_name in WINDOWS_PROGRAM_FILES_REGISTRY_VALUES:
+                try:
+                    raw_value, value_type = winreg.QueryValueEx(key, value_name)
+                except OSError:
+                    continue
+                if value_type not in accepted_types:
+                    continue
+                if not isinstance(raw_value, str):
+                    continue
+                value = raw_value.strip()
+                if not value or "%" in value:
+                    continue
+                candidate = PureWindowsPath(value)
+                if candidate.is_absolute() and candidate.drive and candidate.root:
+                    roots.append(candidate)
+
+    return _dedupe_windows_paths(roots)
+
+
+def _windows_trusted_git_executable_candidate_strings(
+    *,
+    system_windows_directory: str,
+    registry_program_files_roots: Iterable[str] = (),
+) -> tuple[str, ...]:
+    system_directory = PureWindowsPath(system_windows_directory)
+    if (
+        not system_directory.is_absolute()
+        or not system_directory.drive
+        or not system_directory.root
+    ):
+        raise SemanticError(
+            "windows_system_directory_invalid: "
+            f"{system_windows_directory!r}"
+        )
+
+    roots: list[PureWindowsPath] = []
+    for value in registry_program_files_roots:
+        root = PureWindowsPath(value)
+        if root.is_absolute() and root.drive and root.root and "%" not in value:
+            roots.append(root)
+
+    system_drive_root = PureWindowsPath(system_directory.anchor)
+    roots.extend(
+        (
+            system_drive_root / "Program Files",
+            system_drive_root / "Program Files (x86)",
+        )
+    )
+
+    candidates: list[PureWindowsPath] = []
+    for root in _dedupe_windows_paths(roots):
+        candidates.extend(
+            root / relative
+            for relative in WINDOWS_GIT_RELATIVE_EXECUTABLES
+        )
+    return tuple(str(candidate) for candidate in _dedupe_windows_paths(candidates))
+
+
 def _trusted_git_executable_candidates() -> tuple[Path, ...]:
     if os.name != "nt":
         return POSIX_TRUSTED_GIT_EXECUTABLE_CANDIDATES
 
-    system_anchor = Path(sys.executable).anchor
-    if not system_anchor:
-        return ()
-
-    system_drive = Path(system_anchor)
-    return (
-        system_drive / "Program Files" / "Git" / "cmd" / "git.exe",
-        system_drive / "Program Files" / "Git" / "bin" / "git.exe",
-        system_drive / "Program Files (x86)" / "Git" / "cmd" / "git.exe",
-        system_drive / "Program Files (x86)" / "Git" / "bin" / "git.exe",
+    system_directory = _windows_system_directory()
+    registry_roots = _windows_registry_program_files_roots()
+    candidate_strings = _windows_trusted_git_executable_candidate_strings(
+        system_windows_directory=str(system_directory),
+        registry_program_files_roots=(str(root) for root in registry_roots),
     )
+    return tuple(Path(value) for value in candidate_strings)
 
 
 def _normalized_absolute_path(path: Path) -> Path:
