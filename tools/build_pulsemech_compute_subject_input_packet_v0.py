@@ -27,6 +27,15 @@ PRODUCER_SOURCE_PATH = "tools/build_pulsemech_compute_subject_input_packet_v0.py
 PRODUCTION_MODE = "fixed_source_adapter"
 PACKET_SCOPE = "fixed_source_adapter"
 
+PROTECTED_OUTPUT_NAMES = frozenset(
+    {
+        "status.json",
+        "release_decision_v0.json",
+        "release_authority_v0.json",
+        "pulsemech_compute_subject_input_packet_v0.json",
+    }
+)
+
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_CARRIER = ROOT / "PULSE_CI_6066_release_grade_artifact_preservation_v0.zip"
 SCHEMA_SOURCE_PATH = "schemas/pulsemech_compute_subject_input_packet_v0.schema.json"
@@ -681,6 +690,52 @@ def reject_symlink_components(path: Path, *, label: str) -> None:
         if cursor == cursor.parent:
             return
         cursor = cursor.parent
+
+
+def executed_producer_source_path(
+    repository_root: Path,
+    *,
+    revision: str,
+) -> Path:
+    canonical_path = committed_repository_file(
+        repository_root,
+        revision=revision,
+        relative_path=PRODUCER_SOURCE_PATH,
+        label="producer",
+    )
+
+    executed_path = Path(__file__)
+    if not executed_path.is_file():
+        raise BuilderError(f"executed_producer_missing: {executed_path}")
+    if executed_path.is_symlink():
+        raise BuilderError(f"executed_producer_symlink_rejected: {executed_path}")
+    reject_symlink_components(executed_path, label="executed_producer")
+
+    try:
+        executed_resolved = executed_path.resolve(strict=True)
+        canonical_resolved = canonical_path.resolve(strict=True)
+    except OSError as exc:
+        raise BuilderError(f"executed_producer_path_unresolvable: {exc}") from exc
+
+    if os.path.normcase(str(executed_resolved)) != os.path.normcase(
+        str(canonical_resolved)
+    ):
+        raise BuilderError(
+            "executed_producer_path_mismatch: "
+            f"executed={executed_resolved} canonical={canonical_resolved}"
+        )
+
+    committed = _git_blob_bytes(
+        repository_root,
+        revision=revision,
+        path=PRODUCER_SOURCE_PATH,
+    )
+    require_equal(
+        executed_resolved.read_bytes(),
+        committed,
+        label="executed_producer_committed_bytes",
+    )
+    return executed_resolved
 
 
 def load_module(path: Path, module_name: str) -> Any:
@@ -1646,7 +1701,7 @@ def validate_generated_packet(
         raise BuilderError("generated_packet_schema_invalid: " + " | ".join(errors))
     with tempfile.TemporaryDirectory(prefix="pulsemech-subject-input-check-") as raw:
         packet_path = Path(raw) / "generated.json"
-        packet_path.write_text(rendered, encoding="utf-8")
+        packet_path.write_bytes(rendered.encode("utf-8"))
         diagnostic, return_code, _carrier, _snapshots = validator.build_diagnostic(
             schema_path=schema_path,
             packet_path=packet_path,
@@ -1674,11 +1729,7 @@ def reject_output(
     if output is None:
         return
     reject_symlink_components(output, label="output")
-    if output.name in {
-        "status.json",
-        "release_decision_v0.json",
-        "release_authority_v0.json",
-    }:
+    if output.name in PROTECTED_OUTPUT_NAMES:
         raise BuilderError(f"refusing_authority_surface_output: {output.name}")
     try:
         output.resolve().relative_to(repository_root.resolve(strict=True))
@@ -1756,11 +1807,9 @@ def main() -> int:
     try:
         repository_root = _verified_git_repository_root(repository_root)
         revision = current_head(repository_root)
-        producer_path = committed_repository_file(
+        producer_path = executed_producer_source_path(
             repository_root,
             revision=revision,
-            relative_path=PRODUCER_SOURCE_PATH,
-            label="producer",
         )
         schema_path = committed_repository_file(
             repository_root,
