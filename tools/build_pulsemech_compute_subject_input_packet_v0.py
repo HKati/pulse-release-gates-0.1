@@ -847,6 +847,17 @@ def load_exact_bundle(
         raise BuilderError(f"carrier_symlink_rejected: {carrier_path}")
     reject_symlink_components(carrier_path, label="carrier")
 
+    require_equal(
+        carrier_path.stat().st_size,
+        EXPECTED_CARRIER_SIZE,
+        label="preservation_archive_size",
+    )
+    require_equal(
+        sha256_file(carrier_path),
+        EXPECTED_CARRIER_SHA256,
+        label="preservation_archive_sha256",
+    )
+
     manifest_bytes, readme_bytes, sums_bytes = extract_visible_preservation_files(
         carrier_path
     )
