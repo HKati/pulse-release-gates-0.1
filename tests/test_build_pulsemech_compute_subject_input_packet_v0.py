@@ -1221,14 +1221,14 @@ def test_carrier_digest_and_size_drift_are_rejected(tmp_path: Path) -> None:
             fixed_builder=fixed_builder_module(),
         )
 
-    truncated = tmp_path / "truncated.zip"
-    truncated.write_bytes(ARCHIVE.read_bytes()[:-1])
+    size_drift = tmp_path / "size-drift.zip"
+    size_drift.write_bytes(ARCHIVE.read_bytes() + b"\\x00")
     with pytest.raises(
         Exception,
         match="preservation_archive_size_mismatch",
     ):
         PRODUCER_MODULE.load_exact_bundle(
-            carrier_path=truncated,
+            carrier_path=size_drift,
             fixed_builder=fixed_builder_module(),
         )
 
