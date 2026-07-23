@@ -7,13 +7,34 @@ document_role:
 design_and_implementation_state_record
 
 implementation_status:
-fixed_source_artifact_observed_v0_complete
+portable_subject_input_contract_v0_complete
 
 completed_connected_proof:
 PULSE CI #6066
 
 completed_connected_proof_merge:
 b6149dbd464f7f01760ab5fa80487f7e94e475e7
+
+portable_subject_input_contract:
+implemented
+
+portable_subject_input_contract_merge:
+a253e90faeb7a9cf274677adefff3a6bfda303d9
+
+portable_subject_input_hardening:
+complete
+
+portable_subject_input_hardening_head:
+5e3908a9129f009977d5a6e94a3f8d4fca4e8da5
+
+portable_subject_input_post_merge_review:
+PASS
+
+subject_input_packet_producer:
+not_implemented
+
+machine_produced_observed_subject_input_proof:
+not_implemented
 
 runtime_observation_contract:
 implemented
@@ -42,9 +63,10 @@ none
 
 This document defines the PULSEmech compute-binding workstream and records the
 implementation state reached through the fixed-source PULSE CI #6066
-artifact-observed proof.
+artifact-observed proof and the completed portable subject-input packet
+contract.
 
-The original design sequence is complete through:
+The completed design and contract sequence now extends through:
 
 ```text
 compute-binding report contract
@@ -53,6 +75,10 @@ compute-binding report contract
 → planned-observed relation contract and builder
 → non-active candidate policy surface
 → connected fixed-source candidate-boundary proof
+→ portable subject-input packet contract
+→ exact #6066 historical-data example packet
+→ strict subject-input packet validator
+→ repository-root and trusted-Git source-verification hardening
 ```
 
 This document does not itself modify workflow behavior, policy behavior, gate
@@ -60,8 +86,9 @@ registry behavior, verifier or materializer semantics, status authority,
 release authority, SLSA/VSA behavior, DOI, citation, Zenodo, tags, releases, or
 release metadata.
 
-Any current-run integration, runtime-observation production, resource
-measurement, compute budget, or active promotion remains separate work.
+Any packet-producer implementation, reusable analyzer integration, current-run
+integration, runtime-observation production, resource measurement, compute
+budget, or active promotion remains separate work.
 
 ---
 
@@ -99,13 +126,19 @@ non-active candidate gate identities and policy set
 relation-to-candidate-status materializer
 policy-derived generic candidate check
 connected fixed-source #6066 proof
+strict portable subject-input packet contract
+exact #6066 historical-data example packet
+strict subject-input packet validator
+cross-platform trusted Git source reconstruction
 ```
 
 The repository does not yet contain:
 
 ```text
-a portable current-run subject-input producer
-a reusable current-run compute-binding lane
+a subject-input packet producer
+a machine-produced observed subject-input packet proof
+a reusable analyzer core consuming the portable packet
+a current-run artifact-observed reference lane
 a runtime-observation packet producer
 a complete runtime-observed reference chain
 complete per-node compute-resource measurement
@@ -215,6 +248,7 @@ The following do not independently create release authority:
 
 ```text
 compute-binding report
+subject-input packet
 runtime-observation packet
 planned-observed relation
 candidate materializer report
@@ -775,6 +809,266 @@ non-authorizing
 ```
 
 It refuses subject mutation and unsafe output paths.
+
+---
+
+## Portable subject-input packet contract v0
+
+The implemented portable packet identity is:
+
+```text
+schema_version:
+pulsemech_compute_subject_input_packet_v0
+
+packet_type:
+pulsemech_compute_subject_input_packet
+```
+
+Implemented files include:
+
+```text
+schemas/pulsemech_compute_subject_input_packet_v0.schema.json
+examples/compute/pulsemech_compute_subject_input_packet_6066_example_v0.json
+tools/check_pulsemech_compute_subject_input_packet_v0.py
+tests/test_pulsemech_compute_subject_input_packet_schema_v0.py
+tests/test_check_pulsemech_compute_subject_input_packet_v0.py
+ci/tools-tests.list
+```
+
+The contract separates three independent identities:
+
+```text
+packet-record construction status
+≠ referenced subject-data origin
+≠ immutable external-carrier class
+```
+
+The checked-in PULSE CI #6066 packet is:
+
+```text
+record_status:
+example
+
+fixture source-data status:
+historical_observed
+
+carrier kind:
+preservation_archive
+
+packet producer:
+absent
+
+packet-producer execution claimed:
+false
+```
+
+The example status describes the checked-in packet record.
+
+It does not convert the exact historical subject data or the real preservation
+archive into example data.
+
+The contract defines mutually exclusive provenance branches.
+
+```text
+example fixture
+→ fixture_provenance required
+→ producer forbidden
+→ packet_scope=example
+→ packet_producer_execution_claimed=false
+```
+
+```text
+observed packet
+→ exact producer required
+→ fixture_provenance forbidden
+→ exact producer source revision required
+→ exact producer source SHA-256 required
+→ exact workflow or job identity required
+→ exact producer run key required
+→ non-example production mode required
+→ non-example packet scope required
+→ non-example carrier identity required
+```
+
+The packet is:
+
+```text
+metadata-only
+digest-bound
+carrier-dependent
+artifact-observed
+read-only
+non-authoritative
+```
+
+It is not:
+
+```text
+a compute-binding report
+a runtime-observation packet
+a release decision
+a gate result
+a hand-maintained authority form
+```
+
+The strict validator independently reconstructs:
+
+```text
+packet provenance branch
+exact subject-run identity
+exact workflow, policy, and registry source bytes
+exact immutable carrier SHA-256 and size
+nested ZIP membership
+artifact SHA-256 values and byte sizes
+provider bindings
+role bindings
+package inventory
+preservation SHA256SUMS
+subject, decision, authority, and artifact-binding relations
+coverage counters
+deterministic diagnostics
+```
+
+Historical Git source reconstruction uses:
+
+```text
+validated absolute Git executable
++ sanitized Git runtime environment
++ exact repository-root verification
++ exact revision:path blob read
++ exact source SHA-256
++ exact source byte size
+```
+
+Caller-controlled `PATH`, `PATHEXT`, repository variables, object-store
+variables, namespace variables, index variables, and Git configuration are not
+trusted source-selection inputs.
+
+Trusted Git discovery is cross-platform:
+
+```text
+POSIX:
+fixed absolute system candidates
++ executable, ownership, symlink, and writable-component checks
+
+Windows:
+OS-reported system directory
++ machine-wide HKLM Program Files roots
++ deterministic Git for Windows candidates
+```
+
+The completed contract chain is:
+
+```text
+PR #2752
+→ portable subject-input packet contract
+
+PR #2754
+→ Git repository and object-store environment isolation
+
+PR #2755
+→ historical active-policy-set order preservation
+
+PR #2756
+→ stable container-cycle regression alignment
+
+PR #2757
+→ trusted absolute cross-platform Git executable selection
+```
+
+Merged commits:
+
+```text
+PR #2752:
+a253e90faeb7a9cf274677adefff3a6bfda303d9
+
+PR #2754:
+df55eb97368773cccacff0cfcc192e8e0cd5137c
+
+PR #2755:
+d3523fed1c3f7ea10e8f75383a77726ca486b408
+
+PR #2756:
+88327021720034a11034413bd51d79ced567ab42
+
+PR #2757:
+5e3908a9129f009977d5a6e94a3f8d4fca4e8da5
+```
+
+Final checked-in identities:
+
+```text
+schema:
+1361 lines
+33513 bytes
+81c274aaee7cd2aee015eda490cc82bd19f7556db35e2c3dc9995fbdb8d96e19
+
+#6066 historical-data example:
+736 lines
+45646 bytes
+37d2cec0aacd0a423da3df37dfe96c8ae5af89fbdce1f0b745cdb82ce667f251
+
+strict validator:
+2659 lines
+92218 bytes
+a9690c8cdba3b4192eea0033b627d3b99b507019f4afbfc0bdb003c531f35383
+
+schema regression:
+906 lines
+26820 bytes
+3ed460ca64ae0484dfb283dca0e21b38564fc1f89bf380967b82f1afea5dd335
+
+validator regression:
+1797 lines
+55579 bytes
+4aeabe43ad5678ffb0c213aefc86e1b20ac92956c168c529a483db07924a4f40
+
+CI manifest:
+141 lines
+7296 bytes
+2a3c4d78e09615eec43d801ea56d795768850b3a65728d0fc22850e7e31b575e
+```
+
+Post-merge review result:
+
+```text
+default validator:
+PASS
+
+complete registered validator regression:
+PASS
+
+actionable findings:
+none
+
+working tree:
+clean
+```
+
+Current production state:
+
+```text
+portable packet contract:
+complete
+
+strict packet validator:
+complete
+
+packet producer:
+not implemented
+
+machine-produced observed packet proof:
+not implemented
+
+current-run integration:
+none
+
+runtime activation:
+none
+
+release-authority effect:
+none
+```
 
 ---
 
@@ -1511,7 +1805,10 @@ consumed by the analyzer
 A declaration with no observed downstream relation remains partial or
 unresolved.
 
-The next portable subject input must be machine-produced and digest-bound.
+The portable subject-input contract and strict validator are implemented.
+
+The next observed subject-input packet must be machine-produced, digest-bound,
+producer-bound, and independently replayable.
 
 It must not become a new manually curated authority surface.
 
@@ -1519,9 +1816,9 @@ It must not become a new manually curated authority surface.
 
 ## 20. Remaining implementation plan
 
-### Step 1 — portable subject-input contract
+### Completed Step 1 — portable subject-input contract
 
-Create a strict machine-readable subject packet carrying:
+The strict machine-readable subject packet contract now carries:
 
 ```text
 subject repository
@@ -1543,7 +1840,65 @@ policy identity and digest
 workflow identity and digest
 ```
 
-The packet must be produced mechanically.
+The contract, exact #6066 historical-data example, strict validator,
+regressions, CI registration, and post-merge hardening are complete.
+
+The checked-in example is a contract fixture over exact historical data.
+
+It is not a machine-produced observed packet.
+
+### Step 1A — subject-input packet producer
+
+Implement one deterministic, read-only producer:
+
+```text
+exact subject carrier
++ exact subject-run identity
++ exact authority-source identities
++ exact producer source identity
++ exact producer execution identity
+→ record_status=observed subject-input packet
+```
+
+The first producer proof uses the preserved #6066 carrier:
+
+```text
+PULSE CI #6066 preservation archive
+→ fixed_source_adapter producer
+→ machine-produced observed subject-input packet
+→ strict subject-input validator
+```
+
+Planned implementation surfaces:
+
+```text
+tools/build_pulsemech_compute_subject_input_packet_v0.py
+tests/test_build_pulsemech_compute_subject_input_packet_v0.py
+ci/tools-tests.list
+```
+
+The producer must:
+
+```text
+derive every digest and byte size from source bytes
+derive every nested member path from the carrier
+bind its own exact source revision and source SHA-256
+bind its own execution identity and producer run key
+write only the output packet
+preserve the subject carrier and repository
+fail closed on incomplete or conflicting identity
+```
+
+This producer step does not create:
+
+```text
+current-run workflow integration
+runtime observation
+a compute budget
+candidate-gate activation
+release-required enforcement
+release authority
+```
 
 ### Step 2 — reusable analyzer core
 
@@ -1754,9 +2109,58 @@ post-merge Codex review:
 PASS
 ```
 
-The original implementation sequence is therefore complete.
+### Portable subject-input packet contract
 
-The next work begins at the portable/current-run boundary.
+```text
+PR #2752
+portable subject-input packet schema
+exact #6066 historical-data example
+strict validator
+schema and validator regressions
+CI registration
+```
+
+Status:
+
+```text
+complete
+```
+
+### Portable subject-input hardening and closure
+
+```text
+PR #2754
+Git repository and object-store environment isolation
+
+PR #2755
+historical active-policy-set order preservation
+
+PR #2756
+container-cycle diagnostic regression alignment
+
+PR #2757
+trusted absolute cross-platform Git executable selection
+```
+
+Final main commit:
+
+```text
+5e3908a9129f009977d5a6e94a3f8d4fca4e8da5
+```
+
+Status:
+
+```text
+complete
+
+post-merge Codex review:
+PASS
+```
+
+The fixed-source and portable-contract implementation sequences are complete.
+
+The next work begins at the machine-produced observed subject-input packet
+boundary.
 
 ---
 
@@ -1905,7 +2309,22 @@ implemented
 fixed-source connected candidate proof:
 implemented and proven
 
-portable current-run subject input:
+portable subject-input packet schema:
+implemented
+
+exact #6066 historical-data example packet:
+implemented and proven
+
+strict subject-input packet validator:
+implemented and hardened
+
+trusted cross-platform Git source verification:
+implemented and proven
+
+subject-input packet producer:
+not implemented
+
+machine-produced observed subject-input packet proof:
 not implemented
 
 reusable current-run analyzer lane:
@@ -1946,6 +2365,37 @@ completed PULSE CI #6066 subject
 → generated compute-to-transition graph
 → generated planned-observed relation
 → candidate materialization
+```
+
+The completed portable input boundary is:
+
+```text
+exact subject and carrier metadata
++ explicit fixture or producer provenance
++ exact authority-source identities
++ nested content-addressed artifact inventory
++ strict independent reconstruction
+→ portable analyzer-input contract
+```
+
+The checked-in #6066 packet remains:
+
+```text
+example packet
+over
+exact observed historical subject data
+```
+
+It is not an observed producer record.
+
+The next mechanical transition is:
+
+```text
+preserved #6066 carrier
+→ deterministic subject-input packet producer
+→ record_status=observed packet
+→ strict packet validation
+→ machine-produced observed packet proof
 ```
 
 The exact candidate result is:
