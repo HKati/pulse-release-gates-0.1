@@ -44,10 +44,10 @@ THRESHOLD_POLICY = (
 )
 
 EXPECTED_PRODUCER_SHA256 = (
-    "f97b8708df487d7c6f1d16f36bb5c73a7fd5a346cb06f09a1e265ab883a77778"
+    "152e9ed67bf10389726ab7e27d59005afe62d23488e8cd13ffa58443bee13d18"
 )
-EXPECTED_PRODUCER_SIZE_BYTES = 67488
-EXPECTED_PRODUCER_LINE_COUNT = 1950
+EXPECTED_PRODUCER_SIZE_BYTES = 67686
+EXPECTED_PRODUCER_LINE_COUNT = 1963
 
 EXPECTED_CARRIER_SHA256 = (
     "7949bfd00468e6f9347fddaae732bdcebff5527e87ecb379a6c84a47176db966"
@@ -1206,31 +1206,115 @@ def test_missing_and_symlink_carriers_are_rejected(tmp_path: Path) -> None:
         )
 
 
-def test_carrier_digest_and_size_drift_are_rejected(tmp_path: Path) -> None:
-    same_size = tmp_path / "same-size-corrupt.zip"
+@pytest.mark.parametrize(
+    ("kind", "expected_fragment"),
+    [
+        ("same_size_wrong_digest", "preservation_archive_sha256_mismatch"),
+        ("wrong_size", "preservation_archive_size_mismatch"),
+    ],
+)
+def test_carrier_identity_mismatch_precedes_visible_member_extraction(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    kind: str,
+    expected_fragment: str,
+) -> None:
+    candidate = tmp_path / f"{kind}.zip"
     payload = bytearray(ARCHIVE.read_bytes())
-    payload[len(payload) // 2] ^= 0x01
-    same_size.write_bytes(payload)
-    assert same_size.stat().st_size == EXPECTED_CARRIER_SIZE_BYTES
-    with pytest.raises(
-        Exception,
-        match="preservation_archive_sha256_mismatch",
-    ):
-        PRODUCER_MODULE.load_exact_bundle(
-            carrier_path=same_size,
-            fixed_builder=fixed_builder_module(),
+
+    if kind == "same_size_wrong_digest":
+        payload[len(payload) // 2] ^= 0x01
+        candidate.write_bytes(payload)
+        assert candidate.stat().st_size == EXPECTED_CARRIER_SIZE_BYTES
+    else:
+        candidate.write_bytes(payload + b"\x00")
+        assert candidate.stat().st_size != EXPECTED_CARRIER_SIZE_BYTES
+
+    extraction_called = False
+
+    def forbidden_visible_member_extraction(
+        _carrier_path: Path,
+    ) -> tuple[bytes, bytes, bytes]:
+        nonlocal extraction_called
+        extraction_called = True
+        raise AssertionError(
+            "visible preservation members must not be read before "
+            "exact carrier identity passes"
         )
 
-    size_drift = tmp_path / "size-drift.zip"
-    size_drift.write_bytes(ARCHIVE.read_bytes() + b"\\x00")
+    monkeypatch.setattr(
+        PRODUCER_MODULE,
+        "extract_visible_preservation_files",
+        forbidden_visible_member_extraction,
+    )
+
     with pytest.raises(
-        Exception,
-        match="preservation_archive_size_mismatch",
+        PRODUCER_MODULE.BuilderError,
+        match=expected_fragment,
     ):
         PRODUCER_MODULE.load_exact_bundle(
-            carrier_path=size_drift,
-            fixed_builder=fixed_builder_module(),
+            carrier_path=candidate,
+            fixed_builder=object(),
         )
+
+    assert extraction_called is False
+
+
+def test_cli_wrong_size_fails_before_carrier_hash(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    carrier = tmp_path / "wrong-size.zip"
+    carrier.write_bytes(b"wrong-size")
+    assert carrier.stat().st_size != EXPECTED_CARRIER_SIZE_BYTES
+
+    original_sha256_file = PRODUCER_MODULE.sha256_file
+    carrier_hash_calls: list[Path] = []
+
+    def guarded_sha256_file(path: Path) -> str:
+        if path == carrier:
+            carrier_hash_calls.append(path)
+            raise AssertionError(
+                "wrong-size carrier must be rejected before full-file hashing"
+            )
+        return original_sha256_file(path)
+
+    monkeypatch.setattr(
+        PRODUCER_MODULE,
+        "sha256_file",
+        guarded_sha256_file,
+    )
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            str(PRODUCER),
+            "--carrier",
+            str(carrier),
+            "--repository-root",
+            str(ROOT),
+            "--packet-created-utc",
+            PACKET_CREATED_UTC,
+            "--producer-run-key",
+            PRODUCER_RUN_KEY,
+            "--ci-workflow-or-job-identity",
+            EXECUTION_IDENTITY,
+        ],
+    )
+
+    assert PRODUCER_MODULE.main() == 1
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    diagnostic = strict_json_text(
+        captured.err,
+        label="wrong-size carrier diagnostic",
+    )
+    assert any(
+        "preservation_archive_size_mismatch" in str(error)
+        for error in diagnostic["errors"]
+    )
+    assert carrier_hash_calls == []
 
 
 @pytest.mark.parametrize(

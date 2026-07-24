@@ -280,6 +280,27 @@ def require_equal(actual: Any, expected: Any, *, label: str) -> None:
         )
 
 
+def verify_exact_carrier_identity(carrier_path: Path) -> str:
+    if not carrier_path.is_file():
+        raise BuilderError(f"carrier_missing: {carrier_path}")
+    if carrier_path.is_symlink():
+        raise BuilderError(f"carrier_symlink_rejected: {carrier_path}")
+    reject_symlink_components(carrier_path, label="carrier")
+
+    require_equal(
+        carrier_path.stat().st_size,
+        EXPECTED_CARRIER_SIZE,
+        label="preservation_archive_size",
+    )
+    digest = sha256_file(carrier_path)
+    require_equal(
+        digest,
+        EXPECTED_CARRIER_SHA256,
+        label="preservation_archive_sha256",
+    )
+    return digest
+
+
 def non_empty_string(value: Any, *, label: str) -> str:
     if not isinstance(value, str) or not value:
         raise BuilderError(f"{label}_missing_or_invalid: {value!r}")
@@ -841,11 +862,7 @@ def load_exact_bundle(
     carrier_path: Path,
     fixed_builder: Any,
 ) -> Any:
-    if not carrier_path.is_file():
-        raise BuilderError(f"carrier_missing: {carrier_path}")
-    if carrier_path.is_symlink():
-        raise BuilderError(f"carrier_symlink_rejected: {carrier_path}")
-    reject_symlink_components(carrier_path, label="carrier")
+    verify_exact_carrier_identity(carrier_path)
 
     manifest_bytes, readme_bytes, sums_bytes = extract_visible_preservation_files(
         carrier_path
@@ -1829,14 +1846,10 @@ def main() -> int:
             relative_path=FIXED_SOURCE_BUILDER_PATH,
             label="fixed_source_builder",
         )
-        if not carrier_path.is_file():
-            raise BuilderError(f"carrier_missing: {carrier_path}")
-        if carrier_path.is_symlink():
-            raise BuilderError(f"carrier_symlink_rejected: {carrier_path}")
-        reject_symlink_components(carrier_path, label="carrier")
+        carrier_sha256 = verify_exact_carrier_identity(carrier_path)
 
         protected_before = {
-            "carrier": sha256_file(carrier_path),
+            "carrier": carrier_sha256,
             "schema": sha256_file(schema_path),
             "validator": sha256_file(validator_path),
             "fixed_builder": sha256_file(fixed_builder_path),
