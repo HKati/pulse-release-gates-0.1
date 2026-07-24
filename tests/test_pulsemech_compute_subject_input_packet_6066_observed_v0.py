@@ -95,6 +95,10 @@ class HistoricalReplay:
     packet: dict[str, Any]
 
 
+class HistoricalReplayCleanupError(AssertionError):
+    """Raised when detached replay cleanup cannot be completed exactly."""
+
+
 # ---------------------------------------------------------------------------
 # Strict parsing, canonicalization, and module loading
 # ---------------------------------------------------------------------------
@@ -340,11 +344,114 @@ def run_git(
     return completed
 
 
+def cleanup_git_failure(
+    *,
+    operation: str,
+    completed: subprocess.CompletedProcess[str],
+) -> str:
+    return (
+        f"{operation}_failed: returncode={completed.returncode}; "
+        f"stdout={completed.stdout!r}; stderr={completed.stderr!r}"
+    )
+
+
+def cleanup_detached_producer_worktree(
+    *,
+    workspace: Path,
+    worktree: Path,
+    added: bool,
+    run_git_fn: Callable[..., subprocess.CompletedProcess[str]],
+    rmtree_fn: Callable[[Path], None],
+    exists_fn: Callable[[Path], bool],
+) -> None:
+    failures: list[str] = []
+
+    if added:
+        try:
+            removed = run_git_fn(
+                ROOT,
+                ["worktree", "remove", "--force", str(worktree)],
+                check=False,
+            )
+        except Exception as exc:
+            failures.append(
+                "worktree_remove_exception: "
+                f"{type(exc).__name__}: {exc}"
+            )
+        else:
+            if removed.returncode != 0:
+                failures.append(
+                    cleanup_git_failure(
+                        operation="worktree_remove",
+                        completed=removed,
+                    )
+                )
+
+    try:
+        rmtree_fn(workspace)
+    except FileNotFoundError:
+        pass
+    except Exception as exc:
+        failures.append(
+            "workspace_removal_failed: "
+            f"{type(exc).__name__}: {exc}"
+        )
+
+    try:
+        workspace_still_exists = exists_fn(workspace)
+    except Exception as exc:
+        failures.append(
+            "workspace_post_removal_check_failed: "
+            f"{type(exc).__name__}: {exc}"
+        )
+    else:
+        if workspace_still_exists:
+            failures.append(f"workspace_removal_incomplete: {workspace}")
+
+    if added:
+        try:
+            pruned = run_git_fn(
+                ROOT,
+                ["worktree", "prune"],
+                check=False,
+            )
+        except Exception as exc:
+            failures.append(
+                "worktree_prune_exception: "
+                f"{type(exc).__name__}: {exc}"
+            )
+        else:
+            if pruned.returncode != 0:
+                failures.append(
+                    cleanup_git_failure(
+                        operation="worktree_prune",
+                        completed=pruned,
+                    )
+                )
+
+    if failures:
+        raise HistoricalReplayCleanupError(
+            "historical_replay_cleanup_failed:\n- "
+            + "\n- ".join(failures)
+        )
+
+
 @contextmanager
-def detached_producer_worktree() -> Iterator[tuple[Path, Path]]:
+def detached_producer_worktree(
+    *,
+    run_git_fn: Callable[..., subprocess.CompletedProcess[str]] | None = None,
+    mkdtemp_fn: Callable[..., str] | None = None,
+    rmtree_fn: Callable[[Path], None] | None = None,
+    exists_fn: Callable[[Path], bool] | None = None,
+) -> Iterator[tuple[Path, Path]]:
+    run_git_impl = run_git if run_git_fn is None else run_git_fn
+    mkdtemp_impl = tempfile.mkdtemp if mkdtemp_fn is None else mkdtemp_fn
+    rmtree_impl = shutil.rmtree if rmtree_fn is None else rmtree_fn
+    exists_impl = Path.exists if exists_fn is None else exists_fn
+
     workspace_parent = ROOT.parent.resolve(strict=True)
     workspace = Path(
-        tempfile.mkdtemp(
+        mkdtemp_impl(
             prefix=".pulsemech-observed-6066-replay-",
             dir=str(workspace_parent),
         )
@@ -352,9 +459,10 @@ def detached_producer_worktree() -> Iterator[tuple[Path, Path]]:
     worktree = workspace / "producer-revision"
     output = workspace / "regenerated-observed-packet.json"
     added = False
+    primary_error: BaseException | None = None
 
     try:
-        run_git(
+        run_git_impl(
             ROOT,
             [
                 "worktree",
@@ -367,19 +475,40 @@ def detached_producer_worktree() -> Iterator[tuple[Path, Path]]:
         )
         added = True
 
-        head = run_git(worktree, ["rev-parse", "HEAD"]).stdout.strip()
+        head = run_git_impl(
+            worktree,
+            ["rev-parse", "HEAD"],
+        ).stdout.strip()
         assert head == PINNED_PRODUCER_REVISION
 
         yield worktree, output
+    except BaseException as exc:
+        primary_error = exc
     finally:
-        if added:
-            run_git(
-                ROOT,
-                ["worktree", "remove", "--force", str(worktree)],
-                check=False,
+        cleanup_error: HistoricalReplayCleanupError | None = None
+        try:
+            cleanup_detached_producer_worktree(
+                workspace=workspace,
+                worktree=worktree,
+                added=added,
+                run_git_fn=run_git_impl,
+                rmtree_fn=rmtree_impl,
+                exists_fn=exists_impl,
             )
-            run_git(ROOT, ["worktree", "prune"], check=False)
-        shutil.rmtree(workspace, ignore_errors=True)
+        except HistoricalReplayCleanupError as exc:
+            cleanup_error = exc
+
+        if cleanup_error is not None:
+            if primary_error is not None:
+                raise HistoricalReplayCleanupError(
+                    "historical_replay_primary_and_cleanup_failed: "
+                    f"{type(primary_error).__name__}: {primary_error}\n"
+                    f"{cleanup_error}"
+                ) from primary_error
+            raise cleanup_error
+
+        if primary_error is not None:
+            raise primary_error.with_traceback(primary_error.__traceback__)
 
 
 def execute_historical_producer(worktree: Path, output: Path) -> HistoricalReplay:
@@ -449,6 +578,169 @@ def execute_historical_producer(worktree: Path, output: Path) -> HistoricalRepla
 def historical_replay() -> HistoricalReplay:
     with detached_producer_worktree() as (worktree, output):
         yield execute_historical_producer(worktree, output)
+
+
+# ---------------------------------------------------------------------------
+# Fail-closed detached-worktree cleanup
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("failure_stage", "expected_fragment", "primary_failure"),
+    [
+        pytest.param(
+            "worktree-remove",
+            "worktree_remove_failed",
+            False,
+            id="worktree-remove",
+        ),
+        pytest.param(
+            "worktree-prune",
+            "worktree_prune_failed",
+            False,
+            id="worktree-prune",
+        ),
+        pytest.param(
+            "workspace-remove",
+            "workspace_removal_failed",
+            False,
+            id="workspace-remove",
+        ),
+        pytest.param(
+            "workspace-exists",
+            "workspace_post_removal_check_failed",
+            False,
+            id="workspace-exists",
+        ),
+        pytest.param(
+            "workspace-exists-primary",
+            "historical_replay_primary_and_cleanup_failed",
+            True,
+            id="workspace-exists-preserves-primary",
+        ),
+    ],
+)
+def test_detached_worktree_cleanup_failures_are_reported(
+    tmp_path: Path,
+    failure_stage: str,
+    expected_fragment: str,
+    primary_failure: bool,
+) -> None:
+    workspace = tmp_path / "replay-workspace"
+    events: list[str] = []
+
+    def fake_mkdtemp(*, prefix: str, dir: str) -> str:
+        assert prefix == ".pulsemech-observed-6066-replay-"
+        assert Path(dir) == ROOT.parent.resolve(strict=True)
+        workspace.mkdir()
+        events.append("workspace-create")
+        return str(workspace)
+
+    def fake_run_git(
+        repository_root: Path,
+        arguments: list[str],
+        *,
+        check: bool = True,
+    ) -> subprocess.CompletedProcess[str]:
+        if arguments[:2] == ["worktree", "add"]:
+            events.append("worktree-add")
+            (workspace / "producer-revision").mkdir(parents=True)
+            return subprocess.CompletedProcess(arguments, 0, "", "")
+
+        if arguments == ["rev-parse", "HEAD"]:
+            events.append("head-verify")
+            return subprocess.CompletedProcess(
+                arguments,
+                0,
+                PINNED_PRODUCER_REVISION + "\n",
+                "",
+            )
+
+        if arguments[:2] == ["worktree", "remove"]:
+            events.append("worktree-remove")
+            return subprocess.CompletedProcess(
+                arguments,
+                17 if failure_stage == "worktree-remove" else 0,
+                "",
+                "synthetic worktree remove failure"
+                if failure_stage == "worktree-remove"
+                else "",
+            )
+
+        if arguments == ["worktree", "prune"]:
+            events.append("worktree-prune")
+            return subprocess.CompletedProcess(
+                arguments,
+                18 if failure_stage == "worktree-prune" else 0,
+                "",
+                "synthetic worktree prune failure"
+                if failure_stage == "worktree-prune"
+                else "",
+            )
+
+        raise AssertionError(
+            f"unexpected fake Git call: {repository_root}: {arguments}"
+        )
+
+    def fake_rmtree(path: Path) -> None:
+        assert path == workspace
+        events.append("workspace-remove")
+        if failure_stage == "workspace-remove":
+            raise PermissionError("synthetic workspace removal failure")
+        shutil.rmtree(path)
+
+    def fake_exists(path: Path) -> bool:
+        assert path == workspace
+        events.append("workspace-exists")
+        if failure_stage in {
+            "workspace-exists",
+            "workspace-exists-primary",
+        }:
+            raise PermissionError(
+                "synthetic workspace post-removal existence failure"
+            )
+        return path.exists()
+
+    try:
+        with pytest.raises(
+            HistoricalReplayCleanupError,
+            match=expected_fragment,
+        ) as captured:
+            with detached_producer_worktree(
+                run_git_fn=fake_run_git,
+                mkdtemp_fn=fake_mkdtemp,
+                rmtree_fn=fake_rmtree,
+                exists_fn=fake_exists,
+            ) as (worktree, output):
+                assert worktree == workspace / "producer-revision"
+                assert output == workspace / "regenerated-observed-packet.json"
+                if primary_failure:
+                    raise RuntimeError("synthetic primary replay failure")
+
+        if primary_failure:
+            assert isinstance(captured.value.__cause__, RuntimeError)
+            assert (
+                "workspace_post_removal_check_failed"
+                in str(captured.value)
+            )
+
+        assert events == [
+            "workspace-create",
+            "worktree-add",
+            "head-verify",
+            "worktree-remove",
+            "workspace-remove",
+            "workspace-exists",
+            "worktree-prune",
+        ]
+
+        if failure_stage == "workspace-remove":
+            assert workspace.exists()
+        else:
+            assert not workspace.exists()
+    finally:
+        if workspace.exists():
+            shutil.rmtree(workspace)
 
 
 # ---------------------------------------------------------------------------
