@@ -674,9 +674,9 @@ def test_noncanonical_checked_in_serialization_is_rejected(tmp_path: Path) -> No
     )
     assert diagnostic["ok"] is False
     assert diagnostic["checks"]["canonical_packet_serialization_ok"] is False
-    assert any(
-        "canonical_packet_serialization_mismatch" in str(error)
-        for error in diagnostic["errors"]
+    assert (
+        "check_failed: canonical_packet_serialization_ok"
+        in diagnostic["errors"]
     )
 
 
