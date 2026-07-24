@@ -362,6 +362,7 @@ def cleanup_detached_producer_worktree(
     added: bool,
     run_git_fn: Callable[..., subprocess.CompletedProcess[str]],
     rmtree_fn: Callable[[Path], None],
+    exists_fn: Callable[[Path], bool],
 ) -> None:
     failures: list[str] = []
 
@@ -396,8 +397,16 @@ def cleanup_detached_producer_worktree(
             f"{type(exc).__name__}: {exc}"
         )
 
-    if workspace.exists():
-        failures.append(f"workspace_removal_incomplete: {workspace}")
+    try:
+        workspace_still_exists = exists_fn(workspace)
+    except Exception as exc:
+        failures.append(
+            "workspace_post_removal_check_failed: "
+            f"{type(exc).__name__}: {exc}"
+        )
+    else:
+        if workspace_still_exists:
+            failures.append(f"workspace_removal_incomplete: {workspace}")
 
     if added:
         try:
@@ -433,10 +442,12 @@ def detached_producer_worktree(
     run_git_fn: Callable[..., subprocess.CompletedProcess[str]] | None = None,
     mkdtemp_fn: Callable[..., str] | None = None,
     rmtree_fn: Callable[[Path], None] | None = None,
+    exists_fn: Callable[[Path], bool] | None = None,
 ) -> Iterator[tuple[Path, Path]]:
     run_git_impl = run_git if run_git_fn is None else run_git_fn
     mkdtemp_impl = tempfile.mkdtemp if mkdtemp_fn is None else mkdtemp_fn
     rmtree_impl = shutil.rmtree if rmtree_fn is None else rmtree_fn
+    exists_impl = Path.exists if exists_fn is None else exists_fn
 
     workspace_parent = ROOT.parent.resolve(strict=True)
     workspace = Path(
@@ -482,6 +493,7 @@ def detached_producer_worktree(
                 added=added,
                 run_git_fn=run_git_impl,
                 rmtree_fn=rmtree_impl,
+                exists_fn=exists_impl,
             )
         except HistoricalReplayCleanupError as exc:
             cleanup_error = exc
@@ -574,22 +586,37 @@ def historical_replay() -> HistoricalReplay:
 
 
 @pytest.mark.parametrize(
-    ("failure_stage", "expected_fragment"),
+    ("failure_stage", "expected_fragment", "primary_failure"),
     [
         pytest.param(
             "worktree-remove",
             "worktree_remove_failed",
+            False,
             id="worktree-remove",
         ),
         pytest.param(
             "worktree-prune",
             "worktree_prune_failed",
+            False,
             id="worktree-prune",
         ),
         pytest.param(
             "workspace-remove",
             "workspace_removal_failed",
+            False,
             id="workspace-remove",
+        ),
+        pytest.param(
+            "workspace-exists",
+            "workspace_post_removal_check_failed",
+            False,
+            id="workspace-exists",
+        ),
+        pytest.param(
+            "workspace-exists-primary",
+            "historical_replay_primary_and_cleanup_failed",
+            True,
+            id="workspace-exists-preserves-primary",
         ),
     ],
 )
@@ -597,6 +624,7 @@ def test_detached_worktree_cleanup_failures_are_reported(
     tmp_path: Path,
     failure_stage: str,
     expected_fragment: str,
+    primary_failure: bool,
 ) -> None:
     workspace = tmp_path / "replay-workspace"
     events: list[str] = []
@@ -661,18 +689,40 @@ def test_detached_worktree_cleanup_failures_are_reported(
             raise PermissionError("synthetic workspace removal failure")
         shutil.rmtree(path)
 
+    def fake_exists(path: Path) -> bool:
+        assert path == workspace
+        events.append("workspace-exists")
+        if failure_stage in {
+            "workspace-exists",
+            "workspace-exists-primary",
+        }:
+            raise PermissionError(
+                "synthetic workspace post-removal existence failure"
+            )
+        return path.exists()
+
     try:
         with pytest.raises(
             HistoricalReplayCleanupError,
             match=expected_fragment,
-        ):
+        ) as captured:
             with detached_producer_worktree(
                 run_git_fn=fake_run_git,
                 mkdtemp_fn=fake_mkdtemp,
                 rmtree_fn=fake_rmtree,
+                exists_fn=fake_exists,
             ) as (worktree, output):
                 assert worktree == workspace / "producer-revision"
                 assert output == workspace / "regenerated-observed-packet.json"
+                if primary_failure:
+                    raise RuntimeError("synthetic primary replay failure")
+
+        if primary_failure:
+            assert isinstance(captured.value.__cause__, RuntimeError)
+            assert (
+                "workspace_post_removal_check_failed"
+                in str(captured.value)
+            )
 
         assert events == [
             "workspace-create",
@@ -680,6 +730,7 @@ def test_detached_worktree_cleanup_failures_are_reported(
             "head-verify",
             "worktree-remove",
             "workspace-remove",
+            "workspace-exists",
             "worktree-prune",
         ]
 
