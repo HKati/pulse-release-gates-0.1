@@ -7,7 +7,7 @@ document_role:
 design_and_implementation_state_record
 
 implementation_status:
-portable_subject_input_contract_v0_complete
+machine_produced_observed_subject_input_proof_complete
 
 completed_connected_proof:
 PULSE CI #6066
@@ -31,10 +31,34 @@ portable_subject_input_post_merge_review:
 PASS
 
 subject_input_packet_producer:
-not_implemented
+implemented_and_proven
+
+subject_input_packet_producer_merge:
+d4cead4b8a1c3604446a74ac2598eed8ad2a18d6
+
+subject_input_packet_producer_hardening_merge:
+3cd57dc9e88e6f804dbb134c864f4207688bddc2
+
+subject_input_packet_producer_revision:
+3cd57dc9e88e6f804dbb134c864f4207688bddc2
+
+subject_input_packet_producer_post_merge_review:
+PASS
 
 machine_produced_observed_subject_input_proof:
-not_implemented
+implemented_and_proven
+
+machine_produced_observed_subject_input_proof_merge:
+fa25f30d0efa3d6d37fbb1781509f859e9a9b4f3
+
+observed_subject_input_replay_hardening_merge:
+f5ff95ea78d3d79f2deab0b4647c27b5137e6db5
+
+observed_subject_input_proof_head:
+f5ff95ea78d3d79f2deab0b4647c27b5137e6db5
+
+observed_subject_input_post_merge_review:
+PASS
 
 runtime_observation_contract:
 implemented
@@ -63,10 +87,11 @@ none
 
 This document defines the PULSEmech compute-binding workstream and records the
 implementation state reached through the fixed-source PULSE CI #6066
-artifact-observed proof and the completed portable subject-input packet
-contract.
+artifact-observed proof, the portable subject-input packet contract, the
+fixed-source packet producer, and the checked-in machine-produced observed
+packet proof.
 
-The completed design and contract sequence now extends through:
+The completed implementation sequence now extends through:
 
 ```text
 compute-binding report contract
@@ -79,6 +104,11 @@ compute-binding report contract
 → exact #6066 historical-data example packet
 → strict subject-input packet validator
 → repository-root and trusted-Git source-verification hardening
+→ deterministic fixed_source_adapter packet producer
+→ exact carrier size before hashing and exact SHA-256 before ZIP reads
+→ checked-in record_status=observed #6066 packet
+→ pinned historical-producer byte-for-byte replay
+→ fail-closed replay-worktree and workspace cleanup
 ```
 
 This document does not itself modify workflow behavior, policy behavior, gate
@@ -86,9 +116,9 @@ registry behavior, verifier or materializer semantics, status authority,
 release authority, SLSA/VSA behavior, DOI, citation, Zenodo, tags, releases, or
 release metadata.
 
-Any packet-producer implementation, reusable analyzer integration, current-run
-integration, runtime-observation production, resource measurement, compute
-budget, or active promotion remains separate work.
+Reusable analyzer integration, current-run integration, runtime-observation
+production, resource measurement, compute budget, and active promotion remain
+separate work.
 
 ---
 
@@ -130,13 +160,16 @@ strict portable subject-input packet contract
 exact #6066 historical-data example packet
 strict subject-input packet validator
 cross-platform trusted Git source reconstruction
+deterministic fixed_source_adapter subject-input packet producer
+carrier-size-before-hash and carrier-digest-before-ZIP boundary
+machine-produced observed #6066 subject-input packet
+pinned historical producer replay
+fail-closed replay-worktree cleanup
 ```
 
 The repository does not yet contain:
 
 ```text
-a subject-input packet producer
-a machine-produced observed subject-input packet proof
 a reusable analyzer core consuming the portable packet
 a current-run artifact-observed reference lane
 a runtime-observation packet producer
@@ -146,8 +179,9 @@ a compute budget
 active compute-related release enforcement
 ```
 
-The fixed-source implementation proves the mechanism and exposes the exact
-recording boundary of the preserved subject. It does not convert incomplete
+The completed producer and observed proof remain fixed-source and historical.
+They prove the portable recording and replay boundary for the preserved #6066
+subject. They do not create current-run integration or convert incomplete
 artifact-level evidence into runtime-level evidence.
 
 ---
@@ -829,9 +863,13 @@ Implemented files include:
 ```text
 schemas/pulsemech_compute_subject_input_packet_v0.schema.json
 examples/compute/pulsemech_compute_subject_input_packet_6066_example_v0.json
+examples/compute/pulsemech_compute_subject_input_packet_6066_observed_v0.json
 tools/check_pulsemech_compute_subject_input_packet_v0.py
+tools/build_pulsemech_compute_subject_input_packet_v0.py
 tests/test_pulsemech_compute_subject_input_packet_schema_v0.py
 tests/test_check_pulsemech_compute_subject_input_packet_v0.py
+tests/test_build_pulsemech_compute_subject_input_packet_v0.py
+tests/test_pulsemech_compute_subject_input_packet_6066_observed_v0.py
 ci/tools-tests.list
 ```
 
@@ -843,7 +881,7 @@ packet-record construction status
 ≠ immutable external-carrier class
 ```
 
-The checked-in PULSE CI #6066 packet is:
+The checked-in PULSE CI #6066 historical-data fixture is:
 
 ```text
 record_status:
@@ -862,10 +900,58 @@ packet-producer execution claimed:
 false
 ```
 
-The example status describes the checked-in packet record.
+The example status describes the checked-in fixture record.
 
 It does not convert the exact historical subject data or the real preservation
 archive into example data.
+
+The checked-in machine-produced PULSE CI #6066 proof is:
+
+```text
+record_status:
+observed
+
+production mode:
+fixed_source_adapter
+
+packet scope:
+fixed_source_adapter
+
+producer source revision:
+3cd57dc9e88e6f804dbb134c864f4207688bddc2
+
+producer source SHA-256:
+152e9ed67bf10389726ab7e27d59005afe62d23488e8cd13ffa58443bee13d18
+
+packet ID:
+subject-input:pulse-ci-6066/fixed-source-adapter/851cffe9ebee9399/v0
+
+carrier kind:
+preservation_archive
+
+fixture provenance:
+absent
+```
+
+The fixture and observed packet carry the same producer-independent subject,
+carrier, authority-source, artifact, role, coverage, content-boundary, and
+authority-boundary surfaces.
+
+Their difference is packet-record provenance:
+
+```text
+example fixture
+→ fixture_provenance present
+→ producer absent
+
+observed proof
+→ fixture_provenance absent
+→ exact producer execution present
+```
+
+The observed proof is not a second subject and does not replace the fixture.
+It is the producer-bound record over the same exact historical subject data and
+preservation carrier.
 
 The contract defines mutually exclusive provenance branches.
 
@@ -957,7 +1043,7 @@ OS-reported system directory
 + deterministic Git for Windows candidates
 ```
 
-The completed contract chain is:
+The completed subject-input implementation chain is:
 
 ```text
 PR #2752
@@ -974,6 +1060,22 @@ PR #2756
 
 PR #2757
 → trusted absolute cross-platform Git executable selection
+
+PR #2759
+→ deterministic fixed_source_adapter packet producer
+
+PR #2760
+→ exact carrier size before hashing
+→ exact carrier SHA-256 before ZIP reads
+
+PR #2761
+→ checked-in record_status=observed #6066 packet
+→ pinned historical-producer byte-for-byte replay
+→ strict observed-packet regression and CI registration
+
+PR #2762
+→ fail-closed worktree remove, workspace removal, existence verification,
+  and worktree prune
 ```
 
 Merged commits:
@@ -993,9 +1095,21 @@ PR #2756:
 
 PR #2757:
 5e3908a9129f009977d5a6e94a3f8d4fca4e8da5
+
+PR #2759:
+d4cead4b8a1c3604446a74ac2598eed8ad2a18d6
+
+PR #2760:
+3cd57dc9e88e6f804dbb134c864f4207688bddc2
+
+PR #2761:
+fa25f30d0efa3d6d37fbb1781509f859e9a9b4f3
+
+PR #2762:
+f5ff95ea78d3d79f2deab0b4647c27b5137e6db5
 ```
 
-Final checked-in identities:
+Current checked-in identities:
 
 ```text
 schema:
@@ -1023,20 +1137,46 @@ validator regression:
 55579 bytes
 4aeabe43ad5678ffb0c213aefc86e1b20ac92956c168c529a483db07924a4f40
 
+packet producer:
+1963 lines
+67686 bytes
+152e9ed67bf10389726ab7e27d59005afe62d23488e8cd13ffa58443bee13d18
+
+producer regression:
+1776 lines
+57979 bytes
+096e4a0a1f11e93d6836a70a44bd502a7a1a2b9f9d1d861d235cbfae5d69d531
+
+#6066 observed packet:
+738 lines
+45914 bytes
+b457383356d330ae40843a47f9adb83c4e7d7f14447218f951ca71e4ee287467
+
+observed replay regression:
+985 lines
+31021 bytes
+7c27518186a018a4c0a56fdf1aaa6c8878d697b3965c48dd66dd59a5db637687
+
 CI manifest:
-141 lines
-7296 bytes
-2a3c4d78e09615eec43d801ea56d795768850b3a65728d0fc22850e7e31b575e
+143 lines
+7428 bytes
+b522610b9292ffb59c2e5e84cdd081326244ccef3288a637da84d2291251c9f5
 ```
 
-Post-merge review result:
+Current post-merge review result:
 
 ```text
-default validator:
-PASS
+producer regression:
+61 passed
 
-complete registered validator regression:
-PASS
+observed replay regression:
+24 passed
+
+combined subject-input suite:
+172 passed
+
+strict observed-packet semantic checks:
+19 of 19 true
 
 actionable findings:
 none
@@ -1045,7 +1185,7 @@ working tree:
 clean
 ```
 
-Current production state:
+Current implementation state:
 
 ```text
 portable packet contract:
@@ -1055,9 +1195,15 @@ strict packet validator:
 complete
 
 packet producer:
-not implemented
+complete and proven
 
 machine-produced observed packet proof:
+complete and proven
+
+pinned historical replay:
+complete and fail-closed
+
+reusable analyzer core:
 not implemented
 
 current-run integration:
@@ -1805,20 +1951,25 @@ consumed by the analyzer
 A declaration with no observed downstream relation remains partial or
 unresolved.
 
-The portable subject-input contract and strict validator are implemented.
+The portable subject-input contract, strict validator, deterministic producer,
+and checked-in observed #6066 proof are implemented.
 
-The next observed subject-input packet must be machine-produced, digest-bound,
-producer-bound, and independently replayable.
+The observed packet is machine-produced, digest-bound, producer-bound, and
+independently replayable from the pinned historical producer revision.
 
-It must not become a new manually curated authority surface.
+The replay reconstructs the packet rather than treating the checked-in JSON as
+a trusted hand-maintained source.
+
+The next reusable analyzer must consume the portable packet without converting
+it into a new manually curated authority surface.
 
 ---
 
-## 20. Remaining implementation plan
+## 20. Completed and remaining implementation plan
 
 ### Completed Step 1 — portable subject-input contract
 
-The strict machine-readable subject packet contract now carries:
+The strict machine-readable subject packet contract carries:
 
 ```text
 subject repository
@@ -1843,13 +1994,12 @@ workflow identity and digest
 The contract, exact #6066 historical-data example, strict validator,
 regressions, CI registration, and post-merge hardening are complete.
 
-The checked-in example is a contract fixture over exact historical data.
+The checked-in example remains a contract fixture over exact historical data.
+It is not the producer record.
 
-It is not a machine-produced observed packet.
+### Completed Step 1A — subject-input packet producer and observed proof
 
-### Step 1A — subject-input packet producer
-
-Implement one deterministic, read-only producer:
+The completed deterministic, read-only producer machine is:
 
 ```text
 exact subject carrier
@@ -1864,32 +2014,62 @@ The first producer proof uses the preserved #6066 carrier:
 
 ```text
 PULSE CI #6066 preservation archive
-→ fixed_source_adapter producer
+→ exact size before full-file hashing
+→ exact SHA-256 before ZIP reads
+→ fixed_source_adapter producer at
+  3cd57dc9e88e6f804dbb134c864f4207688bddc2
 → machine-produced observed subject-input packet
 → strict subject-input validator
+→ isolated historical worktree replay
+→ generated stdout
+  = generated output
+  = checked-in observed packet bytes
+→ fail-closed worktree and workspace cleanup
 ```
 
-Planned implementation surfaces:
+Implemented surfaces:
 
 ```text
 tools/build_pulsemech_compute_subject_input_packet_v0.py
 tests/test_build_pulsemech_compute_subject_input_packet_v0.py
+examples/compute/pulsemech_compute_subject_input_packet_6066_observed_v0.json
+tests/test_pulsemech_compute_subject_input_packet_6066_observed_v0.py
 ci/tools-tests.list
 ```
 
-The producer must:
+The producer and proof:
 
 ```text
 derive every digest and byte size from source bytes
 derive every nested member path from the carrier
-bind its own exact source revision and source SHA-256
-bind its own execution identity and producer run key
+bind the exact producer revision and source SHA-256
+bind the exact execution identity and producer run key
 write only the output packet
 preserve the subject carrier and repository
+reject wrong carrier size before full-file hashing
+reject wrong carrier digest before ZIP reads
 fail closed on incomplete or conflicting identity
+replay from the pinned historical producer revision
+fail closed on worktree remove, workspace deletion, existence-check, or prune
 ```
 
-This producer step does not create:
+Completed merges:
+
+```text
+producer:
+PR #2759
+
+deterministic carrier pre-read hardening:
+PR #2760
+
+observed packet and historical replay proof:
+PR #2761
+
+fail-closed replay cleanup:
+PR #2762
+```
+
+This completed producer and proof do not create:
 
 ```text
 current-run workflow integration
@@ -2142,7 +2322,7 @@ PR #2757
 trusted absolute cross-platform Git executable selection
 ```
 
-Final main commit:
+Final contract-hardening commit:
 
 ```text
 5e3908a9129f009977d5a6e94a3f8d4fca4e8da5
@@ -2157,10 +2337,80 @@ post-merge Codex review:
 PASS
 ```
 
-The fixed-source and portable-contract implementation sequences are complete.
+### Subject-input packet producer and carrier-boundary hardening
 
-The next work begins at the machine-produced observed subject-input packet
-boundary.
+```text
+PR #2759
+fixed_source_adapter subject-input packet producer
+producer regression
+CI registration
+
+PR #2760
+carrier size before full-file hashing
+carrier SHA-256 before ZIP parsing and member reads
+producer and regression identity closure
+```
+
+Final producer revision:
+
+```text
+3cd57dc9e88e6f804dbb134c864f4207688bddc2
+```
+
+Status:
+
+```text
+complete
+
+producer regression:
+61 passed
+
+post-merge Codex review:
+PASS
+```
+
+### Machine-produced observed #6066 packet proof
+
+```text
+PR #2761
+checked-in record_status=observed packet
+pinned historical producer replay
+byte-for-byte generated-output proof
+strict observed-packet validation
+CI registration
+
+PR #2762
+fail-closed worktree remove
+fail-closed workspace removal and existence verification
+fail-closed worktree prune
+primary replay failure preserved as cause
+```
+
+Final observed-proof head:
+
+```text
+f5ff95ea78d3d79f2deab0b4647c27b5137e6db5
+```
+
+Status:
+
+```text
+complete
+
+observed replay regression:
+24 passed
+
+combined subject-input suite:
+172 passed
+
+post-merge Codex review:
+PASS
+```
+
+The fixed-source, portable-contract, producer, and observed-proof sequences are
+complete.
+
+The next work begins at the reusable analyzer-core boundary.
 
 ---
 
@@ -2322,12 +2572,21 @@ trusted cross-platform Git source verification:
 implemented and proven
 
 subject-input packet producer:
-not implemented
+implemented and proven
 
 machine-produced observed subject-input packet proof:
+implemented and proven
+
+pinned historical producer replay:
+implemented and proven
+
+replay worktree and workspace cleanup:
+fail-closed and proven
+
+reusable analyzer core:
 not implemented
 
-reusable current-run analyzer lane:
+current-run artifact-observed reference lane:
 not implemented
 
 runtime-observed connected proof:
@@ -2378,25 +2637,42 @@ exact subject and carrier metadata
 → portable analyzer-input contract
 ```
 
-The checked-in #6066 packet remains:
+The checked-in #6066 fixture remains:
 
 ```text
-example packet
-over
-exact observed historical subject data
+record_status=example
++ fixture_provenance
++ exact observed historical subject data
++ real preservation_archive carrier identity
 ```
 
-It is not an observed producer record.
+It remains the contract fixture and is not the observed producer record.
+
+The checked-in machine-produced proof is:
+
+```text
+preserved #6066 carrier
+→ deterministic fixed_source_adapter producer at
+  3cd57dc9e88e6f804dbb134c864f4207688bddc2
+→ record_status=observed packet
+→ strict packet validation
+→ pinned historical producer replay
+→ generated stdout
+  = generated output
+  = checked-in packet bytes
+→ fail-closed replay cleanup
+```
 
 The next mechanical transition is:
 
 ```text
-preserved #6066 carrier
-→ deterministic subject-input packet producer
-→ record_status=observed packet
-→ strict packet validation
-→ machine-produced observed packet proof
+portable observed subject-input packet
+→ reusable read-only analyzer core
+→ regression-identical #6066 compute-binding output
 ```
+
+That next transition remains non-active and does not itself create current-run
+integration, runtime evidence, a compute budget, or release authority.
 
 The exact candidate result is:
 
