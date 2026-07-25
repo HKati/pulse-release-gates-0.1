@@ -31,6 +31,8 @@ If a document is added, renamed, superseded, or changes implementation status, u
 
 ## Start here
 
+- Canonical PULSEmech technical overview and current verified state:
+  [PULSEMECH_TECHNICAL_OVERVIEW.md](../PULSEMECH_TECHNICAL_OVERVIEW.md)
 - Running the Core PULSE lane: [QUICKSTART_CORE_v0.md](QUICKSTART_CORE_v0.md)
 - Completed public Core execution record: [PULSEMECH_CORE_EXECUTION_RECORD_v0.md](PULSEMECH_CORE_EXECUTION_RECORD_v0.md)
 - Completed hosted release-grade execution record: [RELEASE_GRADE_REFERENCE_RUN_NOTE_v0.md](RELEASE_GRADE_REFERENCE_RUN_NOTE_v0.md)
