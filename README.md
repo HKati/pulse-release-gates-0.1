@@ -2,6 +2,17 @@
 
 > **Public origin / prior-art notice:** PULSE has a minimum public origin record. For the visible provenance anchors and attribution boundary, see the [Public Origin / Prior Art Notice](docs/quality_ledger.md#10-public-origin--prior-art-notice).
 
+## Primary PULSEmech technical source
+
+The [PULSEmech Technical Overview](PULSEMECH_TECHNICAL_OVERVIEW.md) is the
+canonical entry point for technical analysis of the complete system.
+
+It presents the release-transition machine, downstream authority closure,
+verified implementation state, completed proofs and current development
+boundary.
+
+**[Follow the current verified state and latest results](PULSEMECH_TECHNICAL_OVERVIEW.md#current-verified-state-and-latest-results)**
+
 ## Canonical <img src="assets/brand/pulsemech-dark-badge.svg" alt="PULSEmech" height="30"> implementation path
 
 PULSEmech is the artifact-bound release-authority mechanism for AI release decisions.
