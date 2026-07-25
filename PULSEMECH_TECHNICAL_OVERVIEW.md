@@ -100,8 +100,10 @@ the exact verifier implementation and replay
 the exact final status
 ```
 
-The terminal result is produced before deployment and is carried as an exact
-release-transition record.
+The terminal result is produced before deployment and is carried by the primary
+CI enforcement outcome. A passing strict gate evaluation continues into exact
+release-decision and proof carriers. A gate-closing evaluation is terminal at
+the primary CI enforcement step.
 
 ---
 
@@ -147,10 +149,24 @@ F:
 final gate-state carrier
 
 D:
-terminal ALLOW or BLOCK decision
+terminal primary-CI ALLOW or BLOCK enforcement result
 ```
 
-PULSEmech natively carries this tuple through linked, digest-bound artifacts.
+PULSEmech natively carries `S` through `F` through linked, digest-bound
+artifacts. `D` is carried by the primary CI terminal result.
+
+The current `hosted_full_runtime` release-grade workflow carries the two terminal paths as:
+
+```text
+strict gate evaluation passes
+→ primary CI ALLOW
+→ release_decision_v0.json materialization
+→ digest-bound final proof carriers
+
+strict gate evaluation closes
+→ primary CI BLOCK
+→ terminal non-zero CI enforcement result
+```
 
 The verified path is the authority carrier:
 
@@ -205,7 +221,8 @@ recorded evidence state
 verified evidence state
 materialized required-gate state
 final status state
-release-decision state
+terminal primary-CI enforcement state
+release-decision artifact state on fully materialized paths
 ```
 
 ### Transition
@@ -423,24 +440,36 @@ The verifier reconstructs the relevant state from exact recorded carriers.
 
 The replay produces the same typed result for the same canonical inputs.
 
-Required evidence states include:
+The canonical recorded release-evidence verifier emits one of two result
+states at report, evidence, relation and gate-admissibility level:
 
 ```text
 verified
-unavailable
-stale
-mismatched
-conflicting
-untrusted
-policy-inadmissible
+failed
 ```
 
-The active policy determines the transition consequence of each state.
+A `failed` result carries exact diagnostics in its `errors` collection and
+field-level verification results. These diagnostics identify conditions such
+as:
 
-A required state outside the verified path produces `BLOCK`.
+```text
+missing or unreadable artifact
+JSON or schema failure
+digest mismatch
+run-identity mismatch
+subject-binding mismatch
+policy-binding mismatch
+canonical replay mismatch
+raw-evidence mismatch
+relation-binding failure
+gate-materialization inadmissibility
+```
 
-This gives PULSEmech a fail-closed terminal transition over explicit evidence
-states.
+The active policy consumes the verified admissibility result. A required
+`failed` result closes the transition and produces `BLOCK`.
+
+This gives PULSEmech a fail-closed terminal transition over the verifier's
+actual two-state result contract and its exact diagnostics.
 
 ---
 
@@ -500,10 +529,13 @@ publication
 independent inspection
 ```
 
-The release-transition tuple is carried by the evidence, policy,
-materialization, verifier, final-status and decision artifacts.
+The evidence, policy, materialization, verifier and final-status artifacts
+carry `S` through `F`. The primary CI terminal result carries `D`. In the
+current `hosted_full_runtime` release-grade workflow, a passing strict gate evaluation
+continues into `release_decision_v0.json` and the later digest-bound proof
+carriers.
 
-Reader surfaces present selected views of that tuple.
+Reader surfaces present selected views of that relation.
 
 ---
 
@@ -604,7 +636,7 @@ external evidence source
 
 ## 12. SLSA, VSA and in-toto interoperability status
 
-PULSEmech natively carries the complete downstream release-transition tuple
+PULSEmech natively carries the complete downstream release-transition relation
 within its declared policy scope:
 
 ```text
@@ -615,8 +647,13 @@ subject
 + materialized required gates
 + verifier replay
 + final status
-+ terminal decision
++ terminal primary-CI decision
 ```
+
+The linked artifact chain carries the relation through final status. The
+primary CI terminal result carries the decision. On the current fully
+materialized release-grade ALLOW path, the same decision is also preserved in
+`release_decision_v0.json` and the subsequent proof carriers.
 
 Interoperability with another system exists when a normative carrier, or a
 lossless normative mapping, preserves the complete downstream
