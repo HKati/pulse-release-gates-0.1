@@ -3922,17 +3922,35 @@ transfer of the specific property
 
 ## 15.2 Structure and operation preservation
 
-The correspondence maps are:
+The correspondence maps common to both supported realizations are:
 
 ```math
 \phi_X,
 \phi_\Sigma,
-\phi_H,
-\phi_\Lambda,
 \phi_{\mathcal S},
 \phi_Y,
 \phi_Z.
 ```
+
+When the selected realization is `transition_machine`, the correspondence also
+contains:
+
+```math
+\phi_H,
+\qquad
+\phi_\Lambda.
+```
+
+The carrier-, binding-, transition-, and transition-use clauses below are
+mandatory only for:
+
+```text
+ablation_realization: transition_machine
+```
+
+For a `dependency_evaluator` proof package, those transition-machine-only
+clauses are not applicable; the mandatory graph and evaluator clauses are the
+ones defined in Section 15.3.2.
 
 Preservation of active carriers:
 
@@ -4039,6 +4057,8 @@ T_{\mathcal E}
 \bot.
 ```
 
+The semantic-state, output, and consequence clauses below are common response-boundary obligations for both selected realizations.
+
 Semantic state:
 
 ```math
@@ -4091,11 +4111,484 @@ reflection of reachability
 reflection of response-equivalence classes
 preservation of undefinedness in partial transitions
 preservation of the comparison pullback
+preservation of the exactly selected ablation realization
+preservation of every mandatory record in the selected realization branch
 identical quantifier domain
 identical system boundary
 ```
 
-## 15.3 Transfer of the specific property
+## 15.3 Preservation of the selected ablation realization
+
+Let the supported realization set be:
+
+```math
+\mathcal R_{\mathrm{abl}}
+=
+\{
+\mathrm{transition\_machine},
+\mathrm{dependency\_evaluator}
+\}.
+```
+
+Every concrete Workshop proof package records exactly one selected realization:
+
+```math
+\rho_{\mathcal W}
+\in
+\mathcal R_{\mathrm{abl}}.
+```
+
+The corresponding external proof package records:
+
+```math
+\rho_{\mathcal E}
+\in
+\mathcal R_{\mathrm{abl}},
+```
+
+and realization preservation requires:
+
+```math
+\rho_{\mathcal E}
+=
+\rho_{\mathcal W}.
+```
+
+Only the transfer obligations belonging to the selected realization are
+mandatory. Records belonging exclusively to the unselected realization are
+not applicable to that proof package.
+
+### 15.3.1 Transition-machine realization
+
+Assume:
+
+```text
+ablation_realization: transition_machine
+```
+
+Let the Workshop and external operational units be:
+
+```math
+\kappa_{\mathcal W}
+=
+\bigl(
+H_{\kappa,\mathcal W},
+E_{\kappa,\mathcal W},
+\Lambda_{\kappa,\mathcal W}
+\bigr),
+```
+
+and:
+
+```math
+\kappa_{\mathcal E}
+=
+\bigl(
+H_{\kappa,\mathcal E},
+E_{\kappa,\mathcal E},
+\Lambda_{\kappa,\mathcal E}
+\bigr).
+```
+
+The identity sets defining the selected unit are preserved:
+
+```math
+\phi_H
+\bigl(
+H_{\kappa,\mathcal W}
+\bigr)
+=
+H_{\kappa,\mathcal E},
+```
+
+```math
+(\phi_H\times\phi_H)
+\bigl(
+E_{\kappa,\mathcal W}
+\bigr)
+=
+E_{\kappa,\mathcal E},
+```
+
+and:
+
+```math
+\phi_\Lambda
+\bigl(
+\Lambda_{\kappa,\mathcal W}
+\bigr)
+=
+\Lambda_{\kappa,\mathcal E}.
+```
+
+For every realized Workshop transition:
+
+```math
+T_{\mathcal W}(x,\sigma)=x',
+```
+
+write `\mathrm{Uses}_{\kappa_{\mathcal W},\mathcal W}` and
+`\mathrm{Uses}_{\kappa_{\mathcal E},\mathcal E}` for the Section 5.2 relation
+computed from the respective machine's actual-use records. Actual-use
+preservation and unit-identity preservation must induce:
+
+```math
+\mathrm{Uses}_{\kappa_{\mathcal W},\mathcal W}
+(x,\sigma,x')
+\Longleftrightarrow
+\mathrm{Uses}_{\kappa_{\mathcal E},\mathcal E}
+\bigl(
+\phi_X(x),
+\phi_\Sigma(\sigma),
+\phi_X(x')
+\bigr).
+```
+
+The selected three-branch ablation result is preserved and reflected. For
+undefined ablated transitions:
+
+```math
+T_{\mathcal W}^{-\kappa_{\mathcal W}}(x,\sigma)=\bot
+\Longleftrightarrow
+T_{\mathcal E}^{-\kappa_{\mathcal E}}
+\bigl(
+\phi_X(x),
+\phi_\Sigma(\sigma)
+\bigr)
+=
+\bot.
+```
+
+For a surviving ablated transition:
+
+```math
+T_{\mathcal W}^{-\kappa_{\mathcal W}}(x,\sigma)=x'
+\Longrightarrow
+T_{\mathcal E}^{-\kappa_{\mathcal E}}
+\bigl(
+\phi_X(x),
+\phi_\Sigma(\sigma)
+\bigr)
+=
+\phi_X(x').
+```
+
+Let:
+
+```math
+\phi_{\mathcal B}
+:
+\mathcal B_{\mathcal W}
+\rightarrow
+\mathcal B_{\mathcal E}
+```
+
+be the tagged complete-response map induced by
+`\phi_{\mathcal S}`, `\phi_Y`, and `\phi_Z`, with
+`\mathrm{undefined}` mapped to `\mathrm{undefined}`.
+
+Transition-machine replay preservation requires:
+
+```math
+\phi_{\mathcal B}
+\left(
+B_{\mathrm{Abl}_{\kappa_{\mathcal W}}(\mathcal W)}
+(x,\sigma)
+\right)
+=
+B_{\mathrm{Abl}_{\kappa_{\mathcal E}}(\mathcal E)}
+\bigl(
+\phi_X(x),
+\phi_\Sigma(\sigma)
+\bigr).
+```
+
+This branch therefore preserves:
+
+```text
+the selected transition_machine realization
+κ carrier, binding, and rule identities
+U_H, U_E, and U_Λ
+Uses_κ
+three-branch T^{-κ}
+transition-machine replay and its complete response
+```
+
+### 15.3.2 Dependency-evaluator realization
+
+Assume:
+
+```text
+ablation_realization: dependency_evaluator
+```
+
+In addition to the common maps, let:
+
+```math
+\phi_N
+:
+N_{\mathrm{dep},\mathcal W}
+\rightarrow
+N_{\mathrm{dep},\mathcal E},
+```
+
+```math
+\phi_{\mathrm{dep}}
+:
+E_{\mathrm{dep},\mathcal W}
+\rightarrow
+E_{\mathrm{dep},\mathcal E},
+```
+
+```math
+\phi_G
+:
+\mathcal G_{\mathcal W}
+\rightarrow
+\mathcal G_{\mathcal E},
+```
+
+```math
+\phi_h
+:
+\mathcal H_{h,\mathcal W}
+\rightarrow
+\mathcal H_{h,\mathcal E},
+```
+
+and:
+
+```math
+\phi_{\mathcal B_{\mathrm{auth}}}
+:
+\mathcal B_{\mathrm{auth},\mathcal W}
+\rightarrow
+\mathcal B_{\mathrm{auth},\mathcal E}.
+```
+
+The dependency-edge map preserves incidence. For every directed edge:
+
+```math
+e=(u,v)
+\in
+E_{\mathrm{dep},\mathcal W},
+```
+
+require:
+
+```math
+\phi_{\mathrm{dep}}(e)
+=
+\bigl(
+\phi_N(u),
+\phi_N(v)
+\bigr).
+```
+
+Let the graph-state map be typed as:
+
+```math
+\Phi_{\mathrm{dep}}
+:
+\mathfrak D_{\mathrm{auth},\mathcal W}
+\rightarrow
+\mathfrak D_{\mathrm{auth},\mathcal E}.
+```
+
+For a dependency-graph state:
+
+```math
+\mathcal D_{\mathcal W}
+=
+(N_{\mathrm{dep},\mathcal W},E_{\mathcal W}),
+```
+
+define its mapped graph state by:
+
+```math
+\Phi_{\mathrm{dep}}
+(\mathcal D_{\mathcal W})
+:=
+\bigl(
+\phi_N(N_{\mathrm{dep},\mathcal W}),
+\phi_{\mathrm{dep}}(E_{\mathcal W})
+\bigr).
+```
+
+The original dependency graph and exact edge cut are preserved:
+
+```math
+\Phi_{\mathrm{dep}}
+\bigl(
+\mathcal G_{\mathrm{dep},\mathcal W}
+\bigr)
+=
+\mathcal G_{\mathrm{dep},\mathcal E},
+```
+
+and:
+
+```math
+\phi_{\mathrm{dep}}
+\bigl(
+E_{\kappa,\mathcal W}^{\mathrm{dep}}
+\bigr)
+=
+E_{\kappa,\mathcal E}^{\mathrm{dep}}.
+```
+
+Dependency-graph ablation must commute with the correspondence:
+
+```math
+\Phi_{\mathrm{dep}}
+\left(
+\mathrm{Abl}_{\kappa}^{\mathrm{dep},\mathcal W}
+(\mathcal D_{\mathcal W})
+\right)
+=
+\mathrm{Abl}_{\kappa}^{\mathrm{dep},\mathcal E}
+\left(
+\Phi_{\mathrm{dep}}(\mathcal D_{\mathcal W})
+\right).
+```
+
+The actual dependency-use record is preserved:
+
+```math
+\phi_{\mathrm{dep}}
+\left(
+U_{\mathrm{dep},\mathcal W}^{\mathrm{auth}}
+(\mathcal D_{\mathcal W},g,h)
+\right)
+=
+U_{\mathrm{dep},\mathcal E}^{\mathrm{auth}}
+\bigl(
+\Phi_{\mathrm{dep}}(\mathcal D_{\mathcal W}),
+\phi_G(g),
+\phi_h(h)
+\bigr).
+```
+
+The gate node and authority-bearing sink set are preserved:
+
+```math
+\phi_N(n_{h,\mathcal W})
+=
+n_{h,\mathcal E},
+```
+
+```math
+\phi_N(S_{\mathrm{auth},\mathcal W})
+=
+S_{\mathrm{auth},\mathcal E}.
+```
+
+Required-path and alternate-path exclusion are preserved and reflected:
+
+```math
+n_{h,\mathcal W}
+\not\leadsto_{\mathcal D_{\mathcal W}^{-\kappa}}
+S_{\mathrm{auth},\mathcal W}
+\Longleftrightarrow
+n_{h,\mathcal E}
+\not\leadsto_{\Phi_{\mathrm{dep}}(\mathcal D_{\mathcal W}^{-\kappa})}
+S_{\mathrm{auth},\mathcal E}.
+```
+
+Let the evaluator-identity spaces and correspondence be:
+
+```math
+\mathcal I_{\mathrm{eval},\mathcal W},
+\qquad
+\mathcal I_{\mathrm{eval},\mathcal E},
+```
+
+```math
+\phi_{\mathrm{eval}}
+:
+\mathcal I_{\mathrm{eval},\mathcal W}
+\rightarrow
+\mathcal I_{\mathrm{eval},\mathcal E}.
+```
+
+Evaluator identity preservation requires:
+
+```math
+\phi_{\mathrm{eval}}
+\left(
+\mathrm{id}
+\bigl(
+\mathrm{Eval}_{\mathrm{auth},\mathcal W}
+\bigr)
+\right)
+=
+\mathrm{id}
+\bigl(
+\mathrm{Eval}_{\mathrm{auth},\mathcal E}
+\bigr).
+```
+
+The same recorded evaluator identity is used for the original and ablated graph
+inside each system. For both graph states:
+
+```math
+\mathcal D_{\mathcal W}
+\in
+\left\{
+\mathcal G_{\mathrm{dep},\mathcal W},
+\mathcal G_{\mathrm{dep},\mathcal W}^{-\kappa}
+\right\},
+```
+
+same-evaluator replay preservation requires:
+
+```math
+\phi_{\mathcal B_{\mathrm{auth}}}
+\left(
+\mathrm{Eval}_{\mathrm{auth},\mathcal W}
+(\mathcal D_{\mathcal W},g,h)
+\right)
+=
+\mathrm{Eval}_{\mathrm{auth},\mathcal E}
+\bigl(
+\Phi_{\mathrm{dep}}(\mathcal D_{\mathcal W}),
+\phi_G(g),
+\phi_h(h)
+\bigr).
+```
+
+The complete fail-closed response is preserved:
+
+```math
+\phi_{\mathcal B_{\mathrm{auth}}}
+\bigl(
+b_{\mathrm{fc},\mathcal W}(g)
+\bigr)
+=
+b_{\mathrm{fc},\mathcal E}
+\bigl(
+\phi_G(g)
+\bigr).
+```
+
+This branch therefore preserves:
+
+```text
+the selected dependency_evaluator realization
+original dependency graph
+exact E_κ^dep edge cut
+U_dep^auth
+materialized gate node and authority-bearing sink set
+required-path and alternate-path exclusion
+evaluator identity
+same-evaluator replay and its complete response
+```
+
+The transfer contract may not replace either selected branch with generic
+preservation of the unablated response. The realization that mechanically
+produces the ablated response is part of the transferred property.
+
+## 15.4 Transfer of the specific property
 
 Let:
 
@@ -4209,25 +4702,32 @@ change_unit
 → exact transition-machine unit or exact response-dependency unit
 
 ablation_realization
-→ transition_machine or dependency_evaluator
+→ exactly one literal value: transition_machine or dependency_evaluator
 
 activation_path
 → how the operational unit becomes active
 
 used_carrier_record
-→ U_H for a transition-machine realization
+→ mandatory U_H record when ablation_realization is transition_machine;
+  not_applicable when dependency_evaluator is selected
 
 used_binding_record
-→ U_E for a transition-machine realization
+→ mandatory U_E record when ablation_realization is transition_machine;
+  not_applicable when dependency_evaluator is selected
 
 used_rule_record
-→ U_Λ for a transition-machine realization
+→ mandatory U_Λ record when ablation_realization is transition_machine;
+  not_applicable when dependency_evaluator is selected
 
 uses_relation
-→ proof that a transition-machine witness use record intersects κ
+→ mandatory Uses_κ proof when ablation_realization is transition_machine;
+  not_applicable when dependency_evaluator is selected
 
 response_dependency_record
-→ original dependency graph, exact E_κ^dep edge cut, U_dep^auth traversal, authority-bearing sink set, and proof that no required alternate path survives for a dependency-evaluator realization
+→ mandatory original dependency graph, exact E_κ^dep edge cut,
+  U_dep^auth traversal, authority-bearing sink set, path-exclusion proof,
+  evaluator identity, and same-evaluator replay when ablation_realization is
+  dependency_evaluator; not_applicable when transition_machine is selected
 
 witness_domain
 → fixed W domain
@@ -4264,11 +4764,92 @@ identity_and_binding
 → artifact, run, policy, and verifier binding
 
 external_theorem_transfer_contract
-→ proof of operation and property transfer when an external theorem is used
+→ preservation of the exactly selected ablation_realization, every mandatory
+  record of that realization, and transfer and required reflection of the
+  specific theorem property when an external theorem is used
 
 replay
 → deterministic replay
 ```
+
+## 16.1 Exact realization-selection invariant
+
+A concrete proof package contains exactly one `ablation_realization` key with
+exactly one value. It must not contain both values.
+
+If the selected value is `transition_machine`, every transition-machine branch
+record is mandatory and every dependency-evaluator-only record is explicitly
+`not_applicable`.
+
+If the selected value is `dependency_evaluator`, every dependency-evaluator
+branch record is mandatory and every transition-machine-only record is
+explicitly `not_applicable`.
+
+The following are two separate concrete proof-package instances. They are not a
+single package carrying two selections.
+
+## 16.2 Decimal `9 → 10` proof-package instance
+
+```yaml
+proof_package_instance: decimal_9_to_10_reachability_v0
+witness_class: reachability_opening
+ablation_realization: transition_machine
+selected_branch_requirements:
+  H_kappa: "required; H_{kappa_1} = {h_1}"
+  E_kappa: "required; E_{kappa_1} = {c_{0_to_1}}"
+  Lambda_kappa: "required; Lambda_{kappa_1} = empty"
+  U_H: "required; U_{H,2}((9,0),+1,(0,1)) = {h_0,h_1}"
+  U_E: "required; U_{E,2}((9,0),+1,(0,1)) = {c_{0_to_1}}"
+  U_Lambda: "required; U_{Lambda,2}((9,0),+1,(0,1)) = {lambda_{+1}^{(2)}}"
+  Uses_kappa: "required; Uses_{kappa_1}((9,0),+1,(0,1))"
+  three_branch_T_minus_kappa: "required; Section 5.3"
+  replay: "required; replay T_2 and T_2^{-kappa_1} on ((9,0),+1) under the same recorded machine identities"
+unselected_branch_requirements:
+  original_dependency_graph: not_applicable
+  E_kappa_dep: not_applicable
+  U_dep_auth: not_applicable
+  authority_sink_set: not_applicable
+  required_and_alternate_path_exclusion: not_applicable
+  authority_evaluator_identity: not_applicable
+  same_evaluator_replay: not_applicable
+```
+
+This instance binds every mandatory transition-machine record used by the
+`9 → 10` witness. The empty `\Lambda_{\kappa_1}` set is an exact selected-branch
+record, not an omitted field.
+
+## 16.3 PULSEmech required-gate proof-package instance
+
+```yaml
+proof_package_instance: pulsemech_required_gate_discrimination_v0
+witness_class: discrimination_opening
+ablation_realization: dependency_evaluator
+selected_branch_requirements:
+  original_dependency_graph: "required; G_dep"
+  E_kappa_dep: "required; exact authority-dependency edge cut"
+  U_dep_auth: "required; PASS and FAIL traversals of the original evaluator"
+  authority_sink_set: "required; S_auth"
+  required_and_alternate_path_exclusion: "required; n_h has no path to S_auth after the cut"
+  authority_evaluator_identity: "required; one recorded id(Eval_auth) used for original-graph and ablated-graph evaluation"
+  same_evaluator_replay: "required; B_auth,1=Eval_auth(G_dep,.,.) and B_auth,1^{-kappa}=Eval_auth(G_dep^{-kappa},.,.)"
+  complete_ablated_response: "required; both witnesses evaluate to b_fc(g_*)"
+unselected_branch_requirements:
+  H_kappa: not_applicable
+  E_kappa: not_applicable
+  Lambda_kappa: not_applicable
+  U_H: not_applicable
+  U_E: not_applicable
+  U_Lambda: not_applicable
+  Uses_kappa: not_applicable
+  three_branch_T_minus_kappa: not_applicable
+  transition_machine_replay: not_applicable
+```
+
+This instance binds every mandatory dependency-evaluator record used by the
+PULSEmech authority witness. Its transition-machine-only records are explicitly
+non-mandatory because they are not the selected realization.
+
+## 16.4 Witness-profile closure
 
 For a reachability proof:
 
@@ -4549,7 +5130,12 @@ when:
 
 ```text
 preservation of carrier, binding, state, input, transition,
-transition-use records, semantic state, output, and consequence is proved
+semantic state, output, and consequence is proved
+
+and
+
+the exactly selected ablation_realization and every mandatory record of its
+transition_machine or dependency_evaluator branch are preserved
 
 and
 
@@ -4562,6 +5148,32 @@ QED.
 
 The examination order consists of a common proof core and conditional
 mechanism-specific branches.
+
+The examined proof package must contain exactly one literal declaration:
+
+```yaml
+ablation_realization: transition_machine
+```
+
+or:
+
+```yaml
+ablation_realization: dependency_evaluator
+```
+
+It must not contain both. Every record in the selected branch is mandatory.
+Records belonging exclusively to the unselected branch are non-mandatory and
+are recorded as `not_applicable`.
+
+For the concrete witnesses in this document:
+
+```text
+decimal_9_to_10_reachability_v0
+→ ablation_realization: transition_machine
+
+pulsemech_required_gate_discrimination_v0
+→ ablation_realization: dependency_evaluator
+```
 
 ```text
 Common proof core
@@ -4578,12 +5190,13 @@ Common proof core
 
 6. Did a reachability or complete-response discrimination opening occur?
 
-7. Which ablation realization is used?
-   - transition_machine
-   - dependency_evaluator
+7. Which single literal ablation_realization declaration is present?
+   - ablation_realization: transition_machine
+   - ablation_realization: dependency_evaluator
 
-Only the selected realization branch is required for the witness. The other
-branch is not an applicable proof requirement.
+Exactly one value must be present. Every record in the selected branch is
+mandatory. Records exclusive to the unselected branch must be marked
+not_applicable.
 
 Quantitative and place-value branch, when the claim concerns a numerical threshold
 
@@ -4635,9 +5248,18 @@ Common closure
 
 28. Can the result be reproduced with identical transition-use records or identical dependency-graph and evaluator records?
 
-29. When an external theorem is used, has operation preservation been proved?
+29. When an external theorem is used, is the single selected ablation_realization preserved?
 
-30. Have transfer and reflection of the specific property been proved?
+30. For transition_machine selection, are κ identity sets, U_H, U_E, U_Λ,
+    Uses_κ, three-branch T^{-κ}, and transition-machine replay preserved?
+
+31. For dependency_evaluator selection, are the original dependency graph,
+    E_κ^dep, U_dep^auth, sink and path-exclusion facts, evaluator identity, and
+    same-evaluator replay preserved?
+
+32. Has common operation preservation been proved?
+
+33. Have transfer and reflection of the specific theorem property been proved?
 ```
 
 # 19. Workshop theorem
