@@ -2023,6 +2023,149 @@ for all `u,v\in W`.
 The local theorem requires only the fixed two-point witness domain. It does not
 claim a global refinement without the additional preservation proof.
 
+### 6.3.1 Response-level discrimination corollary
+
+Let:
+
+```math
+\mathcal D
+```
+
+be a fixed response domain, and let:
+
+```math
+\widetilde B_0,
+\qquad
+B_1,
+\qquad
+B_1^{-\kappa}
+:
+\mathcal D
+\rightarrow
+\mathcal B
+```
+
+be three complete response functions of the same type.
+
+For distinct witnesses:
+
+```math
+w_1,w_2\in\mathcal D,
+```
+
+fix:
+
+```math
+W_{12}
+=
+\{w_1,w_2\}.
+```
+
+If:
+
+```math
+\widetilde B_0(w_1)
+=
+\widetilde B_0(w_2),
+```
+
+```math
+B_1(w_1)
+\neq
+B_1(w_2),
+```
+
+and:
+
+```math
+B_1^{-\kappa}(w_1)
+=
+B_1^{-\kappa}(w_2),
+```
+
+then:
+
+```math
+\ker_{W_{12}}(B_1)
+\subsetneq
+\ker_{W_{12}}(\widetilde B_0),
+```
+
+and the `\kappa`-ablation response removes the new complete-response
+discrimination on `W_{12}`.
+
+The ablated response:
+
+```math
+B_1^{-\kappa}
+```
+
+must be produced by an explicitly typed ablated evaluator. Its domain and
+codomain are the same as those of `B_1`.
+
+A completed response may not be replaced after evaluation and then presented as
+an ablation result.
+
+For a transition machine, the required construction is:
+
+```math
+B_1^{-\kappa}
+=
+B_{\mathrm{Abl}_{\kappa}(\mathcal M_1)}.
+```
+
+For an evaluator whose structural input is not a transition machine, let:
+
+```math
+\mathfrak S
+```
+
+be its typed structural-state space, let:
+
+```math
+\mathrm{Eval}
+:
+\mathfrak S\times\mathcal D
+\rightarrow
+\mathcal B,
+```
+
+and let:
+
+```math
+\mathrm{Abl}_{\kappa}^{\mathfrak S}
+:
+\mathfrak S
+\rightarrow
+\mathfrak S
+```
+
+disable `\kappa` in that structural state before evaluation.
+
+For a fixed evaluator state `s_1\in\mathfrak S`, the two responses are then:
+
+```math
+B_1(w)
+=
+\mathrm{Eval}(s_1,w),
+```
+
+and:
+
+```math
+B_1^{-\kappa}(w)
+=
+\mathrm{Eval}
+\bigl(
+\mathrm{Abl}_{\kappa}^{\mathfrak S}(s_1),
+w
+\bigr).
+```
+
+The restored equality on `W_{12}` must follow from the evaluator contract and
+the ablated structural state. It may not be introduced by a post-hoc constant
+substitution on already-produced responses.
+
 ## 6.4 Definition of operational dimension opening
 
 > **Operational dimension opening occurs when a new or newly active carrier, binding, or transition rule creates new reachability or new discrimination in the operational capability profile on a fixed witness domain, and ablation in the same ambient space removes that strict capability change.**
@@ -3338,8 +3481,7 @@ treats them identically:
 (g_*,h=\mathrm{FAIL}).
 ```
 
-The new machine with an active materialized required gate satisfies the
-complete-response separation:
+The active materialized required gate produces complete-response separation:
 
 ```math
 B_{\mathrm{auth},1}
@@ -3347,6 +3489,26 @@ B_{\mathrm{auth},1}
 \neq
 B_{\mathrm{auth},1}
 (g_*,h=\mathrm{FAIL}).
+```
+
+Let the decision projection be:
+
+```math
+\pi_D
+:
+\mathcal B_{\mathrm{auth}}
+\rightarrow
+\mathcal D_{\mathrm{release}},
+```
+
+and define:
+
+```math
+d_{\mathrm{release},1}
+:=
+\pi_D
+\circ
+B_{\mathrm{auth},1}.
 ```
 
 Its decision projection may, for example, satisfy:
@@ -3368,20 +3530,266 @@ d_{\mathrm{release},1}
 The decision projection illustrates one differing component. The
 discrimination proof itself uses the complete `B_{\mathrm{auth},1}` response.
 
-Let the complete ablated authority response be:
+### Authority-dependency ablation and evaluator replay
+
+Let the typed authority dependency-graph space be:
 
 ```math
-B_{\mathrm{auth},1}^{-\kappa}
-:=
-B_{\mathrm{Abl}_{\kappa}(\mathcal A_1)}.
+\mathfrak D_{\mathrm{auth}}
+=
+\left\{
+(N_{\mathrm{dep}},E)
+\ \middle|\
+E\subseteq E_{\mathrm{dep}}
+\right\}.
 ```
 
-After ablation of the authority-bearing binding, complete-response equality is
-restored:
+For any dependency-graph state:
+
+```math
+\mathcal D
+=
+(N_{\mathrm{dep}},E)
+\in
+\mathfrak D_{\mathrm{auth}},
+```
+
+write:
+
+```math
+u
+\leadsto_{\mathcal D}
+S
+```
+
+when a directed path in `\mathcal D` leads from node `u` to an element of
+node set `S`.
+
+Let the complete authority evaluator be:
+
+```math
+\mathrm{Eval}_{\mathrm{auth}}
+:
+\mathfrak D_{\mathrm{auth}}
+\times
+\mathcal G
+\times
+\mathcal H_h
+\rightarrow
+\mathcal B_{\mathrm{auth}}.
+```
+
+The active required-gate response is generated from the original dependency
+graph:
+
+```math
+B_{\mathrm{auth},1}(g,h)
+=
+\mathrm{Eval}_{\mathrm{auth}}
+\bigl(
+\mathcal G_{\mathrm{dep}},
+g,
+h
+\bigr).
+```
+
+Let:
+
+```math
+n_h
+\in
+N_{\mathrm{dep}}
+```
+
+be the node carrying the materialized required-gate value, and let:
+
+```math
+E_{\kappa}^{\mathrm{dep}}
+\subseteq
+E_{\mathrm{dep}}
+```
+
+be the exact authority-dependency edge cut used by that gate value on its path
+to the authority-bearing evaluator set `S_{\mathrm{auth}}`.
+
+The original graph contains the required path:
+
+```math
+n_h
+\leadsto_{\mathcal G_{\mathrm{dep}}}
+S_{\mathrm{auth}}.
+```
+
+Define the authority-dependency ablation on graph state:
+
+```math
+\mathrm{Abl}_{\kappa}^{\mathrm{dep}}
+:
+\mathfrak D_{\mathrm{auth}}
+\rightarrow
+\mathfrak D_{\mathrm{auth}},
+```
+
+```math
+\mathrm{Abl}_{\kappa}^{\mathrm{dep}}
+(N_{\mathrm{dep}},E)
+=
+\bigl(
+N_{\mathrm{dep}},
+E\setminus E_{\kappa}^{\mathrm{dep}}
+\bigr).
+```
+
+The ablated dependency graph is:
+
+```math
+\mathcal G_{\mathrm{dep}}^{-\kappa}
+:=
+\mathrm{Abl}_{\kappa}^{\mathrm{dep}}
+\bigl(
+\mathcal G_{\mathrm{dep}}
+\bigr).
+```
+
+The edge cut is required to remove every authority-bearing path from the
+materialized gate node:
+
+```math
+n_h
+\not\leadsto_{\mathcal G_{\mathrm{dep}}^{-\kappa}}
+S_{\mathrm{auth}}.
+```
+
+The original evaluator execution carries an actual dependency-use record:
+
+```math
+U_{\mathrm{dep}}^{\mathrm{auth}}
+:
+\mathfrak D_{\mathrm{auth}}
+\times
+\mathcal G
+\times
+\mathcal H_h
+\rightarrow
+2^{E_{\mathrm{dep}}}.
+```
+
+For a graph state `\mathcal D=(N_{\mathrm{dep}},E)`, require:
+
+```math
+U_{\mathrm{dep}}^{\mathrm{auth}}
+(\mathcal D,g,h)
+\subseteq
+E.
+```
+
+For both required-gate witnesses, the original evaluation actually traverses
+the ablated edge cut:
+
+```math
+U_{\mathrm{dep}}^{\mathrm{auth}}
+\bigl(
+\mathcal G_{\mathrm{dep}},
+g_*,
+h=\mathrm{PASS}
+\bigr)
+\cap
+E_{\kappa}^{\mathrm{dep}}
+\neq
+\varnothing,
+```
+
+and:
+
+```math
+U_{\mathrm{dep}}^{\mathrm{auth}}
+\bigl(
+\mathcal G_{\mathrm{dep}},
+g_*,
+h=\mathrm{FAIL}
+\bigr)
+\cap
+E_{\kappa}^{\mathrm{dep}}
+\neq
+\varnothing.
+```
+
+Let the fixed fail-closed consequence evaluator be:
+
+```math
+c_{\mathrm{fc}}
+:
+\mathcal G
+\rightarrow
+\mathcal Z_{\mathrm{release}}.
+```
+
+Define the complete fail-closed response:
+
+```math
+b_{\mathrm{fc}}(g)
+=
+\bigl(
+\mathrm{transition\_closed},
+\mathrm{BLOCK},
+c_{\mathrm{fc}}(g)
+\bigr).
+```
+
+The authority evaluator has the following fail-closed structural contract for
+the materialized required gate:
+
+```math
+n_h
+\not\leadsto_{\mathcal D}
+S_{\mathrm{auth}}
+\Longrightarrow
+\mathrm{Eval}_{\mathrm{auth}}
+(\mathcal D,g,h)
+=
+b_{\mathrm{fc}}(g)
+```
+
+for every:
+
+```math
+\mathcal D\in\mathfrak D_{\mathrm{auth}},
+\qquad
+g\in\mathcal G,
+\qquad
+h\in\mathcal H_h.
+```
+
+This contract evaluates the ablated dependency structure. It does not overwrite
+an already-produced response.
+
+For a concrete PULSEmech proof, the implication above is a proof obligation over
+the recorded evaluator implementation. The edge cut, absence of every alternate
+required path, evaluator identity, evaluator replay, and resulting complete
+fail-closed response must all be recorded and reproduced.
+
+Define the complete ablated authority response by evaluator replay over the
+ablated graph:
+
+```math
+B_{\mathrm{auth},1}^{-\kappa}(g,h)
+:=
+\mathrm{Eval}_{\mathrm{auth}}
+\bigl(
+\mathcal G_{\mathrm{dep}}^{-\kappa},
+g,
+h
+\bigr).
+```
+
+Because the required path is absent in
+`\mathcal G_{\mathrm{dep}}^{-\kappa}`, the fail-closed evaluator contract gives:
 
 ```math
 B_{\mathrm{auth},1}^{-\kappa}
 (g_*,h=\mathrm{PASS})
+=
+b_{\mathrm{fc}}(g_*)
 =
 B_{\mathrm{auth},1}^{-\kappa}
 (g_*,h=\mathrm{FAIL}).
@@ -3393,8 +3801,8 @@ Let:
 d_{\mathrm{release},1}^{-\kappa}
 ```
 
-denote the decision projection of `B_{\mathrm{auth},1}^{-\kappa}`. In a
-fail-closed realization it may satisfy:
+be the decision projection of `B_{\mathrm{auth},1}^{-\kappa}`. By the
+definition of `b_{\mathrm{fc}}`:
 
 ```math
 d_{\mathrm{release},1}^{-\kappa}
@@ -3414,9 +3822,14 @@ On `W_h`, the complete-response kernel strictly refines:
 \ker_{W_h}(\widetilde B_{\mathrm{auth},0}).
 ```
 
-Ablation removes the new complete-response discrimination.
+Authority-dependency ablation removes the required path before evaluation, and
+evaluator replay removes the new complete-response discrimination.
 
-This is a discrimination opening.
+When the graph identity, edge cut, original dependency-use records,
+no-alternate-path condition, evaluator identity, fail-closed evaluator contract,
+and evaluator replay are all recorded and reproduced, the PULSEmech
+required-gate application is an instance of the response-level discrimination
+corollary in Section 6.3.1.
 
 ## 14.6 Derived gate
 
@@ -3435,7 +3848,7 @@ derived gate state
 → verifier replay
 → strict fail-closed evaluation
 → separation of cases previously treated identically
-→ discrimination removed by ablation
+→ discrimination removed by authority-dependency ablation and evaluator replay
 ```
 
 This may open a new operational release dimension without new external information.
@@ -3768,17 +4181,17 @@ A claim of operational dimension opening contains at least the following
 records:
 
 ```text
-before_machine
-→ exact identification of the old machine
+before_system
+→ exact identification of the old transition machine or old evaluator structural state
 
-after_machine
-→ exact identification of the new machine
+after_system
+→ exact identification of the new transition machine or new evaluator structural state
 
-ambient_state_space
-→ common ablation state space
+ambient_structure
+→ common transition-machine type or common evaluator structural-state type
 
-ambient_input_space
-→ common input space
+ambient_input_domain
+→ common witness-input domain
 
 state_embedding
 → embedding of old states when the witness lies in the embedding image
@@ -3793,22 +4206,28 @@ comparison_preservation
 → proof that the pullback preserves the old witness meaning and response
 
 change_unit
-→ exact H_κ, E_κ, and Λ_κ identities
+→ exact transition-machine unit or exact response-dependency unit
+
+ablation_realization
+→ transition_machine or dependency_evaluator
 
 activation_path
 → how the operational unit becomes active
 
 used_carrier_record
-→ U_H for the realized transition
+→ U_H for a transition-machine realization
 
 used_binding_record
-→ U_E for the realized transition
+→ U_E for a transition-machine realization
 
 used_rule_record
-→ U_Λ for the realized transition
+→ U_Λ for a transition-machine realization
 
 uses_relation
-→ proof that the witness transition's use record intersects κ
+→ proof that a transition-machine witness use record intersects κ
+
+response_dependency_record
+→ original dependency graph, exact E_κ^dep edge cut, U_dep^auth traversal, authority-bearing sink set, and proof that no required alternate path survives for a dependency-evaluator realization
 
 witness_domain
 → fixed W domain
@@ -3826,10 +4245,11 @@ after_profile
 → Def and kernel in the new machine
 
 ablation_contract
-→ exact three-branch definition of T^{-κ}
+→ exact three-branch T^{-κ} definition for a transition-machine realization,
+  or exact dependency-edge deletion, evaluator contract, and evaluator-replay proof obligation for a dependency-evaluator realization
 
 ablation_profile
-→ Def and kernel in the ablation machine
+→ Def and kernel in the ablation machine or in the response generated by the ablated dependency evaluator
 
 observation_boundary
 → common semantic-state, output, and consequence spaces
@@ -4008,6 +4428,33 @@ then `\kappa` creates a reachability opening.
 
 ### VI. Discrimination opening
 
+Let:
+
+```math
+\widetilde B_0,
+\qquad
+B_1,
+\qquad
+B_1^{-\kappa}
+:
+\mathcal D
+\rightarrow
+\mathcal B
+```
+
+be complete responses of one common type.
+
+The ablated response must be generated before response interpretation by one of
+the typed realizations:
+
+```text
+transition-machine realization
+→ B₁^{-κ} is generated by the ablated transition machine
+
+dependency-evaluator realization
+→ B₁^{-κ} is generated by replaying the same evaluator on the ablated structural state
+```
+
 Fix:
 
 ```math
@@ -4019,34 +4466,38 @@ W_{12}
 If:
 
 ```math
-\widetilde B_{\mathcal M_0}(w_1)
+\widetilde B_0(w_1)
 =
-\widetilde B_{\mathcal M_0}(w_2),
+\widetilde B_0(w_2),
 ```
 
 ```math
-B_{\mathcal M_1}(w_1)
+B_1(w_1)
 \neq
-B_{\mathcal M_1}(w_2),
+B_1(w_2),
 ```
 
 and:
 
 ```math
-B_{\mathrm{Abl}_{\kappa}(\mathcal M_1)}(w_1)
+B_1^{-\kappa}(w_1)
 =
-B_{\mathrm{Abl}_{\kappa}(\mathcal M_1)}(w_2),
+B_1^{-\kappa}(w_2),
 ```
 
 then:
 
 ```math
-\ker_{W_{12}}(B_{\mathcal M_1})
+\ker_{W_{12}}(B_1)
 \subsetneq
-\ker_{W_{12}}(\widetilde B_{\mathcal M_0}),
+\ker_{W_{12}}(\widetilde B_0),
 ```
 
 and `\kappa` creates a discrimination opening on the fixed pair.
+
+The restored equality must follow from the ablated machine or ablated evaluator
+structure and its replay contract. A post-hoc substitution on completed
+responses is not an ablation proof.
 
 A larger-domain strict-refinement claim additionally requires the no-merging
 condition.
@@ -4109,58 +4560,84 @@ QED.
 
 # 18. The Workshop calculation order
 
-The complete examination order is:
+The examination order consists of a common proof core and conditional
+mechanism-specific branches.
 
 ```text
-1. Which quantitative coordinate changed?
+Common proof core
 
-2. Which finite digit range closed?
+1. What are the exact before and after systems or structural states?
 
-3. Did the minimum length of the normalized representation increase?
+2. What is the complete fixed witness domain W?
 
-4. Which ambient carrier was already present?
+3. Is the old response defined on every point of W through a total comparison pullback p₀?
 
-5. Which carrier became newly active?
+4. What are the old and new complete-response Def and kernel profiles on W?
 
-6. Which carriers were actually read, written, or otherwise required by the transition?
+5. For discrimination, is W exactly the witnessed pair, or has no-merging been proved on the larger domain?
 
-7. Which binding was enabled under the given signal?
+6. Did a reachability or complete-response discrimination opening occur?
 
-8. Which binding was actually traversed by the realized transition?
+7. Which ablation realization is used?
+   - transition_machine
+   - dependency_evaluator
 
-9. Which transition-rule identity was actually executed?
+Only the selected realization branch is required for the witness. The other
+branch is not an applicable proof requirement.
 
-10. What is the complete fixed witness domain W?
+Quantitative and place-value branch, when the claim concerns a numerical threshold
 
-11. Is the old response defined on every point of W through a total comparison pullback p₀?
+8. Which quantitative coordinate changed?
 
-12. On embedded points, does p₀ invert the state and input embeddings?
+9. Which finite digit range closed?
 
-13. On a new axis, which projection removes the new coordinate?
+10. Did the minimum length of the normalized representation increase?
 
-14. What are the old machine's Def and kernel profiles on W?
+Transition-machine branch
 
-15. What are the new machine's Def and kernel profiles on W?
+11. Which ambient carrier was already present?
 
-16. For discrimination, is W exactly the witnessed pair, or has no-merging been proved on the larger domain?
+12. Which carrier became newly active?
 
-17. Did a reachability or complete-response discrimination opening occur?
+13. Which carriers were actually read, written, or otherwise required?
 
-18. How is the three-branch T^{-κ} function defined?
+14. Which binding was enabled under the signal?
 
-19. Does the transition-use record intersect H_κ, E_κ, or Λ_κ?
+15. Which binding was actually traversed?
 
-20. Does ablation remove the strict capability change?
+16. Which transition-rule identity was executed?
 
-21. Can a mere uniform output substitution or decision-only projection be excluded?
+17. How is the three-branch T^{-κ} function defined?
 
-22. Which semantic target state, output, or consequence changed?
+18. Does U_H, U_E, or U_Λ intersect H_κ, E_κ, or Λ_κ?
 
-23. Can the same operation be reproduced with identical carrier, binding, and rule-use records?
+Dependency-evaluator branch
 
-24. When an external theorem is used, has operation preservation been proved?
+19. What is the exact original dependency graph?
 
-25. Have transfer and reflection of the specific property been proved?
+20. Which E_κ^dep edge cut is removed before evaluation?
+
+21. Does the original U_dep^auth record traverse that cut?
+
+22. Does the ablated graph remove every required and alternate required path to S_auth?
+
+23. Is the same recorded evaluator replayed on the ablated graph?
+
+24. Which complete response follows from the proved fail-closed evaluator contract?
+
+Common closure
+
+25. Does the response generated from the selected ablated structure remove the strict capability change?
+
+26. Can a mere uniform output substitution, post-hoc response replacement, or decision-only projection be excluded?
+
+27. Which semantic target state, output, or consequence changed?
+
+28. Can the result be reproduced with identical transition-use records or identical dependency-graph and evaluator records?
+
+29. When an external theorem is used, has operation preservation been proved?
+
+30. Have transfer and reflection of the specific property been proved?
 ```
 
 # 19. Workshop theorem
@@ -4190,8 +4667,8 @@ response change
 new Def element
 or
 strict kernel refinement
-+ Usesκ witness
-+ restoring ambient ablation
++ actual transition-use or authority-dependency-use witness
++ restoring response derived from the selected ablated structure
 → operational dimension opening
 ```
 
