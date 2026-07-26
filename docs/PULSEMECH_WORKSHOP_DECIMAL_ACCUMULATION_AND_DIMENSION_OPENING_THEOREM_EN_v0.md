@@ -1,14 +1,14 @@
 # The Workshop Decimal Number System
 
-## A mathematical and operational theorem separating accumulation, place-value carry, and operational dimension opening
+## A formal operational theorem of accumulation, place-value carry, and dimension opening
 
 ```yaml
 document_id: pulsemech_workshop_decimal_accumulation_and_dimension_opening_theorem_en_v0
 document_status: foundational_workshop_theorem
+revision_state: formal_operational_theorem
 language: en
 version: v0
-revision_state: formal_mechanical_closure
-scope: workshop_mathematical_and_operational_foundation
+scope: finite_place_value_and_release_authority_mechanics
 normative_policy_effect: none
 release_authority_effect: none
 gate_activation_effect: none
@@ -16,9 +16,13 @@ gate_activation_effect: none
 
 ---
 
-## 0. Subject of the document
+## 0. Purpose and system boundary
 
-This document separates four distinct phenomena:
+This document formalizes the Workshop theorem:
+
+> **Growth is not identical to expansion.**
+
+It separates four different events:
 
 ```text
 quantitative growth
@@ -27,247 +31,400 @@ quantitative growth
 ≠ operational dimension opening
 ```
 
-The starting theorem is:
+The theorem is not a redefinition of classical vector-space dimension.
 
-> **Growth is not identical to expansion.**
-
-The value of a quantitative coordinate may increase while the system's operational capability profile remains unchanged.
-
-The decimal place-value machine shows that after a finite normalized digit range has closed, the next value requires:
+The term **operational dimension opening** is defined here for a machine with explicit:
 
 ```text
-a higher ambient carrier
-→ state-dependent activation
-→ an actually used carry
-→ a new valid transition that did not previously exist
+carriers
+bindings
+states
+inputs
+transition rules
+semantic states
+outputs
+consequences
 ```
 
-This document does not assign vector-space dimension to the `9 → 10` transition.
+An operational dimension opens when a newly active carrier–binding or authority-bearing relation creates either:
 
-Its own operational claim is:
+1. a previously unavailable operational path; or
+2. a previously unavailable operational distinction;
 
-> **In the finite normalized place-value machine, the `9 → 10` transition is a reachability opening because without the higher place-value carrier and the carry leading into it, the semantic target state `10` cannot be produced through the same fixed mechanical path.**
+and the new capability disappears when the responsible operational unit is disabled and the same mechanism is replayed in the same ambient system.
 
-A further distinction applies within the operational layer:
+The central proof order is:
 
 ```text
-operational behavior change
-≠ operational dimension opening
+before activation
+→ capability absent
+
+activation
+→ capability present
+
+same-ambient ablation
+→ capability absent again
+
+replay
+→ the same relation is reproduced
 ```
 
-Operational dimension opening may be proved by two witness classes:
-
-```text
-reachability opening
-discrimination opening
-```
-
-In both cases, ablation of the new operational unit in the same ambient space must remove the newly created reachability or discrimination.
+This is a proof of operation, not a proof from notation alone.
 
 ---
 
-# 1. The Workshop simple machine
+# 1. Development and theorem-transfer boundary
 
-## 1.1 The model
+## 1.1 Acceptance is not proof
 
-The Workshop machine is described by the following system:
+A concept, definition, or theorem does not govern the Workshop machine merely because it is older or widely accepted.
+
+```text
+accepted view
+≠ evidence
+
+prior terminology
+≠ current system boundary
+
+identical symbol
+≠ identical mechanism
+
+a theorem proved in another model
+≠ automatic proof in this model
+```
+
+A theorem may be correct in its own axioms and still be inapplicable to a machine with different carriers, bindings, states, or transition rules.
+
+The role of mathematics in this document is to describe and test the Workshop machine correctly. It is not to force the machine back into a previously fixed conceptual box.
+
+## 1.2 Applicability of an external theorem
+
+Let:
+
+```math
+\mathcal W
+```
+
+be a Workshop machine and:
+
+```math
+\mathcal E
+```
+
+an external model.
+
+An external theorem may be applied to the Workshop machine only after two distinct obligations are proved.
+
+### Obligation A — structure and operation preservation
+
+There must be fixed maps for the relevant states, inputs, carriers, semantic states, outputs, and consequences:
+
+```math
+\phi_X,
+\qquad
+\phi_\Sigma,
+\qquad
+\phi_H,
+\qquad
+\phi_{\mathcal S},
+\qquad
+\phi_Y,
+\qquad
+\phi_Z.
+```
+
+On the witness domain under examination, the correspondence must preserve the active machine structure and the complete operational response.
+
+At minimum, it must preserve:
+
+```text
+active carrier participation
+active bindings
+transition definedness
+semantic target state
+output
+consequence
+ablation contract and replay semantics
+```
+
+For the complete operational response defined later, let:
+
+```math
+\phi_B
+```
+
+be the componentwise observation map induced by:
+
+```math
+\phi_{\mathcal S},
+\qquad
+\phi_Y,
+\qquad
+\phi_Z,
+```
+
+with `defined` and `undefined` preserved exactly.
+
+One direct preservation condition is:
+
+```math
+\phi_B\bigl(B_{\mathcal W}(x,\sigma)\bigr)
+=
+B_{\mathcal E}
+\bigl(
+\phi_X(x),
+\phi_\Sigma(\sigma)
+\bigr).
+```
+
+The same condition must hold for the ablated replay when an ablation result is used in the proof.
+
+### Obligation B — transfer of the specific theorem property
+
+A structural correspondence alone is not enough.
+
+The property stated by the external theorem must be translated explicitly, and the required direction of preservation or reflection must be proved.
+
+If:
+
+```math
+\tau_{\mathcal W}
+```
+
+is the Workshop property and:
+
+```math
+\operatorname{Tr}_{\phi}(\tau_{\mathcal W})
+```
+
+its external translation, then an external conclusion is usable only if the proof establishes the required implication back to the Workshop machine:
+
+```math
+\mathcal E
+\models
+\operatorname{Tr}_{\phi}(\tau_{\mathcal W})
+\quad\Longrightarrow\quad
+\mathcal W
+\models
+\tau_{\mathcal W}.
+```
+
+If the mapping collapses distinct Workshop states, carriers, bindings, or responses that matter to the theorem, the transfer is not valid for that theorem.
+
+## 1.3 Consequence
+
+A statement about classical dimension, infinite coordinate spaces, or another abstract object cannot negate an operational opening in the Workshop machine unless it is proved to preserve and reflect the exact machine and witness relation used here.
+
+```text
+external authority
+≠ theorem authority
+
+operation-preserving correspondence
++ property transfer
++ required reflection
+→ applicable external result
+```
+
+---
+
+# 2. Core distinctions
+
+## 2.1 Quantitative growth
+
+A quantitative coordinate changes from one value to a larger value.
+
+```math
+Q(x_1)>Q(x_0).
+```
+
+This says that a quantity increased.
+
+It does not state that a new carrier, binding, path, distinction, or consequence became available.
+
+## 2.2 Representational length transition
+
+A normalized numeral requires more places than before.
+
+For base:
+
+```math
+b\ge 2,
+```
+
+the normalized digit length is:
+
+```math
+\ell_b(0)=1,
+```
+
+and for:
+
+```math
+n\ge 1,
+```
+
+```math
+\ell_b(n)
+=
+1+\left\lfloor\log_b n\right\rfloor.
+```
+
+A change in:
+
+```math
+\ell_b(n)
+```
+
+is a representational length transition.
+
+It is not by itself a proof of classical mathematical dimension growth or operational dimension opening.
+
+## 2.3 Informational state-space expansion
+
+A new state coordinate adds information when it distinguishes states that the existing state description could not distinguish.
+
+Let:
+
+```math
+P:X\to U
+```
+
+be the existing state description and:
+
+```math
+h:X\to V
+```
+
+an additional coordinate.
+
+The coordinate is functionally new relative to:
+
+```math
+P
+```
+
+when no function:
+
+```math
+f:P(X)\to V
+```
+
+satisfies:
+
+```math
+h=f\circ P.
+```
+
+Equivalently, there exist:
+
+```math
+x,y\in X
+```
+
+such that:
+
+```math
+P(x)=P(y)
+```
+
+and:
+
+```math
+h(x)\ne h(y).
+```
+
+This is informational expansion.
+
+It is neither necessary nor sufficient for operational dimension opening.
+
+## 2.4 Operational dimension opening
+
+Operational dimension opening is a property of what the machine can do.
+
+It requires a new operational reachability or a new operational discrimination, together with an ablation witness showing that the responsible operational unit is necessary for that capability.
+
+```text
+new data
+≠ automatically new operation
+
+new operation
+≠ necessarily new external data
+
+new reachability or discrimination
++ same-mechanism ablation
+→ operational dimension opening
+```
+
+---
+
+# 3. The Workshop simple machine
+
+## 3.1 Machine model
+
+A Workshop machine is:
 
 ```math
 \mathcal M
 =
-(X,\Sigma,H,\Lambda,A,R,T,U,\nu,O,C,Q).
+(
+X,
+\Sigma,
+H,
+A,
+R,
+\Lambda,
+\operatorname{Eval},
+\nu,
+O,
+C,
+Q
+).
 ```
 
-Its components are:
+The components are:
 
-```text
-X
-→ ambient state space
+- `X`: ambient state space;
+- `Σ`: input or signal space;
+- `H`: potential carriers;
+- `A(x)`: carriers active in state `x`;
+- `R(x)`: active bindings in state `x`;
+- `Λ`: available transition rules;
+- `Eval`: the fixed transition evaluator;
+- `ν`: semantic-state interpretation;
+- `O`: output function;
+- `C`: consequence function;
+- `Q`: quantitative observation.
 
-Σ
-→ space of inputs or operational signals
-
-H
-→ set of ambient carriers
-
-Λ
-→ set of transition-rule identities
-
-A : X → 2^H
-→ carriers active in the given state
-
-R : X×Σ → 2^(H×H)
-→ bindings enabled in the given state under the given signal
-
-T : X×Σ ⇀ X
-→ partial transition function
-
-U = (U_H,U_E,U_Λ)
-→ transition-use record
-
-ν : X → 𝒮
-→ fixed semantic-state interpretation
-
-O : X → Y
-→ output function
-
-C : X×Σ×X → Z
-→ consequence function
-
-Q : X → 𝒬
-→ quantitative coordinate in an ordered quantitative space
-```
-
-The graph of the partial transition function is:
+The partial transition function is derived from the evaluator:
 
 ```math
-\Gamma_T
+T_{\mathcal M}(x,\sigma)
 =
-\{
-(x,\sigma,x')\in X\times\Sigma\times X
-:
-T(x,\sigma)=x'
-\}.
-```
-
-The transition-use record is defined only for realized transitions:
-
-```math
-U_H:
-\Gamma_T
-\rightarrow
-2^H,
-```
-
-```math
-U_E:
-\Gamma_T
-\rightarrow
-2^{H\times H},
-```
-
-```math
-U_\Lambda:
-\Gamma_T
-\rightarrow
-2^\Lambda.
-```
-
-The three components record:
-
-```text
-U_H(x,σ,x')
-→ carriers actually read, written, or otherwise required by the realized transition
-
-U_E(x,σ,x')
-→ bindings actually traversed by the realized transition
-
-U_Λ(x,σ,x')
-→ transition-rule identities actually executed by the realized transition
-```
-
-This separates:
-
-```text
-ambient architecture
-→ H and Λ
-
-carrier active in a state
-→ A(x)
-
-binding enabled under a signal
-→ R(x,σ)
-
-carrier actually used by the concrete transition
-→ U_H(x,σ,x')
-
-binding actually used by the concrete transition
-→ U_E(x,σ,x')
-
-rule actually executed by the concrete transition
-→ U_Λ(x,σ,x')
-```
-
-Operational participation is therefore proved by the use record bound to the
-realized transition. It is not inferred from architectural presence or from
-new activation alone.
-
-## 1.2 Ambient, active, and nonzero carriers
-
-A carrier may belong to the ambient architecture without yet being active in the current state.
-
-```text
-ambient carrier
-≠ active carrier
-
-active carrier
-≠ carrier holding a nonzero value
-```
-
-Activity means operational participation.
-
-A carrier is active in state `x` when the fixed state structure and transition mechanism use it to interpret or continue the state:
-
-```math
-h\in A(x).
-```
-
-An active carrier may currently hold zero.
-
-The set of elements holding nonzero values is a separate object:
-
-```math
-N(x)
-\subseteq
-A(x).
-```
-
-This distinction is required for an exact description of the place-value machine and of PULSEmech gate state.
-
----
-
-## 1.3 Common observation space
-
-Raw state vectors of machines with different internal state spaces cannot serve as decisive comparison witnesses.
-
-The produced target state must be mapped into a common semantic space:
-
-```math
-\nu_{\mathcal M}
-:
-X_{\mathcal M}
-\rightarrow
-\mathcal S.
-```
-
-The operational observation is:
-
-```math
-\Psi_{\mathcal M}(x,\sigma,x')
-=
+\operatorname{Eval}
 \bigl(
-\nu_{\mathcal M}(x'),
-O_{\mathcal M}(x'),
-C_{\mathcal M}(x,\sigma,x')
+x,
+\sigma;
+H,
+A,
+R,
+\Lambda
 \bigr).
 ```
 
-The common response space is:
+The result may be undefined.
+
+The evaluator identity is part of the machine identity. A valid before–after–ablation comparison does not replace the evaluator with a different decision rule.
+
+## 3.2 Common semantic observation
+
+Different machines may use different internal state representations.
+
+A raw internal state difference is not sufficient evidence of an operational opening.
+
+Each machine therefore maps its internal state into a common semantic state space:
 
 ```math
-\mathcal B
-=
-\{\mathrm{undefined}\}
-\sqcup
-\Bigl(
-\{\mathrm{defined}\}
-\times
-\mathcal S
-\times
-Y
-\times
-Z
-\Bigr).
+\nu_{\mathcal M}:X_{\mathcal M}\to\mathcal S.
 ```
 
 The complete operational response is:
@@ -283,598 +440,1418 @@ O_{\mathcal M}(x'),
 C_{\mathcal M}(x,\sigma,x')
 \bigr),
 &
-\text{if }T_{\mathcal M}(x,\sigma)=x',
-\\[8pt]
+T_{\mathcal M}(x,\sigma)=x',
+\\[6pt]
 \mathrm{undefined},
 &
-\text{if }T_{\mathcal M}(x,\sigma)
+T_{\mathcal M}(x,\sigma)
 \text{ is undefined.}
 \end{cases}
 ```
 
-The symbol `\bot` abbreviates transition undefinedness:
-
-```math
-T(x,\sigma)=\bot
-\quad\Longleftrightarrow\quad
-B_{\mathcal M}(x,\sigma)
-=
-\mathrm{undefined}.
-```
-
-The complete response compares:
+The comparison can therefore change only because of one or more of the following:
 
 ```text
-whether the transition exists
-its semantic target state
-its output
-its consequence
+transition definedness
+semantic target state
+output
+consequence
 ```
 
-A different internal encoding alone does not prove an operational opening.
+A mere internal recoding does not establish an opening.
 
----
-
-## 1.4 State and input embeddings
+## 3.3 Embedding an old state into an extended machine
 
 Let:
 
 ```math
 \mathcal M_0
-=
-(X_0,\Sigma_0,\ldots)
 ```
 
-be the old machine, and:
+be an old machine and:
 
 ```math
 \mathcal M_1
+```
+
+an extended machine.
+
+An embedding:
+
+```math
+\iota:X_0\to X_1
+```
+
+must preserve the meaning of the old state before the new transition is applied:
+
+```math
+\nu_1(\iota(x))
 =
-(X_1,\Sigma_1,\ldots)
+\nu_0(x).
 ```
 
-be the new machine.
+Where outputs and consequences are defined for the unchanged state, their interpretation must also be preserved.
 
-The embedding of old states is:
+The embedding itself must not create the claimed operational difference.
+
+For a witness:
 
 ```math
-\iota_X:
-X_0
-\rightarrow
-X_1.
+w=(x,\sigma),
 ```
 
-The embedding of old inputs is:
+this document uses the shorthand:
 
 ```math
-\iota_\Sigma:
-\Sigma_0
-\rightarrow
-\Sigma_1.
-```
-
-The combined embedding is:
-
-```math
-\iota_{X\Sigma}(x,\sigma)
-=
-\bigl(
-\iota_X(x),
-\iota_\Sigma(\sigma)
-\bigr).
-```
-
-On the examined embedded witness domain, the embedding must preserve the
-meaning of the initial state:
-
-```math
-\nu_{\mathcal M_1}
-\bigl(
-\iota_X(x)
-\bigr)
-=
-\nu_{\mathcal M_0}(x).
-```
-
-A comparison may also add a new axis that has no old-machine coordinate, as in
-the PULSEmech gate example. The old response must therefore be defined on the
-entire fixed witness domain through an explicit comparison pullback.
-
-For transition machines, let:
-
-```math
-\mathcal D_0
-=
-X_0\times\Sigma_0,
-```
-
-```math
-\mathcal D_1
-=
-X_1\times\Sigma_1.
-```
-
-More generally, `\mathcal D_i` denotes the explicitly typed domain of the
-response function under comparison.
-
-Let:
-
-```math
-W
-\subseteq
-\mathcal D_1
-```
-
-be the witness domain, and let:
-
-```math
-p_0:
-W
-\rightarrow
-\mathcal D_0
-```
-
-be fixed before the comparison.
-
-The old response lifted to every point of `W` is:
-
-```math
-\widetilde B_{\mathcal M_0}(w)
+B_{\mathcal M}(w)
 :=
-B_{\mathcal M_0}
-\bigl(
-p_0(w)
-\bigr).
-```
-
-On points that are images of old witnesses, the pullback must satisfy:
-
-```math
-p_0
-\bigl(
-\iota_{X\Sigma}(x,\sigma)
-\bigr)
-=
-(x,\sigma).
-```
-
-Two important special cases are:
-
-```text
-embedding-image comparison
-→ W lies in the image of ι_XΣ
-→ p₀ is the inverse of ι_XΣ on W
-
-new-axis comparison
-→ W contains several values of a new coordinate over one old state
-→ p₀ forgets the new coordinate through a fixed projection
-```
-
-For the PULSEmech gate axis:
-
-```math
-p_0
-=
-\pi_G.
-```
-
-This makes the old response well-defined at both:
-
-```text
-(g*, h=PASS)
-(g*, h=FAIL)
-```
-
-even though the old machine has no `h` coordinate.
-
-Abbreviate:
-
-```math
-\mathrm{Def}_{\widetilde{\mathcal M}_0}(W)
-:=
-\{
-w\in W:
-\widetilde B_{\mathcal M_0}(w)
-\neq
-\mathrm{undefined}
-\},
+B_{\mathcal M}(x,\sigma),
 ```
 
 and:
 
 ```math
-\ker_W(\widetilde B_{\mathcal M_0})
+\iota(w)
 :=
-\{
-(w_1,w_2)\in W^2:
-\widetilde B_{\mathcal M_0}(w_1)
-=
-\widetilde B_{\mathcal M_0}(w_2)
-\}.
+(\iota(x),\sigma).
 ```
 
-If both machines use the same input space:
+---
+
+# 4. Same-ambient ablation and replay
+
+## 4.1 Operational unit
+
+An operational unit is a typed set of machine components:
 
 ```math
-\Sigma_0=\Sigma_1=\Sigma,
+\kappa
+=
+(
+H_\kappa,
+R_\kappa,
+\Lambda_\kappa
+).
+```
+
+It may contain:
+
+```text
+one or more carriers
+one or more bindings
+one or more transition or authority rules
+```
+
+## 4.2 Same-ambient ablation
+
+The notation:
+
+```math
+\operatorname{Abl}_{\kappa}(\mathcal M_1)
+```
+
+means operational disabling in the same ambient state and input spaces.
+
+It does not mean replacing the machine with a smaller input type.
+
+The ablated machine preserves:
+
+```text
+ambient state space
+ambient input space
+witness-state type
+semantic observation boundary
+output interpretation
+consequence interpretation
+evaluator identity
+```
+
+It disables only the operational participation of the components in:
+
+```math
+\kappa.
+```
+
+The reduced structures are:
+
+```math
+A^{-\kappa}(x)
+=
+A(x)\setminus H_\kappa,
+```
+
+```math
+R^{-\kappa}(x)
+=
+R(x)\setminus R_\kappa,
+```
+
+and:
+
+```math
+\Lambda^{-\kappa}
+=
+\Lambda\setminus\Lambda_\kappa.
+```
+
+They preserve the ambient carrier type:
+
+```math
+H,
+```
+
+while preventing the selected carriers, bindings, and rules from participating in operation.
+
+The ablated transition is not stipulated from the original transition-use record.
+
+It is recomputed by the same evaluator:
+
+```math
+T_{\operatorname{Abl}_{\kappa}(\mathcal M_1)}(x,\sigma)
+=
+\operatorname{Eval}
+\bigl(
+x,
+\sigma;
+H,
+A^{-\kappa},
+R^{-\kappa},
+\Lambda^{-\kappa}
+\bigr).
+```
+
+This requirement preserves fallback paths.
+
+If another valid path remains after ablation, the replay must return that path. The proof may not declare the response undefined merely because the original path used:
+
+```math
+\kappa.
+```
+
+## 4.3 The ablation principle
+
+```text
+remove the claimed cause
+→ replay the same mechanism
+→ observe the resulting capability
+```
+
+The ablation response must be produced by the machine.
+
+It may not be inserted as an assumed value solely to complete the proof.
+
+---
+
+# 5. Operational change and operational dimension opening
+
+## 5.1 Operational-change witness
+
+Let:
+
+```math
+w=(x,\sigma)
+```
+
+be a witness in the old machine.
+
+An operational change occurs at:
+
+```math
+w
+```
+
+when:
+
+```math
+B_{\mathcal M_1}(\iota(x),\sigma)
+\ne
+B_{\mathcal M_0}(x,\sigma).
+```
+
+If the change disappears under ablation:
+
+```math
+B_{\mathcal M_1}(\iota(x),\sigma)
+\ne
+B_{\operatorname{Abl}_{\kappa}(\mathcal M_1)}
+(\iota(x),\sigma),
 ```
 
 then:
 
 ```math
-\iota_\Sigma
-=
-\mathrm{id}_{\Sigma}.
+\kappa
 ```
 
-In the decimal machine the common operational signal is:
+has a reproduced causal role in that operational change.
+
+Operational change alone is not yet operational dimension opening.
+
+## 5.2 Reachability opening
+
+A **reachability opening at witness**:
 
 ```math
-\sigma=+1.
+w=(x,\sigma)
 ```
 
-## 1.5 Operational capability profile
+is proved when:
+
+```math
+B_{\mathcal M_0}(x,\sigma)
+=
+\mathrm{undefined},
+```
+
+```math
+B_{\mathcal M_1}(\iota(x),\sigma)
+=
+\bigl(
+\mathrm{defined},
+s,
+y,
+z
+\bigr),
+```
+
+and:
+
+```math
+B_{\operatorname{Abl}_{\kappa}(\mathcal M_1)}
+(\iota(x),\sigma)
+=
+\mathrm{undefined}.
+```
+
+This proves that a previously unavailable operational path became reachable through:
+
+```math
+\kappa.
+```
+
+The claim is local to the witness unless a larger witness-domain inclusion is separately proved.
+
+A stronger domain-expansion claim over a witness set:
+
+```math
+W
+```
+
+uses the old witness domain as the comparison base:
+
+```math
+\operatorname{Def}_{\mathcal M_0}(W)
+=
+\{w\in W:B_{\mathcal M_0}(w)\text{ is defined}\},
+```
+
+```math
+\operatorname{Def}^{\iota}_{\mathcal M_1}(W)
+=
+\{w\in W:B_{\mathcal M_1}(\iota(w))\text{ is defined}\}.
+```
+
+The stronger claim requires:
+
+```math
+\operatorname{Def}_{\mathcal M_0}(W)
+\subsetneq
+\operatorname{Def}^{\iota}_{\mathcal M_1}(W).
+```
+
+The local reachability theorem does not silently assert this stronger global relation.
+
+## 5.3 Discrimination opening
+
+Let:
+
+```math
+w_1=(x_1,\sigma_1)
+```
+
+and:
+
+```math
+w_2=(x_2,\sigma_2)
+```
+
+be two witnesses.
+
+A **discrimination opening** is proved when the old machine treats them identically:
+
+```math
+B_{\mathcal M_0}(w_1)
+=
+B_{\mathcal M_0}(w_2),
+```
+
+the new machine distinguishes them:
+
+```math
+B_{\mathcal M_1}(\iota(w_1))
+\ne
+B_{\mathcal M_1}(\iota(w_2)),
+```
+
+and the distinction disappears when the responsible operational unit is ablated and the same evaluator is replayed:
+
+```math
+B_{\operatorname{Abl}_{\kappa}(\mathcal M_1)}
+(\iota(w_1))
+=
+B_{\operatorname{Abl}_{\kappa}(\mathcal M_1)}
+(\iota(w_2)).
+```
+
+Here:
+
+```math
+\iota(w_i)
+```
+
+means the embedded state with the same input.
+
+A uniform output replacement for every witness is an operational change. It is not a discrimination opening because it creates no new distinction between witnesses.
+
+## 5.4 Definition
+
+Under this document, an **operational dimension opening** is established by at least one of the following:
+
+```text
+reachability opening
+or
+discrimination opening
+```
+
+with:
+
+```text
+fixed system boundary
+fixed semantic observation boundary
+fixed evaluator identity
+same-ambient ablation
+recomputed ablation response
+reproduced result
+```
+
+The word `dimension` refers to a new operational direction of the defined machine. It does not assert growth of classical vector-space dimension.
+
+---
+
+# 6. Quantitative growth and mechanical stagnation
+
+## 6.1 Quantitative growth
+
+Let:
+
+```math
+Q:X\to V
+```
+
+be an ordered quantitative observation.
+
+A transition or sequence exhibits quantitative growth if:
+
+```math
+Q(x_{n+1})>Q(x_n).
+```
+
+This condition states only that a measured amount increased.
+
+## 6.2 Mechanical stagnation
 
 Let:
 
 ```math
 W
-\subseteq
-X\times\Sigma
 ```
 
-be a witness domain fixed in advance.
+be a fixed witness domain and let the old witnesses be embedded into the compared machine.
 
-The domain of defined responses is:
+The machines are operationally unchanged on:
 
 ```math
-\mathrm{Def}_{\mathcal M}(W)
+W
+```
+
+when:
+
+```math
+B_{\mathcal M_1}(\iota(w))
 =
-\{
-w\in W
-:
-B_{\mathcal M}(w)
-\neq
-\mathrm{undefined}
-\}.
+B_{\mathcal M_0}(w)
+\qquad
+\text{for every }w\in W.
 ```
 
-The response-equivalence relation is:
+If quantity grows while this relation remains true, the change is mechanical stagnation on the declared witness domain.
 
-```math
-\ker_W(B_{\mathcal M})
-=
-\{
-(w_1,w_2)\in W^2
-:
-B_{\mathcal M}(w_1)
-=
-B_{\mathcal M}(w_2)
-\}.
-```
+No inference is made from a coarse list of carrier types or rule names alone. The complete operational response is the deciding object.
 
-The Workshop operational capability profile is:
+## 6.3 First theorem — growth does not imply opening
 
-```math
-\mathfrak O_{\mathcal M}(W)
-=
-\left(
-\mathrm{Def}_{\mathcal M}(W),
-\ker_W(B_{\mathcal M})
-\right).
-```
+### Theorem
 
-This object jointly carries:
+Quantitative growth alone does not imply an operational dimension opening.
 
-```text
-which witnesses have a valid operational response
-which witnesses the machine treats identically
-which witnesses the machine can distinguish
-```
+### Proof
 
-The two opening forms are:
-
-```text
-reachability opening
-→ the Def component strictly expands
-
-discrimination opening
-→ response equivalence strictly refines on a proved comparison domain
-```
-
-For a two-point discrimination witness:
-
-```math
-W_{12}
-=
-\{w_1,w_2\},
-```
-
-the three complete-response conditions:
-
-```text
-old responses equal
-new responses different
-ablation responses equal
-```
-
-directly imply strict kernel refinement on `W_{12}`.
-
-For a larger witness domain `W`, strict kernel refinement additionally requires
-the no-merging condition:
-
-```math
-B_{\mathcal M_1}(u)
-=
-B_{\mathcal M_1}(v)
-\Longrightarrow
-\widetilde B_{\mathcal M_0}(u)
-=
-\widetilde B_{\mathcal M_0}(v)
-```
-
-for every `u,v\in W`, together with at least one old-equivalent pair separated
-by the new machine.
-
-Operational dimension in this document is neither a scalar nor vector-space
-dimension.
-
-It is a new capability direction in the `\mathfrak O` profile, proved through
-a fixed witness domain and ablation.
-
-## 1.6 Operational signature
-
-An operational signature may be assigned to system states:
-
-```math
-\Omega_{\mathcal M}
-:
-X
-\rightarrow
-\mathcal O.
-```
-
-The signature contains:
-
-```text
-the types and roles of active carriers
-the order of bindings enabled under the given signal
-the available transition rules
-the output classes
-the consequence classes
-```
-
-The raw quantitative value:
-
-```math
-Q(x)
-```
-
-is part of the operational signature only when it actually activates a new carrier, binding, or transition rule.
-
----
-
-# 2. The four-layer calculation order
-
-## 2.1 Quantitative growth
-
-A state change is quantitative growth if:
-
-```math
-Q(y)>Q(x).
-```
-
-This records a change in the quantitative coordinate.
-
----
-
-## 2.2 Representational length transition
-
-The length of a normalized base-`b` representation is:
-
-```math
-\ell_b(0)=1,
-```
-
-and, for `n\geq1`:
-
-```math
-\ell_b(n)
-=
-1+\left\lfloor\log_b n\right\rfloor.
-```
-
-A representational length transition occurs when:
-
-```math
-\ell_b(n')
->
-\ell_b(n).
-```
-
-This is a change in the minimum carrier length of the normalized description.
-
----
-
-## 2.3 Informational state-space expansion
-
-Let:
-
-```math
-P:X\rightarrow U
-```
-
-be the old state description, and:
-
-```math
-h:X\rightarrow H_h
-```
-
-be a new coordinate.
-
-The new description is:
-
-```math
-P_h=(P,h).
-```
-
-Informational state-space expansion occurs when:
-
-```math
-\ker(P,h)
-\subsetneq
-\ker P.
-```
-
-This means that the new description distinguishes states that the old description treated as identical.
-
----
-
-## 2.4 Operational dimension opening
-
-Operational dimension opening occurs when a new or newly active operational unit creates:
-
-```text
-new reachability
-or
-new operational discrimination
-```
-
-and its ablation in the same ambient space removes the strict capability change.
-
-The relation among the four layers is:
-
-```text
-quantity
-→ how large the value is
-
-representation
-→ how many minimally active place values are required
-
-information
-→ which states the description distinguishes
-
-operational capability
-→ which state path or discrimination the machine creates
-```
-
----
-
-# 3. Quantitative growth and mechanical stagnation
-
-## 3.1 Mechanical stagnation
-
-Mechanical stagnation occurs alongside quantitative growth if:
+The condition:
 
 ```math
 Q(x_{n+1})>Q(x_n)
 ```
 
-and:
+contains no requirement that:
+
+- a previously undefined transition becomes defined;
+- two previously equal responses become different;
+- a new carrier becomes operationally necessary;
+- a new binding enters the transition mechanism;
+- an output or consequence changes.
+
+A machine may therefore satisfy quantitative growth while its complete response remains unchanged on the witness domain:
 
 ```math
-\Omega_{\mathcal M}(x_{n+1})
+B_{\mathcal M_1}\circ\iota
 =
-\Omega_{\mathcal M}(x_n).
+B_{\mathcal M_0}.
 ```
 
-The chain is:
+Then neither a reachability opening nor a discrimination opening is present.
 
-```text
-quantitative value increases
-→ operational signature remains unchanged
-→ no new direction appears in the capability profile
-→ mechanical stagnation
-```
-
----
-
-## 3.2 First theorem — Quantitative growth is not sufficient for operational opening
-
-### Theorem
+Therefore:
 
 ```math
-Q(y)>Q(x)
+\text{quantitative growth}
+\not\Rightarrow
+\text{operational dimension opening}.
 ```
-
-by itself does not imply:
-
-```math
-\Omega_{\mathcal M}(y)
-\neq
-\Omega_{\mathcal M}(x).
-```
-
-Nor does quantitative difference alone imply a change in the operational capability profile on the fixed witness domain.
-
-### Proof
-
-Let:
-
-```math
-Q(x_n)=n
-```
-
-and, for every `n`:
-
-```math
-\Omega_{\mathcal M}(x_n)=\omega.
-```
-
-Then:
-
-```math
-Q(x_{n+1})>Q(x_n),
-```
-
-while the operational signature remains unchanged.
 
 QED.
 
 ---
 
-## 3.3 Unbounded growth in one operational direction
+# 7. The decimal place-value system
 
-Let:
+## 7.1 The Workshop decimal field
+
+The phrase **decimal field** is a Workshop term.
+
+It does not mean an algebraic field.
+
+The precise digit set is:
 
 ```math
-Q(x_n)=n
+D_{10}
+=
+\{0,1,2,3,4,5,6,7,8,9\}.
+```
+
+More generally, for base:
+
+```math
+b\ge 2,
+```
+
+```math
+D_b
+=
+\{0,1,\ldots,b-1\}.
+```
+
+This is the complete normalized digit range of one place-value carrier.
+
+## 7.2 Normalized representation
+
+Every natural number:
+
+```math
+n
+```
+
+has a unique normalized base-`b` representation:
+
+```math
+n
+=
+\sum_{k=0}^{m}d_kb^k,
+```
+
+where:
+
+```math
+d_k\in D_b
+```
+
+and the highest digit is nonzero when:
+
+```math
+n>0.
+```
+
+The digit length is:
+
+```math
+\ell_b(0)=1,
 ```
 
 and:
 
 ```math
-\Omega_{\mathcal M}(x_n)=\omega
+\ell_b(n)
+=
+1+\left\lfloor\log_b n\right\rfloor
+\qquad(n\ge 1).
 ```
 
-for every `n`.
-
-Then:
+At the threshold:
 
 ```math
-Q(x_n)\longrightarrow\infty,
+b^m-1
+\longrightarrow
+b^m,
 ```
 
-while no new operational direction is created.
+```math
+\ell_b(b^m-1)=m,
+```
 
-This is a counterexample to:
+and:
 
 ```math
-\text{unbounded quantitative growth}
-\Longrightarrow
-\text{operational dimension opening}.
+\ell_b(b^m)=m+1.
+```
+
+This is a representational length transition.
+
+## 7.3 Active and nonzero carriers
+
+Let:
+
+```math
+h_k
+```
+
+be the carrier of place value:
+
+```math
+b^k.
+```
+
+The minimally active carriers of a normalized number are:
+
+```math
+A_b(n)
+=
+\{h_k:0\le k<\ell_b(n)\}.
+```
+
+The carriers currently holding a nonzero digit are:
+
+```math
+N_b(n)
+=
+\{h_k\in A_b(n):d_k(n)\ne 0\}.
+```
+
+These sets are different.
+
+For decimal ten:
+
+```math
+A_{10}(10)
+=
+\{h_0,h_1\},
+```
+
+while:
+
+```math
+N_{10}(10)
+=
+\{h_1\}.
+```
+
+The units carrier:
+
+```math
+h_0
+```
+
+is active even though its current digit value is zero. It remains part of the normalized state structure and the transition mechanism.
+
+```text
+active carrier
+≠ nonzero carrier
 ```
 
 ---
 
-## 3.4 Vector-space checking example
+# 8. Carry as a value-preserving binding
 
-Let `V` be a normed vector space and:
+## 8.1 One-place carry
+
+If a temporary coefficient at place:
 
 ```math
-v\in V,
+k
+```
+
+reaches or exceeds the base, Euclidean division gives unique:
+
+```math
+q,r
+```
+
+such that:
+
+```math
+c_k=bq+r,
+```
+
+with:
+
+```math
+0\le r<b.
+```
+
+Therefore:
+
+```math
+c_kb^k
+=
+r b^k
++
+q b^{k+1}.
+```
+
+The value is preserved while the normalized representation is reorganized across carriers.
+
+## 8.2 Carry theorem
+
+### Theorem
+
+Place-value carry preserves the represented numerical value.
+
+### Proof
+
+From:
+
+```math
+c_k=bq+r,
+```
+
+multiplication by:
+
+```math
+b^k
+```
+
+gives:
+
+```math
+c_kb^k
+=
+q b^{k+1}
++
+r b^k.
+```
+
+The value before and after carry is identical.
+
+QED.
+
+## 8.3 Decimal threshold
+
+At the first decimal threshold:
+
+```math
+10\cdot 10^0
+=
+1\cdot 10^1.
+```
+
+In Workshop form:
+
+```text
+ten units
+→ one ten
+→ higher place-value carrier
+→ new carry binding
+```
+
+The numerical identity is value-preserving.
+
+The operational theorem concerns the machine path required to produce the normalized successor.
+
+---
+
+# 9. The finite place-value machine
+
+## 9.1 The machine with `m` carriers
+
+Fix:
+
+```math
+b\ge 2
+```
+
+and:
+
+```math
+m\ge 1.
+```
+
+The ambient state space is:
+
+```math
+X_m
+=
+D_b^m.
+```
+
+The potential carriers are:
+
+```math
+H_m
+=
+\{h_0,h_1,\ldots,h_{m-1}\}.
+```
+
+The semantic interpretation is:
+
+```math
+\nu_m(d_0,\ldots,d_{m-1})
+=
+\sum_{k=0}^{m-1}d_kb^k.
+```
+
+The active-carrier function is:
+
+```math
+A_m(x)
+=
+A_b\bigl(\nu_m(x)\bigr)\cap H_m.
+```
+
+The quantitative observation and numerical output are:
+
+```math
+Q_m(x)=\nu_m(x),
+```
+
+```math
+O_m(x)=\nu_m(x).
+```
+
+For a defined increment transition:
+
+```math
+x\xrightarrow{+1}x',
+```
+
+the consequence record is:
+
+```math
+C_m(x,+1,x')
+=
+\bigl(
+\nu_m(x),
++1,
+\nu_m(x')
+\bigr).
+```
+
+The enabled adjacent carry bindings are state-independent in this finite machine:
+
+```math
+R_m(x)
+=
+\{c_{k\to k+1}:0\le k<m-1\}
 \qquad
-v\neq0.
+\text{for every }x\in X_m.
+```
+
+The rule set:
+
+```math
+\Lambda_m
+```
+
+contains the local increment rule, the zero-and-carry rule, and the undefined-boundary rule stated in the next subsection.
+
+The signal set contains:
+
+```math
++1.
+```
+
+The transition evaluator is the fixed local increment-and-carry evaluator described below.
+
+## 9.2 Increment-and-carry evaluator
+
+Given:
+
+```math
+x=(d_0,\ldots,d_{m-1}),
+```
+
+and signal:
+
+```math
++1,
+```
+
+the evaluator begins at:
+
+```math
+h_0.
+```
+
+For each place:
+
+```math
+h_k,
+```
+
+it applies exactly one of the following rules.
+
+### Local increment
+
+If:
+
+```math
+d_k<b-1,
+```
+
+replace:
+
+```math
+d_k
+```
+
+with:
+
+```math
+d_k+1
+```
+
+and stop.
+
+### Carry
+
+If:
+
+```math
+d_k=b-1,
+```
+
+replace:
+
+```math
+d_k
+```
+
+with:
+
+```math
+0,
+```
+
+then follow the enabled carry binding:
+
+```math
+c_{k\to k+1}
+```
+
+to the available higher carrier:
+
+```math
+h_{k+1}.
+```
+
+The higher carrier may be inactive in the source state. Reaching it through an enabled carry binding activates it in the normalized target state.
+
+### Undefined boundary
+
+If:
+
+- the current place is saturated;
+- no enabled higher carrier exists; or
+- no enabled carry binding reaches it;
+
+then the transition is undefined.
+
+The evaluator does not invent an unavailable carrier or binding.
+
+## 9.3 Maximum state of the old machine
+
+The maximum normalized state of the `m`-carrier machine is:
+
+```math
+x_m^{\max}
+=
+(b-1,b-1,\ldots,b-1).
+```
+
+Its semantic value is:
+
+```math
+\nu_m(x_m^{\max})
+=
+b^m-1.
+```
+
+Every carrier is saturated.
+
+The old machine has no carrier:
+
+```math
+h_m
+```
+
+and no carry binding:
+
+```math
+c_{m-1\to m}.
+```
+
+Therefore:
+
+```math
+T_m(x_m^{\max},+1)
+=
+\bot.
+```
+
+The normalized successor is not reachable in that machine.
+
+## 9.4 Extension by one operational unit
+
+Define the new operational unit:
+
+```math
+\kappa_m
+=
+\bigl(
+\{h_m\},
+\{c_{m-1\to m}\},
+\Lambda_{\kappa_m}
+\bigr).
+```
+
+The extended machine has:
+
+```math
+H_{m+1}
+=
+H_m\cup\{h_m\}.
+```
+
+The old state embeds into the extended ambient state space by:
+
+```math
+\iota_m(d_0,\ldots,d_{m-1})
+=
+(d_0,\ldots,d_{m-1},0).
+```
+
+The embedding preserves semantic value:
+
+```math
+\nu_{m+1}(\iota_m(x))
+=
+\nu_m(x).
+```
+
+With:
+
+```math
+\kappa_m
+```
+
+enabled, the same increment-and-carry evaluator produces:
+
+```math
+T_{m+1}
+\bigl(
+\iota_m(x_m^{\max}),
++1
+\bigr)
+=
+(0,0,\ldots,0,1).
+```
+
+The semantic target is:
+
+```math
+\nu_{m+1}(0,\ldots,0,1)
+=
+b^m.
+```
+
+## 9.5 Same-ambient ablation
+
+The ablated machine retains:
+
+```math
+X_{m+1}
+```
+
+and the same input type.
+
+It disables:
+
+```math
+h_m,
+```
+
+```math
+c_{m-1\to m},
+```
+
+and the corresponding rules:
+
+```math
+\Lambda_{\kappa_m},
+```
+
+then replays the same increment-and-carry evaluator.
+
+The carry propagates through all lower saturated places and reaches the disabled final carry edge.
+
+No alternative carry path exists in this machine.
+
+Therefore:
+
+```math
+T_{\operatorname{Abl}_{\kappa_m}(\mathcal M_{m+1})}
+\bigl(
+\iota_m(x_m^{\max}),
++1
+\bigr)
+=
+\bot.
+```
+
+The undefined result is produced by replay of the reduced mechanism. It is not inserted by definition from the original path.
+
+---
+
+# 10. Operational opening at a place-value threshold
+
+## 10.1 General theorem
+
+### Theorem
+
+For every:
+
+```math
+b\ge 2
+```
+
+and:
+
+```math
+m\ge 1,
+```
+
+the extension from the finite normalized `m`-carrier place-value machine to the corresponding `m+1`-carrier machine creates a reachability opening at the witness:
+
+```math
+w_m
+=
+(x_m^{\max},+1),
+```
+
+provided the new operational unit:
+
+```math
+\kappa_m
+```
+
+contains the higher carrier and the final carry binding required by the fixed evaluator.
+
+### Proof
+
+In the old machine:
+
+```math
+B_{\mathcal M_m}
+(x_m^{\max},+1)
+=
+\mathrm{undefined}.
+```
+
+In the extended machine:
+
+```math
+B_{\mathcal M_{m+1}}
+\bigl(
+\iota_m(x_m^{\max}),
++1
+\bigr)
+```
+
+is defined and has semantic target:
+
+```math
+b^m.
+```
+
+In the same ambient state and input spaces, disabling:
+
+```math
+\kappa_m
+```
+
+and replaying the same evaluator gives:
+
+```math
+B_{\operatorname{Abl}_{\kappa_m}(\mathcal M_{m+1})}
+\bigl(
+\iota_m(x_m^{\max}),
++1
+\bigr)
+=
+\mathrm{undefined}.
+```
+
+The three response relations satisfy the definition of a reachability opening at:
+
+```math
+w_m.
+```
+
+Therefore the higher carrier–binding unit opens a new operational direction of the finite normalized place-value machine.
+
+QED.
+
+## 10.2 Decimal corollary — `9 → 10`
+
+For:
+
+```math
+b=10
+```
+
+and:
+
+```math
+m=1,
+```
+
+the old machine has:
+
+```math
+X_1=D_{10}
+```
+
+and:
+
+```math
+T_1(9,+1)=\bot.
+```
+
+Embed:
+
+```math
+9
+```
+
+as:
+
+```math
+\iota_1(9)=(9,0).
+```
+
+The embedding preserves meaning:
+
+```math
+\nu_2(9,0)=9.
+```
+
+Activate:
+
+```math
+\kappa_1
+=
+\bigl(
+\{h_1\},
+\{c_{0\to1}\},
+\Lambda_{\kappa_1}
+\bigr).
+```
+
+Then:
+
+```math
+T_2((9,0),+1)
+=
+(0,1),
+```
+
+and:
+
+```math
+\nu_2(0,1)=10.
+```
+
+Disable:
+
+```math
+\kappa_1
+```
+
+in the same two-place ambient machine and replay the same evaluator:
+
+```math
+T_{\operatorname{Abl}_{\kappa_1}(\mathcal M_2)}
+((9,0),+1)
+=
+\bot.
+```
+
+The witness is:
+
+```text
+old finite machine
+→ no normalized successor
+
+higher carrier + carry binding
+→ normalized successor 10
+
+same-ambient ablation
+→ successor unavailable again
+```
+
+This is an operational opening under the definition of this document.
+
+It is not a claim that the classical mathematical dimension of the natural-number line increased at ten.
+
+## 10.3 What is proved
+
+The proof establishes:
+
+```text
+a complete lower place-value range was exhausted
+→ the old normalized machine had no successor path
+→ a higher carrier and binding entered operation
+→ a new normalized state became reachable
+→ removing the operational unit removed that reachability
+```
+
+The proof is not based solely on:
+
+```text
+the number of digits
+or
+the visual form of 10
+```
+
+The operation is the evidence.
+
+---
+
+# 11. Informational novelty and operational novelty
+
+## 11.1 Informational novelty is not sufficient
+
+A machine may record a new coordinate:
+
+```math
+h
+```
+
+that is functionally independent of the old description:
+
+```math
+P.
+```
+
+If the transition evaluator, output, and consequence functions never read or use:
+
+```math
+h,
+```
+
+then the complete operational response remains unchanged.
+
+The state description became richer.
+
+No operational dimension opened.
+
+```text
+new information
++ no operational binding
+→ no operational opening
+```
+
+## 11.2 Informational novelty is not necessary
+
+Let:
+
+```math
+h(g)
+=
+g_1\land g_2.
+```
+
+The coordinate:
+
+```math
+h
+```
+
+is fully derived from the existing state:
+
+```math
+g.
+```
+
+It introduces no new external information.
+
+If a new decision mechanism makes its result authority-bearing, the machine may begin to distinguish cases that it previously treated identically.
+
+Therefore:
+
+```text
+derived coordinate
++ new operative binding
+→ possible operational opening
+```
+
+The source of the opening is the new working relation, not informational independence alone.
+
+## 11.3 Exact separation
+
+```text
+informational expansion
+→ new state distinction is representable
+
+operational opening
+→ new reachability or discrimination is executable
+```
+
+Neither relation implies the other without additional conditions.
+
+---
+
+# 12. Quantity, unboundedness, and infinity
+
+## 12.1 Unbounded magnitude does not imply a new direction
+
+Let:
+
+```math
+V
+```
+
+be a normed vector space and let:
+
+```math
+v\ne 0.
 ```
 
 Define:
@@ -886,63 +1863,198 @@ x_n=nv.
 Then:
 
 ```math
-\lVert x_n\rVert
+\|x_n\|
 =
-n\lVert v\rVert
-\longrightarrow\infty,
+n\|v\|
+\longrightarrow
+\infty.
 ```
 
-while:
+The sequence is unbounded.
+
+Every element remains in:
 
 ```math
-\mathrm{span}\{x_n:n\in\mathbb N\}
-=
-\mathrm{span}\{v\},
+\operatorname{span}\{v\},
 ```
 
-and:
+which has dimension one.
+
+Therefore:
 
 ```math
-\dim\mathrm{span}\{x_n:n\in\mathbb N\}=1.
+\text{unbounded magnitude}
+\not\Rightarrow
+\text{new independent direction}.
 ```
 
-Within its own model, this example confirms that unbounded magnitude does not force higher vector-space dimension.
+This classical example supports the separation between growth and expansion. It does not define the Workshop operational opening.
 
-The operation of the Workshop machine defines the Workshop concept of operational dimension.
+## 12.2 The infinity symbol does not supply a mechanism
+
+The statement:
+
+```math
+x_n\to\infty
+```
+
+states an unboundedness relation.
+
+It does not create:
+
+```text
+a carrier
+a binding
+a transition rule
+a semantic target state
+an output
+a consequence
+```
+
+Therefore:
+
+```text
+infinity notation
+≠ operational dimension opening
+```
+
+A formula cannot replace a missing machine path.
 
 ---
 
-## 3.5 The princess-dress example
+# 13. Formula, state, and mechanism
+
+A formal expression has distinct layers:
+
+```text
+syntax
+semantics
+operation
+```
+
+Inserting a symbol changes syntax.
+
+Under an already fixed semantics, it may also change the expression's meaning or truth value.
+
+It does not by itself create an operational mechanism.
+
+A mechanical conclusion requires:
+
+```text
+defined carrier
+defined binding
+defined transition rule
+fixed semantic observation
+executable witness
+reproduced consequence
+```
+
+Therefore:
+
+```text
+notation
+≠ result
+
+formula
+≠ mechanism
+
+assumption
+≠ proof
+
+symbolic presence
+≠ operational activation
+```
+
+---
+
+# 14. “Acquired” is not a terminal state
+
+## 14.1 Terminal state
+
+In a transition system, a state is terminal only when no outgoing transition is available from it.
+
+Formally, state:
+
+```math
+x
+```
+
+is terminal when:
+
+```math
+T(x,\sigma)
+```
+
+is undefined for every admissible input:
+
+```math
+\sigma.
+```
+
+The label:
+
+```text
+acquired
+```
+
+does not make a state terminal by itself.
+
+## 14.2 Truncated acquisition model
+
+A truncated model may contain only:
+
+```text
+absent
+→ acquired
+→ end
+```
+
+A fuller machine contains further relations:
+
+```text
+acquired
+→ bound into use
+→ maintained
+→ transformed or degraded
+→ produces consequences
+→ retired or replaced
+```
+
+If the post-acquisition mechanism is removed from the model, the only visible motion may become repeated acquisition:
+
+```text
+acquired one
+→ acquired another
+→ acquired more
+```
+
+This is multiplicity growth caused by a truncated state model.
+
+---
+
+# 15. The princess-dress example
 
 Let:
 
 ```math
-x_n=(\tau,n),
-```
-
-where:
-
-```math
 \tau
-=
-\text{“princess dress”},
 ```
 
-and `n` is the item count.
+be the object type:
 
-If:
+```text
+princess dress
+```
+
+and let:
 
 ```math
-Q(x_n)=n
+x_n=(\tau,n)
 ```
 
-and:
+record the number of identical objects.
 
-```math
-\Omega_{\mathcal M}(x_n)=\omega
-```
-
-for every `n`, then:
+Then:
 
 ```text
 one princess dress
@@ -950,4325 +2062,630 @@ one princess dress
 → one thousand princess dresses
 ```
 
-is quantitative growth.
+may satisfy:
 
-Multiplication of a structural identity is quantitative multiplication of that structural identity.
+```math
+Q(x_{1000})>Q(x_1).
+```
 
-If quantity activates a new storage, maintenance, distribution, or use relation, the new relation must be examined through a separate operational witness and ablation witness.
+If the objects retain the same role and no new operative binding, state path, output, or consequence is created, then the change is quantitative accumulation.
+
+```text
+more instances
++ same operative relation
+→ no operational opening
+```
+
+If the objects are organized into a new working system and that relation creates new reachability or discrimination, the opening is caused by the new relation.
+
+The count is not the proof.
 
 ---
 
-# 4. The base-`b` place-value machine
+# 16. PULSEmech application
 
-## 4.1 Digit range
+## 16.1 Release authority is operational
 
 Let:
 
 ```math
-D_b
-=
-\{0,1,\ldots,b-1\},
-\qquad
-b\geq2.
+B^{\mathrm{auth}}_{\mathcal P}
 ```
 
-`D_b` is the complete normalized digit range of one place value.
+be the authority projection of the complete PULSEmech response. It contains the release-transition result and every response component that the active policy makes authority-bearing. Metadata-only differences are excluded unless the active policy explicitly gives them release-authority effect.
 
-In base ten:
+PULSEmech release authority is not created by the presence of more files, gates, records, or labels.
 
-```math
-D_{10}
-=
-\{0,1,2,3,4,5,6,7,8,9\}.
+```text
+more evidence records
+≠ more release authority
+
+more artifacts
+≠ more release authority
+
+more gate names
+≠ more release authority
 ```
 
----
+A gate becomes authority-bearing only through a complete operational path.
 
-## 4.2 Fixed-width ambient state space
+A representative path is:
 
-The machine containing `m` ambient place-value carriers is:
-
-```math
-\mathcal M_b^{(m)}.
+```text
+current-run evidence
+→ artifact and run binding
+→ policy binding
+→ required-gate materialization
+→ deterministic verification
+→ gate evaluation
+→ ALLOW or BLOCK
 ```
 
-Its ambient carriers are:
+## 16.2 Authority dependency model
+
+Let:
 
 ```math
-H_b^{(m)}
-=
-\{h_0,h_1,\ldots,h_{m-1}\}.
+\Gamma=(V,E)
 ```
 
-Its state space is:
+be the dependency graph of the release evaluator.
+
+Let:
 
 ```math
-X_b^{(m)}
-=
-D_b^m.
+s_{\mathrm{release}}
 ```
 
-A state is:
+be the release-decision sink.
+
+Let:
 
 ```math
-\mathbf d
-=
-(d_0,d_1,\ldots,d_{m-1}),
+\operatorname{Eval}_{\pi,v}
 ```
 
-where `d_0` is the lowest place value.
-
-The value-reading function is:
+be the evaluator fixed by policy identity:
 
 ```math
-V_m(\mathbf d)
-=
-\sum_{k=0}^{m-1}d_kb^k.
+\pi
 ```
 
-The semantic-state interpretation is:
+and verifier identity:
 
 ```math
-\nu_m(\mathbf d)
-=
-V_m(\mathbf d).
+v.
 ```
 
-The ambient state space contains higher digits padded with zero.
+The authority response projection is produced by this fixed evaluator from the materialized graph and gate state.
 
-Presence of an ambient carrier is therefore distinct from state-dependent activity.
-
----
-
-## 4.3 The fixed-width encoder
-
-For every value:
+The graph is required to be dependency-complete for the authority evaluation: every data or control dependency by which a node can influence the release sink is represented in:
 
 ```math
-0\leq n\leq b^m-1
+\Gamma.
 ```
 
-there is a unique vector:
+The evaluator may not use an unrecorded side path outside the declared dependency graph.
+
+## 16.3 Candidate or advisory presence
+
+Let:
 
 ```math
-\mathrm{enc}_m(n)
-=
-(d_0,\ldots,d_{m-1})
-\in D_b^m
+h
 ```
 
-such that:
+be a candidate or advisory gate.
+
+If there is no active data or control path from:
 
 ```math
-n
-=
-\sum_{k=0}^{m-1}d_kb^k.
+h
 ```
 
-The encoder `\mathrm{enc}_m` pads the normalized base-`b` representation with zeros in higher places to produce an ambient state vector of length `m`.
-
-Therefore:
+to:
 
 ```math
-\mathrm{enc}_2(9)
-=
-(9,0),
+s_{\mathrm{release}},
 ```
 
-and:
+then changing the value of:
 
 ```math
-\mathrm{enc}_2(10)
-=
-(0,1).
+h
 ```
 
----
+does not change the authority response.
 
-## 4.4 State-dependent active carriers
-
-The minimum normalized length of value `n` is:
+For two otherwise identical inputs:
 
 ```math
-\ell_b(0)=1,
-```
-
-and, for `n\geq1`:
-
-```math
-\ell_b(n)
-=
-1+\left\lfloor\log_b n\right\rfloor.
-```
-
-The active carriers in state `\mathbf d` of the machine with `m` ambient carriers are:
-
-```math
-A_b^{(m)}(\mathbf d)
-=
-\{
-h_0,\ldots,h_{\ell_b(V_m(\mathbf d))-1}
-\}.
-```
-
-The active places holding nonzero digit values are:
-
-```math
-N_b^{(m)}(\mathbf d)
-=
-\{
-h_k\in A_b^{(m)}(\mathbf d)
-:
-d_k\neq0
-\}.
-```
-
-Examples:
-
-```math
-A_{10}^{(2)}(9,0)
-=
-\{h_0\},
-```
-
-```math
-A_{10}^{(2)}(0,1)
-=
-\{h_0,h_1\},
-```
-
-```math
-N_{10}^{(2)}(0,1)
-=
-\{h_1\}.
-```
-
-Carrier `h_1` is present in the ambient space of state `(9,0)`, but is not yet active.
-
-It becomes active in target state `(0,1)`.
-
-Carrier `h_0` remains active in state `(0,1)` even though its current digit value is zero.
-
----
-
-## 4.5 The partial `+1` transition
-
-The common input signal is:
-
-```math
-\Sigma=\{+1\}.
-```
-
-The transition is:
-
-```math
-T_m(\mathbf d,+1)
-=
-\mathrm{enc}_m
-\bigl(
-V_m(\mathbf d)+1
-\bigr)
-```
-
-when:
-
-```math
-V_m(\mathbf d)<b^m-1.
-```
-
-The maximum state is:
-
-```math
-\mathbf d_m^{\max}
-=
-(b-1,\ldots,b-1).
-```
-
-For this state:
-
-```math
-V_m(\mathbf d_m^{\max})
-=
-b^m-1,
+z_{\mathrm{PASS}}
 ```
 
 and:
 
 ```math
-T_m(\mathbf d_m^{\max},+1)
+z_{\mathrm{FAIL}},
+```
+
+```math
+B^{\mathrm{auth}}_{\mathcal P_0}(z_{\mathrm{PASS}})
 =
-\bot.
+B^{\mathrm{auth}}_{\mathcal P_0}(z_{\mathrm{FAIL}}).
 ```
 
-Value `b^m` cannot be carried by `m` ambient digits.
+This is presence without release authority.
 
----
-
-## 4.6 Enabled bindings and realized transition-use records
-
-The carry bindings enabled under signal `+1` are:
-
-```math
-R_m(\mathbf d,+1)
-=
-\left\{
-c_{k\rightarrow k+1}
-:
-0\leq k\leq m-2
-\ \land\
-d_0=\cdots=d_k=b-1
-\right\}.
+```text
+candidate or advisory gate
++ no authority path
+→ no release-authority dimension
 ```
 
-This relation records the carry edges available in the ambient machine and
-enabled by the saturated lower prefix of the given state.
+## 16.4 Activation of an authority-bearing gate
 
-Let a realized transition satisfy:
+Let the operational unit:
 
 ```math
-T_m(\mathbf d,+1)=\mathbf d'.
+\kappa_h
 ```
 
-The fixed place-value evaluator reads the active source digits and the
-fixed-width encoder writes the active target digits. Its realized carrier-use
-record is therefore:
+contain the components that make:
 
 ```math
-U_{H,m}(\mathbf d,+1,\mathbf d')
-=
-A_b^{(m)}(\mathbf d)
-\cup
-A_b^{(m)}(\mathbf d').
+h
 ```
 
-This record includes carriers that were already active before the transition.
-For example, the tens carrier is actually used by `10 → 11` even though it does
-not become newly active in that transition.
+a release-required condition:
 
-The carry bindings actually traversed by the `+1` transition are:
-
-```math
-U_{E,m}(\mathbf d,+1,\mathbf d')
-=
-\{
-c_{0\rightarrow1},
-c_{1\rightarrow2},
-\ldots,
-c_{r-1\rightarrow r}
-\},
+```text
+required-set materialization
+current-run evidence binding
+artifact binding
+policy binding
+verifier binding
+authority dependency edges
+release-evaluation rule
 ```
 
-where `r` is the smallest index such that:
+Under the same fixed policy and evaluator, choose two inputs that differ only in the verified value of:
 
 ```math
-d_r<b-1,
-```
-
-and, for every:
-
-```math
-0\leq k<r,
-```
-
-we have:
-
-```math
-d_k=b-1.
+h.
 ```
 
 If:
 
 ```math
-d_0<b-1,
-```
-
-then:
-
-```math
-U_{E,m}(\mathbf d,+1,\mathbf d')
+B^{\mathrm{auth}}_{\mathcal P_1}(z_{\mathrm{PASS}})
 =
-\varnothing.
-```
-
-Let:
-
-```math
-\lambda_{+1}^{(m)}
-\in
-\Lambda_m
-```
-
-identify the fixed-width increment-and-normalization rule of the `m`-carrier
-machine. Every realized `+1` transition records:
-
-```math
-U_{\Lambda,m}(\mathbf d,+1,\mathbf d')
-=
-\{
-\lambda_{+1}^{(m)}
-\}.
-```
-
-At the threshold transition in the machine with `m+1` ambient carriers:
-
-```math
-\iota_m(\mathbf d_m^{\max})
-=
-(b-1,\ldots,b-1,0),
+\mathrm{ALLOW},
 ```
 
 and:
 
 ```math
-T_{m+1}
-\bigl(
-\iota_m(\mathbf d_m^{\max}),
-+1
-\bigr)
+B^{\mathrm{auth}}_{\mathcal P_1}(z_{\mathrm{FAIL}})
 =
-(0,\ldots,0,1).
+\mathrm{BLOCK},
 ```
 
-The carriers actually used are:
+then the new authority path distinguishes states that the previous machine treated identically.
 
-```math
-U_{H,m+1}
-\Bigl(
-\iota_m(\mathbf d_m^{\max}),
-+1,
-(0,\ldots,0,1)
-\Bigr)
-=
-\{
-h_0,\ldots,h_m
-\}.
-```
+## 16.5 Authority ablation
 
-The carry bindings actually used are:
-
-```math
-U_{E,m+1}
-\Bigl(
-\iota_m(\mathbf d_m^{\max}),
-+1,
-(0,\ldots,0,1)
-\Bigr)
-=
-\{
-c_{0\rightarrow1},
-\ldots,
-c_{m-1\rightarrow m}
-\}.
-```
-
-The carry bindings enabled at the threshold state are:
-
-```math
-R_{m+1}
-\Bigl(
-\iota_m(\mathbf d_m^{\max}),
-+1
-\Bigr)
-=
-\{
-c_{0\rightarrow1},
-\ldots,
-c_{m-1\rightarrow m}
-\}.
-```
-
-Therefore the higher carrier:
-
-```math
-h_m
-```
-
-is present in the realized carrier-use record, and the highest new binding:
-
-```math
-c_{m-1\rightarrow m}
-```
-
-is proved both enabled and actually traversed.
-
-## 4.7 Value preservation of place-value carry
-
-Let a temporary coefficient satisfy:
-
-```math
-c_k\geq b.
-```
-
-Euclidean division gives:
-
-```math
-c_k=bq+r,
-\qquad
-0\leq r\leq b-1.
-```
-
-Then:
-
-```math
-c_kb^k
-=
-rb^k+qb^{k+1}.
-```
-
-The representational structure changes while numerical value is preserved.
-
-In base ten:
-
-```math
-10\cdot10^k
-=
-1\cdot10^{k+1}.
-```
+A valid authority ablation preserves:
 
 ```text
-ten ones
-→ one ten
+ambient gate-state type
+policy identity
+verifier identity
+evaluator identity
+all unrelated graph nodes and edges
+semantic decision boundary
 ```
 
----
-
-## 4.8 Representational length-transition theorem
-
-For every `m\geq1`:
+It disables exactly the selected authority-bearing components of:
 
 ```math
-\ell_b(b^m-1)=m,
+\kappa_h
+```
+
+and replays:
+
+```math
+\operatorname{Eval}_{\pi,v}.
+```
+
+The ablated result is produced by the evaluator. It is not manually assigned.
+
+For example, fail-closed replay may produce:
+
+```math
+B^{\mathrm{auth}}_{\operatorname{Abl}_{\kappa_h}(\mathcal P_1)}
+(z_{\mathrm{PASS}})
+=
+\mathrm{BLOCK},
 ```
 
 and:
 
 ```math
-\ell_b(b^m)=m+1.
-```
-
-Proof:
-
-```math
-b^{m-1}
-\leq
-b^m-1
-<
-b^m,
-```
-
-so the minimum length of `b^m-1` is `m`.
-
-Furthermore:
-
-```math
-b^m
-<
-b^{m+1},
-```
-
-and `b^m` is not less than `b^m`, so its minimum length is `m+1`.
-
-QED.
-
----
-
-## 4.9 Semantics-preserving embedding
-
-The embedding of a state with `m` ambient carriers into the machine with `m+1` ambient carriers is:
-
-```math
-\iota_m
-(d_0,\ldots,d_{m-1})
+B^{\mathrm{auth}}_{\operatorname{Abl}_{\kappa_h}(\mathcal P_1)}
+(z_{\mathrm{FAIL}})
 =
-(d_0,\ldots,d_{m-1},0).
+\mathrm{BLOCK}.
 ```
 
-The input embedding is:
-
-```math
-\iota_\Sigma(+1)=+1.
-```
-
-Semantics is preserved:
-
-```math
-\nu_{m+1}
-\bigl(
-\iota_m(\mathbf d)
-\bigr)
-=
-\nu_m(\mathbf d).
-```
-
-The active carriers are also preserved in the embedded state:
-
-```math
-A_b^{(m+1)}
-\bigl(
-\iota_m(\mathbf d)
-\bigr)
-=
-A_b^{(m)}(\mathbf d).
-```
-
-Presence of the higher ambient carrier therefore does not create automatic activity.
-
-Activity opens in the target state.
-
----
-
-# 5. Operational unit and ablation
-
-## 5.1 The operational unit
-
-Let:
-
-```math
-\mathcal M_1
-=
-\mathcal M_0\oplus\kappa.
-```
-
-An operational unit is represented by the identities it can contribute to a
-realized transition:
-
-```math
-\kappa
-=
-(H_\kappa,E_\kappa,\Lambda_\kappa),
-```
-
-where:
-
-```text
-H_κ
-→ carrier identities belonging to κ
-
-E_κ
-→ binding identities belonging to κ
-
-Λ_κ
-→ transition-rule identities belonging to κ
-```
-
-The operational unit may therefore contain:
-
-```text
-a new or newly active carrier
-a new binding
-a new transition rule
-or a necessary combination of these
-```
-
-The new unit at a place-value threshold is abbreviated as:
-
-```math
-\kappa_m
-=
-(h_m,c_{m-1\rightarrow m}),
-```
-
-with the exact identity sets:
-
-```math
-H_{\kappa_m}
-=
-\{h_m\},
-```
-
-```math
-E_{\kappa_m}
-=
-\{c_{m-1\rightarrow m}\},
-```
-
-```math
-\Lambda_{\kappa_m}
-=
-\varnothing.
-```
-
-Here:
-
-```text
-h_m
-→ the ambient carrier of place value b^m that is used by the target state
-
-c_{m-1→m}
-→ the highest new carry traversed by the threshold transition
-```
-
-## 5.2 The `Uses` relation
-
-Let:
-
-```math
-T(x,\sigma)=x'.
-```
-
-We say that the realized transition uses `\kappa`:
-
-```math
-\mathrm{Uses}_{\kappa}(x,\sigma,x'),
-```
-
-exactly when at least one component of `\kappa` appears in the realized
-transition-use record:
-
-```math
-U_H(x,\sigma,x')
-\cap
-H_\kappa
-\neq
-\varnothing,
-```
-
-or:
-
-```math
-U_E(x,\sigma,x')
-\cap
-E_\kappa
-\neq
-\varnothing,
-```
-
-or:
-
-```math
-U_\Lambda(x,\sigma,x')
-\cap
-\Lambda_\kappa
-\neq
-\varnothing.
-```
-
-This definition records actual participation. It detects carriers that were
-already active before the transition as well as carriers that become active in
-the target state.
-
-The activation difference:
-
-```math
-\bigl(
-A(x')\setminus A(x)
-\bigr)
-\cap
-H_\kappa
-\neq
-\varnothing
-```
-
-is a separate opening witness. It may show that a carrier became newly active,
-but it is not the definition of transition use.
-
-In the concrete `9 → 10` place-value witness:
-
-```text
-h₁
-→ appears in U_H
-
-c₀→₁
-→ appears in U_E
-
-h₁
-→ also becomes newly active
-```
-
-The use record and the activation witness therefore agree, while remaining
-formally distinct.
-
-## 5.3 The ambient ablation machine
-
-Ablation preserves:
-
-```text
-the ambient state space
-the ambient input space
-the state and input types
-the ambient carrier and rule-identity types
-the fixed semantic interpretation
-the output and consequence spaces
-```
-
-The `\kappa`-ablation transition is the following total definition over the
-partial-transition result:
-
-```math
-T^{-\kappa}(x,\sigma)
-=
-\begin{cases}
-\bot,
-&
-\text{if }T(x,\sigma)=\bot,
-\\[6pt]
-\bot,
-&
-\text{if }T(x,\sigma)=x'
-\text{ and }
-\mathrm{Uses}_{\kappa}(x,\sigma,x'),
-\\[6pt]
-x',
-&
-\text{if }T(x,\sigma)=x'
-\text{ and }
-\neg\mathrm{Uses}_{\kappa}(x,\sigma,x').
-\end{cases}
-```
-
-The target `x'` is evaluated only in branches where:
-
-```math
-T(x,\sigma)=x'
-```
-
-has already bound it.
-
-The ablation machine is:
-
-```math
-\mathrm{Abl}_{\kappa}(\mathcal M)
-=
-(X,\Sigma,H,\Lambda,A^{-\kappa},R^{-\kappa},T^{-\kappa},
-U^{-\kappa},\nu,O,C,Q).
-```
-
-The carrier and enabled-binding restrictions are:
-
-```math
-A^{-\kappa}(x)
-=
-A(x)\setminus H_\kappa,
-```
-
-```math
-R^{-\kappa}(x,\sigma)
-=
-R(x,\sigma)\setminus E_\kappa.
-```
-
-For every transition that survives `T^{-\kappa}`, the use record is:
-
-```math
-U_H^{-\kappa}(x,\sigma,x')
-=
-U_H(x,\sigma,x')\setminus H_\kappa,
-```
-
-```math
-U_E^{-\kappa}(x,\sigma,x')
-=
-U_E(x,\sigma,x')\setminus E_\kappa,
-```
-
-```math
-U_\Lambda^{-\kappa}(x,\sigma,x')
-=
-U_\Lambda(x,\sigma,x')\setminus\Lambda_\kappa.
-```
-
-The `T^{-\kappa}` rule has priority: every realized transition whose use record
-intersects `\kappa` becomes undefined.
-
-Operational disabling:
-
-```text
-does not delete the ambient carrier from the type
-does not change the meaning of the witness state
-does not replace the observation space
-does not modify response interpretation after the fact
-```
-
-Abbreviate:
-
-```math
-\mathcal M\setminus\kappa
-:=
-\mathrm{Abl}_{\kappa}(\mathcal M).
-```
-
-## 5.4 `\kappa`-dependent after-response
-
-If:
-
-```math
-B_{\mathcal M_1}(w)
-\neq
-B_{\mathrm{Abl}_{\kappa}(\mathcal M_1)}(w),
-```
-
-then the response of the new machine on witness `w` is `\kappa`-dependent.
-
-This proves that `\kappa` affects the complete after-response.
-
-By itself, it does not prove that ablation restores the operation of the old machine.
-
----
-
-## 5.5 Restoration ablation witness
-
-A restoration witness binding the complete before–after difference to `\kappa` is:
-
-```math
-B_{\mathrm{Abl}_{\kappa}(\mathcal M_1)}(w)
-=
-\widetilde B_{\mathcal M_0}(w).
-```
-
-The three responses:
-
-```text
-before
-after
-ablation
-```
-
-then satisfy:
-
-```math
-\widetilde B_{\mathcal M_0}(w)
-\neq
-B_{\mathcal M_1}(w),
-```
-
-and:
-
-```math
-B_{\mathrm{Abl}_{\kappa}(\mathcal M_1)}(w)
-=
-\widetilde B_{\mathcal M_0}(w).
-```
-
-This proves that the operational unit `\kappa` creates the examined before–after difference on the fixed witness.
-
----
-
-# 6. Operational behavior change and dimension opening
-
-## 6.1 Operational behavior change
-
-Let:
-
-```math
-W
-\subseteq
-X_1\times\Sigma_1
-```
-
-be the common witness domain.
-
-Operational behavior change occurs if there is a:
-
-```math
-w\in W
-```
-
-such that:
-
-```math
-B_{\mathcal M_1}(w)
-\neq
-\widetilde B_{\mathcal M_0}(w).
-```
-
-If also:
-
-```math
-B_{\mathcal M_1}(w)
-\neq
-B_{\mathrm{Abl}_{\kappa}(\mathcal M_1)}(w),
-```
-
-then the complete after-response is `\kappa`-dependent.
-
-If ablation restores the old response:
-
-```math
-B_{\mathrm{Abl}_{\kappa}(\mathcal M_1)}(w)
-=
-\widetilde B_{\mathcal M_0}(w),
-```
-
-then the before–after difference is bound to `\kappa`.
-
-A mere response change is not yet an operational dimension opening.
-
----
-
-## 6.2 Reachability opening
-
-A reachability opening occurs on witness domain `W` if:
-
-```math
-\mathrm{Def}_{\widetilde{\mathcal M}_0}(W)
-\subsetneq
-\mathrm{Def}_{\mathcal M_1}(W),
-```
-
-and ablation removes the strict expansion.
-
-The strongest local witness is:
-
-```math
-\widetilde B_{\mathcal M_0}(w)
-=
-\mathrm{undefined},
-```
-
-```math
-B_{\mathcal M_1}(w)
-=
-\bigl(
-\mathrm{defined},
-s,y,z
-\bigr),
-```
-
-```math
-B_{\mathrm{Abl}_{\kappa}(\mathcal M_1)}(w)
-=
-\mathrm{undefined}.
-```
-
-In the capability profile:
-
-```math
-w
-\notin
-\mathrm{Def}_{\widetilde{\mathcal M}_0}(W),
-```
-
-```math
-w
-\in
-\mathrm{Def}_{\mathcal M_1}(W),
-```
-
-```math
-w
-\notin
-\mathrm{Def}_{\mathrm{Abl}_{\kappa}(\mathcal M_1)}(W).
-```
-
-This proves a valid state transition that did not previously exist.
-
----
-
-## 6.3 Discrimination opening
-
-Let two distinct witnesses be:
-
-```math
-w_1,
-\qquad
-w_2.
-```
-
-Fix the comparison domain to exactly the witnessed pair:
-
-```math
-W_{12}
-=
-\{w_1,w_2\}.
-```
-
-A discrimination opening occurs on `W_{12}` if:
-
-```math
-\widetilde B_{\mathcal M_0}(w_1)
-=
-\widetilde B_{\mathcal M_0}(w_2),
-```
-
-```math
-B_{\mathcal M_1}(w_1)
-\neq
-B_{\mathcal M_1}(w_2),
-```
-
-and:
-
-```math
-B_{\mathrm{Abl}_{\kappa}(\mathcal M_1)}(w_1)
-=
-B_{\mathrm{Abl}_{\kappa}(\mathcal M_1)}(w_2).
-```
-
-On the two-point domain, the old kernel contains the off-diagonal witness pair,
-while the new kernel does not. Therefore:
-
-```math
-\ker_{W_{12}}(B_{\mathcal M_1})
-\subsetneq
-\ker_{W_{12}}(\widetilde B_{\mathcal M_0}).
-```
-
-Ablation restores the old response equivalence on `W_{12}`.
-
-For a larger domain `W`, the same strict inclusion may be claimed only when the
-no-merging condition is also proved:
-
-```math
-B_{\mathcal M_1}(u)
-=
-B_{\mathcal M_1}(v)
-\Longrightarrow
-\widetilde B_{\mathcal M_0}(u)
-=
-\widetilde B_{\mathcal M_0}(v)
-```
-
-for all `u,v\in W`.
-
-The local theorem requires only the fixed two-point witness domain. It does not
-claim a global refinement without the additional preservation proof.
-
-### 6.3.1 Response-level discrimination corollary
-
-Let:
-
-```math
-\mathcal D
-```
-
-be a fixed response domain, and let:
-
-```math
-\widetilde B_0,
-\qquad
-B_1,
-\qquad
-B_1^{-\kappa}
-:
-\mathcal D
-\rightarrow
-\mathcal B
-```
-
-be three complete response functions of the same type.
-
-For distinct witnesses:
-
-```math
-w_1,w_2\in\mathcal D,
-```
-
-fix:
-
-```math
-W_{12}
-=
-\{w_1,w_2\}.
-```
-
-If:
-
-```math
-\widetilde B_0(w_1)
-=
-\widetilde B_0(w_2),
-```
-
-```math
-B_1(w_1)
-\neq
-B_1(w_2),
-```
-
-and:
-
-```math
-B_1^{-\kappa}(w_1)
-=
-B_1^{-\kappa}(w_2),
-```
-
-then:
-
-```math
-\ker_{W_{12}}(B_1)
-\subsetneq
-\ker_{W_{12}}(\widetilde B_0),
-```
-
-and the `\kappa`-ablation response removes the new complete-response
-discrimination on `W_{12}`.
-
-The ablated response:
-
-```math
-B_1^{-\kappa}
-```
-
-must be produced by an explicitly typed ablated evaluator. Its domain and
-codomain are the same as those of `B_1`.
-
-A completed response may not be replaced after evaluation and then presented as
-an ablation result.
-
-For a transition machine, the required construction is:
-
-```math
-B_1^{-\kappa}
-=
-B_{\mathrm{Abl}_{\kappa}(\mathcal M_1)}.
-```
-
-For an evaluator whose structural input is not a transition machine, let:
-
-```math
-\mathfrak S
-```
-
-be its typed structural-state space, let:
-
-```math
-\mathrm{Eval}
-:
-\mathfrak S\times\mathcal D
-\rightarrow
-\mathcal B,
-```
-
-and let:
-
-```math
-\mathrm{Abl}_{\kappa}^{\mathfrak S}
-:
-\mathfrak S
-\rightarrow
-\mathfrak S
-```
-
-disable `\kappa` in that structural state before evaluation.
-
-For a fixed evaluator state `s_1\in\mathfrak S`, the two responses are then:
-
-```math
-B_1(w)
-=
-\mathrm{Eval}(s_1,w),
-```
-
-and:
-
-```math
-B_1^{-\kappa}(w)
-=
-\mathrm{Eval}
-\bigl(
-\mathrm{Abl}_{\kappa}^{\mathfrak S}(s_1),
-w
-\bigr).
-```
-
-The restored equality on `W_{12}` must follow from the evaluator contract and
-the ablated structural state. It may not be introduced by a post-hoc constant
-substitution on already-produced responses.
-
-## 6.4 Definition of operational dimension opening
-
-> **Operational dimension opening occurs when a new or newly active carrier, binding, or transition rule creates new reachability or new discrimination in the operational capability profile on a fixed witness domain, and ablation in the same ambient space removes that strict capability change.**
-
-The two proof classes are:
-
-```text
-reachability witness
-discrimination witness
-```
-
-The following change is insufficient:
-
-```text
-every witness receives the same new response
-→ ablation restores every witness to the same old response
-```
-
-This may be a `\kappa`-dependent operational behavior change.
-
-If no new defined state transition appears and no previously equivalent witnesses are separated, then no operational dimension opening has been proved.
-
----
-# 7. The `9 → 10` reachability witness
-
-## 7.1 The two machines
-
-Let:
-
-```math
-\mathcal M_1
-=
-\mathcal M_{10}^{(1)},
-```
-
-and:
-
-```math
-\mathcal M_2
-=
-\mathcal M_{10}^{(2)}.
-```
-
-Ambient carriers:
-
-```math
-H_{10}^{(1)}
-=
-\{h_0\},
-```
-
-```math
-H_{10}^{(2)}
-=
-\{h_0,h_1\}.
-```
-
-State spaces:
-
-```math
-X_{10}^{(1)}
-=
-D_{10},
-```
-
-```math
-X_{10}^{(2)}
-=
-D_{10}^2.
-```
-
-The common input is:
-
-```math
-+1.
-```
-
-The embeddings are:
-
-```math
-\iota_X(9)
-=
-(9,0),
-```
-
-```math
-\iota_\Sigma(+1)
-=
-+1.
-```
-
-Semantics is preserved:
-
-```math
-\nu_2(9,0)
-=
-9
-=
-\nu_1(9).
-```
-
----
-
-## 7.2 Change in active carriers
-
-In the embedded initial state:
-
-```math
-A_{10}^{(2)}(9,0)
-=
-\{h_0\}.
-```
-
-The higher ambient carrier `h_1` is present but not yet active.
-
-In the target state:
-
-```math
-A_{10}^{(2)}(0,1)
-=
-\{h_0,h_1\}.
-```
+The exact equal response depends on the declared evaluator. The required proof relation is that the new PASS/FAIL distinction disappears after the responsible authority unit is disabled and the same evaluator is replayed.
 
 Therefore:
 
 ```math
-h_1
-\in
-A_{10}^{(2)}(0,1)
-\setminus
-A_{10}^{(2)}(9,0).
-```
-
-Carrier `h_1` becomes active in the threshold transition.
-
----
-
-## 7.3 The old and new transitions
-
-The maximum state of the one-place machine is:
-
-```math
-9.
-```
-
-For this state:
-
-```math
-T_1(9,+1)
+B^{\mathrm{auth}}_{\operatorname{Abl}_{\kappa_h}(\mathcal P_1)}
+(z_{\mathrm{PASS}})
 =
-\bot.
+B^{\mathrm{auth}}_{\operatorname{Abl}_{\kappa_h}(\mathcal P_1)}
+(z_{\mathrm{FAIL}}).
 ```
 
-Therefore:
-
-```math
-B_{\mathcal M_1}(9,+1)
-=
-\mathrm{undefined}.
-```
-
-In the machine with two ambient carriers:
-
-```math
-T_2((9,0),+1)
-=
-(0,1).
-```
-
-The semantic value of the target state is:
-
-```math
-\nu_2(0,1)
-=
-10.
-```
-
-The complete response is:
-
-```math
-B_{\mathcal M_2}((9,0),+1)
-=
-\bigl(
-\mathrm{defined},
-10,
-O_2(0,1),
-C_2((9,0),+1,(0,1))
-\bigr).
-```
-
----
-
-## 7.4 The actually used carriers and binding
-
-For the realized transition, the carrier-use record is:
-
-```math
-U_{H,2}
-\bigl(
-(9,0),
-+1,
-(0,1)
-\bigr)
-=
-\{h_0,h_1\}.
-```
-
-The binding-use record is:
-
-```math
-U_{E,2}
-\bigl(
-(9,0),
-+1,
-(0,1)
-\bigr)
-=
-\{c_{0\rightarrow1}\}.
-```
-
-The rule-use record is:
-
-```math
-U_{\Lambda,2}
-\bigl(
-(9,0),
-+1,
-(0,1)
-\bigr)
-=
-\{\lambda_{+1}^{(2)}\}.
-```
-
-The new operational unit is:
-
-```math
-\kappa_1
-=
-(h_1,c_{0\rightarrow1}).
-```
-
-Its exact identity sets satisfy:
-
-```math
-H_{\kappa_1}
-=
-\{h_1\},
-```
-
-```math
-E_{\kappa_1}
-=
-\{c_{0\rightarrow1}\}.
-```
-
-Therefore:
-
-```math
-U_{H,2}((9,0),+1,(0,1))
-\cap
-H_{\kappa_1}
-=
-\{h_1\},
-```
-
-and:
-
-```math
-U_{E,2}((9,0),+1,(0,1))
-\cap
-E_{\kappa_1}
-=
-\{c_{0\rightarrow1}\}.
-```
-
-Hence:
-
-```math
-\mathrm{Uses}_{\kappa_1}
-\bigl(
-(9,0),
-+1,
-(0,1)
-\bigr).
-```
-
-Separately, the activation witness is:
-
-```math
-h_1
-\in
-A_{10}^{(2)}(0,1)
-\setminus
-A_{10}^{(2)}(9,0).
-```
-
-The transition thus records both actual use and new activation.
-
-## 7.5 Ablation
-
-Ablation preserves:
-
-```math
-X_{10}^{(2)}
-=
-D_{10}^2.
-```
-
-The witness state remains:
-
-```math
-(9,0).
-```
-
-Because the complete transition uses `\kappa_1`:
-
-```math
-T_2^{-\kappa_1}((9,0),+1)
-=
-\bot.
-```
-
-Therefore:
-
-```math
-B_{\mathrm{Abl}_{\kappa_1}(\mathcal M_2)}
-((9,0),+1)
-=
-\mathrm{undefined}.
-```
-
-For the separate carrier-only and binding-only ablations, define:
-
-```math
-\kappa_{h_1}
-=
-(\{h_1\},\varnothing,\varnothing),
-```
-
-```math
-\kappa_{c_{0\rightarrow1}}
-=
-(\varnothing,\{c_{0\rightarrow1}\},\varnothing).
-```
-
-Then:
-
-```math
-T_2^{-\kappa_{h_1}}((9,0),+1)
-=
-\bot,
-```
-
-and:
-
-```math
-T_2^{-\kappa_{c_{0\rightarrow1}}}((9,0),+1)
-=
-\bot.
-```
-
----
-
-## 7.6 Capability-profile witness
-
-Let:
-
-```math
-W
-=
-\{
-((9,0),+1)
-\}.
-```
-
-Fix the comparison pullback on this singleton domain:
-
-```math
-p_0
-\bigl(
-((9,0),+1)
-\bigr)
-=
-(9,+1).
-```
-
-The old machine's response lifted into the new ambient space is therefore:
-
-```math
-\widetilde B_{\mathcal M_1}((9,0),+1)
-=
-B_{\mathcal M_1}(9,+1)
-=
-\mathrm{undefined}.
-```
-
-Therefore:
-
-```math
-\mathrm{Def}_{\widetilde{\mathcal M}_1}(W)
-=
-\varnothing.
-```
-
-In the new machine:
-
-```math
-\mathrm{Def}_{\mathcal M_2}(W)
-=
-W.
-```
-
-In the ablation machine:
-
-```math
-\mathrm{Def}_{\mathrm{Abl}_{\kappa_1}(\mathcal M_2)}(W)
-=
-\varnothing.
-```
-
-The strict change is:
-
-```math
-\varnothing
-\subsetneq
-W.
-```
-
-Ablation restores the old reachability profile.
-
-This is a complete reachability witness.
-
----
-
-## 7.7 The theorem of the first decimal opening
+## 16.6 PULSEmech discrimination theorem
 
 ### Theorem
 
-In the finite normalized decimal place-value machine, the transition:
+A gate opens an operational release dimension when:
 
-```math
-9
-\longrightarrow
-10
-```
-
-is an operational dimension opening.
+1. its values were previously authority-indistinguishable;
+2. a bound, materialized, verified authority path makes those values produce different release decisions;
+3. same-ambient ablation of that authority unit removes the distinction under replay of the same evaluator.
 
 ### Proof
 
-The old machine's response is:
+Before activation:
 
 ```math
-B_{\mathcal M_1}(9,+1)
+B^{\mathrm{auth}}_{\mathcal P_0}(z_{\mathrm{PASS}})
 =
-\mathrm{undefined}.
+B^{\mathrm{auth}}_{\mathcal P_0}(z_{\mathrm{FAIL}}).
 ```
 
-The new machine's response is:
+After activation:
 
 ```math
-B_{\mathcal M_2}((9,0),+1)
+B^{\mathrm{auth}}_{\mathcal P_1}(z_{\mathrm{PASS}})
+\ne
+B^{\mathrm{auth}}_{\mathcal P_1}(z_{\mathrm{FAIL}}).
+```
+
+After same-ambient authority ablation and evaluator replay:
+
+```math
+B^{\mathrm{auth}}_{\operatorname{Abl}_{\kappa_h}(\mathcal P_1)}
+(z_{\mathrm{PASS}})
 =
-\bigl(
-\mathrm{defined},
-10,
-O_2(0,1),
-C_2((9,0),+1,(0,1))
-\bigr).
+B^{\mathrm{auth}}_{\operatorname{Abl}_{\kappa_h}(\mathcal P_1)}
+(z_{\mathrm{FAIL}}).
 ```
 
-After ablation of the new operational unit:
-
-```math
-B_{\mathrm{Abl}_{\kappa_1}(\mathcal M_2)}
-((9,0),+1)
-=
-\mathrm{undefined}.
-```
-
-Carrier `h_1` becomes active in the target state, and binding `c_{0\rightarrow1}` is actually used by the transition.
-
-The definedness component of the `\mathfrak O` profile strictly expands and is restored by ablation.
-
-This is a reachability opening.
-
-QED.
-
----
-
-# 8. The general place-value threshold theorem
-
-## 8.1 Theorem
-
-For every:
-
-```math
-b\geq2,
-\qquad
-m\geq1
-```
-
-the transition:
-
-```math
-b^m-1
-\longrightarrow
-b^m
-```
-
-is a reachability opening in the extension from the machine with `m` ambient carriers to the machine with `m+1` ambient carriers.
-
-The new operational unit is:
-
-```math
-\kappa_m
-=
-(h_m,c_{m-1\rightarrow m}).
-```
-
----
-
-## 8.2 Proof
-
-The old maximum state is:
-
-```math
-\mathbf d_m^{\max}
-=
-(b-1,\ldots,b-1).
-```
-
-In the old machine:
-
-```math
-T_m(\mathbf d_m^{\max},+1)
-=
-\bot.
-```
-
-The embedded state is:
-
-```math
-\iota_m(\mathbf d_m^{\max})
-=
-(b-1,\ldots,b-1,0).
-```
-
-The embedding preserves semantics:
-
-```math
-\nu_{m+1}
-\bigl(
-\iota_m(\mathbf d_m^{\max})
-\bigr)
-=
-b^m-1.
-```
-
-In the new machine:
-
-```math
-T_{m+1}
-\bigl(
-\iota_m(\mathbf d_m^{\max}),
-+1
-\bigr)
-=
-(0,\ldots,0,1).
-```
-
-The target-state semantics is:
-
-```math
-\nu_{m+1}(0,\ldots,0,1)
-=
-b^m.
-```
-
-The new carrier becomes active:
-
-```math
-h_m
-\in
-A_b^{(m+1)}(0,\ldots,0,1)
-\setminus
-A_b^{(m+1)}
-\bigl(
-\iota_m(\mathbf d_m^{\max})
-\bigr).
-```
-
-The new carrier is also present in the realized carrier-use record:
-
-```math
-h_m
-\in
-U_{H,m+1}
-\Bigl(
-\iota_m(\mathbf d_m^{\max}),
-+1,
-(0,\ldots,0,1)
-\Bigr).
-```
-
-The highest new binding is present in the realized binding-use record:
-
-```math
-c_{m-1\rightarrow m}
-\in
-U_{E,m+1}
-\Bigl(
-\iota_m(\mathbf d_m^{\max}),
-+1,
-(0,\ldots,0,1)
-\Bigr).
-```
+These relations satisfy the definition of a discrimination opening.
 
 Therefore:
 
 ```math
-\mathrm{Uses}_{\kappa_m}
-\Bigl(
-\iota_m(\mathbf d_m^{\max}),
-+1,
-(0,\ldots,0,1)
-\Bigr).
+\kappa_h
 ```
 
-The ablation transition is:
-
-```math
-T_{m+1}^{-\kappa_m}
-\bigl(
-\iota_m(\mathbf d_m^{\max}),
-+1
-\bigr)
-=
-\bot.
-```
-
-The old response is undefined, the new response is defined, and the ablation
-response is undefined again.
-
-This is a reachability opening.
+opens an operational release dimension.
 
 QED.
 
-# 9. Not every carry opens a new operational dimension
+## 16.7 Derived gate
 
-The transition:
+The gate:
+
+```math
+h
+```
+
+may be fully derived from existing evidence.
+
+Its derivability does not prevent an operational opening.
+
+The deciding relation is:
 
 ```text
-19
-→ 20
+derived result
++ binding
++ required materialization
++ verifier
++ authority path
++ decision distinction
++ ablation replay
+→ operational release dimension
 ```
 
-may use a carry binding.
-
-Its minimum representational length is:
-
-```math
-\ell_{10}(19)=2,
-```
-
-```math
-\ell_{10}(20)=2.
-```
-
-The higher carrier `h_1` is already active in the initial state.
-
-No new ambient carrier becomes active.
-
-The next place-value opening is:
-
-```text
-99
-→ 100
-```
-
-because:
-
-```math
-\ell_{10}(99)=2,
-```
-
-```math
-\ell_{10}(100)=3.
-```
-
-Therefore:
-
-```text
-carry
-≠ automatically an operational dimension opening
-
-carry into a new necessary higher carrier
-+ new reachability
-+ ablation in the same ambient space
-→ operational dimension opening
-```
+No new external information is required when a new authority-bearing relation is created from existing information.
 
 ---
 
-# 10. Informational novelty and operational novelty
+# 17. Reproducible proof package
 
-## 10.1 Functional informational novelty
+A claim of operational dimension opening must record enough information to reproduce the machine comparison.
 
-A new coordinate `h` carries functionally new information relative to description `P` if no function exists:
+The minimum proof package contains:
 
-```math
-f:P(X)\rightarrow H_h,
+```yaml
+system_boundary:
+old_machine_identity:
+new_machine_identity:
+ambient_state_space:
+ambient_input_space:
+semantic_observation_boundary:
+authority_projection_if_applicable:
+evaluator_identity:
+quantitative_coordinate:
+old_to_new_embedding:
+embedding_preservation_result:
+operational_unit_identity:
+activation_components:
+ablation_components:
+same_ambient_ablation_contract:
+witness_type:
+witness_inputs:
+before_response:
+after_response:
+ablation_response:
+replay_result:
+negative_controls:
 ```
 
-such that:
+For a reachability witness, the recorded response relation must be:
 
-```math
-h=f\circ P.
+```text
+before: undefined
+after: defined
+ablation: undefined
 ```
 
-A witness form is:
+For a discrimination witness, it must be:
 
-```math
-\exists x,y\in X:
-P(x)=P(y)
-\land
-h(x)\neq h(y).
+```text
+before: equal responses
+after: unequal responses
+ablation: equal responses
 ```
 
-This is informational novelty.
+The proof package must also confirm:
+
+```text
+same evaluator identity
+same semantic observation boundary
+recomputed ablation response
+no manual substitution of the ablation result
+```
+
+## 17.1 Negative controls
+
+The following cases must not be accepted as operational dimension openings without additional evidence:
+
+```text
+quantity increases but complete responses remain equal
+
+internal representation changes but semantic responses remain equal
+
+new information is recorded but no transition or authority path reads it
+
+every witness receives the same new output and no new discrimination appears
+
+the original path is deleted without replaying the reduced mechanism
+
+an external theorem is cited without operation-preserving transfer
+```
+
+These controls protect the theorem from both false expansion and false reduction.
 
 ---
 
-## 10.2 Informational novelty without operational effect
+# 18. Main theorem
 
-It is possible that:
-
-```math
-\ker(P,h)
-\subsetneq
-\ker P,
-```
-
-while:
-
-```math
-B_{\mathcal M_h}(x,\sigma)
-=
-B_{\mathcal M}(x,\sigma)
-```
-
-for every examined `x,\sigma`.
-
-In this case the new coordinate refines the description but does not change the machine's operational capability profile.
-
----
-
-## 10.3 Operational novelty without new external information
+## The Workshop theorem of quantitative growth and operational dimension opening
 
 Let:
 
 ```math
-g=(g_1,g_2),
+\mathcal M_0
 ```
 
 and:
 
 ```math
-h(g)=g_1\land g_2.
+\mathcal M_1
 ```
 
-Coordinate `h` is fully derivable from `g`.
-
-Let two states be:
-
-```math
-g^{(1)},
-\qquad
-g^{(2)},
-```
-
-such that:
-
-```math
-h(g^{(1)})=1,
-```
-
-```math
-h(g^{(2)})=0.
-```
-
-For this local decision-only example, define the complete response of the
-decision machine to be the decision value itself:
-
-```math
-\mathcal B_D
-=
-\{
-\mathrm{ALLOW},
-\mathrm{BLOCK}
-\}.
-```
+be machines compared through a semantic-preserving embedding and a fixed complete operational response.
 
 Let:
 
 ```math
-\mathcal G_D
-```
-
-be the state space of this local decision-only machine.
-
-```math
-B_{D,0}
-:
-\mathcal G_D
-\rightarrow
-\mathcal B_D,
-```
-
-```math
-B_{D,1}
-:
-\mathcal G_D
-\rightarrow
-\mathcal B_D.
-```
-
-The old complete response satisfies:
-
-```math
-B_{D,0}(g^{(1)})
-=
-B_{D,0}(g^{(2)}).
-```
-
-The new authority-bearing response is:
-
-```math
-B_{D,1}(g)
-=
-\begin{cases}
-\mathrm{ALLOW},
-&
-h(g)=1,
-\\[4pt]
-\mathrm{BLOCK},
-&
-h(g)=0.
-\end{cases}
-```
-
-Then:
-
-```math
-B_{D,1}(g^{(1)})
-\neq
-B_{D,1}(g^{(2)}).
-```
-
-Let the complete response of the ablated decision machine be:
-
-```math
-B_{D,1}^{-\kappa}
-:
-\mathcal G_D
-\rightarrow
-\mathcal B_D.
-```
-
-If ablation of the authority binding restores complete-response equality:
-
-```math
-B_{D,1}^{-\kappa}(g^{(1)})
-=
-B_{D,1}^{-\kappa}(g^{(2)}),
-```
-
-then the fixed two-point decision machine has a discrimination opening.
-
-Here the response is not a projection of a larger tuple: by definition,
-`B_D` is the entire response of the local decision-only machine.
-
-No new external information arrived.
-
-A new operational relation entered operation.
-
-# 11. Threshold and activation
-
-Let:
-
-```math
-Q(x)\geq q_*.
-```
-
-The threshold condition by itself is a quantitative statement.
-
-The machine must separately carry an activation rule:
-
-```math
-Q(x)\geq q_*
-\Longrightarrow
 \kappa
-\text{ enters operation}.
 ```
 
-The complete chain is:
+be the operational unit introduced or activated in:
 
-```text
-quantitative coordinate increases
-→ threshold condition is satisfied
-→ activation rule executes
-→ new carrier or binding enters operation
-→ capability-profile change becomes measurable
-```
-
-Operational dimension opening is proved when the capability-profile change is established by a reachability or discrimination witness and by ablation.
-
-In the decimal machine:
-
-```math
-d_k=b-1
-```
-
-and addition of the next unit initiates the carry.
-
----
-
-# 12. Formula, semantics, and mechanism
-
-A formal expression has three separate layers:
-
-```text
-syntax
-→ which symbols constitute the expression
-
-semantics
-→ what the symbols mean in the chosen model
-
-mechanism
-→ which carrier, binding, state, transition, and consequence the system creates
-```
-
-Changing notation may change syntax.
-
-Under a fixed interpretation it may change semantics.
-
-Only a change in the machine's capability profile, proved in operation and through ablation, creates an operational dimension opening.
-
-```text
-notation
-≠ operational witness
-
-formula
-≠ machine
-
-statement
-≠ reproduced transition
-```
-
----
-
-# 13. Boundary of the “acquired” state
-
-A state `x` is terminal if:
-
-```math
-\forall\sigma\in\Sigma:
-T(x,\sigma)=\bot.
-```
-
-The label “acquired” is not a terminal-state definition.
-
-A fuller lifecycle is:
-
-```text
-absent
-→ acquired
-→ bound into the system
-→ in use
-→ maintained
-→ modified or degraded
-→ withdrawn
-```
-
-If a model stops here:
-
-```text
-absent
-→ became present
-→ acquired
-```
-
-then the model has cut off the later transitions.
-
-The remaining visible motion is easily flattened into accumulation:
-
-```text
-one is acquired
-→ two are acquired
-→ three are acquired
-```
-
-This is a quantitative axis.
-
-A new operational dimension requires a new reachability or discrimination witness.
-
----
-
-# 14. PULSEmech application
-
-## 14.1 The release-authority response space
-
-Let the transition-state set be:
-
-```math
-\Theta_{\mathrm{release}}
-=
-\{
-\mathrm{transition\_open},
-\mathrm{transition\_closed}
-\}.
-```
-
-Let the decision space be:
-
-```math
-\mathcal D_{\mathrm{release}}
-=
-\{
-\mathrm{ALLOW},
-\mathrm{BLOCK}
-\}.
-```
-
-Let:
-
-```math
-\mathcal Z_{\mathrm{release}}
-```
-
-be the space of fixed release-consequence records.
-
-The complete authority-response space is:
-
-```math
-\mathcal B_{\mathrm{auth}}
-=
-\Theta_{\mathrm{release}}
-\times
-\mathcal D_{\mathrm{release}}
-\times
-\mathcal Z_{\mathrm{release}}.
-```
-
-Let:
-
-```math
-\mathcal G
-```
-
-be the release-authority gate-state space.
-
-The transition-state evaluator is:
-
-```math
-\theta_{\mathrm{release}}
-:
-\mathcal G
-\rightarrow
-\Theta_{\mathrm{release}}.
-```
-
-The decision evaluator is:
-
-```math
-d_{\mathrm{release}}
-:
-\mathcal G
-\rightarrow
-\mathcal D_{\mathrm{release}}.
-```
-
-The consequence evaluator is:
-
-```math
-c_{\mathrm{release}}
-:
-\mathcal G
-\rightarrow
-\mathcal Z_{\mathrm{release}}.
-```
-
-The complete authority response is:
-
-```math
-B_{\mathrm{auth}}(g)
-=
-\bigl(
-\theta_{\mathrm{release}}(g),
-d_{\mathrm{release}}(g),
-c_{\mathrm{release}}(g)
-\bigr).
-```
-
-The set `\Theta_{\mathrm{release}}` and the evaluator
-`\theta_{\mathrm{release}}` are distinct typed objects.
-
-The positive operational chain of the PULSEmech authority machine is:
-
-```text
-recorded current-run evidence
-→ exact subject and artifact binding
-→ declared policy
-→ workflow-effective required-gate materialization
-→ deterministic verifier replay
-→ strict fail-closed gate evaluation
-→ terminal ALLOW or BLOCK
-```
-
-## 14.2 Quantity and authority
-
-Let:
-
-```math
-E
-```
-
-be the set of evidence records,
-
-```math
-A_r
-```
-
-be the set of artifacts,
-
-and:
-
-```math
-G_{\mathrm{ids}}
-```
-
-be the set of declared gate identities.
-
-The following are quantitative increases:
-
-```math
-|E'|>|E|,
-```
-
-```math
-|A_r'|>|A_r|,
-```
-
-```math
-|G_{\mathrm{ids}}'|>|G_{\mathrm{ids}}|.
-```
-
-They open an operational release dimension only when they create new reachability or new discrimination in the authority machine.
-
----
-
-## 14.3 Candidate and advisory gate
-
-Let `g\in\mathcal G` be the old authority-bearing gate state and `h` a new gate candidate.
-
-The old response is:
-
-```math
-B_{\mathrm{auth},0}
-:
-\mathcal G
-\rightarrow
-\mathcal B_{\mathrm{auth}}.
-```
-
-The extended response is:
-
-```math
-B_{\mathrm{auth},1}
-:
-\mathcal G\times\mathcal H_h
-\rightarrow
-\mathcal B_{\mathrm{auth}}.
-```
-
-Define the projection:
-
-```math
-\pi_G(g,h)=g.
-```
-
-The old response lifted across the entire new gate axis is:
-
-```math
-\widetilde B_{\mathrm{auth},0}
-:=
-B_{\mathrm{auth},0}
-\circ
-\pi_G.
-```
-
-Therefore:
-
-```math
-\widetilde B_{\mathrm{auth},0}(g,h)
-=
-B_{\mathrm{auth},0}(g)
-```
-
-for every permitted `g,h`.
-
-A gate in candidate or advisory state does not open a new authority dimension
-when:
-
-```math
-B_{\mathrm{auth},1}
-=
-\widetilde B_{\mathrm{auth},0}.
-```
-
-Equivalently:
-
-```math
-B_{\mathrm{auth},1}
-=
-B_{\mathrm{auth},0}
-\circ
-\pi_G.
-```
-
-The projection `\pi_G` is the comparison pullback `p_0` for this new-axis
-witness domain.
-
-## 14.4 The authority-dependency graph
-
-Let:
-
-```math
-\mathcal G_{\mathrm{dep}}
-=
-(N_{\mathrm{dep}},E_{\mathrm{dep}})
-```
-
-be the PULSEmech data- and control-dependency graph.
-
-Let:
-
-```math
-u\leadsto S
-```
-
-mean that a directed data or control path leads from node `u` to some member
-of sink set `S`.
-
-The authority-bearing evaluator nodes are:
-
-```math
-S_{\mathrm{auth}}
-=
-\{
-\theta_{\mathrm{release}},
-d_{\mathrm{release}},
-c_{\mathrm{release}}
-\}.
-```
-
-If:
-
-```math
-h\not\leadsto S_{\mathrm{auth}},
-```
-
-then `h` does not participate in producing the terminal authority response.
-
-The candidate boundary is:
-
-```text
-gate candidate
-+ absent from the active materialized required set
-+ no path to an authority-bearing evaluator
-→ authority response factors through the old gate state
-```
-
-## 14.5 Active required gate as a discrimination opening
-
-Let:
-
-```math
-g_*
-```
-
-be a fixed old authority state.
-
-Fix the two-point witness domain:
-
-```math
-W_h
-=
-\{
-(g_*,h=\mathrm{PASS}),
-(g_*,h=\mathrm{FAIL})
-\}.
-```
-
-Because the old response is lifted by `\pi_G`, it is defined at both points and
-treats them identically:
-
-```math
-\widetilde B_{\mathrm{auth},0}
-(g_*,h=\mathrm{PASS})
-=
-\widetilde B_{\mathrm{auth},0}
-(g_*,h=\mathrm{FAIL}).
-```
-
-The active materialized required gate produces complete-response separation:
-
-```math
-B_{\mathrm{auth},1}
-(g_*,h=\mathrm{PASS})
-\neq
-B_{\mathrm{auth},1}
-(g_*,h=\mathrm{FAIL}).
-```
-
-Let the decision projection be:
-
-```math
-\pi_D
-:
-\mathcal B_{\mathrm{auth}}
-\rightarrow
-\mathcal D_{\mathrm{release}},
-```
-
-and define:
-
-```math
-d_{\mathrm{release},1}
-:=
-\pi_D
-\circ
-B_{\mathrm{auth},1}.
-```
-
-Its decision projection may, for example, satisfy:
-
-```math
-d_{\mathrm{release},1}
-(g_*,h=\mathrm{PASS})
-=
-\mathrm{ALLOW},
-```
-
-```math
-d_{\mathrm{release},1}
-(g_*,h=\mathrm{FAIL})
-=
-\mathrm{BLOCK}.
-```
-
-The decision projection illustrates one differing component. The
-discrimination proof itself uses the complete `B_{\mathrm{auth},1}` response.
-
-### Authority-dependency ablation and evaluator replay
-
-Let the typed authority dependency-graph space be:
-
-```math
-\mathfrak D_{\mathrm{auth}}
-=
-\left\{
-(N_{\mathrm{dep}},E)
-\ \middle|\
-E\subseteq E_{\mathrm{dep}}
-\right\}.
-```
-
-For any dependency-graph state:
-
-```math
-\mathcal D
-=
-(N_{\mathrm{dep}},E)
-\in
-\mathfrak D_{\mathrm{auth}},
-```
-
-write:
-
-```math
-u
-\leadsto_{\mathcal D}
-S
-```
-
-when a directed path in `\mathcal D` leads from node `u` to an element of
-node set `S`.
-
-Let the complete authority evaluator be:
-
-```math
-\mathrm{Eval}_{\mathrm{auth}}
-:
-\mathfrak D_{\mathrm{auth}}
-\times
-\mathcal G
-\times
-\mathcal H_h
-\rightarrow
-\mathcal B_{\mathrm{auth}}.
-```
-
-The active required-gate response is generated from the original dependency
-graph:
-
-```math
-B_{\mathrm{auth},1}(g,h)
-=
-\mathrm{Eval}_{\mathrm{auth}}
-\bigl(
-\mathcal G_{\mathrm{dep}},
-g,
-h
-\bigr).
-```
-
-Let:
-
-```math
-n_h
-\in
-N_{\mathrm{dep}}
-```
-
-be the node carrying the materialized required-gate value, and let:
-
-```math
-E_{\kappa}^{\mathrm{dep}}
-\subseteq
-E_{\mathrm{dep}}
-```
-
-be the exact authority-dependency edge cut used by that gate value on its path
-to the authority-bearing evaluator set `S_{\mathrm{auth}}`.
-
-The original graph contains the required path:
-
-```math
-n_h
-\leadsto_{\mathcal G_{\mathrm{dep}}}
-S_{\mathrm{auth}}.
-```
-
-Define the authority-dependency ablation on graph state:
-
-```math
-\mathrm{Abl}_{\kappa}^{\mathrm{dep}}
-:
-\mathfrak D_{\mathrm{auth}}
-\rightarrow
-\mathfrak D_{\mathrm{auth}},
-```
-
-```math
-\mathrm{Abl}_{\kappa}^{\mathrm{dep}}
-(N_{\mathrm{dep}},E)
-=
-\bigl(
-N_{\mathrm{dep}},
-E\setminus E_{\kappa}^{\mathrm{dep}}
-\bigr).
-```
-
-The ablated dependency graph is:
-
-```math
-\mathcal G_{\mathrm{dep}}^{-\kappa}
-:=
-\mathrm{Abl}_{\kappa}^{\mathrm{dep}}
-\bigl(
-\mathcal G_{\mathrm{dep}}
-\bigr).
-```
-
-The edge cut is required to remove every authority-bearing path from the
-materialized gate node:
-
-```math
-n_h
-\not\leadsto_{\mathcal G_{\mathrm{dep}}^{-\kappa}}
-S_{\mathrm{auth}}.
-```
-
-The original evaluator execution carries an actual dependency-use record:
-
-```math
-U_{\mathrm{dep}}^{\mathrm{auth}}
-:
-\mathfrak D_{\mathrm{auth}}
-\times
-\mathcal G
-\times
-\mathcal H_h
-\rightarrow
-2^{E_{\mathrm{dep}}}.
-```
-
-For a graph state `\mathcal D=(N_{\mathrm{dep}},E)`, require:
-
-```math
-U_{\mathrm{dep}}^{\mathrm{auth}}
-(\mathcal D,g,h)
-\subseteq
-E.
-```
-
-For both required-gate witnesses, the original evaluation actually traverses
-the ablated edge cut:
-
-```math
-U_{\mathrm{dep}}^{\mathrm{auth}}
-\bigl(
-\mathcal G_{\mathrm{dep}},
-g_*,
-h=\mathrm{PASS}
-\bigr)
-\cap
-E_{\kappa}^{\mathrm{dep}}
-\neq
-\varnothing,
-```
-
-and:
-
-```math
-U_{\mathrm{dep}}^{\mathrm{auth}}
-\bigl(
-\mathcal G_{\mathrm{dep}},
-g_*,
-h=\mathrm{FAIL}
-\bigr)
-\cap
-E_{\kappa}^{\mathrm{dep}}
-\neq
-\varnothing.
-```
-
-Let the fixed fail-closed consequence evaluator be:
-
-```math
-c_{\mathrm{fc}}
-:
-\mathcal G
-\rightarrow
-\mathcal Z_{\mathrm{release}}.
-```
-
-Define the complete fail-closed response:
-
-```math
-b_{\mathrm{fc}}(g)
-=
-\bigl(
-\mathrm{transition\_closed},
-\mathrm{BLOCK},
-c_{\mathrm{fc}}(g)
-\bigr).
-```
-
-The authority evaluator has the following fail-closed structural contract for
-the materialized required gate:
-
-```math
-n_h
-\not\leadsto_{\mathcal D}
-S_{\mathrm{auth}}
-\Longrightarrow
-\mathrm{Eval}_{\mathrm{auth}}
-(\mathcal D,g,h)
-=
-b_{\mathrm{fc}}(g)
-```
-
-for every:
-
-```math
-\mathcal D\in\mathfrak D_{\mathrm{auth}},
-\qquad
-g\in\mathcal G,
-\qquad
-h\in\mathcal H_h.
-```
-
-This contract evaluates the ablated dependency structure. It does not overwrite
-an already-produced response.
-
-For a concrete PULSEmech proof, the implication above is a proof obligation over
-the recorded evaluator implementation. The edge cut, absence of every alternate
-required path, evaluator identity, evaluator replay, and resulting complete
-fail-closed response must all be recorded and reproduced.
-
-Define the complete ablated authority response by evaluator replay over the
-ablated graph:
-
-```math
-B_{\mathrm{auth},1}^{-\kappa}(g,h)
-:=
-\mathrm{Eval}_{\mathrm{auth}}
-\bigl(
-\mathcal G_{\mathrm{dep}}^{-\kappa},
-g,
-h
-\bigr).
-```
-
-Because the required path is absent in
-`\mathcal G_{\mathrm{dep}}^{-\kappa}`, the fail-closed evaluator contract gives:
-
-```math
-B_{\mathrm{auth},1}^{-\kappa}
-(g_*,h=\mathrm{PASS})
-=
-b_{\mathrm{fc}}(g_*)
-=
-B_{\mathrm{auth},1}^{-\kappa}
-(g_*,h=\mathrm{FAIL}).
-```
-
-Let:
-
-```math
-d_{\mathrm{release},1}^{-\kappa}
-```
-
-be the decision projection of `B_{\mathrm{auth},1}^{-\kappa}`. By the
-definition of `b_{\mathrm{fc}}`:
-
-```math
-d_{\mathrm{release},1}^{-\kappa}
-(g_*,h=\mathrm{PASS})
-=
-d_{\mathrm{release},1}^{-\kappa}
-(g_*,h=\mathrm{FAIL})
-=
-\mathrm{BLOCK}.
-```
-
-On `W_h`, the complete-response kernel strictly refines:
-
-```math
-\ker_{W_h}(B_{\mathrm{auth},1})
-\subsetneq
-\ker_{W_h}(\widetilde B_{\mathrm{auth},0}).
-```
-
-Authority-dependency ablation removes the required path before evaluation, and
-evaluator replay removes the new complete-response discrimination.
-
-When the graph identity, edge cut, original dependency-use records,
-no-alternate-path condition, evaluator identity, fail-closed evaluator contract,
-and evaluator replay are all recorded and reproduced, the PULSEmech
-required-gate application is an instance of the response-level discrimination
-corollary in Section 6.3.1.
-
-## 14.6 Derived gate
-
-A gate may be fully derivable from existing evidence.
-
-Its operational value is determined not by informational novelty but by the operational relation it creates in the authority machine.
-
-The proof chain is:
-
-```text
-derived gate state
-→ current-run evidence binding
-→ artifact binding
-→ policy binding
-→ materialized required gate
-→ verifier replay
-→ strict fail-closed evaluation
-→ separation of cases previously treated identically
-→ discrimination removed by authority-dependency ablation and evaluator replay
-```
-
-This may open a new operational release dimension without new external information.
-
----
-
-# 15. Boundary of external-theorem transfer
-
-## 15.1 External proof and Workshop-machine application
-
-Let:
-
-```math
-\mathsf A_{\mathcal E}
-```
-
-be the axiomatic system of an external theory,
-
-```math
-\mathcal E
-```
-
-be its model,
-
-```math
-\mathsf A_{\mathcal W}
-```
-
-be the Workshop theory,
-
-and:
-
-```math
-\mathcal W
-```
-
-be the Workshop model.
-
-If:
-
-```math
-\mathsf A_{\mathcal E}
-\vdash
-\tau_{\mathcal E},
-```
-
-and:
-
-```math
-\mathcal E
-\models
-\mathsf A_{\mathcal E},
-```
-
-this does not automatically imply:
-
-```math
-\mathcal W
-\models
-\tau_{\mathcal W}.
-```
-
-Application requires two separate proofs:
-
-```text
-structure and operation preservation
-transfer of the specific property
-```
-
----
-
-## 15.2 Structure and operation preservation
-
-The correspondence maps common to both supported realizations are:
-
-```math
-\phi_X,
-\phi_\Sigma,
-\phi_{\mathcal S},
-\phi_Y,
-\phi_Z.
-```
-
-When the selected realization is `transition_machine`, the correspondence also
-contains:
-
-```math
-\phi_H,
-\qquad
-\phi_\Lambda.
-```
-
-The carrier-, binding-, transition-, and transition-use clauses below are
-mandatory only for:
-
-```text
-ablation_realization: transition_machine
-```
-
-For a `dependency_evaluator` proof package, those transition-machine-only
-clauses are not applicable; the mandatory graph and evaluator clauses are the
-ones defined in Section 15.3.2.
-
-Preservation of active carriers:
-
-```math
-\phi_H
-\bigl(
-A_{\mathcal W}(x)
-\bigr)
-=
-A_{\mathcal E}
-\bigl(
-\phi_X(x)
-\bigr).
-```
-
-Preservation of bindings enabled under a signal:
-
-```math
-(\phi_H\times\phi_H)
-\bigl(
-R_{\mathcal W}(x,\sigma)
-\bigr)
-=
-R_{\mathcal E}
-\bigl(
-\phi_X(x),
-\phi_\Sigma(\sigma)
-\bigr).
-```
-
-Preservation of actually used carriers:
-
-```math
-\phi_H
-\bigl(
-U_{H,\mathcal W}(x,\sigma,x')
-\bigr)
-=
-U_{H,\mathcal E}
-\bigl(
-\phi_X(x),
-\phi_\Sigma(\sigma),
-\phi_X(x')
-\bigr).
-```
-
-Preservation of actually used bindings:
-
-```math
-(\phi_H\times\phi_H)
-\bigl(
-U_{E,\mathcal W}(x,\sigma,x')
-\bigr)
-=
-U_{E,\mathcal E}
-\bigl(
-\phi_X(x),
-\phi_\Sigma(\sigma),
-\phi_X(x')
-\bigr).
-```
-
-Preservation of actually executed transition-rule identities:
-
-```math
-\phi_\Lambda
-\bigl(
-U_{\Lambda,\mathcal W}(x,\sigma,x')
-\bigr)
-=
-U_{\Lambda,\mathcal E}
-\bigl(
-\phi_X(x),
-\phi_\Sigma(\sigma),
-\phi_X(x')
-\bigr).
-```
-
-Transition preservation:
-
-```math
-T_{\mathcal W}(x,\sigma)=x'
-\Longrightarrow
-T_{\mathcal E}
-\bigl(
-\phi_X(x),
-\phi_\Sigma(\sigma)
-\bigr)
-=
-\phi_X(x').
-```
-
-Preservation of undefinedness when used by the theorem:
-
-```math
-T_{\mathcal W}(x,\sigma)=\bot
-\Longleftrightarrow
-T_{\mathcal E}
-\bigl(
-\phi_X(x),
-\phi_\Sigma(\sigma)
-\bigr)
-=
-\bot.
-```
-
-The semantic-state, output, and consequence clauses below are common response-boundary obligations for both selected realizations.
-
-Semantic state:
-
-```math
-\phi_{\mathcal S}
-\bigl(
-\nu_{\mathcal W}(x')
-\bigr)
-=
-\nu_{\mathcal E}
-\bigl(
-\phi_X(x')
-\bigr).
-```
-
-Output:
-
-```math
-\phi_Y
-\bigl(
-O_{\mathcal W}(x')
-\bigr)
-=
-O_{\mathcal E}
-\bigl(
-\phi_X(x')
-\bigr).
-```
-
-Consequence:
-
-```math
-\phi_Z
-\bigl(
-C_{\mathcal W}(x,\sigma,x')
-\bigr)
-=
-C_{\mathcal E}
-\bigl(
-\phi_X(x),
-\phi_\Sigma(\sigma),
-\phi_X(x')
-\bigr).
-```
-
-A particular theorem may additionally require:
-
-```text
-injectivity
-reflection of reachability
-reflection of response-equivalence classes
-preservation of undefinedness in partial transitions
-preservation of the comparison pullback
-preservation of the exactly selected ablation realization
-preservation of every mandatory record in the selected realization branch
-identical quantifier domain
-identical system boundary
-```
-
-## 15.3 Preservation of the selected ablation realization
-
-Let the supported realization set be:
-
-```math
-\mathcal R_{\mathrm{abl}}
-=
-\{
-\mathrm{transition\_machine},
-\mathrm{dependency\_evaluator}
-\}.
-```
-
-Every concrete Workshop proof package records exactly one selected realization:
-
-```math
-\rho_{\mathcal W}
-\in
-\mathcal R_{\mathrm{abl}}.
-```
-
-The corresponding external proof package records:
-
-```math
-\rho_{\mathcal E}
-\in
-\mathcal R_{\mathrm{abl}},
-```
-
-and realization preservation requires:
-
-```math
-\rho_{\mathcal E}
-=
-\rho_{\mathcal W}.
-```
-
-Only the transfer obligations belonging to the selected realization are
-mandatory. Records belonging exclusively to the unselected realization are
-not applicable to that proof package.
-
-### 15.3.1 Transition-machine realization
-
-Assume:
-
-```text
-ablation_realization: transition_machine
-```
-
-Let the Workshop and external operational units be:
-
-```math
-\kappa_{\mathcal W}
-=
-\bigl(
-H_{\kappa,\mathcal W},
-E_{\kappa,\mathcal W},
-\Lambda_{\kappa,\mathcal W}
-\bigr),
-```
-
-and:
-
-```math
-\kappa_{\mathcal E}
-=
-\bigl(
-H_{\kappa,\mathcal E},
-E_{\kappa,\mathcal E},
-\Lambda_{\kappa,\mathcal E}
-\bigr).
-```
-
-The identity sets defining the selected unit are preserved:
-
-```math
-\phi_H
-\bigl(
-H_{\kappa,\mathcal W}
-\bigr)
-=
-H_{\kappa,\mathcal E},
-```
-
-```math
-(\phi_H\times\phi_H)
-\bigl(
-E_{\kappa,\mathcal W}
-\bigr)
-=
-E_{\kappa,\mathcal E},
-```
-
-and:
-
-```math
-\phi_\Lambda
-\bigl(
-\Lambda_{\kappa,\mathcal W}
-\bigr)
-=
-\Lambda_{\kappa,\mathcal E}.
-```
-
-For every realized Workshop transition:
-
-```math
-T_{\mathcal W}(x,\sigma)=x',
-```
-
-write `\mathrm{Uses}_{\kappa_{\mathcal W},\mathcal W}` and
-`\mathrm{Uses}_{\kappa_{\mathcal E},\mathcal E}` for the Section 5.2 relation
-computed from the respective machine's actual-use records. Actual-use
-preservation and unit-identity preservation must induce:
-
-```math
-\mathrm{Uses}_{\kappa_{\mathcal W},\mathcal W}
-(x,\sigma,x')
-\Longleftrightarrow
-\mathrm{Uses}_{\kappa_{\mathcal E},\mathcal E}
-\bigl(
-\phi_X(x),
-\phi_\Sigma(\sigma),
-\phi_X(x')
-\bigr).
-```
-
-The selected three-branch ablation result is preserved and reflected. For
-undefined ablated transitions:
-
-```math
-T_{\mathcal W}^{-\kappa_{\mathcal W}}(x,\sigma)=\bot
-\Longleftrightarrow
-T_{\mathcal E}^{-\kappa_{\mathcal E}}
-\bigl(
-\phi_X(x),
-\phi_\Sigma(\sigma)
-\bigr)
-=
-\bot.
-```
-
-For a surviving ablated transition:
-
-```math
-T_{\mathcal W}^{-\kappa_{\mathcal W}}(x,\sigma)=x'
-\Longrightarrow
-T_{\mathcal E}^{-\kappa_{\mathcal E}}
-\bigl(
-\phi_X(x),
-\phi_\Sigma(\sigma)
-\bigr)
-=
-\phi_X(x').
-```
-
-Let:
-
-```math
-\phi_{\mathcal B}
-:
-\mathcal B_{\mathcal W}
-\rightarrow
-\mathcal B_{\mathcal E}
-```
-
-be the tagged complete-response map induced by
-`\phi_{\mathcal S}`, `\phi_Y`, and `\phi_Z`, with
-`\mathrm{undefined}` mapped to `\mathrm{undefined}`.
-
-Transition-machine replay preservation requires:
-
-```math
-\phi_{\mathcal B}
-\left(
-B_{\mathrm{Abl}_{\kappa_{\mathcal W}}(\mathcal W)}
-(x,\sigma)
-\right)
-=
-B_{\mathrm{Abl}_{\kappa_{\mathcal E}}(\mathcal E)}
-\bigl(
-\phi_X(x),
-\phi_\Sigma(\sigma)
-\bigr).
-```
-
-This branch therefore preserves:
-
-```text
-the selected transition_machine realization
-κ carrier, binding, and rule identities
-U_H, U_E, and U_Λ
-Uses_κ
-three-branch T^{-κ}
-transition-machine replay and its complete response
-```
-
-### 15.3.2 Dependency-evaluator realization
-
-Assume:
-
-```text
-ablation_realization: dependency_evaluator
-```
-
-In addition to the common maps, let:
-
-```math
-\phi_N
-:
-N_{\mathrm{dep},\mathcal W}
-\rightarrow
-N_{\mathrm{dep},\mathcal E},
-```
-
-```math
-\phi_{\mathrm{dep}}
-:
-E_{\mathrm{dep},\mathcal W}
-\rightarrow
-E_{\mathrm{dep},\mathcal E},
-```
-
-```math
-\phi_G
-:
-\mathcal G_{\mathcal W}
-\rightarrow
-\mathcal G_{\mathcal E},
-```
-
-```math
-\phi_h
-:
-\mathcal H_{h,\mathcal W}
-\rightarrow
-\mathcal H_{h,\mathcal E},
-```
-
-and:
-
-```math
-\phi_{\mathcal B_{\mathrm{auth}}}
-:
-\mathcal B_{\mathrm{auth},\mathcal W}
-\rightarrow
-\mathcal B_{\mathrm{auth},\mathcal E}.
-```
-
-The dependency-edge map preserves incidence. For every directed edge:
-
-```math
-e=(u,v)
-\in
-E_{\mathrm{dep},\mathcal W},
-```
-
-require:
-
-```math
-\phi_{\mathrm{dep}}(e)
-=
-\bigl(
-\phi_N(u),
-\phi_N(v)
-\bigr).
-```
-
-Let the graph-state map be typed as:
-
-```math
-\Phi_{\mathrm{dep}}
-:
-\mathfrak D_{\mathrm{auth},\mathcal W}
-\rightarrow
-\mathfrak D_{\mathrm{auth},\mathcal E}.
-```
-
-For a dependency-graph state:
-
-```math
-\mathcal D_{\mathcal W}
-=
-(N_{\mathrm{dep},\mathcal W},E_{\mathcal W}),
-```
-
-define its mapped graph state by:
-
-```math
-\Phi_{\mathrm{dep}}
-(\mathcal D_{\mathcal W})
-:=
-\bigl(
-\phi_N(N_{\mathrm{dep},\mathcal W}),
-\phi_{\mathrm{dep}}(E_{\mathcal W})
-\bigr).
-```
-
-The original dependency graph and exact edge cut are preserved:
-
-```math
-\Phi_{\mathrm{dep}}
-\bigl(
-\mathcal G_{\mathrm{dep},\mathcal W}
-\bigr)
-=
-\mathcal G_{\mathrm{dep},\mathcal E},
-```
-
-and:
-
-```math
-\phi_{\mathrm{dep}}
-\bigl(
-E_{\kappa,\mathcal W}^{\mathrm{dep}}
-\bigr)
-=
-E_{\kappa,\mathcal E}^{\mathrm{dep}}.
-```
-
-Dependency-graph ablation must commute with the correspondence:
-
-```math
-\Phi_{\mathrm{dep}}
-\left(
-\mathrm{Abl}_{\kappa}^{\mathrm{dep},\mathcal W}
-(\mathcal D_{\mathcal W})
-\right)
-=
-\mathrm{Abl}_{\kappa}^{\mathrm{dep},\mathcal E}
-\left(
-\Phi_{\mathrm{dep}}(\mathcal D_{\mathcal W})
-\right).
-```
-
-The actual dependency-use record is preserved:
-
-```math
-\phi_{\mathrm{dep}}
-\left(
-U_{\mathrm{dep},\mathcal W}^{\mathrm{auth}}
-(\mathcal D_{\mathcal W},g,h)
-\right)
-=
-U_{\mathrm{dep},\mathcal E}^{\mathrm{auth}}
-\bigl(
-\Phi_{\mathrm{dep}}(\mathcal D_{\mathcal W}),
-\phi_G(g),
-\phi_h(h)
-\bigr).
-```
-
-The gate node and authority-bearing sink set are preserved:
-
-```math
-\phi_N(n_{h,\mathcal W})
-=
-n_{h,\mathcal E},
-```
-
-```math
-\phi_N(S_{\mathrm{auth},\mathcal W})
-=
-S_{\mathrm{auth},\mathcal E}.
-```
-
-Required-path and alternate-path exclusion are preserved and reflected:
-
-```math
-n_{h,\mathcal W}
-\not\leadsto_{\mathcal D_{\mathcal W}^{-\kappa}}
-S_{\mathrm{auth},\mathcal W}
-\Longleftrightarrow
-n_{h,\mathcal E}
-\not\leadsto_{\Phi_{\mathrm{dep}}(\mathcal D_{\mathcal W}^{-\kappa})}
-S_{\mathrm{auth},\mathcal E}.
-```
-
-Let the evaluator-identity spaces and correspondence be:
-
-```math
-\mathcal I_{\mathrm{eval},\mathcal W},
-\qquad
-\mathcal I_{\mathrm{eval},\mathcal E},
-```
-
-```math
-\phi_{\mathrm{eval}}
-:
-\mathcal I_{\mathrm{eval},\mathcal W}
-\rightarrow
-\mathcal I_{\mathrm{eval},\mathcal E}.
-```
-
-Evaluator identity preservation requires:
-
-```math
-\phi_{\mathrm{eval}}
-\left(
-\mathrm{id}
-\bigl(
-\mathrm{Eval}_{\mathrm{auth},\mathcal W}
-\bigr)
-\right)
-=
-\mathrm{id}
-\bigl(
-\mathrm{Eval}_{\mathrm{auth},\mathcal E}
-\bigr).
-```
-
-The same recorded evaluator identity is used for the original and ablated graph
-inside each system. For both graph states:
-
-```math
-\mathcal D_{\mathcal W}
-\in
-\left\{
-\mathcal G_{\mathrm{dep},\mathcal W},
-\mathcal G_{\mathrm{dep},\mathcal W}^{-\kappa}
-\right\},
-```
-
-same-evaluator replay preservation requires:
-
-```math
-\phi_{\mathcal B_{\mathrm{auth}}}
-\left(
-\mathrm{Eval}_{\mathrm{auth},\mathcal W}
-(\mathcal D_{\mathcal W},g,h)
-\right)
-=
-\mathrm{Eval}_{\mathrm{auth},\mathcal E}
-\bigl(
-\Phi_{\mathrm{dep}}(\mathcal D_{\mathcal W}),
-\phi_G(g),
-\phi_h(h)
-\bigr).
-```
-
-The complete fail-closed response is preserved:
-
-```math
-\phi_{\mathcal B_{\mathrm{auth}}}
-\bigl(
-b_{\mathrm{fc},\mathcal W}(g)
-\bigr)
-=
-b_{\mathrm{fc},\mathcal E}
-\bigl(
-\phi_G(g)
-\bigr).
-```
-
-This branch therefore preserves:
-
-```text
-the selected dependency_evaluator realization
-original dependency graph
-exact E_κ^dep edge cut
-U_dep^auth
-materialized gate node and authority-bearing sink set
-required-path and alternate-path exclusion
-evaluator identity
-same-evaluator replay and its complete response
-```
-
-The transfer contract may not replace either selected branch with generic
-preservation of the unablated response. The realization that mechanically
-produces the ablated response is part of the transferred property.
-
-## 15.4 Transfer of the specific property
-
-Let:
-
-```math
-\mathrm{Tr}_{\phi}
-(\tau_{\mathcal W})
-```
-
-be the translation of the Workshop property into the external model.
-
-Let:
-
-```math
-\mathcal E_{\phi}
-```
-
-be the relevant external substructure selected by the image of the correspondence.
-
-The theorem identity must be proved:
-
-```math
-\mathcal E_{\phi}
-\models
-\left(
-\tau_{\mathcal E}
-\Longleftrightarrow
-\mathrm{Tr}_{\phi}(\tau_{\mathcal W})
-\right).
-```
-
-The external theorem must hold on the relevant substructure:
-
-```math
-\mathcal E_{\phi}
-\models
-\tau_{\mathcal E}.
-```
-
-The translated property must be reflected back:
-
-```math
-\mathcal E_{\phi}
-\models
-\mathrm{Tr}_{\phi}(\tau_{\mathcal W})
-\Longrightarrow
-\mathcal W
-\models
-\tau_{\mathcal W}.
-```
-
-The complete chain is:
-
-```math
-\mathcal E_{\phi}\models\tau_{\mathcal E}
-\Longrightarrow
-\mathcal E_{\phi}\models
-\mathrm{Tr}_{\phi}(\tau_{\mathcal W})
-\Longrightarrow
-\mathcal W\models\tau_{\mathcal W}.
-```
-
-Therefore:
-
-```text
-structural similarity
-≠ theorem transfer
-
-identical notation
-≠ identical mechanism
-
-external proof
-+ operation preservation
-+ property transfer
-+ required reflection
-→ applicable conclusion for the Workshop machine
-```
-
----
-
-# 16. Reproducible proof package
-
-A claim of operational dimension opening contains at least the following
-records:
-
-```text
-before_system
-→ exact identification of the old transition machine or old evaluator structural state
-
-after_system
-→ exact identification of the new transition machine or new evaluator structural state
-
-ambient_structure
-→ common transition-machine type or common evaluator structural-state type
-
-ambient_input_domain
-→ common witness-input domain
-
-state_embedding
-→ embedding of old states when the witness lies in the embedding image
-
-input_embedding
-→ embedding of old inputs when the witness lies in the embedding image
-
-comparison_pullback
-→ total map p₀ from every point of the fixed witness domain to an old-machine input
-
-comparison_preservation
-→ proof that the pullback preserves the old witness meaning and response
-
-change_unit
-→ exact transition-machine unit or exact response-dependency unit
-
-ablation_realization
-→ exactly one literal value: transition_machine or dependency_evaluator
-
-activation_path
-→ how the operational unit becomes active
-
-used_carrier_record
-→ mandatory U_H record when ablation_realization is transition_machine;
-  not_applicable when dependency_evaluator is selected
-
-used_binding_record
-→ mandatory U_E record when ablation_realization is transition_machine;
-  not_applicable when dependency_evaluator is selected
-
-used_rule_record
-→ mandatory U_Λ record when ablation_realization is transition_machine;
-  not_applicable when dependency_evaluator is selected
-
-uses_relation
-→ mandatory Uses_κ proof when ablation_realization is transition_machine;
-  not_applicable when dependency_evaluator is selected
-
-response_dependency_record
-→ mandatory original dependency graph, exact E_κ^dep edge cut,
-  U_dep^auth traversal, authority-bearing sink set, path-exclusion proof,
-  evaluator identity, and same-evaluator replay when ablation_realization is
-  dependency_evaluator; not_applicable when transition_machine is selected
-
-witness_domain
-→ fixed W domain
-
-witness_class
-→ reachability_opening or discrimination_opening
-
-kernel_scope
-→ exact two-point domain or a proved no-merging condition for a larger domain
-
-before_profile
-→ Def and kernel in the lifted old response
-
-after_profile
-→ Def and kernel in the new machine
-
-ablation_contract
-→ exact three-branch T^{-κ} definition for a transition-machine realization,
-  or exact dependency-edge deletion, evaluator contract, and evaluator-replay proof obligation for a dependency-evaluator realization
-
-ablation_profile
-→ Def and kernel in the ablation machine or in the response generated by the ablated dependency evaluator
-
-observation_boundary
-→ common semantic-state, output, and consequence spaces
-
-complete_response_contract
-→ exact B response used for discrimination, including every compared component
-
-non_opening_change_exclusion
-→ exclusion of a mere uniform output substitution
-
-identity_and_binding
-→ artifact, run, policy, and verifier binding
-
-external_theorem_transfer_contract
-→ preservation of the exactly selected ablation_realization, every mandatory
-  record of that realization, and transfer and required reflection of the
-  specific theorem property when an external theorem is used
-
-replay
-→ deterministic replay
-```
-
-## 16.1 Exact realization-selection invariant
-
-A concrete proof package contains exactly one `ablation_realization` key with
-exactly one value. It must not contain both values.
-
-If the selected value is `transition_machine`, every transition-machine branch
-record is mandatory and every dependency-evaluator-only record is explicitly
-`not_applicable`.
-
-If the selected value is `dependency_evaluator`, every dependency-evaluator
-branch record is mandatory and every transition-machine-only record is
-explicitly `not_applicable`.
-
-The following are two separate concrete proof-package instances. They are not a
-single package carrying two selections.
-
-## 16.2 Decimal `9 → 10` proof-package instance
-
-```yaml
-proof_package_instance: decimal_9_to_10_reachability_v0
-witness_class: reachability_opening
-ablation_realization: transition_machine
-selected_branch_requirements:
-  H_kappa: "required; H_{kappa_1} = {h_1}"
-  E_kappa: "required; E_{kappa_1} = {c_{0_to_1}}"
-  Lambda_kappa: "required; Lambda_{kappa_1} = empty"
-  U_H: "required; U_{H,2}((9,0),+1,(0,1)) = {h_0,h_1}"
-  U_E: "required; U_{E,2}((9,0),+1,(0,1)) = {c_{0_to_1}}"
-  U_Lambda: "required; U_{Lambda,2}((9,0),+1,(0,1)) = {lambda_{+1}^{(2)}}"
-  Uses_kappa: "required; Uses_{kappa_1}((9,0),+1,(0,1))"
-  three_branch_T_minus_kappa: "required; Section 5.3"
-  replay: "required; replay T_2 and T_2^{-kappa_1} on ((9,0),+1) under the same recorded machine identities"
-unselected_branch_requirements:
-  original_dependency_graph: not_applicable
-  E_kappa_dep: not_applicable
-  U_dep_auth: not_applicable
-  authority_sink_set: not_applicable
-  required_and_alternate_path_exclusion: not_applicable
-  authority_evaluator_identity: not_applicable
-  same_evaluator_replay: not_applicable
-```
-
-This instance binds every mandatory transition-machine record used by the
-`9 → 10` witness. The empty `\Lambda_{\kappa_1}` set is an exact selected-branch
-record, not an omitted field.
-
-## 16.3 PULSEmech required-gate proof-package instance
-
-```yaml
-proof_package_instance: pulsemech_required_gate_discrimination_v0
-witness_class: discrimination_opening
-ablation_realization: dependency_evaluator
-selected_branch_requirements:
-  original_dependency_graph: "required; G_dep"
-  E_kappa_dep: "required; exact authority-dependency edge cut"
-  U_dep_auth: "required; PASS and FAIL traversals of the original evaluator"
-  authority_sink_set: "required; S_auth"
-  required_and_alternate_path_exclusion: "required; n_h has no path to S_auth after the cut"
-  authority_evaluator_identity: "required; one recorded id(Eval_auth) used for original-graph and ablated-graph evaluation"
-  same_evaluator_replay: "required; B_auth,1=Eval_auth(G_dep,.,.) and B_auth,1^{-kappa}=Eval_auth(G_dep^{-kappa},.,.)"
-  complete_ablated_response: "required; both witnesses evaluate to b_fc(g_*)"
-unselected_branch_requirements:
-  H_kappa: not_applicable
-  E_kappa: not_applicable
-  Lambda_kappa: not_applicable
-  U_H: not_applicable
-  U_E: not_applicable
-  U_Lambda: not_applicable
-  Uses_kappa: not_applicable
-  three_branch_T_minus_kappa: not_applicable
-  transition_machine_replay: not_applicable
-```
-
-This instance binds every mandatory dependency-evaluator record used by the
-PULSEmech authority witness. Its transition-machine-only records are explicitly
-non-mandatory because they are not the selected realization.
-
-## 16.4 Witness-profile closure
-
-For a reachability proof:
-
-```text
-before:
-the witness is absent from the Def domain
-
-after:
-the witness enters the Def domain
-
-ablation:
-the witness leaves the Def domain again
-```
-
-For a discrimination proof:
-
-```text
-before:
-the two-point witness pair belongs to one complete-response class
-
-after:
-the pair belongs to two complete-response classes
-
-ablation:
-the pair returns to one complete-response class
-```
-
-A larger-domain kernel claim additionally records the no-merging proof.
-
-# 17. Main theorem
-
-## The theorem of the Workshop decimal number system and operational dimension opening
-
-Let:
-
-```math
-\mathcal M
-=
-(X,\Sigma,H,\Lambda,A,R,T,U,\nu,O,C,Q)
-```
-
-be a Workshop machine, with:
-
 ```math
-U=(U_H,U_E,U_\Lambda).
+\mathcal M_1.
 ```
 
-Then the following claims hold separately.
+Then the following statements hold.
 
 ### I. Quantitative growth
 
 ```math
-Q(y)>Q(x)
+Q(x_1)>Q(x_0)
 ```
 
-by itself does not prove a change in operational signature or capability
-profile.
+alone does not imply either reachability opening or discrimination opening.
+
+Therefore:
+
+```math
+\text{quantitative growth}
+\not\Rightarrow
+\text{operational dimension opening}.
+```
 
 ### II. Representational length transition
 
-In a finite normalized base-`b` place-value machine:
-
 ```math
-\ell_b(b^m-1)=m,
+\ell_b(n_1)>\ell_b(n_0)
 ```
 
-```math
-\ell_b(b^m)=m+1.
-```
+states that the normalized representation became longer.
+
+It does not by itself prove classical dimension growth or operational opening.
 
 ### III. Informational expansion
 
-A new coordinate `h` expands the description informationally if:
+A functional refinement of the state description proves informational novelty.
 
-```math
-\ker(P,h)
-\subsetneq
-\ker P.
-```
+It does not prove that the new information participates in the machine.
 
-This is neither sufficient nor necessary for every operational dimension
-opening.
+Operational opening may also occur without informational novelty when an existing or derived value enters a new operative relation.
 
-### IV. `\kappa`-dependent operational behavior change
-
-Let `W\subseteq\mathcal D_1` carry a total comparison pullback:
-
-```math
-p_0:
-W
-\rightarrow
-\mathcal D_0,
-```
-
-and let:
-
-```math
-\widetilde B_{\mathcal M_0}
-=
-B_{\mathcal M_0}\circ p_0.
-```
+### IV. Operational change
 
 If:
 
 ```math
-B_{\mathcal M_1}(w)
-\neq
-\widetilde B_{\mathcal M_0}(w),
+B_{\mathcal M_1}(\iota(w))
+\ne
+B_{\mathcal M_0}(w),
 ```
 
-and:
+and the difference disappears under same-ambient ablation and replay, then:
 
 ```math
-B_{\mathcal M_1}(w)
-\neq
-B_{\mathrm{Abl}_{\kappa}(\mathcal M_1)}(w),
+\kappa
 ```
 
-then the after-response carries a `\kappa`-dependent operational behavior
-change.
+has an operationally reproduced causal role.
 
-If also:
+This proves operational change.
+
+### V. Operational dimension opening
+
+An operational dimension opens when the operational change takes one of two precise forms.
+
+#### V.a Reachability opening
+
+A witness that was undefined becomes defined, and becomes undefined again after ablation replay.
+
+#### V.b Discrimination opening
+
+Two witnesses that previously had equal responses receive different responses, and the distinction disappears after ablation replay.
+
+### VI. Decimal opening
+
+In the finite normalized base-`b` place-value machine, the transition:
 
 ```math
-B_{\mathrm{Abl}_{\kappa}(\mathcal M_1)}(w)
-=
-\widetilde B_{\mathcal M_0}(w),
+b^m-1
+\longrightarrow
+b^m
 ```
 
-then `\kappa` creates the fixed before–after difference on the witness.
+is undefined in the `m`-carrier machine, defined after activation of the higher carrier and final carry binding, and undefined again after same-ambient ablation of that unit.
 
-### V. Reachability opening
+Therefore it is a reachability opening of the finite normalized place-value machine.
 
-If:
+For decimal:
 
 ```math
-\widetilde B_{\mathcal M_0}(w)
-=
-\mathrm{undefined},
+9\longrightarrow10
 ```
 
-```math
-B_{\mathcal M_1}(w)
-\neq
-\mathrm{undefined},
-```
+is the first instance.
 
-and:
+### VII. PULSEmech opening
 
-```math
-B_{\mathrm{Abl}_{\kappa}(\mathcal M_1)}(w)
-=
-\mathrm{undefined},
-```
+A candidate or advisory gate with no authority path does not create release authority.
 
-then `\kappa` creates a reachability opening.
+A bound, materialized, verified gate opens an operational release dimension when it creates a new ALLOW/BLOCK discrimination and that discrimination disappears under exact authority-unit ablation and replay of the same evaluator.
 
-### VI. Discrimination opening
+### VIII. External theorem boundary
 
-Let:
+No external theorem overrides these conclusions by historical acceptance or terminology alone.
 
-```math
-\widetilde B_0,
-\qquad
-B_1,
-\qquad
-B_1^{-\kappa}
-:
-\mathcal D
-\rightarrow
-\mathcal B
-```
-
-be complete responses of one common type.
-
-The ablated response must be generated before response interpretation by one of
-the typed realizations:
+Applicability requires:
 
 ```text
-transition-machine realization
-→ B₁^{-κ} is generated by the ablated transition machine
-
-dependency-evaluator realization
-→ B₁^{-κ} is generated by replaying the same evaluator on the ablated structural state
+structure and operation preservation
++ transfer of the specific property
++ reflection in the required direction
 ```
 
-Fix:
+on the machine and witness under examination.
 
-```math
-W_{12}
-=
-\{w_1,w_2\}.
-```
+## Proof summary
 
-If:
+Parts I–III follow from the definitions and explicit counterexamples separating amount, representation, information, and operation.
 
-```math
-\widetilde B_0(w_1)
-=
-\widetilde B_0(w_2),
-```
+Part IV follows from the complete response comparison and same-evaluator ablation replay.
 
-```math
-B_1(w_1)
-\neq
-B_1(w_2),
-```
+Part V is the definition of operational dimension opening used in this document.
 
-and:
+Part VI is proved by the finite increment-and-carry machine and its same-ambient ablation witness.
 
-```math
-B_1^{-\kappa}(w_1)
-=
-B_1^{-\kappa}(w_2),
-```
+Part VII is proved by the PULSEmech discrimination witness.
 
-then:
-
-```math
-\ker_{W_{12}}(B_1)
-\subsetneq
-\ker_{W_{12}}(\widetilde B_0),
-```
-
-and `\kappa` creates a discrimination opening on the fixed pair.
-
-The restored equality must follow from the ablated machine or ablated evaluator
-structure and its replay contract. A post-hoc substitution on completed
-responses is not an ablation proof.
-
-A larger-domain strict-refinement claim additionally requires the no-merging
-condition.
-
-### VII. The first decimal opening
-
-In the `9 → 10` witness:
-
-```math
-T_1(9,+1)=\bot,
-```
-
-```math
-T_2((9,0),+1)=(0,1),
-```
-
-```math
-U_{H,2}((9,0),+1,(0,1))
-=
-\{h_0,h_1\},
-```
-
-```math
-U_{E,2}((9,0),+1,(0,1))
-=
-\{c_{0\rightarrow1}\},
-```
-
-```math
-h_1
-\in
-A_{10}^{(2)}(0,1)\setminus A_{10}^{(2)}(9,0),
-```
-
-and:
-
-```math
-T_2^{-\kappa_1}((9,0),+1)
-=
-\bot.
-```
-
-This is a reachability opening.
-
-### VIII. Boundary of an external theorem
-
-An external theorem may determine a conclusion about the Workshop machine
-when:
-
-```text
-preservation of carrier, binding, state, input, transition,
-semantic state, output, and consequence is proved
-
-and
-
-the exactly selected ablation_realization and every mandatory record of its
-transition_machine or dependency_evaluator branch are preserved
-
-and
-
-transfer and required reflection of the specific theorem property are proved
-```
+Part VIII follows from the theorem-transfer obligations in Section 1.
 
 QED.
 
-# 18. The Workshop calculation order
+---
 
-The examination order consists of a common proof core and conditional
-mechanism-specific branches.
+# 19. The Workshop calculation order
 
-The examined proof package must contain exactly one literal declaration:
+The Workshop does not stop at the question:
 
-```yaml
-ablation_realization: transition_machine
-```
+> How much did it become?
 
-or:
-
-```yaml
-ablation_realization: dependency_evaluator
-```
-
-It must not contain both. Every record in the selected branch is mandatory.
-Records belonging exclusively to the unselected branch are non-mandatory and
-are recorded as `not_applicable`.
-
-For the concrete witnesses in this document:
+The complete calculation order is:
 
 ```text
-decimal_9_to_10_reachability_v0
-→ ablation_realization: transition_machine
+1. Which quantitative coordinate changed?
 
-pulsemech_required_gate_discrimination_v0
-→ ablation_realization: dependency_evaluator
+2. Which finite unit or range was completed?
+
+3. Which carrier became active?
+
+4. Which binding entered operation?
+
+5. Which transition became reachable?
+
+6. Which previously equal cases became distinguishable?
+
+7. What semantic state, output, or consequence changed?
+
+8. Does disabling the claimed operational unit remove the capability?
+
+9. Does replay reproduce the same result?
 ```
 
-```text
-Common proof core
+The decisive question is not whether a relation is present in the description.
 
-1. What are the exact before and after systems or structural states?
+The decisive question is whether it operates and whether the claimed capability depends on it.
 
-2. What is the complete fixed witness domain W?
+---
 
-3. Is the old response defined on every point of W through a total comparison pullback p₀?
+# 20. Workshop theorem
 
-4. What are the old and new complete-response Def and kernel profiles on W?
-
-5. For discrimination, is W exactly the witnessed pair, or has no-merging been proved on the larger domain?
-
-6. Did a reachability or complete-response discrimination opening occur?
-
-7. Which single literal ablation_realization declaration is present?
-   - ablation_realization: transition_machine
-   - ablation_realization: dependency_evaluator
-
-Exactly one value must be present. Every record in the selected branch is
-mandatory. Records exclusive to the unselected branch must be marked
-not_applicable.
-
-Quantitative and place-value branch, when the claim concerns a numerical threshold
-
-8. Which quantitative coordinate changed?
-
-9. Which finite digit range closed?
-
-10. Did the minimum length of the normalized representation increase?
-
-Transition-machine branch
-
-11. Which ambient carrier was already present?
-
-12. Which carrier became newly active?
-
-13. Which carriers were actually read, written, or otherwise required?
-
-14. Which binding was enabled under the signal?
-
-15. Which binding was actually traversed?
-
-16. Which transition-rule identity was executed?
-
-17. How is the three-branch T^{-κ} function defined?
-
-18. Does U_H, U_E, or U_Λ intersect H_κ, E_κ, or Λ_κ?
-
-Dependency-evaluator branch
-
-19. What is the exact original dependency graph?
-
-20. Which E_κ^dep edge cut is removed before evaluation?
-
-21. Does the original U_dep^auth record traverse that cut?
-
-22. Does the ablated graph remove every required and alternate required path to S_auth?
-
-23. Is the same recorded evaluator replayed on the ablated graph?
-
-24. Which complete response follows from the proved fail-closed evaluator contract?
-
-Common closure
-
-25. Does the response generated from the selected ablated structure remove the strict capability change?
-
-26. Can a mere uniform output substitution, post-hoc response replacement, or decision-only projection be excluded?
-
-27. Which semantic target state, output, or consequence changed?
-
-28. Can the result be reproduced with identical transition-use records or identical dependency-graph and evaluator records?
-
-29. When an external theorem is used, is the single selected ablation_realization preserved?
-
-30. For transition_machine selection, are κ identity sets, U_H, U_E, U_Λ,
-    Uses_κ, three-branch T^{-κ}, and transition-machine replay preserved?
-
-31. For dependency_evaluator selection, are the original dependency graph,
-    E_κ^dep, U_dep^auth, sink and path-exclusion facts, evaluator identity, and
-    same-evaluator replay preserved?
-
-32. Has common operation preservation been proved?
-
-33. Have transfer and reflection of the specific theorem property been proved?
-```
-
-# 19. Workshop theorem
-
-> **Numbers do not open merely because they become larger.**
+> **Numbers do not open merely because their values become larger.**
 >
-> **The finite place-value machine opens when, after a closed digit range, a higher ambient carrier becomes active, the carry leading into it actually participates in operation, and a valid transition that did not previously exist is thereby created.**
+> **A complete place-value range closes when its normalized carrier can no longer produce the next state.**
 >
-> **An operational system opens when a new or newly active carrier, binding, or rule creates new reachability or new discrimination in the fixed capability profile, and ablation in the same ambient space removes that strict change.**
+> **A higher carrier and its binding open a new operational direction when they make that state reachable, and the reachability disappears when the unit is disabled and the same mechanism is replayed.**
 
 In compact form:
 
@@ -5279,37 +2696,22 @@ accumulation
 place-value threshold
 → representational length transition
 
-new descriptive coordinate
-→ possible informational expansion
+new state distinction
+→ informational expansion
 
-response change
-+ κ-dependent after-response
-→ operational behavior change
-
-new Def element
-or
-strict kernel refinement
-+ actual transition-use or authority-dependency-use witness
-+ restoring response derived from the selected ablated structure
+new reachability or discrimination
++ reproduced ablation dependence
 → operational dimension opening
 ```
 
 ---
 
-# 20. The Workshop principle
+# 21. The Workshop principle
 
-> **In the Workshop, we calculate in the decimal number system.**
+> **In the Workshop, we calculate in decimal.**
 >
-> **The `0–9` range is the complete, inspectable normalized state space of one place value.**
+> **After a complete decimal unit closes, we do not treat the next state as merely more of the unchanged same.**
 >
-> **After the range closes, the next value is not forced into the old carrier.**
+> **We identify the higher carrier, the new binding, the transition it enables, and the consequence it produces.**
 >
-> **A higher ambient place value is activated, the actually used carry is recorded, and the new reachability is proved in a common observation space.**
->
-> **Ambient presence, active participation, nonzero value, and actually used binding are separate states.**
->
-> **Expansion is proved by a strict, reproducible, and ablation-reversible change in the operational capability profile.**
->
-> **The realized transition carries the operational participation of the binding.**
->
-> **An external theorem may connect to the Workshop machine through proved operation preservation, property transfer, and required reflection.**
+> **A binding alone is not proof. Its operation is proof.**
