@@ -3552,9 +3552,9 @@ The typed authority-response ablation operator is:
 with:
 
 ```math
-\left[
+\bigl(
 \mathrm{Abl}_{\kappa}^{\mathrm{auth}}(B)
-\right](g,h)
+\bigr)(g,h)
 =
 \begin{cases}
 b_{\mathrm{fc}}(g),
