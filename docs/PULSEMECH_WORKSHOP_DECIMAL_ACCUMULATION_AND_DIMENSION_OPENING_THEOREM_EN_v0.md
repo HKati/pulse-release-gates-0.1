@@ -1,4 +1,4 @@
-# The Workshop Decimal Number System
+# The Workshop Decimal Number System 
 
 ## A mathematical and operational theorem separating accumulation, place-value carry, and operational dimension opening
 
