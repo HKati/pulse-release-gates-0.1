@@ -2023,6 +2023,98 @@ for all `u,v\in W`.
 The local theorem requires only the fixed two-point witness domain. It does not
 claim a global refinement without the additional preservation proof.
 
+### 6.3.1 Response-level discrimination corollary
+
+Let:
+
+```math
+\mathcal D
+```
+
+be a fixed response domain, and let:
+
+```math
+\widetilde B_0,
+\qquad
+B_1,
+\qquad
+B_1^{-\kappa}
+:
+\mathcal D
+\rightarrow
+\mathcal B
+```
+
+be three complete response functions of the same type.
+
+For distinct witnesses:
+
+```math
+w_1,w_2\in\mathcal D,
+```
+
+fix:
+
+```math
+W_{12}
+=
+\{w_1,w_2\}.
+```
+
+If:
+
+```math
+\widetilde B_0(w_1)
+=
+\widetilde B_0(w_2),
+```
+
+```math
+B_1(w_1)
+\neq
+B_1(w_2),
+```
+
+and:
+
+```math
+B_1^{-\kappa}(w_1)
+=
+B_1^{-\kappa}(w_2),
+```
+
+then:
+
+```math
+\ker_{W_{12}}(B_1)
+\subsetneq
+\ker_{W_{12}}(\widetilde B_0),
+```
+
+and the `\kappa`-ablation response removes the new complete-response
+discrimination on `W_{12}`.
+
+The ablated response:
+
+```math
+B_1^{-\kappa}
+```
+
+is supplied by an explicitly typed ablation operator whose domain and codomain
+are the same complete-response function space as `B_1`.
+
+A transition-machine ablation induces such a response when:
+
+```math
+B_1^{-\kappa}
+=
+B_{\mathrm{Abl}_{\kappa}(\mathcal M_1)}.
+```
+
+A response evaluator may instead use a separately defined typed
+response-ablation operator. In both realizations, the discrimination proof is
+carried by the three complete response functions on the fixed two-point domain.
+
 ## 6.4 Definition of operational dimension opening
 
 > **Operational dimension opening occurs when a new or newly active carrier, binding, or transition rule creates new reachability or new discrimination in the operational capability profile on a fixed witness domain, and ablation in the same ambient space removes that strict capability change.**
@@ -3338,8 +3430,7 @@ treats them identically:
 (g_*,h=\mathrm{FAIL}).
 ```
 
-The new machine with an active materialized required gate satisfies the
-complete-response separation:
+The active materialized required gate produces complete-response separation:
 
 ```math
 B_{\mathrm{auth},1}
@@ -3368,20 +3459,149 @@ d_{\mathrm{release},1}
 The decision projection illustrates one differing component. The
 discrimination proof itself uses the complete `B_{\mathrm{auth},1}` response.
 
-Let the complete ablated authority response be:
+### Typed authority-response ablation
+
+Let the complete authority-response function space be:
+
+```math
+\mathcal F_{\mathrm{auth}}
+=
+\left\{
+B
+\ \middle|\
+B:
+\mathcal G\times\mathcal H_h
+\rightarrow
+\mathcal B_{\mathrm{auth}}
+\right\}.
+```
+
+Let:
+
+```math
+E_{\kappa}^{\mathrm{dep}}
+\subseteq
+E_{\mathrm{dep}}
+```
+
+be the dependency edges that carry the materialized required-gate value from
+gate `h` into the authority-bearing evaluator set `S_{\mathrm{auth}}`.
+
+Let the realized authority-dependency use record be:
+
+```math
+U_{\mathrm{dep}}^{\mathrm{auth}}
+:
+\mathcal G\times\mathcal H_h
+\rightarrow
+2^{E_{\mathrm{dep}}}.
+```
+
+For each evaluation input `(g,h)`,
+`U_{\mathrm{dep}}^{\mathrm{auth}}(g,h)` records the dependency edges actually
+traversed while producing the complete authority response.
+
+Define the affected response domain:
+
+```math
+\mathcal W_{\kappa}
+=
+\left\{
+(g,h)\in\mathcal G\times\mathcal H_h
+:
+U_{\mathrm{dep}}^{\mathrm{auth}}(g,h)
+\cap
+E_{\kappa}^{\mathrm{dep}}
+\neq
+\varnothing
+\right\}.
+```
+
+Let the fixed fail-closed consequence evaluator be:
+
+```math
+c_{\mathrm{fc}}
+:
+\mathcal G
+\rightarrow
+\mathcal Z_{\mathrm{release}}.
+```
+
+Define the complete fail-closed response:
+
+```math
+b_{\mathrm{fc}}(g)
+=
+\bigl(
+\mathrm{transition\_closed},
+\mathrm{BLOCK},
+c_{\mathrm{fc}}(g)
+\bigr).
+```
+
+The typed authority-response ablation operator is:
+
+```math
+\mathrm{Abl}_{\kappa}^{\mathrm{auth}}
+:
+\mathcal F_{\mathrm{auth}}
+\rightarrow
+\mathcal F_{\mathrm{auth}},
+```
+
+with:
+
+```math
+\left[
+\mathrm{Abl}_{\kappa}^{\mathrm{auth}}(B)
+\right](g,h)
+=
+\begin{cases}
+b_{\mathrm{fc}}(g),
+&
+\text{if }(g,h)\in\mathcal W_{\kappa},
+\\[6pt]
+B(g,h),
+&
+\text{if }(g,h)\notin\mathcal W_{\kappa}.
+\end{cases}
+```
+
+This operator preserves the complete response type:
+
+```math
+\mathcal G\times\mathcal H_h
+\rightarrow
+\mathcal B_{\mathrm{auth}}.
+```
+
+For the active required-gate witness, both evaluations traverse the
+authority-bearing dependency unit:
+
+```math
+W_h
+\subseteq
+\mathcal W_{\kappa}.
+```
+
+Define the complete ablated authority response:
 
 ```math
 B_{\mathrm{auth},1}^{-\kappa}
 :=
-B_{\mathrm{Abl}_{\kappa}(\mathcal A_1)}.
+\mathrm{Abl}_{\kappa}^{\mathrm{auth}}
+\bigl(
+B_{\mathrm{auth},1}
+\bigr).
 ```
 
-After ablation of the authority-bearing binding, complete-response equality is
-restored:
+Then the operator definition gives:
 
 ```math
 B_{\mathrm{auth},1}^{-\kappa}
 (g_*,h=\mathrm{PASS})
+=
+b_{\mathrm{fc}}(g_*)
 =
 B_{\mathrm{auth},1}^{-\kappa}
 (g_*,h=\mathrm{FAIL}).
@@ -3393,8 +3613,8 @@ Let:
 d_{\mathrm{release},1}^{-\kappa}
 ```
 
-denote the decision projection of `B_{\mathrm{auth},1}^{-\kappa}`. In a
-fail-closed realization it may satisfy:
+be the decision projection of `B_{\mathrm{auth},1}^{-\kappa}`. By the
+definition of `b_{\mathrm{fc}}`:
 
 ```math
 d_{\mathrm{release},1}^{-\kappa}
@@ -3414,9 +3634,10 @@ On `W_h`, the complete-response kernel strictly refines:
 \ker_{W_h}(\widetilde B_{\mathrm{auth},0}).
 ```
 
-Ablation removes the new complete-response discrimination.
+The typed response ablation removes the new complete-response discrimination.
 
-This is a discrimination opening.
+The PULSEmech required-gate application is therefore an instance of the
+response-level discrimination corollary in Section 6.3.1.
 
 ## 14.6 Derived gate
 
@@ -3435,7 +3656,7 @@ derived gate state
 → verifier replay
 → strict fail-closed evaluation
 → separation of cases previously treated identically
-→ discrimination removed by ablation
+→ discrimination removed by typed authority-response ablation
 ```
 
 This may open a new operational release dimension without new external information.
@@ -3793,22 +4014,28 @@ comparison_preservation
 → proof that the pullback preserves the old witness meaning and response
 
 change_unit
-→ exact H_κ, E_κ, and Λ_κ identities
+→ exact transition-machine unit or exact response-dependency unit
+
+ablation_realization
+→ transition_machine or typed_response
 
 activation_path
 → how the operational unit becomes active
 
 used_carrier_record
-→ U_H for the realized transition
+→ U_H for a transition-machine realization
 
 used_binding_record
-→ U_E for the realized transition
+→ U_E for a transition-machine realization
 
 used_rule_record
-→ U_Λ for the realized transition
+→ U_Λ for a transition-machine realization
 
 uses_relation
-→ proof that the witness transition's use record intersects κ
+→ proof that a transition-machine witness use record intersects κ
+
+response_dependency_record
+→ U_dep^auth, E_κ^dep, and the affected response domain W_κ for a typed-response realization
 
 witness_domain
 → fixed W domain
@@ -3826,10 +4053,11 @@ after_profile
 → Def and kernel in the new machine
 
 ablation_contract
-→ exact three-branch definition of T^{-κ}
+→ exact three-branch T^{-κ} definition for transition-machine realization,
+  or exact typed response-ablation operator for typed-response realization
 
 ablation_profile
-→ Def and kernel in the ablation machine
+→ Def and kernel in the ablation machine or ablated complete-response function
 
 observation_boundary
 → common semantic-state, output, and consequence spaces
