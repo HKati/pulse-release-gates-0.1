@@ -135,15 +135,27 @@ There must be fixed maps for the relevant states, inputs, carriers, semantic sta
 
 On the witness domain under examination, the correspondence must preserve the active machine structure and the complete operational response.
 
+Where the transferred property depends on carriers, the carrier map must preserve the operationally enabled subset and active participation. In particular, the relevant correspondence must satisfy the declared analogue of:
+
+```math
+\phi_H\bigl(E_H^{\mathcal W}\bigr)
+=
+E_H^{\mathcal E},
+```
+
+and preserve the active carrier relation on the witness states.
+
 At minimum, it must preserve:
 
 ```text
+ambient carrier type where relevant
+operationally enabled carrier participation
 active carrier participation
 active bindings
 transition definedness
 semantic target state
-output
-consequence
+observed output
+observed consequence
 ablation contract and replay semantics
 ```
 
@@ -194,7 +206,7 @@ If:
 is the Workshop property and:
 
 ```math
-\operatorname{Tr}_{\phi}(\tau_{\mathcal W})
+\mathrm{Tr}_{\phi}(\tau_{\mathcal W})
 ```
 
 its external translation, then an external conclusion is usable only if the proof establishes the required implication back to the Workshop machine:
@@ -202,7 +214,7 @@ its external translation, then an external conclusion is usable only if the proo
 ```math
 \mathcal E
 \models
-\operatorname{Tr}_{\phi}(\tau_{\mathcal W})
+\mathrm{Tr}_{\phi}(\tau_{\mathcal W})
 \quad\Longrightarrow\quad
 \mathcal W
 \models
@@ -370,10 +382,11 @@ A Workshop machine is:
 X,
 \Sigma,
 H,
+E_H,
 A,
 R,
 \Lambda,
-\operatorname{Eval},
+\mathrm{Eval},
 \nu,
 O,
 C,
@@ -385,26 +398,36 @@ The components are:
 
 - `X`: ambient state space;
 - `Σ`: input or signal space;
-- `H`: potential carriers;
-- `A(x)`: carriers active in state `x`;
+- `H`: ambient carrier type represented by the state space;
+- `E_H ⊆ H`: carriers operationally enabled for evaluation;
+- `A(x) ⊆ E_H`: carriers active in state `x`;
 - `R(x)`: active bindings in state `x`;
 - `Λ`: available transition rules;
 - `Eval`: the fixed transition evaluator;
 - `ν`: semantic-state interpretation;
-- `O`: output function;
-- `C`: consequence function;
+- `O`: machine-local output function;
+- `C`: machine-local consequence function;
 - `Q`: quantitative observation.
+
+The distinction between:
+
+```text
+ambient carrier type H
+≠ operationally enabled carrier set E_H
+```
+
+is required for same-ambient carrier ablation. A carrier may remain representable by the unchanged state type while being unavailable to the evaluator.
 
 The partial transition function is derived from the evaluator:
 
 ```math
 T_{\mathcal M}(x,\sigma)
 =
-\operatorname{Eval}
+\mathrm{Eval}
 \bigl(
 x,
 \sigma;
-H,
+E_H,
 A,
 R,
 \Lambda
@@ -415,19 +438,126 @@ The result may be undefined.
 
 The evaluator identity is part of the machine identity. A valid before–after–ablation comparison does not replace the evaluator with a different decision rule.
 
-## 3.2 Common semantic observation
+## 3.2 Common observation codomain
 
-Different machines may use different internal state representations.
+Different machines may use different internal state representations, output encodings, and consequence-record types.
 
-A raw internal state difference is not sufficient evidence of an operational opening.
+A raw internal difference is not sufficient evidence of an operational opening.
 
-Each machine therefore maps its internal state into a common semantic state space:
+Before witnesses are selected, a machine comparison fixes common observation spaces:
+
+```math
+\mathcal S,
+\qquad
+\mathcal Y_{\mathrm{obs}},
+\qquad
+\mathcal Z_{\mathrm{obs}}.
+```
+
+For every compared machine:
+
+```math
+\mathcal M,
+```
+
+its internal state is mapped into the common semantic-state space:
 
 ```math
 \nu_{\mathcal M}:X_{\mathcal M}\to\mathcal S.
 ```
 
-The complete operational response is:
+The machine-local functions have types:
+
+```math
+O_{\mathcal M}
+:
+X_{\mathcal M}
+\to
+Y_{\mathcal M},
+```
+
+and:
+
+```math
+C_{\mathcal M}
+:
+X_{\mathcal M}
+\times
+\Sigma_{\mathcal M}
+\times
+X_{\mathcal M}
+\to
+Z_{\mathcal M}.
+```
+
+Fixed observation maps are then required:
+
+```math
+\omega^O_{\mathcal M}
+:
+Y_{\mathcal M}
+\to
+\mathcal Y_{\mathrm{obs}},
+```
+
+```math
+\omega^C_{\mathcal M}
+:
+Z_{\mathcal M}
+\to
+\mathcal Z_{\mathrm{obs}}.
+```
+
+Define the observed output and consequence by:
+
+```math
+\overline O_{\mathcal M}
+=
+\omega^O_{\mathcal M}\circ O_{\mathcal M},
+```
+
+and:
+
+```math
+\overline C_{\mathcal M}(x,\sigma,x')
+=
+\omega^C_{\mathcal M}
+\bigl(
+C_{\mathcal M}(x,\sigma,x')
+\bigr).
+```
+
+The fixed common response codomain is the tagged sum:
+
+```math
+\mathcal R_{\mathrm{obs}}
+=
+\{\mathrm{undefined}\}
+\;\uplus\;
+\Bigl(
+\{\mathrm{defined}\}
+\times
+\mathcal S
+\times
+\mathcal Y_{\mathrm{obs}}
+\times
+\mathcal Z_{\mathrm{obs}}
+\Bigr).
+```
+
+The complete operational response is therefore a well-typed function:
+
+```math
+B_{\mathcal M}
+:
+X_{\mathcal M}
+\times
+\Sigma_{\mathcal M}
+\to
+\mathcal R_{\mathrm{obs}},
+```
+
+with:
 
 ```math
 B_{\mathcal M}(x,\sigma)
@@ -436,8 +566,8 @@ B_{\mathcal M}(x,\sigma)
 \bigl(
 \mathrm{defined},
 \nu_{\mathcal M}(x'),
-O_{\mathcal M}(x'),
-C_{\mathcal M}(x,\sigma,x')
+\overline O_{\mathcal M}(x'),
+\overline C_{\mathcal M}(x,\sigma,x')
 \bigr),
 &
 T_{\mathcal M}(x,\sigma)=x',
@@ -449,18 +579,22 @@ T_{\mathcal M}(x,\sigma)
 \end{cases}
 ```
 
-The comparison can therefore change only because of one or more of the following:
+If the machines already use common output or consequence types, the corresponding observation maps may be identities.
+
+The spaces and observation maps are fixed before the before–after–ablation responses are evaluated. They may not be selected afterward to create or erase the claimed difference.
+
+The comparison can therefore change only because of one or more of the following observed relations:
 
 ```text
 transition definedness
 semantic target state
-output
-consequence
+observed output
+observed consequence
 ```
 
 A mere internal recoding does not establish an opening.
 
-## 3.3 Embedding an old state into an extended machine
+## 3.3 State and input embeddings
 
 Let:
 
@@ -476,44 +610,82 @@ be an old machine and:
 
 an extended machine.
 
-An embedding:
+A well-typed comparison requires both a state embedding and an input embedding:
 
 ```math
-\iota:X_0\to X_1
+\iota_X:X_0\to X_1,
 ```
 
-must preserve the meaning of the old state before the new transition is applied:
+```math
+\iota_\Sigma:\Sigma_0\to\Sigma_1.
+```
+
+The state embedding must preserve the meaning of the old state before the new transition is applied:
 
 ```math
-\nu_1(\iota(x))
+\nu_1\bigl(\iota_X(x)\bigr)
 =
 \nu_0(x).
 ```
 
-Where outputs and consequences are defined for the unchanged state, their interpretation must also be preserved.
+When the input spaces differ, the comparison must declare a common signal-semantics space:
 
-The embedding itself must not create the claimed operational difference.
+```math
+\mathcal I
+```
+
+and maps:
+
+```math
+\mu_i:\Sigma_i\to\mathcal I
+\qquad(i\in\{0,1\}).
+```
+
+The input embedding must preserve signal meaning:
+
+```math
+\mu_1\bigl(\iota_\Sigma(\sigma)\bigr)
+=
+\mu_0(\sigma).
+```
+
+When:
+
+```math
+\Sigma_0=\Sigma_1
+```
+
+with the same declared signal semantics, the input embedding may be the identity map.
 
 For a witness:
 
 ```math
-w=(x,\sigma),
+w=(x,\sigma)
+\in
+X_0\times\Sigma_0,
 ```
 
-this document uses the shorthand:
+define the complete witness embedding:
+
+```math
+\widehat\iota(w)
+:=
+\bigl(
+\iota_X(x),
+\iota_\Sigma(\sigma)
+\bigr).
+```
+
+Where unchanged-state outputs or consequences are compared, their values after the embeddings must agree in the common observation codomain.
+
+The embeddings themselves must not create the claimed operational difference.
+
+This document uses the shorthand:
 
 ```math
 B_{\mathcal M}(w)
 :=
-B_{\mathcal M}(x,\sigma),
-```
-
-and:
-
-```math
-\iota(w)
-:=
-(\iota(x),\sigma).
+B_{\mathcal M}(x,\sigma).
 ```
 
 ---
@@ -537,7 +709,7 @@ R_\kappa,
 It may contain:
 
 ```text
-one or more carriers
+one or more operationally enabled carriers
 one or more bindings
 one or more transition or authority rules
 ```
@@ -547,22 +719,24 @@ one or more transition or authority rules
 The notation:
 
 ```math
-\operatorname{Abl}_{\kappa}(\mathcal M_1)
+\mathrm{Abl}_{\kappa}(\mathcal M_1)
 ```
 
 means operational disabling in the same ambient state and input spaces.
 
-It does not mean replacing the machine with a smaller input type.
+It does not mean replacing the machine with a smaller state or input type.
 
 The ablated machine preserves:
 
 ```text
 ambient state space
 ambient input space
+ambient carrier type
 witness-state type
-semantic observation boundary
-output interpretation
-consequence interpretation
+common response codomain
+semantic-state interpretation
+output-observation interpretation
+consequence-observation interpretation
 evaluator identity
 ```
 
@@ -572,12 +746,18 @@ It disables only the operational participation of the components in:
 \kappa.
 ```
 
-The reduced structures are:
+The reduced operational structures are:
+
+```math
+E_H^{-\kappa}
+=
+E_H\setminus H_\kappa,
+```
 
 ```math
 A^{-\kappa}(x)
 =
-A(x)\setminus H_\kappa,
+A(x)\cap E_H^{-\kappa},
 ```
 
 ```math
@@ -594,26 +774,83 @@ and:
 \Lambda\setminus\Lambda_\kappa.
 ```
 
-They preserve the ambient carrier type:
+The ambient carrier type:
 
 ```math
-H,
+H
 ```
 
-while preventing the selected carriers, bindings, and rules from participating in operation.
+remains unchanged, but the evaluator receives only:
 
-The ablated transition is not stipulated from the original transition-use record.
+```math
+E_H^{-\kappa}.
+```
+
+The evaluator contract is carrier-scoped:
+
+```math
+\mathrm{ReadCarriers}_{\mathrm{Eval}}
+(x,\sigma;E_H,A,R,\Lambda)
+\subseteq
+E_H.
+```
+
+It therefore cannot read, activate, or traverse a carrier that has been disabled operationally.
+
+### Carrier-neutral witness requirement
+
+A machine whose states store carrier-local values must declare a neutral value for each carrier. Neutrality means that the carrier contributes no semantic-state, observed-output, or observed-consequence difference on the declared comparison boundary.
+
+The machine must also declare a carrier support function:
+
+```math
+\mathrm{supp}_H(x)
+=
+\{
+h\in H:
+\text{the value carried by }h\text{ in }x\text{ is non-neutral}
+\}.
+```
+
+For carrier-removal ablation, the admissible witness domain is:
+
+```math
+W^0_\kappa
+=
+\{
+(x,\sigma):
+\mathrm{supp}_H(x)\cap H_\kappa
+=
+\varnothing
+\}.
+```
+
+A carrier-removal ablation witness must belong to:
+
+```math
+W^0_\kappa.
+```
+
+A witness with a non-neutral value in a disabled carrier is not an `undefined` ablation result. It is an ill-formed witness for this ablation contract and may not be used as evidence of capability removal.
+
+The neutral-witness requirement keeps the ambient state type unchanged while preventing a disabled carrier from remaining semantically or observationally present through stored non-neutral data.
+
+If a system intends to compare non-neutral values in disabled carriers, it must declare and prove a separate masking or projection contract. No such masking is inferred by this document.
+
+### Reduced-mechanism replay
+
+For an admissible witness, the ablated transition is not stipulated from the original transition-use record.
 
 It is recomputed by the same evaluator:
 
 ```math
-T_{\operatorname{Abl}_{\kappa}(\mathcal M_1)}(x,\sigma)
+T_{\mathrm{Abl}_{\kappa}(\mathcal M_1)}(x,\sigma)
 =
-\operatorname{Eval}
+\mathrm{Eval}
 \bigl(
 x,
 \sigma;
-H,
+E_H^{-\kappa},
 A^{-\kappa},
 R^{-\kappa},
 \Lambda^{-\kappa}
@@ -644,7 +881,7 @@ It may not be inserted as an assumed value solely to complete the proof.
 
 # 5. Operational change and operational dimension opening
 
-## 5.1 Operational-change witness
+## 5.1 Operational change, sensitivity, and restoration
 
 Let:
 
@@ -663,27 +900,61 @@ w
 when:
 
 ```math
-B_{\mathcal M_1}(\iota(x),\sigma)
+B_{\mathcal M_1}\bigl(\widehat\iota(w)\bigr)
 \ne
-B_{\mathcal M_0}(x,\sigma).
+B_{\mathcal M_0}(w).
 ```
 
-If the change disappears under ablation:
-
-```math
-B_{\mathcal M_1}(\iota(x),\sigma)
-\ne
-B_{\operatorname{Abl}_{\kappa}(\mathcal M_1)}
-(\iota(x),\sigma),
-```
-
-then:
+The new response is **ablation-sensitive** to:
 
 ```math
 \kappa
 ```
 
-has a reproduced causal role in that operational change.
+when:
+
+```math
+B_{\mathcal M_1}\bigl(\widehat\iota(w)\bigr)
+\ne
+B_{\mathrm{Abl}_{\kappa}(\mathcal M_1)}
+\bigl(\widehat\iota(w)\bigr).
+```
+
+Ablation sensitivity proves that disabling:
+
+```math
+\kappa
+```
+
+changes the new response under replay. It does not by itself prove that the entire pre-change response has been restored. The old, new, and ablated responses may otherwise be three distinct values.
+
+**Exact response restoration** is proved only when:
+
+```math
+B_{\mathrm{Abl}_{\kappa}(\mathcal M_1)}
+\bigl(\widehat\iota(w)\bigr)
+=
+B_{\mathcal M_0}(w).
+```
+
+Operational-dimension proofs do not always require exact tuple restoration. They require restoration of the precise capability relation being claimed:
+
+```text
+reachability opening
+→ the definedness relation returns to the old relation
+
+discrimination opening
+→ the equality relation between the witnesses returns to the old relation
+```
+
+Every causal statement must identify which of the following was actually reproduced:
+
+```text
+ablation sensitivity
+exact response restoration
+reachability restoration
+discrimination restoration
+```
 
 Operational change alone is not yet operational dimension opening.
 
@@ -698,13 +969,13 @@ w=(x,\sigma)
 is proved when:
 
 ```math
-B_{\mathcal M_0}(x,\sigma)
+B_{\mathcal M_0}(w)
 =
 \mathrm{undefined},
 ```
 
 ```math
-B_{\mathcal M_1}(\iota(x),\sigma)
+B_{\mathcal M_1}\bigl(\widehat\iota(w)\bigr)
 =
 \bigl(
 \mathrm{defined},
@@ -717,9 +988,15 @@ z
 and:
 
 ```math
-B_{\operatorname{Abl}_{\kappa}(\mathcal M_1)}
-(\iota(x),\sigma)
+B_{\mathrm{Abl}_{\kappa}(\mathcal M_1)}
+\bigl(\widehat\iota(w)\bigr)
 =
+\mathrm{undefined}.
+```
+
+The ablated response restores the old definedness relation at the witness. In this reachability case it also equals the complete old response because both are the same tagged value:
+
+```math
 \mathrm{undefined}.
 ```
 
@@ -740,23 +1017,31 @@ W
 uses the old witness domain as the comparison base:
 
 ```math
-\operatorname{Def}_{\mathcal M_0}(W)
+\mathrm{Def}_{\mathcal M_0}(W)
 =
-\{w\in W:B_{\mathcal M_0}(w)\text{ is defined}\},
+\{
+w\in W:
+B_{\mathcal M_0}(w)
+\text{ is defined}
+\},
 ```
 
 ```math
-\operatorname{Def}^{\iota}_{\mathcal M_1}(W)
+\mathrm{Def}^{\widehat\iota}_{\mathcal M_1}(W)
 =
-\{w\in W:B_{\mathcal M_1}(\iota(w))\text{ is defined}\}.
+\{
+w\in W:
+B_{\mathcal M_1}\bigl(\widehat\iota(w)\bigr)
+\text{ is defined}
+\}.
 ```
 
 The stronger claim requires:
 
 ```math
-\operatorname{Def}_{\mathcal M_0}(W)
+\mathrm{Def}_{\mathcal M_0}(W)
 \subsetneq
-\operatorname{Def}^{\iota}_{\mathcal M_1}(W).
+\mathrm{Def}^{\widehat\iota}_{\mathcal M_1}(W).
 ```
 
 The local reachability theorem does not silently assert this stronger global relation.
@@ -788,28 +1073,72 @@ B_{\mathcal M_0}(w_2),
 the new machine distinguishes them:
 
 ```math
-B_{\mathcal M_1}(\iota(w_1))
+B_{\mathcal M_1}\bigl(\widehat\iota(w_1)\bigr)
 \ne
-B_{\mathcal M_1}(\iota(w_2)),
+B_{\mathcal M_1}\bigl(\widehat\iota(w_2)\bigr),
 ```
 
 and the distinction disappears when the responsible operational unit is ablated and the same evaluator is replayed:
 
 ```math
-B_{\operatorname{Abl}_{\kappa}(\mathcal M_1)}
-(\iota(w_1))
+B_{\mathrm{Abl}_{\kappa}(\mathcal M_1)}
+\bigl(\widehat\iota(w_1)\bigr)
 =
-B_{\operatorname{Abl}_{\kappa}(\mathcal M_1)}
-(\iota(w_2)).
+B_{\mathrm{Abl}_{\kappa}(\mathcal M_1)}
+\bigl(\widehat\iota(w_2)\bigr).
 ```
 
-Here:
+This restores the old equality relation between the two witnesses. It does not assert that each ablated response separately equals its exact old tuple unless those additional equalities are proved.
+
+### Projection-scoped discrimination
+
+A claim may be restricted to one fixed response projection when that projection is declared before witness selection and before any old, new, or ablated response is evaluated.
+
+Fix one map:
 
 ```math
-\iota(w_i)
+\rho
+:
+\mathcal R_{\mathrm{obs}}
+\to
+\mathcal R_{\rho}.
 ```
 
-means the embedded state with the same input.
+The same:
+
+```math
+\rho
+```
+
+must be used for every machine in the comparison:
+
+```math
+\mathcal M_0,
+\qquad
+\mathcal M_1,
+\qquad
+\mathrm{Abl}_{\kappa}(\mathcal M_1).
+```
+
+Define:
+
+```math
+B^{\rho}_{\mathcal M}
+=
+\rho\circ B_{\mathcal M}.
+```
+
+A projection-scoped discrimination opening is proved by applying the same old-equal, new-unequal, ablated-equal relations to:
+
+```math
+B^{\rho}.
+```
+
+A machine-indexed family of independently chosen projection maps is not admissible for this comparison. Different maps could create or erase a distinction even when the complete machine responses are unchanged.
+
+The resulting claim is limited to the named projection. It does not imply that the complete operational responses are equal or unequal in the same way.
+
+The PULSEmech release-decision theorem later uses this form with one policy-fixed release-decision projection on the common response space.
 
 A uniform output replacement for every witness is an operational change. It is not a discrimination opening because it creates no new distinction between witnesses.
 
@@ -827,10 +1156,14 @@ with:
 
 ```text
 fixed system boundary
-fixed semantic observation boundary
+fixed common response codomain
+fixed complete-response boundary or one fixed projection shared across every compared machine
+fixed state and input embeddings
 fixed evaluator identity
 same-ambient ablation
+admissible carrier-neutral witness when carriers are removed
 recomputed ablation response
+restoration of the claimed capability relation
 reproduced result
 ```
 
@@ -877,7 +1210,7 @@ W
 when:
 
 ```math
-B_{\mathcal M_1}(\iota(w))
+B_{\mathcal M_1}\bigl(\widehat\iota(w)\bigr)
 =
 B_{\mathcal M_0}(w)
 \qquad
@@ -913,7 +1246,7 @@ contains no requirement that:
 A machine may therefore satisfy quantitative growth while its complete response remains unchanged on the witness domain:
 
 ```math
-B_{\mathcal M_1}\circ\iota
+B_{\mathcal M_1}\circ\widehat\iota
 =
 B_{\mathcal M_0}.
 ```
@@ -964,33 +1297,13 @@ This is the complete normalized digit range of one place-value carrier.
 
 ## 7.2 Normalized representation
 
-Every natural number:
+For base:
 
 ```math
-n
+b\ge 2,
 ```
 
-has a unique normalized base-`b` representation:
-
-```math
-n
-=
-\sum_{k=0}^{m}d_kb^k,
-```
-
-where:
-
-```math
-d_k\in D_b
-```
-
-and the highest digit is nonzero when:
-
-```math
-n>0.
-```
-
-The digit length is:
+define the normalized digit length by:
 
 ```math
 \ell_b(0)=1,
@@ -1005,7 +1318,61 @@ and:
 \qquad(n\ge 1).
 ```
 
-At the threshold:
+Let:
+
+```math
+m(n)
+=
+\ell_b(n)-1.
+```
+
+Every natural number:
+
+```math
+n
+```
+
+has a unique normalized base-`b` representation:
+
+```math
+n
+=
+\sum_{k=0}^{m(n)}d_kb^k,
+```
+
+where:
+
+```math
+d_k\in D_b.
+```
+
+The zero case is fixed explicitly:
+
+```math
+n=0
+\quad\Longrightarrow\quad
+m(n)=0
+\quad\text{and}\quad
+d_0=0.
+```
+
+For a positive number, the highest digit is nonzero:
+
+```math
+n>0
+\quad\Longrightarrow\quad
+d_{m(n)}\ne 0.
+```
+
+Therefore an arbitrary longer all-zero prefix is not another normalized representation of zero.
+
+For:
+
+```math
+m\ge 1,
+```
+
+at the threshold:
 
 ```math
 b^m-1
@@ -1211,12 +1578,20 @@ X_m
 D_b^m.
 ```
 
-The potential carriers are:
+The ambient carriers are:
 
 ```math
 H_m
 =
 \{h_0,h_1,\ldots,h_{m-1}\}.
+```
+
+In the unablated machine, every ambient carrier is operationally enabled:
+
+```math
+E_{H,m}
+=
+H_m.
 ```
 
 The semantic interpretation is:
@@ -1232,7 +1607,38 @@ The active-carrier function is:
 ```math
 A_m(x)
 =
-A_b\bigl(\nu_m(x)\bigr)\cap H_m.
+A_b\bigl(\nu_m(x)\bigr)\cap E_{H,m}.
+```
+
+Therefore:
+
+```math
+A_m(x)
+\subseteq
+E_{H,m}.
+```
+
+The neutral value at every place-value carrier is:
+
+```math
+0.
+```
+
+For:
+
+```math
+x=(d_0,\ldots,d_{m-1}),
+```
+
+the carrier support is:
+
+```math
+\mathrm{supp}_{H_m}(x)
+=
+\{
+h_k\in H_m:
+d_k\ne 0
+\}.
 ```
 
 The quantitative observation and numerical output are:
@@ -1262,6 +1668,34 @@ C_m(x,+1,x')
 \nu_m(x')
 \bigr).
 ```
+
+All machines in this finite family use the same observation codomains:
+
+```math
+\mathcal S
+=
+\mathbb N,
+```
+
+```math
+\mathcal Y_{\mathrm{obs}}
+=
+\mathbb N,
+```
+
+and:
+
+```math
+\mathcal Z_{\mathrm{obs}}
+=
+\mathbb N
+\times
+\{+1\}
+\times
+\mathbb N.
+```
+
+The semantic-state, output-observation, and consequence-observation maps are the displayed numerical maps, so the old, extended, and ablated complete responses inhabit one common response codomain.
 
 The enabled adjacent carry bindings are state-independent in this finite machine:
 
@@ -1365,7 +1799,7 @@ then follow the enabled carry binding:
 c_{k\to k+1}
 ```
 
-to the available higher carrier:
+to the operationally enabled higher carrier:
 
 ```math
 h_{k+1}.
@@ -1378,7 +1812,7 @@ The higher carrier may be inactive in the source state. Reaching it through an e
 If:
 
 - the current place is saturated;
-- no enabled higher carrier exists; or
+- no operationally enabled higher carrier exists; or
 - no enabled carry binding reaches it;
 
 then the transition is undefined.
@@ -1449,6 +1883,14 @@ H_{m+1}
 H_m\cup\{h_m\}.
 ```
 
+Before ablation, every ambient carrier of the extended machine is operationally enabled:
+
+```math
+E_{H,m+1}
+=
+H_{m+1}.
+```
+
 The old state embeds into the extended ambient state space by:
 
 ```math
@@ -1463,6 +1905,22 @@ The embedding preserves semantic value:
 \nu_{m+1}(\iota_m(x))
 =
 \nu_m(x).
+```
+
+The signal spaces are identical, so the input embedding is the identity:
+
+```math
+\iota_{\Sigma,m}(+1)
+=
++1.
+```
+
+The complete witness embedding is therefore:
+
+```math
+\widehat\iota_m(x,+1)
+=
+\bigl(\iota_m(x),+1\bigr).
 ```
 
 With:
@@ -1493,40 +1951,85 @@ b^m.
 
 ## 9.5 Same-ambient ablation
 
-The ablated machine retains:
+The ablated machine retains the ambient state space:
 
 ```math
 X_{m+1}
 ```
 
-and the same input type.
-
-It disables:
+and the ambient carrier type:
 
 ```math
-h_m,
+H_{m+1}.
 ```
+
+It removes the new higher carrier from the operationally enabled carrier set:
+
+```math
+E_{H,m+1}^{-\kappa_m}
+=
+H_m,
+```
+
+disables:
 
 ```math
 c_{m-1\to m},
 ```
 
-and the corresponding rules:
+and disables the corresponding rules:
 
 ```math
-\Lambda_{\kappa_m},
+\Lambda_{\kappa_m}.
 ```
 
-then replays the same increment-and-carry evaluator.
+The embedded maximum-state witness is neutral on the carrier removed by the ablation:
+
+```math
+\mathrm{supp}_{H_{m+1}}
+\bigl(
+\iota_m(x_m^{\max})
+\bigr)
+\cap
+\{h_m\}
+=
+\varnothing,
+```
+
+because:
+
+```math
+\iota_m(x_m^{\max})
+=
+(b-1,\ldots,b-1,0).
+```
+
+The witness therefore belongs to the carrier-neutral ablation domain.
+
+The same increment-and-carry evaluator is replayed with the reduced operational structures.
 
 The carry propagates through all lower saturated places and reaches the disabled final carry edge.
+
+The evaluator cannot activate:
+
+```math
+h_m
+```
+
+because:
+
+```math
+h_m
+\notin
+E_{H,m+1}^{-\kappa_m}.
+```
 
 No alternative carry path exists in this machine.
 
 Therefore:
 
 ```math
-T_{\operatorname{Abl}_{\kappa_m}(\mathcal M_{m+1})}
+T_{\mathrm{Abl}_{\kappa_m}(\mathcal M_{m+1})}
 \bigl(
 \iota_m(x_m^{\max}),
 +1
@@ -1609,7 +2112,7 @@ In the same ambient state and input spaces, disabling:
 and replaying the same evaluator gives:
 
 ```math
-B_{\operatorname{Abl}_{\kappa_m}(\mathcal M_{m+1})}
+B_{\mathrm{Abl}_{\kappa_m}(\mathcal M_{m+1})}
 \bigl(
 \iota_m(x_m^{\max}),
 +1
@@ -1707,7 +2210,7 @@ Disable:
 in the same two-place ambient machine and replay the same evaluator:
 
 ```math
-T_{\operatorname{Abl}_{\kappa_1}(\mathcal M_2)}
+T_{\mathrm{Abl}_{\kappa_1}(\mathcal M_2)}
 ((9,0),+1)
 =
 \bot.
@@ -1875,7 +2378,7 @@ The sequence is unbounded.
 Every element remains in:
 
 ```math
-\operatorname{span}\{v\},
+\mathrm{span}\{v\},
 ```
 
 which has dimension one.
@@ -1944,7 +2447,7 @@ A mechanical conclusion requires:
 defined carrier
 defined binding
 defined transition rule
-fixed semantic observation
+fixed common observation boundary
 executable witness
 reproduced consequence
 ```
@@ -2086,13 +2589,220 @@ The count is not the proof.
 
 ## 16.1 Release authority is operational
 
+Fix an active policy identity:
+
+```math
+\pi
+```
+
+and verifier identity:
+
+```math
+v.
+```
+
+For this application, the compared PULSEmech machines:
+
+```math
+\mathcal P_0,
+\qquad
+\mathcal P_1,
+\qquad
+\mathrm{Abl}_{\kappa_h}(\mathcal P_1)
+```
+
+use the same ambient evaluator-input type:
+
+```math
+I_{\mathcal P}.
+```
+
+The state and input embeddings on this fixed ambient type are identities. Each PULSEmech machine is an instance of the Workshop machine and therefore has the Section 3 complete response:
+
+```math
+B_{\mathcal P}
+:
+I_{\mathcal P}
+\to
+\mathcal R_{\mathrm{obs}}.
+```
+
+The same common response codomain and the same semantic, output, and consequence observation boundaries are used for the pre-activation, post-activation, and ablated machines.
+
+Let the release-decision codomain be:
+
+```math
+\mathcal D
+=
+\{\mathrm{ALLOW},\mathrm{BLOCK}\}.
+```
+
 Let:
 
 ```math
-B^{\mathrm{auth}}_{\mathcal P}
+\mathcal U_\pi
 ```
 
-be the authority projection of the complete PULSEmech response. It contains the release-transition result and every response component that the active policy makes authority-bearing. Metadata-only differences are excluded unless the active policy explicitly gives them release-authority effect.
+be the fixed product of every other response component that policy:
+
+```math
+\pi
+```
+
+makes authority-bearing. If there are no additional components, this space is a singleton.
+
+The complete authority-response codomain is the fixed tuple type:
+
+```math
+\mathcal A_\pi
+=
+\mathcal D
+\times
+\mathcal U_\pi.
+```
+
+Before PASS/FAIL witnesses are selected, policy:
+
+```math
+\pi
+```
+
+fixes one authority projection on the common Workshop response space:
+
+```math
+\rho^{\pi}_{\mathrm{auth}}
+:
+\mathcal R_{\mathrm{obs}}
+\to
+\mathcal A_\pi.
+```
+
+The exact same projection is used for every compared PULSEmech machine. Define:
+
+```math
+B^{\mathrm{auth}}_{\mathcal P}
+=
+\rho^{\pi}_{\mathrm{auth}}
+\circ
+B_{\mathcal P}
+:
+I_{\mathcal P}
+\to
+\mathcal A_\pi.
+```
+
+For:
+
+```math
+z\in I_{\mathcal P},
+```
+
+write the two tuple components as:
+
+```math
+B^{\mathrm{auth}}_{\mathcal P}(z)
+=
+\bigl(
+d_{\mathcal P}(z),
+U^{\mathrm{auth}}_{\mathcal P}(z)
+\bigr).
+```
+
+Define the fixed tuple projection:
+
+```math
+\pi_{\mathcal D}
+:
+\mathcal A_\pi
+\to
+\mathcal D,
+```
+
+by:
+
+```math
+\pi_{\mathcal D}(d,u)=d.
+```
+
+The single policy-fixed release-decision projection on the common Workshop response space is:
+
+```math
+\rho^{\pi}_{\mathrm{decision}}
+=
+\pi_{\mathcal D}
+\circ
+\rho^{\pi}_{\mathrm{auth}}
+:
+\mathcal R_{\mathrm{obs}}
+\to
+\mathcal D.
+```
+
+The scalar release-decision function is therefore:
+
+```math
+D^{\mathrm{release}}_{\mathcal P}
+=
+\rho^{\pi}_{\mathrm{decision}}
+\circ
+B_{\mathcal P}
+=
+\pi_{\mathcal D}
+\circ
+B^{\mathrm{auth}}_{\mathcal P}.
+```
+
+Consequently:
+
+```math
+d_{\mathcal P}(z)
+=
+D^{\mathrm{release}}_{\mathcal P}(z).
+```
+
+Complete authority-response comparisons use:
+
+```math
+B^{\mathrm{auth}}_{\mathcal P}.
+```
+
+Scalar `ALLOW` and `BLOCK` comparisons use:
+
+```math
+D^{\mathrm{release}}_{\mathcal P}.
+```
+
+The maps:
+
+```math
+\rho^{\pi}_{\mathrm{auth}}
+```
+
+and:
+
+```math
+\rho^{\pi}_{\mathrm{decision}}
+```
+
+are fixed once for the entire comparison. They may not vary between the old, new, and ablated machines.
+
+The complete tuple is never equated directly to a scalar decision.
+
+On the declared PULSEmech witness domain, the evaluator response must be defined. If the common response boundary permits an `undefined` value, policy:
+
+```math
+\pi
+```
+
+must assign its deterministic fail-closed authority image through the same fixed projection. A machine-specific fallback projection is not permitted.
+
+Metadata-only differences are excluded from:
+
+```math
+\mathcal U_\pi
+```
+
+unless the active policy explicitly gives them release-authority effect.
 
 PULSEmech release authority is not created by the presence of more files, gates, records, or labels.
 
@@ -2120,16 +2830,21 @@ current-run evidence
 → gate evaluation
 → ALLOW or BLOCK
 ```
-
 ## 16.2 Authority dependency model
 
 Let:
 
 ```math
-\Gamma=(V,E)
+\Gamma_0=(V_0,E_0)
 ```
 
-be the dependency graph of the release evaluator.
+be the pre-activation dependency graph and:
+
+```math
+\Gamma_1=(V_1,E_1)
+```
+
+the post-activation dependency graph of the release evaluator.
 
 Let:
 
@@ -2137,15 +2852,49 @@ Let:
 s_{\mathrm{release}}
 ```
 
-be the release-decision sink.
+be the release-decision sink, and let:
+
+```math
+S_{\mathrm{auth}}
+```
+
+be the set of all authority-bearing response sinks under policy:
+
+```math
+\pi.
+```
+
+For graph nodes:
+
+```math
+p,q\in V_0\cup V_1,
+```
+
+let:
+
+```math
+\mathrm{Paths}_{\Gamma}(p,q)
+```
+
+denote the active data- or control-dependency paths from:
+
+```math
+p
+```
+
+to:
+
+```math
+q.
+```
 
 Let:
 
 ```math
-\operatorname{Eval}_{\pi,v}
+\mathrm{Eval}_{\pi,v}
 ```
 
-be the evaluator fixed by policy identity:
+be the fixed deterministic evaluator identified by policy identity:
 
 ```math
 \pi
@@ -2157,13 +2906,9 @@ and verifier identity:
 v.
 ```
 
-The authority response projection is produced by this fixed evaluator from the materialized graph and gate state.
+The authority response and the release-decision projection are produced by this evaluator from the materialized graph and gate state.
 
-The graph is required to be dependency-complete for the authority evaluation: every data or control dependency by which a node can influence the release sink is represented in:
-
-```math
-\Gamma.
-```
+Each graph is required to be dependency-complete for its authority evaluation: every data or control dependency by which a node can influence an authority-bearing sink is represented in the graph.
 
 The evaluator may not use an unrecorded side path outside the declared dependency graph.
 
@@ -2177,27 +2922,7 @@ h
 
 be a candidate or advisory gate.
 
-If there is no active data or control path from:
-
-```math
-h
-```
-
-to:
-
-```math
-s_{\mathrm{release}},
-```
-
-then changing the value of:
-
-```math
-h
-```
-
-does not change the authority response.
-
-For two otherwise identical inputs:
+Choose two otherwise identical evaluator inputs:
 
 ```math
 z_{\mathrm{PASS}}
@@ -2209,18 +2934,65 @@ and:
 z_{\mathrm{FAIL}},
 ```
 
+which differ only in the verified value of:
+
 ```math
-B^{\mathrm{auth}}_{\mathcal P_0}(z_{\mathrm{PASS}})
-=
-B^{\mathrm{auth}}_{\mathcal P_0}(z_{\mathrm{FAIL}}).
+h.
 ```
 
-This is presence without release authority.
+If:
+
+```math
+\mathrm{Paths}_{\Gamma_0}
+(h,s_{\mathrm{release}})
+=
+\varnothing,
+```
+
+then the value of:
+
+```math
+h
+```
+
+cannot change the release decision under the dependency-complete evaluator:
+
+```math
+D^{\mathrm{release}}_{\mathcal P_0}
+(z_{\mathrm{PASS}})
+=
+D^{\mathrm{release}}_{\mathcal P_0}
+(z_{\mathrm{FAIL}}).
+```
+
+If:
+
+```math
+\mathrm{Paths}_{\Gamma_0}(h,s)
+=
+\varnothing
+\qquad
+\text{for every }s\in S_{\mathrm{auth}},
+```
+
+then the stronger complete-tuple equality follows:
+
+```math
+B^{\mathrm{auth}}_{\mathcal P_0}
+(z_{\mathrm{PASS}})
+=
+B^{\mathrm{auth}}_{\mathcal P_0}
+(z_{\mathrm{FAIL}}).
+```
+
+No release-sink path is sufficient for the release-decision claim. Complete authority-response equality is asserted only under the stronger all-authority-sinks condition.
+
+This is presence without release-decision authority.
 
 ```text
 candidate or advisory gate
-+ no authority path
-→ no release-authority dimension
++ no path to the release sink
+→ no release-decision dimension
 ```
 
 ## 16.4 Activation of an authority-bearing gate
@@ -2245,11 +3017,11 @@ current-run evidence binding
 artifact binding
 policy binding
 verifier binding
-authority dependency edges
+authority dependency nodes and edges
 release-evaluation rule
 ```
 
-Under the same fixed policy and evaluator, choose two inputs that differ only in the verified value of:
+Under the same fixed policy and evaluator, use the same two inputs that differ only in the verified value of:
 
 ```math
 h.
@@ -2258,7 +3030,8 @@ h.
 If:
 
 ```math
-B^{\mathrm{auth}}_{\mathcal P_1}(z_{\mathrm{PASS}})
+D^{\mathrm{release}}_{\mathcal P_1}
+(z_{\mathrm{PASS}})
 =
 \mathrm{ALLOW},
 ```
@@ -2266,14 +3039,25 @@ B^{\mathrm{auth}}_{\mathcal P_1}(z_{\mathrm{PASS}})
 and:
 
 ```math
-B^{\mathrm{auth}}_{\mathcal P_1}(z_{\mathrm{FAIL}})
+D^{\mathrm{release}}_{\mathcal P_1}
+(z_{\mathrm{FAIL}})
 =
 \mathrm{BLOCK},
 ```
 
-then the new authority path distinguishes states that the previous machine treated identically.
+then the new authority path creates a release-decision discrimination that the previous machine did not have.
 
-## 16.5 Authority ablation
+Because the release decision is a component of the complete authority tuple, this also implies:
+
+```math
+B^{\mathrm{auth}}_{\mathcal P_1}
+(z_{\mathrm{PASS}})
+\ne
+B^{\mathrm{auth}}_{\mathcal P_1}
+(z_{\mathrm{FAIL}}).
+```
+
+## 16.5 Authority-complete ablation
 
 A valid authority ablation preserves:
 
@@ -2283,7 +3067,8 @@ policy identity
 verifier identity
 evaluator identity
 all unrelated graph nodes and edges
-semantic decision boundary
+release-decision codomain
+complete authority-response codomain
 ```
 
 It disables exactly the selected authority-bearing components of:
@@ -2292,18 +3077,51 @@ It disables exactly the selected authority-bearing components of:
 \kappa_h
 ```
 
-and replays:
+and produces a reduced dependency graph:
 
 ```math
-\operatorname{Eval}_{\pi,v}.
+\Gamma_1^{-\kappa_h}.
+```
+
+For the ablation to prove removal of the claimed release-decision relation, the selected unit must be an **authority-complete cut** for:
+
+```math
+h.
+```
+
+The required no-remaining-path condition is:
+
+```math
+\mathrm{Paths}_{\Gamma_1^{-\kappa_h}}
+(h,s_{\mathrm{release}})
+=
+\varnothing.
+```
+
+If any alternate data or control path remains, the ablation does not prove that the selected unit removes the authority relation.
+
+After the cut is materialized, the same evaluator is replayed:
+
+```math
+\mathrm{Eval}_{\pi,v}.
 ```
 
 The ablated result is produced by the evaluator. It is not manually assigned.
 
-For example, fail-closed replay may produce:
+The required release-decision restoration relation is an explicit replay result:
 
 ```math
-B^{\mathrm{auth}}_{\operatorname{Abl}_{\kappa_h}(\mathcal P_1)}
+D^{\mathrm{release}}_{\mathrm{Abl}_{\kappa_h}(\mathcal P_1)}
+(z_{\mathrm{PASS}})
+=
+D^{\mathrm{release}}_{\mathrm{Abl}_{\kappa_h}(\mathcal P_1)}
+(z_{\mathrm{FAIL}}).
+```
+
+For example, a declared fail-closed evaluator may produce:
+
+```math
+D^{\mathrm{release}}_{\mathrm{Abl}_{\kappa_h}(\mathcal P_1)}
 (z_{\mathrm{PASS}})
 =
 \mathrm{BLOCK},
@@ -2312,63 +3130,115 @@ B^{\mathrm{auth}}_{\operatorname{Abl}_{\kappa_h}(\mathcal P_1)}
 and:
 
 ```math
-B^{\mathrm{auth}}_{\operatorname{Abl}_{\kappa_h}(\mathcal P_1)}
+D^{\mathrm{release}}_{\mathrm{Abl}_{\kappa_h}(\mathcal P_1)}
 (z_{\mathrm{FAIL}})
 =
 \mathrm{BLOCK}.
 ```
 
-The exact equal response depends on the declared evaluator. The required proof relation is that the new PASS/FAIL distinction disappears after the responsible authority unit is disabled and the same evaluator is replayed.
+The exact equal decision depends on the declared evaluator. Equality must be observed under replay; it is not inferred from the word `ablation` alone.
 
-Therefore:
+Complete authority-response equality:
 
 ```math
-B^{\mathrm{auth}}_{\operatorname{Abl}_{\kappa_h}(\mathcal P_1)}
+B^{\mathrm{auth}}_{\mathrm{Abl}_{\kappa_h}(\mathcal P_1)}
 (z_{\mathrm{PASS}})
 =
-B^{\mathrm{auth}}_{\operatorname{Abl}_{\kappa_h}(\mathcal P_1)}
-(z_{\mathrm{FAIL}}).
+B^{\mathrm{auth}}_{\mathrm{Abl}_{\kappa_h}(\mathcal P_1)}
+(z_{\mathrm{FAIL}})
 ```
 
-## 16.6 PULSEmech discrimination theorem
+is a stronger claim. It may be used only when all authority-bearing tuple components are observed to be equal.
+
+Exact restoration of each pre-activation tuple is also a stronger claim and is not required for restoration of the release-decision equality relation.
+
+## 16.6 PULSEmech release-decision discrimination theorem
 
 ### Theorem
 
-A gate opens an operational release dimension when:
+A gate opens an operational release-decision dimension when:
 
-1. its values were previously authority-indistinguishable;
+1. its values were previously release-decision-indistinguishable;
 2. a bound, materialized, verified authority path makes those values produce different release decisions;
-3. same-ambient ablation of that authority unit removes the distinction under replay of the same evaluator.
+3. the selected ablation unit forms an authority-complete cut, leaving no active path from the gate to the release sink;
+4. replay of the same evaluator restores release-decision equality.
 
 ### Proof
 
 Before activation:
 
 ```math
-B^{\mathrm{auth}}_{\mathcal P_0}(z_{\mathrm{PASS}})
+D^{\mathrm{release}}_{\mathcal P_0}
+(z_{\mathrm{PASS}})
 =
-B^{\mathrm{auth}}_{\mathcal P_0}(z_{\mathrm{FAIL}}).
+D^{\mathrm{release}}_{\mathcal P_0}
+(z_{\mathrm{FAIL}}).
 ```
 
 After activation:
 
 ```math
-B^{\mathrm{auth}}_{\mathcal P_1}(z_{\mathrm{PASS}})
+D^{\mathrm{release}}_{\mathcal P_1}
+(z_{\mathrm{PASS}})
 \ne
-B^{\mathrm{auth}}_{\mathcal P_1}(z_{\mathrm{FAIL}}).
+D^{\mathrm{release}}_{\mathcal P_1}
+(z_{\mathrm{FAIL}}).
+```
+
+The authority-complete cut satisfies:
+
+```math
+\mathrm{Paths}_{\Gamma_1^{-\kappa_h}}
+(h,s_{\mathrm{release}})
+=
+\varnothing.
 ```
 
 After same-ambient authority ablation and evaluator replay:
 
 ```math
-B^{\mathrm{auth}}_{\operatorname{Abl}_{\kappa_h}(\mathcal P_1)}
+D^{\mathrm{release}}_{\mathrm{Abl}_{\kappa_h}(\mathcal P_1)}
 (z_{\mathrm{PASS}})
 =
-B^{\mathrm{auth}}_{\operatorname{Abl}_{\kappa_h}(\mathcal P_1)}
+D^{\mathrm{release}}_{\mathrm{Abl}_{\kappa_h}(\mathcal P_1)}
 (z_{\mathrm{FAIL}}).
 ```
 
-These relations satisfy the definition of a discrimination opening.
+The single fixed response projection used for all three compared machines is:
+
+```math
+\rho^{\pi}_{\mathrm{decision}}
+:
+\mathcal R_{\mathrm{obs}}
+\to
+\mathcal D.
+```
+
+For every compared PULSEmech machine:
+
+```math
+\mathcal P
+\in
+\left\{
+\mathcal P_0,
+\mathcal P_1,
+\mathrm{Abl}_{\kappa_h}(\mathcal P_1)
+\right\},
+```
+
+its projection-scoped response is:
+
+```math
+B^{\rho^{\pi}_{\mathrm{decision}}}_{\mathcal P}
+=
+\rho^{\pi}_{\mathrm{decision}}
+\circ
+B_{\mathcal P}
+=
+D^{\mathrm{release}}_{\mathcal P}.
+```
+
+The old-equal, new-unequal, and ablated-equal relations above are therefore exactly the Section 5.3 discrimination relations under one common projection. The old equality relation is broken by activation and restored by authority-complete ablation replay.
 
 Therefore:
 
@@ -2376,7 +3246,7 @@ Therefore:
 \kappa_h
 ```
 
-opens an operational release dimension.
+opens an operational release-decision dimension.
 
 QED.
 
@@ -2399,10 +3269,10 @@ derived result
 + binding
 + required materialization
 + verifier
-+ authority path
-+ decision distinction
-+ ablation replay
-→ operational release dimension
++ complete authority path
++ release-decision distinction
++ authority-complete-cut ablation replay
+→ operational release-decision dimension
 ```
 
 No new external information is required when a new authority-bearing relation is created from existing information.
@@ -2420,23 +3290,55 @@ system_boundary:
 old_machine_identity:
 new_machine_identity:
 ambient_state_space:
-ambient_input_space:
-semantic_observation_boundary:
-authority_projection_if_applicable:
+old_input_space:
+new_input_space:
+common_input_semantics_space:
+common_semantic_state_space:
+common_output_observation_space:
+common_consequence_observation_space:
+output_observation_maps:
+consequence_observation_maps:
+complete_response_codomain:
+response_boundary_used_for_the_claim:
+response_projection_map_if_applicable:
+single_projection_identity_across_old_new_and_ablation_if_applicable:
+response_projection_codomain_if_applicable:
+pulse_complete_response_map_to_common_codomain_if_applicable:
+authority_projection_from_common_response_if_applicable:
+release_decision_projection_from_common_response_if_applicable:
+projection_composition_identity_result_if_applicable:
 evaluator_identity:
 quantitative_coordinate:
-old_to_new_embedding:
+state_embedding:
+input_embedding:
+input_semantics_space:
+input_semantics_preservation_result:
+witness_embedding:
 embedding_preservation_result:
+evaluator_carrier_access_contract_if_applicable:
 operational_unit_identity:
 activation_components:
 ablation_components:
+operationally_enabled_carriers_before:
+operationally_enabled_carriers_after:
+operationally_enabled_carriers_after_ablation:
+carrier_neutrality_predicate_if_applicable:
+carrier_neutral_witness_result_if_applicable:
 same_ambient_ablation_contract:
 witness_type:
 witness_inputs:
 before_response:
 after_response:
 ablation_response:
+ablation_sensitivity_result:
+exact_response_restoration_result_if_claimed:
+capability_restoration_relation:
 replay_result:
+authority_response_tuple_if_applicable:
+release_decision_projection_if_applicable:
+authority_dependency_graph_if_applicable:
+authority_cut_components_if_applicable:
+no_remaining_authority_path_result_if_applicable:
 negative_controls:
 ```
 
@@ -2448,7 +3350,7 @@ after: defined
 ablation: undefined
 ```
 
-For a discrimination witness, it must be:
+For a discrimination witness, under the fixed response boundary used by the claim, it must be:
 
 ```text
 before: equal responses
@@ -2456,13 +3358,46 @@ after: unequal responses
 ablation: equal responses
 ```
 
+A record of:
+
+```text
+new response ≠ ablated response
+```
+
+proves ablation sensitivity only. It does not prove exact restoration unless the package also records:
+
+```text
+ablated response = old response
+```
+
+For carrier-removal ablation, the proof package must show that the embedded witness is carrier-neutral on every disabled carrier. A non-neutral witness is invalid under this ablation contract and may not be recorded as an `undefined` proof result.
+
+For a PULSEmech release-decision discrimination claim, the proof package must separately record:
+
+```text
+complete PULSE response in the common Workshop response codomain
+one policy-fixed authority projection from that common response
+one policy-fixed release-decision projection from that common response
+complete authority-response tuple type
+composition identity linking the complete response, authority response, and release decision
+release-decision projection identity reused across old, new, and ablated machines
+dependency-complete graph
+authority-complete cut
+no remaining gate-to-release-sink path
+same-evaluator replayed decision equality
+```
+
 The proof package must also confirm:
 
 ```text
+same common response codomain
+same fixed response projection across old, new, and ablated machines when projection-scoped
 same evaluator identity
-same semantic observation boundary
+semantics-preserving state embedding
+semantics-preserving input embedding
 recomputed ablation response
 no manual substitution of the ablation result
+restoration of the exact capability relation claimed
 ```
 
 ## 17.1 Negative controls
@@ -2472,13 +3407,31 @@ The following cases must not be accepted as operational dimension openings witho
 ```text
 quantity increases but complete responses remain equal
 
-internal representation changes but semantic responses remain equal
+internal representation changes but common observed responses remain equal
+
+outputs or consequences are compared without a common observation codomain
+
+states are embedded but inputs are neither identical nor embedded
 
 new information is recorded but no transition or authority path reads it
 
 every witness receives the same new output and no new discrimination appears
 
+new response differs from ablated response but the claimed old capability relation is not restored
+
+a carrier-removal witness contains non-neutral data in a disabled carrier
+
 the original path is deleted without replaying the reduced mechanism
+
+an authority ablation leaves an alternate gate-to-release-sink path
+
+a complete authority tuple is equated directly to the scalar ALLOW or BLOCK
+
+different machine-indexed projections create or erase the claimed distinction
+
+a PULSE decision response is not derived as a fixed projection of the common complete response
+
+zero is represented by arbitrary-length all-zero tuples
 
 an external theorem is cited without operation-preserving transfer
 ```
@@ -2503,7 +3456,15 @@ and:
 \mathcal M_1
 ```
 
-be machines compared through a semantic-preserving embedding and a fixed complete operational response.
+be machines compared through:
+
+```text
+a fixed common response codomain
++ one fixed response projection across all compared machines when projection-scoped
++ a semantics-preserving state embedding
++ a semantics-preserving input embedding
++ a fixed evaluator identity
+```
 
 Let:
 
@@ -2553,37 +3514,63 @@ It does not prove that the new information participates in the machine.
 
 Operational opening may also occur without informational novelty when an existing or derived value enters a new operative relation.
 
-### IV. Operational change
+### IV. Operational change and restoration
 
 If:
 
 ```math
-B_{\mathcal M_1}(\iota(w))
+B_{\mathcal M_1}\bigl(\widehat\iota(w)\bigr)
 \ne
 B_{\mathcal M_0}(w),
 ```
 
-and the difference disappears under same-ambient ablation and replay, then:
+then an operational change occurred at:
 
 ```math
-\kappa
+w.
 ```
 
-has an operationally reproduced causal role.
+If:
 
-This proves operational change.
+```math
+B_{\mathcal M_1}\bigl(\widehat\iota(w)\bigr)
+\ne
+B_{\mathrm{Abl}_{\kappa}(\mathcal M_1)}
+\bigl(\widehat\iota(w)\bigr),
+```
+
+then the new response is ablation-sensitive to:
+
+```math
+\kappa.
+```
+
+This inequality alone does not prove restoration of the pre-change response.
+
+Exact response restoration requires:
+
+```math
+B_{\mathrm{Abl}_{\kappa}(\mathcal M_1)}
+\bigl(\widehat\iota(w)\bigr)
+=
+B_{\mathcal M_0}(w).
+```
+
+For operational-dimension opening, the reachability or discrimination relation specified in Part V must be restored under replay.
 
 ### V. Operational dimension opening
 
-An operational dimension opens when the operational change takes one of two precise forms.
+An operational dimension opens when the operational change takes one of two precise forms on the fixed complete-response boundary or on one explicitly named projection applied unchanged to every compared machine.
 
 #### V.a Reachability opening
 
-A witness that was undefined becomes defined, and becomes undefined again after ablation replay.
+A witness that was undefined becomes defined, and becomes undefined again after admissible same-ambient ablation replay.
 
 #### V.b Discrimination opening
 
-Two witnesses that previously had equal responses receive different responses, and the distinction disappears after ablation replay.
+Two witnesses that previously had equal responses receive different responses, and the equality relation is restored after admissible same-ambient ablation replay.
+
+The discrimination case does not require each ablated tuple to equal its corresponding old tuple unless exact response restoration is separately claimed.
 
 ### VI. Decimal opening
 
@@ -2597,6 +3584,8 @@ b^m
 
 is undefined in the `m`-carrier machine, defined after activation of the higher carrier and final carry binding, and undefined again after same-ambient ablation of that unit.
 
+The embedded witness is neutral on the newly disabled higher carrier, and the reduced evaluator has no alternative carry path.
+
 Therefore it is a reachability opening of the finite normalized place-value machine.
 
 For decimal:
@@ -2609,9 +3598,18 @@ is the first instance.
 
 ### VII. PULSEmech opening
 
-A candidate or advisory gate with no authority path does not create release authority.
+A candidate or advisory gate with no active path to the release sink does not create release-decision authority.
 
-A bound, materialized, verified gate opens an operational release dimension when it creates a new ALLOW/BLOCK discrimination and that discrimination disappears under exact authority-unit ablation and replay of the same evaluator.
+A bound, materialized, verified gate opens an operational release-decision dimension when:
+
+```text
+its PASS and FAIL values were previously decision-equal
+→ activation makes the release decisions unequal
+→ an authority-complete cut removes every gate-to-release-sink path
+→ replay of the same evaluator restores decision equality
+```
+
+Scalar `ALLOW` and `BLOCK` relations are evaluated through the single policy-fixed map `\rho^{\pi}_{\mathrm{decision}}` from the common response space, not by equating the complete authority-response tuple to a scalar and not by changing projections between machines.
 
 ### VIII. External theorem boundary
 
@@ -2631,13 +3629,13 @@ on the machine and witness under examination.
 
 Parts I–III follow from the definitions and explicit counterexamples separating amount, representation, information, and operation.
 
-Part IV follows from the complete response comparison and same-evaluator ablation replay.
+Part IV follows from the well-typed common response comparison and distinguishes ablation sensitivity from exact or capability restoration.
 
 Part V is the definition of operational dimension opening used in this document.
 
-Part VI is proved by the finite increment-and-carry machine and its same-ambient ablation witness.
+Part VI is proved by the finite increment-and-carry machine, its carrier-neutral embedded witness, and its same-ambient reduced-mechanism replay.
 
-Part VII is proved by the PULSEmech discrimination witness.
+Part VII is proved by the single policy-fixed PULSEmech projection from the common response space, the dependency-complete authority graph, the authority-complete cut, and same-evaluator replay.
 
 Part VIII follows from the theorem-transfer obligations in Section 1.
 
@@ -2700,7 +3698,7 @@ new state distinction
 → informational expansion
 
 new reachability or discrimination
-+ reproduced ablation dependence
++ restored capability relation under ablation replay
 → operational dimension opening
 ```
 
