@@ -412,3 +412,16 @@ def test_adapter_is_registered_exactly_once_in_tools_tests() -> None:
         if line.strip() and not line.lstrip().startswith("#")
     ]
     assert entries.count(CI_ENTRY) == 1
+
+
+# ---------------------------------------------------------------------------
+# Direct tools-tests execution entrypoint
+# ---------------------------------------------------------------------------
+
+
+def check_build_pulsemech_compute_binding_report_from_subject_input_v0() -> None:
+    raise SystemExit(pytest.main([__file__, "-q"]))
+
+
+if __name__ == "__main__":
+    check_build_pulsemech_compute_binding_report_from_subject_input_v0()
