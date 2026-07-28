@@ -7,7 +7,7 @@ document_role:
 design_and_implementation_state_record
 
 implementation_status:
-machine_produced_observed_subject_input_proof_complete
+immutable_observed_subject_input_analyzer_bridge_complete
 
 completed_connected_proof:
 PULSE CI #6066
@@ -60,6 +60,45 @@ f5ff95ea78d3d79f2deab0b4647c27b5137e6db5
 observed_subject_input_post_merge_review:
 PASS
 
+observed_subject_input_analyzer_bridge:
+implemented_and_post_merge_proven
+
+observed_subject_input_analyzer_bridge_pr:
+2773
+
+observed_subject_input_analyzer_bridge_merge:
+a93359444e13771eb932744dd22b4477a5096019
+
+observed_subject_input_analyzer_bridge_version:
+0.2.0
+
+observed_subject_input_analyzer_bridge_post_merge_review:
+PASS
+
+observed_subject_input_analyzer_bridge_focused_regression:
+17_passed
+
+observed_subject_input_analyzer_bridge_manifest_execution:
+17_passed
+
+observed_subject_input_analyzer_bridge_report_sha256:
+656459e7fb835814a05a7cc5b8150959d32ed3a0e9ed272c2733038bd441ec4c
+
+observed_subject_input_analyzer_bridge_repository_mutation:
+none
+
+observed_subject_input_analyzer_bridge_temporary_file_surface:
+none
+
+observed_subject_input_analyzer_bridge_optional_output_surface:
+none
+
+observed_subject_input_analyzer_bridge_parallel_analyzer:
+none
+
+reusable_analyzer_core:
+not_implemented
+
 runtime_observation_contract:
 implemented
 
@@ -88,8 +127,8 @@ none
 This document defines the PULSEmech compute-binding workstream and records the
 implementation state reached through the fixed-source PULSE CI #6066
 artifact-observed proof, the portable subject-input packet contract, the
-fixed-source packet producer, and the checked-in machine-produced observed
-packet proof.
+fixed-source packet producer, the checked-in machine-produced observed packet
+proof, and the immutable packet-to-existing-analyzer equivalence bridge.
 
 The completed implementation sequence now extends through:
 
@@ -109,6 +148,12 @@ compute-binding report contract
 → checked-in record_status=observed #6066 packet
 → pinned historical-producer byte-for-byte replay
 → fail-closed replay-worktree and workspace cleanup
+→ immutable packet and carrier capture
+→ exact captured-byte packet validation
+→ existing artifact reconstruction and fixed-source analyzer delegation
+→ strict in-memory report validation
+→ deterministic stdout-only report
+→ post-merge 17-case equivalence proof
 ```
 
 This document does not itself modify workflow behavior, policy behavior, gate
@@ -116,7 +161,7 @@ registry behavior, verifier or materializer semantics, status authority,
 release authority, SLSA/VSA behavior, DOI, citation, Zenodo, tags, releases, or
 release metadata.
 
-Reusable analyzer integration, current-run integration, runtime-observation
+Reusable analyzer-core extraction, current-run integration, runtime-observation
 production, resource measurement, compute budget, and active promotion remain
 separate work.
 
@@ -165,12 +210,18 @@ carrier-size-before-hash and carrier-digest-before-ZIP boundary
 machine-produced observed #6066 subject-input packet
 pinned historical producer replay
 fail-closed replay-worktree cleanup
+immutable observed subject-input analyzer bridge
+same-revision packet and carrier capture
+captured-byte packet validation
+existing fixed-source analyzer delegation
+stdout-only deterministic report production
+17-case packet-to-analyzer equivalence proof
 ```
 
 The repository does not yet contain:
 
 ```text
-a reusable analyzer core consuming the portable packet
+a reusable analyzer core extracted from the fixed-source builder
 a current-run artifact-observed reference lane
 a runtime-observation packet producer
 a complete runtime-observed reference chain
@@ -179,10 +230,21 @@ a compute budget
 active compute-related release enforcement
 ```
 
-The completed producer and observed proof remain fixed-source and historical.
-They prove the portable recording and replay boundary for the preserved #6066
-subject. They do not create current-run integration or convert incomplete
-artifact-level evidence into runtime-level evidence.
+The completed producer, observed packet proof and immutable analyzer bridge
+remain fixed-source and historical.
+
+They prove:
+
+```text
+portable packet production
++ pinned producer replay
++ immutable analyzer input capture
++ same-revision validation and analysis
++ regression-identical #6066 report construction
+```
+
+They do not create current-run integration or convert incomplete artifact-level
+evidence into runtime-level evidence.
 
 ---
 
@@ -1952,16 +2014,22 @@ A declaration with no observed downstream relation remains partial or
 unresolved.
 
 The portable subject-input contract, strict validator, deterministic producer,
-and checked-in observed #6066 proof are implemented.
+checked-in observed #6066 proof and immutable analyzer bridge are implemented.
 
-The observed packet is machine-produced, digest-bound, producer-bound, and
+The observed packet is machine-produced, digest-bound, producer-bound and
 independently replayable from the pinned historical producer revision.
 
 The replay reconstructs the packet rather than treating the checked-in JSON as
 a trusted hand-maintained source.
 
-The next reusable analyzer must consume the portable packet without converting
-it into a new manually curated authority surface.
+The immutable bridge captures the packet and carrier once, validates those exact
+bytes and drives the existing analyzer from the same captured revisions.
+
+It does not convert the portable packet into a manually curated authority
+surface.
+
+The next core extraction must preserve this relation and must not create a
+second analyzer.
 
 ---
 
@@ -2080,18 +2148,179 @@ release-required enforcement
 release authority
 ```
 
-### Step 2 — reusable analyzer core
+### Completed Step 1B — immutable observed subject-input analyzer bridge
 
-Extract the reusable analysis mechanics from the fixed-source builder:
+The completed bridge is:
 
 ```text
-portable subject packet
-→ common read-only analyzer core
+machine-produced record_status=observed packet
++ exact preservation carrier
+→ immutable packet and carrier capture
+→ strict packet validation over captured bytes
+→ existing artifact reconstruction
+→ existing fixed-source bundle loader
+→ existing build_report implementation
+→ strict report validation
+→ deterministic stdout report
 ```
 
-Preserve the existing #6066 builder as a compatibility wrapper.
+Each captured input records:
 
-The #6066 output and semantics must remain regression-locked.
+```text
+exact bytes
+device identity
+inode identity
+byte size
+SHA-256
+```
+
+The bridge uses one captured packet revision for parsing, validation, role
+resolution and report construction.
+
+It uses one captured carrier revision for validation, artifact reconstruction,
+bundle loading and report construction.
+
+The captured in-memory views deliberately do not provide a filesystem-path
+conversion surface.
+
+Implemented surfaces:
+
+```text
+tools/build_pulsemech_compute_binding_report_from_subject_input_v0.py
+tests/test_build_pulsemech_compute_binding_report_from_subject_input_v0.py
+ci/tools-tests.list
+```
+
+Implementation identity:
+
+```text
+PR:
+#2773
+
+merge commit:
+a93359444e13771eb932744dd22b4477a5096019
+
+bridge version:
+0.2.0
+```
+
+Proof result:
+
+```text
+focused regression:
+17 passed
+
+direct tools-manifest execution:
+17 passed
+
+deterministic report SHA-256:
+656459e7fb835814a05a7cc5b8150959d32ed3a0e9ed272c2733038bd441ec4c
+
+repeated report digest:
+identical
+
+repository state before and after replay:
+clean
+
+changed-file boundary:
+exactly 3 files
+
+tools-test registration:
+exactly 1
+
+post-merge review:
+PASS
+
+correction required:
+none
+```
+
+The bridge has no:
+
+```text
+temporary-directory surface
+scratch-file surface
+optional output-file surface
+output-rename surface
+repository-local bytecode surface
+parallel graph builder
+parallel report builder
+```
+
+The bridge delegates packet validation, artifact reconstruction, bundle loading,
+report construction and report validation to the existing implementations.
+
+This completes:
+
+```text
+portable observed subject-input packet
+→ existing analyzer implementation
+→ regression-identical #6066 compute-binding report
+```
+
+It does not complete reusable analyzer-core extraction.
+
+### Step 2 — reusable analyzer core
+
+Extract the graph, classification and report-construction mechanics from the
+fixed-source builder into one reusable read-only core:
+
+```text
+normalized validated analyzer input
+→ state-node construction
+→ compute-node construction
+→ edge construction
+→ binding classification
+→ findings
+→ summary
+→ report object
+```
+
+Preserve two compatibility entry points:
+
+```text
+fixed-source #6066 input
+→ fixed-source compatibility wrapper
+→ one reusable analyzer core
+
+immutable portable subject input
+→ subject-input compatibility wrapper
+→ the same reusable analyzer core
+```
+
+The core must not contain:
+
+```text
+CLI argument parsing
+filesystem path resolution
+file opening
+Git execution
+subprocess execution
+temporary files
+output-file writing
+policy modification
+gate materialization
+release decisions
+```
+
+The exact analysis payload must remain regression-locked:
+
+```text
+subject
+states
+compute nodes
+edges
+binding classes
+findings
+summary
+errors
+terminal analysis result
+```
+
+Wrapper and core source identities may advance.
+
+Do not preserve a superseded source identity by copying its old digest into the
+new implementation.
 
 Do not create a second parallel analyzer.
 
@@ -2152,6 +2381,9 @@ successful example
 ≠ promotion
 
 successful fixed-source replay
+≠ promotion
+
+successful portable-input replay
 ≠ promotion
 
 successful current-run artifact proof
@@ -2407,10 +2639,55 @@ post-merge Codex review:
 PASS
 ```
 
-The fixed-source, portable-contract, producer, and observed-proof sequences are
-complete.
+### Immutable observed subject-input analyzer bridge
 
-The next work begins at the reusable analyzer-core boundary.
+```text
+PR #2773
+immutable packet and carrier capture
+same-revision packet validation and analysis
+same-revision carrier validation and reconstruction
+existing analyzer delegation
+stdout-only deterministic report
+direct tools-manifest regression execution
+```
+
+Merged implementation:
+
+```text
+a93359444e13771eb932744dd22b4477a5096019
+```
+
+Status:
+
+```text
+complete
+
+bridge version:
+0.2.0
+
+focused regression:
+17 passed
+
+direct tools-manifest execution:
+17 passed
+
+deterministic report SHA-256:
+656459e7fb835814a05a7cc5b8150959d32ed3a0e9ed272c2733038bd441ec4c
+
+repository mutation:
+none
+
+parallel analyzer:
+none
+
+post-merge Codex review:
+PASS
+```
+
+The fixed-source, portable-contract, producer, observed-proof and immutable
+analyzer-bridge sequences are complete.
+
+The next work begins at reusable analyzer-core extraction.
 
 ---
 
@@ -2583,6 +2860,30 @@ implemented and proven
 replay worktree and workspace cleanup:
 fail-closed and proven
 
+immutable observed subject-input analyzer bridge:
+implemented and post-merge proven
+
+packet-to-existing-analyzer equivalence:
+implemented and proven
+
+immutable bridge regression:
+17 passed
+
+immutable bridge report SHA-256:
+656459e7fb835814a05a7cc5b8150959d32ed3a0e9ed272c2733038bd441ec4c
+
+bridge repository mutation:
+none
+
+bridge temporary-file surface:
+none
+
+bridge optional-output surface:
+none
+
+parallel analyzer implementation:
+none
+
 reusable analyzer core:
 not implemented
 
@@ -2663,18 +2964,52 @@ preserved #6066 carrier
 → fail-closed replay cleanup
 ```
 
+The completed packet-to-analyzer relation is:
+
+```text
+machine-produced observed subject-input packet
++ exact preservation carrier
+→ immutable packet and carrier capture
+→ same-revision strict validation and analysis
+→ existing artifact reconstruction
+→ existing fixed-source analyzer implementation
+→ strict report validation
+→ deterministic #6066 compute-binding report
+```
+
+The reproduced report identity is:
+
+```text
+SHA-256:
+656459e7fb835814a05a7cc5b8150959d32ed3a0e9ed272c2733038bd441ec4c
+
+repeated execution:
+identical
+
+focused regression:
+17 passed
+
+direct tools-manifest execution:
+17 passed
+
+repository mutation:
+none
+```
+
 The next mechanical transition is:
 
 ```text
-portable observed subject-input packet
+existing graph and report construction
 → reusable read-only analyzer core
-→ regression-identical #6066 compute-binding output
+→ fixed-source compatibility wrapper
++ immutable subject-input compatibility wrapper
+→ regression-identical analysis payload
 ```
 
 That next transition remains non-active and does not itself create current-run
-integration, runtime evidence, a compute budget, or release authority.
+integration, runtime evidence, a compute budget or release authority.
 
-The exact candidate result is:
+The exact candidate result remains:
 
 ```text
 transition path complete:
