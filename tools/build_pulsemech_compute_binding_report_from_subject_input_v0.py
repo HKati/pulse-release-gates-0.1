@@ -42,12 +42,14 @@ VISIBLE_ROLE_FILENAMES = {
     "preservation_checksums": "SHA256SUMS",
 }
 
-PROTECTED_OUTPUT_NAMES = {
-    "status.json",
-    "release_decision_v0.json",
-    "release_authority_v0.json",
-    "pulsemech_compute_subject_input_packet_v0.json",
-}
+PROTECTED_OUTPUT_NAMES = frozenset(
+    {
+        "status.json",
+        "release_decision_v0.json",
+        "release_authority_v0.json",
+        "pulsemech_compute_subject_input_packet_v0.json",
+    }
+)
 
 
 class AdapterError(RuntimeError):
@@ -113,6 +115,16 @@ def sha256_bytes(value: bytes) -> str:
 
 def sha256_file(path: Path) -> str:
     return sha256_bytes(path.read_bytes())
+
+
+def resolve_cli_path(value: str) -> Path:
+    """Resolve a CLI path against the caller's current directory.
+
+    os.path.abspath performs lexical normalization without following symlinks,
+    so later explicit symlink checks remain effective.
+    """
+
+    return Path(os.path.abspath(os.fspath(Path(value))))
 
 
 def require(condition: bool, message: str) -> None:
@@ -207,7 +219,7 @@ def reject_unsafe_output(
         if same_target(output, path):
             raise AdapterError(f"refusing_to_overwrite_input: {path}")
 
-    if output.name in PROTECTED_OUTPUT_NAMES:
+    if output.name.casefold() in PROTECTED_OUTPUT_NAMES:
         raise AdapterError(f"refusing_authority_surface_output: {output.name}")
 
     if is_within(output, ROOT):
@@ -629,10 +641,10 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
-    packet = Path(args.packet)
-    carrier = Path(args.carrier)
-    repository_root = Path(args.repository_root)
-    output = Path(args.output) if args.output else None
+    packet = resolve_cli_path(args.packet)
+    carrier = resolve_cli_path(args.carrier)
+    repository_root = resolve_cli_path(args.repository_root)
+    output = resolve_cli_path(args.output) if args.output else None
 
     protected_inputs = (
         packet,
