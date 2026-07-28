@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import hashlib
-import importlib.util
+import types
 import json
 import os
 import shutil
@@ -96,16 +96,32 @@ def snapshot(paths: tuple[Path, ...]) -> dict[str, tuple[int, str]]:
     }
 
 
+def tree_snapshot(root: Path) -> dict[str, tuple[Any, ...]]:
+    result: dict[str, tuple[Any, ...]] = {}
+    for path in sorted(root.rglob("*"), key=lambda item: item.as_posix()):
+        relative = path.relative_to(root).as_posix()
+        if path.is_symlink():
+            result[relative] = ("symlink", os.readlink(path))
+        elif path.is_dir():
+            result[relative] = ("directory",)
+        elif path.is_file():
+            result[relative] = ("file", path.stat().st_size, sha256_file(path))
+        else:
+            result[relative] = ("other", path.lstat().st_mode)
+    return result
+
+
 def import_adapter_module() -> Any:
-    spec = importlib.util.spec_from_file_location(
-        "pulsemech_subject_input_report_adapter_v0_under_test",
-        ADAPTER,
-    )
-    assert spec is not None
-    assert spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
+    module_name = "pulsemech_subject_input_report_adapter_v0_under_test"
+    module = types.ModuleType(module_name)
+    module.__file__ = str(ADAPTER)
+    module.__cached__ = None
+    module.__loader__ = None
+    module.__package__ = ""
+    module.__spec__ = None
+    sys.modules[module_name] = module
+    code = compile(ADAPTER.read_bytes(), str(ADAPTER), "exec", dont_inherit=True)
+    exec(code, module.__dict__)
     return module
 
 
@@ -255,12 +271,39 @@ def test_subject_input_adapter_preserves_every_protected_input(
         ADAPTER,
     )
     before = snapshot(protected)
+    tools_before = tree_snapshot(ROOT / "tools")
     result = run_adapter()
     after = snapshot(protected)
+    tools_after = tree_snapshot(ROOT / "tools")
 
     assert result.returncode == 0, result.stdout + result.stderr
     assert result.stdout == fixed_stdout
     assert before == after
+    assert tools_before == tools_after
+
+
+def test_module_loading_does_not_create_or_consume_bytecode(
+    tmp_path: Path,
+) -> None:
+    module_path = tmp_path / "synthetic_module.py"
+    module_path.write_text("VALUE = 17\n", encoding="utf-8")
+
+    # A conflicting cache file must not be consumed, and no cache may be written.
+    cache_dir = tmp_path / "__pycache__"
+    cache_dir.mkdir()
+    poisoned_cache = cache_dir / "synthetic_module.cpython-313.pyc"
+    poisoned_cache.write_bytes(b"not-valid-bytecode")
+    before = tree_snapshot(tmp_path)
+
+    module_name = "pulsemech_synthetic_no_bytecode_module_v0"
+    try:
+        module = ADAPTER_MODULE.load_module(module_path, module_name)
+        assert module.VALUE == 17
+        assert module.__cached__ is None
+    finally:
+        sys.modules.pop(module_name, None)
+
+    assert tree_snapshot(tmp_path) == before
 
 
 def test_subject_input_adapter_rejects_unresolved_role_binding(
@@ -420,7 +463,7 @@ def test_adapter_is_registered_exactly_once_in_tools_tests() -> None:
 
 
 def check_build_pulsemech_compute_binding_report_from_subject_input_v0() -> None:
-    raise SystemExit(pytest.main([__file__, "-q"]))
+    raise SystemExit(pytest.main([__file__, "-q", "-p", "no:cacheprovider"]))
 
 
 if __name__ == "__main__":
