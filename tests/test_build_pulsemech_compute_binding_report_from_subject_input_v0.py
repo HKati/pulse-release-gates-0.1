@@ -2,15 +2,18 @@
 from __future__ import annotations
 
 import hashlib
-import types
 import json
 import os
 import shutil
+import stat
 import subprocess
 import sys
-import tempfile
+import types
 from pathlib import Path
 from typing import Any
+
+os.environ["PYTHONDONTWRITEBYTECODE"] = "1"
+sys.dont_write_bytecode = True
 
 import pytest
 
@@ -52,10 +55,6 @@ def sha256_bytes(value: bytes) -> str:
     return hashlib.sha256(value).hexdigest()
 
 
-def sha256_file(path: Path) -> str:
-    return sha256_bytes(path.read_bytes())
-
-
 def strict_json_text(text: str, *, label: str) -> dict[str, Any]:
     def reject_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
         result: dict[str, Any] = {}
@@ -90,92 +89,48 @@ def render_json(value: dict[str, Any]) -> str:
     )
 
 
-def snapshot(paths: tuple[Path, ...]) -> dict[str, tuple[int, str]]:
-    return {
-        str(path.resolve()): (path.stat().st_size, sha256_file(path))
-        for path in paths
-    }
-
-
-def tree_snapshot(root: Path) -> dict[str, tuple[Any, ...]]:
-    result: dict[str, tuple[Any, ...]] = {}
-    for path in sorted(root.rglob("*"), key=lambda item: item.as_posix()):
-        relative = path.relative_to(root).as_posix()
-        if path.is_symlink():
-            result[relative] = ("symlink", os.readlink(path))
-        elif path.is_dir():
-            result[relative] = ("directory",)
-        elif path.is_file():
-            result[relative] = ("file", path.stat().st_size, sha256_file(path))
-        else:
-            result[relative] = ("other", path.lstat().st_mode)
-    return result
-
-
-def repository_entry_snapshot(root: Path) -> tuple[tuple[str, str], ...]:
-    entries: list[tuple[str, str]] = []
-    for directory, names, filenames in os.walk(root, followlinks=False):
-        directory_path = Path(directory)
-        relative_directory = directory_path.relative_to(root)
-        if relative_directory.parts and relative_directory.parts[0] == ".git":
-            names[:] = []
-            continue
-        names[:] = sorted(name for name in names if name != ".git")
-        for name in names:
-            path = directory_path / name
-            relative = path.relative_to(root).as_posix()
-            entries.append((relative, "symlink" if path.is_symlink() else "directory"))
-        for name in sorted(filenames):
-            path = directory_path / name
-            relative = path.relative_to(root).as_posix()
-            entries.append((relative, "symlink" if path.is_symlink() else "file"))
-    return tuple(entries)
-
-
-def import_adapter_module() -> Any:
-    module_name = "pulsemech_subject_input_report_adapter_v0_under_test"
+def load_source_module(path: Path, module_name: str) -> Any:
+    source = path.read_bytes()
+    code = compile(source, str(path), "exec", dont_inherit=True)
     module = types.ModuleType(module_name)
-    module.__file__ = str(ADAPTER)
+    module.__file__ = str(path)
     module.__cached__ = None
     module.__loader__ = None
     module.__package__ = ""
     module.__spec__ = None
     sys.modules[module_name] = module
-    code = compile(ADAPTER.read_bytes(), str(ADAPTER), "exec", dont_inherit=True)
     exec(code, module.__dict__)
     return module
 
 
-ADAPTER_MODULE = import_adapter_module()
+ADAPTER_MODULE = load_source_module(
+    ADAPTER,
+    "pulsemech_subject_input_report_bridge_v0_under_test",
+)
 
 
-def run_fixed_builder(
-    *,
-    output: Path | None = None,
-) -> subprocess.CompletedProcess[str]:
-    command = [
-        sys.executable,
-        str(FIXED_BUILDER),
-        "--archive",
-        str(CARRIER),
-        "--manifest",
-        str(MANIFEST),
-        "--readme",
-        str(README),
-        "--sha256sums",
-        str(SHA256SUMS),
-        "--schema",
-        str(REPORT_SCHEMA),
-        "--validator",
-        str(REPORT_VALIDATOR),
-        "--analysis-run-key",
-        ANALYSIS_RUN_KEY,
-    ]
-    if output is not None:
-        command.extend(["--output", str(output)])
+def run_fixed_builder() -> subprocess.CompletedProcess[str]:
     return subprocess.run(
-        command,
+        [
+            sys.executable,
+            str(FIXED_BUILDER),
+            "--archive",
+            str(CARRIER),
+            "--manifest",
+            str(MANIFEST),
+            "--readme",
+            str(README),
+            "--sha256sums",
+            str(SHA256SUMS),
+            "--schema",
+            str(REPORT_SCHEMA),
+            "--validator",
+            str(REPORT_VALIDATOR),
+            "--analysis-run-key",
+            ANALYSIS_RUN_KEY,
+        ],
         cwd=ROOT,
+        env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
         text=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -187,31 +142,29 @@ def run_adapter(
     *,
     packet: Path = PACKET,
     carrier: Path = CARRIER,
+    repository_root: Path = ROOT,
     analysis_run_key: str = ANALYSIS_RUN_KEY,
-    output: Path | None = None,
-    temp_root: Path | None = None,
-    env: dict[str, str] | None = None,
+    cwd: Path = ROOT,
+    relative: bool = False,
 ) -> subprocess.CompletedProcess[str]:
-    command = [
-        sys.executable,
-        str(ADAPTER),
-        "--packet",
-        str(packet),
-        "--carrier",
-        str(carrier),
-        "--repository-root",
-        str(ROOT),
-        "--analysis-run-key",
-        analysis_run_key,
-    ]
-    if output is not None:
-        command.extend(["--output", str(output)])
-    if temp_root is not None:
-        command.extend(["--temp-root", str(temp_root)])
+    def argument(path: Path) -> str:
+        return os.path.relpath(path, cwd) if relative else str(path)
+
     return subprocess.run(
-        command,
-        cwd=ROOT,
-        env=env,
+        [
+            sys.executable,
+            str(ADAPTER),
+            "--packet",
+            argument(packet),
+            "--carrier",
+            argument(carrier),
+            "--repository-root",
+            argument(repository_root),
+            "--analysis-run-key",
+            analysis_run_key,
+        ],
+        cwd=cwd,
+        env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
         text=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -241,6 +194,25 @@ def assert_adapter_failure(
     return diagnostic
 
 
+def snapshot_repository_tree() -> tuple[tuple[str, str, int, str | None], ...]:
+    records: list[tuple[str, str, int, str | None]] = []
+    for path in sorted(ROOT.rglob("*"), key=lambda item: item.as_posix()):
+        relative = path.relative_to(ROOT).as_posix()
+        if relative == ".git" or relative.startswith(".git/"):
+            continue
+        metadata = path.lstat()
+        if stat.S_ISLNK(metadata.st_mode):
+            records.append((relative, "symlink", metadata.st_size, os.readlink(path)))
+        elif stat.S_ISDIR(metadata.st_mode):
+            records.append((relative, "directory", metadata.st_size, None))
+        elif stat.S_ISREG(metadata.st_mode):
+            data = path.read_bytes()
+            records.append((relative, "file", len(data), sha256_bytes(data)))
+        else:
+            records.append((relative, "other", metadata.st_size, None))
+    return tuple(records)
+
+
 @pytest.fixture(scope="module")
 def fixed_stdout() -> str:
     result = run_fixed_builder()
@@ -250,19 +222,13 @@ def fixed_stdout() -> str:
     return result.stdout
 
 
-def test_subject_input_adapter_matches_fixed_builder_byte_for_byte(
-    tmp_path: Path,
-    fixed_stdout: str,
-) -> None:
-    output = tmp_path / "report.json"
-    result = run_adapter(output=output)
-
+def test_bridge_matches_fixed_builder_byte_for_byte(fixed_stdout: str) -> None:
+    result = run_adapter()
     assert result.returncode == 0, result.stdout + result.stderr
     assert result.stderr == ""
     assert result.stdout == fixed_stdout
-    assert output.read_text(encoding="utf-8") == fixed_stdout
 
-    report = strict_json_text(result.stdout, label="adapter report")
+    report = strict_json_text(result.stdout, label="bridge report")
     assert report["tool"]["id"] == "build_pulsemech_compute_binding_report_v0"
     assert report["analysis_boundary"]["analysis_run_key"] == ANALYSIS_RUN_KEY
     assert report["subject"]["workflow_run_number"] == 6066
@@ -271,184 +237,66 @@ def test_subject_input_adapter_matches_fixed_builder_byte_for_byte(
     assert report["errors"] == []
 
 
-def test_subject_input_adapter_is_repeat_deterministic(
-    fixed_stdout: str,
-) -> None:
+def test_bridge_is_repeat_deterministic(fixed_stdout: str) -> None:
     first = run_adapter()
     second = run_adapter()
-
-    assert first.returncode == 0, first.stdout + first.stderr
-    assert second.returncode == 0, second.stdout + second.stderr
+    assert first.returncode == second.returncode == 0
     assert first.stderr == second.stderr == ""
     assert first.stdout == second.stdout == fixed_stdout
 
 
-def test_subject_input_adapter_preserves_every_protected_input(
-    fixed_stdout: str,
-) -> None:
-    protected = (
-        PACKET,
-        CARRIER,
-        PACKET_SCHEMA,
-        PACKET_VALIDATOR,
-        REPORT_SCHEMA,
-        REPORT_VALIDATOR,
-        FIXED_BUILDER,
-        ADAPTER,
-    )
-    before = snapshot(protected)
-    tools_before = tree_snapshot(ROOT / "tools")
+def test_bridge_writes_no_repository_entry(fixed_stdout: str) -> None:
+    before = snapshot_repository_tree()
     result = run_adapter()
-    after = snapshot(protected)
-    tools_after = tree_snapshot(ROOT / "tools")
-
+    after = snapshot_repository_tree()
     assert result.returncode == 0, result.stdout + result.stderr
     assert result.stdout == fixed_stdout
     assert before == after
-    assert tools_before == tools_after
 
 
-def test_module_loading_does_not_create_or_consume_bytecode(
+def test_relative_cli_paths_work_from_external_directory(
     tmp_path: Path,
-) -> None:
-    module_path = tmp_path / "synthetic_module.py"
-    module_path.write_text("VALUE = 17\n", encoding="utf-8")
-
-    # A conflicting cache file must not be consumed, and no cache may be written.
-    cache_dir = tmp_path / "__pycache__"
-    cache_dir.mkdir()
-    poisoned_cache = cache_dir / "synthetic_module.cpython-313.pyc"
-    poisoned_cache.write_bytes(b"not-valid-bytecode")
-    before = tree_snapshot(tmp_path)
-
-    module_name = "pulsemech_synthetic_no_bytecode_module_v0"
-    try:
-        module = ADAPTER_MODULE.load_module(module_path, module_name)
-        assert module.VALUE == 17
-        assert module.__cached__ is None
-    finally:
-        sys.modules.pop(module_name, None)
-
-    assert tree_snapshot(tmp_path) == before
-
-
-
-def test_repository_local_temp_environment_is_not_used(
     fixed_stdout: str,
 ) -> None:
-    environment = dict(os.environ)
-    environment.update(
-        {
-            "TMPDIR": str(ROOT),
-            "TEMP": str(ROOT),
-            "TMP": str(ROOT),
-            "PYTHONDONTWRITEBYTECODE": "1",
-        }
-    )
-    before = repository_entry_snapshot(ROOT)
-    result = run_adapter(env=environment)
-    after = repository_entry_snapshot(ROOT)
+    packet = tmp_path / "packet.json"
+    carrier = tmp_path / "carrier.zip"
+    shutil.copy2(PACKET, packet)
+    shutil.copy2(CARRIER, carrier)
 
+    result = run_adapter(
+        packet=packet,
+        carrier=carrier,
+        repository_root=ROOT,
+        cwd=tmp_path,
+        relative=True,
+    )
     assert result.returncode == 0, result.stdout + result.stderr
     assert result.stderr == ""
     assert result.stdout == fixed_stdout
-    assert before == after
 
 
-def test_explicit_temp_root_inside_repository_is_rejected() -> None:
-    result = run_adapter(temp_root=ROOT)
-    assert_adapter_failure(result, "temp_root_inside_tool_repository")
-
-
-def test_bound_temp_environment_controls_parent_and_subprocess(
-    tmp_path: Path,
-) -> None:
-    safe_root = tmp_path / "safe-temp"
-    safe_root.mkdir()
-    previous = tempfile.tempdir
-    with ADAPTER_MODULE.bound_temp_environment(safe_root):
-        assert tempfile.gettempdir() == str(safe_root)
-        assert os.environ["PYTHONDONTWRITEBYTECODE"] == "1"
-        result = subprocess.run(
-            [sys.executable, "-c", "import tempfile; print(tempfile.gettempdir())"],
-            text=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            check=False,
-        )
-        assert result.returncode == 0, result.stderr
-        assert result.stdout.strip() == str(safe_root)
-    assert tempfile.tempdir == previous
-
-
-def test_output_parent_swap_after_revalidation_is_blocked_by_no_follow_open(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    if not ADAPTER_MODULE.secure_output_supported():
-        pytest.skip("secure directory-handle output is unavailable")
-
-    output_parent = tmp_path / "output-parent"
-    displaced_parent = tmp_path / "output-parent-original"
-    output_parent.mkdir()
-    output = output_parent / ".pulsemech-output-race-regression.json"
-    protected_target = ROOT / output.name
-    assert not protected_target.exists()
-
-    original_revalidate = ADAPTER_MODULE.reject_unsafe_output
-    swapped = False
-
-    def revalidate_then_swap(*args: Any, **kwargs: Any) -> None:
-        nonlocal swapped
-        original_revalidate(*args, **kwargs)
-        if not swapped:
-            output_parent.rename(displaced_parent)
-            output_parent.symlink_to(ROOT, target_is_directory=True)
-            swapped = True
-
-    monkeypatch.setattr(ADAPTER_MODULE, "reject_unsafe_output", revalidate_then_swap)
-    with pytest.raises(
-        ADAPTER_MODULE.AdapterError,
-        match="output_parent_component_open_failed",
-    ):
-        ADAPTER_MODULE.write_atomic_text(
-            output,
-            "{}\n",
-            packet=PACKET,
-            carrier=CARRIER,
-            repository_root=ROOT,
-        )
-
-    assert swapped is True
-    assert not protected_target.exists()
-    assert not (displaced_parent / output.name).exists()
-
-
-def test_output_commit_uses_bound_no_follow_directory_operations() -> None:
-    source = ADAPTER.read_text(encoding="utf-8")
-    assert "os.O_NOFOLLOW" in source
-    assert "dir_fd=parent_fd" in source
-    assert "src_dir_fd=parent_fd" in source
-    assert "dst_dir_fd=parent_fd" in source
-    assert "output_parent_changed_before_commit" in source
-
-
-def test_subject_input_adapter_rejects_unresolved_role_binding(
-    tmp_path: Path,
-) -> None:
+def test_invalid_role_binding_is_rejected(tmp_path: Path) -> None:
     packet = strict_json_text(PACKET.read_text(encoding="utf-8"), label="packet")
     packet["role_bindings"]["final_status"] = "artifact:missing"
     changed = tmp_path / "packet.json"
-    changed.write_text(render_json(packet), encoding="utf-8")
+    changed.write_text(render_json(packet), encoding="utf-8", newline="\n")
 
     result = run_adapter(packet=changed)
     assert_adapter_failure(result, "subject_input_packet_rejected")
 
 
-def test_subject_input_adapter_rejects_carrier_drift(
-    tmp_path: Path,
-) -> None:
-    changed = tmp_path / CARRIER.name
+def test_non_observed_packet_is_rejected(tmp_path: Path) -> None:
+    packet = strict_json_text(PACKET.read_text(encoding="utf-8"), label="packet")
+    packet["record_status"] = "example"
+    changed = tmp_path / "packet.json"
+    changed.write_text(render_json(packet), encoding="utf-8", newline="\n")
+
+    result = run_adapter(packet=changed)
+    assert_adapter_failure(result, "subject_input_packet_not_observed")
+
+
+def test_carrier_drift_is_rejected(tmp_path: Path) -> None:
+    changed = tmp_path / "carrier.zip"
     shutil.copy2(CARRIER, changed)
     payload = bytearray(changed.read_bytes())
     payload[-1] ^= 0x01
@@ -458,99 +306,163 @@ def test_subject_input_adapter_rejects_carrier_drift(
     assert_adapter_failure(result, "subject_input_packet_rejected")
 
 
-def test_subject_input_adapter_rejects_subject_run_as_analysis_run() -> None:
+def test_subject_run_cannot_be_analysis_run() -> None:
     packet = strict_json_text(PACKET.read_text(encoding="utf-8"), label="packet")
-    subject_run_key = packet["subject"]["subject_run_key"]
-
-    result = run_adapter(analysis_run_key=subject_run_key)
+    result = run_adapter(
+        analysis_run_key=packet["subject"]["subject_run_key"],
+    )
     assert_adapter_failure(result, "analysis_run_key_invalid_or_matches_subject")
 
 
-def test_relative_cli_paths_are_resolved_before_validator_cwd_change(
+def test_valid_packet_capture_is_used_after_path_replacement(
     tmp_path: Path,
     fixed_stdout: str,
 ) -> None:
-    packet = tmp_path / "packet.json"
-    carrier = tmp_path / "carrier.zip"
-    output = tmp_path / "report.json"
-    shutil.copy2(PACKET, packet)
-    shutil.copy2(CARRIER, carrier)
-
-    repository_root = os.path.relpath(ROOT, tmp_path)
-    result = subprocess.run(
-        [
-            sys.executable,
-            str(ADAPTER),
-            "--packet",
-            packet.name,
-            "--carrier",
-            carrier.name,
-            "--repository-root",
-            repository_root,
-            "--analysis-run-key",
-            ANALYSIS_RUN_KEY,
-            "--output",
-            output.name,
-        ],
-        cwd=tmp_path,
-        text=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        check=False,
+    packet_path = tmp_path / "packet.json"
+    shutil.copy2(PACKET, packet_path)
+    captured_packet = ADAPTER_MODULE.capture_regular_file(
+        packet_path,
+        label="packet",
+    )
+    packet_path.write_text("{\"invalid\":true}\n", encoding="utf-8")
+    captured_carrier = ADAPTER_MODULE.capture_regular_file(
+        CARRIER,
+        label="carrier",
     )
 
-    assert result.returncode == 0, result.stdout + result.stderr
-    assert result.stderr == ""
-    assert result.stdout == fixed_stdout
-    assert output.read_text(encoding="utf-8") == fixed_stdout
+    rendered = ADAPTER_MODULE.build_from_captured_inputs(
+        packet_capture=captured_packet,
+        carrier_capture=captured_carrier,
+        repository_root=ROOT,
+        analysis_run_key=ANALYSIS_RUN_KEY,
+    )
+    assert rendered == fixed_stdout
 
 
-@pytest.mark.parametrize(
-    "basename",
-    (
-        "STATUS.JSON",
-        "Release_Decision_v0.JSON",
-        "RELEASE_AUTHORITY_V0.JSON",
-        "PulseMech_Compute_Subject_Input_Packet_V0.Json",
-    ),
-)
-def test_authority_surface_output_names_are_rejected_case_insensitively(
+def test_invalid_packet_capture_cannot_borrow_later_valid_path(
     tmp_path: Path,
-    basename: str,
 ) -> None:
-    output = tmp_path / basename
+    packet_path = tmp_path / "packet.json"
+    packet_path.write_text(
+        render_json(
+            {
+                "record_status": "observed",
+                "analysis_boundary": {"target_analysis_level": "artifact_observed"},
+            }
+        ),
+        encoding="utf-8",
+        newline="\n",
+    )
+    captured_packet = ADAPTER_MODULE.capture_regular_file(
+        packet_path,
+        label="packet",
+    )
+    shutil.copy2(PACKET, packet_path)
+    captured_carrier = ADAPTER_MODULE.capture_regular_file(
+        CARRIER,
+        label="carrier",
+    )
+
     with pytest.raises(
         ADAPTER_MODULE.AdapterError,
-        match="refusing_authority_surface_output",
+        match="subject_input_packet_rejected",
     ):
-        ADAPTER_MODULE.reject_unsafe_output(
-            output,
-            packet=PACKET,
-            carrier=CARRIER,
+        ADAPTER_MODULE.build_from_captured_inputs(
+            packet_capture=captured_packet,
+            carrier_capture=captured_carrier,
             repository_root=ROOT,
+            analysis_run_key=ANALYSIS_RUN_KEY,
         )
-    assert not output.exists()
 
 
-def test_output_inside_subject_repository_is_rejected_without_write() -> None:
-    output = ROOT / ".pulsemech-subject-input-adapter-should-not-write.json"
-    assert not output.exists()
+def test_valid_carrier_capture_is_used_after_path_replacement(
+    tmp_path: Path,
+    fixed_stdout: str,
+) -> None:
+    carrier_path = tmp_path / "carrier.zip"
+    shutil.copy2(CARRIER, carrier_path)
+    captured_carrier = ADAPTER_MODULE.capture_regular_file(
+        carrier_path,
+        label="carrier",
+    )
+    carrier_path.write_bytes(b"not-a-zip")
+    captured_packet = ADAPTER_MODULE.capture_regular_file(
+        PACKET,
+        label="packet",
+    )
+
+    rendered = ADAPTER_MODULE.build_from_captured_inputs(
+        packet_capture=captured_packet,
+        carrier_capture=captured_carrier,
+        repository_root=ROOT,
+        analysis_run_key=ANALYSIS_RUN_KEY,
+    )
+    assert rendered == fixed_stdout
+
+
+def test_invalid_carrier_capture_cannot_borrow_later_valid_path(
+    tmp_path: Path,
+) -> None:
+    carrier_path = tmp_path / "carrier.zip"
+    carrier_path.write_bytes(b"not-a-zip")
+    captured_carrier = ADAPTER_MODULE.capture_regular_file(
+        carrier_path,
+        label="carrier",
+    )
+    shutil.copy2(CARRIER, carrier_path)
+    captured_packet = ADAPTER_MODULE.capture_regular_file(
+        PACKET,
+        label="packet",
+    )
+
     with pytest.raises(
         ADAPTER_MODULE.AdapterError,
-        match="refusing_output_inside_tool_repository",
+        match="subject_input_packet_rejected",
     ):
-        ADAPTER_MODULE.reject_unsafe_output(
-            output,
-            packet=PACKET,
-            carrier=CARRIER,
+        ADAPTER_MODULE.build_from_captured_inputs(
+            packet_capture=captured_packet,
+            carrier_capture=captured_carrier,
             repository_root=ROOT,
+            analysis_run_key=ANALYSIS_RUN_KEY,
         )
-    assert not output.exists()
 
 
-def test_adapter_delegates_to_one_existing_graph_builder() -> None:
+def test_source_loading_ignores_and_does_not_create_bytecode(tmp_path: Path) -> None:
+    source = tmp_path / "module.py"
+    source.write_text("VALUE = 7\n", encoding="utf-8", newline="\n")
+    capture = ADAPTER_MODULE.capture_regular_file(source, label="source")
+    module = ADAPTER_MODULE.load_module_from_capture(
+        capture,
+        "synthetic_bridge_source_module",
+    )
+    view = ADAPTER_MODULE.CapturedPathView(capture)
+    assert not hasattr(view, "__fspath__")
+    assert module.VALUE == 7
+    assert not (tmp_path / "__pycache__").exists()
+
+
+def test_bridge_has_no_scratch_or_file_output_surface() -> None:
     source = ADAPTER.read_text(encoding="utf-8")
+    forbidden = (
+        "import tempfile",
+        "TemporaryDirectory",
+        "gettempdir",
+        "mkstemp",
+        "--temp-root",
+        "--output",
+        "write_atomic_text",
+        "os.rename(",
+        "os.replace(",
+    )
+    for fragment in forbidden:
+        assert fragment not in source
 
+
+def test_bridge_delegates_to_existing_report_builder() -> None:
+    source = ADAPTER.read_text(encoding="utf-8")
+    assert "packet_validator.build_diagnostic(" in source
+    assert "fixed_builder.load_observed_bundle(" in source
+    assert "report_validator.build_diagnostic(" in source
     assert "fixed_builder.build_report(" in source
     assert "def build_report(" not in source
     assert "def make_compute_node(" not in source
@@ -558,10 +470,11 @@ def test_adapter_delegates_to_one_existing_graph_builder() -> None:
     assert "def make_edge(" not in source
 
 
-def test_adapter_cli_help_constructs() -> None:
+def test_cli_is_stdout_only() -> None:
     result = subprocess.run(
         [sys.executable, str(ADAPTER), "--help"],
         cwd=ROOT,
+        env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
         text=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -572,11 +485,12 @@ def test_adapter_cli_help_constructs() -> None:
     assert "--packet" in result.stdout
     assert "--carrier" in result.stdout
     assert "--repository-root" in result.stdout
-    assert "--temp-root" in result.stdout
     assert "--analysis-run-key" in result.stdout
+    assert "--output" not in result.stdout
+    assert "--temp-root" not in result.stdout
 
 
-def test_adapter_is_registered_exactly_once_in_tools_tests() -> None:
+def test_bridge_is_registered_exactly_once_in_tools_tests() -> None:
     entries = [
         line.strip()
         for line in TOOLS_TESTS.read_text(encoding="utf-8").splitlines()
@@ -591,7 +505,16 @@ def test_adapter_is_registered_exactly_once_in_tools_tests() -> None:
 
 
 def check_build_pulsemech_compute_binding_report_from_subject_input_v0() -> None:
-    raise SystemExit(pytest.main([__file__, "-q", "-p", "no:cacheprovider"]))
+    raise SystemExit(
+        pytest.main(
+            [
+                __file__,
+                "-q",
+                "-p",
+                "no:cacheprovider",
+            ]
+        )
+    )
 
 
 if __name__ == "__main__":
