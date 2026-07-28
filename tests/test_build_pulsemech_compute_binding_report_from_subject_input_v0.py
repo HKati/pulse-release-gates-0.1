@@ -4,6 +4,7 @@ from __future__ import annotations
 import hashlib
 import importlib.util
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -293,6 +294,72 @@ def test_subject_input_adapter_rejects_subject_run_as_analysis_run() -> None:
 
     result = run_adapter(analysis_run_key=subject_run_key)
     assert_adapter_failure(result, "analysis_run_key_invalid_or_matches_subject")
+
+
+def test_relative_cli_paths_are_resolved_before_validator_cwd_change(
+    tmp_path: Path,
+    fixed_stdout: str,
+) -> None:
+    packet = tmp_path / "packet.json"
+    carrier = tmp_path / "carrier.zip"
+    output = tmp_path / "report.json"
+    shutil.copy2(PACKET, packet)
+    shutil.copy2(CARRIER, carrier)
+
+    repository_root = os.path.relpath(ROOT, tmp_path)
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(ADAPTER),
+            "--packet",
+            packet.name,
+            "--carrier",
+            carrier.name,
+            "--repository-root",
+            repository_root,
+            "--analysis-run-key",
+            ANALYSIS_RUN_KEY,
+            "--output",
+            output.name,
+        ],
+        cwd=tmp_path,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert result.stderr == ""
+    assert result.stdout == fixed_stdout
+    assert output.read_text(encoding="utf-8") == fixed_stdout
+
+
+@pytest.mark.parametrize(
+    "basename",
+    (
+        "STATUS.JSON",
+        "Release_Decision_v0.JSON",
+        "RELEASE_AUTHORITY_V0.JSON",
+        "PulseMech_Compute_Subject_Input_Packet_V0.Json",
+    ),
+)
+def test_authority_surface_output_names_are_rejected_case_insensitively(
+    tmp_path: Path,
+    basename: str,
+) -> None:
+    output = tmp_path / basename
+    with pytest.raises(
+        ADAPTER_MODULE.AdapterError,
+        match="refusing_authority_surface_output",
+    ):
+        ADAPTER_MODULE.reject_unsafe_output(
+            output,
+            packet=PACKET,
+            carrier=CARRIER,
+            repository_root=ROOT,
+        )
+    assert not output.exists()
 
 
 def test_output_inside_subject_repository_is_rejected_without_write() -> None:
