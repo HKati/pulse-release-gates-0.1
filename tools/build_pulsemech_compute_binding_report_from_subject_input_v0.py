@@ -1,115 +1,79 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
-import argparse
 import hashlib
-import io
 import json
 import os
+import shutil
 import stat
+import subprocess
 import sys
 import types
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+os.environ["PYTHONDONTWRITEBYTECODE"] = "1"
+sys.dont_write_bytecode = True
 
-TOOL_ID = "build_pulsemech_compute_binding_report_from_subject_input_v0"
-TOOL_VERSION = "0.2.0"
+import pytest
+
 
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_PACKET = (
+ADAPTER = (
+    ROOT
+    / "tools"
+    / "build_pulsemech_compute_binding_report_from_subject_input_v0.py"
+)
+FIXED_BUILDER = ROOT / "tools" / "build_pulsemech_compute_binding_report_v0.py"
+PACKET = (
     ROOT
     / "examples"
     / "compute"
     / "pulsemech_compute_subject_input_packet_6066_observed_v0.json"
 )
-DEFAULT_CARRIER = ROOT / "PULSE_CI_6066_release_grade_artifact_preservation_v0.zip"
-PACKET_SCHEMA = ROOT / "schemas" / "pulsemech_compute_subject_input_packet_v0.schema.json"
-PACKET_VALIDATOR = ROOT / "tools" / "check_pulsemech_compute_subject_input_packet_v0.py"
+CARRIER = ROOT / "PULSE_CI_6066_release_grade_artifact_preservation_v0.zip"
+PRESERVATION_DIR = ROOT / "preservation" / "pulse_ci_6066"
+MANIFEST = PRESERVATION_DIR / "PRESERVATION_MANIFEST_v0.json"
+README = PRESERVATION_DIR / "README.md"
+SHA256SUMS = PRESERVATION_DIR / "SHA256SUMS"
 REPORT_SCHEMA = ROOT / "schemas" / "pulsemech_compute_binding_report_v0.schema.json"
 REPORT_VALIDATOR = ROOT / "tools" / "check_pulsemech_compute_binding_report_v0.py"
-FIXED_SOURCE_BUILDER = ROOT / "tools" / "build_pulsemech_compute_binding_report_v0.py"
+PACKET_SCHEMA = ROOT / "schemas" / "pulsemech_compute_subject_input_packet_v0.schema.json"
+PACKET_VALIDATOR = ROOT / "tools" / "check_pulsemech_compute_subject_input_packet_v0.py"
+TOOLS_TESTS = ROOT / "ci" / "tools-tests.list"
 
-DEFAULT_ANALYSIS_RUN_KEY = (
+ANALYSIS_RUN_KEY = (
     "OFFLINE_ANALYSIS=pulsemech-compute-binding-fixed-source-6066-v0"
+)
+CI_ENTRY = (
+    "tests/"
+    "test_build_pulsemech_compute_binding_report_from_subject_input_v0.py"
 )
 
 
-class AdapterError(RuntimeError):
-    pass
+def sha256_bytes(value: bytes) -> str:
+    return hashlib.sha256(value).hexdigest()
 
 
-@dataclass(frozen=True)
-class CapturedFile:
-    path: Path
-    data: bytes
-    device: int
-    inode: int
-    size_bytes: int
-    sha256: str
+def strict_json_text(text: str, *, label: str) -> dict[str, Any]:
+    def reject_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+        result: dict[str, Any] = {}
+        for key, value in pairs:
+            if key in result:
+                raise AssertionError(f"{label}: duplicate JSON key: {key}")
+            result[key] = value
+        return result
 
+    def reject_non_finite(value: str) -> None:
+        raise AssertionError(f"{label}: non-finite JSON value: {value}")
 
-@dataclass(frozen=True)
-class _StatView:
-    st_size: int
-
-
-class CapturedPathView(io.BytesIO):
-    """Path-like read surface backed only by one captured byte revision.
-
-    The class intentionally does not implement ``__fspath__``. Consumers such
-    as ``zipfile.ZipFile`` therefore use its in-memory file interface instead of
-    reopening the mutable pathname.
-    """
-
-    def __init__(self, capture: CapturedFile, *, display_path: Path | None = None):
-        super().__init__(capture.data)
-        self._capture = capture
-        self._display_path = display_path or capture.path
-
-    def read_bytes(self) -> bytes:
-        return self._capture.data
-
-    def read_text(
-        self,
-        encoding: str | None = None,
-        errors: str | None = None,
-    ) -> str:
-        return self._capture.data.decode(
-            encoding or "utf-8",
-            errors or "strict",
-        )
-
-    def stat(self) -> _StatView:
-        return _StatView(st_size=self._capture.size_bytes)
-
-    def is_file(self) -> bool:
-        return True
-
-    def is_symlink(self) -> bool:
-        return False
-
-    def exists(self) -> bool:
-        return True
-
-    @property
-    def parent(self) -> Path:
-        return self._display_path.parent
-
-    @property
-    def name(self) -> str:
-        return self._display_path.name
-
-    def resolve(self, strict: bool = False) -> Path:
-        del strict
-        return Path(os.path.abspath(os.fspath(self._display_path)))
-
-    def __str__(self) -> str:
-        return str(self._display_path)
-
-    def __repr__(self) -> str:
-        return f"CapturedPathView({self._display_path!s})"
+    loaded = json.loads(
+        text,
+        object_pairs_hook=reject_duplicate_keys,
+        parse_constant=reject_non_finite,
+    )
+    assert isinstance(loaded, dict), f"{label}: expected object"
+    return loaded
 
 
 def render_json(value: dict[str, Any]) -> str:
@@ -125,457 +89,433 @@ def render_json(value: dict[str, Any]) -> str:
     )
 
 
-def sha256_bytes(value: bytes) -> str:
-    return hashlib.sha256(value).hexdigest()
-
-
-def resolve_cli_path(value: str) -> Path:
-    return Path(os.path.abspath(os.fspath(Path(value))))
-
-
-def _secure_open_constants() -> tuple[int, int]:
-    required = ("O_DIRECTORY", "O_NOFOLLOW", "O_CLOEXEC")
-    missing = [name for name in required if not hasattr(os, name)]
-    if os.name != "posix" or missing or os.open not in os.supports_dir_fd:
-        detail = ",".join(missing) if missing else "dir_fd_unavailable"
-        raise AdapterError(f"secure_read_unavailable: {detail}")
-    directory_flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC
-    file_flags = os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC
-    return directory_flags, file_flags
-
-
-def capture_regular_file(path: Path, *, label: str) -> CapturedFile:
-    """Capture one exact regular-file revision through no-follow descriptors."""
-
-    absolute = resolve_cli_path(str(path))
-    directory_flags, file_flags = _secure_open_constants()
-    parts = absolute.parts
-    if not absolute.is_absolute() or len(parts) < 2:
-        raise AdapterError(f"{label}_path_not_absolute: {absolute}")
-
-    directory_fd = os.open(parts[0], directory_flags)
-    file_fd: int | None = None
-    try:
-        for component in parts[1:-1]:
-            if component in {"", ".", ".."}:
-                raise AdapterError(f"{label}_unsafe_path_component: {component!r}")
-            next_fd = os.open(component, directory_flags, dir_fd=directory_fd)
-            os.close(directory_fd)
-            directory_fd = next_fd
-
-        basename = parts[-1]
-        if basename in {"", ".", ".."}:
-            raise AdapterError(f"{label}_unsafe_basename: {basename!r}")
-        file_fd = os.open(basename, file_flags, dir_fd=directory_fd)
-        before = os.fstat(file_fd)
-        if not stat.S_ISREG(before.st_mode):
-            raise AdapterError(f"{label}_not_regular_file: {absolute}")
-
-        chunks: list[bytes] = []
-        while True:
-            chunk = os.read(file_fd, 1024 * 1024)
-            if not chunk:
-                break
-            chunks.append(chunk)
-        data = b"".join(chunks)
-        after = os.fstat(file_fd)
-
-        identity_before = (
-            before.st_dev,
-            before.st_ino,
-            before.st_size,
-            before.st_mtime_ns,
-            before.st_ctime_ns,
-        )
-        identity_after = (
-            after.st_dev,
-            after.st_ino,
-            after.st_size,
-            after.st_mtime_ns,
-            after.st_ctime_ns,
-        )
-        if identity_before != identity_after or len(data) != after.st_size:
-            raise AdapterError(f"{label}_changed_during_capture: {absolute}")
-
-        return CapturedFile(
-            path=absolute,
-            data=data,
-            device=after.st_dev,
-            inode=after.st_ino,
-            size_bytes=len(data),
-            sha256=sha256_bytes(data),
-        )
-    except OSError as exc:
-        raise AdapterError(f"{label}_secure_open_failed: {absolute}: {exc}") from exc
-    finally:
-        if file_fd is not None:
-            os.close(file_fd)
-        os.close(directory_fd)
-
-
-def load_module_from_capture(capture: CapturedFile, module_name: str) -> Any:
-    """Execute exact source bytes without reading or writing bytecode."""
-
-    try:
-        code = compile(
-            capture.data,
-            str(capture.path),
-            "exec",
-            dont_inherit=True,
-        )
-    except Exception as exc:
-        raise AdapterError(
-            f"module_compile_failed: {capture.path}: {exc}"
-        ) from exc
-
-    previous = sys.modules.get(module_name)
-    had_previous = module_name in sys.modules
+def load_source_module(path: Path, module_name: str) -> Any:
+    source = path.read_bytes()
+    code = compile(source, str(path), "exec", dont_inherit=True)
     module = types.ModuleType(module_name)
-    module.__file__ = str(capture.path)
+    module.__file__ = str(path)
     module.__cached__ = None
     module.__loader__ = None
-    module.__package__ = module_name.rpartition(".")[0]
+    module.__package__ = ""
     module.__spec__ = None
     sys.modules[module_name] = module
-
-    try:
-        exec(code, module.__dict__)
-    except Exception as exc:
-        if had_previous:
-            sys.modules[module_name] = previous
-        else:
-            sys.modules.pop(module_name, None)
-        raise AdapterError(
-            f"module_execution_failed: {capture.path}: {exc}"
-        ) from exc
+    exec(code, module.__dict__)
     return module
 
 
-def _capture_dependencies() -> dict[str, CapturedFile]:
-    return {
-        "packet_schema": capture_regular_file(PACKET_SCHEMA, label="packet_schema"),
-        "packet_validator": capture_regular_file(
-            PACKET_VALIDATOR,
-            label="packet_validator",
-        ),
-        "report_schema": capture_regular_file(REPORT_SCHEMA, label="report_schema"),
-        "report_validator": capture_regular_file(
-            REPORT_VALIDATOR,
-            label="report_validator",
-        ),
-        "fixed_builder": capture_regular_file(
-            FIXED_SOURCE_BUILDER,
-            label="fixed_source_builder",
-        ),
-    }
+ADAPTER_MODULE = load_source_module(
+    ADAPTER,
+    "pulsemech_subject_input_report_bridge_v0_under_test",
+)
 
 
-def _parse_observed_packet(packet_validator: Any, packet: CapturedFile) -> dict[str, Any]:
-    try:
-        value = packet_validator.load_json_bytes(
-            packet.data,
-            label=str(packet.path),
-        )
-    except Exception as exc:
-        raise AdapterError(f"subject_input_packet_parse_failed: {exc}") from exc
-    if not isinstance(value, dict):
-        raise AdapterError("subject_input_packet_not_object")
-    if value.get("record_status") != "observed":
-        raise AdapterError("subject_input_packet_not_observed")
-    if value.get("analysis_boundary", {}).get("target_analysis_level") != "artifact_observed":
-        raise AdapterError("subject_input_packet_not_artifact_observed")
-    return value
+def run_fixed_builder() -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        [
+            sys.executable,
+            str(FIXED_BUILDER),
+            "--archive",
+            str(CARRIER),
+            "--manifest",
+            str(MANIFEST),
+            "--readme",
+            str(README),
+            "--sha256sums",
+            str(SHA256SUMS),
+            "--schema",
+            str(REPORT_SCHEMA),
+            "--validator",
+            str(REPORT_VALIDATOR),
+            "--analysis-run-key",
+            ANALYSIS_RUN_KEY,
+        ],
+        cwd=ROOT,
+        env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
 
 
-def _validate_packet_exact_bytes(
+def run_adapter(
     *,
-    packet: CapturedFile,
-    carrier: CapturedFile,
-    repository_root: Path,
-    packet_schema: CapturedFile,
-    packet_validator: Any,
+    packet: Path = PACKET,
+    carrier: Path = CARRIER,
+    repository_root: Path = ROOT,
+    analysis_run_key: str = ANALYSIS_RUN_KEY,
+    cwd: Path = ROOT,
+    relative: bool = False,
+) -> subprocess.CompletedProcess[str]:
+    def argument(path: Path) -> str:
+        return os.path.relpath(path, cwd) if relative else str(path)
+
+    return subprocess.run(
+        [
+            sys.executable,
+            str(ADAPTER),
+            "--packet",
+            argument(packet),
+            "--carrier",
+            argument(carrier),
+            "--repository-root",
+            argument(repository_root),
+            "--analysis-run-key",
+            analysis_run_key,
+        ],
+        cwd=cwd,
+        env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+
+
+def assert_adapter_failure(
+    result: subprocess.CompletedProcess[str],
+    expected_fragment: str,
+    *,
+    expected_returncode: int = 1,
 ) -> dict[str, Any]:
-    packet_value = _parse_observed_packet(packet_validator, packet)
-    diagnostic, exit_code, _carrier_view, _snapshots = packet_validator.build_diagnostic(
-        schema_path=CapturedPathView(packet_schema),
-        packet_path=CapturedPathView(packet),
-        explicit_carrier=CapturedPathView(carrier),
-        repository_root=repository_root,
+    assert result.returncode == expected_returncode, result.stdout + result.stderr
+    assert result.stdout == ""
+    assert "Traceback" not in result.stderr
+    diagnostic = strict_json_text(result.stderr, label="adapter diagnostic")
+    assert (
+        diagnostic["tool"]
+        == "build_pulsemech_compute_binding_report_from_subject_input_v0"
     )
-    if exit_code != 0 or diagnostic.get("ok") is not True:
-        raise AdapterError(
-            "subject_input_packet_rejected: "
-            + json.dumps(diagnostic, sort_keys=True, ensure_ascii=False)
-        )
-    return packet_value
+    assert diagnostic["ok"] is False
+    assert any(
+        expected_fragment in str(error)
+        for error in diagnostic["errors"]
+    ), diagnostic
+    return diagnostic
 
 
-def _resolve_artifact_bytes(
-    *,
-    packet: dict[str, Any],
-    carrier: CapturedFile,
-    packet_validator: Any,
-) -> dict[str, bytes]:
-    ok, complete, artifact_bytes, errors = packet_validator._verify_artifact_graph(
-        packet,
-        carrier_bytes=carrier.data,
-    )
-    if not ok or not complete or errors:
-        raise AdapterError(
-            "subject_input_artifact_reconstruction_rejected: "
-            + json.dumps(sorted(set(errors)), ensure_ascii=False)
-        )
-    return artifact_bytes
+def snapshot_repository_tree() -> tuple[tuple[str, str, int, str | None], ...]:
+    records: list[tuple[str, str, int, str | None]] = []
+    for path in sorted(ROOT.rglob("*"), key=lambda item: item.as_posix()):
+        relative = path.relative_to(ROOT).as_posix()
+        if relative == ".git" or relative.startswith(".git/"):
+            continue
+        metadata = path.lstat()
+        if stat.S_ISLNK(metadata.st_mode):
+            records.append((relative, "symlink", metadata.st_size, os.readlink(path)))
+        elif stat.S_ISDIR(metadata.st_mode):
+            records.append((relative, "directory", metadata.st_size, None))
+        elif stat.S_ISREG(metadata.st_mode):
+            data = path.read_bytes()
+            records.append((relative, "file", len(data), sha256_bytes(data)))
+        else:
+            records.append((relative, "other", metadata.st_size, None))
+    return tuple(records)
 
 
-def _bound_artifact_bytes(
-    *,
-    packet: dict[str, Any],
-    artifact_bytes: dict[str, bytes],
-    binding_name: str,
-) -> bytes:
-    bindings = packet.get("role_bindings")
-    if not isinstance(bindings, dict):
-        raise AdapterError("packet_role_bindings_not_object")
-    artifact_id = bindings.get(binding_name)
-    if not isinstance(artifact_id, str) or not artifact_id:
-        raise AdapterError(f"packet_role_binding_missing: {binding_name}")
-    try:
-        return artifact_bytes[artifact_id]
-    except KeyError as exc:
-        raise AdapterError(
-            f"packet_role_binding_unresolved: {binding_name}: {artifact_id}"
-        ) from exc
+@pytest.fixture(scope="module")
+def fixed_stdout() -> str:
+    result = run_fixed_builder()
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert result.stderr == ""
+    strict_json_text(result.stdout, label="fixed-source report")
+    return result.stdout
 
 
-def _build_bundle_from_exact_bytes(
-    *,
-    packet: dict[str, Any],
-    carrier: CapturedFile,
-    artifact_bytes: dict[str, bytes],
-    fixed_builder: Any,
-) -> Any:
-    manifest_bytes = _bound_artifact_bytes(
-        packet=packet,
-        artifact_bytes=artifact_bytes,
-        binding_name="preservation_manifest",
-    )
-    readme_bytes = _bound_artifact_bytes(
-        packet=packet,
-        artifact_bytes=artifact_bytes,
-        binding_name="preservation_readme",
-    )
-    sums_bytes = _bound_artifact_bytes(
-        packet=packet,
-        artifact_bytes=artifact_bytes,
-        binding_name="preservation_checksums",
-    )
+def test_bridge_matches_fixed_builder_byte_for_byte(fixed_stdout: str) -> None:
+    result = run_adapter()
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert result.stderr == ""
+    assert result.stdout == fixed_stdout
 
-    return fixed_builder.load_observed_bundle(
-        archive_path=CapturedPathView(
-            carrier,
-            display_path=fixed_builder.DEFAULT_ARCHIVE,
-        ),
-        manifest_path=CapturedPathView(
-            CapturedFile(
-                path=fixed_builder.DEFAULT_MANIFEST,
-                data=manifest_bytes,
-                device=carrier.device,
-                inode=carrier.inode,
-                size_bytes=len(manifest_bytes),
-                sha256=sha256_bytes(manifest_bytes),
-            ),
-            display_path=fixed_builder.DEFAULT_MANIFEST,
-        ),
-        readme_path=CapturedPathView(
-            CapturedFile(
-                path=fixed_builder.DEFAULT_README,
-                data=readme_bytes,
-                device=carrier.device,
-                inode=carrier.inode,
-                size_bytes=len(readme_bytes),
-                sha256=sha256_bytes(readme_bytes),
-            ),
-            display_path=fixed_builder.DEFAULT_README,
-        ),
-        sha256sums_path=CapturedPathView(
-            CapturedFile(
-                path=fixed_builder.DEFAULT_SHA256SUMS,
-                data=sums_bytes,
-                device=carrier.device,
-                inode=carrier.inode,
-                size_bytes=len(sums_bytes),
-                sha256=sha256_bytes(sums_bytes),
-            ),
-            display_path=fixed_builder.DEFAULT_SHA256SUMS,
-        ),
-        expected_archive_sha256=carrier.sha256,
-        expected_archive_size=carrier.size_bytes,
-    )
+    report = strict_json_text(result.stdout, label="bridge report")
+    assert report["tool"]["id"] == "build_pulsemech_compute_binding_report_v0"
+    assert report["analysis_boundary"]["analysis_run_key"] == ANALYSIS_RUN_KEY
+    assert report["subject"]["workflow_run_number"] == 6066
+    assert report["subject"]["decision"] == "ALLOW"
+    assert report["ok"] is True
+    assert report["errors"] == []
 
 
-def _validate_report_exact_bytes(
-    *,
-    rendered_report: str,
-    report_schema: CapturedFile,
-    report_validator: Any,
+def test_bridge_is_repeat_deterministic(fixed_stdout: str) -> None:
+    first = run_adapter()
+    second = run_adapter()
+    assert first.returncode == second.returncode == 0
+    assert first.stderr == second.stderr == ""
+    assert first.stdout == second.stdout == fixed_stdout
+
+
+def test_bridge_writes_no_repository_entry(fixed_stdout: str) -> None:
+    before = snapshot_repository_tree()
+    result = run_adapter()
+    after = snapshot_repository_tree()
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert result.stdout == fixed_stdout
+    assert before == after
+
+
+def test_relative_cli_paths_work_from_external_directory(
+    tmp_path: Path,
+    fixed_stdout: str,
 ) -> None:
-    report_capture = CapturedFile(
-        path=Path("in-memory/pulsemech_compute_binding_report_v0.json"),
-        data=rendered_report.encode("utf-8"),
-        device=0,
-        inode=0,
-        size_bytes=len(rendered_report.encode("utf-8")),
-        sha256=sha256_bytes(rendered_report.encode("utf-8")),
-    )
-    diagnostic, exit_code = report_validator.build_diagnostic(
-        CapturedPathView(report_schema),
-        CapturedPathView(report_capture),
-    )
-    if exit_code != 0 or diagnostic.get("ok") is not True:
-        raise AdapterError(
-            "generated_report_rejected: "
-            + json.dumps(diagnostic, sort_keys=True, ensure_ascii=False)
-        )
+    packet = tmp_path / "packet.json"
+    carrier = tmp_path / "carrier.zip"
+    shutil.copy2(PACKET, packet)
+    shutil.copy2(CARRIER, carrier)
 
-
-def build_from_captured_inputs(
-    *,
-    packet_capture: CapturedFile,
-    carrier_capture: CapturedFile,
-    repository_root: Path,
-    analysis_run_key: str,
-    dependency_captures: dict[str, CapturedFile] | None = None,
-) -> str:
-    if not analysis_run_key:
-        raise AdapterError("analysis_run_key_missing")
-
-    captures = dependency_captures or _capture_dependencies()
-    packet_validator = load_module_from_capture(
-        captures["packet_validator"],
-        "pulsemech_subject_input_packet_validator_v0_for_bridge",
-    )
-    fixed_builder = load_module_from_capture(
-        captures["fixed_builder"],
-        "pulsemech_fixed_source_compute_builder_v0_for_bridge",
-    )
-    report_validator = load_module_from_capture(
-        captures["report_validator"],
-        "pulsemech_compute_binding_report_validator_v0_for_bridge",
-    )
-
-    packet = _validate_packet_exact_bytes(
-        packet=packet_capture,
-        carrier=carrier_capture,
-        repository_root=repository_root,
-        packet_schema=captures["packet_schema"],
-        packet_validator=packet_validator,
-    )
-    subject = packet.get("subject")
-    if not isinstance(subject, dict):
-        raise AdapterError("packet_subject_not_object")
-    subject_run_key = subject.get("subject_run_key")
-    if not isinstance(subject_run_key, str) or not subject_run_key:
-        raise AdapterError("packet_subject_run_key_missing")
-    if analysis_run_key == subject_run_key:
-        raise AdapterError("analysis_run_key_invalid_or_matches_subject")
-
-    artifact_bytes = _resolve_artifact_bytes(
+    result = run_adapter(
         packet=packet,
-        carrier=carrier_capture,
-        packet_validator=packet_validator,
+        carrier=carrier,
+        repository_root=ROOT,
+        cwd=tmp_path,
+        relative=True,
     )
-    bundle = _build_bundle_from_exact_bytes(
-        packet=packet,
-        carrier=carrier_capture,
-        artifact_bytes=artifact_bytes,
-        fixed_builder=fixed_builder,
-    )
-    report = fixed_builder.build_report(
-        bundle,
-        analysis_run_key=analysis_run_key,
-        builder_source_sha256=captures["fixed_builder"].sha256,
-    )
-    rendered = fixed_builder.render_json(report)
-    _validate_report_exact_bytes(
-        rendered_report=rendered,
-        report_schema=captures["report_schema"],
-        report_validator=report_validator,
-    )
-    return rendered
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert result.stderr == ""
+    assert result.stdout == fixed_stdout
 
 
-def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description=(
-            "Validate one observed PULSEmech compute subject-input packet and "
-            "drive the existing fixed-source compute analyzer from one captured "
-            "packet/carrier revision. The bridge writes stdout only."
+def test_invalid_role_binding_is_rejected(tmp_path: Path) -> None:
+    packet = strict_json_text(PACKET.read_text(encoding="utf-8"), label="packet")
+    packet["role_bindings"]["final_status"] = "artifact:missing"
+    changed = tmp_path / "packet.json"
+    changed.write_text(render_json(packet), encoding="utf-8", newline="\n")
+
+    result = run_adapter(packet=changed)
+    assert_adapter_failure(result, "subject_input_packet_rejected")
+
+
+def test_non_observed_packet_is_rejected(tmp_path: Path) -> None:
+    packet = strict_json_text(PACKET.read_text(encoding="utf-8"), label="packet")
+    packet["record_status"] = "example"
+    changed = tmp_path / "packet.json"
+    changed.write_text(render_json(packet), encoding="utf-8", newline="\n")
+
+    result = run_adapter(packet=changed)
+    assert_adapter_failure(result, "subject_input_packet_not_observed")
+
+
+def test_carrier_drift_is_rejected(tmp_path: Path) -> None:
+    changed = tmp_path / "carrier.zip"
+    shutil.copy2(CARRIER, changed)
+    payload = bytearray(changed.read_bytes())
+    payload[-1] ^= 0x01
+    changed.write_bytes(payload)
+
+    result = run_adapter(carrier=changed)
+    assert_adapter_failure(result, "subject_input_packet_rejected")
+
+
+def test_subject_run_cannot_be_analysis_run() -> None:
+    packet = strict_json_text(PACKET.read_text(encoding="utf-8"), label="packet")
+    result = run_adapter(
+        analysis_run_key=packet["subject"]["subject_run_key"],
+    )
+    assert_adapter_failure(result, "analysis_run_key_invalid_or_matches_subject")
+
+
+def test_valid_packet_capture_is_used_after_path_replacement(
+    tmp_path: Path,
+    fixed_stdout: str,
+) -> None:
+    packet_path = tmp_path / "packet.json"
+    shutil.copy2(PACKET, packet_path)
+    captured_packet = ADAPTER_MODULE.capture_regular_file(
+        packet_path,
+        label="packet",
+    )
+    packet_path.write_text("{\"invalid\":true}\n", encoding="utf-8")
+    captured_carrier = ADAPTER_MODULE.capture_regular_file(
+        CARRIER,
+        label="carrier",
+    )
+
+    rendered = ADAPTER_MODULE.build_from_captured_inputs(
+        packet_capture=captured_packet,
+        carrier_capture=captured_carrier,
+        repository_root=ROOT,
+        analysis_run_key=ANALYSIS_RUN_KEY,
+    )
+    assert rendered == fixed_stdout
+
+
+def test_invalid_packet_capture_cannot_borrow_later_valid_path(
+    tmp_path: Path,
+) -> None:
+    packet_path = tmp_path / "packet.json"
+    packet_path.write_text(
+        render_json(
+            {
+                "record_status": "observed",
+                "analysis_boundary": {"target_analysis_level": "artifact_observed"},
+            }
+        ),
+        encoding="utf-8",
+        newline="\n",
+    )
+    captured_packet = ADAPTER_MODULE.capture_regular_file(
+        packet_path,
+        label="packet",
+    )
+    shutil.copy2(PACKET, packet_path)
+    captured_carrier = ADAPTER_MODULE.capture_regular_file(
+        CARRIER,
+        label="carrier",
+    )
+
+    with pytest.raises(
+        ADAPTER_MODULE.AdapterError,
+        match="subject_input_packet_rejected",
+    ):
+        ADAPTER_MODULE.build_from_captured_inputs(
+            packet_capture=captured_packet,
+            carrier_capture=captured_carrier,
+            repository_root=ROOT,
+            analysis_run_key=ANALYSIS_RUN_KEY,
+        )
+
+
+def test_valid_carrier_capture_is_used_after_path_replacement(
+    tmp_path: Path,
+    fixed_stdout: str,
+) -> None:
+    carrier_path = tmp_path / "carrier.zip"
+    shutil.copy2(CARRIER, carrier_path)
+    captured_carrier = ADAPTER_MODULE.capture_regular_file(
+        carrier_path,
+        label="carrier",
+    )
+    carrier_path.write_bytes(b"not-a-zip")
+    captured_packet = ADAPTER_MODULE.capture_regular_file(
+        PACKET,
+        label="packet",
+    )
+
+    rendered = ADAPTER_MODULE.build_from_captured_inputs(
+        packet_capture=captured_packet,
+        carrier_capture=captured_carrier,
+        repository_root=ROOT,
+        analysis_run_key=ANALYSIS_RUN_KEY,
+    )
+    assert rendered == fixed_stdout
+
+
+def test_invalid_carrier_capture_cannot_borrow_later_valid_path(
+    tmp_path: Path,
+) -> None:
+    carrier_path = tmp_path / "carrier.zip"
+    carrier_path.write_bytes(b"not-a-zip")
+    captured_carrier = ADAPTER_MODULE.capture_regular_file(
+        carrier_path,
+        label="carrier",
+    )
+    shutil.copy2(CARRIER, carrier_path)
+    captured_packet = ADAPTER_MODULE.capture_regular_file(
+        PACKET,
+        label="packet",
+    )
+
+    with pytest.raises(
+        ADAPTER_MODULE.AdapterError,
+        match="subject_input_packet_rejected",
+    ):
+        ADAPTER_MODULE.build_from_captured_inputs(
+            packet_capture=captured_packet,
+            carrier_capture=captured_carrier,
+            repository_root=ROOT,
+            analysis_run_key=ANALYSIS_RUN_KEY,
+        )
+
+
+def test_source_loading_ignores_and_does_not_create_bytecode(tmp_path: Path) -> None:
+    source = tmp_path / "module.py"
+    source.write_text("VALUE = 7\n", encoding="utf-8", newline="\n")
+    capture = ADAPTER_MODULE.capture_regular_file(source, label="source")
+    module = ADAPTER_MODULE.load_module_from_capture(
+        capture,
+        "synthetic_bridge_source_module",
+    )
+    view = ADAPTER_MODULE.CapturedPathView(capture)
+    assert not hasattr(view, "__fspath__")
+    assert module.VALUE == 7
+    assert not (tmp_path / "__pycache__").exists()
+
+
+def test_bridge_has_no_scratch_or_file_output_surface() -> None:
+    source = ADAPTER.read_text(encoding="utf-8")
+    forbidden = (
+        "import tempfile",
+        "TemporaryDirectory",
+        "gettempdir",
+        "mkstemp",
+        "--temp-root",
+        "--output",
+        "write_atomic_text",
+        "os.rename(",
+        "os.replace(",
+    )
+    for fragment in forbidden:
+        assert fragment not in source
+
+
+def test_bridge_delegates_to_existing_report_builder() -> None:
+    source = ADAPTER.read_text(encoding="utf-8")
+    assert "packet_validator.build_diagnostic(" in source
+    assert "fixed_builder.load_observed_bundle(" in source
+    assert "report_validator.build_diagnostic(" in source
+    assert "fixed_builder.build_report(" in source
+    assert "def build_report(" not in source
+    assert "def make_compute_node(" not in source
+    assert "def make_state_node(" not in source
+    assert "def make_edge(" not in source
+
+
+def test_cli_is_stdout_only() -> None:
+    result = subprocess.run(
+        [sys.executable, str(ADAPTER), "--help"],
+        cwd=ROOT,
+        env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert result.stderr == ""
+    assert "--packet" in result.stdout
+    assert "--carrier" in result.stdout
+    assert "--repository-root" in result.stdout
+    assert "--analysis-run-key" in result.stdout
+    assert "--output" not in result.stdout
+    assert "--temp-root" not in result.stdout
+
+
+def test_bridge_is_registered_exactly_once_in_tools_tests() -> None:
+    entries = [
+        line.strip()
+        for line in TOOLS_TESTS.read_text(encoding="utf-8").splitlines()
+        if line.strip() and not line.lstrip().startswith("#")
+    ]
+    assert entries.count(CI_ENTRY) == 1
+
+
+# ---------------------------------------------------------------------------
+# Direct tools-tests execution entrypoint
+# ---------------------------------------------------------------------------
+
+
+def check_build_pulsemech_compute_binding_report_from_subject_input_v0() -> None:
+    raise SystemExit(
+        pytest.main(
+            [
+                __file__,
+                "-q",
+                "-p",
+                "no:cacheprovider",
+            ]
         )
     )
-    parser.add_argument("--packet", default=str(DEFAULT_PACKET))
-    parser.add_argument("--carrier", default=str(DEFAULT_CARRIER))
-    parser.add_argument("--repository-root", default=str(ROOT))
-    parser.add_argument(
-        "--analysis-run-key",
-        default=DEFAULT_ANALYSIS_RUN_KEY,
-        help="Explicit deterministic identity for the read-only analysis run.",
-    )
-    return parser.parse_args()
-
-
-def main() -> int:
-    args = parse_args()
-    packet_path = resolve_cli_path(args.packet)
-    carrier_path = resolve_cli_path(args.carrier)
-    repository_root = resolve_cli_path(args.repository_root)
-
-    try:
-        if not repository_root.is_dir():
-            raise AdapterError(
-                f"repository_root_not_directory: {repository_root}"
-            )
-        packet_capture = capture_regular_file(
-            packet_path,
-            label="subject_input_packet",
-        )
-        carrier_capture = capture_regular_file(
-            carrier_path,
-            label="subject_carrier",
-        )
-        rendered = build_from_captured_inputs(
-            packet_capture=packet_capture,
-            carrier_capture=carrier_capture,
-            repository_root=repository_root,
-            analysis_run_key=str(args.analysis_run_key),
-        )
-        sys.stdout.write(rendered)
-        return 0
-    except AdapterError as exc:
-        sys.stderr.write(
-            render_json(
-                {
-                    "tool": TOOL_ID,
-                    "version": TOOL_VERSION,
-                    "ok": False,
-                    "errors": [str(exc)],
-                }
-            )
-        )
-        return 1
-    except Exception as exc:
-        sys.stderr.write(
-            render_json(
-                {
-                    "tool": TOOL_ID,
-                    "version": TOOL_VERSION,
-                    "ok": False,
-                    "errors": [f"unexpected_error: {exc}"],
-                }
-            )
-        )
-        return 2
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    check_build_pulsemech_compute_binding_report_from_subject_input_v0()
