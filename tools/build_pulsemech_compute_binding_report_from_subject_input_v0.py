@@ -2,14 +2,16 @@
 from __future__ import annotations
 
 import argparse
+from contextlib import contextmanager
 import hashlib
-import types
 import json
 import os
+import secrets
 import stat
 import subprocess
 import sys
 import tempfile
+import types
 import zipfile
 from pathlib import Path, PurePosixPath
 from typing import Any
@@ -50,6 +52,8 @@ PROTECTED_OUTPUT_NAMES = frozenset(
         "pulsemech_compute_subject_input_packet_v0.json",
     }
 )
+
+TEMP_ENV_KEYS = ("TMPDIR", "TEMP", "TMP")
 
 
 class AdapterError(RuntimeError):
@@ -175,6 +179,227 @@ def require_regular_file(path: Path, *, label: str) -> None:
     if path.is_symlink():
         raise AdapterError(f"{label}_symlink_rejected: {path}")
     reject_symlink_components(path, label=label)
+
+
+def validate_external_temp_root(
+    path: Path,
+    *,
+    repository_root: Path,
+    label: str = "temp_root",
+) -> Path:
+    absolute = resolve_cli_path(str(path))
+    if not absolute.is_dir():
+        raise AdapterError(f"{label}_not_directory: {absolute}")
+    if absolute.is_symlink():
+        raise AdapterError(f"{label}_symlink_rejected: {absolute}")
+    reject_symlink_components(absolute, label=label)
+    try:
+        resolved = absolute.resolve(strict=True)
+    except OSError as exc:
+        raise AdapterError(f"{label}_unresolvable: {absolute}: {exc}") from exc
+
+    if is_within(resolved, ROOT):
+        raise AdapterError(f"{label}_inside_tool_repository: {resolved}")
+    if is_within(resolved, repository_root):
+        raise AdapterError(f"{label}_inside_subject_repository: {resolved}")
+    if not os.access(resolved, os.W_OK | os.X_OK):
+        raise AdapterError(f"{label}_not_writable_and_searchable: {resolved}")
+    return resolved
+
+
+def select_external_temp_root(
+    *,
+    repository_root: Path,
+    explicit: Path | None,
+) -> Path:
+    if explicit is not None:
+        return validate_external_temp_root(
+            explicit,
+            repository_root=repository_root,
+            label="temp_root",
+        )
+
+    raw_candidates: list[str] = []
+    for key in TEMP_ENV_KEYS:
+        value = os.environ.get(key)
+        if value:
+            raw_candidates.append(value)
+    try:
+        raw_candidates.append(tempfile.gettempdir())
+    except Exception:
+        pass
+    if os.name == "posix":
+        raw_candidates.extend(("/tmp", "/var/tmp"))
+
+    seen: set[str] = set()
+    failures: list[str] = []
+    for raw in raw_candidates:
+        candidate = resolve_cli_path(raw)
+        key = os.path.normcase(str(candidate))
+        if key in seen:
+            continue
+        seen.add(key)
+        try:
+            return validate_external_temp_root(
+                candidate,
+                repository_root=repository_root,
+                label="temp_root_candidate",
+            )
+        except AdapterError as exc:
+            failures.append(str(exc))
+
+    raise AdapterError(
+        "external_temp_root_unavailable: "
+        + (" | ".join(failures) if failures else "no candidate directories")
+    )
+
+
+@contextmanager
+def bound_temp_environment(temp_root: Path):
+    previous_tempdir = tempfile.tempdir
+    previous_environment = {
+        key: os.environ.get(key)
+        for key in (*TEMP_ENV_KEYS, "PYTHONDONTWRITEBYTECODE")
+    }
+    tempfile.tempdir = str(temp_root)
+    for key in TEMP_ENV_KEYS:
+        os.environ[key] = str(temp_root)
+    os.environ["PYTHONDONTWRITEBYTECODE"] = "1"
+    try:
+        yield
+    finally:
+        tempfile.tempdir = previous_tempdir
+        for key, value in previous_environment.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+
+
+def subprocess_environment(temp_root: Path) -> dict[str, str]:
+    environment = dict(os.environ)
+    environment.update(
+        {
+            "PYTHONDONTWRITEBYTECODE": "1",
+            "TMPDIR": str(temp_root),
+            "TEMP": str(temp_root),
+            "TMP": str(temp_root),
+        }
+    )
+    return environment
+
+
+def secure_output_supported() -> bool:
+    return (
+        os.name == "posix"
+        and hasattr(os, "O_DIRECTORY")
+        and hasattr(os, "O_NOFOLLOW")
+        and hasattr(os, "O_CLOEXEC")
+        and os.open in os.supports_dir_fd
+        and os.rename in os.supports_dir_fd
+        and os.stat in os.supports_dir_fd
+        and os.unlink in os.supports_dir_fd
+    )
+
+
+def directory_open_flags() -> int:
+    if not secure_output_supported():
+        raise AdapterError("secure_output_directory_handles_unsupported")
+    return os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC
+
+
+def open_directory_chain_no_follow(path: Path, *, label: str) -> int:
+    if not path.is_absolute():
+        raise AdapterError(f"{label}_not_absolute: {path}")
+    flags = directory_open_flags()
+    parts = path.parts
+    if not parts or not path.anchor:
+        raise AdapterError(f"{label}_anchor_missing: {path}")
+    try:
+        current_fd = os.open(path.anchor, flags)
+    except OSError as exc:
+        raise AdapterError(f"{label}_root_open_failed: {path.anchor}: {exc}") from exc
+    try:
+        for part in parts[1:]:
+            if part in {"", ".", ".."}:
+                raise AdapterError(f"{label}_unsafe_component: {part!r}")
+            try:
+                next_fd = os.open(part, flags, dir_fd=current_fd)
+            except OSError as exc:
+                raise AdapterError(
+                    f"{label}_component_open_failed: {part}: {exc}"
+                ) from exc
+            os.close(current_fd)
+            current_fd = next_fd
+        return current_fd
+    except Exception:
+        os.close(current_fd)
+        raise
+
+
+def same_stat_identity(left: os.stat_result, right: os.stat_result) -> bool:
+    return left.st_dev == right.st_dev and left.st_ino == right.st_ino
+
+
+def directory_fd_is_within(directory_fd: int, root: Path) -> bool:
+    root_fd = open_directory_chain_no_follow(root, label="protected_root")
+    current_fd = os.dup(directory_fd)
+    try:
+        root_stat = os.fstat(root_fd)
+        while True:
+            current_stat = os.fstat(current_fd)
+            if same_stat_identity(current_stat, root_stat):
+                return True
+            parent_fd = os.open("..", directory_open_flags(), dir_fd=current_fd)
+            parent_stat = os.fstat(parent_fd)
+            if same_stat_identity(parent_stat, current_stat):
+                os.close(parent_fd)
+                return False
+            os.close(current_fd)
+            current_fd = parent_fd
+    finally:
+        os.close(current_fd)
+        os.close(root_fd)
+
+
+def current_target_stat(parent_fd: int, basename: str) -> os.stat_result | None:
+    try:
+        return os.stat(basename, dir_fd=parent_fd, follow_symlinks=False)
+    except FileNotFoundError:
+        return None
+    except OSError as exc:
+        raise AdapterError(f"output_target_stat_failed: {basename}: {exc}") from exc
+
+
+def reject_bound_output_target(
+    *,
+    parent_fd: int,
+    basename: str,
+    protected: tuple[Path, ...],
+) -> None:
+    target_stat = current_target_stat(parent_fd, basename)
+    if target_stat is None:
+        return
+    if stat.S_ISLNK(target_stat.st_mode):
+        raise AdapterError(f"refusing_symlink_output_path: {basename}")
+    if not stat.S_ISREG(target_stat.st_mode):
+        raise AdapterError(f"refusing_non_regular_output_target: {basename}")
+    for path in protected:
+        try:
+            protected_stat = path.stat()
+        except OSError:
+            continue
+        if same_stat_identity(target_stat, protected_stat):
+            raise AdapterError(f"refusing_to_overwrite_input: {path}")
+
+
+def write_all(file_descriptor: int, payload: bytes) -> None:
+    view = memoryview(payload)
+    while view:
+        written = os.write(file_descriptor, view)
+        if written <= 0:
+            raise AdapterError("output_write_returned_no_progress")
+        view = view[written:]
 
 
 def snapshot(paths: tuple[Path, ...]) -> dict[str, tuple[int, str]]:
@@ -314,6 +539,7 @@ def validate_subject_packet(
     packet: Path,
     carrier: Path,
     repository_root: Path,
+    temp_root: Path,
 ) -> dict[str, Any]:
     result = subprocess.run(
         [
@@ -329,7 +555,7 @@ def validate_subject_packet(
             str(repository_root),
         ],
         cwd=ROOT,
-        env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
+        env=subprocess_environment(temp_root),
         text=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -540,25 +766,117 @@ def read_visible_carriers(
         raise AdapterError(f"subject_carrier_invalid_zip: {exc}") from exc
 
 
-def write_atomic_text(path: Path, text: str) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    temp_fd, temp_name = tempfile.mkstemp(
-        prefix=f".{path.name}.",
-        suffix=".tmp",
-        dir=str(path.parent),
+def write_atomic_text(
+    path: Path,
+    text: str,
+    *,
+    packet: Path,
+    carrier: Path,
+    repository_root: Path,
+) -> None:
+    # Revalidate immediately before binding the output directory. All creation
+    # and replacement operations after this point are relative to one no-follow
+    # directory handle, not to a path that can be redirected during analysis.
+    reject_unsafe_output(
+        path,
+        packet=packet,
+        carrier=carrier,
+        repository_root=repository_root,
     )
-    temp_path = Path(temp_name)
+    if not path.name or path.name in {".", ".."}:
+        raise AdapterError(f"output_basename_invalid: {path}")
+    if not path.parent.is_dir():
+        raise AdapterError(f"output_parent_not_directory: {path.parent}")
+
+    protected = (
+        packet,
+        carrier,
+        PACKET_SCHEMA,
+        PACKET_VALIDATOR,
+        REPORT_SCHEMA,
+        REPORT_VALIDATOR,
+        FIXED_SOURCE_BUILDER,
+        Path(__file__),
+    )
+    parent_fd = open_directory_chain_no_follow(path.parent, label="output_parent")
+    temp_name: str | None = None
+    temp_fd: int | None = None
     try:
-        with os.fdopen(temp_fd, "w", encoding="utf-8", newline="\n") as handle:
-            handle.write(text)
-            handle.flush()
-            os.fsync(handle.fileno())
-        os.replace(temp_path, path)
-    finally:
+        if directory_fd_is_within(parent_fd, ROOT):
+            raise AdapterError(f"refusing_output_inside_tool_repository: {path}")
+        if directory_fd_is_within(parent_fd, repository_root):
+            raise AdapterError(f"refusing_output_inside_subject_repository: {path}")
+        reject_bound_output_target(
+            parent_fd=parent_fd,
+            basename=path.name,
+            protected=protected,
+        )
+
+        create_flags = (
+            os.O_WRONLY
+            | os.O_CREAT
+            | os.O_EXCL
+            | os.O_NOFOLLOW
+            | os.O_CLOEXEC
+        )
+        for _attempt in range(128):
+            candidate = f".pulsemech-output-{secrets.token_hex(16)}.tmp"
+            try:
+                temp_fd = os.open(
+                    candidate,
+                    create_flags,
+                    0o600,
+                    dir_fd=parent_fd,
+                )
+                temp_name = candidate
+                break
+            except FileExistsError:
+                continue
+            except OSError as exc:
+                raise AdapterError(
+                    f"output_temp_create_failed: {path.parent}: {exc}"
+                ) from exc
+        if temp_fd is None or temp_name is None:
+            raise AdapterError("output_temp_name_exhausted")
+
+        write_all(temp_fd, text.encode("utf-8"))
+        os.fsync(temp_fd)
+        os.close(temp_fd)
+        temp_fd = None
+
         try:
-            temp_path.unlink()
-        except FileNotFoundError:
-            pass
+            named_parent_stat = os.stat(path.parent, follow_symlinks=False)
+        except OSError as exc:
+            raise AdapterError(
+                f"output_parent_revalidation_failed: {path.parent}: {exc}"
+            ) from exc
+        if not same_stat_identity(named_parent_stat, os.fstat(parent_fd)):
+            raise AdapterError(f"output_parent_changed_before_commit: {path.parent}")
+
+        reject_bound_output_target(
+            parent_fd=parent_fd,
+            basename=path.name,
+            protected=protected,
+        )
+        try:
+            os.rename(
+                temp_name,
+                path.name,
+                src_dir_fd=parent_fd,
+                dst_dir_fd=parent_fd,
+            )
+        except (OSError, TypeError, NotImplementedError) as exc:
+            raise AdapterError(f"output_atomic_replace_failed: {path}: {exc}") from exc
+        temp_name = None
+    finally:
+        if temp_fd is not None:
+            os.close(temp_fd)
+        if temp_name is not None:
+            try:
+                os.unlink(temp_name, dir_fd=parent_fd)
+            except FileNotFoundError:
+                pass
+        os.close(parent_fd)
 
 
 def build_from_subject_input(
@@ -567,6 +885,7 @@ def build_from_subject_input(
     carrier_path: Path,
     repository_root: Path,
     analysis_run_key: str,
+    temp_root: Path,
 ) -> str:
     require_regular_file(packet_path, label="subject_input_packet")
     require_regular_file(carrier_path, label="subject_carrier")
@@ -579,6 +898,11 @@ def build_from_subject_input(
     ):
         require_regular_file(path, label=label)
 
+    temp_root = validate_external_temp_root(
+        temp_root,
+        repository_root=repository_root,
+        label="analysis_temp_root",
+    )
     packet = load_json_path(packet_path, label="subject_input_packet")
     require_observed_artifact_packet(packet)
 
@@ -591,52 +915,62 @@ def build_from_subject_input(
     if not analysis_run_key or analysis_run_key == subject_run_key:
         raise AdapterError("analysis_run_key_invalid_or_matches_subject")
 
-    validate_subject_packet(
-        packet=packet_path,
-        carrier=carrier_path,
-        repository_root=repository_root,
-    )
-
-    visible = read_visible_carriers(packet=packet, carrier=carrier_path)
-    fixed_builder = load_module(
-        FIXED_SOURCE_BUILDER,
-        "pulsemech_fixed_source_compute_builder_v0_for_subject_input_adapter",
-    )
-
-    with tempfile.TemporaryDirectory(
-        prefix="pulsemech-subject-input-analyzer-"
-    ) as raw_temp:
-        temp = Path(raw_temp)
-        manifest_path = temp / VISIBLE_ROLE_FILENAMES["preservation_manifest"]
-        readme_path = temp / VISIBLE_ROLE_FILENAMES["preservation_readme"]
-        sums_path = temp / VISIBLE_ROLE_FILENAMES["preservation_checksums"]
-
-        manifest_path.write_bytes(visible["preservation_manifest"])
-        readme_path.write_bytes(visible["preservation_readme"])
-        sums_path.write_bytes(visible["preservation_checksums"])
-
-        carrier_record = packet["carrier"]
-        bundle = fixed_builder.load_observed_bundle(
-            archive_path=carrier_path,
-            manifest_path=manifest_path,
-            readme_path=readme_path,
-            sha256sums_path=sums_path,
-            expected_archive_sha256=str(carrier_record["sha256"]),
-            expected_archive_size=int(carrier_record["size_bytes"]),
+    with bound_temp_environment(temp_root):
+        validate_subject_packet(
+            packet=packet_path,
+            carrier=carrier_path,
+            repository_root=repository_root,
+            temp_root=temp_root,
+        )
+        visible = read_visible_carriers(packet=packet, carrier=carrier_path)
+        fixed_builder = load_module(
+            FIXED_SOURCE_BUILDER,
+            "pulsemech_fixed_source_compute_builder_v0_for_subject_input_adapter",
         )
 
-        report = fixed_builder.build_report(
-            bundle,
-            analysis_run_key=analysis_run_key,
-            builder_source_sha256=sha256_file(FIXED_SOURCE_BUILDER),
+        # Revalidate immediately before creating the private working directory.
+        temp_root = validate_external_temp_root(
+            temp_root,
+            repository_root=repository_root,
+            label="analysis_temp_root_before_create",
         )
-        rendered = fixed_builder.render_json(report)
-        fixed_builder.validate_generated_report(
-            schema_path=REPORT_SCHEMA,
-            validator_path=REPORT_VALIDATOR,
-            rendered_report=rendered,
-        )
-        return rendered
+        with tempfile.TemporaryDirectory(
+            prefix="pulsemech-subject-input-analyzer-",
+            dir=str(temp_root),
+        ) as raw_temp:
+            private_temp = Path(raw_temp)
+            manifest_path = private_temp / VISIBLE_ROLE_FILENAMES["preservation_manifest"]
+            readme_path = private_temp / VISIBLE_ROLE_FILENAMES["preservation_readme"]
+            sums_path = private_temp / VISIBLE_ROLE_FILENAMES["preservation_checksums"]
+
+            # Delegated tempfile users, including validate_generated_report,
+            # are bound to this already-created external private directory.
+            with bound_temp_environment(private_temp):
+                manifest_path.write_bytes(visible["preservation_manifest"])
+                readme_path.write_bytes(visible["preservation_readme"])
+                sums_path.write_bytes(visible["preservation_checksums"])
+
+                carrier_record = packet["carrier"]
+                bundle = fixed_builder.load_observed_bundle(
+                    archive_path=carrier_path,
+                    manifest_path=manifest_path,
+                    readme_path=readme_path,
+                    sha256sums_path=sums_path,
+                    expected_archive_sha256=str(carrier_record["sha256"]),
+                    expected_archive_size=int(carrier_record["size_bytes"]),
+                )
+                report = fixed_builder.build_report(
+                    bundle,
+                    analysis_run_key=analysis_run_key,
+                    builder_source_sha256=sha256_file(FIXED_SOURCE_BUILDER),
+                )
+                rendered = fixed_builder.render_json(report)
+                fixed_builder.validate_generated_report(
+                    schema_path=REPORT_SCHEMA,
+                    validator_path=REPORT_VALIDATOR,
+                    rendered_report=rendered,
+                )
+                return rendered
 
 
 def parse_args() -> argparse.Namespace:
@@ -650,6 +984,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--packet", default=str(DEFAULT_PACKET))
     parser.add_argument("--carrier", default=str(DEFAULT_CARRIER))
     parser.add_argument("--repository-root", default=str(ROOT))
+    parser.add_argument(
+        "--temp-root",
+        help=(
+            "Optional existing temporary-directory root outside both the tool "
+            "and subject repositories. If omitted, unsafe environment-selected "
+            "roots are skipped and an external system temp root is selected."
+        ),
+    )
     parser.add_argument(
         "--analysis-run-key",
         default=DEFAULT_ANALYSIS_RUN_KEY,
@@ -667,6 +1009,7 @@ def main() -> int:
     packet = resolve_cli_path(args.packet)
     carrier = resolve_cli_path(args.carrier)
     repository_root = resolve_cli_path(args.repository_root)
+    explicit_temp_root = resolve_cli_path(args.temp_root) if args.temp_root else None
     output = resolve_cli_path(args.output) if args.output else None
 
     protected_inputs = (
@@ -679,12 +1022,16 @@ def main() -> int:
         FIXED_SOURCE_BUILDER,
         Path(__file__),
     )
-
     try:
         if not repository_root.is_dir():
             raise AdapterError(f"repository_root_not_directory: {repository_root}")
         reject_symlink_components(repository_root, label="repository_root")
+        repository_root = repository_root.resolve(strict=True)
 
+        temp_root = select_external_temp_root(
+            repository_root=repository_root,
+            explicit=explicit_temp_root,
+        )
         reject_unsafe_output(
             output,
             packet=packet,
@@ -698,13 +1045,19 @@ def main() -> int:
             carrier_path=carrier,
             repository_root=repository_root,
             analysis_run_key=str(args.analysis_run_key),
+            temp_root=temp_root,
         )
-
         if not inputs_unchanged(protected_inputs, before):
             raise AdapterError("protected_input_changed_during_analysis")
 
         if output is not None:
-            write_atomic_text(output, rendered)
+            write_atomic_text(
+                output,
+                rendered,
+                packet=packet,
+                carrier=carrier,
+                repository_root=repository_root,
+            )
 
         sys.stdout.write(rendered)
         return 0
