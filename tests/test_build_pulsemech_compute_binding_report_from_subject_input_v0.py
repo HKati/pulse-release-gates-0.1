@@ -8,6 +8,7 @@ import os
 import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -111,6 +112,26 @@ def tree_snapshot(root: Path) -> dict[str, tuple[Any, ...]]:
     return result
 
 
+def repository_entry_snapshot(root: Path) -> tuple[tuple[str, str], ...]:
+    entries: list[tuple[str, str]] = []
+    for directory, names, filenames in os.walk(root, followlinks=False):
+        directory_path = Path(directory)
+        relative_directory = directory_path.relative_to(root)
+        if relative_directory.parts and relative_directory.parts[0] == ".git":
+            names[:] = []
+            continue
+        names[:] = sorted(name for name in names if name != ".git")
+        for name in names:
+            path = directory_path / name
+            relative = path.relative_to(root).as_posix()
+            entries.append((relative, "symlink" if path.is_symlink() else "directory"))
+        for name in sorted(filenames):
+            path = directory_path / name
+            relative = path.relative_to(root).as_posix()
+            entries.append((relative, "symlink" if path.is_symlink() else "file"))
+    return tuple(entries)
+
+
 def import_adapter_module() -> Any:
     module_name = "pulsemech_subject_input_report_adapter_v0_under_test"
     module = types.ModuleType(module_name)
@@ -168,6 +189,8 @@ def run_adapter(
     carrier: Path = CARRIER,
     analysis_run_key: str = ANALYSIS_RUN_KEY,
     output: Path | None = None,
+    temp_root: Path | None = None,
+    env: dict[str, str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
     command = [
         sys.executable,
@@ -183,9 +206,12 @@ def run_adapter(
     ]
     if output is not None:
         command.extend(["--output", str(output)])
+    if temp_root is not None:
+        command.extend(["--temp-root", str(temp_root)])
     return subprocess.run(
         command,
         cwd=ROOT,
+        env=env,
         text=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -304,6 +330,107 @@ def test_module_loading_does_not_create_or_consume_bytecode(
         sys.modules.pop(module_name, None)
 
     assert tree_snapshot(tmp_path) == before
+
+
+
+def test_repository_local_temp_environment_is_not_used(
+    fixed_stdout: str,
+) -> None:
+    environment = dict(os.environ)
+    environment.update(
+        {
+            "TMPDIR": str(ROOT),
+            "TEMP": str(ROOT),
+            "TMP": str(ROOT),
+            "PYTHONDONTWRITEBYTECODE": "1",
+        }
+    )
+    before = repository_entry_snapshot(ROOT)
+    result = run_adapter(env=environment)
+    after = repository_entry_snapshot(ROOT)
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert result.stderr == ""
+    assert result.stdout == fixed_stdout
+    assert before == after
+
+
+def test_explicit_temp_root_inside_repository_is_rejected() -> None:
+    result = run_adapter(temp_root=ROOT)
+    assert_adapter_failure(result, "temp_root_inside_tool_repository")
+
+
+def test_bound_temp_environment_controls_parent_and_subprocess(
+    tmp_path: Path,
+) -> None:
+    safe_root = tmp_path / "safe-temp"
+    safe_root.mkdir()
+    previous = tempfile.tempdir
+    with ADAPTER_MODULE.bound_temp_environment(safe_root):
+        assert tempfile.gettempdir() == str(safe_root)
+        assert os.environ["PYTHONDONTWRITEBYTECODE"] == "1"
+        result = subprocess.run(
+            [sys.executable, "-c", "import tempfile; print(tempfile.gettempdir())"],
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == str(safe_root)
+    assert tempfile.tempdir == previous
+
+
+def test_output_parent_swap_after_revalidation_is_blocked_by_no_follow_open(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    if not ADAPTER_MODULE.secure_output_supported():
+        pytest.skip("secure directory-handle output is unavailable")
+
+    output_parent = tmp_path / "output-parent"
+    displaced_parent = tmp_path / "output-parent-original"
+    output_parent.mkdir()
+    output = output_parent / ".pulsemech-output-race-regression.json"
+    protected_target = ROOT / output.name
+    assert not protected_target.exists()
+
+    original_revalidate = ADAPTER_MODULE.reject_unsafe_output
+    swapped = False
+
+    def revalidate_then_swap(*args: Any, **kwargs: Any) -> None:
+        nonlocal swapped
+        original_revalidate(*args, **kwargs)
+        if not swapped:
+            output_parent.rename(displaced_parent)
+            output_parent.symlink_to(ROOT, target_is_directory=True)
+            swapped = True
+
+    monkeypatch.setattr(ADAPTER_MODULE, "reject_unsafe_output", revalidate_then_swap)
+    with pytest.raises(
+        ADAPTER_MODULE.AdapterError,
+        match="output_parent_component_open_failed",
+    ):
+        ADAPTER_MODULE.write_atomic_text(
+            output,
+            "{}\n",
+            packet=PACKET,
+            carrier=CARRIER,
+            repository_root=ROOT,
+        )
+
+    assert swapped is True
+    assert not protected_target.exists()
+    assert not (displaced_parent / output.name).exists()
+
+
+def test_output_commit_uses_bound_no_follow_directory_operations() -> None:
+    source = ADAPTER.read_text(encoding="utf-8")
+    assert "os.O_NOFOLLOW" in source
+    assert "dir_fd=parent_fd" in source
+    assert "src_dir_fd=parent_fd" in source
+    assert "dst_dir_fd=parent_fd" in source
+    assert "output_parent_changed_before_commit" in source
 
 
 def test_subject_input_adapter_rejects_unresolved_role_binding(
@@ -445,6 +572,7 @@ def test_adapter_cli_help_constructs() -> None:
     assert "--packet" in result.stdout
     assert "--carrier" in result.stdout
     assert "--repository-root" in result.stdout
+    assert "--temp-root" in result.stdout
     assert "--analysis-run-key" in result.stdout
 
 
