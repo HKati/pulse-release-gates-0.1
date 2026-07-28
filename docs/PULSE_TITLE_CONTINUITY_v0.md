@@ -2,9 +2,11 @@
 
 ## Title continuity
 
-The current repository-facing title is:
+The current repository-facing mechanism title is:
 
-**PULSE — Artifact-Bound Release Authority for AI Release Decisions**
+**PULSEmech — Artifact-Bound Release Authority for AI Release Decisions**
+
+PULSE remains the continuous project identity. PULSEmech is the canonical mechanical implementation of PULSE.
 
 Earlier Kaggle-facing, publication-facing, and external reference material used the title:
 
@@ -12,7 +14,7 @@ Earlier Kaggle-facing, publication-facing, and external reference material used 
 
 These titles refer to the same continuous work line, provenance path, and workshop relationship.
 
-The current title clarifies the mechanism more precisely: PULSE is an artifact-bound release-authority system for AI release decisions. The earlier title remains a valid historical and publication-facing reference for the same project trajectory.
+The current title clarifies the mechanism more precisely: PULSEmech is an artifact-bound release-authority system for AI release decisions. The earlier title remains a valid historical and publication-facing reference for the same project trajectory.
 
 **PULSEmech** names the explicit mechanism inside this continuity: recorded release evidence, `status.json`, declared gate policy, workflow-effective materialized required gates, and strict fail-closed CI enforcement.
 

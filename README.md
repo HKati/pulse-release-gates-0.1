@@ -1,4 +1,6 @@
-# PULSE — Artifact-Bound Release Authority for AI Release Decisions
+# PULSEmech — Artifact-Bound Release Authority for AI Release Decisions
+
+PULSEmech is the canonical mechanical implementation of PULSE.
 
 > **Public origin / prior-art notice:** PULSE has a minimum public origin record. For the visible provenance anchors and attribution boundary, see the [Public Origin / Prior Art Notice](docs/quality_ledger.md#10-public-origin--prior-art-notice).
 
