@@ -37,7 +37,6 @@ FRONT_DOOR_END_MARKERS = [
 
 REQUIRED_FRONT_DOOR_ANCHORS = [
     (
-        "PULSE — Artifact-Bound Release Authority "
         "PULSEmech — Artifact-Bound Release Authority "
         "for AI Release Decisions"
     ),
