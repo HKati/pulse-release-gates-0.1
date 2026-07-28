@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
-import importlib.util
+import types
 import json
 import os
 import stat
@@ -274,15 +274,37 @@ def safe_zip_members(
 
 
 def load_module(path: Path, module_name: str) -> Any:
+    """Load exact source bytes without creating or consuming repository bytecode."""
+
     require_regular_file(path, label=module_name)
-    spec = importlib.util.spec_from_file_location(module_name, path)
-    if spec is None or spec.loader is None:
-        raise AdapterError(f"module_import_spec_unavailable: {path}")
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[module_name] = module
+    source = path.read_bytes()
     try:
-        spec.loader.exec_module(module)
+        code = compile(
+            source,
+            str(path),
+            "exec",
+            dont_inherit=True,
+        )
     except Exception as exc:
+        raise AdapterError(f"module_compile_failed: {path}: {exc}") from exc
+
+    previous = sys.modules.get(module_name)
+    had_previous = module_name in sys.modules
+    module = types.ModuleType(module_name)
+    module.__file__ = str(path)
+    module.__cached__ = None
+    module.__loader__ = None
+    module.__package__ = module_name.rpartition(".")[0]
+    module.__spec__ = None
+    sys.modules[module_name] = module
+
+    try:
+        exec(code, module.__dict__)
+    except Exception as exc:
+        if had_previous:
+            sys.modules[module_name] = previous
+        else:
+            sys.modules.pop(module_name, None)
         raise AdapterError(f"module_import_failed: {path}: {exc}") from exc
     return module
 
@@ -307,6 +329,7 @@ def validate_subject_packet(
             str(repository_root),
         ],
         cwd=ROOT,
+        env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
         text=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
