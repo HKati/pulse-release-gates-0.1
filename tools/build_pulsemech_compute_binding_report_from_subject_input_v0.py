@@ -30,6 +30,8 @@ PACKET_VALIDATOR = ROOT / "tools" / "check_pulsemech_compute_subject_input_packe
 REPORT_SCHEMA = ROOT / "schemas" / "pulsemech_compute_binding_report_v0.schema.json"
 REPORT_VALIDATOR = ROOT / "tools" / "check_pulsemech_compute_binding_report_v0.py"
 FIXED_SOURCE_BUILDER = ROOT / "tools" / "build_pulsemech_compute_binding_report_v0.py"
+ANALYZER_CORE = ROOT / "tools" / "pulsemech_compute_binding_analyzer_core_v0.py"
+ANALYZER_CORE_MODULE = "pulsemech_compute_binding_analyzer_core_v0"
 
 DEFAULT_ANALYSIS_RUN_KEY = (
     "OFFLINE_ANALYSIS=pulsemech-compute-binding-fixed-source-6066-v0"
@@ -236,6 +238,7 @@ def load_module_from_capture(capture: CapturedFile, module_name: str) -> Any:
     module.__loader__ = None
     module.__package__ = module_name.rpartition(".")[0]
     module.__spec__ = None
+    module.__pulsemech_source_sha256__ = capture.sha256
     sys.modules[module_name] = module
 
     try:
@@ -266,6 +269,10 @@ def _capture_dependencies() -> dict[str, CapturedFile]:
         "fixed_builder": capture_regular_file(
             FIXED_SOURCE_BUILDER,
             label="fixed_source_builder",
+        ),
+        "analyzer_core": capture_regular_file(
+            ANALYZER_CORE,
+            label="analyzer_core",
         ),
     }
 
@@ -353,7 +360,7 @@ def _build_bundle_from_exact_bytes(
     packet: dict[str, Any],
     carrier: CapturedFile,
     artifact_bytes: dict[str, bytes],
-    fixed_builder: Any,
+    analyzer_core: Any,
 ) -> Any:
     manifest_bytes = _bound_artifact_bytes(
         packet=packet,
@@ -371,43 +378,43 @@ def _build_bundle_from_exact_bytes(
         binding_name="preservation_checksums",
     )
 
-    return fixed_builder.load_observed_bundle(
+    return analyzer_core.load_observed_bundle(
         archive_path=CapturedPathView(
             carrier,
-            display_path=fixed_builder.DEFAULT_ARCHIVE,
+            display_path=analyzer_core.DEFAULT_ARCHIVE,
         ),
         manifest_path=CapturedPathView(
             CapturedFile(
-                path=fixed_builder.DEFAULT_MANIFEST,
+                path=analyzer_core.DEFAULT_MANIFEST,
                 data=manifest_bytes,
                 device=carrier.device,
                 inode=carrier.inode,
                 size_bytes=len(manifest_bytes),
                 sha256=sha256_bytes(manifest_bytes),
             ),
-            display_path=fixed_builder.DEFAULT_MANIFEST,
+            display_path=analyzer_core.DEFAULT_MANIFEST,
         ),
         readme_path=CapturedPathView(
             CapturedFile(
-                path=fixed_builder.DEFAULT_README,
+                path=analyzer_core.DEFAULT_README,
                 data=readme_bytes,
                 device=carrier.device,
                 inode=carrier.inode,
                 size_bytes=len(readme_bytes),
                 sha256=sha256_bytes(readme_bytes),
             ),
-            display_path=fixed_builder.DEFAULT_README,
+            display_path=analyzer_core.DEFAULT_README,
         ),
         sha256sums_path=CapturedPathView(
             CapturedFile(
-                path=fixed_builder.DEFAULT_SHA256SUMS,
+                path=analyzer_core.DEFAULT_SHA256SUMS,
                 data=sums_bytes,
                 device=carrier.device,
                 inode=carrier.inode,
                 size_bytes=len(sums_bytes),
                 sha256=sha256_bytes(sums_bytes),
             ),
-            display_path=fixed_builder.DEFAULT_SHA256SUMS,
+            display_path=analyzer_core.DEFAULT_SHA256SUMS,
         ),
         expected_archive_sha256=carrier.sha256,
         expected_archive_size=carrier.size_bytes,
@@ -455,9 +462,9 @@ def build_from_captured_inputs(
         captures["packet_validator"],
         "pulsemech_subject_input_packet_validator_v0_for_bridge",
     )
-    fixed_builder = load_module_from_capture(
-        captures["fixed_builder"],
-        "pulsemech_fixed_source_compute_builder_v0_for_bridge",
+    analyzer_core = load_module_from_capture(
+        captures["analyzer_core"],
+        ANALYZER_CORE_MODULE,
     )
     report_validator = load_module_from_capture(
         captures["report_validator"],
@@ -489,14 +496,15 @@ def build_from_captured_inputs(
         packet=packet,
         carrier=carrier_capture,
         artifact_bytes=artifact_bytes,
-        fixed_builder=fixed_builder,
+        analyzer_core=analyzer_core,
     )
-    report = fixed_builder.build_report(
+    report = analyzer_core.build_report(
         bundle,
         analysis_run_key=analysis_run_key,
         builder_source_sha256=captures["fixed_builder"].sha256,
+        analyzer_core_source_sha256=captures["analyzer_core"].sha256,
     )
-    rendered = fixed_builder.render_json(report)
+    rendered = analyzer_core.render_json(report)
     _validate_report_exact_bytes(
         rendered_report=rendered,
         report_schema=captures["report_schema"],
@@ -509,7 +517,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
             "Validate one observed PULSEmech compute subject-input packet and "
-            "drive the existing fixed-source compute analyzer from one captured "
+            "drive the reusable compute analyzer core from one captured "
             "packet/carrier revision. The bridge writes stdout only."
         )
     )
