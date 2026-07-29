@@ -925,7 +925,11 @@ def build_report(
     *,
     analysis_run_key: str,
     builder_source_sha256: str,
+    analyzer_core_source_sha256: str | None = None,
 ) -> dict[str, Any]:
+    if analyzer_core_source_sha256 is None:
+        analyzer_core_source_sha256 = sha256_file(Path(__file__))
+
     manifest = bundle.manifest
     members = bundle.complete_package_members
 
@@ -1798,9 +1802,9 @@ def build_report(
             status="complete",
             source=source_identity(
                 source_kind="repository_file",
-                path_or_uri="tools/build_pulsemech_compute_binding_report_v0.py",
+                path_or_uri="tools/pulsemech_compute_binding_analyzer_core_v0.py",
                 revision=TOOL_VERSION,
-                sha256=builder_source_sha256,
+                sha256=analyzer_core_source_sha256,
             ),
             subject_run_key=subject_run_key,
             analysis_run_key=analysis_run_key,
@@ -2502,7 +2506,11 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def main() -> int:
+def main(
+    *,
+    producer_source_path: Path | None = None,
+    analyzer_core_source_sha256: str | None = None,
+) -> int:
     args = parse_args()
 
     archive = Path(args.archive)
@@ -2536,11 +2544,17 @@ def main() -> int:
             expected_archive_size=EXPECTED_ARCHIVE_SIZE,
         )
 
-        builder_source_sha = sha256_file(Path(__file__))
+        producer_path = producer_source_path or Path(__file__)
+        builder_source_sha = sha256_file(producer_path)
+        core_source_sha = (
+            analyzer_core_source_sha256
+            or sha256_file(Path(__file__))
+        )
         report = build_report(
             bundle,
             analysis_run_key=str(args.analysis_run_key),
             builder_source_sha256=builder_source_sha,
+            analyzer_core_source_sha256=core_source_sha,
         )
         rendered = render_json(report)
 
