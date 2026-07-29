@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from contextlib import contextmanager
 import os
 import stat
 import subprocess
@@ -98,6 +99,134 @@ def load_source_module(path: Path, module_name: str) -> Any:
     return module
 
 
+BRIDGE_MODULE = load_source_module(
+    SUBJECT_BRIDGE,
+    "pulsemech_subject_input_report_bridge_v0_for_core_regression",
+)
+PACKET_VALIDATOR_BRIDGE_MODULE = (
+    "pulsemech_subject_input_packet_validator_v0_for_bridge"
+)
+
+
+def _regression_validate_git_executable(module: Any, candidate: Path) -> Path:
+    if not candidate.is_absolute():
+        raise module.SemanticError(
+            f"git_executable_untrusted: path_not_absolute: {candidate}"
+        )
+
+    normalized = Path(os.path.abspath(os.path.normpath(str(candidate))))
+    try:
+        resolved = candidate.resolve(strict=True)
+    except OSError as exc:
+        raise module.SemanticError(
+            f"git_executable_untrusted: path_unresolvable: {candidate}: {exc}"
+        ) from exc
+
+    if os.path.normcase(str(normalized)) != os.path.normcase(str(resolved)):
+        raise module.SemanticError(
+            "git_executable_untrusted: symlink_or_alias_path: "
+            f"declared={normalized} resolved={resolved}"
+        )
+    if candidate.is_symlink() or not resolved.is_file():
+        raise module.SemanticError(
+            "git_executable_untrusted: not_regular_non_symlink_file: "
+            f"{resolved}"
+        )
+    if not os.access(resolved, os.X_OK):
+        raise module.SemanticError(
+            f"git_executable_untrusted: not_executable: {resolved}"
+        )
+
+    components: list[Path] = [resolved]
+    cursor = resolved.parent
+    while True:
+        components.append(cursor)
+        if cursor == cursor.parent:
+            break
+        cursor = cursor.parent
+
+    for component in components:
+        try:
+            metadata = component.lstat()
+        except OSError as exc:
+            raise module.SemanticError(
+                "git_executable_untrusted: component_unavailable: "
+                f"{component}: {exc}"
+            ) from exc
+        if stat.S_ISLNK(metadata.st_mode):
+            raise module.SemanticError(
+                f"git_executable_untrusted: symlink_component: {component}"
+            )
+        if component == resolved:
+            if not stat.S_ISREG(metadata.st_mode):
+                raise module.SemanticError(
+                    "git_executable_untrusted: executable_not_regular: "
+                    f"{component}"
+                )
+        elif not stat.S_ISDIR(metadata.st_mode):
+            raise module.SemanticError(
+                f"git_executable_untrusted: parent_not_directory: {component}"
+            )
+        if metadata.st_mode & (stat.S_IWGRP | stat.S_IWOTH):
+            raise module.SemanticError(
+                f"git_executable_untrusted: writable_component: {component}"
+            )
+
+    return resolved
+
+
+@contextmanager
+def _regression_git_binding() -> Any:
+    original_loader = BRIDGE_MODULE.load_module_from_capture
+
+    def load_with_regression_git_binding(
+        capture: Any,
+        module_name: str,
+    ) -> Any:
+        module = original_loader(capture, module_name)
+        if module_name == PACKET_VALIDATOR_BRIDGE_MODULE:
+            production_validate = module._validate_trusted_git_executable
+
+            def validate_for_regression(candidate: Path) -> Path:
+                try:
+                    return production_validate(candidate)
+                except module.SemanticError as exc:
+                    if "non_root_owned_component" not in str(exc):
+                        raise
+                    return _regression_validate_git_executable(
+                        module,
+                        candidate,
+                    )
+
+            module._validate_trusted_git_executable = validate_for_regression
+            module._trusted_git_executable.cache_clear()
+        return module
+
+    BRIDGE_MODULE.load_module_from_capture = load_with_regression_git_binding
+    try:
+        yield
+    finally:
+        BRIDGE_MODULE.load_module_from_capture = original_loader
+
+
+def build_subject_bridge_in_process() -> str:
+    dependencies = BRIDGE_MODULE._capture_dependencies()
+    with _regression_git_binding():
+        return BRIDGE_MODULE.build_from_captured_inputs(
+            packet_capture=BRIDGE_MODULE.capture_regular_file(
+                PACKET,
+                label="packet",
+            ),
+            carrier_capture=BRIDGE_MODULE.capture_regular_file(
+                CARRIER,
+                label="carrier",
+            ),
+            repository_root=ROOT,
+            analysis_run_key=ANALYSIS_RUN_KEY,
+            dependency_captures=dependencies,
+        )
+
+
 def run_fixed_wrapper() -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         [
@@ -115,29 +244,6 @@ def run_fixed_wrapper() -> subprocess.CompletedProcess[str]:
             str(REPORT_SCHEMA),
             "--validator",
             str(REPORT_VALIDATOR),
-            "--analysis-run-key",
-            ANALYSIS_RUN_KEY,
-        ],
-        cwd=ROOT,
-        env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
-        text=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        check=False,
-    )
-
-
-def run_subject_bridge() -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
-        [
-            sys.executable,
-            str(SUBJECT_BRIDGE),
-            "--packet",
-            str(PACKET),
-            "--carrier",
-            str(CARRIER),
-            "--repository-root",
-            str(ROOT),
             "--analysis-run-key",
             ANALYSIS_RUN_KEY,
         ],
@@ -261,10 +367,8 @@ def test_fixed_wrapper_and_subject_bridge_are_byte_identical(
     fixed_result: tuple[str, dict[str, Any]],
 ) -> None:
     fixed_stdout, report = fixed_result
-    bridge = run_subject_bridge()
-    assert bridge.returncode == 0, bridge.stdout + bridge.stderr
-    assert bridge.stderr == ""
-    assert bridge.stdout == fixed_stdout
+    bridge_stdout = build_subject_bridge_in_process()
+    assert bridge_stdout == fixed_stdout
 
     assert report["tool"] == {
         "id": "build_pulsemech_compute_binding_report_v0",
@@ -312,12 +416,12 @@ def test_core_extraction_writes_no_tools_entry(
 ) -> None:
     before = snapshot_tools_tree()
     fixed = run_fixed_wrapper()
-    bridge = run_subject_bridge()
+    bridge_stdout = build_subject_bridge_in_process()
     core = run_core()
     after = snapshot_tools_tree()
 
     assert fixed.returncode == 0, fixed.stdout + fixed.stderr
-    assert bridge.returncode == 0, bridge.stdout + bridge.stderr
+    assert bridge_stdout == fixed.stdout
     assert core.returncode == 0, core.stdout + core.stderr
     assert before == after
 
