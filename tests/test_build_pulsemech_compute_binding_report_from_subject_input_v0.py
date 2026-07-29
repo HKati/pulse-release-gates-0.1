@@ -25,6 +25,7 @@ ADAPTER = (
     / "build_pulsemech_compute_binding_report_from_subject_input_v0.py"
 )
 FIXED_BUILDER = ROOT / "tools" / "build_pulsemech_compute_binding_report_v0.py"
+ANALYZER_CORE = ROOT / "tools" / "pulsemech_compute_binding_analyzer_core_v0.py"
 PACKET = (
     ROOT
     / "examples"
@@ -53,6 +54,10 @@ CI_ENTRY = (
 
 def sha256_bytes(value: bytes) -> str:
     return hashlib.sha256(value).hexdigest()
+
+
+def sha256_file(path: Path) -> str:
+    return sha256_bytes(path.read_bytes())
 
 
 def strict_json_text(text: str, *, label: str) -> dict[str, Any]:
@@ -230,6 +235,18 @@ def test_bridge_matches_fixed_builder_byte_for_byte(fixed_stdout: str) -> None:
 
     report = strict_json_text(result.stdout, label="bridge report")
     assert report["tool"]["id"] == "build_pulsemech_compute_binding_report_v0"
+    assert report["tool"]["source_sha256"] == sha256_file(FIXED_BUILDER)
+    observer = next(
+        node
+        for node in report["compute_nodes"]
+        if node["node_id"] == "compute:offline-observer"
+    )
+    assert observer["source_identity"]["source_path_or_uri"] == (
+        "tools/pulsemech_compute_binding_analyzer_core_v0.py"
+    )
+    assert observer["source_identity"]["source_sha256"] == sha256_file(
+        ANALYZER_CORE
+    )
     assert report["analysis_boundary"]["analysis_run_key"] == ANALYSIS_RUN_KEY
     assert report["subject"]["workflow_run_number"] == 6066
     assert report["subject"]["decision"] == "ALLOW"
@@ -458,12 +475,14 @@ def test_bridge_has_no_scratch_or_file_output_surface() -> None:
         assert fragment not in source
 
 
-def test_bridge_delegates_to_existing_report_builder() -> None:
+def test_bridge_delegates_to_reusable_analyzer_core() -> None:
     source = ADAPTER.read_text(encoding="utf-8")
     assert "packet_validator.build_diagnostic(" in source
-    assert "fixed_builder.load_observed_bundle(" in source
+    assert "analyzer_core.load_observed_bundle(" in source
     assert "report_validator.build_diagnostic(" in source
-    assert "fixed_builder.build_report(" in source
+    assert "analyzer_core.build_report(" in source
+    assert "captures[\"fixed_builder\"].sha256" in source
+    assert "captures[\"analyzer_core\"].sha256" in source
     assert "def build_report(" not in source
     assert "def make_compute_node(" not in source
     assert "def make_state_node(" not in source
