@@ -955,10 +955,10 @@ immutable analyzer bridge.
 
 ## 15A. Immutable observed subject-input analyzer bridge
 
-The machine-produced observed packet is now connected to the existing
+The machine-produced observed packet was first connected to the then-monolithic
 compute-binding analyzer through one immutable-input bridge.
 
-The completed relation is:
+The completed PR #2773 relation was:
 
 ```text
 portable observed subject-input packet
@@ -966,13 +966,13 @@ portable observed subject-input packet
 → secure immutable packet and carrier capture
 → strict packet validation over captured bytes
 → existing artifact reconstruction
-→ existing fixed-source analyzer
+→ then-current fixed-source analyzer implementation
 → strict report validation
 → deterministic stdout report
 ```
 
-The bridge captures the packet, carrier, schemas, validators and existing
-fixed-source builder through POSIX no-follow file operations.
+The bridge captures the packet, carrier, schemas and validators through POSIX
+no-follow file operations.
 
 Each captured input is bound to:
 
@@ -993,44 +993,7 @@ The in-memory carrier view deliberately has no filesystem-path conversion
 surface. Delegated code therefore consumes captured bytes instead of reopening
 the mutable packet or carrier pathname.
 
-The bridge delegates to the existing implementations:
-
-```text
-subject-input packet validation
-→ tools/check_pulsemech_compute_subject_input_packet_v0.py
-
-artifact reconstruction
-→ the existing subject-input artifact-graph verifier
-
-bundle loading and report construction
-→ tools/build_pulsemech_compute_binding_report_v0.py
-
-report validation
-→ tools/check_pulsemech_compute_binding_report_v0.py
-```
-
-It does not define a second:
-
-```text
-build_report
-make_compute_node
-make_state_node
-make_edge
-```
-
-implementation.
-
-The bridge is stdout-only and contains no:
-
-```text
-temporary directory
-scratch-file extraction
-optional file output
-output rename
-repository-local bytecode generation
-```
-
-Completed proof:
+The historical PR #2773 proof was:
 
 ```text
 implementation PR:
@@ -1048,7 +1011,7 @@ focused regression:
 direct tools-manifest execution:
 17 passed
 
-deterministic report SHA-256:
+historical pre-core-extraction report SHA-256:
 656459e7fb835814a05a7cc5b8150959d32ed3a0e9ed272c2733038bd441ec4c
 
 repeated report digest:
@@ -1073,10 +1036,181 @@ post-merge correction required:
 none
 ```
 
-This bridge completes the portable-input-to-existing-analyzer equivalence
+The report digest above belongs to the pre-core-extraction implementation
+identity. It is retained as a historical proof identity and is not reused as the
+current wrapper-plus-core report identity.
+
+The bridge has no:
+
+```text
+temporary directory
+scratch-file extraction
+optional file output
+output rename
+repository-local bytecode generation
+```
+
+PR #2773 completed the portable-input-to-existing-analyzer equivalence
 boundary.
 
-It does not complete reusable analyzer-core extraction.
+PR #2776 then separated the stable producer entry point from the reusable
+analyzer implementation while preserving the immutable bridge relation.
+
+---
+
+## 15B. Reusable read-only analyzer core
+
+The proven compute-binding implementation is now carried by one reusable
+analyzer core.
+
+The completed extraction is:
+
+```text
+previous monolithic fixed-source analyzer
+→ repository rename preserving the analyzer implementation
+→ tools/pulsemech_compute_binding_analyzer_core_v0.py
+
+stable fixed-source path
+→ thin compatibility wrapper
+→ tools/build_pulsemech_compute_binding_report_v0.py
+
+immutable observed subject-input packet
+→ immutable subject-input bridge
+→ the same reusable analyzer core
+```
+
+The reusable core is the only implementation location for:
+
+```text
+build_report
+make_compute_node
+make_state_node
+make_edge
+finding construction
+binding classification
+summary construction
+deterministic report construction
+```
+
+The fixed-source compatibility wrapper and immutable subject-input bridge do
+not carry a second graph or report implementation.
+
+The current delegation relation is:
+
+```text
+fixed-source #6066 inputs
+→ fixed-source compatibility wrapper
+→ reusable analyzer core
+→ compute-binding report
+
+immutable observed subject-input packet
+→ immutable subject-input bridge
+→ reusable analyzer core
+→ byte-identical compute-binding report
+```
+
+The extraction separates two exact source identities:
+
+```text
+report producer identity:
+tools/build_pulsemech_compute_binding_report_v0.py
+
+report producer SHA-256:
+d20cb7fed3d8c1ddc10abc23882ce0cbe17d277498016a580f875614fe47becc
+
+analyzer implementation identity:
+tools/pulsemech_compute_binding_analyzer_core_v0.py
+
+analyzer implementation SHA-256:
+cd108bc70494203f95a3f379f6e0d953331d10357676d553d6858f44729988dd
+```
+
+The report top-level tool identity is bound to the compatibility wrapper.
+
+The `compute:offline-observer` source identity is bound to the reusable analyzer
+core.
+
+Therefore:
+
+```text
+report producer identity
+≠ analyzer implementation identity
+
+fixed-source wrapper
++ immutable subject-input bridge
+→ one analyzer implementation identity
+```
+
+The completed proof is:
+
+```text
+implementation PR:
+#2776
+
+squash-merge commit:
+e06acbbcd0beec7846da01322659079171e24562
+
+changed-file boundary:
+exactly 6 files
+
+fixed-source regression:
+33 passed
+
+analyzer-core regression:
+10 passed
+
+immutable subject-input bridge regression:
+18 passed
+
+wrapper and bridge report bytes:
+identical
+
+direct-core and wrapper analysis payload:
+identical after normalizing only producer-entry-point identity
+
+wrapper, bridge and core execution:
+repository and tools tree remained clean
+
+post-merge review:
+PASS
+
+major findings:
+none
+
+correction required:
+none
+```
+
+The production subject-input validator retains its strict trusted-Git policy.
+
+Hosted-runner ownership normalization exists only in regression code, activates
+only after the exact `non_root_owned_component` diagnostic, and does not weaken
+the production validation path.
+
+The extraction boundary is single implementation ownership. The reusable core
+retains the established fixed-source input and CLI support required by the
+compatibility path; no claim is made that a separate pure-function kernel has
+also been created.
+
+The post-merge reviewer could not run:
+
+```text
+git cat-file -t c6236512b52d7a0dbf5152421766e3008a8be9bf
+```
+
+because the superseded PR-head object was not present in that local checkout and
+no Git remote was configured.
+
+This was not a merged-artifact failure.
+
+`git cat-file` inspects only the local Git object database. The canonical review
+target was the squash-merge commit
+`e06acbbcd0beec7846da01322659079171e24562`, whose exact six-file boundary and
+merged relations were independently verified.
+
+This completed core extraction does not implement the current-run
+artifact-observed reference lane, runtime-observation production, resource
+measurement, a compute budget, active compute enforcement or release authority.
 
 ---
 
@@ -1084,13 +1218,13 @@ It does not complete reusable analyzer-core extraction.
 
 ```text
 state_date:
-2026-07-28
+2026-07-30
 
 mechanical_state_recorded_through:
-PR #2773
+PR #2776
 
 implementation_state_basis:
-a93359444e13771eb932744dd22b4477a5096019
+e06acbbcd0beec7846da01322659079171e24562
 
 release_authority_core:
 implemented, exercised and terminal
@@ -1116,7 +1250,7 @@ implemented and tested
 compute_binding_report_contract:
 implemented
 
-fixed_source_compute_binding_builder:
+fixed_source_compute_binding_path:
 implemented and proven
 
 runtime_observation_contract:
@@ -1143,17 +1277,38 @@ implemented and replay-proven
 immutable_subject_input_analyzer_bridge:
 implemented and post-merge proven
 
-immutable_subject_input_analyzer_bridge_regression:
-17 passed
-
-immutable_subject_input_analyzer_bridge_report_sha256:
+historical_pre_core_bridge_report_sha256:
 656459e7fb835814a05a7cc5b8150959d32ed3a0e9ed272c2733038bd441ec4c
 
 reusable_analyzer_core:
+implemented and post-merge proven
+
+fixed_source_compatibility_wrapper:
+implemented and proven
+
+subject_input_bridge_to_reusable_core:
+implemented and proven
+
+fixed_source_regression:
+33 passed
+
+analyzer_core_regression:
+10 passed
+
+subject_input_bridge_regression:
+18 passed
+
+fixed_source_wrapper_sha256:
+d20cb7fed3d8c1ddc10abc23882ce0cbe17d277498016a580f875614fe47becc
+
+analyzer_core_sha256:
+cd108bc70494203f95a3f379f6e0d953331d10357676d553d6858f44729988dd
+
+current_run_artifact_observed_reference_lane:
 not implemented
 
 current_development_boundary:
-reusable read-only analyzer core
+current-run artifact-observed reference lane
 ```
 
 The stable URL for this state section is:
@@ -1174,47 +1329,74 @@ https://raw.githubusercontent.com/HKati/pulse-release-gates-0.1/main/PULSEMECH_T
 - [PR #2762 — fail closed on observed replay cleanup](https://github.com/HKati/pulse-release-gates-0.1/pull/2762)
 - [PR #2763 — record completed observed subject-input proof](https://github.com/HKati/pulse-release-gates-0.1/pull/2763)
 - [PR #2773 — add immutable observed subject-input analyzer bridge](https://github.com/HKati/pulse-release-gates-0.1/pull/2773)
+- [PR #2776 — extract reusable analyzer core](https://github.com/HKati/pulse-release-gates-0.1/pull/2776)
 
 ---
 
 ## 17. Current development path
 
-The completed portable-input relation is:
+The completed analyzer relation is:
 
 ```text
+historical fixed-source #6066 inputs
+→ fixed-source compatibility wrapper
+→ reusable analyzer core
+→ compute-binding report
+
 portable observed subject-input packet
-→ immutable subject-input analyzer bridge
-→ existing fixed-source analyzer implementation
-→ regression-identical subject-derived #6066 compute-binding result
+→ immutable subject-input bridge
+→ the same reusable analyzer core
+→ byte-identical compute-binding report
 ```
+
+The reusable analyzer core is now the single implementation location for graph,
+node, edge, finding, classification, summary and report construction.
 
 The current mechanical transition is:
 
 ```text
-existing graph and report construction
-→ reusable read-only analyzer core
-→ fixed-source compatibility entry point
-+ immutable subject-input compatibility entry point
-→ regression-identical analysis payload
+current workflow run
+→ machine-produced current-run subject-input packet
+→ immutable current-run carrier binding
+→ reusable analyzer core
+→ generated artifact-observed report
+→ generated planned-observed relation
+→ non-active candidate materialization
+```
+
+The current-run artifact-observed reference lane must reuse:
+
+```text
+the existing subject-input packet contract
+the existing immutable capture boundary
+the existing subject-input validator
+the existing reusable analyzer core
+the existing compute-binding report validator
+the existing planned-observed relation builder
+the existing non-active candidate boundary
+```
+
+It must not introduce:
+
+```text
+a second analyzer
+a manually curated packet
+a second graph implementation
+a new release-authority path
+automatic candidate promotion
+runtime-observed claims without runtime evidence
 ```
 
 The development sequence then continues through:
 
 ```text
-reusable analyzer core
-→ current-run artifact-observed reference lane
+current-run artifact-observed reference lane
 → runtime-observation producer
 → runtime-observed connected proof
 → per-axis resource measurement
 → stable measurement coverage
 → separate policy promotion decision
 ```
-
-The reusable analyzer core will become the single compute-analysis
-implementation.
-
-The existing #6066 fixed-source builder and the immutable subject-input bridge
-will become separate compatibility entry points over that one core.
 
 This preserves one analysis mechanism across:
 
@@ -1225,22 +1407,7 @@ current-run subjects
 future runtime-observed subjects
 ```
 
-Core extraction must preserve the exact analysis payload:
-
-```text
-subject
-states
-compute nodes
-edges
-binding classes
-findings
-summary
-errors
-terminal analysis result
-```
-
-The wrapper and core implementation identities may advance. They must not be
-rewritten to claim the superseded monolithic builder identity.
+The current-run lane remains non-active and has no release-authority effect.
 
 ---
 
@@ -1374,8 +1541,10 @@ This order preserves the subject and time relation of every source.
 - [Compute binding and transition efficiency design](docs/compute/PULSEMECH_COMPUTE_BINDING_AND_TRANSITION_EFFICIENCY_DESIGN_v0.md)
 - [Compute-binding report schema](schemas/pulsemech_compute_binding_report_v0.schema.json)
 - [Compute-binding report validator](tools/check_pulsemech_compute_binding_report_v0.py)
-- [Fixed-source compute-binding builder](tools/build_pulsemech_compute_binding_report_v0.py)
+- [Reusable compute-binding analyzer core](tools/pulsemech_compute_binding_analyzer_core_v0.py)
+- [Fixed-source compatibility wrapper](tools/build_pulsemech_compute_binding_report_v0.py)
 - [Immutable subject-input analyzer bridge](tools/build_pulsemech_compute_binding_report_from_subject_input_v0.py)
+- [Analyzer-core regression](tests/test_pulsemech_compute_binding_analyzer_core_v0.py)
 - [Immutable bridge regression](tests/test_build_pulsemech_compute_binding_report_from_subject_input_v0.py)
 - [Planned-observed relation builder](tools/build_pulsemech_compute_planned_observed_relation_v0.py)
 - [Runtime-observation packet schema](schemas/pulsemech_compute_runtime_observation_packet_v0.schema.json)
@@ -1461,11 +1630,13 @@ The current implementation has completed the release-authority core, the
 self-contained evidence floor, the public release-grade reference execution, the
 SLSA/VSA candidate evidence path, the fixed-source compute relation, the
 portable subject-input contract, the deterministic packet producer, the
-machine-produced observed replay proof and the immutable
-portable-input-to-existing-analyzer equivalence bridge.
+machine-produced observed replay proof, the immutable subject-input analyzer
+bridge and extraction of one reusable analyzer implementation core shared by
+the fixed-source and portable-input paths.
 
-The next development boundary is extraction of the reusable read-only analyzer
-core from the existing fixed-source graph and report construction.
+The next development boundary is the current-run artifact-observed reference
+lane over the existing packet, immutable-capture, analyzer-core, report and
+candidate mechanisms.
 
 The latest verified state remains available at the stable URL recorded at the
 top of this document.
