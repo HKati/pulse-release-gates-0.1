@@ -6,7 +6,7 @@
 document_id: pulsemech_codex_security_evidence_lane_design_v0
 document_type: design
 revision: v0
-revision_state: report_lifecycle_bound
+revision_state: private_identity_presence_cleanup_retention_bound
 status: design_only
 authority_effect: none
 gate_effect: none
@@ -16,12 +16,14 @@ ci_effect: none
 release_effect: none
 raw_public_artifact_effect: forbidden
 private_intake_report_effect: required
+private_lifecycle_carrier_effect: required
 public_summary_effect: sanitized_projection_only
+public_summary_authority_effect: none
 ```
 
 This document defines a future PULSEmech evidence lane for importing,
-verifying, normalizing, and optionally materializing completed Codex Security
-scan evidence.
+verifying, privately retaining or deleting, sanitizing, and optionally
+materializing completed Codex Security scan evidence.
 
 This document does not:
 
@@ -39,8 +41,10 @@ This document does not:
   dashboard state as release evidence by itself;
 - permit raw security findings to be uploaded as a normal artifact of this
   public repository;
-- permit the verifier-issued intake report to be uploaded as a public artifact;
-- permit a public normalized summary to create release state by itself.
+- permit a verifier-issued intake report to be uploaded as a public artifact;
+- permit a private lifecycle carrier to be uploaded as a public artifact;
+- permit a public normalized summary to create release state by itself;
+- claim later replay when the private authority carriers were not retained.
 
 Implementation and activation require separate pull requests.
 
@@ -49,26 +53,29 @@ Implementation and activation require separate pull requests.
 ## 1. Purpose
 
 Codex Security can inspect a repository and produce structured security
-findings together with a record of:
+findings together with records of:
 
 - the reviewed target;
 - the executed scan recipe;
 - the achieved coverage;
 - the findings produced by that observation;
-- scan-local evidence referenced by the canonical documents.
+- scan-local evidence referenced by canonical documents;
+- readable or machine projections generated beside the canonical documents;
+- private runtime and workbench state created during the scan.
 
-PULSEmech can use that output only after the output becomes a verified,
-artifact-bound evidence carrier.
+PULSEmech can use the security observation only after the authority-relevant
+part of that output becomes a verified, subject-bound evidence carrier.
 
 The intended relation is:
 
 ```text
 Codex Security
-produces a security observation
+produces a security observation and controlled producer output
 
 protected PULSEmech control plane
-verifies the carrier, producer, subject, run, recipe, coverage, reference
-closure, policy, and lifecycle relation
+verifies the subject, producer, run, recipe, canonical documents, reference
+closure, coverage, findings policy, evidence presence at verification, raw
+output lifecycle, and retained private-carrier set
 
 PULSEmech release authority
 remains the only mechanism that may produce an enforced ALLOW or BLOCK state
@@ -78,6 +85,18 @@ The lane separates:
 
 ```text
 security analysis
+```
+
+from:
+
+```text
+evidence verification
+```
+
+from:
+
+```text
+confidential-output lifecycle
 ```
 
 from:
@@ -117,7 +136,10 @@ A positive Codex Security result cannot authorize release by:
 - an unverified adapter summary;
 - an unverified intake report;
 - a public summary;
-- an unverified raw-bundle retention statement.
+- an unverified retention statement;
+- current absence of raw files after deletion;
+- current presence of a privately retained object;
+- a storage-provider success message by itself.
 
 A Codex Security observation may participate in release-state evaluation only
 through this path:
@@ -125,19 +147,20 @@ through this path:
 ```text
 exact subject revision
 → isolated Codex Security producer
+→ controlled producer-output roots
 → completed canonical source documents
-→ complete referenced-evidence closure
-→ same-runner source-bundle packaging
-→ protected PULSEmech control-plane verifier
-→ exact subject and run binding
-→ exact producer and recipe binding
-→ exact schema-snapshot binding
-→ complete declared coverage
-→ deterministic findings-policy evaluation
+→ complete authority-relevant reference closure
+→ deterministic authority source-bundle identity
+→ protected PULSEmech verifier
+→ exact subject, run, producer, recipe, and schema bindings
+→ recorded evidence presence at verification
+→ complete coverage and deterministic findings-policy evaluation
 → private verifier-issued intake report
+→ complete public-identity projection
 → complete machine decision projection
-→ completed raw-bundle lifecycle action
-→ private lifecycle receipt
+→ confidential producer-output lifecycle action
+→ private lifecycle or cleanup carrier
+→ private retention completion when replay is claimed
 → trusted sanitized-summary projection
 → private fold-in regeneration and equality check
 → inactive candidate gate set
@@ -149,56 +172,82 @@ No earlier element in the path has release authority.
 
 ---
 
-## 3. Design position
+## 3. Carrier and surface separation
 
-The lane is a dedicated security evidence path.
+The lane distinguishes four different surfaces.
 
-It must not be flattened into the existing generic external-detector scalar
-interface.
+### 3.1 Authority source bundle
 
-A Codex Security result contains several independent authority-relevant
-relations:
-
-```text
-source-bundle integrity
-referenced-evidence closure
-trusted control-plane identity
-upstream schema-snapshot identity
-producer identity
-subject identity
-workflow-run identity
-scan recipe
-coverage completeness
-explicit exclusions
-deferred work
-finding identity
-finding severity
-findings-policy evaluation
-intake-report identity
-raw-bundle lifecycle completion
-summary-projection identity
-```
-
-A single numeric `rate` cannot preserve those relations.
-
-The initial integration must therefore use:
+The authority source bundle contains only the exact files required to verify
+the security observation:
 
 ```text
-dedicated canonical source documents
-dedicated referenced-evidence closure
-dedicated producer receipt
-dedicated source-bundle index
-dedicated trusted control plane
-dedicated intake packet
-dedicated verifier
-dedicated private intake report
-dedicated private lifecycle receipt
-dedicated public sanitized summary
-dedicated candidate gate set
+canonical source documents
++
+producer receipt
++
+authority-relevant referenced scan-local evidence
 ```
 
-The generic `external_all_pass` path must not be used as the initial authority
-carrier.
+Every authority source-bundle entry participates in the deterministic bundle
+identity.
+
+### 3.2 Controlled producer-output surface
+
+The controlled producer-output surface contains every confidential output
+created by the scan or its wrapper inside declared controlled roots.
+
+It may include:
+
+```text
+authority source-bundle files
+report.md
+SARIF
+CSV
+scan logs
+scan-local temporary files
+workbench state
+model-generated write-ups
+unreferenced projections
+producer-wrapper temporary files
+private packaging copies
+```
+
+A file may belong to the controlled producer-output surface without belonging
+to the authority source bundle.
+
+The complete controlled producer-output surface is subject to lifecycle
+cleanup.
+
+### 3.3 Private authority carriers
+
+Private authority carriers include:
+
+```text
+intake packet
+private intake report
+indexed-bundle lifecycle receipt
+pre-index cleanup receipt
+private raw-source package metadata
+private control-package metadata
+private retention completion receipt
+```
+
+They must not be published through normal public-repository Actions artifacts.
+
+### 3.4 Public sanitized projection
+
+The public sanitized projection is:
+
+```text
+codex_security_summary_v0.json
+```
+
+It contains only explicitly permitted non-sensitive fields.
+
+It is a projection.
+
+It is not release authority.
 
 ---
 
@@ -212,16 +261,17 @@ This design covers:
 - a clean subject checkout;
 - a separate protected trusted control-plane checkout;
 - a completed Codex Security canonical scan bundle;
-- complete enumeration of supported local evidence references;
-- exact binding of every retained raw-bundle component;
+- complete enumeration of supported authority-relevant local references;
+- exact binding of every authority source-bundle component;
+- complete lifecycle handling of indexed and unindexed confidential outputs;
 - a separately recorded producer receipt;
 - immutable component digests;
-- a deterministic source-bundle identity;
+- a deterministic authority source-bundle identity;
 - trusted per-carrier size limits;
-- trusted raw-bundle entry-count and total-size limits;
+- trusted authority-bundle total-size and entry-count limits;
 - duplicate-key rejection for every JSON carrier;
 - duplicate-mapping-key rejection for trusted YAML;
-- a PULSEmech subject-input packet;
+- a PULSEmech intake packet;
 - offline upstream schema validation;
 - source-bundle integrity validation;
 - protected verifier and policy identity validation;
@@ -229,14 +279,18 @@ This design covers:
 - current-workflow-run binding;
 - exact Git revision binding;
 - declared scan-recipe binding;
+- evidence presence recorded at verification;
 - coverage completeness validation;
 - deterministic finding classification;
 - deterministic severity-policy evaluation;
 - a private machine-only intake report;
-- a complete decision projection inside that intake report;
-- a private raw-bundle lifecycle receipt;
+- complete public-identity and decision projections inside the private report;
+- an indexed-bundle lifecycle receipt;
+- a separate pre-index cleanup receipt;
+- a two-package private retention model;
+- an independently verifiable private retention completion receipt;
 - a public normalized summary built only after lifecycle completion;
-- a normalized summary bound to the intake report and lifecycle receipt;
+- a summary bound to its private report and lifecycle carriers;
 - fold-in regeneration from private authority carriers;
 - an inactive candidate gate set;
 - negative fixtures and replay proof;
@@ -262,17 +316,19 @@ The following are excluded from the first implementation:
 - organization-wide bulk scanning;
 - public publication of raw security findings;
 - public publication of verifier-issued intake reports;
+- public publication of private lifecycle carriers;
 - raw findings in normal public-repository Actions artifacts;
 - public summaries acting as release-authority inputs;
+- replay claims for ephemeral-only runs;
 - release-gate activation.
 
 These functions require separate designs and separate authority boundaries.
 
 ---
 
-## 5. Initial operating profile
+## 5. Initial operating profiles
 
-The first executable lane should use this profile:
+### 5.1 Shared scan profile
 
 ```yaml
 trigger: workflow_dispatch
@@ -295,19 +351,8 @@ control_plane:
 
 producer:
   location: isolated_ephemeral_job
-  output_location: outside_subject_and_control_plane_worktrees
+  output_location: controlled_roots_outside_both_worktrees
   patch_command_allowed: false
-
-raw_results:
-  public_actions_artifact_allowed: false
-  retention_mode:
-    - ephemeral_delete
-    - access_controlled_private_storage
-  default_candidate_mode: ephemeral_delete
-
-private_authority_carriers:
-  intake_report_publication_allowed: false
-  lifecycle_receipt_publication_allowed: false
 
 public_results:
   normalized_summary_allowed: true
@@ -332,13 +377,47 @@ findings:
   triage_override_supported: false
 ```
 
+### 5.2 Ephemeral-delete profile
+
+```yaml
+raw_lifecycle_mode: ephemeral_delete
+public_raw_artifact_allowed: false
+private_replay_claim_allowed: false
+later_release_fold_in_allowed: false
+same_run_candidate_evaluation_allowed: true
+```
+
+The ephemeral-delete profile may support same-run candidate evaluation while
+the private intake report and cleanup carrier still exist on the isolated
+runner.
+
+After those private carriers are deleted, the public summary remains advisory
+display only.
+
+### 5.3 Access-controlled private-storage profile
+
+```yaml
+raw_lifecycle_mode: access_controlled_private_storage
+public_raw_artifact_allowed: false
+private_replay_claim_allowed: true
+later_release_fold_in_allowed: true
+retention_set_commit_required: true
+```
+
+The private-storage profile is required for:
+
+- fixed-source replay proof;
+- later independent verification;
+- release-capable fold-in;
+- promotion evidence.
+
 The exact package version, plugin version, runtime version, model, reasoning
 effort, expected paths, trusted verifier identity, trusted policy identity,
-upstream schema snapshot, per-carrier size limits, raw-bundle total-size limit,
-and raw-bundle entry-count limit must be bound by the candidate policy and
-protected control-plane revision created during implementation.
+upstream schema snapshot, carrier limits, authority-bundle total-size limit,
+and authority-bundle entry-count limit must come from the protected candidate
+policy.
 
-They must not be inferred from the source bundle.
+They must not be inferred from producer output.
 
 ---
 
@@ -462,7 +541,7 @@ the required surface was completely scanned and no blocking finding was found
 
 ### 6.4 Execution mode and coverage mode
 
-The scanner execution mode and the coverage mode are different fields.
+The scanner execution mode and coverage mode are different fields.
 
 The initial execution mode is:
 
@@ -482,18 +561,6 @@ The expected inventory strategy is:
 repository
 ```
 
-The verifier must not compare:
-
-```text
-execution_mode
-```
-
-directly with:
-
-```text
-coverage.mode
-```
-
 The required relations are:
 
 ```text
@@ -504,8 +571,6 @@ candidate policy execution_mode
 standard
 ```
 
-and:
-
 ```text
 coverage.mode
 ==
@@ -513,8 +578,6 @@ candidate policy expected_coverage_mode
 ==
 repository
 ```
-
-and:
 
 ```text
 coverage.inventoryStrategy
@@ -546,8 +609,12 @@ The trusted control-plane checkout supplies:
 - the candidate policy;
 - the intake-packet builder;
 - the intake verifier;
-- the source-bundle closure extractor;
+- the reference-closure extractor;
+- the source-bundle index builder;
+- the lifecycle controller;
+- the cleanup controller;
 - the summary builder;
+- the projection checker;
 - the vendored upstream schema snapshot;
 - activation-guard checks.
 
@@ -568,7 +635,8 @@ The subject checkout supplies:
 - no trusted policy;
 - no trusted schema snapshot;
 - no trusted expected digest;
-- no trusted source-bundle closure rules.
+- no trusted reference-closure rules;
+- no trusted lifecycle logic.
 
 The subject checkout is data from the verifier's perspective.
 
@@ -589,15 +657,16 @@ A subject revision must not be able to replace:
 - the policy;
 - the schema snapshot;
 - the reference extractor;
+- the lifecycle controller;
 - their expected digests;
 - the protected workflow revision.
 
 ### 7.4 Executable-source boundary
 
-The verifier must be invoked by an absolute path from the trusted
-control-plane checkout.
+Trusted tools must be invoked by absolute path from the trusted control-plane
+checkout.
 
-The verifier must not import Python modules from the subject checkout.
+Trusted tools must not import Python modules from the subject checkout.
 
 The workflow must sanitize executable lookup and module-loading variables,
 including applicable forms of:
@@ -614,11 +683,88 @@ GIT_ALTERNATE_OBJECT_DIRECTORIES
 ```
 
 The subject checkout must not become an executable-code source for the
-verification phase.
+verification or lifecycle phase.
 
 ---
 
-## 8. Trust boundaries
+## 8. Controlled roots and output confinement
+
+Before the scan begins, the protected workflow must create exact controlled
+roots under runner-local temporary storage.
+
+Illustrative layout:
+
+```text
+${RUNNER_TEMP}/pulsemech-codex-security/
+├── trusted-control-plane/
+├── subject/
+├── controlled/
+│   ├── codex-results/
+│   ├── codex-state/
+│   ├── producer-receipts/
+│   ├── authority-staging/
+│   ├── raw-package-staging/
+│   └── private-transfer-staging/
+├── private-authority/
+└── public-summary/
+```
+
+### 8.1 Controlled confidential roots
+
+The following are controlled confidential roots:
+
+```text
+controlled/codex-results
+controlled/codex-state
+controlled/producer-receipts
+controlled/authority-staging
+controlled/raw-package-staging
+controlled/private-transfer-staging
+```
+
+Every Codex Security result, projection, temporary file, state file, and raw
+packaging copy must remain inside these roots.
+
+### 8.2 Private-authority root
+
+The private-authority root may contain:
+
+```text
+intake packet
+private intake report
+indexed-bundle lifecycle receipt
+pre-index cleanup receipt
+private control-package staging
+private retention completion receipt
+```
+
+It must not enter a public artifact.
+
+### 8.3 Public-summary root
+
+The public-summary root may contain only:
+
+```text
+codex_security_summary_v0.json
+detached digest or signature
+```
+
+### 8.4 Root integrity
+
+Before use, every controlled root must be:
+
+- created by the trusted workflow;
+- located below the trusted runner-temporary parent;
+- a real directory;
+- non-symlinked;
+- outside both Git worktrees;
+- initially empty.
+
+A producer output outside the controlled roots is a lane failure.
+
+---
+
+## 9. Trust boundaries
 
 The lane crosses the following trust boundaries:
 
@@ -633,27 +779,30 @@ subject checkout
 → Codex Security runtime
 
 Codex Security runtime
-→ generated canonical source documents
+→ controlled producer-output roots
 
 canonical source documents
-→ referenced-evidence closure extraction
+→ authority-reference closure extraction
 
-generated source closure
-→ same-runner packaging boundary
+authority source closure
+→ deterministic source-bundle identity
 
-packaged source bundle
+source bundle
 → trusted PULSEmech intake verifier
 
-verified bytes and parsed structures
-→ private machine decision projection
+verified immutable buffers
+→ private identity and decision projections
 
 private intake report
-→ raw-bundle lifecycle action
+→ controlled-output lifecycle action
 
 completed lifecycle action
-→ private lifecycle receipt
+→ private lifecycle or cleanup carrier
 
-private intake report + private lifecycle receipt
+raw package + private control package
+→ private retention-set commit
+
+private report + lifecycle carriers
 → trusted public-summary builder
 
 private authority carriers
@@ -665,47 +814,13 @@ regenerated projection
 
 Each transition must be explicit.
 
-### 8.1 Untrusted inputs
-
-The verifier must treat all of the following as untrusted input:
-
-- subject repository content;
-- generated JSON;
-- generated filenames;
-- manifest paths;
-- artifact references;
-- timestamps;
-- target identity declared by the producer;
-- producer version declared by the producer;
-- finding severity;
-- finding identifiers;
-- coverage completeness;
-- include paths;
-- exclude paths;
-- deferred entries;
-- receipt references;
-- human-readable reports;
-- SARIF;
-- console output;
-- workflow annotations;
-- the source-bundle index;
-- the producer receipt;
-- the intake packet as a data carrier.
-
-No field becomes trusted because it was generated by a security tool.
-
-No field becomes trusted because it appears in an intake packet.
-
-Trust is established through a successful relation with independently resolved
-protected control-plane inputs.
-
 ---
 
-## 9. Threat model
+## 10. Threat model
 
 The design must defend against at least the following failures.
 
-### 9.1 Subject substitution
+### 10.1 Subject substitution
 
 A valid scan bundle may describe:
 
@@ -719,11 +834,9 @@ A valid scan bundle may describe:
 
 A valid bundle for the wrong subject is not valid release evidence.
 
-### 9.2 Stale evidence
+### 10.2 Stale evidence
 
 A completed scan may be old while the repository has advanced.
-
-Wall-clock recency alone does not solve this problem.
 
 The primary freshness binding is:
 
@@ -733,14 +846,14 @@ exact current workflow run
 exact current subject Git revision
 ```
 
-### 9.3 Bundle mutation
+### 10.3 Bundle mutation
 
 A canonical document or referenced evidence file may be modified after
 finalization.
 
-Every retained raw-bundle component must be digest-verified.
+Every authority source-bundle component must be digest-verified.
 
-### 9.4 Referenced-evidence substitution
+### 10.4 Referenced-evidence substitution
 
 A canonical document may reference scan-local evidence.
 
@@ -752,17 +865,35 @@ If that evidence is omitted from the source-bundle identity, it may be:
 - redirected;
 - substituted through a symlink.
 
-Every supported local evidence reference required for replay or validation must
-resolve into the indexed source-bundle closure.
+Every supported authority-relevant local reference must resolve into the
+indexed source-bundle closure.
 
-### 9.5 Producer substitution
+### 10.5 Unindexed confidential-output survival
+
+Codex Security may produce:
+
+- unreferenced `report.md`;
+- SARIF;
+- CSV;
+- logs;
+- write-ups;
+- temporary data;
+- workbench state.
+
+These files may be excluded from the authority source bundle and still contain
+confidential finding information.
+
+Lifecycle success must therefore be based on cleanup of the complete
+controlled confidential roots, not only indexed authority paths.
+
+### 10.6 Producer substitution
 
 A different package, plugin, wrapper, model, or runtime may produce a
 structurally similar bundle.
 
-Producer identity must be checked against an independent expected identity.
+Producer identity must be checked against an independent trusted expectation.
 
-### 9.6 Recipe drift
+### 10.7 Recipe drift
 
 A scan may silently change:
 
@@ -779,266 +910,248 @@ A scan may silently change:
 
 A changed recipe is a different observation process.
 
-### 9.7 Coverage collapse
+### 10.8 Coverage collapse
 
 A scan may complete after reviewing only part of the required surface.
 
 The absence of findings under partial or unknown coverage must fail closed.
 
-### 9.8 Exclusion injection
+### 10.9 Exclusion injection
 
 An attacker or configuration error may exclude a security-sensitive path.
 
-The actual exclusions must exactly match the declared exclusion policy.
+Actual exclusions must exactly match the declared exclusion policy.
 
-### 9.9 Deferred-work collapse
+### 10.10 Deferred-work collapse
 
 A scan may defer required work while still producing readable output.
 
 Deferred required work must not be converted into a passing result.
 
-### 9.10 Path traversal and symlink substitution
+### 10.11 Path traversal and symlink substitution
 
-A source-bundle path may:
+A path may:
 
-- escape its staging root;
+- escape an authorized root;
 - traverse through `..`;
 - use an absolute path;
 - use a symlink;
 - point to a replaced file;
 - point to a non-regular file.
 
-All input paths must remain inside the authorized scan root or staging root and
-resolve to regular, non-symlink files.
+All authority source-bundle paths must remain inside the authorized scan root
+and resolve to regular non-symlink files.
 
-### 9.11 Duplicate-key ambiguity
+Lifecycle deletion must remove symlinks themselves and must never follow them
+outside a controlled root.
 
-A JSON object may contain the same key more than once.
-
-Different parsers may retain:
-
-- the first value;
-- the last value;
-- all values;
-- no value because parsing fails.
-
-Conflicting duplicate values for fields such as:
-
-```text
-revision
-severity
-sha256
-document_type
-result
-policy_sha256
-```
-
-must not be interpreted by different components.
+### 10.12 Duplicate-key ambiguity
 
 Every JSON carrier must reject duplicate object keys before schema validation.
 
 Trusted YAML must reject duplicate mapping keys.
 
-### 9.12 Resource exhaustion
+### 10.13 Resource exhaustion
 
-An untrusted carrier may declare or contain an arbitrarily large document or
-an excessive number of referenced files.
-
-The verifier must enforce trusted limits from filesystem metadata before:
-
-- reading;
-- hashing;
-- decoding;
-- parsing.
+The verifier must enforce trusted limits before reading, hashing, decoding, or
+parsing.
 
 The verifier must also enforce:
 
-- maximum source-bundle entry count;
+- maximum authority source-bundle entry count;
 - maximum individual referenced-evidence file size;
-- maximum total source-bundle size.
+- maximum total authority source-bundle size.
 
-The untrusted bundle index cannot define or increase those limits.
+Untrusted producer output cannot increase these limits.
 
-### 9.13 Control-plane substitution
+### 10.14 Control-plane substitution
 
-A subject revision may attempt to replace:
+The subject revision may attempt to replace:
 
 - the verifier;
-- the expected verifier digest;
 - the policy;
-- the expected policy digest;
 - the schema snapshot;
 - the packet builder;
 - the summary builder;
-- the reference-closure extractor.
+- the reference extractor;
+- the lifecycle controller.
 
-The trusted control plane must come from a separately resolved protected
+Trusted control-plane identity must come from a separately resolved protected
 revision.
 
-A subject revision cannot approve itself by changing the checker and the
-expected checker digest together.
+### 10.15 Schema-snapshot substitution
 
-### 9.14 Schema-snapshot substitution
+The policy, packet, private report, and public summary must preserve the exact
+reviewed schema-snapshot identity and per-schema digests.
 
-A structurally valid but changed schema may accept fields that the reviewed
-contract did not permit.
+### 10.16 Missing public identities
 
-The policy, packet, report, and summary must preserve the exact reviewed
-schema-snapshot identity and per-schema digests.
+A summary builder restricted to private carriers cannot construct the public
+summary if the private intake report omits:
 
-### 9.15 Intake-report publication
+- subject identity;
+- workflow-run identity;
+- producer identity;
+- policy ID;
+- policy version;
+- policy digest.
 
-A verifier-issued intake report may contain private machine state and
-diagnostic relations.
+The private report must carry every dynamic identity required by the public
+projection.
 
-The intake report must not be uploaded as a public artifact.
+### 10.17 Evidence-presence collapse after deletion
 
-Public artifact guards must reject its path and filename.
+Successful `ephemeral_delete` removes the raw evidence.
 
-### 9.16 Summary substitution
+Evidence presence must therefore mean:
 
-A fabricated normalized summary may preserve the original intake-report digest
-while modifying:
+```text
+verified presence at the time of intake verification
+```
 
-- `verification.result`;
+It must not mean:
+
+```text
+current filesystem existence during later fold-in
+```
+
+### 10.18 Pre-index lifecycle contradiction
+
+An intake may fail before a valid source-bundle index or bundle identity
+exists.
+
+A lifecycle record must not require non-null identities that could not be
+established.
+
+Pre-index failures require a separate cleanup carrier.
+
+### 10.19 Incomplete private retention
+
+A raw source package may be transferred before the lifecycle receipt exists.
+
+A completed replay set must also retain the later private control package that
+contains the lifecycle receipt.
+
+Private retention completion must be independently committed after both
+packages exist.
+
+### 10.20 Summary substitution
+
+A fabricated public summary may preserve correct report digests while changing:
+
+- verification result;
 - finding counts;
 - coverage state;
-- `findings_policy_pass`;
+- policy result;
 - reason codes;
 - lifecycle state.
 
-The public summary cannot be trusted by metadata comparison alone.
+The fold-in must regenerate the complete projection from private authority
+carriers.
 
-The fold-in must regenerate the complete summary projection from the private
-intake report and private lifecycle receipt.
+### 10.21 Verification-use time gap
 
-### 9.17 Verification-use time gap
+The summary builder must not reopen canonical source documents.
 
-A verifier may check `findings.json` and a later summary builder may reopen a
-replaced file.
+Decision values come from the private report constructed from the exact
+verified immutable buffers.
 
-The trusted summary builder must not read canonical source documents.
+### 10.22 Lifecycle-state fabrication
 
-The verifier must produce the complete decision projection from the exact byte
-buffers it verified.
+A final public summary must be generated only after the selected lifecycle
+action completes and its postconditions pass.
 
-### 9.18 Lifecycle-state fabrication
+### 10.23 Credential exposure
 
-A summary may claim that raw evidence was privately retained or deleted before
-that action completed.
+The producer job must receive only the credentials required for the scan and
+declared private storage operation.
 
-The final public summary must be generated only after:
+### 10.24 Mutable triage substitution
 
-- the selected lifecycle action completes;
-- its postconditions are checked;
-- the private lifecycle receipt is finalized.
+Mutable local workbench triage is not part of the v0 authority carrier.
 
-### 9.19 Credential exposure
+### 10.25 Raw-finding publication
 
-The scanning process may inherit unrelated environment credentials.
-
-The producer job must receive only the credentials required for the scan.
-
-### 9.20 Mutable triage substitution
-
-A mutable local workbench may classify a finding as a false positive.
-
-Mutable triage state is not part of the v0 authority carrier.
-
-### 9.21 Report projection substitution
-
-A readable report or exported SARIF file may differ from the canonical JSON
-bundle.
-
-Only the verified canonical documents may drive the private decision
-projection.
-
-### 9.22 Raw-finding publication
-
-Raw findings may contain:
-
-- source excerpts;
-- vulnerable locations;
-- attack paths;
-- reproduction details;
-- internal architecture details.
-
-The raw bundle must not be uploaded as a normal Actions artifact of the public
-repository.
+Raw findings and private carriers must not enter public-repository Actions
+artifacts.
 
 ---
 
-## 10. End-to-end machine
+## 11. End-to-end machines
 
-The complete proposed machine is:
-
-```text
-protected exact control-plane revision
-→ trusted control-plane checkout
-
-exact selected subject Git revision
-→ clean isolated subject checkout
-
-trusted candidate policy
-+
-trusted verifier
-+
-trusted reference-closure extractor
-+
-trusted upstream schema snapshot
-+
-subject checkout
-→ isolated Codex Security producer
-→ completed canonical source documents
-→ complete referenced-evidence closure
-→ producer receipt
-→ same-runner source-bundle index
-→ same-runner bundle identity
-→ trusted intake packet
-→ trusted intake verifier
-→ private machine-only intake report
-→ private decision projection
-→ raw-bundle lifecycle action
-→ verified lifecycle postconditions
-→ private lifecycle receipt
-→ trusted sanitized-summary builder
-→ public allowlisted summary
-→ private fold-in regeneration
-→ exact projection equality
-→ inactive candidate gate fold-in
-→ candidate proof
-→ separate promotion review
-```
-
-The release-authority path remains:
+### 11.1 Indexed ephemeral-delete run
 
 ```text
-recorded release evidence
-→ status.json
-→ declared gate policy
-→ workflow-effective materialized required gate set
-→ strict fail-closed CI enforcement
-→ ALLOW or BLOCK
+protected control plane
+→ exact subject scan
+→ controlled producer outputs
+→ canonical document validation
+→ complete reference closure
+→ source-bundle index and identity
+→ trusted intake verification
+→ private intake report
+→ recorded evidence presence at verification
+→ complete controlled-root cleanup
+→ indexed-bundle lifecycle receipt
+→ public sanitized summary
+→ optional same-run candidate fold-in
+→ private carrier deletion before runner termination
 ```
 
-The Codex Security lane may connect to that path only after promotion.
+Later release-capable fold-in is not available after private carrier deletion.
 
-A public normalized summary alone cannot connect to that path.
+### 11.2 Indexed private-retention run
+
+```text
+protected control plane
+→ exact subject scan
+→ controlled producer outputs
+→ canonical document validation
+→ complete reference closure
+→ source-bundle index and identity
+→ trusted intake verification
+→ private intake report
+→ private raw-source package
+→ raw-source package transfer and verification
+→ complete controlled-root cleanup
+→ indexed-bundle lifecycle receipt
+→ private control package
+→ private control-package transfer and verification
+→ private retention-set commit
+→ private retention completion receipt
+→ public sanitized summary
+→ later private-carrier fold-in and replay
+```
+
+### 11.3 Pre-index failure run
+
+```text
+controlled producer outputs
+→ intake failure before valid index identity
+→ private unverified intake report when report construction remains possible
+→ complete controlled-root cleanup
+→ pre-index cleanup receipt
+→ public sanitized unverified summary
+```
+
+A pre-index failure cannot claim:
+
+```text
+valid source-bundle identity
+private replay package completeness
+release-capable evidence
+```
+
+If no valid private intake report can be emitted, no public summary is
+permitted.
 
 ---
 
-## 11. Producer job design
+## 12. Producer job design
 
-### 11.1 Isolation
+### 12.1 Isolation
 
-The producer must run in a dedicated ephemeral job.
-
-The job must not reuse a long-lived development workspace.
-
-The recommended first execution environment is a GitHub-hosted ephemeral
-runner.
-
-The job must use:
+The producer must run in a dedicated ephemeral job with:
 
 ```yaml
 permissions:
@@ -1057,73 +1170,35 @@ The job must not receive:
 - repository write permission;
 - package publish permission;
 - deployment permission;
-- cloud credentials unrelated to the scan;
-- signing keys unrelated to the scan;
+- unrelated cloud credentials;
+- unrelated signing keys;
 - release tokens;
 - mutable production credentials.
 
-### 11.2 Same-runner requirement
+### 12.2 Same-runner requirement
 
-The producer writes its state and results to runner-local storage.
-
-A later GitHub-hosted job cannot read that runner-local storage.
-
-The following operations must therefore complete in the same ephemeral job
-before the producer runner exits:
+All raw-data operations must complete on the same ephemeral runner:
 
 ```text
 run scan
+→ enumerate controlled outputs
 → create producer receipt
-→ identify canonical source documents
-→ extract referenced-evidence closure
-→ enforce trusted limits
-→ reject symlinks and path escape
-→ calculate component digests
-→ create source-bundle index
-→ calculate bundle identity
-→ build intake packet
+→ validate canonical documents
+→ extract reference closure
+→ create source-bundle index when possible
 → verify intake
-→ emit private intake report
-→ execute raw-bundle lifecycle action
-→ verify lifecycle postconditions
-→ emit private lifecycle receipt
-→ build public sanitized summary
-→ expose only public summary outputs
+→ emit private intake report when possible
+→ perform lifecycle action
+→ emit private lifecycle or cleanup carrier
+→ complete private retention when selected
+→ build public summary
 ```
 
-A separate raw-data packaging job is forbidden unless an explicit
-access-controlled secure transfer occurs before the producer job ends.
+A later public job must never receive raw files or private authority carriers.
 
-The first implementation must use the same-runner model.
+### 12.3 Package installation
 
-### 11.3 Directory layout
-
-Illustrative same-runner layout:
-
-```text
-${RUNNER_TEMP}/pulsemech-codex-security/
-├── trusted-control-plane/
-├── subject/
-├── codex-state/
-├── codex-results/
-├── producer-receipts/
-├── intake/
-├── private-authority/
-├── public-summary/
-└── private-transfer/
-```
-
-Codex state and result directories must be outside:
-
-```text
-trusted-control-plane/
-subject/
-```
-
-### 11.4 Package installation
-
-The implementation must use a package version pinned by an exact dependency
-lock.
+The implementation must use an exact package version and lock.
 
 A floating install is forbidden:
 
@@ -1134,47 +1209,36 @@ A floating install is forbidden:
 The producer wrapper must record:
 
 - package name;
-- exact package version;
+- package version;
 - package-lock digest;
-- package integrity value when available;
-- bundled plugin version;
+- package integrity when available;
+- plugin version;
 - Codex runtime version;
 - selected model;
 - selected reasoning effort;
 - Node.js version;
 - Python version.
 
-The expected values must come from the trusted candidate policy.
+### 12.4 Scan command boundary
 
-### 11.5 Scan command boundary
-
-The producer should run Codex Security in report-producing mode.
-
-The initial PULSEmech lane must not delegate release severity policy to the CLI.
-
-The producer must not use the CLI process exit code as the release result.
-
-The lane separately records:
+The lane records separately:
 
 ```text
 producer process completion
-canonical bundle completion
-canonical bundle verification
-reference-closure verification
+canonical document completion
+reference-closure completion
+source-bundle verification
 coverage verification
 findings-policy result
-lifecycle completion
+controlled-output cleanup
+private retention completion
 ```
 
-A successful producer process may still contain blocking findings.
+A process exit code is not a release result.
 
-A failed producer process may leave partial files.
+### 12.5 Forbidden producer commands
 
-Partial files must not become accepted evidence.
-
-### 11.6 Forbidden producer commands
-
-The automated producer lane must not execute:
+The automated lane must not execute:
 
 ```text
 codex-security patch
@@ -1185,22 +1249,17 @@ automatic git push
 automatic pull-request creation
 ```
 
-A future repair workflow requires a separate design and authority boundary.
-
 ---
 
-## 12. Producer receipt
+## 13. Producer receipt
 
-The canonical Codex Security bundle does not by itself carry every
-PULSEmech-required producer expectation.
-
-A PULSEmech-controlled wrapper must produce:
+The wrapper must produce:
 
 ```text
 codex_security_producer_receipt_v0.json
 ```
 
-The receipt should contain at least:
+Conceptual shape:
 
 ```yaml
 document_type: pulsemech.codex-security-producer-receipt
@@ -1242,42 +1301,29 @@ scan:
   scan_id: string_or_null
 
 outputs:
-  scan_root: relative_identifier
-  scan_manifest_path: relative_path
-  findings_path: relative_path
-  coverage_path: relative_path
+  controlled_results_root_id: fixed_identifier
+  controlled_state_root_id: fixed_identifier
+  scan_manifest_path: relative_path_or_null
+  findings_path: relative_path_or_null
+  coverage_path: relative_path_or_null
 ```
 
 The receipt must not contain:
 
-- API keys;
-- access tokens;
-- cookie values;
-- credential paths containing secret material;
+- credentials;
+- signed URLs;
+- absolute runner paths;
 - full environment dumps;
-- unrelated runner metadata;
-- private-storage access URLs;
-- private-storage credentials;
-- absolute runner paths.
-
-The receipt is a carrier.
-
-It is not trusted merely because it exists.
-
-Duplicate JSON keys in the receipt must be rejected.
+- raw finding details;
+- arbitrary human prose.
 
 ---
 
-## 13. Complete source-bundle closure
+## 14. Complete authority source-bundle closure
 
-The raw source bundle is the exact indexed set of files used for verification
-or retained for replay.
+### 14.1 Required core entries
 
-No unindexed retained file may be described as part of the source bundle.
-
-### 13.1 Required core entries
-
-The source bundle must contain:
+The authority source bundle must contain:
 
 ```text
 scan-manifest.json
@@ -1286,12 +1332,10 @@ coverage.json
 codex_security_producer_receipt_v0.json
 ```
 
-### 13.2 Referenced-evidence closure
+### 14.2 Referenced-evidence closure
 
-The trusted reference-closure extractor must inspect the validated canonical
-documents using rules bound to the vendored upstream schema snapshot.
-
-It must enumerate every supported local path reference required for:
+The trusted reference extractor must enumerate every supported local path
+reference required for:
 
 - canonical-document validation;
 - coverage validation;
@@ -1314,73 +1358,61 @@ a regular non-symlink file
 inside the authorized scan root
 ```
 
-The initial candidate lane must reject:
+### 14.3 Exact closure rule
 
-- unresolved local references;
-- unsupported authority-relevant reference forms;
-- non-local references required for verification;
-- missing referenced files;
-- duplicate resolved paths with conflicting roles;
-- references escaping the scan root;
-- referenced directories;
-- referenced sockets, devices, or other non-regular files.
+The verifier must independently recompute the reference closure.
 
-### 13.3 Exact closure rule
-
-The verifier must independently recompute the referenced-evidence closure.
-
-The recomputed closure must exactly equal the source-bundle index entry set.
-
-This means:
+The recomputed closure must exactly equal the authority source-bundle index
+entry set:
 
 ```text
 required core entries
 +
-every supported referenced-evidence entry
+every supported authority-relevant referenced entry
 ==
-indexed entry set
+indexed authority entry set
 ```
-
-An indexed extra file fails closed in v0.
 
 An omitted referenced file fails closed.
 
-A later design may permit explicitly declared optional private diagnostic
-entries.
+An indexed extra file fails closed in v0.
 
-### 13.4 Readable projections
+### 14.4 Readable and unreferenced projections
 
-Readable projections such as:
+Readable or machine projections such as:
 
 ```text
 report.md
 SARIF
 CSV
+logs
+write-ups
 ```
 
-are not included merely because they exist.
+are not added to the authority source bundle merely because they exist.
 
-If a canonical document contains an authority-relevant local reference to one
-of them, that referenced file must be indexed and remains private.
+If a canonical authority-relevant reference points to one of them, that file
+must be indexed.
 
-If no canonical authority-relevant reference requires it, the projection must
-not be added to the v0 source bundle.
+If no authority-relevant reference requires it, the file remains outside the
+authority source bundle.
+
+It still remains inside the controlled producer-output surface and must be
+removed by the lifecycle action.
 
 ---
 
-## 14. Source-bundle index and identity
+## 15. Source-bundle index and identity
 
-The PULSEmech wrapper must produce:
+The wrapper must produce:
 
 ```text
 codex_security_source_bundle_index_v0.json
 ```
 
-before the producer job ends.
+when a complete index can be established.
 
-### 14.1 Index entry shape
-
-Each indexed entry must record:
+### 15.1 Index entry shape
 
 ```yaml
 path: normalized_posix_relative_path
@@ -1390,18 +1422,14 @@ size_bytes: integer
 sha256: lowercase_sha256
 ```
 
-The index may separately record:
+Optional private review metadata may include:
 
 ```yaml
 referenced_by:
   - canonical_document_and_field_identifier
 ```
 
-`referenced_by` is review metadata.
-
-The canonical source documents already bind the reference relation.
-
-### 14.2 Path normalization
+### 15.2 Path normalization
 
 Every indexed path must:
 
@@ -1413,11 +1441,9 @@ Every indexed path must:
 - contain no backslash;
 - contain no NUL;
 - remain inside the authorized scan root;
-- resolve to one regular non-symlink file.
+- resolve to a regular non-symlink file.
 
-Path strings must be normalized before sorting and comparison.
-
-### 14.3 Deterministic entry ordering
+### 15.3 Deterministic ordering
 
 Entries must be sorted by:
 
@@ -1426,11 +1452,7 @@ normalized path UTF-8 bytes
 then role UTF-8 bytes
 ```
 
-No filesystem enumeration order may affect the index.
-
-### 14.4 Canonical identity payload
-
-The source-bundle identity must be calculated from this conceptual payload:
+### 15.4 Canonical identity payload
 
 ```json
 {
@@ -1450,11 +1472,11 @@ The source-bundle identity must be calculated from this conceptual payload:
 The payload must be serialized as:
 
 - UTF-8;
-- object keys in lexicographic order;
+- lexicographically ordered object keys;
 - no insignificant whitespace;
-- JSON string escaping;
+- deterministic JSON escaping;
 - decimal integers without leading zeros;
-- entries in the required deterministic order.
+- entries in required deterministic order.
 
 The source-bundle identity is:
 
@@ -1462,24 +1484,13 @@ The source-bundle identity is:
 sha256(canonical_identity_payload_bytes)
 ```
 
-### 14.5 Index self-boundary
+### 15.5 Index self-boundary
 
-The source-bundle index must not include itself as an entry.
+The index must not include itself.
 
-This avoids recursive identity.
+Its digest is calculated separately.
 
-The index digest is calculated separately and recorded in:
-
-```text
-intake packet
-intake report
-normalized summary
-private lifecycle receipt
-```
-
-### 14.6 Reference-closure record
-
-The index must record:
+### 15.6 Closure record
 
 ```yaml
 closure:
@@ -1491,177 +1502,78 @@ closure:
   closure_complete: true
 ```
 
-The verifier must recompute these values.
-
-The index is untrusted input.
-
-Its claims cannot replace recomputation.
+The verifier must recompute every value.
 
 ---
 
-## 15. Raw-bundle lifecycle and storage boundary
+## 16. Controlled producer-output surface
 
-The raw source bundle contains exactly the files represented by the verified
-source-bundle index.
+The lifecycle controller must handle the complete controlled producer-output
+surface, not only the indexed authority source bundle.
 
-The private authority package may additionally contain:
+### 16.1 Controlled surface contents
 
-```text
-codex_security_source_bundle_index_v0.json
-codex_security_intake_packet_v0.json
-codex_security_intake_report_v0.json
-codex_security_raw_bundle_lifecycle_receipt_v0.json
-```
-
-### 15.1 Public Actions artifact prohibition
-
-The raw source bundle must not be uploaded as a normal artifact of the public
-PULSEmech repository.
-
-The prohibition includes:
-
-- direct raw-file upload;
-- ZIP archives;
-- TAR archives;
-- unencrypted bundles;
-- bundles renamed to appear non-sensitive;
-- raw reports;
-- raw SARIF;
-- raw finding details;
-- the private intake report;
-- the private lifecycle receipt;
-- a broad parent directory containing any of those files.
-
-### 15.2 Allowed initial retention modes
-
-The initial candidate lane may use one of two modes.
-
-#### `ephemeral_delete`
+The controlled surface includes every file or directory created under:
 
 ```text
-raw bundle
-→ same-runner verification
-→ private intake report
-→ raw bundle deletion
-→ deletion postcondition verification
-→ private lifecycle receipt
-→ public sanitized summary
+controlled/codex-results
+controlled/codex-state
+controlled/producer-receipts
+controlled/authority-staging
+controlled/raw-package-staging
+controlled/private-transfer-staging
 ```
 
-This mode does not provide later raw-bundle replay.
+This includes:
 
-It may support only same-run candidate evaluation before the private carriers
-are deleted.
+- indexed authority files;
+- unindexed report projections;
+- unindexed SARIF or CSV;
+- scan logs;
+- temporary evidence;
+- workbench state;
+- abandoned partial files;
+- failed package copies.
 
-#### `access_controlled_private_storage`
+### 16.2 Authority extraction before cleanup
 
-```text
-raw bundle
-→ same-runner verification
-→ private intake report
-→ transfer to access-controlled private storage
-→ transferred bundle identity verification
-→ runner-local raw bundle deletion
-→ lifecycle postcondition verification
-→ private lifecycle receipt
-→ public sanitized summary
-```
+In private-retention mode, the trusted controller must first construct and
+transfer the private raw-source package from verified indexed authority
+entries.
 
-Acceptable storage classes may include:
+After that extraction succeeds, the entire controlled confidential surface
+must be cleaned.
 
-- an access-controlled private object store;
-- a separate private repository;
-- another explicitly access-controlled private evidence store.
+### 16.3 Whole-root cleanup
 
-The storage mechanism must not expose the raw bundle through the public
-repository.
+Lifecycle cleanup must:
 
-### 15.3 Replay requirement
+- reject unexpected controlled-root replacement;
+- remove entries without following symlinks outside the root;
+- remove all files and subdirectories below each controlled confidential root;
+- remove the controlled roots themselves when declared by policy;
+- verify that each declared root is absent after cleanup;
+- fail if any confidential controlled root remains populated.
 
-A fixed real-source proof intended for later independent replay requires:
+Checking only indexed raw paths is insufficient.
 
-```text
-access_controlled_private_storage
-```
+### 16.4 Output escape detection
 
-The privately retained replay package must preserve:
+Before lifecycle success, the workflow must also verify that producer output
+did not appear in known forbidden locations, including:
 
-- every indexed source-bundle entry;
-- the source-bundle index;
-- the intake packet;
-- the intake report;
-- the lifecycle receipt;
-- their calculated digests.
+- either Git worktree;
+- the public-summary root;
+- the public artifact staging root;
+- the runner home outside declared state paths.
 
-An ephemeral-only real run may demonstrate execution.
-
-It cannot demonstrate later raw-bundle replay.
-
-### 15.4 Lifecycle completion boundary
-
-A final public summary must not be created before the selected lifecycle action
-has completed.
-
-The required order is:
-
-```text
-verify intake
-→ emit private intake report
-→ calculate intake-report digest
-→ execute lifecycle action
-→ verify lifecycle postconditions
-→ emit private lifecycle receipt
-→ calculate lifecycle-receipt digest
-→ build final public summary
-```
-
-If the lifecycle action fails:
-
-```text
-no final public summary
-workflow fails closed
-```
-
-### 15.5 Storage information restrictions
-
-No public artifact may contain:
-
-- credentials;
-- signed access URLs;
-- encryption keys;
-- secret object-store names;
-- private repository access tokens;
-- raw finding contents;
-- absolute local storage paths.
+A producer output escape fails closed.
 
 ---
 
-## 16. Intake staging and trusted limits
+## 17. Trusted limits and immutable reads
 
-The PULSEmech verifier must operate on a dedicated staging root on the same
-runner that produced the raw source bundle.
-
-Illustrative layout:
-
-```text
-${RUNNER_TEMP}/pulsemech-codex-security/intake/
-├── source/
-│   ├── scan-manifest.json
-│   ├── findings.json
-│   ├── coverage.json
-│   ├── codex_security_producer_receipt_v0.json
-│   ├── referenced-evidence/
-│   └── codex_security_source_bundle_index_v0.json
-├── packet/
-│   └── codex_security_intake_packet_v0.json
-└── private-reports/
-```
-
-The staging root must not be inside either Git checkout.
-
-### 16.1 Trusted carrier limits
-
-The initial trusted maximum sizes are:
+### 17.1 Initial trusted limits
 
 ```yaml
 scan_manifest_max_bytes: 16777216
@@ -1671,87 +1583,64 @@ producer_receipt_max_bytes: 1048576
 source_bundle_index_max_bytes: 4194304
 intake_packet_max_bytes: 1048576
 intake_report_max_bytes: 8388608
-lifecycle_receipt_max_bytes: 1048576
+indexed_lifecycle_receipt_max_bytes: 1048576
+preindex_cleanup_receipt_max_bytes: 1048576
+private_control_package_manifest_max_bytes: 1048576
+retention_completion_receipt_max_bytes: 1048576
 public_summary_max_bytes: 4194304
 source_record_max_bytes: 1048576
 individual_schema_max_bytes: 4194304
 candidate_policy_max_bytes: 1048576
 referenced_evidence_file_max_bytes: 67108864
-raw_bundle_total_max_bytes: 536870912
-raw_bundle_entry_max_count: 10000
+authority_bundle_total_max_bytes: 536870912
+authority_bundle_entry_max_count: 10000
 ```
 
-These values must come from the protected candidate policy.
+### 17.2 Pre-read order
 
-The bundle index cannot increase them.
-
-The intake packet cannot independently increase them.
-
-A later change to these values requires a reviewed policy update.
-
-### 16.2 Pre-read validation order
-
-Before reading or hashing a carrier, the verifier must establish:
+Before reading or hashing a carrier:
 
 ```text
-1. expected root supplied by trusted configuration
+1. trusted root resolution
 2. path normalization
-3. authorized-root containment
-4. no-follow open or equivalent symlink-safe open
-5. file-descriptor metadata
-6. regular-file status
-7. trusted maximum size
-8. non-empty file where required
-9. only then read bytes from the same descriptor
-10. calculate digest from those exact bytes
-11. decode those exact bytes
-12. parse those exact bytes
+3. root containment
+4. no-follow open or equivalent
+5. descriptor metadata
+6. regular-file verification
+7. trusted size limit
+8. non-empty requirement
+9. read bytes from the same descriptor
+10. calculate digest from those bytes
+11. decode those bytes
+12. parse those bytes
 13. recheck descriptor metadata
-14. reject replacement or mutation indicators
+14. reject mutation indicators
 ```
 
-The verifier must also establish:
-
-- no duplicate resolved path exists;
-- total entry count is within the trusted maximum;
-- total bundle size is within the trusted maximum;
-- every calculated digest matches the recomputed index relation.
-
-A file exceeding its trusted limit must be rejected before hashing or parsing.
-
-### 16.3 Immutable verifier buffers
+### 17.3 Immutable verifier buffers
 
 The verifier must calculate:
 
 ```text
 digest
 parsed object
+identity projection
 decision projection
 ```
 
-from the same immutable byte buffer for each file.
-
-The verifier must not validate one read and derive the decision from another
-read.
+from the same immutable byte buffers.
 
 ---
 
-## 17. PULSEmech intake packet
+## 18. Intake packet
 
-The PULSEmech-controlled packet must be:
+The protected control plane must create:
 
 ```text
 codex_security_intake_packet_v0.json
 ```
 
-The packet supplies recorded expectations.
-
-The trust root is the protected control-plane checkout and workflow
-configuration.
-
-The packet is not permitted to authenticate itself.
-
-### 17.1 Required packet fields
+### 18.1 Required packet fields
 
 ```yaml
 document_type: pulsemech.codex-security-intake-packet
@@ -1762,7 +1651,6 @@ packet_scope: example_or_current_run
 trusted_control_plane:
   repository_identity: string
   revision: full_commit_sha
-  checkout_role: protected_control_plane
   policy_path: repository_relative_path
   policy_sha256: sha256
   verifier_path: repository_relative_path
@@ -1772,25 +1660,21 @@ trusted_control_plane:
   packet_builder_sha256: sha256
   reference_extractor_path: repository_relative_path
   reference_extractor_sha256: sha256
+  lifecycle_controller_path: repository_relative_path
+  lifecycle_controller_sha256: sha256
   summary_builder_path: repository_relative_path
   summary_builder_sha256: sha256
+  projection_checker_path: repository_relative_path
+  projection_checker_sha256: sha256
 
 schema_snapshot_binding:
   upstream_repository_identity: openai/codex-security
   upstream_revision: full_commit_sha
-  source_record_path: repository_relative_path
   source_record_sha256: sha256
   aggregate_snapshot_sha256: sha256
-  schemas:
-    scan_manifest:
-      path: repository_relative_path
-      sha256: sha256
-    findings:
-      path: repository_relative_path
-      sha256: sha256
-    coverage:
-      path: repository_relative_path
-      sha256: sha256
+  scan_manifest_schema_sha256: sha256
+  findings_schema_sha256: sha256
+  coverage_schema_sha256: sha256
 
 subject_expectation:
   repository_identity: string
@@ -1827,113 +1711,49 @@ scan_recipe_expectation:
   deferred_allowed: false
   unresolved_required_surfaces_allowed: false
 
-carrier_limits:
-  scan_manifest_max_bytes: integer
-  findings_max_bytes: integer
-  coverage_max_bytes: integer
-  producer_receipt_max_bytes: integer
-  source_bundle_index_max_bytes: integer
-  intake_packet_max_bytes: integer
-  intake_report_max_bytes: integer
-  lifecycle_receipt_max_bytes: integer
-  public_summary_max_bytes: integer
-  referenced_evidence_file_max_bytes: integer
-  raw_bundle_total_max_bytes: integer
-  raw_bundle_entry_max_count: integer
-
 findings_policy_binding:
   policy_id: string
   policy_version: string
   policy_sha256: sha256
 
-source_bundle:
-  bundle_index_path: staged_relative_path
-  bundle_index_sha256: sha256
-  bundle_identity: sha256
-  expected_entry_count: integer
-  expected_total_size_bytes: integer
+source_bundle_expectation:
+  index_path: staged_relative_path
+  index_sha256: sha256_or_null
+  bundle_identity: sha256_or_null
+  expected_entry_count: integer_or_null
+  expected_total_size_bytes: integer_or_null
 
 lifecycle_expectation:
   mode: ephemeral_delete_or_access_controlled_private_storage
   public_raw_artifact_allowed: false
-  intake_report_publication_allowed: false
-  lifecycle_receipt_publication_allowed: false
+  private_carrier_publication_allowed: false
 ```
 
-### 17.2 Trusted-root resolution
+### 18.2 Expected-value independence
 
-Before reading the packet, the workflow must independently resolve:
+Expected values must not be derived from:
 
-- the trusted control-plane checkout root;
-- the trusted control-plane repository identity;
-- the trusted control-plane exact revision;
-- the candidate policy path;
-- the verifier absolute path;
-- the reference extractor absolute path.
-
-The verifier must calculate its own:
-
-- control-plane revision;
-- policy digest;
-- verifier digest;
-- reference-extractor digest;
-- schema-snapshot digests.
-
-The verifier then compares those calculated values with the packet.
-
-It must not use packet-supplied paths to discover the trust root.
-
-### 17.3 Expected-value independence
-
-These values must come from the protected workflow or trusted candidate policy:
-
-- expected subject Git revision;
-- expected package version;
-- expected plugin version;
-- expected runtime version;
-- expected model;
-- expected reasoning effort;
-- expected execution mode;
-- expected coverage mode;
-- expected paths;
-- expected coverage state;
-- expected policy identity;
-- expected verifier identity;
-- expected reference-extractor identity;
-- expected schema-snapshot identity;
-- trusted carrier limits;
-- expected lifecycle mode.
-
-The packet builder must reject a mode that derives these expectations from:
-
-- `scan-manifest.json`;
-- `findings.json`;
-- `coverage.json`;
+- canonical source documents;
 - producer receipt;
 - source-bundle index;
 - report text;
 - command output;
-- subject-checkout policy files;
-- subject-checkout verifier files;
-- subject-checkout reference-extractor files.
+- subject-checkout tools or policies.
 
-A source artifact cannot supply its own expected identity.
+### 18.3 Nullable bundle expectation
 
-### 17.4 Duplicate-key rejection
+The packet may record null bundle identities only when index construction
+failed before a valid source-bundle identity could be established.
 
-The packet must be parsed with duplicate-key rejection.
+Null bundle identity does not mean a valid empty bundle.
 
-A packet containing a duplicate field is invalid even if both values are
-identical.
+It requires an unverified report result and the pre-index cleanup path.
 
 ---
 
-## 18. Upstream schema-snapshot handling
+## 19. Upstream schema snapshot
 
-PULSEmech verification must not depend on a live schema download.
-
-The implementation should vendor a reviewed snapshot of the relevant upstream
-Codex Security schemas inside the trusted control-plane checkout.
+PULSEmech verification must use a vendored reviewed snapshot.
 
 Illustrative layout:
 
@@ -1948,19 +1768,7 @@ vendor/openai/codex-security/
         └── coverage.schema.json
 ```
 
-`SOURCE.json` should record:
-
-- upstream repository identity;
-- upstream commit;
-- package version associated with the snapshot when known;
-- retrieval date;
-- individual file digests;
-- license identity;
-- reviewer note.
-
-### 18.1 Deterministic schema-snapshot identity
-
-The aggregate snapshot identity should be calculated as:
+The aggregate identity is:
 
 ```text
 sha256(
@@ -1973,42 +1781,18 @@ sha256(
 )
 ```
 
-The order is fixed.
-
-### 18.2 Required binding path
-
-The exact schema-snapshot identity and per-schema digests must be preserved in:
+The schema identity must be preserved through:
 
 ```text
-trusted candidate policy
+candidate policy
 → intake packet
 → private intake report
-→ public normalized summary
+→ public summary
 ```
-
-The verifier must calculate the digests from the trusted control-plane
-checkout.
-
-A package upgrade must not silently replace these files.
-
-A subject checkout must not supply a schema used for verification.
-
-### 18.3 Schema carrier validation
-
-Before using a vendored schema, the verifier must establish:
-
-- path containment inside the trusted control-plane checkout;
-- regular-file status;
-- symlink rejection;
-- trusted maximum size;
-- exact digest;
-- UTF-8 validity;
-- duplicate JSON key rejection;
-- JSON parseability.
 
 ---
 
-## 19. Intake verifier
+## 20. Intake verifier
 
 The proposed verifier is:
 
@@ -2016,82 +1800,33 @@ The proposed verifier is:
 tools/check_codex_security_intake_packet_v0.py
 ```
 
-The verifier must be sourced from the protected trusted control-plane
-checkout.
+It must be offline and deterministic.
 
-The verifier must be offline and deterministic.
-
-The same:
-
-```text
-trusted control-plane revision
-+
-trusted candidate policy
-+
-trusted schema snapshot
-+
-source bundle
-+
-intake packet
-+
-verifier version
-```
-
-must produce the same private intake report.
-
-### 19.1 Filesystem checks
+### 20.1 Filesystem checks
 
 The verifier must check:
 
-- trusted control-plane-root containment;
+- trusted control-plane containment;
 - scan-root containment;
 - staging-root containment;
 - regular-file status;
 - symlink rejection;
 - path normalization;
 - duplicate resolved-path rejection;
-- trusted maximum file sizes before reading;
-- trusted total bundle size;
-- trusted maximum entry count;
+- trusted file-size limits;
+- authority-bundle total-size and entry-count limits;
 - expected file presence;
-- non-empty files where required;
-- exact SHA-256 values;
-- exact source-bundle identity;
-- exact reference-closure equality.
+- exact digests;
+- exact reference-closure equality;
+- exact source-bundle identity when available.
 
-### 19.2 Strict JSON and YAML checks
+### 20.2 Strict JSON and YAML checks
 
-Every JSON carrier must be parsed with duplicate-key rejection.
+Every JSON carrier must reject duplicate keys.
 
-The required sequence is:
+Trusted YAML must reject duplicate mapping keys.
 
-```text
-UTF-8 decode
-→ strict duplicate-key-rejecting JSON parse
-→ top-level type validation
-→ schema validation
-→ cross-document validation
-```
-
-The verifier must reject duplicate keys in:
-
-```text
-scan-manifest.json
-findings.json
-coverage.json
-codex_security_producer_receipt_v0.json
-codex_security_source_bundle_index_v0.json
-codex_security_intake_packet_v0.json
-SOURCE.json
-vendored JSON schemas
-```
-
-Generated private intake reports, lifecycle receipts, and public summaries must
-be tested to ensure that their serializers cannot emit duplicate keys.
-
-Trusted YAML policy parsing must reject duplicate mapping keys.
-
-### 19.3 Cross-document checks
+### 20.3 Cross-document checks
 
 The verifier must require:
 
@@ -2105,229 +1840,42 @@ coverage scan id
 producer-receipt scan id
 ```
 
-The verifier must require:
+Manifest references and artifact digests must match independently calculated
+values.
 
-```text
-manifest findings reference == findings.json
-manifest coverage reference == coverage.json
-```
+### 20.4 Reference-closure checks
 
-The verifier must independently calculate the findings and coverage digests.
-
-Those digests must match the manifest artifact records.
-
-### 19.4 Reference-closure checks
-
-The verifier must:
-
-1. validate the canonical documents;
-2. execute the trusted reference extractor;
-3. normalize every supported local reference;
-4. resolve each reference inside the scan root;
-5. reject missing, escaping, symlinked, or non-regular targets;
-6. calculate size and digest from the opened target;
-7. rebuild the complete ordered index entry set;
-8. compare the rebuilt set with the supplied source-bundle index;
-9. recalculate the source-bundle identity.
-
-The supplied index must not determine which references are checked.
+The supplied index must not determine what references are checked.
 
 The canonical documents and trusted extractor determine the required closure.
 
-### 19.5 Manifest checks
+### 20.5 Trusted control-plane checks
 
-The verifier must require:
+The verifier must independently establish and bind:
 
-```text
-manifest scan status == completed
-```
+- control-plane repository;
+- control-plane revision;
+- policy digest;
+- verifier digest and version;
+- packet-builder digest;
+- reference-extractor digest;
+- lifecycle-controller digest;
+- summary-builder digest;
+- projection-checker digest;
+- schema-snapshot identity.
 
-The manifest target kind must equal:
+### 20.6 Producer, subject, and run checks
 
-```text
-git_revision
-```
+The verifier must compare actual producer and target identities with the
+trusted expectations.
 
-The manifest target revision must equal:
+### 20.7 Recipe and coverage checks
 
-```text
-intake packet expected subject revision
-```
+Execution mode, target scope, coverage mode, inventory strategy, include paths,
+exclude paths, exclusions, deferred work, and unresolved surfaces must be
+verified separately.
 
-A shortened SHA is insufficient.
-
-A missing revision is insufficient.
-
-A branch name is insufficient.
-
-A tag name without resolved commit identity is insufficient.
-
-### 19.6 Trusted control-plane checks
-
-The verifier must independently establish:
-
-```text
-actual trusted repository identity
-actual trusted revision
-actual policy path and digest
-actual verifier path and digest
-actual verifier version
-actual packet-builder path and digest
-actual reference-extractor path and digest
-actual summary-builder path and digest
-actual schema-snapshot identity
-```
-
-Those values must match:
-
-- the protected workflow expectation;
-- the trusted candidate policy;
-- the intake packet.
-
-A mismatch makes the evidence unverified.
-
-The subject checkout must not be consulted for these values.
-
-### 19.7 Producer identity checks
-
-The verifier must compare:
-
-```text
-manifest producer identity
-producer receipt identity
-trusted candidate policy
-intake packet expected producer identity
-```
-
-At minimum:
-
-```text
-manifest plugin version
-==
-producer receipt plugin version
-==
-expected plugin version
-```
-
-The package version, lock digest, runtime version, model, and reasoning effort
-must match the trusted expectation.
-
-Unknown or missing required producer identity fails closed.
-
-### 19.8 Current-run checks
-
-The producer receipt must match the current intake packet for:
-
-- repository identity;
-- workflow name;
-- protected workflow revision;
-- workflow run identifier;
-- workflow run attempt;
-- event name;
-- ref;
-- subject Git SHA.
-
-A bundle from another workflow run must not satisfy the current-run lane.
-
-A previous-run bundle must not be accepted because it evaluates the same path.
-
-### 19.9 Recipe checks
-
-The verifier must compare the actual scan recipe with the declared expected
-recipe.
-
-The following relations must match separately:
-
-```text
-producer requested execution mode
-==
-policy execution mode
-```
-
-```text
-producer requested target scope
-==
-policy target scope
-```
-
-```text
-coverage mode
-==
-policy expected coverage mode
-```
-
-```text
-coverage inventory strategy
-==
-policy inventory strategy
-```
-
-The verifier must also compare:
-
-- target kind;
-- target revision;
-- include paths;
-- exclude paths.
-
-Path-array comparison must use declared deterministic semantics.
-
-The first implementation should require exact array equality after a declared
-normalization step.
-
-The normalization step must:
-
-- reject absolute paths;
-- reject `..`;
-- normalize separators;
-- reject duplicates;
-- sort only if the policy declares order-insensitive semantics.
-
-### 19.10 Coverage checks
-
-The initial candidate policy must require:
-
-```text
-coverage.completeness == complete
-```
-
-It must also require:
-
-```text
-coverage.mode == repository
-coverage.inventoryStrategy == repository
-coverage.deferred is empty
-```
-
-Actual explicit exclusions must exactly match the policy allowlist.
-
-An extra exclusion fails closed.
-
-A missing required exclusion record fails closed if the policy expects it.
-
-A reviewed surface with an unresolved or follow-up disposition must not be
-treated as complete passing coverage.
-
-The verifier must preserve in its private decision projection:
-
-- reviewed-surface count;
-- unresolved-surface count;
-- explicit-exclusion count;
-- deferred-unit count;
-- required-coverage result.
-
-### 19.11 Findings checks
-
-The verifier must validate:
-
-- finding identifiers;
-- occurrence identifiers;
-- fingerprints;
-- rule identifiers;
-- severity structure;
-- confidence structure when present;
-- location structures;
-- duplicate finding identity;
-- supported severity values.
+### 20.8 Findings checks
 
 Supported severity values are:
 
@@ -2339,124 +1887,62 @@ low
 informational
 ```
 
-The following conditions make the complete observation unverified:
-
-- missing severity;
-- malformed severity object;
-- missing severity level;
-- unsupported severity value;
-- malformed finding;
-- schema-invalid finding.
-
-These conditions do not produce `verified_block`.
-
-They produce:
+Missing, malformed, or unsupported severity produces:
 
 ```text
 unverified
 ```
 
-The verifier must not discard a finding because:
+A valid critical or high finding produces:
 
-- confidence is low;
-- remediation is missing;
-- a readable report omits it;
-- an exported SARIF file omits it;
-- a mutable workbench classified it differently.
+```text
+verified_block
+```
 
-### 19.12 Findings-policy evaluation
+### 20.9 Evidence presence at verification
 
-The initial candidate policy is:
+The verifier must record evidence presence from the exact filesystem and byte
+state observed during verification.
+
+The record must not depend on later filesystem existence.
+
+Conceptual shape:
 
 ```yaml
-blocking_severities:
-  - critical
-  - high
-
-non_blocking_recorded_severities:
-  - medium
-  - low
-  - informational
-
-missing_severity: unverified
-malformed_severity: unverified
-unsupported_severity: unverified
-triage_override: unsupported
+evidence_presence_at_verification:
+  recorded: true
+  required_core_entry_count: integer
+  required_core_entries_present: integer
+  referenced_entry_count: integer_or_null
+  referenced_entries_present: integer_or_null
+  complete_required_presence: boolean
 ```
 
-The policy result is:
+For a complete indexed bundle:
 
 ```text
-findings_policy_pass == true
+complete_required_presence == true
 ```
 
-only when:
+requires every required core and referenced authority entry to have been
+present and successfully opened during verification.
+
+For a pre-index failure, the report may record partial observed counts, but:
 
 ```text
-canonical findings document is schema-valid
-+
-all findings use supported severity values
-+
-zero critical findings
-+
-zero high findings
+complete_required_presence == false
 ```
 
-Medium, low, and informational findings remain recorded.
+### 20.10 Single-read projection construction
 
-They do not disappear from the private decision projection or public summary.
+The verifier must construct all private report projections from the same
+validated immutable buffers.
 
-### 19.13 No implicit pass
-
-The verifier must never derive a passing findings policy from:
-
-- an empty directory;
-- a missing findings file;
-- an empty findings file;
-- malformed JSON;
-- duplicate JSON keys;
-- an unsupported schema version;
-- a producer error;
-- an incomplete reference closure;
-- a missing referenced file;
-- partial coverage;
-- unknown coverage;
-- missing surfaces;
-- unapproved exclusions;
-- deferred work;
-- a missing severity;
-- a malformed severity;
-- an unsupported severity;
-- absence of a readable report;
-- process exit code zero;
-- an untrusted policy;
-- an untrusted verifier;
-- an untrusted reference extractor;
-- an unverified schema snapshot;
-- a file exceeding its trusted size limit;
-- a bundle exceeding its trusted entry or total-size limit.
-
-Zero findings can contribute to a passing result only after every required
-integrity, closure, control-plane, schema, producer, subject, run, recipe, and
-coverage check passes.
-
-### 19.14 Single-read decision construction
-
-The verifier must construct the private decision projection from the same
-in-memory parsed objects whose bytes were:
-
-- read through validated descriptors;
-- size-checked;
-- hashed;
-- duplicate-key checked;
-- schema-validated.
-
-The verifier must not reopen canonical source documents to calculate decision
-fields.
+It must not reopen source files to calculate projected fields.
 
 ---
 
-## 20. Private intake report
+## 21. Private intake report
 
 The verifier must emit:
 
@@ -2464,15 +1950,15 @@ The verifier must emit:
 codex_security_intake_report_v0.json
 ```
 
-The report is a private authority carrier.
+when deterministic report construction remains possible.
 
-It must not be uploaded as a public Actions artifact.
+The report is private.
 
-The report must be serialized deterministically.
+It must not enter public Actions artifacts.
 
-### 20.1 Machine-only report boundary
+### 21.1 Exhaustive machine-only schema
 
-The intake report must use an exhaustive schema with:
+The report schema must use:
 
 ```text
 additionalProperties: false
@@ -2480,33 +1966,19 @@ additionalProperties: false
 
 at every authority-relevant object level.
 
-It must not contain:
+The report must not contain:
 
 - source excerpts;
 - vulnerable source paths intended for human display;
 - attack narratives;
 - remediation prose;
-- arbitrary human-readable messages;
+- arbitrary messages;
 - arbitrary notes;
 - free-form explanations;
 - raw model responses;
 - private-storage access data.
 
-The report may contain:
-
-- fixed identifiers;
-- digests;
-- enums;
-- booleans;
-- integers;
-- bounded arrays of stable reason codes;
-- normalized relative carrier paths required for private replay.
-
-Human-readable security details remain in the privately controlled raw bundle.
-
-### 20.2 Result classes
-
-The report has one of three result classes:
+### 21.2 Report result classes
 
 ```text
 verified_pass
@@ -2514,82 +1986,62 @@ verified_block
 unverified
 ```
 
-#### `verified_pass`
+### 21.3 Complete public-identity projection
 
-This means:
+The private report must contain every identity needed to construct or
+regenerate the public summary.
 
-- source bundle valid;
-- source-bundle integrity valid;
-- referenced-evidence closure complete;
-- trusted control-plane identity valid;
-- schema-snapshot identity valid;
-- expected producer matched;
-- current run matched;
-- exact subject matched;
-- expected recipe matched;
-- coverage requirements passed;
-- findings document valid;
-- findings policy passed.
+Conceptual shape:
 
-#### `verified_block`
+```yaml
+public_identity_projection:
+  subject:
+    repository_identity: string
+    target_kind: git_revision
+    revision: full_commit_sha
+    identity_state: verified_or_expected_only
 
-This means:
+  run_binding:
+    workflow_name: string
+    workflow_revision: full_commit_sha
+    run_id: string
+    run_attempt: integer
+    event_name: string
+    ref: string
+    identity_state: verified_or_expected_only
 
-- source bundle is valid and attributable;
-- referenced-evidence closure is complete;
-- trusted control-plane identity passed;
-- schema-snapshot identity passed;
-- subject, producer, run, recipe, and coverage checks passed;
-- the canonical findings document is valid;
-- one or more supported blocking-severity findings are present.
+  producer:
+    package_name: string_or_null
+    package_version: string_or_null
+    plugin_name: string_or_null
+    plugin_version: string_or_null
+    runtime_version: string_or_null
+    model: string_or_null
+    reasoning_effort: string_or_null
+    identity_state: verified_or_expected_only_or_unavailable
 
-Example:
-
-```text
-one verified high-severity finding
+  policy:
+    policy_id: string
+    policy_version: string
+    policy_sha256: sha256
 ```
 
-The evidence is valid.
+For `verified_pass` and `verified_block`:
 
-Its policy result is blocking.
+- subject identity must be verified;
+- run identity must be verified;
+- producer fields must be non-null and verified;
+- policy identity must be present.
 
-#### `unverified`
+For `unverified`:
 
-This means the evidence could not be accepted as a valid observation.
+- trusted subject and run expectations may be recorded with
+  `identity_state: expected_only`;
+- unavailable producer fields must be null;
+- the summary must preserve the identity state and must not present an
+  expected-only value as a verified producer observation.
 
-Examples:
-
-- missing canonical file;
-- missing referenced evidence;
-- incomplete reference closure;
-- oversized carrier;
-- duplicate JSON key;
-- digest mismatch;
-- wrong revision;
-- wrong producer;
-- wrong run;
-- wrong protected control-plane revision;
-- verifier digest mismatch;
-- policy digest mismatch;
-- schema-snapshot mismatch;
-- partial coverage;
-- malformed JSON;
-- unsupported schema;
-- unexpected exclusion;
-- deferred required work;
-- missing severity;
-- malformed severity;
-- unsupported severity.
-
-An unverified result must not be rewritten as:
-
-```text
-no vulnerabilities found
-```
-
-### 20.3 Required report bindings
-
-The intake report must preserve:
+### 21.4 Required technical bindings
 
 ```yaml
 trusted_control_plane:
@@ -2600,7 +2052,9 @@ trusted_control_plane:
   verifier_version: string
   packet_builder_sha256: sha256
   reference_extractor_sha256: sha256
+  lifecycle_controller_sha256: sha256
   summary_builder_sha256: sha256
+  projection_checker_sha256: sha256
 
 schema_snapshot_binding:
   upstream_repository_identity: string
@@ -2615,26 +2069,41 @@ intake_packet:
   sha256: sha256
 
 source_bundle:
-  bundle_identity: sha256
-  bundle_index_sha256: sha256
-  entry_count: integer
-  total_size_bytes: integer
-  referenced_evidence_count: integer
-  scan_manifest_sha256: sha256
-  findings_sha256: sha256
-  coverage_sha256: sha256
-  producer_receipt_sha256: sha256
+  identity_available: boolean
+  bundle_identity: sha256_or_null
+  bundle_index_sha256: sha256_or_null
+  entry_count: integer_or_null
+  total_size_bytes: integer_or_null
+  referenced_evidence_count: integer_or_null
+  scan_manifest_sha256: sha256_or_null
+  findings_sha256: sha256_or_null
+  coverage_sha256: sha256_or_null
+  producer_receipt_sha256: sha256_or_null
 ```
 
-The intake report cannot contain its own digest.
+A pre-index unverified report may contain null bundle identities.
 
-Its digest is calculated after serialization.
+It must record stable reason codes explaining why those identities are
+unavailable.
 
-### 20.4 Complete decision projection
+### 21.5 Evidence-presence projection
 
-The intake report must contain a complete machine decision projection.
+```yaml
+evidence_presence_at_verification:
+  recorded: true
+  required_core_entry_count: integer
+  required_core_entries_present: integer
+  referenced_entry_count: integer_or_null
+  referenced_entries_present: integer_or_null
+  complete_required_presence: boolean
+```
 
-Conceptual shape:
+This is the only evidence-presence input accepted by later candidate gates.
+
+Current filesystem existence after lifecycle cleanup is not an evidence-presence
+gate input.
+
+### 21.6 Complete decision projection
 
 ```yaml
 decision_projection:
@@ -2674,193 +2143,37 @@ decision_projection:
     reason_codes: stable_reason_code_array
 ```
 
-The projection must contain every field required to:
+The private report must carry every value needed to:
 
-- build the public normalized summary;
-- compare a regenerated summary;
+- build the public summary;
+- regenerate the public summary;
 - derive future candidate gate state.
 
-The public-summary builder must not obtain these values by reopening raw source
-documents.
+The summary builder must not reopen source carriers.
 
 ---
 
-## 21. Reason codes
+## 22. Lifecycle carrier classes
 
-The intake report must use stable machine-readable reason codes.
+The lane uses two distinct lifecycle carriers.
 
-Initial reason-code families should include:
+### 22.1 Indexed-bundle lifecycle receipt
 
-```text
-source_bundle_missing
-source_bundle_path_escape
-source_bundle_symlink
-source_bundle_non_regular_file
-source_bundle_empty_file
-source_bundle_digest_mismatch
-source_bundle_identity_mismatch
-source_bundle_entry_set_mismatch
-source_bundle_entry_count_exceeded
-source_bundle_total_size_exceeded
-
-referenced_evidence_missing
-referenced_evidence_path_escape
-referenced_evidence_symlink
-referenced_evidence_non_regular_file
-referenced_evidence_size_limit_exceeded
-referenced_evidence_digest_mismatch
-referenced_evidence_unindexed
-referenced_evidence_unresolved
-reference_closure_incomplete
-
-scan_manifest_size_limit_exceeded
-findings_size_limit_exceeded
-coverage_size_limit_exceeded
-producer_receipt_size_limit_exceeded
-source_bundle_index_size_limit_exceeded
-intake_packet_size_limit_exceeded
-schema_size_limit_exceeded
-policy_size_limit_exceeded
-
-manifest_parse_error
-manifest_duplicate_json_key
-manifest_schema_error
-manifest_status_not_completed
-manifest_artifact_record_missing
-manifest_artifact_record_duplicate
-manifest_artifact_digest_mismatch
-
-findings_parse_error
-findings_duplicate_json_key
-findings_schema_error
-findings_scan_id_mismatch
-findings_duplicate_identity
-findings_missing_severity
-findings_malformed_severity
-findings_unsupported_severity
-findings_blocking_severity_present
-
-coverage_parse_error
-coverage_duplicate_json_key
-coverage_schema_error
-coverage_scan_id_mismatch
-coverage_mode_mismatch
-coverage_not_complete
-coverage_inventory_strategy_mismatch
-coverage_include_paths_mismatch
-coverage_exclude_paths_mismatch
-coverage_unapproved_exclusion
-coverage_deferred_work_present
-coverage_required_surface_unresolved
-
-producer_receipt_parse_error
-producer_receipt_duplicate_json_key
-producer_receipt_schema_error
-producer_package_mismatch
-producer_plugin_mismatch
-producer_runtime_mismatch
-producer_model_mismatch
-producer_reasoning_effort_mismatch
-
-source_bundle_index_parse_error
-source_bundle_index_duplicate_json_key
-source_bundle_index_schema_error
-
-intake_packet_parse_error
-intake_packet_duplicate_json_key
-intake_packet_schema_error
-
-trusted_control_plane_repository_mismatch
-trusted_control_plane_revision_mismatch
-trusted_policy_path_mismatch
-trusted_policy_digest_mismatch
-trusted_policy_duplicate_mapping_key
-trusted_verifier_path_mismatch
-trusted_verifier_digest_mismatch
-trusted_verifier_version_mismatch
-trusted_packet_builder_digest_mismatch
-trusted_reference_extractor_digest_mismatch
-trusted_summary_builder_digest_mismatch
-
-schema_source_record_parse_error
-schema_source_record_duplicate_json_key
-schema_source_record_digest_mismatch
-schema_snapshot_revision_mismatch
-schema_snapshot_identity_mismatch
-scan_manifest_schema_digest_mismatch
-findings_schema_digest_mismatch
-coverage_schema_digest_mismatch
-
-subject_repository_mismatch
-subject_kind_mismatch
-subject_revision_mismatch
-
-run_workflow_mismatch
-run_workflow_revision_mismatch
-run_id_mismatch
-run_attempt_mismatch
-run_event_mismatch
-run_ref_mismatch
-run_subject_sha_mismatch
-
-execution_mode_mismatch
-target_scope_mismatch
-recipe_include_paths_mismatch
-recipe_exclude_paths_mismatch
-
-policy_identity_mismatch
-policy_digest_mismatch
-
-intake_report_binding_missing
-intake_report_digest_mismatch
-intake_report_publication_forbidden
-
-lifecycle_action_incomplete
-lifecycle_postcondition_failed
-lifecycle_receipt_missing
-lifecycle_receipt_digest_mismatch
-private_transfer_incomplete
-private_transfer_bundle_identity_mismatch
-local_raw_copy_not_deleted
-public_raw_artifact_detected
-
-summary_projection_mismatch
-summary_decision_field_mismatch
-summary_verifier_identity_mismatch
-summary_schema_snapshot_mismatch
-summary_lifecycle_binding_mismatch
-summary_public_schema_error
-summary_forbidden_field
-summary_free_form_text_forbidden
-```
-
-The public summary may expose only reason codes allowed by its explicit public
-schema.
-
-It must not expose human-readable reason text.
-
----
-
-## 22. Private raw-bundle lifecycle receipt
-
-After the lifecycle action and postcondition checks complete, the trusted
-control plane must emit:
+Path:
 
 ```text
 codex_security_raw_bundle_lifecycle_receipt_v0.json
 ```
 
-The receipt is private.
+This receipt is permitted only when a valid source-bundle index digest and
+bundle identity were established.
 
-It must not be uploaded as a public Actions artifact.
-
-### 22.1 Receipt binding
-
-The lifecycle receipt must bind:
+Conceptual shape:
 
 ```yaml
 document_type: pulsemech.codex-security-raw-bundle-lifecycle-receipt
 schema_version: "0.1"
+receipt_kind: indexed_bundle_lifecycle
 
 source_bundle:
   bundle_identity: sha256
@@ -2869,75 +2182,239 @@ source_bundle:
 intake_report:
   sha256: sha256
 
+controlled_output_cleanup:
+  controlled_root_count: integer
+  cleanup_attempted: true
+  cleanup_completed: boolean
+  postconditions_passed: boolean
+  all_controlled_confidential_roots_absent: boolean
+  public_raw_artifact_created: false
+
 lifecycle:
   mode: ephemeral_delete_or_access_controlled_private_storage
-  action_completed: boolean
+  raw_source_package_created: boolean
+  raw_source_transfer_completed: boolean
+  raw_source_transfer_verified: boolean
+  retained_raw_source_package_identity: sha256_or_null
+  runner_local_controlled_outputs_deleted: boolean
+```
+
+### 22.2 Pre-index cleanup receipt
+
+Path:
+
+```text
+codex_security_controlled_output_cleanup_receipt_v0.json
+```
+
+This receipt is used when no valid source-bundle identity could be established.
+
+Conceptual shape:
+
+```yaml
+document_type: pulsemech.codex-security-controlled-output-cleanup-receipt
+schema_version: "0.1"
+receipt_kind: preindex_cleanup
+
+intake_report:
+  sha256: sha256
+
+unavailable_source_bundle_identity:
+  bundle_identity_available: false
+  bundle_index_digest_available: false
+
+cleanup:
+  trigger_stage: preindex_failure
+  controlled_root_count: integer
+  cleanup_attempted: true
+  cleanup_completed: boolean
   postconditions_passed: boolean
+  all_controlled_confidential_roots_absent: boolean
   public_raw_artifact_created: false
-  runner_local_raw_copy_deleted: boolean
-  private_transfer_completed: boolean
-  private_storage_receipt_sha256: sha256_or_null
-  retained_bundle_identity: sha256_or_null
-  retention_policy_id: fixed_identifier_or_null
+
+reason_codes:
+  - stable_reason_code
 ```
 
-### 22.2 Ephemeral-delete postconditions
+The pre-index receipt must not invent:
 
-For:
+- a bundle identity;
+- a bundle-index digest;
+- an entry count;
+- a replay claim.
+
+### 22.3 Report requirement
+
+A sanitized public unverified summary may be built only when:
 
 ```text
-ephemeral_delete
+valid private unverified intake report
++
+valid pre-index cleanup receipt
 ```
 
-the receipt may state success only when:
-
-```text
-runner-local indexed raw paths no longer exist
-private transfer was not requested
-public raw artifact was not created
-```
-
-### 22.3 Private-storage postconditions
-
-For:
-
-```text
-access_controlled_private_storage
-```
-
-the receipt may state success only when:
-
-```text
-private transfer completed
-retained bundle identity equals verified source-bundle identity
-private storage receipt exists
-runner-local indexed raw paths no longer exist
-public raw artifact was not created
-```
-
-### 22.4 Receipt restrictions
-
-The receipt must not contain:
-
-- storage credentials;
-- signed URLs;
-- encryption keys;
-- raw source paths;
-- raw finding paths;
-- raw finding details;
-- free-form human text.
-
-The receipt must use an exhaustive schema.
+If no deterministic private intake report exists, cleanup may still occur, but
+no public summary is permitted.
 
 ---
 
-## 23. Public normalized summary
+## 23. Controlled-output lifecycle
 
-A completed lifecycle receipt permits generation of:
+### 23.1 Ephemeral-delete lifecycle
+
+For an indexed bundle:
 
 ```text
-codex_security_summary_v0.json
+private intake report
+→ complete controlled-root cleanup
+→ cleanup postcondition verification
+→ indexed-bundle lifecycle receipt
+→ public summary
+→ optional same-run candidate evaluation
+→ private carrier cleanup before runner termination
 ```
+
+For a pre-index failure:
+
+```text
+private unverified intake report
+→ complete controlled-root cleanup
+→ cleanup postcondition verification
+→ pre-index cleanup receipt
+→ public unverified summary
+```
+
+### 23.2 Private-retention lifecycle
+
+Private retention uses two non-recursive packages and a final storage-side
+commit receipt.
+
+#### Package A — private raw-source package
+
+```text
+private_raw_source_package_v0
+```
+
+It contains:
+
+- every verified authority source-bundle entry;
+- the source-bundle index;
+- a package manifest binding the source-bundle identity.
+
+It does not contain:
+
+- the intake report;
+- a lifecycle receipt that does not yet exist;
+- unindexed readable projections;
+- unindexed workbench state.
+
+Package A is transferred to access-controlled private storage and its stored
+identity is verified.
+
+#### Controlled-root cleanup
+
+After Package A transfer verification:
+
+- every controlled confidential root is deleted;
+- unindexed reports, SARIF, CSV, logs, state, and temporary files are removed;
+- cleanup postconditions are checked;
+- the indexed-bundle lifecycle receipt is created.
+
+#### Package B — private control package
+
+```text
+private_control_package_v0
+```
+
+It contains:
+
+- the intake packet;
+- the private intake report;
+- the indexed-bundle lifecycle receipt;
+- a control-package manifest with component digests.
+
+Package B is then transferred to access-controlled private storage and its
+stored identity is verified.
+
+#### Retention-set commit
+
+After both package transfers verify, the private storage control plane must
+commit a retention set containing:
+
+```text
+Package A identity
++
+Package B identity
++
+retention policy identity
+```
+
+The storage or independently trusted retention controller must issue:
+
+```text
+codex_security_private_retention_completion_receipt_v0.json
+```
+
+Conceptual shape:
+
+```yaml
+document_type: pulsemech.codex-security-private-retention-completion-receipt
+schema_version: "0.1"
+
+retention_set:
+  retention_set_id: fixed_non_secret_identifier
+  raw_source_package_identity: sha256
+  private_control_package_identity: sha256
+  raw_source_transfer_verified: true
+  private_control_transfer_verified: true
+  retention_policy_id: fixed_identifier
+  retention_set_committed: true
+
+bindings:
+  source_bundle_identity: sha256
+  intake_report_sha256: sha256
+  indexed_lifecycle_receipt_sha256: sha256
+```
+
+The retention completion receipt is the non-recursive final commit record.
+
+It is not required to be inside Package A or Package B.
+
+It must be independently retrievable from the private retention system.
+
+### 23.3 Complete private replay set
+
+The replay set is complete only when all three are available:
+
+```text
+Package A — private raw-source package
+Package B — private control package
+Retention completion receipt
+```
+
+The lifecycle receipt required for replay is preserved inside Package B.
+
+No package identity is mutated after verification.
+
+### 23.4 Public summary ordering
+
+The final public summary may be built only after:
+
+- indexed lifecycle receipt or pre-index cleanup receipt exists;
+- all lifecycle postconditions pass;
+- private retention completion receipt exists when private retention is
+  selected.
+
+If any required operation fails:
+
+```text
+no final public summary
+workflow fails closed
+```
+
+---
+
+## 24. Public summary builder
 
 The proposed builder is:
 
@@ -2945,9 +2422,7 @@ The proposed builder is:
 tools/build_codex_security_summary_v0.py
 ```
 
-The builder must come from the trusted control-plane checkout.
-
-### 23.1 Builder inputs
+### 24.1 Exclusive inputs
 
 The builder may consume only:
 
@@ -2956,9 +2431,13 @@ private verifier-issued intake report
 +
 calculated intake-report digest
 +
-private lifecycle receipt
+one private lifecycle carrier
 +
-calculated lifecycle-receipt digest
+calculated lifecycle-carrier digest
++
+private retention completion receipt when private retention is selected
++
+calculated retention-completion-receipt digest when present
 +
 trusted public-summary schema
 ```
@@ -2969,50 +2448,57 @@ The builder must not read:
 scan-manifest.json
 findings.json
 coverage.json
+producer receipt
+source-bundle index
 referenced scan-local evidence
 report.md
 SARIF
+CSV
+workbench state
+untrusted previously recorded public summary
 ```
 
-The decision values come exclusively from:
+### 24.2 Identity source
+
+Every public identity must come from:
+
+```text
+intake_report.public_identity_projection
+```
+
+This includes:
+
+- subject identity;
+- workflow-run identity;
+- producer identity;
+- policy ID;
+- policy version;
+- policy digest.
+
+### 24.3 Decision source
+
+Every public decision value must come from:
 
 ```text
 intake_report.decision_projection
 ```
 
-The lifecycle values come exclusively from the verified private lifecycle
+### 24.4 Evidence-presence source
+
+Public evidence-presence state must come from:
+
+```text
+intake_report.evidence_presence_at_verification
+```
+
+### 24.5 Lifecycle source
+
+Lifecycle state must come from the verified lifecycle or cleanup carrier.
+
+Private-retention state must come from the verified retention completion
 receipt.
 
-### 23.2 Intake-report validation
-
-Before building the public summary, the builder must:
-
-- enforce the trusted intake-report size limit;
-- reject symlinks;
-- reject duplicate JSON keys;
-- calculate the intake-report SHA-256;
-- validate the private report schema;
-- verify the report's control-plane identity;
-- verify the report's schema-snapshot identity;
-- verify the report's policy identity;
-- verify the complete decision projection.
-
-### 23.3 Lifecycle-receipt validation
-
-Before building the public summary, the builder must:
-
-- enforce the trusted lifecycle-receipt size limit;
-- reject symlinks;
-- reject duplicate JSON keys;
-- calculate the lifecycle-receipt SHA-256;
-- validate the private receipt schema;
-- require completed lifecycle action;
-- require passed postconditions;
-- verify intake-report binding;
-- verify source-bundle binding;
-- require `public_raw_artifact_created: false`.
-
-### 23.4 Public-summary allowlist
+### 24.6 Public allowlist
 
 The public summary schema must use:
 
@@ -3022,44 +2508,13 @@ additionalProperties: false
 
 at every object level.
 
-The public summary may contain only:
+Free-form text is forbidden.
 
-- fixed document identity;
-- subject repository identity;
-- exact subject revision;
-- workflow identity;
-- producer names and versions;
-- source-bundle identity and counts;
-- trusted control-plane identity and digests;
-- schema-snapshot identity and digests;
-- verification booleans;
-- coverage counts and enums;
-- finding counts;
-- policy result;
-- stable reason codes;
-- intake-report digest;
-- lifecycle-receipt digest;
-- non-sensitive lifecycle result;
-- authority mode and release effect.
+---
 
-The public summary must not contain:
+## 25. Proposed public summary
 
-- arbitrary messages;
-- notes;
-- explanations;
-- source excerpts;
-- finding titles;
-- finding summaries;
-- vulnerable paths;
-- attack paths;
-- remediation text;
-- storage locations;
-- signed URLs;
-- absolute runner paths;
-- private report paths;
-- raw evidence paths.
-
-### 23.5 Proposed public-summary shape
+Conceptual verified shape:
 
 ```json
 {
@@ -3069,7 +2524,8 @@ The public summary must not contain:
   "subject": {
     "repository_identity": "HKati/pulse-release-gates-0.1",
     "target_kind": "git_revision",
-    "revision": "<full-sha>"
+    "revision": "<full-sha>",
+    "identity_state": "verified"
   },
   "run_binding": {
     "workflow_name": "<name>",
@@ -3077,7 +2533,8 @@ The public summary must not contain:
     "run_id": "<id>",
     "run_attempt": 1,
     "event_name": "workflow_dispatch",
-    "ref": "<ref>"
+    "ref": "<ref>",
+    "identity_state": "verified"
   },
   "producer": {
     "package_name": "@openai/codex-security",
@@ -3086,9 +2543,11 @@ The public summary must not contain:
     "plugin_version": "<exact>",
     "runtime_version": "<exact>",
     "model": "<exact>",
-    "reasoning_effort": "<exact>"
+    "reasoning_effort": "<exact>",
+    "identity_state": "verified"
   },
   "source_bundle": {
+    "identity_available": true,
     "bundle_identity": "<sha256>",
     "bundle_index_sha256": "<sha256>",
     "entry_count": 4,
@@ -3098,6 +2557,14 @@ The public summary must not contain:
     "findings_sha256": "<sha256>",
     "coverage_sha256": "<sha256>",
     "producer_receipt_sha256": "<sha256>"
+  },
+  "evidence_presence_at_verification": {
+    "recorded": true,
+    "required_core_entry_count": 4,
+    "required_core_entries_present": 4,
+    "referenced_entry_count": 0,
+    "referenced_entries_present": 0,
+    "complete_required_presence": true
   },
   "coverage": {
     "mode": "repository",
@@ -3132,13 +2599,17 @@ The public summary must not contain:
   },
   "verification_binding": {
     "intake_report_sha256": "<sha256>",
-    "lifecycle_receipt_sha256": "<sha256>",
+    "lifecycle_carrier_kind": "indexed_bundle_lifecycle",
+    "lifecycle_carrier_sha256": "<sha256>",
+    "retention_completion_receipt_sha256": null,
     "trusted_control_plane_repository": "<identity>",
     "trusted_control_plane_revision": "<full-sha>",
     "verifier_sha256": "<sha256>",
     "verifier_version": "<version>",
     "reference_extractor_sha256": "<sha256>",
-    "summary_builder_sha256": "<sha256>"
+    "lifecycle_controller_sha256": "<sha256>",
+    "summary_builder_sha256": "<sha256>",
+    "projection_checker_sha256": "<sha256>"
   },
   "schema_snapshot_binding": {
     "upstream_repository_identity": "openai/codex-security",
@@ -3156,14 +2627,18 @@ The public summary must not contain:
     "findings_policy_pass": true,
     "reason_codes": []
   },
-  "raw_bundle_lifecycle": {
+  "controlled_output_lifecycle": {
     "mode": "ephemeral_delete",
-    "action_completed": true,
+    "cleanup_completed": true,
     "postconditions_passed": true,
-    "public_raw_artifact_created": false,
-    "runner_local_raw_copy_deleted": true,
-    "private_transfer_completed": false,
-    "private_storage_receipt_sha256": null
+    "all_controlled_confidential_roots_absent": true,
+    "public_raw_artifact_created": false
+  },
+  "private_retention": {
+    "required": false,
+    "retention_set_committed": false,
+    "raw_source_package_identity": null,
+    "private_control_package_identity": null
   },
   "authority": {
     "mode": "candidate_advisory",
@@ -3173,125 +2648,88 @@ The public summary must not contain:
 }
 ```
 
-The exact schema becomes normative only in the schema implementation pull
-request.
+### 25.1 Pre-index unverified summary
 
-### 23.6 Unverified-summary behavior
+For a pre-index failure:
 
-If the private intake report result is:
+- `source_bundle.identity_available` must be `false`;
+- bundle identity and index digest must be `null`;
+- evidence presence must show incomplete required presence;
+- lifecycle carrier kind must be `preindex_cleanup`;
+- verification result must be `unverified`;
+- findings policy pass must not be `true`;
+- private replay must not be claimed.
 
-```text
-unverified
-```
+### 25.2 No free-form text
 
-the builder may emit a sanitized public unverified summary only after the raw
-lifecycle action succeeds.
+The summary must not contain:
 
-It must not claim verified finding counts from a document that failed
-validation.
-
-Fields that cannot be established must be:
-
-- omitted when the public schema permits;
-- explicitly `null`;
-- marked unavailable by stable reason codes.
-
-An unverified summary cannot contain:
-
-```text
-findings_policy_pass: true
-```
-
-### 23.7 Deterministic public projection
-
-The same:
-
-```text
-private intake report
-+
-private lifecycle receipt
-+
-trusted summary builder
-+
-trusted public-summary schema
-```
-
-must produce byte-identical canonical summary bytes.
-
-The builder must use a declared canonical JSON serialization.
+- arbitrary messages;
+- notes;
+- explanations;
+- source excerpts;
+- finding titles;
+- finding summaries;
+- vulnerable paths;
+- attack paths;
+- remediation text;
+- storage locations;
+- signed URLs;
+- private report paths;
+- raw evidence paths.
 
 ---
 
-## 24. Artifact publication boundary
+## 26. Publication boundary
 
-### 24.1 Publicly uploadable artifacts
+### 26.1 Publicly uploadable artifacts
 
-The public candidate workflow may upload only:
+Only:
 
 ```text
 codex_security_summary_v0.json
-detached digest or signature for that summary
+detached digest or signature
 ```
 
-A separate explicitly reviewed public attestation may be added later.
+may enter a normal public-repository Actions artifact.
 
-### 24.2 Publicly forbidden artifacts
+### 26.2 Publicly forbidden artifacts
 
-The public candidate workflow must not upload:
+The public workflow must reject upload of:
 
 ```text
 codex_security_intake_report_v0.json
 codex_security_raw_bundle_lifecycle_receipt_v0.json
+codex_security_controlled_output_cleanup_receipt_v0.json
+codex_security_private_retention_completion_receipt_v0.json
 codex_security_intake_packet_v0.json
 codex_security_source_bundle_index_v0.json
+private raw-source package
+private control package
 raw findings.json
 raw report.md
 raw SARIF
-raw attack paths
-raw source excerpts
-raw scan-local evidence
-raw complete source bundle
-private-storage credentials
-private-storage signed URLs
-a broad parent directory containing any forbidden file
+raw CSV
+raw scan logs
+raw workbench state
+broad parent directories containing any forbidden file
 ```
 
-### 24.3 Publication checks
+### 26.3 Publication checks
 
-Before public upload, the final summary must pass:
+The final public summary must pass:
 
 - strict public schema validation;
 - duplicate-key rejection;
 - exhaustive field allowlist;
-- forbidden-field review;
 - free-form-text prohibition;
 - maximum-size enforcement;
-- symlink rejection;
 - canonical serialization check;
-- summary digest calculation.
-
-Generic secret-pattern scanning may be an additional check.
-
-It is not a substitute for the exhaustive public schema.
-
-### 24.4 Workflow guard
-
-The implementation must include a workflow guard that fails when a public
-artifact upload path includes:
-
-- the raw Codex results directory;
-- `findings.json`;
-- `report.md`;
-- raw SARIF;
-- the raw bundle directory;
-- the private intake report;
-- the private lifecycle receipt;
-- the source-bundle index;
-- a broad parent directory containing private or raw files.
+- digest calculation.
 
 ---
 
-## 25. Candidate gate design
+## 27. Candidate gate design
 
 The proposed inactive gate-set identity is:
 
@@ -3299,10 +2737,10 @@ The proposed inactive gate-set identity is:
 codex_security_recorded_intake_candidate
 ```
 
-The proposed gate members are:
+Proposed gates:
 
 ```text
-codex_security_evidence_present
+codex_security_evidence_present_at_verification
 codex_security_bundle_integrity_ok
 codex_security_reference_closure_complete
 codex_security_trusted_control_plane_ok
@@ -3315,169 +2753,71 @@ codex_security_coverage_complete
 codex_security_findings_document_valid
 codex_security_findings_policy_pass
 codex_security_intake_report_binding_ok
-codex_security_raw_lifecycle_complete
+codex_security_controlled_output_cleanup_complete
+codex_security_private_retention_complete
 codex_security_summary_projection_ok
 codex_security_intake_verified
 ```
 
-### 25.1 Gate semantics
+### 27.1 Evidence-presence gate
 
-#### `codex_security_evidence_present`
-
-Literal `true` only when every required core component and referenced-evidence
-component exists as a regular non-symlink file and satisfies trusted limits.
-
-#### `codex_security_bundle_integrity_ok`
-
-Literal `true` only when every expected digest, manifest artifact relation,
-indexed entry, and source-bundle identity passes.
-
-#### `codex_security_reference_closure_complete`
-
-Literal `true` only when the trusted extractor's recomputed reference closure
-exactly equals the indexed source-bundle entry set and no required reference is
-unresolved.
-
-#### `codex_security_trusted_control_plane_ok`
-
-Literal `true` only when the protected control-plane repository, revision,
-policy, verifier, packet builder, reference extractor, and summary builder
-match the independently resolved trusted identities.
-
-#### `codex_security_schema_snapshot_ok`
-
-Literal `true` only when the upstream revision, source record, aggregate
-snapshot identity, and all per-schema digests match the trusted policy.
-
-#### `codex_security_producer_identity_ok`
-
-Literal `true` only when package, plugin, runtime, model, and reasoning effort
-match the independently declared expectation.
-
-#### `codex_security_subject_binding_ok`
-
-Literal `true` only when the canonical target is the exact expected repository
-revision.
-
-#### `codex_security_run_binding_ok`
-
-Literal `true` only when the producer receipt belongs to the expected current
-workflow run and attempt.
-
-#### `codex_security_recipe_binding_ok`
-
-Literal `true` only when execution mode, target scope, coverage mode,
-inventory strategy, include paths, and exclude paths match the declared
-recipe.
-
-#### `codex_security_coverage_complete`
-
-Literal `true` only when required coverage is complete, required surfaces are
-resolved, exclusions are approved, and no required work is deferred.
-
-#### `codex_security_findings_document_valid`
-
-Literal `true` only when the canonical findings document is schema-valid,
-duplicate-key-free, and every finding has a supported severity.
-
-#### `codex_security_findings_policy_pass`
-
-Literal `true` only when the valid canonical findings document passes the
-declared blocking-severity policy.
-
-#### `codex_security_intake_report_binding_ok`
-
-Literal `true` only when the recorded intake-report digest and trusted verifier
-identity match the private verifier-issued report.
-
-#### `codex_security_raw_lifecycle_complete`
-
-Literal `true` only when:
-
-- the selected raw-bundle lifecycle action completed;
-- lifecycle postconditions passed;
-- the lifecycle receipt binds the source bundle and intake report;
-- no public raw artifact was created.
-
-#### `codex_security_summary_projection_ok`
-
-Literal `true` only when the trusted summary builder regenerates the expected
-public summary from the private intake report and lifecycle receipt and the
-canonical bytes exactly match the recorded public summary.
-
-#### `codex_security_intake_verified`
-
-Literal `true` when the private intake report result is:
+`codex_security_evidence_present_at_verification` is literal `true` only when
+the private intake report records:
 
 ```text
-verified_pass
+evidence_presence_at_verification.recorded == true
+complete_required_presence == true
 ```
 
-or:
+The gate does not inspect current filesystem existence.
+
+### 27.2 Bundle and closure gates
+
+Bundle integrity and reference closure are true only when a valid indexed
+bundle was established.
+
+A pre-index unverified summary cannot satisfy them.
+
+### 27.3 Cleanup gate
+
+`codex_security_controlled_output_cleanup_complete` is true only when the
+verified lifecycle or cleanup carrier records:
 
 ```text
-verified_block
+cleanup_completed == true
+postconditions_passed == true
+all_controlled_confidential_roots_absent == true
+public_raw_artifact_created == false
 ```
 
-A valid bundle containing a blocking finding may have:
+### 27.4 Private-retention gate
 
-```text
-codex_security_intake_verified = true
-codex_security_findings_document_valid = true
-codex_security_findings_policy_pass = false
-```
+`codex_security_private_retention_complete` is:
 
-This preserves the distinction between:
+- not required for same-run ephemeral candidate evaluation;
+- required for replay proof, later fold-in, and any future release-capable lane.
 
-```text
-invalid evidence
-```
+It is true only when the private retention completion receipt records a
+committed retention set containing both private packages.
 
-and:
+### 27.5 Summary-projection gate
 
-```text
-valid evidence proving a blocking security state
-```
+The trusted builder must regenerate the public summary from private carriers.
 
-### 25.2 Candidate-set boundary
+Canonical bytes must exactly match the recorded public summary.
 
-The candidate set must not appear in:
+### 27.6 Candidate-set boundary
 
-- `core_required`;
-- `required`;
-- `release_required`;
-- production blocking sets;
-- stage blocking sets;
-- tag-release required sets.
-
-Tests must prove that the candidate set remains inactive.
-
-Promotion requires a separate pull request.
+The candidate set must remain absent from every active required or blocking
+set until a separate promotion PR.
 
 ---
 
-## 26. Status fold-in boundary
+## 28. Fold-in boundary
 
-The initial design does not select a final `status.json` namespace.
+### 28.1 Public-summary-only input
 
-The later fold-in pull request must create a dedicated mapping.
-
-It must not reduce the evidence to one generic scalar.
-
-### 26.1 Private authority inputs
-
-A release-capable fold-in must receive:
-
-```text
-private intake report
-private lifecycle receipt
-recorded public summary
-trusted summary builder
-trusted candidate policy
-trusted public-summary schema
-```
-
-A public summary without the private report and lifecycle receipt is:
+A public summary without private carriers is:
 
 ```text
 advisory display only
@@ -3485,904 +2825,474 @@ advisory display only
 
 It cannot create candidate or release state.
 
-### 26.2 Required fold-in validation
+### 28.2 Same-run ephemeral fold-in
+
+Ephemeral mode may evaluate candidate state on the same runner while:
+
+- the private intake report;
+- the lifecycle or cleanup carrier;
+- the public summary;
+
+remain available to the trusted fold-in.
+
+After private carrier deletion, later fold-in is impossible.
+
+### 28.3 Private-retention fold-in
+
+A later release-capable fold-in requires:
+
+```text
+private raw-source package
+private control package
+private retention completion receipt
+recorded public summary
+trusted verifier
+trusted summary builder
+trusted projection checker
+trusted candidate policy
+trusted schemas
+```
+
+### 28.4 Required validation
 
 The fold-in must:
 
-1. validate the private intake report;
-2. calculate the intake-report digest;
-3. validate the private lifecycle receipt;
-4. calculate the lifecycle-receipt digest;
-5. verify report-to-receipt bindings;
-6. regenerate the canonical public summary with the trusted builder;
-7. compare regenerated bytes with the recorded public summary;
-8. derive gate inputs from the private report decision projection;
-9. reject any mismatch.
+1. verify the retention completion receipt;
+2. retrieve and verify Package B;
+3. validate the private intake report;
+4. validate the indexed lifecycle receipt;
+5. verify Package A identity and source-bundle binding;
+6. regenerate the public summary;
+7. compare canonical bytes;
+8. derive gate inputs from the private report;
+9. reject every mismatch.
 
 The fold-in must not trust decision values read only from the public summary.
 
-### 26.3 Decision-field equality
+### 28.5 Replay
 
-The regeneration check must cover every public decision field, including:
+Independent raw replay must rerun the trusted verifier against Package A and
+produce a new private intake report.
 
-```text
-verification.result
-all verification booleans
-coverage mode
-coverage completeness
-coverage counts
-all finding counts
-blocking count
-findings_policy_pass
-reason codes
-source-bundle identity
-intake-report digest
-lifecycle-receipt digest
-lifecycle result
-authority mode
-```
-
-A summary that preserves correct metadata but changes one decision field must
-fail closed.
-
-### 26.4 Source re-reading prohibition
-
-The fold-in and summary builder must not reopen raw canonical source documents.
-
-Authority-relevant values come from the private intake report decision
-projection.
-
-Independent replay from privately retained raw evidence must rerun the trusted
-verifier and produce a new intake report before fold-in.
-
-### 26.5 Folded state
-
-The folded state must preserve at least:
-
-- evidence presence;
-- source-bundle integrity;
-- reference-closure completeness;
-- trusted control-plane identity;
-- schema-snapshot identity;
-- producer identity;
-- subject binding;
-- run binding;
-- recipe binding;
-- coverage completeness;
-- finding counts;
-- informational finding count;
-- blocking finding count;
-- findings-document validity;
-- intake verification result;
-- findings-policy result;
-- intake-report digest;
-- lifecycle-receipt digest;
-- lifecycle completion;
-- summary-regeneration result;
-- verifier identity;
-- source-bundle identity;
-- stable reason codes.
-
-The fold-in must be deterministic.
-
-The fold-in must not parse readable reports.
-
-The fold-in must not accept unknown fields as success.
-
-The fold-in must not create a literal passing gate from the absence of known
-failures.
+The new report may then be compared with the retained report from Package B.
 
 ---
 
-## 27. CLI exit-code boundary
+## 29. Reason-code families
 
-The producer process exit code must be recorded.
-
-It must not be treated as the PULSEmech gate result.
-
-The lane distinguishes:
+The design requires stable codes including:
 
 ```text
-process completed
-canonical source documents completed
-reference closure completed
-canonical bundle verified
-trusted control plane verified
-schema snapshot verified
-coverage complete
-findings document valid
-findings policy passed
-raw lifecycle completed
-summary projection matched
+source_bundle_missing
+source_bundle_index_missing
+source_bundle_index_parse_error
+source_bundle_identity_unavailable
+source_bundle_digest_mismatch
+source_bundle_identity_mismatch
+source_bundle_entry_set_mismatch
+source_bundle_entry_count_exceeded
+source_bundle_total_size_exceeded
+
+referenced_evidence_missing
+referenced_evidence_path_escape
+referenced_evidence_symlink
+referenced_evidence_non_regular_file
+referenced_evidence_size_limit_exceeded
+referenced_evidence_digest_mismatch
+referenced_evidence_unindexed
+referenced_evidence_unresolved
+reference_closure_incomplete
+
+controlled_output_escape_detected
+controlled_output_cleanup_incomplete
+controlled_output_root_not_removed
+unindexed_confidential_output_remaining
+public_raw_artifact_detected
+
+manifest_parse_error
+manifest_duplicate_json_key
+manifest_schema_error
+manifest_status_not_completed
+manifest_artifact_digest_mismatch
+
+findings_parse_error
+findings_duplicate_json_key
+findings_schema_error
+findings_missing_severity
+findings_malformed_severity
+findings_unsupported_severity
+findings_blocking_severity_present
+
+coverage_parse_error
+coverage_duplicate_json_key
+coverage_schema_error
+coverage_not_complete
+coverage_unapproved_exclusion
+coverage_deferred_work_present
+coverage_required_surface_unresolved
+
+producer_receipt_parse_error
+producer_receipt_duplicate_json_key
+producer_package_mismatch
+producer_plugin_mismatch
+producer_runtime_mismatch
+producer_model_mismatch
+producer_reasoning_effort_mismatch
+
+trusted_control_plane_repository_mismatch
+trusted_control_plane_revision_mismatch
+trusted_policy_digest_mismatch
+trusted_verifier_digest_mismatch
+trusted_reference_extractor_digest_mismatch
+trusted_lifecycle_controller_digest_mismatch
+trusted_summary_builder_digest_mismatch
+trusted_projection_checker_digest_mismatch
+
+schema_snapshot_identity_mismatch
+scan_manifest_schema_digest_mismatch
+findings_schema_digest_mismatch
+coverage_schema_digest_mismatch
+
+subject_repository_mismatch
+subject_kind_mismatch
+subject_revision_mismatch
+
+run_workflow_mismatch
+run_workflow_revision_mismatch
+run_id_mismatch
+run_attempt_mismatch
+run_event_mismatch
+run_ref_mismatch
+run_subject_sha_mismatch
+
+execution_mode_mismatch
+target_scope_mismatch
+recipe_include_paths_mismatch
+recipe_exclude_paths_mismatch
+
+evidence_presence_incomplete_at_verification
+evidence_presence_record_missing
+
+intake_report_binding_missing
+intake_report_digest_mismatch
+intake_report_publication_forbidden
+public_identity_projection_incomplete
+decision_projection_incomplete
+
+indexed_lifecycle_receipt_missing
+preindex_cleanup_receipt_missing
+lifecycle_carrier_digest_mismatch
+lifecycle_action_incomplete
+lifecycle_postcondition_failed
+
+raw_source_package_transfer_incomplete
+raw_source_package_identity_mismatch
+private_control_package_transfer_incomplete
+private_control_package_identity_mismatch
+retention_set_commit_missing
+retention_set_commit_incomplete
+retention_completion_receipt_mismatch
+
+summary_projection_mismatch
+summary_decision_field_mismatch
+summary_identity_field_mismatch
+summary_lifecycle_binding_mismatch
+summary_public_schema_error
+summary_forbidden_field
+summary_free_form_text_forbidden
 ```
 
-A report-only scan may complete while containing high-severity findings.
-
-A runtime or incomplete-coverage failure may produce partial output.
-
-Therefore:
-
-```text
-exit code 0
-```
-
-does not prove:
-
-```text
-codex_security_findings_policy_pass = true
-```
-
-and:
-
-```text
-output files exist
-```
-
-does not prove:
-
-```text
-codex_security_intake_verified = true
-```
+The public summary may expose only explicitly allowed codes.
 
 ---
 
-## 28. Findings-transition boundary
-
-Codex Security may support comparison of findings across scans.
-
-The initial authority lane must not depend on mutable comparison state.
-
-The v0 lane evaluates one current, exact-revision source bundle.
-
-A later transition design may represent:
-
-```text
-new
-persisting
-reopened
-resolved
-unknown
-```
-
-That later design must preserve this rule:
-
-```text
-a finding missing from a later incomplete scan is not proven resolved
-```
-
-Cross-scan comparison requires:
-
-- both complete source bundles;
-- both exact subject identities;
-- both reference closures;
-- both coverage states;
-- both private intake-report identities;
-- both lifecycle receipts;
-- deterministic matching evidence;
-- explicit handling of ambiguous matches;
-- a separate transition artifact;
-- a separate verifier;
-- a separate promotion boundary.
-
----
-
-## 29. Failure matrix
+## 30. Failure matrix
 
 | Condition | Evidence state | Candidate result |
 |---|---|---|
-| All source files absent | Not present | False |
-| One canonical file missing | Unverified | False |
+| Canonical file missing | Unverified | False |
+| Bundle index missing | Pre-index unverified | False |
+| Bundle index malformed | Pre-index unverified | False |
+| Bundle identity unavailable | Pre-index unverified | False |
 | Required referenced evidence missing | Unverified | False |
-| Referenced evidence unindexed | Unverified | False |
-| Indexed entry not required by closure | Unverified | False |
 | Reference closure incomplete | Unverified | False |
-| Empty canonical file | Unverified | False |
-| Carrier exceeds trusted size limit | Unverified | False |
-| Bundle entry count exceeds trusted limit | Unverified | False |
-| Bundle total size exceeds trusted limit | Unverified | False |
-| JSON parse failure | Unverified | False |
+| Unindexed confidential projection remains after cleanup | Lifecycle failure | False |
+| Controlled results root remains | Lifecycle failure | False |
+| Controlled state root remains | Lifecycle failure | False |
 | Duplicate JSON key | Unverified | False |
-| Trusted YAML duplicate mapping key | Unverified | False |
 | Schema mismatch | Unverified | False |
-| Manifest not completed | Unverified | False |
-| Findings digest mismatch | Unverified | False |
-| Coverage digest mismatch | Unverified | False |
-| Referenced-evidence digest mismatch | Unverified | False |
-| Source-bundle identity mismatch | Unverified | False |
-| Symlinked input | Unverified | False |
-| Path escapes authorized root | Unverified | False |
-| Trusted control-plane revision mismatch | Unverified | False |
-| Policy digest mismatch | Unverified | False |
-| Verifier digest mismatch | Unverified | False |
-| Reference-extractor digest mismatch | Unverified | False |
-| Packet-builder digest mismatch | Unverified | False |
-| Summary-builder digest mismatch | Unverified | False |
-| Schema-snapshot identity mismatch | Unverified | False |
-| Per-schema digest mismatch | Unverified | False |
-| Producer package mismatch | Unverified | False |
-| Plugin version mismatch | Unverified | False |
-| Model mismatch | Unverified | False |
-| Reasoning-effort mismatch | Unverified | False |
-| Wrong repository | Unverified | False |
 | Wrong subject revision | Unverified | False |
 | Previous workflow run | Unverified | False |
-| Wrong execution mode | Unverified | False |
-| Wrong target scope | Unverified | False |
-| Wrong coverage mode | Unverified | False |
-| Wrong inventory strategy | Unverified | False |
-| Wrong include paths | Unverified | False |
-| Extra exclusion | Unverified | False |
-| Coverage `partial` | Unverified | False |
-| Coverage `unknown` | Unverified | False |
-| Deferred required work | Unverified | False |
-| Missing severity | Unverified | False |
-| Malformed severity | Unverified | False |
-| Unsupported severity | Unverified | False |
-| Valid complete scan with critical finding | Verified block | False |
-| Valid complete scan with high finding | Verified block | False |
-| Valid complete scan with medium finding only | Verified pass under initial policy | True |
-| Valid complete scan with low finding only | Verified pass under initial policy | True |
-| Valid complete scan with informational finding only | Verified pass under initial policy | True |
-| Valid complete scan with no findings | Verified pass | True |
-| No findings with incomplete coverage | Unverified | False |
-| Process exit zero with malformed bundle | Unverified | False |
-| Readable report says pass but canonical finding blocks | Verified block | False |
-| SARIF omits canonical high finding | Verified block | False |
-| Public intake-report upload configured | Invalid workflow boundary | False |
-| Public lifecycle-receipt upload configured | Invalid workflow boundary | False |
-| Raw bundle configured for public Actions upload | Invalid workflow boundary | False |
-| Lifecycle action fails after verification | No final summary | False |
-| Private transfer identity mismatch | No final summary | False |
-| Local raw copy remains after required deletion | No final summary | False |
-| Summary built before lifecycle completion | Invalid lifecycle ordering | False |
-| Summary builder reopens changed findings file | Forbidden implementation path | False |
-| Public summary changes `verified_block` to `verified_pass` | Projection mismatch | False |
-| Public summary changes a finding count | Projection mismatch | False |
-| Public summary changes `findings_policy_pass` | Projection mismatch | False |
-| Public summary available without private report | Advisory only | No authority |
-| Public summary available without lifecycle receipt | Advisory only | No authority |
-
-The candidate result in this table has no release effect before promotion.
+| Partial coverage | Unverified | False |
+| Missing or unsupported severity | Unverified | False |
+| Valid high finding | Verified block | False |
+| Valid no-blocking-finding scan | Verified pass | True |
+| Evidence deleted after verified presence | Recorded presence remains true | Possible same-run candidate |
+| Current filesystem has no raw evidence | Not used as presence gate | No contradiction |
+| Pre-index cleanup succeeds | Sanitized unverified summary allowed | False |
+| Pre-index cleanup fails | No public summary | False |
+| Raw source Package A retained, Package B missing | Retention incomplete | False |
+| Package B retained, retention commit missing | Retention incomplete | False |
+| Public summary identity differs from private report | Projection mismatch | False |
+| Public summary decision differs from private report | Projection mismatch | False |
+| Public summary used without private carriers | Advisory only | No authority |
+| Ephemeral summary used in later fold-in | Forbidden | No authority |
 
 ---
 
-## 30. Required tests
+## 31. Required tests
 
-### 30.1 Schema tests
-
-Tests must cover:
-
-- valid source-bundle index;
-- valid producer receipt;
-- valid intake packet;
-- valid private intake report;
-- valid private lifecycle receipt;
-- valid public normalized summary;
-- required-field omission;
-- unsupported schema version;
-- wrong document type;
-- invalid digest shape;
-- invalid path shape;
-- invalid Git revision shape;
-- `additionalProperties: false` enforcement.
-
-### 30.2 Duplicate-key tests
-
-Negative tests must cover duplicate JSON keys in:
-
-- manifest;
-- findings;
-- coverage;
-- producer receipt;
-- source-bundle index;
-- intake packet;
-- source record;
-- each vendored schema fixture;
-- private intake report input;
-- private lifecycle receipt input;
-- public summary input.
-
-Authority-relevant duplicate-key fixtures should include:
-
-```text
-revision
-severity
-sha256
-document_type
-result
-policy_sha256
-verifier_sha256
-aggregate_snapshot_sha256
-findings_policy_pass
-blocking_count
-action_completed
-```
-
-Trusted policy tests must reject duplicate YAML mapping keys.
-
-### 30.3 Filesystem and size-limit tests
+### 31.1 Private identity-projection tests
 
 Tests must cover:
 
-- regular files;
-- symlink rejection;
+- complete verified subject identity;
+- complete workflow-run identity;
+- complete producer identity;
+- policy ID and version;
+- missing dynamic public identity;
+- expected-only identity in unverified state;
+- null unavailable producer fields;
+- summary builder using only report identities.
+
+### 31.2 Evidence-presence tests
+
+Tests must prove:
+
+- complete presence recorded during verification;
+- missing core evidence records incomplete presence;
+- missing referenced evidence records incomplete presence;
+- successful deletion does not rewrite historical presence;
+- later gate derives presence only from the private report;
+- current filesystem absence is ignored by the presence gate.
+
+### 31.3 Pre-index cleanup tests
+
+Tests must cover:
+
+- missing index;
+- malformed index;
+- duplicate-key index;
+- oversized index;
+- unavailable bundle identity;
+- truthful cleanup receipt with null unavailable identities;
+- no invented bundle digest;
+- sanitized unverified summary after successful cleanup;
+- no summary after cleanup failure.
+
+### 31.4 Controlled-output lifecycle tests
+
+Tests must cover:
+
+- unreferenced `report.md`;
+- unreferenced SARIF;
+- unreferenced CSV;
+- scan log;
+- workbench state;
+- abandoned temporary file;
+- whole-root deletion;
+- root absence postcondition;
+- symlink removal without target traversal;
+- output escape detection;
+- indexed files removed;
+- unindexed confidential files removed.
+
+### 31.5 Private-retention tests
+
+Tests must cover:
+
+- Package A construction;
+- Package A identity;
+- Package A transfer verification;
+- lifecycle receipt creation after raw transfer and cleanup;
+- Package B construction containing the lifecycle receipt;
+- Package B identity;
+- Package B transfer verification;
+- retention-set commit;
+- retention completion receipt;
+- missing Package B;
+- changed Package B after transfer;
+- missing retention commit;
+- replay set containing A, B, and completion receipt.
+
+### 31.6 Builder-exclusive-input tests
+
+Tests must prove that the builder:
+
+- reads the private intake report;
+- reads one lifecycle carrier;
+- reads the retention completion receipt when required;
+- reads the trusted public schema;
+- does not open canonical source documents;
+- does not open the producer receipt;
+- does not open the source-bundle index;
+- does not open raw projections;
+- does not copy values from an existing public summary.
+
+### 31.7 Projection-regeneration tests
+
+Change each field independently:
+
+- subject revision;
+- workflow run ID;
+- producer version;
+- policy ID;
+- policy version;
+- verification result;
+- evidence presence;
+- critical count;
+- blocking count;
+- coverage result;
+- findings-policy result;
+- lifecycle mode;
+- retention completion state;
+- reason codes.
+
+Every change must produce projection mismatch.
+
+### 31.8 Existing boundary tests
+
+Tests must continue to cover:
+
+- duplicate keys;
+- size limits;
 - path traversal;
-- absolute paths;
-- duplicate resolved paths;
-- missing files;
-- empty files;
-- oversized manifest;
-- oversized findings;
-- oversized coverage;
-- oversized referenced evidence;
-- oversized receipt;
-- oversized bundle index;
-- oversized packet;
-- excessive entry count;
-- excessive total bundle size;
-- replacement during read;
-- replacement after index construction.
-
-Tests must prove that an oversized file is rejected before:
-
-- hashing;
-- decoding;
-- parsing.
-
-### 30.4 Reference-closure tests
-
-Tests must cover:
-
-- zero referenced-evidence files;
-- one valid referenced file;
-- multiple deterministically ordered referenced files;
-- missing referenced file;
-- referenced symlink;
-- referenced path escape;
-- unsupported required reference;
-- unindexed referenced file;
-- indexed extra file;
-- duplicate reference to the same file;
-- conflicting roles for the same resolved file;
-- modified referenced evidence with unchanged canonical documents;
-- complete closure replay.
-
-### 30.5 Bundle-integrity tests
-
-Tests must cover:
-
-- correct component digests;
-- modified manifest;
-- modified findings;
-- modified coverage;
-- modified producer receipt;
-- modified referenced evidence;
-- incorrect bundle identity;
-- nondeterministic input order;
-- duplicate manifest artifact records;
-- missing findings artifact record;
-- missing coverage artifact record;
-- bundle index self-entry rejection.
-
-### 30.6 Cross-document tests
-
-Tests must cover:
-
-- matching scan identifiers;
-- findings scan-ID mismatch;
-- coverage scan-ID mismatch;
-- receipt scan-ID mismatch;
-- wrong findings reference;
-- wrong coverage reference.
-
-### 30.7 Trusted control-plane tests
-
-Tests must cover:
-
-- exact protected control-plane revision;
-- wrong control-plane repository;
-- wrong control-plane revision;
-- verifier loaded from subject checkout;
-- policy loaded from subject checkout;
-- schema loaded from subject checkout;
-- reference extractor loaded from subject checkout;
-- verifier digest mismatch;
-- policy digest mismatch;
-- packet-builder digest mismatch;
-- reference-extractor digest mismatch;
-- summary-builder digest mismatch;
-- subject replacing verifier and expected digest together;
-- absolute trusted verifier path enforcement;
-- sanitized executable environment.
-
-### 30.8 Schema-snapshot tests
-
-Tests must cover:
-
-- exact upstream revision;
-- exact source-record digest;
-- exact aggregate snapshot identity;
-- manifest-schema digest mismatch;
-- findings-schema digest mismatch;
-- coverage-schema digest mismatch;
-- replaced schema with unchanged path;
-- live schema download forbidden;
-- subject-supplied schema rejected.
-
-### 30.9 Subject-binding tests
-
-Tests must cover:
-
-- exact revision match;
-- previous revision;
-- shortened revision;
-- branch name used as revision;
-- missing revision;
-- different repository;
-- `git_worktree` rejected for candidate lane;
-- `git_diff` rejected for candidate lane;
-- `directory_snapshot` rejected for candidate lane.
-
-### 30.10 Producer-binding tests
-
-Tests must cover:
-
-- exact package match;
-- package mismatch;
-- lock-digest mismatch;
-- plugin mismatch;
-- runtime mismatch;
-- model mismatch;
-- reasoning-effort mismatch;
-- missing producer field.
-
-### 30.11 Run-binding tests
-
-Tests must cover:
-
-- exact current run;
-- previous run identifier;
-- wrong run attempt;
-- wrong workflow name;
-- wrong protected workflow revision;
-- wrong event;
-- wrong ref;
-- wrong subject Git SHA.
-
-### 30.12 Recipe tests
-
-Tests must cover:
-
-- `standard` execution mode;
-- execution-mode mismatch;
-- repository target scope;
-- target-scope mismatch;
-- repository coverage mode;
-- coverage-mode mismatch;
-- repository inventory strategy;
-- inventory-strategy mismatch;
-- include-path mismatch;
-- exclude-path mismatch.
-
-### 30.13 Coverage tests
-
-Tests must cover:
-
-- complete repository coverage;
-- partial coverage;
-- unknown coverage;
-- extra exclusion;
-- missing declared exclusion;
-- deferred unit;
-- unresolved required surface.
-
-### 30.14 Findings-policy tests
-
-Tests must cover:
-
-- zero findings;
-- critical finding;
-- high finding;
-- medium finding;
-- low finding;
-- informational finding;
-- mixed severities;
-- missing severity;
-- malformed severity;
-- unsupported severity;
-- duplicate finding identity;
-- malformed finding;
-- low-confidence high finding;
-- report projection contradicting canonical findings;
-- SARIF projection contradicting canonical findings.
-
-Missing, malformed, and unsupported severity fixtures must produce:
-
-```text
-unverified
-```
-
-They must not produce:
-
-```text
-verified_block
-```
-
-### 30.15 Single-read verifier tests
-
-Tests must prove that:
-
-- digest and parse use the same bytes;
-- decision projection uses the validated parsed object;
-- file replacement after verification cannot change the report;
-- the verifier does not reopen canonical files for decision construction;
-- post-read metadata mismatch fails closed.
-
-### 30.16 Private intake-report tests
-
-Tests must prove that:
-
-- report schema is exhaustive;
-- arbitrary message fields are rejected;
-- source excerpts are rejected;
-- attack narratives are rejected;
-- free-form notes are rejected;
-- complete decision projection is present;
-- report publication through public artifact configuration is rejected.
-
-### 30.17 Lifecycle tests
-
-Tests must cover:
-
-- successful ephemeral deletion;
-- failed ephemeral deletion;
-- successful private transfer;
-- failed private transfer;
-- transferred bundle identity mismatch;
-- missing private storage receipt;
-- local raw copy remaining after transfer;
-- public raw artifact detected;
-- lifecycle receipt generated before action completion;
-- lifecycle receipt generated after verified postconditions.
-
-### 30.18 Public-summary builder tests
-
-Tests must prove that:
-
-- builder consumes only the private intake report and lifecycle receipt;
-- builder does not open canonical source documents;
-- builder does not open referenced evidence;
-- builder rejects report-digest mismatch;
-- builder rejects lifecycle-receipt mismatch;
-- builder rejects incomplete lifecycle state;
-- builder emits no free-form text;
-- builder emits only allowlisted fields;
-- canonical output is byte-deterministic.
-
-### 30.19 Summary-regeneration tests
-
-Tests must cover:
-
-- exact regenerated summary;
-- changed `verification.result`;
-- changed critical count;
-- changed high count;
-- changed blocking count;
-- changed coverage state;
-- changed `findings_policy_pass`;
-- changed reason codes;
-- changed lifecycle state;
-- changed intake-report digest;
-- changed lifecycle-receipt digest;
-- changed control-plane identity;
-- changed schema-snapshot identity.
-
-Every changed decision field must make:
-
-```text
-codex_security_summary_projection_ok = false
-```
-
-### 30.20 Publication tests
-
-Tests must prove that:
-
-- the public summary may be uploaded;
-- the private intake report may not be uploaded;
-- the private lifecycle receipt may not be uploaded;
-- the source-bundle index may not be uploaded;
-- raw findings may not be uploaded;
-- the raw results directory may not be uploaded;
-- broad parent-directory upload is rejected;
-- arbitrary public summary fields are rejected;
-- free-form public summary text is rejected.
-
-### 30.21 Same-runner lifecycle tests
-
-Tests or workflow checks must prove that:
-
-- scan output packaging occurs before the producer job exits;
-- raw source files are not expected in a later ephemeral job;
-- verification occurs before lifecycle action;
-- lifecycle postconditions occur before final summary creation;
-- private transfer completes before local deletion when configured;
-- only the final public summary crosses into later public jobs.
-
-### 30.22 Deterministic replay tests
-
-The same fixed:
-
-```text
-trusted control-plane revision
-trusted policy
-trusted schema snapshot
-source bundle
-source-bundle index
-intake packet
-verifier
-lifecycle receipt
-summary builder
-```
-
-must produce:
-
-- byte-identical private intake-report decision projection;
-- identical reason codes;
-- identical gate inputs;
-- identical finding counts;
-- identical source-bundle identity;
-- identical schema-snapshot identity;
-- byte-identical public normalized summary.
-
-### 30.23 Activation-guard tests
-
-Tests must prove that:
-
-- the candidate set is registered only as candidate;
-- it is absent from all active required sets;
-- no workflow makes it a required release check;
-- no release decision reads the public summary as active authority;
-- no generic external summary path implicitly promotes it.
+- symlink rejection;
+- schema snapshot;
+- subject binding;
+- run binding;
+- producer binding;
+- recipe binding;
+- coverage;
+- findings policy;
+- public artifact prohibition;
+- inactive candidate registration.
 
 ---
 
-## 31. Initial fixtures
+## 32. Initial fixtures
 
-### 31.1 Positive fixture
+### 32.1 Verified ephemeral fixture
 
 ```text
-exact protected control-plane revision
-exact trusted verifier, extractor, and policy
-exact schema snapshot
-exact subject Git revision
-valid completed manifest
-valid findings document
-valid complete coverage
-complete reference closure
-zero critical findings
-zero high findings
-matching producer receipt
-matching intake packet
-successful lifecycle action
+complete indexed bundle
+complete presence at verification
+no blocking findings
+complete root cleanup
+indexed lifecycle receipt
+public summary
 ```
 
-Expected result:
+Expected:
 
 ```text
 verified_pass
-public summary projection exact
-all inactive candidate gates true
-authority effect none
+evidence_present_at_verification = true
+controlled_output_cleanup_complete = true
+same-run candidate possible
+later fold-in unavailable
 ```
 
-### 31.2 Blocking fixture
+### 32.2 Verified private-retention fixture
 
 ```text
-exact protected control-plane revision
-exact schema snapshot
-exact subject Git revision
-valid completed manifest
-valid complete coverage
-complete reference closure
-one high-severity finding
-matching producer receipt
-matching intake packet
-successful lifecycle action
+complete indexed bundle
+Package A retained
+controlled roots cleaned
+lifecycle receipt created
+Package B retained
+retention set committed
+public summary generated
 ```
 
-Expected result:
+Expected:
 
 ```text
-verified_block
-integrity and binding gates true
-findings-policy gate false
-public summary records blocking state
-authority effect none
+verified_pass
+private_retention_complete = true
+later replay and fold-in possible
 ```
 
-### 31.3 Subject-mismatch fixture
+### 32.3 Pre-index failure fixture
 
 ```text
-valid-looking bundle
-manifest revision differs from expected subject revision
+source-bundle index missing
+private unverified report emitted
+controlled roots cleaned
+pre-index cleanup receipt emitted
 ```
 
-Expected result:
+Expected:
 
 ```text
 unverified
-subject-binding gate false
-candidate set not satisfied
-authority effect none
+bundle identity null
+no replay claim
+sanitized unverified summary allowed
 ```
 
-### 31.4 Coverage-collapse fixture
+### 32.4 Unindexed projection fixture
 
 ```text
-zero findings
-coverage completeness partial
+valid authority bundle
+unreferenced report.md exists in controlled results root
 ```
 
-Expected result:
+Expected:
 
 ```text
-unverified
-coverage gate false
-findings absence does not create pass
+report.md excluded from authority identity
+report.md removed by whole-root cleanup
+lifecycle succeeds only after root absence
 ```
 
-### 31.5 Control-plane-substitution fixture
+### 32.5 Identity-projection fixture
 
 ```text
-subject checkout contains modified verifier
-subject checkout contains matching modified expected digest
-trusted control-plane verifier remains unchanged
+private report contains subject, run, producer, policy ID and version
+raw source files deleted
 ```
 
-Expected result:
+Expected:
 
 ```text
-subject verifier ignored
-trusted verifier used
-subject cannot approve itself
+summary builder constructs every public identity from private report
+no raw source reopen
 ```
 
-### 31.6 Duplicate-key fixture
-
-```json
-{
-  "revision": "expected-sha",
-  "revision": "attacker-sha"
-}
-```
-
-Expected result:
+### 32.6 Evidence-presence fixture
 
 ```text
-unverified
-duplicate-key reason code emitted
+evidence present and verified
+ephemeral deletion succeeds
 ```
 
-### 31.7 Schema-snapshot mismatch fixture
+Expected:
 
 ```text
-findings schema replaced
-schema path unchanged
-digest differs from trusted policy
+evidence_present_at_verification remains true
+current filesystem presence is not consulted
 ```
 
-Expected result:
+### 32.7 Incomplete private-retention fixture
 
 ```text
-unverified
-schema-snapshot gate false
+Package A retained
+lifecycle receipt created
+Package B transfer missing
 ```
 
-### 31.8 Missing-severity fixture
+Expected:
 
 ```text
-canonical finding has no severity.level
-```
-
-Expected result:
-
-```text
-unverified
-not verified_block
-```
-
-### 31.9 Referenced-evidence substitution fixture
-
-```text
-canonical coverage document references artifacts/receipt-1.json
-source-bundle identity recorded
-referenced file replaced before replay
-```
-
-Expected result:
-
-```text
-referenced-evidence digest mismatch
-source-bundle identity mismatch
-unverified
-```
-
-### 31.10 Incomplete-closure fixture
-
-```text
-canonical document references artifacts/receipt-1.json
-source-bundle index omits the referenced file
-```
-
-Expected result:
-
-```text
-reference_closure_incomplete
-candidate set not satisfied
-```
-
-### 31.11 Intake-report publication fixture
-
-```text
-public artifact path includes codex_security_intake_report_v0.json
-```
-
-Expected result:
-
-```text
-workflow guard fails
-no publication
-```
-
-### 31.12 Lifecycle-ordering fixture
-
-```text
-summary is built before raw deletion or private transfer completes
-```
-
-Expected result:
-
-```text
-invalid lifecycle ordering
-no final summary publication
-```
-
-### 31.13 Source-replacement fixture
-
-```text
-verifier emits intake report
-findings.json is replaced
-summary builder runs
-```
-
-Expected result:
-
-```text
-summary builder does not read findings.json
-public summary remains derived from intake_report.decision_projection
-```
-
-### 31.14 Summary-substitution fixture
-
-```text
-valid private intake report
-valid lifecycle receipt
-fabricated public summary changes verified_block to verified_pass
-```
-
-Expected result:
-
-```text
-regenerated summary mismatch
-summary-projection gate false
-candidate set not satisfied
+retention set not committed
+no private-retention-complete claim
+no replay-capable summary
 ```
 
 ---
 
-## 32. Candidate policy
-
-A separate candidate policy file should be introduced during implementation.
+## 33. Candidate policy
 
 Proposed path:
 
@@ -4390,150 +3300,45 @@ Proposed path:
 policies/security/codex_security_candidate_policy_v0.yml
 ```
 
-Proposed conceptual structure:
+Conceptual additions:
 
 ```yaml
-policy:
-  id: pulsemech_codex_security_candidate_policy
-  version: "0.1"
+private_report:
+  exhaustive_schema: true
+  public_identity_projection_required: true
+  decision_projection_required: true
+  evidence_presence_at_verification_required: true
+  public_upload_allowed: false
 
-trusted_control_plane:
-  repository_identity: "HKati/pulse-release-gates-0.1"
-  source: protected_workflow_revision
-  require_separate_checkout_from_subject: true
-  subject_may_select_revision: false
+controlled_output:
+  whole_root_cleanup_required: true
+  unindexed_confidential_outputs_allowed_to_remain: false
+  output_escape_allowed: false
 
-  policy_path: policies/security/codex_security_candidate_policy_v0.yml
+preindex_failure:
+  cleanup_receipt_required: true
+  bundle_identity_may_be_null: true
+  replay_claim_allowed: false
 
-  verifier:
-    path: tools/check_codex_security_intake_packet_v0.py
-    version: "0.1"
-
-  packet_builder:
-    path: tools/build_codex_security_intake_packet_v0.py
-
-  reference_extractor:
-    path: tools/extract_codex_security_reference_closure_v0.py
-
-  summary_builder:
-    path: tools/build_codex_security_summary_v0.py
-
-schema_snapshot:
-  upstream_repository_identity: openai/codex-security
-  upstream_revision: "<full-sha>"
-  source_record_path: "vendor/openai/codex-security/<full-sha>/SOURCE.json"
-  source_record_sha256: "<sha256>"
-  aggregate_snapshot_sha256: "<sha256>"
-
-  schemas:
-    scan_manifest:
-      path: "vendor/openai/codex-security/<full-sha>/schemas/scan-manifest.schema.json"
-      sha256: "<sha256>"
-
-    findings:
-      path: "vendor/openai/codex-security/<full-sha>/schemas/findings.schema.json"
-      sha256: "<sha256>"
-
-    coverage:
-      path: "vendor/openai/codex-security/<full-sha>/schemas/coverage.schema.json"
-      sha256: "<sha256>"
-
-producer:
-  package_name: "@openai/codex-security"
-  package_version: "<exact>"
-  package_lock_sha256: "<sha256>"
-  plugin_name: "<exact>"
-  plugin_version: "<exact>"
-  runtime_version: "<exact>"
-  model: "<exact>"
-  reasoning_effort: "<exact>"
-
-target:
-  allowed_kind: git_revision
-  require_full_revision: true
-  require_clean_checkout: true
-
-recipe:
-  execution_mode: standard
-  target_scope: repository
-  expected_coverage_mode: repository
-  inventory_strategy: repository
-  include_paths: []
-  exclude_paths: []
-
-coverage:
-  required_completeness: complete
-  allowed_explicit_exclusions: []
-  deferred_allowed: false
-  unresolved_required_surfaces_allowed: false
-
-carrier_limits:
-  scan_manifest_max_bytes: 16777216
-  findings_max_bytes: 134217728
-  coverage_max_bytes: 33554432
-  producer_receipt_max_bytes: 1048576
-  source_bundle_index_max_bytes: 4194304
-  intake_packet_max_bytes: 1048576
-  intake_report_max_bytes: 8388608
-  lifecycle_receipt_max_bytes: 1048576
-  public_summary_max_bytes: 4194304
-  source_record_max_bytes: 1048576
-  individual_schema_max_bytes: 4194304
-  candidate_policy_max_bytes: 1048576
-  referenced_evidence_file_max_bytes: 67108864
-  raw_bundle_total_max_bytes: 536870912
-  raw_bundle_entry_max_count: 10000
-
-findings:
-  blocking_severities:
-    - critical
-    - high
-
-  non_blocking_recorded_severities:
-    - medium
-    - low
-    - informational
-
-  missing_severity: unverified
-  malformed_severity: unverified
-  unsupported_severity: unverified
-  triage_override: unsupported
-
-raw_bundle:
-  public_actions_artifact_allowed: false
-  allowed_retention_modes:
-    - ephemeral_delete
-    - access_controlled_private_storage
-
-private_authority_carriers:
-  intake_report_publication_allowed: false
-  lifecycle_receipt_publication_allowed: false
+private_retention:
+  raw_source_package_required: true
+  private_control_package_required: true
+  retention_set_commit_required: true
+  lifecycle_receipt_must_be_in_control_package: true
 
 public_summary:
+  exclusive_private_inputs: true
   free_form_text_allowed: false
   additional_properties_allowed: false
   authority_effect: none
-
-authority:
-  mode: candidate_advisory
-  release_effect: none
 ```
 
-The policy digest must be calculated from the trusted control-plane checkout.
-
-It must be recorded in:
-
-```text
-intake packet
-private intake report
-public normalized summary
-```
-
-The policy file must be parsed with duplicate-mapping-key rejection.
+The full policy must also retain all previously defined producer, schema,
+subject, recipe, coverage, carrier-limit, and findings-policy bindings.
 
 ---
 
-## 33. Workflow design
+## 34. Workflow design
 
 The initial workflow should be:
 
@@ -4541,15 +3346,7 @@ The initial workflow should be:
 .github/workflows/codex_security_candidate.yml
 ```
 
-The first workflow must be manual.
-
-It must run from a protected control-plane revision.
-
-It must not run automatically on untrusted pull requests.
-
-It must not expose a secret to untrusted fork code.
-
-### 33.1 Conceptual workflow
+### 34.1 Conceptual workflow
 
 ```text
 resolve-subject
@@ -4557,240 +3354,102 @@ resolve-subject
 → publish-public-summary
 ```
 
-Raw files and private authority carriers must not cross into the final public
-job.
+### 34.2 Raw and private job
 
-### 33.2 `resolve-subject`
-
-Responsibilities:
-
-- run from the protected workflow revision;
-- record the trusted control-plane repository and exact revision;
-- resolve the selected subject ref to a full commit;
-- require an allowed subject repository;
-- emit the expected subject identity;
-- emit the expected workflow-run identity;
-- reject subject selection that changes the control-plane revision.
-
-This job emits only non-sensitive identifiers.
-
-### 33.3 `codex-security-produce-verify-lifecycle-summarize`
-
-This single ephemeral job performs every raw-data and private-authority
-operation.
-
-Responsibilities:
+The central same-runner job performs:
 
 ```text
-1. checkout the protected trusted control plane
+1. verify protected control plane
 
-2. verify the trusted control-plane revision
+2. checkout exact subject separately
 
-3. load the trusted policy, verifier, builders, extractor, and schemas
+3. create controlled roots
 
-4. checkout the subject into a separate root
+4. run Codex Security
 
-5. verify the exact subject revision and clean state
+5. create producer receipt
 
-6. install the pinned Codex Security package outside both worktrees
+6. validate canonical source documents
 
-7. run the declared scan recipe
+7. extract reference closure
 
-8. write Codex state and output outside both worktrees
+8. build source-bundle index when possible
 
-9. create the producer receipt
+9. run trusted verifier
 
-10. validate canonical source-document paths and limits
+10. emit private intake report when possible
 
-11. extract the complete referenced-evidence closure
+11. branch by lifecycle mode and index availability
 
-12. enforce per-file, entry-count, and total-size limits
+12A. indexed ephemeral:
+     clean all controlled roots
+     verify cleanup
+     emit indexed lifecycle receipt
 
-13. reject symlinks, path escape, and non-regular files
+12B. indexed private retention:
+     create and transfer Package A
+     verify Package A
+     clean all controlled roots
+     verify cleanup
+     emit indexed lifecycle receipt
+     create and transfer Package B
+     verify Package B
+     commit retention set
+     obtain retention completion receipt
 
-14. calculate every source-bundle entry digest
+12C. pre-index failure:
+     clean all controlled roots
+     verify cleanup
+     emit pre-index cleanup receipt
 
-15. create the complete source-bundle index
+13. build final public summary from private carriers only
 
-16. calculate the source-bundle identity
+14. optionally perform same-run private fold-in
 
-17. create the independently expected intake packet
+15. remove remaining local private carriers before runner termination
 
-18. run the trusted verifier
-
-19. emit the private machine-only intake report
-
-20. calculate the intake-report digest
-
-21. execute the selected raw-bundle lifecycle action
-
-22. verify lifecycle postconditions
-
-23. emit the private lifecycle receipt
-
-24. calculate the lifecycle-receipt digest
-
-25. build the final public sanitized summary from the private report and receipt
-
-26. validate the public summary against the exhaustive public schema
-
-27. upload only the public summary for the next job
+16. expose only the public summary
 ```
 
-This job must never apply a patch.
+### 34.3 Public job
 
-### 33.4 `publish-public-summary`
+The public job receives only:
 
-Responsibilities:
+```text
+codex_security_summary_v0.json
+detached digest or signature
+```
 
-- download only the public normalized summary;
-- verify its digest;
-- validate the exhaustive public schema;
-- reject duplicate keys;
-- enforce the public size limit;
-- verify canonical serialization;
-- publish the public summary and its detached digest or signature.
-
-This job must never receive:
-
-- the raw source bundle;
-- the source-bundle index;
-- the intake packet;
-- the private intake report;
-- the private lifecycle receipt.
-
-### 33.5 Raw and private transfer prohibition
-
-The workflow must not use a normal public-repository Actions artifact to move:
-
-- the raw source bundle;
-- the source-bundle index;
-- the intake packet;
-- the private intake report;
-- the private lifecycle receipt.
-
-A future multi-job private-data design requires:
-
-- an access-controlled private transfer;
-- explicit encryption and key boundaries where applicable;
-- a separate design review.
-
-### 33.6 Workflow status
-
-The candidate workflow must fail when:
-
-- the producer fails;
-- the bundle is incomplete;
-- the reference closure is incomplete;
-- verification fails;
-- a blocking finding exists under a workflow policy configured to fail on
-  candidate block;
-- private retention was required but failed;
-- local raw deletion failed;
-- lifecycle postconditions failed;
-- a public raw or private-carrier upload path is detected;
-- the public-summary projection fails validation.
-
-Its workflow conclusion is not a PULSEmech release decision before promotion.
+It must never receive raw or private carriers.
 
 ---
 
-## 34. Cost and interruption boundary
+## 35. Cost and interruption boundary
 
-A scan may be interrupted by:
+An interrupted scan may leave:
 
-- cost limit;
-- timeout;
-- cancellation;
-- rate limit;
-- authentication failure;
-- model-access failure;
-- runtime error.
+- partial canonical files;
+- no source-bundle index;
+- unindexed reports;
+- temporary data;
+- state files.
 
-An interrupted scan may leave partial results.
+The cleanup controller must still remove the complete controlled confidential
+surface.
 
-The intake verifier must require completed canonical state.
+A partial run may emit a sanitized unverified summary only when:
 
-A partial bundle is not accepted because it contains some findings.
-
-A cost limit is an operational control.
-
-It is not a coverage proof.
-
-If a cost limit stops the required scan before completion:
-
-```text
-coverage requirement not established
-→ evidence unverified
-→ candidate result false
-```
-
-The raw partial bundle must follow the same private-or-delete lifecycle as a
-completed raw bundle.
-
-A lifecycle failure after an interrupted scan still prevents public summary
-publication.
-
----
-
-## 35. Package and contract upgrades
-
-The package currently has a pre-1.0 public interface.
-
-Every package or upstream contract upgrade must use a separate pull request.
-
-The upgrade pull request must include:
-
-- previous expected package version;
-- new expected package version;
-- previous plugin version;
-- new plugin version;
-- previous runtime version;
-- new runtime version;
-- previous model and reasoning effort;
-- new model and reasoning effort when changed;
-- previous vendored schema commit;
-- new vendored schema commit;
-- previous aggregate schema-snapshot digest;
-- new aggregate schema-snapshot digest;
-- per-schema digest changes;
-- reference-extractor compatibility review;
-- candidate-policy change;
-- verifier compatibility review;
-- public-summary compatibility review;
-- duplicate-key test replay;
-- size-limit review;
-- reference-closure fixture replay;
-- positive fixture replay;
-- negative fixture replay;
-- candidate proof regeneration.
-
-The workflow must never follow a floating package version.
-
-An upgrade must not silently change the scan recipe.
-
-An upgrade must not silently replace the trusted schema snapshot.
-
-An upgrade must not silently change supported evidence-reference fields.
+- a deterministic private unverified report exists;
+- cleanup completes;
+- a valid pre-index cleanup receipt exists.
 
 ---
 
 ## 36. Proposed implementation files
 
-The implementation is expected to introduce files similar to:
-
 ```text
 docs/security/
 └── PULSEMECH_CODEX_SECURITY_EVIDENCE_LANE_DESIGN_v0.md
-
-vendor/openai/codex-security/
-└── <upstream-commit>/
-    ├── LICENSE
-    ├── SOURCE.json
-    └── schemas/
-        ├── scan-manifest.schema.json
-        ├── findings.schema.json
-        └── coverage.schema.json
 
 policies/security/
 └── codex_security_candidate_policy_v0.yml
@@ -4801,6 +3460,10 @@ schemas/security/
 ├── codex_security_intake_packet_v0.schema.json
 ├── codex_security_intake_report_v0.schema.json
 ├── codex_security_raw_bundle_lifecycle_receipt_v0.schema.json
+├── codex_security_controlled_output_cleanup_receipt_v0.schema.json
+├── codex_security_private_raw_source_package_manifest_v0.schema.json
+├── codex_security_private_control_package_manifest_v0.schema.json
+├── codex_security_private_retention_completion_receipt_v0.schema.json
 └── codex_security_summary_v0.schema.json
 
 tools/
@@ -4808,46 +3471,35 @@ tools/
 ├── build_codex_security_source_bundle_index_v0.py
 ├── build_codex_security_intake_packet_v0.py
 ├── check_codex_security_intake_packet_v0.py
+├── run_codex_security_controlled_output_cleanup_v0.py
 ├── build_codex_security_raw_bundle_lifecycle_receipt_v0.py
+├── build_codex_security_controlled_output_cleanup_receipt_v0.py
+├── build_codex_security_private_raw_source_package_v0.py
+├── build_codex_security_private_control_package_v0.py
+├── check_codex_security_private_retention_completion_v0.py
 ├── build_codex_security_summary_v0.py
-└── check_codex_security_public_summary_v0.py
+└── check_codex_security_summary_projection_v0.py
 
 ci/
+├── check_codex_security_controlled_roots_v0.py
 ├── check_codex_security_no_public_private_artifact_v0.py
-├── check_codex_security_summary_projection_v0.py
 └── check_codex_security_candidate_activation_guard_v0.py
 
-examples/security/
-├── codex_security_producer_receipt_example_v0.json
-├── codex_security_source_bundle_index_example_v0.json
-├── codex_security_intake_packet_example_v0.json
-├── codex_security_intake_report_example_v0.json
-├── codex_security_raw_bundle_lifecycle_receipt_example_v0.json
-└── codex_security_summary_example_v0.json
-
 tests/
-├── test_codex_security_reference_closure_v0.py
-├── test_codex_security_source_bundle_index_v0.py
-├── test_codex_security_intake_packet_v0.py
-├── test_codex_security_duplicate_json_keys_v0.py
-├── test_codex_security_trusted_control_plane_v0.py
-├── test_codex_security_schema_snapshot_binding_v0.py
-├── test_codex_security_carrier_size_limits_v0.py
-├── test_codex_security_single_read_verifier_v0.py
-├── test_codex_security_intake_verifier_v0.py
-├── test_codex_security_private_intake_report_v0.py
-├── test_codex_security_raw_bundle_lifecycle_v0.py
-├── test_codex_security_public_summary_v0.py
+├── test_codex_security_public_identity_projection_v0.py
+├── test_codex_security_evidence_presence_at_verification_v0.py
+├── test_codex_security_preindex_cleanup_receipt_v0.py
+├── test_codex_security_controlled_output_cleanup_v0.py
+├── test_codex_security_private_raw_source_package_v0.py
+├── test_codex_security_private_control_package_v0.py
+├── test_codex_security_private_retention_completion_v0.py
+├── test_codex_security_summary_exclusive_inputs_v0.py
 ├── test_codex_security_summary_projection_v0.py
-├── test_codex_security_no_public_private_artifact_v0.py
-├── test_codex_security_candidate_gate_set_v0.py
 └── test_codex_security_candidate_activation_guard_v0.py
 
 .github/workflows/
 └── codex_security_candidate.yml
 ```
-
-Final filenames may change only through explicit implementation review.
 
 ---
 
@@ -4855,47 +3507,28 @@ Final filenames may change only through explicit implementation review.
 
 ### PR 1 — Design record
 
-Add the initial design record.
+Initial design only.
 
-Authority effect:
+### PR 1A — Trust and public-artifact hardening
 
-```text
-none
-```
-
-### PR 1A — Initial review hardening
-
-Correct the design to require:
-
-- no raw findings in public Actions artifacts;
-- same-runner producer packaging and verification;
-- separate execution-mode and coverage-mode fields;
-- duplicate-key rejection;
-- a separate protected control-plane checkout;
-- unverified classification for invalid severity;
-- intake-report binding in the summary;
-- trusted schema-snapshot bindings;
-- trusted pre-read carrier-size limits.
-
-Authority effect:
-
-```text
-none
-```
+Add protected verifier, schema, size, duplicate-key, and private raw-output
+boundaries.
 
 ### PR 1B — Report, closure, projection, and lifecycle binding
 
-Correct the design to require:
+Add private report, complete reference closure, lifecycle receipt, and summary
+regeneration.
 
-- private intake reports;
-- public-summary-only publication;
-- complete binding of referenced scan-local evidence;
-- a deterministic complete source-bundle identity;
-- complete decision projection inside the private intake report;
-- summary construction without reopening raw source documents;
-- lifecycle completion before final summary generation;
-- a private lifecycle receipt;
-- fold-in regeneration of every public decision field.
+### PR 1C — Identity, presence, cleanup, and retention closure
+
+Add:
+
+- complete public identities in the private report;
+- recorded evidence presence at verification;
+- pre-index cleanup receipt;
+- whole controlled-output-root cleanup;
+- two-package private retention;
+- retention-set completion receipt.
 
 Authority effect:
 
@@ -4905,498 +3538,206 @@ none
 
 ### PR 2 — Upstream contract snapshot
 
-Add:
-
-- upstream source record;
-- license record;
-- vendored schemas;
-- aggregate schema-snapshot identity;
-- per-schema digest checks;
-- duplicate-key checks;
-- trusted-size checks;
-- schema-source tests;
-- supported-reference-field inventory.
-
-Authority effect:
-
-```text
-none
-```
+Add vendored schemas, source record, digests, and supported-reference-field
+inventory.
 
 ### PR 3 — Carrier schemas
 
-Add:
+Add all public and private carrier schemas.
 
-- producer receipt schema;
-- source-bundle index schema;
-- intake packet schema;
-- private intake-report schema;
-- private lifecycle-receipt schema;
-- public-summary schema;
-- synthetic examples;
-- positive and negative schema tests;
-- duplicate-key negative fixtures;
-- exhaustive public allowlist.
+### PR 4 — Verifier and closure extractor
 
-Authority effect:
+Add immutable reads, reference closure, identity projection, decision
+projection, and presence-at-verification recording.
 
-```text
-none
-```
+### PR 5 — Lifecycle and cleanup carriers
 
-### PR 4 — Reference closure and trusted intake verifier
+Add whole-root cleanup, indexed lifecycle receipt, and pre-index cleanup
+receipt.
 
-Add:
+### PR 6 — Private retention packages
 
-- protected control-plane binding;
-- trusted reference extractor;
-- offline verifier;
-- filesystem checks;
-- pre-read size checks;
-- total-size and entry-count checks;
-- duplicate-key rejection;
-- complete closure verification;
-- bundle-integrity checks;
-- cross-document checks;
-- producer checks;
-- subject checks;
-- current-run checks;
-- schema-snapshot checks;
-- coverage checks;
-- finding checks;
-- single-read decision projection;
-- reason codes;
-- fixed fixtures.
+Add Package A, Package B, transfer verification, and retention-set commit.
 
-Authority effect:
+### PR 7 — Public summary and projection checker
 
-```text
-none
-```
+Add exclusive-input summary builder and deterministic regeneration.
 
-### PR 5 — Private intake report and lifecycle receipt
+### PR 8 — Inactive candidate registration
 
-Add:
+Add candidate gates with no active authority effect.
 
-- deterministic private intake report;
-- complete machine decision projection;
-- raw-bundle lifecycle execution boundary;
-- lifecycle postcondition checker;
-- private lifecycle receipt;
-- private-carrier publication guards.
+### PR 9 — Manual producer workflow
 
-Authority effect:
+Add the complete same-runner execution and public-summary-only publication.
 
-```text
-none
-```
+### PR 10 — Fixed-source candidate proof
 
-### PR 6 — Public normalized summary and projection checker
+Require private retention and replay proof.
 
-Add:
+### PR 11 — Promotion criteria
 
-- public-summary schema;
-- trusted summary builder;
-- report-and-lifecycle-only input boundary;
-- public field allowlist;
-- no-free-form-text guard;
-- deterministic summary regeneration;
-- projection equality tests.
+Define stability, retention, cost, failure, and update requirements.
 
-Authority effect:
+### PR 12 — Separate promotion
 
-```text
-none
-```
-
-### PR 7 — Inactive candidate registration
-
-Add:
-
-- candidate policy;
-- candidate gate definitions;
-- candidate gate-set registration;
-- activation guards;
-- proof that active required sets remain unchanged.
-
-Authority effect:
-
-```text
-none
-```
-
-### PR 8 — Manual same-runner producer workflow
-
-Add:
-
-- protected workflow trigger;
-- separate trusted and subject checkouts;
-- exact-revision subject target;
-- pinned package installation;
-- minimal permissions;
-- external state and result paths;
-- same-runner closure and packaging;
-- same-runner intake verification;
-- raw private-or-delete lifecycle;
-- private intake report and lifecycle receipt;
-- public-summary-only artifact publication;
-- public raw/private-artifact guards.
-
-Authority effect:
-
-```text
-none
-```
-
-### PR 9 — Fixed-source candidate proof
-
-Record:
-
-- exact trusted control-plane revision;
-- exact subject revision;
-- workflow run identity;
-- producer identity;
-- schema-snapshot identity;
-- source-bundle identity;
-- complete reference-closure identity;
-- intake packet digest;
-- private intake-report digest;
-- private lifecycle-receipt digest;
-- public summary digest;
-- expected candidate gate state;
-- deterministic projection result;
-- private retention state when replay is claimed.
-
-Authority effect:
-
-```text
-none
-```
-
-### PR 10 — Promotion criteria
-
-Define:
-
-- operational stability threshold;
-- package update process;
-- schema-snapshot update process;
-- reference-extractor update process;
-- coverage policy;
-- cost policy;
-- secret boundary;
-- private-storage boundary;
-- retention policy;
-- required scan cadence;
-- failure handling;
-- exact promotion prerequisites.
-
-Authority effect:
-
-```text
-none
-```
-
-### PR 11 — Separate promotion
-
-Only this pull request may propose moving the candidate set into a required
-release policy.
-
-The promotion pull request must be independently reviewable.
-
-The promotion pull request must not contain unrelated implementation work.
+Only this PR may activate required release authority.
 
 ---
 
 ## 38. Promotion prerequisites
 
-Promotion must not occur until all of the following are proven.
+Promotion requires proof of:
 
-### 38.1 Trusted control-plane proof
+### 38.1 Complete private identities
 
-- protected control-plane repository identity recorded;
-- protected exact revision recorded;
-- subject cannot select the control-plane revision;
-- trusted and subject checkouts are separate;
-- verifier sourced only from the trusted checkout;
-- policy sourced only from the trusted checkout;
-- schema snapshot sourced only from the trusted checkout;
-- reference extractor sourced only from the trusted checkout;
-- subject-supplied executable code excluded from verification;
-- executable and module-loading environment sanitized.
+The private report carries every subject, run, producer, and policy identity
+required for deterministic public projection.
 
-### 38.2 Producer proof
+### 38.2 Recorded evidence presence
 
-- exact package identity recorded;
-- exact plugin identity recorded;
-- exact runtime identity recorded;
-- exact model and reasoning effort recorded;
-- package lock verified;
-- minimal environment established;
-- no unrelated credential inheritance;
-- output outside both worktrees;
-- no patch application.
+Evidence presence is recorded during verification and remains distinct from
+post-verification filesystem state.
 
-### 38.3 Carrier and closure proof
+### 38.3 Pre-index failure handling
 
-- every source file digest verified;
-- every required referenced-evidence file indexed;
-- reference closure deterministic;
-- source-bundle identity deterministic;
-- duplicate JSON keys rejected;
-- trusted size limits enforced before reading;
-- total-size and entry-count limits enforced;
-- source bundle retained privately when replay is claimed;
-- raw bundle never exposed through public Actions artifacts.
+A truthful cleanup receipt can be issued without invented bundle identities.
 
-### 38.4 Schema proof
+### 38.4 Whole-surface confidentiality cleanup
 
-- exact upstream repository identity recorded;
-- exact upstream revision recorded;
-- source-record digest recorded;
-- aggregate snapshot identity recorded;
-- per-schema digests recorded;
-- schema snapshot preserved through packet, report, and summary;
-- live schema download absent from verification.
+All indexed and unindexed confidential producer output is removed from
+controlled local roots.
 
-### 38.5 Subject proof
+### 38.5 Complete private retention
 
-- exact Git revision binding;
-- current workflow-run binding;
-- previous-run reuse rejected;
-- wrong-revision fixture rejected;
-- dirty-worktree substitution rejected.
+The private raw-source package, private control package, and retention
+completion receipt are all retained and independently verifiable.
 
-### 38.6 Coverage proof
+### 38.6 Exclusive summary inputs
 
-- complete required coverage;
-- declared coverage mode;
-- declared inventory strategy;
-- exact include/exclude relation;
-- unapproved exclusions rejected;
-- deferred work rejected;
-- incomplete coverage never converted into no-findings success.
+The summary builder uses only private reports, lifecycle carriers, retention
+completion data, and the trusted public schema.
 
-### 38.7 Findings-policy proof
+### 38.7 Projection equality
 
-- critical finding blocks;
-- high finding blocks;
-- medium, low, and informational findings remain visible;
-- missing severity produces unverified;
-- malformed severity produces unverified;
-- unsupported severity produces unverified;
-- malformed finding produces unverified;
-- readable projections cannot override canonical findings.
+Every public identity and decision field is regenerated and compared.
 
-### 38.8 Single-read proof
+### 38.8 Authority isolation
 
-- verifier hashes and parses the same bytes;
-- decision projection is created from the validated parsed objects;
-- source replacement after verification cannot alter the intake report;
-- summary builder never reopens raw source documents.
-
-### 38.9 Private intake-report proof
-
-- report uses an exhaustive machine-only schema;
-- no arbitrary human-readable messages;
-- no source excerpts;
-- no attack narratives;
-- complete decision projection present;
-- report cannot enter public artifact uploads.
-
-### 38.10 Lifecycle proof
-
-- selected lifecycle action completes before final summary generation;
-- lifecycle postconditions are verified;
-- private transfer identity matches the source bundle when used;
-- runner-local raw copy is deleted when required;
-- lifecycle receipt binds the intake report and source bundle;
-- lifecycle receipt cannot enter public artifact uploads.
-
-### 38.11 Summary-projection proof
-
-- public summary is built only from the private intake report and lifecycle
-  receipt;
-- public summary has an exhaustive allowlist;
-- public summary contains no free-form text;
-- fold-in regenerates the canonical public summary;
-- every decision-field mismatch is rejected;
-- public summary alone cannot create candidate or release state.
-
-### 38.12 Workflow lifecycle proof
-
-- producer, closure extraction, packaging, verification, lifecycle action, and
-  summary generation occur on the same runner;
-- no later job expects runner-local raw files;
-- private transfer completes before local deletion when enabled;
-- only the public normalized summary crosses into public publication jobs.
-
-### 38.13 Determinism proof
-
-- fixed bundle replay;
-- fixed reference-closure replay;
-- fixed policy replay;
-- fixed schema-snapshot replay;
-- fixed verifier replay;
-- fixed lifecycle receipt replay;
-- identical gate inputs;
-- identical reason-code output;
-- byte-identical public summary;
-- no live network dependency in verification or projection.
-
-### 38.14 Authority proof
-
-- only declared materialized gates affect release;
-- candidate set inactive before promotion;
-- no alternate release path;
-- no scanner exit code used as release authority;
-- no workflow name used as release authority;
-- no report text used as release authority;
-- no public summary used as release authority;
-- no raw artifact presence used as release authority;
-- `check_gates.py` remains the strict final evaluator.
+The public summary alone cannot create release state.
 
 ---
 
-## 39. Acceptance criteria for the completed candidate lane
+## 39. Acceptance criteria
 
 The candidate lane is complete only when:
 
 ```text
-1. A real Codex Security scan runs against an exact subject repository
-   revision.
+1. The exact subject revision is scanned.
 
-2. The workflow runs from an exact protected control-plane revision.
+2. The protected control-plane revision is independently bound.
 
-3. The trusted control-plane checkout is separate from the subject checkout.
+3. Every authority-relevant reference is indexed.
 
-4. The scan produces the three canonical JSON documents.
+4. Every indexed component participates in the source-bundle identity.
 
-5. Every supported authority-relevant local evidence reference is resolved.
+5. Every producer output remains inside controlled roots.
 
-6. Every required referenced-evidence file is included in the source-bundle
-   index.
+6. Unindexed report, SARIF, CSV, log, state, and temporary outputs are removed
+   by whole-root cleanup.
 
-7. The source-bundle identity covers the normalized path, role, media type,
-   size, and digest of every indexed component.
+7. The private intake report carries complete public subject, run, producer,
+   and policy identities.
 
-8. The producer wrapper records its independently reviewable identity.
+8. The private intake report records evidence presence at verification.
 
-9. The complete source bundle is indexed and digest-bound before the producer
-   job ends.
+9. Evidence presence does not depend on later filesystem existence.
 
-10. Every JSON carrier rejects duplicate object keys.
+10. Pre-index failures use a separate cleanup receipt with unavailable bundle
+    identities represented truthfully.
 
-11. Trusted YAML rejects duplicate mapping keys.
+11. Package A preserves the authority source bundle and index.
 
-12. Trusted per-carrier, total-size, and entry-count limits are enforced before
-    unsafe processing.
+12. The indexed lifecycle receipt is created only after raw transfer and local
+    controlled-root cleanup.
 
-13. The intake packet supplies expectations independently of the source
-    bundle.
+13. Package B preserves the intake packet, private report, and lifecycle
+    receipt.
 
-14. The verifier validates the trusted policy, verifier, extractor, builders,
-    and schema snapshot from the protected control-plane checkout.
+14. Both private packages are transferred and verified.
 
-15. The verifier rejects stale, mismatched, malformed, oversized, partial,
-    substituted, unindexed, and duplicate-key evidence.
+15. A separate retention-set commit receipt binds both packages.
 
-16. The verifier hashes, parses, and evaluates the same immutable bytes.
+16. No retained package is mutated after identity verification.
 
-17. The verifier distinguishes valid blocking evidence from invalid evidence.
+17. The public summary is generated only after lifecycle completion.
 
-18. Missing, malformed, and unsupported severity values produce unverified
-    state.
+18. The public summary builder does not reopen raw source carriers.
 
-19. The private intake report contains the complete machine decision
-    projection.
+19. Every public identity comes from the private report.
 
-20. The private intake report contains no arbitrary human-readable security
-    detail.
+20. Every public decision field comes from the private decision projection.
 
-21. The private intake report is never uploaded through public Actions
-    artifacts.
+21. Every lifecycle field comes from a verified lifecycle carrier.
 
-22. The selected raw-bundle lifecycle action completes before final summary
-    creation.
+22. Every retention claim comes from the retention completion receipt.
 
-23. Lifecycle postconditions are verified and recorded in a private receipt.
+23. The public summary uses an exhaustive schema without free-form text.
 
-24. The private lifecycle receipt is never uploaded through public Actions
-    artifacts.
+24. Public artifacts contain only the summary and its detached digest or
+    signature.
 
-25. The public summary builder reads only the private intake report and private
-    lifecycle receipt.
+25. Public-summary-only fold-in is rejected.
 
-26. The public summary builder never reopens canonical source documents or
-    referenced evidence.
+26. Ephemeral mode supports only same-run candidate evaluation.
 
-27. The public summary uses an exhaustive allowlist and contains no free-form
-    text.
+27. Later replay and release-capable fold-in require complete private
+    retention.
 
-28. The normalized summary preserves subject, producer, coverage, findings,
-    policy, schema-snapshot, control-plane, source-bundle, intake-report, and
-    lifecycle identities.
+28. Every changed public identity or decision field fails deterministic
+    projection comparison.
 
-29. Raw findings never enter a normal public-repository Actions artifact.
+29. The candidate gate set remains inactive.
 
-30. Raw findings are deleted on the runner or transferred to access-controlled
-    private storage.
-
-31. Public artifacts contain only the normalized public summary and its
-    detached digest or signature.
-
-32. Fold-in regenerates the complete public summary from private authority
-    carriers.
-
-33. Any changed public decision field fails the summary-projection check.
-
-34. The public summary alone cannot create candidate or release state.
-
-35. The candidate gate set is fully materializable.
-
-36. The candidate gate set remains absent from every active required set.
-
-37. Positive, blocking, unverified, duplicate-key, control-plane-substitution,
-    schema-mismatch, closure-mismatch, lifecycle-failure, source-replacement,
-    and summary-substitution fixtures reproduce deterministically.
-
-38. A fixed real-run proof records its private retention state accurately.
-
-39. No release authority changes occur.
+30. No release authority changes occur.
 ```
 
 ---
 
 ## 40. Final boundary
 
-The completed relation is intended to be:
+The completed relation is:
 
 ```text
 Codex Security
-finds and records repository security observations
+produces a security observation and confidential producer-output surface
 
 protected PULSEmech control plane
-supplies the trusted verifier, policy, reference extractor, builders, and
-schema snapshot
+confines every output to controlled roots
 
-PULSEmech source-bundle closure
-binds every canonical document and every required referenced evidence file
+PULSEmech authority source-bundle closure
+binds every canonical and authority-relevant referenced evidence file
 
-PULSEmech intake
-proves which producer, run, subject, recipe, coverage state, reference closure,
-and trusted control plane produced and verified the observation
+private PULSEmech intake report
+records complete public identities, evidence presence at verification, and the
+complete machine decision projection
 
-private intake report
-carries the complete machine decision projection
+PULSEmech lifecycle controller
+removes the complete controlled confidential surface, including unindexed raw
+projections and state
 
-private lifecycle receipt
-proves the completed handling of confidential raw evidence
+private lifecycle carriers
+truthfully distinguish indexed-bundle handling from pre-index cleanup
+
+private retention set
+preserves both the raw-source package and the later control package containing
+the lifecycle receipt
 
 public PULSEmech summary
-is a strict sanitized projection built after lifecycle completion
+is a strict projection created only from private verified carriers
 
 private PULSEmech fold-in
-regenerates that projection and derives gate state from private authority
+regenerates the projection and derives gate state from private authority
 carriers
 
 PULSEmech authority
@@ -5404,21 +3745,15 @@ remains the only mechanism that may convert materialized evidence into an
 enforced release state
 ```
 
-The security scanner does not replace PULSEmech.
-
-PULSEmech does not replace the security scanner.
-
-The connection between them is the verified evidence carrier.
-
-Without that carrier:
+Without the verified carriers:
 
 ```text
 there is a scan
 ```
 
-With the complete source closure, protected verifier, exact schema snapshot,
-complete coverage relation, private decision projection, completed lifecycle
-receipt, and regenerated sanitized summary:
+With complete identities, recorded verification-time presence, complete
+confidential-output cleanup, complete private retention where required, and
+deterministic projection regeneration:
 
 ```text
 there is reviewable, subject-bound security evidence
