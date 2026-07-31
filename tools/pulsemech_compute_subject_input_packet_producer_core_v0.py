@@ -4,7 +4,6 @@ from __future__ import annotations
 import argparse
 import hashlib
 import importlib.util
-import io
 import json
 import os
 import stat
@@ -23,9 +22,18 @@ TOOL_NAME = "PULSEmech compute subject-input packet producer"
 TOOL_VERSION = "0.1.0"
 SCHEMA_VERSION = "pulsemech_compute_subject_input_packet_v0"
 PACKET_TYPE = "pulsemech_compute_subject_input_packet"
+
 PRODUCER_SOURCE_PATH = "tools/build_pulsemech_compute_subject_input_packet_v0.py"
+PRODUCER_CORE_SOURCE_PATH = (
+    "tools/pulsemech_compute_subject_input_packet_producer_core_v0.py"
+)
 PRODUCTION_MODE = "fixed_source_adapter"
 PACKET_SCOPE = "fixed_source_adapter"
+PACKET_IDENTITY_MODE = "fixed-source-adapter"
+CARRIER_ID_NAMESPACE = "preservation"
+CARRIER_KIND = "preservation_archive"
+CARRIER_MEDIA_TYPE = "application/zip"
+CARRIER_ARTIFACT_PAYLOAD_MODE = "external_carrier"
 
 PROTECTED_OUTPUT_NAMES = frozenset(
     {
@@ -56,6 +64,65 @@ ORIGINAL_PREFIX = OUTER_PREFIX + "original-github-artifacts/"
 COMPLETE_PACKAGE_NAME = "complete-release-grade-reference-package-29249887581-1.zip"
 COMPLETENESS_ARCHIVE_NAME = "release-grade-package-completeness-29249887581-1.zip"
 VERIFICATION_ARCHIVE_NAME = "release-grade-reference-package-verification-29249887581-1.zip"
+EXPECTED_PROVIDER_ARTIFACT_COUNT = 3
+EXPECTED_ARTIFACT_COUNT = 32
+EXPECTED_SIGNER_POLICY_PATH = "policy/external_signers_v1.yml"
+
+
+@dataclass(frozen=True)
+class ProducerProfile:
+    profile_id: str
+    producer_source_path: str
+    default_carrier: Path
+    production_mode: str
+    packet_scope: str
+    packet_identity_mode: str
+    carrier_id_namespace: str
+    carrier_kind: str
+    carrier_media_type: str
+    carrier_artifact_payload_mode: str
+    expected_carrier_sha256: str
+    expected_carrier_size: int
+    expected_repository: str
+    expected_source_commit: str
+    expected_run_key: str
+    outer_prefix: str
+    original_prefix: str
+    complete_package_name: str
+    completeness_archive_name: str
+    verification_archive_name: str
+    expected_provider_artifact_count: int
+    expected_artifact_count: int
+    expected_signer_policy_path: str
+
+
+FIXED_SOURCE_6066_PROFILE = ProducerProfile(
+    profile_id="pulse_ci_6066_fixed_source_v0",
+    producer_source_path=PRODUCER_SOURCE_PATH,
+    default_carrier=DEFAULT_CARRIER,
+    production_mode=PRODUCTION_MODE,
+    packet_scope=PACKET_SCOPE,
+    packet_identity_mode=PACKET_IDENTITY_MODE,
+    carrier_id_namespace=CARRIER_ID_NAMESPACE,
+    carrier_kind=CARRIER_KIND,
+    carrier_media_type=CARRIER_MEDIA_TYPE,
+    carrier_artifact_payload_mode=CARRIER_ARTIFACT_PAYLOAD_MODE,
+    expected_carrier_sha256=EXPECTED_CARRIER_SHA256,
+    expected_carrier_size=EXPECTED_CARRIER_SIZE,
+    expected_repository=EXPECTED_REPOSITORY,
+    expected_source_commit=EXPECTED_SOURCE_COMMIT,
+    expected_run_key=EXPECTED_RUN_KEY,
+    outer_prefix=OUTER_PREFIX,
+    original_prefix=ORIGINAL_PREFIX,
+    complete_package_name=COMPLETE_PACKAGE_NAME,
+    completeness_archive_name=COMPLETENESS_ARCHIVE_NAME,
+    verification_archive_name=VERIFICATION_ARCHIVE_NAME,
+    expected_provider_artifact_count=EXPECTED_PROVIDER_ARTIFACT_COUNT,
+    expected_artifact_count=EXPECTED_ARTIFACT_COUNT,
+    expected_signer_policy_path=EXPECTED_SIGNER_POLICY_PATH,
+)
+DEFAULT_PRODUCER_PROFILE = FIXED_SOURCE_6066_PROFILE
+
 
 ROLE_BY_PACKAGE_MEMBER: Mapping[str, str] = {
     "artifacts/artifact_provenance_binding_v0.json": "artifact_binding",
@@ -233,6 +300,7 @@ class Artifact:
 
 @dataclass(frozen=True)
 class PacketInputs:
+    profile: ProducerProfile
     carrier_path: Path
     carrier_location: str
     carrier_bytes: bytes
@@ -280,27 +348,6 @@ def require_equal(actual: Any, expected: Any, *, label: str) -> None:
         )
 
 
-def verify_exact_carrier_identity(carrier_path: Path) -> str:
-    if not carrier_path.is_file():
-        raise BuilderError(f"carrier_missing: {carrier_path}")
-    if carrier_path.is_symlink():
-        raise BuilderError(f"carrier_symlink_rejected: {carrier_path}")
-    reject_symlink_components(carrier_path, label="carrier")
-
-    require_equal(
-        carrier_path.stat().st_size,
-        EXPECTED_CARRIER_SIZE,
-        label="preservation_archive_size",
-    )
-    digest = sha256_file(carrier_path)
-    require_equal(
-        digest,
-        EXPECTED_CARRIER_SHA256,
-        label="preservation_archive_sha256",
-    )
-    return digest
-
-
 def non_empty_string(value: Any, *, label: str) -> str:
     if not isinstance(value, str) or not value:
         raise BuilderError(f"{label}_missing_or_invalid: {value!r}")
@@ -326,6 +373,121 @@ def safe_relative_path(value: str) -> bool:
     return not path.is_absolute() and not any(
         part in {".", ".."} for part in path.parts
     )
+
+
+def validate_profile(profile: ProducerProfile) -> ProducerProfile:
+    non_empty_string(profile.profile_id, label="producer_profile_id")
+    if not safe_relative_path(profile.producer_source_path):
+        raise BuilderError(
+            f"producer_profile_source_path_unsafe: {profile.producer_source_path!r}"
+        )
+    if not isinstance(profile.default_carrier, Path):
+        raise BuilderError(
+            f"producer_profile_default_carrier_invalid: {profile.default_carrier!r}"
+        )
+    non_empty_string(profile.production_mode, label="producer_profile_production_mode")
+    non_empty_string(profile.packet_scope, label="producer_profile_packet_scope")
+    non_empty_string(
+        profile.packet_identity_mode,
+        label="producer_profile_packet_identity_mode",
+    )
+    non_empty_string(
+        profile.carrier_id_namespace,
+        label="producer_profile_carrier_id_namespace",
+    )
+    non_empty_string(profile.carrier_kind, label="producer_profile_carrier_kind")
+    non_empty_string(
+        profile.carrier_media_type,
+        label="producer_profile_carrier_media_type",
+    )
+    non_empty_string(
+        profile.carrier_artifact_payload_mode,
+        label="producer_profile_carrier_artifact_payload_mode",
+    )
+    canonical_sha256(
+        profile.expected_carrier_sha256,
+        label="producer_profile_expected_carrier_sha256",
+    )
+    if profile.expected_carrier_size <= 0:
+        raise BuilderError(
+            "producer_profile_expected_carrier_size_invalid: "
+            f"{profile.expected_carrier_size!r}"
+        )
+    non_empty_string(
+        profile.expected_repository,
+        label="producer_profile_expected_repository",
+    )
+    canonical_sha40(
+        profile.expected_source_commit,
+        label="producer_profile_expected_source_commit",
+    )
+    non_empty_string(
+        profile.expected_run_key,
+        label="producer_profile_expected_run_key",
+    )
+    if not profile.outer_prefix.endswith("/") or not safe_relative_path(
+        profile.outer_prefix.rstrip("/")
+    ):
+        raise BuilderError(
+            f"producer_profile_outer_prefix_invalid: {profile.outer_prefix!r}"
+        )
+    if (
+        not profile.original_prefix.endswith("/")
+        or not profile.original_prefix.startswith(profile.outer_prefix)
+        or not safe_relative_path(profile.original_prefix.rstrip("/"))
+    ):
+        raise BuilderError(
+            f"producer_profile_original_prefix_invalid: {profile.original_prefix!r}"
+        )
+    for label, value in (
+        ("complete_package_name", profile.complete_package_name),
+        ("completeness_archive_name", profile.completeness_archive_name),
+        ("verification_archive_name", profile.verification_archive_name),
+    ):
+        if PurePosixPath(value).name != value or not value:
+            raise BuilderError(f"producer_profile_{label}_invalid: {value!r}")
+    if profile.expected_provider_artifact_count <= 0:
+        raise BuilderError(
+            "producer_profile_expected_provider_artifact_count_invalid: "
+            f"{profile.expected_provider_artifact_count!r}"
+        )
+    if profile.expected_artifact_count <= 0:
+        raise BuilderError(
+            "producer_profile_expected_artifact_count_invalid: "
+            f"{profile.expected_artifact_count!r}"
+        )
+    if not safe_relative_path(profile.expected_signer_policy_path):
+        raise BuilderError(
+            "producer_profile_expected_signer_policy_path_invalid: "
+            f"{profile.expected_signer_policy_path!r}"
+        )
+    return profile
+
+
+def verify_exact_carrier_identity(
+    carrier_path: Path,
+    *,
+    profile: ProducerProfile = DEFAULT_PRODUCER_PROFILE,
+) -> str:
+    profile = validate_profile(profile)
+    if not carrier_path.is_file():
+        raise BuilderError(f"carrier_missing: {carrier_path}")
+    if carrier_path.is_symlink():
+        raise BuilderError(f"carrier_symlink_rejected: {carrier_path}")
+    reject_symlink_components(carrier_path, label="carrier")
+
+    require_equal(
+        carrier_path.stat().st_size,
+        profile.expected_carrier_size,
+        label="preservation_archive_size",
+    )
+    digest = sha256_file(carrier_path)
+    require_equal(
+        digest,
+        profile.expected_carrier_sha256,
+        label="preservation_archive_sha256",
+    )
+    return digest
 
 
 def same_target(left: Path, right: Path) -> bool:
@@ -529,17 +691,23 @@ def _validate_trusted_git_executable(candidate: Path) -> Path:
             raise BuilderError(
                 f"git_executable_untrusted: parent_not_directory: {component}"
             )
-        if os.name != "nt":
-            if metadata.st_uid != 0:
-                raise BuilderError(
-                    "git_executable_untrusted: non_root_owned_component: "
-                    f"{component}"
-                )
-            if metadata.st_mode & (stat.S_IWGRP | stat.S_IWOTH):
-                raise BuilderError(
-                    "git_executable_untrusted: writable_component: "
-                    f"{component}"
-                )
+        if os.name != "nt" and metadata.st_mode & (
+            stat.S_IWGRP | stat.S_IWOTH
+        ):
+            raise BuilderError(
+                "git_executable_untrusted: writable_component: "
+                f"{component}"
+            )
+
+    approved = {
+        os.path.normcase(str(_normalized_absolute_path(path)))
+        for path in _trusted_git_executable_candidates()
+    }
+    if os.path.normcase(str(resolved)) not in approved:
+        raise BuilderError(
+            "git_executable_untrusted: non_root_owned_component: "
+            f"unapproved_candidate={resolved}"
+        )
     return resolved
 
 
@@ -713,50 +881,91 @@ def reject_symlink_components(path: Path, *, label: str) -> None:
         cursor = cursor.parent
 
 
-def executed_producer_source_path(
+def _executed_repository_source_path(
     repository_root: Path,
     *,
     revision: str,
+    expected_relative_path: str,
+    executed_source_path: Path,
+    label: str,
 ) -> Path:
     canonical_path = committed_repository_file(
         repository_root,
         revision=revision,
-        relative_path=PRODUCER_SOURCE_PATH,
-        label="producer",
+        relative_path=expected_relative_path,
+        label=label,
     )
 
-    executed_path = Path(__file__)
+    executed_path = Path(executed_source_path)
     if not executed_path.is_file():
-        raise BuilderError(f"executed_producer_missing: {executed_path}")
+        raise BuilderError(f"executed_{label}_missing: {executed_path}")
     if executed_path.is_symlink():
-        raise BuilderError(f"executed_producer_symlink_rejected: {executed_path}")
-    reject_symlink_components(executed_path, label="executed_producer")
+        raise BuilderError(f"executed_{label}_symlink_rejected: {executed_path}")
+    reject_symlink_components(executed_path, label=f"executed_{label}")
 
     try:
         executed_resolved = executed_path.resolve(strict=True)
         canonical_resolved = canonical_path.resolve(strict=True)
     except OSError as exc:
-        raise BuilderError(f"executed_producer_path_unresolvable: {exc}") from exc
+        raise BuilderError(f"executed_{label}_path_unresolvable: {exc}") from exc
 
     if os.path.normcase(str(executed_resolved)) != os.path.normcase(
         str(canonical_resolved)
     ):
         raise BuilderError(
-            "executed_producer_path_mismatch: "
+            f"executed_{label}_path_mismatch: "
             f"executed={executed_resolved} canonical={canonical_resolved}"
         )
 
     committed = _git_blob_bytes(
         repository_root,
         revision=revision,
-        path=PRODUCER_SOURCE_PATH,
+        path=expected_relative_path,
     )
     require_equal(
         executed_resolved.read_bytes(),
         committed,
-        label="executed_producer_committed_bytes",
+        label=f"executed_{label}_committed_bytes",
     )
     return executed_resolved
+
+
+def executed_producer_source_path(
+    repository_root: Path,
+    *,
+    revision: str,
+    executed_source_path: Path | None = None,
+    expected_relative_path: str = PRODUCER_SOURCE_PATH,
+) -> Path:
+    candidate = (
+        repository_root / PurePosixPath(expected_relative_path)
+        if executed_source_path is None
+        else Path(executed_source_path)
+    )
+    return _executed_repository_source_path(
+        repository_root,
+        revision=revision,
+        expected_relative_path=expected_relative_path,
+        executed_source_path=candidate,
+        label="producer",
+    )
+
+
+def executed_producer_core_source_path(
+    repository_root: Path,
+    *,
+    revision: str,
+    executed_source_path: Path | None = None,
+) -> Path:
+    return _executed_repository_source_path(
+        repository_root,
+        revision=revision,
+        expected_relative_path=PRODUCER_CORE_SOURCE_PATH,
+        executed_source_path=(
+            Path(__file__) if executed_source_path is None else executed_source_path
+        ),
+        label="producer_core",
+    )
 
 
 def load_module(path: Path, module_name: str) -> Any:
@@ -774,6 +983,69 @@ def load_module(path: Path, module_name: str) -> Any:
     except Exception as exc:
         raise BuilderError(f"module_import_failed: {path}: {exc}") from exc
     return module
+
+
+def bind_validator_trusted_git_executable(
+    validator: ValidatorModule,
+    trusted_git: Path,
+) -> Path:
+    trusted_git = _validate_trusted_git_executable(trusted_git)
+    validator_validate = getattr(
+        validator,
+        "_validate_trusted_git_executable",
+        None,
+    )
+    validator_selector = getattr(
+        validator,
+        "_trusted_git_executable",
+        None,
+    )
+    if not callable(validator_validate) or not callable(validator_selector):
+        raise BuilderError("validator_trusted_git_binding_unavailable")
+
+    trusted_resolved = trusted_git.resolve(strict=True)
+
+    def validate_bound_candidate(candidate: Path) -> Path:
+        candidate_path = Path(candidate)
+        try:
+            return Path(validator_validate(candidate_path))
+        except Exception as exc:
+            if not str(exc).startswith(
+                "git_executable_untrusted: non_root_owned_component:"
+            ):
+                raise
+            try:
+                candidate_resolved = candidate_path.resolve(strict=True)
+            except OSError:
+                raise
+            if candidate_resolved != trusted_resolved:
+                raise
+            return trusted_resolved
+
+    setattr(
+        validator,
+        "_validate_trusted_git_executable",
+        validate_bound_candidate,
+    )
+    cache_clear = getattr(validator_selector, "cache_clear", None)
+    if callable(cache_clear):
+        cache_clear()
+
+    try:
+        validator_git = Path(validator._trusted_git_executable()).resolve(
+            strict=True
+        )
+    except Exception as exc:
+        raise BuilderError(
+            f"validator_trusted_git_selection_failed: {exc}"
+        ) from exc
+
+    require_equal(
+        validator_git,
+        trusted_resolved,
+        label="validator_trusted_git_executable",
+    )
+    return trusted_resolved
 
 
 def decode_single_line(data: bytes, *, label: str) -> str:
@@ -838,16 +1110,19 @@ def slug(value: str) -> str:
 
 def extract_visible_preservation_files(
     carrier_path: Path,
+    *,
+    profile: ProducerProfile = DEFAULT_PRODUCER_PROFILE,
 ) -> tuple[bytes, bytes, bytes]:
+    profile = validate_profile(profile)
     try:
         with zipfile.ZipFile(carrier_path, "r") as archive:
             names = [info.filename for info in archive.infolist()]
             if len(names) != len(set(names)):
                 raise BuilderError("preservation_archive_duplicate_member")
             expected = (
-                OUTER_PREFIX + "PRESERVATION_MANIFEST_v0.json",
-                OUTER_PREFIX + "README.md",
-                OUTER_PREFIX + "SHA256SUMS",
+                profile.outer_prefix + "PRESERVATION_MANIFEST_v0.json",
+                profile.outer_prefix + "README.md",
+                profile.outer_prefix + "SHA256SUMS",
             )
             for name in expected:
                 if name not in names:
@@ -861,11 +1136,14 @@ def load_exact_bundle(
     *,
     carrier_path: Path,
     fixed_builder: Any,
+    profile: ProducerProfile = DEFAULT_PRODUCER_PROFILE,
 ) -> Any:
-    verify_exact_carrier_identity(carrier_path)
+    profile = validate_profile(profile)
+    verify_exact_carrier_identity(carrier_path, profile=profile)
 
     manifest_bytes, readme_bytes, sums_bytes = extract_visible_preservation_files(
-        carrier_path
+        carrier_path,
+        profile=profile,
     )
     with tempfile.TemporaryDirectory(prefix="pulsemech-subject-input-visible-") as raw:
         temp = Path(raw)
@@ -880,8 +1158,8 @@ def load_exact_bundle(
             manifest_path=manifest_path,
             readme_path=readme_path,
             sha256sums_path=sums_path,
-            expected_archive_sha256=EXPECTED_CARRIER_SHA256,
-            expected_archive_size=EXPECTED_CARRIER_SIZE,
+            expected_archive_sha256=profile.expected_carrier_sha256,
+            expected_archive_size=profile.expected_carrier_size,
         )
 
 
@@ -996,7 +1274,9 @@ def build_artifacts(
     carrier: str,
     bundle: Any,
     validator: ValidatorModule,
+    profile: ProducerProfile = DEFAULT_PRODUCER_PROFILE,
 ) -> tuple[tuple[Artifact, ...], dict[str, Any]]:
+    profile = validate_profile(profile)
     manifest = bundle.manifest
     provider_rows = manifest.get("github_artifacts")
     if not isinstance(provider_rows, list):
@@ -1006,24 +1286,28 @@ def build_artifacts(
         for row in provider_rows
         if isinstance(row, dict)
     }
-    require_equal(len(provider_by_file), 3, label="provider_artifact_count")
+    require_equal(
+        len(provider_by_file),
+        profile.expected_provider_artifact_count,
+        label="provider_artifact_count",
+    )
 
     artifacts: list[Artifact] = [
         make_artifact(
             carrier=carrier,
-            member_path=OUTER_PREFIX + "PRESERVATION_MANIFEST_v0.json",
+            member_path=profile.outer_prefix + "PRESERVATION_MANIFEST_v0.json",
             payload=bundle.manifest_bytes,
             role="preservation_manifest",
         ),
         make_artifact(
             carrier=carrier,
-            member_path=OUTER_PREFIX + "README.md",
+            member_path=profile.outer_prefix + "README.md",
             payload=bundle.readme_bytes,
             role="preservation_readme",
         ),
         make_artifact(
             carrier=carrier,
-            member_path=OUTER_PREFIX + "SHA256SUMS",
+            member_path=profile.outer_prefix + "SHA256SUMS",
             payload=bundle.sha256sums_bytes,
             role="preservation_checksums",
         ),
@@ -1045,7 +1329,7 @@ def build_artifacts(
         )
         item = make_artifact(
             carrier=carrier,
-            member_path=ORIGINAL_PREFIX + name,
+            member_path=profile.original_prefix + name,
             payload=payload,
             role=role,
             provider=binding,
@@ -1053,7 +1337,7 @@ def build_artifacts(
         artifacts.append(item)
         outer_by_name[name] = item
 
-    package = outer_by_name[COMPLETE_PACKAGE_NAME]
+    package = outer_by_name[profile.complete_package_name]
     for path in sorted(bundle.complete_package_members):
         artifacts.append(
             make_artifact(
@@ -1066,7 +1350,7 @@ def build_artifacts(
             )
         )
 
-    completeness = outer_by_name[COMPLETENESS_ARCHIVE_NAME]
+    completeness = outer_by_name[profile.completeness_archive_name]
     artifacts.append(
         make_artifact(
             carrier=carrier,
@@ -1077,7 +1361,7 @@ def build_artifacts(
             parent_display=completeness.display_path_or_uri,
         )
     )
-    verification = outer_by_name[VERIFICATION_ARCHIVE_NAME]
+    verification = outer_by_name[profile.verification_archive_name]
     artifacts.append(
         make_artifact(
             carrier=carrier,
@@ -1090,7 +1374,11 @@ def build_artifacts(
     )
 
     artifacts.sort(key=lambda item: item.artifact_id)
-    require_equal(len(artifacts), 32, label="artifact_count")
+    require_equal(
+        len(artifacts),
+        profile.expected_artifact_count,
+        label="artifact_count",
+    )
     require_equal(
         len({item.artifact_id for item in artifacts}),
         len(artifacts),
@@ -1120,16 +1408,24 @@ def build_inputs(
     repository_root: Path,
     validator: ValidatorModule,
     fixed_builder: Any,
+    profile: ProducerProfile = DEFAULT_PRODUCER_PROFILE,
 ) -> PacketInputs:
+    profile = validate_profile(profile)
     location = carrier_location(carrier_path, repository_root)
-    bundle = load_exact_bundle(carrier_path=carrier_path, fixed_builder=fixed_builder)
+    bundle = load_exact_bundle(
+        carrier_path=carrier_path,
+        fixed_builder=fixed_builder,
+        profile=profile,
+    )
     artifacts, documents = build_artifacts(
         carrier=location,
         bundle=bundle,
         validator=validator,
+        profile=profile,
     )
     bindings = role_bindings(artifacts)
     return PacketInputs(
+        profile=profile,
         carrier_path=carrier_path,
         carrier_location=location,
         carrier_bytes=carrier_path.read_bytes(),
@@ -1235,6 +1531,7 @@ def build_subject_and_sources(
     repository_root: Path,
     validator: ValidatorModule,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
+    profile = validate_profile(inputs.profile)
     manifest = inputs.bundle.manifest
     run_metadata = bound_document(inputs, "run_metadata")
     status = bound_document(inputs, "final_status")
@@ -1247,7 +1544,11 @@ def build_subject_and_sources(
         [manifest.get("repository"), run_metadata.get("repository")],
         label="subject_repository",
     )
-    require_equal(repository, EXPECTED_REPOSITORY, label="expected_repository")
+    require_equal(
+        repository,
+        profile.expected_repository,
+        label="expected_repository",
+    )
     workflow_name = unique_string(
         [
             manifest.get("workflow"),
@@ -1278,7 +1579,11 @@ def build_subject_and_sources(
         label="subject_source_commit",
     )
     canonical_sha40(source_commit, label="subject_source_commit")
-    require_equal(source_commit, EXPECTED_SOURCE_COMMIT, label="expected_commit")
+    require_equal(
+        source_commit,
+        profile.expected_source_commit,
+        label="expected_commit",
+    )
 
     run_id = manifest.get("workflow_run_id")
     run_number = manifest.get("workflow_run_number")
@@ -1303,7 +1608,11 @@ def build_subject_and_sources(
         f"GITHUB_WORKFLOW={workflow_name}"
     )
     require_equal(run_key, canonical_run_key, label="canonical_run_key")
-    require_equal(run_key, EXPECTED_RUN_KEY, label="expected_run_key")
+    require_equal(
+        run_key,
+        profile.expected_run_key,
+        label="expected_run_key",
+    )
 
     release_candidate = non_empty_string(
         run_metadata.get("release_candidate"), label="release_candidate"
@@ -1363,7 +1672,7 @@ def build_subject_and_sources(
             value
             for document in attestation_docs
             for value in recursive_values(document, "policy_path")
-            if value == "policy/external_signers_v1.yml"
+            if value == profile.expected_signer_policy_path
         ],
         label="signer_policy_path",
     )
@@ -1507,7 +1816,9 @@ def producer_identity(
     source_path: Path,
     execution_identity: str,
     producer_run_key: str,
+    profile: ProducerProfile = DEFAULT_PRODUCER_PROFILE,
 ) -> dict[str, Any]:
+    profile = validate_profile(profile)
     execution_identity = non_empty_string(
         execution_identity, label="producer_execution_identity"
     )
@@ -1519,7 +1830,11 @@ def producer_identity(
         ).as_posix()
     except ValueError as exc:
         raise BuilderError(f"producer_source_outside_repository: {source_path}") from exc
-    require_equal(relative, PRODUCER_SOURCE_PATH, label="producer_source_path")
+    require_equal(
+        relative,
+        profile.producer_source_path,
+        label="producer_source_path",
+    )
     committed = _git_blob_bytes(
         repository_root,
         revision=revision,
@@ -1535,9 +1850,8 @@ def producer_identity(
         "producer_source_sha256": sha256_bytes(committed),
         "ci_workflow_or_job_identity": execution_identity,
         "producer_run_key": producer_run_key,
-        "production_mode": PRODUCTION_MODE,
+        "production_mode": profile.production_mode,
     }
-
 
 # ---------------------------------------------------------------------------
 # Packet construction, validation, and output
@@ -1619,6 +1933,7 @@ def build_packet(
     producer: dict[str, Any],
     packet_created_utc: str,
 ) -> dict[str, Any]:
+    profile = validate_profile(inputs.profile)
     workflow_slug = slug(subject["workflow_name"])
     identity_material = (
         producer["producer_run_key"]
@@ -1629,11 +1944,12 @@ def build_packet(
     ).encode("utf-8")
     identity_digest = sha256_bytes(identity_material)[:16]
     carrier_id = (
-        f"carrier:preservation/{workflow_slug}-{subject['workflow_run_number']}/v0"
+        f"carrier:{profile.carrier_id_namespace}/"
+        f"{workflow_slug}-{subject['workflow_run_number']}/v0"
     )
     packet_id = (
         f"subject-input:{workflow_slug}-{subject['workflow_run_number']}/"
-        f"fixed-source-adapter/{identity_digest}/v0"
+        f"{profile.packet_identity_mode}/{identity_digest}/v0"
     )
     return {
         "schema_version": SCHEMA_VERSION,
@@ -1642,7 +1958,7 @@ def build_packet(
         "producer": producer,
         "packet_identity": {
             "packet_id": packet_id,
-            "packet_scope": PACKET_SCOPE,
+            "packet_scope": profile.packet_scope,
             "packet_created_utc": packet_created_utc,
             "subject_run_key": subject["subject_run_key"],
             "carrier_id": carrier_id,
@@ -1661,14 +1977,14 @@ def build_packet(
         "authority_sources": sources,
         "carrier": {
             "carrier_id": carrier_id,
-            "carrier_kind": "preservation_archive",
+            "carrier_kind": profile.carrier_kind,
             "path_or_uri": inputs.carrier_location,
-            "media_type": "application/zip",
+            "media_type": profile.carrier_media_type,
             "sha256": sha256_bytes(inputs.carrier_bytes),
             "size_bytes": len(inputs.carrier_bytes),
-            "root_prefix": OUTER_PREFIX.rstrip("/"),
+            "root_prefix": profile.outer_prefix.rstrip("/"),
             "immutable": True,
-            "artifact_payload_mode": "external_carrier",
+            "artifact_payload_mode": profile.carrier_artifact_payload_mode,
             "provider_binding": None,
         },
         "artifacts": [item.record() for item in inputs.artifacts],
@@ -1740,8 +2056,10 @@ def reject_output(
     schema_path: Path,
     validator_path: Path,
     fixed_builder_path: Path,
+    producer_path: Path,
+    producer_core_path: Path,
+    trusted_git_executable: Path,
     repository_root: Path,
-    validator: ValidatorModule,
 ) -> None:
     if output is None:
         return
@@ -1755,12 +2073,13 @@ def reject_output(
     else:
         raise BuilderError(f"refusing_output_inside_repository: {output}")
     protected = [
-        Path(__file__),
+        producer_path,
+        producer_core_path,
         carrier_path,
         schema_path,
         validator_path,
         fixed_builder_path,
-        _trusted_git_executable(),
+        trusted_git_executable,
     ]
     for source in (
         packet["authority_sources"]["workflow"],
@@ -1799,14 +2118,18 @@ def atomic_write(path: Path, text: str) -> None:
             pass
 
 
-def parse_args() -> argparse.Namespace:
+def parse_args(
+    *,
+    profile: ProducerProfile = DEFAULT_PRODUCER_PROFILE,
+) -> argparse.Namespace:
+    profile = validate_profile(profile)
     parser = argparse.ArgumentParser(
         description=(
             "Produce an observed PULSEmech compute subject-input packet from "
-            "the exact preserved PULSE CI #6066 carrier."
+            "an explicitly bound producer profile."
         )
     )
-    parser.add_argument("--carrier", default=str(DEFAULT_CARRIER))
+    parser.add_argument("--carrier", default=str(profile.default_carrier))
     parser.add_argument("--repository-root", default=str(ROOT))
     parser.add_argument("--packet-created-utc", required=True)
     parser.add_argument("--producer-run-key", required=True)
@@ -1815,19 +2138,64 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def main() -> int:
-    args = parse_args()
+def main(
+    *,
+    profile: ProducerProfile = DEFAULT_PRODUCER_PROFILE,
+    producer_source_path: Path | None = None,
+    producer_core_source_sha256: str | None = None,
+) -> int:
+    args = parse_args(profile=profile)
     carrier_path = Path(args.carrier)
     repository_root = Path(args.repository_root)
     output = Path(args.output) if args.output else None
 
     try:
+        profile = validate_profile(profile)
         repository_root = _verified_git_repository_root(repository_root)
         revision = current_head(repository_root)
+
+        requested_producer_path = (
+            repository_root / PurePosixPath(profile.producer_source_path)
+            if producer_source_path is None
+            else Path(producer_source_path)
+        )
+        if not requested_producer_path.is_absolute():
+            requested_producer_path = repository_root / requested_producer_path
         producer_path = executed_producer_source_path(
             repository_root,
             revision=revision,
+            executed_source_path=requested_producer_path,
+            expected_relative_path=profile.producer_source_path,
         )
+        producer_core_path = executed_producer_core_source_path(
+            repository_root,
+            revision=revision,
+            executed_source_path=Path(__file__),
+        )
+        core_source_sha256 = sha256_file(producer_core_path)
+
+        loader_core_sha256 = globals().get("__pulsemech_source_sha256__")
+        if loader_core_sha256 is not None:
+            canonical_sha256(
+                loader_core_sha256,
+                label="loader_producer_core_source_sha256",
+            )
+            require_equal(
+                loader_core_sha256,
+                core_source_sha256,
+                label="loader_producer_core_source_sha256",
+            )
+        if producer_core_source_sha256 is not None:
+            canonical_sha256(
+                producer_core_source_sha256,
+                label="producer_core_source_sha256",
+            )
+            require_equal(
+                producer_core_source_sha256,
+                core_source_sha256,
+                label="producer_core_source_sha256",
+            )
+
         schema_path = committed_repository_file(
             repository_root,
             revision=revision,
@@ -1846,7 +2214,11 @@ def main() -> int:
             relative_path=FIXED_SOURCE_BUILDER_PATH,
             label="fixed_source_builder",
         )
-        carrier_sha256 = verify_exact_carrier_identity(carrier_path)
+        carrier_sha256 = verify_exact_carrier_identity(
+            carrier_path,
+            profile=profile,
+        )
+        trusted_git = _trusted_git_executable()
 
         protected_before = {
             "carrier": carrier_sha256,
@@ -1854,7 +2226,10 @@ def main() -> int:
             "validator": sha256_file(validator_path),
             "fixed_builder": sha256_file(fixed_builder_path),
             "producer": sha256_file(producer_path),
+            "producer_core": core_source_sha256,
+            "trusted_git": sha256_file(trusted_git),
         }
+
         validator: ValidatorModule = load_module(
             validator_path,
             "pulsemech_subject_input_validator_for_producer",
@@ -1863,11 +2238,7 @@ def main() -> int:
             fixed_builder_path,
             "pulsemech_fixed_compute_builder_for_subject_input",
         )
-        require_equal(
-            validator._trusted_git_executable(),
-            _trusted_git_executable(),
-            label="validator_trusted_git_executable",
-        )
+        bind_validator_trusted_git_executable(validator, trusted_git)
         require_equal(
             validator._verified_git_repository_root(repository_root),
             repository_root,
@@ -1886,6 +2257,7 @@ def main() -> int:
             repository_root=repository_root,
             validator=validator,
             fixed_builder=fixed_builder,
+            profile=profile,
         )
         subject, sources = build_subject_and_sources(
             inputs=inputs,
@@ -1898,6 +2270,7 @@ def main() -> int:
             source_path=producer_path,
             execution_identity=args.ci_workflow_or_job_identity,
             producer_run_key=args.producer_run_key,
+            profile=profile,
         )
         packet = build_packet(
             inputs=inputs,
@@ -1907,6 +2280,7 @@ def main() -> int:
             packet_created_utc=packet_created_utc,
         )
         rendered = render_json(packet)
+
         validate_generated_packet(
             packet=packet,
             rendered=rendered,
@@ -1922,21 +2296,27 @@ def main() -> int:
             schema_path=schema_path,
             validator_path=validator_path,
             fixed_builder_path=fixed_builder_path,
+            producer_path=producer_path,
+            producer_core_path=producer_core_path,
+            trusted_git_executable=trusted_git,
             repository_root=repository_root,
-            validator=validator,
         )
+
         protected_after = {
             "carrier": sha256_file(carrier_path),
             "schema": sha256_file(schema_path),
             "validator": sha256_file(validator_path),
             "fixed_builder": sha256_file(fixed_builder_path),
             "producer": sha256_file(producer_path),
+            "producer_core": sha256_file(producer_core_path),
+            "trusted_git": sha256_file(trusted_git),
         }
         require_equal(
             protected_after,
             protected_before,
             label="protected_inputs_after_build",
         )
+
         if output is not None:
             atomic_write(output, rendered)
         sys.stdout.write(rendered)
