@@ -49,10 +49,10 @@ THRESHOLD_POLICY = (
 )
 
 EXPECTED_PRODUCER_SHA256 = (
-    "13bb5ab8f0b7e08a016963c212144bc1190e96345ee19bb12847acaf5b3c14ff"
+    "d61c7bb6d158a2122463f366cfe12066fe5f909389113787728777d069ebe70f"
 )
-EXPECTED_PRODUCER_SIZE_BYTES = 2997
-EXPECTED_PRODUCER_LINE_COUNT = 111
+EXPECTED_PRODUCER_SIZE_BYTES = 20063
+EXPECTED_PRODUCER_LINE_COUNT = 658
 
 EXPECTED_CARRIER_SHA256 = (
     "7949bfd00468e6f9347fddaae732bdcebff5527e87ecb379a6c84a47176db966"
@@ -545,6 +545,16 @@ def test_producer_file_identity_is_pinned() -> None:
     assert sha256_bytes(payload) == EXPECTED_PRODUCER_SHA256
 
 
+def test_wrapper_verifies_committed_core_before_compile_and_execution() -> None:
+    source = PRODUCER.read_text(encoding="utf-8")
+    committed_check = source.index("producer_core_committed_bytes_mismatch")
+    compile_call = source.index("code = compile(")
+    execution_call = source.index("exec(code, module.__dict__)")
+    assert committed_check < compile_call < execution_call
+    assert "Path(__file__).resolve()" not in source
+    assert "_EXECUTED_WRAPPER_PATH" in source
+
+
 def test_compatibility_wrapper_loads_exact_current_committed_core() -> None:
     revision = current_head()
     committed_core = PRODUCER_MODULE._git_blob_bytes(
@@ -560,6 +570,9 @@ def test_compatibility_wrapper_loads_exact_current_committed_core() -> None:
     assert PRODUCER_CORE.read_bytes() == committed_core
     assert WRAPPER_MODULE.PRODUCER_CORE_SOURCE_SHA256 == core_sha256
     assert PRODUCER_MODULE.__pulsemech_source_sha256__ == core_sha256
+    assert PRODUCER_MODULE.__pulsemech_verified_revision__ == revision
+    assert WRAPPER_MODULE._BOOTSTRAP_REPOSITORY_ROOT == ROOT
+    assert WRAPPER_MODULE._EXECUTED_WRAPPER_PATH == PRODUCER
 
 
 def test_compatibility_wrapper_delegates_main_with_exact_provenance(
@@ -677,7 +690,10 @@ def test_out_of_tree_copied_producer_execution_is_rejected(
     shutil.copy2(PRODUCER, copied)
     module_name = "pulsemech_subject_input_packet_copied_producer_v0"
     try:
-        with pytest.raises(RuntimeError, match="producer_core_missing"):
+        with pytest.raises(
+            RuntimeError,
+            match="executed_wrapper_path_mismatch",
+        ):
             import_module(copied, module_name)
     finally:
         sys.modules.pop(module_name, None)
