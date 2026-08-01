@@ -2,15 +2,18 @@
 from __future__ import annotations
 
 import argparse
+import copy
+import errno
 import hashlib
 import json
 import os
 import re
+import secrets
 import stat
 import sys
 import tempfile
 from datetime import datetime, timezone
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any
 
 import jsonschema
@@ -67,6 +70,33 @@ CONTROL_PLANE_COMPONENT_KEYS = (
     "subject_input_producer_wrapper",
     "subject_input_schema",
     "subject_input_validator",
+)
+
+ROLE_BINDING_SCALAR_KEYS = (
+    "preservation_manifest",
+    "preservation_readme",
+    "preservation_checksums",
+    "complete_package",
+    "package_inventory",
+    "package_completeness_report",
+    "independent_verification_report",
+    "run_metadata",
+    "final_status",
+    "status_baseline",
+    "release_decision",
+    "release_authority",
+    "artifact_binding",
+    "evidence_manifest",
+    "recorded_verifier_report",
+    "required_gate_evidence",
+    "candidate_index",
+)
+
+ROLE_BINDING_LIST_KEYS = (
+    "candidate_records",
+    "external_evidence_records",
+    "attestation_records",
+    "reader_surfaces",
 )
 
 CLOSED_CONTENT_BOUNDARY = {
@@ -134,6 +164,35 @@ def _normalized_absolute_path(path: Path) -> Path:
     return Path(os.path.abspath(os.path.normpath(os.fspath(path))))
 
 
+def _validated_directory_root(path: Path, *, label: str) -> Path:
+    candidate = _normalized_absolute_path(path)
+    reject_symlink_components(candidate, label=label)
+    try:
+        metadata = candidate.lstat()
+    except OSError as exc:
+        raise SemanticError(f"{label}_unavailable: {candidate}: {exc}") from exc
+    if not stat.S_ISDIR(metadata.st_mode):
+        raise SemanticError(f"{label}_not_directory: {candidate}")
+    try:
+        return candidate.resolve(strict=True)
+    except OSError as exc:
+        raise SemanticError(f"{label}_unresolvable: {candidate}: {exc}") from exc
+
+
+def _stat_identity(value: os.stat_result) -> tuple[Any, ...]:
+    return tuple(
+        getattr(value, name, None)
+        for name in (
+            "st_dev",
+            "st_ino",
+            "st_mode",
+            "st_size",
+            "st_mtime_ns",
+            "st_ctime_ns",
+        )
+    )
+
+
 def reject_symlink_components(path: Path, *, label: str) -> None:
     cursor = _normalized_absolute_path(path)
     while True:
@@ -144,13 +203,102 @@ def reject_symlink_components(path: Path, *, label: str) -> None:
                 raise SemanticError(f"{label}_missing: {cursor}")
             raise SemanticError(f"{label}_parent_missing: {cursor}")
         except OSError as exc:
-            raise SemanticError(f"{label}_component_unavailable: {cursor}: {exc}") from exc
+            raise SemanticError(
+                f"{label}_component_unavailable: {cursor}: {exc}"
+            ) from exc
 
         if stat.S_ISLNK(metadata.st_mode):
             raise SemanticError(f"{label}_symlink_rejected: {cursor}")
         if cursor == cursor.parent:
             return
         cursor = cursor.parent
+
+
+def _open_nofollow_posix(path: Path, *, label: str) -> int:
+    candidate = _normalized_absolute_path(path)
+    parts = candidate.parts
+    if not candidate.is_absolute() or not parts:
+        raise SemanticError(f"{label}_path_not_absolute: {candidate}")
+
+    directory_flags = os.O_RDONLY
+    directory_flags |= int(getattr(os, "O_DIRECTORY", 0))
+    directory_flags |= int(getattr(os, "O_CLOEXEC", 0))
+    directory_flags |= int(getattr(os, "O_NOFOLLOW", 0))
+    file_flags = os.O_RDONLY
+    file_flags |= int(getattr(os, "O_CLOEXEC", 0))
+    file_flags |= int(getattr(os, "O_NOFOLLOW", 0))
+    file_flags |= int(getattr(os, "O_BINARY", 0))
+
+    current_fd: int | None = None
+    try:
+        current_fd = os.open(parts[0], directory_flags)
+        for part in parts[1:-1]:
+            next_fd = os.open(
+                part,
+                directory_flags,
+                dir_fd=current_fd,
+            )
+            os.close(current_fd)
+            current_fd = next_fd
+        if len(parts) == 1:
+            raise SemanticError(f"{label}_path_is_root: {candidate}")
+        return os.open(parts[-1], file_flags, dir_fd=current_fd)
+    except OSError as exc:
+        if exc.errno in {
+            errno.ELOOP,
+            errno.ENOTDIR,
+        }:
+            raise SemanticError(
+                f"{label}_symlink_or_non_directory_component_rejected: "
+                f"{candidate}: {exc}"
+            ) from exc
+        if exc.errno == errno.ENOENT:
+            raise SemanticError(f"{label}_missing: {candidate}") from exc
+        raise SemanticError(f"{label}_open_failed: {candidate}: {exc}") from exc
+    finally:
+        if current_fd is not None:
+            try:
+                os.close(current_fd)
+            except OSError:
+                pass
+
+
+def _open_nofollow_fallback(path: Path, *, label: str) -> int:
+    candidate = _normalized_absolute_path(path)
+    reject_symlink_components(candidate, label=label)
+    try:
+        before = candidate.lstat()
+    except OSError as exc:
+        raise SemanticError(f"{label}_unavailable: {candidate}: {exc}") from exc
+    if not stat.S_ISREG(before.st_mode):
+        raise SemanticError(f"{label}_not_regular_file: {candidate}")
+
+    flags = os.O_RDONLY
+    flags |= int(getattr(os, "O_CLOEXEC", 0))
+    flags |= int(getattr(os, "O_NOFOLLOW", 0))
+    flags |= int(getattr(os, "O_BINARY", 0))
+    try:
+        descriptor = os.open(candidate, flags)
+    except OSError as exc:
+        raise SemanticError(f"{label}_open_failed: {candidate}: {exc}") from exc
+
+    try:
+        opened = os.fstat(descriptor)
+        if (
+            not stat.S_ISREG(opened.st_mode)
+            or _stat_identity(before) != _stat_identity(opened)
+        ):
+            raise SemanticError(f"{label}_changed_before_read: {candidate}")
+    except Exception:
+        os.close(descriptor)
+        raise
+    return descriptor
+
+
+def _open_nofollow(path: Path, *, label: str) -> int:
+    if os.name != "nt" and os.open in os.supports_dir_fd:
+        return _open_nofollow_posix(path, label=label)
+    return _open_nofollow_fallback(path, label=label)
 
 
 def read_regular_file(
@@ -160,27 +308,44 @@ def read_regular_file(
     max_bytes: int,
 ) -> bytes:
     candidate = _normalized_absolute_path(path)
-    reject_symlink_components(candidate, label=label)
+    descriptor = _open_nofollow(candidate, label=label)
     try:
-        metadata = candidate.lstat()
-    except OSError as exc:
-        raise SemanticError(f"{label}_unavailable: {candidate}: {exc}") from exc
-    if not stat.S_ISREG(metadata.st_mode):
-        raise SemanticError(f"{label}_not_regular_file: {candidate}")
-    if metadata.st_size > max_bytes:
-        raise SemanticError(
-            f"{label}_too_large: size={metadata.st_size} maximum={max_bytes}"
-        )
-    try:
-        payload = candidate.read_bytes()
+        before = os.fstat(descriptor)
+        if not stat.S_ISREG(before.st_mode):
+            raise SemanticError(f"{label}_not_regular_file: {candidate}")
+        if before.st_size > max_bytes:
+            raise SemanticError(
+                f"{label}_too_large: size={before.st_size} maximum={max_bytes}"
+            )
+
+        chunks: list[bytes] = []
+        total = 0
+        while True:
+            chunk = os.read(descriptor, min(1024 * 1024, max_bytes + 1))
+            if not chunk:
+                break
+            total += len(chunk)
+            if total > max_bytes:
+                raise SemanticError(
+                    f"{label}_too_large_during_read: "
+                    f"size>{max_bytes}"
+                )
+            chunks.append(chunk)
+
+        after = os.fstat(descriptor)
+        if _stat_identity(before) != _stat_identity(after):
+            raise SemanticError(f"{label}_changed_during_read: {candidate}")
+        payload = b"".join(chunks)
+        if len(payload) != before.st_size:
+            raise SemanticError(
+                f"{label}_size_changed_during_read: "
+                f"expected={before.st_size} actual={len(payload)}"
+            )
+        return payload
     except OSError as exc:
         raise SemanticError(f"{label}_read_failed: {candidate}: {exc}") from exc
-    if len(payload) != metadata.st_size:
-        raise SemanticError(
-            f"{label}_size_changed_during_read: "
-            f"expected={metadata.st_size} actual={len(payload)}"
-        )
-    return payload
+    finally:
+        os.close(descriptor)
 
 
 def load_json(
@@ -222,21 +387,34 @@ def render_json(value: dict[str, Any]) -> str:
     )
 
 
-def schema_errors(schema: dict[str, Any], value: Any) -> list[str]:
-    validator = jsonschema.Draft202012Validator(
-        schema,
-        format_checker=jsonschema.FormatChecker(),
-    )
-    return [
-        f"schema_error[{list(error.path)}]: {error.message}"
-        for error in sorted(
-            validator.iter_errors(value),
+def validate_instance(
+    schema: dict[str, Any],
+    value: Any,
+    *,
+    label: str,
+) -> tuple[bool, list[str]]:
+    try:
+        validator = jsonschema.Draft202012Validator(
+            schema,
+            format_checker=jsonschema.FormatChecker(),
+        )
+        validation_errors = sorted(
+            list(validator.iter_errors(value)),
             key=lambda item: (
                 tuple(str(part) for part in item.path),
                 item.message,
             ),
         )
+    except Exception as exc:
+        return False, [
+            f"{label}_validation_failed: {type(exc).__name__}: {exc}"
+        ]
+
+    errors = [
+        f"{label}_error[{list(error.path)}]: {error.message}"
+        for error in validation_errors
     ]
+    return not errors, errors
 
 
 def _all_object_keys_sorted(value: Any) -> bool:
@@ -333,6 +511,189 @@ def _fullmatch(pattern: Any, value: Any) -> bool:
     )
 
 
+def _canonical_component_path(value: Any) -> str | None:
+    if not isinstance(value, str) or not value or "\\" in value:
+        return None
+    if value.startswith("/") or value.endswith("/") or "\x00" in value:
+        return None
+    pure = PurePosixPath(value)
+    if not pure.parts or any(part in {"", ".", ".."} for part in pure.parts):
+        return None
+    canonical = pure.as_posix()
+    return canonical if canonical == value else None
+
+
+def _subject_input_observed_witness(
+    expectation: dict[str, Any],
+    *,
+    packet_contract: dict[str, Any],
+    profile: dict[str, Any],
+) -> dict[str, Any]:
+    subject = copy.deepcopy(expectation.get("subject", {}))
+    authority_sources = copy.deepcopy(
+        expectation.get("authority_sources", {})
+    )
+    carrier = expectation.get("carrier", {})
+    identity = expectation.get("expectation_identity", {})
+    components = expectation.get("trusted_control_plane", {}).get(
+        "components",
+        {},
+    )
+    producer_component = (
+        components.get("subject_input_producer_wrapper", {})
+        if isinstance(components, dict)
+        else {}
+    )
+    layout = expectation.get("archive_layout", {})
+    visible = layout.get("visible_members", {})
+
+    artifact_id = "artifact:current-run-export-compatibility-probe/manifest"
+    manifest_name = (
+        visible.get("preservation_manifest_name")
+        if isinstance(visible, dict)
+        else None
+    ) or "PRESERVATION_MANIFEST_v0.json"
+    root_prefix = carrier.get("root_prefix") or "current-run-export-probe/"
+    member_path = f"{root_prefix}{manifest_name}"
+
+    role_bindings: dict[str, Any] = {
+        key: None for key in ROLE_BINDING_SCALAR_KEYS
+    }
+    role_bindings["preservation_manifest"] = artifact_id
+    role_bindings.update({key: [] for key in ROLE_BINDING_LIST_KEYS})
+
+    missing_roles = sorted(
+        key
+        for key in ROLE_BINDING_SCALAR_KEYS
+        if key != "preservation_manifest"
+    ) + list(ROLE_BINDING_LIST_KEYS)
+
+    producer_version = producer_component.get("version")
+    if not isinstance(producer_version, str):
+        producer_version = "0.1.0"
+
+    return {
+        "analysis_boundary": {
+            "current_repository_state_substitution_allowed": False,
+            "observer_in_subject_totals": False,
+            "packet_is_compute_report": False,
+            "packet_is_runtime_observation": False,
+            "runtime_observation_included": False,
+            "runtime_observation_required_for_runtime_classification": True,
+            "target_analysis_level": "artifact_observed",
+        },
+        "artifacts": [
+            {
+                "artifact_id": artifact_id,
+                "container_artifact_id": None,
+                "container_path_verified": True,
+                "content_kind": "json",
+                "digest_verified": True,
+                "display_path_or_uri": (
+                    f"{carrier.get('staged_relative_path', 'carrier.zip')}!/{member_path}"
+                ),
+                "media_type": "application/json",
+                "member_path": member_path,
+                "provider_binding": None,
+                "required_for_analysis": True,
+                "role": "preservation_manifest",
+                "sha256": hashlib.sha256(
+                    b"current-run-export-compatibility-probe"
+                ).hexdigest(),
+                "size_bytes": 1,
+                "size_verified": True,
+            }
+        ],
+        "authority_boundary": {
+            "activates_compute_gate": False,
+            "changes_gate_policy": False,
+            "changes_gate_semantics": False,
+            "changes_release_authority": False,
+            "creates_compute_budget": False,
+            "creates_gate_result": False,
+            "creates_release_decision": False,
+            "mutates_carrier": False,
+            "packet_is_release_authority": False,
+            "write_mode": "subject_input_only",
+            "writes_subject_run": False,
+            "writes_target_repository": False,
+        },
+        "authority_sources": authority_sources,
+        "carrier": {
+            "artifact_payload_mode": "external_carrier",
+            "carrier_id": carrier.get("carrier_id"),
+            "carrier_kind": "current_run_export_archive",
+            "immutable": True,
+            "media_type": "application/zip",
+            "path_or_uri": carrier.get(
+                "staged_relative_path",
+                "current-run-export-probe.zip",
+            ),
+            "provider_binding": copy.deepcopy(
+                carrier.get("provider_binding")
+            ),
+            "root_prefix": carrier.get("root_prefix"),
+            "sha256": carrier.get("sha256"),
+            "size_bytes": carrier.get("size_bytes"),
+        },
+        "content_boundary": {
+            "artifact_bytes_embedded": False,
+            "carrier_required_for_verification": True,
+            "packet_payload_mode": "metadata_only",
+            "raw_model_inputs_included": False,
+            "raw_model_outputs_included": False,
+            "raw_secrets_included": False,
+        },
+        "coverage": {
+            "artifact_graph_complete": False,
+            "artifacts_total": 1,
+            "carrier_binding_complete": True,
+            "coverage_status": "partial",
+            "missing_roles": missing_roles,
+            "provider_artifacts_bound": 0,
+            "provider_artifacts_total": 0,
+            "role_bindings_complete": False,
+            "role_bindings_resolved": 1,
+            "role_bindings_total": (
+                len(ROLE_BINDING_SCALAR_KEYS)
+                + len(ROLE_BINDING_LIST_KEYS)
+            ),
+            "source_bindings_complete": True,
+            "unresolved_artifact_ids": [],
+        },
+        "errors": [],
+        "ok": True,
+        "packet_identity": {
+            "canonicalization": "json-sort-keys-utf8-newline",
+            "carrier_id": carrier.get("carrier_id"),
+            "packet_created_utc": identity.get("expectation_created_utc"),
+            "packet_id": "subject-input:current-run-export-compatibility-probe",
+            "packet_scope": "current_run",
+            "subject_run_key": subject.get("subject_run_key"),
+        },
+        "packet_type": packet_contract.get("packet_type"),
+        "producer": {
+            "ci_workflow_or_job_identity": (
+                "current-run-export-cross-contract-probe"
+            ),
+            "producer_id": "producer:current-run-export-cross-contract-probe",
+            "producer_name": "PULSEmech current-run export cross-contract probe",
+            "producer_run_key": subject.get("subject_run_key"),
+            "producer_source": profile.get("expected_producer_source_path"),
+            "producer_source_revision": producer_component.get(
+                "source_revision"
+            ),
+            "producer_source_sha256": producer_component.get("sha256"),
+            "producer_version": producer_version,
+            "production_mode": "current_run_export",
+        },
+        "record_status": "observed",
+        "role_bindings": role_bindings,
+        "schema_version": packet_contract.get("schema_version"),
+        "subject": subject,
+    }
+
+
 def _carrier_digest_key_count(value: Any) -> int:
     if isinstance(value, dict):
         return sum(
@@ -389,11 +750,12 @@ def _provider_binding_ok(
 
 def _subject_input_cross_contract(
     *,
+    expectation: dict[str, Any],
     expectation_schema: dict[str, Any],
     subject_input_schema: dict[str, Any],
     packet_contract: dict[str, Any],
     profile: dict[str, Any],
-) -> tuple[bool, list[str]]:
+) -> tuple[bool, list[str], bool]:
     errors: list[str] = []
 
     expected_values = {
@@ -517,7 +879,19 @@ def _subject_input_cross_contract(
             f"derived_carrier_id_not_packet_safe: {derived_carrier_id!r}"
         )
 
-    return not errors, errors
+    witness = _subject_input_observed_witness(
+        expectation,
+        packet_contract=packet_contract,
+        profile=profile,
+    )
+    witness_valid, witness_errors = validate_instance(
+        subject_input_schema,
+        witness,
+        label="subject_input_observed_branch_witness",
+    )
+    errors.extend(witness_errors)
+
+    return not errors, errors, witness_valid
 
 
 def semantic_checks(
@@ -753,10 +1127,21 @@ def semantic_checks(
         ),
     )
     component_paths = [row.get("path") for row in component_rows]
+    canonical_component_paths = [
+        _canonical_component_path(path) for path in component_paths
+    ]
+    component_paths_canonical_ok = all(
+        path is not None for path in canonical_component_paths
+    )
+    record(
+        "control_plane_component_paths_canonical_ok",
+        component_paths_canonical_ok,
+    )
     record(
         "control_plane_component_paths_unique_ok",
-        all(isinstance(path, str) for path in component_paths)
-        and len(component_paths) == len(set(component_paths)),
+        component_paths_canonical_ok
+        and len(canonical_component_paths)
+        == len(set(canonical_component_paths)),
     )
 
     component_path_bindings_ok = (
@@ -803,12 +1188,21 @@ def semantic_checks(
         )
     record("observed_producer_bindings_ok", observed_producer_ok)
 
+    carrier_id = carrier.get("carrier_id")
+    carrier_prefix = (
+        f"carrier:{profile.get('expected_carrier_id_namespace')}/"
+    )
+    carrier_suffix = (
+        carrier_id[len(carrier_prefix):]
+        if isinstance(carrier_id, str)
+        and carrier_id.startswith(carrier_prefix)
+        else None
+    )
     record(
         "carrier_id_namespace_binding_ok",
-        isinstance(carrier.get("carrier_id"), str)
-        and carrier.get("carrier_id").startswith(
-            f"carrier:{profile.get('expected_carrier_id_namespace')}/"
-        ),
+        isinstance(carrier_suffix, str)
+        and bool(carrier_suffix)
+        and _canonical_component_path(carrier_suffix) is not None,
     )
     record(
         "carrier_layout_binding_ok",
@@ -881,11 +1275,21 @@ def semantic_checks(
         and _carrier_digest_key_count(expectation) == 0,
     )
 
-    cross_contract_ok, cross_contract_errors = _subject_input_cross_contract(
+    (
+        cross_contract_ok,
+        cross_contract_errors,
+        observed_branch_witness_ok,
+    ) = _subject_input_cross_contract(
+        expectation=expectation,
         expectation_schema=expectation_schema,
         subject_input_schema=subject_input_schema,
         packet_contract=packet_contract,
         profile=profile,
+    )
+    record(
+        "subject_input_observed_branch_witness_ok",
+        observed_branch_witness_ok,
+        " | ".join(cross_contract_errors) or None,
     )
     record(
         "subject_input_cross_contract_ok",
@@ -946,6 +1350,10 @@ def make_diagnostic(
     derived: dict[str, Any],
     input_identities: dict[str, Any],
     errors: list[str],
+    expectation_instance_valid: bool = False,
+    subject_input_observed_branch_valid: bool = False,
+    canonical_expectation_schema_path_verified: bool = False,
+    canonical_subject_input_schema_path_verified: bool = False,
 ) -> dict[str, Any]:
     return {
         "tool": TOOL_NAME,
@@ -955,15 +1363,30 @@ def make_diagnostic(
         "record_status": record_status,
         "ok": ok,
         "expectation_schema_valid": expectation_schema_valid,
+        "expectation_instance_valid": expectation_instance_valid,
         "subject_input_schema_valid": subject_input_schema_valid,
+        "subject_input_observed_branch_valid": (
+            subject_input_observed_branch_valid
+        ),
         "checks": dict(sorted(checks.items())),
         "derived": dict(sorted(derived.items())),
         "input_identities": dict(sorted(input_identities.items())),
         "verification_boundary": {
+            "canonical_expectation_schema_path_verified": (
+                canonical_expectation_schema_path_verified
+            ),
+            "canonical_subject_input_schema_path_verified": (
+                canonical_subject_input_schema_path_verified
+            ),
             "carrier_bytes_verified": False,
             "control_plane_component_bytes_verified": False,
-            "contract_semantics_verified": bool(ok),
+            "contract_semantics_verified": bool(
+                ok
+                and canonical_expectation_schema_path_verified
+                and canonical_subject_input_schema_path_verified
+            ),
             "subject_authority_source_bytes_verified": False,
+            "supplied_contract_semantics_verified": bool(ok),
         },
         "authority_effect": "none",
         "errors": sorted(set(errors)),
@@ -1005,6 +1428,15 @@ def build_diagnostic(
             errors=[f"read_error: {exc}"],
         )
         return diagnostic, 2
+
+    canonical_expectation_schema_path_verified = same_target(
+        schema_path,
+        DEFAULT_SCHEMA,
+    )
+    canonical_subject_input_schema_path_verified = same_target(
+        subject_input_schema_path,
+        DEFAULT_SUBJECT_INPUT_SCHEMA,
+    )
 
     input_identities = {
         "expectation": {
@@ -1060,39 +1492,40 @@ def build_diagnostic(
     try:
         jsonschema.Draft202012Validator.check_schema(expectation_schema)
     except Exception as exc:
-        expectation_schema_errors.append(f"expectation_schema_invalid: {exc}")
+        expectation_schema_errors.append(
+            f"expectation_schema_invalid: {type(exc).__name__}: {exc}"
+        )
     try:
         jsonschema.Draft202012Validator.check_schema(subject_input_schema)
     except Exception as exc:
-        subject_input_schema_errors.append(f"subject_input_schema_invalid: {exc}")
+        subject_input_schema_errors.append(
+            f"subject_input_schema_invalid: {type(exc).__name__}: {exc}"
+        )
 
     expectation_schema_valid = not expectation_schema_errors
     subject_input_schema_valid = not subject_input_schema_errors
     errors = expectation_schema_errors + subject_input_schema_errors
 
+    expectation_instance_valid = False
     if expectation_schema_valid:
-        errors.extend(schema_errors(expectation_schema, expectation))
-    record_schema_valid = (
-        expectation_schema_valid
-        and not any(error.startswith("schema_error[") for error in errors)
-    )
+        expectation_instance_valid, instance_errors = validate_instance(
+            expectation_schema,
+            expectation,
+            label="expectation_instance",
+        )
+        errors.extend(instance_errors)
 
     if not isinstance(expectation, dict):
-        diagnostic = make_diagnostic(
-            ok=False,
-            expectation_schema_valid=record_schema_valid,
-            subject_input_schema_valid=subject_input_schema_valid,
-            record_status=None,
-            checks={},
-            derived={},
-            input_identities=input_identities,
-            errors=errors + ["expectation_not_object"],
-        )
-        return diagnostic, 1
+        errors.append("expectation_not_object")
 
     checks: dict[str, bool] = {}
     derived: dict[str, Any] = {}
-    if record_schema_valid and subject_input_schema_valid:
+    subject_input_observed_branch_valid = False
+    if (
+        isinstance(expectation, dict)
+        and expectation_instance_valid
+        and subject_input_schema_valid
+    ):
         semantic, semantic_errors_list, derived = semantic_checks(
             expectation,
             expectation_text=expectation_text,
@@ -1103,11 +1536,15 @@ def build_diagnostic(
         )
         checks.update(semantic)
         errors.extend(semantic_errors_list)
+        subject_input_observed_branch_valid = bool(
+            checks.get("subject_input_observed_branch_witness_ok")
+        )
     else:
         checks["semantic_checks_skipped_due_to_schema_errors"] = False
 
     ok = (
-        record_schema_valid
+        expectation_schema_valid
+        and expectation_instance_valid
         and subject_input_schema_valid
         and bool(checks)
         and all(checks.values())
@@ -1115,9 +1552,23 @@ def build_diagnostic(
     )
     diagnostic = make_diagnostic(
         ok=ok,
-        expectation_schema_valid=record_schema_valid,
+        expectation_schema_valid=expectation_schema_valid,
+        expectation_instance_valid=expectation_instance_valid,
         subject_input_schema_valid=subject_input_schema_valid,
-        record_status=expectation.get("record_status"),
+        subject_input_observed_branch_valid=(
+            subject_input_observed_branch_valid
+        ),
+        canonical_expectation_schema_path_verified=(
+            canonical_expectation_schema_path_verified
+        ),
+        canonical_subject_input_schema_path_verified=(
+            canonical_subject_input_schema_path_verified
+        ),
+        record_status=(
+            expectation.get("record_status")
+            if isinstance(expectation, dict)
+            else None
+        ),
         checks=checks,
         derived=derived,
         input_identities=input_identities,
@@ -1128,7 +1579,12 @@ def build_diagnostic(
 
 def same_target(left: Path, right: Path) -> bool:
     try:
-        return left.resolve(strict=False) == right.resolve(strict=False)
+        if left.resolve(strict=False) == right.resolve(strict=False):
+            return True
+    except OSError:
+        pass
+    try:
+        return left.exists() and right.exists() and left.samefile(right)
     except OSError:
         return False
 
@@ -1139,7 +1595,7 @@ def reject_unsafe_output(
     schema_path: Path,
     expectation_path: Path,
     subject_input_schema_path: Path,
-    repository_root: Path,
+    repository_roots: tuple[Path, ...],
 ) -> None:
     if output is None:
         return
@@ -1176,17 +1632,126 @@ def reject_unsafe_output(
         cursor = cursor.parent
 
     try:
-        candidate.resolve(strict=False).relative_to(
-            repository_root.resolve(strict=True)
+        resolved_candidate = candidate.resolve(strict=False)
+    except OSError as exc:
+        raise SemanticError(
+            f"output_path_unresolvable: {candidate}: {exc}"
+        ) from exc
+
+    for repository_root in repository_roots:
+        try:
+            resolved_candidate.relative_to(repository_root)
+        except ValueError:
+            continue
+        raise SemanticError(
+            f"refusing_output_inside_repository: {resolved_candidate}"
         )
-    except (OSError, ValueError):
-        return
-    raise SemanticError(f"refusing_output_inside_repository: {candidate}")
 
 
-def atomic_write(path: Path, text: str) -> None:
+def _open_or_create_directory_posix(path: Path, *, label: str) -> int:
+    candidate = _normalized_absolute_path(path)
+    parts = candidate.parts
+    if not candidate.is_absolute() or not parts:
+        raise SemanticError(f"{label}_path_not_absolute: {candidate}")
+
+    flags = os.O_RDONLY
+    flags |= int(getattr(os, "O_DIRECTORY", 0))
+    flags |= int(getattr(os, "O_CLOEXEC", 0))
+    flags |= int(getattr(os, "O_NOFOLLOW", 0))
+
+    current_fd: int | None = None
+    try:
+        current_fd = os.open(parts[0], flags)
+        for part in parts[1:]:
+            try:
+                next_fd = os.open(part, flags, dir_fd=current_fd)
+            except FileNotFoundError:
+                try:
+                    os.mkdir(part, mode=0o700, dir_fd=current_fd)
+                except FileExistsError:
+                    pass
+                next_fd = os.open(part, flags, dir_fd=current_fd)
+            os.close(current_fd)
+            current_fd = next_fd
+        if current_fd is None:
+            raise SemanticError(f"{label}_open_failed: {candidate}")
+        result = current_fd
+        current_fd = None
+        return result
+    except OSError as exc:
+        if exc.errno in {errno.ELOOP, errno.ENOTDIR}:
+            raise SemanticError(
+                f"{label}_symlink_or_non_directory_component_rejected: "
+                f"{candidate}: {exc}"
+            ) from exc
+        raise SemanticError(f"{label}_open_failed: {candidate}: {exc}") from exc
+    finally:
+        if current_fd is not None:
+            try:
+                os.close(current_fd)
+            except OSError:
+                pass
+
+
+def _write_all(descriptor: int, payload: bytes) -> None:
+    offset = 0
+    while offset < len(payload):
+        written = os.write(descriptor, payload[offset:])
+        if written <= 0:
+            raise SemanticError("output_write_returned_zero")
+        offset += written
+
+
+def _atomic_write_posix(path: Path, payload: bytes) -> None:
+    candidate = _normalized_absolute_path(path)
+    if not candidate.name or candidate.name in {".", ".."}:
+        raise SemanticError(f"output_leaf_name_invalid: {candidate}")
+    parent_fd = _open_or_create_directory_posix(
+        candidate.parent,
+        label="output_parent",
+    )
+    temp_name = f".{candidate.name}.{secrets.token_hex(16)}.tmp"
+    descriptor: int | None = None
+    try:
+        flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
+        flags |= int(getattr(os, "O_CLOEXEC", 0))
+        flags |= int(getattr(os, "O_NOFOLLOW", 0))
+        flags |= int(getattr(os, "O_BINARY", 0))
+        descriptor = os.open(
+            temp_name,
+            flags,
+            0o600,
+            dir_fd=parent_fd,
+        )
+        _write_all(descriptor, payload)
+        os.fsync(descriptor)
+        os.close(descriptor)
+        descriptor = None
+        os.replace(
+            temp_name,
+            candidate.name,
+            src_dir_fd=parent_fd,
+            dst_dir_fd=parent_fd,
+        )
+        os.fsync(parent_fd)
+    finally:
+        if descriptor is not None:
+            try:
+                os.close(descriptor)
+            except OSError:
+                pass
+        try:
+            os.unlink(temp_name, dir_fd=parent_fd)
+        except FileNotFoundError:
+            pass
+        finally:
+            os.close(parent_fd)
+
+
+def _atomic_write_fallback(path: Path, text: str) -> None:
     parent = path.parent
     parent.mkdir(parents=True, exist_ok=True)
+    reject_symlink_components(parent, label="output_parent")
     if not parent.is_dir():
         raise SemanticError(f"output_parent_not_directory: {parent}")
 
@@ -1206,12 +1771,26 @@ def atomic_write(path: Path, text: str) -> None:
             handle.write(text)
             handle.flush()
             os.fsync(handle.fileno())
+        reject_symlink_components(parent, label="output_parent")
         os.replace(temp, path)
     finally:
         try:
             temp.unlink()
         except FileNotFoundError:
             pass
+
+
+def atomic_write(path: Path, text: str) -> None:
+    candidate = _normalized_absolute_path(path)
+    payload = text.encode("utf-8")
+    if (
+        os.name != "nt"
+        and os.open in os.supports_dir_fd
+        and os.rename in os.supports_dir_fd
+    ):
+        _atomic_write_posix(candidate, payload)
+        return
+    _atomic_write_fallback(candidate, text)
 
 
 def parse_args() -> argparse.Namespace:
@@ -1260,16 +1839,28 @@ def main() -> int:
     schema_path = Path(args.schema)
     expectation_path = Path(args.expectation)
     subject_input_schema_path = Path(args.subject_input_schema)
-    repository_root = Path(args.repository_root)
+    repository_root_argument = Path(args.repository_root)
     output = Path(args.output) if args.output else None
 
     try:
+        repository_root = _validated_directory_root(
+            repository_root_argument,
+            label="repository_root",
+        )
+        validator_repository_root = _validated_directory_root(
+            ROOT,
+            label="validator_repository_root",
+        )
         reject_unsafe_output(
             output,
             schema_path=schema_path,
             expectation_path=expectation_path,
             subject_input_schema_path=subject_input_schema_path,
-            repository_root=repository_root,
+            repository_roots=tuple(
+                dict.fromkeys(
+                    (validator_repository_root, repository_root)
+                )
+            ),
         )
     except SemanticError as exc:
         diagnostic = make_diagnostic(
@@ -1305,6 +1896,28 @@ def main() -> int:
                 ),
                 subject_input_schema_valid=diagnostic.get(
                     "subject_input_schema_valid",
+                    False,
+                ),
+                expectation_instance_valid=diagnostic.get(
+                    "expectation_instance_valid",
+                    False,
+                ),
+                subject_input_observed_branch_valid=diagnostic.get(
+                    "subject_input_observed_branch_valid",
+                    False,
+                ),
+                canonical_expectation_schema_path_verified=diagnostic.get(
+                    "verification_boundary",
+                    {},
+                ).get(
+                    "canonical_expectation_schema_path_verified",
+                    False,
+                ),
+                canonical_subject_input_schema_path_verified=diagnostic.get(
+                    "verification_boundary",
+                    {},
+                ).get(
+                    "canonical_subject_input_schema_path_verified",
                     False,
                 ),
                 record_status=diagnostic.get("record_status"),
