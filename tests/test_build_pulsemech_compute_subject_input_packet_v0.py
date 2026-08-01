@@ -14,7 +14,7 @@ import sys
 import tempfile
 import warnings
 import zipfile
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, Mapping
@@ -25,6 +25,11 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 
 PRODUCER = ROOT / "tools" / "build_pulsemech_compute_subject_input_packet_v0.py"
+PRODUCER_CORE = (
+    ROOT
+    / "tools"
+    / "pulsemech_compute_subject_input_packet_producer_core_v0.py"
+)
 VALIDATOR = ROOT / "tools" / "check_pulsemech_compute_subject_input_packet_v0.py"
 FIXED_SOURCE_BUILDER = ROOT / "tools" / "build_pulsemech_compute_binding_report_v0.py"
 SCHEMA = ROOT / "schemas" / "pulsemech_compute_subject_input_packet_v0.schema.json"
@@ -44,10 +49,10 @@ THRESHOLD_POLICY = (
 )
 
 EXPECTED_PRODUCER_SHA256 = (
-    "152e9ed67bf10389726ab7e27d59005afe62d23488e8cd13ffa58443bee13d18"
+    "13bb5ab8f0b7e08a016963c212144bc1190e96345ee19bb12847acaf5b3c14ff"
 )
-EXPECTED_PRODUCER_SIZE_BYTES = 67686
-EXPECTED_PRODUCER_LINE_COUNT = 1963
+EXPECTED_PRODUCER_SIZE_BYTES = 2997
+EXPECTED_PRODUCER_LINE_COUNT = 111
 
 EXPECTED_CARRIER_SHA256 = (
     "7949bfd00468e6f9347fddaae732bdcebff5527e87ecb379a6c84a47176db966"
@@ -160,10 +165,12 @@ def import_module(path: Path, name: str) -> Any:
     return module
 
 
-PRODUCER_MODULE = import_module(
+WRAPPER_MODULE = import_module(
     PRODUCER,
-    "pulsemech_subject_input_packet_producer_v0_under_test",
+    "pulsemech_subject_input_packet_wrapper_v0_under_test",
 )
+PRODUCER_MODULE = WRAPPER_MODULE._PRODUCER_CORE
+FIXED_SOURCE_PROFILE = PRODUCER_MODULE.FIXED_SOURCE_6066_PROFILE
 
 
 @lru_cache(maxsize=1)
@@ -412,6 +419,7 @@ def constructed_state() -> ConstructedState:
     revision = current_head()
     for relative, label in (
         (PRODUCER_MODULE.PRODUCER_SOURCE_PATH, "producer"),
+        (PRODUCER_MODULE.PRODUCER_CORE_SOURCE_PATH, "producer_core"),
         (PRODUCER_MODULE.SCHEMA_SOURCE_PATH, "schema"),
         (PRODUCER_MODULE.VALIDATOR_SOURCE_PATH, "validator"),
         (PRODUCER_MODULE.FIXED_SOURCE_BUILDER_PATH, "fixed_source_builder"),
@@ -430,6 +438,7 @@ def constructed_state() -> ConstructedState:
         repository_root=ROOT,
         validator=validator,
         fixed_builder=fixed_builder,
+        profile=FIXED_SOURCE_PROFILE,
     )
     subject, sources = PRODUCER_MODULE.build_subject_and_sources(
         inputs=inputs,
@@ -442,6 +451,7 @@ def constructed_state() -> ConstructedState:
         source_path=PRODUCER,
         execution_identity=EXECUTION_IDENTITY,
         producer_run_key=PRODUCER_RUN_KEY,
+        profile=FIXED_SOURCE_PROFILE,
     )
     packet = PRODUCER_MODULE.build_packet(
         inputs=inputs,
@@ -470,6 +480,7 @@ def cli_build(tmp_path_factory: pytest.TempPathFactory) -> CliBuild:
     output = output_directory / "observed-subject-input-packet-v0.json"
     protected = (
         PRODUCER,
+        PRODUCER_CORE,
         VALIDATOR,
         FIXED_SOURCE_BUILDER,
         SCHEMA,
@@ -511,6 +522,7 @@ def cli_build(tmp_path_factory: pytest.TempPathFactory) -> CliBuild:
 def test_required_producer_contract_and_subject_files_exist() -> None:
     for path in (
         PRODUCER,
+        PRODUCER_CORE,
         VALIDATOR,
         FIXED_SOURCE_BUILDER,
         SCHEMA,
@@ -531,6 +543,42 @@ def test_producer_file_identity_is_pinned() -> None:
     assert len(payload) == EXPECTED_PRODUCER_SIZE_BYTES
     assert len(payload.splitlines()) == EXPECTED_PRODUCER_LINE_COUNT
     assert sha256_bytes(payload) == EXPECTED_PRODUCER_SHA256
+
+
+def test_compatibility_wrapper_loads_exact_current_committed_core() -> None:
+    revision = current_head()
+    committed_core = PRODUCER_MODULE._git_blob_bytes(
+        ROOT,
+        revision=revision,
+        path=PRODUCER_MODULE.PRODUCER_CORE_SOURCE_PATH,
+    )
+    core_sha256 = sha256_bytes(committed_core)
+    assert WRAPPER_MODULE.PRODUCER_CORE.resolve(strict=True) == (
+        PRODUCER_CORE.resolve(strict=True)
+    )
+    assert WRAPPER_MODULE._PRODUCER_CORE is PRODUCER_MODULE
+    assert PRODUCER_CORE.read_bytes() == committed_core
+    assert WRAPPER_MODULE.PRODUCER_CORE_SOURCE_SHA256 == core_sha256
+    assert PRODUCER_MODULE.__pulsemech_source_sha256__ == core_sha256
+
+
+def test_compatibility_wrapper_delegates_main_with_exact_provenance(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    observed: dict[str, Any] = {}
+
+    def delegated_main(**kwargs: Any) -> int:
+        observed.update(kwargs)
+        return 7
+
+    monkeypatch.setattr(PRODUCER_MODULE, "main", delegated_main)
+    assert WRAPPER_MODULE.main() == 7
+    assert observed == {
+        "producer_source_path": PRODUCER.resolve(strict=True),
+        "producer_core_source_sha256": (
+            WRAPPER_MODULE.PRODUCER_CORE_SOURCE_SHA256
+        ),
+    }
 
 
 def test_exact_preservation_carrier_identity_is_pinned() -> None:
@@ -594,7 +642,7 @@ def test_cli_emits_observed_producer_branch(cli_build: CliBuild) -> None:
 
 def test_executed_producer_source_is_exact_canonical_committed_script() -> None:
     revision = current_head()
-    resolved = PRODUCER_MODULE.executed_producer_source_path(
+    resolved = WRAPPER_MODULE.executed_producer_source_path(
         ROOT,
         revision=revision,
     )
@@ -607,23 +655,32 @@ def test_executed_producer_source_is_exact_canonical_committed_script() -> None:
     assert resolved.read_bytes() == committed
 
 
+def test_executed_producer_core_is_exact_canonical_committed_script() -> None:
+    revision = current_head()
+    resolved = PRODUCER_MODULE.executed_producer_core_source_path(
+        ROOT,
+        revision=revision,
+    )
+    committed = PRODUCER_MODULE._git_blob_bytes(
+        ROOT,
+        revision=revision,
+        path=PRODUCER_MODULE.PRODUCER_CORE_SOURCE_PATH,
+    )
+    assert resolved == PRODUCER_CORE.resolve(strict=True)
+    assert resolved.read_bytes() == committed
+
+
 def test_out_of_tree_copied_producer_execution_is_rejected(
     tmp_path: Path,
 ) -> None:
     copied = tmp_path / PRODUCER.name
     shutil.copy2(PRODUCER, copied)
-    copied_module = import_module(
-        copied,
-        "pulsemech_subject_input_packet_copied_producer_v0",
-    )
-    with pytest.raises(
-        copied_module.BuilderError,
-        match="executed_producer_path_mismatch",
-    ):
-        copied_module.executed_producer_source_path(
-            ROOT,
-            revision=current_head(),
-        )
+    module_name = "pulsemech_subject_input_packet_copied_producer_v0"
+    try:
+        with pytest.raises(RuntimeError, match="producer_core_missing"):
+            import_module(copied, module_name)
+    finally:
+        sys.modules.pop(module_name, None)
 
 
 def test_producer_identity_is_exact_current_committed_source(
@@ -1077,6 +1134,7 @@ def test_producer_identity_binds_exact_synthetic_committed_source(
         source_path=path,
         execution_identity="synthetic producer execution",
         producer_run_key="SYNTHETIC_PRODUCER_RUN=1",
+        profile=FIXED_SOURCE_PROFILE,
     )
     assert identity["producer_source_revision"] == revision
     assert identity["producer_source_sha256"] == sha256_bytes(source_bytes)
@@ -1093,6 +1151,7 @@ def test_producer_identity_binds_exact_synthetic_committed_source(
             source_path=path,
             execution_identity="synthetic producer execution",
             producer_run_key="SYNTHETIC_PRODUCER_RUN=1",
+            profile=FIXED_SOURCE_PROFILE,
         )
 
 
@@ -1107,6 +1166,7 @@ def test_empty_producer_execution_identity_and_run_key_are_rejected() -> None:
             source_path=PRODUCER,
             execution_identity="",
             producer_run_key=PRODUCER_RUN_KEY,
+            profile=FIXED_SOURCE_PROFILE,
         )
     with pytest.raises(
         PRODUCER_MODULE.BuilderError,
@@ -1118,6 +1178,7 @@ def test_empty_producer_execution_identity_and_run_key_are_rejected() -> None:
             source_path=PRODUCER,
             execution_identity=EXECUTION_IDENTITY,
             producer_run_key="",
+            profile=FIXED_SOURCE_PROFILE,
         )
 
 
@@ -1192,6 +1253,7 @@ def test_missing_and_symlink_carriers_are_rejected(tmp_path: Path) -> None:
         PRODUCER_MODULE.load_exact_bundle(
             carrier_path=missing,
             fixed_builder=fixed_builder_module(),
+            profile=FIXED_SOURCE_PROFILE,
         )
 
     link = tmp_path / "carrier-link.zip"
@@ -1203,6 +1265,7 @@ def test_missing_and_symlink_carriers_are_rejected(tmp_path: Path) -> None:
         PRODUCER_MODULE.load_exact_bundle(
             carrier_path=link,
             fixed_builder=fixed_builder_module(),
+            profile=FIXED_SOURCE_PROFILE,
         )
 
 
@@ -1234,6 +1297,8 @@ def test_carrier_identity_mismatch_precedes_visible_member_extraction(
 
     def forbidden_visible_member_extraction(
         _carrier_path: Path,
+        *,
+        profile: Any,
     ) -> tuple[bytes, bytes, bytes]:
         nonlocal extraction_called
         extraction_called = True
@@ -1255,6 +1320,7 @@ def test_carrier_identity_mismatch_precedes_visible_member_extraction(
         PRODUCER_MODULE.load_exact_bundle(
             carrier_path=candidate,
             fixed_builder=object(),
+            profile=FIXED_SOURCE_PROFILE,
         )
 
     assert extraction_called is False
@@ -1303,7 +1369,7 @@ def test_cli_wrong_size_fails_before_carrier_hash(
         ],
     )
 
-    assert PRODUCER_MODULE.main() == 1
+    assert WRAPPER_MODULE.main() == 1
     captured = capsys.readouterr()
     assert captured.out == ""
     diagnostic = strict_json_text(
@@ -1327,7 +1393,6 @@ def test_cli_wrong_size_fails_before_carrier_hash(
 )
 def test_unsafe_duplicate_and_symlink_zip_members_are_rejected(
     tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
     kind: str,
     expected_fragment: str,
 ) -> None:
@@ -1348,20 +1413,16 @@ def test_unsafe_duplicate_and_symlink_zip_members_are_rejected(
             symlink=True,
         )
 
-    monkeypatch.setattr(
-        PRODUCER_MODULE,
-        "EXPECTED_CARRIER_SHA256",
-        sha256_file(variant),
-    )
-    monkeypatch.setattr(
-        PRODUCER_MODULE,
-        "EXPECTED_CARRIER_SIZE",
-        variant.stat().st_size,
+    variant_profile = replace(
+        FIXED_SOURCE_PROFILE,
+        expected_carrier_sha256=sha256_file(variant),
+        expected_carrier_size=variant.stat().st_size,
     )
     with pytest.raises(Exception, match=expected_fragment):
         PRODUCER_MODULE.load_exact_bundle(
             carrier_path=variant,
             fixed_builder=fixed_builder_module(),
+            profile=variant_profile,
         )
 
 
@@ -1622,8 +1683,10 @@ def test_authority_surface_output_names_are_rejected(
             schema_path=SCHEMA,
             validator_path=VALIDATOR,
             fixed_builder_path=FIXED_SOURCE_BUILDER,
+            producer_path=PRODUCER,
+            producer_core_path=PRODUCER_CORE,
+            trusted_git_executable=PRODUCER_MODULE._trusted_git_executable(),
             repository_root=ROOT,
-            validator=constructed_state.validator,
         )
     assert not output.exists()
 
@@ -1643,8 +1706,10 @@ def test_output_inside_repository_is_rejected(
             schema_path=SCHEMA,
             validator_path=VALIDATOR,
             fixed_builder_path=FIXED_SOURCE_BUILDER,
+            producer_path=PRODUCER,
+            producer_core_path=PRODUCER_CORE,
+            trusted_git_executable=PRODUCER_MODULE._trusted_git_executable(),
             repository_root=ROOT,
-            validator=constructed_state.validator,
         )
     assert not output.exists()
 
@@ -1665,8 +1730,10 @@ def test_trusted_git_executable_is_protected_from_output_overwrite(
             schema_path=SCHEMA,
             validator_path=VALIDATOR,
             fixed_builder_path=FIXED_SOURCE_BUILDER,
+            producer_path=PRODUCER,
+            producer_core_path=PRODUCER_CORE,
+            trusted_git_executable=trusted_git,
             repository_root=ROOT,
-            validator=constructed_state.validator,
         )
     assert sha256_file(trusted_git) == before
 
@@ -1692,8 +1759,10 @@ def test_symlink_output_path_is_rejected(
             schema_path=SCHEMA,
             validator_path=VALIDATOR,
             fixed_builder_path=FIXED_SOURCE_BUILDER,
+            producer_path=PRODUCER,
+            producer_core_path=PRODUCER_CORE,
+            trusted_git_executable=PRODUCER_MODULE._trusted_git_executable(),
             repository_root=ROOT,
-            validator=constructed_state.validator,
         )
     assert not target.exists()
 
@@ -1752,7 +1821,7 @@ def test_protected_input_mutation_after_validation_prevents_output(
             str(output),
         ],
     )
-    assert PRODUCER_MODULE.main() == 1
+    assert WRAPPER_MODULE.main() == 1
     captured = capsys.readouterr()
     assert captured.out == ""
     diagnostic = strict_json_text(captured.err, label="mutation diagnostic")
