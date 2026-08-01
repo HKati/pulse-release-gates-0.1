@@ -17,6 +17,8 @@ from pathlib import Path, PurePosixPath
 from typing import Any
 
 import jsonschema
+from referencing import Registry
+from referencing.exceptions import NoSuchResource
 
 
 TOOL_NAME = "check_pulsemech_compute_current_run_export_expectation_v0"
@@ -59,6 +61,17 @@ SUBJECT_INPUT_VALIDATOR_PATH = (
 SUBJECT_INPUT_PRODUCER_CORE_PATH = (
     "tools/pulsemech_compute_subject_input_packet_producer_core_v0.py"
 )
+
+CANONICAL_EXPECTATION_SCHEMA_GIT_BLOB_SHA1 = (
+    "c0bc5a21f5bf46c529341d2e805f26525c70c7f4"
+)
+CANONICAL_SUBJECT_INPUT_SCHEMA_GIT_BLOB_SHA1 = (
+    "e1f982ffaf900c6c17745624d80f9f38b374448b"
+)
+SCHEMA_REFERENCE_KEYWORDS = frozenset(
+    {"$ref", "$dynamicRef", "$recursiveRef"}
+)
+SCHEMA_REFERENCE_POLICY = "internal_fragment_only"
 
 CONTROL_PLANE_COMPONENT_KEYS = (
     "carrier_loader",
@@ -158,6 +171,104 @@ def reject_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
 
 def reject_non_finite(value: str) -> None:
     raise StrictJsonError(f"non-finite JSON value: {value}")
+
+
+def _strict_descriptor_snapshot_available() -> bool:
+    return (
+        os.name != "nt"
+        and os.open in os.supports_dir_fd
+        and hasattr(os, "O_DIRECTORY")
+        and hasattr(os, "O_NOFOLLOW")
+    )
+
+
+def _strict_output_descriptor_binding_available() -> bool:
+    return (
+        _strict_descriptor_snapshot_available()
+        and os.rename in os.supports_dir_fd
+        and os.unlink in os.supports_dir_fd
+    )
+
+
+def _input_snapshot_mode() -> str:
+    return (
+        "posix_descriptor_chain"
+        if _strict_descriptor_snapshot_available()
+        else "path_identity_fallback"
+    )
+
+
+def _external_output_mode() -> str:
+    return (
+        "posix_directory_descriptor_atomic_replace"
+        if _strict_output_descriptor_binding_available()
+        else "path_atomic_replace_fallback"
+    )
+
+
+def _deny_schema_retrieval(uri: str) -> Any:
+    raise NoSuchResource(ref=uri)
+
+
+CLOSED_SCHEMA_REGISTRY = Registry(retrieve=_deny_schema_retrieval)
+
+
+def _json_pointer(parts: tuple[Any, ...]) -> str:
+    if not parts:
+        return "/"
+    return "/" + "/".join(
+        str(part).replace("~", "~0").replace("/", "~1")
+        for part in parts
+    )
+
+
+def schema_reference_policy_errors(
+    value: Any,
+    *,
+    label: str,
+    path: tuple[Any, ...] = (),
+) -> list[str]:
+    errors: list[str] = []
+    if isinstance(value, dict):
+        for key in sorted(value):
+            item = value[key]
+            item_path = path + (key,)
+            if key in SCHEMA_REFERENCE_KEYWORDS:
+                if not isinstance(item, str):
+                    errors.append(
+                        f"{label}_reference_not_string"
+                        f"[{_json_pointer(item_path)}]"
+                    )
+                elif not item.startswith("#"):
+                    errors.append(
+                        f"{label}_external_reference_not_permitted"
+                        f"[{_json_pointer(item_path)}]: {item!r}"
+                    )
+            errors.extend(
+                schema_reference_policy_errors(
+                    item,
+                    label=label,
+                    path=item_path,
+                )
+            )
+    elif isinstance(value, list):
+        for index, item in enumerate(value):
+            errors.extend(
+                schema_reference_policy_errors(
+                    item,
+                    label=label,
+                    path=path + (index,),
+                )
+            )
+    return errors
+
+
+def git_blob_sha1(payload: bytes) -> str:
+    encoded = f"blob {len(payload)}\0".encode("ascii") + payload
+    try:
+        return hashlib.sha1(encoded, usedforsecurity=False).hexdigest()
+    except TypeError:
+        return hashlib.sha1(encoded).hexdigest()
 
 
 def _normalized_absolute_path(path: Path) -> Path:
@@ -296,7 +407,7 @@ def _open_nofollow_fallback(path: Path, *, label: str) -> int:
 
 
 def _open_nofollow(path: Path, *, label: str) -> int:
-    if os.name != "nt" and os.open in os.supports_dir_fd:
+    if _strict_descriptor_snapshot_available():
         return _open_nofollow_posix(path, label=label)
     return _open_nofollow_fallback(path, label=label)
 
@@ -393,10 +504,18 @@ def validate_instance(
     *,
     label: str,
 ) -> tuple[bool, list[str]]:
+    reference_errors = schema_reference_policy_errors(
+        schema,
+        label=f"{label}_schema",
+    )
+    if reference_errors:
+        return False, reference_errors
+
     try:
         validator = jsonschema.Draft202012Validator(
             schema,
             format_checker=jsonschema.FormatChecker(),
+            registry=CLOSED_SCHEMA_REGISTRY,
         )
         validation_errors = sorted(
             list(validator.iter_errors(value)),
@@ -406,8 +525,9 @@ def validate_instance(
             ),
         )
     except Exception as exc:
+        detail = " ".join(str(exc).split())
         return False, [
-            f"{label}_validation_failed: {type(exc).__name__}: {exc}"
+            f"{label}_validation_failed: {type(exc).__name__}: {detail}"
         ]
 
     errors = [
@@ -1352,9 +1472,21 @@ def make_diagnostic(
     errors: list[str],
     expectation_instance_valid: bool = False,
     subject_input_observed_branch_valid: bool = False,
+    expectation_schema_reference_policy_valid: bool = False,
+    subject_input_schema_reference_policy_valid: bool = False,
     canonical_expectation_schema_path_verified: bool = False,
+    canonical_expectation_schema_git_blob_verified: bool = False,
     canonical_subject_input_schema_path_verified: bool = False,
+    canonical_subject_input_schema_git_blob_verified: bool = False,
+    supplied_contract_semantics_verified: bool = False,
 ) -> dict[str, Any]:
+    canonical_contract_semantics_verified = bool(
+        supplied_contract_semantics_verified
+        and canonical_expectation_schema_path_verified
+        and canonical_expectation_schema_git_blob_verified
+        and canonical_subject_input_schema_path_verified
+        and canonical_subject_input_schema_git_blob_verified
+    )
     return {
         "tool": TOOL_NAME,
         "tool_version": TOOL_VERSION,
@@ -1363,8 +1495,14 @@ def make_diagnostic(
         "record_status": record_status,
         "ok": ok,
         "expectation_schema_valid": expectation_schema_valid,
+        "expectation_schema_reference_policy_valid": (
+            expectation_schema_reference_policy_valid
+        ),
         "expectation_instance_valid": expectation_instance_valid,
         "subject_input_schema_valid": subject_input_schema_valid,
+        "subject_input_schema_reference_policy_valid": (
+            subject_input_schema_reference_policy_valid
+        ),
         "subject_input_observed_branch_valid": (
             subject_input_observed_branch_valid
         ),
@@ -1372,25 +1510,45 @@ def make_diagnostic(
         "derived": dict(sorted(derived.items())),
         "input_identities": dict(sorted(input_identities.items())),
         "verification_boundary": {
+            "canonical_contract_semantics_verified": (
+                canonical_contract_semantics_verified
+            ),
+            "canonical_expectation_schema_git_blob_verified": (
+                canonical_expectation_schema_git_blob_verified
+            ),
             "canonical_expectation_schema_path_verified": (
                 canonical_expectation_schema_path_verified
+            ),
+            "canonical_subject_input_schema_git_blob_verified": (
+                canonical_subject_input_schema_git_blob_verified
             ),
             "canonical_subject_input_schema_path_verified": (
                 canonical_subject_input_schema_path_verified
             ),
             "carrier_bytes_verified": False,
+            "contract_semantics_verified": (
+                canonical_contract_semantics_verified
+            ),
             "control_plane_component_bytes_verified": False,
-            "contract_semantics_verified": bool(
-                ok
-                and canonical_expectation_schema_path_verified
-                and canonical_subject_input_schema_path_verified
+            "external_output_mode": _external_output_mode(),
+            "external_schema_retrieval_allowed": False,
+            "input_snapshot_mode": _input_snapshot_mode(),
+            "schema_reference_policy": SCHEMA_REFERENCE_POLICY,
+            "strict_descriptor_snapshot_verified": (
+                _strict_descriptor_snapshot_available()
+            ),
+            "strict_output_descriptor_binding_available": (
+                _strict_output_descriptor_binding_available()
             ),
             "subject_authority_source_bytes_verified": False,
-            "supplied_contract_semantics_verified": bool(ok),
+            "supplied_contract_semantics_verified": (
+                supplied_contract_semantics_verified
+            ),
         },
         "authority_effect": "none",
         "errors": sorted(set(errors)),
     }
+
 
 
 def build_diagnostic(
@@ -1400,114 +1558,187 @@ def build_diagnostic(
     subject_input_schema_path: Path,
     repository_root: Path,
 ) -> tuple[dict[str, Any], int]:
-    try:
-        expectation_schema, _schema_text, schema_bytes = load_json(
+    values: dict[str, Any] = {}
+    texts: dict[str, str] = {}
+    payloads: dict[str, bytes] = {}
+    errors: list[str] = []
+    read_failure = False
+
+    input_specs = (
+        (
+            "expectation_schema",
             schema_path,
-            label="expectation_schema",
-            max_bytes=MAX_EXPECTATION_SCHEMA_BYTES,
-        )
-        subject_input_schema, _packet_schema_text, packet_schema_bytes = load_json(
+            MAX_EXPECTATION_SCHEMA_BYTES,
+        ),
+        (
+            "subject_input_schema",
             subject_input_schema_path,
-            label="subject_input_schema",
-            max_bytes=MAX_SUBJECT_INPUT_SCHEMA_BYTES,
-        )
-        expectation, expectation_text, expectation_bytes = load_json(
+            MAX_SUBJECT_INPUT_SCHEMA_BYTES,
+        ),
+        (
+            "expectation",
             expectation_path,
-            label="expectation",
-            max_bytes=MAX_EXPECTATION_BYTES,
-        )
-    except Exception as exc:
-        diagnostic = make_diagnostic(
-            ok=False,
-            expectation_schema_valid=False,
-            subject_input_schema_valid=False,
-            record_status=None,
-            checks={},
-            derived={},
-            input_identities={},
-            errors=[f"read_error: {exc}"],
-        )
-        return diagnostic, 2
-
-    canonical_expectation_schema_path_verified = same_target(
-        schema_path,
-        DEFAULT_SCHEMA,
+            MAX_EXPECTATION_BYTES,
+        ),
     )
-    canonical_subject_input_schema_path_verified = same_target(
-        subject_input_schema_path,
-        DEFAULT_SUBJECT_INPUT_SCHEMA,
+    for label, path, maximum in input_specs:
+        try:
+            value, text_value, payload = load_json(
+                path,
+                label=label,
+                max_bytes=maximum,
+            )
+            values[label] = value
+            texts[label] = text_value
+            payloads[label] = payload
+        except Exception as exc:
+            read_failure = True
+            detail = " ".join(str(exc).split())
+            errors.append(
+                f"read_error: {label}: {type(exc).__name__}: {detail}"
+            )
+
+    expectation_schema = values.get("expectation_schema")
+    subject_input_schema = values.get("subject_input_schema")
+    expectation = values.get("expectation")
+    expectation_text = texts.get("expectation", "")
+    schema_bytes = payloads.get("expectation_schema")
+    packet_schema_bytes = payloads.get("subject_input_schema")
+    expectation_bytes = payloads.get("expectation")
+
+    canonical_expectation_schema_path_verified = bool(
+        schema_bytes is not None
+        and same_target(schema_path, DEFAULT_SCHEMA)
+    )
+    canonical_subject_input_schema_path_verified = bool(
+        packet_schema_bytes is not None
+        and same_target(
+            subject_input_schema_path,
+            DEFAULT_SUBJECT_INPUT_SCHEMA,
+        )
     )
 
-    input_identities = {
-        "expectation": {
+    expectation_schema_git_blob = (
+        git_blob_sha1(schema_bytes) if schema_bytes is not None else None
+    )
+    subject_input_schema_git_blob = (
+        git_blob_sha1(packet_schema_bytes)
+        if packet_schema_bytes is not None
+        else None
+    )
+    canonical_expectation_schema_git_blob_verified = (
+        expectation_schema_git_blob
+        == CANONICAL_EXPECTATION_SCHEMA_GIT_BLOB_SHA1
+    )
+    canonical_subject_input_schema_git_blob_verified = (
+        subject_input_schema_git_blob
+        == CANONICAL_SUBJECT_INPUT_SCHEMA_GIT_BLOB_SHA1
+    )
+
+    input_identities: dict[str, Any] = {}
+    if expectation_bytes is not None:
+        input_identities["expectation"] = {
             "sha256": hashlib.sha256(expectation_bytes).hexdigest(),
             "size_bytes": len(expectation_bytes),
-        },
-        "expectation_schema": {
+        }
+    if schema_bytes is not None:
+        input_identities["expectation_schema"] = {
+            "git_blob_sha1": expectation_schema_git_blob,
+            "reviewed_git_blob_sha1": (
+                CANONICAL_EXPECTATION_SCHEMA_GIT_BLOB_SHA1
+            ),
             "sha256": hashlib.sha256(schema_bytes).hexdigest(),
             "size_bytes": len(schema_bytes),
-        },
-        "subject_input_schema": {
+        }
+    if packet_schema_bytes is not None:
+        input_identities["subject_input_schema"] = {
+            "git_blob_sha1": subject_input_schema_git_blob,
+            "reviewed_git_blob_sha1": (
+                CANONICAL_SUBJECT_INPUT_SCHEMA_GIT_BLOB_SHA1
+            ),
             "sha256": hashlib.sha256(packet_schema_bytes).hexdigest(),
             "size_bytes": len(packet_schema_bytes),
-        },
-    }
+        }
 
-    if not isinstance(expectation_schema, dict):
-        diagnostic = make_diagnostic(
-            ok=False,
-            expectation_schema_valid=False,
-            subject_input_schema_valid=False,
-            record_status=(
-                expectation.get("record_status")
-                if isinstance(expectation, dict)
-                else None
-            ),
-            checks={},
-            derived={},
-            input_identities=input_identities,
-            errors=["expectation_schema_not_object"],
-        )
-        return diagnostic, 2
+    expectation_schema_is_object = isinstance(expectation_schema, dict)
+    subject_input_schema_is_object = isinstance(subject_input_schema, dict)
+    expectation_is_object = isinstance(expectation, dict)
 
-    if not isinstance(subject_input_schema, dict):
-        diagnostic = make_diagnostic(
-            ok=False,
-            expectation_schema_valid=False,
-            subject_input_schema_valid=False,
-            record_status=(
-                expectation.get("record_status")
-                if isinstance(expectation, dict)
-                else None
-            ),
-            checks={},
-            derived={},
-            input_identities=input_identities,
-            errors=["subject_input_schema_not_object"],
-        )
-        return diagnostic, 2
-
+    expectation_schema_reference_errors: list[str] = []
+    subject_input_schema_reference_errors: list[str] = []
     expectation_schema_errors: list[str] = []
     subject_input_schema_errors: list[str] = []
-    try:
-        jsonschema.Draft202012Validator.check_schema(expectation_schema)
-    except Exception as exc:
-        expectation_schema_errors.append(
-            f"expectation_schema_invalid: {type(exc).__name__}: {exc}"
-        )
-    try:
-        jsonschema.Draft202012Validator.check_schema(subject_input_schema)
-    except Exception as exc:
-        subject_input_schema_errors.append(
-            f"subject_input_schema_invalid: {type(exc).__name__}: {exc}"
-        )
 
-    expectation_schema_valid = not expectation_schema_errors
-    subject_input_schema_valid = not subject_input_schema_errors
-    errors = expectation_schema_errors + subject_input_schema_errors
+    if "expectation_schema" in values:
+        if not expectation_schema_is_object:
+            expectation_schema_errors.append("expectation_schema_not_object")
+        else:
+            expectation_schema_reference_errors = (
+                schema_reference_policy_errors(
+                    expectation_schema,
+                    label="expectation_schema",
+                )
+            )
+            try:
+                jsonschema.Draft202012Validator.check_schema(
+                    expectation_schema
+                )
+            except Exception as exc:
+                detail = " ".join(str(exc).split())
+                expectation_schema_errors.append(
+                    "expectation_schema_invalid: "
+                    f"{type(exc).__name__}: {detail}"
+                )
+
+    if "subject_input_schema" in values:
+        if not subject_input_schema_is_object:
+            subject_input_schema_errors.append(
+                "subject_input_schema_not_object"
+            )
+        else:
+            subject_input_schema_reference_errors = (
+                schema_reference_policy_errors(
+                    subject_input_schema,
+                    label="subject_input_schema",
+                )
+            )
+            try:
+                jsonschema.Draft202012Validator.check_schema(
+                    subject_input_schema
+                )
+            except Exception as exc:
+                detail = " ".join(str(exc).split())
+                subject_input_schema_errors.append(
+                    "subject_input_schema_invalid: "
+                    f"{type(exc).__name__}: {detail}"
+                )
+
+    expectation_schema_valid = bool(
+        expectation_schema_is_object and not expectation_schema_errors
+    )
+    subject_input_schema_valid = bool(
+        subject_input_schema_is_object and not subject_input_schema_errors
+    )
+    expectation_schema_reference_policy_valid = bool(
+        expectation_schema_is_object
+        and not expectation_schema_reference_errors
+    )
+    subject_input_schema_reference_policy_valid = bool(
+        subject_input_schema_is_object
+        and not subject_input_schema_reference_errors
+    )
+
+    errors.extend(expectation_schema_errors)
+    errors.extend(subject_input_schema_errors)
+    errors.extend(expectation_schema_reference_errors)
+    errors.extend(subject_input_schema_reference_errors)
 
     expectation_instance_valid = False
-    if expectation_schema_valid:
+    if (
+        expectation_schema_valid
+        and expectation_schema_reference_policy_valid
+        and "expectation" in values
+    ):
         expectation_instance_valid, instance_errors = validate_instance(
             expectation_schema,
             expectation,
@@ -1515,16 +1746,17 @@ def build_diagnostic(
         )
         errors.extend(instance_errors)
 
-    if not isinstance(expectation, dict):
+    if "expectation" in values and not expectation_is_object:
         errors.append("expectation_not_object")
 
     checks: dict[str, bool] = {}
     derived: dict[str, Any] = {}
     subject_input_observed_branch_valid = False
     if (
-        isinstance(expectation, dict)
+        expectation_is_object
         and expectation_instance_valid
         and subject_input_schema_valid
+        and subject_input_schema_reference_policy_valid
     ):
         semantic, semantic_errors_list, derived = semantic_checks(
             expectation,
@@ -1540,12 +1772,18 @@ def build_diagnostic(
             checks.get("subject_input_observed_branch_witness_ok")
         )
     else:
-        checks["semantic_checks_skipped_due_to_schema_errors"] = False
+        checks[
+            "semantic_checks_skipped_due_to_invalid_contract_inputs"
+        ] = False
 
     ok = (
-        expectation_schema_valid
+        not read_failure
+        and expectation_schema_valid
+        and expectation_schema_reference_policy_valid
         and expectation_instance_valid
         and subject_input_schema_valid
+        and subject_input_schema_reference_policy_valid
+        and subject_input_observed_branch_valid
         and bool(checks)
         and all(checks.values())
         and not errors
@@ -1553,8 +1791,14 @@ def build_diagnostic(
     diagnostic = make_diagnostic(
         ok=ok,
         expectation_schema_valid=expectation_schema_valid,
+        expectation_schema_reference_policy_valid=(
+            expectation_schema_reference_policy_valid
+        ),
         expectation_instance_valid=expectation_instance_valid,
         subject_input_schema_valid=subject_input_schema_valid,
+        subject_input_schema_reference_policy_valid=(
+            subject_input_schema_reference_policy_valid
+        ),
         subject_input_observed_branch_valid=(
             subject_input_observed_branch_valid
         ),
@@ -1564,9 +1808,16 @@ def build_diagnostic(
         canonical_subject_input_schema_path_verified=(
             canonical_subject_input_schema_path_verified
         ),
+        canonical_expectation_schema_git_blob_verified=(
+            canonical_expectation_schema_git_blob_verified
+        ),
+        canonical_subject_input_schema_git_blob_verified=(
+            canonical_subject_input_schema_git_blob_verified
+        ),
+        supplied_contract_semantics_verified=ok,
         record_status=(
             expectation.get("record_status")
-            if isinstance(expectation, dict)
+            if expectation_is_object
             else None
         ),
         checks=checks,
@@ -1574,7 +1825,19 @@ def build_diagnostic(
         input_identities=input_identities,
         errors=errors,
     )
-    return diagnostic, 0 if ok else 1
+
+    structural_failure = (
+        read_failure
+        or (
+            "expectation_schema" in values
+            and not expectation_schema_is_object
+        )
+        or (
+            "subject_input_schema" in values
+            and not subject_input_schema_is_object
+        )
+    )
+    return diagnostic, 0 if ok else (2 if structural_failure else 1)
 
 
 def same_target(left: Path, right: Path) -> bool:
@@ -1783,11 +2046,7 @@ def _atomic_write_fallback(path: Path, text: str) -> None:
 def atomic_write(path: Path, text: str) -> None:
     candidate = _normalized_absolute_path(path)
     payload = text.encode("utf-8")
-    if (
-        os.name != "nt"
-        and os.open in os.supports_dir_fd
-        and os.rename in os.supports_dir_fd
-    ):
+    if _strict_output_descriptor_binding_available():
         _atomic_write_posix(candidate, payload)
         return
     _atomic_write_fallback(candidate, text)
@@ -1798,7 +2057,8 @@ def parse_args() -> argparse.Namespace:
         description=(
             "Validate a PULSEmech current-run export expectation v0 against "
             "its Draft 2020-12 schema, semantic cross-bindings, and the "
-            "existing subject-input packet contract."
+            "existing subject-input packet contract under an "
+            "internal-fragment-only schema-reference policy."
         )
     )
     parser.add_argument(
@@ -1888,44 +2148,13 @@ def main() -> int:
         try:
             atomic_write(output, rendered)
         except Exception as exc:
-            failure = make_diagnostic(
-                ok=False,
-                expectation_schema_valid=diagnostic.get(
-                    "expectation_schema_valid",
-                    False,
-                ),
-                subject_input_schema_valid=diagnostic.get(
-                    "subject_input_schema_valid",
-                    False,
-                ),
-                expectation_instance_valid=diagnostic.get(
-                    "expectation_instance_valid",
-                    False,
-                ),
-                subject_input_observed_branch_valid=diagnostic.get(
-                    "subject_input_observed_branch_valid",
-                    False,
-                ),
-                canonical_expectation_schema_path_verified=diagnostic.get(
-                    "verification_boundary",
-                    {},
-                ).get(
-                    "canonical_expectation_schema_path_verified",
-                    False,
-                ),
-                canonical_subject_input_schema_path_verified=diagnostic.get(
-                    "verification_boundary",
-                    {},
-                ).get(
-                    "canonical_subject_input_schema_path_verified",
-                    False,
-                ),
-                record_status=diagnostic.get("record_status"),
-                checks=diagnostic.get("checks", {}),
-                derived=diagnostic.get("derived", {}),
-                input_identities=diagnostic.get("input_identities", {}),
-                errors=list(diagnostic.get("errors", []))
-                + [f"output_write_failed: {exc}"],
+            failure = copy.deepcopy(diagnostic)
+            failure["ok"] = False
+            failure["errors"] = sorted(
+                set(
+                    list(failure.get("errors", []))
+                    + [f"output_write_failed: {exc}"]
+                )
             )
             sys.stderr.write(render_json(failure))
             return 2
