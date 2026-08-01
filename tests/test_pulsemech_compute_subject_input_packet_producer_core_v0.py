@@ -5,6 +5,8 @@ import ast
 import hashlib
 import importlib.util
 import json
+import os
+import shutil
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -189,6 +191,119 @@ def run_direct_core(
     )
 
 
+BENIGN_SYNTHETIC_CORE = """from __future__ import annotations
+
+from pathlib import Path
+
+
+class Profile:
+    pass
+
+
+FIXED_SOURCE_6066_PROFILE = Profile()
+DEFAULT_PRODUCER_PROFILE = FIXED_SOURCE_6066_PROFILE
+
+
+def executed_producer_source_path(
+    repository_root: Path,
+    *,
+    revision: str,
+    executed_source_path: Path | None = None,
+    expected_relative_path: str = (
+        "tools/build_pulsemech_compute_subject_input_packet_v0.py"
+    ),
+) -> Path:
+    del repository_root, revision, expected_relative_path
+    assert executed_source_path is not None
+    return Path(executed_source_path)
+
+
+def main(
+    *,
+    profile: Profile = DEFAULT_PRODUCER_PROFILE,
+    producer_source_path: Path | None = None,
+    producer_core_source_sha256: str | None = None,
+) -> int:
+    del profile, producer_source_path, producer_core_source_sha256
+    print("synthetic-core-ok")
+    return 0
+"""
+
+
+def trusted_git_run(
+    wrapper_module: Any,
+    repository: Path,
+    *arguments: str,
+) -> subprocess.CompletedProcess[str]:
+    core = wrapper_module._PRODUCER_CORE
+    trusted_git = core._trusted_git_executable()
+    return subprocess.run(
+        [str(trusted_git), *arguments],
+        cwd=repository,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+        env=core._sanitized_git_environment(trusted_git),
+    )
+
+
+def create_bootstrap_repository(
+    tmp_path: Path,
+    wrapper_module: Any,
+) -> tuple[Path, Path, Path]:
+    repository = tmp_path / "repository"
+    tools = repository / "tools"
+    tools.mkdir(parents=True)
+
+    wrapper = tools / WRAPPER.name
+    core = tools / PRODUCER_CORE.name
+    shutil.copy2(WRAPPER, wrapper)
+    core.write_text(BENIGN_SYNTHETIC_CORE, encoding="utf-8", newline="\n")
+
+    commands = (
+        ("init", "-q"),
+        ("add", "--", "."),
+        (
+            "-c",
+            "user.name=PULSEmech bootstrap regression",
+            "-c",
+            "user.email=pulsemech-bootstrap@example.invalid",
+            "commit",
+            "-q",
+            "-m",
+            "fixture",
+        ),
+    )
+    for command in commands:
+        result = trusted_git_run(wrapper_module, repository, *command)
+        assert result.returncode == 0, result.stdout + result.stderr
+    return repository, wrapper, core
+
+
+def run_synthetic_wrapper(
+    wrapper: Path,
+    *,
+    cwd: Path,
+    extra_env: dict[str, str | None] | None = None,
+) -> subprocess.CompletedProcess[str]:
+    environment = dict(os.environ)
+    for key, value in dict(extra_env or {}).items():
+        if value is None:
+            environment.pop(key, None)
+        else:
+            environment[key] = value
+    return subprocess.run(
+        [sys.executable, "-S", str(wrapper)],
+        cwd=cwd,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+        env=environment,
+    )
+
+
 @pytest.fixture(scope="module")
 def wrapper_module() -> Any:
     return import_module(
@@ -248,7 +363,12 @@ def test_wrapper_remains_thin_and_core_owns_packet_implementation() -> None:
 
     assert {
         "sha256_bytes",
-        "_load_producer_core",
+        "_read_regular_file_snapshot",
+        "_executed_wrapper_and_root",
+        "_trusted_git",
+        "_run_git",
+        "_git_blob",
+        "_load_verified_producer_core",
         "executed_producer_source_path",
         "main",
     } <= wrapper_functions
@@ -257,7 +377,9 @@ def test_wrapper_remains_thin_and_core_owns_packet_implementation() -> None:
 
     wrapper_source = WRAPPER.read_text(encoding="utf-8")
     assert EXPECTED_CORE_SOURCE_PATH.split("/")[-1] in wrapper_source
-    assert "producer_source_path=Path(__file__).resolve()" in wrapper_source
+    assert "producer_source_path=_EXECUTED_WRAPPER_PATH" in wrapper_source
+    assert "Path(__file__).resolve()" not in wrapper_source
+    assert "producer_core_committed_bytes_mismatch" in wrapper_source
     assert (
         "producer_core_source_sha256=PRODUCER_CORE_SOURCE_SHA256"
         in wrapper_source
@@ -277,6 +399,10 @@ def test_wrapper_loads_and_binds_the_exact_current_core_bytes(
     assert (
         wrapper_module._PRODUCER_CORE.__pulsemech_source_sha256__
         == core_sha256
+    )
+    assert (
+        wrapper_module._PRODUCER_CORE.__pulsemech_verified_revision__
+        == wrapper_module.current_head(ROOT)
     )
     assert Path(wrapper_module._PRODUCER_CORE.__file__).resolve(strict=True) == (
         PRODUCER_CORE.resolve(strict=True)
@@ -372,6 +498,177 @@ def test_wrapper_and_direct_core_failure_surfaces_are_both_machine_readable() ->
         results.append(diagnostic)
 
     assert results[0] == results[1]
+
+
+def test_uncommitted_core_top_level_code_is_rejected_before_execution(
+    tmp_path: Path,
+    wrapper_module: Any,
+) -> None:
+    repository, wrapper, core = create_bootstrap_repository(
+        tmp_path,
+        wrapper_module,
+    )
+    marker = tmp_path / "preverify-marker"
+    core.write_text(
+        (
+            "from pathlib import Path\n"
+            f"Path({str(marker)!r}).write_text('EXECUTED')\n"
+            + BENIGN_SYNTHETIC_CORE
+        ),
+        encoding="utf-8",
+        newline="\n",
+    )
+
+    result = run_synthetic_wrapper(wrapper, cwd=repository)
+    assert result.returncode == 1
+    assert result.stdout == ""
+    assert "Traceback" not in result.stderr
+    diagnostic = strict_json_text(
+        result.stderr,
+        label="modified-core bootstrap diagnostic",
+    )
+    assert diagnostic["ok"] is False
+    assert any(
+        "producer_core_committed_bytes_mismatch" in str(error)
+        for error in diagnostic["errors"]
+    )
+    assert not marker.exists()
+
+
+def test_wrapper_file_symlink_is_rejected_before_core_loading(
+    tmp_path: Path,
+    wrapper_module: Any,
+) -> None:
+    repository, wrapper, _core = create_bootstrap_repository(
+        tmp_path,
+        wrapper_module,
+    )
+    alias = tmp_path / "wrapper.py"
+    try:
+        alias.symlink_to(wrapper)
+    except (OSError, NotImplementedError) as exc:
+        pytest.skip(f"symlink unsupported: {exc}")
+
+    result = run_synthetic_wrapper(alias, cwd=repository)
+    assert result.returncode == 1
+    assert result.stdout == ""
+    diagnostic = strict_json_text(
+        result.stderr,
+        label="wrapper-symlink diagnostic",
+    )
+    assert any(
+        "executed_wrapper_symlink_or_alias_rejected" in str(error)
+        for error in diagnostic["errors"]
+    )
+
+
+def test_symlinked_wrapper_parent_is_rejected_before_core_loading(
+    tmp_path: Path,
+    wrapper_module: Any,
+) -> None:
+    repository, wrapper, _core = create_bootstrap_repository(
+        tmp_path,
+        wrapper_module,
+    )
+    alias_root = tmp_path / "repository-alias"
+    try:
+        alias_root.symlink_to(repository, target_is_directory=True)
+    except (OSError, NotImplementedError) as exc:
+        pytest.skip(f"directory symlink unsupported: {exc}")
+
+    alias_wrapper = alias_root / "tools" / wrapper.name
+    result = run_synthetic_wrapper(alias_wrapper, cwd=repository)
+    assert result.returncode == 1
+    assert result.stdout == ""
+    diagnostic = strict_json_text(
+        result.stderr,
+        label="wrapper-parent-symlink diagnostic",
+    )
+    assert any(
+        "executed_wrapper_symlink_or_alias_rejected" in str(error)
+        for error in diagnostic["errors"]
+    )
+
+
+def test_core_file_symlink_is_rejected_before_source_read(
+    tmp_path: Path,
+    wrapper_module: Any,
+) -> None:
+    repository, wrapper, core = create_bootstrap_repository(
+        tmp_path,
+        wrapper_module,
+    )
+    external_core = tmp_path / "external-core.py"
+    shutil.copy2(core, external_core)
+    core.unlink()
+    try:
+        core.symlink_to(external_core)
+    except (OSError, NotImplementedError) as exc:
+        pytest.skip(f"symlink unsupported: {exc}")
+
+    result = run_synthetic_wrapper(wrapper, cwd=repository)
+    assert result.returncode == 1
+    assert result.stdout == ""
+    diagnostic = strict_json_text(
+        result.stderr,
+        label="core-symlink diagnostic",
+    )
+    assert any(
+        "producer_core_symlink_or_alias_rejected" in str(error)
+        for error in diagnostic["errors"]
+    )
+
+
+def test_bootstrap_ignores_fake_git_on_caller_path(
+    tmp_path: Path,
+    wrapper_module: Any,
+) -> None:
+    if os.name == "nt":
+        pytest.skip("POSIX fake-Git fixture")
+    repository, wrapper, _core = create_bootstrap_repository(
+        tmp_path,
+        wrapper_module,
+    )
+    attacker_bin = tmp_path / "attacker-bin"
+    attacker_bin.mkdir()
+    marker = tmp_path / "fake-git-marker"
+    fake_git = attacker_bin / "git"
+    fake_git.write_text(
+        (
+            "#!/bin/sh\n"
+            f"printf invoked > {str(marker)!r}\n"
+            "exit 99\n"
+        ),
+        encoding="utf-8",
+        newline="\n",
+    )
+    fake_git.chmod(0o755)
+
+    result = run_synthetic_wrapper(
+        wrapper,
+        cwd=repository,
+        extra_env={"PATH": str(attacker_bin)},
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert result.stdout == "synthetic-core-ok\n"
+    assert not marker.exists()
+
+
+def test_bootstrap_does_not_require_caller_path(
+    tmp_path: Path,
+    wrapper_module: Any,
+) -> None:
+    repository, wrapper, _core = create_bootstrap_repository(
+        tmp_path,
+        wrapper_module,
+    )
+    result = run_synthetic_wrapper(
+        wrapper,
+        cwd=repository,
+        extra_env={"PATH": None, "PATHEXT": None},
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert result.stdout == "synthetic-core-ok\n"
 
 
 def check_pulsemech_compute_subject_input_packet_producer_core_v0() -> None:
