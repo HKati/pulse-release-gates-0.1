@@ -1,0 +1,1230 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/HKati/pulse-release-gates-0.1/schemas/pulsemech_compute_current_run_export_expectation_v0.schema.json",
+  "title": "PULSEmech compute current-run export expectation v0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "document_type",
+    "record_status",
+    "expectation_identity",
+    "subject",
+    "trusted_control_plane",
+    "packet_producer_profile",
+    "carrier",
+    "archive_layout",
+    "authority_sources",
+    "packet_contract",
+    "content_boundary",
+    "authority_boundary",
+    "errors",
+    "ok"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "pulsemech_compute_current_run_export_expectation_v0"
+    },
+    "document_type": {
+      "const": "pulsemech_compute_current_run_export_expectation"
+    },
+    "record_status": {
+      "type": "string",
+      "enum": [
+        "example",
+        "observed"
+      ]
+    },
+    "expectation_producer": {
+      "$ref": "#/$defs/expectation_producer"
+    },
+    "fixture_provenance": {
+      "$ref": "#/$defs/fixture_provenance"
+    },
+    "expectation_identity": {
+      "$ref": "#/$defs/expectation_identity"
+    },
+    "subject": {
+      "$ref": "#/$defs/subject"
+    },
+    "trusted_control_plane": {
+      "$ref": "#/$defs/trusted_control_plane"
+    },
+    "packet_producer_profile": {
+      "$ref": "#/$defs/packet_producer_profile"
+    },
+    "carrier": {
+      "$ref": "#/$defs/carrier"
+    },
+    "archive_layout": {
+      "$ref": "#/$defs/archive_layout"
+    },
+    "authority_sources": {
+      "$ref": "#/$defs/authority_sources"
+    },
+    "packet_contract": {
+      "$ref": "#/$defs/packet_contract"
+    },
+    "content_boundary": {
+      "$ref": "#/$defs/content_boundary"
+    },
+    "authority_boundary": {
+      "$ref": "#/$defs/authority_boundary"
+    },
+    "errors": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/non_empty_string"
+      }
+    },
+    "ok": {
+      "type": "boolean"
+    }
+  },
+  "oneOf": [
+    {
+      "title": "Checked-in current-run expectation contract example",
+      "required": [
+        "fixture_provenance"
+      ],
+      "properties": {
+        "record_status": {
+          "const": "example"
+        },
+        "expectation_producer": false,
+        "expectation_identity": {
+          "properties": {
+            "expectation_scope": {
+              "const": "example"
+            }
+          },
+          "required": [
+            "expectation_scope"
+          ]
+        },
+        "carrier": {
+          "properties": {
+            "carrier_kind": {
+              "const": "example_archive"
+            },
+            "producer": {
+              "type": "null"
+            }
+          },
+          "required": [
+            "carrier_kind",
+            "producer"
+          ]
+        }
+      }
+    },
+    {
+      "title": "Machine-produced current-run export expectation",
+      "required": [
+        "expectation_producer"
+      ],
+      "properties": {
+        "record_status": {
+          "const": "observed"
+        },
+        "fixture_provenance": false,
+        "expectation_producer": {
+          "$ref": "#/$defs/expectation_producer"
+        },
+        "expectation_identity": {
+          "properties": {
+            "expectation_scope": {
+              "const": "current_run_export"
+            }
+          },
+          "required": [
+            "expectation_scope"
+          ]
+        },
+        "carrier": {
+          "properties": {
+            "carrier_kind": {
+              "const": "current_run_export_archive"
+            },
+            "producer": {
+              "$ref": "#/$defs/carrier_producer"
+            }
+          },
+          "required": [
+            "carrier_kind",
+            "producer"
+          ]
+        }
+      }
+    }
+  ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "ok": {
+            "const": true
+          }
+        },
+        "required": [
+          "ok"
+        ]
+      },
+      "then": {
+        "properties": {
+          "errors": {
+            "maxItems": 0
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "errors": {
+            "minItems": 1
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "nullable_sha256": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "sha40": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "non_empty_string": {
+      "type": "string",
+      "minLength": 1
+    },
+    "date_time": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?Z$"
+    },
+    "nullable_date_time": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?Z$"
+    },
+    "semver": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "safe_member_path": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?!.*\\\\)(?!.*(^|/)\\.\\.?(/|$)).+$"
+    },
+    "safe_directory_prefix": {
+      "type": "string",
+      "minLength": 2,
+      "pattern": "^(?!/)(?!.*\\\\)(?!.*(^|/)\\.\\.?(/|$)).+/$"
+    },
+    "safe_leaf_name": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!.*[/\\\\])(?!\\.\\.?$).+$"
+    },
+    "expectation_id": {
+      "type": "string",
+      "pattern": "^current-run-export-expectation:[A-Za-z0-9._:/@+-]+$"
+    },
+    "carrier_id": {
+      "type": "string",
+      "pattern": "^carrier:[A-Za-z0-9._:/@+-]+$"
+    },
+    "carrier_id_namespace": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9._:@+-]+(?:/[A-Za-z0-9._:@+-]+)*$",
+      "$comment": "A slash-separated namespace whose characters remain valid when prefixed with 'carrier:' and suffixed by the producer."
+    },
+    "source_id": {
+      "type": "string",
+      "pattern": "^source:[A-Za-z0-9._:/@+-]+$"
+    },
+    "fixture_id": {
+      "type": "string",
+      "pattern": "^fixture:[A-Za-z0-9._:/@+-]+$"
+    },
+    "subject_run_key": {
+      "type": "string",
+      "pattern": "^GITHUB_RUN_ID=[1-9][0-9]*\\|GITHUB_RUN_ATTEMPT=[1-9][0-9]*\\|GITHUB_WORKFLOW=.+$"
+    },
+    "expectation_producer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "producer_id",
+        "producer_name",
+        "producer_version",
+        "producer_source",
+        "producer_source_revision",
+        "producer_source_sha256",
+        "ci_workflow_or_job_identity",
+        "producer_run_key",
+        "production_mode"
+      ],
+      "properties": {
+        "producer_id": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "producer_name": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "producer_version": {
+          "$ref": "#/$defs/semver"
+        },
+        "producer_source": {
+          "$ref": "#/$defs/safe_member_path"
+        },
+        "producer_source_revision": {
+          "$ref": "#/$defs/sha40"
+        },
+        "producer_source_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "ci_workflow_or_job_identity": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "producer_run_key": {
+          "$ref": "#/$defs/subject_run_key"
+        },
+        "production_mode": {
+          "const": "current_run_expectation_builder"
+        }
+      }
+    },
+    "carrier_producer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "producer_id",
+        "producer_name",
+        "producer_version",
+        "producer_source",
+        "producer_source_revision",
+        "producer_source_sha256",
+        "ci_workflow_or_job_identity",
+        "producer_run_key",
+        "production_mode"
+      ],
+      "properties": {
+        "producer_id": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "producer_name": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "producer_version": {
+          "$ref": "#/$defs/semver"
+        },
+        "producer_source": {
+          "$ref": "#/$defs/safe_member_path"
+        },
+        "producer_source_revision": {
+          "$ref": "#/$defs/sha40"
+        },
+        "producer_source_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "ci_workflow_or_job_identity": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "producer_run_key": {
+          "$ref": "#/$defs/subject_run_key"
+        },
+        "production_mode": {
+          "const": "current_run_export_carrier_builder"
+        }
+      }
+    },
+    "fixture_provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "fixture_id",
+        "fixture_kind",
+        "fixture_source_path",
+        "schema_identity",
+        "intended_production_mode",
+        "expectation_producer_execution_claimed"
+      ],
+      "properties": {
+        "fixture_id": {
+          "$ref": "#/$defs/fixture_id"
+        },
+        "fixture_kind": {
+          "const": "checked_in_contract_example"
+        },
+        "fixture_source_path": {
+          "$ref": "#/$defs/safe_member_path"
+        },
+        "schema_identity": {
+          "const": "pulsemech_compute_current_run_export_expectation_v0"
+        },
+        "intended_production_mode": {
+          "const": "current_run_export"
+        },
+        "expectation_producer_execution_claimed": {
+          "const": false
+        }
+      }
+    },
+    "expectation_identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "expectation_id",
+        "expectation_scope",
+        "expectation_created_utc",
+        "subject_run_key",
+        "canonicalization"
+      ],
+      "properties": {
+        "expectation_id": {
+          "$ref": "#/$defs/expectation_id"
+        },
+        "expectation_scope": {
+          "type": "string",
+          "enum": [
+            "current_run_export",
+            "example"
+          ]
+        },
+        "expectation_created_utc": {
+          "$ref": "#/$defs/date_time"
+        },
+        "subject_run_key": {
+          "$ref": "#/$defs/subject_run_key"
+        },
+        "canonicalization": {
+          "const": "json-sort-keys-utf8-newline"
+        }
+      },
+      "$comment": "Carrier byte identity is authoritative only at carrier.sha256. The expectation identity must not duplicate that digest."
+    },
+    "subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "repository",
+        "workflow_name",
+        "workflow_path",
+        "workflow_ref",
+        "workflow_run_id",
+        "workflow_run_number",
+        "workflow_run_attempt",
+        "subject_run_key",
+        "source_commit",
+        "source_ref",
+        "event_name",
+        "release_candidate_id",
+        "run_mode",
+        "active_policy_sets",
+        "policy_id",
+        "policy_sha256",
+        "materialized_gate_set_sha256",
+        "final_status_sha256",
+        "release_decision_sha256",
+        "decision"
+      ],
+      "properties": {
+        "repository": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "workflow_name": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "workflow_path": {
+          "$ref": "#/$defs/safe_member_path"
+        },
+        "workflow_ref": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "workflow_run_id": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "workflow_run_number": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "workflow_run_attempt": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "subject_run_key": {
+          "$ref": "#/$defs/subject_run_key"
+        },
+        "source_commit": {
+          "$ref": "#/$defs/sha40"
+        },
+        "source_ref": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "event_name": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "release_candidate_id": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "run_mode": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "active_policy_sets": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/non_empty_string"
+          }
+        },
+        "policy_id": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "policy_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "materialized_gate_set_sha256": {
+          "$ref": "#/$defs/nullable_sha256"
+        },
+        "final_status_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "release_decision_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "decision": {
+          "type": "string",
+          "enum": [
+            "ALLOW",
+            "BLOCK"
+          ]
+        }
+      }
+    },
+    "component_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "source_revision",
+        "sha256",
+        "version"
+      ],
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/safe_member_path"
+        },
+        "source_revision": {
+          "$ref": "#/$defs/sha40"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "version": {
+          "$ref": "#/$defs/non_empty_string"
+        }
+      }
+    },
+    "control_plane_components": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "control_plane_workflow",
+        "expectation_schema",
+        "expectation_validator",
+        "expectation_builder",
+        "subject_input_schema",
+        "subject_input_validator",
+        "subject_input_producer_wrapper",
+        "subject_input_producer_core",
+        "carrier_loader"
+      ],
+      "properties": {
+        "control_plane_workflow": {
+          "$ref": "#/$defs/component_binding"
+        },
+        "expectation_schema": {
+          "$ref": "#/$defs/component_binding"
+        },
+        "expectation_validator": {
+          "$ref": "#/$defs/component_binding"
+        },
+        "expectation_builder": {
+          "$ref": "#/$defs/component_binding"
+        },
+        "subject_input_schema": {
+          "$ref": "#/$defs/component_binding"
+        },
+        "subject_input_validator": {
+          "$ref": "#/$defs/component_binding"
+        },
+        "subject_input_producer_wrapper": {
+          "$ref": "#/$defs/component_binding"
+        },
+        "subject_input_producer_core": {
+          "$ref": "#/$defs/component_binding"
+        },
+        "carrier_loader": {
+          "$ref": "#/$defs/component_binding"
+        }
+      }
+    },
+    "trusted_control_plane": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "repository",
+        "revision",
+        "trust_mode",
+        "checkout_role",
+        "separate_from_subject_checkout",
+        "subject_may_select_revision",
+        "components"
+      ],
+      "properties": {
+        "repository": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "revision": {
+          "$ref": "#/$defs/sha40"
+        },
+        "trust_mode": {
+          "const": "protected_exact_revision"
+        },
+        "checkout_role": {
+          "const": "protected_control_plane"
+        },
+        "separate_from_subject_checkout": {
+          "const": true
+        },
+        "subject_may_select_revision": {
+          "const": false
+        },
+        "components": {
+          "$ref": "#/$defs/control_plane_components"
+        }
+      }
+    },
+    "packet_producer_profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "profile_id",
+        "expected_producer_source_path",
+        "expected_production_mode",
+        "expected_packet_scope",
+        "expected_packet_identity_mode",
+        "expected_carrier_id_namespace",
+        "expected_carrier_kind",
+        "expected_carrier_media_type",
+        "expected_carrier_artifact_payload_mode",
+        "expected_repository",
+        "expected_source_commit",
+        "expected_subject_run_key",
+        "expected_signer_policy_path",
+        "expected_archive_layout_id"
+      ],
+      "properties": {
+        "profile_id": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "expected_producer_source_path": {
+          "$ref": "#/$defs/safe_member_path"
+        },
+        "expected_production_mode": {
+          "const": "current_run_export"
+        },
+        "expected_packet_scope": {
+          "const": "current_run"
+        },
+        "expected_packet_identity_mode": {
+          "const": "current-run"
+        },
+        "expected_carrier_id_namespace": {
+          "$ref": "#/$defs/carrier_id_namespace"
+        },
+        "expected_carrier_kind": {
+          "const": "current_run_export_archive"
+        },
+        "expected_carrier_media_type": {
+          "const": "application/zip"
+        },
+        "expected_carrier_artifact_payload_mode": {
+          "const": "external_carrier"
+        },
+        "expected_repository": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "expected_source_commit": {
+          "$ref": "#/$defs/sha40"
+        },
+        "expected_subject_run_key": {
+          "$ref": "#/$defs/subject_run_key"
+        },
+        "expected_signer_policy_path": {
+          "$ref": "#/$defs/safe_member_path"
+        },
+        "expected_archive_layout_id": {
+          "$ref": "#/$defs/non_empty_string"
+        }
+      }
+    },
+    "provider_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "provider",
+        "provider_artifact_id",
+        "provider_artifact_name",
+        "provider_sha256",
+        "provider_size_bytes",
+        "created_utc",
+        "expires_utc",
+        "downloaded_sha256_matches",
+        "downloaded_size_matches"
+      ],
+      "properties": {
+        "provider": {
+          "type": "string",
+          "enum": [
+            "github_actions",
+            "gitlab_ci",
+            "circleci",
+            "jenkins",
+            "azure_pipelines",
+            "buildkite",
+            "other"
+          ]
+        },
+        "provider_artifact_id": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "provider_artifact_name": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "provider_sha256": {
+          "$ref": "#/$defs/nullable_sha256"
+        },
+        "provider_size_bytes": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "created_utc": {
+          "$ref": "#/$defs/nullable_date_time"
+        },
+        "expires_utc": {
+          "$ref": "#/$defs/nullable_date_time"
+        },
+        "downloaded_sha256_matches": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "downloaded_size_matches": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        }
+      }
+    },
+    "nullable_provider_binding": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/provider_binding"
+        }
+      ]
+    },
+    "nullable_carrier_producer": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/carrier_producer"
+        }
+      ]
+    },
+    "carrier": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "carrier_id",
+        "carrier_kind",
+        "path_base",
+        "staged_relative_path",
+        "media_type",
+        "sha256",
+        "size_bytes",
+        "root_prefix",
+        "immutable",
+        "finalized",
+        "finalized_utc",
+        "artifact_payload_mode",
+        "provider_binding",
+        "producer"
+      ],
+      "properties": {
+        "carrier_id": {
+          "$ref": "#/$defs/carrier_id"
+        },
+        "carrier_kind": {
+          "type": "string",
+          "enum": [
+            "current_run_export_archive",
+            "example_archive"
+          ]
+        },
+        "path_base": {
+          "const": "current_run_export_staging_root"
+        },
+        "staged_relative_path": {
+          "$ref": "#/$defs/safe_member_path"
+        },
+        "media_type": {
+          "const": "application/zip"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256",
+          "$comment": "Sole authoritative SHA-256 identity of the finalized carrier bytes."
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "root_prefix": {
+          "$ref": "#/$defs/safe_directory_prefix"
+        },
+        "immutable": {
+          "const": true
+        },
+        "finalized": {
+          "const": true
+        },
+        "finalized_utc": {
+          "$ref": "#/$defs/date_time"
+        },
+        "artifact_payload_mode": {
+          "const": "external_carrier"
+        },
+        "provider_binding": {
+          "$ref": "#/$defs/nullable_provider_binding"
+        },
+        "producer": {
+          "$ref": "#/$defs/nullable_carrier_producer"
+        }
+      }
+    },
+    "visible_members": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "preservation_manifest_name",
+        "preservation_readme_name",
+        "preservation_checksums_name"
+      ],
+      "properties": {
+        "preservation_manifest_name": {
+          "const": "PRESERVATION_MANIFEST_v0.json"
+        },
+        "preservation_readme_name": {
+          "const": "README.md"
+        },
+        "preservation_checksums_name": {
+          "const": "SHA256SUMS"
+        }
+      }
+    },
+    "archive_layout": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "layout_id",
+        "layout_version",
+        "outer_prefix",
+        "original_artifacts_prefix",
+        "visible_members",
+        "complete_package_name",
+        "completeness_archive_name",
+        "verification_archive_name",
+        "artifact_count_derivation",
+        "expected_provider_artifact_count",
+        "expected_non_provider_artifact_count"
+      ],
+      "properties": {
+        "layout_id": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "layout_version": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "outer_prefix": {
+          "$ref": "#/$defs/safe_directory_prefix"
+        },
+        "original_artifacts_prefix": {
+          "$ref": "#/$defs/safe_directory_prefix"
+        },
+        "visible_members": {
+          "$ref": "#/$defs/visible_members"
+        },
+        "complete_package_name": {
+          "$ref": "#/$defs/safe_leaf_name"
+        },
+        "completeness_archive_name": {
+          "$ref": "#/$defs/safe_leaf_name"
+        },
+        "verification_archive_name": {
+          "$ref": "#/$defs/safe_leaf_name"
+        },
+        "artifact_count_derivation": {
+          "const": "provider_plus_non_provider"
+        },
+        "expected_provider_artifact_count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "expected_non_provider_artifact_count": {
+          "type": "integer",
+          "minimum": 3,
+          "$comment": "The consumer derives ProducerProfile.expected_artifact_count as expected_provider_artifact_count plus this value. The minimum of three accounts for the required visible preservation manifest, README, and checksum members."
+        }
+      },
+      "$comment": "A realizable total artifact count is derived as expected_provider_artifact_count + expected_non_provider_artifact_count; the schema does not carry a second independently contradictory total."
+    },
+    "workflow_source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_id",
+        "role",
+        "path_or_uri",
+        "source_revision",
+        "sha256",
+        "size_bytes",
+        "workflow_name",
+        "workflow_ref"
+      ],
+      "properties": {
+        "source_id": {
+          "$ref": "#/$defs/source_id"
+        },
+        "role": {
+          "const": "workflow"
+        },
+        "path_or_uri": {
+          "$ref": "#/$defs/safe_member_path"
+        },
+        "source_revision": {
+          "$ref": "#/$defs/sha40"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "workflow_name": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "workflow_ref": {
+          "$ref": "#/$defs/non_empty_string"
+        }
+      }
+    },
+    "policy_source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_id",
+        "role",
+        "path_or_uri",
+        "source_revision",
+        "sha256",
+        "size_bytes",
+        "policy_id"
+      ],
+      "properties": {
+        "source_id": {
+          "$ref": "#/$defs/source_id"
+        },
+        "role": {
+          "const": "policy"
+        },
+        "path_or_uri": {
+          "$ref": "#/$defs/safe_member_path"
+        },
+        "source_revision": {
+          "$ref": "#/$defs/sha40"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "policy_id": {
+          "$ref": "#/$defs/non_empty_string"
+        }
+      }
+    },
+    "gate_registry_source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_id",
+        "role",
+        "path_or_uri",
+        "source_revision",
+        "sha256",
+        "size_bytes",
+        "registry_id"
+      ],
+      "properties": {
+        "source_id": {
+          "$ref": "#/$defs/source_id"
+        },
+        "role": {
+          "const": "gate_registry"
+        },
+        "path_or_uri": {
+          "$ref": "#/$defs/safe_member_path"
+        },
+        "source_revision": {
+          "$ref": "#/$defs/sha40"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "registry_id": {
+          "$ref": "#/$defs/non_empty_string"
+        }
+      }
+    },
+    "additional_source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_id",
+        "role",
+        "path_or_uri",
+        "source_revision",
+        "sha256",
+        "size_bytes"
+      ],
+      "properties": {
+        "source_id": {
+          "$ref": "#/$defs/source_id"
+        },
+        "role": {
+          "type": "string",
+          "enum": [
+            "external_signer_policy",
+            "threshold_policy",
+            "component_manifest",
+            "other"
+          ]
+        },
+        "path_or_uri": {
+          "$ref": "#/$defs/safe_member_path"
+        },
+        "source_revision": {
+          "$ref": "#/$defs/sha40"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "authority_sources": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "workflow",
+        "policy",
+        "gate_registry",
+        "additional_sources"
+      ],
+      "properties": {
+        "workflow": {
+          "$ref": "#/$defs/workflow_source"
+        },
+        "policy": {
+          "$ref": "#/$defs/policy_source"
+        },
+        "gate_registry": {
+          "$ref": "#/$defs/gate_registry_source"
+        },
+        "additional_sources": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/additional_source"
+          }
+        }
+      }
+    },
+    "packet_contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "packet_type",
+        "record_status",
+        "production_mode",
+        "packet_scope",
+        "carrier_kind",
+        "artifact_payload_mode",
+        "write_mode"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "pulsemech_compute_subject_input_packet_v0"
+        },
+        "packet_type": {
+          "const": "pulsemech_compute_subject_input_packet"
+        },
+        "record_status": {
+          "const": "observed"
+        },
+        "production_mode": {
+          "const": "current_run_export"
+        },
+        "packet_scope": {
+          "const": "current_run"
+        },
+        "carrier_kind": {
+          "const": "current_run_export_archive"
+        },
+        "artifact_payload_mode": {
+          "const": "external_carrier"
+        },
+        "write_mode": {
+          "const": "subject_input_only"
+        }
+      }
+    },
+    "content_boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "expectation_payload_mode",
+        "contains_artifact_payloads",
+        "contains_runtime_observation",
+        "contains_resource_measurement",
+        "contains_secret_material",
+        "consumer_must_verify_carrier_bytes"
+      ],
+      "properties": {
+        "expectation_payload_mode": {
+          "const": "metadata_only"
+        },
+        "contains_artifact_payloads": {
+          "const": false
+        },
+        "contains_runtime_observation": {
+          "const": false
+        },
+        "contains_resource_measurement": {
+          "const": false
+        },
+        "contains_secret_material": {
+          "const": false
+        },
+        "consumer_must_verify_carrier_bytes": {
+          "const": true
+        }
+      }
+    },
+    "authority_boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "write_mode",
+        "writes_subject_run",
+        "writes_target_repository",
+        "mutates_carrier",
+        "changes_release_authority",
+        "changes_gate_policy",
+        "changes_gate_semantics",
+        "creates_release_decision",
+        "creates_gate_result",
+        "activates_compute_gate",
+        "creates_compute_budget",
+        "expectation_is_release_authority",
+        "produced_packet_is_release_authority"
+      ],
+      "properties": {
+        "write_mode": {
+          "const": "expectation_only"
+        },
+        "writes_subject_run": {
+          "const": false
+        },
+        "writes_target_repository": {
+          "const": false
+        },
+        "mutates_carrier": {
+          "const": false
+        },
+        "changes_release_authority": {
+          "const": false
+        },
+        "changes_gate_policy": {
+          "const": false
+        },
+        "changes_gate_semantics": {
+          "const": false
+        },
+        "creates_release_decision": {
+          "const": false
+        },
+        "creates_gate_result": {
+          "const": false
+        },
+        "activates_compute_gate": {
+          "const": false
+        },
+        "creates_compute_budget": {
+          "const": false
+        },
+        "expectation_is_release_authority": {
+          "const": false
+        },
+        "produced_packet_is_release_authority": {
+          "const": false
+        }
+      }
+    }
+  }
+}
