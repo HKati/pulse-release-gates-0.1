@@ -246,6 +246,15 @@
       "type": "string",
       "pattern": "^carrier:[A-Za-z0-9._:/@+-]+$"
     },
+    "carrier_id_namespace": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9._:@+-]+(?:/[A-Za-z0-9._:@+-]+)*$",
+      "$comment": "A slash-separated namespace whose characters remain valid when prefixed with 'carrier:' and suffixed by the producer."
+    },
+    "source_id": {
+      "type": "string",
+      "pattern": "^source:[A-Za-z0-9._:/@+-]+$"
+    },
     "fixture_id": {
       "type": "string",
       "pattern": "^fixture:[A-Za-z0-9._:/@+-]+$"
@@ -382,7 +391,6 @@
         "expectation_scope",
         "expectation_created_utc",
         "subject_run_key",
-        "carrier_sha256",
         "canonicalization"
       ],
       "properties": {
@@ -402,13 +410,11 @@
         "subject_run_key": {
           "$ref": "#/$defs/subject_run_key"
         },
-        "carrier_sha256": {
-          "$ref": "#/$defs/sha256"
-        },
         "canonicalization": {
           "const": "json-sort-keys-utf8-newline"
         }
-      }
+      },
+      "$comment": "Carrier byte identity is authoritative only at carrier.sha256. The expectation identity must not duplicate that digest."
     },
     "subject": {
       "type": "object",
@@ -650,7 +656,7 @@
           "const": "current-run"
         },
         "expected_carrier_id_namespace": {
-          "$ref": "#/$defs/non_empty_string"
+          "$ref": "#/$defs/carrier_id_namespace"
         },
         "expected_carrier_kind": {
           "const": "current_run_export_archive"
@@ -801,7 +807,8 @@
           "const": "application/zip"
         },
         "sha256": {
-          "$ref": "#/$defs/sha256"
+          "$ref": "#/$defs/sha256",
+          "$comment": "Sole authoritative SHA-256 identity of the finalized carrier bytes."
         },
         "size_bytes": {
           "type": "integer",
@@ -862,8 +869,9 @@
         "complete_package_name",
         "completeness_archive_name",
         "verification_archive_name",
+        "artifact_count_derivation",
         "expected_provider_artifact_count",
-        "expected_artifact_count"
+        "expected_non_provider_artifact_count"
       ],
       "properties": {
         "layout_id": {
@@ -890,15 +898,20 @@
         "verification_archive_name": {
           "$ref": "#/$defs/safe_leaf_name"
         },
+        "artifact_count_derivation": {
+          "const": "provider_plus_non_provider"
+        },
         "expected_provider_artifact_count": {
           "type": "integer",
           "minimum": 1
         },
-        "expected_artifact_count": {
+        "expected_non_provider_artifact_count": {
           "type": "integer",
-          "minimum": 1
+          "minimum": 3,
+          "$comment": "The consumer derives ProducerProfile.expected_artifact_count as expected_provider_artifact_count plus this value. The minimum of three accounts for the required visible preservation manifest, README, and checksum members."
         }
-      }
+      },
+      "$comment": "A realizable total artifact count is derived as expected_provider_artifact_count + expected_non_provider_artifact_count; the schema does not carry a second independently contradictory total."
     },
     "workflow_source": {
       "type": "object",
@@ -915,7 +928,7 @@
       ],
       "properties": {
         "source_id": {
-          "$ref": "#/$defs/non_empty_string"
+          "$ref": "#/$defs/source_id"
         },
         "role": {
           "const": "workflow"
@@ -955,7 +968,7 @@
       ],
       "properties": {
         "source_id": {
-          "$ref": "#/$defs/non_empty_string"
+          "$ref": "#/$defs/source_id"
         },
         "role": {
           "const": "policy"
@@ -992,7 +1005,7 @@
       ],
       "properties": {
         "source_id": {
-          "$ref": "#/$defs/non_empty_string"
+          "$ref": "#/$defs/source_id"
         },
         "role": {
           "const": "gate_registry"
@@ -1028,7 +1041,7 @@
       ],
       "properties": {
         "source_id": {
-          "$ref": "#/$defs/non_empty_string"
+          "$ref": "#/$defs/source_id"
         },
         "role": {
           "type": "string",
