@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import builtins
 import copy
 import hashlib
 import importlib.util
+import io
 import json
 import os
 import shutil
@@ -67,6 +69,10 @@ def parse_json_text(text: str) -> dict[str, Any]:
     )
     assert isinstance(value, dict)
     return value
+
+
+def parse_json_bytes(payload: bytes) -> dict[str, Any]:
+    return parse_json_text(payload.decode("utf-8", errors="strict"))
 
 
 def load_json(path: Path) -> dict[str, Any]:
@@ -154,7 +160,7 @@ def run_tool(
     output: Path | None = None,
     extra_env: dict[str, str] | None = None,
     remove_env: Iterable[str] = (),
-) -> subprocess.CompletedProcess[str]:
+) -> subprocess.CompletedProcess[bytes]:
     command = [
         sys.executable,
         str(tool),
@@ -179,7 +185,6 @@ def run_tool(
     return subprocess.run(
         command,
         cwd=repository_root if repository_root.is_dir() else ROOT,
-        text=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         check=False,
@@ -187,22 +192,26 @@ def run_tool(
     )
 
 
-def diagnostic_from_result(result: subprocess.CompletedProcess[str]) -> dict[str, Any]:
+def diagnostic_from_result(result: subprocess.CompletedProcess[bytes]) -> dict[str, Any]:
     streams = [stream for stream in (result.stdout, result.stderr) if stream]
     assert len(streams) == 1, (result.returncode, result.stdout, result.stderr)
-    assert "Traceback" not in streams[0]
-    return parse_json_text(streams[0])
+    assert b"Traceback" not in streams[0]
+    return parse_json_bytes(streams[0])
+
+
+def combined_result_text(result: subprocess.CompletedProcess[bytes]) -> str:
+    return (result.stdout + result.stderr).decode("utf-8", errors="replace")
 
 
 def assert_validation_failure(
-    result: subprocess.CompletedProcess[str],
+    result: subprocess.CompletedProcess[bytes],
     expected_fragment: str,
     *,
     expected_returncode: int | None = None,
 ) -> dict[str, Any]:
-    assert result.returncode != 0, result.stdout + result.stderr
+    assert result.returncode != 0, combined_result_text(result)
     if expected_returncode is not None:
-        assert result.returncode == expected_returncode, result.stdout + result.stderr
+        assert result.returncode == expected_returncode, combined_result_text(result)
     diagnostic = diagnostic_from_result(result)
     assert diagnostic["ok"] is False
     assert any(expected_fragment in str(error) for error in diagnostic["errors"]), diagnostic
@@ -251,6 +260,55 @@ def forbid_external_io(monkeypatch: pytest.MonkeyPatch) -> list[str]:
     return attempts
 
 
+def forbid_local_file_read(
+    monkeypatch: pytest.MonkeyPatch,
+    target: Path,
+) -> list[str]:
+    attempts: list[str] = []
+    target_absolute = Path(os.path.abspath(os.path.normpath(os.fspath(target))))
+    real_builtin_open = builtins.open
+    real_io_open = io.open
+    real_os_open = os.open
+
+    def names_target(value: Any) -> bool:
+        try:
+            candidate = Path(
+                os.path.abspath(os.path.normpath(os.fspath(value)))
+            )
+        except TypeError:
+            return False
+        return candidate == target_absolute
+
+    def guarded_builtin_open(file: Any, *args: Any, **kwargs: Any) -> Any:
+        if names_target(file):
+            attempts.append(f"builtins.open:{file!r}")
+            raise AssertionError("local schema file read attempted")
+        return real_builtin_open(file, *args, **kwargs)
+
+    def guarded_io_open(file: Any, *args: Any, **kwargs: Any) -> Any:
+        if names_target(file):
+            attempts.append(f"io.open:{file!r}")
+            raise AssertionError("local schema file read attempted")
+        return real_io_open(file, *args, **kwargs)
+
+    def guarded_os_open(
+        path: Any,
+        flags: int,
+        mode: int = 0o777,
+        *,
+        dir_fd: int | None = None,
+    ) -> int:
+        if dir_fd is None and names_target(path):
+            attempts.append(f"os.open:{path!r}")
+            raise AssertionError("local schema file read attempted")
+        return real_os_open(path, flags, mode, dir_fd=dir_fd)
+
+    monkeypatch.setattr(builtins, "open", guarded_builtin_open)
+    monkeypatch.setattr(io, "open", guarded_io_open)
+    monkeypatch.setattr(os, "open", guarded_os_open)
+    return attempts
+
+
 # Artifact identity and tools-tests registration.
 
 def test_validator_artifact_identity_matches_reviewed_merge() -> None:
@@ -289,10 +347,12 @@ def test_default_validation_is_deterministic_and_canonical() -> None:
     first = run_tool()
     second = run_tool()
     assert first.returncode == second.returncode == 0
-    assert first.stderr == second.stderr == ""
+    assert first.stderr == second.stderr == b""
     assert first.stdout == second.stdout
-    diagnostic = parse_json_text(first.stdout)
-    assert first.stdout == render_json(diagnostic)
+    diagnostic = parse_json_bytes(first.stdout)
+    assert first.stdout == render_json(diagnostic).encode("utf-8")
+    assert first.stdout.endswith(b"\n")
+    assert b"\r\n" not in first.stdout
     assert diagnostic["ok"] is True
     assert diagnostic["expectation_schema_valid"] is True
     assert diagnostic["expectation_schema_reference_policy_valid"] is True
@@ -327,7 +387,7 @@ def test_default_validation_is_deterministic_and_canonical() -> None:
 def test_default_diagnostic_identifies_exact_consumed_bytes() -> None:
     result = run_tool()
     assert result.returncode == 0
-    identities = parse_json_text(result.stdout)["input_identities"]
+    identities = parse_json_bytes(result.stdout)["input_identities"]
     for label, path in (
         ("expectation", EXPECTATION),
         ("expectation_schema", EXPECTATION_SCHEMA),
@@ -344,8 +404,9 @@ def test_external_output_is_byte_identical_to_stdout(tmp_path: Path) -> None:
     output = tmp_path / "diagnostics" / "expectation-validator.json"
     result = run_tool(output=output)
     assert result.returncode == 0
-    assert result.stderr == ""
-    assert output.read_text(encoding="utf-8") == result.stdout
+    assert result.stderr == b""
+    assert output.read_bytes() == result.stdout
+    parse_json_bytes(result.stdout)
 
 
 def test_platform_fallback_is_reported_as_weaker(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -412,8 +473,8 @@ def test_repository_local_output_is_rejected_without_mutation() -> None:
     output = ROOT / "tests" / "out" / "current-run-expectation-diagnostic.json"
     output.unlink(missing_ok=True)
     result = run_tool(output=output)
-    assert result.returncode == 2 and result.stdout == ""
-    diagnostic = parse_json_text(result.stderr)
+    assert result.returncode == 2 and result.stdout == b""
+    diagnostic = parse_json_bytes(result.stderr)
     assert any("output_inside_repository" in error for error in diagnostic["errors"])
     assert not output.exists()
 
@@ -422,8 +483,8 @@ def test_invalid_repository_root_fails_before_output(tmp_path: Path) -> None:
     output = ROOT / "tests" / "out" / "invalid-root-diagnostic.json"
     output.unlink(missing_ok=True)
     result = run_tool(repository_root=tmp_path / "missing-root", output=output)
-    assert result.returncode == 2 and result.stdout == ""
-    diagnostic = parse_json_text(result.stderr)
+    assert result.returncode == 2 and result.stdout == b""
+    diagnostic = parse_json_bytes(result.stderr)
     assert any("repository_root" in error for error in diagnostic["errors"])
     assert not output.exists()
 
@@ -488,6 +549,28 @@ def test_modern_registry_backend_denies_runtime_retrieval(monkeypatch: pytest.Mo
     assert attempts == []
 
 
+def test_modern_registry_backend_denies_local_file_uri_without_reading(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    if TOOL_MODULE.CLOSED_SCHEMA_REGISTRY is None:
+        pytest.skip("modern registry backend unavailable")
+    local_schema = tmp_path / "forbidden-local-schema.json"
+    local_schema.write_text('{"type": "object"}\n', encoding="utf-8")
+    network_attempts = forbid_external_io(monkeypatch)
+    file_attempts = forbid_local_file_read(monkeypatch, local_schema)
+    validator = TOOL_MODULE._build_closed_validator(
+        {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "$ref": local_schema.as_uri(),
+        }
+    )
+    with pytest.raises(Exception):
+        list(validator.iter_errors({}))
+    assert network_attempts == []
+    assert file_attempts == []
+
+
 def test_refresolver_fallback_denies_runtime_retrieval(monkeypatch: pytest.MonkeyPatch) -> None:
     attempts = forbid_external_io(monkeypatch)
     monkeypatch.setattr(TOOL_MODULE, "CLOSED_SCHEMA_REGISTRY", None)
@@ -495,6 +578,27 @@ def test_refresolver_fallback_denies_runtime_retrieval(monkeypatch: pytest.Monke
     with pytest.raises(Exception):
         list(validator.iter_errors({}))
     assert attempts == []
+
+
+def test_refresolver_fallback_denies_local_file_uri_without_reading(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    local_schema = tmp_path / "forbidden-local-schema.json"
+    local_schema.write_text('{"type": "object"}\n', encoding="utf-8")
+    network_attempts = forbid_external_io(monkeypatch)
+    file_attempts = forbid_local_file_read(monkeypatch, local_schema)
+    monkeypatch.setattr(TOOL_MODULE, "CLOSED_SCHEMA_REGISTRY", None)
+    validator = TOOL_MODULE._build_closed_validator(
+        {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "$ref": local_schema.as_uri(),
+        }
+    )
+    with pytest.raises(Exception):
+        list(validator.iter_errors({}))
+    assert network_attempts == []
+    assert file_attempts == []
 
 
 def test_optional_registry_import_has_executable_fallback() -> None:
@@ -520,7 +624,7 @@ def test_byte_identical_alternate_schema_paths_are_not_canonical(tmp_path: Path)
     subject_copy.write_bytes(SUBJECT_INPUT_SCHEMA.read_bytes())
     result = run_tool(schema_path=schema_copy, subject_input_schema_path=subject_copy)
     assert result.returncode == 0
-    boundary = parse_json_text(result.stdout)["verification_boundary"]
+    boundary = parse_json_bytes(result.stdout)["verification_boundary"]
     assert boundary["supplied_contract_semantics_verified"] is True
     assert boundary["canonical_expectation_schema_path_verified"] is False
     assert boundary["canonical_expectation_schema_git_blob_verified"] is True
@@ -544,7 +648,7 @@ def test_dirty_canonical_schema_cannot_claim_canonical_contract(tmp_path: Path, 
         repository_root=paths["root"],
     )
     assert result.returncode == 0
-    diagnostic = parse_json_text(result.stdout)
+    diagnostic = parse_json_bytes(result.stdout)
     boundary = diagnostic["verification_boundary"]
     assert diagnostic["ok"] is True
     assert boundary["supplied_contract_semantics_verified"] is True
@@ -566,8 +670,8 @@ def test_non_object_subject_schema_preserves_expectation_schema_state(tmp_path: 
     path = tmp_path / "subject-schema.json"
     path.write_text("[]\n", encoding="utf-8")
     result = run_tool(subject_input_schema_path=path)
-    assert result.returncode == 2 and result.stderr == ""
-    diagnostic = parse_json_text(result.stdout)
+    assert result.returncode == 2 and result.stderr == b""
+    diagnostic = parse_json_bytes(result.stdout)
     assert diagnostic["expectation_schema_valid"] is True
     assert diagnostic["subject_input_schema_valid"] is False
     assert any("subject_input_schema_not_object" in error for error in diagnostic["errors"])
@@ -577,8 +681,8 @@ def test_non_object_expectation_schema_preserves_subject_schema_state(tmp_path: 
     path = tmp_path / "expectation-schema.json"
     path.write_text("[]\n", encoding="utf-8")
     result = run_tool(schema_path=path)
-    assert result.returncode == 2 and result.stderr == ""
-    diagnostic = parse_json_text(result.stdout)
+    assert result.returncode == 2 and result.stderr == b""
+    diagnostic = parse_json_bytes(result.stdout)
     assert diagnostic["expectation_schema_valid"] is False
     assert diagnostic["subject_input_schema_valid"] is True
     assert any("expectation_schema_not_object" in error for error in diagnostic["errors"])
@@ -586,8 +690,8 @@ def test_non_object_expectation_schema_preserves_subject_schema_state(tmp_path: 
 
 def test_missing_subject_schema_preserves_expectation_schema_state(tmp_path: Path) -> None:
     result = run_tool(subject_input_schema_path=tmp_path / "missing-subject-schema.json")
-    assert result.returncode == 2 and result.stderr == ""
-    diagnostic = parse_json_text(result.stdout)
+    assert result.returncode == 2 and result.stderr == b""
+    diagnostic = parse_json_bytes(result.stdout)
     assert diagnostic["expectation_schema_valid"] is True
     assert diagnostic["subject_input_schema_valid"] is False
 
@@ -598,8 +702,8 @@ def test_impossible_downstream_observed_branch_fails_separately(tmp_path: Path) 
     path = tmp_path / "impossible-observed.schema.json"
     write_json(path, subject_schema)
     result = run_tool(subject_input_schema_path=path)
-    assert result.returncode == 1 and result.stderr == ""
-    diagnostic = parse_json_text(result.stdout)
+    assert result.returncode == 1 and result.stderr == b""
+    diagnostic = parse_json_bytes(result.stdout)
     assert diagnostic["expectation_schema_valid"] is True
     assert diagnostic["expectation_instance_valid"] is True
     assert diagnostic["subject_input_schema_valid"] is True
@@ -626,8 +730,8 @@ def test_valid_observed_expectation_passes(tmp_path: Path) -> None:
     path = tmp_path / "observed-expectation.json"
     write_json(path, observed_expectation())
     result = run_tool(expectation_path=path)
-    assert result.returncode == 0 and result.stderr == ""
-    diagnostic = parse_json_text(result.stdout)
+    assert result.returncode == 0 and result.stderr == b""
+    diagnostic = parse_json_bytes(result.stdout)
     assert diagnostic["ok"] is True
     assert diagnostic["record_status"] == "observed"
     assert diagnostic["derived"]["record_status"] == "observed"
