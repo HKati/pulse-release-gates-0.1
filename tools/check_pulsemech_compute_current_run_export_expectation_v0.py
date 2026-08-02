@@ -5,6 +5,7 @@ import argparse
 import copy
 import errno
 import hashlib
+import inspect
 import json
 import os
 import re
@@ -12,13 +13,20 @@ import secrets
 import stat
 import sys
 import tempfile
+import warnings
 from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
 from typing import Any
+from urllib.parse import unquote
 
 import jsonschema
-from referencing import Registry
-from referencing.exceptions import NoSuchResource
+
+try:
+    from referencing import Registry as ReferencingRegistry
+    from referencing.exceptions import NoSuchResource
+except ImportError:
+    ReferencingRegistry = None
+    NoSuchResource = None
 
 
 TOOL_NAME = "check_pulsemech_compute_current_run_export_expectation_v0"
@@ -72,6 +80,39 @@ SCHEMA_REFERENCE_KEYWORDS = frozenset(
     {"$ref", "$dynamicRef", "$recursiveRef"}
 )
 SCHEMA_REFERENCE_POLICY = "internal_fragment_only"
+
+SCHEMA_SINGLE_SUBSCHEMA_KEYWORDS = frozenset(
+    {
+        "additionalProperties",
+        "contains",
+        "contentSchema",
+        "else",
+        "if",
+        "items",
+        "not",
+        "propertyNames",
+        "then",
+        "unevaluatedItems",
+        "unevaluatedProperties",
+    }
+)
+SCHEMA_ARRAY_SUBSCHEMA_KEYWORDS = frozenset(
+    {
+        "allOf",
+        "anyOf",
+        "oneOf",
+        "prefixItems",
+    }
+)
+SCHEMA_MAPPING_SUBSCHEMA_KEYWORDS = frozenset(
+    {
+        "$defs",
+        "definitions",
+        "dependentSchemas",
+        "patternProperties",
+        "properties",
+    }
+)
 
 CONTROL_PLANE_COMPONENT_KEYS = (
     "carrier_loader",
@@ -206,11 +247,81 @@ def _external_output_mode() -> str:
     )
 
 
+class ClosedSchemaReferenceError(RuntimeError):
+    pass
+
+
+def _registry_api_available() -> bool:
+    if ReferencingRegistry is None or NoSuchResource is None:
+        return False
+    try:
+        parameters = inspect.signature(
+            jsonschema.Draft202012Validator.__init__
+        ).parameters
+    except (TypeError, ValueError):
+        return False
+    return "registry" in parameters
+
+
 def _deny_schema_retrieval(uri: str) -> Any:
+    if NoSuchResource is None:
+        raise ClosedSchemaReferenceError(
+            f"external schema retrieval denied: {uri}"
+        )
     raise NoSuchResource(ref=uri)
 
 
-CLOSED_SCHEMA_REGISTRY = Registry(retrieve=_deny_schema_retrieval)
+CLOSED_SCHEMA_REGISTRY = (
+    ReferencingRegistry(retrieve=_deny_schema_retrieval)
+    if _registry_api_available()
+    else None
+)
+
+
+def _jsonschema_ref_resolver_class() -> type[Any]:
+    # jsonschema>=4.0 exposes RefResolver. jsonschema>=4.18 deprecates it,
+    # but the repository supports the full >=4.0,<5 range. This fallback is
+    # used only when the newer registry constructor API is unavailable.
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", DeprecationWarning)
+        resolver_class = getattr(jsonschema, "RefResolver", None)
+    if resolver_class is None:
+        raise RuntimeError("jsonschema_compatible_ref_resolver_unavailable")
+    return resolver_class
+
+
+_JSONSCHEMA_REF_RESOLVER = _jsonschema_ref_resolver_class()
+
+
+class ClosedSchemaRefResolver(_JSONSCHEMA_REF_RESOLVER):
+    def resolve_remote(self, uri: str) -> Any:
+        raise ClosedSchemaReferenceError(
+            f"external schema retrieval denied: {uri}"
+        )
+
+
+def _closed_schema_resolver(schema: dict[str, Any]) -> Any:
+    return ClosedSchemaRefResolver.from_schema(
+        schema,
+        cache_remote=False,
+    )
+
+
+def _build_closed_validator(schema: dict[str, Any]) -> Any:
+    common = {
+        "format_checker": jsonschema.FormatChecker(),
+    }
+    if CLOSED_SCHEMA_REGISTRY is not None:
+        return jsonschema.Draft202012Validator(
+            schema,
+            registry=CLOSED_SCHEMA_REGISTRY,
+            **common,
+        )
+    return jsonschema.Draft202012Validator(
+        schema,
+        resolver=_closed_schema_resolver(schema),
+        **common,
+    )
 
 
 def _json_pointer(parts: tuple[Any, ...]) -> str:
@@ -222,45 +333,197 @@ def _json_pointer(parts: tuple[Any, ...]) -> str:
     )
 
 
+def _decode_json_pointer_token(value: str) -> str:
+    return value.replace("~1", "/").replace("~0", "~")
+
+
+def _find_internal_anchor_targets(
+    root: Any,
+    reference: str,
+) -> list[tuple[Any, tuple[Any, ...]]]:
+    if not reference.startswith("#") or reference in {"#"} or reference.startswith("#/"):
+        return []
+
+    fragment = unquote(reference[1:])
+    if not fragment:
+        return []
+
+    matches: list[tuple[Any, tuple[Any, ...]]] = []
+    pending: list[tuple[Any, tuple[Any, ...]]] = [(root, ())]
+    visited: set[int] = set()
+    while pending:
+        value, value_path = pending.pop()
+        if isinstance(value, (dict, list)):
+            identity = id(value)
+            if identity in visited:
+                continue
+            visited.add(identity)
+        if isinstance(value, dict):
+            if (
+                value.get("$anchor") == fragment
+                or value.get("$dynamicAnchor") == fragment
+                or value.get("$id") == f"#{fragment}"
+                or value.get("id") == f"#{fragment}"
+            ):
+                matches.append((value, value_path))
+            pending.extend(
+                (item, value_path + (key,))
+                for key, item in sorted(value.items(), reverse=True)
+            )
+        elif isinstance(value, list):
+            pending.extend(
+                (item, value_path + (index,))
+                for index, item in reversed(list(enumerate(value)))
+            )
+    return matches
+
+
+def _resolve_internal_pointer(
+    root: Any,
+    reference: str,
+) -> tuple[Any, tuple[Any, ...]] | None:
+    if reference == "#":
+        return root, ()
+    if not reference.startswith("#/"):
+        return None
+
+    fragment = unquote(reference[1:])
+    if not fragment.startswith("/"):
+        return None
+
+    cursor = root
+    resolved_path: list[Any] = []
+    for raw_token in fragment[1:].split("/"):
+        token = _decode_json_pointer_token(raw_token)
+        if isinstance(cursor, dict):
+            if token not in cursor:
+                return None
+            cursor = cursor[token]
+            resolved_path.append(token)
+            continue
+        if isinstance(cursor, list):
+            if not token.isdigit():
+                return None
+            index = int(token, 10)
+            if index < 0 or index >= len(cursor):
+                return None
+            cursor = cursor[index]
+            resolved_path.append(index)
+            continue
+        return None
+    return cursor, tuple(resolved_path)
+
+
+def _schema_children(
+    schema: dict[str, Any],
+    *,
+    path: tuple[Any, ...],
+) -> list[tuple[Any, tuple[Any, ...]]]:
+    children: list[tuple[Any, tuple[Any, ...]]] = []
+
+    for keyword in sorted(SCHEMA_SINGLE_SUBSCHEMA_KEYWORDS):
+        if keyword not in schema:
+            continue
+        value = schema[keyword]
+        keyword_path = path + (keyword,)
+        if isinstance(value, (dict, bool)):
+            children.append((value, keyword_path))
+        elif keyword == "items" and isinstance(value, list):
+            # An array-valued items keyword is not valid Draft 2020-12, but
+            # each entry is still scanned as a schema-shaped value before the
+            # schema self-check reports the draft violation.
+            children.extend(
+                (item, keyword_path + (index,))
+                for index, item in enumerate(value)
+                if isinstance(item, (dict, bool))
+            )
+
+    for keyword in sorted(SCHEMA_ARRAY_SUBSCHEMA_KEYWORDS):
+        value = schema.get(keyword)
+        if not isinstance(value, list):
+            continue
+        keyword_path = path + (keyword,)
+        children.extend(
+            (item, keyword_path + (index,))
+            for index, item in enumerate(value)
+            if isinstance(item, (dict, bool))
+        )
+
+    for keyword in sorted(SCHEMA_MAPPING_SUBSCHEMA_KEYWORDS):
+        value = schema.get(keyword)
+        if not isinstance(value, dict):
+            continue
+        keyword_path = path + (keyword,)
+        children.extend(
+            (item, keyword_path + (name,))
+            for name, item in sorted(value.items())
+            if isinstance(item, (dict, bool))
+        )
+
+    return children
+
+
 def schema_reference_policy_errors(
     value: Any,
     *,
     label: str,
     path: tuple[Any, ...] = (),
 ) -> list[str]:
+    # Traverse only positions which Draft 2020-12 evaluates as schemas.
+    # Property names such as properties["$ref"] and instance/annotation data
+    # under const, enum, default, or examples are not reference keywords.
+    # Internal JSON-Pointer references are followed so a schema reached
+    # through a local pointer cannot hide an external reference in data that
+    # becomes schema-valued only through that pointer.
     errors: list[str] = []
-    if isinstance(value, dict):
-        for key in sorted(value):
-            item = value[key]
-            item_path = path + (key,)
-            if key in SCHEMA_REFERENCE_KEYWORDS:
-                if not isinstance(item, str):
-                    errors.append(
-                        f"{label}_reference_not_string"
-                        f"[{_json_pointer(item_path)}]"
-                    )
-                elif not item.startswith("#"):
-                    errors.append(
-                        f"{label}_external_reference_not_permitted"
-                        f"[{_json_pointer(item_path)}]: {item!r}"
-                    )
-            errors.extend(
-                schema_reference_policy_errors(
-                    item,
-                    label=label,
-                    path=item_path,
+    pending: list[tuple[Any, tuple[Any, ...]]] = [(value, path)]
+    visited: set[int] = set()
+
+    while pending:
+        schema, schema_path = pending.pop()
+        if isinstance(schema, bool):
+            continue
+        if not isinstance(schema, dict):
+            continue
+
+        identity = id(schema)
+        if identity in visited:
+            continue
+        visited.add(identity)
+
+        for keyword in sorted(SCHEMA_REFERENCE_KEYWORDS):
+            if keyword not in schema:
+                continue
+            reference = schema[keyword]
+            reference_path = schema_path + (keyword,)
+            if not isinstance(reference, str):
+                errors.append(
+                    f"{label}_reference_not_string"
+                    f"[{_json_pointer(reference_path)}]"
                 )
-            )
-    elif isinstance(value, list):
-        for index, item in enumerate(value):
-            errors.extend(
-                schema_reference_policy_errors(
-                    item,
-                    label=label,
-                    path=path + (index,),
+                continue
+            if not reference.startswith("#"):
+                errors.append(
+                    f"{label}_external_reference_not_permitted"
+                    f"[{_json_pointer(reference_path)}]: {reference!r}"
                 )
+                continue
+
+            resolved = _resolve_internal_pointer(value, reference)
+            if resolved is not None:
+                pending.append(resolved)
+            pending.extend(
+                _find_internal_anchor_targets(value, reference)
             )
-    return errors
+
+        pending.extend(
+            _schema_children(
+                schema,
+                path=schema_path,
+            )
+        )
+
+    return sorted(set(errors))
 
 
 def git_blob_sha1(payload: bytes) -> str:
@@ -512,11 +775,7 @@ def validate_instance(
         return False, reference_errors
 
     try:
-        validator = jsonschema.Draft202012Validator(
-            schema,
-            format_checker=jsonschema.FormatChecker(),
-            registry=CLOSED_SCHEMA_REGISTRY,
-        )
+        validator = _build_closed_validator(schema)
         validation_errors = sorted(
             list(validator.iter_errors(value)),
             key=lambda item: (
