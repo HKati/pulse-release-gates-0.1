@@ -71,6 +71,12 @@ CONTROL_PLANE_WORKFLOW_PATH = (
     ".github/workflows/pulsemech_compute_current_run_export_candidate.yml"
 )
 
+# This is the contract-complete protected component set, not an inventory of
+# files already present in the repository revision that introduces this builder.
+# The carrier loader, current-run packet wrapper, and candidate workflow are
+# deliberate activation prerequisites. Their absence must keep observed
+# expectation production fail closed; weakening this set would allow an
+# incomplete control plane to claim protected_exact_revision.
 CONTROL_PLANE_COMPONENT_SPECS: tuple[tuple[str, str, str], ...] = (
     ("carrier_loader", CURRENT_RUN_CARRIER_LOADER_PATH, "0.1.0"),
     ("control_plane_workflow", CONTROL_PLANE_WORKFLOW_PATH, "0.1.0"),
@@ -1006,18 +1012,99 @@ def _git_blob(
     revision: str,
     repository_path: str,
     label: str,
+    max_bytes: int,
+    blob_cache: dict[tuple[str, str, str], bytes] | None = None,
 ) -> bytes:
     canonical = _canonical_repository_path(repository_path)
     if canonical is None:
         raise BuilderError(
             f"{label}_repository_path_not_canonical: {repository_path!r}"
         )
-    return _run_git(
+
+    cache_key = (
+        os.path.normcase(str(repository_root)),
+        revision,
+        canonical,
+    )
+    if blob_cache is not None and cache_key in blob_cache:
+        cached = blob_cache[cache_key]
+        if len(cached) > max_bytes:
+            raise BuilderError(
+                f"{label}_committed_blob_too_large: "
+                f"size={len(cached)} maximum={max_bytes}"
+            )
+        return cached
+
+    object_name = f"{revision}:{canonical}"
+    object_type_raw = _run_git(
         git_path=git_path,
         repository_root=repository_root,
-        arguments=("cat-file", "blob", f"{revision}:{canonical}"),
-        label=label,
+        arguments=("cat-file", "-t", object_name),
+        label=f"{label}_type",
     )
+    try:
+        object_type = object_type_raw.decode(
+            "ascii",
+            errors="strict",
+        ).strip()
+    except UnicodeDecodeError as exc:
+        raise BuilderError(
+            f"{label}_object_type_not_ascii",
+            exit_kind="trusted_git_error",
+            exit_code=2,
+        ) from exc
+    if object_type != "blob":
+        raise BuilderError(
+            f"{label}_object_not_blob: observed={object_type!r}",
+            exit_kind="trusted_git_error",
+            exit_code=2,
+        )
+
+    size_raw = _run_git(
+        git_path=git_path,
+        repository_root=repository_root,
+        arguments=("cat-file", "-s", object_name),
+        label=f"{label}_size",
+    )
+    try:
+        declared_size = int(
+            size_raw.decode("ascii", errors="strict").strip(),
+            10,
+        )
+    except (UnicodeDecodeError, ValueError) as exc:
+        raise BuilderError(
+            f"{label}_blob_size_invalid",
+            exit_kind="trusted_git_error",
+            exit_code=2,
+        ) from exc
+    if declared_size < 0:
+        raise BuilderError(
+            f"{label}_blob_size_negative: {declared_size}",
+            exit_kind="trusted_git_error",
+            exit_code=2,
+        )
+    if declared_size > max_bytes:
+        raise BuilderError(
+            f"{label}_committed_blob_too_large: "
+            f"size={declared_size} maximum={max_bytes}"
+        )
+
+    committed = _run_git(
+        git_path=git_path,
+        repository_root=repository_root,
+        arguments=("cat-file", "blob", object_name),
+        label=f"{label}_content",
+    )
+    if len(committed) != declared_size:
+        raise BuilderError(
+            f"{label}_blob_size_changed_or_misreported: "
+            f"declared={declared_size} observed={len(committed)}",
+            exit_kind="trusted_git_error",
+            exit_code=2,
+        )
+    if blob_cache is not None:
+        blob_cache[cache_key] = committed
+    return committed
 
 
 def _verify_committed_worktree_file(
@@ -1028,6 +1115,7 @@ def _verify_committed_worktree_file(
     repository_path: str,
     label: str,
     max_bytes: int,
+    blob_cache: dict[tuple[str, str, str], bytes] | None = None,
 ) -> bytes:
     committed = _git_blob(
         git_path=git_path,
@@ -1035,12 +1123,9 @@ def _verify_committed_worktree_file(
         revision=revision,
         repository_path=repository_path,
         label=f"{label}_committed_blob",
+        max_bytes=max_bytes,
+        blob_cache=blob_cache,
     )
-    if len(committed) > max_bytes:
-        raise BuilderError(
-            f"{label}_committed_blob_too_large: "
-            f"size={len(committed)} maximum={max_bytes}"
-        )
     working = read_regular_file(
         repository_root / repository_path,
         label=f"{label}_working_tree",
@@ -1173,6 +1258,11 @@ def _verify_control_plane_components(
     components: dict[str, Any] = {}
     payloads: dict[str, bytes] = {}
     seen_paths: set[str] = set()
+    retained_payload_roles = {
+        "expectation_schema",
+        "expectation_validator",
+        "subject_input_schema",
+    }
     for role, repository_path, version in CONTROL_PLANE_COMPONENT_SPECS:
         canonical = _canonical_repository_path(repository_path)
         if canonical is None or canonical in seen_paths:
@@ -1189,7 +1279,8 @@ def _verify_control_plane_components(
             label=f"control_plane_component_{role}",
             max_bytes=MAX_COMPONENT_BYTES,
         )
-        payloads[role] = committed
+        if role in retained_payload_roles:
+            payloads[role] = committed
         components[role] = {
             "path": canonical,
             "sha256": sha256_bytes(committed),
@@ -1233,6 +1324,7 @@ def _verify_authority_sources(
         )
 
     source_ids: list[str] = []
+    verified_path_identities: dict[str, tuple[str, int]] = {}
     for label, source in _flatten_authority_sources(verified):
         source_id = source.get("source_id")
         path_value = source.get("path_or_uri")
@@ -1250,25 +1342,29 @@ def _verify_authority_sources(
             raise BuilderError(
                 f"{label}_source_path_not_canonical: {path_value!r}"
             )
-        committed = _verify_committed_worktree_file(
-            git_path=git_path,
-            repository_root=subject_root,
-            revision=subject_revision,
-            repository_path=canonical,
-            label=f"authority_source_{label}",
-            max_bytes=MAX_COMPONENT_BYTES,
-        )
-        observed_sha = sha256_bytes(committed)
+        cached_identity = verified_path_identities.get(canonical)
+        if cached_identity is None:
+            committed = _verify_committed_worktree_file(
+                git_path=git_path,
+                repository_root=subject_root,
+                revision=subject_revision,
+                repository_path=canonical,
+                label=f"authority_source_{label}",
+                max_bytes=MAX_COMPONENT_BYTES,
+            )
+            cached_identity = (sha256_bytes(committed), len(committed))
+            verified_path_identities[canonical] = cached_identity
+        observed_sha, observed_size = cached_identity
         if source.get("sha256") != observed_sha:
             raise BuilderError(
                 f"{label}_source_sha256_mismatch: "
                 f"expected={source.get('sha256')!r} observed={observed_sha!r}"
             )
-        if source.get("size_bytes") != len(committed):
+        if source.get("size_bytes") != observed_size:
             raise BuilderError(
                 f"{label}_source_size_mismatch: "
                 f"expected={source.get('size_bytes')!r} "
-                f"observed={len(committed)}"
+                f"observed={observed_size}"
             )
     if len(source_ids) != len(set(source_ids)):
         raise BuilderError("authority_source_ids_not_unique")
@@ -1361,9 +1457,136 @@ def _verify_trusted_current_run_binding(
             )
 
 
+def _ordered_unique_non_empty_strings(value: Any) -> bool:
+    return (
+        isinstance(value, list)
+        and all(isinstance(item, str) and bool(item) for item in value)
+        and len(value) == len(set(value))
+    )
+
+
+def _json_value_type(value: Any) -> str:
+    if value is None:
+        return "null"
+    if isinstance(value, bool):
+        return "boolean"
+    if isinstance(value, str):
+        return "string"
+    if isinstance(value, int):
+        return "integer"
+    if isinstance(value, float):
+        return "number"
+    if isinstance(value, list):
+        return "array"
+    if isinstance(value, dict):
+        return "object"
+    return type(value).__name__
+
+
+def _verify_release_decision_gate_state(
+    decision: dict[str, Any],
+    *,
+    final_status: dict[str, Any],
+) -> None:
+    effective_gates = decision.get("effective_required_gates")
+    if not _ordered_unique_non_empty_strings(effective_gates):
+        raise BuilderError(
+            "release_decision_effective_required_gates_invalid"
+        )
+
+    gate_results = decision.get("gate_results")
+    if (
+        not isinstance(gate_results, list)
+        or not all(isinstance(row, dict) for row in gate_results)
+    ):
+        raise BuilderError("release_decision_gate_results_invalid")
+    if len(gate_results) != len(effective_gates):
+        raise BuilderError(
+            "release_decision_gate_result_count_mismatch: "
+            f"effective={len(effective_gates)} results={len(gate_results)}"
+        )
+
+    status_gates = final_status.get("gates")
+    status_gates_is_object = isinstance(status_gates, dict)
+    recomputed_passes: list[bool] = []
+
+    for index, (gate_id, row) in enumerate(
+        zip(effective_gates, gate_results, strict=True)
+    ):
+        if row.get("gate_id") != gate_id:
+            raise BuilderError(
+                "release_decision_gate_result_identity_mismatch: "
+                f"index={index} expected={gate_id!r} "
+                f"actual={row.get('gate_id')!r}"
+            )
+
+        if status_gates_is_object and gate_id in status_gates:
+            status_value = status_gates[gate_id]
+            expected_present = True
+            expected_passed = status_value is True
+            expected_value_type = _json_value_type(status_value)
+            expected_reason = (
+                None
+                if expected_passed
+                else "gate value is not literal true"
+            )
+        else:
+            expected_present = False
+            expected_passed = False
+            expected_value_type = "missing"
+            expected_reason = (
+                "missing required gate"
+                if status_gates_is_object
+                else "status.gates is missing or not an object"
+            )
+
+        expected_row = {
+            "gate_id": gate_id,
+            "passed": expected_passed,
+            "present": expected_present,
+            "reason": expected_reason,
+            "value_type": expected_value_type,
+        }
+        for field, expected in expected_row.items():
+            actual = row.get(field)
+            if actual != expected:
+                raise BuilderError(
+                    "release_decision_gate_result_mismatch: "
+                    f"gate_id={gate_id!r} field={field!r} "
+                    f"expected={expected!r} actual={actual!r}"
+                )
+        recomputed_passes.append(expected_passed)
+
+    required_gates_passed = decision.get("required_gates_passed")
+    if not isinstance(required_gates_passed, bool):
+        raise BuilderError(
+            "release_decision_required_gates_passed_not_boolean"
+        )
+    recomputed = bool(effective_gates) and all(recomputed_passes)
+    if required_gates_passed is not recomputed:
+        raise BuilderError(
+            "release_decision_required_gates_passed_mismatch: "
+            f"declared={required_gates_passed!r} recomputed={recomputed!r}"
+        )
+
+    blocking_reasons = decision.get("blocking_reasons")
+    if blocking_reasons != [] and not _ordered_unique_non_empty_strings(
+        blocking_reasons
+    ):
+        raise BuilderError("release_decision_blocking_reasons_invalid")
+    release_level = decision.get("release_level")
+    if (release_level == "FAIL") is not bool(blocking_reasons):
+        raise BuilderError(
+            "release_decision_blocking_reason_level_mismatch: "
+            f"release_level={release_level!r} "
+            f"blocking_reasons={blocking_reasons!r}"
+        )
+
+
 def _verify_subject_artifacts(
     *,
     subject: dict[str, Any],
+    authority_sources: dict[str, Any],
     final_status_path: Path,
     release_decision_path: Path,
     materialized_gate_set_path: Path | None,
@@ -1375,11 +1598,27 @@ def _verify_subject_artifacts(
         object_required=True,
     )
     metrics = final_status.get("metrics")
-    if (
-        not isinstance(metrics, dict)
-        or metrics.get("run_mode") != subject.get("run_mode")
-    ):
-        raise BuilderError("final_status_run_mode_mismatch")
+    gate_registry = authority_sources.get("gate_registry")
+    if not isinstance(metrics, dict):
+        raise BuilderError("final_status_metrics_not_object")
+    if not isinstance(gate_registry, dict):
+        raise BuilderError("verified_gate_registry_source_missing")
+
+    expected_status_bindings = {
+        "run_mode": subject.get("run_mode"),
+        "git_sha": subject.get("source_commit"),
+        "run_key": subject.get("subject_run_key"),
+        "gate_policy_sha256": subject.get("policy_sha256"),
+        "gate_registry_sha256": gate_registry.get("sha256"),
+    }
+    for field, expected in expected_status_bindings.items():
+        actual = metrics.get(field)
+        if actual != expected:
+            raise BuilderError(
+                f"final_status_{field}_mismatch: "
+                f"expected={expected!r} actual={actual!r}"
+            )
+
     decision = _load_hashed_json(
         path=release_decision_path,
         expected_sha256=subject["release_decision_sha256"],
@@ -1416,30 +1655,63 @@ def _verify_subject_artifacts(
             f"subject_decision_mismatch: expected={expected_decision!r} "
             f"actual={subject.get('decision')!r}"
         )
-    if decision.get("required_gates_passed") is not (
-        expected_decision == "ALLOW"
-    ):
-        raise BuilderError("release_decision_required_gates_passed_mismatch")
-    target = decision.get("target")
-    if isinstance(target, str) and subject.get("run_mode") != target:
-        raise BuilderError(
-            "release_decision_target_mismatch: "
-            f"subject={subject.get('run_mode')!r} decision={target!r}"
-        )
-    active_sets = decision.get("active_gate_sets")
-    if isinstance(active_sets, list) and active_sets != subject.get(
-        "active_policy_sets"
-    ):
-        raise BuilderError("release_decision_active_gate_sets_mismatch")
 
-    optional_equalities = (
+    _verify_release_decision_gate_state(
+        decision,
+        final_status=final_status,
+    )
+
+    decision_run_mode = decision.get("run_mode")
+    if decision_run_mode != subject.get("run_mode"):
+        raise BuilderError(
+            "release_decision_run_mode_mismatch: "
+            f"subject={subject.get('run_mode')!r} "
+            f"decision={decision_run_mode!r}"
+        )
+
+    target = decision.get("target")
+    if target not in {"stage", "prod"}:
+        raise BuilderError(
+            f"release_decision_target_invalid: {target!r}"
+        )
+    if release_level == "STAGE-PASS" and target != "stage":
+        raise BuilderError(
+            "release_decision_stage_pass_target_mismatch"
+        )
+    if release_level == "PROD-PASS" and target != "prod":
+        raise BuilderError(
+            "release_decision_prod_pass_target_mismatch"
+        )
+
+    active_sets = decision.get("active_gate_sets")
+    if not _ordered_unique_non_empty_strings(active_sets):
+        raise BuilderError("release_decision_active_gate_sets_invalid")
+    expected_target_sets = (
+        ["required"]
+        if target == "stage"
+        else ["required", "release_required"]
+    )
+    if active_sets != expected_target_sets:
+        raise BuilderError(
+            "release_decision_target_gate_sets_mismatch: "
+            f"target={target!r} expected={expected_target_sets!r} "
+            f"actual={active_sets!r}"
+        )
+    if active_sets != subject.get("active_policy_sets"):
+        raise BuilderError(
+            "release_decision_active_gate_sets_mismatch: "
+            f"subject={subject.get('active_policy_sets')!r} "
+            f"decision={active_sets!r}"
+        )
+
+    exact_equalities = (
         ("git_sha", subject.get("source_commit")),
         ("status_sha256", subject.get("final_status_sha256")),
         ("policy_sha256", subject.get("policy_sha256")),
     )
-    for field, expected in optional_equalities:
+    for field, expected in exact_equalities:
         actual = decision.get(field)
-        if actual is not None and actual != expected:
+        if actual != expected:
             raise BuilderError(
                 f"release_decision_{field}_mismatch: "
                 f"expected={expected!r} actual={actual!r}"
@@ -2032,6 +2304,7 @@ def _build(args: argparse.Namespace) -> bytes:
     )
     _verify_subject_artifacts(
         subject=subject,
+        authority_sources=verified_sources,
         final_status_path=final_status_path,
         release_decision_path=release_decision_path,
         materialized_gate_set_path=materialized_gate_set_path,
