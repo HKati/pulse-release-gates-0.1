@@ -19,6 +19,7 @@ from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import Any, Iterable, Sequence
 
 import jsonschema
+import yaml
 
 
 TOOL_NAME = "build_pulsemech_compute_current_run_export_expectation_v0"
@@ -70,6 +71,35 @@ CURRENT_RUN_CARRIER_LOADER_PATH = (
 CONTROL_PLANE_WORKFLOW_PATH = (
     ".github/workflows/pulsemech_compute_current_run_export_candidate.yml"
 )
+STATUS_SCHEMA_PATH = "schemas/status/status_v1.schema.json"
+
+RELEASE_DECISION_SCHEMA = "pulse_release_decision_v0"
+RELEASE_DECISION_VERSION = "0.1.0"
+RELEASE_DECISION_PRODUCER_NAME = "materialize_release_decision.py"
+
+STUB_FLAG_PATHS = (
+    "diagnostics.gates_stubbed",
+    "metrics.gates_stubbed",
+    "meta.diagnostics.gates_stubbed",
+)
+SCAFFOLD_FLAG_PATHS = (
+    "diagnostics.scaffold",
+    "metrics.scaffold",
+    "meta.diagnostics.scaffold",
+)
+STUB_PROFILE_PATHS = (
+    "diagnostics.stub_profile",
+    "metrics.stub_profile",
+    "meta.diagnostics.stub_profile",
+)
+NEUTRAL_STUB_PROFILES = {
+    "",
+    "none",
+    "false",
+    "real",
+    "not_stubbed",
+}
+_MISSING = object()
 
 # This is the contract-complete protected component set, not an inventory of
 # files already present in the repository revision that introduces this builder.
@@ -148,10 +178,14 @@ PROTECTED_OUTPUT_NAMES = frozenset(
         "release_authority_v0.json",
         "pulse_gate_policy_v0.yml",
         "pulse_gate_registry_v0.yml",
+        "status_v1.schema.json",
         "pulsemech_compute_current_run_export_expectation_v0.schema.json",
         "pulsemech_compute_subject_input_packet_v0.json",
         "pulsemech_compute_subject_input_packet_v0.schema.json",
     }
+)
+PROTECTED_OUTPUT_NAMES_CASEFOLDED = frozenset(
+    name.casefold() for name in PROTECTED_OUTPUT_NAMES
 )
 
 
@@ -201,6 +235,41 @@ class BuilderError(RuntimeError):
 
 class StrictJsonError(ValueError):
     pass
+
+
+class StrictYamlError(ValueError):
+    pass
+
+
+class _StrictSafeLoader(yaml.SafeLoader):
+    pass
+
+
+def _construct_unique_yaml_mapping(
+    loader: _StrictSafeLoader,
+    node: yaml.nodes.MappingNode,
+    deep: bool = False,
+) -> dict[Any, Any]:
+    loader.flatten_mapping(node)
+    result: dict[Any, Any] = {}
+    for key_node, value_node in node.value:
+        key = loader.construct_object(key_node, deep=deep)
+        try:
+            hash(key)
+        except TypeError as exc:
+            raise StrictYamlError(
+                f"unhashable YAML mapping key: {key!r}"
+            ) from exc
+        if key in result:
+            raise StrictYamlError(f"duplicate YAML key: {key!r}")
+        result[key] = loader.construct_object(value_node, deep=deep)
+    return result
+
+
+_StrictSafeLoader.add_constructor(
+    yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG,
+    _construct_unique_yaml_mapping,
+)
 
 
 def reject_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
@@ -499,6 +568,38 @@ def parse_json_bytes(payload: bytes, *, label: str) -> Any:
             exit_kind="strict_json_error",
             exit_code=2,
         ) from exc
+
+
+def parse_yaml_object(payload: bytes, *, label: str) -> dict[str, Any]:
+    if payload.startswith(b"\xef\xbb\xbf"):
+        raise BuilderError(
+            f"{label}_utf8_bom_not_permitted",
+            exit_kind="strict_yaml_error",
+            exit_code=2,
+        )
+    try:
+        text = payload.decode("utf-8", errors="strict")
+    except UnicodeDecodeError as exc:
+        raise BuilderError(
+            f"{label}_invalid_utf8: {exc}",
+            exit_kind="strict_yaml_error",
+            exit_code=2,
+        ) from exc
+    try:
+        value = yaml.load(text, Loader=_StrictSafeLoader)
+    except (yaml.YAMLError, StrictYamlError) as exc:
+        raise BuilderError(
+            f"{label}_invalid_yaml: {exc}",
+            exit_kind="strict_yaml_error",
+            exit_code=2,
+        ) from exc
+    if not isinstance(value, dict):
+        raise BuilderError(
+            f"{label}_not_object",
+            exit_kind="strict_yaml_error",
+            exit_code=2,
+        )
+    return value
 
 
 def load_json_object(
@@ -824,14 +925,20 @@ def _validated_trusted_git(path: Path) -> Path:
                 exit_kind="trusted_git_error",
                 exit_code=2,
             )
-        if os.name != "nt" and metadata.st_mode & (
-            stat.S_IWGRP | stat.S_IWOTH
-        ):
-            raise BuilderError(
-                f"trusted_git_writable_component_rejected: {component}",
-                exit_kind="trusted_git_error",
-                exit_code=2,
-            )
+        if os.name != "nt":
+            if metadata.st_uid != 0:
+                raise BuilderError(
+                    "trusted_git_unprotected_owner_rejected: "
+                    f"component={component} uid={metadata.st_uid}",
+                    exit_kind="trusted_git_error",
+                    exit_code=2,
+                )
+            if metadata.st_mode & (stat.S_IWGRP | stat.S_IWOTH):
+                raise BuilderError(
+                    f"trusted_git_writable_component_rejected: {component}",
+                    exit_kind="trusted_git_error",
+                    exit_code=2,
+                )
     if not os.access(resolved, os.X_OK):
         raise BuilderError(
             f"trusted_git_not_executable: {resolved}",
@@ -1312,7 +1419,7 @@ def _verify_authority_sources(
     subject_root: Path,
     subject_revision: str,
     authority_sources: dict[str, Any],
-) -> dict[str, Any]:
+) -> tuple[dict[str, Any], bytes]:
     verified = copy.deepcopy(authority_sources)
     additional = verified.get("additional_sources")
     if isinstance(additional, list):
@@ -1325,6 +1432,7 @@ def _verify_authority_sources(
 
     source_ids: list[str] = []
     verified_path_identities: dict[str, tuple[str, int]] = {}
+    policy_payload: bytes | None = None
     for label, source in _flatten_authority_sources(verified):
         source_id = source.get("source_id")
         path_value = source.get("path_or_uri")
@@ -1342,6 +1450,8 @@ def _verify_authority_sources(
             raise BuilderError(
                 f"{label}_source_path_not_canonical: {path_value!r}"
             )
+
+        committed: bytes | None = None
         cached_identity = verified_path_identities.get(canonical)
         if cached_identity is None:
             committed = _verify_committed_worktree_file(
@@ -1366,9 +1476,24 @@ def _verify_authority_sources(
                 f"expected={source.get('size_bytes')!r} "
                 f"observed={observed_size}"
             )
+
+        if label == "policy":
+            if committed is None:
+                committed = _verify_committed_worktree_file(
+                    git_path=git_path,
+                    repository_root=subject_root,
+                    revision=subject_revision,
+                    repository_path=canonical,
+                    label="authority_source_policy_payload",
+                    max_bytes=MAX_COMPONENT_BYTES,
+                )
+            policy_payload = committed
+
     if len(source_ids) != len(set(source_ids)):
         raise BuilderError("authority_source_ids_not_unique")
-    return verified
+    if policy_payload is None:
+        raise BuilderError("verified_policy_payload_missing")
+    return verified, policy_payload
 
 
 def _load_hashed_json(
@@ -1465,6 +1590,17 @@ def _ordered_unique_non_empty_strings(value: Any) -> bool:
     )
 
 
+def _unique_preserve_order(values: Iterable[str]) -> list[str]:
+    result: list[str] = []
+    seen: set[str] = set()
+    for value in values:
+        if value in seen:
+            continue
+        seen.add(value)
+        result.append(value)
+    return result
+
+
 def _json_value_type(value: Any) -> str:
     if value is None:
         return "null"
@@ -1483,110 +1619,366 @@ def _json_value_type(value: Any) -> str:
     return type(value).__name__
 
 
-def _verify_release_decision_gate_state(
-    decision: dict[str, Any],
+def _get_path_or_missing(value: Any, dotted: str) -> Any:
+    current = value
+    for part in dotted.split("."):
+        if not isinstance(current, dict) or part not in current:
+            return _MISSING
+        current = current[part]
+    return current
+
+
+def _blocking_flag_present(value: Any, *paths: str) -> bool:
+    for path in paths:
+        observed = _get_path_or_missing(value, path)
+        if observed is _MISSING or observed is False:
+            continue
+        if observed is True:
+            return True
+        return True
+    return False
+
+
+def _stub_profile_blocks(value: Any) -> bool:
+    if isinstance(value, str):
+        return value.strip().lower() not in NEUTRAL_STUB_PROFILES
+    if value is False:
+        return False
+    if value is True:
+        return True
+    return True
+
+
+def _status_stubbed(status: dict[str, Any]) -> bool:
+    if _blocking_flag_present(status, *STUB_FLAG_PATHS):
+        return True
+    for path in STUB_PROFILE_PATHS:
+        value = _get_path_or_missing(status, path)
+        if value is _MISSING:
+            continue
+        if _stub_profile_blocks(value):
+            return True
+    return False
+
+
+def _status_scaffold(status: dict[str, Any]) -> bool:
+    return _blocking_flag_present(status, *SCAFFOLD_FLAG_PATHS)
+
+
+def _release_gate_result(
+    final_status: dict[str, Any],
+    gate_id: str,
+) -> dict[str, Any]:
+    status_gates = final_status.get("gates")
+    if not isinstance(status_gates, dict):
+        return {
+            "gate_id": gate_id,
+            "passed": False,
+            "present": False,
+            "reason": "status.gates is missing or not an object",
+            "value_type": "missing",
+        }
+    if gate_id not in status_gates:
+        return {
+            "gate_id": gate_id,
+            "passed": False,
+            "present": False,
+            "reason": "missing required gate",
+            "value_type": "missing",
+        }
+    observed = status_gates[gate_id]
+    passed = observed is True
+    return {
+        "gate_id": gate_id,
+        "passed": passed,
+        "present": True,
+        "reason": None if passed else "gate value is not literal true",
+        "value_type": _json_value_type(observed),
+    }
+
+
+def _release_gate_passed(final_status: dict[str, Any], gate_id: str) -> bool:
+    return _release_gate_result(final_status, gate_id)["passed"] is True
+
+
+def _policy_gate_set(policy: dict[str, Any], name: str) -> list[str]:
+    gates = policy.get("gates")
+    if not isinstance(gates, dict):
+        raise BuilderError("verified_policy_gates_not_object")
+    values = gates.get(name)
+    if not isinstance(values, list):
+        raise BuilderError(f"verified_policy_gate_set_missing: {name}")
+    result: list[str] = []
+    for index, item in enumerate(values):
+        if not isinstance(item, str) or not item.strip():
+            raise BuilderError(
+                "verified_policy_gate_invalid: "
+                f"set={name!r} index={index} value={item!r}"
+            )
+        result.append(item)
+    return result
+
+
+def _active_gate_sets_for_target(target: str) -> list[str]:
+    if target == "stage":
+        return ["required"]
+    if target == "prod":
+        return ["required", "release_required"]
+    raise BuilderError(f"release_decision_target_invalid: {target!r}")
+
+
+def _effective_required_gates(
+    policy: dict[str, Any],
+    active_gate_sets: Sequence[str],
+) -> list[str]:
+    combined: list[str] = []
+    for gate_set in active_gate_sets:
+        combined.extend(_policy_gate_set(policy, gate_set))
+    return _unique_preserve_order(combined)
+
+
+def _add_reason(reasons: list[str], reason: str) -> None:
+    if reason not in reasons:
+        reasons.append(reason)
+
+
+def _status_schema_validation(
     *,
     final_status: dict[str, Any],
-) -> None:
-    effective_gates = decision.get("effective_required_gates")
-    if not _ordered_unique_non_empty_strings(effective_gates):
+    status_schema: dict[str, Any],
+) -> dict[str, Any]:
+    errors: list[str] = []
+    validator = jsonschema.Draft202012Validator(status_schema)
+    try:
+        validation_errors = sorted(
+            validator.iter_errors(final_status),
+            key=lambda item: list(item.path),
+        )
+    except Exception as exc:
+        errors.append(str(exc))
+    else:
+        for error in validation_errors:
+            path = ".".join(str(part) for part in error.path) or "<root>"
+            errors.append(f"{path}: {error.message}")
+    return {
+        "errors": errors,
+        "mode": "validated",
+        "ok": not errors,
+        "schema_path": STATUS_SCHEMA_PATH,
+    }
+
+
+def _parse_verified_policy(
+    *,
+    policy_bytes: bytes,
+    policy_source: dict[str, Any],
+    subject: dict[str, Any],
+) -> dict[str, Any]:
+    policy = parse_yaml_object(policy_bytes, label="verified_policy")
+    header = policy.get("policy")
+    if not isinstance(header, dict):
+        raise BuilderError("verified_policy_header_not_object")
+    policy_id = header.get("id")
+    policy_version = header.get("version")
+    expected_policy_id = policy_source.get("policy_id")
+    if policy_id != expected_policy_id or policy_id != subject.get("policy_id"):
         raise BuilderError(
-            "release_decision_effective_required_gates_invalid"
+            "verified_policy_id_mismatch: "
+            f"document={policy_id!r} source={expected_policy_id!r} "
+            f"subject={subject.get('policy_id')!r}"
+        )
+    if policy_source.get("sha256") != subject.get("policy_sha256"):
+        raise BuilderError(
+            "verified_policy_subject_digest_mismatch: "
+            f"source={policy_source.get('sha256')!r} "
+            f"subject={subject.get('policy_sha256')!r}"
+        )
+    if not isinstance(policy_version, str) or not policy_version:
+        raise BuilderError(
+            f"verified_policy_version_invalid: {policy_version!r}"
+        )
+    return policy
+
+
+def _derive_release_decision_projection(
+    *,
+    final_status: dict[str, Any],
+    policy: dict[str, Any],
+    target: str,
+    status_schema_validation: dict[str, Any],
+) -> dict[str, Any]:
+    active_gate_sets = _active_gate_sets_for_target(target)
+    effective_required_gates = _effective_required_gates(
+        policy,
+        active_gate_sets,
+    )
+
+    blocking_reasons: list[str] = []
+    decision_basis: list[str] = []
+    gate_results: list[dict[str, Any]] = []
+    for gate_id in effective_required_gates:
+        result = _release_gate_result(final_status, gate_id)
+        gate_results.append(result)
+        if result["passed"] is not True:
+            reason = result["reason"] or "gate did not pass"
+            _add_reason(blocking_reasons, f"{gate_id}: {reason}")
+
+    detectors_materialized_ok = _release_gate_passed(
+        final_status,
+        "detectors_materialized_ok",
+    )
+    external_summaries_present = _release_gate_passed(
+        final_status,
+        "external_summaries_present",
+    )
+    external_all_pass = _release_gate_passed(
+        final_status,
+        "external_all_pass",
+    )
+    stubbed = _status_stubbed(final_status)
+    scaffold = _status_scaffold(final_status)
+    no_stubbed_gates = not stubbed and not scaffold
+
+    if target == "stage":
+        if not detectors_materialized_ok:
+            _add_reason(
+                blocking_reasons,
+                "detectors_materialized_ok: required for STAGE-PASS and not literal true",
+            )
+        external_evidence_mode = "advisory"
+        decision_basis.append(
+            "stage target uses required gate set plus stage release conditions"
+        )
+    else:
+        external_evidence_mode = "required"
+        decision_basis.append(
+            "prod target uses required + release_required gate sets"
         )
 
-    gate_results = decision.get("gate_results")
-    if (
-        not isinstance(gate_results, list)
-        or not all(isinstance(row, dict) for row in gate_results)
-    ):
-        raise BuilderError("release_decision_gate_results_invalid")
-    if len(gate_results) != len(effective_gates):
-        raise BuilderError(
-            "release_decision_gate_result_count_mismatch: "
-            f"effective={len(effective_gates)} results={len(gate_results)}"
-        )
+    if stubbed:
+        _add_reason(blocking_reasons, "stubbed diagnostics are present")
+    if scaffold:
+        _add_reason(blocking_reasons, "scaffold diagnostics are present")
 
-    status_gates = final_status.get("gates")
-    status_gates_is_object = isinstance(status_gates, dict)
-    recomputed_passes: list[bool] = []
-
-    for index, (gate_id, row) in enumerate(
-        zip(effective_gates, gate_results, strict=True)
-    ):
-        if row.get("gate_id") != gate_id:
-            raise BuilderError(
-                "release_decision_gate_result_identity_mismatch: "
-                f"index={index} expected={gate_id!r} "
-                f"actual={row.get('gate_id')!r}"
-            )
-
-        if status_gates_is_object and gate_id in status_gates:
-            status_value = status_gates[gate_id]
-            expected_present = True
-            expected_passed = status_value is True
-            expected_value_type = _json_value_type(status_value)
-            expected_reason = (
-                None
-                if expected_passed
-                else "gate value is not literal true"
-            )
-        else:
-            expected_present = False
-            expected_passed = False
-            expected_value_type = "missing"
-            expected_reason = (
-                "missing required gate"
-                if status_gates_is_object
-                else "status.gates is missing or not an object"
-            )
-
-        expected_row = {
-            "gate_id": gate_id,
-            "passed": expected_passed,
-            "present": expected_present,
-            "reason": expected_reason,
-            "value_type": expected_value_type,
-        }
-        for field, expected in expected_row.items():
-            actual = row.get(field)
-            if actual != expected:
+    if status_schema_validation.get("ok") is False:
+        schema_errors = status_schema_validation.get("errors")
+        if not isinstance(schema_errors, list):
+            raise BuilderError("derived_status_schema_errors_not_list")
+        for error in schema_errors:
+            if not isinstance(error, str) or not error:
                 raise BuilderError(
-                    "release_decision_gate_result_mismatch: "
-                    f"gate_id={gate_id!r} field={field!r} "
-                    f"expected={expected!r} actual={actual!r}"
+                    f"derived_status_schema_error_invalid: {error!r}"
                 )
-        recomputed_passes.append(expected_passed)
+            _add_reason(
+                blocking_reasons,
+                f"status schema validation failed: {error}",
+            )
 
-    required_gates_passed = decision.get("required_gates_passed")
-    if not isinstance(required_gates_passed, bool):
-        raise BuilderError(
-            "release_decision_required_gates_passed_not_boolean"
+    required_gates_passed = bool(effective_required_gates) and all(
+        row["passed"] is True for row in gate_results
+    )
+    if not effective_required_gates:
+        _add_reason(blocking_reasons, "effective required gate set is empty")
+
+    if blocking_reasons:
+        release_level = "FAIL"
+    elif target == "stage":
+        release_level = "STAGE-PASS"
+    else:
+        release_level = "PROD-PASS"
+
+    if required_gates_passed:
+        decision_basis.append("all effective required gates are literal true")
+    else:
+        decision_basis.append(
+            "one or more effective required gates failed or were missing"
         )
-    recomputed = bool(effective_gates) and all(recomputed_passes)
-    if required_gates_passed is not recomputed:
-        raise BuilderError(
-            "release_decision_required_gates_passed_mismatch: "
-            f"declared={required_gates_passed!r} recomputed={recomputed!r}"
+    if no_stubbed_gates:
+        decision_basis.append("no stubbed/scaffold diagnostics detected")
+    else:
+        decision_basis.append(
+            "stubbed/scaffold diagnostics block release-level pass"
+        )
+    if detectors_materialized_ok:
+        decision_basis.append("detectors_materialized_ok is literal true")
+    if target == "prod" and external_summaries_present and external_all_pass:
+        decision_basis.append(
+            "external evidence is present and aggregate external pass is true"
         )
 
-    blocking_reasons = decision.get("blocking_reasons")
-    if blocking_reasons != [] and not _ordered_unique_non_empty_strings(
-        blocking_reasons
+    return {
+        "active_gate_sets": active_gate_sets,
+        "blocking_reasons": blocking_reasons,
+        "conditions": {
+            "detectors_materialized_ok": detectors_materialized_ok,
+            "external_all_pass": external_all_pass,
+            "external_evidence_mode": external_evidence_mode,
+            "external_summaries_present": external_summaries_present,
+            "no_stubbed_gates": no_stubbed_gates,
+            "scaffold": scaffold,
+            "stubbed": stubbed,
+        },
+        "decision_basis": decision_basis,
+        "effective_required_gates": effective_required_gates,
+        "gate_results": gate_results,
+        "release_level": release_level,
+        "required_gates_passed": required_gates_passed,
+        "status_schema_validation": status_schema_validation,
+    }
+
+
+def _verify_release_decision_projection(
+    decision: dict[str, Any],
+    *,
+    expected: dict[str, Any],
+) -> None:
+    for field in (
+        "active_gate_sets",
+        "effective_required_gates",
+        "gate_results",
+        "required_gates_passed",
+        "conditions",
+        "status_schema_validation",
+        "blocking_reasons",
+        "decision_basis",
+        "release_level",
     ):
-        raise BuilderError("release_decision_blocking_reasons_invalid")
-    release_level = decision.get("release_level")
-    if (release_level == "FAIL") is not bool(blocking_reasons):
+        actual = decision.get(field)
+        expected_value = expected[field]
+        if actual != expected_value:
+            raise BuilderError(
+                f"release_decision_{field}_mismatch: "
+                f"expected={expected_value!r} actual={actual!r}"
+            )
+
+
+def _verify_release_decision_header(decision: dict[str, Any]) -> None:
+    if decision.get("schema") != RELEASE_DECISION_SCHEMA:
+        raise BuilderError("release_decision_schema_identity_mismatch")
+    if decision.get("version") != RELEASE_DECISION_VERSION:
+        raise BuilderError("release_decision_version_mismatch")
+    producer = decision.get("producer")
+    expected_producer = {
+        "name": RELEASE_DECISION_PRODUCER_NAME,
+        "version": RELEASE_DECISION_VERSION,
+    }
+    if producer != expected_producer:
         raise BuilderError(
-            "release_decision_blocking_reason_level_mismatch: "
-            f"release_level={release_level!r} "
-            f"blocking_reasons={blocking_reasons!r}"
+            "release_decision_producer_mismatch: "
+            f"expected={expected_producer!r} actual={producer!r}"
         )
+    _parse_utc(decision.get("created_utc"), label="release_decision_created_utc")
 
 
 def _verify_subject_artifacts(
     *,
+    git_path: Path,
+    subject_root: Path,
+    subject_revision: str,
+    validator_module: Any,
     subject: dict[str, Any],
     authority_sources: dict[str, Any],
+    policy_bytes: bytes,
     final_status_path: Path,
     release_decision_path: Path,
     materialized_gate_set_path: Path | None,
@@ -1599,10 +1991,13 @@ def _verify_subject_artifacts(
     )
     metrics = final_status.get("metrics")
     gate_registry = authority_sources.get("gate_registry")
+    policy_source = authority_sources.get("policy")
     if not isinstance(metrics, dict):
         raise BuilderError("final_status_metrics_not_object")
     if not isinstance(gate_registry, dict):
         raise BuilderError("verified_gate_registry_source_missing")
+    if not isinstance(policy_source, dict):
+        raise BuilderError("verified_policy_source_missing")
 
     expected_status_bindings = {
         "run_mode": subject.get("run_mode"),
@@ -1619,12 +2014,53 @@ def _verify_subject_artifacts(
                 f"expected={expected!r} actual={actual!r}"
             )
 
+    policy = _parse_verified_policy(
+        policy_bytes=policy_bytes,
+        policy_source=policy_source,
+        subject=subject,
+    )
+
+    status_schema_bytes = _verify_committed_worktree_file(
+        git_path=git_path,
+        repository_root=subject_root,
+        revision=subject_revision,
+        repository_path=STATUS_SCHEMA_PATH,
+        label="status_schema",
+        max_bytes=MAX_SCHEMA_BYTES,
+    )
+    status_schema = parse_json_bytes(
+        status_schema_bytes,
+        label="status_schema",
+    )
+    if not isinstance(status_schema, dict):
+        raise BuilderError("status_schema_not_object")
+    reference_errors = validator_module.schema_reference_policy_errors(
+        status_schema,
+        label="status_schema",
+    )
+    if reference_errors:
+        raise BuilderError(
+            "status_schema_reference_policy_invalid: "
+            + " | ".join(reference_errors)
+        )
+    try:
+        jsonschema.Draft202012Validator.check_schema(status_schema)
+    except Exception as exc:
+        raise BuilderError(
+            f"status_schema_draft202012_invalid: {type(exc).__name__}: {exc}"
+        ) from exc
+    status_validation = _status_schema_validation(
+        final_status=final_status,
+        status_schema=status_schema,
+    )
+
     decision = _load_hashed_json(
         path=release_decision_path,
         expected_sha256=subject["release_decision_sha256"],
         label="release_decision",
         object_required=True,
     )
+    _verify_release_decision_header(decision)
 
     materialized_sha = subject.get("materialized_gate_set_sha256")
     if materialized_sha is None:
@@ -1644,23 +2080,6 @@ def _verify_subject_artifacts(
             object_required=False,
         )
 
-    release_level = decision.get("release_level")
-    if release_level not in {"FAIL", "STAGE-PASS", "PROD-PASS"}:
-        raise BuilderError(
-            f"release_decision_level_unsupported: {release_level!r}"
-        )
-    expected_decision = "BLOCK" if release_level == "FAIL" else "ALLOW"
-    if subject.get("decision") != expected_decision:
-        raise BuilderError(
-            f"subject_decision_mismatch: expected={expected_decision!r} "
-            f"actual={subject.get('decision')!r}"
-        )
-
-    _verify_release_decision_gate_state(
-        decision,
-        final_status=final_status,
-    )
-
     decision_run_mode = decision.get("run_mode")
     if decision_run_mode != subject.get("run_mode"):
         raise BuilderError(
@@ -1671,37 +2090,46 @@ def _verify_subject_artifacts(
 
     target = decision.get("target")
     if target not in {"stage", "prod"}:
-        raise BuilderError(
-            f"release_decision_target_invalid: {target!r}"
-        )
-    if release_level == "STAGE-PASS" and target != "stage":
-        raise BuilderError(
-            "release_decision_stage_pass_target_mismatch"
-        )
-    if release_level == "PROD-PASS" and target != "prod":
-        raise BuilderError(
-            "release_decision_prod_pass_target_mismatch"
-        )
+        raise BuilderError(f"release_decision_target_invalid: {target!r}")
 
-    active_sets = decision.get("active_gate_sets")
-    if not _ordered_unique_non_empty_strings(active_sets):
-        raise BuilderError("release_decision_active_gate_sets_invalid")
-    expected_target_sets = (
-        ["required"]
-        if target == "stage"
-        else ["required", "release_required"]
+    expected_projection = _derive_release_decision_projection(
+        final_status=final_status,
+        policy=policy,
+        target=target,
+        status_schema_validation=status_validation,
     )
-    if active_sets != expected_target_sets:
+    _verify_release_decision_projection(
+        decision,
+        expected=expected_projection,
+    )
+
+    release_level = expected_projection["release_level"]
+    expected_subject_decision = (
+        "BLOCK" if release_level == "FAIL" else "ALLOW"
+    )
+    if subject.get("decision") != expected_subject_decision:
         raise BuilderError(
-            "release_decision_target_gate_sets_mismatch: "
-            f"target={target!r} expected={expected_target_sets!r} "
-            f"actual={active_sets!r}"
+            "subject_decision_mismatch: "
+            f"expected={expected_subject_decision!r} "
+            f"actual={subject.get('decision')!r}"
         )
-    if active_sets != subject.get("active_policy_sets"):
+    if decision.get("active_gate_sets") != subject.get("active_policy_sets"):
         raise BuilderError(
             "release_decision_active_gate_sets_mismatch: "
             f"subject={subject.get('active_policy_sets')!r} "
-            f"decision={active_sets!r}"
+            f"decision={decision.get('active_gate_sets')!r}"
+        )
+
+    policy_path = policy_source.get("path_or_uri")
+    if decision.get("policy_path") != policy_path:
+        raise BuilderError(
+            "release_decision_policy_path_mismatch: "
+            f"expected={policy_path!r} actual={decision.get('policy_path')!r}"
+        )
+    status_path = decision.get("status_path")
+    if not isinstance(status_path, str) or not status_path:
+        raise BuilderError(
+            f"release_decision_status_path_invalid: {status_path!r}"
         )
 
     exact_equalities = (
@@ -1926,7 +2354,7 @@ def _reject_unsafe_output(
             exit_kind="output_boundary_error",
             exit_code=2,
         )
-    if candidate.name in PROTECTED_OUTPUT_NAMES:
+    if candidate.name.casefold() in PROTECTED_OUTPUT_NAMES_CASEFOLDED:
         raise BuilderError(
             f"output_name_protected: {candidate.name}",
             exit_kind="output_boundary_error",
@@ -2296,15 +2724,20 @@ def _build(args: argparse.Namespace) -> bytes:
     if subject["workflow_ref"] != _workflow_ref(subject):
         raise BuilderError("subject_workflow_ref_not_canonical")
 
-    verified_sources = _verify_authority_sources(
+    verified_sources, verified_policy_bytes = _verify_authority_sources(
         git_path=trusted_git,
         subject_root=subject_root,
         subject_revision=subject_revision,
         authority_sources=builder_input["authority_sources"],
     )
     _verify_subject_artifacts(
+        git_path=trusted_git,
+        subject_root=subject_root,
+        subject_revision=subject_revision,
+        validator_module=validator_module,
         subject=subject,
         authority_sources=verified_sources,
+        policy_bytes=verified_policy_bytes,
         final_status_path=final_status_path,
         release_decision_path=release_decision_path,
         materialized_gate_set_path=materialized_gate_set_path,
