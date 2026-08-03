@@ -1,4 +1,4 @@
-PULSEmech Transition Meter
+# PULSEmech Transition Meter
 
 ## The Missing Instrument Between Measured States
 
@@ -650,41 +650,81 @@ the transition path is not sufficiently instrumented
 
 ## 9. Time binding
 
-A transition record must distinguish at least three times:
+A multi-element transition path cannot rely on one aggregate event window or one aggregate observation window.
+
+Each transition element must preserve its own time bindings.
+
+For every ordered element `e_i`, the record should bind at least:
 
 ```text
-event_time
-observation_time
-verification_time
+element_id
+sequence_index
+event_time_binding
+observation_time_binding
 ```
 
-These are not interchangeable.
+An event-time binding may contain:
 
 ```text
-event_time:
-when the transition element occurred
-
-observation_time:
-when an instrument or observer recorded evidence of it
-
-verification_time:
-when the evidence binding was checked
+instant
+or
+interval_start
+interval_end
+precision
+uncertainty
+clock_or_source_identity
 ```
 
-A fourth time may also be required:
+An observation-time binding may contain:
+
+```text
+instant
+or
+interval_start
+interval_end
+precision
+uncertainty
+observer_or_instrument_identity
+```
+
+The element order must be reconstructable from the preserved sequence indexes and time bindings.
+
+A record-level path window may be derived for indexing or display:
+
+```text
+path_event_time_summary
+path_observation_time_summary
+```
+
+It must not substitute for the per-element bindings.
+
+Two paths can share the same aggregate windows while carrying different element orderings.
+
+Verification time remains a separate binding:
+
+```text
+record_verification_time:
+when a verifier checked the complete record
+```
+
+An element-level verification time may also be retained when separate edges are verified independently.
+
+A fourth record time may be required:
 
 ```text
 authority_time:
-when a verified record was permitted to affect an external state
+when a verified record was permitted to affect an external decision state
 ```
+
+These times are not interchangeable.
 
 A record may be current at observation time and stale at authority time.
 
-A transition may occur before any observer can record it.
+A transition may occur before any observer records it.
 
 A verifier may inspect correct evidence after the relevant system boundary has already changed.
 
-The transition meter must preserve these differences rather than collapsing them into one timestamp.
+The transition meter must preserve these differences rather than collapsing them into one timestamp or one path-wide window.
 
 ---
 
@@ -913,7 +953,7 @@ Which system boundary was crossed?
 What evidence binds the path to the source state?
 What evidence binds the path to the target state?
 Which later effects depend on the transition?
-What feedback maintains, amplifies, or damps the resulting state?
+What feedback, if any, maintains, amplifies, or damps the resulting state?
 Can the path be independently reconstructed?
 Which alternative paths were excluded?
 Which alternative paths remain admissible?
@@ -936,23 +976,46 @@ target_state_ref
 relation_before
 relation_after
 changed_relations
-transition_elements
+ordered_transition_elements
 path_identity
 participating_entities
-event_time_binding
-observation_time_binding
-verification_time_binding
 system_boundary
-input_evidence
-output_evidence
+boundary_crossings
+record_verification_time_binding
 domain_verifier_binding
 transition_verifier_binding
-feedback_binding
 alternative_paths
 unresolved_edges
-reconstruction_status
+reconstruction_method
+status_axes
 authority_effect
 ```
+
+Each ordered transition element must carry its own edge-level bindings:
+
+```text
+element_id
+sequence_index
+source_relation_ref
+target_relation_ref
+changed_relation
+path_effect
+event_time_binding
+observation_time_binding
+time_precision
+time_uncertainty
+measurement_refs
+evidence_refs
+domain_verifier_refs
+element_observation_status
+element_binding_status
+element_consistency_status
+```
+
+Record-level time bounds and evidence inventories may be included as derived
+summaries.
+
+They must not substitute for edge-level time and evidence bindings.
 
 A compact identity form is:
 
@@ -960,13 +1023,16 @@ A compact identity form is:
 T_id =
 (
   source,
-  changed_relation,
-  ordered_path,
+  ordered_elements(
+    changed_relation,
+    path_effect,
+    event_time,
+    observation_time,
+    evidence
+  ),
   target,
-  time,
   boundary,
-  evidence,
-  verifier
+  record_verifier
 )
 ```
 
@@ -994,31 +1060,71 @@ A transition claim must not be accepted because it is plausible.
 
 It requires an evidence path.
 
-A minimal transition evidence chain is:
+A minimal initiating-transition evidence chain is:
 
 ```text
 observed source state
 → recorded relation change
-→ observed or reconstructed path
+→ observed or reconstructed ordered path
 → observed target state
-→ persistence or feedback evidence
 ```
 
-The chain should preserve:
+Persistence, feedback, damping, or termination evidence is a separate optional
+post-transition phase:
+
+```text
+observed target state
+→ optional maintenance-phase evidence
+```
+
+The maintenance phase must carry an explicit status when represented:
+
+```text
+not_evaluated
+not_applicable
+transient_transition
+no_feedback_observed
+feedback_observed
+damping_observed
+termination_observed
+unknown
+conflicting
+```
+
+Missing maintenance evidence must not invalidate an otherwise complete one-shot
+or transient initiating transition.
+
+It must remain `unknown`, `not_evaluated`, or `not_applicable` rather than being
+silently converted into a feedback claim.
+
+For a multi-element path, every transition element must preserve:
+
+```text
+element identity
+sequence index
+changed relation
+path effect
+event-time binding
+observation-time binding
+measurement references
+evidence references
+domain verifier references
+boundary binding
+element observation status
+element binding status
+element consistency status
+```
+
+The complete initiating chain should also preserve:
 
 ```text
 source identity
 target identity
 relation identity
-path order
-artifact binding
-measurement provenance
-domain verifier identity
+path identity
+record verification time
 transition verifier identity
-event time
-observation time
-verification time
-boundary conditions
+system boundary
 alternative paths
 failed paths
 excluded paths
@@ -1213,6 +1319,11 @@ blocked
 
 No axis may silently overwrite another.
 
+Any machine-readable minimum record must serialize all six axes explicitly,
+preferably within one structured `status_axes` object.
+
+A scalar `record_status` must not replace or collapse them.
+
 A record may remain diagnostically valuable while blocked from external authority.
 
 ---
@@ -1236,7 +1347,8 @@ observed_boundaries
 unobserved_boundaries
 excluded_paths
 remaining_admissible_paths
-time_coverage
+element_time_binding_coverage
+element_evidence_binding_coverage
 artifact_coverage
 verifier_coverage
 feedback_coverage
@@ -1339,15 +1451,25 @@ path_c: unresolved
 
 ### 20.8 Feedback layer
 
-Records what maintains, amplifies, redirects, or damps the new state.
+Records whether a post-transition maintenance phase exists and, where present, what maintains, amplifies, redirects, damps, or terminates the new state.
 
 ```text
+not_evaluated
+not_applicable
+transient_transition
+no_feedback_observed
 positive_feedback
 negative_feedback
 delayed_feedback
 stabilizing_feedback
+termination_effect
 unknown_feedback
+conflicting_feedback
 ```
+
+The feedback layer is optional for identifying the initiating transition.
+
+It becomes required only for claims about persistence, maintenance, amplification, damping, or termination.
 
 ### 20.9 Authority layer
 
@@ -1396,7 +1518,7 @@ A later observer may see only the maintaining feedback.
 
 If the feedback is misclassified as the initiating transition, the reconstruction begins too late.
 
-The transition record should therefore bind:
+The transition record should therefore distinguish:
 
 ```text
 initiation evidence
@@ -1406,7 +1528,13 @@ damping evidence
 termination evidence
 ```
 
-where available.
+Maintenance is not a mandatory final edge of initiating-transition identity.
+
+These later phases are bound where available and classified through an explicit
+maintenance status.
+
+A one-shot or transient transition may be complete without persistence or
+feedback evidence.
 
 Unknown phases remain explicitly unknown.
 
@@ -1640,16 +1768,24 @@ proof before externally effective change
 
 These are the foundations required for transition measurement.
 
-The existing release structure already has the general form:
+The existing release-authority structure already has the general form:
 
 ```text
-before state
-→ evidence-bound transition
-→ after state
-→ independently controlled external effect
+candidate state
+→ evidence-bound decision transition
+→ terminal primary CI ALLOW or BLOCK
 ```
 
-The transition meter generalizes the measurement object while preserving the same authority discipline.
+A downstream external effect remains a separately governed execution relation:
+
+```text
+terminal ALLOW
++
+separately controlled executor
+→ possible external state change outside the authority record
+```
+
+The transition meter generalizes the measurement object while preserving this separation between measured decision transition and downstream execution.
 
 ---
 
@@ -1657,7 +1793,7 @@ The transition meter generalizes the measurement object while preserving the sam
 
 PULSEmech release authority is the first concrete implementation domain of the broader transition-measurement architecture.
 
-The release path is:
+The implemented release-authority path is:
 
 ```text
 candidate artifact state
@@ -1666,20 +1802,38 @@ candidate artifact state
 → policy binding
 → verifier binding
 → gate-state materialization
-→ ALLOW or BLOCK
-→ externally effective release state
+→ primary CI ALLOW or BLOCK
 ```
 
-This is a specialized transition record.
+This is the implemented authority-decision boundary.
 
 It binds:
 
 ```text
 source artifact state
-changed decision relation
-verification path
-target release state
-external authority boundary
+current-run evidence
+artifact, policy, verifier, and gate path
+terminal primary-CI ALLOW or BLOCK decision
+```
+
+The current transition record does not claim a downstream deployment or
+externally effective release state.
+
+Release execution remains separately controlled:
+
+```text
+primary CI ALLOW
+→ separately governed external executor
+→ externally effective release state
+```
+
+That executor and its resulting state remain outside the implemented record
+unless they are separately observed, evidence-bound, and verified.
+
+```text
+primary CI BLOCK
+→ terminal non-zero CI result
+→ no released target state is implied
 ```
 
 The project identity remains continuous.
@@ -1758,33 +1912,84 @@ A minimum record may include:
 
 ```text
 transition_id
-record_status
 source_state_ref
 target_state_ref
 relation_before
 relation_after
 changed_relations
-transition_elements
 path_identity
-measurement_refs
-domain_verifier_refs
+
+status_axes:
+  observation_status
+  binding_status
+  consistency_status
+  reproduction_status
+  causal_status
+  authority_status
+
+transition_elements:
+  - element_id
+    sequence_index
+    source_relation_ref
+    target_relation_ref
+    changed_relation
+    path_effect
+
+    event_time_binding:
+      start
+      end
+      precision
+      uncertainty
+      clock_or_source_identity
+
+    observation_time_binding:
+      start
+      end
+      precision
+      uncertainty
+      observer_or_instrument_identity
+
+    measurement_refs
+    evidence_refs
+    domain_verifier_refs
+
+    element_status:
+      observation_status
+      binding_status
+      consistency_status
+
+record_verification_time
 transition_verifier_ref
-event_time_window
-observation_time_window
-verification_time
 system_boundary
 boundary_crossings
+evidence_inventory
 reconstruction_method
 alternative_paths
 excluded_paths
 remaining_admissible_paths
 unresolved_edges
-feedback_state
+
+maintenance_phase:
+  maintenance_status
+  feedback_evidence_refs
+  damping_evidence_refs
+  termination_evidence_refs
+
 evidence_coverage
-reproduction_status
-causal_status
 authority_effect
 ```
+
+Every `transition_elements` entry binds its own evidence and its own event and
+observation time.
+
+The record-level `evidence_inventory` is an inventory only.
+
+It must not be accepted as proof for an element that lacks `evidence_refs`.
+
+Any record-level aggregate time bounds are derived summaries only.
+
+They must not replace the ordered element-level time bindings required for path
+identity and replay.
 
 Initial authority rule:
 
@@ -1815,9 +2020,10 @@ A candidate transition record should answer:
 Is the source state identified?
 Is the target state identified?
 Was at least one relation change recorded?
-Is each recorded change bound to evidence?
-Is the time order preserved?
-Are event, observation, and verification times distinguished?
+Does every transition element bind its own supporting evidence?
+Does every transition element carry its own event and observation time binding?
+Is the ordered path distinguishable from another path with the same aggregate time window?
+Are event, observation, and record-verification times distinguished?
 Is the system boundary explicit?
 Is there evidence for each opened, closed, or redirected path?
 Can the target state be connected without skipping an unobserved edge?
@@ -1825,6 +2031,9 @@ Are reconstructed edges distinguished from observed edges?
 Are alternative paths recorded?
 Are excluded paths supported by evidence?
 Is feedback distinguished from initiation?
+Is the maintenance phase optional?
+Is its status explicit as observed, no feedback observed, not applicable,
+transient, unknown, or conflicting?
 Can the path be independently reconstructed?
 Does the record preserve unresolved edges?
 Is authority effect separately controlled?
