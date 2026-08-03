@@ -20,6 +20,7 @@ If a document is added, renamed, superseded, or changes implementation status, u
 ## Status labels
 
 - **Current implementation** — describes checked-in mechanics that are implemented and testable.
+- **Foundational architecture** — defines a cross-cutting mechanical principle and reference architecture without by itself claiming completed implementation or creating release authority.
 - **Current operational reference** — defines the present release-grade path and its completion boundary.
 - **Completed operational record** — records an actual completed execution with concrete run identity, artifacts, and verification results.
 - **Pending operational target** — describes work that has not yet been completed.
@@ -33,6 +34,9 @@ If a document is added, renamed, superseded, or changes implementation status, u
 
 - Canonical PULSEmech technical overview and current verified state:
   [PULSEMECH_TECHNICAL_OVERVIEW.md](../PULSEMECH_TECHNICAL_OVERVIEW.md)
+- Foundational transition-measurement architecture:
+  [PULSEMECH_TRANSITION_METER.md](../PULSEMECH_TRANSITION_METER.md)  
+  **Foundational architecture.** Defines the evidence-bound transition between measured states as a separate measurement object and positions artifact-bound AI release authority as its first concrete PULSEmech implementation domain.
 - Running the Core PULSE lane: [QUICKSTART_CORE_v0.md](QUICKSTART_CORE_v0.md)
 - Completed public Core execution record: [PULSEMECH_CORE_EXECUTION_RECORD_v0.md](PULSEMECH_CORE_EXECUTION_RECORD_v0.md)
 - Completed hosted release-grade execution record: [RELEASE_GRADE_REFERENCE_RUN_NOTE_v0.md](RELEASE_GRADE_REFERENCE_RUN_NOTE_v0.md)
@@ -42,6 +46,10 @@ If a document is added, renamed, superseded, or changes implementation status, u
 - External PULSE review entrypoint: [PULSE_EXTERNAL_REVIEW_ENTRYPOINT_v0.md](PULSE_EXTERNAL_REVIEW_ENTRYPOINT_v0.md)
 - PULSE risk-to-hardening map: [PULSE_RISK_TO_HARDENING_MAP_v0.md](PULSE_RISK_TO_HARDENING_MAP_v0.md)
 - Operational triage and reruns: [RUNBOOK.md](RUNBOOK.md)
+
+The [PULSEmech Technical Overview](../PULSEMECH_TECHNICAL_OVERVIEW.md) remains the canonical source for the checked-in implementation, current verified state, completed proofs, and present development boundary.
+
+The [PULSEmech Transition Meter](../PULSEMECH_TRANSITION_METER.md) defines the broader foundational measurement architecture. It does not supersede the Technical Overview, claim completed cross-domain implementation, or independently create release authority.
 
 ---
 
@@ -86,6 +94,7 @@ Read these documents in this order:
 
 ## Orientation and contracts
 
+- [PULSEMECH_TRANSITION_METER.md](../PULSEMECH_TRANSITION_METER.md) — **Foundational architecture.** Defines evidence-bound transition identity as the missing measurement object between measured states; the Technical Overview remains canonical for current implementation and verified state.
 - [STATE_v0.md](STATE_v0.md) — Broad repository-state snapshot. For the current release-grade evidence path, use the release-grade reference and recorded-verifier documents above.
 - [QUICKSTART_CORE_v0.md](QUICKSTART_CORE_v0.md) — Minimal steps for the Core pipeline.
 - [RUNBOOK.md](RUNBOOK.md) — Operational runbook for triage and reruns.
@@ -113,6 +122,7 @@ It does not create authority beyond the artifact-bound path defined by the linke
 
 | Bucket | Core role | Primary documents |
 |---|---|---|
+- [PULSEMECH_TRANSITION_METER.md](../PULSEMECH_TRANSITION_METER.md) — **Foundational architecture.** Defines evidence-bound transition identity as the missing measurement object between measured states; the Technical Overview remains canonical for current implementation and verified state.
 | Core mechanics | Explains the connected evidence-to-decision path. | [PULSE_RELEASE_AUTHORITY_MECHANICS_BRIDGE_v0.md](PULSE_RELEASE_AUTHORITY_MECHANICS_BRIDGE_v0.md), [PULSE_REVIEWABLE_MECHANICS_CHECKLIST_v0.md](PULSE_REVIEWABLE_MECHANICS_CHECKLIST_v0.md), [PULSE_PRE_MATERIALIZATION_GATE_MECHANICS_v0.md](PULSE_PRE_MATERIALIZATION_GATE_MECHANICS_v0.md), [PULSE_RELEASE_STATE_TRANSFORMATION_v0.md](PULSE_RELEASE_STATE_TRANSFORMATION_v0.md) |
 | Authority boundary | Separates execution, approval, reader surfaces, manifests, attestations, and audit sidecars from the normative authority carrier. | [PULSEMECH_ARCHITECTURE_MAP_v0_1.md](PULSEMECH_ARCHITECTURE_MAP_v0_1.md), [PULSE_RELEASE_AUTHORITY_MECHANICS_BRIDGE_v0.md](PULSE_RELEASE_AUTHORITY_MECHANICS_BRIDGE_v0.md), [PULSE_REVIEWABLE_MECHANICS_CHECKLIST_v0.md](PULSE_REVIEWABLE_MECHANICS_CHECKLIST_v0.md), [release_authority_boundary_v1.md](release_authority_boundary_v1.md), [MAINTAINER_AUTHORITY_BOUNDARY_v0.md](MAINTAINER_AUTHORITY_BOUNDARY_v0.md) |
 | Status, policy, gate-set, and workflow contracts | Defines the normative carrier tuple for final state, declared policy, workflow-effective gates, strict enforcement, and primary CI outcome. | [status_json.md](status_json.md), [STATUS_CONTRACT.md](STATUS_CONTRACT.md), [GATE_SETS.md](GATE_SETS.md), [WORKFLOW_MAP.md](WORKFLOW_MAP.md), [RELEASE_DECISION_v0.md](RELEASE_DECISION_v0.md), [PULSE_RELEASE_GRADE_MATERIALIZED_LANE_v0.md](PULSE_RELEASE_GRADE_MATERIALIZED_LANE_v0.md) |
