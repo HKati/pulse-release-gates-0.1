@@ -107,6 +107,15 @@ source state
 → changed relation
 → opened or closed path
 → target state
+```
+
+Artifact-bound AI release authority is the first concrete
+implementation domain of this broader architecture.
+
+See:
+
+- [PULSEmech Transition Meter](PULSEMECH_TRANSITION_METER.md)
+- [PULSEmech Technical Overview](PULSEMECH_TECHNICAL_OVERVIEW.md)
 
 ## Canonical <img src="assets/brand/pulsemech-dark-badge.svg" alt="PULSEmech" height="30"> implementation path
 
