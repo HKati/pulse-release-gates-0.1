@@ -94,6 +94,29 @@ architecture.
 
 **[Open the central PULSEmech Transition Meter architecture document](PULSEMECH_TRANSITION_METER.md)**
 
+## Beyond AI release authority
+
+PULSEmech is developing beyond a single AI release mechanism into an
+evidence-bound transition-measurement architecture.
+
+Its broader purpose is to identify and verify not only system states,
+but the transition between them:
+
+```text
+source state
+→ changed relation
+→ opened or closed path
+→ target state
+```
+
+Artifact-bound AI release authority is the first concrete
+implementation domain of this broader architecture.
+
+See:
+
+- [PULSEmech Transition Meter](PULSEMECH_TRANSITION_METER.md)
+- [PULSEmech Technical Overview](PULSEMECH_TECHNICAL_OVERVIEW.md)
+
 ## Canonical <img src="assets/brand/pulsemech-dark-badge.svg" alt="PULSEmech" height="30"> implementation path
 
 PULSEmech is the artifact-bound release-authority mechanism for AI release decisions.
