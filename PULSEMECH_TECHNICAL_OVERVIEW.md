@@ -37,6 +37,7 @@ It presents:
 
 ```text
 system identity
+AI-native operator model
 complete release-transition machine within the declared policy scope
 authority carriers
 evidence and artifact bindings
@@ -45,6 +46,9 @@ deterministic verifier replay
 terminal transition semantics
 verified implementation state
 reference proofs
+compute-binding implementation state
+current-run expectation contract state
+foundational transition-measurement architecture
 external interoperability status
 current development boundary
 canonical source map
@@ -101,9 +105,12 @@ the exact final status
 ```
 
 The terminal result is produced before deployment and is carried by the primary
-CI enforcement outcome. A passing strict gate evaluation continues into exact
-release-decision and proof carriers. A gate-closing evaluation is terminal at
-the primary CI enforcement step.
+CI enforcement outcome.
+
+A passing strict gate evaluation continues into exact release-decision and
+proof carriers.
+
+A gate-closing evaluation is terminal at the primary CI enforcement step.
 
 ---
 
@@ -115,8 +122,9 @@ PULSEmech supplies the decision-bearing carrier that joins evaluation,
 provenance, verification and policy state to an actual release transition.
 
 AI evaluations, detector outputs, provenance records, attestations and verifier
-reports can each describe one part of a release state. PULSEmech binds those
-parts into one complete transition relation.
+reports can each describe one part of a release state.
+
+PULSEmech binds those parts into one complete transition relation.
 
 The complete PULSEmech release-transition tuple is:
 
@@ -153,9 +161,12 @@ terminal primary-CI ALLOW or BLOCK enforcement result
 ```
 
 PULSEmech natively carries `S` through `F` through linked, digest-bound
-artifacts. `D` is carried by the primary CI terminal result.
+artifacts.
 
-The current `hosted_full_runtime` release-grade workflow carries the two terminal paths as:
+`D` is carried by the primary CI terminal result.
+
+The current `hosted_full_runtime` release-grade workflow carries the two
+terminal paths as:
 
 ```text
 strict gate evaluation passes
@@ -177,6 +188,116 @@ S + E + A + P + G + V + F
 
 This closes the relation from recorded evidence to an enforceable release
 transition.
+
+---
+
+## 2A. AI-native operator model
+
+PULSEmech is not designed around the assumption that one human operator must
+manually traverse, memorize and operate its complete contract surface.
+
+The repository carries:
+
+```text
+machine-readable schemas
+exact artifact identities
+exact source revisions
+policy-defined gate sets
+deterministic validators
+reconstructable evidence graphs
+machine-readable diagnostics
+explicit authority boundaries
+```
+
+These surfaces are suitable for AI-native operation.
+
+The intended operating relation is:
+
+```text
+machine-readable PULSEmech state
+→ AI traversal and reconstruction
+→ exact finding or next mechanical action
+→ human review of policy, boundary and consequence
+```
+
+The AI-native operator may:
+
+```text
+locate the canonical contract
+resolve the current implementation state
+traverse the artifact graph
+compare declared and observed identities
+reconstruct policy-derived requirements
+run or prepare deterministic verification
+identify the exact broken relation
+prepare bounded corrective work
+preserve the distinction between merged, open and hypothetical state
+```
+
+The human does not need to replace this machine traversal with manual
+administration.
+
+The human role remains:
+
+```text
+define or approve policy
+define the governed consequence
+review changes to authority-bearing mechanics
+review unresolved or conflicting evidence
+control external execution and promotion
+```
+
+This separates two concepts:
+
+```text
+mechanical detail
+≠
+human manual-operational burden
+```
+
+and:
+
+```text
+AI-native operation
+≠
+AI self-authority
+```
+
+The AI operator does not become release authority merely because it can read,
+reconstruct or operate the mechanism.
+
+Release authority remains bound to:
+
+```text
+exact evidence
++ exact subject and run
++ exact artifacts
++ declared policy
++ materialized required gates
++ verifier replay
++ strict terminal enforcement
+```
+
+A machine or AI may operate the proof surface.
+
+It cannot replace the proof surface with its own declaration.
+
+The current repository implements the machine-readable contracts,
+deterministic tools and evidence relations required for this operating model.
+
+This section does not claim that a separate autonomous AI control-plane
+component has been implemented.
+
+```text
+AI-native operator model:
+architectural and operational model
+
+autonomous AI release authority:
+absent
+
+release-authority effect of this model:
+none
+```
 
 ---
 
@@ -405,6 +526,19 @@ final status
 
 and produces the terminal result.
 
+The final gate checker accepts only literal JSON `true` for every required gate.
+
+```text
+required gate missing
+→ fail closed
+
+required gate present but not literal true
+→ fail closed
+
+all required gates literal true
+→ gate check passes
+```
+
 This preserves a direct relation:
 
 ```text
@@ -416,6 +550,18 @@ declared condition
 
 The policy, materialized gate set and final status therefore form one connected
 state machine.
+
+Measurement and terminal enforcement remain separate layers:
+
+```text
+measurement or evidence production
+≠
+terminal gate enforcement
+```
+
+The terminal checker does not create a measurement result.
+
+It evaluates the already materialized required state.
 
 ---
 
@@ -449,8 +595,9 @@ failed
 ```
 
 A `failed` result carries exact diagnostics in its `errors` collection and
-field-level verification results. These diagnostics identify conditions such
-as:
+field-level verification results.
+
+These diagnostics identify conditions such as:
 
 ```text
 missing or unreadable artifact
@@ -465,8 +612,9 @@ relation-binding failure
 gate-materialization inadmissibility
 ```
 
-The active policy consumes the verified admissibility result. A required
-`failed` result closes the transition and produces `BLOCK`.
+The active policy consumes the verified admissibility result.
+
+A required `failed` result closes the transition and produces `BLOCK`.
 
 This gives PULSEmech a fail-closed terminal transition over the verifier's
 actual two-state result contract and its exact diagnostics.
@@ -492,10 +640,15 @@ policy identities.
 Organizational roles can define policy, supply evidence, review artifacts and
 operate the workflow.
 
+AI-native operators can traverse, reconstruct and prepare the same relation.
+
 The verified mechanical path carries the final transition state.
 
-A position can therefore participate in the system through an explicit,
-reviewable and replaceable evidence path.
+A person, role or AI process can therefore participate only through an
+explicit, reviewable and replaceable evidence path.
+
+No position or process can substitute its own status for the verified
+mechanical relation.
 
 ---
 
@@ -530,12 +683,17 @@ independent inspection
 ```
 
 The evidence, policy, materialization, verifier and final-status artifacts
-carry `S` through `F`. The primary CI terminal result carries `D`. In the
-current `hosted_full_runtime` release-grade workflow, a passing strict gate evaluation
-continues into `release_decision_v0.json` and the later digest-bound proof
-carriers.
+carry `S` through `F`.
+
+The primary CI terminal result carries `D`.
+
+In the current `hosted_full_runtime` release-grade workflow, a passing strict
+gate evaluation continues into `release_decision_v0.json` and the later
+digest-bound proof carriers.
 
 Reader surfaces present selected views of that relation.
+
+They do not independently create release authority.
 
 ---
 
@@ -650,10 +808,12 @@ subject
 + terminal primary-CI decision
 ```
 
-The linked artifact chain carries the relation through final status. The
-primary CI terminal result carries the decision. On the current fully
-materialized release-grade ALLOW path, the same decision is also preserved in
-`release_decision_v0.json` and the subsequent proof carriers.
+The linked artifact chain carries the relation through final status.
+
+The primary CI terminal result carries the decision.
+
+On the current fully materialized release-grade ALLOW path, the same decision is
+also preserved in `release_decision_v0.json` and the subsequent proof carriers.
 
 Interoperability with another system exists when a normative carrier, or a
 lossless normative mapping, preserves the complete downstream
@@ -711,8 +871,8 @@ PULSEmech authority.
 
 ## 13. Proven release-grade reference execution
 
-The first completed public release-grade reference execution with fully produced
-current-run evidence and candidate state is:
+The first completed public release-grade reference execution with fully
+produced current-run evidence and candidate state is:
 
 ```text
 workflow:
@@ -990,8 +1150,10 @@ Validation, artifact reconstruction and report construction consume the same
 captured carrier revision.
 
 The in-memory carrier view deliberately has no filesystem-path conversion
-surface. Delegated code therefore consumes captured bytes instead of reopening
-the mutable packet or carrier pathname.
+surface.
+
+Delegated code therefore consumes captured bytes instead of reopening the
+mutable packet or carrier pathname.
 
 The historical PR #2773 proof was:
 
@@ -1037,8 +1199,10 @@ none
 ```
 
 The report digest above belongs to the pre-core-extraction implementation
-identity. It is retained as a historical proof identity and is not reused as the
-current wrapper-plus-core report identity.
+identity.
+
+It is retained as a historical proof identity and is not reused as the current
+wrapper-plus-core report identity.
 
 The bridge has no:
 
@@ -1060,8 +1224,8 @@ analyzer implementation while preserving the immutable bridge relation.
 
 ## 15B. Reusable read-only analyzer core
 
-The proven compute-binding implementation is now carried by one reusable
-analyzer core.
+The proven compute-binding implementation is carried by one reusable analyzer
+core.
 
 The completed extraction is:
 
@@ -1187,10 +1351,12 @@ Hosted-runner ownership normalization exists only in regression code, activates
 only after the exact `non_root_owned_component` diagnostic, and does not weaken
 the production validation path.
 
-The extraction boundary is single implementation ownership. The reusable core
-retains the established fixed-source input and CLI support required by the
-compatibility path; no claim is made that a separate pure-function kernel has
-also been created.
+The extraction boundary is single implementation ownership.
+
+The reusable core retains the established fixed-source input and CLI support
+required by the compatibility path.
+
+No claim is made that a separate pure-function kernel has also been created.
 
 The post-merge reviewer could not run:
 
@@ -1203,28 +1369,562 @@ no Git remote was configured.
 
 This was not a merged-artifact failure.
 
-`git cat-file` inspects only the local Git object database. The canonical review
-target was the squash-merge commit
+`git cat-file` inspects only the local Git object database.
+
+The canonical review target was the squash-merge commit
 `e06acbbcd0beec7846da01322659079171e24562`, whose exact six-file boundary and
 merged relations were independently verified.
 
-This completed core extraction does not implement the current-run
-artifact-observed reference lane, runtime-observation production, resource
-measurement, a compute budget, active compute enforcement or release authority.
+---
+
+## 15C. Reusable subject-input producer core
+
+The fixed-source subject-input packet producer now delegates to one reusable
+producer core.
+
+The completed PR #2778 structure is:
+
+```text
+tools/pulsemech_compute_subject_input_packet_producer_core_v0.py
+→ single packet-construction implementation
+
+tools/build_pulsemech_compute_subject_input_packet_v0.py
+→ stable fixed-source compatibility wrapper
+
+FIXED_SOURCE_6066_PROFILE
+→ explicit historical fixed-source producer profile
+```
+
+The reusable producer core remains the single implementation location for:
+
+```text
+carrier verification
+artifact reconstruction
+role binding
+subject reconstruction
+authority-source reconstruction
+coverage derivation
+packet construction
+canonical rendering
+semantic validation
+output writing
+```
+
+The fixed-source wrapper does not carry a second packet-production
+implementation.
+
+The completed relation is:
+
+```text
+fixed-source compatibility wrapper
+→ reusable producer core
+→ packet A
+
+direct reusable producer core
++ explicit FIXED_SOURCE_6066_PROFILE
++ identical source and execution bindings
+→ packet B
+
+packet A bytes
+=
+packet B bytes
+```
+
+The merged implementation is:
+
+```text
+implementation PR:
+#2778
+
+squash-merge commit:
+951dd5c968a72ba86ae8cde2e1fa3d36434832b8
+```
+
+The historical PULSE CI #6066 observed packet and its original producer revision
+remain preserved.
+
+The producer-core extraction does not implement current-run production,
+workflow activation, runtime observation, compute budgeting, candidate-gate
+activation or release authority.
 
 ---
+
+## 15D. Pre-execution wrapper-to-core trust bootstrap
+
+PR #2783 moved committed producer-core verification into the stable wrapper's
+pre-execution bootstrap.
+
+The completed trust path is:
+
+```text
+literal wrapper invocation path
+→ wrapper and parent-component symlink checks
+→ approved absolute Git selection
+→ exact repository HEAD
+→ exact committed wrapper blob
+→ exact committed producer-core blob
+→ one secure producer-core byte capture
+→ SHA-256
+→ compilation
+→ execution
+```
+
+The same verified core byte buffer is used for:
+
+```text
+committed-byte comparison
+SHA-256 calculation
+compilation
+execution
+```
+
+This prevents the wrapper from verifying one core revision and executing
+another mutable pathname revision.
+
+The merged implementation is:
+
+```text
+implementation PR:
+#2783
+
+squash-merge commit:
+04d5b03007ce01435f4ec83345ff6e1aa76d6d7e
+```
+
+The hardened path rejects:
+
+```text
+uncommitted top-level core code
+wrapper symlink aliases
+parent-path symlink aliases
+core symlinks
+caller-PATH Git substitution
+caller-PATHEXT Git substitution
+```
+
+This boundary preserves one producer implementation and one exact committed
+execution identity.
+
+It does not implement current-run production or release authority.
+
+---
+
+## 15E. Current-run export expectation contract
+
+The current-run artifact-observed lane now contains a merged expectation
+contract.
+
+The contract sequence is:
+
+```text
+PR #2784
+→ strict current-run export expectation schema
+
+PR #2785
+→ canonical checked-in expectation example
+
+PR #2786
+→ strict semantic validator
+
+PR #2787
+→ validator trust-boundary hardening
+
+PR #2788
+→ permanent registered validator regression
+```
+
+The exact merged implementation bases are:
+
+```text
+schema:
+PR #2784
+b010d52bffa9a5fc43b157dac7e9f5863cf008dc
+
+example:
+PR #2785
+6f4f66c159604bce2e45889d46958651610cd958
+
+validator:
+PR #2786
+bf2c7886529a45286bb61bae552a292e7619eeeb
+
+validator hardening:
+PR #2787
+57b2c3bc2ac3582e1956c1e3a109fcb71f827ca2
+
+validator regression:
+PR #2788
+031e0f2b009993e549b7831baf37cf3a990baf39
+```
+
+The current-run expectation contract binds:
+
+```text
+one exact current workflow-run subject
+one exact subject source revision
+one separate protected control plane
+one exact protected control-plane revision
+one expected current-run producer profile
+one finalized current-run export carrier identity
+one archive-layout contract
+one complete authority-source set
+one downstream observed subject-input packet contract
+```
+
+The schema separates:
+
+```text
+checked-in example
+≠
+machine-produced observed expectation
+```
+
+The example branch requires:
+
+```text
+record_status:
+example
+
+fixture_provenance:
+present
+
+expectation_producer:
+absent
+
+carrier producer:
+null
+```
+
+The observed branch requires:
+
+```text
+record_status:
+observed
+
+fixture_provenance:
+absent
+
+expectation_producer:
+present
+
+carrier producer:
+present
+
+expectation scope:
+current_run_export
+```
+
+The sole authoritative finalized-carrier digest is:
+
+```text
+carrier.sha256
+```
+
+The expectation identity does not carry a second competing carrier digest.
+
+The protected control plane carries nine required roles:
+
+```text
+carrier_loader
+control_plane_workflow
+expectation_builder
+expectation_schema
+expectation_validator
+subject_input_producer_core
+subject_input_producer_wrapper
+subject_input_schema
+subject_input_validator
+```
+
+The contract states:
+
+```text
+subject_may_select_revision:
+false
+
+separate_from_subject_checkout:
+true
+
+trust_mode:
+protected_exact_revision
+```
+
+The content boundary remains:
+
+```text
+expectation_payload_mode:
+metadata_only
+
+contains_artifact_payloads:
+false
+
+contains_runtime_observation:
+false
+
+contains_resource_measurement:
+false
+
+contains_secret_material:
+false
+
+consumer_must_verify_carrier_bytes:
+true
+```
+
+The authority boundary remains:
+
+```text
+write_mode:
+expectation_only
+
+creates_release_decision:
+false
+
+creates_gate_result:
+false
+
+activates_compute_gate:
+false
+
+creates_compute_budget:
+false
+
+expectation_is_release_authority:
+false
+
+produced_packet_is_release_authority:
+false
+```
+
+---
+
+## 15F. Strict current-run expectation validation
+
+The strict validator verifies the current-run expectation as a complete
+cross-contract relation.
+
+Its validation surface includes:
+
+```text
+strict UTF-8 JSON
+duplicate-key rejection
+non-finite-number rejection
+canonical serialization
+expectation-schema validity
+expectation-instance validity
+subject-input-schema validity
+closed schema-reference policy
+downstream observed-branch realizability
+subject-run identity
+workflow reference
+policy and registry binding
+authority-source identity
+protected control-plane component relations
+producer-profile binding
+carrier identity relations
+archive-layout relations
+content boundary
+authority boundary
+deterministic diagnostic output
+```
+
+The hardened validator:
+
+```text
+rejects external schema references before validator construction
+preserves a deny-all runtime resolver boundary
+follows internal references into reached schema objects
+separates canonical path identity from reviewed blob identity
+calculates schema identity from captured bytes
+keeps expectation and downstream schema states independent
+validates a complete downstream observed packet witness
+converts resolver and schema failures into deterministic diagnostics
+```
+
+The validator distinguishes:
+
+```text
+supplied contract validity
+≠
+canonical reviewed-contract verification
+```
+
+It reports the stronger canonical verification state only when both canonical
+path identity and reviewed schema-blob identity match.
+
+The permanent regression is registered in:
+
+```text
+ci/tools-tests.list
+```
+
+The regression covers:
+
+```text
+deterministic raw diagnostic bytes
+CRLF normalization rejection
+strict parser failures
+canonical serialization
+symlinked input rejection
+invalid repository-root rejection
+closed modern Registry resolution
+closed RefResolver compatibility resolution
+network and local-file retrieval denial
+internal JSON Pointer and anchor handling
+dirty canonical schema rejection
+alternate-path schema rejection
+complete observed expectation construction
+producer-binding mismatch rejection
+POSIX descriptor-chain state
+path-based fallback state
+```
+
+This merged boundary establishes:
+
+```text
+strict current-run expectation contract
++
+canonical example
++
+strict validator
++
+closed schema-resolution boundary
++
+reviewed schema-byte binding
++
+permanent registered regression
+```
+
+It does not yet establish a merged machine producer for current-run
+expectations.
+
+---
+
+## 15G. Foundational Transition Meter relation
+
+The PULSEmech Transition Meter is the broader foundational architecture within
+which artifact-bound AI release authority is the first concrete implementation
+domain.
+
+The foundational relation is:
+
+```text
+measured source state
+→ changed relation
+→ opened, closed or redirected path
+→ measured target state
+```
+
+bound to:
+
+```text
+state identity
+relation identity
+path identity
+time binding
+boundary binding
+measurement provenance
+evidence binding
+verifier binding
+alternative paths
+unresolved links
+reproduction state
+authority state
+```
+
+The central distinctions are:
+
+```text
+measured state
+≠
+measured transition
+
+measured state difference
+≠
+transition identity
+
+observed consequence
+≠
+measured initiating transition
+
+measured endpoints
+≠
+verified transition path
+```
+
+The foundational architecture was merged through:
+
+```text
+PR #2790:
+PULSEmech Transition Meter
+44ac739196eeac75996040a335bb6e79a9132a70
+
+PR #2794:
+README transition-measurement positioning
+b324e733296c200c7d9b799463414c82e533a921
+```
+
+The Transition Meter preserves separate status axes for:
+
+```text
+observation
+binding
+consistency
+reproduction
+causal state
+authority
+```
+
+No one scalar record status may silently replace those dimensions.
+
+The Transition Meter does not supersede the current Technical Overview.
+
+```text
+PULSEMECH_TRANSITION_METER.md
+→ foundational transition-measurement architecture
+
+PULSEMECH_TECHNICAL_OVERVIEW.md
+→ canonical checked-in implementation and verified-state overview
+```
+
+The generalized cross-domain Transition Meter remains foundational
+architecture.
+
+It does not independently create release authority.
+
+---
+
+<a id="current-verified-state-and-latest-results"></a>
 
 ## 16. Current verified state and latest results
 
 ```text
 state_date:
-2026-07-30
+2026-08-05
 
-mechanical_state_recorded_through:
-PR #2776
+merged_repository_state_recorded_through:
+PR #2794
 
-implementation_state_basis:
-e06acbbcd0beec7846da01322659079171e24562
+merged_repository_state_basis:
+b324e733296c200c7d9b799463414c82e533a921
+
+executable_compute_state_recorded_through:
+PR #2788
+
+executable_compute_state_basis:
+031e0f2b009993e549b7831baf37cf3a990baf39
+
+foundational_architecture_state_recorded_through:
+PR #2794
+
+open_compute_workstream:
+PR #2789
+
+open_compute_workstream_head_observed:
+22a455e70af19a1cce581fdb7d5a485816691aaa
+
+open_compute_workstream_status:
+under review, not merged, not regression-proven
 
 release_authority_core:
 implemented, exercised and terminal
@@ -1256,6 +1956,9 @@ implemented and proven
 runtime_observation_contract:
 implemented
 
+runtime_observation_producer:
+not implemented
+
 planned_observed_relation:
 implemented and proven
 
@@ -1268,7 +1971,7 @@ implemented and proven
 portable_subject_input_contract:
 implemented and hardened
 
-subject_input_packet_producer:
+subject_input_packet_fixed_source_producer:
 implemented and proven
 
 machine_produced_observed_subject_input_packet:
@@ -1283,13 +1986,13 @@ historical_pre_core_bridge_report_sha256:
 reusable_analyzer_core:
 implemented and post-merge proven
 
-fixed_source_compatibility_wrapper:
+fixed_source_analyzer_compatibility_wrapper:
 implemented and proven
 
-subject_input_bridge_to_reusable_core:
+subject_input_bridge_to_reusable_analyzer_core:
 implemented and proven
 
-fixed_source_regression:
+fixed_source_analyzer_regression:
 33 passed
 
 analyzer_core_regression:
@@ -1298,17 +2001,73 @@ analyzer_core_regression:
 subject_input_bridge_regression:
 18 passed
 
-fixed_source_wrapper_sha256:
+fixed_source_analyzer_wrapper_sha256:
 d20cb7fed3d8c1ddc10abc23882ce0cbe17d277498016a580f875614fe47becc
 
 analyzer_core_sha256:
 cd108bc70494203f95a3f379f6e0d953331d10357676d553d6858f44729988dd
 
-current_run_artifact_observed_reference_lane:
+reusable_subject_input_producer_core:
+implemented and proven
+
+fixed_source_subject_input_compatibility_wrapper:
+implemented and proven
+
+wrapper_pre_execution_core_binding:
+implemented and proven
+
+current_run_export_expectation_schema:
+implemented
+
+current_run_export_expectation_example:
+implemented
+
+current_run_export_expectation_validator:
+implemented and hardened
+
+current_run_export_expectation_validator_regression:
+implemented, registered and proven
+
+current_run_export_expectation_builder:
+open PR #2789, not merged
+
+current_run_export_expectation_builder_regression:
 not implemented
 
+current_run_export_carrier_component:
+not implemented
+
+current_run_subject_input_wrapper:
+not implemented
+
+current_run_candidate_workflow:
+not implemented
+
+current_run_artifact_observed_reference_lane:
+partially implemented through contract, example, validator and validator
+regression; producer and activation components remain incomplete
+
+compute_resource_measurement:
+not implemented
+
+compute_budget:
+not defined
+
+active_compute_enforcement:
+none
+
+release_required_compute_enforcement:
+none
+
+AI_native_operator_model:
+architectural operating model; no independent authority effect
+
+transition_meter_general_domain_extension:
+foundational architecture
+
 current_development_boundary:
-current-run artifact-observed reference lane
+close and prove the current-run expectation builder before carrier, wrapper and
+candidate-workflow implementation
 ```
 
 The stable URL for this state section is:
@@ -1330,6 +2089,24 @@ https://raw.githubusercontent.com/HKati/pulse-release-gates-0.1/main/PULSEMECH_T
 - [PR #2763 — record completed observed subject-input proof](https://github.com/HKati/pulse-release-gates-0.1/pull/2763)
 - [PR #2773 — add immutable observed subject-input analyzer bridge](https://github.com/HKati/pulse-release-gates-0.1/pull/2773)
 - [PR #2776 — extract reusable analyzer core](https://github.com/HKati/pulse-release-gates-0.1/pull/2776)
+- [PR #2778 — extract reusable subject-input producer core](https://github.com/HKati/pulse-release-gates-0.1/pull/2778)
+- [PR #2783 — verify subject-input producer core before execution](https://github.com/HKati/pulse-release-gates-0.1/pull/2783)
+- [PR #2784 — define current-run export expectation contract](https://github.com/HKati/pulse-release-gates-0.1/pull/2784)
+- [PR #2785 — add current-run export expectation example](https://github.com/HKati/pulse-release-gates-0.1/pull/2785)
+- [PR #2786 — add current-run export expectation validator](https://github.com/HKati/pulse-release-gates-0.1/pull/2786)
+- [PR #2787 — close expectation-validator trust boundaries](https://github.com/HKati/pulse-release-gates-0.1/pull/2787)
+- [PR #2788 — add current-run expectation-validator regression](https://github.com/HKati/pulse-release-gates-0.1/pull/2788)
+
+### Latest foundational architecture sequence
+
+- [PR #2790 — add the PULSEmech Transition Meter](https://github.com/HKati/pulse-release-gates-0.1/pull/2790)
+- [PR #2794 — position PULSEmech as a transition-measurement architecture](https://github.com/HKati/pulse-release-gates-0.1/pull/2794)
+
+### Current open compute workstream
+
+- [PR #2789 — add current-run export expectation builder](https://github.com/HKati/pulse-release-gates-0.1/pull/2789)
+
+The open PR is not part of the merged verified implementation state.
 
 ---
 
@@ -1349,25 +2126,86 @@ portable observed subject-input packet
 → byte-identical compute-binding report
 ```
 
-The reusable analyzer core is now the single implementation location for graph,
-node, edge, finding, classification, summary and report construction.
-
-The current mechanical transition is:
+The completed subject-input producer relation is:
 
 ```text
-current workflow run
-→ machine-produced current-run subject-input packet
-→ immutable current-run carrier binding
+fixed-source compatibility wrapper
+→ verified reusable producer core
+→ observed fixed-source packet
+
+direct reusable producer core
++ FIXED_SOURCE_6066_PROFILE
+→ byte-identical observed fixed-source packet
+```
+
+The merged current-run expectation boundary is:
+
+```text
+strict current-run expectation schema
++
+canonical checked-in example
++
+strict semantic validator
++
+closed schema-resolution boundary
++
+reviewed schema-byte binding
++
+permanent registered validator regression
+```
+
+The current open implementation transition is:
+
+```text
+merged current-run expectation contract
+→ open machine expectation builder PR #2789
+→ builder trust-boundary closure
+→ builder merge
+→ permanent builder regression
+```
+
+PR #2789 remains:
+
+```text
+open
+not merged
+non-active
+not registered in the tools-test manifest
+not release authority
+```
+
+The current review boundary requires closure of:
+
+```text
+trusted release-target binding
+release-decision schema validation
+gate-registry content identity binding
+Windows trusted-Git platform boundary
+```
+
+The builder must remain non-active until the complete protected control-plane
+component set exists at one exact reviewed revision.
+
+After the builder and its permanent regression are completed, the sequence is:
+
+```text
+current-run export carrier component
+→ current-run subject-input wrapper
+→ non-active candidate workflow
+→ first machine-produced current-run expectation
+→ first machine-produced current-run subject-input packet
+→ immutable current-run carrier verification
 → reusable analyzer core
-→ generated artifact-observed report
+→ generated artifact-observed compute-binding report
 → generated planned-observed relation
 → non-active candidate materialization
 ```
 
-The current-run artifact-observed reference lane must reuse:
+The current-run lane must reuse:
 
 ```text
 the existing subject-input packet contract
+the existing reusable subject-input producer core
 the existing immutable capture boundary
 the existing subject-input validator
 the existing reusable analyzer core
@@ -1379,18 +2217,20 @@ the existing non-active candidate boundary
 It must not introduce:
 
 ```text
+a second packet producer implementation
 a second analyzer
-a manually curated packet
+a manually curated observed packet
 a second graph implementation
 a new release-authority path
 automatic candidate promotion
 runtime-observed claims without runtime evidence
+resource claims without resource measurements
 ```
 
 The development sequence then continues through:
 
 ```text
-current-run artifact-observed reference lane
+current-run artifact-observed reference proof
 → runtime-observation producer
 → runtime-observed connected proof
 → per-axis resource measurement
@@ -1408,6 +2248,14 @@ future runtime-observed subjects
 ```
 
 The current-run lane remains non-active and has no release-authority effect.
+
+A successful current-run proof does not automatically promote a compute gate.
+
+```text
+successful proof
+≠
+promotion
+```
 
 ---
 
@@ -1433,6 +2281,18 @@ repository.
 subject:
 repository implementation
 ```
+
+### Open-workstream record
+
+A pull request carries a proposed implementation state under review.
+
+```text
+subject:
+one unmerged proposed repository transition
+```
+
+An open-workstream record must not be collapsed into the merged repository
+implementation state.
 
 ### Run-bound state record
 
@@ -1470,6 +2330,18 @@ subject:
 one candidate policy surface
 ```
 
+### Foundational architecture record
+
+The Transition Meter carries a cross-domain mechanical principle and reference
+architecture.
+
+```text
+subject:
+transition-measurement architecture
+```
+
+It does not by itself assert generalized implementation or create authority.
+
 The subject identity determines the meaning and scope of every record.
 
 ---
@@ -1484,25 +2356,36 @@ exact state and proof carriers.
    → complete system identity and current verified state
 
 2. current main repository state
-   → present implementation
+   → present merged implementation
 
-3. exact workflow, policy and registry
+3. exact open pull request, when open work is being evaluated
+   → proposed but unmerged implementation state
+
+4. exact workflow, policy and registry
    → active release-transition configuration
 
-4. exact schemas, producers, validators, materializers and tests
+5. exact schemas, producers, validators, materializers and tests
    → machine contracts and executable mechanics
 
-5. exact run-bound artifacts
+6. exact run-bound artifacts
    → state of one workflow run
 
-6. preserved reference packages and run notes
+7. preserved reference packages and run notes
    → historical proof
 
-7. reader and publication surfaces
+8. PULSEMECH_TRANSITION_METER.md
+   → broader foundational transition-measurement architecture
+
+9. reader and publication surfaces
    → derived views
 ```
 
 This order preserves the subject and time relation of every source.
+
+An AI-native operator must preserve the same ordering.
+
+It must not use a later reader summary to overwrite an earlier authority
+carrier, or use an open PR to overwrite merged implementation state.
 
 ---
 
@@ -1511,6 +2394,7 @@ This order preserves the subject and time relation of every source.
 ### System and repository entry points
 
 - [README](README.md)
+- [PULSEmech Transition Meter](PULSEMECH_TRANSITION_METER.md)
 - [Documentation index](docs/INDEX.md)
 - [PULSE CI workflow](.github/workflows/pulse_ci.yml)
 - [Gate policy](pulse_gate_policy_v0.yml)
@@ -1522,6 +2406,9 @@ This order preserves the subject and time relation of every source.
 - [Recorded release-evidence verifier](docs/recorded_release_evidence_verifier_v0.md)
 - [Release-evidence verifier design](docs/PULSE_RELEASE_EVIDENCE_VERIFIER_v0.md)
 - [Release-grade reference proof plan](docs/PULSEMECH_RELEASE_GRADE_REFERENCE_PROOF_PLAN_v0.md)
+- [Strict terminal gate checker](PULSE_safe_pack_v0/tools/check_gates.py)
+- [Policy-to-require-list materializer](tools/policy_to_require_args.py)
+- [Release-decision schema](schemas/release_decision_v0.schema.json)
 
 ### Self-contained evidence floor
 
@@ -1542,7 +2429,7 @@ This order preserves the subject and time relation of every source.
 - [Compute-binding report schema](schemas/pulsemech_compute_binding_report_v0.schema.json)
 - [Compute-binding report validator](tools/check_pulsemech_compute_binding_report_v0.py)
 - [Reusable compute-binding analyzer core](tools/pulsemech_compute_binding_analyzer_core_v0.py)
-- [Fixed-source compatibility wrapper](tools/build_pulsemech_compute_binding_report_v0.py)
+- [Fixed-source analyzer compatibility wrapper](tools/build_pulsemech_compute_binding_report_v0.py)
 - [Immutable subject-input analyzer bridge](tools/build_pulsemech_compute_binding_report_from_subject_input_v0.py)
 - [Analyzer-core regression](tests/test_pulsemech_compute_binding_analyzer_core_v0.py)
 - [Immutable bridge regression](tests/test_build_pulsemech_compute_binding_report_from_subject_input_v0.py)
@@ -1553,10 +2440,37 @@ This order preserves the subject and time relation of every source.
 
 - [Subject-input packet schema](schemas/pulsemech_compute_subject_input_packet_v0.schema.json)
 - [Strict subject-input validator](tools/check_pulsemech_compute_subject_input_packet_v0.py)
-- [Subject-input packet producer](tools/build_pulsemech_compute_subject_input_packet_v0.py)
+- [Reusable subject-input producer core](tools/pulsemech_compute_subject_input_packet_producer_core_v0.py)
+- [Fixed-source subject-input compatibility wrapper](tools/build_pulsemech_compute_subject_input_packet_v0.py)
+- [Subject-input producer-core regression](tests/test_pulsemech_compute_subject_input_packet_producer_core_v0.py)
 - [Observed PULSE CI #6066 subject-input packet](examples/compute/pulsemech_compute_subject_input_packet_6066_observed_v0.json)
 - [Observed packet replay proof](tests/test_pulsemech_compute_subject_input_packet_6066_observed_v0.py)
 - [Packet-to-analyzer equivalence proof](tests/test_build_pulsemech_compute_binding_report_from_subject_input_v0.py)
+
+### Current-run export expectation
+
+- [Current-run export expectation schema](schemas/pulsemech_compute_current_run_export_expectation_v0.schema.json)
+- [Current-run export expectation example](examples/compute/pulsemech_compute_current_run_export_expectation_example_v0.json)
+- [Strict current-run expectation validator](tools/check_pulsemech_compute_current_run_export_expectation_v0.py)
+- [Current-run expectation-validator regression](tests/test_check_pulsemech_compute_current_run_export_expectation_v0.py)
+
+### Current open compute workstream
+
+- [PR #2789 — current-run export expectation builder](https://github.com/HKati/pulse-release-gates-0.1/pull/2789)
+
+Proposed path under review:
+
+```text
+tools/build_pulsemech_compute_current_run_export_expectation_v0.py
+```
+
+This proposed path is not present in the merged `main` implementation state
+recorded by this document.
+
+### Foundational transition measurement
+
+- [PULSEmech Transition Meter](PULSEMECH_TRANSITION_METER.md)
+- [README transition-measurement positioning](README.md#pulsemech-transition-meter--the-missing-instrument-between-measured-states)
 
 ### Registered machine-test surface
 
@@ -1577,15 +2491,51 @@ current development boundary
 canonical source map
 ```
 
+An open workstream is recorded separately as:
+
+```text
+pull-request identity
+exact observed head
+review state
+unresolved mechanical boundary
+non-merged status
+```
+
 Historical proof identities remain attached to their original runs, commits,
 artifacts and digests.
+
+Foundational architecture remains separate from implemented repository state.
 
 The stable overview therefore preserves:
 
 ```text
 one system identity
-+ advancing implementation state
++ advancing merged implementation state
++ explicit open-workstream state
 + immutable historical proofs
++ separately identified foundational architecture
+```
+
+An AI-native operator must use these status distinctions as machine-operable
+constraints.
+
+It must not silently promote:
+
+```text
+open
+→ merged
+
+example
+→ observed
+
+candidate
+→ active
+
+diagnostic
+→ authority
+
+foundational architecture
+→ completed implementation
 ```
 
 ---
@@ -1626,17 +2576,56 @@ evidence
 → enforceable release transition
 ```
 
-The current implementation has completed the release-authority core, the
-self-contained evidence floor, the public release-grade reference execution, the
-SLSA/VSA candidate evidence path, the fixed-source compute relation, the
-portable subject-input contract, the deterministic packet producer, the
-machine-produced observed replay proof, the immutable subject-input analyzer
-bridge and extraction of one reusable analyzer implementation core shared by
-the fixed-source and portable-input paths.
+The system is AI-native at the operator layer:
 
-The next development boundary is the current-run artifact-observed reference
-lane over the existing packet, immutable-capture, analyzer-core, report and
-candidate mechanisms.
+```text
+machine-readable contracts and artifacts
+→ AI traversal, reconstruction and diagnosis
+→ human policy and consequence control
+```
+
+The AI operator does not replace the artifact-bound authority path.
+
+The current merged implementation has completed:
+
+```text
+release-authority core
+self-contained evidence floor
+public release-grade reference execution
+SLSA/VSA candidate evidence path
+fixed-source compute relation
+portable subject-input contract
+deterministic fixed-source packet producer
+machine-produced observed replay proof
+immutable subject-input analyzer bridge
+reusable analyzer core
+reusable subject-input producer core
+pre-execution wrapper-to-core verification
+current-run export expectation schema
+current-run export expectation example
+strict current-run expectation validator
+validator trust-boundary hardening
+permanent current-run expectation-validator regression
+```
+
+The broader Transition Meter is recorded as foundational architecture.
+
+The current open development boundary is:
+
+```text
+PR #2789 current-run expectation builder
+→ close remaining trust boundaries
+→ merge builder
+→ add permanent builder regression
+→ implement carrier component
+→ implement current-run subject-input wrapper
+→ implement non-active candidate workflow
+→ produce the first current-run artifact-observed connected proof
+```
+
+Runtime observation production, resource measurement, compute budgeting, active
+compute enforcement and release-required compute promotion remain separate,
+later boundaries.
 
 The latest verified state remains available at the stable URL recorded at the
 top of this document.
