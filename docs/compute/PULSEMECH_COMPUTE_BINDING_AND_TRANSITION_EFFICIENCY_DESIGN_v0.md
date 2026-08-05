@@ -6,133 +6,79 @@
 document_role:
 design_and_implementation_state_record
 
+workstream:
+compute_binding_and_transition_efficiency
+
+state_date:
+2026-08-06
+
+canonical_system_state_source:
+PULSEMECH_TECHNICAL_OVERVIEW.md
+
+canonical_system_state_sync_pr:
+2795
+
+canonical_system_state_sync_commit:
+575570b8ee3659f9190514e3b561f0df7a980681
+
+merged_compute_state_recorded_through:
+PR #2788
+
+merged_compute_state_basis:
+031e0f2b009993e549b7831baf37cf3a990baf39
+
 implementation_status:
-reusable_analyzer_core_complete
+current_run_expectation_contract_complete_builder_open
 
-completed_connected_proof:
-PULSE CI #6066
-
-completed_connected_proof_merge:
-b6149dbd464f7f01760ab5fa80487f7e94e475e7
+fixed_source_connected_proof:
+completed
 
 portable_subject_input_contract:
-implemented
-
-portable_subject_input_contract_merge:
-a253e90faeb7a9cf274677adefff3a6bfda303d9
-
-portable_subject_input_hardening:
-complete
-
-portable_subject_input_hardening_head:
-5e3908a9129f009977d5a6e94a3f8d4fca4e8da5
-
-portable_subject_input_post_merge_review:
-PASS
-
-subject_input_packet_producer:
-implemented_and_proven
-
-subject_input_packet_producer_merge:
-d4cead4b8a1c3604446a74ac2598eed8ad2a18d6
-
-subject_input_packet_producer_hardening_merge:
-3cd57dc9e88e6f804dbb134c864f4207688bddc2
-
-subject_input_packet_producer_revision:
-3cd57dc9e88e6f804dbb134c864f4207688bddc2
-
-subject_input_packet_producer_post_merge_review:
-PASS
+implemented_and_hardened
 
 machine_produced_observed_subject_input_proof:
+implemented_and_replay_proven
+
+immutable_subject_input_analyzer_bridge:
 implemented_and_proven
 
-machine_produced_observed_subject_input_proof_merge:
-fa25f30d0efa3d6d37fbb1781509f859e9a9b4f3
-
-observed_subject_input_replay_hardening_merge:
-f5ff95ea78d3d79f2deab0b4647c27b5137e6db5
-
-observed_subject_input_proof_head:
-f5ff95ea78d3d79f2deab0b4647c27b5137e6db5
-
-observed_subject_input_post_merge_review:
-PASS
-
-observed_subject_input_analyzer_bridge:
-implemented_and_post_merge_proven
-
-observed_subject_input_analyzer_bridge_pr:
-2773
-
-observed_subject_input_analyzer_bridge_merge:
-a93359444e13771eb932744dd22b4477a5096019
-
-observed_subject_input_analyzer_bridge_version:
-0.2.0
-
-observed_subject_input_analyzer_bridge_post_merge_review:
-PASS
-
-observed_subject_input_analyzer_bridge_focused_regression:
-17_passed
-
-observed_subject_input_analyzer_bridge_manifest_execution:
-17_passed
-
-observed_subject_input_analyzer_bridge_historical_pre_core_report_sha256:
-656459e7fb835814a05a7cc5b8150959d32ed3a0e9ed272c2733038bd441ec4c
-
-observed_subject_input_analyzer_bridge_repository_mutation:
-none
-
-observed_subject_input_analyzer_bridge_temporary_file_surface:
-none
-
-observed_subject_input_analyzer_bridge_optional_output_surface:
-none
-
-observed_subject_input_analyzer_bridge_parallel_analyzer:
-none
-
 reusable_analyzer_core:
-implemented_and_post_merge_proven
+implemented_and_proven
 
-reusable_analyzer_core_pr:
-2776
+reusable_subject_input_producer_core:
+implemented_and_proven
 
-reusable_analyzer_core_merge:
-e06acbbcd0beec7846da01322659079171e24562
+wrapper_pre_execution_core_binding:
+implemented_and_proven
 
-reusable_analyzer_core_wrapper_sha256:
-d20cb7fed3d8c1ddc10abc23882ce0cbe17d277498016a580f875614fe47becc
+current_run_export_expectation_schema:
+implemented
 
-reusable_analyzer_core_sha256:
-cd108bc70494203f95a3f379f6e0d953331d10357676d553d6858f44729988dd
+current_run_export_expectation_example:
+implemented
 
-reusable_analyzer_core_fixed_source_regression:
-33_passed
+current_run_export_expectation_validator:
+implemented_and_hardened
 
-reusable_analyzer_core_regression:
-10_passed
+current_run_export_expectation_validator_regression:
+implemented_registered_and_proven
 
-reusable_analyzer_core_subject_input_bridge_regression:
-18_passed
+current_run_export_expectation_builder:
+open_PR_2789_not_merged
 
-reusable_analyzer_core_changed_file_boundary:
-exactly_6_files
+current_run_export_expectation_builder_observed_head:
+22a455e70af19a1cce581fdb7d5a485816691aaa
 
-reusable_analyzer_core_post_merge_review:
-PASS
+current_run_export_expectation_builder_regression:
+not_implemented
 
-reusable_analyzer_core_correction_required:
-none
+current_run_export_carrier_component:
+not_implemented
 
-superseded_pr_head_local_object_availability:
-not_required_for_squash_commit_review
+current_run_subject_input_wrapper:
+not_implemented
 
-current_run_artifact_observed_reference_lane:
+current_run_candidate_workflow:
 not_implemented
 
 runtime_observation_contract:
@@ -141,7 +87,7 @@ implemented
 runtime_observation_producer:
 not_implemented
 
-runtime_observed_chain:
+runtime_observed_connected_proof:
 not_implemented
 
 resource_measurement:
@@ -160,52 +106,47 @@ release_authority_effect:
 none
 ```
 
-This document defines the PULSEmech compute-binding workstream and records the
-implementation state reached through the fixed-source PULSE CI #6066
-artifact-observed proof, the portable subject-input packet contract, the
-fixed-source packet producer, the checked-in machine-produced observed packet
-proof, the immutable packet-to-analyzer bridge, and extraction of one reusable
-analyzer implementation core shared by both supported input paths.
+This document defines the PULSEmech compute-binding workstream and records its
+merged, open and remaining implementation states.
 
-The completed implementation sequence now extends through:
+It is the detailed workstream record beneath the canonical system-level source:
 
 ```text
-compute-binding report contract
-→ fixed-source offline builder
-→ runtime-observation contract
-→ planned-observed relation contract and builder
-→ non-active candidate policy surface
-→ connected fixed-source candidate-boundary proof
-→ portable subject-input packet contract
-→ exact #6066 historical-data example packet
-→ strict subject-input packet validator
-→ repository-root and trusted-Git source-verification hardening
-→ deterministic fixed_source_adapter packet producer
-→ exact carrier size before hashing and exact SHA-256 before ZIP reads
-→ checked-in record_status=observed #6066 packet
-→ pinned historical-producer byte-for-byte replay
-→ fail-closed replay-worktree and workspace cleanup
-→ immutable packet and carrier capture
-→ exact captured-byte packet validation
-→ existing artifact reconstruction
-→ immutable packet-to-analyzer equivalence proof
-→ repository rename preserving the analyzer implementation
-→ reusable analyzer core
-→ stable fixed-source compatibility wrapper
-→ immutable subject-input compatibility bridge over the same core
-→ separate producer and analyzer provenance identities
-→ post-merge 33-case fixed-source proof
-→ post-merge 10-case analyzer-core proof
-→ post-merge 18-case subject-input bridge proof
+PULSEMECH_TECHNICAL_OVERVIEW.md
 ```
 
-This document does not itself modify workflow behavior, policy behavior, gate
-registry behavior, verifier or materializer semantics, status authority,
-release authority, SLSA/VSA behavior, DOI, citation, Zenodo, tags, releases, or
-release metadata.
+The current merged compute implementation extends through:
 
-Current-run integration, runtime-observation production, resource measurement,
-compute budget, and active promotion remain separate work.
+```text
+fixed-source artifact-observed proof
+→ portable subject-input contract
+→ deterministic fixed-source packet production
+→ machine-produced observed packet replay
+→ immutable packet-to-analyzer bridge
+→ reusable analyzer core
+→ reusable subject-input producer core
+→ verified wrapper-to-core bootstrap
+→ current-run export expectation contract
+→ current-run expectation example
+→ strict current-run expectation validator
+→ validator trust-boundary hardening
+→ permanent validator regression
+```
+
+The first machine current-run expectation builder is a separate open workstream:
+
+```text
+PR #2789
+→ open
+→ not merged
+→ not regression-proven
+→ non-active
+→ authority effect none
+```
+
+This document does not modify workflow behavior, policy behavior, gate registry
+behavior, status semantics, release enforcement, release authority, SLSA/VSA
+behavior, DOI, citation, tags, releases or publication metadata.
 
 ---
 
@@ -227,40 +168,37 @@ recorded current-run release evidence
 → explicit ALLOW or BLOCK release-transition result
 ```
 
-PULSEmech also contains a deterministic, read-only integration planner that can
-resolve declared component dependency closure and emit a machine-readable
-target-repository plan.
+The compute-binding workstream observes and reconstructs how executed compute
+relates to this transition.
 
-The compute-binding workstream now contains:
+The merged compute surface now contains:
 
 ```text
 strict compute-binding report contract
+fixed-source artifact-observed report builder
 runtime-observation packet contract
 strict planned-observed relation contract
 deterministic planned-observed relation builder
-non-active candidate gate identities and policy set
+non-active candidate gate identities
 relation-to-candidate-status materializer
 policy-derived generic candidate check
 connected fixed-source #6066 proof
 strict portable subject-input packet contract
-exact #6066 historical-data example packet
+exact historical #6066 example packet
 strict subject-input packet validator
-cross-platform trusted Git source reconstruction
-deterministic fixed_source_adapter subject-input packet producer
-carrier-size-before-hash and carrier-digest-before-ZIP boundary
-machine-produced observed #6066 subject-input packet
+deterministic fixed-source packet producer
+machine-produced observed #6066 packet
 pinned historical producer replay
-fail-closed replay-worktree cleanup
-immutable observed subject-input analyzer bridge
-same-revision packet and carrier capture
-captured-byte packet validation
+immutable packet and carrier capture
 one reusable analyzer implementation core
-stable fixed-source compatibility wrapper
-immutable subject-input compatibility bridge over the same core
-separate producer and analyzer provenance identities
-33-case fixed-source regression
-10-case analyzer-core regression
-18-case subject-input bridge regression
+one reusable subject-input producer core
+verified fixed-source wrapper-to-core bootstrap
+strict current-run export expectation contract
+canonical current-run expectation example
+strict current-run expectation validator
+closed schema-reference boundary
+reviewed schema-byte binding
+permanent registered expectation-validator regression
 ```
 
 The current analyzer ownership relation is:
@@ -270,42 +208,70 @@ tools/pulsemech_compute_binding_analyzer_core_v0.py
 → single graph and report implementation
 
 tools/build_pulsemech_compute_binding_report_v0.py
-→ stable fixed-source compatibility wrapper
+→ stable fixed-source analyzer compatibility wrapper
 
 tools/build_pulsemech_compute_binding_report_from_subject_input_v0.py
-→ immutable portable-input compatibility bridge
+→ immutable portable-input analyzer bridge
 ```
 
-The fixed-source and portable-input paths produce byte-identical reports for the
-same preserved #6066 subject.
-
-The repository does not yet contain:
+The current subject-input producer ownership relation is:
 
 ```text
-a current-run artifact-observed reference lane
-a runtime-observation packet producer
-a complete runtime-observed reference chain
-complete per-node compute-resource measurement
-a compute budget
+tools/pulsemech_compute_subject_input_packet_producer_core_v0.py
+→ single packet-construction implementation
+
+tools/build_pulsemech_compute_subject_input_packet_v0.py
+→ stable fixed-source producer compatibility wrapper
+```
+
+The merged current-run expectation relation is:
+
+```text
+schemas/pulsemech_compute_current_run_export_expectation_v0.schema.json
+→ exact current-run expectation contract
+
+examples/compute/
+pulsemech_compute_current_run_export_expectation_example_v0.json
+→ canonical checked-in example
+
+tools/check_pulsemech_compute_current_run_export_expectation_v0.py
+→ strict semantic validator
+
+tests/test_check_pulsemech_compute_current_run_export_expectation_v0.py
+→ permanent registered regression
+```
+
+The repository does not yet contain a merged and complete:
+
+```text
+current-run expectation builder
+current-run carrier producer or loader
+current-run subject-input wrapper
+current-run candidate workflow
+current-run artifact-observed connected proof
+runtime-observation producer
+runtime-observed connected proof
+per-axis compute-resource measurement surface
+compute budget
 active compute-related release enforcement
 ```
 
-The completed producer, observed packet proof, immutable bridge and reusable
-analyzer core remain historical/fixed-source proofs.
-
-They prove:
+The current-run lane is therefore partially implemented at the contract and
+validator layers.
 
 ```text
-portable packet production
-+ pinned producer replay
-+ immutable analyzer input capture
-+ same-revision validation and analysis
-+ one shared analyzer implementation
-+ regression-identical #6066 report construction
-```
+current-run contract:
+implemented
 
-They do not create current-run integration or convert incomplete artifact-level
-evidence into runtime-level evidence.
+current-run machine production:
+incomplete
+
+current-run workflow activation:
+absent
+
+release-authority effect:
+none
+```
 
 ---
 
@@ -328,15 +294,36 @@ executed compute
 → recorded subject-run inputs
 → recorded outputs
 → observed downstream consumption
-→ declared transition, evidence, preservation, advisory, or observer role
+→ declared transition, evidence, preservation, advisory or observer role
 → permitted mutation authority
 → mechanical consequence
 ```
 
-The intended result is a deterministic record that distinguishes compute that
-is mechanically bound to the transition from compute whose relation is
-partial, absent, unknown, duplicated, advisory only, or outside the subject
-transition.
+The intended output is a deterministic record that distinguishes compute that
+is mechanically bound to the transition from compute whose relation is:
+
+```text
+complete
+partial
+absent
+unknown
+duplicated
+advisory only
+observer only
+outside the subject transition
+```
+
+The workstream separates three questions:
+
+```text
+Did compute execute?
+
+What exact relation did it have to the transition?
+
+Was that relation permitted to affect authority-bearing state?
+```
+
+Execution alone answers only the first question.
 
 ---
 
@@ -347,16 +334,28 @@ because it ran inside the same workflow.
 
 ```text
 workflow presence
-≠ transition binding
+≠
+transition binding
 
 step success
-≠ transition binding
+≠
+transition binding
 
 artifact production
-≠ transition binding
+≠
+transition binding
 
 report publication
-≠ transition binding
+≠
+transition binding
+
+model invocation
+≠
+transition binding
+
+AI involvement
+≠
+transition binding
 ```
 
 A complete compute binding requires:
@@ -374,7 +373,7 @@ compute identity
 → mechanically bound compute
 ```
 
-A declaration alone is not sufficient.
+A declaration alone is insufficient.
 
 A report that states that a node is required is not proof that the node
 contributed to the transition.
@@ -384,12 +383,127 @@ A filename or display label is not an exact source identity.
 An artifact existing in the same package is not proof that its value was
 consumed downstream.
 
+A passing process exit code is not proof that the produced state was admitted
+into the authority path.
+
 ---
 
-## 4. Authority and non-activation rule
+## 4. AI-native operation and anti-bureaucracy rule
 
-The compute-binding report, analyzer, relation record, and candidate
-materializer observe or reconstruct the existing authority path.
+The compute workstream is machine-operable by design.
+
+Its schemas, packets, artifact graphs, source identities, digests, validators,
+diagnostics and state relations are intended to be traversed by an AI-native
+operator.
+
+The operating relation is:
+
+```text
+machine-readable compute state
+→ AI traversal
+→ exact relation reconstruction
+→ exact finding or bounded next action
+→ human policy and consequence control
+```
+
+Mechanical detail does not imply that a human must manually read and operate
+every file.
+
+```text
+large machine-readable proof surface
+≠
+large human administrative burden
+```
+
+The AI-native operator may:
+
+```text
+locate canonical contracts
+resolve merged and open implementation state
+traverse packet and carrier identities
+compare declared and observed relations
+identify missing binding axes
+prepare deterministic validation commands
+isolate exact failing relations
+prepare bounded code or documentation changes
+```
+
+The human remains responsible for:
+
+```text
+policy selection
+authority-boundary changes
+promotion decisions
+external consequence
+review of unresolved or conflicting state
+```
+
+This preserves:
+
+```text
+AI operation
+≠
+AI self-authority
+```
+
+The AI operator cannot replace missing evidence with an assertion.
+
+It cannot promote:
+
+```text
+example
+→ observed
+
+candidate
+→ active
+
+open PR
+→ merged
+
+diagnostic
+→ authority
+```
+
+The primary evidence source must not be a hand-maintained operational form.
+
+The analyzer derives state from machine surfaces:
+
+```text
+workflow source
+run metadata
+policy
+materialized gate-set records
+status artifacts
+decision artifacts
+evidence manifests
+verifier reports
+artifact inventories
+artifact-provenance bindings
+preservation manifests
+runtime packets
+exact file digests
+```
+
+Any additional declaration must remain:
+
+```text
+small
+versioned
+digest-bound
+machine-readable
+reviewable
+consumed by the analyzer
+```
+
+A declaration with no observed downstream relation remains partial or
+unresolved.
+
+---
+
+## 5. Authority and non-activation rule
+
+The compute-binding report, analyzer, packet, expectation, relation record and
+candidate materializer observe or reconstruct the existing authority path.
 
 They do not replace:
 
@@ -406,12 +520,15 @@ The following do not independently create release authority:
 ```text
 compute-binding report
 subject-input packet
+current-run expectation
 runtime-observation packet
 planned-observed relation
 candidate materializer report
 candidate-only gate check
 preservation record
-reader or audit surface
+reader surface
+audit surface
+AI operator output
 ```
 
 No compute-related gate may become active implicitly.
@@ -428,11 +545,27 @@ advisory
 ```
 
 The fixed-source candidate-only exit result does not alter the historical
-PULSE CI #6066 ALLOW decision and does not create a current release BLOCK.
+PULSE CI #6066 ALLOW decision.
+
+The current-run expectation contract fixes:
+
+```text
+expectation_is_release_authority:
+false
+
+produced_packet_is_release_authority:
+false
+
+activates_compute_gate:
+false
+
+creates_compute_budget:
+false
+```
 
 ---
 
-## 5. Analysis identity and observer boundary
+## 6. Analysis identity and observer boundary
 
 Every analysis preserves two separate identities:
 
@@ -453,12 +586,13 @@ workflow run ID
 workflow run number
 workflow run attempt
 source commit
+source ref
 release candidate
 run mode
 active policy sets
 policy identity and digest
 materialized gate-set digest, when available
-final status digest
+final-status digest
 release-decision digest
 terminal decision
 ```
@@ -477,16 +611,27 @@ completed subject run
 Observer compute is outside subject transition totals.
 
 If a later analyzer executes after the terminal decision inside the same
-workflow, it must remain separately classified as observer compute.
+workflow, it remains observer compute unless exact evidence proves another
+role.
 
 This prevents recursive self-accounting.
 
+The current-run expectation additionally separates:
+
+```text
+subject repository revision
+≠
+protected control-plane revision
+```
+
+The subject must not select the protected control-plane revision.
+
 ---
 
-## 6. Graph model
+## 7. Graph model
 
 The compute-binding report represents a directed graph of compute nodes, state
-nodes, and exact observed relations.
+nodes and exact observed relations.
 
 ### Compute-node types
 
@@ -544,12 +689,21 @@ permits them.
 
 Missing identities remain missing.
 
-The analyzer must not manufacture source, run, timing, input, output, or
-consumption evidence.
+The analyzer must not manufacture:
+
+```text
+source identity
+run identity
+timing
+input relation
+output relation
+downstream consumption
+resource measurement
+```
 
 ---
 
-## 7. Binding mechanics
+## 8. Binding mechanics
 
 ### Compute-node identity
 
@@ -586,7 +740,7 @@ exit code
 
 A mutable action tag is not equivalent to an immutable action commit.
 
-An absent source digest must remain absent or unknown.
+An absent source digest remains absent or unknown.
 
 ### State-node identity
 
@@ -607,7 +761,7 @@ gate relation
 authority-bearing state
 ```
 
-A path alone is not sufficient when a digest is available.
+A path alone is insufficient when a digest is available.
 
 A filename reused across runs is not a current-run binding.
 
@@ -615,7 +769,7 @@ A filename reused across runs is not a current-run binding.
 
 ```text
 declared relation
-→ what workflow, policy, plan, manifest, or contract says should occur
+→ what workflow, policy, plan, manifest or contract says should occur
 
 observed relation
 → what exact recorded state and downstream references show occurred
@@ -659,7 +813,7 @@ A transition node directly contributes to:
 
 ```text
 gate-set materialization
-final status construction
+final-status construction
 strict enforcement
 terminal ALLOW or BLOCK production
 ```
@@ -670,7 +824,7 @@ materialized gate.
 A preservation node preserves state required for reconstruction or independent
 verification.
 
-An advisory node produces a reader, diagnostic, publication, or
+An advisory node produces a reader, diagnostic, publication or
 non-authoritative analysis surface.
 
 An observer analyzes an already completed subject run.
@@ -690,13 +844,13 @@ unknown
 or more required links are absent.
 
 `none` means that no qualifying relation was found and the available evidence
-is sufficient to make that determination.
+is sufficient to establish absence.
 
-`unknown` means that the evidence is insufficient to classify safely.
+`unknown` means that evidence is insufficient to classify safely.
 
 Unknown remains distinct from none.
 
-### Derived primary classes
+### Primary classes
 
 ```text
 transition_bound
@@ -726,7 +880,7 @@ A node must not mutate above its permitted authority class.
 
 ---
 
-## 8. Unbound authoritative mutation
+## 9. Unbound authoritative mutation
 
 The strongest authority-integrity condition in this workstream is the absence
 of unbound decision-state mutation.
@@ -738,8 +892,7 @@ compute node
 → unbound authoritative mutation
 ```
 
-This differs mechanically from ordinary unbound or unresolved read-only
-compute.
+This differs from ordinary unbound or unresolved read-only compute.
 
 ```text
 unbound read-only compute
@@ -763,7 +916,7 @@ That result does not activate release enforcement.
 
 ---
 
-## 9. Analysis levels
+## 10. Analysis levels
 
 Every report declares an analysis level.
 
@@ -806,14 +959,17 @@ artifact-observed graph
 
 The runtime-observation contract is implemented.
 
-A runtime-observation producer and a complete runtime-observed subject chain
-are not yet implemented.
+A runtime-observation producer and complete runtime-observed subject chain are
+not yet implemented.
 
 A lower analysis level must not claim a higher-confidence classification.
 
+The current-run expectation is metadata-only and does not by itself raise the
+analysis level.
+
 ---
 
-## 10. Implemented compute-binding report contract
+## 11. Compute-binding report contract
 
 The implemented report identity is:
 
@@ -831,10 +987,12 @@ Implemented files include:
 schemas/pulsemech_compute_binding_report_v0.schema.json
 examples/compute/pulsemech_compute_binding_report_6066_example_v0.json
 tools/check_pulsemech_compute_binding_report_v0.py
+tools/pulsemech_compute_binding_analyzer_core_v0.py
 tools/build_pulsemech_compute_binding_report_v0.py
 tests/test_pulsemech_compute_binding_report_schema_v0.py
 tests/test_check_pulsemech_compute_binding_report_v0.py
 tests/test_build_pulsemech_compute_binding_report_v0.py
+tests/test_pulsemech_compute_binding_analyzer_core_v0.py
 ```
 
 The contract preserves:
@@ -881,12 +1039,12 @@ The terminal release decision remains a separate recorded subject value.
 
 ---
 
-## 11. Fixed-source artifact-observed builder
+## 12. Fixed-source artifact-observed implementation
 
 The first builder is intentionally fixed to the preserved PULSE CI #6066
 subject.
 
-It verifies exact immutable carrier identities, including:
+It verifies exact immutable carrier identities including:
 
 ```text
 preservation archive SHA-256
@@ -898,7 +1056,7 @@ outer GitHub artifact identities
 complete-package member inventory
 package-completeness report
 independent package-verification report
-subject run identity
+subject-run identity
 source commit
 policy identity
 final status
@@ -969,7 +1127,7 @@ It refuses subject mutation and unsafe output paths.
 
 ---
 
-## Portable subject-input packet contract v0
+## 13. Portable subject-input contract
 
 The implemented portable packet identity is:
 
@@ -988,23 +1146,27 @@ schemas/pulsemech_compute_subject_input_packet_v0.schema.json
 examples/compute/pulsemech_compute_subject_input_packet_6066_example_v0.json
 examples/compute/pulsemech_compute_subject_input_packet_6066_observed_v0.json
 tools/check_pulsemech_compute_subject_input_packet_v0.py
+tools/pulsemech_compute_subject_input_packet_producer_core_v0.py
 tools/build_pulsemech_compute_subject_input_packet_v0.py
 tests/test_pulsemech_compute_subject_input_packet_schema_v0.py
 tests/test_check_pulsemech_compute_subject_input_packet_v0.py
 tests/test_build_pulsemech_compute_subject_input_packet_v0.py
+tests/test_pulsemech_compute_subject_input_packet_producer_core_v0.py
 tests/test_pulsemech_compute_subject_input_packet_6066_observed_v0.py
 ci/tools-tests.list
 ```
 
-The contract separates three independent identities:
+The contract separates three identities:
 
 ```text
 packet-record construction status
-≠ referenced subject-data origin
-≠ immutable external-carrier class
+≠
+referenced subject-data origin
+≠
+immutable external-carrier class
 ```
 
-The checked-in PULSE CI #6066 historical-data fixture is:
+The checked-in historical-data fixture is:
 
 ```text
 record_status:
@@ -1023,12 +1185,7 @@ packet-producer execution claimed:
 false
 ```
 
-The example status describes the checked-in fixture record.
-
-It does not convert the exact historical subject data or the real preservation
-archive into example data.
-
-The checked-in machine-produced PULSE CI #6066 proof is:
+The machine-produced proof is:
 
 ```text
 record_status:
@@ -1056,11 +1213,11 @@ fixture provenance:
 absent
 ```
 
-The fixture and observed packet carry the same producer-independent subject,
-carrier, authority-source, artifact, role, coverage, content-boundary, and
+The example and observed packet carry the same producer-independent subject,
+carrier, authority-source, artifact, role, coverage, content-boundary and
 authority-boundary surfaces.
 
-Their difference is packet-record provenance:
+Their difference is packet-record provenance.
 
 ```text
 example fixture
@@ -1070,33 +1227,6 @@ example fixture
 observed proof
 → fixture_provenance absent
 → exact producer execution present
-```
-
-The observed proof is not a second subject and does not replace the fixture.
-It is the producer-bound record over the same exact historical subject data and
-preservation carrier.
-
-The contract defines mutually exclusive provenance branches.
-
-```text
-example fixture
-→ fixture_provenance required
-→ producer forbidden
-→ packet_scope=example
-→ packet_producer_execution_claimed=false
-```
-
-```text
-observed packet
-→ exact producer required
-→ fixture_provenance forbidden
-→ exact producer source revision required
-→ exact producer source SHA-256 required
-→ exact workflow or job identity required
-→ exact producer run key required
-→ non-example production mode required
-→ non-example packet scope required
-→ non-example carrier identity required
 ```
 
 The packet is:
@@ -1120,12 +1250,12 @@ a gate result
 a hand-maintained authority form
 ```
 
-The strict validator independently reconstructs:
+The strict validator reconstructs:
 
 ```text
 packet provenance branch
 exact subject-run identity
-exact workflow, policy, and registry source bytes
+exact workflow, policy and registry source bytes
 exact immutable carrier SHA-256 and size
 nested ZIP membership
 artifact SHA-256 values and byte sizes
@@ -1133,224 +1263,128 @@ provider bindings
 role bindings
 package inventory
 preservation SHA256SUMS
-subject, decision, authority, and artifact-binding relations
+subject, decision, authority and artifact-binding relations
 coverage counters
 deterministic diagnostics
 ```
 
-Historical Git source reconstruction uses:
+---
+
+## 14. Reusable subject-input producer core and trusted bootstrap
+
+PR #2778 extracted one reusable producer core while preserving the established
+fixed-source CLI path.
+
+The merged structure is:
 
 ```text
-validated absolute Git executable
-+ sanitized Git runtime environment
-+ exact repository-root verification
-+ exact revision:path blob read
-+ exact source SHA-256
-+ exact source byte size
+tools/pulsemech_compute_subject_input_packet_producer_core_v0.py
+→ one packet-construction implementation
+
+tools/build_pulsemech_compute_subject_input_packet_v0.py
+→ fixed-source compatibility wrapper
+
+FIXED_SOURCE_6066_PROFILE
+→ explicit fixed-source production profile
 ```
 
-Caller-controlled `PATH`, `PATHEXT`, repository variables, object-store
-variables, namespace variables, index variables, and Git configuration are not
-trusted source-selection inputs.
-
-Trusted Git discovery is cross-platform:
+The reusable core owns:
 
 ```text
-POSIX:
-fixed absolute system candidates
-+ executable, ownership, symlink, and writable-component checks
-
-Windows:
-OS-reported system directory
-+ machine-wide HKLM Program Files roots
-+ deterministic Git for Windows candidates
+carrier verification
+artifact reconstruction
+role binding
+subject reconstruction
+authority-source reconstruction
+coverage derivation
+packet construction
+canonical rendering
+semantic validation
+output writing
 ```
 
-The completed subject-input implementation chain is:
+The equivalence proof is:
 
 ```text
-PR #2752
-→ portable subject-input packet contract
+fixed-source wrapper
+→ reusable producer core
+→ packet A
 
-PR #2754
-→ Git repository and object-store environment isolation
+direct reusable producer core
++ FIXED_SOURCE_6066_PROFILE
++ identical source and execution bindings
+→ packet B
 
-PR #2755
-→ historical active-policy-set order preservation
-
-PR #2756
-→ stable container-cycle regression alignment
-
-PR #2757
-→ trusted absolute cross-platform Git executable selection
-
-PR #2759
-→ deterministic fixed_source_adapter packet producer
-
-PR #2760
-→ exact carrier size before hashing
-→ exact carrier SHA-256 before ZIP reads
-
-PR #2761
-→ checked-in record_status=observed #6066 packet
-→ pinned historical-producer byte-for-byte replay
-→ strict observed-packet regression and CI registration
-
-PR #2762
-→ fail-closed worktree remove, workspace removal, existence verification,
-  and worktree prune
+packet A bytes
+=
+packet B bytes
 ```
 
-Merged commits:
+Merged implementation:
 
 ```text
-PR #2752:
-a253e90faeb7a9cf274677adefff3a6bfda303d9
+PR:
+#2778
 
-PR #2754:
-df55eb97368773cccacff0cfcc192e8e0cd5137c
-
-PR #2755:
-d3523fed1c3f7ea10e8f75383a77726ca486b408
-
-PR #2756:
-88327021720034a11034413bd51d79ced567ab42
-
-PR #2757:
-5e3908a9129f009977d5a6e94a3f8d4fca4e8da5
-
-PR #2759:
-d4cead4b8a1c3604446a74ac2598eed8ad2a18d6
-
-PR #2760:
-3cd57dc9e88e6f804dbb134c864f4207688bddc2
-
-PR #2761:
-fa25f30d0efa3d6d37fbb1781509f859e9a9b4f3
-
-PR #2762:
-f5ff95ea78d3d79f2deab0b4647c27b5137e6db5
+commit:
+951dd5c968a72ba86ae8cde2e1fa3d36434832b8
 ```
 
-Current checked-in identities:
+PR #2783 then moved committed core verification into the wrapper's
+pre-execution trust bootstrap.
+
+The verified path is:
 
 ```text
-schema:
-1361 lines
-33513 bytes
-81c274aaee7cd2aee015eda490cc82bd19f7556db35e2c3dc9995fbdb8d96e19
-
-#6066 historical-data example:
-736 lines
-45646 bytes
-37d2cec0aacd0a423da3df37dfe96c8ae5af89fbdce1f0b745cdb82ce667f251
-
-strict validator:
-2659 lines
-92218 bytes
-a9690c8cdba3b4192eea0033b627d3b99b507019f4afbfc0bdb003c531f35383
-
-schema regression:
-906 lines
-26820 bytes
-3ed460ca64ae0484dfb283dca0e21b38564fc1f89bf380967b82f1afea5dd335
-
-validator regression:
-1797 lines
-55579 bytes
-4aeabe43ad5678ffb0c213aefc86e1b20ac92956c168c529a483db07924a4f40
-
-packet producer:
-1963 lines
-67686 bytes
-152e9ed67bf10389726ab7e27d59005afe62d23488e8cd13ffa58443bee13d18
-
-producer regression:
-1776 lines
-57979 bytes
-096e4a0a1f11e93d6836a70a44bd502a7a1a2b9f9d1d861d235cbfae5d69d531
-
-#6066 observed packet:
-738 lines
-45914 bytes
-b457383356d330ae40843a47f9adb83c4e7d7f14447218f951ca71e4ee287467
-
-observed replay regression:
-985 lines
-31021 bytes
-7c27518186a018a4c0a56fdf1aaa6c8878d697b3965c48dd66dd59a5db637687
-
-CI manifest:
-143 lines
-7428 bytes
-b522610b9292ffb59c2e5e84cdd081326244ccef3288a637da84d2291251c9f5
+literal wrapper invocation path
+→ wrapper and parent-component symlink checks
+→ approved absolute Git selection
+→ exact repository HEAD
+→ exact committed wrapper blob
+→ exact committed producer-core blob
+→ one secure producer-core byte capture
+→ digest calculation
+→ compilation
+→ execution
 ```
 
-Current post-merge review result:
+The same byte buffer is used for:
 
 ```text
-producer regression:
-61 passed
-
-observed replay regression:
-24 passed
-
-combined subject-input suite:
-172 passed
-
-strict observed-packet semantic checks:
-19 of 19 true
-
-actionable findings:
-none
-
-working tree:
-clean
+committed-byte comparison
+SHA-256 calculation
+compilation
+execution
 ```
 
-Current implementation state:
+Merged implementation:
 
 ```text
-portable packet contract:
-complete
+PR:
+#2783
 
-strict packet validator:
-complete
-
-packet producer:
-complete and proven
-
-machine-produced observed packet proof:
-complete and proven
-
-pinned historical replay:
-complete and fail-closed
-
-immutable packet-to-analyzer bridge:
-complete and proven
-
-reusable analyzer core:
-complete and post-merge proven
-
-fixed-source compatibility wrapper:
-complete and proven
-
-subject-input compatibility bridge:
-complete and proven
-
-current-run integration:
-none
-
-runtime activation:
-none
-
-release-authority effect:
-none
+commit:
+04d5b03007ce01435f4ec83345ff6e1aa76d6d7e
 ```
+
+The hardened path rejects:
+
+```text
+uncommitted top-level core code
+wrapper symlink aliases
+parent-path symlink aliases
+core symlinks
+fake Git on caller PATH
+caller PATHEXT executable substitution
+```
+
+This establishes one verified producer implementation.
+
+It does not implement the current-run wrapper.
 
 ---
 
-## 12. Runtime-observation contract
+## 15. Runtime-observation contract
 
 Implemented files include:
 
@@ -1383,7 +1417,7 @@ The packet contract is strict and fail closed.
 
 Metadata-only or absent capture must not become complete body capture.
 
-Raw prompt or raw output absence must remain explicit.
+Raw prompt or raw output absence remains explicit.
 
 The contract alone does not produce runtime evidence.
 
@@ -1405,7 +1439,7 @@ not active
 
 ---
 
-## 13. Implemented planned-observed relation
+## 16. Planned-observed relation
 
 Implemented files include:
 
@@ -1425,7 +1459,7 @@ The builder consumes:
 one exact integration plan
 one exact compute-binding report
 zero or more runtime-observation packets
-an optional ID-keyed explicit expectation map
+optional ID-keyed explicit expectations
 ```
 
 It emits:
@@ -1462,15 +1496,15 @@ unresolved_due_to_coverage
 
 Every observation remains visible and classified.
 
-An observation that does not belong to an expectation is not discarded.
+An observation without a matching expectation is not discarded.
 
-An incomplete coverage axis prevents a complete comparison.
+Incomplete coverage prevents a complete comparison.
 
 A relation record does not create a gate result or release decision.
 
 ---
 
-## 14. Fixed-source #6066 plan and expectation binding
+## 17. Fixed-source #6066 plan and expectation binding
 
 The connected fixed-source proof uses:
 
@@ -1485,7 +1519,7 @@ examples/compute/
 pulsemech_compute_subject_run_expectations_6066_v0.json
 ```
 
-The component manifest declares exactly one execution-planning anchor:
+The component manifest declares one execution-planning anchor:
 
 ```text
 pulse_check_gates_v0
@@ -1546,13 +1580,10 @@ The evidence responsibilities remain separate:
 
 ```text
 integration_plan_operation
-→ component presence
-→ source identity
+→ component presence and source identity
 
 workflow_execution_declaration
-→ execution expectation
-→ declared role
-→ mutation authority
+→ execution expectation, role and mutation authority
 
 recorded_manifest
 → downstream consumption expectation
@@ -1578,7 +1609,7 @@ a48cb7831c623afc53fbb082adb08edd56cdfee26a5ec399bc2c27dfb2b68736
 
 ---
 
-## 15. Non-active candidate policy surface
+## 18. Non-active candidate policy surface
 
 The canonical policy is:
 
@@ -1596,7 +1627,7 @@ The registered candidate set is:
 compute_planned_observed_relation_candidate
 ```
 
-It contains exactly:
+It contains:
 
 ```text
 compute_transition_path_complete
@@ -1652,7 +1683,7 @@ No compute gate identity is hardcoded into the generic checker.
 
 ---
 
-## 16. Connected fixed-source #6066 proof
+## 19. Connected fixed-source #6066 proof
 
 The connected proof is implemented in:
 
@@ -1676,10 +1707,7 @@ preserved PULSE CI #6066 subject
 → unchanged generic check_gates.py
 ```
 
-The proof does not use the illustrative checked-in relation as the materializer
-input.
-
-### Generated compute-binding report result
+### Generated compute-binding report
 
 ```text
 record status:
@@ -1725,7 +1753,7 @@ resource measurement status:
 none
 ```
 
-### Generated planned-observed relation result
+### Generated planned-observed relation
 
 ```text
 expectations:
@@ -1803,21 +1831,6 @@ relation status:
 planned_and_observed
 ```
 
-Every other observation remains visible.
-
-No positive-path relation is classified as:
-
-```text
-planned_but_not_observed
-execution_identity_mismatch
-source_digest_mismatch
-run_binding_mismatch
-declared_role_mismatch
-authority_class_mismatch
-downstream_consumption_missing
-ambiguous_observation_match
-```
-
 ### Derived candidate result
 
 ```text
@@ -1890,10 +1903,10 @@ byte-identical protected inputs
 no subject-package mutation
 ```
 
-Post-merge audit result:
+Post-merge audit:
 
 ```text
-Review result:
+review result:
 PASS
 
 actionable findings:
@@ -1905,7 +1918,7 @@ targeted regressions:
 
 ---
 
-## 17. Meaning of the fixed-source result
+## 20. Meaning of the fixed-source result
 
 The fixed-source result proves that the mechanism can:
 
@@ -1943,20 +1956,20 @@ authority-bearing mutation.
 The proof does not claim:
 
 ```text
-that the PULSE CI #6066 runtime was inefficient
+that PULSE CI #6066 was inefficient
 that unresolved nodes were unbound
 that all observed-but-unplanned compute was unnecessary
-that runtime execution was not valid
+that runtime execution was invalid
 that resource consumption was excessive
 ```
 
-Artifact-observed incompleteness identifies the missing recording boundary.
+Artifact-observed incompleteness identifies a recording boundary.
 
 It does not substitute a judgment for missing evidence.
 
 ---
 
-## 18. Resource vector and transition efficiency
+## 21. Resource vector and transition efficiency
 
 The workstream must not force different resource units into one synthetic
 number.
@@ -1985,7 +1998,7 @@ retry_count
 rerun_count
 ```
 
-Unavailable values must remain unavailable.
+Unavailable values remain unavailable.
 
 Different units must not be added together.
 
@@ -1993,7 +2006,8 @@ For an axis `a`:
 
 ```text
 measured_total_a
-= sum of recorded values for nodes with a known value on axis a
+=
+sum of recorded values for nodes with a known value on axis a
 ```
 
 Per-axis distributions may later include:
@@ -2012,14 +2026,15 @@ Each ratio is relative only to measured coverage on that axis.
 A ratio with incomplete coverage must not be represented as total-system
 consumption.
 
-Transition efficiency is therefore:
+Transition efficiency is:
 
 ```text
 compute resource vector
-↔ verified binding-role distribution
+↔
+verified binding-role distribution
 ```
 
-It is not currently a single scalar.
+It is not one scalar.
 
 No compute budget is defined.
 
@@ -2039,442 +2054,848 @@ false and missing states are tested
 
 ---
 
-## 19. Anti-bureaucracy and evidence-source rule
+## 22. Current-run export expectation contract
 
-The primary evidence source must not be a hand-maintained form.
+The current-run artifact-observed lane now has a merged expectation contract.
 
-The analyzer derives state from recorded machine surfaces:
-
-```text
-workflow source
-run metadata
-policy
-materialized gate-set records
-status artifacts
-decision artifacts
-evidence manifests
-verifier reports
-artifact inventories
-artifact-provenance bindings
-preservation manifests
-runtime packets
-exact file digests
-```
-
-A manually asserted label such as:
+The completed sequence is:
 
 ```text
-required: true
+PR #2784
+→ strict current-run expectation schema
+
+PR #2785
+→ canonical checked-in expectation example
+
+PR #2786
+→ strict semantic validator
+
+PR #2787
+→ validator trust-boundary hardening
+
+PR #2788
+→ permanent registered validator regression
 ```
 
-is not proof of binding.
-
-Any additional declaration must be:
+Merged commits:
 
 ```text
-small
-versioned
-digest-bound
-machine-readable
-reviewable
-consumed by the analyzer
+PR #2784:
+b010d52bffa9a5fc43b157dac7e9f5863cf008dc
+
+PR #2785:
+6f4f66c159604bce2e45889d46958651610cd958
+
+PR #2786:
+bf2c7886529a45286bb61bae552a292e7619eeeb
+
+PR #2787:
+57b2c3bc2ac3582e1956c1e3a109fcb71f827ca2
+
+PR #2788:
+031e0f2b009993e549b7831baf37cf3a990baf39
 ```
 
-A declaration with no observed downstream relation remains partial or
-unresolved.
+The expectation identity is:
 
-The portable subject-input contract, strict validator, deterministic producer,
-checked-in observed #6066 proof, immutable analyzer bridge and reusable analyzer
-core are implemented.
+```text
+schema_version:
+pulsemech_compute_current_run_export_expectation_v0
 
-The observed packet is machine-produced, digest-bound, producer-bound and
-independently replayable from the pinned historical producer revision.
+document_type:
+pulsemech_compute_current_run_export_expectation
+```
 
-The replay reconstructs the packet rather than treating the checked-in JSON as
-a trusted hand-maintained source.
+The contract binds:
 
-The immutable bridge captures the packet and carrier once, validates those exact
-bytes and drives the reusable analyzer core from the same captured revisions.
+```text
+one exact current workflow-run subject
+one exact subject source revision
+one separate protected control plane
+one exact protected control-plane revision
+one expected current-run packet-producer profile
+one finalized current-run export carrier identity
+one archive-layout contract
+one authority-source set
+one downstream observed packet contract
+one closed content boundary
+one closed authority boundary
+```
 
-The fixed-source compatibility wrapper and immutable subject-input bridge share
-one graph and report implementation.
+### Example and observed branches
 
-They do not convert the portable packet into a manually curated authority
-surface.
+The checked-in example requires:
 
-The next current-run lane must preserve this relation and must not create a
-second analyzer, a hand-maintained packet, or a new release-authority path.
+```text
+record_status:
+example
+
+fixture_provenance:
+present
+
+expectation_producer:
+absent
+
+expectation scope:
+example
+
+carrier kind:
+example_archive
+
+carrier producer:
+null
+```
+
+The machine-produced branch requires:
+
+```text
+record_status:
+observed
+
+fixture_provenance:
+absent
+
+expectation_producer:
+present
+
+expectation scope:
+current_run_export
+
+carrier kind:
+current_run_export_archive
+
+carrier producer:
+present
+```
+
+The sole authoritative finalized-carrier digest is:
+
+```text
+carrier.sha256
+```
+
+The expectation identity does not carry a second competing carrier digest.
+
+### Subject identity
+
+The subject carries:
+
+```text
+repository
+workflow name
+workflow path
+workflow ref
+workflow run ID
+workflow run number
+workflow run attempt
+subject run key
+source commit
+source ref
+event name
+release candidate
+run mode
+active policy sets
+policy ID
+policy SHA-256
+materialized gate-set SHA-256 or null
+final-status SHA-256
+release-decision SHA-256
+ALLOW or BLOCK decision
+```
+
+### Protected control plane
+
+The protected control plane carries nine required roles:
+
+```text
+carrier_loader
+control_plane_workflow
+expectation_builder
+expectation_schema
+expectation_validator
+subject_input_producer_core
+subject_input_producer_wrapper
+subject_input_schema
+subject_input_validator
+```
+
+The contract fixes:
+
+```text
+trust_mode:
+protected_exact_revision
+
+checkout_role:
+protected_control_plane
+
+separate_from_subject_checkout:
+true
+
+subject_may_select_revision:
+false
+```
+
+### Packet producer profile
+
+The profile binds:
+
+```text
+expected producer source path
+expected production mode
+expected packet scope
+expected packet identity mode
+expected carrier ID namespace
+expected carrier kind
+expected carrier media type
+expected artifact payload mode
+expected subject repository
+expected subject revision
+expected subject run key
+expected signer policy path
+expected archive-layout ID
+```
+
+### Content boundary
+
+```text
+expectation_payload_mode:
+metadata_only
+
+contains_artifact_payloads:
+false
+
+contains_runtime_observation:
+false
+
+contains_resource_measurement:
+false
+
+contains_secret_material:
+false
+
+consumer_must_verify_carrier_bytes:
+true
+```
+
+### Authority boundary
+
+```text
+write_mode:
+expectation_only
+
+writes_subject_run:
+false
+
+writes_target_repository:
+false
+
+mutates_carrier:
+false
+
+changes_release_authority:
+false
+
+changes_gate_policy:
+false
+
+changes_gate_semantics:
+false
+
+creates_release_decision:
+false
+
+creates_gate_result:
+false
+
+activates_compute_gate:
+false
+
+creates_compute_budget:
+false
+
+expectation_is_release_authority:
+false
+
+produced_packet_is_release_authority:
+false
+```
 
 ---
 
-## 20. Completed and remaining implementation plan
+## 23. Strict current-run expectation validator and regression
 
-### Completed Step 1 — portable subject-input contract
+The strict validator verifies the expectation as a complete cross-contract
+relation.
 
-The strict machine-readable subject packet contract carries:
+Its verification surface includes:
 
 ```text
-subject repository
-workflow identity
-workflow run identity
-subject run key
-source commit
-release candidate
-run mode
-
-outer carrier identity
-outer carrier SHA-256 and size
-preservation-manifest identity
-artifact-role map
-artifact file names
-artifact digests and sizes
-complete-package identity
-policy identity and digest
-workflow identity and digest
+strict UTF-8 JSON
+BOM rejection
+duplicate-key rejection
+non-finite-number rejection
+canonical serialization
+expectation-schema validity
+expectation-instance validity
+subject-input-schema validity
+closed schema-reference policy
+downstream observed-branch realizability
+subject-run identity
+workflow reference
+policy and registry binding
+authority-source identity
+protected control-plane component relations
+producer-profile binding
+carrier identity relations
+archive-layout relations
+content boundary
+authority boundary
+deterministic diagnostic output
 ```
 
-The contract, exact #6066 historical-data example, strict validator,
-regressions, CI registration, and post-merge hardening are complete.
-
-The checked-in example remains a contract fixture over exact historical data.
-It is not the producer record.
-
-### Completed Step 1A — subject-input packet producer and observed proof
-
-The completed deterministic, read-only producer machine is:
+The hardened validator:
 
 ```text
-exact subject carrier
-+ exact subject-run identity
-+ exact authority-source identities
-+ exact producer source identity
-+ exact producer execution identity
-→ record_status=observed subject-input packet
+rejects external schema references before validator construction
+preserves an independent deny-all runtime resolver
+walks only schema-valued Draft 2020-12 positions
+follows internal references into reached schema objects
+separates canonical path identity from reviewed blob identity
+calculates schema identity from descriptor-captured bytes
+keeps expectation and downstream schema states independent
+validates a complete downstream observed packet witness
+converts resolver and schema failures into deterministic diagnostics
 ```
 
-The first producer proof uses the preserved #6066 carrier:
+Canonical reviewed Git blobs include:
 
 ```text
-PULSE CI #6066 preservation archive
-→ exact size before full-file hashing
-→ exact SHA-256 before ZIP reads
-→ fixed_source_adapter producer at
-  3cd57dc9e88e6f804dbb134c864f4207688bddc2
-→ machine-produced observed subject-input packet
-→ strict subject-input validator
-→ isolated historical worktree replay
-→ generated stdout
-  = generated output
-  = checked-in observed packet bytes
-→ fail-closed worktree and workspace cleanup
+expectation schema:
+c0bc5a21f5bf46c529341d2e805f26525c70c7f4
+
+subject-input schema:
+e1f982ffaf900c6c17745624d80f9f38b374448b
+
+expectation validator:
+16b75b7df2524515146bf3472e0191a52cfad037
 ```
 
-Implemented surfaces:
+The validator distinguishes:
 
 ```text
-tools/build_pulsemech_compute_subject_input_packet_v0.py
-tests/test_build_pulsemech_compute_subject_input_packet_v0.py
-examples/compute/pulsemech_compute_subject_input_packet_6066_observed_v0.json
-tests/test_pulsemech_compute_subject_input_packet_6066_observed_v0.py
+supplied contract validity
+≠
+canonical reviewed-contract verification
+```
+
+The permanent regression is registered in:
+
+```text
 ci/tools-tests.list
 ```
 
-The producer and proof:
+It covers:
 
 ```text
-derive every digest and byte size from source bytes
-derive every nested member path from the carrier
-bind the exact producer revision and source SHA-256
-bind the exact execution identity and producer run key
-write only the output packet
-preserve the subject carrier and repository
-reject wrong carrier size before full-file hashing
-reject wrong carrier digest before ZIP reads
-fail closed on incomplete or conflicting identity
-replay from the pinned historical producer revision
-fail closed on worktree remove, workspace deletion, existence-check, or prune
+deterministic raw diagnostic bytes
+CRLF normalization rejection
+strict parser failures
+canonical serialization
+symlinked input rejection
+invalid repository-root rejection
+closed modern Registry resolution
+closed RefResolver compatibility resolution
+network retrieval denial
+local-file retrieval denial
+internal JSON Pointer and anchor handling
+dirty canonical schema rejection
+alternate-path schema rejection
+complete observed expectation construction
+expectation-producer mismatch rejection
+carrier-producer mismatch rejection
+POSIX descriptor-chain state
+path-based fallback state
 ```
 
-Completed merges:
+The merged boundary establishes:
 
 ```text
-producer:
-PR #2759
-
-deterministic carrier pre-read hardening:
-PR #2760
-
-observed packet and historical replay proof:
-PR #2761
-
-fail-closed replay cleanup:
-PR #2762
+strict current-run expectation contract
++
+canonical example
++
+strict validator
++
+closed schema-resolution boundary
++
+reviewed schema-byte binding
++
+permanent registered regression
 ```
 
-This completed producer and proof do not create:
+It does not establish a merged current-run expectation producer.
 
-```text
-current-run workflow integration
-runtime observation
-a compute budget
-candidate-gate activation
-release-required enforcement
-release authority
-```
+---
 
-### Completed Step 1B — immutable observed subject-input analyzer bridge
+## 24. Open current-run expectation builder workstream
 
-The PR #2773 bridge was:
-
-```text
-machine-produced record_status=observed packet
-+ exact preservation carrier
-→ immutable packet and carrier capture
-→ strict packet validation over captured bytes
-→ existing artifact reconstruction
-→ then-current fixed-source bundle loader and analyzer
-→ strict report validation
-→ deterministic stdout report
-```
-
-Each captured input records:
-
-```text
-exact bytes
-device identity
-inode identity
-byte size
-SHA-256
-```
-
-The bridge uses one captured packet revision for parsing, validation, role
-resolution and report construction.
-
-It uses one captured carrier revision for validation, artifact reconstruction,
-bundle loading and report construction.
-
-The captured in-memory views deliberately do not provide a filesystem-path
-conversion surface.
-
-Historical implementation identity:
+The first machine current-run expectation builder is open in:
 
 ```text
 PR:
-#2773
+#2789
 
-merge commit:
-a93359444e13771eb932744dd22b4477a5096019
+path:
+tools/build_pulsemech_compute_current_run_export_expectation_v0.py
 
-bridge version:
-0.2.0
-```
+observed PR head:
+22a455e70af19a1cce581fdb7d5a485816691aaa
 
-Historical proof result:
+state:
+open
 
-```text
-focused regression:
-17 passed
+merged:
+false
 
-direct tools-manifest execution:
-17 passed
+regression-proven:
+false
 
-historical pre-core-extraction report SHA-256:
-656459e7fb835814a05a7cc5b8150959d32ed3a0e9ed272c2733038bd441ec4c
-
-repeated report digest:
-identical
-
-repository state before and after replay:
-clean
-
-changed-file boundary:
-exactly 3 files
-
-tools-test registration:
-exactly 1
-
-post-merge review:
-PASS
-
-correction required:
+authority effect:
 none
 ```
 
-The historical report digest is retained as the PR #2773 implementation
-identity. It is not reused as the current wrapper-plus-core report identity.
-
-The bridge has no:
+Observed file identity:
 
 ```text
-temporary-directory surface
-scratch-file surface
-optional output-file surface
-output-rename surface
-repository-local bytecode surface
-parallel graph builder
-parallel report builder
+lines:
+2826
+
+bytes:
+93836
+
+SHA-256:
+6207bcb2ffbee127c6ea72c57fd8f8fdb9f85e571556fa6889ffc0a677fcd321
+
+Git blob:
+b0eb2a081d5d6f78aff0ed8fd4c7aca468ae35dd
+
+UTF-8 BOM:
+absent
+
+final newline:
+present
 ```
 
-PR #2773 completed:
+The proposed builder consumes:
 
 ```text
-portable observed subject-input packet
-→ then-current analyzer implementation
-→ regression-identical #6066 compute-binding report
+canonical builder-input metadata
++ separately supplied trusted current-run identity
++ exact subject repository revision
++ exact current-run final artifacts
++ exact subject authority-source files
++ exact verified gate-policy bytes
++ exact committed status schema
++ separate protected control-plane checkout
++ exact protected control-plane revision
+→ machine-produced observed current-run expectation
+```
+
+The proposed builder already includes:
+
+```text
+strict canonical JSON input
+separate subject and control-plane roots
+exact Git repository-root verification
+exact HEAD verification
+blob type and size checks before buffering
+strict duplicate-key YAML policy parsing
+policy-derived effective gate reconstruction
+final-status subject binding
+status-schema validation
+gate-result reconstruction
+stub and scaffold reconstruction
+non-gate blocker reconstruction
+complete known release-decision projection reconstruction
+protected output-name handling
+verified strict expectation-validator reuse
+deterministic canonical output
+closed content and authority boundaries
+```
+
+The proposed builder remains non-active.
+
+It deliberately requires the complete nine-role protected control plane even
+though three activation components are not yet merged.
+
+### Open review boundary
+
+The current open review findings are:
+
+```text
+P1:
+bind release target to protected run context
+
+P2:
+validate release decision against the exact committed decision schema
+
+P2:
+bind gate-registry registry_id to the verified registry bytes
+
+P2:
+close or explicitly fail closed on the Windows trusted-Git ACL boundary
+```
+
+#### Trusted release target
+
+Current risk:
+
+```text
+untrusted decision target
+→ selects stage
+→ derives only required
+→ omits release_required
+→ possible false ALLOW for a prod-targeted run
+```
+
+Required relation:
+
+```text
+protected run-context target
+→ explicit builder input
+→ exact equality with release_decision.target
+→ active gate sets derived only from the protected target
+```
+
+#### Release-decision schema
+
+The exact committed decision schema has:
+
+```text
+additionalProperties:
+false
+```
+
+The builder must validate the decision against the exact committed schema
+before semantic reconstruction.
+
+Known-field equality is not a substitute for full schema validity.
+
+#### Gate-registry identity
+
+Required relation:
+
+```text
+verified gate-registry bytes
+→ strict YAML parse
+→ embedded version
+=
+authority-source registry_id
+```
+
+A correct digest with a forged semantic ID remains invalid.
+
+#### Windows trusted-Git boundary
+
+The current POSIX path checks protected ownership and write permissions.
+
+The Windows path does not yet prove that the executable and every relevant path
+component are non-writable by untrusted principals.
+
+The safe immediate boundary is:
+
+```text
+unsupported verified Windows trust condition
+→ fail closed
+```
+
+until a complete Windows ACL model is separately implemented and tested.
+
+### Non-implementation boundary
+
+PR #2789 does not add:
+
+```text
+builder regression
+tools-test registration
+current-run carrier component
+current-run subject-input wrapper
+carrier publication
+candidate workflow
+workflow integration
+artifact-observed report production
+planned-observed relation production
+candidate materialization
+runtime observation
+resource measurement
+compute budget
+gate activation
+release-required enforcement
+release decision
+release authority
+```
+
+The next separate proof item after builder merge is:
+
+```text
+tests/test_build_pulsemech_compute_current_run_export_expectation_v0.py
+```
+
+with one registration in:
+
+```text
+ci/tools-tests.list
+```
+
+---
+
+## 25. Contract-complete protected control plane
+
+The current-run expectation contract and proposed builder require one exact
+protected control-plane revision containing:
+
+```text
+tools/load_pulsemech_compute_current_run_export_carrier_v0.py
+
+.github/workflows/
+pulsemech_compute_current_run_export_candidate.yml
+
+tools/build_pulsemech_compute_current_run_export_expectation_v0.py
+
+schemas/
+pulsemech_compute_current_run_export_expectation_v0.schema.json
+
+tools/check_pulsemech_compute_current_run_export_expectation_v0.py
+
+tools/pulsemech_compute_subject_input_packet_producer_core_v0.py
+
+tools/build_pulsemech_compute_subject_input_packet_current_run_v0.py
+
+schemas/pulsemech_compute_subject_input_packet_v0.schema.json
+
+tools/check_pulsemech_compute_subject_input_packet_v0.py
+```
+
+Three activation prerequisites remain absent from merged `main`:
+
+```text
+current-run carrier component
+
+current-run subject-input wrapper
+
+current-run candidate workflow
+```
+
+Their absence must preserve:
+
+```text
+builder implementation may exist
++
+control plane incomplete
+→ observed production fails closed
+```
+
+The protected component set must not be weakened to make an incomplete
+revision appear active.
+
+```text
+contract-complete component set
+≠
+claim that every component is already implemented
+```
+
+---
+
+## 26. Completed and remaining implementation plan
+
+### Completed Step 1 — portable subject-input contract
+
+Completed:
+
+```text
+packet schema
+historical example
+strict validator
+schema regression
+validator regression
+CI registration
+Git source isolation
+trusted Git selection
+exact carrier verification
+nested artifact reconstruction
+provider and role reconstruction
+coverage reconstruction
+```
+
+### Completed Step 1A — fixed-source producer and observed proof
+
+Completed:
+
+```text
+deterministic fixed-source producer
+carrier size before hashing
+carrier SHA-256 before ZIP reads
+machine-produced observed packet
+pinned historical producer replay
+fail-closed replay cleanup
+```
+
+### Completed Step 1B — immutable analyzer bridge
+
+Completed:
+
+```text
+single packet capture
+single carrier capture
+same-revision validation and analysis
+same-revision carrier verification and reconstruction
+stdout-only report
+repository-clean execution
 ```
 
 ### Completed Step 2 — reusable analyzer core
 
-The proven analyzer implementation was preserved through a repository rename:
+Completed:
 
 ```text
-tools/build_pulsemech_compute_binding_report_v0.py
-
-→
-
-tools/pulsemech_compute_binding_analyzer_core_v0.py
+one analyzer implementation
+fixed-source compatibility wrapper
+portable-input bridge to the same core
+producer identity separated from analyzer identity
+regression-identical #6066 report
 ```
 
-The stable fixed-source path was recreated as a thin compatibility wrapper:
+### Completed Step 2A — reusable packet producer core
+
+Completed:
 
 ```text
-tools/build_pulsemech_compute_binding_report_v0.py
-→ reusable analyzer core
+one packet-construction implementation
+fixed-source compatibility wrapper
+explicit fixed-source profile
+wrapper/core byte equivalence
 ```
 
-The immutable subject-input bridge was updated to invoke the same core:
+### Completed Step 2B — trusted wrapper bootstrap
+
+Completed:
 
 ```text
-immutable observed subject-input packet
-→ immutable subject-input bridge
-→ reusable analyzer core
+literal invocation-path verification
+wrapper and core committed-blob verification
+one verified core byte buffer
+pre-execution source binding
+fake-PATH Git rejection
 ```
 
-The core is the only implementation location for:
+### Completed Step 3A — current-run expectation contract
+
+Completed:
 
 ```text
-build_report
-make_compute_node
-make_state_node
-make_edge
-finding construction
-binding classification
-summary construction
-deterministic report construction
+strict expectation schema
+canonical example
+strict validator
+closed schema-reference boundary
+reviewed schema-byte binding
+permanent registered validator regression
 ```
 
-Neither compatibility surface contains a second analyzer implementation.
+### Open Step 3B — expectation builder
 
-The completed identity relation is:
+Required before merge:
 
 ```text
-report producer:
-tools/build_pulsemech_compute_binding_report_v0.py
-
-report producer SHA-256:
-d20cb7fed3d8c1ddc10abc23882ce0cbe17d277498016a580f875614fe47becc
-
-analyzer implementation:
-tools/pulsemech_compute_binding_analyzer_core_v0.py
-
-analyzer implementation SHA-256:
-cd108bc70494203f95a3f379f6e0d953331d10357676d553d6858f44729988dd
+trusted release-target binding
+release-decision schema validation
+gate-registry semantic identity binding
+Windows trusted-Git fail-closed boundary
 ```
 
-The top-level report tool identity is bound to the compatibility wrapper.
+### Step 3C — permanent builder regression
 
-The `compute:offline-observer` source identity is bound to the reusable core.
-
-Therefore:
+The regression must prove at minimum:
 
 ```text
-report producer identity
-≠ analyzer implementation identity
-
-fixed-source wrapper
-+ immutable subject-input bridge
-→ one analyzer implementation identity
+exact subject/control-plane revision binding
+separate checkout roots
+fake-PATH Git rejection
+GIT_* environment isolation
+oversized blob rejection before buffering
+dirty control-plane component rejection
+stale registry_id rejection
+extra release-decision property rejection
+prod-to-stage target substitution rejection
+FAIL with all required gates true
+stub and scaffold blocker reconstruction
+status-schema failure reconstruction
+unsafe output rejection
+deterministic canonical output
+repository-clean execution
+missing activation components fail closed
+Windows explicit unsupported or verified fail-closed state
 ```
 
-Implementation identity:
+### Step 3D — current-run carrier component
+
+The carrier component must:
 
 ```text
-PR:
-#2776
-
-squash-merge commit:
-e06acbbcd0beec7846da01322659079171e24562
-
-changed-file boundary:
-exactly 6 files
+build or load one finalized current-run export carrier
+preserve one authoritative carrier SHA-256
+bind producer identity
+bind subject run key
+bind protected control-plane revision
+publish no competing carrier digest
 ```
 
-Proof result:
+Carrier payload verification remains a separate downstream consumer
+responsibility.
+
+### Step 3E — current-run subject-input wrapper
+
+The wrapper must:
 
 ```text
-fixed-source regression:
-33 passed
-
-analyzer-core regression:
-10 passed
-
-immutable subject-input bridge regression:
-18 passed
-
-wrapper and bridge report bytes:
-identical
-
-direct-core and wrapper analysis payload:
-identical after normalizing only producer-entry-point identity
-
-wrapper, bridge and core execution:
-repository and tools tree remained clean
-
-post-merge review:
-PASS
-
-major findings:
-none
-
-correction required:
-none
+reuse the existing producer core
+bind current-run production profile
+bind exact expectation
+verify carrier bytes
+construct the observed packet
+introduce no second packet implementation
 ```
 
-The production subject-input validator's trusted-Git policy remains fail closed.
+### Step 3F — non-active candidate workflow
 
-Hosted-runner ownership normalization exists only in regression code and
-activates only after the exact `non_root_owned_component` diagnostic.
-
-The completed extraction establishes single ownership of the analyzer
-implementation. It does not create a separate pure-function kernel.
-
-The reusable core retains the established fixed-source input-loading, validation
-and CLI support required by the compatibility path.
-
-A post-merge reviewer could not query the superseded PR-head object
-`c6236512b52d7a0dbf5152421766e3008a8be9bf` through local `git cat-file`
-because that object was absent from the checkout and no remote was configured.
-
-This was not a merged-artifact failure.
-
-The canonical review target was the squash-merge commit
-`e06acbbcd0beec7846da01322659079171e24562`, whose exact six-file boundary,
-source identities and regressions were verified.
-
-### Step 3 — current-run artifact-observed reference lane
+The workflow must:
 
 ```text
-current run
-→ machine-produced current-run subject-input packet
-→ immutable current-run carrier binding
+select the protected control-plane revision independently
+consume one current-run subject
+consume exact final artifacts
+produce a finalized carrier
+produce an observed expectation
+produce an observed subject-input packet
+preserve authority effect none
+```
+
+### Step 3G — first current-run artifact-observed proof
+
+```text
+current workflow run
+→ finalized current-run carrier
+→ observed expectation
+→ observed subject-input packet
+→ immutable carrier verification
 → reusable analyzer core
 → generated artifact-observed report
 → generated planned-observed relation
 → non-active candidate materialization
 ```
 
-This lane remains non-active and must not create runtime-observed claims without
-runtime evidence.
+The result must preserve actual false, missing and unresolved states.
+
+It must not be designed to force all candidate gates to `true`.
 
 ### Step 4 — runtime-observation producer
 
@@ -2502,9 +2923,6 @@ current artifact-observed report
 → fixed-source versus runtime-observed comparison
 ```
 
-Only this stage can determine whether the current artifact-level false gates
-become true under complete runtime evidence.
-
 ### Step 6 — resource measurement
 
 Add measured per-axis resource coverage without synthetic cross-unit
@@ -2512,8 +2930,8 @@ aggregation.
 
 ### Step 7 — promotion decision
 
-Any movement from candidate to advisory, required, or release-required remains
-a separate policy decision.
+Any movement from candidate to advisory, required or release-required remains a
+separate policy decision.
 
 ```text
 successful example
@@ -2525,6 +2943,9 @@ successful fixed-source replay
 successful portable-input replay
 ≠ promotion
 
+successful current-run expectation
+≠ promotion
+
 successful current-run artifact proof
 ≠ promotion
 
@@ -2532,165 +2953,87 @@ successful runtime proof
 ≠ automatic promotion
 ```
 
-Promotion requires explicit evidence, policy review, negative-path coverage,
-and a separate PR.
+Promotion requires:
+
+```text
+explicit evidence
+policy review
+negative-path coverage
+stable measurement semantics
+separate PR
+```
 
 ---
 
-## 21. Completed implementation sequence
+## 27. Completed implementation sequence
 
-### PR 1 — design
+### Design and report foundation
 
 ```text
 PR #2734
-docs(compute):
-define compute-to-transition binding v0
-```
+→ compute-to-transition design
 
-Status:
-
-```text
-complete
-```
-
-### PR 2 — report contract
-
-```text
 PR #2735
-compute-binding report schema
-example
-validator
-schema and validator tests
-CI registration
-```
+→ report schema, example, validator and tests
 
-Status:
-
-```text
-complete
-```
-
-### PR 3 — fixed-source offline builder
-
-```text
 PR #2736
-fixed-source #6066 report builder
+→ fixed-source report builder
 
 PR #2737
-fixed-source builder hardening and regression closure
-```
+→ fixed-source builder hardening
 
-Status:
-
-```text
-complete
-```
-
-### PR 4 — runtime-observation contract
-
-```text
 PR #2738
-runtime-observation packet schema
-example
-validator
-tests
-CI registration
+→ runtime-observation contract
 ```
 
-Status:
-
-```text
-contract complete
-producer pending
-```
-
-### PR 5 — planned-observed relation
+### Planned-observed relation and candidate surface
 
 ```text
 PR #2741
-relation schema
-example
-validator
-tests
+→ relation schema, example, validator and tests
 
 PR #2743
-relation builder
+→ relation builder
 
 PR #2744
-workflow-only cross-source anchor correction
-```
+→ workflow-only cross-source anchor correction
 
-Status:
-
-```text
-complete
-```
-
-### PR 6 — candidate policy surface
-
-```text
 PR #2745
-candidate gate identities
-policy set
-relation-to-status materializer
-candidate proof
-CI registration
-```
-
-Status:
-
-```text
-complete
-non-active
+→ candidate gate identities, policy set and materializer
 ```
 
 ### Connected fixed-source proof
 
 ```text
 PR #2749
-merged commit:
+
+merge:
 b6149dbd464f7f01760ab5fa80487f7e94e475e7
-```
 
-Status:
-
-```text
+status:
 complete
-post-merge Codex review:
+
+post-merge review:
 PASS
 ```
 
-### Portable subject-input packet contract
+### Portable subject-input contract and hardening
 
 ```text
 PR #2752
-portable subject-input packet schema
-exact #6066 historical-data example
-strict validator
-schema and validator regressions
-CI registration
-```
+→ portable packet contract
 
-Status:
-
-```text
-complete
-```
-
-### Portable subject-input hardening and closure
-
-```text
 PR #2754
-Git repository and object-store environment isolation
+→ Git environment isolation
 
 PR #2755
-historical active-policy-set order preservation
+→ active-policy-set order preservation
 
 PR #2756
-container-cycle diagnostic regression alignment
+→ container-cycle diagnostic alignment
 
 PR #2757
-trusted absolute cross-platform Git executable selection
+→ trusted absolute cross-platform Git selection
 ```
 
 Final contract-hardening commit:
@@ -2699,62 +3042,20 @@ Final contract-hardening commit:
 5e3908a9129f009977d5a6e94a3f8d4fca4e8da5
 ```
 
-Status:
-
-```text
-complete
-
-post-merge Codex review:
-PASS
-```
-
-### Subject-input packet producer and carrier-boundary hardening
+### Fixed-source packet producer and observed proof
 
 ```text
 PR #2759
-fixed_source_adapter subject-input packet producer
-producer regression
-CI registration
+→ deterministic fixed-source producer
 
 PR #2760
-carrier size before full-file hashing
-carrier SHA-256 before ZIP parsing and member reads
-producer and regression identity closure
-```
+→ carrier pre-read identity boundary
 
-Final producer revision:
-
-```text
-3cd57dc9e88e6f804dbb134c864f4207688bddc2
-```
-
-Status:
-
-```text
-complete
-
-producer regression:
-61 passed
-
-post-merge Codex review:
-PASS
-```
-
-### Machine-produced observed #6066 packet proof
-
-```text
 PR #2761
-checked-in record_status=observed packet
-pinned historical producer replay
-byte-for-byte generated-output proof
-strict observed-packet validation
-CI registration
+→ checked-in observed packet and historical replay
 
 PR #2762
-fail-closed worktree remove
-fail-closed workspace removal and existence verification
-fail-closed worktree prune
-primary replay failure preserved as cause
+→ fail-closed replay cleanup
 ```
 
 Final observed-proof head:
@@ -2763,10 +3064,11 @@ Final observed-proof head:
 f5ff95ea78d3d79f2deab0b4647c27b5137e6db5
 ```
 
-Status:
+Proof state:
 
 ```text
-complete
+producer regression:
+61 passed
 
 observed replay regression:
 24 passed
@@ -2774,32 +3076,17 @@ observed replay regression:
 combined subject-input suite:
 172 passed
 
-post-merge Codex review:
+post-merge review:
 PASS
 ```
 
-### Immutable observed subject-input analyzer bridge
+### Immutable analyzer bridge
 
 ```text
 PR #2773
-immutable packet and carrier capture
-same-revision packet validation and analysis
-same-revision carrier validation and reconstruction
-then-current analyzer delegation
-stdout-only deterministic report
-direct tools-manifest regression execution
-```
 
-Merged implementation:
-
-```text
+merge:
 a93359444e13771eb932744dd22b4477a5096019
-```
-
-Status:
-
-```text
-complete
 
 bridge version:
 0.2.0
@@ -2807,19 +3094,13 @@ bridge version:
 focused regression:
 17 passed
 
-direct tools-manifest execution:
+direct manifest execution:
 17 passed
 
-historical pre-core-extraction report SHA-256:
+historical pre-core report SHA-256:
 656459e7fb835814a05a7cc5b8150959d32ed3a0e9ed272c2733038bd441ec4c
 
-repository mutation:
-none
-
-parallel analyzer:
-none
-
-post-merge Codex review:
+post-merge review:
 PASS
 ```
 
@@ -2827,17 +3108,8 @@ PASS
 
 ```text
 PR #2776
-preserve analyzer implementation through repository rename
-restore stable fixed-source path as compatibility wrapper
-route immutable subject-input bridge to the same core
-separate report-producer and analyzer source identities
-register analyzer-core regression
-preserve production trusted-Git fail-closed behavior
-```
 
-Merged implementation:
-
-```text
+merge:
 e06acbbcd0beec7846da01322659079171e24562
 ```
 
@@ -2851,11 +3123,9 @@ reusable analyzer core SHA-256:
 cd108bc70494203f95a3f379f6e0d953331d10357676d553d6858f44729988dd
 ```
 
-Status:
+Proof state:
 
 ```text
-complete
-
 fixed-source regression:
 33 passed
 
@@ -2868,24 +3138,103 @@ subject-input bridge regression:
 wrapper and bridge report bytes:
 identical
 
-repository and tools-tree mutation:
-none
-
-post-merge Codex review:
+post-merge review:
 PASS
-
-correction required:
-none
 ```
 
-The fixed-source, portable-contract, producer, observed-proof, immutable-bridge
-and reusable-analyzer-core sequences are complete.
+### Reusable subject-input producer core
 
-The next work begins at the current-run artifact-observed reference lane.
+```text
+PR #2778
+
+merge:
+951dd5c968a72ba86ae8cde2e1fa3d36434832b8
+```
+
+Status:
+
+```text
+complete
+one producer implementation
+fixed-source wrapper/core output:
+byte-identical
+```
+
+### Pre-execution wrapper-to-core verification
+
+```text
+PR #2783
+
+merge:
+04d5b03007ce01435f4ec83345ff6e1aa76d6d7e
+```
+
+Status:
+
+```text
+complete
+committed wrapper verified
+committed core verified
+one verified core byte buffer executed
+```
+
+### Current-run expectation contract
+
+```text
+PR #2784
+→ schema
+
+PR #2785
+→ example
+
+PR #2786
+→ validator
+
+PR #2787
+→ validator hardening
+
+PR #2788
+→ permanent validator regression
+```
+
+Final merged compute basis:
+
+```text
+031e0f2b009993e549b7831baf37cf3a990baf39
+```
+
+Status:
+
+```text
+contract:
+complete
+
+validator:
+complete and hardened
+
+validator regression:
+complete, registered and proven
+
+builder:
+open PR #2789
+```
+
+### Canonical state synchronization
+
+```text
+PR #2795
+
+merge:
+575570b8ee3659f9190514e3b561f0df7a980681
+```
+
+This synchronized the system-level Technical Overview.
+
+It did not modify compute mechanics.
 
 ---
 
-## 22. Interaction with existing PULSE boundaries
+## 28. Interaction with existing PULSE boundaries
 
 The compute-binding workstream preserves:
 
@@ -2904,11 +3253,15 @@ The analyzer observes these relations.
 
 It does not redefine them.
 
+The current-run expectation records the required protected relation.
+
+It does not create that relation merely by describing it.
+
 The candidate gates are not a parallel release-authority mechanism.
 
 ---
 
-## 23. Interaction with SLSA and VSA
+## 29. Interaction with SLSA and VSA
 
 The compute-binding workstream remains separate from the SLSA/VSA workstream.
 
@@ -2919,7 +3272,7 @@ authenticated upstream evidence statements
 
 compute binding:
 executed compute
-→ exact relation to evidence, state, preservation, and transition
+→ exact relation to evidence, state, preservation and transition
 ```
 
 The workstreams may share:
@@ -2945,7 +3298,7 @@ It does not become the release decision.
 
 ---
 
-## 24. Non-goals and claim boundary
+## 30. Non-goals and claim boundary
 
 This workstream does not provide or claim:
 
@@ -2989,9 +3342,18 @@ These are relation and coverage results.
 
 They are not resource-efficiency conclusions.
 
+The current-run expectation contract establishes a machine contract.
+
+It is not evidence that a current-run carrier or packet has already been
+produced.
+
+The open builder is proposed code.
+
+It is not merged implementation state.
+
 ---
 
-## 25. Current non-activation statement
+## 31. Current non-activation statement
 
 ```text
 compute-binding report schema:
@@ -3003,16 +3365,13 @@ implemented
 fixed-source #6066 artifact-observed report:
 implemented and proven
 
-runtime-observation packet contract:
+runtime-observation contract:
 implemented
 
-runtime-observation packet producer:
+runtime-observation producer:
 not implemented
 
-planned-observed relation schema and validator:
-implemented
-
-planned-observed relation builder:
+planned-observed relation:
 implemented
 
 compute candidate gate identities:
@@ -3030,61 +3389,58 @@ implemented and proven
 portable subject-input packet schema:
 implemented
 
-exact #6066 historical-data example packet:
-implemented and proven
+historical #6066 example packet:
+implemented
 
-strict subject-input packet validator:
+strict subject-input validator:
 implemented and hardened
 
-trusted cross-platform Git source verification:
+fixed-source packet producer:
 implemented and proven
 
-subject-input packet producer:
+machine-produced observed packet:
+implemented and replay-proven
+
+immutable subject-input analyzer bridge:
 implemented and proven
-
-machine-produced observed subject-input packet proof:
-implemented and proven
-
-pinned historical producer replay:
-implemented and proven
-
-replay worktree and workspace cleanup:
-fail-closed and proven
-
-immutable observed subject-input analyzer bridge:
-implemented and post-merge proven
-
-historical pre-core bridge report SHA-256:
-656459e7fb835814a05a7cc5b8150959d32ed3a0e9ed272c2733038bd441ec4c
 
 reusable analyzer core:
-implemented and post-merge proven
-
-fixed-source compatibility wrapper:
 implemented and proven
 
-subject-input bridge to reusable core:
+reusable subject-input producer core:
 implemented and proven
 
-fixed-source regression:
-33 passed
+wrapper pre-execution core binding:
+implemented and proven
 
-analyzer-core regression:
-10 passed
+current-run expectation schema:
+implemented
 
-subject-input bridge regression:
-18 passed
+current-run expectation example:
+implemented
 
-fixed-source wrapper SHA-256:
-d20cb7fed3d8c1ddc10abc23882ce0cbe17d277498016a580f875614fe47becc
+current-run expectation validator:
+implemented and hardened
 
-reusable analyzer core SHA-256:
-cd108bc70494203f95a3f379f6e0d953331d10357676d553d6858f44729988dd
+current-run expectation validator regression:
+implemented, registered and proven
 
-parallel analyzer implementation:
-none
+current-run expectation builder:
+open PR #2789, not merged
 
-current-run artifact-observed reference lane:
+current-run expectation builder regression:
+not implemented
+
+current-run carrier component:
+not implemented
+
+current-run subject-input wrapper:
+not implemented
+
+current-run candidate workflow:
+not implemented
+
+current-run connected artifact-observed proof:
 not implemented
 
 runtime-observed connected proof:
@@ -3105,14 +3461,15 @@ none
 
 The existing PULSEmech release-authority mechanism remains unchanged.
 
-The reusable analyzer core and its compatibility paths are analysis surfaces.
+The reusable cores, wrappers, packets, expectations, validators and relations
+remain analysis and evidence-control surfaces.
 
-They do not create current-run evidence, activate a compute gate, alter an active
-required-gate set, or produce a release decision.
+They do not activate a compute gate, alter an active required-gate set or
+produce a release decision.
 
 ---
 
-## 26. Mechanical result
+## 32. Mechanical result
 
 The implemented fixed-source relation is:
 
@@ -3140,130 +3497,61 @@ exact subject and carrier metadata
 → portable analyzer-input contract
 ```
 
-The checked-in #6066 fixture remains:
+The completed packet-production relation is:
 
 ```text
-record_status=example
-+ fixture_provenance
-+ exact observed historical subject data
-+ real preservation_archive carrier identity
+fixed-source wrapper
+→ verified reusable producer core
+→ observed packet
+
+direct reusable core
++ explicit fixed-source profile
+→ byte-identical observed packet
 ```
 
-It remains the contract fixture and is not the observed producer record.
-
-The checked-in machine-produced proof is:
+The completed analyzer relation is:
 
 ```text
-preserved #6066 carrier
-→ deterministic fixed_source_adapter producer at
-  3cd57dc9e88e6f804dbb134c864f4207688bddc2
-→ record_status=observed packet
-→ strict packet validation
-→ pinned historical producer replay
-→ generated stdout
-  = generated output
-  = checked-in packet bytes
-→ fail-closed replay cleanup
-```
-
-The historical PR #2773 packet-to-analyzer relation was:
-
-```text
-machine-produced observed subject-input packet
-+ exact preservation carrier
-→ immutable packet and carrier capture
-→ same-revision strict validation and analysis
-→ existing artifact reconstruction
-→ then-current fixed-source analyzer implementation
-→ strict report validation
-→ deterministic #6066 compute-binding report
-```
-
-Its historical pre-core-extraction report identity is:
-
-```text
-SHA-256:
-656459e7fb835814a05a7cc5b8150959d32ed3a0e9ed272c2733038bd441ec4c
-
-repeated execution:
-identical
-
-focused regression:
-17 passed
-
-direct tools-manifest execution:
-17 passed
-
-repository mutation:
-none
-```
-
-The completed reusable-analyzer relation is:
-
-```text
-previous monolithic analyzer implementation
-→ tools/pulsemech_compute_binding_analyzer_core_v0.py
-→ one graph and report implementation
-
-fixed-source #6066 inputs
-→ tools/build_pulsemech_compute_binding_report_v0.py
+fixed-source inputs
+→ fixed-source analyzer wrapper
 → reusable analyzer core
 → compute-binding report
 
-machine-produced observed subject-input packet
-→ immutable subject-input bridge
-→ the same reusable analyzer core
+observed portable packet
+→ immutable packet and carrier bridge
+→ same reusable analyzer core
 → byte-identical compute-binding report
 ```
 
-The current source identities are:
+The merged current-run contract relation is:
 
 ```text
-report producer SHA-256:
-d20cb7fed3d8c1ddc10abc23882ce0cbe17d277498016a580f875614fe47becc
-
-analyzer implementation SHA-256:
-cd108bc70494203f95a3f379f6e0d953331d10357676d553d6858f44729988dd
+exact current-run subject
++ exact subject revision
++ separate protected control plane
++ exact protected revision
++ finalized carrier identity
++ authority-source identities
++ expected packet profile
+→ strict current-run expectation contract
+→ strict validator
+→ permanent regression
 ```
 
-The current proof is:
+The current open transition is:
 
 ```text
-fixed-source regression:
-33 passed
-
-analyzer-core regression:
-10 passed
-
-subject-input bridge regression:
-18 passed
-
-post-merge review:
-PASS
-
-correction required:
-none
-
-repository and tools-tree mutation:
-none
+open expectation builder
+→ close four trust boundaries
+→ merge builder
+→ permanent builder regression
+→ current-run carrier component
+→ current-run packet wrapper
+→ non-active candidate workflow
+→ first current-run artifact-observed connected proof
 ```
 
-The next mechanical transition is:
-
-```text
-current workflow run
-→ machine-produced current-run subject-input packet
-→ immutable current-run carrier binding
-→ reusable analyzer core
-→ generated artifact-observed report
-→ generated planned-observed relation
-→ non-active candidate materialization
-```
-
-That next transition remains non-active and does not itself create runtime
-evidence, a compute budget or release authority.
-
-The exact candidate result remains:
+The candidate result remains:
 
 ```text
 transition path complete:
@@ -3280,7 +3568,7 @@ When compute has a complete observed relation:
 
 ```text
 complete binding
-→ transition, evidence, preservation, advisory, or observer role is explicit
+→ transition, evidence, preservation, advisory or observer role is explicit
 ```
 
 When evidence is sufficient to establish absence:
@@ -3314,6 +3602,13 @@ The evidence rule is:
 
 ```text
 Do not convert missing recording into a positive or negative claim.
+```
+
+The AI-native operation rule is:
+
+```text
+Machine complexity is operated by the machine.
+Authority remains bound to evidence.
 ```
 
 The efficiency rule is:
