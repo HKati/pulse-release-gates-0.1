@@ -1459,8 +1459,8 @@ A proposed high-level shape is:
 
 ```json
 {
-  "carrier_schema_version": "pulsemech_witness_verification_evidence_carrier_v0",
-  "carrier_type": "pulsemech_witness_verification_evidence_carrier",
+  "schema_version": "pulsemech_witness_verification_evidence_carrier_v0",
+  "record_type": "pulsemech_witness_verification_evidence_carrier",
   "canonical_payload": {
     "schema_version": "pulsemech_witness_verification_evidence_v0",
     "record_type": "pulsemech_witness_verification_evidence",
@@ -2077,6 +2077,12 @@ true
 
 Original DSSE envelopes may remain external carrier files referenced by digest.
 
+A replay must materialize and consume their exact bytes before verifying DSSE
+signatures, certificates, timestamps or transparency bindings.
+
+An envelope identity without the corresponding exact signed bytes is not a
+complete replay input.
+
 ---
 
 ## 39. Authority boundary
@@ -2316,6 +2322,8 @@ unbound attestation-source change
 source-local reference collision
 modified attestation envelope
 modified policy envelope
+policy-envelope identity present but exact original signed envelope bytes unavailable
+attestation-envelope identity present but exact original signed envelope bytes unavailable
 stale Witness result
 previous-run result reuse
 PULSE current-run mismatch
@@ -2364,14 +2372,35 @@ Required canonical inputs include:
 ```text
 exact Witness and adapter source identities
 exact artifact subject
-exact policy payload and original policy-envelope identities
-exact attestation payloads and original attestation-envelope identities
+exact policy payload bytes
+exact original signed policy-envelope bytes and immutable identity
+exact attestation payload bytes
+exact original signed attestation-envelope bytes and immutable identities
 exact trust configuration
 exact verification configuration
 exact verification event time
 exact PULSE run binding
 all original retrieval metadata represented in the output
 ```
+
+The original signed policy- and attestation-envelope bytes are canonical replay
+inputs even when those envelopes are stored as external carriers.
+
+The canonical payload may record their immutable identities and external
+locations, but replay must materialize and consume the exact referenced
+envelope bytes.
+
+```text
+envelope digest and size
+without the exact signed envelope bytes
+→ insufficient for DSSE signature, certificate or timestamp replay
+```
+
+This requirement applies to the original upstream Witness evidence envelopes.
+
+New cryptographic wrappers generated around the PULSEmech canonical output
+payload remain in the outer carrier domain and are not part of canonical
+payload determinism.
 
 For identical canonical inputs:
 
@@ -2544,6 +2573,8 @@ wrapper-to-payload binding
 source identities
 subject binding
 policy binding
+exact original signed policy-envelope byte availability and identity
+exact original signed attestation-envelope byte availability and identities
 attestation carrier identities
 structured StepResults
 artifact-flow relations
@@ -2568,8 +2599,8 @@ The adapter must not parse human logs.
 
 ```text
 exact fixture artifact
-+ exact policy
-+ exact attestation collections
++ exact policy payload and original signed policy-envelope bytes
++ exact attestation payloads and original signed attestation-envelope bytes
 + exact trust configuration
 + exact original retrieval metadata
 → machine-produced canonical payload
@@ -2652,6 +2683,9 @@ untrusted adapter fails
 mutable upstream ref without resolved commit fails
 Go module checksum mismatch fails
 non-Go downloaded review source without content digest fails
+policy replay with envelope identity but missing exact original signed bytes fails
+attestation replay with envelope identity but missing exact original signed bytes fails
+external original signed envelope bytes are materialized and consumed
 canonical structured payload is byte-deterministic
 canonical structured payload digest is stable
 canonical payload serialization excludes its outer identity and output wrappers
