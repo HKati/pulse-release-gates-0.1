@@ -84,6 +84,21 @@ canonical_payload_member_only
 cryptographic_wrapper_serialization_domain:
 outer_carrier_only
 
+canonical_json_byte_rule:
+artifact_provenance_binding_v0_exact_bytes
+
+upstream_resigned_envelope_effect:
+new_upstream_carrier_and_new_pulse_canonical_result
+
+envelope_payload_equality:
+required_for_policy_and_every_attestation
+
+runtime_cli_identity:
+required_only_when_cli_participates
+
+x509_functionary_match_evidence:
+required_when_x509_authorization_is_used
+
 witness_interoperability_status:
 mechanical_boundary_specified_implementation_absent
 
@@ -719,6 +734,24 @@ exact carrier identity
 verified semantic policy identity
 ```
 
+A re-signed Witness policy envelope is a new upstream evidence carrier even
+when it contains the same policy payload.
+
+Because the exact original policy-envelope bytes, digest and size are canonical
+PULSEmech replay inputs, replacing that envelope changes the canonical input
+state and therefore changes the PULSEmech canonical verification-result
+identity.
+
+```text
+same Witness policy payload
++ different signed policy envelope
+→ different upstream evidence carrier
+→ different PULSEmech canonical result identity
+```
+
+Only wrappers generated around an already constructed PULSEmech canonical
+output payload may vary without changing that payload identity.
+
 ---
 
 ## 10. Functionary verification
@@ -761,6 +794,31 @@ condition or a separate admission rule.
 PULSEmech must record every verified signer identity and the exact functionary
 matching result.
 
+For public-key authorization, the record must preserve the exact verified key
+identity.
+
+For X.509 authorization, the record must additionally preserve:
+
+```text
+leaf certificate exact bytes or an exact-byte external reference
+leaf certificate SHA-256 and size
+ordered certificate-chain identities
+exact trust-anchor identity
+certificate verification time
+certificate subject and issuer identities
+certificate serial number
+URI, DNS, email and IP subject-alternative-name values
+common-name and organization values when evaluated
+Fulcio issuer and subject-extension values when evaluated
+exact policy constraint type and expected value
+exact certificate or extension value that satisfied each constraint
+functionary-match result for the exact policy step
+```
+
+If certificate or chain bytes are stored externally, replay must materialize the
+exact referenced DER or PEM bytes before certificate-path and constraint
+verification.
+
 It must not reduce the relation to:
 
 ```text
@@ -768,7 +826,8 @@ functionary_ok:
 true
 ```
 
-without the signer identities that made it true.
+without the signer, certificate-chain and matched-constraint identities that
+made it true.
 
 ---
 
@@ -1070,8 +1129,12 @@ cryptographic wrapper
 The exact admitted wrapper remains an immutable artifact with its own byte
 identity.
 
-A separately generated valid wrapper may have different bytes while still
-binding the same canonical structured payload.
+A separately generated PULSEmech output wrapper may have different bytes
+while still binding the same PULSEmech canonical structured payload.
+
+This variability rule does not apply to replacing or re-signing the original
+upstream Witness policy or attestation envelopes, because those exact envelope
+identities are canonical PULSEmech inputs.
 
 ---
 
@@ -1419,8 +1482,52 @@ outer carrier record_type:
 pulsemech_witness_verification_evidence_carrier
 ```
 
-Only the `canonical_payload` member is serialized through the deterministic
-canonical JSON procedure and hashed as the semantic verification result.
+Only the `canonical_payload` member is serialized and hashed as the semantic
+verification result.
+
+Its bytes are defined by the repository
+[Canonical JSON byte rule](../ARTIFACT_PROVENANCE_BINDING_v0.md#canonical-json-byte-rule):
+
+```python
+json.dumps(
+    value,
+    sort_keys=True,
+    separators=(",", ":"),
+    ensure_ascii=False,
+    allow_nan=False,
+).encode("utf-8")
+```
+
+The resulting byte contract is:
+
+```text
+object keys sorted
+no insignificant whitespace
+UTF-8 bytes
+no trailing newline
+NaN and Infinity rejected
+the digest field omitted from the object being digested
+```
+
+A non-Python producer must emit byte-for-byte equivalent output.
+
+Semantic JSON equality is insufficient.
+
+The future Go adapter must pass cross-language byte-conformance vectors covering
+at least:
+
+```text
+non-ASCII strings
+quotation marks and backslashes
+newlines and control characters
+<, > and & characters
+nested objects and arrays
+empty objects and arrays
+integers and every permitted numeric representation
+```
+
+If a numeric representation cannot be emitted byte-identically to the reference
+encoder, the contract must reject or normalize it before canonical encoding.
 
 The outer carrier records the identity of those exact payload bytes and any
 cryptographic wrappers applied to them.
@@ -1582,15 +1689,18 @@ A fresh wrapper report over stale Witness evidence remains stale.
 
 ## 28. Witness source identity
 
-The future observed carrier must bind:
+The future observed carrier must declare one execution mode:
 
 ```text
-Witness CLI repository
-Witness CLI human-readable ref, when used
-Witness CLI exact resolved revision
-Witness CLI reviewed-source manifest SHA-256, when source review is claimed
-Witness CLI binary SHA-256
-Witness CLI version, when available
+witness_execution_mode:
+library_api
+or
+cli
+```
+
+The following identities are required in every observed record:
+
+```text
 go-witness module path
 go-witness module version
 go-witness exact resolved revision
@@ -1603,16 +1713,48 @@ trusted adapter version
 execution environment identity
 ```
 
-A version string alone is insufficient.
+When:
+
+```text
+witness_execution_mode:
+cli
+```
+
+these additional fields are required:
+
+```text
+Witness CLI repository
+Witness CLI human-readable ref
+Witness CLI exact resolved revision
+Witness CLI reviewed-source manifest SHA-256, when source review is claimed
+Witness CLI binary SHA-256
+Witness CLI version, when available
+```
+
+When:
+
+```text
+witness_execution_mode:
+library_api
+```
+
+no Witness CLI executable identity is required, and CLI runtime fields must be
+absent rather than populated with an unrelated or invented binary identity.
+
+The upstream CLI source review recorded by this document remains a review anchor.
+It is not a claim that every future adapter execution must invoke the CLI.
+
+A version string alone is insufficient for any participating executable or
+library.
 
 ```text
 version label
 ≠
-exact executable identity
+exact participating source or executable identity
 ```
 
 The producer must not allow the subject repository to select the protected
-Witness adapter revision.
+Witness adapter, go-witness library or participating CLI revision.
 
 ---
 
@@ -1655,16 +1797,45 @@ The carrier must record:
 policy envelope path or URI
 policy envelope SHA-256
 policy envelope size
+policy payload exact-byte location or inline bytes
 policy payload SHA-256
+policy payload size
 policy payload type
+policy envelope payloadType
+decoded policy-envelope payload SHA-256
+decoded policy-envelope payload size
+envelope-to-policy-payload equality state
 policy expiry
 verified policy signer key IDs
+verified policy signer certificate and chain identities, when X.509 is used
+exact matched policy certificate or Fulcio constraints, when used
 policy signature-verification method
 policy CA roots and intermediates by digest
 policy timestamp-authority roots by digest
 policy certificate constraints
 policy Fulcio constraints
 policy KMS verifier configuration identity
+```
+
+The adapter and validator must decode the DSSE envelope and establish all of the
+following before accepting the policy relation:
+
+```text
+base64_decode(policy_envelope.payload)
+=
+exact separately supplied policy payload bytes
+
+policy_envelope.payloadType
+=
+recorded policy payload type
+
+SHA-256(base64_decode(policy_envelope.payload))
+=
+recorded policy payload SHA-256
+
+DSSE PAE signature verification inputs
+=
+that same payloadType and those same decoded payload bytes
 ```
 
 The carrier must not embed secret key material.
@@ -1679,6 +1850,10 @@ unsigned or unverified policy
 expired policy at the bound verification event
 policy payload-type mismatch
 policy envelope digest mismatch
+policy envelope decoded payload differs from separately supplied policy payload
+policy envelope payloadType differs from separately supplied policy payload type
+policy payload digest differs from the decoded envelope payload digest
+policy signature verified over a different payloadType or payload byte sequence
 unknown policy signer
 unbound external policy trust configuration
 ```
@@ -1697,12 +1872,21 @@ original retrieval time
 resolved source revision, gitoid or equivalent source identity
 exact envelope SHA-256
 exact envelope size
+attestation payload exact-byte location or inline bytes
 payload SHA-256
+payload size
 payload type
+envelope payloadType
+decoded envelope payload SHA-256
+decoded envelope payload size
+envelope-to-attestation-payload equality state
 statement predicate type
 collection name
 statement subjects
 verified signer key IDs
+verified leaf-certificate identity, when X.509 is used
+ordered verified certificate-chain identities, when X.509 is used
+exact matched subject, SAN and Fulcio constraint values, when evaluated
 timestamp verification state
 ```
 
@@ -1727,17 +1911,57 @@ original admitted envelope
 → immutable carrier identity
 ```
 
-A second envelope containing the same payload is a different carrier.
+For every policy or attestation envelope, the adapter and validator must decode
+the DSSE payload and establish:
 
 ```text
-same canonical payload
-+ different signature, certificate, timestamp or transparency data
-→ distinct cryptographic wrapper artifact
+base64_decode(envelope.payload)
+=
+exact separately supplied payload bytes
+
+envelope.payloadType
+=
+separately supplied payload type
+
+SHA-256(base64_decode(envelope.payload))
+=
+recorded payload SHA-256
+
+DSSE PAE signature verification inputs
+=
+that same payloadType and those same decoded payload bytes
 ```
 
-It may remain semantically acceptable only when independent verification proves
-that the new wrapper binds the same canonical payload identity under the
-selected trust policy.
+A valid signed envelope paired with different separately supplied payload bytes
+or a different payload type is not one evidence relation.
+
+A second signed Witness envelope containing the same Witness attestation payload
+is a different upstream evidence carrier.
+
+```text
+same Witness attestation payload
++ different signed Witness attestation envelope
+→ distinct upstream evidence carrier
+→ different canonical PULSEmech input state
+→ different PULSEmech canonical result identity
+```
+
+The second envelope may be acceptable as new evidence for the same Witness
+attestation payload only after independent verification of its own signature,
+certificate, timestamp, transparency state and functionary authorization.
+
+It does not preserve the earlier PULSEmech canonical-result identity because the
+exact original envelope bytes, digest, size and retrieval identity are canonical
+inputs.
+
+```text
+same Witness attestation payload identity
+≠
+same PULSEmech canonical result identity
+```
+
+Only wrappers generated around an already constructed PULSEmech canonical
+output payload belong to the variable outer-wrapper domain.
 
 The adapter must preserve rejected collections.
 
@@ -1831,6 +2055,14 @@ rejection reasons
 warnings
 Rego policy identities
 Rego evaluation results
+functionary match mode: public_key or x509
+verified signer key identities
+verified leaf-certificate identity, when X.509 is used
+ordered verified certificate-chain identities, when X.509 is used
+verified trust-anchor identity, when X.509 is used
+exact policy constraint identities
+exact certificate, SAN or Fulcio values matched by those constraints
+functionary-match result
 step result
 ```
 
@@ -2302,14 +2534,23 @@ A future strict implementation must reject at least:
 missing Witness policy
 malformed policy DSSE envelope
 invalid policy signature
+policy envelope decoded payload differs from separately supplied policy payload
+policy envelope payloadType differs from separately supplied policy payload type
 unknown policy signer
 expired policy at verification event
 zero-step policy
 step with no required attestations
 collection name mismatch
 missing required attestation type
+malformed attestation DSSE envelope
+unsigned attestation envelope
+cryptographically invalid attestation signature
+attestation envelope decoded payload differs from separately supplied attestation payload
+attestation envelope payloadType differs from separately supplied attestation payload type
 unauthorized functionary
 missing verified signer identity
+X.509 functionary match without exact leaf-certificate and chain identities
+X.509 functionary match without exact matched subject, SAN or Fulcio values
 failing Rego result
 duplicate attestation type with one violating instance
 missing subject digest
@@ -2328,6 +2569,8 @@ stale Witness result
 previous-run result reuse
 PULSE current-run mismatch
 untrusted adapter source
+library_api mode with invented CLI runtime identity
+cli mode with missing exact CLI source or binary identity
 logs-only verification input
 exit-code-only verification input
 unsigned unprotected structured result
@@ -2337,7 +2580,7 @@ ambiguous artifact-flow mapping represented as unique
 mutable upstream ref without resolved commit
 Go module checksum mismatch
 non-Go downloaded review source without content digest
-cryptographic wrapper whose payload binding does not match
+cryptographic output wrapper whose PULSE canonical payload binding does not match
 canonical payload containing its own final-byte digest or size
 canonical payload containing output-wrapper records
 original retrieval metadata overwritten by replay metadata
@@ -2370,13 +2613,16 @@ an independently created transparency-log record
 Required canonical inputs include:
 
 ```text
-exact Witness and adapter source identities
+exact trusted adapter and go-witness library source identities
+exact Witness CLI source and binary identity only when CLI participation is declared
 exact artifact subject
-exact policy payload bytes
+exact policy payload bytes and payload type
 exact original signed policy-envelope bytes and immutable identity
-exact attestation payload bytes
+exact attestation payload bytes and payload types
 exact original signed attestation-envelope bytes and immutable identities
+exact envelope-to-payload equality results for policy and every attestation
 exact trust configuration
+exact public-key or X.509 functionary-match evidence
 exact verification configuration
 exact verification event time
 exact PULSE run binding
@@ -2398,9 +2644,32 @@ without the exact signed envelope bytes
 
 This requirement applies to the original upstream Witness evidence envelopes.
 
-New cryptographic wrappers generated around the PULSEmech canonical output
-payload remain in the outer carrier domain and are not part of canonical
-payload determinism.
+For the policy envelope and every attestation envelope, replay must establish:
+
+```text
+decoded envelope payload bytes
+=
+separately supplied exact payload bytes
+
+envelope payloadType
+=
+separately supplied exact payload type
+
+recorded payload SHA-256
+=
+SHA-256(decoded envelope payload bytes)
+
+DSSE signature verification
+→ uses that same payloadType and those same decoded payload bytes
+```
+
+A re-signed or replaced upstream Witness envelope is a new canonical input and
+therefore produces a different PULSEmech canonical result, even when the
+underlying Witness policy or attestation payload bytes are unchanged.
+
+New cryptographic wrappers generated around the already constructed PULSEmech
+canonical output payload remain in the outer carrier domain and are not part of
+canonical payload determinism.
 
 For identical canonical inputs:
 
@@ -2420,9 +2689,16 @@ canonical structured payload SHA-256 B
 
 ### Cryptographic wrapper rule
 
-An independently generated cryptographic wrapper may differ byte-for-byte.
+This rule applies only to wrappers generated around an already constructed
+PULSEmech canonical output payload.
 
-Allowed causes of wrapper variation include:
+It does not authorize replacement or re-signing of the original upstream
+Witness policy or attestation envelopes without changing the canonical input
+and result identity.
+
+An independently generated PULSEmech output wrapper may differ byte-for-byte.
+
+Allowed causes of output-wrapper variation include:
 
 ```text
 signature bytes
@@ -2432,11 +2708,12 @@ transparency-log entry and inclusion material
 explicitly non-semantic wrapper metadata
 ```
 
-Wrapper variability is acceptable only when each wrapper independently proves:
+Output-wrapper variability is acceptable only when each wrapper independently
+proves:
 
 ```text
-payload type matches
-canonical payload bytes or digest match
+payload type matches the PULSEmech canonical output type
+exact PULSEmech canonical payload bytes or digest match
 signature verifies
 signer satisfies the selected trust policy
 timestamp state satisfies the selected policy, when required
@@ -2446,35 +2723,42 @@ transparency state satisfies the selected policy, when required
 Therefore:
 
 ```text
-byte-identical canonical payload
+byte-identical PULSEmech canonical output payload
 +
-separately valid wrapper-to-payload binding
+separately valid output-wrapper-to-payload binding
 → deterministic semantic reproduction
 ```
 
 It does not imply:
 
 ```text
-byte-identical independently generated wrappers
+byte-identical independently generated PULSEmech output wrappers
 ```
-
-The exact original admitted wrapper remains immutable and digest-bound.
 
 ```text
-original wrapper exact bytes
+PULSE output wrapper W1 exact bytes
 may equal or differ from
-regenerated wrapper exact bytes
+PULSE output wrapper W2 exact bytes
 ```
 
-Wrapper byte equality is not required across independent signing events.
+If two output wrappers differ in exact bytes, they are different carrier
+artifacts.
 
-If two wrappers differ in exact bytes, they are different carrier artifacts.
+If two output wrappers are byte-identical, they share the same content identity,
+while their production-event provenance may still be recorded separately.
 
-If two wrappers are byte-identical, they share the same content identity, while
-their production-event provenance may still be recorded separately.
+Either case may bind the same PULSEmech canonical output payload identity only
+when the output-wrapper-to-payload relation independently verifies.
 
-Either case may establish the same canonical payload identity only when the
-wrapper-to-payload relation independently verifies.
+By contrast:
+
+```text
+original upstream Witness envelope E1
+replaced or re-signed as E2
+→ new upstream evidence carrier
+→ new canonical PULSEmech input state
+→ new PULSEmech canonical result identity
+```
 
 ### Retrieval metadata rule
 
@@ -2566,16 +2850,25 @@ The validator must verify:
 ```text
 outer carrier shape
 canonical payload shape
+exact repository canonical JSON byte procedure
+cross-language canonical-byte conformance
 canonical payload serialization boundary
 canonical payload identity over exact payload bytes
 absence of self-derived payload identity and output-wrapper fields inside the payload
-wrapper-to-payload binding
+PULSE output-wrapper-to-canonical-payload binding
 source identities
+execution-mode consistency
+mandatory adapter and go-witness identities
+conditional CLI identity when CLI participation is declared
 subject binding
 policy binding
 exact original signed policy-envelope byte availability and identity
+policy envelope decoded payload bytes and payloadType equal separately supplied policy inputs
 exact original signed attestation-envelope byte availability and identities
+every attestation envelope decoded payload bytes and payloadType equal separately supplied attestation inputs
+attestation signature validity independent of functionary authorization
 attestation carrier identities
+public-key or complete X.509 functionary-match evidence
 structured StepResults
 artifact-flow relations
 time binding
@@ -2589,9 +2882,21 @@ Preferred implementation:
 ```text
 small Go adapter
 → pinned go-witness revision
+→ library_api execution mode
 → structured VerifyResult
-→ canonical PULSEmech Witness carrier
+→ exact canonical-JSON byte conformance
+→ canonical PULSEmech Witness payload
+→ separate outer carrier
 ```
+
+A CLI-backed adapter is also permitted when it declares:
+
+```text
+witness_execution_mode:
+cli
+```
+
+and binds the exact participating CLI source and binary identity.
 
 The adapter must not parse human logs.
 
@@ -2599,16 +2904,21 @@ The adapter must not parse human logs.
 
 ```text
 exact fixture artifact
-+ exact policy payload and original signed policy-envelope bytes
-+ exact attestation payloads and original signed attestation-envelope bytes
++ exact policy payload bytes and payload type
++ exact original signed policy-envelope bytes
++ verified policy envelope-to-payload equality
++ exact attestation payload bytes and payload types
++ exact original signed attestation-envelope bytes
++ verified attestation envelope-to-payload equality
 + exact trust configuration
++ exact public-key or X.509 functionary-match evidence
 + exact original retrieval metadata
 → machine-produced canonical payload
 → separate outer carrier construction
 → strict validator
 → pinned adapter replay
 → byte-identical canonical structured payload
-→ independently verified outer wrapper-to-payload binding, when wrapped
+→ independently verified PULSE output-wrapper-to-payload binding, when wrapped
 ```
 
 ### PR 6 — non-active candidate surface
@@ -2657,13 +2967,22 @@ A complete regression suite must include:
 ```text
 valid signed policy and attestation set passes
 invalid policy signature fails
+policy envelope paired with different separately supplied payload fails
+policy envelope payloadType mismatch fails
 expired policy fails at bound event time
 historical event-time replay remains explicit
 zero-step policy fails
 empty required-attestation list fails
 wrong collection name fails
 missing attestation type fails
-unauthorized signer fails
+malformed attestation DSSE envelope fails
+unsigned attestation envelope fails
+cryptographically invalid attestation signature fails
+attestation envelope paired with different separately supplied payload fails
+attestation envelope payloadType mismatch fails
+cryptographically valid but unauthorized attestation signer fails
+X.509 functionary record without exact leaf and chain identities fails
+X.509 subject, SAN or Fulcio matched-value mismatch fails
 one violating duplicate attestor fails
 Rego denial reason preserved
 no artifact overlap fails
@@ -2677,6 +2996,9 @@ PULSE run mismatch fails
 stale result fails
 search-depth substitution fails
 trust-root substitution fails
+library_api mode succeeds without a Witness CLI binary identity
+library_api mode with invented CLI participation fails
+cli mode without exact CLI source and binary identity fails
 logs-only input fails
 exit-code-only input fails
 untrusted adapter fails
@@ -2686,17 +3008,21 @@ non-Go downloaded review source without content digest fails
 policy replay with envelope identity but missing exact original signed bytes fails
 attestation replay with envelope identity but missing exact original signed bytes fails
 external original signed envelope bytes are materialized and consumed
+repository canonical JSON test vectors are byte-identical across Python and Go
+non-ASCII, escape, control-character and numeric canonicalization vectors pass
 canonical structured payload is byte-deterministic
 canonical structured payload digest is stable
 canonical payload serialization excludes its outer identity and output wrappers
 canonical payload cannot contain a self-derived digest, size or output-wrapper record
-outer carrier mutation does not alter canonical payload bytes
-original admitted wrappers remain byte-exact and digest-bound
-independently generated valid wrappers may be byte-identical or byte-different
-independently generated wrappers bind the same canonical payload digest
-wrapper payload substitution fails
-timestamp variation does not alter canonical payload identity
-transparency-log variation does not alter canonical payload identity
+mutation of outer-carrier fields outside canonical_payload leaves canonical payload bytes and digest unchanged
+mutation of canonical_payload changes its digest or causes stale-identity rejection
+original admitted upstream Witness envelopes remain byte-exact and digest-bound
+re-signing an upstream Witness policy or attestation envelope creates a new PULSEmech canonical result identity
+independently generated PULSE output wrappers may be byte-identical or byte-different
+independently generated PULSE output wrappers bind the same canonical payload digest
+PULSE output-wrapper payload substitution fails
+timestamp variation in a PULSE output wrapper does not alter canonical payload identity
+transparency-log variation in a PULSE output wrapper does not alter canonical payload identity
 original retrieval metadata is a canonical replay input
 replay retrieval metadata remains a separate observation
 original retrieval metadata cannot be overwritten by replay metadata
@@ -2716,13 +3042,20 @@ payload determinism test
 wrapper byte-identity test
 ```
 
-A valid regression may generate byte-identical or byte-different cryptographic
-wrappers.
+A valid regression may generate byte-identical or byte-different PULSEmech
+output wrappers.
 
-Each accepted wrapper must independently verify and bind the same canonical
-payload identity.
+Each accepted output wrapper must independently verify and bind the same
+PULSEmech canonical payload identity.
 
-The canonical payload bytes must remain unchanged by outer wrapper generation.
+Mutation of outer-carrier fields outside `canonical_payload`, such as output
+wrapper metadata, must not alter the canonical payload bytes or digest.
+
+Mutation of the `canonical_payload` member must change the recomputed canonical
+payload identity, or a stale `canonical_payload_identity` must cause rejection.
+
+The canonical payload bytes must remain unchanged only by operations that stay
+outside the canonical payload serialization domain.
 
 ---
 
