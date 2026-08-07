@@ -15,7 +15,7 @@ import sys
 import tempfile
 import types
 from datetime import datetime, timezone
-from pathlib import Path, PurePosixPath, PureWindowsPath
+from pathlib import Path, PurePosixPath
 from typing import Any, Iterable, Sequence
 
 import jsonschema
@@ -26,6 +26,16 @@ TOOL_NAME = "build_pulsemech_compute_current_run_export_expectation_v0"
 TOOL_VERSION = "0.1.0"
 SCHEMA_VERSION = "pulsemech_compute_current_run_export_expectation_v0"
 DOCUMENT_TYPE = "pulsemech_compute_current_run_export_expectation"
+
+# The current-run expectation producer v0 belongs to the protected Linux
+# execution profile used by the PULSEmech HPC and Linux CI control plane.
+#
+# Windows is not a target platform, compatibility target, or fallback execution
+# path for this producer. A different operating-system substrate requires a
+# separate producer identity, implementation, and mechanical trust proof.
+SUPPORTED_EXECUTION_PLATFORM = "linux"
+SUPPORTED_OS_NAME = "posix"
+EXECUTION_PROFILE = "protected_linux_hpc_control_plane"
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_EXPECTATION_SCHEMA = (
@@ -189,21 +199,9 @@ PROTECTED_OUTPUT_NAMES_CASEFOLDED = frozenset(
 )
 
 
-POSIX_TRUSTED_GIT_EXECUTABLE_CANDIDATES = (
+LINUX_TRUSTED_GIT_EXECUTABLE_CANDIDATES = (
     Path("/usr/bin/git"),
     Path("/usr/local/bin/git"),
-    Path("/opt/local/bin/git"),
-)
-WINDOWS_CURRENT_VERSION_REGISTRY_KEY = (
-    r"SOFTWARE\Microsoft\Windows\CurrentVersion"
-)
-WINDOWS_PROGRAM_FILES_REGISTRY_VALUES = (
-    "ProgramFilesDir",
-    "ProgramFilesDir (x86)",
-)
-WINDOWS_GIT_RELATIVE_EXECUTABLES = (
-    PureWindowsPath("Git/cmd/git.exe"),
-    PureWindowsPath("Git/bin/git.exe"),
 )
 
 GIT_ENV_ALLOWLIST = (
@@ -211,12 +209,9 @@ GIT_ENV_ALLOWLIST = (
     "LANG",
     "LC_ALL",
     "LC_CTYPE",
-    "SYSTEMROOT",
     "TEMP",
     "TMP",
     "TMPDIR",
-    "USERPROFILE",
-    "WINDIR",
 )
 
 
@@ -239,6 +234,23 @@ class StrictJsonError(ValueError):
 
 class StrictYamlError(ValueError):
     pass
+
+
+def _require_supported_execution_platform() -> None:
+    if (
+        sys.platform != SUPPORTED_EXECUTION_PLATFORM
+        or os.name != SUPPORTED_OS_NAME
+    ):
+        raise BuilderError(
+            "unsupported_execution_platform: "
+            f"profile={EXECUTION_PROFILE!r} "
+            f"required_sys_platform={SUPPORTED_EXECUTION_PLATFORM!r} "
+            f"required_os_name={SUPPORTED_OS_NAME!r} "
+            f"observed_sys_platform={sys.platform!r} "
+            f"observed_os_name={os.name!r}",
+            exit_kind="platform_boundary_error",
+            exit_code=2,
+        )
 
 
 class _StrictSafeLoader(yaml.SafeLoader):
@@ -322,8 +334,7 @@ def _stat_identity(value: os.stat_result) -> tuple[Any, ...]:
 
 def _strict_descriptor_snapshot_available() -> bool:
     return (
-        os.name != "nt"
-        and os.open in os.supports_dir_fd
+        os.open in os.supports_dir_fd
         and hasattr(os, "O_DIRECTORY")
         and hasattr(os, "O_NOFOLLOW")
     )
@@ -382,7 +393,6 @@ def _open_nofollow_posix(path: Path, *, label: str) -> int:
     file_flags = os.O_RDONLY
     file_flags |= int(getattr(os, "O_CLOEXEC", 0))
     file_flags |= int(getattr(os, "O_NOFOLLOW", 0))
-    file_flags |= int(getattr(os, "O_BINARY", 0))
 
     current_fd: int | None = None
     try:
@@ -446,7 +456,6 @@ def _open_nofollow_fallback(path: Path, *, label: str) -> int:
     flags = os.O_RDONLY
     flags |= int(getattr(os, "O_CLOEXEC", 0))
     flags |= int(getattr(os, "O_NOFOLLOW", 0))
-    flags |= int(getattr(os, "O_BINARY", 0))
     try:
         descriptor = os.open(candidate, flags)
     except OSError as exc:
@@ -715,159 +724,13 @@ def _workflow_ref(subject: dict[str, Any]) -> str:
     )
 
 
-def _dedupe_windows_paths(
-    values: Iterable[PureWindowsPath],
-) -> tuple[PureWindowsPath, ...]:
-    result: list[PureWindowsPath] = []
-    seen: set[str] = set()
-    for value in values:
-        key = str(value).rstrip("\\/").casefold()
-        if key in seen:
-            continue
-        seen.add(key)
-        result.append(value)
-    return tuple(result)
-
-
-def _windows_system_directory() -> PureWindowsPath:
-    if os.name != "nt":
-        raise BuilderError("windows_system_directory_unavailable: not_windows")
-    try:
-        import ctypes
-
-        buffer_size = 32768
-        buffer = ctypes.create_unicode_buffer(buffer_size)
-        length = ctypes.windll.kernel32.GetSystemWindowsDirectoryW(
-            buffer,
-            buffer_size,
-        )
-    except Exception as exc:
-        raise BuilderError(
-            f"windows_system_directory_unavailable: {exc}",
-            exit_kind="trusted_git_error",
-            exit_code=2,
-        ) from exc
-    if length <= 0 or length >= buffer_size:
-        raise BuilderError(
-            "windows_system_directory_unavailable: "
-            f"invalid_length={length}",
-            exit_kind="trusted_git_error",
-            exit_code=2,
-        )
-    directory = PureWindowsPath(buffer.value)
-    if not directory.is_absolute() or not directory.drive or not directory.root:
-        raise BuilderError(
-            f"windows_system_directory_invalid: {str(directory)!r}",
-            exit_kind="trusted_git_error",
-            exit_code=2,
-        )
-    return directory
-
-
-def _windows_registry_program_files_roots() -> tuple[PureWindowsPath, ...]:
-    if os.name != "nt":
-        return ()
-    try:
-        import winreg
-    except ImportError:
-        return ()
-
-    views: list[int] = [winreg.KEY_READ]
-    for flag_name in ("KEY_WOW64_64KEY", "KEY_WOW64_32KEY"):
-        flag = getattr(winreg, flag_name, 0)
-        access = winreg.KEY_READ | flag
-        if access not in views:
-            views.append(access)
-
-    roots: list[PureWindowsPath] = []
-    accepted_types = {winreg.REG_SZ, winreg.REG_EXPAND_SZ}
-    for access in views:
-        try:
-            key = winreg.OpenKey(
-                winreg.HKEY_LOCAL_MACHINE,
-                WINDOWS_CURRENT_VERSION_REGISTRY_KEY,
-                0,
-                access,
-            )
-        except OSError:
-            continue
-        with key:
-            for value_name in WINDOWS_PROGRAM_FILES_REGISTRY_VALUES:
-                try:
-                    raw_value, value_type = winreg.QueryValueEx(key, value_name)
-                except OSError:
-                    continue
-                if (
-                    value_type not in accepted_types
-                    or not isinstance(raw_value, str)
-                ):
-                    continue
-                value = raw_value.strip()
-                if not value or "%" in value:
-                    continue
-                candidate = PureWindowsPath(value)
-                if (
-                    candidate.is_absolute()
-                    and candidate.drive
-                    and candidate.root
-                ):
-                    roots.append(candidate)
-    return _dedupe_windows_paths(roots)
-
-
-def _windows_trusted_git_candidate_strings(
-    *,
-    system_windows_directory: str,
-    registry_program_files_roots: Iterable[str] = (),
-) -> tuple[str, ...]:
-    system_directory = PureWindowsPath(system_windows_directory)
-    if (
-        not system_directory.is_absolute()
-        or not system_directory.drive
-        or not system_directory.root
-    ):
-        raise BuilderError(
-            f"windows_system_directory_invalid: {system_windows_directory!r}",
-            exit_kind="trusted_git_error",
-            exit_code=2,
-        )
-
-    roots: list[PureWindowsPath] = []
-    for value in registry_program_files_roots:
-        root = PureWindowsPath(value)
-        if root.is_absolute() and root.drive and root.root and "%" not in value:
-            roots.append(root)
-    system_drive_root = PureWindowsPath(system_directory.anchor)
-    roots.extend(
-        (
-            system_drive_root / "Program Files",
-            system_drive_root / "Program Files (x86)",
-        )
-    )
-
-    candidates: list[PureWindowsPath] = []
-    for root in _dedupe_windows_paths(roots):
-        candidates.extend(
-            root / relative for relative in WINDOWS_GIT_RELATIVE_EXECUTABLES
-        )
-    return tuple(str(value) for value in _dedupe_windows_paths(candidates))
-
-
 def _trusted_git_candidates() -> tuple[Path, ...]:
-    if os.name != "nt":
-        return POSIX_TRUSTED_GIT_EXECUTABLE_CANDIDATES
-    system_directory = _windows_system_directory()
-    registry_roots = _windows_registry_program_files_roots()
-    return tuple(
-        Path(value)
-        for value in _windows_trusted_git_candidate_strings(
-            system_windows_directory=str(system_directory),
-            registry_program_files_roots=(str(root) for root in registry_roots),
-        )
-    )
+    _require_supported_execution_platform()
+    return LINUX_TRUSTED_GIT_EXECUTABLE_CANDIDATES
 
 
 def _validated_trusted_git(path: Path) -> Path:
+    _require_supported_execution_platform()
     if not path.is_absolute():
         raise BuilderError(
             f"trusted_git_not_absolute: {path}",
@@ -925,20 +788,19 @@ def _validated_trusted_git(path: Path) -> Path:
                 exit_kind="trusted_git_error",
                 exit_code=2,
             )
-        if os.name != "nt":
-            if metadata.st_uid != 0:
-                raise BuilderError(
-                    "trusted_git_unprotected_owner_rejected: "
-                    f"component={component} uid={metadata.st_uid}",
-                    exit_kind="trusted_git_error",
-                    exit_code=2,
-                )
-            if metadata.st_mode & (stat.S_IWGRP | stat.S_IWOTH):
-                raise BuilderError(
-                    f"trusted_git_writable_component_rejected: {component}",
-                    exit_kind="trusted_git_error",
-                    exit_code=2,
-                )
+        if metadata.st_uid != 0:
+            raise BuilderError(
+                "trusted_git_unprotected_owner_rejected: "
+                f"component={component} uid={metadata.st_uid}",
+                exit_kind="trusted_git_error",
+                exit_code=2,
+            )
+        if metadata.st_mode & (stat.S_IWGRP | stat.S_IWOTH):
+            raise BuilderError(
+                f"trusted_git_writable_component_rejected: {component}",
+                exit_kind="trusted_git_error",
+                exit_code=2,
+            )
     if not os.access(resolved, os.X_OK):
         raise BuilderError(
             f"trusted_git_not_executable: {resolved}",
@@ -2406,7 +2268,8 @@ def parse_args() -> argparse.Namespace:
         description=(
             "Build a machine-produced PULSEmech current-run export "
             "expectation from canonical metadata, exact subject artifacts, "
-            "and a separate protected control-plane checkout."
+            "and a separate protected Linux control-plane checkout for "
+            "HPC and Linux CI execution."
         )
     )
     parser.add_argument(
@@ -2469,8 +2332,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--trusted-git",
         help=(
-            "Optional approved absolute Git executable. When omitted, the "
-            "builder selects the first available protected system candidate."
+            "Optional approved absolute Linux system Git executable. "
+            "When omitted, the builder selects the first available protected "
+            "Linux candidate."
         ),
     )
     parser.add_argument(
@@ -2504,6 +2368,8 @@ def parse_args() -> argparse.Namespace:
 
 
 def _build(args: argparse.Namespace) -> bytes:
+    _require_supported_execution_platform()
+
     input_path = Path(args.input)
     expectation_schema_path = Path(args.expectation_schema)
     expectation_validator_path = Path(args.expectation_validator)
