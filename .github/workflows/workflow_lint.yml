@@ -57,6 +57,8 @@ jobs:
           # Unquoted ':' followed by whitespace inside a step name can break YAML parsing in GitHub Actions.
           colon_name_re = re.compile(r'^\s*-\s*name:\s+[^"\'].*:\s+.*$', re.MULTILINE)
           commit_line_re = re.compile(r'^\s*git\s+commit\b.*$', re.MULTILINE | re.IGNORECASE)
+          action_ref_re = re.compile(r'^\s*(?:-\s*)?uses:\s*([^\s#]+)', re.MULTILINE)
+          immutable_action_re = re.compile(r'^[^@\s]+@[0-9a-fA-F]{40}$')
 
           def has_contents_write(perms):
               if isinstance(perms, str):
@@ -69,6 +71,20 @@ jobs:
 
           for f in files:
               text = f.read_text(encoding="utf-8", errors="replace")
+
+              # Mutable action tags and branches can be retargeted after review.
+              # Local actions are repository-bound; external actions must use a
+              # full commit SHA so a compromised upstream tag cannot alter CI.
+              for action_match in action_ref_re.finditer(text):
+                  action = action_match.group(1)
+                  if action.startswith("./") or immutable_action_re.fullmatch(action):
+                      continue
+                  line_no = text[:action_match.start()].count("\n") + 1
+                  print(
+                      f"::error file={f},line={line_no}::"
+                      f"External action must be pinned to a full 40-character commit SHA: {action}"
+                  )
+                  ok = False
 
               # Extra explicit check for the known footgun (even if parsing succeeds locally).
               m = colon_name_re.search(text)
@@ -103,6 +119,25 @@ jobs:
                   ok = False
                   continue
 
+              jobs = obj.get("jobs") if isinstance(obj.get("jobs"), dict) else {}
+              for job_name, job in jobs.items():
+                  if not isinstance(job, dict):
+                      continue
+                  steps = job.get("steps") if isinstance(job.get("steps"), list) else []
+                  for step in steps:
+                      if not isinstance(step, dict):
+                          continue
+                      action = str(step.get("uses", ""))
+                      if not action.startswith("actions/checkout@"):
+                          continue
+                      inputs = step.get("with") if isinstance(step.get("with"), dict) else {}
+                      if inputs.get("persist-credentials") is not False:
+                          print(
+                              f"::error file={f}::Checkout in job {job_name!r} must set "
+                              "persist-credentials: false."
+                          )
+                          ok = False
+            
               # Minimal sanity: expect at least one of the canonical keys
               if not any(k in obj for k in ("on", "name", "jobs")):
                   print(f"::warning file={f}::Top-level keys look unusual (missing 'on'/'jobs').")
@@ -110,7 +145,6 @@ jobs:
               # Loop-risk guard: workflows that can write back to the repo must use
               # an explicit CI bypass marker when committing generated files.
               workflow_write = has_contents_write(obj.get("permissions"))
-              jobs = obj.get("jobs") if isinstance(obj.get("jobs"), dict) else {}
               job_write = any(
                   has_contents_write(j.get("permissions"))
                   for j in jobs.values()
