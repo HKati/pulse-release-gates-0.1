@@ -10,8 +10,211 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+
       - uses: actions/setup-python@v7
         with:
           python-version: "3.11"
-      - name: Validate .zenodo.json
-        run: python -m json.tool .zenodo.json > /dev/null
+
+      - name: Validate Zenodo metadata boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+
+          def object_without_duplicate_keys(pairs):
+              result = {}
+
+              for key, value in pairs:
+                  if key in result:
+                      raise ValueError(f"duplicate JSON key: {key}")
+
+                  result[key] = value
+
+              return result
+
+
+          def reject_non_finite(value):
+              raise ValueError(f"non-finite JSON number: {value}")
+
+
+          path = Path(".zenodo.json")
+          raw = path.read_bytes()
+
+          if raw.startswith(b"\xef\xbb\xbf"):
+              raise SystemExit(
+                  "ERROR: .zenodo.json must not contain a UTF-8 BOM"
+              )
+
+          try:
+              text = raw.decode("utf-8")
+              metadata = json.loads(
+                  text,
+                  object_pairs_hook=object_without_duplicate_keys,
+                  parse_constant=reject_non_finite,
+              )
+          except (UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
+              raise SystemExit(
+                  f"ERROR: invalid .zenodo.json: {exc}"
+              ) from exc
+
+          if not isinstance(metadata, dict):
+              raise SystemExit(
+                  "ERROR: .zenodo.json root must be an object"
+              )
+
+          release_specific_fields = (
+              "title",
+              "description",
+              "version",
+              "publication_date",
+          )
+
+          present_release_specific_fields = sorted(
+              field
+              for field in release_specific_fields
+              if field in metadata
+          )
+
+          if present_release_specific_fields:
+              raise SystemExit(
+                  "ERROR: .zenodo.json must not hardcode release-specific "
+                  "metadata: "
+                  + ", ".join(present_release_specific_fields)
+              )
+
+          expected_scalars = {
+              "upload_type": "software",
+              "language": "eng",
+              "license": "Apache-2.0",
+          }
+
+          for field, expected_value in expected_scalars.items():
+              actual_value = metadata.get(field)
+
+              if actual_value != expected_value:
+                  raise SystemExit(
+                      f"ERROR: {field} must equal {expected_value!r}; "
+                      f"observed {actual_value!r}"
+                  )
+
+          creators = metadata.get("creators")
+
+          if not isinstance(creators, list) or not creators:
+              raise SystemExit(
+                  "ERROR: creators must be a non-empty array"
+              )
+
+          creator_identity_present = any(
+              isinstance(creator, dict)
+              and creator.get("name") == "Horvat, Katalin"
+              and creator.get("orcid") == "0009-0001-9745-3764"
+              for creator in creators
+          )
+
+          if not creator_identity_present:
+              raise SystemExit(
+                  "ERROR: canonical creator and ORCID identity are missing"
+              )
+
+          keywords = metadata.get("keywords")
+
+          if (
+              not isinstance(keywords, list)
+              or not keywords
+              or any(
+                  not isinstance(keyword, str) or not keyword
+                  for keyword in keywords
+              )
+          ):
+              raise SystemExit(
+                  "ERROR: keywords must be a non-empty array of "
+                  "non-empty strings"
+              )
+
+          if len(keywords) != len(set(keywords)):
+              raise SystemExit(
+                  "ERROR: keywords must not contain duplicates"
+              )
+
+          required_keywords = {
+              "pulsemech",
+              "transition-measurement",
+              "transition-meter",
+              "transition-identity",
+          }
+
+          missing_keywords = sorted(
+              required_keywords.difference(keywords)
+          )
+
+          if missing_keywords:
+              raise SystemExit(
+                  "ERROR: missing required Zenodo keywords: "
+                  + ", ".join(missing_keywords)
+              )
+
+          related_identifiers = metadata.get("related_identifiers")
+
+          if not isinstance(related_identifiers, list):
+              raise SystemExit(
+                  "ERROR: related_identifiers must be an array"
+              )
+
+          observed_relations = {
+              (
+                  item.get("identifier"),
+                  item.get("relation"),
+                  item.get("scheme"),
+              )
+              for item in related_identifiers
+              if isinstance(item, dict)
+          }
+
+          required_relations = {
+              (
+                  "10.5281/zenodo.17833583",
+                  "isDocumentedBy",
+                  "doi",
+              ),
+              (
+                  "10.5281/zenodo.17214908",
+                  "isVersionOf",
+                  "doi",
+              ),
+              (
+                  "https://github.com/HKati/pulse-release-gates-0.1",
+                  "isSupplementTo",
+                  "url",
+              ),
+              (
+                  "https://github.com/HKati/pulse-guard-pack",
+                  "hasPart",
+                  "url",
+              ),
+          }
+
+          missing_relations = sorted(
+              required_relations.difference(observed_relations)
+          )
+
+          if missing_relations:
+              rendered = ", ".join(
+                  f"{identifier} | {relation} | {scheme}"
+                  for identifier, relation, scheme in missing_relations
+              )
+
+              raise SystemExit(
+                  "ERROR: missing required Zenodo relations: " + rendered
+              )
+
+          print(
+              "OK: .zenodo.json contains stable repository metadata, "
+              "preserves the canonical PULSE lineage, and leaves release "
+              "title, description, version, and publication date to the "
+              "GitHub release."
+          )
+          PY
