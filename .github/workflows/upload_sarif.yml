@@ -54,7 +54,9 @@ jobs:
 
           echo "run_id=${RUN_ID}" >> "$GITHUB_OUTPUT"
 
-          api_get "https://api.github.com/repos/${REPO}/actions/runs/${RUN_ID}" > run.json
+          api_get \
+            "https://api.github.com/repos/${REPO}/actions/runs/${RUN_ID}" \
+            > run.json
 
           RUN_NAME="$(jq -r '.name // ""' run.json)"
           if [[ "${RUN_NAME}" != "PULSE CI" ]]; then
@@ -63,12 +65,13 @@ jobs:
           fi
 
       - name: Download pulse-report artifact
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          github-token: ${{ github.token }}
-          run-id: ${{ steps.src.outputs.run_id }}
           name: pulse-report
           path: _pulse_artifacts
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ steps.src.outputs.run_id }}
 
       - name: Read source SARIF metadata
         id: target
@@ -78,7 +81,11 @@ jobs:
 
           mapfile -t meta_files < <(
             find _pulse_artifacts -type f \
-              \( -path '*/meta/sarif_upload.json' -o -path '*/artifacts/meta/sarif_upload.json' \) \
+              \( \
+                -path '*/meta/sarif_upload.json' \
+                -o \
+                -path '*/artifacts/meta/sarif_upload.json' \
+              \) \
               | sort
           )
 
@@ -109,14 +116,18 @@ jobs:
           fi
 
           case "${REF}" in
-            refs/heads/*|refs/tags/*|refs/pull/*/merge|refs/pull/*/head) ;;
+            refs/heads/*|refs/tags/*|refs/pull/*/merge|refs/pull/*/head)
+              ;;
             *)
               echo "::error::Unsupported ref in source SARIF metadata: ${REF}"
               exit 1
               ;;
           esac
 
-          if [[ "${EVENT_NAME}" == "pull_request" && "${IS_FORK}" == "true" ]]; then
+          if [[ \
+            "${EVENT_NAME}" == "pull_request" \
+            && "${IS_FORK}" == "true" \
+          ]]; then
             echo "::notice::Skipping SARIF upload for fork PR run."
             echo "skip=true" >> "$GITHUB_OUTPUT"
             echo "reason=fork_pr" >> "$GITHUB_OUTPUT"
@@ -135,7 +146,11 @@ jobs:
 
           mapfile -t sarif_files < <(
             find _pulse_artifacts -type f \
-              \( -path '*/reports/sarif.json' -o -path '*/artifacts/reports/sarif.json' \) \
+              \( \
+                -path '*/reports/sarif.json' \
+                -o \
+                -path '*/artifacts/reports/sarif.json' \
+              \) \
               | sort
           )
 
@@ -154,8 +169,13 @@ jobs:
           echo "present=true" >> "$GITHUB_OUTPUT"
           echo "path=${sarif_files[0]}" >> "$GITHUB_OUTPUT"
 
-          - name: Upload SARIF to GitHub code scanning
-            if: steps.target.outputs.skip != 'true' && steps.sarif.outputs.present == 'true'
-            uses: github/codeql-action/upload-sarif@28deaeda66b76a949e644c285e6f08b9d0a95327 # v3.28.10
-            with:
-              sarif_file: ${{ steps.sarif.outputs.path }}
+      - name: Upload SARIF to GitHub code scanning
+        if: >-
+          steps.target.outputs.skip != 'true' &&
+          steps.sarif.outputs.present == 'true'
+        uses: github/codeql-action/upload-sarif@f205ea1c3313d32999d8d6a48b4f6530d4437b38 # v4.37.4
+        with:
+          sarif_file: ${{ steps.sarif.outputs.path }}
+          ref: ${{ steps.target.outputs.ref }}
+          sha: ${{ steps.target.outputs.sha }}
+          category: pulse-gates
