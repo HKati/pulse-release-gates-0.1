@@ -63,13 +63,12 @@ jobs:
           fi
 
       - name: Download pulse-report artifact
-        uses: dawidd6/action-download-artifact@b6e2e70617bc3265edd6dab6c906732b2f1ae151 # v21
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
-          github_token: ${{ github.token }}
-          run_id: ${{ steps.src.outputs.run_id }}
+          github-token: ${{ github.token }}
+          run-id: ${{ steps.src.outputs.run_id }}
           name: pulse-report
           path: _pulse_artifacts
-          if_no_artifact_found: fail
 
       - name: Read source SARIF metadata
         id: target
@@ -155,40 +154,8 @@ jobs:
           echo "present=true" >> "$GITHUB_OUTPUT"
           echo "path=${sarif_files[0]}" >> "$GITHUB_OUTPUT"
 
-      - name: Upload SARIF to GitHub code scanning
-        if: steps.target.outputs.skip != 'true' && steps.sarif.outputs.present == 'true'
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-          REPO: ${{ github.repository }}
-          SARIF_FILE: ${{ steps.sarif.outputs.path }}
-          SARIF_REF: ${{ steps.target.outputs.ref }}
-          SARIF_SHA: ${{ steps.target.outputs.sha }}
-        run: |
-          set -euo pipefail
-
-          python3 - <<'PY' > sarif-upload.json
-          import base64
-          import gzip
-          import json
-          import os
-          from pathlib import Path
-
-          sarif = Path(os.environ["SARIF_FILE"]).read_bytes()
-          payload = {
-              "commit_sha": os.environ["SARIF_SHA"],
-              "ref": os.environ["SARIF_REF"],
-              "sarif": base64.b64encode(gzip.compress(sarif)).decode("ascii"),
-              "tool_name": "pulse-gates",
-          }
-          print(json.dumps(payload, separators=(",", ":")))
-          PY
-
-          curl -fsSL --retry 3 \
-            -X POST \
-            -H "Authorization: Bearer ${GH_TOKEN}" \
-            -H "Accept: application/vnd.github+json" \
-            -H "X-GitHub-Api-Version: 2022-11-28" \
-            -H "Content-Type: application/json" \
-            --data-binary @sarif-upload.json \
-            "https://api.github.com/repos/${REPO}/code-scanning/sarifs"
+          - name: Upload SARIF to GitHub code scanning
+            if: steps.target.outputs.skip != 'true' && steps.sarif.outputs.present == 'true'
+            uses: github/codeql-action/upload-sarif@28deaeda66b76a949e644c285e6f08b9d0a95327 # v3.28.10
+            with:
+              sarif_file: ${{ steps.sarif.outputs.path }}
