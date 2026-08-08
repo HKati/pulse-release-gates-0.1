@@ -82,6 +82,10 @@ CONTROL_PLANE_WORKFLOW_PATH = (
     ".github/workflows/pulsemech_compute_current_run_export_candidate.yml"
 )
 STATUS_SCHEMA_PATH = "schemas/status/status_v1.schema.json"
+RELEASE_DECISION_SCHEMA_PATH = "schemas/release_decision_v0.schema.json"
+POLICY_PATH = "pulse_gate_policy_v0.yml"
+GATE_REGISTRY_PATH = "pulse_gate_registry_v0.yml"
+MATERIALIZED_GATE_SET_SCHEMA = "pulse_ref_materialized_gate_sets_v0"
 
 RELEASE_DECISION_SCHEMA = "pulse_release_decision_v0"
 RELEASE_DECISION_VERSION = "0.1.0"
@@ -185,6 +189,7 @@ PROTECTED_OUTPUT_NAMES = frozenset(
     {
         "status.json",
         "release_decision_v0.json",
+        "release_decision_v0.schema.json",
         "release_authority_v0.json",
         "pulse_gate_policy_v0.yml",
         "pulse_gate_registry_v0.yml",
@@ -974,6 +979,164 @@ def _verify_git_repository(
     return head
 
 
+def _decode_git_storage_path(
+    raw: bytes,
+    *,
+    repository_root: Path,
+    label: str,
+) -> Path:
+    try:
+        value = raw.decode("utf-8", errors="strict").strip()
+    except UnicodeDecodeError as exc:
+        raise BuilderError(
+            f"{label}_invalid_utf8",
+            exit_kind="trusted_git_error",
+            exit_code=2,
+        ) from exc
+    if not value or "\x00" in value:
+        raise BuilderError(
+            f"{label}_invalid_path: {value!r}",
+            exit_kind="trusted_git_error",
+            exit_code=2,
+        )
+    candidate = Path(value)
+    if not candidate.is_absolute():
+        candidate = repository_root / candidate
+    return _validated_directory_root(candidate, label=label)
+
+
+def _git_storage_identity(
+    *,
+    git_path: Path,
+    repository_root: Path,
+    label: str,
+) -> tuple[Path, Path]:
+    common_dir = _decode_git_storage_path(
+        _run_git(
+            git_path=git_path,
+            repository_root=repository_root,
+            arguments=("rev-parse", "--git-common-dir"),
+            label=f"{label}_git_common_dir",
+        ),
+        repository_root=repository_root,
+        label=f"{label}_git_common_dir",
+    )
+    object_store = _decode_git_storage_path(
+        _run_git(
+            git_path=git_path,
+            repository_root=repository_root,
+            arguments=("rev-parse", "--git-path", "objects"),
+            label=f"{label}_git_object_store",
+        ),
+        repository_root=repository_root,
+        label=f"{label}_git_object_store",
+    )
+
+    for alternate_name in ("alternates", "http-alternates"):
+        alternate_raw = _run_git(
+            git_path=git_path,
+            repository_root=repository_root,
+            arguments=(
+                "rev-parse",
+                "--git-path",
+                f"objects/info/{alternate_name}",
+            ),
+            label=f"{label}_git_{alternate_name}_path",
+        )
+        try:
+            alternate_value = alternate_raw.decode(
+                "utf-8",
+                errors="strict",
+            ).strip()
+        except UnicodeDecodeError as exc:
+            raise BuilderError(
+                f"{label}_git_{alternate_name}_path_invalid_utf8",
+                exit_kind="trusted_git_error",
+                exit_code=2,
+            ) from exc
+        if not alternate_value or "\x00" in alternate_value:
+            raise BuilderError(
+                f"{label}_git_{alternate_name}_path_invalid: "
+                f"{alternate_value!r}",
+                exit_kind="trusted_git_error",
+                exit_code=2,
+            )
+        alternate_path = Path(alternate_value)
+        if not alternate_path.is_absolute():
+            alternate_path = repository_root / alternate_path
+        alternate_path = _normalized_absolute_path(alternate_path)
+        if alternate_path.exists():
+            payload = read_regular_file(
+                alternate_path,
+                label=f"{label}_git_{alternate_name}",
+                max_bytes=1024 * 1024,
+            )
+            if payload.strip():
+                raise BuilderError(
+                    f"{label}_git_object_alternates_rejected: "
+                    f"{alternate_path}",
+                    exit_kind="trusted_git_error",
+                    exit_code=2,
+                )
+
+    return common_dir, object_store
+
+
+def _paths_overlap(left: Path, right: Path) -> bool:
+    return (
+        same_target(left, right)
+        or path_is_within(left, right)
+        or path_is_within(right, left)
+    )
+
+
+def _verify_independent_git_storage(
+    *,
+    git_path: Path,
+    subject_root: Path,
+    control_plane_root: Path,
+) -> None:
+    subject_common, subject_objects = _git_storage_identity(
+        git_path=git_path,
+        repository_root=subject_root,
+        label="subject",
+    )
+    control_common, control_objects = _git_storage_identity(
+        git_path=git_path,
+        repository_root=control_plane_root,
+        label="control_plane",
+    )
+
+    subject_stores = (subject_common, subject_objects)
+    control_stores = (control_common, control_objects)
+    for subject_store in subject_stores:
+        for control_store in control_stores:
+            if _paths_overlap(subject_store, control_store):
+                raise BuilderError(
+                    "subject_and_control_plane_git_storage_must_be_independent: "
+                    f"subject={subject_store} control_plane={control_store}",
+                    exit_kind="trusted_git_error",
+                    exit_code=2,
+                )
+
+    for subject_store in subject_stores:
+        if path_is_within(subject_store, control_plane_root):
+            raise BuilderError(
+                "subject_git_storage_inside_control_plane_checkout: "
+                f"{subject_store}",
+                exit_kind="trusted_git_error",
+                exit_code=2,
+            )
+    for control_store in control_stores:
+        if path_is_within(control_store, subject_root):
+            raise BuilderError(
+                "control_plane_git_storage_inside_subject_checkout: "
+                f"{control_store}",
+                exit_kind="trusted_git_error",
+                exit_code=2,
+            )
+
+
 def _git_blob(
     *,
     git_path: Path,
@@ -1281,7 +1444,10 @@ def _verify_authority_sources(
     subject_root: Path,
     subject_revision: str,
     authority_sources: dict[str, Any],
-) -> tuple[dict[str, Any], bytes]:
+    trusted_workflow_name: str,
+    trusted_workflow_path: str,
+    trusted_workflow_ref: str,
+) -> tuple[dict[str, Any], dict[str, bytes]]:
     verified = copy.deepcopy(authority_sources)
     additional = verified.get("additional_sources")
     if isinstance(additional, list):
@@ -1293,8 +1459,8 @@ def _verify_authority_sources(
         )
 
     source_ids: list[str] = []
-    verified_path_identities: dict[str, tuple[str, int]] = {}
-    policy_payload: bytes | None = None
+    verified_path_payloads: dict[str, bytes] = {}
+    retained_payloads: dict[str, bytes] = {}
     for label, source in _flatten_authority_sources(verified):
         source_id = source.get("source_id")
         path_value = source.get("path_or_uri")
@@ -1313,9 +1479,24 @@ def _verify_authority_sources(
                 f"{label}_source_path_not_canonical: {path_value!r}"
             )
 
-        committed: bytes | None = None
-        cached_identity = verified_path_identities.get(canonical)
-        if cached_identity is None:
+        if label == "workflow" and canonical != trusted_workflow_path:
+            raise BuilderError(
+                "workflow_source_path_mismatch: "
+                f"expected={trusted_workflow_path!r} actual={canonical!r}"
+            )
+        if label == "policy" and canonical != POLICY_PATH:
+            raise BuilderError(
+                "policy_source_path_mismatch: "
+                f"expected={POLICY_PATH!r} actual={canonical!r}"
+            )
+        if label == "gate_registry" and canonical != GATE_REGISTRY_PATH:
+            raise BuilderError(
+                "gate_registry_source_path_mismatch: "
+                f"expected={GATE_REGISTRY_PATH!r} actual={canonical!r}"
+            )
+
+        committed = verified_path_payloads.get(canonical)
+        if committed is None:
             committed = _verify_committed_worktree_file(
                 git_path=git_path,
                 repository_root=subject_root,
@@ -1324,9 +1505,9 @@ def _verify_authority_sources(
                 label=f"authority_source_{label}",
                 max_bytes=MAX_COMPONENT_BYTES,
             )
-            cached_identity = (sha256_bytes(committed), len(committed))
-            verified_path_identities[canonical] = cached_identity
-        observed_sha, observed_size = cached_identity
+            verified_path_payloads[canonical] = committed
+        observed_sha = sha256_bytes(committed)
+        observed_size = len(committed)
         if source.get("sha256") != observed_sha:
             raise BuilderError(
                 f"{label}_source_sha256_mismatch: "
@@ -1338,33 +1519,70 @@ def _verify_authority_sources(
                 f"expected={source.get('size_bytes')!r} "
                 f"observed={observed_size}"
             )
-
-        if label == "policy":
-            if committed is None:
-                committed = _verify_committed_worktree_file(
-                    git_path=git_path,
-                    repository_root=subject_root,
-                    revision=subject_revision,
-                    repository_path=canonical,
-                    label="authority_source_policy_payload",
-                    max_bytes=MAX_COMPONENT_BYTES,
-                )
-            policy_payload = committed
+        if label in {"workflow", "policy", "gate_registry"}:
+            retained_payloads[label] = committed
 
     if len(source_ids) != len(set(source_ids)):
         raise BuilderError("authority_source_ids_not_unique")
-    if policy_payload is None:
-        raise BuilderError("verified_policy_payload_missing")
-    return verified, policy_payload
+    for required in ("workflow", "policy", "gate_registry"):
+        if required not in retained_payloads:
+            raise BuilderError(f"verified_{required}_payload_missing")
+
+    workflow_source = verified.get("workflow")
+    if not isinstance(workflow_source, dict):
+        raise BuilderError("verified_workflow_source_missing")
+    if workflow_source.get("workflow_name") != trusted_workflow_name:
+        raise BuilderError(
+            "workflow_source_name_mismatch: "
+            f"expected={trusted_workflow_name!r} "
+            f"actual={workflow_source.get('workflow_name')!r}"
+        )
+    if workflow_source.get("workflow_ref") != trusted_workflow_ref:
+        raise BuilderError(
+            "workflow_source_ref_mismatch: "
+            f"expected={trusted_workflow_ref!r} "
+            f"actual={workflow_source.get('workflow_ref')!r}"
+        )
+    workflow = parse_yaml_object(
+        retained_payloads["workflow"],
+        label="verified_workflow",
+    )
+    if workflow.get("name") != trusted_workflow_name:
+        raise BuilderError(
+            "verified_workflow_name_mismatch: "
+            f"expected={trusted_workflow_name!r} "
+            f"actual={workflow.get('name')!r}"
+        )
+
+    registry_source = verified.get("gate_registry")
+    if not isinstance(registry_source, dict):
+        raise BuilderError("verified_gate_registry_source_missing")
+    registry = parse_yaml_object(
+        retained_payloads["gate_registry"],
+        label="verified_gate_registry",
+    )
+    registry_version = registry.get("version")
+    if not isinstance(registry_version, str) or not registry_version:
+        raise BuilderError(
+            f"verified_gate_registry_version_invalid: {registry_version!r}"
+        )
+    if registry_version != registry_source.get("registry_id"):
+        raise BuilderError(
+            "verified_gate_registry_identity_mismatch: "
+            f"document={registry_version!r} "
+            f"source={registry_source.get('registry_id')!r}"
+        )
+
+    return verified, retained_payloads
 
 
-def _load_hashed_json(
+def _load_hashed_json_with_bytes(
     *,
     path: Path,
     expected_sha256: str,
     label: str,
     object_required: bool,
-) -> Any:
+) -> tuple[Any, bytes]:
     payload = read_regular_file(
         path,
         label=label,
@@ -1379,6 +1597,22 @@ def _load_hashed_json(
     value = parse_json_bytes(payload, label=label)
     if object_required and not isinstance(value, dict):
         raise BuilderError(f"{label}_not_object")
+    return value, payload
+
+
+def _load_hashed_json(
+    *,
+    path: Path,
+    expected_sha256: str,
+    label: str,
+    object_required: bool,
+) -> Any:
+    value, _payload = _load_hashed_json_with_bytes(
+        path=path,
+        expected_sha256=expected_sha256,
+        label=label,
+        object_required=object_required,
+    )
     return value
 
 
@@ -1411,6 +1645,7 @@ def _verify_trusted_current_run_binding(
     event_name: str,
     release_candidate_id: str,
     run_mode: str,
+    active_policy_sets: Sequence[str],
 ) -> None:
     expected_run_key = (
         f"GITHUB_RUN_ID={workflow_run_id}"
@@ -1434,6 +1669,7 @@ def _verify_trusted_current_run_binding(
         "event_name": event_name,
         "release_candidate_id": release_candidate_id,
         "run_mode": run_mode,
+        "active_policy_sets": list(active_policy_sets),
     }
     for field, expected_value in expected.items():
         actual = subject.get(field)
@@ -1572,12 +1808,14 @@ def _policy_gate_set(policy: dict[str, Any], name: str) -> list[str]:
         raise BuilderError(f"verified_policy_gate_set_missing: {name}")
     result: list[str] = []
     for index, item in enumerate(values):
-        if not isinstance(item, str) or not item.strip():
+        if not isinstance(item, str) or not item.strip() or item != item.strip():
             raise BuilderError(
                 "verified_policy_gate_invalid: "
                 f"set={name!r} index={index} value={item!r}"
             )
         result.append(item)
+    if len(result) != len(set(result)):
+        raise BuilderError(f"verified_policy_gate_set_not_unique: {name}")
     return result
 
 
@@ -1840,10 +2078,12 @@ def _verify_subject_artifacts(
     validator_module: Any,
     subject: dict[str, Any],
     authority_sources: dict[str, Any],
-    policy_bytes: bytes,
+    authority_payloads: dict[str, bytes],
     final_status_path: Path,
     release_decision_path: Path,
     materialized_gate_set_path: Path | None,
+    release_target: str,
+    workflow_active_policy_sets: Sequence[str],
 ) -> None:
     final_status = _load_hashed_json(
         path=final_status_path,
@@ -1876,11 +2116,16 @@ def _verify_subject_artifacts(
                 f"expected={expected!r} actual={actual!r}"
             )
 
+    policy_bytes = authority_payloads.get("policy")
+    if policy_bytes is None:
+        raise BuilderError("verified_policy_payload_missing")
     policy = _parse_verified_policy(
         policy_bytes=policy_bytes,
         policy_source=policy_source,
         subject=subject,
     )
+    for gate_set in workflow_active_policy_sets:
+        _policy_gate_set(policy, gate_set)
 
     status_schema_bytes = _verify_committed_worktree_file(
         git_path=git_path,
@@ -1922,6 +2167,45 @@ def _verify_subject_artifacts(
         label="release_decision",
         object_required=True,
     )
+    release_decision_schema_bytes = _verify_committed_worktree_file(
+        git_path=git_path,
+        repository_root=subject_root,
+        revision=subject_revision,
+        repository_path=RELEASE_DECISION_SCHEMA_PATH,
+        label="release_decision_schema",
+        max_bytes=MAX_SCHEMA_BYTES,
+    )
+    release_decision_schema = parse_json_bytes(
+        release_decision_schema_bytes,
+        label="release_decision_schema",
+    )
+    if not isinstance(release_decision_schema, dict):
+        raise BuilderError("release_decision_schema_not_object")
+    release_reference_errors = validator_module.schema_reference_policy_errors(
+        release_decision_schema,
+        label="release_decision_schema",
+    )
+    if release_reference_errors:
+        raise BuilderError(
+            "release_decision_schema_reference_policy_invalid: "
+            + " | ".join(release_reference_errors)
+        )
+    try:
+        jsonschema.Draft202012Validator.check_schema(release_decision_schema)
+    except Exception as exc:
+        raise BuilderError(
+            "release_decision_schema_draft202012_invalid: "
+            f"{type(exc).__name__}: {exc}"
+        ) from exc
+    decision_valid, decision_errors = validator_module.validate_instance(
+        release_decision_schema,
+        decision,
+        label="release_decision",
+    )
+    if not decision_valid:
+        raise BuilderError(
+            "release_decision_schema_invalid: " + " | ".join(decision_errors)
+        )
     _verify_release_decision_header(decision)
 
     materialized_sha = subject.get("materialized_gate_set_sha256")
@@ -1935,12 +2219,41 @@ def _verify_subject_artifacts(
             raise BuilderError(
                 "materialized_gate_set_path_required_for_non_null_subject_digest"
             )
-        _load_hashed_json(
+        materialized, materialized_bytes = _load_hashed_json_with_bytes(
             path=materialized_gate_set_path,
             expected_sha256=materialized_sha,
             label="materialized_gate_set",
-            object_required=False,
+            object_required=True,
         )
+        expected_materialized = {
+            "authority_boundary": {
+                "creates_release_authority": False,
+                "materialization_role": "required_gate_set_reconstruction",
+                "source": "declared_gate_policy",
+            },
+            "effective_required_gates": _effective_required_gates(
+                policy,
+                workflow_active_policy_sets,
+            ),
+            "policy_path": POLICY_PATH,
+            "policy_sha256": subject.get("policy_sha256"),
+            "schema": MATERIALIZED_GATE_SET_SCHEMA,
+            "sets": {
+                "release_required": _policy_gate_set(
+                    policy,
+                    "release_required",
+                ),
+                "required": _policy_gate_set(policy, "required"),
+            },
+        }
+        if materialized != expected_materialized:
+            raise BuilderError(
+                "materialized_gate_set_content_mismatch: "
+                f"expected={expected_materialized!r} actual={materialized!r}"
+            )
+        expected_materialized_bytes = render_json(expected_materialized)
+        if materialized_bytes != expected_materialized_bytes:
+            raise BuilderError("materialized_gate_set_not_canonical_or_exact")
 
     decision_run_mode = decision.get("run_mode")
     if decision_run_mode != subject.get("run_mode"):
@@ -1950,14 +2263,16 @@ def _verify_subject_artifacts(
             f"decision={decision_run_mode!r}"
         )
 
-    target = decision.get("target")
-    if target not in {"stage", "prod"}:
-        raise BuilderError(f"release_decision_target_invalid: {target!r}")
+    if decision.get("target") != release_target:
+        raise BuilderError(
+            "release_decision_target_mismatch: "
+            f"trusted={release_target!r} actual={decision.get('target')!r}"
+        )
 
     expected_projection = _derive_release_decision_projection(
         final_status=final_status,
         policy=policy,
-        target=target,
+        target=release_target,
         status_schema_validation=status_validation,
     )
     _verify_release_decision_projection(
@@ -1975,18 +2290,12 @@ def _verify_subject_artifacts(
             f"expected={expected_subject_decision!r} "
             f"actual={subject.get('decision')!r}"
         )
-    if decision.get("active_gate_sets") != subject.get("active_policy_sets"):
-        raise BuilderError(
-            "release_decision_active_gate_sets_mismatch: "
-            f"subject={subject.get('active_policy_sets')!r} "
-            f"decision={decision.get('active_gate_sets')!r}"
-        )
 
-    policy_path = policy_source.get("path_or_uri")
-    if decision.get("policy_path") != policy_path:
+    if decision.get("policy_path") != POLICY_PATH:
         raise BuilderError(
             "release_decision_policy_path_mismatch: "
-            f"expected={policy_path!r} actual={decision.get('policy_path')!r}"
+            f"expected={POLICY_PATH!r} "
+            f"actual={decision.get('policy_path')!r}"
         )
     status_path = decision.get("status_path")
     if not isinstance(status_path, str) or not status_path:
@@ -2312,6 +2621,22 @@ def parse_args() -> argparse.Namespace:
         required=True,
         choices=("demo", "core", "prod"),
     )
+    parser.add_argument(
+        "--release-target",
+        required=True,
+        choices=("stage", "prod"),
+        help="Independently supplied protected current-run release target.",
+    )
+    parser.add_argument(
+        "--active-policy-set",
+        dest="active_policy_sets",
+        action="append",
+        required=True,
+        help=(
+            "Workflow-effective policy set actually enforced by the source "
+            "run. Repeat in exact enforcement order."
+        ),
+    )
     parser.add_argument("--expectation-created-utc", required=True)
     parser.add_argument("--ci-workflow-or-job-identity", required=True)
     parser.add_argument(
@@ -2476,6 +2801,19 @@ def _build(args: argparse.Namespace) -> bytes:
         args.ci_workflow_or_job_identity
     ).strip()
     expectation_created_utc = str(args.expectation_created_utc).strip()
+    release_target = str(args.release_target).strip()
+    active_policy_sets = list(args.active_policy_sets or [])
+    if (
+        not active_policy_sets
+        or any(
+            not isinstance(value, str)
+            or not value
+            or value != value.strip()
+            for value in active_policy_sets
+        )
+        or len(active_policy_sets) != len(set(active_policy_sets))
+    ):
+        raise BuilderError("trusted_active_policy_sets_invalid")
     for label, value in (
         ("subject_repository", subject_repository),
         ("workflow_name", workflow_name),
@@ -2512,6 +2850,7 @@ def _build(args: argparse.Namespace) -> bytes:
         event_name=event_name,
         release_candidate_id=release_candidate_id,
         run_mode=args.run_mode,
+        active_policy_sets=active_policy_sets,
     )
 
     _verify_git_repository(
@@ -2525,6 +2864,11 @@ def _build(args: argparse.Namespace) -> bytes:
         repository_root=subject_root,
         expected_revision=subject_revision,
         label="subject",
+    )
+    _verify_independent_git_storage(
+        git_path=trusted_git,
+        subject_root=subject_root,
+        control_plane_root=control_plane_root,
     )
 
     components, component_payloads = _verify_control_plane_components(
@@ -2590,11 +2934,17 @@ def _build(args: argparse.Namespace) -> bytes:
     if subject["workflow_ref"] != _workflow_ref(subject):
         raise BuilderError("subject_workflow_ref_not_canonical")
 
-    verified_sources, verified_policy_bytes = _verify_authority_sources(
+    trusted_workflow_ref = (
+        f"{subject_repository}/{workflow_path}@{source_ref}"
+    )
+    verified_sources, authority_payloads = _verify_authority_sources(
         git_path=trusted_git,
         subject_root=subject_root,
         subject_revision=subject_revision,
         authority_sources=builder_input["authority_sources"],
+        trusted_workflow_name=workflow_name,
+        trusted_workflow_path=workflow_path,
+        trusted_workflow_ref=trusted_workflow_ref,
     )
     _verify_subject_artifacts(
         git_path=trusted_git,
@@ -2603,10 +2953,12 @@ def _build(args: argparse.Namespace) -> bytes:
         validator_module=validator_module,
         subject=subject,
         authority_sources=verified_sources,
-        policy_bytes=verified_policy_bytes,
+        authority_payloads=authority_payloads,
         final_status_path=final_status_path,
         release_decision_path=release_decision_path,
         materialized_gate_set_path=materialized_gate_set_path,
+        release_target=release_target,
+        workflow_active_policy_sets=active_policy_sets,
     )
     _verify_carrier_producer(
         carrier=builder_input["carrier"],
