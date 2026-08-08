@@ -15,7 +15,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-
+        with:
+          persist-credentials: false
       - name: "Repo hygiene: forbid case-insensitive path collisions"
         shell: bash
         run: |
@@ -72,4 +73,3 @@ jobs:
           if ! grep -q "mailto:" README.md; then
             echo "::warning::No 'mailto:' links in README.md"
           fi
-
