@@ -441,9 +441,13 @@ Its policy and verification model are not the classic in-toto layout/link model.
 Classic in-toto provides:
 
 ```text
-raw metadata carrier containing a project-owner Layout payload and signature records
+raw metadata carrier containing a project-owner Layout payload and complete signature inventory
 +
-wrapper-specific Layout signature input and verified signer relation
+wrapper-specific Layout signature input
++
+selected matching signature relation for every supplied layout-verification key
++
+per-signature status for additional carried records
 +
 ordered expected steps
 +
@@ -451,9 +455,13 @@ authorized functionary keys
 +
 step thresholds
 +
-raw metadata carriers containing Link payloads and signature records
+raw metadata carriers containing Link payloads and complete signature inventories
 +
-wrapper-specific Link signature inputs and verified signer relations
+wrapper-specific Link signature inputs
++
+selected matching signer relations for accepted Link candidates
++
+per-signature status for additional carried records
 +
 materials and products
 +
@@ -898,21 +906,59 @@ For this wrapper form, the signature input is:
 PAE(payloadType, decoded payload bytes)
 ```
 
-where the reviewed dependency constructs:
+The DSSE v1 byte construction contains literal ASCII-space separator bytes.
+For the fixed ASCII in-toto payload type, the mechanical construction is:
 
 ```text
-DSSEv1
-+
-length(payloadType)
-+
-payloadType
-+
-length(payload)
-+
-payload
+payload_type_bytes = UTF-8(payloadType)
+payload_bytes = decoded payload bytes
+
+PAE =
+  b"DSSEv1"
+  + b" "
+  + ASCII_DECIMAL(BYTE_LENGTH(payload_type_bytes))
+  + b" "
+  + payload_type_bytes
+  + b" "
+  + ASCII_DECIMAL(BYTE_LENGTH(payload_bytes))
+  + b" "
+  + payload_bytes
 ```
 
-A DSSE signature therefore authenticates the PAE-encoded payload type and
+The four `b" "` terms above are literal `0x20` separator bytes.
+The length fields are ASCII decimal encodings of byte lengths, not implicit
+concatenation and not Unicode code-point counts.
+
+The exact reviewed `securesystemslib` implementation spells the operation as:
+
+```python
+b"DSSEv1 %d %b %d %b" % (
+    len(self.payload_type),
+    self.payload_type.encode("utf-8"),
+    len(self.payload),
+    self.payload,
+)
+```
+
+The classic in-toto metadata path fixes the payload type to:
+
+```text
+application/vnd.in-toto+json
+```
+
+which is ASCII. Under that fixed profile:
+
+```text
+len(payloadType string)
+=
+UTF-8 byte length of payloadType
+```
+
+A future classic in-toto adapter must require this exact ASCII payload type or
+reject the record as outside the reviewed profile. It must not generalize the
+reviewed string-length expression to a non-ASCII payload type.
+
+A DSSE signature therefore authenticates the exact PAE-encoded payload type and
 decoded payload bytes.
 
 It does not authenticate as one byte string:
@@ -931,7 +977,97 @@ Reserializing the wrapper or adding another signature can change the raw carrier
 bytes while leaving an existing PAE input and existing valid signature
 unchanged.
 
-### 7.4 Required identity separation
+### 7.4 Signature-record verification scope
+
+The exact reviewed layout-signature path does not validate every signature
+record carried by the metadata wrapper.
+
+The outer `verify_metadata_signatures(...)` function requires a non-empty
+supplied layout-key set and iterates over every supplied verification key.
+Each iteration calls the wrapper-specific `verify_signature(...)` path once.
+That wrapper call validates only one matching carried signature relation for the
+current supplied key.
+
+The first-success return occurs inside the wrapper-specific call for one key.
+It does not validate every carried signature record, and it does not short-circuit
+the outer loop over the remaining supplied keys.
+
+For a traditional Metablock:
+
+```text
+one supplied verification key
+→ select the first carried signature record whose key ID matches the key
+  or one of its subkeys
+→ verify that selected signature over Layout.signable_bytes
+→ return for that key invocation
+```
+
+For a DSSE Envelope:
+
+```text
+one supplied verification key
+→ DSSE verify with threshold 1 over the carried signature collection
+→ one matching valid signature is sufficient for that key invocation
+→ return for that key invocation
+```
+
+Consequently, a successful layout-signature phase establishes:
+
+```text
+non-empty supplied verification-key set
++
+for each supplied layout-verification key
+→ one matching carried layout-signature relation validated
+   over the wrapper-specific signature input
+```
+
+At least one supplied key therefore succeeded because the key set is non-empty.
+Under the pinned outer function, PASS additionally requires the same one-matching-
+signature relation for every supplied key.
+
+It does not establish:
+
+```text
+every signature record carried by the wrapper verified
+
+every additional signer was trusted
+
+every unmatched signature was valid
+
+every invalid additional signature caused failure
+```
+
+A raw carrier can therefore contain:
+
+```text
+verified signature record or records
++
+additional unmatched, untrusted, invalid, or unevaluated signature records
+```
+
+while the required supplied-key verification relation still passes.
+
+A future evidence record must preserve the complete carried signature inventory
+and a per-record status such as:
+
+```text
+verified_for_supplied_key
+verification_failed_for_supplied_key
+unmatched_to_supplied_keys
+not_evaluated_by_upstream_path
+```
+
+The upstream PASS may populate only the signature relations it actually
+validated. Every other carried signature record must remain explicitly
+`not_evaluated_by_upstream_path` unless a separately identified verification
+operation checks it.
+
+The same boundary applies to Link and sublayout metadata carriers. Acceptance
+of one candidate Link establishes the selected matching signer relation used by
+`verify_link_signature_thresholds(...)`; it does not classify every additional
+signature record carried by that metadata wrapper.
+
+### 7.5 Required identity separation
 
 A future evidence record must preserve separately:
 
@@ -955,9 +1091,12 @@ signature-input identity:
   signature-input size
 
 signature relation:
-  signature entries
+  complete carried signature inventory
   verification-key identities
+  signature record selected for each supplied key
+  per-signature verification status
   verified signer identities
+  unevaluated signature identities
   verification result
 ```
 
@@ -978,6 +1117,13 @@ valid signature over wrapper-specific input
 and:
 
 ```text
+required supplied-key verification passed
+≠ every carried signature record verified
+```
+
+and:
+
+```text
 same authenticated content
 +
 different raw wrapper serialization or signature collection
@@ -993,7 +1139,7 @@ input.
 A future adapter must preserve both and must not substitute one identity for the
 other.
 
-### 7.5 Planned-path boundary
+### 7.6 Planned-path boundary
 
 The layout step list carries the project owner's expected logical arrangement.
 
@@ -1507,7 +1653,11 @@ raw layout metadata-carrier identity
 
 layout signature-input identity
 
-verified layout signer relation
+complete carried layout-signature inventory
+
+per-signature verification status
+
+verified supplied-key signer relations
 
 authenticated Layout-content identity
 
@@ -1543,7 +1693,7 @@ This document does not select or implement such a mode.
 The reviewed official verification function performs these principal activities:
 
 ```text
-1. reconstruct and verify wrapper-specific layout signature inputs
+1. require a non-empty layout-verification-key set, iterate over every supplied key, and validate one matching carried signature relation for each key over the reconstructed wrapper-specific layout signature input; additional carried signatures remain unevaluated unless separately checked
 
 2. extract the original Layout payload
 
@@ -1553,7 +1703,7 @@ The reviewed official verification function performs these principal activities:
 
 5. load Link metadata carriers for effective layout steps
 
-6. reconstruct and verify wrapper-specific Link signature inputs and authorized functionaries
+6. reconstruct wrapper-specific Link signature inputs, verify the accepted matching signer relation for each candidate Link, and evaluate effective-layout functionary authorization
 
 7. recursively verify sublayouts
 
@@ -1577,7 +1727,7 @@ Relevant failure classes include:
 ```text
 malformed input
 
-layout signature-input verification failure
+required supplied-key layout-signature verification failure
 
 layout expiration
 
@@ -1585,7 +1735,7 @@ substitution failure
 
 missing link threshold
 
-unauthorized signer or invalid Link signature-input verification
+unauthorized signer or failure of the selected Link signature relation
 
 threshold disagreement
 
@@ -1603,8 +1753,9 @@ reimplementation of the same rule system.
 
 ### 14.1 Raw carrier, signature-input, and effective-layout identity
 
-The verifier reconstructs and verifies the wrapper-specific signature input for
-the original Layout content before applying substitution.
+The verifier reconstructs the wrapper-specific signature input for the original
+Layout content and verifies one matching signature relation for every supplied
+layout-verification key before applying substitution.
 
 It then mutates the extracted `Layout` object by applying the exact substitution
 parameter map to:
@@ -1652,7 +1803,11 @@ signature-input SHA-256 and size
 +
 verification-key identities
 +
-verified signer relation
+complete carried signature inventory
++
+one selected verified signature relation for each supplied verification key under the pinned outer key loop
++
+per-signature verification status for selected and unselected records
 +
 authenticated Layout content under the wrapper-specific signature semantics
 ```
@@ -1703,7 +1858,11 @@ raw layout carrier identity
 
 wrapper-specific signature-input identity
 
-verified layout signer relation
+complete carried layout-signature inventory
+
+per-signature verification status
+
+verified supplied-key signer relations
 
 authenticated original Layout-content identity
 
@@ -1898,15 +2057,19 @@ verifier implementation, one inspection environment, and one verification
 event, a PASS can establish that:
 
 ```text
-the supplied layout signature records verified over the reconstructed wrapper-specific signature input under the supplied layout-verification keys
+the supplied layout-verification-key set was non-empty
 
-the authenticated original Layout content had not expired at verification time
+for each supplied layout-verification key, one matching carried layout-signature relation validated over the reconstructed wrapper-specific signature input
+
+additional carried layout-signature records were not thereby implied verified and remain separately classified per signature
+
+the authenticated original Layout content passed the expiration comparison against the verifier-host UTC clock value read by the pinned verifier during that verification event
 
 the effective layout was derived through the exact substitution parameter map
 
 required Link metadata was found for the effective steps
 
-accepted Link signatures verified over their wrapper-specific signature inputs
+for every accepted Link candidate, the selected matching signature relation verified over its wrapper-specific signature input; additional carried signature records were not thereby implied verified
 
 accepted Link signers were authorized for their effective steps
 
@@ -1932,7 +2095,13 @@ exact layout wrapper type
 
 exact layout signature-input mode, bytes, SHA-256, and size
 
-exact layout signature records and verification-key identities
+complete carried layout-signature inventory
+
+exact verification-key identities
+
+selected matching signature record and verified signer relation for each supplied verification key under the pinned outer key loop
+
+per-signature verification status for every carried signature record
 
 exact authenticated original Layout-content identity
 
@@ -1954,7 +2123,17 @@ exact verifier source or executable
 
 exact inspection executor and environment
 
-exact verification time
+verification-event time record
+
+verifier-clock acquisition method and source identity
+
+verifier-host UTC clock observation or a bounded observation interval
+
+clock precision, uncertainty, synchronization, and trust state
+
+exact expiration comparison inputs and result
+
+controlled-clock replay mode and control-mechanism identity, where replay is claimed
 ```
 
 These identities are part of the domain verification state.
@@ -2120,9 +2299,11 @@ without this exact relation.
 
 ---
 
-## 19. Time-binding gap
+## 19. Time-binding and verifier-clock gaps
 
-The classic Link model does not require explicit edge-level:
+### 19.1 Transition-element time gap
+
+The classic `Link` model does not require explicit edge-level:
 
 ```text
 event start
@@ -2142,7 +2323,7 @@ time uncertainty
 
 The order of steps in the effective layout expresses expected logical structure.
 
-Artifact MATCH relations can provide digest-backed dependency continuity.
+Artifact `MATCH` relations can provide digest-backed dependency continuity.
 
 Neither automatically provides measured event time.
 
@@ -2155,7 +2336,7 @@ effective layout order
 artifact dependency
 ≠ wall-clock sequence
 
-verification time
+verification-event time
 ≠ step event time
 
 Link carrier creation time inferred externally
@@ -2165,7 +2346,8 @@ Link carrier creation time inferred externally
 The PULSEmech Transition Meter requires each ordered transition element to carry
 its own event-time and observation-time bindings.
 
-A classic in-toto mapping must therefore preserve the time state as:
+A classic in-toto mapping must therefore preserve the transition-element time
+state as:
 
 ```text
 unbound
@@ -2177,7 +2359,7 @@ or
 externally_bound_by_separate_evidence
 ```
 
-It must not manufacture timestamps from:
+It must not manufacture transition-element timestamps from:
 
 ```text
 filesystem modification time
@@ -2186,12 +2368,175 @@ metadata retrieval time
 
 Git commit time
 
-verification time
+verification-event time
 
 effective layout step index
 ```
 
 unless the exact meaning and source of that time are separately recorded.
+
+### 19.2 Layout-expiration clock boundary
+
+The pinned verifier performs the expiration check through the mechanical
+relation:
+
+```text
+parsed Layout.expires
+<=
+datetime.datetime.now(tz.tzutc())
+→ LayoutExpiredError
+```
+
+The verifier reads the current UTC value from the verifier host during
+execution.
+
+The public verification interface does not accept a verification-time argument.
+
+It also does not return the exact internal clock value read by the expiration
+function.
+
+Therefore:
+
+```text
+recorded verification-event time
+≠ controlled verifier-clock input
+```
+
+and:
+
+```text
+same raw carriers
++
+same verification keys
++
+same substitutions
++
+same verifier revision
++
+different verifier-host clock value
+→ potentially different expiration outcome
+```
+
+A layout can pass before expiration and fail when the same evidence is replayed
+after expiration.
+
+An incorrectly trusted or materially inaccurate host clock can also admit
+content that should already be expired or reject content that should still be
+valid.
+
+A future evidence record must preserve the clock boundary explicitly:
+
+```text
+clock acquisition implementation:
+  datetime.datetime.now(tz.tzutc())
+
+clock source identity:
+  verifier host and operating-system clock source
+  synchronization source where known
+  virtualization or clock-control layer where present
+
+clock observation:
+  exact UTC value when instrumented
+  or
+  bounded before-read and after-read UTC interval
+
+clock quality:
+  precision
+  uncertainty
+  synchronization status
+  trust status
+
+expiration evaluation:
+  exact Layout.expires source value
+  parsed expiration instant
+  comparison operator
+  observed or bounded verifier-clock value
+  PASS or expired result
+```
+
+If the exact internal read is not instrumented, the record must not invent one.
+It may preserve a bounded observation interval around the call and classify the
+clock binding as partial.
+
+### 19.3 Controlled-clock replay classes
+
+A later replay must distinguish three mechanically different operations.
+
+#### Full controlled-clock replay
+
+```text
+exact verifier revision
++
+exact dependency set
++
+exact evidence and trust inputs
++
+identified isolated clock-control mechanism
++
+replay clock fixed to the recorded clock observation
+→ attempt to reproduce the original expiration decision
+```
+
+The record must bind:
+
+```text
+clock-control mechanism identity
+clock-control configuration
+replay UTC value
+clock precision and uncertainty
+proof that the verifier process consumed the controlled clock
+```
+
+#### Expiration-decision reconstruction
+
+```text
+exact parsed Layout.expires
++
+recorded clock observation
++
+exact comparison rule
+→ reconstructed expiration result
+```
+
+This can reproduce the comparison result.
+
+It is not a complete end-to-end replay of the unmodified verifier.
+
+#### Uncontrolled current-clock verification
+
+```text
+same evidence
++
+current host clock
+→ new verification event
+```
+
+This is a fresh verification under a new time state.
+
+It is not reproduction of the original expiration decision.
+
+If controlled-clock replay cannot be established, the defined reproduction-axis
+value must remain one of:
+
+```text
+bounded_replay_only
+```
+
+or:
+
+```text
+not_reproduced
+```
+
+The qualification belongs in a separate scope binding, for example:
+
+```text
+reproduction_scope:
+layout_expiration_component
+```
+
+No record may claim exact expiration replay merely because it stored a timestamp
+next to the verifier result.
 
 ---
 
@@ -2270,14 +2615,29 @@ Those relation classes require additional domain evidence.
 The layout-verification keys are supplied to the verifier from outside the
 layout verification procedure.
 
-The verifier can establish that:
+The exact reviewed path can establish that:
 
 ```text
-the supplied key verifies a signature over the reconstructed wrapper-specific signature input for the Layout metadata
+for every supplied layout-verification key
+→ one matching carried signature record verifies
+   over the reconstructed wrapper-specific signature input
 ```
 
-It does not establish that the signature authenticates every byte of the raw
-metadata carrier.
+For a Metablock, the wrapper path verifies only the first carried signature
+record whose key ID matches the supplied key or one of its subkeys.
+
+The outer pinned function repeats this wrapper call for every supplied key.
+The first matching signature selected for one key does not classify any other
+carried signature record as valid or trusted.
+
+For a DSSE Envelope, the wrapper path invokes threshold-one verification with
+one supplied key and accepts one matching valid signature for that invocation.
+
+This does not establish that every signature record in the raw metadata carrier
+was verified, valid, or trusted.
+
+It also does not establish that any verified signature authenticates every byte
+of the raw metadata carrier.
 
 It also does not independently establish:
 
@@ -2313,7 +2673,9 @@ key acquisition record
 
 key authorization policy
 
-verification event time
+verification-event time record
+
+verifier-clock source identity, observation, precision, uncertainty, and trust state
 
 revocation-handling policy
 
@@ -2321,7 +2683,13 @@ supersession policy
 
 wrapper-specific signature-input identity
 
-verified signature and signer result
+complete carried signature inventory
+
+selected matching signature record for each supplied key under the pinned outer key loop
+
+per-signature verification status
+
+verified signature and signer relations
 ```
 
 A key ID alone is not a complete trust-root identity.
@@ -2332,6 +2700,12 @@ key ID
 
 valid signature over wrapper-specific input
 ≠ every raw carrier byte authenticated
+
+required supplied-key signature verification passed
+≠ every carried signature record verified
+
+outer key-loop completion
+≠ complete signature-inventory verification
 
 valid signature
 ≠ current authorization
@@ -2404,7 +2778,15 @@ It cannot replace the second.
 
 ## 23. Layout freshness and replay boundary
 
-Classic in-toto Layout expiration provides a time limit.
+Classic in-toto Layout expiration provides a time limit evaluated against the
+verifier-host UTC clock read during the verification event.
+
+The result is clock-relative.
+
+```text
+Layout accepted as not expired
+≠ Layout intrinsically timeless or replay-stable
+```
 
 Expiration alone does not establish:
 
@@ -2432,11 +2814,18 @@ wrapper-specific layout signature valid
 
 old valid authenticated Layout content
 ≠ current authorized effective layout
+
+not expired under one verifier-clock observation
+≠ same expiration result under another clock observation
+
+recorded verification-event timestamp
+≠ controlled clock consumed by the expiration function
 ```
 
-A future record must bind the exact expected authenticated Layout-content identity, raw evidence-carrier identity, and exact
-substitution parameter identity through protected PULSE policy or another
-authenticated selection mechanism.
+A future record must bind the exact expected authenticated Layout-content
+identity, raw evidence-carrier identity, exact substitution parameter identity,
+verifier-clock boundary, and expiration result through protected PULSE policy or
+another authenticated selection mechanism.
 
 ---
 
@@ -2577,14 +2966,17 @@ An unresolved object must remain unresolved.
 | `changed_relations` | CREATE, DELETE, MODIFY results under the effective layout | Deterministically derivable | Only declared paths and effective rules |
 | `ordered_transition_elements` | Ordered effective layout steps | Planned order directly available | Actual event-time order unbound |
 | `path_identity` | Authenticated Layout-content identity under wrapper-specific signature semantics + exact substitution parameter map + deterministic effective-layout identity + authenticated Link-content identities + effective rules | Derivable only when all semantic inputs and the derivation procedure are preserved | Raw carrier identities remain separate evidence identities; summary Link alone is insufficient |
-| `participating_entities` | Verification keys and accepted Link signer relations | Direct after signature verification | Key identity is not full authorization provenance |
+| `participating_entities` | Supplied verification keys and accepted Layout/Link signer relations | Direct only for the signature relations actually verified | Key identity is not full authorization provenance; extra carried signatures may remain unevaluated |
+| `layout_signature_verification_scope` | Non-empty supplied layout-verification-key set + one selected matching signature relation per supplied key + complete carried signature inventory | Direct and diagnostic | The pinned outer loop requires one matching valid relation for each supplied key; additional carried signatures remain unevaluated unless separately checked |
 | `system_boundary` | Raw carriers, authenticated content, effective layout, steps, sublayouts, and verification environment | Partial | General external boundary not encoded |
 | `boundary_crossings` | Effective MATCH relations and sublayout delegation | Partial | Domain-specific artifact crossings |
 | `event_time_binding` | No required Link field | Unavailable by default | Requires separate evidence |
 | `observation_time_binding` | No required Link field | Unavailable by default | Requires separate evidence |
-| `record_verification_time_binding` | Verification event | Separately recordable | Must not substitute for step time |
+| `record_verification_time_binding` | Verification-event record | Separately recordable | Must not substitute for step time or for the internal clock value consumed by expiration checking |
+| `verification_clock_binding` | Verifier-host UTC clock read through `datetime.datetime.now(tz.tzutc())` | Separately instrumented or bounded | Public API does not accept or return the exact clock input; source identity, precision, uncertainty, and trust must remain explicit |
+| `layout_expiration_status` | Parsed `Layout.expires` compared with verifier-host clock | Domain result relative to one clock state | Same evidence can PASS before expiry and fail later; controlled-clock replay is separate |
 | `measurement_refs` | Raw metadata-carrier identities + wrapper-specific signature-input identities + authenticated payload-content identities | Direct and derived components | No one identity may substitute for the others |
-| `evidence_refs` | Raw layout, Link, sublayout, and inspection carriers; signature inputs; signature records; substitutions; accepted result references | Direct | Full evidence and effective-layout derivation tree required |
+| `evidence_refs` | Raw layout, Link, sublayout, and inspection carriers; signature inputs; complete signature inventories and per-record statuses; substitutions; clock-bound expiration inputs; accepted result references | Direct | Full evidence, effective-layout derivation, signature-selection, and clock-boundary tree required |
 | `domain_verifier_binding` | Exact in-toto verifier and exact signature-input dependency source | Separately bound | Version label alone is insufficient |
 | `transition_verifier_binding` | Future PULSEmech mapper/verifier | Not implemented | Must remain separate from in-toto |
 | `alternative_paths` | No native complete model | Unresolved by default | Must not be inferred from one passing effective layout |
@@ -2592,7 +2984,7 @@ An unresolved object must remain unresolved.
 | `remaining_admissible_paths` | Not represented | Unresolved | Requires separate analysis |
 | `unresolved_edges` | Failures and missing evidence | Partial | Not persisted as multiaxial record by default |
 | `reconstruction_method` | Exact verifier replay plus signature-input reconstruction, effective-layout derivation, and mapping rule | Future derived record | Not yet implemented |
-| `reproduction_status` | Exact replay may be possible | Bounded | Raw carriers, signature inputs, substitutions, inspections, and environment affect replay |
+| `reproduction_status` | Exact replay may be possible only under controlled signature, substitution, inspection, environment, and clock boundaries | Bounded | A current-clock rerun is a new verification event; exact expiration replay requires a controlled clock or remains unreproduced |
 | `causal_status` | Not a classic in-toto object | `not_evaluated` or `sequence_only` maximum by default | No causal promotion |
 | `authority_status` | Not a classic in-toto object | `none` | PULSEmech controls authority separately |
 | `authority_effect` | None | Direct PULSE boundary | Verification does not create release authority |
@@ -2636,7 +3028,8 @@ Artifact identities may be:
 bound
 ```
 
-while event time or external boundaries remain:
+while event time, verifier-clock provenance, per-signature status, or external
+boundaries remain:
 
 ```text
 unbound
@@ -2665,7 +3058,11 @@ exact_raw_layout_carrier_identity
 +
 exact_layout_signature_input_identity
 +
-verified_layout_signer_relation
+complete_layout_signature_inventory
++
+per_signature_verification_status
++
+verified_supplied_key_signer_relations
 +
 exact_substitution_parameter_map
 +
@@ -2686,14 +3083,18 @@ another policy, or another verifier.
 
 ### 26.4 Reproduction status
 
-Without exact environment and isolated inspection replay, the maximum may be:
+Without exact environment, isolated inspection replay, and a controlled verifier
+clock for the expiration check, the maximum may be:
 
 ```text
 bounded_replay_only
 ```
 
-Exact reproduction requires every relevant input and execution boundary to be
-preserved.
+A current-clock rerun is a new verification event, not an exact replay of the
+original expiration decision.
+
+Exact reproduction requires every relevant evidence, signature-selection,
+substitution, execution, environment, and clock boundary to be preserved.
 
 ### 26.5 Causal status
 
@@ -2738,7 +3139,19 @@ layout_wrapper_type_present
 
 layout_signature_input_identity_present
 
-layout_signature_verified
+layout_signature_records_carried
+
+layout_verification_keys_supplied
+
+layout_verification_keys_with_matching_valid_signature
+
+layout_signature_records_verified
+
+layout_signature_records_failed
+
+layout_signature_records_unmatched
+
+layout_signature_records_not_evaluated
 
 authenticated_layout_content_identity_present
 
@@ -2776,6 +3189,16 @@ steps_with_event_time_binding
 
 steps_with_observation_time_binding
 
+verifier_clock_source_identity_present
+
+verifier_clock_observation_status
+
+verifier_clock_precision_and_uncertainty_present
+
+layout_expiration_evaluation_present
+
+controlled_clock_replay_status
+
 sublayouts_present
 
 sublayouts_fully_preserved
@@ -2800,7 +3223,15 @@ A meaningful record may say:
 ```text
 1 raw layout metadata carrier preserved
 
-1 wrapper-specific layout signature input reconstructed and verified
+1 wrapper-specific layout signature input reconstructed
+
+3 carried layout signature records preserved
+
+1 supplied layout-verification key
+
+1 matching layout signature record verified for the supplied key
+
+2 additional carried layout signature records not evaluated by the upstream path
 
 1 authenticated Layout-content identity preserved
 
@@ -2819,6 +3250,14 @@ A meaningful record may say:
 0 step event-time bindings present
 
 0 step observation-time bindings present
+
+verifier-clock source identity recorded
+
+exact internal clock read not instrumented; bounded observation interval preserved
+
+layout expiration comparison passed under that bounded clock state
+
+controlled-clock replay not performed
 
 2 command alignments matched
 
@@ -3079,9 +3518,9 @@ Layout and Link payload validation
 
 wrapper-specific layout signature-input reconstruction
 
-layout signature verification
+verification of one matching layout-signature relation for each supplied verification key under the pinned outer key loop
 
-Layout expiration
+Layout expiration against the verifier-host UTC clock read during execution
 
 substitution semantics
 
@@ -3113,11 +3552,15 @@ exact upstream and signature-dependency source identities
 
 exact raw layout metadata carrier
 
-layout wrapper type and signature records
+layout wrapper type and complete carried signature inventory
 
 exact layout signature-input identity
 
-verified layout signer relation
+selected matching signature record for every supplied verification key
+
+per-signature verification status
+
+verified supplied-key signer relations
 
 authenticated original Layout-content identity
 
@@ -3127,15 +3570,27 @@ exact effective-layout derivation identity
 
 exact raw Link and sublayout carriers
 
-Link and sublayout wrapper types and signature records
+Link and sublayout wrapper types and complete carried signature inventories
 
 exact Link and sublayout signature-input identities
+
+selected matching signature records for accepted Link and sublayout candidates
+
+per-signature verification statuses for Link and sublayout carriers
 
 verified Link and sublayout signer relations
 
 external layout trust roots
 
 exact verification configuration
+
+verifier-clock acquisition method and source identity
+
+clock observation or bounded observation interval
+
+clock precision, uncertainty, synchronization, and trust state
+
+expiration comparison inputs, result, and controlled-clock replay status
 
 exact inspection mode
 
@@ -3207,6 +3662,8 @@ read in-toto metadata carriers
 → independently redefine Metablock canonical signature input
 → independently redefine DSSE PAE signature input
 → independently reimplement signature verification
+→ silently mark every carried signature as verified after one required relation passes
+→ independently replace the verifier-host expiration clock with an unrelated recorded timestamp
 → independently reimplement substitution semantics
 → independently reimplement threshold semantics
 → independently reimplement artifact-rule engine
@@ -3238,13 +3695,17 @@ preserve exact raw metadata carriers
 
 preserve wrapper-specific signature-input identities
 
-preserve exact verification keys and signer results
+preserve complete carried signature inventories
+
+preserve exact verification keys, selected matching signature records, per-signature statuses, and verified signer relations
 
 preserve exact substitution parameter map
 
 derive and bind exact effective-layout identity
 
-replay official verifier under controlled conditions
+preserve verifier-clock source, observation or bound, precision, uncertainty, trust state, and expiration result
+
+replay official verifier under controlled evidence, execution, and clock conditions
 
 preserve typed result and complete evidence tree
 
@@ -3321,7 +3782,7 @@ participating executable or library digest
 adapter identity
 ```
 
-### 32.4 Raw carrier and signature-input separation
+### 32.4 Raw carrier, signature input, and signature-selection scope
 
 The implementation must bind separately:
 
@@ -3330,7 +3791,7 @@ exact raw metadata-carrier identities
 
 wrapper types
 
-signature records
+complete carried signature inventories
 
 wrapper-specific signature-input modes
 
@@ -3338,12 +3799,21 @@ exact signature-input identities
 
 verification-key identities
 
-verified signer relations
+selected matching signature record for every supplied verification key
+
+per-signature verification status
+
+verified supplied-key signer relations
+
+unevaluated signature-record identities
 
 authenticated payload-content identities
 ```
 
 It must not claim that valid signatures authenticate every raw wrapper byte.
+
+It must also not claim that successful required-key verification validates every
+signature record carried by the wrapper.
 
 ### 32.5 Effective-layout identity
 
@@ -3390,13 +3860,42 @@ The implementation must define and prove a safe inspection execution boundary.
 The exact layout-verification keys and their protected selection mechanism must
 be part of the record.
 
-### 32.9 Time-gap preservation
+The record must distinguish:
+
+```text
+supplied key set
+verified matching signature relation per supplied key
+complete carried signature inventory
+unmatched or unevaluated additional signature records
+```
+
+### 32.9 Transition-time preservation
 
 Missing event and observation times must remain explicitly unbound.
 
 They must not be synthesized from unrelated timestamps.
 
-### 32.10 No causal or authority promotion
+### 32.10 Verifier-clock and expiration replay boundary
+
+The implementation must preserve:
+
+```text
+verifier-clock acquisition implementation
+clock source identity
+observed UTC value or bounded observation interval
+clock precision and uncertainty
+clock synchronization and trust state
+exact Layout.expires source and parsed value
+comparison rule and result
+controlled-clock replay mode
+clock-control mechanism identity where replay is claimed
+```
+
+A current-clock rerun must be classified as a new verification event.
+
+It must not be represented as reproduction of the original expiration decision.
+
+### 32.11 No causal or authority promotion
 
 Artifact continuity must not be promoted into causal necessity, sufficiency, or
 exclusivity.
@@ -3424,7 +3923,13 @@ one exact raw layout metadata carrier
 
 one exact wrapper-specific layout signature input
 
-one exact layout signature and verification-key set
+one exact complete carried layout-signature inventory
+
+one exact supplied layout-verification-key set
+
+one exact selected matching signature record for each supplied key under the pinned outer key loop
+
+one exact per-signature verification-status record
 
 one exact authenticated original Layout-content identity
 
@@ -3446,6 +3951,14 @@ one exact official verifier execution
 
 one exact verification event
 
+one identified verifier-clock source and acquisition path
+
+one exact clock observation or bounded clock-observation interval
+
+one recorded clock precision, uncertainty, synchronization, and trust state
+
+one explicit controlled-clock replay mode
+
 one exact PULSE current-run subject supplied only to the separate binding step
 ```
 
@@ -3454,11 +3967,17 @@ The study should preserve:
 ```text
 all raw carrier bytes, digests, and sizes
 
-all wrapper types and signature records
+all wrapper types and complete carried signature inventories
 
 all wrapper-specific signature-input bytes, digests, and sizes
 
-all verification-key and verified signer identities
+all supplied verification-key identities
+
+all selected matching signature records
+
+all per-signature verification statuses, including unevaluated records
+
+all verified supplied-key signer relations
 
 all original Layout steps and rules
 
@@ -3469,6 +3988,16 @@ the complete effective-layout derivation
 all effective steps and rules
 
 all accepted, rejected, and ignored Link identities where the upstream surface exposes them
+
+verifier-clock acquisition implementation and source identity
+
+exact clock observation or bounded observation interval
+
+clock precision, uncertainty, synchronization, and trust state
+
+exact expiration comparison inputs and result
+
+controlled-clock replay configuration and result
 
 all warnings
 
@@ -3487,6 +4016,88 @@ the exact selected accepted product reference
 the subject-to-product comparison result
 
 all Transition Meter fields that remain unavailable
+```
+
+The study must include at least these signature-scope cases:
+
+```text
+one supplied layout-verification key
++
+one matching valid signature record
++
+one additional invalid or untrusted signature record
+→ required-key layout-signature phase may pass
+→ additional record remains not_evaluated_by_upstream_path or separately failed
+→ additional record must not be reported as verified
+```
+
+```text
+two supplied layout-verification keys
++
+one matching valid signature record for each key
+→ required-key layout-signature phase passes
+```
+
+```text
+two supplied layout-verification keys
++
+one key has no matching valid signature record
+→ required-key layout-signature phase fails
+```
+
+The study must include this DSSE signature-input vector:
+
+```text
+payloadType:
+application/vnd.in-toto+json
+
+expected signature input:
+b"DSSEv1"
++ b" "
++ ASCII_DECIMAL(BYTE_LENGTH(UTF-8(payloadType)))
++ b" "
++ UTF-8(payloadType)
++ b" "
++ ASCII_DECIMAL(BYTE_LENGTH(decoded_payload_bytes))
++ b" "
++ decoded_payload_bytes
+```
+
+The vector must prove the literal `0x20` separators and the byte-length rule.
+A non-ASCII payload type must be rejected as outside the fixed reviewed classic
+in-toto profile rather than processed through an ambiguous character-count rule.
+
+The study must include at least these verifier-clock cases:
+
+```text
+same exact evidence and verifier
++
+trusted clock before Layout.expires
+→ expiration check passes
+```
+
+```text
+same exact evidence and verifier
++
+trusted clock at or after Layout.expires
+→ LayoutExpiredError
+```
+
+```text
+recorded original clock observation
++
+identified controlled-clock mechanism
++
+exact verifier replay consuming that controlled clock
+→ original expiration decision may be reproduced
+```
+
+```text
+recorded timestamp only
++
+uncontrolled current host clock
+→ new verification event
+→ not exact expiration replay
 ```
 
 The study must include at least these subject-binding cases:
@@ -3601,8 +4212,23 @@ valid Metablock signature
 ≠ complete raw Metablock bytes authenticated
 
 valid DSSE signature
-→ PAE(payloadType, decoded payload bytes) authenticated
+→ exact PAE with literal ASCII-space separators and byte-length fields authenticated
 ≠ complete raw Envelope bytes authenticated
+
+PAE construction without the four literal `0x20` separators
+≠ DSSE v1 signature input
+
+Unicode character count for an unrestricted non-ASCII payload type
+≠ general DSSE byte-length rule
+
+fixed reviewed ASCII in-toto payload type
+→ string length equals UTF-8 byte length
+
+required supplied-key layout-signature verification passed
+≠ every carried layout signature record verified
+
+one matching signature verified for a supplied key
+≠ every additional signature record valid or trusted
 
 same authenticated payload content
 +
@@ -3645,8 +4271,14 @@ summary Link
 summary Link last-step command and byproducts
 ≠ threshold-wide command and byproduct agreement
 
-authenticated Layout content not expired
-≠ latest authorized Layout state
+authenticated Layout content not expired under one verifier-clock observation
+≠ same expiration result under another clock observation
+
+recorded verification-event timestamp
+≠ controlled clock consumed by the expiration function
+
+same evidence and verifier before expiry
+≠ same outcome after expiry
 
 valid wrapper-specific layout signature
 ≠ current trust authorization
@@ -3687,9 +4319,13 @@ Classic in-toto provides a strong software-supply-chain evidence mechanism.
 Its central verified relation is:
 
 ```text
-one exact raw metadata carrier containing original Layout content and signature records
+one exact raw metadata carrier containing original Layout content and a complete signature inventory
 +
-one wrapper-specific layout signature input and verified signer relation
+one wrapper-specific layout signature input
++
+one selected matching signature record and verified signer relation for every supplied layout-verification key
++
+per-signature status for every additional carried signature record
 +
 one exact substitution parameter map
 +
@@ -3702,7 +4338,9 @@ one exact set of wrapper-specific Link signature inputs and verified signer rela
 one exact effective artifact-rule relation
 +
 one exact verifier execution
-→ effective-layout-relative artifact-chain conformance
++
+one bound verifier-clock source and expiration evaluation state
+→ effective-layout-relative artifact-chain conformance under one exact clock state
 ```
 
 The raw carrier identity and authenticated content identity remain separate.
@@ -3733,6 +4371,8 @@ It does not by itself provide:
 complete actual execution coverage
 
 element-level event and observation time
+
+clock-independent expiration replay without a controlled clock boundary
 
 general opened or closed system-path identity
 
