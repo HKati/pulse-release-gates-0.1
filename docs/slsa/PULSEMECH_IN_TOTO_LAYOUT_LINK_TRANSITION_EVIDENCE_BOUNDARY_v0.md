@@ -39,8 +39,35 @@ a8ce9ee2125ae5a4b041a4e37cc1cf10eed0da6b
 upstream_package_version:
 3.0.0
 
+upstream_reviewed_surface_manifest_lines:
+12
+
+upstream_reviewed_surface_manifest_bytes:
+745
+
 upstream_reviewed_surface_manifest_sha256:
-d488223c04f2eed4fe486de4491326bcff308339b05515bb0c8ab3eb657b3025
+7ebf366524ea700745fd7a758861240e27a6d5b560681e9846253cae26bdec27
+
+upstream_signature_dependency_repository:
+secure-systems-lab/securesystemslib
+
+upstream_signature_dependency_version:
+1.3.1
+
+upstream_signature_dependency_resolved_revision:
+6f774190b90f0aa9d5d7e077680adbaa29c5cd6c
+
+upstream_signature_dependency_selection_source:
+in-toto/in-toto requirements-pinned.txt at reviewed revision
+
+upstream_signature_dependency_reviewed_surface_manifest_lines:
+2
+
+upstream_signature_dependency_reviewed_surface_manifest_bytes:
+135
+
+upstream_signature_dependency_reviewed_surface_manifest_sha256:
+d2c0056cb1042b3a4df9ac26bc15feb92ab4d2a159e2c52ab0b653530b517eb5
 
 upstream_specification_repository:
 in-toto/specification
@@ -51,11 +78,14 @@ upstream_specification_reviewed_revision:
 upstream_specification_version:
 1.0.0
 
+upstream_specification_reviewed_surface_manifest_lines:
+1
+
+upstream_specification_reviewed_surface_manifest_bytes:
+57
+
 upstream_specification_reviewed_surface_manifest_sha256:
 36a44fc639ec528deb61b6b831f4b4a3ba68bffc82901352c977db4a7a7ca038
-
-reviewed_surface_manifest_byte_rule:
-utf8_lexicographically_sorted_path_tab_git_blob_lf
 
 upstream_retrieval_method:
 github_repository_api_exact_commit_and_blob_reads
@@ -64,7 +94,7 @@ upstream_external_downloaded_source_artifact:
 none
 
 source_review_scope:
-complete_declared_reviewed_surface_not_whole_repository_digest
+complete_declared_selected_source_surface_not_whole_repository_digest
 
 mapping_status:
 mechanical_boundary_specified
@@ -240,8 +270,7 @@ classic in-toto
 → strong domain-native upstream transition evidence
 
 classic in-toto verification PASS
-→ verified conformance to one exact effective layout
-  under one exact verifier boundary
+→ verified conformance to one exact effective layout under one exact verifier boundary
 
 classic in-toto verification PASS
 ≠ complete PULSEmech transition identity
@@ -412,7 +441,9 @@ Its policy and verification model are not the classic in-toto layout/link model.
 Classic in-toto provides:
 
 ```text
-signed project-owner layout carrier
+raw metadata carrier containing a project-owner Layout payload and signature records
++
+wrapper-specific Layout signature input and verified signer relation
 +
 ordered expected steps
 +
@@ -420,7 +451,9 @@ authorized functionary keys
 +
 step thresholds
 +
-signed link metadata carriers
+raw metadata carriers containing Link payloads and signature records
++
+wrapper-specific Link signature inputs and verified signer relations
 +
 materials and products
 +
@@ -440,7 +473,7 @@ in-toto Statement
 ≠ classic in-toto Layout payload
 
 SLSA provenance
-≠ signed link metadata chain
+≠ signed Link metadata chain
 
 Witness policy
 ≠ classic in-toto Layout payload
@@ -456,48 +489,141 @@ classic in-toto verification
 
 ## 5. Reviewed upstream source identity
 
+### 5.1 Classic in-toto implementation source
+
 The reviewed classic in-toto source basis is:
 
 ```text
 repository:
 in-toto/in-toto
 
-revision:
+human-readable ref:
+develop
+
+resolved revision:
 a8ce9ee2125ae5a4b041a4e37cc1cf10eed0da6b
 
 package version:
 3.0.0
 ```
 
-The complete declared implementation review surface is bound by the following
-canonical manifest.
+The complete declared selected implementation review surface is exactly the
+following canonical path/blob manifest.
 
-Each record is:
+Each line is:
 
 ```text
 <repository-relative path><TAB><Git blob object ID><LF>
 ```
 
-Records are sorted lexicographically by repository-relative path.
-
-The exact UTF-8 manifest bytes contain:
+Lines are sorted lexicographically by repository-relative path.
 
 ```text
 README.md	22d98a233e7a375c3da8c6781f1f142ccb31be0f
 in_toto/__init__.py	6ca9e6636bd222cee0294e79f7a0e7f37e530968
 in_toto/in_toto_verify.py	246dac1931bce00d6abb899f12befe6a68598dce
+in_toto/models/common.py	510b9d3708c5a500c46ff6ea6d8ce49ebb9025aa
 in_toto/models/layout.py	88ff3fa87ec78a33ec42118be1345243909d46d2
 in_toto/models/link.py	7ef05ec12099e2d1f16e9685f015c52754176359
 in_toto/models/metadata.py	acd6e87aaa854952d4bbed36f59b85166016a695
+in_toto/rulelib.py	2e9d2c367d9d0399cfe5caae4a0963c2db0a8f66
+in_toto/runlib.py	8207871046a6b0691c2689198d8d87a874520a38
 in_toto/verifylib.py	cae4498bb0636c68b814e8b4d8dba5c0cef29b76
 pyproject.toml	ed5939c32538e3cd155058cdc74f10e1d00b4a5c
+requirements-pinned.txt	8f3fd2facdd5bfd5263cb666642713d1d8f82bc1
 ```
 
-Manifest SHA-256:
+The exact UTF-8 manifest byte identity is:
 
 ```text
-d488223c04f2eed4fe486de4491326bcff308339b05515bb0c8ab3eb657b3025
+lines:
+12
+
+bytes:
+745
+
+final newline:
+present
+
+SHA-256:
+7ebf366524ea700745fd7a758861240e27a6d5b560681e9846253cae26bdec27
 ```
+
+The declared implementation review scope is exactly this manifest.
+
+It is not an open-ended file list.
+
+It is not a whole-repository source audit.
+
+### 5.2 Signature-input dependency source
+
+The exact reviewed in-toto revision pins:
+
+```text
+securesystemslib[crypto] == 1.3.1
+```
+
+through:
+
+```text
+requirements-pinned.txt
+```
+
+The signature-input mechanics reviewed by this document cross the repository
+boundary into `securesystemslib`.
+
+The dependency source basis is:
+
+```text
+repository:
+secure-systems-lab/securesystemslib
+
+version:
+1.3.1
+
+resolved revision:
+6f774190b90f0aa9d5d7e077680adbaa29c5cd6c
+```
+
+The complete declared selected dependency review surface is exactly:
+
+```text
+securesystemslib/dsse.py	d41abec92618093ef6daba90a1f82fae087b8c40
+securesystemslib/formats.py	f6e00e3b1271472c5dbc1b95980637039e18ef02
+```
+
+The exact UTF-8 manifest byte identity is:
+
+```text
+lines:
+2
+
+bytes:
+135
+
+final newline:
+present
+
+SHA-256:
+d2c0056cb1042b3a4df9ac26bc15feb92ab4d2a159e2c52ab0b653530b517eb5
+```
+
+This dependency surface covers the two signature-input mechanisms used by the
+reviewed in-toto metadata models:
+
+```text
+Metablock Signable canonical JSON bytes
+→ securesystemslib.formats.encode_canonical(...)
+
+DSSE signature input
+→ securesystemslib.dsse.Envelope.pae()
+```
+
+It is not a complete audit of `securesystemslib`.
+
+It does not activate or add the dependency to PULSEmech.
+
+### 5.3 in-toto specification source
 
 The reviewed specification basis is:
 
@@ -505,168 +631,157 @@ The reviewed specification basis is:
 repository:
 in-toto/specification
 
-revision:
+resolved revision:
 6459afd8e94a332e423ba05c2862b534acbe741d
 
 specification version:
 1.0.0
 ```
 
-The complete declared specification review surface is:
+The complete declared selected specification review surface is exactly:
 
 ```text
 in-toto-spec.md	84234a889c1b5696a8e526a978146795cf8975b5
 ```
 
-Manifest SHA-256:
+The exact UTF-8 manifest byte identity is:
 
 ```text
+lines:
+1
+
+bytes:
+57
+
+final newline:
+present
+
+SHA-256:
 36a44fc639ec528deb61b6b831f4b4a3ba68bffc82901352c977db4a7a7ca038
 ```
 
+### 5.4 Retrieval and reproduction boundary
+
 The review used exact GitHub repository reads bound to immutable revisions and
-Git object content.
+Git blob identities.
 
 No generated source archive or external downloaded source bundle was used.
 
-The declared manifests identify the complete source surface on which this
-document's upstream mechanical claims rely.
+A later review reproduces this declared source basis only when it uses:
+
+```text
+the same three repositories
++
+the same resolved revisions
++
+the same canonical path/blob manifests
++
+the same manifest byte construction
++
+the same manifest SHA-256 identities
+```
+
+The source identities recorded here are review anchors.
 
 They are not:
 
 ```text
-whole-repository digests
+a dependency activation
 
-dependency activation
+an installation instruction
 
-installation instructions
+a future-version compatibility claim
 
-future-version compatibility claims
+a claim that every file in any upstream repository was reviewed
 ```
-
-Mechanics outside the declared manifests are not represented as reviewed by this
-record.
 
 ---
 
 ## 6. Classic in-toto system model
 
-The classic in-toto system has three principal participating roles and several
-separate payload and carrier objects.
+The classic in-toto system has three principal participating roles.
 
 ### 6.1 Project owner
 
-The project owner defines the intended supply-chain structure in a Layout
+The project owner defines the intended supply-chain structure in a `Layout`
 payload.
 
-The owner signs a metadata carrier that contains that Layout payload.
+The project owner places that payload in a metadata wrapper and creates
+signature records over the wrapper-specific signature input derived from the
+payload.
 
-The project owner does not place signatures inside the Layout payload itself.
+The raw metadata carrier and the signature input are separate identities.
 
 ### 6.2 Functionary
 
-A functionary performs a named supply-chain step and signs a metadata carrier
-that contains the resulting Link payload.
+A functionary performs a named supply-chain step and creates a metadata carrier
+containing the resulting `Link` payload.
+
+The functionary signs the wrapper-specific signature input for that `Link`
+content.
 
 The functionary is identified through a key authorized by the effective layout.
 
 ### 6.3 Client or verifier
 
-The verifier receives:
+The reviewed library verifier receives:
 
 ```text
-signed layout metadata carrier
+parsed layout metadata
 
 layout verification key or keys
 
-signed link metadata carriers
-
-final product or verification subject
+link-directory path containing layout-associated metadata carriers
 
 optional substitution parameters
 
-inspection execution environment
+optional enclosing step name
+
+inspection-link persistence setting
+
+inspection timeout
 ```
 
-and evaluates whether the supplied supply-chain evidence satisfies the effective
-layout.
+The command-line verifier supplies the layout metadata, layout verification
+keys, link directory, and inspection timeout to that library path.
 
-The primary path is:
+It does not receive a separate current PULSEmech release subject.
+
+The primary verification path is:
 
 ```text
 project owner defines Layout payload
-→ project owner signs metadata carrier containing Layout payload
+→ metadata wrapper is constructed
+→ wrapper-specific signature input is derived
+→ signature records are added
 → functionaries perform steps
-→ functionaries sign metadata carriers containing Link payloads
-→ verifier loads layout carrier and link carriers
-→ verifier authenticates carriers and extracts payloads
-→ verifier derives effective layout where substitutions are supplied
+→ Link metadata wrappers and signature records are produced
+→ verifier parses the raw metadata carriers
+→ verifier reconstructs wrapper-specific signature inputs
+→ verifier verifies layout and Link signatures
+→ verifier derives the effective layout from exact substitution parameters
 → verifier applies thresholds and artifact rules
-→ verifier runs inspections
+→ verifier runs inspections where declared
 → verification passes or fails
 ```
 
-### 6.4 Payload and signed-carrier separation
+The current-run release subject remains outside this upstream verifier input
+surface.
 
-The reviewed metadata abstraction supports separate signed-carrier forms.
-
-A traditional metadata carrier can be represented as:
-
-```text
-Metablock
-├── signed:
-│   └── Layout or Link payload
-└── signatures:
-    └── signature records
-```
-
-A DSSE carrier can be represented as:
-
-```text
-Envelope
-├── payloadType
-├── payload:
-│   └── serialized Layout or Link payload bytes
-└── signatures:
-    └── signature records
-```
-
-The exact wrapper type, wrapper bytes, payload bytes and signatures are separate
-identity-bearing objects.
-
-In this document, the shorthand:
-
-```text
-signed layout carrier
-```
-
-means:
-
-```text
-exact signed metadata wrapper
-+
-exact contained Layout payload
-+
-exact wrapper-to-payload relation
-+
-exact signatures
-```
-
-It does not mean that signatures are fields inside the Layout payload.
-
-The same separation applies to signed Link carriers.
+Its binding is a separate PULSEmech relation defined later in this document.
 
 ---
 
-## 7. The Layout payload and its signed carrier
+## 7. Layout payload, metadata carrier, and signature-input boundary
+
+The `Layout` payload, the raw metadata carrier, and the signature input are
+three separate objects.
 
 ### 7.1 Layout payload
 
-A Layout payload defines a software supply chain through:
+The `Layout` payload defines a software supply chain through:
 
 ```text
-_type
-
 steps
 
 inspections
@@ -676,6 +791,20 @@ functionary public keys
 expiration
 
 human-readable description
+```
+
+In the reviewed model, the corresponding payload fields are:
+
+```text
+steps
+
+inspect
+
+keys
+
+expires
+
+readme
 ```
 
 Each step may define:
@@ -694,7 +823,179 @@ expected material rules
 expected product rules
 ```
 
-The Layout step list carries the project owner's expected logical arrangement.
+The signatures are not fields inside the `Layout` payload.
+
+### 7.2 Traditional Metablock signature input
+
+A traditional `Metablock` carries:
+
+```text
+signed:
+Layout payload object
+
+signatures:
+signature collection
+```
+
+For this wrapper form, the signature input is:
+
+```text
+Layout.signable_bytes
+```
+
+which the reviewed implementation derives as:
+
+```text
+UTF-8(
+  securesystemslib.formats.encode_canonical(
+    attr.asdict(Layout)
+  )
+)
+```
+
+A Metablock signature therefore authenticates the canonical signed-payload
+representation.
+
+It does not authenticate as one byte string:
+
+```text
+the complete raw Metablock JSON bytes
+
+the JSON formatting of the wrapper
+
+the signatures collection
+```
+
+Reserializing the wrapper or adding another signature can change the raw carrier
+bytes while leaving an existing signature input and existing valid signature
+unchanged.
+
+### 7.3 DSSE Envelope signature input
+
+A DSSE `Envelope` carries:
+
+```text
+payloadType
+
+base64-encoded payload representation in the JSON carrier
+
+signature collection
+```
+
+The in-memory envelope contains:
+
+```text
+payloadType
+
+decoded payload bytes
+
+signatures
+```
+
+For this wrapper form, the signature input is:
+
+```text
+PAE(payloadType, decoded payload bytes)
+```
+
+where the reviewed dependency constructs:
+
+```text
+DSSEv1
++
+length(payloadType)
++
+payloadType
++
+length(payload)
++
+payload
+```
+
+A DSSE signature therefore authenticates the PAE-encoded payload type and
+decoded payload bytes.
+
+It does not authenticate as one byte string:
+
+```text
+the complete raw Envelope JSON bytes
+
+the chosen outer JSON formatting
+
+the base64 text representation independently from its decoded payload
+
+the signatures collection
+```
+
+Reserializing the wrapper or adding another signature can change the raw carrier
+bytes while leaving an existing PAE input and existing valid signature
+unchanged.
+
+### 7.4 Required identity separation
+
+A future evidence record must preserve separately:
+
+```text
+raw metadata carrier identity:
+  wrapper type
+  exact raw carrier bytes
+  raw carrier SHA-256
+  raw carrier size
+
+payload identity:
+  payload type
+  exact decoded payload bytes where the wrapper provides them
+  canonical signed-payload representation where the wrapper requires it
+  payload-content identity
+
+signature-input identity:
+  signature-input mode
+  exact signature-input bytes
+  signature-input SHA-256
+  signature-input size
+
+signature relation:
+  signature entries
+  verification-key identities
+  verified signer identities
+  verification result
+```
+
+The central boundary is:
+
+```text
+raw carrier identity
+≠ wrapper-specific signature-input identity
+```
+
+and:
+
+```text
+valid signature over wrapper-specific input
+≠ every raw carrier byte authenticated
+```
+
+and:
+
+```text
+same authenticated content
++
+different raw wrapper serialization or signature collection
+→ different raw evidence carrier
+→ not necessarily different effective layout semantics
+```
+
+The raw carrier remains an immutable evidence artifact with its own identity.
+
+The signature establishes authenticity only for the wrapper-specific signature
+input.
+
+A future adapter must preserve both and must not substitute one identity for the
+other.
+
+### 7.5 Planned-path boundary
+
+The layout step list carries the project owner's expected logical arrangement.
 
 It does not, by itself, establish:
 
@@ -710,71 +1011,30 @@ that no undeclared operation occurred between steps
 that the layout itself provides sufficient security
 ```
 
-The Layout payload is:
+The exact relation is:
 
 ```text
-planned supply-chain semantics
+raw layout metadata carrier
+→ wrapper parsing
+→ wrapper-specific signature-input reconstruction
+→ signature verification
+→ authenticated Layout content under the wrapper-specific signature semantics
+→ optional deterministic substitution
+→ effective planned supply-chain structure
 ```
 
 It is not:
 
 ```text
-a signature carrier
-```
-
-and it is not:
-
-```text
 complete observation of the realized transition
-```
-
-### 7.2 Signed layout carrier
-
-The signed layout carrier contains the Layout payload and the signatures or
-signature envelope that authenticate it.
-
-A future PULSEmech mapping must preserve separately:
-
-```text
-signed wrapper type
-
-exact signed wrapper bytes
-
-signed wrapper SHA-256
-
-exact Layout payload bytes
-
-Layout payload SHA-256
-
-wrapper payload type where present
-
-wrapper-to-payload equality
-
-signature records
-
-verified signer identities
-```
-
-The invariant is:
-
-```text
-Layout payload
-≠ signed metadata carrier
-```
-
-and:
-
-```text
-valid Layout payload
-≠ verified signed layout carrier
 ```
 
 ---
 
-## 8. The Link payload and its signed carrier
+## 8. Link payload, metadata carrier, and signer relation
 
-A classic in-toto Link records evidence associated with one named step or
-inspection.
+A classic in-toto `Link` payload records evidence associated with one named step
+or inspection.
 
 Its primary fields are:
 
@@ -792,7 +1052,15 @@ byproducts
 environment
 ```
 
-The Link payload normally appears inside a signed metadata carrier.
+The `Link` payload normally appears inside a Metablock or DSSE metadata carrier.
+
+The same identity separation applies:
+
+```text
+raw Link metadata carrier
+≠ Link payload content identity
+≠ wrapper-specific Link signature-input identity
+```
 
 The `materials` field records declared input artifacts by path and digest.
 
@@ -813,10 +1081,18 @@ return value
 The `environment` field is an opaque mapping for execution-environment
 information.
 
-A verified signed Link carrier establishes:
+A verified Link relation can establish:
 
 ```text
-one signing identity
+one exact raw metadata-carrier artifact identity
++
+one wrapper type
++
+one wrapper-specific signature-input identity
++
+one verified signer relation
++
+one Link payload content authenticated under that wrapper's signature semantics
 +
 one named step record
 +
@@ -827,7 +1103,9 @@ one declared product set
 reported execution metadata
 ```
 
-It does not automatically establish:
+It does not establish that the signature covers every raw carrier byte.
+
+It also does not automatically establish:
 
 ```text
 complete process observation
@@ -843,22 +1121,6 @@ causal use of every declared material
 absence of every undeclared input or output
 ```
 
-A future PULSEmech mapping must preserve:
-
-```text
-exact signed Link wrapper
-
-exact Link payload
-
-wrapper-to-payload relation
-
-signature identity
-
-payload semantic fields
-```
-
-without collapsing those objects into one unqualified `link` identity.
-
 ---
 
 ## 9. Declared artifact surface is not complete execution observation
@@ -867,10 +1129,10 @@ Classic in-toto records the artifacts supplied to its recording mechanism.
 
 This creates an explicit measurement boundary.
 
-A file may be used or modified by a command but remain absent from the Link when
+A file may be used or modified by a command but remain absent from the link when
 it was not declared for recording.
 
-A file may also be supplied for recording and appear in the Link even when the
+A file may also be supplied for recording and appear in the link even when the
 command did not mechanically depend on it.
 
 Therefore:
@@ -885,7 +1147,7 @@ link.products
 artifact listed as material
 ≠ artifact causally used
 
-artifact absent from Link
+artifact absent from link
 ≠ artifact absent from execution
 ```
 
@@ -993,8 +1255,8 @@ destination artifact path
 destination artifact digest
 ```
 
-where the effective rule defines the source and destination artifact
-collections and any path prefixes.
+where the effective rule defines the source and destination artifact collections
+and any path prefixes.
 
 This is a strong artifact-continuity edge.
 
@@ -1044,7 +1306,7 @@ artifact rule engine available
 ≠ effective layout is restrictive
 
 layout verification PASS
-≠ layout policy is adequate
+≠ effective layout policy is adequate
 ```
 
 ---
@@ -1053,12 +1315,12 @@ layout verification PASS
 
 Each effective layout step identifies authorized functionary keys.
 
-Signed Link metadata is accepted for a step only when:
+Link metadata is accepted for a step only when:
 
 ```text
-the Link signature verifies
+a signature record verifies over the wrapper-specific Link signature input
 
-the signing key is authorized for that step
+the verified signing key is authorized for that effective step
 
 the required threshold is met
 ```
@@ -1066,7 +1328,7 @@ the required threshold is met
 The verifier counts distinct authorized functionary identities subject to its
 key and subkey rules.
 
-When a threshold is greater than one, the accepted Links for the step must agree
+When a threshold is greater than one, the accepted links for the step must agree
 on:
 
 ```text
@@ -1115,20 +1377,22 @@ It must not rename threshold agreement as general independent reproduction.
 
 ## 12. Sublayouts
 
-A functionary may provide a signed sublayout carrier instead of an ordinary
-signed Link carrier for a delegated step.
+A functionary may provide a raw metadata carrier containing a sublayout payload
+and signature records instead of a raw carrier containing an ordinary `Link`
+payload for a delegated step.
 
 The verifier recursively verifies the sublayout.
 
-A successful sublayout verification is then reduced to a summary Link for the
-parent layout.
+A successful sublayout verification is then reduced to a summary `Link` payload
+for the parent layout.
 
 This enables hierarchical supply-chain structure:
 
 ```text
-parent layout step
-→ delegated signed sublayout carrier
-→ nested steps
+parent effective layout step
+→ delegated raw sublayout metadata carrier
+→ wrapper-specific sublayout signature verification
+→ nested effective steps
 → verified nested result
 → parent summary Link
 ```
@@ -1142,13 +1406,23 @@ The parent summary does not carry every nested transition edge directly.
 A future PULSEmech mapping must preserve:
 
 ```text
-exact signed sublayout carrier
+exact raw sublayout metadata carrier
 
-exact nested Link carrier tree
+exact sublayout wrapper type and signature records
+
+exact sublayout signature-input identity
+
+verified sublayout signer relation
+
+exact authenticated sublayout-content identity
+
+exact nested raw Link carrier tree
 
 exact recursive verifier identity
 
-exact recursive verification inputs
+exact substitution parameters at every recursive level
+
+exact recursively derived effective-layout identities
 
 exact recursive result
 
@@ -1174,8 +1448,8 @@ load effective inspection definition
 → execute inspection command in a subprocess
 → record inspection materials and products
 → inspect return value
-→ optionally write inspection Link metadata
-→ apply inspection artifact rules
+→ optionally write inspection link metadata
+→ apply effective inspection artifact rules
 ```
 
 This means:
@@ -1185,15 +1459,18 @@ in-toto verification
 ≠ read-only metadata validation
 ```
 
-A supplied layout and substitution set may determine executable inspection
-instructions.
+Authenticated Layout content, derived from a raw metadata carrier through
+wrapper-specific signature verification and then combined with substitution
+parameters, may produce executable effective inspection instructions.
 
 That creates a critical execution relation:
 
 ```text
-authenticated original layout carrier
+verified wrapper-specific Layout signature input
 +
-exact substitution parameters
+authenticated Layout content
++
+exact substitution parameter map
 → effective inspection command
 → verifier-side subprocess
 → filesystem and process effects
@@ -1226,9 +1503,17 @@ inspection presence
 
 inspection execution mode
 
-original inspection definition
+raw layout metadata-carrier identity
 
-effective substituted inspection definition
+layout signature-input identity
+
+verified layout signer relation
+
+authenticated Layout-content identity
+
+substitution parameter identity
+
+effective inspection identity
 
 executor identity
 
@@ -1246,30 +1531,29 @@ return state
 
 produced artifacts
 
-persisted inspection-Link state
+persisted inspection-link state
 ```
 
 This document does not select or implement such a mode.
 
 ---
 
-## 14. Official verification procedure and effective-layout identity
+## 14. Official verification procedure
 
-The reviewed official verification function performs these principal
-activities:
+The reviewed official verification function performs these principal activities:
 
 ```text
-1. verify signed layout carrier signatures
+1. reconstruct and verify wrapper-specific layout signature inputs
 
-2. extract the Layout payload
+2. extract the original Layout payload
 
-3. verify Layout expiration
+3. verify original Layout expiration
 
-4. substitute declared parameters into the Layout payload
+4. substitute declared parameters into the extracted Layout object
 
-5. load Link metadata for effective-layout steps
+5. load Link metadata carriers for effective layout steps
 
-6. verify Link signatures and authorized functionaries
+6. reconstruct and verify wrapper-specific Link signature inputs and authorized functionaries
 
 7. recursively verify sublayouts
 
@@ -1293,21 +1577,21 @@ Relevant failure classes include:
 ```text
 malformed input
 
-layout signature failure
+layout signature-input verification failure
 
 layout expiration
 
 substitution failure
 
-missing Link threshold
+missing link threshold
 
-unauthorized or invalid Link signatures
+unauthorized signer or invalid Link signature-input verification
 
 threshold disagreement
 
-artifact-rule failure
+artifact rule failure
 
-inspection-command failure
+inspection command failure
 ```
 
 This is a strong domain verifier.
@@ -1317,80 +1601,122 @@ PULSEmech must treat it as a domain verifier.
 PULSEmech must not silently replace it with a second independent
 reimplementation of the same rule system.
 
-### 14.1 Original signed layout and effective layout are separate identities
+### 14.1 Raw carrier, signature-input, and effective-layout identity
 
-The verification procedure authenticates the original signed layout carrier,
-then applies the exact substitution parameter map before evaluating commands and
-artifact rules.
+The verifier reconstructs and verifies the wrapper-specific signature input for
+the original Layout content before applying substitution.
 
-The effective path is therefore:
+It then mutates the extracted `Layout` object by applying the exact substitution
+parameter map to:
 
 ```text
-exact original signed layout carrier
+step expected commands
+
+step expected material rules
+
+step expected product rules
+
+inspection commands
+
+inspection expected material rules
+
+inspection expected product rules
+```
+
+The complete identity must therefore preserve three layers.
+
+#### Raw evidence-carrier identity
+
+```text
+exact raw layout metadata-carrier bytes
 +
-exact original Layout payload
+wrapper type
++
+raw carrier SHA-256 and size
++
+signature collection as carried
+```
+
+This identifies the exact evidence artifact received.
+
+It is not the signature input.
+
+#### Authenticated Layout-content identity
+
+```text
+wrapper-specific signature-input mode
++
+exact signature-input bytes
++
+signature-input SHA-256 and size
++
+verification-key identities
++
+verified signer relation
++
+authenticated Layout content under the wrapper-specific signature semantics
+```
+
+For Metablock this is based on canonical `Layout.signable_bytes`.
+
+For DSSE this is based on `PAE(payloadType, decoded payload bytes)`.
+
+#### Effective-layout semantic identity
+
+```text
+authenticated Layout-content identity
 +
 exact substitution parameter map
 +
-exact pinned substitution implementation
-→
-deterministically derived effective Layout semantics
+exact pinned substitution implementation identity
+→ deterministic effective-layout identity
 ```
 
-Two verification runs can share:
+Two verification events can use raw carriers with different byte identities but
+the same authenticated Layout content.
+
+They can therefore have:
 
 ```text
-the same original signed layout carrier
-
-the same signed Link carriers
+different raw evidence-carrier identities
++
+the same effective layout semantics
 ```
 
-while applying different:
+Two verification events can also use the same authenticated Layout content and
+the same Link evidence while applying different substitution maps.
+
+Those events do not verify the same effective path.
 
 ```text
-effective commands
-
-effective material rules
-
-effective product rules
-
-effective inspection commands
+same authenticated Layout content
++
+different substitution parameter map
+→ different effective layout
+→ different effective path identity
 ```
 
-when their substitution maps differ.
-
-Therefore:
+A future adapter must preserve separately:
 
 ```text
-original signed layout identity
-≠ effective-layout identity
-```
+raw layout carrier identity
 
-A future carrier must bind:
+wrapper-specific signature-input identity
 
-```text
-exact original signed layout wrapper
+verified layout signer relation
 
-exact original Layout payload
+authenticated original Layout-content identity
 
-exact substitution parameter map
-
-exact substitution implementation identity
+substitution parameter identity
 
 deterministically derived effective-layout identity
-
-effective expected commands
-
-effective material and product rules
-
-effective inspection commands and rules
 ```
 
-This document does not define the normative serialization for the future
-effective-layout identity.
+The effective-layout identity must cover the complete substituted semantic
+surface used by verification.
 
-A future contract must define it before an effective-layout digest can become
-normative.
+It must not be represented only by a display name, raw wrapper digest, or
+original payload label.
 
 ---
 
@@ -1425,11 +1751,11 @@ in-toto verification PASS
 A future carrier must distinguish:
 
 ```text
-reported command
+reported command present
 
-original expected command
+original expected command present
 
-effective expected command
+effective expected command present
 
 substitution parameter identity
 
@@ -1454,28 +1780,46 @@ merely because the overall in-toto verification passed.
 
 ---
 
-## 16. Verification output is not a complete structured path report
+## 16. The verification output is not a complete structured path report
 
-The public `in_toto_verify(...)` function returns a summary Link after successful
-verification.
+The public `in_toto_verify(...)` function returns a summary `Link` after
+successful verification.
 
-For the exact reviewed revision, the summary is constructed by explicitly
-assigning:
+At the exact reviewed upstream revision, `get_summary_link()` explicitly assigns:
 
 ```text
-materials of the first effective-layout step
+materials of the selected first-step representative Link
 
-products of the last effective-layout step
+products of the selected last-step representative Link
 
-byproducts of the last effective-layout step
+byproducts of the selected last-step representative Link
 
-command of the last effective-layout step
+command of the selected last-step representative Link
 ```
 
-The command and byproducts fields are copied from the selected last-step
-representative Link in the reviewed source revision.
+The summary `Link` therefore does carry the selected last-step `byproducts` and
+`command`.
 
-They are not left at their default values in that revision.
+Those fields remain the values of one selected representative Link.
+
+They are not automatically threshold-consensus values because threshold
+agreement is checked over:
+
+```text
+materials
+
+products
+```
+
+not over:
+
+```text
+command
+
+byproducts
+
+environment
+```
 
 This representation is useful for embedding one verified supply chain inside a
 parent supply chain.
@@ -1483,11 +1827,11 @@ parent supply chain.
 It is not a lossless record of:
 
 ```text
-every step
+every effective step
 
-every accepted Link
+every accepted Link carrier
 
-every ignored or rejected Link
+every rejected or ignored Link carrier
 
 every signature result
 
@@ -1500,6 +1844,8 @@ every sublayout edge
 every inspection result
 
 every intermediate material/product relation
+
+every command-alignment warning
 
 every diagnostic
 ```
@@ -1515,17 +1861,18 @@ An adapter based only on the returned summary Link would collapse:
 
 ```text
 complete internal path
-→ first materials
-+ last products
-+ selected last-step command and byproducts
+→ selected first-step materials
+  + selected last-step products
+  + selected last-step byproducts
+  + selected last-step command
 ```
 
 That would discard the exact edge-level structure required by the Transition
 Meter.
 
-The selected last-step command and byproducts also must not be promoted into
-threshold-wide agreement, because threshold equality is checked over materials
-and products.
+A future record requiring authoritative command or byproduct evidence must
+preserve the exact original selected last-step Link carrier and must not infer
+threshold-wide agreement from the summary Link.
 
 Human-oriented logs are also insufficient as a normative carrier.
 
@@ -1544,26 +1891,26 @@ process exit 0
 
 ## 17. What a successful classic in-toto verification establishes
 
-Under one exact original signed layout carrier, exact Layout payload, exact
-substitution set, exact effective-layout identity, trust configuration, Link
-set, verifier implementation, inspection environment, and verification event, a
-PASS can establish that:
+Under one exact raw layout metadata carrier, one wrapper-specific layout
+signature input, one exact substitution map, one deterministically derived
+effective layout, one trust configuration, one Link metadata-carrier set, one
+verifier implementation, one inspection environment, and one verification
+event, a PASS can establish that:
 
 ```text
-the supplied layout carrier was accepted under the supplied
-layout-verification keys
+the supplied layout signature records verified over the reconstructed wrapper-specific signature input under the supplied layout-verification keys
 
-the original Layout had not expired at verification time
+the authenticated original Layout content had not expired at verification time
 
-the exact substitutions were applied without failure
+the effective layout was derived through the exact substitution parameter map
 
 required Link metadata was found for the effective steps
 
-accepted Links had valid signatures
+accepted Link signatures verified over their wrapper-specific signature inputs
 
-accepted Link signers were authorized by the effective step definitions
+accepted Link signers were authorized for their effective steps
 
-step thresholds were satisfied
+effective step thresholds were satisfied
 
 threshold participants agreed on declared materials and products
 
@@ -1573,31 +1920,35 @@ effective artifact rules passed
 
 effective inspections completed where present
 
-the final product passed the complete configured effective-layout verification
+the supplied Layout and Link evidence satisfied the complete configured effective-layout verification
 ```
 
 A PASS is relative to:
 
 ```text
-exact original signed layout wrapper bytes
+exact raw layout metadata-carrier bytes, SHA-256, and size
 
-exact original Layout payload bytes
+exact layout wrapper type
 
-exact layout signatures
+exact layout signature-input mode, bytes, SHA-256, and size
 
-exact external layout-verification keys
+exact layout signature records and verification-key identities
+
+exact authenticated original Layout-content identity
 
 exact substitution parameter map
 
-exact pinned substitution implementation
+exact deterministic substitution implementation
 
-deterministically derived effective-layout identity
+exact derived effective-layout identity
 
-exact Link and sublayout carriers
+exact raw Link and sublayout carrier bytes and identities
+
+exact Link and sublayout signature-input identities
+
+exact accepted signer relations
 
 exact effective artifact-rule set
-
-exact effective expected-command set
 
 exact verifier source or executable
 
@@ -1608,6 +1959,9 @@ exact verification time
 
 These identities are part of the domain verification state.
 
+The current PULSEmech release subject is not part of this upstream PASS unless a
+separate PULSEmech subject-binding relation is established.
+
 ---
 
 ## 18. What a successful verification does not establish
@@ -1615,9 +1969,9 @@ These identities are part of the domain verification state.
 A classic in-toto PASS does not by itself establish:
 
 ```text
-that the layout is secure or adequate
+that the original or effective layout is secure or adequate
 
-that the layout requires code review
+that the effective layout requires code review
 
 that every relevant artifact was recorded
 
@@ -1629,7 +1983,7 @@ that the reported command equals the effective expected command
 
 that the reported command was the only executed command
 
-that the layout step list is a measured wall-clock sequence
+that the effective layout step list is a measured wall-clock sequence
 
 that each step carries event-time and observation-time bindings
 
@@ -1647,11 +2001,15 @@ that every alternative path was excluded
 
 that unresolved edges were preserved as structured state
 
+that every raw metadata-carrier byte was authenticated by its signatures
+
 that the result is current for another run or another artifact
+
+that any separately selected PULSEmech current-run subject matches an accepted in-toto product
 
 that the PULSE release policy is satisfied
 
-that the PULSE required-gate set is complete
+that the PULSE required gate set is complete
 
 that final PULSE status is valid
 
@@ -1664,6 +2022,101 @@ The principal boundary remains:
 in-toto verification PASS
 ≠ PULSEmech release ALLOW
 ```
+
+### 18.1 Current-run release-subject binding is separate
+
+The reviewed `in_toto_verify(...)` interface does not receive a separate current
+release artifact or PULSEmech subject argument.
+
+In a layout without inspections, the verifier can pass by evaluating the Layout,
+Link metadata, signatures, thresholds, and artifact rules without opening or
+hashing the current artifact that PULSEmech intends to release.
+
+Therefore:
+
+```text
+accepted final-step product record
+≠ current PULSEmech release subject
+```
+
+and:
+
+```text
+in-toto verification PASS
+≠ current-run subject bound
+```
+
+The required PULSEmech relation is separate:
+
+```text
+exact PULSE current-run subject identity
++
+exact current-run repository, workflow, run, attempt, candidate, and source binding
++
+exact product-selection rule
++
+exact accepted Link or inspection-result reference
++
+selected product path and digest
++
+subject path and digest equality
+→ current-run subject binding
+```
+
+A future binding record must preserve at least:
+
+```text
+PULSE repository
+
+workflow identity
+
+workflow-run ID
+
+workflow-run attempt
+
+release-candidate identity
+
+source revision
+
+subject artifact path or name
+
+subject digest algorithm and value
+
+selected in-toto step or inspection identity
+
+selected accepted metadata-carrier and payload identity
+
+selected product path
+
+selected product digest algorithm and value
+
+product-selection rule identity
+
+subject-to-product comparison result
+
+stale-evidence result
+```
+
+If no exact selection relation exists, the result remains:
+
+```text
+subject_binding_status:
+unbound
+```
+
+If the selected product digest does not equal the current-run subject digest,
+the result is rejected and cannot affect authority.
+
+```text
+valid historical layout and Link evidence
++
+different current-run subject
+→ subject binding rejected
+→ authority effect none
+```
+
+The current-run subject must not be attached to an upstream PASS after the fact
+without this exact relation.
 
 ---
 
@@ -1696,7 +2149,7 @@ Neither automatically provides measured event time.
 Therefore:
 
 ```text
-effective-layout order
+effective layout order
 ≠ observed event-time order
 
 artifact dependency
@@ -1705,7 +2158,7 @@ artifact dependency
 verification time
 ≠ step event time
 
-Link creation time inferred externally
+Link carrier creation time inferred externally
 ≠ bound observation time
 ```
 
@@ -1735,7 +2188,7 @@ Git commit time
 
 verification time
 
-layout step index
+effective layout step index
 ```
 
 unless the exact meaning and source of that time are separately recorded.
@@ -1791,7 +2244,7 @@ effective rules
 
 recorded digests
 
-accepted Links
+accepted Link payloads
 ```
 
 It does not automatically create a generalized claim such as:
@@ -1820,10 +2273,13 @@ layout verification procedure.
 The verifier can establish that:
 
 ```text
-the supplied key verifies a signature on the exact signed layout carrier
+the supplied key verifies a signature over the reconstructed wrapper-specific signature input for the Layout metadata
 ```
 
-It does not independently establish:
+It does not establish that the signature authenticates every byte of the raw
+metadata carrier.
+
+It also does not independently establish:
 
 ```text
 why the key is trusted
@@ -1834,7 +2290,7 @@ whether the key was revoked elsewhere
 
 whether its usage flags permit this purpose
 
-whether a newer layout supersedes the current layout
+whether a newer layout supersedes the current Layout content
 
 whether the layout owner remains authorized
 ```
@@ -1862,6 +2318,10 @@ verification event time
 revocation-handling policy
 
 supersession policy
+
+wrapper-specific signature-input identity
+
+verified signature and signer result
 ```
 
 A key ID alone is not a complete trust-root identity.
@@ -1870,24 +2330,27 @@ A key ID alone is not a complete trust-root identity.
 key ID
 ≠ key bytes
 
+valid signature over wrapper-specific input
+≠ every raw carrier byte authenticated
+
 valid signature
 ≠ current authorization
 
-layout signed
-≠ layout current
+authenticated Layout content
+≠ effective layout current
 ```
 
 ---
 
 ## 22. Layout compliance is not layout adequacy
 
-Classic in-toto verifies conformance to the effective layout derived from the
-authenticated original layout and exact substitutions.
+Classic in-toto verifies conformance to the supplied, deterministically derived
+effective layout.
 
-It does not determine whether that effective layout provides sufficient
-security, quality, or release policy.
+It does not determine whether the original or effective layout itself provides
+sufficient security, quality, or release policy.
 
-A layout may omit:
+An effective layout may omit:
 
 ```text
 code review
@@ -1911,11 +2374,11 @@ closed by an adequate terminal restriction.
 Therefore:
 
 ```text
-Layout payload valid
-≠ layout adequate
+effective layout valid
+≠ effective layout adequate
 
-layout carrier signed
-≠ layout secure
+valid wrapper-specific signature over Layout content
+≠ effective layout secure
 
 effective-layout verification PASS
 ≠ supply-chain risk absent
@@ -1946,13 +2409,13 @@ Classic in-toto Layout expiration provides a time limit.
 Expiration alone does not establish:
 
 ```text
-that no newer layout exists
+that no newer authorized Layout-content or metadata-carrier record exists
 
-that the current layout is the latest authorized layout
+that the received raw layout carrier or authenticated Layout content is the latest authorized state
 
-that an older still-unexpired layout was not replayed
+that older still-unexpired Layout content was not replayed through another valid carrier
 
-that the layout was distributed through an authenticated update path
+that the selected Layout content and raw carrier were distributed through an authenticated update path
 ```
 
 The upstream specification identifies secure layout and key distribution as a
@@ -1961,18 +2424,18 @@ separate problem, commonly addressed through a mechanism such as TUF.
 For PULSEmech admission:
 
 ```text
-layout not expired
-≠ layout current
+authenticated original Layout content not expired
+≠ current authorized Layout state
 
-layout signature valid
-≠ layout selected by current PULSE policy
+wrapper-specific layout signature valid
+≠ Layout content selected by current PULSE policy
 
-old valid layout
-≠ current authorized layout
+old valid authenticated Layout content
+≠ current authorized effective layout
 ```
 
-A future record must bind the exact expected signed layout carrier and exact
-allowed substitution set through protected PULSE policy or another
+A future record must bind the exact expected authenticated Layout-content identity, raw evidence-carrier identity, and exact
+substitution parameter identity through protected PULSE policy or another
 authenticated selection mechanism.
 
 ---
@@ -1984,18 +2447,26 @@ classes.
 
 ### 24.1 Directly preserved
 
-The upstream carrier explicitly records the object.
+The upstream evidence surface explicitly carries or yields the object.
 
 Examples:
 
 ```text
-Layout step name
+raw metadata-carrier bytes and identity
+
+wrapper type
+
+signature records
+
+wrapper-specific signature-input identity
+
+verified signer identity
+
+original Layout step name
 
 authorized functionary key IDs
 
 step threshold
-
-Link signer identity
 
 material path and digest
 
@@ -2004,8 +2475,6 @@ product path and digest
 reported command
 
 Layout expiration
-
-signed wrapper and signature records
 ```
 
 ### 24.2 Mechanically derived
@@ -2016,6 +2485,10 @@ explicit deterministic rule.
 Examples:
 
 ```text
+authenticated Layout-content identity under wrapper-specific signature semantics
+
+effective layout from authenticated Layout content plus substitution parameters
+
 artifact created
 
 artifact deleted
@@ -2024,9 +2497,7 @@ artifact modified
 
 artifact digest continuity
 
-effective-layout step sequence index
-
-effective-layout identity
+effective layout step sequence index
 ```
 
 A derived field must preserve:
@@ -2036,7 +2507,9 @@ derivation rule identity
 
 source field identities
 
-transformation-input identities
+signature-input identity where applicable
+
+substitution parameter identity where applicable
 
 result
 
@@ -2058,6 +2531,12 @@ observation time
 layout trust-root acquisition
 
 current-layout selection
+
+current PULSEmech run and release-candidate identity
+
+current-run release-subject identity
+
+subject-to-selected-product binding rule
 
 complete runtime input coverage
 
@@ -2091,28 +2570,29 @@ An unresolved object must remain unresolved.
 | PULSEmech Transition Meter object | Classic in-toto source | Mapping state | Boundary |
 |---|---|---|---|
 | `source_state_ref` | Step materials | Direct for declared artifact subset | Not complete process state |
-| `target_state_ref` | Step products | Direct for declared artifact subset | Not complete process state |
+| `target_state_ref` | Step products | Direct for declared artifact subset | Not automatically the current PULSEmech release subject |
+| `current_run_subject_binding` | No separate `in_toto_verify(...)` subject input | Separately established by PULSEmech through selected accepted product and digest equality | PASS alone does not bind the current release artifact |
 | `relation_before` | Material path and digest set | Derived domain relation | Artifact scope only |
 | `relation_after` | Product path and digest set | Derived domain relation | Artifact scope only |
-| `changed_relations` | CREATE, DELETE, MODIFY results under effective rules | Deterministically derivable | Only declared paths and effective rules |
-| `ordered_transition_elements` | Ordered effective-layout steps | Planned order derivable | Actual event-time order unbound |
-| `path_identity` | Original signed-layout carrier + original Layout payload + exact substitution map + pinned substitution implementation + deterministic effective-layout identity + signed Link tree + effective rules | Derivable only when every exact carrier and transformation input is preserved | Summary Link alone is insufficient |
-| `participating_entities` | Functionary keys and accepted Link signers | Direct | Key identity is not full authorization provenance |
-| `system_boundary` | Effective layout, step, sublayout and verification environment | Partial | General external boundary not encoded |
-| `boundary_crossings` | MATCH relations and sublayout delegation | Partial | Domain-specific artifact crossings |
+| `changed_relations` | CREATE, DELETE, MODIFY results under the effective layout | Deterministically derivable | Only declared paths and effective rules |
+| `ordered_transition_elements` | Ordered effective layout steps | Planned order directly available | Actual event-time order unbound |
+| `path_identity` | Authenticated Layout-content identity under wrapper-specific signature semantics + exact substitution parameter map + deterministic effective-layout identity + authenticated Link-content identities + effective rules | Derivable only when all semantic inputs and the derivation procedure are preserved | Raw carrier identities remain separate evidence identities; summary Link alone is insufficient |
+| `participating_entities` | Verification keys and accepted Link signer relations | Direct after signature verification | Key identity is not full authorization provenance |
+| `system_boundary` | Raw carriers, authenticated content, effective layout, steps, sublayouts, and verification environment | Partial | General external boundary not encoded |
+| `boundary_crossings` | Effective MATCH relations and sublayout delegation | Partial | Domain-specific artifact crossings |
 | `event_time_binding` | No required Link field | Unavailable by default | Requires separate evidence |
 | `observation_time_binding` | No required Link field | Unavailable by default | Requires separate evidence |
 | `record_verification_time_binding` | Verification event | Separately recordable | Must not substitute for step time |
-| `measurement_refs` | Exact signed layout and Link carriers | Direct | Wrapper and payload identities must remain separate |
-| `evidence_refs` | Signed layout, Links, sublayouts and inspection Links | Direct | Full carrier tree required |
-| `domain_verifier_binding` | Exact in-toto verifier and exact configuration | Separately bound | Version label alone is insufficient |
+| `measurement_refs` | Raw metadata-carrier identities + wrapper-specific signature-input identities + authenticated payload-content identities | Direct and derived components | No one identity may substitute for the others |
+| `evidence_refs` | Raw layout, Link, sublayout, and inspection carriers; signature inputs; signature records; substitutions; accepted result references | Direct | Full evidence and effective-layout derivation tree required |
+| `domain_verifier_binding` | Exact in-toto verifier and exact signature-input dependency source | Separately bound | Version label alone is insufficient |
 | `transition_verifier_binding` | Future PULSEmech mapper/verifier | Not implemented | Must remain separate from in-toto |
-| `alternative_paths` | No native complete model | Unresolved by default | Must not be inferred from one passing layout |
-| `excluded_paths` | Some artifact-rule exclusions | Partial | Not general alternative-path closure |
+| `alternative_paths` | No native complete model | Unresolved by default | Must not be inferred from one passing effective layout |
+| `excluded_paths` | Some effective artifact-rule exclusions | Partial | Not general alternative-path closure |
 | `remaining_admissible_paths` | Not represented | Unresolved | Requires separate analysis |
 | `unresolved_edges` | Failures and missing evidence | Partial | Not persisted as multiaxial record by default |
-| `reconstruction_method` | Exact verifier replay plus mapping rule | Future derived record | Not yet implemented |
-| `reproduction_status` | Exact replay may be possible | Bounded | Inspections, environment and substitutions affect replay |
+| `reconstruction_method` | Exact verifier replay plus signature-input reconstruction, effective-layout derivation, and mapping rule | Future derived record | Not yet implemented |
+| `reproduction_status` | Exact replay may be possible | Bounded | Raw carriers, signature inputs, substitutions, inspections, and environment affect replay |
 | `causal_status` | Not a classic in-toto object | `not_evaluated` or `sequence_only` maximum by default | No causal promotion |
 | `authority_status` | Not a classic in-toto object | `none` | PULSEmech controls authority separately |
 | `authority_effect` | None | Direct PULSE boundary | Verification does not create release authority |
@@ -2128,8 +2608,7 @@ such as:
 transition_verified
 ```
 
-A normalized PULSEmech interpretation must preserve independent axes and use only
-the status vocabulary defined by the foundational Transition Meter.
+A normalized PULSEmech interpretation must preserve independent axes.
 
 ### 26.1 Observation status
 
@@ -2144,11 +2623,10 @@ may be appropriate when materials and products were captured around a step.
 It must not become:
 
 ```text
-directly_observed
+directly_observed_complete_transition
 ```
 
-for the complete transition unless complete observation coverage is separately
-proven.
+unless complete observation coverage is separately proven.
 
 ### 26.2 Binding status
 
@@ -2172,41 +2650,39 @@ partially_bound
 
 ### 26.3 Consistency status
 
-A PASS can support the defined axis value:
+A PASS can support the defined consistency-axis value:
 
 ```text
 consistent
 ```
 
-The qualification belongs in separate bindings such as:
+The exact qualification must remain outside the axis value in explicit bindings
+such as:
 
 ```text
 consistency_scope:
-exact_effective_layout_and_exact_verification_inputs
-
-original_layout_carrier_ref:
-<exact identity>
-
-substitution_parameter_ref:
-<exact identity>
-
-effective_layout_ref:
-<deterministically derived identity>
-
-domain_verifier_ref:
-<exact identity>
+exact_raw_layout_carrier_identity
++
+exact_layout_signature_input_identity
++
+verified_layout_signer_relation
++
+exact_substitution_parameter_map
++
+exact_effective_layout_identity
++
+exact_raw_Link_carrier_set
++
+exact_Link_signature_input_identities
++
+verified_Link_signer_relations
++
+exact_verifier_and_signature_dependency_identity
 ```
 
-The consistency axis must not invent:
-
-```text
-consistent_under_exact_layout
-```
-
-as a new status value.
-
-A PASS does not establish consistency under another layout, substitution set,
-policy, verifier or evidence set.
+A PASS does not establish consistency under another raw layout carrier, another authenticated Layout-content identity,
+another substitution map, another effective layout, another Link evidence set,
+another policy, or another verifier.
 
 ### 26.4 Reproduction status
 
@@ -2233,8 +2709,7 @@ or, where a sequence relation is adequately supported:
 sequence_only
 ```
 
-Classic in-toto does not establish causal necessity, sufficiency, or
-exclusivity.
+Classic in-toto does not establish causal necessity, sufficiency, or exclusivity.
 
 ### 26.6 Authority status
 
@@ -2257,6 +2732,26 @@ score.
 Useful coverage fields include:
 
 ```text
+raw_layout_carrier_present
+
+layout_wrapper_type_present
+
+layout_signature_input_identity_present
+
+layout_signature_verified
+
+authenticated_layout_content_identity_present
+
+substitution_parameter_map_present
+
+effective_layout_identity_present
+
+raw_Link_carriers_present
+
+Link_signature_input_identities_present
+
+accepted_Link_signer_relations_present
+
 declared_steps
 
 verified_steps
@@ -2291,9 +2786,9 @@ inspections_executed
 
 inspection_results_preserved
 
-substitution_parameters_present
+current_run_subject_binding_evaluated
 
-effective_layout_identity_present
+current_run_subject_matches_selected_product
 
 alternative_paths_evaluated
 
@@ -2303,7 +2798,19 @@ unresolved_transition_edges
 A meaningful record may say:
 
 ```text
-5 planned effective-layout steps
+1 raw layout metadata carrier preserved
+
+1 wrapper-specific layout signature input reconstructed and verified
+
+1 authenticated Layout-content identity preserved
+
+1 exact substitution parameter map preserved
+
+1 deterministic effective-layout identity preserved
+
+5 planned effective steps
+
+5 raw Link carriers and Link signature-input identities preserved
 
 5 signed step records accepted
 
@@ -2319,9 +2826,7 @@ A meaningful record may say:
 
 1 sublayout verified and fully preserved
 
-exact substitution parameter map preserved
-
-effective-layout identity derived
+current-run release-subject binding not evaluated
 
 alternative path analysis not performed
 
@@ -2376,33 +2881,45 @@ verified provenance summary admission
 It does not losslessly preserve:
 
 ```text
-signed layout wrapper bytes
+exact raw layout metadata-carrier bytes
 
-Layout payload bytes
+layout wrapper type
 
-layout signatures
+layout signature records
+
+wrapper-specific layout signature-input identity
+
+authenticated Layout-content identity
 
 external layout trust roots
 
-exact substitution parameters
+exact substitution parameter map
 
-effective-layout identity
+deterministic effective-layout identity
 
-every signed Link wrapper and payload
+exact raw Link metadata carriers
+
+wrapper-specific Link signature-input identities
+
+accepted and rejected signer relations
 
 step thresholds
 
-artifact-rule lists
+effective artifact-rule lists
 
 rule-consumption state
 
-sublayout tree
+sublayout carrier tree
 
 inspection definitions
+
+effective inspection commands
 
 inspection execution state
 
 command mismatch warnings
+
+separate current-run subject-to-product binding state
 ```
 
 Therefore:
@@ -2445,9 +2962,17 @@ They differ in their upstream mechanics.
 ### Classic in-toto
 
 ```text
-signed layout carrier
+raw metadata carrier containing original Layout payload and signature records
 
-signed Link carriers
+wrapper-specific layout signature input and verified signer relation
+
+exact substitution parameter map
+
+deterministically derived effective layout
+
+raw metadata carriers containing Link payloads and signature records
+
+wrapper-specific Link signature inputs and verified signer relations
 
 functionary thresholds
 
@@ -2505,22 +3030,42 @@ witness_policy_verification
 
 This document does not decide that structure.
 
-A separate classic in-toto carrier is justified only if a shared profile cannot
-preserve the upstream semantics without ambiguity or loss.
+A separate classic in-toto carrier is justified only if the shared profile
+cannot preserve the upstream semantics without ambiguity or loss.
 
 ---
 
-## 30. Domain verifier and adapter boundary
+## 30. Domain verifier, adapter, and current-run subject boundary
 
 The correct future relation is:
 
 ```text
-classic in-toto layout and Link carriers
+raw classic in-toto metadata carriers
++
+layout verification keys
++
+exact substitution parameter map
++
+exact verification configuration
 → official pinned in-toto domain verifier
-→ domain verification result
+→ wrapper-specific signature verification
+→ effective-layout verification result
 → lossless PULSEmech adapter
 → normalized transition-evidence record
-→ PULSEmech transition verification
+```
+
+The release subject is connected only afterward through a separate PULSEmech
+binding:
+
+```text
+normalized accepted in-toto product evidence
++
+exact PULSE current-run subject
++
+exact protected product-selection rule
++
+path and digest equality
+→ current-run subject binding
 ```
 
 ### 30.1 in-toto responsibility
@@ -2528,29 +3073,33 @@ classic in-toto layout and Link carriers
 Classic in-toto remains responsible for:
 
 ```text
-metadata wrapper parsing
+metadata carrier loading and parsing
 
 Layout and Link payload validation
 
+wrapper-specific layout signature-input reconstruction
+
 layout signature verification
 
-layout expiration
+Layout expiration
 
-parameter substitution semantics
+substitution semantics
 
-Link discovery
+Link carrier discovery
+
+wrapper-specific Link signature-input reconstruction
 
 Link signature verification
 
-functionary authorization
+functionary authorization under the effective layout
 
 threshold verification
 
 sublayout verification
 
-artifact-rule semantics
+effective artifact-rule semantics
 
-inspection execution semantics
+effective inspection execution semantics
 
 domain PASS or typed failure
 ```
@@ -2560,19 +3109,31 @@ domain PASS or typed failure
 A future adapter would be responsible for preserving:
 
 ```text
-exact upstream source identity
+exact upstream and signature-dependency source identities
 
-exact signed layout and Link carriers
+exact raw layout metadata carrier
 
-exact payload identities
+layout wrapper type and signature records
 
-wrapper-to-payload relations
+exact layout signature-input identity
 
-external layout trust roots
+verified layout signer relation
+
+authenticated original Layout-content identity
 
 exact substitution parameter map
 
-deterministic effective-layout identity
+exact effective-layout derivation identity
+
+exact raw Link and sublayout carriers
+
+Link and sublayout wrapper types and signature records
+
+exact Link and sublayout signature-input identities
+
+verified Link and sublayout signer relations
+
+external layout trust roots
 
 exact verification configuration
 
@@ -2602,7 +3163,15 @@ PULSEmech remains responsible for:
 ```text
 cross-record identity
 
-current-run subject binding
+exact current-run repository, workflow, run, attempt, candidate, and source binding
+
+current-run release-subject identity
+
+protected selection of one accepted in-toto product reference
+
+subject-to-product path and digest equality
+
+stale-subject rejection
 
 transition-element mapping
 
@@ -2621,18 +3190,24 @@ replay status
 authority separation
 ```
 
+No upstream verification result may affect PULSEmech authority while the
+current-run subject relation is unbound or mismatched.
+
 ---
 
 ## 31. No-reimplementation invariant
 
-PULSEmech must not become a second classic in-toto verifier.
+PULSEmech must not become a second classic in-toto verifier or a second
+signature-wrapper implementation.
 
 The forbidden path is:
 
 ```text
-read in-toto carriers
-→ independently reimplement metadata signatures
-→ independently reimplement parameter substitution
+read in-toto metadata carriers
+→ independently redefine Metablock canonical signature input
+→ independently redefine DSSE PAE signature input
+→ independently reimplement signature verification
+→ independently reimplement substitution semantics
 → independently reimplement threshold semantics
 → independently reimplement artifact-rule engine
 → independently reimplement sublayout recursion
@@ -2657,21 +3232,32 @@ false equivalence with upstream verification
 The required path is:
 
 ```text
-pin exact official verifier
+pin exact official verifier and signature-input dependency source
 
-preserve exact verifier identity
+preserve exact raw metadata carriers
+
+preserve wrapper-specific signature-input identities
+
+preserve exact verification keys and signer results
+
+preserve exact substitution parameter map
+
+derive and bind exact effective-layout identity
 
 replay official verifier under controlled conditions
 
-preserve typed result and complete input tree
+preserve typed result and complete evidence tree
 
 map the domain result into PULSEmech without semantic promotion
+
+bind the separate current-run release subject afterward
 ```
 
 A PULSEmech validator may verify the integrity and internal consistency of the
-normalized carrier.
+normalized carrier and the subject-binding relation.
 
-It must not silently replace the official domain verifier.
+It must not silently replace the official domain verifier or wrapper-specific
+signature semantics.
 
 ---
 
@@ -2700,7 +3286,7 @@ a possible shared software-supply-chain transition-evidence carrier
 A future implementation must identify a stable way to preserve:
 
 ```text
-complete accepted input tree
+complete accepted input carrier tree
 
 typed failures
 
@@ -2722,81 +3308,101 @@ without treating human logs as the normative result.
 The implementation must bind:
 
 ```text
-upstream repository
+in-toto repository and exact revision
 
-exact revision
+in-toto reviewed source-surface manifest
 
-package version
+exact pinned securesystemslib version and resolved revision
 
-complete declared reviewed-source manifest
+signature-input dependency reviewed surface
 
-dependency identities
-
-participating source or executable digest
+participating executable or library digest
 
 adapter identity
 ```
 
-### 32.4 Signed-carrier and payload separation
+### 32.4 Raw carrier and signature-input separation
 
-The implementation must preserve:
+The implementation must bind separately:
 
 ```text
-exact wrapper bytes
+exact raw metadata-carrier identities
 
-exact payload bytes
-
-wrapper type
-
-wrapper-to-payload relation
+wrapper types
 
 signature records
 
-verified signer identities
+wrapper-specific signature-input modes
+
+exact signature-input identities
+
+verification-key identities
+
+verified signer relations
+
+authenticated payload-content identities
 ```
 
-for Layout, Link and sublayout carriers.
+It must not claim that valid signatures authenticate every raw wrapper byte.
 
 ### 32.5 Effective-layout identity
 
 The implementation must bind:
 
 ```text
-original signed layout carrier
+authenticated original Layout-content identity
 
-original Layout payload
+exact substitution parameter map
 
-exact substitution map
+exact deterministic effective-layout derivation
 
-exact substitution implementation
+exact effective-layout identity
 
-deterministically derived effective-layout identity
+authenticated Link-content identity set
 ```
 
-### 32.6 Inspection isolation
+### 32.6 Current-run subject binding
+
+The implementation must separately bind:
+
+```text
+exact PULSE current-run identity
+
+exact release-candidate subject path and digest
+
+exact selected accepted in-toto product reference
+
+exact product-selection rule
+
+subject-to-product path and digest equality
+
+stale-evidence result
+```
+
+An unbound or mismatched current-run subject must have no authority effect.
+
+### 32.7 Inspection isolation
 
 The implementation must define and prove a safe inspection execution boundary.
 
-### 32.7 Trust-root binding
+### 32.8 Trust-root binding
 
 The exact layout-verification keys and their protected selection mechanism must
 be part of the record.
 
-### 32.8 Time-gap preservation
+### 32.9 Time-gap preservation
 
 Missing event and observation times must remain explicitly unbound.
 
 They must not be synthesized from unrelated timestamps.
 
-### 32.9 No causal promotion
+### 32.10 No causal or authority promotion
 
 Artifact continuity must not be promoted into causal necessity, sufficiency, or
 exclusivity.
 
-### 32.10 No authority promotion
-
 Upstream PASS must remain evidence only until a separate PULSE policy explicitly
-uses it.
+uses a complete, current-run-bound evidence relation.
 
 If these criteria are not satisfied, a separate carrier must not be created.
 
@@ -2810,21 +3416,27 @@ to determine whether a dedicated carrier is necessary.
 The study should use:
 
 ```text
-one exact upstream in-toto revision
+one exact in-toto source revision
 
-one exact signed layout carrier
+one exact securesystemslib signature-input dependency revision
 
-one exact original Layout payload
+one exact raw layout metadata carrier
 
-one exact layout trust-root set
+one exact wrapper-specific layout signature input
+
+one exact layout signature and verification-key set
+
+one exact authenticated original Layout-content identity
 
 one exact substitution parameter map
 
-one exact derived effective-layout identity
+one exact deterministic effective-layout identity
 
-one exact complete Link and sublayout carrier tree
+one exact complete raw Link and sublayout carrier tree
 
-one deterministic artifact set
+one exact Link and sublayout signature-input identity tree
+
+one deterministic recorded artifact set
 
 no inspections
 or
@@ -2833,26 +3445,30 @@ an independently isolated inspection executor
 one exact official verifier execution
 
 one exact verification event
+
+one exact PULSE current-run subject supplied only to the separate binding step
 ```
 
 The study should preserve:
 
 ```text
-all input bytes and digests
+all raw carrier bytes, digests, and sizes
 
-all wrapper and payload identities
+all wrapper types and signature records
 
-all wrapper-to-payload relations
+all wrapper-specific signature-input bytes, digests, and sizes
 
-all signer identities
+all verification-key and verified signer identities
 
-all original layout steps and rules
+all original Layout steps and rules
 
 all substitution parameters
 
-all effective commands and rules
+the complete effective-layout derivation
 
-all accepted Links
+all effective steps and rules
+
+all accepted, rejected, and ignored Link identities where the upstream surface exposes them
 
 all warnings
 
@@ -2860,21 +3476,55 @@ typed verification result
 
 returned summary Link
 
-all fields lost by summary reduction
+the exact selected first-step and last-step representative Links
+
+all fields lost by the summary reduction
+
+the separate PULSE current-run subject identity
+
+the exact selected accepted product reference
+
+the subject-to-product comparison result
 
 all Transition Meter fields that remain unavailable
+```
+
+The study must include at least these subject-binding cases:
+
+```text
+same accepted in-toto evidence
++
+current-run subject path and digest equal selected product path and digest
+→ subject binding passes
+```
+
+```text
+same accepted in-toto evidence
++
+different current-run subject digest
+→ subject binding rejected
+```
+
+```text
+same accepted in-toto evidence
++
+no protected product-selection rule
+→ subject binding unbound
 ```
 
 The study question is:
 
 ```text
-Can the classic in-toto domain result be represented losslessly through an
-existing or shared PULSEmech software-supply-chain transition carrier?
+Can the classic in-toto domain result and its separate current-run subject
+binding be represented losslessly through an existing or shared PULSEmech
+software-supply-chain transition carrier?
 ```
 
 Possible results are:
 
 ```text
+existing VSA path sufficient
+
 shared carrier sufficient
 
 classic profile extension required
@@ -2882,6 +3532,8 @@ classic profile extension required
 dedicated carrier required
 
 upstream result surface insufficient
+
+subject-binding surface insufficient
 
 inspection boundary unresolved
 
@@ -2936,26 +3588,37 @@ the active release-required gate set
 
 ```text
 Layout payload
-≠ signed layout metadata carrier
+≠ raw layout metadata carrier
 
 Link payload
-≠ signed Link metadata carrier
+≠ raw Link metadata carrier
 
-original signed Layout payload
-≠ effective substituted Layout semantics
+raw metadata-carrier identity
+≠ wrapper-specific signature-input identity
 
-same original layout and Links
+valid Metablock signature
+→ canonical signed-payload representation authenticated
+≠ complete raw Metablock bytes authenticated
+
+valid DSSE signature
+→ PAE(payloadType, decoded payload bytes) authenticated
+≠ complete raw Envelope bytes authenticated
+
+same authenticated payload content
 +
-different substitution map
+wrapper reserialization or additional signature
+→ different raw evidence carrier
+→ existing signature may remain valid
+
+same authenticated original Layout content
++
+different substitution parameter map
 → different effective path identity
 
-signed layout
-≠ secure layout
-
-layout step order
+effective layout step order
 ≠ measured event-time order
 
-signed Link
+verified Link signer relation
 ≠ complete execution observation
 
 declared material
@@ -2979,10 +3642,13 @@ artifact MATCH
 summary Link
 ≠ complete verified internal path
 
-layout not expired
-≠ latest authorized layout
+summary Link last-step command and byproducts
+≠ threshold-wide command and byproduct agreement
 
-valid layout signature
+authenticated Layout content not expired
+≠ latest authorized Layout state
+
+valid wrapper-specific layout signature
 ≠ current trust authorization
 
 inspection declaration
@@ -2990,6 +3656,17 @@ inspection declaration
 
 verification process ran
 ≠ verification passed
+
+accepted final-step product record
+≠ current PULSEmech release subject
+
+in-toto verification PASS
+≠ current-run subject binding
+
+valid historical in-toto evidence
++
+different current-run subject
+→ subject binding rejected
 
 in-toto verification PASS
 ≠ PULSE final status
@@ -3007,24 +3684,28 @@ upstream evidence admission
 
 Classic in-toto provides a strong software-supply-chain evidence mechanism.
 
-Its central verified object is:
+Its central verified relation is:
 
 ```text
-one exact signed planned layout carrier
+one exact raw metadata carrier containing original Layout content and signature records
 +
-one exact original Layout payload
+one wrapper-specific layout signature input and verified signer relation
 +
 one exact substitution parameter map
 +
-one deterministic effective-layout identity
+one deterministically derived effective layout
 +
-one exact set of signed functionary step carriers
+one exact raw set of functionary Link metadata carriers
++
+one exact set of wrapper-specific Link signature inputs and verified signer relations
 +
 one exact effective artifact-rule relation
 +
 one exact verifier execution
 → effective-layout-relative artifact-chain conformance
 ```
+
+The raw carrier identity and authenticated content identity remain separate.
 
 This is valuable PULSEmech upstream evidence.
 
@@ -3035,7 +3716,7 @@ declared artifact state before
 
 declared artifact state after
 
-authorized participant identity
+authorized participant identity under the exact layout trust model
 
 artifact creation, deletion, and modification relations
 
@@ -3061,15 +3742,30 @@ unresolved-edge preservation as multiaxial state
 
 causal necessity or sufficiency
 
+binding to the current PULSEmech release subject
+
 PULSE release authority
 ```
 
-The exact relation is:
+The current-run relation begins only when PULSEmech separately establishes:
+
+```text
+exact current-run subject
++
+protected selected accepted in-toto product reference
++
+path and digest equality
+→ current-run subject binding
+```
+
+The exact relationship is:
 
 ```text
 classic in-toto
 → domain-native signed artifact-transition evidence
 → possible PULSEmech evidence admission
+→ separate current-run subject binding
+→ possible later policy evaluation
 ```
 
 not:
@@ -3077,6 +3773,13 @@ not:
 ```text
 classic in-toto
 → complete generalized Transition Meter
+```
+
+and not:
+
+```text
+classic in-toto verification PASS
+→ current-run subject bound
 ```
 
 and not:
@@ -3094,6 +3797,12 @@ confirmed
 
 transition-evidence value:
 confirmed
+
+raw-carrier and signature-input separation:
+required
+
+current-run subject binding:
+separate and not implemented
 
 complete Transition Meter equivalence:
 rejected
