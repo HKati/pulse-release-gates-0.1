@@ -2,6 +2,12 @@
 
 PULSEmech is the canonical mechanical implementation of PULSE.
 
+**Current systems measure states. PULSEmech Transition Meter measures the evidence-bound transition between states.**
+
+Artifact-bound AI release authority is the first concrete PULSEmech implementation domain of this broader transition-measurement architecture.
+
+[**Open the foundational PULSEmech Transition Meter architecture**](PULSEMECH_TRANSITION_METER.md)
+
 > **Public origin / prior-art notice:** PULSE has a minimum public origin record. For the visible provenance anchors and attribution boundary, see the [Public Origin / Prior Art Notice](docs/quality_ledger.md#10-public-origin--prior-art-notice).
 
 ## Primary PULSEmech technical source
