@@ -33,6 +33,7 @@ def _load_tool() -> Any:
         raise AssertionError("tool module spec unavailable")
     module = importlib.util.module_from_spec(spec)
     import sys
+
     sys.modules[spec.name] = module
     spec.loader.exec_module(module)
     return module
@@ -61,7 +62,7 @@ def _run(
         "head_sha": head_sha,
         "repository": {"full_name": REPOSITORY},
         "head_repository": {"full_name": head_repository},
-        "pull_requests": pull_requests or [],
+        "pull_requests": [] if pull_requests is None else pull_requests,
     }
 
 
@@ -82,12 +83,13 @@ def _metadata(
     }
 
 
-def _pull_request_snapshot(
+def _workflow_snapshot(
     *,
     number: int = 42,
     head_repository: str = REPOSITORY,
     head_sha: str = HEAD_SHA,
     head_ref: str = "feature",
+    base_repository: str = REPOSITORY,
     base_sha: str = BASE_SHA,
     base_ref: str = "main",
 ) -> dict[str, Any]:
@@ -95,20 +97,47 @@ def _pull_request_snapshot(
         "number": number,
         "head": {
             "repo": {
-                "url": "https://api.github.com/repos/"
-                + head_repository,
+                "url": "https://api.github.com/repos/" + head_repository,
             },
             "sha": head_sha,
             "ref": head_ref,
         },
         "base": {
             "repo": {
-                "url": "https://api.github.com/repos/"
-                + REPOSITORY,
+                "url": "https://api.github.com/repos/" + base_repository,
             },
             "sha": base_sha,
             "ref": base_ref,
         },
+    }
+
+
+def _associated_pr(
+    *,
+    number: int = 42,
+    state: str = "open",
+    head_repository: str = REPOSITORY,
+    head_sha: str = HEAD_SHA,
+    head_ref: str = "feature",
+    base_repository: str = REPOSITORY,
+    base_sha: str = BASE_SHA,
+    base_ref: str = "main",
+    merge_commit_sha: str | None = MERGE_SHA,
+) -> dict[str, Any]:
+    return {
+        "number": number,
+        "state": state,
+        "head": {
+            "repo": {"full_name": head_repository},
+            "sha": head_sha,
+            "ref": head_ref,
+        },
+        "base": {
+            "repo": {"full_name": base_repository},
+            "sha": base_sha,
+            "ref": base_ref,
+        },
+        "merge_commit_sha": merge_commit_sha,
     }
 
 
@@ -142,45 +171,60 @@ def _expect_error(
         raise AssertionError(f"expected BindingError containing {expected!r}")
 
 
-def test_workflow_path_without_suffix_passes() -> None:
-    result = tool.verify_binding(
+def _same_repo_pr_result(
+    *,
+    pull_requests: list[dict[str, Any]] | None = None,
+    associated_pull_requests: Any | None = None,
+    metadata: dict[str, Any] | None = None,
+    merge_commit: dict[str, Any] | None = None,
+) -> Any:
+    return tool.verify_binding(
         repository=REPOSITORY,
         run_id=RUN_ID,
         run=_run(
-            event="push",
-            head_branch="main",
-            head_sha=MAIN_SHA,
-            path=".github/workflows/pulse_ci.yml",
+            event="pull_request",
+            head_branch="feature",
+            head_sha=HEAD_SHA,
+            pull_requests=pull_requests,
         ),
-        metadata=_metadata(
-            event="push",
-            ref="refs/heads/main",
-            sha=MAIN_SHA,
+        metadata=(
+            _metadata(
+                event="pull_request",
+                ref="refs/pull/42/merge",
+                sha=MERGE_SHA,
+                pr_number=42,
+                is_fork=False,
+            )
+            if metadata is None
+            else metadata
         ),
+        merge_commit=_merge_commit() if merge_commit is None else merge_commit,
+        associated_pull_requests=associated_pull_requests,
     )
-    assert result.skip is False
 
 
-def test_workflow_path_with_suffix_passes() -> None:
-    result = tool.verify_binding(
-        repository=REPOSITORY,
-        run_id=RUN_ID,
-        run=_run(
-            event="push",
-            head_branch="main",
-            head_sha=MAIN_SHA,
-            path=".github/workflows/pulse_ci.yml@refs/heads/main",
-        ),
-        metadata=_metadata(
-            event="push",
-            ref="refs/heads/main",
-            sha=MAIN_SHA,
-        ),
-    )
-    assert result.skip is False
+def test_workflow_identity_paths() -> None:
+    for path in (
+        ".github/workflows/pulse_ci.yml",
+        ".github/workflows/pulse_ci.yml@refs/heads/main",
+    ):
+        result = tool.verify_binding(
+            repository=REPOSITORY,
+            run_id=RUN_ID,
+            run=_run(
+                event="push",
+                head_branch="main",
+                head_sha=MAIN_SHA,
+                path=path,
+            ),
+            metadata=_metadata(
+                event="push",
+                ref="refs/heads/main",
+                sha=MAIN_SHA,
+            ),
+        )
+        assert result.reason == "verified_push"
 
-
-def test_workflow_path_prefix_substitution_fails() -> None:
     _expect_error(
         "workflow_run_path_mismatch",
         lambda: tool.verify_binding(
@@ -201,89 +245,34 @@ def test_workflow_path_prefix_substitution_fails() -> None:
     )
 
 
-def test_push_main_passes() -> None:
-    result = tool.verify_binding(
+def test_push_and_dispatch_contracts() -> None:
+    push_main = tool.verify_binding(
         repository=REPOSITORY,
         run_id=RUN_ID,
-        run=_run(
-            event="push",
-            head_branch="main",
-            head_sha=MAIN_SHA,
-        ),
+        run=_run(event="push", head_branch="main", head_sha=MAIN_SHA),
         metadata=_metadata(
             event="push",
             ref="refs/heads/main",
             sha=MAIN_SHA,
         ),
     )
-    assert result.ok is True
-    assert result.skip is False
-    assert result.reason == "verified_push"
-    assert result.ref == "refs/heads/main"
-    assert result.sha == MAIN_SHA
+    assert push_main.skip is False
+    assert push_main.ref == "refs/heads/main"
+    assert push_main.sha == MAIN_SHA
 
-
-def test_push_tag_passes() -> None:
-    result = tool.verify_binding(
+    push_tag = tool.verify_binding(
         repository=REPOSITORY,
         run_id=RUN_ID,
-        run=_run(
-            event="push",
-            head_branch="v1.2.0",
-            head_sha=TAG_SHA,
-        ),
+        run=_run(event="push", head_branch="v1.2.0", head_sha=TAG_SHA),
         metadata=_metadata(
             event="push",
             ref="refs/tags/v1.2.0",
             sha=TAG_SHA,
         ),
     )
-    assert result.skip is False
-    assert result.ref == "refs/tags/v1.2.0"
-    assert result.sha == TAG_SHA
+    assert push_tag.reason == "verified_push"
 
-
-def test_push_hyphenated_tag_passes() -> None:
-    result = tool.verify_binding(
-        repository=REPOSITORY,
-        run_id=RUN_ID,
-        run=_run(
-            event="push",
-            head_branch="v-rc1",
-            head_sha=TAG_SHA,
-        ),
-        metadata=_metadata(
-            event="push",
-            ref="refs/tags/v-rc1",
-            sha=TAG_SHA,
-        ),
-    )
-    assert result.skip is False
-    assert result.ref == "refs/tags/v-rc1"
-
-
-def test_push_metadata_mismatch_fails() -> None:
-    _expect_error(
-        "sarif_metadata_sha_mismatch",
-        lambda: tool.verify_binding(
-            repository=REPOSITORY,
-            run_id=RUN_ID,
-            run=_run(
-                event="push",
-                head_branch="main",
-                head_sha=MAIN_SHA,
-            ),
-            metadata=_metadata(
-                event="push",
-                ref="refs/heads/main",
-                sha=TAG_SHA,
-            ),
-        ),
-    )
-
-
-def test_workflow_dispatch_main_passes() -> None:
-    result = tool.verify_binding(
+    manual_main = tool.verify_binding(
         repository=REPOSITORY,
         run_id=RUN_ID,
         run=_run(
@@ -297,12 +286,9 @@ def test_workflow_dispatch_main_passes() -> None:
             sha=MAIN_SHA,
         ),
     )
-    assert result.skip is False
-    assert result.reason == "verified_workflow_dispatch_main"
+    assert manual_main.reason == "verified_workflow_dispatch_main"
 
-
-def test_workflow_dispatch_feature_skips() -> None:
-    result = tool.verify_binding(
+    manual_feature = tool.verify_binding(
         repository=REPOSITORY,
         run_id=RUN_ID,
         run=_run(
@@ -316,30 +302,27 @@ def test_workflow_dispatch_feature_skips() -> None:
             sha=HEAD_SHA,
         ),
     )
-    assert result.skip is True
-    assert result.reason == "workflow_dispatch_ref_not_main"
-    assert result.ref is None
-    assert result.sha is None
+    assert manual_feature.skip is True
+    assert manual_feature.reason == "workflow_dispatch_ref_not_main"
+
+    _expect_error(
+        "sarif_metadata_sha_mismatch",
+        lambda: tool.verify_binding(
+            repository=REPOSITORY,
+            run_id=RUN_ID,
+            run=_run(event="push", head_branch="main", head_sha=MAIN_SHA),
+            metadata=_metadata(
+                event="push",
+                ref="refs/heads/main",
+                sha=TAG_SHA,
+            ),
+        ),
+    )
 
 
-def test_same_repository_pull_request_snapshot_passes() -> None:
-    result = tool.verify_binding(
-        repository=REPOSITORY,
-        run_id=RUN_ID,
-        run=_run(
-            event="pull_request",
-            head_branch="feature",
-            head_sha=HEAD_SHA,
-            pull_requests=[_pull_request_snapshot()],
-        ),
-        metadata=_metadata(
-            event="pull_request",
-            ref="refs/pull/42/merge",
-            sha=MERGE_SHA,
-            pr_number=42,
-            is_fork=False,
-        ),
-        merge_commit=_merge_commit(),
+def test_historical_workflow_run_snapshot_passes() -> None:
+    result = _same_repo_pr_result(
+        pull_requests=[_workflow_snapshot()],
     )
     assert result.skip is False
     assert result.reason == "verified_pull_request_merge_snapshot"
@@ -347,7 +330,166 @@ def test_same_repository_pull_request_snapshot_passes() -> None:
     assert result.sha == MERGE_SHA
 
 
-def test_fork_pull_request_snapshot_skips() -> None:
+def test_empty_snapshot_uses_exact_commit_association() -> None:
+    result = _same_repo_pr_result(
+        pull_requests=[],
+        associated_pull_requests=[_associated_pr()],
+    )
+    assert result.skip is False
+    assert result.reason == "verified_pull_request_commit_association"
+    assert result.ref == "refs/pull/42/merge"
+    assert result.sha == MERGE_SHA
+
+
+def test_observed_failure_shape_is_repaired() -> None:
+    observed_head_sha = "f135b90d33b526ecdbbb58772a85f9c548b76f55"
+    observed_merge_sha = "bf81e4b7f78d94830911193034274ba808101542"
+    observed_base_sha = "8" * 40
+    run = _run(
+        event="pull_request",
+        head_branch="HKati-patch-477872",
+        head_sha=observed_head_sha,
+        pull_requests=[],
+    )
+    run["id"] = 31392352655
+
+    result = tool.verify_binding(
+        repository=REPOSITORY,
+        run_id=31392352655,
+        run=run,
+        metadata=_metadata(
+            event="pull_request",
+            ref="refs/pull/2808/merge",
+            sha=observed_merge_sha,
+            pr_number=2808,
+            is_fork=False,
+        ),
+        associated_pull_requests=[
+            _associated_pr(
+                number=2808,
+                head_sha=observed_head_sha,
+                head_ref="HKati-patch-477872",
+                base_sha=observed_base_sha,
+                merge_commit_sha=observed_merge_sha,
+            )
+        ],
+        merge_commit=_merge_commit(
+            sha=observed_merge_sha,
+            base_sha=observed_base_sha,
+            head_sha=observed_head_sha,
+        ),
+    )
+    assert result.skip is False
+    assert result.reason == "verified_pull_request_commit_association"
+
+
+def test_unavailable_or_drifted_association_skips_without_upload_target() -> None:
+    cases = [
+        ([], "pull_request_snapshot_unavailable"),
+        ([_associated_pr(state="closed")], "pull_request_snapshot_unavailable"),
+        (
+            [_associated_pr(merge_commit_sha="6" * 40)],
+            "pull_request_commit_association_drifted",
+        ),
+        (
+            [_associated_pr(head_sha="6" * 40)],
+            "pull_request_snapshot_unavailable",
+        ),
+        (
+            [_associated_pr(base_ref="release")],
+            "pull_request_snapshot_unavailable",
+        ),
+        (
+            [
+                _associated_pr(
+                    head_repository="attacker/pulse-release-gates-0.1"
+                )
+            ],
+            "pull_request_snapshot_unavailable",
+        ),
+    ]
+    for associated, reason in cases:
+        result = _same_repo_pr_result(
+            pull_requests=[],
+            associated_pull_requests=associated,
+        )
+        assert result.skip is True
+        assert result.reason == reason
+        assert result.ref is None
+        assert result.sha is None
+
+
+def test_ambiguous_or_invalid_snapshot_fails_closed() -> None:
+    _expect_error(
+        "associated_pull_request_candidate_count_invalid",
+        lambda: _same_repo_pr_result(
+            pull_requests=[],
+            associated_pull_requests=[
+                _associated_pr(number=41),
+                _associated_pr(number=42),
+            ],
+        ),
+    )
+    _expect_error(
+        "workflow_run_pull_request_snapshot_count_invalid",
+        lambda: _same_repo_pr_result(
+            pull_requests=[
+                _workflow_snapshot(number=41),
+                _workflow_snapshot(number=42),
+            ],
+        ),
+    )
+    _expect_error(
+        "associated_pull_requests_not_array",
+        lambda: _same_repo_pr_result(
+            pull_requests=[],
+            associated_pull_requests={"number": 42},
+        ),
+    )
+
+
+def test_artifact_metadata_cannot_select_the_associated_pr() -> None:
+    _expect_error(
+        "sarif_metadata_pr_number_mismatch",
+        lambda: _same_repo_pr_result(
+            pull_requests=[],
+            associated_pull_requests=[_associated_pr(number=41)],
+        ),
+    )
+    _expect_error(
+        "sarif_metadata_ref_mismatch",
+        lambda: _same_repo_pr_result(
+            pull_requests=[_workflow_snapshot()],
+            metadata=_metadata(
+                event="pull_request",
+                ref="refs/pull/41/merge",
+                sha=MERGE_SHA,
+                pr_number=42,
+                is_fork=False,
+            ),
+        ),
+    )
+
+
+def test_merge_commit_must_bind_exact_parents() -> None:
+    _expect_error(
+        "pull_request_merge_commit_parents_mismatch",
+        lambda: _same_repo_pr_result(
+            pull_requests=[_workflow_snapshot()],
+            merge_commit=_merge_commit(base_sha="7" * 40),
+        ),
+    )
+    _expect_error(
+        "pull_request_merge_commit_parents_mismatch",
+        lambda: _same_repo_pr_result(
+            pull_requests=[],
+            associated_pull_requests=[_associated_pr()],
+            merge_commit=_merge_commit(head_sha="7" * 40),
+        ),
+    )
+
+
+def test_fork_contract_remains_fail_closed() -> None:
     fork_repository = "contributor/pulse-release-gates-0.1"
     result = tool.verify_binding(
         repository=REPOSITORY,
@@ -357,11 +499,7 @@ def test_fork_pull_request_snapshot_skips() -> None:
             head_branch="feature",
             head_sha=HEAD_SHA,
             head_repository=fork_repository,
-            pull_requests=[
-                _pull_request_snapshot(
-                    head_repository=fork_repository,
-                )
-            ],
+            pull_requests=[],
         ),
         metadata=_metadata(
             event="pull_request",
@@ -376,10 +514,8 @@ def test_fork_pull_request_snapshot_skips() -> None:
     assert result.ref is None
     assert result.sha is None
 
-
-def test_pull_request_number_substitution_fails() -> None:
     _expect_error(
-        "sarif_metadata_pr_number_mismatch",
+        "sarif_metadata_is_fork_mismatch",
         lambda: tool.verify_binding(
             repository=REPOSITORY,
             run_id=RUN_ID,
@@ -387,7 +523,8 @@ def test_pull_request_number_substitution_fails() -> None:
                 event="pull_request",
                 head_branch="feature",
                 head_sha=HEAD_SHA,
-                pull_requests=[_pull_request_snapshot(number=41)],
+                head_repository=fork_repository,
+                pull_requests=[],
             ),
             metadata=_metadata(
                 event="pull_request",
@@ -396,94 +533,17 @@ def test_pull_request_number_substitution_fails() -> None:
                 pr_number=42,
                 is_fork=False,
             ),
-            merge_commit=_merge_commit(),
         ),
     )
 
 
-def test_pull_request_snapshot_head_substitution_fails() -> None:
-    _expect_error(
-        "workflow_run_pull_request_head_sha_mismatch",
-        lambda: tool.verify_binding(
-            repository=REPOSITORY,
-            run_id=RUN_ID,
-            run=_run(
-                event="pull_request",
-                head_branch="feature",
-                head_sha=HEAD_SHA,
-                pull_requests=[
-                    _pull_request_snapshot(head_sha="6" * 40)
-                ],
-            ),
-            metadata=_metadata(
-                event="pull_request",
-                ref="refs/pull/42/merge",
-                sha=MERGE_SHA,
-                pr_number=42,
-                is_fork=False,
-            ),
-            merge_commit=_merge_commit(),
-        ),
-    )
-
-
-def test_pull_request_merge_parent_substitution_fails() -> None:
-    _expect_error(
-        "pull_request_merge_commit_parents_mismatch",
-        lambda: tool.verify_binding(
-            repository=REPOSITORY,
-            run_id=RUN_ID,
-            run=_run(
-                event="pull_request",
-                head_branch="feature",
-                head_sha=HEAD_SHA,
-                pull_requests=[_pull_request_snapshot()],
-            ),
-            metadata=_metadata(
-                event="pull_request",
-                ref="refs/pull/42/merge",
-                sha=MERGE_SHA,
-                pr_number=42,
-                is_fork=False,
-            ),
-            merge_commit=_merge_commit(base_sha="7" * 40),
-        ),
-    )
-
-
-def test_pull_request_live_state_is_not_required() -> None:
-    result = tool.verify_binding(
-        repository=REPOSITORY,
-        run_id=RUN_ID,
-        run=_run(
-            event="pull_request",
-            head_branch="feature",
-            head_sha=HEAD_SHA,
-            pull_requests=[_pull_request_snapshot()],
-        ),
-        metadata=_metadata(
-            event="pull_request",
-            ref="refs/pull/42/merge",
-            sha=MERGE_SHA,
-            pr_number=42,
-            is_fork=False,
-        ),
-        merge_commit=_merge_commit(),
-    )
-    assert result.reason == "verified_pull_request_merge_snapshot"
-
-
-def test_event_substitution_fails() -> None:
+def test_event_and_json_substitution_fail_closed() -> None:
     _expect_error(
         "sarif_metadata_event_mismatch",
         lambda: tool.verify_binding(
             repository=REPOSITORY,
             run_id=RUN_ID,
-            run=_run(
-                event="push",
-                head_branch="main",
-                head_sha=MAIN_SHA,
-            ),
+            run=_run(event="push", head_branch="main", head_sha=MAIN_SHA),
             metadata=_metadata(
                 event="workflow_dispatch",
                 ref="refs/heads/main",
@@ -492,8 +552,6 @@ def test_event_substitution_fails() -> None:
         ),
     )
 
-
-def test_strict_metadata_json_rejects_duplicate_keys() -> None:
     payload = (
         b'{"event_name":"push","event_name":"pull_request",'
         b'"ref":"refs/heads/main","sha":"'
@@ -502,24 +560,17 @@ def test_strict_metadata_json_rejects_duplicate_keys() -> None:
     )
     _expect_error(
         "duplicate JSON key",
-        lambda: tool.parse_json_bytes(
-            payload,
-            label="sarif_metadata",
-        ),
+        lambda: tool.parse_json_bytes(payload, label="sarif_metadata"),
     )
 
 
-def test_artifact_selection_fails_closed() -> None:
+def test_artifact_file_selection_fails_closed() -> None:
     with tempfile.TemporaryDirectory() as temporary:
         root = Path(temporary)
         (root / "a" / "meta").mkdir(parents=True)
         (root / "b" / "artifacts" / "meta").mkdir(parents=True)
         content = json.dumps(
-            _metadata(
-                event="push",
-                ref="refs/heads/main",
-                sha=MAIN_SHA,
-            )
+            _metadata(event="push", ref="refs/heads/main", sha=MAIN_SHA)
         )
         (root / "a" / "meta" / "sarif_upload.json").write_text(content)
         (
@@ -535,15 +586,52 @@ def test_artifact_selection_fails_closed() -> None:
         )
 
 
-def test_verifier_uses_completed_run_snapshot() -> None:
+def test_paginated_commit_association_is_bounded() -> None:
+    class FollowupApi(tool.GitHubApi):
+        def __init__(self) -> None:
+            pass
+
+        def get(self, path: str, *, label: str) -> Any:
+            if path.endswith("page=1"):
+                return [{}] * tool.ASSOCIATED_PULL_REQUESTS_PAGE_SIZE
+            if path.endswith("page=2"):
+                return [{"number": 101}]
+            raise AssertionError(path)
+
+    values = FollowupApi().get_paginated_array(
+        "/commits/sha/pulls",
+        label="associated",
+    )
+    assert len(values) == tool.ASSOCIATED_PULL_REQUESTS_PAGE_SIZE + 1
+
+    class UnboundedApi(tool.GitHubApi):
+        def __init__(self) -> None:
+            pass
+
+        def get(self, path: str, *, label: str) -> Any:
+            return [{}] * tool.ASSOCIATED_PULL_REQUESTS_PAGE_SIZE
+
+    _expect_error(
+        "pagination_limit_exceeded",
+        lambda: UnboundedApi().get_paginated_array(
+            "/commits/sha/pulls",
+            label="associated",
+        ),
+    )
+
+
+def test_source_uses_only_commit_bound_fallback() -> None:
     source = TOOL_PATH.read_text(encoding="utf-8")
     assert "?exclude_pull_requests=false" in source
-    assert 'f"/git/commits/{merge_sha}"' in source
+    assert 'f"/commits/{encoded_head_sha}/pulls"' in source
+    assert 'f"/git/commits/{meta[\'sha\']}"' in source
     assert 'f"/pulls/{pr_number}"' not in source
     assert 'f"/git/ref/{encoded_ref}"' not in source
+    assert "pull_request_target" not in source
+    assert "subprocess" not in source
 
 
-def test_workflow_wiring() -> None:
+def test_workflow_wiring_preserves_privileged_boundary() -> None:
     data = yaml.safe_load(WORKFLOW_PATH.read_text(encoding="utf-8"))
     assert isinstance(data, dict)
 
@@ -551,17 +639,24 @@ def test_workflow_wiring() -> None:
     if trigger is None:
         trigger = data.get("on")
     assert isinstance(trigger, dict)
-    assert "workflow_run" in trigger
+    assert set(trigger) == {"workflow_run"}
     assert "workflow_dispatch" not in trigger
+    assert "pull_request_target" not in trigger
 
-    permissions = data["permissions"]
-    assert permissions == {
+    assert data["permissions"] == {
         "contents": "read",
         "actions": "read",
+        "pull-requests": "read",
         "security-events": "write",
     }
 
-    steps = data["jobs"]["upload-sarif"]["steps"]
+    job = data["jobs"]["upload-sarif"]
+    assert (
+        job["if"]
+        == "github.event.workflow_run.head_repository.id == github.event.repository.id"
+    )
+
+    steps = job["steps"]
     assert [step["name"] for step in steps] == [
         "Checkout trusted SARIF binding verifier",
         "Download pulse-report artifact",
@@ -570,10 +665,7 @@ def test_workflow_wiring() -> None:
     ]
 
     checkout = steps[0]
-    assert re.fullmatch(
-        r"actions/checkout@[0-9a-f]{40}",
-        checkout["uses"],
-    )
+    assert re.fullmatch(r"actions/checkout@[0-9a-f]{40}", checkout["uses"])
     assert checkout["with"] == {
         "ref": "${{ github.event.repository.default_branch }}",
         "persist-credentials": False,
@@ -585,17 +677,13 @@ def test_workflow_wiring() -> None:
         download["uses"],
     )
     assert download["with"]["run-id"] == "${{ github.event.workflow_run.id }}"
+    assert download["with"]["repository"] == "${{ github.repository }}"
 
     verify = steps[2]
     assert verify["id"] == "target"
-    assert (
-        "tools/check_sarif_workflow_run_binding_v0.py"
-        in verify["run"]
-    )
-    assert (
-        '--run-id "${{ github.event.workflow_run.id }}"'
-        in verify["run"]
-    )
+    assert verify["env"] == {"GH_TOKEN": "${{ github.token }}"}
+    assert "tools/check_sarif_workflow_run_binding_v0.py" in verify["run"]
+    assert '--run-id "${{ github.event.workflow_run.id }}"' in verify["run"]
 
     upload = steps[3]
     assert re.fullmatch(
@@ -613,35 +701,30 @@ def test_workflow_wiring() -> None:
 
 def main() -> int:
     tests = [
-        test_workflow_path_without_suffix_passes,
-        test_workflow_path_with_suffix_passes,
-        test_workflow_path_prefix_substitution_fails,
-        test_push_main_passes,
-        test_push_tag_passes,
-        test_push_hyphenated_tag_passes,
-        test_push_metadata_mismatch_fails,
-        test_workflow_dispatch_main_passes,
-        test_workflow_dispatch_feature_skips,
-        test_same_repository_pull_request_snapshot_passes,
-        test_fork_pull_request_snapshot_skips,
-        test_pull_request_number_substitution_fails,
-        test_pull_request_snapshot_head_substitution_fails,
-        test_pull_request_merge_parent_substitution_fails,
-        test_pull_request_live_state_is_not_required,
-        test_event_substitution_fails,
-        test_strict_metadata_json_rejects_duplicate_keys,
-        test_artifact_selection_fails_closed,
-        test_verifier_uses_completed_run_snapshot,
-        test_workflow_wiring,
+        test_workflow_identity_paths,
+        test_push_and_dispatch_contracts,
+        test_historical_workflow_run_snapshot_passes,
+        test_empty_snapshot_uses_exact_commit_association,
+        test_observed_failure_shape_is_repaired,
+        test_unavailable_or_drifted_association_skips_without_upload_target,
+        test_ambiguous_or_invalid_snapshot_fails_closed,
+        test_artifact_metadata_cannot_select_the_associated_pr,
+        test_merge_commit_must_bind_exact_parents,
+        test_fork_contract_remains_fail_closed,
+        test_event_and_json_substitution_fail_closed,
+        test_artifact_file_selection_fails_closed,
+        test_paginated_commit_association_is_bounded,
+        test_source_uses_only_commit_bound_fallback,
+        test_workflow_wiring_preserves_privileged_boundary,
     ]
     for test in tests:
         test()
     print(
-        "OK: SARIF workflow-run binding verifies API-derived event, repository, "
-        "historical PR snapshot, immutable merge-parent, ref, SHA and fork "
-        "identities; preserves "
-        "immutable first-party upload wiring; skips fork and unprivileged "
-        "manual runs; and fails closed on substitution or duplicate metadata."
+        "OK: SARIF binding preserves trusted default-branch execution, blocks "
+        "fork artifacts before download, repairs empty workflow-run PR snapshots "
+        "through a read-only exact-head commit association, rejects ambiguity and "
+        "drift, validates immutable merge parents, and never derives a privileged "
+        "upload target from artifact metadata alone."
     )
     return 0
 
