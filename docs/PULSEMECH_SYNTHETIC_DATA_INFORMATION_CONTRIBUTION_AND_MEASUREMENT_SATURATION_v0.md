@@ -1,48 +1,42 @@
-# PULSEmech — Synthetic Data Information Contribution and Measurement Saturation
+# PULSEmech — Synthetic Data, Information Contribution, and Measurement Saturation
 
 ## Status
 
 ```text
 document_role:
-mechanical_measurement_contract_and_proof_obligation
+technical_measurement_note
 
 status:
-non_authoritative_measurement_specification
-
-scope:
-synthetic_data_provenance
-claim_relative_information_contribution
-source_lineage
-state_measurement_saturation
-relation_measurement_gap
-transition_measurement_gap
+non_normative
 
 empirical_claim_without_bound_measurement:
-forbidden
+not_admitted
 
 authority_effect:
 none
 
 implementation_effect:
 none
-
-gate_effect:
-none
 ```
 
 ## 1. Scope
 
-This document defines measurable objects, deterministic comparison rules, proof
-obligations, and bounded result states for:
+This document defines a bounded procedure for measuring whether an admitted
+record or an ordered record window changes an exact claim state.
+
+The procedure applies to records with observed, synthetic, mixed, or unresolved
+origin.
+
+The procedure separates:
 
 ```text
-synthetic-data provenance
+data volume
 
-claim-relative information contribution
+record origin
 
-source-lineage reconstruction
+source lineage
 
-record multiplicity
+claim-state contribution
 
 state-measurement saturation
 
@@ -51,86 +45,68 @@ relation-measurement gaps
 transition-measurement gaps
 ```
 
-The document does not assert that synthetic data is harmful.
+Within this document, measured information contribution means a non-empty
+verified sequential claim-state delta. It does not mean positive utility,
+quality, confidence, or authority.
 
-The document does not assert that synthetic data is informative.
+The document does not assign information contribution from record presence,
+record count, record size, origin class, generator count, or surface variation.
 
-The document does not assign information value from record origin or record
-volume.
+The document does not assert that synthetic data is valid, invalid, useful, or
+harmful as a class.
 
-Every result depends on:
+The document does not define an entropy result.
 
-```text
-exact input identities
-
-exact claim identity
-
-exact measurement contract
-
-exact verifier identity
-
-deterministic before-state reconstruction
-
-deterministic after-state reconstruction
-
-deterministic delta calculation
-
-replay
-```
-
-A missing binding produces an unresolved result.
-
-No missing binding is replaced by inference.
+The document does not create an implementation or authority mechanism.
 
 ---
 
-## 2. Measurement rule
+## 2. Exact measurement identity
 
-Within this contract, a record is information-bearing for claim `C` only when
-its admission changes the verified claim state under an exact measurement
-contract.
-
-The measured relation is:
+Every measurement is bound to:
 
 ```text
-record r
-+
-claim C
-+
-before evidence state K
-+
-measurement contract M
-→
-after evidence state K'
-→
-structured claim-state delta
+one exact claim identity
+
+one exact subject boundary
+
+one exact time boundary
+
+one exact evidence-admission rule
+
+one exact relation vocabulary
+
+one exact transition vocabulary
+
+one exact verifier set
+
+one exact canonical-state serializer
+
+one exact ordered record inventory
 ```
 
-The existence of `r` does not establish information contribution.
+A measurement made under a different identity is a different measurement.
 
-The origin class of `r` does not establish information contribution.
+A missing required identity produces no positive conclusion.
 
-The byte size of `r` does not establish information contribution.
+Digest values protect stored-byte integrity.
 
-The number of records related to `r` does not establish information
-contribution.
+Digest equality does not replace exact-byte comparison.
 
 ---
 
-## 3. Exact record identity
+## 3. Record identity
 
-Every admitted record requires:
+Every admitted record preserves:
 
 ```text
-record_id
+record identity
 
-record_type
+exact content bytes or exact external-content reference
 
-exact bytes or exact external-byte reference
+content size
 
-byte size
-
-content digest algorithm
+digest algorithm
 
 content digest
 
@@ -138,226 +114,93 @@ source locator
 
 acquisition event identity
 
-acquisition time binding
-
 producer or observer identity
 
-declared role
+origin classification
+
+acquisition-status classification
 ```
 
-A record without an exact content identity is:
+A record with unrecoverable content identity cannot enter the measured record
+window.
 
-```text
-RECORD_IDENTITY_UNBOUND
-```
+Origin classification and acquisition status are separate.
 
-An unbound record cannot contribute to a verified claim-state delta.
+A synthetically generated artifact can be directly recorded.
+
+Direct recording does not convert synthetic content into an external
+observation of the claim represented by that content.
 
 ---
 
-## 4. Origin and acquisition are separate axes
+## 4. Synthetic provenance
 
-Record origin and record acquisition are separate mechanical properties.
-
-### 4.1 Content-origin axis
+A synthetic record preserves the relation:
 
 ```text
-external_observation
-
-synthetic_generation
-
-mixed
-
-unresolved
-```
-
-### 4.2 Acquisition-status axis
-
-```text
-directly_recorded
-
-reconstructed
-
-reported
-
-unresolved
-```
-
-### 4.3 Declared-role axis
-
-```text
-evidence
-
-fixture
-
-example
-
-simulation
-
-counterexample
-
-diagnostic
-```
-
-One record can have:
-
-```text
-content_origin:
-synthetic_generation
-
-acquisition_status:
-directly_recorded
-
-declared_role:
-fixture
-```
-
-This means:
-
-```text
-the artifact was directly recorded
+source-input inventory
 +
-the artifact content was synthetically generated
-+
-the artifact is used as a fixture
-```
-
-The axes do not overwrite one another.
-
----
-
-## 5. Observed external record
-
-An external-observation record requires:
-
-```text
-target subject identity
-
-observation boundary
-
-instrument or observer identity
-
-measurement procedure identity
-
-event-time binding
-
-observation-time binding
-
-result identity
-
-source provenance
-```
-
-The status:
-
-```text
-content_origin:
-external_observation
-```
-
-does not establish:
-
-```text
-valid measurement
-
-complete coverage
-
-current binding
-
-causal sufficiency
-```
-
-Those properties require separate verification.
-
----
-
-## 6. Synthetic record
-
-A synthetic record requires:
-
-```text
 generator identity
-
-generator version or exact revision
-
-generator execution identity
-
-source-input identities
-
-generation configuration identity
-
-generation event time
-
-output identity
-
-declared synthetic lineage
-```
-
-The minimum provenance relation is:
-
-```text
-source inputs
 +
-generator
+generator revision
 +
 generation configuration
 +
 generation event
 →
-synthetic output
+synthetic output identity
 ```
 
-A synthetic record with incomplete source-input identity is:
+The source-input inventory can be explicitly empty.
 
-```text
-SYNTHETIC_LINEAGE_PARTIAL
-```
+An explicitly empty source-input inventory is different from a missing
+source-input inventory.
 
-A synthetic record with no reconstructable lineage is:
+Synthetic provenance is complete when every required source-input relation is
+bound.
 
-```text
-SYNTHETIC_LINEAGE_UNRESOLVED
-```
+Synthetic provenance is partial when at least one required source-input relation
+is bound and at least one required source-input relation is missing.
+
+Synthetic provenance is not reconstructable when no required source-input
+relation can be recovered.
+
+Synthetic origin does not establish claim-state contribution.
 
 ---
 
-## 7. Claim identity
+## 5. Claim identity
 
-Every information-contribution measurement is relative to one exact claim.
-
-A claim identity requires:
+The claim identity contains:
 
 ```text
-claim_id
+claim identifier
 
-claim_type
+claim type
 
 subject boundary
 
 time boundary
 
-relation vocabulary
+required relation classes
 
-transition vocabulary
+required transition classes
 
-evidence-admission policy
+evidence-admission rule
 
 verifier set
 
-measurement-contract version
+measurement-contract identity
 ```
 
-Two measurements with different claim identities are not directly comparable.
+A record has no measured contribution outside a bound claim identity.
 
-Two measurements with different relation vocabularies are not directly
-comparable.
-
-Two measurements with different verifier sets are not directly comparable
-unless an explicit compatibility mapping exists.
+Measurements under different claim identities are not directly comparable
+without an explicit compatibility mapping.
 
 ---
 
-## 8. Claim-state vector
+## 6. Claim-state model
 
 For claim `C` under evidence state `K`, define:
 
@@ -377,715 +220,485 @@ Q_C(K)
 where:
 
 ```text
-R_C(K):
-ordered set of verified relation identities
+R_C(K)
+=
+canonically ordered verified relation identities
 
-T_C(K):
-ordered set of verified transition identities
+T_C(K)
+=
+canonically ordered verified transition identities
 
-U_C(K):
-ordered set of unresolved relation or transition-edge identities
+U_C(K)
+=
+canonically ordered unresolved required relation and transition identities
 
-X_C(K):
-ordered set of conflict identities
+X_C(K)
+=
+canonically ordered conflict identities
 
-B_C(K):
-binding-coverage map
+B_C(K)
+=
+binding-coverage record
 
-L_C(K):
-source-lineage classification state
+L_C(K)
+=
+source-lineage state
 ```
-
-Every set is canonically ordered.
 
 Every member has an exact identity.
 
-The complete vector is canonically serialized.
+Every collection uses the ordering defined by the measurement contract.
 
-The exact vector bytes have a digest.
+The complete state has canonical bytes.
+
+The state digest is calculated from those bytes.
 
 ---
 
-## 9. Verified relation set
+## 7. Claim-state equality
 
-A relation enters `R_C(K)` only when the exact measurement contract verifies:
+Two claim states are equal only when:
 
 ```text
-relation identity
+their claim identities are equal
 
-participating entity identities
+their measurement-contract identities are equal
 
-relation type
+their verifier-set identities are equal
 
-source evidence
+their canonical-serializer identities are equal
 
-time binding where required
-
-boundary binding where required
-
-verifier identity
-
-verification result
+their canonical state bytes are equal
 ```
 
-A plausible relation does not enter the verified relation set.
+Digest equality is recorded as an integrity check.
 
-A narrated relation does not enter the verified relation set.
-
-A synthetically generated relation statement does not enter the verified
-relation set without the required evidence and verifier result.
+Digest equality is not treated as proof of state equality.
 
 ---
 
-## 10. Verified transition set
+## 8. Verified and unresolved objects
 
-A transition enters `T_C(K)` only when the exact measurement contract verifies:
+A relation enters `R_C(K)` only after the bound verifier confirms its required
+identity, participants, evidence, time, and boundary bindings.
 
-```text
-source-state identity
+A transition enters `T_C(K)` only after the bound verifier confirms its source
+state, target state, changed relation, ordered elements, path effect, evidence,
+time, and boundary bindings.
 
-target-state identity
-
-changed relation
-
-ordered transition elements
-
-path effect
-
-element-level evidence
-
-element-level time binding where required
-
-boundary crossings where required
-
-transition verifier identity
-
-verification result
-```
-
-Endpoint equality does not establish transition identity.
-
-Endpoint difference does not establish transition identity.
-
-A transition statement without a verified path remains outside `T_C(K)`.
-
----
-
-## 11. Unresolved-edge set
-
-An edge enters `U_C(K)` when a required relation or transition element lacks one
-or more required bindings.
-
-An unresolved-edge record requires:
+A required object with missing bindings enters `U_C(K)` with:
 
 ```text
-edge_id
-
-required relation or transition position
+object identity
 
 missing binding class
 
-available evidence references
+available evidence identities
 
 last verifier result
 
 resolution requirement
 ```
 
-A missing edge remains explicit.
-
-A missing edge is not replaced by a narrative connector.
-
----
-
-## 12. Conflict set
-
 A conflict enters `X_C(K)` when admitted evidence supports incompatible
 claim-state assignments under the same claim and measurement contract.
 
-A conflict identity requires:
-
-```text
-conflict_id
-
-conflicting record identities
-
-conflicting relation or transition identities
-
-shared claim identity
-
-verifier result
-
-resolution status
-```
-
-A conflict is a measured output.
-
-A conflict is not converted into an aggregate confidence value.
+No unresolved or conflicting object is replaced by an inferred positive object.
 
 ---
 
-## 13. Binding-coverage map
+## 9. Binding coverage
 
-`B_C(K)` records exact coverage for required claim components.
-
-Possible fields include:
+`B_C(K)` preserves exact required and satisfied identity inventories for:
 
 ```text
-required_relations
+relations
 
-verified_relations
+transitions
 
-required_transitions
+transition elements
 
-verified_transitions
+time bindings
 
-required_edges
+boundary bindings
 
-resolved_edges
-
-unresolved_edges
-
-required_time_bindings
-
-verified_time_bindings
-
-required_boundaries
-
-verified_boundaries
-
-required_source_lineages
-
-resolved_source_lineages
+source-lineage bindings
 ```
 
-Coverage is recorded as counts and exact identity inventories.
+Counts are derived from the identity inventories.
 
-Coverage is not compressed into one confidence score.
+A count without its supporting inventory is incomplete.
 
 ---
 
-## 14. Source-lineage graph
+## 10. Ordered record window
 
-The source-lineage graph contains:
-
-```text
-record nodes
-
-external-observation nodes
-
-generator-execution nodes
-
-transformation nodes
-
-comparison nodes
-
-verification nodes
-```
-
-Allowed edge classes include:
+An evaluated window is:
 
 ```text
-observed_from
-
-generated_by
-
-derived_from
-
-transformed_from
-
-compared_with
-
-verified_by
-```
-
-Every node and edge has an exact identity.
-
-The graph can be incomplete.
-
-An incomplete graph is marked:
-
-```text
-LINEAGE_PARTIAL
-```
-
-A graph with an unresolved required parent is marked:
-
-```text
-LINEAGE_UNRESOLVED
-```
-
-A graph cycle is recorded:
-
-```text
-LINEAGE_CYCLE_PRESENT
-```
-
-No depth result is produced across an unresolved cycle.
-
----
-
-## 15. Root-source set
-
-For record `r`, define:
-
-```text
-Root(r)
+W
 =
-ordered set of reachable external-observation root identities
+[r1, r2, ..., rn]
 ```
 
-The result is valid only when every required parent path is resolved.
-
-Possible states:
+The window identity preserves:
 
 ```text
-ROOT_SET_COMPLETE
+claim identity
 
-ROOT_SET_PARTIAL
+measurement-contract identity
 
-ROOT_SET_UNRESOLVED
+verifier-set identity
+
+subject boundary
+
+time boundary
+
+record order
+
+record identities
 ```
 
-Two records with the same complete root-source set share the same observed root
-lineage under the preserved graph.
+Changing record order creates a different window.
 
-This does not establish statistical independence.
-
-This does not establish causal independence.
-
-This does not establish instrument independence.
+A missing record creates an incomplete window.
 
 ---
 
-## 16. Source-lineage separation
+## 11. Sequential claim states
 
-For records `r1` and `r2`, define:
-
-```text
-lineage_separation(r1, r2)
-```
-
-with possible results:
+For `W`, define evidence states:
 
 ```text
-SHARED_ROOT_SOURCE
-
-DISJOINT_ROOT_SOURCES_UNDER_BOUND_GRAPH
-
-LINEAGE_COMPARISON_UNRESOLVED
-```
-
-The result:
-
-```text
-DISJOINT_ROOT_SOURCES_UNDER_BOUND_GRAPH
-```
-
-means only that the preserved lineage graph contains disjoint external root
-identities.
-
-It does not mean:
-
-```text
-statistically independent
-
-causally independent
-
-independent instruments
-
-independent institutions
-```
-
-Those claims require domain-specific measurement.
-
----
-
-## 17. Synthetic-generation depth
-
-For an acyclic, complete lineage path, define:
-
-```text
-minimum_synthetic_depth(r)
-
-maximum_synthetic_depth(r)
-```
-
-as the minimum and maximum number of `generated_by` transitions between `r` and
-a reachable external-observation root.
-
-Required outputs:
-
-```text
-minimum depth
-
-maximum depth
-
-root identities
-
-path identities
-
-depth status
-```
-
-Possible depth states:
-
-```text
-DEPTH_MEASURED
-
-DEPTH_PARTIAL
-
-DEPTH_UNRESOLVED
-
-DEPTH_BLOCKED_BY_CYCLE
-```
-
-Synthetic-generation depth does not determine information value.
-
-Synthetic-generation depth does not determine validity.
-
----
-
-## 18. Before-state and after-state
-
-For admitted record `r`:
-
-```text
-before_state
+K0
 =
-Q_C(K)
-```
+evidence state before r1
 
-```text
-after_state
+K1
 =
-Q_C(K ∪ {r})
+evidence state after r1
+
+K2
+=
+evidence state after r2
+
+...
+
+Kn
+=
+evidence state after rn
 ```
-
-Both states require:
-
-```text
-exact input inventories
-
-exact verifier identities
-
-exact measurement-contract identity
-
-canonical state bytes
-
-state digest
-```
-
-The measurement is invalid when the before-state and after-state use different
-claim definitions or verifier semantics without an explicit compatibility
-mapping.
-
----
-
-## 19. Structured information contribution
 
 Define:
 
 ```text
-Δ_C(r | K)
+Qi
 =
-Q_C(K ∪ {r})
--
-Q_C(K)
+Q_C(Ki)
 ```
 
-The delta is not a scalar.
+Every `Qi` is reconstructed under the same claim, measurement contract,
+verifier set, subject boundary, and canonical serializer.
 
-The delta contains:
-
-```text
-added_verified_relations
-
-removed_verified_relations
-
-added_verified_transitions
-
-removed_verified_transitions
-
-resolved_edges
-
-new_unresolved_edges
-
-added_conflicts
-
-resolved_conflicts
-
-binding_coverage_delta
-
-source_lineage_state_delta
-```
-
-Each member is an exact identity inventory.
+A change in any of those identities makes the window non-comparable.
 
 ---
 
-## 20. Information-contribution outputs
+## 12. Sequential delta
 
-Possible outputs include:
+For each record `ri`, define:
 
 ```text
-RELATION_ADDED
-
-RELATION_REMOVED
-
-TRANSITION_ADDED
-
-TRANSITION_REMOVED
-
-EDGE_RESOLVED
-
-UNRESOLVED_EDGE_ADDED
-
-CONFLICT_ADDED
-
-CONFLICT_RESOLVED
-
-BINDING_COVERAGE_INCREASED
-
-BINDING_COVERAGE_DECREASED
-
-LINEAGE_STATE_CHANGED
-
-NO_CLAIM_STATE_CHANGE
+Δi
+=
+structured difference between Qi and Q(i-1)
 ```
 
-Multiple outputs can apply to one record.
+The delta preserves exact identity inventories for:
 
-No weighting is implied.
+```text
+added verified relations
 
-No aggregate utility is implied.
+removed verified relations
+
+added verified transitions
+
+removed verified transitions
+
+added unresolved objects
+
+resolved unresolved objects
+
+added conflicts
+
+resolved conflicts
+
+binding-coverage changes
+
+source-lineage-state changes
+```
+
+`Δi` is empty only when:
+
+```text
+every delta inventory is empty
++
+canonical bytes of Qi equal canonical bytes of Q(i-1)
+```
+
+A later record cannot cancel an earlier non-empty delta for saturation
+measurement.
+
+Endpoint equality between `Q0` and `Qn` is insufficient.
 
 ---
 
-## 21. No-claim-state-change proof
+## 13. Measured record contribution
 
-A record has:
+A record has no measured claim-state contribution when its sequential delta is
+empty.
+
+A record has measured claim-state contribution when its sequential delta is
+non-empty.
+
+The result preserves the exact changed identities.
+
+The result does not assign a scalar utility, confidence, or quality score.
+
+The result is claim-relative.
+
+---
+
+## 14. Data-volume relation
+
+For every evidence state `Ki`, define:
 
 ```text
-NO_CLAIM_STATE_CHANGE
+Vi
+=
+<admitted record count in Ki, total admitted content bytes in Ki>
 ```
 
+The measurement also preserves:
+
+```text
+origin-class counts
+
+producer counts
+
+empty sequential-delta count
+
+non-empty sequential-delta count
+```
+
+Data-volume growth across `W` is established only when:
+
+```text
+Vn is component-wise greater than or equal to V0
++
+at least one component of Vn is greater than the corresponding component of V0
+```
+
+Data-volume growth with no measured claim-state contribution is established only
 when:
 
 ```text
-before_state canonical bytes
+data-volume growth across W is established
++
+every sequential delta is empty
+```
+
+Data-volume growth with measured claim-state contribution is established only
+when:
+
+```text
+data-volume growth across W is established
++
+at least one sequential delta is non-empty
+```
+
+Neither result is transferred to another claim without a new measurement.
+
+---
+
+## 15. Source-lineage graph
+
+The source-lineage graph contains exact nodes for:
+
+```text
+records
+
+external observations
+
+generator executions
+
+transformations
+
+comparisons
+
+verification events
+```
+
+Each node and edge has an exact identity.
+
+Lineage completeness and cycle status are separate axes.
+
+### 15.1 Completeness
+
+```text
+complete
+
+partial
+
+not reconstructable
+```
+
+### 15.2 Cycle status
+
+```text
+cycle absent
+
+cycle present
+
+cycle status unresolved
+```
+
+A root-source set is emitted only when lineage is complete and the cycle is
+absent.
+
+---
+
+## 16. External root-source set
+
+For a record `r`, define:
+
+```text
+Root(r)
 =
-after_state canonical bytes
+canonically ordered set of reachable external-observation root identities
 ```
 
-equivalently:
+A complete acyclic lineage can produce:
 
 ```text
-before_state digest
+a non-empty root set
+
+an empty root set
+```
+
+An empty root set means that no external-observation root is reachable in the
+complete bound lineage graph.
+
+An empty root set does not establish shared observed lineage.
+
+---
+
+## 17. Root-source comparison
+
+For two complete acyclic lineages, a shared external root is established only
+when:
+
+```text
+Root(r1) ∩ Root(r2)
+≠
+∅
+```
+
+Disjoint external roots are established only when:
+
+```text
+Root(r1)
+≠
+∅
+
+Root(r2)
+≠
+∅
+
+Root(r1) ∩ Root(r2)
 =
-after_state digest
+∅
 ```
 
-under the same claim and measurement contract.
-
-This result proves:
+If both sets are empty, the result is:
 
 ```text
-the admitted record did not change the measured claim state
+no external-observation root for either record
 ```
 
-It does not prove:
+If one set is empty and one set is non-empty, the result preserves the different
+root classes.
 
-```text
-the record is useless for every claim
-
-the record is globally redundant
-
-the record has no operational role
-```
+No root-source comparison result is emitted when either lineage is partial,
+not reconstructable, cyclic, or has unresolved cycle status.
 
 ---
 
-## 22. Synthetic-record multiplicity measurement
+## 18. Evidence-independence boundary
 
-For a batch `S` of synthetic records, record:
-
-```text
-synthetic_record_count
-
-exact record identities
-
-generator-execution identities
-
-complete root-source sets
-
-partial root-source sets
-
-unresolved root-source sets
-
-before claim-state vector
-
-after claim-state vector
-
-structured delta
-```
-
-Possible outputs:
+Shared or disjoint external roots do not establish:
 
 ```text
-SYNTHETIC_RECORD_GROWTH_WITH_CLAIM_STATE_CHANGE
+statistical independence
 
-SYNTHETIC_RECORD_GROWTH_WITH_NO_CLAIM_STATE_CHANGE
+causal independence
 
-SYNTHETIC_MULTIPLICITY_LINEAGE_PARTIAL
+instrument independence
 
-SYNTHETIC_MULTIPLICITY_LINEAGE_UNRESOLVED
+institutional independence
 ```
 
-The result is derived from exact counts, exact lineage state, and exact
-claim-state comparison.
+Those properties require separate domain-specific measurements.
+
+Different wording does not establish an independent source.
+
+Different generator runs do not establish independent external observations.
+
+Different sampling seeds do not establish independent external observations.
+
+Different generator implementations do not establish independent external
+observations.
+
+Synthetic multiplicity is not counted as observational independence without a
+separate independence measurement.
 
 ---
 
-## 23. Independent-evidence boundary
+## 19. Synthetic record and observed comparison
 
-A synthetic record does not count as an independent external observation merely
-because:
+A synthetic record can participate in an observed comparison.
 
-```text
-its surface form differs
-
-its generator run differs
-
-its sampling seed differs
-
-its generator implementation differs
-```
-
-Independent external-observation status requires a domain-specific proof
-binding:
+The comparison preserves:
 
 ```text
-separate observed subject interaction
+synthetic record identity
 
-separate observation event
+external-observation record identity
 
-separate instrument or observer boundary
+comparison procedure identity
 
-separate source lineage
+comparison verifier identity
 
-domain independence criteria
+comparison event identity
 
-verifier result
-```
-
-Without that proof, the result is:
-
-```text
-INDEPENDENT_EXTERNAL_OBSERVATION_NOT_ESTABLISHED
-```
-
----
-
-## 24. Synthetic comparison with external observation
-
-A synthetic record can participate in an information-bearing comparison.
-
-The measured relation is:
-
-```text
-synthetic record
-+
-external-observation record
-+
-comparison procedure
-+
-comparison verifier
-→
 comparison result
 ```
 
-The synthetic record retains:
+The synthetic record retains synthetic origin.
 
-```text
-content_origin:
-synthetic_generation
-```
+Any claim-state contribution is derived from the verified comparison delta.
 
-The comparison result can have:
-
-```text
-acquisition_status:
-directly_recorded
-```
-
-The claim-state contribution is assigned from the verified comparison result,
-not from synthetic origin alone.
+Synthetic origin alone produces no contribution result.
 
 ---
 
-## 25. Entropy measurement boundary
+## 20. Entropy boundary
 
-The term `entropy` is prohibited unless the measurement record provides:
+This document produces no entropy result.
 
-```text
-mutually exclusive class set
-
-normalized probability distribution
-
-probability-estimation procedure
-
-estimator identity
-
-sample identity
-
-calibration state where required
-
-logarithm base
-
-before distribution
-
-after distribution
-```
-
-For a valid probability distribution:
+The terms:
 
 ```text
-P_C
-=
-{p1, p2, ..., pn}
-```
-
-with:
-
-```text
-pi ≥ 0
-
-Σ pi = 1
-```
-
-Shannon entropy in bits is:
-
-```text
-H_C
-=
-- Σ pi log2(pi)
-```
-
-The measurement result requires exact numerical inputs and deterministic
-calculation.
-
-When these prerequisites are absent, the only valid output is:
-
-```text
-RELATION_ENTROPY_NOT_MEASURED
-```
-
-The word `entropy` is not used as a synonym for:
-
-```text
-disorder
-
 noise
 
 redundancy
@@ -1093,126 +706,79 @@ redundancy
 conflict
 
 uncertainty
+
+disorder
 ```
 
-Those objects are measured separately.
+are not treated as entropy measurements.
+
+An entropy result requires a separate measurement contract with a bound
+probability space, estimator, numerical representation, arithmetic procedure,
+unit, and replay rule.
+
+No entropy value is inferred in this document.
 
 ---
 
-## 26. State-record class
+## 21. State-record window
 
-A state record reports an identified system state without independently binding
-the complete transition path from a preceding state.
-
-A record can be classified as:
+A state-record window contains only records classified under the same bound
+measurement-object class:
 
 ```text
-measurement_object_class:
 state
 ```
 
-only under an exact state-record contract.
+State-record classification does not imply redundancy.
 
-The classification does not imply low information contribution.
+A state record can produce a non-empty sequential delta.
 
-A state record can add a new verified relation, resolve an edge, or increase
-coverage.
-
----
-
-## 27. Comparable saturation window
-
-A saturation window `W` requires:
-
-```text
-one exact claim identity
-
-one exact measurement-contract version
-
-one exact verifier set
-
-one exact subject boundary
-
-one exact policy boundary where applicable
-
-one exact measurement-object class
-
-predeclared record-count window or time window
-
-complete admitted-record inventory
-```
-
-A window with changed measurement semantics is:
-
-```text
-SATURATION_WINDOW_NOT_COMPARABLE
-```
-
-A window with missing records is:
-
-```text
-SATURATION_WINDOW_INCOMPLETE
-```
+Every record admission and every `Qi` reconstruction must complete without an
+identity, verifier, or serializer failure.
 
 ---
 
-## 28. State-measurement saturation
+## 22. State-measurement saturation
 
-For a comparable window:
-
-```text
-W
-=
-{r1, r2, ..., rn}
-```
-
-where every `ri` has:
+A state-record window `W` is saturated for claim `C` under measurement contract
+`M` only when all conditions hold:
 
 ```text
-measurement_object_class:
-state
+1. W is complete and comparable.
+
+2. Every record identity is bound.
+
+3. Every record admission completes under M.
+
+4. Every Q0 ... Qn is reproducible.
+
+5. Every Δ1 ... Δn is empty.
+
+6. At least one required relation or transition object remains in the unresolved
+   component of Qn.
 ```
 
-state-measurement saturation is established when all conditions hold:
+Condition 5 rejects intermediate changes that later cancel.
 
-```text
-1. every record identity is bound
+Endpoint equality alone is insufficient.
 
-2. every record is admitted under the same measurement contract
-
-3. the claim-state vector before the window equals the claim-state vector after
-   the window
-
-4. no verified relation was added
-
-5. no verified transition was added
-
-6. no unresolved edge was resolved
-
-7. no binding coverage increased
-
-8. at least one required relation or transition edge remains unresolved
-```
-
-The valid output is:
-
-```text
-STATE_MEASUREMENT_SATURATED_UNDER_BOUND_WINDOW
-```
-
-The output is bound to the exact window.
+The result is bound to the exact claim, contract, verifier set, ordered window,
+subject boundary, and time boundary.
 
 ---
 
-## 29. Saturation non-claims
+## 23. Saturation non-claims
 
-The result:
+State-measurement saturation under `W` establishes only:
 
 ```text
-STATE_MEASUREMENT_SATURATED_UNDER_BOUND_WINDOW
+every admitted state record in the exact window produced no measured
+claim-state change
++
+at least one required relation or transition object remained unresolved
 ```
 
-does not establish:
+It does not establish:
 
 ```text
 global information exhaustion
@@ -1221,89 +787,64 @@ future information impossibility
 
 model incapacity
 
-data-source exhaustion
+source exhaustion
 
 transition-space saturation
 
 causal closure
 ```
 
-It establishes only:
-
-```text
-the exact admitted state-record window produced no measured claim-state change
-while required unresolved relations or transition edges remained
-```
+A different claim, contract, verifier set, record order, subject boundary, or
+time boundary requires a new measurement.
 
 ---
 
-## 30. Relation-measurement gap
+## 24. Relation-measurement gap
 
 A relation-measurement gap is established when:
 
 ```text
 state-measurement saturation is established
 +
-one or more unresolved required relation identities remain
+at least one unresolved required relation identity remains
 ```
 
-The output is:
+The result preserves the complete unresolved relation inventory.
 
-```text
-RELATION_MEASUREMENT_GAP_PRESENT
-```
-
-The output includes the exact unresolved relation inventory.
-
-The output does not assert that a future measurement will resolve the gap.
+The result does not assert that a future instrument will resolve the gap.
 
 ---
 
-## 31. Transition-measurement gap
+## 25. Transition-measurement gap
 
 A transition-measurement gap is established when:
 
 ```text
 state-measurement saturation is established
 +
-one or more unresolved required transition-edge identities remain
+at least one unresolved required transition or transition-element identity
+remains
 ```
 
-The output is:
+The result preserves the complete unresolved transition inventory.
 
-```text
-TRANSITION_MEASUREMENT_GAP_PRESENT
-```
-
-The output includes the exact unresolved transition-edge inventory.
-
-The output does not assert that a future transition instrument will resolve the
-gap.
+The result does not assert that a future instrument will resolve the gap.
 
 ---
 
-## 32. Transition-measurement requirement
+## 26. Required next measurement object
 
-When:
+A measured relation or transition gap identifies the unresolved measurement
+object.
 
-```text
-TRANSITION_MEASUREMENT_GAP_PRESENT
-```
+Required bindings are derived from the unresolved inventory.
 
-the next required measurement object is:
-
-```text
-the unresolved transition edge or transition path
-```
-
-The required input classes are derived from the unresolved-edge records.
-
-Possible required classes include:
+Possible required bindings include:
 
 ```text
 relation-change observation
 
-element order
+ordered transition elements
 
 event-time binding
 
@@ -1318,232 +859,144 @@ alternative-path evidence
 transition verifier
 ```
 
-This result is a measurement requirement.
+This is a measurement requirement.
 
-It is not an implementation decision.
+It is not an implementation or authority decision.
 
 ---
 
-## 33. PULSEmech mapping
+## 27. PULSEmech relation
 
-The measurement objects map to the PULSEmech Transition Meter as follows:
+The measurement objects map to PULSEmech as follows:
 
-| Measurement object | PULSEmech position |
+| Measurement object | PULSEmech layer |
 |---|---|
 | exact record identity | evidence identity |
-| content-origin axis | evidence provenance |
-| acquisition-status axis | observation or reconstruction status |
-| verified relation set | relation layer |
-| verified transition set | transition and path layers |
-| unresolved-edge set | unresolved transition state |
-| binding-coverage map | evidence coverage |
-| source-lineage graph | provenance and evidence lineage |
+| origin identity | evidence provenance |
+| acquisition status | observation or reconstruction state |
+| verified relation inventory | relation layer |
+| verified transition inventory | transition and path layers |
+| unresolved inventory | unresolved transition state |
+| binding coverage | evidence coverage |
+| lineage graph | evidence lineage |
+| sequential claim-state delta | measured claim-state transition |
 | state-measurement saturation | measurement-surface result |
-| relation-measurement gap | unresolved relation output |
-| transition-measurement gap | unresolved transition output |
-| structured claim-state delta | transition-measurement result |
+| relation-measurement gap | unresolved relation result |
+| transition-measurement gap | unresolved transition result |
 | authority effect | separate authority layer |
 
-Synthetic origin does not replace observation status.
-
-Observation status does not replace synthetic origin.
-
-Authority remains separate.
+This document does not change PULSEmech authority.
 
 ---
 
-## 34. PULSEmech current implementation boundary
+## 28. Proof package
 
-This document does not claim that the current PULSEmech implementation produces:
-
-```text
-synthetic lineage graphs
-
-synthetic-generation depth
-
-claim-state vectors
-
-synthetic multiplicity reports
-
-state-measurement saturation results
-
-relation-measurement gap results
-
-transition-measurement gap results
-```
-
-The current document defines proof obligations only.
-
-Any implementation requires a separate schema, producer, validator, regression,
-observed replay, and promotion decision.
-
----
-
-## 35. Required measurement-result record
-
-A complete result record requires:
+A complete measurement package preserves:
 
 ```text
-record_type
+claim identity
 
-schema_version
+measurement-contract identity
 
-measurement_contract_identity
+canonical-serializer identity
 
-claim_identity
+verifier-set identity
 
-subject_binding
+ordered record inventory
 
-input_inventory
+record identities
 
-record_origin_axes
+origin identities
 
-record_role
+acquisition-status records
 
-source_lineage_graph
+lineage graph
 
-before_claim_state
+Q0 ... Qn canonical bytes
 
-after_claim_state
+Q0 ... Qn integrity digests
 
-structured_delta
+Δ1 ... Δn exact inventories
 
-entropy_measurement_state
+saturation result
 
-saturation_window
+relation-gap result
 
-saturation_result
-
-relation_gap_result
-
-transition_gap_result
-
-verifier_identity
-
-replay_identity
+transition-gap result
 
 errors
 
-authority_boundary
+replay identity
 ```
 
-Every referenced artifact requires exact identity.
+Canonical bytes determine claim-state equality.
 
-Every derived field requires a derivation rule identity.
+Digests protect stored-byte integrity.
 
 ---
 
-## 36. Deterministic evaluation procedure
+## 29. Replay
 
-The evaluation procedure is:
-
-```text
-1. validate claim identity
-
-2. validate measurement-contract identity
-
-3. validate every record identity
-
-4. classify content origin
-
-5. classify acquisition status
-
-6. classify declared role
-
-7. reconstruct source-lineage graph
-
-8. validate required lineage edges
-
-9. calculate root-source sets
-
-10. reconstruct before claim-state vector
-
-11. admit the exact record or record batch
-
-12. reconstruct after claim-state vector
-
-13. calculate structured delta
-
-14. evaluate entropy prerequisites
-
-15. evaluate saturation-window comparability
-
-16. evaluate state-measurement saturation
-
-17. evaluate relation-measurement gap
-
-18. evaluate transition-measurement gap
-
-19. serialize canonical result
-
-20. replay and compare exact result bytes
-```
-
-A replay mismatch produces:
+Replay uses the same:
 
 ```text
-MEASUREMENT_REPLAY_MISMATCH
+inputs
+
+claim
+
+measurement contract
+
+verifier set
+
+canonical serializer
+
+ordered record window
 ```
+
+Replay passes only when:
+
+```text
+every canonical claim-state byte sequence matches
+
+every sequential delta inventory matches
+
+the final result bytes match
+```
+
+A replay mismatch invalidates the reproduced result.
 
 ---
 
-## 37. Fail-closed outputs
+## 30. Fail-closed boundary
 
-Missing required identity:
-
-```text
-IDENTITY_UNBOUND
-```
-
-Missing required source lineage:
+No positive result is emitted when a required component is:
 
 ```text
-LINEAGE_UNRESOLVED
+missing
+
+identity-unbound
+
+non-comparable
+
+non-reproducible
+
+lineage-incomplete where complete lineage is required
+
+serializer-unbound
+
+verifier-unbound
 ```
 
-Changed claim contract inside comparison:
+The missing requirement remains explicit.
 
-```text
-CLAIM_COMPARISON_INVALID
-```
-
-Changed verifier semantics inside comparison:
-
-```text
-VERIFIER_COMPARISON_INVALID
-```
-
-Incomplete saturation window:
-
-```text
-SATURATION_WINDOW_INCOMPLETE
-```
-
-Non-comparable saturation window:
-
-```text
-SATURATION_WINDOW_NOT_COMPARABLE
-```
-
-Missing entropy prerequisites:
-
-```text
-RELATION_ENTROPY_NOT_MEASURED
-```
-
-Replay mismatch:
-
-```text
-MEASUREMENT_REPLAY_MISMATCH
-```
-
-No fail-closed output is replaced by a positive conclusion.
+No missing requirement is replaced by inference.
 
 ---
 
-## 38. Prohibited inferences
+## 31. Prohibited conclusions
 
-The following inferences are prohibited:
+The following conclusions require separate measurements and are not produced by
+this document:
 
 ```text
 more records
@@ -1560,11 +1013,7 @@ different source
 
 different generator run
 →
-independent observation
-
-greater synthetic-generation depth
-→
-lower validity
+independent external observation
 
 synthetic origin
 →
@@ -1574,320 +1023,110 @@ observed origin
 →
 valid record
 
+endpoint equality
+→
+empty sequential deltas
+
+digest equality
+→
+canonical-byte equality
+
 state-measurement saturation
 →
 information exhaustion
 
-relation present
+relation statement
 →
-relation verified
+verified relation
 
-transition stated
+transition statement
 →
-transition measured
+measured transition
 
-entropy language
+entropy terminology
 →
 entropy measurement
 
-PASS
-→
-complete transition evidence
-
-ALLOW
-→
-self-explanatory authority
-```
-
----
-
-## 39. Measured example — synthetic multiplicity without claim-state change
-
-Input state:
-
-```text
-claim:
-C1
-
-before verified relations:
-[R1]
-
-before verified transitions:
-[]
-
-before unresolved edges:
-[U1]
-
-observed root source:
-O1
-```
-
-Synthetic batch:
-
-```text
-S1 ... S10
-
-content origin:
-synthetic_generation
-
-root source set:
-[O1]
-
-declared role:
-example
-```
-
-Measured after-state:
-
-```text
-verified relations:
-[R1]
-
-verified transitions:
-[]
-
-unresolved edges:
-[U1]
-
-binding coverage:
-unchanged
-```
-
-Deterministic result:
-
-```text
-synthetic_record_count:
-10
-
-complete root-source sets:
-1
-
-claim-state digest before:
-equal to claim-state digest after
-
-outputs:
-SYNTHETIC_RECORD_GROWTH_WITH_NO_CLAIM_STATE_CHANGE
-NO_CLAIM_STATE_CHANGE
-```
-
-The result does not classify the records for another claim.
-
----
-
-## 40. Measured example — synthetic input with observed comparison contribution
-
-Input state:
-
-```text
-claim:
-C2
-
-unresolved edge:
-U2
-```
-
-Synthetic record:
-
-```text
-S20
-
-content origin:
-synthetic_generation
-
-declared role:
-test vector
-```
-
-Observed comparison:
-
-```text
-validator execution:
-directly recorded
-
-comparison input:
-S20
-
-comparison result:
-PASS
-
-verifier identity:
-V1
-```
-
-After-state:
-
-```text
-U2:
-resolved
-
-verified relation:
-R20 added
-```
-
-Structured result:
-
-```text
-synthetic record origin:
-preserved
-
-observed validator event:
-preserved
-
-information contribution:
-EDGE_RESOLVED
-RELATION_ADDED
-```
-
-The information contribution is bound to the observed comparison and verifier
-result.
-
-Synthetic origin remains unchanged.
-
----
-
-## 41. Measured example — incomplete lineage
-
-Synthetic record:
-
-```text
-S30
-```
-
-Available provenance:
-
-```text
-generator identity:
-present
-
-source-input identities:
-missing
-```
-
-Result:
-
-```text
-SYNTHETIC_LINEAGE_UNRESOLVED
-
-ROOT_SET_UNRESOLVED
-
-INDEPENDENT_EXTERNAL_OBSERVATION_NOT_ESTABLISHED
-```
-
-No source-multiplicity conclusion is emitted.
-
----
-
-## 42. Proof rule
-
-A result is mechanically established only when:
-
-```text
-all required inputs are identity-bound
-+
-the measurement contract is exact
-+
-the verifier is exact
-+
-the before-state is reproducible
-+
-the after-state is reproducible
-+
-the structured delta is reproducible
-+
-the result bytes replay exactly
-```
-
-The complete relation is:
-
-```text
-exact inputs
-+
-exact measurement procedure
-+
-exact verifier
-+
-deterministic replay
-→
-measured result
-```
-
-No result in this document depends on an unmeasured empirical assumption.
-
----
-
-## 43. Authority boundary
-
-Every result defined by this document has:
-
-```text
-authority_effect:
-none
-```
-
-A measurement result can become authority-bearing only through a separate,
-explicit PULSEmech policy and promotion process.
-
-The following relation is prohibited:
-
-```text
 measurement result
 →
-automatic release authority
+release authority
 ```
 
 ---
 
-## 44. Final mechanical position
+## 32. Implementation boundary
 
-The data-volume result is:
+This document defines measurement semantics only.
 
-```text
-record count changed
-+
-claim-state vector unchanged
-→
-NO_CLAIM_STATE_CHANGE
-```
-
-The synthetic-multiplicity result is:
+It creates no:
 
 ```text
-synthetic record count increased
-+
-claim-state vector unchanged
-→
-SYNTHETIC_RECORD_GROWTH_WITH_NO_CLAIM_STATE_CHANGE
+schema
+
+producer
+
+validator
+
+adapter
+
+test registration
+
+workflow
+
+policy requirement
+
+candidate gate
+
+release decision
+
+release authority
 ```
 
-The source-lineage result is:
+Implementation requires a separate reviewed sequence:
 
 ```text
-shared complete observed root-source set
+schema
 →
-SHARED_ROOT_SOURCE
+examples
+→
+validator
+→
+producer
+→
+regression
+→
+observed replay
+→
+separate promotion decision
 ```
 
-The saturation result is:
+---
+
+## 33. Final position
+
+Measured record contribution is determined by the exact sequential difference
+between reproducible claim states.
+
+Measured data-volume growth without claim-state contribution requires every
+sequential delta in the exact ordered window to be empty.
+
+Measured state-measurement saturation requires:
 
 ```text
-comparable state-record window
-+
-no claim-state change
-+
-required unresolved relations or transition edges remain
-→
-STATE_MEASUREMENT_SATURATED_UNDER_BOUND_WINDOW
+a complete comparable state-record window
+
+reproducible sequential claim states
+
+empty sequential deltas for every admitted record
+
+a non-empty unresolved relation or transition inventory
 ```
 
-The transition-gap result is:
+A relation-measurement gap is determined by the remaining unresolved relation
+inventory.
 
-```text
-state-measurement saturation
-+
-unresolved required transition edges
-→
-TRANSITION_MEASUREMENT_GAP_PRESENT
-```
+A transition-measurement gap is determined by the remaining unresolved
+transition inventory.
 
-Each output is bound to exact inputs, an exact contract, an exact verifier, and
-deterministic replay.
+Every result is bound to exact inputs, exact measurement semantics, exact
+verifiers, canonical bytes, and deterministic replay.
