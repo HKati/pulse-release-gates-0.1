@@ -16,7 +16,7 @@ from typing import Any, Iterable
 
 
 TOOL_NAME = "check_sarif_workflow_run_binding_v0"
-TOOL_VERSION = "0.1.0"
+TOOL_VERSION = "0.2.0"
 EXPECTED_WORKFLOW_NAME = "PULSE CI"
 EXPECTED_WORKFLOW_PATH = ".github/workflows/pulse_ci.yml"
 SUPPORTED_EVENTS = frozenset({"pull_request", "push", "workflow_dispatch"})
@@ -24,6 +24,8 @@ SUPPORTED_EVENTS = frozenset({"pull_request", "push", "workflow_dispatch"})
 MAX_API_RESPONSE_BYTES = 8 * 1024 * 1024
 MAX_METADATA_BYTES = 64 * 1024
 MAX_SARIF_BYTES = 128 * 1024 * 1024
+ASSOCIATED_PULL_REQUESTS_PAGE_SIZE = 100
+ASSOCIATED_PULL_REQUESTS_MAX_PAGES = 2
 
 SHA40_RE = re.compile(r"^[0-9a-f]{40}$")
 
@@ -133,6 +135,12 @@ def _require_object(value: Any, *, label: str) -> dict[str, Any]:
     return value
 
 
+def _require_array(value: Any, *, label: str) -> list[Any]:
+    if not isinstance(value, list):
+        raise BindingError(f"{label}_not_array")
+    return value
+
+
 def _require_string(
     value: Any,
     *,
@@ -163,17 +171,10 @@ def _require_sha40(value: Any, *, label: str) -> str:
     return text
 
 
-def _nested_object(
-    value: dict[str, Any],
-    *keys: str,
-    label: str,
-) -> dict[str, Any]:
-    cursor: Any = value
-    for key in keys:
-        if not isinstance(cursor, dict):
-            raise BindingError(f"{label}_not_object")
-        cursor = cursor.get(key)
-    return _require_object(cursor, label=label)
+def _optional_sha40(value: Any, *, label: str) -> str | None:
+    if value is None:
+        return None
+    return _require_sha40(value, label=label)
 
 
 def _nested_string(
@@ -187,6 +188,31 @@ def _nested_string(
             raise BindingError(f"{label}_parent_not_object")
         cursor = cursor.get(key)
     return _require_string(cursor, label=label)
+
+
+def _repository_identity(value: Any, *, label: str) -> str | None:
+    if value is None:
+        return None
+    repository = _require_object(value, label=label)
+    full_name = repository.get("full_name")
+    if full_name is not None:
+        return _require_string(full_name, label=f"{label}_full_name")
+
+    url = repository.get("url")
+    if url is None:
+        return None
+    url_text = _require_string(url, label=f"{label}_url")
+    parsed = urllib.parse.urlparse(url_text)
+    parts = [part for part in parsed.path.split("/") if part]
+    if len(parts) < 3 or parts[-3] != "repos":
+        raise BindingError(
+            f"{label}_url_not_repository_api_identity: {url_text!r}"
+        )
+    return (
+        urllib.parse.unquote(parts[-2])
+        + "/"
+        + urllib.parse.unquote(parts[-1])
+    )
 
 
 def _validate_metadata(metadata: Any) -> dict[str, Any]:
@@ -308,13 +334,12 @@ def _validate_run(
         value.get("head_branch"),
         label="workflow_run_head_branch",
     )
-
-    pull_requests = value.get("pull_requests")
-    if not isinstance(pull_requests, list):
-        raise BindingError("workflow_run_pull_requests_not_array")
+    pull_requests = _require_array(
+        value.get("pull_requests"),
+        label="workflow_run_pull_requests",
+    )
 
     return {
-        "raw": value,
         "event_name": event_name,
         "repository": run_repository,
         "head_repository": head_repository,
@@ -324,40 +349,11 @@ def _validate_run(
     }
 
 
-def _repository_identity_from_snapshot(
-    value: Any,
-    *,
-    label: str,
-) -> str | None:
-    if value is None:
-        return None
-    repository = _require_object(value, label=label)
-    full_name = repository.get("full_name")
-    if full_name is not None:
-        return _require_string(full_name, label=f"{label}_full_name")
-
-    url = repository.get("url")
-    if url is None:
-        return None
-    url_text = _require_string(url, label=f"{label}_url")
-    parsed = urllib.parse.urlparse(url_text)
-    parts = [part for part in parsed.path.split("/") if part]
-    if len(parts) < 3 or parts[-3] != "repos":
-        raise BindingError(
-            f"{label}_url_not_repository_api_identity: {url_text!r}"
-        )
-    return (
-        urllib.parse.unquote(parts[-2])
-        + "/"
-        + urllib.parse.unquote(parts[-1])
-    )
-
-
-def _validate_pull_request_snapshot(
+def _validate_workflow_run_snapshot(
     snapshot: Any,
     *,
     repository: str,
-    run: dict[str, Any],
+    run_state: dict[str, Any],
 ) -> dict[str, Any]:
     value = _require_object(snapshot, label="workflow_run_pull_request")
     number = _require_int(
@@ -365,7 +361,6 @@ def _validate_pull_request_snapshot(
         label="workflow_run_pull_request_number",
         positive=True,
     )
-
     head = _require_object(
         value.get("head"),
         label="workflow_run_pull_request_head",
@@ -392,15 +387,15 @@ def _validate_pull_request_snapshot(
         label="workflow_run_pull_request_base_ref",
     )
 
-    if head_sha != run["head_sha"]:
+    if head_sha != run_state["head_sha"]:
         raise BindingError(
             "workflow_run_pull_request_head_sha_mismatch: "
-            f"run={run['head_sha']!r} snapshot={head_sha!r}"
+            f"run={run_state['head_sha']!r} snapshot={head_sha!r}"
         )
-    if head_ref != run["head_branch"]:
+    if head_ref != run_state["head_branch"]:
         raise BindingError(
             "workflow_run_pull_request_head_branch_mismatch: "
-            f"run={run['head_branch']!r} snapshot={head_ref!r}"
+            f"run={run_state['head_branch']!r} snapshot={head_ref!r}"
         )
     if base_ref != "main":
         raise BindingError(
@@ -408,60 +403,144 @@ def _validate_pull_request_snapshot(
             f"expected='main' observed={base_ref!r}"
         )
 
-    snapshot_head_repository = _repository_identity_from_snapshot(
+    head_repository = _repository_identity(
         head.get("repo"),
         label="workflow_run_pull_request_head_repository",
     )
     if (
-        snapshot_head_repository is not None
-        and snapshot_head_repository != run["head_repository"]
+        head_repository is not None
+        and head_repository != run_state["head_repository"]
     ):
         raise BindingError(
             "workflow_run_pull_request_head_repository_mismatch: "
-            f"run={run['head_repository']!r} "
-            f"snapshot={snapshot_head_repository!r}"
+            f"run={run_state['head_repository']!r} "
+            f"snapshot={head_repository!r}"
         )
 
-    snapshot_base_repository = _repository_identity_from_snapshot(
+    base_repository = _repository_identity(
         base.get("repo"),
         label="workflow_run_pull_request_base_repository",
     )
-    if (
-        snapshot_base_repository is not None
-        and snapshot_base_repository != repository
-    ):
+    if base_repository is not None and base_repository != repository:
         raise BindingError(
             "workflow_run_pull_request_base_repository_mismatch: "
-            f"expected={repository!r} "
-            f"snapshot={snapshot_base_repository!r}"
+            f"expected={repository!r} snapshot={base_repository!r}"
         )
 
     return {
         "number": number,
         "head_sha": head_sha,
         "head_ref": head_ref,
+        "head_repository": run_state["head_repository"],
         "base_sha": base_sha,
         "base_ref": base_ref,
-        "is_fork": run["head_repository"] != repository,
+        "base_repository": repository,
+        "is_fork": run_state["head_repository"] != repository,
+        "merge_commit_sha": None,
+        "source": "workflow_run_snapshot",
     }
 
 
-def _select_pull_request_snapshot(
-    run: dict[str, Any],
+def _validate_associated_pull_request(
+    pull_request: Any,
+    *,
+    index: int,
+) -> dict[str, Any]:
+    label = f"associated_pull_request_{index}"
+    value = _require_object(pull_request, label=label)
+    number = _require_int(
+        value.get("number"),
+        label=f"{label}_number",
+        positive=True,
+    )
+    state = _require_string(value.get("state"), label=f"{label}_state")
+    head = _require_object(value.get("head"), label=f"{label}_head")
+    base = _require_object(value.get("base"), label=f"{label}_base")
+
+    head_sha = _require_sha40(head.get("sha"), label=f"{label}_head_sha")
+    head_ref = _require_string(head.get("ref"), label=f"{label}_head_ref")
+    base_sha = _require_sha40(base.get("sha"), label=f"{label}_base_sha")
+    base_ref = _require_string(base.get("ref"), label=f"{label}_base_ref")
+    head_repository = _repository_identity(
+        head.get("repo"),
+        label=f"{label}_head_repository",
+    )
+    base_repository = _repository_identity(
+        base.get("repo"),
+        label=f"{label}_base_repository",
+    )
+    merge_commit_sha = _optional_sha40(
+        value.get("merge_commit_sha"),
+        label=f"{label}_merge_commit_sha",
+    )
+
+    return {
+        "number": number,
+        "state": state,
+        "head_sha": head_sha,
+        "head_ref": head_ref,
+        "head_repository": head_repository,
+        "base_sha": base_sha,
+        "base_ref": base_ref,
+        "base_repository": base_repository,
+        "is_fork": head_repository != base_repository,
+        "merge_commit_sha": merge_commit_sha,
+        "source": "commit_association",
+    }
+
+
+def _resolve_pull_request_snapshot(
+    run_state: dict[str, Any],
     *,
     repository: str,
-) -> dict[str, Any]:
-    snapshots = run["pull_requests"]
-    if len(snapshots) != 1:
+    associated_pull_requests: Any | None,
+) -> dict[str, Any] | None:
+    snapshots = run_state["pull_requests"]
+    if len(snapshots) > 1:
         raise BindingError(
             "workflow_run_pull_request_snapshot_count_invalid: "
             f"observed={len(snapshots)}"
         )
-    return _validate_pull_request_snapshot(
-        snapshots[0],
-        repository=repository,
-        run=run,
+    if len(snapshots) == 1:
+        return _validate_workflow_run_snapshot(
+            snapshots[0],
+            repository=repository,
+            run_state=run_state,
+        )
+
+    if run_state["head_repository"] != repository:
+        return None
+    if associated_pull_requests is None:
+        return None
+
+    raw_candidates = _require_array(
+        associated_pull_requests,
+        label="associated_pull_requests",
     )
+    candidates: list[dict[str, Any]] = []
+    for index, raw_candidate in enumerate(raw_candidates):
+        candidate = _validate_associated_pull_request(
+            raw_candidate,
+            index=index,
+        )
+        if (
+            candidate["state"] == "open"
+            and candidate["head_sha"] == run_state["head_sha"]
+            and candidate["head_ref"] == run_state["head_branch"]
+            and candidate["head_repository"] == run_state["head_repository"]
+            and candidate["base_ref"] == "main"
+            and candidate["base_repository"] == repository
+        ):
+            candidates.append(candidate)
+
+    if not candidates:
+        return None
+    if len(candidates) != 1:
+        raise BindingError(
+            "associated_pull_request_candidate_count_invalid: "
+            f"observed={len(candidates)}"
+        )
+    return candidates[0]
 
 
 def _validate_merge_commit(
@@ -513,26 +592,39 @@ def _validate_merge_commit(
         )
 
 
-def verify_binding(
+def _skip_result(
+    *,
+    reason: str,
+    event_name: str,
+    run_id: int,
+    run_state: dict[str, Any],
+    pr_number: int | None,
+    is_fork: bool,
+) -> BindingResult:
+    return BindingResult(
+        ok=True,
+        skip=True,
+        reason=reason,
+        event_name=event_name,
+        ref=None,
+        sha=None,
+        pr_number=pr_number,
+        is_fork=is_fork,
+        source_run_id=run_id,
+        source_head_sha=run_state["head_sha"],
+        source_head_branch=run_state["head_branch"],
+    )
+
+
+def _verify_validated_binding(
     *,
     repository: str,
     run_id: int,
-    run: Any,
-    metadata: Any,
-    merge_commit: Any | None = None,
+    run_state: dict[str, Any],
+    meta: dict[str, Any],
+    pull_request_snapshot: dict[str, Any] | None,
+    merge_commit: Any | None,
 ) -> BindingResult:
-    repository = _require_string(
-        repository,
-        label="repository",
-    )
-    run_id = _require_int(run_id, label="run_id", positive=True)
-    run_state = _validate_run(
-        run,
-        repository=repository,
-        run_id=run_id,
-    )
-    meta = _validate_metadata(metadata)
-
     if meta["event_name"] != run_state["event_name"]:
         raise BindingError(
             "sarif_metadata_event_mismatch: "
@@ -546,56 +638,85 @@ def verify_binding(
         if meta["pr_number"] is None:
             raise BindingError("sarif_metadata_pr_number_required")
 
-        snapshot = _select_pull_request_snapshot(
-            run_state,
-            repository=repository,
-        )
-        expected_ref = f"refs/pull/{snapshot['number']}/merge"
+        metadata_ref = f"refs/pull/{meta['pr_number']}/merge"
+        if meta["ref"] != metadata_ref:
+            raise BindingError(
+                "sarif_metadata_ref_mismatch: "
+                f"expected={metadata_ref!r} observed={meta['ref']!r}"
+            )
+
+        run_is_fork = run_state["head_repository"] != repository
+        if meta["is_fork"] != run_is_fork:
+            raise BindingError(
+                "sarif_metadata_is_fork_mismatch: "
+                f"expected={run_is_fork!r} observed={meta['is_fork']!r}"
+            )
+        if run_is_fork:
+            return _skip_result(
+                reason="fork_pull_request",
+                event_name=event_name,
+                run_id=run_id,
+                run_state=run_state,
+                pr_number=meta["pr_number"],
+                is_fork=True,
+            )
+
+        if pull_request_snapshot is None:
+            return _skip_result(
+                reason="pull_request_snapshot_unavailable",
+                event_name=event_name,
+                run_id=run_id,
+                run_state=run_state,
+                pr_number=meta["pr_number"],
+                is_fork=False,
+            )
+
+        expected_ref = f"refs/pull/{pull_request_snapshot['number']}/merge"
         expected = {
-            "pr_number": snapshot["number"],
+            "pr_number": pull_request_snapshot["number"],
             "ref": expected_ref,
-            "is_fork": snapshot["is_fork"],
+            "is_fork": False,
         }
         for field, expected_value in expected.items():
             if meta[field] != expected_value:
                 raise BindingError(
                     f"sarif_metadata_{field}_mismatch: "
-                    f"expected={expected_value!r} "
-                    f"observed={meta[field]!r}"
+                    f"expected={expected_value!r} observed={meta[field]!r}"
                 )
 
-        if snapshot["is_fork"]:
-            return BindingResult(
-                ok=True,
-                skip=True,
-                reason="fork_pull_request",
-                event_name=event_name,
-                ref=None,
-                sha=None,
-                pr_number=snapshot["number"],
-                is_fork=True,
-                source_run_id=run_id,
-                source_head_sha=run_state["head_sha"],
-                source_head_branch=run_state["head_branch"],
-            )
+        if pull_request_snapshot["source"] == "commit_association":
+            if pull_request_snapshot["merge_commit_sha"] != meta["sha"]:
+                return _skip_result(
+                    reason="pull_request_commit_association_drifted",
+                    event_name=event_name,
+                    run_id=run_id,
+                    run_state=run_state,
+                    pr_number=pull_request_snapshot["number"],
+                    is_fork=False,
+                )
 
         if merge_commit is None:
             raise BindingError("pull_request_merge_commit_snapshot_required")
         _validate_merge_commit(
             merge_commit,
             merge_sha=meta["sha"],
-            base_sha=snapshot["base_sha"],
-            head_sha=snapshot["head_sha"],
+            base_sha=pull_request_snapshot["base_sha"],
+            head_sha=pull_request_snapshot["head_sha"],
         )
 
+        reason = (
+            "verified_pull_request_merge_snapshot"
+            if pull_request_snapshot["source"] == "workflow_run_snapshot"
+            else "verified_pull_request_commit_association"
+        )
         return BindingResult(
             ok=True,
             skip=False,
-            reason="verified_pull_request_merge_snapshot",
+            reason=reason,
             event_name=event_name,
             ref=expected_ref,
             sha=meta["sha"],
-            pr_number=snapshot["number"],
+            pr_number=pull_request_snapshot["number"],
             is_fork=False,
             source_run_id=run_id,
             source_head_sha=run_state["head_sha"],
@@ -627,16 +748,15 @@ def verify_binding(
                 "push_source_ref_outside_pulse_ci_contract: "
                 f"head_branch={run_state['head_branch']!r}"
             )
-        expected_sha = run_state["head_sha"]
         if meta["ref"] != expected_ref:
             raise BindingError(
                 "sarif_metadata_ref_mismatch: "
                 f"expected={expected_ref!r} observed={meta['ref']!r}"
             )
-        if meta["sha"] != expected_sha:
+        if meta["sha"] != run_state["head_sha"]:
             raise BindingError(
                 "sarif_metadata_sha_mismatch: "
-                f"expected={expected_sha!r} observed={meta['sha']!r}"
+                f"expected={run_state['head_sha']!r} observed={meta['sha']!r}"
             )
         return BindingResult(
             ok=True,
@@ -644,7 +764,7 @@ def verify_binding(
             reason="verified_push",
             event_name=event_name,
             ref=expected_ref,
-            sha=expected_sha,
+            sha=run_state["head_sha"],
             pr_number=None,
             is_fork=False,
             source_run_id=run_id,
@@ -664,22 +784,16 @@ def verify_binding(
         if meta["sha"] != run_state["head_sha"]:
             raise BindingError(
                 "sarif_metadata_sha_mismatch: "
-                f"expected={run_state['head_sha']!r} "
-                f"observed={meta['sha']!r}"
+                f"expected={run_state['head_sha']!r} observed={meta['sha']!r}"
             )
         if run_state["head_branch"] != "main" or meta["ref"] != "refs/heads/main":
-            return BindingResult(
-                ok=True,
-                skip=True,
+            return _skip_result(
                 reason="workflow_dispatch_ref_not_main",
                 event_name=event_name,
-                ref=None,
-                sha=None,
+                run_id=run_id,
+                run_state=run_state,
                 pr_number=None,
                 is_fork=False,
-                source_run_id=run_id,
-                source_head_sha=run_state["head_sha"],
-                source_head_branch=run_state["head_branch"],
             )
         return BindingResult(
             ok=True,
@@ -696,6 +810,38 @@ def verify_binding(
         )
 
     raise BindingError(f"unreachable_event: {event_name!r}")
+
+
+def verify_binding(
+    *,
+    repository: str,
+    run_id: int,
+    run: Any,
+    metadata: Any,
+    merge_commit: Any | None = None,
+    associated_pull_requests: Any | None = None,
+) -> BindingResult:
+    repository = _require_string(repository, label="repository")
+    run_id = _require_int(run_id, label="run_id", positive=True)
+    run_state = _validate_run(run, repository=repository, run_id=run_id)
+    meta = _validate_metadata(metadata)
+
+    pull_request_snapshot: dict[str, Any] | None = None
+    if run_state["event_name"] == "pull_request":
+        pull_request_snapshot = _resolve_pull_request_snapshot(
+            run_state,
+            repository=repository,
+            associated_pull_requests=associated_pull_requests,
+        )
+
+    return _verify_validated_binding(
+        repository=repository,
+        run_id=run_id,
+        run_state=run_state,
+        meta=meta,
+        pull_request_snapshot=pull_request_snapshot,
+        merge_commit=merge_commit,
+    )
 
 
 def _find_files(
@@ -814,6 +960,34 @@ class GitHubApi:
             )
         return parse_json_bytes(payload, label=label)
 
+    def get_paginated_array(
+        self,
+        path: str,
+        *,
+        label: str,
+    ) -> list[Any]:
+        items: list[Any] = []
+        separator = "&" if "?" in path else "?"
+        for page in range(1, ASSOCIATED_PULL_REQUESTS_MAX_PAGES + 1):
+            value = self.get(
+                path
+                + separator
+                + f"per_page={ASSOCIATED_PULL_REQUESTS_PAGE_SIZE}&page={page}",
+                label=f"{label}_page_{page}",
+            )
+            page_items = _require_array(
+                value,
+                label=f"{label}_page_{page}",
+            )
+            items.extend(page_items)
+            if len(page_items) < ASSOCIATED_PULL_REQUESTS_PAGE_SIZE:
+                return items
+        raise BindingError(
+            f"{label}_pagination_limit_exceeded: "
+            f"pages={ASSOCIATED_PULL_REQUESTS_MAX_PAGES} "
+            f"page_size={ASSOCIATED_PULL_REQUESTS_PAGE_SIZE}"
+        )
+
 
 def _api_path(repository: str, suffix: str) -> str:
     owner, name = repository.split("/", 1)
@@ -893,9 +1067,7 @@ def main() -> int:
     args = parse_args()
     repository = _require_string(args.repository, label="repository")
     if repository.count("/") != 1:
-        raise BindingError(
-            f"repository_identity_invalid: {repository!r}"
-        )
+        raise BindingError(f"repository_identity_invalid: {repository!r}")
     run_id = _require_int(args.run_id, label="run_id", positive=True)
     artifact_root = Path(args.artifact_root).absolute()
 
@@ -930,10 +1102,7 @@ def main() -> int:
             source_head_sha="unknown",
             source_head_branch="unknown",
         )
-        outputs = {
-            "reason": result.reason,
-            "skip": "true",
-        }
+        outputs = {"reason": result.reason, "skip": "true"}
         if args.github_output:
             _write_outputs(Path(args.github_output), outputs)
         sys.stdout.write(
@@ -952,32 +1121,56 @@ def main() -> int:
         ),
         label="workflow_run_api",
     )
-    validated_meta = _validate_metadata(metadata)
-
-    merge_commit: Any | None = None
-
-    run_object = _require_object(run, label="workflow_run_api")
     run_state = _validate_run(
-        run_object,
+        run,
         repository=repository,
         run_id=run_id,
     )
-    event_name = run_state["event_name"]
+    meta = _validate_metadata(metadata)
+
+    associated_pull_requests: Any | None = None
     if (
-        event_name == "pull_request"
+        run_state["event_name"] == "pull_request"
         and run_state["head_repository"] == repository
+        and len(run_state["pull_requests"]) == 0
     ):
-        merge_sha = validated_meta["sha"]
+        encoded_head_sha = urllib.parse.quote(
+            run_state["head_sha"],
+            safe="",
+        )
+        associated_pull_requests = api.get_paginated_array(
+            _api_path(
+                repository,
+                f"/commits/{encoded_head_sha}/pulls",
+            ),
+            label="associated_pull_requests_api",
+        )
+
+    pull_request_snapshot: dict[str, Any] | None = None
+    if run_state["event_name"] == "pull_request":
+        pull_request_snapshot = _resolve_pull_request_snapshot(
+            run_state,
+            repository=repository,
+            associated_pull_requests=associated_pull_requests,
+        )
+
+    merge_commit: Any | None = None
+    if (
+        run_state["event_name"] == "pull_request"
+        and run_state["head_repository"] == repository
+        and pull_request_snapshot is not None
+    ):
         merge_commit = api.get(
-            _api_path(repository, f"/git/commits/{merge_sha}"),
+            _api_path(repository, f"/git/commits/{meta['sha']}"),
             label="pull_request_merge_commit_api",
         )
 
-    result = verify_binding(
+    result = _verify_validated_binding(
         repository=repository,
         run_id=run_id,
-        run=run,
-        metadata=metadata,
+        run_state=run_state,
+        meta=meta,
+        pull_request_snapshot=pull_request_snapshot,
         merge_commit=merge_commit,
     )
 
