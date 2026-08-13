@@ -1,4 +1,6 @@
 {
+   "title": "PULSE: Artifact-Bound Release Authority for AI Release Decisions",
+  "description": "PULSE is an artifact-bound release-authority system for AI release decisions. It structures recorded safety, quality, detector, stability, CI, and review evidence into deterministic, fail-closed CI allow/block release decisions under declared policy. Release authority is bound to recorded evidence, status.json, declared gate policy, a materialized required gate set, and strict fail-closed CI enforcement.",
   "upload_type": "software",
   "language": "eng",
   "license": "Apache-2.0",
@@ -29,11 +31,8 @@
     "rdsi",
     "auditability",
     "reproducibility",
-    "hpc-evidence",
-    "recognition-surface-drift",
-    "transition-measurement",
-    "transition-meter",
-    "transition-identity"
+    "hpc-evidence",  
+    "recognition-surface-drift"
   ],
   "related_identifiers": [
     {
