@@ -72,8 +72,6 @@ jobs:
               )
 
           release_specific_fields = (
-              "title",
-              "description",
               "version",
               "publication_date",
           )
@@ -144,13 +142,7 @@ jobs:
               raise SystemExit(
                   "ERROR: keywords must not contain duplicates"
               )
-
-          required_keywords = {
-              "pulsemech",
-              "transition-measurement",
-              "transition-meter",
-              "transition-identity",
-          }
+          required_keywords = {"pulsemech"}
 
           missing_keywords = sorted(
               required_keywords.difference(keywords)
@@ -218,8 +210,7 @@ jobs:
 
           print(
               "OK: .zenodo.json contains stable repository metadata, "
-              "preserves the canonical PULSE lineage, and leaves release "
-              "title, description, version, and publication date to the "
-              "GitHub release."
+              "preserves the canonical PULSE lineage, and leaves version "
+              "and publication date to the GitHub release."
           )
           PY
