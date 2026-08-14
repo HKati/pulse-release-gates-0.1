@@ -1,25 +1,46 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import sys
+
+_ISOLATED_PYTHON_REQUIRED_DIAGNOSTIC = (
+    '{"authority_effect":"none",'
+    '"document_type":"pulsemech_compute_current_run_export_expectation",'
+    '"errors":["isolated_python_runtime_required: launch with python -I"],'
+    '"exit_kind":"python_runtime_boundary_error",'
+    '"ok":false,'
+    '"schema_version":"pulsemech_compute_current_run_export_expectation_v0",'
+    '"tool":"build_pulsemech_compute_current_run_export_expectation_v0",'
+    '"tool_version":"0.1.0"}\n'
+)
+
+if __name__ == "__main__" and (
+    sys.flags.isolated != 1
+    or sys.flags.ignore_environment != 1
+    or sys.flags.no_user_site != 1
+    or not bool(getattr(sys.flags, "safe_path", False))
+):
+    sys.stderr.write(_ISOLATED_PYTHON_REQUIRED_DIAGNOSTIC)
+    raise SystemExit(2)
+
 import argparse
 import copy
 import errno
 import hashlib
+import importlib
+import importlib.machinery
 import json
 import os
 import re
 import secrets
 import stat
 import subprocess
-import sys
+import sysconfig
 import tempfile
 import types
 from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
 from typing import Any, Iterable, Sequence
-
-import jsonschema
-import yaml
 
 
 TOOL_NAME = "build_pulsemech_compute_current_run_export_expectation_v0"
@@ -115,6 +136,10 @@ NEUTRAL_STUB_PROFILES = {
     "not_stubbed",
 }
 _MISSING = object()
+
+jsonschema: Any | None = None
+yaml: Any | None = None
+_StrictSafeLoader: Any | None = None
 
 # This is the contract-complete protected component set, not an inventory of
 # files already present in the repository revision that introduces this builder.
@@ -259,13 +284,9 @@ def _require_supported_execution_platform() -> None:
         )
 
 
-class _StrictSafeLoader(yaml.SafeLoader):
-    pass
-
-
 def _construct_unique_yaml_mapping(
-    loader: _StrictSafeLoader,
-    node: yaml.nodes.MappingNode,
+    loader: Any,
+    node: Any,
     deep: bool = False,
 ) -> dict[Any, Any]:
     loader.flatten_mapping(node)
@@ -282,12 +303,6 @@ def _construct_unique_yaml_mapping(
             raise StrictYamlError(f"duplicate YAML key: {key!r}")
         result[key] = loader.construct_object(value_node, deep=deep)
     return result
-
-
-_StrictSafeLoader.add_constructor(
-    yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG,
-    _construct_unique_yaml_mapping,
-)
 
 
 def reject_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
@@ -586,6 +601,12 @@ def parse_json_bytes(payload: bytes, *, label: str) -> Any:
 
 
 def parse_yaml_object(payload: bytes, *, label: str) -> dict[str, Any]:
+    if yaml is None or _StrictSafeLoader is None:
+        raise BuilderError(
+            "validation_dependencies_not_initialized",
+            exit_kind="python_runtime_boundary_error",
+            exit_code=2,
+        )
     if payload.startswith(b"\xef\xbb\xbf"):
         raise BuilderError(
             f"{label}_utf8_bom_not_permitted",
@@ -688,6 +709,325 @@ def path_is_within(path: Path, directory: Path) -> bool:
         return True
     except (OSError, ValueError):
         return False
+
+
+def _validation_path_is_within_any(
+    path: Path,
+    roots: Sequence[Path],
+) -> bool:
+    return any(
+        same_target(path, root) or path_is_within(path, root)
+        for root in roots
+    )
+
+
+def _validation_python_root(
+    name: str,
+    *,
+    repositories: Sequence[Path],
+) -> Path:
+    raw = sysconfig.get_path(name)
+    if not isinstance(raw, str) or not raw:
+        raise BuilderError(
+            f"validation_python_root_unconfigured: {name}",
+            exit_kind="python_runtime_boundary_error",
+            exit_code=2,
+        )
+    candidate = _normalized_absolute_path(Path(raw))
+    reject_symlink_components(
+        candidate,
+        label=f"validation_python_{name}",
+    )
+    try:
+        resolved = candidate.resolve(strict=True)
+    except OSError as exc:
+        raise BuilderError(
+            f"validation_python_root_unresolvable: "
+            f"name={name!r} path={candidate}: {exc}",
+            exit_kind="python_runtime_boundary_error",
+            exit_code=2,
+        ) from exc
+    if not resolved.is_dir():
+        raise BuilderError(
+            f"validation_python_root_not_directory: "
+            f"name={name!r} path={resolved}",
+            exit_kind="python_runtime_boundary_error",
+            exit_code=2,
+        )
+    for repository in repositories:
+        if (
+            same_target(resolved, repository)
+            or path_is_within(resolved, repository)
+            or path_is_within(repository, resolved)
+        ):
+            raise BuilderError(
+                "validation_python_root_overlaps_repository: "
+                f"name={name!r} root={resolved} repository={repository}",
+                exit_kind="python_runtime_boundary_error",
+                exit_code=2,
+            )
+    return resolved
+
+
+def _unique_validation_paths(paths: Iterable[Path]) -> tuple[Path, ...]:
+    result: list[Path] = []
+    for path in paths:
+        if any(same_target(path, existing) for existing in result):
+            continue
+        result.append(path)
+    return tuple(result)
+
+
+def _validation_import_roots(
+    repositories: Sequence[Path],
+) -> tuple[tuple[Path, ...], tuple[Path, ...]]:
+    standard = _unique_validation_paths(
+        _validation_python_root(name, repositories=repositories)
+        for name in ("stdlib", "platstdlib")
+    )
+    packages = _unique_validation_paths(
+        _validation_python_root(name, repositories=repositories)
+        for name in ("purelib", "platlib")
+    )
+    return standard, packages
+
+
+def _validation_sys_path(
+    standard_roots: Sequence[Path],
+    package_roots: Sequence[Path],
+) -> list[str]:
+    values: list[Path] = list(standard_roots) + list(package_roots)
+    for root in standard_roots:
+        dynamic = root / "lib-dynload"
+        if dynamic.is_dir():
+            values.append(dynamic.resolve(strict=True))
+    return [str(path) for path in _unique_validation_paths(values)]
+
+
+def _dependency_identity(
+    module_name: str,
+    package_roots: Sequence[Path],
+) -> tuple[Path, tuple[Path, ...]]:
+    spec = importlib.machinery.PathFinder.find_spec(
+        module_name,
+        [str(root) for root in package_roots],
+    )
+    if spec is None or spec.loader is None or not isinstance(spec.origin, str):
+        raise BuilderError(
+            f"validation_dependency_spec_unavailable: {module_name}",
+            exit_kind="python_runtime_boundary_error",
+            exit_code=2,
+        )
+    origin = _normalized_absolute_path(Path(spec.origin))
+    reject_symlink_components(
+        origin,
+        label=f"validation_dependency_{module_name}_origin",
+    )
+    try:
+        origin = origin.resolve(strict=True)
+    except OSError as exc:
+        raise BuilderError(
+            "validation_dependency_origin_unresolvable: "
+            f"module={module_name!r} origin={origin}: {exc}",
+            exit_kind="python_runtime_boundary_error",
+            exit_code=2,
+        ) from exc
+    if not origin.is_file() or not _validation_path_is_within_any(
+        origin,
+        package_roots,
+    ):
+        raise BuilderError(
+            "validation_dependency_origin_outside_package_roots: "
+            f"module={module_name!r} origin={origin}",
+            exit_kind="python_runtime_boundary_error",
+            exit_code=2,
+        )
+    raw_locations = getattr(spec, "submodule_search_locations", None)
+    if raw_locations is None:
+        raise BuilderError(
+            f"validation_dependency_not_package: {module_name}",
+            exit_kind="python_runtime_boundary_error",
+            exit_code=2,
+        )
+    locations = tuple(
+        _normalized_absolute_path(Path(value)).resolve(strict=True)
+        for value in raw_locations
+    )
+    if (
+        not locations
+        or any(
+            not location.is_dir()
+            or not _validation_path_is_within_any(location, package_roots)
+            for location in locations
+        )
+        or not any(same_target(origin.parent, location) for location in locations)
+    ):
+        raise BuilderError(
+            "validation_dependency_package_location_invalid: "
+            f"module={module_name!r} "
+            f"locations={[str(item) for item in locations]!r}",
+            exit_kind="python_runtime_boundary_error",
+            exit_code=2,
+        )
+    return origin, locations
+
+
+def _initialize_validation_dependencies(
+    *,
+    subject_root: Path,
+    control_plane_root: Path,
+) -> None:
+    global jsonschema, yaml, _StrictSafeLoader
+
+    if all(value is not None for value in (jsonschema, yaml, _StrictSafeLoader)):
+        return
+    if any(value is not None for value in (jsonschema, yaml, _StrictSafeLoader)):
+        raise BuilderError(
+            "validation_dependency_state_partially_initialized",
+            exit_kind="python_runtime_boundary_error",
+            exit_code=2,
+        )
+    if (
+        sys.flags.isolated != 1
+        or sys.flags.ignore_environment != 1
+        or sys.flags.no_user_site != 1
+        or not bool(getattr(sys.flags, "safe_path", False))
+    ):
+        raise BuilderError(
+            "isolated_python_runtime_required: launch with python -I",
+            exit_kind="python_runtime_boundary_error",
+            exit_code=2,
+        )
+
+    preloaded = sorted(
+        module_name
+        for module_name in sys.modules
+        if any(
+            module_name == dependency
+            or module_name.startswith(dependency + ".")
+            for dependency in ("jsonschema", "yaml")
+        )
+    )
+    if preloaded:
+        raise BuilderError(
+            "validation_dependency_preloaded_before_protected_import: "
+            + json.dumps(preloaded),
+            exit_kind="python_runtime_boundary_error",
+            exit_code=2,
+        )
+
+    repositories = (subject_root, control_plane_root)
+    standard_roots, package_roots = _validation_import_roots(repositories)
+    allowed_roots = _unique_validation_paths((*standard_roots, *package_roots))
+    expected = {
+        name: _dependency_identity(name, package_roots)
+        for name in ("jsonschema", "yaml")
+    }
+
+    modules_before = set(sys.modules)
+    sys.path[:] = _validation_sys_path(standard_roots, package_roots)
+    sys.path_importer_cache.clear()
+    sys.meta_path[:] = [
+        importlib.machinery.BuiltinImporter,
+        importlib.machinery.FrozenImporter,
+        importlib.machinery.PathFinder,
+    ]
+    sys.dont_write_bytecode = True
+    try:
+        imported_jsonschema = importlib.import_module("jsonschema")
+        imported_yaml = importlib.import_module("yaml")
+        for loaded_name in sorted(set(sys.modules).difference(modules_before)):
+            loaded = sys.modules.get(loaded_name)
+            raw_origin = getattr(loaded, "__file__", None)
+            if not isinstance(raw_origin, str) or not raw_origin:
+                continue
+            origin = _normalized_absolute_path(Path(raw_origin)).resolve(
+                strict=True
+            )
+            if not _validation_path_is_within_any(origin, allowed_roots):
+                raise BuilderError(
+                    "loaded_validation_dependency_outside_protected_roots: "
+                    f"module={loaded_name!r} origin={origin}",
+                    exit_kind="python_runtime_boundary_error",
+                    exit_code=2,
+                )
+
+        imported = {
+            "jsonschema": imported_jsonschema,
+            "yaml": imported_yaml,
+        }
+        for module_name, module in imported.items():
+            expected_origin, expected_locations = expected[module_name]
+            actual_origin = _normalized_absolute_path(
+                Path(module.__file__)
+            ).resolve(strict=True)
+            actual_locations = tuple(
+                _normalized_absolute_path(Path(value)).resolve(strict=True)
+                for value in (getattr(module, "__path__", None) or ())
+            )
+            if (
+                actual_origin != expected_origin
+                or len(actual_locations) != len(expected_locations)
+                or any(
+                    not same_target(actual, wanted)
+                    for actual, wanted in zip(
+                        actual_locations,
+                        expected_locations,
+                    )
+                )
+            ):
+                raise BuilderError(
+                    "validation_dependency_identity_changed_during_import: "
+                    f"module={module_name!r}",
+                    exit_kind="python_runtime_boundary_error",
+                    exit_code=2,
+                )
+
+        if not callable(
+            getattr(imported_jsonschema, "Draft202012Validator", None)
+        ):
+            raise BuilderError(
+                "validation_dependency_jsonschema_api_missing",
+                exit_kind="python_runtime_boundary_error",
+                exit_code=2,
+            )
+        if (
+            getattr(imported_yaml, "SafeLoader", None) is None
+            or getattr(imported_yaml, "YAMLError", None) is None
+            or not callable(getattr(imported_yaml, "load", None))
+        ):
+            raise BuilderError(
+                "validation_dependency_yaml_api_missing",
+                exit_kind="python_runtime_boundary_error",
+                exit_code=2,
+            )
+
+        strict_loader = type(
+            "_StrictSafeLoader",
+            (imported_yaml.SafeLoader,),
+            {"__module__": __name__},
+        )
+        strict_loader.add_constructor(
+            imported_yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG,
+            _construct_unique_yaml_mapping,
+        )
+    except BuilderError:
+        for module_name in set(sys.modules).difference(modules_before):
+            sys.modules.pop(module_name, None)
+        raise
+    except Exception as exc:
+        for module_name in set(sys.modules).difference(modules_before):
+            sys.modules.pop(module_name, None)
+        raise BuilderError(
+            "validation_dependency_import_failed: "
+            f"{type(exc).__name__}: {exc}",
+            exit_kind="python_runtime_boundary_error",
+            exit_code=2,
+        ) from exc
+
+    jsonschema = imported_jsonschema
+    yaml = imported_yaml
+    _StrictSafeLoader = strict_loader
 
 
 def _canonical_repository_path(value: Any) -> str | None:
@@ -2827,6 +3167,11 @@ def _build(args: argparse.Namespace) -> bytes:
         subject_root,
     ):
         raise BuilderError("subject_and_control_plane_roots_must_not_be_nested")
+
+    _initialize_validation_dependencies(
+        subject_root=subject_root,
+        control_plane_root=control_plane_root,
+    )
 
     control_plane_repository = str(args.control_plane_repository).strip()
     control_plane_revision = str(args.control_plane_revision).strip().lower()
