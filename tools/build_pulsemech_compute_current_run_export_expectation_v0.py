@@ -1499,7 +1499,14 @@ def _verify_authority_sources(
         )
 
     source_ids: list[str] = []
-    verified_path_payloads: dict[str, bytes] = {}
+    retained_source_labels = frozenset(
+        {"workflow", "policy", "gate_registry"}
+    )
+    # Arbitrary additional sources retain only their verified digest/size
+    # identity. Raw bytes remain resident only for the three sources parsed
+    # later by this builder.
+    verified_path_identities: dict[str, tuple[str, int]] = {}
+    retained_path_payloads: dict[str, bytes] = {}
     retained_payloads: dict[str, bytes] = {}
     for label, source in _flatten_authority_sources(verified):
         source_id = source.get("source_id")
@@ -1535,8 +1542,9 @@ def _verify_authority_sources(
                 f"expected={GATE_REGISTRY_PATH!r} actual={canonical!r}"
             )
 
-        committed = verified_path_payloads.get(canonical)
-        if committed is None:
+        identity = verified_path_identities.get(canonical)
+        committed = retained_path_payloads.get(canonical)
+        if identity is None:
             committed = _verify_committed_worktree_file(
                 git_path=git_path,
                 repository_root=subject_root,
@@ -1545,9 +1553,12 @@ def _verify_authority_sources(
                 label=f"authority_source_{label}",
                 max_bytes=MAX_COMPONENT_BYTES,
             )
-            verified_path_payloads[canonical] = committed
-        observed_sha = sha256_bytes(committed)
-        observed_size = len(committed)
+            identity = (sha256_bytes(committed), len(committed))
+            verified_path_identities[canonical] = identity
+            if label in retained_source_labels:
+                retained_path_payloads[canonical] = committed
+
+        observed_sha, observed_size = identity
         if source.get("sha256") != observed_sha:
             raise BuilderError(
                 f"{label}_source_sha256_mismatch: "
@@ -1559,7 +1570,29 @@ def _verify_authority_sources(
                 f"expected={source.get('size_bytes')!r} "
                 f"observed={observed_size}"
             )
-        if label in {"workflow", "policy", "gate_registry"}:
+
+        if label in retained_source_labels:
+            if committed is None:
+                committed = _verify_committed_worktree_file(
+                    git_path=git_path,
+                    repository_root=subject_root,
+                    revision=subject_revision,
+                    repository_path=canonical,
+                    label=f"authority_source_{label}_retained",
+                    max_bytes=MAX_COMPONENT_BYTES,
+                )
+                retained_identity = (
+                    sha256_bytes(committed),
+                    len(committed),
+                )
+                if retained_identity != identity:
+                    raise BuilderError(
+                        "authority_source_identity_changed_before_retention: "
+                        f"path={canonical!r} "
+                        f"verified={identity!r} "
+                        f"retained={retained_identity!r}"
+                    )
+                retained_path_payloads[canonical] = committed
             retained_payloads[label] = committed
 
     if len(source_ids) != len(set(source_ids)):
