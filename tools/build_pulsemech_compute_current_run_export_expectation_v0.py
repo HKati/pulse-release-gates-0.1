@@ -85,6 +85,7 @@ STATUS_SCHEMA_PATH = "schemas/status/status_v1.schema.json"
 RELEASE_DECISION_SCHEMA_PATH = "schemas/release_decision_v0.schema.json"
 POLICY_PATH = "pulse_gate_policy_v0.yml"
 GATE_REGISTRY_PATH = "pulse_gate_registry_v0.yml"
+EXTERNAL_SIGNER_POLICY_PATH = "policy/external_signers_v1.yml"
 MATERIALIZED_GATE_SET_SCHEMA = "pulse_ref_materialized_gate_sets_v0"
 
 RELEASE_DECISION_SCHEMA = "pulse_release_decision_v0"
@@ -1436,6 +1437,45 @@ def _flatten_authority_sources(
             if isinstance(value, dict):
                 rows.append((f"additional_sources[{index}]", value))
     return rows
+
+
+def _external_signer_policy_source_path(
+    authority_sources: dict[str, Any],
+) -> str:
+    additional = authority_sources.get("additional_sources")
+    if not isinstance(additional, list):
+        raise BuilderError("external_signer_policy_source_missing")
+
+    matches = [
+        source
+        for source in additional
+        if (
+            isinstance(source, dict)
+            and source.get("role") == "external_signer_policy"
+        )
+    ]
+    if not matches:
+        raise BuilderError("external_signer_policy_source_missing")
+    if len(matches) != 1:
+        raise BuilderError(
+            "external_signer_policy_source_ambiguous: "
+            f"count={len(matches)}"
+        )
+
+    path_value = matches[0].get("path_or_uri")
+    canonical = _canonical_repository_path(path_value)
+    if canonical is None:
+        raise BuilderError(
+            "external_signer_policy_source_path_not_canonical: "
+            f"{path_value!r}"
+        )
+    if canonical != EXTERNAL_SIGNER_POLICY_PATH:
+        raise BuilderError(
+            "external_signer_policy_source_path_mismatch: "
+            f"expected={EXTERNAL_SIGNER_POLICY_PATH!r} "
+            f"actual={canonical!r}"
+        )
+    return canonical
 
 
 def _verify_authority_sources(
@@ -2946,6 +2986,9 @@ def _build(args: argparse.Namespace) -> bytes:
         trusted_workflow_path=workflow_path,
         trusted_workflow_ref=trusted_workflow_ref,
     )
+    verified_external_signer_policy_path = (
+        _external_signer_policy_source_path(verified_sources)
+    )
     _verify_subject_artifacts(
         git_path=trusted_git,
         subject_root=subject_root,
@@ -2972,6 +3015,15 @@ def _build(args: argparse.Namespace) -> bytes:
         components["subject_input_producer_wrapper"]["path"]
     ):
         raise BuilderError("packet_profile_subject_input_wrapper_mismatch")
+    if (
+        profile["expected_signer_policy_path"]
+        != verified_external_signer_policy_path
+    ):
+        raise BuilderError(
+            "packet_profile_signer_policy_path_mismatch: "
+            f"expected={verified_external_signer_policy_path!r} "
+            f"actual={profile['expected_signer_policy_path']!r}"
+        )
     if profile["expected_repository"] != subject["repository"]:
         raise BuilderError("packet_profile_subject_repository_mismatch")
     if profile["expected_source_commit"] != subject_revision:
