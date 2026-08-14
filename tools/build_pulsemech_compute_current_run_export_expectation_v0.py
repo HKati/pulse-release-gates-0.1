@@ -1,3 +1,4 @@
+```python
 #!/usr/bin/env python3
 from __future__ import annotations
 
@@ -2092,7 +2093,7 @@ def _verify_release_decision_projection(
             )
 
 
-def _verify_release_decision_header(decision: dict[str, Any]) -> None:
+def _verify_release_decision_header(decision: dict[str, Any]) -> datetime:
     if decision.get("schema") != RELEASE_DECISION_SCHEMA:
         raise BuilderError("release_decision_schema_identity_mismatch")
     if decision.get("version") != RELEASE_DECISION_VERSION:
@@ -2107,7 +2108,31 @@ def _verify_release_decision_header(decision: dict[str, Any]) -> None:
             "release_decision_producer_mismatch: "
             f"expected={expected_producer!r} actual={producer!r}"
         )
-    _parse_utc(decision.get("created_utc"), label="release_decision_created_utc")
+    return _parse_utc(
+        decision.get("created_utc"),
+        label="release_decision_created_utc",
+    )
+
+
+def _verify_observed_artifact_time_order(
+    *,
+    release_decision_created_utc: datetime,
+    carrier_finalized_utc: datetime,
+    expectation_created_utc: datetime,
+) -> None:
+    if release_decision_created_utc > carrier_finalized_utc:
+        raise BuilderError(
+            "release_decision_created_after_carrier_finalization: "
+            f"release_decision_created_utc="
+            f"{release_decision_created_utc.isoformat()} "
+            f"carrier_finalized_utc={carrier_finalized_utc.isoformat()}"
+        )
+    if carrier_finalized_utc > expectation_created_utc:
+        raise BuilderError(
+            "carrier_finalized_after_expectation_creation: "
+            f"carrier_finalized_utc={carrier_finalized_utc.isoformat()} "
+            f"expectation_created_utc={expectation_created_utc.isoformat()}"
+        )
 
 
 def _verify_subject_artifacts(
@@ -2122,6 +2147,8 @@ def _verify_subject_artifacts(
     final_status_path: Path,
     release_decision_path: Path,
     materialized_gate_set_path: Path | None,
+    carrier: dict[str, Any],
+    expectation_created_utc: str,
     release_target: str,
     workflow_active_policy_sets: Sequence[str],
 ) -> None:
@@ -2246,7 +2273,20 @@ def _verify_subject_artifacts(
         raise BuilderError(
             "release_decision_schema_invalid: " + " | ".join(decision_errors)
         )
-    _verify_release_decision_header(decision)
+    release_decision_created_utc = _verify_release_decision_header(decision)
+    carrier_finalized_utc = _parse_utc(
+        carrier.get("finalized_utc"),
+        label="carrier_finalized_utc",
+    )
+    protected_expectation_created_utc = _parse_utc(
+        expectation_created_utc,
+        label="expectation_created_utc",
+    )
+    _verify_observed_artifact_time_order(
+        release_decision_created_utc=release_decision_created_utc,
+        carrier_finalized_utc=carrier_finalized_utc,
+        expectation_created_utc=protected_expectation_created_utc,
+    )
 
     materialized_sha = subject.get("materialized_gate_set_sha256")
     if materialized_sha is None:
@@ -3000,6 +3040,8 @@ def _build(args: argparse.Namespace) -> bytes:
         final_status_path=final_status_path,
         release_decision_path=release_decision_path,
         materialized_gate_set_path=materialized_gate_set_path,
+        carrier=builder_input["carrier"],
+        expectation_created_utc=expectation_created_utc,
         release_target=release_target,
         workflow_active_policy_sets=active_policy_sets,
     )
@@ -3094,3 +3136,4 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+```
