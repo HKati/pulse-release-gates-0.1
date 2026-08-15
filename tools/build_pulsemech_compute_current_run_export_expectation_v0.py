@@ -1219,6 +1219,7 @@ def _run_git(
     arguments: Sequence[str],
     label: str,
     timeout_seconds: int = 60,
+    input_payload: bytes | None = None,
 ) -> bytes:
     command = [
         str(git_path),
@@ -1230,16 +1231,19 @@ def _run_git(
         str(repository_root),
         *arguments,
     ]
+    run_arguments: dict[str, Any] = {
+        "stdout": subprocess.PIPE,
+        "stderr": subprocess.PIPE,
+        "check": False,
+        "timeout": timeout_seconds,
+        "env": _git_environment(git_path),
+    }
+    if input_payload is None:
+        run_arguments["stdin"] = subprocess.DEVNULL
+    else:
+        run_arguments["input"] = input_payload
     try:
-        result = subprocess.run(
-            command,
-            stdin=subprocess.DEVNULL,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            check=False,
-            timeout=timeout_seconds,
-            env=_git_environment(git_path),
-        )
+        result = subprocess.run(command, **run_arguments)
     except (OSError, subprocess.TimeoutExpired) as exc:
         raise BuilderError(
             f"{label}_git_execution_failed: {exc}",
@@ -1476,6 +1480,349 @@ def _verify_independent_git_storage(
                 exit_kind="trusted_git_error",
                 exit_code=2,
             )
+
+
+def _git_hash_object_payload(
+    *,
+    git_path: Path,
+    repository_root: Path,
+    object_type: str,
+    payload: bytes,
+    label: str,
+) -> str:
+    if object_type not in {"blob", "commit", "tree"}:
+        raise BuilderError(
+            f"{label}_unsupported_git_object_type: {object_type!r}",
+            exit_kind="trusted_git_error",
+            exit_code=2,
+        )
+    raw = _run_git(
+        git_path=git_path,
+        repository_root=repository_root,
+        arguments=("hash-object", "-t", object_type, "--stdin"),
+        label=f"{label}_hash_object",
+        input_payload=payload,
+    )
+    try:
+        object_id = raw.decode("ascii", errors="strict").strip().lower()
+    except UnicodeDecodeError as exc:
+        raise BuilderError(
+            f"{label}_calculated_object_id_not_ascii",
+            exit_kind="trusted_git_error",
+            exit_code=2,
+        ) from exc
+    if re.fullmatch(r"[0-9a-f]{40}", object_id) is None:
+        raise BuilderError(
+            f"{label}_calculated_object_id_not_sha40: {object_id!r}",
+            exit_kind="trusted_git_error",
+            exit_code=2,
+        )
+    return object_id
+
+
+def _verified_git_object_payload(
+    *,
+    git_path: Path,
+    repository_root: Path,
+    object_id: str,
+    expected_type: str,
+    label: str,
+    max_bytes: int,
+    object_cache: dict[tuple[str, str], bytes] | None = None,
+) -> bytes:
+    object_id = object_id.lower()
+    if re.fullmatch(r"[0-9a-f]{40}", object_id) is None:
+        raise BuilderError(
+            f"{label}_object_id_not_sha40: {object_id!r}",
+            exit_kind="trusted_git_error",
+            exit_code=2,
+        )
+    cache_key = (expected_type, object_id)
+    if object_cache is not None and cache_key in object_cache:
+        cached = object_cache[cache_key]
+        if len(cached) > max_bytes:
+            raise BuilderError(
+                f"{label}_object_too_large: "
+                f"size={len(cached)} maximum={max_bytes}"
+            )
+        return cached
+
+    object_type_raw = _run_git(
+        git_path=git_path,
+        repository_root=repository_root,
+        arguments=("cat-file", "-t", object_id),
+        label=f"{label}_type",
+    )
+    try:
+        object_type = object_type_raw.decode(
+            "ascii",
+            errors="strict",
+        ).strip()
+    except UnicodeDecodeError as exc:
+        raise BuilderError(
+            f"{label}_object_type_not_ascii",
+            exit_kind="trusted_git_error",
+            exit_code=2,
+        ) from exc
+    if object_type != expected_type:
+        raise BuilderError(
+            f"{label}_object_type_mismatch: "
+            f"expected={expected_type!r} actual={object_type!r}",
+            exit_kind="trusted_git_error",
+            exit_code=2,
+        )
+
+    size_raw = _run_git(
+        git_path=git_path,
+        repository_root=repository_root,
+        arguments=("cat-file", "-s", object_id),
+        label=f"{label}_size",
+    )
+    try:
+        declared_size = int(
+            size_raw.decode("ascii", errors="strict").strip(),
+            10,
+        )
+    except (UnicodeDecodeError, ValueError) as exc:
+        raise BuilderError(
+            f"{label}_object_size_invalid",
+            exit_kind="trusted_git_error",
+            exit_code=2,
+        ) from exc
+    if declared_size < 0:
+        raise BuilderError(
+            f"{label}_object_size_negative: {declared_size}",
+            exit_kind="trusted_git_error",
+            exit_code=2,
+        )
+    if declared_size > max_bytes:
+        raise BuilderError(
+            f"{label}_object_too_large: "
+            f"size={declared_size} maximum={max_bytes}"
+        )
+
+    payload = _run_git(
+        git_path=git_path,
+        repository_root=repository_root,
+        arguments=("cat-file", expected_type, object_id),
+        label=f"{label}_content",
+    )
+    if len(payload) != declared_size:
+        raise BuilderError(
+            f"{label}_object_size_changed_or_misreported: "
+            f"declared={declared_size} observed={len(payload)}",
+            exit_kind="trusted_git_error",
+            exit_code=2,
+        )
+
+    calculated_id = _git_hash_object_payload(
+        git_path=git_path,
+        repository_root=repository_root,
+        object_type=expected_type,
+        payload=payload,
+        label=label,
+    )
+    if calculated_id != object_id:
+        raise BuilderError(
+            f"{label}_object_id_mismatch: "
+            f"expected={object_id} calculated={calculated_id}",
+            exit_kind="trusted_git_error",
+            exit_code=2,
+        )
+    if object_cache is not None:
+        object_cache[cache_key] = payload
+    return payload
+
+
+def _verified_revision_root_tree_id(
+    *,
+    git_path: Path,
+    repository_root: Path,
+    revision: str,
+    label: str,
+    object_cache: dict[tuple[str, str], bytes],
+) -> str:
+    commit_payload = _verified_git_object_payload(
+        git_path=git_path,
+        repository_root=repository_root,
+        object_id=revision,
+        expected_type="commit",
+        label=f"{label}_commit",
+        max_bytes=MAX_COMPONENT_BYTES,
+        object_cache=object_cache,
+    )
+    first_line = commit_payload.split(b"\n", 1)[0]
+    match = re.fullmatch(rb"tree ([0-9a-f]{40})", first_line)
+    if match is None:
+        raise BuilderError(
+            f"{label}_commit_tree_header_invalid: {first_line!r}",
+            exit_kind="trusted_git_error",
+            exit_code=2,
+        )
+    return match.group(1).decode("ascii")
+
+
+def _parse_verified_git_tree_entries(
+    payload: bytes,
+    *,
+    label: str,
+) -> dict[bytes, tuple[str, str]]:
+    entries: dict[bytes, tuple[str, str]] = {}
+    offset = 0
+    while offset < len(payload):
+        space = payload.find(b" ", offset)
+        nul = payload.find(b"\x00", space + 1 if space >= 0 else offset)
+        if (
+            space <= offset
+            or nul <= space + 1
+            or nul + 21 > len(payload)
+        ):
+            raise BuilderError(
+                f"{label}_tree_entry_malformed_at_offset: {offset}",
+                exit_kind="trusted_git_error",
+                exit_code=2,
+            )
+        mode_bytes = payload[offset:space]
+        name = payload[space + 1:nul]
+        object_id_bytes = payload[nul + 1:nul + 21]
+        if re.fullmatch(rb"[0-7]{5,6}", mode_bytes) is None:
+            raise BuilderError(
+                f"{label}_tree_entry_mode_invalid: {mode_bytes!r}",
+                exit_kind="trusted_git_error",
+                exit_code=2,
+            )
+        if not name or b"/" in name or name in {b".", b".."}:
+            raise BuilderError(
+                f"{label}_tree_entry_name_invalid: {name!r}",
+                exit_kind="trusted_git_error",
+                exit_code=2,
+            )
+        if name in entries:
+            raise BuilderError(
+                f"{label}_tree_entry_name_duplicate: {name!r}",
+                exit_kind="trusted_git_error",
+                exit_code=2,
+            )
+        mode = mode_bytes.decode("ascii")
+        object_id = object_id_bytes.hex()
+        entries[name] = (mode, object_id)
+        offset = nul + 21
+    if offset != len(payload):
+        raise BuilderError(
+            f"{label}_tree_payload_trailing_bytes",
+            exit_kind="trusted_git_error",
+            exit_code=2,
+        )
+    return entries
+
+
+def _resolve_verified_git_blob_id(
+    *,
+    git_path: Path,
+    repository_root: Path,
+    root_tree_id: str,
+    repository_path: str,
+    label: str,
+    object_cache: dict[tuple[str, str], bytes],
+    tree_cache: dict[str, dict[bytes, tuple[str, str]]],
+) -> str:
+    canonical = _canonical_repository_path(repository_path)
+    if canonical is None:
+        raise BuilderError(
+            f"{label}_repository_path_not_canonical: {repository_path!r}"
+        )
+    parts = PurePosixPath(canonical).parts
+    current_tree_id = root_tree_id
+    for index, part in enumerate(parts):
+        entries = tree_cache.get(current_tree_id)
+        if entries is None:
+            tree_payload = _verified_git_object_payload(
+                git_path=git_path,
+                repository_root=repository_root,
+                object_id=current_tree_id,
+                expected_type="tree",
+                label=f"{label}_tree_{index}",
+                max_bytes=MAX_COMPONENT_BYTES,
+                object_cache=object_cache,
+            )
+            entries = _parse_verified_git_tree_entries(
+                tree_payload,
+                label=f"{label}_tree_{index}",
+            )
+            tree_cache[current_tree_id] = entries
+        part_bytes = part.encode("utf-8", errors="strict")
+        entry = entries.get(part_bytes)
+        if entry is None:
+            raise BuilderError(
+                f"{label}_path_missing_from_verified_revision: "
+                f"path={canonical!r} component={part!r}",
+                exit_kind="trusted_git_error",
+                exit_code=2,
+            )
+        mode, object_id = entry
+        final = index == len(parts) - 1
+        if not final:
+            if mode != "40000":
+                raise BuilderError(
+                    f"{label}_intermediate_path_not_tree: "
+                    f"component={part!r} mode={mode!r}",
+                    exit_kind="trusted_git_error",
+                    exit_code=2,
+                )
+            current_tree_id = object_id
+            continue
+        if mode not in {"100644", "100755"}:
+            raise BuilderError(
+                f"{label}_final_path_not_regular_blob: "
+                f"path={canonical!r} mode={mode!r}",
+                exit_kind="trusted_git_error",
+                exit_code=2,
+            )
+        return object_id
+    raise BuilderError(
+        f"{label}_repository_path_empty_after_canonicalization",
+        exit_kind="trusted_git_error",
+        exit_code=2,
+    )
+
+
+def _verify_control_plane_committed_worktree_file(
+    *,
+    git_path: Path,
+    repository_root: Path,
+    root_tree_id: str,
+    repository_path: str,
+    label: str,
+    max_bytes: int,
+    object_cache: dict[tuple[str, str], bytes],
+    tree_cache: dict[str, dict[bytes, tuple[str, str]]],
+) -> bytes:
+    blob_id = _resolve_verified_git_blob_id(
+        git_path=git_path,
+        repository_root=repository_root,
+        root_tree_id=root_tree_id,
+        repository_path=repository_path,
+        label=label,
+        object_cache=object_cache,
+        tree_cache=tree_cache,
+    )
+    committed = _verified_git_object_payload(
+        git_path=git_path,
+        repository_root=repository_root,
+        object_id=blob_id,
+        expected_type="blob",
+        label=f"{label}_blob",
+        max_bytes=max_bytes,
+        object_cache=object_cache,
+    )
+    working = read_regular_file(
+        repository_root / repository_path,
+        label=f"{label}_working_tree",
+        max_bytes=max_bytes,
+    )
+    if working != committed:
+        raise BuilderError(f"{label}_working_tree_differs_from_exact_revision")
+    return committed
 
 
 def _git_blob(
@@ -1728,6 +2075,21 @@ def _verify_control_plane_components(
             f"expected={EXPECTATION_BUILDER_PATH!r} actual={executed_relative!r}"
         )
 
+    # The protected component set is resolved from a commit object and tree
+    # chain whose raw Git object bytes are independently re-hashed against
+    # their bound SHA-1 object IDs. This prevents a writable loose-object store
+    # from substituting bytes under an existing object filename while still
+    # claiming protected_exact_revision.
+    object_cache: dict[tuple[str, str], bytes] = {}
+    tree_cache: dict[str, dict[bytes, tuple[str, str]]] = {}
+    root_tree_id = _verified_revision_root_tree_id(
+        git_path=git_path,
+        repository_root=control_plane_root,
+        revision=control_plane_revision,
+        label="control_plane_revision",
+        object_cache=object_cache,
+    )
+
     components: dict[str, Any] = {}
     payloads: dict[str, bytes] = {}
     seen_paths: set[str] = set()
@@ -1744,13 +2106,15 @@ def _verify_control_plane_components(
                 f"role={role!r} path={repository_path!r}"
             )
         seen_paths.add(canonical)
-        committed = _verify_committed_worktree_file(
+        committed = _verify_control_plane_committed_worktree_file(
             git_path=git_path,
             repository_root=control_plane_root,
-            revision=control_plane_revision,
+            root_tree_id=root_tree_id,
             repository_path=canonical,
             label=f"control_plane_component_{role}",
             max_bytes=MAX_COMPONENT_BYTES,
+            object_cache=object_cache,
+            tree_cache=tree_cache,
         )
         if role in retained_payload_roles:
             payloads[role] = committed
