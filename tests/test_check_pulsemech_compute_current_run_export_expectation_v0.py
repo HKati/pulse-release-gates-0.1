@@ -337,8 +337,15 @@ def test_tools_tests_manifest_registers_regression_exactly_once() -> None:
     assert len(entries) == len(set(entries))
     assert entries.count(TEST_RELATIVE_PATH) == 1
     index = entries.index(TEST_RELATIVE_PATH)
-    assert entries[index - 1] == "tests/test_pulsemech_compute_fixed_source_candidate_chain_v0.py"
-    assert entries[index + 1] == "tests/test_pulsemech_compute_subject_input_packet_schema_v0.py"
+    assert entries[index - 1] == (
+        "tests/test_pulsemech_compute_fixed_source_candidate_chain_v0.py"
+    )
+    assert entries[index + 1] == (
+        "tests/test_build_pulsemech_compute_current_run_export_expectation_v0.py"
+    )
+    assert entries[index + 2] == (
+        "tests/test_pulsemech_compute_subject_input_packet_schema_v0.py"
+    )
 
 
 # Canonical positive path and deterministic diagnostics.
