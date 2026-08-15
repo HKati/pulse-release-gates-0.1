@@ -1639,3 +1639,6 @@ def test_complete_synthetic_current_run_cli_is_deterministic(
         expectation["authority_boundary"]["changes_release_authority"]
         is False
     )
+
+if __name__ == "__main__":
+    raise SystemExit(pytest.main([__file__]))
