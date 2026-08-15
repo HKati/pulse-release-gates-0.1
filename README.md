@@ -2,6 +2,12 @@
 
 PULSEmech is the canonical mechanical implementation of PULSE.
 
+**Current systems measure states. PULSEmech Transition Meter measures the evidence-bound transition between states.**
+
+Artifact-bound AI release authority is the first concrete PULSEmech implementation domain of this broader transition-measurement architecture.
+
+[**Open the foundational PULSEmech Transition Meter architecture**](PULSEMECH_TRANSITION_METER.md)
+
 > **Public origin / prior-art notice:** PULSE has a minimum public origin record. For the visible provenance anchors and attribution boundary, see the [Public Origin / Prior Art Notice](docs/quality_ledger.md#10-public-origin--prior-art-notice).
 
 ## Primary PULSEmech technical source
@@ -14,6 +20,108 @@ verified implementation state, completed proofs and current development
 boundary.
 
 **[Follow the current verified state and latest results](PULSEMECH_TECHNICAL_OVERVIEW.md#current-verified-state-and-latest-results)**
+
+## PULSEmech Transition Meter — The Missing Instrument Between Measured States
+
+The dominant measurement structure of present science records states and
+state-bound quantities.
+
+Scientific instruments measure temperature, pressure, radiation,
+position, velocity, flow, current, concentration, and other values bound
+to an identified object, location, time, or measurement interval.
+
+These measurements establish what is measured.
+
+They do not automatically establish the evidence-bound identity of the
+transition that connected one measured system state to another.
+
+```text
+state
+!=
+transition
+
+measured state difference
+!=
+measured transition identity
+
+observed consequence
+!=
+measured initiating transition
+
+measured endpoints
+!=
+verified transition path
+```
+
+A system may therefore expose a large and precisely measured consequence
+while the initiating relation change remains mechanically invisible.
+
+The PULSEmech Transition Meter treats that missing transition as a
+separate measurement object:
+
+```text
+domain measurement
+→ identified state record
+→ changed relation
+→ opened, closed, or redirected path
+→ evidence binding
+→ reconstruction or explicit unresolved state
+```
+
+It asks:
+
+```text
+What changed first?
+Which relation changed?
+Which transition opened the later path?
+Which previous path became unavailable?
+What evidence binds the transition to the measured consequence?
+Which links and alternative paths remain unresolved?
+```
+
+The Transition Meter does not replace domain instruments.
+
+It connects their outputs through a verifiable transition structure and
+preserves missing links instead of filling them with an assumed causal
+story.
+
+A JSON artifact may carry a transition record.
+
+The JSON is not the instrument.
+
+The instrument is the complete mechanism that observes or reconstructs
+the transition, binds it to identified states, time, boundaries,
+measurement provenance, and evidence, and preserves what remains
+unresolved.
+
+The current artifact-bound AI release-authority mechanism is the first
+concrete PULSEmech implementation domain of this broader measurement
+architecture.
+
+**[Open the central PULSEmech Transition Meter architecture document](PULSEMECH_TRANSITION_METER.md)**
+
+## Beyond AI release authority
+
+PULSEmech is developing beyond a single AI release mechanism into an
+evidence-bound transition-measurement architecture.
+
+Its broader purpose is to identify and verify not only system states,
+but the transition between them:
+
+```text
+source state
+→ changed relation
+→ opened or closed path
+→ target state
+```
+
+Artifact-bound AI release authority is the first concrete
+implementation domain of this broader architecture.
+
+See:
+
+- [PULSEmech Transition Meter](PULSEMECH_TRANSITION_METER.md)
+- [PULSEmech Technical Overview](PULSEMECH_TECHNICAL_OVERVIEW.md)
 
 ## Canonical <img src="assets/brand/pulsemech-dark-badge.svg" alt="PULSEmech" height="30"> implementation path
 
