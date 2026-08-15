@@ -1,41 +1,39 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import builtins
 import copy
-import gc
 import hashlib
 import importlib.util
+import io
 import json
 import os
 import shutil
+import socket
 import subprocess
 import sys
-import textwrap
-import weakref
-from datetime import datetime, timezone
+import urllib.request
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterable
 
 import pytest
 
 
 ROOT = Path(__file__).resolve().parents[1]
-TOOL = (
-    ROOT
-    / "tools"
-    / "build_pulsemech_compute_current_run_export_expectation_v0.py"
-)
+TOOL = ROOT / "tools" / "check_pulsemech_compute_current_run_export_expectation_v0.py"
+EXPECTATION_SCHEMA = ROOT / "schemas" / "pulsemech_compute_current_run_export_expectation_v0.schema.json"
+EXPECTATION = ROOT / "examples" / "compute" / "pulsemech_compute_current_run_export_expectation_example_v0.json"
+SUBJECT_INPUT_SCHEMA = ROOT / "schemas" / "pulsemech_compute_subject_input_packet_v0.schema.json"
 TOOLS_TESTS_MANIFEST = ROOT / "ci" / "tools-tests.list"
-TEST_RELATIVE_PATH = (
-    "tests/test_build_pulsemech_compute_current_run_export_expectation_v0.py"
-)
+TEST_RELATIVE_PATH = "tests/test_check_pulsemech_compute_current_run_export_expectation_v0.py"
 
-EXPECTED_TOOL_LINES = 3879
-EXPECTED_TOOL_BYTES = 131252
-EXPECTED_TOOL_SHA256 = (
-    "67fa2ef3771b829a3084265e9efac1829db38b16bdbec9367c4767ecda60c584"
-)
-EXPECTED_TOOL_GIT_BLOB_SHA1 = "ff1965fe716de4eaf7dd49324480dc20965249b4"
+EXPECTED_TOOL_LINES = 2426
+EXPECTED_TOOL_BYTES = 80363
+EXPECTED_TOOL_SHA256 = "61890497d680a0d6df1fc2e52fcd7522dca30d7ac8b36d4482e9de70befb2a35"
+EXPECTED_TOOL_GIT_BLOB_SHA1 = "16b75b7df2524515146bf3472e0191a52cfad037"
+EXPECTED_EXPECTATION_SCHEMA_GIT_BLOB_SHA1 = "c0bc5a21f5bf46c529341d2e805f26525c70c7f4"
+EXPECTED_SUBJECT_INPUT_SCHEMA_GIT_BLOB_SHA1 = "e1f982ffaf900c6c17745624d80f9f38b374448b"
+EXTERNAL_SCHEMA_URI = "https://127.0.0.1:9/pulsemech-forbidden-schema.json"
 
 
 def sha256_bytes(payload: bytes) -> str:
@@ -50,15 +48,55 @@ def git_blob_sha1(payload: bytes) -> str:
         return hashlib.sha1(framed).hexdigest()
 
 
-def parse_json_bytes(payload: bytes) -> dict[str, Any]:
-    value = json.loads(payload.decode("utf-8", errors="strict"))
+def reject_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError(f"duplicate key: {key}")
+        result[key] = value
+    return result
+
+
+def reject_non_finite(value: str) -> None:
+    raise ValueError(f"non-finite value: {value}")
+
+
+def parse_json_text(text: str) -> dict[str, Any]:
+    value = json.loads(
+        text,
+        object_pairs_hook=reject_duplicate_keys,
+        parse_constant=reject_non_finite,
+    )
     assert isinstance(value, dict)
     return value
 
 
+def parse_json_bytes(payload: bytes) -> dict[str, Any]:
+    return parse_json_text(payload.decode("utf-8", errors="strict"))
+
+
+def load_json(path: Path) -> dict[str, Any]:
+    return parse_json_text(path.read_text(encoding="utf-8"))
+
+
+def render_json(value: Any) -> str:
+    return json.dumps(
+        value,
+        indent=2,
+        ensure_ascii=False,
+        sort_keys=True,
+        allow_nan=False,
+    ) + "\n"
+
+
+def write_json(path: Path, value: Any) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(render_json(value), encoding="utf-8", newline="\n")
+
+
 def import_tool_module() -> Any:
     spec = importlib.util.spec_from_file_location(
-        "pulsemech_current_run_export_expectation_builder_v0_under_test",
+        "pulsemech_current_run_expectation_validator_v0_under_test",
         TOOL,
     )
     assert spec is not None and spec.loader is not None
@@ -69,6 +107,136 @@ def import_tool_module() -> Any:
 
 
 TOOL_MODULE = import_tool_module()
+_BASE_EXPECTATION = load_json(EXPECTATION)
+
+
+def expectation() -> dict[str, Any]:
+    return copy.deepcopy(_BASE_EXPECTATION)
+
+
+def observed_expectation() -> dict[str, Any]:
+    value = expectation()
+    components = value["trusted_control_plane"]["components"]
+    subject = value["subject"]
+    builder = components["expectation_builder"]
+    carrier_builder = components["carrier_loader"]
+
+    value["record_status"] = "observed"
+    value.pop("fixture_provenance")
+    value["expectation_identity"]["expectation_scope"] = "current_run_export"
+    value["expectation_producer"] = {
+        "ci_workflow_or_job_identity": "PULSE CI / current-run expectation builder",
+        "producer_id": "producer:current-run-expectation-builder/regression",
+        "producer_name": "pulsemech-current-run-expectation-builder",
+        "producer_run_key": subject["subject_run_key"],
+        "producer_source": builder["path"],
+        "producer_source_revision": builder["source_revision"],
+        "producer_source_sha256": builder["sha256"],
+        "producer_version": builder["version"],
+        "production_mode": "current_run_expectation_builder",
+    }
+    value["carrier"]["carrier_kind"] = "current_run_export_archive"
+    value["carrier"]["producer"] = {
+        "ci_workflow_or_job_identity": "PULSE CI / current-run export carrier builder",
+        "producer_id": "producer:current-run-export-carrier-builder/regression",
+        "producer_name": "pulsemech-current-run-export-carrier-builder",
+        "producer_run_key": subject["subject_run_key"],
+        "producer_source": carrier_builder["path"],
+        "producer_source_revision": carrier_builder["source_revision"],
+        "producer_source_sha256": carrier_builder["sha256"],
+        "producer_version": carrier_builder["version"],
+        "production_mode": "current_run_export_carrier_builder",
+    }
+    return value
+
+
+def run_tool(
+    *,
+    tool: Path = TOOL,
+    schema_path: Path = EXPECTATION_SCHEMA,
+    expectation_path: Path = EXPECTATION,
+    subject_input_schema_path: Path = SUBJECT_INPUT_SCHEMA,
+    repository_root: Path = ROOT,
+    output: Path | None = None,
+    extra_env: dict[str, str] | None = None,
+    remove_env: Iterable[str] = (),
+) -> subprocess.CompletedProcess[bytes]:
+    command = [
+        sys.executable,
+        str(tool),
+        "--schema",
+        str(schema_path),
+        "--expectation",
+        str(expectation_path),
+        "--subject-input-schema",
+        str(subject_input_schema_path),
+        "--repository-root",
+        str(repository_root),
+    ]
+    if output is not None:
+        command.extend(["--output", str(output)])
+
+    environment = dict(os.environ)
+    for key in remove_env:
+        environment.pop(key, None)
+    if extra_env:
+        environment.update(extra_env)
+
+    return subprocess.run(
+        command,
+        cwd=repository_root if repository_root.is_dir() else ROOT,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+        env=environment,
+    )
+
+
+def diagnostic_from_result(result: subprocess.CompletedProcess[bytes]) -> dict[str, Any]:
+    streams = [stream for stream in (result.stdout, result.stderr) if stream]
+    assert len(streams) == 1, (result.returncode, result.stdout, result.stderr)
+    assert b"Traceback" not in streams[0]
+    return parse_json_bytes(streams[0])
+
+
+def combined_result_text(result: subprocess.CompletedProcess[bytes]) -> str:
+    return (result.stdout + result.stderr).decode("utf-8", errors="replace")
+
+
+def assert_validation_failure(
+    result: subprocess.CompletedProcess[bytes],
+    expected_fragment: str,
+    *,
+    expected_returncode: int | None = None,
+) -> dict[str, Any]:
+    assert result.returncode != 0, combined_result_text(result)
+    if expected_returncode is not None:
+        assert result.returncode == expected_returncode, combined_result_text(result)
+    diagnostic = diagnostic_from_result(result)
+    assert diagnostic["ok"] is False
+    assert any(expected_fragment in str(error) for error in diagnostic["errors"]), diagnostic
+    return diagnostic
+
+
+def copy_contract_repository(tmp_path: Path) -> dict[str, Path]:
+    replica = tmp_path / "repository"
+    paths = {
+        "root": replica,
+        "tool": replica / "tools" / TOOL.name,
+        "schema": replica / "schemas" / EXPECTATION_SCHEMA.name,
+        "expectation": replica / "examples" / "compute" / EXPECTATION.name,
+        "subject_schema": replica / "schemas" / SUBJECT_INPUT_SCHEMA.name,
+    }
+    for key, source in (
+        ("tool", TOOL),
+        ("schema", EXPECTATION_SCHEMA),
+        ("expectation", EXPECTATION),
+        ("subject_schema", SUBJECT_INPUT_SCHEMA),
+    ):
+        destination = paths[key]
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, destination)
+    return paths
 
 
 def manifest_entries() -> list[str]:
@@ -80,38 +248,70 @@ def manifest_entries() -> list[str]:
     return entries
 
 
-def run_tool(
-    *arguments: str,
-    isolated: bool,
-    extra_env: dict[str, str] | None = None,
-) -> subprocess.CompletedProcess[bytes]:
-    command = [sys.executable]
-    if isolated:
-        command.append("-I")
-    command.extend([str(TOOL), *arguments])
-    environment = dict(os.environ)
-    if extra_env:
-        environment.update(extra_env)
-    return subprocess.run(
-        command,
-        cwd=ROOT,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        check=False,
-        env=environment,
-    )
+def forbid_external_io(monkeypatch: pytest.MonkeyPatch) -> list[str]:
+    attempts: list[str] = []
+
+    def forbidden(*args: Any, **_kwargs: Any) -> Any:
+        attempts.append(repr(args))
+        raise AssertionError("external I/O attempted")
+
+    monkeypatch.setattr(socket, "create_connection", forbidden)
+    monkeypatch.setattr(urllib.request, "urlopen", forbidden)
+    return attempts
 
 
-def builder_error_text(error: BaseException) -> str:
-    return str(error)
+def forbid_local_file_read(
+    monkeypatch: pytest.MonkeyPatch,
+    target: Path,
+) -> list[str]:
+    attempts: list[str] = []
+    target_absolute = Path(os.path.abspath(os.path.normpath(os.fspath(target))))
+    real_builtin_open = builtins.open
+    real_io_open = io.open
+    real_os_open = os.open
+
+    def names_target(value: Any) -> bool:
+        try:
+            candidate = Path(
+                os.path.abspath(os.path.normpath(os.fspath(value)))
+            )
+        except TypeError:
+            return False
+        return candidate == target_absolute
+
+    def guarded_builtin_open(file: Any, *args: Any, **kwargs: Any) -> Any:
+        if names_target(file):
+            attempts.append(f"builtins.open:{file!r}")
+            raise AssertionError("local schema file read attempted")
+        return real_builtin_open(file, *args, **kwargs)
+
+    def guarded_io_open(file: Any, *args: Any, **kwargs: Any) -> Any:
+        if names_target(file):
+            attempts.append(f"io.open:{file!r}")
+            raise AssertionError("local schema file read attempted")
+        return real_io_open(file, *args, **kwargs)
+
+    def guarded_os_open(
+        path: Any,
+        flags: int,
+        mode: int = 0o777,
+        *,
+        dir_fd: int | None = None,
+    ) -> int:
+        if dir_fd is None and names_target(path):
+            attempts.append(f"os.open:{path!r}")
+            raise AssertionError("local schema file read attempted")
+        return real_os_open(path, flags, mode, dir_fd=dir_fd)
+
+    monkeypatch.setattr(builtins, "open", guarded_builtin_open)
+    monkeypatch.setattr(io, "open", guarded_io_open)
+    monkeypatch.setattr(os, "open", guarded_os_open)
+    return attempts
 
 
-# ---------------------------------------------------------------------------
-# Reviewed artifact identity and repository-native registration
-# ---------------------------------------------------------------------------
+# Artifact identity and tools-tests registration.
 
-
-def test_builder_artifact_identity_matches_reviewed_merge() -> None:
+def test_validator_artifact_identity_matches_reviewed_merge() -> None:
     payload = TOOL.read_bytes()
     assert len(payload.splitlines()) == EXPECTED_TOOL_LINES
     assert len(payload) == EXPECTED_TOOL_BYTES
@@ -119,1526 +319,461 @@ def test_builder_artifact_identity_matches_reviewed_merge() -> None:
     assert git_blob_sha1(payload) == EXPECTED_TOOL_GIT_BLOB_SHA1
     assert payload.endswith(b"\n")
     assert not payload.startswith(b"\xef\xbb\xbf")
-
-    assert TOOL_MODULE.TOOL_NAME == (
-        "build_pulsemech_compute_current_run_export_expectation_v0"
-    )
+    assert TOOL_MODULE.TOOL_NAME == "check_pulsemech_compute_current_run_export_expectation_v0"
     assert TOOL_MODULE.TOOL_VERSION == "0.1.0"
-    assert TOOL_MODULE.SCHEMA_VERSION == (
-        "pulsemech_compute_current_run_export_expectation_v0"
-    )
-    assert TOOL_MODULE.DOCUMENT_TYPE == (
-        "pulsemech_compute_current_run_export_expectation"
-    )
-    assert TOOL_MODULE.EXPECTATION_BUILDER_PATH == (
-        "tools/build_pulsemech_compute_current_run_export_expectation_v0.py"
-    )
 
 
-def test_validation_dependencies_are_not_imported_at_module_load() -> None:
-    assert TOOL_MODULE.jsonschema is None
-    assert TOOL_MODULE.yaml is None
-    assert TOOL_MODULE._StrictSafeLoader is None
-
-    payload = TOOL.read_text(encoding="utf-8")
-    bootstrap = payload.split("import argparse", 1)[0]
-    assert "import jsonschema" not in bootstrap
-    assert "import yaml" not in bootstrap
-    assert "isolated_python_runtime_required: launch with python -I" in bootstrap
+def test_reviewed_schema_blob_constants_match_canonical_bytes() -> None:
+    expectation_blob = git_blob_sha1(EXPECTATION_SCHEMA.read_bytes())
+    subject_blob = git_blob_sha1(SUBJECT_INPUT_SCHEMA.read_bytes())
+    assert expectation_blob == EXPECTED_EXPECTATION_SCHEMA_GIT_BLOB_SHA1
+    assert subject_blob == EXPECTED_SUBJECT_INPUT_SCHEMA_GIT_BLOB_SHA1
+    assert TOOL_MODULE.CANONICAL_EXPECTATION_SCHEMA_GIT_BLOB_SHA1 == expectation_blob
+    assert TOOL_MODULE.CANONICAL_SUBJECT_INPUT_SCHEMA_GIT_BLOB_SHA1 == subject_blob
 
 
-def test_tools_tests_manifest_registers_builder_regression_exactly_once() -> None:
+def test_tools_tests_manifest_registers_regression_exactly_once() -> None:
     entries = manifest_entries()
     assert len(entries) == len(set(entries))
     assert entries.count(TEST_RELATIVE_PATH) == 1
     index = entries.index(TEST_RELATIVE_PATH)
     assert entries[index - 1] == (
-        "tests/test_check_pulsemech_compute_current_run_export_expectation_v0.py"
+        "tests/test_pulsemech_compute_fixed_source_candidate_chain_v0.py"
     )
     assert entries[index + 1] == (
+        "tests/test_build_pulsemech_compute_current_run_export_expectation_v0.py"
+    )
+    assert entries[index + 2] == (
         "tests/test_pulsemech_compute_subject_input_packet_schema_v0.py"
     )
 
 
-# ---------------------------------------------------------------------------
-# Direct execution and isolated Python dependency boundary
-# ---------------------------------------------------------------------------
+# Canonical positive path and deterministic diagnostics.
+
+def test_default_validation_is_deterministic_and_canonical() -> None:
+    first = run_tool()
+    second = run_tool()
+    assert first.returncode == second.returncode == 0
+    assert first.stderr == second.stderr == b""
+    assert first.stdout == second.stdout
+    diagnostic = parse_json_bytes(first.stdout)
+    assert first.stdout == render_json(diagnostic).encode("utf-8")
+    assert first.stdout.endswith(b"\n")
+    assert b"\r\n" not in first.stdout
+    assert diagnostic["ok"] is True
+    assert diagnostic["expectation_schema_valid"] is True
+    assert diagnostic["expectation_schema_reference_policy_valid"] is True
+    assert diagnostic["expectation_instance_valid"] is True
+    assert diagnostic["subject_input_schema_valid"] is True
+    assert diagnostic["subject_input_schema_reference_policy_valid"] is True
+    assert diagnostic["subject_input_observed_branch_valid"] is True
+    assert diagnostic["authority_effect"] == "none"
+    assert diagnostic["errors"] == []
+    assert diagnostic["checks"] and all(diagnostic["checks"].values())
+
+    boundary = diagnostic["verification_boundary"]
+    for key in (
+        "supplied_contract_semantics_verified",
+        "canonical_expectation_schema_path_verified",
+        "canonical_expectation_schema_git_blob_verified",
+        "canonical_subject_input_schema_path_verified",
+        "canonical_subject_input_schema_git_blob_verified",
+        "canonical_contract_semantics_verified",
+        "contract_semantics_verified",
+    ):
+        assert boundary[key] is True
+    assert boundary["external_schema_retrieval_allowed"] is False
+    assert boundary["schema_reference_policy"] == "internal_fragment_only"
+    assert boundary["carrier_bytes_verified"] is False
+    assert boundary["control_plane_component_bytes_verified"] is False
+    assert boundary["subject_authority_source_bytes_verified"] is False
+    assert boundary["input_snapshot_mode"] == TOOL_MODULE._input_snapshot_mode()
+    assert boundary["external_output_mode"] == TOOL_MODULE._external_output_mode()
 
 
-def test_direct_nonisolated_execution_fails_before_argument_parsing() -> None:
-    first = run_tool("--help", isolated=False)
-    second = run_tool("--help", isolated=False)
-
-    assert first.returncode == second.returncode == 2
-    assert first.stdout == second.stdout == b""
-    assert first.stderr == second.stderr
-    diagnostic = parse_json_bytes(first.stderr)
-    assert diagnostic == {
-        "authority_effect": "none",
-        "document_type": (
-            "pulsemech_compute_current_run_export_expectation"
-        ),
-        "errors": [
-            "isolated_python_runtime_required: launch with python -I"
-        ],
-        "exit_kind": "python_runtime_boundary_error",
-        "ok": False,
-        "schema_version": (
-            "pulsemech_compute_current_run_export_expectation_v0"
-        ),
-        "tool": (
-            "build_pulsemech_compute_current_run_export_expectation_v0"
-        ),
-        "tool_version": "0.1.0",
-    }
-    assert first.stderr == TOOL_MODULE._ISOLATED_PYTHON_REQUIRED_DIAGNOSTIC.encode("utf-8")
+def test_default_diagnostic_identifies_exact_consumed_bytes() -> None:
+    result = run_tool()
+    assert result.returncode == 0
+    identities = parse_json_bytes(result.stdout)["input_identities"]
+    for label, path in (
+        ("expectation", EXPECTATION),
+        ("expectation_schema", EXPECTATION_SCHEMA),
+        ("subject_input_schema", SUBJECT_INPUT_SCHEMA),
+    ):
+        payload = path.read_bytes()
+        assert identities[label]["sha256"] == sha256_bytes(payload)
+        assert identities[label]["size_bytes"] == len(payload)
+    assert identities["expectation_schema"]["git_blob_sha1"] == EXPECTED_EXPECTATION_SCHEMA_GIT_BLOB_SHA1
+    assert identities["subject_input_schema"]["git_blob_sha1"] == EXPECTED_SUBJECT_INPUT_SCHEMA_GIT_BLOB_SHA1
 
 
-def test_poisoned_pythonpath_cannot_execute_validation_modules(
-    tmp_path: Path,
-) -> None:
-    poison = tmp_path / "poison"
-    poison.mkdir()
-    marker = tmp_path / "executed.txt"
-    payload = (
-        "from pathlib import Path\n"
-        f"Path({str(marker)!r}).write_text('executed', encoding='utf-8')\n"
-    )
-    (poison / "jsonschema.py").write_text(payload, encoding="utf-8")
-    (poison / "yaml.py").write_text(payload, encoding="utf-8")
-
-    result = run_tool(
-        "--help",
-        isolated=False,
-        extra_env={"PYTHONPATH": str(poison)},
-    )
-    assert result.returncode == 2
-    assert result.stdout == b""
-    assert "isolated_python_runtime_required" in result.stderr.decode("utf-8")
-    assert not marker.exists()
-
-
-def test_isolated_help_exposes_the_complete_protected_cli_surface() -> None:
-    result = run_tool("--help", isolated=True)
+def test_external_output_is_byte_identical_to_stdout(tmp_path: Path) -> None:
+    output = tmp_path / "diagnostics" / "expectation-validator.json"
+    result = run_tool(output=output)
     assert result.returncode == 0
     assert result.stderr == b""
-    help_text = result.stdout.decode("utf-8", errors="strict")
-    for option in (
-        "--input",
-        "--subject-root",
-        "--subject-repository",
-        "--subject-revision",
-        "--workflow-name",
-        "--workflow-path",
-        "--workflow-run-id",
-        "--workflow-run-number",
-        "--workflow-run-attempt",
-        "--source-ref",
-        "--event-name",
-        "--release-candidate-id",
-        "--run-mode",
-        "--release-target",
-        "--active-policy-set",
-        "--expectation-created-utc",
-        "--ci-workflow-or-job-identity",
-        "--control-plane-root",
-        "--control-plane-repository",
-        "--control-plane-revision",
-        "--trusted-git",
-        "--final-status",
-        "--release-decision",
-        "--materialized-gate-set",
-        "--output",
-    ):
-        assert option in help_text
+    assert output.read_bytes() == result.stdout
+    parse_json_bytes(result.stdout)
 
 
-def test_nonisolated_dependency_initialization_fails_closed(
-    tmp_path: Path,
-) -> None:
-    subject = tmp_path / "subject"
-    control = tmp_path / "control"
-    subject.mkdir()
-    control.mkdir()
-
-    with pytest.raises(TOOL_MODULE.BuilderError) as captured:
-        TOOL_MODULE._initialize_validation_dependencies(
-            subject_root=subject,
-            control_plane_root=control,
-        )
-    assert (
-        "isolated_python_runtime_required: launch with python -I"
-        in builder_error_text(captured.value)
+def test_platform_fallback_is_reported_as_weaker(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(TOOL_MODULE, "_strict_descriptor_snapshot_available", lambda: False)
+    monkeypatch.setattr(TOOL_MODULE, "_strict_output_descriptor_binding_available", lambda: False)
+    diagnostic = TOOL_MODULE.make_diagnostic(
+        ok=False,
+        expectation_schema_valid=False,
+        subject_input_schema_valid=False,
+        record_status=None,
+        checks={},
+        derived={},
+        input_identities={},
+        errors=["synthetic"],
     )
-    assert captured.value.exit_kind == "python_runtime_boundary_error"
-    assert captured.value.exit_code == 2
+    boundary = diagnostic["verification_boundary"]
+    assert boundary["input_snapshot_mode"] == "path_identity_fallback"
+    assert boundary["strict_descriptor_snapshot_verified"] is False
+    assert boundary["external_output_mode"] == "path_atomic_replace_fallback"
+    assert boundary["strict_output_descriptor_binding_available"] is False
 
 
-def test_isolated_dependency_initialization_uses_interpreter_roots(
-    tmp_path: Path,
-) -> None:
-    subject = tmp_path / "subject"
-    control = tmp_path / "control"
-    subject.mkdir()
-    control.mkdir()
-    probe = tmp_path / "probe.py"
-    probe.write_text(
-        textwrap.dedent(
-            """
-            import importlib.util
-            import json
-            import sys
-            from pathlib import Path
+# Strict input and output non-interference.
 
-            tool = Path(sys.argv[1])
-            subject = Path(sys.argv[2])
-            control = Path(sys.argv[3])
-            spec = importlib.util.spec_from_file_location(
-                "isolated_builder_probe",
-                tool,
-            )
-            assert spec is not None and spec.loader is not None
-            module = importlib.util.module_from_spec(spec)
-            sys.modules[spec.name] = module
-            spec.loader.exec_module(module)
-            module._initialize_validation_dependencies(
-                subject_root=subject,
-                control_plane_root=control,
-            )
-            print(
-                json.dumps(
-                    {
-                        "isolated": sys.flags.isolated,
-                        "ignore_environment": sys.flags.ignore_environment,
-                        "no_user_site": sys.flags.no_user_site,
-                        "safe_path": bool(
-                            getattr(sys.flags, "safe_path", False)
-                        ),
-                        "jsonschema": module.jsonschema.__file__,
-                        "yaml": module.yaml.__file__,
-                    },
-                    sort_keys=True,
-                )
-            )
-            """
-        ).lstrip(),
-        encoding="utf-8",
-    )
-
-    result = subprocess.run(
-        [
-            sys.executable,
-            "-I",
-            str(probe),
-            str(TOOL),
-            str(subject),
-            str(control),
-        ],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        check=False,
-    )
-    assert result.returncode == 0, result.stderr.decode(
-        "utf-8",
-        errors="replace",
-    )
-    assert result.stderr == b""
-    observed = parse_json_bytes(result.stdout)
-    assert observed["isolated"] == 1
-    assert observed["ignore_environment"] == 1
-    assert observed["no_user_site"] == 1
-    assert observed["safe_path"] is True
-    for key in ("jsonschema", "yaml"):
-        origin = Path(observed[key]).resolve(strict=True)
-        assert origin.is_file()
-        assert subject not in origin.parents
-        assert control not in origin.parents
+@pytest.mark.parametrize(
+    ("payload", "fragment"),
+    [
+        (b"\xef\xbb\xbf{}\n", "UTF-8 BOM"),
+        (b"{\xff}\n", "invalid UTF-8"),
+        (b'{"record_status":"example","record_status":"observed"}\n', "duplicate JSON key"),
+        (b'{"value": NaN}\n', "non-finite JSON value"),
+        (b'{"broken": }\n', "invalid JSON"),
+    ],
+)
+def test_strict_json_failures_are_machine_readable(tmp_path: Path, payload: bytes, fragment: str) -> None:
+    path = tmp_path / "invalid-expectation.json"
+    path.write_bytes(payload)
+    diagnostic = assert_validation_failure(run_tool(expectation_path=path), fragment, expected_returncode=2)
+    assert diagnostic["expectation_instance_valid"] is False
 
 
-def test_isolated_dependency_initialization_rejects_preloaded_module(
-    tmp_path: Path,
-) -> None:
-    subject = tmp_path / "subject"
-    control = tmp_path / "control"
-    subject.mkdir()
-    control.mkdir()
-    probe = tmp_path / "preloaded_probe.py"
-    probe.write_text(
-        textwrap.dedent(
-            """
-            import importlib.util
-            import sys
-            import types
-            from pathlib import Path
-
-            tool = Path(sys.argv[1])
-            subject = Path(sys.argv[2])
-            control = Path(sys.argv[3])
-            spec = importlib.util.spec_from_file_location(
-                "isolated_builder_preload_probe",
-                tool,
-            )
-            assert spec is not None and spec.loader is not None
-            module = importlib.util.module_from_spec(spec)
-            sys.modules[spec.name] = module
-            spec.loader.exec_module(module)
-            sys.modules["jsonschema"] = types.ModuleType("jsonschema")
-            try:
-                module._initialize_validation_dependencies(
-                    subject_root=subject,
-                    control_plane_root=control,
-                )
-            except module.BuilderError as exc:
-                print(str(exc))
-                raise SystemExit(exc.exit_code)
-            raise SystemExit(0)
-            """
-        ).lstrip(),
-        encoding="utf-8",
-    )
-
-    result = subprocess.run(
-        [
-            sys.executable,
-            "-I",
-            str(probe),
-            str(TOOL),
-            str(subject),
-            str(control),
-        ],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        check=False,
-    )
-    assert result.returncode == 2
-    assert result.stderr == b""
-    assert (
-        b"validation_dependency_preloaded_before_protected_import"
-        in result.stdout
-    )
+def test_noncanonical_expectation_bytes_are_rejected(tmp_path: Path) -> None:
+    path = tmp_path / "noncanonical.json"
+    path.write_text(json.dumps(expectation(), ensure_ascii=False, sort_keys=True, separators=(",", ":")) + "\n", encoding="utf-8")
+    diagnostic = assert_validation_failure(run_tool(expectation_path=path), "canonical_json_bytes_ok")
+    assert diagnostic["expectation_schema_valid"] is True
+    assert diagnostic["expectation_instance_valid"] is True
+    assert diagnostic["checks"]["canonical_json_bytes_ok"] is False
 
 
-# ---------------------------------------------------------------------------
-# Canonical inputs, fixed run identity, and closed authority boundary
-# ---------------------------------------------------------------------------
+def test_symlinked_expectation_input_is_rejected(tmp_path: Path) -> None:
+    if not hasattr(os, "symlink"):
+        pytest.skip("symlink support unavailable")
+    alias = tmp_path / "expectation-link.json"
+    try:
+        alias.symlink_to(EXPECTATION)
+    except OSError as exc:
+        pytest.skip(f"symlink creation unavailable: {exc}")
+    diagnostic = assert_validation_failure(run_tool(expectation_path=alias), "symlink", expected_returncode=2)
+    assert diagnostic["ok"] is False
+
+
+def test_repository_local_output_is_rejected_without_mutation() -> None:
+    output = ROOT / "tests" / "out" / "current-run-expectation-diagnostic.json"
+    output.unlink(missing_ok=True)
+    result = run_tool(output=output)
+    assert result.returncode == 2 and result.stdout == b""
+    diagnostic = parse_json_bytes(result.stderr)
+    assert any("output_inside_repository" in error for error in diagnostic["errors"])
+    assert not output.exists()
+
+
+def test_invalid_repository_root_fails_before_output(tmp_path: Path) -> None:
+    output = ROOT / "tests" / "out" / "invalid-root-diagnostic.json"
+    output.unlink(missing_ok=True)
+    result = run_tool(repository_root=tmp_path / "missing-root", output=output)
+    assert result.returncode == 2 and result.stdout == b""
+    diagnostic = parse_json_bytes(result.stderr)
+    assert any("repository_root" in error for error in diagnostic["errors"])
+    assert not output.exists()
+
+
+# Schema-reference policy and resolver backends.
+
+@pytest.mark.parametrize(
+    "schema_value",
+    [
+        {"$schema": "https://json-schema.org/draft/2020-12/schema", "type": "object", "properties": {"$ref": {"type": "string"}}},
+        {"$schema": "https://json-schema.org/draft/2020-12/schema", "const": {"$ref": EXTERNAL_SCHEMA_URI}},
+        {"$schema": "https://json-schema.org/draft/2020-12/schema", "default": {"$dynamicRef": EXTERNAL_SCHEMA_URI}},
+        {"$schema": "https://json-schema.org/draft/2020-12/schema", "examples": [{"$recursiveRef": EXTERNAL_SCHEMA_URI}]},
+        {"$schema": "https://json-schema.org/draft/2020-12/schema", "enum": [{"$ref": EXTERNAL_SCHEMA_URI}]},
+    ],
+)
+def test_reference_shaped_property_names_and_data_are_not_active(schema_value: dict[str, Any]) -> None:
+    assert TOOL_MODULE.schema_reference_policy_errors(schema_value, label="probe") == []
 
 
 @pytest.mark.parametrize(
-    "value",
+    "schema_value",
     [
-        "",
-        "/absolute/path",
-        "relative\\windows",
-        "relative/../escape",
-        "relative/./alias",
-        "relative/trailing/",
-        ".",
-        "..",
+        {"$ref": EXTERNAL_SCHEMA_URI},
+        {"allOf": [{"$ref": EXTERNAL_SCHEMA_URI}]},
+        {"properties": {"value": {"$ref": EXTERNAL_SCHEMA_URI}}},
+        {"$defs": {"value": {"$ref": EXTERNAL_SCHEMA_URI}}},
+        {"items": {"$ref": EXTERNAL_SCHEMA_URI}},
+        {"dependentSchemas": {"value": {"$ref": EXTERNAL_SCHEMA_URI}}},
+        {"unevaluatedProperties": {"$ref": EXTERNAL_SCHEMA_URI}},
     ],
 )
-def test_repository_paths_reject_noncanonical_forms(value: str) -> None:
-    assert TOOL_MODULE._canonical_repository_path(value) is None
+def test_external_references_in_schema_positions_are_rejected(schema_value: dict[str, Any]) -> None:
+    errors = TOOL_MODULE.schema_reference_policy_errors(schema_value, label="probe")
+    assert any("external_reference_not_permitted" in error for error in errors)
 
 
-def test_canonical_json_and_strict_json_fail_closed() -> None:
-    value = {"z": 1, "a": {"β": True}}
-    rendered = TOOL_MODULE.render_json(value)
-    assert rendered == (
-        '{\n'
-        '  "a": {\n'
-        '    "β": true\n'
-        '  },\n'
-        '  "z": 1\n'
-        '}\n'
-    ).encode("utf-8")
-    assert TOOL_MODULE.parse_json_bytes(rendered, label="probe") == value
-
-    with pytest.raises(TOOL_MODULE.BuilderError, match="duplicate JSON key"):
-        TOOL_MODULE.parse_json_bytes(
-            b'{"a":1,"a":2}\n',
-            label="probe",
-        )
-    with pytest.raises(TOOL_MODULE.BuilderError, match="utf8_bom_not_permitted"):
-        TOOL_MODULE.parse_json_bytes(
-            b"\xef\xbb\xbf{}\n",
-            label="probe",
-        )
-    with pytest.raises(TOOL_MODULE.BuilderError, match="non-finite JSON value"):
-        TOOL_MODULE.parse_json_bytes(
-            b'{"value":NaN}\n',
-            label="probe",
-        )
+def test_internal_json_pointer_and_anchor_references_remain_valid() -> None:
+    pointer_schema = {"$schema": "https://json-schema.org/draft/2020-12/schema", "$defs": {"value": {"type": "string"}}, "$ref": "#/$defs/value"}
+    escaped_pointer_schema = {"$schema": "https://json-schema.org/draft/2020-12/schema", "$defs": {"a/b~c": {"type": "integer"}}, "$ref": "#/$defs/a~1b~0c"}
+    anchor_schema = {"$schema": "https://json-schema.org/draft/2020-12/schema", "$defs": {"value": {"$anchor": "target", "type": "string"}}, "$ref": "#target"}
+    for value in (pointer_schema, escaped_pointer_schema, anchor_schema):
+        assert TOOL_MODULE.schema_reference_policy_errors(value, label="probe") == []
+    assert TOOL_MODULE.validate_instance(pointer_schema, "value", label="pointer") == (True, [])
+    assert TOOL_MODULE.validate_instance(escaped_pointer_schema, 7, label="escaped_pointer") == (True, [])
+    assert TOOL_MODULE.validate_instance(anchor_schema, "value", label="anchor") == (True, [])
 
 
-def canonical_subject() -> dict[str, Any]:
-    repository = "HKati/pulse-release-gates-0.1"
-    workflow_name = "PULSE CI"
-    workflow_path = ".github/workflows/pulse_ci.yml"
-    source_ref = "refs/heads/main"
-    return {
-        "repository": repository,
-        "source_commit": "a" * 40,
-        "workflow_name": workflow_name,
-        "workflow_path": workflow_path,
-        "workflow_run_id": 1001,
-        "workflow_run_number": 2002,
-        "workflow_run_attempt": 1,
-        "subject_run_key": (
-            "GITHUB_RUN_ID=1001|GITHUB_RUN_ATTEMPT=1|"
-            "GITHUB_WORKFLOW=PULSE CI"
-        ),
-        "workflow_ref": (
-            f"{repository}/{workflow_path}@{source_ref}"
-        ),
-        "source_ref": source_ref,
-        "event_name": "workflow_dispatch",
-        "release_candidate_id": "candidate:regression",
-        "run_mode": "core",
-        "active_policy_sets": ["core_required"],
-    }
+def test_internal_pointer_cannot_hide_external_reference_in_data_target() -> None:
+    schema_value = {"$schema": "https://json-schema.org/draft/2020-12/schema", "$ref": "#/const", "const": {"$ref": EXTERNAL_SCHEMA_URI}}
+    errors = TOOL_MODULE.schema_reference_policy_errors(schema_value, label="probe")
+    assert any("external_reference_not_permitted" in error for error in errors)
 
 
-def test_trusted_current_run_binding_is_exact_and_dimension_preserving() -> None:
-    subject = canonical_subject()
-    TOOL_MODULE._verify_trusted_current_run_binding(
-        subject=subject,
-        subject_repository=subject["repository"],
-        subject_revision=subject["source_commit"],
-        workflow_name=subject["workflow_name"],
-        workflow_path=subject["workflow_path"],
-        workflow_run_id=subject["workflow_run_id"],
-        workflow_run_number=subject["workflow_run_number"],
-        workflow_run_attempt=subject["workflow_run_attempt"],
-        source_ref=subject["source_ref"],
-        event_name=subject["event_name"],
-        release_candidate_id=subject["release_candidate_id"],
-        run_mode=subject["run_mode"],
-        active_policy_sets=subject["active_policy_sets"],
-    )
-
-    modified = copy.deepcopy(subject)
-    modified["active_policy_sets"] = ["required"]
-    with pytest.raises(
-        TOOL_MODULE.BuilderError,
-        match="trusted_current_run_active_policy_sets_mismatch",
-    ):
-        TOOL_MODULE._verify_trusted_current_run_binding(
-            subject=modified,
-            subject_repository=subject["repository"],
-            subject_revision=subject["source_commit"],
-            workflow_name=subject["workflow_name"],
-            workflow_path=subject["workflow_path"],
-            workflow_run_id=subject["workflow_run_id"],
-            workflow_run_number=subject["workflow_run_number"],
-            workflow_run_attempt=subject["workflow_run_attempt"],
-            source_ref=subject["source_ref"],
-            event_name=subject["event_name"],
-            release_candidate_id=subject["release_candidate_id"],
-            run_mode=subject["run_mode"],
-            active_policy_sets=subject["active_policy_sets"],
-        )
+def test_modern_registry_backend_denies_runtime_retrieval(monkeypatch: pytest.MonkeyPatch) -> None:
+    if TOOL_MODULE.CLOSED_SCHEMA_REGISTRY is None:
+        pytest.skip("modern registry backend unavailable")
+    attempts = forbid_external_io(monkeypatch)
+    validator = TOOL_MODULE._build_closed_validator({"$schema": "https://json-schema.org/draft/2020-12/schema", "$ref": EXTERNAL_SCHEMA_URI})
+    with pytest.raises(Exception):
+        list(validator.iter_errors({}))
+    assert attempts == []
 
 
-def test_release_target_projection_stays_separate_from_workflow_sets() -> None:
-    policy = {
-        "gates": {
-            "core_required": ["core_gate"],
-            "required": ["required_gate"],
-            "release_required": ["release_gate"],
-        }
-    }
-    final_status = {
-        "gates": {
-            "core_gate": True,
-            "required_gate": True,
-            "release_gate": True,
-            "detectors_materialized_ok": True,
-        }
-    }
-    status_validation = {
-        "errors": [],
-        "mode": "validated",
-        "ok": True,
-        "schema_path": TOOL_MODULE.STATUS_SCHEMA_PATH,
-    }
-
-    stage = TOOL_MODULE._derive_release_decision_projection(
-        final_status=final_status,
-        policy=policy,
-        target="stage",
-        status_schema_validation=status_validation,
-    )
-    prod = TOOL_MODULE._derive_release_decision_projection(
-        final_status=final_status,
-        policy=policy,
-        target="prod",
-        status_schema_validation=status_validation,
-    )
-
-    assert stage["active_gate_sets"] == ["required"]
-    assert stage["effective_required_gates"] == ["required_gate"]
-    assert stage["release_level"] == "STAGE-PASS"
-    assert prod["active_gate_sets"] == ["required", "release_required"]
-    assert prod["effective_required_gates"] == [
-        "required_gate",
-        "release_gate",
-    ]
-    assert prod["release_level"] == "PROD-PASS"
-
-
-def test_observed_artifact_time_order_accepts_equality_and_rejects_inversion() -> None:
-    first = datetime(2026, 8, 15, 12, 0, tzinfo=timezone.utc)
-    second = datetime(2026, 8, 15, 12, 1, tzinfo=timezone.utc)
-    third = datetime(2026, 8, 15, 12, 2, tzinfo=timezone.utc)
-
-    TOOL_MODULE._verify_observed_artifact_time_order(
-        release_decision_created_utc=first,
-        carrier_finalized_utc=second,
-        expectation_created_utc=third,
-    )
-    TOOL_MODULE._verify_observed_artifact_time_order(
-        release_decision_created_utc=first,
-        carrier_finalized_utc=first,
-        expectation_created_utc=first,
-    )
-
-    with pytest.raises(
-        TOOL_MODULE.BuilderError,
-        match="release_decision_created_after_carrier_finalization",
-    ):
-        TOOL_MODULE._verify_observed_artifact_time_order(
-            release_decision_created_utc=second,
-            carrier_finalized_utc=first,
-            expectation_created_utc=third,
-        )
-    with pytest.raises(
-        TOOL_MODULE.BuilderError,
-        match="carrier_finalized_after_expectation_creation",
-    ):
-        TOOL_MODULE._verify_observed_artifact_time_order(
-            release_decision_created_utc=first,
-            carrier_finalized_utc=third,
-            expectation_created_utc=second,
-        )
-
-
-def signer_source(
-    *,
-    source_id: str,
-    path: str,
-) -> dict[str, Any]:
-    return {
-        "source_id": source_id,
-        "role": "external_signer_policy",
-        "path_or_uri": path,
-    }
-
-
-def test_external_signer_policy_path_is_canonical_and_unique() -> None:
-    canonical = TOOL_MODULE.EXTERNAL_SIGNER_POLICY_PATH
-    assert TOOL_MODULE._external_signer_policy_source_path(
+def test_modern_registry_backend_denies_local_file_uri_without_reading(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    if TOOL_MODULE.CLOSED_SCHEMA_REGISTRY is None:
+        pytest.skip("modern registry backend unavailable")
+    local_schema = tmp_path / "forbidden-local-schema.json"
+    local_schema.write_text('{"type": "object"}\n', encoding="utf-8")
+    network_attempts = forbid_external_io(monkeypatch)
+    file_attempts = forbid_local_file_read(monkeypatch, local_schema)
+    validator = TOOL_MODULE._build_closed_validator(
         {
-            "additional_sources": [
-                signer_source(
-                    source_id="source:signer",
-                    path=canonical,
-                )
-            ]
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "$ref": local_schema.as_uri(),
         }
-    ) == canonical
-
-    with pytest.raises(
-        TOOL_MODULE.BuilderError,
-        match="external_signer_policy_source_missing",
-    ):
-        TOOL_MODULE._external_signer_policy_source_path(
-            {"additional_sources": []}
-        )
-    with pytest.raises(
-        TOOL_MODULE.BuilderError,
-        match="external_signer_policy_source_ambiguous",
-    ):
-        TOOL_MODULE._external_signer_policy_source_path(
-            {
-                "additional_sources": [
-                    signer_source(
-                        source_id="source:one",
-                        path=canonical,
-                    ),
-                    signer_source(
-                        source_id="source:two",
-                        path=canonical,
-                    ),
-                ]
-            }
-        )
-    with pytest.raises(
-        TOOL_MODULE.BuilderError,
-        match="external_signer_policy_source_path_mismatch",
-    ):
-        TOOL_MODULE._external_signer_policy_source_path(
-            {
-                "additional_sources": [
-                    signer_source(
-                        source_id="source:alternate",
-                        path="policy/alternate_signers.yml",
-                    )
-                ]
-            }
-        )
-
-
-def test_generated_expectation_preserves_closed_non_authority_boundary() -> None:
-    subject = canonical_subject()
-    builder_input = {
-        "archive_layout": {"layout_id": "layout:regression"},
-        "authority_sources": {"workflow": {"source_id": "source:workflow"}},
-        "carrier": {
-            "carrier_kind": "current_run_export_archive",
-            "finalized_utc": "2026-08-15T12:01:00Z",
-        },
-        "packet_producer_profile": {
-            "expected_repository": subject["repository"],
-        },
-        "subject": subject,
-    }
-    components = {
-        "expectation_builder": {
-            "path": TOOL_MODULE.EXPECTATION_BUILDER_PATH,
-            "sha256": EXPECTED_TOOL_SHA256,
-            "source_revision": "b" * 40,
-            "version": "0.1.0",
-        }
-    }
-
-    expectation = TOOL_MODULE.build_expectation(
-        builder_input=builder_input,
-        control_plane_repository=subject["repository"],
-        control_plane_revision="b" * 40,
-        components=components,
-        authority_sources=builder_input["authority_sources"],
-        expectation_created_utc="2026-08-15T12:02:00Z",
-        ci_workflow_or_job_identity="PULSE CI / regression",
     )
-
-    assert expectation["ok"] is True
-    assert expectation["record_status"] == "observed"
-    assert expectation["authority_boundary"] == (
-        TOOL_MODULE.CLOSED_AUTHORITY_BOUNDARY
-    )
-    assert expectation["content_boundary"] == (
-        TOOL_MODULE.CLOSED_CONTENT_BOUNDARY
-    )
-    assert expectation["authority_boundary"]["activates_compute_gate"] is False
-    assert (
-        expectation["authority_boundary"]["changes_release_authority"]
-        is False
-    )
-    assert (
-        expectation["authority_boundary"]["expectation_is_release_authority"]
-        is False
-    )
-    assert expectation["authority_boundary"]["writes_subject_run"] is False
-    assert (
-        expectation["authority_boundary"]["writes_target_repository"]
-        is False
-    )
-    assert expectation["expectation_producer"]["producer_source_sha256"] == (
-        EXPECTED_TOOL_SHA256
-    )
-
-    expectation["subject"]["repository"] = "mutated"
-    assert builder_input["subject"]["repository"] != "mutated"
+    with pytest.raises(Exception):
+        list(validator.iter_errors({}))
+    assert network_attempts == []
+    assert file_attempts == []
 
 
-# ---------------------------------------------------------------------------
-# Git object identity, independent storage, and output non-interference
-# ---------------------------------------------------------------------------
+def test_refresolver_fallback_denies_runtime_retrieval(monkeypatch: pytest.MonkeyPatch) -> None:
+    attempts = forbid_external_io(monkeypatch)
+    monkeypatch.setattr(TOOL_MODULE, "CLOSED_SCHEMA_REGISTRY", None)
+    validator = TOOL_MODULE._build_closed_validator({"$schema": "https://json-schema.org/draft/2020-12/schema", "$ref": EXTERNAL_SCHEMA_URI})
+    with pytest.raises(Exception):
+        list(validator.iter_errors({}))
+    assert attempts == []
 
 
-def test_verified_tree_parser_and_final_mode_rejection() -> None:
-    object_id = "ab" * 20
-    entry = (
-        b"100644 file.txt\x00"
-        + bytes.fromhex(object_id)
-    )
-    parsed = TOOL_MODULE._parse_verified_git_tree_entries(
-        entry,
-        label="probe",
-    )
-    assert parsed == {b"file.txt": ("100644", object_id)}
-
-    with pytest.raises(
-        TOOL_MODULE.BuilderError,
-        match="tree_entry_name_duplicate",
-    ):
-        TOOL_MODULE._parse_verified_git_tree_entries(
-            entry + entry,
-            label="probe",
-        )
-
-    root_tree_id = "cd" * 20
-    with pytest.raises(
-        TOOL_MODULE.BuilderError,
-        match="final_path_not_regular_blob",
-    ):
-        TOOL_MODULE._resolve_verified_git_blob_id(
-            git_path=Path("/usr/bin/git"),
-            repository_root=ROOT,
-            root_tree_id=root_tree_id,
-            repository_path="link",
-            label="probe",
-            object_cache={},
-            tree_cache={
-                root_tree_id: {
-                    b"link": ("120000", object_id),
-                }
-            },
-        )
-
-
-def test_rehashed_git_object_identity_rejects_substituted_payload(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    expected_id = "0" * 40
-
-    def fake_run_git(
-        *,
-        arguments: tuple[str, ...],
-        input_payload: bytes | None = None,
-        **_kwargs: Any,
-    ) -> bytes:
-        if arguments == ("cat-file", "-t", expected_id):
-            return b"blob\n"
-        if arguments == ("cat-file", "-s", expected_id):
-            return b"4\n"
-        if arguments == ("cat-file", "blob", expected_id):
-            return b"evil"
-        if arguments == ("hash-object", "-t", "blob", "--stdin"):
-            assert input_payload == b"evil"
-            return (b"1" * 40) + b"\n"
-        raise AssertionError(arguments)
-
-    monkeypatch.setattr(TOOL_MODULE, "_run_git", fake_run_git)
-    with pytest.raises(
-        TOOL_MODULE.BuilderError,
-        match="object_id_mismatch",
-    ):
-        TOOL_MODULE._verified_git_object_payload(
-            git_path=Path("/usr/bin/git"),
-            repository_root=ROOT,
-            object_id=expected_id,
-            expected_type="blob",
-            label="probe",
-            max_bytes=1024,
-            object_cache={},
-        )
-
-
-def test_independent_git_storage_rejects_shared_store(
+def test_refresolver_fallback_denies_local_file_uri_without_reading(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    subject_common = tmp_path / "subject-common"
-    subject_objects = subject_common / "objects"
-    control_common = tmp_path / "control-common"
-    control_objects = control_common / "objects"
-    for path in (
-        subject_common,
-        subject_objects,
-        control_common,
-        control_objects,
-    ):
-        path.mkdir(parents=True, exist_ok=True)
-
-    def separated_identity(
-        *,
-        label: str,
-        **_kwargs: Any,
-    ) -> tuple[Path, Path]:
-        if label == "subject":
-            return subject_common, subject_objects
-        return control_common, control_objects
-
-    monkeypatch.setattr(
-        TOOL_MODULE,
-        "_git_storage_identity",
-        separated_identity,
+    local_schema = tmp_path / "forbidden-local-schema.json"
+    local_schema.write_text('{"type": "object"}\n', encoding="utf-8")
+    network_attempts = forbid_external_io(monkeypatch)
+    file_attempts = forbid_local_file_read(monkeypatch, local_schema)
+    monkeypatch.setattr(TOOL_MODULE, "CLOSED_SCHEMA_REGISTRY", None)
+    validator = TOOL_MODULE._build_closed_validator(
+        {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "$ref": local_schema.as_uri(),
+        }
     )
-    TOOL_MODULE._verify_independent_git_storage(
-        git_path=Path("/usr/bin/git"),
-        subject_root=tmp_path / "subject",
-        control_plane_root=tmp_path / "control",
+    with pytest.raises(Exception):
+        list(validator.iter_errors({}))
+    assert network_attempts == []
+    assert file_attempts == []
+
+
+def test_optional_registry_import_has_executable_fallback() -> None:
+    source = TOOL.read_text(encoding="utf-8")
+    assert "except ImportError:" in source
+    assert "ReferencingRegistry = None" in source
+    assert "NoSuchResource = None" in source
+    original_registry = TOOL_MODULE.CLOSED_SCHEMA_REGISTRY
+    try:
+        TOOL_MODULE.CLOSED_SCHEMA_REGISTRY = None
+        validator = TOOL_MODULE._build_closed_validator({"$schema": "https://json-schema.org/draft/2020-12/schema", "type": "string"})
+        assert validator.is_valid("value") and not validator.is_valid(1)
+    finally:
+        TOOL_MODULE.CLOSED_SCHEMA_REGISTRY = original_registry
+
+
+# Canonical reviewed schema identity.
+
+def test_byte_identical_alternate_schema_paths_are_not_canonical(tmp_path: Path) -> None:
+    schema_copy = tmp_path / "expectation.schema.json"
+    subject_copy = tmp_path / "subject.schema.json"
+    schema_copy.write_bytes(EXPECTATION_SCHEMA.read_bytes())
+    subject_copy.write_bytes(SUBJECT_INPUT_SCHEMA.read_bytes())
+    result = run_tool(schema_path=schema_copy, subject_input_schema_path=subject_copy)
+    assert result.returncode == 0
+    boundary = parse_json_bytes(result.stdout)["verification_boundary"]
+    assert boundary["supplied_contract_semantics_verified"] is True
+    assert boundary["canonical_expectation_schema_path_verified"] is False
+    assert boundary["canonical_expectation_schema_git_blob_verified"] is True
+    assert boundary["canonical_subject_input_schema_path_verified"] is False
+    assert boundary["canonical_subject_input_schema_git_blob_verified"] is True
+    assert boundary["canonical_contract_semantics_verified"] is False
+    assert boundary["contract_semantics_verified"] is False
+
+
+@pytest.mark.parametrize("schema_key", ["schema", "subject_schema"])
+def test_dirty_canonical_schema_cannot_claim_canonical_contract(tmp_path: Path, schema_key: str) -> None:
+    paths = copy_contract_repository(tmp_path)
+    dirty = load_json(paths[schema_key])
+    dirty["title"] = str(dirty.get("title", "schema")) + " — dirty regression"
+    write_json(paths[schema_key], dirty)
+    result = run_tool(
+        tool=paths["tool"],
+        schema_path=paths["schema"],
+        expectation_path=paths["expectation"],
+        subject_input_schema_path=paths["subject_schema"],
+        repository_root=paths["root"],
     )
-
-    def shared_identity(
-        *,
-        label: str,
-        **_kwargs: Any,
-    ) -> tuple[Path, Path]:
-        if label == "subject":
-            return subject_common, subject_objects
-        return subject_common, subject_objects
-
-    monkeypatch.setattr(
-        TOOL_MODULE,
-        "_git_storage_identity",
-        shared_identity,
-    )
-    with pytest.raises(
-        TOOL_MODULE.BuilderError,
-        match="git_storage_must_be_independent",
-    ):
-        TOOL_MODULE._verify_independent_git_storage(
-            git_path=Path("/usr/bin/git"),
-            subject_root=tmp_path / "subject",
-            control_plane_root=tmp_path / "control",
-        )
+    assert result.returncode == 0
+    diagnostic = parse_json_bytes(result.stdout)
+    boundary = diagnostic["verification_boundary"]
+    assert diagnostic["ok"] is True
+    assert boundary["supplied_contract_semantics_verified"] is True
+    assert boundary["canonical_expectation_schema_path_verified"] is True
+    assert boundary["canonical_subject_input_schema_path_verified"] is True
+    if schema_key == "schema":
+        assert boundary["canonical_expectation_schema_git_blob_verified"] is False
+        assert boundary["canonical_subject_input_schema_git_blob_verified"] is True
+    else:
+        assert boundary["canonical_expectation_schema_git_blob_verified"] is True
+        assert boundary["canonical_subject_input_schema_git_blob_verified"] is False
+    assert boundary["canonical_contract_semantics_verified"] is False
+    assert boundary["contract_semantics_verified"] is False
 
 
-def test_output_boundary_rejects_case_aliases_and_repository_paths(
-    tmp_path: Path,
-) -> None:
-    subject_root = tmp_path / "subject"
-    control_root = tmp_path / "control"
-    external_root = tmp_path / "external"
-    for path in (subject_root, control_root, external_root):
-        path.mkdir()
+# Independent schema states and downstream witness.
 
-    with pytest.raises(
-        TOOL_MODULE.BuilderError,
-        match="output_name_protected",
-    ):
-        TOOL_MODULE._reject_unsafe_output(
-            external_root / "RELEASE_AUTHORITY_V0.JSON",
-            protected_paths=(),
-            protected_roots=(subject_root, control_root),
-        )
-
-    with pytest.raises(
-        TOOL_MODULE.BuilderError,
-        match="output_inside_protected_repository",
-    ):
-        TOOL_MODULE._reject_unsafe_output(
-            subject_root / "generated.json",
-            protected_paths=(),
-            protected_roots=(subject_root, control_root),
-        )
-
-    TOOL_MODULE._reject_unsafe_output(
-        external_root / "generated-expectation.json",
-        protected_paths=(),
-        protected_roots=(subject_root, control_root),
-    )
+def test_non_object_subject_schema_preserves_expectation_schema_state(tmp_path: Path) -> None:
+    path = tmp_path / "subject-schema.json"
+    path.write_text("[]\n", encoding="utf-8")
+    result = run_tool(subject_input_schema_path=path)
+    assert result.returncode == 2 and result.stderr == b""
+    diagnostic = parse_json_bytes(result.stdout)
+    assert diagnostic["expectation_schema_valid"] is True
+    assert diagnostic["subject_input_schema_valid"] is False
+    assert any("subject_input_schema_not_object" in error for error in diagnostic["errors"])
 
 
-# ---------------------------------------------------------------------------
-# Bounded authority-source retention without aggregate payload accumulation
-# ---------------------------------------------------------------------------
+def test_non_object_expectation_schema_preserves_subject_schema_state(tmp_path: Path) -> None:
+    path = tmp_path / "expectation-schema.json"
+    path.write_text("[]\n", encoding="utf-8")
+    result = run_tool(schema_path=path)
+    assert result.returncode == 2 and result.stderr == b""
+    diagnostic = parse_json_bytes(result.stdout)
+    assert diagnostic["expectation_schema_valid"] is False
+    assert diagnostic["subject_input_schema_valid"] is True
+    assert any("expectation_schema_not_object" in error for error in diagnostic["errors"])
 
 
-class SyntheticPayload:
-    __slots__ = ("path", "__weakref__")
-
-    def __init__(self, path: str) -> None:
-        self.path = path
-
-    def __len__(self) -> int:
-        return 1024 * 1024
+def test_missing_subject_schema_preserves_expectation_schema_state(tmp_path: Path) -> None:
+    result = run_tool(subject_input_schema_path=tmp_path / "missing-subject-schema.json")
+    assert result.returncode == 2 and result.stderr == b""
+    diagnostic = parse_json_bytes(result.stdout)
+    assert diagnostic["expectation_schema_valid"] is True
+    assert diagnostic["subject_input_schema_valid"] is False
 
 
-def synthetic_payload_sha(path: str) -> str:
-    return hashlib.sha256(path.encode("utf-8")).hexdigest()
-
-
-def source_record(
-    *,
-    source_id: str,
-    path: str,
-    revision: str,
-    role: str | None = None,
-    **extra: Any,
-) -> dict[str, Any]:
-    row: dict[str, Any] = {
-        "source_id": source_id,
-        "path_or_uri": path,
-        "source_revision": revision,
-        "sha256": synthetic_payload_sha(path),
-        "size_bytes": 1024 * 1024,
-    }
-    if role is not None:
-        row["role"] = role
-    row.update(extra)
-    return row
-
-
-def test_arbitrary_authority_payloads_are_not_retained_aggregately(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    revision = "a" * 40
-    workflow_name = "PULSE CI"
-    workflow_path = ".github/workflows/pulse_ci.yml"
-    workflow_ref = (
-        "HKati/pulse-release-gates-0.1/"
-        ".github/workflows/pulse_ci.yml@refs/heads/main"
-    )
-    unique_additional_paths = [
-        f"evidence/source-{index:03d}.bin"
-        for index in range(128)
-    ]
-    repeated_path = unique_additional_paths[0]
-
-    authority_sources = {
-        "workflow": source_record(
-            source_id="source:workflow",
-            path=workflow_path,
-            revision=revision,
-            workflow_name=workflow_name,
-            workflow_ref=workflow_ref,
-        ),
-        "policy": source_record(
-            source_id="source:policy",
-            path=TOOL_MODULE.POLICY_PATH,
-            revision=revision,
-            policy_id="policy:regression",
-        ),
-        "gate_registry": source_record(
-            source_id="source:registry",
-            path=TOOL_MODULE.GATE_REGISTRY_PATH,
-            revision=revision,
-            registry_id="registry:regression",
-        ),
-        "additional_sources": [
-            source_record(
-                source_id=f"source:additional:{index:03d}",
-                path=path,
-                revision=revision,
-                role="evidence",
-            )
-            for index, path in enumerate(unique_additional_paths)
-        ]
-        + [
-            source_record(
-                source_id="source:additional:repeat",
-                path=repeated_path,
-                revision=revision,
-                role="evidence",
-            )
-        ],
-    }
-
-    live: weakref.WeakSet[SyntheticPayload] = weakref.WeakSet()
-    peak_live = 0
-    verification_calls: list[str] = []
-
-    def fake_verify(
-        *,
-        repository_path: str,
-        **_kwargs: Any,
-    ) -> SyntheticPayload:
-        nonlocal peak_live
-        gc.collect()
-        payload = SyntheticPayload(repository_path)
-        live.add(payload)
-        peak_live = max(peak_live, len(live))
-        verification_calls.append(repository_path)
-        return payload
-
-    def fake_sha256(payload: SyntheticPayload) -> str:
-        return synthetic_payload_sha(payload.path)
-
-    def fake_yaml(
-        payload: SyntheticPayload,
-        *,
-        label: str,
-    ) -> dict[str, Any]:
-        if label == "verified_workflow":
-            return {"name": workflow_name}
-        if label == "verified_gate_registry":
-            return {"version": "registry:regression"}
-        raise AssertionError((label, payload.path))
-
-    monkeypatch.setattr(
-        TOOL_MODULE,
-        "_verify_committed_worktree_file",
-        fake_verify,
-    )
-    monkeypatch.setattr(TOOL_MODULE, "sha256_bytes", fake_sha256)
-    monkeypatch.setattr(TOOL_MODULE, "parse_yaml_object", fake_yaml)
-
-    _verified, retained = TOOL_MODULE._verify_authority_sources(
-        git_path=Path("/usr/bin/git"),
-        subject_root=ROOT,
-        subject_revision=revision,
-        authority_sources=authority_sources,
-        trusted_workflow_name=workflow_name,
-        trusted_workflow_path=workflow_path,
-        trusted_workflow_ref=workflow_ref,
-    )
-
-    assert set(retained) == {"workflow", "policy", "gate_registry"}
-    assert all(isinstance(value, SyntheticPayload) for value in retained.values())
-    assert verification_calls.count(repeated_path) == 1
-    assert len(verification_calls) == 3 + len(unique_additional_paths)
-
-    # Three intentionally retained payloads plus at most the previous and
-    # current arbitrary payload may be live while the next source is verified.
-    # A cache of every distinct arbitrary payload would grow with source count.
-    assert peak_live <= 5
-
-
-def test_failure_diagnostic_is_canonical_and_non_authoritative() -> None:
-    diagnostic = TOOL_MODULE.make_failure_diagnostic(
-        error="synthetic",
-        exit_kind="regression",
-    )
+def test_impossible_downstream_observed_branch_fails_separately(tmp_path: Path) -> None:
+    subject_schema = load_json(SUBJECT_INPUT_SCHEMA)
+    subject_schema.setdefault("allOf", []).append({"not": {"properties": {"record_status": {"const": "observed"}}, "required": ["record_status"]}})
+    path = tmp_path / "impossible-observed.schema.json"
+    write_json(path, subject_schema)
+    result = run_tool(subject_input_schema_path=path)
+    assert result.returncode == 1 and result.stderr == b""
+    diagnostic = parse_json_bytes(result.stdout)
+    assert diagnostic["expectation_schema_valid"] is True
+    assert diagnostic["expectation_instance_valid"] is True
+    assert diagnostic["subject_input_schema_valid"] is True
+    assert diagnostic["subject_input_schema_reference_policy_valid"] is True
+    assert diagnostic["subject_input_observed_branch_valid"] is False
     assert diagnostic["ok"] is False
-    assert diagnostic["authority_effect"] == "none"
-    assert diagnostic["errors"] == ["synthetic"]
-    rendered = TOOL_MODULE.render_json(diagnostic)
-    assert rendered.endswith(b"\n")
-    assert b"\r\n" not in rendered
-    assert parse_json_bytes(rendered) == diagnostic
 
 
-# ---------------------------------------------------------------------------
-# Complete synthetic current-run CLI construction
-# ---------------------------------------------------------------------------
-
-
-def trusted_git_path() -> Path:
-    candidate = Path(shutil.which("git") or "/usr/bin/git").resolve(strict=True)
-    if candidate != Path("/usr/bin/git"):
-        pytest.skip(f"protected /usr/bin/git unavailable: {candidate}")
-    return candidate
-
-
-def git_run(repository: Path, *arguments: str) -> str:
-    result = subprocess.run(
-        [str(trusted_git_path()), *arguments],
-        cwd=repository,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-        check=False,
-        env={
-            "GIT_CONFIG_GLOBAL": os.devnull,
-            "GIT_CONFIG_NOSYSTEM": "1",
-            "GIT_TERMINAL_PROMPT": "0",
-            "LANG": "C",
-            "LC_ALL": "C",
-            "PATH": "/usr/bin",
-        },
-    )
-    assert result.returncode == 0, result.stdout + result.stderr
-    return result.stdout.strip()
-
-
-def initialize_git_repository(
-    repository: Path,
-    files: dict[str, bytes],
-) -> str:
-    repository.mkdir()
-    git_run(repository, "init", "-q")
-    for relative, payload in files.items():
-        path = repository / relative
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_bytes(payload)
-    git_run(repository, "add", "--", ".")
-    git_run(
-        repository,
-        "-c",
-        "user.name=PULSEmech builder regression",
-        "-c",
-        "user.email=pulsemech-builder@example.invalid",
-        "commit",
-        "-q",
-        "-m",
-        "synthetic protected state",
-    )
-    revision = git_run(repository, "rev-parse", "HEAD")
-    assert len(revision) == 40
-    return revision
-
-
-def minimal_validator_source() -> bytes:
-    return textwrap.dedent(
-        """
-        from __future__ import annotations
-
-        import hashlib
-        import json
-        from pathlib import Path
-        from typing import Any
-
-        TOOL_NAME = "check_pulsemech_compute_current_run_export_expectation_v0"
-        TOOL_VERSION = "0.1.0"
-        SCHEMA_VERSION = "pulsemech_compute_current_run_export_expectation_v0"
-        DOCUMENT_TYPE = "pulsemech_compute_current_run_export_expectation"
-
-        ROOT = Path(__file__).resolve().parents[1]
-        DEFAULT_SCHEMA = (
-            ROOT
-            / "schemas"
-            / "pulsemech_compute_current_run_export_expectation_v0.schema.json"
-        )
-        DEFAULT_SUBJECT_INPUT_SCHEMA = (
-            ROOT
-            / "schemas"
-            / "pulsemech_compute_subject_input_packet_v0.schema.json"
-        )
-
-        def render_json(value: Any) -> str:
-            return (
-                json.dumps(
-                    value,
-                    indent=2,
-                    ensure_ascii=False,
-                    sort_keys=True,
-                    allow_nan=False,
-                )
-                + "\\n"
-            )
-
-        def schema_reference_policy_errors(
-            _schema: Any,
-            *,
-            label: str,
-        ) -> list[str]:
-            assert label
-            return []
-
-        def validate_instance(
-            _schema: Any,
-            _instance: Any,
-            *,
-            label: str,
-        ) -> tuple[bool, list[str]]:
-            assert label
-            return True, []
-
-        def semantic_checks(
-            _expectation: Any,
-            **_kwargs: Any,
-        ) -> tuple[dict[str, bool], list[str], dict[str, Any]]:
-            return {"synthetic_contract_ok": True}, [], {}
-
-        def build_diagnostic(
-            *,
-            schema_path: Path,
-            expectation_path: Path,
-            subject_input_schema_path: Path,
-            repository_root: Path,
-        ) -> tuple[dict[str, Any], int]:
-            assert schema_path
-            assert subject_input_schema_path
-            assert repository_root
-            payload = expectation_path.read_bytes()
-            return (
-                {
-                    "authority_effect": "none",
-                    "input_identities": {
-                        "expectation": {
-                            "sha256": hashlib.sha256(payload).hexdigest(),
-                            "size_bytes": len(payload),
-                        }
-                    },
-                    "ok": True,
-                    "record_status": "observed",
-                    "verification_boundary": {
-                        "canonical_contract_semantics_verified": True,
-                        "contract_semantics_verified": True,
-                    },
-                },
-                0,
-            )
-
-        def atomic_write(path: Path, text: str) -> None:
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(text, encoding="utf-8", newline="\\n")
-        """
-    ).lstrip().encode("utf-8")
-
-
-def permissive_expectation_schema() -> dict[str, Any]:
-    object_schema = {"type": "object"}
-    return {
-        "$schema": "https://json-schema.org/draft/2020-12/schema",
-        "$defs": {
-            "archive_layout": object_schema,
-            "authority_sources": object_schema,
-            "carrier": object_schema,
-            "carrier_producer": object_schema,
-            "packet_producer_profile": object_schema,
-            "subject": object_schema,
-        },
-        "type": "object",
+def test_complete_downstream_witness_contains_required_packet_surfaces() -> None:
+    value = expectation()
+    witness = TOOL_MODULE._subject_input_observed_witness(value, packet_contract=value["packet_contract"], profile=value["packet_producer_profile"])
+    assert set(witness) == {
+        "analysis_boundary", "artifacts", "authority_boundary", "authority_sources",
+        "carrier", "content_boundary", "coverage", "errors", "ok", "packet_identity",
+        "packet_type", "producer", "record_status", "role_bindings", "schema_version", "subject",
     }
+    valid, errors = TOOL_MODULE.validate_instance(load_json(SUBJECT_INPUT_SCHEMA), witness, label="subject_input_observed_branch_witness")
+    assert valid is True and errors == []
 
 
-def test_complete_synthetic_current_run_cli_is_deterministic(
-    tmp_path: Path,
-) -> None:
-    control_root = tmp_path / "control-plane"
-    subject_root = tmp_path / "subject"
-    output = tmp_path / "generated" / "expectation.json"
+# Observed expectation branch.
 
-    schema_bytes = TOOL_MODULE.render_json(permissive_expectation_schema())
-    subject_schema_bytes = TOOL_MODULE.render_json(
-        {
-            "$schema": "https://json-schema.org/draft/2020-12/schema",
-            "type": "object",
-        }
-    )
-    validator_bytes = minimal_validator_source()
-    carrier_loader_bytes = b"#!/usr/bin/env python3\n# synthetic carrier loader\n"
+def test_valid_observed_expectation_passes(tmp_path: Path) -> None:
+    path = tmp_path / "observed-expectation.json"
+    write_json(path, observed_expectation())
+    result = run_tool(expectation_path=path)
+    assert result.returncode == 0 and result.stderr == b""
+    diagnostic = parse_json_bytes(result.stdout)
+    assert diagnostic["ok"] is True
+    assert diagnostic["record_status"] == "observed"
+    assert diagnostic["derived"]["record_status"] == "observed"
+    assert diagnostic["checks"]["record_status_branch_ok"] is True
+    assert diagnostic["checks"]["observed_producer_bindings_ok"] is True
+    assert diagnostic["subject_input_observed_branch_valid"] is True
 
-    control_files = {
-        TOOL_MODULE.EXPECTATION_BUILDER_PATH: TOOL.read_bytes(),
-        TOOL_MODULE.EXPECTATION_SCHEMA_PATH: schema_bytes,
-        TOOL_MODULE.EXPECTATION_VALIDATOR_PATH: validator_bytes,
-        TOOL_MODULE.SUBJECT_INPUT_SCHEMA_PATH: subject_schema_bytes,
-        TOOL_MODULE.CURRENT_RUN_CARRIER_LOADER_PATH: carrier_loader_bytes,
-        TOOL_MODULE.CONTROL_PLANE_WORKFLOW_PATH: (
-            b"name: Synthetic current-run control plane\n"
-        ),
-        TOOL_MODULE.SUBJECT_INPUT_PRODUCER_CORE_PATH: (
-            b"#!/usr/bin/env python3\n# synthetic producer core\n"
-        ),
-        TOOL_MODULE.SUBJECT_INPUT_PRODUCER_WRAPPER_PATH: (
-            b"#!/usr/bin/env python3\n# synthetic producer wrapper\n"
-        ),
-        TOOL_MODULE.SUBJECT_INPUT_VALIDATOR_PATH: (
-            b"#!/usr/bin/env python3\n# synthetic subject validator\n"
-        ),
-    }
-    control_revision = initialize_git_repository(
-        control_root,
-        control_files,
-    )
 
-    workflow_name = "PULSE CI"
-    workflow_path = ".github/workflows/pulse_ci.yml"
-    workflow_bytes = (
-        b"name: PULSE CI\n"
-        b"on:\n"
-        b"  workflow_dispatch:\n"
-    )
-    policy_bytes = (
-        b"policy:\n"
-        b"  id: policy:synthetic\n"
-        b"  version: 0.1.0\n"
-        b"gates:\n"
-        b"  core_required:\n"
-        b"    - required_gate\n"
-        b"  required:\n"
-        b"    - required_gate\n"
-        b"  release_required:\n"
-        b"    - release_gate\n"
-    )
-    registry_bytes = b"version: registry:synthetic\n"
-    signer_policy_bytes = b"version: synthetic\n"
-    simple_schema_bytes = TOOL_MODULE.render_json(
-        {
-            "$schema": "https://json-schema.org/draft/2020-12/schema",
-            "type": "object",
-        }
-    )
+@pytest.mark.parametrize(
+    ("path_parts", "replacement"),
+    [
+        (("expectation_producer", "producer_source"), "tools/other-builder.py"),
+        (("expectation_producer", "producer_source_revision"), "f" * 40),
+        (("expectation_producer", "producer_source_sha256"), "f" * 64),
+        (("expectation_producer", "producer_version"), "9.9.9"),
+        (("expectation_producer", "producer_run_key"), "GITHUB_RUN_ID=9002|GITHUB_RUN_ATTEMPT=1|GITHUB_WORKFLOW=PULSE CI"),
+        (("carrier", "producer", "producer_source_revision"), "f" * 40),
+        (("carrier", "producer", "producer_run_key"), "GITHUB_RUN_ID=9002|GITHUB_RUN_ATTEMPT=1|GITHUB_WORKFLOW=PULSE CI"),
+    ],
+)
+def test_observed_producer_binding_mismatches_fail_closed(tmp_path: Path, path_parts: tuple[str, ...], replacement: str) -> None:
+    value = observed_expectation()
+    cursor: dict[str, Any] = value
+    for part in path_parts[:-1]:
+        nested = cursor[part]
+        assert isinstance(nested, dict)
+        cursor = nested
+    cursor[path_parts[-1]] = replacement
+    path = tmp_path / "observed-mismatch.json"
+    write_json(path, value)
+    diagnostic = assert_validation_failure(run_tool(expectation_path=path), "observed_producer_bindings_ok")
+    assert diagnostic["expectation_schema_valid"] is True
+    assert diagnostic["expectation_instance_valid"] is True
+    assert diagnostic["checks"]["observed_producer_bindings_ok"] is False
 
-    subject_files = {
-        workflow_path: workflow_bytes,
-        TOOL_MODULE.POLICY_PATH: policy_bytes,
-        TOOL_MODULE.GATE_REGISTRY_PATH: registry_bytes,
-        TOOL_MODULE.EXTERNAL_SIGNER_POLICY_PATH: signer_policy_bytes,
-        TOOL_MODULE.STATUS_SCHEMA_PATH: simple_schema_bytes,
-        TOOL_MODULE.RELEASE_DECISION_SCHEMA_PATH: simple_schema_bytes,
-    }
-    subject_revision = initialize_git_repository(
-        subject_root,
-        subject_files,
-    )
-
-    repository = "HKati/pulse-release-gates-0.1"
-    source_ref = "refs/heads/main"
-    run_id = 1001
-    run_number = 2002
-    run_attempt = 1
-    subject_run_key = (
-        "GITHUB_RUN_ID=1001|GITHUB_RUN_ATTEMPT=1|"
-        "GITHUB_WORKFLOW=PULSE CI"
-    )
-    workflow_ref = f"{repository}/{workflow_path}@{source_ref}"
-    policy_sha = sha256_bytes(policy_bytes)
-    registry_sha = sha256_bytes(registry_bytes)
-
-    final_status = {
-        "created_utc": "2026-08-15T11:59:00Z",
-        "gates": {
-            "detectors_materialized_ok": True,
-            "required_gate": True,
-            "release_gate": True,
-        },
-        "metrics": {
-            "gate_policy_sha256": policy_sha,
-            "gate_registry_sha256": registry_sha,
-            "git_sha": subject_revision,
-            "run_key": subject_run_key,
-            "run_mode": "core",
-        },
-        "version": "synthetic",
-    }
-    final_status_bytes = TOOL_MODULE.render_json(final_status)
-    final_status_sha = sha256_bytes(final_status_bytes)
-    status_validation = {
-        "errors": [],
-        "mode": "validated",
-        "ok": True,
-        "schema_path": TOOL_MODULE.STATUS_SCHEMA_PATH,
-    }
-    projection = TOOL_MODULE._derive_release_decision_projection(
-        final_status=final_status,
-        policy={
-            "gates": {
-                "core_required": ["required_gate"],
-                "required": ["required_gate"],
-                "release_required": ["release_gate"],
-            }
-        },
-        target="stage",
-        status_schema_validation=status_validation,
-    )
-    assert projection["release_level"] == "STAGE-PASS"
-
-    release_decision = {
-        "created_utc": "2026-08-15T12:00:00Z",
-        "git_sha": subject_revision,
-        "policy_path": TOOL_MODULE.POLICY_PATH,
-        "policy_sha256": policy_sha,
-        "producer": {
-            "name": TOOL_MODULE.RELEASE_DECISION_PRODUCER_NAME,
-            "version": TOOL_MODULE.RELEASE_DECISION_VERSION,
-        },
-        "run_mode": "core",
-        "schema": TOOL_MODULE.RELEASE_DECISION_SCHEMA,
-        "status_path": "status.json",
-        "status_sha256": final_status_sha,
-        "target": "stage",
-        "version": TOOL_MODULE.RELEASE_DECISION_VERSION,
-        **projection,
-    }
-    release_decision_bytes = TOOL_MODULE.render_json(release_decision)
-    release_decision_sha = sha256_bytes(release_decision_bytes)
-
-    def authority_row(
-        *,
-        source_id: str,
-        path: str,
-        payload: bytes,
-        **extra: Any,
-    ) -> dict[str, Any]:
-        return {
-            "path_or_uri": path,
-            "sha256": sha256_bytes(payload),
-            "size_bytes": len(payload),
-            "source_id": source_id,
-            "source_revision": subject_revision,
-            **extra,
-        }
-
-    authority_sources = {
-        "workflow": authority_row(
-            source_id="source:workflow",
-            path=workflow_path,
-            payload=workflow_bytes,
-            workflow_name=workflow_name,
-            workflow_ref=workflow_ref,
-        ),
-        "policy": authority_row(
-            source_id="source:policy",
-            path=TOOL_MODULE.POLICY_PATH,
-            payload=policy_bytes,
-            policy_id="policy:synthetic",
-        ),
-        "gate_registry": authority_row(
-            source_id="source:registry",
-            path=TOOL_MODULE.GATE_REGISTRY_PATH,
-            payload=registry_bytes,
-            registry_id="registry:synthetic",
-        ),
-        "additional_sources": [
-            authority_row(
-                source_id="source:external-signer-policy",
-                path=TOOL_MODULE.EXTERNAL_SIGNER_POLICY_PATH,
-                payload=signer_policy_bytes,
-                role="external_signer_policy",
-            )
-        ],
-    }
-
-    subject = {
-        "active_policy_sets": ["core_required"],
-        "decision": "ALLOW",
-        "event_name": "workflow_dispatch",
-        "final_status_sha256": final_status_sha,
-        "materialized_gate_set_sha256": None,
-        "policy_id": "policy:synthetic",
-        "policy_sha256": policy_sha,
-        "release_candidate_id": "candidate:synthetic",
-        "release_decision_sha256": release_decision_sha,
-        "repository": repository,
-        "run_mode": "core",
-        "source_commit": subject_revision,
-        "source_ref": source_ref,
-        "subject_run_key": subject_run_key,
-        "workflow_name": workflow_name,
-        "workflow_path": workflow_path,
-        "workflow_ref": workflow_ref,
-        "workflow_run_attempt": run_attempt,
-        "workflow_run_id": run_id,
-        "workflow_run_number": run_number,
-    }
-    loader_sha = sha256_bytes(carrier_loader_bytes)
-    builder_input = {
-        "archive_layout": {"layout_id": "layout:synthetic"},
-        "authority_sources": authority_sources,
-        "carrier": {
-            "carrier_kind": "current_run_export_archive",
-            "finalized_utc": "2026-08-15T12:01:00Z",
-            "producer": {
-                "producer_run_key": subject_run_key,
-                "producer_source": (
-                    TOOL_MODULE.CURRENT_RUN_CARRIER_LOADER_PATH
-                ),
-                "producer_source_revision": control_revision,
-                "producer_source_sha256": loader_sha,
-                "producer_version": "0.1.0",
-                "production_mode": (
-                    "current_run_export_carrier_builder"
-                ),
-            },
-        },
-        "packet_producer_profile": {
-            "expected_archive_layout_id": "layout:synthetic",
-            "expected_producer_source_path": (
-                TOOL_MODULE.SUBJECT_INPUT_PRODUCER_WRAPPER_PATH
-            ),
-            "expected_repository": repository,
-            "expected_signer_policy_path": (
-                TOOL_MODULE.EXTERNAL_SIGNER_POLICY_PATH
-            ),
-            "expected_source_commit": subject_revision,
-            "expected_subject_run_key": subject_run_key,
-        },
-        "subject": subject,
-    }
-
-    final_status_path = subject_root / "status.json"
-    release_decision_path = subject_root / "release_decision_v0.json"
-    input_path = subject_root / "builder-input.json"
-    final_status_path.write_bytes(final_status_bytes)
-    release_decision_path.write_bytes(release_decision_bytes)
-    input_path.write_bytes(TOOL_MODULE.render_json(builder_input))
-
-    command = [
-        sys.executable,
-        "-I",
-        str(
-            control_root
-            / TOOL_MODULE.EXPECTATION_BUILDER_PATH
-        ),
-        "--input",
-        str(input_path),
-        "--expectation-schema",
-        str(control_root / TOOL_MODULE.EXPECTATION_SCHEMA_PATH),
-        "--expectation-validator",
-        str(control_root / TOOL_MODULE.EXPECTATION_VALIDATOR_PATH),
-        "--subject-input-schema",
-        str(control_root / TOOL_MODULE.SUBJECT_INPUT_SCHEMA_PATH),
-        "--subject-root",
-        str(subject_root),
-        "--subject-repository",
-        repository,
-        "--subject-revision",
-        subject_revision,
-        "--workflow-name",
-        workflow_name,
-        "--workflow-path",
-        workflow_path,
-        "--workflow-run-id",
-        str(run_id),
-        "--workflow-run-number",
-        str(run_number),
-        "--workflow-run-attempt",
-        str(run_attempt),
-        "--source-ref",
-        source_ref,
-        "--event-name",
-        "workflow_dispatch",
-        "--release-candidate-id",
-        "candidate:synthetic",
-        "--run-mode",
-        "core",
-        "--release-target",
-        "stage",
-        "--active-policy-set",
-        "core_required",
-        "--expectation-created-utc",
-        "2026-08-15T12:02:00Z",
-        "--ci-workflow-or-job-identity",
-        "PULSE CI / synthetic builder regression",
-        "--control-plane-root",
-        str(control_root),
-        "--control-plane-repository",
-        repository,
-        "--control-plane-revision",
-        control_revision,
-        "--trusted-git",
-        str(trusted_git_path()),
-        "--final-status",
-        str(final_status_path),
-        "--release-decision",
-        str(release_decision_path),
-    ]
-
-    first = subprocess.run(
-        [*command, "--output", str(output)],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        check=False,
-    )
-    second = subprocess.run(
-        command,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        check=False,
-    )
-
-    assert first.returncode == second.returncode == 0, (
-        first.stderr + second.stderr
-    ).decode("utf-8", errors="replace")
-    assert first.stderr == second.stderr == b""
-    assert first.stdout == second.stdout
-    assert output.read_bytes() == first.stdout
-    expectation = parse_json_bytes(first.stdout)
-    assert first.stdout == TOOL_MODULE.render_json(expectation)
-    assert expectation["ok"] is True
-    assert expectation["record_status"] == "observed"
-    assert expectation["subject"]["source_commit"] == subject_revision
-    assert expectation["trusted_control_plane"]["revision"] == (
-        control_revision
-    )
-    assert expectation["expectation_producer"]["producer_source_sha256"] == (
-        EXPECTED_TOOL_SHA256
-    )
-    assert (
-        expectation["packet_producer_profile"]["expected_signer_policy_path"]
-        == TOOL_MODULE.EXTERNAL_SIGNER_POLICY_PATH
-    )
-    assert expectation["authority_boundary"]["activates_compute_gate"] is False
-    assert (
-        expectation["authority_boundary"]["changes_release_authority"]
-        is False
-    )
 
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__]))
