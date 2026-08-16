@@ -245,6 +245,21 @@ GIT_ENV_ALLOWLIST = (
     "TMPDIR",
 )
 
+GIT_LOCAL_ONLY_COMMAND_CONFIG = (
+    ("core.fsmonitor", "false"),
+    ("core.sshCommand", "/bin/false"),
+    ("credential.helper", ""),
+    ("credential.interactive", "false"),
+    ("protocol.allow", "never"),
+    ("protocol.ext.allow", "never"),
+    ("protocol.file.allow", "never"),
+    ("protocol.git.allow", "never"),
+    ("protocol.http.allow", "never"),
+    ("protocol.https.allow", "never"),
+    ("protocol.ssh.allow", "never"),
+)
+MAX_GIT_CONFIG_BYTES = 1024 * 1024
+
 
 class BuilderError(RuntimeError):
     def __init__(
@@ -1199,17 +1214,73 @@ def _git_environment(git_path: Path) -> dict[str, str]:
     }
     environment.update(
         {
+            "GIT_ALLOW_PROTOCOL": "",
+            "GIT_ASKPASS": "/bin/false",
             "GIT_CONFIG_GLOBAL": os.devnull,
             "GIT_CONFIG_NOSYSTEM": "1",
+            "GIT_NO_LAZY_FETCH": "1",
             "GIT_NO_REPLACE_OBJECTS": "1",
             "GIT_OPTIONAL_LOCKS": "0",
+            "GIT_PROTOCOL_FROM_USER": "0",
+            "GIT_SSH_COMMAND": "/bin/false",
             "GIT_TERMINAL_PROMPT": "0",
             "LANG": "C",
             "LC_ALL": "C",
             "PATH": str(git_path.parent),
+            "SSH_ASKPASS": "/bin/false",
         }
     )
     return environment
+
+
+def _local_only_git_command_config_arguments() -> list[str]:
+    arguments: list[str] = []
+    for key, value in GIT_LOCAL_ONLY_COMMAND_CONFIG:
+        arguments.extend(("-c", f"{key}={value}"))
+    return arguments
+
+
+def _require_trusted_git_local_only_support(git_path: Path) -> None:
+    command = [
+        str(git_path),
+        "--no-pager",
+        "--no-replace-objects",
+        "--no-lazy-fetch",
+        "--version",
+    ]
+    try:
+        result = subprocess.run(
+            command,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+            timeout=10,
+            env=_git_environment(git_path),
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise BuilderError(
+            f"trusted_git_local_only_capability_probe_failed: {exc}",
+            exit_kind="trusted_git_error",
+            exit_code=2,
+        ) from exc
+    if result.returncode != 0:
+        detail = result.stderr.decode(
+            "utf-8",
+            errors="replace",
+        ).strip()
+        raise BuilderError(
+            "trusted_git_no_lazy_fetch_unsupported: "
+            f"returncode={result.returncode} detail={detail!r}",
+            exit_kind="trusted_git_error",
+            exit_code=2,
+        )
+    if not result.stdout.startswith(b"git version "):
+        raise BuilderError(
+            "trusted_git_version_probe_invalid_output",
+            exit_kind="trusted_git_error",
+            exit_code=2,
+        )
 
 
 def _run_git(
@@ -1225,6 +1296,8 @@ def _run_git(
         str(git_path),
         "--no-pager",
         "--no-replace-objects",
+        "--no-lazy-fetch",
+        *_local_only_git_command_config_arguments(),
         "-c",
         f"safe.directory={repository_root}",
         "-C",
@@ -1258,6 +1331,157 @@ def _run_git(
             exit_code=2,
         )
     return result.stdout
+
+
+def _parse_scoped_git_config(
+    raw: bytes,
+    *,
+    label: str,
+) -> list[tuple[str, str, str]]:
+    if len(raw) > MAX_GIT_CONFIG_BYTES:
+        raise BuilderError(
+            f"{label}_git_config_too_large: "
+            f"size={len(raw)} maximum={MAX_GIT_CONFIG_BYTES}",
+            exit_kind="trusted_git_error",
+            exit_code=2,
+        )
+    parts = raw.split(b"\x00")
+    if parts and parts[-1] == b"":
+        parts.pop()
+    if len(parts) % 2 != 0:
+        raise BuilderError(
+            f"{label}_git_config_record_structure_invalid",
+            exit_kind="trusted_git_error",
+            exit_code=2,
+        )
+
+    rows: list[tuple[str, str, str]] = []
+    for index in range(0, len(parts), 2):
+        scope_raw = parts[index]
+        entry_raw = parts[index + 1]
+        key_raw, separator, value_raw = entry_raw.partition(b"\n")
+        if not separator or not key_raw:
+            raise BuilderError(
+                f"{label}_git_config_entry_invalid: index={index // 2}",
+                exit_kind="trusted_git_error",
+                exit_code=2,
+            )
+        try:
+            scope = scope_raw.decode("ascii", errors="strict")
+            key = key_raw.decode("utf-8", errors="strict")
+            value = value_raw.decode("utf-8", errors="strict")
+        except UnicodeDecodeError as exc:
+            raise BuilderError(
+                f"{label}_git_config_entry_encoding_invalid: "
+                f"index={index // 2}",
+                exit_kind="trusted_git_error",
+                exit_code=2,
+            ) from exc
+        if scope not in {
+            "system",
+            "global",
+            "local",
+            "worktree",
+            "command",
+        }:
+            raise BuilderError(
+                f"{label}_git_config_scope_invalid: {scope!r}",
+                exit_kind="trusted_git_error",
+                exit_code=2,
+            )
+        rows.append((scope, key, value))
+    return rows
+
+
+def _git_config_key_opens_remote_object_boundary(key: str) -> bool:
+    normalized = key.casefold()
+    return (
+        normalized in {"core.sshcommand", "extensions.partialclone"}
+        or re.fullmatch(r"remote\..+\.promisor", normalized) is not None
+        or re.fullmatch(
+            r"remote\..+\.partialclonefilter",
+            normalized,
+        )
+        is not None
+    )
+
+
+def _reject_git_promisor_pack_markers(
+    object_store: Path,
+    *,
+    label: str,
+) -> None:
+    pack_directory = object_store / "pack"
+    try:
+        metadata = pack_directory.lstat()
+    except FileNotFoundError:
+        return
+    except OSError as exc:
+        raise BuilderError(
+            f"{label}_git_pack_directory_unavailable: "
+            f"{pack_directory}: {exc}",
+            exit_kind="trusted_git_error",
+            exit_code=2,
+        ) from exc
+    if stat.S_ISLNK(metadata.st_mode) or not stat.S_ISDIR(metadata.st_mode):
+        raise BuilderError(
+            f"{label}_git_pack_directory_not_protected_directory: "
+            f"{pack_directory}",
+            exit_kind="trusted_git_error",
+            exit_code=2,
+        )
+    try:
+        with os.scandir(pack_directory) as entries:
+            for entry in entries:
+                if entry.name.casefold().endswith(".promisor"):
+                    raise BuilderError(
+                        f"{label}_git_promisor_pack_marker_rejected",
+                        exit_kind="trusted_git_error",
+                        exit_code=2,
+                    )
+    except BuilderError:
+        raise
+    except OSError as exc:
+        raise BuilderError(
+            f"{label}_git_pack_directory_scan_failed: "
+            f"{pack_directory}: {exc}",
+            exit_kind="trusted_git_error",
+            exit_code=2,
+        ) from exc
+
+
+def _verify_git_local_only_repository_state(
+    *,
+    git_path: Path,
+    repository_root: Path,
+    object_store: Path,
+    label: str,
+) -> None:
+    config_raw = _run_git(
+        git_path=git_path,
+        repository_root=repository_root,
+        arguments=("config", "--null", "--show-scope", "--list"),
+        label=f"{label}_git_config",
+    )
+    rejected = sorted(
+        {
+            f"{scope}:{key}"
+            for scope, key, _value in _parse_scoped_git_config(
+                config_raw,
+                label=label,
+            )
+            if scope in {"local", "worktree"}
+            and _git_config_key_opens_remote_object_boundary(key)
+        }
+    )
+    if rejected:
+        raise BuilderError(
+            f"{label}_git_local_only_config_rejected: "
+            + json.dumps(rejected, ensure_ascii=False, sort_keys=True),
+            exit_kind="trusted_git_error",
+            exit_code=2,
+        )
+    _reject_git_promisor_pack_markers(object_store, label=label)
 
 
 def _verify_git_repository(
@@ -1375,6 +1599,13 @@ def _git_storage_identity(
         ),
         repository_root=repository_root,
         label=f"{label}_git_object_store",
+    )
+
+    _verify_git_local_only_repository_state(
+        git_path=git_path,
+        repository_root=repository_root,
+        object_store=object_store,
+        label=label,
     )
 
     for alternate_name in ("alternates", "http-alternates"):
@@ -3545,6 +3776,7 @@ def _build(args: argparse.Namespace) -> bytes:
         raise BuilderError("control_plane_revision_not_sha40")
 
     trusted_git = _select_trusted_git(args.trusted_git)
+    _require_trusted_git_local_only_support(trusted_git)
     final_status_path = Path(args.final_status)
     release_decision_path = Path(args.release_decision)
     materialized_gate_set_path = (
