@@ -33,10 +33,12 @@ import json
 import os
 import re
 import secrets
+import selectors
 import stat
 import subprocess
 import sysconfig
 import tempfile
+import time
 import types
 from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
@@ -244,6 +246,23 @@ GIT_ENV_ALLOWLIST = (
     "TMP",
     "TMPDIR",
 )
+
+GIT_LOCAL_ONLY_COMMAND_CONFIG = (
+    ("core.fsmonitor", "false"),
+    ("core.sshCommand", "/bin/false"),
+    ("credential.helper", ""),
+    ("credential.interactive", "false"),
+    ("protocol.allow", "never"),
+    ("protocol.ext.allow", "never"),
+    ("protocol.file.allow", "never"),
+    ("protocol.git.allow", "never"),
+    ("protocol.http.allow", "never"),
+    ("protocol.https.allow", "never"),
+    ("protocol.ssh.allow", "never"),
+)
+MAX_GIT_CONFIG_BYTES = 1024 * 1024
+MAX_GIT_DIAGNOSTIC_BYTES = 64 * 1024
+GIT_CAPTURE_CHUNK_BYTES = 64 * 1024
 
 
 class BuilderError(RuntimeError):
@@ -1199,17 +1218,270 @@ def _git_environment(git_path: Path) -> dict[str, str]:
     }
     environment.update(
         {
+            "GIT_ALLOW_PROTOCOL": "",
+            "GIT_ASKPASS": "/bin/false",
             "GIT_CONFIG_GLOBAL": os.devnull,
             "GIT_CONFIG_NOSYSTEM": "1",
+            "GIT_NO_LAZY_FETCH": "1",
             "GIT_NO_REPLACE_OBJECTS": "1",
             "GIT_OPTIONAL_LOCKS": "0",
+            "GIT_PROTOCOL_FROM_USER": "0",
+            "GIT_SSH_COMMAND": "/bin/false",
             "GIT_TERMINAL_PROMPT": "0",
             "LANG": "C",
             "LC_ALL": "C",
             "PATH": str(git_path.parent),
+            "SSH_ASKPASS": "/bin/false",
         }
     )
     return environment
+
+
+def _local_only_git_command_config_arguments() -> list[str]:
+    arguments: list[str] = []
+    for key, value in GIT_LOCAL_ONLY_COMMAND_CONFIG:
+        arguments.extend(("-c", f"{key}={value}"))
+    return arguments
+
+
+def _git_command(
+    *,
+    git_path: Path,
+    repository_root: Path,
+    arguments: Sequence[str],
+) -> list[str]:
+    return [
+        str(git_path),
+        "--no-pager",
+        "--no-replace-objects",
+        "--no-lazy-fetch",
+        *_local_only_git_command_config_arguments(),
+        "-c",
+        f"safe.directory={repository_root}",
+        "-C",
+        str(repository_root),
+        *arguments,
+    ]
+
+
+def _terminate_subprocess(process: subprocess.Popen[bytes]) -> None:
+    if process.poll() is not None:
+        return
+    try:
+        process.terminate()
+    except OSError:
+        pass
+    try:
+        process.wait(timeout=1)
+        return
+    except subprocess.TimeoutExpired:
+        pass
+    try:
+        process.kill()
+    except OSError:
+        pass
+    try:
+        process.wait(timeout=1)
+    except subprocess.TimeoutExpired:
+        pass
+
+
+def _run_git_bounded_capture(
+    *,
+    git_path: Path,
+    repository_root: Path,
+    arguments: Sequence[str],
+    label: str,
+    max_stdout_bytes: int,
+    max_stderr_bytes: int = MAX_GIT_DIAGNOSTIC_BYTES,
+    timeout_seconds: int = 60,
+) -> bytes:
+    if max_stdout_bytes < 0 or max_stderr_bytes < 0:
+        raise BuilderError(
+            f"{label}_git_capture_limit_invalid: "
+            f"stdout={max_stdout_bytes} stderr={max_stderr_bytes}",
+            exit_kind="trusted_git_error",
+            exit_code=2,
+        )
+
+    command = _git_command(
+        git_path=git_path,
+        repository_root=repository_root,
+        arguments=arguments,
+    )
+    process: subprocess.Popen[bytes] | None = None
+    selector = selectors.DefaultSelector()
+    buffers = {
+        "stdout": bytearray(),
+        "stderr": bytearray(),
+    }
+    try:
+        process = subprocess.Popen(
+            command,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env=_git_environment(git_path),
+            bufsize=0,
+            close_fds=True,
+        )
+        if process.stdout is None or process.stderr is None:
+            raise BuilderError(
+                f"{label}_git_capture_pipe_unavailable",
+                exit_kind="trusted_git_error",
+                exit_code=2,
+            )
+        os.set_blocking(process.stdout.fileno(), False)
+        os.set_blocking(process.stderr.fileno(), False)
+
+        selector.register(
+            process.stdout,
+            selectors.EVENT_READ,
+            ("stdout", max_stdout_bytes),
+        )
+        selector.register(
+            process.stderr,
+            selectors.EVENT_READ,
+            ("stderr", max_stderr_bytes),
+        )
+        deadline = time.monotonic() + timeout_seconds
+
+        while selector.get_map():
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                _terminate_subprocess(process)
+                raise BuilderError(
+                    f"{label}_git_execution_timed_out: "
+                    f"timeout_seconds={timeout_seconds}",
+                    exit_kind="trusted_git_error",
+                    exit_code=2,
+                )
+
+            events = selector.select(remaining)
+            if not events:
+                continue
+            for key, _mask in events:
+                stream_name, maximum = key.data
+                buffer = buffers[stream_name]
+                remaining_capacity = maximum - len(buffer)
+                read_size = min(
+                    GIT_CAPTURE_CHUNK_BYTES,
+                    max(1, remaining_capacity + 1),
+                )
+                try:
+                    chunk = os.read(key.fileobj.fileno(), read_size)
+                except BlockingIOError:
+                    continue
+                if not chunk:
+                    selector.unregister(key.fileobj)
+                    key.fileobj.close()
+                    continue
+                buffer.extend(chunk)
+                if len(buffer) > maximum:
+                    _terminate_subprocess(process)
+                    raise BuilderError(
+                        f"{label}_git_{stream_name}_capture_limit_exceeded: "
+                        f"observed_at_least={len(buffer)} maximum={maximum}",
+                        exit_kind="trusted_git_error",
+                        exit_code=2,
+                    )
+
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            _terminate_subprocess(process)
+            raise BuilderError(
+                f"{label}_git_execution_timed_out: "
+                f"timeout_seconds={timeout_seconds}",
+                exit_kind="trusted_git_error",
+                exit_code=2,
+            )
+        try:
+            returncode = process.wait(timeout=remaining)
+        except subprocess.TimeoutExpired as exc:
+            _terminate_subprocess(process)
+            raise BuilderError(
+                f"{label}_git_execution_timed_out: "
+                f"timeout_seconds={timeout_seconds}",
+                exit_kind="trusted_git_error",
+                exit_code=2,
+            ) from exc
+
+        stdout = bytes(buffers["stdout"])
+        stderr = bytes(buffers["stderr"])
+        if returncode != 0:
+            detail = stderr.decode("utf-8", errors="replace").strip()
+            raise BuilderError(
+                f"{label}_git_failed: "
+                f"returncode={returncode} detail={detail!r}",
+                exit_kind="trusted_git_error",
+                exit_code=2,
+            )
+        return stdout
+    except BuilderError:
+        if process is not None:
+            _terminate_subprocess(process)
+        raise
+    except OSError as exc:
+        if process is not None:
+            _terminate_subprocess(process)
+        raise BuilderError(
+            f"{label}_git_execution_failed: {exc}",
+            exit_kind="trusted_git_error",
+            exit_code=2,
+        ) from exc
+    finally:
+        selector.close()
+        if process is not None:
+            for pipe in (process.stdout, process.stderr):
+                if pipe is not None and not pipe.closed:
+                    try:
+                        pipe.close()
+                    except OSError:
+                        pass
+            _terminate_subprocess(process)
+
+
+def _require_trusted_git_local_only_support(git_path: Path) -> None:
+    command = [
+        str(git_path),
+        "--no-pager",
+        "--no-replace-objects",
+        "--no-lazy-fetch",
+        "--version",
+    ]
+    try:
+        result = subprocess.run(
+            command,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+            timeout=10,
+            env=_git_environment(git_path),
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise BuilderError(
+            f"trusted_git_local_only_capability_probe_failed: {exc}",
+            exit_kind="trusted_git_error",
+            exit_code=2,
+        ) from exc
+    if result.returncode != 0:
+        detail = result.stderr.decode(
+            "utf-8",
+            errors="replace",
+        ).strip()
+        raise BuilderError(
+            "trusted_git_no_lazy_fetch_unsupported: "
+            f"returncode={result.returncode} detail={detail!r}",
+            exit_kind="trusted_git_error",
+            exit_code=2,
+        )
+    if not result.stdout.startswith(b"git version "):
+        raise BuilderError(
+            "trusted_git_version_probe_invalid_output",
+            exit_kind="trusted_git_error",
+            exit_code=2,
+        )
 
 
 def _run_git(
@@ -1221,16 +1493,11 @@ def _run_git(
     timeout_seconds: int = 60,
     input_payload: bytes | None = None,
 ) -> bytes:
-    command = [
-        str(git_path),
-        "--no-pager",
-        "--no-replace-objects",
-        "-c",
-        f"safe.directory={repository_root}",
-        "-C",
-        str(repository_root),
-        *arguments,
-    ]
+    command = _git_command(
+        git_path=git_path,
+        repository_root=repository_root,
+        arguments=arguments,
+    )
     run_arguments: dict[str, Any] = {
         "stdout": subprocess.PIPE,
         "stderr": subprocess.PIPE,
@@ -1258,6 +1525,158 @@ def _run_git(
             exit_code=2,
         )
     return result.stdout
+
+
+def _parse_scoped_git_config(
+    raw: bytes,
+    *,
+    label: str,
+) -> list[tuple[str, str, str]]:
+    if len(raw) > MAX_GIT_CONFIG_BYTES:
+        raise BuilderError(
+            f"{label}_git_config_too_large: "
+            f"size={len(raw)} maximum={MAX_GIT_CONFIG_BYTES}",
+            exit_kind="trusted_git_error",
+            exit_code=2,
+        )
+    parts = raw.split(b"\x00")
+    if parts and parts[-1] == b"":
+        parts.pop()
+    if len(parts) % 2 != 0:
+        raise BuilderError(
+            f"{label}_git_config_record_structure_invalid",
+            exit_kind="trusted_git_error",
+            exit_code=2,
+        )
+
+    rows: list[tuple[str, str, str]] = []
+    for index in range(0, len(parts), 2):
+        scope_raw = parts[index]
+        entry_raw = parts[index + 1]
+        key_raw, separator, value_raw = entry_raw.partition(b"\n")
+        if not separator or not key_raw:
+            raise BuilderError(
+                f"{label}_git_config_entry_invalid: index={index // 2}",
+                exit_kind="trusted_git_error",
+                exit_code=2,
+            )
+        try:
+            scope = scope_raw.decode("ascii", errors="strict")
+            key = key_raw.decode("utf-8", errors="strict")
+            value = value_raw.decode("utf-8", errors="strict")
+        except UnicodeDecodeError as exc:
+            raise BuilderError(
+                f"{label}_git_config_entry_encoding_invalid: "
+                f"index={index // 2}",
+                exit_kind="trusted_git_error",
+                exit_code=2,
+            ) from exc
+        if scope not in {
+            "system",
+            "global",
+            "local",
+            "worktree",
+            "command",
+        }:
+            raise BuilderError(
+                f"{label}_git_config_scope_invalid: {scope!r}",
+                exit_kind="trusted_git_error",
+                exit_code=2,
+            )
+        rows.append((scope, key, value))
+    return rows
+
+
+def _git_config_key_opens_remote_object_boundary(key: str) -> bool:
+    normalized = key.casefold()
+    return (
+        normalized in {"core.sshcommand", "extensions.partialclone"}
+        or re.fullmatch(r"remote\..+\.promisor", normalized) is not None
+        or re.fullmatch(
+            r"remote\..+\.partialclonefilter",
+            normalized,
+        )
+        is not None
+    )
+
+
+def _reject_git_promisor_pack_markers(
+    object_store: Path,
+    *,
+    label: str,
+) -> None:
+    pack_directory = object_store / "pack"
+    try:
+        metadata = pack_directory.lstat()
+    except FileNotFoundError:
+        return
+    except OSError as exc:
+        raise BuilderError(
+            f"{label}_git_pack_directory_unavailable: "
+            f"{pack_directory}: {exc}",
+            exit_kind="trusted_git_error",
+            exit_code=2,
+        ) from exc
+    if stat.S_ISLNK(metadata.st_mode) or not stat.S_ISDIR(metadata.st_mode):
+        raise BuilderError(
+            f"{label}_git_pack_directory_not_protected_directory: "
+            f"{pack_directory}",
+            exit_kind="trusted_git_error",
+            exit_code=2,
+        )
+    try:
+        with os.scandir(pack_directory) as entries:
+            for entry in entries:
+                if entry.name.casefold().endswith(".promisor"):
+                    raise BuilderError(
+                        f"{label}_git_promisor_pack_marker_rejected",
+                        exit_kind="trusted_git_error",
+                        exit_code=2,
+                    )
+    except BuilderError:
+        raise
+    except OSError as exc:
+        raise BuilderError(
+            f"{label}_git_pack_directory_scan_failed: "
+            f"{pack_directory}: {exc}",
+            exit_kind="trusted_git_error",
+            exit_code=2,
+        ) from exc
+
+
+def _verify_git_local_only_repository_state(
+    *,
+    git_path: Path,
+    repository_root: Path,
+    object_store: Path,
+    label: str,
+) -> None:
+    config_raw = _run_git_bounded_capture(
+        git_path=git_path,
+        repository_root=repository_root,
+        arguments=("config", "--null", "--show-scope", "--list"),
+        label=f"{label}_git_config",
+        max_stdout_bytes=MAX_GIT_CONFIG_BYTES,
+    )
+    rejected = sorted(
+        {
+            f"{scope}:{key}"
+            for scope, key, _value in _parse_scoped_git_config(
+                config_raw,
+                label=label,
+            )
+            if scope in {"local", "worktree"}
+            and _git_config_key_opens_remote_object_boundary(key)
+        }
+    )
+    if rejected:
+        raise BuilderError(
+            f"{label}_git_local_only_config_rejected: "
+            + json.dumps(rejected, ensure_ascii=False, sort_keys=True),
+            exit_kind="trusted_git_error",
+            exit_code=2,
+        )
+    _reject_git_promisor_pack_markers(object_store, label=label)
 
 
 def _verify_git_repository(
@@ -1375,6 +1794,13 @@ def _git_storage_identity(
         ),
         repository_root=repository_root,
         label=f"{label}_git_object_store",
+    )
+
+    _verify_git_local_only_repository_state(
+        git_path=git_path,
+        repository_root=repository_root,
+        object_store=object_store,
+        label=label,
     )
 
     for alternate_name in ("alternates", "http-alternates"):
@@ -3545,6 +3971,7 @@ def _build(args: argparse.Namespace) -> bytes:
         raise BuilderError("control_plane_revision_not_sha40")
 
     trusted_git = _select_trusted_git(args.trusted_git)
+    _require_trusted_git_local_only_support(trusted_git)
     final_status_path = Path(args.final_status)
     release_decision_path = Path(args.release_decision)
     materialized_gate_set_path = (
