@@ -841,6 +841,8 @@ C_{\mathrm{boundary},t}
 +
 C_{\mathrm{verify},t}
 +
+C_{\mathrm{fallback},t}
++
 C_{\mathrm{commit},t}
 \]
 
@@ -853,6 +855,7 @@ where:
 - \(C_{\mathrm{materialize},t}\) computes the changed successor region;
 - \(C_{\mathrm{boundary},t}\) establishes the invariant boundary;
 - \(C_{\mathrm{verify},t}\) verifies the transition claim;
+- \(C_{\mathrm{fallback},t}\) is the actual cost of any broader evaluation or full reference recomputation selected because the transition-bounded path could not be completed or verified; it is zero only when no fallback is executed;
 - \(C_{\mathrm{commit},t}\) records and binds the successor state.
 
 The inspected frontier, not only the semantically accepted affected edge set, determines expansion work.
@@ -889,6 +892,17 @@ C_{\mathrm{index\mbox{-}maintenance},t}
 C_t
 \right)
 \]
+
+For per-transition reporting under an amortized measurement window, define:
+
+\[
+\widehat{C}_t =
+C_{\mathrm{index\mbox{-}maintenance},t}
++
+C_t
+\]
+
+A complete measured result must report \(C_t\), including conditional fallback work, and must also report or amortize \(C_{\mathrm{index\mbox{-}maintenance},t}\) through \(\widehat{C}_t\) or the system-wide total above.
 
 A transition-bounded architecture must not hide global work in:
 
@@ -1777,7 +1791,7 @@ F(R_t,e_t,G)
 and:
 
 \[
-R_{t+1}|_{I_t} = R_t|_{I_t}
+R_{t+1}|_{I_t} \equiv R_t|_{I_t}
 \]
 
 The transition-work target for change projection, frontier inspection, affected-subgraph construction, and affected-node evaluation is:
@@ -2051,7 +2065,7 @@ T(R_t,e_t,G_t^-,G_t^+,A_t,M_t)
 F(R_t,e_t,G_t^-)
 \]
 
-The complete measured cost remains:
+The complete measured transition cost remains:
 
 \[
 C_t =
@@ -2069,10 +2083,14 @@ C_{\mathrm{boundary},t}
 +
 C_{\mathrm{verify},t}
 +
+C_{\mathrm{fallback},t}
++
 C_{\mathrm{commit},t}
 \]
 
-with the affected-region target:
+where \(C_{\mathrm{fallback},t}=0\) only when no broader evaluation or full reference recomputation is executed. Otherwise it contains the complete actual fallback cost.
+
+The affected-region target remains:
 
 \[
 C_{\mathrm{expand},t}
@@ -2100,12 +2118,25 @@ C_{\mathrm{boundary},t}
 +
 C_{\mathrm{verify},t}
 +
+C_{\mathrm{fallback},t}
++
 C_{\mathrm{commit},t}
 \]
 
 does not conceal mandatory state-wide or graph-wide work.
 
-If any of those stages scans or rebuilds the complete state or dependency structure, that cost must be reported explicitly and the result must not be described as total transition-bounded computation.
+The complete amortized per-transition result is:
+
+\[
+\widehat{C}_t =
+C_{\mathrm{index\mbox{-}maintenance},t}
++
+C_t
+\]
+
+Therefore, independence from the complete prior-state or dependency-graph size also requires evidence that index maintenance does not conceal mandatory state-wide or graph-wide work. If fallback executes, its actual cost remains inside \(C_{\mathrm{fallback},t}\); a full-reference fallback may support successor correctness but must not be reported as a local transition-cost result.
+
+If any binding, detection, graph-binding, boundary, verification, fallback, commitment, or index-maintenance stage scans or rebuilds the complete state or dependency structure, that cost must be reported explicitly and the result must not be described as total transition-bounded computation.
 
 This statement is conditional.
 
