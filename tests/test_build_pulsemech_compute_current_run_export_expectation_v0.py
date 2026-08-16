@@ -2,13 +2,13 @@
 from __future__ import annotations
 
 import copy
+from collections import Counter
 import gc
 import hashlib
 import importlib.util
 import json
 import os
 import shlex
-import shutil
 import subprocess
 import sys
 import textwrap
@@ -37,6 +37,50 @@ EXPECTED_TOOL_SHA256 = (
     "56893caab8f5198a5e4d64dc55638f2d7365ed1660b85514eabc7461cc15b767"
 )
 EXPECTED_TOOL_GIT_BLOB_SHA1 = "f7b22613c759d32d5de0b30c7e86989a0c85bb10"
+
+
+EXPECTED_COLLECTED_TEST_COUNTS: dict[str, int] = {
+    "test_builder_artifact_identity_matches_reviewed_merge": 1,
+    "test_validation_dependencies_are_not_imported_at_module_load": 1,
+    "test_tools_tests_manifest_registers_builder_regression_exactly_once": 1,
+    "test_direct_nonisolated_execution_fails_before_argument_parsing": 1,
+    "test_poisoned_pythonpath_cannot_execute_validation_modules": 1,
+    "test_isolated_help_exposes_the_complete_protected_cli_surface": 1,
+    "test_nonisolated_dependency_initialization_fails_closed": 1,
+    "test_isolated_dependency_initialization_uses_interpreter_roots": 1,
+    "test_isolated_dependency_initialization_rejects_preloaded_module": 1,
+    "test_repository_paths_reject_noncanonical_forms": 8,
+    "test_canonical_json_and_strict_json_fail_closed": 1,
+    "test_trusted_current_run_binding_is_exact_and_dimension_preserving": 1,
+    "test_release_target_projection_stays_separate_from_workflow_sets": 1,
+    "test_observed_artifact_time_order_accepts_equality_and_rejects_inversion": 1,
+    "test_external_signer_policy_path_is_canonical_and_unique": 1,
+    "test_generated_expectation_preserves_closed_non_authority_boundary": 1,
+    "test_git_subprocess_profile_forces_local_only_object_access": 1,
+    "test_trusted_git_capability_probe_fails_closed_without_no_lazy_fetch": 1,
+    "test_git_local_only_preflight_rejects_remote_object_boundary_config": 5,
+    "test_git_local_only_config_capture_is_hard_bounded_before_parse": 1,
+    "test_git_local_only_preflight_rejects_promisor_pack_marker": 1,
+    "test_missing_promisor_object_cannot_execute_repository_ssh_command": 1,
+    "test_verified_tree_parser_and_final_mode_rejection": 1,
+    "test_rehashed_git_object_identity_rejects_substituted_payload": 1,
+    "test_independent_git_storage_rejects_shared_store": 1,
+    "test_output_boundary_rejects_case_aliases_and_repository_paths": 1,
+    "test_arbitrary_authority_payloads_are_not_retained_aggregately": 1,
+    "test_failure_diagnostic_is_canonical_and_non_authoritative": 1,
+    "test_authoritative_trusted_git_prerequisite_fails_instead_of_skipping": 1,
+    "test_complete_synthetic_current_run_cli_is_deterministic": 1,
+}
+EXPECTED_COLLECTED_TEST_ITEMS = sum(EXPECTED_COLLECTED_TEST_COUNTS.values())
+CRITICAL_REAL_GIT_TESTS = frozenset(
+    {
+        "test_git_local_only_preflight_rejects_remote_object_boundary_config",
+        "test_git_local_only_config_capture_is_hard_bounded_before_parse",
+        "test_git_local_only_preflight_rejects_promisor_pack_marker",
+        "test_missing_promisor_object_cannot_execute_repository_ssh_command",
+        "test_complete_synthetic_current_run_cli_is_deterministic",
+    }
+)
 
 
 def sha256_bytes(payload: bytes) -> str:
@@ -105,6 +149,93 @@ def run_tool(
 
 def builder_error_text(error: BaseException) -> str:
     return str(error)
+
+
+
+def _collected_test_name(item: Any) -> str:
+    original_name = getattr(item, "originalname", None)
+    if isinstance(original_name, str) and original_name:
+        return original_name
+    return str(item.name).split("[", 1)[0]
+
+
+class _AuthoritativeRegressionContract:
+    def __init__(self) -> None:
+        self._expected_nodeids: set[str] = set()
+        self._completed_nodeids: set[str] = set()
+        self._skipped_nodeids: set[str] = set()
+
+    def pytest_collection_finish(self, session: Any) -> None:
+        current_file = Path(__file__).resolve()
+        collected = [
+            item
+            for item in session.items
+            if Path(str(item.path)).resolve() == current_file
+        ]
+        observed_counts = Counter(
+            _collected_test_name(item) for item in collected
+        )
+        expected_counts = Counter(EXPECTED_COLLECTED_TEST_COUNTS)
+        if observed_counts != expected_counts:
+            missing = expected_counts - observed_counts
+            unexpected = observed_counts - expected_counts
+            raise pytest.UsageError(
+                "authoritative_regression_collection_contract_mismatch: "
+                + json.dumps(
+                    {
+                        "expected_items": EXPECTED_COLLECTED_TEST_ITEMS,
+                        "observed_items": len(collected),
+                        "missing": dict(sorted(missing.items())),
+                        "unexpected": dict(sorted(unexpected.items())),
+                    },
+                    sort_keys=True,
+                )
+            )
+
+        observed_names = set(observed_counts)
+        missing_critical = sorted(
+            CRITICAL_REAL_GIT_TESTS - observed_names
+        )
+        if missing_critical:
+            raise pytest.UsageError(
+                "authoritative_regression_critical_tests_missing: "
+                + json.dumps(missing_critical)
+            )
+        self._expected_nodeids = {item.nodeid for item in collected}
+
+    def pytest_runtest_logreport(self, report: Any) -> None:
+        if report.nodeid not in self._expected_nodeids:
+            return
+        if report.skipped:
+            self._skipped_nodeids.add(report.nodeid)
+        if report.when == "call" and (report.passed or report.failed):
+            self._completed_nodeids.add(report.nodeid)
+
+    def pytest_sessionfinish(self, session: Any, exitstatus: int) -> None:
+        missing_execution = sorted(
+            self._expected_nodeids - self._completed_nodeids
+        )
+        skipped = sorted(self._skipped_nodeids)
+        if not missing_execution and not skipped:
+            return
+
+        terminal = session.config.pluginmanager.get_plugin(
+            "terminalreporter"
+        )
+        detail = json.dumps(
+            {
+                "missing_execution": missing_execution,
+                "skipped": skipped,
+            },
+            sort_keys=True,
+        )
+        if terminal is not None:
+            terminal.write_sep(
+                "=",
+                "authoritative regression execution contract failed",
+            )
+            terminal.write_line(detail)
+        session.exitstatus = int(pytest.ExitCode.TESTS_FAILED)
 
 
 # ---------------------------------------------------------------------------
@@ -1397,10 +1528,34 @@ def test_failure_diagnostic_is_canonical_and_non_authoritative() -> None:
 
 
 def trusted_git_path() -> Path:
-    candidate = Path(shutil.which("git") or "/usr/bin/git").resolve(strict=True)
-    if candidate != Path("/usr/bin/git"):
-        pytest.skip(f"protected /usr/bin/git unavailable: {candidate}")
+    try:
+        candidate = TOOL_MODULE._select_trusted_git(None)
+        TOOL_MODULE._require_trusted_git_local_only_support(candidate)
+    except TOOL_MODULE.BuilderError as exc:
+        pytest.fail(
+            "authoritative protected Git prerequisite unavailable: "
+            f"{exc}",
+            pytrace=False,
+        )
     return candidate
+
+
+def test_authoritative_trusted_git_prerequisite_fails_instead_of_skipping(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def unavailable(_explicit: str | None) -> Path:
+        raise TOOL_MODULE.BuilderError(
+            "synthetic protected Git prerequisite failure",
+            exit_kind="trusted_git_error",
+            exit_code=2,
+        )
+
+    monkeypatch.setattr(TOOL_MODULE, "_select_trusted_git", unavailable)
+    with pytest.raises(
+        pytest.fail.Exception,
+        match="authoritative protected Git prerequisite unavailable",
+    ):
+        trusted_git_path()
 
 
 def git_run(repository: Path, *arguments: str) -> str:
@@ -2022,4 +2177,9 @@ def test_complete_synthetic_current_run_cli_is_deterministic(
 
 
 if __name__ == "__main__":
-    raise SystemExit(pytest.main([__file__]))
+    raise SystemExit(
+        pytest.main(
+            [__file__],
+            plugins=[_AuthoritativeRegressionContract()],
+        )
+    )
