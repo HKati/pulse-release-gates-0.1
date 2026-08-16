@@ -31,12 +31,12 @@ TEST_RELATIVE_PATH = (
     "tests/test_build_pulsemech_compute_current_run_export_expectation_v0.py"
 )
 
-EXPECTED_TOOL_LINES = 4111
-EXPECTED_TOOL_BYTES = 138587
+EXPECTED_TOOL_LINES = 4306
+EXPECTED_TOOL_BYTES = 144793
 EXPECTED_TOOL_SHA256 = (
-    "f7363e996f12c7040c8806f9d354e61440b6f219d36b6acd1f2a94119d9ad7dd"
+    "56893caab8f5198a5e4d64dc55638f2d7365ed1660b85514eabc7461cc15b767"
 )
-EXPECTED_TOOL_GIT_BLOB_SHA1 = "ecec872fec4a094e0e9a425fd3ad77e994b337aa"
+EXPECTED_TOOL_GIT_BLOB_SHA1 = "f7b22613c759d32d5de0b30c7e86989a0c85bb10"
 
 
 def sha256_bytes(payload: bytes) -> str:
@@ -873,6 +873,50 @@ def test_git_local_only_preflight_rejects_remote_object_boundary_config(
             object_store=object_store,
             label="probe",
         )
+
+
+def test_git_local_only_config_capture_is_hard_bounded_before_parse(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    repository = tmp_path / "repository"
+    initialize_git_repository(repository, {"tracked.txt": b"tracked\n"})
+    config_path = repository / ".git" / "config"
+    with config_path.open("a", encoding="utf-8", newline="\n") as stream:
+        stream.write('\n[pulse "oversized"]\n')
+        stream.write("payload = ")
+        stream.write(
+            "x"
+            * (
+                TOOL_MODULE.MAX_GIT_CONFIG_BYTES
+                + TOOL_MODULE.GIT_CAPTURE_CHUNK_BYTES
+            )
+        )
+        stream.write("\n")
+
+    def parser_must_not_run(*_args: Any, **_kwargs: Any) -> Any:
+        pytest.fail("oversized Git config reached the parser")
+
+    monkeypatch.setattr(
+        TOOL_MODULE,
+        "_parse_scoped_git_config",
+        parser_must_not_run,
+    )
+    object_store = (repository / ".git" / "objects").resolve(strict=True)
+    with pytest.raises(
+        TOOL_MODULE.BuilderError,
+        match="git_stdout_capture_limit_exceeded",
+    ) as captured:
+        TOOL_MODULE._verify_git_local_only_repository_state(
+            git_path=trusted_git_path(),
+            repository_root=repository,
+            object_store=object_store,
+            label="probe",
+        )
+
+    message = builder_error_text(captured.value)
+    assert f"maximum={TOOL_MODULE.MAX_GIT_CONFIG_BYTES}" in message
+    assert "observed_at_least=" in message
 
 
 def test_git_local_only_preflight_rejects_promisor_pack_marker(
@@ -1885,6 +1929,44 @@ def test_complete_synthetic_current_run_cli_is_deterministic(
         expectation["authority_boundary"]["changes_release_authority"]
         is False
     )
+
+    # Full-CLI fail-closed proof: oversized repository-local configuration is
+    # terminated at the hard capture boundary before config parsing continues.
+    subject_config_path = subject_root / ".git" / "config"
+    original_subject_config = subject_config_path.read_bytes()
+    with subject_config_path.open(
+        "a",
+        encoding="utf-8",
+        newline="\n",
+    ) as stream:
+        stream.write('\n[pulse "oversized"]\n')
+        stream.write("payload = ")
+        stream.write(
+            "x"
+            * (
+                TOOL_MODULE.MAX_GIT_CONFIG_BYTES
+                + TOOL_MODULE.GIT_CAPTURE_CHUNK_BYTES
+            )
+        )
+        stream.write("\n")
+
+    oversized = subprocess.run(
+        command,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    assert oversized.returncode == 2
+    assert oversized.stdout == b""
+    oversized_diagnostic = parse_json_bytes(oversized.stderr)
+    assert oversized_diagnostic["ok"] is False
+    assert oversized_diagnostic["authority_effect"] == "none"
+    assert oversized_diagnostic["exit_kind"] == "trusted_git_error"
+    assert any(
+        "subject_git_config_git_stdout_capture_limit_exceeded" in error
+        for error in oversized_diagnostic["errors"]
+    )
+    subject_config_path.write_bytes(original_subject_config)
 
     # Full-CLI fail-closed proof: repository-local promisor/transport state is
     # rejected before any object read can invoke the configured transport.
