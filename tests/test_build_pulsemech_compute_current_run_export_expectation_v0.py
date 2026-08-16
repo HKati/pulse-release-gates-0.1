@@ -7,6 +7,7 @@ import hashlib
 import importlib.util
 import json
 import os
+import shlex
 import shutil
 import subprocess
 import sys
@@ -30,12 +31,12 @@ TEST_RELATIVE_PATH = (
     "tests/test_build_pulsemech_compute_current_run_export_expectation_v0.py"
 )
 
-EXPECTED_TOOL_LINES = 3879
-EXPECTED_TOOL_BYTES = 131252
+EXPECTED_TOOL_LINES = 4111
+EXPECTED_TOOL_BYTES = 138587
 EXPECTED_TOOL_SHA256 = (
-    "67fa2ef3771b829a3084265e9efac1829db38b16bdbec9367c4767ecda60c584"
+    "f7363e996f12c7040c8806f9d354e61440b6f219d36b6acd1f2a94119d9ad7dd"
 )
-EXPECTED_TOOL_GIT_BLOB_SHA1 = "ff1965fe716de4eaf7dd49324480dc20965249b4"
+EXPECTED_TOOL_GIT_BLOB_SHA1 = "ecec872fec4a094e0e9a425fd3ad77e994b337aa"
 
 
 def sha256_bytes(payload: bytes) -> str:
@@ -754,6 +755,251 @@ def test_generated_expectation_preserves_closed_non_authority_boundary() -> None
 # ---------------------------------------------------------------------------
 # Git object identity, independent storage, and output non-interference
 # ---------------------------------------------------------------------------
+
+
+def test_git_subprocess_profile_forces_local_only_object_access(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, Any] = {}
+
+    def fake_run(command: list[str], **kwargs: Any) -> Any:
+        captured["command"] = list(command)
+        captured["kwargs"] = kwargs
+        return subprocess.CompletedProcess(
+            command,
+            0,
+            stdout=b"ok\n",
+            stderr=b"",
+        )
+
+    monkeypatch.setattr(TOOL_MODULE.subprocess, "run", fake_run)
+    observed = TOOL_MODULE._run_git(
+        git_path=Path("/usr/bin/git"),
+        repository_root=ROOT,
+        arguments=("rev-parse", "HEAD"),
+        label="probe",
+    )
+
+    assert observed == b"ok\n"
+    command = captured["command"]
+    assert "--no-lazy-fetch" in command
+    command_config = {
+        command[index + 1]
+        for index, value in enumerate(command[:-1])
+        if value == "-c"
+    }
+    assert "core.fsmonitor=false" in command_config
+    assert "core.sshCommand=/bin/false" in command_config
+    assert "credential.helper=" in command_config
+    assert "credential.interactive=false" in command_config
+    assert "protocol.allow=never" in command_config
+    assert "protocol.file.allow=never" in command_config
+    assert "protocol.ssh.allow=never" in command_config
+
+    environment = captured["kwargs"]["env"]
+    assert environment["GIT_ALLOW_PROTOCOL"] == ""
+    assert environment["GIT_NO_LAZY_FETCH"] == "1"
+    assert environment["GIT_NO_REPLACE_OBJECTS"] == "1"
+    assert environment["GIT_PROTOCOL_FROM_USER"] == "0"
+    assert environment["GIT_SSH_COMMAND"] == "/bin/false"
+    assert environment["GIT_ASKPASS"] == "/bin/false"
+    assert environment["SSH_ASKPASS"] == "/bin/false"
+    assert environment["GIT_TERMINAL_PROMPT"] == "0"
+
+
+def test_trusted_git_capability_probe_fails_closed_without_no_lazy_fetch(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fake_run(command: list[str], **_kwargs: Any) -> Any:
+        return subprocess.CompletedProcess(
+            command,
+            129,
+            stdout=b"",
+            stderr=b"unknown option: --no-lazy-fetch\n",
+        )
+
+    monkeypatch.setattr(TOOL_MODULE.subprocess, "run", fake_run)
+    with pytest.raises(
+        TOOL_MODULE.BuilderError,
+        match="trusted_git_no_lazy_fetch_unsupported",
+    ):
+        TOOL_MODULE._require_trusted_git_local_only_support(
+            Path("/usr/bin/git")
+        )
+
+
+@pytest.mark.parametrize(
+    ("scope", "key", "value"),
+    [
+        ("local", "extensions.partialClone", "origin"),
+        ("local", "remote.origin.promisor", "true"),
+        ("local", "remote.origin.partialCloneFilter", "blob:none"),
+        ("local", "core.sshCommand", "/tmp/subject-selected-ssh"),
+        ("worktree", "core.sshCommand", "/tmp/worktree-selected-ssh"),
+    ],
+)
+def test_git_local_only_preflight_rejects_remote_object_boundary_config(
+    tmp_path: Path,
+    scope: str,
+    key: str,
+    value: str,
+) -> None:
+    repository = tmp_path / "repository"
+    initialize_git_repository(repository, {"tracked.txt": b"tracked\n"})
+
+    if key.casefold() == "extensions.partialclone":
+        git_run(repository, "config", "core.repositoryFormatVersion", "1")
+        git_run(
+            repository,
+            "config",
+            "remote.origin.url",
+            "ssh://example.invalid/repository",
+        )
+    if scope == "worktree":
+        git_run(repository, "config", "core.repositoryFormatVersion", "1")
+        git_run(repository, "config", "extensions.worktreeConfig", "true")
+        git_run(repository, "config", "--worktree", key, value)
+    else:
+        git_run(repository, "config", "--local", key, value)
+
+    object_store = (repository / ".git" / "objects").resolve(strict=True)
+    with pytest.raises(
+        TOOL_MODULE.BuilderError,
+        match="git_local_only_config_rejected",
+    ):
+        TOOL_MODULE._verify_git_local_only_repository_state(
+            git_path=trusted_git_path(),
+            repository_root=repository,
+            object_store=object_store,
+            label="probe",
+        )
+
+
+def test_git_local_only_preflight_rejects_promisor_pack_marker(
+    tmp_path: Path,
+) -> None:
+    repository = tmp_path / "repository"
+    initialize_git_repository(repository, {"tracked.txt": b"tracked\n"})
+    object_store = (repository / ".git" / "objects").resolve(strict=True)
+    pack_directory = object_store / "pack"
+    pack_directory.mkdir(exist_ok=True)
+    (pack_directory / "pack-synthetic.promisor").write_bytes(b"")
+
+    with pytest.raises(
+        TOOL_MODULE.BuilderError,
+        match="git_promisor_pack_marker_rejected",
+    ):
+        TOOL_MODULE._verify_git_local_only_repository_state(
+            git_path=trusted_git_path(),
+            repository_root=repository,
+            object_store=object_store,
+            label="probe",
+        )
+
+
+def test_missing_promisor_object_cannot_execute_repository_ssh_command(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "source"
+    partial = tmp_path / "partial"
+    marker = tmp_path / "transport-command-executed.txt"
+    sentinel = tmp_path / "subject-selected-ssh.sh"
+
+    initialize_git_repository(
+        source,
+        {"promised.bin": b"PULSEmech promised object regression\n"},
+    )
+    git_run(source, "config", "uploadpack.allowFilter", "true")
+    git_run(source, "config", "uploadpack.allowAnySHA1InWant", "true")
+    git_run(
+        tmp_path,
+        "clone",
+        "-q",
+        "--no-local",
+        "--no-checkout",
+        "--filter=blob:none",
+        source.as_uri(),
+        str(partial),
+    )
+    promised_blob = git_run(source, "rev-parse", "HEAD:promised.bin")
+
+    local_probe = subprocess.run(
+        [
+            str(trusted_git_path()),
+            "--no-lazy-fetch",
+            "-C",
+            str(partial),
+            "cat-file",
+            "-e",
+            promised_blob,
+        ],
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+        env={
+            "GIT_CONFIG_GLOBAL": os.devnull,
+            "GIT_CONFIG_NOSYSTEM": "1",
+            "GIT_NO_LAZY_FETCH": "1",
+            "GIT_TERMINAL_PROMPT": "0",
+            "LANG": "C",
+            "LC_ALL": "C",
+            "PATH": "/usr/bin",
+        },
+    )
+    assert local_probe.returncode != 0
+
+    sentinel.write_text(
+        "#!/bin/sh\n"
+        f"printf executed > {shlex.quote(str(marker))}\n"
+        "exit 1\n",
+        encoding="utf-8",
+        newline="\n",
+    )
+    sentinel.chmod(0o755)
+    git_run(
+        partial,
+        "config",
+        "remote.origin.url",
+        "ssh://example.invalid/repository",
+    )
+    git_run(partial, "config", "core.sshCommand", str(sentinel))
+
+    vulnerable = subprocess.run(
+        [
+            str(trusted_git_path()),
+            "-C",
+            str(partial),
+            "cat-file",
+            "blob",
+            promised_blob,
+        ],
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+        timeout=10,
+        env={
+            "GIT_CONFIG_GLOBAL": os.devnull,
+            "GIT_CONFIG_NOSYSTEM": "1",
+            "GIT_TERMINAL_PROMPT": "0",
+            "LANG": "C",
+            "LC_ALL": "C",
+            "PATH": "/usr/bin",
+        },
+    )
+    assert vulnerable.returncode != 0
+    assert marker.read_text(encoding="utf-8") == "executed"
+    marker.unlink()
+
+    with pytest.raises(TOOL_MODULE.BuilderError, match="git_failed"):
+        TOOL_MODULE._run_git(
+            git_path=trusted_git_path(),
+            repository_root=partial,
+            arguments=("cat-file", "blob", promised_blob),
+            label="promisor_probe",
+        )
+    assert not marker.exists()
 
 
 def test_verified_tree_parser_and_final_mode_rejection() -> None:
@@ -1639,6 +1885,59 @@ def test_complete_synthetic_current_run_cli_is_deterministic(
         expectation["authority_boundary"]["changes_release_authority"]
         is False
     )
+
+    # Full-CLI fail-closed proof: repository-local promisor/transport state is
+    # rejected before any object read can invoke the configured transport.
+    marker = tmp_path / "full-cli-transport-command-executed.txt"
+    sentinel = tmp_path / "full-cli-subject-selected-ssh.sh"
+    sentinel.write_text(
+        "#!/bin/sh\n"
+        f"printf executed > {shlex.quote(str(marker))}\n"
+        "exit 1\n",
+        encoding="utf-8",
+        newline="\n",
+    )
+    sentinel.chmod(0o755)
+    git_run(
+        subject_root,
+        "config",
+        "--local",
+        "remote.origin.promisor",
+        "true",
+    )
+    git_run(
+        subject_root,
+        "config",
+        "--local",
+        "remote.origin.partialCloneFilter",
+        "blob:none",
+    )
+    git_run(
+        subject_root,
+        "config",
+        "--local",
+        "core.sshCommand",
+        str(sentinel),
+    )
+
+    blocked = subprocess.run(
+        command,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    assert blocked.returncode == 2
+    assert blocked.stdout == b""
+    blocked_diagnostic = parse_json_bytes(blocked.stderr)
+    assert blocked_diagnostic["ok"] is False
+    assert blocked_diagnostic["authority_effect"] == "none"
+    assert blocked_diagnostic["exit_kind"] == "trusted_git_error"
+    assert any(
+        "subject_git_local_only_config_rejected" in error
+        for error in blocked_diagnostic["errors"]
+    )
+    assert not marker.exists()
+
 
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__]))
