@@ -166,25 +166,30 @@ meaning.
                                    │
                                    │ scopes
                                    ▼
-┌──────────────────────────────────────────────────────────────────────┐
-│                  bound authority relation Rτ                        │
-│                                                                      │
-│  S ──binds──────────────────────────────► E                          │
-│  │                                                                   │
-│  └──identifies──────────────────────────► A                          │
-│                                                                      │
-│  P ──materializes────────────────────────► G                         │
-│                                                                      │
-│  V ──verifies the bindings and replay state across S, E, A, P, G    │
-│                                                                      │
-│  G ──is preserved in the final gate-state carrier────────────────► F │
-│                                                                      │
-│  S + E + A + P + G + V + F ──close as the complete relation Rτ      │
-└────────────────────────────────────┬─────────────────────────────────┘
-                                     │ materializes
-                                     ▼
-                           Dτ = ALLOW | BLOCK
-                        transition-authority state
+┌────────────────────────────────────────────────────────────────────────┐
+│                    bound authority relation Rτ                        │
+│                                                                        │
+│  S ──binds────────────────────────────────────► E                      │
+│  │                                                                     │
+│  └──identifies────────────────────────────────► A                      │
+│                                                                        │
+│  V ──verifies E and its bindings to S, A, and P                       │
+│  V ──supplies replayable per-entry materialization admissibility      │
+│                                                                        │
+│  P + workflow-effective policy selection                              │
+│    + verifier-bound admissibility                                     │
+│    ──materialize the complete workflow-effective gate state────────► G │
+│                                                                        │
+│  G ──is carried in the final gate-state carrier────────────────────► F │
+│                                                                        │
+│  S + E + A + P + G + V + F ──close as the complete relation Rτ        │
+└──────────────────────────────────────┬─────────────────────────────────┘
+                                       │ strict fail-closed evaluation
+                                       │ by check_gates.py
+                                       ▼
+                             Dτ = ALLOW | BLOCK
+                          transition-authority state
+                    carried and enforced by primary CI
 ```
 
 The named edges are relations:
@@ -193,13 +198,29 @@ The named edges are relations:
 scopes
 binds
 identifies
-materializes
 verifies
-preserves
+supplies admissibility
+materializes
+carries
 closes
+evaluates
+enforces
 ```
 
-They are the structure from which the terminal authority state is reconstructed.
+`V` supplies the verified evidence-binding and per-entry materialization
+admissibility state.
+
+The separate policy-derived materializer canonically replays that state and
+combines it with the workflow-effective policy selection to produce `G`.
+
+`F` carries the resulting materialized gate state.
+
+Strict fail-closed evaluation by
+`PULSE_safe_pack_v0/tools/check_gates.py` closes the complete relation `Rτ`
+into `Dτ`.
+
+The primary CI terminal result carries and enforces that transition-authority
+state.
 
 ---
 
