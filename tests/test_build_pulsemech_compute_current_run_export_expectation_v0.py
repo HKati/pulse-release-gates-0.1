@@ -8,7 +8,6 @@ import importlib.util
 import json
 import os
 import shlex
-import shutil
 import subprocess
 import sys
 import textwrap
@@ -37,6 +36,117 @@ EXPECTED_TOOL_SHA256 = (
     "56893caab8f5198a5e4d64dc55638f2d7365ed1660b85514eabc7461cc15b767"
 )
 EXPECTED_TOOL_GIT_BLOB_SHA1 = "f7b22613c759d32d5de0b30c7e86989a0c85bb10"
+
+
+EXPECTED_UNPARAMETERIZED_TESTS = frozenset(
+    {
+        "test_builder_artifact_identity_matches_reviewed_merge",
+        "test_validation_dependencies_are_not_imported_at_module_load",
+        "test_tools_tests_manifest_registers_builder_regression_exactly_once",
+        "test_direct_nonisolated_execution_fails_before_argument_parsing",
+        "test_poisoned_pythonpath_cannot_execute_validation_modules",
+        "test_isolated_help_exposes_the_complete_protected_cli_surface",
+        "test_nonisolated_dependency_initialization_fails_closed",
+        "test_isolated_dependency_initialization_uses_interpreter_roots",
+        "test_isolated_dependency_initialization_rejects_preloaded_module",
+        "test_canonical_json_and_strict_json_fail_closed",
+        "test_trusted_current_run_binding_is_exact_and_dimension_preserving",
+        "test_release_target_projection_stays_separate_from_workflow_sets",
+        "test_observed_artifact_time_order_accepts_equality_and_rejects_inversion",
+        "test_external_signer_policy_path_is_canonical_and_unique",
+        "test_generated_expectation_preserves_closed_non_authority_boundary",
+        "test_git_subprocess_profile_forces_local_only_object_access",
+        "test_trusted_git_capability_probe_fails_closed_without_no_lazy_fetch",
+        "test_git_local_only_config_capture_is_hard_bounded_before_parse",
+        "test_git_local_only_preflight_rejects_promisor_pack_marker",
+        "test_missing_promisor_object_cannot_execute_repository_ssh_command",
+        "test_verified_tree_parser_and_final_mode_rejection",
+        "test_rehashed_git_object_identity_rejects_substituted_payload",
+        "test_independent_git_storage_rejects_shared_store",
+        "test_output_boundary_rejects_case_aliases_and_repository_paths",
+        "test_arbitrary_authority_payloads_are_not_retained_aggregately",
+        "test_failure_diagnostic_is_canonical_and_non_authoritative",
+        "test_authoritative_trusted_git_selection_continues_to_capable_candidate",
+        "test_authoritative_trusted_git_prerequisite_fails_instead_of_skipping",
+        "test_complete_synthetic_current_run_cli_is_deterministic",
+    }
+)
+EXPECTED_PARAMETERIZED_TEST_CASES: dict[
+    str,
+    dict[str, dict[str, str]],
+] = {
+    "test_repository_paths_reject_noncanonical_forms": {
+        "empty": {"value": ""},
+        "absolute-path": {"value": "/absolute/path"},
+        "windows-separator": {"value": "relative\\windows"},
+        "parent-traversal": {"value": "relative/../escape"},
+        "dot-component": {"value": "relative/./alias"},
+        "trailing-slash": {"value": "relative/trailing/"},
+        "single-dot": {"value": "."},
+        "double-dot": {"value": ".."},
+    },
+    "test_git_local_only_preflight_rejects_remote_object_boundary_config": {
+        "local-extensions-partial-clone": {
+            "scope": "local",
+            "key": "extensions.partialClone",
+            "value": "origin",
+        },
+        "local-remote-promisor": {
+            "scope": "local",
+            "key": "remote.origin.promisor",
+            "value": "true",
+        },
+        "local-remote-partial-clone-filter": {
+            "scope": "local",
+            "key": "remote.origin.partialCloneFilter",
+            "value": "blob:none",
+        },
+        "local-core-ssh-command": {
+            "scope": "local",
+            "key": "core.sshCommand",
+            "value": "/tmp/subject-selected-ssh",
+        },
+        "worktree-core-ssh-command": {
+            "scope": "worktree",
+            "key": "core.sshCommand",
+            "value": "/tmp/worktree-selected-ssh",
+        },
+    },
+}
+
+
+def _expected_collected_item_parameters() -> dict[str, dict[str, str]]:
+    expected = {name: {} for name in EXPECTED_UNPARAMETERIZED_TESTS}
+    for function_name, cases in EXPECTED_PARAMETERIZED_TEST_CASES.items():
+        for case_id, parameters in cases.items():
+            expected[f"{function_name}[{case_id}]"] = dict(parameters)
+    return expected
+
+
+EXPECTED_COLLECTED_ITEM_PARAMETERS = _expected_collected_item_parameters()
+EXPECTED_COLLECTED_TEST_ITEMS = len(EXPECTED_COLLECTED_ITEM_PARAMETERS)
+EXPECTED_COLLECTED_TEST_FUNCTIONS = frozenset(
+    EXPECTED_UNPARAMETERIZED_TESTS
+    | frozenset(EXPECTED_PARAMETERIZED_TEST_CASES)
+)
+CRITICAL_REAL_GIT_ITEMS = frozenset(
+    {
+        "test_git_local_only_preflight_rejects_remote_object_boundary_config"
+        "[local-extensions-partial-clone]",
+        "test_git_local_only_preflight_rejects_remote_object_boundary_config"
+        "[local-remote-promisor]",
+        "test_git_local_only_preflight_rejects_remote_object_boundary_config"
+        "[local-remote-partial-clone-filter]",
+        "test_git_local_only_preflight_rejects_remote_object_boundary_config"
+        "[local-core-ssh-command]",
+        "test_git_local_only_preflight_rejects_remote_object_boundary_config"
+        "[worktree-core-ssh-command]",
+        "test_git_local_only_config_capture_is_hard_bounded_before_parse",
+        "test_git_local_only_preflight_rejects_promisor_pack_marker",
+        "test_missing_promisor_object_cannot_execute_repository_ssh_command",
+        "test_complete_synthetic_current_run_cli_is_deterministic",
+    }
+)
 
 
 def sha256_bytes(payload: bytes) -> str:
@@ -106,6 +216,133 @@ def run_tool(
 def builder_error_text(error: BaseException) -> str:
     return str(error)
 
+
+
+def _collected_test_name(item: Any) -> str:
+    original_name = getattr(item, "originalname", None)
+    if isinstance(original_name, str) and original_name:
+        return original_name
+    return str(item.name).split("[", 1)[0]
+
+
+def _collected_item_parameters(item: Any) -> dict[str, Any]:
+    callspec = getattr(item, "callspec", None)
+    if callspec is None:
+        return {}
+    return dict(callspec.params)
+
+
+class _AuthoritativeRegressionContract:
+    def __init__(self) -> None:
+        self._expected_nodeids: set[str] = set()
+        self._completed_nodeids: set[str] = set()
+        self._skipped_nodeids: set[str] = set()
+
+    def pytest_collection_finish(self, session: Any) -> None:
+        current_file = Path(__file__).resolve()
+        collected = [
+            item
+            for item in session.items
+            if Path(str(item.path)).resolve() == current_file
+        ]
+
+        observed: dict[str, dict[str, Any]] = {}
+        duplicate_item_names: list[str] = []
+        for item in collected:
+            item_name = str(item.name)
+            if item_name in observed:
+                duplicate_item_names.append(item_name)
+                continue
+            observed[item_name] = _collected_item_parameters(item)
+
+        expected = EXPECTED_COLLECTED_ITEM_PARAMETERS
+        missing = sorted(set(expected) - set(observed))
+        unexpected = sorted(set(observed) - set(expected))
+        parameter_mismatches = {
+            name: {
+                "expected": expected[name],
+                "observed": observed[name],
+            }
+            for name in sorted(set(expected) & set(observed))
+            if observed[name] != expected[name]
+        }
+        observed_function_names = {
+            _collected_test_name(item) for item in collected
+        }
+        missing_functions = sorted(
+            EXPECTED_COLLECTED_TEST_FUNCTIONS - observed_function_names
+        )
+        unexpected_functions = sorted(
+            observed_function_names - EXPECTED_COLLECTED_TEST_FUNCTIONS
+        )
+
+        if (
+            len(collected) != EXPECTED_COLLECTED_TEST_ITEMS
+            or duplicate_item_names
+            or missing
+            or unexpected
+            or parameter_mismatches
+            or missing_functions
+            or unexpected_functions
+        ):
+            raise pytest.UsageError(
+                "authoritative_regression_collection_contract_mismatch: "
+                + json.dumps(
+                    {
+                        "duplicate_item_names": sorted(duplicate_item_names),
+                        "expected_items": EXPECTED_COLLECTED_TEST_ITEMS,
+                        "missing_functions": missing_functions,
+                        "missing_items": missing,
+                        "observed_items": len(collected),
+                        "parameter_mismatches": parameter_mismatches,
+                        "unexpected_functions": unexpected_functions,
+                        "unexpected_items": unexpected,
+                    },
+                    sort_keys=True,
+                )
+            )
+
+        missing_critical = sorted(CRITICAL_REAL_GIT_ITEMS - set(observed))
+        if missing_critical:
+            raise pytest.UsageError(
+                "authoritative_regression_critical_items_missing: "
+                + json.dumps(missing_critical)
+            )
+        self._expected_nodeids = {item.nodeid for item in collected}
+
+    def pytest_runtest_logreport(self, report: Any) -> None:
+        if report.nodeid not in self._expected_nodeids:
+            return
+        if report.skipped:
+            self._skipped_nodeids.add(report.nodeid)
+        if report.when == "call" and (report.passed or report.failed):
+            self._completed_nodeids.add(report.nodeid)
+
+    def pytest_sessionfinish(self, session: Any, exitstatus: int) -> None:
+        missing_execution = sorted(
+            self._expected_nodeids - self._completed_nodeids
+        )
+        skipped = sorted(self._skipped_nodeids)
+        if not missing_execution and not skipped:
+            return
+
+        terminal = session.config.pluginmanager.get_plugin(
+            "terminalreporter"
+        )
+        detail = json.dumps(
+            {
+                "missing_execution": missing_execution,
+                "skipped": skipped,
+            },
+            sort_keys=True,
+        )
+        if terminal is not None:
+            terminal.write_sep(
+                "=",
+                "authoritative regression execution contract failed",
+            )
+            terminal.write_line(detail)
+        session.exitstatus = int(pytest.ExitCode.TESTS_FAILED)
 
 # ---------------------------------------------------------------------------
 # Reviewed artifact identity and repository-native registration
@@ -435,6 +672,16 @@ def test_isolated_dependency_initialization_rejects_preloaded_module(
         "relative/trailing/",
         ".",
         "..",
+    ],
+    ids=[
+        "empty",
+        "absolute-path",
+        "windows-separator",
+        "parent-traversal",
+        "dot-component",
+        "trailing-slash",
+        "single-dot",
+        "double-dot",
     ],
 )
 def test_repository_paths_reject_noncanonical_forms(value: str) -> None:
@@ -836,6 +1083,13 @@ def test_trusted_git_capability_probe_fails_closed_without_no_lazy_fetch(
         ("local", "remote.origin.partialCloneFilter", "blob:none"),
         ("local", "core.sshCommand", "/tmp/subject-selected-ssh"),
         ("worktree", "core.sshCommand", "/tmp/worktree-selected-ssh"),
+    ],
+    ids=[
+        "local-extensions-partial-clone",
+        "local-remote-promisor",
+        "local-remote-partial-clone-filter",
+        "local-core-ssh-command",
+        "worktree-core-ssh-command",
     ],
 )
 def test_git_local_only_preflight_rejects_remote_object_boundary_config(
@@ -1397,10 +1651,105 @@ def test_failure_diagnostic_is_canonical_and_non_authoritative() -> None:
 
 
 def trusted_git_path() -> Path:
-    candidate = Path(shutil.which("git") or "/usr/bin/git").resolve(strict=True)
-    if candidate != Path("/usr/bin/git"):
-        pytest.skip(f"protected /usr/bin/git unavailable: {candidate}")
-    return candidate
+    failures: list[dict[str, str]] = []
+    for supplied_candidate in TOOL_MODULE._trusted_git_candidates():
+        try:
+            candidate = TOOL_MODULE._validated_trusted_git(
+                supplied_candidate
+            )
+            TOOL_MODULE._require_trusted_git_local_only_support(candidate)
+        except TOOL_MODULE.BuilderError as exc:
+            failures.append(
+                {
+                    "candidate": str(supplied_candidate),
+                    "error": str(exc),
+                }
+            )
+            continue
+        return candidate
+
+    pytest.fail(
+        "authoritative protected Git prerequisite unavailable: "
+        + json.dumps(failures, sort_keys=True),
+        pytrace=False,
+    )
+
+
+def test_authoritative_trusted_git_selection_continues_to_capable_candidate(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    first = Path("/usr/bin/git")
+    second = Path("/usr/local/bin/git")
+    attempted: list[Path] = []
+
+    monkeypatch.setattr(
+        TOOL_MODULE,
+        "_trusted_git_candidates",
+        lambda: (first, second),
+    )
+    monkeypatch.setattr(
+        TOOL_MODULE,
+        "_validated_trusted_git",
+        lambda candidate: candidate,
+    )
+
+    def require_capability(candidate: Path) -> None:
+        attempted.append(candidate)
+        if candidate == first:
+            raise TOOL_MODULE.BuilderError(
+                "trusted_git_no_lazy_fetch_unsupported: synthetic old Git",
+                exit_kind="trusted_git_error",
+                exit_code=2,
+            )
+
+    monkeypatch.setattr(
+        TOOL_MODULE,
+        "_require_trusted_git_local_only_support",
+        require_capability,
+    )
+
+    assert trusted_git_path() == second
+    assert attempted == [first, second]
+
+
+def test_authoritative_trusted_git_prerequisite_fails_instead_of_skipping(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    first = Path("/usr/bin/git")
+    second = Path("/usr/local/bin/git")
+
+    monkeypatch.setattr(
+        TOOL_MODULE,
+        "_trusted_git_candidates",
+        lambda: (first, second),
+    )
+    monkeypatch.setattr(
+        TOOL_MODULE,
+        "_validated_trusted_git",
+        lambda candidate: candidate,
+    )
+
+    def unsupported(candidate: Path) -> None:
+        raise TOOL_MODULE.BuilderError(
+            f"trusted_git_no_lazy_fetch_unsupported: {candidate}",
+            exit_kind="trusted_git_error",
+            exit_code=2,
+        )
+
+    monkeypatch.setattr(
+        TOOL_MODULE,
+        "_require_trusted_git_local_only_support",
+        unsupported,
+    )
+    with pytest.raises(
+        pytest.fail.Exception,
+        match="authoritative protected Git prerequisite unavailable",
+    ) as captured:
+        trusted_git_path()
+
+    detail = str(captured.value)
+    assert str(first) in detail
+    assert str(second) in detail
 
 
 def git_run(repository: Path, *arguments: str) -> str:
@@ -2022,4 +2371,9 @@ def test_complete_synthetic_current_run_cli_is_deterministic(
 
 
 if __name__ == "__main__":
-    raise SystemExit(pytest.main([__file__]))
+    raise SystemExit(
+        pytest.main(
+            [__file__],
+            plugins=[_AuthoritativeRegressionContract()],
+        )
+    )
