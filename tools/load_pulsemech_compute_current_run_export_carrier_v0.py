@@ -35,7 +35,7 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
-from typing import Any, Sequence
+from typing import Any, Callable, Sequence
 
 
 TOOL_NAME = "load_pulsemech_compute_current_run_export_carrier_v0"
@@ -166,6 +166,10 @@ def _file_identity(value: os.stat_result) -> tuple[Any, ...]:
     )
 
 
+def _inode_identity(value: os.stat_result) -> tuple[Any, Any]:
+    return (getattr(value, "st_dev", None), getattr(value, "st_ino", None))
+
+
 def _directory_identity(value: os.stat_result) -> tuple[Any, ...]:
     return tuple(
         getattr(value, name, None)
@@ -229,6 +233,8 @@ def _require_supported_execution_platform() -> None:
         os.stat in os.supports_dir_fd,
         os.rename in os.supports_dir_fd,
         os.unlink in os.supports_dir_fd,
+        os.link in os.supports_dir_fd,
+        os.link in os.supports_follow_symlinks,
         hasattr(os, "O_DIRECTORY"),
         hasattr(os, "O_NOFOLLOW"),
     )
@@ -362,9 +368,9 @@ def _positive_int(value: str) -> int:
 def _slug(value: str) -> str:
     chars: list[str] = []
     dash = False
-    for char in value.lower():
-        if char.isalnum() or char in "._+":
-            chars.append(char)
+    for char in value:
+        if char.isascii() and (char.isalnum() or char in "._+"):
+            chars.append(char.lower())
             dash = False
         elif not dash:
             chars.append("-")
@@ -1794,32 +1800,133 @@ def _write_all(descriptor: int, payload: bytes) -> None:
         offset += written
 
 
-def _atomic_write_external(path: Path, payload: bytes) -> None:
+def _output_target_snapshot(
+    *,
+    chain: DirectoryChain,
+    final_name: str,
+    candidate: Path,
+) -> os.stat_result | None:
+    try:
+        observed = os.stat(
+            final_name,
+            dir_fd=chain.final_fd,
+            follow_symlinks=False,
+        )
+    except FileNotFoundError:
+        return None
+    except OSError as exc:
+        raise CarrierError(
+            f"output_target_stat_failed: {candidate}: {exc}",
+            exit_kind="output_boundary_error",
+        ) from exc
+    if not stat.S_ISREG(observed.st_mode):
+        raise CarrierError(
+            f"output_existing_target_not_regular_file: {candidate}",
+            exit_kind="output_boundary_error",
+        )
+    return observed
+
+
+def _verify_output_target_unchanged(
+    *,
+    chain: DirectoryChain,
+    final_name: str,
+    candidate: Path,
+    expected: os.stat_result | None,
+) -> None:
+    observed = _output_target_snapshot(
+        chain=chain,
+        final_name=final_name,
+        candidate=candidate,
+    )
+    if expected is None:
+        if observed is not None:
+            raise CarrierError(
+                f"output_target_appeared_before_publish: {candidate}",
+                exit_kind="output_boundary_error",
+            )
+        return
+    if observed is None or _file_identity(observed) != _file_identity(expected):
+        raise CarrierError(
+            f"output_target_changed_before_publish: {candidate}",
+            exit_kind="output_boundary_error",
+        )
+
+
+def _verify_output_payload_at_name(
+    *,
+    chain: DirectoryChain,
+    name: str,
+    payload: bytes,
+    label: str,
+) -> tuple[Any, ...]:
+    read_fd = os.open(name, _read_flags(), dir_fd=chain.final_fd)
+    try:
+        before = os.fstat(read_fd)
+        if not stat.S_ISREG(before.st_mode) or before.st_size != len(payload):
+            raise CarrierError(
+                f"{label}_identity_invalid",
+                exit_kind="output_write_error",
+            )
+        observed = _read_descriptor_bytes(
+            read_fd,
+            label=label,
+            max_bytes=len(payload),
+            expected_size=len(payload),
+        )
+        after = os.fstat(read_fd)
+        if _file_identity(before) != _file_identity(after):
+            raise CarrierError(
+                f"{label}_changed_during_readback",
+                exit_kind="output_write_error",
+            )
+        if observed != payload:
+            raise CarrierError(
+                f"{label}_bytes_mismatch",
+                exit_kind="output_write_error",
+            )
+        path_state = os.stat(
+            name,
+            dir_fd=chain.final_fd,
+            follow_symlinks=False,
+        )
+        if _file_identity(path_state) != _file_identity(after):
+            raise CarrierError(
+                f"{label}_path_binding_changed",
+                exit_kind="output_write_error",
+            )
+        return _file_identity(after)
+    except OSError as exc:
+        raise CarrierError(
+            f"{label}_readback_failed: {exc}",
+            exit_kind="output_write_error",
+        ) from exc
+    finally:
+        os.close(read_fd)
+
+
+def _atomic_write_external(
+    path: Path,
+    payload: bytes,
+    *,
+    verify_inputs: Callable[[], None],
+) -> None:
     candidate = _normalized_absolute_path(path)
     parent = candidate.parent
     with DirectoryChain.open(parent, label="output_parent") as chain:
         final_name = candidate.name
-        try:
-            existing = os.stat(
-                final_name,
-                dir_fd=chain.final_fd,
-                follow_symlinks=False,
-            )
-        except FileNotFoundError:
-            existing = None
-        except OSError as exc:
-            raise CarrierError(
-                f"output_target_stat_failed: {candidate}: {exc}",
-                exit_kind="output_boundary_error",
-            ) from exc
-        if existing is not None and not stat.S_ISREG(existing.st_mode):
-            raise CarrierError(
-                f"output_existing_target_not_regular_file: {candidate}",
-                exit_kind="output_boundary_error",
-            )
+        initial_target = _output_target_snapshot(
+            chain=chain,
+            final_name=final_name,
+            candidate=candidate,
+        )
 
         temporary_name = f".{final_name}.{secrets.token_hex(16)}.tmp"
+        backup_name: str | None = None
         temporary_created = False
+        backup_created = False
+        published = False
+        staged_inode: tuple[Any, Any] | None = None
         descriptor: int | None = None
         try:
             flags = (
@@ -1842,7 +1949,85 @@ def _atomic_write_external(path: Path, payload: bytes) -> None:
             os.close(descriptor)
             descriptor = None
 
+            staged_identity = _verify_output_payload_at_name(
+                chain=chain,
+                name=temporary_name,
+                payload=payload,
+                label="staged_output",
+            )
+            staged_inode = (staged_identity[0], staged_identity[1])
             chain.verify()
+
+            # All protected inputs are reverified only after the output bytes
+            # have been completely staged and read back, but before the
+            # destination path can be replaced.
+            verify_inputs()
+
+            chain.verify()
+            staged_before_publish = _verify_output_payload_at_name(
+                chain=chain,
+                name=temporary_name,
+                payload=payload,
+                label="staged_output_before_publish",
+            )
+            if (
+                (staged_before_publish[0], staged_before_publish[1])
+                != staged_inode
+            ):
+                raise CarrierError(
+                    "staged_output_inode_changed_before_publish",
+                    exit_kind="output_write_error",
+                )
+            _verify_output_target_unchanged(
+                chain=chain,
+                final_name=final_name,
+                candidate=candidate,
+                expected=initial_target,
+            )
+
+            # Preserve an existing destination inode until publication and the
+            # post-publication input/path checks have all succeeded. This
+            # permits exact rollback instead of leaving stale output behind.
+            if initial_target is not None:
+                backup_name = (
+                    f".{final_name}.{secrets.token_hex(16)}.rollback"
+                )
+                try:
+                    os.link(
+                        final_name,
+                        backup_name,
+                        src_dir_fd=chain.final_fd,
+                        dst_dir_fd=chain.final_fd,
+                        follow_symlinks=False,
+                    )
+                except OSError as exc:
+                    raise CarrierError(
+                        f"output_backup_link_failed: {candidate}: {exc}",
+                        exit_kind="output_write_error",
+                    ) from exc
+                backup_created = True
+                backup_state = os.stat(
+                    backup_name,
+                    dir_fd=chain.final_fd,
+                    follow_symlinks=False,
+                )
+                current_target = os.stat(
+                    final_name,
+                    dir_fd=chain.final_fd,
+                    follow_symlinks=False,
+                )
+                if (
+                    _inode_identity(backup_state)
+                    != _inode_identity(current_target)
+                    or _inode_identity(current_target)
+                    != _inode_identity(initial_target)
+                ):
+                    raise CarrierError(
+                        "output_target_changed_while_creating_rollback_link",
+                        exit_kind="output_write_error",
+                    )
+                os.fsync(chain.final_fd)
+
             os.rename(
                 temporary_name,
                 final_name,
@@ -1850,36 +2035,90 @@ def _atomic_write_external(path: Path, payload: bytes) -> None:
                 dst_dir_fd=chain.final_fd,
             )
             temporary_created = False
+            published = True
             os.fsync(chain.final_fd)
 
-            read_fd = os.open(final_name, _read_flags(), dir_fd=chain.final_fd)
-            try:
-                before = os.fstat(read_fd)
-                if not stat.S_ISREG(before.st_mode) or before.st_size != len(payload):
-                    raise CarrierError(
-                        "written_output_identity_invalid",
-                        exit_kind="output_write_error",
-                    )
-                observed = _read_descriptor_bytes(
-                    read_fd,
-                    label="written_output",
-                    max_bytes=len(payload),
-                    expected_size=len(payload),
-                )
-                after = os.fstat(read_fd)
-                if _file_identity(before) != _file_identity(after):
-                    raise CarrierError(
-                        "written_output_changed_during_readback",
-                        exit_kind="output_write_error",
-                    )
-                if observed != payload:
-                    raise CarrierError(
-                        "written_output_bytes_mismatch",
-                        exit_kind="output_write_error",
-                    )
-            finally:
-                os.close(read_fd)
+            published_identity = _verify_output_payload_at_name(
+                chain=chain,
+                name=final_name,
+                payload=payload,
+                label="written_output",
+            )
             chain.verify()
+            path_after_chain_verification = os.stat(
+                final_name,
+                dir_fd=chain.final_fd,
+                follow_symlinks=False,
+            )
+            if (
+                _file_identity(path_after_chain_verification)
+                != published_identity
+            ):
+                raise CarrierError(
+                    "written_output_path_binding_changed_after_directory_verification",
+                    exit_kind="output_write_error",
+                )
+
+            # Reverify once more after publication. Any input change detected
+            # across the rename/readback interval rolls the destination back to
+            # its exact previous inode, or removes the newly created output.
+            verify_inputs()
+            final_identity = _verify_output_payload_at_name(
+                chain=chain,
+                name=final_name,
+                payload=payload,
+                label="written_output_after_final_input_verification",
+            )
+            if final_identity != published_identity:
+                raise CarrierError(
+                    "written_output_identity_changed_after_final_input_verification",
+                    exit_kind="output_write_error",
+                )
+            chain.verify()
+
+            if backup_created and backup_name is not None:
+                os.unlink(backup_name, dir_fd=chain.final_fd)
+                backup_created = False
+        except Exception as exc:
+            rollback_error: Exception | None = None
+            try:
+                if published:
+                    if backup_created and backup_name is not None:
+                        os.rename(
+                            backup_name,
+                            final_name,
+                            src_dir_fd=chain.final_fd,
+                            dst_dir_fd=chain.final_fd,
+                        )
+                        backup_created = False
+                        os.fsync(chain.final_fd)
+                    elif staged_inode is not None:
+                        try:
+                            current_target = os.stat(
+                                final_name,
+                                dir_fd=chain.final_fd,
+                                follow_symlinks=False,
+                            )
+                        except FileNotFoundError:
+                            current_target = None
+                        if (
+                            current_target is not None
+                            and _inode_identity(current_target) == staged_inode
+                        ):
+                            os.unlink(final_name, dir_fd=chain.final_fd)
+                            os.fsync(chain.final_fd)
+            except Exception as rollback_exc:
+                rollback_error = rollback_exc
+
+            if rollback_error is not None:
+                raise CarrierError(
+                    "output_publish_failed_and_rollback_failed: "
+                    f"publish_error={type(exc).__name__}: {exc}; "
+                    f"rollback_error={type(rollback_error).__name__}: "
+                    f"{rollback_error}",
+                    exit_kind="output_write_error",
+                ) from exc
+            raise
         finally:
             if descriptor is not None:
                 try:
@@ -1889,6 +2128,13 @@ def _atomic_write_external(path: Path, payload: bytes) -> None:
             if temporary_created:
                 try:
                     os.unlink(temporary_name, dir_fd=chain.final_fd)
+                except FileNotFoundError:
+                    pass
+                except OSError:
+                    pass
+            if backup_created and backup_name is not None:
+                try:
+                    os.unlink(backup_name, dir_fd=chain.final_fd)
                 except FileNotFoundError:
                     pass
                 except OSError:
@@ -2168,24 +2414,24 @@ def _build(args: argparse.Namespace) -> bytes:
         )
         rendered = render_json(carrier)
 
-        _reverify_producer_binding(
-            git_path=trusted_git,
-            control_plane_root=control_plane_root,
-            control_plane_revision=control_plane_revision,
-            expected_source=producer_source,
-            source_path=source_path,
-        )
-        opened.verify_unchanged()
+        def verify_final_inputs_before_publish() -> None:
+            _reverify_producer_binding(
+                git_path=trusted_git,
+                control_plane_root=control_plane_root,
+                control_plane_revision=control_plane_revision,
+                expected_source=producer_source,
+                source_path=source_path,
+            )
+            opened.verify_unchanged()
+
         if output_path is not None:
-            _atomic_write_external(output_path, rendered)
-        opened.verify_unchanged()
-        _reverify_producer_binding(
-            git_path=trusted_git,
-            control_plane_root=control_plane_root,
-            control_plane_revision=control_plane_revision,
-            expected_source=producer_source,
-            source_path=source_path,
-        )
+            _atomic_write_external(
+                output_path,
+                rendered,
+                verify_inputs=verify_final_inputs_before_publish,
+            )
+        else:
+            verify_final_inputs_before_publish()
         return rendered
 
 
