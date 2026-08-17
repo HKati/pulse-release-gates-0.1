@@ -43,6 +43,8 @@ EXPECTED_UNPARAMETERIZED_TESTS = frozenset(
         "test_builder_artifact_identity_matches_reviewed_merge",
         "test_validation_dependencies_are_not_imported_at_module_load",
         "test_tools_tests_manifest_registers_builder_regression_exactly_once",
+        "test_authoritative_launcher_sanitizes_pytest_environment_and_requires_completed_contract",
+        "test_direct_authoritative_launcher_rejects_terminal_pytest_early_exit",
         "test_direct_nonisolated_execution_fails_before_argument_parsing",
         "test_poisoned_pythonpath_cannot_execute_validation_modules",
         "test_isolated_help_exposes_the_complete_protected_cli_surface",
@@ -237,6 +239,21 @@ class _AuthoritativeRegressionContract:
         self._expected_nodeids: set[str] = set()
         self._completed_nodeids: set[str] = set()
         self._skipped_nodeids: set[str] = set()
+        self._collection_validated = False
+        self._session_finished = False
+        self._contract_satisfied = False
+
+    @property
+    def completed_successfully(self) -> bool:
+        return self._contract_satisfied
+
+    @property
+    def completion_state(self) -> dict[str, bool]:
+        return {
+            "collection_validated": self._collection_validated,
+            "contract_satisfied": self._contract_satisfied,
+            "session_finished": self._session_finished,
+        }
 
     def pytest_collection_finish(self, session: Any) -> None:
         current_file = Path(__file__).resolve()
@@ -309,6 +326,7 @@ class _AuthoritativeRegressionContract:
                 + json.dumps(missing_critical)
             )
         self._expected_nodeids = {item.nodeid for item in collected}
+        self._collection_validated = True
 
     def pytest_runtest_logreport(self, report: Any) -> None:
         if report.nodeid not in self._expected_nodeids:
@@ -319,11 +337,18 @@ class _AuthoritativeRegressionContract:
             self._completed_nodeids.add(report.nodeid)
 
     def pytest_sessionfinish(self, session: Any, exitstatus: int) -> None:
+        self._session_finished = True
         missing_execution = sorted(
             self._expected_nodeids - self._completed_nodeids
         )
         skipped = sorted(self._skipped_nodeids)
-        if not missing_execution and not skipped:
+        if (
+            self._collection_validated
+            and not missing_execution
+            and not skipped
+            and int(exitstatus) == int(pytest.ExitCode.OK)
+        ):
+            self._contract_satisfied = True
             return
 
         terminal = session.config.pluginmanager.get_plugin(
@@ -331,6 +356,7 @@ class _AuthoritativeRegressionContract:
         )
         detail = json.dumps(
             {
+                "collection_validated": self._collection_validated,
                 "missing_execution": missing_execution,
                 "skipped": skipped,
             },
@@ -342,7 +368,60 @@ class _AuthoritativeRegressionContract:
                 "authoritative regression execution contract failed",
             )
             terminal.write_line(detail)
-        session.exitstatus = int(pytest.ExitCode.TESTS_FAILED)
+        if int(exitstatus) == int(pytest.ExitCode.OK):
+            session.exitstatus = int(pytest.ExitCode.TESTS_FAILED)
+
+
+_AUTHORITATIVE_PYTEST_ENVIRONMENT_KEYS = (
+    "PYTEST_ADDOPTS",
+    "PYTEST_DISABLE_PLUGIN_AUTOLOAD",
+    "PYTEST_PLUGINS",
+)
+_AUTHORITATIVE_LAUNCH_PROBE_CHILD = (
+    "PULSEMECH_AUTHORITATIVE_REGRESSION_LAUNCH_PROBE_CHILD"
+)
+
+
+def _run_authoritative_regression() -> int:
+    previous_environment = {
+        key: os.environ.get(key)
+        for key in _AUTHORITATIVE_PYTEST_ENVIRONMENT_KEYS
+    }
+    os.environ.pop("PYTEST_ADDOPTS", None)
+    os.environ.pop("PYTEST_PLUGINS", None)
+    os.environ["PYTEST_DISABLE_PLUGIN_AUTOLOAD"] = "1"
+
+    contract = _AuthoritativeRegressionContract()
+    try:
+        result = pytest.main(
+            [
+                "-o",
+                "addopts=",
+                "--noconftest",
+                str(Path(__file__).resolve()),
+            ],
+            plugins=[contract],
+        )
+    finally:
+        for key, value in previous_environment.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+
+    exit_code = int(result)
+    if exit_code != int(pytest.ExitCode.OK):
+        return exit_code
+    if contract.completed_successfully:
+        return exit_code
+
+    sys.stderr.write(
+        "authoritative_regression_session_contract_not_completed: "
+        + json.dumps(contract.completion_state, sort_keys=True)
+        + "\n"
+    )
+    return int(pytest.ExitCode.TESTS_FAILED)
+
 
 # ---------------------------------------------------------------------------
 # Reviewed artifact identity and repository-native registration
@@ -396,6 +475,88 @@ def test_tools_tests_manifest_registers_builder_regression_exactly_once() -> Non
     assert entries[index + 1] == (
         "tests/test_pulsemech_compute_subject_input_packet_schema_v0.py"
     )
+
+
+def test_authoritative_launcher_sanitizes_pytest_environment_and_requires_completed_contract(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    inherited = {
+        "PYTEST_ADDOPTS": "--help",
+        "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "0",
+        "PYTEST_PLUGINS": "subject_selected_plugin",
+    }
+    for key, value in inherited.items():
+        monkeypatch.setenv(key, value)
+
+    observed: dict[str, Any] = {}
+
+    def successful_main(
+        arguments: list[str],
+        *,
+        plugins: list[Any],
+    ) -> pytest.ExitCode:
+        observed["arguments"] = list(arguments)
+        observed["plugins"] = list(plugins)
+        observed["environment"] = {
+            key: os.environ.get(key)
+            for key in _AUTHORITATIVE_PYTEST_ENVIRONMENT_KEYS
+        }
+        contract = plugins[0]
+        assert isinstance(contract, _AuthoritativeRegressionContract)
+        contract._collection_validated = True
+        contract._session_finished = True
+        contract._contract_satisfied = True
+        return pytest.ExitCode.OK
+
+    monkeypatch.setattr(pytest, "main", successful_main)
+    assert _run_authoritative_regression() == int(pytest.ExitCode.OK)
+    assert observed["arguments"] == [
+        "-o",
+        "addopts=",
+        "--noconftest",
+        str(Path(__file__).resolve()),
+    ]
+    assert len(observed["plugins"]) == 1
+    assert observed["environment"] == {
+        "PYTEST_ADDOPTS": None,
+        "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1",
+        "PYTEST_PLUGINS": None,
+    }
+    assert {
+        key: os.environ.get(key)
+        for key in _AUTHORITATIVE_PYTEST_ENVIRONMENT_KEYS
+    } == inherited
+
+    def successful_early_exit(
+        _arguments: list[str],
+        *,
+        plugins: list[Any],
+    ) -> pytest.ExitCode:
+        assert len(plugins) == 1
+        return pytest.ExitCode.OK
+
+    monkeypatch.setattr(pytest, "main", successful_early_exit)
+    assert _run_authoritative_regression() == int(
+        pytest.ExitCode.TESTS_FAILED
+    )
+    assert (
+        "authoritative_regression_session_contract_not_completed"
+        in capsys.readouterr().err
+    )
+
+    def nonzero_main(
+        _arguments: list[str],
+        *,
+        plugins: list[Any],
+    ) -> pytest.ExitCode:
+        assert len(plugins) == 1
+        return pytest.ExitCode.USAGE_ERROR
+
+    monkeypatch.setattr(pytest, "main", nonzero_main)
+    assert _run_authoritative_regression() == int(pytest.ExitCode.USAGE_ERROR)
+
+
 
 
 # ---------------------------------------------------------------------------
@@ -2370,10 +2531,41 @@ def test_complete_synthetic_current_run_cli_is_deterministic(
     assert not marker.exists()
 
 
-if __name__ == "__main__":
-    raise SystemExit(
-        pytest.main(
-            [__file__],
-            plugins=[_AuthoritativeRegressionContract()],
-        )
+def test_direct_authoritative_launcher_rejects_terminal_pytest_early_exit() -> None:
+    if os.environ.get(_AUTHORITATIVE_LAUNCH_PROBE_CHILD) == "1":
+        assert "PYTEST_ADDOPTS" not in os.environ
+        assert "PYTEST_PLUGINS" not in os.environ
+        assert os.environ.get("PYTEST_DISABLE_PLUGIN_AUTOLOAD") == "1"
+        return
+
+    environment = dict(os.environ)
+    environment.update(
+        {
+            _AUTHORITATIVE_LAUNCH_PROBE_CHILD: "1",
+            "PYTEST_ADDOPTS": "--help",
+            "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "0",
+            "PYTEST_PLUGINS": "module_that_must_not_be_imported",
+        }
     )
+    result = subprocess.run(
+        [sys.executable, str(Path(__file__).resolve())],
+        cwd=ROOT,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+        env=environment,
+        timeout=180,
+    )
+    assert result.returncode == 0, result.stderr.decode(
+        "utf-8",
+        errors="replace",
+    )
+    assert result.stderr == b""
+    expected_count = str(EXPECTED_COLLECTED_TEST_ITEMS).encode("ascii")
+    assert b"collected " + expected_count + b" items" in result.stdout
+    assert expected_count + b" passed" in result.stdout
+    assert b"usage: pytest" not in result.stdout.lower()
+
+
+if __name__ == "__main__":
+    raise SystemExit(_run_authoritative_regression())
