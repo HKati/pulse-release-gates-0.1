@@ -44,6 +44,9 @@ moves between merged and open work, update this index.
 
 - Canonical PULSEmech technical overview and current verified state:
   [PULSEMECH_TECHNICAL_OVERVIEW.md](../PULSEMECH_TECHNICAL_OVERVIEW.md)
+- Canonical relational release-authority interpretation:
+  [PULSEMECH_RELATIONAL_RELEASE_AUTHORITY_INTERPRETATION_v0.md](PULSEMECH_RELATIONAL_RELEASE_AUTHORITY_INTERPRETATION_v0.md)
+  **Canonical interpretation anchor.** Defines the specified release-state transition `τ`, the bound relation `Rτ`, the terminal transition-authority state `Dτ`, the current primary-CI carrier and enforcement role, and the reconstruction question used for external technical analysis.
 - AI-native operator model:
   [PULSEMECH_TECHNICAL_OVERVIEW.md — AI-native operator model](../PULSEMECH_TECHNICAL_OVERVIEW.md#2a-ai-native-operator-model)
   **AI-native operating model.** Defines machine-readable PULSEmech state as an AI-operable proof surface while preserving human policy and consequence control and keeping release authority evidence-bound.
