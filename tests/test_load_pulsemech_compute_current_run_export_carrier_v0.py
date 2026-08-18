@@ -31,12 +31,12 @@ TEST_RELATIVE_PATH = (
     "tests/test_load_pulsemech_compute_current_run_export_carrier_v0.py"
 )
 
-EXPECTED_TOOL_LINES = 2468
-EXPECTED_TOOL_BYTES = 80942
+EXPECTED_TOOL_LINES = 2633
+EXPECTED_TOOL_BYTES = 86351
 EXPECTED_TOOL_SHA256 = (
-    "4f310cc2eee4c8334b585e1fd91f3089db63fdc609a35c2067824d7d63dcc357"
+    "ccc50e052975e5727d8b5d95c71bb038b6cf9dac2116bbdb968b9a26227dd3ea"
 )
-EXPECTED_TOOL_GIT_BLOB_SHA1 = "3dd9dc4582503b9e498149abadef7052fd22aec9"
+EXPECTED_TOOL_GIT_BLOB_SHA1 = "afeae5ee27019891716bcaeae1995030d14ec431"
 
 EXPECTED_TESTS = frozenset(
     {
@@ -734,18 +734,27 @@ def test_opened_carrier_hashes_exact_bytes_once_and_detects_mutation(
     staging = tmp_path / "staging"
     carrier = write_finalized_carrier(staging)
     payload = carrier.read_bytes()
+    observed_lease = None
     with TOOL_MODULE.OpenedCarrier.open(
         staging_root=staging,
         staged_relative_path="exports/current-run.zip",
         max_bytes=len(payload),
     ) as opened:
+        observed_lease = opened.lease
+        assert observed_lease.acquired is True
+        observed_lease.verify()
         digest, size = opened.hash_once()
         assert digest == sha256_bytes(payload)
         assert size == len(payload)
+        assert observed_lease.acquired is True
+        observed_lease.verify()
         with pytest.raises(
             TOOL_MODULE.CarrierError, match="carrier_digest_already_materialized"
         ):
             opened.hash_once()
+    assert observed_lease is not None
+    assert observed_lease._closed is True
+    assert observed_lease.acquired is False
 
     carrier_two = write_finalized_carrier(
         staging,
@@ -758,6 +767,7 @@ def test_opened_carrier_hashes_exact_bytes_once_and_detects_mutation(
     ) as opened:
         carrier_two.chmod(0o644)
         carrier_two.write_bytes(payload + b"mutation")
+        assert opened.lease.break_observed is True
         with pytest.raises(
             TOOL_MODULE.CarrierError, match="carrier_identity_changed_after_open"
         ):
@@ -857,7 +867,10 @@ def test_opened_carrier_rejects_nonfinalized_alias_and_size_boundaries(
         )
 
 
-def test_same_user_writable_open_handle_is_rejected(tmp_path: Path) -> None:
+def test_same_user_writable_open_handle_is_rejected(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     staging = tmp_path / "staging"
     carrier = staging / "writer.zip"
     staging.mkdir()
@@ -875,6 +888,66 @@ def test_same_user_writable_open_handle_is_rejected(tmp_path: Path) -> None:
             )
     finally:
         os.close(writer_fd)
+
+    unsupported = write_finalized_carrier(
+        staging,
+        relative_path="unsupported.zip",
+    )
+    assert unsupported.exists()
+    real_fcntl = TOOL_MODULE.fcntl
+    monkeypatch.setattr(TOOL_MODULE, "fcntl", None)
+    with pytest.raises(
+        TOOL_MODULE.CarrierError, match="carrier_read_lease_unsupported"
+    ):
+        TOOL_MODULE.OpenedCarrier.open(
+            staging_root=staging,
+            staged_relative_path="unsupported.zip",
+            max_bytes=10 * 1024 * 1024,
+        )
+    monkeypatch.setattr(TOOL_MODULE, "fcntl", real_fcntl)
+
+    lost = write_finalized_carrier(
+        staging,
+        relative_path="lost.zip",
+    )
+    assert lost.exists()
+
+    class LostLeaseProxy:
+        def __getattr__(self, name: str) -> Any:
+            return getattr(real_fcntl, name)
+
+        def fcntl(self, descriptor: int, operation: int, *arguments: Any) -> Any:
+            if operation == real_fcntl.F_GETLEASE:
+                return real_fcntl.F_UNLCK
+            return real_fcntl.fcntl(descriptor, operation, *arguments)
+
+    with TOOL_MODULE.OpenedCarrier.open(
+        staging_root=staging,
+        staged_relative_path="lost.zip",
+        max_bytes=10 * 1024 * 1024,
+    ) as opened:
+        monkeypatch.setattr(TOOL_MODULE, "fcntl", LostLeaseProxy())
+        with pytest.raises(
+            TOOL_MODULE.CarrierError, match="carrier_read_lease_lost"
+        ):
+            opened.verify_unchanged()
+        monkeypatch.setattr(TOOL_MODULE, "fcntl", real_fcntl)
+
+    broken = write_finalized_carrier(
+        staging,
+        relative_path="broken.zip",
+    )
+    assert broken.exists()
+    with TOOL_MODULE.OpenedCarrier.open(
+        staging_root=staging,
+        staged_relative_path="broken.zip",
+        max_bytes=10 * 1024 * 1024,
+    ) as opened:
+        opened.lease.break_observed = True
+        with pytest.raises(
+            TOOL_MODULE.CarrierError, match="carrier_read_lease_break_observed"
+        ):
+            opened.verify_unchanged()
 
 
 def test_output_boundary_rejects_protected_and_overlapping_paths(
@@ -945,17 +1018,25 @@ def test_transactional_output_stages_before_publication_and_cleans_residue(
     output.write_bytes(b"previous")
     initial_inode = (output.stat().st_dev, output.stat().st_ino)
     payload = b'{"carrier":"new"}\n'
-    observations: list[bytes] = []
+    observations: list[tuple[str, bytes]] = []
 
     def verify_inputs() -> None:
-        observations.append(output.read_bytes())
+        observations.append(("verify", output.read_bytes()))
+
+    def finalize_inputs() -> None:
+        observations.append(("finalize", output.read_bytes()))
 
     TOOL_MODULE._atomic_write_external(
         output,
         payload,
         verify_inputs=verify_inputs,
+        finalize_inputs=finalize_inputs,
     )
-    assert observations == [b"previous", payload]
+    assert observations == [
+        ("verify", b"previous"),
+        ("verify", payload),
+        ("finalize", payload),
+    ]
     assert output.read_bytes() == payload
     assert (output.stat().st_dev, output.stat().st_ino) != initial_inode
     assert stat.S_IMODE(output.stat().st_mode) == 0o644
