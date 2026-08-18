@@ -23,19 +23,27 @@ if __name__ == "__main__" and (
     raise SystemExit(2)
 
 import argparse
+import errno
 import hashlib
 import json
 import os
 import re
 import secrets
 import selectors
+import signal
 import stat
 import subprocess
+import threading
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
 from typing import Any, Callable, Sequence
+
+try:
+    import fcntl
+except ImportError:  # pragma: no cover - rejected by the Linux profile guard
+    fcntl = None  # type: ignore[assignment]
 
 
 TOOL_NAME = "load_pulsemech_compute_current_run_export_carrier_v0"
@@ -66,8 +74,6 @@ MAX_PRODUCER_SOURCE_BYTES = 4 * 1024 * 1024
 MAX_GIT_CONFIG_BYTES = 1024 * 1024
 MAX_GIT_DIAGNOSTIC_BYTES = 64 * 1024
 GIT_CAPTURE_CHUNK_BYTES = 64 * 1024
-MAX_PROC_PIDS = 131072
-MAX_SAME_USER_PROC_FDS = 131072
 
 LINUX_TRUSTED_GIT_EXECUTABLE_CANDIDATES = (
     Path("/usr/bin/git"),
@@ -414,153 +420,269 @@ def _read_flags() -> int:
     )
 
 
-def _proc_fd_access_mode(fdinfo_path: Path) -> int:
-    try:
-        text = fdinfo_path.read_text(encoding="ascii", errors="strict")
-    except FileNotFoundError:
-        raise
-    except OSError as exc:
-        raise CarrierError(
-            f"carrier_open_writer_fdinfo_unavailable: {fdinfo_path}: {exc}",
-            exit_kind="carrier_boundary_error",
-        ) from exc
-    for line in text.splitlines():
-        if not line.startswith("flags:"):
-            continue
-        raw = line.split(":", 1)[1].strip()
-        try:
-            return int(raw, 8) & os.O_ACCMODE
-        except ValueError as exc:
-            raise CarrierError(
-                f"carrier_open_writer_flags_invalid: "
-                f"path={fdinfo_path} flags={raw!r}",
-                exit_kind="carrier_boundary_error",
-            ) from exc
-    raise CarrierError(
-        f"carrier_open_writer_flags_missing: {fdinfo_path}",
-        exit_kind="carrier_boundary_error",
+def _require_file_lease_api() -> Any:
+    lease_api = fcntl
+    required = (
+        "F_GETLEASE",
+        "F_GETOWN",
+        "F_GETSIG",
+        "F_RDLCK",
+        "F_SETLEASE",
+        "F_SETOWN",
+        "F_SETSIG",
+        "F_UNLCK",
     )
-
-
-def _assert_no_same_user_writable_open_handle(
-    carrier_identity: tuple[Any, ...],
-) -> None:
-    proc_root = Path("/proc")
-    try:
-        proc_metadata = proc_root.stat()
-    except OSError as exc:
+    if lease_api is None or any(
+        not hasattr(lease_api, name) for name in required
+    ):
         raise CarrierError(
-            f"carrier_open_writer_scan_unavailable: {exc}",
-            exit_kind="carrier_boundary_error",
-        ) from exc
-    if not stat.S_ISDIR(proc_metadata.st_mode):
-        raise CarrierError(
-            "carrier_open_writer_scan_unavailable: /proc is not a directory",
+            "carrier_read_lease_unsupported: required Linux fcntl "
+            "lease operations are unavailable",
             exit_kind="carrier_boundary_error",
         )
+    if not hasattr(signal, "SIGIO"):
+        raise CarrierError(
+            "carrier_read_lease_unsupported: SIGIO is unavailable",
+            exit_kind="carrier_boundary_error",
+        )
+    return lease_api
 
-    carrier_device = carrier_identity[0]
-    carrier_inode = carrier_identity[1]
-    effective_uid = os.geteuid()
-    observed_fd_count = 0
 
-    process_entries: list[Path] = []
-    try:
-        for entry in proc_root.iterdir():
-            if not entry.name.isdigit():
-                continue
-            process_entries.append(entry)
-            if len(process_entries) > MAX_PROC_PIDS:
+_ACTIVE_CARRIER_READ_LEASE: "CarrierReadLease | None" = None
+_CARRIER_READ_LEASE_STATE_LOCK = threading.Lock()
+
+
+@dataclass
+class CarrierReadLease:
+    file_fd: int
+    previous_signal_handler: Any
+    previous_owner: int
+    previous_fd_signal: int
+    acquired: bool = False
+    break_observed: bool = False
+    break_release_error: str | None = None
+    _closed: bool = False
+
+    @classmethod
+    def acquire(cls, file_fd: int) -> "CarrierReadLease":
+        _require_supported_execution_platform()
+        lease_api = _require_file_lease_api()
+        if threading.current_thread() is not threading.main_thread():
+            raise CarrierError(
+                "carrier_read_lease_requires_main_thread_signal_control",
+                exit_kind="carrier_boundary_error",
+            )
+
+        try:
+            previous_owner = int(
+                lease_api.fcntl(file_fd, lease_api.F_GETOWN)
+            )
+            previous_fd_signal = int(
+                lease_api.fcntl(file_fd, lease_api.F_GETSIG)
+            )
+            previous_signal_handler = signal.getsignal(signal.SIGIO)
+        except (OSError, ValueError) as exc:
+            raise CarrierError(
+                f"carrier_read_lease_state_unavailable: {exc}",
+                exit_kind="carrier_boundary_error",
+            ) from exc
+
+        lease = cls(
+            file_fd=file_fd,
+            previous_signal_handler=previous_signal_handler,
+            previous_owner=previous_owner,
+            previous_fd_signal=previous_fd_signal,
+        )
+
+        global _ACTIVE_CARRIER_READ_LEASE
+        with _CARRIER_READ_LEASE_STATE_LOCK:
+            if _ACTIVE_CARRIER_READ_LEASE is not None:
                 raise CarrierError(
-                    "carrier_open_writer_process_scan_limit_exceeded: "
-                    f"observed>{MAX_PROC_PIDS}",
+                    "carrier_read_lease_already_active",
                     exit_kind="carrier_boundary_error",
                 )
-    except CarrierError:
-        raise
-    except OSError as exc:
-        raise CarrierError(
-            f"carrier_open_writer_process_scan_failed: {exc}",
-            exit_kind="carrier_boundary_error",
-        ) from exc
-    process_entries.sort(key=lambda entry: int(entry.name))
+            _ACTIVE_CARRIER_READ_LEASE = lease
 
-    for process_path in process_entries:
         try:
-            process_metadata = process_path.stat()
-        except FileNotFoundError:
-            continue
-        except OSError as exc:
-            raise CarrierError(
-                f"carrier_open_writer_process_stat_failed: "
-                f"path={process_path} error={exc}",
-                exit_kind="carrier_boundary_error",
-            ) from exc
-        if process_metadata.st_uid != effective_uid:
-            continue
-
-        fd_directory = process_path / "fd"
-        fd_entries: list[Path] = []
-        try:
-            for fd_path in fd_directory.iterdir():
-                if not fd_path.name.isdigit():
-                    continue
-                observed_fd_count += 1
-                if observed_fd_count > MAX_SAME_USER_PROC_FDS:
-                    raise CarrierError(
-                        "carrier_open_writer_scan_limit_exceeded: "
-                        f"observed>{MAX_SAME_USER_PROC_FDS}",
-                        exit_kind="carrier_boundary_error",
-                    )
-                fd_entries.append(fd_path)
-        except FileNotFoundError:
-            continue
-        except CarrierError:
-            raise
-        except PermissionError as exc:
-            raise CarrierError(
-                f"carrier_open_writer_same_user_fd_scan_denied: "
-                f"path={fd_directory} error={exc}",
-                exit_kind="carrier_boundary_error",
-            ) from exc
-        except OSError as exc:
-            raise CarrierError(
-                f"carrier_open_writer_fd_scan_failed: "
-                f"path={fd_directory} error={exc}",
-                exit_kind="carrier_boundary_error",
-            ) from exc
-        fd_entries.sort(key=lambda entry: int(entry.name))
-
-        for fd_path in fd_entries:
+            signal.signal(signal.SIGIO, lease._handle_break_signal)
+            lease_api.fcntl(file_fd, lease_api.F_SETOWN, os.getpid())
+            lease_api.fcntl(file_fd, lease_api.F_SETSIG, signal.SIGIO)
             try:
-                opened = fd_path.stat()
-            except FileNotFoundError:
-                continue
-            except PermissionError as exc:
+                lease_api.fcntl(
+                    file_fd,
+                    lease_api.F_SETLEASE,
+                    lease_api.F_RDLCK,
+                )
+            except OSError as exc:
+                if exc.errno in {errno.EACCES, errno.EAGAIN}:
+                    raise CarrierError(
+                        "carrier_open_for_writing: read_lease_conflict",
+                        exit_kind="carrier_boundary_error",
+                    ) from exc
+                unsupported = {
+                    getattr(errno, name)
+                    for name in (
+                        "EINVAL",
+                        "ENOSYS",
+                        "ENOTSUP",
+                        "EOPNOTSUPP",
+                    )
+                    if hasattr(errno, name)
+                }
+                if exc.errno in unsupported:
+                    raise CarrierError(
+                        f"carrier_read_lease_unsupported: {exc}",
+                        exit_kind="carrier_boundary_error",
+                    ) from exc
                 raise CarrierError(
-                    f"carrier_open_writer_same_user_fd_stat_denied: "
-                    f"path={fd_path} error={exc}",
+                    f"carrier_read_lease_acquire_failed: {exc}",
                     exit_kind="carrier_boundary_error",
                 ) from exc
-            except OSError:
-                # Descriptor tables change concurrently. A vanished entry is
-                # ignored; a surviving carrier-bound entry is checked below.
-                continue
-            if opened.st_dev != carrier_device or opened.st_ino != carrier_inode:
-                continue
+            lease.acquired = True
+            lease.verify()
+            return lease
+        except Exception:
+            lease._restore_after_failed_acquire()
+            raise
 
+    def _handle_break_signal(self, _signum: int, _frame: Any) -> None:
+        self.break_observed = True
+        lease_api = fcntl
+        if not self.acquired or lease_api is None:
+            return
+        try:
+            lease_api.fcntl(
+                self.file_fd,
+                lease_api.F_SETLEASE,
+                lease_api.F_UNLCK,
+            )
+            self.acquired = False
+        except (AttributeError, OSError) as exc:
+            self.break_release_error = str(exc)
+
+    def verify(self) -> None:
+        if self._closed:
+            raise CarrierError(
+                "carrier_read_lease_not_active",
+                exit_kind="carrier_boundary_error",
+            )
+        if self.break_observed:
+            detail = (
+                ""
+                if self.break_release_error is None
+                else f": release_error={self.break_release_error}"
+            )
+            raise CarrierError(
+                "carrier_read_lease_break_observed" + detail,
+                exit_kind="carrier_boundary_error",
+            )
+        if not self.acquired:
+            raise CarrierError(
+                "carrier_read_lease_not_active",
+                exit_kind="carrier_boundary_error",
+            )
+        lease_api = _require_file_lease_api()
+        try:
+            observed = int(
+                lease_api.fcntl(self.file_fd, lease_api.F_GETLEASE)
+            )
+        except OSError as exc:
+            raise CarrierError(
+                f"carrier_read_lease_verification_failed: {exc}",
+                exit_kind="carrier_boundary_error",
+            ) from exc
+        if observed != int(lease_api.F_RDLCK):
+            raise CarrierError(
+                "carrier_read_lease_lost: "
+                f"expected={int(lease_api.F_RDLCK)} observed={observed}",
+                exit_kind="carrier_boundary_error",
+            )
+
+    def _restore_process_state(self) -> list[str]:
+        errors: list[str] = []
+        lease_api = fcntl
+        if lease_api is not None:
             try:
-                access_mode = _proc_fd_access_mode(
-                    process_path / "fdinfo" / fd_path.name
+                lease_api.fcntl(
+                    self.file_fd,
+                    lease_api.F_SETSIG,
+                    self.previous_fd_signal,
                 )
-            except FileNotFoundError:
-                continue
-            if access_mode in {os.O_WRONLY, os.O_RDWR}:
-                raise CarrierError(
-                    "carrier_open_for_writing: "
-                    f"pid={process_path.name} fd={fd_path.name}",
-                    exit_kind="carrier_boundary_error",
+            except (AttributeError, OSError) as exc:
+                errors.append(f"fd_signal_restore_failed={exc}")
+            try:
+                lease_api.fcntl(
+                    self.file_fd,
+                    lease_api.F_SETOWN,
+                    self.previous_owner,
                 )
+            except (AttributeError, OSError) as exc:
+                errors.append(f"fd_owner_restore_failed={exc}")
+        try:
+            signal.signal(signal.SIGIO, self.previous_signal_handler)
+        except (AttributeError, OSError, ValueError) as exc:
+            errors.append(f"signal_handler_restore_failed={exc}")
+
+        global _ACTIVE_CARRIER_READ_LEASE
+        with _CARRIER_READ_LEASE_STATE_LOCK:
+            if _ACTIVE_CARRIER_READ_LEASE is self:
+                _ACTIVE_CARRIER_READ_LEASE = None
+            elif _ACTIVE_CARRIER_READ_LEASE is not None:
+                errors.append("active_lease_identity_changed")
+        return errors
+
+    def _restore_after_failed_acquire(self) -> None:
+        lease_api = fcntl
+        if self.acquired and lease_api is not None:
+            try:
+                lease_api.fcntl(
+                    self.file_fd,
+                    lease_api.F_SETLEASE,
+                    lease_api.F_UNLCK,
+                )
+            except (AttributeError, OSError):
+                pass
+            self.acquired = False
+        self._restore_process_state()
+        self._closed = True
+
+    def release(self, *, require_intact: bool = False) -> None:
+        if self._closed:
+            return
+        errors: list[str] = []
+        lease_api = _require_file_lease_api()
+        if self.acquired:
+            try:
+                lease_api.fcntl(
+                    self.file_fd,
+                    lease_api.F_SETLEASE,
+                    lease_api.F_UNLCK,
+                )
+                observed = int(
+                    lease_api.fcntl(self.file_fd, lease_api.F_GETLEASE)
+                )
+                if observed != int(lease_api.F_UNLCK):
+                    errors.append(
+                        "lease_unlock_not_observed=" + str(observed)
+                    )
+            except OSError as exc:
+                errors.append(f"lease_release_failed={exc}")
+            self.acquired = False
+
+        if self.break_release_error is not None:
+            errors.append(
+                "lease_break_release_failed=" + self.break_release_error
+            )
+        if require_intact and self.break_observed:
+            errors.append("lease_break_observed_before_finalization")
+
+        errors.extend(self._restore_process_state())
+        self._closed = True
+        if errors:
+            raise CarrierError(
+                "carrier_read_lease_cleanup_failed: " + "; ".join(errors),
+                exit_kind="carrier_boundary_error",
+            )
 
 
 @dataclass
@@ -815,8 +937,10 @@ class OpenedCarrier:
     file_fd: int
     leaf_name: str
     identity: tuple[Any, ...]
+    lease: CarrierReadLease
     digest: str | None = None
     size_bytes: int | None = None
+    _lease_finalized: bool = False
     _closed: bool = False
 
     @classmethod
@@ -842,6 +966,7 @@ class OpenedCarrier:
 
         chain = DirectoryChain.open(root, label="staging_root")
         descriptor: int | None = None
+        lease: CarrierReadLease | None = None
         try:
             for part in parts[:-1]:
                 chain.open_child(part)
@@ -883,7 +1008,7 @@ class OpenedCarrier:
                 )
 
             identity = _file_identity(metadata)
-            _assert_no_same_user_writable_open_handle(identity)
+            lease = CarrierReadLease.acquire(descriptor)
             opened = cls(
                 staging_root=root,
                 staged_relative_path=staged_relative_path,
@@ -892,11 +1017,17 @@ class OpenedCarrier:
                 file_fd=descriptor,
                 leaf_name=leaf,
                 identity=identity,
+                lease=lease,
             )
-            descriptor = None
             opened.verify_unchanged()
+            descriptor = None
             return opened
         except Exception:
+            if lease is not None:
+                try:
+                    lease.release()
+                except CarrierError:
+                    pass
             if descriptor is not None:
                 os.close(descriptor)
             chain.close()
@@ -935,7 +1066,7 @@ class OpenedCarrier:
                 "carrier_path_binding_changed",
                 exit_kind="carrier_boundary_error",
             )
-        _assert_no_same_user_writable_open_handle(self.identity)
+        self.lease.verify()
 
     def hash_once(self) -> tuple[str, int]:
         if self.digest is not None or self.size_bytes is not None:
@@ -971,15 +1102,40 @@ class OpenedCarrier:
         self.size_bytes = total
         return self.digest, self.size_bytes
 
+    def finalize(self) -> None:
+        if self._closed:
+            raise CarrierError(
+                "carrier_snapshot_closed",
+                exit_kind="carrier_boundary_error",
+            )
+        if self._lease_finalized:
+            raise CarrierError(
+                "carrier_read_lease_already_finalized",
+                exit_kind="carrier_boundary_error",
+            )
+        self.verify_unchanged()
+        try:
+            self.lease.release(require_intact=True)
+        finally:
+            self._lease_finalized = True
+
     def close(self) -> None:
         if self._closed:
             return
         self._closed = True
+        lease_error: CarrierError | None = None
+        if not self._lease_finalized:
+            try:
+                self.lease.release(require_intact=False)
+            except CarrierError as exc:
+                lease_error = exc
         try:
             os.close(self.file_fd)
         except OSError:
             pass
         self.chain.close()
+        if lease_error is not None:
+            raise lease_error
 
     def __enter__(self) -> "OpenedCarrier":
         return self
@@ -1910,6 +2066,7 @@ def _atomic_write_external(
     payload: bytes,
     *,
     verify_inputs: Callable[[], None],
+    finalize_inputs: Callable[[], None] | None = None,
 ) -> None:
     candidate = _normalized_absolute_path(path)
     parent = candidate.parent
@@ -2075,6 +2232,9 @@ def _atomic_write_external(
                     exit_kind="output_write_error",
                 )
             chain.verify()
+
+            if finalize_inputs is not None:
+                finalize_inputs()
 
             if backup_created and backup_name is not None:
                 os.unlink(backup_name, dir_fd=chain.final_fd)
@@ -2424,14 +2584,19 @@ def _build(args: argparse.Namespace) -> bytes:
             )
             opened.verify_unchanged()
 
+        def finalize_inputs_after_publish() -> None:
+            verify_final_inputs_before_publish()
+            opened.finalize()
+
         if output_path is not None:
             _atomic_write_external(
                 output_path,
                 rendered,
                 verify_inputs=verify_final_inputs_before_publish,
+                finalize_inputs=finalize_inputs_after_publish,
             )
         else:
-            verify_final_inputs_before_publish()
+            finalize_inputs_after_publish()
         return rendered
 
 
