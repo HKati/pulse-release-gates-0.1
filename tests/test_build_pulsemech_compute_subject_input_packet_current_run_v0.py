@@ -37,12 +37,12 @@ TEST_RELATIVE_PATH = (
     "tests/test_build_pulsemech_compute_subject_input_packet_current_run_v0.py"
 )
 
-EXPECTED_TOOL_LINES = 3618
-EXPECTED_TOOL_BYTES = 131554
+EXPECTED_TOOL_LINES = 4109
+EXPECTED_TOOL_BYTES = 147408
 EXPECTED_TOOL_SHA256 = (
-    "e1b1dea993bd19cdd3c4896d73e4f608a4470aa60e4d85103817057c9f937122"
+    "9228636a480db7d18af5f815a8ed19b209013cb377873b17d8b7dcd5bdb92a7a"
 )
-EXPECTED_TOOL_GIT_BLOB_SHA1 = "2c2f182183ee40dd1350c1ae1feaf4d6fa3502be"
+EXPECTED_TOOL_GIT_BLOB_SHA1 = "1a0b47c67c0447e890bd218537742833ef7532cb"
 
 EXPECTED_TESTS = frozenset(
     {
@@ -64,6 +64,7 @@ EXPECTED_TESTS = frozenset(
         "test_verified_repository_blob_rehashes_and_binds_worktree_bytes",
         "test_independent_git_storage_rejects_shared_store",
         "test_archive_reader_rejects_duplicate_unsafe_encrypted_and_oversized_members",
+        "test_nested_archives_share_one_aggregate_uncompressed_budget",
         "test_sha256sums_inventory_and_check_reports_are_exact",
         "test_preservation_manifest_binds_current_subject_and_provider_bytes",
         "test_current_run_bundle_verifies_layout_reports_and_counts",
@@ -85,6 +86,8 @@ CRITICAL_TESTS = frozenset(
         "test_git_local_only_preflight_rejects_remote_boundary_configuration",
         "test_verified_repository_blob_rehashes_and_binds_worktree_bytes",
         "test_current_run_bundle_verifies_layout_reports_and_counts",
+        "test_nested_archives_share_one_aggregate_uncompressed_budget",
+        "test_sha256sums_inventory_and_check_reports_are_exact",
         "test_complete_isolated_cli_uses_verified_core_is_deterministic_and_non_authoritative",
         "test_complete_cli_fails_closed_on_expectation_digest_and_carrier_mutability",
         "test_missing_candidate_workflow_remains_a_fail_closed_activation_prerequisite",
@@ -748,6 +751,46 @@ def authority_sources(
     }
 
 
+def inventory_report_checks(
+    *,
+    inventory: dict[str, Any],
+    report_kind: str,
+) -> list[dict[str, Any]]:
+    rows = inventory["files"]
+    assert isinstance(rows, list)
+    if report_kind == "completeness":
+        check_ids = {
+            "digest_inventory.schema_version",
+            "digest_inventory.algorithm",
+            "digest_inventory.unique_paths",
+            "digest_inventory.file_count",
+            "digest_inventory.exact_coverage",
+        }
+    elif report_kind == "verification":
+        check_ids = {
+            "digest_inventory.schema",
+            "digest_inventory.algorithm",
+            "digest_inventory.unique_paths",
+            "digest_inventory.file_count",
+            "digest_inventory.no_missing_files",
+        }
+    else:
+        raise AssertionError(report_kind)
+    for row in rows:
+        assert isinstance(row, dict)
+        path = row["path"]
+        check_ids.add(f"digest_inventory.digest:{path}")
+        check_ids.add(f"digest_inventory.size_bytes:{path}")
+    return [
+        {
+            "check_id": check_id,
+            "details": f"synthetic independently replayed check {check_id}",
+            "passed": True,
+        }
+        for check_id in sorted(check_ids)
+    ]
+
+
 def make_current_run_carrier(
     *,
     subject: dict[str, Any],
@@ -776,20 +819,33 @@ def make_current_run_carrier(
             ),
         }
     )
+    inventory_object = parse_json_bytes(inventory)
     complete = deterministic_zip(
         {
             "package_digest_inventory_v0.json": inventory,
             "synthetic_context.json": context,
         }
     )
+    completeness_checks = inventory_report_checks(
+        inventory=inventory_object,
+        report_kind="completeness",
+    )
     completeness_document = render_json(
         {
-            "checks": [{"check_id": "synthetic", "passed": True}],
+            "authority_boundary": copy.deepcopy(
+                TOOL_MODULE.COMPLETENESS_REPORT_AUTHORITY_BOUNDARY
+            ),
+            "checks": completeness_checks,
             "errors": [],
             "ok": True,
+            "package": {"path": "/synthetic/complete-package"},
             "schema_version": "release_grade_package_completeness_v1",
             "status": "complete",
-            "summary": {"checks_failed": 0, "checks_total": 1},
+            "summary": {
+                "checks_failed": 0,
+                "checks_total": len(completeness_checks),
+            },
+            "tool": copy.deepcopy(TOOL_MODULE.COMPLETENESS_REPORT_TOOL),
         }
     )
     completeness = deterministic_zip(
@@ -799,15 +855,28 @@ def make_current_run_carrier(
             )
         }
     )
+    verification_checks = inventory_report_checks(
+        inventory=inventory_object,
+        report_kind="verification",
+    )
     verification_document = render_json(
         {
-            "checks": [{"check_id": "synthetic", "passed": True}],
+            "authority_boundary": copy.deepcopy(
+                TOOL_MODULE.VERIFICATION_REPORT_AUTHORITY_BOUNDARY
+            ),
+            "checked_utc": "2026-08-19T06:25:00Z",
+            "checks": verification_checks,
             "errors": [],
+            "package": {"path": "/synthetic/complete-package"},
             "schema_version": (
                 "release_grade_reference_package_verification_v0"
             ),
             "status": "verified",
-            "summary": {"checks_failed": 0, "checks_total": 1},
+            "summary": {
+                "checks_failed": 0,
+                "checks_total": len(verification_checks),
+            },
+            "tool": copy.deepcopy(TOOL_MODULE.VERIFICATION_REPORT_TOOL),
             "verified": True,
         }
     )
@@ -865,9 +934,13 @@ def make_current_run_carrier(
                 "all_outer_artifact_sizes_match_github": True,
                 "complete_package_inventory_entries": 1,
                 "complete_package_zip_members": 2,
-                "independent_verification_checks_total": 1,
+                "independent_verification_checks_total": len(
+                    verification_checks
+                ),
                 "independent_verification_verified": True,
-                "structural_completeness_checks_total": 1,
+                "structural_completeness_checks_total": len(
+                    completeness_checks
+                ),
                 "structural_completeness_ok": True,
             },
             "primary_gate_result": (
@@ -1837,7 +1910,7 @@ def test_archive_reader_rejects_duplicate_unsafe_encrypted_and_oversized_members
     assert TOOL_MODULE._read_zip_payloads(
         valid,
         label="valid",
-        max_total_uncompressed_bytes=16,
+        budget=TOOL_MODULE.UncompressedByteBudget(maximum=16),
     ) == {"a.txt": b"a", "b.txt": b"b"}
 
     duplicate_buffer = io.BytesIO()
@@ -1850,7 +1923,7 @@ def test_archive_reader_rejects_duplicate_unsafe_encrypted_and_oversized_members
         TOOL_MODULE._read_zip_payloads(
             duplicate_buffer.getvalue(),
             label="duplicate",
-            max_total_uncompressed_bytes=16,
+            budget=TOOL_MODULE.UncompressedByteBudget(maximum=16),
         )
 
     for unsafe in ("../escape", "/absolute", "a\\b", "folder/"):
@@ -1861,7 +1934,7 @@ def test_archive_reader_rejects_duplicate_unsafe_encrypted_and_oversized_members
             TOOL_MODULE._read_zip_payloads(
                 buffer.getvalue(),
                 label="unsafe",
-                max_total_uncompressed_bytes=16,
+                budget=TOOL_MODULE.UncompressedByteBudget(maximum=16),
             )
 
     encrypted = bytearray(deterministic_zip({"a.txt": b"a"}))
@@ -1875,14 +1948,71 @@ def test_archive_reader_rejects_duplicate_unsafe_encrypted_and_oversized_members
         TOOL_MODULE._read_zip_payloads(
             bytes(encrypted),
             label="encrypted",
-            max_total_uncompressed_bytes=16,
+            budget=TOOL_MODULE.UncompressedByteBudget(maximum=16),
         )
 
-    with pytest.raises(TOOL_MODULE.WrapperError, match="total_uncompressed"):
+    with pytest.raises(
+        TOOL_MODULE.WrapperError,
+        match="aggregate_uncompressed",
+    ):
         TOOL_MODULE._read_zip_payloads(
             deterministic_zip({"large.bin": b"x" * 17}),
             label="large",
-            max_total_uncompressed_bytes=16,
+            budget=TOOL_MODULE.UncompressedByteBudget(maximum=16),
+        )
+
+
+def test_nested_archives_share_one_aggregate_uncompressed_budget(
+    tmp_path: Path,
+) -> None:
+    fixture = complete_fixture(tmp_path)
+    carrier_bytes = fixture["carrier_path"].read_bytes()
+    layout = fixture["expectation"]["archive_layout"]
+
+    def declared_total(payload: bytes) -> int:
+        with zipfile.ZipFile(io.BytesIO(payload), "r") as archive:
+            return sum(info.file_size for info in archive.infolist())
+
+    with zipfile.ZipFile(io.BytesIO(carrier_bytes), "r") as outer:
+        complete_payload = outer.read(
+            layout["original_artifacts_prefix"]
+            + layout["complete_package_name"]
+        )
+        completeness_payload = outer.read(
+            layout["original_artifacts_prefix"]
+            + layout["completeness_archive_name"]
+        )
+        verification_payload = outer.read(
+            layout["original_artifacts_prefix"]
+            + layout["verification_archive_name"]
+        )
+
+    per_archive_totals = (
+        declared_total(carrier_bytes),
+        declared_total(complete_payload),
+        declared_total(completeness_payload),
+        declared_total(verification_payload),
+    )
+    aggregate_total = sum(per_archive_totals)
+    assert aggregate_total - 1 > max(per_archive_totals)
+
+    bundle = TOOL_MODULE.load_current_run_bundle(
+        carrier_path=fixture["carrier_path"],
+        carrier_bytes=carrier_bytes,
+        expectation=fixture["expectation"],
+        max_total_uncompressed_bytes=aggregate_total,
+    )
+    assert bundle.archive_size == len(carrier_bytes)
+
+    with pytest.raises(
+        TOOL_MODULE.WrapperError,
+        match="aggregate_uncompressed",
+    ):
+        TOOL_MODULE.load_current_run_bundle(
+            carrier_path=fixture["carrier_path"],
+            carrier_bytes=carrier_bytes,
+            expectation=fixture["expectation"],
+            max_total_uncompressed_bytes=aggregate_total - 1,
         )
 
 
@@ -1941,12 +2071,26 @@ def test_sha256sums_inventory_and_check_reports_are_exact() -> None:
             inventory=invalid,
         )
 
+    checks = inventory_report_checks(
+        inventory=inventory,
+        report_kind="verification",
+    )
     report = {
-        "checks": [{"passed": True}],
+        "authority_boundary": copy.deepcopy(
+            TOOL_MODULE.VERIFICATION_REPORT_AUTHORITY_BOUNDARY
+        ),
+        "checked_utc": "2026-08-19T06:25:00Z",
+        "checks": checks,
         "errors": [],
+        "package": {"path": "/synthetic/complete-package"},
         "schema_version": "schema:v0",
         "status": "verified",
-        "summary": {"checks_failed": 0, "checks_total": 1},
+        "summary": {
+            "checks_failed": 0,
+            "checks_total": len(checks),
+        },
+        "tool": copy.deepcopy(TOOL_MODULE.VERIFICATION_REPORT_TOOL),
+        "verified": True,
     }
     TOOL_MODULE._validate_check_report(
         document=report,
@@ -1954,15 +2098,65 @@ def test_sha256sums_inventory_and_check_reports_are_exact() -> None:
         status_field="status",
         status_value="verified",
         label="report",
+        report_kind="verification",
+        members=members,
+        inventory=inventory,
+        inventory_rows=rows,
     )
-    report["checks"][0]["passed"] = False
+
+    forged = copy.deepcopy(report)
+    forged["checks"] = [
+        {
+            "check_id": "digest_inventory.algorithm",
+            "details": "forged one-check report",
+            "passed": True,
+        }
+    ]
+    forged["summary"] = {"checks_failed": 0, "checks_total": 1}
+    with pytest.raises(
+        TOOL_MODULE.WrapperError,
+        match="required_check_ids_missing",
+    ):
+        TOOL_MODULE._validate_check_report(
+            document=forged,
+            schema_version="schema:v0",
+            status_field="status",
+            status_value="verified",
+            label="report",
+            report_kind="verification",
+            members=members,
+            inventory=inventory,
+            inventory_rows=rows,
+        )
+
+    failed = copy.deepcopy(report)
+    failed["checks"][0]["passed"] = False
     with pytest.raises(TOOL_MODULE.WrapperError, match="check_failed"):
+        TOOL_MODULE._validate_check_report(
+            document=failed,
+            schema_version="schema:v0",
+            status_field="status",
+            status_value="verified",
+            label="report",
+            report_kind="verification",
+            members=members,
+            inventory=inventory,
+            inventory_rows=rows,
+        )
+
+    substituted_members = dict(members)
+    substituted_members["one.txt"] = b"substituted\n"
+    with pytest.raises(TOOL_MODULE.WrapperError, match="digest_inventory"):
         TOOL_MODULE._validate_check_report(
             document=report,
             schema_version="schema:v0",
             status_field="status",
             status_value="verified",
             label="report",
+            report_kind="verification",
+            members=substituted_members,
+            inventory=inventory,
+            inventory_rows=rows,
         )
 
 
