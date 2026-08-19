@@ -1,4 +1,4 @@
-# Tools smoke tests executed by the tools-tests CI job.
+# Tools smoke tests executed by the tools-tests CI job.  
 #
 # One path per line. Blank lines and comments are ignored.
 # This manifest must match the current tools-tests suite.
@@ -85,6 +85,7 @@ tests/test_pulsemech_compute_fixed_source_candidate_chain_v0.py
 tests/test_check_pulsemech_compute_current_run_export_expectation_v0.py
 tests/test_build_pulsemech_compute_current_run_export_expectation_v0.py
 tests/test_load_pulsemech_compute_current_run_export_carrier_v0.py
+tests/test_build_pulsemech_compute_subject_input_packet_current_run_v0.py
 tests/test_pulsemech_compute_subject_input_packet_schema_v0.py
 tests/test_check_pulsemech_compute_subject_input_packet_v0.py
 tests/test_build_pulsemech_compute_subject_input_packet_v0.py
