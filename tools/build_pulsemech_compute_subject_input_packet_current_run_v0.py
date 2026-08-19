@@ -162,6 +162,39 @@ PRESERVATION_AUTHORITY_BOUNDARY = {
     "replaces_primary_ci_decision": False,
 }
 
+COMPLETENESS_REPORT_TOOL = {
+    "name": "check_release_grade_package_complete_v1",
+    "version": "0.1.2",
+}
+
+COMPLETENESS_REPORT_AUTHORITY_BOUNDARY = {
+    "read_only": True,
+    "authorizes_release": False,
+    "blocks_release": False,
+    "creates_release_authority": False,
+    "materializes_status": False,
+    "materializes_required_gates": False,
+    "calls_gate_checker": False,
+    "package_completeness_only": True,
+}
+
+VERIFICATION_REPORT_TOOL = {
+    "name": "verify_release_grade_reference_package_v0.py",
+    "version": "0.1.0",
+}
+
+VERIFICATION_REPORT_AUTHORITY_BOUNDARY = {
+    "read_only": True,
+    "creates_release_authority": False,
+    "authorizes_release": False,
+    "blocks_release": False,
+    "materializes_status": False,
+    "materializes_release_required": False,
+    "verifies_recorded_release_evidence_as_authority": False,
+    "replaces_check_gates": False,
+    "package_acceptance_only": True,
+}
+
 PROVIDER_ARCHIVE_ROLES = {
     "complete": "complete_release_grade_reference_package",
     "completeness": "structural_package_completeness_report",
@@ -278,6 +311,46 @@ class CurrentRunBundle:
     completeness_report: dict[str, Any]
     verification_report_bytes: bytes
     verification_report: dict[str, Any]
+
+
+@dataclass
+class UncompressedByteBudget:
+    maximum: int
+    consumed: int = 0
+
+    def __post_init__(self) -> None:
+        positive_int(self.maximum, label="aggregate_uncompressed_byte_budget")
+        if (
+            not isinstance(self.consumed, int)
+            or isinstance(self.consumed, bool)
+            or self.consumed < 0
+            or self.consumed > self.maximum
+        ):
+            raise WrapperError(
+                "aggregate_uncompressed_byte_budget_consumed_invalid: "
+                f"consumed={self.consumed!r} maximum={self.maximum}",
+                exit_kind="carrier_content_error",
+            )
+
+    @property
+    def remaining(self) -> int:
+        return self.maximum - self.consumed
+
+    def reserve(self, amount: int, *, label: str) -> None:
+        if not isinstance(amount, int) or isinstance(amount, bool) or amount < 0:
+            raise WrapperError(
+                f"{label}_uncompressed_size_invalid: {amount!r}",
+                exit_kind="carrier_content_error",
+            )
+        proposed = self.consumed + amount
+        if proposed > self.maximum:
+            raise WrapperError(
+                f"{label}_aggregate_uncompressed_too_large: "
+                f"consumed={self.consumed} requested={amount} "
+                f"maximum={self.maximum}",
+                exit_kind="carrier_content_error",
+            )
+        self.consumed = proposed
 
 
 # ---------------------------------------------------------------------------
@@ -2175,7 +2248,7 @@ def _read_zip_payloads(
     payload: bytes,
     *,
     label: str,
-    max_total_uncompressed_bytes: int,
+    budget: UncompressedByteBudget,
 ) -> dict[str, bytes]:
     try:
         archive = zipfile.ZipFile(io.BytesIO(payload), "r")
@@ -2197,7 +2270,6 @@ def _read_zip_payloads(
                 f"{label}_duplicate_member",
                 exit_kind="carrier_content_error",
             )
-        total_declared = 0
         result: dict[str, bytes] = {}
         for info in infos:
             name = _zip_member_name(info.filename, label=label)
@@ -2226,13 +2298,10 @@ def _read_zip_payloads(
                     f"{label}_member_too_large: member={name!r} size={info.file_size}",
                     exit_kind="carrier_content_error",
                 )
-            total_declared += info.file_size
-            if total_declared > max_total_uncompressed_bytes:
-                raise WrapperError(
-                    f"{label}_total_uncompressed_too_large: "
-                    f"size>{max_total_uncompressed_bytes}",
-                    exit_kind="carrier_content_error",
-                )
+            budget.reserve(
+                info.file_size,
+                label=f"{label}_member_{name}",
+            )
             try:
                 with archive.open(info, "r") as member:
                     chunks: list[bytes] = []
@@ -2449,6 +2518,347 @@ def _validate_package_inventory(
     return indexed
 
 
+def _report_checks_by_id(
+    *,
+    document: dict[str, Any],
+    label: str,
+) -> dict[str, dict[str, Any]]:
+    checks = document.get("checks")
+    if not isinstance(checks, list) or not checks:
+        raise WrapperError(
+            f"{label}_checks_missing_or_empty",
+            exit_kind="carrier_content_error",
+        )
+    indexed: dict[str, dict[str, Any]] = {}
+    for index, item in enumerate(checks):
+        if not isinstance(item, dict):
+            raise WrapperError(
+                f"{label}_check_not_object: index={index}",
+                exit_kind="carrier_content_error",
+            )
+        check_id = non_empty_text(
+            item.get("check_id"),
+            label=f"{label}_check_id_{index}",
+        )
+        if check_id in indexed:
+            raise WrapperError(
+                f"{label}_duplicate_check_id: {check_id}",
+                exit_kind="carrier_content_error",
+            )
+        if item.get("passed") is not True:
+            raise WrapperError(
+                f"{label}_check_failed: {check_id}",
+                exit_kind="carrier_content_error",
+            )
+        non_empty_text(
+            item.get("details"),
+            label=f"{label}_check_details_{check_id}",
+        )
+        indexed[check_id] = item
+
+    summary = document.get("summary")
+    if summary is not None:
+        if not isinstance(summary, dict):
+            raise WrapperError(
+                f"{label}_summary_not_object",
+                exit_kind="carrier_content_error",
+            )
+        if "checks_total" in summary:
+            require_equal(
+                summary.get("checks_total"),
+                len(checks),
+                label=f"{label}_checks_total",
+            )
+        if "checks_failed" in summary:
+            require_equal(
+                summary.get("checks_failed"),
+                0,
+                label=f"{label}_checks_failed",
+            )
+    return indexed
+
+
+def _required_inventory_report_check_ids(
+    *,
+    inventory_rows: Mapping[str, Mapping[str, Any]],
+    report_kind: str,
+) -> set[str]:
+    if report_kind == "completeness":
+        result = {
+            "digest_inventory.schema_version",
+            "digest_inventory.algorithm",
+            "digest_inventory.unique_paths",
+            "digest_inventory.file_count",
+            "digest_inventory.exact_coverage",
+        }
+    elif report_kind == "verification":
+        result = {
+            "digest_inventory.schema",
+            "digest_inventory.algorithm",
+            "digest_inventory.unique_paths",
+            "digest_inventory.file_count",
+            "digest_inventory.no_missing_files",
+        }
+    else:
+        raise WrapperError(
+            f"report_kind_invalid: {report_kind!r}",
+            exit_kind="carrier_content_error",
+        )
+    for path in inventory_rows:
+        canonical = canonical_member_path(
+            path,
+            label=f"{report_kind}_inventory_check_path",
+        )
+        result.add(f"digest_inventory.digest:{canonical}")
+        result.add(f"digest_inventory.size_bytes:{canonical}")
+    return result
+
+
+def _parse_jsonl_objects(payload: bytes, *, label: str) -> list[dict[str, Any]]:
+    try:
+        text = payload.decode("utf-8", errors="strict")
+    except UnicodeDecodeError as exc:
+        raise WrapperError(
+            f"{label}_invalid_utf8: {exc}",
+            exit_kind="carrier_content_error",
+        ) from exc
+    records: list[dict[str, Any]] = []
+    for line_number, raw in enumerate(text.splitlines(), start=1):
+        if not raw.strip():
+            continue
+        value = parse_json_bytes(
+            raw.encode("utf-8"),
+            label=f"{label}_line_{line_number}",
+        )
+        if not isinstance(value, dict):
+            raise WrapperError(
+                f"{label}_line_not_object: line={line_number}",
+                exit_kind="carrier_content_error",
+            )
+        records.append(value)
+    if not records:
+        raise WrapperError(
+            f"{label}_empty",
+            exit_kind="carrier_content_error",
+        )
+    return records
+
+
+def _verify_reported_check_against_package(
+    *,
+    check_id: str,
+    members: Mapping[str, bytes],
+    inventory: Mapping[str, Any],
+    inventory_rows: Mapping[str, Mapping[str, Any]],
+    label: str,
+) -> bool:
+    if check_id in {
+        "digest_inventory.schema_version",
+        "digest_inventory.schema",
+    }:
+        require_equal(
+            inventory.get("schema_version"),
+            "release_grade_reference_package_digest_inventory_v0",
+            label=f"{label}_{check_id}",
+        )
+        return True
+    if check_id == "digest_inventory.algorithm":
+        require_equal(
+            inventory.get("algorithm"),
+            "sha256",
+            label=f"{label}_{check_id}",
+        )
+        return True
+    if check_id == "digest_inventory.unique_paths":
+        require_equal(
+            len(inventory_rows),
+            len(set(inventory_rows)),
+            label=f"{label}_{check_id}",
+        )
+        return True
+    if check_id == "digest_inventory.file_count":
+        require_equal(
+            inventory.get("file_count"),
+            len(inventory_rows),
+            label=f"{label}_{check_id}",
+        )
+        return True
+    if check_id in {
+        "digest_inventory.exact_coverage",
+        "digest_inventory.no_missing_files",
+    }:
+        require_equal(
+            set(members),
+            set(inventory_rows) | {"package_digest_inventory_v0.json"},
+            label=f"{label}_{check_id}",
+        )
+        return True
+
+    for prefix, field in (
+        ("digest_inventory.digest:", "sha256"),
+        ("digest_inventory.size_bytes:", "size_bytes"),
+    ):
+        if check_id.startswith(prefix):
+            path = canonical_member_path(
+                check_id[len(prefix) :],
+                label=f"{label}_{field}_check_path",
+            )
+            row = inventory_rows.get(path)
+            payload = members.get(path)
+            if row is None or payload is None:
+                raise WrapperError(
+                    f"{label}_{field}_check_unbound: {path}",
+                    exit_kind="carrier_content_error",
+                )
+            observed: Any = (
+                sha256_bytes(payload) if field == "sha256" else len(payload)
+            )
+            require_equal(
+                row.get(field),
+                observed,
+                label=f"{label}_{check_id}",
+            )
+            return True
+
+    for prefix, predicate in (
+        ("required_file:", lambda payload: payload is not None),
+        ("non_empty_file:", lambda payload: payload is not None and bool(payload)),
+    ):
+        if check_id.startswith(prefix):
+            path = canonical_member_path(
+                check_id[len(prefix) :],
+                label=f"{label}_reported_file_path",
+            )
+            require(
+                predicate(members.get(path)),
+                f"{label}_reported_check_not_reproduced: {check_id}",
+            )
+            return True
+
+    if check_id.startswith("required_dir:"):
+        directory = canonical_member_path(
+            check_id[len("required_dir:") :],
+            label=f"{label}_reported_directory_path",
+        )
+        prefix = directory + "/"
+        require(
+            any(path.startswith(prefix) for path in members),
+            f"{label}_reported_check_not_reproduced: {check_id}",
+        )
+        return True
+
+    for prefix in ("json_object:", "json:"):
+        if check_id.startswith(prefix):
+            path = canonical_member_path(
+                check_id[len(prefix) :],
+                label=f"{label}_reported_json_path",
+            )
+            payload = members.get(path)
+            if payload is None:
+                raise WrapperError(
+                    f"{label}_reported_json_missing: {path}",
+                    exit_kind="carrier_content_error",
+                )
+            parse_json_object(payload, label=f"{label}_reported_json_{path}")
+            return True
+
+    if check_id.startswith("jsonl:"):
+        path = canonical_member_path(
+            check_id[len("jsonl:") :],
+            label=f"{label}_reported_jsonl_path",
+        )
+        payload = members.get(path)
+        if payload is None:
+            raise WrapperError(
+                f"{label}_reported_jsonl_missing: {path}",
+                exit_kind="carrier_content_error",
+            )
+        _parse_jsonl_objects(payload, label=f"{label}_reported_jsonl_{path}")
+        return True
+
+    if check_id == "recorded_candidates.non_empty":
+        prefix = "artifacts/recorded_release_candidates/"
+        require(
+            any(path.startswith(prefix) and path.endswith(".json") for path in members),
+            f"{label}_reported_check_not_reproduced: {check_id}",
+        )
+        return True
+
+    for prefix in (
+        "recorded_candidate.json:",
+        "recorded_candidate.validation:",
+        "recorded_candidate.authority_boundary:",
+    ):
+        if check_id.startswith(prefix):
+            path = canonical_member_path(
+                check_id[len(prefix) :],
+                label=f"{label}_recorded_candidate_path",
+            )
+            payload = members.get(path)
+            if payload is None:
+                raise WrapperError(
+                    f"{label}_recorded_candidate_missing: {path}",
+                    exit_kind="carrier_content_error",
+                )
+            document = parse_json_object(
+                payload,
+                label=f"{label}_recorded_candidate_{path}",
+            )
+            if prefix == "recorded_candidate.validation:":
+                validation = document.get("validation")
+                require(
+                    isinstance(validation, dict)
+                    and validation.get("status") in {
+                        "passed",
+                        "verified",
+                        "accepted",
+                    },
+                    f"{label}_reported_check_not_reproduced: {check_id}",
+                )
+            elif prefix == "recorded_candidate.authority_boundary:":
+                boundary = document.get("authority_boundary")
+                require(
+                    isinstance(boundary, dict)
+                    and boundary.get("creates_release_authority") is False
+                    and boundary.get("eligible_without_verifier") is False,
+                    f"{label}_reported_check_not_reproduced: {check_id}",
+                )
+            return True
+
+    if check_id == "status.release_grade.detectors_materialized_ok":
+        status = parse_json_object(
+            members["artifacts/status.json"],
+            label=f"{label}_status",
+        )
+        require(
+            isinstance(status.get("gates"), dict)
+            and status["gates"].get("detectors_materialized_ok") is True,
+            f"{label}_reported_check_not_reproduced: {check_id}",
+        )
+        return True
+    if check_id in {
+        "status.release_grade.gates_stubbed_false",
+        "status.release_grade.scaffold_false",
+    }:
+        status = parse_json_object(
+            members["artifacts/status.json"],
+            label=f"{label}_status",
+        )
+        diagnostics = status.get("diagnostics")
+        field = (
+            "gates_stubbed"
+            if check_id.endswith("gates_stubbed_false")
+            else "scaffold"
+        )
+        require(
+            isinstance(diagnostics, dict) and diagnostics.get(field) is False,
+            f"{label}_reported_check_not_reproduced: {check_id}",
+        )
+        return True
+
+    return False
+
+
 def _validate_check_report(
     *,
     document: dict[str, Any],
@@ -2456,27 +2866,95 @@ def _validate_check_report(
     status_field: str,
     status_value: Any,
     label: str,
+    report_kind: str,
+    members: Mapping[str, bytes],
+    inventory: Mapping[str, Any],
+    inventory_rows: Mapping[str, Mapping[str, Any]],
 ) -> None:
-    require_equal(document.get("schema_version"), schema_version, label=f"{label}_schema_version")
-    require_equal(document.get(status_field), status_value, label=f"{label}_{status_field}")
+    require_equal(
+        document.get("schema_version"),
+        schema_version,
+        label=f"{label}_schema_version",
+    )
+    require_equal(
+        document.get(status_field),
+        status_value,
+        label=f"{label}_{status_field}",
+    )
     require_equal(document.get("errors"), [], label=f"{label}_errors")
-    checks = document.get("checks")
-    if not isinstance(checks, list) or not checks:
+
+    if report_kind == "completeness":
+        require_equal(
+            document.get("tool"),
+            COMPLETENESS_REPORT_TOOL,
+            label=f"{label}_tool",
+        )
+        require_equal(
+            document.get("authority_boundary"),
+            COMPLETENESS_REPORT_AUTHORITY_BOUNDARY,
+            label=f"{label}_authority_boundary",
+        )
+        require_equal(document.get("ok"), True, label=f"{label}_ok")
+    elif report_kind == "verification":
+        require_equal(
+            document.get("tool"),
+            VERIFICATION_REPORT_TOOL,
+            label=f"{label}_tool",
+        )
+        require_equal(
+            document.get("authority_boundary"),
+            VERIFICATION_REPORT_AUTHORITY_BOUNDARY,
+            label=f"{label}_authority_boundary",
+        )
+        require_equal(
+            document.get("verified"),
+            True,
+            label=f"{label}_verified",
+        )
+        parse_utc(document.get("checked_utc"), label=f"{label}_checked_utc")
+    else:
         raise WrapperError(
-            f"{label}_checks_missing_or_empty",
+            f"report_kind_invalid: {report_kind!r}",
             exit_kind="carrier_content_error",
         )
-    if not all(isinstance(item, dict) and item.get("passed") is True for item in checks):
+
+    package = document.get("package")
+    if not isinstance(package, dict):
         raise WrapperError(
-            f"{label}_check_failed",
+            f"{label}_package_not_object",
             exit_kind="carrier_content_error",
         )
-    summary = document.get("summary")
-    if isinstance(summary, dict):
-        if "checks_total" in summary:
-            require_equal(summary.get("checks_total"), len(checks), label=f"{label}_checks_total")
-        if "checks_failed" in summary:
-            require_equal(summary.get("checks_failed"), 0, label=f"{label}_checks_failed")
+    non_empty_text(package.get("path"), label=f"{label}_package_path")
+
+    checks_by_id = _report_checks_by_id(document=document, label=label)
+    required_ids = _required_inventory_report_check_ids(
+        inventory_rows=inventory_rows,
+        report_kind=report_kind,
+    )
+    missing = sorted(required_ids - set(checks_by_id))
+    if missing:
+        raise WrapperError(
+            f"{label}_required_check_ids_missing: {missing!r}",
+            exit_kind="carrier_content_error",
+        )
+
+    independently_verified: set[str] = set()
+    for check_id in checks_by_id:
+        if _verify_reported_check_against_package(
+            check_id=check_id,
+            members=members,
+            inventory=inventory,
+            inventory_rows=inventory_rows,
+            label=label,
+        ):
+            independently_verified.add(check_id)
+    unverified_required = sorted(required_ids - independently_verified)
+    if unverified_required:
+        raise WrapperError(
+            f"{label}_required_checks_not_independently_verified: "
+            f"{unverified_required!r}",
+            exit_kind="carrier_content_error",
+        )
 
 
 def _single_member_archive(
@@ -2484,12 +2962,12 @@ def _single_member_archive(
     payload: bytes,
     expected_member: str,
     label: str,
-    max_total_uncompressed_bytes: int,
+    budget: UncompressedByteBudget,
 ) -> bytes:
     members = _read_zip_payloads(
         payload,
         label=label,
-        max_total_uncompressed_bytes=max_total_uncompressed_bytes,
+        budget=budget,
     )
     if set(members) != {expected_member}:
         raise WrapperError(
@@ -2498,7 +2976,6 @@ def _single_member_archive(
         )
     return members[expected_member]
 
-
 def load_current_run_bundle(
     *,
     carrier_path: Path,
@@ -2506,6 +2983,12 @@ def load_current_run_bundle(
     expectation: dict[str, Any],
     max_total_uncompressed_bytes: int,
 ) -> CurrentRunBundle:
+    budget = UncompressedByteBudget(
+        maximum=positive_int(
+            max_total_uncompressed_bytes,
+            label="max_total_uncompressed_bytes",
+        )
+    )
     carrier = expectation["carrier"]
     layout = expectation["archive_layout"]
     outer_prefix = canonical_directory_prefix(layout.get("outer_prefix"), label="archive_outer_prefix")
@@ -2554,7 +3037,7 @@ def load_current_run_bundle(
     outer = _read_zip_payloads(
         carrier_bytes,
         label="current_run_export_carrier",
-        max_total_uncompressed_bytes=max_total_uncompressed_bytes,
+        budget=budget,
     )
     visible_paths = {
         "manifest": outer_prefix + manifest_name,
@@ -2616,7 +3099,7 @@ def load_current_run_bundle(
     complete_members = _read_zip_payloads(
         provider_payloads[provider_names["complete"]],
         label="complete_release_grade_reference_package",
-        max_total_uncompressed_bytes=max_total_uncompressed_bytes,
+        budget=budget,
     )
     inventory_payload = complete_members.get("package_digest_inventory_v0.json")
     if inventory_payload is None:
@@ -2634,7 +3117,7 @@ def load_current_run_bundle(
         payload=provider_payloads[provider_names["completeness"]],
         expected_member="release_grade_package_completeness_v1.json",
         label="package_completeness_archive",
-        max_total_uncompressed_bytes=max_total_uncompressed_bytes,
+        budget=budget,
     )
     completeness = parse_json_object(
         completeness_bytes,
@@ -2648,13 +3131,17 @@ def load_current_run_bundle(
         status_field="status",
         status_value="complete",
         label="package_completeness",
+        report_kind="completeness",
+        members=complete_members,
+        inventory=inventory,
+        inventory_rows=inventory_rows,
     )
 
     verification_bytes = _single_member_archive(
         payload=provider_payloads[provider_names["verification"]],
         expected_member="release_grade_reference_package_verification_v0.json",
         label="package_verification_archive",
-        max_total_uncompressed_bytes=max_total_uncompressed_bytes,
+        budget=budget,
     )
     verification = parse_json_object(
         verification_bytes,
@@ -2668,6 +3155,10 @@ def load_current_run_bundle(
         status_field="status",
         status_value="verified",
         label="package_verification",
+        report_kind="verification",
+        members=complete_members,
+        inventory=inventory,
+        inventory_rows=inventory_rows,
     )
 
     expected_non_provider = positive_int(
