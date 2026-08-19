@@ -1,4 +1,4 @@
-# Tools smoke tests executed by the tools-tests CI job.
+# Tools smoke tests executed by the tools-tests CI job.  
 #
 # One path per line. Blank lines and comments are ignored.
 # This manifest must match the current tools-tests suite.
