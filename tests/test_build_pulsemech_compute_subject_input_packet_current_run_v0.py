@@ -32,17 +32,23 @@ CARRIER_LOADER = (
     / "tools"
     / "load_pulsemech_compute_current_run_export_carrier_v0.py"
 )
+PRODUCER_CORE = (
+    ROOT / "tools" / "pulsemech_compute_subject_input_packet_producer_core_v0.py"
+)
+SUBJECT_VALIDATOR = (
+    ROOT / "tools" / "check_pulsemech_compute_subject_input_packet_v0.py"
+)
 TOOLS_TESTS_MANIFEST = ROOT / "ci" / "tools-tests.list"
 TEST_RELATIVE_PATH = (
     "tests/test_build_pulsemech_compute_subject_input_packet_current_run_v0.py"
 )
 
-EXPECTED_TOOL_LINES = 4109
-EXPECTED_TOOL_BYTES = 147408
+EXPECTED_TOOL_LINES = 5038
+EXPECTED_TOOL_BYTES = 180475
 EXPECTED_TOOL_SHA256 = (
-    "9228636a480db7d18af5f815a8ed19b209013cb377873b17d8b7dcd5bdb92a7a"
+    "0c4eabadef598b0834665d005bcbed92c4181cff1b643356c1aa6de937987b02"
 )
-EXPECTED_TOOL_GIT_BLOB_SHA1 = "1a0b47c67c0447e890bd218537742833ef7532cb"
+EXPECTED_TOOL_GIT_BLOB_SHA1 = "41d3a4ffc9b796dc674f8f2ba83141d81bc204f9"
 
 EXPECTED_TESTS = frozenset(
     {
@@ -75,6 +81,9 @@ EXPECTED_TESTS = frozenset(
         "test_complete_isolated_cli_uses_verified_core_is_deterministic_and_non_authoritative",
         "test_complete_cli_fails_closed_on_expectation_digest_and_carrier_mutability",
         "test_missing_candidate_workflow_remains_a_fail_closed_activation_prerequisite",
+        "test_completeness_semantic_report_requires_full_package_checks",
+        "test_real_producer_core_source_ids_match_canonical_projection",
+        "test_real_subject_validator_routes_producer_provenance_to_control_checkout",
     }
 )
 EXPECTED_COLLECTED_TEST_ITEMS = len(EXPECTED_TESTS)
@@ -91,6 +100,9 @@ CRITICAL_TESTS = frozenset(
         "test_complete_isolated_cli_uses_verified_core_is_deterministic_and_non_authoritative",
         "test_complete_cli_fails_closed_on_expectation_digest_and_carrier_mutability",
         "test_missing_candidate_workflow_remains_a_fail_closed_activation_prerequisite",
+        "test_completeness_semantic_report_requires_full_package_checks",
+        "test_real_producer_core_source_ids_match_canonical_projection",
+        "test_real_subject_validator_routes_producer_provenance_to_control_checkout",
     }
 )
 
@@ -556,7 +568,22 @@ def synthetic_producer_core_source() -> bytes:
 
         def build_subject_and_sources(*, inputs, repository_root, validator):
             context = inputs.documents["context"]
-            return context["subject"], context["authority_sources"]
+            sources = json.loads(json.dumps(context["authority_sources"]))
+            sources["workflow"]["source_id"] = "source:workflow:pulse-ci"
+            sources["policy"]["source_id"] = "source:policy:pulse-gate-policy-v0"
+            sources["gate_registry"]["source_id"] = "source:registry:gate-registry-v0"
+            canonical = {
+                ("external_signer_policy", "policy/external_signers_v1.yml"):
+                    "source:policy:external-signers-v1",
+                (
+                    "threshold_policy",
+                    "PULSE_safe_pack_v0/profiles/external_thresholds.yaml",
+                ): "source:policy:external-thresholds",
+            }
+            for row in sources["additional_sources"]:
+                row["source_id"] = canonical[(row["role"], row["path_or_uri"])]
+            sources["additional_sources"].sort(key=lambda row: row["source_id"])
+            return context["subject"], sources
 
         def producer_identity(*, repository_root, revision, source_path, execution_identity, producer_run_key, profile):
             payload = source_path.read_bytes()
@@ -692,11 +719,57 @@ def component_bindings(
     return result
 
 
+PACKAGE_REQUIRED_FILES: tuple[str, ...] = (
+    "package_digest_inventory_v0.json",
+    "run_metadata_v0.json",
+    "artifacts/required_gate_evidence_v0.json",
+    "artifacts/status_baseline.json",
+    "artifacts/recorded_release_candidate_index_v0.json",
+    "artifacts/release_evidence_input_manifest_v0.json",
+    "artifacts/recorded_release_evidence_verifier_v0.json",
+    "artifacts/external/llamaguard_raw.jsonl",
+    "artifacts/external/llamaguard_evaluator_manifest_v0.json",
+    "artifacts/external/llamaguard_summary.json",
+    "artifacts/external/llamaguard_summary.bundle.json",
+    "artifacts/external/llamaguard_summary.envelope.json",
+    "artifacts/external/llamaguard_attestation_verifier_v1.json",
+    "artifacts/status.json",
+    "artifacts/release_decision_v0.json",
+    "artifacts/artifact_provenance_binding_v0.json",
+    "artifacts/release_authority_v0.json",
+    "artifacts/report_card.html",
+)
+PACKAGE_REQUIRED_DIRS = (
+    "artifacts/recorded_release_candidates",
+    "release-authority-audit-bundle",
+)
+PACKAGE_JSON_OBJECT_FILES = (
+    "package_digest_inventory_v0.json",
+    "run_metadata_v0.json",
+    "artifacts/required_gate_evidence_v0.json",
+    "artifacts/status_baseline.json",
+    "artifacts/recorded_release_candidate_index_v0.json",
+    "artifacts/release_evidence_input_manifest_v0.json",
+    "artifacts/recorded_release_evidence_verifier_v0.json",
+    "artifacts/external/llamaguard_evaluator_manifest_v0.json",
+    "artifacts/external/llamaguard_summary.json",
+    "artifacts/external/llamaguard_summary.bundle.json",
+    "artifacts/external/llamaguard_summary.envelope.json",
+    "artifacts/external/llamaguard_attestation_verifier_v1.json",
+    "artifacts/status.json",
+    "artifacts/release_decision_v0.json",
+    "artifacts/artifact_provenance_binding_v0.json",
+    "artifacts/release_authority_v0.json",
+)
+
+
 def authority_sources(
     subject_root: Path,
     subject_revision: str,
     files: dict[str, bytes],
 ) -> dict[str, Any]:
+    del subject_root
+
     def row(
         *,
         source_id: str,
@@ -716,28 +789,35 @@ def authority_sources(
         }
 
     workflow_path = ".github/workflows/pulse_ci.yml"
+    additional = [
+        row(
+            source_id="source:external-signer-policy",
+            role="external_signer_policy",
+            path="policy/external_signers_v1.yml",
+        ),
+        row(
+            source_id="source:threshold-policy",
+            role="threshold_policy",
+            path="PULSE_safe_pack_v0/profiles/external_thresholds.yaml",
+        ),
+    ]
+    additional.sort(key=lambda item: item["source_id"])
     return {
-        "additional_sources": [
-            row(
-                source_id="source:policy:external-signers-v1",
-                role="external_signer_policy",
-                path="policy/external_signers_v1.yml",
-            )
-        ],
+        "additional_sources": additional,
         "gate_registry": row(
-            source_id="source:registry:gate-registry-v0",
+            source_id="source:gate-registry",
             role="gate_registry",
             path="pulse_gate_registry_v0.yml",
             extra={"registry_id": "registry:synthetic"},
         ),
         "policy": row(
-            source_id="source:policy:pulse-gate-policy-v0",
+            source_id="source:policy",
             role="policy",
             path="pulse_gate_policy_v0.yml",
             extra={"policy_id": "policy:synthetic"},
         ),
         "workflow": row(
-            source_id="source:workflow:pulse-ci",
+            source_id="source:workflow",
             role="workflow",
             path=workflow_path,
             extra={
@@ -751,15 +831,15 @@ def authority_sources(
     }
 
 
-def inventory_report_checks(
+def inventory_check_ids(
     *,
     inventory: dict[str, Any],
     report_kind: str,
-) -> list[dict[str, Any]]:
+) -> set[str]:
     rows = inventory["files"]
     assert isinstance(rows, list)
     if report_kind == "completeness":
-        check_ids = {
+        result = {
             "digest_inventory.schema_version",
             "digest_inventory.algorithm",
             "digest_inventory.unique_paths",
@@ -767,7 +847,7 @@ def inventory_report_checks(
             "digest_inventory.exact_coverage",
         }
     elif report_kind == "verification":
-        check_ids = {
+        result = {
             "digest_inventory.schema",
             "digest_inventory.algorithm",
             "digest_inventory.unique_paths",
@@ -779,16 +859,313 @@ def inventory_report_checks(
     for row in rows:
         assert isinstance(row, dict)
         path = row["path"]
-        check_ids.add(f"digest_inventory.digest:{path}")
-        check_ids.add(f"digest_inventory.size_bytes:{path}")
+        result.add(f"digest_inventory.digest:{path}")
+        result.add(f"digest_inventory.size_bytes:{path}")
+    return result
+
+
+def completeness_check_ids(
+    *,
+    members: dict[str, bytes],
+    inventory: dict[str, Any],
+) -> set[str]:
+    result: set[str] = set()
+    for path in PACKAGE_REQUIRED_FILES:
+        assert path in members and members[path]
+        result.add(f"required_file:{path}")
+        result.add(f"non_empty_file:{path}")
+    for directory in PACKAGE_REQUIRED_DIRS:
+        assert any(path.startswith(directory + "/") for path in members)
+        result.add(f"required_dir:{directory}")
+    for path in PACKAGE_JSON_OBJECT_FILES:
+        assert isinstance(parse_json_bytes(members[path]), dict)
+        result.add(f"json_object:{path}")
+        result.add(f"non_stub_json:{path}")
+    result.add("jsonl:artifacts/external/llamaguard_raw.jsonl")
+    result.update(
+        {
+            "status.release_grade.detectors_materialized_ok",
+            "status.release_grade.gates_stubbed_false",
+            "status.release_grade.scaffold_false",
+            "report_card.marker_state_clear",
+            "report_card.non_stub",
+            "recorded_candidates.non_empty",
+            "slsa_vsa.trusted_producer.current_contract_optional",
+        }
+    )
+    for path in sorted(members):
+        if path.startswith("artifacts/recorded_release_candidates/") and path.endswith(".json"):
+            result.add(f"recorded_candidate.json:{path}")
+            result.add(f"recorded_candidate.validation:{path}")
+    result.update(inventory_check_ids(inventory=inventory, report_kind="completeness"))
+    return result
+
+
+def verification_check_ids(
+    *,
+    members: dict[str, bytes],
+    inventory: dict[str, Any],
+    subject: dict[str, Any],
+) -> set[str]:
+    del subject
+    result = {f"required_file:{path}" for path in PACKAGE_REQUIRED_FILES}
+    result.update(f"required_dir:{path}" for path in PACKAGE_REQUIRED_DIRS)
+    result.update(f"json:{path}" for path in PACKAGE_JSON_OBJECT_FILES)
+    result.update(inventory_check_ids(inventory=inventory, report_kind="verification"))
+    result.update(
+        {
+            "metadata.repository",
+            "metadata.git_sha",
+            "metadata.workflow_ref",
+            "metadata.run_key",
+            "metadata.run_id",
+            "metadata.run_attempt",
+            "metadata.authority_boundary",
+            "llamaguard.raw.record_count",
+            "llamaguard.raw[0].repository",
+            "llamaguard.raw[0].git_sha",
+            "llamaguard.raw[0].run_key",
+            "llamaguard.raw[0].workflow_ref",
+            "llamaguard.evaluator.repository",
+            "llamaguard.evaluator.git_sha",
+            "llamaguard.evaluator.run_key",
+            "llamaguard.evaluator.workflow_ref",
+            "llamaguard.summary.repository",
+            "llamaguard.summary.source_commit",
+            "llamaguard.summary.run_key",
+            "llamaguard.envelope.repository",
+            "llamaguard.envelope.source_commit",
+            "llamaguard.envelope.workflow_ref",
+            "llamaguard.summary.raw_path",
+            "llamaguard.summary.raw_digest",
+            "llamaguard.summary.evaluator_digest",
+            "llamaguard.envelope.summary_digest",
+            "llamaguard.envelope.bundle_uri",
+            "llamaguard.envelope.bundle_sha256",
+            "llamaguard.envelope.raw_evidence_sha256",
+            "llamaguard.attestation_report.status",
+            "llamaguard.attestation_report.errors",
+            "llamaguard.attestation_report.summary_digest",
+            "llamaguard.attestation_report.envelope_digest",
+            "recorded_candidates.non_empty",
+            "recorded_verifier.status",
+            "recorded_verifier.errors",
+            "input_manifest.object",
+            "candidate_index.object",
+            "status.git_sha",
+            "status.run_key",
+            "baseline.git_sha",
+            "baseline.run_key",
+            "release_decision.object",
+            "artifact_provenance_binding.object",
+            "release_authority_manifest.object",
+        }
+    )
+    for path in sorted(members):
+        if path.startswith("artifacts/recorded_release_candidates/") and path.endswith(".json"):
+            result.add(f"recorded_candidate.validation:{path}")
+            result.add(f"recorded_candidate.authority_boundary:{path}")
+    return result
+
+
+def report_checks(check_ids: set[str]) -> list[dict[str, Any]]:
     return [
         {
             "check_id": check_id,
-            "details": f"synthetic independently replayed check {check_id}",
+            "details": f"independent package replay check {check_id}",
             "passed": True,
         }
         for check_id in sorted(check_ids)
     ]
+
+
+def make_complete_package_members(
+    *,
+    subject: dict[str, Any],
+    sources: dict[str, Any],
+) -> tuple[dict[str, bytes], dict[str, Any]]:
+    repository = subject["repository"]
+    git_sha = subject["source_commit"]
+    workflow_ref = subject["workflow_ref"]
+    run_key = subject["subject_run_key"]
+    run_id = subject["workflow_run_id"]
+    run_attempt = subject["workflow_run_attempt"]
+
+    raw = (
+        json.dumps(
+            {
+                "run": {
+                    "git_sha": git_sha,
+                    "repository": repository,
+                    "run_key": run_key,
+                    "workflow_ref": workflow_ref,
+                }
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+        + "\n"
+    ).encode("utf-8")
+    evaluator = render_json(
+        {
+            "run": {
+                "git_sha": git_sha,
+                "repository": repository,
+                "run_key": run_key,
+                "workflow_ref": workflow_ref,
+            }
+        }
+    )
+    bundle = render_json({"bundle_format": "sigstore-bundle-v0"})
+    summary = render_json(
+        {
+            "evidence": {
+                "raw_artifact_digest": sha256_bytes(raw),
+                "raw_artifact_uri": "artifacts/external/llamaguard_raw.jsonl",
+            },
+            "extensions": {
+                "evaluator_manifest_sha256": sha256_bytes(evaluator),
+                "repository": repository,
+                "source_commit": git_sha,
+            },
+            "run": {"run_id": run_key},
+        }
+    )
+    envelope = render_json(
+        {
+            "extensions": {
+                "bundle_sha256": sha256_bytes(bundle),
+                "raw_evidence_sha256": sha256_bytes(raw),
+                "repository": repository,
+                "source_commit": git_sha,
+                "workflow_ref": workflow_ref,
+            },
+            "signing": {
+                "bundle_uri": "artifacts/external/llamaguard_summary.bundle.json"
+            },
+            "summary_digest": {
+                "algorithm": "sha256",
+                "value": sha256_bytes(summary),
+            },
+        }
+    )
+    attestation = render_json(
+        {
+            "envelope": {"sha256": sha256_bytes(envelope)},
+            "errors": [],
+            "status": "verified",
+            "summary": {"sha256": sha256_bytes(summary)},
+        }
+    )
+    context = render_json(
+        {
+            "authority_sources": sources,
+            "subject": subject,
+        }
+    )
+    candidate_path = "artifacts/recorded_release_candidates/candidate-v0.json"
+    members: dict[str, bytes] = {
+        "run_metadata_v0.json": render_json(
+            {
+                "authority_boundary": {
+                    "authorizes_release": False,
+                    "package_only": True,
+                },
+                "git_sha": git_sha,
+                "release_candidate": subject["release_candidate_id"],
+                "repository": repository,
+                "run_attempt": run_attempt,
+                "run_id": run_id,
+                "run_key": run_key,
+                "workflow_ref": workflow_ref,
+            }
+        ),
+        "artifacts/required_gate_evidence_v0.json": render_json(
+            {"evidence_status": "recorded"}
+        ),
+        "artifacts/status_baseline.json": render_json(
+            {"metrics": {"git_sha": git_sha, "run_key": run_key}}
+        ),
+        "artifacts/recorded_release_candidate_index_v0.json": render_json(
+            {
+                "index_id": "candidate-index-v0",
+                "source_bindings": {
+                    "external_thresholds": {
+                        "path": "PULSE_safe_pack_v0/profiles/external_thresholds.yaml",
+                        "sha256": sources["additional_sources"][1]["sha256"],
+                    }
+                },
+            }
+        ),
+        "artifacts/release_evidence_input_manifest_v0.json": render_json(
+            {"manifest_id": "release-evidence-input-v0"}
+        ),
+        "artifacts/recorded_release_evidence_verifier_v0.json": render_json(
+            {"errors": [], "status": "verified"}
+        ),
+        "artifacts/external/llamaguard_raw.jsonl": raw,
+        "artifacts/external/llamaguard_evaluator_manifest_v0.json": evaluator,
+        "artifacts/external/llamaguard_summary.json": summary,
+        "artifacts/external/llamaguard_summary.bundle.json": bundle,
+        "artifacts/external/llamaguard_summary.envelope.json": envelope,
+        "artifacts/external/llamaguard_attestation_verifier_v1.json": attestation,
+        "artifacts/status.json": render_json(
+            {
+                "diagnostics": {"gates_stubbed": False, "scaffold": False},
+                "gates": {"detectors_materialized_ok": True},
+                "metrics": {
+                    "git_sha": git_sha,
+                    "run_key": run_key,
+                },
+            }
+        ),
+        "artifacts/release_decision_v0.json": render_json(
+            {"decision": subject["decision"], "decision_basis": "recorded evidence"}
+        ),
+        "artifacts/artifact_provenance_binding_v0.json": render_json(
+            {"binding_id": "artifact-provenance-v0"}
+        ),
+        "artifacts/release_authority_v0.json": render_json(
+            {
+                "authority_id": "release-authority-v0",
+                "run_identity": {
+                    "event_name": subject["event_name"],
+                    "ref": subject["source_ref"],
+                    "workflow_name": subject["workflow_name"],
+                },
+            }
+        ),
+        "artifacts/report_card.html": (
+            b"<html><body>Stub/scaffold marker state clear.</body></html>\n"
+        ),
+        candidate_path: render_json(
+            {
+                "authority_boundary": {
+                    "creates_release_authority": False,
+                    "eligible_without_verifier": False,
+                },
+                "validation": {"status": "passed"},
+            }
+        ),
+        "release-authority-audit-bundle/README.txt": b"Audit bundle recorded.\n",
+        "synthetic_context.json": context,
+    }
+    inventory_rows = [
+        {
+            "path": path,
+            "sha256": sha256_bytes(payload),
+            "size_bytes": len(payload),
+        }
+        for path, payload in sorted(members.items())
+    ]
+    inventory = {
+        "algorithm": "sha256",
+        "file_count": len(inventory_rows),
+        "files": inventory_rows,
+        "schema_version": "release_grade_reference_package_digest_inventory_v0",
+    }
+    members["package_digest_inventory_v0.json"] = render_json(inventory)
+    return members, inventory
 
 
 def make_current_run_carrier(
@@ -797,39 +1174,16 @@ def make_current_run_carrier(
     sources: dict[str, Any],
     layout: dict[str, Any],
 ) -> bytes:
-    context = render_json(
-        {
-            "authority_sources": sources,
-            "subject": subject,
-        }
+    complete_members, inventory = make_complete_package_members(
+        subject=subject,
+        sources=sources,
     )
-    inventory = render_json(
-        {
-            "algorithm": "sha256",
-            "file_count": 1,
-            "files": [
-                {
-                    "path": "synthetic_context.json",
-                    "sha256": sha256_bytes(context),
-                    "size_bytes": len(context),
-                }
-            ],
-            "schema_version": (
-                "release_grade_reference_package_digest_inventory_v0"
-            ),
-        }
+    complete = deterministic_zip(complete_members)
+    completeness_ids = completeness_check_ids(
+        members=complete_members,
+        inventory=inventory,
     )
-    inventory_object = parse_json_bytes(inventory)
-    complete = deterministic_zip(
-        {
-            "package_digest_inventory_v0.json": inventory,
-            "synthetic_context.json": context,
-        }
-    )
-    completeness_checks = inventory_report_checks(
-        inventory=inventory_object,
-        report_kind="completeness",
-    )
+    completeness_checks = report_checks(completeness_ids)
     completeness_document = render_json(
         {
             "authority_boundary": copy.deepcopy(
@@ -844,21 +1198,21 @@ def make_current_run_carrier(
             "summary": {
                 "checks_failed": 0,
                 "checks_total": len(completeness_checks),
+                "required_dirs": len(PACKAGE_REQUIRED_DIRS),
+                "required_files": len(PACKAGE_REQUIRED_FILES),
             },
             "tool": copy.deepcopy(TOOL_MODULE.COMPLETENESS_REPORT_TOOL),
         }
     )
     completeness = deterministic_zip(
-        {
-            "release_grade_package_completeness_v1.json": (
-                completeness_document
-            )
-        }
+        {"release_grade_package_completeness_v1.json": completeness_document}
     )
-    verification_checks = inventory_report_checks(
-        inventory=inventory_object,
-        report_kind="verification",
+    verification_ids = verification_check_ids(
+        members=complete_members,
+        inventory=inventory,
+        subject=subject,
     )
+    verification_checks = report_checks(verification_ids)
     verification_document = render_json(
         {
             "authority_boundary": copy.deepcopy(
@@ -868,9 +1222,7 @@ def make_current_run_carrier(
             "checks": verification_checks,
             "errors": [],
             "package": {"path": "/synthetic/complete-package"},
-            "schema_version": (
-                "release_grade_reference_package_verification_v0"
-            ),
+            "schema_version": "release_grade_reference_package_verification_v0",
             "status": "verified",
             "summary": {
                 "checks_failed": 0,
@@ -893,15 +1245,9 @@ def make_current_run_carrier(
         layout["verification_archive_name"]: verification,
     }
     roles = {
-        layout["complete_package_name"]: (
-            "complete_release_grade_reference_package"
-        ),
-        layout["completeness_archive_name"]: (
-            "structural_package_completeness_report"
-        ),
-        layout["verification_archive_name"]: (
-            "independent_package_verification_report"
-        ),
+        layout["complete_package_name"]: "complete_release_grade_reference_package",
+        layout["completeness_archive_name"]: "structural_package_completeness_report",
+        layout["verification_archive_name"]: "independent_package_verification_report",
     }
     rows: list[dict[str, Any]] = []
     for index, name in enumerate(sorted(provider_payloads), start=1):
@@ -932,15 +1278,11 @@ def make_current_run_carrier(
             "local_verification": {
                 "all_outer_artifact_digests_match_github": True,
                 "all_outer_artifact_sizes_match_github": True,
-                "complete_package_inventory_entries": 1,
-                "complete_package_zip_members": 2,
-                "independent_verification_checks_total": len(
-                    verification_checks
-                ),
+                "complete_package_inventory_entries": len(inventory["files"]),
+                "complete_package_zip_members": len(complete_members),
+                "independent_verification_checks_total": len(verification_checks),
                 "independent_verification_verified": True,
-                "structural_completeness_checks_total": len(
-                    completeness_checks
-                ),
+                "structural_completeness_checks_total": len(completeness_checks),
                 "structural_completeness_ok": True,
             },
             "primary_gate_result": (
@@ -948,9 +1290,7 @@ def make_current_run_carrier(
             ),
             "repository": subject["repository"],
             "run_mode": subject["run_mode"],
-            "schema_id": (
-                "pulse_ci_release_grade_artifact_preservation_manifest_v0"
-            ),
+            "schema_id": "pulse_ci_release_grade_artifact_preservation_manifest_v0",
             "schema_version": "0.1.0",
             "source_commit": subject["source_commit"],
             "source_ref": subject["source_ref"],
@@ -960,11 +1300,9 @@ def make_current_run_carrier(
             "workflow_run_number": subject["workflow_run_number"],
         }
     )
-    readme = b"PULSEmech synthetic current-run preservation carrier.\n"
+    readme = b"PULSEmech current-run preservation carrier.\n"
     visible = layout["visible_members"]
-    relative_original = layout["original_artifacts_prefix"][
-        len(layout["outer_prefix"]) :
-    ]
+    relative_original = layout["original_artifacts_prefix"][len(layout["outer_prefix"]):]
     sums = {
         visible["preservation_manifest_name"]: sha256_bytes(manifest),
         visible["preservation_readme_name"]: sha256_bytes(readme),
@@ -986,7 +1324,6 @@ def make_current_run_carrier(
         },
     }
     return deterministic_zip(outer)
-
 
 def complete_fixture(tmp_path: Path) -> dict[str, Any]:
     control_root = tmp_path / "control-plane"
@@ -1034,7 +1371,10 @@ def complete_fixture(tmp_path: Path) -> dict[str, Any]:
         ".github/workflows/pulse_ci.yml": (
             b"name: PULSE CI\non:\n  workflow_dispatch:\n"
         ),
-        "policy/external_signers_v1.yml": b"version: synthetic\n",
+        "policy/external_signers_v1.yml": b"version: recorded\n",
+        "PULSE_safe_pack_v0/profiles/external_thresholds.yaml": (
+            b"thresholds:\n  refusal_delta: 0.10\n"
+        ),
         "pulse_gate_policy_v0.yml": (
             b"policy:\n  id: policy:synthetic\n"
         ),
@@ -1088,7 +1428,7 @@ def complete_fixture(tmp_path: Path) -> dict[str, Any]:
         "artifact_count_derivation": "provider_plus_non_provider",
         "complete_package_name": "complete-package-9001-1.zip",
         "completeness_archive_name": "completeness-9001-1.zip",
-        "expected_non_provider_artifact_count": 7,
+        "expected_non_provider_artifact_count": 26,
         "expected_provider_artifact_count": 3,
         "layout_id": "pulsemech_current_run_export_layout_v0",
         "layout_version": "0.1.0",
@@ -2016,7 +2356,7 @@ def test_nested_archives_share_one_aggregate_uncompressed_budget(
         )
 
 
-def test_sha256sums_inventory_and_check_reports_are_exact() -> None:
+def test_sha256sums_inventory_and_check_reports_are_exact(tmp_path: Path) -> None:
     first = b"one\n"
     second = b"two\n"
     sums = TOOL_MODULE._parse_sha256sums(
@@ -2037,44 +2377,25 @@ def test_sha256sums_inventory_and_check_reports_are_exact() -> None:
             ).encode("ascii")
         )
 
-    inventory_payload = render_json(
-        {
-            "algorithm": "sha256",
-            "file_count": 1,
-            "files": [
-                {
-                    "path": "one.txt",
-                    "sha256": sha256_bytes(first),
-                    "size_bytes": len(first),
-                }
-            ],
-            "schema_version": (
-                "release_grade_reference_package_digest_inventory_v0"
-            ),
-        }
+    fixture = complete_fixture(tmp_path)
+    subject = fixture["expectation"]["subject"]
+    sources = fixture["expectation"]["authority_sources"]
+    members, inventory = make_complete_package_members(
+        subject=subject,
+        sources=sources,
     )
-    members = {
-        "one.txt": first,
-        "package_digest_inventory_v0.json": inventory_payload,
-    }
-    inventory = parse_json_bytes(inventory_payload)
     rows = TOOL_MODULE._validate_package_inventory(
         members=members,
         inventory=inventory,
     )
-    assert set(rows) == {"one.txt"}
-    invalid = copy.deepcopy(inventory)
-    invalid["files"][0]["sha256"] = "0" * 64
-    with pytest.raises(TOOL_MODULE.WrapperError, match="sha256"):
-        TOOL_MODULE._validate_package_inventory(
-            members=members,
-            inventory=invalid,
-        )
+    assert len(rows) == len(members) - 1
 
-    checks = inventory_report_checks(
+    verification_ids = verification_check_ids(
+        members=members,
         inventory=inventory,
-        report_kind="verification",
+        subject=subject,
     )
+    checks = report_checks(verification_ids)
     report = {
         "authority_boundary": copy.deepcopy(
             TOOL_MODULE.VERIFICATION_REPORT_AUTHORITY_BOUNDARY
@@ -2085,10 +2406,7 @@ def test_sha256sums_inventory_and_check_reports_are_exact() -> None:
         "package": {"path": "/synthetic/complete-package"},
         "schema_version": "schema:v0",
         "status": "verified",
-        "summary": {
-            "checks_failed": 0,
-            "checks_total": len(checks),
-        },
+        "summary": {"checks_failed": 0, "checks_total": len(checks)},
         "tool": copy.deepcopy(TOOL_MODULE.VERIFICATION_REPORT_TOOL),
         "verified": True,
     }
@@ -2102,21 +2420,16 @@ def test_sha256sums_inventory_and_check_reports_are_exact() -> None:
         members=members,
         inventory=inventory,
         inventory_rows=rows,
+        subject=subject,
     )
 
     forged = copy.deepcopy(report)
-    forged["checks"] = [
-        {
-            "check_id": "digest_inventory.algorithm",
-            "details": "forged one-check report",
-            "passed": True,
-        }
-    ]
-    forged["summary"] = {"checks_failed": 0, "checks_total": 1}
-    with pytest.raises(
-        TOOL_MODULE.WrapperError,
-        match="required_check_ids_missing",
-    ):
+    forged["checks"] = forged["checks"][1:]
+    forged["summary"] = {
+        "checks_failed": 0,
+        "checks_total": len(forged["checks"]),
+    }
+    with pytest.raises(TOOL_MODULE.WrapperError, match="check_identity_set_mismatch"):
         TOOL_MODULE._validate_check_report(
             document=forged,
             schema_version="schema:v0",
@@ -2127,26 +2440,12 @@ def test_sha256sums_inventory_and_check_reports_are_exact() -> None:
             members=members,
             inventory=inventory,
             inventory_rows=rows,
+            subject=subject,
         )
 
-    failed = copy.deepcopy(report)
-    failed["checks"][0]["passed"] = False
-    with pytest.raises(TOOL_MODULE.WrapperError, match="check_failed"):
-        TOOL_MODULE._validate_check_report(
-            document=failed,
-            schema_version="schema:v0",
-            status_field="status",
-            status_value="verified",
-            label="report",
-            report_kind="verification",
-            members=members,
-            inventory=inventory,
-            inventory_rows=rows,
-        )
-
-    substituted_members = dict(members)
-    substituted_members["one.txt"] = b"substituted\n"
-    with pytest.raises(TOOL_MODULE.WrapperError, match="digest_inventory"):
+    substituted = dict(members)
+    substituted["artifacts/external/llamaguard_raw.jsonl"] = b"{}\n"
+    with pytest.raises(TOOL_MODULE.WrapperError):
         TOOL_MODULE._validate_check_report(
             document=report,
             schema_version="schema:v0",
@@ -2154,11 +2453,240 @@ def test_sha256sums_inventory_and_check_reports_are_exact() -> None:
             status_value="verified",
             label="report",
             report_kind="verification",
-            members=substituted_members,
+            members=substituted,
             inventory=inventory,
             inventory_rows=rows,
+            subject=subject,
         )
 
+
+def test_completeness_semantic_report_requires_full_package_checks(
+    tmp_path: Path,
+) -> None:
+    fixture = complete_fixture(tmp_path)
+    subject = fixture["expectation"]["subject"]
+    sources = fixture["expectation"]["authority_sources"]
+    members, inventory = make_complete_package_members(
+        subject=subject,
+        sources=sources,
+    )
+    rows = TOOL_MODULE._validate_package_inventory(
+        members=members,
+        inventory=inventory,
+    )
+    ids = completeness_check_ids(members=members, inventory=inventory)
+    checks = report_checks(ids)
+    report = {
+        "authority_boundary": copy.deepcopy(
+            TOOL_MODULE.COMPLETENESS_REPORT_AUTHORITY_BOUNDARY
+        ),
+        "checks": checks,
+        "errors": [],
+        "ok": True,
+        "package": {"path": "/synthetic/complete-package"},
+        "schema_version": "release_grade_package_completeness_v1",
+        "status": "complete",
+        "summary": {
+            "checks_failed": 0,
+            "checks_total": len(checks),
+            "required_dirs": len(PACKAGE_REQUIRED_DIRS),
+            "required_files": len(PACKAGE_REQUIRED_FILES),
+        },
+        "tool": copy.deepcopy(TOOL_MODULE.COMPLETENESS_REPORT_TOOL),
+    }
+    TOOL_MODULE._validate_check_report(
+        document=report,
+        schema_version="release_grade_package_completeness_v1",
+        status_field="status",
+        status_value="complete",
+        label="completeness",
+        report_kind="completeness",
+        members=members,
+        inventory=inventory,
+        inventory_rows=rows,
+        subject=subject,
+    )
+
+    omitted = copy.deepcopy(report)
+    omitted["checks"] = [
+        item
+        for item in omitted["checks"]
+        if item["check_id"] != "report_card.non_stub"
+    ]
+    omitted["summary"]["checks_total"] = len(omitted["checks"])
+    with pytest.raises(TOOL_MODULE.WrapperError, match="check_identity_set_mismatch"):
+        TOOL_MODULE._validate_check_report(
+            document=omitted,
+            schema_version="release_grade_package_completeness_v1",
+            status_field="status",
+            status_value="complete",
+            label="completeness",
+            report_kind="completeness",
+            members=members,
+            inventory=inventory,
+            inventory_rows=rows,
+            subject=subject,
+        )
+
+    malformed = dict(members)
+    malformed["artifacts/report_card.html"] = (
+        b"<html><body>Placeholder report.</body></html>\n"
+    )
+    with pytest.raises(TOOL_MODULE.WrapperError, match="report_card"):
+        TOOL_MODULE._validate_check_report(
+            document=report,
+            schema_version="release_grade_package_completeness_v1",
+            status_field="status",
+            status_value="complete",
+            label="completeness",
+            report_kind="completeness",
+            members=malformed,
+            inventory=inventory,
+            inventory_rows=rows,
+            subject=subject,
+        )
+
+
+def test_real_producer_core_source_ids_match_canonical_projection() -> None:
+    source = PRODUCER_CORE.read_text(encoding="utf-8")
+    tree = ast.parse(source, filename=str(PRODUCER_CORE))
+    function = next(
+        node
+        for node in tree.body
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+        and node.name == "build_subject_and_sources"
+    )
+    observed: set[str] = set()
+    for node in ast.walk(function):
+        if not isinstance(node, ast.Call):
+            continue
+        if not isinstance(node.func, ast.Name) or node.func.id != "git_source":
+            continue
+        for keyword in node.keywords:
+            if keyword.arg == "source_id" and isinstance(keyword.value, ast.Constant):
+                assert isinstance(keyword.value.value, str)
+                observed.add(keyword.value.value)
+    assert observed == {
+        "source:workflow:pulse-ci",
+        "source:policy:pulse-gate-policy-v0",
+        "source:registry:gate-registry-v0",
+        "source:policy:external-signers-v1",
+        "source:policy:external-thresholds",
+    }
+
+    files = {
+        ".github/workflows/pulse_ci.yml": b"name: PULSE CI\n",
+        "policy/external_signers_v1.yml": b"version: recorded\n",
+        "PULSE_safe_pack_v0/profiles/external_thresholds.yaml": b"thresholds: {}\n",
+        "pulse_gate_policy_v0.yml": b"policy:\n  id: policy:synthetic\n",
+        "pulse_gate_registry_v0.yml": b"version: registry:synthetic\n",
+    }
+    expectation_sources = authority_sources(
+        Path("/unused"),
+        "1" * 40,
+        files,
+    )
+    projected = TOOL_MODULE._canonical_packet_authority_sources(
+        expectation_sources
+    )
+    projected_ids = {
+        projected["workflow"]["source_id"],
+        projected["policy"]["source_id"],
+        projected["gate_registry"]["source_id"],
+        *(row["source_id"] for row in projected["additional_sources"]),
+    }
+    assert projected_ids == observed
+    assert expectation_sources["workflow"]["source_id"] == "source:workflow"
+
+
+def _import_repository_module(path: Path, *, suffix: str) -> Any:
+    name = f"pulsemech_repository_contract_{suffix}"
+    spec = importlib.util.spec_from_file_location(name, path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_real_subject_validator_routes_producer_provenance_to_control_checkout(
+    tmp_path: Path,
+) -> None:
+    validator = _import_repository_module(
+        SUBJECT_VALIDATOR,
+        suffix="subject_validator_provenance",
+    )
+    subject_root = tmp_path / "subject"
+    control_root = tmp_path / "control"
+    subject_root.mkdir()
+    control_root.mkdir()
+    wrapper_path = control_root / TOOL_MODULE.WRAPPER_SOURCE_PATH
+    wrapper_path.parent.mkdir(parents=True)
+    wrapper_payload = TOOL.read_bytes()
+    wrapper_path.write_bytes(wrapper_payload)
+    subject_revision = "1" * 40
+    control_revision = "2" * 40
+    control_files = {
+        "subject_input_producer_wrapper": TOOL_MODULE.VerifiedFile(
+            role="subject_input_producer_wrapper",
+            repository_root=control_root,
+            revision=control_revision,
+            repository_path=TOOL_MODULE.WRAPPER_SOURCE_PATH,
+            path=wrapper_path,
+            payload=wrapper_payload,
+            git_blob_sha1=git_blob_sha1(wrapper_payload),
+            sha256=sha256_bytes(wrapper_payload),
+        )
+    }
+    TOOL_MODULE._bind_hardened_git_interfaces(
+        producer_core=type("Core", (), {})(),
+        subject_validator=validator,
+        trusted_git=Path("/usr/bin/git"),
+        subject_root=subject_root,
+        subject_revision=subject_revision,
+        control_root=control_root,
+        control_revision=control_revision,
+        control_files=control_files,
+        authority_files={},
+    )
+    assert validator._git_blob_bytes(
+        subject_root,
+        revision=control_revision,
+        path=TOOL_MODULE.WRAPPER_SOURCE_PATH,
+    ) == wrapper_payload
+
+    run_key = "GITHUB_RUN_ID=9|GITHUB_RUN_ATTEMPT=1|GITHUB_WORKFLOW=PULSE CI"
+    packet = {
+        "carrier": {"carrier_kind": "current_run_export_archive"},
+        "fixture_provenance": None,
+        "packet_identity": {"packet_scope": "current_run"},
+        "producer": {
+            "producer_run_key": run_key,
+            "producer_source": TOOL_MODULE.WRAPPER_SOURCE_PATH,
+            "producer_source_revision": control_revision,
+            "producer_source_sha256": sha256_bytes(wrapper_payload),
+            "production_mode": "current_run_export",
+        },
+        "record_status": "observed",
+        "subject": {"subject_run_key": run_key},
+    }
+    ok, errors = validator._verify_provenance(
+        packet,
+        packet_path=tmp_path / "packet.json",
+        repository_root=subject_root,
+    )
+    assert ok is True
+    assert errors == []
+
+    altered = copy.deepcopy(packet)
+    altered["producer"]["producer_source_revision"] = subject_revision
+    ok, errors = validator._verify_provenance(
+        altered,
+        packet_path=tmp_path / "packet.json",
+        repository_root=subject_root,
+    )
+    assert ok is False
+    assert errors
 
 def test_preservation_manifest_binds_current_subject_and_provider_bytes() -> None:
     subject = {
@@ -2246,14 +2774,13 @@ def test_current_run_bundle_verifies_layout_reports_and_counts(tmp_path: Path) -
     )
     assert bundle.archive_sha256 == fixture["expectation"]["carrier"]["sha256"]
     assert bundle.archive_size == fixture["expectation"]["carrier"]["size_bytes"]
-    assert set(bundle.complete_package_members) == {
-        "package_digest_inventory_v0.json",
-        "synthetic_context.json",
-    }
+    assert set(PACKAGE_REQUIRED_FILES).issubset(bundle.complete_package_members)
+    assert "synthetic_context.json" in bundle.complete_package_members
+    assert len(bundle.complete_package_members) == 21
     assert bundle.completeness_report["status"] == "complete"
     assert bundle.verification_report["status"] == "verified"
     altered = copy.deepcopy(fixture["expectation"])
-    altered["archive_layout"]["expected_non_provider_artifact_count"] = 8
+    altered["archive_layout"]["expected_non_provider_artifact_count"] = 27
     with pytest.raises(TOOL_MODULE.WrapperError, match="non_provider"):
         TOOL_MODULE.load_current_run_bundle(
             carrier_path=fixture["carrier_path"],
@@ -2292,7 +2819,7 @@ def test_profile_derivation_binds_expectation_without_second_profile_implementat
     assert profile.expected_carrier_sha256 == fixture["expectation"]["carrier"][
         "sha256"
     ]
-    assert profile.expected_artifact_count == 10
+    assert profile.expected_artifact_count == 29
     altered = copy.deepcopy(fixture["expectation"])
     altered["packet_producer_profile"]["expected_production_mode"] = "other"
     with pytest.raises(TOOL_MODULE.WrapperError, match="expected_production_mode"):
@@ -2304,8 +2831,20 @@ def test_profile_derivation_binds_expectation_without_second_profile_implementat
 
 
 def test_packet_equivalence_requires_exact_subject_sources_carrier_and_boundaries() -> None:
+    source_payloads = {
+        ".github/workflows/pulse_ci.yml": b"name: PULSE CI\n",
+        "policy/external_signers_v1.yml": b"version: recorded\n",
+        "PULSE_safe_pack_v0/profiles/external_thresholds.yaml": b"thresholds: {}\n",
+        "pulse_gate_policy_v0.yml": b"policy:\n  id: policy:synthetic\n",
+        "pulse_gate_registry_v0.yml": b"version: registry:synthetic\n",
+    }
+    expectation_sources = authority_sources(
+        Path("/unused"),
+        "1" * 40,
+        source_payloads,
+    )
     expectation = {
-        "authority_sources": {"workflow": {"source_id": "source:workflow"}},
+        "authority_sources": expectation_sources,
         "carrier": {
             "carrier_id": "carrier:current-run/pulse-ci-17/v0",
             "root_prefix": "root/",
@@ -2321,7 +2860,9 @@ def test_packet_equivalence_requires_exact_subject_sources_carrier_and_boundarie
         "authority_boundary": copy.deepcopy(
             TOOL_MODULE.EXPECTED_PACKET_AUTHORITY_BOUNDARY
         ),
-        "authority_sources": copy.deepcopy(expectation["authority_sources"]),
+        "authority_sources": TOOL_MODULE._canonical_packet_authority_sources(
+            expectation_sources
+        ),
         "carrier": {
             "artifact_payload_mode": "external_carrier",
             "carrier_id": expectation["carrier"]["carrier_id"],
@@ -2370,7 +2911,6 @@ def test_packet_equivalence_requires_exact_subject_sources_carrier_and_boundarie
             carrier_size=7,
             profile=Profile(),
         )
-
 
 def test_output_boundary_rejects_protected_and_overlapping_paths(tmp_path: Path) -> None:
     subject = tmp_path / "subject"
