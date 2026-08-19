@@ -40,6 +40,7 @@ import types
 import zipfile
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from html.parser import HTMLParser
 from pathlib import Path, PurePosixPath
 from typing import Any, Callable, Iterable, Mapping, Sequence
 
@@ -199,6 +200,111 @@ PROVIDER_ARCHIVE_ROLES = {
     "complete": "complete_release_grade_reference_package",
     "completeness": "structural_package_completeness_report",
     "verification": "independent_package_verification_report",
+}
+
+PACKAGE_REQUIRED_FILES: tuple[str, ...] = (
+    "package_digest_inventory_v0.json",
+    "run_metadata_v0.json",
+    "artifacts/required_gate_evidence_v0.json",
+    "artifacts/status_baseline.json",
+    "artifacts/recorded_release_candidate_index_v0.json",
+    "artifacts/release_evidence_input_manifest_v0.json",
+    "artifacts/recorded_release_evidence_verifier_v0.json",
+    "artifacts/external/llamaguard_raw.jsonl",
+    "artifacts/external/llamaguard_evaluator_manifest_v0.json",
+    "artifacts/external/llamaguard_summary.json",
+    "artifacts/external/llamaguard_summary.bundle.json",
+    "artifacts/external/llamaguard_summary.envelope.json",
+    "artifacts/external/llamaguard_attestation_verifier_v1.json",
+    "artifacts/status.json",
+    "artifacts/release_decision_v0.json",
+    "artifacts/artifact_provenance_binding_v0.json",
+    "artifacts/release_authority_v0.json",
+    "artifacts/report_card.html",
+)
+
+PACKAGE_REQUIRED_DIRS: tuple[str, ...] = (
+    "artifacts/recorded_release_candidates",
+    "release-authority-audit-bundle",
+)
+
+PACKAGE_JSON_OBJECT_FILES: tuple[str, ...] = (
+    "package_digest_inventory_v0.json",
+    "run_metadata_v0.json",
+    "artifacts/required_gate_evidence_v0.json",
+    "artifacts/status_baseline.json",
+    "artifacts/recorded_release_candidate_index_v0.json",
+    "artifacts/release_evidence_input_manifest_v0.json",
+    "artifacts/recorded_release_evidence_verifier_v0.json",
+    "artifacts/external/llamaguard_evaluator_manifest_v0.json",
+    "artifacts/external/llamaguard_summary.json",
+    "artifacts/external/llamaguard_summary.bundle.json",
+    "artifacts/external/llamaguard_summary.envelope.json",
+    "artifacts/external/llamaguard_attestation_verifier_v1.json",
+    "artifacts/status.json",
+    "artifacts/release_decision_v0.json",
+    "artifacts/artifact_provenance_binding_v0.json",
+    "artifacts/release_authority_v0.json",
+)
+
+PACKAGE_JSONL_FILES: tuple[str, ...] = (
+    "artifacts/external/llamaguard_raw.jsonl",
+)
+
+SLSA_PACKET_PATH = (
+    "artifacts/slsa/slsa_vsa_trusted_producer_input_packet_v0.json"
+)
+SLSA_REPORT_PATH = (
+    "artifacts/slsa/slsa_vsa_trusted_evidence_producer_report_v0.json"
+)
+SLSA_TRUSTED_PRODUCER_FILES = (SLSA_PACKET_PATH, SLSA_REPORT_PATH)
+
+STUB_MARKERS = (
+    "todo",
+    "tbd",
+    "stub",
+    "placeholder",
+    "not implemented",
+    "replace-me",
+    "fill me",
+    "example.invalid",
+)
+STUB_SCAN_EXEMPT_PATH_PREFIXES: tuple[tuple[str, str], ...] = (
+    ("artifacts/release_decision_v0.json", "$.decision_basis"),
+)
+STUB_SCAN_EXEMPT_NORMALIZED_PATHS: tuple[tuple[str, str], ...] = (
+    (
+        "artifacts/external/llamaguard_summary.bundle.json",
+        "$.verificationMaterial.tlogEntries[*].canonicalizedBody",
+    ),
+)
+JSON_ARRAY_INDEX_RE = re.compile(r"\[\d+\]")
+REPORT_CARD_NON_STUB_MARKERS = tuple(
+    marker for marker in STUB_MARKERS if marker != "stub"
+)
+REPORT_CARD_ACTIVE_STUB_PHRASES = (
+    "stubbed/scaffold evidence state",
+    "stub/scaffold markers recorded",
+)
+REPORT_CARD_CLEAR_MARKER_SEQUENCE = "stub/scaffold marker state clear"
+
+CANONICAL_PACKET_SOURCE_IDS = {
+    "workflow": "source:workflow:pulse-ci",
+    "policy": "source:policy:pulse-gate-policy-v0",
+    "gate_registry": "source:registry:gate-registry-v0",
+}
+GENERIC_EXPECTATION_SOURCE_IDS = {
+    "workflow": "source:workflow",
+    "policy": "source:policy",
+    "gate_registry": "source:gate-registry",
+}
+CANONICAL_ADDITIONAL_SOURCE_IDS = {
+    ("external_signer_policy", "policy/external_signers_v1.yml"): (
+        "source:policy:external-signers-v1"
+    ),
+    ("threshold_policy", "PULSE_safe_pack_v0/profiles/external_thresholds.yaml"): (
+        "source:policy:external-thresholds"
+    ),
 }
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -2214,6 +2320,80 @@ def _verify_subject_authority_sources(
     return result
 
 
+def _canonical_packet_authority_sources(
+    expectation_sources: Any,
+) -> dict[str, Any]:
+    if not isinstance(expectation_sources, Mapping):
+        raise WrapperError(
+            "expectation_authority_sources_not_object",
+            exit_kind="authority_source_binding_error",
+        )
+    result: dict[str, Any] = {}
+    used_ids: set[str] = set()
+    for name in ("workflow", "policy", "gate_registry"):
+        row = expectation_sources.get(name)
+        if not isinstance(row, Mapping):
+            raise WrapperError(
+                f"expectation_authority_source_not_object: {name}",
+                exit_kind="authority_source_binding_error",
+            )
+        require_equal(
+            row.get("source_id"),
+            GENERIC_EXPECTATION_SOURCE_IDS[name],
+            label=f"expectation_{name}_source_id",
+        )
+        projected = dict(row)
+        projected["source_id"] = CANONICAL_PACKET_SOURCE_IDS[name]
+        if projected["source_id"] in used_ids:
+            raise WrapperError(
+                f"canonical_packet_source_id_duplicate: {projected['source_id']}",
+                exit_kind="authority_source_binding_error",
+            )
+        used_ids.add(projected["source_id"])
+        result[name] = projected
+
+    additional = expectation_sources.get("additional_sources")
+    if not isinstance(additional, list):
+        raise WrapperError(
+            "expectation_additional_sources_not_array",
+            exit_kind="authority_source_binding_error",
+        )
+    projected_additional: list[dict[str, Any]] = []
+    for index, row in enumerate(additional):
+        if not isinstance(row, Mapping):
+            raise WrapperError(
+                f"expectation_additional_source_not_object: index={index}",
+                exit_kind="authority_source_binding_error",
+            )
+        role = non_empty_text(
+            row.get("role"),
+            label=f"expectation_additional_source_role_{index}",
+        )
+        path = canonical_member_path(
+            row.get("path_or_uri"),
+            label=f"expectation_additional_source_path_{index}",
+        )
+        source_id = CANONICAL_ADDITIONAL_SOURCE_IDS.get((role, path))
+        if source_id is None:
+            raise WrapperError(
+                "expectation_additional_source_has_no_canonical_packet_identity: "
+                f"role={role!r} path={path!r}",
+                exit_kind="authority_source_binding_error",
+            )
+        if source_id in used_ids:
+            raise WrapperError(
+                f"canonical_packet_source_id_duplicate: {source_id}",
+                exit_kind="authority_source_binding_error",
+            )
+        used_ids.add(source_id)
+        projected = dict(row)
+        projected["source_id"] = source_id
+        projected_additional.append(projected)
+    projected_additional.sort(key=lambda row: str(row["source_id"]))
+    result["additional_sources"] = projected_additional
+    return result
+
+
 # ---------------------------------------------------------------------------
 # Generic current-run preservation carrier verification
 # ---------------------------------------------------------------------------
@@ -2518,6 +2698,124 @@ def _validate_package_inventory(
     return indexed
 
 
+class _VisibleTextExtractor(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.parts: list[str] = []
+        self._suppressed_depth = 0
+
+    def handle_starttag(
+        self,
+        tag: str,
+        attrs: list[tuple[str, str | None]],
+    ) -> None:
+        del attrs
+        if tag.lower() in {"script", "style"}:
+            self._suppressed_depth += 1
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag.lower() in {"script", "style"} and self._suppressed_depth > 0:
+            self._suppressed_depth -= 1
+
+    def handle_data(self, data: str) -> None:
+        if self._suppressed_depth == 0 and data.strip():
+            self.parts.append(data)
+
+
+def _visible_html_text(value: str) -> str:
+    parser = _VisibleTextExtractor()
+    parser.feed(value)
+    parser.close()
+    return " ".join(" ".join(parser.parts).split()).lower()
+
+
+def _iter_string_values(
+    value: Any,
+    path: str = "$",
+) -> list[tuple[str, str]]:
+    result: list[tuple[str, str]] = []
+    if isinstance(value, str):
+        result.append((path, value))
+    elif isinstance(value, list):
+        for index, item in enumerate(value):
+            result.extend(_iter_string_values(item, f"{path}[{index}]"))
+    elif isinstance(value, dict):
+        for key, item in value.items():
+            result.extend(_iter_string_values(item, f"{path}.{key}"))
+    return result
+
+
+def _stub_scan_exempt(relative: str, json_path: str) -> bool:
+    if any(
+        relative == exempt_relative and json_path.startswith(exempt_prefix)
+        for exempt_relative, exempt_prefix in STUB_SCAN_EXEMPT_PATH_PREFIXES
+    ):
+        return True
+    normalized = JSON_ARRAY_INDEX_RE.sub("[*]", json_path)
+    return any(
+        relative == exempt_relative and normalized == exempt_path
+        for exempt_relative, exempt_path in STUB_SCAN_EXEMPT_NORMALIZED_PATHS
+    )
+
+
+def _require_non_stub_json(
+    document: Mapping[str, Any],
+    *,
+    relative: str,
+) -> None:
+    hits: list[str] = []
+    for json_path, value in _iter_string_values(document):
+        if _stub_scan_exempt(relative, json_path):
+            continue
+        lowered = value.lower()
+        for marker in STUB_MARKERS:
+            if marker in lowered:
+                hits.append(f"{json_path}:{marker}")
+    if hits:
+        raise WrapperError(
+            f"package_non_stub_json_failed: path={relative!r} hits={hits[:20]!r}",
+            exit_kind="carrier_content_error",
+        )
+
+
+def _nested_get(value: Any, path: Sequence[str]) -> Any:
+    current = value
+    for part in path:
+        if not isinstance(current, Mapping):
+            return None
+        current = current.get(part)
+    return current
+
+
+def _as_text(value: Any) -> str | None:
+    if isinstance(value, str):
+        return value
+    if isinstance(value, int) and not isinstance(value, bool):
+        return str(value)
+    return None
+
+
+def _canonical_slsa_run_key(binding: Any) -> str | None:
+    if not isinstance(binding, Mapping):
+        return None
+    values = tuple(
+        _as_text(binding.get(field))
+        for field in (
+            "current_run_id",
+            "current_run_number",
+            "current_run_attempt",
+            "workflow_name",
+        )
+    )
+    if not all(isinstance(value, str) and value for value in values):
+        return None
+    run_id, run_number, run_attempt, workflow_name = values
+    return (
+        f"GITHUB_RUN_ID={run_id}|GITHUB_RUN_NUMBER={run_number}"
+        f"|GITHUB_RUN_ATTEMPT={run_attempt}|GITHUB_WORKFLOW={workflow_name}"
+    )
+
+
 def _report_checks_by_id(
     *,
     document: dict[str, Any],
@@ -2557,28 +2855,25 @@ def _report_checks_by_id(
         indexed[check_id] = item
 
     summary = document.get("summary")
-    if summary is not None:
-        if not isinstance(summary, dict):
-            raise WrapperError(
-                f"{label}_summary_not_object",
-                exit_kind="carrier_content_error",
-            )
-        if "checks_total" in summary:
-            require_equal(
-                summary.get("checks_total"),
-                len(checks),
-                label=f"{label}_checks_total",
-            )
-        if "checks_failed" in summary:
-            require_equal(
-                summary.get("checks_failed"),
-                0,
-                label=f"{label}_checks_failed",
-            )
+    if not isinstance(summary, dict):
+        raise WrapperError(
+            f"{label}_summary_not_object",
+            exit_kind="carrier_content_error",
+        )
+    require_equal(
+        summary.get("checks_total"),
+        len(checks),
+        label=f"{label}_checks_total",
+    )
+    require_equal(
+        summary.get("checks_failed"),
+        0,
+        label=f"{label}_checks_failed",
+    )
     return indexed
 
 
-def _required_inventory_report_check_ids(
+def _inventory_check_ids(
     *,
     inventory_rows: Mapping[str, Mapping[str, Any]],
     report_kind: str,
@@ -2644,219 +2939,822 @@ def _parse_jsonl_objects(payload: bytes, *, label: str) -> list[dict[str, Any]]:
     return records
 
 
-def _verify_reported_check_against_package(
+def _require_member(
+    members: Mapping[str, bytes],
+    path: str,
     *,
-    check_id: str,
+    non_empty: bool = False,
+) -> bytes:
+    payload = members.get(path)
+    if payload is None:
+        raise WrapperError(
+            f"package_required_member_missing: {path}",
+            exit_kind="carrier_content_error",
+        )
+    if non_empty and not payload:
+        raise WrapperError(
+            f"package_required_member_empty: {path}",
+            exit_kind="carrier_content_error",
+        )
+    return payload
+
+
+def _require_directory_members(
+    members: Mapping[str, bytes],
+    directory: str,
+) -> None:
+    prefix = canonical_member_path(
+        directory,
+        label="package_required_directory",
+    ) + "/"
+    if not any(path.startswith(prefix) for path in members):
+        raise WrapperError(
+            f"package_required_directory_empty: {directory}",
+            exit_kind="carrier_content_error",
+        )
+
+
+def _replay_slsa_completeness(
+    *,
+    members: Mapping[str, bytes],
+    loaded: dict[str, dict[str, Any]],
+) -> set[str]:
+    present = {path: path in members for path in SLSA_TRUSTED_PRODUCER_FILES}
+    if not any(present.values()):
+        return {"slsa_vsa.trusted_producer.current_contract_optional"}
+    if not all(present.values()):
+        raise WrapperError(
+            "slsa_vsa_trusted_producer_pair_incomplete",
+            exit_kind="carrier_content_error",
+        )
+
+    result: set[str] = set()
+    for path in SLSA_TRUSTED_PRODUCER_FILES:
+        result.add(f"slsa_vsa.required_file:{path}")
+        document = parse_json_object(
+            _require_member(members, path, non_empty=True),
+            label=f"slsa_vsa_{path}",
+        )
+        _require_non_stub_json(document, relative=path)
+        loaded[path] = document
+        result.add(f"json_object:{path}")
+        result.add(f"non_stub_json:{path}")
+
+    packet = loaded[SLSA_PACKET_PATH]
+    report = loaded[SLSA_REPORT_PATH]
+    require_equal(
+        packet.get("schema_version"),
+        "slsa_vsa_trusted_producer_input_packet_v0",
+        label="slsa_packet_schema_version",
+    )
+    require_equal(
+        packet.get("packet_type"),
+        "slsa_vsa_trusted_producer_input_packet",
+        label="slsa_packet_type",
+    )
+    require_equal(
+        packet.get("recorded_signal_mode"),
+        "recorded_signal_only",
+        label="slsa_packet_recorded_signal_mode",
+    )
+    require_equal(
+        packet.get("candidate_set"),
+        "slsa_vsa_recorded_intake_candidate",
+        label="slsa_packet_candidate_set",
+    )
+    require_equal(
+        report.get("schema_version"),
+        "slsa_vsa_trusted_evidence_producer_report_v0",
+        label="slsa_report_schema_version",
+    )
+    require_equal(
+        report.get("report_type"),
+        "slsa_vsa_trusted_evidence_producer_report",
+        label="slsa_report_type",
+    )
+    require(
+        report.get("ok") is True
+        and report.get("producer_decision") == "TRUSTED_EVIDENCE_ACCEPTED"
+        and report.get("failed_checks") == [],
+        "slsa_report_not_accepted",
+    )
+    require_equal(
+        report.get("recorded_signal_mode"),
+        "recorded_signal_only",
+        label="slsa_report_recorded_signal_mode",
+    )
+    require_equal(
+        report.get("candidate_set"),
+        "slsa_vsa_recorded_intake_candidate",
+        label="slsa_report_candidate_set",
+    )
+
+    producer_fields = (
+        "producer_id",
+        "producer_name",
+        "producer_version",
+        "producer_source",
+        "ci_workflow_or_job_identity",
+    )
+    packet_producer = packet.get("producer_identity")
+    report_producer = report.get("producer")
+    require(
+        isinstance(packet_producer, Mapping)
+        and isinstance(report_producer, Mapping)
+        and all(
+            isinstance(packet_producer.get(field), str)
+            and packet_producer.get(field) == report_producer.get(field)
+            for field in producer_fields
+        ),
+        "slsa_producer_identity_mismatch",
+    )
+
+    packet_run = packet.get("run_binding")
+    report_run = report.get("run_binding")
+    packet_run_key = _nested_get(packet, ("run_binding", "current_run_key"))
+    report_run_key = _nested_get(report, ("run_binding", "current_run_key"))
+    require_equal(
+        packet_run_key,
+        _canonical_slsa_run_key(packet_run),
+        label="slsa_packet_run_key",
+    )
+    require_equal(
+        report_run_key,
+        _canonical_slsa_run_key(report_run),
+        label="slsa_report_run_key",
+    )
+    require_equal(packet_run_key, report_run_key, label="slsa_current_run_key")
+    run_fields = (
+        "current_run_id",
+        "current_run_number",
+        "current_run_attempt",
+        "workflow_name",
+        "job_name",
+        "commit_sha",
+        "release_candidate_id",
+    )
+    require(
+        isinstance(packet_run, Mapping)
+        and isinstance(report_run, Mapping)
+        and all(
+            _as_text(packet_run.get(field)) is not None
+            and _as_text(packet_run.get(field)) == _as_text(report_run.get(field))
+            for field in run_fields
+        ),
+        "slsa_run_fields_mismatch",
+    )
+
+    packet_artifact = packet.get("artifact_binding")
+    report_artifact = report.get("artifact_binding")
+    require(
+        isinstance(packet_artifact, Mapping)
+        and isinstance(report_artifact, Mapping)
+        and _nested_get(packet, ("artifact_binding", "subject_name"))
+        == _nested_get(report, ("artifact_binding", "subject_name"))
+        and _nested_get(packet, ("artifact_binding", "resource_uri"))
+        == _nested_get(report, ("artifact_binding", "resource_uri"))
+        and _nested_get(packet, ("artifact_binding", "release_candidate_id"))
+        == _nested_get(report, ("artifact_binding", "release_candidate_id"))
+        and _nested_get(packet, ("artifact_binding", "subject_sha256"))
+        == _nested_get(packet, ("artifact_binding", "artifact_digest_sha256"))
+        == _nested_get(report, ("artifact_binding", "subject_sha256"))
+        == _nested_get(report, ("artifact_binding", "artifact_digest_sha256")),
+        "slsa_artifact_identity_mismatch",
+    )
+    require(
+        report_artifact.get("subject_digest_matches") is True
+        and report_artifact.get("resource_uri_matches") is True
+        and report_artifact.get("release_candidate_matches") is True
+        and report_artifact.get("artifact_digest_matches") is True,
+        "slsa_artifact_flags_invalid",
+    )
+
+    packet_policy = packet.get("policy_binding")
+    report_policy = report.get("policy_binding")
+    require(
+        isinstance(packet_policy, Mapping)
+        and isinstance(report_policy, Mapping)
+        and _nested_get(packet, ("policy_binding", "expected_policy_id"))
+        == _nested_get(report, ("policy_binding", "expected_policy_id"))
+        == _nested_get(report, ("policy_binding", "evidence_policy_id"))
+        and _nested_get(packet, ("policy_binding", "expected_policy_uri"))
+        == _nested_get(report, ("policy_binding", "expected_policy_uri"))
+        == _nested_get(report, ("policy_binding", "evidence_policy_uri"))
+        and _nested_get(packet, ("policy_binding", "expected_policy_sha256"))
+        == _nested_get(report, ("policy_binding", "expected_policy_sha256"))
+        == _nested_get(report, ("policy_binding", "evidence_policy_sha256"))
+        and report_policy.get("policy_identity_matches") is True
+        and report_policy.get("policy_digest_matches") is True,
+        "slsa_policy_binding_mismatch",
+    )
+    require(
+        _nested_get(packet, ("verifier_binding", "expected_verifier_id"))
+        == _nested_get(report, ("verifier_binding", "expected_verifier_id"))
+        == _nested_get(report, ("verifier_binding", "evidence_verifier_id"))
+        and _nested_get(report, ("verifier_binding", "verifier_trusted")) is True,
+        "slsa_verifier_binding_mismatch",
+    )
+    require_equal(
+        _nested_get(report, ("evidence", "verification_result")),
+        "PASSED",
+        label="slsa_verification_result",
+    )
+    packet_level = packet.get("expected_verified_level")
+    require(
+        isinstance(packet_level, str)
+        and packet_level == _nested_get(report, ("evidence", "expected_verified_level"))
+        and isinstance(_nested_get(report, ("evidence", "evidence_verified_levels")), list)
+        and packet_level in _nested_get(report, ("evidence", "evidence_verified_levels"))
+        and _nested_get(report, ("evidence", "verified_level_ok")) is True,
+        "slsa_verified_level_mismatch",
+    )
+    require(
+        _nested_get(packet, ("freshness", "expected_time_verified"))
+        == _nested_get(report, ("evidence", "time_verified"))
+        and _nested_get(report, ("freshness", "freshness_result"))
+        == "fresh_current_run"
+        and _nested_get(report, ("freshness", "current_run_binding_ok")) is True
+        and _nested_get(
+            report,
+            ("freshness", "time_verified_current_run_match"),
+        ) is True,
+        "slsa_freshness_mismatch",
+    )
+
+    result.update(
+        {
+            "slsa_vsa.packet.schema_version",
+            "slsa_vsa.packet.packet_type",
+            "slsa_vsa.packet.recorded_signal_mode",
+            "slsa_vsa.packet.candidate_set",
+            "slsa_vsa.report.schema_version",
+            "slsa_vsa.report.report_type",
+            "slsa_vsa.report.accepted",
+            "slsa_vsa.report.recorded_signal_mode",
+            "slsa_vsa.report.candidate_set",
+            "slsa_vsa.producer_identity",
+            "slsa_vsa.packet_run_key_self_consistent",
+            "slsa_vsa.report_run_key_self_consistent",
+            "slsa_vsa.current_run_key",
+            "slsa_vsa.run_fields",
+            "slsa_vsa.artifact_digest",
+            "slsa_vsa.artifact_flags",
+            "slsa_vsa.policy_binding",
+            "slsa_vsa.verifier_binding",
+            "slsa_vsa.verification_result",
+            "slsa_vsa.verified_level",
+            "slsa_vsa.freshness",
+        }
+    )
+    return result
+
+
+def _replay_completeness_semantics(
+    *,
     members: Mapping[str, bytes],
     inventory: Mapping[str, Any],
     inventory_rows: Mapping[str, Mapping[str, Any]],
-    label: str,
-) -> bool:
-    if check_id in {
-        "digest_inventory.schema_version",
-        "digest_inventory.schema",
-    }:
-        require_equal(
-            inventory.get("schema_version"),
-            "release_grade_reference_package_digest_inventory_v0",
-            label=f"{label}_{check_id}",
-        )
-        return True
-    if check_id == "digest_inventory.algorithm":
-        require_equal(
-            inventory.get("algorithm"),
-            "sha256",
-            label=f"{label}_{check_id}",
-        )
-        return True
-    if check_id == "digest_inventory.unique_paths":
-        require_equal(
-            len(inventory_rows),
-            len(set(inventory_rows)),
-            label=f"{label}_{check_id}",
-        )
-        return True
-    if check_id == "digest_inventory.file_count":
-        require_equal(
-            inventory.get("file_count"),
-            len(inventory_rows),
-            label=f"{label}_{check_id}",
-        )
-        return True
-    if check_id in {
-        "digest_inventory.exact_coverage",
-        "digest_inventory.no_missing_files",
-    }:
-        require_equal(
-            set(members),
-            set(inventory_rows) | {"package_digest_inventory_v0.json"},
-            label=f"{label}_{check_id}",
-        )
-        return True
+) -> set[str]:
+    result: set[str] = set()
+    for path in PACKAGE_REQUIRED_FILES:
+        _require_member(members, path, non_empty=True)
+        result.add(f"required_file:{path}")
+        result.add(f"non_empty_file:{path}")
+    for directory in PACKAGE_REQUIRED_DIRS:
+        _require_directory_members(members, directory)
+        result.add(f"required_dir:{directory}")
 
-    for prefix, field in (
-        ("digest_inventory.digest:", "sha256"),
-        ("digest_inventory.size_bytes:", "size_bytes"),
-    ):
-        if check_id.startswith(prefix):
-            path = canonical_member_path(
-                check_id[len(prefix) :],
-                label=f"{label}_{field}_check_path",
-            )
-            row = inventory_rows.get(path)
-            payload = members.get(path)
-            if row is None or payload is None:
-                raise WrapperError(
-                    f"{label}_{field}_check_unbound: {path}",
-                    exit_kind="carrier_content_error",
-                )
-            observed: Any = (
-                sha256_bytes(payload) if field == "sha256" else len(payload)
-            )
+    loaded: dict[str, dict[str, Any]] = {}
+    for path in PACKAGE_JSON_OBJECT_FILES:
+        document = parse_json_object(
+            _require_member(members, path, non_empty=True),
+            label=f"package_json_{path}",
+        )
+        _require_non_stub_json(document, relative=path)
+        loaded[path] = document
+        result.add(f"json_object:{path}")
+        result.add(f"non_stub_json:{path}")
+    for path in PACKAGE_JSONL_FILES:
+        _parse_jsonl_objects(
+            _require_member(members, path, non_empty=True),
+            label=f"package_jsonl_{path}",
+        )
+        result.add(f"jsonl:{path}")
+
+    status = loaded["artifacts/status.json"]
+    gates = status.get("gates")
+    diagnostics = status.get("diagnostics")
+    require(
+        isinstance(gates, Mapping)
+        and gates.get("detectors_materialized_ok") is True,
+        "package_status_detectors_not_materialized",
+    )
+    require(
+        isinstance(diagnostics, Mapping)
+        and diagnostics.get("gates_stubbed") is False,
+        "package_status_gates_stubbed",
+    )
+    require(
+        isinstance(diagnostics, Mapping)
+        and diagnostics.get("scaffold") is False,
+        "package_status_scaffolded",
+    )
+    result.update(
+        {
+            "status.release_grade.detectors_materialized_ok",
+            "status.release_grade.gates_stubbed_false",
+            "status.release_grade.scaffold_false",
+        }
+    )
+
+    try:
+        report_card = _require_member(
+            members,
+            "artifacts/report_card.html",
+            non_empty=True,
+        ).decode("utf-8", errors="strict")
+    except UnicodeDecodeError as exc:
+        raise WrapperError(
+            f"report_card_invalid_utf8: {exc}",
+            exit_kind="carrier_content_error",
+        ) from exc
+    visible = _visible_html_text(report_card)
+    require(
+        REPORT_CARD_CLEAR_MARKER_SEQUENCE in visible,
+        "report_card_marker_state_not_clear",
+    )
+    marker_hits = [
+        marker for marker in REPORT_CARD_NON_STUB_MARKERS if marker in visible
+    ]
+    active_hits = [
+        phrase for phrase in REPORT_CARD_ACTIVE_STUB_PHRASES if phrase in visible
+    ]
+    require(
+        not marker_hits and not active_hits,
+        f"report_card_active_stub_state: markers={marker_hits!r} phrases={active_hits!r}",
+    )
+    result.update({"report_card.marker_state_clear", "report_card.non_stub"})
+
+    result.update(
+        _inventory_check_ids(
+            inventory_rows=inventory_rows,
+            report_kind="completeness",
+        )
+    )
+    require_equal(
+        inventory.get("schema_version"),
+        "release_grade_reference_package_digest_inventory_v0",
+        label="completeness_inventory_schema",
+    )
+    require_equal(
+        inventory.get("algorithm"),
+        "sha256",
+        label="completeness_inventory_algorithm",
+    )
+    require_equal(
+        inventory.get("file_count"),
+        len(inventory_rows),
+        label="completeness_inventory_file_count",
+    )
+    require_equal(
+        set(members),
+        set(inventory_rows) | {"package_digest_inventory_v0.json"},
+        label="completeness_inventory_coverage",
+    )
+
+    candidate_prefix = "artifacts/recorded_release_candidates/"
+    candidates = sorted(
+        path
+        for path in members
+        if path.startswith(candidate_prefix) and path.endswith(".json")
+    )
+    require(bool(candidates), "recorded_release_candidates_empty")
+    result.add("recorded_candidates.non_empty")
+    for path in candidates:
+        document = parse_json_object(
+            _require_member(members, path, non_empty=True),
+            label=f"recorded_candidate_{path}",
+        )
+        validation = document.get("validation")
+        require(
+            isinstance(validation, Mapping)
+            and validation.get("status") in {"passed", "verified", "accepted"},
+            f"recorded_candidate_not_validated: {path}",
+        )
+        result.add(f"recorded_candidate.json:{path}")
+        result.add(f"recorded_candidate.validation:{path}")
+
+    result.update(_replay_slsa_completeness(members=members, loaded=loaded))
+    return result
+
+
+def _expected_verification_identity(subject: Mapping[str, Any]) -> dict[str, Any]:
+    return {
+        "repository": non_empty_text(
+            subject.get("repository"),
+            label="verification_subject_repository",
+        ),
+        "git_sha": canonical_sha40(
+            subject.get("source_commit"),
+            label="verification_subject_git_sha",
+        ),
+        "workflow_ref": non_empty_text(
+            subject.get("workflow_ref"),
+            label="verification_subject_workflow_ref",
+        ),
+        "run_id": positive_int(
+            subject.get("workflow_run_id"),
+            label="verification_subject_run_id",
+        ),
+        "run_attempt": positive_int(
+            subject.get("workflow_run_attempt"),
+            label="verification_subject_run_attempt",
+        ),
+        "run_key": non_empty_text(
+            subject.get("subject_run_key"),
+            label="verification_subject_run_key",
+        ),
+    }
+
+
+def _replay_verification_semantics(
+    *,
+    members: Mapping[str, bytes],
+    inventory: Mapping[str, Any],
+    inventory_rows: Mapping[str, Mapping[str, Any]],
+    subject: Mapping[str, Any],
+) -> set[str]:
+    result: set[str] = set()
+    expected = _expected_verification_identity(subject)
+    for path in PACKAGE_REQUIRED_FILES:
+        _require_member(members, path, non_empty=True)
+        result.add(f"required_file:{path}")
+    for directory in PACKAGE_REQUIRED_DIRS:
+        _require_directory_members(members, directory)
+        result.add(f"required_dir:{directory}")
+
+    loaded: dict[str, dict[str, Any]] = {}
+    for path in PACKAGE_JSON_OBJECT_FILES:
+        loaded[path] = parse_json_object(
+            _require_member(members, path, non_empty=True),
+            label=f"verification_json_{path}",
+        )
+        result.add(f"json:{path}")
+
+    result.update(
+        _inventory_check_ids(
+            inventory_rows=inventory_rows,
+            report_kind="verification",
+        )
+    )
+    require_equal(
+        inventory.get("schema_version"),
+        "release_grade_reference_package_digest_inventory_v0",
+        label="verification_inventory_schema",
+    )
+    require_equal(
+        inventory.get("algorithm"),
+        "sha256",
+        label="verification_inventory_algorithm",
+    )
+    require_equal(
+        inventory.get("file_count"),
+        len(inventory_rows),
+        label="verification_inventory_file_count",
+    )
+    require_equal(
+        set(members),
+        set(inventory_rows) | {"package_digest_inventory_v0.json"},
+        label="verification_inventory_coverage",
+    )
+
+    metadata = loaded["run_metadata_v0.json"]
+    for field in ("repository", "workflow_ref", "run_key"):
+        require_equal(
+            metadata.get(field),
+            expected[field],
+            label=f"verification_metadata_{field}",
+        )
+        result.add(f"metadata.{field}")
+    require_equal(
+        str(metadata.get("git_sha", "")).lower(),
+        expected["git_sha"],
+        label="verification_metadata_git_sha",
+    )
+    result.add("metadata.git_sha")
+    require_equal(
+        metadata.get("run_id"),
+        expected["run_id"],
+        label="verification_metadata_run_id",
+    )
+    require_equal(
+        metadata.get("run_attempt"),
+        expected["run_attempt"],
+        label="verification_metadata_run_attempt",
+    )
+    result.update({"metadata.run_id", "metadata.run_attempt"})
+    metadata_boundary = metadata.get("authority_boundary")
+    require(
+        isinstance(metadata_boundary, Mapping)
+        and metadata_boundary.get("authorizes_release") is False
+        and metadata_boundary.get("package_only") is True,
+        "verification_metadata_authority_boundary_invalid",
+    )
+    result.add("metadata.authority_boundary")
+
+    raw_records = _parse_jsonl_objects(
+        _require_member(
+            members,
+            "artifacts/external/llamaguard_raw.jsonl",
+            non_empty=True,
+        ),
+        label="verification_llamaguard_raw",
+    )
+    result.add("llamaguard.raw.record_count")
+    for index, record in enumerate(raw_records):
+        run = record.get("run")
+        require(isinstance(run, Mapping), f"llamaguard_raw_run_missing:{index}")
+        for field, expected_field in (
+            ("repository", "repository"),
+            ("git_sha", "git_sha"),
+            ("run_key", "run_key"),
+            ("workflow_ref", "workflow_ref"),
+        ):
+            actual = run.get(field)
+            target = expected[expected_field]
+            if field == "git_sha" and isinstance(actual, str):
+                actual = actual.lower()
             require_equal(
-                row.get(field),
-                observed,
-                label=f"{label}_{check_id}",
+                actual,
+                target,
+                label=f"verification_llamaguard_raw_{index}_{field}",
             )
-            return True
+            result.add(f"llamaguard.raw[{index}].{field}")
 
-    for prefix, predicate in (
-        ("required_file:", lambda payload: payload is not None),
-        ("non_empty_file:", lambda payload: payload is not None and bool(payload)),
+    evaluator_path = "artifacts/external/llamaguard_evaluator_manifest_v0.json"
+    evaluator = loaded[evaluator_path]
+    evaluator_run = evaluator.get("run")
+    require(isinstance(evaluator_run, Mapping), "llamaguard_evaluator_run_missing")
+    for field, expected_field in (
+        ("repository", "repository"),
+        ("git_sha", "git_sha"),
+        ("run_key", "run_key"),
+        ("workflow_ref", "workflow_ref"),
     ):
-        if check_id.startswith(prefix):
-            path = canonical_member_path(
-                check_id[len(prefix) :],
-                label=f"{label}_reported_file_path",
-            )
-            require(
-                predicate(members.get(path)),
-                f"{label}_reported_check_not_reproduced: {check_id}",
-            )
-            return True
-
-    if check_id.startswith("required_dir:"):
-        directory = canonical_member_path(
-            check_id[len("required_dir:") :],
-            label=f"{label}_reported_directory_path",
+        actual = evaluator_run.get(field)
+        target = expected[expected_field]
+        if field == "git_sha" and isinstance(actual, str):
+            actual = actual.lower()
+        require_equal(
+            actual,
+            target,
+            label=f"verification_llamaguard_evaluator_{field}",
         )
-        prefix = directory + "/"
-        require(
-            any(path.startswith(prefix) for path in members),
-            f"{label}_reported_check_not_reproduced: {check_id}",
-        )
-        return True
+        result.add(f"llamaguard.evaluator.{field}")
 
-    for prefix in ("json_object:", "json:"):
-        if check_id.startswith(prefix):
-            path = canonical_member_path(
-                check_id[len(prefix) :],
-                label=f"{label}_reported_json_path",
-            )
-            payload = members.get(path)
-            if payload is None:
-                raise WrapperError(
-                    f"{label}_reported_json_missing: {path}",
-                    exit_kind="carrier_content_error",
-                )
-            parse_json_object(payload, label=f"{label}_reported_json_{path}")
-            return True
+    summary_path = "artifacts/external/llamaguard_summary.json"
+    summary = loaded[summary_path]
+    summary_extensions = summary.get("extensions")
+    require(
+        isinstance(summary_extensions, Mapping),
+        "llamaguard_summary_extensions_missing",
+    )
+    require_equal(
+        summary_extensions.get("repository"),
+        expected["repository"],
+        label="verification_llamaguard_summary_repository",
+    )
+    require_equal(
+        str(summary_extensions.get("source_commit", "")).lower(),
+        expected["git_sha"],
+        label="verification_llamaguard_summary_source_commit",
+    )
+    result.update(
+        {"llamaguard.summary.repository", "llamaguard.summary.source_commit"}
+    )
+    summary_run = summary.get("run")
+    require(isinstance(summary_run, Mapping), "llamaguard_summary_run_missing")
+    require_equal(
+        summary_run.get("run_id"),
+        expected["run_key"],
+        label="verification_llamaguard_summary_run_key",
+    )
+    result.add("llamaguard.summary.run_key")
 
-    if check_id.startswith("jsonl:"):
-        path = canonical_member_path(
-            check_id[len("jsonl:") :],
-            label=f"{label}_reported_jsonl_path",
-        )
-        payload = members.get(path)
-        if payload is None:
-            raise WrapperError(
-                f"{label}_reported_jsonl_missing: {path}",
-                exit_kind="carrier_content_error",
-            )
-        _parse_jsonl_objects(payload, label=f"{label}_reported_jsonl_{path}")
-        return True
-
-    if check_id == "recorded_candidates.non_empty":
-        prefix = "artifacts/recorded_release_candidates/"
-        require(
-            any(path.startswith(prefix) and path.endswith(".json") for path in members),
-            f"{label}_reported_check_not_reproduced: {check_id}",
-        )
-        return True
-
-    for prefix in (
-        "recorded_candidate.json:",
-        "recorded_candidate.validation:",
-        "recorded_candidate.authority_boundary:",
+    envelope_path = "artifacts/external/llamaguard_summary.envelope.json"
+    envelope = loaded[envelope_path]
+    envelope_extensions = envelope.get("extensions")
+    require(
+        isinstance(envelope_extensions, Mapping),
+        "llamaguard_envelope_extensions_missing",
+    )
+    for field, expected_field in (
+        ("repository", "repository"),
+        ("source_commit", "git_sha"),
+        ("workflow_ref", "workflow_ref"),
     ):
-        if check_id.startswith(prefix):
-            path = canonical_member_path(
-                check_id[len(prefix) :],
-                label=f"{label}_recorded_candidate_path",
-            )
-            payload = members.get(path)
-            if payload is None:
-                raise WrapperError(
-                    f"{label}_recorded_candidate_missing: {path}",
-                    exit_kind="carrier_content_error",
-                )
-            document = parse_json_object(
-                payload,
-                label=f"{label}_recorded_candidate_{path}",
-            )
-            if prefix == "recorded_candidate.validation:":
-                validation = document.get("validation")
-                require(
-                    isinstance(validation, dict)
-                    and validation.get("status") in {
-                        "passed",
-                        "verified",
-                        "accepted",
-                    },
-                    f"{label}_reported_check_not_reproduced: {check_id}",
-                )
-            elif prefix == "recorded_candidate.authority_boundary:":
-                boundary = document.get("authority_boundary")
-                require(
-                    isinstance(boundary, dict)
-                    and boundary.get("creates_release_authority") is False
-                    and boundary.get("eligible_without_verifier") is False,
-                    f"{label}_reported_check_not_reproduced: {check_id}",
-                )
-            return True
+        actual = envelope_extensions.get(field)
+        target = expected[expected_field]
+        if field == "source_commit" and isinstance(actual, str):
+            actual = actual.lower()
+        require_equal(
+            actual,
+            target,
+            label=f"verification_llamaguard_envelope_{field}",
+        )
+        result.add(f"llamaguard.envelope.{field}")
 
-    if check_id == "status.release_grade.detectors_materialized_ok":
-        status = parse_json_object(
-            members["artifacts/status.json"],
-            label=f"{label}_status",
+    raw_path = "artifacts/external/llamaguard_raw.jsonl"
+    raw_payload = members[raw_path]
+    evaluator_payload = members[evaluator_path]
+    summary_payload = members[summary_path]
+    bundle_path = "artifacts/external/llamaguard_summary.bundle.json"
+    bundle_payload = members[bundle_path]
+    envelope_payload = members[envelope_path]
+    evidence = summary.get("evidence")
+    require(isinstance(evidence, Mapping), "llamaguard_summary_evidence_missing")
+    require(
+        evidence.get("raw_artifact_uri")
+        in {raw_path, "PULSE_safe_pack_v0/" + raw_path},
+        "llamaguard_summary_raw_path_invalid",
+    )
+    require_equal(
+        evidence.get("raw_artifact_digest"),
+        sha256_bytes(raw_payload),
+        label="verification_llamaguard_summary_raw_digest",
+    )
+    result.update({"llamaguard.summary.raw_path", "llamaguard.summary.raw_digest"})
+    evaluator_digest = summary_extensions.get("evaluator_manifest_sha256")
+    if evaluator_digest is None:
+        evaluator_digest = summary_extensions.get("evaluator_sha256")
+    require_equal(
+        evaluator_digest,
+        sha256_bytes(evaluator_payload),
+        label="verification_llamaguard_summary_evaluator_digest",
+    )
+    result.add("llamaguard.summary.evaluator_digest")
+
+    summary_digest = envelope.get("summary_digest")
+    require(isinstance(summary_digest, Mapping), "envelope_summary_digest_missing")
+    require(
+        summary_digest.get("algorithm") == "sha256"
+        and summary_digest.get("value") == sha256_bytes(summary_payload),
+        "envelope_summary_digest_invalid",
+    )
+    result.add("llamaguard.envelope.summary_digest")
+    signing = envelope.get("signing")
+    require(isinstance(signing, Mapping), "envelope_signing_missing")
+    require(
+        signing.get("bundle_uri")
+        in {bundle_path, "PULSE_safe_pack_v0/" + bundle_path},
+        "envelope_bundle_uri_invalid",
+    )
+    result.add("llamaguard.envelope.bundle_uri")
+    require_equal(
+        envelope_extensions.get("bundle_sha256"),
+        sha256_bytes(bundle_payload),
+        label="verification_envelope_bundle_sha256",
+    )
+    require_equal(
+        envelope_extensions.get("raw_evidence_sha256"),
+        sha256_bytes(raw_payload),
+        label="verification_envelope_raw_sha256",
+    )
+    result.update(
+        {
+            "llamaguard.envelope.bundle_sha256",
+            "llamaguard.envelope.raw_evidence_sha256",
+        }
+    )
+
+    attestation = loaded[
+        "artifacts/external/llamaguard_attestation_verifier_v1.json"
+    ]
+    require_equal(
+        attestation.get("status"),
+        "verified",
+        label="verification_attestation_status",
+    )
+    require_equal(
+        attestation.get("errors"),
+        [],
+        label="verification_attestation_errors",
+    )
+    report_summary = attestation.get("summary")
+    report_envelope = attestation.get("envelope")
+    require(
+        isinstance(report_summary, Mapping)
+        and report_summary.get("sha256") == sha256_bytes(summary_payload),
+        "verification_attestation_summary_digest_invalid",
+    )
+    require(
+        isinstance(report_envelope, Mapping)
+        and report_envelope.get("sha256") == sha256_bytes(envelope_payload),
+        "verification_attestation_envelope_digest_invalid",
+    )
+    result.update(
+        {
+            "llamaguard.attestation_report.status",
+            "llamaguard.attestation_report.errors",
+            "llamaguard.attestation_report.summary_digest",
+            "llamaguard.attestation_report.envelope_digest",
+        }
+    )
+
+    candidate_prefix = "artifacts/recorded_release_candidates/"
+    candidates = sorted(
+        path
+        for path in members
+        if path.startswith(candidate_prefix) and path.endswith(".json")
+    )
+    require(bool(candidates), "verification_recorded_candidates_empty")
+    result.add("recorded_candidates.non_empty")
+    for path in candidates:
+        candidate = parse_json_object(
+            members[path],
+            label=f"verification_candidate_{path}",
         )
         require(
-            isinstance(status.get("gates"), dict)
-            and status["gates"].get("detectors_materialized_ok") is True,
-            f"{label}_reported_check_not_reproduced: {check_id}",
+            isinstance(candidate.get("validation"), Mapping)
+            and candidate["validation"].get("status") == "passed",
+            f"verification_candidate_not_passed:{path}",
         )
-        return True
-    if check_id in {
-        "status.release_grade.gates_stubbed_false",
-        "status.release_grade.scaffold_false",
-    }:
-        status = parse_json_object(
-            members["artifacts/status.json"],
-            label=f"{label}_status",
-        )
-        diagnostics = status.get("diagnostics")
-        field = (
-            "gates_stubbed"
-            if check_id.endswith("gates_stubbed_false")
-            else "scaffold"
-        )
+        boundary = candidate.get("authority_boundary")
         require(
-            isinstance(diagnostics, dict) and diagnostics.get(field) is False,
-            f"{label}_reported_check_not_reproduced: {check_id}",
+            isinstance(boundary, Mapping)
+            and boundary.get("creates_release_authority") is False
+            and boundary.get("eligible_without_verifier") is False,
+            f"verification_candidate_authority_boundary_invalid:{path}",
         )
-        return True
+        result.add(f"recorded_candidate.validation:{path}")
+        result.add(f"recorded_candidate.authority_boundary:{path}")
 
-    return False
+    recorded_verifier = loaded[
+        "artifacts/recorded_release_evidence_verifier_v0.json"
+    ]
+    require(
+        (recorded_verifier.get("status") or recorded_verifier.get("decision"))
+        in {"VERIFIED", "verified", "passed"},
+        "recorded_verifier_status_invalid",
+    )
+    result.add("recorded_verifier.status")
+    if "errors" in recorded_verifier:
+        require_equal(
+            recorded_verifier.get("errors"),
+            [],
+            label="recorded_verifier_errors",
+        )
+        result.add("recorded_verifier.errors")
+    require(
+        bool(loaded["artifacts/release_evidence_input_manifest_v0.json"]),
+        "verification_input_manifest_empty",
+    )
+    require(
+        bool(loaded["artifacts/recorded_release_candidate_index_v0.json"]),
+        "verification_candidate_index_empty",
+    )
+    result.update({"input_manifest.object", "candidate_index.object"})
+
+    status = loaded["artifacts/status.json"]
+    baseline = loaded["artifacts/status_baseline.json"]
+    for label, document, prefix in (
+        ("status", status, "status"),
+        ("baseline", baseline, "baseline"),
+    ):
+        metrics = document.get("metrics")
+        require(isinstance(metrics, Mapping), f"verification_{label}_metrics_missing")
+        require_equal(
+            str(metrics.get("git_sha", "")).lower(),
+            expected["git_sha"],
+            label=f"verification_{label}_git_sha",
+        )
+        require_equal(
+            metrics.get("run_key"),
+            expected["run_key"],
+            label=f"verification_{label}_run_key",
+        )
+        result.add(f"{prefix}.git_sha")
+        result.add(f"{prefix}.run_key")
+    require(
+        bool(loaded["artifacts/release_decision_v0.json"]),
+        "verification_release_decision_empty",
+    )
+    require(
+        bool(loaded["artifacts/artifact_provenance_binding_v0.json"]),
+        "verification_artifact_provenance_empty",
+    )
+    require(
+        bool(loaded["artifacts/release_authority_v0.json"]),
+        "verification_release_authority_empty",
+    )
+    result.update(
+        {
+            "release_decision.object",
+            "artifact_provenance_binding.object",
+            "release_authority_manifest.object",
+        }
+    )
+    return result
 
 
 def _validate_check_report(
@@ -2870,6 +3768,7 @@ def _validate_check_report(
     members: Mapping[str, bytes],
     inventory: Mapping[str, Any],
     inventory_rows: Mapping[str, Mapping[str, Any]],
+    subject: Mapping[str, Any],
 ) -> None:
     require_equal(
         document.get("schema_version"),
@@ -2895,6 +3794,26 @@ def _validate_check_report(
             label=f"{label}_authority_boundary",
         )
         require_equal(document.get("ok"), True, label=f"{label}_ok")
+        required_ids = _replay_completeness_semantics(
+            members=members,
+            inventory=inventory,
+            inventory_rows=inventory_rows,
+        )
+        summary = document.get("summary")
+        require(
+            isinstance(summary, Mapping),
+            f"{label}_summary_not_object",
+        )
+        require_equal(
+            summary.get("required_files"),
+            len(PACKAGE_REQUIRED_FILES),
+            label=f"{label}_required_files",
+        )
+        require_equal(
+            summary.get("required_dirs"),
+            len(PACKAGE_REQUIRED_DIRS),
+            label=f"{label}_required_dirs",
+        )
     elif report_kind == "verification":
         require_equal(
             document.get("tool"),
@@ -2906,12 +3825,14 @@ def _validate_check_report(
             VERIFICATION_REPORT_AUTHORITY_BOUNDARY,
             label=f"{label}_authority_boundary",
         )
-        require_equal(
-            document.get("verified"),
-            True,
-            label=f"{label}_verified",
-        )
+        require_equal(document.get("verified"), True, label=f"{label}_verified")
         parse_utc(document.get("checked_utc"), label=f"{label}_checked_utc")
+        required_ids = _replay_verification_semantics(
+            members=members,
+            inventory=inventory,
+            inventory_rows=inventory_rows,
+            subject=subject,
+        )
     else:
         raise WrapperError(
             f"report_kind_invalid: {report_kind!r}",
@@ -2927,35 +3848,15 @@ def _validate_check_report(
     non_empty_text(package.get("path"), label=f"{label}_package_path")
 
     checks_by_id = _report_checks_by_id(document=document, label=label)
-    required_ids = _required_inventory_report_check_ids(
-        inventory_rows=inventory_rows,
-        report_kind=report_kind,
-    )
-    missing = sorted(required_ids - set(checks_by_id))
-    if missing:
+    observed_ids = set(checks_by_id)
+    missing = sorted(required_ids - observed_ids)
+    unexpected = sorted(observed_ids - required_ids)
+    if missing or unexpected:
         raise WrapperError(
-            f"{label}_required_check_ids_missing: {missing!r}",
+            f"{label}_check_identity_set_mismatch: "
+            f"missing={missing!r} unexpected={unexpected!r}",
             exit_kind="carrier_content_error",
         )
-
-    independently_verified: set[str] = set()
-    for check_id in checks_by_id:
-        if _verify_reported_check_against_package(
-            check_id=check_id,
-            members=members,
-            inventory=inventory,
-            inventory_rows=inventory_rows,
-            label=label,
-        ):
-            independently_verified.add(check_id)
-    unverified_required = sorted(required_ids - independently_verified)
-    if unverified_required:
-        raise WrapperError(
-            f"{label}_required_checks_not_independently_verified: "
-            f"{unverified_required!r}",
-            exit_kind="carrier_content_error",
-        )
-
 
 def _single_member_archive(
     *,
@@ -3135,6 +4036,7 @@ def load_current_run_bundle(
         members=complete_members,
         inventory=inventory,
         inventory_rows=inventory_rows,
+        subject=expectation["subject"],
     )
 
     verification_bytes = _single_member_archive(
@@ -3159,6 +4061,7 @@ def load_current_run_bundle(
         members=complete_members,
         inventory=inventory,
         inventory_rows=inventory_rows,
+        subject=expectation["subject"],
     )
 
     expected_non_provider = positive_int(
@@ -3382,18 +4285,42 @@ def _bind_hardened_git_interfaces(
 
     def blob_bytes(root: Path, *, revision: str, path: str) -> bytes:
         candidate = _validated_directory_root(Path(root), label="adapter_repository_root")
-        expected = expected_revision_for_root(candidate, revision)
         canonical = canonical_member_path(path, label="adapter_git_blob_path")
         normalized = os.path.normcase(str(candidate))
-        if normalized == subject_key:
+
+        # The committed subject-input validator has one repository_root argument
+        # for both subject authority-source replay and observed producer
+        # provenance.  Route the one exact producer-source lookup to the
+        # separately preverified control-plane checkout; every other lookup
+        # remains rooted in the supplied checkout and exact revision.
+        producer_lookup = (
+            revision == control_revision
+            and canonical == WRAPPER_SOURCE_PATH
+            and canonical in control_by_path
+        )
+        if producer_lookup:
+            if normalized not in {subject_key, control_key}:
+                raise WrapperError(
+                    f"adapter_producer_repository_root_unrecognized: {candidate}",
+                    exit_kind="trusted_git_error",
+                )
+            record = control_by_path[canonical]
+            expected = control_revision
+        elif normalized == subject_key:
+            expected = expected_revision_for_root(candidate, revision)
             record = subject_by_path.get(canonical)
         elif normalized == control_key:
+            expected = expected_revision_for_root(candidate, revision)
             record = control_by_path.get(canonical)
-        else:  # pragma: no cover - expected_revision_for_root already rejects
-            record = None
+        else:
+            raise WrapperError(
+                f"hardened_git_repository_root_unrecognized: {candidate}",
+                exit_kind="trusted_git_error",
+            )
         if record is None or record.revision != expected:
             raise WrapperError(
-                f"adapter_git_blob_not_preverified: root={candidate} path={canonical!r}",
+                "adapter_git_blob_not_preverified: "
+                f"root={candidate} revision={revision} path={canonical!r}",
                 exit_kind="trusted_git_error",
             )
         working = read_regular_file(
@@ -3486,7 +4413,9 @@ def _verify_packet_equivalence(
     require_equal(packet.get("subject"), expectation.get("subject"), label="packet_subject")
     require_equal(
         packet.get("authority_sources"),
-        expectation.get("authority_sources"),
+        _canonical_packet_authority_sources(
+            expectation.get("authority_sources")
+        ),
         label="packet_authority_sources",
     )
     require_equal(
