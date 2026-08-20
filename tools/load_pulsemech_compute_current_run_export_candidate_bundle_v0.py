@@ -25,9 +25,11 @@ if __name__ == "__main__" and (
 import argparse
 import errno
 import hashlib
+import io
 import json
 import os
 import re
+import secrets
 import shutil
 import stat
 import subprocess
@@ -240,6 +242,141 @@ CANDIDATE_FILE_ROLES = {
     SOURCE_SELECTION_NAME: "source_artifact_selection",
 }
 
+GENERIC_EXPECTATION_SOURCE_IDS = {
+    "workflow": "source:workflow",
+    "policy": "source:policy",
+    "gate_registry": "source:gate-registry",
+}
+CANONICAL_PACKET_SOURCE_IDS = {
+    "workflow": "source:workflow:pulse-ci",
+    "policy": "source:policy:pulse-gate-policy-v0",
+    "gate_registry": "source:registry:gate-registry-v0",
+}
+CANONICAL_ADDITIONAL_SOURCE_IDS = {
+    ("external_signer_policy", "policy/external_signers_v1.yml"): (
+        "source:policy:external-signers-v1"
+    ),
+    ("threshold_policy", "PULSE_safe_pack_v0/profiles/external_thresholds.yaml"): (
+        "source:policy:external-thresholds"
+    ),
+}
+
+CORE_SINGLETON_ROLE_BINDINGS: dict[str, str] = {
+    "preservation_manifest": "preservation_manifest",
+    "preservation_readme": "preservation_readme",
+    "preservation_checksums": "preservation_checksums",
+    "complete_package": "complete_package",
+    "package_inventory": "package_inventory",
+    "package_completeness_report": "package_completeness_report",
+    "independent_verification_report": "independent_verification_report",
+    "run_metadata": "run_metadata",
+    "final_status": "final_status",
+    "status_baseline": "status_baseline",
+    "release_decision": "release_decision",
+    "release_authority": "release_authority",
+    "artifact_binding": "artifact_binding",
+    "evidence_manifest": "evidence_manifest",
+    "recorded_verifier_report": "recorded_verifier_report",
+    "required_gate_evidence": "required_gate_evidence",
+    "candidate_index": "candidate_index",
+}
+LIST_ROLE_BINDINGS: dict[str, set[str]] = {
+    "candidate_records": {"candidate_record"},
+    "external_evidence_records": {
+        "external_evidence",
+        "external_evaluator_manifest",
+        "external_raw_evidence",
+        "external_summary",
+    },
+    "attestation_records": {
+        "attestation_bundle",
+        "attestation_envelope",
+        "attestation_verifier_report",
+    },
+    "reader_surfaces": {
+        "quality_ledger",
+        "report_card",
+        "reader_surface",
+    },
+}
+PACKET_ARTIFACT_KEYS = frozenset(
+    {
+        "artifact_id",
+        "role",
+        "content_kind",
+        "media_type",
+        "container_artifact_id",
+        "member_path",
+        "display_path_or_uri",
+        "sha256",
+        "size_bytes",
+        "required_for_analysis",
+        "digest_verified",
+        "size_verified",
+        "container_path_verified",
+        "provider_binding",
+    }
+)
+PACKET_COVERAGE_KEYS = frozenset(
+    {
+        "coverage_status",
+        "source_bindings_complete",
+        "carrier_binding_complete",
+        "artifact_graph_complete",
+        "role_bindings_complete",
+        "artifacts_total",
+        "provider_artifacts_total",
+        "provider_artifacts_bound",
+        "role_bindings_total",
+        "role_bindings_resolved",
+        "missing_roles",
+        "unresolved_artifact_ids",
+    }
+)
+PACKET_RETAINED_ROLES = frozenset(
+    {
+        "preservation_manifest",
+        "package_inventory",
+        "package_completeness_report",
+        "independent_verification_report",
+        "run_metadata",
+        "final_status",
+        "release_decision",
+    }
+)
+
+NON_ANALYSIS_ROLES = frozenset(
+    {"quality_ledger", "report_card", "reader_surface", "other"}
+)
+
+ROLE_BY_PACKAGE_MEMBER: Mapping[str, str] = {
+    "artifacts/artifact_provenance_binding_v0.json": "artifact_binding",
+    "artifacts/external/llamaguard_attestation_verifier_v1.json": (
+        "attestation_verifier_report"
+    ),
+    "artifacts/external/llamaguard_evaluator_manifest_v0.json": (
+        "external_evaluator_manifest"
+    ),
+    "artifacts/external/llamaguard_raw.jsonl": "external_raw_evidence",
+    "artifacts/external/llamaguard_summary.bundle.json": "attestation_bundle",
+    "artifacts/external/llamaguard_summary.envelope.json": "attestation_envelope",
+    "artifacts/external/llamaguard_summary.json": "external_summary",
+    "artifacts/recorded_release_candidate_index_v0.json": "candidate_index",
+    "artifacts/recorded_release_evidence_verifier_v0.json": (
+        "recorded_verifier_report"
+    ),
+    "artifacts/release_authority_v0.json": "release_authority",
+    "artifacts/release_decision_v0.json": "release_decision",
+    "artifacts/release_evidence_input_manifest_v0.json": "evidence_manifest",
+    "artifacts/report_card.html": "quality_ledger",
+    "artifacts/required_gate_evidence_v0.json": "required_gate_evidence",
+    "artifacts/status.json": "final_status",
+    "artifacts/status_baseline.json": "status_baseline",
+    "package_digest_inventory_v0.json": "package_inventory",
+    "release-authority-audit-bundle/report_card.html": "reader_surface",
+    "run_metadata_v0.json": "run_metadata",
+}
+
 ROOT = Path(__file__).resolve().parents[1]
 
 HASH_CHUNK_BYTES = 1024 * 1024
@@ -391,19 +528,60 @@ class SourceBinding:
     source_path: Path
 
 
+@dataclass(frozen=True)
+class PacketVerification:
+    artifact_index: Mapping[str, Mapping[str, Any]]
+    retained_artifact_bytes: Mapping[str, bytes]
+    archive_members: Mapping[str | None, tuple[str, ...]]
+    role_bindings: Mapping[str, Any]
+    artifacts_total: int
+    provider_artifacts_total: int
+    provider_artifacts_bound: int
+    role_bindings_total: int
+    role_bindings_resolved: int
+    missing_roles: tuple[str, ...]
+    unresolved_artifact_ids: tuple[str, ...]
+
+
+class RetainedByteBudget:
+    def __init__(self, maximum: int) -> None:
+        if maximum <= 0:
+            raise BundleError(
+                f"retained_byte_budget_invalid: {maximum}",
+                exit_kind="resource_boundary_error",
+            )
+        self.maximum = maximum
+        self.used = 0
+
+    def reserve(self, amount: int, *, label: str) -> None:
+        if amount < 0 or amount > self.maximum - self.used:
+            raise BundleError(
+                f"{label}_retained_byte_budget_exceeded: "
+                f"used={self.used} requested={amount} maximum={self.maximum}",
+                exit_kind="resource_boundary_error",
+            )
+        self.used += amount
+
+
 class OpenedInput:
     def __init__(
         self,
         *,
-        path: Path,
+        path: Path | None,
         descriptor: int,
         identity: FileIdentity,
         directory_chain: tuple[DirectoryIdentity, ...],
+        parent_descriptor: int | None = None,
+        parent_identity: tuple[int, int] | None = None,
+        leaf_name: str | None = None,
     ) -> None:
         self.path = path
         self.descriptor = descriptor
         self.identity = identity
         self.directory_chain = directory_chain
+        self.parent_descriptor = parent_descriptor
+        self.parent_identity = parent_identity
+        self.leaf_name = leaf_name
         self._closed = False
 
     @classmethod
@@ -419,43 +597,122 @@ class OpenedInput:
         candidate = _normalized_absolute_path(path)
         descriptor, chain = _open_regular_nofollow(candidate, label=label)
         try:
-            metadata = os.fstat(descriptor)
-            if not stat.S_ISREG(metadata.st_mode):
-                raise BundleError(
-                    f"{label}_not_regular_file: {candidate}",
-                    exit_kind="input_boundary_error",
-                )
-            if metadata.st_size <= 0:
-                raise BundleError(
-                    f"{label}_empty: {candidate}",
-                    exit_kind="input_boundary_error",
-                )
-            if metadata.st_size > max_bytes:
-                raise BundleError(
-                    f"{label}_too_large: size={metadata.st_size} maximum={max_bytes}",
-                    exit_kind="resource_boundary_error",
-                )
-            if require_read_only and metadata.st_mode & (
-                stat.S_IWUSR | stat.S_IWGRP | stat.S_IWOTH
-            ):
-                raise BundleError(
-                    f"{label}_not_finalized_read_only: mode={oct(metadata.st_mode)}",
-                    exit_kind="input_boundary_error",
-                )
-            if require_single_link and metadata.st_nlink != 1:
-                raise BundleError(
-                    f"{label}_link_count_invalid: {metadata.st_nlink}",
-                    exit_kind="input_boundary_error",
-                )
+            identity = cls._validated_identity(
+                descriptor,
+                label=label,
+                max_bytes=max_bytes,
+                require_read_only=require_read_only,
+                require_single_link=require_single_link,
+            )
             return cls(
                 path=candidate,
                 descriptor=descriptor,
-                identity=_file_identity(metadata),
+                identity=identity,
                 directory_chain=chain,
             )
         except Exception:
             os.close(descriptor)
             raise
+
+    @classmethod
+    def open_at(
+        cls,
+        directory_descriptor: int,
+        name: str,
+        *,
+        label: str,
+        max_bytes: int,
+        require_read_only: bool,
+        require_single_link: bool,
+    ) -> "OpenedInput":
+        leaf = _canonical_flat_member(name, label=f"{label}_leaf")
+        parent_descriptor = os.dup(directory_descriptor)
+        flags = os.O_RDONLY | os.O_NOFOLLOW
+        flags |= int(getattr(os, "O_CLOEXEC", 0))
+        try:
+            parent_meta = os.fstat(parent_descriptor)
+            if not stat.S_ISDIR(parent_meta.st_mode):
+                raise BundleError(
+                    f"{label}_parent_not_directory",
+                    exit_kind="input_boundary_error",
+                )
+            descriptor = os.open(
+                leaf,
+                flags,
+                dir_fd=parent_descriptor,
+            )
+            try:
+                identity = cls._validated_identity(
+                    descriptor,
+                    label=label,
+                    max_bytes=max_bytes,
+                    require_read_only=require_read_only,
+                    require_single_link=require_single_link,
+                )
+                observed = os.stat(
+                    leaf,
+                    dir_fd=parent_descriptor,
+                    follow_symlinks=False,
+                )
+                if stat.S_ISLNK(observed.st_mode) or _file_identity(observed) != identity:
+                    raise BundleError(
+                        f"{label}_relative_path_identity_mismatch: {leaf}",
+                        exit_kind="input_boundary_error",
+                    )
+                return cls(
+                    path=None,
+                    descriptor=descriptor,
+                    identity=identity,
+                    directory_chain=(),
+                    parent_descriptor=parent_descriptor,
+                    parent_identity=(int(parent_meta.st_dev), int(parent_meta.st_ino)),
+                    leaf_name=leaf,
+                )
+            except Exception:
+                os.close(descriptor)
+                raise
+        except Exception:
+            os.close(parent_descriptor)
+            raise
+
+    @staticmethod
+    def _validated_identity(
+        descriptor: int,
+        *,
+        label: str,
+        max_bytes: int,
+        require_read_only: bool,
+        require_single_link: bool,
+    ) -> FileIdentity:
+        metadata = os.fstat(descriptor)
+        if not stat.S_ISREG(metadata.st_mode):
+            raise BundleError(
+                f"{label}_not_regular_file",
+                exit_kind="input_boundary_error",
+            )
+        if metadata.st_size <= 0:
+            raise BundleError(
+                f"{label}_empty",
+                exit_kind="input_boundary_error",
+            )
+        if metadata.st_size > max_bytes:
+            raise BundleError(
+                f"{label}_too_large: size={metadata.st_size} maximum={max_bytes}",
+                exit_kind="resource_boundary_error",
+            )
+        if require_read_only and metadata.st_mode & (
+            stat.S_IWUSR | stat.S_IWGRP | stat.S_IWOTH
+        ):
+            raise BundleError(
+                f"{label}_not_finalized_read_only: mode={oct(metadata.st_mode)}",
+                exit_kind="input_boundary_error",
+            )
+        if require_single_link and metadata.st_nlink != 1:
+            raise BundleError(
+                f"{label}_link_count_invalid: {metadata.st_nlink}",
+                exit_kind="input_boundary_error",
+            )
+        return _file_identity(metadata)
 
     def duplicate_binary_reader(self) -> BinaryIO:
         if self._closed:
@@ -519,7 +776,45 @@ class OpenedInput:
                 f"{label}_descriptor_changed",
                 exit_kind="input_boundary_error",
             )
+        if self.parent_descriptor is not None:
+            if self.parent_identity is None or self.leaf_name is None:
+                raise BundleError(
+                    f"{label}_relative_binding_incomplete",
+                    exit_kind="input_boundary_error",
+                )
+            parent = os.fstat(self.parent_descriptor)
+            if (
+                not stat.S_ISDIR(parent.st_mode)
+                or (int(parent.st_dev), int(parent.st_ino)) != self.parent_identity
+            ):
+                raise BundleError(
+                    f"{label}_parent_descriptor_changed",
+                    exit_kind="input_boundary_error",
+                )
+            try:
+                leaf = os.stat(
+                    self.leaf_name,
+                    dir_fd=self.parent_descriptor,
+                    follow_symlinks=False,
+                )
+            except OSError as exc:
+                raise BundleError(
+                    f"{label}_relative_path_unavailable: {self.leaf_name}: {exc}",
+                    exit_kind="input_boundary_error",
+                ) from exc
+            if stat.S_ISLNK(leaf.st_mode) or _file_identity(leaf) != self.identity:
+                raise BundleError(
+                    f"{label}_relative_path_identity_changed: {self.leaf_name}",
+                    exit_kind="input_boundary_error",
+                )
+            return
+
         _verify_directory_chain(self.directory_chain, label=label)
+        if self.path is None:
+            raise BundleError(
+                f"{label}_path_binding_missing",
+                exit_kind="input_boundary_error",
+            )
         try:
             leaf = self.path.lstat()
         except OSError as exc:
@@ -536,6 +831,8 @@ class OpenedInput:
     def close(self) -> None:
         if not self._closed:
             os.close(self.descriptor)
+            if self.parent_descriptor is not None:
+                os.close(self.parent_descriptor)
             self._closed = True
 
     def __enter__(self) -> "OpenedInput":
@@ -693,6 +990,10 @@ def _require_supported_execution_platform() -> None:
     required = (
         os.open in os.supports_dir_fd,
         os.stat in os.supports_dir_fd,
+        os.mkdir in os.supports_dir_fd,
+        os.rename in os.supports_dir_fd,
+        os.unlink in os.supports_dir_fd,
+        os.rmdir in os.supports_dir_fd,
         hasattr(os, "O_DIRECTORY"),
         hasattr(os, "O_NOFOLLOW"),
         hasattr(os, "pread"),
@@ -771,6 +1072,318 @@ def _open_regular_nofollow(
                 os.close(current_fd)
             except OSError:
                 pass
+
+
+
+def _open_directory_nofollow(
+    path: Path,
+    *,
+    label: str,
+) -> tuple[int, tuple[DirectoryIdentity, ...]]:
+    candidate = _normalized_absolute_path(path)
+    parts = candidate.parts
+    if not candidate.is_absolute() or not parts:
+        raise BundleError(
+            f"{label}_path_not_absolute_directory: {candidate}",
+            exit_kind="output_boundary_error",
+        )
+    flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+    flags |= int(getattr(os, "O_CLOEXEC", 0))
+    current_fd: int | None = None
+    chain: list[DirectoryIdentity] = []
+    try:
+        current_fd = os.open(parts[0], flags)
+        current_path = Path(parts[0])
+        chain.append(_directory_identity(current_path, os.fstat(current_fd)))
+        for part in parts[1:]:
+            if part in {"", ".", ".."}:
+                raise BundleError(
+                    f"{label}_unsafe_path_component: {part!r}",
+                    exit_kind="output_boundary_error",
+                )
+            next_fd = os.open(part, flags, dir_fd=current_fd)
+            os.close(current_fd)
+            current_fd = next_fd
+            current_path = current_path / part
+            chain.append(_directory_identity(current_path, os.fstat(current_fd)))
+        result = current_fd
+        current_fd = None
+        return result, tuple(chain)
+    except OSError as exc:
+        if exc.errno in {errno.ELOOP, errno.ENOTDIR}:
+            raise BundleError(
+                f"{label}_symlink_or_non_directory_component_rejected: "
+                f"{candidate}: {exc}",
+                exit_kind="output_boundary_error",
+            ) from exc
+        raise BundleError(
+            f"{label}_open_failed: {candidate}: {exc}",
+            exit_kind="output_boundary_error",
+        ) from exc
+    finally:
+        if current_fd is not None:
+            os.close(current_fd)
+
+
+class StagedOutputDirectory:
+    def __init__(
+        self,
+        *,
+        final_path: Path,
+        parent_descriptor: int,
+        parent_chain: tuple[DirectoryIdentity, ...],
+        temporary_name: str,
+        directory_descriptor: int,
+        directory_identity: tuple[int, int],
+    ) -> None:
+        self.final_path = final_path
+        self.parent_descriptor = parent_descriptor
+        self.parent_chain = parent_chain
+        self.temporary_name = temporary_name
+        self.final_name = final_path.name
+        self.directory_descriptor = directory_descriptor
+        self.directory_identity = directory_identity
+        self.published = False
+        self.owned_files: dict[str, tuple[int, int]] = {}
+        self.closed = False
+
+    @classmethod
+    def create(cls, final_path: Path) -> "StagedOutputDirectory":
+        final = _normalized_absolute_path(final_path)
+        parent_fd, chain = _open_directory_nofollow(
+            final.parent,
+            label="output_parent",
+        )
+        try:
+            parent_meta = os.fstat(parent_fd)
+            if (
+                parent_meta.st_uid != os.geteuid()
+                or parent_meta.st_mode & (stat.S_IWGRP | stat.S_IWOTH)
+            ):
+                raise BundleError(
+                    "output_parent_not_exclusively_owned: "
+                    f"uid={parent_meta.st_uid} mode={oct(parent_meta.st_mode)}",
+                    exit_kind="output_boundary_error",
+                )
+            cls._require_name_absent(parent_fd, final.name, label="output_final")
+            for _attempt in range(128):
+                temporary_name = (
+                    f".{final.name}.{secrets.token_hex(16)}.tmp"
+                )
+                try:
+                    os.mkdir(
+                        temporary_name,
+                        mode=0o700,
+                        dir_fd=parent_fd,
+                    )
+                except FileExistsError:
+                    continue
+                flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+                flags |= int(getattr(os, "O_CLOEXEC", 0))
+                try:
+                    directory_fd = os.open(
+                        temporary_name,
+                        flags,
+                        dir_fd=parent_fd,
+                    )
+                except Exception:
+                    try:
+                        os.rmdir(temporary_name, dir_fd=parent_fd)
+                    except OSError:
+                        pass
+                    raise
+                meta = os.fstat(directory_fd)
+                if not stat.S_ISDIR(meta.st_mode):
+                    os.close(directory_fd)
+                    os.rmdir(temporary_name, dir_fd=parent_fd)
+                    raise BundleError(
+                        "temporary_output_not_directory",
+                        exit_kind="output_boundary_error",
+                    )
+                result = cls(
+                    final_path=final,
+                    parent_descriptor=parent_fd,
+                    parent_chain=chain,
+                    temporary_name=temporary_name,
+                    directory_descriptor=directory_fd,
+                    directory_identity=(int(meta.st_dev), int(meta.st_ino)),
+                )
+                result.verify_name_binding(temporary=True)
+                return result
+            raise BundleError(
+                "temporary_output_name_exhausted",
+                exit_kind="output_boundary_error",
+            )
+        except Exception:
+            os.close(parent_fd)
+            raise
+
+    @staticmethod
+    def _require_name_absent(parent_fd: int, name: str, *, label: str) -> None:
+        try:
+            os.stat(name, dir_fd=parent_fd, follow_symlinks=False)
+        except FileNotFoundError:
+            return
+        except OSError as exc:
+            raise BundleError(
+                f"{label}_state_unavailable: {name}: {exc}",
+                exit_kind="output_boundary_error",
+            ) from exc
+        raise BundleError(
+            f"{label}_already_exists: {name}",
+            exit_kind="output_boundary_error",
+        )
+
+    def verify_parent(self) -> None:
+        if self.closed:
+            raise BundleError("staged_output_already_closed")
+        _verify_directory_chain(self.parent_chain, label="output_parent")
+        meta = os.fstat(self.parent_descriptor)
+        expected = self.parent_chain[-1]
+        if (
+            not stat.S_ISDIR(meta.st_mode)
+            or int(meta.st_dev) != expected.device
+            or int(meta.st_ino) != expected.inode
+        ):
+            raise BundleError(
+                "output_parent_descriptor_identity_changed",
+                exit_kind="output_boundary_error",
+            )
+
+    def verify_name_binding(self, *, temporary: bool) -> None:
+        self.verify_parent()
+        name = self.temporary_name if temporary else self.final_name
+        try:
+            meta = os.stat(
+                name,
+                dir_fd=self.parent_descriptor,
+                follow_symlinks=False,
+            )
+        except OSError as exc:
+            raise BundleError(
+                f"output_directory_name_unavailable: {name}: {exc}",
+                exit_kind="output_boundary_error",
+            ) from exc
+        if (
+            stat.S_ISLNK(meta.st_mode)
+            or not stat.S_ISDIR(meta.st_mode)
+            or (int(meta.st_dev), int(meta.st_ino)) != self.directory_identity
+        ):
+            raise BundleError(
+                f"output_directory_name_identity_changed: {name}",
+                exit_kind="output_boundary_error",
+            )
+        current = os.fstat(self.directory_descriptor)
+        if (
+            not stat.S_ISDIR(current.st_mode)
+            or (int(current.st_dev), int(current.st_ino)) != self.directory_identity
+        ):
+            raise BundleError(
+                "output_directory_descriptor_identity_changed",
+                exit_kind="output_boundary_error",
+            )
+
+    def create_file(self, name: str) -> int:
+        leaf = _canonical_flat_member(name, label="output_member")
+        flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW
+        flags |= int(getattr(os, "O_CLOEXEC", 0))
+        try:
+            descriptor = os.open(
+                leaf,
+                flags,
+                0o600,
+                dir_fd=self.directory_descriptor,
+            )
+        except OSError as exc:
+            raise BundleError(
+                f"output_file_create_failed: name={leaf!r}: {exc}",
+                exit_kind="output_boundary_error",
+            ) from exc
+        meta = os.fstat(descriptor)
+        self.owned_files[leaf] = (int(meta.st_dev), int(meta.st_ino))
+        return descriptor
+
+    def list_names(self) -> set[str]:
+        return set(os.listdir(self.directory_descriptor))
+
+    def publish(self) -> None:
+        if self.published:
+            raise BundleError(
+                "output_directory_already_published",
+                exit_kind="output_boundary_error",
+            )
+        os.fsync(self.directory_descriptor)
+        os.fchmod(self.directory_descriptor, 0o555)
+        self.verify_name_binding(temporary=True)
+        self._require_name_absent(
+            self.parent_descriptor,
+            self.final_name,
+            label="output_final",
+        )
+        os.rename(
+            self.temporary_name,
+            self.final_name,
+            src_dir_fd=self.parent_descriptor,
+            dst_dir_fd=self.parent_descriptor,
+        )
+        self.published = True
+        os.fsync(self.parent_descriptor)
+        self.verify_name_binding(temporary=False)
+
+    def cleanup(self) -> None:
+        if self.closed:
+            return
+        try:
+            try:
+                os.fchmod(self.directory_descriptor, 0o700)
+            except OSError:
+                pass
+            for name, identity in sorted(self.owned_files.items()):
+                try:
+                    meta = os.stat(
+                        name,
+                        dir_fd=self.directory_descriptor,
+                        follow_symlinks=False,
+                    )
+                except OSError:
+                    continue
+                if (
+                    stat.S_ISREG(meta.st_mode)
+                    and not stat.S_ISLNK(meta.st_mode)
+                    and (int(meta.st_dev), int(meta.st_ino)) == identity
+                ):
+                    try:
+                        os.unlink(name, dir_fd=self.directory_descriptor)
+                    except OSError:
+                        pass
+            target_name = self.final_name if self.published else self.temporary_name
+            try:
+                meta = os.stat(
+                    target_name,
+                    dir_fd=self.parent_descriptor,
+                    follow_symlinks=False,
+                )
+            except OSError:
+                meta = None
+            if (
+                meta is not None
+                and stat.S_ISDIR(meta.st_mode)
+                and not stat.S_ISLNK(meta.st_mode)
+                and (int(meta.st_dev), int(meta.st_ino)) == self.directory_identity
+            ):
+                try:
+                    os.rmdir(target_name, dir_fd=self.parent_descriptor)
+                    os.fsync(self.parent_descriptor)
+                except OSError:
+                    pass
+        finally:
+            self.close()
+
+    def close(self) -> None:
+        if not self.closed:
+            os.close(self.directory_descriptor)
+            os.close(self.parent_descriptor)
+            self.closed = True
 
 
 def _verify_directory_chain(
@@ -1663,29 +2276,17 @@ def _write_all(descriptor: int, payload: bytes) -> None:
         offset += written
 
 
-def _create_output_file(directory: Path, name: str) -> int:
-    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW
-    flags |= int(getattr(os, "O_CLOEXEC", 0))
-    try:
-        return os.open(directory / name, flags, 0o600)
-    except OSError as exc:
-        raise BundleError(
-            f"output_file_create_failed: name={name!r}: {exc}",
-            exit_kind="output_boundary_error",
-        ) from exc
-
-
 def _copy_zip_member_to_output(
     archive: zipfile.ZipFile,
     info: zipfile.ZipInfo,
     *,
-    output_directory: Path,
+    output: StagedOutputDirectory,
     output_name: str,
     label: str,
     retain_bytes: bool,
     max_retained_bytes: int,
 ) -> tuple[str, int, bytes | None]:
-    descriptor = _create_output_file(output_directory, output_name)
+    descriptor = output.create_file(output_name)
     digest = hashlib.sha256()
     total = 0
     retained: list[bytes] = []
@@ -1724,6 +2325,26 @@ def _copy_zip_member_to_output(
             )
         os.fsync(descriptor)
         os.fchmod(descriptor, 0o444)
+        meta = os.fstat(descriptor)
+        expected_identity = output.owned_files[output_name]
+        if (int(meta.st_dev), int(meta.st_ino)) != expected_identity:
+            raise BundleError(
+                f"{label}_output_descriptor_identity_changed",
+                exit_kind="output_boundary_error",
+            )
+        named = os.stat(
+            output_name,
+            dir_fd=output.directory_descriptor,
+            follow_symlinks=False,
+        )
+        if (
+            stat.S_ISLNK(named.st_mode)
+            or (int(named.st_dev), int(named.st_ino)) != expected_identity
+        ):
+            raise BundleError(
+                f"{label}_output_name_identity_changed",
+                exit_kind="output_boundary_error",
+            )
     finally:
         os.close(descriptor)
     return digest.hexdigest(), total, b"".join(retained) if retain_bytes else None
@@ -2441,6 +3062,19 @@ def _validate_expectation(
             label=f"control_plane_component_{role}_version",
         )
 
+    carrier_producer = _require_object(
+        carrier_metadata.get("producer"),
+        label="carrier_producer_component_binding",
+    )
+    if carrier_producer.get("producer_source_sha256") != components[
+        "carrier_loader"
+    ].get("sha256"):
+        raise BundleError("carrier_producer_component_digest_mismatch")
+    if producer.get("producer_source_sha256") != components[
+        "expectation_builder"
+    ].get("sha256"):
+        raise BundleError("expectation_producer_component_digest_mismatch")
+
     archive_layout = _require_object(
         document.get("archive_layout"),
         label="expectation_archive_layout",
@@ -2523,6 +3157,925 @@ def _validate_expectation(
         raise BundleError("expectation_registry_source_mismatch")
 
 
+def _canonical_packet_authority_sources(
+    expectation_sources: Any,
+) -> dict[str, Any]:
+    sources = _require_object(
+        expectation_sources,
+        label="expectation_authority_sources_projection",
+    )
+    result: dict[str, Any] = {}
+    used: set[str] = set()
+    for name in ("workflow", "policy", "gate_registry"):
+        row = _require_object(
+            sources.get(name),
+            label=f"expectation_authority_source_{name}",
+        )
+        if row.get("source_id") != GENERIC_EXPECTATION_SOURCE_IDS[name]:
+            raise BundleError(
+                f"expectation_authority_source_{name}_id_mismatch"
+            )
+        projected = dict(row)
+        projected["source_id"] = CANONICAL_PACKET_SOURCE_IDS[name]
+        if projected["source_id"] in used:
+            raise BundleError(
+                f"canonical_packet_source_id_duplicate: {projected['source_id']}"
+            )
+        used.add(projected["source_id"])
+        result[name] = projected
+
+    additional = _require_list(
+        sources.get("additional_sources"),
+        label="expectation_additional_sources",
+    )
+    projected_additional: list[dict[str, Any]] = []
+    for index, item in enumerate(additional):
+        row = _require_object(
+            item,
+            label=f"expectation_additional_source_{index}",
+        )
+        role = _non_empty_text(
+            row.get("role"),
+            label=f"expectation_additional_source_role_{index}",
+        )
+        source_path = _canonical_archive_member(
+            row.get("path_or_uri"),
+            label=f"expectation_additional_source_path_{index}",
+        )
+        source_id = CANONICAL_ADDITIONAL_SOURCE_IDS.get((role, source_path))
+        if source_id is None:
+            raise BundleError(
+                "expectation_additional_source_has_no_canonical_packet_identity: "
+                f"role={role!r} path={source_path!r}"
+            )
+        if source_id in used:
+            raise BundleError(f"canonical_packet_source_id_duplicate: {source_id}")
+        used.add(source_id)
+        projected = dict(row)
+        projected["source_id"] = source_id
+        projected_additional.append(projected)
+    projected_additional.sort(key=lambda row: str(row["source_id"]))
+    result["additional_sources"] = projected_additional
+    return result
+
+
+def _validate_packet_authority_sources(
+    packet_sources: Any,
+    *,
+    expectation_sources: Any,
+    subject: SourceSubject,
+) -> bool:
+    expected = _canonical_packet_authority_sources(expectation_sources)
+    actual = _require_object(packet_sources, label="packet_authority_sources")
+    if actual != expected:
+        raise BundleError("packet_authority_sources_projection_mismatch")
+
+    expected_roles = {
+        "workflow": "workflow",
+        "policy": "policy",
+        "gate_registry": "gate_registry",
+    }
+    source_ids: list[str] = []
+    for name, role in expected_roles.items():
+        row = _require_object(actual.get(name), label=f"packet_source_{name}")
+        source_ids.append(_non_empty_text(row.get("source_id"), label=f"{name}_id"))
+        if (
+            row.get("role") != role
+            or row.get("source_revision") != subject.subject_revision
+        ):
+            raise BundleError(f"packet_source_{name}_identity_mismatch")
+        _canonical_archive_member(
+            row.get("path_or_uri"),
+            label=f"packet_source_{name}_path",
+        )
+        _canonical_sha256(row.get("sha256"), label=f"packet_source_{name}_sha256")
+        size = row.get("size_bytes")
+        if not isinstance(size, int) or isinstance(size, bool) or size < 0:
+            raise BundleError(f"packet_source_{name}_size_invalid: {size!r}")
+
+    additional = _require_list(
+        actual.get("additional_sources"),
+        label="packet_additional_sources",
+    )
+    additional_ids: list[str] = []
+    observed_role_paths: set[tuple[str, str]] = set()
+    for index, item in enumerate(additional):
+        row = _require_object(item, label=f"packet_additional_source_{index}")
+        source_id = _non_empty_text(
+            row.get("source_id"),
+            label=f"packet_additional_source_id_{index}",
+        )
+        additional_ids.append(source_id)
+        role = _non_empty_text(
+            row.get("role"),
+            label=f"packet_additional_source_role_{index}",
+        )
+        source_path = _canonical_archive_member(
+            row.get("path_or_uri"),
+            label=f"packet_additional_source_path_{index}",
+        )
+        if (
+            row.get("source_revision") != subject.subject_revision
+            or CANONICAL_ADDITIONAL_SOURCE_IDS.get((role, source_path)) != source_id
+        ):
+            raise BundleError(
+                f"packet_additional_source_identity_mismatch: {source_id}"
+            )
+        _canonical_sha256(
+            row.get("sha256"),
+            label=f"packet_additional_source_sha256_{index}",
+        )
+        size = row.get("size_bytes")
+        if not isinstance(size, int) or isinstance(size, bool) or size < 0:
+            raise BundleError(
+                f"packet_additional_source_size_invalid: {index}: {size!r}"
+            )
+        observed_role_paths.add((role, source_path))
+    if additional_ids != sorted(additional_ids):
+        raise BundleError("packet_additional_sources_not_sorted")
+    if observed_role_paths != set(CANONICAL_ADDITIONAL_SOURCE_IDS):
+        raise BundleError("packet_additional_source_role_path_set_mismatch")
+    all_ids = source_ids + additional_ids
+    if len(all_ids) != len(set(all_ids)):
+        raise BundleError("packet_authority_source_id_duplicate")
+    return True
+
+
+def _expected_packet_carrier(
+    carrier_metadata: Mapping[str, Any],
+) -> dict[str, Any]:
+    root_prefix = _non_empty_text(
+        carrier_metadata.get("root_prefix"),
+        label="carrier_metadata_root_prefix",
+    )
+    if not root_prefix.endswith("/"):
+        raise BundleError("carrier_metadata_root_prefix_missing_slash")
+    return {
+        "artifact_payload_mode": "external_carrier",
+        "carrier_id": carrier_metadata.get("carrier_id"),
+        "carrier_kind": "current_run_export_archive",
+        "immutable": True,
+        "media_type": "application/zip",
+        "path_or_uri": carrier_metadata.get("staged_relative_path"),
+        "provider_binding": None,
+        "root_prefix": root_prefix[:-1],
+        "sha256": carrier_metadata.get("sha256"),
+        "size_bytes": carrier_metadata.get("size_bytes"),
+    }
+
+
+def _artifact_expected_id(artifact: Mapping[str, Any]) -> str | None:
+    member_path = artifact.get("member_path")
+    parent = artifact.get("container_artifact_id")
+    if not isinstance(member_path, str):
+        return None
+    if parent is None:
+        return f"artifact:{member_path}"
+    if not isinstance(parent, str):
+        return None
+    return f"{parent}/{member_path}"
+
+
+def _artifact_expected_display(
+    artifact: Mapping[str, Any],
+    *,
+    carrier_location: str,
+    artifact_index: Mapping[str, Mapping[str, Any]],
+) -> str | None:
+    member_path = artifact.get("member_path")
+    parent = artifact.get("container_artifact_id")
+    if not isinstance(member_path, str):
+        return None
+    if parent is None:
+        return f"{carrier_location}!/{member_path}"
+    if not isinstance(parent, str):
+        return None
+    parent_row = artifact_index.get(parent)
+    if not isinstance(parent_row, Mapping):
+        return None
+    parent_display = parent_row.get("display_path_or_uri")
+    if not isinstance(parent_display, str):
+        return None
+    return f"{parent_display}!/{member_path}"
+
+
+def _packet_container_graph_acyclic(
+    artifacts: Mapping[str, Mapping[str, Any]],
+) -> bool:
+    visiting: set[str] = set()
+    visited: set[str] = set()
+
+    def visit(identifier: str) -> bool:
+        if identifier in visited:
+            return True
+        if identifier in visiting:
+            return False
+        visiting.add(identifier)
+        parent = artifacts[identifier].get("container_artifact_id")
+        if isinstance(parent, str):
+            if parent not in artifacts or not visit(parent):
+                return False
+        visiting.remove(identifier)
+        visited.add(identifier)
+        return True
+
+    return all(visit(identifier) for identifier in artifacts)
+
+
+def _packet_content_identity(member_path: str) -> tuple[str, str]:
+    lower = member_path.lower()
+    if lower.endswith(".zip"):
+        return "archive", "application/zip"
+    if lower.endswith(".json"):
+        return "json", "application/json"
+    if lower.endswith(".jsonl") or lower.endswith(".ndjson"):
+        return "jsonl", "application/x-ndjson"
+    if lower.endswith(".yaml") or lower.endswith(".yml"):
+        return "yaml", "application/yaml"
+    if lower.endswith(".html") or lower.endswith(".htm"):
+        return "html", "text/html"
+    if lower.endswith(".md"):
+        return "text", "text/markdown"
+    return "text", "text/plain"
+
+
+def _expected_packet_artifact_roles(
+    *,
+    packet_carrier: Mapping[str, Any],
+    selection: Mapping[str, Mapping[str, Any]],
+) -> tuple[dict[str, str], dict[str, str]]:
+    root = _non_empty_text(
+        packet_carrier.get("root_prefix"),
+        label="packet_carrier_root_prefix_for_roles",
+    ).rstrip("/") + "/"
+    original = root + "original-github-artifacts/"
+    top_roles = {
+        root + "PRESERVATION_MANIFEST_v0.json": "preservation_manifest",
+        root + "README.md": "preservation_readme",
+        root + "SHA256SUMS": "preservation_checksums",
+        original + str(selection["complete"].get("download_file_name")): (
+            "complete_package"
+        ),
+        original + str(selection["completeness"].get("download_file_name")): (
+            "provider_artifact_archive"
+        ),
+        original + str(selection["verification"].get("download_file_name")): (
+            "provider_artifact_archive"
+        ),
+    }
+    parent_kinds = {
+        "artifact:" + original + str(
+            selection["complete"].get("download_file_name")
+        ): "complete",
+        "artifact:" + original + str(
+            selection["completeness"].get("download_file_name")
+        ): "completeness",
+        "artifact:" + original + str(
+            selection["verification"].get("download_file_name")
+        ): "verification",
+    }
+    return top_roles, parent_kinds
+
+
+def _expected_packet_artifact_role(
+    *,
+    member_path: str,
+    parent: str | None,
+    top_roles: Mapping[str, str],
+    parent_kinds: Mapping[str, str],
+) -> str:
+    if parent is None:
+        role = top_roles.get(member_path)
+        if role is None:
+            raise BundleError(
+                f"packet_unexpected_top_level_artifact: {member_path}"
+            )
+        return role
+    parent_kind = parent_kinds.get(parent)
+    if parent_kind == "complete":
+        exact = ROLE_BY_PACKAGE_MEMBER.get(member_path)
+        if exact is not None:
+            return exact
+        if (
+            member_path.startswith("artifacts/recorded_release_candidates/")
+            and member_path.endswith(".json")
+        ):
+            return "candidate_record"
+        return "other"
+    if parent_kind == "completeness":
+        if member_path != "release_grade_package_completeness_v1.json":
+            raise BundleError(
+                f"packet_unexpected_completeness_archive_member: {member_path}"
+            )
+        return "package_completeness_report"
+    if parent_kind == "verification":
+        if member_path != (
+            "release_grade_reference_package_verification_v0.json"
+        ):
+            raise BundleError(
+                f"packet_unexpected_verification_archive_member: {member_path}"
+            )
+        return "independent_verification_report"
+    raise BundleError(
+        f"packet_unexpected_nested_artifact_parent: "
+        f"parent={parent!r} member={member_path!r}"
+    )
+
+
+def _validate_packet_artifact_rows(
+    rows_value: Any,
+    *,
+    packet_carrier: Mapping[str, Any],
+    selection: Mapping[str, Mapping[str, Any]],
+) -> dict[str, dict[str, Any]]:
+    rows = _require_list(rows_value, label="packet_artifacts")
+    if not rows:
+        raise BundleError("packet_artifacts_empty")
+    artifacts: dict[str, dict[str, Any]] = {}
+    identifiers: list[str] = []
+    locations: set[tuple[str | None, str]] = set()
+    for index, item in enumerate(rows):
+        row = _require_object(item, label=f"packet_artifact_{index}")
+        _require_exact_keys(row, PACKET_ARTIFACT_KEYS, label=f"packet_artifact_{index}")
+        artifact_id = _non_empty_text(
+            row.get("artifact_id"),
+            label=f"packet_artifact_id_{index}",
+        )
+        if re.fullmatch(r"artifact:[A-Za-z0-9._:/@+-]+", artifact_id) is None:
+            raise BundleError(f"packet_artifact_id_invalid: {artifact_id!r}")
+        if artifact_id in artifacts:
+            raise BundleError(f"packet_artifact_id_duplicate: {artifact_id}")
+        identifiers.append(artifact_id)
+        member_path = _canonical_archive_member(
+            row.get("member_path"),
+            label=f"packet_artifact_member_path_{index}",
+        )
+        parent = row.get("container_artifact_id")
+        if parent is not None:
+            parent = _non_empty_text(
+                parent,
+                label=f"packet_artifact_parent_{index}",
+            )
+        location = (parent, member_path)
+        if location in locations:
+            raise BundleError(
+                f"packet_artifact_container_member_duplicate: {location!r}"
+            )
+        locations.add(location)
+        _non_empty_text(row.get("role"), label=f"packet_artifact_role_{index}")
+        kind = _non_empty_text(
+            row.get("content_kind"),
+            label=f"packet_artifact_content_kind_{index}",
+        )
+        media_type = _non_empty_text(
+            row.get("media_type"),
+            label=f"packet_artifact_media_type_{index}",
+        )
+        if kind == "archive" and media_type != "application/zip":
+            raise BundleError(f"packet_archive_media_type_mismatch: {artifact_id}")
+        _canonical_sha256(
+            row.get("sha256"),
+            label=f"packet_artifact_sha256_{index}",
+        )
+        size = row.get("size_bytes")
+        if not isinstance(size, int) or isinstance(size, bool) or size < 0:
+            raise BundleError(f"packet_artifact_size_invalid: {artifact_id}: {size!r}")
+        for flag in (
+            "required_for_analysis",
+            "digest_verified",
+            "size_verified",
+            "container_path_verified",
+        ):
+            if not isinstance(row.get(flag), bool):
+                raise BundleError(f"packet_artifact_{flag}_not_boolean: {artifact_id}")
+        if (
+            row.get("digest_verified") is not True
+            or row.get("size_verified") is not True
+            or row.get("container_path_verified") is not True
+        ):
+            raise BundleError(f"packet_artifact_verification_flags_not_true: {artifact_id}")
+        artifacts[artifact_id] = row
+
+    if identifiers != sorted(identifiers):
+        raise BundleError("packet_artifacts_not_sorted_by_id")
+    if not _packet_container_graph_acyclic(artifacts):
+        raise BundleError("packet_artifact_graph_cycle_or_unresolved_parent")
+
+    carrier_location = _non_empty_text(
+        packet_carrier.get("path_or_uri"),
+        label="packet_carrier_path_or_uri",
+    )
+    root_prefix = _non_empty_text(
+        packet_carrier.get("root_prefix"),
+        label="packet_carrier_root_prefix",
+    )
+    top_roles, parent_kinds = _expected_packet_artifact_roles(
+        packet_carrier=packet_carrier,
+        selection=selection,
+    )
+    for artifact_id, row in artifacts.items():
+        if artifact_id != _artifact_expected_id(row):
+            raise BundleError(f"packet_artifact_id_path_mismatch: {artifact_id}")
+        if row.get("display_path_or_uri") != _artifact_expected_display(
+            row,
+            carrier_location=carrier_location,
+            artifact_index=artifacts,
+        ):
+            raise BundleError(f"packet_artifact_display_path_mismatch: {artifact_id}")
+        parent = row.get("container_artifact_id")
+        member_path = row["member_path"]
+        expected_kind, expected_media = _packet_content_identity(member_path)
+        if (
+            row.get("content_kind") != expected_kind
+            or row.get("media_type") != expected_media
+        ):
+            raise BundleError(
+                f"packet_artifact_content_identity_mismatch: {artifact_id}: "
+                f"expected={(expected_kind, expected_media)!r} "
+                f"actual={(row.get('content_kind'), row.get('media_type'))!r}"
+            )
+        expected_role = _expected_packet_artifact_role(
+            member_path=member_path,
+            parent=parent if isinstance(parent, str) else None,
+            top_roles=top_roles,
+            parent_kinds=parent_kinds,
+        )
+        if row.get("role") != expected_role:
+            raise BundleError(
+                f"packet_artifact_role_mismatch: {artifact_id}: "
+                f"expected={expected_role!r} actual={row.get('role')!r}"
+            )
+        expected_required = expected_role not in NON_ANALYSIS_ROLES
+        if row.get("required_for_analysis") is not expected_required:
+            raise BundleError(
+                f"packet_artifact_required_for_analysis_mismatch: {artifact_id}"
+            )
+        if expected_role not in {
+            "complete_package",
+            "provider_artifact_archive",
+        } and row.get("provider_binding") is not None:
+            raise BundleError(
+                f"packet_artifact_unexpected_provider_binding: {artifact_id}"
+            )
+        if parent is None and not member_path.startswith(root_prefix + "/"):
+            raise BundleError(f"packet_artifact_outside_carrier_root: {artifact_id}")
+        if isinstance(parent, str):
+            parent_row = artifacts.get(parent)
+            if parent_row is None:
+                raise BundleError(f"packet_artifact_parent_missing: {artifact_id}")
+            if (
+                parent_row.get("content_kind") != "archive"
+                or parent_row.get("media_type") != "application/zip"
+            ):
+                raise BundleError(f"packet_artifact_parent_not_archive: {artifact_id}")
+    return artifacts
+
+
+class PacketArchiveResolver:
+    def __init__(
+        self,
+        *,
+        outer_input: OpenedInput,
+        artifacts: Mapping[str, Mapping[str, Any]],
+        max_total_retained_bytes: int,
+    ) -> None:
+        self.outer_input = outer_input
+        self.artifacts = artifacts
+        self.budget = RetainedByteBudget(max_total_retained_bytes)
+        self.identities: dict[str, tuple[str, int]] = {}
+        self.retained: dict[str, bytes] = {}
+        self.archive_members: dict[str | None, tuple[str, ...]] = {}
+        self.archives: dict[
+            str | None,
+            tuple[BinaryIO | io.BytesIO, zipfile.ZipFile, dict[str, zipfile.ZipInfo]],
+        ] = {}
+        self.active: set[str] = set()
+
+    def close(self) -> None:
+        for stream, archive, _table in self.archives.values():
+            try:
+                archive.close()
+            finally:
+                stream.close()
+        self.archives.clear()
+
+    def __enter__(self) -> "PacketArchiveResolver":
+        return self
+
+    def __exit__(self, *_exc: object) -> None:
+        self.close()
+
+    def _open_archive(
+        self,
+        container_id: str | None,
+    ) -> tuple[zipfile.ZipFile, dict[str, zipfile.ZipInfo]]:
+        cached = self.archives.get(container_id)
+        if cached is not None:
+            return cached[1], cached[2]
+        if container_id is None:
+            stream: BinaryIO | io.BytesIO = self.outer_input.duplicate_binary_reader()
+            label = "packet_outer_carrier"
+        else:
+            self.resolve(container_id)
+            payload = self.retained.get(container_id)
+            if payload is None:
+                raise BundleError(
+                    f"packet_archive_container_bytes_not_retained: {container_id}"
+                )
+            stream = io.BytesIO(payload)
+            label = f"packet_archive_{container_id}"
+        try:
+            archive = zipfile.ZipFile(stream, "r")
+            table = _zip_info_map(
+                archive,
+                label=label,
+                flat=False,
+                max_members=MAX_INNER_MEMBERS,
+                max_member_bytes=MAX_INNER_MEMBER_BYTES,
+                max_total_uncompressed_bytes=MAX_INNER_TOTAL_UNCOMPRESSED_BYTES,
+            )
+        except Exception:
+            stream.close()
+            raise
+        self.archive_members[container_id] = tuple(sorted(table))
+        self.archives[container_id] = (stream, archive, table)
+        return archive, table
+
+    def resolve(self, artifact_id: str) -> tuple[str, int]:
+        cached = self.identities.get(artifact_id)
+        if cached is not None:
+            return cached
+        if artifact_id in self.active:
+            raise BundleError(f"packet_artifact_container_cycle: {artifact_id}")
+        row = self.artifacts.get(artifact_id)
+        if row is None:
+            raise BundleError(f"packet_artifact_missing: {artifact_id}")
+        self.active.add(artifact_id)
+        try:
+            parent = row.get("container_artifact_id")
+            if parent is not None and not isinstance(parent, str):
+                raise BundleError(f"packet_artifact_parent_invalid: {artifact_id}")
+            archive, table = self._open_archive(parent)
+            member_path = row.get("member_path")
+            if not isinstance(member_path, str) or member_path not in table:
+                raise BundleError(
+                    f"packet_artifact_member_missing: {artifact_id}: {member_path!r}"
+                )
+            info = table[member_path]
+            declared_size = row.get("size_bytes")
+            if info.file_size != declared_size:
+                raise BundleError(
+                    f"packet_artifact_zip_size_mismatch: {artifact_id}: "
+                    f"declared={declared_size!r} zip={info.file_size}"
+                )
+            retain = (
+                row.get("content_kind") == "archive"
+                or row.get("role") in PACKET_RETAINED_ROLES
+            )
+            self.budget.reserve(
+                info.file_size,
+                label=f"packet_artifact_{artifact_id}",
+            )
+            digest = hashlib.sha256()
+            total = 0
+            chunks: list[bytes] = []
+            try:
+                with archive.open(info, "r") as source:
+                    while True:
+                        chunk = source.read(HASH_CHUNK_BYTES)
+                        if not chunk:
+                            break
+                        total += len(chunk)
+                        if total > info.file_size:
+                            raise BundleError(
+                                f"packet_artifact_expanded_past_declared_size: {artifact_id}"
+                            )
+                        digest.update(chunk)
+                        if retain:
+                            chunks.append(chunk)
+            except (zipfile.BadZipFile, RuntimeError, OSError) as exc:
+                raise BundleError(
+                    f"packet_artifact_read_failed: {artifact_id}: {exc}",
+                    exit_kind="archive_boundary_error",
+                ) from exc
+            observed = digest.hexdigest()
+            if total != declared_size or observed != row.get("sha256"):
+                raise BundleError(
+                    f"packet_artifact_identity_mismatch: {artifact_id}: "
+                    f"declared_sha={row.get('sha256')!r} observed_sha={observed} "
+                    f"declared_size={declared_size!r} observed_size={total}"
+                )
+            if retain:
+                self.retained[artifact_id] = b"".join(chunks)
+            self.identities[artifact_id] = (observed, total)
+            return observed, total
+        finally:
+            self.active.remove(artifact_id)
+
+    def resolve_all(self) -> None:
+        for artifact_id in sorted(self.artifacts):
+            self.resolve(artifact_id)
+        containers: list[str | None] = [None]
+        containers.extend(
+            artifact_id
+            for artifact_id, row in self.artifacts.items()
+            if row.get("content_kind") == "archive"
+            and row.get("media_type") == "application/zip"
+        )
+        for container_id in containers:
+            _archive, table = self._open_archive(container_id)
+            actual = set(table)
+            declared = {
+                str(row.get("member_path"))
+                for row in self.artifacts.values()
+                if row.get("container_artifact_id") == container_id
+            }
+            if actual != declared:
+                raise BundleError(
+                    "packet_archive_member_closure_mismatch: "
+                    f"container={container_id!r} "
+                    f"missing={sorted(declared - actual)!r} "
+                    f"unexpected={sorted(actual - declared)!r}"
+                )
+
+
+def _verify_packet_provider_binding(
+    binding: Any,
+    *,
+    artifact_sha256: str,
+    artifact_size: int,
+    label: str,
+) -> tuple[bool, bool]:
+    if binding is None:
+        return True, False
+    row = _require_object(binding, label=f"provider_binding_{label}")
+    _require_exact_keys(
+        row,
+        {
+            "provider",
+            "provider_artifact_id",
+            "provider_artifact_name",
+            "provider_sha256",
+            "provider_size_bytes",
+            "created_utc",
+            "expires_utc",
+            "downloaded_sha256_matches",
+            "downloaded_size_matches",
+        },
+        label=f"provider_binding_{label}",
+    )
+    _non_empty_text(row.get("provider"), label=f"provider_binding_{label}_provider")
+    _non_empty_text(
+        row.get("provider_artifact_id"),
+        label=f"provider_binding_{label}_artifact_id",
+    )
+    _non_empty_text(
+        row.get("provider_artifact_name"),
+        label=f"provider_binding_{label}_artifact_name",
+    )
+    provider_sha = _canonical_sha256(
+        row.get("provider_sha256"),
+        label=f"provider_binding_{label}_sha256",
+    )
+    provider_size = row.get("provider_size_bytes")
+    if (
+        not isinstance(provider_size, int)
+        or isinstance(provider_size, bool)
+        or provider_size < 0
+    ):
+        raise BundleError(f"provider_binding_{label}_size_invalid")
+    if (
+        provider_sha != artifact_sha256
+        or provider_size != artifact_size
+        or row.get("downloaded_sha256_matches") is not True
+        or row.get("downloaded_size_matches") is not True
+    ):
+        raise BundleError(f"provider_binding_{label}_identity_mismatch")
+    created = _parse_utc(
+        row.get("created_utc"),
+        label=f"provider_binding_{label}_created_utc",
+    )
+    expires = _parse_utc(
+        row.get("expires_utc"),
+        label=f"provider_binding_{label}_expires_utc",
+    )
+    if created >= expires:
+        raise BundleError(f"provider_binding_{label}_retention_window_invalid")
+    return True, True
+
+
+def _validate_packet_provider_selection_bindings(
+    artifacts: Mapping[str, Mapping[str, Any]],
+    *,
+    selection: Mapping[str, Mapping[str, Any]],
+    carrier_root_prefix: str,
+) -> None:
+    carrier_prefix = carrier_root_prefix.rstrip("/") + "/"
+    original_prefix = carrier_prefix + "original-github-artifacts/"
+    provider_rows = {
+        artifact_id: row
+        for artifact_id, row in artifacts.items()
+        if row.get("provider_binding") is not None
+    }
+    if len(provider_rows) != len(SOURCE_ARTIFACT_ROLES):
+        raise BundleError(
+            "packet_provider_artifact_count_mismatch: "
+            f"expected={len(SOURCE_ARTIFACT_ROLES)} actual={len(provider_rows)}"
+        )
+
+    matched: set[str] = set()
+    for key in sorted(SOURCE_ARTIFACT_ROLES):
+        selected = selection.get(key)
+        if not isinstance(selected, Mapping):
+            raise BundleError(f"packet_provider_selection_missing: {key}")
+        expected_member_path = original_prefix + str(
+            selected.get("download_file_name")
+        )
+        candidates = [
+            (artifact_id, row)
+            for artifact_id, row in provider_rows.items()
+            if row.get("container_artifact_id") is None
+            and row.get("member_path") == expected_member_path
+        ]
+        if len(candidates) != 1:
+            raise BundleError(
+                "packet_provider_selection_member_resolution_failed: "
+                f"key={key!r} member_path={expected_member_path!r} "
+                f"matches={len(candidates)}"
+            )
+        artifact_id, row = candidates[0]
+        if artifact_id in matched:
+            raise BundleError(
+                f"packet_provider_selection_artifact_reused: {artifact_id}"
+            )
+        matched.add(artifact_id)
+
+        expected_row_identity = {
+            "sha256": selected.get("expected_sha256"),
+            "size_bytes": selected.get("expected_size_bytes"),
+        }
+        for field, expected in expected_row_identity.items():
+            if row.get(field) != expected:
+                raise BundleError(
+                    "packet_provider_selected_artifact_identity_mismatch: "
+                    f"key={key!r} field={field!r} "
+                    f"expected={expected!r} actual={row.get(field)!r}"
+                )
+
+        binding = _require_object(
+            row.get("provider_binding"),
+            label=f"packet_provider_selection_binding_{key}",
+        )
+        expected_binding = {
+            "created_utc": selected.get("created_at"),
+            "downloaded_sha256_matches": True,
+            "downloaded_size_matches": True,
+            "expires_utc": selected.get("expires_at"),
+            "provider": PROVIDER_NAME,
+            "provider_artifact_id": str(selected.get("artifact_id")),
+            "provider_artifact_name": selected.get("artifact_name"),
+            "provider_sha256": selected.get("expected_sha256"),
+            "provider_size_bytes": selected.get("expected_size_bytes"),
+        }
+        if binding != expected_binding:
+            raise BundleError(
+                "packet_provider_selection_binding_mismatch: "
+                f"key={key!r} expected={expected_binding!r} actual={binding!r}"
+            )
+
+    if matched != set(provider_rows):
+        raise BundleError(
+            "packet_provider_selection_unmatched_artifacts: "
+            f"{sorted(set(provider_rows) - matched)!r}"
+        )
+
+
+def _validate_packet_provider_bindings(
+    packet_carrier: Mapping[str, Any],
+    artifacts: Mapping[str, Mapping[str, Any]],
+) -> tuple[int, int]:
+    if packet_carrier.get("provider_binding") is not None:
+        _verify_packet_provider_binding(
+            packet_carrier.get("provider_binding"),
+            artifact_sha256=str(packet_carrier.get("sha256")),
+            artifact_size=int(packet_carrier.get("size_bytes")),
+            label="carrier",
+        )
+    total = 0
+    bound = 0
+    identities: set[tuple[str, str]] = set()
+    for artifact_id, row in artifacts.items():
+        binding = row.get("provider_binding")
+        if binding is None:
+            continue
+        total += 1
+        binding_row = _require_object(
+            binding,
+            label=f"provider_binding_{artifact_id}",
+        )
+        identity = (
+            str(binding_row.get("provider")),
+            str(binding_row.get("provider_artifact_id")),
+        )
+        if identity in identities:
+            raise BundleError(
+                f"packet_provider_artifact_identity_duplicate: {identity!r}"
+            )
+        identities.add(identity)
+        _ok, fully_bound = _verify_packet_provider_binding(
+            binding_row,
+            artifact_sha256=str(row.get("sha256")),
+            artifact_size=int(row.get("size_bytes")),
+            label=artifact_id,
+        )
+        if fully_bound:
+            bound += 1
+    return total, bound
+
+
+def _validate_packet_role_bindings(
+    bindings_value: Any,
+    *,
+    artifacts: Mapping[str, Mapping[str, Any]],
+) -> tuple[int, int, tuple[str, ...], tuple[str, ...]]:
+    bindings = _require_object(bindings_value, label="packet_role_bindings")
+    _require_exact_keys(
+        bindings,
+        set(CORE_SINGLETON_ROLE_BINDINGS) | set(LIST_ROLE_BINDINGS),
+        label="packet_role_bindings",
+    )
+    total = 0
+    resolved = 0
+    missing: set[str] = set()
+    unresolved: set[str] = set()
+
+    for name, expected_role in CORE_SINGLETON_ROLE_BINDINGS.items():
+        reference = bindings.get(name)
+        expected_ids = sorted(
+            artifact_id
+            for artifact_id, row in artifacts.items()
+            if row.get("role") == expected_role
+        )
+        if not isinstance(reference, str):
+            missing.add(name)
+            continue
+        total += 1
+        row = artifacts.get(reference)
+        if row is None:
+            unresolved.add(reference)
+            continue
+        if row.get("role") != expected_role:
+            raise BundleError(
+                f"packet_role_binding_semantic_mismatch: {name}: {reference}"
+            )
+        resolved += 1
+        if expected_ids != [reference]:
+            missing.add(name)
+
+    for name, allowed_roles in LIST_ROLE_BINDINGS.items():
+        references = _require_list(
+            bindings.get(name),
+            label=f"packet_role_binding_{name}",
+        )
+        if (
+            not all(isinstance(value, str) and value for value in references)
+            or references != sorted(references)
+            or len(references) != len(set(references))
+        ):
+            raise BundleError(
+                f"packet_role_binding_list_not_sorted_unique: {name}"
+            )
+        expected_ids = sorted(
+            artifact_id
+            for artifact_id, row in artifacts.items()
+            if row.get("role") in allowed_roles
+        )
+        total += len(references)
+        resolved_here: list[str] = []
+        for reference in references:
+            row = artifacts.get(reference)
+            if row is None:
+                unresolved.add(reference)
+                continue
+            if row.get("role") not in allowed_roles:
+                raise BundleError(
+                    f"packet_role_binding_semantic_mismatch: {name}: {reference}"
+                )
+            resolved += 1
+            resolved_here.append(reference)
+        if name == "candidate_records" and not references:
+            missing.add(name)
+        if sorted(resolved_here) != expected_ids:
+            if expected_ids or name == "candidate_records":
+                missing.add(name)
+
+    for row in artifacts.values():
+        parent = row.get("container_artifact_id")
+        if isinstance(parent, str) and parent not in artifacts:
+            unresolved.add(parent)
+    return total, resolved, tuple(sorted(missing)), tuple(sorted(unresolved))
+
+
 def _validate_packet(
     document: dict[str, Any],
     *,
@@ -2530,7 +4083,11 @@ def _validate_packet(
     carrier_metadata: dict[str, Any],
     expectation: dict[str, Any],
     provider_revision: str,
-) -> None:
+    selection: Mapping[str, Mapping[str, Any]],
+    carrier_directory_descriptor: int,
+    carrier_name: str,
+    max_total_uncompressed_bytes: int,
+) -> PacketVerification:
     expected_top_level = {
         "analysis_boundary",
         "artifacts",
@@ -2566,10 +4123,19 @@ def _validate_packet(
         raise BundleError("packet_content_boundary_mismatch")
     if document.get("subject") != expectation.get("subject"):
         raise BundleError("packet_subject_expectation_mismatch")
-    if document.get("carrier") != carrier_metadata:
-        raise BundleError("packet_carrier_object_mismatch")
-    if document.get("authority_sources") != expectation.get("authority_sources"):
-        raise BundleError("packet_authority_sources_mismatch")
+
+    packet_carrier = _require_object(document.get("carrier"), label="packet_carrier")
+    expected_packet_carrier = _expected_packet_carrier(carrier_metadata)
+    if packet_carrier != expected_packet_carrier:
+        raise BundleError(
+            "packet_carrier_projection_mismatch: "
+            f"expected={expected_packet_carrier!r} actual={packet_carrier!r}"
+        )
+    source_complete = _validate_packet_authority_sources(
+        document.get("authority_sources"),
+        expectation_sources=expectation.get("authority_sources"),
+        subject=subject,
+    )
 
     packet_identity = _require_object(
         document.get("packet_identity"),
@@ -2580,12 +4146,11 @@ def _validate_packet(
         or packet_identity.get("subject_run_key") != subject.source_run_key
         or packet_identity.get("carrier_id") != carrier_metadata.get("carrier_id")
         or packet_identity.get("packet_created_utc") != subject.source_updated_utc
+        or packet_identity.get("canonicalization")
+        != "json-sort-keys-utf8-newline"
     ):
         raise BundleError("packet_identity_mismatch")
-    packet_id = _non_empty_text(
-        packet_identity.get("packet_id"),
-        label="packet_id",
-    )
+    packet_id = _non_empty_text(packet_identity.get("packet_id"), label="packet_id")
     if not packet_id.startswith("subject-input:"):
         raise BundleError(f"packet_id_namespace_mismatch: {packet_id!r}")
 
@@ -2605,48 +4170,121 @@ def _validate_packet(
                 f"packet_producer_{field}_mismatch: "
                 f"expected={expected!r} actual={producer.get(field)!r}"
             )
-    _canonical_sha256(
+    packet_producer_sha256 = _canonical_sha256(
         producer.get("producer_source_sha256"),
         label="packet_producer_source_sha256",
     )
+    trusted_components = _require_object(
+        _require_object(
+            expectation.get("trusted_control_plane"),
+            label="packet_expectation_trusted_control_plane",
+        ).get("components"),
+        label="packet_expectation_control_plane_components",
+    )
+    wrapper_component = _require_object(
+        trusted_components.get("subject_input_producer_wrapper"),
+        label="packet_wrapper_component",
+    )
+    if packet_producer_sha256 != wrapper_component.get("sha256"):
+        raise BundleError("packet_producer_component_digest_mismatch")
     _non_empty_text(
         producer.get("ci_workflow_or_job_identity"),
         label="packet_producer_ci_identity",
     )
 
-    coverage = _require_object(document.get("coverage"), label="packet_coverage")
-    required_coverage = {
-        "artifact_graph_complete": True,
-        "carrier_binding_complete": True,
-        "coverage_status": "complete",
-        "missing_roles": [],
-        "role_bindings_complete": True,
-        "source_bindings_complete": True,
-        "unresolved_artifact_ids": [],
-    }
-    for field, expected in required_coverage.items():
-        if coverage.get(field) != expected:
-            raise BundleError(
-                f"packet_coverage_{field}_mismatch: "
-                f"expected={expected!r} actual={coverage.get(field)!r}"
-            )
-    artifacts = _require_list(document.get("artifacts"), label="packet_artifacts")
-    if not artifacts:
-        raise BundleError("packet_artifacts_empty")
-    role_bindings = _require_object(
-        document.get("role_bindings"),
-        label="packet_role_bindings",
+    artifacts = _validate_packet_artifact_rows(
+        document.get("artifacts"),
+        packet_carrier=packet_carrier,
+        selection=selection,
     )
-    for role in (
-        "complete_package",
-        "final_status",
-        "release_decision",
-        "preservation_manifest",
-        "preservation_checksums",
-        "preservation_readme",
-    ):
-        if role not in role_bindings:
-            raise BundleError(f"packet_required_role_binding_missing: {role}")
+    provider_total, provider_bound = _validate_packet_provider_bindings(
+        packet_carrier,
+        artifacts,
+    )
+    _validate_packet_provider_selection_bindings(
+        artifacts,
+        selection=selection,
+        carrier_root_prefix=str(packet_carrier.get("root_prefix")),
+    )
+    role_total, role_resolved, missing_roles, unresolved_ids = (
+        _validate_packet_role_bindings(
+            document.get("role_bindings"),
+            artifacts=artifacts,
+        )
+    )
+
+    with OpenedInput.open_at(
+        carrier_directory_descriptor,
+        carrier_name,
+        label="packet_carrier_bytes",
+        max_bytes=int(carrier_metadata["size_bytes"]),
+        require_read_only=True,
+        require_single_link=True,
+    ) as carrier_input:
+        observed_sha, observed_size = carrier_input.hash_once(
+            label="packet_carrier_bytes"
+        )
+        if (
+            observed_sha != packet_carrier.get("sha256")
+            or observed_size != packet_carrier.get("size_bytes")
+        ):
+            raise BundleError("packet_carrier_byte_identity_mismatch")
+        with PacketArchiveResolver(
+            outer_input=carrier_input,
+            artifacts=artifacts,
+            max_total_retained_bytes=max_total_uncompressed_bytes,
+        ) as resolver:
+            resolver.resolve_all()
+            carrier_input.verify_unchanged(label="packet_carrier_bytes")
+            retained = dict(resolver.retained)
+            archive_members = dict(resolver.archive_members)
+
+    graph_complete = len(artifacts) > 0
+    role_complete = not missing_roles and not unresolved_ids
+    derived_coverage = {
+        "artifact_graph_complete": graph_complete,
+        "artifacts_total": len(artifacts),
+        "carrier_binding_complete": True,
+        "coverage_status": (
+            "complete"
+            if source_complete and graph_complete and role_complete
+            else "partial"
+        ),
+        "missing_roles": list(missing_roles),
+        "provider_artifacts_bound": provider_bound,
+        "provider_artifacts_total": provider_total,
+        "role_bindings_complete": role_complete,
+        "role_bindings_resolved": role_resolved,
+        "role_bindings_total": role_total,
+        "source_bindings_complete": source_complete,
+        "unresolved_artifact_ids": list(unresolved_ids),
+    }
+    coverage = _require_object(document.get("coverage"), label="packet_coverage")
+    _require_exact_keys(coverage, PACKET_COVERAGE_KEYS, label="packet_coverage")
+    if coverage != derived_coverage:
+        raise BundleError(
+            "packet_coverage_not_derived_from_verified_graph: "
+            f"expected={derived_coverage!r} actual={coverage!r}"
+        )
+    if derived_coverage["coverage_status"] != "complete":
+        raise BundleError("packet_derived_coverage_not_complete")
+
+    return PacketVerification(
+        artifact_index=artifacts,
+        retained_artifact_bytes=retained,
+        archive_members=archive_members,
+        role_bindings=_require_object(
+            document.get("role_bindings"),
+            label="packet_role_bindings_result",
+        ),
+        artifacts_total=len(artifacts),
+        provider_artifacts_total=provider_total,
+        provider_artifacts_bound=provider_bound,
+        role_bindings_total=role_total,
+        role_bindings_resolved=role_resolved,
+        missing_roles=missing_roles,
+        unresolved_artifact_ids=unresolved_ids,
+    )
 
 
 def _parse_sha256sums(payload: bytes) -> dict[str, str]:
@@ -2709,11 +4347,195 @@ def _hash_inner_member(
     return digest.hexdigest(), total
 
 
+def _packet_bound_artifact_id(
+    verification: PacketVerification,
+    binding_name: str,
+) -> str:
+    reference = verification.role_bindings.get(binding_name)
+    if not isinstance(reference, str):
+        raise BundleError(f"packet_required_role_binding_missing: {binding_name}")
+    if reference not in verification.artifact_index:
+        raise BundleError(
+            f"packet_required_role_binding_unresolved: {binding_name}: {reference}"
+        )
+    return reference
+
+
+def _packet_bound_json(
+    verification: PacketVerification,
+    binding_name: str,
+) -> dict[str, Any]:
+    artifact_id = _packet_bound_artifact_id(verification, binding_name)
+    payload = verification.retained_artifact_bytes.get(artifact_id)
+    if payload is None:
+        raise BundleError(
+            f"packet_required_role_bytes_not_retained: {binding_name}: {artifact_id}"
+        )
+    return parse_json_bytes(
+        payload,
+        label=f"packet_bound_{binding_name}",
+        canonical_required=False,
+    )
+
+
+def _validate_positive_report_count(value: Any, *, label: str) -> int:
+    if not isinstance(value, int) or isinstance(value, bool) or value <= 0:
+        raise BundleError(f"{label}_invalid: {value!r}")
+    return value
+
+
+def _derive_preservation_local_verification(
+    verification: PacketVerification,
+) -> dict[str, Any]:
+    complete_package_id = _packet_bound_artifact_id(
+        verification,
+        "complete_package",
+    )
+    inventory_id = _packet_bound_artifact_id(
+        verification,
+        "package_inventory",
+    )
+    inventory = _packet_bound_json(verification, "package_inventory")
+    rows = _require_list(inventory.get("files"), label="package_inventory_files")
+    if not rows:
+        raise BundleError("package_inventory_files_empty")
+
+    child_rows = {
+        str(row.get("member_path")): row
+        for row in verification.artifact_index.values()
+        if row.get("container_artifact_id") == complete_package_id
+    }
+    inventory_artifact = verification.artifact_index[inventory_id]
+    inventory_member_path = str(inventory_artifact.get("member_path"))
+    expected_inventory_paths = set(child_rows) - {inventory_member_path}
+    observed_inventory_paths: set[str] = set()
+    for index, item in enumerate(rows):
+        row = _require_object(item, label=f"package_inventory_file_{index}")
+        member_path = _canonical_archive_member(
+            row.get("path"),
+            label=f"package_inventory_path_{index}",
+        )
+        if member_path in observed_inventory_paths:
+            raise BundleError(f"package_inventory_duplicate_path: {member_path}")
+        observed_inventory_paths.add(member_path)
+        artifact = child_rows.get(member_path)
+        if artifact is None:
+            raise BundleError(f"package_inventory_artifact_unresolved: {member_path}")
+        if (
+            row.get("sha256") != artifact.get("sha256")
+            or row.get("size_bytes") != artifact.get("size_bytes")
+        ):
+            raise BundleError(
+                f"package_inventory_artifact_identity_mismatch: {member_path}"
+            )
+    if observed_inventory_paths != expected_inventory_paths:
+        raise BundleError(
+            "package_inventory_closure_mismatch: "
+            f"missing={sorted(expected_inventory_paths - observed_inventory_paths)!r} "
+            f"unexpected={sorted(observed_inventory_paths - expected_inventory_paths)!r}"
+        )
+
+    actual_complete_members = set(
+        verification.archive_members.get(complete_package_id, ())
+    )
+    expected_complete_members = set(child_rows)
+    if actual_complete_members != expected_complete_members:
+        raise BundleError(
+            "complete_package_packet_graph_member_closure_mismatch"
+        )
+
+    completeness = _packet_bound_json(
+        verification,
+        "package_completeness_report",
+    )
+    completeness_summary = _require_object(
+        completeness.get("summary"),
+        label="package_completeness_summary",
+    )
+    completeness_errors = completeness.get("errors")
+    if completeness_errors != []:
+        raise BundleError(
+            f"package_completeness_errors_present: {completeness_errors!r}"
+        )
+    completeness_total = _validate_positive_report_count(
+        completeness_summary.get("checks_total"),
+        label="package_completeness_checks_total",
+    )
+    completeness_failed = completeness_summary.get("checks_failed")
+    if (
+        completeness.get("status") != "complete"
+        or completeness.get("ok") is not True
+        or completeness_failed != 0
+    ):
+        raise BundleError(
+            "package_completeness_report_failed: "
+            f"status={completeness.get('status')!r} "
+            f"ok={completeness.get('ok')!r} "
+            f"checks_failed={completeness_failed!r}"
+        )
+    checks_passed = completeness_summary.get("checks_passed")
+    if checks_passed is not None and checks_passed != completeness_total:
+        raise BundleError("package_completeness_checks_passed_mismatch")
+
+    independent = _packet_bound_json(
+        verification,
+        "independent_verification_report",
+    )
+    independent_summary = _require_object(
+        independent.get("summary"),
+        label="independent_verification_summary",
+    )
+    independent_errors = independent.get("errors")
+    if independent_errors != []:
+        raise BundleError(
+            f"independent_verification_errors_present: {independent_errors!r}"
+        )
+    independent_total = _validate_positive_report_count(
+        independent_summary.get("checks_total"),
+        label="independent_verification_checks_total",
+    )
+    independent_failed = independent_summary.get("checks_failed")
+    if independent_failed is not None and independent_failed != 0:
+        raise BundleError(
+            f"independent_verification_checks_failed: {independent_failed!r}"
+        )
+    if (
+        independent.get("status") != "verified"
+        or independent.get("verified") is not True
+    ):
+        raise BundleError(
+            "independent_verification_report_failed: "
+            f"status={independent.get('status')!r} "
+            f"verified={independent.get('verified')!r}"
+        )
+    independent_passed = independent_summary.get("checks_passed")
+    if independent_passed is not None and independent_passed != independent_total:
+        raise BundleError("independent_verification_checks_passed_mismatch")
+
+    return {
+        "all_outer_artifact_digests_match_github": True,
+        "all_outer_artifact_sizes_match_github": True,
+        "complete_package_inventory_entries": len(rows),
+        "complete_package_inventory_errors": [],
+        "complete_package_unlisted_members_excluding_inventory": [],
+        "complete_package_zip_members": len(actual_complete_members),
+        "independent_verification_checks_total": independent_total,
+        "independent_verification_errors": [],
+        "independent_verification_status": "verified",
+        "independent_verification_verified": True,
+        "structural_completeness_checks_failed": 0,
+        "structural_completeness_checks_total": completeness_total,
+        "structural_completeness_ok": True,
+        "structural_completeness_status": "complete",
+    }
+
+
 def _validate_preservation_manifest(
     manifest: dict[str, Any],
     *,
     subject: SourceSubject,
     selection: dict[str, dict[str, Any]],
+    packet_verification: PacketVerification,
 ) -> dict[str, dict[str, Any]]:
     required_exact = {
         "active_policy_sets": ["required", "release_required"],
@@ -2740,10 +4562,46 @@ def _validate_preservation_manifest(
                 f"preservation_manifest_{field}_mismatch: "
                 f"expected={expected!r} actual={manifest.get(field)!r}"
             )
-    if not isinstance(manifest.get("local_verification"), dict):
-        raise BundleError("preservation_manifest_local_verification_not_object")
-    if not isinstance(manifest.get("retention_risk"), dict):
-        raise BundleError("preservation_manifest_retention_risk_not_object")
+
+    derived_local_verification = _derive_preservation_local_verification(
+        packet_verification
+    )
+    local_verification = _require_object(
+        manifest.get("local_verification"),
+        label="preservation_manifest_local_verification",
+    )
+    if local_verification != derived_local_verification:
+        raise BundleError(
+            "preservation_manifest_local_verification_mismatch: "
+            f"expected={derived_local_verification!r} "
+            f"actual={local_verification!r}"
+        )
+
+    retention = _require_object(
+        manifest.get("retention_risk"),
+        label="preservation_manifest_retention_risk",
+    )
+    _require_exact_keys(
+        retention,
+        {
+            "earliest_expiry_utc",
+            "original_github_artifacts_expire",
+            "reason_for_preservation",
+        },
+        label="preservation_manifest_retention_risk",
+    )
+    expected_earliest_expiry = min(
+        selection[key]["expires_at"] for key in SOURCE_ARTIFACT_ROLES
+    )
+    if (
+        retention.get("earliest_expiry_utc") != expected_earliest_expiry
+        or retention.get("original_github_artifacts_expire") is not True
+    ):
+        raise BundleError("preservation_manifest_retention_binding_mismatch")
+    _non_empty_text(
+        retention.get("reason_for_preservation"),
+        label="preservation_manifest_retention_reason",
+    )
 
     rows = _require_list(
         manifest.get("github_artifacts"),
@@ -2812,11 +4670,13 @@ def _validate_preservation_manifest(
 
 
 def _validate_inner_carrier(
-    carrier_path: Path,
+    carrier_directory_descriptor: int,
+    carrier_name: str,
     *,
     subject: SourceSubject,
     carrier_metadata: dict[str, Any],
     selection: dict[str, dict[str, Any]],
+    packet_verification: PacketVerification,
 ) -> dict[str, Any]:
     root_prefix = carrier_metadata["root_prefix"]
     original_prefix = root_prefix + "original-github-artifacts/"
@@ -2830,8 +4690,9 @@ def _validate_inner_carrier(
         *{original_prefix + name for name in expected_provider_names},
     }
 
-    with OpenedInput.open(
-        carrier_path,
+    with OpenedInput.open_at(
+        carrier_directory_descriptor,
+        carrier_name,
         label="materialized_carrier",
         max_bytes=_positive_int(
             carrier_metadata.get("size_bytes"),
@@ -2894,6 +4755,7 @@ def _validate_inner_carrier(
                         preservation_manifest,
                         subject=subject,
                         selection=selection,
+                        packet_verification=packet_verification,
                     )
                     sums = _parse_sha256sums(sums_bytes)
                     expected_sum_paths = {
@@ -2952,6 +4814,18 @@ def _validate_inner_carrier(
         opened.verify_unchanged(label="materialized_carrier")
     return {
         "member_count": len(expected_members),
+        "packet_artifact_graph_verified": True,
+        "packet_artifacts_total": packet_verification.artifacts_total,
+        "packet_provider_artifacts_bound": (
+            packet_verification.provider_artifacts_bound
+        ),
+        "packet_provider_artifacts_total": (
+            packet_verification.provider_artifacts_total
+        ),
+        "packet_role_bindings_resolved": (
+            packet_verification.role_bindings_resolved
+        ),
+        "packet_role_bindings_total": packet_verification.role_bindings_total,
         "preservation_manifest_sha256": sha256_bytes(manifest_bytes),
         "preservation_readme_sha256": sha256_bytes(readme_bytes),
         "preservation_sha256sums_sha256": sha256_bytes(sums_bytes),
@@ -2959,6 +4833,7 @@ def _validate_inner_carrier(
         "provider_artifacts_bound": len(provider_bindings),
         "provider_artifacts_total": 3,
         "root_prefix": root_prefix,
+        "source_package_semantics_verified": True,
     }
 
 
@@ -2996,45 +4871,14 @@ def _reject_unsafe_output_directory(
     return candidate
 
 
-def _remove_owned_directory(path: Path, *, names: Iterable[str]) -> None:
-    try:
-        if not path.exists() or path.is_symlink() or not path.is_dir():
-            return
-        path.chmod(0o700)
-        for name in names:
-            member = path / name
-            try:
-                metadata = member.lstat()
-            except FileNotFoundError:
-                continue
-            if stat.S_ISREG(metadata.st_mode) and not stat.S_ISLNK(metadata.st_mode):
-                member.chmod(0o600)
-                member.unlink()
-        try:
-            path.rmdir()
-        except OSError:
-            shutil.rmtree(path, ignore_errors=True)
-    except OSError:
-        pass
-
-
-def _fsync_directory(path: Path) -> None:
-    flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
-    flags |= int(getattr(os, "O_CLOEXEC", 0))
-    descriptor = os.open(path, flags)
-    try:
-        os.fsync(descriptor)
-    finally:
-        os.close(descriptor)
-
-
 def _verify_materialized_output(
-    output_directory: Path,
+    output: StagedOutputDirectory,
     *,
     expected_files: Mapping[str, tuple[str, int]],
     report_bytes: bytes,
 ) -> None:
-    actual_names = {path.name for path in output_directory.iterdir()}
+    output.verify_name_binding(temporary=not output.published)
+    actual_names = output.list_names()
     expected_names = set(expected_files) | {INTAKE_REPORT_NAME}
     if actual_names != expected_names:
         raise BundleError(
@@ -3044,8 +4888,9 @@ def _verify_materialized_output(
             exit_kind="output_boundary_error",
         )
     for name, (expected_sha, expected_size) in expected_files.items():
-        with OpenedInput.open(
-            output_directory / name,
+        with OpenedInput.open_at(
+            output.directory_descriptor,
+            name,
             label=f"published_output_{name}",
             max_bytes=max(expected_size, 1),
             require_read_only=True,
@@ -3059,8 +4904,9 @@ def _verify_materialized_output(
                 f"published_output_identity_mismatch: {name}",
                 exit_kind="output_boundary_error",
             )
-    with OpenedInput.open(
-        output_directory / INTAKE_REPORT_NAME,
+    with OpenedInput.open_at(
+        output.directory_descriptor,
+        INTAKE_REPORT_NAME,
         label="published_intake_report",
         max_bytes=MAX_JSON_BYTES,
         require_read_only=True,
@@ -3075,6 +4921,7 @@ def _verify_materialized_output(
             "published_intake_report_bytes_mismatch",
             exit_kind="output_boundary_error",
         )
+    output.verify_name_binding(temporary=not output.published)
 
 
 def _provider_binding(provider: ProviderArtifact) -> dict[str, Any]:
@@ -3352,15 +5199,7 @@ def _build(args: argparse.Namespace) -> bytes:
         source_path=source_binding.source_path,
     )
 
-    temp_directory = Path(
-        tempfile.mkdtemp(
-            prefix=f".{output_directory.name}.",
-            suffix=".tmp",
-            dir=str(output_directory.parent),
-        )
-    )
-    owned_names: set[str] = set()
-    published = False
+    output = StagedOutputDirectory.create(output_directory)
     try:
         with OpenedInput.open(
             artifact_path,
@@ -3424,19 +5263,17 @@ def _build(args: argparse.Namespace) -> bytes:
                         retained_json: dict[str, bytes] = {}
                         materialized: list[MaterializedFile] = []
                         expected_output_identities: dict[str, tuple[str, int]] = {}
-                        all_names = sorted(infos)
-                        for name in all_names:
+                        for name in sorted(infos):
                             retain = name.endswith(".json")
                             digest, size, payload = _copy_zip_member_to_output(
                                 archive,
                                 infos[name],
-                                output_directory=temp_directory,
+                                output=output,
                                 output_name=name,
                                 label=f"candidate_member_{name}",
                                 retain_bytes=retain,
                                 max_retained_bytes=MAX_JSON_BYTES,
                             )
-                            owned_names.add(name)
                             if name == CANDIDATE_MANIFEST_NAME:
                                 expected_digest = sha256_bytes(manifest_bytes)
                                 expected_size = len(manifest_bytes)
@@ -3538,19 +5375,27 @@ def _build(args: argparse.Namespace) -> bytes:
                 label="subject_input_packet",
                 canonical_required=True,
             )
-            _validate_packet(
+            packet_verification = _validate_packet(
                 packet,
                 subject=subject,
                 carrier_metadata=carrier_metadata,
                 expectation=expectation,
                 provider_revision=provider.workflow_revision,
+                selection=selection,
+                carrier_directory_descriptor=output.directory_descriptor,
+                carrier_name=carrier_name,
+                max_total_uncompressed_bytes=(
+                    args.max_total_uncompressed_bytes
+                ),
             )
 
             inner_verification = _validate_inner_carrier(
-                temp_directory / carrier_name,
+                output.directory_descriptor,
+                carrier_name,
                 subject=subject,
                 carrier_metadata=carrier_metadata,
                 selection=selection,
+                packet_verification=packet_verification,
             )
 
             producer = _producer_record(
@@ -3574,33 +5419,25 @@ def _build(args: argparse.Namespace) -> bytes:
                 inner_verification=inner_verification,
             )
             rendered = render_json(report)
-            report_descriptor = _create_output_file(
-                temp_directory,
-                INTAKE_REPORT_NAME,
-            )
+            report_descriptor = output.create_file(INTAKE_REPORT_NAME)
             try:
                 _write_all(report_descriptor, rendered)
                 os.fsync(report_descriptor)
                 os.fchmod(report_descriptor, 0o444)
+                report_meta = os.fstat(report_descriptor)
+                if (
+                    int(report_meta.st_dev),
+                    int(report_meta.st_ino),
+                ) != output.owned_files[INTAKE_REPORT_NAME]:
+                    raise BundleError(
+                        "intake_report_descriptor_identity_changed",
+                        exit_kind="output_boundary_error",
+                    )
             finally:
                 os.close(report_descriptor)
-            owned_names.add(INTAKE_REPORT_NAME)
-
-            _reverify_producer_source(
-                git_path=trusted_git,
-                control_plane_root=control_plane_root,
-                control_plane_revision=control_plane_revision,
-                expected=source_binding,
-            )
-            envelope.verify_unchanged(label="provider_artifact_envelope")
-            _fsync_directory(temp_directory)
-            temp_directory.chmod(0o555)
-            os.rename(temp_directory, output_directory)
-            published = True
-            _fsync_directory(output_directory.parent)
 
             _verify_materialized_output(
-                output_directory,
+                output,
                 expected_files=expected_output_identities,
                 report_bytes=rendered,
             )
@@ -3611,12 +5448,24 @@ def _build(args: argparse.Namespace) -> bytes:
                 expected=source_binding,
             )
             envelope.verify_unchanged(label="provider_artifact_envelope")
+
+            output.publish()
+            _verify_materialized_output(
+                output,
+                expected_files=expected_output_identities,
+                report_bytes=rendered,
+            )
+            _reverify_producer_source(
+                git_path=trusted_git,
+                control_plane_root=control_plane_root,
+                control_plane_revision=control_plane_revision,
+                expected=source_binding,
+            )
+            envelope.verify_unchanged(label="provider_artifact_envelope")
+            output.close()
             return rendered
     except Exception:
-        if published:
-            _remove_owned_directory(output_directory, names=owned_names)
-        else:
-            _remove_owned_directory(temp_directory, names=owned_names)
+        output.cleanup()
         raise
 
 
