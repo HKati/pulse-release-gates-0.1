@@ -58,6 +58,43 @@ def test_inventory_classifies_pulse_ci_as_authority_workflow(tmp_path: Path) -> 
     assert pulse_ci["required_gate_participation"] is True
 
 
+def test_inventory_classifies_current_run_export_candidate_as_non_active_shadow(
+    tmp_path: Path,
+) -> None:
+    inventory, _markdown = run_builder(tmp_path)
+    workflow_path = (
+        ".github/workflows/"
+        "pulsemech_compute_current_run_export_candidate.yml"
+    )
+    candidate = entry_by_path(inventory, workflow_path)
+
+    assert candidate["primary_role"] == (
+        "non-active current-run compute candidate workflow"
+    )
+    assert candidate["carrier_class"] == "diagnostic_shadow"
+    assert candidate["authority_impacting"] == "conditional"
+    assert candidate["required_gate_participation"] is False
+    assert candidate["attestation_participation"] is False
+    assert candidate["release_path_participation"] is False
+    assert "candidate-only" in candidate["authority_boundary"]
+    assert "pre-authority" in candidate["authority_boundary"]
+    assert "declared required gate" in candidate["authority_boundary"]
+    assert "selected successful same-repository PULSE CI source run" in candidate[
+        "reads_artifacts"
+    ]
+    assert "deterministic finalized current-run carrier" in candidate[
+        "writes_artifacts"
+    ]
+    assert candidate["publishes_artifacts"] == [
+        "candidate-only GitHub Actions artifact bundle"
+    ]
+    assert not [
+        finding
+        for finding in inventory["drift_findings"]
+        if finding["path"] == workflow_path
+    ]
+
+
 def test_inventory_classifies_check_gates_as_enforcement_carrier(tmp_path: Path) -> None:
     inventory, _markdown = run_builder(tmp_path)
 
@@ -217,6 +254,7 @@ def test_inventory_includes_release_decision_materializer_when_present(
     assert materializer["carrier_class"] == "authority"
     assert materializer["authority_impacting"] == "yes"
     assert "release-decision labels" in materializer["authority_boundary"]
+
 
 def test_inventory_has_no_unclassified_workflow_drift_for_current_repo(
     tmp_path: Path,
