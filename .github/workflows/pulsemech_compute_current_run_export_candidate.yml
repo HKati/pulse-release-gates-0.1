@@ -1936,6 +1936,7 @@ jobs:
           CANDIDATE_ROOT: ${{ steps.verify.outputs.candidate_root }}
           RESOLUTION_PATH: ${{ steps.source.outputs.resolution_path }}
           SELECTION_PATH: ${{ steps.artifacts.outputs.selection_path }}
+          SOURCE_RUN_ID: ${{ steps.source.outputs.source_run_id }}
           SUBJECT_REVISION: ${{ steps.source.outputs.subject_revision }}
           CONTROL_REVISION: ${{ steps.source.outputs.control_plane_revision }}
         run: |
@@ -1949,12 +1950,12 @@ jobs:
           gh api \
             -H "Accept: application/vnd.github+json" \
             -H "X-GitHub-Api-Version: 2022-11-28" \
-            "/repos/${GITHUB_REPOSITORY}/actions/runs/${SOURCE_RUN_ID_INPUT}" \
+            "/repos/${GITHUB_REPOSITORY}/actions/runs/${SOURCE_RUN_ID}" \
             > "${RUNNER_TEMP}/pulsemech-source-run-recheck.json"
           gh api \
             -H "Accept: application/vnd.github+json" \
             -H "X-GitHub-Api-Version: 2022-11-28" \
-            "/repos/${GITHUB_REPOSITORY}/actions/runs/${SOURCE_RUN_ID_INPUT}/artifacts?per_page=100" \
+            "/repos/${GITHUB_REPOSITORY}/actions/runs/${SOURCE_RUN_ID}/artifacts?per_page=100" \
             > "${RUNNER_TEMP}/pulsemech-source-artifacts-recheck.json"
 
           python - <<'PY'
