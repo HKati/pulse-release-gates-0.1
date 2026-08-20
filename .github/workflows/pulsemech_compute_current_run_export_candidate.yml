@@ -1,0 +1,2150 @@
+name: PULSEmech compute current-run export candidate
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_run_id:
+        description: >-
+          Completed same-repository PULSE CI workflow_dispatch run ID whose
+          exact release-grade artifacts will be consumed as the current-run
+          subject.
+        required: true
+        type: string
+
+concurrency:
+  group: >-
+    pulsemech-compute-current-run-export-candidate-${{ inputs.source_run_id }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  build-current-run-candidate:
+    name: Build non-active current-run candidate
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      actions: read
+    env:
+      SOURCE_RUN_ID_INPUT: ${{ inputs.source_run_id }}
+      CONTROL_PLANE_REPOSITORY: ${{ github.repository }}
+      CONTROL_PLANE_REVISION: ${{ github.workflow_sha }}
+      TRIGGER_REVISION: ${{ github.sha }}
+      TRIGGER_REF: ${{ github.ref }}
+      TRIGGER_EVENT: ${{ github.event_name }}
+      CONTROL_PLANE_WORKFLOW_REF: ${{ github.workflow_ref }}
+      SOURCE_WORKFLOW_NAME: PULSE CI
+      SOURCE_WORKFLOW_PATH: .github/workflows/pulse_ci.yml
+      SOURCE_REF: refs/heads/main
+      CANDIDATE_WORKFLOW_NAME: PULSEmech compute current-run export candidate
+      CANDIDATE_WORKFLOW_PATH: >-
+        .github/workflows/pulsemech_compute_current_run_export_candidate.yml
+      CARRIER_ID_NAMESPACE: pulsemech/current-run-export
+      ARCHIVE_LAYOUT_ID: pulsemech_current_run_export_layout_v0
+      EXPECTED_POLICY_SETS: required,release_required
+
+    steps:
+      - name: Resolve exact source run and protected control plane
+        id: source
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          from __future__ import annotations
+
+          import json
+          import os
+          import re
+          import subprocess
+          from pathlib import Path
+          from typing import Any
+
+
+          def fail(message: str) -> None:
+              raise SystemExit(f"source_run_resolution_failed: {message}")
+
+
+          def gh_json(endpoint: str) -> dict[str, Any]:
+              result = subprocess.run(
+                  [
+                      "gh",
+                      "api",
+                      "-H",
+                      "Accept: application/vnd.github+json",
+                      "-H",
+                      "X-GitHub-Api-Version: 2022-11-28",
+                      endpoint,
+                  ],
+                  stdin=subprocess.DEVNULL,
+                  stdout=subprocess.PIPE,
+                  stderr=subprocess.PIPE,
+                  check=False,
+                  env={
+                      "GH_TOKEN": os.environ["GH_TOKEN"],
+                      "LANG": "C",
+                      "LC_ALL": "C",
+                      "PATH": os.environ.get("PATH", ""),
+                  },
+              )
+              if result.returncode != 0:
+                  fail(
+                      f"gh_api_failed endpoint={endpoint!r} "
+                      f"detail={result.stderr.decode('utf-8', errors='replace')!r}"
+                  )
+              try:
+                  value = json.loads(result.stdout.decode("utf-8", errors="strict"))
+              except Exception as exc:
+                  fail(f"gh_api_invalid_json endpoint={endpoint!r}: {exc}")
+              if not isinstance(value, dict):
+                  fail(f"gh_api_not_object endpoint={endpoint!r}")
+              return value
+
+
+          repository = os.environ["GITHUB_REPOSITORY"]
+          if os.environ["TRIGGER_EVENT"] != "workflow_dispatch":
+              fail(f"unexpected_trigger_event: {os.environ['TRIGGER_EVENT']!r}")
+          if os.environ["TRIGGER_REF"] != "refs/heads/main":
+              fail(f"control_plane_ref_not_main: {os.environ['TRIGGER_REF']!r}")
+          source_text = os.environ["SOURCE_RUN_ID_INPUT"].strip()
+          if re.fullmatch(r"[1-9][0-9]*", source_text) is None:
+              fail(f"source_run_id_not_positive_integer: {source_text!r}")
+          source_run_id = int(source_text, 10)
+
+          control_revision = os.environ["CONTROL_PLANE_REVISION"].strip().lower()
+          trigger_revision = os.environ["TRIGGER_REVISION"].strip().lower()
+          if re.fullmatch(r"[0-9a-f]{40}", control_revision) is None:
+              fail(f"control_plane_revision_not_sha40: {control_revision!r}")
+          if trigger_revision != control_revision:
+              fail(
+                  "workflow_sha_and_trigger_sha_mismatch: "
+                  f"workflow_sha={control_revision} trigger_sha={trigger_revision}"
+              )
+          workflow_ref = os.environ["CONTROL_PLANE_WORKFLOW_REF"]
+          expected_workflow_ref = (
+              f"{repository}/{os.environ['CANDIDATE_WORKFLOW_PATH']}@refs/heads/main"
+          )
+          if workflow_ref != expected_workflow_ref:
+              fail(
+                  "control_plane_workflow_ref_mismatch: "
+                  f"expected={expected_workflow_ref!r} actual={workflow_ref!r}"
+              )
+
+          run = gh_json(f"/repos/{repository}/actions/runs/{source_run_id}")
+          if run.get("id") != source_run_id:
+              fail(f"source_run_id_mismatch: {run.get('id')!r}")
+          if run.get("name") != os.environ["SOURCE_WORKFLOW_NAME"]:
+              fail(f"source_workflow_name_mismatch: {run.get('name')!r}")
+          if run.get("path") != os.environ["SOURCE_WORKFLOW_PATH"]:
+              fail(f"source_workflow_path_mismatch: {run.get('path')!r}")
+          if run.get("event") != "workflow_dispatch":
+              fail(f"source_event_not_workflow_dispatch: {run.get('event')!r}")
+          if run.get("status") != "completed" or run.get("conclusion") != "success":
+              fail(
+                  "source_run_not_completed_success: "
+                  f"status={run.get('status')!r} conclusion={run.get('conclusion')!r}"
+              )
+          if run.get("head_branch") != "main":
+              fail(f"source_head_branch_not_main: {run.get('head_branch')!r}")
+
+          repository_record = run.get("repository")
+          head_repository = run.get("head_repository")
+          if (
+              not isinstance(repository_record, dict)
+              or repository_record.get("full_name") != repository
+          ):
+              fail("source_repository_mismatch")
+          if (
+              not isinstance(head_repository, dict)
+              or head_repository.get("full_name") != repository
+          ):
+              fail("source_head_repository_mismatch_or_fork")
+
+          subject_revision = str(run.get("head_sha", "")).lower()
+          if re.fullmatch(r"[0-9a-f]{40}", subject_revision) is None:
+              fail(f"source_head_sha_not_sha40: {subject_revision!r}")
+          run_number = run.get("run_number")
+          run_attempt = run.get("run_attempt")
+          if (
+              not isinstance(run_number, int)
+              or isinstance(run_number, bool)
+              or run_number <= 0
+          ):
+              fail(f"source_run_number_invalid: {run_number!r}")
+          if (
+              not isinstance(run_attempt, int)
+              or isinstance(run_attempt, bool)
+              or run_attempt <= 0
+          ):
+              fail(f"source_run_attempt_invalid: {run_attempt!r}")
+
+          updated_at = run.get("updated_at")
+          if not isinstance(updated_at, str) or re.fullmatch(
+              r"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z",
+              updated_at,
+          ) is None:
+              fail(f"source_updated_at_not_canonical_utc: {updated_at!r}")
+
+          workflow_id = run.get("workflow_id")
+          if not isinstance(workflow_id, int) or isinstance(workflow_id, bool):
+              fail(f"source_workflow_id_invalid: {workflow_id!r}")
+          workflow = gh_json(
+              f"/repos/{repository}/actions/workflows/{workflow_id}"
+          )
+          if workflow.get("name") != os.environ["SOURCE_WORKFLOW_NAME"]:
+              fail(f"resolved_source_workflow_name_mismatch: {workflow.get('name')!r}")
+          if workflow.get("path") != os.environ["SOURCE_WORKFLOW_PATH"]:
+              fail(f"resolved_source_workflow_path_mismatch: {workflow.get('path')!r}")
+          if workflow.get("state") != "active":
+              fail(f"resolved_source_workflow_not_active: {workflow.get('state')!r}")
+
+          source_run_key = (
+              f"GITHUB_RUN_ID={source_run_id}"
+              f"|GITHUB_RUN_ATTEMPT={run_attempt}"
+              f"|GITHUB_WORKFLOW={os.environ['SOURCE_WORKFLOW_NAME']}"
+          )
+          release_candidate_id = (
+              f"pulse-ci-current-run:{source_run_id}:{run_attempt}"
+          )
+
+          resolution = {
+              "authority_boundary": {
+                  "activates_compute_gate": False,
+                  "changes_release_authority": False,
+                  "creates_compute_budget": False,
+                  "creates_gate_result": False,
+                  "creates_release_decision": False,
+                  "source_resolution_only": True,
+              },
+              "control_plane": {
+                  "repository": repository,
+                  "revision": control_revision,
+                  "workflow_ref": workflow_ref,
+              },
+              "document_type": (
+                  "pulsemech_compute_current_run_candidate_source_resolution"
+              ),
+              "ok": True,
+              "schema_version": (
+                  "pulsemech_compute_current_run_candidate_source_resolution_v0"
+              ),
+              "source_run": {
+                  "event": run["event"],
+                  "head_branch": run["head_branch"],
+                  "html_url": run.get("html_url"),
+                  "release_candidate_id": release_candidate_id,
+                  "repository": repository,
+                  "run_attempt": run_attempt,
+                  "run_id": source_run_id,
+                  "run_key": source_run_key,
+                  "run_number": run_number,
+                  "source_ref": os.environ["SOURCE_REF"],
+                  "subject_revision": subject_revision,
+                  "updated_utc": updated_at,
+                  "workflow_name": run["name"],
+                  "workflow_path": run["path"],
+              },
+          }
+
+          output_root = Path(os.environ["RUNNER_TEMP"]) / (
+              "pulsemech-current-run-candidate-resolution"
+          )
+          output_root.mkdir(parents=True, exist_ok=True)
+          resolution_path = output_root / "source-run-resolution.json"
+          resolution_path.write_text(
+              json.dumps(
+                  resolution,
+                  indent=2,
+                  ensure_ascii=False,
+                  sort_keys=True,
+                  allow_nan=False,
+              )
+              + "\n",
+              encoding="utf-8",
+              newline="\n",
+          )
+
+          outputs = {
+              "control_plane_revision": control_revision,
+              "release_candidate_id": release_candidate_id,
+              "resolution_path": str(resolution_path),
+              "source_run_attempt": str(run_attempt),
+              "source_run_id": str(source_run_id),
+              "source_run_key": source_run_key,
+              "source_run_number": str(run_number),
+              "source_updated_utc": updated_at,
+              "subject_revision": subject_revision,
+          }
+          with Path(os.environ["GITHUB_OUTPUT"]).open(
+              "a",
+              encoding="utf-8",
+              newline="\n",
+          ) as stream:
+              for key, value in outputs.items():
+                  if "\n" in value or "\r" in value:
+                      fail(f"multiline_output_rejected: {key}")
+                  stream.write(f"{key}={value}\n")
+          PY
+
+      - name: Checkout exact source subject
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: ${{ github.repository }}
+          ref: ${{ steps.source.outputs.subject_revision }}
+          path: subject-checkout
+          fetch-depth: 0
+          persist-credentials: false
+          lfs: false
+          submodules: false
+          set-safe-directory: false
+
+      - name: Checkout independent protected control plane
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: ${{ github.repository }}
+          ref: ${{ steps.source.outputs.control_plane_revision }}
+          path: control-plane-checkout
+          fetch-depth: 0
+          persist-credentials: false
+          lfs: false
+          submodules: false
+          set-safe-directory: false
+
+      - name: Verify exact and independent checkouts
+        shell: bash
+        env:
+          SUBJECT_REVISION: ${{ steps.source.outputs.subject_revision }}
+          CONTROL_REVISION: ${{ steps.source.outputs.control_plane_revision }}
+        run: |
+          set -euo pipefail
+
+          SUBJECT_ROOT="${GITHUB_WORKSPACE}/subject-checkout"
+          CONTROL_ROOT="${GITHUB_WORKSPACE}/control-plane-checkout"
+
+          test "$(git -C "${SUBJECT_ROOT}" rev-parse HEAD)" = "${SUBJECT_REVISION}"
+          test "$(git -C "${CONTROL_ROOT}" rev-parse HEAD)" = "${CONTROL_REVISION}"
+          test "$(realpath "${SUBJECT_ROOT}")" != "$(realpath "${CONTROL_ROOT}")"
+
+          REQUIRED_CONTROL_PATHS=(
+            ".github/workflows/pulsemech_compute_current_run_export_candidate.yml"
+            "tools/load_pulsemech_compute_current_run_export_carrier_v0.py"
+            "tools/build_pulsemech_compute_current_run_export_expectation_v0.py"
+            "schemas/pulsemech_compute_current_run_export_expectation_v0.schema.json"
+            "tools/check_pulsemech_compute_current_run_export_expectation_v0.py"
+            "tools/pulsemech_compute_subject_input_packet_producer_core_v0.py"
+            "tools/build_pulsemech_compute_subject_input_packet_current_run_v0.py"
+            "schemas/pulsemech_compute_subject_input_packet_v0.schema.json"
+            "tools/check_pulsemech_compute_subject_input_packet_v0.py"
+          )
+          for relative in "${REQUIRED_CONTROL_PATHS[@]}"; do
+            path="${CONTROL_ROOT}/${relative}"
+            if [[ ! -f "${path}" || -L "${path}" ]]; then
+              echo "::error::protected control-plane component missing or symlinked: ${relative}"
+              exit 1
+            fi
+          done
+
+          REQUIRED_SUBJECT_PATHS=(
+            ".github/workflows/pulse_ci.yml"
+            "pulse_gate_policy_v0.yml"
+            "pulse_gate_registry_v0.yml"
+            "policy/external_signers_v1.yml"
+            "PULSE_safe_pack_v0/profiles/external_thresholds.yaml"
+          )
+          for relative in "${REQUIRED_SUBJECT_PATHS[@]}"; do
+            path="${SUBJECT_ROOT}/${relative}"
+            if [[ ! -f "${path}" || -L "${path}" ]]; then
+              echo "::error::subject authority source missing or symlinked: ${relative}"
+              exit 1
+            fi
+          done
+
+      - name: Set up protected Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: "3.11"
+
+      - name: Install protected control-plane dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python -m pip install --disable-pip-version-check --upgrade pip
+          python -m pip install --disable-pip-version-check \
+            -r "${GITHUB_WORKSPACE}/control-plane-checkout/requirements.txt"
+          python -m pip install --disable-pip-version-check jsonschema
+
+      - name: Resolve exact source artifacts
+        id: artifacts
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_RUN_ID: ${{ steps.source.outputs.source_run_id }}
+          SOURCE_RUN_ATTEMPT: ${{ steps.source.outputs.source_run_attempt }}
+        run: |
+          set -euo pipefail
+
+          ARTIFACT_ROOT="${RUNNER_TEMP}/pulsemech-current-run-source-artifacts"
+          DOWNLOAD_ROOT="${ARTIFACT_ROOT}/downloads"
+          rm -rf "${ARTIFACT_ROOT}"
+          mkdir -p "${DOWNLOAD_ROOT}"
+
+          gh api \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "/repos/${GITHUB_REPOSITORY}/actions/runs/${SOURCE_RUN_ID}/artifacts?per_page=100" \
+            > "${ARTIFACT_ROOT}/artifacts.json"
+
+          python - <<'PY'
+          from __future__ import annotations
+
+          import json
+          import os
+          import re
+          from datetime import datetime, timezone
+          from pathlib import Path
+          from typing import Any
+
+
+          ROLE_BY_KEY = {
+              "complete": "complete_release_grade_reference_package",
+              "completeness": "structural_package_completeness_report",
+              "verification": "independent_package_verification_report",
+          }
+
+
+          def fail(message: str) -> None:
+              raise SystemExit(f"source_artifact_resolution_failed: {message}")
+
+
+          def parse_utc(value: Any, *, label: str) -> datetime:
+              if not isinstance(value, str) or not value.endswith("Z"):
+                  fail(f"{label}_not_canonical_utc: {value!r}")
+              try:
+                  parsed = datetime.fromisoformat(value[:-1] + "+00:00")
+              except ValueError as exc:
+                  fail(f"{label}_invalid_utc: {value!r}: {exc}")
+              if parsed.utcoffset() != timezone.utc.utcoffset(parsed):
+                  fail(f"{label}_not_utc: {value!r}")
+              return parsed
+
+
+          root = Path(os.environ["RUNNER_TEMP"]) / (
+              "pulsemech-current-run-source-artifacts"
+          )
+          source_run_id = int(os.environ["SOURCE_RUN_ID"], 10)
+          source_attempt = int(os.environ["SOURCE_RUN_ATTEMPT"], 10)
+          expected_names = {
+              "complete": (
+                  f"complete-release-grade-reference-package-"
+                  f"{source_run_id}-{source_attempt}"
+              ),
+              "completeness": (
+                  f"release-grade-package-completeness-"
+                  f"{source_run_id}-{source_attempt}"
+              ),
+              "verification": (
+                  f"release-grade-reference-package-verification-"
+                  f"{source_run_id}-{source_attempt}"
+              ),
+          }
+          try:
+              document = json.loads(
+                  (root / "artifacts.json").read_text(
+                      encoding="utf-8",
+                      errors="strict",
+                  )
+              )
+          except Exception as exc:
+              fail(f"artifact_listing_invalid_json: {exc}")
+          rows = document.get("artifacts") if isinstance(document, dict) else None
+          total_count = document.get("total_count") if isinstance(document, dict) else None
+          if not isinstance(rows, list):
+              fail("artifact_listing_missing_array")
+          if (
+              not isinstance(total_count, int)
+              or isinstance(total_count, bool)
+              or total_count < 0
+          ):
+              fail(f"artifact_listing_total_count_invalid: {total_count!r}")
+          if total_count != len(rows):
+              fail(
+                  "artifact_listing_pagination_not_closed: "
+                  f"total_count={total_count} returned={len(rows)}"
+              )
+
+          selected: list[dict[str, Any]] = []
+          for key, expected_name in expected_names.items():
+              matches = [
+                  row
+                  for row in rows
+                  if isinstance(row, dict) and row.get("name") == expected_name
+              ]
+              if len(matches) != 1:
+                  fail(
+                      f"artifact_name_not_unique: name={expected_name!r} "
+                      f"count={len(matches)}"
+                  )
+              row = matches[0]
+              if row.get("expired") is not False:
+                  fail(f"artifact_expired_or_state_unknown: {expected_name}")
+              artifact_id = row.get("id")
+              size = row.get("size_in_bytes")
+              digest_text = row.get("digest")
+              if (
+                  not isinstance(artifact_id, int)
+                  or isinstance(artifact_id, bool)
+                  or artifact_id <= 0
+              ):
+                  fail(f"artifact_id_invalid: {expected_name}")
+              if (
+                  not isinstance(size, int)
+                  or isinstance(size, bool)
+                  or size <= 0
+              ):
+                  fail(f"artifact_size_invalid: {expected_name}")
+              if not isinstance(digest_text, str) or re.fullmatch(
+                  r"sha256:[0-9a-f]{64}",
+                  digest_text,
+              ) is None:
+                  fail(f"artifact_digest_invalid: {expected_name}: {digest_text!r}")
+              created_at = row.get("created_at")
+              expires_at = row.get("expires_at")
+              parse_utc(created_at, label=f"artifact_created_at_{key}")
+              parse_utc(expires_at, label=f"artifact_expires_at_{key}")
+              selected.append(
+                  {
+                      "artifact_id": artifact_id,
+                      "artifact_name": expected_name,
+                      "created_at": created_at,
+                      "download_file_name": expected_name + ".zip",
+                      "expires_at": expires_at,
+                      "expected_sha256": digest_text.split(":", 1)[1],
+                      "expected_size_bytes": size,
+                      "key": key,
+                      "role": ROLE_BY_KEY[key],
+                  }
+              )
+
+          selected.sort(key=lambda row: row["key"])
+          maximum_artifact_bytes = 256 * 1024 * 1024
+          maximum_selected_bytes = 512 * 1024 * 1024
+          for row in selected:
+              if row["expected_size_bytes"] > maximum_artifact_bytes:
+                  fail(
+                      "source_artifact_too_large: "
+                      f"name={row['artifact_name']!r} "
+                      f"size={row['expected_size_bytes']} "
+                      f"maximum={maximum_artifact_bytes}"
+                  )
+          selected_total = sum(row["expected_size_bytes"] for row in selected)
+          if selected_total > maximum_selected_bytes:
+              fail(
+                  "selected_source_artifacts_too_large: "
+                  f"size={selected_total} maximum={maximum_selected_bytes}"
+              )
+          selection = {
+              "authority_boundary": {
+                  "activates_compute_gate": False,
+                  "changes_release_authority": False,
+                  "downloads_source_artifacts_only": True,
+              },
+              "document_type": (
+                  "pulsemech_compute_current_run_candidate_artifact_selection"
+              ),
+              "ok": True,
+              "schema_version": (
+                  "pulsemech_compute_current_run_candidate_artifact_selection_v0"
+              ),
+              "source_run_attempt": source_attempt,
+              "source_run_id": source_run_id,
+              "artifacts": selected,
+          }
+          selection_path = root / "selected-artifacts.json"
+          selection_path.write_text(
+              json.dumps(
+                  selection,
+                  indent=2,
+                  ensure_ascii=False,
+                  sort_keys=True,
+                  allow_nan=False,
+              )
+              + "\n",
+              encoding="utf-8",
+              newline="\n",
+          )
+          download_plan = root / "download-plan.tsv"
+          with download_plan.open("w", encoding="utf-8", newline="\n") as stream:
+              for row in selected:
+                  stream.write(
+                      f"{row['artifact_id']}\t{row['download_file_name']}\n"
+                  )
+
+          outputs = {
+              "artifact_root": str(root),
+              "download_root": str(root / "downloads"),
+              "selection_path": str(selection_path),
+          }
+          with Path(os.environ["GITHUB_OUTPUT"]).open(
+              "a",
+              encoding="utf-8",
+              newline="\n",
+          ) as stream:
+              for key, value in outputs.items():
+                  stream.write(f"{key}={value}\n")
+          PY
+
+          while IFS=$'\t' read -r artifact_id file_name; do
+            if [[ ! "${artifact_id}" =~ ^[1-9][0-9]*$ ]]; then
+              echo "::error::invalid artifact ID in download plan: ${artifact_id}"
+              exit 1
+            fi
+            if [[ ! "${file_name}" =~ ^[A-Za-z0-9._+-]+\.zip$ ]]; then
+              echo "::error::invalid artifact file name in download plan: ${file_name}"
+              exit 1
+            fi
+            gh api \
+              --method GET \
+              -H "Accept: application/vnd.github+json" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "/repos/${GITHUB_REPOSITORY}/actions/artifacts/${artifact_id}/zip" \
+              > "${DOWNLOAD_ROOT}/${file_name}"
+          done < "${ARTIFACT_ROOT}/download-plan.tsv"
+
+          python - <<'PY'
+          from __future__ import annotations
+
+          import hashlib
+          import json
+          import os
+          import stat
+          from pathlib import Path
+
+
+          def fail(message: str) -> None:
+              raise SystemExit(f"source_artifact_download_failed: {message}")
+
+
+          root = Path(os.environ["RUNNER_TEMP"]) / (
+              "pulsemech-current-run-source-artifacts"
+          )
+          selection = json.loads(
+              (root / "selected-artifacts.json").read_text(
+                  encoding="utf-8",
+                  errors="strict",
+              )
+          )
+          for row in selection["artifacts"]:
+              path = root / "downloads" / row["download_file_name"]
+              try:
+                  metadata = path.lstat()
+              except OSError as exc:
+                  fail(f"download_missing: {path}: {exc}")
+              if not stat.S_ISREG(metadata.st_mode) or stat.S_ISLNK(metadata.st_mode):
+                  fail(f"download_not_regular_file: {path}")
+              payload = path.read_bytes()
+              observed_sha = hashlib.sha256(payload).hexdigest()
+              if observed_sha != row["expected_sha256"]:
+                  fail(
+                      f"download_digest_mismatch: {path.name} "
+                      f"expected={row['expected_sha256']} actual={observed_sha}"
+                  )
+              if len(payload) != row["expected_size_bytes"]:
+                  fail(
+                      f"download_size_mismatch: {path.name} "
+                      f"expected={row['expected_size_bytes']} actual={len(payload)}"
+                  )
+              path.chmod(0o444)
+          PY
+
+      - name: Assemble deterministic finalized current-run carrier
+        id: carrier
+        shell: bash
+        env:
+          ARTIFACT_ROOT: ${{ steps.artifacts.outputs.artifact_root }}
+          SOURCE_RUN_ID: ${{ steps.source.outputs.source_run_id }}
+          SOURCE_RUN_NUMBER: ${{ steps.source.outputs.source_run_number }}
+          SOURCE_RUN_ATTEMPT: ${{ steps.source.outputs.source_run_attempt }}
+          SOURCE_RUN_KEY: ${{ steps.source.outputs.source_run_key }}
+          SOURCE_UPDATED_UTC: ${{ steps.source.outputs.source_updated_utc }}
+          SUBJECT_REVISION: ${{ steps.source.outputs.subject_revision }}
+        run: |
+          set -euo pipefail
+
+          STAGING_ROOT="${RUNNER_TEMP}/pulsemech-current-run-export-staging"
+          INPUT_ROOT="${RUNNER_TEMP}/pulsemech-current-run-candidate-inputs"
+          OUTPUT_ROOT="${RUNNER_TEMP}/pulsemech-current-run-candidate-output"
+          rm -rf "${STAGING_ROOT}" "${INPUT_ROOT}" "${OUTPUT_ROOT}"
+          mkdir -p "${STAGING_ROOT}/exports" "${INPUT_ROOT}" "${OUTPUT_ROOT}"
+
+          export STAGING_ROOT INPUT_ROOT OUTPUT_ROOT
+
+          python - <<'PY'
+          from __future__ import annotations
+
+          import hashlib
+          import io
+          import json
+          import os
+          import re
+          import stat
+          import zipfile
+          from datetime import datetime, timezone
+          from pathlib import Path, PurePosixPath
+          from typing import Any
+
+
+          MAX_MEMBERS = 4096
+          MAX_MEMBER_BYTES = 256 * 1024 * 1024
+          MAX_TOTAL_BYTES = 512 * 1024 * 1024
+
+          PRESERVATION_AUTHORITY_BOUNDARY = {
+              "alters_preserved_artifacts": False,
+              "creates_release_authority": False,
+              "preservation_copy_only": True,
+              "replaces_original_github_attestations": False,
+              "replaces_primary_ci_decision": False,
+          }
+
+
+          def fail(message: str) -> None:
+              raise SystemExit(f"carrier_assembly_failed: {message}")
+
+
+          def canonical_json(value: Any) -> bytes:
+              return (
+                  json.dumps(
+                      value,
+                      indent=2,
+                      ensure_ascii=False,
+                      sort_keys=True,
+                      allow_nan=False,
+                  )
+                  + "\n"
+              ).encode("utf-8")
+
+
+          def reject_duplicates(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+              result: dict[str, Any] = {}
+              for key, value in pairs:
+                  if key in result:
+                      fail(f"duplicate_json_key: {key}")
+                  result[key] = value
+              return result
+
+
+          def reject_non_finite(value: str) -> None:
+              fail(f"non_finite_json_value: {value}")
+
+
+          def strict_object(payload: bytes, *, label: str) -> dict[str, Any]:
+              if payload.startswith(b"\xef\xbb\xbf"):
+                  fail(f"{label}_utf8_bom_not_permitted")
+              try:
+                  value = json.loads(
+                      payload.decode("utf-8", errors="strict"),
+                      object_pairs_hook=reject_duplicates,
+                      parse_constant=reject_non_finite,
+                  )
+              except SystemExit:
+                  raise
+              except Exception as exc:
+                  fail(f"{label}_invalid_json: {exc}")
+              if not isinstance(value, dict):
+                  fail(f"{label}_not_object")
+              return value
+
+
+          def parse_utc(value: Any, *, label: str) -> datetime:
+              if not isinstance(value, str) or re.fullmatch(
+                  r"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z",
+                  value,
+              ) is None:
+                  fail(f"{label}_not_canonical_utc: {value!r}")
+              parsed = datetime.fromisoformat(value[:-1] + "+00:00")
+              if parsed.utcoffset() != timezone.utc.utcoffset(parsed):
+                  fail(f"{label}_not_utc: {value!r}")
+              return parsed
+
+
+          def safe_member_name(value: str, *, label: str) -> str:
+              if not value or "\\" in value or "\x00" in value or value.endswith("/"):
+                  fail(f"{label}_unsafe_member: {value!r}")
+              path = PurePosixPath(value)
+              if path.is_absolute() or any(
+                  part in {"", ".", ".."} for part in path.parts
+              ):
+                  fail(f"{label}_unsafe_member: {value!r}")
+              if path.as_posix() != value:
+                  fail(f"{label}_noncanonical_member: {value!r}")
+              return value
+
+
+          class RetainedByteBudget:
+              def __init__(self, maximum: int) -> None:
+                  if maximum <= 0:
+                      fail(f"retained_budget_invalid: {maximum}")
+                  self.maximum = maximum
+                  self.used = 0
+
+              def reserve(self, amount: int, *, label: str) -> None:
+                  if amount < 0:
+                      fail(f"{label}_negative_size: {amount}")
+                  if amount > self.maximum - self.used:
+                      fail(
+                          f"{label}_retained_budget_exceeded: "
+                          f"used={self.used} requested={amount} "
+                          f"maximum={self.maximum}"
+                      )
+                  self.used += amount
+
+
+          def read_zip(
+              payload: bytes,
+              *,
+              label: str,
+              budget: RetainedByteBudget,
+          ) -> dict[str, bytes]:
+              try:
+                  archive = zipfile.ZipFile(io.BytesIO(payload), "r")
+              except zipfile.BadZipFile as exc:
+                  fail(f"{label}_invalid_zip: {exc}")
+              with archive:
+                  infos = archive.infolist()
+                  if not infos or len(infos) > MAX_MEMBERS:
+                      fail(f"{label}_member_count_invalid: {len(infos)}")
+                  names = [info.filename for info in infos]
+                  if len(names) != len(set(names)):
+                      fail(f"{label}_duplicate_member")
+                  result: dict[str, bytes] = {}
+                  total = 0
+                  for info in infos:
+                      name = safe_member_name(info.filename, label=label)
+                      mode = (info.external_attr >> 16) & 0xFFFF
+                      if info.is_dir() or stat.S_ISLNK(mode):
+                          fail(f"{label}_nonregular_member: {name}")
+                      if info.flag_bits & 0x1:
+                          fail(f"{label}_encrypted_member: {name}")
+                      if info.compress_type not in {
+                          zipfile.ZIP_STORED,
+                          zipfile.ZIP_DEFLATED,
+                      }:
+                          fail(f"{label}_unsupported_compression: {name}")
+                      if info.file_size < 0 or info.file_size > MAX_MEMBER_BYTES:
+                          fail(f"{label}_member_too_large: {name}")
+                      total += info.file_size
+                      if total > MAX_TOTAL_BYTES:
+                          fail(f"{label}_aggregate_size_exceeded")
+                      budget.reserve(
+                          info.file_size,
+                          label=f"{label}_member_{name}",
+                      )
+                      try:
+                          member = archive.read(info)
+                      except zipfile.BadZipFile as exc:
+                          fail(f"{label}_member_crc_failure: {name}: {exc}")
+                      if len(member) != info.file_size:
+                          fail(f"{label}_member_size_mismatch: {name}")
+                      result[name] = member
+                  return result
+
+
+          def sha256(payload: bytes) -> str:
+              return hashlib.sha256(payload).hexdigest()
+
+
+          artifact_root = Path(os.environ["ARTIFACT_ROOT"])
+          selection = strict_object(
+              (artifact_root / "selected-artifacts.json").read_bytes(),
+              label="artifact_selection",
+          )
+          rows = selection.get("artifacts")
+          if not isinstance(rows, list) or len(rows) != 3:
+              fail("artifact_selection_count_not_three")
+
+          retained_budget = RetainedByteBudget(MAX_TOTAL_BYTES)
+          provider_payloads: dict[str, bytes] = {}
+          provider_rows: list[dict[str, Any]] = []
+          by_key: dict[str, dict[str, Any]] = {}
+          for row in rows:
+              if not isinstance(row, dict):
+                  fail("artifact_selection_row_not_object")
+              key = row.get("key")
+              if key in by_key:
+                  fail(f"duplicate_artifact_key: {key!r}")
+              by_key[str(key)] = row
+              file_name = row.get("download_file_name")
+              if not isinstance(file_name, str):
+                  fail("artifact_file_name_invalid")
+              payload = (artifact_root / "downloads" / file_name).read_bytes()
+              retained_budget.reserve(
+                  len(payload),
+                  label=f"provider_archive_{file_name}",
+              )
+              if sha256(payload) != row.get("expected_sha256"):
+                  fail(f"artifact_digest_changed_before_carrier: {file_name}")
+              if len(payload) != row.get("expected_size_bytes"):
+                  fail(f"artifact_size_changed_before_carrier: {file_name}")
+              provider_payloads[file_name] = payload
+              provider_rows.append(
+                  {
+                      "artifact_id": row["artifact_id"],
+                      "artifact_name": row["artifact_name"],
+                      "created_at": row["created_at"],
+                      "downloaded_sha256": row["expected_sha256"],
+                      "downloaded_size_bytes": row["expected_size_bytes"],
+                      "expires_at": row["expires_at"],
+                      "file_name": file_name,
+                      "github_digest_match": True,
+                      "github_sha256": row["expected_sha256"],
+                      "github_size_match": True,
+                      "role": row["role"],
+                      "size_bytes": row["expected_size_bytes"],
+                  }
+              )
+
+          required_keys = {"complete", "completeness", "verification"}
+          if set(by_key) != required_keys:
+              fail(f"artifact_key_set_mismatch: {sorted(by_key)!r}")
+
+          complete_name = by_key["complete"]["download_file_name"]
+          completeness_name = by_key["completeness"]["download_file_name"]
+          verification_name = by_key["verification"]["download_file_name"]
+          complete_members = read_zip(
+              provider_payloads[complete_name],
+              label="complete_package",
+              budget=retained_budget,
+          )
+          completeness_members = read_zip(
+              provider_payloads[completeness_name],
+              label="completeness_report_archive",
+              budget=retained_budget,
+          )
+          verification_members = read_zip(
+              provider_payloads[verification_name],
+              label="verification_report_archive",
+              budget=retained_budget,
+          )
+          if set(completeness_members) != {
+              "release_grade_package_completeness_v1.json"
+          }:
+              fail("completeness_report_member_set_mismatch")
+          if set(verification_members) != {
+              "release_grade_reference_package_verification_v0.json"
+          }:
+              fail("verification_report_member_set_mismatch")
+
+          required_complete_members = {
+              "package_digest_inventory_v0.json",
+              "run_metadata_v0.json",
+              "artifacts/status.json",
+              "artifacts/release_decision_v0.json",
+              "artifacts/recorded_release_evidence_verifier_v0.json",
+              "artifacts/release_authority_v0.json",
+              "artifacts/report_card.html",
+          }
+          missing = sorted(required_complete_members - set(complete_members))
+          if missing:
+              fail(f"complete_package_required_members_missing: {missing!r}")
+
+          inventory = strict_object(
+              complete_members["package_digest_inventory_v0.json"],
+              label="package_inventory",
+          )
+          inventory_rows = inventory.get("files")
+          if not isinstance(inventory_rows, list):
+              fail("package_inventory_files_not_array")
+          indexed_inventory: dict[str, dict[str, Any]] = {}
+          for index, row in enumerate(inventory_rows):
+              if not isinstance(row, dict):
+                  fail(f"package_inventory_row_not_object: {index}")
+              path = safe_member_name(
+                  row.get("path"),
+                  label=f"package_inventory_path_{index}",
+              )
+              if path in indexed_inventory:
+                  fail(f"package_inventory_duplicate_path: {path}")
+              payload = complete_members.get(path)
+              if payload is None:
+                  fail(f"package_inventory_member_missing: {path}")
+              if row.get("sha256") != sha256(payload):
+                  fail(f"package_inventory_digest_mismatch: {path}")
+              if row.get("size_bytes") != len(payload):
+                  fail(f"package_inventory_size_mismatch: {path}")
+              indexed_inventory[path] = row
+          if set(complete_members) != set(indexed_inventory) | {
+              "package_digest_inventory_v0.json"
+          }:
+              fail("complete_package_inventory_closure_failed")
+
+          run_metadata = strict_object(
+              complete_members["run_metadata_v0.json"],
+              label="run_metadata",
+          )
+          final_status_bytes = complete_members["artifacts/status.json"]
+          release_decision_bytes = complete_members[
+              "artifacts/release_decision_v0.json"
+          ]
+          final_status = strict_object(final_status_bytes, label="final_status")
+          release_decision = strict_object(
+              release_decision_bytes,
+              label="release_decision",
+          )
+          completeness_report = strict_object(
+              completeness_members["release_grade_package_completeness_v1.json"],
+              label="completeness_report",
+          )
+          verification_report = strict_object(
+              verification_members[
+                  "release_grade_reference_package_verification_v0.json"
+              ],
+              label="verification_report",
+          )
+
+          source_run_id = int(os.environ["SOURCE_RUN_ID"], 10)
+          source_run_number = int(os.environ["SOURCE_RUN_NUMBER"], 10)
+          source_attempt = int(os.environ["SOURCE_RUN_ATTEMPT"], 10)
+          source_run_key = os.environ["SOURCE_RUN_KEY"]
+          subject_revision = os.environ["SUBJECT_REVISION"]
+          source_updated = os.environ["SOURCE_UPDATED_UTC"]
+          parse_utc(source_updated, label="source_updated_utc")
+
+          expected_run_metadata = {
+              "repository": os.environ["GITHUB_REPOSITORY"],
+              "run_attempt": source_attempt,
+              "run_id": source_run_id,
+              "run_key": source_run_key,
+              "git_sha": subject_revision,
+              "workflow_ref": (
+                  f"{os.environ['GITHUB_REPOSITORY']}/"
+                  f"{os.environ['SOURCE_WORKFLOW_PATH']}@refs/heads/main"
+              ),
+          }
+          for field, expected in expected_run_metadata.items():
+              if run_metadata.get(field) != expected:
+                  fail(
+                      f"run_metadata_{field}_mismatch: "
+                      f"expected={expected!r} actual={run_metadata.get(field)!r}"
+                  )
+
+          metrics = final_status.get("metrics")
+          diagnostics = final_status.get("diagnostics")
+          if not isinstance(metrics, dict) or not isinstance(diagnostics, dict):
+              fail("final_status_metrics_or_diagnostics_not_object")
+          if metrics.get("run_mode") != "prod":
+              fail(f"final_status_run_mode_not_prod: {metrics.get('run_mode')!r}")
+          if metrics.get("run_key") != source_run_key:
+              fail("final_status_run_key_mismatch")
+          if metrics.get("git_sha") != subject_revision:
+              fail("final_status_git_sha_mismatch")
+          if diagnostics.get("gates_stubbed") is not False:
+              fail("final_status_gates_stubbed_not_false")
+          if diagnostics.get("scaffold") is not False:
+              fail("final_status_scaffold_not_false")
+
+          expected_decision_fields = {
+              "git_sha": subject_revision,
+              "run_mode": "prod",
+              "target": "prod",
+              "release_level": "PROD-PASS",
+              "required_gates_passed": True,
+              "active_gate_sets": ["required", "release_required"],
+              "blocking_reasons": [],
+          }
+          for field, expected in expected_decision_fields.items():
+              if release_decision.get(field) != expected:
+                  fail(
+                      f"release_decision_{field}_mismatch: "
+                      f"expected={expected!r} actual={release_decision.get(field)!r}"
+                  )
+
+          if completeness_report.get("status") != "complete":
+              fail("completeness_report_status_not_complete")
+          if completeness_report.get("ok") is not True:
+              fail("completeness_report_ok_not_true")
+          if verification_report.get("status") != "verified":
+              fail("verification_report_status_not_verified")
+          if verification_report.get("verified") is not True:
+              fail("verification_report_verified_not_true")
+
+          outer_prefix = (
+              f"pulsemech-current-run-export-{source_run_id}-"
+              f"{source_attempt}-v0/"
+          )
+          original_prefix = outer_prefix + "original-github-artifacts/"
+          staged_relative_path = (
+              f"exports/pulsemech-current-run-export-{source_run_id}-"
+              f"{source_attempt}-v0.zip"
+          )
+          earliest_expiry = min(
+              row["expires_at"] for row in provider_rows
+          )
+          local_verification = {
+              "all_outer_artifact_digests_match_github": True,
+              "all_outer_artifact_sizes_match_github": True,
+              "complete_package_inventory_entries": len(indexed_inventory),
+              "complete_package_inventory_errors": [],
+              "complete_package_unlisted_members_excluding_inventory": [],
+              "complete_package_zip_members": len(complete_members),
+              "independent_verification_checks_total": (
+                  verification_report.get("summary", {}).get("checks_total")
+              ),
+              "independent_verification_errors": verification_report.get(
+                  "errors",
+                  [],
+              ),
+              "independent_verification_status": verification_report.get(
+                  "status"
+              ),
+              "independent_verification_verified": verification_report.get(
+                  "verified"
+              ),
+              "structural_completeness_checks_failed": (
+                  completeness_report.get("summary", {}).get("checks_failed")
+              ),
+              "structural_completeness_checks_total": (
+                  completeness_report.get("summary", {}).get("checks_total")
+              ),
+              "structural_completeness_ok": completeness_report.get("ok"),
+              "structural_completeness_status": completeness_report.get(
+                  "status"
+              ),
+          }
+          preservation_manifest = {
+              "active_policy_sets": ["required", "release_required"],
+              "authority_boundary": PRESERVATION_AUTHORITY_BOUNDARY,
+              "created_utc": source_updated,
+              "github_artifacts": sorted(
+                  provider_rows,
+                  key=lambda row: row["file_name"],
+              ),
+              "llamaguard_evidence_mode": "hosted_full_runtime",
+              "local_verification": local_verification,
+              "primary_gate_result": "allow",
+              "release_decision": "PROD-PASS",
+              "repository": os.environ["GITHUB_REPOSITORY"],
+              "retention_risk": {
+                  "earliest_expiry_utc": earliest_expiry,
+                  "original_github_artifacts_expire": True,
+                  "reason_for_preservation": (
+                      "Preserve one exact completed current-run release-grade "
+                      "artifact set for the non-active PULSEmech compute "
+                      "candidate workflow."
+                  ),
+              },
+              "run_mode": "prod",
+              "schema_id": (
+                  "pulse_ci_release_grade_artifact_preservation_manifest_v0"
+              ),
+              "schema_version": "0.1.0",
+              "source_commit": subject_revision,
+              "source_ref": os.environ["SOURCE_REF"],
+              "strict_external_evidence": True,
+              "workflow": os.environ["SOURCE_WORKFLOW_NAME"],
+              "workflow_run_attempt": source_attempt,
+              "workflow_run_id": source_run_id,
+              "workflow_run_number": source_run_number,
+          }
+          manifest_bytes = canonical_json(preservation_manifest)
+          retained_budget.reserve(
+              len(manifest_bytes),
+              label="preservation_manifest",
+          )
+          readme_bytes = (
+              "# PULSEmech current-run export candidate carrier v0\n\n"
+              "This carrier preserves the exact three GitHub Actions artifact "
+              "ZIP files consumed from one completed PULSE CI current run.\n\n"
+              f"- repository: `{os.environ['GITHUB_REPOSITORY']}`\n"
+              f"- workflow: `{os.environ['SOURCE_WORKFLOW_NAME']}`\n"
+              f"- source run ID: `{source_run_id}`\n"
+              f"- source run attempt: `{source_attempt}`\n"
+              f"- source commit: `{subject_revision}`\n"
+              "- run mode: `prod`\n"
+              "- active policy sets: `required + release_required`\n"
+              "- release decision: `PROD-PASS`\n\n"
+              "## Authority boundary\n\n"
+              "This is a non-active candidate carrier. It does not activate a "
+              "compute gate, create a compute budget, create a release decision, "
+              "or change release authority.\n"
+          ).encode("utf-8")
+          retained_budget.reserve(
+              len(readme_bytes),
+              label="preservation_readme",
+          )
+
+          visible = {
+              "PRESERVATION_MANIFEST_v0.json": manifest_bytes,
+              "README.md": readme_bytes,
+          }
+          sums: dict[str, str] = {
+              name: sha256(payload) for name, payload in visible.items()
+          }
+          for file_name, payload in provider_payloads.items():
+              sums["original-github-artifacts/" + file_name] = sha256(payload)
+          sums_bytes = "".join(
+              f"{digest}  {path}\n" for path, digest in sorted(sums.items())
+          ).encode("utf-8")
+          retained_budget.reserve(
+              len(sums_bytes),
+              label="preservation_checksums",
+          )
+          visible["SHA256SUMS"] = sums_bytes
+
+          output_members: dict[str, bytes] = {
+              outer_prefix + name: payload
+              for name, payload in visible.items()
+          }
+          output_members.update(
+              {
+                  original_prefix + name: payload
+                  for name, payload in provider_payloads.items()
+              }
+          )
+
+          staging_root = Path(os.environ["STAGING_ROOT"])
+          carrier_path = staging_root / PurePosixPath(staged_relative_path)
+          carrier_path.parent.mkdir(parents=True, exist_ok=True)
+          temporary = carrier_path.with_name(carrier_path.name + ".tmp")
+          if carrier_path.exists() or temporary.exists():
+              fail("carrier_output_already_exists")
+          with zipfile.ZipFile(
+              temporary,
+              "w",
+              compression=zipfile.ZIP_STORED,
+              allowZip64=False,
+          ) as archive:
+              for name in sorted(output_members):
+                  info = zipfile.ZipInfo(name)
+                  info.date_time = (1980, 1, 1, 0, 0, 0)
+                  info.compress_type = zipfile.ZIP_STORED
+                  info.external_attr = 0o100444 << 16
+                  info.create_system = 3
+                  archive.writestr(info, output_members[name])
+          temporary.chmod(0o444)
+          temporary.replace(carrier_path)
+          carrier_path.chmod(0o444)
+
+          input_root = Path(os.environ["INPUT_ROOT"])
+          status_path = input_root / "final-status.json"
+          decision_path = input_root / "release-decision.json"
+          status_path.write_bytes(final_status_bytes)
+          decision_path.write_bytes(release_decision_bytes)
+          status_path.chmod(0o444)
+          decision_path.chmod(0o444)
+
+          observation = {
+              "archive_layout": {
+                  "artifact_count_derivation": "provider_plus_non_provider",
+                  "complete_package_name": complete_name,
+                  "completeness_archive_name": completeness_name,
+                  "expected_non_provider_artifact_count": (
+                      3
+                      + len(complete_members)
+                      + len(completeness_members)
+                      + len(verification_members)
+                  ),
+                  "expected_provider_artifact_count": 3,
+                  "layout_id": os.environ["ARCHIVE_LAYOUT_ID"],
+                  "layout_version": "0.1.0",
+                  "original_artifacts_prefix": original_prefix,
+                  "outer_prefix": outer_prefix,
+                  "verification_archive_name": verification_name,
+                  "visible_members": {
+                      "preservation_checksums_name": "SHA256SUMS",
+                      "preservation_manifest_name": (
+                          "PRESERVATION_MANIFEST_v0.json"
+                      ),
+                      "preservation_readme_name": "README.md",
+                  },
+              },
+              "carrier": {
+                  "finalized_utc": source_updated,
+                  "root_prefix": outer_prefix,
+                  "staged_relative_path": staged_relative_path,
+              },
+              "decision": {
+                  "active_policy_sets": ["required", "release_required"],
+                  "decision": "ALLOW",
+                  "release_level": "PROD-PASS",
+                  "run_mode": "prod",
+                  "target": "prod",
+              },
+              "document_type": (
+                  "pulsemech_compute_current_run_candidate_carrier_observation"
+              ),
+              "final_status_path": str(status_path),
+              "ok": True,
+              "release_decision_path": str(decision_path),
+              "schema_version": (
+                  "pulsemech_compute_current_run_candidate_carrier_observation_v0"
+              ),
+          }
+          observation_path = input_root / "carrier-observation.json"
+          observation_path.write_bytes(canonical_json(observation))
+
+          with Path(os.environ["GITHUB_OUTPUT"]).open(
+              "a",
+              encoding="utf-8",
+              newline="\n",
+          ) as stream:
+              outputs = {
+                  "carrier_path": str(carrier_path),
+                  "final_status_path": str(status_path),
+                  "observation_path": str(observation_path),
+                  "output_root": os.environ["OUTPUT_ROOT"],
+                  "release_decision_path": str(decision_path),
+                  "root_prefix": outer_prefix,
+                  "staged_relative_path": staged_relative_path,
+                  "staging_root": str(staging_root),
+              }
+              for key, value in outputs.items():
+                  stream.write(f"{key}={value}\n")
+          PY
+
+      - name: Materialize exact finalized carrier identity
+        id: carrier_identity
+        shell: bash
+        env:
+          CONTROL_REVISION: ${{ steps.source.outputs.control_plane_revision }}
+          SOURCE_RUN_ID: ${{ steps.source.outputs.source_run_id }}
+          SOURCE_RUN_NUMBER: ${{ steps.source.outputs.source_run_number }}
+          SOURCE_RUN_ATTEMPT: ${{ steps.source.outputs.source_run_attempt }}
+          SOURCE_RUN_KEY: ${{ steps.source.outputs.source_run_key }}
+          SOURCE_UPDATED_UTC: ${{ steps.source.outputs.source_updated_utc }}
+          STAGING_ROOT: ${{ steps.carrier.outputs.staging_root }}
+          STAGED_RELATIVE_PATH: ${{ steps.carrier.outputs.staged_relative_path }}
+          ROOT_PREFIX: ${{ steps.carrier.outputs.root_prefix }}
+          OUTPUT_ROOT: ${{ steps.carrier.outputs.output_root }}
+        run: |
+          set -euo pipefail
+
+          CONTROL_ROOT="${GITHUB_WORKSPACE}/control-plane-checkout"
+          CARRIER_JSON="${OUTPUT_ROOT}/carrier.json"
+          CARRIER_STDOUT="${OUTPUT_ROOT}/carrier.stdout.json"
+
+          python -I \
+            "${CONTROL_ROOT}/tools/load_pulsemech_compute_current_run_export_carrier_v0.py" \
+            --staging-root "${STAGING_ROOT}" \
+            --staged-relative-path "${STAGED_RELATIVE_PATH}" \
+            --root-prefix "${ROOT_PREFIX}" \
+            --carrier-id-namespace "${CARRIER_ID_NAMESPACE}" \
+            --workflow-name "${SOURCE_WORKFLOW_NAME}" \
+            --workflow-run-id "${SOURCE_RUN_ID}" \
+            --workflow-run-number "${SOURCE_RUN_NUMBER}" \
+            --workflow-run-attempt "${SOURCE_RUN_ATTEMPT}" \
+            --subject-run-key "${SOURCE_RUN_KEY}" \
+            --finalized-utc "${SOURCE_UPDATED_UTC}" \
+            --ci-workflow-or-job-identity \
+              "${CANDIDATE_WORKFLOW_NAME} / materialize finalized carrier" \
+            --control-plane-root "${CONTROL_ROOT}" \
+            --control-plane-revision "${CONTROL_REVISION}" \
+            --output "${CARRIER_JSON}" \
+            > "${CARRIER_STDOUT}"
+
+          cmp --silent "${CARRIER_JSON}" "${CARRIER_STDOUT}"
+          test -s "${CARRIER_JSON}"
+          echo "carrier_json=${CARRIER_JSON}" >> "${GITHUB_OUTPUT}"
+
+      - name: Build canonical current-run expectation input
+        id: expectation_input
+        shell: bash
+        env:
+          CARRIER_JSON: ${{ steps.carrier_identity.outputs.carrier_json }}
+          OBSERVATION_PATH: ${{ steps.carrier.outputs.observation_path }}
+          OUTPUT_ROOT: ${{ steps.carrier.outputs.output_root }}
+          SOURCE_RUN_ID: ${{ steps.source.outputs.source_run_id }}
+          SOURCE_RUN_NUMBER: ${{ steps.source.outputs.source_run_number }}
+          SOURCE_RUN_ATTEMPT: ${{ steps.source.outputs.source_run_attempt }}
+          SOURCE_RUN_KEY: ${{ steps.source.outputs.source_run_key }}
+          RELEASE_CANDIDATE_ID: ${{ steps.source.outputs.release_candidate_id }}
+          SUBJECT_REVISION: ${{ steps.source.outputs.subject_revision }}
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          from __future__ import annotations
+
+          import hashlib
+          import json
+          import os
+          import stat
+          from pathlib import Path
+          from typing import Any
+
+          import yaml
+
+
+          def fail(message: str) -> None:
+              raise SystemExit(f"expectation_input_build_failed: {message}")
+
+
+          def canonical_json(value: Any) -> bytes:
+              return (
+                  json.dumps(
+                      value,
+                      indent=2,
+                      ensure_ascii=False,
+                      sort_keys=True,
+                      allow_nan=False,
+                  )
+                  + "\n"
+              ).encode("utf-8")
+
+
+          def strict_json(path: Path, *, label: str) -> dict[str, Any]:
+              payload = path.read_bytes()
+              try:
+                  value = json.loads(payload.decode("utf-8", errors="strict"))
+              except Exception as exc:
+                  fail(f"{label}_invalid_json: {exc}")
+              if not isinstance(value, dict):
+                  fail(f"{label}_not_object")
+              return value
+
+
+          def regular_bytes(path: Path, *, label: str) -> bytes:
+              try:
+                  metadata = path.lstat()
+              except OSError as exc:
+                  fail(f"{label}_missing: {path}: {exc}")
+              if not stat.S_ISREG(metadata.st_mode) or stat.S_ISLNK(metadata.st_mode):
+                  fail(f"{label}_not_regular_file: {path}")
+              return path.read_bytes()
+
+
+          def source_record(
+              *,
+              source_id: str,
+              path: str,
+              payload: bytes,
+              revision: str,
+              role: str,
+              **extra: Any,
+          ) -> dict[str, Any]:
+              return {
+                  "path_or_uri": path,
+                  "role": role,
+                  "sha256": hashlib.sha256(payload).hexdigest(),
+                  "size_bytes": len(payload),
+                  "source_id": source_id,
+                  "source_revision": revision,
+                  **extra,
+              }
+
+
+          subject_root = Path(os.environ["GITHUB_WORKSPACE"]) / "subject-checkout"
+          carrier = strict_json(Path(os.environ["CARRIER_JSON"]), label="carrier")
+          observation = strict_json(
+              Path(os.environ["OBSERVATION_PATH"]),
+              label="carrier_observation",
+          )
+          subject_revision = os.environ["SUBJECT_REVISION"]
+          repository = os.environ["GITHUB_REPOSITORY"]
+          workflow_path = os.environ["SOURCE_WORKFLOW_PATH"]
+          workflow_name = os.environ["SOURCE_WORKFLOW_NAME"]
+          workflow_ref = f"{repository}/{workflow_path}@refs/heads/main"
+
+          workflow_bytes = regular_bytes(
+              subject_root / workflow_path,
+              label="source_workflow",
+          )
+          policy_path = "pulse_gate_policy_v0.yml"
+          registry_path = "pulse_gate_registry_v0.yml"
+          signer_path = "policy/external_signers_v1.yml"
+          threshold_path = "PULSE_safe_pack_v0/profiles/external_thresholds.yaml"
+          policy_bytes = regular_bytes(subject_root / policy_path, label="policy")
+          registry_bytes = regular_bytes(
+              subject_root / registry_path,
+              label="gate_registry",
+          )
+          signer_bytes = regular_bytes(
+              subject_root / signer_path,
+              label="external_signer_policy",
+          )
+          threshold_bytes = regular_bytes(
+              subject_root / threshold_path,
+              label="threshold_policy",
+          )
+          try:
+              policy = yaml.safe_load(policy_bytes.decode("utf-8", errors="strict"))
+              registry = yaml.safe_load(registry_bytes.decode("utf-8", errors="strict"))
+          except Exception as exc:
+              fail(f"authority_yaml_parse_failed: {exc}")
+          if not isinstance(policy, dict) or not isinstance(policy.get("policy"), dict):
+              fail("policy_identity_not_object")
+          policy_id = policy["policy"].get("id")
+          registry_id = registry.get("version") if isinstance(registry, dict) else None
+          if not isinstance(policy_id, str) or not policy_id:
+              fail(f"policy_id_invalid: {policy_id!r}")
+          if not isinstance(registry_id, str) or not registry_id:
+              fail(f"registry_id_invalid: {registry_id!r}")
+
+          status_path = Path(observation["final_status_path"])
+          decision_path = Path(observation["release_decision_path"])
+          status_bytes = regular_bytes(status_path, label="final_status")
+          decision_bytes = regular_bytes(decision_path, label="release_decision")
+
+          authority_sources = {
+              "additional_sources": sorted(
+                  [
+                      source_record(
+                          source_id="source:external-signer-policy",
+                          path=signer_path,
+                          payload=signer_bytes,
+                          revision=subject_revision,
+                          role="external_signer_policy",
+                      ),
+                      source_record(
+                          source_id="source:threshold-policy",
+                          path=threshold_path,
+                          payload=threshold_bytes,
+                          revision=subject_revision,
+                          role="threshold_policy",
+                      ),
+                  ],
+                  key=lambda row: row["source_id"],
+              ),
+              "gate_registry": source_record(
+                  source_id="source:gate-registry",
+                  path=registry_path,
+                  payload=registry_bytes,
+                  revision=subject_revision,
+                  role="gate_registry",
+                  registry_id=registry_id,
+              ),
+              "policy": source_record(
+                  source_id="source:policy",
+                  path=policy_path,
+                  payload=policy_bytes,
+                  revision=subject_revision,
+                  role="policy",
+                  policy_id=policy_id,
+              ),
+              "workflow": source_record(
+                  source_id="source:workflow",
+                  path=workflow_path,
+                  payload=workflow_bytes,
+                  revision=subject_revision,
+                  role="workflow",
+                  workflow_name=workflow_name,
+                  workflow_ref=workflow_ref,
+              ),
+          }
+
+          subject = {
+              "active_policy_sets": ["required", "release_required"],
+              "decision": "ALLOW",
+              "event_name": "workflow_dispatch",
+              "final_status_sha256": hashlib.sha256(status_bytes).hexdigest(),
+              "materialized_gate_set_sha256": None,
+              "policy_id": policy_id,
+              "policy_sha256": hashlib.sha256(policy_bytes).hexdigest(),
+              "release_candidate_id": os.environ["RELEASE_CANDIDATE_ID"],
+              "release_decision_sha256": hashlib.sha256(decision_bytes).hexdigest(),
+              "repository": repository,
+              "run_mode": "prod",
+              "source_commit": subject_revision,
+              "source_ref": os.environ["SOURCE_REF"],
+              "subject_run_key": os.environ["SOURCE_RUN_KEY"],
+              "workflow_name": workflow_name,
+              "workflow_path": workflow_path,
+              "workflow_ref": workflow_ref,
+              "workflow_run_attempt": int(os.environ["SOURCE_RUN_ATTEMPT"], 10),
+              "workflow_run_id": int(os.environ["SOURCE_RUN_ID"], 10),
+              "workflow_run_number": int(os.environ["SOURCE_RUN_NUMBER"], 10),
+          }
+          archive_layout = observation["archive_layout"]
+          builder_input = {
+              "archive_layout": archive_layout,
+              "authority_sources": authority_sources,
+              "carrier": carrier,
+              "packet_producer_profile": {
+                  "expected_archive_layout_id": archive_layout["layout_id"],
+                  "expected_carrier_artifact_payload_mode": "external_carrier",
+                  "expected_carrier_id_namespace": os.environ[
+                      "CARRIER_ID_NAMESPACE"
+                  ],
+                  "expected_carrier_kind": "current_run_export_archive",
+                  "expected_carrier_media_type": "application/zip",
+                  "expected_packet_identity_mode": "current-run",
+                  "expected_packet_scope": "current_run",
+                  "expected_producer_source_path": (
+                      "tools/"
+                      "build_pulsemech_compute_subject_input_packet_current_run_v0.py"
+                  ),
+                  "expected_production_mode": "current_run_export",
+                  "expected_repository": repository,
+                  "expected_signer_policy_path": signer_path,
+                  "expected_source_commit": subject_revision,
+                  "expected_subject_run_key": os.environ["SOURCE_RUN_KEY"],
+                  "profile_id": "pulsemech_current_run_export_candidate_v0",
+              },
+              "subject": subject,
+          }
+          output_root = Path(os.environ["OUTPUT_ROOT"])
+          input_path = output_root / "expectation-builder-input.json"
+          input_path.write_bytes(canonical_json(builder_input))
+          with Path(os.environ["GITHUB_OUTPUT"]).open(
+              "a",
+              encoding="utf-8",
+              newline="\n",
+          ) as stream:
+              stream.write(f"input_path={input_path}\n")
+              stream.write(f"status_path={status_path}\n")
+              stream.write(f"decision_path={decision_path}\n")
+          PY
+
+      - name: Produce observed current-run expectation
+        id: expectation
+        shell: bash
+        env:
+          CONTROL_REVISION: ${{ steps.source.outputs.control_plane_revision }}
+          SUBJECT_REVISION: ${{ steps.source.outputs.subject_revision }}
+          SOURCE_RUN_ID: ${{ steps.source.outputs.source_run_id }}
+          SOURCE_RUN_NUMBER: ${{ steps.source.outputs.source_run_number }}
+          SOURCE_RUN_ATTEMPT: ${{ steps.source.outputs.source_run_attempt }}
+          RELEASE_CANDIDATE_ID: ${{ steps.source.outputs.release_candidate_id }}
+          SOURCE_UPDATED_UTC: ${{ steps.source.outputs.source_updated_utc }}
+          OUTPUT_ROOT: ${{ steps.carrier.outputs.output_root }}
+          BUILDER_INPUT: ${{ steps.expectation_input.outputs.input_path }}
+          FINAL_STATUS: ${{ steps.expectation_input.outputs.status_path }}
+          RELEASE_DECISION: ${{ steps.expectation_input.outputs.decision_path }}
+        run: |
+          set -euo pipefail
+
+          SUBJECT_ROOT="${GITHUB_WORKSPACE}/subject-checkout"
+          CONTROL_ROOT="${GITHUB_WORKSPACE}/control-plane-checkout"
+          EXPECTATION_JSON="${OUTPUT_ROOT}/expectation.json"
+          EXPECTATION_STDOUT="${OUTPUT_ROOT}/expectation.stdout.json"
+
+          python -I \
+            "${CONTROL_ROOT}/tools/build_pulsemech_compute_current_run_export_expectation_v0.py" \
+            --input "${BUILDER_INPUT}" \
+            --expectation-schema \
+              "${CONTROL_ROOT}/schemas/pulsemech_compute_current_run_export_expectation_v0.schema.json" \
+            --expectation-validator \
+              "${CONTROL_ROOT}/tools/check_pulsemech_compute_current_run_export_expectation_v0.py" \
+            --subject-input-schema \
+              "${CONTROL_ROOT}/schemas/pulsemech_compute_subject_input_packet_v0.schema.json" \
+            --subject-root "${SUBJECT_ROOT}" \
+            --subject-repository "${GITHUB_REPOSITORY}" \
+            --subject-revision "${SUBJECT_REVISION}" \
+            --workflow-name "${SOURCE_WORKFLOW_NAME}" \
+            --workflow-path "${SOURCE_WORKFLOW_PATH}" \
+            --workflow-run-id "${SOURCE_RUN_ID}" \
+            --workflow-run-number "${SOURCE_RUN_NUMBER}" \
+            --workflow-run-attempt "${SOURCE_RUN_ATTEMPT}" \
+            --source-ref "${SOURCE_REF}" \
+            --event-name workflow_dispatch \
+            --release-candidate-id "${RELEASE_CANDIDATE_ID}" \
+            --run-mode prod \
+            --release-target prod \
+            --active-policy-set required \
+            --active-policy-set release_required \
+            --expectation-created-utc "${SOURCE_UPDATED_UTC}" \
+            --ci-workflow-or-job-identity \
+              "${CANDIDATE_WORKFLOW_NAME} / produce observed expectation" \
+            --control-plane-root "${CONTROL_ROOT}" \
+            --control-plane-repository "${CONTROL_PLANE_REPOSITORY}" \
+            --control-plane-revision "${CONTROL_REVISION}" \
+            --final-status "${FINAL_STATUS}" \
+            --release-decision "${RELEASE_DECISION}" \
+            --output "${EXPECTATION_JSON}" \
+            > "${EXPECTATION_STDOUT}"
+
+          cmp --silent "${EXPECTATION_JSON}" "${EXPECTATION_STDOUT}"
+          EXPECTATION_SHA256="$(sha256sum "${EXPECTATION_JSON}" | awk '{print $1}')"
+          echo "expectation_json=${EXPECTATION_JSON}" >> "${GITHUB_OUTPUT}"
+          echo "expectation_sha256=${EXPECTATION_SHA256}" >> "${GITHUB_OUTPUT}"
+
+      - name: Produce observed current-run subject-input packet
+        id: packet
+        shell: bash
+        env:
+          CONTROL_REVISION: ${{ steps.source.outputs.control_plane_revision }}
+          SUBJECT_REVISION: ${{ steps.source.outputs.subject_revision }}
+          SOURCE_RUN_KEY: ${{ steps.source.outputs.source_run_key }}
+          SOURCE_UPDATED_UTC: ${{ steps.source.outputs.source_updated_utc }}
+          STAGING_ROOT: ${{ steps.carrier.outputs.staging_root }}
+          OUTPUT_ROOT: ${{ steps.carrier.outputs.output_root }}
+          EXPECTATION_JSON: ${{ steps.expectation.outputs.expectation_json }}
+          EXPECTATION_SHA256: ${{ steps.expectation.outputs.expectation_sha256 }}
+        run: |
+          set -euo pipefail
+
+          SUBJECT_ROOT="${GITHUB_WORKSPACE}/subject-checkout"
+          CONTROL_ROOT="${GITHUB_WORKSPACE}/control-plane-checkout"
+          PACKET_JSON="${OUTPUT_ROOT}/subject-input-packet.json"
+          PACKET_STDOUT="${OUTPUT_ROOT}/subject-input-packet.stdout.json"
+
+          python -I \
+            "${CONTROL_ROOT}/tools/build_pulsemech_compute_subject_input_packet_current_run_v0.py" \
+            --expectation "${EXPECTATION_JSON}" \
+            --expectation-sha256 "${EXPECTATION_SHA256}" \
+            --staging-root "${STAGING_ROOT}" \
+            --subject-root "${SUBJECT_ROOT}" \
+            --subject-repository "${GITHUB_REPOSITORY}" \
+            --subject-revision "${SUBJECT_REVISION}" \
+            --control-plane-root "${CONTROL_ROOT}" \
+            --control-plane-repository "${CONTROL_PLANE_REPOSITORY}" \
+            --control-plane-revision "${CONTROL_REVISION}" \
+            --packet-created-utc "${SOURCE_UPDATED_UTC}" \
+            --producer-run-key "${SOURCE_RUN_KEY}" \
+            --ci-workflow-or-job-identity \
+              "${CANDIDATE_WORKFLOW_NAME} / produce observed subject-input packet" \
+            --output "${PACKET_JSON}" \
+            > "${PACKET_STDOUT}"
+
+          cmp --silent "${PACKET_JSON}" "${PACKET_STDOUT}"
+          echo "packet_json=${PACKET_JSON}" >> "${GITHUB_OUTPUT}"
+
+      - name: Verify candidate outputs and close non-authority boundary
+        id: verify
+        shell: bash
+        env:
+          CARRIER_JSON: ${{ steps.carrier_identity.outputs.carrier_json }}
+          CARRIER_PATH: ${{ steps.carrier.outputs.carrier_path }}
+          EXPECTATION_JSON: ${{ steps.expectation.outputs.expectation_json }}
+          PACKET_JSON: ${{ steps.packet.outputs.packet_json }}
+          OUTPUT_ROOT: ${{ steps.carrier.outputs.output_root }}
+          RESOLUTION_PATH: ${{ steps.source.outputs.resolution_path }}
+          SELECTION_PATH: ${{ steps.artifacts.outputs.selection_path }}
+          SOURCE_RUN_ID: ${{ steps.source.outputs.source_run_id }}
+          SOURCE_RUN_ATTEMPT: ${{ steps.source.outputs.source_run_attempt }}
+          SUBJECT_REVISION: ${{ steps.source.outputs.subject_revision }}
+          CONTROL_REVISION: ${{ steps.source.outputs.control_plane_revision }}
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          from __future__ import annotations
+
+          import hashlib
+          import json
+          import os
+          import shutil
+          import stat
+          from pathlib import Path
+          from typing import Any
+
+
+          EXPECTED_EXPECTATION_AUTHORITY = {
+              "activates_compute_gate": False,
+              "changes_gate_policy": False,
+              "changes_gate_semantics": False,
+              "changes_release_authority": False,
+              "creates_compute_budget": False,
+              "creates_gate_result": False,
+              "creates_release_decision": False,
+              "expectation_is_release_authority": False,
+              "mutates_carrier": False,
+              "produced_packet_is_release_authority": False,
+              "write_mode": "expectation_only",
+              "writes_subject_run": False,
+              "writes_target_repository": False,
+          }
+          EXPECTED_PACKET_AUTHORITY = {
+              "activates_compute_gate": False,
+              "changes_gate_policy": False,
+              "changes_gate_semantics": False,
+              "changes_release_authority": False,
+              "creates_compute_budget": False,
+              "creates_gate_result": False,
+              "creates_release_decision": False,
+              "mutates_carrier": False,
+              "packet_is_release_authority": False,
+              "write_mode": "subject_input_only",
+              "writes_subject_run": False,
+              "writes_target_repository": False,
+          }
+
+
+          def fail(message: str) -> None:
+              raise SystemExit(f"candidate_output_verification_failed: {message}")
+
+
+          def strict_object(path: Path, *, label: str) -> tuple[dict[str, Any], bytes]:
+              payload = path.read_bytes()
+              try:
+                  value = json.loads(payload.decode("utf-8", errors="strict"))
+              except Exception as exc:
+                  fail(f"{label}_invalid_json: {exc}")
+              if not isinstance(value, dict):
+                  fail(f"{label}_not_object")
+              canonical = (
+                  json.dumps(
+                      value,
+                      indent=2,
+                      ensure_ascii=False,
+                      sort_keys=True,
+                      allow_nan=False,
+                  )
+                  + "\n"
+              ).encode("utf-8")
+              if payload != canonical:
+                  fail(f"{label}_not_canonical_json")
+              return value, payload
+
+
+          carrier_path = Path(os.environ["CARRIER_PATH"])
+          carrier_meta, carrier_meta_bytes = strict_object(
+              Path(os.environ["CARRIER_JSON"]),
+              label="carrier",
+          )
+          expectation, expectation_bytes = strict_object(
+              Path(os.environ["EXPECTATION_JSON"]),
+              label="expectation",
+          )
+          packet, packet_bytes = strict_object(
+              Path(os.environ["PACKET_JSON"]),
+              label="packet",
+          )
+          carrier_bytes = carrier_path.read_bytes()
+          carrier_sha = hashlib.sha256(carrier_bytes).hexdigest()
+          carrier_size = len(carrier_bytes)
+          if carrier_meta.get("sha256") != carrier_sha:
+              fail("carrier_metadata_digest_mismatch")
+          if carrier_meta.get("size_bytes") != carrier_size:
+              fail("carrier_metadata_size_mismatch")
+          expectation_carrier = expectation.get("carrier")
+          packet_carrier = packet.get("carrier")
+          if not isinstance(expectation_carrier, dict) or not isinstance(
+              packet_carrier,
+              dict,
+          ):
+              fail("expectation_or_packet_carrier_not_object")
+          for label, value in (
+              ("expectation", expectation_carrier),
+              ("packet", packet_carrier),
+          ):
+              if value.get("sha256") != carrier_sha:
+                  fail(f"{label}_carrier_digest_mismatch")
+              if value.get("size_bytes") != carrier_size:
+                  fail(f"{label}_carrier_size_mismatch")
+          if expectation.get("record_status") != "observed":
+              fail("expectation_record_status_not_observed")
+          if packet.get("record_status") != "observed":
+              fail("packet_record_status_not_observed")
+          if expectation.get("authority_boundary") != EXPECTED_EXPECTATION_AUTHORITY:
+              fail("expectation_authority_boundary_mismatch")
+          if packet.get("authority_boundary") != EXPECTED_PACKET_AUTHORITY:
+              fail("packet_authority_boundary_mismatch")
+          if packet.get("subject") != expectation.get("subject"):
+              fail("packet_subject_mismatch")
+          if expectation.get("trusted_control_plane", {}).get("revision") != os.environ[
+              "CONTROL_REVISION"
+          ]:
+              fail("expectation_control_revision_mismatch")
+          if expectation.get("subject", {}).get("source_commit") != os.environ[
+              "SUBJECT_REVISION"
+          ]:
+              fail("expectation_subject_revision_mismatch")
+
+          output_root = Path(os.environ["OUTPUT_ROOT"])
+          candidate_root = output_root / "candidate"
+          candidate_root.mkdir(parents=True, exist_ok=False)
+          copied_carrier = candidate_root / carrier_path.name
+          shutil.copyfile(carrier_path, copied_carrier)
+          copied_carrier.chmod(0o444)
+
+          copies = {
+              "carrier.json": Path(os.environ["CARRIER_JSON"]),
+              "expectation.json": Path(os.environ["EXPECTATION_JSON"]),
+              "subject-input-packet.json": Path(os.environ["PACKET_JSON"]),
+              "source-run-resolution.json": Path(os.environ["RESOLUTION_PATH"]),
+              "source-artifact-selection.json": Path(os.environ["SELECTION_PATH"]),
+          }
+          for name, source in copies.items():
+              destination = candidate_root / name
+              shutil.copyfile(source, destination)
+              destination.chmod(0o444)
+
+          manifest_files: list[dict[str, Any]] = []
+          for path in sorted(candidate_root.iterdir(), key=lambda item: item.name):
+              metadata = path.lstat()
+              if not stat.S_ISREG(metadata.st_mode) or stat.S_ISLNK(metadata.st_mode):
+                  fail(f"candidate_output_not_regular_file: {path.name}")
+              payload = path.read_bytes()
+              manifest_files.append(
+                  {
+                      "path": path.name,
+                      "sha256": hashlib.sha256(payload).hexdigest(),
+                      "size_bytes": len(payload),
+                  }
+              )
+
+          manifest = {
+              "authority_boundary": {
+                  "activates_compute_gate": False,
+                  "candidate_only": True,
+                  "changes_gate_policy": False,
+                  "changes_release_authority": False,
+                  "creates_compute_budget": False,
+                  "creates_gate_result": False,
+                  "creates_release_decision": False,
+                  "non_active": True,
+                  "produces_runtime_observation": False,
+                  "produces_transition_relation": False,
+              },
+              "control_plane_revision": os.environ["CONTROL_REVISION"],
+              "document_type": (
+                  "pulsemech_compute_current_run_export_candidate_output_manifest"
+              ),
+              "file_count": len(manifest_files),
+              "files": manifest_files,
+              "manifest_scope": "all_candidate_files_except_this_manifest",
+              "ok": True,
+              "schema_version": (
+                  "pulsemech_compute_current_run_export_candidate_output_manifest_v0"
+              ),
+              "source_run_attempt": int(os.environ["SOURCE_RUN_ATTEMPT"], 10),
+              "source_run_id": int(os.environ["SOURCE_RUN_ID"], 10),
+              "subject_revision": os.environ["SUBJECT_REVISION"],
+          }
+          manifest_path = candidate_root / "candidate-output-manifest.json"
+          manifest_path.write_text(
+              json.dumps(
+                  manifest,
+                  indent=2,
+                  ensure_ascii=False,
+                  sort_keys=True,
+                  allow_nan=False,
+              )
+              + "\n",
+              encoding="utf-8",
+              newline="\n",
+          )
+          manifest_path.chmod(0o444)
+
+          with Path(os.environ["GITHUB_OUTPUT"]).open(
+              "a",
+              encoding="utf-8",
+              newline="\n",
+          ) as stream:
+              stream.write(f"candidate_root={candidate_root}\n")
+          PY
+
+      - name: Reverify source run, artifacts, checkouts, and candidate bytes
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CANDIDATE_ROOT: ${{ steps.verify.outputs.candidate_root }}
+          RESOLUTION_PATH: ${{ steps.source.outputs.resolution_path }}
+          SELECTION_PATH: ${{ steps.artifacts.outputs.selection_path }}
+          SOURCE_RUN_ID: ${{ steps.source.outputs.source_run_id }}
+          SUBJECT_REVISION: ${{ steps.source.outputs.subject_revision }}
+          CONTROL_REVISION: ${{ steps.source.outputs.control_plane_revision }}
+        run: |
+          set -euo pipefail
+
+          SUBJECT_ROOT="${GITHUB_WORKSPACE}/subject-checkout"
+          CONTROL_ROOT="${GITHUB_WORKSPACE}/control-plane-checkout"
+          test "$(git -C "${SUBJECT_ROOT}" rev-parse HEAD)" = "${SUBJECT_REVISION}"
+          test "$(git -C "${CONTROL_ROOT}" rev-parse HEAD)" = "${CONTROL_REVISION}"
+
+          gh api \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "/repos/${GITHUB_REPOSITORY}/actions/runs/${SOURCE_RUN_ID}" \
+            > "${RUNNER_TEMP}/pulsemech-source-run-recheck.json"
+          gh api \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "/repos/${GITHUB_REPOSITORY}/actions/runs/${SOURCE_RUN_ID}/artifacts?per_page=100" \
+            > "${RUNNER_TEMP}/pulsemech-source-artifacts-recheck.json"
+
+          python - <<'PY'
+          from __future__ import annotations
+
+          import hashlib
+          import json
+          import os
+          import stat
+          from pathlib import Path
+          from typing import Any
+
+
+          def fail(message: str) -> None:
+              raise SystemExit(f"candidate_final_reverification_failed: {message}")
+
+
+          def load_object(path: Path, *, label: str) -> dict[str, Any]:
+              try:
+                  value = json.loads(
+                      path.read_text(encoding="utf-8", errors="strict")
+                  )
+              except Exception as exc:
+                  fail(f"{label}_invalid_json: {exc}")
+              if not isinstance(value, dict):
+                  fail(f"{label}_not_object")
+              return value
+
+
+          resolution = load_object(
+              Path(os.environ["RESOLUTION_PATH"]),
+              label="source_resolution",
+          )
+          selection = load_object(
+              Path(os.environ["SELECTION_PATH"]),
+              label="artifact_selection",
+          )
+          run = load_object(
+              Path(os.environ["RUNNER_TEMP"])
+              / "pulsemech-source-run-recheck.json",
+              label="source_run_recheck",
+          )
+          listing = load_object(
+              Path(os.environ["RUNNER_TEMP"])
+              / "pulsemech-source-artifacts-recheck.json",
+              label="source_artifacts_recheck",
+          )
+          source = resolution.get("source_run")
+          if not isinstance(source, dict):
+              fail("source_resolution_subject_not_object")
+          expected_run = {
+              "conclusion": "success",
+              "event": source["event"],
+              "head_branch": source["head_branch"],
+              "head_sha": source["subject_revision"],
+              "id": source["run_id"],
+              "name": source["workflow_name"],
+              "path": source["workflow_path"],
+              "run_attempt": source["run_attempt"],
+              "run_number": source["run_number"],
+              "status": "completed",
+              "updated_at": source["updated_utc"],
+          }
+          for field, expected in expected_run.items():
+              if run.get(field) != expected:
+                  fail(
+                      f"source_run_{field}_changed: "
+                      f"expected={expected!r} actual={run.get(field)!r}"
+                  )
+          for label in ("repository", "head_repository"):
+              value = run.get(label)
+              if (
+                  not isinstance(value, dict)
+                  or value.get("full_name") != os.environ["GITHUB_REPOSITORY"]
+              ):
+                  fail(f"source_run_{label}_changed")
+
+          rows = listing.get("artifacts")
+          total_count = listing.get("total_count")
+          if not isinstance(rows, list) or total_count != len(rows):
+              fail("source_artifact_listing_pagination_or_shape_changed")
+          by_id = {
+              row.get("id"): row
+              for row in rows
+              if isinstance(row, dict) and isinstance(row.get("id"), int)
+          }
+          selected = selection.get("artifacts")
+          if not isinstance(selected, list) or len(selected) != 3:
+              fail("selected_artifact_count_changed")
+          for expected in selected:
+              if not isinstance(expected, dict):
+                  fail("selected_artifact_row_not_object")
+              observed = by_id.get(expected.get("artifact_id"))
+              if not isinstance(observed, dict):
+                  fail(
+                      f"selected_artifact_missing: {expected.get('artifact_id')!r}"
+                  )
+              equalities = {
+                  "name": expected["artifact_name"],
+                  "size_in_bytes": expected["expected_size_bytes"],
+                  "digest": "sha256:" + expected["expected_sha256"],
+                  "created_at": expected["created_at"],
+                  "expires_at": expected["expires_at"],
+                  "expired": False,
+              }
+              for field, value in equalities.items():
+                  if observed.get(field) != value:
+                      fail(
+                          f"selected_artifact_{field}_changed: "
+                          f"id={expected['artifact_id']} "
+                          f"expected={value!r} actual={observed.get(field)!r}"
+                      )
+
+          candidate_root = Path(os.environ["CANDIDATE_ROOT"])
+          manifest_path = candidate_root / "candidate-output-manifest.json"
+          manifest = load_object(manifest_path, label="candidate_output_manifest")
+          if manifest.get("manifest_scope") != (
+              "all_candidate_files_except_this_manifest"
+          ):
+              fail("candidate_manifest_scope_mismatch")
+          files = manifest.get("files")
+          if not isinstance(files, list) or manifest.get("file_count") != len(files):
+              fail("candidate_manifest_file_count_mismatch")
+          declared: set[str] = set()
+          for index, row in enumerate(files):
+              if not isinstance(row, dict):
+                  fail(f"candidate_manifest_row_not_object: {index}")
+              name = row.get("path")
+              if not isinstance(name, str) or not name or "/" in name or "\\" in name:
+                  fail(f"candidate_manifest_path_invalid: {name!r}")
+              if name in declared:
+                  fail(f"candidate_manifest_duplicate_path: {name}")
+              declared.add(name)
+              path = candidate_root / name
+              metadata = path.lstat()
+              if not stat.S_ISREG(metadata.st_mode) or stat.S_ISLNK(metadata.st_mode):
+                  fail(f"candidate_file_not_regular: {name}")
+              payload = path.read_bytes()
+              if hashlib.sha256(payload).hexdigest() != row.get("sha256"):
+                  fail(f"candidate_file_digest_changed: {name}")
+              if len(payload) != row.get("size_bytes"):
+                  fail(f"candidate_file_size_changed: {name}")
+          actual = {
+              path.name
+              for path in candidate_root.iterdir()
+              if path.name != manifest_path.name
+          }
+          if actual != declared:
+              fail(
+                  f"candidate_manifest_closure_failed: "
+                  f"expected={sorted(declared)!r} actual={sorted(actual)!r}"
+              )
+          PY
+
+      - name: Upload non-active current-run candidate
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: pulsemech-compute-current-run-export-candidate-${{ steps.source.outputs.source_run_id }}-${{ steps.source.outputs.source_run_attempt }}
+          path: ${{ steps.verify.outputs.candidate_root }}/
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
+          overwrite: false
+          include-hidden-files: false
+
+      - name: Record candidate-only result
+        shell: bash
+        env:
+          SOURCE_RUN_ID: ${{ steps.source.outputs.source_run_id }}
+          SOURCE_RUN_ATTEMPT: ${{ steps.source.outputs.source_run_attempt }}
+          SUBJECT_REVISION: ${{ steps.source.outputs.subject_revision }}
+          CONTROL_REVISION: ${{ steps.source.outputs.control_plane_revision }}
+        run: |
+          set -euo pipefail
+
+          {
+            echo "### PULSEmech current-run export candidate"
+            echo
+            echo "| Field | Value |"
+            echo "|---|---|"
+            echo "| Source run | \`${SOURCE_RUN_ID}\` attempt \`${SOURCE_RUN_ATTEMPT}\` |"
+            echo "| Subject revision | \`${SUBJECT_REVISION}\` |"
+            echo "| Protected control-plane revision | \`${CONTROL_REVISION}\` |"
+            echo "| Produced carrier | \`yes\` |"
+            echo "| Produced observed expectation | \`yes\` |"
+            echo "| Produced observed subject-input packet | \`yes\` |"
+            echo "| Candidate state | \`non-active\` |"
+            echo "| Authority effect | \`none\` |"
+            echo "| Compute gate activation | \`false\` |"
+            echo "| Compute budget creation | \`false\` |"
+            echo "| Release authority change | \`false\` |"
+          } >> "${GITHUB_STEP_SUMMARY}"

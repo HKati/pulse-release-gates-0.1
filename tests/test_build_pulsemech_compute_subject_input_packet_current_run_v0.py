@@ -1690,6 +1690,9 @@ def test_tools_tests_manifest_registers_current_run_wrapper_regression_exactly_o
         "tests/test_load_pulsemech_compute_current_run_export_carrier_v0.py"
     )
     assert entries[index + 1] == (
+        "tests/test_pulsemech_compute_current_run_export_candidate_workflow_v0.py"
+    )
+    assert entries[index + 2] == (
         "tests/test_pulsemech_compute_subject_input_packet_schema_v0.py"
     )
 

@@ -350,6 +350,9 @@ def test_tools_tests_manifest_registers_regression_exactly_once() -> None:
         "tests/test_build_pulsemech_compute_subject_input_packet_current_run_v0.py"
     )
     assert entries[index + 4] == (
+        "tests/test_pulsemech_compute_current_run_export_candidate_workflow_v0.py"
+    )
+    assert entries[index + 5] == (
         "tests/test_pulsemech_compute_subject_input_packet_schema_v0.py"
     )
 

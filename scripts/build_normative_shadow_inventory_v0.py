@@ -122,6 +122,53 @@ def classify_workflow(path: Path, *, repo_root: Path) -> dict[str, Any]:
             ),
         )
 
+    if rel == (
+        ".github/workflows/"
+        "pulsemech_compute_current_run_export_candidate.yml"
+    ):
+        return entry(
+            name=name,
+            path=rel,
+            surface_type="workflow",
+            primary_role="non-active current-run compute candidate workflow",
+            carrier_class="diagnostic_shadow",
+            authority_impacting="conditional",
+            authority_boundary=(
+                "Manual candidate-only, non-active, pre-authority workflow. "
+                "Its outputs can participate in release authority only after a "
+                "separate change explicitly admits them as recorded evidence and "
+                "enforces them through a separate declared required gate."
+            ),
+            reads_artifacts=[
+                "selected successful same-repository PULSE CI source run",
+                "complete release-grade reference package",
+                "structural package-completeness report",
+                "independent package-verification report",
+                "exact subject and protected control-plane components",
+                (
+                    "declared policy, gate registry, final status, release decision, "
+                    "schemas, and signer policies"
+                ),
+            ],
+            writes_artifacts=[
+                "deterministic finalized current-run carrier",
+                "observed current-run export expectation",
+                "observed current-run subject-input packet",
+                "candidate-output manifest and checksum-bound candidate directory",
+            ],
+            publishes_artifacts=[
+                "candidate-only GitHub Actions artifact bundle",
+            ],
+            required_gate_participation=False,
+            attestation_participation=False,
+            release_path_participation=False,
+            notes=(
+                "Step 3F current-run candidate carrier. Produces bounded observed "
+                "inputs for later compute work without activating a gate, budget, "
+                "runtime observation, release decision, or release authority."
+            ),
+        )
+
     if file_l in {
         "core_baseline_capture.yml",
         "core_baseline_check.yml",
@@ -153,10 +200,12 @@ def classify_workflow(path: Path, *, repo_root: Path) -> dict[str, Any]:
             notes="Core baseline verification carrier; not a second release path.",
         )
 
-    if file_l in {
-        "validate-status.yml",
-        "validate_status.yml",
-    } or "validate-status" in rel_l or "validate_status" in rel_l or "status validation" in name_l:
+    if (
+        file_l in {"validate-status.yml", "validate_status.yml"}
+        or "validate-status" in rel_l
+        or "validate_status" in rel_l
+        or "status validation" in name_l
+    ):
         return entry(
             name=name,
             path=rel,
@@ -169,13 +218,18 @@ def classify_workflow(path: Path, *, repo_root: Path) -> dict[str, Any]:
                 "explicit release-authority path wiring."
             ),
             reads_artifacts=["status.json", "schemas/status/*"],
-            notes="Status validation carrier; not an independent release decision engine.",
+            notes=(
+                "Status validation carrier; not an independent release decision "
+                "engine."
+            ),
         )
 
-    if file_l in {
-        "release_check.yml",
-        "release-check.yml",
-    } or "release_check" in rel_l or "release-check" in rel_l or "release check" in name_l:
+    if (
+        file_l in {"release_check.yml", "release-check.yml"}
+        or "release_check" in rel_l
+        or "release-check" in rel_l
+        or "release check" in name_l
+    ):
         return entry(
             name=name,
             path=rel,
@@ -190,10 +244,11 @@ def classify_workflow(path: Path, *, repo_root: Path) -> dict[str, Any]:
             notes="Release-check carrier; not a second release-decision engine.",
         )
 
-    if file_l in {
-        "public_surface_audit.yml",
-        "public-surface-audit.yml",
-    } or "public_surface_audit" in rel_l or "public surface audit" in name_l:
+    if (
+        file_l in {"public_surface_audit.yml", "public-surface-audit.yml"}
+        or "public_surface_audit" in rel_l
+        or "public surface audit" in name_l
+    ):
         return entry(
             name=name,
             path=rel,
@@ -267,13 +322,7 @@ def classify_workflow(path: Path, *, repo_root: Path) -> dict[str, Any]:
 
     if any(
         token in identity_l
-        for token in (
-            "secret",
-            "gitleaks",
-            "sarif",
-            "security",
-            "scan",
-        )
+        for token in ("secret", "gitleaks", "sarif", "security", "scan")
     ):
         return entry(
             name=name,
@@ -282,7 +331,9 @@ def classify_workflow(path: Path, *, repo_root: Path) -> dict[str, Any]:
             primary_role="security / code scanning workflow",
             carrier_class="advisory",
             authority_impacting="no",
-            authority_boundary="Non-authorizing security / repository hygiene carrier",
+            authority_boundary=(
+                "Non-authorizing security / repository hygiene carrier"
+            ),
             publishes_artifacts=["security signals", "SARIF"],
             notes="Security / code scanning carrier.",
         )
@@ -314,13 +365,7 @@ def classify_workflow(path: Path, *, repo_root: Path) -> dict[str, Any]:
             notes="Repository hygiene / review signal carrier.",
         )
 
-    if any(
-        token in identity_l
-        for token in (
-            "reproduce",
-            "reproduction",
-        )
-    ):
+    if any(token in identity_l for token in ("reproduce", "reproduction")):
         return entry(
             name=name,
             path=rel,
@@ -504,7 +549,9 @@ def static_authority_entries(repo_root: Path) -> list[dict[str, Any]]:
             primary_role="reader carrier renderer",
             carrier_class="reader",
             authority_impacting="conditional",
-            authority_boundary="Non-authorizing carrier; must preserve public reader boundary",
+            authority_boundary=(
+                "Non-authorizing carrier; must preserve public reader boundary"
+            ),
         ),
         entry(
             name="Release authority cryptographic binding boundary",
@@ -574,19 +621,24 @@ def drift_findings(entries: list[dict[str, Any]]) -> list[dict[str, str]]:
                 {
                     "severity": "warning",
                     "path": item["path"],
-                    "finding": "workflow requires explicit carrier-role classification",
+                    "finding": (
+                        "workflow requires explicit carrier-role classification"
+                    ),
                 }
             )
 
         if (
-            item["carrier_class"] in {"publication", "reader", "diagnostic_shadow"}
+            item["carrier_class"]
+            in {"publication", "reader", "diagnostic_shadow"}
             and item["authority_impacting"] == "yes"
         ):
             findings.append(
                 {
                     "severity": "error",
                     "path": item["path"],
-                    "finding": "non-authorizing carrier classified as authority-impacting",
+                    "finding": (
+                        "non-authorizing carrier classified as authority-impacting"
+                    ),
                 }
             )
 
@@ -595,7 +647,9 @@ def drift_findings(entries: list[dict[str, Any]]) -> list[dict[str, str]]:
 
 def build_inventory(repo_root: Path) -> dict[str, Any]:
     repo_root = repo_root.resolve()
-    entries = collect_workflow_entries(repo_root) + static_authority_entries(repo_root)
+    entries = collect_workflow_entries(repo_root) + static_authority_entries(
+        repo_root
+    )
 
     return {
         "schema_id": SCHEMA_ID,
@@ -628,7 +682,10 @@ def markdown_table(inventory: dict[str, Any]) -> str:
         "",
         "## Inventory",
         "",
-        "| Surface / workflow | Path | Carrier class | Authority-impacting | Boundary |",
+        (
+            "| Surface / workflow | Path | Carrier class | Authority-impacting | "
+            "Boundary |"
+        ),
         "|---|---|---|---|---|",
     ]
 
