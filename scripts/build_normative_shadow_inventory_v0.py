@@ -169,6 +169,59 @@ def classify_workflow(path: Path, *, repo_root: Path) -> dict[str, Any]:
             ),
         )
 
+    if rel == (
+        ".github/workflows/"
+        "pulsemech_compute_current_run_artifact_observed_candidate.yml"
+    ):
+        return entry(
+            name=name,
+            path=rel,
+            surface_type="workflow",
+            primary_role="current-run artifact-observed compute proof workflow",
+            carrier_class="diagnostic_shadow",
+            authority_impacting="conditional",
+            authority_boundary=(
+                "Manual candidate-only, non-active, artifact-observed, "
+                "pre-authority workflow. Its outputs can participate in release "
+                "authority only after a separate change explicitly admits the "
+                "generated proof as recorded evidence and enforces it through a "
+                "separate declared required gate."
+            ),
+            reads_artifacts=[
+                "selected successful same-repository Step 3F provider workflow run",
+                "exact Step 3F current-run export candidate artifact",
+                "verified current-run candidate-bundle intake",
+                "exact current-run subject and protected control-plane components",
+                (
+                    "finalized carrier, observed expectation, observed subject-input "
+                    "packet, policy, gate registry, schemas, and verifier inputs"
+                ),
+            ],
+            writes_artifacts=[
+                "artifact-observed compute-binding report",
+                "deterministic current-run integration plan",
+                "planned-observed relation",
+                "candidate materializer report",
+                "separate folded candidate status",
+                (
+                    "artifact-observed proof manifest and checksum-bound proof "
+                    "directory"
+                ),
+            ],
+            publishes_artifacts=[
+                "candidate-only artifact-observed GitHub Actions proof bundle",
+            ],
+            required_gate_participation=False,
+            attestation_participation=False,
+            release_path_participation=False,
+            notes=(
+                "Step 3G current-run artifact-observed proof carrier. Preserves "
+                "false, missing, partial, and unresolved states without activating "
+                "a gate, compute budget, runtime observation, release decision, "
+                "or release authority."
+            ),
+        )
+
     if file_l in {
         "core_baseline_capture.yml",
         "core_baseline_check.yml",
