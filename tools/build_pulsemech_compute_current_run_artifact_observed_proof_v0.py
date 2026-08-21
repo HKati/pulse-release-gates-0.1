@@ -1975,7 +1975,9 @@ def _validate_materialization(
         report.get("candidate_gates"),
         label="candidate_materializer_gates",
     )
-    if tuple(gates) != CANDIDATE_GATES or any(type(value) is not bool for value in gates.values()):
+    if set(gates) != set(CANDIDATE_GATES) or any(
+        type(value) is not bool for value in gates.values()
+    ):
         raise ProofError("candidate_materializer_gate_map_invalid")
     if report.get("candidate_all_true") is not all(gates.values()):
         raise ProofError("candidate_materializer_all_true_mismatch")
