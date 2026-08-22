@@ -310,7 +310,7 @@ def test_workflow_artifact_identity_matches_reviewed_fix() -> None:
 
 def test_tools_tests_manifest_registers_workflow_regression_exactly_once() -> None:
     entries = manifest_entries()
-    assert len(entries) == 143
+    assert len(entries) == 146
     assert len(entries) == len(set(entries))
     assert entries.count(TEST_RELATIVE_PATH) == 1
     index = entries.index(TEST_RELATIVE_PATH)
@@ -318,7 +318,7 @@ def test_tools_tests_manifest_registers_workflow_regression_exactly_once() -> No
         "tests/test_build_pulsemech_compute_subject_input_packet_current_run_v0.py"
     )
     assert entries[index + 1] == (
-        "tests/test_pulsemech_compute_subject_input_packet_schema_v0.py"
+        "tests/test_load_pulsemech_compute_current_run_export_candidate_bundle_v0.py"
     )
     expected_block = [
         "tests/test_check_pulsemech_compute_current_run_export_expectation_v0.py",
@@ -326,6 +326,9 @@ def test_tools_tests_manifest_registers_workflow_regression_exactly_once() -> No
         "tests/test_load_pulsemech_compute_current_run_export_carrier_v0.py",
         "tests/test_build_pulsemech_compute_subject_input_packet_current_run_v0.py",
         TEST_RELATIVE_PATH,
+        "tests/test_load_pulsemech_compute_current_run_export_candidate_bundle_v0.py",
+        "tests/test_build_pulsemech_compute_current_run_artifact_observed_proof_v0.py",
+        "tests/test_pulsemech_compute_current_run_artifact_observed_candidate_workflow_v0.py",
         "tests/test_pulsemech_compute_subject_input_packet_schema_v0.py",
     ]
     start = entries.index(expected_block[0])
