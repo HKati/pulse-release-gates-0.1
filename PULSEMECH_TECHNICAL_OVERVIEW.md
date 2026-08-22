@@ -1862,6 +1862,14 @@ PULSEmech Transition Meter
 PR #2794:
 README transition-measurement positioning
 b324e733296c200c7d9b799463414c82e533a921
+
+PR #2816:
+Transition-bounded computation architecture
+3bb6a8cce2c88ae1495639d9e85c95a07b295f1e
+
+PR #2817:
+Reviewed transition-bounded computation architecture
+fbfa9b0c03003eef93b23489ab7cb6cc72a9edeb
 ```
 
 The Transition Meter preserves separate status axes for:
@@ -1909,16 +1917,22 @@ merged_repository_state_basis:
 9bf7fab95dbcc3532238723d0cf76500263106f5
 
 executable_compute_state_recorded_through:
-PR #2788
+PR #2826
 
 executable_compute_state_basis:
-031e0f2b009993e549b7831baf37cf3a990baf39
+9bf7fab95dbcc3532238723d0cf76500263106f5
 
 foundational_architecture_state_recorded_through:
-PR #2794
+PR #2817
+
+foundational_architecture_state_basis:
+fbfa9b0c03003eef93b23489ab7cb6cc72a9edeb
 
 relational_release_authority_interpretation_recorded_through:
 PR #2820
+
+relational_release_authority_interpretation_state_basis:
+934109c89bb5787832f8e2952c2919fc06ee854e
 
 current_run_compute_automation_plan:
 completed through Step 3G
@@ -1929,8 +1943,9 @@ PR #2826
 current_run_compute_automation_terminal_basis:
 9bf7fab95dbcc3532238723d0cf76500263106f5
 
-step3g_post_merge_audit:
-no actionable P0-P3 findings; correction PR not required
+step3g_post_merge_implementation_audit:
+no actionable P0-P3 implementation or regression findings; no Step 3G
+implementation correction PR was required
 
 release_authority_core:
 implemented, exercised and terminal
@@ -2148,12 +2163,15 @@ https://raw.githubusercontent.com/HKati/pulse-release-gates-0.1/main/PULSEMECH_T
 - [PR #2823 — add the current-run subject-input wrapper](https://github.com/HKati/pulse-release-gates-0.1/pull/2823)
 - [PR #2825 — add the non-active current-run export candidate workflow](https://github.com/HKati/pulse-release-gates-0.1/pull/2825)
 - [PR #2826 — complete the current-run artifact-observed proof chain](https://github.com/HKati/pulse-release-gates-0.1/pull/2826)
+
 ### Latest foundational architecture sequence
 
 - [PR #2790 — add the PULSEmech Transition Meter](https://github.com/HKati/pulse-release-gates-0.1/pull/2790)
 - [PR #2794 — position PULSEmech as a transition-measurement architecture](https://github.com/HKati/pulse-release-gates-0.1/pull/2794)
+- [PR #2816 — define the transition-bounded computation architecture](https://github.com/HKati/pulse-release-gates-0.1/pull/2816)
+- [PR #2817 — integrate and close the reviewed transition-bounded computation architecture](https://github.com/HKati/pulse-release-gates-0.1/pull/2817)
 
-### Current open compute workstream
+### Latest relational release-authority interpretation
 
 - [PR #2820 — add the relational release-authority interpretation](https://github.com/HKati/pulse-release-gates-0.1/pull/2820)
 
@@ -2205,8 +2223,12 @@ strict current-run expectation contract
 → deterministic current-run integration plan
 → planned-observed relation
 → separate non-active candidate materialization
-→ checksum-closed artifact-observed proof bundle
+→ artifact-observed proof-bundle builder with a checksum-closed output contract
 ```
+
+This sequence records merged construction capability and permanent regression
+coverage. It does not claim that a manually dispatched Step 3G run or a
+run-bound proof-bundle instance has been produced.
 
 The arrows above describe the implemented dependency and reconstruction order.
 
@@ -2214,7 +2236,8 @@ They do not replace the primary PULSEmech relational object with a generic
 pipeline ontology.
 
 
-The Step 3G proof preserves the actual relation state:
+The Step 3G proof-construction implementation preserves the actual relation
+state:
 
 ```text
 false
@@ -2514,7 +2537,7 @@ carrier, or use an open PR to overwrite merged implementation state.
 - [Strict current-run expectation validator](tools/check_pulsemech_compute_current_run_export_expectation_v0.py)
 - [Current-run expectation validator regression](tests/test_check_pulsemech_compute_current_run_export_expectation_v0.py)
 - [Current-run expectation builder](tools/build_pulsemech_compute_current_run_export_expectation_v0.py)
-- [Current-run expectation builder regression](tests/test_build_pulsemech_compute_current_run_export_expectation_v0.py) 
+- [Current-run expectation builder regression](tests/test_build_pulsemech_compute_current_run_export_expectation_v0.py)
 
 #### Finalized carrier and current-run subject input
 
@@ -2545,7 +2568,12 @@ They do not activate compute gates or create release authority.
 ### Foundational transition measurement
 
 - [PULSEmech Transition Meter](PULSEMECH_TRANSITION_METER.md)
+- [Transition-bounded computation architecture](docs/PULSEMECH_TRANSITION_BOUNDED_COMPUTATION_ARCHITECTURE_v0.md)
 - [README transition-measurement positioning](README.md#pulsemech-transition-meter--the-missing-instrument-between-measured-states)
+
+### Relational release-authority interpretation
+
+- [Canonical relational release-authority interpretation](docs/PULSEMECH_RELATIONAL_RELEASE_AUTHORITY_INTERPRETATION_v0.md)
 
 ### Registered machine-test surface
 
@@ -2689,7 +2717,7 @@ manual non-active Step 3F export candidate workflow
 verified current-run candidate-bundle intake
 current-run artifact-observed proof builder
 manual non-active Step 3G artifact-observed candidate workflow
-checksum-closed artifact-observed proof bundle
+artifact-observed proof-bundle builder with a checksum-closed output contract
 ```
 
 The broader Transition Meter is recorded as foundational architecture.
