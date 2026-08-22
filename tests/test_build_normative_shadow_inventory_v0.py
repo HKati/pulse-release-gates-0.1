@@ -95,6 +95,74 @@ def test_inventory_classifies_current_run_export_candidate_as_non_active_shadow(
     ]
 
 
+def test_inventory_classifies_current_run_artifact_observed_candidate_as_non_active_shadow(
+    tmp_path: Path,
+) -> None:
+    inventory, _markdown = run_builder(tmp_path)
+    workflow_path = (
+        ".github/workflows/"
+        "pulsemech_compute_current_run_artifact_observed_candidate.yml"
+    )
+    candidate = entry_by_path(inventory, workflow_path)
+
+    assert candidate["primary_role"] == (
+        "current-run artifact-observed compute proof workflow"
+    )
+    assert candidate["carrier_class"] == "diagnostic_shadow"
+    assert candidate["authority_impacting"] == "conditional"
+    assert candidate["required_gate_participation"] is False
+    assert candidate["attestation_participation"] is False
+    assert candidate["release_path_participation"] is False
+
+    authority_boundary = candidate["authority_boundary"]
+    assert "Manual candidate-only" in authority_boundary
+    assert "non-active" in authority_boundary
+    assert "artifact-observed" in authority_boundary
+    assert "pre-authority" in authority_boundary
+    assert "recorded evidence" in authority_boundary
+    assert "separate declared required gate" in authority_boundary
+
+    assert candidate["reads_artifacts"] == [
+        "selected successful same-repository Step 3F provider workflow run",
+        "exact Step 3F current-run export candidate artifact",
+        "verified current-run candidate-bundle intake",
+        "exact current-run subject and protected control-plane components",
+        (
+            "finalized carrier, observed expectation, observed subject-input "
+            "packet, policy, gate registry, schemas, and verifier inputs"
+        ),
+    ]
+    assert candidate["writes_artifacts"] == [
+        "artifact-observed compute-binding report",
+        "deterministic current-run integration plan",
+        "planned-observed relation",
+        "candidate materializer report",
+        "separate folded candidate status",
+        "artifact-observed proof manifest and checksum-bound proof directory",
+    ]
+    assert candidate["publishes_artifacts"] == [
+        "candidate-only artifact-observed GitHub Actions proof bundle"
+    ]
+
+    notes = candidate["notes"]
+    for state in ("false", "missing", "partial", "unresolved"):
+        assert state in notes
+    for prohibited_effect in (
+        "activating a gate",
+        "compute budget",
+        "runtime observation",
+        "release decision",
+        "release authority",
+    ):
+        assert prohibited_effect in notes
+
+    assert not [
+        finding
+        for finding in inventory["drift_findings"]
+        if finding["path"] == workflow_path
+    ]
+
+
 def test_inventory_classifies_check_gates_as_enforcement_carrier(tmp_path: Path) -> None:
     inventory, _markdown = run_builder(tmp_path)
 
