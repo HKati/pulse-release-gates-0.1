@@ -2138,42 +2138,97 @@ def _remove_directory_by_fd(
         metadata = os.stat(name, dir_fd=parent_fd, follow_symlinks=False)
     except FileNotFoundError:
         return
-    if expected_identity is not None and _inode_identity(metadata) != expected_identity:
+    observed_identity = _inode_identity(metadata)
+    if expected_identity is not None and observed_identity != expected_identity:
         return
     if not stat.S_ISDIR(metadata.st_mode):
         return
     fd = os.open(name, flags, dir_fd=parent_fd)
     try:
-        for child in os.listdir(fd):
-            child_metadata = os.stat(child, dir_fd=fd, follow_symlinks=False)
+        opened = os.fstat(fd)
+        opened_identity = _inode_identity(opened)
+        if (
+            not stat.S_ISDIR(opened.st_mode)
+            or opened_identity != observed_identity
+            or (
+                expected_identity is not None
+                and opened_identity != expected_identity
+            )
+        ):
+            return
+
+        # Unlink permission belongs to the containing directory, not to each
+        # child file. Reopen the exact owned directory for cleanup before any
+        # descriptor-relative child removal. This also permits cleanup of a
+        # finalized 0555 proof directory after a post-publication failure.
+        os.fchmod(fd, 0o700)
+
+        for child in sorted(os.listdir(fd)):
+            try:
+                child_metadata = os.stat(
+                    child,
+                    dir_fd=fd,
+                    follow_symlinks=False,
+                )
+            except FileNotFoundError:
+                continue
+            child_identity = _inode_identity(child_metadata)
             if stat.S_ISDIR(child_metadata.st_mode):
                 _remove_directory_by_fd(
                     fd,
                     child,
-                    expected_identity=_inode_identity(child_metadata),
+                    expected_identity=child_identity,
                 )
             elif stat.S_ISREG(child_metadata.st_mode):
+                child_fd = os.open(
+                    child,
+                    os.O_RDONLY | os.O_NOFOLLOW,
+                    dir_fd=fd,
+                )
                 try:
-                    child_fd = os.open(
+                    opened_child = os.fstat(child_fd)
+                    if (
+                        not stat.S_ISREG(opened_child.st_mode)
+                        or _inode_identity(opened_child) != child_identity
+                    ):
+                        continue
+                    os.fchmod(child_fd, 0o600)
+                finally:
+                    os.close(child_fd)
+                try:
+                    rebound_child = os.stat(
                         child,
-                        os.O_RDONLY | os.O_NOFOLLOW,
                         dir_fd=fd,
+                        follow_symlinks=False,
                     )
-                    try:
-                        os.fchmod(child_fd, 0o600)
-                    finally:
-                        os.close(child_fd)
-                except OSError:
-                    pass
+                except FileNotFoundError:
+                    continue
+                if (
+                    not stat.S_ISREG(rebound_child.st_mode)
+                    or _inode_identity(rebound_child) != child_identity
+                ):
+                    continue
                 os.unlink(child, dir_fd=fd)
-        try:
-            os.fchmod(fd, 0o700)
-        except OSError:
-            pass
+        os.fsync(fd)
     finally:
         os.close(fd)
+
+    try:
+        rebound = os.stat(name, dir_fd=parent_fd, follow_symlinks=False)
+    except FileNotFoundError:
+        return
+    if (
+        not stat.S_ISDIR(rebound.st_mode)
+        or _inode_identity(rebound) != observed_identity
+        or (
+            expected_identity is not None
+            and _inode_identity(rebound) != expected_identity
+        )
+    ):
+        return
     try:
         os.rmdir(name, dir_fd=parent_fd)
+        os.fsync(parent_fd)
     except OSError:
         pass
 
@@ -2601,7 +2656,6 @@ def _build(args: argparse.Namespace) -> bytes:
         for name in expected_proof_names:
             _chmod_file_at(proof_fd, name, 0o444)
         os.fsync(proof_fd)
-        os.fchmod(proof_fd, 0o555)
 
         _reverify_component_set(
             git=trusted_git,
@@ -2661,6 +2715,28 @@ def _build(args: argparse.Namespace) -> bytes:
         try:
             if _inode_identity(os.fstat(published_fd)) != published_identity:
                 raise ProofError("published_proof_directory_reopen_mismatch")
+            # Moving a directory across parents updates its `..` entry and
+            # requires owner-write permission on the directory being moved.
+            # Finalize the directory only after the descriptor-bound rename,
+            # then verify the finalized mode before accepting its contents.
+            os.fchmod(published_fd, 0o555)
+            os.fsync(published_fd)
+            finalized = os.fstat(published_fd)
+            if (
+                _inode_identity(finalized) != published_identity
+                or stat.S_IMODE(finalized.st_mode) != 0o555
+            ):
+                raise ProofError("published_proof_directory_finalization_failed")
+            finalized_path = os.stat(
+                output_directory.name,
+                dir_fd=parent_fd,
+                follow_symlinks=False,
+            )
+            if (
+                _inode_identity(finalized_path) != published_identity
+                or stat.S_IMODE(finalized_path.st_mode) != 0o555
+            ):
+                raise ProofError("published_proof_directory_path_finalization_mismatch")
             if set(os.listdir(published_fd)) != expected_proof_names:
                 raise ProofError("published_proof_directory_closure_failed")
             for item in captures:
