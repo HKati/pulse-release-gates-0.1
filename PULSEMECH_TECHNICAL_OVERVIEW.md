@@ -1862,6 +1862,14 @@ PULSEmech Transition Meter
 PR #2794:
 README transition-measurement positioning
 b324e733296c200c7d9b799463414c82e533a921
+
+PR #2816:
+Transition-bounded computation architecture
+3bb6a8cce2c88ae1495639d9e85c95a07b295f1e
+
+PR #2817:
+Reviewed transition-bounded computation architecture
+fbfa9b0c03003eef93b23489ab7cb6cc72a9edeb
 ```
 
 The Transition Meter preserves separate status axes for:
@@ -1900,31 +1908,44 @@ It does not independently create release authority.
 
 ```text
 state_date:
-2026-08-05
+2026-08-22
 
 merged_repository_state_recorded_through:
-PR #2794
+PR #2826
 
 merged_repository_state_basis:
-b324e733296c200c7d9b799463414c82e533a921
+9bf7fab95dbcc3532238723d0cf76500263106f5
 
 executable_compute_state_recorded_through:
-PR #2788
+PR #2826
 
 executable_compute_state_basis:
-031e0f2b009993e549b7831baf37cf3a990baf39
+9bf7fab95dbcc3532238723d0cf76500263106f5
 
 foundational_architecture_state_recorded_through:
-PR #2794
+PR #2817
 
-open_compute_workstream:
-PR #2789
+foundational_architecture_state_basis:
+fbfa9b0c03003eef93b23489ab7cb6cc72a9edeb
 
-open_compute_workstream_head_observed:
-22a455e70af19a1cce581fdb7d5a485816691aaa
+relational_release_authority_interpretation_recorded_through:
+PR #2820
 
-open_compute_workstream_status:
-under review, not merged, not regression-proven
+relational_release_authority_interpretation_state_basis:
+934109c89bb5787832f8e2952c2919fc06ee854e
+
+current_run_compute_automation_plan:
+completed through Step 3G
+
+current_run_compute_automation_terminal_merge:
+PR #2826
+
+current_run_compute_automation_terminal_basis:
+9bf7fab95dbcc3532238723d0cf76500263106f5
+
+step3g_post_merge_implementation_audit:
+no actionable P0-P3 implementation or regression findings; no Step 3G
+implementation correction PR was required
 
 release_authority_core:
 implemented, exercised and terminal
@@ -2029,23 +2050,60 @@ current_run_export_expectation_validator_regression:
 implemented, registered and proven
 
 current_run_export_expectation_builder:
-open PR #2789, not merged
+implemented, hardened and regression-proven
 
 current_run_export_expectation_builder_regression:
-not implemented
+implemented, registered and execution-contract proven
 
 current_run_export_carrier_component:
-not implemented
+implemented and regression-proven
 
 current_run_subject_input_wrapper:
-not implemented
+implemented and regression-proven
 
-current_run_candidate_workflow:
-not implemented
+current_run_export_candidate_workflow:
+implemented and regression-proven; manual, non-active and candidate-only
+
+current_run_export_candidate_workflow_authority_effect:
+none
+
+current_run_export_candidate_workflow_execution_record:
+no manually dispatched public execution record is claimed by this state
+
+current_run_candidate_bundle_intake:
+implemented and regression-proven
+
+current_run_artifact_observed_proof_builder:
+implemented and regression-proven
+
+current_run_artifact_observed_candidate_workflow:
+implemented and regression-proven; manual, diagnostic_shadow, non-active and
+candidate-only
+
+current_run_artifact_observed_candidate_workflow_authority_effect:
+none
+
+current_run_artifact_observed_workflow_execution_record:
+no manually dispatched public execution record is claimed by this state
 
 current_run_artifact_observed_reference_lane:
-partially implemented through contract, example, validator and validator
-regression; producer and activation components remain incomplete
+implementation and permanent regression surface completed through Step 3G;
+runtime-observed and authority claims remain absent
+
+step3g_candidate_bundle_loader_regression:
+30 passed, 0 skipped
+
+step3g_artifact_observed_proof_builder_regression:
+32 passed, 0 skipped
+
+step3g_artifact_observed_workflow_regression:
+28 passed, 0 skipped
+
+step3g_authoritative_regression_total:
+90 passed, 0 skipped
+
+tools_test_manifest:
+146 active entries / 146 unique active entries
 
 compute_resource_measurement:
 not implemented
@@ -2066,8 +2124,9 @@ transition_meter_general_domain_extension:
 foundational architecture
 
 current_development_boundary:
-close and prove the current-run expectation builder before carrier, wrapper and
-candidate-workflow implementation
+Step 4 runtime-observation producer; runtime-observed connected proof,
+per-axis resource measurement and any compute-gate promotion remain separate
+later boundaries
 ```
 
 The stable URL for this state section is:
@@ -2096,17 +2155,25 @@ https://raw.githubusercontent.com/HKati/pulse-release-gates-0.1/main/PULSEMECH_T
 - [PR #2786 — add current-run export expectation validator](https://github.com/HKati/pulse-release-gates-0.1/pull/2786)
 - [PR #2787 — close expectation-validator trust boundaries](https://github.com/HKati/pulse-release-gates-0.1/pull/2787)
 - [PR #2788 — add current-run expectation-validator regression](https://github.com/HKati/pulse-release-gates-0.1/pull/2788)
+- [PR #2789 — add current-run export expectation builder](https://github.com/HKati/pulse-release-gates-0.1/pull/2789)
+- [PR #2814 — add current-run expectation-builder regression](https://github.com/HKati/pulse-release-gates-0.1/pull/2814)
+- [PR #2818 — enforce the builder-regression execution contract](https://github.com/HKati/pulse-release-gates-0.1/pull/2818)
+- [PR #2819 — close the pytest terminal early-exit boundary](https://github.com/HKati/pulse-release-gates-0.1/pull/2819)
+- [PR #2822 — add the current-run export carrier loader](https://github.com/HKati/pulse-release-gates-0.1/pull/2822)
+- [PR #2823 — add the current-run subject-input wrapper](https://github.com/HKati/pulse-release-gates-0.1/pull/2823)
+- [PR #2825 — add the non-active current-run export candidate workflow](https://github.com/HKati/pulse-release-gates-0.1/pull/2825)
+- [PR #2826 — complete the current-run artifact-observed proof chain](https://github.com/HKati/pulse-release-gates-0.1/pull/2826)
 
 ### Latest foundational architecture sequence
 
 - [PR #2790 — add the PULSEmech Transition Meter](https://github.com/HKati/pulse-release-gates-0.1/pull/2790)
 - [PR #2794 — position PULSEmech as a transition-measurement architecture](https://github.com/HKati/pulse-release-gates-0.1/pull/2794)
+- [PR #2816 — define the transition-bounded computation architecture](https://github.com/HKati/pulse-release-gates-0.1/pull/2816)
+- [PR #2817 — integrate and close the reviewed transition-bounded computation architecture](https://github.com/HKati/pulse-release-gates-0.1/pull/2817)
 
-### Current open compute workstream
+### Latest relational release-authority interpretation
 
-- [PR #2789 — add current-run export expectation builder](https://github.com/HKati/pulse-release-gates-0.1/pull/2789)
-
-The open PR is not part of the merged verified implementation state.
+- [PR #2820 — add the relational release-authority interpretation](https://github.com/HKati/pulse-release-gates-0.1/pull/2820)
 
 ---
 
@@ -2138,124 +2205,138 @@ direct reusable producer core
 → byte-identical observed fixed-source packet
 ```
 
-The merged current-run expectation boundary is:
+The completed current-run compute automation relation is:
 
 ```text
-strict current-run expectation schema
-+
-canonical checked-in example
-+
-strict semantic validator
-+
-closed schema-resolution boundary
-+
-reviewed schema-byte binding
-+
-permanent registered validator regression
+strict current-run expectation contract
+→ machine-produced observed expectation
+→ finalized current-run export carrier
+→ observed current-run subject-input packet
+→ checksum-closed non-active Step 3F candidate artifact
+→ independently verified Step 3G candidate-bundle intake
+→ exact current-run subject
++ independently selected protected control plane
+→ immutable carrier and packet reconstruction
+→ existing subject-input analyzer bridge
+→ single reusable analyzer core
+→ artifact-observed compute-binding report
+→ deterministic current-run integration plan
+→ planned-observed relation
+→ separate non-active candidate materialization
+→ artifact-observed proof-bundle builder with a checksum-closed output contract
 ```
 
-The current open implementation transition is:
+This sequence records merged construction capability and permanent regression
+coverage. It does not claim that a manually dispatched Step 3G run or a
+run-bound proof-bundle instance has been produced.
+
+The arrows above describe the implemented dependency and reconstruction order.
+
+They do not replace the primary PULSEmech relational object with a generic
+pipeline ontology.
+
+
+The Step 3G proof-construction implementation preserves the actual relation
+state:
 
 ```text
-merged current-run expectation contract
-→ open machine expectation builder PR #2789
-→ builder trust-boundary closure
-→ builder merge
-→ permanent builder regression
+false
+missing
+partial
+ambiguous
+unresolved
 ```
 
-PR #2789 remains:
+It does not convert absent or incomplete evidence into a successful complete
+transition.
+
+It does not force every candidate gate to `true`.
+
+Exactly three non-active candidate identities are derived:
 
 ```text
-open
-not merged
+compute_transition_path_complete
+
+compute_transition_authority_binding_ok
+
+compute_transition_unbound_mutation_absent
+```
+
+Their literal Boolean values are written only to a separate folded candidate
+status.
+
+The source subject `status.json` remains unchanged.
+
+The completed Step 3G authority boundary is:
+
+```text
+manual
+candidate-only
 non-active
-not registered in the tools-test manifest
-not release authority
+artifact-observed
+pre-authority
+authority_effect = none
 ```
 
-The current review boundary requires closure of:
+The merged implementation and permanent regression surface are complete through
+Step 3G.
+
+A manually dispatched Step 3F or Step 3G candidate artifact is a separate
+run-bound execution record. This document does not claim that such a public
+execution record has already been produced.
+
+The next implementation boundary is Step 4:
 
 ```text
-trusted release-target binding
-release-decision schema validation
-gate-registry content identity binding
-Windows trusted-Git platform boundary
+runtime-observation producer
+
+→ job and step identity
+→ exact source identity
+→ timing
+→ runtime inputs
+→ runtime outputs
+→ downstream consumers
+→ external-service calls
+→ model inferences
+→ resource axes
 ```
 
-The builder must remain non-active until the complete protected control-plane
-component set exists at one exact reviewed revision.
-
-After the builder and its permanent regression are completed, the sequence is:
+The later sequence remains:
 
 ```text
-current-run export carrier component
-→ current-run subject-input wrapper
-→ non-active candidate workflow
-→ first machine-produced current-run expectation
-→ first machine-produced current-run subject-input packet
-→ immutable current-run carrier verification
-→ reusable analyzer core
-→ generated artifact-observed compute-binding report
-→ generated planned-observed relation
-→ non-active candidate materialization
+Step 4 runtime-observation producer
+→ Step 5 runtime-observed connected proof
+→ Step 6 per-axis resource measurement
+→ Step 7 separate policy promotion decision
 ```
 
-The current-run lane must reuse:
+Any movement from candidate to advisory, required or release-required remains a
+separate policy decision.
+
+Promotion requires:
 
 ```text
-the existing subject-input packet contract
-the existing reusable subject-input producer core
-the existing immutable capture boundary
-the existing subject-input validator
-the existing reusable analyzer core
-the existing compute-binding report validator
-the existing planned-observed relation builder
-the existing non-active candidate boundary
+explicit evidence
+policy review
+negative-path coverage
+stable measurement semantics
+separate PR
 ```
 
-It must not introduce:
+Therefore:
 
 ```text
-a second packet producer implementation
-a second analyzer
-a manually curated observed packet
-a second graph implementation
-a new release-authority path
-automatic candidate promotion
-runtime-observed claims without runtime evidence
-resource claims without resource measurements
-```
-
-The development sequence then continues through:
-
-```text
-current-run artifact-observed reference proof
-→ runtime-observation producer
-→ runtime-observed connected proof
-→ per-axis resource measurement
-→ stable measurement coverage
-→ separate policy promotion decision
-```
-
-This preserves one analysis mechanism across:
-
-```text
-historical fixed-source subjects
-portable observed subject packets
-current-run subjects
-future runtime-observed subjects
-```
-
-The current-run lane remains non-active and has no release-authority effect.
-
-A successful current-run proof does not automatically promote a compute gate.
-
-```text
-successful proof
+successful artifact-observed proof
 ≠
-promotion
+runtime-observed proof
+
+successful runtime-observed proof
+≠
+automatic promotion
 ```
+
+The current-run compute lane remains non-active and has no release-authority
+effect.
 
 ---
 
@@ -2447,30 +2528,52 @@ carrier, or use an open PR to overwrite merged implementation state.
 - [Observed packet replay proof](tests/test_pulsemech_compute_subject_input_packet_6066_observed_v0.py)
 - [Packet-to-analyzer equivalence proof](tests/test_build_pulsemech_compute_binding_report_from_subject_input_v0.py)
 
-### Current-run export expectation
+### Current-run compute automation
+
+#### Expectation contract and producer
 
 - [Current-run export expectation schema](schemas/pulsemech_compute_current_run_export_expectation_v0.schema.json)
 - [Current-run export expectation example](examples/compute/pulsemech_compute_current_run_export_expectation_example_v0.json)
 - [Strict current-run expectation validator](tools/check_pulsemech_compute_current_run_export_expectation_v0.py)
-- [Current-run expectation-validator regression](tests/test_check_pulsemech_compute_current_run_export_expectation_v0.py)
+- [Current-run expectation validator regression](tests/test_check_pulsemech_compute_current_run_export_expectation_v0.py)
+- [Current-run expectation builder](tools/build_pulsemech_compute_current_run_export_expectation_v0.py)
+- [Current-run expectation builder regression](tests/test_build_pulsemech_compute_current_run_export_expectation_v0.py)
 
-### Current open compute workstream
+#### Finalized carrier and current-run subject input
 
-- [PR #2789 — current-run export expectation builder](https://github.com/HKati/pulse-release-gates-0.1/pull/2789)
+- [Current-run export carrier loader](tools/load_pulsemech_compute_current_run_export_carrier_v0.py)
+- [Current-run export carrier regression](tests/test_load_pulsemech_compute_current_run_export_carrier_v0.py)
+- [Current-run subject-input wrapper](tools/build_pulsemech_compute_subject_input_packet_current_run_v0.py)
+- [Current-run subject-input wrapper regression](tests/test_build_pulsemech_compute_subject_input_packet_current_run_v0.py)
 
-Proposed path under review:
+#### Step 3F non-active export candidate
 
-```text
-tools/build_pulsemech_compute_current_run_export_expectation_v0.py
-```
+- [Current-run export candidate workflow](.github/workflows/pulsemech_compute_current_run_export_candidate.yml)
+- [Current-run export candidate workflow regression](tests/test_pulsemech_compute_current_run_export_candidate_workflow_v0.py)
 
-This proposed path is not present in the merged `main` implementation state
-recorded by this document.
+#### Step 3G artifact-observed proof
+
+- [Current-run candidate-bundle intake loader](tools/load_pulsemech_compute_current_run_export_candidate_bundle_v0.py)
+- [Candidate-bundle intake regression](tests/test_load_pulsemech_compute_current_run_export_candidate_bundle_v0.py)
+- [Current-run artifact-observed proof builder](tools/build_pulsemech_compute_current_run_artifact_observed_proof_v0.py)
+- [Artifact-observed proof-builder regression](tests/test_build_pulsemech_compute_current_run_artifact_observed_proof_v0.py)
+- [Artifact-observed candidate workflow](.github/workflows/pulsemech_compute_current_run_artifact_observed_candidate.yml)
+- [Artifact-observed candidate workflow regression](tests/test_pulsemech_compute_current_run_artifact_observed_candidate_workflow_v0.py)
+
+The Step 3F and Step 3G workflows remain manual, candidate-only, non-active and
+pre-authority.
+
+They do not activate compute gates or create release authority.
 
 ### Foundational transition measurement
 
 - [PULSEmech Transition Meter](PULSEMECH_TRANSITION_METER.md)
+- [Transition-bounded computation architecture](docs/PULSEMECH_TRANSITION_BOUNDED_COMPUTATION_ARCHITECTURE_v0.md)
 - [README transition-measurement positioning](README.md#pulsemech-transition-meter--the-missing-instrument-between-measured-states)
+
+### Relational release-authority interpretation
+
+- [Canonical relational release-authority interpretation](docs/PULSEMECH_RELATIONAL_RELEASE_AUTHORITY_INTERPRETATION_v0.md)
 
 ### Registered machine-test surface
 
@@ -2606,21 +2709,53 @@ current-run export expectation example
 strict current-run expectation validator
 validator trust-boundary hardening
 permanent current-run expectation-validator regression
+machine-produced current-run expectation builder
+permanent expectation-builder regression and launcher hardening
+finalized current-run export carrier component
+current-run subject-input wrapper
+manual non-active Step 3F export candidate workflow
+verified current-run candidate-bundle intake
+current-run artifact-observed proof builder
+manual non-active Step 3G artifact-observed candidate workflow
+artifact-observed proof-bundle builder with a checksum-closed output contract
 ```
 
 The broader Transition Meter is recorded as foundational architecture.
 
-The current open development boundary is:
+The current implementation boundary is:
 
 ```text
-PR #2789 current-run expectation builder
-→ close remaining trust boundaries
-→ merge builder
-→ add permanent builder regression
-→ implement carrier component
-→ implement current-run subject-input wrapper
-→ implement non-active candidate workflow
-→ produce the first current-run artifact-observed connected proof
+completed Step 3G artifact-observed proof automation
+→ Step 4 runtime-observation producer
+→ Step 5 runtime-observed connected proof
+→ Step 6 per-axis resource measurement
+→ stable measurement coverage
+→ Step 7 separate policy promotion decision
+```
+
+The completed Step 3G surface remains:
+
+```text
+manual
+candidate-only
+non-active
+artifact-observed
+pre-authority
+authority_effect = none
+```
+
+It preserves false, missing, partial, ambiguous and unresolved relation state.
+
+It does not activate compute gates, modify source `status.json`, create a
+compute budget, produce runtime observation, create a release decision or
+change release authority.
+
+```text
+successful artifact-observed proof
+≠
+runtime-observed proof
+≠
+automatic promotion
 ```
 
 Runtime observation production, resource measurement, compute budgeting, active
