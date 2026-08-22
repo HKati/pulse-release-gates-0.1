@@ -166,7 +166,7 @@ They do not independently produce release authority.
 | SLSA/VSA trusted-producer packet/report contract and construction-validation chain | Implemented — non-active candidate path |
 | SLSA/VSA release-required enforcement | Not active |
 | Current-run compute export automation — observed expectation, finalized carrier, observed subject-input packet, and candidate artifact | Implemented and regression-proven — manual, non-active candidate path |
-| Current-run artifact-observed proof automation — verified candidate-bundle intake, compute-binding report, current-run plan, planned-observed relation, separate candidate materialization, and checksum-closed proof bundle | Implemented and regression-proven — non-active candidate path |
+| Current-run artifact-observed proof automation — verified candidate-bundle intake, compute-binding report, current-run plan, planned-observed relation, separate candidate materialization, and artifact-observed proof-bundle builder with a checksum-closed output contract | Implemented and regression-proven — non-active candidate path; no manually dispatched Step 3G run or run-bound proof-bundle instance is claimed |
 | Current-run artifact-observed candidate workflow | Implemented and regression-proven — `diagnostic_shadow`, `authority_effect = none` |
 | Compute runtime-observation producer | Not implemented |
 | Active or release-required compute enforcement | Not active |
