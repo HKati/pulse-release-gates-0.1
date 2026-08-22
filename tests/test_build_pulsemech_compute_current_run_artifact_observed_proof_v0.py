@@ -34,12 +34,12 @@ FOLLOWING_COMPUTE_REGRESSION = (
     "tests/test_pulsemech_compute_current_run_artifact_observed_candidate_workflow_v0.py"
 )
 
-EXPECTED_TOOL_LINES = 2832
-EXPECTED_TOOL_BYTES = 103882
+EXPECTED_TOOL_LINES = 2908
+EXPECTED_TOOL_BYTES = 106862
 EXPECTED_TOOL_SHA256 = (
-    "b11e80a056591482703a275287f4b196d48c65bcbbd8447f6d17359b97633e03"
+    "47fdfefb95fdd2e8484ee6c6b014df632c7942e34059998fd45c0378fe8fd2a1"
 )
-EXPECTED_TOOL_GIT_BLOB_SHA1 = "e4a7060777c35708611ec31ec2f6cb038b5ae327"
+EXPECTED_TOOL_GIT_BLOB_SHA1 = "fa74cd02811587f24fcf81b717e72559e9f323e3"
 
 EXPECTED_TESTS = frozenset(
     {
@@ -1492,11 +1492,41 @@ def test_full_build_is_deterministic_checksum_closed_and_read_only(
 ) -> None:
     case = build_case(tmp_path)
     patch_full_build(monkeypatch, case)
+    publication_source_modes: list[int] = []
+    M._require_supported_execution_platform()
+    monkeypatch.setattr(M, "_require_supported_execution_platform", lambda: None)
+    real_rename = M.os.rename
+
+    def checked_publication_rename(
+        source: str,
+        destination: str,
+        *,
+        src_dir_fd: int,
+        dst_dir_fd: int,
+    ) -> None:
+        if source == "proof":
+            source_metadata = os.stat(
+                source,
+                dir_fd=src_dir_fd,
+                follow_symlinks=False,
+            )
+            source_mode = stat.S_IMODE(source_metadata.st_mode)
+            publication_source_modes.append(source_mode)
+            assert source_mode & stat.S_IWUSR
+        real_rename(
+            source,
+            destination,
+            src_dir_fd=src_dir_fd,
+            dst_dir_fd=dst_dir_fd,
+        )
+
+    monkeypatch.setattr(M.os, "rename", checked_publication_rename)
     first = tmp_path / "proof-first"
     second = tmp_path / "proof-second"
     rendered_first = M._build(namespace_for(case, first))
     rendered_second = M._build(namespace_for(case, second))
     assert rendered_first == rendered_second
+    assert publication_source_modes == [0o700, 0o700]
     manifest = json.loads(rendered_first.decode("utf-8"))
     assert manifest["ok"] is True
     assert manifest["authority_boundary"] == M.CLOSED_AUTHORITY_BOUNDARY
@@ -1558,10 +1588,28 @@ def test_postpublication_reverification_failure_removes_owned_output(
 ) -> None:
     case = build_case(tmp_path)
     patch_full_build(monkeypatch, case, fail_reverify_call=3)
+    unlink_parent_modes: list[int] = []
+    M._require_supported_execution_platform()
+    monkeypatch.setattr(M, "_require_supported_execution_platform", lambda: None)
+    real_unlink = M.os.unlink
+
+    def checked_cleanup_unlink(
+        path: str,
+        *,
+        dir_fd: int,
+    ) -> None:
+        parent_mode = stat.S_IMODE(os.fstat(dir_fd).st_mode)
+        unlink_parent_modes.append(parent_mode)
+        assert parent_mode & stat.S_IWUSR
+        real_unlink(path, dir_fd=dir_fd)
+
+    monkeypatch.setattr(M.os, "unlink", checked_cleanup_unlink)
     output = tmp_path / "postpublish-proof"
     with pytest.raises(M.ProofError, match="synthetic_postpublication_component_drift"):
         M._build(namespace_for(case, output))
     assert case["reverify_calls"]["count"] == 3
+    assert unlink_parent_modes
+    assert all(mode & stat.S_IWUSR for mode in unlink_parent_modes)
     assert not output.exists()
     assert not any(path.name.startswith(".postpublish-proof.") for path in tmp_path.iterdir())
 
