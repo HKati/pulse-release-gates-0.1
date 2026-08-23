@@ -1,0 +1,41 @@
+{
+  "arrays": {
+    "order": "preserved"
+  },
+  "authority_effect": "none",
+  "document_type": "pulsemech_device_canonical_json_profile",
+  "encoding": {
+    "bom": "forbidden",
+    "character_encoding": "UTF-8",
+    "malformed_sequences": "rejected"
+  },
+  "hashing": {
+    "algorithm": "SHA-256",
+    "hex_encoding": "lowercase"
+  },
+  "numbers": {
+    "allowed": "signed_64_bit_integers_only",
+    "floating_point": "forbidden",
+    "leading_zero": "forbidden_except_zero",
+    "negative_zero": "forbidden",
+    "non_finite": "forbidden"
+  },
+  "objects": {
+    "duplicate_keys": "rejected",
+    "key_order": "ascending_unicode_code_point_order"
+  },
+  "profile_id": "pulsemech_device_canonical_json_v0",
+  "profile_version": "0.1.0",
+  "record_status": "normative_contract",
+  "serialization": {
+    "escape_forward_slash": false,
+    "escape_non_ascii": false,
+    "trailing_newline": false,
+    "whitespace": "none"
+  },
+  "strings": {
+    "normalization": "NFC",
+    "unpaired_surrogates": "forbidden"
+  },
+  "top_level": "JSON object"
+}
