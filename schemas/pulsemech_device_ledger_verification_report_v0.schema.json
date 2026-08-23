@@ -1,0 +1,3091 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/HKati/pulse-release-gates-0.1/schemas/pulsemech_device_ledger_verification_report_v0.schema.json",
+  "title": "PULSEmech Device Ledger Verification Report v0",
+  "description": "Closed machine-readable output contract for the separately implemented PULSEmech Device Transition Ledger verifier. The report binds the exact .pulseledger carrier, verifier source, package members, contracts, observer identity, ledger chain, transition relations, checkpoint signature, package signature, claim boundary, and authority boundary. Verification does not constitute a device-security verdict, a physical-measurement claim, external validation, or release authority.",
+  "$comment": "A successful report requires every declared check to pass. verified_with_declared_unavailability is a successful integrity and relation result; it preserves explicit observation gaps or unavailable initiating sources and must not be downgraded to failure or upgraded to causation. Rejected reports produced before exact carrier-byte admission may set carrier digests, carrier sizes and the carrier-derived verification_id to null; successful reports require all three identities to be concrete and independently reconstructed.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "authority_boundary",
+    "carrier_verification",
+    "checks",
+    "claim_boundary",
+    "contract_bindings",
+    "diagnostic_contract",
+    "document_type",
+    "errors",
+    "failed_check_ids",
+    "failure_stage",
+    "ledger_verification",
+    "manifest_verification",
+    "observer_verification",
+    "ok",
+    "record_status",
+    "report_contract",
+    "reproduction_context",
+    "result",
+    "schema_version",
+    "semantic_summary",
+    "signature_verification",
+    "subject",
+    "tool",
+    "verification_identity",
+    "verification_scope"
+  ],
+  "properties": {
+    "authority_boundary": {
+      "$ref": "#/$defs/authority_boundary"
+    },
+    "carrier_verification": {
+      "$ref": "#/$defs/carrier_verification"
+    },
+    "checks": {
+      "$ref": "#/$defs/checks"
+    },
+    "claim_boundary": {
+      "$ref": "#/$defs/claim_boundary"
+    },
+    "contract_bindings": {
+      "$ref": "#/$defs/contract_bindings"
+    },
+    "diagnostic_contract": {
+      "$ref": "#/$defs/diagnostic_contract"
+    },
+    "document_type": {
+      "const": "pulsemech_device_ledger_verification_report"
+    },
+    "errors": {
+      "type": "array",
+      "maxItems": 128,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/error_record"
+      }
+    },
+    "failed_check_ids": {
+      "type": "array",
+      "maxItems": 49,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/check_id"
+      }
+    },
+    "failure_stage": {
+      "$ref": "#/$defs/nullable_failure_stage"
+    },
+    "ledger_verification": {
+      "$ref": "#/$defs/ledger_verification"
+    },
+    "manifest_verification": {
+      "$ref": "#/$defs/manifest_verification"
+    },
+    "observer_verification": {
+      "$ref": "#/$defs/observer_verification"
+    },
+    "ok": {
+      "type": "boolean"
+    },
+    "record_status": {
+      "type": "string",
+      "enum": [
+        "synthetic_reference",
+        "observed",
+        "unknown"
+      ]
+    },
+    "report_contract": {
+      "$ref": "#/$defs/report_contract"
+    },
+    "reproduction_context": {
+      "$ref": "#/$defs/reproduction_context"
+    },
+    "result": {
+      "type": "string",
+      "enum": [
+        "verified",
+        "verified_with_declared_unavailability",
+        "rejected"
+      ]
+    },
+    "schema_version": {
+      "const": "pulsemech_device_ledger_verification_report_v0"
+    },
+    "semantic_summary": {
+      "$ref": "#/$defs/semantic_summary"
+    },
+    "signature_verification": {
+      "$ref": "#/$defs/signature_verification"
+    },
+    "subject": {
+      "$ref": "#/$defs/subject"
+    },
+    "tool": {
+      "$ref": "#/$defs/tool"
+    },
+    "verification_identity": {
+      "$ref": "#/$defs/verification_identity"
+    },
+    "verification_scope": {
+      "$ref": "#/$defs/verification_scope"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "result": {
+            "enum": [
+              "verified",
+              "verified_with_declared_unavailability"
+            ]
+          }
+        },
+        "required": [
+          "result"
+        ]
+      },
+      "then": {
+        "properties": {
+          "ok": {
+            "const": true
+          },
+          "record_status": {
+            "enum": [
+              "synthetic_reference",
+              "observed"
+            ]
+          },
+          "failure_stage": {
+            "type": "null"
+          },
+          "failed_check_ids": {
+            "maxItems": 0
+          },
+          "errors": {
+            "maxItems": 0
+          },
+          "checks": {
+            "properties": {
+              "input_regular_file": {
+                "const": "passed"
+              },
+              "input_not_symlink": {
+                "const": "passed"
+              },
+              "carrier_size_within_limit": {
+                "const": "passed"
+              },
+              "zip_end_of_central_directory_valid": {
+                "const": "passed"
+              },
+              "zip_member_names_valid": {
+                "const": "passed"
+              },
+              "zip_exact_member_set_valid": {
+                "const": "passed"
+              },
+              "zip_member_types_valid": {
+                "const": "passed"
+              },
+              "zip_compression_valid": {
+                "const": "passed"
+              },
+              "zip_timestamp_policy_valid": {
+                "const": "passed"
+              },
+              "zip_crc32_valid": {
+                "const": "passed"
+              },
+              "zip_local_central_directory_consistent": {
+                "const": "passed"
+              },
+              "zip_no_trailing_data": {
+                "const": "passed"
+              },
+              "manifest_strict_json_valid": {
+                "const": "passed"
+              },
+              "manifest_canonical_json_valid": {
+                "const": "passed"
+              },
+              "manifest_schema_valid": {
+                "const": "passed"
+              },
+              "manifest_payload_inventory_valid": {
+                "const": "passed"
+              },
+              "manifest_ledger_binding_valid": {
+                "const": "passed"
+              },
+              "manifest_observer_binding_valid": {
+                "const": "passed"
+              },
+              "manifest_signature_contract_valid": {
+                "const": "passed"
+              },
+              "payload_member_digests_valid": {
+                "const": "passed"
+              },
+              "payload_member_sizes_valid": {
+                "const": "passed"
+              },
+              "canonicalization_profile_binding_valid": {
+                "const": "passed"
+              },
+              "ios_observation_contract_binding_valid": {
+                "const": "passed"
+              },
+              "manifest_schema_binding_valid": {
+                "const": "passed"
+              },
+              "signature_schema_binding_valid": {
+                "const": "passed"
+              },
+              "transition_ledger_schema_binding_valid": {
+                "const": "passed"
+              },
+              "observer_public_key_encoding_valid": {
+                "const": "passed"
+              },
+              "observer_public_key_curve_membership_valid": {
+                "const": "passed"
+              },
+              "observer_public_key_fingerprint_valid": {
+                "const": "passed"
+              },
+              "ledger_strict_json_valid": {
+                "const": "passed"
+              },
+              "ledger_canonical_json_valid": {
+                "const": "passed"
+              },
+              "ledger_schema_valid": {
+                "const": "passed"
+              },
+              "ledger_identity_binding_valid": {
+                "const": "passed"
+              },
+              "record_digests_valid": {
+                "const": "passed"
+              },
+              "record_chain_valid": {
+                "const": "passed"
+              },
+              "record_sequence_valid": {
+                "const": "passed"
+              },
+              "session_relations_valid": {
+                "const": "passed"
+              },
+              "coverage_relations_valid": {
+                "const": "passed"
+              },
+              "event_endpoint_bindings_valid": {
+                "const": "passed"
+              },
+              "transition_relations_valid": {
+                "const": "passed"
+              },
+              "checkpoint_closure_valid": {
+                "const": "passed"
+              },
+              "checkpoint_signature_document_valid": {
+                "const": "passed"
+              },
+              "checkpoint_signature_subject_valid": {
+                "const": "passed"
+              },
+              "checkpoint_signature_valid": {
+                "const": "passed"
+              },
+              "package_signature_document_valid": {
+                "const": "passed"
+              },
+              "package_signature_subject_valid": {
+                "const": "passed"
+              },
+              "package_signature_valid": {
+                "const": "passed"
+              },
+              "claim_boundary_preserved": {
+                "const": "passed"
+              },
+              "authority_boundary_preserved": {
+                "const": "passed"
+              }
+            },
+            "required": [
+              "input_regular_file",
+              "input_not_symlink",
+              "carrier_size_within_limit",
+              "zip_end_of_central_directory_valid",
+              "zip_member_names_valid",
+              "zip_exact_member_set_valid",
+              "zip_member_types_valid",
+              "zip_compression_valid",
+              "zip_timestamp_policy_valid",
+              "zip_crc32_valid",
+              "zip_local_central_directory_consistent",
+              "zip_no_trailing_data",
+              "manifest_strict_json_valid",
+              "manifest_canonical_json_valid",
+              "manifest_schema_valid",
+              "manifest_payload_inventory_valid",
+              "manifest_ledger_binding_valid",
+              "manifest_observer_binding_valid",
+              "manifest_signature_contract_valid",
+              "payload_member_digests_valid",
+              "payload_member_sizes_valid",
+              "canonicalization_profile_binding_valid",
+              "ios_observation_contract_binding_valid",
+              "manifest_schema_binding_valid",
+              "signature_schema_binding_valid",
+              "transition_ledger_schema_binding_valid",
+              "observer_public_key_encoding_valid",
+              "observer_public_key_curve_membership_valid",
+              "observer_public_key_fingerprint_valid",
+              "ledger_strict_json_valid",
+              "ledger_canonical_json_valid",
+              "ledger_schema_valid",
+              "ledger_identity_binding_valid",
+              "record_digests_valid",
+              "record_chain_valid",
+              "record_sequence_valid",
+              "session_relations_valid",
+              "coverage_relations_valid",
+              "event_endpoint_bindings_valid",
+              "transition_relations_valid",
+              "checkpoint_closure_valid",
+              "checkpoint_signature_document_valid",
+              "checkpoint_signature_subject_valid",
+              "checkpoint_signature_valid",
+              "package_signature_document_valid",
+              "package_signature_subject_valid",
+              "package_signature_valid",
+              "claim_boundary_preserved",
+              "authority_boundary_preserved"
+            ]
+          },
+          "contract_bindings": {
+            "properties": {
+              "canonicalization_profile": {
+                "properties": {
+                  "binding_status": {
+                    "const": "verified"
+                  },
+                  "observed_sha256": {
+                    "$ref": "#/$defs/sha256"
+                  },
+                  "observed_size_bytes": {
+                    "$ref": "#/$defs/i63_positive"
+                  }
+                },
+                "required": [
+                  "binding_status",
+                  "observed_sha256",
+                  "observed_size_bytes"
+                ]
+              },
+              "ios_observation_contract": {
+                "properties": {
+                  "binding_status": {
+                    "const": "verified"
+                  },
+                  "observed_sha256": {
+                    "$ref": "#/$defs/sha256"
+                  },
+                  "observed_size_bytes": {
+                    "$ref": "#/$defs/i63_positive"
+                  }
+                },
+                "required": [
+                  "binding_status",
+                  "observed_sha256",
+                  "observed_size_bytes"
+                ]
+              },
+              "ledger_manifest_schema": {
+                "properties": {
+                  "binding_status": {
+                    "const": "verified"
+                  },
+                  "observed_sha256": {
+                    "$ref": "#/$defs/sha256"
+                  },
+                  "observed_size_bytes": {
+                    "$ref": "#/$defs/i63_positive"
+                  }
+                },
+                "required": [
+                  "binding_status",
+                  "observed_sha256",
+                  "observed_size_bytes"
+                ]
+              },
+              "signature_schema": {
+                "properties": {
+                  "binding_status": {
+                    "const": "verified"
+                  },
+                  "observed_sha256": {
+                    "$ref": "#/$defs/sha256"
+                  },
+                  "observed_size_bytes": {
+                    "$ref": "#/$defs/i63_positive"
+                  }
+                },
+                "required": [
+                  "binding_status",
+                  "observed_sha256",
+                  "observed_size_bytes"
+                ]
+              },
+              "transition_ledger_schema": {
+                "properties": {
+                  "binding_status": {
+                    "const": "verified"
+                  },
+                  "observed_sha256": {
+                    "$ref": "#/$defs/sha256"
+                  },
+                  "observed_size_bytes": {
+                    "$ref": "#/$defs/i63_positive"
+                  }
+                },
+                "required": [
+                  "binding_status",
+                  "observed_sha256",
+                  "observed_size_bytes"
+                ]
+              }
+            },
+            "required": [
+              "canonicalization_profile",
+              "ios_observation_contract",
+              "ledger_manifest_schema",
+              "signature_schema",
+              "transition_ledger_schema"
+            ]
+          },
+          "carrier_verification": {
+            "properties": {
+              "member_results": {
+                "type": "array",
+                "minItems": 10,
+                "maxItems": 10,
+                "prefixItems": [
+                  {
+                    "allOf": [
+                      {
+                        "$ref": "#/$defs/member_result_0"
+                      },
+                      {
+                        "properties": {
+                          "compressed_size_bytes": {
+                            "$ref": "#/$defs/i63_nonnegative"
+                          },
+                          "compression_method": {
+                            "const": "stored"
+                          },
+                          "crc32_hex": {
+                            "type": "string",
+                            "pattern": "^[0-9a-f]{8}$"
+                          },
+                          "member_type": {
+                            "const": "regular_file"
+                          },
+                          "sha256": {
+                            "$ref": "#/$defs/sha256"
+                          },
+                          "size_bytes": {
+                            "$ref": "#/$defs/i63_positive"
+                          },
+                          "verification_status": {
+                            "const": "verified"
+                          }
+                        },
+                        "required": [
+                          "compressed_size_bytes",
+                          "compression_method",
+                          "crc32_hex",
+                          "member_type",
+                          "sha256",
+                          "size_bytes",
+                          "verification_status"
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "allOf": [
+                      {
+                        "$ref": "#/$defs/member_result_1"
+                      },
+                      {
+                        "properties": {
+                          "compressed_size_bytes": {
+                            "$ref": "#/$defs/i63_nonnegative"
+                          },
+                          "compression_method": {
+                            "const": "stored"
+                          },
+                          "crc32_hex": {
+                            "type": "string",
+                            "pattern": "^[0-9a-f]{8}$"
+                          },
+                          "member_type": {
+                            "const": "regular_file"
+                          },
+                          "sha256": {
+                            "$ref": "#/$defs/sha256"
+                          },
+                          "size_bytes": {
+                            "$ref": "#/$defs/i63_positive"
+                          },
+                          "verification_status": {
+                            "const": "verified"
+                          }
+                        },
+                        "required": [
+                          "compressed_size_bytes",
+                          "compression_method",
+                          "crc32_hex",
+                          "member_type",
+                          "sha256",
+                          "size_bytes",
+                          "verification_status"
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "allOf": [
+                      {
+                        "$ref": "#/$defs/member_result_2"
+                      },
+                      {
+                        "properties": {
+                          "compressed_size_bytes": {
+                            "$ref": "#/$defs/i63_nonnegative"
+                          },
+                          "compression_method": {
+                            "const": "stored"
+                          },
+                          "crc32_hex": {
+                            "type": "string",
+                            "pattern": "^[0-9a-f]{8}$"
+                          },
+                          "member_type": {
+                            "const": "regular_file"
+                          },
+                          "sha256": {
+                            "$ref": "#/$defs/sha256"
+                          },
+                          "size_bytes": {
+                            "$ref": "#/$defs/i63_positive"
+                          },
+                          "verification_status": {
+                            "const": "verified"
+                          }
+                        },
+                        "required": [
+                          "compressed_size_bytes",
+                          "compression_method",
+                          "crc32_hex",
+                          "member_type",
+                          "sha256",
+                          "size_bytes",
+                          "verification_status"
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "allOf": [
+                      {
+                        "$ref": "#/$defs/member_result_3"
+                      },
+                      {
+                        "properties": {
+                          "compressed_size_bytes": {
+                            "$ref": "#/$defs/i63_nonnegative"
+                          },
+                          "compression_method": {
+                            "const": "stored"
+                          },
+                          "crc32_hex": {
+                            "type": "string",
+                            "pattern": "^[0-9a-f]{8}$"
+                          },
+                          "member_type": {
+                            "const": "regular_file"
+                          },
+                          "sha256": {
+                            "$ref": "#/$defs/sha256"
+                          },
+                          "size_bytes": {
+                            "$ref": "#/$defs/i63_positive"
+                          },
+                          "verification_status": {
+                            "const": "verified"
+                          }
+                        },
+                        "required": [
+                          "compressed_size_bytes",
+                          "compression_method",
+                          "crc32_hex",
+                          "member_type",
+                          "sha256",
+                          "size_bytes",
+                          "verification_status"
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "allOf": [
+                      {
+                        "$ref": "#/$defs/member_result_4"
+                      },
+                      {
+                        "properties": {
+                          "compressed_size_bytes": {
+                            "$ref": "#/$defs/i63_nonnegative"
+                          },
+                          "compression_method": {
+                            "const": "stored"
+                          },
+                          "crc32_hex": {
+                            "type": "string",
+                            "pattern": "^[0-9a-f]{8}$"
+                          },
+                          "member_type": {
+                            "const": "regular_file"
+                          },
+                          "sha256": {
+                            "$ref": "#/$defs/sha256"
+                          },
+                          "size_bytes": {
+                            "$ref": "#/$defs/i63_positive"
+                          },
+                          "verification_status": {
+                            "const": "verified"
+                          }
+                        },
+                        "required": [
+                          "compressed_size_bytes",
+                          "compression_method",
+                          "crc32_hex",
+                          "member_type",
+                          "sha256",
+                          "size_bytes",
+                          "verification_status"
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "allOf": [
+                      {
+                        "$ref": "#/$defs/member_result_5"
+                      },
+                      {
+                        "properties": {
+                          "compressed_size_bytes": {
+                            "$ref": "#/$defs/i63_nonnegative"
+                          },
+                          "compression_method": {
+                            "const": "stored"
+                          },
+                          "crc32_hex": {
+                            "type": "string",
+                            "pattern": "^[0-9a-f]{8}$"
+                          },
+                          "member_type": {
+                            "const": "regular_file"
+                          },
+                          "sha256": {
+                            "$ref": "#/$defs/sha256"
+                          },
+                          "size_bytes": {
+                            "$ref": "#/$defs/i63_positive"
+                          },
+                          "verification_status": {
+                            "const": "verified"
+                          }
+                        },
+                        "required": [
+                          "compressed_size_bytes",
+                          "compression_method",
+                          "crc32_hex",
+                          "member_type",
+                          "sha256",
+                          "size_bytes",
+                          "verification_status"
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "allOf": [
+                      {
+                        "$ref": "#/$defs/member_result_6"
+                      },
+                      {
+                        "properties": {
+                          "compressed_size_bytes": {
+                            "$ref": "#/$defs/i63_nonnegative"
+                          },
+                          "compression_method": {
+                            "const": "stored"
+                          },
+                          "crc32_hex": {
+                            "type": "string",
+                            "pattern": "^[0-9a-f]{8}$"
+                          },
+                          "member_type": {
+                            "const": "regular_file"
+                          },
+                          "sha256": {
+                            "$ref": "#/$defs/sha256"
+                          },
+                          "size_bytes": {
+                            "$ref": "#/$defs/i63_positive"
+                          },
+                          "verification_status": {
+                            "const": "verified"
+                          }
+                        },
+                        "required": [
+                          "compressed_size_bytes",
+                          "compression_method",
+                          "crc32_hex",
+                          "member_type",
+                          "sha256",
+                          "size_bytes",
+                          "verification_status"
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "allOf": [
+                      {
+                        "$ref": "#/$defs/member_result_7"
+                      },
+                      {
+                        "properties": {
+                          "compressed_size_bytes": {
+                            "$ref": "#/$defs/i63_nonnegative"
+                          },
+                          "compression_method": {
+                            "const": "stored"
+                          },
+                          "crc32_hex": {
+                            "type": "string",
+                            "pattern": "^[0-9a-f]{8}$"
+                          },
+                          "member_type": {
+                            "const": "regular_file"
+                          },
+                          "sha256": {
+                            "$ref": "#/$defs/sha256"
+                          },
+                          "size_bytes": {
+                            "$ref": "#/$defs/i63_positive"
+                          },
+                          "verification_status": {
+                            "const": "verified"
+                          }
+                        },
+                        "required": [
+                          "compressed_size_bytes",
+                          "compression_method",
+                          "crc32_hex",
+                          "member_type",
+                          "sha256",
+                          "size_bytes",
+                          "verification_status"
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "allOf": [
+                      {
+                        "$ref": "#/$defs/member_result_8"
+                      },
+                      {
+                        "properties": {
+                          "compressed_size_bytes": {
+                            "$ref": "#/$defs/i63_nonnegative"
+                          },
+                          "compression_method": {
+                            "const": "stored"
+                          },
+                          "crc32_hex": {
+                            "type": "string",
+                            "pattern": "^[0-9a-f]{8}$"
+                          },
+                          "member_type": {
+                            "const": "regular_file"
+                          },
+                          "sha256": {
+                            "$ref": "#/$defs/sha256"
+                          },
+                          "size_bytes": {
+                            "$ref": "#/$defs/i63_positive"
+                          },
+                          "verification_status": {
+                            "const": "verified"
+                          }
+                        },
+                        "required": [
+                          "compressed_size_bytes",
+                          "compression_method",
+                          "crc32_hex",
+                          "member_type",
+                          "sha256",
+                          "size_bytes",
+                          "verification_status"
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "allOf": [
+                      {
+                        "$ref": "#/$defs/member_result_9"
+                      },
+                      {
+                        "properties": {
+                          "compressed_size_bytes": {
+                            "$ref": "#/$defs/i63_nonnegative"
+                          },
+                          "compression_method": {
+                            "const": "stored"
+                          },
+                          "crc32_hex": {
+                            "type": "string",
+                            "pattern": "^[0-9a-f]{8}$"
+                          },
+                          "member_type": {
+                            "const": "regular_file"
+                          },
+                          "sha256": {
+                            "$ref": "#/$defs/sha256"
+                          },
+                          "size_bytes": {
+                            "$ref": "#/$defs/i63_positive"
+                          },
+                          "verification_status": {
+                            "const": "verified"
+                          }
+                        },
+                        "required": [
+                          "compressed_size_bytes",
+                          "compression_method",
+                          "crc32_hex",
+                          "member_type",
+                          "sha256",
+                          "size_bytes",
+                          "verification_status"
+                        ]
+                      }
+                    ]
+                  }
+                ],
+                "items": false
+              },
+              "observed_package_member_count": {
+                "const": 10
+              },
+              "observed_payload_member_count": {
+                "const": 8
+              },
+              "status": {
+                "const": "verified"
+              },
+              "total_uncompressed_bytes": {
+                "$ref": "#/$defs/i63_nonnegative"
+              },
+              "carrier_sha256": {
+                "$ref": "#/$defs/sha256"
+              },
+              "carrier_size_bytes": {
+                "$ref": "#/$defs/i63_positive"
+              }
+            },
+            "required": [
+              "member_results",
+              "observed_package_member_count",
+              "observed_payload_member_count",
+              "status",
+              "total_uncompressed_bytes",
+              "carrier_sha256",
+              "carrier_size_bytes"
+            ]
+          },
+          "manifest_verification": {
+            "properties": {
+              "declared_package_member_count": {
+                "const": 10
+              },
+              "declared_payload_member_count": {
+                "const": 8
+              },
+              "manifest_sha256": {
+                "$ref": "#/$defs/sha256"
+              },
+              "manifest_size_bytes": {
+                "$ref": "#/$defs/i63_positive"
+              },
+              "status": {
+                "const": "verified"
+              }
+            },
+            "required": [
+              "declared_package_member_count",
+              "declared_payload_member_count",
+              "manifest_sha256",
+              "manifest_size_bytes",
+              "status"
+            ]
+          },
+          "observer_verification": {
+            "properties": {
+              "declared_fingerprint_sha256": {
+                "$ref": "#/$defs/sha256"
+              },
+              "public_key_sha256": {
+                "$ref": "#/$defs/sha256"
+              },
+              "public_key_size_bytes": {
+                "const": 65
+              },
+              "reconstructed_fingerprint_sha256": {
+                "$ref": "#/$defs/sha256"
+              },
+              "status": {
+                "const": "verified"
+              }
+            },
+            "required": [
+              "declared_fingerprint_sha256",
+              "public_key_sha256",
+              "public_key_size_bytes",
+              "reconstructed_fingerprint_sha256",
+              "status"
+            ]
+          },
+          "ledger_verification": {
+            "properties": {
+              "checkpoint_record_sha256": {
+                "$ref": "#/$defs/sha256"
+              },
+              "first_record_sha256": {
+                "$ref": "#/$defs/sha256"
+              },
+              "ledger_id": {
+                "$ref": "#/$defs/ascii_identifier"
+              },
+              "ledger_sha256": {
+                "$ref": "#/$defs/sha256"
+              },
+              "ledger_size_bytes": {
+                "$ref": "#/$defs/i63_positive"
+              },
+              "record_count": {
+                "$ref": "#/$defs/i63_positive"
+              },
+              "status": {
+                "const": "verified"
+              },
+              "record_type_counts": {
+                "properties": {
+                  "checkpoint": {
+                    "$ref": "#/$defs/i63_nonnegative"
+                  },
+                  "coverage_interval": {
+                    "$ref": "#/$defs/i63_nonnegative"
+                  },
+                  "observation_event": {
+                    "$ref": "#/$defs/i63_nonnegative"
+                  },
+                  "session_boundary": {
+                    "$ref": "#/$defs/i63_nonnegative"
+                  },
+                  "state_snapshot": {
+                    "$ref": "#/$defs/i63_nonnegative"
+                  },
+                  "transition": {
+                    "$ref": "#/$defs/i63_nonnegative"
+                  }
+                },
+                "required": [
+                  "checkpoint",
+                  "coverage_interval",
+                  "observation_event",
+                  "session_boundary",
+                  "state_snapshot",
+                  "transition"
+                ]
+              },
+              "terminal_record_sha256": {
+                "$ref": "#/$defs/sha256"
+              }
+            },
+            "required": [
+              "checkpoint_record_sha256",
+              "first_record_sha256",
+              "ledger_id",
+              "ledger_sha256",
+              "ledger_size_bytes",
+              "record_count",
+              "record_type_counts",
+              "status",
+              "terminal_record_sha256"
+            ]
+          },
+          "semantic_summary": {
+            "properties": {
+              "continuous_coverage_interval_count": {
+                "$ref": "#/$defs/i63_nonnegative"
+              },
+              "endpoint_difference_only_transition_count": {
+                "$ref": "#/$defs/i63_nonnegative"
+              },
+              "event_bound_transition_count": {
+                "$ref": "#/$defs/i63_nonnegative"
+              },
+              "interrupted_coverage_interval_count": {
+                "$ref": "#/$defs/i63_nonnegative"
+              },
+              "retention_completeness_status": {
+                "const": "package_local_only"
+              },
+              "unavailable_initiating_source_transition_count": {
+                "$ref": "#/$defs/i63_nonnegative"
+              }
+            },
+            "required": [
+              "continuous_coverage_interval_count",
+              "endpoint_difference_only_transition_count",
+              "event_bound_transition_count",
+              "interrupted_coverage_interval_count",
+              "retention_completeness_status",
+              "unavailable_initiating_source_transition_count"
+            ]
+          },
+          "signature_verification": {
+            "properties": {
+              "checkpoint": {
+                "properties": {
+                  "declared_signed_object_sha256": {
+                    "$ref": "#/$defs/sha256"
+                  },
+                  "document_sha256": {
+                    "$ref": "#/$defs/sha256"
+                  },
+                  "document_size_bytes": {
+                    "$ref": "#/$defs/i63_positive"
+                  },
+                  "reconstructed_signature_input_sha256": {
+                    "$ref": "#/$defs/sha256"
+                  },
+                  "reconstructed_signed_object_sha256": {
+                    "$ref": "#/$defs/sha256"
+                  },
+                  "signature_status": {
+                    "const": "verified"
+                  }
+                },
+                "required": [
+                  "declared_signed_object_sha256",
+                  "document_sha256",
+                  "document_size_bytes",
+                  "reconstructed_signature_input_sha256",
+                  "reconstructed_signed_object_sha256",
+                  "signature_status"
+                ]
+              },
+              "package": {
+                "properties": {
+                  "declared_signed_object_sha256": {
+                    "$ref": "#/$defs/sha256"
+                  },
+                  "document_sha256": {
+                    "$ref": "#/$defs/sha256"
+                  },
+                  "document_size_bytes": {
+                    "$ref": "#/$defs/i63_positive"
+                  },
+                  "reconstructed_signature_input_sha256": {
+                    "$ref": "#/$defs/sha256"
+                  },
+                  "reconstructed_signed_object_sha256": {
+                    "$ref": "#/$defs/sha256"
+                  },
+                  "signature_status": {
+                    "const": "verified"
+                  }
+                },
+                "required": [
+                  "declared_signed_object_sha256",
+                  "document_sha256",
+                  "document_size_bytes",
+                  "reconstructed_signature_input_sha256",
+                  "reconstructed_signed_object_sha256",
+                  "signature_status"
+                ]
+              }
+            },
+            "required": [
+              "checkpoint",
+              "package"
+            ]
+          },
+          "subject": {
+            "properties": {
+              "carrier_sha256": {
+                "$ref": "#/$defs/sha256"
+              },
+              "carrier_size_bytes": {
+                "$ref": "#/$defs/i63_positive"
+              }
+            },
+            "required": [
+              "carrier_sha256",
+              "carrier_size_bytes"
+            ]
+          },
+          "verification_identity": {
+            "properties": {
+              "carrier_sha256": {
+                "$ref": "#/$defs/sha256"
+              },
+              "verification_id": {
+                "type": "string",
+                "pattern": "^device-ledger-verification:[0-9a-f]{64}:[0-9a-f]{64}:v0$"
+              }
+            },
+            "required": [
+              "carrier_sha256",
+              "verification_id"
+            ]
+          }
+        },
+        "required": [
+          "ok",
+          "failure_stage",
+          "failed_check_ids",
+          "errors",
+          "checks",
+          "contract_bindings",
+          "carrier_verification",
+          "manifest_verification",
+          "observer_verification",
+          "ledger_verification",
+          "record_status",
+          "semantic_summary",
+          "signature_verification",
+          "subject",
+          "verification_identity"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "result": {
+            "const": "rejected"
+          }
+        },
+        "required": [
+          "result"
+        ]
+      },
+      "then": {
+        "properties": {
+          "ok": {
+            "const": false
+          },
+          "failure_stage": {
+            "$ref": "#/$defs/failure_stage"
+          },
+          "failed_check_ids": {
+            "minItems": 1
+          },
+          "errors": {
+            "minItems": 1
+          }
+        },
+        "required": [
+          "ok",
+          "failure_stage",
+          "failed_check_ids",
+          "errors"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "result": {
+            "const": "verified"
+          }
+        },
+        "required": [
+          "result"
+        ]
+      },
+      "then": {
+        "properties": {
+          "semantic_summary": {
+            "properties": {
+              "declared_unavailability_present": {
+                "const": false
+              },
+              "endpoint_difference_only_transition_count": {
+                "const": 0
+              },
+              "interrupted_coverage_interval_count": {
+                "const": 0
+              },
+              "unavailable_initiating_source_transition_count": {
+                "const": 0
+              }
+            },
+            "required": [
+              "declared_unavailability_present",
+              "endpoint_difference_only_transition_count",
+              "interrupted_coverage_interval_count",
+              "unavailable_initiating_source_transition_count"
+            ]
+          }
+        },
+        "required": [
+          "semantic_summary"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "result": {
+            "const": "verified_with_declared_unavailability"
+          }
+        },
+        "required": [
+          "result"
+        ]
+      },
+      "then": {
+        "properties": {
+          "semantic_summary": {
+            "properties": {
+              "declared_unavailability_present": {
+                "const": true
+              }
+            },
+            "required": [
+              "declared_unavailability_present"
+            ],
+            "anyOf": [
+              {
+                "properties": {
+                  "interrupted_coverage_interval_count": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 9223372036854775807
+                  }
+                },
+                "required": [
+                  "interrupted_coverage_interval_count"
+                ]
+              },
+              {
+                "properties": {
+                  "unavailable_initiating_source_transition_count": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 9223372036854775807
+                  }
+                },
+                "required": [
+                  "unavailable_initiating_source_transition_count"
+                ]
+              }
+            ]
+          }
+        },
+        "required": [
+          "semantic_summary"
+        ]
+      }
+    }
+  ],
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "nullable_sha256": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/sha256"
+        }
+      ]
+    },
+    "i63_nonnegative": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9223372036854775807
+    },
+    "i63_positive": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9223372036854775807
+    },
+    "nullable_i63_nonnegative": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/i63_nonnegative"
+        }
+      ]
+    },
+    "nullable_i63_positive": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/i63_positive"
+        }
+      ]
+    },
+    "ascii_identifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "pattern": "^[A-Za-z0-9._:/+\\-]+$"
+    },
+    "safe_member_path": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "pattern": "^(?!/)(?!.*\\\\)(?!.*(^|/)\\.\\.?(/|$))[A-Za-z0-9._/+\\-]+$"
+    },
+    "check_id": {
+      "type": "string",
+      "enum": [
+        "input_regular_file",
+        "input_not_symlink",
+        "carrier_size_within_limit",
+        "zip_end_of_central_directory_valid",
+        "zip_member_names_valid",
+        "zip_exact_member_set_valid",
+        "zip_member_types_valid",
+        "zip_compression_valid",
+        "zip_timestamp_policy_valid",
+        "zip_crc32_valid",
+        "zip_local_central_directory_consistent",
+        "zip_no_trailing_data",
+        "manifest_strict_json_valid",
+        "manifest_canonical_json_valid",
+        "manifest_schema_valid",
+        "manifest_payload_inventory_valid",
+        "manifest_ledger_binding_valid",
+        "manifest_observer_binding_valid",
+        "manifest_signature_contract_valid",
+        "payload_member_digests_valid",
+        "payload_member_sizes_valid",
+        "canonicalization_profile_binding_valid",
+        "ios_observation_contract_binding_valid",
+        "manifest_schema_binding_valid",
+        "signature_schema_binding_valid",
+        "transition_ledger_schema_binding_valid",
+        "observer_public_key_encoding_valid",
+        "observer_public_key_curve_membership_valid",
+        "observer_public_key_fingerprint_valid",
+        "ledger_strict_json_valid",
+        "ledger_canonical_json_valid",
+        "ledger_schema_valid",
+        "ledger_identity_binding_valid",
+        "record_digests_valid",
+        "record_chain_valid",
+        "record_sequence_valid",
+        "session_relations_valid",
+        "coverage_relations_valid",
+        "event_endpoint_bindings_valid",
+        "transition_relations_valid",
+        "checkpoint_closure_valid",
+        "checkpoint_signature_document_valid",
+        "checkpoint_signature_subject_valid",
+        "checkpoint_signature_valid",
+        "package_signature_document_valid",
+        "package_signature_subject_valid",
+        "package_signature_valid",
+        "claim_boundary_preserved",
+        "authority_boundary_preserved"
+      ]
+    },
+    "check_status": {
+      "type": "string",
+      "enum": [
+        "passed",
+        "failed",
+        "not_reached"
+      ]
+    },
+    "binding_status": {
+      "type": "string",
+      "enum": [
+        "verified",
+        "mismatch",
+        "not_reached"
+      ]
+    },
+    "component_status": {
+      "type": "string",
+      "enum": [
+        "verified",
+        "rejected",
+        "not_reached"
+      ]
+    },
+    "failure_stage": {
+      "type": "string",
+      "enum": [
+        "input_boundary",
+        "zip_structure",
+        "manifest_admission",
+        "payload_identity",
+        "contract_binding",
+        "observer_identity",
+        "ledger_admission",
+        "record_chain",
+        "semantic_relations",
+        "checkpoint_signature",
+        "package_signature",
+        "claim_boundary",
+        "authority_boundary"
+      ]
+    },
+    "nullable_failure_stage": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/failure_stage"
+        }
+      ]
+    },
+    "authority_boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "authority_effect",
+        "changes_release_authority",
+        "creates_device_control_authority",
+        "creates_gate_result",
+        "creates_release_decision",
+        "verifier_report_is_release_authority"
+      ],
+      "properties": {
+        "authority_effect": {
+          "const": "none"
+        },
+        "changes_release_authority": {
+          "const": false
+        },
+        "creates_device_control_authority": {
+          "const": false
+        },
+        "creates_gate_result": {
+          "const": false
+        },
+        "creates_release_decision": {
+          "const": false
+        },
+        "verifier_report_is_release_authority": {
+          "const": false
+        }
+      }
+    },
+    "claim_boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "causal_completion_claim",
+        "continuous_monitoring_claim",
+        "device_security_claim",
+        "external_validation_claim",
+        "malware_claim",
+        "physical_measurement_claim"
+      ],
+      "properties": {
+        "causal_completion_claim": {
+          "const": "none"
+        },
+        "continuous_monitoring_claim": {
+          "const": "none"
+        },
+        "device_security_claim": {
+          "const": "none"
+        },
+        "external_validation_claim": {
+          "const": "none"
+        },
+        "malware_claim": {
+          "const": "none"
+        },
+        "physical_measurement_claim": {
+          "const": "none"
+        }
+      }
+    },
+    "diagnostic_contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "error_order",
+        "failed_check_id_order",
+        "free_text_diagnostics"
+      ],
+      "properties": {
+        "error_order": {
+          "const": "stage_then_check_id_then_error_code_then_member_path_then_record_sequence_index"
+        },
+        "failed_check_id_order": {
+          "const": "verification_check_contract_order"
+        },
+        "free_text_diagnostics": {
+          "const": "forbidden"
+        }
+      }
+    },
+    "report_contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "canonicalization",
+        "generated_time_field",
+        "stored_bytes",
+        "trailing_newline"
+      ],
+      "properties": {
+        "canonicalization": {
+          "const": "pulsemech_device_canonical_json_v0"
+        },
+        "generated_time_field": {
+          "const": "forbidden"
+        },
+        "stored_bytes": {
+          "const": "must_equal_canonical_reserialization"
+        },
+        "trailing_newline": {
+          "const": false
+        }
+      }
+    },
+    "verification_identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "carrier_sha256",
+        "identity_derivation",
+        "verification_contract",
+        "verification_id",
+        "verifier_source_sha256"
+      ],
+      "properties": {
+        "carrier_sha256": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/sha256"
+            }
+          ]
+        },
+        "identity_derivation": {
+          "const": "carrier_sha256_then_verifier_source_sha256"
+        },
+        "verification_contract": {
+          "const": "pulsemech_device_ledger_verification_v0"
+        },
+        "verification_id": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "pattern": "^device-ledger-verification:[0-9a-f]{64}:[0-9a-f]{64}:v0$"
+            }
+          ]
+        },
+        "verifier_source_sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "tool": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "dependency_profile",
+        "id",
+        "implementation_language",
+        "producer_code_imported",
+        "source_path",
+        "source_revision",
+        "source_sha256",
+        "version"
+      ],
+      "properties": {
+        "dependency_profile": {
+          "const": "python_standard_library_only"
+        },
+        "id": {
+          "const": "verify_pulsemech_device_ledger_v0"
+        },
+        "implementation_language": {
+          "const": "python3"
+        },
+        "producer_code_imported": {
+          "const": false
+        },
+        "source_path": {
+          "const": "tools/verify_pulsemech_device_ledger_v0.py"
+        },
+        "source_revision": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "pattern": "^[0-9a-f]{40}$"
+            }
+          ]
+        },
+        "source_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "version": {
+          "const": "0.1.0"
+        }
+      }
+    },
+    "subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "carrier_file_name",
+        "carrier_sha256",
+        "carrier_size_bytes",
+        "media_type",
+        "package_format"
+      ],
+      "properties": {
+        "carrier_file_name": {
+          "type": "string",
+          "minLength": 13,
+          "maxLength": 256,
+          "pattern": "^[A-Za-z0-9._+\\-]+\\.pulseledger$"
+        },
+        "carrier_sha256": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/sha256"
+            }
+          ]
+        },
+        "carrier_size_bytes": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/i63_positive"
+            }
+          ]
+        },
+        "media_type": {
+          "const": "application/zip"
+        },
+        "package_format": {
+          "const": "pulseledger_zip_v0"
+        }
+      }
+    },
+    "verification_scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "carrier_bytes_in_scope",
+        "checkpoint_signature_in_scope",
+        "external_device_state_in_scope",
+        "external_validation_in_scope",
+        "ledger_schema_in_scope",
+        "ledger_semantics_in_scope",
+        "manifest_semantics_in_scope",
+        "package_signature_in_scope",
+        "payload_member_bytes_in_scope",
+        "physical_measurement_validity_in_scope",
+        "zip_structure_in_scope"
+      ],
+      "properties": {
+        "carrier_bytes_in_scope": {
+          "const": true
+        },
+        "checkpoint_signature_in_scope": {
+          "const": true
+        },
+        "external_device_state_in_scope": {
+          "const": false
+        },
+        "external_validation_in_scope": {
+          "const": false
+        },
+        "ledger_schema_in_scope": {
+          "const": true
+        },
+        "ledger_semantics_in_scope": {
+          "const": true
+        },
+        "manifest_semantics_in_scope": {
+          "const": true
+        },
+        "package_signature_in_scope": {
+          "const": true
+        },
+        "payload_member_bytes_in_scope": {
+          "const": true
+        },
+        "physical_measurement_validity_in_scope": {
+          "const": false
+        },
+        "zip_structure_in_scope": {
+          "const": true
+        }
+      }
+    },
+    "reproduction_context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "external_validation_claim",
+        "producer_environment_available_to_verifier",
+        "reproduction_class",
+        "same_project_implementation",
+        "verifier_implementation_relation"
+      ],
+      "properties": {
+        "external_validation_claim": {
+          "const": "none"
+        },
+        "producer_environment_available_to_verifier": {
+          "type": "boolean"
+        },
+        "reproduction_class": {
+          "type": "string",
+          "enum": [
+            "same_environment",
+            "same_operator_clean_room",
+            "external_operator"
+          ]
+        },
+        "same_project_implementation": {
+          "const": true
+        },
+        "verifier_implementation_relation": {
+          "const": "separate_from_producer_code"
+        }
+      }
+    },
+    "canonicalization_profile_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "binding_status",
+        "byte_identity",
+        "expected_sha256",
+        "expected_size_bytes",
+        "member_path",
+        "observed_sha256",
+        "observed_size_bytes"
+      ],
+      "properties": {
+        "binding_status": {
+          "$ref": "#/$defs/binding_status"
+        },
+        "byte_identity": {
+          "const": "exact_package_member_bytes"
+        },
+        "expected_sha256": {
+          "const": "ddc0e677e04c8678c32e36d21dc79ad509fe6c4a5507322abb6187c6e88c7550"
+        },
+        "expected_size_bytes": {
+          "const": 2719
+        },
+        "member_path": {
+          "const": "contracts/pulsemech_device_canonical_json_v0.json"
+        },
+        "observed_sha256": {
+          "$ref": "#/$defs/nullable_sha256"
+        },
+        "observed_size_bytes": {
+          "$ref": "#/$defs/nullable_i63_positive"
+        }
+      }
+    },
+    "ios_observation_contract_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "binding_status",
+        "byte_identity",
+        "expected_sha256",
+        "expected_size_bytes",
+        "member_path",
+        "observed_sha256",
+        "observed_size_bytes"
+      ],
+      "properties": {
+        "binding_status": {
+          "$ref": "#/$defs/binding_status"
+        },
+        "byte_identity": {
+          "const": "exact_package_member_bytes"
+        },
+        "expected_sha256": {
+          "const": "e537fa04a7fb9e84292a2275e2818cb2012a66867bcd09d3ad3a8ff6cb7767c2"
+        },
+        "expected_size_bytes": {
+          "const": 9893
+        },
+        "member_path": {
+          "const": "contracts/pulsemech_ios_observation_contract_v0.json"
+        },
+        "observed_sha256": {
+          "$ref": "#/$defs/nullable_sha256"
+        },
+        "observed_size_bytes": {
+          "$ref": "#/$defs/nullable_i63_positive"
+        }
+      }
+    },
+    "ledger_manifest_schema_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "binding_status",
+        "byte_identity",
+        "expected_sha256",
+        "expected_size_bytes",
+        "member_path",
+        "observed_sha256",
+        "observed_size_bytes"
+      ],
+      "properties": {
+        "binding_status": {
+          "$ref": "#/$defs/binding_status"
+        },
+        "byte_identity": {
+          "const": "exact_package_member_bytes"
+        },
+        "expected_sha256": {
+          "const": "bf8126db9a9c5c40f1dbe3ad835ae7711a98d77fa8b3a59016f4ebd406d0ce3d"
+        },
+        "expected_size_bytes": {
+          "const": 19913
+        },
+        "member_path": {
+          "const": "schemas/pulsemech_device_ledger_manifest_v0.schema.json"
+        },
+        "observed_sha256": {
+          "$ref": "#/$defs/nullable_sha256"
+        },
+        "observed_size_bytes": {
+          "$ref": "#/$defs/nullable_i63_positive"
+        }
+      }
+    },
+    "signature_schema_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "binding_status",
+        "byte_identity",
+        "expected_sha256",
+        "expected_size_bytes",
+        "member_path",
+        "observed_sha256",
+        "observed_size_bytes"
+      ],
+      "properties": {
+        "binding_status": {
+          "$ref": "#/$defs/binding_status"
+        },
+        "byte_identity": {
+          "const": "exact_package_member_bytes"
+        },
+        "expected_sha256": {
+          "const": "80304b08b73f3c05092909e7917240af94121e2c15b9305440a7e01460c049c0"
+        },
+        "expected_size_bytes": {
+          "const": 5031
+        },
+        "member_path": {
+          "const": "schemas/pulsemech_device_signature_v0.schema.json"
+        },
+        "observed_sha256": {
+          "$ref": "#/$defs/nullable_sha256"
+        },
+        "observed_size_bytes": {
+          "$ref": "#/$defs/nullable_i63_positive"
+        }
+      }
+    },
+    "transition_ledger_schema_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "binding_status",
+        "byte_identity",
+        "expected_sha256",
+        "expected_size_bytes",
+        "member_path",
+        "observed_sha256",
+        "observed_size_bytes"
+      ],
+      "properties": {
+        "binding_status": {
+          "$ref": "#/$defs/binding_status"
+        },
+        "byte_identity": {
+          "const": "exact_package_member_bytes"
+        },
+        "expected_sha256": {
+          "const": "58eddf75d9c89fef4aa3787e3e4db4d86624f4a387b2a33a3c2fd1f972d6c07f"
+        },
+        "expected_size_bytes": {
+          "const": 54069
+        },
+        "member_path": {
+          "const": "schemas/pulsemech_device_transition_ledger_v0.schema.json"
+        },
+        "observed_sha256": {
+          "$ref": "#/$defs/nullable_sha256"
+        },
+        "observed_size_bytes": {
+          "$ref": "#/$defs/nullable_i63_positive"
+        }
+      }
+    },
+    "contract_bindings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "canonicalization_profile",
+        "ios_observation_contract",
+        "ledger_manifest_schema",
+        "signature_schema",
+        "transition_ledger_schema"
+      ],
+      "properties": {
+        "canonicalization_profile": {
+          "$ref": "#/$defs/canonicalization_profile_binding"
+        },
+        "ios_observation_contract": {
+          "$ref": "#/$defs/ios_observation_contract_binding"
+        },
+        "ledger_manifest_schema": {
+          "$ref": "#/$defs/ledger_manifest_schema_binding"
+        },
+        "signature_schema": {
+          "$ref": "#/$defs/signature_schema_binding"
+        },
+        "transition_ledger_schema": {
+          "$ref": "#/$defs/transition_ledger_schema_binding"
+        }
+      }
+    },
+    "member_result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "compressed_size_bytes",
+        "compression_method",
+        "crc32_hex",
+        "media_type",
+        "member_type",
+        "path",
+        "role",
+        "sha256",
+        "size_bytes",
+        "verification_status"
+      ],
+      "properties": {
+        "compressed_size_bytes": {
+          "$ref": "#/$defs/nullable_i63_nonnegative"
+        },
+        "compression_method": {
+          "type": "string",
+          "enum": [
+            "stored",
+            "not_reached"
+          ]
+        },
+        "crc32_hex": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}$"
+            }
+          ]
+        },
+        "media_type": {
+          "type": "string",
+          "enum": [
+            "application/json",
+            "application/schema+json",
+            "application/octet-stream"
+          ]
+        },
+        "member_type": {
+          "type": "string",
+          "enum": [
+            "regular_file",
+            "missing",
+            "invalid",
+            "not_reached"
+          ]
+        },
+        "path": {
+          "$ref": "#/$defs/safe_member_path"
+        },
+        "role": {
+          "$ref": "#/$defs/ascii_identifier"
+        },
+        "sha256": {
+          "$ref": "#/$defs/nullable_sha256"
+        },
+        "size_bytes": {
+          "$ref": "#/$defs/nullable_i63_positive"
+        },
+        "verification_status": {
+          "type": "string",
+          "enum": [
+            "verified",
+            "missing",
+            "unexpected",
+            "invalid",
+            "not_reached"
+          ]
+        }
+      }
+    },
+    "member_result_0": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/member_result"
+        },
+        {
+          "properties": {
+            "media_type": {
+              "const": "application/json"
+            },
+            "path": {
+              "const": "contracts/pulsemech_device_canonical_json_v0.json"
+            },
+            "role": {
+              "const": "canonicalization_profile"
+            }
+          },
+          "required": [
+            "media_type",
+            "path",
+            "role"
+          ]
+        }
+      ]
+    },
+    "member_result_1": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/member_result"
+        },
+        {
+          "properties": {
+            "media_type": {
+              "const": "application/json"
+            },
+            "path": {
+              "const": "contracts/pulsemech_ios_observation_contract_v0.json"
+            },
+            "role": {
+              "const": "ios_observation_contract"
+            }
+          },
+          "required": [
+            "media_type",
+            "path",
+            "role"
+          ]
+        }
+      ]
+    },
+    "member_result_2": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/member_result"
+        },
+        {
+          "properties": {
+            "media_type": {
+              "const": "application/octet-stream"
+            },
+            "path": {
+              "const": "keys/observer-public-key-v0.bin"
+            },
+            "role": {
+              "const": "observer_public_key"
+            }
+          },
+          "required": [
+            "media_type",
+            "path",
+            "role"
+          ]
+        }
+      ]
+    },
+    "member_result_3": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/member_result"
+        },
+        {
+          "properties": {
+            "media_type": {
+              "const": "application/json"
+            },
+            "path": {
+              "const": "ledger/pulsemech_device_transition_ledger_v0.json"
+            },
+            "role": {
+              "const": "transition_ledger"
+            }
+          },
+          "required": [
+            "media_type",
+            "path",
+            "role"
+          ]
+        }
+      ]
+    },
+    "member_result_4": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/member_result"
+        },
+        {
+          "properties": {
+            "media_type": {
+              "const": "application/json"
+            },
+            "path": {
+              "const": "manifest/pulsemech_device_ledger_manifest_v0.json"
+            },
+            "role": {
+              "const": "ledger_manifest"
+            }
+          },
+          "required": [
+            "media_type",
+            "path",
+            "role"
+          ]
+        }
+      ]
+    },
+    "member_result_5": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/member_result"
+        },
+        {
+          "properties": {
+            "media_type": {
+              "const": "application/schema+json"
+            },
+            "path": {
+              "const": "schemas/pulsemech_device_ledger_manifest_v0.schema.json"
+            },
+            "role": {
+              "const": "ledger_manifest_schema"
+            }
+          },
+          "required": [
+            "media_type",
+            "path",
+            "role"
+          ]
+        }
+      ]
+    },
+    "member_result_6": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/member_result"
+        },
+        {
+          "properties": {
+            "media_type": {
+              "const": "application/schema+json"
+            },
+            "path": {
+              "const": "schemas/pulsemech_device_signature_v0.schema.json"
+            },
+            "role": {
+              "const": "signature_schema"
+            }
+          },
+          "required": [
+            "media_type",
+            "path",
+            "role"
+          ]
+        }
+      ]
+    },
+    "member_result_7": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/member_result"
+        },
+        {
+          "properties": {
+            "media_type": {
+              "const": "application/schema+json"
+            },
+            "path": {
+              "const": "schemas/pulsemech_device_transition_ledger_v0.schema.json"
+            },
+            "role": {
+              "const": "transition_ledger_schema"
+            }
+          },
+          "required": [
+            "media_type",
+            "path",
+            "role"
+          ]
+        }
+      ]
+    },
+    "member_result_8": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/member_result"
+        },
+        {
+          "properties": {
+            "media_type": {
+              "const": "application/json"
+            },
+            "path": {
+              "const": "signatures/checkpoint-signature-v0.json"
+            },
+            "role": {
+              "const": "checkpoint_signature"
+            }
+          },
+          "required": [
+            "media_type",
+            "path",
+            "role"
+          ]
+        }
+      ]
+    },
+    "member_result_9": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/member_result"
+        },
+        {
+          "properties": {
+            "media_type": {
+              "const": "application/json"
+            },
+            "path": {
+              "const": "signatures/package-signature-v0.json"
+            },
+            "role": {
+              "const": "package_signature"
+            }
+          },
+          "required": [
+            "media_type",
+            "path",
+            "role"
+          ]
+        }
+      ]
+    },
+    "carrier_verification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "carrier_sha256",
+        "carrier_size_bytes",
+        "manifest_member_path",
+        "member_results",
+        "observed_package_member_count",
+        "observed_payload_member_count",
+        "package_signature_member_path",
+        "status",
+        "total_uncompressed_bytes"
+      ],
+      "properties": {
+        "carrier_sha256": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/sha256"
+            }
+          ]
+        },
+        "carrier_size_bytes": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/i63_positive"
+            }
+          ]
+        },
+        "manifest_member_path": {
+          "const": "manifest/pulsemech_device_ledger_manifest_v0.json"
+        },
+        "member_results": {
+          "type": "array",
+          "maxItems": 10,
+          "prefixItems": [
+            {
+              "$ref": "#/$defs/member_result_0"
+            },
+            {
+              "$ref": "#/$defs/member_result_1"
+            },
+            {
+              "$ref": "#/$defs/member_result_2"
+            },
+            {
+              "$ref": "#/$defs/member_result_3"
+            },
+            {
+              "$ref": "#/$defs/member_result_4"
+            },
+            {
+              "$ref": "#/$defs/member_result_5"
+            },
+            {
+              "$ref": "#/$defs/member_result_6"
+            },
+            {
+              "$ref": "#/$defs/member_result_7"
+            },
+            {
+              "$ref": "#/$defs/member_result_8"
+            },
+            {
+              "$ref": "#/$defs/member_result_9"
+            }
+          ],
+          "items": false
+        },
+        "observed_package_member_count": {
+          "$ref": "#/$defs/nullable_i63_nonnegative"
+        },
+        "observed_payload_member_count": {
+          "$ref": "#/$defs/nullable_i63_nonnegative"
+        },
+        "package_signature_member_path": {
+          "const": "signatures/package-signature-v0.json"
+        },
+        "status": {
+          "$ref": "#/$defs/component_status"
+        },
+        "total_uncompressed_bytes": {
+          "$ref": "#/$defs/nullable_i63_nonnegative"
+        }
+      }
+    },
+    "manifest_verification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "declared_package_member_count",
+        "declared_payload_member_count",
+        "manifest_sha256",
+        "manifest_size_bytes",
+        "member_path",
+        "schema_member_path",
+        "schema_sha256",
+        "schema_size_bytes",
+        "status"
+      ],
+      "properties": {
+        "declared_package_member_count": {
+          "$ref": "#/$defs/nullable_i63_nonnegative"
+        },
+        "declared_payload_member_count": {
+          "$ref": "#/$defs/nullable_i63_nonnegative"
+        },
+        "manifest_sha256": {
+          "$ref": "#/$defs/nullable_sha256"
+        },
+        "manifest_size_bytes": {
+          "$ref": "#/$defs/nullable_i63_positive"
+        },
+        "member_path": {
+          "const": "manifest/pulsemech_device_ledger_manifest_v0.json"
+        },
+        "schema_member_path": {
+          "const": "schemas/pulsemech_device_ledger_manifest_v0.schema.json"
+        },
+        "schema_sha256": {
+          "const": "bf8126db9a9c5c40f1dbe3ad835ae7711a98d77fa8b3a59016f4ebd406d0ce3d"
+        },
+        "schema_size_bytes": {
+          "const": 19913
+        },
+        "status": {
+          "$ref": "#/$defs/component_status"
+        }
+      }
+    },
+    "observer_verification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "curve",
+        "declared_fingerprint_sha256",
+        "fingerprint_algorithm",
+        "fingerprint_subject",
+        "member_path",
+        "public_key_encoding",
+        "public_key_sha256",
+        "public_key_size_bytes",
+        "reconstructed_fingerprint_sha256",
+        "signature_suite",
+        "status"
+      ],
+      "properties": {
+        "curve": {
+          "const": "secp256r1"
+        },
+        "declared_fingerprint_sha256": {
+          "$ref": "#/$defs/nullable_sha256"
+        },
+        "fingerprint_algorithm": {
+          "const": "SHA-256"
+        },
+        "fingerprint_subject": {
+          "const": "exact_65_byte_x963_uncompressed_public_key"
+        },
+        "member_path": {
+          "const": "keys/observer-public-key-v0.bin"
+        },
+        "public_key_encoding": {
+          "const": "x963_uncompressed"
+        },
+        "public_key_sha256": {
+          "$ref": "#/$defs/nullable_sha256"
+        },
+        "public_key_size_bytes": {
+          "$ref": "#/$defs/nullable_i63_positive"
+        },
+        "reconstructed_fingerprint_sha256": {
+          "$ref": "#/$defs/nullable_sha256"
+        },
+        "signature_suite": {
+          "const": "ecdsa-p256-sha256"
+        },
+        "status": {
+          "$ref": "#/$defs/component_status"
+        }
+      }
+    },
+    "record_type_counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "checkpoint",
+        "coverage_interval",
+        "observation_event",
+        "session_boundary",
+        "state_snapshot",
+        "transition"
+      ],
+      "properties": {
+        "checkpoint": {
+          "$ref": "#/$defs/nullable_i63_nonnegative"
+        },
+        "coverage_interval": {
+          "$ref": "#/$defs/nullable_i63_nonnegative"
+        },
+        "observation_event": {
+          "$ref": "#/$defs/nullable_i63_nonnegative"
+        },
+        "session_boundary": {
+          "$ref": "#/$defs/nullable_i63_nonnegative"
+        },
+        "state_snapshot": {
+          "$ref": "#/$defs/nullable_i63_nonnegative"
+        },
+        "transition": {
+          "$ref": "#/$defs/nullable_i63_nonnegative"
+        }
+      }
+    },
+    "ledger_verification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "checkpoint_record_sha256",
+        "first_record_sha256",
+        "ledger_id",
+        "ledger_sha256",
+        "ledger_size_bytes",
+        "member_path",
+        "record_count",
+        "record_type_counts",
+        "schema_member_path",
+        "schema_sha256",
+        "schema_size_bytes",
+        "status",
+        "terminal_record_sha256"
+      ],
+      "properties": {
+        "checkpoint_record_sha256": {
+          "$ref": "#/$defs/nullable_sha256"
+        },
+        "first_record_sha256": {
+          "$ref": "#/$defs/nullable_sha256"
+        },
+        "ledger_id": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/ascii_identifier"
+            }
+          ]
+        },
+        "ledger_sha256": {
+          "$ref": "#/$defs/nullable_sha256"
+        },
+        "ledger_size_bytes": {
+          "$ref": "#/$defs/nullable_i63_positive"
+        },
+        "member_path": {
+          "const": "ledger/pulsemech_device_transition_ledger_v0.json"
+        },
+        "record_count": {
+          "$ref": "#/$defs/nullable_i63_nonnegative"
+        },
+        "record_type_counts": {
+          "$ref": "#/$defs/record_type_counts"
+        },
+        "schema_member_path": {
+          "const": "schemas/pulsemech_device_transition_ledger_v0.schema.json"
+        },
+        "schema_sha256": {
+          "const": "58eddf75d9c89fef4aa3787e3e4db4d86624f4a387b2a33a3c2fd1f972d6c07f"
+        },
+        "schema_size_bytes": {
+          "const": 54069
+        },
+        "status": {
+          "$ref": "#/$defs/component_status"
+        },
+        "terminal_record_sha256": {
+          "$ref": "#/$defs/nullable_sha256"
+        }
+      }
+    },
+    "checkpoint_signature_verification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "declared_signed_object_sha256",
+        "document_sha256",
+        "document_size_bytes",
+        "reconstructed_signature_input_sha256",
+        "reconstructed_signed_object_sha256",
+        "signature_domain",
+        "signature_role",
+        "signature_status",
+        "signature_subject_canonicalization",
+        "signature_subject_framing",
+        "signature_suite",
+        "signed_object_type",
+        "member_path"
+      ],
+      "properties": {
+        "declared_signed_object_sha256": {
+          "$ref": "#/$defs/nullable_sha256"
+        },
+        "document_sha256": {
+          "$ref": "#/$defs/nullable_sha256"
+        },
+        "document_size_bytes": {
+          "$ref": "#/$defs/nullable_i63_positive"
+        },
+        "member_path": {
+          "const": "signatures/checkpoint-signature-v0.json"
+        },
+        "reconstructed_signature_input_sha256": {
+          "$ref": "#/$defs/nullable_sha256"
+        },
+        "reconstructed_signed_object_sha256": {
+          "$ref": "#/$defs/nullable_sha256"
+        },
+        "signature_domain": {
+          "const": "PULSEMECH-DEVICE-LEDGER-CHECKPOINT-V0"
+        },
+        "signature_role": {
+          "const": "ledger_checkpoint"
+        },
+        "signature_status": {
+          "$ref": "#/$defs/component_status"
+        },
+        "signature_subject_canonicalization": {
+          "const": "pulsemech_device_canonical_json_v0"
+        },
+        "signature_subject_framing": {
+          "const": "ascii_domain_separator_then_0x00_then_canonical_subject_json"
+        },
+        "signature_suite": {
+          "const": "ecdsa-p256-sha256"
+        },
+        "signed_object_type": {
+          "const": "checkpoint_record_sha256"
+        }
+      }
+    },
+    "package_signature_verification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "declared_signed_object_sha256",
+        "document_sha256",
+        "document_size_bytes",
+        "reconstructed_signature_input_sha256",
+        "reconstructed_signed_object_sha256",
+        "signature_domain",
+        "signature_role",
+        "signature_status",
+        "signature_subject_canonicalization",
+        "signature_subject_framing",
+        "signature_suite",
+        "signed_object_type",
+        "member_path"
+      ],
+      "properties": {
+        "declared_signed_object_sha256": {
+          "$ref": "#/$defs/nullable_sha256"
+        },
+        "document_sha256": {
+          "$ref": "#/$defs/nullable_sha256"
+        },
+        "document_size_bytes": {
+          "$ref": "#/$defs/nullable_i63_positive"
+        },
+        "member_path": {
+          "const": "signatures/package-signature-v0.json"
+        },
+        "reconstructed_signature_input_sha256": {
+          "$ref": "#/$defs/nullable_sha256"
+        },
+        "reconstructed_signed_object_sha256": {
+          "$ref": "#/$defs/nullable_sha256"
+        },
+        "signature_domain": {
+          "const": "PULSEMECH-DEVICE-LEDGER-PACKAGE-V0"
+        },
+        "signature_role": {
+          "const": "ledger_package"
+        },
+        "signature_status": {
+          "$ref": "#/$defs/component_status"
+        },
+        "signature_subject_canonicalization": {
+          "const": "pulsemech_device_canonical_json_v0"
+        },
+        "signature_subject_framing": {
+          "const": "ascii_domain_separator_then_0x00_then_canonical_subject_json"
+        },
+        "signature_suite": {
+          "const": "ecdsa-p256-sha256"
+        },
+        "signed_object_type": {
+          "const": "ledger_manifest_sha256"
+        }
+      }
+    },
+    "signature_verification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "checkpoint",
+        "package",
+        "signature_schema_member_path",
+        "signature_schema_sha256",
+        "signature_schema_size_bytes"
+      ],
+      "properties": {
+        "checkpoint": {
+          "$ref": "#/$defs/checkpoint_signature_verification"
+        },
+        "package": {
+          "$ref": "#/$defs/package_signature_verification"
+        },
+        "signature_schema_member_path": {
+          "const": "schemas/pulsemech_device_signature_v0.schema.json"
+        },
+        "signature_schema_sha256": {
+          "const": "80304b08b73f3c05092909e7917240af94121e2c15b9305440a7e01460c049c0"
+        },
+        "signature_schema_size_bytes": {
+          "const": 5031
+        }
+      }
+    },
+    "semantic_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "causal_necessity_established_count",
+        "causal_sufficiency_established_count",
+        "continuous_coverage_interval_count",
+        "declared_unavailability_present",
+        "device_security_claim_count",
+        "endpoint_difference_only_transition_count",
+        "event_bound_transition_count",
+        "interrupted_coverage_interval_count",
+        "physical_measurement_claim_count",
+        "retention_completeness_status",
+        "unavailable_initiating_source_transition_count"
+      ],
+      "properties": {
+        "causal_necessity_established_count": {
+          "const": 0
+        },
+        "causal_sufficiency_established_count": {
+          "const": 0
+        },
+        "continuous_coverage_interval_count": {
+          "$ref": "#/$defs/nullable_i63_nonnegative"
+        },
+        "declared_unavailability_present": {
+          "type": "boolean"
+        },
+        "device_security_claim_count": {
+          "const": 0
+        },
+        "endpoint_difference_only_transition_count": {
+          "$ref": "#/$defs/nullable_i63_nonnegative"
+        },
+        "event_bound_transition_count": {
+          "$ref": "#/$defs/nullable_i63_nonnegative"
+        },
+        "interrupted_coverage_interval_count": {
+          "$ref": "#/$defs/nullable_i63_nonnegative"
+        },
+        "physical_measurement_claim_count": {
+          "const": 0
+        },
+        "retention_completeness_status": {
+          "type": "string",
+          "enum": [
+            "package_local_only",
+            "unresolved"
+          ]
+        },
+        "unavailable_initiating_source_transition_count": {
+          "$ref": "#/$defs/nullable_i63_nonnegative"
+        }
+      }
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "input_regular_file",
+        "input_not_symlink",
+        "carrier_size_within_limit",
+        "zip_end_of_central_directory_valid",
+        "zip_member_names_valid",
+        "zip_exact_member_set_valid",
+        "zip_member_types_valid",
+        "zip_compression_valid",
+        "zip_timestamp_policy_valid",
+        "zip_crc32_valid",
+        "zip_local_central_directory_consistent",
+        "zip_no_trailing_data",
+        "manifest_strict_json_valid",
+        "manifest_canonical_json_valid",
+        "manifest_schema_valid",
+        "manifest_payload_inventory_valid",
+        "manifest_ledger_binding_valid",
+        "manifest_observer_binding_valid",
+        "manifest_signature_contract_valid",
+        "payload_member_digests_valid",
+        "payload_member_sizes_valid",
+        "canonicalization_profile_binding_valid",
+        "ios_observation_contract_binding_valid",
+        "manifest_schema_binding_valid",
+        "signature_schema_binding_valid",
+        "transition_ledger_schema_binding_valid",
+        "observer_public_key_encoding_valid",
+        "observer_public_key_curve_membership_valid",
+        "observer_public_key_fingerprint_valid",
+        "ledger_strict_json_valid",
+        "ledger_canonical_json_valid",
+        "ledger_schema_valid",
+        "ledger_identity_binding_valid",
+        "record_digests_valid",
+        "record_chain_valid",
+        "record_sequence_valid",
+        "session_relations_valid",
+        "coverage_relations_valid",
+        "event_endpoint_bindings_valid",
+        "transition_relations_valid",
+        "checkpoint_closure_valid",
+        "checkpoint_signature_document_valid",
+        "checkpoint_signature_subject_valid",
+        "checkpoint_signature_valid",
+        "package_signature_document_valid",
+        "package_signature_subject_valid",
+        "package_signature_valid",
+        "claim_boundary_preserved",
+        "authority_boundary_preserved"
+      ],
+      "properties": {
+        "input_regular_file": {
+          "$ref": "#/$defs/check_status"
+        },
+        "input_not_symlink": {
+          "$ref": "#/$defs/check_status"
+        },
+        "carrier_size_within_limit": {
+          "$ref": "#/$defs/check_status"
+        },
+        "zip_end_of_central_directory_valid": {
+          "$ref": "#/$defs/check_status"
+        },
+        "zip_member_names_valid": {
+          "$ref": "#/$defs/check_status"
+        },
+        "zip_exact_member_set_valid": {
+          "$ref": "#/$defs/check_status"
+        },
+        "zip_member_types_valid": {
+          "$ref": "#/$defs/check_status"
+        },
+        "zip_compression_valid": {
+          "$ref": "#/$defs/check_status"
+        },
+        "zip_timestamp_policy_valid": {
+          "$ref": "#/$defs/check_status"
+        },
+        "zip_crc32_valid": {
+          "$ref": "#/$defs/check_status"
+        },
+        "zip_local_central_directory_consistent": {
+          "$ref": "#/$defs/check_status"
+        },
+        "zip_no_trailing_data": {
+          "$ref": "#/$defs/check_status"
+        },
+        "manifest_strict_json_valid": {
+          "$ref": "#/$defs/check_status"
+        },
+        "manifest_canonical_json_valid": {
+          "$ref": "#/$defs/check_status"
+        },
+        "manifest_schema_valid": {
+          "$ref": "#/$defs/check_status"
+        },
+        "manifest_payload_inventory_valid": {
+          "$ref": "#/$defs/check_status"
+        },
+        "manifest_ledger_binding_valid": {
+          "$ref": "#/$defs/check_status"
+        },
+        "manifest_observer_binding_valid": {
+          "$ref": "#/$defs/check_status"
+        },
+        "manifest_signature_contract_valid": {
+          "$ref": "#/$defs/check_status"
+        },
+        "payload_member_digests_valid": {
+          "$ref": "#/$defs/check_status"
+        },
+        "payload_member_sizes_valid": {
+          "$ref": "#/$defs/check_status"
+        },
+        "canonicalization_profile_binding_valid": {
+          "$ref": "#/$defs/check_status"
+        },
+        "ios_observation_contract_binding_valid": {
+          "$ref": "#/$defs/check_status"
+        },
+        "manifest_schema_binding_valid": {
+          "$ref": "#/$defs/check_status"
+        },
+        "signature_schema_binding_valid": {
+          "$ref": "#/$defs/check_status"
+        },
+        "transition_ledger_schema_binding_valid": {
+          "$ref": "#/$defs/check_status"
+        },
+        "observer_public_key_encoding_valid": {
+          "$ref": "#/$defs/check_status"
+        },
+        "observer_public_key_curve_membership_valid": {
+          "$ref": "#/$defs/check_status"
+        },
+        "observer_public_key_fingerprint_valid": {
+          "$ref": "#/$defs/check_status"
+        },
+        "ledger_strict_json_valid": {
+          "$ref": "#/$defs/check_status"
+        },
+        "ledger_canonical_json_valid": {
+          "$ref": "#/$defs/check_status"
+        },
+        "ledger_schema_valid": {
+          "$ref": "#/$defs/check_status"
+        },
+        "ledger_identity_binding_valid": {
+          "$ref": "#/$defs/check_status"
+        },
+        "record_digests_valid": {
+          "$ref": "#/$defs/check_status"
+        },
+        "record_chain_valid": {
+          "$ref": "#/$defs/check_status"
+        },
+        "record_sequence_valid": {
+          "$ref": "#/$defs/check_status"
+        },
+        "session_relations_valid": {
+          "$ref": "#/$defs/check_status"
+        },
+        "coverage_relations_valid": {
+          "$ref": "#/$defs/check_status"
+        },
+        "event_endpoint_bindings_valid": {
+          "$ref": "#/$defs/check_status"
+        },
+        "transition_relations_valid": {
+          "$ref": "#/$defs/check_status"
+        },
+        "checkpoint_closure_valid": {
+          "$ref": "#/$defs/check_status"
+        },
+        "checkpoint_signature_document_valid": {
+          "$ref": "#/$defs/check_status"
+        },
+        "checkpoint_signature_subject_valid": {
+          "$ref": "#/$defs/check_status"
+        },
+        "checkpoint_signature_valid": {
+          "$ref": "#/$defs/check_status"
+        },
+        "package_signature_document_valid": {
+          "$ref": "#/$defs/check_status"
+        },
+        "package_signature_subject_valid": {
+          "$ref": "#/$defs/check_status"
+        },
+        "package_signature_valid": {
+          "$ref": "#/$defs/check_status"
+        },
+        "claim_boundary_preserved": {
+          "$ref": "#/$defs/check_status"
+        },
+        "authority_boundary_preserved": {
+          "$ref": "#/$defs/check_status"
+        }
+      }
+    },
+    "error_record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "check_id",
+        "error_code",
+        "member_path",
+        "record_sequence_index",
+        "stage"
+      ],
+      "properties": {
+        "check_id": {
+          "$ref": "#/$defs/check_id"
+        },
+        "error_code": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-z0-9_]+$"
+        },
+        "member_path": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/safe_member_path"
+            }
+          ]
+        },
+        "record_sequence_index": {
+          "$ref": "#/$defs/nullable_i63_nonnegative"
+        },
+        "stage": {
+          "$ref": "#/$defs/failure_stage"
+        }
+      }
+    }
+  }
+}
