@@ -1,0 +1,172 @@
+{
+  "$id": "https://github.com/HKati/pulse-release-gates-0.1/schemas/pulsemech_device_signature_v0.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PULSEmech Device Ledger Signature v0",
+  "description": "Closed shape contract for checkpoint and package signatures in the PULSEmech iPhone Device Transition Ledger foundation. A verifier must reconstruct the domain-separated signature subject and must not trust a package-supplied signing-input representation.",
+  "$comment": "Signature digest = SHA-256(ASCII(signature_domain) || 0x00 || canonical_json({ledger_id, observer_public_key_fingerprint_sha256, signature_suite, signed_object_sha256})). Canonical JSON is pulsemech_device_canonical_json_v0. The semantic verifier must also enforce canonical Base64, scalar ranges, low-S form, public-key curve membership, fingerprint equality, and the ECDSA verification equation.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "authority_effect",
+    "curve",
+    "document_type",
+    "ecdsa_s_rule",
+    "ecdsa_scalar_range",
+    "hash_algorithm",
+    "ledger_id",
+    "observer_public_key_fingerprint_sha256",
+    "public_key_encoding",
+    "public_key_fingerprint_subject",
+    "public_key_size_bytes",
+    "schema_version",
+    "signature_base64",
+    "signature_domain",
+    "signature_encoding",
+    "signature_role",
+    "signature_size_bytes",
+    "signature_subject_canonicalization",
+    "signature_subject_framing",
+    "signature_subject_version",
+    "signature_suite",
+    "signed_object_sha256",
+    "signed_object_type"
+  ],
+  "properties": {
+    "authority_effect": {
+      "const": "none"
+    },
+    "curve": {
+      "const": "secp256r1"
+    },
+    "document_type": {
+      "const": "pulsemech_device_signature"
+    },
+    "ecdsa_s_rule": {
+      "const": "low_s_required"
+    },
+    "ecdsa_scalar_range": {
+      "const": "one_to_curve_order_minus_one"
+    },
+    "hash_algorithm": {
+      "const": "SHA-256"
+    },
+    "ledger_id": {
+      "$ref": "#/$defs/ascii_identifier"
+    },
+    "observer_public_key_fingerprint_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "public_key_encoding": {
+      "const": "x963_uncompressed"
+    },
+    "public_key_fingerprint_subject": {
+      "const": "exact_65_byte_x963_uncompressed_public_key"
+    },
+    "public_key_size_bytes": {
+      "const": 65
+    },
+    "schema_version": {
+      "const": "pulsemech_device_signature_v0"
+    },
+    "signature_base64": {
+      "type": "string",
+      "minLength": 88,
+      "maxLength": 88,
+      "pattern": "^[A-Za-z0-9+/]{86}==$",
+      "contentEncoding": "base64",
+      "contentMediaType": "application/octet-stream",
+      "description": "Canonical RFC 4648 Base64 for exactly 64 IEEE P1363 signature bytes. The semantic verifier must decode, require 64 bytes, and require decode-then-reencode equality."
+    },
+    "signature_domain": {
+      "enum": [
+        "PULSEMECH-DEVICE-LEDGER-CHECKPOINT-V0",
+        "PULSEMECH-DEVICE-LEDGER-PACKAGE-V0"
+      ]
+    },
+    "signature_encoding": {
+      "const": "ieee_p1363_fixed_width"
+    },
+    "signature_role": {
+      "enum": [
+        "ledger_checkpoint",
+        "ledger_package"
+      ]
+    },
+    "signature_size_bytes": {
+      "const": 64
+    },
+    "signature_subject_canonicalization": {
+      "const": "pulsemech_device_canonical_json_v0"
+    },
+    "signature_subject_framing": {
+      "const": "ascii_domain_separator_then_0x00_then_canonical_subject_json"
+    },
+    "signature_subject_version": {
+      "const": "pulsemech_device_signature_subject_v0"
+    },
+    "signature_suite": {
+      "const": "ecdsa-p256-sha256"
+    },
+    "signed_object_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "signed_object_type": {
+      "enum": [
+        "checkpoint_record_sha256",
+        "ledger_manifest_sha256"
+      ]
+    }
+  },
+  "oneOf": [
+    {
+      "title": "Checkpoint signature",
+      "properties": {
+        "signature_domain": {
+          "const": "PULSEMECH-DEVICE-LEDGER-CHECKPOINT-V0"
+        },
+        "signature_role": {
+          "const": "ledger_checkpoint"
+        },
+        "signed_object_type": {
+          "const": "checkpoint_record_sha256"
+        }
+      },
+      "required": [
+        "signature_domain",
+        "signature_role",
+        "signed_object_type"
+      ]
+    },
+    {
+      "title": "Package signature",
+      "properties": {
+        "signature_domain": {
+          "const": "PULSEMECH-DEVICE-LEDGER-PACKAGE-V0"
+        },
+        "signature_role": {
+          "const": "ledger_package"
+        },
+        "signed_object_type": {
+          "const": "ledger_manifest_sha256"
+        }
+      },
+      "required": [
+        "signature_domain",
+        "signature_role",
+        "signed_object_type"
+      ]
+    }
+  ],
+  "$defs": {
+    "ascii_identifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "pattern": "^[A-Za-z0-9._:/+\\-]+$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  }
+}
