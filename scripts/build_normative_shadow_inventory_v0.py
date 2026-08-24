@@ -222,7 +222,7 @@ def classify_workflow(path: Path, *, repo_root: Path) -> dict[str, Any]:
             ),
         )
 
-      if rel == ".github/workflows/pulsemech_ledger_swift.yml":
+    if rel == ".github/workflows/pulsemech_ledger_swift.yml":   
         return entry(
             name=name,
             path=rel,
