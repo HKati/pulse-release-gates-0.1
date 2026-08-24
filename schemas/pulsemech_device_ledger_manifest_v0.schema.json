@@ -1,0 +1,732 @@
+{
+  "$id": "https://github.com/HKati/pulse-release-gates-0.1/schemas/pulsemech_device_ledger_manifest_v0.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PULSEmech Device Ledger Package Manifest v0",
+  "description": "Closed manifest contract for the bounded .pulseledger ZIP carrier used by the PULSEmech iPhone Device Transition Ledger foundation. The manifest binds exact payload-member bytes, the canonical ledger identity, checkpoint closure, observer key identity, package layout and signature roles without becoming device-control or release authority.",
+  "$comment": "Semantic verification requirements: the verifier must parse the ZIP without extraction, reconstruct the exact member-name set as payload member paths plus the fixed manifest and package-signature paths, reject duplicates and unsafe members, verify exact member bytes against every declared digest and size, verify the four fixed contract/schema member identities, require the observer-public-key member digest to equal observer_public_key_fingerprint_sha256, require ledger member digest and size to equal ledger_binding, reconstruct ledger summaries and checkpoint_record_sha256 from the ledger, validate checkpoint and package signature documents with pulsemech_device_signature_v0, reconstruct the package-signature subject from the canonical manifest bytes, and compute the exact carrier SHA-256 externally. The manifest never inventories itself or the package-signature member, avoiding circularity.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "authority_boundary",
+    "carrier_contract",
+    "claim_boundary",
+    "created_unix_ns",
+    "document_type",
+    "ledger_binding",
+    "manifest_contract",
+    "observer_binding",
+    "package_format",
+    "package_member_count",
+    "payload_member_count",
+    "payload_members",
+    "record_status",
+    "reference_device_class",
+    "reference_platform",
+    "schema_version",
+    "signature_contract"
+  ],
+  "properties": {
+    "authority_boundary": {
+      "$ref": "#/$defs/authority_boundary"
+    },
+    "carrier_contract": {
+      "$ref": "#/$defs/carrier_contract"
+    },
+    "claim_boundary": {
+      "$ref": "#/$defs/claim_boundary"
+    },
+    "created_unix_ns": {
+      "$ref": "#/$defs/i63_nonnegative"
+    },
+    "document_type": {
+      "const": "pulsemech_device_ledger_manifest"
+    },
+    "ledger_binding": {
+      "$ref": "#/$defs/ledger_binding"
+    },
+    "manifest_contract": {
+      "$ref": "#/$defs/manifest_contract"
+    },
+    "observer_binding": {
+      "$ref": "#/$defs/observer_binding"
+    },
+    "package_format": {
+      "const": "pulseledger_zip_v0"
+    },
+    "package_member_count": {
+      "const": 10
+    },
+    "payload_member_count": {
+      "const": 8
+    },
+    "payload_members": {
+      "type": "array",
+      "minItems": 8,
+      "maxItems": 8,
+      "prefixItems": [
+        {
+          "$ref": "#/$defs/canonicalization_profile_member"
+        },
+        {
+          "$ref": "#/$defs/observation_contract_member"
+        },
+        {
+          "$ref": "#/$defs/observer_public_key_member"
+        },
+        {
+          "$ref": "#/$defs/transition_ledger_member"
+        },
+        {
+          "$ref": "#/$defs/manifest_schema_member"
+        },
+        {
+          "$ref": "#/$defs/signature_schema_member"
+        },
+        {
+          "$ref": "#/$defs/transition_ledger_schema_member"
+        },
+        {
+          "$ref": "#/$defs/checkpoint_signature_member"
+        }
+      ],
+      "items": false
+    },
+    "record_status": {
+      "type": "string",
+      "enum": [
+        "synthetic_reference",
+        "observed"
+      ]
+    },
+    "reference_device_class": {
+      "const": "iphone"
+    },
+    "reference_platform": {
+      "const": "ios"
+    },
+    "schema_version": {
+      "const": "pulsemech_device_ledger_manifest_v0"
+    },
+    "signature_contract": {
+      "$ref": "#/$defs/signature_contract"
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "i63_nonnegative": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9223372036854775807
+    },
+    "ascii_identifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "pattern": "^[A-Za-z0-9._:/+\\-]+$"
+    },
+    "authority_boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "authority_effect",
+        "changes_release_authority",
+        "creates_device_control_authority",
+        "creates_release_decision"
+      ],
+      "properties": {
+        "authority_effect": {
+          "const": "none"
+        },
+        "changes_release_authority": {
+          "const": false
+        },
+        "creates_device_control_authority": {
+          "const": false
+        },
+        "creates_release_decision": {
+          "const": false
+        }
+      }
+    },
+    "claim_boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "causal_completion_claim",
+        "continuous_monitoring_claim",
+        "device_security_claim",
+        "external_validation_claim",
+        "malware_claim",
+        "physical_measurement_claim"
+      ],
+      "properties": {
+        "causal_completion_claim": {
+          "const": "none"
+        },
+        "continuous_monitoring_claim": {
+          "const": "none"
+        },
+        "device_security_claim": {
+          "const": "none"
+        },
+        "external_validation_claim": {
+          "const": "none"
+        },
+        "malware_claim": {
+          "const": "none"
+        },
+        "physical_measurement_claim": {
+          "const": "none"
+        }
+      }
+    },
+    "carrier_contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "archive_comment",
+        "archive_format",
+        "archive_member_set",
+        "carrier_identity_location",
+        "compression_method",
+        "crc32",
+        "data_descriptors",
+        "directory_entries",
+        "duplicate_member_names",
+        "encrypted_members",
+        "extra_fields",
+        "file_extension",
+        "local_central_directory_consistency",
+        "max_carrier_bytes",
+        "max_member_bytes",
+        "max_total_uncompressed_bytes",
+        "member_comments",
+        "member_name_encoding",
+        "member_name_policy",
+        "member_order_semantics",
+        "non_regular_members",
+        "symlinks",
+        "timestamp_policy",
+        "trailing_data",
+        "zip64"
+      ],
+      "properties": {
+        "archive_comment": {
+          "const": "forbidden"
+        },
+        "archive_format": {
+          "const": "zip"
+        },
+        "carrier_identity_location": {
+          "const": "verifier_report_only"
+        },
+        "compression_method": {
+          "const": "stored"
+        },
+        "data_descriptors": {
+          "const": "forbidden"
+        },
+        "directory_entries": {
+          "const": "forbidden"
+        },
+        "encrypted_members": {
+          "const": "forbidden"
+        },
+        "extra_fields": {
+          "const": "forbidden"
+        },
+        "file_extension": {
+          "const": ".pulseledger"
+        },
+        "max_carrier_bytes": {
+          "const": 33554432
+        },
+        "max_member_bytes": {
+          "const": 16777216
+        },
+        "max_total_uncompressed_bytes": {
+          "const": 33554432
+        },
+        "member_comments": {
+          "const": "forbidden"
+        },
+        "member_name_encoding": {
+          "const": "ASCII"
+        },
+        "member_name_policy": {
+          "const": "relative_posix_no_dot_segments_no_backslash_no_nul"
+        },
+        "member_order_semantics": {
+          "const": "not_authority_bearing_exact_carrier_hash_records_instance_order"
+        },
+        "non_regular_members": {
+          "const": "forbidden"
+        },
+        "symlinks": {
+          "const": "forbidden"
+        },
+        "timestamp_policy": {
+          "const": "fixed_1980_01_01_00_00_00"
+        },
+        "zip64": {
+          "const": "forbidden"
+        },
+        "archive_member_set": {
+          "const": "exact_payload_paths_plus_manifest_and_package_signature"
+        },
+        "crc32": {
+          "const": "required_and_verified"
+        },
+        "duplicate_member_names": {
+          "const": "forbidden"
+        },
+        "local_central_directory_consistency": {
+          "const": "required"
+        },
+        "trailing_data": {
+          "const": "forbidden"
+        }
+      }
+    },
+    "manifest_contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "canonicalization",
+        "digest_algorithm",
+        "digest_subject",
+        "manifest_path",
+        "manifest_self_inventory",
+        "package_signature_inventory",
+        "package_signature_path"
+      ],
+      "properties": {
+        "canonicalization": {
+          "const": "pulsemech_device_canonical_json_v0"
+        },
+        "digest_algorithm": {
+          "const": "SHA-256"
+        },
+        "digest_subject": {
+          "const": "exact_canonical_manifest_bytes"
+        },
+        "manifest_path": {
+          "const": "manifest/pulsemech_device_ledger_manifest_v0.json"
+        },
+        "manifest_self_inventory": {
+          "const": "excluded_to_avoid_circularity"
+        },
+        "package_signature_inventory": {
+          "const": "excluded_to_avoid_circularity"
+        },
+        "package_signature_path": {
+          "const": "signatures/package-signature-v0.json"
+        }
+      }
+    },
+    "ledger_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "checkpoint_record_sha256",
+        "ledger_id",
+        "ledger_member_path",
+        "ledger_schema_member_path",
+        "ledger_schema_sha256",
+        "ledger_sha256",
+        "ledger_size_bytes",
+        "record_count",
+        "terminal_record_sha256"
+      ],
+      "properties": {
+        "checkpoint_record_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "ledger_id": {
+          "$ref": "#/$defs/ascii_identifier"
+        },
+        "ledger_member_path": {
+          "const": "ledger/pulsemech_device_transition_ledger_v0.json"
+        },
+        "ledger_schema_member_path": {
+          "const": "schemas/pulsemech_device_transition_ledger_v0.schema.json"
+        },
+        "ledger_schema_sha256": {
+          "const": "58eddf75d9c89fef4aa3787e3e4db4d86624f4a387b2a33a3c2fd1f972d6c07f"
+        },
+        "ledger_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "ledger_size_bytes": {
+          "$ref": "#/$defs/i63_positive"
+        },
+        "record_count": {
+          "$ref": "#/$defs/i63_positive"
+        },
+        "terminal_record_sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "observer_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "fingerprint_algorithm",
+        "fingerprint_subject",
+        "observer_public_key_fingerprint_sha256",
+        "public_key_encoding",
+        "public_key_member_path",
+        "public_key_size_bytes",
+        "signature_suite"
+      ],
+      "properties": {
+        "fingerprint_algorithm": {
+          "const": "SHA-256"
+        },
+        "fingerprint_subject": {
+          "const": "exact_65_byte_x963_uncompressed_public_key"
+        },
+        "observer_public_key_fingerprint_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "public_key_encoding": {
+          "const": "x963_uncompressed"
+        },
+        "public_key_member_path": {
+          "const": "keys/observer-public-key-v0.bin"
+        },
+        "public_key_size_bytes": {
+          "const": 65
+        },
+        "signature_suite": {
+          "const": "ecdsa-p256-sha256"
+        }
+      }
+    },
+    "signature_contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "checkpoint_signature_path",
+        "checkpoint_signed_object_type",
+        "package_signature_path",
+        "package_signature_subject",
+        "package_signed_object_type",
+        "signature_schema_member_path",
+        "signature_schema_sha256",
+        "signature_suite"
+      ],
+      "properties": {
+        "checkpoint_signature_path": {
+          "const": "signatures/checkpoint-signature-v0.json"
+        },
+        "checkpoint_signed_object_type": {
+          "const": "checkpoint_record_sha256"
+        },
+        "package_signature_path": {
+          "const": "signatures/package-signature-v0.json"
+        },
+        "package_signature_subject": {
+          "const": "SHA-256_of_exact_canonical_manifest_bytes"
+        },
+        "package_signed_object_type": {
+          "const": "ledger_manifest_sha256"
+        },
+        "signature_schema_member_path": {
+          "const": "schemas/pulsemech_device_signature_v0.schema.json"
+        },
+        "signature_schema_sha256": {
+          "const": "80304b08b73f3c05092909e7917240af94121e2c15b9305440a7e01460c049c0"
+        },
+        "signature_suite": {
+          "const": "ecdsa-p256-sha256"
+        }
+      }
+    },
+    "payload_member": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "byte_identity",
+        "media_type",
+        "path",
+        "role",
+        "sha256",
+        "size_bytes"
+      ],
+      "properties": {
+        "byte_identity": {
+          "const": "exact_member_bytes"
+        },
+        "media_type": {
+          "type": "string",
+          "enum": [
+            "application/json",
+            "application/schema+json",
+            "application/octet-stream"
+          ]
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "pattern": "^[A-Za-z0-9._/+\\-]+$"
+        },
+        "role": {
+          "$ref": "#/$defs/ascii_identifier"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "size_bytes": {
+          "$ref": "#/$defs/i63_positive"
+        }
+      }
+    },
+    "canonicalization_profile_member": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/payload_member"
+        },
+        {
+          "properties": {
+            "path": {
+              "const": "contracts/pulsemech_device_canonical_json_v0.json"
+            },
+            "role": {
+              "const": "canonicalization_profile"
+            },
+            "media_type": {
+              "const": "application/json"
+            },
+            "sha256": {
+              "const": "ddc0e677e04c8678c32e36d21dc79ad509fe6c4a5507322abb6187c6e88c7550"
+            },
+            "size_bytes": {
+              "const": 2719
+            }
+          },
+          "required": [
+            "path",
+            "role",
+            "media_type",
+            "sha256",
+            "size_bytes"
+          ]
+        }
+      ]
+    },
+    "observation_contract_member": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/payload_member"
+        },
+        {
+          "properties": {
+            "path": {
+              "const": "contracts/pulsemech_ios_observation_contract_v0.json"
+            },
+            "role": {
+              "const": "ios_observation_contract"
+            },
+            "media_type": {
+              "const": "application/json"
+            },
+            "sha256": {
+              "const": "e537fa04a7fb9e84292a2275e2818cb2012a66867bcd09d3ad3a8ff6cb7767c2"
+            },
+            "size_bytes": {
+              "const": 9893
+            }
+          },
+          "required": [
+            "path",
+            "role",
+            "media_type",
+            "sha256",
+            "size_bytes"
+          ]
+        }
+      ]
+    },
+    "observer_public_key_member": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/payload_member"
+        },
+        {
+          "properties": {
+            "path": {
+              "const": "keys/observer-public-key-v0.bin"
+            },
+            "role": {
+              "const": "observer_public_key"
+            },
+            "media_type": {
+              "const": "application/octet-stream"
+            },
+            "size_bytes": {
+              "const": 65
+            }
+          },
+          "required": [
+            "path",
+            "role",
+            "media_type",
+            "size_bytes"
+          ]
+        }
+      ]
+    },
+    "transition_ledger_member": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/payload_member"
+        },
+        {
+          "properties": {
+            "path": {
+              "const": "ledger/pulsemech_device_transition_ledger_v0.json"
+            },
+            "role": {
+              "const": "transition_ledger"
+            },
+            "media_type": {
+              "const": "application/json"
+            }
+          },
+          "required": [
+            "path",
+            "role",
+            "media_type"
+          ]
+        }
+      ]
+    },
+    "manifest_schema_member": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/payload_member"
+        },
+        {
+          "properties": {
+            "path": {
+              "const": "schemas/pulsemech_device_ledger_manifest_v0.schema.json"
+            },
+            "role": {
+              "const": "ledger_manifest_schema"
+            },
+            "media_type": {
+              "const": "application/schema+json"
+            }
+          },
+          "required": [
+            "path",
+            "role",
+            "media_type"
+          ]
+        }
+      ]
+    },
+    "signature_schema_member": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/payload_member"
+        },
+        {
+          "properties": {
+            "path": {
+              "const": "schemas/pulsemech_device_signature_v0.schema.json"
+            },
+            "role": {
+              "const": "signature_schema"
+            },
+            "media_type": {
+              "const": "application/schema+json"
+            },
+            "sha256": {
+              "const": "80304b08b73f3c05092909e7917240af94121e2c15b9305440a7e01460c049c0"
+            },
+            "size_bytes": {
+              "const": 5031
+            }
+          },
+          "required": [
+            "path",
+            "role",
+            "media_type",
+            "sha256",
+            "size_bytes"
+          ]
+        }
+      ]
+    },
+    "transition_ledger_schema_member": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/payload_member"
+        },
+        {
+          "properties": {
+            "path": {
+              "const": "schemas/pulsemech_device_transition_ledger_v0.schema.json"
+            },
+            "role": {
+              "const": "transition_ledger_schema"
+            },
+            "media_type": {
+              "const": "application/schema+json"
+            },
+            "sha256": {
+              "const": "58eddf75d9c89fef4aa3787e3e4db4d86624f4a387b2a33a3c2fd1f972d6c07f"
+            },
+            "size_bytes": {
+              "const": 54069
+            }
+          },
+          "required": [
+            "path",
+            "role",
+            "media_type",
+            "sha256",
+            "size_bytes"
+          ]
+        }
+      ]
+    },
+    "checkpoint_signature_member": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/payload_member"
+        },
+        {
+          "properties": {
+            "path": {
+              "const": "signatures/checkpoint-signature-v0.json"
+            },
+            "role": {
+              "const": "checkpoint_signature"
+            },
+            "media_type": {
+              "const": "application/json"
+            }
+          },
+          "required": [
+            "path",
+            "role",
+            "media_type"
+          ]
+        }
+      ]
+    },
+    "i63_positive": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9223372036854775807
+    }
+  }
+}

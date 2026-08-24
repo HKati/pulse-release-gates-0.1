@@ -1,0 +1,84 @@
+{
+  "arrays": {
+    "order": "preserved"
+  },
+  "authority_effect": "none",
+  "document_type": "pulsemech_device_canonical_json_profile",
+  "encoding": {
+    "bom": "forbidden",
+    "character_encoding": "UTF-8",
+    "malformed_sequences": "rejected"
+  },
+  "hashing": {
+    "algorithm": "SHA-256",
+    "hex_encoding": "lowercase"
+  },
+  "numbers": {
+    "allowed": "signed_64_bit_integers_only",
+    "floating_point": "forbidden",
+    "leading_zero": "forbidden_except_zero",
+    "lexical_form": "base_10_no_plus_no_fraction_no_exponent",
+    "negative_zero": "forbidden",
+    "non_finite": "forbidden",
+    "zero_encoding": "0"
+  },
+  "objects": {
+    "duplicate_decoded_keys": "rejected_after_escape_decoding_before_normalization",
+    "key_normalization": "NFC",
+    "key_order": "ascending_unsigned_lexicographic_order_of_normalized_utf8_bytes",
+    "normalized_key_collisions": "rejected_before_sorting_and_serialization",
+    "prefix_order": "shorter_normalized_utf8_key_first"
+  },
+  "processing_order": [
+    "strict_utf8_decode",
+    "parse_json_and_decode_string_escapes",
+    "reject_duplicate_decoded_keys",
+    "reject_unpaired_surrogates",
+    "reject_code_points_unassigned_in_unicode_14_0_0",
+    "normalize_object_keys_and_string_values_to_nfc",
+    "reject_normalized_key_collisions",
+    "sort_object_keys_by_normalized_utf8_bytes",
+    "serialize_with_mandatory_escape_forms"
+  ],
+  "profile_id": "pulsemech_device_canonical_json_v0",
+  "profile_version": "0.1.0",
+  "record_status": "normative_contract",
+  "serialization": {
+    "escape_forms_not_declared_by_this_profile": "forbidden",
+    "escape_forward_slash": false,
+    "escape_non_ascii": false,
+    "other_u0000_to_u001f": {
+      "encoding": "\\u00xx",
+      "hex_digits": "lowercase",
+      "range_excludes": [
+        "U+0008",
+        "U+0009",
+        "U+000A",
+        "U+000C",
+        "U+000D"
+      ]
+    },
+    "required_escape_map": {
+      "U+0008": "\\b",
+      "U+0009": "\\t",
+      "U+000A": "\\n",
+      "U+000C": "\\f",
+      "U+000D": "\\r",
+      "U+0022": "\\\"",
+      "U+005C": "\\\\"
+    },
+    "stored_bytes": "must_equal_canonical_reserialization",
+    "trailing_newline": false,
+    "unescaped_character_rule": "all_allowed_unicode_scalars_except_u0000_to_u001f_u0022_u005c_are_emitted_as_direct_utf8",
+    "whitespace": "none"
+  },
+  "strings": {
+    "allowed_code_points": "unicode_scalar_values_assigned_in_unicode_14_0_0",
+    "normalization": "NFC",
+    "normalization_data_version": "Unicode 14.0.0",
+    "normalization_scope": "object_keys_and_string_values",
+    "unassigned_code_points": "rejected_relative_to_unicode_14_0_0",
+    "unpaired_surrogates": "forbidden"
+  },
+  "top_level": "JSON object"
+}

@@ -1,0 +1,1983 @@
+{
+  "$id": "https://github.com/HKati/pulse-release-gates-0.1/schemas/pulsemech_device_transition_ledger_v0.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PULSEmech iPhone Device Transition Ledger v0",
+  "description": "Closed shape contract for the synthetic and future observed PULSEmech iPhone Device Transition Ledger. Cross-record digests, contiguous ordering, identifier uniqueness, event-to-endpoint relations, coverage semantics, checkpoint closure and signatures are reconstructed by the separately implemented verifier.",
+  "$comment": "Semantic verification requirements: records are ordered exactly by sequence_index, indices are contiguous from zero, record IDs are unique, the first previous_record_sha256 is null, every later previous_record_sha256 equals the immediately previous exact record digest, and record_sha256 = SHA-256(canonical JSON of the complete record excluding only record_sha256). For event-bound transitions, the source snapshot is the greatest eligible observed network snapshot before the bound event and the target snapshot is the least eligible observed network snapshot after it; the target snapshot must bind that event, no intervening network event is permitted, and one event may materialize at most one transition. For interrupted transitions, the source is the last bound snapshot before the window-close boundary and the target is the first bound snapshot after a new session has received a fresh path-update callback. Duplicate window-close callbacks do not create a second gap; disconnect is terminal and accepted once. Top-level summary and checkpoint counts, IDs and digests must be reconstructed rather than trusted.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "authority_boundary",
+    "canonicalization_profile",
+    "claim_boundary",
+    "document_type",
+    "ledger_identity",
+    "ledger_summary",
+    "observation_contract",
+    "observer_identity",
+    "record_status",
+    "records",
+    "reference_device_class",
+    "reference_platform",
+    "schema_version",
+    "signature_schema"
+  ],
+  "properties": {
+    "authority_boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "authority_effect",
+        "changes_release_authority",
+        "creates_device_control_authority",
+        "creates_release_decision"
+      ],
+      "properties": {
+        "authority_effect": {
+          "const": "none"
+        },
+        "changes_release_authority": {
+          "const": false
+        },
+        "creates_device_control_authority": {
+          "const": false
+        },
+        "creates_release_decision": {
+          "const": false
+        }
+      }
+    },
+    "canonicalization_profile": {
+      "$ref": "#/$defs/canonicalization_profile_binding"
+    },
+    "claim_boundary": {
+      "$ref": "#/$defs/claim_boundary"
+    },
+    "document_type": {
+      "const": "pulsemech_device_transition_ledger"
+    },
+    "ledger_identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "created_unix_ns",
+        "ledger_id"
+      ],
+      "properties": {
+        "created_unix_ns": {
+          "$ref": "#/$defs/i63_nonnegative"
+        },
+        "ledger_id": {
+          "$ref": "#/$defs/ascii_identifier"
+        }
+      }
+    },
+    "ledger_summary": {
+      "$ref": "#/$defs/ledger_summary"
+    },
+    "observation_contract": {
+      "$ref": "#/$defs/observation_contract_binding"
+    },
+    "observer_identity": {
+      "$ref": "#/$defs/observer_identity"
+    },
+    "record_status": {
+      "type": "string",
+      "enum": [
+        "synthetic_reference",
+        "observed"
+      ]
+    },
+    "records": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 100000,
+      "items": {
+        "$ref": "#/$defs/ledger_record"
+      }
+    },
+    "reference_device_class": {
+      "const": "iphone"
+    },
+    "reference_platform": {
+      "const": "ios"
+    },
+    "schema_version": {
+      "const": "pulsemech_device_transition_ledger_v0"
+    },
+    "signature_schema": {
+      "$ref": "#/$defs/signature_schema_binding"
+    }
+  },
+  "$defs": {
+    "ascii_identifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "pattern": "^[A-Za-z0-9._:/+\\-]+$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "i63_nonnegative": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9223372036854775807
+    },
+    "nullable_identifier": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/ascii_identifier"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "nullable_sha256": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/sha256"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "nullable_i63_nonnegative": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/i63_nonnegative"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "record_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "record_id",
+        "record_sha256",
+        "sequence_index"
+      ],
+      "properties": {
+        "record_id": {
+          "$ref": "#/$defs/ascii_identifier"
+        },
+        "record_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "sequence_index": {
+          "$ref": "#/$defs/i63_nonnegative"
+        }
+      }
+    },
+    "nullable_record_ref": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/record_ref"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "claim_boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "causal_completion_claim",
+        "continuous_monitoring_claim",
+        "device_security_claim",
+        "malware_claim",
+        "physical_measurement_claim",
+        "release_authority_effect",
+        "system_wide_network_claim"
+      ],
+      "properties": {
+        "causal_completion_claim": {
+          "const": "none"
+        },
+        "continuous_monitoring_claim": {
+          "const": "none"
+        },
+        "device_security_claim": {
+          "const": "none"
+        },
+        "malware_claim": {
+          "const": "none"
+        },
+        "physical_measurement_claim": {
+          "const": "none"
+        },
+        "release_authority_effect": {
+          "const": "none"
+        },
+        "system_wide_network_claim": {
+          "const": "none"
+        }
+      }
+    },
+    "canonicalization_profile_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "digest_algorithm",
+        "digest_subject",
+        "member_path",
+        "profile_id",
+        "profile_sha256",
+        "profile_version"
+      ],
+      "properties": {
+        "digest_algorithm": {
+          "const": "SHA-256"
+        },
+        "digest_subject": {
+          "const": "exact_package_member_bytes"
+        },
+        "member_path": {
+          "const": "contracts/pulsemech_device_canonical_json_v0.json"
+        },
+        "profile_id": {
+          "const": "pulsemech_device_canonical_json_v0"
+        },
+        "profile_sha256": {
+          "const": "ddc0e677e04c8678c32e36d21dc79ad509fe6c4a5507322abb6187c6e88c7550"
+        },
+        "profile_version": {
+          "const": "0.1.0"
+        }
+      }
+    },
+    "observation_contract_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contract_id",
+        "contract_sha256",
+        "contract_version",
+        "digest_algorithm",
+        "digest_subject",
+        "member_path"
+      ],
+      "properties": {
+        "contract_id": {
+          "const": "pulsemech_ios_observation_contract_v0"
+        },
+        "contract_sha256": {
+          "const": "e537fa04a7fb9e84292a2275e2818cb2012a66867bcd09d3ad3a8ff6cb7767c2"
+        },
+        "contract_version": {
+          "const": "0.1.0"
+        },
+        "digest_algorithm": {
+          "const": "SHA-256"
+        },
+        "digest_subject": {
+          "const": "exact_package_member_bytes"
+        },
+        "member_path": {
+          "const": "contracts/pulsemech_ios_observation_contract_v0.json"
+        }
+      }
+    },
+    "signature_schema_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "digest_algorithm",
+        "digest_subject",
+        "member_path",
+        "schema_id",
+        "schema_sha256",
+        "schema_version"
+      ],
+      "properties": {
+        "digest_algorithm": {
+          "const": "SHA-256"
+        },
+        "digest_subject": {
+          "const": "exact_package_member_bytes"
+        },
+        "member_path": {
+          "const": "schemas/pulsemech_device_signature_v0.schema.json"
+        },
+        "schema_id": {
+          "const": "pulsemech_device_signature_v0"
+        },
+        "schema_sha256": {
+          "const": "80304b08b73f3c05092909e7917240af94121e2c15b9305440a7e01460c049c0"
+        },
+        "schema_version": {
+          "const": "pulsemech_device_signature_v0"
+        }
+      }
+    },
+    "network_status": {
+      "type": "string",
+      "enum": [
+        "satisfied",
+        "unsatisfied",
+        "requires_connection",
+        "unknown"
+      ]
+    },
+    "available_interface_types": {
+      "type": "array",
+      "uniqueItems": true,
+      "maxItems": 6,
+      "items": {
+        "type": "string",
+        "enum": [
+          "wifi",
+          "cellular",
+          "wired_ethernet",
+          "loopback",
+          "other",
+          "unknown"
+        ]
+      }
+    },
+    "used_interface_types": {
+      "type": "array",
+      "uniqueItems": true,
+      "maxItems": 5,
+      "items": {
+        "type": "string",
+        "enum": [
+          "wifi",
+          "cellular",
+          "wired_ethernet",
+          "loopback",
+          "other"
+        ]
+      }
+    },
+    "network_state": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "available_interface_types",
+        "is_constrained",
+        "is_expensive",
+        "status",
+        "supports_dns",
+        "supports_ipv4",
+        "supports_ipv6",
+        "used_interface_types"
+      ],
+      "properties": {
+        "available_interface_types": {
+          "$ref": "#/$defs/available_interface_types"
+        },
+        "is_constrained": {
+          "type": "boolean"
+        },
+        "is_expensive": {
+          "type": "boolean"
+        },
+        "status": {
+          "$ref": "#/$defs/network_status"
+        },
+        "supports_dns": {
+          "type": "boolean"
+        },
+        "supports_ipv4": {
+          "type": "boolean"
+        },
+        "supports_ipv6": {
+          "type": "boolean"
+        },
+        "used_interface_types": {
+          "$ref": "#/$defs/used_interface_types"
+        }
+      }
+    },
+    "app_lifecycle_surface": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "availability",
+        "source_interface",
+        "state",
+        "surface_id"
+      ],
+      "properties": {
+        "availability": {
+          "const": "observed"
+        },
+        "source_interface": {
+          "const": "UIKit UIScene.activationState and UISceneDelegate lifecycle callbacks"
+        },
+        "state": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "activation_state"
+          ],
+          "properties": {
+            "activation_state": {
+              "type": "string",
+              "enum": [
+                "foreground_active",
+                "foreground_inactive",
+                "background",
+                "unattached",
+                "unknown"
+              ]
+            }
+          }
+        },
+        "surface_id": {
+          "const": "app_lifecycle"
+        }
+      }
+    },
+    "network_surface_observed": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "availability",
+        "source_interface",
+        "state",
+        "surface_id"
+      ],
+      "properties": {
+        "availability": {
+          "const": "observed"
+        },
+        "source_interface": {
+          "const": "Network.framework NWPathMonitor.pathUpdateHandler"
+        },
+        "state": {
+          "$ref": "#/$defs/network_state"
+        },
+        "surface_id": {
+          "const": "network_path"
+        }
+      }
+    },
+    "network_surface_unavailable": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "availability",
+        "reason",
+        "source_interface",
+        "state",
+        "surface_id"
+      ],
+      "properties": {
+        "availability": {
+          "const": "unavailable"
+        },
+        "reason": {
+          "type": "string",
+          "enum": [
+            "awaiting_first_path_update",
+            "awaiting_fresh_post_reopen_path_update",
+            "observation_window_closed",
+            "observer_not_running"
+          ]
+        },
+        "source_interface": {
+          "const": "Network.framework NWPathMonitor.pathUpdateHandler"
+        },
+        "state": {
+          "type": "null"
+        },
+        "surface_id": {
+          "const": "network_path"
+        }
+      }
+    },
+    "network_surface_unsupported": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "availability",
+        "reason",
+        "source_interface",
+        "state",
+        "surface_id"
+      ],
+      "properties": {
+        "availability": {
+          "const": "unsupported"
+        },
+        "reason": {
+          "type": "string",
+          "enum": [
+            "platform_contract_not_supported",
+            "required_api_unavailable"
+          ]
+        },
+        "source_interface": {
+          "const": "Network.framework NWPathMonitor.pathUpdateHandler"
+        },
+        "state": {
+          "type": "null"
+        },
+        "surface_id": {
+          "const": "network_path"
+        }
+      }
+    },
+    "network_surface": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/network_surface_observed"
+        },
+        {
+          "$ref": "#/$defs/network_surface_unavailable"
+        },
+        {
+          "$ref": "#/$defs/network_surface_unsupported"
+        }
+      ]
+    },
+    "session_boundary_payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "boundary_id",
+        "boundary_kind",
+        "duplicate_boundary_rule",
+        "lifecycle_event",
+        "network_surface_after_boundary",
+        "observation_window_state",
+        "payload_type",
+        "previous_session_id",
+        "session_terminal"
+      ],
+      "properties": {
+        "boundary_id": {
+          "$ref": "#/$defs/ascii_identifier"
+        },
+        "boundary_kind": {
+          "type": "string",
+          "enum": [
+            "opened",
+            "observation_window_closed",
+            "session_terminated"
+          ]
+        },
+        "duplicate_boundary_rule": {
+          "type": "string",
+          "enum": [
+            "not_applicable_new_session",
+            "idempotent_no_second_gap_start",
+            "terminal_once_no_future_events"
+          ]
+        },
+        "lifecycle_event": {
+          "type": "string",
+          "enum": [
+            "scene_did_become_active",
+            "scene_will_resign_active",
+            "scene_did_disconnect"
+          ]
+        },
+        "network_surface_after_boundary": {
+          "type": "string",
+          "enum": [
+            "unavailable_until_fresh_path_update",
+            "last_bound_value_retained_for_gap_source_only",
+            "unavailable_terminal"
+          ]
+        },
+        "observation_window_state": {
+          "type": "string",
+          "enum": [
+            "open",
+            "closed",
+            "terminal"
+          ]
+        },
+        "payload_type": {
+          "const": "session_boundary"
+        },
+        "previous_session_id": {
+          "$ref": "#/$defs/nullable_identifier"
+        },
+        "session_terminal": {
+          "type": "boolean"
+        }
+      },
+      "oneOf": [
+        {
+          "properties": {
+            "boundary_kind": {
+              "const": "opened"
+            },
+            "duplicate_boundary_rule": {
+              "const": "not_applicable_new_session"
+            },
+            "lifecycle_event": {
+              "const": "scene_did_become_active"
+            },
+            "network_surface_after_boundary": {
+              "const": "unavailable_until_fresh_path_update"
+            },
+            "observation_window_state": {
+              "const": "open"
+            },
+            "session_terminal": {
+              "const": false
+            }
+          }
+        },
+        {
+          "properties": {
+            "boundary_kind": {
+              "const": "observation_window_closed"
+            },
+            "duplicate_boundary_rule": {
+              "const": "idempotent_no_second_gap_start"
+            },
+            "lifecycle_event": {
+              "const": "scene_will_resign_active"
+            },
+            "network_surface_after_boundary": {
+              "const": "last_bound_value_retained_for_gap_source_only"
+            },
+            "observation_window_state": {
+              "const": "closed"
+            },
+            "session_terminal": {
+              "const": false
+            }
+          }
+        },
+        {
+          "properties": {
+            "boundary_kind": {
+              "const": "session_terminated"
+            },
+            "duplicate_boundary_rule": {
+              "const": "terminal_once_no_future_events"
+            },
+            "lifecycle_event": {
+              "const": "scene_did_disconnect"
+            },
+            "network_surface_after_boundary": {
+              "const": "unavailable_terminal"
+            },
+            "observation_window_state": {
+              "const": "terminal"
+            },
+            "session_terminal": {
+              "const": true
+            }
+          }
+        }
+      ]
+    },
+    "state_snapshot_payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "network_freshness_status",
+        "payload_type",
+        "snapshot_id",
+        "snapshot_role",
+        "source_event_binding",
+        "surfaces"
+      ],
+      "properties": {
+        "network_freshness_status": {
+          "type": "string",
+          "enum": [
+            "fresh_callback_bound_in_same_session",
+            "unavailable_awaiting_callback",
+            "unsupported"
+          ]
+        },
+        "payload_type": {
+          "const": "state_snapshot"
+        },
+        "snapshot_id": {
+          "$ref": "#/$defs/ascii_identifier"
+        },
+        "snapshot_role": {
+          "type": "string",
+          "enum": [
+            "baseline",
+            "source_endpoint",
+            "target_endpoint"
+          ]
+        },
+        "source_event_binding": {
+          "$ref": "#/$defs/nullable_record_ref"
+        },
+        "surfaces": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "prefixItems": [
+            {
+              "$ref": "#/$defs/app_lifecycle_surface"
+            },
+            {
+              "$ref": "#/$defs/network_surface"
+            }
+          ],
+          "items": false
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "network_freshness_status": {
+                "const": "fresh_callback_bound_in_same_session"
+              }
+            },
+            "required": [
+              "network_freshness_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "source_event_binding": {
+                "$ref": "#/$defs/record_ref"
+              },
+              "surfaces": {
+                "prefixItems": [
+                  {
+                    "$ref": "#/$defs/app_lifecycle_surface"
+                  },
+                  {
+                    "$ref": "#/$defs/network_surface_observed"
+                  }
+                ],
+                "items": false
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "network_freshness_status": {
+                "const": "unavailable_awaiting_callback"
+              }
+            },
+            "required": [
+              "network_freshness_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "source_event_binding": {
+                "type": "null"
+              },
+              "surfaces": {
+                "prefixItems": [
+                  {
+                    "$ref": "#/$defs/app_lifecycle_surface"
+                  },
+                  {
+                    "$ref": "#/$defs/network_surface_unavailable"
+                  }
+                ],
+                "items": false
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "network_freshness_status": {
+                "const": "unsupported"
+              }
+            },
+            "required": [
+              "network_freshness_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "source_event_binding": {
+                "type": "null"
+              },
+              "surfaces": {
+                "prefixItems": [
+                  {
+                    "$ref": "#/$defs/app_lifecycle_surface"
+                  },
+                  {
+                    "$ref": "#/$defs/network_surface_unsupported"
+                  }
+                ],
+                "items": false
+              }
+            }
+          }
+        }
+      ]
+    },
+    "observation_event_payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "accepted_while_window_open",
+        "event_id",
+        "event_role",
+        "event_type",
+        "initiating_cause_claim",
+        "payload_type",
+        "platform_event_time_unix_ns",
+        "source_interface",
+        "surface_id",
+        "target_projection"
+      ],
+      "properties": {
+        "accepted_while_window_open": {
+          "const": true
+        },
+        "event_id": {
+          "$ref": "#/$defs/ascii_identifier"
+        },
+        "event_role": {
+          "const": "surface_observation"
+        },
+        "event_type": {
+          "const": "path_update_received"
+        },
+        "initiating_cause_claim": {
+          "const": "none"
+        },
+        "payload_type": {
+          "const": "observation_event"
+        },
+        "platform_event_time_unix_ns": {
+          "type": "null"
+        },
+        "source_interface": {
+          "const": "Network.framework NWPathMonitor.pathUpdateHandler"
+        },
+        "surface_id": {
+          "const": "network_path"
+        },
+        "target_projection": {
+          "$ref": "#/$defs/network_state"
+        }
+      }
+    },
+    "coverage_interval_payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "boundary_basis",
+        "coverage_status",
+        "gap_end_boundary",
+        "gap_start_boundary",
+        "intermediate_path_status",
+        "interval_id",
+        "network_freshness_rule",
+        "observer_execution_status",
+        "payload_type",
+        "source_clock_epoch_id",
+        "source_session_id",
+        "source_snapshot",
+        "target_clock_epoch_id",
+        "target_session_id",
+        "target_snapshot"
+      ],
+      "properties": {
+        "boundary_basis": {
+          "type": "string",
+          "enum": [
+            "same_session_consecutive_bound_endpoints",
+            "last_bound_before_close_to_first_fresh_bound_after_reopen"
+          ]
+        },
+        "coverage_status": {
+          "type": "string",
+          "enum": [
+            "continuous",
+            "interrupted"
+          ]
+        },
+        "gap_end_boundary": {
+          "$ref": "#/$defs/nullable_record_ref"
+        },
+        "gap_start_boundary": {
+          "$ref": "#/$defs/nullable_record_ref"
+        },
+        "intermediate_path_status": {
+          "type": "string",
+          "enum": [
+            "observed_continuous",
+            "unobserved"
+          ]
+        },
+        "interval_id": {
+          "$ref": "#/$defs/ascii_identifier"
+        },
+        "network_freshness_rule": {
+          "type": "string",
+          "enum": [
+            "same_session_event_projection_bound",
+            "fresh_post_reopen_callback_required_before_target_snapshot"
+          ]
+        },
+        "observer_execution_status": {
+          "type": "string",
+          "enum": [
+            "observed_active",
+            "execution_unavailable_between_bounds"
+          ]
+        },
+        "payload_type": {
+          "const": "coverage_interval"
+        },
+        "source_clock_epoch_id": {
+          "$ref": "#/$defs/ascii_identifier"
+        },
+        "source_session_id": {
+          "$ref": "#/$defs/ascii_identifier"
+        },
+        "source_snapshot": {
+          "$ref": "#/$defs/record_ref"
+        },
+        "target_clock_epoch_id": {
+          "$ref": "#/$defs/ascii_identifier"
+        },
+        "target_session_id": {
+          "$ref": "#/$defs/ascii_identifier"
+        },
+        "target_snapshot": {
+          "$ref": "#/$defs/record_ref"
+        }
+      },
+      "oneOf": [
+        {
+          "properties": {
+            "boundary_basis": {
+              "const": "same_session_consecutive_bound_endpoints"
+            },
+            "coverage_status": {
+              "const": "continuous"
+            },
+            "gap_end_boundary": {
+              "type": "null"
+            },
+            "gap_start_boundary": {
+              "type": "null"
+            },
+            "intermediate_path_status": {
+              "const": "observed_continuous"
+            },
+            "network_freshness_rule": {
+              "const": "same_session_event_projection_bound"
+            },
+            "observer_execution_status": {
+              "const": "observed_active"
+            }
+          }
+        },
+        {
+          "properties": {
+            "boundary_basis": {
+              "const": "last_bound_before_close_to_first_fresh_bound_after_reopen"
+            },
+            "coverage_status": {
+              "const": "interrupted"
+            },
+            "gap_end_boundary": {
+              "$ref": "#/$defs/record_ref"
+            },
+            "gap_start_boundary": {
+              "$ref": "#/$defs/record_ref"
+            },
+            "intermediate_path_status": {
+              "const": "unobserved"
+            },
+            "network_freshness_rule": {
+              "const": "fresh_post_reopen_callback_required_before_target_snapshot"
+            },
+            "observer_execution_status": {
+              "const": "execution_unavailable_between_bounds"
+            }
+          }
+        }
+      ]
+    },
+    "relation_change": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "after",
+        "before",
+        "field_path",
+        "observation_status",
+        "surface_id"
+      ],
+      "properties": {
+        "after": {},
+        "before": {},
+        "field_path": {
+          "type": "string",
+          "enum": [
+            "/network_path/available_interface_types",
+            "/network_path/is_constrained",
+            "/network_path/is_expensive",
+            "/network_path/status",
+            "/network_path/supports_dns",
+            "/network_path/supports_ipv4",
+            "/network_path/supports_ipv6",
+            "/network_path/used_interface_types"
+          ]
+        },
+        "observation_status": {
+          "type": "string",
+          "enum": [
+            "event_observed",
+            "endpoint_difference_observed"
+          ]
+        },
+        "surface_id": {
+          "const": "network_path"
+        }
+      },
+      "oneOf": [
+        {
+          "properties": {
+            "field_path": {
+              "const": "/network_path/available_interface_types"
+            },
+            "before": {
+              "$ref": "#/$defs/available_interface_types"
+            },
+            "after": {
+              "$ref": "#/$defs/available_interface_types"
+            }
+          }
+        },
+        {
+          "properties": {
+            "field_path": {
+              "const": "/network_path/is_constrained"
+            },
+            "before": {
+              "type": "boolean"
+            },
+            "after": {
+              "type": "boolean"
+            }
+          }
+        },
+        {
+          "properties": {
+            "field_path": {
+              "const": "/network_path/is_expensive"
+            },
+            "before": {
+              "type": "boolean"
+            },
+            "after": {
+              "type": "boolean"
+            }
+          }
+        },
+        {
+          "properties": {
+            "field_path": {
+              "const": "/network_path/status"
+            },
+            "before": {
+              "$ref": "#/$defs/network_status"
+            },
+            "after": {
+              "$ref": "#/$defs/network_status"
+            }
+          }
+        },
+        {
+          "properties": {
+            "field_path": {
+              "const": "/network_path/supports_dns"
+            },
+            "before": {
+              "type": "boolean"
+            },
+            "after": {
+              "type": "boolean"
+            }
+          }
+        },
+        {
+          "properties": {
+            "field_path": {
+              "const": "/network_path/supports_ipv4"
+            },
+            "before": {
+              "type": "boolean"
+            },
+            "after": {
+              "type": "boolean"
+            }
+          }
+        },
+        {
+          "properties": {
+            "field_path": {
+              "const": "/network_path/supports_ipv6"
+            },
+            "before": {
+              "type": "boolean"
+            },
+            "after": {
+              "type": "boolean"
+            }
+          }
+        },
+        {
+          "properties": {
+            "field_path": {
+              "const": "/network_path/used_interface_types"
+            },
+            "before": {
+              "$ref": "#/$defs/used_interface_types"
+            },
+            "after": {
+              "$ref": "#/$defs/used_interface_types"
+            }
+          }
+        }
+      ]
+    },
+    "transition_axes": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "alternative_path_closure_status",
+        "causal_necessity_status",
+        "causal_sufficiency_status",
+        "endpoint_binding_status",
+        "endpoint_observation_source_binding_status",
+        "observation_coverage_status",
+        "relation_change_observation_status",
+        "time_order_status",
+        "transition_path_verification_status"
+      ],
+      "properties": {
+        "alternative_path_closure_status": {
+          "type": "string",
+          "enum": [
+            "not_evaluated",
+            "open"
+          ]
+        },
+        "causal_necessity_status": {
+          "const": "not_established"
+        },
+        "causal_sufficiency_status": {
+          "const": "not_established"
+        },
+        "endpoint_binding_status": {
+          "const": "verified"
+        },
+        "endpoint_observation_source_binding_status": {
+          "const": "all_bound"
+        },
+        "observation_coverage_status": {
+          "type": "string",
+          "enum": [
+            "continuous",
+            "gap_between_endpoints"
+          ]
+        },
+        "relation_change_observation_status": {
+          "type": "string",
+          "enum": [
+            "all_event_observed",
+            "all_endpoint_difference_observed"
+          ]
+        },
+        "time_order_status": {
+          "type": "string",
+          "enum": [
+            "monotonic_and_sequence_verified",
+            "sequence_verified"
+          ]
+        },
+        "transition_path_verification_status": {
+          "type": "string",
+          "enum": [
+            "observation_event_bound",
+            "endpoint_difference_only"
+          ]
+        }
+      }
+    },
+    "transition_payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "axes",
+        "coverage_binding",
+        "endpoint_selection_rule",
+        "event_binding",
+        "event_consumption_rule",
+        "initiating_event_unix_ns",
+        "initiating_source_identity",
+        "initiating_source_status",
+        "payload_type",
+        "relation_changes",
+        "source_snapshot",
+        "target_snapshot",
+        "transition_class",
+        "transition_id"
+      ],
+      "properties": {
+        "axes": {
+          "$ref": "#/$defs/transition_axes"
+        },
+        "coverage_binding": {
+          "$ref": "#/$defs/record_ref"
+        },
+        "endpoint_selection_rule": {
+          "type": "string",
+          "enum": [
+            "immediate_eligible_network_snapshots_around_event",
+            "last_bound_before_gap_and_first_fresh_bound_after_reopen"
+          ]
+        },
+        "event_binding": {
+          "$ref": "#/$defs/nullable_record_ref"
+        },
+        "event_consumption_rule": {
+          "type": "string",
+          "enum": [
+            "one_transition_per_event_no_intervening_network_event",
+            "no_event_binding_permitted"
+          ]
+        },
+        "initiating_event_unix_ns": {
+          "type": "null"
+        },
+        "initiating_source_identity": {
+          "type": "null"
+        },
+        "initiating_source_status": {
+          "const": "unavailable_from_platform"
+        },
+        "payload_type": {
+          "const": "transition"
+        },
+        "relation_changes": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/relation_change"
+          }
+        },
+        "source_snapshot": {
+          "$ref": "#/$defs/record_ref"
+        },
+        "target_snapshot": {
+          "$ref": "#/$defs/record_ref"
+        },
+        "transition_class": {
+          "type": "string",
+          "enum": [
+            "event_bound",
+            "endpoint_difference_only"
+          ]
+        },
+        "transition_id": {
+          "$ref": "#/$defs/ascii_identifier"
+        }
+      },
+      "oneOf": [
+        {
+          "properties": {
+            "axes": {
+              "allOf": [
+                {
+                  "$ref": "#/$defs/transition_axes"
+                },
+                {
+                  "properties": {
+                    "alternative_path_closure_status": {
+                      "const": "not_evaluated"
+                    },
+                    "observation_coverage_status": {
+                      "const": "continuous"
+                    },
+                    "relation_change_observation_status": {
+                      "const": "all_event_observed"
+                    },
+                    "time_order_status": {
+                      "const": "monotonic_and_sequence_verified"
+                    },
+                    "transition_path_verification_status": {
+                      "const": "observation_event_bound"
+                    }
+                  }
+                }
+              ]
+            },
+            "endpoint_selection_rule": {
+              "const": "immediate_eligible_network_snapshots_around_event"
+            },
+            "event_binding": {
+              "$ref": "#/$defs/record_ref"
+            },
+            "event_consumption_rule": {
+              "const": "one_transition_per_event_no_intervening_network_event"
+            },
+            "transition_class": {
+              "const": "event_bound"
+            },
+            "relation_changes": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 8,
+              "uniqueItems": true,
+              "items": {
+                "allOf": [
+                  {
+                    "$ref": "#/$defs/relation_change"
+                  },
+                  {
+                    "properties": {
+                      "observation_status": {
+                        "const": "event_observed"
+                      }
+                    },
+                    "required": [
+                      "observation_status"
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "properties": {
+            "axes": {
+              "allOf": [
+                {
+                  "$ref": "#/$defs/transition_axes"
+                },
+                {
+                  "properties": {
+                    "alternative_path_closure_status": {
+                      "const": "open"
+                    },
+                    "observation_coverage_status": {
+                      "const": "gap_between_endpoints"
+                    },
+                    "relation_change_observation_status": {
+                      "const": "all_endpoint_difference_observed"
+                    },
+                    "time_order_status": {
+                      "const": "sequence_verified"
+                    },
+                    "transition_path_verification_status": {
+                      "const": "endpoint_difference_only"
+                    }
+                  }
+                }
+              ]
+            },
+            "endpoint_selection_rule": {
+              "const": "last_bound_before_gap_and_first_fresh_bound_after_reopen"
+            },
+            "event_binding": {
+              "type": "null"
+            },
+            "event_consumption_rule": {
+              "const": "no_event_binding_permitted"
+            },
+            "transition_class": {
+              "const": "endpoint_difference_only"
+            },
+            "relation_changes": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 8,
+              "uniqueItems": true,
+              "items": {
+                "allOf": [
+                  {
+                    "$ref": "#/$defs/relation_change"
+                  },
+                  {
+                    "properties": {
+                      "observation_status": {
+                        "const": "endpoint_difference_observed"
+                      }
+                    },
+                    "required": [
+                      "observation_status"
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        }
+      ]
+    },
+    "checkpoint_payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "canonicalization_profile_sha256",
+        "checkpoint_id",
+        "checkpoint_signature_required",
+        "clock_epoch_count",
+        "closed_record_count",
+        "coverage_summary",
+        "created_unix_ns",
+        "first_record",
+        "ledger_id",
+        "observation_contract_sha256",
+        "observer_public_key_fingerprint_sha256",
+        "payload_type",
+        "record_type_counts",
+        "session_count",
+        "signature_schema_sha256",
+        "terminal_record",
+        "terminal_sequence_index",
+        "transition_summary"
+      ],
+      "properties": {
+        "canonicalization_profile_sha256": {
+          "const": "ddc0e677e04c8678c32e36d21dc79ad509fe6c4a5507322abb6187c6e88c7550"
+        },
+        "checkpoint_id": {
+          "$ref": "#/$defs/ascii_identifier"
+        },
+        "checkpoint_signature_required": {
+          "const": true
+        },
+        "clock_epoch_count": {
+          "$ref": "#/$defs/i63_nonnegative"
+        },
+        "closed_record_count": {
+          "$ref": "#/$defs/i63_nonnegative"
+        },
+        "coverage_summary": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "continuous_intervals",
+            "interrupted_intervals"
+          ],
+          "properties": {
+            "continuous_intervals": {
+              "$ref": "#/$defs/i63_nonnegative"
+            },
+            "interrupted_intervals": {
+              "$ref": "#/$defs/i63_nonnegative"
+            }
+          }
+        },
+        "created_unix_ns": {
+          "$ref": "#/$defs/i63_nonnegative"
+        },
+        "first_record": {
+          "$ref": "#/$defs/record_ref"
+        },
+        "ledger_id": {
+          "$ref": "#/$defs/ascii_identifier"
+        },
+        "observation_contract_sha256": {
+          "const": "e537fa04a7fb9e84292a2275e2818cb2012a66867bcd09d3ad3a8ff6cb7767c2"
+        },
+        "observer_public_key_fingerprint_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "payload_type": {
+          "const": "checkpoint"
+        },
+        "record_type_counts": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "coverage_interval",
+            "observation_event",
+            "session_boundary",
+            "state_snapshot",
+            "transition"
+          ],
+          "properties": {
+            "coverage_interval": {
+              "$ref": "#/$defs/i63_nonnegative"
+            },
+            "observation_event": {
+              "$ref": "#/$defs/i63_nonnegative"
+            },
+            "session_boundary": {
+              "$ref": "#/$defs/i63_nonnegative"
+            },
+            "state_snapshot": {
+              "$ref": "#/$defs/i63_nonnegative"
+            },
+            "transition": {
+              "$ref": "#/$defs/i63_nonnegative"
+            }
+          }
+        },
+        "session_count": {
+          "$ref": "#/$defs/i63_nonnegative"
+        },
+        "signature_schema_sha256": {
+          "const": "80304b08b73f3c05092909e7917240af94121e2c15b9305440a7e01460c049c0"
+        },
+        "terminal_record": {
+          "$ref": "#/$defs/record_ref"
+        },
+        "terminal_sequence_index": {
+          "$ref": "#/$defs/i63_nonnegative"
+        },
+        "transition_summary": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "endpoint_difference_only",
+            "event_bound"
+          ],
+          "properties": {
+            "endpoint_difference_only": {
+              "$ref": "#/$defs/i63_nonnegative"
+            },
+            "event_bound": {
+              "$ref": "#/$defs/i63_nonnegative"
+            }
+          }
+        }
+      }
+    },
+    "ledger_record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "authority_effect",
+        "canonicalization_profile_sha256",
+        "claim_boundary",
+        "clock_epoch_id",
+        "document_type",
+        "ledger_id",
+        "monotonic_time_ns",
+        "observation_contract_sha256",
+        "observer_public_key_fingerprint_sha256",
+        "payload",
+        "previous_record_sha256",
+        "record_id",
+        "record_sha256",
+        "record_status",
+        "record_type",
+        "recorded_wall_time_unix_ns",
+        "schema_version",
+        "sequence_index",
+        "session_id"
+      ],
+      "properties": {
+        "authority_effect": {
+          "const": "none"
+        },
+        "canonicalization_profile_sha256": {
+          "const": "ddc0e677e04c8678c32e36d21dc79ad509fe6c4a5507322abb6187c6e88c7550"
+        },
+        "claim_boundary": {
+          "$ref": "#/$defs/claim_boundary"
+        },
+        "clock_epoch_id": {
+          "$ref": "#/$defs/nullable_identifier"
+        },
+        "document_type": {
+          "const": "pulsemech_device_ledger_record"
+        },
+        "ledger_id": {
+          "$ref": "#/$defs/ascii_identifier"
+        },
+        "monotonic_time_ns": {
+          "$ref": "#/$defs/nullable_i63_nonnegative"
+        },
+        "observation_contract_sha256": {
+          "const": "e537fa04a7fb9e84292a2275e2818cb2012a66867bcd09d3ad3a8ff6cb7767c2"
+        },
+        "observer_public_key_fingerprint_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "payload": {},
+        "previous_record_sha256": {
+          "$ref": "#/$defs/nullable_sha256"
+        },
+        "record_id": {
+          "$ref": "#/$defs/ascii_identifier"
+        },
+        "record_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "record_status": {
+          "type": "string",
+          "enum": [
+            "synthetic_reference",
+            "observed"
+          ]
+        },
+        "record_type": {
+          "type": "string",
+          "enum": [
+            "session_boundary",
+            "state_snapshot",
+            "observation_event",
+            "coverage_interval",
+            "transition",
+            "checkpoint"
+          ]
+        },
+        "recorded_wall_time_unix_ns": {
+          "$ref": "#/$defs/i63_nonnegative"
+        },
+        "schema_version": {
+          "const": "pulsemech_device_ledger_record_v0"
+        },
+        "sequence_index": {
+          "$ref": "#/$defs/i63_nonnegative"
+        },
+        "session_id": {
+          "$ref": "#/$defs/nullable_identifier"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "sequence_index": {
+                "const": 0
+              }
+            },
+            "required": [
+              "sequence_index"
+            ]
+          },
+          "then": {
+            "properties": {
+              "previous_record_sha256": {
+                "type": "null"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "previous_record_sha256": {
+                "$ref": "#/$defs/sha256"
+              }
+            }
+          }
+        },
+        {
+          "oneOf": [
+            {
+              "properties": {
+                "record_type": {
+                  "const": "session_boundary"
+                },
+                "payload": {
+                  "$ref": "#/$defs/session_boundary_payload"
+                },
+                "session_id": {
+                  "$ref": "#/$defs/ascii_identifier"
+                },
+                "clock_epoch_id": {
+                  "$ref": "#/$defs/ascii_identifier"
+                },
+                "monotonic_time_ns": {
+                  "$ref": "#/$defs/i63_nonnegative"
+                }
+              }
+            },
+            {
+              "properties": {
+                "record_type": {
+                  "const": "state_snapshot"
+                },
+                "payload": {
+                  "$ref": "#/$defs/state_snapshot_payload"
+                },
+                "session_id": {
+                  "$ref": "#/$defs/ascii_identifier"
+                },
+                "clock_epoch_id": {
+                  "$ref": "#/$defs/ascii_identifier"
+                },
+                "monotonic_time_ns": {
+                  "$ref": "#/$defs/i63_nonnegative"
+                }
+              }
+            },
+            {
+              "properties": {
+                "record_type": {
+                  "const": "observation_event"
+                },
+                "payload": {
+                  "$ref": "#/$defs/observation_event_payload"
+                },
+                "session_id": {
+                  "$ref": "#/$defs/ascii_identifier"
+                },
+                "clock_epoch_id": {
+                  "$ref": "#/$defs/ascii_identifier"
+                },
+                "monotonic_time_ns": {
+                  "$ref": "#/$defs/i63_nonnegative"
+                }
+              }
+            },
+            {
+              "properties": {
+                "record_type": {
+                  "const": "coverage_interval"
+                },
+                "payload": {
+                  "$ref": "#/$defs/coverage_interval_payload"
+                },
+                "session_id": {
+                  "type": "null"
+                },
+                "clock_epoch_id": {
+                  "type": "null"
+                },
+                "monotonic_time_ns": {
+                  "type": "null"
+                }
+              }
+            },
+            {
+              "properties": {
+                "record_type": {
+                  "const": "transition"
+                },
+                "payload": {
+                  "allOf": [
+                    {
+                      "$ref": "#/$defs/transition_payload"
+                    },
+                    {
+                      "properties": {
+                        "transition_class": {
+                          "const": "event_bound"
+                        }
+                      }
+                    }
+                  ]
+                },
+                "session_id": {
+                  "$ref": "#/$defs/ascii_identifier"
+                },
+                "clock_epoch_id": {
+                  "$ref": "#/$defs/ascii_identifier"
+                },
+                "monotonic_time_ns": {
+                  "$ref": "#/$defs/i63_nonnegative"
+                }
+              }
+            },
+            {
+              "properties": {
+                "record_type": {
+                  "const": "transition"
+                },
+                "payload": {
+                  "allOf": [
+                    {
+                      "$ref": "#/$defs/transition_payload"
+                    },
+                    {
+                      "properties": {
+                        "transition_class": {
+                          "const": "endpoint_difference_only"
+                        }
+                      }
+                    }
+                  ]
+                },
+                "session_id": {
+                  "type": "null"
+                },
+                "clock_epoch_id": {
+                  "type": "null"
+                },
+                "monotonic_time_ns": {
+                  "type": "null"
+                }
+              }
+            },
+            {
+              "properties": {
+                "record_type": {
+                  "const": "checkpoint"
+                },
+                "payload": {
+                  "$ref": "#/$defs/checkpoint_payload"
+                },
+                "session_id": {
+                  "type": "null"
+                },
+                "clock_epoch_id": {
+                  "type": "null"
+                },
+                "monotonic_time_ns": {
+                  "type": "null"
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "observer_identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "device_class",
+        "identity_scope",
+        "key_origin_profile",
+        "platform",
+        "platform_attestation_status",
+        "public_key_base64",
+        "public_key_encoding",
+        "public_key_fingerprint_sha256",
+        "public_key_size_bytes",
+        "signature_encoding",
+        "signature_suite"
+      ],
+      "properties": {
+        "device_class": {
+          "const": "iphone"
+        },
+        "identity_scope": {
+          "type": "string",
+          "enum": [
+            "fixture_installation",
+            "installation"
+          ]
+        },
+        "key_origin_profile": {
+          "type": "string",
+          "enum": [
+            "fixture_software_p256",
+            "secure_enclave_p256",
+            "software_p256"
+          ]
+        },
+        "platform": {
+          "const": "ios"
+        },
+        "platform_attestation_status": {
+          "const": "not_present"
+        },
+        "public_key_base64": {
+          "type": "string",
+          "minLength": 88,
+          "maxLength": 88,
+          "pattern": "^[A-Za-z0-9+/]{87}=$",
+          "contentEncoding": "base64",
+          "contentMediaType": "application/octet-stream"
+        },
+        "public_key_encoding": {
+          "const": "x963_uncompressed"
+        },
+        "public_key_fingerprint_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "public_key_size_bytes": {
+          "const": 65
+        },
+        "signature_encoding": {
+          "const": "ieee_p1363_fixed_width"
+        },
+        "signature_suite": {
+          "const": "ecdsa-p256-sha256"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "identity_scope": {
+                "const": "fixture_installation"
+              }
+            },
+            "required": [
+              "identity_scope"
+            ]
+          },
+          "then": {
+            "properties": {
+              "key_origin_profile": {
+                "const": "fixture_software_p256"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "ledger_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "checkpoint_record_sha256",
+        "clock_epoch_count",
+        "coverage_interval_count",
+        "observation_event_count",
+        "record_count",
+        "session_boundary_count",
+        "session_count",
+        "snapshot_count",
+        "terminal_record_sha256",
+        "transition_count"
+      ],
+      "properties": {
+        "checkpoint_record_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "clock_epoch_count": {
+          "$ref": "#/$defs/i63_nonnegative"
+        },
+        "coverage_interval_count": {
+          "$ref": "#/$defs/i63_nonnegative"
+        },
+        "observation_event_count": {
+          "$ref": "#/$defs/i63_nonnegative"
+        },
+        "record_count": {
+          "$ref": "#/$defs/i63_nonnegative"
+        },
+        "session_boundary_count": {
+          "$ref": "#/$defs/i63_nonnegative"
+        },
+        "session_count": {
+          "$ref": "#/$defs/i63_nonnegative"
+        },
+        "snapshot_count": {
+          "$ref": "#/$defs/i63_nonnegative"
+        },
+        "terminal_record_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "transition_count": {
+          "$ref": "#/$defs/i63_nonnegative"
+        }
+      }
+    }
+  }
+}
