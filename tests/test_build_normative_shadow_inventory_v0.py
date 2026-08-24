@@ -163,6 +163,39 @@ def test_inventory_classifies_current_run_artifact_observed_candidate_as_non_act
     ]
 
 
+def test_inventory_classifies_device_ledger_swift_as_non_authorizing_advisory(
+    tmp_path: Path,
+) -> None:
+    inventory, _markdown = run_builder(tmp_path)
+    workflow_path = ".github/workflows/pulsemech_ledger_swift.yml"
+    workflow = entry_by_path(inventory, workflow_path)
+
+    assert workflow["primary_role"] == (
+        "device-ledger Swift implementation verification workflow"
+    )
+    assert workflow["carrier_class"] == "advisory"
+    assert workflow["authority_impacting"] == "no"
+    assert workflow["required_gate_participation"] is False
+    assert workflow["attestation_participation"] is False
+    assert workflow["release_path_participation"] is False
+    assert workflow["publishes_artifacts"] == []
+
+    assert "repository verification signals only" in workflow[
+        "authority_boundary"
+    ]
+    assert "not recorded device-observation evidence" in workflow[
+        "authority_boundary"
+    ]
+    assert "No real iPhone observation" in workflow["notes"]
+    assert "authority effect" in workflow["notes"]
+
+    assert not [
+        finding
+        for finding in inventory["drift_findings"]
+        if finding["path"] == workflow_path
+    ]
+
+
 def test_inventory_classifies_check_gates_as_enforcement_carrier(tmp_path: Path) -> None:
     inventory, _markdown = run_builder(tmp_path)
 
