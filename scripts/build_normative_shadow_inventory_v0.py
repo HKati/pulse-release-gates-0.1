@@ -222,6 +222,42 @@ def classify_workflow(path: Path, *, repo_root: Path) -> dict[str, Any]:
             ),
         )
 
+      if rel == ".github/workflows/pulsemech_ledger_swift.yml":
+        return entry(
+            name=name,
+            path=rel,
+            surface_type="workflow",
+            primary_role=(
+                "device-ledger Swift implementation verification workflow"
+            ),
+            carrier_class="advisory",
+            authority_impacting="no",
+            authority_boundary=(
+                "Non-authorizing implementation-verification carrier. Its build "
+                "and test results are repository verification signals only; they "
+                "are not recorded device-observation evidence, are not materialized "
+                "or enforced as a required gate, and do not participate in release "
+                "authority."
+            ),
+            reads_artifacts=[
+                "PULSEmechLedgerCore Package.swift",
+                "PULSEmechLedgerCore Swift sources",
+                "PULSEmechLedgerCore Swift tests",
+            ],
+            writes_artifacts=[
+                "ephemeral SwiftPM build and test outputs",
+            ],
+            required_gate_participation=False,
+            attestation_participation=False,
+            release_path_participation=False,
+            notes=(
+                "Pinned Swift 6.2.4 Linux verification of the dependency-free "
+                "device-ledger core. No real iPhone observation, physical-"
+                "measurement claim, device-security claim, gate activation, "
+                "release decision, or authority effect is created."
+            ),
+        )
+  
     if file_l in {
         "core_baseline_capture.yml",
         "core_baseline_check.yml",
