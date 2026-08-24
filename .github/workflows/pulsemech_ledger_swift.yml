@@ -1,0 +1,221 @@
+name: PULSEmech Ledger Swift
+
+on:
+  pull_request:
+    paths:
+      - "apps/ios/Packages/PULSEmechLedgerCore/**"
+      - "contracts/pulsemech_device_canonical_json_v0.json"
+      - "contracts/pulsemech_ios_observation_contract_v0.json"
+      - "schemas/pulsemech_device_*_v0.schema.json"
+      - "examples/device_transition_ledger/**"
+      - "tools/build_pulsemech_device_ledger_reference_v0.py"
+      - ".github/workflows/pulsemech_ledger_swift.yml"
+  push:
+    branches:
+      - "main"
+    paths:
+      - "apps/ios/Packages/PULSEmechLedgerCore/**"
+      - "contracts/pulsemech_device_canonical_json_v0.json"
+      - "contracts/pulsemech_ios_observation_contract_v0.json"
+      - "schemas/pulsemech_device_*_v0.schema.json"
+      - "examples/device_transition_ledger/**"
+      - "tools/build_pulsemech_device_ledger_reference_v0.py"
+      - ".github/workflows/pulsemech_ledger_swift.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pulsemech-ledger-swift-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  swiftpm:
+    name: SwiftPM 6.2.4 / Linux
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    container:
+      image: swift:6.2.4-jammy@sha256:9cb110feda69fca69d50fb7dd4657b7504a1d92f8a5b3a221308228e4a488f8e
+
+    defaults:
+      run:
+        shell: bash
+        working-directory: apps/ios/Packages/PULSEmechLedgerCore
+
+    env:
+      LANG: C.UTF-8
+      LC_ALL: C.UTF-8
+      TZ: UTC
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Verify pinned Swift toolchain
+        run: |
+          set -euo pipefail
+
+          observed="$(swift --version)"
+          printf '%s\n' "$observed"
+
+          expected_version='Swift version 6.2.4 (swift-6.2.4-RELEASE)'
+          expected_target='Target: x86_64-unknown-linux-gnu'
+
+          if ! grep -Fxq "$expected_version" <<<"$observed"; then
+            echo "::error::Unexpected Swift compiler version"
+            exit 1
+          fi
+
+          if ! grep -Fxq "$expected_target" <<<"$observed"; then
+            echo "::error::Unexpected Swift compiler target"
+            exit 1
+          fi
+
+      - name: Verify closed package boundary
+        run: |
+          set -euo pipefail
+
+          test -f Package.swift
+          test -d Sources/PULSEmechLedgerCore
+          test -d Tests/PULSEmechLedgerCoreTests
+          test "$(head -n 1 Package.swift)" = '// swift-tools-version: 6.0'
+
+          if find Sources Tests -type l -print -quit | grep -q .; then
+            echo "::error::Symlinks are forbidden in Swift source and test trees"
+            exit 1
+          fi
+
+          python3 - <<'PY'
+          import json
+          import subprocess
+          import sys
+
+          package = json.loads(
+              subprocess.check_output(
+                  ["swift", "package", "dump-package"],
+                  text=True,
+              )
+          )
+
+          expected_products = {"PULSEmechLedgerCore"}
+          expected_targets = {
+              "PULSEmechLedgerCore": "regular",
+              "PULSEmechLedgerCoreTests": "test",
+          }
+          expected_platforms = {("ios", "13.0")}
+
+          observed_products = {
+              row.get("name")
+              for row in package.get("products", [])
+          }
+          observed_targets = {
+              row.get("name"): row.get("type")
+              for row in package.get("targets", [])
+          }
+          observed_platforms = {
+              (row.get("platformName"), row.get("version"))
+              for row in package.get("platforms", [])
+          }
+
+          failures = []
+          if package.get("name") != "PULSEmechLedgerCore":
+              failures.append("package name mismatch")
+          if package.get("dependencies") != []:
+              failures.append("external package dependencies are forbidden")
+          if observed_products != expected_products:
+              failures.append("library product set mismatch")
+          if observed_targets != expected_targets:
+              failures.append("target set or target type mismatch")
+          if observed_platforms != expected_platforms:
+              failures.append("iOS deployment floor mismatch")
+          if package.get("swiftLanguageVersions") != ["6"]:
+              failures.append("Swift language mode mismatch")
+
+          if failures:
+              for failure in failures:
+                  print(f"::error::{failure}")
+              sys.exit(1)
+
+          print("OK: closed dependency-free Swift package boundary verified")
+          PY
+
+      - name: Verify tracked source hygiene
+        run: |
+          set -euo pipefail
+
+          git diff --check -- .
+
+          source_count="$(find Sources/PULSEmechLedgerCore -type f -name '*.swift' | wc -l)"
+          test_count="$(find Tests/PULSEmechLedgerCoreTests -type f -name '*Tests.swift' | wc -l)"
+
+          if [ "$source_count" -lt 1 ]; then
+            echo "::error::No Swift source files found"
+            exit 1
+          fi
+
+          if [ "$test_count" -lt 1 ]; then
+            echo "::error::No Swift test files found"
+            exit 1
+          fi
+
+          printf 'Swift source files: %s\n' "$source_count"
+          printf 'Swift test files: %s\n' "$test_count"
+
+      - name: Build source and test targets with warnings as errors
+        run: |
+          set -euo pipefail
+
+          rm -rf .build
+          swift build \
+            --configuration debug \
+            --build-tests \
+            -j 1 \
+            -Xswiftc -warnings-as-errors
+
+      - name: Require discovered tests
+        run: |
+          set -euo pipefail
+
+          mapfile -t discovered_tests < <(
+            swift test list --skip-build
+          )
+
+          if [ "${#discovered_tests[@]}" -eq 0 ]; then
+            echo "::error::SwiftPM discovered zero tests"
+            exit 1
+          fi
+
+          printf 'Discovered Swift tests: %s\n' "${#discovered_tests[@]}"
+          printf '%s\n' "${discovered_tests[@]}"
+
+      - name: Run Swift tests serially
+        run: |
+          set -euo pipefail
+
+          swift test \
+            --configuration debug \
+            --skip-build \
+            --no-parallel \
+            -j 1
+
+      - name: Build optimized library with warnings as errors
+        run: |
+          set -euo pipefail
+
+          swift build \
+            --configuration release \
+            -j 1 \
+            -Xswiftc -warnings-as-errors
+
+      - name: Verify tests did not modify tracked files
+        run: |
+          set -euo pipefail
+
+          if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
+            git status --short --untracked-files=no
+            echo "::error::Swift build or tests modified tracked repository files"
+            exit 1
+          fi
