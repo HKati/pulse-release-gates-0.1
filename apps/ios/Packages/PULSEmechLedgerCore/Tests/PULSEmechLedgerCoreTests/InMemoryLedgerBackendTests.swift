@@ -2,7 +2,6 @@ import Foundation
 import XCTest
 @testable import PULSEmechLedgerCore
 
-@MainActor
 final class InMemoryLedgerBackendTests: XCTestCase {
     func testDeclaresProcessLifetimePersistence() {
         let backend = InMemoryLedgerBackend()
