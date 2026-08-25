@@ -107,6 +107,20 @@ public struct LedgerRecordChainSnapshot: Sendable, Equatable {
     }
 }
 
+/// The two finalized records produced by one atomic dependent append.
+public struct LedgerRecordAtomicPair: Sendable, Equatable {
+    public let first: LedgerRecordEnvelope
+    public let second: LedgerRecordEnvelope
+
+    public init(
+        first: LedgerRecordEnvelope,
+        second: LedgerRecordEnvelope
+    ) {
+        self.first = first
+        self.second = second
+    }
+}
+
 /// Actor-isolated append machine for one PULSEmech Device Ledger v0 record
 /// chain.
 ///
@@ -148,6 +162,66 @@ public actor LedgerRecordChain {
     /// serialization, digest calculation, and finalization step succeeds.
     @discardableResult
     public func append(
+        _ draft: LedgerRecordDraft
+    ) throws -> LedgerRecordEnvelope {
+        try appendOne(draft)
+    }
+
+    /// Appends two dependent records as one non-reentrant chain transaction.
+    ///
+    /// The second draft is constructed from the finalized first record, allowing
+    /// its payload to bind the first record's exact sequence index and SHA-256
+    /// identity. If first-record materialization, second-draft construction, or
+    /// second-record materialization fails, every chain-owned field is restored
+    /// to its exact pre-call value. No caller can observe a one-record partial
+    /// commit because this method contains no suspension point.
+    ///
+    /// This is the required commit boundary for one admitted network callback:
+    /// its observation-event record and the callback-bound state snapshot are
+    /// either both accepted or neither is accepted.
+    @discardableResult
+    public func appendAtomically(
+        first firstDraft: LedgerRecordDraft,
+        makeSecondDraft: @Sendable (LedgerRecordEnvelope) throws -> LedgerRecordDraft
+    ) throws -> LedgerRecordAtomicPair {
+        let originalRecords = records
+        let originalRecordIDs = recordIDs
+        let originalClockEpochBySessionID = clockEpochBySessionID
+        let originalSessionIDByClockEpoch = sessionIDByClockEpoch
+        let originalLastMonotonicTimeByClockEpoch = lastMonotonicTimeByClockEpoch
+        let originalChainState = chainState
+
+        do {
+            let firstEnvelope = try appendOne(firstDraft)
+            let secondDraft = try makeSecondDraft(firstEnvelope)
+            let secondEnvelope = try appendOne(secondDraft)
+            return LedgerRecordAtomicPair(
+                first: firstEnvelope,
+                second: secondEnvelope
+            )
+        } catch {
+            records = originalRecords
+            recordIDs = originalRecordIDs
+            clockEpochBySessionID = originalClockEpochBySessionID
+            sessionIDByClockEpoch = originalSessionIDByClockEpoch
+            lastMonotonicTimeByClockEpoch = originalLastMonotonicTimeByClockEpoch
+            chainState = originalChainState
+            throw error
+        }
+    }
+
+    /// Returns one value snapshot without exposing mutable chain storage.
+    public func snapshot() -> LedgerRecordChainSnapshot {
+        LedgerRecordChainSnapshot(
+            ledgerID: ledgerID,
+            observerPublicKeyFingerprintSHA256: observerPublicKeyFingerprintSHA256,
+            recordStatus: recordStatus,
+            records: records,
+            state: chainState
+        )
+    }
+
+    private func appendOne(
         _ draft: LedgerRecordDraft
     ) throws -> LedgerRecordEnvelope {
         guard chainState == .acceptingRecords else {
@@ -198,17 +272,6 @@ public actor LedgerRecordChain {
         }
 
         return envelope
-    }
-
-    /// Returns one value snapshot without exposing mutable chain storage.
-    public func snapshot() -> LedgerRecordChainSnapshot {
-        LedgerRecordChainSnapshot(
-            ledgerID: ledgerID,
-            observerPublicKeyFingerprintSHA256: observerPublicKeyFingerprintSHA256,
-            recordStatus: recordStatus,
-            records: records,
-            state: chainState
-        )
     }
 
     private func validateScopeContinuity(
