@@ -1934,6 +1934,11 @@ def _validate_ledger_semantics(
                 else:
                     if session_id not in session_states:
                         raise ValueError("boundary_for_unknown_session")
+                    if (
+                        not session_order
+                        or session_id != session_order[-1]
+                    ):
+                        raise ValueError("boundary_for_non_current_session")
                     session = session_states[session_id]
                     if payload["previous_session_id"] != session_id:
                         raise ValueError("closing_boundary_previous_session_mismatch")
@@ -2037,16 +2042,74 @@ def _validate_ledger_semantics(
                     if item["record_type"] == "session_boundary" and item["payload"]["boundary_kind"] != "opened":
                         raise ValueError("continuous_coverage_boundary_between_endpoints")
             else:
-                start_boundary = _resolve_ref(payload["gap_start_boundary"], records_by_binding, code="gap_start")
-                end_boundary = _resolve_ref(payload["gap_end_boundary"], records_by_binding, code="gap_end")
-                if start_boundary["record_type"] != "session_boundary" or start_boundary["payload"]["boundary_kind"] != "observation_window_closed":
-                    raise ValueError("gap_start_not_window_close")
-                if end_boundary["record_type"] != "session_boundary" or end_boundary["payload"]["boundary_kind"] != "opened":
+                start_boundary = _resolve_ref(
+                    payload["gap_start_boundary"],
+                    records_by_binding,
+                    code="gap_start",
+                )
+                end_boundary = _resolve_ref(
+                    payload["gap_end_boundary"],
+                    records_by_binding,
+                    code="gap_end",
+                )
+                if start_boundary["record_type"] != "session_boundary":
+                    raise ValueError("gap_start_not_session_boundary")
+                if (
+                    end_boundary["record_type"] != "session_boundary"
+                    or end_boundary["payload"]["boundary_kind"] != "opened"
+                ):
                     raise ValueError("gap_end_not_session_open")
-                if not (source["sequence_index"] < start_boundary["sequence_index"] < end_boundary["sequence_index"] < target["sequence_index"]):
-                    raise ValueError("interrupted_coverage_boundary_order_invalid")
-                if payload["source_session_id"] != source["session_id"] or payload["target_session_id"] != target["session_id"]:
-                    raise ValueError("interrupted_coverage_session_binding_mismatch")
+                if start_boundary["session_id"] != source["session_id"]:
+                    raise ValueError("gap_start_session_mismatch")
+                if end_boundary["session_id"] != target["session_id"]:
+                    raise ValueError("gap_end_session_mismatch")
+
+                source_session = session_states[source["session_id"]]
+                target_session = session_states[target["session_id"]]
+                start_kind = start_boundary["payload"]["boundary_kind"]
+
+                if start_kind == "observation_window_closed":
+                    expected_start = source_session["close_record"]
+                elif start_kind == "session_terminated":
+                    if source_session["close_record"] is not None:
+                        raise ValueError(
+                            "terminal_gap_start_after_window_close"
+                        )
+                    expected_start = source_session["terminal_record"]
+                else:
+                    raise ValueError("gap_start_boundary_kind_invalid")
+
+                if (
+                    expected_start is None
+                    or _record_binding(start_boundary)
+                    != _record_binding(expected_start)
+                ):
+                    raise ValueError("gap_start_boundary_mismatch")
+
+                if (
+                    end_boundary["sequence_index"]
+                    != target_session["open_seq"]
+                ):
+                    raise ValueError("gap_end_boundary_mismatch")
+
+                if not (
+                    source["sequence_index"]
+                    < start_boundary["sequence_index"]
+                    < end_boundary["sequence_index"]
+                    < target["sequence_index"]
+                ):
+                    raise ValueError(
+                        "interrupted_coverage_boundary_order_invalid"
+                    )
+
+                if (
+                    payload["source_session_id"] != source["session_id"]
+                    or payload["target_session_id"]
+                    != target["session_id"]
+                ):
+                    raise ValueError(
+                        "interrupted_coverage_session_binding_mismatch"
+                    )
                 source_session_snapshots = [
                     item for item in snapshots
                     if item["session_id"] == source["session_id"]
