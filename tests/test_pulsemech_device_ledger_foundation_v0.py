@@ -70,8 +70,8 @@ EXPECTED_IDENTITIES: dict[str, tuple[int, str]] = {
         "26b2ab8bed78f46c499d48b6f0b6af28ee9c23c2deafd773e4657e3d082aafd0",
     ),
     "tools/verify_pulsemech_device_ledger_v0.py": (
-        125257,
-        "3bd6ccbae70e5c5aead03d2df8f87b0f79bec9d8e13a37254649822b245417c2",
+        126419,
+        "0a828490f93ce684ab50625c23a19c870f813c3bcdef7034f5c88a0c6aa494e7",
     ),
     "tools/build_pulsemech_device_ledger_reference_v0.py": (
         51405,
@@ -91,7 +91,7 @@ EXPECTED_IDENTITIES: dict[str, tuple[int, str]] = {
     ),
     "examples/device_transition_ledger/pulsemech_device_transition_ledger_reference_verification_v0.json": (
         15328,
-        "b21a622215786d75eccd38f9c2298325b740709e6542adcda03c265a3ebb80f1",
+        "5e93539099e99dd5bfa835ba56c401608a5b5c015209812ebb5f9c31142a74f4",
     ),
 }
 
@@ -1030,6 +1030,107 @@ def test_semantic_relation_falsification_with_rebuilt_integrity_is_rejected(
     report = _verify_bytes(tmp_path, _signed_ledger_mutation(mutator))
     _assert_rejected(report)
     assert report["failure_stage"] in {"ledger_admission", "record_chain", "semantic_relations"}
+
+
+def test_duplicate_endpoint_difference_transition_is_rejected(
+    tmp_path: Path,
+) -> None:
+    def mutate(ledger: dict[str, Any]) -> None:
+        records = ledger["records"]
+        transition = next(
+            record
+            for record in records
+            if (
+                record["record_type"] == "transition"
+                and record["payload"]["transition_class"]
+                == "endpoint_difference_only"
+            )
+        )
+        duplicate = copy.deepcopy(transition)
+        duplicate["record_id"] = (
+            "record:012b-transition-endpoint-difference-duplicate"
+        )
+        duplicate["recorded_wall_time_unix_ns"] = (
+            transition["recorded_wall_time_unix_ns"] + 500_000
+        )
+        duplicate["payload"]["transition_id"] = (
+            "transition:endpoint-difference-cellular-to-wifi-duplicate"
+        )
+        records.insert(records.index(transition) + 1, duplicate)
+
+    report = _verify_bytes(
+        tmp_path,
+        _signed_ledger_mutation(mutate),
+    )
+    _assert_rejected(
+        report,
+        stage="semantic_relations",
+        check_id="transition_relations_valid",
+        error_code="transition_relation_invalid",
+    )
+    assert report["checks"]["coverage_relations_valid"] == "passed"
+    assert report["checks"]["event_endpoint_bindings_valid"] == "passed"
+
+
+def test_cloned_interrupted_coverage_cannot_duplicate_endpoint_relation(
+    tmp_path: Path,
+) -> None:
+    def mutate(ledger: dict[str, Any]) -> None:
+        records = ledger["records"]
+        coverage = next(
+            record
+            for record in records
+            if (
+                record["record_type"] == "coverage_interval"
+                and record["payload"]["coverage_status"] == "interrupted"
+            )
+        )
+        transition = next(
+            record
+            for record in records
+            if (
+                record["record_type"] == "transition"
+                and record["payload"]["transition_class"]
+                == "endpoint_difference_only"
+            )
+        )
+
+        duplicate_coverage = copy.deepcopy(coverage)
+        duplicate_coverage["record_id"] = (
+            "record:011b-coverage-interrupted-duplicate"
+        )
+        duplicate_coverage["payload"]["interval_id"] = (
+            "coverage:interrupted-cellular-to-wifi-duplicate"
+        )
+
+        duplicate_transition = copy.deepcopy(transition)
+        duplicate_transition["record_id"] = (
+            "record:012b-transition-endpoint-difference-duplicate-coverage"
+        )
+        duplicate_transition["recorded_wall_time_unix_ns"] = (
+            transition["recorded_wall_time_unix_ns"] + 500_000
+        )
+        duplicate_transition["payload"]["transition_id"] = (
+            "transition:endpoint-difference-cellular-to-wifi-duplicate-coverage"
+        )
+        duplicate_transition["payload"]["coverage_binding"] = (
+            _record_reference(duplicate_coverage)
+        )
+
+        transition_index = records.index(transition)
+        records.insert(transition_index + 1, duplicate_coverage)
+        records.insert(transition_index + 2, duplicate_transition)
+
+    report = _verify_bytes(
+        tmp_path,
+        _signed_ledger_mutation(mutate),
+    )
+    _assert_rejected(
+        report,
+        stage="semantic_relations",
+        check_id="coverage_relations_valid",
+        error_code="coverage_relation_invalid",
+    )
 
 
 def test_stale_session_termination_after_new_session_open_is_rejected(
