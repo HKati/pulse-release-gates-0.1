@@ -66,8 +66,8 @@ EXPECTED_IDENTITIES: dict[str, tuple[int, str]] = {
         "26b2ab8bed78f46c499d48b6f0b6af28ee9c23c2deafd773e4657e3d082aafd0",
     ),
     "tools/verify_pulsemech_device_ledger_v0.py": (
-        123099,
-        "5c5fe7d741a508d47586a144e74775bd5c8b987a9d1d5dbc64690c1e7df90bd3",
+        125054,
+        "26a8c0dd1e2abb2d6d5057fd908f270b673d331330990be3cb326bb69c70c458",
     ),
     "tools/build_pulsemech_device_ledger_reference_v0.py": (
         51405,
@@ -460,8 +460,19 @@ def _import_roots(path: Path) -> set[str]:
 def test_repository_artifact_identities_match_reviewed_reference() -> None:
     for relative, (expected_size, expected_sha) in EXPECTED_IDENTITIES.items():
         payload = (ROOT / relative).read_bytes()
-        assert len(payload) == expected_size, relative
-        assert sha256_bytes(payload) == expected_sha, relative
+                observed_identity = (
+            len(payload),
+            sha256_bytes(payload),
+        )
+        expected_identity = (
+            expected_size,
+            expected_sha,
+        )
+        assert observed_identity == expected_identity, {
+            "path": relative,
+            "observed": observed_identity,
+            "expected": expected_identity,
+        }
     assert not REFERENCE_LEDGER_PATH.read_bytes().endswith(b"\n")
     assert not REFERENCE_MANIFEST_PATH.read_bytes().endswith(b"\n")
 
