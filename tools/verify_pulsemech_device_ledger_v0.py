@@ -2042,8 +2042,16 @@ def _validate_ledger_semantics(
                     if item["record_type"] == "session_boundary" and item["payload"]["boundary_kind"] != "opened":
                         raise ValueError("continuous_coverage_boundary_between_endpoints")
             else:
-                start_boundary = _resolve_ref(payload["gap_start_boundary"], records_by_binding, code="gap_start")
-                end_boundary = _resolve_ref(payload["gap_end_boundary"], records_by_binding, code="gap_end")
+                start_boundary = _resolve_ref(
+                    payload["gap_start_boundary"],
+                    records_by_binding,
+                    code="gap_start",
+                )
+                end_boundary = _resolve_ref(
+                    payload["gap_end_boundary"],
+                    records_by_binding,
+                    code="gap_end",
+                )
                 if start_boundary["record_type"] != "session_boundary":
                     raise ValueError("gap_start_not_session_boundary")
                 if (
@@ -2051,7 +2059,7 @@ def _validate_ledger_semantics(
                     or end_boundary["payload"]["boundary_kind"] != "opened"
                 ):
                     raise ValueError("gap_end_not_session_open")
-                                if start_boundary["session_id"] != source["session_id"]:
+                if start_boundary["session_id"] != source["session_id"]:
                     raise ValueError("gap_start_session_mismatch")
                 if end_boundary["session_id"] != target["session_id"]:
                     raise ValueError("gap_end_session_mismatch")
@@ -2090,8 +2098,10 @@ def _validate_ledger_semantics(
                     < end_boundary["sequence_index"]
                     < target["sequence_index"]
                 ):
-                    raise ValueError("interrupted_coverage_boundary_order_invalid")
-    
+                    raise ValueError(
+                        "interrupted_coverage_boundary_order_invalid"
+                    )
+
                 if (
                     payload["source_session_id"] != source["session_id"]
                     or payload["target_session_id"]
