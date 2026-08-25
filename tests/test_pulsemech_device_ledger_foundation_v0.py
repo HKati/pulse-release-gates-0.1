@@ -35,6 +35,10 @@ REFERENCE_ROOT = ROOT / "examples" / "device_transition_ledger"
 REFERENCE_LEDGER_PATH = REFERENCE_ROOT / "pulsemech_device_transition_ledger_reference_v0.json"
 REFERENCE_MANIFEST_PATH = REFERENCE_ROOT / "pulsemech_device_ledger_manifest_reference_v0.json"
 REFERENCE_PACKAGE_PATH = REFERENCE_ROOT / "pulsemech_device_transition_ledger_reference_v0.pulseledger"
+REFERENCE_REPORT_PATH = (
+    REFERENCE_ROOT
+    / "pulsemech_device_transition_ledger_reference_verification_v0.json"
+)
 
 EXPECTED_OBSERVER_FINGERPRINT = (
     "f2880825cd3caa7272d01042829e5b02e8a168db11225477b039e6ec9a7d09c6"
@@ -84,6 +88,10 @@ EXPECTED_IDENTITIES: dict[str, tuple[int, str]] = {
     "examples/device_transition_ledger/pulsemech_device_transition_ledger_reference_v0.pulseledger": (
         133568,
         "a31388c7bf574040893d1d923d684d23318e5d2109a0d72a923888b95d5d42b3",
+    ),
+    "examples/device_transition_ledger/pulsemech_device_transition_ledger_reference_verification_v0.json": (
+        15328,
+        "b21a622215786d75eccd38f9c2298325b740709e6542adcda03c265a3ebb80f1",
     ),
 }
 
@@ -501,6 +509,7 @@ def test_repository_artifact_identities_match_reviewed_reference() -> None:
         }
     assert not REFERENCE_LEDGER_PATH.read_bytes().endswith(b"\n")
     assert not REFERENCE_MANIFEST_PATH.read_bytes().endswith(b"\n")
+    assert not REFERENCE_REPORT_PATH.read_bytes().endswith(b"\n")
 
 
 def test_producer_and_verifier_are_separate_standard_library_implementations() -> None:
@@ -522,6 +531,9 @@ def test_all_device_schemas_and_checked_in_instances_validate() -> None:
         jsonschema.Draft202012Validator.check_schema(schema)
     jsonschema.Draft202012Validator(LEDGER_SCHEMA).validate(REFERENCE_LEDGER)
     jsonschema.Draft202012Validator(MANIFEST_SCHEMA).validate(REFERENCE_MANIFEST)
+    jsonschema.Draft202012Validator(REPORT_SCHEMA).validate(
+        json.loads(REFERENCE_REPORT_PATH.read_bytes())
+    )
     members = _reference_members()
     for path in (BUILDER.CHECKPOINT_SIGNATURE_PATH, BUILDER.PACKAGE_SIGNATURE_PATH):
         jsonschema.Draft202012Validator(SIGNATURE_SCHEMA).validate(
@@ -551,6 +563,22 @@ def test_reference_package_verifies_with_all_checks_and_expected_observer() -> N
     assert report["semantic_summary"]["event_bound_transition_count"] == 1
     assert report["semantic_summary"]["endpoint_difference_only_transition_count"] == 1
     jsonschema.Draft202012Validator(REPORT_SCHEMA).validate(report)
+
+
+def test_checked_in_reference_report_matches_exact_verifier_output() -> None:
+    checked_in = REFERENCE_REPORT_PATH.read_bytes()
+    assert not checked_in.endswith(b"\n")
+
+    generated_report = VERIFIER.verify_package(
+        REFERENCE_PACKAGE_PATH,
+        expected_observer_fingerprint=EXPECTED_OBSERVER_FINGERPRINT,
+    )
+    generated_bytes = VERIFIER.canonical_json_bytes(generated_report)
+
+    assert checked_in == generated_bytes
+    parsed = json.loads(checked_in)
+    assert checked_in == VERIFIER.canonical_json_bytes(parsed)
+    jsonschema.Draft202012Validator(REPORT_SCHEMA).validate(parsed)
 
 
 def test_verification_report_is_byte_deterministic_and_output_matches_stdout(
