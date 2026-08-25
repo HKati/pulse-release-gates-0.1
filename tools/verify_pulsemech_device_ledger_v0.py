@@ -2024,6 +2024,7 @@ def _validate_ledger_semantics(
     state.pass_check("session_relations_valid")
 
     coverage_by_binding: dict[tuple[str, str, int], dict[str, Any]] = {}
+    coverage_relation_keys: set[tuple[Any, ...]] = set()
     try:
         for coverage in coverages:
             payload = coverage["payload"]
@@ -2041,6 +2042,13 @@ def _validate_ledger_semantics(
                 for item in records[source["sequence_index"] + 1:target["sequence_index"]]:
                     if item["record_type"] == "session_boundary" and item["payload"]["boundary_kind"] != "opened":
                         raise ValueError("continuous_coverage_boundary_between_endpoints")
+                semantic_key = (
+                    "continuous",
+                    _record_binding(source),
+                    _record_binding(target),
+                    None,
+                    None,
+                )
             else:
                 start_boundary = _resolve_ref(
                     payload["gap_start_boundary"],
@@ -2128,11 +2136,22 @@ def _validate_ledger_semantics(
                     raise ValueError("interrupted_coverage_target_not_first_fresh")
                 if session_order.index(target["session_id"]) != session_order.index(source["session_id"]) + 1:
                     raise ValueError("interrupted_coverage_nonadjacent_sessions")
+                semantic_key = (
+                    "interrupted",
+                    _record_binding(source),
+                    _record_binding(target),
+                    _record_binding(start_boundary),
+                    _record_binding(end_boundary),
+                )
+            if semantic_key in coverage_relation_keys:
+                raise ValueError("coverage_relation_materialized_more_than_once")
+            coverage_relation_keys.add(semantic_key)
             coverage_by_binding[_record_binding(coverage)] = {
                 "record": coverage,
                 "source": source,
                 "target": target,
                 "status": payload["coverage_status"],
+                "semantic_key": semantic_key,
             }
     except (ValueError, KeyError):
         state.fail(
@@ -2144,6 +2163,7 @@ def _validate_ledger_semantics(
     state.pass_check("coverage_relations_valid")
 
     consumed_events: set[tuple[str, str, int]] = set()
+    consumed_endpoint_relations: set[tuple[Any, ...]] = set()
     event_endpoint_valid = True
     transition_valid = True
     event_bound_count = 0
@@ -2212,7 +2232,6 @@ def _validate_ledger_semantics(
                     observation_status="event_observed",
                 )
             else:
-                endpoint_count += 1
                 if coverage["status"] != "interrupted" or payload["event_binding"] is not None:
                     raise ValueError("endpoint_transition_binding_invalid")
                 _validate_relation_changes(
@@ -2221,8 +2240,16 @@ def _validate_ledger_semantics(
                     target_state=target_state,
                     observation_status="endpoint_difference_observed",
                 )
+                relation_key = (
+                    payload["transition_class"],
+                    coverage["semantic_key"],
+                )
+                consumed_endpoint_relations.add(relation_key)
+                endpoint_count += 1
     except (ValueError, KeyError):
         event_endpoint_valid = False
+        transition_valid = False
+    if endpoint_count != len(consumed_endpoint_relations):
         transition_valid = False
     if not event_endpoint_valid:
         state.fail(
