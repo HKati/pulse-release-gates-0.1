@@ -66,8 +66,8 @@ EXPECTED_IDENTITIES: dict[str, tuple[int, str]] = {
         "26b2ab8bed78f46c499d48b6f0b6af28ee9c23c2deafd773e4657e3d082aafd0",
     ),
     "tools/verify_pulsemech_device_ledger_v0.py": (
-        125054,
-        "26a8c0dd1e2abb2d6d5057fd908f270b673d331330990be3cb326bb69c70c458",
+        125257,
+        "3bd6ccbae70e5c5aead03d2df8f87b0f79bec9d8e13a37254649822b245417c2",
     ),
     "tools/build_pulsemech_device_ledger_reference_v0.py": (
         51405,
@@ -446,6 +446,32 @@ def _package_with_invalid_ledger_bytes(raw: bytes) -> bytes:
     return _assemble_package(ledger_bytes=raw)
 
 
+def _materialize_terminal_boundary(
+    record: dict[str, Any],
+    *,
+    record_id: str,
+    boundary_id: str,
+    recorded_wall_time_unix_ns: int,
+    monotonic_time_ns: int,
+) -> None:
+    session_id = record["session_id"]
+    assert isinstance(session_id, str)
+    record["record_id"] = record_id
+    record["recorded_wall_time_unix_ns"] = recorded_wall_time_unix_ns
+    record["monotonic_time_ns"] = monotonic_time_ns
+    record["payload"] = {
+        "boundary_id": boundary_id,
+        "boundary_kind": "session_terminated",
+        "duplicate_boundary_rule": "terminal_once_no_future_events",
+        "lifecycle_event": "scene_did_disconnect",
+        "network_surface_after_boundary": "unavailable_terminal",
+        "observation_window_state": "terminal",
+        "payload_type": "session_boundary",
+        "previous_session_id": session_id,
+        "session_terminal": True,
+    }
+
+
 def _import_roots(path: Path) -> set[str]:
     tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
     result: set[str] = set()
@@ -460,7 +486,7 @@ def _import_roots(path: Path) -> set[str]:
 def test_repository_artifact_identities_match_reviewed_reference() -> None:
     for relative, (expected_size, expected_sha) in EXPECTED_IDENTITIES.items():
         payload = (ROOT / relative).read_bytes()
-                observed_identity = (
+        observed_identity = (
             len(payload),
             sha256_bytes(payload),
         )
@@ -978,6 +1004,137 @@ def test_semantic_relation_falsification_with_rebuilt_integrity_is_rejected(
     assert report["failure_stage"] in {"ledger_admission", "record_chain", "semantic_relations"}
 
 
+def test_stale_session_termination_after_new_session_open_is_rejected(
+    tmp_path: Path,
+) -> None:
+    def mutate(ledger: dict[str, Any]) -> None:
+        records = ledger["records"]
+        close_a = next(
+            record
+            for record in records
+            if record["record_id"] == "record:007-session-close-a"
+        )
+        open_b = next(
+            record
+            for record in records
+            if record["record_id"] == "record:008-session-open-b"
+        )
+        stale_terminal = copy.deepcopy(close_a)
+        _materialize_terminal_boundary(
+            stale_terminal,
+            record_id="record:008b-session-terminate-a-stale",
+            boundary_id="boundary:terminate-a-stale",
+            recorded_wall_time_unix_ns=(
+                open_b["recorded_wall_time_unix_ns"] + 500_000
+            ),
+            monotonic_time_ns=8_000,
+        )
+        records.insert(records.index(open_b) + 1, stale_terminal)
+
+    report = _verify_bytes(
+        tmp_path,
+        _signed_ledger_mutation(mutate),
+    )
+    _assert_rejected(
+        report,
+        stage="semantic_relations",
+        check_id="session_relations_valid",
+        error_code="session_relation_invalid",
+    )
+
+
+def test_direct_disconnect_terminal_boundary_is_valid_gap_start(
+    tmp_path: Path,
+) -> None:
+    def mutate(ledger: dict[str, Any]) -> None:
+        records = ledger["records"]
+        close_a = next(
+            record
+            for record in records
+            if record["record_id"] == "record:007-session-close-a"
+        )
+        interrupted_coverage = next(
+            record
+            for record in records
+            if (
+                record["record_type"] == "coverage_interval"
+                and record["payload"]["coverage_status"] == "interrupted"
+            )
+        )
+        _materialize_terminal_boundary(
+            close_a,
+            record_id="record:007-session-terminate-a",
+            boundary_id="boundary:terminate-a",
+            recorded_wall_time_unix_ns=close_a[
+                "recorded_wall_time_unix_ns"
+            ],
+            monotonic_time_ns=close_a["monotonic_time_ns"],
+        )
+        interrupted_coverage["payload"]["gap_start_boundary"] = (
+            _record_reference(close_a)
+        )
+
+    report = _verify_bytes(
+        tmp_path,
+        _signed_ledger_mutation(mutate),
+    )
+    assert report["ok"] is True
+    assert report["result"] == "verified_with_declared_unavailability"
+    assert report["errors"] == []
+    assert report["failed_check_ids"] == []
+    assert report["checks"]["session_relations_valid"] == "passed"
+    assert report["checks"]["coverage_relations_valid"] == "passed"
+
+
+def test_terminal_boundary_cannot_replace_existing_close_gap_start(
+    tmp_path: Path,
+) -> None:
+    def mutate(ledger: dict[str, Any]) -> None:
+        records = ledger["records"]
+        close_a = next(
+            record
+            for record in records
+            if record["record_id"] == "record:007-session-close-a"
+        )
+        open_b = next(
+            record
+            for record in records
+            if record["record_id"] == "record:008-session-open-b"
+        )
+        interrupted_coverage = next(
+            record
+            for record in records
+            if (
+                record["record_type"] == "coverage_interval"
+                and record["payload"]["coverage_status"] == "interrupted"
+            )
+        )
+        terminal_a = copy.deepcopy(close_a)
+        _materialize_terminal_boundary(
+            terminal_a,
+            record_id="record:007b-session-terminate-a",
+            boundary_id="boundary:terminate-a",
+            recorded_wall_time_unix_ns=(
+                close_a["recorded_wall_time_unix_ns"] + 500_000
+            ),
+            monotonic_time_ns=8_000,
+        )
+        records.insert(records.index(open_b), terminal_a)
+        interrupted_coverage["payload"]["gap_start_boundary"] = (
+            _record_reference(terminal_a)
+        )
+
+    report = _verify_bytes(
+        tmp_path,
+        _signed_ledger_mutation(mutate),
+    )
+    _assert_rejected(
+        report,
+        stage="semantic_relations",
+        check_id="coverage_relations_valid",
+        error_code="coverage_relation_invalid",
+    )
+
 
 def test_checkpoint_terminal_substitution_with_rebuilt_signature_is_rejected(
     tmp_path: Path,
@@ -1000,6 +1157,7 @@ def test_checkpoint_terminal_substitution_with_rebuilt_signature_is_rejected(
         stage="semantic_relations",
         check_id="checkpoint_closure_valid",
     )
+
 
 def test_duplicate_sequence_with_rebuilt_integrity_is_rejected(tmp_path: Path) -> None:
     ledger = _rebuild_ledger(REFERENCE_LEDGER, sequence_overrides={3: 2})
