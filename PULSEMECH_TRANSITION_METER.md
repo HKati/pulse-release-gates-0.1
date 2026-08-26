@@ -1852,6 +1852,44 @@ This does not weaken the release function.
 
 It explains its broader mechanical position.
 
+### 27.1 External incident case study: restart authority and alternative-path closure
+
+The non-normative
+[OpenAI–Hugging Face restart-authority and alternative-path-closure case study](docs/PULSEMECH_EXTERNAL_CASE_STUDY_OPENAI_HUGGING_FACE_RESTART_AUTHORITY_AND_ALTERNATIVE_PATH_CLOSURE_v0.md)
+maps a publicly documented external event path onto four PULSEmech subjects:
+
+```text
+current-run evidence
++
+transition-path verification
++
+alternative-path closure
++
+authority binding
+```
+
+The case study keeps four assertion classes separate:
+
+```text
+source fact
+≠
+retrospective reconstruction
+≠
+PULSEmech structural classification
+≠
+PULSEmech fail-closed counterfactual
+```
+
+It does not claim that PULSEmech alone would have prevented the incident, that
+OpenAI used PULSEmech fields internally, or that the historical OpenAI policy
+required the counterfactual closure condition.
+
+Its authority effect is:
+
+```text
+none
+```
+
 ---
 
 ## 28. Extension of PULSEmech value
