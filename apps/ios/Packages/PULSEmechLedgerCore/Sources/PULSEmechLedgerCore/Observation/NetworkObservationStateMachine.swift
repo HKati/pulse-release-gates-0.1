@@ -8,6 +8,10 @@ public enum NetworkObservationStateMachineError: Error, Sendable, Equatable {
     /// rather than interleaved.
     case operationInProgress
 
+    /// A terminal checkpoint has already closed the shared ledger. Lifecycle
+    /// and observation mutation are forbidden after closure.
+    case ledgerAlreadyClosed
+
     /// A path update arrived before a session opened or after its observation
     /// window closed or terminated.
     case noOpenObservationWindow
@@ -409,15 +413,18 @@ public struct NetworkObservationStateMachineSnapshot: Sendable, Equatable {
     public let networkState: NetworkObservationStateMachineState
     public let lifecycleState: SessionBoundaryStateMachineState
     public let chain: LedgerRecordChainSnapshot
+    public let ledgerClosure: DeviceTransitionLedgerClosure?
 
     public init(
         networkState: NetworkObservationStateMachineState,
         lifecycleState: SessionBoundaryStateMachineState,
-        chain: LedgerRecordChainSnapshot
+        chain: LedgerRecordChainSnapshot,
+        ledgerClosure: DeviceTransitionLedgerClosure? = nil
     ) {
         self.networkState = networkState
         self.lifecycleState = lifecycleState
         self.chain = chain
+        self.ledgerClosure = ledgerClosure
     }
 }
 
@@ -505,6 +512,7 @@ public actor NetworkObservationStateMachine {
     private let chain: LedgerRecordChain
     private let lifecycle: SessionBoundaryStateMachine
     private var state: NetworkObservationStateMachineState = .awaitingFirstSession
+    private var ledgerClosure: DeviceTransitionLedgerClosure?
     private var operationInProgress = false
 
     public init(
@@ -531,6 +539,7 @@ public actor NetworkObservationStateMachine {
     ) async throws -> SessionBoundaryLifecycleResult {
         try beginOperation()
         defer { endOperation() }
+        try requireLedgerOpen()
 
         let retainedSource = state.latestObservedSnapshot
         let result = try await lifecycle.sceneDidBecomeActive(
@@ -576,6 +585,7 @@ public actor NetworkObservationStateMachine {
     ) async throws -> SessionBoundaryLifecycleResult {
         try beginOperation()
         defer { endOperation() }
+        try requireLedgerOpen()
 
         let retainedSource = state.latestObservedSnapshot
         let currentClockEpochID = state.currentClockEpochID
@@ -615,6 +625,7 @@ public actor NetworkObservationStateMachine {
     ) async throws -> SessionBoundaryLifecycleResult {
         try beginOperation()
         defer { endOperation() }
+        try requireLedgerOpen()
 
         let retainedSource = state.latestObservedSnapshot
         let currentClockEpochID = state.currentClockEpochID
@@ -653,6 +664,7 @@ public actor NetworkObservationStateMachine {
     ) async throws -> NetworkPathObservationResult {
         try beginOperation()
         defer { endOperation() }
+        try requireLedgerOpen()
 
         guard case let .observationWindowOpen(
             currentSessionID,
@@ -1134,7 +1146,37 @@ public actor NetworkObservationStateMachine {
         )
     }
 
-    /// Returns one consistent network, lifecycle, and chain snapshot.
+    /// Atomically closes the current record chain with one terminal checkpoint
+    /// and materializes the complete canonical ledger document.
+    ///
+    /// The lifecycle and network state must still describe the same accepted
+    /// session relation. Checkpoint projection, checkpoint finalization, and
+    /// document construction complete before the chain commits its terminal
+    /// checkpoint.
+    @discardableResult
+    public func closeLedger(
+        _ input: LedgerCheckpointMaterializationInput,
+        observerIdentity: DeviceLedgerObserverIdentity
+    ) async throws -> DeviceTransitionLedgerClosure {
+        try beginOperation()
+        defer { endOperation() }
+        try requireLedgerOpen()
+
+        let lifecycleSnapshot = try await lifecycle.snapshot()
+        guard lifecycleStateMatches(lifecycleSnapshot.state) else {
+            throw NetworkObservationStateMachineError.lifecycleStateMismatch
+        }
+
+        let closure = try await chain.closeAndMaterializeLedger(
+            input,
+            observerIdentity: observerIdentity
+        )
+        ledgerClosure = closure
+        return closure
+    }
+
+    /// Returns one consistent network, lifecycle, chain, and terminal-ledger
+    /// snapshot.
     public func snapshot() async throws -> NetworkObservationStateMachineSnapshot {
         try beginOperation()
         defer { endOperation() }
@@ -1143,8 +1185,86 @@ public actor NetworkObservationStateMachine {
         return NetworkObservationStateMachineSnapshot(
             networkState: state,
             lifecycleState: lifecycleSnapshot.state,
-            chain: lifecycleSnapshot.chain
+            chain: lifecycleSnapshot.chain,
+            ledgerClosure: ledgerClosure
         )
+    }
+
+    private func requireLedgerOpen() throws {
+        guard ledgerClosure == nil else {
+            throw NetworkObservationStateMachineError.ledgerAlreadyClosed
+        }
+    }
+
+    private func lifecycleStateMatches(
+        _ lifecycleState: SessionBoundaryStateMachineState
+    ) -> Bool {
+        switch (state, lifecycleState) {
+        case (.awaitingFirstSession, .awaitingFirstSession):
+            return true
+
+        case let (
+            .observationWindowOpen(
+                sessionID,
+                clockEpochID,
+                openBoundary,
+                _,
+                precedingGap,
+                _
+            ),
+            .observationWindowOpen(
+                lifecycleSessionID,
+                lifecycleClockEpochID,
+                lifecycleOpenBoundary,
+                _,
+                lifecycleGap
+            )
+        ):
+            return sessionID == lifecycleSessionID &&
+                clockEpochID == lifecycleClockEpochID &&
+                openBoundary == lifecycleOpenBoundary &&
+                precedingGap == lifecycleGap
+
+        case let (
+            .observationWindowClosed(
+                sessionID,
+                clockEpochID,
+                closeBoundary,
+                _
+            ),
+            .observationWindowClosed(
+                lifecycleSessionID,
+                lifecycleClockEpochID,
+                _,
+                lifecycleCloseBoundary
+            )
+        ):
+            return sessionID == lifecycleSessionID &&
+                clockEpochID == lifecycleClockEpochID &&
+                closeBoundary == lifecycleCloseBoundary
+
+        case let (
+            .sessionTerminated(
+                sessionID,
+                clockEpochID,
+                terminalBoundary,
+                _
+            ),
+            .sessionTerminated(
+                lifecycleSessionID,
+                lifecycleClockEpochID,
+                _,
+                _,
+                lifecycleTerminalBoundary
+            )
+        ):
+            return sessionID == lifecycleSessionID &&
+                clockEpochID == lifecycleClockEpochID &&
+                terminalBoundary == lifecycleTerminalBoundary
+
+        default:
+            return false
+        }
     }
 
     private func beginOperation() throws {
