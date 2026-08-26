@@ -39,6 +39,17 @@ final class NetworkObservationStateMachineTests: XCTestCase {
         )
     }
 
+    private func fixtureObserverIdentity() throws -> DeviceLedgerObserverIdentity {
+        try DeviceLedgerObserverIdentity(
+            identityScope: .fixtureInstallation,
+            keyOriginProfile: .fixtureSoftwareP256,
+            publicKeyX963Uncompressed: Data(
+                base64Encoded:
+                    "BAIa75uP4gO+twVlypJYAjIKXK0JVnBPBArgoE50sEI+HbKkjFpxpQifk3hgoQs08yYzY850htpv1wl0/4u6i10="
+            )!
+        )
+    }
+
     private func wifiState() throws -> NetworkPathState {
         try NetworkPathState(
             availableInterfaceTypes: [
@@ -1583,5 +1594,184 @@ final class NetworkObservationStateMachineTests: XCTestCase {
             after.networkState.latestObservedSnapshot,
             observed.observedSnapshot
         )
+    }
+
+    func testCompleteReferencePathClosesExactCheckpointAndLedgerDocument() async throws {
+        let machine = makeMachine()
+        _ = try await openSessionA(on: machine)
+        _ = try await machine.observePathUpdate(
+            try wifiObservationA()
+        )
+        _ = try await machine.observePathUpdate(
+            try cellularObservationA()
+        )
+        _ = try await closeSessionA(
+            on: machine,
+            recordID: "record:007-session-close-a",
+            wallTimeOffset: 7_000_000,
+            monotonicTimeNS: 7_000
+        )
+        _ = try await openSessionB(
+            on: machine,
+            recordID: "record:008-session-open-b",
+            wallTimeOffset: 8_000_000
+        )
+        _ = try await machine.observePathUpdate(
+            try wifiObservationB(
+                eventRecordID: "record:009-path-wifi-b",
+                snapshotRecordID: "record:010-snapshot-wifi-b",
+                eventWallTimeOffset: 9_000_000,
+                snapshotWallTimeOffset: 10_000_000,
+                coverageRecordID: "record:011-coverage-interrupted",
+                coverageIntervalID: "coverage:interrupted-a-to-b",
+                coverageWallTimeOffset: 11_000_000,
+                includeTransition: true,
+                transitionRecordID:
+                    "record:012-transition-endpoint-difference",
+                transitionID:
+                    "transition:endpoint-difference-cellular-to-wifi",
+                transitionWallTimeOffset: 12_000_000
+            )
+        )
+
+        let closure = try await machine.closeLedger(
+            LedgerCheckpointMaterializationInput(
+                checkpointID: identifier(
+                    "checkpoint:synthetic-reference-v0"
+                ),
+                recordID: identifier("record:013-checkpoint"),
+                recordedWallTimeUnixNS: baseWallTime + 13_000_000
+            ),
+            observerIdentity: fixtureObserverIdentity()
+        )
+
+        XCTAssertEqual(closure.checkpointSource.closedRecordCount, 13)
+        XCTAssertEqual(closure.checkpointSource.sessionCount, 2)
+        XCTAssertEqual(closure.checkpointSource.clockEpochCount, 2)
+        XCTAssertEqual(
+            closure.checkpointSource.recordTypeCounts,
+            LedgerCheckpointRecordTypeCounts(
+                coverageInterval: 2,
+                observationEvent: 3,
+                sessionBoundary: 3,
+                stateSnapshot: 3,
+                transition: 2
+            )
+        )
+        XCTAssertEqual(
+            closure.checkpointSource.coverageSummary,
+            LedgerCheckpointCoverageSummary(
+                continuousIntervals: 1,
+                interruptedIntervals: 1
+            )
+        )
+        XCTAssertEqual(
+            closure.checkpointSource.transitionSummary,
+            LedgerCheckpointTransitionSummary(
+                endpointDifferenceOnly: 1,
+                eventBound: 1
+            )
+        )
+
+        let checkpointPayloadBytes = closure.checkpointPayload.canonicalBytes()
+        XCTAssertEqual(checkpointPayloadBytes.count, 1_307)
+        XCTAssertEqual(
+            LedgerRecordHasher.sha256Hex(
+                of: checkpointPayloadBytes
+            ).rawValue,
+            "2dd55e7af9716efbdd72345e881ad10dfeae74dbcb64f37245c8a7e9c56366c7"
+        )
+        XCTAssertEqual(
+            closure.checkpointRecord.digestSubject.canonicalBytes().count,
+            2_386
+        )
+        XCTAssertEqual(
+            closure.checkpointRecord.recordSHA256.rawValue,
+            "16f309c033f43a4b80d5cd0be3e0685af977ab510a0813c5fb32631b3334b2ff"
+        )
+        XCTAssertEqual(
+            closure.checkpointRecord.canonicalBytes().count,
+            2_469
+        )
+        XCTAssertEqual(
+            LedgerRecordHasher.sha256Hex(
+                of: closure.checkpointRecord.canonicalBytes()
+            ).rawValue,
+            "1a71f5235f754f769bb00d6e1c24621caeacfd8994a4693a12b37000e152d862"
+        )
+
+        let ledgerBytes = closure.document.canonicalBytes()
+        XCTAssertEqual(ledgerBytes.count, 31_904)
+        XCTAssertEqual(
+            closure.document.ledgerSHA256.rawValue,
+            "360de3b74e2c0ec33525426cd0598b5a8d382e8017295900f0ef5600ae9a4f77"
+        )
+        XCTAssertNotEqual(ledgerBytes.last, 0x0A)
+        XCTAssertEqual(closure.document.records.count, 14)
+        XCTAssertEqual(
+            closure.document.records.last,
+            closure.checkpointRecord
+        )
+
+        let snapshot = try await machine.snapshot()
+        XCTAssertEqual(snapshot.chain.state, .checkpointed)
+        XCTAssertEqual(snapshot.chain.recordCount, 14)
+        XCTAssertNil(snapshot.chain.nextSequenceIndex)
+        XCTAssertEqual(snapshot.ledgerClosure, closure)
+    }
+
+    func testPostClosureMutationAndRepeatedClosureAreRejectedWithoutChange() async throws {
+        let machine = makeMachine()
+        _ = try await openSessionA(on: machine)
+        let input = LedgerCheckpointMaterializationInput(
+            checkpointID: identifier("checkpoint:minimal-runtime-v0"),
+            recordID: identifier("record:001-checkpoint"),
+            recordedWallTimeUnixNS: baseWallTime + 1_000_000
+        )
+        let closure = try await machine.closeLedger(
+            input,
+            observerIdentity: fixtureObserverIdentity()
+        )
+        let before = try await machine.snapshot()
+
+        do {
+            _ = try await machine.closeLedger(
+                input,
+                observerIdentity: fixtureObserverIdentity()
+            )
+            XCTFail("Expected repeated closure to fail")
+        } catch let error as NetworkObservationStateMachineError {
+            XCTAssertEqual(error, .ledgerAlreadyClosed)
+        }
+
+        do {
+            _ = try await machine.sceneWillResignActive(
+                boundaryID: identifier("boundary:late-close-a"),
+                recordID: identifier("record:late-close-a"),
+                sessionID: identifier("session:synthetic-a"),
+                recordedWallTimeUnixNS: baseWallTime + 2_000_000,
+                monotonicTimeNS: 2_000
+            )
+            XCTFail("Expected post-closure lifecycle mutation to fail")
+        } catch let error as NetworkObservationStateMachineError {
+            XCTAssertEqual(error, .ledgerAlreadyClosed)
+        }
+
+        do {
+            _ = try await machine.observePathUpdate(
+                try wifiObservationA(
+                    eventRecordID: "record:late-event",
+                    snapshotRecordID: "record:late-snapshot"
+                )
+            )
+            XCTFail("Expected post-closure observation to fail")
+        } catch let error as NetworkObservationStateMachineError {
+            XCTAssertEqual(error, .ledgerAlreadyClosed)
+        }
+
+        let after = try await machine.snapshot()
+        XCTAssertEqual(after, before)
+        XCTAssertEqual(after.ledgerClosure, closure)
+        XCTAssertEqual(after.chain.recordCount, 2)
     }
 }
