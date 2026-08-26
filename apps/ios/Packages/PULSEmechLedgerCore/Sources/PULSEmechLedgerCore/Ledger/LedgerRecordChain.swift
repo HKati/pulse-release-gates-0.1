@@ -501,6 +501,56 @@ public actor LedgerRecordChain {
         )
     }
 
+    /// Closes the exact current record chain with one terminal checkpoint and
+    /// materializes the complete canonical ledger document as one actor-isolated
+    /// transaction.
+    ///
+    /// The checkpoint source projection, checkpoint payload, finalized
+    /// checkpoint envelope, and complete ledger document are all constructed
+    /// before the first live checkpoint commit. A failure therefore leaves the
+    /// chain open and preserves the supplied checkpoint record identity for a
+    /// corrected retry.
+    @discardableResult
+    func closeAndMaterializeLedger(
+        _ input: LedgerCheckpointMaterializationInput,
+        observerIdentity: DeviceLedgerObserverIdentity
+    ) throws -> DeviceTransitionLedgerClosure {
+        let source = try LedgerCheckpointSource(
+            ledgerID: ledgerID,
+            observerPublicKeyFingerprintSHA256:
+                observerPublicKeyFingerprintSHA256,
+            recordStatus: recordStatus,
+            records: records
+        )
+        let payload = try LedgerCheckpointPayload(
+            checkpointID: input.checkpointID,
+            createdUnixNS: input.recordedWallTimeUnixNS,
+            source: source
+        )
+        let checkpointPrepared = try prepareAppend(
+            payload.recordDraft(
+                recordID: input.recordID
+            ),
+            after: .empty
+        )
+        let document = try DeviceTransitionLedgerDocument(
+            closedRecords: records,
+            checkpointSource: source,
+            checkpointPayload: payload,
+            checkpointRecord: checkpointPrepared.envelope,
+            observerIdentity: observerIdentity
+        )
+        let closure = DeviceTransitionLedgerClosure(
+            checkpointSource: source,
+            checkpointPayload: payload,
+            checkpointRecord: checkpointPrepared.envelope,
+            document: document
+        )
+
+        commit(checkpointPrepared)
+        return closure
+    }
+
     /// Returns one value snapshot without exposing mutable chain storage.
     public func snapshot() -> LedgerRecordChainSnapshot {
         LedgerRecordChainSnapshot(
