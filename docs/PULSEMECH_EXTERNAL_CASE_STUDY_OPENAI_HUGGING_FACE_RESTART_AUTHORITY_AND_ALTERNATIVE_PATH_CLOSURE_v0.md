@@ -2,7 +2,7 @@
 
 ## Document status
 
-- **Document class:** external analytical case study
+- **Document class:** external analytical case study 
 - **Version:** v0
 - **Normative status:** non-normative
 - **Authority effect:** none
