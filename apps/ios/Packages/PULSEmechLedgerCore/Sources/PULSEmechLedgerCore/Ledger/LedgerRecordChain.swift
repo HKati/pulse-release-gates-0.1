@@ -139,6 +139,13 @@ public actor LedgerRecordChain {
     public nonisolated let observerPublicKeyFingerprintSHA256: SHA256HexDigest
     public nonisolated let recordStatus: LedgerRecordStatus
 
+    private struct PreparedAppend: Sendable {
+        let envelope: LedgerRecordEnvelope
+        let recordID: LedgerIdentifier
+        let recordType: LedgerRecordType
+        let scope: LedgerRecordScope
+    }
+
     private var records: [LedgerRecordEnvelope] = []
     private var recordIDs = Set<LedgerIdentifier>()
     private var clockEpochBySessionID: [LedgerIdentifier: LedgerIdentifier] = [:]
@@ -164,50 +171,54 @@ public actor LedgerRecordChain {
     public func append(
         _ draft: LedgerRecordDraft
     ) throws -> LedgerRecordEnvelope {
-        try appendOne(draft)
+        let prepared = try prepareAppend(
+            draft,
+            after: nil
+        )
+        commit(prepared)
+        return prepared.envelope
     }
 
     /// Appends two dependent records as one non-reentrant chain transaction.
     ///
-    /// The second draft is constructed from the finalized first record, allowing
-    /// its payload to bind the first record's exact sequence index and SHA-256
-    /// identity. If first-record materialization, second-draft construction, or
-    /// second-record materialization fails, every chain-owned field is restored
-    /// to its exact pre-call value. No caller can observe a one-record partial
-    /// commit because this method contains no suspension point.
+    /// The first record is fully validated, canonically finalized, and held in a
+    /// constant-size staging value. The second draft is then constructed from
+    /// that finalized first record and validated against a one-record staged
+    /// projection of the chain. Neither record is committed until both are
+    /// ready.
+    ///
+    /// This avoids retaining copies of the complete record array, record-ID set,
+    /// or continuity dictionaries for each callback. Successful pair appends
+    /// therefore retain the same asymptotic cost as two ordinary appends rather
+    /// than copying the accumulated chain.
     ///
     /// This is the required commit boundary for one admitted network callback:
-    /// its observation-event record and the callback-bound state snapshot are
-    /// either both accepted or neither is accepted.
+    /// its observation-event record and callback-bound state snapshot are either
+    /// both accepted or neither is accepted.
     @discardableResult
     public func appendAtomically(
         first firstDraft: LedgerRecordDraft,
         makeSecondDraft: @Sendable (LedgerRecordEnvelope) throws -> LedgerRecordDraft
     ) throws -> LedgerRecordAtomicPair {
-        let originalRecords = records
-        let originalRecordIDs = recordIDs
-        let originalClockEpochBySessionID = clockEpochBySessionID
-        let originalSessionIDByClockEpoch = sessionIDByClockEpoch
-        let originalLastMonotonicTimeByClockEpoch = lastMonotonicTimeByClockEpoch
-        let originalChainState = chainState
+        let firstPrepared = try prepareAppend(
+            firstDraft,
+            after: nil
+        )
+        let secondDraft = try makeSecondDraft(
+            firstPrepared.envelope
+        )
+        let secondPrepared = try prepareAppend(
+            secondDraft,
+            after: firstPrepared
+        )
 
-        do {
-            let firstEnvelope = try appendOne(firstDraft)
-            let secondDraft = try makeSecondDraft(firstEnvelope)
-            let secondEnvelope = try appendOne(secondDraft)
-            return LedgerRecordAtomicPair(
-                first: firstEnvelope,
-                second: secondEnvelope
-            )
-        } catch {
-            records = originalRecords
-            recordIDs = originalRecordIDs
-            clockEpochBySessionID = originalClockEpochBySessionID
-            sessionIDByClockEpoch = originalSessionIDByClockEpoch
-            lastMonotonicTimeByClockEpoch = originalLastMonotonicTimeByClockEpoch
-            chainState = originalChainState
-            throw error
-        }
+        commit(firstPrepared)
+        commit(secondPrepared)
+
+        return LedgerRecordAtomicPair(
+            first: firstPrepared.envelope,
+            second: secondPrepared.envelope
+        )
     }
 
     /// Returns one value snapshot without exposing mutable chain storage.
@@ -221,61 +232,93 @@ public actor LedgerRecordChain {
         )
     }
 
-    private func appendOne(
-        _ draft: LedgerRecordDraft
-    ) throws -> LedgerRecordEnvelope {
-        guard chainState == .acceptingRecords else {
+    /// Validates and finalizes one draft without mutating chain-owned state.
+    ///
+    /// `stagedPredecessor` represents at most one already prepared record. It is
+    /// used by the dependent-pair path to derive the second record's sequence,
+    /// predecessor digest, record-ID uniqueness, terminal state, and session
+    /// continuity without copying or mutating the accumulated chain.
+    private func prepareAppend(
+        _ draft: LedgerRecordDraft,
+        after stagedPredecessor: PreparedAppend?
+    ) throws -> PreparedAppend {
+        let effectiveState: LedgerRecordChainState
+        if stagedPredecessor?.recordType == .checkpoint {
+            effectiveState = .checkpointed
+        } else {
+            effectiveState = chainState
+        }
+
+        guard effectiveState == .acceptingRecords else {
             throw LedgerRecordChainError.chainAlreadyCheckpointed
         }
 
-        guard records.count < Self.maximumRecordCount else {
+        let effectiveRecordCount = records.count + (stagedPredecessor == nil ? 0 : 1)
+
+        guard effectiveRecordCount < Self.maximumRecordCount else {
             throw LedgerRecordChainError.recordLimitReached
         }
 
         if draft.recordType == .checkpoint {
-            guard !records.isEmpty else {
+            guard effectiveRecordCount > 0 else {
                 throw LedgerRecordChainError.checkpointRequiresPriorRecord
             }
-        } else if records.count == Self.maximumRecordCount - 1 {
+        } else if effectiveRecordCount == Self.maximumRecordCount - 1 {
             throw LedgerRecordChainError.checkpointSlotRequired
         }
 
-        guard !recordIDs.contains(draft.recordID) else {
+        guard !recordIDs.contains(draft.recordID),
+              stagedPredecessor?.recordID != draft.recordID else {
             throw LedgerRecordChainError.duplicateRecordID(
                 draft.recordID
             )
         }
 
+        let previousRecordSHA256 = stagedPredecessor?.envelope.recordSHA256
+            ?? records.last?.recordSHA256
+
         let subject = try LedgerRecordDigestSubject(
             ledgerID: ledgerID,
             observerPublicKeyFingerprintSHA256: observerPublicKeyFingerprintSHA256,
             payload: draft.payload,
-            previousRecordSHA256: records.last?.recordSHA256,
+            previousRecordSHA256: previousRecordSHA256,
             recordID: draft.recordID,
             recordStatus: recordStatus,
             recordType: draft.recordType,
             recordedWallTimeUnixNS: draft.recordedWallTimeUnixNS,
-            sequenceIndex: Int64(records.count),
+            sequenceIndex: Int64(effectiveRecordCount),
             scope: draft.scope
         )
 
-        try validateScopeContinuity(draft.scope)
+        try validateScopeContinuity(
+            draft.scope,
+            after: stagedPredecessor
+        )
 
-        let envelope = LedgerRecordHasher.finalize(subject)
+        return PreparedAppend(
+            envelope: LedgerRecordHasher.finalize(subject),
+            recordID: draft.recordID,
+            recordType: draft.recordType,
+            scope: draft.scope
+        )
+    }
 
-        recordIDs.insert(draft.recordID)
-        commitScopeContinuity(draft.scope)
-        records.append(envelope)
+    /// Commits one already prepared append without any throwing operation.
+    private func commit(
+        _ prepared: PreparedAppend
+    ) {
+        recordIDs.insert(prepared.recordID)
+        commitScopeContinuity(prepared.scope)
+        records.append(prepared.envelope)
 
-        if draft.recordType == .checkpoint {
+        if prepared.recordType == .checkpoint {
             chainState = .checkpointed
         }
-
-        return envelope
     }
 
     private func validateScopeContinuity(
-        _ scope: LedgerRecordScope
+        _ scope: LedgerRecordScope,
+        after stagedPredecessor: PreparedAppend?
     ) throws {
         guard case let .session(
             sessionID,
@@ -285,7 +328,36 @@ public actor LedgerRecordChain {
             return
         }
 
-        if let expectedEpoch = clockEpochBySessionID[sessionID],
+        let stagedSessionScope: (
+            sessionID: LedgerIdentifier,
+            clockEpochID: LedgerIdentifier,
+            monotonicTimeNS: Int64
+        )?
+
+        if let stagedPredecessor,
+           case let .session(
+               stagedSessionID,
+               stagedClockEpochID,
+               stagedMonotonicTimeNS
+           ) = stagedPredecessor.scope {
+            stagedSessionScope = (
+                stagedSessionID,
+                stagedClockEpochID,
+                stagedMonotonicTimeNS
+            )
+        } else {
+            stagedSessionScope = nil
+        }
+
+        let expectedEpoch: LedgerIdentifier?
+        if let stagedSessionScope,
+           stagedSessionScope.sessionID == sessionID {
+            expectedEpoch = stagedSessionScope.clockEpochID
+        } else {
+            expectedEpoch = clockEpochBySessionID[sessionID]
+        }
+
+        if let expectedEpoch,
            expectedEpoch != clockEpochID {
             throw LedgerRecordChainError.sessionClockEpochChanged(
                 sessionID: sessionID,
@@ -294,7 +366,15 @@ public actor LedgerRecordChain {
             )
         }
 
-        if let existingSessionID = sessionIDByClockEpoch[clockEpochID],
+        let existingSessionID: LedgerIdentifier?
+        if let stagedSessionScope,
+           stagedSessionScope.clockEpochID == clockEpochID {
+            existingSessionID = stagedSessionScope.sessionID
+        } else {
+            existingSessionID = sessionIDByClockEpoch[clockEpochID]
+        }
+
+        if let existingSessionID,
            existingSessionID != sessionID {
             throw LedgerRecordChainError.clockEpochReused(
                 clockEpochID: clockEpochID,
@@ -303,11 +383,19 @@ public actor LedgerRecordChain {
             )
         }
 
-        if let previous = lastMonotonicTimeByClockEpoch[clockEpochID],
-           monotonicTimeNS <= previous {
+        let previousMonotonicTime: Int64?
+        if let stagedSessionScope,
+           stagedSessionScope.clockEpochID == clockEpochID {
+            previousMonotonicTime = stagedSessionScope.monotonicTimeNS
+        } else {
+            previousMonotonicTime = lastMonotonicTimeByClockEpoch[clockEpochID]
+        }
+
+        if let previousMonotonicTime,
+           monotonicTimeNS <= previousMonotonicTime {
             throw LedgerRecordChainError.monotonicTimeNotStrictlyIncreasing(
                 clockEpochID: clockEpochID,
-                previous: previous,
+                previous: previousMonotonicTime,
                 proposed: monotonicTimeNS
             )
         }
