@@ -62,6 +62,34 @@ public enum NetworkObservationStateMachineError: Error, Sendable, Equatable {
         snapshot: Int64,
         coverage: Int64
     )
+
+    /// Every changed mechanically eligible relation must materialize its exact
+    /// transition in the same callback transaction.
+    case transitionMaterializationRequired(NetworkTransitionClass)
+
+    /// A caller cannot inject a transition when no changed endpoint relation
+    /// exists.
+    case transitionMaterializationNotPermitted
+
+    /// Transition materialization cannot claim receipt before its bound
+    /// coverage record.
+    case transitionWallTimePrecedesCoverage(
+        coverage: Int64,
+        transition: Int64
+    )
+
+    /// Event-bound transitions are session-scoped and require a monotonic time.
+    case eventBoundTransitionMonotonicTimeRequired
+
+    /// Event-bound transition monotonic time must follow the target snapshot.
+    case eventBoundTransitionMonotonicTimeNotAfterSnapshot(
+        snapshot: Int64,
+        transition: Int64
+    )
+
+    /// Endpoint-difference-only transitions are ledger-wide and cannot carry a
+    /// monotonic time.
+    case endpointDifferenceTransitionMonotonicTimeForbidden
 }
 
 /// Why the network surface is unavailable in one newly opened observation
@@ -105,6 +133,16 @@ public struct NetworkObservedSnapshot: Sendable, Equatable {
             sessionID: sessionID,
             clockEpochID: clockEpochID,
             snapshotReference: snapshotReference
+        )
+    }
+
+    public var transitionEndpoint: NetworkTransitionEndpoint {
+        NetworkTransitionEndpoint(
+            sessionID: sessionID,
+            clockEpochID: clockEpochID,
+            snapshotReference: snapshotReference,
+            sourceEventReference: eventReference,
+            networkPathState: networkPathState
         )
     }
 }
@@ -231,6 +269,30 @@ public struct NetworkCoverageMaterializationInput: Sendable, Equatable {
     }
 }
 
+/// Producer-supplied identities and timing for one transition record whose
+/// semantics are derived entirely by `NetworkObservationStateMachine`.
+public struct NetworkTransitionMaterializationInput: Sendable, Equatable {
+    public let transitionID: LedgerIdentifier
+    public let recordID: LedgerIdentifier
+    public let recordedWallTimeUnixNS: Int64
+
+    /// Required only for the derived event-bound class. The state machine
+    /// rejects this value for endpoint-difference-only transitions.
+    public let eventBoundMonotonicTimeNS: Int64?
+
+    public init(
+        transitionID: LedgerIdentifier,
+        recordID: LedgerIdentifier,
+        recordedWallTimeUnixNS: Int64,
+        eventBoundMonotonicTimeNS: Int64? = nil
+    ) {
+        self.transitionID = transitionID
+        self.recordID = recordID
+        self.recordedWallTimeUnixNS = recordedWallTimeUnixNS
+        self.eventBoundMonotonicTimeNS = eventBoundMonotonicTimeNS
+    }
+}
+
 /// Immutable normalized input for one received `NWPathMonitor` callback.
 ///
 /// The Apple adapter derives `networkPathState` once from the callback argument,
@@ -253,6 +315,7 @@ public struct NetworkPathUpdateObservation: Sendable, Equatable {
     public let appLifecycleActivationState: AppLifecycleActivationState
     public let networkPathState: NetworkPathState
     public let coverageMaterialization: NetworkCoverageMaterializationInput?
+    public let transitionMaterialization: NetworkTransitionMaterializationInput?
 
     public init(
         eventID: LedgerIdentifier,
@@ -267,7 +330,8 @@ public struct NetworkPathUpdateObservation: Sendable, Equatable {
         clockEpochID: LedgerIdentifier,
         appLifecycleActivationState: AppLifecycleActivationState,
         networkPathState: NetworkPathState,
-        coverageMaterialization: NetworkCoverageMaterializationInput? = nil
+        coverageMaterialization: NetworkCoverageMaterializationInput? = nil,
+        transitionMaterialization: NetworkTransitionMaterializationInput? = nil
     ) {
         self.eventID = eventID
         self.eventRecordID = eventRecordID
@@ -282,6 +346,7 @@ public struct NetworkPathUpdateObservation: Sendable, Equatable {
         self.appLifecycleActivationState = appLifecycleActivationState
         self.networkPathState = networkPathState
         self.coverageMaterialization = coverageMaterialization
+        self.transitionMaterialization = transitionMaterialization
     }
 }
 
@@ -291,6 +356,8 @@ public struct NetworkPathObservationResult: Sendable, Equatable {
     public let snapshotRecord: LedgerRecordEnvelope
     public let coverageRecord: LedgerRecordEnvelope?
     public let coverageRelation: NetworkCoverageRelation?
+    public let transitionRecord: LedgerRecordEnvelope?
+    public let transitionRelation: NetworkTransitionRelation?
     public let observedSnapshot: NetworkObservedSnapshot
 
     /// Previous observed snapshot in the same session, if one existed.
@@ -314,6 +381,8 @@ public struct NetworkPathObservationResult: Sendable, Equatable {
         snapshotRecord: LedgerRecordEnvelope,
         coverageRecord: LedgerRecordEnvelope?,
         coverageRelation: NetworkCoverageRelation?,
+        transitionRecord: LedgerRecordEnvelope?,
+        transitionRelation: NetworkTransitionRelation?,
         observedSnapshot: NetworkObservedSnapshot,
         previousSnapshotInSession: NetworkObservedSnapshot?,
         changedFieldsFromPreviousSnapshot: [NetworkPathStateField]?,
@@ -324,6 +393,8 @@ public struct NetworkPathObservationResult: Sendable, Equatable {
         self.snapshotRecord = snapshotRecord
         self.coverageRecord = coverageRecord
         self.coverageRelation = coverageRelation
+        self.transitionRecord = transitionRecord
+        self.transitionRelation = transitionRelation
         self.observedSnapshot = observedSnapshot
         self.previousSnapshotInSession = previousSnapshotInSession
         self.changedFieldsFromPreviousSnapshot = changedFieldsFromPreviousSnapshot
@@ -368,10 +439,10 @@ public struct NetworkObservationStateMachineSnapshot: Sendable, Equatable {
 /// → exact event reference
 /// → callback-bound state-snapshot record
 /// → exact coverage relation, when mechanically eligible
+/// → exact transition, when at least one normalized relation field changed
 ///
-/// The state machine records every admitted callback, including a callback whose
-/// normalized state equals the prior state. It does not create transition
-/// records; a later layer consumes the returned coverage relation.
+/// The state machine records every admitted callback. Equal normalized states
+/// retain event, snapshot, and coverage evidence without a transition record.
 public actor NetworkObservationStateMachine {
     private enum PendingCoverageRelation: Sendable {
         case absent
@@ -690,6 +761,89 @@ public actor NetworkObservationStateMachine {
                 )
         }
 
+        let relationSource: NetworkObservedSnapshot?
+        switch pendingCoverage {
+        case .absent:
+            relationSource = nil
+        case let .continuous(source, _),
+             let .interrupted(source, _, _):
+            relationSource = source
+        }
+
+        let relationChangedFields = relationSource.map { source in
+            NetworkPathStateField.allCases.filter { field in
+                source.networkPathState.canonicalValue(for: field) !=
+                    observation.networkPathState.canonicalValue(for: field)
+            }
+        }
+
+        let requiredTransitionClass: NetworkTransitionClass?
+        if let relationChangedFields,
+           !relationChangedFields.isEmpty {
+            switch pendingCoverage {
+            case .absent:
+                requiredTransitionClass = nil
+            case .continuous:
+                requiredTransitionClass = .eventBound
+            case .interrupted:
+                requiredTransitionClass = .endpointDifferenceOnly
+            }
+        } else {
+            requiredTransitionClass = nil
+        }
+
+        let transitionInput: NetworkTransitionMaterializationInput?
+        if let requiredTransitionClass {
+            guard let supplied = observation.transitionMaterialization else {
+                throw NetworkObservationStateMachineError
+                    .transitionMaterializationRequired(requiredTransitionClass)
+            }
+            guard let coverageInput = pendingCoverage.input else {
+                preconditionFailure(
+                    "A required transition must have a materialized coverage relation"
+                )
+            }
+            guard supplied.recordedWallTimeUnixNS >=
+                    coverageInput.recordedWallTimeUnixNS else {
+                throw NetworkObservationStateMachineError
+                    .transitionWallTimePrecedesCoverage(
+                        coverage: coverageInput.recordedWallTimeUnixNS,
+                        transition: supplied.recordedWallTimeUnixNS
+                    )
+            }
+
+            switch requiredTransitionClass {
+            case .eventBound:
+                guard let monotonicTimeNS =
+                        supplied.eventBoundMonotonicTimeNS else {
+                    throw NetworkObservationStateMachineError
+                        .eventBoundTransitionMonotonicTimeRequired
+                }
+                guard monotonicTimeNS >
+                        observation.snapshotMonotonicTimeNS else {
+                    throw NetworkObservationStateMachineError
+                        .eventBoundTransitionMonotonicTimeNotAfterSnapshot(
+                            snapshot: observation.snapshotMonotonicTimeNS,
+                            transition: monotonicTimeNS
+                        )
+                }
+
+            case .endpointDifferenceOnly:
+                guard supplied.eventBoundMonotonicTimeNS == nil else {
+                    throw NetworkObservationStateMachineError
+                        .endpointDifferenceTransitionMonotonicTimeForbidden
+                }
+            }
+
+            transitionInput = supplied
+        } else {
+            guard observation.transitionMaterialization == nil else {
+                throw NetworkObservationStateMachineError
+                    .transitionMaterializationNotPermitted
+            }
+            transitionInput = nil
+        }
+
         let snapshotRole: NetworkPathStateSnapshotRole =
             pendingCoverage.status == nil
             ? .sourceEndpoint
@@ -731,6 +885,7 @@ public actor NetworkObservationStateMachine {
         let eventRecord: LedgerRecordEnvelope
         let snapshotRecord: LedgerRecordEnvelope
         let coverageRecord: LedgerRecordEnvelope?
+        let transitionRecord: LedgerRecordEnvelope?
 
         switch pendingCoverage {
         case .absent:
@@ -741,63 +896,168 @@ public actor NetworkObservationStateMachine {
             eventRecord = pair.first
             snapshotRecord = pair.second
             coverageRecord = nil
+            transitionRecord = nil
 
         case let .continuous(source, coverageInput):
-            let triple = try await chain.appendAtomically(
-                first: eventDraft,
-                makeSecondDraft: makeSnapshotDraft,
-                makeThirdDraft: { _, finalizedSnapshot in
-                    let target = NetworkCoverageEndpoint(
-                        sessionID: currentSessionID,
-                        clockEpochID: currentClockEpochID,
-                        snapshotReference: finalizedSnapshot.reference
+            let makeCoverageDraft: @Sendable (
+                LedgerRecordEnvelope,
+                LedgerRecordEnvelope
+            ) throws -> LedgerRecordDraft = { _, finalizedSnapshot in
+                let target = NetworkCoverageEndpoint(
+                    sessionID: currentSessionID,
+                    clockEpochID: currentClockEpochID,
+                    snapshotReference: finalizedSnapshot.reference
+                )
+                let payload = try NetworkCoverageIntervalPayload(
+                    intervalID: coverageInput.intervalID,
+                    relation: .continuous(
+                        source: source.coverageEndpoint,
+                        target: target
                     )
-                    let payload = try NetworkCoverageIntervalPayload(
-                        intervalID: coverageInput.intervalID,
-                        relation: .continuous(
-                            source: source.coverageEndpoint,
-                            target: target
+                )
+                return payload.recordDraft(
+                    recordID: coverageInput.recordID,
+                    recordedWallTimeUnixNS:
+                        coverageInput.recordedWallTimeUnixNS
+                )
+            }
+
+            if let transitionInput {
+                let quadruple = try await chain.appendAtomically(
+                    first: eventDraft,
+                    makeSecondDraft: makeSnapshotDraft,
+                    makeThirdDraft: makeCoverageDraft,
+                    makeFourthDraft: {
+                        finalizedEvent,
+                        finalizedSnapshot,
+                        finalizedCoverage in
+                        let target = NetworkTransitionEndpoint(
+                            sessionID: currentSessionID,
+                            clockEpochID: currentClockEpochID,
+                            snapshotReference: finalizedSnapshot.reference,
+                            sourceEventReference: finalizedEvent.reference,
+                            networkPathState: observation.networkPathState
                         )
-                    )
-                    return payload.recordDraft(
-                        recordID: coverageInput.recordID,
-                        recordedWallTimeUnixNS:
-                            coverageInput.recordedWallTimeUnixNS
-                    )
-                }
-            )
-            eventRecord = triple.first
-            snapshotRecord = triple.second
-            coverageRecord = triple.third
+                        let coverageRelation = NetworkCoverageRelation.continuous(
+                            source: source.coverageEndpoint,
+                            target: target.coverageEndpoint
+                        )
+                        let relation = NetworkTransitionRelation.eventBound(
+                            source: source.transitionEndpoint,
+                            target: target,
+                            coverageRelation: coverageRelation,
+                            coverageReference: finalizedCoverage.reference
+                        )
+                        let payload = try NetworkTransitionPayload(
+                            transitionID: transitionInput.transitionID,
+                            relation: relation
+                        )
+                        return try payload.recordDraft(
+                            recordID: transitionInput.recordID,
+                            recordedWallTimeUnixNS:
+                                transitionInput.recordedWallTimeUnixNS,
+                            eventBoundMonotonicTimeNS:
+                                transitionInput.eventBoundMonotonicTimeNS
+                        )
+                    }
+                )
+                eventRecord = quadruple.first
+                snapshotRecord = quadruple.second
+                coverageRecord = quadruple.third
+                transitionRecord = quadruple.fourth
+            } else {
+                let triple = try await chain.appendAtomically(
+                    first: eventDraft,
+                    makeSecondDraft: makeSnapshotDraft,
+                    makeThirdDraft: makeCoverageDraft
+                )
+                eventRecord = triple.first
+                snapshotRecord = triple.second
+                coverageRecord = triple.third
+                transitionRecord = nil
+            }
 
         case let .interrupted(source, gap, coverageInput):
-            let triple = try await chain.appendAtomically(
-                first: eventDraft,
-                makeSecondDraft: makeSnapshotDraft,
-                makeThirdDraft: { _, finalizedSnapshot in
-                    let target = NetworkCoverageEndpoint(
-                        sessionID: currentSessionID,
-                        clockEpochID: currentClockEpochID,
-                        snapshotReference: finalizedSnapshot.reference
+            let makeCoverageDraft: @Sendable (
+                LedgerRecordEnvelope,
+                LedgerRecordEnvelope
+            ) throws -> LedgerRecordDraft = { _, finalizedSnapshot in
+                let target = NetworkCoverageEndpoint(
+                    sessionID: currentSessionID,
+                    clockEpochID: currentClockEpochID,
+                    snapshotReference: finalizedSnapshot.reference
+                )
+                let payload = try NetworkCoverageIntervalPayload(
+                    intervalID: coverageInput.intervalID,
+                    relation: .interrupted(
+                        source: source.coverageEndpoint,
+                        target: target,
+                        gap: gap
                     )
-                    let payload = try NetworkCoverageIntervalPayload(
-                        intervalID: coverageInput.intervalID,
-                        relation: .interrupted(
+                )
+                return payload.recordDraft(
+                    recordID: coverageInput.recordID,
+                    recordedWallTimeUnixNS:
+                        coverageInput.recordedWallTimeUnixNS
+                )
+            }
+
+            if let transitionInput {
+                let quadruple = try await chain.appendAtomically(
+                    first: eventDraft,
+                    makeSecondDraft: makeSnapshotDraft,
+                    makeThirdDraft: makeCoverageDraft,
+                    makeFourthDraft: {
+                        finalizedEvent,
+                        finalizedSnapshot,
+                        finalizedCoverage in
+                        let target = NetworkTransitionEndpoint(
+                            sessionID: currentSessionID,
+                            clockEpochID: currentClockEpochID,
+                            snapshotReference: finalizedSnapshot.reference,
+                            sourceEventReference: finalizedEvent.reference,
+                            networkPathState: observation.networkPathState
+                        )
+                        let coverageRelation = NetworkCoverageRelation.interrupted(
                             source: source.coverageEndpoint,
-                            target: target,
+                            target: target.coverageEndpoint,
                             gap: gap
                         )
-                    )
-                    return payload.recordDraft(
-                        recordID: coverageInput.recordID,
-                        recordedWallTimeUnixNS:
-                            coverageInput.recordedWallTimeUnixNS
-                    )
-                }
-            )
-            eventRecord = triple.first
-            snapshotRecord = triple.second
-            coverageRecord = triple.third
+                        let relation =
+                            NetworkTransitionRelation.endpointDifferenceOnly(
+                                source: source.transitionEndpoint,
+                                target: target,
+                                coverageRelation: coverageRelation,
+                                coverageReference: finalizedCoverage.reference
+                            )
+                        let payload = try NetworkTransitionPayload(
+                            transitionID: transitionInput.transitionID,
+                            relation: relation
+                        )
+                        return try payload.recordDraft(
+                            recordID: transitionInput.recordID,
+                            recordedWallTimeUnixNS:
+                                transitionInput.recordedWallTimeUnixNS,
+                            eventBoundMonotonicTimeNS:
+                                transitionInput.eventBoundMonotonicTimeNS
+                        )
+                    }
+                )
+                eventRecord = quadruple.first
+                snapshotRecord = quadruple.second
+                coverageRecord = quadruple.third
+                transitionRecord = quadruple.fourth
+            } else {
+                let triple = try await chain.appendAtomically(
+                    first: eventDraft,
+                    makeSecondDraft: makeSnapshotDraft,
+                    makeThirdDraft: makeCoverageDraft
+                )
+                eventRecord = triple.first
+                snapshotRecord = triple.second
+                coverageRecord = triple.third
+                transitionRecord = nil
+            }
         }
 
         let observedSnapshot = NetworkObservedSnapshot(
@@ -812,6 +1072,32 @@ public actor NetworkObservationStateMachine {
         let coverageRelation = pendingCoverage.materializedRelation(
             target: observedSnapshot.coverageEndpoint
         )
+
+        let transitionRelation: NetworkTransitionRelation?
+        if transitionRecord != nil,
+           let coverageRecord,
+           let coverageRelation {
+            switch pendingCoverage {
+            case .absent:
+                transitionRelation = nil
+            case let .continuous(source, _):
+                transitionRelation = .eventBound(
+                    source: source.transitionEndpoint,
+                    target: observedSnapshot.transitionEndpoint,
+                    coverageRelation: coverageRelation,
+                    coverageReference: coverageRecord.reference
+                )
+            case let .interrupted(source, _, _):
+                transitionRelation = .endpointDifferenceOnly(
+                    source: source.transitionEndpoint,
+                    target: observedSnapshot.transitionEndpoint,
+                    coverageRelation: coverageRelation,
+                    coverageReference: coverageRecord.reference
+                )
+            }
+        } else {
+            transitionRelation = nil
+        }
 
         let retainedFirstFreshSnapshot = firstFreshSnapshot ?? observedSnapshot
         state = .observationWindowOpen(
@@ -838,6 +1124,8 @@ public actor NetworkObservationStateMachine {
             snapshotRecord: snapshotRecord,
             coverageRecord: coverageRecord,
             coverageRelation: coverageRelation,
+            transitionRecord: transitionRecord,
+            transitionRelation: transitionRelation,
             observedSnapshot: observedSnapshot,
             previousSnapshotInSession: previousSnapshot,
             changedFieldsFromPreviousSnapshot: changedFields,
