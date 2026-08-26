@@ -48,6 +48,20 @@ public enum NetworkObservationStateMachineError: Error, Sendable, Equatable {
         event: Int64,
         snapshot: Int64
     )
+
+    /// Every mechanically eligible endpoint relation must be materialized by
+    /// the runtime producer in the same atomic callback transaction.
+    case coverageMaterializationRequired(NetworkCoverageStatus)
+
+    /// A caller cannot inject a coverage record when no prior observed endpoint
+    /// relation exists.
+    case coverageMaterializationNotPermitted
+
+    /// Coverage materialization cannot claim receipt before its target snapshot.
+    case coverageWallTimePrecedesTargetSnapshot(
+        snapshot: Int64,
+        coverage: Int64
+    )
 }
 
 /// Why the network surface is unavailable in one newly opened observation
@@ -84,6 +98,14 @@ public struct NetworkObservedSnapshot: Sendable, Equatable {
         self.snapshotRole = snapshotRole
         self.appLifecycleActivationState = appLifecycleActivationState
         self.networkPathState = networkPathState
+    }
+
+    public var coverageEndpoint: NetworkCoverageEndpoint {
+        NetworkCoverageEndpoint(
+            sessionID: sessionID,
+            clockEpochID: clockEpochID,
+            snapshotReference: snapshotReference
+        )
     }
 }
 
@@ -191,6 +213,24 @@ public enum NetworkObservationStateMachineState: Sendable, Equatable {
     }
 }
 
+/// Producer-supplied identities for one coverage record whose semantics are
+/// derived entirely by `NetworkObservationStateMachine`.
+public struct NetworkCoverageMaterializationInput: Sendable, Equatable {
+    public let intervalID: LedgerIdentifier
+    public let recordID: LedgerIdentifier
+    public let recordedWallTimeUnixNS: Int64
+
+    public init(
+        intervalID: LedgerIdentifier,
+        recordID: LedgerIdentifier,
+        recordedWallTimeUnixNS: Int64
+    ) {
+        self.intervalID = intervalID
+        self.recordID = recordID
+        self.recordedWallTimeUnixNS = recordedWallTimeUnixNS
+    }
+}
+
 /// Immutable normalized input for one received `NWPathMonitor` callback.
 ///
 /// The Apple adapter derives `networkPathState` once from the callback argument,
@@ -212,6 +252,7 @@ public struct NetworkPathUpdateObservation: Sendable, Equatable {
     public let clockEpochID: LedgerIdentifier
     public let appLifecycleActivationState: AppLifecycleActivationState
     public let networkPathState: NetworkPathState
+    public let coverageMaterialization: NetworkCoverageMaterializationInput?
 
     public init(
         eventID: LedgerIdentifier,
@@ -225,7 +266,8 @@ public struct NetworkPathUpdateObservation: Sendable, Equatable {
         sessionID: LedgerIdentifier,
         clockEpochID: LedgerIdentifier,
         appLifecycleActivationState: AppLifecycleActivationState,
-        networkPathState: NetworkPathState
+        networkPathState: NetworkPathState,
+        coverageMaterialization: NetworkCoverageMaterializationInput? = nil
     ) {
         self.eventID = eventID
         self.eventRecordID = eventRecordID
@@ -239,6 +281,7 @@ public struct NetworkPathUpdateObservation: Sendable, Equatable {
         self.clockEpochID = clockEpochID
         self.appLifecycleActivationState = appLifecycleActivationState
         self.networkPathState = networkPathState
+        self.coverageMaterialization = coverageMaterialization
     }
 }
 
@@ -246,6 +289,8 @@ public struct NetworkPathUpdateObservation: Sendable, Equatable {
 public struct NetworkPathObservationResult: Sendable, Equatable {
     public let eventRecord: LedgerRecordEnvelope
     public let snapshotRecord: LedgerRecordEnvelope
+    public let coverageRecord: LedgerRecordEnvelope?
+    public let coverageRelation: NetworkCoverageRelation?
     public let observedSnapshot: NetworkObservedSnapshot
 
     /// Previous observed snapshot in the same session, if one existed.
@@ -267,6 +312,8 @@ public struct NetworkPathObservationResult: Sendable, Equatable {
     public init(
         eventRecord: LedgerRecordEnvelope,
         snapshotRecord: LedgerRecordEnvelope,
+        coverageRecord: LedgerRecordEnvelope?,
+        coverageRelation: NetworkCoverageRelation?,
         observedSnapshot: NetworkObservedSnapshot,
         previousSnapshotInSession: NetworkObservedSnapshot?,
         changedFieldsFromPreviousSnapshot: [NetworkPathStateField]?,
@@ -275,6 +322,8 @@ public struct NetworkPathObservationResult: Sendable, Equatable {
     ) {
         self.eventRecord = eventRecord
         self.snapshotRecord = snapshotRecord
+        self.coverageRecord = coverageRecord
+        self.coverageRelation = coverageRelation
         self.observedSnapshot = observedSnapshot
         self.previousSnapshotInSession = previousSnapshotInSession
         self.changedFieldsFromPreviousSnapshot = changedFieldsFromPreviousSnapshot
@@ -310,18 +359,74 @@ public struct NetworkObservationStateMachineSnapshot: Sendable, Equatable {
 /// explicit non-reentrant operation boundary keeps lifecycle state, network
 /// state, and chain materialization aligned across actor suspension points.
 ///
-/// One admitted path update produces exactly two dependent records through the
-/// chain's atomic append transaction:
+/// One admitted path update always produces an observation event and its bound
+/// snapshot. When a prior observed endpoint relation exists, the same atomic
+/// transaction also produces its continuous or interrupted coverage record:
 ///
 /// normalized callback argument
 /// → observation-event record
 /// → exact event reference
 /// → callback-bound state-snapshot record
+/// → exact coverage relation, when mechanically eligible
 ///
 /// The state machine records every admitted callback, including a callback whose
-/// normalized state equals the prior state. It does not create coverage or
-/// transition records; a later layer consumes the returned endpoint relation.
+/// normalized state equals the prior state. It does not create transition
+/// records; a later layer consumes the returned coverage relation.
 public actor NetworkObservationStateMachine {
+    private enum PendingCoverageRelation: Sendable {
+        case absent
+        case continuous(
+            source: NetworkObservedSnapshot,
+            input: NetworkCoverageMaterializationInput
+        )
+        case interrupted(
+            source: NetworkObservedSnapshot,
+            gap: SessionBoundaryObservationGap,
+            input: NetworkCoverageMaterializationInput
+        )
+
+        var status: NetworkCoverageStatus? {
+            switch self {
+            case .absent:
+                nil
+            case .continuous:
+                .continuous
+            case .interrupted:
+                .interrupted
+            }
+        }
+
+        var input: NetworkCoverageMaterializationInput? {
+            switch self {
+            case .absent:
+                nil
+            case let .continuous(_, input),
+                 let .interrupted(_, _, input):
+                input
+            }
+        }
+
+        func materializedRelation(
+            target: NetworkCoverageEndpoint
+        ) -> NetworkCoverageRelation? {
+            switch self {
+            case .absent:
+                nil
+            case let .continuous(source, _):
+                .continuous(
+                    source: source.coverageEndpoint,
+                    target: target
+                )
+            case let .interrupted(source, gap, _):
+                .interrupted(
+                    source: source.coverageEndpoint,
+                    target: target,
+                    gap: gap
+                )
+            }
+        }
+    }
+
     public nonisolated let ledgerID: LedgerIdentifier
     public nonisolated let observerPublicKeyFingerprintSHA256: SHA256HexDigest
     public nonisolated let recordStatus: LedgerRecordStatus
@@ -467,10 +572,10 @@ public actor NetworkObservationStateMachine {
 
     /// Admits and materializes one immutable normalized path-update callback.
     ///
-    /// The method proves that the named session and epoch are exactly current,
-    /// the lifecycle window remains open, and the lifecycle surface was captured
-    /// as foreground-active. It then atomically appends the event and its bound
-    /// snapshot. No state changes are committed unless both records finalize.
+    /// Every callback produces one event/snapshot pair. When an exact prior
+    /// endpoint relation exists, its coverage record is prepared and committed in
+    /// the same chain transaction. No event-only, snapshot-only, or uncovered
+    /// eligible relation can survive a failed preparation.
     @discardableResult
     public func observePathUpdate(
         _ observation: NetworkPathUpdateObservation
@@ -546,11 +651,49 @@ public actor NetworkObservationStateMachine {
             firstFreshSnapshot = first
         }
 
+        let pendingCoverage: PendingCoverageRelation
+        if let previousSnapshot {
+            guard let coverageInput = observation.coverageMaterialization else {
+                throw NetworkObservationStateMachineError
+                    .coverageMaterializationRequired(.continuous)
+            }
+            pendingCoverage = .continuous(
+                source: previousSnapshot,
+                input: coverageInput
+            )
+        } else if let precedingGap,
+                  let retainedGapSource {
+            guard let coverageInput = observation.coverageMaterialization else {
+                throw NetworkObservationStateMachineError
+                    .coverageMaterializationRequired(.interrupted)
+            }
+            pendingCoverage = .interrupted(
+                source: retainedGapSource,
+                gap: precedingGap,
+                input: coverageInput
+            )
+        } else {
+            guard observation.coverageMaterialization == nil else {
+                throw NetworkObservationStateMachineError
+                    .coverageMaterializationNotPermitted
+            }
+            pendingCoverage = .absent
+        }
+
+        if let coverageInput = pendingCoverage.input,
+           coverageInput.recordedWallTimeUnixNS <
+            observation.snapshotRecordedWallTimeUnixNS {
+            throw NetworkObservationStateMachineError
+                .coverageWallTimePrecedesTargetSnapshot(
+                    snapshot: observation.snapshotRecordedWallTimeUnixNS,
+                    coverage: coverageInput.recordedWallTimeUnixNS
+                )
+        }
+
         let snapshotRole: NetworkPathStateSnapshotRole =
-            previousSnapshot != nil ||
-            (precedingGap != nil && retainedGapSource != nil)
-            ? .targetEndpoint
-            : .sourceEndpoint
+            pendingCoverage.status == nil
+            ? .sourceEndpoint
+            : .targetEndpoint
 
         let eventPayload = NetworkPathObservationEventPayload(
             eventID: observation.eventID,
@@ -564,36 +707,110 @@ public actor NetworkObservationStateMachine {
             monotonicTimeNS: observation.eventMonotonicTimeNS
         )
 
-        let pair = try await chain.appendAtomically(
-            first: eventDraft,
-            makeSecondDraft: { eventRecord in
-                let snapshotPayload = NetworkPathStateSnapshotPayload(
-                    snapshotID: observation.snapshotID,
-                    snapshotRole: snapshotRole,
-                    sourceEventBinding: eventRecord.reference,
-                    appLifecycleActivationState:
-                        observation.appLifecycleActivationState,
-                    networkPathState: observation.networkPathState
-                )
-                return snapshotPayload.recordDraft(
-                    recordID: observation.snapshotRecordID,
-                    recordedWallTimeUnixNS:
-                        observation.snapshotRecordedWallTimeUnixNS,
-                    sessionID: currentSessionID,
-                    clockEpochID: currentClockEpochID,
-                    monotonicTimeNS: observation.snapshotMonotonicTimeNS
-                )
-            }
-        )
+        let makeSnapshotDraft: @Sendable (
+            LedgerRecordEnvelope
+        ) throws -> LedgerRecordDraft = { eventRecord in
+            let snapshotPayload = NetworkPathStateSnapshotPayload(
+                snapshotID: observation.snapshotID,
+                snapshotRole: snapshotRole,
+                sourceEventBinding: eventRecord.reference,
+                appLifecycleActivationState:
+                    observation.appLifecycleActivationState,
+                networkPathState: observation.networkPathState
+            )
+            return snapshotPayload.recordDraft(
+                recordID: observation.snapshotRecordID,
+                recordedWallTimeUnixNS:
+                    observation.snapshotRecordedWallTimeUnixNS,
+                sessionID: currentSessionID,
+                clockEpochID: currentClockEpochID,
+                monotonicTimeNS: observation.snapshotMonotonicTimeNS
+            )
+        }
+
+        let eventRecord: LedgerRecordEnvelope
+        let snapshotRecord: LedgerRecordEnvelope
+        let coverageRecord: LedgerRecordEnvelope?
+
+        switch pendingCoverage {
+        case .absent:
+            let pair = try await chain.appendAtomically(
+                first: eventDraft,
+                makeSecondDraft: makeSnapshotDraft
+            )
+            eventRecord = pair.first
+            snapshotRecord = pair.second
+            coverageRecord = nil
+
+        case let .continuous(source, coverageInput):
+            let triple = try await chain.appendAtomically(
+                first: eventDraft,
+                makeSecondDraft: makeSnapshotDraft,
+                makeThirdDraft: { _, finalizedSnapshot in
+                    let target = NetworkCoverageEndpoint(
+                        sessionID: currentSessionID,
+                        clockEpochID: currentClockEpochID,
+                        snapshotReference: finalizedSnapshot.reference
+                    )
+                    let payload = try NetworkCoverageIntervalPayload(
+                        intervalID: coverageInput.intervalID,
+                        relation: .continuous(
+                            source: source.coverageEndpoint,
+                            target: target
+                        )
+                    )
+                    return payload.recordDraft(
+                        recordID: coverageInput.recordID,
+                        recordedWallTimeUnixNS:
+                            coverageInput.recordedWallTimeUnixNS
+                    )
+                }
+            )
+            eventRecord = triple.first
+            snapshotRecord = triple.second
+            coverageRecord = triple.third
+
+        case let .interrupted(source, gap, coverageInput):
+            let triple = try await chain.appendAtomically(
+                first: eventDraft,
+                makeSecondDraft: makeSnapshotDraft,
+                makeThirdDraft: { _, finalizedSnapshot in
+                    let target = NetworkCoverageEndpoint(
+                        sessionID: currentSessionID,
+                        clockEpochID: currentClockEpochID,
+                        snapshotReference: finalizedSnapshot.reference
+                    )
+                    let payload = try NetworkCoverageIntervalPayload(
+                        intervalID: coverageInput.intervalID,
+                        relation: .interrupted(
+                            source: source.coverageEndpoint,
+                            target: target,
+                            gap: gap
+                        )
+                    )
+                    return payload.recordDraft(
+                        recordID: coverageInput.recordID,
+                        recordedWallTimeUnixNS:
+                            coverageInput.recordedWallTimeUnixNS
+                    )
+                }
+            )
+            eventRecord = triple.first
+            snapshotRecord = triple.second
+            coverageRecord = triple.third
+        }
 
         let observedSnapshot = NetworkObservedSnapshot(
             sessionID: currentSessionID,
             clockEpochID: currentClockEpochID,
-            eventReference: pair.first.reference,
-            snapshotReference: pair.second.reference,
+            eventReference: eventRecord.reference,
+            snapshotReference: snapshotRecord.reference,
             snapshotRole: snapshotRole,
             appLifecycleActivationState: observation.appLifecycleActivationState,
             networkPathState: observation.networkPathState
+        )
+        let coverageRelation = pendingCoverage.materializedRelation(
+            target: observedSnapshot.coverageEndpoint
         )
 
         let retainedFirstFreshSnapshot = firstFreshSnapshot ?? observedSnapshot
@@ -617,8 +834,10 @@ public actor NetworkObservationStateMachine {
         }
 
         return NetworkPathObservationResult(
-            eventRecord: pair.first,
-            snapshotRecord: pair.second,
+            eventRecord: eventRecord,
+            snapshotRecord: snapshotRecord,
+            coverageRecord: coverageRecord,
+            coverageRelation: coverageRelation,
             observedSnapshot: observedSnapshot,
             previousSnapshotInSession: previousSnapshot,
             changedFieldsFromPreviousSnapshot: changedFields,

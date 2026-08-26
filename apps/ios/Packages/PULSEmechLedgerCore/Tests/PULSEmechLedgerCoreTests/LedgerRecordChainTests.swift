@@ -903,6 +903,136 @@ final class LedgerRecordChainTests: XCTestCase {
         )
     }
 
+    func testAtomicTripleMatchesThreeSequentialAppends() async throws {
+        let atomic = makeChain()
+        let sequential = makeChain()
+
+        let openingDraft = draft(
+            recordID: "record:open",
+            recordType: .sessionBoundary,
+            recordedWallTimeUnixNS: 1,
+            scope: sessionScope(
+                monotonicTimeNS: 100
+            )
+        )
+        _ = try await atomic.append(openingDraft)
+        _ = try await sequential.append(openingDraft)
+
+        let firstDraft = draft(
+            recordID: "record:event",
+            recordType: .observationEvent,
+            recordedWallTimeUnixNS: 2,
+            scope: sessionScope(
+                monotonicTimeNS: 200
+            )
+        )
+        let secondDraft = draft(
+            recordID: "record:snapshot",
+            recordType: .stateSnapshot,
+            recordedWallTimeUnixNS: 3,
+            scope: sessionScope(
+                monotonicTimeNS: 300
+            )
+        )
+        let thirdDraft = draft(
+            recordID: "record:coverage",
+            recordType: .coverageInterval,
+            recordedWallTimeUnixNS: 4,
+            scope: .ledgerWide
+        )
+
+        let triple = try await atomic.appendAtomically(
+            first: firstDraft,
+            makeSecondDraft: { _ in secondDraft },
+            makeThirdDraft: { _, _ in thirdDraft }
+        )
+        let first = try await sequential.append(firstDraft)
+        let second = try await sequential.append(secondDraft)
+        let third = try await sequential.append(thirdDraft)
+
+        XCTAssertEqual(triple.first, first)
+        XCTAssertEqual(triple.second, second)
+        XCTAssertEqual(triple.third, third)
+        let atomicSnapshot = await atomic.snapshot()
+        let sequentialSnapshot = await sequential.snapshot()
+        XCTAssertEqual(
+            atomicSnapshot,
+            sequentialSnapshot
+        )
+    }
+
+    func testAtomicTripleThirdPreparationFailureLeavesAllIDsReusable() async throws {
+        let chain = makeChain()
+        _ = try await chain.append(
+            draft(
+                recordID: "record:open",
+                recordType: .sessionBoundary,
+                recordedWallTimeUnixNS: 1,
+                scope: sessionScope(
+                    monotonicTimeNS: 100
+                )
+            )
+        )
+        let before = await chain.snapshot()
+
+        let firstDraft = draft(
+            recordID: "record:event",
+            recordType: .observationEvent,
+            recordedWallTimeUnixNS: 2,
+            scope: sessionScope(
+                monotonicTimeNS: 200
+            )
+        )
+        let secondDraft = draft(
+            recordID: "record:snapshot",
+            recordType: .stateSnapshot,
+            recordedWallTimeUnixNS: 3,
+            scope: sessionScope(
+                monotonicTimeNS: 300
+            )
+        )
+        let invalidThirdDraft = draft(
+            recordID: "record:snapshot",
+            recordType: .coverageInterval,
+            recordedWallTimeUnixNS: 4,
+            scope: .ledgerWide
+        )
+        let validThirdDraft = draft(
+            recordID: "record:coverage",
+            recordType: .coverageInterval,
+            recordedWallTimeUnixNS: 4,
+            scope: .ledgerWide
+        )
+
+        do {
+            _ = try await chain.appendAtomically(
+                first: firstDraft,
+                makeSecondDraft: { _ in secondDraft },
+                makeThirdDraft: { _, _ in invalidThirdDraft }
+            )
+            XCTFail("Expected staged duplicate ID rejection")
+        } catch let error as LedgerRecordChainError {
+            XCTAssertEqual(
+                error,
+                .duplicateRecordID(
+                    identifier("record:snapshot")
+                )
+            )
+        }
+
+        let afterFailure = await chain.snapshot()
+        XCTAssertEqual(afterFailure, before)
+
+        let accepted = try await chain.appendAtomically(
+            first: firstDraft,
+            makeSecondDraft: { _ in secondDraft },
+            makeThirdDraft: { _, _ in validThirdDraft }
+        )
+        XCTAssertEqual(accepted.first.digestSubject.sequenceIndex, 1)
+        XCTAssertEqual(accepted.second.digestSubject.sequenceIndex, 2)
+        XCTAssertEqual(accepted.third.digestSubject.sequenceIndex, 3)
+    }
+
     func testSnapshotsRemainImmutableAcrossLaterAppends() async throws {
         let chain = makeChain()
         let first = try await chain.append(
