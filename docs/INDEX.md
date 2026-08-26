@@ -519,6 +519,12 @@ promotion
 
 ---
 
+## External analytical case studies
+
+- [PULSEMECH_EXTERNAL_CASE_STUDY_OPENAI_HUGGING_FACE_RESTART_AUTHORITY_AND_ALTERNATIVE_PATH_CLOSURE_v0.md](PULSEMECH_EXTERNAL_CASE_STUDY_OPENAI_HUGGING_FACE_RESTART_AUTHORITY_AND_ALTERNATIVE_PATH_CLOSURE_v0.md) — **Reader / audit surface.** Primary-source-bound, non-normative external case study separating source facts, retrospective reconstruction, PULSEmech structural classification, and fail-closed counterfactual. Maps current-run evidence, transition-path verification, alternative-path closure, restart authority, and the unauthenticated `GO` operation-authority break while preserving `authority_effect: none`.
+
+---
+
 ## Theory and measurement protocols
 
 - [PULSEMECH_RELATION_HALF_PARADOX_MATHEMATICAL_PHYSICAL_QUANTUM_FORMULATION_v0.md](PULSEMECH_RELATION_HALF_PARADOX_MATHEMATICAL_PHYSICAL_QUANTUM_FORMULATION_v0.md) — **Reader / audit surface.** Target-relative technical formulation across mathematical systems, classical mechanics, control theory, information theory, finite-dimensional quantum mechanics and PULSEmech decision mechanics; non-normative and non-authorizing.
