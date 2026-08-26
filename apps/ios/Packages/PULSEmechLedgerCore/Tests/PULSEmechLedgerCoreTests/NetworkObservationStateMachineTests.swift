@@ -154,7 +154,8 @@ final class NetworkObservationStateMachineTests: XCTestCase {
         snapshotWallTimeOffset: Int64 = 2_000_000,
         eventMonotonicTimeNS: Int64 = 2_000,
         snapshotMonotonicTimeNS: Int64 = 3_000,
-        coverageMaterialization: NetworkCoverageMaterializationInput? = nil
+        coverageMaterialization: NetworkCoverageMaterializationInput? = nil,
+        transitionMaterialization: NetworkTransitionMaterializationInput? = nil
     ) throws -> NetworkPathUpdateObservation {
         NetworkPathUpdateObservation(
             eventID: identifier(eventID),
@@ -169,7 +170,8 @@ final class NetworkObservationStateMachineTests: XCTestCase {
             clockEpochID: identifier("clock-epoch:synthetic-a"),
             appLifecycleActivationState: .foregroundActive,
             networkPathState: try wifiState(),
-            coverageMaterialization: coverageMaterialization
+            coverageMaterialization: coverageMaterialization,
+            transitionMaterialization: transitionMaterialization
         )
     }
 
@@ -177,7 +179,13 @@ final class NetworkObservationStateMachineTests: XCTestCase {
         includeCoverage: Bool = true,
         coverageRecordID: String = "record:005-coverage-continuous",
         coverageIntervalID: String = "coverage:continuous-a",
-        coverageWallTimeOffset: Int64 = 5_000_000
+        coverageWallTimeOffset: Int64 = 5_000_000,
+        includeTransition: Bool = true,
+        transitionRecordID: String = "record:006-transition-event-bound",
+        transitionID: String =
+            "transition:event-bound-wifi-to-cellular",
+        transitionWallTimeOffset: Int64 = 6_000_000,
+        transitionMonotonicTimeNS: Int64? = 6_000
     ) throws -> NetworkPathUpdateObservation {
         NetworkPathUpdateObservation(
             eventID: identifier("event:path-cellular-a"),
@@ -199,24 +207,47 @@ final class NetworkObservationStateMachineTests: XCTestCase {
                     recordedWallTimeUnixNS:
                         baseWallTime + coverageWallTimeOffset
                 )
+                : nil,
+            transitionMaterialization: includeTransition
+                ? NetworkTransitionMaterializationInput(
+                    transitionID: identifier(transitionID),
+                    recordID: identifier(transitionRecordID),
+                    recordedWallTimeUnixNS:
+                        baseWallTime + transitionWallTimeOffset,
+                    eventBoundMonotonicTimeNS:
+                        transitionMonotonicTimeNS
+                )
                 : nil
         )
     }
 
     private func wifiObservationB(
+        eventRecordID: String = "record:005-path-wifi-b",
+        snapshotRecordID: String = "record:006-snapshot-wifi-b",
+        eventWallTimeOffset: Int64 = 5_000_000,
+        snapshotWallTimeOffset: Int64 = 6_000_000,
         includeCoverage: Bool = true,
         coverageRecordID: String = "record:007-coverage-interrupted",
-        coverageIntervalID: String = "coverage:interrupted-a-to-b-runtime",
-        coverageWallTimeOffset: Int64 = 7_000_000
+        coverageIntervalID: String =
+            "coverage:interrupted-a-to-b-runtime",
+        coverageWallTimeOffset: Int64 = 7_000_000,
+        includeTransition: Bool = false,
+        transitionRecordID: String =
+            "record:008-transition-endpoint-difference",
+        transitionID: String =
+            "transition:endpoint-difference-cellular-to-wifi",
+        transitionWallTimeOffset: Int64 = 8_000_000,
+        transitionMonotonicTimeNS: Int64? = nil
     ) throws -> NetworkPathUpdateObservation {
         NetworkPathUpdateObservation(
             eventID: identifier("event:path-wifi-b"),
-            eventRecordID: identifier("record:005-path-wifi-b"),
-            eventRecordedWallTimeUnixNS: baseWallTime + 5_000_000,
+            eventRecordID: identifier(eventRecordID),
+            eventRecordedWallTimeUnixNS: baseWallTime + eventWallTimeOffset,
             eventMonotonicTimeNS: 2_000,
             snapshotID: identifier("snapshot:wifi-b"),
-            snapshotRecordID: identifier("record:006-snapshot-wifi-b"),
-            snapshotRecordedWallTimeUnixNS: baseWallTime + 6_000_000,
+            snapshotRecordID: identifier(snapshotRecordID),
+            snapshotRecordedWallTimeUnixNS:
+                baseWallTime + snapshotWallTimeOffset,
             snapshotMonotonicTimeNS: 3_000,
             sessionID: identifier("session:synthetic-b"),
             clockEpochID: identifier("clock-epoch:synthetic-b"),
@@ -228,6 +259,16 @@ final class NetworkObservationStateMachineTests: XCTestCase {
                     recordID: identifier(coverageRecordID),
                     recordedWallTimeUnixNS:
                         baseWallTime + coverageWallTimeOffset
+                )
+                : nil,
+            transitionMaterialization: includeTransition
+                ? NetworkTransitionMaterializationInput(
+                    transitionID: identifier(transitionID),
+                    recordID: identifier(transitionRecordID),
+                    recordedWallTimeUnixNS:
+                        baseWallTime + transitionWallTimeOffset,
+                    eventBoundMonotonicTimeNS:
+                        transitionMonotonicTimeNS
                 )
                 : nil
         )
@@ -392,6 +433,8 @@ final class NetworkObservationStateMachineTests: XCTestCase {
         XCTAssertNil(result.changedFieldsFromPreviousSnapshot)
         XCTAssertNil(result.coverageRecord)
         XCTAssertNil(result.coverageRelation)
+        XCTAssertNil(result.transitionRecord)
+        XCTAssertNil(result.transitionRelation)
         XCTAssertNil(result.precedingObservationGap)
         XCTAssertNil(result.retainedGapSourceSnapshot)
 
@@ -442,6 +485,26 @@ final class NetworkObservationStateMachineTests: XCTestCase {
             second.snapshotRecord.recordSHA256
         )
         XCTAssertEqual(second.coverageRelation?.status, .continuous)
+        XCTAssertEqual(
+            second.transitionRecord?.recordSHA256.rawValue,
+            "57396fbb180ed7eb6fd3b99f17fe86709616684ad16445b9559f879e20f8c594"
+        )
+        XCTAssertEqual(
+            second.transitionRecord?.digestSubject.sequenceIndex,
+            6
+        )
+        XCTAssertEqual(
+            second.transitionRecord?.digestSubject.previousRecordSHA256,
+            second.coverageRecord?.recordSHA256
+        )
+        XCTAssertEqual(
+            second.transitionRelation?.transitionClass,
+            .eventBound
+        )
+        XCTAssertEqual(
+            second.transitionRelation?.changedFields,
+            [.isExpensive, .usedInterfaceTypes]
+        )
         XCTAssertEqual(second.observedSnapshot.snapshotRole, .targetEndpoint)
         XCTAssertEqual(second.previousSnapshotInSession, first.observedSnapshot)
         XCTAssertEqual(
@@ -457,7 +520,7 @@ final class NetworkObservationStateMachineTests: XCTestCase {
         let observed = try requireObservedAvailability(openState.availability)
         XCTAssertEqual(observed.first, first.observedSnapshot)
         XCTAssertEqual(observed.latest, second.observedSnapshot)
-        XCTAssertEqual(snapshot.chain.recordCount, 6)
+        XCTAssertEqual(snapshot.chain.recordCount, 7)
     }
 
     func testEqualStateCallbackIsRetainedWithoutChangedFields() async throws {
@@ -488,6 +551,8 @@ final class NetworkObservationStateMachineTests: XCTestCase {
         XCTAssertEqual(repeated.changedFieldsFromPreviousSnapshot, [])
         XCTAssertEqual(repeated.coverageRelation?.status, .continuous)
         XCTAssertNotNil(repeated.coverageRecord)
+        XCTAssertNil(repeated.transitionRecord)
+        XCTAssertNil(repeated.transitionRelation)
 
         let snapshot = try await machine.snapshot()
         XCTAssertEqual(snapshot.chain.recordCount, 6)
@@ -696,6 +761,8 @@ final class NetworkObservationStateMachineTests: XCTestCase {
             "d46d2430e8a14aadf6dc97b7f18f45da0a94121b5c2253f5bb27f8fa5ebe1340"
         )
         XCTAssertEqual(target.coverageRelation?.status, .interrupted)
+        XCTAssertNil(target.transitionRecord)
+        XCTAssertNil(target.transitionRelation)
         XCTAssertEqual(
             target.coverageRecord?.digestSubject.recordType,
             .coverageInterval
@@ -841,6 +908,7 @@ final class NetworkObservationStateMachineTests: XCTestCase {
         XCTAssertEqual(accepted.eventRecord.digestSubject.sequenceIndex, 3)
         XCTAssertEqual(accepted.snapshotRecord.digestSubject.sequenceIndex, 4)
         XCTAssertEqual(accepted.coverageRecord?.digestSubject.sequenceIndex, 5)
+        XCTAssertEqual(accepted.transitionRecord?.digestSubject.sequenceIndex, 6)
     }
 
     func testCoverageWallTimeCannotPrecedeTargetSnapshot() async throws {
@@ -908,6 +976,7 @@ final class NetworkObservationStateMachineTests: XCTestCase {
         XCTAssertEqual(accepted.eventRecord.digestSubject.sequenceIndex, 3)
         XCTAssertEqual(accepted.snapshotRecord.digestSubject.sequenceIndex, 4)
         XCTAssertEqual(accepted.coverageRecord?.digestSubject.sequenceIndex, 5)
+        XCTAssertEqual(accepted.transitionRecord?.digestSubject.sequenceIndex, 6)
     }
 
     func testInterruptedCoverageIsRequiredBeforeFirstFreshTargetCommits() async throws {
@@ -971,6 +1040,8 @@ final class NetworkObservationStateMachineTests: XCTestCase {
             "81debed71b54c2aa31769d07753c0071d26b1903e83e2b5c692365af9be738ab"
         )
         XCTAssertEqual(target.coverageRecord?.digestSubject.sequenceIndex, 7)
+        XCTAssertNil(target.transitionRecord)
+        XCTAssertNil(target.transitionRelation)
     }
 
     func testReopenWithoutObservedSourceCannotFabricateInterruptedCoverage() async throws {
@@ -998,6 +1069,492 @@ final class NetworkObservationStateMachineTests: XCTestCase {
         XCTAssertEqual(accepted.observedSnapshot.snapshotRole, .sourceEndpoint)
         XCTAssertNil(accepted.coverageRecord)
         XCTAssertNil(accepted.coverageRelation)
+        XCTAssertNil(accepted.transitionRecord)
+        XCTAssertNil(accepted.transitionRelation)
+    }
+
+    func testTransitionInputBeforeChangedRelationIsRejectedAtomically() async throws {
+        let machine = makeMachine()
+        try await openSessionA(on: machine)
+        let before = try await machine.snapshot()
+        let transition = NetworkTransitionMaterializationInput(
+            transitionID: identifier("transition:not-permitted"),
+            recordID: identifier("record:003-transition-not-permitted"),
+            recordedWallTimeUnixNS: baseWallTime + 3_000_000,
+            eventBoundMonotonicTimeNS: 4_000
+        )
+
+        do {
+            _ = try await machine.observePathUpdate(
+                try wifiObservationA(
+                    transitionMaterialization: transition
+                )
+            )
+            XCTFail("Expected transition before a changed relation to fail")
+        } catch let error as NetworkObservationStateMachineError {
+            XCTAssertEqual(error, .transitionMaterializationNotPermitted)
+        }
+
+        let afterRejectedTransition = try await machine.snapshot()
+        XCTAssertEqual(afterRejectedTransition, before)
+
+        let accepted = try await machine.observePathUpdate(
+            try wifiObservationA()
+        )
+        XCTAssertNil(accepted.transitionRecord)
+        XCTAssertEqual(accepted.eventRecord.digestSubject.sequenceIndex, 1)
+    }
+
+    func testChangedContinuousRelationRequiresTransitionBeforeCommit() async throws {
+        let machine = makeMachine()
+        try await openSessionA(on: machine)
+        try await machine.observePathUpdate(
+            try wifiObservationA()
+        )
+        let before = try await machine.snapshot()
+
+        do {
+            _ = try await machine.observePathUpdate(
+                try cellularObservationA(includeTransition: false)
+            )
+            XCTFail("Expected missing event-bound transition to fail")
+        } catch let error as NetworkObservationStateMachineError {
+            XCTAssertEqual(
+                error,
+                .transitionMaterializationRequired(.eventBound)
+            )
+        }
+
+        let afterMissingTransition = try await machine.snapshot()
+        XCTAssertEqual(afterMissingTransition, before)
+
+        let accepted = try await machine.observePathUpdate(
+            try cellularObservationA()
+        )
+        XCTAssertEqual(
+            accepted.transitionRecord?.digestSubject.sequenceIndex,
+            6
+        )
+        XCTAssertEqual(
+            accepted.transitionRelation?.transitionClass,
+            .eventBound
+        )
+    }
+
+    func testEqualStateRelationForbidsTransitionInput() async throws {
+        let machine = makeMachine()
+        try await openSessionA(on: machine)
+        try await machine.observePathUpdate(
+            try wifiObservationA()
+        )
+        let before = try await machine.snapshot()
+
+        let coverage = NetworkCoverageMaterializationInput(
+            intervalID: identifier("coverage:equal"),
+            recordID: identifier("record:005-coverage-equal"),
+            recordedWallTimeUnixNS: baseWallTime + 5_000_000
+        )
+        let transition = NetworkTransitionMaterializationInput(
+            transitionID: identifier("transition:forbidden-equal"),
+            recordID: identifier("record:006-transition-forbidden-equal"),
+            recordedWallTimeUnixNS: baseWallTime + 6_000_000,
+            eventBoundMonotonicTimeNS: 6_000
+        )
+
+        do {
+            _ = try await machine.observePathUpdate(
+                try wifiObservationA(
+                    eventRecordID: "record:003-path-equal",
+                    snapshotRecordID: "record:004-snapshot-equal",
+                    eventID: "event:path-equal",
+                    snapshotID: "snapshot:equal",
+                    eventWallTimeOffset: 3_000_000,
+                    snapshotWallTimeOffset: 4_000_000,
+                    eventMonotonicTimeNS: 4_000,
+                    snapshotMonotonicTimeNS: 5_000,
+                    coverageMaterialization: coverage,
+                    transitionMaterialization: transition
+                )
+            )
+            XCTFail("Expected equal-state transition input to fail")
+        } catch let error as NetworkObservationStateMachineError {
+            XCTAssertEqual(error, .transitionMaterializationNotPermitted)
+        }
+
+        let afterForbiddenEqualTransition = try await machine.snapshot()
+        XCTAssertEqual(afterForbiddenEqualTransition, before)
+
+        let accepted = try await machine.observePathUpdate(
+            try wifiObservationA(
+                eventRecordID: "record:003-path-equal",
+                snapshotRecordID: "record:004-snapshot-equal",
+                eventID: "event:path-equal",
+                snapshotID: "snapshot:equal",
+                eventWallTimeOffset: 3_000_000,
+                snapshotWallTimeOffset: 4_000_000,
+                eventMonotonicTimeNS: 4_000,
+                snapshotMonotonicTimeNS: 5_000,
+                coverageMaterialization: coverage
+            )
+        )
+        XCTAssertEqual(accepted.changedFieldsFromPreviousSnapshot, [])
+        XCTAssertNotNil(accepted.coverageRecord)
+        XCTAssertNil(accepted.transitionRecord)
+    }
+
+    func testEventBoundTransitionTimeShapeIsFailClosed() async throws {
+        let machine = makeMachine()
+        try await openSessionA(on: machine)
+        try await machine.observePathUpdate(
+            try wifiObservationA()
+        )
+        let before = try await machine.snapshot()
+
+        do {
+            _ = try await machine.observePathUpdate(
+                try cellularObservationA(
+                    transitionWallTimeOffset: 4_000_000
+                )
+            )
+            XCTFail("Expected transition wall time before coverage to fail")
+        } catch let error as NetworkObservationStateMachineError {
+            XCTAssertEqual(
+                error,
+                .transitionWallTimePrecedesCoverage(
+                    coverage: baseWallTime + 5_000_000,
+                    transition: baseWallTime + 4_000_000
+                )
+            )
+        }
+        let afterEarlyWallTime = try await machine.snapshot()
+        XCTAssertEqual(afterEarlyWallTime, before)
+
+        do {
+            _ = try await machine.observePathUpdate(
+                try cellularObservationA(
+                    transitionMonotonicTimeNS: nil
+                )
+            )
+            XCTFail("Expected missing event-bound monotonic time to fail")
+        } catch let error as NetworkObservationStateMachineError {
+            XCTAssertEqual(
+                error,
+                .eventBoundTransitionMonotonicTimeRequired
+            )
+        }
+        let afterMissingMonotonic = try await machine.snapshot()
+        XCTAssertEqual(afterMissingMonotonic, before)
+
+        do {
+            _ = try await machine.observePathUpdate(
+                try cellularObservationA(
+                    transitionMonotonicTimeNS: 5_000
+                )
+            )
+            XCTFail("Expected non-increasing transition monotonic time to fail")
+        } catch let error as NetworkObservationStateMachineError {
+            XCTAssertEqual(
+                error,
+                .eventBoundTransitionMonotonicTimeNotAfterSnapshot(
+                    snapshot: 5_000,
+                    transition: 5_000
+                )
+            )
+        }
+        let afterNonIncreasingMonotonic = try await machine.snapshot()
+        XCTAssertEqual(afterNonIncreasingMonotonic, before)
+
+        _ = try await machine.observePathUpdate(
+            try cellularObservationA()
+        )
+    }
+
+    func testChangedInterruptedRelationRequiresLedgerWideTransitionBeforeCommit() async throws {
+        let machine = makeMachine()
+        try await openSessionA(on: machine)
+        try await machine.observePathUpdate(
+            try wifiObservationA()
+        )
+        try await machine.observePathUpdate(
+            try cellularObservationA()
+        )
+        _ = try await closeSessionA(
+            on: machine,
+            recordID: "record:007-session-close-a",
+            wallTimeOffset: 7_000_000,
+            monotonicTimeNS: 7_000
+        )
+        _ = try await openSessionB(
+            on: machine,
+            recordID: "record:008-session-open-b",
+            wallTimeOffset: 8_000_000
+        )
+        let before = try await machine.snapshot()
+
+        do {
+            _ = try await machine.observePathUpdate(
+                try wifiObservationB(
+                    eventRecordID: "record:009-path-wifi-b",
+                    snapshotRecordID: "record:010-snapshot-wifi-b",
+                    eventWallTimeOffset: 9_000_000,
+                    snapshotWallTimeOffset: 10_000_000,
+                    coverageRecordID: "record:011-coverage-interrupted",
+                    coverageWallTimeOffset: 11_000_000,
+                    includeTransition: false
+                )
+            )
+            XCTFail("Expected missing endpoint-difference transition to fail")
+        } catch let error as NetworkObservationStateMachineError {
+            XCTAssertEqual(
+                error,
+                .transitionMaterializationRequired(.endpointDifferenceOnly)
+            )
+        }
+        let afterMissingTransition = try await machine.snapshot()
+        XCTAssertEqual(afterMissingTransition, before)
+
+        do {
+            _ = try await machine.observePathUpdate(
+                try wifiObservationB(
+                    eventRecordID: "record:009-path-wifi-b",
+                    snapshotRecordID: "record:010-snapshot-wifi-b",
+                    eventWallTimeOffset: 9_000_000,
+                    snapshotWallTimeOffset: 10_000_000,
+                    coverageRecordID: "record:011-coverage-interrupted",
+                    coverageWallTimeOffset: 11_000_000,
+                    includeTransition: true,
+                    transitionRecordID:
+                        "record:012-transition-endpoint-difference",
+                    transitionWallTimeOffset: 12_000_000,
+                    transitionMonotonicTimeNS: 4_000
+                )
+            )
+            XCTFail("Expected ledger-wide transition monotonic time to fail")
+        } catch let error as NetworkObservationStateMachineError {
+            XCTAssertEqual(
+                error,
+                .endpointDifferenceTransitionMonotonicTimeForbidden
+            )
+        }
+        let afterForbiddenMonotonic = try await machine.snapshot()
+        XCTAssertEqual(afterForbiddenMonotonic, before)
+
+        let accepted = try await machine.observePathUpdate(
+            try wifiObservationB(
+                eventRecordID: "record:009-path-wifi-b",
+                snapshotRecordID: "record:010-snapshot-wifi-b",
+                eventWallTimeOffset: 9_000_000,
+                snapshotWallTimeOffset: 10_000_000,
+                coverageRecordID: "record:011-coverage-interrupted",
+                coverageWallTimeOffset: 11_000_000,
+                includeTransition: true,
+                transitionRecordID:
+                    "record:012-transition-endpoint-difference",
+                transitionWallTimeOffset: 12_000_000
+            )
+        )
+        XCTAssertEqual(
+            accepted.transitionRelation?.transitionClass,
+            .endpointDifferenceOnly
+        )
+        XCTAssertEqual(
+            accepted.transitionRecord?.digestSubject.sequenceIndex,
+            12
+        )
+    }
+
+    func testTransitionPreparationFailureRollsBackEventSnapshotCoverageAndTransition() async throws {
+        let machine = makeMachine()
+        try await openSessionA(on: machine)
+        try await machine.observePathUpdate(
+            try wifiObservationA()
+        )
+        let before = try await machine.snapshot()
+
+        do {
+            _ = try await machine.observePathUpdate(
+                try cellularObservationA(
+                    transitionRecordID: "record:000-session-open-a"
+                )
+            )
+            XCTFail("Expected duplicate transition record ID to fail")
+        } catch let error as LedgerRecordChainError {
+            XCTAssertEqual(
+                error,
+                .duplicateRecordID(
+                    identifier("record:000-session-open-a")
+                )
+            )
+        }
+
+        let afterFailedTransitionPreparation = try await machine.snapshot()
+        XCTAssertEqual(afterFailedTransitionPreparation, before)
+
+        let accepted = try await machine.observePathUpdate(
+            try cellularObservationA()
+        )
+        XCTAssertEqual(accepted.eventRecord.digestSubject.sequenceIndex, 3)
+        XCTAssertEqual(accepted.snapshotRecord.digestSubject.sequenceIndex, 4)
+        XCTAssertEqual(accepted.coverageRecord?.digestSubject.sequenceIndex, 5)
+        XCTAssertEqual(accepted.transitionRecord?.digestSubject.sequenceIndex, 6)
+    }
+
+    func testCompleteReferencePathMatchesBothTransitionClassesExactly() async throws {
+        let machine = makeMachine()
+        let openA = try await openSessionA(on: machine)
+        let wifiA = try await machine.observePathUpdate(
+            try wifiObservationA()
+        )
+        let cellularA = try await machine.observePathUpdate(
+            try cellularObservationA()
+        )
+        let closeA = try await closeSessionA(
+            on: machine,
+            recordID: "record:007-session-close-a",
+            wallTimeOffset: 7_000_000,
+            monotonicTimeNS: 7_000
+        )
+        let openB = try await openSessionB(
+            on: machine,
+            recordID: "record:008-session-open-b",
+            wallTimeOffset: 8_000_000
+        )
+        let wifiB = try await machine.observePathUpdate(
+            try wifiObservationB(
+                eventRecordID: "record:009-path-wifi-b",
+                snapshotRecordID: "record:010-snapshot-wifi-b",
+                eventWallTimeOffset: 9_000_000,
+                snapshotWallTimeOffset: 10_000_000,
+                coverageRecordID: "record:011-coverage-interrupted",
+                coverageIntervalID: "coverage:interrupted-a-to-b",
+                coverageWallTimeOffset: 11_000_000,
+                includeTransition: true,
+                transitionRecordID:
+                    "record:012-transition-endpoint-difference",
+                transitionID:
+                    "transition:endpoint-difference-cellular-to-wifi",
+                transitionWallTimeOffset: 12_000_000
+            )
+        )
+
+        XCTAssertEqual(
+            openA.recordSHA256.rawValue,
+            "28176d2164cc5d543e1ce856bf1efad588004ff346375c3c30a6e4aad638ecb5"
+        )
+        XCTAssertEqual(
+            wifiA.eventRecord.recordSHA256.rawValue,
+            "297a4c383f4d94d7459cb1548e42994d6166be89d25d366217241c48c68d1980"
+        )
+        XCTAssertEqual(
+            cellularA.transitionRecord?.recordSHA256.rawValue,
+            "57396fbb180ed7eb6fd3b99f17fe86709616684ad16445b9559f879e20f8c594"
+        )
+        XCTAssertEqual(
+            closeA.recordSHA256.rawValue,
+            "c8a19d0980a17921747507be3ca901dea23e716cffb03b595f93d6ffa98c652d"
+        )
+        XCTAssertEqual(
+            openB.record.recordSHA256.rawValue,
+            "e2124b6cecf0549f19e2e804ffaf05c64a745b354828344c178793e8c324841b"
+        )
+        XCTAssertEqual(
+            wifiB.eventRecord.recordSHA256.rawValue,
+            "a8ddd09176678809732c26edfd58acae5681e4e4f0b0e3c2fff78fccf814fbc0"
+        )
+        XCTAssertEqual(
+            wifiB.snapshotRecord.recordSHA256.rawValue,
+            "6e6af21f6590c2ac508d0119a8c32477d87e9a3fd2a2df6b4f6909eac7b788fd"
+        )
+        XCTAssertEqual(
+            wifiB.coverageRecord?.recordSHA256.rawValue,
+            "220fcd76f0ad3f6f9aa6483968ee7fd7639fb54115215722571393f181fc1bcd"
+        )
+        XCTAssertEqual(
+            wifiB.transitionRecord?.recordSHA256.rawValue,
+            "de8aab56372ca0ec3bfff26bce199e0d5e700aee026916ae3ebb19714952de35"
+        )
+        XCTAssertEqual(
+            wifiB.transitionRelation?.transitionClass,
+            .endpointDifferenceOnly
+        )
+        XCTAssertEqual(
+            wifiB.transitionRelation?.changedFields,
+            [.isExpensive, .usedInterfaceTypes]
+        )
+        XCTAssertNil(wifiB.transitionRelation?.eventReference)
+        XCTAssertNil(wifiB.changedFieldsFromPreviousSnapshot)
+
+        let snapshot = try await machine.snapshot()
+        XCTAssertEqual(snapshot.chain.recordCount, 13)
+        XCTAssertEqual(
+            snapshot.chain.records.map(\.digestSubject.recordType),
+            [
+                .sessionBoundary,
+                .observationEvent,
+                .stateSnapshot,
+                .observationEvent,
+                .stateSnapshot,
+                .coverageInterval,
+                .transition,
+                .sessionBoundary,
+                .sessionBoundary,
+                .observationEvent,
+                .stateSnapshot,
+                .coverageInterval,
+                .transition,
+            ]
+        )
+    }
+
+    func testDirectDisconnectChangedRelationMaterializesEndpointDifferenceTransition() async throws {
+        let machine = makeMachine()
+        try await openSessionA(on: machine)
+        try await machine.observePathUpdate(
+            try wifiObservationA()
+        )
+        let source = try await machine.observePathUpdate(
+            try cellularObservationA()
+        )
+        let terminal = try await disconnectSessionA(
+            on: machine,
+            recordID: "record:007-session-terminate-a",
+            wallTimeOffset: 7_000_000,
+            monotonicTimeNS: 7_000
+        )
+        let opening = try await openSessionB(
+            on: machine,
+            recordID: "record:008-session-open-b",
+            wallTimeOffset: 8_000_000
+        )
+        let target = try await machine.observePathUpdate(
+            try wifiObservationB(
+                eventRecordID: "record:009-path-wifi-b",
+                snapshotRecordID: "record:010-snapshot-wifi-b",
+                eventWallTimeOffset: 9_000_000,
+                snapshotWallTimeOffset: 10_000_000,
+                coverageRecordID: "record:011-coverage-interrupted",
+                coverageWallTimeOffset: 11_000_000,
+                includeTransition: true,
+                transitionRecordID:
+                    "record:012-transition-endpoint-difference",
+                transitionWallTimeOffset: 12_000_000
+            )
+        )
+
+        guard case let .interrupted(_, _, gap) = target.coverageRelation else {
+            return XCTFail("Expected interrupted relation")
+        }
+        XCTAssertEqual(gap.gapStartBoundary, terminal.reference)
+        XCTAssertEqual(gap.gapEndBoundary, opening.record.reference)
+        XCTAssertEqual(
+            target.transitionRelation?.source,
+            source.observedSnapshot.transitionEndpoint
+        )
+        XCTAssertEqual(
+            target.transitionRelation?.transitionClass,
+            .endpointDifferenceOnly
+        )
+        XCTAssertNotNil(target.transitionRecord)
     }
 
     func testExactRepeatedActiveCallbackDoesNotResetObservedNetworkState() async throws {

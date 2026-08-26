@@ -138,6 +138,26 @@ public struct LedgerRecordAtomicTriple: Sendable, Equatable {
     }
 }
 
+/// The four finalized records produced by one atomic dependent append.
+public struct LedgerRecordAtomicQuadruple: Sendable, Equatable {
+    public let first: LedgerRecordEnvelope
+    public let second: LedgerRecordEnvelope
+    public let third: LedgerRecordEnvelope
+    public let fourth: LedgerRecordEnvelope
+
+    public init(
+        first: LedgerRecordEnvelope,
+        second: LedgerRecordEnvelope,
+        third: LedgerRecordEnvelope,
+        fourth: LedgerRecordEnvelope
+    ) {
+        self.first = first
+        self.second = second
+        self.third = third
+        self.fourth = fourth
+    }
+}
+
 /// Actor-isolated append machine for one PULSEmech Device Ledger v0 record
 /// chain.
 ///
@@ -164,37 +184,44 @@ public actor LedgerRecordChain {
     }
 
 
-    /// Fixed-size projection of at most two already prepared records.
+    /// Fixed-size projection of at most three already prepared records.
     ///
-    /// The projection is sufficient to validate the second record of a pair and
-    /// the third record of a triple without copying any accumulated chain
-    /// collection.
+    /// The projection is sufficient to validate the later records of pair,
+    /// triple, and quadruple dependent appends without copying any accumulated
+    /// chain collection.
     private struct PreparedAppendProjection: Sendable {
         let first: PreparedAppend?
         let second: PreparedAppend?
+        let third: PreparedAppend?
 
         static let empty = PreparedAppendProjection(
             first: nil,
-            second: nil
+            second: nil,
+            third: nil
         )
 
         var count: Int {
-            (first == nil ? 0 : 1) + (second == nil ? 0 : 1)
+            (first == nil ? 0 : 1) +
+                (second == nil ? 0 : 1) +
+                (third == nil ? 0 : 1)
         }
 
         var latest: PreparedAppend? {
-            second ?? first
+            third ?? second ?? first
         }
 
         var containsCheckpoint: Bool {
             first?.recordType == .checkpoint ||
-                second?.recordType == .checkpoint
+                second?.recordType == .checkpoint ||
+                third?.recordType == .checkpoint
         }
 
         func contains(
             recordID: LedgerIdentifier
         ) -> Bool {
-            first?.recordID == recordID || second?.recordID == recordID
+            first?.recordID == recordID ||
+                second?.recordID == recordID ||
+                third?.recordID == recordID
         }
 
         func appending(
@@ -203,17 +230,27 @@ public actor LedgerRecordChain {
             if first == nil {
                 return PreparedAppendProjection(
                     first: prepared,
-                    second: nil
+                    second: nil,
+                    third: nil
+                )
+            }
+
+            if second == nil {
+                return PreparedAppendProjection(
+                    first: first,
+                    second: prepared,
+                    third: nil
                 )
             }
 
             precondition(
-                second == nil,
-                "Prepared append projection supports at most two records"
+                third == nil,
+                "Prepared append projection supports at most three records"
             )
             return PreparedAppendProjection(
                 first: first,
-                second: prepared
+                second: second,
+                third: prepared
             )
         }
 
@@ -224,7 +261,7 @@ public actor LedgerRecordChain {
             clockEpochID: LedgerIdentifier,
             monotonicTimeNS: Int64
         )? {
-            for prepared in [second, first] {
+            for prepared in [third, second, first] {
                 guard let prepared,
                       case let .session(
                           stagedSessionID,
@@ -251,7 +288,7 @@ public actor LedgerRecordChain {
             clockEpochID: LedgerIdentifier,
             monotonicTimeNS: Int64
         )? {
-            for prepared in [second, first] {
+            for prepared in [third, second, first] {
                 guard let prepared,
                       case let .session(
                           stagedSessionID,
@@ -390,6 +427,80 @@ public actor LedgerRecordChain {
         )
     }
 
+    /// Appends four dependent records as one non-reentrant chain transaction.
+    ///
+    /// This is the required commit boundary when one changed callback produces
+    /// an observation event, its bound snapshot, the exact coverage relation,
+    /// and the transition materialized from those finalized records. All four
+    /// records are prepared before the first non-throwing commit.
+    @discardableResult
+    public func appendAtomically(
+        first firstDraft: LedgerRecordDraft,
+        makeSecondDraft: @Sendable (LedgerRecordEnvelope) throws -> LedgerRecordDraft,
+        makeThirdDraft: @Sendable (
+            LedgerRecordEnvelope,
+            LedgerRecordEnvelope
+        ) throws -> LedgerRecordDraft,
+        makeFourthDraft: @Sendable (
+            LedgerRecordEnvelope,
+            LedgerRecordEnvelope,
+            LedgerRecordEnvelope
+        ) throws -> LedgerRecordDraft
+    ) throws -> LedgerRecordAtomicQuadruple {
+        let firstPrepared = try prepareAppend(
+            firstDraft,
+            after: .empty
+        )
+        let afterFirst = PreparedAppendProjection.empty.appending(
+            firstPrepared
+        )
+
+        let secondDraft = try makeSecondDraft(
+            firstPrepared.envelope
+        )
+        let secondPrepared = try prepareAppend(
+            secondDraft,
+            after: afterFirst
+        )
+        let afterSecond = afterFirst.appending(
+            secondPrepared
+        )
+
+        let thirdDraft = try makeThirdDraft(
+            firstPrepared.envelope,
+            secondPrepared.envelope
+        )
+        let thirdPrepared = try prepareAppend(
+            thirdDraft,
+            after: afterSecond
+        )
+        let afterThird = afterSecond.appending(
+            thirdPrepared
+        )
+
+        let fourthDraft = try makeFourthDraft(
+            firstPrepared.envelope,
+            secondPrepared.envelope,
+            thirdPrepared.envelope
+        )
+        let fourthPrepared = try prepareAppend(
+            fourthDraft,
+            after: afterThird
+        )
+
+        commit(firstPrepared)
+        commit(secondPrepared)
+        commit(thirdPrepared)
+        commit(fourthPrepared)
+
+        return LedgerRecordAtomicQuadruple(
+            first: firstPrepared.envelope,
+            second: secondPrepared.envelope,
+            third: thirdPrepared.envelope,
+            fourth: fourthPrepared.envelope
+        )
+    }
+
     /// Returns one value snapshot without exposing mutable chain storage.
     public func snapshot() -> LedgerRecordChainSnapshot {
         LedgerRecordChainSnapshot(
@@ -403,9 +514,9 @@ public actor LedgerRecordChain {
 
     /// Validates and finalizes one draft without mutating chain-owned state.
     ///
-    /// `stagedProjection` contains at most two already prepared records. It is
-    /// sufficient for pair and triple dependent appends while remaining constant
-    /// relative to accumulated chain length.
+    /// `stagedProjection` contains at most three already prepared records. It is
+    /// sufficient for pair, triple, and quadruple dependent appends while
+    /// remaining constant relative to accumulated chain length.
     private func prepareAppend(
         _ draft: LedgerRecordDraft,
         after stagedProjection: PreparedAppendProjection
