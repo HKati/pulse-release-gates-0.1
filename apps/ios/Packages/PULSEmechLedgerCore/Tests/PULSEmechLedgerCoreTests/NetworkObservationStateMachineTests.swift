@@ -153,7 +153,8 @@ final class NetworkObservationStateMachineTests: XCTestCase {
         eventWallTimeOffset: Int64 = 1_000_000,
         snapshotWallTimeOffset: Int64 = 2_000_000,
         eventMonotonicTimeNS: Int64 = 2_000,
-        snapshotMonotonicTimeNS: Int64 = 3_000
+        snapshotMonotonicTimeNS: Int64 = 3_000,
+        coverageMaterialization: NetworkCoverageMaterializationInput? = nil
     ) throws -> NetworkPathUpdateObservation {
         NetworkPathUpdateObservation(
             eventID: identifier(eventID),
@@ -167,11 +168,17 @@ final class NetworkObservationStateMachineTests: XCTestCase {
             sessionID: identifier("session:synthetic-a"),
             clockEpochID: identifier("clock-epoch:synthetic-a"),
             appLifecycleActivationState: .foregroundActive,
-            networkPathState: try wifiState()
+            networkPathState: try wifiState(),
+            coverageMaterialization: coverageMaterialization
         )
     }
 
-    private func cellularObservationA() throws -> NetworkPathUpdateObservation {
+    private func cellularObservationA(
+        includeCoverage: Bool = true,
+        coverageRecordID: String = "record:005-coverage-continuous",
+        coverageIntervalID: String = "coverage:continuous-a",
+        coverageWallTimeOffset: Int64 = 5_000_000
+    ) throws -> NetworkPathUpdateObservation {
         NetworkPathUpdateObservation(
             eventID: identifier("event:path-cellular-a"),
             eventRecordID: identifier("record:003-path-cellular-a"),
@@ -184,11 +191,24 @@ final class NetworkObservationStateMachineTests: XCTestCase {
             sessionID: identifier("session:synthetic-a"),
             clockEpochID: identifier("clock-epoch:synthetic-a"),
             appLifecycleActivationState: .foregroundActive,
-            networkPathState: try cellularState()
+            networkPathState: try cellularState(),
+            coverageMaterialization: includeCoverage
+                ? NetworkCoverageMaterializationInput(
+                    intervalID: identifier(coverageIntervalID),
+                    recordID: identifier(coverageRecordID),
+                    recordedWallTimeUnixNS:
+                        baseWallTime + coverageWallTimeOffset
+                )
+                : nil
         )
     }
 
-    private func wifiObservationB() throws -> NetworkPathUpdateObservation {
+    private func wifiObservationB(
+        includeCoverage: Bool = true,
+        coverageRecordID: String = "record:007-coverage-interrupted",
+        coverageIntervalID: String = "coverage:interrupted-a-to-b-runtime",
+        coverageWallTimeOffset: Int64 = 7_000_000
+    ) throws -> NetworkPathUpdateObservation {
         NetworkPathUpdateObservation(
             eventID: identifier("event:path-wifi-b"),
             eventRecordID: identifier("record:005-path-wifi-b"),
@@ -201,7 +221,15 @@ final class NetworkObservationStateMachineTests: XCTestCase {
             sessionID: identifier("session:synthetic-b"),
             clockEpochID: identifier("clock-epoch:synthetic-b"),
             appLifecycleActivationState: .foregroundActive,
-            networkPathState: try wifiState()
+            networkPathState: try wifiState(),
+            coverageMaterialization: includeCoverage
+                ? NetworkCoverageMaterializationInput(
+                    intervalID: identifier(coverageIntervalID),
+                    recordID: identifier(coverageRecordID),
+                    recordedWallTimeUnixNS:
+                        baseWallTime + coverageWallTimeOffset
+                )
+                : nil
         )
     }
 
@@ -362,6 +390,8 @@ final class NetworkObservationStateMachineTests: XCTestCase {
         XCTAssertEqual(result.observedSnapshot.snapshotRole, .sourceEndpoint)
         XCTAssertNil(result.previousSnapshotInSession)
         XCTAssertNil(result.changedFieldsFromPreviousSnapshot)
+        XCTAssertNil(result.coverageRecord)
+        XCTAssertNil(result.coverageRelation)
         XCTAssertNil(result.precedingObservationGap)
         XCTAssertNil(result.retainedGapSourceSnapshot)
 
@@ -399,6 +429,19 @@ final class NetworkObservationStateMachineTests: XCTestCase {
             second.snapshotRecord.recordSHA256.rawValue,
             "0e126ee418a52b2aa8eb456c4e1f799d5ee556d577bd986b0fe8f9835f714d2d"
         )
+        XCTAssertEqual(
+            second.coverageRecord?.recordSHA256.rawValue,
+            "5d5de19bdd2eddfc5f23791ede88b7afc13077f4c54810cef451e7602ec4df38"
+        )
+        XCTAssertEqual(
+            second.coverageRecord?.digestSubject.recordType,
+            .coverageInterval
+        )
+        XCTAssertEqual(
+            second.coverageRecord?.digestSubject.previousRecordSHA256,
+            second.snapshotRecord.recordSHA256
+        )
+        XCTAssertEqual(second.coverageRelation?.status, .continuous)
         XCTAssertEqual(second.observedSnapshot.snapshotRole, .targetEndpoint)
         XCTAssertEqual(second.previousSnapshotInSession, first.observedSnapshot)
         XCTAssertEqual(
@@ -414,7 +457,7 @@ final class NetworkObservationStateMachineTests: XCTestCase {
         let observed = try requireObservedAvailability(openState.availability)
         XCTAssertEqual(observed.first, first.observedSnapshot)
         XCTAssertEqual(observed.latest, second.observedSnapshot)
-        XCTAssertEqual(snapshot.chain.recordCount, 5)
+        XCTAssertEqual(snapshot.chain.recordCount, 6)
     }
 
     func testEqualStateCallbackIsRetainedWithoutChangedFields() async throws {
@@ -432,15 +475,28 @@ final class NetworkObservationStateMachineTests: XCTestCase {
                 eventWallTimeOffset: 3_000_000,
                 snapshotWallTimeOffset: 4_000_000,
                 eventMonotonicTimeNS: 4_000,
-                snapshotMonotonicTimeNS: 5_000
+                snapshotMonotonicTimeNS: 5_000,
+                coverageMaterialization: NetworkCoverageMaterializationInput(
+                    intervalID: identifier("coverage:continuous-a-repeat"),
+                    recordID: identifier("record:005-coverage-continuous-repeat"),
+                    recordedWallTimeUnixNS: baseWallTime + 5_000_000
+                )
             )
         )
 
         XCTAssertEqual(repeated.previousSnapshotInSession, first.observedSnapshot)
         XCTAssertEqual(repeated.changedFieldsFromPreviousSnapshot, [])
+        XCTAssertEqual(repeated.coverageRelation?.status, .continuous)
+        XCTAssertNotNil(repeated.coverageRecord)
 
         let snapshot = try await machine.snapshot()
-        XCTAssertEqual(snapshot.chain.recordCount, 5)
+        XCTAssertEqual(snapshot.chain.recordCount, 6)
+        XCTAssertEqual(
+            snapshot.chain.records.filter {
+                $0.digestSubject.recordType == .coverageInterval
+            }.count,
+            1
+        )
         XCTAssertEqual(
             snapshot.chain.records.filter {
                 $0.digestSubject.recordType == .transition
@@ -635,6 +691,15 @@ final class NetworkObservationStateMachineTests: XCTestCase {
             try wifiObservationB()
         )
         XCTAssertEqual(target.observedSnapshot.snapshotRole, .targetEndpoint)
+        XCTAssertEqual(
+            target.coverageRecord?.recordSHA256.rawValue,
+            "d46d2430e8a14aadf6dc97b7f18f45da0a94121b5c2253f5bb27f8fa5ebe1340"
+        )
+        XCTAssertEqual(target.coverageRelation?.status, .interrupted)
+        XCTAssertEqual(
+            target.coverageRecord?.digestSubject.recordType,
+            .coverageInterval
+        )
         XCTAssertEqual(target.retainedGapSourceSnapshot, source.observedSnapshot)
         XCTAssertEqual(
             target.precedingObservationGap?.gapStartBoundary,
@@ -650,7 +715,7 @@ final class NetworkObservationStateMachineTests: XCTestCase {
         let observed = try requireObservedAvailability(openState.availability)
         XCTAssertEqual(observed.first, target.observedSnapshot)
         XCTAssertEqual(observed.latest, target.observedSnapshot)
-        XCTAssertEqual(afterCallback.chain.recordCount, 7)
+        XCTAssertEqual(afterCallback.chain.recordCount, 8)
     }
 
     func testDirectDisconnectStartsNextGapAndRetainsLastSnapshot() async throws {
@@ -713,6 +778,226 @@ final class NetworkObservationStateMachineTests: XCTestCase {
             try requireOpenState(snapshot.networkState).availability,
             .awaitingFreshCallback(reason: .awaitingFirstPathUpdate)
         )
+    }
+
+    func testCoverageInputBeforeAnyEndpointRelationIsRejectedAtomically() async throws {
+        let machine = makeMachine()
+        try await openSessionA(on: machine)
+        let before = try await machine.snapshot()
+        let coverage = NetworkCoverageMaterializationInput(
+            intervalID: identifier("coverage:not-permitted"),
+            recordID: identifier("record:003-coverage-not-permitted"),
+            recordedWallTimeUnixNS: baseWallTime + 3_000_000
+        )
+
+        do {
+            _ = try await machine.observePathUpdate(
+                try wifiObservationA(
+                    coverageMaterialization: coverage
+                )
+            )
+            XCTFail("Expected premature coverage input to fail")
+        } catch let error as NetworkObservationStateMachineError {
+            XCTAssertEqual(error, .coverageMaterializationNotPermitted)
+        }
+
+        let after = try await machine.snapshot()
+        XCTAssertEqual(after, before)
+
+        let accepted = try await machine.observePathUpdate(
+            try wifiObservationA()
+        )
+        XCTAssertNil(accepted.coverageRecord)
+        XCTAssertEqual(accepted.eventRecord.digestSubject.sequenceIndex, 1)
+    }
+
+    func testContinuousCoverageIsRequiredBeforeAnyCallbackRecordsCommit() async throws {
+        let machine = makeMachine()
+        try await openSessionA(on: machine)
+        try await machine.observePathUpdate(
+            try wifiObservationA()
+        )
+        let before = try await machine.snapshot()
+
+        do {
+            _ = try await machine.observePathUpdate(
+                try cellularObservationA(includeCoverage: false)
+            )
+            XCTFail("Expected missing continuous coverage to fail")
+        } catch let error as NetworkObservationStateMachineError {
+            XCTAssertEqual(
+                error,
+                .coverageMaterializationRequired(.continuous)
+            )
+        }
+
+        let after = try await machine.snapshot()
+        XCTAssertEqual(after, before)
+
+        let accepted = try await machine.observePathUpdate(
+            try cellularObservationA()
+        )
+        XCTAssertEqual(accepted.coverageRelation?.status, .continuous)
+        XCTAssertEqual(accepted.eventRecord.digestSubject.sequenceIndex, 3)
+        XCTAssertEqual(accepted.snapshotRecord.digestSubject.sequenceIndex, 4)
+        XCTAssertEqual(accepted.coverageRecord?.digestSubject.sequenceIndex, 5)
+    }
+
+    func testCoverageWallTimeCannotPrecedeTargetSnapshot() async throws {
+        let machine = makeMachine()
+        try await openSessionA(on: machine)
+        try await machine.observePathUpdate(
+            try wifiObservationA()
+        )
+        let before = try await machine.snapshot()
+
+        do {
+            _ = try await machine.observePathUpdate(
+                try cellularObservationA(
+                    coverageWallTimeOffset: 3_000_000
+                )
+            )
+            XCTFail("Expected coverage wall time before target to fail")
+        } catch let error as NetworkObservationStateMachineError {
+            XCTAssertEqual(
+                error,
+                .coverageWallTimePrecedesTargetSnapshot(
+                    snapshot: baseWallTime + 4_000_000,
+                    coverage: baseWallTime + 3_000_000
+                )
+            )
+        }
+
+        let after = try await machine.snapshot()
+        XCTAssertEqual(after, before)
+        _ = try await machine.observePathUpdate(
+            try cellularObservationA()
+        )
+    }
+
+    func testCoveragePreparationFailureRollsBackEventSnapshotAndCoverage() async throws {
+        let machine = makeMachine()
+        try await openSessionA(on: machine)
+        try await machine.observePathUpdate(
+            try wifiObservationA()
+        )
+        let before = try await machine.snapshot()
+
+        do {
+            _ = try await machine.observePathUpdate(
+                try cellularObservationA(
+                    coverageRecordID: "record:000-session-open-a"
+                )
+            )
+            XCTFail("Expected duplicate coverage record ID to fail")
+        } catch let error as LedgerRecordChainError {
+            XCTAssertEqual(
+                error,
+                .duplicateRecordID(
+                    identifier("record:000-session-open-a")
+                )
+            )
+        }
+
+        let after = try await machine.snapshot()
+        XCTAssertEqual(after, before)
+
+        let accepted = try await machine.observePathUpdate(
+            try cellularObservationA()
+        )
+        XCTAssertEqual(accepted.eventRecord.digestSubject.sequenceIndex, 3)
+        XCTAssertEqual(accepted.snapshotRecord.digestSubject.sequenceIndex, 4)
+        XCTAssertEqual(accepted.coverageRecord?.digestSubject.sequenceIndex, 5)
+    }
+
+    func testInterruptedCoverageIsRequiredBeforeFirstFreshTargetCommits() async throws {
+        let machine = makeMachine()
+        try await openSessionA(on: machine)
+        try await machine.observePathUpdate(
+            try wifiObservationA()
+        )
+        try await closeSessionA(on: machine)
+        try await openSessionB(on: machine)
+        let before = try await machine.snapshot()
+
+        do {
+            _ = try await machine.observePathUpdate(
+                try wifiObservationB(includeCoverage: false)
+            )
+            XCTFail("Expected missing interrupted coverage to fail")
+        } catch let error as NetworkObservationStateMachineError {
+            XCTAssertEqual(
+                error,
+                .coverageMaterializationRequired(.interrupted)
+            )
+        }
+
+        let after = try await machine.snapshot()
+        XCTAssertEqual(after, before)
+
+        let accepted = try await machine.observePathUpdate(
+            try wifiObservationB()
+        )
+        XCTAssertEqual(accepted.coverageRelation?.status, .interrupted)
+        XCTAssertNotNil(accepted.coverageRecord)
+    }
+
+    func testDirectDisconnectMaterializesInterruptedCoverageFromTerminalBoundary() async throws {
+        let machine = makeMachine()
+        try await openSessionA(on: machine)
+        let source = try await machine.observePathUpdate(
+            try wifiObservationA()
+        )
+        let terminal = try await disconnectSessionA(on: machine)
+        let opening = try await openSessionB(on: machine)
+        let target = try await machine.observePathUpdate(
+            try wifiObservationB()
+        )
+
+        guard case let .interrupted(
+            relationSource,
+            relationTarget,
+            gap
+        ) = target.coverageRelation else {
+            return XCTFail("Expected interrupted coverage relation")
+        }
+
+        XCTAssertEqual(relationSource, source.observedSnapshot.coverageEndpoint)
+        XCTAssertEqual(relationTarget, target.observedSnapshot.coverageEndpoint)
+        XCTAssertEqual(gap.gapStartBoundary, terminal.reference)
+        XCTAssertEqual(gap.gapEndBoundary, opening.record.reference)
+        XCTAssertEqual(
+            target.coverageRecord?.recordSHA256.rawValue,
+            "81debed71b54c2aa31769d07753c0071d26b1903e83e2b5c692365af9be738ab"
+        )
+        XCTAssertEqual(target.coverageRecord?.digestSubject.sequenceIndex, 7)
+    }
+
+    func testReopenWithoutObservedSourceCannotFabricateInterruptedCoverage() async throws {
+        let machine = makeMachine()
+        try await openSessionA(on: machine)
+        try await closeSessionA(on: machine)
+        try await openSessionB(on: machine)
+        let before = try await machine.snapshot()
+
+        do {
+            _ = try await machine.observePathUpdate(
+                try wifiObservationB()
+            )
+            XCTFail("Expected coverage without a retained source to fail")
+        } catch let error as NetworkObservationStateMachineError {
+            XCTAssertEqual(error, .coverageMaterializationNotPermitted)
+        }
+
+        let after = try await machine.snapshot()
+        XCTAssertEqual(after, before)
+
+        let accepted = try await machine.observePathUpdate(
+            try wifiObservationB(includeCoverage: false)
+        )
+        XCTAssertEqual(accepted.observedSnapshot.snapshotRole, .sourceEndpoint)
+        XCTAssertNil(accepted.coverageRecord)
+        XCTAssertNil(accepted.coverageRelation)
     }
 
     func testExactRepeatedActiveCallbackDoesNotResetObservedNetworkState() async throws {
