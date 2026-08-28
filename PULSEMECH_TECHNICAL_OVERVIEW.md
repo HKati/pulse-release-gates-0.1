@@ -48,6 +48,7 @@ verified implementation state
 reference proofs
 compute-binding implementation state
 current-run expectation contract state
+Device Ledger bounded mechanical proof and runnable demonstrator state
 foundational transition-measurement architecture
 external interoperability status
 current development boundary
@@ -1902,19 +1903,221 @@ It does not independently create release authority.
 
 ---
 
+## 15H. Device Ledger bounded mechanical proof and runnable iPhone demonstrator
+
+The repository contains a completed bounded Device Ledger proof for one exact
+synthetic reference relation.
+
+The closed mechanical path is:
+
+```text
+bounded observed relation
+→ exact evidence records
+→ predecessor-bound record chain
+→ terminal checkpoint
+→ canonical ledger
+→ checkpoint signature
+→ exact payload inventory
+→ canonical manifest
+→ package signature
+→ deterministic .pulseledger
+→ separately implemented verifier reconstruction
+→ reproducible PASS or fail-closed rejection
+→ minimal runnable iPhone result surface
+→ exact artifact export
+```
+
+The canonical detailed record is:
+
+[PULSEmech Device Ledger Bounded Mechanical Proof v0](docs/PULSEMECH_DEVICE_LEDGER_BOUNDED_MECHANICAL_PROOF_v0.md)
+
+The merged runnable demonstrator identity is:
+
+```text
+implementation PR:
+#2847
+
+squash-merge commit:
+6a358187d8fde7321963b76cc50cc77fad695dd0
+
+reviewed final PR head:
+ce2316b9988499da71bf1eb1f51a0d699f10f925
+
+post-merge correctness findings:
+none
+```
+
+The deterministic reference materialization produces:
+
+```text
+record count:
+14
+
+session count:
+2
+
+clock-epoch count:
+2
+
+session-boundary count:
+3
+
+continuous coverage count:
+1
+
+interrupted coverage count:
+1
+
+event-bound transition count:
+1
+
+endpoint-difference-only transition count:
+1
+```
+
+Its exact primary identities are:
+
+```text
+checkpoint SHA-256:
+16f309c033f43a4b80d5cd0be3e0685af977ab510a0813c5fb32631b3334b2ff
+
+ledger SHA-256:
+360de3b74e2c0ec33525426cd0598b5a8d382e8017295900f0ef5600ae9a4f77
+
+manifest SHA-256:
+47e6adc3afe8c295ec207a23545a3a1df5f043799106f67c093a19da5ab641a1
+
+carrier size:
+133568 bytes
+
+carrier SHA-256:
+a31388c7bf574040893d1d923d684d23318e5d2109a0d72a923888b95d5d42b3
+
+carrier member count:
+10
+
+canonical verifier-report size:
+15328 bytes
+
+canonical verifier-report SHA-256:
+5e93539099e99dd5bfa835ba56c401608a5b5c015209812ebb5f9c31142a74f4
+
+verifier checks:
+49 / 49 passed
+```
+
+The separately implemented Python verifier accepts the original Swift-produced
+carrier and reproduces:
+
+```text
+result:
+verified_with_declared_unavailability
+
+checkpoint signature_status:
+verified
+
+package signature_status:
+verified
+
+producer_code_imported:
+false
+
+verifier_implementation_relation:
+separate_from_producer_code
+```
+
+The relevant negative proof preserves ZIP structure and both CRC32 bindings
+while changing the package-signature bytes.
+
+The same verifier reaches the package-signature equation and rejects the
+modified carrier with:
+
+```text
+result:
+rejected
+
+failure_stage:
+package_signature
+
+failed_check_ids:
+[
+  "package_signature_valid"
+]
+```
+
+The verifier boundary is:
+
+```text
+separately implemented verifier
+≠ external validating authority
+≠ institutional approval
+```
+
+A third party may execute the verifier as a new reproduction event.
+
+The operator's identity, title, organization, reputation or institutional
+status is not an input to the verification result and is not a prerequisite of
+mechanical validity.
+
+The minimal iPhone demonstrator:
+
+```text
+executes the deterministic reference materialization
+→ checks the exact generated identities
+→ admits only the exact pinned canonical verifier-report bytes
+→ binds the report subject to the current exact carrier
+→ displays the bounded result read-only
+→ exports the current exact .pulseledger bytes
+```
+
+The app does not execute or import the Python verifier and does not claim that
+it verified itself.
+
+The reference and authority boundaries remain:
+
+```text
+record_status:
+synthetic_reference
+
+identity_scope:
+fixture_installation
+
+key_origin_profile:
+fixture_software_p256
+
+authority_effect:
+none
+
+external_validation_claim:
+none
+```
+
+The bounded mechanical self-proof, minimal runnable demonstrator and exact
+artifact export are closed.
+
+General-purpose iPhone product development, live production callbacks,
+production observation sessions, persistence, production key lifecycle,
+Secure Enclave integration, platform attestation, physical-device identity,
+App Store qualification and external certification remain separate wider
+claims.
+
+Their absence does not reopen this bounded proof.
+
+---
+
 <a id="current-verified-state-and-latest-results"></a>
 
 ## 16. Current verified state and latest results
 
 ```text
 state_date:
-2026-08-22
+2026-08-28
 
 merged_repository_state_recorded_through:
-PR #2826
+PR #2847
 
 merged_repository_state_basis:
-9bf7fab95dbcc3532238723d0cf76500263106f5
+6a358187d8fde7321963b76cc50cc77fad695dd0
 
 executable_compute_state_recorded_through:
 PR #2826
@@ -1961,6 +2164,47 @@ release_grade_package_completeness:
 
 independent_package_verification:
 157 / 157
+
+device_ledger_implementation_recorded_through:
+PR #2847
+
+device_ledger_implementation_basis:
+6a358187d8fde7321963b76cc50cc77fad695dd0
+
+device_ledger_bounded_mechanical_self_proof:
+completed, regression-proven and post-merge reviewed with no P1, P2 or
+lower-severity correctness findings
+
+device_ledger_reference_record_status:
+synthetic_reference
+
+device_ledger_reference_carrier:
+133568 bytes / a31388c7bf574040893d1d923d684d23318e5d2109a0d72a923888b95d5d42b3
+
+device_ledger_standalone_verifier_result:
+verified_with_declared_unavailability / 49 of 49 exact checks passed
+
+device_ledger_relevant_negative_proof:
+CRC-consistent package-signature mutation rejected at the package-signature
+equation boundary
+
+device_ledger_minimal_runnable_iphone_demonstrator:
+completed and post-merge reviewed through PR #2847
+
+device_ledger_exact_pulseledger_export:
+completed
+
+device_ledger_demonstrator_carrier_class:
+diagnostic_shadow
+
+device_ledger_authority_effect:
+none
+
+device_ledger_external_validation_claim:
+none
+
+device_ledger_broader_iphone_product_development:
+separate and not required by the bounded proof claim
 
 slsa_vsa_recorded_intake:
 implemented, tested and candidate-only
@@ -2124,9 +2368,14 @@ transition_meter_general_domain_extension:
 foundational architecture
 
 current_development_boundary:
-Step 4 runtime-observation producer; runtime-observed connected proof,
+compute — Step 4 runtime-observation producer; runtime-observed connected proof,
 per-axis resource measurement and any compute-gate promotion remain separate
 later boundaries
+
+Device Ledger — bounded mechanical self-proof, minimal runnable iPhone
+demonstrator and exact .pulseledger export are closed; live production
+observation, production key lifecycle, platform attestation and broader iPhone
+product development remain separate wider claims
 ```
 
 The stable URL for this state section is:
@@ -2136,6 +2385,16 @@ https://github.com/HKati/pulse-release-gates-0.1/blob/main/PULSEMECH_TECHNICAL_O
 The machine-readable document URL is:
 
 https://raw.githubusercontent.com/HKati/pulse-release-gates-0.1/main/PULSEMECH_TECHNICAL_OVERVIEW.md
+
+### Latest completed Device Ledger bounded proof sequence
+
+- [PR #2842 — materialize the canonical Device Ledger package manifest](https://github.com/HKati/pulse-release-gates-0.1/pull/2842)
+- [PR #2843 — materialize the Device Ledger package signature](https://github.com/HKati/pulse-release-gates-0.1/pull/2843)
+- [PR #2844 — materialize the deterministic `.pulseledger` carrier](https://github.com/HKati/pulse-release-gates-0.1/pull/2844)
+- [PR #2845 — verify the Swift carrier with the standalone verifier](https://github.com/HKati/pulse-release-gates-0.1/pull/2845)
+- [PR #2846 — close the final verifier-trigger diff-hygiene finding](https://github.com/HKati/pulse-release-gates-0.1/pull/2846)
+- [PR #2847 — add the minimal runnable bounded proof demonstrator](https://github.com/HKati/pulse-release-gates-0.1/pull/2847)
+- [Canonical Device Ledger bounded mechanical proof record](docs/PULSEMECH_DEVICE_LEDGER_BOUNDED_MECHANICAL_PROOF_v0.md)
 
 ### Latest completed compute proof sequence
 
@@ -2178,6 +2437,44 @@ https://raw.githubusercontent.com/HKati/pulse-release-gates-0.1/main/PULSEMECH_T
 ---
 
 ## 17. Current development path
+
+The completed Device Ledger bounded proof relation is:
+
+```text
+bounded synthetic reference relation
+→ exact evidence records
+→ predecessor-bound record chain
+→ terminal checkpoint
+→ canonical ledger
+→ checkpoint signature
+→ exact payload inventory
+→ canonical manifest
+→ package signature
+→ deterministic .pulseledger
+→ separately implemented verifier reconstruction
+→ reproducible PASS or fail-closed rejection
+→ minimal runnable iPhone result surface
+→ exact artifact export
+```
+
+This Device Ledger path is closed for its declared bounded claim.
+
+```text
+bounded mechanical self-proof:
+closed
+
+minimal runnable iPhone demonstrator:
+closed
+
+broader iPhone product development:
+separate
+```
+
+No external validating authority, production key lifecycle, platform
+attestation or general-purpose product layer is required to preserve that
+closure.
+
+The separate compute workstream continues from the completed Step 3G boundary.
 
 The completed analyzer relation is:
 
@@ -2565,6 +2862,26 @@ pre-authority.
 
 They do not activate compute gates or create release authority.
 
+### Device Ledger bounded mechanical proof
+
+- [Canonical Device Ledger bounded mechanical proof record](docs/PULSEMECH_DEVICE_LEDGER_BOUNDED_MECHANICAL_PROOF_v0.md)
+- [Device Ledger Swift core](apps/ios/Packages/PULSEmechLedgerCore/)
+- [Canonicalization contract](contracts/pulsemech_device_canonical_json_v0.json)
+- [iOS observation contract](contracts/pulsemech_ios_observation_contract_v0.json)
+- [Standalone Device Ledger verifier](tools/verify_pulsemech_device_ledger_v0.py)
+- [Reference `.pulseledger` carrier](examples/device_transition_ledger/pulsemech_device_transition_ledger_reference_v0.pulseledger)
+- [Canonical verifier report](examples/device_transition_ledger/pulsemech_device_transition_ledger_reference_verification_v0.json)
+- [Minimal runnable iPhone demonstrator](apps/ios/PULSEmechProofApp/)
+- [iPhone demonstrator workflow](.github/workflows/pulsemech_ios_proof_app.yml)
+
+The Device Ledger demonstrator and its workflow are non-authorizing proof and
+presentation surfaces.
+
+```text
+authority_effect = none
+external_validation_claim = none
+```
+
 ### Foundational transition measurement
 
 - [PULSEmech Transition Meter](PULSEMECH_TRANSITION_METER.md)
@@ -2718,19 +3035,38 @@ verified current-run candidate-bundle intake
 current-run artifact-observed proof builder
 manual non-active Step 3G artifact-observed candidate workflow
 artifact-observed proof-bundle builder with a checksum-closed output contract
+Device Ledger bounded mechanical self-proof
+Device Ledger deterministic .pulseledger carrier
+Swift-to-standalone-verifier positive and relevant negative proof
+minimal runnable iPhone bounded proof demonstrator
+exact .pulseledger artifact export
 ```
 
 The broader Transition Meter is recorded as foundational architecture.
 
-The current implementation boundary is:
+The current implementation boundaries are:
 
 ```text
+compute:
 completed Step 3G artifact-observed proof automation
 → Step 4 runtime-observation producer
 → Step 5 runtime-observed connected proof
 → Step 6 per-axis resource measurement
 → stable measurement coverage
 → Step 7 separate policy promotion decision
+
+Device Ledger:
+bounded mechanical self-proof
+→ closed
+
+minimal runnable iPhone demonstrator
+→ closed
+
+exact .pulseledger export
+→ closed
+
+broader iPhone product development
+→ separate
 ```
 
 The completed Step 3G surface remains:
