@@ -190,7 +190,6 @@ Use this source order:
    Open work remains separate from merged implementation.
 
 7. Exact schemas, producers, validators, regressions and run-bound artifacts
-The AI operator may traverse, reconstruct, compare and prepare bounded work.
    Executable contracts and concrete evidence subjects.
 
 The AI operator may traverse, reconstruct, compare and prepare bounded work.
