@@ -9,7 +9,7 @@ on:
       - "schemas/pulsemech_device_*_v0.schema.json"
       - "examples/device_transition_ledger/**"
       - "tools/build_pulsemech_device_ledger_reference_v0.py"
-      - "tools/verify_pulsemech_device_ledger_v0.py"
+      - "tools/verify_pulsemech_device_ledger_v0.py"      
       - ".github/workflows/pulsemech_ledger_swift.yml"
   push:
     branches:
