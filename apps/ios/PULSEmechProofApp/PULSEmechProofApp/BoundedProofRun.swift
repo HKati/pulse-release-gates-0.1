@@ -162,6 +162,64 @@ enum BoundedReferenceProofRunner {
 
     static let expectedCarrierSizeBytes: Int64 = 133_568
 
+    static let expectedVerifierReportSizeBytes: Int64 =
+        15_328
+
+    static let expectedVerifierReportSHA256 =
+        "5e93539099e99dd5bfa835ba56c401608a5b5c015209812ebb5f9c31142a74f4"
+
+    private static let expectedVerifierCheckIDs: Set<String> = [
+        "authority_boundary_preserved",
+        "canonicalization_profile_binding_valid",
+        "carrier_size_within_limit",
+        "checkpoint_closure_valid",
+        "checkpoint_signature_document_valid",
+        "checkpoint_signature_subject_valid",
+        "checkpoint_signature_valid",
+        "claim_boundary_preserved",
+        "coverage_relations_valid",
+        "event_endpoint_bindings_valid",
+        "input_not_symlink",
+        "input_regular_file",
+        "ios_observation_contract_binding_valid",
+        "ledger_canonical_json_valid",
+        "ledger_identity_binding_valid",
+        "ledger_schema_valid",
+        "ledger_strict_json_valid",
+        "manifest_canonical_json_valid",
+        "manifest_ledger_binding_valid",
+        "manifest_observer_binding_valid",
+        "manifest_payload_inventory_valid",
+        "manifest_schema_binding_valid",
+        "manifest_schema_valid",
+        "manifest_signature_contract_valid",
+        "manifest_strict_json_valid",
+        "observer_public_key_curve_membership_valid",
+        "observer_public_key_encoding_valid",
+        "observer_public_key_fingerprint_valid",
+        "package_signature_document_valid",
+        "package_signature_subject_valid",
+        "package_signature_valid",
+        "payload_member_digests_valid",
+        "payload_member_sizes_valid",
+        "record_chain_valid",
+        "record_digests_valid",
+        "record_sequence_valid",
+        "session_relations_valid",
+        "signature_schema_binding_valid",
+        "transition_ledger_schema_binding_valid",
+        "transition_relations_valid",
+        "zip_compression_valid",
+        "zip_crc32_valid",
+        "zip_end_of_central_directory_valid",
+        "zip_exact_member_set_valid",
+        "zip_local_central_directory_consistent",
+        "zip_member_names_valid",
+        "zip_member_types_valid",
+        "zip_no_trailing_data",
+        "zip_timestamp_policy_valid",
+    ]
+
     private static let baseWallTime: Int64 =
         1_700_000_000_000_000_000
 
@@ -723,7 +781,12 @@ enum BoundedReferenceProofRunner {
         _ exactBytes: Data,
         carrier: DevicePulseledgerCarrier
     ) throws -> BundledVerifierReport {
-        guard exactBytes.first == 0x7B,
+        guard Int64(exactBytes.count) ==
+                expectedVerifierReportSizeBytes,
+              LedgerRecordHasher.sha256Hex(
+                  of: exactBytes
+              ).rawValue == expectedVerifierReportSHA256,
+              exactBytes.first == 0x7B,
               exactBytes.last == 0x7D,
               !exactBytes.starts(with: [0xEF, 0xBB, 0xBF]),
               !exactBytes.contains(0x0A),
@@ -746,6 +809,8 @@ enum BoundedReferenceProofRunner {
         guard report.ok,
               report.result ==
                 "verified_with_declared_unavailability",
+              report.semanticSummary
+                .declaredUnavailabilityPresent,
               report.errors.isEmpty,
               report.failedCheckIDs.isEmpty,
               report.failureStage == nil else {
@@ -753,7 +818,10 @@ enum BoundedReferenceProofRunner {
                 .verifierReportRejected
         }
 
-        guard report.checks.count == 49,
+        guard report.checks.count ==
+                expectedVerifierCheckIDs.count,
+              Set(report.checks.keys) ==
+                expectedVerifierCheckIDs,
               report.checks.values.allSatisfy({
                   $0 == "passed"
               }) else {
