@@ -1,0 +1,515 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 60;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		A10000000000000000000001 /* PULSEmechProofApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000001 /* PULSEmechProofApp.swift */; };
+		A10000000000000000000002 /* BoundedProofRun.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000002 /* BoundedProofRun.swift */; };
+		A10000000000000000000003 /* PULSEmechLedgerCore in Frameworks */ = {isa = PBXBuildFile; productRef = F10000000000000000000001 /* PULSEmechLedgerCore */; };
+		A10000000000000000000004 /* pulsemech_device_canonical_json_v0.json in Resources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000005 /* pulsemech_device_canonical_json_v0.json */; };
+		A10000000000000000000005 /* pulsemech_ios_observation_contract_v0.json in Resources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000006 /* pulsemech_ios_observation_contract_v0.json */; };
+		A10000000000000000000006 /* pulsemech_device_ledger_manifest_v0.schema.json in Resources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000007 /* pulsemech_device_ledger_manifest_v0.schema.json */; };
+		A10000000000000000000007 /* pulsemech_device_signature_v0.schema.json in Resources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000008 /* pulsemech_device_signature_v0.schema.json */; };
+		A10000000000000000000008 /* pulsemech_device_transition_ledger_v0.schema.json in Resources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000009 /* pulsemech_device_transition_ledger_v0.schema.json */; };
+		A10000000000000000000009 /* pulsemech_device_transition_ledger_reference_verification_v0.json in Resources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000000A /* pulsemech_device_transition_ledger_reference_verification_v0.json */; };
+		A1000000000000000000000A /* PULSEmechProofAppTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000003 /* PULSEmechProofAppTests.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		C10000000000000000000001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = D10000000000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = E10000000000000000000001;
+			remoteInfo = PULSEmechProofApp;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		B10000000000000000000001 /* PULSEmechProofApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PULSEmechProofApp.swift; sourceTree = "<group>"; };
+		B10000000000000000000002 /* BoundedProofRun.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BoundedProofRun.swift; sourceTree = "<group>"; };
+		B10000000000000000000003 /* PULSEmechProofAppTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PULSEmechProofAppTests.swift; sourceTree = "<group>"; };
+		B10000000000000000000004 /* PULSEmechProofApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PULSEmechProofApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		B1000000000000000000000B /* PULSEmechProofAppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PULSEmechProofAppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		B10000000000000000000005 /* pulsemech_device_canonical_json_v0.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; name = pulsemech_device_canonical_json_v0.json; path = ../../../contracts/pulsemech_device_canonical_json_v0.json; sourceTree = "<group>"; };
+		B10000000000000000000006 /* pulsemech_ios_observation_contract_v0.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; name = pulsemech_ios_observation_contract_v0.json; path = ../../../contracts/pulsemech_ios_observation_contract_v0.json; sourceTree = "<group>"; };
+		B10000000000000000000007 /* pulsemech_device_ledger_manifest_v0.schema.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; name = pulsemech_device_ledger_manifest_v0.schema.json; path = ../../../schemas/pulsemech_device_ledger_manifest_v0.schema.json; sourceTree = "<group>"; };
+		B10000000000000000000008 /* pulsemech_device_signature_v0.schema.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; name = pulsemech_device_signature_v0.schema.json; path = ../../../schemas/pulsemech_device_signature_v0.schema.json; sourceTree = "<group>"; };
+		B10000000000000000000009 /* pulsemech_device_transition_ledger_v0.schema.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; name = pulsemech_device_transition_ledger_v0.schema.json; path = ../../../schemas/pulsemech_device_transition_ledger_v0.schema.json; sourceTree = "<group>"; };
+		B1000000000000000000000A /* pulsemech_device_transition_ledger_reference_verification_v0.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; name = pulsemech_device_transition_ledger_reference_verification_v0.json; path = ../../../examples/device_transition_ledger/pulsemech_device_transition_ledger_reference_verification_v0.json; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		C20000000000000000000001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10000000000000000000003 /* PULSEmechLedgerCore in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C20000000000000000000002 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		C30000000000000000000001 = {
+			isa = PBXGroup;
+			children = (
+				C30000000000000000000002 /* PULSEmechProofApp */,
+				C30000000000000000000003 /* PULSEmechProofAppTests */,
+				C30000000000000000000004 /* Resources */,
+				C30000000000000000000005 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		C30000000000000000000002 /* PULSEmechProofApp */ = {
+			isa = PBXGroup;
+			children = (
+				B10000000000000000000001 /* PULSEmechProofApp.swift */,
+				B10000000000000000000002 /* BoundedProofRun.swift */,
+			);
+			path = PULSEmechProofApp;
+			sourceTree = "<group>";
+		};
+		C30000000000000000000003 /* PULSEmechProofAppTests */ = {
+			isa = PBXGroup;
+			children = (
+				B10000000000000000000003 /* PULSEmechProofAppTests.swift */,
+			);
+			path = PULSEmechProofAppTests;
+			sourceTree = "<group>";
+		};
+		C30000000000000000000004 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				B10000000000000000000005 /* pulsemech_device_canonical_json_v0.json */,
+				B10000000000000000000006 /* pulsemech_ios_observation_contract_v0.json */,
+				B10000000000000000000007 /* pulsemech_device_ledger_manifest_v0.schema.json */,
+				B10000000000000000000008 /* pulsemech_device_signature_v0.schema.json */,
+				B10000000000000000000009 /* pulsemech_device_transition_ledger_v0.schema.json */,
+				B1000000000000000000000A /* pulsemech_device_transition_ledger_reference_verification_v0.json */,
+			);
+			name = Resources;
+			sourceTree = "<group>";
+		};
+		C30000000000000000000005 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				B10000000000000000000004 /* PULSEmechProofApp.app */,
+				B1000000000000000000000B /* PULSEmechProofAppTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		E10000000000000000000001 /* PULSEmechProofApp */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = E20000000000000000000001 /* Build configuration list for PBXNativeTarget "PULSEmechProofApp" */;
+			buildPhases = (
+				C40000000000000000000001 /* Sources */,
+				C20000000000000000000001 /* Frameworks */,
+				C50000000000000000000001 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = PULSEmechProofApp;
+			packageProductDependencies = (
+				F10000000000000000000001 /* PULSEmechLedgerCore */,
+			);
+			productName = PULSEmechProofApp;
+			productReference = B10000000000000000000004 /* PULSEmechProofApp.app */;
+			productType = "com.apple.product-type.application";
+		};
+		E10000000000000000000002 /* PULSEmechProofAppTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = E20000000000000000000002 /* Build configuration list for PBXNativeTarget "PULSEmechProofAppTests" */;
+			buildPhases = (
+				C40000000000000000000002 /* Sources */,
+				C20000000000000000000002 /* Frameworks */,
+				C50000000000000000000002 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				C70000000000000000000001 /* PBXTargetDependency */,
+			);
+			name = PULSEmechProofAppTests;
+			productName = PULSEmechProofAppTests;
+			productReference = B1000000000000000000000B /* PULSEmechProofAppTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		D10000000000000000000001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1640;
+				LastUpgradeCheck = 1640;
+				TargetAttributes = {
+					E10000000000000000000001 = {
+						CreatedOnToolsVersion = 16.4;
+					};
+					E10000000000000000000002 = {
+						CreatedOnToolsVersion = 16.4;
+						TestTargetID = E10000000000000000000001;
+					};
+				};
+			};
+			buildConfigurationList = E20000000000000000000003 /* Build configuration list for PBXProject "PULSEmechProofApp" */;
+			compatibilityVersion = "Xcode 15.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = C30000000000000000000001;
+			packageReferences = (
+				F20000000000000000000001 /* XCLocalSwiftPackageReference "../Packages/PULSEmechLedgerCore" */,
+			);
+			productRefGroup = C30000000000000000000005 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				E10000000000000000000001 /* PULSEmechProofApp */,
+				E10000000000000000000002 /* PULSEmechProofAppTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		C50000000000000000000001 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10000000000000000000004 /* pulsemech_device_canonical_json_v0.json in Resources */,
+				A10000000000000000000005 /* pulsemech_ios_observation_contract_v0.json in Resources */,
+				A10000000000000000000006 /* pulsemech_device_ledger_manifest_v0.schema.json in Resources */,
+				A10000000000000000000007 /* pulsemech_device_signature_v0.schema.json in Resources */,
+				A10000000000000000000008 /* pulsemech_device_transition_ledger_v0.schema.json in Resources */,
+				A10000000000000000000009 /* pulsemech_device_transition_ledger_reference_verification_v0.json in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C50000000000000000000002 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		C40000000000000000000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10000000000000000000001 /* PULSEmechProofApp.swift in Sources */,
+				A10000000000000000000002 /* BoundedProofRun.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C40000000000000000000002 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A1000000000000000000000A /* PULSEmechProofAppTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		C70000000000000000000001 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = E10000000000000000000001 /* PULSEmechProofApp */;
+			targetProxy = C10000000000000000000001 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		E30000000000000000000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		E30000000000000000000002 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		E30000000000000000000003 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "PULSEmech Proof";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 0.1;
+				PRODUCT_BUNDLE_IDENTIFIER = ai.eparadox.PULSEmechProofApp;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_TREAT_WARNINGS_AS_ERRORS = YES;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		E30000000000000000000004 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "PULSEmech Proof";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 0.1;
+				PRODUCT_BUNDLE_IDENTIFIER = ai.eparadox.PULSEmechProofApp;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_TREAT_WARNINGS_AS_ERRORS = YES;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		E30000000000000000000005 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = ai.eparadox.PULSEmechProofAppTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_TREAT_WARNINGS_AS_ERRORS = YES;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/PULSEmechProofApp.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/PULSEmechProofApp";
+				TEST_TARGET_NAME = PULSEmechProofApp;
+			};
+			name = Debug;
+		};
+		E30000000000000000000006 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = ai.eparadox.PULSEmechProofAppTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_TREAT_WARNINGS_AS_ERRORS = YES;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/PULSEmechProofApp.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/PULSEmechProofApp";
+				TEST_TARGET_NAME = PULSEmechProofApp;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		E20000000000000000000001 /* Build configuration list for PBXNativeTarget "PULSEmechProofApp" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				E30000000000000000000003 /* Debug */,
+				E30000000000000000000004 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		E20000000000000000000002 /* Build configuration list for PBXNativeTarget "PULSEmechProofAppTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				E30000000000000000000005 /* Debug */,
+				E30000000000000000000006 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		E20000000000000000000003 /* Build configuration list for PBXProject "PULSEmechProofApp" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				E30000000000000000000001 /* Debug */,
+				E30000000000000000000002 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		F20000000000000000000001 /* XCLocalSwiftPackageReference "../Packages/PULSEmechLedgerCore" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../Packages/PULSEmechLedgerCore;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		F10000000000000000000001 /* PULSEmechLedgerCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = F20000000000000000000001 /* XCLocalSwiftPackageReference "../Packages/PULSEmechLedgerCore" */;
+			productName = PULSEmechLedgerCore;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = D10000000000000000000001 /* Project object */;
+}
