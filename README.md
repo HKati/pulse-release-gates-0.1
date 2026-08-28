@@ -162,7 +162,9 @@ They do not independently produce release authority.
 | GitHub attestation bundle, canonical envelope, and cryptographic verification | Implemented and exercised |
 | Complete release-grade reference package assembly | Implemented and exercised |
 | Structural release-grade package completeness preflight | Completed — `135 / 135` checks |
-| Independent complete-package verification | Completed — `157 / 157` checks | 
+| Independent complete-package verification | Completed — `157 / 157` checks |
+| Device Ledger v0 bounded mechanical self-proof | Completed and regression-proven — exact `.pulseledger`, separate-verifier PASS, and relevant fail-closed package-signature rejection |
+| Minimal runnable iPhone bounded proof demonstrator | Completed — read-only exact identities and exact `.pulseledger` export; `diagnostic_shadow`; `authority_effect = none`; `external_validation_claim = none` |
 | SLSA/VSA trusted-producer packet/report contract and construction-validation chain | Implemented — non-active candidate path |
 | SLSA/VSA release-required enforcement | Not active |
 | Current-run compute export automation — observed expectation, finalized carrier, observed subject-input packet, and candidate artifact | Implemented and regression-proven — manual, non-active candidate path |
@@ -172,6 +174,61 @@ They do not independently produce release authority.
 | Active or release-required compute enforcement | Not active |
 | Public PULSEmech Core execution record | Completed — PULSE CI #5728 |
 | Completed public non-stubbed release-grade run record | Completed — PULSE CI #6066 |
+
+### Device Ledger bounded mechanical proof
+
+The repository contains a completed bounded proof that does not depend on a
+privileged external validating authority:
+
+```text
+bounded relation
+→ exact evidence records
+→ predecessor-bound record chain
+→ terminal checkpoint
+→ canonical ledger
+→ checkpoint signature
+→ canonical manifest
+→ package signature
+→ deterministic .pulseledger
+→ separately implemented verifier reconstruction
+→ reproducible PASS or fail-closed rejection
+→ minimal runnable iPhone result surface
+→ exact artifact export
+```
+
+The verifier is separate because it reconstructs the result from the exact
+artifact bytes without trusting a producer verdict.
+
+```text
+separately implemented verifier
+≠ external validating authority
+≠ institutional approval
+```
+
+The reference demonstration remains explicitly bounded:
+
+```text
+record_status = synthetic_reference
+identity_scope = fixture_installation
+key_origin_profile = fixture_software_p256
+```
+
+It proves the complete artifact, binding, reconstruction, rejection, display,
+and export path. It does not claim live production monitoring, production
+Keychain or Secure Enclave identity, platform attestation, physical-device
+identity, device-security status, external approval, or release authority.
+
+Canonical proof record:
+
+[**PULSEmech Device Ledger Bounded Mechanical Proof v0**](docs/PULSEMECH_DEVICE_LEDGER_BOUNDED_MECHANICAL_PROOF_v0.md)
+
+```text
+bounded mechanical self-proof = closed
+minimal runnable iPhone demonstrator = closed
+authority_effect = none
+external_validation_claim = none
+broader iPhone product development = separate
+```
 
 ### Completed hosted release-grade reference run
 

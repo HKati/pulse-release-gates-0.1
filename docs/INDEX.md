@@ -8,6 +8,7 @@ This index separates:
 
 ```text
 current implementation
+completed bounded proof
 AI-native operating model
 foundational architecture
 interoperability boundary record
@@ -27,6 +28,7 @@ moves between merged and open work, update this index.
 ## Status labels
 
 - **Current implementation** — describes checked-in mechanics that are implemented and testable on the merged repository state.
+- **Completed bounded proof** — records a closed, regression-proven and post-merge-reviewed mechanical relation with exact artifacts, verifier behavior, negative-path evidence and explicit claim boundaries; it does not independently create release authority.
 - **AI-native operating model** — defines machine-operated traversal, reconstruction and bounded work preparation while preserving human policy and consequence control; it does not independently create release authority.
 - **Foundational architecture** — defines a cross-cutting mechanical principle and reference architecture without by itself claiming completed implementation or creating release authority.
 - **Interoperability boundary record** — records an exact upstream source review, lossless mapping requirement, carrier gap and authority boundary without by itself claiming implemented integration, candidate registration or release activation.
@@ -44,6 +46,15 @@ moves between merged and open work, update this index.
 
 - Canonical PULSEmech technical overview and current verified state:
   [PULSEMECH_TECHNICAL_OVERVIEW.md](../PULSEMECH_TECHNICAL_OVERVIEW.md)
+- Completed Device Ledger bounded mechanical proof:
+  [PULSEMECH_DEVICE_LEDGER_BOUNDED_MECHANICAL_PROOF_v0.md](PULSEMECH_DEVICE_LEDGER_BOUNDED_MECHANICAL_PROOF_v0.md)
+  **Current implementation and completed bounded proof.** Records the exact
+  Device Ledger v0 path from bounded evidence through the canonical ledger,
+  signatures, deterministic `.pulseledger`, separately implemented verifier,
+  positive reproduction, relevant fail-closed rejection, minimal runnable
+  iPhone demonstrator, and exact artifact export. The verifier is a
+  reconstruction mechanism rather than an external validating authority;
+  `authority_effect = none` and `external_validation_claim = none`.
 - Canonical relational release-authority interpretation:
   [PULSEMECH_RELATIONAL_RELEASE_AUTHORITY_INTERPRETATION_v0.md](PULSEMECH_RELATIONAL_RELEASE_AUTHORITY_INTERPRETATION_v0.md)
   **Canonical interpretation anchor.** Defines the specified release-state transition `τ`, the bound relation `Rτ`, the terminal transition-authority state `Dτ`, the current primary-CI carrier and enforcement role, and the reconstruction question used for external technical analysis.
@@ -72,6 +83,14 @@ moves between merged and open work, update this index.
 The [PULSEmech Technical Overview](../PULSEMECH_TECHNICAL_OVERVIEW.md) is the
 canonical source for the checked-in implementation, current verified state,
 completed proofs, open-workstream separation and present development boundary.
+
+The
+[Device Ledger bounded mechanical proof](PULSEMECH_DEVICE_LEDGER_BOUNDED_MECHANICAL_PROOF_v0.md)
+records the completed exact `.pulseledger` proof, separately implemented
+verifier reconstruction, positive and relevant negative proof, minimal runnable
+iPhone demonstrator and exact export boundary. It is a current implementation
+and completed bounded proof record. It does not create release authority,
+device-control authority or an external-validation claim.
 
 The detailed
 [compute-binding workstream record](compute/PULSEMECH_COMPUTE_BINDING_AND_TRANSITION_EFFICIENCY_DESIGN_v0.md)
@@ -148,21 +167,30 @@ completed generalized implementation
 Use this source order:
 
 1. [PULSEMECH_TECHNICAL_OVERVIEW.md](../PULSEMECH_TECHNICAL_OVERVIEW.md)
-   Canonical system identity, merged verified state, open-workstream state and current development boundary.
+   Canonical system identity, merged verified state, open-workstream state and
+   current development boundary.
 
 2. Current `main` repository state
    Exact merged implementation.
 
-3. [Compute-binding workstream record](compute/PULSEMECH_COMPUTE_BINDING_AND_TRANSITION_EFFICIENCY_DESIGN_v0.md)
-   Detailed compute contracts, proofs, current-run expectation boundary and remaining sequence.
+3. [Device Ledger bounded mechanical proof](PULSEMECH_DEVICE_LEDGER_BOUNDED_MECHANICAL_PROOF_v0.md)
+   Completed bounded proof from exact evidence records through the deterministic
+   `.pulseledger`, separately implemented verifier reconstruction, relevant
+   fail-closed rejection, minimal runnable iPhone demonstrator and exact
+   artifact export.
 
-4. [Witness interoperability and release-authority boundary](slsa/PULSEMECH_WITNESS_INTEROPERABILITY_AND_RELEASE_AUTHORITY_BOUNDARY_v0.md)
-   Exact upstream Witness source review, two-lane interoperability mapping, structured-carrier gap and authority separation.
+4. [Compute-binding workstream record](compute/PULSEMECH_COMPUTE_BINDING_AND_TRANSITION_EFFICIENCY_DESIGN_v0.md)
+   Detailed compute contracts, proofs, current-run expectation boundary and
+   remaining sequence.
 
-5. Exact open pull request, only when evaluating proposed work
+5. [Witness interoperability and release-authority boundary](slsa/PULSEMECH_WITNESS_INTEROPERABILITY_AND_RELEASE_AUTHORITY_BOUNDARY_v0.md)
+   Exact upstream Witness source review, two-lane interoperability mapping,
+   structured-carrier gap and authority separation.
+
+6. Exact open pull request, only when evaluating proposed work
    Open work remains separate from merged implementation.
 
-6. Exact schemas, producers, validators, regressions and run-bound artifacts
+7. Exact schemas, producers, validators, regressions and run-bound artifacts
    Executable contracts and concrete evidence subjects.
 
 The AI operator may traverse, reconstruct, compare and prepare bounded work.
@@ -222,6 +250,7 @@ Read these documents in this order:
 
 - [PULSEMECH_TRANSITION_METER.md](../PULSEMECH_TRANSITION_METER.md) — **Foundational architecture.** Defines evidence-bound transition identity as the missing measurement object between measured states; the Technical Overview remains canonical for current implementation and verified state.
 - [PULSEMECH_TECHNICAL_OVERVIEW.md](../PULSEMECH_TECHNICAL_OVERVIEW.md) — **Current implementation and AI-native operating model.** Canonical system identity, verified state, open-workstream separation and current development path.
+- [PULSEMECH_DEVICE_LEDGER_BOUNDED_MECHANICAL_PROOF_v0.md](PULSEMECH_DEVICE_LEDGER_BOUNDED_MECHANICAL_PROOF_v0.md) — **Current implementation and completed bounded proof.** Records the exact Device Ledger evidence-to-carrier path, separately implemented verifier reconstruction, positive and relevant fail-closed proof, minimal runnable iPhone demonstrator, exact `.pulseledger` export, and the preserved `authority_effect = none` / `external_validation_claim = none` boundary.
 - [compute/PULSEMECH_COMPUTE_BINDING_AND_TRANSITION_EFFICIENCY_DESIGN_v0.md](compute/PULSEMECH_COMPUTE_BINDING_AND_TRANSITION_EFFICIENCY_DESIGN_v0.md) — **Current implementation and open-workstream record.** Detailed compute contracts, completed proofs, current-run expectation contract and open builder boundary.
 - [slsa/PULSEMECH_WITNESS_INTEROPERABILITY_AND_RELEASE_AUTHORITY_BOUNDARY_v0.md](slsa/PULSEMECH_WITNESS_INTEROPERABILITY_AND_RELEASE_AUTHORITY_BOUNDARY_v0.md) — **Interoperability boundary record.** Exact in-toto Witness source review, SLSA-export versus full-policy-verification split, proposed structured carrier and preserved PULSE release-authority boundary.
 - [STATE_v0.md](STATE_v0.md) — Broad repository-state snapshot. For current release-grade and compute state, use the Technical Overview and current workstream records above.
@@ -253,6 +282,7 @@ It does not create authority beyond the artifact-bound path defined by the linke
 |---|---|---|
 | AI-native operation | Defines machine-operated traversal, reconstruction and bounded work preparation while preserving human policy and consequence control. AI operation does not independently create release authority. | [PULSEMECH_TECHNICAL_OVERVIEW.md](../PULSEMECH_TECHNICAL_OVERVIEW.md), [compute/PULSEMECH_COMPUTE_BINDING_AND_TRANSITION_EFFICIENCY_DESIGN_v0.md](compute/PULSEMECH_COMPUTE_BINDING_AND_TRANSITION_EFFICIENCY_DESIGN_v0.md) |
 | Foundational transition measurement | Defines the evidence-bound transition between measured states as a separate measurement object and locates the current release-authority machine within that broader architecture. It does not itself create authority or claim generalized implementation. | [PULSEMECH_TRANSITION_METER.md](../PULSEMECH_TRANSITION_METER.md), [PULSEMECH_TECHNICAL_OVERVIEW.md](../PULSEMECH_TECHNICAL_OVERVIEW.md) |
+| Device Ledger bounded mechanical proof | Records the exact bounded relation from evidence records through the canonical ledger, signatures, deterministic `.pulseledger`, separately implemented verifier reconstruction, reproducible PASS, relevant fail-closed rejection, minimal runnable iPhone demonstrator and exact artifact export. The demonstrator remains diagnostic/shadow and does not create release authority or external validation. | [PULSEMECH_DEVICE_LEDGER_BOUNDED_MECHANICAL_PROOF_v0.md](PULSEMECH_DEVICE_LEDGER_BOUNDED_MECHANICAL_PROOF_v0.md), [PULSEMECH_TECHNICAL_OVERVIEW.md](../PULSEMECH_TECHNICAL_OVERVIEW.md) |
 | Core mechanics | Explains the connected evidence-to-decision path. | [PULSE_RELEASE_AUTHORITY_MECHANICS_BRIDGE_v0.md](PULSE_RELEASE_AUTHORITY_MECHANICS_BRIDGE_v0.md), [PULSE_REVIEWABLE_MECHANICS_CHECKLIST_v0.md](PULSE_REVIEWABLE_MECHANICS_CHECKLIST_v0.md), [PULSE_PRE_MATERIALIZATION_GATE_MECHANICS_v0.md](PULSE_PRE_MATERIALIZATION_GATE_MECHANICS_v0.md), [PULSE_RELEASE_STATE_TRANSFORMATION_v0.md](PULSE_RELEASE_STATE_TRANSFORMATION_v0.md) |
 | Authority boundary | Separates execution, approval, reader surfaces, manifests, attestations and audit sidecars from the normative authority carrier. | [PULSEMECH_ARCHITECTURE_MAP_v0_1.md](PULSEMECH_ARCHITECTURE_MAP_v0_1.md), [PULSE_RELEASE_AUTHORITY_MECHANICS_BRIDGE_v0.md](PULSE_RELEASE_AUTHORITY_MECHANICS_BRIDGE_v0.md), [PULSE_REVIEWABLE_MECHANICS_CHECKLIST_v0.md](PULSE_REVIEWABLE_MECHANICS_CHECKLIST_v0.md), [release_authority_boundary_v1.md](release_authority_boundary_v1.md), [MAINTAINER_AUTHORITY_BOUNDARY_v0.md](MAINTAINER_AUTHORITY_BOUNDARY_v0.md) |
 | Status, policy, gate-set and workflow contracts | Defines the normative carrier tuple for final state, declared policy, workflow-effective gates, strict enforcement and primary CI outcome. | [status_json.md](status_json.md), [STATUS_CONTRACT.md](STATUS_CONTRACT.md), [GATE_SETS.md](GATE_SETS.md), [WORKFLOW_MAP.md](WORKFLOW_MAP.md), [RELEASE_DECISION_v0.md](RELEASE_DECISION_v0.md), [PULSE_RELEASE_GRADE_MATERIALIZED_LANE_v0.md](PULSE_RELEASE_GRADE_MATERIALIZED_LANE_v0.md) |
