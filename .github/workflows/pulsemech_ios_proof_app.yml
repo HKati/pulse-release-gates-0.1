@@ -1,0 +1,285 @@
+name: PULSEmech iPhone Proof App
+
+on:
+  pull_request:
+    paths:
+      - "apps/ios/PULSEmechProofApp/**"
+      - "apps/ios/Packages/PULSEmechLedgerCore/**"
+      - "contracts/pulsemech_device_canonical_json_v0.json"
+      - "contracts/pulsemech_ios_observation_contract_v0.json"
+      - "schemas/pulsemech_device_*_v0.schema.json"
+      - "examples/device_transition_ledger/pulsemech_device_transition_ledger_reference_verification_v0.json"
+      - ".github/workflows/pulsemech_ios_proof_app.yml"
+  push:
+    branches:
+      - "main"
+    paths:
+      - "apps/ios/PULSEmechProofApp/**"
+      - "apps/ios/Packages/PULSEmechLedgerCore/**"
+      - "contracts/pulsemech_device_canonical_json_v0.json"
+      - "contracts/pulsemech_ios_observation_contract_v0.json"
+      - "schemas/pulsemech_device_*_v0.schema.json"
+      - "examples/device_transition_ledger/pulsemech_device_transition_ledger_reference_verification_v0.json"
+      - ".github/workflows/pulsemech_ios_proof_app.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pulsemech-ios-proof-app-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  proof-app:
+    name: Xcode 16.4 / iOS Simulator
+    runs-on: macos-15
+    timeout-minutes: 25
+
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_16.4.app/Contents/Developer
+      LANG: C.UTF-8
+      LC_ALL: C.UTF-8
+      TZ: UTC
+      PROJECT_PATH: apps/ios/PULSEmechProofApp/PULSEmechProofApp.xcodeproj
+      SCHEME_NAME: PULSEmechProofApp
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Verify Xcode and closed app boundary
+        run: |
+          set -euo pipefail
+
+          observed="$(xcodebuild -version)"
+          printf '%s\n' "$observed"
+
+          if ! grep -Fxq 'Xcode 16.4' <<<"$observed"; then
+            echo "::error::Unexpected Xcode version"
+            exit 1
+          fi
+
+          test -f "$PROJECT_PATH/project.pbxproj"
+          test -f "$PROJECT_PATH/xcshareddata/xcschemes/$SCHEME_NAME.xcscheme"
+          test -f "apps/ios/PULSEmechProofApp/PULSEmechProofApp/PULSEmechProofApp.swift"
+          test -f "apps/ios/PULSEmechProofApp/PULSEmechProofApp/BoundedProofRun.swift"
+          test -f "apps/ios/PULSEmechProofApp/PULSEmechProofAppTests/PULSEmechProofAppTests.swift"
+          test -f "apps/ios/Packages/PULSEmechLedgerCore/Package.swift"
+
+          if find apps/ios/PULSEmechProofApp -type l -print -quit | grep -q .; then
+            echo "::error::Symlinks are forbidden in the bounded proof app"
+            exit 1
+          fi
+
+          empty_tree="$(git hash-object -t tree /dev/null)"
+          git diff --check "$empty_tree" HEAD -- \
+            apps/ios/PULSEmechProofApp \
+            .github/workflows/pulsemech_ios_proof_app.yml
+
+          xcodebuild \
+            -list \
+            -json \
+            -project "$PROJECT_PATH" \
+            > "$RUNNER_TEMP/pulsemech-proof-project.json"
+
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          payload = json.loads(
+              Path(os.environ["RUNNER_TEMP"])
+              .joinpath("pulsemech-proof-project.json")
+              .read_text(encoding="utf-8")
+          )
+          project = payload.get("project", {})
+          schemes = set(project.get("schemes", []))
+          targets = set(project.get("targets", []))
+
+          failures = []
+          if "PULSEmechProofApp" not in schemes:
+              failures.append("shared app scheme missing")
+          if targets != {
+              "PULSEmechProofApp",
+              "PULSEmechProofAppTests",
+          }:
+              failures.append("app target set mismatch")
+
+          if failures:
+              for failure in failures:
+                  print(f"::error::{failure}")
+              raise SystemExit(1)
+
+          print("OK: bounded iPhone proof-app project boundary verified")
+          PY
+
+      - name: Select available iPhone simulator
+        run: |
+          set -euo pipefail
+
+          destination="$(
+            python3 - <<'PY'
+          import json
+          import subprocess
+
+          payload = json.loads(
+              subprocess.check_output(
+                  [
+                      "xcrun",
+                      "simctl",
+                      "list",
+                      "devices",
+                      "available",
+                      "-j",
+                  ],
+                  text=True,
+              )
+          )
+
+          for runtime in sorted(
+              payload.get("devices", {}),
+              reverse=True,
+          ):
+              if ".iOS-" not in runtime:
+                  continue
+              for device in payload["devices"][runtime]:
+                  if (
+                      device.get("isAvailable")
+                      and device.get("name", "").startswith("iPhone")
+                  ):
+                      print(
+                          "platform=iOS Simulator,id="
+                          + device["udid"]
+                      )
+                      raise SystemExit(0)
+
+          raise SystemExit("No available iPhone simulator")
+          PY
+          )"
+
+          printf 'Selected destination: %s\n' "$destination"
+          printf 'SIMULATOR_DESTINATION=%s\n' "$destination" \
+            >> "$GITHUB_ENV"
+
+      - name: Build debug app with warnings as errors
+        run: |
+          set -euo pipefail
+
+          rm -rf "$RUNNER_TEMP/pulsemech-proof-derived-data"
+
+          xcodebuild \
+            -project "$PROJECT_PATH" \
+            -scheme "$SCHEME_NAME" \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination "$SIMULATOR_DESTINATION" \
+            -derivedDataPath "$RUNNER_TEMP/pulsemech-proof-derived-data" \
+            CODE_SIGNING_ALLOWED=NO \
+            SWIFT_TREAT_WARNINGS_AS_ERRORS=YES \
+            build
+
+      - name: Verify exact bundled proof resources
+        run: |
+          set -euo pipefail
+
+          app_bundle="$(
+            find \
+              "$RUNNER_TEMP/pulsemech-proof-derived-data/Build/Products/Debug-iphonesimulator" \
+              -maxdepth 1 \
+              -type d \
+              -name 'PULSEmechProofApp.app' \
+              -print \
+              -quit
+          )"
+
+          if [ -z "$app_bundle" ]; then
+            echo "::error::Built PULSEmechProofApp.app not found"
+            exit 1
+          fi
+
+          test -x "$app_bundle/PULSEmechProofApp"
+
+          cmp \
+            contracts/pulsemech_device_canonical_json_v0.json \
+            "$app_bundle/pulsemech_device_canonical_json_v0.json"
+
+          cmp \
+            contracts/pulsemech_ios_observation_contract_v0.json \
+            "$app_bundle/pulsemech_ios_observation_contract_v0.json"
+
+          cmp \
+            schemas/pulsemech_device_ledger_manifest_v0.schema.json \
+            "$app_bundle/pulsemech_device_ledger_manifest_v0.schema.json"
+
+          cmp \
+            schemas/pulsemech_device_signature_v0.schema.json \
+            "$app_bundle/pulsemech_device_signature_v0.schema.json"
+
+          cmp \
+            schemas/pulsemech_device_transition_ledger_v0.schema.json \
+            "$app_bundle/pulsemech_device_transition_ledger_v0.schema.json"
+
+          cmp \
+            examples/device_transition_ledger/pulsemech_device_transition_ledger_reference_verification_v0.json \
+            "$app_bundle/pulsemech_device_transition_ledger_reference_verification_v0.json"
+
+          printf '%s\n' \
+            "OK: exact contract, schema, and verifier-report bytes retained in app bundle"
+
+      - name: Run bounded proof-app tests
+        run: |
+          set -euo pipefail
+
+          test_count="$(
+            grep -Ec '^[[:space:]]*func test' \
+              apps/ios/PULSEmechProofApp/PULSEmechProofAppTests/PULSEmechProofAppTests.swift
+          )"
+
+          if [ "$test_count" -ne 3 ]; then
+            echo "::error::Expected exactly 3 proof-app XCTest methods"
+            exit 1
+          fi
+
+          xcodebuild \
+            -project "$PROJECT_PATH" \
+            -scheme "$SCHEME_NAME" \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination "$SIMULATOR_DESTINATION" \
+            -derivedDataPath "$RUNNER_TEMP/pulsemech-proof-derived-data" \
+            CODE_SIGNING_ALLOWED=NO \
+            SWIFT_TREAT_WARNINGS_AS_ERRORS=YES \
+            -only-testing:PULSEmechProofAppTests \
+            test
+
+      - name: Build release app with warnings as errors
+        run: |
+          set -euo pipefail
+
+          xcodebuild \
+            -project "$PROJECT_PATH" \
+            -scheme "$SCHEME_NAME" \
+            -configuration Release \
+            -sdk iphonesimulator \
+            -destination "$SIMULATOR_DESTINATION" \
+            -derivedDataPath "$RUNNER_TEMP/pulsemech-proof-derived-data-release" \
+            CODE_SIGNING_ALLOWED=NO \
+            SWIFT_TREAT_WARNINGS_AS_ERRORS=YES \
+            build
+
+      - name: Verify build and tests did not modify tracked files
+        run: |
+          set -euo pipefail
+
+          tracked_changes="$(
+            git status --porcelain --untracked-files=no
+          )"
+
+          if [ -n "$tracked_changes" ]; then
+            git status --short --untracked-files=no
+            echo "::error::App build or tests modified tracked files"
+            exit 1
+          fi
