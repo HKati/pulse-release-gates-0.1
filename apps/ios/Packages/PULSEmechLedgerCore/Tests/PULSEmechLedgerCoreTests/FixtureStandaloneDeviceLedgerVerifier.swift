@@ -12,6 +12,8 @@ enum FixtureStandaloneDeviceLedgerVerifierError:
     case unsafeCarrierFileName
     case temporaryDirectoryCreationFailed
     case carrierWriteFailed
+    case outputCaptureFileCreationFailed
+    case outputCaptureReadFailed
     case carrierTooSmall
     case endOfCentralDirectoryMissing
     case zip64Forbidden
@@ -117,8 +119,21 @@ enum FixtureStandaloneDeviceLedgerVerifier {
                 .carrierWriteFailed
         }
 
-        let standardOutput = Pipe()
-        let standardError = Pipe()
+        let standardOutputURL = temporaryDirectory
+            .appendingPathComponent("verifier.stdout")
+        let standardErrorURL = temporaryDirectory
+            .appendingPathComponent("verifier.stderr")
+        let standardOutput = try makeOutputCaptureHandle(
+            at: standardOutputURL
+        )
+        let standardError = try makeOutputCaptureHandle(
+            at: standardErrorURL
+        )
+        defer {
+            try? standardOutput.close()
+            try? standardError.close()
+        }
+
         let process = Process()
         process.executableURL = URL(
             fileURLWithPath: "/usr/bin/env"
@@ -139,6 +154,7 @@ enum FixtureStandaloneDeviceLedgerVerifier {
         environment["PYTHONDONTWRITEBYTECODE"] = "1"
         environment["PYTHONHASHSEED"] = "0"
         process.environment = environment
+        process.standardInput = FileHandle.nullDevice
         process.standardOutput = standardOutput
         process.standardError = standardError
 
@@ -147,13 +163,46 @@ enum FixtureStandaloneDeviceLedgerVerifier {
 
         return StandaloneDeviceLedgerVerifierExecution(
             terminationStatus: process.terminationStatus,
-            standardOutput:
-                standardOutput.fileHandleForReading
-                    .readDataToEndOfFile(),
-            standardError:
-                standardError.fileHandleForReading
-                    .readDataToEndOfFile()
+            standardOutput: try readCapturedOutput(
+                from: standardOutput
+            ),
+            standardError: try readCapturedOutput(
+                from: standardError
+            )
         )
+    }
+
+    private static func makeOutputCaptureHandle(
+        at url: URL
+    ) throws -> FileHandle {
+        guard FileManager.default.createFile(
+            atPath: url.path,
+            contents: nil
+        ) else {
+            throw FixtureStandaloneDeviceLedgerVerifierError
+                .outputCaptureFileCreationFailed
+        }
+
+        do {
+            return try FileHandle(
+                forUpdating: url
+            )
+        } catch {
+            throw FixtureStandaloneDeviceLedgerVerifierError
+                .outputCaptureFileCreationFailed
+        }
+    }
+
+    private static func readCapturedOutput(
+        from handle: FileHandle
+    ) throws -> Data {
+        do {
+            try handle.seek(toOffset: 0)
+            return try handle.readToEnd() ?? Data()
+        } catch {
+            throw FixtureStandaloneDeviceLedgerVerifierError
+                .outputCaptureReadFailed
+        }
     }
 
     static func referenceReportBytes() throws -> Data {
