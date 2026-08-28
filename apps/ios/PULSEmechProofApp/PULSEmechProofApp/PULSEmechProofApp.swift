@@ -377,6 +377,9 @@ struct BoundedProofView: View {
                         result.carrierFileName,
                     exactBytes:
                         result.carrierBytes
+                ),
+                preview: SharePreview(
+                    Text(result.carrierFileName)
                 )
             ) {
                 Label(
