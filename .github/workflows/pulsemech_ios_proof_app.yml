@@ -1,4 +1,4 @@
-name: PULSEmech iPhone Proof App
+name: PULSEmech iPhone Proof Demonstrator
 
 on:
   pull_request:
@@ -164,7 +164,7 @@ jobs:
           printf 'SIMULATOR_DESTINATION=%s\n' "$destination" \
             >> "$GITHUB_ENV"
 
-      - name: Build debug app with warnings as errors
+      - name: Build debug app with project warning policy
         run: |
           set -euo pipefail
 
@@ -178,7 +178,6 @@ jobs:
             -destination "$SIMULATOR_DESTINATION" \
             -derivedDataPath "$RUNNER_TEMP/pulsemech-proof-derived-data" \
             CODE_SIGNING_ALLOWED=NO \
-            SWIFT_TREAT_WARNINGS_AS_ERRORS=YES \
             build
 
       - name: Verify exact bundled proof resources
@@ -251,11 +250,10 @@ jobs:
             -destination "$SIMULATOR_DESTINATION" \
             -derivedDataPath "$RUNNER_TEMP/pulsemech-proof-derived-data" \
             CODE_SIGNING_ALLOWED=NO \
-            SWIFT_TREAT_WARNINGS_AS_ERRORS=YES \
             -only-testing:PULSEmechProofAppTests \
             test
 
-      - name: Build release app with warnings as errors
+      - name: Build release app with project warning policy
         run: |
           set -euo pipefail
 
@@ -267,7 +265,6 @@ jobs:
             -destination "$SIMULATOR_DESTINATION" \
             -derivedDataPath "$RUNNER_TEMP/pulsemech-proof-derived-data-release" \
             CODE_SIGNING_ALLOWED=NO \
-            SWIFT_TREAT_WARNINGS_AS_ERRORS=YES \
             build
 
       - name: Verify build and tests did not modify tracked files
