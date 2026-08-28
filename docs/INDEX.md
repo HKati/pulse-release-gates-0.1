@@ -167,7 +167,8 @@ completed generalized implementation
 Use this source order:
 
 1. [PULSEMECH_TECHNICAL_OVERVIEW.md](../PULSEMECH_TECHNICAL_OVERVIEW.md)
-   Canonical system identity, merged verified state, open-workstream state and current development boundary.
+   Canonical system identity, merged verified state, open-workstream state and
+   current development boundary.
 
 2. Current `main` repository state
    Exact merged implementation.
@@ -180,11 +181,11 @@ Use this source order:
 
 4. [Compute-binding workstream record](compute/PULSEMECH_COMPUTE_BINDING_AND_TRANSITION_EFFICIENCY_DESIGN_v0.md)
    Detailed compute contracts, proofs, current-run expectation boundary and
-   remaining sequence. 
+   remaining sequence.
 
 5. [Witness interoperability and release-authority boundary](slsa/PULSEMECH_WITNESS_INTEROPERABILITY_AND_RELEASE_AUTHORITY_BOUNDARY_v0.md)
    Exact upstream Witness source review, two-lane interoperability mapping,
-   structured-carrier gap and authority separation.  
+   structured-carrier gap and authority separation.
 
 6. Exact open pull request, only when evaluating proposed work
    Open work remains separate from merged implementation.
