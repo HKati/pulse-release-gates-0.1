@@ -347,7 +347,7 @@ Comparison basis: [v1.2.0...HEAD][Post-v1.2.0].
 - Initial PULSE release gates pack (I₂–I₇, Q₁–Q₄).
 - CI wiring (`pulse_ci.yml`), badges, Quality Ledger and RDSI reporting.
 
-[Unreleased]: https://github.com/HKati/pulse-release-gates-0.1/compare/V1.1.1...HEAD
+[Unreleased]: https://github.com/HKati/pulse-release-gates-0.1/compare/v1.2.0...HEAD
 [1.1.1]: https://github.com/HKati/pulse-release-gates-0.1/releases/tag/V1.1.1
 [1.1.0]: https://github.com/HKati/pulse-release-gates-0.1/releases/tag/v1.1.0
 [1.0.3]: https://github.com/HKati/pulse-release-gates-0.1/releases/tag/v1.0.3
