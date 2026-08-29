@@ -1,0 +1,1191 @@
+{
+  "$id": "https://github.com/HKati/pulse-release-gates-0.1/schemas/pulsemech_device_ledger_reproduction_capsule_manifest_v0.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PULSEmech Device Ledger Reproduction Capsule Manifest v0",
+  "description": "Strict manifest contract for one deterministic four-member reproduction Capsule around the exact PULSEmech Device Ledger v0 synthetic reference .pulseledger, the unchanged standalone verifier, and the exact canonical positive verifier report. The manifest fixes source identities, archive layout, reproduction expectations, targeted package-signature mutation expectations, and non-authority boundaries without inventorying or hashing itself.",
+  "$comment": "The manifest member declares only its fixed path, role, media type, and archive ordinal. Its own size and SHA-256 are intentionally excluded to avoid circularity. The exact manifest identity and final Capsule identity are recorded outside this manifest, including by the later reproduction result. Semantic regression must also enforce canonical stored JSON under pulsemech_device_canonical_json_v0 and exact equality between source bytes and Capsule payload bytes.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "archive_profile",
+    "authority_boundary",
+    "canonicalization_binding",
+    "capsule_contract_binding",
+    "capsule_format",
+    "capsule_layout",
+    "claim_boundary",
+    "document_type",
+    "expected_observer_fingerprint_sha256",
+    "implementation_boundary",
+    "negative_reproduction_contract",
+    "payload_source",
+    "positive_reproduction_contract",
+    "record_status",
+    "reference_environment",
+    "repeated_construction_contract",
+    "schema_binding",
+    "schema_version"
+  ],
+  "properties": {
+    "document_type": {
+      "const": "pulsemech_device_ledger_reproduction_capsule_manifest"
+    },
+    "schema_version": {
+      "const": "pulsemech_device_ledger_reproduction_capsule_manifest_v0"
+    },
+    "record_status": {
+      "const": "synthetic_reference"
+    },
+    "capsule_format": {
+      "const": "pulsemech_device_ledger_reproduction_capsule_v0"
+    },
+    "payload_source": {
+      "$ref": "#/$defs/payload_source"
+    },
+    "canonicalization_binding": {
+      "$ref": "#/$defs/canonicalization_binding"
+    },
+    "schema_binding": {
+      "$ref": "#/$defs/schema_binding"
+    },
+    "capsule_contract_binding": {
+      "$ref": "#/$defs/capsule_contract_binding"
+    },
+    "capsule_layout": {
+      "$ref": "#/$defs/capsule_layout"
+    },
+    "archive_profile": {
+      "$ref": "#/$defs/archive_profile"
+    },
+    "expected_observer_fingerprint_sha256": {
+      "const": "f2880825cd3caa7272d01042829e5b02e8a168db11225477b039e6ec9a7d09c6"
+    },
+    "positive_reproduction_contract": {
+      "$ref": "#/$defs/positive_reproduction_contract"
+    },
+    "repeated_construction_contract": {
+      "$ref": "#/$defs/repeated_construction_contract"
+    },
+    "negative_reproduction_contract": {
+      "$ref": "#/$defs/negative_reproduction_contract"
+    },
+    "reference_environment": {
+      "$ref": "#/$defs/reference_environment"
+    },
+    "implementation_boundary": {
+      "$ref": "#/$defs/implementation_boundary"
+    },
+    "claim_boundary": {
+      "$ref": "#/$defs/claim_boundary"
+    },
+    "authority_boundary": {
+      "$ref": "#/$defs/authority_boundary"
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "i63_positive": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9223372036854775807
+    },
+    "ascii_nonempty": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "pattern": "^[\\x20-\\x7e]+$"
+    },
+    "exact_file_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "byte_identity",
+        "path",
+        "sha256",
+        "size_bytes"
+      ],
+      "properties": {
+        "byte_identity": {
+          "const": "exact_file_bytes"
+        },
+        "path": {
+          "$ref": "#/$defs/ascii_nonempty"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "size_bytes": {
+          "$ref": "#/$defs/i63_positive"
+        }
+      }
+    },
+    "payload_source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "commit_sha",
+        "repository",
+        "source_role"
+      ],
+      "properties": {
+        "commit_sha": {
+          "const": "0108e2c0da98c8a1fe5e739aa0f137ba6a3464e1"
+        },
+        "repository": {
+          "const": "HKati/pulse-release-gates-0.1"
+        },
+        "source_role": {
+          "const": "canonical_preexisting_input_baseline"
+        }
+      }
+    },
+    "canonicalization_binding": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/exact_file_binding"
+        },
+        {
+          "properties": {
+            "path": {
+              "const": "contracts/pulsemech_device_canonical_json_v0.json"
+            },
+            "sha256": {
+              "const": "ddc0e677e04c8678c32e36d21dc79ad509fe6c4a5507322abb6187c6e88c7550"
+            },
+            "size_bytes": {
+              "const": 2719
+            }
+          }
+        }
+      ]
+    },
+    "schema_binding": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/exact_file_binding"
+        },
+        {
+          "properties": {
+            "path": {
+              "const": "schemas/pulsemech_device_ledger_reproduction_capsule_manifest_v0.schema.json"
+            }
+          }
+        }
+      ]
+    },
+    "capsule_contract_binding": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/exact_file_binding"
+        },
+        {
+          "properties": {
+            "path": {
+              "const": "contracts/pulsemech_device_ledger_reproduction_capsule_v0.json"
+            }
+          }
+        }
+      ]
+    },
+    "manifest_member": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "archive_ordinal",
+        "byte_identity_location",
+        "media_type",
+        "path",
+        "role",
+        "self_inventory"
+      ],
+      "properties": {
+        "archive_ordinal": {
+          "const": 1
+        },
+        "byte_identity_location": {
+          "const": "outside_manifest"
+        },
+        "media_type": {
+          "const": "application/json"
+        },
+        "path": {
+          "const": "manifest/pulsemech_device_ledger_reproduction_capsule_manifest_v0.json"
+        },
+        "role": {
+          "const": "capsule_manifest"
+        },
+        "self_inventory": {
+          "const": "excluded_to_avoid_circularity"
+        }
+      }
+    },
+    "payload_member": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "archive_ordinal",
+        "byte_identity",
+        "capsule_path",
+        "media_type",
+        "role",
+        "sha256",
+        "size_bytes",
+        "source_path"
+      ],
+      "properties": {
+        "archive_ordinal": {
+          "type": "integer",
+          "minimum": 2,
+          "maximum": 4
+        },
+        "byte_identity": {
+          "const": "exact_source_bytes"
+        },
+        "capsule_path": {
+          "$ref": "#/$defs/ascii_nonempty"
+        },
+        "media_type": {
+          "type": "string",
+          "enum": [
+            "application/json",
+            "application/zip",
+            "text/x-python"
+          ]
+        },
+        "role": {
+          "type": "string",
+          "enum": [
+            "canonical_pulseledger",
+            "canonical_expected_positive_report",
+            "standalone_verifier"
+          ]
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "size_bytes": {
+          "$ref": "#/$defs/i63_positive"
+        },
+        "source_path": {
+          "$ref": "#/$defs/ascii_nonempty"
+        }
+      }
+    },
+    "pulseledger_member": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/payload_member"
+        },
+        {
+          "properties": {
+            "archive_ordinal": {
+              "const": 2
+            },
+            "capsule_path": {
+              "const": "artifact/pulsemech_device_transition_ledger_reference_v0.pulseledger"
+            },
+            "media_type": {
+              "const": "application/zip"
+            },
+            "role": {
+              "const": "canonical_pulseledger"
+            },
+            "sha256": {
+              "const": "a31388c7bf574040893d1d923d684d23318e5d2109a0d72a923888b95d5d42b3"
+            },
+            "size_bytes": {
+              "const": 133568
+            },
+            "source_path": {
+              "const": "examples/device_transition_ledger/pulsemech_device_transition_ledger_reference_v0.pulseledger"
+            }
+          }
+        }
+      ]
+    },
+    "verifier_member": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/payload_member"
+        },
+        {
+          "properties": {
+            "archive_ordinal": {
+              "const": 3
+            },
+            "capsule_path": {
+              "const": "verifier/verify_pulsemech_device_ledger_v0.py"
+            },
+            "media_type": {
+              "const": "text/x-python"
+            },
+            "role": {
+              "const": "standalone_verifier"
+            },
+            "sha256": {
+              "const": "0a828490f93ce684ab50625c23a19c870f813c3bcdef7034f5c88a0c6aa494e7"
+            },
+            "size_bytes": {
+              "const": 126419
+            },
+            "source_path": {
+              "const": "tools/verify_pulsemech_device_ledger_v0.py"
+            }
+          }
+        }
+      ]
+    },
+    "expected_report_member": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/payload_member"
+        },
+        {
+          "properties": {
+            "archive_ordinal": {
+              "const": 4
+            },
+            "capsule_path": {
+              "const": "expected/pulsemech_device_transition_ledger_reference_verification_v0.json"
+            },
+            "media_type": {
+              "const": "application/json"
+            },
+            "role": {
+              "const": "canonical_expected_positive_report"
+            },
+            "sha256": {
+              "const": "5e93539099e99dd5bfa835ba56c401608a5b5c015209812ebb5f9c31142a74f4"
+            },
+            "size_bytes": {
+              "const": 15328
+            },
+            "source_path": {
+              "const": "examples/device_transition_ledger/pulsemech_device_transition_ledger_reference_verification_v0.json"
+            }
+          }
+        }
+      ]
+    },
+    "capsule_layout": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "archive_filename",
+        "archive_format",
+        "capsule_member_count",
+        "manifest_member",
+        "member_order",
+        "payload_member_count",
+        "payload_members"
+      ],
+      "properties": {
+        "archive_filename": {
+          "const": "pulsemech_device_ledger_reproduction_capsule_v0.zip"
+        },
+        "archive_format": {
+          "const": "zip"
+        },
+        "capsule_member_count": {
+          "const": 4
+        },
+        "manifest_member": {
+          "$ref": "#/$defs/manifest_member"
+        },
+        "member_order": {
+          "type": "array",
+          "minItems": 4,
+          "maxItems": 4,
+          "prefixItems": [
+            {
+              "const": "manifest/pulsemech_device_ledger_reproduction_capsule_manifest_v0.json"
+            },
+            {
+              "const": "artifact/pulsemech_device_transition_ledger_reference_v0.pulseledger"
+            },
+            {
+              "const": "verifier/verify_pulsemech_device_ledger_v0.py"
+            },
+            {
+              "const": "expected/pulsemech_device_transition_ledger_reference_verification_v0.json"
+            }
+          ],
+          "items": false
+        },
+        "payload_member_count": {
+          "const": 3
+        },
+        "payload_members": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "prefixItems": [
+            {
+              "$ref": "#/$defs/pulseledger_member"
+            },
+            {
+              "$ref": "#/$defs/verifier_member"
+            },
+            {
+              "$ref": "#/$defs/expected_report_member"
+            }
+          ],
+          "items": false
+        }
+      }
+    },
+    "archive_profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "allow_zip64",
+        "archive_comment",
+        "archive_format",
+        "central_directory_start_disk_number",
+        "central_directory_version_made_by",
+        "central_directory_version_needed",
+        "compression_level",
+        "compression_method",
+        "compression_method_code",
+        "crc32_policy",
+        "creator_system",
+        "creator_version",
+        "data_descriptors",
+        "directory_entries",
+        "end_of_central_directory_disk_number",
+        "duplicate_member_names",
+        "encrypted_members",
+        "external_attributes",
+        "extra_fields",
+        "file_mode",
+        "general_purpose_bit_flags",
+        "internal_attributes",
+        "local_header_version_needed",
+        "member_comments",
+        "member_disk_number_start",
+        "member_name_encoding",
+        "member_order_semantics",
+        "member_timestamp",
+        "size_fields",
+        "strict_timestamps",
+        "trailing_data",
+        "zip64"
+      ],
+      "properties": {
+        "allow_zip64": {
+          "const": false
+        },
+        "archive_comment": {
+          "const": "empty"
+        },
+        "archive_format": {
+          "const": "zip"
+        },
+        "central_directory_start_disk_number": {
+          "const": 0
+        },
+        "central_directory_version_made_by": {
+          "const": 788
+        },
+        "central_directory_version_needed": {
+          "const": 20
+        },
+        "compression_level": {
+          "const": "not_applicable_for_stored"
+        },
+        "compression_method": {
+          "const": "ZIP_STORED"
+        },
+        "compression_method_code": {
+          "const": 0
+        },
+        "crc32_policy": {
+          "const": "computed_from_exact_member_bytes"
+        },
+        "creator_system": {
+          "const": 3
+        },
+        "creator_version": {
+          "const": 20
+        },
+        "data_descriptors": {
+          "const": "forbidden"
+        },
+        "directory_entries": {
+          "const": "forbidden"
+        },
+        "end_of_central_directory_disk_number": {
+          "const": 0
+        },
+        "duplicate_member_names": {
+          "const": "forbidden"
+        },
+        "encrypted_members": {
+          "const": "forbidden"
+        },
+        "external_attributes": {
+          "const": 2175008768
+        },
+        "extra_fields": {
+          "const": "empty"
+        },
+        "file_mode": {
+          "const": 33188
+        },
+        "general_purpose_bit_flags": {
+          "const": 0
+        },
+        "internal_attributes": {
+          "const": 0
+        },
+        "local_header_version_needed": {
+          "const": 20
+        },
+        "member_comments": {
+          "const": "empty"
+        },
+        "member_disk_number_start": {
+          "const": 0
+        },
+        "member_name_encoding": {
+          "const": "ASCII"
+        },
+        "member_order_semantics": {
+          "const": "exact_sequence"
+        },
+        "member_timestamp": {
+          "type": "array",
+          "minItems": 6,
+          "maxItems": 6,
+          "prefixItems": [
+            {
+              "const": 1980
+            },
+            {
+              "const": 1
+            },
+            {
+              "const": 1
+            },
+            {
+              "const": 0
+            },
+            {
+              "const": 0
+            },
+            {
+              "const": 0
+            }
+          ],
+          "items": false
+        },
+        "size_fields": {
+          "const": "computed_from_exact_member_bytes"
+        },
+        "strict_timestamps": {
+          "const": true
+        },
+        "trailing_data": {
+          "const": "forbidden"
+        },
+        "zip64": {
+          "const": "forbidden"
+        }
+      }
+    },
+    "positive_reproduction_contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifact_capsule_path",
+        "expected_check_count",
+        "expected_checkpoint_signature_status",
+        "expected_exit_status",
+        "expected_failed_check_ids",
+        "expected_failure_stage",
+        "expected_ok",
+        "expected_package_signature_status",
+        "expected_producer_code_imported",
+        "expected_report_capsule_path",
+        "expected_report_comparison",
+        "expected_report_sha256",
+        "expected_report_size_bytes",
+        "expected_result",
+        "expected_stderr",
+        "expected_verifier_implementation_relation",
+        "producer_verdict_trusted",
+        "verifier_capsule_path",
+        "verifier_execution_relation"
+      ],
+      "properties": {
+        "artifact_capsule_path": {
+          "const": "artifact/pulsemech_device_transition_ledger_reference_v0.pulseledger"
+        },
+        "expected_check_count": {
+          "const": 49
+        },
+        "expected_checkpoint_signature_status": {
+          "const": "verified"
+        },
+        "expected_exit_status": {
+          "const": 0
+        },
+        "expected_failed_check_ids": {
+          "type": "array",
+          "maxItems": 0
+        },
+        "expected_failure_stage": {
+          "type": "null"
+        },
+        "expected_ok": {
+          "const": true
+        },
+        "expected_package_signature_status": {
+          "const": "verified"
+        },
+        "expected_producer_code_imported": {
+          "const": false
+        },
+        "expected_report_capsule_path": {
+          "const": "expected/pulsemech_device_transition_ledger_reference_verification_v0.json"
+        },
+        "expected_report_comparison": {
+          "const": "exact_stdout_bytes"
+        },
+        "expected_report_sha256": {
+          "const": "5e93539099e99dd5bfa835ba56c401608a5b5c015209812ebb5f9c31142a74f4"
+        },
+        "expected_report_size_bytes": {
+          "const": 15328
+        },
+        "expected_result": {
+          "const": "verified_with_declared_unavailability"
+        },
+        "expected_stderr": {
+          "const": "empty"
+        },
+        "expected_verifier_implementation_relation": {
+          "const": "separate_from_producer_code"
+        },
+        "producer_verdict_trusted": {
+          "const": false
+        },
+        "verifier_capsule_path": {
+          "const": "verifier/verify_pulsemech_device_ledger_v0.py"
+        },
+        "verifier_execution_relation": {
+          "const": "separate_process"
+        }
+      }
+    },
+    "repeated_construction_contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "capsule_a_reused_by_capsule_b",
+        "capsule_byte_relation",
+        "capsule_final_identity_location",
+        "capsule_member_byte_relation",
+        "capsule_member_order_relation",
+        "capsule_sha256_relation",
+        "capsule_size_relation",
+        "construction_count",
+        "positive_report_byte_relation",
+        "workspace_relation"
+      ],
+      "properties": {
+        "capsule_a_reused_by_capsule_b": {
+          "const": false
+        },
+        "capsule_byte_relation": {
+          "const": "required_equal"
+        },
+        "capsule_final_identity_location": {
+          "const": "external_reproduction_result"
+        },
+        "capsule_member_byte_relation": {
+          "const": "required_equal"
+        },
+        "capsule_member_order_relation": {
+          "const": "required_equal"
+        },
+        "capsule_sha256_relation": {
+          "const": "required_equal"
+        },
+        "capsule_size_relation": {
+          "const": "required_equal"
+        },
+        "construction_count": {
+          "const": 2
+        },
+        "positive_report_byte_relation": {
+          "const": "both_equal_canonical_expected_report"
+        },
+        "workspace_relation": {
+          "const": "isolated_no_reuse"
+        }
+      }
+    },
+    "negative_reproduction_contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "canonical_reference_artifact_mutated",
+        "earlier_failure_satisfies_contract",
+        "expected_error",
+        "expected_exit_status",
+        "expected_failed_check_ids",
+        "expected_failure_stage",
+        "expected_ok",
+        "expected_result",
+        "expected_stderr",
+        "field",
+        "mutation_class",
+        "mutation_workspace",
+        "original_character",
+        "preserve_carrier_size",
+        "preserve_manifest_binding",
+        "preserve_member_count",
+        "preserve_member_order",
+        "preserve_member_paths",
+        "preserve_non_target_members",
+        "preserve_package_signature_subject",
+        "recompute_central_directory_crc32",
+        "recompute_local_header_crc32",
+        "replacement_character",
+        "required_preceding_checks",
+        "target_capsule_member_path",
+        "target_inner_member_path",
+        "verifier_execution_relation"
+      ],
+      "properties": {
+        "canonical_reference_artifact_mutated": {
+          "const": false
+        },
+        "earlier_failure_satisfies_contract": {
+          "const": false
+        },
+        "expected_error": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "check_id",
+            "error_code",
+            "member_path"
+          ],
+          "properties": {
+            "check_id": {
+              "const": "package_signature_valid"
+            },
+            "error_code": {
+              "const": "signature_verification_failed"
+            },
+            "member_path": {
+              "const": "signatures/package-signature-v0.json"
+            }
+          }
+        },
+        "expected_exit_status": {
+          "const": 2
+        },
+        "expected_failed_check_ids": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1,
+          "prefixItems": [
+            {
+              "const": "package_signature_valid"
+            }
+          ],
+          "items": false
+        },
+        "expected_failure_stage": {
+          "const": "package_signature"
+        },
+        "expected_ok": {
+          "const": false
+        },
+        "expected_result": {
+          "const": "rejected"
+        },
+        "expected_stderr": {
+          "const": "empty"
+        },
+        "field": {
+          "const": "signature_base64"
+        },
+        "mutation_class": {
+          "const": "replace_first_character"
+        },
+        "mutation_workspace": {
+          "const": "isolated_temporary_copy"
+        },
+        "original_character": {
+          "const": "O"
+        },
+        "preserve_carrier_size": {
+          "const": true
+        },
+        "preserve_manifest_binding": {
+          "const": true
+        },
+        "preserve_member_count": {
+          "const": true
+        },
+        "preserve_member_order": {
+          "const": true
+        },
+        "preserve_member_paths": {
+          "const": true
+        },
+        "preserve_non_target_members": {
+          "const": true
+        },
+        "preserve_package_signature_subject": {
+          "const": true
+        },
+        "recompute_central_directory_crc32": {
+          "const": true
+        },
+        "recompute_local_header_crc32": {
+          "const": true
+        },
+        "replacement_character": {
+          "const": "P"
+        },
+        "required_preceding_checks": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "prefixItems": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "check_id",
+                "expected_result"
+              ],
+              "properties": {
+                "check_id": {
+                  "const": "zip_crc32_valid"
+                },
+                "expected_result": {
+                  "const": "passed"
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "check_id",
+                "expected_result"
+              ],
+              "properties": {
+                "check_id": {
+                  "const": "package_signature_document_valid"
+                },
+                "expected_result": {
+                  "const": "passed"
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "check_id",
+                "expected_result"
+              ],
+              "properties": {
+                "check_id": {
+                  "const": "package_signature_subject_valid"
+                },
+                "expected_result": {
+                  "const": "passed"
+                }
+              }
+            }
+          ],
+          "items": false
+        },
+        "target_capsule_member_path": {
+          "const": "artifact/pulsemech_device_transition_ledger_reference_v0.pulseledger"
+        },
+        "target_inner_member_path": {
+          "const": "signatures/package-signature-v0.json"
+        },
+        "verifier_execution_relation": {
+          "const": "separate_process"
+        }
+      }
+    },
+    "reference_environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "archive_implementation",
+        "container_image",
+        "dependency_policy",
+        "environment_variables",
+        "network_access",
+        "operating_system",
+        "python",
+        "runtime_downloads",
+        "temporary_directory_policy",
+        "working_directory_policy"
+      ],
+      "properties": {
+        "archive_implementation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "boundary",
+            "module"
+          ],
+          "properties": {
+            "boundary": {
+              "const": "cpython_standard_library_bound_to_exact_python_micro_version"
+            },
+            "module": {
+              "const": "zipfile"
+            }
+          }
+        },
+        "container_image": {
+          "type": "string",
+          "minLength": 80,
+          "maxLength": 512,
+          "pattern": "^[A-Za-z0-9._/-]+:[A-Za-z0-9._-]+@sha256:[0-9a-f]{64}$"
+        },
+        "dependency_policy": {
+          "const": "python_standard_library_only"
+        },
+        "environment_variables": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "LANG",
+            "LC_ALL",
+            "PYTHONDONTWRITEBYTECODE",
+            "PYTHONHASHSEED",
+            "TZ"
+          ],
+          "properties": {
+            "LANG": {
+              "const": "C.UTF-8"
+            },
+            "LC_ALL": {
+              "const": "C.UTF-8"
+            },
+            "PYTHONDONTWRITEBYTECODE": {
+              "const": "1"
+            },
+            "PYTHONHASHSEED": {
+              "const": "0"
+            },
+            "TZ": {
+              "const": "UTC"
+            }
+          }
+        },
+        "network_access": {
+          "const": "forbidden"
+        },
+        "operating_system": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "architecture",
+            "distribution",
+            "version"
+          ],
+          "properties": {
+            "architecture": {
+              "type": "string",
+              "enum": [
+                "x86_64",
+                "aarch64"
+              ]
+            },
+            "distribution": {
+              "$ref": "#/$defs/ascii_nonempty"
+            },
+            "version": {
+              "$ref": "#/$defs/ascii_nonempty"
+            }
+          }
+        },
+        "python": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "implementation",
+            "unicode_data_version",
+            "version"
+          ],
+          "properties": {
+            "implementation": {
+              "const": "CPython"
+            },
+            "unicode_data_version": {
+              "const": "14.0.0"
+            },
+            "version": {
+              "type": "string",
+              "pattern": "^3\\.[0-9]+\\.[0-9]+$"
+            }
+          }
+        },
+        "runtime_downloads": {
+          "const": "forbidden"
+        },
+        "temporary_directory_policy": {
+          "const": "isolated_per_construction_outside_protected_sources"
+        },
+        "working_directory_policy": {
+          "const": "repository_root"
+        }
+      }
+    },
+    "implementation_boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "existing_verifier_modification",
+        "new_verifier",
+        "producer_verdict_trusted",
+        "runner_role",
+        "verifier_execution",
+        "verifier_import_by_runner",
+        "verification_semantics_change"
+      ],
+      "properties": {
+        "existing_verifier_modification": {
+          "const": "forbidden"
+        },
+        "new_verifier": {
+          "const": "none"
+        },
+        "producer_verdict_trusted": {
+          "const": false
+        },
+        "runner_role": {
+          "const": "orchestration_only"
+        },
+        "verifier_execution": {
+          "const": "separate_process"
+        },
+        "verifier_import_by_runner": {
+          "const": "forbidden"
+        },
+        "verification_semantics_change": {
+          "const": "none"
+        }
+      }
+    },
+    "claim_boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "causal_completion_claim",
+        "continuous_monitoring_claim",
+        "device_security_claim",
+        "external_validation_claim",
+        "hardware_backed_identity_claim",
+        "identity_scope",
+        "key_origin_profile",
+        "live_observation_claim",
+        "malware_claim",
+        "physical_measurement_claim",
+        "production_device_claim",
+        "production_readiness_claim",
+        "universal_cross_platform_reproducibility_claim"
+      ],
+      "properties": {
+        "causal_completion_claim": {
+          "const": "none"
+        },
+        "continuous_monitoring_claim": {
+          "const": "none"
+        },
+        "device_security_claim": {
+          "const": "none"
+        },
+        "external_validation_claim": {
+          "const": "none"
+        },
+        "hardware_backed_identity_claim": {
+          "const": "none"
+        },
+        "identity_scope": {
+          "const": "fixture_installation"
+        },
+        "key_origin_profile": {
+          "const": "fixture_software_p256"
+        },
+        "live_observation_claim": {
+          "const": "none"
+        },
+        "malware_claim": {
+          "const": "none"
+        },
+        "physical_measurement_claim": {
+          "const": "none"
+        },
+        "production_device_claim": {
+          "const": "none"
+        },
+        "production_readiness_claim": {
+          "const": "none"
+        },
+        "universal_cross_platform_reproducibility_claim": {
+          "const": "none"
+        }
+      }
+    },
+    "authority_boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "authority_effect",
+        "capsule_is_release_authority",
+        "changes_release_authority",
+        "creates_device_control_authority",
+        "creates_gate_result",
+        "creates_release_decision",
+        "external_operator_approval_required",
+        "reproduction_result_is_release_authority"
+      ],
+      "properties": {
+        "authority_effect": {
+          "const": "none"
+        },
+        "capsule_is_release_authority": {
+          "const": false
+        },
+        "changes_release_authority": {
+          "const": false
+        },
+        "creates_device_control_authority": {
+          "const": false
+        },
+        "creates_gate_result": {
+          "const": false
+        },
+        "creates_release_decision": {
+          "const": false
+        },
+        "external_operator_approval_required": {
+          "const": false
+        },
+        "reproduction_result_is_release_authority": {
+          "const": false
+        }
+      }
+    }
+  }
+}
