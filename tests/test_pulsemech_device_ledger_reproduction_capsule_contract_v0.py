@@ -46,19 +46,19 @@ REFERENCE_REPORT_PATH = (
 VERIFIER_PATH = ROOT / "tools" / "verify_pulsemech_device_ledger_v0.py"
 
 EXPECTED_SCHEMA_IDENTITY = (
-    32767,
-    "69e99ac214409a28e28b0b32a5c7bcf187cbe2d6bd4d07d0c0b4266f67756704",
-    "bb49b9d719fc020bceb29c9089947647067ce617",
+    32581,
+    "a1b8a3734214824883e8a65dbb9dc7c33ca585e0761c312fd85f4db3787ea85c",
+    "6a0dabff2e5f725c6ef8e586f9cae7fff566030b",
 )
 EXPECTED_CONTRACT_IDENTITY = (
-    15801,
-    "4781cf191f2e1d8b132fd697a75b25bfc70336c5a060ce22d0de0abb4590463c",
-    "8191b48664ad893978feae0a14ca446fa852099c",
+    15947,
+    "ea45871d8f173729b2429944a949bc1edd9a06b78ffb438863d7c8d0d7687a67",
+    "d15fddbe9250de0ed76b3b7ebb7d679383a867b4",
 )
 EXPECTED_MANIFEST_IDENTITY = (
     8989,
-    "a07e4757e938562ca48e97bfce32f14e9df7ad7bc925aa0935118417a10fcffd",
-    "35b8b31e453dee174feaf56285cd9a7f6629b012",
+    "cda4218f279820640590a71c78b85a29cb11de3fc7d29a96727d669c30cdbcbf",
+    "b9c4aeb2cc2133e54c83ae81e45ab8358c5b0d3b",
 )
 EXPECTED_CANONICALIZATION_IDENTITY = (
     2719,
@@ -127,6 +127,11 @@ EXPECTED_NEGATIVE_CASES = (
     "source_size_mismatch",
     "source_sha256_mismatch",
     "wrong_observer_fingerprint",
+    "wrong_container_image",
+    "wrong_architecture",
+    "wrong_os_distribution",
+    "wrong_os_version",
+    "wrong_python_version",
     "volatile_manifest_field",
     "manifest_self_hash",
     "final_capsule_hash_inside_manifest",
@@ -453,6 +458,34 @@ def _mutate_wrong_observer_fingerprint(value: dict[str, Any]) -> None:
     value["expected_observer_fingerprint_sha256"] = "0" * 64
 
 
+def _mutate_wrong_container_image(value: dict[str, Any]) -> None:
+    value["reference_environment"]["container_image"] = (
+        "docker.io/library/python:3.11.9-slim-bookworm@sha256:" + "0" * 64
+    )
+
+
+def _mutate_wrong_architecture(value: dict[str, Any]) -> None:
+    value["reference_environment"]["operating_system"]["architecture"] = (
+        "aarch64"
+    )
+
+
+def _mutate_wrong_os_distribution(value: dict[str, Any]) -> None:
+    value["reference_environment"]["operating_system"]["distribution"] = (
+        "alpine"
+    )
+
+
+def _mutate_wrong_os_version(value: dict[str, Any]) -> None:
+    value["reference_environment"]["operating_system"]["version"] = (
+        "bookworm"
+    )
+
+
+def _mutate_wrong_python_version(value: dict[str, Any]) -> None:
+    value["reference_environment"]["python"]["version"] = "3.99.99"
+
+
 def _mutate_volatile_manifest_field(value: dict[str, Any]) -> None:
     value["generated_unix_ns"] = 0
 
@@ -502,6 +535,11 @@ NEGATIVE_MUTATIONS: tuple[
     ("source_size_mismatch", _mutate_source_size_mismatch),
     ("source_sha256_mismatch", _mutate_source_sha256_mismatch),
     ("wrong_observer_fingerprint", _mutate_wrong_observer_fingerprint),
+    ("wrong_container_image", _mutate_wrong_container_image),
+    ("wrong_architecture", _mutate_wrong_architecture),
+    ("wrong_os_distribution", _mutate_wrong_os_distribution),
+    ("wrong_os_version", _mutate_wrong_os_version),
+    ("wrong_python_version", _mutate_wrong_python_version),
     ("volatile_manifest_field", _mutate_volatile_manifest_field),
     ("manifest_self_hash", _mutate_manifest_self_hash),
     (
