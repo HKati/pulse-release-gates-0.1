@@ -1,0 +1,420 @@
+{
+  "archive_profile": {
+    "allow_zip64": false,
+    "archive_comment": "empty",
+    "archive_format": "zip",
+    "central_directory_start_disk_number": 0,
+    "central_directory_version_made_by": 788,
+    "central_directory_version_needed": 20,
+    "compression_level": "not_applicable_for_stored",
+    "compression_method": "ZIP_STORED",
+    "compression_method_code": 0,
+    "crc32_policy": "computed_from_exact_member_bytes",
+    "creator_system": 3,
+    "creator_version": 20,
+    "data_descriptors": "forbidden",
+    "directory_entries": "forbidden",
+    "duplicate_member_names": "forbidden",
+    "encrypted_members": "forbidden",
+    "end_of_central_directory_disk_number": 0,
+    "external_attributes": 2175008768,
+    "extra_fields": "empty",
+    "file_mode": 33188,
+    "general_purpose_bit_flags": 0,
+    "internal_attributes": 0,
+    "local_header_version_needed": 20,
+    "member_comments": "empty",
+    "member_disk_number_start": 0,
+    "member_name_encoding": "ASCII",
+    "member_order_semantics": "exact_sequence",
+    "member_timestamp": [
+      1980,
+      1,
+      1,
+      0,
+      0,
+      0
+    ],
+    "size_fields": "computed_from_exact_member_bytes",
+    "strict_timestamps": true,
+    "trailing_data": "forbidden",
+    "zip64": "forbidden"
+  },
+  "authority_boundary": {
+    "authority_effect": "none",
+    "capsule_is_release_authority": false,
+    "changes_release_authority": false,
+    "creates_device_control_authority": false,
+    "creates_gate_result": false,
+    "creates_release_decision": false,
+    "external_operator_approval_required": false,
+    "reproduction_result_is_release_authority": false
+  },
+  "canonical_manifest_contract": {
+    "canonicalization_profile": "pulsemech_device_canonical_json_v0",
+    "canonicalization_profile_id": "pulsemech_device_canonical_json_v0",
+    "canonicalization_profile_version": "0.1.0",
+    "capsule_final_identity_location": "external_reproduction_result",
+    "capsule_manifest_path": "manifest/pulsemech_device_ledger_reproduction_capsule_manifest_v0.json",
+    "capsule_manifest_role": "capsule_manifest",
+    "contract_binding_derivation": "sha256_and_size_of_exact_contract_file_bytes",
+    "final_capsule_sha256_inside_manifest": "forbidden",
+    "final_capsule_size_inside_manifest": "forbidden",
+    "generated_or_volatile_fields": "forbidden",
+    "manifest_identity_location": "external_reproduction_result",
+    "manifest_schema_validation": "required",
+    "manifest_self_hash": "forbidden",
+    "manifest_self_inventory": "excluded_to_avoid_circularity",
+    "manifest_self_size": "forbidden",
+    "schema_dialect": "https://json-schema.org/draft/2020-12/schema",
+    "stored_bytes": "must_equal_canonical_reserialization",
+    "trailing_newline": false
+  },
+  "canonicalization_binding": {
+    "byte_identity": "exact_file_bytes",
+    "path": "contracts/pulsemech_device_canonical_json_v0.json",
+    "sha256": "ddc0e677e04c8678c32e36d21dc79ad509fe6c4a5507322abb6187c6e88c7550",
+    "size_bytes": 2719
+  },
+  "capsule_contract_id": "pulsemech_device_ledger_reproduction_capsule_v0",
+  "capsule_contract_version": "0.1.0",
+  "capsule_format": "pulsemech_device_ledger_reproduction_capsule_v0",
+  "capsule_layout": {
+    "archive_filename": "pulsemech_device_ledger_reproduction_capsule_v0.zip",
+    "archive_format": "zip",
+    "capsule_member_count": 4,
+    "manifest_member": {
+      "archive_ordinal": 1,
+      "byte_identity_location": "outside_manifest",
+      "media_type": "application/json",
+      "path": "manifest/pulsemech_device_ledger_reproduction_capsule_manifest_v0.json",
+      "role": "capsule_manifest",
+      "self_inventory": "excluded_to_avoid_circularity"
+    },
+    "member_order": [
+      "manifest/pulsemech_device_ledger_reproduction_capsule_manifest_v0.json",
+      "artifact/pulsemech_device_transition_ledger_reference_v0.pulseledger",
+      "verifier/verify_pulsemech_device_ledger_v0.py",
+      "expected/pulsemech_device_transition_ledger_reference_verification_v0.json"
+    ],
+    "payload_member_count": 3,
+    "payload_members": [
+      {
+        "archive_ordinal": 2,
+        "byte_identity": "exact_source_bytes",
+        "capsule_path": "artifact/pulsemech_device_transition_ledger_reference_v0.pulseledger",
+        "media_type": "application/zip",
+        "role": "canonical_pulseledger",
+        "sha256": "a31388c7bf574040893d1d923d684d23318e5d2109a0d72a923888b95d5d42b3",
+        "size_bytes": 133568,
+        "source_path": "examples/device_transition_ledger/pulsemech_device_transition_ledger_reference_v0.pulseledger"
+      },
+      {
+        "archive_ordinal": 3,
+        "byte_identity": "exact_source_bytes",
+        "capsule_path": "verifier/verify_pulsemech_device_ledger_v0.py",
+        "media_type": "text/x-python",
+        "role": "standalone_verifier",
+        "sha256": "0a828490f93ce684ab50625c23a19c870f813c3bcdef7034f5c88a0c6aa494e7",
+        "size_bytes": 126419,
+        "source_path": "tools/verify_pulsemech_device_ledger_v0.py"
+      },
+      {
+        "archive_ordinal": 4,
+        "byte_identity": "exact_source_bytes",
+        "capsule_path": "expected/pulsemech_device_transition_ledger_reference_verification_v0.json",
+        "media_type": "application/json",
+        "role": "canonical_expected_positive_report",
+        "sha256": "5e93539099e99dd5bfa835ba56c401608a5b5c015209812ebb5f9c31142a74f4",
+        "size_bytes": 15328,
+        "source_path": "examples/device_transition_ledger/pulsemech_device_transition_ledger_reference_verification_v0.json"
+      }
+    ]
+  },
+  "claim_boundary": {
+    "causal_completion_claim": "none",
+    "continuous_monitoring_claim": "none",
+    "device_security_claim": "none",
+    "external_validation_claim": "none",
+    "hardware_backed_identity_claim": "none",
+    "identity_scope": "fixture_installation",
+    "key_origin_profile": "fixture_software_p256",
+    "live_observation_claim": "none",
+    "malware_claim": "none",
+    "physical_measurement_claim": "none",
+    "production_device_claim": "none",
+    "production_readiness_claim": "none",
+    "universal_cross_platform_reproducibility_claim": "none"
+  },
+  "contract_storage": {
+    "digest_algorithm": "SHA-256",
+    "digest_subject": "exact_repository_file_bytes",
+    "identity_location": "canonical_manifest_capsule_contract_binding",
+    "path": "contracts/pulsemech_device_ledger_reproduction_capsule_v0.json",
+    "self_canonicalization_claim": false,
+    "self_hash": "forbidden",
+    "self_size": "forbidden"
+  },
+  "document_type": "pulsemech_device_ledger_reproduction_capsule_contract",
+  "expected_observer_fingerprint_sha256": "f2880825cd3caa7272d01042829e5b02e8a168db11225477b039e6ec9a7d09c6",
+  "failure_policy": {
+    "best_effort_success": "forbidden",
+    "default": "fail_closed",
+    "permissive_fallback": "forbidden",
+    "unresolved_or_mismatched_input": "reject",
+    "warning_only_success": "forbidden"
+  },
+  "identity_graph": {
+    "construction_order": [
+      "manifest_schema",
+      "normative_capsule_contract",
+      "canonical_manifest",
+      "reproduction_capsule",
+      "external_reproduction_result"
+    ],
+    "forbidden_bindings": [
+      "contract_self_hash",
+      "contract_self_size",
+      "manifest_self_hash",
+      "manifest_self_size",
+      "manifest_to_final_capsule_hash",
+      "manifest_to_final_capsule_size",
+      "manifest_to_containing_git_commit"
+    ],
+    "required_bindings": [
+      {
+        "binding": "exact_file_size_and_sha256",
+        "from": "normative_capsule_contract",
+        "to": "manifest_schema"
+      },
+      {
+        "binding": "exact_file_size_and_sha256",
+        "from": "canonical_manifest",
+        "to": "normative_capsule_contract"
+      },
+      {
+        "binding": "exact_payload_bytes_and_fixed_member_order",
+        "from": "reproduction_capsule",
+        "to": "canonical_manifest"
+      },
+      {
+        "binding": "exact_capsule_size_and_sha256",
+        "from": "external_reproduction_result",
+        "to": "reproduction_capsule"
+      }
+    ]
+  },
+  "implementation_boundary": {
+    "existing_verifier_modification": "forbidden",
+    "new_verifier": "none",
+    "producer_verdict_trusted": false,
+    "runner_role": "orchestration_only",
+    "verification_semantics_change": "none",
+    "verifier_execution": "separate_process",
+    "verifier_import_by_runner": "forbidden"
+  },
+  "manifest_projection": {
+    "computed_fields": {
+      "capsule_contract_binding": "exact_contract_file_bytes"
+    },
+    "copied_sections": [
+      "archive_profile",
+      "authority_boundary",
+      "canonicalization_binding",
+      "capsule_layout",
+      "claim_boundary",
+      "expected_observer_fingerprint_sha256",
+      "implementation_boundary",
+      "negative_reproduction_contract",
+      "payload_source",
+      "positive_reproduction_contract",
+      "reference_environment",
+      "repeated_construction_contract",
+      "schema_binding"
+    ],
+    "literal_fields": {
+      "capsule_format": "pulsemech_device_ledger_reproduction_capsule_v0",
+      "document_type": "pulsemech_device_ledger_reproduction_capsule_manifest",
+      "record_status": "synthetic_reference",
+      "schema_version": "pulsemech_device_ledger_reproduction_capsule_manifest_v0"
+    }
+  },
+  "negative_reproduction_contract": {
+    "canonical_reference_artifact_mutated": false,
+    "earlier_failure_satisfies_contract": false,
+    "expected_error": {
+      "check_id": "package_signature_valid",
+      "error_code": "signature_verification_failed",
+      "member_path": "signatures/package-signature-v0.json"
+    },
+    "expected_exit_status": 2,
+    "expected_failed_check_ids": [
+      "package_signature_valid"
+    ],
+    "expected_failure_stage": "package_signature",
+    "expected_ok": false,
+    "expected_result": "rejected",
+    "expected_stderr": "empty",
+    "field": "signature_base64",
+    "mutation_class": "replace_first_character",
+    "mutation_workspace": "isolated_temporary_copy",
+    "original_character": "O",
+    "preserve_carrier_size": true,
+    "preserve_manifest_binding": true,
+    "preserve_member_count": true,
+    "preserve_member_order": true,
+    "preserve_member_paths": true,
+    "preserve_non_target_members": true,
+    "preserve_package_signature_subject": true,
+    "recompute_central_directory_crc32": true,
+    "recompute_local_header_crc32": true,
+    "replacement_character": "P",
+    "required_preceding_checks": [
+      {
+        "check_id": "zip_crc32_valid",
+        "expected_result": "passed"
+      },
+      {
+        "check_id": "package_signature_document_valid",
+        "expected_result": "passed"
+      },
+      {
+        "check_id": "package_signature_subject_valid",
+        "expected_result": "passed"
+      }
+    ],
+    "target_capsule_member_path": "artifact/pulsemech_device_transition_ledger_reference_v0.pulseledger",
+    "target_inner_member_path": "signatures/package-signature-v0.json",
+    "verifier_execution_relation": "separate_process"
+  },
+  "payload_source": {
+    "commit_sha": "0108e2c0da98c8a1fe5e739aa0f137ba6a3464e1",
+    "repository": "HKati/pulse-release-gates-0.1",
+    "source_role": "canonical_preexisting_input_baseline"
+  },
+  "positive_reproduction_contract": {
+    "artifact_capsule_path": "artifact/pulsemech_device_transition_ledger_reference_v0.pulseledger",
+    "expected_check_count": 49,
+    "expected_checkpoint_signature_status": "verified",
+    "expected_exit_status": 0,
+    "expected_failed_check_ids": [],
+    "expected_failure_stage": null,
+    "expected_ok": true,
+    "expected_package_signature_status": "verified",
+    "expected_producer_code_imported": false,
+    "expected_report_capsule_path": "expected/pulsemech_device_transition_ledger_reference_verification_v0.json",
+    "expected_report_comparison": "exact_stdout_bytes",
+    "expected_report_sha256": "5e93539099e99dd5bfa835ba56c401608a5b5c015209812ebb5f9c31142a74f4",
+    "expected_report_size_bytes": 15328,
+    "expected_result": "verified_with_declared_unavailability",
+    "expected_stderr": "empty",
+    "expected_verifier_implementation_relation": "separate_from_producer_code",
+    "producer_verdict_trusted": false,
+    "verifier_capsule_path": "verifier/verify_pulsemech_device_ledger_v0.py",
+    "verifier_execution_relation": "separate_process"
+  },
+  "record_status": "normative_contract",
+  "reference_environment": {
+    "archive_implementation": {
+      "boundary": "cpython_standard_library_bound_to_exact_python_micro_version",
+      "module": "zipfile"
+    },
+    "container_image": "docker.io/library/python:3.11.9-slim-bookworm@sha256:2856e6af199e8128161abd320575eb9b341f3b76f017b5d0c9cd364f60d8a050",
+    "dependency_policy": "python_standard_library_only",
+    "environment_variables": {
+      "LANG": "C.UTF-8",
+      "LC_ALL": "C.UTF-8",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONHASHSEED": "0",
+      "TZ": "UTC"
+    },
+    "network_access": "forbidden",
+    "operating_system": {
+      "architecture": "x86_64",
+      "distribution": "debian",
+      "version": "bookworm-slim"
+    },
+    "python": {
+      "implementation": "CPython",
+      "unicode_data_version": "14.0.0",
+      "version": "3.11.9"
+    },
+    "runtime_downloads": "forbidden",
+    "temporary_directory_policy": "isolated_per_construction_outside_protected_sources",
+    "working_directory_policy": "repository_root"
+  },
+  "regression_contract": {
+    "negative_cases": [
+      "missing_member",
+      "extra_member",
+      "duplicate_member_path",
+      "wrong_member_order",
+      "absolute_member_path",
+      "parent_traversal",
+      "directory_member",
+      "unsupported_compression",
+      "non_fixed_timestamp",
+      "non_empty_extra_field",
+      "non_empty_archive_comment",
+      "source_size_mismatch",
+      "source_sha256_mismatch",
+      "wrong_observer_fingerprint",
+      "wrong_container_image",
+      "wrong_architecture",
+      "wrong_os_distribution",
+      "wrong_os_version",
+      "wrong_python_version",
+      "volatile_manifest_field",
+      "manifest_self_hash",
+      "final_capsule_hash_inside_manifest",
+      "wrong_mutation_target",
+      "wrong_failed_check_expectation",
+      "authority_effect_expansion",
+      "new_verifier_claim"
+    ],
+    "positive_requirements": [
+      "schema_is_valid_draft_2020_12",
+      "contract_json_is_strict",
+      "canonical_manifest_is_strict_and_canonical",
+      "canonical_manifest_satisfies_schema",
+      "exact_four_member_layout",
+      "exact_three_payload_member_inventory",
+      "exact_member_order",
+      "exact_payload_sizes_and_sha256",
+      "exact_observer_fingerprint",
+      "acyclic_identity_graph",
+      "complete_archive_profile",
+      "complete_reference_environment",
+      "positive_reproduction_contract",
+      "repeated_construction_contract",
+      "negative_reproduction_contract",
+      "runner_verifier_separation",
+      "claim_boundary",
+      "authority_boundary"
+    ],
+    "tools_test_manifest_registration": "exactly_once"
+  },
+  "repeated_construction_contract": {
+    "capsule_a_reused_by_capsule_b": false,
+    "capsule_byte_relation": "required_equal",
+    "capsule_final_identity_location": "external_reproduction_result",
+    "capsule_member_byte_relation": "required_equal",
+    "capsule_member_order_relation": "required_equal",
+    "capsule_sha256_relation": "required_equal",
+    "capsule_size_relation": "required_equal",
+    "construction_count": 2,
+    "positive_report_byte_relation": "both_equal_canonical_expected_report",
+    "workspace_relation": "isolated_no_reuse"
+  },
+  "schema_binding": {
+    "byte_identity": "exact_file_bytes",
+    "path": "schemas/pulsemech_device_ledger_reproduction_capsule_manifest_v0.schema.json",
+    "sha256": "a1b8a3734214824883e8a65dbb9dc7c33ca585e0761c312fd85f4db3787ea85c",
+    "size_bytes": 32581
+  },
+  "work_order_binding": {
+    "issue": 2850,
+    "issue_role": "three_pr_reproduction_capsule_work_order",
+    "repository": "HKati/pulse-release-gates-0.1"
+  }
+}
