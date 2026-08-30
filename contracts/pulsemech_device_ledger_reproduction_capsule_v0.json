@@ -359,6 +359,11 @@
       "source_size_mismatch",
       "source_sha256_mismatch",
       "wrong_observer_fingerprint",
+      "wrong_container_image",
+      "wrong_architecture",
+      "wrong_os_distribution",
+      "wrong_os_version",
+      "wrong_python_version",
       "volatile_manifest_field",
       "manifest_self_hash",
       "final_capsule_hash_inside_manifest",
@@ -404,8 +409,8 @@
   "schema_binding": {
     "byte_identity": "exact_file_bytes",
     "path": "schemas/pulsemech_device_ledger_reproduction_capsule_manifest_v0.schema.json",
-    "sha256": "69e99ac214409a28e28b0b32a5c7bcf187cbe2d6bd4d07d0c0b4266f67756704",
-    "size_bytes": 32767
+    "sha256": "a1b8a3734214824883e8a65dbb9dc7c33ca585e0761c312fd85f4db3787ea85c",
+    "size_bytes": 32581
   },
   "work_order_binding": {
     "issue": 2850,
