@@ -956,10 +956,7 @@
           }
         },
         "container_image": {
-          "type": "string",
-          "minLength": 80,
-          "maxLength": 512,
-          "pattern": "^[A-Za-z0-9._/-]+:[A-Za-z0-9._-]+@sha256:[0-9a-f]{64}$"
+          "const": "docker.io/library/python:3.11.9-slim-bookworm@sha256:2856e6af199e8128161abd320575eb9b341f3b76f017b5d0c9cd364f60d8a050"
         },
         "dependency_policy": {
           "const": "python_standard_library_only"
@@ -1005,17 +1002,13 @@
           ],
           "properties": {
             "architecture": {
-              "type": "string",
-              "enum": [
-                "x86_64",
-                "aarch64"
-              ]
+              "const": "x86_64"
             },
             "distribution": {
-              "$ref": "#/$defs/ascii_nonempty"
+              "const": "debian"
             },
             "version": {
-              "$ref": "#/$defs/ascii_nonempty"
+              "const": "bookworm-slim"
             }
           }
         },
@@ -1035,8 +1028,7 @@
               "const": "14.0.0"
             },
             "version": {
-              "type": "string",
-              "pattern": "^3\\.[0-9]+\\.[0-9]+$"
+              "const": "3.11.9"
             }
           }
         },
