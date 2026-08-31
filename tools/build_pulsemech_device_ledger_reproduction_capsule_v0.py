@@ -10,6 +10,7 @@ import json
 import os
 import platform
 import secrets
+import signal
 import stat
 import struct
 import sys
@@ -153,6 +154,15 @@ class ExternalAttestationSnapshot:
 class FileSystemIdentity:
     device: int
     inode: int
+
+
+@dataclass
+class OwnedDirectoryState:
+    name: str
+    descriptor: int = -1
+    identity: FileSystemIdentity | None = None
+    created: bool = False
+    published: bool = False
 
 
 MANIFEST_SCHEMA_SPEC = SourceSpec(
@@ -1583,6 +1593,134 @@ def _open_output_parent(parent: Path) -> tuple[int, FileSystemIdentity]:
         raise
 
 
+def _block_cleanup_signals() -> set[signal.Signals]:
+    required = (
+        "pthread_sigmask",
+        "SIG_BLOCK",
+        "SIG_SETMASK",
+        "SIGINT",
+    )
+    if any(getattr(signal, name, None) is None for name in required):
+        raise BuildError("cleanup_signal_mask_unavailable")
+    try:
+        return signal.pthread_sigmask(
+            signal.SIG_BLOCK,
+            {signal.SIGINT},
+        )
+    except (OSError, ValueError) as exc:
+        raise BuildError("cleanup_signal_mask_block_failed") from exc
+
+
+def _restore_cleanup_signals(previous: set[signal.Signals]) -> None:
+    try:
+        signal.pthread_sigmask(signal.SIG_SETMASK, previous)
+    except (OSError, ValueError) as exc:
+        raise BuildError("cleanup_signal_mask_restore_failed") from exc
+
+
+def _create_owned_output_directory(
+    parent_descriptor: int,
+    state: OwnedDirectoryState,
+) -> None:
+    if not state.name or "/" in state.name or state.name in {".", ".."}:
+        raise BuildError("temporary_output_name_invalid")
+    previous = _block_cleanup_signals()
+    try:
+        os.mkdir(state.name, 0o700, dir_fd=parent_descriptor)
+        state.created = True
+        metadata = os.stat(
+            state.name,
+            dir_fd=parent_descriptor,
+            follow_symlinks=False,
+        )
+        if not stat.S_ISDIR(metadata.st_mode):
+            raise BuildError("temporary_output_not_directory")
+        state.identity = _filesystem_identity(metadata)
+        flags = os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC | os.O_NOFOLLOW
+        state.descriptor = os.open(
+            state.name,
+            flags,
+            dir_fd=parent_descriptor,
+        )
+        opened = os.fstat(state.descriptor)
+        if not stat.S_ISDIR(opened.st_mode):
+            raise BuildError("temporary_output_descriptor_not_directory")
+        if _filesystem_identity(opened) != state.identity:
+            raise BuildError("temporary_output_identity_mismatch")
+    except OSError as exc:
+        raise BuildError("temporary_output_create_or_open_failed") from exc
+    finally:
+        _restore_cleanup_signals(previous)
+
+
+def _publish_owned_output_directory(
+    parent_descriptor: int,
+    state: OwnedDirectoryState,
+    destination_name: str,
+) -> None:
+    previous = _block_cleanup_signals()
+    try:
+        _rename_directory_noreplace(
+            parent_descriptor,
+            state.name,
+            destination_name,
+        )
+        state.name = destination_name
+        state.published = True
+    finally:
+        _restore_cleanup_signals(previous)
+
+
+def _open_owned_output_for_cleanup(
+    parent_descriptor: int,
+    state: OwnedDirectoryState,
+) -> tuple[int, bool] | None:
+    if state.identity is None:
+        return None
+    if state.descriptor >= 0:
+        opened = os.fstat(state.descriptor)
+        if not stat.S_ISDIR(opened.st_mode):
+            raise BuildError("owned_output_cleanup_descriptor_invalid")
+        if _filesystem_identity(opened) != state.identity:
+            raise BuildError("owned_output_cleanup_descriptor_identity_mismatch")
+        return state.descriptor, False
+
+    try:
+        path_metadata = os.stat(
+            state.name,
+            dir_fd=parent_descriptor,
+            follow_symlinks=False,
+        )
+    except FileNotFoundError:
+        return None
+    except OSError as exc:
+        raise BuildError("owned_output_cleanup_target_unavailable") from exc
+    if not stat.S_ISDIR(path_metadata.st_mode):
+        raise BuildError("owned_output_cleanup_target_invalid")
+    if _filesystem_identity(path_metadata) != state.identity:
+        raise BuildError("owned_output_cleanup_identity_mismatch")
+
+    flags = os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC | os.O_NOFOLLOW
+    try:
+        descriptor = os.open(
+            state.name,
+            flags,
+            dir_fd=parent_descriptor,
+        )
+    except OSError as exc:
+        raise BuildError("owned_output_cleanup_reopen_failed") from exc
+    try:
+        opened = os.fstat(descriptor)
+        if not stat.S_ISDIR(opened.st_mode):
+            raise BuildError("owned_output_cleanup_descriptor_invalid")
+        if _filesystem_identity(opened) != state.identity:
+            raise BuildError("owned_output_cleanup_descriptor_identity_mismatch")
+        return descriptor, True
+    except BaseException:
+        os.close(descriptor)
+        raise
+
+
 def _rename_directory_noreplace(
     parent_descriptor: int,
     source_name: str,
@@ -1677,75 +1815,69 @@ def _read_owned_capsule(
         raise BuildError("published_capsule_readback_mismatch")
 
 
-def _remove_owned_output_directory(
+def _clear_owned_output_contents(
     *,
     parent_descriptor: int,
-    directory_descriptor: int,
-    directory_name: str,
-    directory_identity: FileSystemIdentity,
+    state: OwnedDirectoryState,
     capsule_identity: FileSystemIdentity | None,
 ) -> None:
-    try:
-        path_metadata = os.stat(
-            directory_name,
-            dir_fd=parent_descriptor,
-            follow_symlinks=False,
-        )
-    except FileNotFoundError:
+    # A published output is retained on any later failure. There is no Linux
+    # primitive that atomically removes a directory only when a held descriptor
+    # still names the directory currently reachable through a mutable parent
+    # entry. Retention is fail-closed and avoids deleting a substituted object.
+    if state.published:
         return
-    except OSError as exc:
-        raise BuildError("owned_output_cleanup_target_unavailable") from exc
-    if not stat.S_ISDIR(path_metadata.st_mode):
-        raise BuildError("owned_output_cleanup_target_invalid")
-    if _filesystem_identity(path_metadata) != directory_identity:
-        raise BuildError("owned_output_cleanup_identity_mismatch")
 
-    opened_metadata = os.fstat(directory_descriptor)
-    if not stat.S_ISDIR(opened_metadata.st_mode):
-        raise BuildError("owned_output_cleanup_descriptor_invalid")
-    if _filesystem_identity(opened_metadata) != directory_identity:
-        raise BuildError("owned_output_cleanup_descriptor_identity_mismatch")
-
+    opened = _open_owned_output_for_cleanup(parent_descriptor, state)
+    if opened is None:
+        return
+    directory_descriptor, close_after = opened
     try:
-        entries = os.listdir(directory_descriptor)
-    except OSError as exc:
-        raise BuildError("owned_output_cleanup_list_failed") from exc
-    expected_entries = [] if capsule_identity is None else [OUTPUT_CAPSULE_NAME]
-    if entries != expected_entries:
-        raise BuildError("owned_output_cleanup_contents_changed")
-
-    if capsule_identity is not None:
         try:
-            entry_metadata = os.stat(
-                OUTPUT_CAPSULE_NAME,
-                dir_fd=directory_descriptor,
-                follow_symlinks=False,
-            )
+            entries = os.listdir(directory_descriptor)
         except OSError as exc:
-            raise BuildError("owned_output_cleanup_entry_unavailable") from exc
-        if not stat.S_ISREG(entry_metadata.st_mode):
-            raise BuildError("owned_output_cleanup_entry_invalid")
-        if entry_metadata.st_nlink != 1:
-            raise BuildError("owned_output_cleanup_entry_hard_link_forbidden")
-        if _filesystem_identity(entry_metadata) != capsule_identity:
-            raise BuildError("owned_output_cleanup_entry_identity_mismatch")
+            raise BuildError("owned_output_cleanup_list_failed") from exc
+        expected_entries = (
+            [] if capsule_identity is None else [OUTPUT_CAPSULE_NAME]
+        )
+        if entries != expected_entries:
+            raise BuildError("owned_output_cleanup_contents_changed")
 
-    os.fchmod(directory_descriptor, 0o700)
-    if capsule_identity is not None:
-        os.unlink(OUTPUT_CAPSULE_NAME, dir_fd=directory_descriptor)
-    _fsync_directory_descriptor(
-        directory_descriptor,
-        "owned_output_cleanup_directory_fsync_failed",
-    )
+        if capsule_identity is not None:
+            try:
+                entry_metadata = os.stat(
+                    OUTPUT_CAPSULE_NAME,
+                    dir_fd=directory_descriptor,
+                    follow_symlinks=False,
+                )
+            except OSError as exc:
+                raise BuildError(
+                    "owned_output_cleanup_entry_unavailable"
+                ) from exc
+            if not stat.S_ISREG(entry_metadata.st_mode):
+                raise BuildError("owned_output_cleanup_entry_invalid")
+            if entry_metadata.st_nlink != 1:
+                raise BuildError(
+                    "owned_output_cleanup_entry_hard_link_forbidden"
+                )
+            if _filesystem_identity(entry_metadata) != capsule_identity:
+                raise BuildError(
+                    "owned_output_cleanup_entry_identity_mismatch"
+                )
 
-    path_metadata = os.stat(
-        directory_name,
-        dir_fd=parent_descriptor,
-        follow_symlinks=False,
-    )
-    if _filesystem_identity(path_metadata) != directory_identity:
-        raise BuildError("owned_output_cleanup_identity_changed")
-    os.rmdir(directory_name, dir_fd=parent_descriptor)
+        os.fchmod(directory_descriptor, 0o700)
+        if capsule_identity is not None:
+            os.unlink(OUTPUT_CAPSULE_NAME, dir_fd=directory_descriptor)
+        _fsync_directory_descriptor(
+            directory_descriptor,
+            "owned_output_cleanup_directory_fsync_failed",
+        )
+        # The now-empty hidden directory is intentionally retained. Removing it
+        # by name would reintroduce the verified-inode TOCTOU identified during
+        # final-head review. A random per-run name prevents retry poisoning.
+    finally:
+        if close_after:
+            os.close(directory_descriptor)
 
 
 def _publish_capsule(
@@ -1761,35 +1893,13 @@ def _publish_capsule(
         repository_root,
     )
     parent_descriptor = -1
-    directory_descriptor = -1
-    directory_identity: FileSystemIdentity | None = None
+    state = OwnedDirectoryState(temporary.name)
     capsule_identity: FileSystemIdentity | None = None
-    published = False
     try:
         parent_descriptor, _ = _open_output_parent(destination.parent)
-        os.mkdir(temporary.name, 0o700, dir_fd=parent_descriptor)
-        directory_path_metadata = os.stat(
-            temporary.name,
-            dir_fd=parent_descriptor,
-            follow_symlinks=False,
-        )
-        if not stat.S_ISDIR(directory_path_metadata.st_mode):
-            raise BuildError("temporary_output_not_directory")
-        directory_identity = _filesystem_identity(directory_path_metadata)
-
-        directory_flags = (
-            os.O_RDONLY
-            | os.O_DIRECTORY
-            | os.O_CLOEXEC
-            | os.O_NOFOLLOW
-        )
-        directory_descriptor = os.open(
-            temporary.name,
-            directory_flags,
-            dir_fd=parent_descriptor,
-        )
-        if _filesystem_identity(os.fstat(directory_descriptor)) != directory_identity:
-            raise BuildError("temporary_output_identity_mismatch")
+        _create_owned_output_directory(parent_descriptor, state)
+        if state.descriptor < 0 or state.identity is None:
+            raise BuildError("temporary_output_descriptor_unavailable")
 
         file_flags = (
             os.O_WRONLY
@@ -1798,20 +1908,37 @@ def _publish_capsule(
             | os.O_CLOEXEC
             | os.O_NOFOLLOW
         )
+        descriptor = -1
         try:
-            descriptor = os.open(
-                OUTPUT_CAPSULE_NAME,
-                file_flags,
-                0o600,
-                dir_fd=directory_descriptor,
-            )
-        except OSError as exc:
-            raise BuildError("temporary_capsule_create_failed") from exc
-        try:
-            capsule_identity = _filesystem_identity(os.fstat(descriptor))
+            previous = _block_cleanup_signals()
+            try:
+                try:
+                    descriptor = os.open(
+                        OUTPUT_CAPSULE_NAME,
+                        file_flags,
+                        0o600,
+                        dir_fd=state.descriptor,
+                    )
+                except OSError as exc:
+                    raise BuildError(
+                        "temporary_capsule_create_failed"
+                    ) from exc
+                metadata = os.fstat(descriptor)
+                if not stat.S_ISREG(metadata.st_mode):
+                    raise BuildError("temporary_capsule_not_regular_file")
+                if metadata.st_nlink != 1:
+                    raise BuildError(
+                        "temporary_capsule_hard_link_state_forbidden"
+                    )
+                capsule_identity = _filesystem_identity(metadata)
+            finally:
+                _restore_cleanup_signals(previous)
+
             with os.fdopen(descriptor, "wb", closefd=True) as handle:
                 descriptor = -1
-                handle.write(capsule)
+                written = handle.write(capsule)
+                if written != len(capsule):
+                    raise BuildError("temporary_capsule_write_incomplete")
                 handle.flush()
                 os.fsync(handle.fileno())
                 os.fchmod(handle.fileno(), 0o444)
@@ -1821,13 +1948,13 @@ def _publish_capsule(
                 os.close(descriptor)
 
         _read_owned_capsule(
-            directory_descriptor,
+            state.descriptor,
             capsule,
             capsule_identity,
         )
-        os.fchmod(directory_descriptor, 0o555)
+        os.fchmod(state.descriptor, 0o555)
         _fsync_directory_descriptor(
-            directory_descriptor,
+            state.descriptor,
             "temporary_output_directory_fsync_failed",
         )
         _require_sources_unchanged(repository_root, snapshots)
@@ -1836,12 +1963,11 @@ def _publish_capsule(
             attestation,
         )
 
-        _rename_directory_noreplace(
+        _publish_owned_output_directory(
             parent_descriptor,
-            temporary.name,
+            state,
             destination.name,
         )
-        published = True
         _fsync_directory_descriptor(
             parent_descriptor,
             "output_parent_fsync_after_publish_failed",
@@ -1852,10 +1978,10 @@ def _publish_capsule(
             dir_fd=parent_descriptor,
             follow_symlinks=False,
         )
-        if _filesystem_identity(published_metadata) != directory_identity:
+        if _filesystem_identity(published_metadata) != state.identity:
             raise BuildError("published_output_directory_identity_mismatch")
         _read_owned_capsule(
-            directory_descriptor,
+            state.descriptor,
             capsule,
             capsule_identity,
         )
@@ -1865,18 +1991,11 @@ def _publish_capsule(
             attestation,
         )
     except BaseException:
-        if (
-            parent_descriptor >= 0
-            and directory_descriptor >= 0
-            and directory_identity is not None
-        ):
-            cleanup_name = destination.name if published else temporary.name
+        if parent_descriptor >= 0 and state.created:
             try:
-                _remove_owned_output_directory(
+                _clear_owned_output_contents(
                     parent_descriptor=parent_descriptor,
-                    directory_descriptor=directory_descriptor,
-                    directory_name=cleanup_name,
-                    directory_identity=directory_identity,
+                    state=state,
                     capsule_identity=capsule_identity,
                 )
                 _fsync_directory_descriptor(
@@ -1887,8 +2006,9 @@ def _publish_capsule(
                 pass
         raise
     finally:
-        if directory_descriptor >= 0:
-            os.close(directory_descriptor)
+        if state.descriptor >= 0:
+            os.close(state.descriptor)
+            state.descriptor = -1
         if parent_descriptor >= 0:
             os.close(parent_descriptor)
 
