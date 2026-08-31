@@ -135,18 +135,18 @@ EXPECTED_IDENTITIES = {
     ),
     RESULT_SCHEMA_PATH: (
         71112,
-        "83b89d5c8315033a654e717ae017ff5964ac63685e4f65f2d9e18f225c780ca0",
-        "833f876f3bdd703c3fab7aa93aacb14bca47f01b",
+        "c6ff62b7c6af008ae7e15bec69452d6860dfa16c0e8a1345ce843d8713c02af7",
+        "7c9e68a48e79551c2929c56bdfc907ffa67d2992",
     ),
     CAPSULE_BUILDER_PATH: (
-        75083,
-        "4878da3e3adb82697fc0aa25b48e439a52c2601bb1a8ceca595eb939f079b01d",
-        "d37dc25ef68a08d0b076ffa4e5bcd48442858cde",
+        79156,
+        "1a5c48aa63eb7d74235741ff738d4f08a245096f71a76057a22b88036036e1d0",
+        "22fa939d7bd9706a654fbb8893ef0c06ef4e160b",
     ),
     REPRODUCTION_RUNNER_PATH: (
-        121181,
-        "d5d4971f2e4feb18481253a197478128bcd14fbf2dbcd7a64c1debbe1e1be97b",
-        "10aa09a65a185072657f1eb158c00e99c2ee9c6e",
+        123414,
+        "ffd3b9604334587030a89f20952e65417f83036161634755c6541435c5d20104",
+        "e9f58f9a08344b6b2dce698a25834909ecdc082a",
     ),
     CANONICAL_CAPSULE_PATH: (
         285144,
@@ -208,6 +208,19 @@ END_OF_CENTRAL_DIRECTORY_SIGNATURE = 0x06054B50
 
 PROCESS_TIMEOUT_SECONDS = 120
 MAX_PROCESS_STREAM_BYTES = 1_048_576
+EXPECTED_PYTEST_CALL_COUNT = 15
+PROOF_CRITICAL_TEST_NAMES = (
+    "test_two_isolated_independent_constructions_equal_canonical_capsule",
+    "test_two_positive_verifier_processes_match_canonical_report",
+    "test_targeted_crc_consistent_mutation_reaches_exact_signature_failure",
+    "test_canonical_result_matches_the_executed_relations",
+)
+PYTEST_CONTROLLED_ENVIRONMENT_KEYS = (
+    "PYTEST_ADDOPTS",
+    "PYTEST_CURRENT_TEST",
+    "PYTEST_PLUGINS",
+)
+PREMATURE_PYTEST_SUCCESS_EXIT = 70
 
 
 class StrictJSONError(ValueError):
@@ -268,6 +281,69 @@ class ExecutedProof:
     positive_b: ProcessCapture
     mutated_ledger: bytes
     negative: ProcessCapture
+
+
+class _PytestCompletionGuard:
+    def __init__(self) -> None:
+        self.collected: tuple[str, ...] = ()
+        self.call_reports: dict[str, Any] = {}
+        self.collection_finished = False
+        self.session_finished = False
+
+    def pytest_collection_finish(self, session: Any) -> None:
+        self.collected = tuple(item.nodeid for item in session.items)
+        self.collection_finished = True
+
+    def pytest_runtest_logreport(self, report: Any) -> None:
+        if report.when == "call":
+            self.call_reports[report.nodeid] = report
+
+    def pytest_sessionfinish(self, session: Any, exitstatus: Any) -> None:
+        del session, exitstatus
+        self.session_finished = True
+
+    def validated_exit_code(self, exit_code: Any) -> int:
+        observed = int(exit_code)
+        if observed != 0:
+            return observed
+        if not self.collection_finished or not self.session_finished:
+            return PREMATURE_PYTEST_SUCCESS_EXIT
+        if len(self.collected) != EXPECTED_PYTEST_CALL_COUNT:
+            return PREMATURE_PYTEST_SUCCESS_EXIT
+        if len(set(self.collected)) != EXPECTED_PYTEST_CALL_COUNT:
+            return PREMATURE_PYTEST_SUCCESS_EXIT
+        if set(self.call_reports) != set(self.collected):
+            return PREMATURE_PYTEST_SUCCESS_EXIT
+        for report in self.call_reports.values():
+            if not report.passed or hasattr(report, "wasxfail"):
+                return PREMATURE_PYTEST_SUCCESS_EXIT
+        for required in PROOF_CRITICAL_TEST_NAMES:
+            marker = f"::{required}"
+            if not any(marker in nodeid for nodeid in self.collected):
+                return PREMATURE_PYTEST_SUCCESS_EXIT
+        return 0
+
+
+def _run_sanitized_pytest() -> int:
+    for key in PYTEST_CONTROLLED_ENVIRONMENT_KEYS:
+        os.environ.pop(key, None)
+    os.environ["PYTEST_DISABLE_PLUGIN_AUTOLOAD"] = "1"
+    guard = _PytestCompletionGuard()
+    arguments = [
+        os.fspath(Path(__file__).resolve()),
+        "--disable-plugin-autoload",
+        "--noconftest",
+        "--rootdir",
+        os.fspath(ROOT),
+        "-c",
+        os.devnull,
+        "-o",
+        "addopts=",
+        "-p",
+        "no:cacheprovider",
+    ]
+    exit_code = pytest.main(arguments, plugins=[guard])
+    return guard.validated_exit_code(exit_code)
 
 
 def sha256_bytes(payload: bytes) -> str:
@@ -1346,6 +1422,35 @@ def test_builder_runner_and_verifier_implementation_boundaries_remain_separate()
         )
     assert b"subprocess" in runner
     assert b"tools/verify_pulsemech_device_ledger_v0.py" in runner
+    for source in (builder, runner):
+        assert b"pthread_sigmask" in source
+        assert b"OwnedDirectoryState" in source
+        assert b"os.rmdir(" not in source
+    execution_test = Path(__file__).resolve().read_bytes()
+    assert b"PYTEST_ADDOPTS" in execution_test
+    assert b"PYTEST_DISABLE_PLUGIN_AUTOLOAD" in execution_test
+    assert b"--disable-plugin-autoload" in execution_test
+    assert b"--noconftest" in execution_test
+    assert b"PREMATURE_PYTEST_SUCCESS_EXIT" in execution_test
+    execution_tree = ast.parse(execution_test, filename=str(Path(__file__)))
+    for node in ast.walk(execution_tree):
+        if not isinstance(node, ast.Call):
+            continue
+        function = node.func
+        if not (
+            isinstance(function, ast.Attribute)
+            and function.attr == "main"
+            and isinstance(function.value, ast.Name)
+            and function.value.id == "pytest"
+        ):
+            continue
+        assert not (
+            len(node.args) == 1
+            and isinstance(node.args[0], ast.List)
+            and len(node.args[0].elts) == 1
+            and isinstance(node.args[0].elts[0], ast.Name)
+            and node.args[0].elts[0].id == "__file__"
+        )
     _result_bytes, result, _schema = _load_canonical_result()
     assert result["implementation_boundary"] == {
         "existing_verifier_modification": "forbidden",
@@ -1392,4 +1497,4 @@ if __name__ == "__main__":
     arguments = sys.argv[1:]
     if arguments:
         raise SystemExit(_child_main(arguments))
-    raise SystemExit(pytest.main([__file__]))
+    raise SystemExit(_run_sanitized_pytest())
