@@ -1389,4 +1389,7 @@ def test_claim_and_authority_boundaries_remain_exactly_non_authoritative() -> No
 
 
 if __name__ == "__main__":
-    raise SystemExit(_child_main(sys.argv[1:]))
+    arguments = sys.argv[1:]
+    if arguments:
+        raise SystemExit(_child_main(arguments))
+    raise SystemExit(pytest.main([__file__]))
