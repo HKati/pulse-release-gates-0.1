@@ -11,6 +11,7 @@ import os
 import platform
 import re
 import secrets
+import signal
 import stat
 import struct
 import subprocess
@@ -256,6 +257,15 @@ class FileSystemIdentity:
     inode: int
 
 
+@dataclass
+class OwnedDirectoryState:
+    name: str
+    descriptor: int = -1
+    identity: FileSystemIdentity | None = None
+    created: bool = False
+    published: bool = False
+
+
 @dataclass(frozen=True)
 class SourceSnapshot:
     spec: SourceSpec
@@ -393,14 +403,14 @@ CANONICAL_EXPECTED_REPORT_SPEC = SourceSpec(
 RESULT_SCHEMA_SPEC = SourceSpec(
     RESULT_SCHEMA_PATH,
     71112,
-    "83b89d5c8315033a654e717ae017ff5964ac63685e4f65f2d9e18f225c780ca0",
-    "833f876f3bdd703c3fab7aa93aacb14bca47f01b",
+    "c6ff62b7c6af008ae7e15bec69452d6860dfa16c0e8a1345ce843d8713c02af7",
+    "7c9e68a48e79551c2929c56bdfc907ffa67d2992",
 )
 CAPSULE_BUILDER_SPEC = SourceSpec(
     CAPSULE_BUILDER_PATH,
-    75083,
-    "4878da3e3adb82697fc0aa25b48e439a52c2601bb1a8ceca595eb939f079b01d",
-    "d37dc25ef68a08d0b076ffa4e5bcd48442858cde",
+    79156,
+    "1a5c48aa63eb7d74235741ff738d4f08a245096f71a76057a22b88036036e1d0",
+    "22fa939d7bd9706a654fbb8893ef0c06ef4e160b",
 )
 
 FIXED_PROTECTED_SOURCE_SPECS = (
@@ -1294,60 +1304,86 @@ def _require_open_directory_path_identity(
         raise RunnerError(f"{label}_descriptor_identity_changed")
 
 
-def _mkdir_owned(
-    parent_descriptor: int,
-    name: str,
-    mode: int = 0o700,
-) -> tuple[int, FileSystemIdentity]:
-    if not name or "/" in name or name in {".", ".."}:
-        raise RunnerError("owned_directory_name_invalid")
-    created = False
-    descriptor = -1
-    identity: FileSystemIdentity | None = None
+def _block_cleanup_signals() -> set[signal.Signals]:
+    required = (
+        "pthread_sigmask",
+        "SIG_BLOCK",
+        "SIG_SETMASK",
+        "SIGINT",
+    )
+    if any(getattr(signal, name, None) is None for name in required):
+        raise RunnerError("cleanup_signal_mask_unavailable")
     try:
-        os.mkdir(name, mode, dir_fd=parent_descriptor)
-        created = True
+        return signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGINT})
+    except (OSError, ValueError) as exc:
+        raise RunnerError("cleanup_signal_mask_block_failed") from exc
+
+
+def _restore_cleanup_signals(previous: set[signal.Signals]) -> None:
+    try:
+        signal.pthread_sigmask(signal.SIG_SETMASK, previous)
+    except (OSError, ValueError) as exc:
+        raise RunnerError("cleanup_signal_mask_restore_failed") from exc
+
+
+def _create_owned_directory(
+    parent_descriptor: int,
+    state: OwnedDirectoryState,
+    mode: int = 0o700,
+) -> None:
+    if not state.name or "/" in state.name or state.name in {".", ".."}:
+        raise RunnerError("owned_directory_name_invalid")
+    previous = _block_cleanup_signals()
+    try:
+        os.mkdir(state.name, mode, dir_fd=parent_descriptor)
+        state.created = True
         metadata = os.stat(
-            name,
+            state.name,
             dir_fd=parent_descriptor,
             follow_symlinks=False,
         )
         if not stat.S_ISDIR(metadata.st_mode):
-            raise RunnerError("owned_directory_not_directory", name)
-        identity = _filesystem_identity(metadata)
+            raise RunnerError("owned_directory_not_directory", state.name)
+        state.identity = _filesystem_identity(metadata)
         flags = os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC | os.O_NOFOLLOW
-        descriptor = os.open(name, flags, dir_fd=parent_descriptor)
-        if _filesystem_identity(os.fstat(descriptor)) != identity:
-            raise RunnerError("owned_directory_identity_mismatch", name)
-        result = (descriptor, identity)
-        descriptor = -1
-        return result
-    except OSError as exc:
-        error: BaseException = RunnerError(
-            "owned_directory_create_or_open_failed",
-            name,
+        state.descriptor = os.open(
+            state.name,
+            flags,
+            dir_fd=parent_descriptor,
         )
-        error.__cause__ = exc
-    except BaseException as exc:
-        error = exc
-    finally:
-        if descriptor >= 0:
-            os.close(descriptor)
-    if created and identity is not None:
-        try:
-            current = os.stat(
-                name,
-                dir_fd=parent_descriptor,
-                follow_symlinks=False,
+        opened = os.fstat(state.descriptor)
+        if not stat.S_ISDIR(opened.st_mode):
+            raise RunnerError(
+                "owned_directory_descriptor_not_directory",
+                state.name,
             )
-            if (
-                stat.S_ISDIR(current.st_mode)
-                and _filesystem_identity(current) == identity
-            ):
-                os.rmdir(name, dir_fd=parent_descriptor)
-        except BaseException:
-            pass
-    raise error
+        if _filesystem_identity(opened) != state.identity:
+            raise RunnerError("owned_directory_identity_mismatch", state.name)
+    except OSError as exc:
+        raise RunnerError(
+            "owned_directory_create_or_open_failed",
+            state.name,
+        ) from exc
+    finally:
+        _restore_cleanup_signals(previous)
+
+
+def _publish_owned_directory(
+    parent_descriptor: int,
+    state: OwnedDirectoryState,
+    destination_name: str,
+) -> None:
+    previous = _block_cleanup_signals()
+    try:
+        _rename_directory_noreplace(
+            parent_descriptor,
+            state.name,
+            destination_name,
+        )
+        state.name = destination_name
+        state.published = True
+    finally:
+        _restore_cleanup_signals(previous)
 
 
 def _fsync_directory(descriptor: int, code: str) -> None:
@@ -1389,7 +1425,7 @@ def _rename_directory_noreplace(
     raise RunnerError("atomic_output_publish_failed", str(observed_errno))
 
 
-def _safe_recursive_delete_contents(
+def _clear_owned_directory_contents_recursive(
     directory_descriptor: int,
     *,
     depth: int = 0,
@@ -1423,7 +1459,7 @@ def _safe_recursive_delete_contents(
                 ):
                     raise RunnerError("cleanup_child_identity_mismatch")
                 os.fchmod(child, 0o700)
-                _safe_recursive_delete_contents(
+                _clear_owned_directory_contents_recursive(
                     child,
                     depth=depth + 1,
                     counter=counter,
@@ -1431,46 +1467,86 @@ def _safe_recursive_delete_contents(
                 _fsync_directory(child, "cleanup_child_fsync_failed")
             finally:
                 os.close(child)
-            os.rmdir(name, dir_fd=directory_descriptor)
+            # The empty child directory is retained. A pathname rmdir would be
+            # vulnerable to same-UID replacement after the identity check.
         else:
             os.unlink(name, dir_fd=directory_descriptor)
 
 
-def _remove_named_owned_directory(
-    *,
+def _open_owned_directory_for_cleanup(
     parent_descriptor: int,
-    directory_descriptor: int,
-    directory_name: str,
-    directory_identity: FileSystemIdentity,
-) -> None:
+    state: OwnedDirectoryState,
+) -> tuple[int, bool] | None:
+    if state.identity is None:
+        return None
+    if state.descriptor >= 0:
+        opened = os.fstat(state.descriptor)
+        if not stat.S_ISDIR(opened.st_mode):
+            raise RunnerError("cleanup_descriptor_not_directory")
+        if _filesystem_identity(opened) != state.identity:
+            raise RunnerError("cleanup_descriptor_identity_mismatch")
+        return state.descriptor, False
+
     try:
         path_metadata = os.stat(
-            directory_name,
+            state.name,
             dir_fd=parent_descriptor,
             follow_symlinks=False,
         )
     except FileNotFoundError:
-        return
+        return None
     except OSError as exc:
         raise RunnerError("cleanup_target_unavailable") from exc
     if not stat.S_ISDIR(path_metadata.st_mode):
         raise RunnerError("cleanup_target_not_directory")
-    if _filesystem_identity(path_metadata) != directory_identity:
+    if _filesystem_identity(path_metadata) != state.identity:
         raise RunnerError("cleanup_target_identity_mismatch")
-    opened = os.fstat(directory_descriptor)
-    if _filesystem_identity(opened) != directory_identity:
-        raise RunnerError("cleanup_descriptor_identity_mismatch")
-    os.fchmod(directory_descriptor, 0o700)
-    _safe_recursive_delete_contents(directory_descriptor)
-    _fsync_directory(directory_descriptor, "cleanup_directory_fsync_failed")
-    current = os.stat(
-        directory_name,
-        dir_fd=parent_descriptor,
-        follow_symlinks=False,
-    )
-    if _filesystem_identity(current) != directory_identity:
-        raise RunnerError("cleanup_target_identity_changed")
-    os.rmdir(directory_name, dir_fd=parent_descriptor)
+
+    flags = os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC | os.O_NOFOLLOW
+    try:
+        descriptor = os.open(
+            state.name,
+            flags,
+            dir_fd=parent_descriptor,
+        )
+    except OSError as exc:
+        raise RunnerError("cleanup_target_reopen_failed") from exc
+    try:
+        opened = os.fstat(descriptor)
+        if not stat.S_ISDIR(opened.st_mode):
+            raise RunnerError("cleanup_descriptor_not_directory")
+        if _filesystem_identity(opened) != state.identity:
+            raise RunnerError("cleanup_descriptor_identity_mismatch")
+        return descriptor, True
+    except BaseException:
+        os.close(descriptor)
+        raise
+
+
+def _clear_owned_directory_contents(
+    *,
+    parent_descriptor: int,
+    state: OwnedDirectoryState,
+) -> None:
+    # A published final output is retained on any later failure. Its exact
+    # readback has already completed, and retaining it is safer than deleting a
+    # mutable parent entry that may have been substituted by another process.
+    if state.published:
+        return
+
+    opened = _open_owned_directory_for_cleanup(parent_descriptor, state)
+    if opened is None:
+        return
+    directory_descriptor, close_after = opened
+    try:
+        os.fchmod(directory_descriptor, 0o700)
+        _clear_owned_directory_contents_recursive(directory_descriptor)
+        _fsync_directory(directory_descriptor, "cleanup_directory_fsync_failed")
+        # The empty random-name directory tree is intentionally retained. Linux
+        # has no atomic inode-bound directory removal primitive for this case.
+    finally:
+        if close_after:
+            os.close(directory_descriptor)
 
 
 def _create_child_directory(parent: Path, name: str) -> Path:
@@ -2895,43 +2971,40 @@ def _publish_outputs(
     )
     if os.path.lexists(destination.parent / staging_name):
         raise RunnerError("publish_staging_collision")
-    staging_fd = -1
-    staging_identity: FileSystemIdentity | None = None
-    published = False
+    state = OwnedDirectoryState(staging_name)
     try:
-        staging_fd, staging_identity = _mkdir_owned(
-            parent_descriptor,
-            staging_name,
-        )
+        _create_owned_directory(parent_descriptor, state)
+        if state.descriptor < 0 or state.identity is None:
+            raise RunnerError("publish_staging_descriptor_unavailable")
         capsule_identity = _write_publish_file(
-            staging_fd,
+            state.descriptor,
             OUTPUT_CAPSULE_NAME,
             capsule,
         )
         result_identity = _write_publish_file(
-            staging_fd,
+            state.descriptor,
             OUTPUT_RESULT_NAME,
             result,
         )
         _read_publish_file(
-            staging_fd,
+            state.descriptor,
             OUTPUT_CAPSULE_NAME,
             capsule,
             capsule_identity,
         )
         _read_publish_file(
-            staging_fd,
+            state.descriptor,
             OUTPUT_RESULT_NAME,
             result,
             result_identity,
         )
         _require_directory_entry_set(
-            staging_fd,
+            state.descriptor,
             (OUTPUT_CAPSULE_NAME, OUTPUT_RESULT_NAME),
             "publish_staging_entry_set_mismatch",
         )
-        os.fchmod(staging_fd, 0o555)
-        _fsync_directory(staging_fd, "publish_staging_fsync_failed")
+        os.fchmod(state.descriptor, 0o555)
+        _fsync_directory(state.descriptor, "publish_staging_fsync_failed")
         _require_sources_unchanged(repository_root, specs, baseline)
         _require_attestation_unchanged(attestation, repository_root)
         _require_open_directory_path_identity(
@@ -2940,35 +3013,34 @@ def _publish_outputs(
             parent_identity,
             "output_parent",
         )
-        _rename_directory_noreplace(
+        _publish_owned_directory(
             parent_descriptor,
-            staging_name,
+            state,
             destination.name,
         )
-        published = True
         _fsync_directory(parent_descriptor, "output_parent_fsync_failed")
         published_metadata = os.stat(
             destination.name,
             dir_fd=parent_descriptor,
             follow_symlinks=False,
         )
-        if _filesystem_identity(published_metadata) != staging_identity:
+        if _filesystem_identity(published_metadata) != state.identity:
             raise RunnerError("published_output_directory_identity_mismatch")
         if stat.S_IMODE(published_metadata.st_mode) != 0o555:
             raise RunnerError("published_output_directory_mode_mismatch")
         _require_directory_entry_set(
-            staging_fd,
+            state.descriptor,
             (OUTPUT_CAPSULE_NAME, OUTPUT_RESULT_NAME),
             "published_output_entry_set_mismatch",
         )
         _read_publish_file(
-            staging_fd,
+            state.descriptor,
             OUTPUT_CAPSULE_NAME,
             capsule,
             capsule_identity,
         )
         _read_publish_file(
-            staging_fd,
+            state.descriptor,
             OUTPUT_RESULT_NAME,
             result,
             result_identity,
@@ -2982,14 +3054,11 @@ def _publish_outputs(
             "output_parent",
         )
     except BaseException:
-        if staging_fd >= 0 and staging_identity is not None:
-            cleanup_name = destination.name if published else staging_name
+        if state.created:
             try:
-                _remove_named_owned_directory(
+                _clear_owned_directory_contents(
                     parent_descriptor=parent_descriptor,
-                    directory_descriptor=staging_fd,
-                    directory_name=cleanup_name,
-                    directory_identity=staging_identity,
+                    state=state,
                 )
                 _fsync_directory(
                     parent_descriptor,
@@ -2999,8 +3068,9 @@ def _publish_outputs(
                 pass
         raise
     finally:
-        if staging_fd >= 0:
-            os.close(staging_fd)
+        if state.descriptor >= 0:
+            os.close(state.descriptor)
+            state.descriptor = -1
 
 
 def _success_summary(capsule: bytes, result: bytes) -> dict[str, Any]:
@@ -3052,11 +3122,10 @@ def run_reproduction(
     )
     parent_fd = -1
     parent_identity: FileSystemIdentity | None = None
-    workspace_fd = -1
-    workspace_identity: FileSystemIdentity | None = None
     workspace_name = (
         f".{destination.name}.{TOOL_NAME}.{secrets.token_hex(16)}.work.tmp"
     )
+    workspace = OwnedDirectoryState(workspace_name)
     try:
         parent_fd, parent_identity = _open_directory_nofollow(
             output_parent,
@@ -3089,7 +3158,9 @@ def run_reproduction(
         )
         if os.path.lexists(output_parent / workspace_name):
             raise RunnerError("workspace_collision")
-        workspace_fd, workspace_identity = _mkdir_owned(parent_fd, workspace_name)
+        _create_owned_directory(parent_fd, workspace)
+        if workspace.descriptor < 0 or workspace.identity is None:
+            raise RunnerError("workspace_descriptor_unavailable")
         workspace_root = output_parent / workspace_name
 
         construction_a_workspace = _create_child_directory(
@@ -3120,7 +3191,10 @@ def run_reproduction(
         )
         if construction_a.capsule.payload != construction_b.capsule.payload:
             raise RunnerError("capsule_a_b_bytes_differ")
-        if construction_a.builder_capture.stdout != construction_b.builder_capture.stdout:
+        if (
+            construction_a.builder_capture.stdout
+            != construction_b.builder_capture.stdout
+        ):
             raise RunnerError("builder_stdout_a_b_differ")
 
         positive_a_workspace = _create_child_directory(
@@ -3177,14 +3251,12 @@ def run_reproduction(
         result_bytes = _validate_and_render_result(result_object, schema_payload)
         capsule_bytes = construction_a.capsule.payload
 
-        _remove_named_owned_directory(
+        _clear_owned_directory_contents(
             parent_descriptor=parent_fd,
-            directory_descriptor=workspace_fd,
-            directory_name=workspace_name,
-            directory_identity=workspace_identity,
+            state=workspace,
         )
-        os.close(workspace_fd)
-        workspace_fd = -1
+        os.close(workspace.descriptor)
+        workspace.descriptor = -1
         _fsync_directory(parent_fd, "output_parent_workspace_cleanup_fsync_failed")
 
         _publish_outputs(
@@ -3200,17 +3272,11 @@ def run_reproduction(
         )
         return capsule_bytes, result_bytes
     except BaseException:
-        if (
-            parent_fd >= 0
-            and workspace_fd >= 0
-            and workspace_identity is not None
-        ):
+        if parent_fd >= 0 and workspace.created:
             try:
-                _remove_named_owned_directory(
+                _clear_owned_directory_contents(
                     parent_descriptor=parent_fd,
-                    directory_descriptor=workspace_fd,
-                    directory_name=workspace_name,
-                    directory_identity=workspace_identity,
+                    state=workspace,
                 )
                 _fsync_directory(
                     parent_fd,
@@ -3220,8 +3286,9 @@ def run_reproduction(
                 pass
         raise
     finally:
-        if workspace_fd >= 0:
-            os.close(workspace_fd)
+        if workspace.descriptor >= 0:
+            os.close(workspace.descriptor)
+            workspace.descriptor = -1
         if parent_fd >= 0:
             os.close(parent_fd)
 
