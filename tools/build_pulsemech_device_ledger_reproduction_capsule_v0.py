@@ -9,6 +9,7 @@ import io
 import json
 import os
 import platform
+import secrets
 import stat
 import struct
 import sys
@@ -139,6 +140,19 @@ class SourceSnapshot:
     spec: SourceSpec
     payload: bytes
     metadata: StableStat
+
+
+@dataclass(frozen=True)
+class ExternalAttestationSnapshot:
+    path: Path
+    payload: bytes
+    metadata: StableStat
+
+
+@dataclass(frozen=True)
+class FileSystemIdentity:
+    device: int
+    inode: int
 
 
 MANIFEST_SCHEMA_SPEC = SourceSpec(
@@ -303,6 +317,38 @@ EXPECTED_REFERENCE_ENVIRONMENT: dict[str, Any] = {
     "working_directory_policy": "repository_root",
 }
 
+# In-container operating-system and interpreter properties cannot establish an
+# OCI image digest. The outer launcher must verify the local RepoDigest, select
+# the exact digest for launch, and supply the fixed read-only attestation below.
+EXPECTED_CONTAINER_IMAGE_DIGEST = (
+    "sha256:"
+    "2856e6af199e8128161abd320575eb9b341f3b76f017b5d0c9cd364f60d8a050"
+)
+REFERENCE_ENVIRONMENT_ATTESTATION_MAX_BYTES = 4096
+EXPECTED_REFERENCE_ENVIRONMENT_ATTESTATION: dict[str, Any] = {
+    "attestation_mount": "read_only",
+    "attestation_role": "reference_environment_precondition",
+    "attestation_source": "outer_reference_environment_launcher",
+    "authority_effect": "none",
+    "container_image": EXPECTED_REFERENCE_ENVIRONMENT["container_image"],
+    "container_image_digest": EXPECTED_CONTAINER_IMAGE_DIGEST,
+    "container_image_repo_digest_verified": True,
+    "container_launch_by_exact_digest": True,
+    "document_type": "pulsemech_reference_environment_attestation",
+    "network_mode": "none",
+    "output_mount": "separate_writable",
+    "repository_mount": "read_only",
+    "schema_version": "pulsemech_reference_environment_attestation_v0",
+    "verification_method": (
+        "host_container_runtime_repo_digest_match_before_exact_digest_launch"
+    ),
+    "verified_before_container_start": True,
+}
+EXPECTED_REFERENCE_ENVIRONMENT_ATTESTATION_SIZE_BYTES = 843
+EXPECTED_REFERENCE_ENVIRONMENT_ATTESTATION_SHA256 = (
+    "9d20cf6ea118ab8e01768e42a7636923f69945545f01a52904851a717442b9ca"
+)
+
 EXPECTED_CAPSULE_SIZE_BYTES = (
     sum(spec.size_bytes for spec in CAPSULE_MEMBER_SPECS)
     + len(CAPSULE_MEMBER_SPECS)
@@ -363,6 +409,24 @@ def _validate_implementation_constants() -> None:
         raise BuildError("builder_member_ordinal_mismatch")
     if len(set(CAPSULE_MEMBER_ORDER)) != len(CAPSULE_MEMBER_ORDER):
         raise BuildError("builder_duplicate_member_path")
+    expected_attestation_bytes = canonical_json_bytes(
+        EXPECTED_REFERENCE_ENVIRONMENT_ATTESTATION
+    )
+    if (
+        len(expected_attestation_bytes)
+        != EXPECTED_REFERENCE_ENVIRONMENT_ATTESTATION_SIZE_BYTES
+    ):
+        raise BuildError("reference_environment_attestation_size_constant_mismatch")
+    if (
+        sha256_bytes(expected_attestation_bytes)
+        != EXPECTED_REFERENCE_ENVIRONMENT_ATTESTATION_SHA256
+    ):
+        raise BuildError("reference_environment_attestation_sha256_constant_mismatch")
+    expected_image = EXPECTED_REFERENCE_ENVIRONMENT["container_image"]
+    if not isinstance(expected_image, str) or not expected_image.endswith(
+        "@" + EXPECTED_CONTAINER_IMAGE_DIGEST
+    ):
+        raise BuildError("reference_container_image_digest_constant_mismatch")
 
 
 def sha256_bytes(payload: bytes) -> str:
@@ -401,8 +465,19 @@ def _stable_stat(metadata: os.stat_result) -> StableStat:
     )
 
 
+def _filesystem_identity(metadata: os.stat_result) -> FileSystemIdentity:
+    return FileSystemIdentity(
+        device=metadata.st_dev,
+        inode=metadata.st_ino,
+    )
+
+
 def _absolute_without_symlink_resolution(path: Path) -> Path:
     return Path(os.path.abspath(os.fspath(path)))
+
+
+def _is_within(path: Path, root: Path) -> bool:
+    return path == root or root in path.parents
 
 
 def _resolve_repository_root(repository_root: Path) -> Path:
@@ -708,6 +783,97 @@ def canonical_json_bytes(value: Any) -> bytes:
     return _canonical_json_text(normalized).encode("utf-8")
 
 
+def _read_reference_environment_attestation(
+    path: Path,
+    repository_root: Path,
+) -> ExternalAttestationSnapshot:
+    candidate = _absolute_without_symlink_resolution(path)
+    try:
+        resolved = candidate.resolve(strict=True)
+        path_metadata = candidate.lstat()
+    except OSError as exc:
+        raise BuildError("reference_environment_attestation_unavailable") from exc
+    if candidate != resolved:
+        raise BuildError("reference_environment_attestation_symlink_or_noncanonical")
+    if _is_within(candidate, repository_root):
+        raise BuildError("reference_environment_attestation_inside_repository")
+    if stat.S_ISLNK(path_metadata.st_mode) or not stat.S_ISREG(
+        path_metadata.st_mode
+    ):
+        raise BuildError("reference_environment_attestation_not_regular_file")
+    if path_metadata.st_nlink != 1:
+        raise BuildError("reference_environment_attestation_hard_link_forbidden")
+    if path_metadata.st_size > REFERENCE_ENVIRONMENT_ATTESTATION_MAX_BYTES:
+        raise BuildError("reference_environment_attestation_too_large")
+
+    flags = os.O_RDONLY | os.O_CLOEXEC | os.O_NOFOLLOW
+    try:
+        descriptor = os.open(candidate, flags)
+    except OSError as exc:
+        raise BuildError("reference_environment_attestation_open_failed") from exc
+    try:
+        before = os.fstat(descriptor)
+        if _filesystem_identity(before) != _filesystem_identity(path_metadata):
+            raise BuildError("reference_environment_attestation_changed_before_read")
+        if not stat.S_ISREG(before.st_mode) or before.st_nlink != 1:
+            raise BuildError("reference_environment_attestation_file_state_invalid")
+        with os.fdopen(descriptor, "rb", closefd=True) as handle:
+            descriptor = -1
+            payload = handle.read(REFERENCE_ENVIRONMENT_ATTESTATION_MAX_BYTES + 1)
+            after = os.fstat(handle.fileno())
+    finally:
+        if descriptor >= 0:
+            os.close(descriptor)
+
+    if _stable_stat(before) != _stable_stat(after):
+        raise BuildError("reference_environment_attestation_changed_during_read")
+    if len(payload) > REFERENCE_ENVIRONMENT_ATTESTATION_MAX_BYTES:
+        raise BuildError("reference_environment_attestation_too_large")
+    expected_bytes = canonical_json_bytes(
+        EXPECTED_REFERENCE_ENVIRONMENT_ATTESTATION
+    )
+    if len(payload) != EXPECTED_REFERENCE_ENVIRONMENT_ATTESTATION_SIZE_BYTES:
+        raise BuildError("reference_environment_attestation_size_mismatch")
+    if sha256_bytes(payload) != EXPECTED_REFERENCE_ENVIRONMENT_ATTESTATION_SHA256:
+        raise BuildError("reference_environment_attestation_sha256_mismatch")
+    observed = _load_strict_json_object(
+        payload,
+        "reference_environment_attestation",
+    )
+    if observed != EXPECTED_REFERENCE_ENVIRONMENT_ATTESTATION:
+        raise BuildError("reference_environment_attestation_content_mismatch")
+    if payload != expected_bytes:
+        raise BuildError("reference_environment_attestation_noncanonical")
+
+    try:
+        final_metadata = candidate.lstat()
+    except OSError as exc:
+        raise BuildError(
+            "reference_environment_attestation_lstat_failed_after_read"
+        ) from exc
+    if _stable_stat(final_metadata) != _stable_stat(after):
+        raise BuildError("reference_environment_attestation_changed_after_read")
+    return ExternalAttestationSnapshot(
+        path=candidate,
+        payload=payload,
+        metadata=_stable_stat(after),
+    )
+
+
+def _require_reference_environment_attestation_unchanged(
+    repository_root: Path,
+    baseline: ExternalAttestationSnapshot,
+) -> None:
+    current = _read_reference_environment_attestation(
+        baseline.path,
+        repository_root,
+    )
+    if current.payload != baseline.payload:
+        raise BuildError("reference_environment_attestation_bytes_changed")
+    if current.metadata != baseline.metadata:
+        raise BuildError("reference_environment_attestation_metadata_changed")
+
+
 def _require_exact_mapping(
     observed: Any,
     expected: Mapping[str, Any],
@@ -937,7 +1103,16 @@ def _read_os_release() -> dict[str, str]:
     return values
 
 
-def _verify_measurable_reference_runtime() -> None:
+def _verify_measurable_reference_runtime(
+    attestation: ExternalAttestationSnapshot,
+) -> None:
+    if (
+        len(attestation.payload)
+        != EXPECTED_REFERENCE_ENVIRONMENT_ATTESTATION_SIZE_BYTES
+        or sha256_bytes(attestation.payload)
+        != EXPECTED_REFERENCE_ENVIRONMENT_ATTESTATION_SHA256
+    ):
+        raise BuildError("reference_environment_attestation_identity_mismatch")
     if os.name != "posix" or platform.system() != "Linux":
         raise BuildError("reference_operating_system_mismatch")
     if platform.machine() != "x86_64":
@@ -1330,22 +1505,29 @@ def _inspect_capsule(
 
 def build_reproduction_capsule(
     repository_root: Path,
-) -> tuple[Path, bytes, dict[str, SourceSnapshot]]:
+    reference_environment_attestation: Path,
+) -> tuple[
+    Path,
+    bytes,
+    dict[str, SourceSnapshot],
+    ExternalAttestationSnapshot,
+]:
     _validate_implementation_constants()
-    _verify_measurable_reference_runtime()
     root = _resolve_repository_root(repository_root)
     _require_repository_working_directory(root)
+    attestation = _read_reference_environment_attestation(
+        reference_environment_attestation,
+        root,
+    )
+    _verify_measurable_reference_runtime(attestation)
     snapshots = _read_protected_sources(root)
     _validate_manifest_surface(snapshots)
     members = _build_member_payloads(snapshots)
     capsule = _deterministic_zip(members)
     _inspect_capsule(capsule, members)
     _require_sources_unchanged(root, snapshots)
-    return root, capsule, snapshots
-
-
-def _is_within(path: Path, root: Path) -> bool:
-    return path == root or root in path.parents
+    _require_reference_environment_attestation_unchanged(root, attestation)
+    return root, capsule, snapshots, attestation
 
 
 def _resolve_output_directory(
@@ -1370,14 +1552,42 @@ def _resolve_output_directory(
     if os.path.lexists(destination):
         raise BuildError("output_directory_exists")
     temporary = parent / (
-        f".{destination.name}.{TOOL_NAME}.tmp"
+        f".{destination.name}.{TOOL_NAME}.{secrets.token_hex(16)}.tmp"
     )
     if os.path.lexists(temporary):
-        raise BuildError("temporary_output_exists")
+        raise BuildError("temporary_output_collision")
     return destination, temporary
 
 
-def _rename_directory_noreplace(source: Path, destination: Path) -> None:
+def _open_output_parent(parent: Path) -> tuple[int, FileSystemIdentity]:
+    try:
+        path_metadata = parent.lstat()
+    except OSError as exc:
+        raise BuildError("output_parent_lstat_failed") from exc
+    flags = os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC | os.O_NOFOLLOW
+    try:
+        descriptor = os.open(parent, flags)
+    except OSError as exc:
+        raise BuildError("output_parent_open_failed") from exc
+    try:
+        opened_metadata = os.fstat(descriptor)
+        if not stat.S_ISDIR(opened_metadata.st_mode):
+            raise BuildError("output_parent_not_directory")
+        if _filesystem_identity(opened_metadata) != _filesystem_identity(
+            path_metadata
+        ):
+            raise BuildError("output_parent_changed_before_open")
+        return descriptor, _filesystem_identity(opened_metadata)
+    except BaseException:
+        os.close(descriptor)
+        raise
+
+
+def _rename_directory_noreplace(
+    parent_descriptor: int,
+    source_name: str,
+    destination_name: str,
+) -> None:
     libc = ctypes.CDLL(None, use_errno=True)
     renameat2 = getattr(libc, "renameat2", None)
     if renameat2 is None:
@@ -1390,13 +1600,12 @@ def _rename_directory_noreplace(source: Path, destination: Path) -> None:
         ctypes.c_uint,
     )
     renameat2.restype = ctypes.c_int
-    at_fdcwd = -100
     rename_noreplace = 1
     result = renameat2(
-        at_fdcwd,
-        os.fsencode(source),
-        at_fdcwd,
-        os.fsencode(destination),
+        parent_descriptor,
+        os.fsencode(source_name),
+        parent_descriptor,
+        os.fsencode(destination_name),
         rename_noreplace,
     )
     if result == 0:
@@ -1410,57 +1619,133 @@ def _rename_directory_noreplace(source: Path, destination: Path) -> None:
     )
 
 
-def _fsync_directory(path: Path) -> None:
-    flags = os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC
-    try:
-        descriptor = os.open(path, flags)
-    except OSError as exc:
-        raise BuildError("directory_open_for_fsync_failed") from exc
+def _fsync_directory_descriptor(
+    descriptor: int,
+    error_code: str,
+) -> None:
     try:
         os.fsync(descriptor)
     except OSError as exc:
-        raise BuildError("directory_fsync_failed") from exc
-    finally:
-        os.close(descriptor)
+        raise BuildError(error_code) from exc
 
 
-def _read_published_capsule(path: Path, expected: bytes) -> None:
+def _read_owned_capsule(
+    directory_descriptor: int,
+    expected: bytes,
+    expected_identity: FileSystemIdentity,
+) -> None:
     try:
-        metadata = path.lstat()
+        path_metadata = os.stat(
+            OUTPUT_CAPSULE_NAME,
+            dir_fd=directory_descriptor,
+            follow_symlinks=False,
+        )
     except OSError as exc:
         raise BuildError("published_capsule_missing") from exc
-    if stat.S_ISLNK(metadata.st_mode) or not stat.S_ISREG(metadata.st_mode):
+    if stat.S_ISLNK(path_metadata.st_mode) or not stat.S_ISREG(
+        path_metadata.st_mode
+    ):
         raise BuildError("published_capsule_not_regular_file")
-    if metadata.st_nlink != 1:
+    if path_metadata.st_nlink != 1:
         raise BuildError("published_capsule_hard_link_state_forbidden")
+    if _filesystem_identity(path_metadata) != expected_identity:
+        raise BuildError("published_capsule_identity_mismatch")
+
+    flags = os.O_RDONLY | os.O_CLOEXEC | os.O_NOFOLLOW
     try:
-        payload = path.read_bytes()
+        descriptor = os.open(
+            OUTPUT_CAPSULE_NAME,
+            flags,
+            dir_fd=directory_descriptor,
+        )
     except OSError as exc:
-        raise BuildError("published_capsule_read_failed") from exc
+        raise BuildError("published_capsule_open_failed") from exc
+    try:
+        before = os.fstat(descriptor)
+        if _filesystem_identity(before) != expected_identity:
+            raise BuildError("published_capsule_identity_mismatch")
+        with os.fdopen(descriptor, "rb", closefd=True) as handle:
+            descriptor = -1
+            payload = handle.read(len(expected) + 1)
+            after = os.fstat(handle.fileno())
+    finally:
+        if descriptor >= 0:
+            os.close(descriptor)
+    if _stable_stat(before) != _stable_stat(after):
+        raise BuildError("published_capsule_changed_during_read")
     if payload != expected:
         raise BuildError("published_capsule_readback_mismatch")
 
 
-def _remove_owned_output_directory(path: Path) -> None:
-    if not os.path.lexists(path):
-        return
+def _remove_owned_output_directory(
+    *,
+    parent_descriptor: int,
+    directory_descriptor: int,
+    directory_name: str,
+    directory_identity: FileSystemIdentity,
+    capsule_identity: FileSystemIdentity | None,
+) -> None:
     try:
-        metadata = path.lstat()
-    except OSError:
+        path_metadata = os.stat(
+            directory_name,
+            dir_fd=parent_descriptor,
+            follow_symlinks=False,
+        )
+    except FileNotFoundError:
         return
-    if stat.S_ISLNK(metadata.st_mode) or not stat.S_ISDIR(metadata.st_mode):
+    except OSError as exc:
+        raise BuildError("owned_output_cleanup_target_unavailable") from exc
+    if not stat.S_ISDIR(path_metadata.st_mode):
         raise BuildError("owned_output_cleanup_target_invalid")
-    os.chmod(path, 0o700)
-    entries = list(path.iterdir())
-    for entry in entries:
-        entry_metadata = entry.lstat()
-        if stat.S_ISLNK(entry_metadata.st_mode) or not stat.S_ISREG(
-            entry_metadata.st_mode
-        ):
+    if _filesystem_identity(path_metadata) != directory_identity:
+        raise BuildError("owned_output_cleanup_identity_mismatch")
+
+    opened_metadata = os.fstat(directory_descriptor)
+    if not stat.S_ISDIR(opened_metadata.st_mode):
+        raise BuildError("owned_output_cleanup_descriptor_invalid")
+    if _filesystem_identity(opened_metadata) != directory_identity:
+        raise BuildError("owned_output_cleanup_descriptor_identity_mismatch")
+
+    try:
+        entries = os.listdir(directory_descriptor)
+    except OSError as exc:
+        raise BuildError("owned_output_cleanup_list_failed") from exc
+    expected_entries = [] if capsule_identity is None else [OUTPUT_CAPSULE_NAME]
+    if entries != expected_entries:
+        raise BuildError("owned_output_cleanup_contents_changed")
+
+    if capsule_identity is not None:
+        try:
+            entry_metadata = os.stat(
+                OUTPUT_CAPSULE_NAME,
+                dir_fd=directory_descriptor,
+                follow_symlinks=False,
+            )
+        except OSError as exc:
+            raise BuildError("owned_output_cleanup_entry_unavailable") from exc
+        if not stat.S_ISREG(entry_metadata.st_mode):
             raise BuildError("owned_output_cleanup_entry_invalid")
-        os.chmod(entry, 0o600)
-        entry.unlink()
-    path.rmdir()
+        if entry_metadata.st_nlink != 1:
+            raise BuildError("owned_output_cleanup_entry_hard_link_forbidden")
+        if _filesystem_identity(entry_metadata) != capsule_identity:
+            raise BuildError("owned_output_cleanup_entry_identity_mismatch")
+
+    os.fchmod(directory_descriptor, 0o700)
+    if capsule_identity is not None:
+        os.unlink(OUTPUT_CAPSULE_NAME, dir_fd=directory_descriptor)
+    _fsync_directory_descriptor(
+        directory_descriptor,
+        "owned_output_cleanup_directory_fsync_failed",
+    )
+
+    path_metadata = os.stat(
+        directory_name,
+        dir_fd=parent_descriptor,
+        follow_symlinks=False,
+    )
+    if _filesystem_identity(path_metadata) != directory_identity:
+        raise BuildError("owned_output_cleanup_identity_changed")
+    os.rmdir(directory_name, dir_fd=parent_descriptor)
 
 
 def _publish_capsule(
@@ -1469,56 +1754,149 @@ def _publish_capsule(
     output_directory: Path,
     capsule: bytes,
     snapshots: Mapping[str, SourceSnapshot],
+    attestation: ExternalAttestationSnapshot,
 ) -> None:
     destination, temporary = _resolve_output_directory(
         output_directory,
         repository_root,
     )
+    parent_descriptor = -1
+    directory_descriptor = -1
+    directory_identity: FileSystemIdentity | None = None
+    capsule_identity: FileSystemIdentity | None = None
     published = False
     try:
-        os.mkdir(temporary, 0o700)
-        output_path = temporary / OUTPUT_CAPSULE_NAME
-        flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_CLOEXEC | os.O_NOFOLLOW
+        parent_descriptor, _ = _open_output_parent(destination.parent)
+        os.mkdir(temporary.name, 0o700, dir_fd=parent_descriptor)
+        directory_path_metadata = os.stat(
+            temporary.name,
+            dir_fd=parent_descriptor,
+            follow_symlinks=False,
+        )
+        if not stat.S_ISDIR(directory_path_metadata.st_mode):
+            raise BuildError("temporary_output_not_directory")
+        directory_identity = _filesystem_identity(directory_path_metadata)
+
+        directory_flags = (
+            os.O_RDONLY
+            | os.O_DIRECTORY
+            | os.O_CLOEXEC
+            | os.O_NOFOLLOW
+        )
+        directory_descriptor = os.open(
+            temporary.name,
+            directory_flags,
+            dir_fd=parent_descriptor,
+        )
+        if _filesystem_identity(os.fstat(directory_descriptor)) != directory_identity:
+            raise BuildError("temporary_output_identity_mismatch")
+
+        file_flags = (
+            os.O_WRONLY
+            | os.O_CREAT
+            | os.O_EXCL
+            | os.O_CLOEXEC
+            | os.O_NOFOLLOW
+        )
         try:
-            descriptor = os.open(output_path, flags, 0o600)
+            descriptor = os.open(
+                OUTPUT_CAPSULE_NAME,
+                file_flags,
+                0o600,
+                dir_fd=directory_descriptor,
+            )
         except OSError as exc:
             raise BuildError("temporary_capsule_create_failed") from exc
         try:
+            capsule_identity = _filesystem_identity(os.fstat(descriptor))
             with os.fdopen(descriptor, "wb", closefd=True) as handle:
                 descriptor = -1
                 handle.write(capsule)
                 handle.flush()
                 os.fsync(handle.fileno())
+                os.fchmod(handle.fileno(), 0o444)
+                os.fsync(handle.fileno())
         finally:
             if descriptor >= 0:
                 os.close(descriptor)
 
-        os.chmod(output_path, 0o444)
-        _read_published_capsule(output_path, capsule)
-        _fsync_directory(temporary)
+        _read_owned_capsule(
+            directory_descriptor,
+            capsule,
+            capsule_identity,
+        )
+        os.fchmod(directory_descriptor, 0o555)
+        _fsync_directory_descriptor(
+            directory_descriptor,
+            "temporary_output_directory_fsync_failed",
+        )
         _require_sources_unchanged(repository_root, snapshots)
+        _require_reference_environment_attestation_unchanged(
+            repository_root,
+            attestation,
+        )
 
-        _rename_directory_noreplace(temporary, destination)
+        _rename_directory_noreplace(
+            parent_descriptor,
+            temporary.name,
+            destination.name,
+        )
         published = True
-        _fsync_directory(destination.parent)
+        _fsync_directory_descriptor(
+            parent_descriptor,
+            "output_parent_fsync_after_publish_failed",
+        )
 
-        final_output = destination / OUTPUT_CAPSULE_NAME
-        _read_published_capsule(final_output, capsule)
+        published_metadata = os.stat(
+            destination.name,
+            dir_fd=parent_descriptor,
+            follow_symlinks=False,
+        )
+        if _filesystem_identity(published_metadata) != directory_identity:
+            raise BuildError("published_output_directory_identity_mismatch")
+        _read_owned_capsule(
+            directory_descriptor,
+            capsule,
+            capsule_identity,
+        )
         _require_sources_unchanged(repository_root, snapshots)
-        os.chmod(destination, 0o555)
-        _fsync_directory(destination)
-        _fsync_directory(destination.parent)
-    except Exception:
-        cleanup_target = destination if published else temporary
-        try:
-            _remove_owned_output_directory(cleanup_target)
-            _fsync_directory(cleanup_target.parent)
-        except Exception:
-            pass
+        _require_reference_environment_attestation_unchanged(
+            repository_root,
+            attestation,
+        )
+    except BaseException:
+        if (
+            parent_descriptor >= 0
+            and directory_descriptor >= 0
+            and directory_identity is not None
+        ):
+            cleanup_name = destination.name if published else temporary.name
+            try:
+                _remove_owned_output_directory(
+                    parent_descriptor=parent_descriptor,
+                    directory_descriptor=directory_descriptor,
+                    directory_name=cleanup_name,
+                    directory_identity=directory_identity,
+                    capsule_identity=capsule_identity,
+                )
+                _fsync_directory_descriptor(
+                    parent_descriptor,
+                    "output_parent_fsync_after_cleanup_failed",
+                )
+            except BaseException:
+                pass
         raise
+    finally:
+        if directory_descriptor >= 0:
+            os.close(directory_descriptor)
+        if parent_descriptor >= 0:
+            os.close(parent_descriptor)
 
 
-def _success_summary(capsule: bytes) -> dict[str, Any]:
+def _success_summary(
+    capsule: bytes,
+    attestation: ExternalAttestationSnapshot,
+) -> dict[str, Any]:
     return {
         "archive_filename": OUTPUT_CAPSULE_NAME,
         "authority_effect": "none",
@@ -1528,6 +1906,18 @@ def _success_summary(capsule: bytes) -> dict[str, Any]:
         "member_order": list(CAPSULE_MEMBER_ORDER),
         "ok": True,
         "protected_source_count": len(PROTECTED_SOURCE_SPECS),
+        "reference_environment_attestation": {
+            "container_image": EXPECTED_REFERENCE_ENVIRONMENT["container_image"],
+            "sha256": sha256_bytes(attestation.payload),
+            "size_bytes": len(attestation.payload),
+            "source": "outer_reference_environment_launcher",
+            "verification_method": (
+                EXPECTED_REFERENCE_ENVIRONMENT_ATTESTATION[
+                    "verification_method"
+                ]
+            ),
+            "verified": True,
+        },
         "result": "capsule_constructed_only",
         "tool": TOOL_NAME,
         "tool_source_path": TOOL_SOURCE_PATH,
@@ -1570,22 +1960,34 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
             "exist; the fixed Capsule filename is created inside it."
         ),
     )
+    parser.add_argument(
+        "--reference-environment-attestation",
+        required=True,
+        help=(
+            "Exact canonical outer-launcher attestation created only after the "
+            "digest-pinned reference image is verified and selected for launch."
+        ),
+    )
     return parser.parse_args(argv)
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = parse_args(argv)
     try:
-        root, capsule, snapshots = build_reproduction_capsule(
-            Path(args.repository_root)
+        root, capsule, snapshots, attestation = build_reproduction_capsule(
+            Path(args.repository_root),
+            Path(args.reference_environment_attestation),
         )
         _publish_capsule(
             repository_root=root,
             output_directory=Path(args.output_directory),
             capsule=capsule,
             snapshots=snapshots,
+            attestation=attestation,
         )
-        sys.stdout.buffer.write(canonical_json_bytes(_success_summary(capsule)) + b"\n")
+        sys.stdout.buffer.write(
+            canonical_json_bytes(_success_summary(capsule, attestation)) + b"\n"
+        )
         return 0
     except BuildError as exc:
         sys.stderr.buffer.write(canonical_json_bytes(_failure_summary(exc)) + b"\n")
