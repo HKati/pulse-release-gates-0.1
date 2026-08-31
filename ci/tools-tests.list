@@ -147,6 +147,7 @@ tests/test_slsa_vsa_trusted_producer_generated_packet_report_chain_v0.py
 tests/test_slsa_vsa_trusted_producer_ci_boundary_v0.py
 tests/test_pulsemech_device_ledger_foundation_v0.py
 tests/test_pulsemech_device_ledger_reproduction_capsule_contract_v0.py
+tests/test_pulsemech_device_ledger_reproduction_capsule_execution_v0.py
 
 tools/operator_handoff_smoke.py
 
