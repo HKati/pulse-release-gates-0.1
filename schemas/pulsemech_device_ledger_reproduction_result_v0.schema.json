@@ -401,13 +401,13 @@
               "const": "tools/build_pulsemech_device_ledger_reproduction_capsule_v0.py"
             },
             "size_bytes": {
-              "const": 75083
+              "const": 79156
             },
             "sha256": {
-              "const": "4878da3e3adb82697fc0aa25b48e439a52c2601bb1a8ceca595eb939f079b01d"
+              "const": "1a5c48aa63eb7d74235741ff738d4f08a245096f71a76057a22b88036036e1d0"
             },
             "git_blob_sha1": {
-              "const": "d37dc25ef68a08d0b076ffa4e5bcd48442858cde"
+              "const": "22fa939d7bd9706a654fbb8893ef0c06ef4e160b"
             }
           }
         }
@@ -447,13 +447,13 @@
               "const": "0.1.0"
             },
             "size_bytes": {
-              "const": 75083
+              "const": 79156
             },
             "sha256": {
-              "const": "4878da3e3adb82697fc0aa25b48e439a52c2601bb1a8ceca595eb939f079b01d"
+              "const": "1a5c48aa63eb7d74235741ff738d4f08a245096f71a76057a22b88036036e1d0"
             },
             "git_blob_sha1": {
-              "const": "d37dc25ef68a08d0b076ffa4e5bcd48442858cde"
+              "const": "22fa939d7bd9706a654fbb8893ef0c06ef4e160b"
             }
           }
         }
