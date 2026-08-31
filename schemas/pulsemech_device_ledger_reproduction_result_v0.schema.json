@@ -2,8 +2,8 @@
   "$id": "https://github.com/HKati/pulse-release-gates-0.1/schemas/pulsemech_device_ledger_reproduction_result_v0.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "PULSEmech Device Ledger Reproduction Result v0",
-  "description": "Strict successful-result contract for the bounded PULSEmech Device Ledger Reproduction Capsule v0 execution. The result records two isolated, byte-identical Capsule constructions, two exact positive standalone-verifier executions, one structurally admissible package-signature mutation, the exact fail-closed rejection, protected-source preservation, and non-authority boundaries.",
-  "$comment": "This schema defines the shape of a completed successful reproduction result. Dynamic equality among independently produced hashes and byte sequences is enforced by the reproduction runner and permanent execution regression; the schema requires the corresponding exact identities and successful relation records. The result does not self-hash and does not bind its containing commit.",
+  "description": "Strict successful-result contract for the bounded PULSEmech Device Ledger Reproduction Capsule v0 execution. The result records an exact outer-launcher reference-environment attestation for the digest-pinned image, two isolated byte-identical Capsule constructions, two exact positive standalone-verifier executions, one structurally admissible package-signature mutation, the exact fail-closed rejection, protected-source preservation, and non-authority boundaries.",
+  "$comment": "This schema defines the shape of a completed successful reproduction result. In-container operating-system properties do not prove OCI image identity, so the result requires the exact host-runtime attestation admitted by the builder before construction. Dynamic equality among independently produced hashes and byte sequences is enforced by the reproduction runner and permanent execution regression; the schema requires the corresponding exact identities and successful relation records. The result does not self-hash and does not bind its containing commit.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -27,6 +27,7 @@
     "protected_source_preservation",
     "record_status",
     "reference_environment",
+    "reference_environment_attestation",
     "repeated_construction",
     "repository_context",
     "result",
@@ -73,6 +74,9 @@
     },
     "reference_environment": {
       "$ref": "#/$defs/reference_environment"
+    },
+    "reference_environment_attestation": {
+      "$ref": "#/$defs/reference_environment_attestation_record"
     },
     "execution_boundary": {
       "$ref": "#/$defs/execution_boundary"
@@ -397,13 +401,13 @@
               "const": "tools/build_pulsemech_device_ledger_reproduction_capsule_v0.py"
             },
             "size_bytes": {
-              "const": 59882
+              "const": 75083
             },
             "sha256": {
-              "const": "9a234d3ef0ae8493120acdeb3c14968b0b5e2d6f73524f899263bcd8db7b8696"
+              "const": "4878da3e3adb82697fc0aa25b48e439a52c2601bb1a8ceca595eb939f079b01d"
             },
             "git_blob_sha1": {
-              "const": "f239c31c1539b5c43324a78add773d48999f355c"
+              "const": "d37dc25ef68a08d0b076ffa4e5bcd48442858cde"
             }
           }
         }
@@ -443,13 +447,13 @@
               "const": "0.1.0"
             },
             "size_bytes": {
-              "const": 59882
+              "const": 75083
             },
             "sha256": {
-              "const": "9a234d3ef0ae8493120acdeb3c14968b0b5e2d6f73524f899263bcd8db7b8696"
+              "const": "4878da3e3adb82697fc0aa25b48e439a52c2601bb1a8ceca595eb939f079b01d"
             },
             "git_blob_sha1": {
-              "const": "f239c31c1539b5c43324a78add773d48999f355c"
+              "const": "d37dc25ef68a08d0b076ffa4e5bcd48442858cde"
             }
           }
         }
@@ -714,12 +718,114 @@
         }
       }
     },
+    "reference_environment_attestation_statement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "attestation_mount",
+        "attestation_role",
+        "attestation_source",
+        "authority_effect",
+        "container_image",
+        "container_image_digest",
+        "container_image_repo_digest_verified",
+        "container_launch_by_exact_digest",
+        "document_type",
+        "network_mode",
+        "output_mount",
+        "repository_mount",
+        "schema_version",
+        "verification_method",
+        "verified_before_container_start"
+      ],
+      "properties": {
+        "attestation_mount": {
+          "const": "read_only"
+        },
+        "attestation_role": {
+          "const": "reference_environment_precondition"
+        },
+        "attestation_source": {
+          "const": "outer_reference_environment_launcher"
+        },
+        "authority_effect": {
+          "const": "none"
+        },
+        "container_image": {
+          "const": "docker.io/library/python:3.11.9-slim-bookworm@sha256:2856e6af199e8128161abd320575eb9b341f3b76f017b5d0c9cd364f60d8a050"
+        },
+        "container_image_digest": {
+          "const": "sha256:2856e6af199e8128161abd320575eb9b341f3b76f017b5d0c9cd364f60d8a050"
+        },
+        "container_image_repo_digest_verified": {
+          "const": true
+        },
+        "container_launch_by_exact_digest": {
+          "const": true
+        },
+        "document_type": {
+          "const": "pulsemech_reference_environment_attestation"
+        },
+        "network_mode": {
+          "const": "none"
+        },
+        "output_mount": {
+          "const": "separate_writable"
+        },
+        "repository_mount": {
+          "const": "read_only"
+        },
+        "schema_version": {
+          "const": "pulsemech_reference_environment_attestation_v0"
+        },
+        "verification_method": {
+          "const": "host_container_runtime_repo_digest_match_before_exact_digest_launch"
+        },
+        "verified_before_container_start": {
+          "const": true
+        }
+      }
+    },
+    "reference_environment_attestation_record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "attestation",
+        "builder_admission",
+        "byte_identity",
+        "sha256",
+        "size_bytes",
+        "source_relation"
+      ],
+      "properties": {
+        "attestation": {
+          "$ref": "#/$defs/reference_environment_attestation_statement"
+        },
+        "builder_admission": {
+          "const": "verified_before_construction"
+        },
+        "byte_identity": {
+          "const": "exact_external_attestation_bytes"
+        },
+        "sha256": {
+          "const": "9d20cf6ea118ab8e01768e42a7636923f69945545f01a52904851a717442b9ca"
+        },
+        "size_bytes": {
+          "const": 843
+        },
+        "source_relation": {
+          "const": "outer_reference_environment_launcher"
+        }
+      }
+    },
     "execution_boundary": {
       "type": "object",
       "additionalProperties": false,
       "required": [
         "bounded_reproduction_phase",
         "container_image_pull_relation",
+        "container_image_identity_verified",
+        "container_image_identity_attestation",
         "dependency_installation_during_reproduction",
         "network_mode",
         "output_mount",
@@ -733,6 +839,12 @@
         },
         "container_image_pull_relation": {
           "const": "completed_before_bounded_reproduction_phase"
+        },
+        "container_image_identity_attestation": {
+          "const": "host_container_runtime_repo_digest_match_before_exact_digest_launch"
+        },
+        "container_image_identity_verified": {
+          "const": true
         },
         "dependency_installation_during_reproduction": {
           "const": "forbidden"
@@ -1138,6 +1250,7 @@
         "member_order",
         "ok",
         "protected_source_count",
+        "reference_environment_attestation",
         "result",
         "tool",
         "tool_source_path",
@@ -1168,6 +1281,38 @@
         },
         "protected_source_count": {
           "const": 7
+        },
+        "reference_environment_attestation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "container_image",
+            "sha256",
+            "size_bytes",
+            "source",
+            "verification_method",
+            "verified"
+          ],
+          "properties": {
+            "container_image": {
+              "const": "docker.io/library/python:3.11.9-slim-bookworm@sha256:2856e6af199e8128161abd320575eb9b341f3b76f017b5d0c9cd364f60d8a050"
+            },
+            "sha256": {
+              "const": "9d20cf6ea118ab8e01768e42a7636923f69945545f01a52904851a717442b9ca"
+            },
+            "size_bytes": {
+              "const": 843
+            },
+            "source": {
+              "const": "outer_reference_environment_launcher"
+            },
+            "verification_method": {
+              "const": "host_container_runtime_repo_digest_match_before_exact_digest_launch"
+            },
+            "verified": {
+              "const": true
+            }
+          }
         },
         "result": {
           "const": "capsule_constructed_only"
@@ -1404,6 +1549,7 @@
         "member_inventory_equal",
         "member_order_equal",
         "positive_report_bytes_equal",
+        "reference_environment_attestation_bytes_equal",
         "positive_reports_equal_canonical_expected_report"
       ],
       "properties": {
@@ -1435,6 +1581,9 @@
           "const": true
         },
         "positive_report_bytes_equal": {
+          "const": true
+        },
+        "reference_environment_attestation_bytes_equal": {
           "const": true
         },
         "positive_reports_equal_canonical_expected_report": {
