@@ -141,6 +141,60 @@ Comparison basis: [v1.2.0...HEAD][Post-v1.2.0].
     - merge commit:
       `6a358187d8fde7321963b76cc50cc77fad695dd0`.
 
+- Completed the PULSEmech Device Ledger Reproduction Capsule v0:
+  - closed the exact four-member `ZIP_STORED` Capsule contract around the
+    canonical Capsule manifest, canonical `.pulseledger`, unchanged standalone
+    verifier, and canonical expected positive verifier report;
+  - added the deterministic Capsule builder, strict reproduction-result schema,
+    orchestration-only runner, checked-in canonical Capsule, canonical
+    reproduction result, permanent execution regression, and dedicated
+    reference-environment workflow;
+  - constructed Capsule A and Capsule B in separate processes, workspaces, and
+    output directories and proved exact A/B/canonical byte equality without
+    reusing output, temporary state, materialized members, or computed archive
+    bytes;
+  - executed the unchanged standalone verifier twice in separate positive
+    processes and required exact canonical stdout bytes, exit status `0`, empty
+    stderr, `verified_with_declared_unavailability`, and 49 of 49 checks passed;
+  - performed one isolated `signature_base64` first-character `O → P` mutation,
+    repaired both ZIP CRC32 fields, and required the exact cryptographic
+    rejection at `package_signature_valid`;
+  - preserved ten protected repository source objects byte-for-byte before and
+    after reproduction;
+  - bound the reference execution to the externally verified digest-pinned
+    Python 3.11.9 slim Bookworm image on `linux/amd64`, with no reproduction
+    network, no runtime downloads, read-only repository and attestation mounts,
+    and a separate writable output mount;
+  - registered the execution regression exactly once and advanced the canonical
+    tools-test manifest to `149` active, unique entries.
+  - Exact canonical output identities:
+    - Capsule path:
+      `examples/device_transition_ledger/pulsemech_device_ledger_reproduction_capsule_v0.zip`;
+    - Capsule size: `285144` bytes;
+    - Capsule SHA-256:
+      `49e02cf3daa466170b7ffee681ceb06c23410010b64e23137022541ec7691678`;
+    - Capsule Git blob SHA-1:
+      `5b2647823e59bde24cf9125851c1490e3149dfab`;
+    - reproduction-result path:
+      `examples/device_transition_ledger/pulsemech_device_ledger_reproduction_result_reference_v0.json`;
+    - reproduction-result size: `31188` bytes;
+    - reproduction-result SHA-256:
+      `d0a659c572dcde11315f518d350361f6fc7690027c7e2682111f88a519b34ad1`;
+    - reproduction-result Git blob SHA-1:
+      `9b5a240495b357c64a510e6019e4d7189c29152e`;
+    - reproduction-result framing: no UTF-8 BOM, CR, LF, or trailing newline.
+  - Provenance:
+    - exact Capsule manifest contract: PR #2851;
+    - contract merge commit:
+      `722fe4e85acfaac67c283862645ac9e42c831236`;
+    - deterministic execution: PR #2852;
+    - reviewed final PR head:
+      `5d8792ffb5c1f555b50f01bb34fa9757e20af5ec`;
+    - squash-merge commit:
+      `21837e1e54f898a131d3a9bff89527209ddae711`;
+    - post-merge review:
+      no actionable findings on the squash-merge commit.
+
 #### Fixed
 
 - Closed Device Ledger verifier and proof-parity defects involving:
@@ -155,6 +209,19 @@ Comparison basis: [v1.2.0...HEAD][Post-v1.2.0].
   pytest control inputs, plugin injection, deselection, skipped call phases,
   and terminal early exits before complete test execution.
   - Provenance: PRs #2818 and #2819.
+
+- Closed Device Ledger Reproduction Capsule execution false-success and
+  exact-byte defects:
+  - removed inherited `PYTEST_ADDOPTS`, `PYTEST_PLUGINS`, and
+    `PYTEST_CURRENT_TEST` from the no-argument permanent-regression launch;
+  - disabled plugin autoload and external conftest or repository-configuration
+    influence;
+  - required all 15 collected proof tests to produce plain passing call reports,
+    rejecting collection-only, deselection, skipped proof execution, xfail,
+    xpass, and premature success;
+  - restored the exact 31,188-byte canonical reproduction-result object after a
+    browser-mediated upload appended one trailing LF byte.
+  - Provenance: PR #2852.
 
 #### Security
 
@@ -184,6 +251,21 @@ Comparison basis: [v1.2.0...HEAD][Post-v1.2.0].
   - stale, partial, redirected, or attacker-substituted transactional output.
   - Provenance: PRs #2815, #2822, #2823, #2825, and #2826.
 
+- Hardened Device Ledger Reproduction Capsule construction and execution:
+  - required host-runtime RepoDigest verification before launching the exact
+    declared container digest;
+  - covered publication interruption with `BaseException` cleanup while
+    re-raising the original interruption;
+  - blocked interrupt delivery across directory creation, immediate
+    device/inode capture, `O_NOFOLLOW` descriptor acquisition, descriptor
+    identity verification, and owned-state publication;
+  - removed pathname `stat`-then-`rmdir` cleanup and retained uncertain
+    random-name directories rather than risking deletion of substituted
+    objects;
+  - kept output ownership bound to retained descriptors and exact filesystem
+    identities and kept protected-source drift fail-closed.
+  - Provenance: PR #2852.
+
 #### Docs
 
 - Synchronized the canonical
@@ -207,6 +289,26 @@ Comparison basis: [v1.2.0...HEAD][Post-v1.2.0].
   - institutional maturity.
   - Provenance: PR #2848.
 
+- Completed the Device Ledger Reproduction Capsule documentation closure across
+  six existing documentation files without creating a second canonical proof
+  document:
+  - extended the canonical bounded mechanical proof record with the exact
+    Capsule contract, deterministic execution, two-construction equality,
+    positive and targeted-negative relations, protected-source preservation,
+    and distinct execution entrypoints;
+  - extended External Verification Path v0 with direct `.pulseledger`
+    verification, complete pinned workflow dispatch, portable local proof
+    replay, bounded inner-runner execution, Swift round trip, and read-only
+    iPhone demonstration;
+  - synchronized the README, documentation index, and canonical Technical
+    Overview with the merged PR #2851–#2852 state;
+  - recorded the complete asynchronous reference-workflow command and the
+    separate local 15-test proof-replay command;
+  - preserved one canonical Device Ledger proof entrypoint and the distinction
+    between proof record, reviewer/operator procedure, and implementation-state
+    overview.
+  - Provenance: PR #2855.
+
 #### Boundaries
 
 - Current-run compute remains manual, candidate-only, non-active,
@@ -219,12 +321,30 @@ Comparison basis: [v1.2.0...HEAD][Post-v1.2.0].
   - `key_origin_profile = fixture_software_p256`.
 - The iPhone demonstrator remains a non-authorizing carrier of the already
   closed bounded proof.
+- The Device Ledger Reproduction Capsule remains a portable construction and
+  execution carrier around the already closed bounded proof.
+- The canonical reproduction result remains orchestration evidence:
+  - `reproduction_result_role = orchestration_evidence_not_verifier_verdict`;
+  - the existing standalone verifier remains the verifier;
+  - the runner remains orchestration-only;
+  - no producer verdict is trusted.
+- The Capsule, reproduction result, workflow artifact, documentation, local
+  replay, and optional external reproduction event do not create a gate result,
+  release decision, release authority, or device-control authority;
+  `authority_effect = none`.
+- The digest-pinned reference-environment result does not create a universal
+  cross-platform reproducibility claim, production-device claim,
+  hardware-backed identity claim, or external-validation claim.
 - General-purpose iPhone product development, live production observation,
   persistent storage, restart recovery, production key lifecycle, Secure
   Enclave integration, platform attestation, physical-device identity, and
   App Store qualification remain separate wider work.
 - Policy, active gate sets, `status.json`, terminal release decisions, and
   release authority remain unchanged by these milestones.
+- The documentation closure modifies no source code, test, workflow, schema,
+  contract, canonical JSON artifact, binary artifact, standalone verifier,
+  release policy, `.zenodo.json`, DOI identity, Zenodo metadata or relationship,
+  `CITATION.cff`, Git tag, or GitHub Release.
 
 
 ## [1.2.0] - 2026-08-04
