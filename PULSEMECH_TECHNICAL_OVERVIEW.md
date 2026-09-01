@@ -48,7 +48,7 @@ verified implementation state
 reference proofs
 compute-binding implementation state
 current-run expectation contract state
-Device Ledger bounded mechanical proof and runnable demonstrator state
+Device Ledger bounded proof, deterministic Reproduction Capsule, and runnable demonstrator state
 foundational transition-measurement architecture
 external interoperability status
 current development boundary
@@ -1903,12 +1903,13 @@ It does not independently create release authority.
 
 ---
 
-## 15H. Device Ledger bounded mechanical proof and runnable iPhone demonstrator
+## 15H. Device Ledger bounded proof, deterministic Reproduction Capsule, and runnable iPhone demonstrator
 
 The repository contains a completed bounded Device Ledger proof for one exact
-synthetic reference relation.
+synthetic reference relation and a completed deterministic reproduction layer
+around that proof.
 
-The closed mechanical path is:
+The closed mechanical relation is:
 
 ```text
 bounded observed relation
@@ -1925,27 +1926,65 @@ bounded observed relation
 → reproducible PASS or fail-closed rejection
 → minimal runnable iPhone result surface
 → exact artifact export
+→ exact Capsule-manifest schema and normative contract
+→ deterministic four-member ZIP_STORED Reproduction Capsule
+→ two isolated byte-identical Capsule constructions
+→ two exact positive standalone-verifier executions
+→ isolated CRC-consistent package-signature mutation
+→ exact package_signature_valid rejection
+→ canonical reproduction result
+→ protected-source preservation
 ```
 
-The canonical detailed record is:
+The canonical detailed proof record is:
 
 [PULSEmech Device Ledger Bounded Mechanical Proof v0](docs/PULSEMECH_DEVICE_LEDGER_BOUNDED_MECHANICAL_PROOF_v0.md)
 
-The merged runnable demonstrator identity is:
+The distinct reviewer and operator procedure is:
+
+[External Verification Path v0](docs/EXTERNAL_VERIFICATION_PATH_v0.md)
+
+The proof record defines what the completed relation proves.
+
+The External Verification Path defines how a reviewer or operator may inspect,
+replay, or reproduce that relation without becoming an input to its mechanical
+validity and without creating a second verifier or authority path.
+
+This overview records the synchronized implementation state. It does not replace
+the canonical proof record or the executable contracts.
+
+### Merged proof chain
+
+| Layer | Pull request | Merged commit |
+|---|---:|---|
+| Minimal runnable iPhone bounded proof demonstrator | [#2847](https://github.com/HKati/pulse-release-gates-0.1/pull/2847) | [`6a358187d8fde7321963b76cc50cc77fad695dd0`](https://github.com/HKati/pulse-release-gates-0.1/commit/6a358187d8fde7321963b76cc50cc77fad695dd0) |
+| Canonical bounded mechanical proof record | [#2848](https://github.com/HKati/pulse-release-gates-0.1/pull/2848) | [`d2be905bbdf281cb4adff97b98618340d5ca5c39`](https://github.com/HKati/pulse-release-gates-0.1/commit/d2be905bbdf281cb4adff97b98618340d5ca5c39) |
+| Exact Reproduction Capsule contract | [#2851](https://github.com/HKati/pulse-release-gates-0.1/pull/2851) | [`722fe4e85acfaac67c283862645ac9e42c831236`](https://github.com/HKati/pulse-release-gates-0.1/commit/722fe4e85acfaac67c283862645ac9e42c831236) |
+| Deterministic Reproduction Capsule execution | [#2852](https://github.com/HKati/pulse-release-gates-0.1/pull/2852) | [`21837e1e54f898a131d3a9bff89527209ddae711`](https://github.com/HKati/pulse-release-gates-0.1/commit/21837e1e54f898a131d3a9bff89527209ddae711) |
+
+The reviewed final PR #2852 head was:
 
 ```text
-implementation PR:
-#2847
-
-squash-merge commit:
-6a358187d8fde7321963b76cc50cc77fad695dd0
-
-reviewed final PR head:
-ce2316b9988499da71bf1eb1f51a0d699f10f925
-
-post-merge correctness findings:
-none
+5d8792ffb5c1f555b50f01bb34fa9757e20af5ec
 ```
+
+Its final recorded state was:
+
+```text
+successful checks:
+28
+
+conditionally skipped checks:
+6
+
+failed checks:
+0
+
+Codex final-head review:
+no major issues found
+```
+
+### Exact bounded Device Ledger subject
 
 The deterministic reference materialization produces:
 
@@ -1975,39 +2014,38 @@ endpoint-difference-only transition count:
 1
 ```
 
-Its exact primary identities are:
+Its exact internal identities include:
 
 ```text
-checkpoint SHA-256:
+terminal checkpoint SHA-256:
 16f309c033f43a4b80d5cd0be3e0685af977ab510a0813c5fb32631b3334b2ff
 
-ledger SHA-256:
+canonical ledger SHA-256:
 360de3b74e2c0ec33525426cd0598b5a8d382e8017295900f0ef5600ae9a4f77
 
-manifest SHA-256:
+canonical manifest SHA-256:
 47e6adc3afe8c295ec207a23545a3a1df5f043799106f67c093a19da5ab641a1
 
-carrier size:
-133568 bytes
-
-carrier SHA-256:
-a31388c7bf574040893d1d923d684d23318e5d2109a0d72a923888b95d5d42b3
-
-carrier member count:
+.pulseledger member count:
 10
-
-canonical verifier-report size:
-15328 bytes
-
-canonical verifier-report SHA-256:
-5e93539099e99dd5bfa835ba56c401608a5b5c015209812ebb5f9c31142a74f4
-
-verifier checks:
-49 / 49 passed
 ```
 
-The separately implemented Python verifier accepts the original Swift-produced
-carrier and reproduces:
+Its primary proof-object identities are:
+
+| Object | Size | SHA-256 |
+|---|---:|---|
+| Canonical `.pulseledger` | `133568` bytes | `a31388c7bf574040893d1d923d684d23318e5d2109a0d72a923888b95d5d42b3` |
+| Standalone verifier | `126419` bytes | `0a828490f93ce684ab50625c23a19c870f813c3bcdef7034f5c88a0c6aa494e7` |
+| Canonical positive verifier report | `15328` bytes | `5e93539099e99dd5bfa835ba56c401608a5b5c015209812ebb5f9c31142a74f4` |
+| Device Canonical JSON contract | `2719` bytes | `ddc0e677e04c8678c32e36d21dc79ad509fe6c4a5507322abb6187c6e88c7550` |
+
+The expected observer fingerprint is:
+
+```text
+f2880825cd3caa7272d01042829e5b02e8a168db11225477b039e6ec9a7d09c6
+```
+
+The unchanged standalone verifier reconstructs:
 
 ```text
 result:
@@ -2019,18 +2057,149 @@ verified
 package signature_status:
 verified
 
+checks:
+49 / 49 passed
+
 producer_code_imported:
+false
+
+producer_verdict_trusted:
 false
 
 verifier_implementation_relation:
 separate_from_producer_code
 ```
 
-The relevant negative proof preserves ZIP structure and both CRC32 bindings
-while changing the package-signature bytes.
+The verifier boundary remains:
 
-The same verifier reaches the package-signature equation and rejects the
-modified carrier with:
+```text
+separately implemented verifier
+≠ external validating authority
+≠ institutional approval
+```
+
+The operator's identity, title, organization, reputation, or institutional
+status is not an input to the verification result.
+
+### Deterministic Reproduction Capsule
+
+The Reproduction Capsule contract fixes an acyclic relation from the exact
+manifest schema, normative contract, canonical manifest, and protected payloads
+to the deterministic Capsule and the canonical result carried outside it.
+
+The canonical outputs are:
+
+| Object | Size | SHA-256 | Git blob SHA-1 |
+|---|---:|---|---|
+| Reproduction Capsule | `285144` bytes | `49e02cf3daa466170b7ffee681ceb06c23410010b64e23137022541ec7691678` | `5b2647823e59bde24cf9125851c1490e3149dfab` |
+| Reproduction result | `31188` bytes | `d0a659c572dcde11315f518d350361f6fc7690027c7e2682111f88a519b34ad1` | `9b5a240495b357c64a510e6019e4d7189c29152e` |
+
+The implementation roles remain distinct:
+
+```text
+Capsule builder
+≠
+reproduction runner
+≠
+standalone verifier
+```
+
+The Capsule contains exactly four `ZIP_STORED` members in this order:
+
+```text
+1.
+manifest/
+pulsemech_device_ledger_reproduction_capsule_manifest_v0.json
+
+2.
+artifact/
+pulsemech_device_transition_ledger_reference_v0.pulseledger
+
+3.
+verifier/
+verify_pulsemech_device_ledger_v0.py
+
+4.
+expected/
+pulsemech_device_transition_ledger_reference_verification_v0.json
+```
+
+The exact reference environment is:
+
+```text
+container image:
+docker.io/library/python:3.11.9-slim-bookworm@sha256:
+2856e6af199e8128161abd320575eb9b341f3b76f017b5d0c9cd364f60d8a050
+
+platform:
+linux/amd64
+
+Python:
+CPython 3.11.9
+
+Unicode data:
+14.0.0
+
+dependency policy:
+Python standard library only
+
+network during bounded execution:
+none
+
+runtime downloads or package installation:
+none
+
+repository and attestation mounts:
+read-only
+
+output mount:
+separate writable directory
+```
+
+The outer launcher verifies the required container RepoDigest before exact-digest
+launch and produces the exact 843-byte reference-environment attestation:
+
+```text
+SHA-256:
+9d20cf6ea118ab8e01768e42a7636923f69945545f01a52904851a717442b9ca
+```
+
+The runner creates Capsule A and Capsule B through separate builder processes,
+isolated workspaces, and separate output paths.
+
+```text
+Capsule A bytes
+=
+Capsule B bytes
+=
+checked-in canonical Capsule bytes
+```
+
+The unchanged standalone verifier then executes as a separate process against
+the `.pulseledger` from each Capsule.
+
+```text
+positive verifier stdout A bytes
+=
+positive verifier stdout B bytes
+=
+canonical expected verifier-report bytes
+```
+
+Both positive processes exit `0`, emit empty stderr, reconstruct
+`verified_with_declared_unavailability`, and pass all `49 / 49` checks.
+
+The targeted negative proof mutates only:
+
+```text
+signatures/package-signature-v0.json
+→ signature_base64
+→ first character O → P
+```
+
+It repairs both ZIP CRC32 fields, preserves the earlier ZIP, document, and
+signature-subject checks, reaches the package-signature equation, and exits `2`
+with exactly:
 
 ```text
 result:
@@ -2043,21 +2212,63 @@ failed_check_ids:
 [
   "package_signature_valid"
 ]
+
+error_code:
+signature_verification_failed
+
+member_path:
+signatures/package-signature-v0.json
 ```
 
-The verifier boundary is:
+The canonical reproduction result records orchestration evidence for these
+completed construction, process, equality, mutation, rejection, and
+source-preservation relations.
 
 ```text
-separately implemented verifier
-≠ external validating authority
-≠ institutional approval
+reproduction_result_role:
+orchestration_evidence_not_verifier_verdict
+
+protected source count:
+10
+
+all protected source bytes and Git blob identities unchanged:
+true
+
+repository source write attempted:
+false
 ```
 
-A third party may execute the verifier as a new reproduction event.
+The result does not replace the standalone-verifier report.
 
-The operator's identity, title, organization, reputation or institutional
-status is not an input to the verification result and is not a prerequisite of
-mechanical validity.
+### Reproduction entrypoints
+
+The complete pinned reference-environment operator entrypoint is:
+
+```bash
+gh workflow run \
+  pulsemech_device_ledger_reproduction_capsule_v0.yml \
+  --repo HKati/pulse-release-gates-0.1 \
+  --ref main
+```
+
+This dispatches the dedicated workflow asynchronously. Completion requires the
+workflow to finish successfully and its exact proof outputs to satisfy the
+workflow checks.
+
+The portable local proof replay is:
+
+```bash
+python3 \
+  tests/test_pulsemech_device_ledger_reproduction_capsule_execution_v0.py
+```
+
+The local entrypoint runs the sanitized, completion-guarded 15-test permanent
+regression on the current host. It does not represent pinned
+reference-container artifact regeneration.
+
+The bounded inner runner, direct standalone verifier, Swift proof suite, and
+runnable iPhone demonstrator remain separately classified entrypoints in the
+canonical proof record and External Verification Path.
 
 The minimal iPhone demonstrator:
 
@@ -2073,7 +2284,7 @@ executes the deterministic reference materialization
 The app does not execute or import the Python verifier and does not claim that
 it verified itself.
 
-The reference and authority boundaries remain:
+### Implementation, claim, and authority boundaries
 
 ```text
 record_status:
@@ -2085,23 +2296,72 @@ fixture_installation
 key_origin_profile:
 fixture_software_p256
 
+runner_role:
+orchestration_only
+
+verifier_execution:
+separate_process
+
+existing_verifier_modification:
+forbidden
+
+new_verifier:
+none
+
+verification_semantics_change:
+none
+
+producer_verdict_trusted:
+false
+
+reproduction_result_role:
+orchestration_evidence_not_verifier_verdict
+
 authority_effect:
 none
+
+capsule_is_release_authority:
+false
+
+reproduction_result_is_release_authority:
+false
+
+verifier_report_is_release_authority:
+false
+
+creates_gate_result:
+false
+
+creates_release_decision:
+false
+
+changes_release_authority:
+false
+
+creates_device_control_authority:
+false
 
 external_validation_claim:
 none
 ```
 
-The bounded mechanical self-proof, minimal runnable demonstrator and exact
-artifact export are closed.
+The completed proof does not claim live production monitoring, production
+Keychain or Secure Enclave identity, platform attestation, physical-device
+identity, device-security status, malware absence, complete causal observation,
+production readiness, universal cross-platform reproducibility, external
+approval, or release authority.
+
+The bounded mechanical self-proof, exact `.pulseledger` export, deterministic
+Reproduction Capsule, canonical reproduction result, and minimal runnable iPhone
+demonstrator are closed.
 
 General-purpose iPhone product development, live production callbacks,
-production observation sessions, persistence, production key lifecycle,
-Secure Enclave integration, platform attestation, physical-device identity,
-App Store qualification and external certification remain separate wider
-claims.
+production observation sessions, persistence, production key lifecycle, Secure
+Enclave integration, platform attestation, physical-device identity, App Store
+qualification, external certification, and release-authority integration remain
+separate wider claims.
 
-Their absence does not reopen this bounded proof.
+Their absence does not reopen the completed bounded proof.
 
 ---
 
@@ -2111,13 +2371,20 @@ Their absence does not reopen this bounded proof.
 
 ```text
 state_date:
-2026-08-28
+2026-09-01
 
 merged_repository_state_recorded_through:
-PR #2847
+PR #2852
 
 merged_repository_state_basis:
-6a358187d8fde7321963b76cc50cc77fad695dd0
+21837e1e54f898a131d3a9bff89527209ddae711
+
+merged_repository_state_tree:
+d6aada457cdbc4ffd7a1b969104f720ae83af55c
+
+documentation_closure_scope:
+records the merged implementation through PR #2852 without changing the
+implementation, verification semantics, policy, or authority basis
 
 executable_compute_state_recorded_through:
 PR #2826
@@ -2166,10 +2433,26 @@ independent_package_verification:
 157 / 157
 
 device_ledger_implementation_recorded_through:
-PR #2847
+PR #2852
 
 device_ledger_implementation_basis:
-6a358187d8fde7321963b76cc50cc77fad695dd0
+21837e1e54f898a131d3a9bff89527209ddae711
+
+device_ledger_bounded_proof_record:
+PR #2848 / d2be905bbdf281cb4adff97b98618340d5ca5c39
+
+device_ledger_reproduction_capsule_contract:
+PR #2851 / 722fe4e85acfaac67c283862645ac9e42c831236
+
+device_ledger_reproduction_capsule_execution:
+PR #2852 / 21837e1e54f898a131d3a9bff89527209ddae711
+
+device_ledger_reproduction_capsule_reviewed_head:
+5d8792ffb5c1f555b50f01bb34fa9757e20af5ec
+
+device_ledger_reproduction_capsule_final_pr_state:
+28 successful checks / 6 conditionally skipped checks / 0 failed checks /
+Codex final-head review found no major issues
 
 device_ledger_bounded_mechanical_self_proof:
 completed, regression-proven and post-merge reviewed with no P1, P2 or
@@ -2178,15 +2461,79 @@ lower-severity correctness findings
 device_ledger_reference_record_status:
 synthetic_reference
 
+device_ledger_reference_identity_scope:
+fixture_installation
+
+device_ledger_reference_key_origin_profile:
+fixture_software_p256
+
 device_ledger_reference_carrier:
 133568 bytes / a31388c7bf574040893d1d923d684d23318e5d2109a0d72a923888b95d5d42b3
+
+device_ledger_standalone_verifier:
+126419 bytes / 0a828490f93ce684ab50625c23a19c870f813c3bcdef7034f5c88a0c6aa494e7
 
 device_ledger_standalone_verifier_result:
 verified_with_declared_unavailability / 49 of 49 exact checks passed
 
-device_ledger_relevant_negative_proof:
+device_ledger_canonical_verifier_report:
+15328 bytes / 5e93539099e99dd5bfa835ba56c401608a5b5c015209812ebb5f9c31142a74f4
+
+device_ledger_base_relevant_negative_proof:
 CRC-consistent package-signature mutation rejected at the package-signature
 equation boundary
+
+device_ledger_reproduction_capsule_manifest_contract:
+schema + normative contract + canonical manifest closed through PR #2851
+
+device_ledger_reproduction_capsule:
+285144 bytes / 49e02cf3daa466170b7ffee681ceb06c23410010b64e23137022541ec7691678 /
+Git blob 5b2647823e59bde24cf9125851c1490e3149dfab
+
+device_ledger_reproduction_capsule_member_profile:
+4 exact ZIP_STORED members in one fixed order
+
+device_ledger_repeated_construction:
+2 isolated builder processes and workspaces; Capsule A bytes = Capsule B bytes =
+checked-in canonical Capsule bytes
+
+device_ledger_capsule_positive_reproduction:
+2 separate standalone-verifier processes; both exit 0 and emit the exact
+15328-byte canonical verifier-report bytes
+
+device_ledger_capsule_targeted_negative_reproduction:
+O → P package-signature mutation with repaired local-header and
+central-directory CRC32; exact rejection at package_signature_valid
+
+device_ledger_capsule_mutated_carrier:
+133568 bytes / 4712365d309df49bc42e5cb73d98e37f2bbfc98ef7522b87320612d106157cab
+
+device_ledger_canonical_reproduction_result:
+31188 bytes / d0a659c572dcde11315f518d350361f6fc7690027c7e2682111f88a519b34ad1 /
+Git blob 9b5a240495b357c64a510e6019e4d7189c29152e
+
+device_ledger_reproduction_result_role:
+orchestration_evidence_not_verifier_verdict
+
+device_ledger_reference_environment:
+digest-pinned Python 3.11.9 slim Bookworm / linux-amd64 / Unicode 14.0.0 /
+standard-library-only / network disabled during bounded execution
+
+device_ledger_reference_environment_attestation:
+843 bytes / 9d20cf6ea118ab8e01768e42a7636923f69945545f01a52904851a717442b9ca
+
+device_ledger_protected_source_preservation:
+10 exact repository source objects unchanged before and after execution; no
+repository source write attempted
+
+device_ledger_capsule_execution_regression:
+15 proof tests with sanitized, completion-guarded no-argument launcher
+
+device_ledger_reference_workflow:
+.github/workflows/pulsemech_device_ledger_reproduction_capsule_v0.yml
+
+device_ledger_portable_local_replay:
+python3 tests/test_pulsemech_device_ledger_reproduction_capsule_execution_v0.py
 
 device_ledger_minimal_runnable_iphone_demonstrator:
 completed and post-merge reviewed through PR #2847
@@ -2197,6 +2544,15 @@ completed
 device_ledger_demonstrator_carrier_class:
 diagnostic_shadow
 
+device_ledger_existing_verifier_modification:
+forbidden / unchanged
+
+device_ledger_verification_semantics_change:
+none
+
+device_ledger_producer_verdict_trusted:
+false
+
 device_ledger_authority_effect:
 none
 
@@ -2204,7 +2560,8 @@ device_ledger_external_validation_claim:
 none
 
 device_ledger_broader_iphone_product_development:
-separate and not required by the bounded proof claim
+separate and not required by the bounded proof or deterministic Reproduction
+Capsule claim
 
 slsa_vsa_recorded_intake:
 implemented, tested and candidate-only
@@ -2347,7 +2704,7 @@ step3g_authoritative_regression_total:
 90 passed, 0 skipped
 
 tools_test_manifest:
-146 active entries / 146 unique active entries
+149 active entries / 149 unique active entries
 
 compute_resource_measurement:
 not implemented
@@ -2372,10 +2729,12 @@ compute — Step 4 runtime-observation producer; runtime-observed connected proo
 per-axis resource measurement and any compute-gate promotion remain separate
 later boundaries
 
-Device Ledger — bounded mechanical self-proof, minimal runnable iPhone
-demonstrator and exact .pulseledger export are closed; live production
-observation, production key lifecycle, platform attestation and broader iPhone
-product development remain separate wider claims
+Device Ledger — bounded mechanical self-proof, exact .pulseledger export,
+deterministic Reproduction Capsule, canonical reproduction result and minimal
+runnable iPhone demonstrator are closed; live production observation, production
+key lifecycle, platform attestation, universal cross-platform reproduction,
+external certification and broader iPhone product development remain separate
+wider claims
 ```
 
 The stable URL for this state section is:
@@ -2386,7 +2745,7 @@ The machine-readable document URL is:
 
 https://raw.githubusercontent.com/HKati/pulse-release-gates-0.1/main/PULSEMECH_TECHNICAL_OVERVIEW.md
 
-### Latest completed Device Ledger bounded proof sequence
+### Latest completed Device Ledger bounded proof and reproduction sequence
 
 - [PR #2842 — materialize the canonical Device Ledger package manifest](https://github.com/HKati/pulse-release-gates-0.1/pull/2842)
 - [PR #2843 — materialize the Device Ledger package signature](https://github.com/HKati/pulse-release-gates-0.1/pull/2843)
@@ -2394,7 +2753,11 @@ https://raw.githubusercontent.com/HKati/pulse-release-gates-0.1/main/PULSEMECH_T
 - [PR #2845 — verify the Swift carrier with the standalone verifier](https://github.com/HKati/pulse-release-gates-0.1/pull/2845)
 - [PR #2846 — close the final verifier-trigger diff-hygiene finding](https://github.com/HKati/pulse-release-gates-0.1/pull/2846)
 - [PR #2847 — add the minimal runnable bounded proof demonstrator](https://github.com/HKati/pulse-release-gates-0.1/pull/2847)
+- [PR #2848 — record the completed bounded mechanical proof](https://github.com/HKati/pulse-release-gates-0.1/pull/2848)
+- [PR #2851 — define the exact Reproduction Capsule manifest contract](https://github.com/HKati/pulse-release-gates-0.1/pull/2851)
+- [PR #2852 — execute the deterministic Reproduction Capsule proof](https://github.com/HKati/pulse-release-gates-0.1/pull/2852)
 - [Canonical Device Ledger bounded mechanical proof record](docs/PULSEMECH_DEVICE_LEDGER_BOUNDED_MECHANICAL_PROOF_v0.md)
+- [External verification and reproduction procedure](docs/EXTERNAL_VERIFICATION_PATH_v0.md)
 
 ### Latest completed compute proof sequence
 
@@ -2438,7 +2801,8 @@ https://raw.githubusercontent.com/HKati/pulse-release-gates-0.1/main/PULSEMECH_T
 
 ## 17. Current development path
 
-The completed Device Ledger bounded proof relation is:
+The completed Device Ledger bounded proof and deterministic reproduction
+relation is:
 
 ```text
 bounded synthetic reference relation
@@ -2455,12 +2819,32 @@ bounded synthetic reference relation
 → reproducible PASS or fail-closed rejection
 → minimal runnable iPhone result surface
 → exact artifact export
+→ exact Reproduction Capsule contract
+→ deterministic four-member ZIP_STORED construction
+→ two isolated byte-identical Capsule constructions
+→ two exact positive standalone-verifier executions
+→ one targeted CRC-consistent package-signature mutation
+→ exact package_signature_valid rejection
+→ canonical reproduction result
+→ protected-source preservation
 ```
 
 This Device Ledger path is closed for its declared bounded claim.
 
 ```text
 bounded mechanical self-proof:
+closed
+
+exact .pulseledger export:
+closed
+
+Reproduction Capsule contract:
+closed
+
+deterministic reference execution:
+closed
+
+canonical reproduction result:
 closed
 
 minimal runnable iPhone demonstrator:
@@ -2470,9 +2854,14 @@ broader iPhone product development:
 separate
 ```
 
+The canonical reproduction result remains orchestration evidence.
+
+The existing standalone verifier remains the verifier.
+
 No external validating authority, production key lifecycle, platform
-attestation or general-purpose product layer is required to preserve that
-closure.
+attestation, universal cross-platform reproduction, release-decision
+integration, or general-purpose product layer is required to preserve this
+bounded closure.
 
 The separate compute workstream continues from the completed Step 3G boundary.
 
@@ -2690,6 +3079,41 @@ subject:
 one completed historical run
 ```
 
+### Reproduction Capsule contract record
+
+The Capsule-manifest schema, normative contract, and canonical manifest carry
+one exact construction and execution contract.
+
+```text
+subject:
+one exact Reproduction Capsule contract surface
+
+authority_effect:
+none
+```
+
+### Canonical reproduction result record
+
+The canonical reproduction result carries the completed deterministic Capsule
+execution relation.
+
+```text
+subject:
+one completed bounded Reproduction Capsule execution
+
+record_role:
+orchestration_evidence_not_verifier_verdict
+
+authority_effect:
+none
+```
+
+The result records execution and equality relations after the standalone
+verifier processes complete.
+
+It does not replace the standalone verifier report, create a gate result, or
+create a release decision.
+
 ### Reader record
 
 A reader surface carries a selected view of recorded evidence and state.
@@ -2727,7 +3151,8 @@ The subject identity determines the meaning and scope of every record.
 ## 19. Canonical source order for technical analysis
 
 Technical analysis begins with the complete system identity, then follows the
-exact state and proof carriers.
+exact merged state, proof records, workstream records, executable carriers, and
+run-bound evidence.
 
 ```text
 1. PULSEMECH_TECHNICAL_OVERVIEW.md
@@ -2736,34 +3161,62 @@ exact state and proof carriers.
 2. current main repository state
    → present merged implementation
 
-3. exact open pull request, when open work is being evaluated
-   → proposed but unmerged implementation state
+3. docs/PULSEMECH_DEVICE_LEDGER_BOUNDED_MECHANICAL_PROOF_v0.md
+   → completed bounded Device Ledger proof and exact reproduction relation
 
-4. exact workflow, policy and registry
-   → active release-transition configuration
+   docs/EXTERNAL_VERIFICATION_PATH_v0.md
+   → distinct reviewer and operator procedures for direct verification and
+     deterministic reproduction
 
-5. exact schemas, producers, validators, materializers and tests
+4. docs/compute/PULSEMECH_COMPUTE_BINDING_AND_TRANSITION_EFFICIENCY_DESIGN_v0.md
+   → detailed compute contracts, completed proofs, current-run boundary, and
+     remaining sequence
+
+5. docs/slsa/PULSEMECH_WITNESS_INTEROPERABILITY_AND_RELEASE_AUTHORITY_BOUNDARY_v0.md
+   → reviewed Witness relation, structured-carrier gap, and authority boundary
+
+6. exact open pull request, when open work is being evaluated
+   → proposed but unmerged implementation or documentation state
+
+7. exact workflow, policy and registry
+   → active release-transition configuration or declared bounded execution
+
+8. exact schemas, contracts, producers, builders, runners, validators,
+   materializers, verifiers and tests
    → machine contracts and executable mechanics
 
-6. exact run-bound artifacts
-   → state of one workflow run
+9. exact run-bound artifacts, canonical proof artifacts, reproduction results,
+   preserved reference packages and run notes
+   → one workflow run, completed proof, orchestration evidence, or historical
+     record
 
-7. preserved reference packages and run notes
-   → historical proof
+10. PULSEMECH_TRANSITION_METER.md
+    → broader foundational transition-measurement architecture
 
-8. PULSEMECH_TRANSITION_METER.md
-   → broader foundational transition-measurement architecture
-
-9. reader and publication surfaces
-   → derived views
+11. reader and publication surfaces
+    → derived views
 ```
+
+The Device Ledger proof record and External Verification Path have different
+roles:
+
+```text
+proof record:
+what the completed relation proves
+
+external path:
+how a reviewer or operator inspects, replays, or reproduces it
+```
+
+Neither document becomes a verifier verdict or release-authority carrier.
 
 This order preserves the subject and time relation of every source.
 
 An AI-native operator must preserve the same ordering.
 
 It must not use a later reader summary to overwrite an earlier authority
-carrier, or use an open PR to overwrite merged implementation state.
+carrier, use an orchestration result to replace a verifier report, or use an
+open pull request to overwrite merged implementation state.
 
 ---
 
@@ -2862,22 +3315,53 @@ pre-authority.
 
 They do not activate compute gates or create release authority.
 
-### Device Ledger bounded mechanical proof
+### Device Ledger bounded proof and deterministic reproduction
+
+#### Canonical records
 
 - [Canonical Device Ledger bounded mechanical proof record](docs/PULSEMECH_DEVICE_LEDGER_BOUNDED_MECHANICAL_PROOF_v0.md)
+- [External verification and reproduction procedure](docs/EXTERNAL_VERIFICATION_PATH_v0.md)
+
+#### Core implementation and direct verification
+
 - [Device Ledger Swift core](apps/ios/Packages/PULSEmechLedgerCore/)
 - [Canonicalization contract](contracts/pulsemech_device_canonical_json_v0.json)
 - [iOS observation contract](contracts/pulsemech_ios_observation_contract_v0.json)
 - [Standalone Device Ledger verifier](tools/verify_pulsemech_device_ledger_v0.py)
 - [Reference `.pulseledger` carrier](examples/device_transition_ledger/pulsemech_device_transition_ledger_reference_v0.pulseledger)
 - [Canonical verifier report](examples/device_transition_ledger/pulsemech_device_transition_ledger_reference_verification_v0.json)
+
+#### Reproduction Capsule contract
+
+- [Capsule-manifest schema](schemas/pulsemech_device_ledger_reproduction_capsule_manifest_v0.schema.json)
+- [Normative Reproduction Capsule contract](contracts/pulsemech_device_ledger_reproduction_capsule_v0.json)
+- [Canonical Capsule manifest](examples/device_transition_ledger/pulsemech_device_ledger_reproduction_capsule_manifest_reference_v0.json)
+- [Capsule contract regression](tests/test_pulsemech_device_ledger_reproduction_capsule_contract_v0.py)
+
+#### Reproduction Capsule execution
+
+- [Deterministic Capsule builder](tools/build_pulsemech_device_ledger_reproduction_capsule_v0.py)
+- [Reproduction-result schema](schemas/pulsemech_device_ledger_reproduction_result_v0.schema.json)
+- [Orchestration-only reproduction runner](tools/run_pulsemech_device_ledger_reproduction_capsule_v0.py)
+- [Canonical Reproduction Capsule](examples/device_transition_ledger/pulsemech_device_ledger_reproduction_capsule_v0.zip)
+- [Canonical reproduction result](examples/device_transition_ledger/pulsemech_device_ledger_reproduction_result_reference_v0.json)
+- [Permanent Capsule execution regression](tests/test_pulsemech_device_ledger_reproduction_capsule_execution_v0.py)
+- [Dedicated Capsule reference workflow](.github/workflows/pulsemech_device_ledger_reproduction_capsule_v0.yml)
+- [Registered tools-test surface](ci/tools-tests.list)
+
+#### Runnable demonstrator
+
 - [Minimal runnable iPhone demonstrator](apps/ios/PULSEmechProofApp/)
 - [iPhone demonstrator workflow](.github/workflows/pulsemech_ios_proof_app.yml)
 
-The Device Ledger demonstrator and its workflow are non-authorizing proof and
-presentation surfaces.
+The proof record, External Verification Path, Capsule, canonical reproduction
+result, permanent regressions, dedicated workflow, and demonstrator remain
+non-authorizing proof, orchestration, review, transport, or presentation
+surfaces.
 
 ```text
+reproduction_result_role = orchestration_evidence_not_verifier_verdict
+producer_verdict_trusted = false
 authority_effect = none
 external_validation_claim = none
 ```
@@ -3035,11 +3519,38 @@ verified current-run candidate-bundle intake
 current-run artifact-observed proof builder
 manual non-active Step 3G artifact-observed candidate workflow
 artifact-observed proof-bundle builder with a checksum-closed output contract
-Device Ledger bounded mechanical self-proof
-Device Ledger deterministic .pulseledger carrier
+
+Device Ledger canonical record chain
+Device Ledger terminal checkpoint closure
+Device Ledger checkpoint and package signatures
+Device Ledger deterministic ten-member .pulseledger carrier
+Device Ledger separately implemented standalone verifier
 Swift-to-standalone-verifier positive and relevant negative proof
+exact canonical 49-check verifier report
 minimal runnable iPhone bounded proof demonstrator
 exact .pulseledger artifact export
+canonical Device Ledger bounded mechanical proof record
+
+strict Reproduction Capsule manifest schema
+normative Reproduction Capsule contract
+canonical four-member Capsule manifest
+fixed ZIP_STORED Capsule profile
+deterministic Capsule builder
+strict reproduction-result schema
+orchestration-only reproduction runner
+exact digest-pinned reference-environment boundary
+exact outer-launcher attestation
+two isolated deterministic Capsule constructions
+Capsule A/B/canonical byte identity
+two exact positive standalone-verifier processes
+targeted CRC-consistent package-signature mutation
+exact package_signature_valid rejection
+canonical machine-readable reproduction result
+protected-source before/after preservation
+permanent Capsule contract regression
+permanent 15-test Capsule execution regression
+dedicated Capsule reference workflow
+149-entry registered tools-test surface
 ```
 
 The broader Transition Meter is recorded as foundational architecture.
@@ -3055,21 +3566,62 @@ completed Step 3G artifact-observed proof automation
 → stable measurement coverage
 → Step 7 separate policy promotion decision
 
-Device Ledger:
-bounded mechanical self-proof
-→ closed
+Device Ledger bounded mechanical self-proof:
+closed
 
-minimal runnable iPhone demonstrator
-→ closed
+Device Ledger exact .pulseledger export:
+closed
 
-exact .pulseledger export
-→ closed
+Device Ledger Reproduction Capsule contract:
+closed
 
-broader iPhone product development
-→ separate
+Device Ledger deterministic reference execution:
+closed
+
+Device Ledger canonical reproduction result:
+closed
+
+minimal runnable iPhone demonstrator:
+closed
+
+live production observation:
+separate
+
+production key lifecycle and Secure Enclave integration:
+separate
+
+platform attestation and physical-device identity:
+separate
+
+universal cross-platform reproduction:
+not claimed
+
+external certification or validating authority:
+not required and not claimed
+
+release-decision integration or release-authority mutation:
+absent
+
+broader iPhone product development:
+separate
 ```
 
-The completed Step 3G surface remains:
+The Reproduction Capsule boundary remains:
+
+```text
+record_status = synthetic_reference
+identity_scope = fixture_installation
+key_origin_profile = fixture_software_p256
+runner_role = orchestration_only
+verifier_execution = separate_process
+existing_verifier_modification = forbidden
+producer_verdict_trusted = false
+reproduction_result_role = orchestration_evidence_not_verifier_verdict
+authority_effect = none
+external_validation_claim = none
+```
+
+The completed Step 3G compute surface remains:
 
 ```text
 manual
