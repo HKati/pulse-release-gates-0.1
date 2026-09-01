@@ -1,7 +1,8 @@
 name: PULSEmech Device Ledger Reproduction Capsule v0
 
-# PR 1 validates the exact contract surface only.
-# Deterministic Capsule construction and reproduction execution belong to PR 2.
+# PR 1 contract regression remains unchanged.
+# PR 2 pulls the exact image before the bounded phase, then executes the proof
+# without network access against read-only repository and attestation mounts.
 on:
   pull_request:
     branches:
@@ -12,11 +13,17 @@ on:
       - "contracts/pulsemech_device_canonical_json_v0.json"
       - "contracts/pulsemech_device_ledger_reproduction_capsule_v0.json"
       - "schemas/pulsemech_device_ledger_reproduction_capsule_manifest_v0.schema.json"
+      - "schemas/pulsemech_device_ledger_reproduction_result_v0.schema.json"
       - "examples/device_transition_ledger/pulsemech_device_ledger_reproduction_capsule_manifest_reference_v0.json"
+      - "examples/device_transition_ledger/pulsemech_device_ledger_reproduction_capsule_v0.zip"
+      - "examples/device_transition_ledger/pulsemech_device_ledger_reproduction_result_reference_v0.json"
       - "examples/device_transition_ledger/pulsemech_device_transition_ledger_reference_v0.pulseledger"
       - "examples/device_transition_ledger/pulsemech_device_transition_ledger_reference_verification_v0.json"
+      - "tools/build_pulsemech_device_ledger_reproduction_capsule_v0.py"
+      - "tools/run_pulsemech_device_ledger_reproduction_capsule_v0.py"
       - "tools/verify_pulsemech_device_ledger_v0.py"
       - "tests/test_pulsemech_device_ledger_reproduction_capsule_contract_v0.py"
+      - "tests/test_pulsemech_device_ledger_reproduction_capsule_execution_v0.py"
   push:
     branches:
       - main
@@ -26,11 +33,17 @@ on:
       - "contracts/pulsemech_device_canonical_json_v0.json"
       - "contracts/pulsemech_device_ledger_reproduction_capsule_v0.json"
       - "schemas/pulsemech_device_ledger_reproduction_capsule_manifest_v0.schema.json"
+      - "schemas/pulsemech_device_ledger_reproduction_result_v0.schema.json"
       - "examples/device_transition_ledger/pulsemech_device_ledger_reproduction_capsule_manifest_reference_v0.json"
+      - "examples/device_transition_ledger/pulsemech_device_ledger_reproduction_capsule_v0.zip"
+      - "examples/device_transition_ledger/pulsemech_device_ledger_reproduction_result_reference_v0.json"
       - "examples/device_transition_ledger/pulsemech_device_transition_ledger_reference_v0.pulseledger"
       - "examples/device_transition_ledger/pulsemech_device_transition_ledger_reference_verification_v0.json"
+      - "tools/build_pulsemech_device_ledger_reproduction_capsule_v0.py"
+      - "tools/run_pulsemech_device_ledger_reproduction_capsule_v0.py"
       - "tools/verify_pulsemech_device_ledger_v0.py"
       - "tests/test_pulsemech_device_ledger_reproduction_capsule_contract_v0.py"
+      - "tests/test_pulsemech_device_ledger_reproduction_capsule_execution_v0.py"
   workflow_dispatch:
 
 permissions:
@@ -172,3 +185,714 @@ jobs:
           fi
 
           echo "OK: tracked repository files remain unchanged"
+
+  capsule_reference_execution_bootstrap:
+    name: Capsule reference execution bootstrap
+    needs: capsule_contract
+    runs-on: ubuntu-22.04
+    timeout-minutes: 25
+
+    env:
+      REFERENCE_IMAGE: docker.io/library/python:3.11.9-slim-bookworm@sha256:2856e6af199e8128161abd320575eb9b341f3b76f017b5d0c9cd364f60d8a050
+      REFERENCE_DIGEST: sha256:2856e6af199e8128161abd320575eb9b341f3b76f017b5d0c9cd364f60d8a050
+      EXPECTED_ATTESTATION_SIZE: "843"
+      EXPECTED_ATTESTATION_SHA256: 9d20cf6ea118ab8e01768e42a7636923f69945545f01a52904851a717442b9ca
+      EXPECTED_RUNNER_SIZE: "123414"
+      EXPECTED_RUNNER_SHA256: ffd3b9604334587030a89f20952e65417f83036161634755c6541435c5d20104
+      EXPECTED_RUNNER_GIT_BLOB_SHA1: e9f58f9a08344b6b2dce698a25834909ecdc082a
+      EXPECTED_BUILDER_SIZE: "79156"
+      EXPECTED_BUILDER_SHA256: 1a5c48aa63eb7d74235741ff738d4f08a245096f71a76057a22b88036036e1d0
+      EXPECTED_BUILDER_GIT_BLOB_SHA1: 22fa939d7bd9706a654fbb8893ef0c06ef4e160b
+      EXPECTED_RESULT_SCHEMA_SIZE: "71112"
+      EXPECTED_RESULT_SCHEMA_SHA256: c6ff62b7c6af008ae7e15bec69452d6860dfa16c0e8a1345ce843d8713c02af7
+      EXPECTED_RESULT_SCHEMA_GIT_BLOB_SHA1: 7c9e68a48e79551c2929c56bdfc907ffa67d2992
+      EXPECTED_CAPSULE_SIZE: "285144"
+      LANG: C.UTF-8
+      LC_ALL: C.UTF-8
+      TZ: UTC
+      PYTHONDONTWRITEBYTECODE: "1"
+      PYTHONHASHSEED: "0"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Verify exact execution input identities
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python3 - <<'PY'
+          from __future__ import annotations
+
+          import hashlib
+          import os
+          from pathlib import Path
+
+
+          def sha256_bytes(payload: bytes) -> str:
+              return hashlib.sha256(payload).hexdigest()
+
+
+          def git_blob_sha1(payload: bytes) -> str:
+              framed = f"blob {len(payload)}\0".encode("ascii") + payload
+              try:
+                  return hashlib.sha1(
+                      framed,
+                      usedforsecurity=False,
+                  ).hexdigest()
+              except TypeError:
+                  return hashlib.sha1(framed).hexdigest()
+
+
+          specs = (
+              (
+                  Path(
+                      "tools/"
+                      "run_pulsemech_device_ledger_"
+                      "reproduction_capsule_v0.py"
+                  ),
+                  int(os.environ["EXPECTED_RUNNER_SIZE"]),
+                  os.environ["EXPECTED_RUNNER_SHA256"],
+                  os.environ["EXPECTED_RUNNER_GIT_BLOB_SHA1"],
+              ),
+              (
+                  Path(
+                      "tools/"
+                      "build_pulsemech_device_ledger_"
+                      "reproduction_capsule_v0.py"
+                  ),
+                  int(os.environ["EXPECTED_BUILDER_SIZE"]),
+                  os.environ["EXPECTED_BUILDER_SHA256"],
+                  os.environ["EXPECTED_BUILDER_GIT_BLOB_SHA1"],
+              ),
+              (
+                  Path(
+                      "schemas/"
+                      "pulsemech_device_ledger_"
+                      "reproduction_result_v0.schema.json"
+                  ),
+                  int(os.environ["EXPECTED_RESULT_SCHEMA_SIZE"]),
+                  os.environ["EXPECTED_RESULT_SCHEMA_SHA256"],
+                  os.environ["EXPECTED_RESULT_SCHEMA_GIT_BLOB_SHA1"],
+              ),
+          )
+
+          for path, size, digest, blob in specs:
+              if path.is_symlink() or not path.is_file():
+                  raise SystemExit(f"invalid execution input: {path}")
+              payload = path.read_bytes()
+              observed = (
+                  len(payload),
+                  sha256_bytes(payload),
+                  git_blob_sha1(payload),
+              )
+              expected = (size, digest, blob)
+              if observed != expected:
+                  raise SystemExit(
+                      f"execution input identity mismatch: {path}: "
+                      f"observed={observed!r} expected={expected!r}"
+                  )
+              print(
+                  "OK:",
+                  path,
+                  f"size={size}",
+                  f"sha256={digest}",
+                  f"git_blob_sha1={blob}",
+              )
+          PY
+
+          tracked_changes="$(git status --porcelain --untracked-files=no)"
+          if [ -n "$tracked_changes" ]; then
+            printf '%s\n' "$tracked_changes"
+            echo "::error::Tracked files changed before reference execution"
+            exit 1
+          fi
+
+      - name: Pull and verify exact reference image
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Network access is permitted only before the bounded reproduction
+          # phase so the exact digest-pinned image can be materialized locally.
+          docker pull --platform linux/amd64 "$REFERENCE_IMAGE"
+
+          inspect_path="${RUNNER_TEMP}/pulsemech-reference-image-inspect-v0.json"
+          docker image inspect "$REFERENCE_IMAGE" > "$inspect_path"
+
+          IMAGE_INSPECT_PATH="$inspect_path" python3 - <<'PY'
+          from __future__ import annotations
+
+          import json
+          import os
+          from pathlib import Path
+
+
+          inspect_path = Path(os.environ["IMAGE_INSPECT_PATH"])
+          document = json.loads(inspect_path.read_text(encoding="utf-8"))
+          if not isinstance(document, list) or len(document) != 1:
+              raise SystemExit("reference image inspect cardinality mismatch")
+
+          image = document[0]
+          if image.get("Os") != "linux":
+              raise SystemExit(
+                  "reference image operating-system mismatch: "
+                  + repr(image.get("Os"))
+              )
+          if image.get("Architecture") != "amd64":
+              raise SystemExit(
+                  "reference image architecture mismatch: "
+                  + repr(image.get("Architecture"))
+              )
+
+          expected_digest = os.environ["REFERENCE_DIGEST"]
+          observed = image.get("RepoDigests")
+          if not isinstance(observed, list) or not observed:
+              raise SystemExit("reference image RepoDigests unavailable")
+
+          accepted_repositories = {
+              "library/python",
+          }
+          matches = []
+          for value in observed:
+              if not isinstance(value, str) or "@" not in value:
+                  continue
+              repository, digest = value.rsplit("@", 1)
+              for prefix in ("docker.io/", "index.docker.io/"):
+                  if repository.startswith(prefix):
+                      repository = repository[len(prefix):]
+              if repository == "python":
+                  repository = "library/python"
+              if repository in accepted_repositories and digest == expected_digest:
+                  matches.append(value)
+
+          if not matches:
+              raise SystemExit(
+                  "exact reference RepoDigest absent: " + repr(observed)
+              )
+
+          print(
+              "OK: exact reference image verified before container start:",
+              matches[0],
+          )
+          PY
+
+          docker image inspect "$REFERENCE_IMAGE" >/dev/null
+
+      - name: Create exact outer-launcher attestation
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python3 - <<'PY'
+          from __future__ import annotations
+
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+
+          root = (
+              Path(os.environ["RUNNER_TEMP"])
+              / "pulsemech-device-ledger-reference-attestation-v0"
+          )
+          path = root / "reference_environment_attestation_v0.json"
+          if root.exists():
+              raise SystemExit("reference attestation directory already exists")
+          root.mkdir(mode=0o700)
+
+          attestation = {
+              "attestation_mount": "read_only",
+              "attestation_role": "reference_environment_precondition",
+              "attestation_source": "outer_reference_environment_launcher",
+              "authority_effect": "none",
+              "container_image": os.environ["REFERENCE_IMAGE"],
+              "container_image_digest": os.environ["REFERENCE_DIGEST"],
+              "container_image_repo_digest_verified": True,
+              "container_launch_by_exact_digest": True,
+              "document_type": (
+                  "pulsemech_reference_environment_attestation"
+              ),
+              "network_mode": "none",
+              "output_mount": "separate_writable",
+              "repository_mount": "read_only",
+              "schema_version": (
+                  "pulsemech_reference_environment_attestation_v0"
+              ),
+              "verification_method": (
+                  "host_container_runtime_repo_digest_match_before_"
+                  "exact_digest_launch"
+              ),
+              "verified_before_container_start": True,
+          }
+          payload = json.dumps(
+              attestation,
+              ensure_ascii=False,
+              separators=(",", ":"),
+              sort_keys=True,
+          ).encode("utf-8")
+
+          expected_size = int(os.environ["EXPECTED_ATTESTATION_SIZE"])
+          expected_sha256 = os.environ["EXPECTED_ATTESTATION_SHA256"]
+          observed = (len(payload), hashlib.sha256(payload).hexdigest())
+          expected = (expected_size, expected_sha256)
+          if observed != expected:
+              raise SystemExit(
+                  "reference attestation identity mismatch: "
+                  f"observed={observed!r} expected={expected!r}"
+              )
+
+          with path.open("xb") as handle:
+              written = handle.write(payload)
+              if written != len(payload):
+                  raise SystemExit("reference attestation write incomplete")
+              handle.flush()
+              os.fsync(handle.fileno())
+
+          os.chmod(path, 0o444)
+          directory = os.open(root, os.O_RDONLY | os.O_DIRECTORY)
+          try:
+              os.fsync(directory)
+          finally:
+              os.close(directory)
+          os.chmod(root, 0o555)
+
+          print(
+              "OK: exact outer-launcher attestation created:",
+              f"size={expected_size}",
+              f"sha256={expected_sha256}",
+          )
+          PY
+
+      - name: Execute bounded no-network reproduction
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          attestation_root="${RUNNER_TEMP}/pulsemech-device-ledger-reference-attestation-v0"
+          output_root="${RUNNER_TEMP}/pulsemech-device-ledger-reproduction-output-v0"
+          summary_path="${RUNNER_TEMP}/pulsemech-device-ledger-reproduction-runner-summary-v0.jsonl"
+          stderr_path="${RUNNER_TEMP}/pulsemech-device-ledger-reproduction-runner-stderr-v0.bin"
+
+          if [ -e "$output_root" ] || [ -e "$summary_path" ] || [ -e "$stderr_path" ]; then
+            echo "::error::Bounded reproduction output path already exists"
+            exit 1
+          fi
+          install -d -m 0700 "$output_root"
+
+          host_uid="$(id -u)"
+          host_gid="$(id -g)"
+
+          set +e
+          docker run --rm --pull never \
+            --platform linux/amd64 \
+            --network none \
+            --read-only \
+            --user "${host_uid}:${host_gid}" \
+            --cap-drop ALL \
+            --security-opt no-new-privileges:true \
+            --pids-limit 256 \
+            --mount \
+              "type=bind,src=${GITHUB_WORKSPACE},dst=/repo,readonly" \
+            --mount \
+              "type=bind,src=${attestation_root},dst=/attestation,readonly" \
+            --mount \
+              "type=bind,src=${output_root},dst=/output" \
+            --tmpfs \
+              "/tmp:rw,nosuid,nodev,noexec,size=67108864,mode=0700" \
+            --workdir /repo \
+            --env LANG=C.UTF-8 \
+            --env LC_ALL=C.UTF-8 \
+            --env TZ=UTC \
+            --env PYTHONDONTWRITEBYTECODE=1 \
+            --env PYTHONHASHSEED=0 \
+            "$REFERENCE_IMAGE" \
+            python3 -P \
+              tools/run_pulsemech_device_ledger_reproduction_capsule_v0.py \
+              --repository-root /repo \
+              --output-directory /output/reference-proof \
+              --reference-environment-attestation \
+                /attestation/reference_environment_attestation_v0.json \
+            >"$summary_path" \
+            2>"$stderr_path"
+          status=$?
+          set -e
+
+          if [ "$status" -ne 0 ]; then
+            echo "::error::Bounded reproduction failed with exit status $status"
+            if [ -s "$stderr_path" ]; then
+              cat "$stderr_path" >&2
+            fi
+            exit "$status"
+          fi
+          if [ -s "$stderr_path" ]; then
+            echo "::error::Bounded reproduction emitted stderr"
+            cat "$stderr_path" >&2
+            exit 1
+          fi
+          rm -f "$stderr_path"
+
+          echo "OK: bounded no-network reproduction completed"
+          cat "$summary_path"
+
+      - name: Verify and stage exact proof outputs
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python3 - <<'PY'
+          from __future__ import annotations
+
+          import hashlib
+          import json
+          import os
+          import stat
+          from pathlib import Path
+          from typing import Any
+
+
+          CAPSULE_NAME = (
+              "pulsemech_device_ledger_reproduction_capsule_v0.zip"
+          )
+          RESULT_NAME = (
+              "pulsemech_device_ledger_"
+              "reproduction_result_reference_v0.json"
+          )
+          ATTESTATION_NAME = (
+              "pulsemech_reference_environment_attestation_v0.json"
+          )
+          SUMMARY_NAME = (
+              "pulsemech_device_ledger_"
+              "reproduction_runner_summary_v0.jsonl"
+          )
+
+
+          def sha256_bytes(payload: bytes) -> str:
+              return hashlib.sha256(payload).hexdigest()
+
+
+          def git_blob_sha1(payload: bytes) -> str:
+              framed = f"blob {len(payload)}\0".encode("ascii") + payload
+              try:
+                  return hashlib.sha1(
+                      framed,
+                      usedforsecurity=False,
+                  ).hexdigest()
+              except TypeError:
+                  return hashlib.sha1(framed).hexdigest()
+
+
+          def reject_float(token: str) -> Any:
+              raise ValueError(f"floating point forbidden: {token}")
+
+
+          def reject_constant(token: str) -> Any:
+              raise ValueError(f"non-finite number forbidden: {token}")
+
+
+          def reject_duplicate_pairs(
+              pairs: list[tuple[str, Any]],
+          ) -> dict[str, Any]:
+              output: dict[str, Any] = {}
+              for key, value in pairs:
+                  if key in output:
+                      raise ValueError(f"duplicate JSON key: {key}")
+                  output[key] = value
+              return output
+
+
+          def load_canonical_json(payload: bytes) -> dict[str, Any]:
+              if payload.startswith(b"\xef\xbb\xbf"):
+                  raise ValueError("UTF-8 BOM forbidden")
+              text = payload.decode("utf-8", errors="strict")
+              value = json.loads(
+                  text,
+                  object_pairs_hook=reject_duplicate_pairs,
+                  parse_float=reject_float,
+                  parse_constant=reject_constant,
+              )
+              if not isinstance(value, dict):
+                  raise ValueError("top-level JSON object required")
+              rendered = json.dumps(
+                  value,
+                  ensure_ascii=False,
+                  separators=(",", ":"),
+                  sort_keys=True,
+              ).encode("utf-8")
+              if rendered != payload:
+                  raise ValueError("stored JSON is not canonical")
+              return value
+
+
+          def read_exact_regular_file(
+              path: Path,
+              expected_mode: int,
+          ) -> bytes:
+              metadata = path.lstat()
+              if path.is_symlink() or not stat.S_ISREG(metadata.st_mode):
+                  raise ValueError(f"not an exact regular file: {path}")
+              if metadata.st_nlink != 1:
+                  raise ValueError(f"hard link forbidden: {path}")
+              if stat.S_IMODE(metadata.st_mode) != expected_mode:
+                  raise ValueError(
+                      f"file mode mismatch: {path}: "
+                      f"{oct(stat.S_IMODE(metadata.st_mode))}"
+                  )
+              return path.read_bytes()
+
+
+          runner_temp = Path(os.environ["RUNNER_TEMP"])
+          proof = (
+              runner_temp
+              / "pulsemech-device-ledger-reproduction-output-v0"
+              / "reference-proof"
+          )
+          summary_path = (
+              runner_temp
+              / "pulsemech-device-ledger-"
+              "reproduction-runner-summary-v0.jsonl"
+          )
+          attestation_path = (
+              runner_temp
+              / "pulsemech-device-ledger-reference-attestation-v0"
+              / "reference_environment_attestation_v0.json"
+          )
+          artifact_root = (
+              runner_temp
+              / "pulsemech-device-ledger-reproduction-bootstrap-v0"
+          )
+
+          proof_metadata = proof.lstat()
+          if proof.is_symlink() or not stat.S_ISDIR(proof_metadata.st_mode):
+              raise SystemExit("proof output is not an exact directory")
+          if stat.S_IMODE(proof_metadata.st_mode) != 0o555:
+              raise SystemExit("proof output directory mode is not 0555")
+          entries = sorted(entry.name for entry in proof.iterdir())
+          if entries != sorted((CAPSULE_NAME, RESULT_NAME)):
+              raise SystemExit(
+                  "proof output entry set mismatch: " + repr(entries)
+              )
+
+          capsule = read_exact_regular_file(proof / CAPSULE_NAME, 0o444)
+          result = read_exact_regular_file(proof / RESULT_NAME, 0o444)
+          if len(capsule) != int(os.environ["EXPECTED_CAPSULE_SIZE"]):
+              raise SystemExit("canonical Capsule size mismatch")
+          if b"\r" in result or b"\n" in result:
+              raise SystemExit("canonical result contains CR or LF")
+          result_object = load_canonical_json(result)
+
+          summary = summary_path.read_bytes()
+          if (
+              not summary.endswith(b"\n")
+              or summary.count(b"\n") != 1
+              or b"\r" in summary
+          ):
+              raise SystemExit("runner summary framing mismatch")
+          summary_body = summary[:-1]
+          summary_object = load_canonical_json(summary_body)
+
+          capsule_sha256 = sha256_bytes(capsule)
+          capsule_blob = git_blob_sha1(capsule)
+          result_sha256 = sha256_bytes(result)
+          result_blob = git_blob_sha1(result)
+          expected_summary = {
+              "authority_effect": "none",
+              "capsule_filename": CAPSULE_NAME,
+              "capsule_sha256": capsule_sha256,
+              "capsule_size_bytes": len(capsule),
+              "ok": True,
+              "result": "bounded_reference_reproduction_completed",
+              "result_filename": RESULT_NAME,
+              "result_sha256": result_sha256,
+              "result_size_bytes": len(result),
+              "tool": (
+                  "run_pulsemech_device_ledger_"
+                  "reproduction_capsule_v0"
+              ),
+              "tool_version": "0.1.0",
+          }
+          if summary_object != expected_summary:
+              raise SystemExit("runner success summary mismatch")
+
+          if result_object.get("ok") is not True:
+              raise SystemExit("canonical result ok is not true")
+          if result_object.get("result") != (
+              "bounded_reference_reproduction_completed"
+          ):
+              raise SystemExit("canonical result terminal value mismatch")
+          authority = result_object.get("authority_boundary")
+          if not isinstance(authority, dict) or authority.get(
+              "authority_effect"
+          ) != "none":
+              raise SystemExit("canonical result authority boundary mismatch")
+
+          canonical_capsule = result_object.get("canonical_capsule")
+          if not isinstance(canonical_capsule, dict):
+              raise SystemExit("canonical Capsule binding absent")
+          if canonical_capsule.get("sha256") != capsule_sha256:
+              raise SystemExit("canonical Capsule SHA-256 binding mismatch")
+          if canonical_capsule.get("git_blob_sha1") != capsule_blob:
+              raise SystemExit("canonical Capsule Git blob binding mismatch")
+          if canonical_capsule.get("size_bytes") != len(capsule):
+              raise SystemExit("canonical Capsule size binding mismatch")
+
+          bindings = result_object.get("identity_bindings")
+          if not isinstance(bindings, dict):
+              raise SystemExit("identity bindings absent")
+          runner_binding = bindings.get("reproduction_runner")
+          expected_runner = {
+              "size_bytes": int(os.environ["EXPECTED_RUNNER_SIZE"]),
+              "sha256": os.environ["EXPECTED_RUNNER_SHA256"],
+              "git_blob_sha1": os.environ[
+                  "EXPECTED_RUNNER_GIT_BLOB_SHA1"
+              ],
+          }
+          if not isinstance(runner_binding, dict) or any(
+              runner_binding.get(key) != value
+              for key, value in expected_runner.items()
+          ):
+              raise SystemExit("reproduction runner binding mismatch")
+
+          repeated = result_object.get("repeated_construction")
+          if not isinstance(repeated, dict) or not all(
+              value is True for value in repeated.values()
+          ):
+              raise SystemExit("repeated construction relation incomplete")
+
+          positives = result_object.get("positive_reproductions")
+          if not isinstance(positives, list) or len(positives) != 2:
+              raise SystemExit("positive reproduction cardinality mismatch")
+          for positive in positives:
+              process = positive.get("verifier_process")
+              report = process.get("report") if isinstance(process, dict) else None
+              if (
+                  not isinstance(process, dict)
+                  or process.get("exit_status") != 0
+                  or not isinstance(report, dict)
+                  or report.get("ok") is not True
+                  or report.get("passed_check_count") != 49
+                  or report.get("check_count") != 49
+                  or report.get("failed_check_ids") != []
+                  or report.get("failure_stage") is not None
+              ):
+                  raise SystemExit("positive reproduction relation mismatch")
+
+          negative = result_object.get("negative_reproduction")
+          process = negative.get("verifier_process") if isinstance(
+              negative,
+              dict,
+          ) else None
+          report = process.get("report") if isinstance(process, dict) else None
+          if (
+              not isinstance(process, dict)
+              or process.get("exit_status") != 2
+              or not isinstance(report, dict)
+              or report.get("ok") is not False
+              or report.get("result") != "rejected"
+              or report.get("failure_stage") != "package_signature"
+              or report.get("failed_check_ids")
+              != ["package_signature_valid"]
+              or not isinstance(report.get("error"), dict)
+              or report["error"].get("error_code")
+              != "signature_verification_failed"
+              or report["error"].get("member_path")
+              != "signatures/package-signature-v0.json"
+              or report["error"].get("check_id")
+              != "package_signature_valid"
+          ):
+              raise SystemExit("negative reproduction relation mismatch")
+
+          preservation = result_object.get("protected_source_preservation")
+          if (
+              not isinstance(preservation, dict)
+              or preservation.get("all_exact_bytes_unchanged") is not True
+              or preservation.get("all_git_blob_identities_unchanged")
+              is not True
+              or preservation.get("drift_detected") is not False
+              or preservation.get("repository_source_write_attempted")
+              is not False
+              or preservation.get("source_count") != 10
+          ):
+              raise SystemExit("protected-source preservation mismatch")
+
+          attestation = attestation_path.read_bytes()
+          if (
+              len(attestation) != int(os.environ["EXPECTED_ATTESTATION_SIZE"])
+              or sha256_bytes(attestation)
+              != os.environ["EXPECTED_ATTESTATION_SHA256"]
+          ):
+              raise SystemExit("outer-launcher attestation identity mismatch")
+
+          if artifact_root.exists():
+              raise SystemExit("artifact staging directory already exists")
+          artifact_root.mkdir(mode=0o700)
+          staged = {
+              CAPSULE_NAME: capsule,
+              RESULT_NAME: result,
+              ATTESTATION_NAME: attestation,
+              SUMMARY_NAME: summary,
+          }
+          for name, payload in staged.items():
+              target = artifact_root / name
+              with target.open("xb") as handle:
+                  written = handle.write(payload)
+                  if written != len(payload):
+                      raise SystemExit(f"staged write incomplete: {name}")
+                  handle.flush()
+                  os.fsync(handle.fileno())
+              os.chmod(target, 0o444)
+          directory = os.open(
+              artifact_root,
+              os.O_RDONLY | os.O_DIRECTORY,
+          )
+          try:
+              os.fsync(directory)
+          finally:
+              os.close(directory)
+          os.chmod(artifact_root, 0o555)
+
+          print(
+              "OK: canonical Capsule",
+              f"size={len(capsule)}",
+              f"sha256={capsule_sha256}",
+              f"git_blob_sha1={capsule_blob}",
+          )
+          print(
+              "OK: canonical reproduction result",
+              f"size={len(result)}",
+              f"sha256={result_sha256}",
+              f"git_blob_sha1={result_blob}",
+          )
+          print(
+              "OK: exact proof outputs staged for artifact transport only"
+          )
+          PY
+
+      - name: Verify reference execution did not modify tracked files
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          tracked_changes="$(git status --porcelain --untracked-files=no)"
+          if [ -n "$tracked_changes" ]; then
+            printf '%s\n' "$tracked_changes"
+            echo "::error::Reference execution modified tracked files"
+            exit 1
+          fi
+
+          echo "OK: tracked repository files remain unchanged"
+
+      - name: Upload exact proof bootstrap artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # pinned
+        with:
+          name: pulsemech-device-ledger-reproduction-bootstrap-v0
+          path: ${{ runner.temp }}/pulsemech-device-ledger-reproduction-bootstrap-v0/
+          if-no-files-found: error
+          compression-level: 0
+          overwrite: false
+          retention-days: 7

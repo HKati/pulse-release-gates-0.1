@@ -1,0 +1,2626 @@
+{
+  "$id": "https://github.com/HKati/pulse-release-gates-0.1/schemas/pulsemech_device_ledger_reproduction_result_v0.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PULSEmech Device Ledger Reproduction Result v0",
+  "description": "Strict successful-result contract for the bounded PULSEmech Device Ledger Reproduction Capsule v0 execution. The result records an exact outer-launcher reference-environment attestation for the digest-pinned image, two isolated byte-identical Capsule constructions, two exact positive standalone-verifier executions, one structurally admissible package-signature mutation, the exact fail-closed rejection, protected-source preservation, and non-authority boundaries.",
+  "$comment": "This schema defines the shape of a completed successful reproduction result. In-container operating-system properties do not prove OCI image identity, so the result requires the exact host-runtime attestation admitted by the builder before construction. Dynamic equality among independently produced hashes and byte sequences is enforced by the reproduction runner and permanent execution regression; the schema requires the corresponding exact identities and successful relation records. The result does not self-hash and does not bind its containing commit.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "authority_boundary",
+    "canonical_capsule",
+    "canonical_result_storage",
+    "capsule_constructions",
+    "capsule_format",
+    "capsule_member_contract",
+    "carrier_class",
+    "claim_boundary",
+    "document_type",
+    "execution_boundary",
+    "expected_observer_fingerprint_sha256",
+    "identity_bindings",
+    "implementation_boundary",
+    "negative_reproduction",
+    "ok",
+    "positive_reproductions",
+    "proof_scope",
+    "protected_source_preservation",
+    "record_status",
+    "reference_environment",
+    "reference_environment_attestation",
+    "repeated_construction",
+    "repository_context",
+    "result",
+    "result_role",
+    "schema_version",
+    "targeted_mutation"
+  ],
+  "properties": {
+    "document_type": {
+      "const": "pulsemech_device_ledger_reproduction_result"
+    },
+    "schema_version": {
+      "const": "pulsemech_device_ledger_reproduction_result_v0"
+    },
+    "record_status": {
+      "const": "synthetic_reference"
+    },
+    "proof_scope": {
+      "const": "bounded_reference_reproduction"
+    },
+    "carrier_class": {
+      "const": "diagnostic_shadow"
+    },
+    "result_role": {
+      "const": "orchestration_evidence"
+    },
+    "capsule_format": {
+      "const": "pulsemech_device_ledger_reproduction_capsule_v0"
+    },
+    "result": {
+      "const": "bounded_reference_reproduction_completed"
+    },
+    "ok": {
+      "const": true
+    },
+    "expected_observer_fingerprint_sha256": {
+      "const": "f2880825cd3caa7272d01042829e5b02e8a168db11225477b039e6ec9a7d09c6"
+    },
+    "repository_context": {
+      "$ref": "#/$defs/repository_context"
+    },
+    "identity_bindings": {
+      "$ref": "#/$defs/identity_bindings"
+    },
+    "reference_environment": {
+      "$ref": "#/$defs/reference_environment"
+    },
+    "reference_environment_attestation": {
+      "$ref": "#/$defs/reference_environment_attestation_record"
+    },
+    "execution_boundary": {
+      "$ref": "#/$defs/execution_boundary"
+    },
+    "capsule_member_contract": {
+      "$ref": "#/$defs/capsule_member_contract"
+    },
+    "capsule_constructions": {
+      "$ref": "#/$defs/capsule_constructions"
+    },
+    "repeated_construction": {
+      "$ref": "#/$defs/repeated_construction"
+    },
+    "positive_reproductions": {
+      "$ref": "#/$defs/positive_reproductions"
+    },
+    "targeted_mutation": {
+      "$ref": "#/$defs/targeted_mutation"
+    },
+    "negative_reproduction": {
+      "$ref": "#/$defs/negative_reproduction"
+    },
+    "protected_source_preservation": {
+      "$ref": "#/$defs/protected_source_preservation"
+    },
+    "canonical_capsule": {
+      "$ref": "#/$defs/canonical_capsule"
+    },
+    "canonical_result_storage": {
+      "$ref": "#/$defs/canonical_result_storage"
+    },
+    "implementation_boundary": {
+      "$ref": "#/$defs/implementation_boundary"
+    },
+    "claim_boundary": {
+      "$ref": "#/$defs/claim_boundary"
+    },
+    "authority_boundary": {
+      "$ref": "#/$defs/authority_boundary"
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "git_sha1": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "git_commit_sha": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "i63_positive": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9223372036854775807
+    },
+    "i63_nonnegative": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9223372036854775807
+    },
+    "ascii_nonempty": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024,
+      "pattern": "^[\\x20-\\x7e]+$"
+    },
+    "exact_repository_file_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "byte_identity",
+        "git_blob_sha1",
+        "path",
+        "sha256",
+        "size_bytes"
+      ],
+      "properties": {
+        "byte_identity": {
+          "const": "exact_repository_file_bytes"
+        },
+        "git_blob_sha1": {
+          "$ref": "#/$defs/git_sha1"
+        },
+        "path": {
+          "$ref": "#/$defs/ascii_nonempty"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "size_bytes": {
+          "$ref": "#/$defs/i63_positive"
+        }
+      }
+    },
+    "tool_source_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "byte_identity",
+        "git_blob_sha1",
+        "implementation_role",
+        "path",
+        "sha256",
+        "size_bytes",
+        "tool_id",
+        "tool_version"
+      ],
+      "properties": {
+        "byte_identity": {
+          "const": "exact_repository_file_bytes"
+        },
+        "git_blob_sha1": {
+          "$ref": "#/$defs/git_sha1"
+        },
+        "implementation_role": {
+          "$ref": "#/$defs/ascii_nonempty"
+        },
+        "path": {
+          "$ref": "#/$defs/ascii_nonempty"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "size_bytes": {
+          "$ref": "#/$defs/i63_positive"
+        },
+        "tool_id": {
+          "$ref": "#/$defs/ascii_nonempty"
+        },
+        "tool_version": {
+          "const": "0.1.0"
+        }
+      }
+    },
+    "manifest_schema_file_binding": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/exact_repository_file_binding"
+        },
+        {
+          "properties": {
+            "path": {
+              "const": "schemas/pulsemech_device_ledger_reproduction_capsule_manifest_v0.schema.json"
+            },
+            "size_bytes": {
+              "const": 32581
+            },
+            "sha256": {
+              "const": "a1b8a3734214824883e8a65dbb9dc7c33ca585e0761c312fd85f4db3787ea85c"
+            },
+            "git_blob_sha1": {
+              "const": "6a0dabff2e5f725c6ef8e586f9cae7fff566030b"
+            }
+          }
+        }
+      ]
+    },
+    "capsule_contract_file_binding": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/exact_repository_file_binding"
+        },
+        {
+          "properties": {
+            "path": {
+              "const": "contracts/pulsemech_device_ledger_reproduction_capsule_v0.json"
+            },
+            "size_bytes": {
+              "const": 15947
+            },
+            "sha256": {
+              "const": "ea45871d8f173729b2429944a949bc1edd9a06b78ffb438863d7c8d0d7687a67"
+            },
+            "git_blob_sha1": {
+              "const": "d15fddbe9250de0ed76b3b7ebb7d679383a867b4"
+            }
+          }
+        }
+      ]
+    },
+    "canonical_manifest_file_binding": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/exact_repository_file_binding"
+        },
+        {
+          "properties": {
+            "path": {
+              "const": "examples/device_transition_ledger/pulsemech_device_ledger_reproduction_capsule_manifest_reference_v0.json"
+            },
+            "size_bytes": {
+              "const": 8989
+            },
+            "sha256": {
+              "const": "cda4218f279820640590a71c78b85a29cb11de3fc7d29a96727d669c30cdbcbf"
+            },
+            "git_blob_sha1": {
+              "const": "b9c4aeb2cc2133e54c83ae81e45ab8358c5b0d3b"
+            }
+          }
+        }
+      ]
+    },
+    "canonicalization_profile_file_binding": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/exact_repository_file_binding"
+        },
+        {
+          "properties": {
+            "path": {
+              "const": "contracts/pulsemech_device_canonical_json_v0.json"
+            },
+            "size_bytes": {
+              "const": 2719
+            },
+            "sha256": {
+              "const": "ddc0e677e04c8678c32e36d21dc79ad509fe6c4a5507322abb6187c6e88c7550"
+            },
+            "git_blob_sha1": {
+              "const": "89d866c8f7a0dc9ddfd2f7d53ff171530dffc18f"
+            }
+          }
+        }
+      ]
+    },
+    "canonical_pulseledger_file_binding": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/exact_repository_file_binding"
+        },
+        {
+          "properties": {
+            "path": {
+              "const": "examples/device_transition_ledger/pulsemech_device_transition_ledger_reference_v0.pulseledger"
+            },
+            "size_bytes": {
+              "const": 133568
+            },
+            "sha256": {
+              "const": "a31388c7bf574040893d1d923d684d23318e5d2109a0d72a923888b95d5d42b3"
+            },
+            "git_blob_sha1": {
+              "const": "8d9ecb2c6d42f8fd5afb10face6495ef67874b2d"
+            }
+          }
+        }
+      ]
+    },
+    "standalone_verifier_file_binding": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/exact_repository_file_binding"
+        },
+        {
+          "properties": {
+            "path": {
+              "const": "tools/verify_pulsemech_device_ledger_v0.py"
+            },
+            "size_bytes": {
+              "const": 126419
+            },
+            "sha256": {
+              "const": "0a828490f93ce684ab50625c23a19c870f813c3bcdef7034f5c88a0c6aa494e7"
+            },
+            "git_blob_sha1": {
+              "const": "6f5ac6323c56d22e6a908d6a2419f253617382b0"
+            }
+          }
+        }
+      ]
+    },
+    "canonical_expected_report_file_binding": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/exact_repository_file_binding"
+        },
+        {
+          "properties": {
+            "path": {
+              "const": "examples/device_transition_ledger/pulsemech_device_transition_ledger_reference_verification_v0.json"
+            },
+            "size_bytes": {
+              "const": 15328
+            },
+            "sha256": {
+              "const": "5e93539099e99dd5bfa835ba56c401608a5b5c015209812ebb5f9c31142a74f4"
+            },
+            "git_blob_sha1": {
+              "const": "e79e70a243ff104e4d0f17d09379ae1e3962230a"
+            }
+          }
+        }
+      ]
+    },
+    "result_schema_file_binding": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/exact_repository_file_binding"
+        },
+        {
+          "properties": {
+            "path": {
+              "const": "schemas/pulsemech_device_ledger_reproduction_result_v0.schema.json"
+            }
+          }
+        }
+      ]
+    },
+    "capsule_builder_file_binding": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/exact_repository_file_binding"
+        },
+        {
+          "properties": {
+            "path": {
+              "const": "tools/build_pulsemech_device_ledger_reproduction_capsule_v0.py"
+            },
+            "size_bytes": {
+              "const": 79156
+            },
+            "sha256": {
+              "const": "1a5c48aa63eb7d74235741ff738d4f08a245096f71a76057a22b88036036e1d0"
+            },
+            "git_blob_sha1": {
+              "const": "22fa939d7bd9706a654fbb8893ef0c06ef4e160b"
+            }
+          }
+        }
+      ]
+    },
+    "reproduction_runner_file_binding": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/exact_repository_file_binding"
+        },
+        {
+          "properties": {
+            "path": {
+              "const": "tools/run_pulsemech_device_ledger_reproduction_capsule_v0.py"
+            }
+          }
+        }
+      ]
+    },
+    "capsule_builder_tool_binding": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/tool_source_binding"
+        },
+        {
+          "properties": {
+            "implementation_role": {
+              "const": "deterministic_capsule_construction_only"
+            },
+            "path": {
+              "const": "tools/build_pulsemech_device_ledger_reproduction_capsule_v0.py"
+            },
+            "tool_id": {
+              "const": "build_pulsemech_device_ledger_reproduction_capsule_v0"
+            },
+            "tool_version": {
+              "const": "0.1.0"
+            },
+            "size_bytes": {
+              "const": 79156
+            },
+            "sha256": {
+              "const": "1a5c48aa63eb7d74235741ff738d4f08a245096f71a76057a22b88036036e1d0"
+            },
+            "git_blob_sha1": {
+              "const": "22fa939d7bd9706a654fbb8893ef0c06ef4e160b"
+            }
+          }
+        }
+      ]
+    },
+    "reproduction_runner_tool_binding": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/tool_source_binding"
+        },
+        {
+          "properties": {
+            "implementation_role": {
+              "const": "orchestration_only"
+            },
+            "path": {
+              "const": "tools/run_pulsemech_device_ledger_reproduction_capsule_v0.py"
+            },
+            "tool_id": {
+              "const": "run_pulsemech_device_ledger_reproduction_capsule_v0"
+            },
+            "tool_version": {
+              "const": "0.1.0"
+            }
+          }
+        }
+      ]
+    },
+    "standalone_verifier_tool_binding": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/tool_source_binding"
+        },
+        {
+          "properties": {
+            "implementation_role": {
+              "const": "separate_from_producer_code"
+            },
+            "path": {
+              "const": "tools/verify_pulsemech_device_ledger_v0.py"
+            },
+            "tool_id": {
+              "const": "verify_pulsemech_device_ledger_v0"
+            },
+            "tool_version": {
+              "const": "0.1.0"
+            },
+            "size_bytes": {
+              "const": 126419
+            },
+            "sha256": {
+              "const": "0a828490f93ce684ab50625c23a19c870f813c3bcdef7034f5c88a0c6aa494e7"
+            },
+            "git_blob_sha1": {
+              "const": "6f5ac6323c56d22e6a908d6a2419f253617382b0"
+            }
+          }
+        }
+      ]
+    },
+    "repository_context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "containing_commit_binding",
+        "payload_source_commit_sha",
+        "pr_position",
+        "repository",
+        "required_base_commit_sha",
+        "work_order_issue_number"
+      ],
+      "properties": {
+        "containing_commit_binding": {
+          "const": "excluded_to_avoid_circularity"
+        },
+        "payload_source_commit_sha": {
+          "const": "0108e2c0da98c8a1fe5e739aa0f137ba6a3464e1"
+        },
+        "pr_position": {
+          "const": 2
+        },
+        "repository": {
+          "const": "HKati/pulse-release-gates-0.1"
+        },
+        "required_base_commit_sha": {
+          "const": "722fe4e85acfaac67c283862645ac9e42c831236"
+        },
+        "work_order_issue_number": {
+          "const": 2850
+        }
+      }
+    },
+    "identity_bindings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "all_exact_identities_verified",
+        "canonical_expected_positive_report",
+        "canonical_manifest",
+        "canonical_pulseledger",
+        "canonicalization_profile",
+        "capsule_builder",
+        "capsule_contract",
+        "manifest_schema",
+        "reproduction_result_schema",
+        "reproduction_runner",
+        "standalone_verifier"
+      ],
+      "properties": {
+        "all_exact_identities_verified": {
+          "const": true
+        },
+        "canonical_expected_positive_report": {
+          "$ref": "#/$defs/canonical_expected_report_file_binding"
+        },
+        "canonical_manifest": {
+          "$ref": "#/$defs/canonical_manifest_file_binding"
+        },
+        "canonical_pulseledger": {
+          "$ref": "#/$defs/canonical_pulseledger_file_binding"
+        },
+        "canonicalization_profile": {
+          "$ref": "#/$defs/canonicalization_profile_file_binding"
+        },
+        "capsule_builder": {
+          "$ref": "#/$defs/capsule_builder_tool_binding"
+        },
+        "capsule_contract": {
+          "$ref": "#/$defs/capsule_contract_file_binding"
+        },
+        "manifest_schema": {
+          "$ref": "#/$defs/manifest_schema_file_binding"
+        },
+        "reproduction_result_schema": {
+          "$ref": "#/$defs/result_schema_file_binding"
+        },
+        "reproduction_runner": {
+          "$ref": "#/$defs/reproduction_runner_tool_binding"
+        },
+        "standalone_verifier": {
+          "$ref": "#/$defs/standalone_verifier_tool_binding"
+        }
+      }
+    },
+    "reference_environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "archive_implementation",
+        "container_image",
+        "dependency_policy",
+        "environment_variables",
+        "network_access",
+        "operating_system",
+        "python",
+        "runtime_downloads",
+        "temporary_directory_policy",
+        "working_directory_policy"
+      ],
+      "properties": {
+        "archive_implementation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "boundary",
+            "module"
+          ],
+          "properties": {
+            "boundary": {
+              "const": "cpython_standard_library_bound_to_exact_python_micro_version"
+            },
+            "module": {
+              "const": "zipfile"
+            }
+          }
+        },
+        "container_image": {
+          "const": "docker.io/library/python:3.11.9-slim-bookworm@sha256:2856e6af199e8128161abd320575eb9b341f3b76f017b5d0c9cd364f60d8a050"
+        },
+        "dependency_policy": {
+          "const": "python_standard_library_only"
+        },
+        "environment_variables": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "LANG",
+            "LC_ALL",
+            "PYTHONDONTWRITEBYTECODE",
+            "PYTHONHASHSEED",
+            "TZ"
+          ],
+          "properties": {
+            "LANG": {
+              "const": "C.UTF-8"
+            },
+            "LC_ALL": {
+              "const": "C.UTF-8"
+            },
+            "PYTHONDONTWRITEBYTECODE": {
+              "const": "1"
+            },
+            "PYTHONHASHSEED": {
+              "const": "0"
+            },
+            "TZ": {
+              "const": "UTC"
+            }
+          }
+        },
+        "network_access": {
+          "const": "forbidden"
+        },
+        "operating_system": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "architecture",
+            "distribution",
+            "version"
+          ],
+          "properties": {
+            "architecture": {
+              "const": "x86_64"
+            },
+            "distribution": {
+              "const": "debian"
+            },
+            "version": {
+              "const": "bookworm-slim"
+            }
+          }
+        },
+        "python": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "implementation",
+            "unicode_data_version",
+            "version"
+          ],
+          "properties": {
+            "implementation": {
+              "const": "CPython"
+            },
+            "unicode_data_version": {
+              "const": "14.0.0"
+            },
+            "version": {
+              "const": "3.11.9"
+            }
+          }
+        },
+        "runtime_downloads": {
+          "const": "forbidden"
+        },
+        "temporary_directory_policy": {
+          "const": "isolated_per_construction_outside_protected_sources"
+        },
+        "working_directory_policy": {
+          "const": "repository_root"
+        }
+      }
+    },
+    "reference_environment_attestation_statement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "attestation_mount",
+        "attestation_role",
+        "attestation_source",
+        "authority_effect",
+        "container_image",
+        "container_image_digest",
+        "container_image_repo_digest_verified",
+        "container_launch_by_exact_digest",
+        "document_type",
+        "network_mode",
+        "output_mount",
+        "repository_mount",
+        "schema_version",
+        "verification_method",
+        "verified_before_container_start"
+      ],
+      "properties": {
+        "attestation_mount": {
+          "const": "read_only"
+        },
+        "attestation_role": {
+          "const": "reference_environment_precondition"
+        },
+        "attestation_source": {
+          "const": "outer_reference_environment_launcher"
+        },
+        "authority_effect": {
+          "const": "none"
+        },
+        "container_image": {
+          "const": "docker.io/library/python:3.11.9-slim-bookworm@sha256:2856e6af199e8128161abd320575eb9b341f3b76f017b5d0c9cd364f60d8a050"
+        },
+        "container_image_digest": {
+          "const": "sha256:2856e6af199e8128161abd320575eb9b341f3b76f017b5d0c9cd364f60d8a050"
+        },
+        "container_image_repo_digest_verified": {
+          "const": true
+        },
+        "container_launch_by_exact_digest": {
+          "const": true
+        },
+        "document_type": {
+          "const": "pulsemech_reference_environment_attestation"
+        },
+        "network_mode": {
+          "const": "none"
+        },
+        "output_mount": {
+          "const": "separate_writable"
+        },
+        "repository_mount": {
+          "const": "read_only"
+        },
+        "schema_version": {
+          "const": "pulsemech_reference_environment_attestation_v0"
+        },
+        "verification_method": {
+          "const": "host_container_runtime_repo_digest_match_before_exact_digest_launch"
+        },
+        "verified_before_container_start": {
+          "const": true
+        }
+      }
+    },
+    "reference_environment_attestation_record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "attestation",
+        "builder_admission",
+        "byte_identity",
+        "sha256",
+        "size_bytes",
+        "source_relation"
+      ],
+      "properties": {
+        "attestation": {
+          "$ref": "#/$defs/reference_environment_attestation_statement"
+        },
+        "builder_admission": {
+          "const": "verified_before_construction"
+        },
+        "byte_identity": {
+          "const": "exact_external_attestation_bytes"
+        },
+        "sha256": {
+          "const": "9d20cf6ea118ab8e01768e42a7636923f69945545f01a52904851a717442b9ca"
+        },
+        "size_bytes": {
+          "const": 843
+        },
+        "source_relation": {
+          "const": "outer_reference_environment_launcher"
+        }
+      }
+    },
+    "execution_boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "bounded_reproduction_phase",
+        "container_image_pull_relation",
+        "container_image_identity_verified",
+        "container_image_identity_attestation",
+        "dependency_installation_during_reproduction",
+        "network_mode",
+        "output_mount",
+        "repository_mount",
+        "runtime_downloads_during_reproduction",
+        "temporary_workspace_relation"
+      ],
+      "properties": {
+        "bounded_reproduction_phase": {
+          "const": "reference_container"
+        },
+        "container_image_pull_relation": {
+          "const": "completed_before_bounded_reproduction_phase"
+        },
+        "container_image_identity_attestation": {
+          "const": "host_container_runtime_repo_digest_match_before_exact_digest_launch"
+        },
+        "container_image_identity_verified": {
+          "const": true
+        },
+        "dependency_installation_during_reproduction": {
+          "const": "forbidden"
+        },
+        "network_mode": {
+          "const": "none"
+        },
+        "output_mount": {
+          "const": "separate_writable"
+        },
+        "repository_mount": {
+          "const": "read_only"
+        },
+        "runtime_downloads_during_reproduction": {
+          "const": "forbidden"
+        },
+        "temporary_workspace_relation": {
+          "const": "isolated_per_construction_no_reuse"
+        }
+      }
+    },
+    "capsule_manifest_member": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "archive_ordinal",
+        "byte_identity",
+        "capsule_path",
+        "media_type",
+        "role",
+        "sha256",
+        "size_bytes",
+        "source_path"
+      ],
+      "properties": {
+        "archive_ordinal": {
+          "const": 1
+        },
+        "byte_identity": {
+          "const": "exact_source_bytes"
+        },
+        "capsule_path": {
+          "const": "manifest/pulsemech_device_ledger_reproduction_capsule_manifest_v0.json"
+        },
+        "media_type": {
+          "const": "application/json"
+        },
+        "role": {
+          "const": "capsule_manifest"
+        },
+        "sha256": {
+          "const": "cda4218f279820640590a71c78b85a29cb11de3fc7d29a96727d669c30cdbcbf"
+        },
+        "size_bytes": {
+          "const": 8989
+        },
+        "source_path": {
+          "const": "examples/device_transition_ledger/pulsemech_device_ledger_reproduction_capsule_manifest_reference_v0.json"
+        }
+      }
+    },
+    "capsule_pulseledger_member": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "archive_ordinal",
+        "byte_identity",
+        "capsule_path",
+        "media_type",
+        "role",
+        "sha256",
+        "size_bytes",
+        "source_path"
+      ],
+      "properties": {
+        "archive_ordinal": {
+          "const": 2
+        },
+        "byte_identity": {
+          "const": "exact_source_bytes"
+        },
+        "capsule_path": {
+          "const": "artifact/pulsemech_device_transition_ledger_reference_v0.pulseledger"
+        },
+        "media_type": {
+          "const": "application/zip"
+        },
+        "role": {
+          "const": "canonical_pulseledger"
+        },
+        "sha256": {
+          "const": "a31388c7bf574040893d1d923d684d23318e5d2109a0d72a923888b95d5d42b3"
+        },
+        "size_bytes": {
+          "const": 133568
+        },
+        "source_path": {
+          "const": "examples/device_transition_ledger/pulsemech_device_transition_ledger_reference_v0.pulseledger"
+        }
+      }
+    },
+    "capsule_verifier_member": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "archive_ordinal",
+        "byte_identity",
+        "capsule_path",
+        "media_type",
+        "role",
+        "sha256",
+        "size_bytes",
+        "source_path"
+      ],
+      "properties": {
+        "archive_ordinal": {
+          "const": 3
+        },
+        "byte_identity": {
+          "const": "exact_source_bytes"
+        },
+        "capsule_path": {
+          "const": "verifier/verify_pulsemech_device_ledger_v0.py"
+        },
+        "media_type": {
+          "const": "text/x-python"
+        },
+        "role": {
+          "const": "standalone_verifier"
+        },
+        "sha256": {
+          "const": "0a828490f93ce684ab50625c23a19c870f813c3bcdef7034f5c88a0c6aa494e7"
+        },
+        "size_bytes": {
+          "const": 126419
+        },
+        "source_path": {
+          "const": "tools/verify_pulsemech_device_ledger_v0.py"
+        }
+      }
+    },
+    "capsule_expected_report_member": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "archive_ordinal",
+        "byte_identity",
+        "capsule_path",
+        "media_type",
+        "role",
+        "sha256",
+        "size_bytes",
+        "source_path"
+      ],
+      "properties": {
+        "archive_ordinal": {
+          "const": 4
+        },
+        "byte_identity": {
+          "const": "exact_source_bytes"
+        },
+        "capsule_path": {
+          "const": "expected/pulsemech_device_transition_ledger_reference_verification_v0.json"
+        },
+        "media_type": {
+          "const": "application/json"
+        },
+        "role": {
+          "const": "canonical_expected_positive_report"
+        },
+        "sha256": {
+          "const": "5e93539099e99dd5bfa835ba56c401608a5b5c015209812ebb5f9c31142a74f4"
+        },
+        "size_bytes": {
+          "const": 15328
+        },
+        "source_path": {
+          "const": "examples/device_transition_ledger/pulsemech_device_transition_ledger_reference_verification_v0.json"
+        }
+      }
+    },
+    "capsule_member_order": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "items": false,
+      "prefixItems": [
+        {
+          "const": "manifest/pulsemech_device_ledger_reproduction_capsule_manifest_v0.json"
+        },
+        {
+          "const": "artifact/pulsemech_device_transition_ledger_reference_v0.pulseledger"
+        },
+        {
+          "const": "verifier/verify_pulsemech_device_ledger_v0.py"
+        },
+        {
+          "const": "expected/pulsemech_device_transition_ledger_reference_verification_v0.json"
+        }
+      ],
+      "uniqueItems": true
+    },
+    "pulseledger_member_order": {
+      "type": "array",
+      "minItems": 10,
+      "maxItems": 10,
+      "items": false,
+      "prefixItems": [
+        {
+          "const": "contracts/pulsemech_device_canonical_json_v0.json"
+        },
+        {
+          "const": "contracts/pulsemech_ios_observation_contract_v0.json"
+        },
+        {
+          "const": "keys/observer-public-key-v0.bin"
+        },
+        {
+          "const": "ledger/pulsemech_device_transition_ledger_v0.json"
+        },
+        {
+          "const": "manifest/pulsemech_device_ledger_manifest_v0.json"
+        },
+        {
+          "const": "schemas/pulsemech_device_ledger_manifest_v0.schema.json"
+        },
+        {
+          "const": "schemas/pulsemech_device_signature_v0.schema.json"
+        },
+        {
+          "const": "schemas/pulsemech_device_transition_ledger_v0.schema.json"
+        },
+        {
+          "const": "signatures/checkpoint-signature-v0.json"
+        },
+        {
+          "const": "signatures/package-signature-v0.json"
+        }
+      ],
+      "uniqueItems": true
+    },
+    "capsule_member_contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "archive_filename",
+        "capsule_member_count",
+        "capsule_size_bytes",
+        "member_order",
+        "members",
+        "payload_member_count"
+      ],
+      "properties": {
+        "archive_filename": {
+          "const": "pulsemech_device_ledger_reproduction_capsule_v0.zip"
+        },
+        "capsule_member_count": {
+          "const": 4
+        },
+        "capsule_size_bytes": {
+          "const": 285144
+        },
+        "member_order": {
+          "$ref": "#/$defs/capsule_member_order"
+        },
+        "members": {
+          "type": "array",
+          "minItems": 4,
+          "maxItems": 4,
+          "items": false,
+          "prefixItems": [
+            {
+              "$ref": "#/$defs/capsule_manifest_member"
+            },
+            {
+              "$ref": "#/$defs/capsule_pulseledger_member"
+            },
+            {
+              "$ref": "#/$defs/capsule_verifier_member"
+            },
+            {
+              "$ref": "#/$defs/capsule_expected_report_member"
+            }
+          ]
+        },
+        "payload_member_count": {
+          "const": 3
+        }
+      }
+    },
+    "process_stream_identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "byte_identity",
+        "framing",
+        "sha256",
+        "size_bytes"
+      ],
+      "properties": {
+        "byte_identity": {
+          "const": "exact_process_stream_bytes"
+        },
+        "framing": {
+          "type": "string",
+          "enum": [
+            "empty",
+            "canonical_json_no_trailing_newline",
+            "canonical_json_then_single_lf"
+          ]
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "size_bytes": {
+          "$ref": "#/$defs/i63_nonnegative"
+        }
+      }
+    },
+    "empty_process_stream": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/process_stream_identity"
+        },
+        {
+          "properties": {
+            "framing": {
+              "const": "empty"
+            },
+            "sha256": {
+              "const": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+            },
+            "size_bytes": {
+              "const": 0
+            }
+          }
+        }
+      ]
+    },
+    "builder_stdout_stream": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/process_stream_identity"
+        },
+        {
+          "properties": {
+            "framing": {
+              "const": "canonical_json_then_single_lf"
+            },
+            "size_bytes": {
+              "$ref": "#/$defs/i63_positive"
+            }
+          }
+        }
+      ]
+    },
+    "positive_verifier_stdout_stream": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/process_stream_identity"
+        },
+        {
+          "properties": {
+            "framing": {
+              "const": "canonical_json_no_trailing_newline"
+            },
+            "sha256": {
+              "const": "5e93539099e99dd5bfa835ba56c401608a5b5c015209812ebb5f9c31142a74f4"
+            },
+            "size_bytes": {
+              "const": 15328
+            }
+          }
+        }
+      ]
+    },
+    "negative_verifier_stdout_stream": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/process_stream_identity"
+        },
+        {
+          "properties": {
+            "framing": {
+              "const": "canonical_json_no_trailing_newline"
+            },
+            "size_bytes": {
+              "$ref": "#/$defs/i63_positive"
+            }
+          }
+        }
+      ]
+    },
+    "builder_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "archive_filename",
+        "authority_effect",
+        "capsule_member_count",
+        "capsule_sha256",
+        "capsule_size_bytes",
+        "member_order",
+        "ok",
+        "protected_source_count",
+        "reference_environment_attestation",
+        "result",
+        "tool",
+        "tool_source_path",
+        "tool_version",
+        "verifier_executed"
+      ],
+      "properties": {
+        "archive_filename": {
+          "const": "pulsemech_device_ledger_reproduction_capsule_v0.zip"
+        },
+        "authority_effect": {
+          "const": "none"
+        },
+        "capsule_member_count": {
+          "const": 4
+        },
+        "capsule_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "capsule_size_bytes": {
+          "const": 285144
+        },
+        "member_order": {
+          "$ref": "#/$defs/capsule_member_order"
+        },
+        "ok": {
+          "const": true
+        },
+        "protected_source_count": {
+          "const": 7
+        },
+        "reference_environment_attestation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "container_image",
+            "sha256",
+            "size_bytes",
+            "source",
+            "verification_method",
+            "verified"
+          ],
+          "properties": {
+            "container_image": {
+              "const": "docker.io/library/python:3.11.9-slim-bookworm@sha256:2856e6af199e8128161abd320575eb9b341f3b76f017b5d0c9cd364f60d8a050"
+            },
+            "sha256": {
+              "const": "9d20cf6ea118ab8e01768e42a7636923f69945545f01a52904851a717442b9ca"
+            },
+            "size_bytes": {
+              "const": 843
+            },
+            "source": {
+              "const": "outer_reference_environment_launcher"
+            },
+            "verification_method": {
+              "const": "host_container_runtime_repo_digest_match_before_exact_digest_launch"
+            },
+            "verified": {
+              "const": true
+            }
+          }
+        },
+        "result": {
+          "const": "capsule_constructed_only"
+        },
+        "tool": {
+          "const": "build_pulsemech_device_ledger_reproduction_capsule_v0"
+        },
+        "tool_source_path": {
+          "const": "tools/build_pulsemech_device_ledger_reproduction_capsule_v0.py"
+        },
+        "tool_version": {
+          "const": "0.1.0"
+        },
+        "verifier_executed": {
+          "const": false
+        }
+      }
+    },
+    "builder_process": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "execution_relation",
+        "exit_status",
+        "process_role",
+        "source_relation",
+        "stderr",
+        "stdout",
+        "summary"
+      ],
+      "properties": {
+        "execution_relation": {
+          "const": "separate_process"
+        },
+        "exit_status": {
+          "const": 0
+        },
+        "process_role": {
+          "const": "deterministic_capsule_builder"
+        },
+        "source_relation": {
+          "const": "exact_repository_builder_bytes"
+        },
+        "stderr": {
+          "$ref": "#/$defs/empty_process_stream"
+        },
+        "stdout": {
+          "$ref": "#/$defs/builder_stdout_stream"
+        },
+        "summary": {
+          "$ref": "#/$defs/builder_summary"
+        }
+      }
+    },
+    "capsule_identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "archive_filename",
+        "archive_profile_valid",
+        "byte_identity",
+        "capsule_member_count",
+        "member_contract_valid",
+        "member_order",
+        "package_format",
+        "sha256",
+        "size_bytes"
+      ],
+      "properties": {
+        "archive_filename": {
+          "const": "pulsemech_device_ledger_reproduction_capsule_v0.zip"
+        },
+        "archive_profile_valid": {
+          "const": true
+        },
+        "byte_identity": {
+          "const": "exact_capsule_bytes"
+        },
+        "capsule_member_count": {
+          "const": 4
+        },
+        "member_contract_valid": {
+          "const": true
+        },
+        "member_order": {
+          "$ref": "#/$defs/capsule_member_order"
+        },
+        "package_format": {
+          "const": "pulsemech_device_ledger_reproduction_capsule_v0"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "size_bytes": {
+          "const": 285144
+        }
+      }
+    },
+    "capsule_construction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "builder_process",
+        "capsule",
+        "construction_id",
+        "output_relation",
+        "repository_access",
+        "workspace_role"
+      ],
+      "properties": {
+        "builder_process": {
+          "$ref": "#/$defs/builder_process"
+        },
+        "capsule": {
+          "$ref": "#/$defs/capsule_identity"
+        },
+        "construction_id": {
+          "type": "string",
+          "enum": [
+            "capsule_a",
+            "capsule_b"
+          ]
+        },
+        "output_relation": {
+          "const": "new_directory_outside_repository"
+        },
+        "repository_access": {
+          "const": "read_only"
+        },
+        "workspace_role": {
+          "const": "isolated_clean_workspace"
+        }
+      }
+    },
+    "capsule_construction_a": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/capsule_construction"
+        },
+        {
+          "properties": {
+            "construction_id": {
+              "const": "capsule_a"
+            }
+          }
+        }
+      ]
+    },
+    "capsule_construction_b": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/capsule_construction"
+        },
+        {
+          "properties": {
+            "construction_id": {
+              "const": "capsule_b"
+            }
+          }
+        }
+      ]
+    },
+    "construction_isolation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "capsule_a_computed_archive_bytes_reused_by_b",
+        "capsule_a_materialized_members_reused_by_b",
+        "capsule_a_output_reused_by_b",
+        "capsule_a_temporary_files_reused_by_b",
+        "separate_builder_processes",
+        "separate_output_directories",
+        "separate_temporary_workspaces"
+      ],
+      "properties": {
+        "capsule_a_computed_archive_bytes_reused_by_b": {
+          "const": false
+        },
+        "capsule_a_materialized_members_reused_by_b": {
+          "const": false
+        },
+        "capsule_a_output_reused_by_b": {
+          "const": false
+        },
+        "capsule_a_temporary_files_reused_by_b": {
+          "const": false
+        },
+        "separate_builder_processes": {
+          "const": true
+        },
+        "separate_output_directories": {
+          "const": true
+        },
+        "separate_temporary_workspaces": {
+          "const": true
+        }
+      }
+    },
+    "capsule_constructions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "capsule_a",
+        "capsule_b",
+        "construction_count",
+        "isolation"
+      ],
+      "properties": {
+        "capsule_a": {
+          "$ref": "#/$defs/capsule_construction_a"
+        },
+        "capsule_b": {
+          "$ref": "#/$defs/capsule_construction_b"
+        },
+        "construction_count": {
+          "const": 2
+        },
+        "isolation": {
+          "$ref": "#/$defs/construction_isolation"
+        }
+      }
+    },
+    "repeated_construction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "builder_stdout_bytes_equal",
+        "canonical_pulseledger_bytes_equal_across_capsules",
+        "canonical_pulseledger_bytes_equal_checked_in_source",
+        "capsule_bytes_equal",
+        "capsule_sha256_equal",
+        "capsule_size_equal",
+        "member_bytes_equal",
+        "member_inventory_equal",
+        "member_order_equal",
+        "positive_report_bytes_equal",
+        "reference_environment_attestation_bytes_equal",
+        "positive_reports_equal_canonical_expected_report"
+      ],
+      "properties": {
+        "builder_stdout_bytes_equal": {
+          "const": true
+        },
+        "canonical_pulseledger_bytes_equal_across_capsules": {
+          "const": true
+        },
+        "canonical_pulseledger_bytes_equal_checked_in_source": {
+          "const": true
+        },
+        "capsule_bytes_equal": {
+          "const": true
+        },
+        "capsule_sha256_equal": {
+          "const": true
+        },
+        "capsule_size_equal": {
+          "const": true
+        },
+        "member_bytes_equal": {
+          "const": true
+        },
+        "member_inventory_equal": {
+          "const": true
+        },
+        "member_order_equal": {
+          "const": true
+        },
+        "positive_report_bytes_equal": {
+          "const": true
+        },
+        "reference_environment_attestation_bytes_equal": {
+          "const": true
+        },
+        "positive_reports_equal_canonical_expected_report": {
+          "const": true
+        }
+      }
+    },
+    "positive_report_subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "carrier_file_name",
+        "carrier_sha256",
+        "carrier_size_bytes"
+      ],
+      "properties": {
+        "carrier_file_name": {
+          "const": "pulsemech_device_transition_ledger_reference_v0.pulseledger"
+        },
+        "carrier_sha256": {
+          "const": "a31388c7bf574040893d1d923d684d23318e5d2109a0d72a923888b95d5d42b3"
+        },
+        "carrier_size_bytes": {
+          "const": 133568
+        }
+      }
+    },
+    "positive_report_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "authority_effect",
+        "checkpoint_signature_status",
+        "check_count",
+        "declared_unavailability_present",
+        "errors",
+        "external_validation_claim",
+        "failed_check_ids",
+        "failure_stage",
+        "ok",
+        "package_signature_status",
+        "passed_check_count",
+        "producer_code_imported",
+        "producer_environment_available_to_verifier",
+        "record_status",
+        "reproduction_class",
+        "result",
+        "subject",
+        "verifier_implementation_relation"
+      ],
+      "properties": {
+        "authority_effect": {
+          "const": "none"
+        },
+        "checkpoint_signature_status": {
+          "const": "verified"
+        },
+        "check_count": {
+          "const": 49
+        },
+        "declared_unavailability_present": {
+          "const": true
+        },
+        "errors": {
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 0,
+          "items": false
+        },
+        "external_validation_claim": {
+          "const": "none"
+        },
+        "failed_check_ids": {
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 0,
+          "items": false
+        },
+        "failure_stage": {
+          "type": "null"
+        },
+        "ok": {
+          "const": true
+        },
+        "package_signature_status": {
+          "const": "verified"
+        },
+        "passed_check_count": {
+          "const": 49
+        },
+        "producer_code_imported": {
+          "const": false
+        },
+        "producer_environment_available_to_verifier": {
+          "const": true
+        },
+        "record_status": {
+          "const": "synthetic_reference"
+        },
+        "reproduction_class": {
+          "const": "same_environment"
+        },
+        "result": {
+          "const": "verified_with_declared_unavailability"
+        },
+        "subject": {
+          "$ref": "#/$defs/positive_report_subject"
+        },
+        "verifier_implementation_relation": {
+          "const": "separate_from_producer_code"
+        }
+      }
+    },
+    "positive_verifier_process": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifact_relation",
+        "canonical_expected_report_bytes_equal",
+        "execution_relation",
+        "exit_status",
+        "expected_observer_fingerprint_sha256",
+        "process_role",
+        "producer_verdict_trusted",
+        "report",
+        "source_relation",
+        "stderr",
+        "stdout"
+      ],
+      "properties": {
+        "artifact_relation": {
+          "const": "capsule_carried_exact_pulseledger"
+        },
+        "canonical_expected_report_bytes_equal": {
+          "const": true
+        },
+        "execution_relation": {
+          "const": "separate_process"
+        },
+        "exit_status": {
+          "const": 0
+        },
+        "expected_observer_fingerprint_sha256": {
+          "const": "f2880825cd3caa7272d01042829e5b02e8a168db11225477b039e6ec9a7d09c6"
+        },
+        "process_role": {
+          "const": "standalone_device_ledger_verifier"
+        },
+        "producer_verdict_trusted": {
+          "const": false
+        },
+        "report": {
+          "$ref": "#/$defs/positive_report_summary"
+        },
+        "source_relation": {
+          "const": "capsule_carried_exact_verifier"
+        },
+        "stderr": {
+          "$ref": "#/$defs/empty_process_stream"
+        },
+        "stdout": {
+          "$ref": "#/$defs/positive_verifier_stdout_stream"
+        }
+      }
+    },
+    "positive_materialization": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifact_member_path",
+        "bounded_known_members_only",
+        "exact_member_bytes",
+        "expected_report_member_path",
+        "materialized_member_count",
+        "reused_from_other_positive_run",
+        "verifier_member_path",
+        "workspace_role"
+      ],
+      "properties": {
+        "artifact_member_path": {
+          "const": "artifact/pulsemech_device_transition_ledger_reference_v0.pulseledger"
+        },
+        "bounded_known_members_only": {
+          "const": true
+        },
+        "exact_member_bytes": {
+          "const": true
+        },
+        "expected_report_member_path": {
+          "const": "expected/pulsemech_device_transition_ledger_reference_verification_v0.json"
+        },
+        "materialized_member_count": {
+          "const": 3
+        },
+        "reused_from_other_positive_run": {
+          "const": false
+        },
+        "verifier_member_path": {
+          "const": "verifier/verify_pulsemech_device_ledger_v0.py"
+        },
+        "workspace_role": {
+          "const": "isolated_temporary_materialization"
+        }
+      }
+    },
+    "positive_reproduction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "capsule_construction_id",
+        "materialization",
+        "run_id",
+        "verifier_process"
+      ],
+      "properties": {
+        "capsule_construction_id": {
+          "type": "string",
+          "enum": [
+            "capsule_a",
+            "capsule_b"
+          ]
+        },
+        "materialization": {
+          "$ref": "#/$defs/positive_materialization"
+        },
+        "run_id": {
+          "type": "string",
+          "enum": [
+            "positive_a",
+            "positive_b"
+          ]
+        },
+        "verifier_process": {
+          "$ref": "#/$defs/positive_verifier_process"
+        }
+      }
+    },
+    "positive_reproduction_a": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/positive_reproduction"
+        },
+        {
+          "properties": {
+            "capsule_construction_id": {
+              "const": "capsule_a"
+            },
+            "run_id": {
+              "const": "positive_a"
+            }
+          }
+        }
+      ]
+    },
+    "positive_reproduction_b": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/positive_reproduction"
+        },
+        {
+          "properties": {
+            "capsule_construction_id": {
+              "const": "capsule_b"
+            },
+            "run_id": {
+              "const": "positive_b"
+            }
+          }
+        }
+      ]
+    },
+    "positive_reproductions": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": false,
+      "prefixItems": [
+        {
+          "$ref": "#/$defs/positive_reproduction_a"
+        },
+        {
+          "$ref": "#/$defs/positive_reproduction_b"
+        }
+      ]
+    },
+    "canonical_pulseledger_identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "byte_identity",
+        "file_name",
+        "sha256",
+        "size_bytes"
+      ],
+      "properties": {
+        "byte_identity": {
+          "const": "exact_canonical_pulseledger_bytes"
+        },
+        "file_name": {
+          "const": "pulsemech_device_transition_ledger_reference_v0.pulseledger"
+        },
+        "sha256": {
+          "const": "a31388c7bf574040893d1d923d684d23318e5d2109a0d72a923888b95d5d42b3"
+        },
+        "size_bytes": {
+          "const": 133568
+        }
+      }
+    },
+    "mutated_pulseledger_identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "byte_identity",
+        "file_name",
+        "sha256",
+        "size_bytes"
+      ],
+      "properties": {
+        "byte_identity": {
+          "const": "exact_mutated_pulseledger_bytes"
+        },
+        "file_name": {
+          "const": "pulsemech_device_transition_ledger_reference_v0.pulseledger"
+        },
+        "sha256": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/sha256"
+            },
+            {
+              "not": {
+                "const": "a31388c7bf574040893d1d923d684d23318e5d2109a0d72a923888b95d5d42b3"
+              }
+            }
+          ]
+        },
+        "size_bytes": {
+          "const": 133568
+        }
+      }
+    },
+    "crc32_repair": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "central_directory_crc32_recomputed",
+        "local_header_crc32_recomputed"
+      ],
+      "properties": {
+        "central_directory_crc32_recomputed": {
+          "const": true
+        },
+        "local_header_crc32_recomputed": {
+          "const": true
+        }
+      }
+    },
+    "mutation_preservation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "canonical_package_signature_json_structure_preserved",
+        "carrier_size_preserved",
+        "matching_crc32_fields_preserved",
+        "member_count_preserved",
+        "member_names_preserved",
+        "member_order_preserved",
+        "non_target_member_bytes_preserved",
+        "package_manifest_binding_preserved",
+        "package_signature_subject_preserved",
+        "valid_zip_structure_preserved"
+      ],
+      "properties": {
+        "canonical_package_signature_json_structure_preserved": {
+          "const": true
+        },
+        "carrier_size_preserved": {
+          "const": true
+        },
+        "matching_crc32_fields_preserved": {
+          "const": true
+        },
+        "member_count_preserved": {
+          "const": true
+        },
+        "member_names_preserved": {
+          "const": true
+        },
+        "member_order_preserved": {
+          "const": true
+        },
+        "non_target_member_bytes_preserved": {
+          "const": true
+        },
+        "package_manifest_binding_preserved": {
+          "const": true
+        },
+        "package_signature_subject_preserved": {
+          "const": true
+        },
+        "valid_zip_structure_preserved": {
+          "const": true
+        }
+      }
+    },
+    "targeted_mutation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "canonical_reference_artifact_mutated",
+        "changed_properties",
+        "crc32_repair",
+        "field",
+        "inner_member_order",
+        "mutation_class",
+        "mutation_workspace",
+        "mutated_artifact",
+        "original_character",
+        "positive_capsules_mutated",
+        "preservation",
+        "replacement_character",
+        "source_artifact",
+        "source_capsule_construction_id",
+        "target_capsule_member_path",
+        "target_inner_member_path"
+      ],
+      "properties": {
+        "canonical_reference_artifact_mutated": {
+          "const": false
+        },
+        "changed_properties": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "items": false,
+          "prefixItems": [
+            {
+              "const": "package_signature_content"
+            },
+            {
+              "const": "package_ecdsa_equation_result"
+            },
+            {
+              "const": "carrier_sha256"
+            }
+          ],
+          "uniqueItems": true
+        },
+        "crc32_repair": {
+          "$ref": "#/$defs/crc32_repair"
+        },
+        "field": {
+          "const": "signature_base64"
+        },
+        "inner_member_order": {
+          "$ref": "#/$defs/pulseledger_member_order"
+        },
+        "mutation_class": {
+          "const": "replace_first_character"
+        },
+        "mutation_workspace": {
+          "const": "isolated_temporary_copy"
+        },
+        "mutated_artifact": {
+          "$ref": "#/$defs/mutated_pulseledger_identity"
+        },
+        "original_character": {
+          "const": "O"
+        },
+        "positive_capsules_mutated": {
+          "const": false
+        },
+        "preservation": {
+          "$ref": "#/$defs/mutation_preservation"
+        },
+        "replacement_character": {
+          "const": "P"
+        },
+        "source_artifact": {
+          "$ref": "#/$defs/canonical_pulseledger_identity"
+        },
+        "source_capsule_construction_id": {
+          "const": "capsule_a"
+        },
+        "target_capsule_member_path": {
+          "const": "artifact/pulsemech_device_transition_ledger_reference_v0.pulseledger"
+        },
+        "target_inner_member_path": {
+          "const": "signatures/package-signature-v0.json"
+        }
+      }
+    },
+    "required_preceding_checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "package_signature_document_valid",
+        "package_signature_subject_valid",
+        "zip_crc32_valid"
+      ],
+      "properties": {
+        "package_signature_document_valid": {
+          "const": "passed"
+        },
+        "package_signature_subject_valid": {
+          "const": "passed"
+        },
+        "zip_crc32_valid": {
+          "const": "passed"
+        }
+      }
+    },
+    "negative_error": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "check_id",
+        "error_code",
+        "member_path",
+        "stage"
+      ],
+      "properties": {
+        "check_id": {
+          "const": "package_signature_valid"
+        },
+        "error_code": {
+          "const": "signature_verification_failed"
+        },
+        "member_path": {
+          "const": "signatures/package-signature-v0.json"
+        },
+        "stage": {
+          "const": "package_signature"
+        }
+      }
+    },
+    "negative_report_subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "carrier_file_name",
+        "carrier_sha256",
+        "carrier_size_bytes"
+      ],
+      "properties": {
+        "carrier_file_name": {
+          "const": "pulsemech_device_transition_ledger_reference_v0.pulseledger"
+        },
+        "carrier_sha256": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/sha256"
+            },
+            {
+              "not": {
+                "const": "a31388c7bf574040893d1d923d684d23318e5d2109a0d72a923888b95d5d42b3"
+              }
+            }
+          ]
+        },
+        "carrier_size_bytes": {
+          "const": 133568
+        }
+      }
+    },
+    "negative_report_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "authority_effect",
+        "error",
+        "error_count",
+        "external_validation_claim",
+        "failed_check",
+        "failed_check_ids",
+        "failure_stage",
+        "ok",
+        "producer_code_imported",
+        "record_status",
+        "required_preceding_checks",
+        "result",
+        "subject",
+        "subject_matches_mutated_artifact",
+        "verifier_implementation_relation"
+      ],
+      "properties": {
+        "authority_effect": {
+          "const": "none"
+        },
+        "error": {
+          "$ref": "#/$defs/negative_error"
+        },
+        "error_count": {
+          "const": 1
+        },
+        "external_validation_claim": {
+          "const": "none"
+        },
+        "failed_check": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "check_id",
+            "result"
+          ],
+          "properties": {
+            "check_id": {
+              "const": "package_signature_valid"
+            },
+            "result": {
+              "const": "failed"
+            }
+          }
+        },
+        "failed_check_ids": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1,
+          "items": false,
+          "prefixItems": [
+            {
+              "const": "package_signature_valid"
+            }
+          ],
+          "uniqueItems": true
+        },
+        "failure_stage": {
+          "const": "package_signature"
+        },
+        "ok": {
+          "const": false
+        },
+        "producer_code_imported": {
+          "const": false
+        },
+        "record_status": {
+          "const": "synthetic_reference"
+        },
+        "required_preceding_checks": {
+          "$ref": "#/$defs/required_preceding_checks"
+        },
+        "result": {
+          "const": "rejected"
+        },
+        "subject": {
+          "$ref": "#/$defs/negative_report_subject"
+        },
+        "subject_matches_mutated_artifact": {
+          "const": true
+        },
+        "verifier_implementation_relation": {
+          "const": "separate_from_producer_code"
+        }
+      }
+    },
+    "negative_verifier_process": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "execution_relation",
+        "exit_status",
+        "expected_observer_fingerprint_sha256",
+        "process_role",
+        "producer_verdict_trusted",
+        "report",
+        "source_relation",
+        "stderr",
+        "stdout"
+      ],
+      "properties": {
+        "execution_relation": {
+          "const": "separate_process"
+        },
+        "exit_status": {
+          "const": 2
+        },
+        "expected_observer_fingerprint_sha256": {
+          "const": "f2880825cd3caa7272d01042829e5b02e8a168db11225477b039e6ec9a7d09c6"
+        },
+        "process_role": {
+          "const": "standalone_device_ledger_verifier"
+        },
+        "producer_verdict_trusted": {
+          "const": false
+        },
+        "report": {
+          "$ref": "#/$defs/negative_report_summary"
+        },
+        "source_relation": {
+          "const": "capsule_carried_exact_verifier"
+        },
+        "stderr": {
+          "$ref": "#/$defs/empty_process_stream"
+        },
+        "stdout": {
+          "$ref": "#/$defs/negative_verifier_stdout_stream"
+        }
+      }
+    },
+    "negative_reproduction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifact_relation",
+        "earlier_failure_satisfies_contract",
+        "exact_failure_satisfied",
+        "mutation_relation",
+        "verifier_process"
+      ],
+      "properties": {
+        "artifact_relation": {
+          "const": "isolated_mutated_pulseledger_from_capsule_a"
+        },
+        "earlier_failure_satisfies_contract": {
+          "const": false
+        },
+        "exact_failure_satisfied": {
+          "const": true
+        },
+        "mutation_relation": {
+          "const": "targeted_mutation_recorded_by_result"
+        },
+        "verifier_process": {
+          "$ref": "#/$defs/negative_verifier_process"
+        }
+      }
+    },
+    "protected_source_snapshot": {
+      "type": "array",
+      "minItems": 10,
+      "maxItems": 10,
+      "items": false,
+      "prefixItems": [
+        {
+          "$ref": "#/$defs/manifest_schema_file_binding"
+        },
+        {
+          "$ref": "#/$defs/capsule_contract_file_binding"
+        },
+        {
+          "$ref": "#/$defs/canonical_manifest_file_binding"
+        },
+        {
+          "$ref": "#/$defs/canonicalization_profile_file_binding"
+        },
+        {
+          "$ref": "#/$defs/canonical_pulseledger_file_binding"
+        },
+        {
+          "$ref": "#/$defs/standalone_verifier_file_binding"
+        },
+        {
+          "$ref": "#/$defs/canonical_expected_report_file_binding"
+        },
+        {
+          "$ref": "#/$defs/result_schema_file_binding"
+        },
+        {
+          "$ref": "#/$defs/capsule_builder_file_binding"
+        },
+        {
+          "$ref": "#/$defs/reproduction_runner_file_binding"
+        }
+      ]
+    },
+    "protected_source_preservation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "after",
+        "all_exact_bytes_unchanged",
+        "all_git_blob_identities_unchanged",
+        "before",
+        "drift_detected",
+        "repository_source_write_attempted",
+        "source_count"
+      ],
+      "properties": {
+        "after": {
+          "$ref": "#/$defs/protected_source_snapshot"
+        },
+        "all_exact_bytes_unchanged": {
+          "const": true
+        },
+        "all_git_blob_identities_unchanged": {
+          "const": true
+        },
+        "before": {
+          "$ref": "#/$defs/protected_source_snapshot"
+        },
+        "drift_detected": {
+          "const": false
+        },
+        "repository_source_write_attempted": {
+          "const": false
+        },
+        "source_count": {
+          "const": 10
+        }
+      }
+    },
+    "canonical_capsule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "byte_identity",
+        "bytes_equal_capsule_a",
+        "bytes_equal_capsule_b",
+        "git_blob_sha1",
+        "repository_path",
+        "selected_construction_id",
+        "sha256",
+        "size_bytes"
+      ],
+      "properties": {
+        "byte_identity": {
+          "const": "exact_canonical_capsule_bytes"
+        },
+        "bytes_equal_capsule_a": {
+          "const": true
+        },
+        "bytes_equal_capsule_b": {
+          "const": true
+        },
+        "git_blob_sha1": {
+          "$ref": "#/$defs/git_sha1"
+        },
+        "repository_path": {
+          "const": "examples/device_transition_ledger/pulsemech_device_ledger_reproduction_capsule_v0.zip"
+        },
+        "selected_construction_id": {
+          "const": "capsule_a"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "size_bytes": {
+          "const": 285144
+        }
+      }
+    },
+    "canonical_result_storage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "canonicalization",
+        "cr_characters",
+        "generated_or_volatile_fields",
+        "identity_location",
+        "lf_characters",
+        "repository_path",
+        "result_self_hash",
+        "result_self_size",
+        "stored_bytes",
+        "strict_utf8",
+        "trailing_newline",
+        "utf8_bom"
+      ],
+      "properties": {
+        "canonicalization": {
+          "const": "pulsemech_device_canonical_json_v0"
+        },
+        "cr_characters": {
+          "const": 0
+        },
+        "generated_or_volatile_fields": {
+          "const": "forbidden"
+        },
+        "identity_location": {
+          "const": "outside_result_to_avoid_self_reference"
+        },
+        "lf_characters": {
+          "const": 0
+        },
+        "repository_path": {
+          "const": "examples/device_transition_ledger/pulsemech_device_ledger_reproduction_result_reference_v0.json"
+        },
+        "result_self_hash": {
+          "const": "forbidden"
+        },
+        "result_self_size": {
+          "const": "forbidden"
+        },
+        "stored_bytes": {
+          "const": "must_equal_canonical_reserialization"
+        },
+        "strict_utf8": {
+          "const": true
+        },
+        "trailing_newline": {
+          "const": false
+        },
+        "utf8_bom": {
+          "const": "absent"
+        }
+      }
+    },
+    "implementation_boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "existing_verifier_modification",
+        "new_verifier",
+        "producer_verdict_trusted",
+        "reproduction_result_role",
+        "runner_role",
+        "verification_semantics_change",
+        "verifier_execution",
+        "verifier_import_by_runner"
+      ],
+      "properties": {
+        "existing_verifier_modification": {
+          "const": "forbidden"
+        },
+        "new_verifier": {
+          "const": "none"
+        },
+        "producer_verdict_trusted": {
+          "const": false
+        },
+        "reproduction_result_role": {
+          "const": "orchestration_evidence_not_verifier_verdict"
+        },
+        "runner_role": {
+          "const": "orchestration_only"
+        },
+        "verification_semantics_change": {
+          "const": "none"
+        },
+        "verifier_execution": {
+          "const": "separate_process"
+        },
+        "verifier_import_by_runner": {
+          "const": "forbidden"
+        }
+      }
+    },
+    "claim_boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "causal_completion_claim",
+        "continuous_monitoring_claim",
+        "device_security_claim",
+        "external_validation_claim",
+        "hardware_backed_identity_claim",
+        "identity_scope",
+        "key_origin_profile",
+        "live_observation_claim",
+        "malware_claim",
+        "physical_measurement_claim",
+        "production_device_claim",
+        "production_readiness_claim",
+        "universal_cross_platform_reproducibility_claim"
+      ],
+      "properties": {
+        "causal_completion_claim": {
+          "const": "none"
+        },
+        "continuous_monitoring_claim": {
+          "const": "none"
+        },
+        "device_security_claim": {
+          "const": "none"
+        },
+        "external_validation_claim": {
+          "const": "none"
+        },
+        "hardware_backed_identity_claim": {
+          "const": "none"
+        },
+        "identity_scope": {
+          "const": "fixture_installation"
+        },
+        "key_origin_profile": {
+          "const": "fixture_software_p256"
+        },
+        "live_observation_claim": {
+          "const": "none"
+        },
+        "malware_claim": {
+          "const": "none"
+        },
+        "physical_measurement_claim": {
+          "const": "none"
+        },
+        "production_device_claim": {
+          "const": "none"
+        },
+        "production_readiness_claim": {
+          "const": "none"
+        },
+        "universal_cross_platform_reproducibility_claim": {
+          "const": "none"
+        }
+      }
+    },
+    "authority_boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "authority_effect",
+        "capsule_is_release_authority",
+        "changes_release_authority",
+        "creates_device_control_authority",
+        "creates_gate_result",
+        "creates_release_decision",
+        "external_operator_approval_required",
+        "reproduction_result_is_release_authority"
+      ],
+      "properties": {
+        "authority_effect": {
+          "const": "none"
+        },
+        "capsule_is_release_authority": {
+          "const": false
+        },
+        "changes_release_authority": {
+          "const": false
+        },
+        "creates_device_control_authority": {
+          "const": false
+        },
+        "creates_gate_result": {
+          "const": false
+        },
+        "creates_release_decision": {
+          "const": false
+        },
+        "external_operator_approval_required": {
+          "const": false
+        },
+        "reproduction_result_is_release_authority": {
+          "const": false
+        }
+      }
+    }
+  }
+}
