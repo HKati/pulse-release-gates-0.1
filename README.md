@@ -164,6 +164,7 @@ They do not independently produce release authority.
 | Structural release-grade package completeness preflight | Completed — `135 / 135` checks |
 | Independent complete-package verification | Completed — `157 / 157` checks |
 | Device Ledger v0 bounded mechanical self-proof | Completed and regression-proven — exact `.pulseledger`, separate-verifier PASS, and relevant fail-closed package-signature rejection |
+| Device Ledger Reproduction Capsule v0 | Completed and regression-proven — deterministic four-member Capsule, two isolated byte-identical constructions, two exact positive verifier executions, one targeted package-signature rejection, and canonical orchestration evidence; `authority_effect = none` |
 | Minimal runnable iPhone bounded proof demonstrator | Completed — read-only exact identities and exact `.pulseledger` export; `diagnostic_shadow`; `authority_effect = none`; `external_validation_claim = none` |
 | SLSA/VSA trusted-producer packet/report contract and construction-validation chain | Implemented — non-active candidate path |
 | SLSA/VSA release-required enforcement | Not active |
@@ -194,6 +195,12 @@ bounded relation
 → reproducible PASS or fail-closed rejection
 → minimal runnable iPhone result surface
 → exact artifact export
+→ exact Capsule manifest contract
+→ deterministic four-member Reproduction Capsule
+→ Capsule A/B/canonical byte identity
+→ two separate exact positive verifier executions
+→ targeted CRC-consistent package-signature rejection
+→ canonical reproduction result
 ```
 
 The verifier is separate because it reconstructs the result from the exact
@@ -205,6 +212,58 @@ separately implemented verifier
 ≠ institutional approval
 ```
 
+The Reproduction Capsule adds a portable execution carrier around the already
+closed Device Ledger proof. It carries exact copies of:
+
+```text
+canonical Capsule manifest
+canonical .pulseledger
+existing standalone verifier
+canonical expected positive verifier report
+```
+
+The deterministic runner constructs the Capsule twice in separate processes and
+workspaces, requires exact byte equality with the checked-in Capsule, executes
+the unchanged standalone verifier twice, and performs one isolated
+package-signature mutation that must fail exactly at
+`package_signature_valid`.
+
+Canonical outputs:
+
+| Object | Size | SHA-256 | Git blob SHA-1 |
+|---|---:|---|---|
+| Reproduction Capsule | `285144` bytes | `49e02cf3daa466170b7ffee681ceb06c23410010b64e23137022541ec7691678` | `5b2647823e59bde24cf9125851c1490e3149dfab` |
+| Reproduction result | `31188` bytes | `d0a659c572dcde11315f518d350361f6fc7690027c7e2682111f88a519b34ad1` | `9b5a240495b357c64a510e6019e4d7189c29152e` |
+
+The complete pinned reference-environment entrypoint is:
+
+```bash
+gh workflow run \
+  pulsemech_device_ledger_reproduction_capsule_v0.yml \
+  --repo HKati/pulse-release-gates-0.1 \
+  --ref main
+```
+
+This command dispatches the workflow asynchronously. A completed reproduction
+requires the workflow to finish successfully and its exact proof outputs to
+pass the workflow checks.
+
+The portable local proof replay is:
+
+```bash
+python3 \
+  tests/test_pulsemech_device_ledger_reproduction_capsule_execution_v0.py
+```
+
+The local entrypoint runs the sanitized, completion-guarded 15-test regression.
+It replays the two constructions, both positive verifier processes, the targeted
+negative mutation, and the canonical-result relation on the current host. It
+does not represent pinned reference-container artifact regeneration.
+
+The canonical reproduction result records orchestration evidence. The existing
+standalone verifier remains the verifier, and the runner does not become a
+second verifier verdict.
+
 The reference demonstration remains explicitly bounded:
 
 ```text
@@ -214,17 +273,23 @@ key_origin_profile = fixture_software_p256
 ```
 
 It proves the complete artifact, binding, reconstruction, rejection, display,
-and export path. It does not claim live production monitoring, production
-Keychain or Secure Enclave identity, platform attestation, physical-device
-identity, device-security status, external approval, or release authority.
+export, Capsule construction, and reproduction path. It does not claim live
+production monitoring, production Keychain or Secure Enclave identity,
+platform attestation, physical-device identity, device-security status,
+universal cross-platform reproducibility, external approval, or release
+authority.
 
-Canonical proof record:
+Canonical proof and reproduction records:
 
-[**PULSEmech Device Ledger Bounded Mechanical Proof v0**](docs/PULSEMECH_DEVICE_LEDGER_BOUNDED_MECHANICAL_PROOF_v0.md)
+- [**PULSEmech Device Ledger Bounded Mechanical Proof v0**](docs/PULSEMECH_DEVICE_LEDGER_BOUNDED_MECHANICAL_PROOF_v0.md)
+- [**External Verification Path v0**](docs/EXTERNAL_VERIFICATION_PATH_v0.md)
 
 ```text
 bounded mechanical self-proof = closed
+deterministic Reproduction Capsule = closed
 minimal runnable iPhone demonstrator = closed
+reproduction_result_role = orchestration_evidence_not_verifier_verdict
+producer_verdict_trusted = false
 authority_effect = none
 external_validation_claim = none
 broader iPhone product development = separate
