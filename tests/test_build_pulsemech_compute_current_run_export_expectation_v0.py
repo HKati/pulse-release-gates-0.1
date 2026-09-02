@@ -491,6 +491,15 @@ def test_tools_tests_manifest_registers_builder_regression_exactly_once() -> Non
         "tests/test_pulsemech_compute_current_run_artifact_observed_candidate_workflow_v0.py"
     )
     assert entries[index + 7] == (
+        "tests/test_pulsemech_compute_post_run_producer_input_capture_contract_v0.py"
+    )
+    assert entries[index + 8] == (
+        "tests/test_capture_pulsemech_compute_post_run_producer_input_v0.py"
+    )
+    assert entries[index + 9] == (
+        "tests/test_check_pulsemech_compute_post_run_producer_input_capture_v0.py"
+    )
+    assert entries[index + 10] == (
         "tests/test_pulsemech_compute_subject_input_packet_schema_v0.py"
     )
 
