@@ -124,6 +124,53 @@ def classify_workflow(path: Path, *, repo_root: Path) -> dict[str, Any]:
 
     if rel == (
         ".github/workflows/"
+        "pulsemech_compute_post_run_producer_input_capture_v0.yml"
+    ):
+        return entry(
+            name=name,
+            path=rel,
+            surface_type="workflow",
+            primary_role=(
+                "historical-reference post-run producer-input capture workflow"
+            ),
+            carrier_class="audit_preservation",
+            authority_impacting="no",
+            authority_boundary=(
+                "Manual historical-reference capture and preservation carrier. "
+                "It preserves exact capture-time platform-response inputs for "
+                "later offline validation and deterministic reference packet "
+                "production. It does not produce a runtime observation, gate "
+                "result, release decision, or release authority."
+            ),
+            reads_artifacts=[
+                "one exact completed same-repository PULSE CI run attempt",
+                "attempt-specific GitHub Actions run response",
+                "complete attempt-specific GitHub Actions jobs page set",
+                "exact capture contract and protected capture control plane",
+            ],
+            writes_artifacts=[
+                "exact raw capture-time response entity bodies",
+                "canonical request-response exchange metadata",
+                "checksum-closed producer-input capture manifest",
+                "offline validation diagnostic",
+            ],
+            publishes_artifacts=[
+                "manual historical-reference producer-input capture artifact",
+            ],
+            required_gate_participation=False,
+            attestation_participation=False,
+            release_path_participation=False,
+            notes=(
+                "Step 4A historical-reference producer-input carrier. "
+                "The capture is post-run and cannot be retroactively admitted "
+                "to the completed subject run. Runtime-observation packet "
+                "production and active authority participation remain absent; "
+                "authority_effect = none."
+            ),
+        )
+
+    if rel == (
+        ".github/workflows/"
         "pulsemech_compute_current_run_export_candidate.yml"
     ):
         return entry(
