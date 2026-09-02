@@ -1,0 +1,612 @@
+name: PULSEmech compute post-run producer-input capture
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: pulsemech-compute-post-run-producer-input-capture-v0
+  cancel-in-progress: false
+
+jobs:
+  capture-fixed-reference-input:
+    name: Capture fixed PULSE CI 6066 producer input
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      actions: read
+    env:
+      LANG: C.UTF-8
+      LC_ALL: C.UTF-8
+      TZ: UTC
+      PYTHONDONTWRITEBYTECODE: "1"
+      PYTHONHASHSEED: "0"
+      PIP_DISABLE_PIP_VERSION_CHECK: "1"
+      PIP_NO_INPUT: "1"
+      CAPTURE_DIRECTORY_NAME: pulsemech-compute-post-run-producer-input-capture-v0
+      CAPTURE_DIAGNOSTIC_NAME: pulsemech-compute-post-run-capture-diagnostic-v0.json
+      VALIDATION_DIAGNOSTIC_NAME: pulsemech-compute-post-run-validation-diagnostic-v0.json
+
+    steps:
+      - name: Checkout exact capture control plane
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ github.repository }}
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+          lfs: false
+          submodules: false
+          set-safe-directory: false
+
+      - name: Set up Python 3.11.9
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # pinned
+        with:
+          python-version: "3.11.9"
+
+      - name: Verify exact manual execution boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          from __future__ import annotations
+
+          import os
+          import re
+          import subprocess
+
+
+          EXPECTED = {
+              "GITHUB_ACTIONS": "true",
+              "GITHUB_API_URL": "https://api.github.com",
+              "GITHUB_EVENT_NAME": "workflow_dispatch",
+              "GITHUB_REF": "refs/heads/main",
+              "GITHUB_REF_NAME": "main",
+              "GITHUB_REF_TYPE": "branch",
+              "GITHUB_REPOSITORY": "HKati/pulse-release-gates-0.1",
+              "GITHUB_REPOSITORY_ID": "1061766508",
+              "GITHUB_SERVER_URL": "https://github.com",
+              "GITHUB_WORKFLOW": (
+                  "PULSEmech compute post-run producer-input capture"
+              ),
+          }
+          WORKFLOW_PATH = (
+              ".github/workflows/"
+              "pulsemech_compute_post_run_producer_input_capture_v0.yml"
+          )
+
+
+          def fail(code: str) -> None:
+              raise SystemExit(code)
+
+
+          for name, expected in EXPECTED.items():
+              if os.environ.get(name) != expected:
+                  fail(f"manual_capture_environment_mismatch:{name}")
+
+          source_revision = os.environ.get("GITHUB_SHA", "")
+          workflow_revision = os.environ.get("GITHUB_WORKFLOW_SHA", "")
+          if re.fullmatch(r"[0-9a-f]{40}", source_revision) is None:
+              fail("manual_capture_github_sha_invalid")
+          if workflow_revision != source_revision:
+              fail("manual_capture_workflow_sha_mismatch")
+
+          expected_workflow_ref = (
+              "HKati/pulse-release-gates-0.1/"
+              f"{WORKFLOW_PATH}@refs/heads/main"
+          )
+          if os.environ.get("GITHUB_WORKFLOW_REF") != expected_workflow_ref:
+              fail("manual_capture_workflow_ref_mismatch")
+
+          for name in ("GITHUB_RUN_ID", "GITHUB_RUN_ATTEMPT"):
+              value = os.environ.get(name, "")
+              if re.fullmatch(r"[1-9][0-9]*", value) is None:
+                  fail(f"manual_capture_environment_invalid:{name}")
+
+          completed = subprocess.run(
+              ["git", "rev-parse", "HEAD"],
+              stdin=subprocess.DEVNULL,
+              stdout=subprocess.PIPE,
+              stderr=subprocess.DEVNULL,
+              check=False,
+              text=True,
+          )
+          if completed.returncode != 0:
+              fail("manual_capture_repository_head_unavailable")
+          if completed.stdout.strip() != source_revision:
+              fail("manual_capture_repository_head_mismatch")
+
+          status = subprocess.run(
+              ["git", "status", "--porcelain", "--untracked-files=all"],
+              stdin=subprocess.DEVNULL,
+              stdout=subprocess.PIPE,
+              stderr=subprocess.DEVNULL,
+              check=False,
+              text=True,
+          )
+          if status.returncode != 0 or status.stdout:
+              fail("manual_capture_repository_not_clean")
+
+          print("OK: exact manual execution boundary verified")
+          PY
+
+      - name: Resolve exact capture workflow identity
+        id: capture_workflow
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          from __future__ import annotations
+
+          import http.client
+          import json
+          import os
+          import re
+          import ssl
+          from pathlib import Path
+          from typing import Any
+
+
+          API_HOST = "api.github.com"
+          API_VERSION = "2022-11-28"
+          ACCEPT = "application/vnd.github+json"
+          USER_AGENT = (
+              "pulsemech-compute-post-run-capture-workflow-identity-v0/0.1.0"
+          )
+          REPOSITORY = "HKati/pulse-release-gates-0.1"
+          REPOSITORY_ID = 1061766508
+          WORKFLOW_NAME = (
+              "PULSEmech compute post-run producer-input capture"
+          )
+          WORKFLOW_PATH = (
+              ".github/workflows/"
+              "pulsemech_compute_post_run_producer_input_capture_v0.yml"
+          )
+          MAXIMUM_RESPONSE_BYTES = 1024 * 1024
+
+
+          class DuplicateKeyError(ValueError):
+              pass
+
+
+          def fail() -> None:
+              raise SystemExit("capture_workflow_identity_resolution_failed")
+
+
+          def reject_duplicate_keys(
+              pairs: list[tuple[str, Any]],
+          ) -> dict[str, Any]:
+              value: dict[str, Any] = {}
+              for key, item in pairs:
+                  if key in value:
+                      raise DuplicateKeyError(key)
+                  value[key] = item
+              return value
+
+
+          token = os.environ.get("GH_TOKEN", "")
+          run_id_text = os.environ.get("GITHUB_RUN_ID", "")
+          attempt_text = os.environ.get("GITHUB_RUN_ATTEMPT", "")
+          source_revision = os.environ.get("GITHUB_SHA", "")
+          if (
+              len(token) < 20
+              or re.fullmatch(r"[1-9][0-9]*", run_id_text) is None
+              or re.fullmatch(r"[1-9][0-9]*", attempt_text) is None
+              or re.fullmatch(r"[0-9a-f]{40}", source_revision) is None
+          ):
+              fail()
+
+          request_target = (
+              f"/repos/{REPOSITORY}/actions/runs/{run_id_text}/"
+              f"attempts/{attempt_text}"
+          )
+          context = ssl.create_default_context()
+          if hasattr(ssl, "TLSVersion"):
+              context.minimum_version = ssl.TLSVersion.TLSv1_2
+          connection = http.client.HTTPSConnection(
+              API_HOST,
+              timeout=30,
+              context=context,
+          )
+          response: http.client.HTTPResponse | None = None
+          try:
+              connection.request(
+                  "GET",
+                  request_target,
+                  body=None,
+                  headers={
+                      "Accept": ACCEPT,
+                      "Accept-Encoding": "identity",
+                      "Authorization": f"Bearer {token}",
+                      "User-Agent": USER_AGENT,
+                      "X-GitHub-Api-Version": API_VERSION,
+                  },
+                  encode_chunked=False,
+              )
+              response = connection.getresponse()
+              if response.status != 200:
+                  fail()
+              content_encoding = response.getheader("Content-Encoding")
+              if content_encoding not in {None, "", "identity"}:
+                  fail()
+              content_type = response.getheader("Content-Type")
+              if not isinstance(content_type, str):
+                  fail()
+              media_type = content_type.split(";", 1)[0].strip().lower()
+              if media_type not in {
+                  "application/json",
+                  "application/vnd.github+json",
+              }:
+                  fail()
+              payload = response.read(MAXIMUM_RESPONSE_BYTES + 1)
+              if not payload or len(payload) > MAXIMUM_RESPONSE_BYTES:
+                  fail()
+              try:
+                  document = json.loads(
+                      payload.decode("utf-8", errors="strict"),
+                      object_pairs_hook=reject_duplicate_keys,
+                  )
+              except (UnicodeDecodeError, json.JSONDecodeError, DuplicateKeyError):
+                  fail()
+          except (OSError, ssl.SSLError, http.client.HTTPException):
+              fail()
+          finally:
+              if response is not None:
+                  response.close()
+              connection.close()
+
+          if not isinstance(document, dict):
+              fail()
+          run_id = int(run_id_text, 10)
+          attempt = int(attempt_text, 10)
+          workflow_id = document.get("workflow_id")
+          repository = document.get("repository")
+          head_repository = document.get("head_repository")
+          expected = {
+              "event": "workflow_dispatch",
+              "head_branch": "main",
+              "head_sha": source_revision,
+              "id": run_id,
+              "name": WORKFLOW_NAME,
+              "path": WORKFLOW_PATH,
+              "run_attempt": attempt,
+          }
+          if any(document.get(key) != value for key, value in expected.items()):
+              fail()
+          if document.get("status") not in {"queued", "in_progress"}:
+              fail()
+          if document.get("conclusion") is not None:
+              fail()
+          if (
+              not isinstance(workflow_id, int)
+              or isinstance(workflow_id, bool)
+              or workflow_id <= 0
+          ):
+              fail()
+          if (
+              not isinstance(repository, dict)
+              or repository.get("full_name") != REPOSITORY
+              or repository.get("id") != REPOSITORY_ID
+              or repository.get("fork") is not False
+          ):
+              fail()
+          if (
+              not isinstance(head_repository, dict)
+              or head_repository.get("full_name") != REPOSITORY
+              or head_repository.get("id") != REPOSITORY_ID
+              or head_repository.get("fork") is not False
+          ):
+              fail()
+
+          output = Path(os.environ["GITHUB_OUTPUT"])
+          with output.open("a", encoding="utf-8", newline="\n") as stream:
+              stream.write(f"workflow_id={workflow_id}\n")
+          print("OK: exact capture workflow identity resolved")
+          PY
+
+      - name: Capture exact fixed post-run producer input
+        id: capture
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PULSEMECH_CAPTURE_WORKFLOW_ID: >-
+            ${{ steps.capture_workflow.outputs.workflow_id }}
+        run: |
+          set -euo pipefail
+          umask 077
+
+          capture_root="${RUNNER_TEMP}/${CAPTURE_DIRECTORY_NAME}"
+          diagnostic_path="${RUNNER_TEMP}/${CAPTURE_DIAGNOSTIC_NAME}"
+
+          if [ -e "$capture_root" ] || [ -e "$diagnostic_path" ]; then
+            echo "capture_output_preexists" >&2
+            exit 1
+          fi
+
+          python -I \
+            tools/capture_pulsemech_compute_post_run_producer_input_v0.py \
+            --repository-root "$GITHUB_WORKSPACE" \
+            --output-directory "$capture_root" \
+            > "$diagnostic_path"
+
+          CAPTURE_DIAGNOSTIC_PATH="$diagnostic_path" python -I - <<'PY'
+          from __future__ import annotations
+
+          import json
+          import os
+          from pathlib import Path
+          from typing import Any
+
+
+          class DuplicateKeyError(ValueError):
+              pass
+
+
+          def reject_duplicate_keys(
+              pairs: list[tuple[str, Any]],
+          ) -> dict[str, Any]:
+              value: dict[str, Any] = {}
+              for key, item in pairs:
+                  if key in value:
+                      raise DuplicateKeyError(key)
+                  value[key] = item
+              return value
+
+
+          path = Path(os.environ["CAPTURE_DIAGNOSTIC_PATH"])
+          payload = path.read_bytes()
+          try:
+              document = json.loads(
+                  payload.decode("utf-8", errors="strict"),
+                  object_pairs_hook=reject_duplicate_keys,
+              )
+          except (UnicodeDecodeError, json.JSONDecodeError, DuplicateKeyError):
+              raise SystemExit("capture_success_diagnostic_invalid")
+          if not isinstance(document, dict):
+              raise SystemExit("capture_success_diagnostic_not_object")
+          expected = {
+              "authority_effect": "none",
+              "job_count": 8,
+              "manifest_file_name": (
+                  "pulsemech_compute_post_run_producer_input_"
+                  "capture_manifest_6066_v0.json"
+              ),
+              "ok": True,
+              "page_count": 1,
+              "record_status": "observed",
+              "tool": (
+                  "capture_pulsemech_compute_post_run_producer_input_v0"
+              ),
+              "tool_version": "0.1.0",
+          }
+          if any(document.get(key) != value for key, value in expected.items()):
+              raise SystemExit("capture_success_diagnostic_relation_mismatch")
+          step_count = document.get("step_record_count")
+          if (
+              not isinstance(step_count, int)
+              or isinstance(step_count, bool)
+              or step_count <= 0
+          ):
+              raise SystemExit("capture_step_record_count_invalid")
+          canonical = (
+              json.dumps(
+                  document,
+                  ensure_ascii=False,
+                  sort_keys=True,
+                  separators=(",", ":"),
+                  allow_nan=False,
+              ).encode("utf-8")
+              + b"\n"
+          )
+          if payload != canonical:
+              raise SystemExit("capture_success_diagnostic_not_canonical")
+          PY
+
+      - name: Install offline-validator dependency
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --no-cache-dir "jsonschema==4.26.0"
+
+      - name: Validate capture offline
+        id: validate
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          unset GH_TOKEN
+          unset PULSEMECH_CAPTURE_WORKFLOW_ID
+
+          capture_root="${RUNNER_TEMP}/${CAPTURE_DIRECTORY_NAME}"
+          diagnostic_path="${RUNNER_TEMP}/${VALIDATION_DIAGNOSTIC_NAME}"
+
+          if [ -e "$diagnostic_path" ]; then
+            echo "validation_diagnostic_preexists" >&2
+            exit 1
+          fi
+
+          python -I \
+            tools/check_pulsemech_compute_post_run_producer_input_capture_v0.py \
+            --repository-root "$GITHUB_WORKSPACE" \
+            --capture-root "$capture_root" \
+            > "$diagnostic_path"
+
+      - name: Verify capture-validation closure and secret exclusion
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          python -I - <<'PY'
+          from __future__ import annotations
+
+          import json
+          import os
+          import stat
+          import subprocess
+          from pathlib import Path
+          from typing import Any
+
+
+          class DuplicateKeyError(ValueError):
+              pass
+
+
+          def fail(code: str) -> None:
+              raise SystemExit(code)
+
+
+          def reject_duplicate_keys(
+              pairs: list[tuple[str, Any]],
+          ) -> dict[str, Any]:
+              value: dict[str, Any] = {}
+              for key, item in pairs:
+                  if key in value:
+                      raise DuplicateKeyError(key)
+                  value[key] = item
+              return value
+
+
+          def load_canonical(path: Path) -> tuple[dict[str, Any], bytes]:
+              payload = path.read_bytes()
+              try:
+                  document = json.loads(
+                      payload.decode("utf-8", errors="strict"),
+                      object_pairs_hook=reject_duplicate_keys,
+                  )
+              except (
+                  UnicodeDecodeError,
+                  json.JSONDecodeError,
+                  DuplicateKeyError,
+              ):
+                  fail("workflow_diagnostic_invalid")
+              if not isinstance(document, dict):
+                  fail("workflow_diagnostic_not_object")
+              canonical = (
+                  json.dumps(
+                      document,
+                      ensure_ascii=False,
+                      sort_keys=True,
+                      separators=(",", ":"),
+                      allow_nan=False,
+                  ).encode("utf-8")
+                  + b"\n"
+              )
+              if payload != canonical:
+                  fail("workflow_diagnostic_not_canonical")
+              return document, payload
+
+
+          runner_temp = Path(os.environ["RUNNER_TEMP"])
+          capture_root = runner_temp / os.environ["CAPTURE_DIRECTORY_NAME"]
+          capture_path = runner_temp / os.environ["CAPTURE_DIAGNOSTIC_NAME"]
+          validation_path = runner_temp / os.environ["VALIDATION_DIAGNOSTIC_NAME"]
+          capture, capture_bytes = load_canonical(capture_path)
+          validation, validation_bytes = load_canonical(validation_path)
+
+          expected_validation = {
+              "authority_effect": "none",
+              "job_count": 8,
+              "manifest_file_name": (
+                  "pulsemech_compute_post_run_producer_input_"
+                  "capture_manifest_6066_v0.json"
+              ),
+              "ok": True,
+              "page_count": 1,
+              "record_status": "observed",
+              "result": "validated_offline",
+              "tool": (
+                  "check_pulsemech_compute_post_run_"
+                  "producer_input_capture_v0"
+              ),
+              "tool_version": "0.1.0",
+          }
+          if any(
+              validation.get(key) != value
+              for key, value in expected_validation.items()
+          ):
+              fail("offline_validation_diagnostic_relation_mismatch")
+
+          relation_keys = (
+              "authority_effect",
+              "job_count",
+              "manifest_file_name",
+              "manifest_sha256",
+              "page_count",
+              "record_status",
+              "step_record_count",
+          )
+          if any(capture.get(key) != validation.get(key) for key in relation_keys):
+              fail("capture_validation_diagnostic_mismatch")
+
+          expected_members = {
+              "metadata/jobs_page_0001_exchange_v0.json",
+              "metadata/run_attempt_exchange_v0.json",
+              (
+                  "pulsemech_compute_post_run_producer_input_"
+                  "capture_manifest_6066_v0.json"
+              ),
+              "raw/jobs_page_0001_response.json",
+              "raw/run_attempt_response.json",
+          }
+          observed_members: set[str] = set()
+          for candidate in capture_root.rglob("*"):
+              metadata = candidate.lstat()
+              if stat.S_ISLNK(metadata.st_mode):
+                  fail("workflow_capture_symlink_rejected")
+              if stat.S_ISREG(metadata.st_mode):
+                  if metadata.st_nlink != 1:
+                      fail("workflow_capture_hard_link_rejected")
+                  observed_members.add(candidate.relative_to(capture_root).as_posix())
+              elif not stat.S_ISDIR(metadata.st_mode):
+                  fail("workflow_capture_non_regular_member_rejected")
+          if observed_members != expected_members:
+              fail("workflow_capture_inventory_mismatch")
+
+          token = os.environ.get("GH_TOKEN", "").encode("ascii", errors="strict")
+          if len(token) < 20:
+              fail("workflow_token_invalid")
+          for candidate in sorted(capture_root.rglob("*")):
+              if candidate.is_file() and token in candidate.read_bytes():
+                  fail("workflow_secret_value_in_capture")
+          if token in capture_bytes or token in validation_bytes:
+              fail("workflow_secret_value_in_diagnostic")
+
+          status = subprocess.run(
+              ["git", "status", "--porcelain", "--untracked-files=all"],
+              stdin=subprocess.DEVNULL,
+              stdout=subprocess.PIPE,
+              stderr=subprocess.DEVNULL,
+              check=False,
+              text=True,
+          )
+          if status.returncode != 0 or status.stdout:
+              fail("workflow_repository_modified")
+
+          print("OK: capture and offline validation close on exact bytes")
+          PY
+
+      - name: Upload exact capture and diagnostics
+        id: upload
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: >-
+            pulsemech-compute-post-run-producer-input-capture-v0-${{ github.run_id }}-attempt-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/pulsemech-compute-post-run-producer-input-capture-v0
+            ${{ runner.temp }}/pulsemech-compute-post-run-capture-diagnostic-v0.json
+            ${{ runner.temp }}/pulsemech-compute-post-run-validation-diagnostic-v0.json
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 0
+          overwrite: false
+          include-hidden-files: false
