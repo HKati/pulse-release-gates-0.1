@@ -12,6 +12,7 @@ import socket
 import stat
 import subprocess
 import sys
+from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Mapping, Sequence
@@ -51,9 +52,9 @@ OTHER_TOKEN = "ghp_" + ("B" * 36)
 CAPTURE_BASE = dt.datetime(2026, 8, 1, 18, 0, 0, tzinfo=dt.timezone.utc)
 
 EXPECTED_CAPTURE_TOOL_IDENTITY = (
-    105104,
-    "6f3dfa9e9b88240ef3da1c05f6a5278fd8b5d3796e683fff1cdc97ebf8a9e65d",
-    "8d385606dfbea6eff691a8be29c17e82aa6ace37",
+    105091,
+    "6fd39f52f54675db0f57dc090da1fc21b12a858fde6619621043b552a7c0d2bc",
+    "621b839a11471d65c7170531f600f80117b7c083",
 )
 
 SOURCE_PATHS = (
@@ -65,6 +66,269 @@ SOURCE_PATHS = (
 )
 
 _DELETE = object()
+
+EXPECTED_TEST_ITEM_COUNTS = {
+    "test_application_request_headers_are_exact_and_ordered": 1,
+    "test_authoritative_launcher_sanitizes_pytest_environment_and_requires_completed_contract": 1,
+    "test_capture_tool_exact_identity_and_linux_runtime_contract": 1,
+    "test_cli_requires_isolated_python_and_never_echoes_invalid_arguments": 1,
+    "test_direct_authoritative_launcher_rejects_terminal_pytest_early_exit": 1,
+    "test_existing_output_is_never_replaced": 1,
+    "test_explicit_source_revision_must_equal_repository_head": 1,
+    "test_fixture_capture_one_page_preserves_exact_bytes_and_boundaries": 1,
+    "test_full_capture_relation_failures_publish_nothing": 6,
+    "test_job_and_step_binding_mutations_fail_closed": 26,
+    "test_job_and_step_limits_fail_closed": 1,
+    "test_numeric_response_tokens_fail_before_publication": 6,
+    "test_output_inside_repository_is_rejected_and_sources_remain_exact": 1,
+    "test_post_publication_readback_failure_removes_owned_output": 1,
+    "test_publication_cleanup_covers_keyboard_interrupt": 1,
+    "test_publication_rejects_existing_target_and_out_of_contract_member": 1,
+    "test_rel_next_exact_target_and_final_absence_states": 1,
+    "test_rel_next_mutations_fail_closed": 12,
+    "test_request_record_rejects_floating_or_noncanonical_targets": 1,
+    "test_response_admission_failures_are_deterministic": 19,
+    "test_response_size_and_clock_order_limits_fail_closed": 1,
+    "test_run_attempt_capture_must_occur_after_subject_completion": 1,
+    "test_run_attempt_identity_mutations_fail_closed": 20,
+    "test_same_fixture_produces_byte_identical_capture": 1,
+    "test_skipped_jobs_and_steps_preserve_explicit_unavailability": 1,
+    "test_source_drift_before_publication_fails_closed": 1,
+    "test_stdlib_https_transport_network_and_size_failures_are_closed": 1,
+    "test_stdlib_https_transport_sends_exact_request_without_redirect_handler": 1,
+    "test_success_and_failure_diagnostics_are_canonical_and_deterministic": 1,
+    "test_token_boundary_fails_closed": 6,
+    "test_total_capture_and_total_step_limits_fail_closed_after_source_admission": 1,
+    "test_two_page_rel_next_capture_is_exact_and_closed": 1,
+    "test_valid_run_attempt_reconstructs_exact_subject": 1,
+}
+EXPECTED_COLLECTED_TEST_ITEMS = sum(EXPECTED_TEST_ITEM_COUNTS.values())
+CRITICAL_TEST_FUNCTIONS = frozenset(
+    {
+        "test_authoritative_launcher_sanitizes_pytest_environment_and_requires_completed_contract",
+        "test_capture_tool_exact_identity_and_linux_runtime_contract",
+        "test_direct_authoritative_launcher_rejects_terminal_pytest_early_exit",
+        "test_fixture_capture_one_page_preserves_exact_bytes_and_boundaries",
+        "test_numeric_response_tokens_fail_before_publication",
+        "test_same_fixture_produces_byte_identical_capture",
+        "test_source_drift_before_publication_fails_closed",
+        "test_two_page_rel_next_capture_is_exact_and_closed",
+    }
+)
+_AUTHORITATIVE_PYTEST_ENVIRONMENT_KEYS = (
+    "PYTEST_ADDOPTS",
+    "PYTEST_CURRENT_TEST",
+    "PYTEST_DISABLE_PLUGIN_AUTOLOAD",
+    "PYTEST_PLUGINS",
+)
+_AUTHORITATIVE_LAUNCH_PROBE_CHILD = (
+    "PULSEMECH_POST_RUN_CAPTURE_TOOL_LAUNCH_PROBE_CHILD"
+)
+
+
+def _collected_test_name(item: Any) -> str:
+    original_name = getattr(item, "originalname", None)
+    if isinstance(original_name, str) and original_name:
+        return original_name
+    return str(item.name).split("[", 1)[0]
+
+
+class _AuthoritativeRegressionContract:
+    def __init__(self) -> None:
+        self._expected_nodeids: set[str] = set()
+        self._phase_outcomes: dict[str, dict[str, str]] = {}
+        self._disallowed_reports: list[dict[str, str]] = []
+        self._collection_validated = False
+        self._session_finished = False
+        self._contract_satisfied = False
+
+    @property
+    def completed_successfully(self) -> bool:
+        return self._contract_satisfied
+
+    @property
+    def completion_state(self) -> dict[str, bool]:
+        return {
+            "collection_validated": self._collection_validated,
+            "contract_satisfied": self._contract_satisfied,
+            "session_finished": self._session_finished,
+        }
+
+    def pytest_collection_finish(self, session: Any) -> None:
+        current_file = Path(__file__).resolve()
+        collected = [
+            item
+            for item in session.items
+            if Path(str(item.path)).resolve() == current_file
+        ]
+        observed_nodeids = [str(item.nodeid) for item in collected]
+        observed_counts = Counter(_collected_test_name(item) for item in collected)
+        expected_counts = Counter(EXPECTED_TEST_ITEM_COUNTS)
+        duplicate_nodeids = sorted(
+            nodeid
+            for nodeid, count in Counter(observed_nodeids).items()
+            if count != 1
+        )
+        missing_functions = sorted(set(expected_counts) - set(observed_counts))
+        unexpected_functions = sorted(set(observed_counts) - set(expected_counts))
+        count_mismatches = {
+            name: {
+                "expected": expected_counts.get(name, 0),
+                "observed": observed_counts.get(name, 0),
+            }
+            for name in sorted(set(expected_counts) | set(observed_counts))
+            if expected_counts.get(name, 0) != observed_counts.get(name, 0)
+        }
+        missing_critical = sorted(
+            CRITICAL_TEST_FUNCTIONS - set(observed_counts)
+        )
+        if (
+            len(collected) != EXPECTED_COLLECTED_TEST_ITEMS
+            or duplicate_nodeids
+            or missing_functions
+            or unexpected_functions
+            or count_mismatches
+            or missing_critical
+        ):
+            raise pytest.UsageError(
+                "authoritative_capture_tool_collection_mismatch: "
+                + json.dumps(
+                    {
+                        "count_mismatches": count_mismatches,
+                        "duplicate_nodeids": duplicate_nodeids,
+                        "expected_items": EXPECTED_COLLECTED_TEST_ITEMS,
+                        "missing_critical_functions": missing_critical,
+                        "missing_functions": missing_functions,
+                        "observed_items": len(collected),
+                        "unexpected_functions": unexpected_functions,
+                    },
+                    sort_keys=True,
+                )
+            )
+        self._expected_nodeids = set(observed_nodeids)
+        self._collection_validated = True
+
+    def pytest_runtest_logreport(self, report: Any) -> None:
+        nodeid = str(report.nodeid)
+        if nodeid not in self._expected_nodeids:
+            return
+        when = str(report.when)
+        if when not in {"setup", "call", "teardown"}:
+            return
+        phases = self._phase_outcomes.setdefault(nodeid, {})
+        if when in phases:
+            self._disallowed_reports.append(
+                {
+                    "nodeid": nodeid,
+                    "reason": "duplicate_phase_report",
+                    "when": when,
+                }
+            )
+        phases[when] = str(report.outcome)
+        if report.skipped or getattr(report, "wasxfail", None) is not None:
+            self._disallowed_reports.append(
+                {
+                    "nodeid": nodeid,
+                    "reason": "skip_xfail_or_xpass_forbidden",
+                    "when": when,
+                }
+            )
+
+    def pytest_sessionfinish(self, session: Any, exitstatus: int) -> None:
+        self._session_finished = True
+        expected_phases = {"setup", "call", "teardown"}
+        missing_phases: dict[str, list[str]] = {}
+        nonpassing_phases: dict[str, dict[str, str]] = {}
+        for nodeid in sorted(self._expected_nodeids):
+            phases = self._phase_outcomes.get(nodeid, {})
+            missing = sorted(expected_phases - set(phases))
+            if missing:
+                missing_phases[nodeid] = missing
+            failed = {
+                phase: outcome
+                for phase, outcome in sorted(phases.items())
+                if outcome != "passed"
+            }
+            if failed:
+                nonpassing_phases[nodeid] = failed
+
+        if (
+            self._collection_validated
+            and len(self._expected_nodeids) == EXPECTED_COLLECTED_TEST_ITEMS
+            and not missing_phases
+            and not nonpassing_phases
+            and not self._disallowed_reports
+            and int(exitstatus) == int(pytest.ExitCode.OK)
+        ):
+            self._contract_satisfied = True
+            return
+
+        terminal = session.config.pluginmanager.get_plugin("terminalreporter")
+        detail = json.dumps(
+            {
+                "collection_validated": self._collection_validated,
+                "disallowed_reports": self._disallowed_reports,
+                "expected_items": EXPECTED_COLLECTED_TEST_ITEMS,
+                "missing_phases": missing_phases,
+                "nonpassing_phases": nonpassing_phases,
+                "observed_nodeids": len(self._expected_nodeids),
+            },
+            sort_keys=True,
+        )
+        if terminal is not None:
+            terminal.write_sep(
+                "=",
+                "authoritative capture-tool execution failed",
+            )
+            terminal.write_line(detail)
+        if int(exitstatus) == int(pytest.ExitCode.OK):
+            session.exitstatus = int(pytest.ExitCode.TESTS_FAILED)
+
+
+def _run_authoritative_regression(
+    *,
+    pytest_main: Any | None = None,
+) -> int:
+    previous_environment = {
+        key: os.environ.get(key)
+        for key in _AUTHORITATIVE_PYTEST_ENVIRONMENT_KEYS
+    }
+    os.environ.pop("PYTEST_ADDOPTS", None)
+    os.environ.pop("PYTEST_CURRENT_TEST", None)
+    os.environ.pop("PYTEST_PLUGINS", None)
+    os.environ["PYTEST_DISABLE_PLUGIN_AUTOLOAD"] = "1"
+    contract = _AuthoritativeRegressionContract()
+    runner = pytest.main if pytest_main is None else pytest_main
+    arguments = [
+        "-c",
+        os.devnull,
+        "--rootdir",
+        str(ROOT),
+        "-o",
+        "addopts=",
+        "--noconftest",
+        str(Path(__file__).resolve()),
+    ]
+    try:
+        result = runner(arguments, plugins=[contract])
+    finally:
+        for key, value in previous_environment.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+
+    exit_code = int(result)
+    if exit_code != int(pytest.ExitCode.OK):
+        return exit_code
+    if contract.completed_successfully:
+        return exit_code
+    sys.stderr.write(
+        "authoritative_capture_tool_session_not_completed: "
+        + json.dumps(contract.completion_state, sort_keys=True)
+        + "\n"
+    )
+    return int(pytest.ExitCode.TESTS_FAILED)
 
 
 @dataclass(frozen=True)
@@ -503,6 +767,20 @@ def _captured_response(
     )
 
 
+
+
+
+def _with_top_level_numeric_probe(payload: bytes, token: str) -> bytes:
+    token_bytes = token.encode("ascii", errors="strict")
+    if not payload.endswith(b"\n}\n"):
+        raise AssertionError("fixture JSON body shape changed")
+    return (
+        payload[:-3]
+        + b',\n  "numeric_domain_probe": '
+        + token_bytes
+        + b"\n}\n"
+    )
+
 def _assert_capture_error(
     capture: Any,
     expected: str,
@@ -512,6 +790,110 @@ def _assert_capture_error(
         operation()
     assert caught.value.error_code == expected
     assert str(caught.value) == expected
+
+
+
+
+
+def test_authoritative_launcher_sanitizes_pytest_environment_and_requires_completed_contract(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    inherited = {
+        "PYTEST_ADDOPTS": "--help",
+        "PYTEST_CURRENT_TEST": "poisoned::test",
+        "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "0",
+        "PYTEST_PLUGINS": "module_that_must_not_be_imported",
+    }
+    for key, value in inherited.items():
+        monkeypatch.setenv(key, value)
+
+    observed: dict[str, Any] = {}
+
+    def successful_main(
+        arguments: list[str],
+        *,
+        plugins: list[Any],
+    ) -> pytest.ExitCode:
+        observed["arguments"] = list(arguments)
+        observed["environment"] = {
+            key: os.environ.get(key)
+            for key in _AUTHORITATIVE_PYTEST_ENVIRONMENT_KEYS
+        }
+        assert len(plugins) == 1
+        contract = plugins[0]
+        assert isinstance(contract, _AuthoritativeRegressionContract)
+        contract._collection_validated = True
+        contract._session_finished = True
+        contract._contract_satisfied = True
+        return pytest.ExitCode.OK
+
+    assert _run_authoritative_regression(pytest_main=successful_main) == 0
+    assert observed["arguments"] == [
+        "-c",
+        os.devnull,
+        "--rootdir",
+        str(ROOT),
+        "-o",
+        "addopts=",
+        "--noconftest",
+        str(Path(__file__).resolve()),
+    ]
+    assert observed["environment"] == {
+        "PYTEST_ADDOPTS": None,
+        "PYTEST_CURRENT_TEST": None,
+        "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1",
+        "PYTEST_PLUGINS": None,
+    }
+    for key, value in inherited.items():
+        assert os.environ.get(key) == value
+
+    def incomplete_main(
+        _arguments: list[str],
+        *,
+        plugins: list[Any],
+    ) -> pytest.ExitCode:
+        assert len(plugins) == 1
+        return pytest.ExitCode.OK
+
+    assert _run_authoritative_regression(pytest_main=incomplete_main) == int(
+        pytest.ExitCode.TESTS_FAILED
+    )
+
+
+def test_direct_authoritative_launcher_rejects_terminal_pytest_early_exit() -> None:
+    if os.environ.get(_AUTHORITATIVE_LAUNCH_PROBE_CHILD) == "1":
+        assert "PYTEST_ADDOPTS" not in os.environ
+        assert "PYTEST_PLUGINS" not in os.environ
+        assert os.environ.get("PYTEST_DISABLE_PLUGIN_AUTOLOAD") == "1"
+        return
+
+    environment = dict(os.environ)
+    environment.update(
+        {
+            _AUTHORITATIVE_LAUNCH_PROBE_CHILD: "1",
+            "PYTEST_ADDOPTS": "--help",
+            "PYTEST_CURRENT_TEST": "poisoned::test",
+            "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "0",
+            "PYTEST_PLUGINS": "module_that_must_not_be_imported",
+        }
+    )
+    result = subprocess.run(
+        [sys.executable, str(Path(__file__).resolve())],
+        cwd=ROOT,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+        env=environment,
+        timeout=900,
+    )
+    assert result.returncode == 0, result.stderr.decode(
+        "utf-8", errors="replace"
+    )
+    assert result.stderr == b""
+    expected = str(EXPECTED_COLLECTED_TEST_ITEMS).encode("ascii")
+    assert b"collected " + expected + b" items" in result.stdout
+    assert expected + b" passed" in result.stdout
+    assert b"usage: pytest" not in result.stdout.lower()
 
 
 def test_capture_tool_exact_identity_and_linux_runtime_contract(capture: Any) -> None:
@@ -1017,6 +1399,85 @@ def test_response_admission_failures_are_deterministic(
             label="run_attempt_response",
         ),
     )
+
+
+
+
+
+@pytest.mark.parametrize(
+    "numeric_token",
+    ("1.0", "1e2", "-0", "NaN", "Infinity", "-Infinity"),
+    ids=(
+        "fractional",
+        "scientific-notation",
+        "negative-zero",
+        "nan",
+        "positive-infinity",
+        "negative-infinity",
+    ),
+)
+def test_numeric_response_tokens_fail_before_publication(
+    capture: Any,
+    tmp_path: Path,
+    numeric_token: str,
+) -> None:
+    valid_run_body = _json_body(_run_document(capture))
+    valid_jobs_body = _json_body(
+        _jobs_document(capture, list(range(86815582001, 86815582009)))
+    )
+    sources_before = _source_snapshot()
+
+    for response_role in ("run", "jobs"):
+        run_body = valid_run_body
+        jobs_body = valid_jobs_body
+        if response_role == "run":
+            run_body = _with_top_level_numeric_probe(run_body, numeric_token)
+            expected_error = "run_attempt_response_invalid_json"
+        else:
+            jobs_body = _with_top_level_numeric_probe(jobs_body, numeric_token)
+            expected_error = "jobs_page_1_response_invalid_json"
+
+        output = tmp_path / (
+            "numeric-domain-"
+            + numeric_token.replace("-", "negative-").replace(".", "-")
+            + "-"
+            + response_role
+        )
+        transport = ScriptedTransport(
+            [
+                (
+                    capture.RUN_REQUEST_PATH,
+                    _transport_response(capture, run_body),
+                ),
+                (
+                    capture.FIRST_JOBS_REQUEST_TARGET,
+                    _transport_response(capture, jobs_body),
+                ),
+            ]
+        )
+        clock = _clock_for_requests(2)
+        _assert_capture_error(
+            capture,
+            expected_error,
+            lambda: capture.capture_with_injected_dependencies_for_test(
+                repository_root=ROOT,
+                output_directory=output,
+                token=TOKEN,
+                transport=transport,
+                clock=clock,
+            ),
+        )
+        assert not output.exists()
+        _assert_no_owned_staging(tmp_path, output.name)
+        assert _source_snapshot() == sources_before
+        if response_role == "run":
+            assert len(transport.calls) == 1
+            assert transport.remaining == 1
+            assert clock.consumed == 2
+        else:
+            assert len(transport.calls) == 2
+            assert transport.remaining == 0
+            assert clock.consumed == 4
 
 
 def test_response_size_and_clock_order_limits_fail_closed(
@@ -2116,3 +2577,7 @@ def test_success_and_failure_diagnostics_are_canonical_and_deterministic(
         "tool": capture.TOOL_NAME,
         "tool_version": capture.TOOL_VERSION,
     }
+
+
+if __name__ == "__main__":
+    raise SystemExit(_run_authoritative_regression())
