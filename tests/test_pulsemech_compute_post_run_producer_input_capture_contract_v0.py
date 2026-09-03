@@ -6,6 +6,10 @@ import copy
 import hashlib
 import json
 import math
+import os
+import subprocess
+import sys
+from collections import Counter
 from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
 
@@ -56,14 +60,14 @@ EXPECTED_EXAMPLE_IDENTITY = (
     "bdde78e902d4a670cf6ac857f737486d321a80d2",
 )
 EXPECTED_CAPTURE_TOOL_IDENTITY = (
-    105104,
-    "6f3dfa9e9b88240ef3da1c05f6a5278fd8b5d3796e683fff1cdc97ebf8a9e65d",
-    "8d385606dfbea6eff691a8be29c17e82aa6ace37",
+    105091,
+    "6fd39f52f54675db0f57dc090da1fc21b12a858fde6619621043b552a7c0d2bc",
+    "621b839a11471d65c7170531f600f80117b7c083",
 )
 EXPECTED_OFFLINE_VALIDATOR_IDENTITY = (
-    109943,
-    "c37f1295949baa607fec839cac98a91f0c3d84b8223d7fe00d47589a3449fd05",
-    "f25f1b46089d67f67a303226f0c7bc30449da9a1",
+    110734,
+    "48d86541d0e4cd10f1dac6ed60c25f5c64b900fee91b3bed83eff2de66069417",
+    "0e3987d486c5d475494c1d3aabcf021257b4f39b",
 )
 EXPECTED_EXAMPLE_BINDING_REVISION = (
     "9b0fdb2f2d30f4b0ad7abd20c19bf9a5a60d27ed"
@@ -295,8 +299,532 @@ FORBIDDEN_EXCHANGE_RECORD_SELF_KEYS = {
 }
 
 
+EXPECTED_UNPARAMETERIZED_TESTS = frozenset(
+    {
+        "test_authoritative_launcher_sanitizes_pytest_environment_and_requires_completed_contract",
+        "test_direct_authoritative_launcher_rejects_terminal_pytest_early_exit",
+        "test_exact_repository_object_identities_and_strict_json",
+        "test_schema_is_valid_draft_2020_12_and_reference_closed",
+        "test_normative_contract_identity_and_work_order_binding",
+        "test_normative_contract_binds_exact_manifest_schema",
+        "test_contract_preserves_exact_response_byte_domain",
+        "test_contract_temporal_firewall_and_authority_boundary_are_closed",
+        "test_contract_request_response_and_metadata_contracts_are_exact",
+        "test_contract_subject_pagination_and_count_boundary_are_fixed",
+        "test_contract_implementation_privacy_and_publication_separation",
+        "test_contract_availability_and_claim_boundaries_are_honest",
+        "test_contract_regression_surface_is_exact_and_complete",
+        "test_identity_graph_is_acyclic_and_excludes_self_hashes",
+        "test_canonical_example_validates_and_uses_example_provenance",
+        "test_observed_provenance_schema_witness_validates",
+        "test_observed_and_example_branch_mixing_is_rejected",
+        "test_schema_rejects_unexpected_manifest_and_exchange_self_identity",
+        "test_schema_rejects_non_attempt_specific_and_noncanonical_requests",
+        "test_example_contract_bindings_match_exact_repository_objects",
+        "test_example_exchange_metadata_projection_is_exact_and_acyclic",
+        "test_example_member_inventory_counts_and_pagination_close",
+        "test_example_subject_run_and_jobs_summaries_are_consistent",
+        "test_example_request_targets_and_selected_headers_are_exact",
+        "test_source_import_boundaries_match_the_contract",
+        "test_contract_limits_are_exact_and_nonzero",
+        "test_strict_json_helper_rejects_ambiguous_numeric_and_key_forms",
+    }
+)
+EXPECTED_PARAMETERIZED_TEST_CASES: dict[
+    str,
+    tuple[dict[str, Any], ...],
+] = {
+    "test_example_and_observed_branch_mixing_is_rejected": (
+        {"mutation_path": ("record_status",), "replacement": "observed"},
+        {
+            "mutation_path": ("manifest_identity", "capture_scope"),
+            "replacement": "historical_reference",
+        },
+        {
+            "mutation_path": ("temporal_boundary", "capture_subject_class"),
+            "replacement": "post_run_platform_response_snapshot",
+        },
+        {
+            "mutation_path": ("temporal_boundary", "capture_time_relation"),
+            "replacement": "observed_at_capture_time",
+        },
+        {
+            "mutation_path": (
+                "temporal_boundary",
+                "capture_is_platform_response_snapshot",
+            ),
+            "replacement": True,
+        },
+        {
+            "mutation_path": (
+                "temporal_boundary",
+                "reference_producer_input_eligible",
+            ),
+            "replacement": True,
+        },
+        {
+            "mutation_path": ("publication_boundary", "publication_status"),
+            "replacement": "completed",
+        },
+        {
+            "mutation_path": ("authority_boundary", "capture_subject_class"),
+            "replacement": "post_run_platform_response_snapshot",
+        },
+    ),
+    "test_schema_rejects_closed_boundary_mutations": (
+        {"mutation_path": ("request_contract", "method"), "replacement": "POST"},
+        {
+            "mutation_path": ("request_contract", "host"),
+            "replacement": "example.invalid",
+        },
+        {
+            "mutation_path": ("request_contract", "api_version"),
+            "replacement": "latest",
+        },
+        {
+            "mutation_path": ("request_contract", "accept"),
+            "replacement": "application/json",
+        },
+        {
+            "mutation_path": ("request_contract", "accept_encoding"),
+            "replacement": "gzip",
+        },
+        {
+            "mutation_path": ("request_contract", "user_agent"),
+            "replacement": "unbound-client",
+        },
+        {
+            "mutation_path": (
+                "request_contract",
+                "authorization_value_recorded",
+            ),
+            "replacement": True,
+        },
+        {
+            "mutation_path": (
+                "temporal_boundary",
+                "capture_is_runtime_observation",
+            ),
+            "replacement": True,
+        },
+        {
+            "mutation_path": (
+                "temporal_boundary",
+                "capture_is_runtime_observation_packet",
+            ),
+            "replacement": True,
+        },
+        {
+            "mutation_path": (
+                "temporal_boundary",
+                "capture_is_transition_measurement",
+            ),
+            "replacement": True,
+        },
+        {
+            "mutation_path": (
+                "implementation_boundary",
+                "capture_tool_verdict_trusted",
+            ),
+            "replacement": True,
+        },
+        {
+            "mutation_path": (
+                "implementation_boundary",
+                "offline_validator_network_access",
+            ),
+            "replacement": "full",
+        },
+        {
+            "mutation_path": (
+                "publication_boundary",
+                "partial_publication_accepted",
+            ),
+            "replacement": True,
+        },
+        {
+            "mutation_path": (
+                "publication_boundary",
+                "warning_only_success_allowed",
+            ),
+            "replacement": True,
+        },
+        {
+            "mutation_path": (
+                "publication_boundary",
+                "best_effort_success_allowed",
+            ),
+            "replacement": True,
+        },
+        {
+            "mutation_path": ("privacy_boundary", "secret_material_included"),
+            "replacement": True,
+        },
+        {
+            "mutation_path": ("privacy_boundary", "token_value_in_manifest"),
+            "replacement": True,
+        },
+        {
+            "mutation_path": (
+                "content_boundary",
+                "raw_response_json_normalized",
+            ),
+            "replacement": True,
+        },
+        {
+            "mutation_path": (
+                "content_boundary",
+                "contains_runtime_observation_packet",
+            ),
+            "replacement": True,
+        },
+        {
+            "mutation_path": ("authority_boundary", "activates_compute_gate"),
+            "replacement": True,
+        },
+        {
+            "mutation_path": (
+                "authority_boundary",
+                "capture_is_release_decision",
+            ),
+            "replacement": True,
+        },
+        {
+            "mutation_path": (
+                "authority_boundary",
+                "capture_is_release_authority",
+            ),
+            "replacement": True,
+        },
+        {
+            "mutation_path": ("authority_boundary", "authority_effect"),
+            "replacement": "active",
+        },
+        {"mutation_path": ("ok",), "replacement": False},
+        {"mutation_path": ("errors",), "replacement": ["warning"]},
+    ),
+}
+EXPECTED_COLLECTED_TEST_FUNCTIONS = frozenset(
+    EXPECTED_UNPARAMETERIZED_TESTS
+    | frozenset(EXPECTED_PARAMETERIZED_TEST_CASES)
+)
+EXPECTED_COLLECTED_TEST_ITEMS = len(EXPECTED_UNPARAMETERIZED_TESTS) + sum(
+    len(cases) for cases in EXPECTED_PARAMETERIZED_TEST_CASES.values()
+)
+CRITICAL_TEST_FUNCTIONS = frozenset(
+    {
+        "test_authoritative_launcher_sanitizes_pytest_environment_and_requires_completed_contract",
+        "test_direct_authoritative_launcher_rejects_terminal_pytest_early_exit",
+        "test_exact_repository_object_identities_and_strict_json",
+        "test_schema_is_valid_draft_2020_12_and_reference_closed",
+        "test_normative_contract_binds_exact_manifest_schema",
+        "test_contract_temporal_firewall_and_authority_boundary_are_closed",
+        "test_contract_implementation_privacy_and_publication_separation",
+        "test_source_import_boundaries_match_the_contract",
+    }
+)
+
+_AUTHORITATIVE_PYTEST_ENVIRONMENT_KEYS = (
+    "PYTEST_ADDOPTS",
+    "PYTEST_CURRENT_TEST",
+    "PYTEST_DISABLE_PLUGIN_AUTOLOAD",
+    "PYTEST_PLUGINS",
+)
+_AUTHORITATIVE_LAUNCH_PROBE_CHILD = (
+    "PULSEMECH_POST_RUN_CAPTURE_CONTRACT_LAUNCH_PROBE_CHILD"
+)
+
+
 class StrictJSONError(ValueError):
     pass
+
+
+
+def _freeze_parameter_value(value: Any) -> Any:
+    if value is None:
+        return ("none",)
+    if isinstance(value, bool):
+        return ("bool", value)
+    if isinstance(value, int):
+        return ("int", value)
+    if isinstance(value, str):
+        return ("str", value)
+    if isinstance(value, tuple):
+        return (
+            "tuple",
+            tuple(_freeze_parameter_value(item) for item in value),
+        )
+    if isinstance(value, list):
+        return (
+            "list",
+            tuple(_freeze_parameter_value(item) for item in value),
+        )
+    if isinstance(value, dict):
+        return (
+            "dict",
+            tuple(
+                (str(key), _freeze_parameter_value(item))
+                for key, item in sorted(value.items(), key=lambda pair: str(pair[0]))
+            ),
+        )
+    return ("unsupported", type(value).__qualname__, repr(value))
+
+
+def _parameter_signature(parameters: Mapping[str, Any]) -> tuple[Any, ...]:
+    return tuple(
+        (str(key), _freeze_parameter_value(value))
+        for key, value in sorted(parameters.items())
+    )
+
+
+def _expected_collection_signatures() -> Counter[tuple[str, tuple[Any, ...]]]:
+    signatures: Counter[tuple[str, tuple[Any, ...]]] = Counter()
+    for function_name in EXPECTED_UNPARAMETERIZED_TESTS:
+        signatures[(function_name, ())] += 1
+    for function_name, cases in EXPECTED_PARAMETERIZED_TEST_CASES.items():
+        for parameters in cases:
+            signatures[(function_name, _parameter_signature(parameters))] += 1
+    return signatures
+
+
+def _collected_test_name(item: Any) -> str:
+    original_name = getattr(item, "originalname", None)
+    if isinstance(original_name, str) and original_name:
+        return original_name
+    return str(item.name).split("[", 1)[0]
+
+
+def _collected_item_parameters(item: Any) -> dict[str, Any]:
+    callspec = getattr(item, "callspec", None)
+    if callspec is None:
+        return {}
+    return dict(callspec.params)
+
+
+def _render_signature_counter(
+    counter: Counter[tuple[str, tuple[Any, ...]]],
+) -> list[dict[str, Any]]:
+    return [
+        {
+            "count": count,
+            "function": function_name,
+            "parameters": repr(parameters),
+        }
+        for (function_name, parameters), count in sorted(
+            counter.items(),
+            key=lambda item: (item[0][0], repr(item[0][1])),
+        )
+    ]
+
+
+class _AuthoritativeRegressionContract:
+    def __init__(self) -> None:
+        self._expected_nodeids: set[str] = set()
+        self._phase_outcomes: dict[str, dict[str, str]] = {}
+        self._disallowed_reports: list[dict[str, str]] = []
+        self._collection_validated = False
+        self._session_finished = False
+        self._contract_satisfied = False
+
+    @property
+    def completed_successfully(self) -> bool:
+        return self._contract_satisfied
+
+    @property
+    def completion_state(self) -> dict[str, bool]:
+        return {
+            "collection_validated": self._collection_validated,
+            "contract_satisfied": self._contract_satisfied,
+            "session_finished": self._session_finished,
+        }
+
+    def pytest_collection_finish(self, session: Any) -> None:
+        current_file = Path(__file__).resolve()
+        collected = [
+            item
+            for item in session.items
+            if Path(str(item.path)).resolve() == current_file
+        ]
+        observed_signatures: Counter[tuple[str, tuple[Any, ...]]] = Counter()
+        observed_function_names: set[str] = set()
+        observed_nodeids: list[str] = []
+        for item in collected:
+            function_name = _collected_test_name(item)
+            observed_function_names.add(function_name)
+            observed_nodeids.append(str(item.nodeid))
+            observed_signatures[
+                (
+                    function_name,
+                    _parameter_signature(_collected_item_parameters(item)),
+                )
+            ] += 1
+
+        expected_signatures = _expected_collection_signatures()
+        missing = expected_signatures - observed_signatures
+        unexpected = observed_signatures - expected_signatures
+        duplicate_nodeids = sorted(
+            nodeid
+            for nodeid, count in Counter(observed_nodeids).items()
+            if count != 1
+        )
+        missing_functions = sorted(
+            EXPECTED_COLLECTED_TEST_FUNCTIONS - observed_function_names
+        )
+        unexpected_functions = sorted(
+            observed_function_names - EXPECTED_COLLECTED_TEST_FUNCTIONS
+        )
+        missing_critical = sorted(
+            CRITICAL_TEST_FUNCTIONS - observed_function_names
+        )
+        if (
+            len(collected) != EXPECTED_COLLECTED_TEST_ITEMS
+            or duplicate_nodeids
+            or missing
+            or unexpected
+            or missing_functions
+            or unexpected_functions
+            or missing_critical
+        ):
+            raise pytest.UsageError(
+                "authoritative_capture_contract_collection_mismatch: "
+                + json.dumps(
+                    {
+                        "duplicate_nodeids": duplicate_nodeids,
+                        "expected_items": EXPECTED_COLLECTED_TEST_ITEMS,
+                        "missing_critical_functions": missing_critical,
+                        "missing_functions": missing_functions,
+                        "missing_items": _render_signature_counter(missing),
+                        "observed_items": len(collected),
+                        "unexpected_functions": unexpected_functions,
+                        "unexpected_items": _render_signature_counter(unexpected),
+                    },
+                    sort_keys=True,
+                )
+            )
+        self._expected_nodeids = set(observed_nodeids)
+        self._collection_validated = True
+
+    def pytest_runtest_logreport(self, report: Any) -> None:
+        nodeid = str(report.nodeid)
+        if nodeid not in self._expected_nodeids:
+            return
+        when = str(report.when)
+        if when not in {"setup", "call", "teardown"}:
+            return
+        phases = self._phase_outcomes.setdefault(nodeid, {})
+        if when in phases:
+            self._disallowed_reports.append(
+                {
+                    "nodeid": nodeid,
+                    "reason": "duplicate_phase_report",
+                    "when": when,
+                }
+            )
+        phases[when] = str(report.outcome)
+        if report.skipped or getattr(report, "wasxfail", None) is not None:
+            self._disallowed_reports.append(
+                {
+                    "nodeid": nodeid,
+                    "reason": "skip_xfail_or_xpass_forbidden",
+                    "when": when,
+                }
+            )
+
+    def pytest_sessionfinish(self, session: Any, exitstatus: int) -> None:
+        self._session_finished = True
+        expected_phases = {"setup", "call", "teardown"}
+        missing_phases: dict[str, list[str]] = {}
+        nonpassing_phases: dict[str, dict[str, str]] = {}
+        for nodeid in sorted(self._expected_nodeids):
+            phases = self._phase_outcomes.get(nodeid, {})
+            missing = sorted(expected_phases - set(phases))
+            if missing:
+                missing_phases[nodeid] = missing
+            failed = {
+                phase: outcome
+                for phase, outcome in sorted(phases.items())
+                if outcome != "passed"
+            }
+            if failed:
+                nonpassing_phases[nodeid] = failed
+
+        if (
+            self._collection_validated
+            and len(self._expected_nodeids) == EXPECTED_COLLECTED_TEST_ITEMS
+            and not missing_phases
+            and not nonpassing_phases
+            and not self._disallowed_reports
+            and int(exitstatus) == int(pytest.ExitCode.OK)
+        ):
+            self._contract_satisfied = True
+            return
+
+        terminal = session.config.pluginmanager.get_plugin("terminalreporter")
+        detail = json.dumps(
+            {
+                "collection_validated": self._collection_validated,
+                "disallowed_reports": self._disallowed_reports,
+                "expected_items": EXPECTED_COLLECTED_TEST_ITEMS,
+                "missing_phases": missing_phases,
+                "nonpassing_phases": nonpassing_phases,
+                "observed_nodeids": len(self._expected_nodeids),
+            },
+            sort_keys=True,
+        )
+        if terminal is not None:
+            terminal.write_sep(
+                "=",
+                "authoritative capture-contract execution failed",
+            )
+            terminal.write_line(detail)
+        if int(exitstatus) == int(pytest.ExitCode.OK):
+            session.exitstatus = int(pytest.ExitCode.TESTS_FAILED)
+
+
+def _run_authoritative_regression(
+    *,
+    pytest_main: Any | None = None,
+) -> int:
+    previous_environment = {
+        key: os.environ.get(key)
+        for key in _AUTHORITATIVE_PYTEST_ENVIRONMENT_KEYS
+    }
+    os.environ.pop("PYTEST_ADDOPTS", None)
+    os.environ.pop("PYTEST_CURRENT_TEST", None)
+    os.environ.pop("PYTEST_PLUGINS", None)
+    os.environ["PYTEST_DISABLE_PLUGIN_AUTOLOAD"] = "1"
+    contract = _AuthoritativeRegressionContract()
+    runner = pytest.main if pytest_main is None else pytest_main
+    arguments = [
+        "-c",
+        os.devnull,
+        "--rootdir",
+        str(ROOT),
+        "-o",
+        "addopts=",
+        "--noconftest",
+        str(Path(__file__).resolve()),
+    ]
+    try:
+        result = runner(arguments, plugins=[contract])
+    finally:
+        for key, value in previous_environment.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+
+    exit_code = int(result)
+    if exit_code != int(pytest.ExitCode.OK):
+        return exit_code
+    if contract.completed_successfully:
+        return exit_code
+    sys.stderr.write(
+        "authoritative_capture_contract_session_not_completed: "
+        + json.dumps(contract.completion_state, sort_keys=True)
+        + "\n"
+    )
+    return int(pytest.ExitCode.TESTS_FAILED)
 
 
 def sha256_bytes(payload: bytes) -> str:
@@ -559,6 +1087,108 @@ def _iter_keys(value: Any, *, path: str = "$") -> Iterable[tuple[str, str]]:
     elif isinstance(value, list):
         for index, child in enumerate(value):
             yield from _iter_keys(child, path=f"{path}[{index}]")
+
+
+
+def test_authoritative_launcher_sanitizes_pytest_environment_and_requires_completed_contract(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    inherited = {
+        "PYTEST_ADDOPTS": "--help",
+        "PYTEST_CURRENT_TEST": "poisoned::test",
+        "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "0",
+        "PYTEST_PLUGINS": "module_that_must_not_be_imported",
+    }
+    for key, value in inherited.items():
+        monkeypatch.setenv(key, value)
+
+    observed: dict[str, Any] = {}
+
+    def successful_main(
+        arguments: list[str],
+        *,
+        plugins: list[Any],
+    ) -> pytest.ExitCode:
+        observed["arguments"] = list(arguments)
+        observed["environment"] = {
+            key: os.environ.get(key)
+            for key in _AUTHORITATIVE_PYTEST_ENVIRONMENT_KEYS
+        }
+        assert len(plugins) == 1
+        contract = plugins[0]
+        assert isinstance(contract, _AuthoritativeRegressionContract)
+        contract._collection_validated = True
+        contract._session_finished = True
+        contract._contract_satisfied = True
+        return pytest.ExitCode.OK
+
+    assert _run_authoritative_regression(pytest_main=successful_main) == 0
+    assert observed["arguments"] == [
+        "-c",
+        os.devnull,
+        "--rootdir",
+        str(ROOT),
+        "-o",
+        "addopts=",
+        "--noconftest",
+        str(Path(__file__).resolve()),
+    ]
+    assert observed["environment"] == {
+        "PYTEST_ADDOPTS": None,
+        "PYTEST_CURRENT_TEST": None,
+        "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1",
+        "PYTEST_PLUGINS": None,
+    }
+    for key, value in inherited.items():
+        assert os.environ.get(key) == value
+
+    def incomplete_main(
+        _arguments: list[str],
+        *,
+        plugins: list[Any],
+    ) -> pytest.ExitCode:
+        assert len(plugins) == 1
+        return pytest.ExitCode.OK
+
+    assert _run_authoritative_regression(pytest_main=incomplete_main) == int(
+        pytest.ExitCode.TESTS_FAILED
+    )
+
+
+def test_direct_authoritative_launcher_rejects_terminal_pytest_early_exit() -> None:
+    if os.environ.get(_AUTHORITATIVE_LAUNCH_PROBE_CHILD) == "1":
+        assert "PYTEST_ADDOPTS" not in os.environ
+        assert "PYTEST_PLUGINS" not in os.environ
+        assert os.environ.get("PYTEST_DISABLE_PLUGIN_AUTOLOAD") == "1"
+        return
+
+    environment = dict(os.environ)
+    environment.update(
+        {
+            _AUTHORITATIVE_LAUNCH_PROBE_CHILD: "1",
+            "PYTEST_ADDOPTS": "--help",
+            "PYTEST_CURRENT_TEST": "poisoned::test",
+            "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "0",
+            "PYTEST_PLUGINS": "module_that_must_not_be_imported",
+        }
+    )
+    result = subprocess.run(
+        [sys.executable, str(Path(__file__).resolve())],
+        cwd=ROOT,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+        env=environment,
+        timeout=600,
+    )
+    assert result.returncode == 0, result.stderr.decode(
+        "utf-8", errors="replace"
+    )
+    assert result.stderr == b""
+    expected = str(EXPECTED_COLLECTED_TEST_ITEMS).encode("ascii")
+    assert b"collected " + expected + b" items" in result.stdout
+    assert expected + b" passed" in result.stdout
+    assert b"usage: pytest" not in result.stdout.lower()
 
 
 def test_exact_repository_object_identities_and_strict_json() -> None:
@@ -1543,3 +2173,7 @@ def test_strict_json_helper_rejects_ambiguous_numeric_and_key_forms() -> None:
     for payload in cases:
         with pytest.raises(StrictJSONError):
             strict_json_loads(payload, label="fixture")
+
+
+if __name__ == "__main__":
+    raise SystemExit(_run_authoritative_regression())
