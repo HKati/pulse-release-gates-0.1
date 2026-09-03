@@ -23,7 +23,6 @@ if __name__ == "__main__" and (
 import argparse
 import ctypes
 import datetime as dt
-import decimal
 import errno
 import hashlib
 import http.client
@@ -398,11 +397,16 @@ def _reject_non_finite(_: str) -> None:
     raise StrictJsonError("non_finite_number")
 
 
+def _parse_int(value: str) -> int:
+    if value == "-0":
+        raise StrictJsonError("negative_zero")
+    return int(value, 10)
+
+
 def _parse_json_object(
     payload: bytes,
     *,
     label: str,
-    allow_floating_point: bool = False,
 ) -> dict[str, Any]:
     parse_payload = payload
     if payload.startswith(b"\xef\xbb\xbf"):
@@ -411,15 +415,15 @@ def _parse_json_object(
         text = parse_payload.decode("utf-8", errors="strict")
     except UnicodeDecodeError:
         _raise(f"{label}_invalid_utf8")
-    parse_float = decimal.Decimal if allow_floating_point else _reject_float
     try:
         value = json.loads(
             text,
             object_pairs_hook=_reject_duplicate_keys,
-            parse_float=parse_float,
+            parse_int=_parse_int,
+            parse_float=_reject_float,
             parse_constant=_reject_non_finite,
         )
-    except (json.JSONDecodeError, StrictJsonError, decimal.InvalidOperation):
+    except (json.JSONDecodeError, StrictJsonError, ValueError):
         _raise(f"{label}_invalid_json")
     if not isinstance(value, dict):
         _raise(f"{label}_top_level_not_object")
@@ -1441,7 +1445,6 @@ def _capture_response(
     parsed_body = _parse_json_object(
         response.body,
         label=label,
-        allow_floating_point=True,
     )
     return CapturedHttpResponse(
         status=response.status,
