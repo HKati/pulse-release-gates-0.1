@@ -150,6 +150,8 @@ MAX_WORKFLOW_BYTES = 1 * 1024 * 1024
 READ_CHUNK_BYTES = 64 * 1024
 MAX_GIT_STDERR_BYTES = 64 * 1024
 GIT_TIMEOUT_SECONDS = 30
+EXPECTED_CAPTURE_DIRECTORY_MODE = 0o700
+EXPECTED_CAPTURE_FILE_MODE = 0o600
 
 SELECTED_RESPONSE_HEADER_KEYS = (
     "content_encoding",
@@ -678,6 +680,8 @@ def _read_fd_bounded(
         _raise("non_regular_member", stage=stage, member_path=member_path)
     if metadata_before.st_nlink != 1:
         _raise("hard_linked_member", stage=stage, member_path=member_path)
+    if stat.S_IMODE(metadata_before.st_mode) != EXPECTED_CAPTURE_FILE_MODE:
+        _raise("capture_member_mode_mismatch", stage=stage, member_path=member_path)
     if metadata_before.st_size < 1:
         _raise("empty_member", stage=stage, member_path=member_path)
     if metadata_before.st_size > maximum:
@@ -700,9 +704,12 @@ def _read_fd_bounded(
         metadata_after = os.fstat(fd)
     except OSError:
         _raise("member_identity_unavailable", stage=stage, member_path=member_path)
+    if stat.S_IMODE(metadata_after.st_mode) != EXPECTED_CAPTURE_FILE_MODE:
+        _raise("capture_member_mode_mismatch", stage=stage, member_path=member_path)
     before = (
         metadata_before.st_dev,
         metadata_before.st_ino,
+        metadata_before.st_mode,
         metadata_before.st_size,
         metadata_before.st_mtime_ns,
         metadata_before.st_ctime_ns,
@@ -711,6 +718,7 @@ def _read_fd_bounded(
     after = (
         metadata_after.st_dev,
         metadata_after.st_ino,
+        metadata_after.st_mode,
         metadata_after.st_size,
         metadata_after.st_mtime_ns,
         metadata_after.st_ctime_ns,
@@ -793,6 +801,16 @@ def _directory_identity(
     if not stat.S_ISDIR(metadata.st_mode):
         _raise(
             "directory_identity_not_directory",
+            stage=stage,
+            member_path=member_path,
+        )
+    if stat.S_IMODE(metadata.st_mode) != EXPECTED_CAPTURE_DIRECTORY_MODE:
+        _raise(
+            (
+                "capture_root_mode_mismatch"
+                if member_path is None
+                else "capture_directory_mode_mismatch"
+            ),
             stage=stage,
             member_path=member_path,
         )
