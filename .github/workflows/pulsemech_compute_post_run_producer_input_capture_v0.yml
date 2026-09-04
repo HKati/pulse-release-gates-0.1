@@ -595,14 +595,186 @@ jobs:
           print("OK: capture and offline validation close on exact bytes")
           PY
 
+      - name: Archive capture and verify offline round trip
+        id: archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          unset GH_TOKEN
+          unset PULSEMECH_CAPTURE_WORKFLOW_ID
+
+          python -I - <<'PY'
+          from __future__ import annotations
+
+          import os
+          import stat
+          import subprocess
+          import sys
+          import tarfile
+          import tempfile
+          from pathlib import Path
+
+
+          runner_temp = Path(os.environ["RUNNER_TEMP"])
+          repository_root = Path(os.environ["GITHUB_WORKSPACE"])
+          capture_name = os.environ["CAPTURE_DIRECTORY_NAME"]
+          archive_path = runner_temp / f"{capture_name}.tar"
+          validation_path = runner_temp / os.environ["VALIDATION_DIAGNOSTIC_NAME"]
+          expected_validation = validation_path.read_bytes()
+          maximum_capture_bytes = 64 * 1024 * 1024
+          maximum_archive_bytes = maximum_capture_bytes + 128 * 1024
+
+          # Only the already-validated, fixed-reference capture belongs in the TAR.
+          # Diagnostics remain separate; no manifest or raw-response bytes are rewritten.
+          directories = (capture_name, f"{capture_name}/raw", f"{capture_name}/metadata")
+          files = tuple(
+              f"{capture_name}/{name}"
+              for name in (
+                  "metadata/jobs_page_0001_exchange_v0.json",
+                  "metadata/run_attempt_exchange_v0.json",
+                  "pulsemech_compute_post_run_producer_input_capture_manifest_6066_v0.json",
+                  "raw/jobs_page_0001_response.json",
+                  "raw/run_attempt_response.json",
+              )
+          )
+          expected_names = set(directories) | set(files)
+
+
+          def fail(code: str) -> None:
+              raise SystemExit(code)
+
+
+          def preserve_capture_member(info: tarfile.TarInfo) -> tarfile.TarInfo:
+              if info.name in directories:
+                  if not info.isdir() or stat.S_IMODE(info.mode) != 0o700:
+                      fail("capture_archive_directory_mode_or_type_mismatch")
+              elif info.name in files:
+                  if not info.isreg() or stat.S_IMODE(info.mode) != 0o600:
+                      fail("capture_archive_file_mode_or_type_mismatch")
+                  if not 0 < info.size <= maximum_capture_bytes:
+                      fail("capture_archive_member_size_invalid")
+              else:
+                  fail("capture_archive_member_not_allowlisted")
+              # gettarinfo includes file-type bits before serialization. Preserve the
+              # complete permission bits, including rejecting unexpected special bits.
+              info.mode = stat.S_IMODE(info.mode)
+              # Normalize transport-only metadata, not capture content or permissions.
+              info.uid = info.gid = 0
+              info.uname = info.gname = ""
+              info.mtime = 0
+              info.pax_headers = {}
+              return info
+
+
+          observed_names = {capture_name}
+          observed_names.update(
+              member.relative_to(runner_temp).as_posix()
+              for member in (runner_temp / capture_name).rglob("*")
+          )
+          if observed_names != expected_names:
+              fail("capture_archive_source_inventory_mismatch")
+          for name in files:
+              if (runner_temp / name).lstat().st_nlink != 1:
+                  fail("capture_archive_source_hard_link_rejected")
+
+          # Exclusive creation forbids replacement, including a pre-existing symlink.
+          # Retain the same open archive through packing and the offline round trip.
+          with archive_path.open("x+b") as archive:
+              with tarfile.open(fileobj=archive, mode="w", format=tarfile.PAX_FORMAT) as package:
+                  for name in (*directories, *files):
+                      package.add(
+                          runner_temp / name,
+                          arcname=name,
+                          recursive=False,
+                          filter=preserve_capture_member,
+                      )
+              archive.flush()
+              os.fsync(archive.fileno())
+              identity = os.fstat(archive.fileno())
+              if (
+                  not stat.S_ISREG(identity.st_mode)
+                  or stat.S_IMODE(identity.st_mode) != 0o600
+                  or identity.st_nlink != 1
+                  or not 0 < identity.st_size <= maximum_archive_bytes
+              ):
+                  fail("capture_archive_identity_invalid")
+              archive.seek(0)
+
+              with tempfile.TemporaryDirectory(
+                  prefix="pulsemech-capture-tar-roundtrip-", dir=runner_temp
+              ) as temporary_root:
+                  restored_root = Path(temporary_root)
+                  with tarfile.open(fileobj=archive, mode="r:") as package:
+                      members = package.getmembers()
+                      if (
+                          len(members) != len(expected_names)
+                          or {member.name for member in members} != expected_names
+                          or sum(member.size for member in members) > maximum_capture_bytes
+                      ):
+                          fail("capture_archive_inventory_mismatch")
+                      for member in members:
+                          preserve_capture_member(member)
+                      # Materialize only allowlisted regular files/directories. Do not
+                      # extract archive-supplied paths, links, or ownership generically.
+                      for name in directories:
+                          (restored_root / name).mkdir(mode=0o700)
+                      for name in files:
+                          member = package.getmember(name)
+                          stream = package.extractfile(member)
+                          if stream is None:
+                              fail("capture_archive_member_unreadable")
+                          with stream:
+                              payload = stream.read(member.size + 1)
+                          if len(payload) != member.size:
+                              fail("capture_archive_member_truncated")
+                          with (restored_root / name).open("xb") as output:
+                              output.write(payload)
+
+                  completed = subprocess.run(
+                      [
+                          sys.executable,
+                          "-I",
+                          str(repository_root / "tools" / (
+                              "check_pulsemech_compute_post_run_producer_input_capture_v0.py"
+                          )),
+                          "--repository-root", str(repository_root),
+                          "--capture-root", str(restored_root / capture_name),
+                      ],
+                      stdin=subprocess.DEVNULL,
+                      stdout=subprocess.PIPE,
+                      stderr=subprocess.DEVNULL,
+                      check=False,
+                  )
+                  if completed.returncode != 0:
+                      fail("capture_archive_offline_validation_failed")
+                  if completed.stdout != expected_validation:
+                      fail("capture_archive_validation_diagnostic_mismatch")
+
+              named_identity = archive_path.lstat()
+              if (
+                  named_identity.st_dev != identity.st_dev
+                  or named_identity.st_ino != identity.st_ino
+                  or named_identity.st_mode != identity.st_mode
+                  or named_identity.st_size != identity.st_size
+                  or named_identity.st_mtime_ns != identity.st_mtime_ns
+                  or named_identity.st_ctime_ns != identity.st_ctime_ns
+                  or named_identity.st_nlink != 1
+              ):
+                  fail("capture_archive_changed_during_roundtrip")
+
+          print("OK: capture TAR round trip preserves bytes, modes, and offline result")
+          PY
+
       - name: Upload exact capture and diagnostics
         id: upload
+        if: ${{ success() && steps.archive.outcome == 'success' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: >-
             pulsemech-compute-post-run-producer-input-capture-v0-${{ github.run_id }}-attempt-${{ github.run_attempt }}
           path: |
-            ${{ runner.temp }}/pulsemech-compute-post-run-producer-input-capture-v0
+            ${{ runner.temp }}/pulsemech-compute-post-run-producer-input-capture-v0.tar
             ${{ runner.temp }}/pulsemech-compute-post-run-capture-diagnostic-v0.json
             ${{ runner.temp }}/pulsemech-compute-post-run-validation-diagnostic-v0.json
           if-no-files-found: error
