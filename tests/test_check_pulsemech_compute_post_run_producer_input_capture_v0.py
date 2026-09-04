@@ -1,14 +1,3 @@
-# A TAR-regresszió beillesztése a helyes fájlba
-
-Ág: `HKati-patch-993789`
-
-Meglévő repository-fájl, teljes tartalomcsere:
-
-`tests/test_check_pulsemech_compute_post_run_producer_input_capture_v0.py`
-
-Csak az alábbi kódblokk tartalmát másold be. A fájlt ne nevezd át.
-
-```python
 #!/usr/bin/env python3
 from __future__ import annotations
 
@@ -3191,4 +3180,3 @@ def test_tar_roundtrip_with_real_validator_on_synthetic_observed_shape(
 
 if __name__ == "__main__":
     raise SystemExit(_run_authoritative_regression())
-```
