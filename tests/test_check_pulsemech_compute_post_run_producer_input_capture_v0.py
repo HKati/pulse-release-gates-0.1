@@ -1,3 +1,14 @@
+# A TAR-regresszió beillesztése a helyes fájlba
+
+Ág: `HKati-patch-993789`
+
+Meglévő repository-fájl, teljes tartalomcsere:
+
+`tests/test_check_pulsemech_compute_post_run_producer_input_capture_v0.py`
+
+Csak az alábbi kódblokk tartalmát másold be. A fájlt ne nevezd át.
+
+```python
 #!/usr/bin/env python3
 from __future__ import annotations
 
@@ -113,6 +124,17 @@ EXPECTED_SOURCE_IDENTITIES = (
 
 
 EXPECTED_TEST_ITEM_COUNTS = {
+    "test_tar_archive_does_not_replace_existing_output": 2,
+    "test_tar_archive_is_deterministic_for_same_capture_bytes": 1,
+    "test_tar_archive_path_replacement_is_rejected_without_deleting_replacement": 1,
+    "test_tar_archive_rejects_failed_or_different_validator_result": 2,
+    "test_tar_archive_rejects_incorrect_source_permissions": 8,
+    "test_tar_archive_rejects_unadmitted_filesystem_members": 4,
+    "test_tar_payload_survives_outer_zip_permission_normalization": 1,
+    "test_tar_roundtrip_preserves_exact_bytes_modes_and_validator_invocation": 1,
+    "test_tar_roundtrip_with_real_validator_on_synthetic_observed_shape": 1,
+    "test_tar_upload_requires_successful_roundtrip_and_exact_transport_members": 1,
+    "test_tar_validator_exception_cleans_temporary_restoration": 1,
     "test_authoritative_launcher_sanitizes_pytest_environment_and_requires_completed_contract": 1,
     "test_capture_before_subject_completion_fails_closed": 1,
     "test_capture_permission_mutations_fail_closed": 6,
@@ -174,6 +196,17 @@ EXPECTED_TEST_ITEM_COUNTS = {
 EXPECTED_COLLECTED_TEST_ITEMS = sum(EXPECTED_TEST_ITEM_COUNTS.values())
 CRITICAL_TEST_FUNCTIONS = frozenset(
     {
+        "test_tar_archive_does_not_replace_existing_output",
+        "test_tar_archive_is_deterministic_for_same_capture_bytes",
+        "test_tar_archive_path_replacement_is_rejected_without_deleting_replacement",
+        "test_tar_archive_rejects_failed_or_different_validator_result",
+        "test_tar_archive_rejects_incorrect_source_permissions",
+        "test_tar_archive_rejects_unadmitted_filesystem_members",
+        "test_tar_payload_survives_outer_zip_permission_normalization",
+        "test_tar_roundtrip_preserves_exact_bytes_modes_and_validator_invocation",
+        "test_tar_roundtrip_with_real_validator_on_synthetic_observed_shape",
+        "test_tar_upload_requires_successful_roundtrip_and_exact_transport_members",
+        "test_tar_validator_exception_cleans_temporary_restoration",
         "test_authoritative_launcher_sanitizes_pytest_environment_and_requires_completed_contract",
         "test_capture_permission_mutations_fail_closed",
         "test_direct_authoritative_launcher_rejects_terminal_pytest_early_exit",
@@ -2709,5 +2742,453 @@ def test_validation_does_not_modify_repository_or_capture(
     assert capture_after == capture_before
 
 
+# Transport-only probes execute the workflow's actual archive code. Their small
+# payloads and oracle are deliberately not presented as semantic capture proof.
+# The separate real-validator test below exercises the complete offline boundary.
+_TAR_WORKFLOW_PATH = (
+    ROOT / ".github" / "workflows"
+    / "pulsemech_compute_post_run_producer_input_capture_v0.yml"
+)
+_TAR_CAPTURE_NAME = "pulsemech-compute-post-run-producer-input-capture-v0"
+_TAR_CAPTURE_DIAGNOSTIC = "pulsemech-compute-post-run-capture-diagnostic-v0.json"
+_TAR_VALIDATION_DIAGNOSTIC = "pulsemech-compute-post-run-validation-diagnostic-v0.json"
+_TAR_MANIFEST_NAME = (
+    "pulsemech_compute_post_run_producer_input_capture_manifest_6066_v0.json"
+)
+_TAR_DIRECTORIES = ("", "raw", "metadata")
+_TAR_FILES = (
+    "metadata/jobs_page_0001_exchange_v0.json",
+    "metadata/run_attempt_exchange_v0.json",
+    _TAR_MANIFEST_NAME,
+    "raw/jobs_page_0001_response.json",
+    "raw/run_attempt_response.json",
+)
+_TAR_ORACLE_DIAGNOSTIC = b'{"fixture_transport_only":true}\n'
+
+
+def _tar_workflow_job() -> dict[str, Any]:
+    import yaml
+
+    workflow = yaml.safe_load(_TAR_WORKFLOW_PATH.read_text(encoding="utf-8"))
+    return workflow["jobs"]["capture-fixed-reference-input"]
+
+
+def _tar_archive_code() -> Any:
+    steps = _tar_workflow_job()["steps"]
+    candidates = [step for step in steps if step.get("id") == "archive"]
+    assert len(candidates) == 1
+    script = candidates[0]["run"]
+    marker = "python -I - <<'PY'\n"
+    assert script.count(marker) == 1
+    prefix, body = script.split(marker, 1)
+    for command in (
+        "set -euo pipefail", "umask 077", "unset GH_TOKEN",
+        "unset PULSEMECH_CAPTURE_WORKFLOW_ID",
+    ):
+        assert command in prefix.splitlines()
+    source, suffix = body.rsplit("\nPY", 1)
+    assert not suffix.strip()
+    return compile(source, str(_TAR_WORKFLOW_PATH) + ":archive", "exec")
+
+
+def _tar_fixture(tmp_path: Path) -> tuple[Path, dict[str, bytes]]:
+    root = tmp_path / _TAR_CAPTURE_NAME
+    root.mkdir(mode=0o700)
+    for name in _TAR_DIRECTORIES[1:]:
+        (root / name).mkdir(mode=0o700)
+    contents = {
+        name: b'{"fixture_transport_only":true,"member":'
+        + json.dumps(name).encode("ascii") + b'}\n'
+        for name in _TAR_FILES
+    }
+    contents[RUN_BODY_PATH] = b'\xef\xbb\xbf{ "z": 1, "a": "raw" }\r\n'
+    contents[JOBS_BODY_PATH] = '{"text":"árvíz","jobs":[]}\n'.encode("utf-8")
+    for name, payload in contents.items():
+        path = root / name
+        path.write_bytes(payload)
+        path.chmod(0o600)
+    (tmp_path / _TAR_VALIDATION_DIAGNOSTIC).write_bytes(_TAR_ORACLE_DIAGNOSTIC)
+    (tmp_path / _TAR_CAPTURE_DIAGNOSTIC).write_bytes(b'{"fixture_only":true}\n')
+    return root, contents
+
+
+def _tar_assert_restoration(root: Path, contents: Mapping[str, bytes]) -> None:
+    assert root.is_dir() and not root.is_symlink()
+    actual = {path.relative_to(root).as_posix() for path in root.rglob("*")}
+    assert actual == set(contents) | {"raw", "metadata"}
+    for name in _TAR_DIRECTORIES:
+        metadata = (root / name).lstat()
+        assert stat.S_ISDIR(metadata.st_mode)
+        assert stat.S_IMODE(metadata.st_mode) == 0o700
+    for name, payload in contents.items():
+        path = root / name
+        metadata = path.lstat()
+        assert stat.S_ISREG(metadata.st_mode)
+        assert stat.S_IMODE(metadata.st_mode) == 0o600
+        assert metadata.st_nlink == 1
+        assert path.read_bytes() == payload
+
+
+def _tar_assert_package(path: Path, contents: Mapping[str, bytes]) -> None:
+    import tarfile
+
+    expected_dirs = {
+        _TAR_CAPTURE_NAME + ("/" + name if name else "")
+        for name in _TAR_DIRECTORIES
+    }
+    expected_files = {_TAR_CAPTURE_NAME + "/" + name for name in contents}
+    with tarfile.open(path, "r:") as package:
+        members = package.getmembers()
+        assert len(members) == len(expected_dirs) + len(expected_files)
+        assert {member.name for member in members} == expected_dirs | expected_files
+        for member in members:
+            assert member.uid == member.gid == 0
+            assert member.uname == member.gname == ""
+            assert member.mtime == 0
+            assert not member.linkname
+            if member.name in expected_dirs:
+                assert member.isdir() and member.mode == 0o700
+            else:
+                assert member.isreg() and member.mode == 0o600
+                name = member.name[len(_TAR_CAPTURE_NAME) + 1:]
+                stream = package.extractfile(member)
+                assert stream is not None
+                with stream:
+                    assert stream.read() == contents[name]
+
+
+def _tar_transport_oracle(
+    contents: Mapping[str, bytes], calls: list[Path],
+    *, after_read: Callable[[Path], None] | None = None,
+    returncode: int = 0, stdout: bytes = _TAR_ORACLE_DIAGNOSTIC,
+) -> Callable[..., subprocess.CompletedProcess[bytes]]:
+    def run(command: Sequence[str], **kwargs: Any) -> subprocess.CompletedProcess[bytes]:
+        assert list(command[:5]) == [
+            sys.executable, "-I", str(VALIDATOR_PATH), "--repository-root", str(ROOT),
+        ]
+        assert len(command) == 7 and command[5] == "--capture-root"
+        assert kwargs == {
+            "stdin": subprocess.DEVNULL, "stdout": subprocess.PIPE,
+            "stderr": subprocess.DEVNULL, "check": False,
+        }
+        assert "GH_TOKEN" not in os.environ
+        assert "PULSEMECH_CAPTURE_WORKFLOW_ID" not in os.environ
+        restored = Path(command[6])
+        assert restored.name == _TAR_CAPTURE_NAME
+        assert restored.parent.name.startswith("pulsemech-capture-tar-roundtrip-")
+        _tar_assert_restoration(restored, contents)
+        calls.append(restored)
+        if after_read is not None:
+            after_read(restored)
+        return subprocess.CompletedProcess(command, returncode, stdout=stdout)
+    return run
+
+
+def _tar_execute_archive(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    *, validator_runner: Callable[..., Any] | None = None,
+) -> None:
+    code = _tar_archive_code()
+    with monkeypatch.context() as patch:
+        for key, value in {
+            "RUNNER_TEMP": str(tmp_path), "GITHUB_WORKSPACE": str(ROOT),
+            "CAPTURE_DIRECTORY_NAME": _TAR_CAPTURE_NAME,
+            "CAPTURE_DIAGNOSTIC_NAME": _TAR_CAPTURE_DIAGNOSTIC,
+            "VALIDATION_DIAGNOSTIC_NAME": _TAR_VALIDATION_DIAGNOSTIC,
+        }.items():
+            patch.setenv(key, value)
+        patch.delenv("GH_TOKEN", raising=False)
+        patch.delenv("PULSEMECH_CAPTURE_WORKFLOW_ID", raising=False)
+        if validator_runner is not None:
+            patch.setattr(subprocess, "run", validator_runner)
+        previous_umask = os.umask(0o077)
+        try:
+            exec(code, {"__name__": "__main__"})
+        finally:
+            os.umask(previous_umask)
+
+
+def _tar_assert_temporary_restoration_removed(tmp_path: Path) -> None:
+    assert not list(tmp_path.glob("pulsemech-capture-tar-roundtrip-*"))
+
+
+def test_tar_upload_requires_successful_roundtrip_and_exact_transport_members() -> None:
+    job = _tar_workflow_job()
+    steps = job["steps"]
+    by_id = {step["id"]: step for step in steps if "id" in step}
+    assert sum(step.get("id") == "archive" for step in steps) == 1
+    assert sum(step.get("id") == "upload" for step in steps) == 1
+    archive, upload = by_id["archive"], by_id["upload"]
+    assert steps.index(by_id["validate"]) < steps.index(archive) < steps.index(upload)
+    assert archive["shell"] == "bash"
+    assert archive.get("if") in (None, "${{ success() }}")
+    assert archive.get("continue-on-error", False) is False
+    assert upload.get("continue-on-error", False) is False
+    assert upload["if"] == "${{ success() && steps.archive.outcome == 'success' }}"
+    assert upload["uses"] == (
+        "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a"
+    )
+    options = upload["with"]
+    assert options["path"].splitlines() == [
+        "${{ runner.temp }}/" + _TAR_CAPTURE_NAME + ".tar",
+        "${{ runner.temp }}/" + _TAR_CAPTURE_DIAGNOSTIC,
+        "${{ runner.temp }}/" + _TAR_VALIDATION_DIAGNOSTIC,
+    ]
+    assert options["if-no-files-found"] == "error"
+    assert options["overwrite"] is False
+    assert options["include-hidden-files"] is False
+    assert job["env"]["CAPTURE_DIRECTORY_NAME"] == _TAR_CAPTURE_NAME
+    assert job["env"]["CAPTURE_DIAGNOSTIC_NAME"] == _TAR_CAPTURE_DIAGNOSTIC
+    assert job["env"]["VALIDATION_DIAGNOSTIC_NAME"] == _TAR_VALIDATION_DIAGNOSTIC
+    _tar_archive_code()
+
+
+def test_tar_roundtrip_preserves_exact_bytes_modes_and_validator_invocation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root, contents = _tar_fixture(tmp_path)
+    calls: list[Path] = []
+    _tar_execute_archive(
+        tmp_path, monkeypatch, validator_runner=_tar_transport_oracle(contents, calls),
+    )
+    assert len(calls) == 1 and not calls[0].exists()
+    _tar_assert_restoration(root, contents)
+    _tar_assert_package(tmp_path / (_TAR_CAPTURE_NAME + ".tar"), contents)
+    _tar_assert_temporary_restoration_removed(tmp_path)
+
+
+def test_tar_archive_is_deterministic_for_same_capture_bytes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    archives: list[bytes] = []
+    for index in range(2):
+        parent = tmp_path / str(index)
+        parent.mkdir()
+        root, contents = _tar_fixture(parent)
+        for path in (root, *root.rglob("*")):
+            os.utime(path, (1000 + index, 1000 + index))
+        calls: list[Path] = []
+        _tar_execute_archive(
+            parent, monkeypatch, validator_runner=_tar_transport_oracle(contents, calls),
+        )
+        assert len(calls) == 1
+        archives.append((parent / (_TAR_CAPTURE_NAME + ".tar")).read_bytes())
+    assert archives[0] == archives[1]
+
+
+@pytest.mark.parametrize("relative_path", (*_TAR_DIRECTORIES, *_TAR_FILES))
+def test_tar_archive_rejects_incorrect_source_permissions(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, relative_path: str,
+) -> None:
+    root, contents = _tar_fixture(tmp_path)
+    target = root / relative_path
+    mode = 0o755 if relative_path in _TAR_DIRECTORIES else 0o644
+    target.chmod(mode)
+    calls: list[Path] = []
+    with pytest.raises(SystemExit, match="capture_archive_.*mode_or_type_mismatch"):
+        _tar_execute_archive(
+            tmp_path, monkeypatch, validator_runner=_tar_transport_oracle(contents, calls),
+        )
+    assert not calls
+    assert stat.S_IMODE(target.lstat().st_mode) == mode
+    _tar_assert_temporary_restoration_removed(tmp_path)
+
+
+@pytest.mark.parametrize("case", ("file_symlink", "directory_symlink", "hardlink", "extra"))
+def test_tar_archive_rejects_unadmitted_filesystem_members(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, case: str,
+) -> None:
+    root, contents = _tar_fixture(tmp_path)
+    member = root / RUN_BODY_PATH
+    outside = tmp_path / "outside"
+    if case == "file_symlink":
+        member.rename(outside)
+        member.symlink_to(outside)
+    elif case == "directory_symlink":
+        (root / "raw").rename(outside)
+        (root / "raw").symlink_to(outside, target_is_directory=True)
+    elif case == "hardlink":
+        os.link(member, outside)
+    else:
+        (root / "extra.json").write_bytes(b"{}\n")
+    calls: list[Path] = []
+    with pytest.raises(SystemExit, match="capture_archive_"):
+        _tar_execute_archive(
+            tmp_path, monkeypatch, validator_runner=_tar_transport_oracle(contents, calls),
+        )
+    assert not calls
+    if case == "directory_symlink":
+        assert (outside / "run_attempt_response.json").read_bytes() == contents[RUN_BODY_PATH]
+    elif case != "extra":
+        assert outside.read_bytes() == contents[RUN_BODY_PATH]
+    _tar_assert_temporary_restoration_removed(tmp_path)
+
+
+@pytest.mark.parametrize("case", ("file", "broken_symlink"))
+def test_tar_archive_does_not_replace_existing_output(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, case: str,
+) -> None:
+    _, contents = _tar_fixture(tmp_path)
+    archive = tmp_path / (_TAR_CAPTURE_NAME + ".tar")
+    if case == "file":
+        archive.write_bytes(b"existing-output")
+    else:
+        archive.symlink_to(tmp_path / "nonexistent-target")
+    before = archive.lstat()
+    calls: list[Path] = []
+    with pytest.raises(FileExistsError):
+        _tar_execute_archive(
+            tmp_path, monkeypatch, validator_runner=_tar_transport_oracle(contents, calls),
+        )
+    after = archive.lstat()
+    assert (before.st_dev, before.st_ino) == (after.st_dev, after.st_ino)
+    assert not calls
+    if case == "file":
+        assert archive.read_bytes() == b"existing-output"
+    else:
+        assert archive.is_symlink() and not archive.exists()
+    _tar_assert_temporary_restoration_removed(tmp_path)
+
+
+@pytest.mark.parametrize(
+    ("returncode", "stdout", "error_code"),
+    (
+        (2, b"", "capture_archive_offline_validation_failed"),
+        (0, b"different-diagnostic\n", "capture_archive_validation_diagnostic_mismatch"),
+    ),
+)
+def test_tar_archive_rejects_failed_or_different_validator_result(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    returncode: int, stdout: bytes, error_code: str,
+) -> None:
+    _, contents = _tar_fixture(tmp_path)
+    calls: list[Path] = []
+    with pytest.raises(SystemExit, match=error_code):
+        _tar_execute_archive(
+            tmp_path, monkeypatch,
+            validator_runner=_tar_transport_oracle(
+                contents, calls, returncode=returncode, stdout=stdout,
+            ),
+        )
+    assert len(calls) == 1 and not calls[0].exists()
+    _tar_assert_temporary_restoration_removed(tmp_path)
+
+
+def test_tar_validator_exception_cleans_temporary_restoration(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _, contents = _tar_fixture(tmp_path)
+    calls: list[Path] = []
+
+    def interrupt(_root: Path) -> None:
+        raise RuntimeError("fixture-validator-interruption")
+
+    with pytest.raises(RuntimeError, match="fixture-validator-interruption"):
+        _tar_execute_archive(
+            tmp_path, monkeypatch,
+            validator_runner=_tar_transport_oracle(contents, calls, after_read=interrupt),
+        )
+    assert len(calls) == 1 and not calls[0].exists()
+    _tar_assert_temporary_restoration_removed(tmp_path)
+
+
+def test_tar_archive_path_replacement_is_rejected_without_deleting_replacement(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _, contents = _tar_fixture(tmp_path)
+    archive = tmp_path / (_TAR_CAPTURE_NAME + ".tar")
+    calls: list[Path] = []
+
+    def replace(_root: Path) -> None:
+        archive.rename(tmp_path / "original-open-archive.tar")
+        archive.write_bytes(b"replacement-not-owned-by-archive-step")
+
+    with pytest.raises(SystemExit, match="capture_archive_changed_during_roundtrip"):
+        _tar_execute_archive(
+            tmp_path, monkeypatch,
+            validator_runner=_tar_transport_oracle(contents, calls, after_read=replace),
+        )
+    assert archive.read_bytes() == b"replacement-not-owned-by-archive-step"
+    assert len(calls) == 1
+    _tar_assert_temporary_restoration_removed(tmp_path)
+
+
+def test_tar_payload_survives_outer_zip_permission_normalization(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import zipfile
+
+    _, contents = _tar_fixture(tmp_path)
+    calls: list[Path] = []
+    _tar_execute_archive(
+        tmp_path, monkeypatch, validator_runner=_tar_transport_oracle(contents, calls),
+    )
+    name = _TAR_CAPTURE_NAME + ".tar"
+    payload = (tmp_path / name).read_bytes()
+    zip_path = tmp_path / "simulated-github-artifact.zip"
+    with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_STORED) as package:
+        package.writestr(name, payload)
+    downloaded = tmp_path / "downloaded"
+    downloaded.mkdir(mode=0o755)
+    downloaded.chmod(0o755)
+    with zipfile.ZipFile(zip_path) as package:
+        assert package.namelist() == [name]
+        output = downloaded / name
+        output.write_bytes(package.read(name))
+        output.chmod(0o644)
+    assert stat.S_IMODE(output.stat().st_mode) == 0o644
+    assert output.read_bytes() == payload
+    _tar_assert_package(output, contents)
+
+
+def test_tar_roundtrip_with_real_validator_on_synthetic_observed_shape(
+    capture: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # This is a temporary synthetic witness of the observed branch, NOT a live
+    # GitHub response capture or the canonical #6066 preservation record.
+    # No production CLI, token, workflow dispatch, or network transport is used.
+    root = tmp_path / _TAR_CAPTURE_NAME
+    head = subprocess.run(
+        ["git", "rev-parse", "HEAD"], cwd=ROOT, check=True,
+        stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+        env=_subprocess_environment(), timeout=30,
+    ).stdout.decode("ascii").strip()
+    sources = capture._load_sources(ROOT, revision=head, include_workflow=True)
+    identity = capture.WorkflowExecutionIdentity(
+        workflow_id=123456,
+        workflow_run_id=987654321,
+        workflow_run_attempt=1,
+        workflow_run_key=(
+            "GITHUB_RUN_ID=987654321|GITHUB_RUN_ATTEMPT=1|"
+            "GITHUB_WORKFLOW=PULSEmech compute post-run producer-input capture"
+        ),
+    )
+    transport, clock = _scripted_fixture(capture)
+    result = capture._capture_core(
+        sources=sources, output_directory=root, token=TOKEN,
+        transport=transport, clock=clock, record_status="observed",
+        workflow_execution=identity,
+    )
+    assert result.manifest_file_name == _TAR_MANIFEST_NAME
+    assert result.job_count == 8 and result.authority_effect == "none"
+    assert transport.remaining == clock.remaining == 0
+    original = _run_validator_cli(root, isolated=True)
+    assert original.returncode == 0, original.stderr.decode("utf-8", errors="replace")
+    assert original.stderr == b""
+    diagnostic = json.loads(original.stdout)
+    assert diagnostic["ok"] is True and diagnostic["result"] == "validated_offline"
+    assert diagnostic["authority_effect"] == "none"
+    assert original.stdout == _canonical_json_bytes(diagnostic)
+    (tmp_path / _TAR_VALIDATION_DIAGNOSTIC).write_bytes(original.stdout)
+    contents = {name: (root / name).read_bytes() for name in _TAR_FILES}
+    # No monkeypatch of subprocess.run: the unchanged workflow code launches the
+    # actual isolated offline validator against its separate TAR reconstruction.
+    _tar_execute_archive(tmp_path, monkeypatch)
+    _tar_assert_package(tmp_path / (_TAR_CAPTURE_NAME + ".tar"), contents)
+    _tar_assert_restoration(root, contents)
+    _tar_assert_temporary_restoration_removed(tmp_path)
+
+
 if __name__ == "__main__":
     raise SystemExit(_run_authoritative_regression())
+```
