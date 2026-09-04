@@ -1,14 +1,3 @@
-# Az eredeti export-expectation regresszió visszaállítása
-
-Ág: `HKati-patch-993789`
-
-Meglévő repository-fájl, teljes tartalomcsere:
-
-`tests/test_check_pulsemech_compute_current_run_export_expectation_v0.py`
-
-Csak az alábbi kódblokk tartalmát másold be. A fájlt ne nevezd át.
-
-```python
 #!/usr/bin/env python3
 from __future__ import annotations
 
@@ -815,4 +804,3 @@ def test_observed_producer_binding_mismatches_fail_closed(tmp_path: Path, path_p
 
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__]))
-```
