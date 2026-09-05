@@ -163,9 +163,10 @@ SELECTED_RESPONSE_HEADERS = (
 
 SHA40_RE = re.compile(r"^[0-9a-f]{40}$")
 ERROR_CODE_RE = re.compile(r"^[a-z0-9_]+$")
+# Enforce time-of-day ranges before fromisoformat can normalize them.
 CANONICAL_UTC_RE = re.compile(
     r"^[0-9]{4}-[0-9]{2}-[0-9]{2}T"
-    r"[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\.[0-9]+)?Z$"
+    r"(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9](?:\.[0-9]+)?Z$"
 )
 CANONICAL_POSITIVE_DECIMAL_RE = re.compile(r"^[1-9][0-9]*$")
 SAFE_LEAF_RE = re.compile(r"^[A-Za-z0-9._-]+$")

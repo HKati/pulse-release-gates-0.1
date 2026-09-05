@@ -16,6 +16,7 @@ import sys
 from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any, Callable, Mapping, Sequence
 
 import pytest
@@ -86,33 +87,36 @@ EXPECTED_SOURCE_IDENTITIES = (
     ),
     (
         CAPTURE_TOOL_PATH,
-        105369,
-        "7ca957b2df31a6e7cb6396f0d643acf17c06c4127697882d0e71ec4473843e5c",
-        "6a37fb0bec4b8e593651946279a0e46b8cd4cc44",
+        105455,
+        "c6bfc6c721fa6c6513977a068e3149c954d50526de3c539a044725ed580dfc74",
+        "cd8063c7b5ef0f2cd4d09e854358e428138bb714",
     ),
     (
         VALIDATOR_PATH,
-        110734,
-        "48d86541d0e4cd10f1dac6ed60c25f5c64b900fee91b3bed83eff2de66069417",
-        "0e3987d486c5d475494c1d3aabcf021257b4f39b",
+        110820,
+        "ae5f608cb773ccf541ad1f703713773c59750b4f3997899b8c00f0a2b0d835ca",
+        "94c6f2ed4a8e2150ad1c6121b3f5f7c376029760",
     ),
     (
         CONTRACT_REGRESSION_PATH,
         80337,
-        "b9e2bd5f041bafc37bcbc8b7bf280620ee50c6e255204b8c45f300325a59d765",
-        "371a152cab309cdb05dac33cc93818124b407947",
+        "9bc4a14321ab755e3fc76d9d7045a73b84bd0445deb71e38af5aa452ee44ab45",
+        "4059de48190b12a3e6ab75dc442a398f78621ffa",
     ),
     (
         CAPTURE_REGRESSION_PATH,
-        102521,
-        "708dcc4608ba87984df65b0dfcda75dc57695f34608f25088f282b8108efa6fd",
-        "384ddcbd96ed362e95322c2f5ddf67a385436129",
+        104959,
+        "63a959e90a41e6814c1cef27223cae26ea807475c1bdbd28a8a7050bbe18f795",
+        "047df9e35ea39f0413645285a06573e2b4e1e0b2",
     ),
 )
 
 
 
 EXPECTED_TEST_ITEM_COUNTS = {
+    "test_validator_time_ranges_reject_before_permissive_parser": 3,
+    "test_timestamp_calendar_and_valid_boundaries": 1,
+    "test_rebound_job_step_time_ranges_fail_closed": 8,
     "test_tar_archive_does_not_replace_existing_output": 2,
     "test_tar_archive_is_deterministic_for_same_capture_bytes": 1,
     "test_tar_archive_path_replacement_is_rejected_without_deleting_replacement": 1,
@@ -185,6 +189,9 @@ EXPECTED_TEST_ITEM_COUNTS = {
 EXPECTED_COLLECTED_TEST_ITEMS = sum(EXPECTED_TEST_ITEM_COUNTS.values())
 CRITICAL_TEST_FUNCTIONS = frozenset(
     {
+        "test_validator_time_ranges_reject_before_permissive_parser",
+        "test_timestamp_calendar_and_valid_boundaries",
+        "test_rebound_job_step_time_ranges_fail_closed",
         "test_tar_archive_does_not_replace_existing_output",
         "test_tar_archive_is_deterministic_for_same_capture_bytes",
         "test_tar_archive_path_replacement_is_rejected_without_deleting_replacement",
@@ -2011,6 +2018,133 @@ def test_rebound_job_and_step_mutations_fail_closed(
         stage="jobs_binding",
         member_path=JOBS_BODY_PATH,
     )
+
+
+
+@pytest.mark.parametrize(
+    ("component", "limit"), ((0, 24), (1, 60), (2, 60)),
+    ids=("hour", "minute", "second"),
+)
+def test_validator_time_ranges_reject_before_permissive_parser(
+    validator: Any, monkeypatch: pytest.MonkeyPatch, component: int, limit: int,
+) -> None:
+    parser_calls: list[str] = []
+    sentinel = dt.datetime(2026, 7, 14, tzinfo=dt.timezone.utc)
+
+    class PermissiveDatetime:
+        @staticmethod
+        def fromisoformat(text: str) -> dt.datetime:
+            parser_calls.append(text)
+            return sentinel
+
+    monkeypatch.setattr(
+        validator, "dt",
+        SimpleNamespace(datetime=PermissiveDatetime, timedelta=dt.timedelta),
+    )
+    # Prove the injected parser is active for each valid two-digit value,
+    # then require every invalid value to be rejected before reaching it.
+    for value in range(100):
+        for fraction in ("", ".0"):
+            fields = [0, 0, 0]
+            fields[component] = value
+            text = (
+                f"2026-07-13T{fields[0]:02d}:{fields[1]:02d}:"
+                f"{fields[2]:02d}{fraction}Z"
+            )
+            parser_calls.clear()
+            if value < limit:
+                assert validator._parse_utc(
+                    text, error_code="timestamp_invalid", stage="timestamp_test",
+                ) is sentinel
+                assert parser_calls == [text[:-1] + "+00:00"]
+            else:
+                with pytest.raises(validator.ValidationError) as failure:
+                    validator._parse_utc(
+                        text, error_code="timestamp_invalid", stage="timestamp_test",
+                    )
+                assert failure.value.error_code == "timestamp_invalid"
+                assert parser_calls == []
+
+
+
+def test_timestamp_calendar_and_valid_boundaries(validator: Any) -> None:
+    valid = (
+        ("0001-01-01T00:00:00Z", dt.datetime(1, 1, 1, tzinfo=dt.timezone.utc)),
+        ("2000-02-29T23:59:59Z", dt.datetime(2000, 2, 29, 23, 59, 59, tzinfo=dt.timezone.utc)),
+        ("2024-02-29T12:34:56.1Z", dt.datetime(2024, 2, 29, 12, 34, 56, 100000, tzinfo=dt.timezone.utc)),
+        ("2026-07-13T12:27:00.123456789Z", dt.datetime(2026, 7, 13, 12, 27, 0, 123456, tzinfo=dt.timezone.utc)),
+        ("9999-12-31T23:59:59.999999Z", dt.datetime(9999, 12, 31, 23, 59, 59, 999999, tzinfo=dt.timezone.utc)),
+    )
+    for text, expected in valid:
+        assert validator._parse_utc(
+            text, error_code="timestamp_invalid", stage="timestamp_test",
+        ) == expected
+    invalid = (
+        "0000-01-01T00:00:00Z", "1900-02-29T00:00:00Z",
+        "2026-02-29T00:00:00Z", "2026-04-31T00:00:00Z",
+        "2026-00-01T00:00:00Z", "2026-13-01T00:00:00Z",
+        "2026-07-00T00:00:00Z", "2026-07-32T00:00:00Z",
+        "2026-07-13T24:00:00Z", "2026-07-13T24:00:00.0Z",
+        "2026-07-13T12:60:00Z", "2026-07-13T12:27:60Z",
+    )
+    for text in invalid:
+        with pytest.raises(validator.ValidationError) as failure:
+            validator._parse_utc(
+                text, error_code="timestamp_invalid", stage="timestamp_test",
+            )
+        assert failure.value.error_code == "timestamp_invalid"
+        assert failure.value.stage == "timestamp_test"
+
+
+@pytest.mark.parametrize(
+    ("path", "error_code"),
+    (
+        (("started_at",), "job_0_started_at_invalid"),
+        (("completed_at",), "job_0_completed_at_invalid"),
+        (("steps", 0, "started_at"), "job_0_step_0_started_at_invalid"),
+        (("steps", 0, "completed_at"), "job_0_step_0_completed_at_invalid"),
+    ),
+    ids=("job-start", "job-end", "step-start", "step-end"),
+)
+@pytest.mark.parametrize("conclusion", ("success", "skipped"))
+def test_rebound_job_step_time_ranges_fail_closed(
+    validator: Any, base_capture_root: Path, tmp_path: Path,
+    path: tuple[Any, ...], error_code: str, conclusion: str,
+) -> None:
+    invalid = (
+        "2026-07-13T24:00:00Z", "2026-07-13T24:00:00.0Z",
+        "2026-07-13T25:00:00Z", "2026-07-13T12:60:00Z",
+        "2026-07-13T12:27:60Z", "2026-02-29T12:27:00Z",
+    )
+    for index, timestamp in enumerate(invalid):
+        root = _copy_capture(base_capture_root, tmp_path, f"bad-time-{index}")
+        manifest = _load_manifest(root)
+
+        def mutate(value: dict[str, Any]) -> None:
+            job = value["jobs"][0]
+            job["conclusion"] = conclusion
+            job["steps"][0]["conclusion"] = conclusion
+            target = job
+            for part in path[:-1]:
+                target = target[part]
+            target[path[-1]] = timestamp
+
+        # Repair the raw-body and metadata identities so the rejection must
+        # come from timestamp semantics, not an earlier checksum mismatch.
+        _replace_raw_json(root, manifest, kind="jobs", mutate=mutate)
+        before = {
+            p.relative_to(root): p.read_bytes()
+            for p in root.rglob("*") if p.is_file()
+        }
+        _assert_rejected(
+            validator, capture_root=root, error_code=error_code,
+            stage="jobs_binding", member_path=JOBS_BODY_PATH,
+        )
+        after = {
+            p.relative_to(root): p.read_bytes()
+            for p in root.rglob("*") if p.is_file()
+        }
+        assert before == after
 
 
 def test_run_request_record_mismatch_fails_closed(
