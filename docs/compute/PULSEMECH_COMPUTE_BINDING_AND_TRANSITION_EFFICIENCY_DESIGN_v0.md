@@ -10,25 +10,25 @@ workstream:
 compute_binding_and_transition_efficiency
 
 state_date:
-2026-08-06
+2026-09-06
 
 canonical_system_state_source:
 PULSEMECH_TECHNICAL_OVERVIEW.md
 
-canonical_system_state_sync_pr:
-2795
-
-canonical_system_state_sync_commit:
-575570b8ee3659f9190514e3b561f0df7a980681
-
 merged_compute_state_recorded_through:
-PR #2788
+PR #2861
 
 merged_compute_state_basis:
-031e0f2b009993e549b7831baf37cf3a990baf39
+7444c12c3c9a86591f0aa7f5cef759ec55e6f9e9
 
 implementation_status:
-current_run_expectation_contract_complete_builder_open
+current_run_automation_through_3G_and_historical_capture_4A_complete
+
+current_run_automation_terminal_pr:
+2826
+
+current_run_automation_terminal_basis:
+9bf7fab95dbcc3532238723d0cf76500263106f5
 
 fixed_source_connected_proof:
 completed
@@ -64,22 +64,52 @@ current_run_export_expectation_validator_regression:
 implemented_registered_and_proven
 
 current_run_export_expectation_builder:
-open_PR_2789_not_merged
-
-current_run_export_expectation_builder_observed_head:
-22a455e70af19a1cce581fdb7d5a485816691aaa
+implemented_hardened_and_regression_proven
 
 current_run_export_expectation_builder_regression:
-not_implemented
+implemented_registered_and_execution_contract_proven
 
 current_run_export_carrier_component:
-not_implemented
+implemented_and_regression_proven
 
 current_run_subject_input_wrapper:
-not_implemented
+implemented_and_regression_proven
 
 current_run_candidate_workflow:
-not_implemented
+implemented_and_regression_proven_manual_non_active
+
+current_run_candidate_bundle_intake:
+implemented_and_regression_proven
+
+current_run_artifact_observed_proof_builder:
+implemented_and_regression_proven
+
+current_run_artifact_observed_candidate_workflow:
+implemented_and_regression_proven_manual_non_active
+
+current_run_manually_dispatched_public_proof_record:
+not_claimed_by_this_record
+
+post_run_producer_input_capture_step:
+4A
+
+post_run_producer_input_capture_work_order:
+2856
+
+post_run_producer_input_capture_lane:
+historical_reference
+
+post_run_capture_implementation_basis:
+22d14088ae21f84d94c6a6951c0f70ab1bdf0895
+
+post_run_capture_data_basis:
+7444c12c3c9a86591f0aa7f5cef759ec55e6f9e9
+
+post_run_capture_reference_state:
+exact_five_member_observed_capture_preserved
+
+post_run_capture_technical_acceptance:
+supported_by_post_merge_replay_reconstruction_and_mutation_review
 
 runtime_observation_contract:
 implemented
@@ -107,46 +137,43 @@ none
 ```
 
 This document defines the PULSEmech compute-binding workstream and records its
-merged, open and remaining implementation states.
+merged implementation, completed reference evidence and remaining work.
 
-It is the detailed workstream record beneath the canonical system-level source:
+It remains the detailed workstream record beneath the canonical system-level
+source, [PULSEMECH_TECHNICAL_OVERVIEW.md](../../PULSEMECH_TECHNICAL_OVERVIEW.md).
 
-```text
-PULSEMECH_TECHNICAL_OVERVIEW.md
-```
+The recorded state is bound to data merge
+`7444c12c3c9a86591f0aa7f5cef759ec55e6f9e9`. It does not claim that the
+subsequent documentation PR has already passed its own CI or post-merge review.
 
-The current merged compute implementation extends through:
-
-```text
-fixed-source artifact-observed proof
-→ portable subject-input contract
-→ deterministic fixed-source packet production
-→ machine-produced observed packet replay
-→ immutable packet-to-analyzer bridge
-→ reusable analyzer core
-→ reusable subject-input producer core
-→ verified wrapper-to-core bootstrap
-→ current-run export expectation contract
-→ current-run expectation example
-→ strict current-run expectation validator
-→ validator trust-boundary hardening
-→ permanent validator regression
-```
-
-The first machine current-run expectation builder is a separate open workstream:
+Two completed results must remain distinct:
 
 ```text
-PR #2789
-→ open
-→ not merged
-→ not regression-proven
-→ non-active
-→ authority effect none
+Step 3G:
+current-run artifact-observed automation implementation
++ permanent registered regression proof
++ manual, non-active candidate workflows
+
+Step 4A:
+one actual historical #6066 producer-input capture
++ exact preserved response and exchange bytes
++ independent offline replay
++ deterministic manifest reconstruction
++ capture-specific disposable-copy mutation evidence
 ```
 
-This document does not modify workflow behavior, policy behavior, gate registry
-behavior, status semantics, release enforcement, release authority, SLSA/VSA
-behavior, DOI, citation, tags, releases or publication metadata.
+Step 4A records an actual acquisition execution. It is not a manually dispatched
+Step 3F or Step 3G proof instance, and it is not completion of the future
+runtime-observation packet producer.
+
+The former open-builder state is superseded by the merged builder and its
+registered regressions. Sections 24–27 record the completed implementation and
+reference capture; the runtime producer, runtime-observed connected proof,
+resource measurement and any policy promotion remain separate later work.
+
+This documentation changes no workflow, schema, normative contract, producer,
+validator, test registration, policy, gate, status, release-authority mechanism,
+Device Ledger source, DOI, citation, tag, release or publication metadata.
 
 ---
 
@@ -199,6 +226,16 @@ strict current-run expectation validator
 closed schema-reference boundary
 reviewed schema-byte binding
 permanent registered expectation-validator regression
+machine current-run expectation builder and authoritative regression
+finalized current-run export carrier component
+current-run subject-input wrapper using the existing producer core
+manual non-active Step 3F export candidate workflow
+independent Step 3G candidate-bundle intake
+artifact-observed proof builder and manual candidate workflow
+post-run producer-input capture schema and normative contract
+separate networked capture tool and independent offline validator
+manual fixed-subject capture workflow
+exact preserved #6066 run-attempt and jobs-response capture
 ```
 
 The current analyzer ownership relation is:
@@ -238,17 +275,22 @@ tools/check_pulsemech_compute_current_run_export_expectation_v0.py
 → strict semantic validator
 
 tests/test_check_pulsemech_compute_current_run_export_expectation_v0.py
-→ permanent registered regression
+→ permanent registered validator regression
+
+tools/build_pulsemech_compute_current_run_export_expectation_v0.py
+→ merged machine expectation producer
+
+tests/test_build_pulsemech_compute_current_run_export_expectation_v0.py
+→ permanent registered producer and execution-contract regression
 ```
+
+The completed current-run construction and workflow relation is described in
+Sections 24–26. The historical Step 4A acquisition and its exact evidence are
+recorded separately in Section 26.
 
 The repository does not yet contain a merged and complete:
 
 ```text
-current-run expectation builder
-current-run carrier producer or loader
-current-run subject-input wrapper
-current-run candidate workflow
-current-run artifact-observed connected proof
 runtime-observation producer
 runtime-observed connected proof
 per-axis compute-resource measurement surface
@@ -256,18 +298,22 @@ compute budget
 active compute-related release enforcement
 ```
 
-The current-run lane is therefore partially implemented at the contract and
-validator layers.
+The current-run automation implementation and permanent regression surface are
+complete through Step 3G. The separate Step 4A historical input capture has also
+been preserved and replayed.
 
 ```text
-current-run contract:
-implemented
+current-run contract and machine construction:
+implemented and regression-proven
 
-current-run machine production:
-incomplete
+current-run candidate workflows:
+implemented; manual and non-active
 
-current-run workflow activation:
-absent
+manually dispatched public Step 3F/3G execution record:
+not claimed by this state record
+
+historical Step 4A acquisition and offline replay:
+completed for exact #6066 attempt 1
 
 release-authority effect:
 none
@@ -965,7 +1011,8 @@ not yet implemented.
 A lower analysis level must not claim a higher-confidence classification.
 
 The current-run expectation is metadata-only and does not by itself raise the
-analysis level.
+analysis level. The Step 4A platform-response capture likewise remains an exact
+producer input; its job and step fields are not a runtime-observed graph.
 
 ---
 
@@ -1380,7 +1427,8 @@ caller PATHEXT executable substitution
 
 This establishes one verified producer implementation.
 
-It does not implement the current-run wrapper.
+This fixed-source bootstrap predates the separately completed current-run
+wrapper recorded in Sections 25–27. Both retain one reusable producer core.
 
 ---
 
@@ -2367,7 +2415,7 @@ validates a complete downstream observed packet witness
 converts resolver and schema failures into deterministic diagnostics
 ```
 
-Canonical reviewed Git blobs include:
+The reviewed contract-stage Git blob identities recorded through PR #2788 are:
 
 ```text
 expectation schema:
@@ -2433,60 +2481,62 @@ reviewed schema-byte binding
 permanent registered regression
 ```
 
-It does not establish a merged current-run expectation producer.
+This contract-and-validator stage alone did not establish a machine producer.
+The subsequently merged producer and its permanent regression are recorded in
+Section 24; the remaining current-run components are recorded in Sections 25–27.
 
 ---
 
-## 24. Open current-run expectation builder workstream
+## 24. Completed current-run expectation builder and regression
 
-The first machine current-run expectation builder is open in:
+The machine current-run expectation builder is merged, hardened and
+regression-proven. The former open PR #2789 status is historical, not the
+current implementation state.
 
 ```text
-PR:
-#2789
+builder implementation PR:
+2789
 
-path:
+builder implementation merge:
+cafd0338f413522b5609465eaaaf25cf49f1423d
+
+builder path:
 tools/build_pulsemech_compute_current_run_export_expectation_v0.py
 
-observed PR head:
-22a455e70af19a1cce581fdb7d5a485816691aaa
+permanent regression:
+tests/test_build_pulsemech_compute_current_run_export_expectation_v0.py
 
-state:
-open
+regression sequence:
+PR #2814 → PR #2818 → PR #2819
 
-merged:
-false
-
-regression-proven:
-false
+canonical registration:
+ci/tools-tests.list
 
 authority effect:
 none
 ```
 
-Observed file identity:
+At the recorded `7444c12...` source basis, the registered regression pins the
+builder identity to:
 
 ```text
 lines:
-2826
+4306
 
 bytes:
-93836
+144793
 
 SHA-256:
-6207bcb2ffbee127c6ea72c57fd8f8fdb9f85e571556fa6889ffc0a677fcd321
+56893caab8f5198a5e4d64dc55638f2d7365ed1660b85514eabc7461cc15b767
 
-Git blob:
-b0eb2a081d5d6f78aff0ed8fd4c7aca468ae35dd
-
-UTF-8 BOM:
-absent
-
-final newline:
-present
+Git blob SHA-1:
+f7b22613c759d32d5de0b30c7e86989a0c85bb10
 ```
 
-The proposed builder consumes:
+These identities replace the earlier open-review candidate identity; they are
+not identities of a newly changed tool in this documentation update.
+
+The builder consumes:
 
 ```text
 canonical builder-input metadata
@@ -2494,164 +2544,58 @@ canonical builder-input metadata
 + exact subject repository revision
 + exact current-run final artifacts
 + exact subject authority-source files
-+ exact verified gate-policy bytes
-+ exact committed status schema
++ verified policy and committed schema bytes
 + separate protected control-plane checkout
 + exact protected control-plane revision
 → machine-produced observed current-run expectation
 ```
 
-The proposed builder already includes:
+The subject, protected control plane, release-target projection and
+workflow-effective policy-set relation remain separately bound. The record
+must not collapse the release target into the workflow's active-set identity.
+
+The permanent suite includes explicit controls for:
 
 ```text
-strict canonical JSON input
-separate subject and control-plane roots
-exact Git repository-root verification
-exact HEAD verification
-blob type and size checks before buffering
-strict duplicate-key YAML policy parsing
-policy-derived effective gate reconstruction
-final-status subject binding
-status-schema validation
-gate-result reconstruction
-stub and scaffold reconstruction
-non-gate blocker reconstruction
-complete known release-decision projection reconstruction
-protected output-name handling
-verified strict expectation-validator reuse
-deterministic canonical output
-closed content and authority boundaries
+reviewed builder source identity
+isolated execution and deferred validation-dependency loading
+complete protected CLI surface
+exact dimension-preserving current-run binding
+release-target projection separate from workflow sets
+observed artifact time ordering
+canonical unique external signer-policy path
+closed non-authority output boundary
+trusted absolute Git selection and local-only object access
+bounded Git configuration and object reads
+promisor and repository SSH-command rejection
+verified tree modes and rehashed object identities
+separate Git storage
+protected output paths
+bounded authority-payload retention
+canonical deterministic diagnostics
+complete synthetic current-run CLI byte determinism
+mandatory real-Git prerequisites without skip-based success
+exact completed-test and terminal early-exit launcher controls
 ```
 
-The proposed builder remains non-active.
+The post-merge Tools smoke execution at the recorded data basis ran all
+44 direct-script cases successfully. That suite is permanent implementation
+and synthetic-execution evidence. It is not a claim that a public manually
+dispatched Step 3F or Step 3G artifact has been produced.
 
-It deliberately requires the complete nine-role protected control plane even
-though three activation components are not yet merged.
+Builder presence does not remove the contract's complete nine-role protected
+control-plane requirement. Every execution still has to verify its actual
+source revision and required components before producing an expectation.
 
-### Open review boundary
-
-The current open review findings are:
-
-```text
-P1:
-bind release target to protected run context
-
-P2:
-validate release decision against the exact committed decision schema
-
-P2:
-bind gate-registry registry_id to the verified registry bytes
-
-P2:
-close or explicitly fail closed on the Windows trusted-Git ACL boundary
-```
-
-#### Trusted release target
-
-Current risk:
-
-```text
-untrusted decision target
-→ selects stage
-→ derives only required
-→ omits release_required
-→ possible false ALLOW for a prod-targeted run
-```
-
-Required relation:
-
-```text
-protected run-context target
-→ explicit builder input
-→ exact equality with release_decision.target
-→ active gate sets derived only from the protected target
-```
-
-#### Release-decision schema
-
-The exact committed decision schema has:
-
-```text
-additionalProperties:
-false
-```
-
-The builder must validate the decision against the exact committed schema
-before semantic reconstruction.
-
-Known-field equality is not a substitute for full schema validity.
-
-#### Gate-registry identity
-
-Required relation:
-
-```text
-verified gate-registry bytes
-→ strict YAML parse
-→ embedded version
-=
-authority-source registry_id
-```
-
-A correct digest with a forged semantic ID remains invalid.
-
-#### Windows trusted-Git boundary
-
-The current POSIX path checks protected ownership and write permissions.
-
-The Windows path does not yet prove that the executable and every relevant path
-component are non-writable by untrusted principals.
-
-The safe immediate boundary is:
-
-```text
-unsupported verified Windows trust condition
-→ fail closed
-```
-
-until a complete Windows ACL model is separately implemented and tested.
-
-### Non-implementation boundary
-
-PR #2789 does not add:
-
-```text
-builder regression
-tools-test registration
-current-run carrier component
-current-run subject-input wrapper
-carrier publication
-candidate workflow
-workflow integration
-artifact-observed report production
-planned-observed relation production
-candidate materialization
-runtime observation
-resource measurement
-compute budget
-gate activation
-release-required enforcement
-release decision
-release authority
-```
-
-The next separate proof item after builder merge is:
-
-```text
-tests/test_build_pulsemech_compute_current_run_export_expectation_v0.py
-```
-
-with one registration in:
-
-```text
-ci/tools-tests.list
-```
+Sources: [merged builder PR #2789](https://github.com/HKati/pulse-release-gates-0.1/pull/2789),
+[builder regression](../../tests/test_build_pulsemech_compute_current_run_export_expectation_v0.py),
+and the [recorded post-merge Tools smoke run](https://github.com/HKati/pulse-release-gates-0.1/actions/runs/33996343943/job/101387579869).
 
 ---
 
 ## 25. Contract-complete protected control plane
 
-The current-run expectation contract and proposed builder require one exact
+The current-run expectation contract and merged builder require one exact
 protected control-plane revision containing:
 
 ```text
@@ -2676,33 +2620,36 @@ schemas/pulsemech_compute_subject_input_packet_v0.schema.json
 tools/check_pulsemech_compute_subject_input_packet_v0.py
 ```
 
-Three activation prerequisites remain absent from merged `main`:
+All nine component paths are present at the recorded merged basis. The carrier
+loader, current-run wrapper and Step 3F workflow are completed implementations,
+not remaining missing components.
+
+The Step 3G extension also contains:
 
 ```text
-current-run carrier component
+tools/load_pulsemech_compute_current_run_export_candidate_bundle_v0.py
+tests/test_load_pulsemech_compute_current_run_export_candidate_bundle_v0.py
 
-current-run subject-input wrapper
+tools/build_pulsemech_compute_current_run_artifact_observed_proof_v0.py
+tests/test_build_pulsemech_compute_current_run_artifact_observed_proof_v0.py
 
-current-run candidate workflow
+.github/workflows/pulsemech_compute_current_run_artifact_observed_candidate.yml
+tests/test_pulsemech_compute_current_run_artifact_observed_candidate_workflow_v0.py
 ```
 
-Their absence must preserve:
+The complete protected component set remains mandatory at execution time:
 
 ```text
-builder implementation may exist
-+
-control plane incomplete
-→ observed production fails closed
+missing, dirty or incorrectly bound component at the selected revision
+→ fail closed
 ```
 
-The protected component set must not be weakened to make an incomplete
-revision appear active.
+Merged implementation completeness and acceptance of a particular run-bound
+input are distinct. Component presence is not an authority promotion or a
+substitute for validating an actual carrier and its subject bindings.
 
-```text
-contract-complete component set
-≠
-claim that every component is already implemented
-```
+Both candidate workflows remain manual and non-active. No public manually
+dispatched Step 3F/3G execution record is claimed by this document.
 
 ---
 
@@ -2801,105 +2748,421 @@ reviewed schema-byte binding
 permanent registered validator regression
 ```
 
-### Open Step 3B — expectation builder
+### Completed Step 3B — expectation builder
 
-Required before merge:
+The merged builder produces canonical observed expectations from exact subject
+and protected-control-plane inputs. Section 24 records its source identity,
+input relation and completed implementation status.
 
-```text
-trusted release-target binding
-release-decision schema validation
-gate-registry semantic identity binding
-Windows trusted-Git fail-closed boundary
-```
+### Completed Step 3C — permanent builder regression
 
-### Step 3C — permanent builder regression
+The builder regression and its authoritative direct-script execution contract
+are implemented and registered. They distinguish complete executed proof from
+collection-only, filtered, skipped or terminal early-exit outcomes.
 
-The regression must prove at minimum:
+### Completed Step 3D — current-run carrier component
 
-```text
-exact subject/control-plane revision binding
-separate checkout roots
-fake-PATH Git rejection
-GIT_* environment isolation
-oversized blob rejection before buffering
-dirty control-plane component rejection
-stale registry_id rejection
-extra release-decision property rejection
-prod-to-stage target substitution rejection
-FAIL with all required gates true
-stub and scaffold blocker reconstruction
-status-schema failure reconstruction
-unsafe output rejection
-deterministic canonical output
-repository-clean execution
-missing activation components fail closed
-Windows explicit unsupported or verified fail-closed state
-```
-
-### Step 3D — current-run carrier component
-
-The carrier component must:
+The finalized-carrier component is implemented and regression-proven:
 
 ```text
-build or load one finalized current-run export carrier
-preserve one authoritative carrier SHA-256
-bind producer identity
-bind subject run key
-bind protected control-plane revision
-publish no competing carrier digest
+tools/load_pulsemech_compute_current_run_export_carrier_v0.py
+tests/test_load_pulsemech_compute_current_run_export_carrier_v0.py
 ```
 
-Carrier payload verification remains a separate downstream consumer
-responsibility.
+It retains the exact carrier, producer, subject and protected-control-plane
+relations. The finalized carrier has one authoritative SHA-256 identity;
+downstream consumers still verify its actual payload bytes.
 
-### Step 3E — current-run subject-input wrapper
+### Completed Step 3E — current-run subject-input wrapper
 
-The wrapper must:
+The current-run wrapper reuses the existing packet producer core:
 
 ```text
-reuse the existing producer core
-bind current-run production profile
-bind exact expectation
-verify carrier bytes
-construct the observed packet
-introduce no second packet implementation
+tools/build_pulsemech_compute_subject_input_packet_current_run_v0.py
+tests/test_build_pulsemech_compute_subject_input_packet_current_run_v0.py
 ```
 
-### Step 3F — non-active candidate workflow
+The wrapper binds the current-run production profile, exact expectation and
+verified carrier. It does not introduce a second packet implementation.
 
-The workflow must:
+### Completed Step 3F — non-active export candidate workflow
+
+The manually dispatched candidate workflow and registered regression are:
 
 ```text
-select the protected control-plane revision independently
-consume one current-run subject
-consume exact final artifacts
-produce a finalized carrier
-produce an observed expectation
-produce an observed subject-input packet
-preserve authority effect none
+.github/workflows/pulsemech_compute_current_run_export_candidate.yml
+tests/test_pulsemech_compute_current_run_export_candidate_workflow_v0.py
 ```
 
-### Step 3G — first current-run artifact-observed proof
+The implemented construction consumes exact subject inputs and an independently
+selected protected control plane, producing the finalized carrier, observed
+expectation and observed subject-input packet in a non-active candidate bundle.
+
+### Completed Step 3G — artifact-observed proof automation
+
+The terminal implementation merge is PR #2826 at:
 
 ```text
-current workflow run
-→ finalized current-run carrier
-→ observed expectation
-→ observed subject-input packet
-→ immutable carrier verification
-→ reusable analyzer core
-→ generated artifact-observed report
-→ generated planned-observed relation
-→ non-active candidate materialization
+9bf7fab95dbcc3532238723d0cf76500263106f5
 ```
 
-The result must preserve actual false, missing and unresolved states.
+The implemented dependency and reconstruction relation is:
 
-It must not be designed to force all candidate gates to `true`.
+```text
+checksum-closed Step 3F candidate bundle
++ exact current-run subject
++ independently selected protected control plane
+→ independently verified candidate-bundle intake
+→ immutable carrier and packet reconstruction
+→ existing subject-input analyzer bridge
+→ single reusable analyzer core
+→ artifact-observed compute-binding report
+→ deterministic current-run integration plan
+→ planned-observed relation
+→ separate non-active candidate materialization
+→ checksum-closed artifact-observed proof bundle
+```
+
+This is completed construction capability and permanent regression proof.
+It is not a claim of an already produced public manually dispatched Step 3G
+proof-bundle instance. The arrows describe dependencies and reconstruction;
+they do not replace PULSEmech's primary relational release-authority object.
+
+At the recorded data-merge CI execution, the three Step 3G direct-script suites
+passed 30, 32 and 28 cases respectively: 90 total.
+
+The implementation preserves actual false, missing, partial, ambiguous and
+unresolved states. Exactly the three existing non-active candidate gates are
+materialized into a separate candidate status; the subject status is unchanged.
+
+### Completed Step 4A — exact post-run producer-input capture
+
+This is the historical-reference input boundary defined by
+[work order #2856](https://github.com/HKati/pulse-release-gates-0.1/issues/2856).
+Its implementation and observed-reference acceptance are complete. The
+work-order documentation closure still requires the complete documentation PR
+and its own final checks; this record does not predeclare that merge.
+
+#### Implementation and observed-data identities
+
+| Stage | PR | Exact merged commit |
+|---|---:|---|
+| Capture contract and implementation | #2857 | `c01a00458735178ee5ed8884996d3a6c3a0e29dc` |
+| Independent timestamp-range correction and matching regressions | #2860 | `22d14088ae21f84d94c6a6951c0f70ab1bdf0895` |
+| Five exact observed capture members | #2861 | `7444c12c3c9a86591f0aa7f5cef759ec55e6f9e9` |
+
+The #2857 merge alone did not close implementation acceptance. Both tools'
+canonical UTC range enforcement and their dependent identity regressions were
+corrected through #2860 before the reference acquisition.
+
+The completed source surface is:
+
+```text
+schemas/pulsemech_compute_post_run_producer_input_capture_manifest_v0.schema.json
+contracts/pulsemech_compute_post_run_producer_input_capture_v0.json
+
+tools/capture_pulsemech_compute_post_run_producer_input_v0.py
+tools/check_pulsemech_compute_post_run_producer_input_capture_v0.py
+
+.github/workflows/pulsemech_compute_post_run_producer_input_capture_v0.yml
+
+tests/test_pulsemech_compute_post_run_producer_input_capture_contract_v0.py
+tests/test_capture_pulsemech_compute_post_run_producer_input_v0.py
+tests/test_check_pulsemech_compute_post_run_producer_input_capture_v0.py
+```
+
+The networked capture implementation, network-free independent validator and
+future runtime-packet producer have distinct roles. The validator does not
+import the capture implementation or accept its verdict as proof.
+
+#### Historical subject and separate acquisition
+
+```text
+historical repository:
+HKati/pulse-release-gates-0.1
+
+historical repository ID:
+1061766508
+
+historical workflow:
+PULSE CI
+
+historical workflow ID:
+191471316
+
+historical workflow path:
+.github/workflows/pulse_ci.yml
+
+historical run ID / number / attempt:
+29249887581 / 6066 / 1
+
+historical source commit:
+46b639706e23f80fe296a8893be18e2b5ab21f7e
+
+historical state:
+completed / success
+
+separate capture workflow ID:
+350887354
+
+separate capture run ID / attempt:
+33986538130 / 1
+
+capture implementation and workflow source:
+22d14088ae21f84d94c6a6951c0f70ab1bdf0895
+
+original acquisition artifact ID:
+9975323320
+
+observed jobs pages / unique jobs / step records:
+1 / 8 / 171
+```
+
+The historical run was not rerun. The data-preservation merge is not the
+acquisition source revision.
+
+The exact requests are attempt-specific:
+
+```text
+GET /repos/HKati/pulse-release-gates-0.1/actions/runs/29249887581/attempts/1
+GET /repos/HKati/pulse-release-gates-0.1/actions/runs/29249887581/attempts/1/jobs?per_page=100&page=1
+```
+
+The exchange records retain the selected response metadata and explicit
+absence states, including final Link-header absence. Reported job count equals
+the reconstructed count of eight unique jobs.
+
+#### Exact preserved capture
+
+All five paths below are relative to:
+
+```text
+preservation/pulse_ci_6066/post_run_producer_input_capture_v0/
+```
+
+| Member | Bytes | SHA-256 | Git blob SHA-1 |
+|---|---:|---|---|
+| `metadata/run_attempt_exchange_v0.json` | 2886 | `b3510e10f86904888b5c2d120270f6cadfe2086db65c18e5c699acb31fbaa018` | `b6eff652b27c9ad6313d4b25589dacde2e15f788` |
+| `metadata/jobs_page_0001_exchange_v0.json` | 3036 | `1866b86cb6449f85fe5a1c6d5138f6583385bffd9ddc1b1246858bba7b7bc566` | `2043b48ab9a583469c0887f9ff586e72c35e5ab2` |
+| `pulsemech_compute_post_run_producer_input_capture_manifest_6066_v0.json` | 17905 | `4642546646fc7c78f8b65bce40c3db72fb6847c4e3d454db97b164f1fc14f238` | `3e623150e254f9383c1cec23fa68e714092a3b98` |
+| `raw/run_attempt_response.json` | 15097 | `d9e16eb8d68f35ede5019e6138474ae552b966e40fc920fc357ac57e6077fe19` | `84109eb1e163c3ee1021678a4effa6ef2d13f727` |
+| `raw/jobs_page_0001_response.json` | 38004 | `ba263d508f2c6893fe4d21056c5e7ee2f993ad5ccacf0476000c159815041a43` | `7d729f6748fccbab3cc9a7722ab63a50a6acfe2d` |
+
+The two raw responses retain the exact entity-body bytes observed by the
+capture implementation before parsing or reserialization: no BOM, CR, LF or
+trailing newline. Metadata and manifest retain compact sorted UTF-8 canonical
+JSON with exactly one terminal LF. The manifest excludes its own final hash
+from its inventory.
+
+This new producer-input capture is distinct from the earlier release-grade
+preservation carrier described in Section 12. Its five-file merge did not
+rewrite that carrier or the previous #6066 preservation records.
+
+The acquisition carrier identities recorded at intake are:
+
+| Carrier | Bytes | SHA-256 |
+|---|---:|---|
+| Original artifact ZIP | 93589 | `b4a8330ec1bec65110a6d61d9c175345ddd6e9e95c52f1a48ded328cf713bef9` |
+| Original inner TAR | 92160 | `a560ae0e47890366171bb0be11d1e4761ea11bc1355bb3d55fc9799ffadc0a1e` |
+
+The cloud post-merge review did not independently reopen those original
+carriers. Its execution evidence came from the authentic merged Git objects.
+The carrier identities above remain separately recorded acquisition evidence.
+
+#### Completed observed-capture verification
+
+The read-only cloud Codex report titled
+“PULSEmech PR #2861 Post-Merge Verification” inspected the exact merge,
+its sole parent and tree `b4da3d6ebf567c6e80d3a539e8fc2d1010610213`.
+It reported no actionable findings and supported PR 2 technical acceptance.
+
+The report records execution under CPython 3.14.4, jsonschema 4.26.0 and
+pytest 9.0.3:
+
+| Executed check | Recorded result |
+|---|---|
+| Complete inventory and Git/checkout byte comparison | All five members matched exactly; no extra member |
+| Independent offline validator on two separate restorations | Both exit 0; stderr empty; complete stdout byte-identical |
+| Producer-side input-to-manifest reconstruction, repeated twice | Both reproduced the exact 17905-byte manifest and both exchange metadata files |
+| Original capture and tracked-source preservation | Byte-identical before and after; worktree and index clean |
+| Complete contract / producer / offline-validator regression suites | 60 / 143 / 151 passed; 354 total |
+
+Each disposable capture used directory modes 0700 and regular-file modes 0600.
+Tracked checkout modes were not rewritten; Git's stored file mode does not
+reproduce the private filesystem permissions of the acquisition TAR.
+
+The independent CLI used the unchanged validator with isolated Python:
+
+```text
+python -I tools/check_pulsemech_compute_post_run_producer_input_capture_v0.py --repository-root <exact-checkout> --capture-root <private-restored-capture>
+```
+
+The placeholders denote the review's actual checkout and newly created
+private capture directory, not repository files to add.
+
+The returned record included:
+
+```text
+record_status: observed
+result: validated_offline
+ok: true
+page_count: 1
+job_count: 8
+step_record_count: 171
+authority_effect: none
+
+manifest_sha256:
+4642546646fc7c78f8b65bce40c3db72fb6847c4e3d454db97b164f1fc14f238
+
+complete stdout SHA-256, identical in both runs:
+aa589f61760374ce294821c2f21f82475893ea5cf082cd888c7253ed629a2a57
+```
+
+Reconstruction used the unchanged producer at `22d14088...`, including
+`_load_sources`, `_validate_run_response`, `_run_exchange`,
+`_validate_jobs_page`, `_jobs_exchange`, `PageCapture`, `_construct_manifest`
+and `_validate_constructed_manifest`.
+
+Subject, byte identities, summaries, counts and exchange wrappers were
+recomputed. Original acquisition timestamps, selected HTTP headers and
+acquisition provenance were retained as acquisition facts. Parsing and
+reserializing the finished manifest alone was not counted as reconstruction.
+
+#### Capture-specific negative evidence
+
+Ten disposable-copy cases covered the nine requested mutation categories.
+Each began from a passing restored original and exited 2 on the unchanged
+validator.
+
+| Case | Deliberate mutation | Actual rejection |
+|---|---|---|
+| A1 | Append LF to raw run response | `raw_response_identity_mismatch` at `member_identity` |
+| A2 | Append LF to raw jobs response | `raw_response_identity_mismatch` at `member_identity` |
+| B | Truncate raw jobs response | `raw_response_identity_mismatch` at `member_identity` |
+| C | Remove run exchange metadata | `missing_declared_member` at `inventory` |
+| D | Add an undeclared file | `undeclared_extra_member` at `capture_root` |
+| E | Change a job attempt from 1 to 2 | `job_run_attempt_mismatch` at `jobs_binding` |
+| F | Duplicate a job ID | `duplicate_job_id` at `jobs_binding` |
+| G | Set a job timestamp to `2026-07-13T24:00:00Z` | `job_0_started_at_invalid` at `jobs_binding` |
+| H | Use a non-attempt-specific jobs endpoint | `manifest_schema_validation_failed` at `schema` |
+| I | Set `active_gate_eligible` to true | `manifest_schema_validation_failed` at `schema` |
+
+Cases E–G repaired the temporary raw-body and metadata size/digest/blob
+bindings and manifest wrappers before validation. They therefore reached the
+intended job/attempt/identity/timestamp checks rather than failing only on a
+stale checksum. Cases H and I were rejected by the schema and are not described
+as deeper jobs-binding rejections.
+
+These are executed review probes, not new permanently registered tests. The
+three existing registered suites cover implementation and fixtures; no
+permanent test directly consuming this exact five-member observed directory
+was found in that review. The review reported no demonstrated violation of an
+existing permanent-test requirement. Documentation does not reclassify the
+probes as CI regressions or introduce an extra test requirement.
+
+#### Separate post-merge GitHub execution evidence
+
+The repository-side CI record is distinct from the cloud review execution:
+
+```text
+PULSE CI run:
+33996343943
+
+run number:
+6763
+
+event:
+push
+
+head commit:
+7444c12c3c9a86591f0aa7f5cef759ec55e6f9e9
+
+Tools smoke job:
+101387579869
+
+Python / pytest / jsonschema:
+3.11.16 / 9.1.1 / 4.26.0
+
+contract / producer / offline-validator direct suites:
+60 / 143 / 151 passed
+
+targeted pytest suite:
+94 passed
+
+Tools smoke and complete PULSE CI run:
+success
+
+Quality Ledger / status parity step:
+success
+```
+
+The [actual run](https://github.com/HKati/pulse-release-gates-0.1/actions/runs/33996343943)
+and [Tools smoke log](https://github.com/HKati/pulse-release-gates-0.1/actions/runs/33996343943/job/101387579869)
+were inspected separately through the repository connection after the cloud
+review. The cloud environment could not authenticate to those remote logs;
+its report did not claim to have inspected them. The skipped release-grade
+jobs remain skipped, not newly established release-grade execution proof.
+
+CI regression success and exact observed-capture replay are separate evidence
+relations. The former does not replace the latter.
+
+#### Temporal, availability and authority boundary
+
+The completed historical relation is:
+
+```text
+completed historical #6066 attempt
+→ platform-response snapshot observed at capture time
+→ exact preserved producer input
+→ deterministic reconstruction and independent offline validation
+→ later reference runtime-packet production, still unimplemented
+```
+
+Determinism begins after preservation. A later API request is neither required
+nor expected to return the same bytes. Internal reconstruction does not
+independently authenticate every external platform fact; raw JSON, selected
+transport facts and acquisition provenance retain their distinct evidence roles.
+
+The captured fields do not establish unavailable command bytes, external
+calls, model use, resource consumption or downstream state consumption.
+Unknown remains distinct from absent; unavailable remains distinct from zero;
+platform timestamps remain distinct from measured compute-resource use.
+
+```text
+capture_subject_class: post_run_platform_response_snapshot
+capture_time_relation: observed_at_capture_time
+reference_producer_input_eligible: true
+capture_is_original_runtime_byte_stream: false
+capture_is_runtime_observation: false
+capture_is_runtime_observation_packet: false
+capture_is_transition_measurement: false
+same_run_release_authority_eligible: false
+active_gate_eligible: false
+authority_effect: none
+```
+
+The future operational relation remains a different, pre-decision requirement:
+
+```text
+current subject run
+→ pre-decision exact source capture
+→ runtime-observation packet
+→ planned–observed transition relation
+→ transition-path verification
+→ policy-bound authority decision
+```
+
+The Step 4A post-run reference cannot retroactively authorize its completed
+subject run. It supplies exact preserved inputs for the next producer task;
+it neither implements that producer nor promotes any compute gate.
 
 ### Step 4 — runtime-observation producer
 
-Produce strict runtime packets from recorded execution:
+Still unimplemented. Step 4A above closes its historical producer-input
+prerequisite, not runtime-packet production itself.
+
+Produce strict runtime packets from recorded execution while preserving the
+historical-reference versus current-run pre-decision distinction:
 
 ```text
 job and step identity
@@ -3113,7 +3376,7 @@ merge:
 e06acbbcd0beec7846da01322659079171e24562
 ```
 
-Current source identities:
+Source identities retained from the completed analyzer-core proof:
 
 ```text
 fixed-source wrapper SHA-256:
@@ -3197,7 +3460,7 @@ PR #2788
 → permanent validator regression
 ```
 
-Final merged compute basis:
+Historical expectation-contract completion basis:
 
 ```text
 031e0f2b009993e549b7831baf37cf3a990baf39
@@ -3216,10 +3479,69 @@ validator regression:
 complete, registered and proven
 
 builder:
-open PR #2789
+subsequently completed; see the sequence below
 ```
 
-### Canonical state synchronization
+### Current-run automation through Step 3G
+
+```text
+PR #2789
+→ machine current-run expectation builder
+
+PR #2814
+→ permanent builder regression
+
+PR #2818 and PR #2819
+→ authoritative regression execution and terminal early-exit boundary
+
+PR #2822
+→ finalized current-run export carrier loader
+
+PR #2823
+→ current-run subject-input wrapper
+
+PR #2825
+→ manual non-active Step 3F export candidate workflow
+
+PR #2826
+→ Step 3G candidate-bundle intake, artifact-observed proof builder and workflow
+
+terminal Step 3G implementation merge:
+9bf7fab95dbcc3532238723d0cf76500263106f5
+```
+
+The completed implementation and registered regressions are distinct from a
+public manually dispatched Step 3F/3G proof instance. No such execution
+instance is claimed here.
+
+### Historical Step 4A capture
+
+```text
+PR #2857
+→ capture contract and implementation
+
+PR #2860
+→ timestamp correction in both independent tools and matching regressions
+→ implementation acceptance
+
+capture execution 33986538130, attempt 1
+→ exact historical #6066 response acquisition at source 22d14088...
+
+PR #2861
+→ preserve five exact capture members at merge 7444c12...
+
+read-only post-merge verification
+→ exact Git-object audit
+→ two independent offline replays
+→ two input-to-manifest reconstructions
+→ ten negative probes
+→ observed-reference acceptance
+```
+
+Section 26 records full commit, run, member and diagnostic identities and keeps
+cloud review evidence separate from GitHub CI execution.
+
+### Historical canonical state synchronization
 
 ```text
 PR #2795
@@ -3347,9 +3669,13 @@ The current-run expectation contract establishes a machine contract.
 It is not evidence that a current-run carrier or packet has already been
 produced.
 
-The open builder is proposed code.
+The builder and current-run automation are merged and regression-proven.
+That construction capability is distinct from a public manually dispatched
+Step 3F/3G artifact instance.
 
-It is not merged implementation state.
+The Step 4A capture has an actual acquisition and replay record. Its completed
+proof remains a historical producer-input proof, not runtime-observed
+transition evidence or a resource-efficiency conclusion.
 
 ---
 
@@ -3426,22 +3752,34 @@ current-run expectation validator regression:
 implemented, registered and proven
 
 current-run expectation builder:
-open PR #2789, not merged
+implemented, hardened and regression-proven
 
 current-run expectation builder regression:
-not implemented
+implemented, registered and execution-contract proven
 
 current-run carrier component:
-not implemented
+implemented and regression-proven
 
 current-run subject-input wrapper:
-not implemented
+implemented and regression-proven
 
 current-run candidate workflow:
-not implemented
+implemented and regression-proven; manual and non-active
 
-current-run connected artifact-observed proof:
-not implemented
+current-run candidate-bundle intake:
+implemented and regression-proven
+
+current-run artifact-observed proof automation:
+implemented and regression-proven through Step 3G
+
+public manually dispatched Step 3F/3G proof instance:
+not claimed by this record
+
+historical post-run producer-input capture:
+implemented; exact #6066 observed reference preserved and replay-proven
+
+post-run capture authority effect:
+none
 
 runtime-observed connected proof:
 not implemented
@@ -3538,20 +3876,39 @@ exact current-run subject
 → permanent regression
 ```
 
-The current open transition is:
+The completed current-run automation extends this contract through:
 
 ```text
-open expectation builder
-→ close four trust boundaries
-→ merge builder
-→ permanent builder regression
-→ current-run carrier component
-→ current-run packet wrapper
-→ non-active candidate workflow
-→ first current-run artifact-observed connected proof
+merged expectation builder and permanent regression
+→ finalized current-run carrier component
+→ observed subject-input wrapper using the existing producer core
+→ non-active Step 3F candidate workflow
+→ independent candidate-bundle intake
+→ immutable analyzer bridge and single reusable core
+→ artifact-observed report and planned-observed relation
+→ separate non-active candidate state
+→ checksum-closed Step 3G proof-bundle construction
 ```
 
-The candidate result remains:
+The completed historical Step 4A relation is:
+
+```text
+exact #6066 run attempt
++ exact capture-time platform responses
++ exact exchange records
++ exact contract, schema and implementation identities
+→ five checksum-bound preserved members
+→ repeated independent offline validation
+→ repeated byte-identical manifest reconstruction
+→ rejected disposable-copy mutations
+→ historical reference producer input
+```
+
+This reference input does not replace the future current-run pre-decision
+capture requirement. Runtime-packet production, runtime-observed connected
+proof, resource measurement and policy promotion remain later work.
+
+The fixed-source #6066 candidate result remains:
 
 ```text
 transition path complete:
