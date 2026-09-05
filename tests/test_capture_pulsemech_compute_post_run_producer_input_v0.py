@@ -15,6 +15,7 @@ import sys
 from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any, Callable, Mapping, Sequence
 
 import jsonschema
@@ -56,9 +57,9 @@ OTHER_TOKEN = "ghp_" + ("B" * 36)
 CAPTURE_BASE = dt.datetime(2026, 8, 1, 18, 0, 0, tzinfo=dt.timezone.utc)
 
 EXPECTED_CAPTURE_TOOL_IDENTITY = (
-    105369,
-    "7ca957b2df31a6e7cb6396f0d643acf17c06c4127697882d0e71ec4473843e5c",
-    "6a37fb0bec4b8e593651946279a0e46b8cd4cc44",
+    105455,
+    "c6bfc6c721fa6c6513977a068e3149c954d50526de3c539a044725ed580dfc74",
+    "cd8063c7b5ef0f2cd4d09e854358e428138bb714",
 )
 
 SOURCE_PATHS = (
@@ -72,6 +73,7 @@ SOURCE_PATHS = (
 _DELETE = object()
 
 EXPECTED_TEST_ITEM_COUNTS = {
+    "test_producer_time_ranges_reject_before_permissive_parser": 3,
     "test_timestamp_grammar_matches_independent_validator": 1,
     "test_noncanonical_job_and_step_timestamps_fail_before_publication": 8,
     "test_canonical_fractional_timestamps_preserve_bytes_and_validate_offline": 1,
@@ -115,6 +117,7 @@ EXPECTED_TEST_ITEM_COUNTS = {
 EXPECTED_COLLECTED_TEST_ITEMS = sum(EXPECTED_TEST_ITEM_COUNTS.values())
 CRITICAL_TEST_FUNCTIONS = frozenset(
     {
+        "test_producer_time_ranges_reject_before_permissive_parser",
         "test_timestamp_grammar_matches_independent_validator",
         "test_noncanonical_job_and_step_timestamps_fail_before_publication",
         "test_canonical_fractional_timestamps_preserve_bytes_and_validate_offline",
@@ -2605,6 +2608,52 @@ def test_success_and_failure_diagnostics_are_canonical_and_deterministic(
     }
 
 
+
+@pytest.mark.parametrize(
+    ("component", "limit"), ((0, 24), (1, 60), (2, 60)),
+    ids=("hour", "minute", "second"),
+)
+def test_producer_time_ranges_reject_before_permissive_parser(
+    capture: Any, monkeypatch: pytest.MonkeyPatch, component: int, limit: int,
+) -> None:
+    parser_calls: list[str] = []
+    sentinel = dt.datetime(2026, 7, 14, tzinfo=dt.timezone.utc)
+
+    class PermissiveDatetime:
+        @staticmethod
+        def fromisoformat(text: str) -> dt.datetime:
+            parser_calls.append(text)
+            return sentinel
+
+    monkeypatch.setattr(
+        capture, "dt",
+        SimpleNamespace(datetime=PermissiveDatetime, timedelta=dt.timedelta),
+    )
+    # Prove the injected parser is active for each valid two-digit value,
+    # then require every invalid value to be rejected before reaching it.
+    for value in range(100):
+        for fraction in ("", ".0"):
+            fields = [0, 0, 0]
+            fields[component] = value
+            text = (
+                f"2026-07-13T{fields[0]:02d}:{fields[1]:02d}:"
+                f"{fields[2]:02d}{fraction}Z"
+            )
+            parser_calls.clear()
+            if value < limit:
+                assert capture._parse_utc(
+                    text, error_code="timestamp_invalid",
+                ) is sentinel
+                assert parser_calls == [text[:-1] + "+00:00"]
+            else:
+                with pytest.raises(capture.CaptureError) as failure:
+                    capture._parse_utc(
+                        text, error_code="timestamp_invalid",
+                    )
+                assert failure.value.error_code == "timestamp_invalid"
+                assert parser_calls == []
+
+
 def test_timestamp_grammar_matches_independent_validator(capture: Any) -> None:
     validator = _load_capture_module(
         OFFLINE_VALIDATOR_PATH,
@@ -2636,6 +2685,18 @@ def test_timestamp_grammar_matches_independent_validator(capture: Any) -> None:
         "2026-07-13T12:27:00",
         "2026-02-29T12:27:00Z",
         "2026-07-13T24:00:00Z",
+        "2026-07-13T24:00:00.0Z",
+        "2026-07-13T25:00:00Z",
+        "2026-07-13T99:00:00Z",
+        "2026-07-13T12:60:00Z",
+        "2026-07-13T12:99:00Z",
+        "2026-07-13T12:27:99Z",
+        "1900-02-29T00:00:00Z",
+        "2026-04-31T00:00:00Z",
+        "2026-00-01T00:00:00Z",
+        "2026-13-01T00:00:00Z",
+        "2026-07-00T00:00:00Z",
+        "2026-07-32T00:00:00Z",
         "2026-07-13T12:27:60Z",
         "0000-01-01T00:00:00Z",
         "",
@@ -2699,6 +2760,12 @@ def test_noncanonical_job_and_step_timestamps_fail_before_publication(
         "2026-07-13T12:27:00.Z",
         "2026-07-13T12:27:00+00:00Z",
         canonical + "\n",
+        "2026-07-13T24:00:00Z",
+        "2026-07-13T24:00:00.0Z",
+        "2026-07-13T25:00:00Z",
+        "2026-07-13T12:60:00Z",
+        "2026-07-13T12:27:60Z",
+        "2026-02-29T12:27:00Z",
     )
     before = _source_snapshot()
     for index, timestamp in enumerate(malformed):
