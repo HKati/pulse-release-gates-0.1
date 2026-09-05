@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
-import ast
 import copy
 import datetime as dt
 import hashlib
@@ -18,10 +17,14 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Mapping, Sequence
 
+import jsonschema
 import pytest
 
 
 ROOT = Path(__file__).resolve().parents[1]
+CAPTURE_TOOL_PATH = (
+    ROOT / "tools" / "capture_pulsemech_compute_post_run_producer_input_v0.py"
+)
 SCHEMA_PATH = (
     ROOT
     / "schemas"
@@ -38,177 +41,94 @@ EXAMPLE_PATH = (
     / "compute"
     / "pulsemech_compute_post_run_producer_input_capture_manifest_example_v0.json"
 )
-CAPTURE_TOOL_PATH = (
-    ROOT / "tools" / "capture_pulsemech_compute_post_run_producer_input_v0.py"
-)
-VALIDATOR_PATH = (
+OFFLINE_VALIDATOR_PATH = (
     ROOT
     / "tools"
     / "check_pulsemech_compute_post_run_producer_input_capture_v0.py"
 )
-CONTRACT_REGRESSION_PATH = (
-    ROOT
-    / "tests"
-    / "test_pulsemech_compute_post_run_producer_input_capture_contract_v0.py"
-)
-CAPTURE_REGRESSION_PATH = (
-    ROOT / "tests" / "test_capture_pulsemech_compute_post_run_producer_input_v0.py"
+
+CAPTURE_WORKFLOW_PATH = (
+    ROOT / ".github/workflows/pulsemech_compute_post_run_producer_input_capture_v0.yml"
 )
 
-EXAMPLE_MANIFEST_NAME = (
-    "pulsemech_compute_post_run_producer_input_capture_manifest_example_v0.json"
-)
-RUN_BODY_PATH = "raw/run_attempt_response.json"
-RUN_METADATA_PATH = "metadata/run_attempt_exchange_v0.json"
-JOBS_BODY_PATH = "raw/jobs_page_0001_response.json"
-JOBS_METADATA_PATH = "metadata/jobs_page_0001_exchange_v0.json"
 TOKEN = "ghp_" + ("A" * 36)
+OTHER_TOKEN = "ghp_" + ("B" * 36)
 CAPTURE_BASE = dt.datetime(2026, 8, 1, 18, 0, 0, tzinfo=dt.timezone.utc)
 
-EXPECTED_SOURCE_IDENTITIES = (
-    (
-        SCHEMA_PATH,
-        71861,
-        "65a29a18f1b9090f3dd338f9c4c1484b4d851df68ff19758670a4c53c58057bb",
-        "f7256747704e87a4df312af6d20dad1c8bea6148",
-    ),
-    (
-        CONTRACT_PATH,
-        38745,
-        "ec3e31c9526f3bf931c633292bbff77efdf9cfbc61a0be634b6239c4acaccfbe",
-        "66e03ebe4b7571888e0a8ac5322561353be2e892",
-    ),
-    (
-        EXAMPLE_PATH,
-        16980,
-        "8539975490b8e42321d2a32f9003cbc6030e12bfceaed3f7683215edcf57000a",
-        "bdde78e902d4a670cf6ac857f737486d321a80d2",
-    ),
-    (
-        CAPTURE_TOOL_PATH,
-        105091,
-        "6fd39f52f54675db0f57dc090da1fc21b12a858fde6619621043b552a7c0d2bc",
-        "621b839a11471d65c7170531f600f80117b7c083",
-    ),
-    (
-        VALIDATOR_PATH,
-        110734,
-        "48d86541d0e4cd10f1dac6ed60c25f5c64b900fee91b3bed83eff2de66069417",
-        "0e3987d486c5d475494c1d3aabcf021257b4f39b",
-    ),
-    (
-        CONTRACT_REGRESSION_PATH,
-        80337,
-        "571ac725a81d5d70bbf313eab7629dc7210340a593c2b72560263fb09f273edd",
-        "3ec5de81188945f4b4317762524f077db38bb9c5",
-    ),
-    (
-        CAPTURE_REGRESSION_PATH,
-        87038,
-        "b58f91301057a5bd64eee0c36e9466fb0975b88783776cca0db7909da66bd3c3",
-        "706095379235fbd4a775c76cf1fa601ae9114357",
-    ),
+EXPECTED_CAPTURE_TOOL_IDENTITY = (
+    105369,
+    "7ca957b2df31a6e7cb6396f0d643acf17c06c4127697882d0e71ec4473843e5c",
+    "6a37fb0bec4b8e593651946279a0e46b8cd4cc44",
 )
 
+SOURCE_PATHS = (
+    SCHEMA_PATH,
+    CONTRACT_PATH,
+    CAPTURE_TOOL_PATH,
+    EXAMPLE_PATH,
+    OFFLINE_VALIDATOR_PATH,
+)
 
+_DELETE = object()
 
 EXPECTED_TEST_ITEM_COUNTS = {
-    "test_tar_archive_does_not_replace_existing_output": 2,
-    "test_tar_archive_is_deterministic_for_same_capture_bytes": 1,
-    "test_tar_archive_path_replacement_is_rejected_without_deleting_replacement": 1,
-    "test_tar_archive_rejects_failed_or_different_validator_result": 2,
-    "test_tar_archive_rejects_incorrect_source_permissions": 8,
-    "test_tar_archive_rejects_unadmitted_filesystem_members": 4,
-    "test_tar_payload_survives_outer_zip_permission_normalization": 1,
-    "test_tar_roundtrip_preserves_exact_bytes_modes_and_validator_invocation": 1,
-    "test_tar_roundtrip_with_real_validator_on_synthetic_observed_shape": 1,
-    "test_tar_upload_requires_successful_roundtrip_and_exact_transport_members": 1,
-    "test_tar_validator_exception_cleans_temporary_restoration": 1,
+    "test_timestamp_grammar_matches_independent_validator": 1,
+    "test_noncanonical_job_and_step_timestamps_fail_before_publication": 8,
+    "test_canonical_fractional_timestamps_preserve_bytes_and_validate_offline": 1,
+    "test_final_source_revalidation_failure_rolls_back_and_allows_retry": 4,
+    "test_final_source_revalidation_interrupt_rolls_back": 2,
+    "test_final_source_revalidation_cleanup_preserves_replacement": 3,
+    "test_application_request_headers_are_exact_and_ordered": 1,
     "test_authoritative_launcher_sanitizes_pytest_environment_and_requires_completed_contract": 1,
-    "test_capture_before_subject_completion_fails_closed": 1,
-    "test_capture_permission_mutations_fail_closed": 6,
-    "test_claim_and_authority_expansion_fails_closed": 18,
-    "test_cli_failure_diagnostic_is_byte_identical": 1,
-    "test_cli_requires_isolated_python": 1,
-    "test_compact_raw_jobs_json_is_accepted_when_exactly_rebound": 1,
+    "test_capture_tool_exact_identity_and_linux_runtime_contract": 1,
+    "test_cli_requires_isolated_python_and_never_echoes_invalid_arguments": 1,
     "test_direct_authoritative_launcher_rejects_terminal_pytest_early_exit": 1,
-    "test_exact_one_page_capture_validates_offline": 1,
-    "test_exact_prior_repository_object_identities": 7,
-    "test_exchange_metadata_bom_fails_closed": 1,
-    "test_exchange_metadata_relation_false_fails_closed": 1,
-    "test_failure_diagnostic_is_canonical_and_deterministic": 1,
-    "test_final_rel_next_presence_fails_closed": 1,
-    "test_hard_linked_member_fails_closed": 1,
-    "test_invalid_cli_argument_never_echoes_secret": 1,
-    "test_isolated_cli_validates_exact_capture": 1,
-    "test_jobs_exchange_time_order_fails_closed": 1,
-    "test_jobs_request_query_order_mismatch_fails_closed": 1,
-    "test_jobs_summary_mismatch_fails_closed": 1,
-    "test_link_header_mutations_fail_closed": 4,
-    "test_manifest_bom_fails_closed": 1,
-    "test_manifest_count_relation_mismatch_fails_closed": 1,
-    "test_manifest_duplicate_key_fails_closed": 1,
-    "test_manifest_pagination_relation_mismatch_fails_closed": 1,
-    "test_manifest_top_level_array_fails_closed": 1,
-    "test_missing_manifest_fails_closed": 1,
-    "test_missing_second_jobs_page_fails_closed": 1,
-    "test_network_audit_guard_rejects_socket_creation": 1,
-    "test_non_regular_fifo_member_fails_closed": 1,
-    "test_noncanonical_manifest_fails_closed": 1,
-    "test_pagination_relation_mismatch_fails_closed": 1,
-    "test_raw_response_bom_and_crlf_are_exact_not_canonicalized": 1,
-    "test_rebound_invalid_utf8_raw_body_fails_closed": 1,
-    "test_rebound_job_and_step_mutations_fail_closed": 12,
-    "test_rebound_raw_duplicate_key_fails_closed": 1,
-    "test_rebound_raw_top_level_array_fails_closed": 1,
-    "test_rebound_run_subject_mutations_fail_closed": 13,
-    "test_reported_job_count_mismatch_fails_closed": 1,
-    "test_repository_root_without_git_fails_closed": 1,
-    "test_response_metadata_mutations_fail_closed": 6,
-    "test_response_received_before_capture_start_fails_closed": 1,
-    "test_run_request_record_mismatch_fails_closed": 1,
-    "test_run_summary_mismatch_fails_closed": 1,
-    "test_same_exact_capture_produces_byte_identical_diagnostics": 1,
-    "test_schema_binding_digest_mismatch_fails_closed": 1,
-    "test_schema_contract_revision_mismatch_fails_closed": 1,
-    "test_second_page_total_count_disagreement_fails_closed": 1,
-    "test_secret_material_in_rebound_raw_body_fails_closed": 1,
-    "test_symlinked_member_fails_closed": 1,
-    "test_two_page_capture_validates_exact_pagination": 1,
-    "test_unbound_exchange_metadata_mutation_fails_closed": 1,
-    "test_unbound_raw_response_byte_mutation_fails_closed": 1,
-    "test_undeclared_root_member_fails_closed": 1,
-    "test_unresolved_example_revision_requires_canonical_checked_in_example": 1,
-    "test_validation_does_not_modify_repository_or_capture": 1,
-    "test_validator_source_is_separate_and_network_free": 1,
+    "test_existing_output_is_never_replaced": 1,
+    "test_explicit_source_revision_must_equal_repository_head": 1,
+    "test_fixture_capture_one_page_preserves_exact_bytes_and_boundaries": 1,
+    "test_full_capture_relation_failures_publish_nothing": 6,
+    "test_job_and_step_binding_mutations_fail_closed": 26,
+    "test_job_and_step_limits_fail_closed": 1,
+    "test_numeric_response_tokens_fail_before_publication": 6,
+    "test_output_inside_repository_is_rejected_and_sources_remain_exact": 1,
+    "test_post_publication_readback_failure_removes_owned_output": 1,
+    "test_publication_cleanup_covers_keyboard_interrupt": 1,
+    "test_publication_rejects_existing_target_and_out_of_contract_member": 1,
+    "test_rel_next_exact_target_and_final_absence_states": 1,
+    "test_rel_next_mutations_fail_closed": 12,
+    "test_request_record_rejects_floating_or_noncanonical_targets": 1,
+    "test_response_admission_failures_are_deterministic": 19,
+    "test_response_size_and_clock_order_limits_fail_closed": 1,
+    "test_run_attempt_capture_must_occur_after_subject_completion": 1,
+    "test_run_attempt_identity_mutations_fail_closed": 20,
+    "test_same_fixture_produces_byte_identical_capture": 1,
+    "test_skipped_jobs_and_steps_preserve_explicit_unavailability": 1,
+    "test_source_drift_before_publication_fails_closed": 1,
+    "test_stdlib_https_transport_network_and_size_failures_are_closed": 1,
+    "test_stdlib_https_transport_sends_exact_request_without_redirect_handler": 1,
+    "test_success_and_failure_diagnostics_are_canonical_and_deterministic": 1,
+    "test_token_boundary_fails_closed": 6,
+    "test_total_capture_and_total_step_limits_fail_closed_after_source_admission": 1,
+    "test_two_page_rel_next_capture_is_exact_and_closed": 1,
+    "test_valid_run_attempt_reconstructs_exact_subject": 1,
 }
 EXPECTED_COLLECTED_TEST_ITEMS = sum(EXPECTED_TEST_ITEM_COUNTS.values())
 CRITICAL_TEST_FUNCTIONS = frozenset(
     {
-        "test_tar_archive_does_not_replace_existing_output",
-        "test_tar_archive_is_deterministic_for_same_capture_bytes",
-        "test_tar_archive_path_replacement_is_rejected_without_deleting_replacement",
-        "test_tar_archive_rejects_failed_or_different_validator_result",
-        "test_tar_archive_rejects_incorrect_source_permissions",
-        "test_tar_archive_rejects_unadmitted_filesystem_members",
-        "test_tar_payload_survives_outer_zip_permission_normalization",
-        "test_tar_roundtrip_preserves_exact_bytes_modes_and_validator_invocation",
-        "test_tar_roundtrip_with_real_validator_on_synthetic_observed_shape",
-        "test_tar_upload_requires_successful_roundtrip_and_exact_transport_members",
-        "test_tar_validator_exception_cleans_temporary_restoration",
+        "test_timestamp_grammar_matches_independent_validator",
+        "test_noncanonical_job_and_step_timestamps_fail_before_publication",
+        "test_canonical_fractional_timestamps_preserve_bytes_and_validate_offline",
+        "test_final_source_revalidation_failure_rolls_back_and_allows_retry",
+        "test_final_source_revalidation_interrupt_rolls_back",
+        "test_final_source_revalidation_cleanup_preserves_replacement",
         "test_authoritative_launcher_sanitizes_pytest_environment_and_requires_completed_contract",
-        "test_capture_permission_mutations_fail_closed",
+        "test_capture_tool_exact_identity_and_linux_runtime_contract",
         "test_direct_authoritative_launcher_rejects_terminal_pytest_early_exit",
-        "test_exact_one_page_capture_validates_offline",
-        "test_exact_prior_repository_object_identities",
-        "test_hard_linked_member_fails_closed",
-        "test_isolated_cli_validates_exact_capture",
-        "test_network_audit_guard_rejects_socket_creation",
-        "test_same_exact_capture_produces_byte_identical_diagnostics",
-        "test_symlinked_member_fails_closed",
-        "test_two_page_capture_validates_exact_pagination",
-        "test_validation_does_not_modify_repository_or_capture",
-        "test_validator_source_is_separate_and_network_free",
+        "test_fixture_capture_one_page_preserves_exact_bytes_and_boundaries",
+        "test_numeric_response_tokens_fail_before_publication",
+        "test_same_fixture_produces_byte_identical_capture",
+        "test_source_drift_before_publication_fails_closed",
+        "test_two_page_rel_next_capture_is_exact_and_closed",
     }
 )
 _AUTHORITATIVE_PYTEST_ENVIRONMENT_KEYS = (
@@ -218,7 +138,7 @@ _AUTHORITATIVE_PYTEST_ENVIRONMENT_KEYS = (
     "PYTEST_PLUGINS",
 )
 _AUTHORITATIVE_LAUNCH_PROBE_CHILD = (
-    "PULSEMECH_POST_RUN_OFFLINE_VALIDATOR_LAUNCH_PROBE_CHILD"
+    "PULSEMECH_POST_RUN_CAPTURE_TOOL_LAUNCH_PROBE_CHILD"
 )
 
 
@@ -287,7 +207,7 @@ class _AuthoritativeRegressionContract:
             or missing_critical
         ):
             raise pytest.UsageError(
-                "authoritative_offline_validator_collection_mismatch: "
+                "authoritative_capture_tool_collection_mismatch: "
                 + json.dumps(
                     {
                         "count_mismatches": count_mismatches,
@@ -374,7 +294,7 @@ class _AuthoritativeRegressionContract:
         if terminal is not None:
             terminal.write_sep(
                 "=",
-                "authoritative offline-validator execution failed",
+                "authoritative capture-tool execution failed",
             )
             terminal.write_line(detail)
         if int(exitstatus) == int(pytest.ExitCode.OK):
@@ -420,7 +340,7 @@ def _run_authoritative_regression(
     if contract.completed_successfully:
         return exit_code
     sys.stderr.write(
-        "authoritative_offline_validator_session_not_completed: "
+        "authoritative_capture_tool_session_not_completed: "
         + json.dumps(contract.completion_state, sort_keys=True)
         + "\n"
     )
@@ -448,14 +368,24 @@ class SequenceClock:
         return value
 
     @property
+    def consumed(self) -> int:
+        return self._index
+
+    @property
     def remaining(self) -> int:
         return len(self._values) - self._index
 
 
 class ScriptedTransport:
-    def __init__(self, script: Sequence[tuple[str, Any]]) -> None:
+    def __init__(
+        self,
+        script: Sequence[tuple[str, Any]],
+        *,
+        on_call: Callable[[int, str], None] | None = None,
+    ) -> None:
         self._script = list(script)
         self._index = 0
+        self._on_call = on_call
         self.calls: list[TransportCall] = []
 
     def get(
@@ -483,6 +413,8 @@ class ScriptedTransport:
                 maximum_body_bytes=maximum_body_bytes,
             )
         )
+        if self._on_call is not None:
+            self._on_call(self._index, request_target)
         if isinstance(response, BaseException):
             raise response
         return response
@@ -492,10 +424,10 @@ class ScriptedTransport:
         return len(self._script) - self._index
 
 
-def _load_module(path: Path, *, name: str) -> Any:
+def _load_capture_module(path: Path, *, name: str) -> Any:
     spec = importlib.util.spec_from_file_location(name, path)
     if spec is None or spec.loader is None:
-        raise AssertionError(f"unable to load module: {path}")
+        raise AssertionError(f"unable to load capture module: {path}")
     module = importlib.util.module_from_spec(spec)
     sys.modules[name] = module
     spec.loader.exec_module(module)
@@ -504,17 +436,9 @@ def _load_module(path: Path, *, name: str) -> Any:
 
 @pytest.fixture(scope="module")
 def capture() -> Any:
-    return _load_module(
+    return _load_capture_module(
         CAPTURE_TOOL_PATH,
-        name="pulsemech_post_run_capture_for_validator_regression",
-    )
-
-
-@pytest.fixture(scope="module")
-def validator() -> Any:
-    return _load_module(
-        VALIDATOR_PATH,
-        name="pulsemech_post_run_offline_validator_under_test",
+        name="pulsemech_compute_post_run_capture_tool_under_test",
     )
 
 
@@ -555,6 +479,65 @@ def _json_body(value: Mapping[str, Any], *, indent: int = 2) -> bytes:
     )
 
 
+def _git_head(root: Path) -> str:
+    completed = subprocess.run(
+        ["git", "-C", str(root), "rev-parse", "HEAD"],
+        check=True,
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    value = completed.stdout.strip()
+    assert len(value) == 40
+    return value
+
+
+def _source_snapshot(paths: Sequence[Path] = SOURCE_PATHS) -> dict[str, bytes]:
+    return {
+        path.relative_to(ROOT).as_posix(): path.read_bytes()
+        for path in paths
+    }
+
+
+def _snapshot_tree(root: Path) -> dict[str, tuple[str, int, bytes | None]]:
+    snapshot: dict[str, tuple[str, int, bytes | None]] = {}
+    for candidate in sorted(root.rglob("*"), key=lambda item: item.as_posix()):
+        relative = candidate.relative_to(root).as_posix()
+        metadata = candidate.lstat()
+        if stat.S_ISLNK(metadata.st_mode):
+            raise AssertionError(f"symlink present in output: {relative}")
+        mode = stat.S_IMODE(metadata.st_mode)
+        if stat.S_ISDIR(metadata.st_mode):
+            snapshot[relative] = ("directory", mode, None)
+        elif stat.S_ISREG(metadata.st_mode):
+            snapshot[relative] = ("file", mode, candidate.read_bytes())
+        else:
+            raise AssertionError(f"non-regular output member: {relative}")
+    return snapshot
+
+
+def _assert_no_owned_staging(parent: Path, target_name: str) -> None:
+    prefixes = (f".{target_name}.tmp-",)
+    leftovers = [
+        candidate.name
+        for candidate in parent.iterdir()
+        if candidate.name.startswith(prefixes)
+    ]
+    assert leftovers == []
+
+
+def _set_path(value: dict[str, Any], path: Sequence[Any], replacement: Any) -> None:
+    cursor: Any = value
+    for part in path[:-1]:
+        cursor = cursor[part]
+    leaf = path[-1]
+    if replacement is _DELETE:
+        del cursor[leaf]
+    else:
+        cursor[leaf] = replacement
+
+
 def _run_document(capture: Any) -> dict[str, Any]:
     return {
         "id": capture.SUBJECT_RUN_ID,
@@ -588,7 +571,6 @@ def _run_document(capture: Any) -> dict[str, Any]:
 def _step_document(
     number: int,
     *,
-    status: str = "completed",
     conclusion: str = "success",
     started_at: str | None = "2026-07-13T12:27:00Z",
     completed_at: str | None = "2026-07-13T12:27:01Z",
@@ -596,7 +578,7 @@ def _step_document(
     return {
         "number": number,
         "name": f"fixture-step-{number}",
-        "status": status,
+        "status": "completed",
         "conclusion": conclusion,
         "started_at": started_at,
         "completed_at": completed_at,
@@ -608,7 +590,6 @@ def _job_document(
     job_id: int,
     *,
     steps: Sequence[dict[str, Any]] | None = None,
-    status: str = "completed",
     conclusion: str = "success",
     started_at: str | None = "2026-07-13T12:27:00Z",
     completed_at: str | None = "2026-07-13T12:27:01Z",
@@ -620,7 +601,7 @@ def _job_document(
         "workflow_name": capture.SUBJECT_WORKFLOW_NAME,
         "head_sha": capture.SUBJECT_SOURCE_COMMIT,
         "name": f"fixture-job-{job_id}",
-        "status": status,
+        "status": "completed",
         "conclusion": conclusion,
         "started_at": started_at,
         "completed_at": completed_at,
@@ -652,22 +633,27 @@ def _headers_for_body(
     body: bytes,
     *,
     link: str | None = None,
-    etag: str = '"fixture-etag"',
-    request_id: str = "fixture-request-id",
+    content_type: str | None = "application/json; charset=utf-8",
+    content_encoding: str | None = None,
+    etag: str | None = '"fixture-etag"',
+    request_id: str | None = "fixture-request-id",
+    extra: Sequence[tuple[str, str]] = (),
+    include_content_length: bool = True,
 ) -> tuple[tuple[str, str], ...]:
-    headers: list[tuple[str, str]] = [
-        ("Content-Type", "application/json; charset=utf-8"),
-        ("ETag", etag),
-    ]
+    headers: list[tuple[str, str]] = []
+    if content_type is not None:
+        headers.append(("Content-Type", content_type))
+    if content_encoding is not None:
+        headers.append(("Content-Encoding", content_encoding))
+    if etag is not None:
+        headers.append(("ETag", etag))
     if link is not None:
         headers.append(("Link", link))
-    headers.extend(
-        [
-            ("X-GitHub-Request-Id", request_id),
-            ("Content-Length", str(len(body))),
-            ("Date", "fixture-transport-date-not-recorded"),
-        ]
-    )
+    if request_id is not None:
+        headers.append(("X-GitHub-Request-Id", request_id))
+    if include_content_length:
+        headers.append(("Content-Length", str(len(body))))
+    headers.extend(extra)
     return tuple(headers)
 
 
@@ -675,372 +661,154 @@ def _transport_response(
     capture: Any,
     body: bytes,
     *,
-    link: str | None = None,
-    etag: str = '"fixture-etag"',
-    request_id: str = "fixture-request-id",
+    headers: Sequence[tuple[str, str]] | None = None,
+    status: int = 200,
+    clean_eof: bool = True,
+    redirect_observed: bool = False,
 ) -> Any:
     return capture.TransportResponse(
-        status=200,
-        headers=_headers_for_body(
-            body,
-            link=link,
-            etag=etag,
-            request_id=request_id,
+        status=status,
+        headers=(
+            tuple(headers)
+            if headers is not None
+            else _headers_for_body(body)
         ),
         body=body,
-        clean_eof=True,
-        redirect_observed=False,
+        clean_eof=clean_eof,
+        redirect_observed=redirect_observed,
+    )
+
+
+def _clock_for_requests(count: int) -> SequenceClock:
+    return SequenceClock(
+        [CAPTURE_BASE + dt.timedelta(microseconds=index) for index in range(2 * count)]
     )
 
 
 def _scripted_fixture(
     capture: Any,
     *,
+    run_document: Mapping[str, Any] | None = None,
     pages: Sequence[tuple[Mapping[str, Any], str | None]] | None = None,
-) -> tuple[ScriptedTransport, SequenceClock]:
-    run_body = _json_body(_run_document(capture))
+    on_call: Callable[[int, str], None] | None = None,
+) -> tuple[ScriptedTransport, SequenceClock, bytes, list[bytes]]:
+    run_value = dict(run_document) if run_document is not None else _run_document(capture)
     page_values = (
         list(pages)
         if pages is not None
-        else [
-            (
-                _jobs_document(
-                    capture,
-                    list(range(86815582001, 86815582009)),
-                ),
-                None,
-            )
-        ]
+        else [(_jobs_document(capture, list(range(86815582001, 86815582009))), None)]
     )
+    run_body = _json_body(run_value)
     script: list[tuple[str, Any]] = [
         (
             capture.RUN_REQUEST_PATH,
             _transport_response(
                 capture,
                 run_body,
-                etag='"run-etag"',
-                request_id="fixture-run-request",
+                headers=_headers_for_body(
+                    run_body,
+                    etag='"run-etag"',
+                    request_id="fixture-run-request",
+                    extra=(
+                        ("Date", "fixture-date-not-recorded"),
+                        ("Server", "fixture-server-not-recorded"),
+                    ),
+                ),
             ),
         )
     ]
+    page_bodies: list[bytes] = []
     for page_number, (page_document, link) in enumerate(page_values, start=1):
-        body = _json_body(page_document)
+        page_body = _json_body(page_document)
+        page_bodies.append(page_body)
         script.append(
             (
                 f"{capture.JOBS_REQUEST_PATH}?per_page=100&page={page_number}",
                 _transport_response(
                     capture,
-                    body,
-                    link=link,
-                    etag=f'"jobs-page-{page_number}-etag"',
-                    request_id=f"fixture-jobs-page-{page_number}-request",
+                    page_body,
+                    headers=_headers_for_body(
+                        page_body,
+                        link=link,
+                        etag=f'"jobs-page-{page_number}-etag"',
+                        request_id=f"fixture-jobs-page-{page_number}-request",
+                        extra=(("Date", "fixture-date-not-recorded"),),
+                    ),
                 ),
             )
         )
-    values = [
-        CAPTURE_BASE + dt.timedelta(microseconds=index)
-        for index in range(2 * len(script))
-    ]
-    return ScriptedTransport(script), SequenceClock(values)
-
-
-@pytest.fixture(scope="module")
-def base_capture_root(
-    tmp_path_factory: pytest.TempPathFactory,
-    capture: Any,
-) -> Path:
-    root = tmp_path_factory.mktemp("post-run-offline-validator") / "one-page"
-    transport, clock = _scripted_fixture(capture)
-    result = capture.capture_with_injected_dependencies_for_test(
-        repository_root=ROOT,
-        output_directory=root,
-        token=TOKEN,
-        transport=transport,
-        clock=clock,
+    return (
+        ScriptedTransport(script, on_call=on_call),
+        _clock_for_requests(1 + len(page_values)),
+        run_body,
+        page_bodies,
     )
-    assert result.record_status == "example"
-    assert result.page_count == 1
-    assert result.job_count == 8
-    assert result.step_record_count == 8
-    assert result.authority_effect == "none"
-    assert transport.remaining == 0
-    assert clock.remaining == 0
-    return root
 
 
-@pytest.fixture(scope="module")
-def base_two_page_capture_root(
-    tmp_path_factory: pytest.TempPathFactory,
-    capture: Any,
-) -> Path:
-    root = tmp_path_factory.mktemp("post-run-offline-validator") / "two-page"
-    first_ids = list(range(86815583001, 86815583101))
-    second_ids = [86815583101]
-    next_url = (
-        "https://api.github.com"
-        + capture.JOBS_REQUEST_PATH
-        + "?per_page=100&page=2"
+def _expected_application_headers(capture: Any) -> tuple[tuple[str, str], ...]:
+    return (
+        ("Accept", capture.ACCEPT),
+        ("Accept-Encoding", capture.ACCEPT_ENCODING),
+        ("Authorization", f"Bearer {TOKEN}"),
+        ("User-Agent", capture.USER_AGENT),
+        ("X-GitHub-Api-Version", capture.API_VERSION),
     )
-    pages = [
-        (_jobs_document(capture, first_ids, total_count=101), f'<{next_url}>; rel="next"'),
-        (_jobs_document(capture, second_ids, total_count=101), None),
-    ]
-    transport, clock = _scripted_fixture(capture, pages=pages)
-    result = capture.capture_with_injected_dependencies_for_test(
-        repository_root=ROOT,
-        output_directory=root,
-        token=TOKEN,
-        transport=transport,
-        clock=clock,
-    )
-    assert result.page_count == 2
-    assert result.job_count == 101
-    assert result.step_record_count == 101
-    assert transport.remaining == 0
-    assert clock.remaining == 0
-    return root
 
 
-def _copy_capture(source: Path, tmp_path: Path, name: str = "capture") -> Path:
-    target = tmp_path / name
-    shutil.copytree(source, target)
-    return target
-
-
-def _assert_expected_capture_modes(capture_root: Path) -> None:
-    assert stat.S_IMODE(capture_root.stat().st_mode) == 0o700
-    assert stat.S_IMODE((capture_root / "raw").stat().st_mode) == 0o700
-    assert stat.S_IMODE((capture_root / "metadata").stat().st_mode) == 0o700
-    for path in capture_root.rglob("*"):
-        if path.is_file():
-            assert stat.S_IMODE(path.stat().st_mode) == 0o600
-
-
-def _manifest_path(capture_root: Path) -> Path:
-    return capture_root / EXAMPLE_MANIFEST_NAME
-
-
-def _load_manifest(capture_root: Path) -> dict[str, Any]:
-    value = json.loads(_manifest_path(capture_root).read_text(encoding="utf-8"))
+def _manifest(output_directory: Path, capture: Any) -> dict[str, Any]:
+    path = output_directory / capture.EXAMPLE_MANIFEST_NAME
+    payload = path.read_bytes()
+    value = json.loads(payload.decode("utf-8"))
     assert isinstance(value, dict)
+    assert _canonical_json_bytes(value) == payload
     return value
 
 
-def _write_manifest(capture_root: Path, manifest: Mapping[str, Any]) -> None:
-    _manifest_path(capture_root).write_bytes(_canonical_json_bytes(manifest))
-
-
-def _update_member_identity(member: dict[str, Any], payload: bytes) -> None:
-    member.update(
-        {
-            "size_bytes": len(payload),
-            "sha256": _sha256(payload),
-            "git_blob_sha1": _git_blob_sha1(payload),
-            "utf8_bom_present": payload.startswith(b"\xef\xbb\xbf"),
-            "cr_count": payload.count(b"\r"),
-            "lf_count": payload.count(b"\n"),
-            "final_byte_hex": f"{payload[-1]:02x}",
-            "trailing_newline_present": payload.endswith(b"\n"),
-        }
-    )
-
-
-def _exchange_wrapper(
-    manifest: dict[str, Any],
+def _captured_response(
+    capture: Any,
+    document: Mapping[str, Any],
     *,
-    kind: str,
-    page_number: int = 1,
-) -> dict[str, Any]:
-    if kind == "run":
-        return manifest["run_attempt_exchange"]
-    if kind == "jobs":
-        return manifest["jobs_page_exchanges"][page_number - 1]
-    raise AssertionError(f"unknown exchange kind: {kind}")
-
-
-def _rebind_exchange(
-    capture_root: Path,
-    manifest: dict[str, Any],
-    *,
-    kind: str,
-    page_number: int = 1,
-) -> None:
-    wrapper = _exchange_wrapper(manifest, kind=kind, page_number=page_number)
-    record = wrapper["record"]
-    body_member = record["response"]["body_member"]
-    body_path = capture_root / body_member["path"]
-    body_payload = body_path.read_bytes()
-    _update_member_identity(body_member, body_payload)
-
-    metadata_member = wrapper["metadata_member"]
-    metadata_payload = _canonical_json_bytes(record)
-    metadata_path = capture_root / metadata_member["path"]
-    metadata_path.write_bytes(metadata_payload)
-    _update_member_identity(metadata_member, metadata_payload)
-    metadata_member["canonicalization"] = "json-sort-keys-utf8-newline"
-    metadata_member["canonical_reserialization_matches"] = True
-    metadata_member["media_type"] = "application/json"
-    wrapper["metadata_record_canonical_bytes_equal_record"] = True
-    _write_manifest(capture_root, manifest)
-
-
-def _replace_raw_json(
-    capture_root: Path,
-    manifest: dict[str, Any],
-    *,
-    kind: str,
-    mutate: Callable[[dict[str, Any]], None],
-    page_number: int = 1,
-    compact: bool = False,
-    bom: bool = False,
-    crlf: bool = False,
-) -> None:
-    wrapper = _exchange_wrapper(manifest, kind=kind, page_number=page_number)
-    body_path = capture_root / wrapper["record"]["response"]["body_member"]["path"]
-    payload = body_path.read_bytes()
-    if payload.startswith(b"\xef\xbb\xbf"):
-        payload = payload[3:]
-    value = json.loads(payload.decode("utf-8"))
-    assert isinstance(value, dict)
-    mutate(value)
-    if compact:
-        rendered = json.dumps(
-            value,
-            ensure_ascii=False,
-            sort_keys=True,
-            separators=(",", ":"),
-            allow_nan=False,
-        ).encode("utf-8") + b"\n"
-    else:
-        rendered = _json_body(value)
-    if crlf:
-        rendered = rendered.replace(b"\n", b"\r\n")
-    if bom:
-        rendered = b"\xef\xbb\xbf" + rendered
-    body_path.write_bytes(rendered)
-    _rebind_exchange(
-        capture_root,
-        manifest,
-        kind=kind,
-        page_number=page_number,
-    )
-
-
-def _rewrite_exchange_record(
-    capture_root: Path,
-    manifest: dict[str, Any],
-    *,
-    kind: str,
-    mutate: Callable[[dict[str, Any]], None],
-    page_number: int = 1,
-) -> None:
-    wrapper = _exchange_wrapper(manifest, kind=kind, page_number=page_number)
-    mutate(wrapper["record"])
-    _rebind_exchange(
-        capture_root,
-        manifest,
-        kind=kind,
-        page_number=page_number,
-    )
-
-
-def _validate_without_process_audit(
-    validator: Any,
-    *,
-    repository_root: Path,
-    capture_root: Path,
+    capture_started_utc: str = "2026-08-01T18:00:00.000000Z",
+    response_received_utc: str = "2026-08-01T18:00:00.000001Z",
 ) -> Any:
-    original = validator._install_network_audit_guard
-    validator._install_network_audit_guard = lambda: None
-    try:
-        return validator.validate_capture(
-            repository_root=repository_root,
-            capture_root=capture_root,
-        )
-    finally:
-        validator._install_network_audit_guard = original
-
-
-def _assert_rejected(
-    validator: Any,
-    *,
-    capture_root: Path,
-    error_code: str,
-    stage: str | None = None,
-    member_path: str | None | object = ...,
-    repository_root: Path = ROOT,
-) -> Any:
-    with pytest.raises(validator.ValidationError) as captured:
-        _validate_without_process_audit(
-            validator,
-            repository_root=repository_root,
-            capture_root=capture_root,
-        )
-    error = captured.value
-    assert error.error_code == error_code
-    if stage is not None:
-        assert error.stage == stage
-    if member_path is not ...:
-        assert error.member_path == member_path
-    return error
-
-
-def _subprocess_environment() -> dict[str, str]:
-    environment = {
-        key: value
-        for key, value in os.environ.items()
-        if key
-        not in {
-            "PYTHONHOME",
-            "PYTHONPATH",
-            "PYTHONSTARTUP",
-            "PYTHONINSPECT",
-            "PYTEST_ADDOPTS",
-            "PYTEST_PLUGINS",
-            "PYTEST_CURRENT_TEST",
-        }
-    }
-    environment.update(
-        {
-            "LANG": "C.UTF-8",
-            "LC_ALL": "C.UTF-8",
-            "PYTHONDONTWRITEBYTECODE": "1",
-            "PYTHONHASHSEED": "0",
-        }
+    body = _json_body(document)
+    selected, _ = capture._selected_response_headers(_headers_for_body(body))
+    return capture.CapturedHttpResponse(
+        status=200,
+        selected_headers=selected,
+        body=body,
+        parsed_body=dict(document),
+        capture_started_utc=capture_started_utc,
+        response_received_utc=response_received_utc,
     )
-    return environment
 
 
-def _run_validator_cli(
-    capture_root: Path,
-    *,
-    isolated: bool,
-    extra_arguments: Sequence[str] = (),
-    repository_root: Path = ROOT,
-) -> subprocess.CompletedProcess[bytes]:
-    command = [sys.executable]
-    if isolated:
-        command.append("-I")
-    command.extend(
-        [
-            str(VALIDATOR_PATH),
-            "--repository-root",
-            str(repository_root),
-            "--capture-root",
-            str(capture_root),
-            *extra_arguments,
-        ]
+
+
+
+def _with_top_level_numeric_probe(payload: bytes, token: str) -> bytes:
+    token_bytes = token.encode("ascii", errors="strict")
+    if not payload.endswith(b"\n}\n"):
+        raise AssertionError("fixture JSON body shape changed")
+    return (
+        payload[:-3]
+        + b',\n  "numeric_domain_probe": '
+        + token_bytes
+        + b"\n}\n"
     )
-    return subprocess.run(
-        command,
-        cwd=ROOT,
-        env=_subprocess_environment(),
-        check=False,
-        stdin=subprocess.DEVNULL,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        timeout=60,
-    )
+
+def _assert_capture_error(
+    capture: Any,
+    expected: str,
+    operation: Callable[[], Any],
+) -> None:
+    with pytest.raises(capture.CaptureError) as caught:
+        operation()
+    assert caught.value.error_code == expected
+    assert str(caught.value) == expected
+
+
+
 
 
 def test_authoritative_launcher_sanitizes_pytest_environment_and_requires_completed_contract(
@@ -1144,2038 +912,2026 @@ def test_direct_authoritative_launcher_rejects_terminal_pytest_early_exit() -> N
     assert b"usage: pytest" not in result.stdout.lower()
 
 
-@pytest.mark.parametrize(
-    ("path", "expected_size", "expected_sha256", "expected_blob"),
-    EXPECTED_SOURCE_IDENTITIES,
-)
-def test_exact_prior_repository_object_identities(
-    path: Path,
-    expected_size: int,
-    expected_sha256: str,
-    expected_blob: str,
+def test_capture_tool_exact_identity_and_linux_runtime_contract(capture: Any) -> None:
+    payload = CAPTURE_TOOL_PATH.read_bytes()
+    assert (
+        len(payload),
+        _sha256(payload),
+        _git_blob_sha1(payload),
+    ) == EXPECTED_CAPTURE_TOOL_IDENTITY
+    assert capture.TOOL_VERSION == "0.1.0"
+    assert capture.PRODUCER_ID == "pulsemech_compute_post_run_producer_input_capture_v0"
+    assert capture.SUPPORTED_OS_NAME == "posix"
+    assert capture.SUPPORTED_PLATFORM_PREFIX == "linux"
+    capture._validate_runtime_platform()
+
+
+def test_fixture_capture_one_page_preserves_exact_bytes_and_boundaries(
+    capture: Any,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    payload = path.read_bytes()
-    assert len(payload) == expected_size
-    assert _sha256(payload) == expected_sha256
-    assert _git_blob_sha1(payload) == expected_blob
-    assert not payload.startswith(b"\xef\xbb\xbf")
-    assert payload.endswith(b"\n")
+    live_network_attempts: list[str] = []
 
+    def forbidden_https_connection(*args: Any, **kwargs: Any) -> Any:
+        del args, kwargs
+        live_network_attempts.append("http.client.HTTPSConnection")
+        raise AssertionError("live network attempted during fixture capture")
 
-def test_validator_source_is_separate_and_network_free() -> None:
-    source = VALIDATOR_PATH.read_text(encoding="utf-8")
-    tree = ast.parse(source)
-    imported: set[str] = set()
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Import):
-            imported.update(alias.name for alias in node.names)
-        elif isinstance(node, ast.ImportFrom) and node.module is not None:
-            imported.add(node.module)
-    assert not any(
-        name == "capture_pulsemech_compute_post_run_producer_input_v0"
-        or name.startswith("capture_pulsemech_compute_post_run_producer_input_v0.")
-        for name in imported
-    )
-    assert "http.client" not in imported
-    assert "urllib.request" not in imported
-    assert "requests" not in imported
-    assert "socket" not in imported
-    assert "_install_network_audit_guard" in source
-    assert "network_access_forbidden" in source
-    assert "offline_validator_network_access" in source
-    assert "capture_tool_verdict_trusted" in source
-    assert "EXPECTED_CAPTURE_DIRECTORY_MODE = 0o700" in source
-    assert "EXPECTED_CAPTURE_FILE_MODE = 0o600" in source
-    assert "capture_root_mode_mismatch" in source
-    assert "capture_directory_mode_mismatch" in source
-    assert "capture_member_mode_mismatch" in source
+    def forbidden_socket_connection(*args: Any, **kwargs: Any) -> Any:
+        del args, kwargs
+        live_network_attempts.append("socket.create_connection")
+        raise AssertionError("live network attempted during fixture capture")
 
+    monkeypatch.setattr(capture.http.client, "HTTPSConnection", forbidden_https_connection)
+    monkeypatch.setattr(socket, "create_connection", forbidden_socket_connection)
 
-def test_exact_one_page_capture_validates_offline(
-    validator: Any,
-    base_capture_root: Path,
-) -> None:
-    _assert_expected_capture_modes(base_capture_root)
-    result = _validate_without_process_audit(
-        validator,
+    sources_before = _source_snapshot()
+    transport, clock, run_body, page_bodies = _scripted_fixture(capture)
+    output = tmp_path / "capture-one-page"
+
+    result = capture.capture_with_injected_dependencies_for_test(
         repository_root=ROOT,
-        capture_root=base_capture_root,
+        output_directory=output,
+        token=TOKEN,
+        transport=transport,
+        clock=clock,
     )
+
     assert result.record_status == "example"
-    assert result.manifest_file_name == EXAMPLE_MANIFEST_NAME
+    assert result.manifest_file_name == capture.EXAMPLE_MANIFEST_NAME
     assert result.page_count == 1
     assert result.job_count == 8
     assert result.step_record_count == 8
     assert result.authority_effect == "none"
-    expected_digest = _sha256(_manifest_path(base_capture_root).read_bytes())
-    assert result.manifest_sha256 == expected_digest
-    diagnostic = validator._success_diagnostic(result)
-    assert diagnostic == _canonical_json_bytes(json.loads(diagnostic))
-    parsed = json.loads(diagnostic)
-    assert parsed["result"] == "validated_offline"
-    assert parsed["ok"] is True
-    assert parsed["authority_effect"] == "none"
+    assert result.manifest_sha256 == _sha256(result.manifest_bytes)
+    assert transport.remaining == 0
+    assert clock.remaining == 0
+    assert live_network_attempts == []
+
+    assert [call.request_target for call in transport.calls] == [
+        capture.RUN_REQUEST_PATH,
+        capture.FIRST_JOBS_REQUEST_TARGET,
+    ]
+    for call in transport.calls:
+        assert call.headers == _expected_application_headers(capture)
+        assert call.timeout_seconds == 30
+        assert call.maximum_body_bytes == 8 * 1024 * 1024
+
+    expected_members = {
+        "metadata/jobs_page_0001_exchange_v0.json",
+        "metadata/run_attempt_exchange_v0.json",
+        capture.EXAMPLE_MANIFEST_NAME,
+        "raw/jobs_page_0001_response.json",
+        "raw/run_attempt_response.json",
+    }
+    observed_members = {
+        candidate.relative_to(output).as_posix()
+        for candidate in output.rglob("*")
+        if candidate.is_file()
+    }
+    assert observed_members == expected_members
+    assert (output / capture.RUN_BODY_PATH).read_bytes() == run_body
+    assert (output / (capture.JOBS_BODY_TEMPLATE % 1)).read_bytes() == page_bodies[0]
+
+    tree = _snapshot_tree(output)
+    assert stat.S_IMODE(output.stat().st_mode) == 0o700
+    assert tree["raw"] == ("directory", 0o700, None)
+    assert tree["metadata"] == ("directory", 0o700, None)
+    for relative, (kind, mode, payload) in tree.items():
+        if kind == "file":
+            assert mode == 0o600, relative
+            assert payload is not None
+
+    manifest = _manifest(output, capture)
+    schema = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
+    validator = jsonschema.Draft202012Validator(
+        schema,
+        format_checker=jsonschema.FormatChecker(),
+    )
+    assert list(validator.iter_errors(manifest)) == []
+    assert result.manifest_bytes == (
+        output / capture.EXAMPLE_MANIFEST_NAME
+    ).read_bytes()
+
+    assert manifest["record_status"] == "example"
+    assert manifest["provenance"] == capture._example_provenance()
+    assert manifest["temporal_boundary"]["capture_is_platform_response_snapshot"] is False
+    assert manifest["temporal_boundary"]["reference_producer_input_eligible"] is False
+    assert manifest["authority_boundary"]["capture_is_runtime_observation"] is False
+    assert manifest["authority_boundary"]["capture_is_runtime_observation_packet"] is False
+    assert manifest["authority_boundary"]["capture_is_release_decision"] is False
+    assert manifest["authority_boundary"]["capture_is_release_authority"] is False
+    assert manifest["authority_boundary"]["authority_effect"] == "none"
+    assert manifest["counts"] == {
+        "count_relations_verified": True,
+        "declared_non_manifest_member_count": 4,
+        "duplicate_job_id_count": 0,
+        "duplicate_step_number_count": 0,
+        "exchange_metadata_member_count": 2,
+        "jobs_page_exchange_count": 1,
+        "raw_response_member_count": 2,
+        "reconstructed_step_record_count": 8,
+        "reconstructed_unique_job_count": 8,
+        "reported_job_count": 8,
+        "run_attempt_exchange_count": 1,
+    }
+    assert manifest["pagination"]["page_sequence"] == [1]
+    assert manifest["pagination"]["closure_status"] == "closed"
+    assert manifest["pagination"]["final_next_link_absent"] is True
+
+    head = _git_head(ROOT)
+    assert manifest["contract_bindings"]["manifest_schema"]["source_revision"] == head
+    assert manifest["contract_bindings"]["normative_contract"]["source_revision"] == head
+
+    run_exchange = manifest["run_attempt_exchange"]
+    jobs_exchange = manifest["jobs_page_exchanges"][0]
+    for wrapper in (run_exchange, jobs_exchange):
+        metadata_path = output / wrapper["metadata_member"]["path"]
+        expected_metadata = _canonical_json_bytes(wrapper["record"])
+        assert metadata_path.read_bytes() == expected_metadata
+        member = wrapper["metadata_member"]
+        assert member["size_bytes"] == len(expected_metadata)
+        assert member["sha256"] == _sha256(expected_metadata)
+        assert member["git_blob_sha1"] == _git_blob_sha1(expected_metadata)
+        metadata_text = expected_metadata.decode("utf-8")
+        assert TOKEN not in metadata_text
+        assert OTHER_TOKEN not in metadata_text
+        assert f"Bearer {TOKEN}" not in metadata_text
+        request_record = wrapper["record"]["request"]
+        assert request_record["authorization_header_present"] is True
+        assert request_record["authorization_value_recorded"] is False
+
+    for wrapper, raw_body in (
+        (run_exchange, run_body),
+        (jobs_exchange, page_bodies[0]),
+    ):
+        body_member = wrapper["record"]["response"]["body_member"]
+        assert body_member["size_bytes"] == len(raw_body)
+        assert body_member["sha256"] == _sha256(raw_body)
+        assert body_member["git_blob_sha1"] == _git_blob_sha1(raw_body)
+        assert body_member["exact_bytes_preserved"] is True
+        assert body_member["json_normalized"] is False
+        assert body_member["json_reformatted"] is False
+        assert body_member["newline_rewritten"] is False
+        assert body_member["whitespace_rewritten"] is False
+
+    selected = run_exchange["record"]["response"]["selected_headers"]
+    assert selected["content_type"] == {
+        "status": "present",
+        "value": "application/json; charset=utf-8",
+    }
+    assert selected["content_encoding"] == {"status": "absent", "value": None}
+    assert selected["etag"] == {"status": "present", "value": '"run-etag"'}
+    assert selected["link"] == {"status": "absent", "value": None}
+    assert selected["x_github_request_id"] == {
+        "status": "present",
+        "value": "fixture-run-request",
+    }
+
+    all_output = b"".join(
+        payload
+        for kind, _mode, payload in tree.values()
+        if kind == "file" and payload is not None
+    )
+    assert TOKEN.encode("ascii") not in all_output
+    assert ("Bearer " + TOKEN).encode("ascii") not in all_output
+    assert b"fixture-date-not-recorded" not in all_output
+    assert b"fixture-server-not-recorded" not in all_output
+    assert _source_snapshot() == sources_before
 
 
-def test_same_exact_capture_produces_byte_identical_diagnostics(
-    validator: Any,
-    base_capture_root: Path,
+def test_same_fixture_produces_byte_identical_capture(
+    capture: Any,
+    tmp_path: Path,
 ) -> None:
-    first = _validate_without_process_audit(
-        validator,
+    output_a = tmp_path / "capture-a"
+    output_b = tmp_path / "capture-b"
+    transport_a, clock_a, _run_a, _pages_a = _scripted_fixture(capture)
+    transport_b, clock_b, _run_b, _pages_b = _scripted_fixture(capture)
+
+    result_a = capture.capture_with_injected_dependencies_for_test(
         repository_root=ROOT,
-        capture_root=base_capture_root,
+        output_directory=output_a,
+        token=TOKEN,
+        transport=transport_a,
+        clock=clock_a,
     )
-    second = _validate_without_process_audit(
-        validator,
+    result_b = capture.capture_with_injected_dependencies_for_test(
         repository_root=ROOT,
-        capture_root=base_capture_root,
+        output_directory=output_b,
+        token=TOKEN,
+        transport=transport_b,
+        clock=clock_b,
     )
-    assert first == second
-    assert validator._success_diagnostic(first) == validator._success_diagnostic(second)
+
+    snapshot_a = _snapshot_tree(output_a)
+    snapshot_b = _snapshot_tree(output_b)
+    assert snapshot_a == snapshot_b
+    assert result_a == result_b
+    assert result_a.manifest_bytes == result_b.manifest_bytes
+    assert result_a.manifest_sha256 == result_b.manifest_sha256
+    all_bytes = b"".join(
+        payload
+        for kind, _mode, payload in snapshot_a.values()
+        if kind == "file" and payload is not None
+    )
+    assert b".tmp-" not in all_bytes
+    assert output_a.name.encode("ascii") not in all_bytes
+    assert output_b.name.encode("ascii") not in all_bytes
 
 
-def test_two_page_capture_validates_exact_pagination(
-    validator: Any,
-    base_two_page_capture_root: Path,
+def test_two_page_rel_next_capture_is_exact_and_closed(
+    capture: Any,
+    tmp_path: Path,
 ) -> None:
-    result = _validate_without_process_audit(
-        validator,
-        repository_root=ROOT,
-        capture_root=base_two_page_capture_root,
+    first_ids = list(range(90000000001, 90000000101))
+    second_ids = [90000000101]
+    next_url = (
+        "https://api.github.com"
+        + capture.JOBS_REQUEST_PATH
+        + "?per_page=100&page=2"
     )
+    pages = [
+        (
+            _jobs_document(capture, first_ids, total_count=101),
+            f'<{next_url}>; rel="next", <{next_url}>; rel="last"',
+        ),
+        (_jobs_document(capture, second_ids, total_count=101), None),
+    ]
+    transport, clock, run_body, page_bodies = _scripted_fixture(
+        capture,
+        pages=pages,
+    )
+    output = tmp_path / "capture-two-page"
+
+    result = capture.capture_with_injected_dependencies_for_test(
+        repository_root=ROOT,
+        output_directory=output,
+        token=TOKEN,
+        transport=transport,
+        clock=clock,
+    )
+
     assert result.page_count == 2
     assert result.job_count == 101
     assert result.step_record_count == 101
-    assert result.authority_effect == "none"
+    assert [call.request_target for call in transport.calls] == [
+        capture.RUN_REQUEST_PATH,
+        capture.FIRST_JOBS_REQUEST_TARGET,
+        f"{capture.JOBS_REQUEST_PATH}?per_page=100&page=2",
+    ]
+    assert (output / capture.RUN_BODY_PATH).read_bytes() == run_body
+    assert (output / (capture.JOBS_BODY_TEMPLATE % 1)).read_bytes() == page_bodies[0]
+    assert (output / (capture.JOBS_BODY_TEMPLATE % 2)).read_bytes() == page_bodies[1]
+
+    manifest = _manifest(output, capture)
+    assert manifest["pagination"]["page_count"] == 2
+    assert manifest["pagination"]["page_sequence"] == [1, 2]
+    assert manifest["pagination"]["reported_total_count"] == 101
+    assert manifest["pagination"]["reconstructed_unique_job_count"] == 101
+    first_relation = manifest["jobs_page_exchanges"][0]["record"][
+        "pagination_relation"
+    ]
+    second_relation = manifest["jobs_page_exchanges"][1]["record"][
+        "pagination_relation"
+    ]
+    assert first_relation == {
+        "is_final_page": False,
+        "link_header_status": "present",
+        "next_page_number": 2,
+        "next_relation_status": "present",
+        "next_request_target": f"{capture.JOBS_REQUEST_PATH}?per_page=100&page=2",
+        "page_number": 1,
+        "relation_source": "selected_link_header",
+    }
+    assert second_relation == {
+        "is_final_page": True,
+        "link_header_status": "absent",
+        "next_page_number": None,
+        "next_relation_status": "closed_by_absence",
+        "next_request_target": None,
+        "page_number": 2,
+        "relation_source": "selected_link_header",
+    }
+    assert manifest["counts"]["declared_non_manifest_member_count"] == 6
+    assert manifest["counts"]["raw_response_member_count"] == 3
+    assert manifest["counts"]["exchange_metadata_member_count"] == 3
 
 
-def test_raw_response_bom_and_crlf_are_exact_not_canonicalized(
-    validator: Any,
-    base_capture_root: Path,
+def test_existing_output_is_never_replaced(
+    capture: Any,
     tmp_path: Path,
 ) -> None:
-    root = _copy_capture(base_capture_root, tmp_path)
-    manifest = _load_manifest(root)
-    _replace_raw_json(
-        root,
-        manifest,
-        kind="run",
-        mutate=lambda value: None,
-        bom=True,
-        crlf=True,
-    )
-    result = _validate_without_process_audit(
-        validator,
+    output = tmp_path / "capture-existing"
+    transport_a, clock_a, _run_a, _pages_a = _scripted_fixture(capture)
+    capture.capture_with_injected_dependencies_for_test(
         repository_root=ROOT,
-        capture_root=root,
+        output_directory=output,
+        token=TOKEN,
+        transport=transport_a,
+        clock=clock_a,
     )
-    assert result.job_count == 8
-    rebound = _load_manifest(root)["run_attempt_exchange"]["record"]["response"]["body_member"]
-    assert rebound["utf8_bom_present"] is True
-    assert rebound["cr_count"] > 0
-    assert rebound["lf_count"] > 0
-    assert rebound["exact_bytes_preserved"] is True
-    assert rebound["json_normalized"] is False
+    before = _snapshot_tree(output)
+
+    transport_b, clock_b, _run_b, _pages_b = _scripted_fixture(capture)
+    _assert_capture_error(
+        capture,
+        "existing_output_replacement_forbidden",
+        lambda: capture.capture_with_injected_dependencies_for_test(
+            repository_root=ROOT,
+            output_directory=output,
+            token=TOKEN,
+            transport=transport_b,
+            clock=clock_b,
+        ),
+    )
+    assert _snapshot_tree(output) == before
+    _assert_no_owned_staging(tmp_path, output.name)
 
 
-def test_compact_raw_jobs_json_is_accepted_when_exactly_rebound(
-    validator: Any,
-    base_capture_root: Path,
+def test_output_inside_repository_is_rejected_and_sources_remain_exact(
+    capture: Any,
+) -> None:
+    output = ROOT / ".pulsemech-forbidden-capture-output-v0"
+    if output.exists() or output.is_symlink():
+        raise AssertionError(f"test output path unexpectedly exists: {output}")
+    sources_before = _source_snapshot()
+    transport, clock, _run, _pages = _scripted_fixture(capture)
+    try:
+        _assert_capture_error(
+            capture,
+            "protected_repository_source_write_forbidden",
+            lambda: capture.capture_with_injected_dependencies_for_test(
+                repository_root=ROOT,
+                output_directory=output,
+                token=TOKEN,
+                transport=transport,
+                clock=clock,
+            ),
+        )
+        assert not output.exists()
+        assert _source_snapshot() == sources_before
+    finally:
+        if output.exists() and output.is_dir():
+            shutil.rmtree(output)
+
+
+@pytest.mark.parametrize(
+    "token",
+    [
+        "",
+        "short",
+        "contains space " + ("A" * 20),
+        "contains\nnewline" + ("A" * 20),
+        "é" + ("A" * 30),
+        "A" * 4097,
+    ],
+    ids=[
+        "empty",
+        "too-short",
+        "space",
+        "newline",
+        "non-ascii",
+        "too-large",
+    ],
+)
+def test_token_boundary_fails_closed(capture: Any, token: str) -> None:
+    _assert_capture_error(
+        capture,
+        "gh_token_missing_or_invalid",
+        lambda: capture._validate_token(token),
+    )
+
+
+def test_application_request_headers_are_exact_and_ordered(capture: Any) -> None:
+    assert capture._application_request_headers(TOKEN) == _expected_application_headers(
+        capture
+    )
+
+
+@pytest.mark.parametrize(
+    ("case", "expected"),
+    [
+        ("status-bool", "response_status_type_invalid"),
+        ("body-type", "response_body_type_invalid"),
+        ("eof-type", "response_eof_state_invalid"),
+        ("redirect-type", "response_redirect_state_invalid"),
+        ("redirect-flag", "redirect_admission_rejected"),
+        ("redirect-status", "redirect_admission_rejected"),
+        ("non-200", "non_200_response_rejected"),
+        ("truncated", "truncated_response_body"),
+        ("empty", "empty_response_body"),
+        ("content-type-missing", "content_type_header_missing"),
+        ("content-type-wrong", "wrong_content_type"),
+        ("content-encoding", "unsupported_content_encoding"),
+        ("duplicate-content-type", "duplicate_allowlisted_response_header"),
+        ("duplicate-content-length", "duplicate_content_length_header"),
+        ("content-length-invalid", "content_length_header_invalid"),
+        ("content-length-mismatch", "content_length_body_size_mismatch"),
+        ("header-newline", "response_header_value_invalid"),
+        ("malformed-json", "run_attempt_response_invalid_json"),
+        ("top-level-array", "run_attempt_response_top_level_not_object"),
+    ],
+)
+def test_response_admission_failures_are_deterministic(
+    capture: Any,
+    case: str,
+    expected: str,
+) -> None:
+    body: Any = _json_body(_run_document(capture))
+    status: Any = 200
+    clean_eof: Any = True
+    redirect_observed: Any = False
+    headers: list[tuple[str, str]] = list(_headers_for_body(body))
+
+    if case == "status-bool":
+        status = True
+    elif case == "body-type":
+        body = "not-bytes"
+    elif case == "eof-type":
+        clean_eof = "true"
+    elif case == "redirect-type":
+        redirect_observed = "false"
+    elif case == "redirect-flag":
+        redirect_observed = True
+    elif case == "redirect-status":
+        status = 302
+    elif case == "non-200":
+        status = 503
+    elif case == "truncated":
+        clean_eof = False
+    elif case == "empty":
+        body = b""
+        headers = list(_headers_for_body(body))
+    elif case == "content-type-missing":
+        headers = list(_headers_for_body(body, content_type=None))
+    elif case == "content-type-wrong":
+        headers = list(_headers_for_body(body, content_type="text/plain"))
+    elif case == "content-encoding":
+        headers = list(_headers_for_body(body, content_encoding="gzip"))
+    elif case == "duplicate-content-type":
+        headers.append(("content-type", "application/json"))
+    elif case == "duplicate-content-length":
+        headers.append(("content-length", str(len(body))))
+    elif case == "content-length-invalid":
+        headers = [
+            (name, "NaN" if name.lower() == "content-length" else value)
+            for name, value in headers
+        ]
+    elif case == "content-length-mismatch":
+        headers = [
+            (name, str(len(body) + 1) if name.lower() == "content-length" else value)
+            for name, value in headers
+        ]
+    elif case == "header-newline":
+        headers.append(("ETag", "bad\nvalue"))
+    elif case == "malformed-json":
+        body = b'{"unterminated":'
+        headers = list(_headers_for_body(body))
+    elif case == "top-level-array":
+        body = b"[]\n"
+        headers = list(_headers_for_body(body))
+    else:
+        raise AssertionError(f"unknown case: {case}")
+
+    response = capture.TransportResponse(
+        status=status,
+        headers=tuple(headers),
+        body=body,
+        clean_eof=clean_eof,
+        redirect_observed=redirect_observed,
+    )
+    transport = ScriptedTransport([(capture.RUN_REQUEST_PATH, response)])
+    clock = _clock_for_requests(1)
+    _assert_capture_error(
+        capture,
+        expected,
+        lambda: capture._capture_response(
+            transport=transport,
+            clock=clock,
+            token=TOKEN,
+            request_target=capture.RUN_REQUEST_PATH,
+            label="run_attempt_response",
+        ),
+    )
+
+
+
+
+
+@pytest.mark.parametrize(
+    "numeric_token",
+    ("1.0", "1e2", "-0", "NaN", "Infinity", "-Infinity"),
+    ids=(
+        "fractional",
+        "scientific-notation",
+        "negative-zero",
+        "nan",
+        "positive-infinity",
+        "negative-infinity",
+    ),
+)
+def test_numeric_response_tokens_fail_before_publication(
+    capture: Any,
     tmp_path: Path,
+    numeric_token: str,
 ) -> None:
-    root = _copy_capture(base_capture_root, tmp_path)
-    manifest = _load_manifest(root)
-    _replace_raw_json(
-        root,
-        manifest,
-        kind="jobs",
-        mutate=lambda value: None,
-        compact=True,
+    valid_run_body = _json_body(_run_document(capture))
+    valid_jobs_body = _json_body(
+        _jobs_document(capture, list(range(86815582001, 86815582009)))
     )
-    result = _validate_without_process_audit(
-        validator,
-        repository_root=ROOT,
-        capture_root=root,
-    )
-    assert result.job_count == 8
-    assert result.step_record_count == 8
+    sources_before = _source_snapshot()
+
+    for response_role in ("run", "jobs"):
+        run_body = valid_run_body
+        jobs_body = valid_jobs_body
+        if response_role == "run":
+            run_body = _with_top_level_numeric_probe(run_body, numeric_token)
+            expected_error = "run_attempt_response_invalid_json"
+        else:
+            jobs_body = _with_top_level_numeric_probe(jobs_body, numeric_token)
+            expected_error = "jobs_page_1_response_invalid_json"
+
+        output = tmp_path / (
+            "numeric-domain-"
+            + numeric_token.replace("-", "negative-").replace(".", "-")
+            + "-"
+            + response_role
+        )
+        transport = ScriptedTransport(
+            [
+                (
+                    capture.RUN_REQUEST_PATH,
+                    _transport_response(capture, run_body),
+                ),
+                (
+                    capture.FIRST_JOBS_REQUEST_TARGET,
+                    _transport_response(capture, jobs_body),
+                ),
+            ]
+        )
+        clock = _clock_for_requests(2)
+        _assert_capture_error(
+            capture,
+            expected_error,
+            lambda: capture.capture_with_injected_dependencies_for_test(
+                repository_root=ROOT,
+                output_directory=output,
+                token=TOKEN,
+                transport=transport,
+                clock=clock,
+            ),
+        )
+        assert not output.exists()
+        _assert_no_owned_staging(tmp_path, output.name)
+        assert _source_snapshot() == sources_before
+        if response_role == "run":
+            assert len(transport.calls) == 1
+            assert transport.remaining == 1
+            assert clock.consumed == 2
+        else:
+            assert len(transport.calls) == 2
+            assert transport.remaining == 0
+            assert clock.consumed == 4
 
 
-def test_cli_requires_isolated_python(base_capture_root: Path) -> None:
-    completed = _run_validator_cli(base_capture_root, isolated=False)
-    assert completed.returncode == 2
-    assert completed.stdout == b""
-    assert completed.stderr == (
-        b'{"authority_effect":"none",'
-        b'"error_code":"isolated_python_runtime_required",'
-        b'"member_path":null,'
-        b'"ok":false,'
-        b'"stage":"runtime",'
-        b'"tool":"check_pulsemech_compute_post_run_producer_input_capture_v0",'
-        b'"tool_version":"0.1.0"}\n'
-    )
-
-
-def test_isolated_cli_validates_exact_capture(
-    validator: Any,
-    base_capture_root: Path,
+def test_response_size_and_clock_order_limits_fail_closed(
+    capture: Any,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    completed = _run_validator_cli(base_capture_root, isolated=True)
-    assert completed.returncode == 0
-    assert completed.stderr == b""
-    parsed = json.loads(completed.stdout)
-    assert completed.stdout == _canonical_json_bytes(parsed)
-    assert parsed["ok"] is True
-    assert parsed["result"] == "validated_offline"
-    assert parsed["record_status"] == "example"
-    assert parsed["page_count"] == 1
-    assert parsed["job_count"] == 8
-    assert parsed["step_record_count"] == 8
-    assert parsed["authority_effect"] == "none"
-    in_process = _validate_without_process_audit(
-        validator,
-        repository_root=ROOT,
-        capture_root=base_capture_root,
+    oversized_body = b'{"value":"' + (b"x" * 128) + b'"}\n'
+    response = _transport_response(capture, oversized_body)
+    transport = ScriptedTransport([(capture.RUN_REQUEST_PATH, response)])
+    monkeypatch.setattr(capture, "MAX_RESPONSE_BODY_BYTES", 32)
+    _assert_capture_error(
+        capture,
+        "response_body_size_limit_exceeded",
+        lambda: capture._capture_response(
+            transport=transport,
+            clock=_clock_for_requests(1),
+            token=TOKEN,
+            request_target=capture.RUN_REQUEST_PATH,
+            label="run_attempt_response",
+        ),
     )
-    assert completed.stdout == validator._success_diagnostic(in_process)
+
+    valid_body = _json_body(_run_document(capture))
+    valid_response = _transport_response(capture, valid_body)
+    reverse_clock = SequenceClock(
+        [
+            CAPTURE_BASE + dt.timedelta(microseconds=2),
+            CAPTURE_BASE + dt.timedelta(microseconds=1),
+        ]
+    )
+    _assert_capture_error(
+        capture,
+        "response_received_before_capture_start",
+        lambda: capture._capture_response(
+            transport=ScriptedTransport(
+                [(capture.RUN_REQUEST_PATH, valid_response)]
+            ),
+            clock=reverse_clock,
+            token=TOKEN,
+            request_target=capture.RUN_REQUEST_PATH,
+            label="run_attempt_response",
+        ),
+    )
 
 
-def test_invalid_cli_argument_never_echoes_secret(base_capture_root: Path) -> None:
-    secret = "ghp_" + ("Z" * 36)
-    completed = _run_validator_cli(
-        base_capture_root,
-        isolated=True,
-        extra_arguments=("--unexpected", secret),
+@pytest.mark.parametrize(
+    ("path", "replacement", "expected"),
+    [
+        (("id",), 1, "wrong_run_id"),
+        (("run_number",), 1, "wrong_run_number"),
+        (("run_attempt",), 2, "wrong_run_attempt"),
+        (("name",), "Other CI", "wrong_workflow_name"),
+        (("workflow_id",), 1, "wrong_workflow_id"),
+        (("path",), ".github/workflows/other.yml", "wrong_workflow_path"),
+        (("event",), "push", "wrong_event"),
+        (("head_branch",), "feature", "wrong_head_branch"),
+        (("head_sha",), "0" * 40, "wrong_source_commit"),
+        (("status",), "in_progress", "non_completed_run"),
+        (("conclusion",), "failure", "non_success_reference_run"),
+        (("created_at",), "2026-07-13T12:26:53Z", "run_created_at_invalid"),
+        (("run_started_at",), "2026-07-13T12:26:53Z", "run_started_at_invalid"),
+        (("updated_at",), "2026-07-13T12:32:22Z", "run_updated_at_invalid"),
+        (("repository", "full_name"), "Other/repo", "wrong_repository_identity"),
+        (("repository", "id"), 1, "wrong_repository_identity"),
+        (("repository", "fork"), True, "fork_subject"),
+        (("head_repository", "full_name"), "Other/repo", "wrong_head_repository_identity"),
+        (("head_repository", "id"), 1, "wrong_head_repository_identity"),
+        (("head_repository", "fork"), True, "wrong_head_repository_identity"),
+    ],
+    ids=[
+        "run-id",
+        "run-number",
+        "run-attempt",
+        "workflow-name",
+        "workflow-id",
+        "workflow-path",
+        "event",
+        "head-branch",
+        "source-commit",
+        "run-status",
+        "run-conclusion",
+        "created-at",
+        "started-at",
+        "updated-at",
+        "repository-name",
+        "repository-id",
+        "fork",
+        "head-repository-name",
+        "head-repository-id",
+        "head-repository-fork",
+    ],
+)
+def test_run_attempt_identity_mutations_fail_closed(
+    capture: Any,
+    path: Sequence[Any],
+    replacement: Any,
+    expected: str,
+) -> None:
+    document = _run_document(capture)
+    _set_path(document, path, replacement)
+    response = _captured_response(capture, document)
+    _assert_capture_error(
+        capture,
+        expected,
+        lambda: capture._validate_run_response(response),
     )
-    assert completed.returncode == 2
-    assert completed.stdout == b""
-    assert secret.encode("ascii") not in completed.stderr
-    parsed = json.loads(completed.stderr)
-    assert parsed == {
-        "authority_effect": "none",
-        "error_code": "command_line_invalid",
-        "member_path": None,
-        "ok": False,
-        "stage": "runtime",
-        "tool": "check_pulsemech_compute_post_run_producer_input_capture_v0",
-        "tool_version": "0.1.0",
+
+
+def test_run_attempt_capture_must_occur_after_subject_completion(capture: Any) -> None:
+    response = _captured_response(
+        capture,
+        _run_document(capture),
+        capture_started_utc="2026-07-13T12:32:20.999999Z",
+        response_received_utc="2026-07-13T12:32:21.000000Z",
+    )
+    _assert_capture_error(
+        capture,
+        "capture_started_before_subject_run_completed",
+        lambda: capture._validate_run_response(response),
+    )
+
+
+def test_valid_run_attempt_reconstructs_exact_subject(capture: Any) -> None:
+    summary, subject = capture._validate_run_response(
+        _captured_response(capture, _run_document(capture))
+    )
+    assert subject == capture._expected_subject()
+    assert summary["workflow_run_id"] == capture.SUBJECT_RUN_ID
+    assert summary["workflow_run_attempt"] == capture.SUBJECT_RUN_ATTEMPT
+    assert summary["head_sha"] == capture.SUBJECT_SOURCE_COMMIT
+    assert summary["same_repository_subject"] is True
+
+
+@pytest.mark.parametrize(
+    ("case", "expected"),
+    [
+        ("total-count-type", "jobs_total_count_invalid"),
+        ("jobs-missing", "jobs_array_missing"),
+        ("job-not-object", "job_record_not_object"),
+        ("job-id", "job_id_invalid"),
+        ("duplicate-job", "duplicate_job_id"),
+        ("run-id", "job_run_id_mismatch"),
+        ("run-attempt", "job_run_attempt_mismatch"),
+        ("workflow-name", "job_workflow_name_mismatch"),
+        ("head-sha", "job_head_sha_mismatch"),
+        ("job-name", "job_name_invalid"),
+        ("job-status", "job_0_status_invalid"),
+        ("job-conclusion", "job_0_conclusion_invalid"),
+        ("job-started", "job_0_started_at_invalid"),
+        ("job-time-order", "job_0_timestamp_order_invalid"),
+        ("skipped-time-pair", "job_0_skipped_timestamp_pair_invalid"),
+        ("steps-type", "job_steps_not_array"),
+        ("step-not-object", "step_record_not_object"),
+        ("step-number", "step_number_invalid"),
+        ("duplicate-step", "duplicate_step_number"),
+        ("step-order", "step_order_invalid"),
+        ("step-name", "step_name_invalid"),
+        ("step-status", "job_0_step_0_status_invalid"),
+        ("step-conclusion", "job_0_step_0_conclusion_invalid"),
+        ("step-started", "job_0_step_0_started_at_invalid"),
+        ("step-time-order", "job_0_step_0_timestamp_order_invalid"),
+        ("step-skipped-time-pair", "job_0_step_0_skipped_timestamp_pair_invalid"),
+    ],
+)
+def test_job_and_step_binding_mutations_fail_closed(
+    capture: Any,
+    case: str,
+    expected: str,
+) -> None:
+    document = _jobs_document(capture, [1001], total_count=1, steps_per_job=1)
+    job = document["jobs"][0]
+    step = job["steps"][0]
+
+    if case == "total-count-type":
+        document["total_count"] = True
+    elif case == "jobs-missing":
+        del document["jobs"]
+    elif case == "job-not-object":
+        document["jobs"] = ["not-an-object"]
+    elif case == "job-id":
+        job["id"] = 0
+    elif case == "duplicate-job":
+        document["jobs"].append(copy.deepcopy(job))
+        document["total_count"] = 2
+    elif case == "run-id":
+        job["run_id"] = 1
+    elif case == "run-attempt":
+        job["run_attempt"] = 2
+    elif case == "workflow-name":
+        job["workflow_name"] = "Other CI"
+    elif case == "head-sha":
+        job["head_sha"] = "0" * 40
+    elif case == "job-name":
+        del job["name"]
+    elif case == "job-status":
+        job["status"] = "in_progress"
+    elif case == "job-conclusion":
+        job["conclusion"] = "failure"
+    elif case == "job-started":
+        job["started_at"] = None
+    elif case == "job-time-order":
+        job["started_at"] = "2026-07-13T12:27:02Z"
+        job["completed_at"] = "2026-07-13T12:27:01Z"
+    elif case == "skipped-time-pair":
+        job["conclusion"] = "skipped"
+        job["started_at"] = None
+    elif case == "steps-type":
+        job["steps"] = "not-an-array"
+    elif case == "step-not-object":
+        job["steps"] = ["not-an-object"]
+    elif case == "step-number":
+        step["number"] = 0
+    elif case == "duplicate-step":
+        job["steps"].append(copy.deepcopy(step))
+    elif case == "step-order":
+        job["steps"] = [_step_document(2), _step_document(1)]
+    elif case == "step-name":
+        del step["name"]
+    elif case == "step-status":
+        step["status"] = "in_progress"
+    elif case == "step-conclusion":
+        step["conclusion"] = "failure"
+    elif case == "step-started":
+        step["started_at"] = None
+    elif case == "step-time-order":
+        step["started_at"] = "2026-07-13T12:27:02Z"
+        step["completed_at"] = "2026-07-13T12:27:01Z"
+    elif case == "step-skipped-time-pair":
+        step["conclusion"] = "skipped"
+        step["started_at"] = None
+    else:
+        raise AssertionError(f"unknown case: {case}")
+
+    response = _captured_response(capture, document)
+    _assert_capture_error(
+        capture,
+        expected,
+        lambda: capture._validate_jobs_page(
+            response,
+            page_number=1,
+            subject=capture._expected_subject(),
+            all_job_ids=set(),
+        ),
+    )
+
+
+def test_skipped_jobs_and_steps_preserve_explicit_unavailability(capture: Any) -> None:
+    document = {
+        "total_count": 2,
+        "jobs": [
+            _job_document(
+                capture,
+                2001,
+                conclusion="skipped",
+                started_at=None,
+                completed_at=None,
+                steps=None,
+            ),
+            _job_document(
+                capture,
+                2002,
+                steps=[
+                    _step_document(
+                        1,
+                        conclusion="skipped",
+                        started_at=None,
+                        completed_at=None,
+                    )
+                ],
+            ),
+        ],
+    }
+    summary, total, steps = capture._validate_jobs_page(
+        _captured_response(capture, document),
+        page_number=1,
+        subject=capture._expected_subject(),
+        all_job_ids=set(),
+    )
+    assert total == 2
+    assert steps == 1
+    assert summary["jobs_on_page"] == 2
+    assert summary["status_conclusion_relations_valid"] is True
+
+
+def test_job_and_step_limits_fail_closed(
+    capture: Any,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    too_many_jobs = _jobs_document(capture, [3001, 3002], total_count=2)
+    monkeypatch.setattr(capture, "MAX_JOBS_PER_PAGE", 1)
+    _assert_capture_error(
+        capture,
+        "jobs_per_page_limit_exceeded",
+        lambda: capture._validate_jobs_page(
+            _captured_response(capture, too_many_jobs),
+            page_number=1,
+            subject=capture._expected_subject(),
+            all_job_ids=set(),
+        ),
+    )
+
+    monkeypatch.setattr(capture, "MAX_JOBS_PER_PAGE", 100)
+    too_many_steps = _jobs_document(capture, [3003], total_count=1, steps_per_job=2)
+    monkeypatch.setattr(capture, "MAX_STEP_RECORDS_PER_JOB", 1)
+    _assert_capture_error(
+        capture,
+        "step_record_limit_exceeded",
+        lambda: capture._validate_jobs_page(
+            _captured_response(capture, too_many_steps),
+            page_number=1,
+            subject=capture._expected_subject(),
+            all_job_ids=set(),
+        ),
+    )
+
+
+@pytest.mark.parametrize(
+    ("link_value", "current_page", "expected"),
+    [
+        ("<unterminated", 1, "link_header_syntax_invalid"),
+        (
+            "<https://api.github.com/x>; rel=\"next next\"",
+            1,
+            "duplicate_rel_next",
+        ),
+        (
+            "<https://api.github.com/a>; rel=\"next\", "
+            "<https://api.github.com/b>; rel=\"next\"",
+            1,
+            "duplicate_rel_next",
+        ),
+        (
+            "<http://api.github.com"
+            "/repos/HKati/pulse-release-gates-0.1/actions/runs/"
+            "29249887581/attempts/1/jobs?per_page=100&page=2>; rel=\"next\"",
+            1,
+            "link_next_origin_mismatch",
+        ),
+        (
+            "<https://example.com"
+            "/repos/HKati/pulse-release-gates-0.1/actions/runs/"
+            "29249887581/attempts/1/jobs?per_page=100&page=2>; rel=\"next\"",
+            1,
+            "link_next_origin_mismatch",
+        ),
+        (
+            "<https://user@api.github.com"
+            "/repos/HKati/pulse-release-gates-0.1/actions/runs/"
+            "29249887581/attempts/1/jobs?per_page=100&page=2>; rel=\"next\"",
+            1,
+            "link_next_userinfo_forbidden",
+        ),
+        (
+            "<https://api.github.com:443"
+            "/repos/HKati/pulse-release-gates-0.1/actions/runs/"
+            "29249887581/attempts/1/jobs?per_page=100&page=2>; rel=\"next\"",
+            1,
+            "link_next_port_forbidden",
+        ),
+        (
+            "<https://api.github.com"
+            "/repos/HKati/pulse-release-gates-0.1/actions/runs/"
+            "29249887581/attempts/1/jobs?per_page=100&page=2#fragment>; rel=\"next\"",
+            1,
+            "link_next_fragment_forbidden",
+        ),
+        (
+            "<https://api.github.com/repos/HKati/pulse-release-gates-0.1/"
+            "actions/runs/29249887581/jobs?per_page=100&page=2>; rel=\"next\"",
+            1,
+            "link_next_path_mismatch",
+        ),
+        (
+            "<https://api.github.com"
+            "/repos/HKati/pulse-release-gates-0.1/actions/runs/"
+            "29249887581/attempts/1/jobs?page=2&per_page=100>; rel=\"next\"",
+            1,
+            "link_next_query_mismatch",
+        ),
+        (
+            "<https://api.github.com"
+            "/repos/HKati/pulse-release-gates-0.1/actions/runs/"
+            "29249887581/attempts/1/jobs?per_page=100&page=3>; rel=\"next\"",
+            1,
+            "link_next_query_mismatch",
+        ),
+        (
+            "<https://api.github.com"
+            "/repos/HKati/pulse-release-gates-0.1/actions/runs/"
+            "29249887581/attempts/1/jobs?per_page=100&page=101>; rel=\"next\"",
+            100,
+            "maximum_page_count_exceeded",
+        ),
+    ],
+)
+def test_rel_next_mutations_fail_closed(
+    capture: Any,
+    link_value: str,
+    current_page: int,
+    expected: str,
+) -> None:
+    selected, _ = capture._selected_response_headers(
+        (
+            ("Content-Type", "application/json"),
+            ("Link", link_value),
+        )
+    )
+    _assert_capture_error(
+        capture,
+        expected,
+        lambda: capture._link_next_target(
+            selected,
+            current_page=current_page,
+        ),
+    )
+
+
+def test_rel_next_exact_target_and_final_absence_states(capture: Any) -> None:
+    next_url = (
+        "https://api.github.com"
+        + capture.JOBS_REQUEST_PATH
+        + "?per_page=100&page=2"
+    )
+    selected, _ = capture._selected_response_headers(
+        (
+            ("Content-Type", "application/json"),
+            ("Link", f'<{next_url}>; rel="next"'),
+        )
+    )
+    assert capture._link_next_target(selected, current_page=1) == (
+        f"{capture.JOBS_REQUEST_PATH}?per_page=100&page=2",
+        "present",
+    )
+
+    absent, _ = capture._selected_response_headers(
+        (("Content-Type", "application/json"),)
+    )
+    assert capture._link_next_target(absent, current_page=1) == (None, "absent")
+
+    prev_only, _ = capture._selected_response_headers(
+        (
+            ("Content-Type", "application/json"),
+            (
+                "Link",
+                "<https://api.github.com"
+                + capture.JOBS_REQUEST_PATH
+                + "?per_page=100&page=1>; rel=\"prev\"",
+            ),
+        )
+    )
+    assert capture._link_next_target(prev_only, current_page=2) == (None, "present")
+
+
+@pytest.mark.parametrize(
+    ("case", "expected"),
+    [
+        ("reported-total", "reported_total_count_mismatch"),
+        ("page-total-disagreement", "page_total_count_disagreement"),
+        ("duplicate-across-pages", "duplicate_job_id"),
+        ("page-count-relation", "pagination_page_count_relation_mismatch"),
+        ("secret-in-raw-body", "secret_value_in_output"),
+        ("exchange-time-order", "capture_exchange_time_order_invalid"),
+    ],
+)
+def test_full_capture_relation_failures_publish_nothing(
+    capture: Any,
+    tmp_path: Path,
+    case: str,
+    expected: str,
+) -> None:
+    run_document = _run_document(capture)
+    pages: list[tuple[Mapping[str, Any], str | None]]
+    clock: SequenceClock | None = None
+
+    if case == "reported-total":
+        pages = [
+            (
+                _jobs_document(
+                    capture,
+                    list(range(4001, 4009)),
+                    total_count=9,
+                ),
+                None,
+            )
+        ]
+    elif case == "page-total-disagreement":
+        next_url = (
+            "https://api.github.com"
+            + capture.JOBS_REQUEST_PATH
+            + "?per_page=100&page=2"
+        )
+        pages = [
+            (
+                _jobs_document(
+                    capture,
+                    list(range(5001, 5101)),
+                    total_count=101,
+                ),
+                f'<{next_url}>; rel="next"',
+            ),
+            (_jobs_document(capture, [5101], total_count=100), None),
+        ]
+    elif case == "duplicate-across-pages":
+        next_url = (
+            "https://api.github.com"
+            + capture.JOBS_REQUEST_PATH
+            + "?per_page=100&page=2"
+        )
+        pages = [
+            (
+                _jobs_document(
+                    capture,
+                    list(range(6001, 6101)),
+                    total_count=101,
+                ),
+                f'<{next_url}>; rel="next"',
+            ),
+            (_jobs_document(capture, [6001], total_count=101), None),
+        ]
+    elif case == "page-count-relation":
+        next_url = (
+            "https://api.github.com"
+            + capture.JOBS_REQUEST_PATH
+            + "?per_page=100&page=2"
+        )
+        pages = [
+            (
+                _jobs_document(capture, [7001, 7002, 7003, 7004], total_count=8),
+                f'<{next_url}>; rel="next"',
+            ),
+            (
+                _jobs_document(capture, [7005, 7006, 7007, 7008], total_count=8),
+                None,
+            ),
+        ]
+    elif case == "secret-in-raw-body":
+        run_document["opaque_transport_note"] = TOKEN
+        pages = [
+            (
+                _jobs_document(capture, list(range(8001, 8009)), total_count=8),
+                None,
+            )
+        ]
+    elif case == "exchange-time-order":
+        pages = [
+            (
+                _jobs_document(capture, list(range(9001, 9009)), total_count=8),
+                None,
+            )
+        ]
+        clock = SequenceClock(
+            [
+                CAPTURE_BASE,
+                CAPTURE_BASE + dt.timedelta(microseconds=2),
+                CAPTURE_BASE + dt.timedelta(microseconds=1),
+                CAPTURE_BASE + dt.timedelta(microseconds=3),
+            ]
+        )
+    else:
+        raise AssertionError(f"unknown case: {case}")
+
+    transport, default_clock, _run, _page_bodies = _scripted_fixture(
+        capture,
+        run_document=run_document,
+        pages=pages,
+    )
+    output = tmp_path / f"capture-failure-{case}"
+    _assert_capture_error(
+        capture,
+        expected,
+        lambda: capture.capture_with_injected_dependencies_for_test(
+            repository_root=ROOT,
+            output_directory=output,
+            token=TOKEN,
+            transport=transport,
+            clock=default_clock if clock is None else clock,
+        ),
+    )
+    assert not output.exists()
+    _assert_no_owned_staging(tmp_path, output.name)
+
+
+def test_total_capture_and_total_step_limits_fail_closed_after_source_admission(
+    capture: Any,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    revision = _git_head(ROOT)
+    sources = capture._load_sources(
+        ROOT,
+        revision=revision,
+        include_workflow=False,
+    )
+
+    transport, clock, _run, _pages = _scripted_fixture(capture)
+    monkeypatch.setattr(capture, "MAX_TOTAL_CAPTURE_BYTES", 128)
+    output = tmp_path / "capture-total-size-limit"
+    _assert_capture_error(
+        capture,
+        "total_capture_size_limit_exceeded",
+        lambda: capture._capture_core(
+            sources=sources,
+            output_directory=output,
+            token=TOKEN,
+            transport=transport,
+            clock=clock,
+            record_status="example",
+            workflow_execution=None,
+        ),
+    )
+    assert not output.exists()
+
+    transport, clock, _run, _pages = _scripted_fixture(capture)
+    monkeypatch.setattr(capture, "MAX_TOTAL_CAPTURE_BYTES", 64 * 1024 * 1024)
+    monkeypatch.setattr(capture, "MAX_TOTAL_STEP_RECORDS", 7)
+    output = tmp_path / "capture-total-step-limit"
+    _assert_capture_error(
+        capture,
+        "total_step_record_limit_exceeded",
+        lambda: capture._capture_core(
+            sources=sources,
+            output_directory=output,
+            token=TOKEN,
+            transport=transport,
+            clock=clock,
+            record_status="example",
+            workflow_execution=None,
+        ),
+    )
+    assert not output.exists()
+
+
+def test_request_record_rejects_floating_or_noncanonical_targets(capture: Any) -> None:
+    invalid = (
+        ("https://api.github.com" + capture.RUN_REQUEST_PATH, None, "request_target_not_origin_form"),
+        (capture.RUN_REQUEST_PATH + "?latest=true", None, "run_attempt_request_target_mismatch"),
+        (capture.JOBS_REQUEST_PATH + "?page=1&per_page=100", 1, "jobs_page_request_target_mismatch"),
+        (capture.JOBS_REQUEST_PATH + "?per_page=100&page=01", 1, "jobs_page_request_target_mismatch"),
+        (
+            "/repos/HKati/pulse-release-gates-0.1/actions/runs/29249887581/jobs?per_page=100&page=1",
+            1,
+            "jobs_page_request_target_mismatch",
+        ),
+    )
+    for target, page_number, expected in invalid:
+        _assert_capture_error(
+            capture,
+            expected,
+            lambda target=target, page_number=page_number: capture._request_record(
+                request_target=target,
+                page_number=page_number,
+            ),
+        )
+
+
+def _simple_publish_files() -> dict[str, bytes]:
+    return {
+        "raw/run_attempt_response.json": b'{"fixture":"raw"}\n',
+        "metadata/run_attempt_exchange_v0.json": b'{"fixture":"metadata"}\n',
+        "fixture_manifest.json": b'{"fixture":"manifest"}\n',
     }
 
 
-def test_network_audit_guard_rejects_socket_creation() -> None:
-    code = f"""
-import importlib.util
-import socket
-import sys
-from pathlib import Path
-path = Path({str(VALIDATOR_PATH)!r})
-spec = importlib.util.spec_from_file_location('validator_guard_probe', path)
-module = importlib.util.module_from_spec(spec)
-sys.modules[spec.name] = module
-spec.loader.exec_module(module)
-module._install_network_audit_guard()
-try:
-    socket.socket()
-except module.ValidationError as exc:
-    assert exc.error_code == 'network_access_forbidden'
-    assert exc.stage == 'runtime'
-    sys.stdout.write(exc.error_code + '\\n')
-    raise SystemExit(0)
-raise SystemExit(9)
-"""
-    completed = subprocess.run(
-        [sys.executable, "-I", "-c", code],
+def test_publication_cleanup_covers_keyboard_interrupt(
+    capture: Any,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    output = tmp_path / "interrupted-publication"
+    original = capture._write_file_at
+    call_count = 0
+
+    def interrupted_write(directory_fd: int, name: str, payload: bytes) -> None:
+        nonlocal call_count
+        call_count += 1
+        if call_count == 2:
+            raise KeyboardInterrupt
+        original(directory_fd, name, payload)
+
+    monkeypatch.setattr(capture, "_write_file_at", interrupted_write)
+    with pytest.raises(KeyboardInterrupt):
+        capture._publish_capture(
+            sources=capture._load_sources(
+                ROOT, revision=_git_head(ROOT), include_workflow=False,
+            ),
+            output_directory=output,
+            files=_simple_publish_files(),
+        )
+    assert not output.exists()
+    _assert_no_owned_staging(tmp_path, output.name)
+
+
+def test_post_publication_readback_failure_removes_owned_output(
+    capture: Any,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    output = tmp_path / "readback-failure"
+    original = capture._verify_exact_directory_inventory
+    call_count = 0
+
+    def fail_second_readback(root_fd: int, files: Mapping[str, bytes]) -> None:
+        nonlocal call_count
+        call_count += 1
+        if call_count == 2:
+            raise capture.CaptureError("synthetic_post_publication_readback_failure")
+        original(root_fd, files)
+
+    monkeypatch.setattr(
+        capture,
+        "_verify_exact_directory_inventory",
+        fail_second_readback,
+    )
+    _assert_capture_error(
+        capture,
+        "synthetic_post_publication_readback_failure",
+        lambda: capture._publish_capture(
+            sources=capture._load_sources(
+                ROOT, revision=_git_head(ROOT), include_workflow=False,
+            ),
+            output_directory=output,
+            files=_simple_publish_files(),
+        ),
+    )
+    assert not output.exists()
+    _assert_no_owned_staging(tmp_path, output.name)
+
+
+def test_publication_rejects_existing_target_and_out_of_contract_member(
+    capture: Any,
+    tmp_path: Path,
+) -> None:
+    existing = tmp_path / "existing-target"
+    existing.mkdir()
+    sentinel = existing / "sentinel"
+    sentinel.write_bytes(b"unchanged")
+    _assert_capture_error(
+        capture,
+        "existing_output_replacement_forbidden",
+        lambda: capture._publish_capture(
+            sources=capture._load_sources(
+                ROOT, revision=_git_head(ROOT), include_workflow=False,
+            ),
+            output_directory=existing,
+            files=_simple_publish_files(),
+        ),
+    )
+    assert sentinel.read_bytes() == b"unchanged"
+
+    invalid = tmp_path / "invalid-member"
+    _assert_capture_error(
+        capture,
+        "output_member_path_outside_contract",
+        lambda: capture._publish_capture(
+            sources=capture._load_sources(
+                ROOT, revision=_git_head(ROOT), include_workflow=False,
+            ),
+            output_directory=invalid,
+            files={"nested/outside/member.json": b"{}\n"},
+        ),
+    )
+    assert not invalid.exists()
+    _assert_no_owned_staging(tmp_path, invalid.name)
+
+
+def _make_minimal_repository(tmp_path: Path) -> tuple[Path, Any, str]:
+    repository = tmp_path / "minimal-repository"
+    for relative in (
+        "schemas",
+        "contracts",
+        "tools",
+        "examples/compute",
+        ".github/workflows",
+    ):
+        (repository / relative).mkdir(parents=True, exist_ok=True)
+    copies = {
+        SCHEMA_PATH: repository / SCHEMA_PATH.relative_to(ROOT),
+        CONTRACT_PATH: repository / CONTRACT_PATH.relative_to(ROOT),
+        CAPTURE_TOOL_PATH: repository / CAPTURE_TOOL_PATH.relative_to(ROOT),
+        EXAMPLE_PATH: repository / EXAMPLE_PATH.relative_to(ROOT),
+        OFFLINE_VALIDATOR_PATH: repository / OFFLINE_VALIDATOR_PATH.relative_to(ROOT),
+        CAPTURE_WORKFLOW_PATH: repository / CAPTURE_WORKFLOW_PATH.relative_to(ROOT),
+    }
+    for source, destination in copies.items():
+        destination.write_bytes(source.read_bytes())
+
+    commands = (
+        ["git", "init", "-q"],
+        ["git", "config", "user.name", "PULSEmech regression"],
+        ["git", "config", "user.email", "regression@example.invalid"],
+        ["git", "add", "."],
+        ["git", "commit", "-qm", "fixture repository"],
+    )
+    for command in commands:
+        subprocess.run(
+            command,
+            cwd=repository,
+            check=True,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+    revision = _git_head(repository)
+    module = _load_capture_module(
+        repository / CAPTURE_TOOL_PATH.relative_to(ROOT),
+        name=f"pulsemech_capture_temp_{revision}",
+    )
+    return repository, module, revision
+
+
+def test_source_drift_before_publication_fails_closed(
+    tmp_path: Path,
+) -> None:
+    repository, module, revision = _make_minimal_repository(tmp_path)
+    contract_path = repository / CONTRACT_PATH.relative_to(ROOT)
+    original_contract = contract_path.read_bytes()
+
+    def mutate_on_second_request(call_number: int, request_target: str) -> None:
+        del request_target
+        if call_number == 2:
+            contract_path.write_bytes(original_contract + b" ")
+
+    transport, clock, _run, _pages = _scripted_fixture(
+        module,
+        on_call=mutate_on_second_request,
+    )
+    output = tmp_path / "drifted-source-output"
+    _assert_capture_error(
+        module,
+        "normative_contract_drift_detected",
+        lambda: module.capture_with_injected_dependencies_for_test(
+            repository_root=repository,
+            output_directory=output,
+            token=TOKEN,
+            transport=transport,
+            clock=clock,
+            source_revision=revision,
+        ),
+    )
+    assert not output.exists()
+    _assert_no_owned_staging(tmp_path, output.name)
+
+
+def test_explicit_source_revision_must_equal_repository_head(
+    capture: Any,
+    tmp_path: Path,
+) -> None:
+    transport, clock, _run, _pages = _scripted_fixture(capture)
+    _assert_capture_error(
+        capture,
+        "repository_head_revision_mismatch",
+        lambda: capture.capture_with_injected_dependencies_for_test(
+            repository_root=ROOT,
+            output_directory=tmp_path / "wrong-revision",
+            token=TOKEN,
+            transport=transport,
+            clock=clock,
+            source_revision="0" * 40,
+        ),
+    )
+
+
+class _StubHttpResponse:
+    def __init__(
+        self,
+        *,
+        status: int,
+        headers: Sequence[tuple[str, str]],
+        body: bytes,
+    ) -> None:
+        self.status = status
+        self._headers = tuple(headers)
+        self._body = body
+        self._offset = 0
+        self.closed = False
+
+    def getheaders(self) -> list[tuple[str, str]]:
+        return list(self._headers)
+
+    def read(self, maximum: int) -> bytes:
+        if self._offset >= len(self._body):
+            return b""
+        end = min(len(self._body), self._offset + maximum)
+        value = self._body[self._offset:end]
+        self._offset = end
+        return value
+
+    def close(self) -> None:
+        self.closed = True
+
+
+class _StubHttpsConnection:
+    def __init__(
+        self,
+        host: str,
+        *,
+        timeout: int,
+        context: Any,
+        response: _StubHttpResponse,
+        failure: BaseException | None = None,
+    ) -> None:
+        self.host = host
+        self.timeout = timeout
+        self.context = context
+        self.response = response
+        self.failure = failure
+        self.request_call: tuple[Any, ...] | None = None
+        self.closed = False
+
+    def request(
+        self,
+        method: str,
+        target: str,
+        *,
+        body: bytes | None,
+        headers: Mapping[str, str],
+        encode_chunked: bool,
+    ) -> None:
+        self.request_call = (method, target, body, dict(headers), encode_chunked)
+        if self.failure is not None:
+            raise self.failure
+
+    def getresponse(self) -> _StubHttpResponse:
+        return self.response
+
+    def close(self) -> None:
+        self.closed = True
+
+
+def test_stdlib_https_transport_sends_exact_request_without_redirect_handler(
+    capture: Any,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    body = b'{"fixture":true}\n'
+    response = _StubHttpResponse(
+        status=200,
+        headers=_headers_for_body(body),
+        body=body,
+    )
+    observed: list[_StubHttpsConnection] = []
+
+    def connection_factory(host: str, *, timeout: int, context: Any) -> Any:
+        connection = _StubHttpsConnection(
+            host,
+            timeout=timeout,
+            context=context,
+            response=response,
+        )
+        observed.append(connection)
+        return connection
+
+    monkeypatch.setattr(capture.http.client, "HTTPSConnection", connection_factory)
+    transport = capture.StdlibHttpsTransport()
+    result = transport.get(
+        request_target=capture.RUN_REQUEST_PATH,
+        headers=_expected_application_headers(capture),
+        timeout_seconds=30,
+        maximum_body_bytes=1024,
+    )
+
+    assert len(observed) == 1
+    connection = observed[0]
+    assert connection.host == "api.github.com"
+    assert connection.timeout == 30
+    assert connection.request_call == (
+        "GET",
+        capture.RUN_REQUEST_PATH,
+        None,
+        dict(_expected_application_headers(capture)),
+        False,
+    )
+    assert connection.closed is True
+    assert response.closed is True
+    assert result.status == 200
+    assert result.body == body
+    assert result.clean_eof is True
+    assert result.redirect_observed is False
+
+
+def test_stdlib_https_transport_network_and_size_failures_are_closed(
+    capture: Any,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    body = b"x" * 65
+    response = _StubHttpResponse(status=200, headers=(), body=body)
+
+    def oversized_factory(host: str, *, timeout: int, context: Any) -> Any:
+        return _StubHttpsConnection(
+            host,
+            timeout=timeout,
+            context=context,
+            response=response,
+        )
+
+    monkeypatch.setattr(capture.http.client, "HTTPSConnection", oversized_factory)
+    transport = capture.StdlibHttpsTransport()
+    _assert_capture_error(
+        capture,
+        "response_body_size_limit_exceeded",
+        lambda: transport.get(
+            request_target=capture.RUN_REQUEST_PATH,
+            headers=_expected_application_headers(capture),
+            timeout_seconds=30,
+            maximum_body_bytes=64,
+        ),
+    )
+
+    response = _StubHttpResponse(status=200, headers=(), body=b"{}")
+
+    def failing_factory(host: str, *, timeout: int, context: Any) -> Any:
+        return _StubHttpsConnection(
+            host,
+            timeout=timeout,
+            context=context,
+            response=response,
+            failure=OSError("fixture network failure"),
+        )
+
+    monkeypatch.setattr(capture.http.client, "HTTPSConnection", failing_factory)
+    transport = capture.StdlibHttpsTransport()
+    _assert_capture_error(
+        capture,
+        "network_request_failed",
+        lambda: transport.get(
+            request_target=capture.RUN_REQUEST_PATH,
+            headers=_expected_application_headers(capture),
+            timeout_seconds=30,
+            maximum_body_bytes=64,
+        ),
+    )
+
+
+def test_cli_requires_isolated_python_and_never_echoes_invalid_arguments(
+    capture: Any,
+    tmp_path: Path,
+) -> None:
+    non_isolated = subprocess.run(
+        [
+            sys.executable,
+            str(CAPTURE_TOOL_PATH),
+            "--output-directory",
+            str(tmp_path / "non-isolated"),
+        ],
         cwd=ROOT,
-        env=_subprocess_environment(),
         check=False,
         stdin=subprocess.DEVNULL,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
-        timeout=30,
+        env={"PATH": os.environ.get("PATH", "")},
     )
-    assert completed.returncode == 0
-    assert completed.stdout == b"network_access_forbidden\n"
-    assert completed.stderr == b""
+    assert non_isolated.returncode == 2
+    assert non_isolated.stdout == b""
+    assert non_isolated.stderr == capture._ISOLATED_PYTHON_REQUIRED_DIAGNOSTIC.encode(
+        "utf-8"
+    )
+
+    secret_argument = "fixture-secret-argument-never-echoed"
+    isolated_invalid = subprocess.run(
+        [
+            sys.executable,
+            "-I",
+            str(CAPTURE_TOOL_PATH),
+            "--fixture-transport",
+            secret_argument,
+        ],
+        cwd=ROOT,
+        check=False,
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        env={"PATH": os.environ.get("PATH", "")},
+    )
+    assert isolated_invalid.returncode == 2
+    assert isolated_invalid.stdout == b""
+    expected = capture._failure_diagnostic("command_line_invalid")
+    assert isolated_invalid.stderr == expected
+    assert secret_argument.encode("utf-8") not in isolated_invalid.stderr
+    assert b"fixture" not in isolated_invalid.stderr
 
 
-def test_repository_root_without_git_fails_closed(
-    validator: Any,
-    base_capture_root: Path,
-    tmp_path: Path,
+def test_success_and_failure_diagnostics_are_canonical_and_deterministic(
+    capture: Any,
 ) -> None:
-    repository = tmp_path / "not-a-repository"
-    repository.mkdir()
-    _assert_rejected(
-        validator,
-        capture_root=base_capture_root,
-        repository_root=repository,
-        error_code="repository_git_directory_unavailable",
-        stage="repository_binding",
+    result = capture.CaptureResult(
+        record_status="example",
+        manifest_file_name=capture.EXAMPLE_MANIFEST_NAME,
+        manifest_bytes=b"{}\n",
+        manifest_sha256=_sha256(b"{}\n"),
+        page_count=1,
+        job_count=8,
+        step_record_count=8,
+        authority_effect="none",
     )
+    success_a = capture._success_diagnostic(result)
+    success_b = capture._success_diagnostic(result)
+    failure_a = capture._failure_diagnostic("fixture_failure")
+    failure_b = capture._failure_diagnostic("fixture_failure")
+    assert success_a == success_b
+    assert failure_a == failure_b
+    assert success_a == _canonical_json_bytes(json.loads(success_a))
+    assert failure_a == _canonical_json_bytes(json.loads(failure_a))
+    assert json.loads(success_a)["authority_effect"] == "none"
+    assert json.loads(failure_a) == {
+        "authority_effect": "none",
+        "error_code": "fixture_failure",
+        "ok": False,
+        "tool": capture.TOOL_NAME,
+        "tool_version": capture.TOOL_VERSION,
+    }
 
 
-def test_missing_manifest_fails_closed(
-    validator: Any,
-    base_capture_root: Path,
-    tmp_path: Path,
-) -> None:
-    root = _copy_capture(base_capture_root, tmp_path)
-    _manifest_path(root).unlink()
-    _assert_rejected(
-        validator,
-        capture_root=root,
-        error_code="capture_manifest_count_invalid",
-        stage="capture_root",
+def test_timestamp_grammar_matches_independent_validator(capture: Any) -> None:
+    validator = _load_capture_module(
+        OFFLINE_VALIDATOR_PATH,
+        name="pulsemech_post_run_timestamp_validator_under_test",
     )
-
-
-
-CAPTURE_MODE_MUTATIONS: tuple[
-    tuple[str, str | None, int, str, str | None], ...
-] = (
-    (
-        "capture-root-0755",
+    assert capture.CANONICAL_UTC_RE.pattern == validator.CANONICAL_UTC_RE.pattern
+    valid = (
+        "2026-07-13T12:27:00Z",
+        "2026-07-13T12:27:00.0Z",
+        "2026-07-13T12:27:00.123456Z",
+        "2026-07-13T12:27:00.123456789Z",
+        "2024-02-29T00:00:00Z",
+        "0001-01-01T00:00:00Z",
+        "9999-12-31T23:59:59.999999Z",
+    )
+    invalid = (
+        "2026-07-13 12:27:00Z",
+        "2026-07-13t12:27:00Z",
+        "2026-07-13\u00a012:27:00Z",
+        "20260713T122700Z",
+        "2026-W29-1T12:27:00Z",
+        "2026-07-13T12:27Z",
+        "2026-07-13T12:27:00,0Z",
+        "2026-07-13T12:27:00.Z",
+        "2026-07-13T12:27:00+00:00Z",
+        "2026-07-13T12:27:00+00:00",
+        "2026-07-13T12:27:00z",
+        "2026-07-13T12:27:00Z\n",
+        "2026-07-13T12:27:00",
+        "2026-02-29T12:27:00Z",
+        "2026-07-13T24:00:00Z",
+        "2026-07-13T12:27:60Z",
+        "0000-01-01T00:00:00Z",
+        "",
         None,
-        0o755,
-        "capture_root_mode_mismatch",
-        None,
-    ),
-    (
-        "raw-directory-0755",
-        "raw",
-        0o755,
-        "capture_directory_mode_mismatch",
-        "raw",
-    ),
-    (
-        "metadata-directory-0755",
-        "metadata",
-        0o755,
-        "capture_directory_mode_mismatch",
-        "metadata",
-    ),
-    (
-        "manifest-0644",
-        EXAMPLE_MANIFEST_NAME,
-        0o644,
-        "capture_member_mode_mismatch",
-        EXAMPLE_MANIFEST_NAME,
-    ),
-    (
-        "raw-response-0644",
-        RUN_BODY_PATH,
-        0o644,
-        "capture_member_mode_mismatch",
-        RUN_BODY_PATH,
-    ),
-    (
-        "exchange-metadata-0644",
-        RUN_METADATA_PATH,
-        0o644,
-        "capture_member_mode_mismatch",
-        RUN_METADATA_PATH,
-    ),
-)
+        True,
+        1,
+    )
+    for text in valid:
+        actual = capture._parse_utc(text, error_code="timestamp_invalid")
+        expected = validator._parse_utc(
+            text, error_code="timestamp_invalid", stage="test",
+        )
+        assert actual == expected
+        assert actual.utcoffset() == dt.timedelta(0)
+    for text in invalid:
+        _assert_capture_error(
+            capture, "timestamp_invalid",
+            lambda: capture._parse_utc(text, error_code="timestamp_invalid"),
+        )
+        with pytest.raises(validator.ValidationError) as failure:
+            validator._parse_utc(text, error_code="timestamp_invalid", stage="test")
+        assert failure.value.error_code == "timestamp_invalid"
 
 
 @pytest.mark.parametrize(
-    ("case_name", "relative_path", "mode", "error_code", "member_path"),
-    CAPTURE_MODE_MUTATIONS,
-    ids=[case[0] for case in CAPTURE_MODE_MUTATIONS],
+    ("path", "expected_error"),
+    (
+        (("jobs", 0, "started_at"), "job_0_started_at_invalid"),
+        (("jobs", 0, "completed_at"), "job_0_completed_at_invalid"),
+        (("jobs", 0, "steps", 0, "started_at"), "job_0_step_0_started_at_invalid"),
+        (("jobs", 0, "steps", 0, "completed_at"), "job_0_step_0_completed_at_invalid"),
+    ),
+    ids=("job-start", "job-end", "step-start", "step-end"),
 )
-def test_capture_permission_mutations_fail_closed(
-    validator: Any,
-    base_capture_root: Path,
+@pytest.mark.parametrize("conclusion", ("success", "skipped"))
+def test_noncanonical_job_and_step_timestamps_fail_before_publication(
+    capture: Any,
     tmp_path: Path,
-    case_name: str,
-    relative_path: str | None,
-    mode: int,
-    error_code: str,
-    member_path: str | None,
+    monkeypatch: pytest.MonkeyPatch,
+    path: tuple[Any, ...],
+    expected_error: str,
+    conclusion: str,
 ) -> None:
-    del case_name
-    root = _copy_capture(base_capture_root, tmp_path)
-    target = root if relative_path is None else root / relative_path
-    expected_mode = 0o700 if target.is_dir() else 0o600
-    target.chmod(mode)
-    assert stat.S_IMODE(target.stat().st_mode) == mode
-    try:
-        _assert_rejected(
-            validator,
-            capture_root=root,
-            error_code=error_code,
-            stage="capture_root",
-            member_path=member_path,
+    publication_attempts: list[bool] = []
+
+    def forbidden_publication(**kwargs: Any) -> None:
+        del kwargs
+        publication_attempts.append(True)
+        raise AssertionError("invalid timestamp reached publication")
+
+    monkeypatch.setattr(capture, "_publish_capture", forbidden_publication)
+    canonical = "2026-07-13T12:27:00Z"
+    malformed = (
+        canonical.replace("T", " "),
+        canonical.replace("T", "t"),
+        canonical.replace("T", "\u00a0"),
+        canonical.replace("-", "").replace(":", ""),
+        "2026-W29-1T12:27:00Z",
+        "2026-07-13T12:27Z",
+        "2026-07-13T12:27:00,0Z",
+        "2026-07-13T12:27:00.Z",
+        "2026-07-13T12:27:00+00:00Z",
+        canonical + "\n",
+    )
+    before = _source_snapshot()
+    for index, timestamp in enumerate(malformed):
+        page = _jobs_document(capture, list(range(86815582001, 86815582009)))
+        # Test skipped records with exposed timestamps too; null pairs remain
+        # covered by the existing explicit-unavailability regression.
+        page["jobs"][0]["conclusion"] = conclusion
+        page["jobs"][0]["steps"][0]["conclusion"] = conclusion
+        _set_path(page, path, timestamp)
+        transport, clock, _run, _pages = _scripted_fixture(
+            capture, pages=[(page, None)],
         )
-    finally:
-        target.chmod(expected_mode)
-    _assert_expected_capture_modes(root)
-
-
-def test_undeclared_root_member_fails_closed(
-    validator: Any,
-    base_capture_root: Path,
-    tmp_path: Path,
-) -> None:
-    root = _copy_capture(base_capture_root, tmp_path)
-    (root / "undeclared.json").write_bytes(b"{}\n")
-    _assert_rejected(
-        validator,
-        capture_root=root,
-        error_code="undeclared_extra_member",
-        stage="capture_root",
-    )
-
-
-def test_symlinked_member_fails_closed(
-    validator: Any,
-    base_capture_root: Path,
-    tmp_path: Path,
-) -> None:
-    root = _copy_capture(base_capture_root, tmp_path)
-    target = tmp_path / "outside.json"
-    target.write_bytes((root / RUN_BODY_PATH).read_bytes())
-    (root / RUN_BODY_PATH).unlink()
-    (root / RUN_BODY_PATH).symlink_to(target)
-    _assert_rejected(
-        validator,
-        capture_root=root,
-        error_code="symlinked_member",
-        stage="capture_root",
-        member_path=RUN_BODY_PATH,
-    )
-
-
-def test_hard_linked_member_fails_closed(
-    validator: Any,
-    base_capture_root: Path,
-    tmp_path: Path,
-) -> None:
-    root = _copy_capture(base_capture_root, tmp_path)
-    member = root / RUN_BODY_PATH
-    outside = tmp_path / "outside-hardlink.json"
-    outside.write_bytes(member.read_bytes())
-    member.unlink()
-    os.link(outside, member)
-    _assert_rejected(
-        validator,
-        capture_root=root,
-        error_code="hard_linked_member",
-        stage="capture_root",
-        member_path=RUN_BODY_PATH,
-    )
-
-
-def test_non_regular_fifo_member_fails_closed(
-    validator: Any,
-    base_capture_root: Path,
-    tmp_path: Path,
-) -> None:
-    if not hasattr(os, "mkfifo"):
-        pytest.skip("mkfifo unavailable")
-    root = _copy_capture(base_capture_root, tmp_path)
-    member = root / RUN_BODY_PATH
-    member.unlink()
-    os.mkfifo(member, 0o600)
-    _assert_rejected(
-        validator,
-        capture_root=root,
-        error_code="non_regular_member",
-        stage="capture_root",
-        member_path=RUN_BODY_PATH,
-    )
-
-
-def test_noncanonical_manifest_fails_closed(
-    validator: Any,
-    base_capture_root: Path,
-    tmp_path: Path,
-) -> None:
-    root = _copy_capture(base_capture_root, tmp_path)
-    path = _manifest_path(root)
-    payload = path.read_bytes()
-    path.write_bytes(payload[:-1] + b" \n")
-    _assert_rejected(
-        validator,
-        capture_root=root,
-        error_code="manifest_canonicalization_failure",
-        stage="manifest",
-        member_path=EXAMPLE_MANIFEST_NAME,
-    )
-
-
-def test_manifest_bom_fails_closed(
-    validator: Any,
-    base_capture_root: Path,
-    tmp_path: Path,
-) -> None:
-    root = _copy_capture(base_capture_root, tmp_path)
-    path = _manifest_path(root)
-    path.write_bytes(b"\xef\xbb\xbf" + path.read_bytes())
-    _assert_rejected(
-        validator,
-        capture_root=root,
-        error_code="utf8_bom_forbidden",
-        stage="manifest",
-        member_path=EXAMPLE_MANIFEST_NAME,
-    )
-
-
-def test_manifest_duplicate_key_fails_closed(
-    validator: Any,
-    base_capture_root: Path,
-    tmp_path: Path,
-) -> None:
-    root = _copy_capture(base_capture_root, tmp_path)
-    path = _manifest_path(root)
-    payload = path.read_bytes()
-    assert payload.startswith(b"{")
-    path.write_bytes(b'{"ok":true,' + payload[1:])
-    _assert_rejected(
-        validator,
-        capture_root=root,
-        error_code="invalid_json",
-        stage="manifest",
-        member_path=EXAMPLE_MANIFEST_NAME,
-    )
-
-
-def test_manifest_top_level_array_fails_closed(
-    validator: Any,
-    base_capture_root: Path,
-    tmp_path: Path,
-) -> None:
-    root = _copy_capture(base_capture_root, tmp_path)
-    _manifest_path(root).write_bytes(b"[]\n")
-    _assert_rejected(
-        validator,
-        capture_root=root,
-        error_code="top_level_not_object",
-        stage="manifest",
-        member_path=EXAMPLE_MANIFEST_NAME,
-    )
-
-
-def test_unbound_raw_response_byte_mutation_fails_closed(
-    validator: Any,
-    base_capture_root: Path,
-    tmp_path: Path,
-) -> None:
-    root = _copy_capture(base_capture_root, tmp_path)
-    path = root / RUN_BODY_PATH
-    payload = bytearray(path.read_bytes())
-    payload[-2] = 0x20 if payload[-2] != 0x20 else 0x09
-    path.write_bytes(bytes(payload))
-    _assert_rejected(
-        validator,
-        capture_root=root,
-        error_code="raw_response_identity_mismatch",
-        stage="member_identity",
-        member_path=RUN_BODY_PATH,
-    )
-
-
-def test_unbound_exchange_metadata_mutation_fails_closed(
-    validator: Any,
-    base_capture_root: Path,
-    tmp_path: Path,
-) -> None:
-    root = _copy_capture(base_capture_root, tmp_path)
-    path = root / RUN_METADATA_PATH
-    path.write_bytes(path.read_bytes() + b" ")
-    _assert_rejected(
-        validator,
-        capture_root=root,
-        error_code="exchange_metadata_canonical_bytes_mismatch",
-        stage="exchange_metadata",
-        member_path=RUN_METADATA_PATH,
-    )
-
-
-def test_exchange_metadata_bom_fails_closed(
-    validator: Any,
-    base_capture_root: Path,
-    tmp_path: Path,
-) -> None:
-    root = _copy_capture(base_capture_root, tmp_path)
-    path = root / RUN_METADATA_PATH
-    path.write_bytes(b"\xef\xbb\xbf" + path.read_bytes())
-    _assert_rejected(
-        validator,
-        capture_root=root,
-        error_code="exchange_metadata_canonical_bytes_mismatch",
-        stage="exchange_metadata",
-        member_path=RUN_METADATA_PATH,
-    )
-
-
-def test_rebound_invalid_utf8_raw_body_fails_closed(
-    validator: Any,
-    base_capture_root: Path,
-    tmp_path: Path,
-) -> None:
-    root = _copy_capture(base_capture_root, tmp_path)
-    manifest = _load_manifest(root)
-    (root / RUN_BODY_PATH).write_bytes(b"{\xff}\n")
-    _rebind_exchange(root, manifest, kind="run")
-    _assert_rejected(
-        validator,
-        capture_root=root,
-        error_code="invalid_utf8",
-        stage="raw_response",
-        member_path=RUN_BODY_PATH,
-    )
-
-
-def test_rebound_raw_top_level_array_fails_closed(
-    validator: Any,
-    base_capture_root: Path,
-    tmp_path: Path,
-) -> None:
-    root = _copy_capture(base_capture_root, tmp_path)
-    manifest = _load_manifest(root)
-    (root / RUN_BODY_PATH).write_bytes(b"[]\n")
-    _rebind_exchange(root, manifest, kind="run")
-    _assert_rejected(
-        validator,
-        capture_root=root,
-        error_code="top_level_not_object",
-        stage="raw_response",
-        member_path=RUN_BODY_PATH,
-    )
-
-
-def test_rebound_raw_duplicate_key_fails_closed(
-    validator: Any,
-    base_capture_root: Path,
-    tmp_path: Path,
-) -> None:
-    root = _copy_capture(base_capture_root, tmp_path)
-    manifest = _load_manifest(root)
-    (root / RUN_BODY_PATH).write_bytes(b'{"id":1,"id":2}\n')
-    _rebind_exchange(root, manifest, kind="run")
-    _assert_rejected(
-        validator,
-        capture_root=root,
-        error_code="invalid_json",
-        stage="raw_response",
-        member_path=RUN_BODY_PATH,
-    )
-
-
-def test_secret_material_in_rebound_raw_body_fails_closed(
-    validator: Any,
-    base_capture_root: Path,
-    tmp_path: Path,
-) -> None:
-    root = _copy_capture(base_capture_root, tmp_path)
-    manifest = _load_manifest(root)
-    secret = "ghp_" + ("Q" * 36)
-    _replace_raw_json(
-        root,
-        manifest,
-        kind="run",
-        mutate=lambda value: value.__setitem__("secret_probe", secret),
-    )
-    _assert_rejected(
-        validator,
-        capture_root=root,
-        error_code="secret_value_in_output",
-        stage="privacy",
-        member_path=RUN_BODY_PATH,
-    )
-
-
-RUN_MUTATIONS: tuple[
-    tuple[str, Callable[[dict[str, Any]], None], str], ...
-] = (
-    ("run_id", lambda value: value.__setitem__("id", 1), "wrong_run_id"),
-    (
-        "run_number",
-        lambda value: value.__setitem__("run_number", 1),
-        "wrong_run_number",
-    ),
-    (
-        "run_attempt",
-        lambda value: value.__setitem__("run_attempt", 2),
-        "wrong_run_attempt",
-    ),
-    (
-        "workflow_name",
-        lambda value: value.__setitem__("name", "Other CI"),
-        "wrong_workflow_name",
-    ),
-    (
-        "workflow_id",
-        lambda value: value.__setitem__("workflow_id", 1),
-        "wrong_workflow_id",
-    ),
-    (
-        "workflow_path",
-        lambda value: value.__setitem__("path", ".github/workflows/other.yml"),
-        "wrong_workflow_path",
-    ),
-    (
-        "event",
-        lambda value: value.__setitem__("event", "push"),
-        "wrong_event",
-    ),
-    (
-        "head_branch",
-        lambda value: value.__setitem__("head_branch", "other"),
-        "wrong_head_branch",
-    ),
-    (
-        "source_commit",
-        lambda value: value.__setitem__("head_sha", "0" * 40),
-        "wrong_source_commit",
-    ),
-    (
-        "status",
-        lambda value: value.__setitem__("status", "in_progress"),
-        "non_completed_run",
-    ),
-    (
-        "conclusion",
-        lambda value: value.__setitem__("conclusion", "failure"),
-        "non_success_reference_run",
-    ),
-    (
-        "repository_id",
-        lambda value: value["repository"].__setitem__("id", 1),
-        "wrong_repository_identity",
-    ),
-    (
-        "head_repository",
-        lambda value: value["head_repository"].__setitem__(
-            "full_name", "other/repository"
-        ),
-        "wrong_head_repository_identity",
-    ),
-)
-
-
-@pytest.mark.parametrize(
-    ("case_name", "mutate", "error_code"),
-    RUN_MUTATIONS,
-    ids=[case[0] for case in RUN_MUTATIONS],
-)
-def test_rebound_run_subject_mutations_fail_closed(
-    validator: Any,
-    base_capture_root: Path,
-    tmp_path: Path,
-    case_name: str,
-    mutate: Callable[[dict[str, Any]], None],
-    error_code: str,
-) -> None:
-    del case_name
-    root = _copy_capture(base_capture_root, tmp_path)
-    manifest = _load_manifest(root)
-    _replace_raw_json(root, manifest, kind="run", mutate=mutate)
-    _assert_rejected(
-        validator,
-        capture_root=root,
-        error_code=error_code,
-        stage="run_subject",
-        member_path=RUN_BODY_PATH,
-    )
-
-
-def test_capture_before_subject_completion_fails_closed(
-    validator: Any,
-    base_capture_root: Path,
-    tmp_path: Path,
-) -> None:
-    root = _copy_capture(base_capture_root, tmp_path)
-    manifest = _load_manifest(root)
-
-    def mutate(record: dict[str, Any]) -> None:
-        record["response"]["timing"]["capture_started_utc"] = (
-            "2026-07-13T12:30:00Z"
-        )
-        record["response"]["timing"]["response_received_utc"] = (
-            "2026-07-13T12:30:01Z"
-        )
-
-    _rewrite_exchange_record(root, manifest, kind="run", mutate=mutate)
-    _assert_rejected(
-        validator,
-        capture_root=root,
-        error_code="capture_started_before_subject_run_completed",
-        stage="temporal",
-        member_path=RUN_BODY_PATH,
-    )
-
-
-JOB_MUTATIONS: tuple[
-    tuple[str, Callable[[dict[str, Any]], None], str], ...
-] = (
-    (
-        "duplicate_job_id",
-        lambda value: value["jobs"][1].__setitem__("id", value["jobs"][0]["id"]),
-        "duplicate_job_id",
-    ),
-    (
-        "job_run_id",
-        lambda value: value["jobs"][0].__setitem__("run_id", 1),
-        "job_run_id_mismatch",
-    ),
-    (
-        "job_run_attempt",
-        lambda value: value["jobs"][0].__setitem__("run_attempt", 2),
-        "job_run_attempt_mismatch",
-    ),
-    (
-        "job_workflow_name",
-        lambda value: value["jobs"][0].__setitem__("workflow_name", "Other CI"),
-        "job_workflow_name_mismatch",
-    ),
-    (
-        "job_head_sha",
-        lambda value: value["jobs"][0].__setitem__("head_sha", "0" * 40),
-        "job_head_sha_mismatch",
-    ),
-    (
-        "job_status",
-        lambda value: value["jobs"][0].__setitem__("status", "in_progress"),
-        "job_0_status_invalid",
-    ),
-    (
-        "job_conclusion",
-        lambda value: value["jobs"][0].__setitem__("conclusion", "failure"),
-        "job_0_conclusion_invalid",
-    ),
-    (
-        "duplicate_step_number",
-        lambda value: value["jobs"][0].__setitem__(
-            "steps", [_step_document(1), _step_document(1)]
-        ),
-        "duplicate_step_number",
-    ),
-    (
-        "step_order",
-        lambda value: value["jobs"][0].__setitem__(
-            "steps", [_step_document(2), _step_document(1)]
-        ),
-        "step_order_invalid",
-    ),
-    (
-        "step_status",
-        lambda value: value["jobs"][0]["steps"][0].__setitem__(
-            "status", "in_progress"
-        ),
-        "job_0_step_0_status_invalid",
-    ),
-    (
-        "step_conclusion",
-        lambda value: value["jobs"][0]["steps"][0].__setitem__(
-            "conclusion", "failure"
-        ),
-        "job_0_step_0_conclusion_invalid",
-    ),
-    (
-        "step_timestamp_order",
-        lambda value: value["jobs"][0]["steps"][0].update(
-            {
-                "started_at": "2026-07-13T12:27:02Z",
-                "completed_at": "2026-07-13T12:27:01Z",
-            }
-        ),
-        "job_0_step_0_timestamp_order_invalid",
-    ),
-)
-
-
-@pytest.mark.parametrize(
-    ("case_name", "mutate", "error_code"),
-    JOB_MUTATIONS,
-    ids=[case[0] for case in JOB_MUTATIONS],
-)
-def test_rebound_job_and_step_mutations_fail_closed(
-    validator: Any,
-    base_capture_root: Path,
-    tmp_path: Path,
-    case_name: str,
-    mutate: Callable[[dict[str, Any]], None],
-    error_code: str,
-) -> None:
-    del case_name
-    root = _copy_capture(base_capture_root, tmp_path)
-    manifest = _load_manifest(root)
-    _replace_raw_json(root, manifest, kind="jobs", mutate=mutate)
-    _assert_rejected(
-        validator,
-        capture_root=root,
-        error_code=error_code,
-        stage="jobs_binding",
-        member_path=JOBS_BODY_PATH,
-    )
-
-
-def test_run_request_record_mismatch_fails_closed(
-    validator: Any,
-    base_capture_root: Path,
-    tmp_path: Path,
-) -> None:
-    root = _copy_capture(base_capture_root, tmp_path)
-    manifest = _load_manifest(root)
-    _rewrite_exchange_record(
-        root,
-        manifest,
-        kind="run",
-        mutate=lambda record: record["request"].__setitem__("method", "POST"),
-    )
-    _assert_rejected(
-        validator,
-        capture_root=root,
-        error_code="manifest_schema_validation_failed",
-        stage="schema",
-        member_path=EXAMPLE_MANIFEST_NAME,
-    )
-
-
-def test_jobs_request_query_order_mismatch_fails_closed(
-    validator: Any,
-    base_capture_root: Path,
-    tmp_path: Path,
-) -> None:
-    root = _copy_capture(base_capture_root, tmp_path)
-    manifest = _load_manifest(root)
-
-    def mutate(record: dict[str, Any]) -> None:
-        record["request"]["query_parameters"].reverse()
-        record["request"]["request_target"] = (
-            record["request"]["path"] + "?page=1&per_page=100"
-        )
-
-    _rewrite_exchange_record(root, manifest, kind="jobs", mutate=mutate)
-    _assert_rejected(
-        validator,
-        capture_root=root,
-        error_code="manifest_schema_validation_failed",
-        stage="schema",
-        member_path=EXAMPLE_MANIFEST_NAME,
-    )
-
-
-RESPONSE_METADATA_MUTATIONS: tuple[
-    tuple[str, Callable[[dict[str, Any]], None], str, str], ...
-] = (
-    (
-        "content_type_absent",
-        lambda record: record["response"]["selected_headers"]["content_type"].update(
-            {"status": "absent", "value": None}
-        ),
-        "manifest_schema_validation_failed",
-        "schema",
-    ),
-    (
-        "wrong_content_type",
-        lambda record: record["response"]["selected_headers"]["content_type"].update(
-            {"status": "present", "value": "text/plain"}
-        ),
-        "manifest_schema_validation_failed",
-        "schema",
-    ),
-    (
-        "unsupported_encoding",
-        lambda record: record["response"]["selected_headers"][
-            "content_encoding"
-        ].update({"status": "present", "value": "gzip"}),
-        "manifest_schema_validation_failed",
-        "schema",
-    ),
-    (
-        "non_200_declaration",
-        lambda record: record["response"].__setitem__("http_status", 500),
-        "manifest_schema_validation_failed",
-        "schema",
-    ),
-    (
-        "redirect_declaration",
-        lambda record: record["response"].__setitem__("redirect_observed", True),
-        "manifest_schema_validation_failed",
-        "schema",
-    ),
-    (
-        "truncated_declaration",
-        lambda record: record["response"].__setitem__("body_truncated", True),
-        "manifest_schema_validation_failed",
-        "schema",
-    ),
-)
-
-
-@pytest.mark.parametrize(
-    ("case_name", "mutate", "error_code", "stage"),
-    RESPONSE_METADATA_MUTATIONS,
-    ids=[case[0] for case in RESPONSE_METADATA_MUTATIONS],
-)
-def test_response_metadata_mutations_fail_closed(
-    validator: Any,
-    base_capture_root: Path,
-    tmp_path: Path,
-    case_name: str,
-    mutate: Callable[[dict[str, Any]], None],
-    error_code: str,
-    stage: str,
-) -> None:
-    del case_name
-    root = _copy_capture(base_capture_root, tmp_path)
-    manifest = _load_manifest(root)
-    _rewrite_exchange_record(root, manifest, kind="run", mutate=mutate)
-    _assert_rejected(
-        validator,
-        capture_root=root,
-        error_code=error_code,
-        stage=stage,
-        member_path=(EXAMPLE_MANIFEST_NAME if stage == "schema" else RUN_METADATA_PATH),
-    )
-
-
-def test_response_received_before_capture_start_fails_closed(
-    validator: Any,
-    base_capture_root: Path,
-    tmp_path: Path,
-) -> None:
-    root = _copy_capture(base_capture_root, tmp_path)
-    manifest = _load_manifest(root)
-
-    def mutate(record: dict[str, Any]) -> None:
-        record["response"]["timing"].update(
-            {
-                "capture_started_utc": "2026-08-01T18:00:00.000010Z",
-                "response_received_utc": "2026-08-01T18:00:00.000009Z",
-            }
-        )
-
-    _rewrite_exchange_record(root, manifest, kind="run", mutate=mutate)
-    _assert_rejected(
-        validator,
-        capture_root=root,
-        error_code="response_received_before_capture_start",
-        stage="temporal",
-        member_path=RUN_METADATA_PATH,
-    )
-
-
-def test_jobs_exchange_time_order_fails_closed(
-    validator: Any,
-    base_capture_root: Path,
-    tmp_path: Path,
-) -> None:
-    root = _copy_capture(base_capture_root, tmp_path)
-    manifest = _load_manifest(root)
-
-    def mutate(record: dict[str, Any]) -> None:
-        record["response"]["timing"].update(
-            {
-                "capture_started_utc": "2026-08-01T17:59:59Z",
-                "response_received_utc": "2026-08-01T18:00:00Z",
-            }
-        )
-
-    _rewrite_exchange_record(root, manifest, kind="jobs", mutate=mutate)
-    _assert_rejected(
-        validator,
-        capture_root=root,
-        error_code="capture_exchange_time_order_invalid",
-        stage="temporal",
-        member_path=JOBS_METADATA_PATH,
-    )
-
-
-def test_run_summary_mismatch_fails_closed(
-    validator: Any,
-    base_capture_root: Path,
-    tmp_path: Path,
-) -> None:
-    root = _copy_capture(base_capture_root, tmp_path)
-    manifest = _load_manifest(root)
-    _rewrite_exchange_record(
-        root,
-        manifest,
-        kind="run",
-        mutate=lambda record: record["response"]["summary"].__setitem__(
-            "workflow_run_number", 1
-        ),
-    )
-    _assert_rejected(
-        validator,
-        capture_root=root,
-        error_code="run_attempt_summary_mismatch",
-        stage="run_subject",
-        member_path=RUN_METADATA_PATH,
-    )
-
-
-def test_jobs_summary_mismatch_fails_closed(
-    validator: Any,
-    base_capture_root: Path,
-    tmp_path: Path,
-) -> None:
-    root = _copy_capture(base_capture_root, tmp_path)
-    manifest = _load_manifest(root)
-    _rewrite_exchange_record(
-        root,
-        manifest,
-        kind="jobs",
-        mutate=lambda record: record["response"]["summary"].__setitem__(
-            "jobs_on_page", 7
-        ),
-    )
-    _assert_rejected(
-        validator,
-        capture_root=root,
-        error_code="jobs_page_summary_mismatch",
-        stage="jobs_binding",
-        member_path=JOBS_METADATA_PATH,
-    )
-
-
-def test_exchange_metadata_relation_false_fails_closed(
-    validator: Any,
-    base_capture_root: Path,
-    tmp_path: Path,
-) -> None:
-    root = _copy_capture(base_capture_root, tmp_path)
-    manifest = _load_manifest(root)
-    manifest["run_attempt_exchange"]["metadata_record_canonical_bytes_equal_record"] = False
-    _write_manifest(root, manifest)
-    _assert_rejected(
-        validator,
-        capture_root=root,
-        error_code="manifest_schema_validation_failed",
-        stage="schema",
-        member_path=EXAMPLE_MANIFEST_NAME,
-    )
-
-
-def test_final_rel_next_presence_fails_closed(
-    validator: Any,
-    base_capture_root: Path,
-    tmp_path: Path,
-) -> None:
-    root = _copy_capture(base_capture_root, tmp_path)
-    manifest = _load_manifest(root)
-    next_target = (
-        "https://api.github.com/repos/HKati/pulse-release-gates-0.1/"
-        "actions/runs/29249887581/attempts/1/jobs?per_page=100&page=2"
-    )
-
-    def mutate(record: dict[str, Any]) -> None:
-        record["response"]["selected_headers"]["link"] = {
-            "status": "present",
-            "value": f'<{next_target}>; rel="next"',
-        }
-        record["pagination_relation"] = {
-            "is_final_page": False,
-            "link_header_status": "present",
-            "next_page_number": 2,
-            "next_relation_status": "present",
-            "next_request_target": (
-                "/repos/HKati/pulse-release-gates-0.1/"
-                "actions/runs/29249887581/attempts/1/jobs?per_page=100&page=2"
-            ),
-            "page_number": 1,
-            "relation_source": "selected_link_header",
-        }
-
-    _rewrite_exchange_record(root, manifest, kind="jobs", mutate=mutate)
-    _assert_rejected(
-        validator,
-        capture_root=root,
-        error_code="final_next_link_still_present",
-        stage="pagination",
-        member_path=JOBS_METADATA_PATH,
-    )
-
-
-LINK_MUTATIONS: tuple[
-    tuple[str, str, str], ...
-] = (
-    (
-        "malformed",
-        "<https://api.github.com/incomplete; rel=\"next\"",
-        "link_header_syntax_invalid",
-    ),
-    (
-        "cross_host",
-        (
-            "<https://example.invalid/repos/HKati/pulse-release-gates-0.1/"
-            "actions/runs/29249887581/attempts/1/jobs?per_page=100&page=2>; rel=\"next\""
-        ),
-        "link_next_origin_mismatch",
-    ),
-    (
-        "wrong_query_order",
-        (
-            "<https://api.github.com/repos/HKati/pulse-release-gates-0.1/"
-            "actions/runs/29249887581/attempts/1/jobs?page=2&per_page=100>; rel=\"next\""
-        ),
-        "link_next_query_mismatch",
-    ),
-    (
-        "wrong_path",
-        (
-            "<https://api.github.com/repos/HKati/pulse-release-gates-0.1/"
-            "actions/runs/29249887581/jobs?per_page=100&page=2>; rel=\"next\""
-        ),
-        "link_next_path_mismatch",
-    ),
-)
-
-
-@pytest.mark.parametrize(
-    ("case_name", "link_value", "error_code"),
-    LINK_MUTATIONS,
-    ids=[case[0] for case in LINK_MUTATIONS],
-)
-def test_link_header_mutations_fail_closed(
-    validator: Any,
-    base_capture_root: Path,
-    tmp_path: Path,
-    case_name: str,
-    link_value: str,
-    error_code: str,
-) -> None:
-    del case_name
-    root = _copy_capture(base_capture_root, tmp_path)
-    manifest = _load_manifest(root)
-
-    def mutate(record: dict[str, Any]) -> None:
-        record["response"]["selected_headers"]["link"] = {
-            "status": "present",
-            "value": link_value,
-        }
-
-    _rewrite_exchange_record(root, manifest, kind="jobs", mutate=mutate)
-    _assert_rejected(
-        validator,
-        capture_root=root,
-        error_code=error_code,
-        stage="pagination",
-        member_path=JOBS_METADATA_PATH,
-    )
-
-
-def test_pagination_relation_mismatch_fails_closed(
-    validator: Any,
-    base_capture_root: Path,
-    tmp_path: Path,
-) -> None:
-    root = _copy_capture(base_capture_root, tmp_path)
-    manifest = _load_manifest(root)
-    _rewrite_exchange_record(
-        root,
-        manifest,
-        kind="jobs",
-        mutate=lambda record: record["pagination_relation"].__setitem__(
-            "relation_source", "other"
-        ),
-    )
-    _assert_rejected(
-        validator,
-        capture_root=root,
-        error_code="manifest_schema_validation_failed",
-        stage="schema",
-        member_path=EXAMPLE_MANIFEST_NAME,
-    )
-
-
-def test_reported_job_count_mismatch_fails_closed(
-    validator: Any,
-    base_capture_root: Path,
-    tmp_path: Path,
-) -> None:
-    root = _copy_capture(base_capture_root, tmp_path)
-    manifest = _load_manifest(root)
-
-    def mutate_raw(value: dict[str, Any]) -> None:
-        value["total_count"] = 9
-
-    _replace_raw_json(root, manifest, kind="jobs", mutate=mutate_raw)
-    manifest = _load_manifest(root)
-    manifest["jobs_page_exchanges"][0]["record"]["response"]["summary"][
-        "reported_total_count"
-    ] = 9
-    _rebind_exchange(root, manifest, kind="jobs")
-    _assert_rejected(
-        validator,
-        capture_root=root,
-        error_code="reported_total_count_mismatch",
-        stage="pagination",
-    )
-
-
-def test_second_page_total_count_disagreement_fails_closed(
-    validator: Any,
-    base_two_page_capture_root: Path,
-    tmp_path: Path,
-) -> None:
-    root = _copy_capture(base_two_page_capture_root, tmp_path)
-    manifest = _load_manifest(root)
-
-    def mutate_raw(value: dict[str, Any]) -> None:
-        value["total_count"] = 100
-
-    _replace_raw_json(
-        root,
-        manifest,
-        kind="jobs",
-        page_number=2,
-        mutate=mutate_raw,
-    )
-    manifest = _load_manifest(root)
-    manifest["jobs_page_exchanges"][1]["record"]["response"]["summary"][
-        "reported_total_count"
-    ] = 100
-    _rebind_exchange(root, manifest, kind="jobs", page_number=2)
-    _assert_rejected(
-        validator,
-        capture_root=root,
-        error_code="page_total_count_disagreement",
-        stage="pagination",
-        member_path="raw/jobs_page_0002_response.json",
-    )
-
-
-def test_missing_second_jobs_page_fails_closed(
-    validator: Any,
-    base_two_page_capture_root: Path,
-    tmp_path: Path,
-) -> None:
-    root = _copy_capture(base_two_page_capture_root, tmp_path)
-    (root / "raw/jobs_page_0002_response.json").unlink()
-    _assert_rejected(
-        validator,
-        capture_root=root,
-        error_code="missing_jobs_page",
-        stage="inventory",
-        member_path="raw/jobs_page_0002_response.json",
-    )
-
-
-def test_manifest_count_relation_mismatch_fails_closed(
-    validator: Any,
-    base_capture_root: Path,
-    tmp_path: Path,
-) -> None:
-    root = _copy_capture(base_capture_root, tmp_path)
-    manifest = _load_manifest(root)
-    manifest["counts"]["reconstructed_step_record_count"] = 7
-    _write_manifest(root, manifest)
-    _assert_rejected(
-        validator,
-        capture_root=root,
-        error_code="manifest_count_relation_mismatch",
-        stage="pagination_counts",
-    )
-
-
-def test_manifest_pagination_relation_mismatch_fails_closed(
-    validator: Any,
-    base_capture_root: Path,
-    tmp_path: Path,
-) -> None:
-    root = _copy_capture(base_capture_root, tmp_path)
-    manifest = _load_manifest(root)
-    manifest["pagination"]["page_sequence"] = [2]
-    _write_manifest(root, manifest)
-    _assert_rejected(
-        validator,
-        capture_root=root,
-        error_code="manifest_pagination_relation_mismatch",
-        stage="pagination_counts",
-    )
-
-
-BOUNDARY_MUTATIONS: tuple[
-    tuple[str, Sequence[str], Any], ...
-] = (
-    ("runtime_observation", ("authority_boundary", "capture_is_runtime_observation"), True),
-    (
-        "runtime_packet",
-        ("authority_boundary", "capture_is_runtime_observation_packet"),
-        True,
-    ),
-    (
-        "transition_measurement",
-        ("authority_boundary", "capture_is_transition_measurement"),
-        True,
-    ),
-    ("compute_report", ("authority_boundary", "capture_is_compute_report"), True),
-    ("gate_result", ("authority_boundary", "capture_is_gate_result"), True),
-    ("release_decision", ("authority_boundary", "capture_is_release_decision"), True),
-    ("release_authority", ("authority_boundary", "capture_is_release_authority"), True),
-    ("active_gate", ("authority_boundary", "activates_compute_gate"), True),
-    (
-        "same_run_authority",
-        ("authority_boundary", "same_run_release_authority_eligible"),
-        True,
-    ),
-    (
-        "producer_verdict",
-        ("authority_boundary", "producer_verdict_trusted"),
-        True,
-    ),
-    (
-        "validator_network",
-        ("implementation_boundary", "offline_validator_network_access"),
-        "allowed",
-    ),
-    (
-        "capture_import",
-        ("implementation_boundary", "offline_validator_imports_capture_implementation"),
-        True,
-    ),
-    (
-        "partial_publication",
-        ("publication_boundary", "partial_publication_accepted"),
-        True,
-    ),
-    (
-        "warning_success",
-        ("publication_boundary", "warning_only_success_allowed"),
-        True,
-    ),
-    (
-        "best_effort",
-        ("publication_boundary", "best_effort_success_allowed"),
-        True,
-    ),
-    (
-        "secret_material",
-        ("privacy_boundary", "secret_material_included"),
-        True,
-    ),
-    (
-        "runtime_packet_content",
-        ("content_boundary", "contains_runtime_observation_packet"),
-        True,
-    ),
-    (
-        "resource_measurement",
-        ("content_boundary", "contains_resource_measurement"),
-        True,
-    ),
-)
-
-
-def _set_nested(value: dict[str, Any], path: Sequence[str], replacement: Any) -> None:
-    cursor: dict[str, Any] = value
-    for part in path[:-1]:
-        cursor = cursor[part]
-    cursor[path[-1]] = replacement
-
-
-@pytest.mark.parametrize(
-    ("case_name", "path", "replacement"),
-    BOUNDARY_MUTATIONS,
-    ids=[case[0] for case in BOUNDARY_MUTATIONS],
-)
-def test_claim_and_authority_expansion_fails_closed(
-    validator: Any,
-    base_capture_root: Path,
-    tmp_path: Path,
-    case_name: str,
-    path: Sequence[str],
-    replacement: Any,
-) -> None:
-    del case_name
-    root = _copy_capture(base_capture_root, tmp_path)
-    manifest = _load_manifest(root)
-    _set_nested(manifest, path, replacement)
-    _write_manifest(root, manifest)
-    _assert_rejected(
-        validator,
-        capture_root=root,
-        error_code="manifest_schema_validation_failed",
-        stage="schema",
-        member_path=EXAMPLE_MANIFEST_NAME,
-    )
-
-
-def test_schema_binding_digest_mismatch_fails_closed(
-    validator: Any,
-    base_capture_root: Path,
-    tmp_path: Path,
-) -> None:
-    root = _copy_capture(base_capture_root, tmp_path)
-    manifest = _load_manifest(root)
-    manifest["contract_bindings"]["manifest_schema"]["sha256"] = "0" * 64
-    _write_manifest(root, manifest)
-    _assert_rejected(
-        validator,
-        capture_root=root,
-        error_code="schema_binding_mismatch",
-        stage="repository_binding",
-    )
-
-
-def test_schema_contract_revision_mismatch_fails_closed(
-    validator: Any,
-    base_capture_root: Path,
-    tmp_path: Path,
-) -> None:
-    root = _copy_capture(base_capture_root, tmp_path)
-    manifest = _load_manifest(root)
-    manifest["contract_bindings"]["normative_contract"]["source_revision"] = "0" * 40
-    _write_manifest(root, manifest)
-    _assert_rejected(
-        validator,
-        capture_root=root,
-        error_code="schema_contract_source_revision_mismatch",
-        stage="repository_binding",
-    )
-
-
-def test_unresolved_example_revision_requires_canonical_checked_in_example(
-    validator: Any,
-    base_capture_root: Path,
-    tmp_path: Path,
-) -> None:
-    root = _copy_capture(base_capture_root, tmp_path)
-    manifest = _load_manifest(root)
-    for binding in manifest["contract_bindings"].values():
-        binding["source_revision"] = "0" * 40
-    _write_manifest(root, manifest)
-    _assert_rejected(
-        validator,
-        capture_root=root,
-        error_code="example_unresolved_revision_not_canonical",
-        stage="repository_binding",
-        member_path=EXAMPLE_MANIFEST_NAME,
-    )
-
-
-def test_failure_diagnostic_is_canonical_and_deterministic(
-    validator: Any,
-    base_capture_root: Path,
-    tmp_path: Path,
-) -> None:
-    root = _copy_capture(base_capture_root, tmp_path)
-    path = root / RUN_BODY_PATH
-    path.write_bytes(path.read_bytes() + b" ")
-    first = _assert_rejected(
-        validator,
-        capture_root=root,
-        error_code="raw_response_identity_mismatch",
-        stage="member_identity",
-        member_path=RUN_BODY_PATH,
-    )
-    second = _assert_rejected(
-        validator,
-        capture_root=root,
-        error_code="raw_response_identity_mismatch",
-        stage="member_identity",
-        member_path=RUN_BODY_PATH,
-    )
-    first_bytes = validator._failure_diagnostic(first)
-    second_bytes = validator._failure_diagnostic(second)
-    assert first_bytes == second_bytes
-    assert first_bytes == _canonical_json_bytes(json.loads(first_bytes))
-    assert str(ROOT).encode("utf-8") not in first_bytes
-    assert TOKEN.encode("ascii") not in first_bytes
-
-
-def test_cli_failure_diagnostic_is_byte_identical(
-    base_capture_root: Path,
-    tmp_path: Path,
-) -> None:
-    root = _copy_capture(base_capture_root, tmp_path)
-    path = root / RUN_BODY_PATH
-    path.write_bytes(path.read_bytes() + b" ")
-    first = _run_validator_cli(root, isolated=True)
-    second = _run_validator_cli(root, isolated=True)
-    assert first.returncode == second.returncode == 2
-    assert first.stdout == second.stdout == b""
-    assert first.stderr == second.stderr
-    parsed = json.loads(first.stderr)
-    assert first.stderr == _canonical_json_bytes(parsed)
-    assert parsed["error_code"] == "raw_response_identity_mismatch"
-    assert parsed["stage"] == "member_identity"
-    assert parsed["member_path"] == RUN_BODY_PATH
-    assert parsed["authority_effect"] == "none"
-    assert str(ROOT).encode("utf-8") not in first.stderr
-
-
-def test_validation_does_not_modify_repository_or_capture(
-    validator: Any,
-    base_capture_root: Path,
-) -> None:
-    repository_paths = [item[0] for item in EXPECTED_SOURCE_IDENTITIES]
-    repository_before = {path: path.read_bytes() for path in repository_paths}
-    capture_before = {
-        path.relative_to(base_capture_root).as_posix(): (
-            path.read_bytes(), stat.S_IMODE(path.stat().st_mode)
-        )
-        for path in base_capture_root.rglob("*")
-        if path.is_file()
-    }
-    _validate_without_process_audit(
-        validator,
-        repository_root=ROOT,
-        capture_root=base_capture_root,
-    )
-    repository_after = {path: path.read_bytes() for path in repository_paths}
-    capture_after = {
-        path.relative_to(base_capture_root).as_posix(): (
-            path.read_bytes(), stat.S_IMODE(path.stat().st_mode)
-        )
-        for path in base_capture_root.rglob("*")
-        if path.is_file()
-    }
-    assert repository_after == repository_before
-    assert capture_after == capture_before
-
-
-# Transport-only probes execute the workflow's actual archive code. Their small
-# payloads and oracle are deliberately not presented as semantic capture proof.
-# The separate real-validator test below exercises the complete offline boundary.
-_TAR_WORKFLOW_PATH = (
-    ROOT / ".github" / "workflows"
-    / "pulsemech_compute_post_run_producer_input_capture_v0.yml"
-)
-_TAR_CAPTURE_NAME = "pulsemech-compute-post-run-producer-input-capture-v0"
-_TAR_CAPTURE_DIAGNOSTIC = "pulsemech-compute-post-run-capture-diagnostic-v0.json"
-_TAR_VALIDATION_DIAGNOSTIC = "pulsemech-compute-post-run-validation-diagnostic-v0.json"
-_TAR_MANIFEST_NAME = (
-    "pulsemech_compute_post_run_producer_input_capture_manifest_6066_v0.json"
-)
-_TAR_DIRECTORIES = ("", "raw", "metadata")
-_TAR_FILES = (
-    "metadata/jobs_page_0001_exchange_v0.json",
-    "metadata/run_attempt_exchange_v0.json",
-    _TAR_MANIFEST_NAME,
-    "raw/jobs_page_0001_response.json",
-    "raw/run_attempt_response.json",
-)
-_TAR_ORACLE_DIAGNOSTIC = b'{"fixture_transport_only":true}\n'
-
-
-def _tar_workflow_job() -> dict[str, Any]:
-    import yaml
-
-    workflow = yaml.safe_load(_TAR_WORKFLOW_PATH.read_text(encoding="utf-8"))
-    return workflow["jobs"]["capture-fixed-reference-input"]
-
-
-def _tar_archive_code() -> Any:
-    steps = _tar_workflow_job()["steps"]
-    candidates = [step for step in steps if step.get("id") == "archive"]
-    assert len(candidates) == 1
-    script = candidates[0]["run"]
-    marker = "python -I - <<'PY'\n"
-    assert script.count(marker) == 1
-    prefix, body = script.split(marker, 1)
-    for command in (
-        "set -euo pipefail", "umask 077", "unset GH_TOKEN",
-        "unset PULSEMECH_CAPTURE_WORKFLOW_ID",
-    ):
-        assert command in prefix.splitlines()
-    source, suffix = body.rsplit("\nPY", 1)
-    assert not suffix.strip()
-    return compile(source, str(_TAR_WORKFLOW_PATH) + ":archive", "exec")
-
-
-def _tar_fixture(tmp_path: Path) -> tuple[Path, dict[str, bytes]]:
-    root = tmp_path / _TAR_CAPTURE_NAME
-    root.mkdir(mode=0o700)
-    for name in _TAR_DIRECTORIES[1:]:
-        (root / name).mkdir(mode=0o700)
-    contents = {
-        name: b'{"fixture_transport_only":true,"member":'
-        + json.dumps(name).encode("ascii") + b'}\n'
-        for name in _TAR_FILES
-    }
-    contents[RUN_BODY_PATH] = b'\xef\xbb\xbf{ "z": 1, "a": "raw" }\r\n'
-    contents[JOBS_BODY_PATH] = '{"text":"árvíz","jobs":[]}\n'.encode("utf-8")
-    for name, payload in contents.items():
-        path = root / name
-        path.write_bytes(payload)
-        path.chmod(0o600)
-    (tmp_path / _TAR_VALIDATION_DIAGNOSTIC).write_bytes(_TAR_ORACLE_DIAGNOSTIC)
-    (tmp_path / _TAR_CAPTURE_DIAGNOSTIC).write_bytes(b'{"fixture_only":true}\n')
-    return root, contents
-
-
-def _tar_assert_restoration(root: Path, contents: Mapping[str, bytes]) -> None:
-    assert root.is_dir() and not root.is_symlink()
-    actual = {path.relative_to(root).as_posix() for path in root.rglob("*")}
-    assert actual == set(contents) | {"raw", "metadata"}
-    for name in _TAR_DIRECTORIES:
-        metadata = (root / name).lstat()
-        assert stat.S_ISDIR(metadata.st_mode)
-        assert stat.S_IMODE(metadata.st_mode) == 0o700
-    for name, payload in contents.items():
-        path = root / name
-        metadata = path.lstat()
-        assert stat.S_ISREG(metadata.st_mode)
-        assert stat.S_IMODE(metadata.st_mode) == 0o600
-        assert metadata.st_nlink == 1
-        assert path.read_bytes() == payload
-
-
-def _tar_assert_package(path: Path, contents: Mapping[str, bytes]) -> None:
-    import tarfile
-
-    expected_dirs = {
-        _TAR_CAPTURE_NAME + ("/" + name if name else "")
-        for name in _TAR_DIRECTORIES
-    }
-    expected_files = {_TAR_CAPTURE_NAME + "/" + name for name in contents}
-    with tarfile.open(path, "r:") as package:
-        members = package.getmembers()
-        assert len(members) == len(expected_dirs) + len(expected_files)
-        assert {member.name for member in members} == expected_dirs | expected_files
-        for member in members:
-            assert member.uid == member.gid == 0
-            assert member.uname == member.gname == ""
-            assert member.mtime == 0
-            assert not member.linkname
-            if member.name in expected_dirs:
-                assert member.isdir() and member.mode == 0o700
-            else:
-                assert member.isreg() and member.mode == 0o600
-                name = member.name[len(_TAR_CAPTURE_NAME) + 1:]
-                stream = package.extractfile(member)
-                assert stream is not None
-                with stream:
-                    assert stream.read() == contents[name]
-
-
-def _tar_transport_oracle(
-    contents: Mapping[str, bytes], calls: list[Path],
-    *, after_read: Callable[[Path], None] | None = None,
-    returncode: int = 0, stdout: bytes = _TAR_ORACLE_DIAGNOSTIC,
-) -> Callable[..., subprocess.CompletedProcess[bytes]]:
-    def run(command: Sequence[str], **kwargs: Any) -> subprocess.CompletedProcess[bytes]:
-        assert list(command[:5]) == [
-            sys.executable, "-I", str(VALIDATOR_PATH), "--repository-root", str(ROOT),
-        ]
-        assert len(command) == 7 and command[5] == "--capture-root"
-        assert kwargs == {
-            "stdin": subprocess.DEVNULL, "stdout": subprocess.PIPE,
-            "stderr": subprocess.DEVNULL, "check": False,
-        }
-        assert "GH_TOKEN" not in os.environ
-        assert "PULSEMECH_CAPTURE_WORKFLOW_ID" not in os.environ
-        restored = Path(command[6])
-        assert restored.name == _TAR_CAPTURE_NAME
-        assert restored.parent.name.startswith("pulsemech-capture-tar-roundtrip-")
-        _tar_assert_restoration(restored, contents)
-        calls.append(restored)
-        if after_read is not None:
-            after_read(restored)
-        return subprocess.CompletedProcess(command, returncode, stdout=stdout)
-    return run
-
-
-def _tar_execute_archive(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
-    *, validator_runner: Callable[..., Any] | None = None,
-) -> None:
-    code = _tar_archive_code()
-    with monkeypatch.context() as patch:
-        for key, value in {
-            "RUNNER_TEMP": str(tmp_path), "GITHUB_WORKSPACE": str(ROOT),
-            "CAPTURE_DIRECTORY_NAME": _TAR_CAPTURE_NAME,
-            "CAPTURE_DIAGNOSTIC_NAME": _TAR_CAPTURE_DIAGNOSTIC,
-            "VALIDATION_DIAGNOSTIC_NAME": _TAR_VALIDATION_DIAGNOSTIC,
-        }.items():
-            patch.setenv(key, value)
-        patch.delenv("GH_TOKEN", raising=False)
-        patch.delenv("PULSEMECH_CAPTURE_WORKFLOW_ID", raising=False)
-        if validator_runner is not None:
-            patch.setattr(subprocess, "run", validator_runner)
-        previous_umask = os.umask(0o077)
-        try:
-            exec(code, {"__name__": "__main__"})
-        finally:
-            os.umask(previous_umask)
-
-
-def _tar_assert_temporary_restoration_removed(tmp_path: Path) -> None:
-    assert not list(tmp_path.glob("pulsemech-capture-tar-roundtrip-*"))
-
-
-def test_tar_upload_requires_successful_roundtrip_and_exact_transport_members() -> None:
-    job = _tar_workflow_job()
-    steps = job["steps"]
-    by_id = {step["id"]: step for step in steps if "id" in step}
-    assert sum(step.get("id") == "archive" for step in steps) == 1
-    assert sum(step.get("id") == "upload" for step in steps) == 1
-    archive, upload = by_id["archive"], by_id["upload"]
-    assert steps.index(by_id["validate"]) < steps.index(archive) < steps.index(upload)
-    assert archive["shell"] == "bash"
-    assert archive.get("if") in (None, "${{ success() }}")
-    assert archive.get("continue-on-error", False) is False
-    assert upload.get("continue-on-error", False) is False
-    assert upload["if"] == "${{ success() && steps.archive.outcome == 'success' }}"
-    assert upload["uses"] == (
-        "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a"
-    )
-    options = upload["with"]
-    assert options["path"].splitlines() == [
-        "${{ runner.temp }}/" + _TAR_CAPTURE_NAME + ".tar",
-        "${{ runner.temp }}/" + _TAR_CAPTURE_DIAGNOSTIC,
-        "${{ runner.temp }}/" + _TAR_VALIDATION_DIAGNOSTIC,
-    ]
-    assert options["if-no-files-found"] == "error"
-    assert options["overwrite"] is False
-    assert options["include-hidden-files"] is False
-    assert job["env"]["CAPTURE_DIRECTORY_NAME"] == _TAR_CAPTURE_NAME
-    assert job["env"]["CAPTURE_DIAGNOSTIC_NAME"] == _TAR_CAPTURE_DIAGNOSTIC
-    assert job["env"]["VALIDATION_DIAGNOSTIC_NAME"] == _TAR_VALIDATION_DIAGNOSTIC
-    _tar_archive_code()
-
-
-def test_tar_roundtrip_preserves_exact_bytes_modes_and_validator_invocation(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    root, contents = _tar_fixture(tmp_path)
-    calls: list[Path] = []
-    _tar_execute_archive(
-        tmp_path, monkeypatch, validator_runner=_tar_transport_oracle(contents, calls),
-    )
-    assert len(calls) == 1 and not calls[0].exists()
-    _tar_assert_restoration(root, contents)
-    _tar_assert_package(tmp_path / (_TAR_CAPTURE_NAME + ".tar"), contents)
-    _tar_assert_temporary_restoration_removed(tmp_path)
-
-
-def test_tar_archive_is_deterministic_for_same_capture_bytes(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    archives: list[bytes] = []
-    for index in range(2):
-        parent = tmp_path / str(index)
-        parent.mkdir()
-        root, contents = _tar_fixture(parent)
-        for path in (root, *root.rglob("*")):
-            os.utime(path, (1000 + index, 1000 + index))
-        calls: list[Path] = []
-        _tar_execute_archive(
-            parent, monkeypatch, validator_runner=_tar_transport_oracle(contents, calls),
-        )
-        assert len(calls) == 1
-        archives.append((parent / (_TAR_CAPTURE_NAME + ".tar")).read_bytes())
-    assert archives[0] == archives[1]
-
-
-@pytest.mark.parametrize("relative_path", (*_TAR_DIRECTORIES, *_TAR_FILES))
-def test_tar_archive_rejects_incorrect_source_permissions(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, relative_path: str,
-) -> None:
-    root, contents = _tar_fixture(tmp_path)
-    target = root / relative_path
-    mode = 0o755 if relative_path in _TAR_DIRECTORIES else 0o644
-    target.chmod(mode)
-    calls: list[Path] = []
-    with pytest.raises(SystemExit, match="capture_archive_.*mode_or_type_mismatch"):
-        _tar_execute_archive(
-            tmp_path, monkeypatch, validator_runner=_tar_transport_oracle(contents, calls),
-        )
-    assert not calls
-    assert stat.S_IMODE(target.lstat().st_mode) == mode
-    _tar_assert_temporary_restoration_removed(tmp_path)
-
-
-@pytest.mark.parametrize("case", ("file_symlink", "directory_symlink", "hardlink", "extra"))
-def test_tar_archive_rejects_unadmitted_filesystem_members(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, case: str,
-) -> None:
-    root, contents = _tar_fixture(tmp_path)
-    member = root / RUN_BODY_PATH
-    outside = tmp_path / "outside"
-    if case == "file_symlink":
-        member.rename(outside)
-        member.symlink_to(outside)
-    elif case == "directory_symlink":
-        (root / "raw").rename(outside)
-        (root / "raw").symlink_to(outside, target_is_directory=True)
-    elif case == "hardlink":
-        os.link(member, outside)
-    else:
-        (root / "extra.json").write_bytes(b"{}\n")
-    calls: list[Path] = []
-    with pytest.raises(SystemExit, match="capture_archive_"):
-        _tar_execute_archive(
-            tmp_path, monkeypatch, validator_runner=_tar_transport_oracle(contents, calls),
-        )
-    assert not calls
-    if case == "directory_symlink":
-        assert (outside / "run_attempt_response.json").read_bytes() == contents[RUN_BODY_PATH]
-    elif case != "extra":
-        assert outside.read_bytes() == contents[RUN_BODY_PATH]
-    _tar_assert_temporary_restoration_removed(tmp_path)
-
-
-@pytest.mark.parametrize("case", ("file", "broken_symlink"))
-def test_tar_archive_does_not_replace_existing_output(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, case: str,
-) -> None:
-    _, contents = _tar_fixture(tmp_path)
-    archive = tmp_path / (_TAR_CAPTURE_NAME + ".tar")
-    if case == "file":
-        archive.write_bytes(b"existing-output")
-    else:
-        archive.symlink_to(tmp_path / "nonexistent-target")
-    before = archive.lstat()
-    calls: list[Path] = []
-    with pytest.raises(FileExistsError):
-        _tar_execute_archive(
-            tmp_path, monkeypatch, validator_runner=_tar_transport_oracle(contents, calls),
-        )
-    after = archive.lstat()
-    assert (before.st_dev, before.st_ino) == (after.st_dev, after.st_ino)
-    assert not calls
-    if case == "file":
-        assert archive.read_bytes() == b"existing-output"
-    else:
-        assert archive.is_symlink() and not archive.exists()
-    _tar_assert_temporary_restoration_removed(tmp_path)
-
-
-@pytest.mark.parametrize(
-    ("returncode", "stdout", "error_code"),
-    (
-        (2, b"", "capture_archive_offline_validation_failed"),
-        (0, b"different-diagnostic\n", "capture_archive_validation_diagnostic_mismatch"),
-    ),
-)
-def test_tar_archive_rejects_failed_or_different_validator_result(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
-    returncode: int, stdout: bytes, error_code: str,
-) -> None:
-    _, contents = _tar_fixture(tmp_path)
-    calls: list[Path] = []
-    with pytest.raises(SystemExit, match=error_code):
-        _tar_execute_archive(
-            tmp_path, monkeypatch,
-            validator_runner=_tar_transport_oracle(
-                contents, calls, returncode=returncode, stdout=stdout,
+        output = tmp_path / f"invalid-timestamp-{index}"
+        _assert_capture_error(
+            capture, expected_error,
+            lambda: capture.capture_with_injected_dependencies_for_test(
+                repository_root=ROOT, output_directory=output, token=TOKEN,
+                transport=transport, clock=clock,
             ),
         )
-    assert len(calls) == 1 and not calls[0].exists()
-    _tar_assert_temporary_restoration_removed(tmp_path)
+        assert not output.exists()
+        _assert_no_owned_staging(tmp_path, output.name)
+        assert transport.remaining == 0 and clock.remaining == 0
+    assert publication_attempts == []
+    assert _source_snapshot() == before
 
 
-def test_tar_validator_exception_cleans_temporary_restoration(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+def test_canonical_fractional_timestamps_preserve_bytes_and_validate_offline(
+    capture: Any, tmp_path: Path,
 ) -> None:
-    _, contents = _tar_fixture(tmp_path)
-    calls: list[Path] = []
-
-    def interrupt(_root: Path) -> None:
-        raise RuntimeError("fixture-validator-interruption")
-
-    with pytest.raises(RuntimeError, match="fixture-validator-interruption"):
-        _tar_execute_archive(
-            tmp_path, monkeypatch,
-            validator_runner=_tar_transport_oracle(contents, calls, after_read=interrupt),
+    before = _source_snapshot()
+    for index, fraction in enumerate(("", ".0", ".123456", ".123456789")):
+        page = _jobs_document(capture, list(range(86815582001, 86815582009)))
+        for job in page["jobs"]:
+            for record in (job, *job["steps"]):
+                record["started_at"] = f"2026-07-13T12:27:00{fraction}Z"
+                record["completed_at"] = f"2026-07-13T12:27:01{fraction}Z"
+        transport, clock, run_body, page_bodies = _scripted_fixture(
+            capture, pages=[(page, None)],
         )
-    assert len(calls) == 1 and not calls[0].exists()
-    _tar_assert_temporary_restoration_removed(tmp_path)
-
-
-def test_tar_archive_path_replacement_is_rejected_without_deleting_replacement(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    _, contents = _tar_fixture(tmp_path)
-    archive = tmp_path / (_TAR_CAPTURE_NAME + ".tar")
-    calls: list[Path] = []
-
-    def replace(_root: Path) -> None:
-        archive.rename(tmp_path / "original-open-archive.tar")
-        archive.write_bytes(b"replacement-not-owned-by-archive-step")
-
-    with pytest.raises(SystemExit, match="capture_archive_changed_during_roundtrip"):
-        _tar_execute_archive(
-            tmp_path, monkeypatch,
-            validator_runner=_tar_transport_oracle(contents, calls, after_read=replace),
+        output = tmp_path / f"canonical-timestamp-{index}"
+        result = capture.capture_with_injected_dependencies_for_test(
+            repository_root=ROOT, output_directory=output, token=TOKEN,
+            transport=transport, clock=clock,
         )
-    assert archive.read_bytes() == b"replacement-not-owned-by-archive-step"
-    assert len(calls) == 1
-    _tar_assert_temporary_restoration_removed(tmp_path)
+        assert result.record_status == "example"
+        assert result.authority_effect == "none"
+        assert (output / capture.RUN_BODY_PATH).read_bytes() == run_body
+        assert (output / (capture.JOBS_BODY_TEMPLATE % 1)).read_bytes() == page_bodies[0]
+        check = subprocess.run(
+            [sys.executable, "-I", str(OFFLINE_VALIDATOR_PATH),
+             "--repository-root", str(ROOT), "--capture-root", str(output)],
+            stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE, check=False, timeout=60,
+        )
+        assert check.returncode == 0, check.stderr.decode("utf-8", errors="replace")
+        assert check.stderr == b""
+        diagnostic = json.loads(check.stdout)
+        assert diagnostic["ok"] is True
+        assert diagnostic["result"] == "validated_offline"
+        assert diagnostic["authority_effect"] == "none"
+        assert diagnostic["manifest_sha256"] == result.manifest_sha256
+        assert transport.remaining == 0 and clock.remaining == 0
+    assert _source_snapshot() == before
 
 
-def test_tar_payload_survives_outer_zip_permission_normalization(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+@pytest.mark.parametrize(
+    ("source_path", "error_code"),
+    (
+        (SCHEMA_PATH, "manifest_schema_drift_detected"),
+        (CONTRACT_PATH, "normative_contract_drift_detected"),
+        (CAPTURE_TOOL_PATH, "capture_implementation_drift_detected"),
+        (CAPTURE_WORKFLOW_PATH, "capture_workflow_drift_detected"),
+    ),
+    ids=("schema", "contract", "producer", "workflow"),
+)
+def test_final_source_revalidation_failure_rolls_back_and_allows_retry(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    source_path: Path,
+    error_code: str,
 ) -> None:
-    import zipfile
-
-    _, contents = _tar_fixture(tmp_path)
-    calls: list[Path] = []
-    _tar_execute_archive(
-        tmp_path, monkeypatch, validator_runner=_tar_transport_oracle(contents, calls),
-    )
-    name = _TAR_CAPTURE_NAME + ".tar"
-    payload = (tmp_path / name).read_bytes()
-    zip_path = tmp_path / "simulated-github-artifact.zip"
-    with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_STORED) as package:
-        package.writestr(name, payload)
-    downloaded = tmp_path / "downloaded"
-    downloaded.mkdir(mode=0o755)
-    downloaded.chmod(0o755)
-    with zipfile.ZipFile(zip_path) as package:
-        assert package.namelist() == [name]
-        output = downloaded / name
-        output.write_bytes(package.read(name))
-        output.chmod(0o644)
-    assert stat.S_IMODE(output.stat().st_mode) == 0o644
-    assert output.read_bytes() == payload
-    _tar_assert_package(output, contents)
-
-
-def test_tar_roundtrip_with_real_validator_on_synthetic_observed_shape(
-    capture: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    # This is a temporary synthetic witness of the observed branch, NOT a live
-    # GitHub response capture or the canonical #6066 preservation record.
-    # No production CLI, token, workflow dispatch, or network transport is used.
-    root = tmp_path / _TAR_CAPTURE_NAME
-    head = subprocess.run(
-        ["git", "rev-parse", "HEAD"], cwd=ROOT, check=True,
-        stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-        env=_subprocess_environment(), timeout=30,
-    ).stdout.decode("ascii").strip()
-    sources = capture._load_sources(ROOT, revision=head, include_workflow=True)
-    identity = capture.WorkflowExecutionIdentity(
-        workflow_id=123456,
-        workflow_run_id=987654321,
-        workflow_run_attempt=1,
+    repository, module, revision = _make_minimal_repository(tmp_path)
+    source = repository / source_path.relative_to(ROOT)
+    original_bytes = source.read_bytes()
+    sources = module._load_sources(repository, revision=revision, include_workflow=True)
+    # Synthetic observed-branch fixture: no live transport or workflow dispatch.
+    workflow_execution = module.WorkflowExecutionIdentity(
+        workflow_id=123456, workflow_run_id=987654321, workflow_run_attempt=1,
         workflow_run_key=(
             "GITHUB_RUN_ID=987654321|GITHUB_RUN_ATTEMPT=1|"
             "GITHUB_WORKFLOW=PULSEmech compute post-run producer-input capture"
         ),
     )
-    transport, clock = _scripted_fixture(capture)
-    result = capture._capture_core(
-        sources=sources, output_directory=root, token=TOKEN,
+    output = tmp_path / "final-source-drift"
+    original_readback = module._verify_exact_directory_inventory
+    readbacks = 0
+
+    def mutate_after_final_readback(root_fd: int, files: Mapping[str, bytes]) -> None:
+        nonlocal readbacks
+        original_readback(root_fd, files)
+        readbacks += 1
+        if readbacks == 2:
+            opened = os.fstat(root_fd)
+            named = output.stat()
+            assert (opened.st_dev, opened.st_ino) == (named.st_dev, named.st_ino)
+            source.write_bytes(original_bytes + b"\n")
+
+    transport, clock, _run, _pages = _scripted_fixture(module)
+    with monkeypatch.context() as patch:
+        patch.setattr(module, "_verify_exact_directory_inventory", mutate_after_final_readback)
+        _assert_capture_error(
+            module, error_code,
+            lambda: module._capture_core(
+                sources=sources, output_directory=output, token=TOKEN,
+                transport=transport, clock=clock, record_status="observed",
+                workflow_execution=workflow_execution,
+            ),
+        )
+    assert readbacks == 2
+    assert not output.exists()
+    _assert_no_owned_staging(tmp_path, output.name)
+    assert transport.remaining == 0 and clock.remaining == 0
+    # Restore only this disposable fixture source, then retry the exact output.
+    source.write_bytes(original_bytes)
+    transport, clock, _run, _pages = _scripted_fixture(module)
+    result = module._capture_core(
+        sources=sources, output_directory=output, token=TOKEN,
         transport=transport, clock=clock, record_status="observed",
-        workflow_execution=identity,
+        workflow_execution=workflow_execution,
     )
-    assert result.manifest_file_name == _TAR_MANIFEST_NAME
-    assert result.job_count == 8 and result.authority_effect == "none"
-    assert transport.remaining == clock.remaining == 0
-    original = _run_validator_cli(root, isolated=True)
-    assert original.returncode == 0, original.stderr.decode("utf-8", errors="replace")
-    assert original.stderr == b""
-    diagnostic = json.loads(original.stdout)
-    assert diagnostic["ok"] is True and diagnostic["result"] == "validated_offline"
-    assert diagnostic["authority_effect"] == "none"
-    assert original.stdout == _canonical_json_bytes(diagnostic)
-    (tmp_path / _TAR_VALIDATION_DIAGNOSTIC).write_bytes(original.stdout)
-    contents = {name: (root / name).read_bytes() for name in _TAR_FILES}
-    # No monkeypatch of subprocess.run: the unchanged workflow code launches the
-    # actual isolated offline validator against its separate TAR reconstruction.
-    _tar_execute_archive(tmp_path, monkeypatch)
-    _tar_assert_package(tmp_path / (_TAR_CAPTURE_NAME + ".tar"), contents)
-    _tar_assert_restoration(root, contents)
-    _tar_assert_temporary_restoration_removed(tmp_path)
+    assert result.record_status == "observed" and result.authority_effect == "none"
+    assert (output / result.manifest_file_name).read_bytes() == result.manifest_bytes
+    assert source.read_bytes() == original_bytes
+    assert transport.remaining == 0 and clock.remaining == 0
+    _assert_no_owned_staging(tmp_path, output.name)
+
+
+@pytest.mark.parametrize("failure_kind", ("keyboard-interrupt", "termination-error"))
+def test_final_source_revalidation_interrupt_rolls_back(
+    capture: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    failure_kind: str,
+) -> None:
+    output = tmp_path / "final-source-interruption"
+    original = capture._revalidate_sources
+    reached_final_check = False
+
+    def interrupt_after_publication(sources: Any) -> None:
+        nonlocal reached_final_check
+        original(sources)
+        if output.exists():
+            reached_final_check = True
+            if failure_kind == "keyboard-interrupt":
+                raise KeyboardInterrupt
+            raise capture.CaptureError("capture_interrupted")
+
+    transport, clock, _run, _pages = _scripted_fixture(capture)
+    monkeypatch.setattr(capture, "_revalidate_sources", interrupt_after_publication)
+    expected = KeyboardInterrupt if failure_kind == "keyboard-interrupt" else capture.CaptureError
+    with pytest.raises(expected) as failure:
+        capture.capture_with_injected_dependencies_for_test(
+            repository_root=ROOT, output_directory=output, token=TOKEN,
+            transport=transport, clock=clock,
+        )
+    if failure_kind == "termination-error":
+        assert failure.value.error_code == "capture_interrupted"
+    assert reached_final_check
+    assert not output.exists()
+    _assert_no_owned_staging(tmp_path, output.name)
+
+
+@pytest.mark.parametrize("replacement_kind", ("directory", "symlink", "parent"))
+def test_final_source_revalidation_cleanup_preserves_replacement(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, replacement_kind: str,
+) -> None:
+    repository, module, revision = _make_minimal_repository(tmp_path)
+    parent = tmp_path / "capture-parent"
+    parent.mkdir()
+    output = parent / "capture"
+    displaced = tmp_path / "displaced-owned-capture"
+    relocated_parent = tmp_path / "relocated-parent"
+    foreign = tmp_path / "foreign-directory"
+    foreign.mkdir()
+    sentinel = foreign / "sentinel"
+    sentinel.write_bytes(b"foreign content must remain unchanged\n")
+    source = repository / CONTRACT_PATH.relative_to(ROOT)
+    original_bytes = source.read_bytes()
+    original = module._revalidate_sources
+    reached_final_check = False
+
+    def replace_name_and_change_source(sources: Any) -> None:
+        nonlocal reached_final_check
+        original(sources)
+        if not output.exists():
+            return
+        reached_final_check = True
+        if replacement_kind == "parent":
+            parent.rename(relocated_parent)
+            parent.mkdir()
+            output.mkdir()
+            (output / "sentinel").write_bytes(sentinel.read_bytes())
+        else:
+            output.rename(displaced)
+            if replacement_kind == "directory":
+                output.mkdir()
+                (output / "sentinel").write_bytes(sentinel.read_bytes())
+            else:
+                output.symlink_to(foreign, target_is_directory=True)
+        source.write_bytes(original_bytes + b"\n")
+        original(sources)
+
+    transport, clock, _run, _pages = _scripted_fixture(module)
+    monkeypatch.setattr(module, "_revalidate_sources", replace_name_and_change_source)
+    _assert_capture_error(
+        module, "normative_contract_drift_detected",
+        lambda: module.capture_with_injected_dependencies_for_test(
+            repository_root=repository, output_directory=output, token=TOKEN,
+            transport=transport, clock=clock, source_revision=revision,
+        ),
+    )
+    assert reached_final_check
+    assert sentinel.read_bytes() == b"foreign content must remain unchanged\n"
+    assert (output / "sentinel").read_bytes() == sentinel.read_bytes()
+    assert list(foreign.iterdir()) == [sentinel]
+    if replacement_kind == "parent":
+        assert not (relocated_parent / output.name).exists()
+        _assert_no_owned_staging(relocated_parent, output.name)
+    else:
+        # A renamed owned root has no trusted current name, so it is retained;
+        # only its owned contents are removed through the original descriptor.
+        assert displaced.is_dir() and list(displaced.iterdir()) == []
+        assert output.is_symlink() is (replacement_kind == "symlink")
+    _assert_no_owned_staging(parent, output.name)
 
 
 if __name__ == "__main__":
