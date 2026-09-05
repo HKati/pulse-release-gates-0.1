@@ -47,14 +47,18 @@ OFFLINE_VALIDATOR_PATH = (
     / "check_pulsemech_compute_post_run_producer_input_capture_v0.py"
 )
 
+CAPTURE_WORKFLOW_PATH = (
+    ROOT / ".github/workflows/pulsemech_compute_post_run_producer_input_capture_v0.yml"
+)
+
 TOKEN = "ghp_" + ("A" * 36)
 OTHER_TOKEN = "ghp_" + ("B" * 36)
 CAPTURE_BASE = dt.datetime(2026, 8, 1, 18, 0, 0, tzinfo=dt.timezone.utc)
 
 EXPECTED_CAPTURE_TOOL_IDENTITY = (
-    105091,
-    "6fd39f52f54675db0f57dc090da1fc21b12a858fde6619621043b552a7c0d2bc",
-    "621b839a11471d65c7170531f600f80117b7c083",
+    105369,
+    "7ca957b2df31a6e7cb6396f0d643acf17c06c4127697882d0e71ec4473843e5c",
+    "6a37fb0bec4b8e593651946279a0e46b8cd4cc44",
 )
 
 SOURCE_PATHS = (
@@ -68,6 +72,12 @@ SOURCE_PATHS = (
 _DELETE = object()
 
 EXPECTED_TEST_ITEM_COUNTS = {
+    "test_timestamp_grammar_matches_independent_validator": 1,
+    "test_noncanonical_job_and_step_timestamps_fail_before_publication": 8,
+    "test_canonical_fractional_timestamps_preserve_bytes_and_validate_offline": 1,
+    "test_final_source_revalidation_failure_rolls_back_and_allows_retry": 4,
+    "test_final_source_revalidation_interrupt_rolls_back": 2,
+    "test_final_source_revalidation_cleanup_preserves_replacement": 3,
     "test_application_request_headers_are_exact_and_ordered": 1,
     "test_authoritative_launcher_sanitizes_pytest_environment_and_requires_completed_contract": 1,
     "test_capture_tool_exact_identity_and_linux_runtime_contract": 1,
@@ -105,6 +115,12 @@ EXPECTED_TEST_ITEM_COUNTS = {
 EXPECTED_COLLECTED_TEST_ITEMS = sum(EXPECTED_TEST_ITEM_COUNTS.values())
 CRITICAL_TEST_FUNCTIONS = frozenset(
     {
+        "test_timestamp_grammar_matches_independent_validator",
+        "test_noncanonical_job_and_step_timestamps_fail_before_publication",
+        "test_canonical_fractional_timestamps_preserve_bytes_and_validate_offline",
+        "test_final_source_revalidation_failure_rolls_back_and_allows_retry",
+        "test_final_source_revalidation_interrupt_rolls_back",
+        "test_final_source_revalidation_cleanup_preserves_replacement",
         "test_authoritative_launcher_sanitizes_pytest_environment_and_requires_completed_contract",
         "test_capture_tool_exact_identity_and_linux_runtime_contract",
         "test_direct_authoritative_launcher_rejects_terminal_pytest_early_exit",
@@ -2160,7 +2176,9 @@ def test_publication_cleanup_covers_keyboard_interrupt(
     monkeypatch.setattr(capture, "_write_file_at", interrupted_write)
     with pytest.raises(KeyboardInterrupt):
         capture._publish_capture(
-            repository_root=ROOT,
+            sources=capture._load_sources(
+                ROOT, revision=_git_head(ROOT), include_workflow=False,
+            ),
             output_directory=output,
             files=_simple_publish_files(),
         )
@@ -2193,7 +2211,9 @@ def test_post_publication_readback_failure_removes_owned_output(
         capture,
         "synthetic_post_publication_readback_failure",
         lambda: capture._publish_capture(
-            repository_root=ROOT,
+            sources=capture._load_sources(
+                ROOT, revision=_git_head(ROOT), include_workflow=False,
+            ),
             output_directory=output,
             files=_simple_publish_files(),
         ),
@@ -2214,7 +2234,9 @@ def test_publication_rejects_existing_target_and_out_of_contract_member(
         capture,
         "existing_output_replacement_forbidden",
         lambda: capture._publish_capture(
-            repository_root=ROOT,
+            sources=capture._load_sources(
+                ROOT, revision=_git_head(ROOT), include_workflow=False,
+            ),
             output_directory=existing,
             files=_simple_publish_files(),
         ),
@@ -2226,7 +2248,9 @@ def test_publication_rejects_existing_target_and_out_of_contract_member(
         capture,
         "output_member_path_outside_contract",
         lambda: capture._publish_capture(
-            repository_root=ROOT,
+            sources=capture._load_sources(
+                ROOT, revision=_git_head(ROOT), include_workflow=False,
+            ),
             output_directory=invalid,
             files={"nested/outside/member.json": b"{}\n"},
         ),
@@ -2242,6 +2266,7 @@ def _make_minimal_repository(tmp_path: Path) -> tuple[Path, Any, str]:
         "contracts",
         "tools",
         "examples/compute",
+        ".github/workflows",
     ):
         (repository / relative).mkdir(parents=True, exist_ok=True)
     copies = {
@@ -2250,6 +2275,7 @@ def _make_minimal_repository(tmp_path: Path) -> tuple[Path, Any, str]:
         CAPTURE_TOOL_PATH: repository / CAPTURE_TOOL_PATH.relative_to(ROOT),
         EXAMPLE_PATH: repository / EXAMPLE_PATH.relative_to(ROOT),
         OFFLINE_VALIDATOR_PATH: repository / OFFLINE_VALIDATOR_PATH.relative_to(ROOT),
+        CAPTURE_WORKFLOW_PATH: repository / CAPTURE_WORKFLOW_PATH.relative_to(ROOT),
     }
     for source, destination in copies.items():
         destination.write_bytes(source.read_bytes())
@@ -2577,6 +2603,335 @@ def test_success_and_failure_diagnostics_are_canonical_and_deterministic(
         "tool": capture.TOOL_NAME,
         "tool_version": capture.TOOL_VERSION,
     }
+
+
+def test_timestamp_grammar_matches_independent_validator(capture: Any) -> None:
+    validator = _load_capture_module(
+        OFFLINE_VALIDATOR_PATH,
+        name="pulsemech_post_run_timestamp_validator_under_test",
+    )
+    assert capture.CANONICAL_UTC_RE.pattern == validator.CANONICAL_UTC_RE.pattern
+    valid = (
+        "2026-07-13T12:27:00Z",
+        "2026-07-13T12:27:00.0Z",
+        "2026-07-13T12:27:00.123456Z",
+        "2026-07-13T12:27:00.123456789Z",
+        "2024-02-29T00:00:00Z",
+        "0001-01-01T00:00:00Z",
+        "9999-12-31T23:59:59.999999Z",
+    )
+    invalid = (
+        "2026-07-13 12:27:00Z",
+        "2026-07-13t12:27:00Z",
+        "2026-07-13\u00a012:27:00Z",
+        "20260713T122700Z",
+        "2026-W29-1T12:27:00Z",
+        "2026-07-13T12:27Z",
+        "2026-07-13T12:27:00,0Z",
+        "2026-07-13T12:27:00.Z",
+        "2026-07-13T12:27:00+00:00Z",
+        "2026-07-13T12:27:00+00:00",
+        "2026-07-13T12:27:00z",
+        "2026-07-13T12:27:00Z\n",
+        "2026-07-13T12:27:00",
+        "2026-02-29T12:27:00Z",
+        "2026-07-13T24:00:00Z",
+        "2026-07-13T12:27:60Z",
+        "0000-01-01T00:00:00Z",
+        "",
+        None,
+        True,
+        1,
+    )
+    for text in valid:
+        actual = capture._parse_utc(text, error_code="timestamp_invalid")
+        expected = validator._parse_utc(
+            text, error_code="timestamp_invalid", stage="test",
+        )
+        assert actual == expected
+        assert actual.utcoffset() == dt.timedelta(0)
+    for text in invalid:
+        _assert_capture_error(
+            capture, "timestamp_invalid",
+            lambda: capture._parse_utc(text, error_code="timestamp_invalid"),
+        )
+        with pytest.raises(validator.ValidationError) as failure:
+            validator._parse_utc(text, error_code="timestamp_invalid", stage="test")
+        assert failure.value.error_code == "timestamp_invalid"
+
+
+@pytest.mark.parametrize(
+    ("path", "expected_error"),
+    (
+        (("jobs", 0, "started_at"), "job_0_started_at_invalid"),
+        (("jobs", 0, "completed_at"), "job_0_completed_at_invalid"),
+        (("jobs", 0, "steps", 0, "started_at"), "job_0_step_0_started_at_invalid"),
+        (("jobs", 0, "steps", 0, "completed_at"), "job_0_step_0_completed_at_invalid"),
+    ),
+    ids=("job-start", "job-end", "step-start", "step-end"),
+)
+@pytest.mark.parametrize("conclusion", ("success", "skipped"))
+def test_noncanonical_job_and_step_timestamps_fail_before_publication(
+    capture: Any,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    path: tuple[Any, ...],
+    expected_error: str,
+    conclusion: str,
+) -> None:
+    publication_attempts: list[bool] = []
+
+    def forbidden_publication(**kwargs: Any) -> None:
+        del kwargs
+        publication_attempts.append(True)
+        raise AssertionError("invalid timestamp reached publication")
+
+    monkeypatch.setattr(capture, "_publish_capture", forbidden_publication)
+    canonical = "2026-07-13T12:27:00Z"
+    malformed = (
+        canonical.replace("T", " "),
+        canonical.replace("T", "t"),
+        canonical.replace("T", "\u00a0"),
+        canonical.replace("-", "").replace(":", ""),
+        "2026-W29-1T12:27:00Z",
+        "2026-07-13T12:27Z",
+        "2026-07-13T12:27:00,0Z",
+        "2026-07-13T12:27:00.Z",
+        "2026-07-13T12:27:00+00:00Z",
+        canonical + "\n",
+    )
+    before = _source_snapshot()
+    for index, timestamp in enumerate(malformed):
+        page = _jobs_document(capture, list(range(86815582001, 86815582009)))
+        # Test skipped records with exposed timestamps too; null pairs remain
+        # covered by the existing explicit-unavailability regression.
+        page["jobs"][0]["conclusion"] = conclusion
+        page["jobs"][0]["steps"][0]["conclusion"] = conclusion
+        _set_path(page, path, timestamp)
+        transport, clock, _run, _pages = _scripted_fixture(
+            capture, pages=[(page, None)],
+        )
+        output = tmp_path / f"invalid-timestamp-{index}"
+        _assert_capture_error(
+            capture, expected_error,
+            lambda: capture.capture_with_injected_dependencies_for_test(
+                repository_root=ROOT, output_directory=output, token=TOKEN,
+                transport=transport, clock=clock,
+            ),
+        )
+        assert not output.exists()
+        _assert_no_owned_staging(tmp_path, output.name)
+        assert transport.remaining == 0 and clock.remaining == 0
+    assert publication_attempts == []
+    assert _source_snapshot() == before
+
+
+def test_canonical_fractional_timestamps_preserve_bytes_and_validate_offline(
+    capture: Any, tmp_path: Path,
+) -> None:
+    before = _source_snapshot()
+    for index, fraction in enumerate(("", ".0", ".123456", ".123456789")):
+        page = _jobs_document(capture, list(range(86815582001, 86815582009)))
+        for job in page["jobs"]:
+            for record in (job, *job["steps"]):
+                record["started_at"] = f"2026-07-13T12:27:00{fraction}Z"
+                record["completed_at"] = f"2026-07-13T12:27:01{fraction}Z"
+        transport, clock, run_body, page_bodies = _scripted_fixture(
+            capture, pages=[(page, None)],
+        )
+        output = tmp_path / f"canonical-timestamp-{index}"
+        result = capture.capture_with_injected_dependencies_for_test(
+            repository_root=ROOT, output_directory=output, token=TOKEN,
+            transport=transport, clock=clock,
+        )
+        assert result.record_status == "example"
+        assert result.authority_effect == "none"
+        assert (output / capture.RUN_BODY_PATH).read_bytes() == run_body
+        assert (output / (capture.JOBS_BODY_TEMPLATE % 1)).read_bytes() == page_bodies[0]
+        check = subprocess.run(
+            [sys.executable, "-I", str(OFFLINE_VALIDATOR_PATH),
+             "--repository-root", str(ROOT), "--capture-root", str(output)],
+            stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE, check=False, timeout=60,
+        )
+        assert check.returncode == 0, check.stderr.decode("utf-8", errors="replace")
+        assert check.stderr == b""
+        diagnostic = json.loads(check.stdout)
+        assert diagnostic["ok"] is True
+        assert diagnostic["result"] == "validated_offline"
+        assert diagnostic["authority_effect"] == "none"
+        assert diagnostic["manifest_sha256"] == result.manifest_sha256
+        assert transport.remaining == 0 and clock.remaining == 0
+    assert _source_snapshot() == before
+
+
+@pytest.mark.parametrize(
+    ("source_path", "error_code"),
+    (
+        (SCHEMA_PATH, "manifest_schema_drift_detected"),
+        (CONTRACT_PATH, "normative_contract_drift_detected"),
+        (CAPTURE_TOOL_PATH, "capture_implementation_drift_detected"),
+        (CAPTURE_WORKFLOW_PATH, "capture_workflow_drift_detected"),
+    ),
+    ids=("schema", "contract", "producer", "workflow"),
+)
+def test_final_source_revalidation_failure_rolls_back_and_allows_retry(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    source_path: Path,
+    error_code: str,
+) -> None:
+    repository, module, revision = _make_minimal_repository(tmp_path)
+    source = repository / source_path.relative_to(ROOT)
+    original_bytes = source.read_bytes()
+    sources = module._load_sources(repository, revision=revision, include_workflow=True)
+    # Synthetic observed-branch fixture: no live transport or workflow dispatch.
+    workflow_execution = module.WorkflowExecutionIdentity(
+        workflow_id=123456, workflow_run_id=987654321, workflow_run_attempt=1,
+        workflow_run_key=(
+            "GITHUB_RUN_ID=987654321|GITHUB_RUN_ATTEMPT=1|"
+            "GITHUB_WORKFLOW=PULSEmech compute post-run producer-input capture"
+        ),
+    )
+    output = tmp_path / "final-source-drift"
+    original_readback = module._verify_exact_directory_inventory
+    readbacks = 0
+
+    def mutate_after_final_readback(root_fd: int, files: Mapping[str, bytes]) -> None:
+        nonlocal readbacks
+        original_readback(root_fd, files)
+        readbacks += 1
+        if readbacks == 2:
+            opened = os.fstat(root_fd)
+            named = output.stat()
+            assert (opened.st_dev, opened.st_ino) == (named.st_dev, named.st_ino)
+            source.write_bytes(original_bytes + b"\n")
+
+    transport, clock, _run, _pages = _scripted_fixture(module)
+    with monkeypatch.context() as patch:
+        patch.setattr(module, "_verify_exact_directory_inventory", mutate_after_final_readback)
+        _assert_capture_error(
+            module, error_code,
+            lambda: module._capture_core(
+                sources=sources, output_directory=output, token=TOKEN,
+                transport=transport, clock=clock, record_status="observed",
+                workflow_execution=workflow_execution,
+            ),
+        )
+    assert readbacks == 2
+    assert not output.exists()
+    _assert_no_owned_staging(tmp_path, output.name)
+    assert transport.remaining == 0 and clock.remaining == 0
+    # Restore only this disposable fixture source, then retry the exact output.
+    source.write_bytes(original_bytes)
+    transport, clock, _run, _pages = _scripted_fixture(module)
+    result = module._capture_core(
+        sources=sources, output_directory=output, token=TOKEN,
+        transport=transport, clock=clock, record_status="observed",
+        workflow_execution=workflow_execution,
+    )
+    assert result.record_status == "observed" and result.authority_effect == "none"
+    assert (output / result.manifest_file_name).read_bytes() == result.manifest_bytes
+    assert source.read_bytes() == original_bytes
+    assert transport.remaining == 0 and clock.remaining == 0
+    _assert_no_owned_staging(tmp_path, output.name)
+
+
+@pytest.mark.parametrize("failure_kind", ("keyboard-interrupt", "termination-error"))
+def test_final_source_revalidation_interrupt_rolls_back(
+    capture: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    failure_kind: str,
+) -> None:
+    output = tmp_path / "final-source-interruption"
+    original = capture._revalidate_sources
+    reached_final_check = False
+
+    def interrupt_after_publication(sources: Any) -> None:
+        nonlocal reached_final_check
+        original(sources)
+        if output.exists():
+            reached_final_check = True
+            if failure_kind == "keyboard-interrupt":
+                raise KeyboardInterrupt
+            raise capture.CaptureError("capture_interrupted")
+
+    transport, clock, _run, _pages = _scripted_fixture(capture)
+    monkeypatch.setattr(capture, "_revalidate_sources", interrupt_after_publication)
+    expected = KeyboardInterrupt if failure_kind == "keyboard-interrupt" else capture.CaptureError
+    with pytest.raises(expected) as failure:
+        capture.capture_with_injected_dependencies_for_test(
+            repository_root=ROOT, output_directory=output, token=TOKEN,
+            transport=transport, clock=clock,
+        )
+    if failure_kind == "termination-error":
+        assert failure.value.error_code == "capture_interrupted"
+    assert reached_final_check
+    assert not output.exists()
+    _assert_no_owned_staging(tmp_path, output.name)
+
+
+@pytest.mark.parametrize("replacement_kind", ("directory", "symlink", "parent"))
+def test_final_source_revalidation_cleanup_preserves_replacement(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, replacement_kind: str,
+) -> None:
+    repository, module, revision = _make_minimal_repository(tmp_path)
+    parent = tmp_path / "capture-parent"
+    parent.mkdir()
+    output = parent / "capture"
+    displaced = tmp_path / "displaced-owned-capture"
+    relocated_parent = tmp_path / "relocated-parent"
+    foreign = tmp_path / "foreign-directory"
+    foreign.mkdir()
+    sentinel = foreign / "sentinel"
+    sentinel.write_bytes(b"foreign content must remain unchanged\n")
+    source = repository / CONTRACT_PATH.relative_to(ROOT)
+    original_bytes = source.read_bytes()
+    original = module._revalidate_sources
+    reached_final_check = False
+
+    def replace_name_and_change_source(sources: Any) -> None:
+        nonlocal reached_final_check
+        original(sources)
+        if not output.exists():
+            return
+        reached_final_check = True
+        if replacement_kind == "parent":
+            parent.rename(relocated_parent)
+            parent.mkdir()
+            output.mkdir()
+            (output / "sentinel").write_bytes(sentinel.read_bytes())
+        else:
+            output.rename(displaced)
+            if replacement_kind == "directory":
+                output.mkdir()
+                (output / "sentinel").write_bytes(sentinel.read_bytes())
+            else:
+                output.symlink_to(foreign, target_is_directory=True)
+        source.write_bytes(original_bytes + b"\n")
+        original(sources)
+
+    transport, clock, _run, _pages = _scripted_fixture(module)
+    monkeypatch.setattr(module, "_revalidate_sources", replace_name_and_change_source)
+    _assert_capture_error(
+        module, "normative_contract_drift_detected",
+        lambda: module.capture_with_injected_dependencies_for_test(
+            repository_root=repository, output_directory=output, token=TOKEN,
+            transport=transport, clock=clock, source_revision=revision,
+        ),
+    )
+    assert reached_final_check
+    assert sentinel.read_bytes() == b"foreign content must remain unchanged\n"
+    assert (output / "sentinel").read_bytes() == sentinel.read_bytes()
+    assert list(foreign.iterdir()) == [sentinel]
+    if replacement_kind == "parent":
+        assert not (relocated_parent / output.name).exists()
+        _assert_no_owned_staging(relocated_parent, output.name)
+    else:
+        # A renamed owned root has no trusted current name, so it is retained;
+        # only its owned contents are removed through the original descriptor.
+        assert displaced.is_dir() and list(displaced.iterdir()) == []
+        assert output.is_symlink() is (replacement_kind == "symlink")
+    _assert_no_owned_staging(parent, output.name)
 
 
 if __name__ == "__main__":
