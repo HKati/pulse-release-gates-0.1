@@ -163,6 +163,10 @@ SELECTED_RESPONSE_HEADERS = (
 
 SHA40_RE = re.compile(r"^[0-9a-f]{40}$")
 ERROR_CODE_RE = re.compile(r"^[a-z0-9_]+$")
+CANONICAL_UTC_RE = re.compile(
+    r"^[0-9]{4}-[0-9]{2}-[0-9]{2}T"
+    r"[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\.[0-9]+)?Z$"
+)
 CANONICAL_POSITIVE_DECIMAL_RE = re.compile(r"^[1-9][0-9]*$")
 SAFE_LEAF_RE = re.compile(r"^[A-Za-z0-9._-]+$")
 
@@ -580,7 +584,7 @@ def _require_sha40(value: Any, *, error_code: str) -> str:
 
 def _parse_utc(value: Any, *, error_code: str) -> dt.datetime:
     text = _require_string(value, error_code=error_code)
-    if not text.endswith("Z"):
+    if CANONICAL_UTC_RE.fullmatch(text) is None:
         _raise(error_code)
     try:
         parsed = dt.datetime.fromisoformat(text[:-1] + "+00:00")
@@ -2573,7 +2577,7 @@ def _cleanup_owned_staging(
 
 def _publish_capture(
     *,
-    repository_root: Path,
+    sources: SourceSet,
     output_directory: Path,
     files: Mapping[str, bytes],
 ) -> None:
@@ -2581,7 +2585,7 @@ def _publish_capture(
     target = output_directory.absolute()
     parent = target.parent
     target_name = _safe_leaf_name(target.name)
-    if _path_is_within(target, repository_root.absolute()):
+    if _path_is_within(target, sources.repository_root.absolute()):
         _raise("protected_repository_source_write_forbidden")
     parent_fd = _open_absolute_directory_no_symlinks(parent)
     staging_fd = -1
@@ -2682,6 +2686,9 @@ def _publish_capture(
             if (final_metadata.st_dev, final_metadata.st_ino) != staging_identity:
                 _raise("published_directory_identity_mismatch")
             _verify_exact_directory_inventory(final_fd, files)
+            # Source admission is part of publication, while the owned output
+            # and its parent still have retained descriptors for rollback.
+            _revalidate_sources(sources)
         finally:
             os.close(final_fd)
     except BaseException:
@@ -2878,11 +2885,10 @@ def _capture_core(
     _scan_secret_bytes(output_files, token_bytes)
     _revalidate_sources(sources)
     _publish_capture(
-        repository_root=sources.repository_root,
+        sources=sources,
         output_directory=output_directory,
         files=output_files,
     )
-    _revalidate_sources(sources)
     return CaptureResult(
         record_status=record_status,
         manifest_file_name=manifest_name,
