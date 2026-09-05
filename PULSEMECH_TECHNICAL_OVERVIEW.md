@@ -47,7 +47,8 @@ terminal transition semantics
 verified implementation state
 reference proofs
 compute-binding implementation state
-current-run expectation contract state
+current-run compute automation state
+completed historical post-run producer-input capture
 Device Ledger bounded proof, deterministic Reproduction Capsule, and runnable demonstrator state
 foundational transition-measurement architecture
 external interoperability status
@@ -1796,8 +1797,11 @@ reviewed schema-byte binding
 permanent registered regression
 ```
 
-It does not yet establish a merged machine producer for current-run
-expectations.
+That contract-and-validator milestone did not itself implement a machine
+producer. The current-run expectation builder and its permanent regression
+were subsequently completed within the Step 3G implementation sequence recorded
+in Sections 16–17. The historical contract boundary above is not a claim that
+the current merged builder is absent.
 
 ---
 
@@ -2365,32 +2369,234 @@ Their absence does not reopen the completed bounded proof.
 
 ---
 
+## 15I. Completed historical post-run producer-input capture
+
+Step 4A closes the exact historical producer-input boundary required before
+runtime-observation packet production. It is distinct from the completed
+Step 3G current-run artifact-observed automation and from the earlier
+release-grade #6066 preservation package.
+
+The detailed evidence record remains in the existing
+[compute workstream document — completed Step 4A](docs/compute/PULSEMECH_COMPUTE_BINDING_AND_TRANSITION_EFFICIENCY_DESIGN_v0.md#completed-step-4a--exact-post-run-producer-input-capture).
+The scope is defined by
+[work order #2856](https://github.com/HKati/pulse-release-gates-0.1/issues/2856).
+This overview does not create a second canonical compute document.
+
+### Implementation and exact observed subject
+
+| Stage | Pull request | Merged commit |
+|---|---:|---|
+| Capture contract, networked capture and independent offline validation | [#2857](https://github.com/HKati/pulse-release-gates-0.1/pull/2857) | `c01a00458735178ee5ed8884996d3a6c3a0e29dc` |
+| Independent timestamp-range correction and matching regressions | [#2860](https://github.com/HKati/pulse-release-gates-0.1/pull/2860) | `22d14088ae21f84d94c6a6951c0f70ab1bdf0895` |
+| Five exact observed capture members | [#2861](https://github.com/HKati/pulse-release-gates-0.1/pull/2861) | `7444c12c3c9a86591f0aa7f5cef759ec55e6f9e9` |
+
+The #2857 merge alone did not complete implementation acceptance. The timestamp
+correction in both independent tools and their matching regressions was closed
+through #2860 before the actual acquisition.
+
+```text
+historical repository:
+HKati/pulse-release-gates-0.1
+
+historical workflow:
+PULSE CI
+
+historical run ID / number / attempt:
+29249887581 / 6066 / 1
+
+historical source commit:
+46b639706e23f80fe296a8893be18e2b5ab21f7e
+
+separate acquisition workflow ID:
+350887354
+
+separate acquisition run ID / attempt:
+33986538130 / 1
+
+capture implementation and workflow source:
+22d14088ae21f84d94c6a6951c0f70ab1bdf0895
+
+original acquisition artifact ID:
+9975323320
+
+capture data merge:
+7444c12c3c9a86591f0aa7f5cef759ec55e6f9e9
+
+observed jobs pages / unique jobs / step records:
+1 / 8 / 171
+```
+
+The historical run was not rerun. Acquisition source, historical subject source,
+data-preservation merge and this later documentation update are distinct
+identities. The [acquisition execution](https://github.com/HKati/pulse-release-gates-0.1/actions/runs/33986538130)
+records a capture-time platform snapshot, not a Step 3F or Step 3G proof run.
+
+### Exact preserved input and independent replay
+
+The [preserved capture directory](preservation/pulse_ci_6066/post_run_producer_input_capture_v0/)
+contains exactly:
+
+```text
+metadata/run_attempt_exchange_v0.json
+metadata/jobs_page_0001_exchange_v0.json
+pulsemech_compute_post_run_producer_input_capture_manifest_6066_v0.json
+raw/run_attempt_response.json
+raw/jobs_page_0001_response.json
+```
+
+The raw members preserve the HTTP entity-body bytes returned to the capture
+implementation before JSON parsing or reserialization. They contain no BOM,
+CR, LF or appended newline. The metadata and manifest retain compact sorted
+UTF-8 canonical JSON with exactly one terminal LF.
+
+The exchange records preserve exact attempt-specific requests, selected HTTP
+response metadata and explicit absence states. Final Link-header absence and
+matching reported/reconstructed counts close the single eight-job page.
+
+```text
+manifest size:
+17905 bytes
+
+manifest SHA-256:
+4642546646fc7c78f8b65bce40c3db72fb6847c4e3d454db97b164f1fc14f238
+
+manifest Git blob SHA-1:
+3e623150e254f9383c1cec23fa68e714092a3b98
+```
+
+The full five-member identity table belongs to the detailed Step 4A record.
+The manifest excludes its own final hash from its inventory.
+
+The read-only cloud report titled “PULSEmech PR #2861 Post-Merge Verification”
+inspected the authentic `7444c12c3c9a86591f0aa7f5cef759ec55e6f9e9` merge and
+recorded the following execution under CPython 3.14.4, jsonschema 4.26.0 and
+pytest 9.0.3:
+
+| Check | Recorded result |
+|---|---|
+| Complete inventory and committed/checkout byte comparison | All five members matched; no extra member |
+| Independent validator on two separately restored private captures | Both exit 0; empty stderr; byte-identical complete stdout |
+| Producer-side reconstruction, repeated twice | Exact committed 17905-byte manifest and both exchange metadata files reproduced |
+| Ten disposable-copy probes across nine mutation categories | All rejected at the recorded integrity, inventory, jobs-binding or schema layer |
+| Contract / producer / offline-validator direct-script suites | 60 / 143 / 151 passed |
+| Capture, tracked implementation and index after review | Unchanged; worktree and index clean |
+
+The complete offline-validator stdout had the same SHA-256 in both executions:
+
+```text
+aa589f61760374ce294821c2f21f82475893ea5cf082cd888c7253ed629a2a57
+```
+
+Replay restored exact committed bytes into temporary directories with mode
+0700 and regular files with mode 0600. It did not change tracked checkout modes.
+The unchanged independent validator ran with isolated Python and did not import
+the capture implementation or use the manifest's stored success flag as proof.
+
+Reconstruction used the unchanged producer at the acquisition revision.
+Subject identity, raw-member identities, counts, summaries and exchange wrappers
+were recalculated from the preserved inputs. Original capture timestamps,
+selected transport metadata and acquisition provenance were retained as
+acquisition facts. Parsing and rewriting the finished manifest alone was not
+counted as reconstruction.
+
+The job-attempt, duplicate-job and `24:00:00` probes repaired their temporary
+checksum and wrapper bindings before reaching `jobs_binding`. The forbidden
+endpoint and active-gate expansion probes were rejected by the schema; they are
+not described as deeper jobs-binding rejections.
+
+### Evidence classification and accepted boundary
+
+The three permanent suites are registered in [ci/tools-tests.list](ci/tools-tests.list)
+and cover the implementation and fixtures. The exact observed-capture replay,
+reconstruction and ten mutation probes above are review executions on temporary
+copies, not new permanent tests opening the committed capture directory.
+The review found no demonstrated violation of an existing permanent-test
+requirement and reported no actionable findings in the inspected merged scope.
+
+The separately inspected [post-merge PULSE CI run](https://github.com/HKati/pulse-release-gates-0.1/actions/runs/33996343943)
+was bound to `7444c12c3c9a86591f0aa7f5cef759ec55e6f9e9`.
+Its [Tools smoke execution](https://github.com/HKati/pulse-release-gates-0.1/actions/runs/33996343943/job/101387579869)
+under Python 3.11.16 passed the 60, 143 and 151 direct-script cases, and its
+separate targeted pytest suite passed 94 cases. The PULSE CI run, Tools smoke
+job and Quality Ledger/status-parity step completed successfully. Conditionally
+skipped jobs remain skipped.
+
+The cloud reviewer could not authenticate to those remote logs and did not
+reopen the original acquisition ZIP/TAR. Those evidence sources remain
+separate from the cloud's direct execution against authentic merged Git objects.
+Internal reconstruction does not independently authenticate every external
+platform fact recorded at acquisition time.
+
+PR 2 technical acceptance is supported by the exact preserved objects,
+independent replay, deterministic reconstruction, negative evidence and
+unchanged implementation. The documentation PR has its own final-head CI and
+post-merge review; this record does not predeclare their completion or close
+work order #2856.
+
+### Temporal and non-authority separation
+
+```text
+completed historical #6066 attempt
+→ platform-response snapshot observed at capture time
+→ exact preserved producer input
+→ independent offline validation and deterministic reconstruction
+```
+
+Determinism begins after preservation. A later API request is neither required
+nor expected to return the same bytes.
+
+```text
+capture_subject_class: post_run_platform_response_snapshot
+capture_time_relation: observed_at_capture_time
+reference_producer_input_eligible: true
+capture_is_original_runtime_byte_stream: false
+capture_is_runtime_observation: false
+capture_is_runtime_observation_packet: false
+capture_is_transition_measurement: false
+same_run_release_authority_eligible: false
+active_gate_eligible: false
+authority_effect: none
+```
+
+This is not runtime-packet production, transition measurement, resource-use
+measurement or a retroactive release-authority input. Unknown remains distinct
+from absent; unavailable remains distinct from zero; platform timestamps are
+not measured compute-resource consumption.
+
+The future operational path separately requires exact current-run source
+capture before its authority decision. That requirement is not satisfied by
+reclassifying this post-run historical snapshot. The runtime-observation packet
+producer and runtime-observed connected proof remain unimplemented.
+
+---
+
 <a id="current-verified-state-and-latest-results"></a>
 
 ## 16. Current verified state and latest results
 
 ```text
 state_date:
-2026-09-01
+2026-09-06
 
 merged_repository_state_recorded_through:
-PR #2852
+PR #2861
 
 merged_repository_state_basis:
-21837e1e54f898a131d3a9bff89527209ddae711
+7444c12c3c9a86591f0aa7f5cef759ec55e6f9e9
 
 merged_repository_state_tree:
-d6aada457cdbc4ffd7a1b969104f720ae83af55c
+b4da3d6ebf567c6e80d3a539e8fc2d1010610213
 
 documentation_closure_scope:
-records the merged implementation through PR #2852 without changing the
-implementation, verification semantics, policy, or authority basis
+records completed Step 3G automation and Step 4A historical producer-input
+capture without changing implementation, verification semantics, policy or
+authority; the documentation PR's own final checks are separate
 
 executable_compute_state_recorded_through:
-PR #2826
+PR #2860
 
 executable_compute_state_basis:
-9bf7fab95dbcc3532238723d0cf76500263106f5
+22d14088ae21f84d94c6a6951c0f70ab1bdf0895
 
 foundational_architecture_state_recorded_through:
 PR #2817
@@ -2703,8 +2909,58 @@ step3g_artifact_observed_workflow_regression:
 step3g_authoritative_regression_total:
 90 passed, 0 skipped
 
+post_run_producer_input_capture_step:
+4A / work order #2856 / historical_reference
+
+post_run_capture_contract_and_workflow:
+implemented; manual fixed-subject acquisition; no authority effect
+
+post_run_capture_implementation_basis:
+PR #2860 / 22d14088ae21f84d94c6a6951c0f70ab1bdf0895
+
+post_run_capture_data_basis:
+PR #2861 / 7444c12c3c9a86591f0aa7f5cef759ec55e6f9e9
+
+post_run_capture_acquisition:
+run 33986538130 / attempt 1 / workflow 350887354
+
+post_run_capture_historical_subject:
+PULSE CI #6066 / run 29249887581 / attempt 1
+
+post_run_capture_preservation:
+5 exact members / 1 jobs page / 8 unique jobs / 171 step records
+
+post_run_capture_manifest:
+17905 bytes / 4642546646fc7c78f8b65bce40c3db72fb6847c4e3d454db97b164f1fc14f238
+
+post_run_capture_independent_offline_validation:
+2 separate private restorations / exit 0 / byte-identical diagnostics
+
+post_run_capture_manifest_reconstruction:
+2 exact input-to-manifest reconstructions / both metadata records reproduced
+
+post_run_capture_negative_review_evidence:
+10 disposable-copy probes across 9 categories / all rejected
+
+post_run_capture_permanent_regression:
+3 registered implementation/fixture suites / 60 + 143 + 151 cases passed
+
+post_run_capture_observed_byte_coverage:
+executed post-merge review; not a permanent test opening the captured directory
+
+post_run_capture_technical_acceptance:
+supported by exact merged-object verification, replay, reconstruction and
+mutation review; no actionable findings in the inspected merged scope
+
+post_run_capture_post_merge_ci:
+run 33996343943 / Tools smoke job 101387579869 / success on 7444c12c3c9a86591f0aa7f5cef759ec55e6f9e9
+
+post_run_capture_authority_boundary:
+same_run_release_authority_eligible=false / active_gate_eligible=false /
+authority_effect=none
+
 tools_test_manifest:
-149 active entries / 149 unique active entries
+152 active entries / 152 unique active entries
 
 compute_resource_measurement:
 not implemented
@@ -2725,9 +2981,10 @@ transition_meter_general_domain_extension:
 foundational architecture
 
 current_development_boundary:
-compute — Step 4 runtime-observation producer; runtime-observed connected proof,
-per-axis resource measurement and any compute-gate promotion remain separate
-later boundaries
+compute — Step 3G automation and Step 4A historical input capture are complete;
+Step 4 runtime-observation packet production, Step 5 runtime-observed connected
+proof, per-axis resource measurement and compute-gate promotion remain separate
+later boundaries; current-run operational capture must precede its decision
 
 Device Ledger — bounded mechanical self-proof, exact .pulseledger export,
 deterministic Reproduction Capsule, canonical reproduction result and minimal
@@ -2785,6 +3042,10 @@ https://raw.githubusercontent.com/HKati/pulse-release-gates-0.1/main/PULSEMECH_T
 - [PR #2823 — add the current-run subject-input wrapper](https://github.com/HKati/pulse-release-gates-0.1/pull/2823)
 - [PR #2825 — add the non-active current-run export candidate workflow](https://github.com/HKati/pulse-release-gates-0.1/pull/2825)
 - [PR #2826 — complete the current-run artifact-observed proof chain](https://github.com/HKati/pulse-release-gates-0.1/pull/2826)
+- [PR #2857 — define the post-run producer-input capture](https://github.com/HKati/pulse-release-gates-0.1/pull/2857)
+- [PR #2860 — close independent timestamp-range admission and regression binding](https://github.com/HKati/pulse-release-gates-0.1/pull/2860)
+- [PR #2861 — preserve the exact observed #6066 capture](https://github.com/HKati/pulse-release-gates-0.1/pull/2861)
+- [Completed Step 4A evidence and temporal boundary](docs/compute/PULSEMECH_COMPUTE_BINDING_AND_TRANSITION_EFFICIENCY_DESIGN_v0.md#completed-step-4a--exact-post-run-producer-input-capture)
 
 ### Latest foundational architecture sequence
 
@@ -2863,7 +3124,9 @@ attestation, universal cross-platform reproduction, release-decision
 integration, or general-purpose product layer is required to preserve this
 bounded closure.
 
-The separate compute workstream continues from the completed Step 3G boundary.
+The separate compute workstream continues from completed Step 3G automation
+and the completed historical Step 4A producer-input prerequisite recorded in
+Section 15I. Neither result implements the runtime-observation packet producer.
 
 The completed analyzer relation is:
 
@@ -2971,7 +3234,38 @@ A manually dispatched Step 3F or Step 3G candidate artifact is a separate
 run-bound execution record. This document does not claim that such a public
 execution record has already been produced.
 
-The next implementation boundary is Step 4:
+The completed Step 4A historical-reference relation is:
+
+```text
+completed historical #6066 attempt
+→ separate capture-time platform-response snapshot
+→ five exact preserved producer-input members
+→ independent offline validation
++ deterministic manifest reconstruction
++ targeted mutation evidence
+authority_effect = none
+```
+
+This actual acquisition is not a manually dispatched Step 3F/3G artifact proof.
+It closes the historical input prerequisite, not runtime-packet production.
+
+The future operational relation has a different temporal requirement:
+
+```text
+current subject run
+→ pre-decision exact source capture
+→ runtime-observation packet
+→ planned–observed transition relation
+→ transition-path verification
+→ policy-bound authority decision
+```
+
+The historical post-run snapshot cannot be admitted retroactively as authority
+for its completed subject. Unexposed commands, calls, resource values and
+consumption relations remain unavailable rather than inferred.
+
+The next implementation boundary remains Step 4, after this completed
+historical input prerequisite:
 
 ```text
 runtime-observation producer
@@ -3078,6 +3372,30 @@ A preserved run package carries one exact historical proof.
 subject:
 one completed historical run
 ```
+
+### Historical producer-input capture record
+
+A post-run platform-response capture carries a later acquisition of exact
+response bodies and selected exchange facts for an already completed subject.
+
+```text
+subject:
+one exact completed historical workflow-run attempt
+
+observation:
+platform responses observed at the separately recorded capture time
+
+record_role:
+historical_reference_producer_input
+
+authority_effect:
+none
+```
+
+The acquisition event is distinct from the original execution. This record is
+neither its original runtime stream nor a same-run authority input. Its later
+repository preservation and documentation commits do not replace its recorded
+acquisition source.
 
 ### Reproduction Capsule contract record
 
@@ -3315,6 +3633,23 @@ pre-authority.
 
 They do not activate compute gates or create release authority.
 
+### Historical post-run producer-input capture — Step 4A
+
+- [Completed capture evidence and claim boundary](docs/compute/PULSEMECH_COMPUTE_BINDING_AND_TRANSITION_EFFICIENCY_DESIGN_v0.md#completed-step-4a--exact-post-run-producer-input-capture)
+- [Capture-manifest schema](schemas/pulsemech_compute_post_run_producer_input_capture_manifest_v0.schema.json)
+- [Normative capture contract](contracts/pulsemech_compute_post_run_producer_input_capture_v0.json)
+- [Networked fixed-subject capture tool](tools/capture_pulsemech_compute_post_run_producer_input_v0.py)
+- [Independent network-free offline validator](tools/check_pulsemech_compute_post_run_producer_input_capture_v0.py)
+- [Manual fixed-subject capture workflow](.github/workflows/pulsemech_compute_post_run_producer_input_capture_v0.yml)
+- [Contract regression](tests/test_pulsemech_compute_post_run_producer_input_capture_contract_v0.py)
+- [Capture producer regression](tests/test_capture_pulsemech_compute_post_run_producer_input_v0.py)
+- [Offline-validator and TAR regression](tests/test_check_pulsemech_compute_post_run_producer_input_capture_v0.py)
+- [Five-member observed capture](preservation/pulse_ci_6066/post_run_producer_input_capture_v0/)
+- [Observed capture manifest](preservation/pulse_ci_6066/post_run_producer_input_capture_v0/pulsemech_compute_post_run_producer_input_capture_manifest_6066_v0.json)
+
+This is a completed historical-reference input and offline-replay record, not
+runtime-observation packet production or current-run release authority.
+
 ### Device Ledger bounded proof and deterministic reproduction
 
 #### Canonical records
@@ -3519,6 +3854,11 @@ verified current-run candidate-bundle intake
 current-run artifact-observed proof builder
 manual non-active Step 3G artifact-observed candidate workflow
 artifact-observed proof-bundle builder with a checksum-closed output contract
+post-run producer-input capture contract and manual fixed-subject workflow
+separate networked capture and independent network-free validator
+exact five-member historical #6066 producer-input capture
+repeated observed-capture offline validation and manifest reconstruction
+capture-specific disposable-copy negative evidence
 
 Device Ledger canonical record chain
 Device Ledger terminal checkpoint closure
@@ -3550,7 +3890,7 @@ protected-source before/after preservation
 permanent Capsule contract regression
 permanent 15-test Capsule execution regression
 dedicated Capsule reference workflow
-149-entry registered tools-test surface
+152-entry registered tools-test surface
 ```
 
 The broader Transition Meter is recorded as foundational architecture.
@@ -3560,6 +3900,7 @@ The current implementation boundaries are:
 ```text
 compute:
 completed Step 3G artifact-observed proof automation
++ completed Step 4A historical producer-input capture prerequisite
 → Step 4 runtime-observation producer
 → Step 5 runtime-observed connected proof
 → Step 6 per-axis resource measurement
@@ -3645,6 +3986,23 @@ runtime-observed proof
 ≠
 automatic promotion
 ```
+
+The completed Step 4A input capture remains:
+
+```text
+historical-reference producer input
+post-run platform-response snapshot
+exact preserved bytes
+independent offline validation
+deterministic reconstruction
+same_run_release_authority_eligible = false
+active_gate_eligible = false
+authority_effect = none
+```
+
+It does not supply original runtime telemetry, perform transition measurement
+or change the historical release decision. Any future operational capture must
+occur before its current-run authority decision.
 
 Runtime observation production, resource measurement, compute budgeting, active
 compute enforcement and release-required compute promotion remain separate,
