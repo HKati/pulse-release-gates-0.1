@@ -1,0 +1,1004 @@
+{
+  "authority_boundary": {
+    "activates_compute_gate": false,
+    "active_gate_eligible": false,
+    "authority_effect": "none",
+    "capture_is_compute_report": false,
+    "capture_is_gate_result": false,
+    "capture_is_original_runtime_byte_stream": false,
+    "capture_is_release_authority": false,
+    "capture_is_release_decision": false,
+    "capture_is_runtime_observation": false,
+    "capture_is_runtime_observation_packet": false,
+    "capture_is_transition_measurement": false,
+    "capture_subject_class": "post_run_platform_response_snapshot",
+    "changes_release_authority": false,
+    "creates_compute_budget": false,
+    "external_operator_approval_required": false,
+    "mutates_subject_run": false,
+    "producer_verdict_trusted": false,
+    "same_run_release_authority_eligible": false,
+    "write_mode": "post_run_producer_input_capture_only"
+  },
+  "availability_boundary": {
+    "capture_source": "github_actions_rest_api",
+    "log_interpretation_used": false,
+    "not_inferred_categories": [
+      "command_arguments_where_not_exposed",
+      "downstream_state_consumption",
+      "executed_command_bytes",
+      "external_service_calls",
+      "model_inferences",
+      "network_byte_counts",
+      "provider_usage",
+      "resource_measurements",
+      "shell_script_bytes",
+      "transition_causality",
+      "transition_necessity",
+      "transition_sufficiency"
+    ],
+    "platform_response_fields_only": true,
+    "platform_timestamp_is_resource_measurement": false,
+    "post_run_platform_snapshot_is_runtime_observation": false,
+    "step_presence_is_transition_binding": false,
+    "unavailable_distinct_from_zero": true,
+    "unknown_distinct_from_absent": true,
+    "unstated_values_inferred": false
+  },
+  "canonicalization_contract": {
+    "applicable_objects": [
+      "capture_manifest",
+      "run_attempt_exchange_record",
+      "jobs_page_exchange_record"
+    ],
+    "canonicalization_profile": "json-sort-keys-utf8-newline",
+    "duplicate_object_keys": "forbidden",
+    "floating_point_numbers": "forbidden",
+    "generated_byte_sequence": {
+      "allow_nan": false,
+      "append_exactly_one_lf_byte": true,
+      "ensure_ascii": false,
+      "indent": null,
+      "json_dumps_equivalent": "json.dumps(value,ensure_ascii=False,sort_keys=True,separators=(',',':'),allow_nan=False).encode('utf-8')+b'\\n'",
+      "key_order": "ascending_unicode_code_point_order",
+      "separators": [
+        ",",
+        ":"
+      ],
+      "top_level_type": "object",
+      "utf8_bom": "forbidden"
+    },
+    "integer_representation": "base_10_without_leading_plus_or_leading_zero",
+    "negative_zero": "forbidden",
+    "non_finite_numbers": "forbidden",
+    "raw_response_body_canonicalization": "forbidden",
+    "raw_response_body_reserialization": "forbidden",
+    "slash_escaping": "not_added",
+    "string_encoding": "UTF-8",
+    "unicode_normalization": "none"
+  },
+  "capture_contract_id": "pulsemech_compute_post_run_producer_input_capture_v0",
+  "capture_contract_version": "0.1.0",
+  "capture_layout": {
+    "directory_entries_allowed": false,
+    "existing_output_overwrite_allowed": false,
+    "hard_links_allowed": false,
+    "jobs_body_name_template": "raw/jobs_page_%04d_response.json",
+    "jobs_metadata_name_template": "metadata/jobs_page_%04d_exchange_v0.json",
+    "manifest_file_name": "pulsemech_compute_post_run_producer_input_capture_manifest_6066_v0.json",
+    "member_inventory_scope": "all_capture_files_except_this_manifest",
+    "metadata_directory": "metadata/",
+    "non_regular_members_allowed": false,
+    "raw_directory": "raw/",
+    "root_path": "preservation/pulse_ci_6066/post_run_producer_input_capture_v0/",
+    "run_attempt_body_path": "raw/run_attempt_response.json",
+    "run_attempt_metadata_path": "metadata/run_attempt_exchange_v0.json",
+    "symlinks_allowed": false,
+    "transactional_publication_required": true,
+    "undeclared_members_allowed": false
+  },
+  "capture_layout_enforcement": {
+    "canonical_reference_repository_root": "preservation/pulse_ci_6066/post_run_producer_input_capture_v0/",
+    "directory_entries_in_manifest_inventory": "forbidden",
+    "manifest_location": "capture_root",
+    "manifest_self_inventory": "forbidden",
+    "maximum_page_number": 100,
+    "page_number_format": "four_digit_zero_padded_decimal",
+    "path_encoding": "ASCII",
+    "path_separator": "/",
+    "safe_relative_paths_required": true
+  },
+  "claim_boundary": {
+    "active_compute_enforcement_claim": "none",
+    "capture_role": "preserved_producer_input_source",
+    "causal_necessity_claim": "none",
+    "causal_sufficiency_claim": "none",
+    "compute_report_claim": "none",
+    "external_validation_claim": "none",
+    "gate_result_claim": "none",
+    "later_api_requery_byte_identity_claim": "none",
+    "original_runtime_network_stream_claim": "none",
+    "platform_response_snapshot_claim": "bounded_to_capture_time",
+    "release_authority_claim": "none",
+    "release_decision_claim": "none",
+    "resource_measurement_claim": "none",
+    "runtime_observation_claim": "none",
+    "runtime_observation_packet_claim": "none",
+    "same_run_authority_input_claim": "none",
+    "transition_measurement_claim": "none",
+    "wire_level_packet_capture_claim": "none",
+    "workflow_log_capture_claim": "none"
+  },
+  "content_boundary": {
+    "capture_role": "producer_input_carrier",
+    "contains_compute_report": false,
+    "contains_executed_command_bytes": false,
+    "contains_external_call_reconstruction": false,
+    "contains_model_inference_reconstruction": false,
+    "contains_resource_measurement": false,
+    "contains_runner_process_telemetry": false,
+    "contains_runtime_observation_packet": false,
+    "contains_workflow_logs": false,
+    "http_chunk_framing_captured": false,
+    "raw_response_json_normalized": false,
+    "raw_response_json_reformatted": false,
+    "raw_response_key_order_changed": false,
+    "raw_response_newline_rewritten": false,
+    "raw_response_whitespace_rewritten": false,
+    "response_body_byte_domain": "exact_http_entity_body_returned_to_capture_implementation_before_json_parsing_or_reserialization",
+    "tls_frames_captured": false,
+    "wire_level_packet_capture": false
+  },
+  "contract_storage": {
+    "digest_algorithm": "SHA-256",
+    "digest_subject": "exact_repository_file_bytes",
+    "git_blob_algorithm": "SHA-1_over_git_blob_header_and_exact_file_bytes",
+    "identity_location": "capture_manifest_contract_bindings_normative_contract",
+    "path": "contracts/pulsemech_compute_post_run_producer_input_capture_v0.json",
+    "self_canonicalization_claim": false,
+    "self_hash": "forbidden",
+    "self_size": "forbidden"
+  },
+  "determinism_and_replay_contract": {
+    "acquisition_event": {
+      "byte_identical_later_api_response_required": false,
+      "deterministic": false,
+      "time_bound": true
+    },
+    "deterministic_replay_begins_after": "exact_capture_publication",
+    "deterministic_replay_inputs": [
+      "preserved_raw_response_bodies",
+      "preserved_exchange_metadata_records",
+      "normative_contract",
+      "manifest_schema"
+    ],
+    "required_relations": [
+      "same_preserved_capture_produces_same_canonical_exchange_metadata_bytes",
+      "same_preserved_capture_produces_same_canonical_manifest_bytes",
+      "same_preserved_capture_produces_same_offline_validation_result",
+      "raw_response_bytes_are_never_regenerated_or_reserialized"
+    ],
+    "revalidation_scope": "local_exact_bytes_and_exact_repository_objects_only"
+  },
+  "document_type": "pulsemech_compute_post_run_producer_input_capture_contract",
+  "failure_policy": {
+    "best_effort_success": "forbidden",
+    "default": "fail_closed",
+    "existing_output_replacement": "forbidden",
+    "partial_publication_success": "forbidden",
+    "permissive_fallback": "forbidden",
+    "success_exit_status": 0,
+    "terminal_rejection_exit_status": 2,
+    "unresolved_or_mismatched_input": "reject",
+    "warning_only_success": "forbidden"
+  },
+  "frozen_surfaces": [
+    ".zenodo.json",
+    "CITATION.cff",
+    "Device_Ledger_contracts",
+    "Device_Ledger_verifier",
+    "Git_tags",
+    "GitHub_Releases",
+    "Reproduction_Capsule",
+    "Zenodo_metadata",
+    "Zenodo_record_relationships",
+    "active_policy_sets",
+    "check_gates.py",
+    "compute_candidate_gate_identities",
+    "existing_runtime_observation_packet_schema",
+    "existing_runtime_observation_packet_validator",
+    "iPhone_demonstrator",
+    "planned_observed_relation_semantics",
+    "release_decision_semantics",
+    "release_required_gate_sets",
+    "release_authority_path",
+    "required_gate_sets",
+    "status.json_semantics",
+    "step_3G_artifact_observed_semantics"
+  ],
+  "identity_graph": {
+    "construction_order": [
+      "manifest_schema",
+      "normative_capture_contract",
+      "networked_capture_implementation",
+      "manual_capture_workflow",
+      "exact_platform_response_bodies",
+      "canonical_exchange_metadata_records",
+      "capture_manifest",
+      "external_repository_object_identities"
+    ],
+    "forbidden_bindings": [
+      "contract_self_hash",
+      "contract_self_size",
+      "exchange_metadata_record_to_its_own_file_hash",
+      "exchange_metadata_record_to_its_own_file_size",
+      "manifest_self_hash",
+      "manifest_self_size",
+      "manifest_self_git_blob_sha1",
+      "manifest_to_containing_git_commit",
+      "raw_response_body_reserialization"
+    ],
+    "required_bindings": [
+      {
+        "binding": "exact_path_size_sha256_and_git_blob_sha1",
+        "from": "normative_capture_contract",
+        "to": "manifest_schema"
+      },
+      {
+        "binding": "exact_repository_object_identity",
+        "from": "observed_capture_manifest",
+        "to": "normative_capture_contract"
+      },
+      {
+        "binding": "exact_repository_object_identity",
+        "from": "observed_capture_manifest",
+        "to": "networked_capture_implementation"
+      },
+      {
+        "binding": "exact_repository_object_identity_and_workflow_run_identity",
+        "from": "observed_capture_manifest",
+        "to": "manual_capture_workflow"
+      },
+      {
+        "binding": "exact_body_size_sha256_and_computed_git_blob_sha1",
+        "from": "capture_manifest",
+        "to": "raw_response_bodies"
+      },
+      {
+        "binding": "canonical_record_bytes_size_sha256_and_computed_git_blob_sha1",
+        "from": "capture_manifest",
+        "to": "exchange_metadata_files"
+      }
+    ]
+  },
+  "implementation_boundary": {
+    "capture_tool_verdict_trusted": false,
+    "compute_report_production_included": false,
+    "future_runtime_observed_relation_included": false,
+    "future_runtime_packet_production_included": false,
+    "gate_materialization_included": false,
+    "networked_capture_separate_from_offline_validation": true,
+    "offline_validation_separate_from_future_packet_production": true,
+    "offline_validator_imports_capture_implementation": false,
+    "offline_validator_network_access": "none",
+    "release_authority_included": false,
+    "release_decision_included": false,
+    "resource_measurement_included": false
+  },
+  "implementation_separation_contract": {
+    "capture_tool_dependency_policy": "python_standard_library_only",
+    "capture_tool_role": "networked_exact_response_acquisition_and_transactional_preservation",
+    "capture_tool_verdict_trusted": false,
+    "offline_validator_dependency_policy": "python_standard_library_plus_jsonschema",
+    "offline_validator_imports_capture_implementation": false,
+    "offline_validator_network_access": "none",
+    "offline_validator_role": "separate_local_reconstruction_and_fail_closed_validation"
+  },
+  "initial_reference_subject": {
+    "event_name": "workflow_dispatch",
+    "head_branch": "main",
+    "head_repository": "HKati/pulse-release-gates-0.1",
+    "head_repository_id": 1061766508,
+    "repository": "HKati/pulse-release-gates-0.1",
+    "repository_id": 1061766508,
+    "repository_is_fork": false,
+    "run_conclusion": "success",
+    "run_created_utc": "2026-07-13T12:26:52Z",
+    "run_started_utc": "2026-07-13T12:26:52Z",
+    "run_status": "completed",
+    "run_updated_utc": "2026-07-13T12:32:21Z",
+    "same_repository_subject": true,
+    "source_commit": "46b639706e23f80fe296a8893be18e2b5ab21f7e",
+    "source_commit_is_exact_identity": true,
+    "source_ref": "refs/heads/main",
+    "source_ref_origin": "declared_work_order_and_recorded_head_branch_reconstruction",
+    "subject_class": "completed_historical_workflow_run_attempt",
+    "subject_run_key": "GITHUB_RUN_ID=29249887581|GITHUB_RUN_ATTEMPT=1|GITHUB_WORKFLOW=PULSE CI",
+    "subject_run_key_origin": "deterministic_reconstruction_from_run_id_attempt_and_workflow_name",
+    "workflow_id": 191471316,
+    "workflow_name": "PULSE CI",
+    "workflow_path": ".github/workflows/pulse_ci.yml",
+    "workflow_run_attempt": 1,
+    "workflow_run_id": 29249887581,
+    "workflow_run_number": 6066
+  },
+  "initial_reference_subject_expectations": {
+    "expected_jobs_page_count": 1,
+    "expected_jobs_total_count": 8,
+    "later_link_header_controls_actual_page_count": true
+  },
+  "job_and_step_binding_contract": {
+    "job_binding_fields": [
+      "id",
+      "run_id",
+      "run_attempt",
+      "workflow_name",
+      "head_sha",
+      "name",
+      "status",
+      "conclusion",
+      "started_at",
+      "completed_at"
+    ],
+    "job_id_uniqueness_scope": "all_jobs_pages",
+    "job_status_conclusion_contract": {
+      "allowed_reference_conclusions": [
+        "skipped",
+        "success"
+      ],
+      "required_status": "completed",
+      "skipped_timestamps": "null_or_ordered_if_present",
+      "success_timestamps": "required_and_started_not_after_completed"
+    },
+    "runner_metadata": "preserve_as_available_but_do_not_promote_to_subject_identity",
+    "step_binding_fields": [
+      "number",
+      "name",
+      "status",
+      "conclusion",
+      "started_at",
+      "completed_at"
+    ],
+    "step_number_order": "strictly_increasing_and_unique_within_job_not_required_contiguous",
+    "step_status_conclusion_contract": {
+      "allowed_reference_conclusions": [
+        "skipped",
+        "success"
+      ],
+      "required_status": "completed",
+      "skipped_timestamps": "null_or_ordered_if_present",
+      "success_timestamps": "required_and_started_not_after_completed"
+    },
+    "unexposed_platform_field": "unavailable_not_inferred"
+  },
+  "limits": {
+    "maximum_exchange_metadata_size_bytes": 1048576,
+    "maximum_jobs_page_count": 100,
+    "maximum_jobs_per_page": 100,
+    "maximum_response_body_size_bytes": 8388608,
+    "maximum_step_records_per_job": 10000,
+    "maximum_total_capture_size_bytes": 67108864,
+    "redirect_limit": 0
+  },
+  "manifest_projection": {
+    "branch_overrides": {
+      "example": {
+        "authority_boundary.capture_subject_class": "contract_example",
+        "capture_layout.manifest_file_name": "pulsemech_compute_post_run_producer_input_capture_manifest_example_v0.json",
+        "capture_layout.root_path": "examples/compute/post_run_producer_input_capture_example_v0/",
+        "manifest_identity.capture_root": "examples/compute/post_run_producer_input_capture_example_v0/",
+        "manifest_identity.capture_scope": "example",
+        "manifest_identity.manifest_file_name": "pulsemech_compute_post_run_producer_input_capture_manifest_example_v0.json",
+        "manifest_identity.manifest_id": "post-run-producer-input-capture:example-6066-v0",
+        "provenance.provenance_class": "checked_in_contract_example",
+        "publication_boundary.publication_status": "example",
+        "record_status": "example",
+        "temporal_boundary.capture_is_platform_response_snapshot": false,
+        "temporal_boundary.capture_subject_class": "contract_example",
+        "temporal_boundary.capture_time_relation": "example_only",
+        "temporal_boundary.reference_producer_input_eligible": false,
+        "temporal_boundary.subject_run_completed_before_capture": false
+      },
+      "observed": {
+        "manifest_identity.capture_root": "preservation/pulse_ci_6066/post_run_producer_input_capture_v0/",
+        "manifest_identity.capture_scope": "historical_reference",
+        "manifest_identity.manifest_file_name": "pulsemech_compute_post_run_producer_input_capture_manifest_6066_v0.json",
+        "manifest_identity.manifest_id": "post-run-producer-input-capture:pulse-ci-6066-attempt-1-v0",
+        "provenance.provenance_class": "observed_networked_capture",
+        "record_status": "observed"
+      }
+    },
+    "common_literal_fields": {
+      "document_type": "pulsemech_compute_post_run_producer_input_capture_manifest",
+      "errors": [],
+      "ok": true,
+      "schema_version": "pulsemech_compute_post_run_producer_input_capture_manifest_v0"
+    },
+    "computed_sections": [
+      "manifest_identity",
+      "provenance",
+      "contract_bindings",
+      "run_attempt_exchange",
+      "jobs_page_exchanges",
+      "pagination",
+      "counts"
+    ],
+    "copied_sections": [
+      {
+        "source": "initial_reference_subject",
+        "target": "subject"
+      },
+      {
+        "source": "temporal_boundary",
+        "target": "temporal_boundary"
+      },
+      {
+        "source": "request_contract",
+        "target": "request_contract"
+      },
+      {
+        "source": "capture_layout",
+        "target": "capture_layout"
+      },
+      {
+        "source": "limits",
+        "target": "limits"
+      },
+      {
+        "source": "implementation_boundary",
+        "target": "implementation_boundary"
+      },
+      {
+        "source": "publication_boundary",
+        "target": "publication_boundary"
+      },
+      {
+        "source": "privacy_boundary",
+        "target": "privacy_boundary"
+      },
+      {
+        "source": "content_boundary",
+        "target": "content_boundary"
+      },
+      {
+        "source": "availability_boundary",
+        "target": "availability_boundary"
+      },
+      {
+        "source": "authority_boundary",
+        "target": "authority_boundary"
+      }
+    ],
+    "exchange_metadata_file_projection": "canonical_serialization_of_exchange_record_only",
+    "manifest_self_identity_fields": "forbidden",
+    "summary_fields": "derived_from_exact_raw_response_bytes_and_not_trusted_as_producer_verdicts"
+  },
+  "networked_capture_contract": {
+    "application_supplied_request_headers": [
+      "Accept",
+      "Accept-Encoding",
+      "Authorization",
+      "User-Agent",
+      "X-GitHub-Api-Version"
+    ],
+    "capture_clock": {
+      "capture_started_utc": "immediately_before_request_dispatch",
+      "response_received_utc": "immediately_after_complete_entity_body_read",
+      "serialization": "UTC_YYYY-MM-DDTHH:MM:SS.ffffffZ"
+    },
+    "capture_implementation_identity": {
+      "committed_source_bytes_required": true,
+      "producer_id": "pulsemech_compute_post_run_producer_input_capture_v0",
+      "producer_name": "PULSEmech compute post-run producer-input capture",
+      "producer_source": "tools/capture_pulsemech_compute_post_run_producer_input_v0.py",
+      "producer_version": "0.1.0",
+      "source_revision": "exact_capture_workflow_GITHUB_SHA",
+      "source_sha256": "sha256_of_exact_committed_source_bytes"
+    },
+    "capture_sequence": [
+      "verify_execution_environment_and_exact_committed_inputs",
+      "acquire_exact_run_attempt_response",
+      "acquire_jobs_page_0001",
+      "follow_each_exact_rel_next_target",
+      "close_pagination",
+      "construct_canonical_exchange_metadata_records",
+      "construct_non_self_hashing_capture_manifest",
+      "validate_prepublication_relations",
+      "publish_transactionally_without_replacement",
+      "read_back_and_revalidate_published_capture"
+    ],
+    "cli_contract": {
+      "authentication_source": "GH_TOKEN_environment_variable_only",
+      "production_mode": "exact_workflow_bound_networked_capture",
+      "repository_root_argument": "--repository-root",
+      "required_output_argument": "--output-directory",
+      "subject_selection": "fixed_initial_reference_subject_only",
+      "test_fixture_mode_exposed_by_cli": false
+    },
+    "fixture_regression_boundary": {
+      "fixture_clock_injection": "in_process_test_only",
+      "fixture_transport_injection": "in_process_test_only",
+      "network_access": "none",
+      "observed_capture_claim": false,
+      "output_record_status": "example",
+      "reference_producer_input_eligible": false
+    },
+    "http_client_boundary": "python_standard_library_https_client",
+    "redirect_handler": "reject_every_redirect_before_follow",
+    "request_body": "none",
+    "request_retries": 0,
+    "request_timeout_seconds": 30,
+    "token_in_process_arguments": false,
+    "token_value_recording": "forbidden"
+  },
+  "offline_validator_contract": {
+    "canonicalization_reconstruction": "separate_implementation",
+    "capture_tool_import": "forbidden",
+    "capture_tool_success_declaration_trusted": false,
+    "deterministic_diagnostics": {
+      "absolute_local_paths": "forbidden",
+      "error_order": "stable_stage_then_member_path_then_error_code",
+      "generated_timestamps": "forbidden",
+      "same_exact_input_produces_byte_identical_diagnostics": true
+    },
+    "git_blob_identity_reconstruction": "sha1_of_ascii_git_blob_header_plus_exact_bytes",
+    "input_arguments": {
+      "capture_root": "--capture-root",
+      "repository_root": "--repository-root"
+    },
+    "json_schema_validation": {
+      "dialect": "Draft_2020_12",
+      "library": "jsonschema",
+      "schema_check_required": true
+    },
+    "network_access": "none",
+    "raw_response_json_parsing": {
+      "duplicate_object_keys": "reject",
+      "floating_point_numbers": "reject",
+      "malformed_utf8": "reject",
+      "non_finite_numbers": "reject",
+      "top_level_type": "object",
+      "unicode_normalization": "none",
+      "utf8_bom": "record_without_rewrite"
+    },
+    "required_reconstruction": [
+      "schema_and_contract_repository_object_bindings",
+      "manifest_canonical_bytes",
+      "exchange_metadata_canonical_bytes",
+      "every_member_size_sha256_and_git_blob_sha1",
+      "safe_regular_file_and_link_state",
+      "run_attempt_subject_identity",
+      "subject_run_key",
+      "request_targets_and_query_order",
+      "selected_response_metadata_shape",
+      "page_sequence_and_rel_next_closure",
+      "reported_and_unique_job_counts",
+      "job_and_step_bindings",
+      "temporal_firewall",
+      "privacy_boundary",
+      "content_and_availability_boundaries",
+      "implementation_separation",
+      "transactional_publication_state",
+      "authority_boundary"
+    ],
+    "verdict_role": "offline_capture_validation_only"
+  },
+  "pagination_contract": {
+    "closure_formula": "ordered_pages_plus_exact_rel_next_following_plus_final_next_absence_plus_reported_total_equals_unique_jobs",
+    "expected_initial_reference": {
+      "first_page": 1,
+      "page_count": 1,
+      "per_page": 100,
+      "reconstructed_unique_job_count": 8,
+      "reported_total_count": 8
+    },
+    "final_next_link_absence": "explicitly_recorded",
+    "first_page": 1,
+    "jobs_page_total_count_relation": "identical_on_every_page",
+    "maximum_page_count": 100,
+    "next_link_contract": {
+      "absolute_scheme": "https",
+      "allowed_host": "api.github.com",
+      "duplicate_rel_next": "reject",
+      "fragment": "forbidden",
+      "next_page_relation": "exactly_current_page_plus_one",
+      "path": "same_exact_attempt_specific_jobs_path",
+      "port": "forbidden",
+      "query_order": [
+        "per_page",
+        "page"
+      ],
+      "rel_next_count": "zero_or_one",
+      "unexpected_query_parameters": "forbidden",
+      "userinfo": "forbidden"
+    },
+    "page_count_relation": "max_1_ceiling_reported_total_count_divided_by_100",
+    "page_sequence": "strictly_ascending_contiguous_unique_beginning_at_1",
+    "pagination_mode": "attempt_specific_jobs_rel_next",
+    "per_page": 100
+  },
+  "privacy_boundary": {
+    "authentication_environment_variable_name_recorded": true,
+    "authorization_header_presence_recorded": true,
+    "authorization_value_recorded": false,
+    "raw_request_headers_included": false,
+    "raw_response_headers_included": false,
+    "secret_material_included": false,
+    "selected_response_header_allowlist_only": true,
+    "token_value_in_diagnostics": false,
+    "token_value_in_exchange_metadata": false,
+    "token_value_in_manifest": false,
+    "token_value_in_raw_responses": false
+  },
+  "privacy_enforcement_contract": {
+    "diagnostic_secret_redaction": "required_before_output",
+    "selected_header_value_maximum_characters": 8192,
+    "whole_output_token_byte_scan_before_publication": "required"
+  },
+  "publication_boundary": {
+    "atomic_no_replace_publication": true,
+    "best_effort_success_allowed": false,
+    "cleanup_on_failure_required": true,
+    "existing_output_overwrite_allowed": false,
+    "isolated_staging_directory": true,
+    "partial_publication_accepted": false,
+    "protected_source_overwrite_allowed": false,
+    "publication_status": "completed",
+    "repository_source_write_attempted": false,
+    "transactional_publication": true,
+    "warning_only_success_allowed": false
+  },
+  "record_status": "normative_contract",
+  "regression_contract": {
+    "cardinality_guard_update": "same_commit_as_tools_test_manifest_registration",
+    "negative_cases": [
+      "authorization_value_recorded",
+      "best_effort_success",
+      "capture_classified_as_authority_input",
+      "capture_classified_as_runtime_observation",
+      "capture_classified_as_runtime_packet",
+      "capture_classified_as_transition_measurement",
+      "capture_tool_verdict_trusted",
+      "contract_binding_git_blob_mismatch",
+      "contract_binding_path_mismatch",
+      "contract_binding_role_mismatch",
+      "contract_binding_sha256_mismatch",
+      "contract_binding_size_mismatch",
+      "contract_binding_source_revision_mismatch",
+      "duplicate_job_id",
+      "duplicate_jobs_page",
+      "duplicate_step_number",
+      "empty_response_body",
+      "exchange_metadata_canonical_byte_mismatch",
+      "exchange_metadata_self_reference",
+      "existing_output_replacement",
+      "final_next_link_present",
+      "fork_subject",
+      "hard_linked_member",
+      "incomplete_pagination",
+      "job_head_sha_mismatch",
+      "job_run_attempt_mismatch",
+      "job_run_id_mismatch",
+      "job_workflow_name_mismatch",
+      "latest_attempt_endpoint",
+      "latest_run_endpoint",
+      "manifest_canonicalization_failure",
+      "manifest_schema_failure",
+      "manifest_self_hash",
+      "manifest_semantic_failure",
+      "metadata_digest_mismatch",
+      "metadata_size_mismatch",
+      "missing_declared_member",
+      "missing_jobs_page",
+      "non_attempt_specific_jobs_endpoint",
+      "non_contiguous_page_sequence",
+      "non_get_request",
+      "non_regular_member",
+      "non_success_reference_run",
+      "non_completed_run",
+      "non_allowlisted_response_header",
+      "partial_publication_success",
+      "raw_header_inclusion",
+      "raw_response_body_byte_mutation",
+      "raw_response_body_normalization_claim",
+      "raw_response_git_blob_mismatch",
+      "raw_response_sha256_mismatch",
+      "raw_response_size_mismatch",
+      "redirect_admission",
+      "reported_total_count_mismatch",
+      "response_body_size_limit_exceeded",
+      "schema_binding_git_blob_mismatch",
+      "schema_binding_sha256_mismatch",
+      "schema_binding_size_mismatch",
+      "secret_value_in_diagnostics",
+      "secret_value_in_output",
+      "step_order_invalid",
+      "symlinked_member",
+      "total_capture_size_limit_exceeded",
+      "truncated_response_body",
+      "undeclared_extra_member",
+      "unsafe_relative_path",
+      "unsupported_content_encoding",
+      "warning_only_success",
+      "wrong_accept_encoding",
+      "wrong_accept_header",
+      "wrong_api_version",
+      "wrong_content_type",
+      "wrong_event",
+      "wrong_host",
+      "wrong_repository_full_name",
+      "wrong_repository_id",
+      "wrong_run_attempt",
+      "wrong_run_id",
+      "wrong_run_number",
+      "wrong_source_commit",
+      "wrong_user_agent",
+      "wrong_workflow_id",
+      "wrong_workflow_name",
+      "wrong_workflow_path"
+    ],
+    "ordinary_pr_ci_live_github_api_calls": "none",
+    "positive_requirements": [
+      "schema_is_valid_draft_2020_12",
+      "contract_json_is_strict",
+      "schema_binding_matches_exact_repository_object",
+      "example_provenance_branch_validates",
+      "observed_provenance_branch_validates",
+      "example_and_observed_branch_mixing_rejected",
+      "manifest_self_identity_absent",
+      "exchange_metadata_self_identity_absent",
+      "raw_response_bytes_preserved_exactly",
+      "request_contract_exact",
+      "selected_response_metadata_exact_or_explicitly_absent",
+      "pagination_closed",
+      "reported_total_equals_reconstructed_unique_jobs",
+      "run_job_attempt_workflow_and_source_identities_consistent",
+      "offline_validator_network_free",
+      "offline_validator_separate_from_capture_tool",
+      "fixture_capture_uses_no_network",
+      "transactional_no_replace_publication",
+      "secret_material_absent",
+      "authority_effect_none",
+      "same_preserved_capture_same_manifest_bytes",
+      "same_preserved_capture_same_validation_result",
+      "protected_repository_sources_unchanged"
+    ],
+    "tools_test_manifest_registration": "every_new_regression_exactly_once"
+  },
+  "request_contract": {
+    "accept": "application/vnd.github+json",
+    "accept_encoding": "identity",
+    "api_version": "2022-11-28",
+    "authentication_environment_variable_name": "GH_TOKEN",
+    "authentication_mode": "bearer_token_from_declared_environment_variable",
+    "authorization_header_present": true,
+    "authorization_value_recorded": false,
+    "host": "api.github.com",
+    "jobs_per_page": 100,
+    "jobs_query_parameter_order": [
+      "per_page",
+      "page"
+    ],
+    "latest_attempt_resolution_allowed": false,
+    "latest_run_resolution_allowed": false,
+    "method": "GET",
+    "non_attempt_specific_jobs_endpoint_allowed": false,
+    "redirect_policy": "forbidden",
+    "redirects_followed": false,
+    "scheme": "https",
+    "token_value_written_to_diagnostics": false,
+    "token_value_written_to_output": false,
+    "user_agent": "pulsemech-compute-post-run-capture-v0/0.1.0"
+  },
+  "request_execution_contract": {
+    "application_supplied_header_set": [
+      "Accept",
+      "Accept-Encoding",
+      "Authorization",
+      "User-Agent",
+      "X-GitHub-Api-Version"
+    ],
+    "conditional_request_headers": "forbidden",
+    "jobs_page_request": {
+      "exact_first_request_target": "/repos/HKati/pulse-release-gates-0.1/actions/runs/29249887581/attempts/1/jobs?per_page=100&page=1",
+      "path_template": "/repos/{owner}/{repository}/actions/runs/{run_id}/attempts/{run_attempt}/jobs",
+      "query_serialization": "per_page=100&page={canonical_positive_decimal}"
+    },
+    "request_body": "none",
+    "request_retry_count": 0,
+    "request_timeout_seconds": 30,
+    "run_attempt_request": {
+      "exact_request_target": "/repos/HKati/pulse-release-gates-0.1/actions/runs/29249887581/attempts/1",
+      "path_template": "/repos/{owner}/{repository}/actions/runs/{run_id}/attempts/{run_attempt}",
+      "query_parameters": []
+    },
+    "transport_generated_headers": "not_part_of_recorded_application_request_contract"
+  },
+  "response_admission_contract": {
+    "body_complete": true,
+    "body_read": "bounded_read_to_clean_transport_eof_before_json_parse",
+    "body_truncated": false,
+    "capture_tool_summary_declarations_trusted_by_offline_validator": false,
+    "content_encoding": "absent_or_identity",
+    "content_type": "application_json_with_optional_parameters",
+    "http_status": 200,
+    "json_semantic_validation": "required_after_exact_bytes_are_held",
+    "non_200_response": "reject",
+    "redirect_observed": false,
+    "required_jobs_response_top_level_members": [
+      "jobs",
+      "total_count"
+    ],
+    "required_run_response_identity_fields": [
+      "conclusion",
+      "created_at",
+      "event",
+      "head_branch",
+      "head_repository",
+      "head_sha",
+      "id",
+      "name",
+      "path",
+      "repository",
+      "run_attempt",
+      "run_number",
+      "run_started_at",
+      "status",
+      "updated_at",
+      "workflow_id"
+    ],
+    "transport_content_length_if_present": "must_equal_exact_entity_body_byte_count_but_is_not_recorded"
+  },
+  "response_byte_domain_contract": {
+    "exact_byte_domain": "exact_http_entity_body_returned_to_capture_implementation_before_json_parsing_or_reserialization",
+    "git_blob_sha1_derivation": "SHA1(b'blob '+ascii_decimal_size+b'\\x00'+exact_bytes)",
+    "http_chunk_framing_captured": false,
+    "json_normalization": "forbidden",
+    "json_reformatting": "forbidden",
+    "key_reordering": "forbidden",
+    "newline_rewriting": "forbidden",
+    "recorded_byte_properties": [
+      "size_bytes",
+      "sha256",
+      "git_blob_sha1",
+      "utf8_bom_present",
+      "cr_count",
+      "lf_count",
+      "final_byte_hex",
+      "trailing_newline_present"
+    ],
+    "sha256_derivation": "SHA256(exact_bytes)",
+    "tls_frames_captured": false,
+    "whitespace_rewriting": "forbidden",
+    "wire_level_packet_capture": false
+  },
+  "schema_binding": {
+    "byte_identity": "exact_repository_file_bytes",
+    "document_type_const": "pulsemech_compute_post_run_producer_input_capture_manifest",
+    "git_blob_sha1": "f7256747704e87a4df312af6d20dad1c8bea6148",
+    "id": "https://github.com/HKati/pulse-release-gates-0.1/schemas/pulsemech_compute_post_run_producer_input_capture_manifest_v0.schema.json",
+    "path": "schemas/pulsemech_compute_post_run_producer_input_capture_manifest_v0.schema.json",
+    "schema_dialect": "https://json-schema.org/draft/2020-12/schema",
+    "schema_version_const": "pulsemech_compute_post_run_producer_input_capture_manifest_v0",
+    "sha256": "65a29a18f1b9090f3dd338f9c4c1484b4d851df68ff19758670a4c53c58057bb",
+    "size_bytes": 71861
+  },
+  "selected_response_metadata_contract": {
+    "allowlist": [
+      "Content-Encoding",
+      "Content-Type",
+      "Deprecation",
+      "ETag",
+      "Link",
+      "Sunset",
+      "X-GitHub-Request-Id"
+    ],
+    "content_encoding": {
+      "absence_allowed": true,
+      "allowed_present_value": "identity"
+    },
+    "content_type": {
+      "absence_allowed": false,
+      "parameters_allowed": true,
+      "required_media_type": "application/json"
+    },
+    "duplicate_allowlisted_header_fields": "reject",
+    "header_lookup": "case_insensitive",
+    "header_value_domain": "semantic_header_value_exposed_by_python_standard_library_after_http_parsing_not_wire_bytes",
+    "missing_optional_header_representation": {
+      "status": "absent",
+      "value": null
+    },
+    "present_header_representation": {
+      "status": "present",
+      "value": "exact_library_exposed_value_without_capture_code_reformatting"
+    },
+    "raw_request_headers_stored": false,
+    "raw_response_headers_stored": false,
+    "transport_only_metadata_is_subject_identity": false
+  },
+  "subject_binding_contract": {
+    "branch_name_role": "descriptive_not_exact_source_identity",
+    "capture_start_not_before_subject_run_updated_utc": true,
+    "exact_source_identity": "source_commit",
+    "head_repository_must_equal_repository": true,
+    "job_bindings_reconstructed_from_every_exact_jobs_page": true,
+    "repository_is_fork": false,
+    "run_attempt_response_must_equal_declared_subject": true,
+    "run_conclusion": "success",
+    "run_number_alone_is_sufficient_identity": false,
+    "run_status": "completed",
+    "same_repository_subject": true,
+    "source_ref_derivation": "refs/heads_plus_recorded_head_branch",
+    "subject_run_key_derivation": "GITHUB_RUN_ID={run_id}|GITHUB_RUN_ATTEMPT={attempt}|GITHUB_WORKFLOW={workflow_name}",
+    "workflow_path_must_equal_recorded_run_path": true
+  },
+  "temporal_boundary": {
+    "active_gate_eligible": false,
+    "authority_effect": "none",
+    "capture_is_compute_report": false,
+    "capture_is_original_runtime_byte_stream": false,
+    "capture_is_platform_response_snapshot": true,
+    "capture_is_runtime_observation": false,
+    "capture_is_runtime_observation_packet": false,
+    "capture_is_transition_measurement": false,
+    "capture_subject_class": "post_run_platform_response_snapshot",
+    "capture_time_relation": "observed_at_capture_time",
+    "future_active_path_requires_pre_decision_capture": true,
+    "reference_producer_input_eligible": true,
+    "retroactive_same_run_authority_admission_forbidden": true,
+    "same_run_release_authority_eligible": false,
+    "subject_run_completed_before_capture": true
+  },
+  "temporal_firewall": {
+    "future_operational_lane": [
+      "current_subject_run",
+      "pre_decision_exact_source_capture",
+      "runtime_observation_packet",
+      "planned_observed_transition_relation",
+      "transition_path_verification",
+      "policy_bound_authority_decision"
+    ],
+    "historical_reference_lane": [
+      "completed_historical_run",
+      "capture_time_platform_response_snapshot",
+      "exact_preserved_producer_input",
+      "offline_validation",
+      "later_deterministic_reference_packet_production",
+      "authority_effect_none"
+    ],
+    "retroactive_same_run_authority_admission": "forbidden"
+  },
+  "transactional_publication_contract": {
+    "atomic_no_replace_primitive": "linux_renameat2_RENAME_NOREPLACE_or_fail_closed",
+    "cleanup_exception_boundary": "BaseException",
+    "cleanup_on_failure": "required",
+    "existing_final_path": "reject",
+    "file_creation": "exclusive_no_follow",
+    "file_mode_during_capture": "0600",
+    "final_publication": "single_atomic_directory_rename_without_replacement",
+    "final_readback_validation": "required_before_exit_zero",
+    "fsync_policy": [
+      "every_output_file",
+      "staging_directory",
+      "publication_parent_directory"
+    ],
+    "isolated_staging_directory": true,
+    "partial_output_success": "forbidden",
+    "protected_repository_source_write": "forbidden",
+    "safe_cleanup_rule": "remove_only_owned_descriptor_bound_objects_else_retain",
+    "staging_directory_mode": "0700",
+    "staging_name_in_output_bytes": false
+  },
+  "work_order_binding": {
+    "baseline_main": "abbb53a919919445138fcf4a3333e013e55c0470",
+    "baseline_tree": "32e0353f2d5972edf5fb8225c44a4876f0b4a565",
+    "issue": 2856,
+    "planned_pr_count": 3,
+    "pr_position": 1,
+    "pr_role": "contract_and_capture_implementation",
+    "repository": "HKati/pulse-release-gates-0.1",
+    "step": "4A",
+    "workstream": "compute_binding_and_transition_efficiency"
+  }
+}

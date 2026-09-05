@@ -116,6 +116,9 @@ EXPECTED_CURRENT_RUN_BLOCK = (
     "tests/test_load_pulsemech_compute_current_run_export_candidate_bundle_v0.py",
     "tests/test_build_pulsemech_compute_current_run_artifact_observed_proof_v0.py",
     TEST_RELATIVE_PATH,
+    "tests/test_pulsemech_compute_post_run_producer_input_capture_contract_v0.py",
+    "tests/test_capture_pulsemech_compute_post_run_producer_input_v0.py",
+    "tests/test_check_pulsemech_compute_post_run_producer_input_capture_v0.py",
     "tests/test_pulsemech_compute_subject_input_packet_schema_v0.py",
 )
 
@@ -461,7 +464,7 @@ def test_workflow_artifact_identity_matches_reviewed_head() -> None:
 
 def test_tools_tests_manifest_registers_workflow_regression_exactly_once() -> None:
     entries = manifest_entries()
-    assert len(entries) ==  149
+    assert len(entries) == 152
     assert len(entries) == len(set(entries))
     assert entries.count(TEST_RELATIVE_PATH) == 1
     index = entries.index(TEST_RELATIVE_PATH)
@@ -470,7 +473,8 @@ def test_tools_tests_manifest_registers_workflow_regression_exactly_once() -> No
         "test_build_pulsemech_compute_current_run_artifact_observed_proof_v0.py"
     )
     assert entries[index + 1] == (
-        "tests/test_pulsemech_compute_subject_input_packet_schema_v0.py"
+        "tests/"
+        "test_pulsemech_compute_post_run_producer_input_capture_contract_v0.py"
     )
     start = entries.index(EXPECTED_CURRENT_RUN_BLOCK[0])
     assert tuple(
