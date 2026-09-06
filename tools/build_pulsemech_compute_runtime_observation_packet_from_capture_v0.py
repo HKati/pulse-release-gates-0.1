@@ -51,7 +51,9 @@ from typing import Any, Callable
 TOOL_NAME = "build_pulsemech_compute_runtime_observation_packet_from_capture_v0"
 TOOL_VERSION = "0.1.0"
 SOURCE_PATH = f"tools/{TOOL_NAME}.py"
-ROOT = Path(__file__).absolute().parents[1]
+# Preserve the invoked path without resolving symlinks into an accepted name.
+EXECUTED_SOURCE_PATH = Path(__file__).absolute()
+ROOT = EXECUTED_SOURCE_PATH.parents[1]
 MODE = "post_run_platform_export"
 RUNTIME_VALIDATOR = "tools/check_pulsemech_compute_runtime_observation_packet_v0.py"
 CAPTURE_VALIDATOR = "tools/check_pulsemech_compute_post_run_producer_input_capture_v0.py"
@@ -622,7 +624,15 @@ def build(*, repository_root: Path, capture_root: Path, subject_context: Path,
             "linux_runtime_required", "runtime")
     repository = absolute(repository_root)
     require(repository == absolute(ROOT), "executed_source_repository_mismatch", "source")
-    files: list[InputFile] = []
+    executed_path = absolute(EXECUTED_SOURCE_PATH)
+    require(executed_path == repository / SOURCE_PATH,
+            "executed_source_path_mismatch", "source")
+    # Snapshot the invoked file itself before loading any helper. The same
+    # bytes must match the construction digest and exact commit:path below,
+    # and remain protected through both publication rechecks. A canonical
+    # neighbour cannot supply provenance for a renamed or modified copy.
+    self_file = read_input(executed_path, maximum=MAX_SOURCE_BYTES)
+    files: list[InputFile] = [self_file]
     fixed = {path: exact_input(repository / path, size, digest)
              for path, (size, digest) in FIXED_SOURCES.items()}
     files.extend(fixed.values())
@@ -631,9 +641,7 @@ def build(*, repository_root: Path, capture_root: Path, subject_context: Path,
     record_file = read_input(construction_record, maximum=MAX_CONSTRUCTION_BYTES)
     files.append(record_file)
     record = construction(record_file.data, construction_sha256)
-    self_file = read_input(repository / SOURCE_PATH, maximum=MAX_SOURCE_BYTES)
     runtime_file = fixed[RUNTIME_VALIDATOR]
-    files.append(self_file)
     require(sha256(self_file.data) == record["producer_source_sha256"], "producer_source_digest_mismatch", "source")
     require(sha256(runtime_file.data) == record["runtime_validator_sha256"], "runtime_validator_digest_mismatch", "source")
     dependency_bytes = {path: item.data for path, item in fixed.items()}
