@@ -74,6 +74,13 @@ moves between merged and open work, update this index.
 - Foundational transition-measurement architecture:
   [PULSEMECH_TRANSITION_METER.md](../PULSEMECH_TRANSITION_METER.md)
   **Foundational architecture.** Defines the evidence-bound transition between measured states as a separate measurement object and positions artifact-bound AI release authority as its first concrete PULSEmech implementation domain.
+- Recursive self-improvement and transition provability:
+  [PULSEMECH_RECURSIVE_SELF_IMPROVEMENT_AND_TRANSITION_PROVABILITY_v0.md](PULSEMECH_RECURSIVE_SELF_IMPROVEMENT_AND_TRANSITION_PROVABILITY_v0.md)
+  **Foundational architecture.** Applies the transition-measurement principle
+  to recursive self-modification. Separates transition evidence, evaluation
+  continuity, iteration composition and authority to proceed. Records an
+  architectural extension, not a completed recursive self-improvement
+  implementation; `authority_effect = none`.
 - Detailed compute-binding, current-run automation and historical capture:
   [compute/PULSEMECH_COMPUTE_BINDING_AND_TRANSITION_EFFICIENCY_DESIGN_v0.md](compute/PULSEMECH_COMPUTE_BINDING_AND_TRANSITION_EFFICIENCY_DESIGN_v0.md)
   **Current implementation and completed bounded proof.** Records the completed
