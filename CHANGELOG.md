@@ -37,6 +37,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Execute `tests/test_parameter_golf_submission_evidence_v0.py` through the CI pytest manifest (`ci/pytest-tests.list`).
 
 ### Docs
+- Add [PULSEmech — Recursive Self-Improvement and Transition Provability](docs/PULSEMECH_RECURSIVE_SELF_IMPROVEMENT_AND_TRANSITION_PROVABILITY_v0.md)
+  as foundational architecture, with English main text and a fenced Hungarian
+  version; register it in `docs/INDEX.md` (PR #2866).
+  Distinguish transition evidence, evaluation continuity, iteration composition
+  and authority to proceed. The recursive application remains an architectural
+  extension, not a completed implementation; `authority_effect = none`.
 - Updated glossary terminology to use `PULSE Instrument Review Pack v0` as the active component name, with `Governance Pack` retained only as a legacy alias.
 - `CITATION.cff`: add ORCID for Katalin Horvat; add software reference to ChatGPT (GPT-5 Pro).
 - Add `docs/GOVERNANCE_PACK_v0.md`: overview of the optional Governance Pack (Stability Map, Decision Engine, EPF/Paradox Playbook, G-field, history tools).
